@@ -1,0 +1,64 @@
+/* your custom css */
+
+@media only screen and (min-device-width: 360px) and (max-device-width: 736px) {
+}
+
+@media only screen and (min-width: 1024px) {
+}
+
+@media only screen and (max-width: 1023px) {
+}
+
+@media only screen and (min-width: 1400px) {
+}
+
+@media only screen and (min-width: 1500px) {
+}
+
+h2 {
+  font-weight: bold;
+}
+
+.homeContainer {
+  min-height: 500px;
+  background: #424c55;
+  background-image: url('../img/71686-unsplash.jpg');
+  background-size: cover;
+}
+
+.homeContainer *, .customFeatureCallout *, .customFeatureCallout h2 {
+  color: white;
+}
+
+.homeContainer .homeWrapper .projectLogo {
+  position: relative;
+  width: 150px;
+  padding: 0;
+  margin: 0 auto;
+  display: block;
+}
+
+.gridBlock .fourByGridBlock img {
+  width: 50px;
+}
+
+.customFeatureCallout {
+  background: #424c55;
+  background-image: url('../img/mobile-63635-unsplash.jpg');
+  background-size: cover;
+  min-height: 220px;
+  padding-top: 20px;
+}
+
+footer.nav-footer {
+  background: #424c55;
+}
+
+footer.nav-footer h5 {
+  text-align: left;
+  font-weight: bold;
+}
+
+footer .copyright {
+  padding: 40px 0 10px 0;
+}

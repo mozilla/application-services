@@ -1,0 +1,19 @@
+{
+  "docs": {
+    "Docusaurus": ["doc1"],
+    "First Category": ["fxa-doc2"],
+    "Second Category": ["doc3"]
+  },
+  "docs-other": {
+    "First Category": ["doc4", "doc5"]
+  },
+  "accounts": {
+    "Firefox Accounts": [
+      "accounts/welcome",
+      "accounts/project-details"
+    ],
+    "Other Features": [
+      "accounts/end-to-end-encryption"
+    ]
+  }
+}
