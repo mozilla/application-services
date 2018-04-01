@@ -11,8 +11,8 @@ const siteConfig = {
   title: 'Firefox Application Services' /* title for your website */,
   tagline: 'Beyond the browser',
   url: 'https://vladikoff.github.io/app-services-site' /* your website url */,
-  baseUrl: '/test-site/' /* base url for your project */,
-  projectName: 'test-site',
+  baseUrl: '/app-services-site/' /* base url for your project */,
+  projectName: 'app-services-site',
   headerLinks: [
     {doc: 'doc1', label: 'Docs'},
     {doc: 'doc4', label: 'API'},
