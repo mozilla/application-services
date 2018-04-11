@@ -5,18 +5,19 @@ use hawk::{Credentials, Key, SHA256, PayloadHasher};
 use reqwest;
 use reqwest::{Request, Method};
 use url::Url;
+use util::{to_hex_string};
 
 const KEY_LENGTH: usize = 32;
 
-pub struct FxAHAWKRequestBuilder {
+pub struct FxAHAWKRequestBuilder<'a> {
   url: Url,
   method: Method,
   body: Option<Vec<u8>>,
-  hkdf_sha256_key: Vec<u8>,
+  hkdf_sha256_key: &'a Vec<u8>,
 }
 
-impl FxAHAWKRequestBuilder {
-  pub fn new(method: Method, url: Url, hkdf_sha256_key: Vec<u8>) -> Self {
+impl<'a> FxAHAWKRequestBuilder<'a> {
+  pub fn new(method: Method, url: Url, hkdf_sha256_key: &'a Vec<u8>) -> Self {
     FxAHAWKRequestBuilder {
       url: url,
       method: method,
@@ -46,7 +47,7 @@ impl FxAHAWKRequestBuilder {
     let token_id = self.hkdf_sha256_key[0..KEY_LENGTH].to_vec();
     let hmac_key = &self.hkdf_sha256_key[KEY_LENGTH..(2 * KEY_LENGTH)];
     let hawk_credentials = Credentials {
-        id: String::from_utf8(token_id).expect("Found invalid UTF-8"),
+        id: to_hex_string(token_id),
         key: Key::new(hmac_key, &SHA256),
     };
     let hawk_header = hawk_request.make_header(&hawk_credentials)

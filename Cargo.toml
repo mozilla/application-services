@@ -1,9 +1,10 @@
 [package]
-name = "fxa"
+name = "fxa-client"
 version = "0.1.0"
 authors = ["Edouard Oger <eoger@fastmail.com>"]
 
 [dependencies]
+serde_json = "1.0"
 url = "1.6.0"
 reqwest = "0.8.2"
 hkdf = "*"
