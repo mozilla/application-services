@@ -4,6 +4,8 @@ version = "0.1.0"
 authors = ["Edouard Oger <eoger@fastmail.com>"]
 
 [dependencies]
+serde = "1.0"
+serde_derive = "1.0"
 serde_json = "1.0"
 url = "1.6.0"
 reqwest = "0.8.2"

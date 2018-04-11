@@ -1,4 +1,5 @@
 use error::*;
+use super::FxAConfig;
 use super::crypto;
 use super::hawk_request::FxAHAWKRequestBuilder;
 
@@ -9,20 +10,30 @@ use serde_json::Value;
 const HKDF_SALT: [u8; 32] = [0b0; 32];
 const KEY_LENGTH: usize = 32;
 
-struct FxAClient {
-  auth_url: Url, // Needs a trailing slash if a path is part of the root URL!
-  oauth_url: Url,
-  profile_url: Url
+pub struct FxAClient<'a> {
+  config: &'a FxAConfig
 }
 
-impl FxAClient {
+impl<'a> FxAClient<'a> {
+  pub fn new(config: &'a FxAConfig) -> FxAClient<'a> {
+    FxAClient {
+      config: config
+    }
+  }
+
   fn keyword(kw: &str) -> Vec<u8> {
     let kw = format!("identity.mozilla.com/picl/v1/{}", kw);
     kw.as_bytes().to_vec()
   }
 
+  pub fn sign_out(&self) {
+    panic!("Not implemented yet!");
+  }
+
   pub fn keys(&self, key_fetch_token: &[u8]) -> Result<()> {
-    let url = self.auth_url.join("account/keys")
+    let base_url = Url::parse(&self.config.auth_url)
+      .chain_err(|| ErrorKind::LocalError("Could not parse base URL".to_string()))?;
+    let url = base_url.join("account/keys")
       .chain_err(|| ErrorKind::LocalError("Could append path".to_string()))?;
 
     let context_info = FxAClient::keyword("keyFetchToken");
