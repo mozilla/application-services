@@ -32,6 +32,16 @@ impl<'a> FxAClient<'a> {
     panic!("Not implemented yet!");
   }
 
+  pub fn account_status(&self, uid: &String) -> Result<AccountStatusResponse> {
+    let url = self.build_url("account/status")?;
+
+    let client = Client::new();
+    client.get(url)
+      .query(&[("uid", uid)])
+      .send().chain_err(|| ErrorKind::LocalError("Request failed".to_string()))?
+      .json().chain_err(|| ErrorKind::LocalError("JSON parse failed".to_string()))
+  }
+
   pub fn keys(&self, key_fetch_token: &[u8]) -> Result<()> {
     let url = self.build_url("account/keys")?;
 
@@ -92,6 +102,11 @@ impl<'a> FxAClient<'a> {
 pub struct RecoveryEmailStatusResponse {
   pub email: String,
   pub verified: bool
+}
+
+#[derive(Deserialize)]
+pub struct AccountStatusResponse {
+  pub exists: bool
 }
 
 // #[cfg(test)]
