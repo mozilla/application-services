@@ -4,7 +4,8 @@ use super::crypto;
 use super::hawk_request::FxAHAWKRequestBuilder;
 
 use url::Url;
-use reqwest::{Client, Method};
+use reqwest::{Client, Method, Request};
+use serde::{Deserialize};
 use serde_json::Value;
 use hex;
 
@@ -41,12 +42,7 @@ impl<'a> FxAClient<'a> {
     let key = crypto::derive_hkdf_sha256_key(key_fetch_token, &HKDF_SALT, &context_info, KEY_LENGTH * 3);
 
     let request = FxAHAWKRequestBuilder::new(Method::Get, url, &key).build()?;
-
-    let client = Client::new();
-    let mut resp = client.execute(request)
-      .chain_err(|| ErrorKind::RemoteError("Request failed".to_string()))?;
-    let json: Value = resp.json()
-      .chain_err(|| ErrorKind::LocalError("JSON parse failed".to_string()))?;
+    let json: Value = FxAClient::make_request(request)?;
 
     // Derive key from response.
     let key_request_key = &key[(2 * KEY_LENGTH)..(3 * KEY_LENGTH)];
@@ -68,12 +64,26 @@ impl<'a> FxAClient<'a> {
     let key = crypto::derive_hkdf_sha256_key(&session_token, &HKDF_SALT, &context_info, KEY_LENGTH * 2);
 
     let request = FxAHAWKRequestBuilder::new(Method::Get, url, &key).build()?;
+    FxAClient::make_request(request)
+  }
 
+  fn make_request<T>(request: Request) -> Result<T> where for<'de> T: Deserialize<'de> {
     let client = Client::new();
     let mut resp = client.execute(request)
-      .chain_err(|| ErrorKind::RemoteError("Request failed".to_string()))?;
+      .chain_err(|| ErrorKind::LocalError("Request failed".to_string()))?;
 
-    resp.json().chain_err(|| ErrorKind::LocalError("JSON parse failed".to_string()))
+    let json: Value = resp.json()
+      .chain_err(|| ErrorKind::LocalError("JSON parse failed".to_string()))?;
+
+    if resp.status().is_success() {
+      resp.json().chain_err(|| ErrorKind::LocalError("JSON parse failed".to_string()))
+    } else {
+      bail!(ErrorKind::RemoteError(json["code"].as_u64().unwrap_or(0),
+                                   json["errno"].as_u64().unwrap_or(0),
+                                   json["error"].as_str().unwrap_or("").to_string(),
+                                   json["message"].as_str().unwrap_or("").to_string(),
+                                   json["info"].as_str().unwrap_or("").to_string()))
+    }
   }
 }
 

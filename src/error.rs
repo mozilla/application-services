@@ -4,9 +4,9 @@ error_chain! {
       description("FxA Local Error")
       display("Local Error Description: '{}'", t)
     }
-    RemoteError(t: String) {
+    RemoteError(code: u64, errno: u64, error: String, message: String, info: String) {
       description("FxA Remote Error")
-      display("Remote Error Description: '{}'", t)
+      display("Remote Error Description: '{}' '{}' '{}' '{}' '{}'", code, errno, error, message, info)
     }
   }
 }

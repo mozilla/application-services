@@ -2,6 +2,7 @@ extern crate hawk;
 extern crate hex;
 extern crate hkdf;
 extern crate reqwest;
+extern crate serde;
 extern crate serde_json;
 extern crate sha2;
 extern crate url;
