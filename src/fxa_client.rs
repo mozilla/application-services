@@ -33,10 +33,7 @@ impl<'a> FxAClient<'a> {
   }
 
   pub fn keys(&self, key_fetch_token: &[u8]) -> Result<()> {
-    let base_url = Url::parse(&self.config.auth_url)
-      .chain_err(|| ErrorKind::LocalError("Could not parse base URL".to_string()))?;
-    let url = base_url.join("account/keys")
-      .chain_err(|| ErrorKind::LocalError("Could not append path".to_string()))?;
+    let url = self.build_url("account/keys")?;
 
     let context_info = FxAClient::keyword("keyFetchToken");
     let key = crypto::derive_hkdf_sha256_key(key_fetch_token, &HKDF_SALT, &context_info, KEY_LENGTH * 3);
@@ -53,10 +50,7 @@ impl<'a> FxAClient<'a> {
   }
 
   pub fn recovery_email_status(&self, session_token: &String) -> Result<RecoveryEmailStatusResponse> {
-    let base_url = Url::parse(&self.config.auth_url)
-      .chain_err(|| ErrorKind::LocalError("Could not parse base URL".to_string()))?;
-    let url = base_url.join("recovery_email/status")
-      .chain_err(|| ErrorKind::LocalError("Could not append path".to_string()))?;
+    let url = self.build_url("recovery_email/status")?;
 
     let context_info = FxAClient::keyword("sessionToken");
     let session_token = hex::decode(session_token)
@@ -65,6 +59,13 @@ impl<'a> FxAClient<'a> {
 
     let request = FxAHAWKRequestBuilder::new(Method::Get, url, &key).build()?;
     FxAClient::make_request(request)
+  }
+
+  fn build_url(&self, path: &str) -> Result<Url> {
+    let base_url = Url::parse(&self.config.auth_url)
+      .chain_err(|| ErrorKind::LocalError("Could not parse base URL".to_string()))?;
+    base_url.join(path)
+      .chain_err(|| ErrorKind::LocalError("Could not append path".to_string()))
   }
 
   fn make_request<T>(request: Request) -> Result<T> where for<'de> T: Deserialize<'de> {
