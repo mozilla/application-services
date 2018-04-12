@@ -1,4 +1,5 @@
 extern crate hawk;
+extern crate hex;
 extern crate hkdf;
 extern crate reqwest;
 extern crate serde_json;
@@ -15,7 +16,6 @@ pub use error::*;
 
 mod crypto;
 mod hawk_request;
-mod util;
 
 mod fxa_client;
 use fxa_client::FxAClient;
