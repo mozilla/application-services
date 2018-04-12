@@ -19,7 +19,7 @@ mod crypto;
 mod hawk_request;
 
 mod fxa_client;
-use fxa_client::FxAClient;
+use fxa_client::*;
 
 #[derive(Serialize, Deserialize)]
 pub struct FxAConfig {
@@ -71,7 +71,8 @@ impl FirefoxAccount {
   pub fn advance(mut self) -> FxAState {
     let client = FxAClient::new(&self.config);
     let state_machine = FxALoginStateMachine {client: client};
-    self.state = state_machine.advance(self.state);
+    // TODO: Passing the UID is a code-smell.
+    self.state = state_machine.advance(self.state, &self.uid);
     self.state
   }
 
@@ -115,11 +116,11 @@ struct FxALoginStateMachine<'a> {
 }
 
 impl<'a> FxALoginStateMachine<'a> {
-  fn advance(&self, from: FxAState) -> FxAState {
+  fn advance(&self, from: FxAState, uid: &String) -> FxAState {
     let mut cur_state = from;
     loop {
       let cur_state_discriminant = std::mem::discriminant(&cur_state);
-      let new_state = self.advance_one(cur_state);
+      let new_state = self.advance_one(cur_state, uid);
       let new_state_discriminant = std::mem::discriminant(&new_state);
       cur_state = new_state;
       if cur_state_discriminant == new_state_discriminant { break }
@@ -127,15 +128,26 @@ impl<'a> FxALoginStateMachine<'a> {
     cur_state
   }
 
-  fn advance_one(&self, from: FxAState) -> FxAState {
+  fn advance_one(&self, from: FxAState, uid: &String) -> FxAState {
+    let same = from.clone();
     match from {
       FxAState::Unverified(session_token) => {
-        // TODO: Can either go to signin (after /acount/status) or loginfailed
-        FxAState::SignedIn(session_token)
+        match self.client.recovery_email_status(&session_token) {
+          // TODO: Add logging in error cases!
+          Ok(RecoveryEmailStatusResponse { verified: false, .. }) => same,
+          Ok(RecoveryEmailStatusResponse { verified: true, .. }) => FxAState::SignedIn(session_token),
+          // TODO: this recovery mechanism is cool... but doesn't apply everywhere we make a request
+          Err(Error(ErrorKind::RemoteError(401, ..), ..)) => {
+            match self.client.account_status(uid) {
+              Ok(AccountStatusResponse { exists: true }) => FxAState::LoginFailed,
+              Ok(AccountStatusResponse { exists: false }) => FxAState::SignedOut,
+              Err(_) => same
+            }
+          },
+          Err(_) => same
+        }
       },
-      FxAState::SignedIn(_) => from, // TODO: We should squeeze a quick /account/status check here.
-      FxAState::LoginFailed => from, // Not much we can do here, waiting for the user to re-enter credentials.
-      FxAState::SignedOut => FxAState::SignedOut
+      FxAState::SignedIn(_) | FxAState::LoginFailed | FxAState::SignedOut => same
     }
   }
 }
@@ -149,7 +161,7 @@ struct FxALoginResponse {
   session_token: String
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum FxAState {
   Unverified(String), // Session Token
   SignedIn(String), // Session Token
