@@ -1,6 +1,6 @@
 use openssl::hash::MessageDigest;
 use openssl::pkey::{PKey, Private};
-use openssl::sign::Signer;
+use openssl::sign::{Signer, Verifier};
 use openssl::rsa::Rsa;
 use serde_json;
 
@@ -41,7 +41,8 @@ impl SigningPrivateKey for RSAPrivateKey {
 struct RSAPublicKey {
   // These coeficients are base 10.
   n: String,
-  e: String
+  e: String,
+  key: PKey<Private>
 }
 
 impl VerifyingPublicKey for RSAPublicKey {
@@ -51,6 +52,13 @@ impl VerifyingPublicKey for RSAPublicKey {
       "n": &self.n,
       "e": &self.e
     })
+  }
+
+  fn verify_message(&self, message: &[u8], signature: &[u8]) -> Result<bool> {
+    let mut verifier = Verifier::new(MessageDigest::sha256(), &self.key)
+      .chain_err(|| "Cannot instanciate the verifier.")?;
+    verifier.update(message).chain_err(|| "Cannot feed data to verifier.")?;
+    verifier.verify(signature).chain_err(|| "Cannot feed data to verifier.")
   }
 }
 
@@ -63,8 +71,10 @@ pub fn generate_keypair(len: u32) -> Result<RSABrowserIDKeyPair> {
     .chain_err(|| "Could not get RSA struct.")?;
   let n = format!("{}", rsa.n().to_dec_str().chain_err(|| "Could not convert n.")?);
   let e = format!("{}", rsa.e().to_dec_str().chain_err(|| "Could not convert e.")?);
+  let private_key_copy = PKey::from_rsa(rsa) // Sorry :(
+    .chain_err(|| "Could not get private key.")?;
   Ok(RSABrowserIDKeyPair {
     private_key: RSAPrivateKey {key: private_key},
-    public_key: RSAPublicKey {n, e}
+    public_key: RSAPublicKey {n, e, key: private_key_copy}
   })
 }

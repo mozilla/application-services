@@ -16,5 +16,6 @@ pub trait SigningPrivateKey {
 }
 
 pub trait VerifyingPublicKey {
+  fn verify_message(&self, message: &[u8], signature: &[u8]) -> Result<bool>;
   fn to_json(&self) -> serde_json::Value;
 }
