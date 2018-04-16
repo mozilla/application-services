@@ -55,7 +55,7 @@ impl<'a> SignedJWTBuilder<'a> {
 
   fn build(self) -> Result<String> {
     let payload_string = self.get_payload_string()?;
-    SignedJWTBuilder::encode(self.private_key, &payload_string)
+    SignedJWTBuilder::encode(&payload_string, self.private_key)
   }
 
   fn get_payload_string(&self) -> Result<String> {
@@ -76,7 +76,7 @@ impl<'a> SignedJWTBuilder<'a> {
     Ok(json!(obj).to_string())
   }
 
-  fn encode(private_key: &SigningPrivateKey, payload: &String) -> Result<String> {
+  fn encode(payload: &String, private_key: &SigningPrivateKey) -> Result<String> {
     let headers_str = json!({"alg": private_key.get_algo()}).to_string();
     let encoded_header = base64::encode_config(headers_str.as_bytes(), base64::URL_SAFE_NO_PAD);
     let encoded_payload = base64::encode_config(payload.as_bytes(), base64::URL_SAFE_NO_PAD);
