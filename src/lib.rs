@@ -1,25 +1,26 @@
+extern crate base64;
+#[macro_use]
+extern crate error_chain;
 extern crate hawk;
 extern crate hex;
 extern crate hkdf;
+extern crate openssl;
 extern crate reqwest;
 extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+#[macro_use]
 extern crate serde_json;
 extern crate sha2;
 extern crate url;
 
-#[macro_use]
-extern crate error_chain;
-#[macro_use]
-extern crate serde_derive;
+use std::collections::HashMap;
+
+use error::*;
+use fxa_client::*;
 
 mod error;
-pub use error::*;
-
-mod crypto;
-mod hawk_request;
-
 mod fxa_client;
-use fxa_client::*;
 
 #[derive(Serialize, Deserialize)]
 pub struct FxAConfig {
@@ -34,7 +35,8 @@ pub struct FirefoxAccount {
   config: FxAConfig,
   uid: String,
   email: String,
-  state: FxAState
+  state: FxAState,
+  oauth_tokens_cache: HashMap<String, String>
 }
 
 impl FirefoxAccount {
@@ -54,7 +56,8 @@ impl FirefoxAccount {
       config: config,
       uid: credentials.uid,
       email: credentials.email,
-      state: state
+      state: state,
+      oauth_tokens_cache: HashMap::new()
     })
   }
 
@@ -76,8 +79,20 @@ impl FirefoxAccount {
     self.state
   }
 
-  pub fn get_oauth_token(&self, scope: &str) -> Result<String> {
-    bail!("Not implemented yet!")
+  pub fn get_oauth_token(&mut self, scope: &str) -> Result<String> {
+    if let Some(cached_token) = self.oauth_tokens_cache.get(scope) {
+      return Ok(cached_token.clone());
+    }
+    let client = FxAClient::new(&self.config);
+    let session_token = match &self.state {
+      &FxAState::SignedIn(ref session_token) |
+      &FxAState::Unverified(ref session_token) => session_token,
+      _ => { bail!("Not a session token state: {:?}.", self.state) }
+    };
+    let response = client.oauth_authorize(session_token, scope)?;
+    let token = response.access_token;
+    self.oauth_tokens_cache.insert(scope.to_string(), token.clone());
+    Ok(token)
   }
 
   pub fn handle_push_message() {
@@ -161,7 +176,7 @@ struct FxALoginResponse {
   session_token: String
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum FxAState {
   Unverified(String), // Session Token
   SignedIn(String), // Session Token

@@ -1,18 +1,17 @@
-use error::*;
-
-use hawk;
-use hawk::{Credentials, Key, SHA256, PayloadHasher};
-use reqwest;
-use reqwest::{Request, Method};
-use url::Url;
+use hawk::{Credentials, Key, RequestBuilder, SHA256, PayloadHasher};
 use hex;
+use reqwest::{header, Client, Request, Method};
+use url::Url;
+use serde_json;
+
+use error::*;
 
 const KEY_LENGTH: usize = 32;
 
 pub struct FxAHAWKRequestBuilder<'a> {
   url: Url,
   method: Method,
-  body: Option<Vec<u8>>,
+  body: Option<String>,
   hkdf_sha256_key: &'a Vec<u8>,
 }
 
@@ -28,8 +27,8 @@ impl<'a> FxAHAWKRequestBuilder<'a> {
 
   // This class assumes that the content being sent it always of the type
   // application/json.
-  pub fn body(mut self, body: Vec<u8>) -> Self {
-    self.body = Some(body);
+  pub fn body(mut self, body: serde_json::Value) -> Self {
+    self.body = Some(body.to_string());
     self
   }
 
@@ -37,7 +36,7 @@ impl<'a> FxAHAWKRequestBuilder<'a> {
     // Make sure we de-allocate the hash after hawk_request_builder.
     let hash;
     let method = format!("{}", self.method);
-    let mut hawk_request_builder = hawk::RequestBuilder::from_url(method.as_str(), &self.url)
+    let mut hawk_request_builder = RequestBuilder::from_url(method.as_str(), &self.url)
       .chain_err(|| ErrorKind::LocalError("Could not parse URL".to_string()))?;
     if let Some(ref body) = self.body {
       hash = PayloadHasher::hash("application/json", &SHA256, &body);
@@ -54,12 +53,12 @@ impl<'a> FxAHAWKRequestBuilder<'a> {
       .chain_err(|| ErrorKind::LocalError("Could not create hawk header".to_string()))?;
     let hawk_header = format!("Hawk {}", hawk_header);
 
-    let mut request_builder = reqwest::Client::new()
+    let mut request_builder = Client::new()
       .request(self.method, self.url.as_str());
-    request_builder.header(reqwest::header::Authorization(hawk_header));
+    request_builder.header(header::Authorization(hawk_header));
 
     if let Some(body) = self.body {
-      request_builder.header(reqwest::header::ContentType::json());
+      request_builder.header(header::ContentType::json());
       request_builder.body(body);
     }
 
