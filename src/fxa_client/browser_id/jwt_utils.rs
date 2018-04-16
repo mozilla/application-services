@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64;
-use error::Result;
+use errors::*;
 use serde_json;
 
 use fxa_client::browser_id::SigningPrivateKey;

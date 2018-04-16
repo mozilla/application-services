@@ -1,6 +1,6 @@
 use serde_json;
 
-use error::*;
+use errors::*;
 
 pub mod jwt_utils;
 pub mod rsa;

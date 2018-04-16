@@ -6,13 +6,13 @@ use serde_json;
 use sha2::Sha256;
 use url::Url;
 
-use error::*;
-
 use self::browser_id::{jwt_utils, rsa, BrowserIDKeyPair, VerifyingPublicKey};
+use self::errors::*;
 use self::hawk_request::FxAHAWKRequestBuilder;
 use {FxAConfig};
 
 mod browser_id;
+pub mod errors;
 mod hawk_request;
 
 const HKDF_SALT: [u8; 32] = [0b0; 32];

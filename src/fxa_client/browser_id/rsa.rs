@@ -4,7 +4,7 @@ use openssl::sign::Signer;
 use openssl::rsa::Rsa;
 use serde_json;
 
-use error::*;
+use errors::*;
 use super::{BrowserIDKeyPair, SigningPrivateKey, VerifyingPublicKey};
 
 pub struct RSABrowserIDKeyPair {

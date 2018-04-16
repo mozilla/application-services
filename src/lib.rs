@@ -18,6 +18,8 @@ use std::collections::HashMap;
 
 use error::*;
 use fxa_client::*;
+use fxa_client::errors::Error as FxAClientError;
+use fxa_client::errors::ErrorKind::RemoteError as FxAClientRemoteError;
 
 mod error;
 mod fxa_client;
@@ -152,7 +154,7 @@ impl<'a> FxALoginStateMachine<'a> {
           Ok(RecoveryEmailStatusResponse { verified: false, .. }) => same,
           Ok(RecoveryEmailStatusResponse { verified: true, .. }) => FxAState::SignedIn(session_token),
           // TODO: this recovery mechanism is cool... but doesn't apply everywhere we make a request
-          Err(Error(ErrorKind::RemoteError(401, ..), ..)) => {
+          Err(FxAClientError(FxAClientRemoteError(401, ..), ..)) => {
             match self.client.account_status(uid) {
               Ok(AccountStatusResponse { exists: true }) => FxAState::LoginFailed,
               Ok(AccountStatusResponse { exists: false }) => FxAState::SignedOut,
