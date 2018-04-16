@@ -3,10 +3,18 @@
 @media only screen and (min-device-width: 360px) and (max-device-width: 736px) {
 }
 
+
+@media only screen and (max-width: 550px) {
+  .navigationSlider .slidingNav li.navSearchWrapper {
+    display:none;
+  }
+}
+
 @media only screen and (min-width: 1024px) {
 }
 
 @media only screen and (max-width: 1023px) {
+
 }
 
 @media only screen and (min-width: 1400px) {
@@ -17,6 +25,10 @@
 
 h2 {
   font-weight: bold;
+}
+
+.button {
+  background: rgba(0,0,0,.8);
 }
 
 .homeContainer {
@@ -38,9 +50,30 @@ h2 {
   display: block;
 }
 
+.gridBlock .blockElement {
+  cursor: pointer;
+  padding: 20px;
+  transition: box-shadow .2s ease,transform .2s ease;
+}
+
+.gridBlock .blockElement:hover {
+  border-radius: 2px;
+  box-shadow: 0 2px 3px rgba(0,0,0,.2);
+  transform: translateY(-3px);
+}
+
 .gridBlock .fourByGridBlock img {
   width: 50px;
 }
+
+.wrapper .gridBlock a:hover {
+  text-decoration: none;
+}
+
+.navigationSlider .slidingNav li.navSearchWrapper {
+  margin-top: 8px;
+}
+
 
 .customFeatureCallout {
   background: #424c55;

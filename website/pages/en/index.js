@@ -3,7 +3,7 @@ const React = require('react');
 const CompLibrary = require('../../core/CompLibrary.js');
 const MarkdownBlock = CompLibrary.MarkdownBlock; /* Used to read markdown */
 const Container = CompLibrary.Container;
-const GridBlock = CompLibrary.GridBlock;
+const GridBlock = require(process.cwd() + '/core/GridBlock.js');
 
 const siteConfig = require(process.cwd() + '/siteConfig.js');
 
@@ -72,9 +72,6 @@ class HomeSplash extends React.Component {
         <div className="inner">
           <ProjectTitle />
           <PromoSection>
-            <Button href="#try">Try It Out</Button>
-            <Button href={docUrl('doc1.html', language)}>Example Link</Button>
-            <Button href={docUrl('doc2.html', language)}>Example Link 2</Button>
           </PromoSection>
         </div>
       </SplashContainer>
@@ -103,38 +100,14 @@ const Features = props => (
       {
         imageAlign: 'top',
         title: 'Sync',
+        imageLink: `https://moz-services-docs.readthedocs.io/en/latest/sync/`,
         image: imgUrl('sync-16.svg'),
       },
       {
         imageAlign: 'top',
         title: 'Push',
+        imageLink: `https://mozilla-push-service.readthedocs.io/en/latest/`,
         image: imgUrl('notification-16.svg'),
-      },
-      {
-        imageAlign: 'top',
-        title: 'Test Pilot',
-        image: imgUrl('experiments-16.svg'),
-      },
-
-      {
-        imageAlign: 'top',
-        title: 'Activity Stream',
-        image: imgUrl('sidebar-16.svg'),
-      },
-      {
-        imageAlign: 'top',
-        title: 'Mobile',
-        image: imgUrl('device-mobile-16.svg'),
-      },
-      {
-        imageAlign: 'top',
-        title: 'WebExtensions',
-        image: imgUrl('extensions-16.svg'),
-      },
-      {
-        imageAlign: 'top',
-        title: 'Metrics',
-        image: imgUrl('report-16.svg'),
       },
     ]}
   </Block>
@@ -144,13 +117,9 @@ const FeatureCallout = props => (
   <div
     className="productShowcaseSection customFeatureCallout paddingBottom"
     style={{textAlign: 'center'}}>
-    <h2>Integrate your Android experiences with Firefox Accounts</h2>
-    <MarkdownBlock>These are features of this project</MarkdownBlock>
-    <a className="button" href="">
-      Android SDK
-    </a>
-    <a className="button" href="">
-      Android React Native SDK
+    <h2>Integrate your projects with Firefox Accounts</h2>
+    <a className="button" href={ siteConfig.baseUrl + 'docs/accounts/welcome.html' }>
+      Integrate Now
     </a>
   </div>
 );

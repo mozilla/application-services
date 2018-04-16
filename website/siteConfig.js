@@ -14,9 +14,10 @@ const siteConfig = {
   baseUrl: '/app-services-site/' /* base url for your project */,
   projectName: 'app-services-site',
   headerLinks: [
-    {doc: 'doc1', label: 'Docs'},
-    {doc: 'doc4', label: 'API'},
-    {page: 'help', label: 'Help'},
+    { search: true }
+    // {doc: 'doc1', label: 'Docs'},
+    // {doc: 'doc4', label: 'API'},
+    // {page: 'help', label: 'Help'},
   ],
   disableHeaderTitle: true,
   useEnglishUrl: false,
@@ -29,6 +30,10 @@ const siteConfig = {
   colors: {
     primaryColor: '#424c55',
     secondaryColor: '#7A838B',
+  },
+  algolia: {
+    apiKey: 'ebf54a0a9357f70ba426ce54714676d4',
+    indexName: 'application_services'
   },
   // This copyright info is used in /core/Footer.js and blog rss/atom feeds.
   copyright:
