@@ -27,6 +27,11 @@ h2 {
   font-weight: bold;
 }
 
+.mainContainer .wrapper a {
+  font-weight: bolder;
+  text-decoration: underline;
+}
+
 .button {
   background: rgba(0,0,0,.8);
 }
@@ -66,14 +71,13 @@ h2 {
   width: 50px;
 }
 
-.wrapper .gridBlock a:hover {
+.wrapper .gridBlock a, .wrapper .gridBlock a:hover {
   text-decoration: none;
 }
 
 .navigationSlider .slidingNav li.navSearchWrapper {
   margin-top: 8px;
 }
-
 
 .customFeatureCallout {
   background: #424c55;
