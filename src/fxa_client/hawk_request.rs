@@ -37,7 +37,7 @@ impl<'a> FxAHAWKRequestBuilder<'a> {
     let hash;
     let method = format!("{}", self.method);
     let mut hawk_request_builder = RequestBuilder::from_url(method.as_str(), &self.url)
-      .chain_err(|| ErrorKind::LocalError("Could not parse URL".to_string()))?;
+      .chain_err(|| "Could not parse URL")?;
     if let Some(ref body) = self.body {
       hash = PayloadHasher::hash("application/json", &SHA256, &body);
       hawk_request_builder = hawk_request_builder.hash(&hash[..]);
@@ -50,7 +50,7 @@ impl<'a> FxAHAWKRequestBuilder<'a> {
         key: Key::new(hmac_key, &SHA256),
     };
     let hawk_header = hawk_request.make_header(&hawk_credentials)
-      .chain_err(|| ErrorKind::LocalError("Could not create hawk header".to_string()))?;
+      .chain_err(|| "Could not create hawk header")?;
     let hawk_header = format!("Hawk {}", hawk_header);
 
     let mut request_builder = Client::new()
@@ -63,6 +63,6 @@ impl<'a> FxAHAWKRequestBuilder<'a> {
     }
 
     Ok(request_builder.build()
-        .chain_err(|| ErrorKind::LocalError("Could not create request".to_string()))?)
+        .chain_err(|| "Could not create request")?)
   }
 }

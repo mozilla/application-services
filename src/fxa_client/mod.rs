@@ -46,8 +46,8 @@ impl<'a> FxAClient<'a> {
     let client = Client::new();
     client.get(url)
       .query(&[("uid", uid)])
-      .send().chain_err(|| ErrorKind::LocalError("Request failed".to_string()))?
-      .json().chain_err(|| ErrorKind::LocalError("JSON parse failed".to_string()))
+      .send().chain_err(|| "Request failed")?
+      .json().chain_err(|| "JSON parse failed")
   }
 
   // pub fn keys(&self, key_fetch_token: &[u8]) -> Result<()> {
@@ -78,11 +78,11 @@ impl<'a> FxAClient<'a> {
   pub fn oauth_authorize(&self, session_token: &String, scope: &str) -> Result<OAuthResponse> {
     let audience = self.get_oauth_audience()?;
     let key_pair = rsa::generate_keypair(1024)
-      .chain_err(|| ErrorKind::LocalError("Could not create keypair.".to_string()))?;
+      .chain_err(|| "Could not create keypair.")?;
     let private_key = key_pair.private_key();
     let certificate = self.sign(session_token, key_pair.public_key())?.certificate;
     let assertion = jwt_utils::create_assertion(private_key, certificate, audience)
-      .chain_err(|| ErrorKind::LocalError("Could not generate assertion.".to_string()))?;
+      .chain_err(|| "Could not generate assertion.")?;
     let parameters = json!({
       "assertion": assertion,
       "client_id": OAUTH_CLIENT_ID,
@@ -110,9 +110,9 @@ impl<'a> FxAClient<'a> {
 
   fn get_oauth_audience(&self) -> Result<String> {
     let url = Url::parse(&self.config.oauth_url)
-      .chain_err(|| ErrorKind::LocalError("Could not parse base URL".to_string()))?;
+      .chain_err(|| "Could not parse base URL")?;
     let host = url.host_str()
-      .chain_err(|| ErrorKind::LocalError("Could get host".to_string()))?;
+      .chain_err(|| "Could get host")?;
     match url.port() {
       Some(port) => Ok(format!("{}://{}:{}", url.scheme(), host, port)),
       None => Ok(format!("{}://{}", url.scheme(), host))
@@ -121,15 +121,15 @@ impl<'a> FxAClient<'a> {
 
   fn build_url(&self, base_url: &String, path: &str) -> Result<Url> {
     let base_url = Url::parse(base_url)
-      .chain_err(|| ErrorKind::LocalError("Could not parse base URL".to_string()))?;
+      .chain_err(|| "Could not parse base URL")?;
     base_url.join(path)
-      .chain_err(|| ErrorKind::LocalError("Could not append path".to_string()))
+      .chain_err(|| "Could not append path")
   }
 
   fn derive_key_from_session_token(session_token: &String) -> Result<Vec<u8>> {
     let context_info = FxAClient::keyword("sessionToken");
     let session_token = hex::decode(session_token)
-      .chain_err(|| ErrorKind::LocalError("Could not decode session token".to_string()))?;
+      .chain_err(|| "Could not decode session token")?;
     Ok(FxAClient::derive_hkdf_sha256_key(&session_token, &HKDF_SALT, &context_info, KEY_LENGTH * 2))
   }
 
@@ -141,13 +141,13 @@ impl<'a> FxAClient<'a> {
   fn make_request<T>(request: Request) -> Result<T> where for<'de> T: Deserialize<'de> {
     let client = Client::new();
     let mut resp = client.execute(request)
-      .chain_err(|| ErrorKind::LocalError("Request failed".to_string()))?;
+      .chain_err(|| "Request failed")?;
 
     let json: serde_json::Value = resp.json()
-      .chain_err(|| ErrorKind::LocalError("JSON parse failed".to_string()))?;
+      .chain_err(|| "JSON parse failed")?;
 
     if resp.status().is_success() {
-      resp.json().chain_err(|| ErrorKind::LocalError("JSON parse failed".to_string()))
+      resp.json().chain_err(|| "JSON parse failed")
     } else {
       bail!(ErrorKind::RemoteError(json["code"].as_u64().unwrap_or(0),
                                    json["errno"].as_u64().unwrap_or(0),
