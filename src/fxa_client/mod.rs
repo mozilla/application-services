@@ -1,9 +1,11 @@
 use hex;
 use hkdf::Hkdf;
+use reqwest;
 use reqwest::{Client, Method, Request};
 use serde::Deserialize;
 use serde_json;
 use sha2::Sha256;
+use std;
 use url::Url;
 
 use self::browser_id::{jwt_utils, rsa, BrowserIDKeyPair, VerifyingPublicKey};
@@ -146,17 +148,21 @@ impl<'a> FxAClient<'a> {
     let mut resp = client.execute(request)
       .chain_err(|| "Request failed")?;
 
-    let json: serde_json::Value = resp.json()
-      .chain_err(|| "JSON parse failed")?;
-
     if resp.status().is_success() {
-      resp.json().chain_err(|| "JSON parse failed")
+      resp.json().chain_err(|| "Deserialization failed")
     } else {
-      bail!(ErrorKind::RemoteError(json["code"].as_u64().unwrap_or(0),
-                                   json["errno"].as_u64().unwrap_or(0),
-                                   json["error"].as_str().unwrap_or("").to_string(),
-                                   json["message"].as_str().unwrap_or("").to_string(),
-                                   json["info"].as_str().unwrap_or("").to_string()))
+      let json: std::result::Result<serde_json:: Value, reqwest::Error> = resp.json();
+      match json {
+        Ok(json) => bail!(ErrorKind::RemoteError(
+          json["code"].as_u64().unwrap_or(0),
+          json["errno"].as_u64().unwrap_or(0),
+          json["error"].as_str().unwrap_or("").to_string(),
+          json["message"].as_str().unwrap_or("").to_string(),
+          json["info"].as_str().unwrap_or("").to_string())),
+        // This is a bit awkward: we wrap reqwest:Error in our Error type.
+        Err(json) => Err(resp.error_for_status().unwrap_err())
+                       .chain_err(|| "Request failed.")
+      }
     }
   }
 }
