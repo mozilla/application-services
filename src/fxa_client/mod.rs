@@ -47,10 +47,10 @@ impl<'a> FxAClient<'a> {
     let url = self.build_url(&self.config.auth_url, "account/status")?;
 
     let client = Client::new();
-    client.get(url)
-      .query(&[("uid", uid)])
-      .send().chain_err(|| "Request failed")?
-      .json().chain_err(|| "JSON parse failed")
+    let request = client.get(url)
+      .query(&[("uid", uid)]).build()
+      .chain_err(|| "Could not build request.")?;
+    FxAClient::make_request(request)
   }
 
   // pub fn keys(&self, key_fetch_token: &[u8]) -> Result<()> {
