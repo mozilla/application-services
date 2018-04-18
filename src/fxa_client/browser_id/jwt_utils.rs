@@ -9,29 +9,38 @@ use fxa_client::browser_id::{SigningPrivateKey, VerifyingPublicKey};
 const DEFAULT_ASSERTION_ISSUER: &str = "127.0.0.1";
 const DEFAULT_ASSERTION_DURATION: u64 = 60 * 60 * 1000;
 
-pub fn create_assertion(private_key: &SigningPrivateKey, certificate: String,
-                        audience: String) -> Result<String> {
+pub fn create_assertion(private_key: &SigningPrivateKey, certificate: &str,
+                        audience: &str) -> Result<String> {
   let since_epoch = SystemTime::now().duration_since(UNIX_EPOCH)
     .expect("Something is very wrong.");
   let issued_at = since_epoch.as_secs() * 1000 +
                   since_epoch.subsec_nanos() as u64 / 1_000_000;
   let expires_at = issued_at + DEFAULT_ASSERTION_DURATION;
-  let builder = SignedJWTBuilder::new(private_key, DEFAULT_ASSERTION_ISSUER.to_string(),
-                                      issued_at, expires_at);
-  builder.build()
+  let issuer = DEFAULT_ASSERTION_ISSUER;
+  create_assertion_full(private_key, certificate, audience, issuer, issued_at, expires_at)
+}
+
+pub fn create_assertion_full(private_key: &SigningPrivateKey, certificate: &str,
+                             audience: &str, issuer: &str,
+                             issued_at: u64, expires_at: u64) -> Result<String> {
+  let assertion = SignedJWTBuilder::new(private_key, issuer, issued_at, expires_at)
+    .audience(&audience)
+    .build()
+    .chain_err(|| "Could not build assertion.")?;
+  Ok(format!("{}~{}", &certificate, &assertion))
 }
 
 struct SignedJWTBuilder<'a> {
   private_key: &'a SigningPrivateKey,
-  issuer: String,
+  issuer: &'a str,
   issued_at: u64,
   expires_at: u64,
-  audience: Option<String>,
+  audience: Option<&'a str>,
   payload: Option<serde_json::Value>
 }
 
 impl<'a> SignedJWTBuilder<'a> {
-  fn new(private_key: &'a SigningPrivateKey, issuer: String,
+  fn new(private_key: &'a SigningPrivateKey, issuer: &'a str,
          issued_at: u64, expires_at: u64) -> SignedJWTBuilder<'a> {
     SignedJWTBuilder {
       private_key,
@@ -43,8 +52,8 @@ impl<'a> SignedJWTBuilder<'a> {
     }
   }
 
-  fn audience(mut self, audience: &str) -> SignedJWTBuilder<'a> {
-    self.audience = Some(audience.to_string());
+  fn audience(mut self, audience: &'a str) -> SignedJWTBuilder<'a> {
+    self.audience = Some(audience);
     self
   }
 
@@ -77,7 +86,7 @@ impl<'a> SignedJWTBuilder<'a> {
   }
 }
 
-fn encode(payload: &String, private_key: &SigningPrivateKey) -> Result<String> {
+fn encode(payload: &str, private_key: &SigningPrivateKey) -> Result<String> {
   let headers_str = json!({"alg": private_key.get_algo()}).to_string();
   let encoded_header = base64::encode_config(headers_str.as_bytes(), base64::URL_SAFE_NO_PAD);
   let encoded_payload = base64::encode_config(payload.as_bytes(), base64::URL_SAFE_NO_PAD);
@@ -87,7 +96,7 @@ fn encode(payload: &String, private_key: &SigningPrivateKey) -> Result<String> {
   Ok(format!("{}.{}", message, encoded_signature))
 }
 
-fn decode(token: &String, public_key: &VerifyingPublicKey) -> Result<String> {
+fn decode(token: &str, public_key: &VerifyingPublicKey) -> Result<String> {
   let segments: Vec<&str> = token.split(".").collect();
   let message = format!("{}.{}", &segments[0], &segments[1]);
   let message_bytes = message.as_bytes();

@@ -19,7 +19,7 @@ mod hawk_request;
 
 const HKDF_SALT: [u8; 32] = [0b0; 32];
 const KEY_LENGTH: usize = 32;
-const OAUTH_CLIENT_ID: &str = "1b1a3e44c54fbb58"; // TODO: CHANGE ME!
+const OAUTH_CLIENT_ID: &str = "5882386c6d801776"; // TODO: CHANGE ME!
 const SIGN_DURATION_MS: u64 = 24 * 60 * 60 * 1000;
 
 pub struct FxAClient<'a> {
@@ -45,7 +45,7 @@ impl<'a> FxAClient<'a> {
     panic!("Not implemented yet!");
   }
 
-  pub fn login(&self, email: &str, auth_pwd: String) -> Result<LoginResponse> {
+  pub fn login(&self, email: &str, auth_pwd: &str) -> Result<LoginResponse> {
     let url = self.build_url(&self.config.auth_url, "account/login")?;
     let parameters = json!({
       "email": email,
@@ -93,13 +93,12 @@ impl<'a> FxAClient<'a> {
     FxAClient::make_request(request)
   }
 
-  pub fn oauth_authorize(&self, session_token: &String, scope: &str) -> Result<OAuthResponse> {
+  pub fn oauth_authorize(&self, session_token: &String, scope: &str) -> Result<OAuthAuthorizeResponse> {
     let audience = self.get_oauth_audience()?;
     let key_pair = rsa::generate_keypair(1024)
       .chain_err(|| "Could not create keypair.")?;
-    let private_key = key_pair.private_key();
     let certificate = self.sign(session_token, key_pair.public_key())?.certificate;
-    let assertion = jwt_utils::create_assertion(private_key, certificate, audience)
+    let assertion = jwt_utils::create_assertion(key_pair.private_key(), &certificate, &audience)
       .chain_err(|| "Could not generate assertion.")?;
     let parameters = json!({
       "assertion": assertion,
@@ -108,15 +107,17 @@ impl<'a> FxAClient<'a> {
       "scope": scope
     });
     let key = FxAClient::derive_key_from_session_token(session_token)?;
-    let url = self.build_url(&self.config.oauth_url, "/authorization")?;
+    let url = self.build_url(&self.config.oauth_url, "authorization")?;
     let request = FxAHAWKRequestBuilder::new(Method::Post, url, &key)
       .body(parameters).build()?;
     FxAClient::make_request(request)
   }
 
   pub fn sign(&self, session_token: &String, public_key: &VerifyingPublicKey) -> Result<SignResponse> {
+    let public_key_json = public_key.to_json()
+      .chain_err(|| "Could not get public key json representation.")?;
     let parameters = json!({
-      "publicKey": public_key.to_json(),
+      "publicKey": public_key_json,
       "duration": SIGN_DURATION_MS
     });
     let key = FxAClient::derive_key_from_session_token(session_token)?;
@@ -173,7 +174,7 @@ impl<'a> FxAClient<'a> {
           json["message"].as_str().unwrap_or("").to_string(),
           json["info"].as_str().unwrap_or("").to_string())),
         // This is a bit awkward: we wrap reqwest:Error in our Error type.
-        Err(json) => Err(resp.error_for_status().unwrap_err())
+        Err(_) => Err(resp.error_for_status().unwrap_err())
                        .chain_err(|| "Request failed.")
       }
     }
@@ -200,13 +201,13 @@ pub struct AccountStatusResponse {
 }
 
 #[derive(Deserialize)]
-pub struct OAuthResponse {
-  #[serde(rename = "accessToken")]
+pub struct OAuthAuthorizeResponse {
   pub access_token: String
 }
 
 #[derive(Deserialize)]
 pub struct SignResponse {
+  #[serde(rename = "cert")]
   certificate: String
 }
 
