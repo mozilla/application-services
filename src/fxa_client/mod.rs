@@ -207,19 +207,61 @@ pub struct KeysResponse {
   wrap_kB: Vec<u8>
 }
 
-// #[cfg(test)]
-// mod tests {
-//   use super::*;
+#[cfg(test)]
+mod tests {
+  extern crate ring;
+  use super::*;
+  use self::ring::{digest, pbkdf2};
 
-//   #[test]
-//   fn it_works() {
-//     let config = FxAConfig {
-//       auth_url: "https://api.accounts.firefox.com/v1/".to_string(),
-//       oauth_url: "https://oauth.accounts.firefox.com/v1/".to_string(),
-//       profile_url: "https://profile.accounts.firefox.com/v1/".to_string()
-//     };
-//     let client = FxAClient::new(&config);
-//     let key_fetch_token: &[u8] = &[0b0; KEY_LENGTH];
-//     client.keys(key_fetch_token).expect("did not work!");
-//   }
-// }
+  fn quick_strech_pwd(email: &str, pwd: &str) -> Vec<u8> {
+    let salt = FxAClient::kwe("quickStretch", email);
+    let mut out = [0u8; digest::SHA256_OUTPUT_LEN];
+    pbkdf2::derive(&digest::SHA256, 1000, &salt, pwd.as_bytes(), &mut out);
+    out.to_vec()
+  }
+
+  fn auth_pwd(email: &str, pwd: &str) -> String {
+    let streched = quick_strech_pwd(email, pwd);
+    let salt = [0u8; 0];
+    let context = FxAClient::kw("authPW");
+    let derived = FxAClient::derive_hkdf_sha256_key(&streched, &salt, &context, 32);
+    hex::encode(derived)
+  }
+
+  #[test]
+  fn test_quick_strech_pwd() {
+    let email = "andré@example.org";
+    let pwd = "pässwörd";
+    let streched = hex::encode(quick_strech_pwd(email, pwd));
+    assert_eq!(streched, "e4e8889bd8bd61ad6de6b95c059d56e7b50dacdaf62bd84644af7e2add84345d");
+  }
+
+  #[test]
+  fn test_auth_pwd() {
+    let email = "andré@example.org";
+    let pwd = "pässwörd";
+    let auth_pwd = auth_pwd(email, pwd);
+    assert_eq!(auth_pwd, "247b675ffb4c46310bc87e26d712153abe5e1c90ef00a4784594f97ef54f2375");
+  }
+
+  #[test]
+  fn live_account_test() {
+    let email = "testfxarustclient@restmail.net";
+    let pwd = "testfxarustclient@restmail.net";
+    let auth_pwd = auth_pwd(email, pwd);
+
+    let config = FxAConfig {
+      auth_url: "https://stable.dev.lcip.org/auth/v1/".to_string(),
+      oauth_url: "https://oauth-stable.dev.lcip.org/v1/".to_string(),
+      profile_url: "https://stable.dev.lcip.org/profile/".to_string()
+    };
+    let client = FxAClient::new(&config);
+
+    let resp = client.login(email, auth_pwd).unwrap();
+    let session_token = resp.session_token;
+    println!("Session Token obtained: {}", &session_token);
+
+    let resp = client.oauth_authorize(&session_token, "profile").unwrap();
+    println!("OAuth Token obtained: {}", &resp.access_token);
+  }
+}

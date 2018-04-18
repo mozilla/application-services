@@ -16,3 +16,6 @@ sha2 = "0.7.0"
 hawk = "1.0.2"
 error-chain = "0.11.0"
 openssl = { git = "https://github.com/eoger/rust-openssl", branch = "rsa-from-builder" }
+
+[dev-dependencies]
+ring = "0.13.0-alpha"
