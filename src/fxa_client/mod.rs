@@ -45,6 +45,19 @@ impl<'a> FxAClient<'a> {
     panic!("Not implemented yet!");
   }
 
+  pub fn login(&self, email: &str, auth_pwd: String) -> Result<LoginResponse> {
+    let url = self.build_url(&self.config.auth_url, "account/login")?;
+    let parameters = json!({
+      "email": email,
+      "authPW": auth_pwd
+    });
+    let client = Client::new();
+    let request = client.request(Method::Post, url)
+      .body(parameters.to_string()).build()
+      .chain_err(|| "Could not build request.")?;
+    FxAClient::make_request(request)
+  }
+
   pub fn account_status(&self, uid: &String) -> Result<AccountStatusResponse> {
     let url = self.build_url(&self.config.auth_url, "account/status")?;
 
@@ -165,6 +178,14 @@ impl<'a> FxAClient<'a> {
       }
     }
   }
+}
+
+#[derive(Deserialize)]
+pub struct LoginResponse {
+  pub uid: String,
+  #[serde(rename = "sessionToken")]
+  pub session_token: String,
+  pub verified: bool
 }
 
 #[derive(Deserialize)]
