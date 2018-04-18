@@ -1,14 +1,7 @@
-## Firefox App Services Portal
+## Firefox Application Services
 
-### Running locally
+### Contents
 
-```
-cd website
-npm start
-```
-
-### Deploy
-
-```
-USE_SSH=true npm run publish-gh-pages
-```
+* [boxlocker](boxlocker) - demo access to synced Firefox passwords via OAuth
+* [docs](docs) - documentation sources 
+* [website](website) - website built from documentation sources
