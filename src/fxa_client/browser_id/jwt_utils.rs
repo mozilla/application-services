@@ -30,6 +30,24 @@ pub fn create_assertion_full(private_key: &SigningPrivateKey, certificate: &str,
   Ok(format!("{}~{}", &certificate, &assertion))
 }
 
+pub fn create_certificate(public_key: &VerifyingPublicKey, email: &str,
+                          issuer: &str, issued_at: u64, expires_at: u64,
+                          private_key: &SigningPrivateKey) -> Result<String> {
+  let public_key_json = public_key.to_json()
+    .chain_err(|| "Could not get public key json representation.")?;
+  let principal = json!({
+    "email": email
+  });
+  let payload = json!({
+    "principal": principal,
+    "public-key": public_key_json
+  });
+  SignedJWTBuilder::new(private_key, issuer, issued_at, expires_at)
+    .payload(payload)
+    .build()
+    .chain_err(|| "Could not build certificate.")
+}
+
 struct SignedJWTBuilder<'a> {
   private_key: &'a SigningPrivateKey,
   issuer: &'a str,
