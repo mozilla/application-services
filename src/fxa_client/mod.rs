@@ -31,9 +31,12 @@ impl<'a> FxAClient<'a> {
     }
   }
 
-  fn keyword(kw: &str) -> Vec<u8> {
-    let kw = format!("identity.mozilla.com/picl/v1/{}", kw);
-    kw.as_bytes().to_vec()
+  fn kw(name: &str) -> Vec<u8> {
+    format!("identity.mozilla.com/picl/v1/{}", name).as_bytes().to_vec()
+  }
+
+  fn kwe(name: &str, email: &str) -> Vec<u8> {
+    format!("identity.mozilla.com/picl/v1/{}:{}", name, email).as_bytes().to_vec()
   }
 
   pub fn sign_out(&self) {
@@ -53,7 +56,7 @@ impl<'a> FxAClient<'a> {
   // pub fn keys(&self, key_fetch_token: &[u8]) -> Result<()> {
   //   let url = self.build_url(&self.config.auth_url, "account/keys")?;
 
-  //   let context_info = FxAClient::keyword("keyFetchToken");
+  //   let context_info = FxAClient::kw("keyFetchToken");
   //   let key = FxaClient::derive_hkdf_sha256_key(key_fetch_token, &HKDF_SALT, &context_info, KEY_LENGTH * 3);
 
   //   let request = FxAHAWKRequestBuilder::new(Method::Get, url, &key).build()?;
@@ -127,7 +130,7 @@ impl<'a> FxAClient<'a> {
   }
 
   fn derive_key_from_session_token(session_token: &String) -> Result<Vec<u8>> {
-    let context_info = FxAClient::keyword("sessionToken");
+    let context_info = FxAClient::kw("sessionToken");
     let session_token = hex::decode(session_token)
       .chain_err(|| "Could not decode session token")?;
     Ok(FxAClient::derive_hkdf_sha256_key(&session_token, &HKDF_SALT, &context_info, KEY_LENGTH * 2))
