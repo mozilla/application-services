@@ -9,5 +9,6 @@
 
 ### Other Resources
 
+* [fxa-rust-client](https://github.com/eoger/fxa-rust-client) - Firefox Accounts Rust client
 * [mentat](https://github.com/mozilla/mentat) - a persistent, relational store inspired by Datomic and DataScript.
 * [sync-server](https://github.com/mozilla-services/syncserver) - an all-in-one package for running a self-hosted Firefox Sync server.
