@@ -9,10 +9,10 @@ const users = [
 
 const siteConfig = {
   title: 'Firefox Application Services' /* title for your website */,
-  tagline: 'Beyond the browser',
-  url: 'https://vladikoff.github.io/app-services-site' /* your website url */,
-  baseUrl: '/app-services-site/' /* base url for your project */,
-  projectName: 'app-services-site',
+  tagline: 'Build the next thing...',
+  url: 'https://mozilla.github.io/application-services' /* your website url */,
+  baseUrl: '/application-services/' /* base url for your project */,
+  projectName: 'application-services',
   headerLinks: [
     { search: true }
     // {doc: 'doc1', label: 'Docs'},
@@ -40,14 +40,14 @@ const siteConfig = {
     'Copyright © ' +
     new Date().getFullYear() +
     ' Firefox Application Services',
-  organizationName: 'vladikoff', // or set an env variable ORGANIZATION_NAME
+  organizationName: 'mozilla', // or set an env variable ORGANIZATION_NAME
   highlight: {
     // Highlight.js theme to use for syntax highlighting in code blocks
     theme: 'default',
   },
   scripts: ['https://buttons.github.io/buttons.js'],
   // You may provide arbitrary config keys to be used as needed by your template.
-  repoUrl: 'https://github.com/vladikoff/app-services-site',
+  repoUrl: 'https://github.com/mozilla/application-services',
   /* On page navigation for the current documentation page */
   // onPageNav: 'separate',
 };
