@@ -68,26 +68,16 @@ impl<'a> FxAClient<'a> {
     FxAClient::make_request(request)
   }
 
-  // pub fn keys(&self, key_fetch_token: &[u8]) -> Result<()> {
-  //   let url = self.build_url(&self.config.auth_url, "account/keys")?;
-
-  //   let context_info = FxAClient::kw("keyFetchToken");
-  //   let key = FxaClient::derive_hkdf_sha256_key(key_fetch_token, &HKDF_SALT, &context_info, KEY_LENGTH * 3);
-
-  //   let request = FxAHAWKRequestBuilder::new(Method::Get, url, &key).build()?;
-  //   let json: serde_json::Value = FxAClient::make_request(request)?;
-
-  //   // Derive key from response.
-  //   let key_request_key = &key[(2 * KEY_LENGTH)..(3 * KEY_LENGTH)];
-
-  //   // let bundle = json.get("bundle")?;
-
-  //   Ok(())
-  // }
+  pub fn keys(&self, key_fetch_token: &[u8]) -> Result<KeysResponse> {
+    let url = self.build_url(&self.config.auth_url, "account/keys")?;
+    let context_info = FxAClient::kw("keyFetchToken");
+    let key = FxAClient::derive_hkdf_sha256_key(&key_fetch_token, &HKDF_SALT, &context_info, KEY_LENGTH * 3);
+    let request = FxAHAWKRequestBuilder::new(Method::Get, url, &key).build()?;
+    FxAClient::make_request(request)
+  }
 
   pub fn recovery_email_status(&self, session_token: &String) -> Result<RecoveryEmailStatusResponse> {
     let url = self.build_url(&self.config.auth_url, "recovery_email/status")?;
-
     let key = FxAClient::derive_key_from_session_token(session_token)?;
     let request = FxAHAWKRequestBuilder::new(Method::Get, url, &key).build()?;
     FxAClient::make_request(request)
@@ -209,6 +199,12 @@ pub struct OAuthAuthorizeResponse {
 pub struct SignResponse {
   #[serde(rename = "cert")]
   certificate: String
+}
+
+#[derive(Deserialize)]
+pub struct KeysResponse {
+  kA: Vec<u8>,
+  wrap_kB: Vec<u8>
 }
 
 // #[cfg(test)]
