@@ -3,6 +3,7 @@
 ### Contents
 
 * [boxlocker](boxlocker) - demo access to synced Firefox passwords via OAuth
+* [rust-cjose](rust-cjose) - Rust bindings for [cjose](https://github.com/cisco/cjose)
 * [docs](docs) - documentation sources 
 * [website](website) - website built from documentation sources
 
