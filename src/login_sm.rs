@@ -1,7 +1,7 @@
 use std;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use error::*;
+use errors::*;
 use fxa_client::*;
 use fxa_client::browser_id::BrowserIDKeyPair;
 use fxa_client::browser_id::rsa::RSABrowserIDKeyPair;

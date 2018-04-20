@@ -7,10 +7,10 @@ use openssl::pkey::{PKey, Public, Private};
 use openssl::sign::{Signer, Verifier};
 use openssl::rsa::Rsa;
 use serde_json;
-use serde::de::{self, Deserialize, Deserializer, Visitor, SeqAccess, MapAccess};
+use serde::de::{self, Deserialize, Deserializer, Visitor, MapAccess};
 use serde::ser::{Serialize, Serializer, SerializeStruct};
 
-use errors::*;
+use fxa_client::errors::*;
 use super::{BrowserIDKeyPair, SigningPrivateKey, VerifyingPublicKey};
 
 pub struct RSABrowserIDKeyPair {

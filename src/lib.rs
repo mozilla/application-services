@@ -16,13 +16,13 @@ extern crate url;
 
 use std::collections::HashMap;
 
-use error::*; // TODO: Error conflict because of the line bellow
-use fxa_client::*;
+use errors::*; // TODO: Error conflict because of the line bellow
+use fxa_client::FxAClient;
 use self::login_sm::*;
 use self::login_sm::{FxAState, FxALoginStateMachine};
 use self::login_sm::FxAState::*;
 
-mod error;
+mod errors;
 mod fxa_client;
 mod login_sm;
 
