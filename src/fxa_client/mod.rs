@@ -4,16 +4,17 @@ use reqwest;
 use reqwest::{Client, Method, Request};
 use serde::Deserialize;
 use serde_json;
-use sha2::Sha256;
+use sha2::{Digest, Sha256};
 use std;
 use url::Url;
 
 use self::browser_id::{jwt_utils, rsa, BrowserIDKeyPair, VerifyingPublicKey};
+use self::browser_id::rsa::RSABrowserIDKeyPair;
 use self::errors::*;
 use self::hawk_request::FxAHAWKRequestBuilder;
 use {FxAConfig};
 
-mod browser_id;
+pub mod browser_id;
 pub mod errors;
 mod hawk_request;
 
@@ -41,11 +42,25 @@ impl<'a> FxAClient<'a> {
     format!("identity.mozilla.com/picl/v1/{}:{}", name, email).as_bytes().to_vec()
   }
 
+  pub fn key_pair(len: u32) -> Result<RSABrowserIDKeyPair> {
+    rsa::generate_keypair(len)
+  }
+
+  pub fn derive_sync_key(kb: &[u8]) -> Vec<u8> {
+    let salt = [0u8; 0];
+    let context_info = FxAClient::kw("oldsync");
+    FxAClient::derive_hkdf_sha256_key(&kb, &salt, &context_info, KEY_LENGTH * 2)
+  }
+
+  pub fn compute_client_state(kb: &[u8]) -> String {
+    hex::encode(&Sha256::digest(kb)[0..16])
+  }
+
   pub fn sign_out(&self) {
     panic!("Not implemented yet!");
   }
 
-  pub fn login(&self, email: &str, auth_pwd: &str) -> Result<LoginResponse> {
+  pub fn login(&self, email: &str, auth_pwd: &str, get_keys: bool) -> Result<LoginResponse> {
     let url = self.build_url(&self.config.auth_url, "account/login")?;
     let parameters = json!({
       "email": email,
@@ -53,6 +68,7 @@ impl<'a> FxAClient<'a> {
     });
     let client = Client::new();
     let request = client.request(Method::Post, url)
+      .query(&[("keys", get_keys)])
       .body(parameters.to_string()).build()
       .chain_err(|| "Could not build request.")?;
     FxAClient::make_request(request)
@@ -76,16 +92,16 @@ impl<'a> FxAClient<'a> {
     FxAClient::make_request(request)
   }
 
-  pub fn recovery_email_status(&self, session_token: &String) -> Result<RecoveryEmailStatusResponse> {
+  pub fn recovery_email_status(&self, session_token: &[u8]) -> Result<RecoveryEmailStatusResponse> {
     let url = self.build_url(&self.config.auth_url, "recovery_email/status")?;
     let key = FxAClient::derive_key_from_session_token(session_token)?;
     let request = FxAHAWKRequestBuilder::new(Method::Get, url, &key).build()?;
     FxAClient::make_request(request)
   }
 
-  pub fn oauth_authorize(&self, session_token: &String, scope: &str) -> Result<OAuthAuthorizeResponse> {
+  pub fn oauth_authorize(&self, session_token: &[u8], scope: &str) -> Result<OAuthAuthorizeResponse> {
     let audience = self.get_oauth_audience()?;
-    let key_pair = rsa::generate_keypair(1024)
+    let key_pair = FxAClient::key_pair(1024)
       .chain_err(|| "Could not create keypair.")?;
     let certificate = self.sign(session_token, key_pair.public_key())?.certificate;
     let assertion = jwt_utils::create_assertion(key_pair.private_key(), &certificate, &audience)
@@ -103,7 +119,7 @@ impl<'a> FxAClient<'a> {
     FxAClient::make_request(request)
   }
 
-  pub fn sign(&self, session_token: &String, public_key: &VerifyingPublicKey) -> Result<SignResponse> {
+  pub fn sign(&self, session_token: &[u8], public_key: &VerifyingPublicKey) -> Result<SignResponse> {
     let public_key_json = public_key.to_json()
       .chain_err(|| "Could not get public key json representation.")?;
     let parameters = json!({
@@ -135,11 +151,9 @@ impl<'a> FxAClient<'a> {
       .chain_err(|| "Could not append path")
   }
 
-  fn derive_key_from_session_token(session_token: &String) -> Result<Vec<u8>> {
+  fn derive_key_from_session_token(session_token: &[u8]) -> Result<Vec<u8>> {
     let context_info = FxAClient::kw("sessionToken");
-    let session_token = hex::decode(session_token)
-      .chain_err(|| "Could not decode session token")?;
-    Ok(FxAClient::derive_hkdf_sha256_key(&session_token, &HKDF_SALT, &context_info, KEY_LENGTH * 2))
+    Ok(FxAClient::derive_hkdf_sha256_key(session_token, &HKDF_SALT, &context_info, KEY_LENGTH * 2))
   }
 
   fn derive_hkdf_sha256_key(ikm: &[u8], xts: &[u8], info: &[u8], len: usize) -> Vec<u8> {
@@ -198,13 +212,13 @@ pub struct OAuthAuthorizeResponse {
 #[derive(Deserialize)]
 pub struct SignResponse {
   #[serde(rename = "cert")]
-  certificate: String
+  pub certificate: String
 }
 
 #[derive(Deserialize)]
 pub struct KeysResponse {
-  kA: Vec<u8>,
-  wrap_kB: Vec<u8>
+  // ka: Vec<u8>,
+  pub wrap_kb: Vec<u8>
 }
 
 #[cfg(test)]
@@ -257,9 +271,9 @@ mod tests {
     };
     let client = FxAClient::new(&config);
 
-    let resp = client.login(email, auth_pwd).unwrap();
-    let session_token = resp.session_token;
-    println!("Session Token obtained: {}", &session_token);
+    let resp = client.login(&email, &auth_pwd, false).unwrap();
+    println!("Session Token obtained: {}", &resp.session_token);
+    let session_token = hex::decode(resp.session_token).unwrap();
 
     let resp = client.oauth_authorize(&session_token, "profile").unwrap();
     println!("OAuth Token obtained: {}", &resp.access_token);

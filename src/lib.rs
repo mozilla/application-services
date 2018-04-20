@@ -16,13 +16,15 @@ extern crate url;
 
 use std::collections::HashMap;
 
-use error::*;
+use error::*; // TODO: Error conflict because of the line bellow
 use fxa_client::*;
-use fxa_client::errors::Error as FxAClientError;
-use fxa_client::errors::ErrorKind::RemoteError as FxAClientRemoteError;
+use self::login_sm::*;
+use self::login_sm::{FxAState, FxALoginStateMachine};
+use self::login_sm::FxAState::*;
 
 mod error;
 mod fxa_client;
+mod login_sm;
 
 #[derive(Serialize, Deserialize)]
 pub struct FxAConfig {
@@ -44,14 +46,13 @@ pub struct FirefoxAccount {
 impl FirefoxAccount {
   // Initialize state from Firefox Accounts credentials obtained using the
   // web flow.
-  pub fn from_credentials(config: FxAConfig, data: &str) -> Result<FirefoxAccount> {
-    let credentials: FxALoginResponse = serde_json::from_str(data)
-      .chain_err(|| "Could not deserialize login response.")?;
-
+  pub fn from_credentials(config: FxAConfig, credentials: FxAWebChannelResponse) -> Result<FirefoxAccount> {
+    let state_data = ReadyForKeysState::new(credentials.session_token,
+      credentials.key_fetch_token, credentials.unwrap_kb);
     let state = if credentials.verified {
-      FxAState::SignedIn(credentials.session_token)
+      EngagedBeforeVerified(state_data)
     } else {
-      FxAState::Unverified(credentials.session_token)
+      EngagedAfterVerified(state_data)
     };
 
     Ok(FirefoxAccount {
@@ -75,9 +76,8 @@ impl FirefoxAccount {
 
   pub fn advance(mut self) -> FxAState {
     let client = FxAClient::new(&self.config);
-    let state_machine = FxALoginStateMachine {client: client};
-    // TODO: Passing the UID is a code-smell.
-    self.state = state_machine.advance(self.state, &self.uid);
+    let state_machine = FxALoginStateMachine::new(client);
+    self.state = state_machine.advance(self.state);
     self.state
   }
 
@@ -86,15 +86,27 @@ impl FirefoxAccount {
       return Ok(cached_token.clone());
     }
     let client = FxAClient::new(&self.config);
-    let session_token = match &self.state {
-      &FxAState::SignedIn(ref session_token) |
-      &FxAState::Unverified(ref session_token) => session_token,
-      _ => { bail!("Not a session token state: {:?}.", self.state) }
+    let session_token = match FirefoxAccount::session_token_from_state(&self.state) {
+      Some(session_token) => session_token,
+      None => bail!("Not in a session token state!")
     };
     let response = client.oauth_authorize(session_token, scope)?;
     let token = response.access_token;
     self.oauth_tokens_cache.insert(scope.to_string(), token.clone());
     Ok(token)
+  }
+
+  fn session_token_from_state(state: &FxAState) -> Option<&[u8]> {
+    match state {
+      &Separated => None,
+      // Despite all these states implementing the same trait we can't treat
+      // them in a single arm, so this will do for now :/
+      &EngagedBeforeVerified(ref state) => Some(state.session_token()),
+      &EngagedAfterVerified(ref state) => Some(state.session_token()),
+      &CohabitingBeforeKeyPair(ref state) => Some(state.session_token()),
+      &CohabitingAfterKeyPair(ref state) => Some(state.session_token()),
+      &Married (ref state) => Some(state.session_token())
+    }
   }
 
   pub fn handle_push_message() {
@@ -124,64 +136,19 @@ impl FirefoxAccount {
   pub fn sign_out(mut self) {
     let client = FxAClient::new(&self.config);
     client.sign_out();
-    self.state = FxAState::SignedOut
-  }
-}
-
-struct FxALoginStateMachine<'a> {
-  client: FxAClient<'a>
-}
-
-impl<'a> FxALoginStateMachine<'a> {
-  fn advance(&self, from: FxAState, uid: &String) -> FxAState {
-    let mut cur_state = from;
-    loop {
-      let cur_state_discriminant = std::mem::discriminant(&cur_state);
-      let new_state = self.advance_one(cur_state, uid);
-      let new_state_discriminant = std::mem::discriminant(&new_state);
-      cur_state = new_state;
-      if cur_state_discriminant == new_state_discriminant { break }
-    }
-    cur_state
-  }
-
-  fn advance_one(&self, from: FxAState, uid: &String) -> FxAState {
-    let same = from.clone();
-    match from {
-      FxAState::Unverified(session_token) => {
-        match self.client.recovery_email_status(&session_token) {
-          // TODO: Add logging in error cases!
-          Ok(RecoveryEmailStatusResponse { verified: false, .. }) => same,
-          Ok(RecoveryEmailStatusResponse { verified: true, .. }) => FxAState::SignedIn(session_token),
-          // TODO: this recovery mechanism is cool... but doesn't apply everywhere we make a request
-          Err(FxAClientError(FxAClientRemoteError(401, ..), ..)) => {
-            match self.client.account_status(uid) {
-              Ok(AccountStatusResponse { exists: true }) => FxAState::LoginFailed,
-              Ok(AccountStatusResponse { exists: false }) => FxAState::SignedOut,
-              Err(_) => same
-            }
-          },
-          Err(_) => same
-        }
-      },
-      FxAState::SignedIn(_) | FxAState::LoginFailed | FxAState::SignedOut => same
-    }
+    self.state = FxAState::Separated
   }
 }
 
 #[derive(Deserialize)]
-struct FxALoginResponse {
+pub struct FxAWebChannelResponse {
   uid: String,
   email: String,
   verified: bool,
   #[serde(rename = "sessionToken")]
-  session_token: String
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum FxAState {
-  Unverified(String), // Session Token
-  SignedIn(String), // Session Token
-  LoginFailed,
-  SignedOut
+  session_token: Vec<u8>,
+  #[serde(rename = "keyFetchToken")]
+  key_fetch_token: Vec<u8>,
+  #[serde(rename = "unwrapBKey")]
+  unwrap_kb: Vec<u8>
 }
