@@ -101,6 +101,12 @@ impl KeyBundle {
         Ok(openssl::memcmp::eq(&expected_hmac, &computed_hmac))
     }
 
+    pub fn verify_hmac_string(&self, expected_hmac: &str, ciphertext_base64: &str) -> Result<bool> {
+        let computed_hmac = self.hmac(ciphertext_base64.as_bytes())?;
+        let computed_hmac_string = bytes_to_hex(&computed_hmac);
+        Ok(openssl::memcmp::eq(&expected_hmac.as_bytes(), &computed_hmac_string.as_bytes()))
+    }
+
     /// Decrypt the provided ciphertext with the given iv, and decodes the
     /// result as a utf8 string.  Important: Caller must check verify_hmac first!
     pub fn decrypt(&self, ciphertext: &[u8], iv: &[u8]) -> Result<String> {
@@ -173,6 +179,7 @@ mod test {
         let ciphertext_base64 = CIPHERTEXT_B64_PIECES.join("");
         let hmac = key_bundle.hmac_string(ciphertext_base64.as_bytes()).unwrap();
         assert_eq!(hmac, HMAC_B16);
+        assert!(key_bundle.verify_hmac_string(HMAC_B16, &ciphertext_base64).unwrap());
     }
 
     #[test]
@@ -199,13 +206,10 @@ mod test {
 
         assert_eq!(&encrypted_bytes, &expect_ciphertext);
 
-
         let (enc_bytes2, iv2) = key_bundle.encrypt_bytes_rand_iv(&cleartext_bytes).unwrap();
-
         assert_ne!(&enc_bytes2, &expect_ciphertext);
 
         let s = key_bundle.decrypt(&enc_bytes2, &iv2).unwrap();
-
         assert_eq!(&cleartext_bytes, &s.as_bytes());
     }
 }

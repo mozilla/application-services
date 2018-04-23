@@ -5,13 +5,16 @@
 use serde::de::{self, Deserialize, Deserializer, Visitor};
 use serde::ser::{self, Serialize, Serializer, SerializeStruct};
 use serde_json;
+use error;
+use base64;
+use key_bundle::KeyBundle;
 
-use std::collections::HashMap;
+// use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::fmt;
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct BsoRecord<T> where for<'a> T: Deserialize<'a> {
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct BsoRecord where {
     pub id: String,
 
     pub collection: Option<String>,
@@ -24,7 +27,7 @@ pub struct BsoRecord<T> where for<'a> T: Deserialize<'a> {
     // it's payload field as JSON (Especially since this one is going to exist more-or-less just so
     // that we can decrypt the data...
     #[serde(deserialize_with = "deserialize_json")]
-    pub payload: T,
+    pub payload: serde_json::Value,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -34,26 +37,6 @@ pub struct EncryptedPayload {
     pub hmac: String,
     pub ciphertext: String,
 }
-
-#[derive(Deserialize, Serialize, Clone, Debug)]
-pub struct MetaGlobalEngine {
-    pub version: usize,
-    #[serde(rename = "syncID")]
-    pub sync_id: String,
-}
-
-#[derive(Deserialize, Serialize, Clone, Debug)]
-pub struct MetaGlobalPayload {
-    #[serde(rename = "syncID")]
-    pub sync_id: String,
-    #[serde(rename = "storageVersion")]
-    pub storage_version: usize,
-    pub declined: Vec<String>,
-    pub engines: HashMap<String, MetaGlobalEngine>,
-}
-
-pub type EncryptedRecord = BsoRecord<EncryptedPayload>;
-pub type MetaGlobalRecord = BsoRecord<MetaGlobalPayload>;
 
 // Custom deserializer to handle auto-deserializing the payload from JSON.
 fn deserialize_json<'de, T, D>(deserializer: D) -> Result<T, D::Error> where for <'a> T: Deserialize<'a>, D: Deserializer<'de> {
@@ -76,7 +59,7 @@ fn deserialize_json<'de, T, D>(deserializer: D) -> Result<T, D::Error> where for
 }
 
 // Custom serializer to handle auto-serializing the payload to JSON
-impl<T> Serialize for BsoRecord<T> where T: Serialize, for<'a> T: Deserialize<'a> {
+impl Serialize for BsoRecord {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
         // Serialize the object we hold in our payload to a string right away.
         let payload_json = serde_json::to_string(&self.payload).map_err(|e| ser::Error::custom(e))?;
@@ -106,6 +89,30 @@ impl<T> Serialize for BsoRecord<T> where T: Serialize, for<'a> T: Deserialize<'a
     }
 }
 
+impl BsoRecord {
+    pub fn decrypt(&mut self, key: &KeyBundle) -> error::Result<()> {
+        assert!(self.is_encrypted());
+        let payload_data: EncryptedPayload = serde_json::from_value(self.payload.clone())?;
+        if !key.verify_hmac_string(&payload_data.hmac, &payload_data.ciphertext)? {
+            return Err(error::ErrorKind::HmacMismatch.into());
+        }
+
+        let iv = base64::decode(&payload_data.iv)?;
+        let ciphertext = base64::decode(&payload_data.ciphertext)?;
+        let cleartext = key.decrypt(&ciphertext, &iv)?;
+
+        self.payload = serde_json::to_value(cleartext)?;
+        Ok(())
+    }
+
+    pub fn is_encrypted(&self) -> bool {
+        if let Some(map) = self.payload.as_object() {
+            map.contains_key("IV") && map.contains_key("hmac") && map.contains_key("ciphertext")
+        } else {
+            false
+        }
+    }
+}
 
 
 #[cfg(test)]
@@ -119,29 +126,29 @@ mod tests {
             "modified": 12344321.0,
             "payload": "{\"IV\": \"aaaaa\", \"hmac\": \"bbbbb\", \"ciphertext\": \"ccccc\"}"
         }"#;
-        let record: EncryptedRecord = serde_json::from_str(serialized).unwrap();
+        let record: BsoRecord = serde_json::from_str(serialized).unwrap();
         assert_eq!(&record.id, "1234");
         assert_eq!(&record.collection.unwrap(), "passwords");
         assert_eq!(record.modified, 12344321.0);
-        assert_eq!(&record.payload.iv, "aaaaa");
-        assert_eq!(&record.payload.hmac, "bbbbb");
-        assert_eq!(&record.payload.ciphertext, "ccccc");
+        let payload: EncryptedPayload = serde_json::from_value(record.payload).unwrap();
+        assert_eq!(&payload.iv, "aaaaa");
+        assert_eq!(&payload.hmac, "bbbbb");
+        assert_eq!(&payload.ciphertext, "ccccc");
     }
     #[test]
     fn test_serialize_enc() {
-        // This is sensitive to the order that the fields appear in in EncryptedPayload, unfortunately
-        let goal = r#"{"id":"1234","payload":"{\"IV\":\"aaaaa\",\"hmac\":\"bbbbb\",\"ciphertext\":\"ccccc\"}","collection":"passwords"}"#;
-        let record = EncryptedRecord {
+        let goal = r#"{"id":"1234","payload":"{\"IV\":\"aaaaa\",\"ciphertext\":\"ccccc\",\"hmac\":\"bbbbb\"}","collection":"passwords"}"#;
+        let record = BsoRecord {
             id: "1234".into(),
             modified: 999.0, // shouldn't be serialized by client no matter what it's value is
             collection: Some("passwords".into()),
             sortindex: None,
             ttl: None,
-            payload: EncryptedPayload {
+            payload: serde_json::to_value(EncryptedPayload {
                 iv: "aaaaa".into(),
                 hmac: "bbbbb".into(),
                 ciphertext: "ccccc".into(),
-            }
+            }).unwrap()
         };
         let actual = serde_json::to_string(&record).unwrap();
         assert_eq!(actual, goal);

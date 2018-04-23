@@ -7,11 +7,18 @@ error_chain! {
         Base64Decode(::base64::DecodeError);
         OpensslError(::openssl::error::ErrorStack);
         BadCleartextUtf8(::std::string::FromUtf8Error);
+        JsonError(::serde_json::Error);
     }
     errors {
         BadKeyLength(which_key: &'static str, length: usize) {
             description("Incorrect key length")
             display("Incorrect key length for key {}: {}", which_key, length)
+        }
+        // Not including expected and is (like iOS hmac issues, but unlike desktop) just because
+        // it's a pain and probably not useful most of the time. This isn't a fundamental issue.
+        HmacMismatch {
+            description("SHA256 HMAC Mismatch error")
+            display("SHA256 HMAC Mismatch error")
         }
     }
 }
