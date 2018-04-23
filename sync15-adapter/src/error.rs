@@ -9,9 +9,9 @@ use openssl;
 
 error_chain! {
     foreign_links {
-        Base64Decode(::base64::DecodeError)
-        OpensslError(::openssl::error::ErrorStack)
-        BadCleartextUtf8(::std::string::FromUtf8Error)
+        Base64Decode(::base64::DecodeError);
+        OpensslError(::openssl::error::ErrorStack);
+        BadCleartextUtf8(::std::string::FromUtf8Error);
     }
     errors {
         BadKeyLength(which_key: &'static str, length: usize) {

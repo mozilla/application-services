@@ -2,18 +2,23 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use serde::de::{self, Deserialize, Deserializer, Visitor, MapAccess};
-use serde::ser::{Serialize, Serializer, SerializeStruct};
+use serde::de::{self, Deserialize, Deserializer, Visitor};
+use serde::ser::{self, Serialize, Serializer, SerializeStruct};
 
+// use serde_derive;
 use serde_json;
-use std::marker::PhantomData;
-use std::ord::Ord;
 
-use error;
-use key_bundle::KeyBundle;
+use std::collections::HashMap;
+
+use std::marker::PhantomData;
+// use std::cmp::Ord;
+use std::fmt;
+
+// use error;
+// use key_bundle::KeyBundle;
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct BsoRecord<T> where T: Serialize + Deserialize {
+pub struct BsoRecord<T> where for<'a> T: Deserialize<'a> {
     pub id: String,
 
     pub collection: Option<String>,
@@ -33,8 +38,8 @@ pub struct BsoRecord<T> where T: Serialize + Deserialize {
 pub struct EncryptedPayload {
     #[serde(rename = "IV")]
     pub iv: String,
-    pub ciphertext: String,
     pub hmac: String,
+    pub ciphertext: String,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -58,10 +63,10 @@ pub type EncryptedRecord = BsoRecord<EncryptedPayload>;
 pub type MetaGlobalRecord = BsoRecord<MetaGlobalPayload>;
 
 // Custom deserializer to handle auto-deserializing the payload from JSON.
-fn deserialize_json<'de, T, D>(deserializer: D) -> Result<T, D::Error> where T: Deserialize<'de>, D: Deserializer<'de> {
+fn deserialize_json<'de, T, D>(deserializer: D) -> Result<T, D::Error> where for <'a> T: Deserialize<'a>, D: Deserializer<'de> {
     struct DeserializeNestedJson<T>(PhantomData<fn() -> T>);
 
-    impl<'de, T> Visitor<'de> for DeserializeNestedJson<T> where T: Deserialize<'de> {
+    impl<'de, T> Visitor<'de> for DeserializeNestedJson<T> where for<'a> T: Deserialize<'a> {
         type Value = T;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -69,7 +74,7 @@ fn deserialize_json<'de, T, D>(deserializer: D) -> Result<T, D::Error> where T: 
         }
 
         fn visit_str<E>(self, value: &str) -> Result<T, E> where E: de::Error {
-            serde_json::from_str(value)
+            serde_json::from_str(&value).map_err(|e| de::Error::custom(e))
         }
     }
 
@@ -78,10 +83,10 @@ fn deserialize_json<'de, T, D>(deserializer: D) -> Result<T, D::Error> where T: 
 }
 
 // Custom serializer to handle auto-serializing the payload to JSON
-impl<T> Serialize for BsoRecord<T> where T: Serialize {
+impl<T> Serialize for BsoRecord<T> where T: Serialize, for<'a> T: Deserialize<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        // Serialize the object we hold in our payload to a string right away
-        let payload_json = serde_json::to_string(self.payload)?;
+        // Serialize the object we hold in our payload to a string right away.
+        let payload_json = serde_json::to_string(&self.payload).map_err(|e| ser::Error::custom(e))?;
 
         // We always serialize id and payload, and serialize collection, ttl, and sortindex iff.
         // they are present. Annoyingly, serialize_struct requires us tell how many we'll serialize
@@ -93,7 +98,7 @@ impl<T> Serialize for BsoRecord<T> where T: Serialize {
         // Note: The name here doesn't show up in the output. At least, not for JSON.
         let mut state = serializer.serialize_struct("BsoRecord", num_fields)?;
         state.serialize_field("id", &self.id)?;
-        state.serialize_field("payload", payload)?;
+        state.serialize_field("payload", &payload_json)?;
 
         if let &Some(ref collection) = &self.collection {
             state.serialize_field("collection", collection)?;
@@ -110,6 +115,41 @@ impl<T> Serialize for BsoRecord<T> where T: Serialize {
 
 
 
-
-
-
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_deserialize_enc() {
+        let serialized = r#"{
+            "id": "1234",
+            "collection": "passwords",
+            "modified": 12344321.0,
+            "payload": "{\"IV\": \"aaaaa\", \"hmac\": \"bbbbb\", \"ciphertext\": \"ccccc\"}"
+        }"#;
+        let record: EncryptedRecord = serde_json::from_str(serialized).unwrap();
+        assert_eq!(&record.id, "1234");
+        assert_eq!(&record.collection.unwrap(), "passwords");
+        assert_eq!(record.modified, 12344321.0);
+        assert_eq!(&record.payload.iv, "aaaaa");
+        assert_eq!(&record.payload.hmac, "bbbbb");
+        assert_eq!(&record.payload.ciphertext, "ccccc");
+    }
+    #[test]
+    fn test_serialize_enc() {
+        let goal = r#"{"id":"1234","payload":"{\"IV\":\"aaaaa\",\"hmac\":\"bbbbb\",\"ciphertext\":\"ccccc\"}","collection":"passwords"}"#;
+        let record = EncryptedRecord {
+            id: "1234".into(),
+            modified: 999.0, // shouldn't be serialized by client no matter what it's value is
+            collection: Some("passwords".into()),
+            sortindex: None,
+            ttl: None,
+            payload: EncryptedPayload {
+                iv: "aaaaa".into(),
+                hmac: "bbbbb".into(),
+                ciphertext: "ccccc".into(),
+            }
+        };
+        let actual = serde_json::to_string(&record).unwrap();
+        assert_eq!(actual, goal);
+    }
+}
