@@ -2,8 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use key_bundle::KeyBundle;
-use errors::{ErrorKind, Result};
+// use error::{ErrorKind, Result};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PasswordRecord {
@@ -20,11 +19,11 @@ pub struct PasswordRecord {
     password: String,
 
     #[serde(rename = "usernameField")]
-    #[serde(default = "")]
+    #[serde(default = "String::new")]
     username_field: String,
 
     #[serde(rename = "passwordField")]
-    #[serde(default = "")]
+    #[serde(default = "String::new")]
     password_field: String,
 
     #[serde(rename = "timeCreated")]

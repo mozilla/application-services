@@ -9,7 +9,6 @@ use error;
 use base64;
 use key_bundle::KeyBundle;
 
-// use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::fmt;
 
@@ -101,7 +100,7 @@ impl BsoRecord {
         let ciphertext = base64::decode(&payload_data.ciphertext)?;
         let cleartext = key.decrypt(&ciphertext, &iv)?;
 
-        self.payload = serde_json::to_value(cleartext)?;
+        self.payload = serde_json::from_str(&cleartext)?;
         Ok(())
     }
 
@@ -111,6 +110,46 @@ impl BsoRecord {
         } else {
             false
         }
+    }
+
+    pub fn encrypt(&mut self, key: &KeyBundle) -> error::Result<()> {
+        assert!(!self.is_encrypted());
+        let cleartext = serde_json::to_string(&self.payload)?;
+        let (enc_bytes, iv) = key.encrypt_bytes_rand_iv(&cleartext.as_bytes())?;
+        let iv_base64 = base64::encode(&iv);
+        let enc_base64 = base64::encode(&enc_bytes);
+        let hmac = key.hmac_string(enc_base64.as_bytes())?;
+        let encrypted_payload = json!({
+            "IV": iv_base64,
+            "hmac": hmac,
+            "ciphertext": enc_base64
+        });
+        self.payload = serde_json::to_value(encrypted_payload)?;
+        Ok(())
+    }
+
+    /// Returns None if we're encrypted and thus don't know
+    pub fn is_tombstone(&self) -> Option<bool> {
+        if self.is_encrypted() {
+            return None;
+        }
+        if let Some(&serde_json::Value::Bool(true)) = self.payload.get("deleted") {
+            Some(true)
+        } else {
+            Some(false)
+        }
+    }
+
+    pub fn decrypt_clone(&self, kb: &KeyBundle) -> error::Result<BsoRecord> {
+        let mut clone = self.clone();
+        clone.decrypt(&kb)?;
+        Ok(clone)
+    }
+
+    pub fn encrypt_clone(&self, kb: &KeyBundle) -> error::Result<BsoRecord> {
+        let mut clone = self.clone();
+        clone.encrypt(&kb)?;
+        Ok(clone)
     }
 }
 
@@ -135,6 +174,7 @@ mod tests {
         assert_eq!(&payload.hmac, "bbbbb");
         assert_eq!(&payload.ciphertext, "ccccc");
     }
+
     #[test]
     fn test_serialize_enc() {
         let goal = r#"{"id":"1234","payload":"{\"IV\":\"aaaaa\",\"ciphertext\":\"ccccc\",\"hmac\":\"bbbbb\"}","collection":"passwords"}"#;
@@ -152,5 +192,41 @@ mod tests {
         };
         let actual = serde_json::to_string(&record).unwrap();
         assert_eq!(actual, goal);
+    }
+
+    #[test]
+    fn test_roundtrip_crypt() {
+        let mut record = BsoRecord {
+            id: "aaaaaaaaaaaa".into(),
+            collection: None,
+            modified: 1234.0,
+            sortindex: None,
+            ttl: None,
+            payload: json!({
+                "id": "aaaaaaaaaaaa",
+                "deleted": true
+            })
+        };
+
+        assert!(!record.is_encrypted());
+        assert!(record.is_tombstone().unwrap());
+
+        let keybundle = KeyBundle::new_random().unwrap();
+
+        record.encrypt(&keybundle).unwrap();
+
+        assert!(record.is_encrypted());
+        let encrypted_data: EncryptedPayload = serde_json::from_value(record.payload.clone()).unwrap();
+        assert!(keybundle.verify_hmac_string(&encrypted_data.hmac, &encrypted_data.ciphertext).unwrap());
+
+        record.decrypt(&keybundle).unwrap();
+        assert!(!record.is_encrypted());
+
+        println!("{:?}", record);
+        println!("{:?}", record.payload.get("deleted"));
+
+        assert!(record.is_tombstone().unwrap());
+
+        assert_eq!(record.payload["id"], "aaaaaaaaaaaa");
     }
 }
