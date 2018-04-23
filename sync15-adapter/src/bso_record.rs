@@ -129,6 +129,7 @@ mod tests {
     }
     #[test]
     fn test_serialize_enc() {
+        // This is sensitive to the order that the fields appear in in EncryptedPayload, unfortunately
         let goal = r#"{"id":"1234","payload":"{\"IV\":\"aaaaa\",\"hmac\":\"bbbbb\",\"ciphertext\":\"ccccc\"}","collection":"passwords"}"#;
         let record = EncryptedRecord {
             id: "1234".into(),

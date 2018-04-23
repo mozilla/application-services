@@ -8,11 +8,21 @@ use openssl::{self, symm};
 use openssl::hash::MessageDigest;
 use openssl::pkey::PKey;
 use openssl::sign::Signer;
+use std::fmt::Write;
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct KeyBundle {
     enc_key: Vec<u8>,
     mac_key: Vec<u8>,
+}
+
+fn bytes_to_hex(bytes: &[u8]) -> String {
+    let mut result = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
+        // There's no way for this unwrap not to work.
+        write!(&mut result, "{:02x}", byte).unwrap();
+    }
+    result
 }
 
 impl KeyBundle {
@@ -52,8 +62,8 @@ impl KeyBundle {
     }
 
     pub fn from_base64(enc: &str, mac: &str) -> Result<KeyBundle> {
-        let enc_bytes = base64::decode_config(&enc, base64::URL_SAFE_NO_PAD)?;
-        let mac_bytes = base64::decode_config(&mac, base64::URL_SAFE_NO_PAD)?;
+        let enc_bytes = base64::decode(&enc)?;
+        let mac_bytes = base64::decode(&mac)?;
         KeyBundle::new(enc_bytes.into(), mac_bytes.into())
     }
 
@@ -78,6 +88,10 @@ impl KeyBundle {
         // This isn't an Err since it really should not be possible.
         assert!(size == 32, "Somehow the 256 bits from sha256 do not add up into 32 bytes...");
         Ok(out)
+    }
+
+    pub fn hmac_string(&self, ciphertext: &[u8]) -> Result<String> {
+        Ok(bytes_to_hex(&self.hmac(ciphertext)?))
     }
 
     pub fn verify_hmac(&self, expected_hmac: &[u8], ciphertext_base64: &str) -> Result<bool> {
@@ -125,4 +139,73 @@ impl KeyBundle {
     }
 }
 
+#[cfg(test)]
+mod test {
+    use super::*;
 
+    static HMAC_B16: &'static str = "b1e6c18ac30deb70236bc0d65a46f7a4dce3b8b0e02cf92182b914e3afa5eebc";
+    static IV_B64: &'static str = "GX8L37AAb2FZJMzIoXlX8w==";
+    static HMAC_KEY_B64: &'static str = "MMntEfutgLTc8FlTLQFms8/xMPmCldqPlq/QQXEjx70=";
+    static ENC_KEY_B64: &'static str ="9K/wLdXdw+nrTtXo4ZpECyHFNr4d7aYHqeg3KW9+m6Q=";
+
+    static CIPHERTEXT_B64_PIECES: &'static [&'static str] = &[
+        "NMsdnRulLwQsVcwxKW9XwaUe7ouJk5Wn80QhbD80l0HEcZGCynh45qIbeYBik0lgcHbK",
+        "mlIxTJNwU+OeqipN+/j7MqhjKOGIlvbpiPQQLC6/ffF2vbzL0nzMUuSyvaQzyGGkSYM2",
+        "xUFt06aNivoQTvU2GgGmUK6MvadoY38hhW2LCMkoZcNfgCqJ26lO1O0sEO6zHsk3IVz6",
+        "vsKiJ2Hq6VCo7hu123wNegmujHWQSGyf8JeudZjKzfi0OFRRvvm4QAKyBWf0MgrW1F8S",
+        "FDnVfkq8amCB7NhdwhgLWbN+21NitNwWYknoEWe1m6hmGZDgDT32uxzWxCV8QqqrpH/Z",
+        "ggViEr9uMgoy4lYaWqP7G5WKvvechc62aqnsNEYhH26A5QgzmlNyvB+KPFvPsYzxDnSC",
+        "jOoRSLx7GG86wT59QZw="
+    ];
+
+    static CLEARTEXT_B64_PIECES: &'static [&'static str] = &[
+        "eyJpZCI6IjVxUnNnWFdSSlpYciIsImhpc3RVcmkiOiJmaWxlOi8vL1VzZXJzL2phc29u",
+        "L0xpYnJhcnkvQXBwbGljYXRpb24lMjBTdXBwb3J0L0ZpcmVmb3gvUHJvZmlsZXMva3Nn",
+        "ZDd3cGsuTG9jYWxTeW5jU2VydmVyL3dlYXZlL2xvZ3MvIiwidGl0bGUiOiJJbmRleCBv",
+        "ZiBmaWxlOi8vL1VzZXJzL2phc29uL0xpYnJhcnkvQXBwbGljYXRpb24gU3VwcG9ydC9G",
+        "aXJlZm94L1Byb2ZpbGVzL2tzZ2Q3d3BrLkxvY2FsU3luY1NlcnZlci93ZWF2ZS9sb2dz",
+        "LyIsInZpc2l0cyI6W3siZGF0ZSI6MTMxOTE0OTAxMjM3MjQyNSwidHlwZSI6MX1dfQ=="
+    ];
+
+    #[test]
+    fn test_hmac() {
+        let key_bundle = KeyBundle::from_base64(ENC_KEY_B64, HMAC_KEY_B64).unwrap();
+        let ciphertext_base64 = CIPHERTEXT_B64_PIECES.join("");
+        let hmac = key_bundle.hmac_string(ciphertext_base64.as_bytes()).unwrap();
+        assert_eq!(hmac, HMAC_B16);
+    }
+
+    #[test]
+    fn test_decrypt() {
+        let key_bundle = KeyBundle::from_base64(ENC_KEY_B64, HMAC_KEY_B64).unwrap();
+        let ciphertext = base64::decode(&CIPHERTEXT_B64_PIECES.join("")).unwrap();
+        let iv = base64::decode(IV_B64).unwrap();
+        let s = key_bundle.decrypt(&ciphertext, &iv).unwrap();
+
+        let cleartext = String::from_utf8(
+            base64::decode(&CLEARTEXT_B64_PIECES.join("")).unwrap()).unwrap();
+        assert_eq!(&cleartext, &s);
+    }
+
+    #[test]
+    fn test_encrypt() {
+        let key_bundle = KeyBundle::from_base64(ENC_KEY_B64, HMAC_KEY_B64).unwrap();
+        let iv = base64::decode(IV_B64).unwrap();
+
+        let cleartext_bytes = base64::decode(&CLEARTEXT_B64_PIECES.join("")).unwrap();
+        let encrypted_bytes = key_bundle.encrypt_bytes_with_iv(&cleartext_bytes, &iv).unwrap();
+
+        let expect_ciphertext = base64::decode(&CIPHERTEXT_B64_PIECES.join("")).unwrap();
+
+        assert_eq!(&encrypted_bytes, &expect_ciphertext);
+
+
+        let (enc_bytes2, iv2) = key_bundle.encrypt_bytes_rand_iv(&cleartext_bytes).unwrap();
+
+        assert_ne!(&enc_bytes2, &expect_ciphertext);
+
+        let s = key_bundle.decrypt(&enc_bytes2, &iv2).unwrap();
+
+        assert_eq!(&cleartext_bytes, &s.as_bytes());
+    }
+}
