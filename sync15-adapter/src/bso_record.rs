@@ -4,18 +4,11 @@
 
 use serde::de::{self, Deserialize, Deserializer, Visitor};
 use serde::ser::{self, Serialize, Serializer, SerializeStruct};
-
-// use serde_derive;
 use serde_json;
 
 use std::collections::HashMap;
-
 use std::marker::PhantomData;
-// use std::cmp::Ord;
 use std::fmt;
-
-// use error;
-// use key_bundle::KeyBundle;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct BsoRecord<T> where for<'a> T: Deserialize<'a> {
