@@ -13,7 +13,7 @@ use std::marker::PhantomData;
 use std::fmt;
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
-pub struct BsoRecord where {
+pub struct BsoRecord {
     pub id: String,
 
     pub collection: Option<String>,
@@ -90,6 +90,9 @@ impl Serialize for BsoRecord {
 
 impl BsoRecord {
     pub fn decrypt(&mut self, key: &KeyBundle) -> error::Result<()> {
+        if !self.is_encrypted() {
+            return Err(error::ErrorKind::BsoWrongCryptState(false).into());
+        }
         assert!(self.is_encrypted());
         let payload_data: EncryptedPayload = serde_json::from_value(self.payload.clone())?;
         if !key.verify_hmac_string(&payload_data.hmac, &payload_data.ciphertext)? {
@@ -113,7 +116,9 @@ impl BsoRecord {
     }
 
     pub fn encrypt(&mut self, key: &KeyBundle) -> error::Result<()> {
-        assert!(!self.is_encrypted());
+        if self.is_encrypted() {
+            return Err(error::ErrorKind::BsoWrongCryptState(true).into());
+        }
         let cleartext = serde_json::to_string(&self.payload)?;
         let (enc_bytes, iv) = key.encrypt_bytes_rand_iv(&cleartext.as_bytes())?;
         let iv_base64 = base64::encode(&iv);
@@ -128,7 +133,8 @@ impl BsoRecord {
         Ok(())
     }
 
-    /// Returns None if we're encrypted and thus don't know
+    /// Returns None if we're encrypted and thus don't know.
+    // TODO: Should this be a Result now that BsoWrongCryptState is a thing
     pub fn is_tombstone(&self) -> Option<bool> {
         if self.is_encrypted() {
             return None;
@@ -150,6 +156,18 @@ impl BsoRecord {
         let mut clone = self.clone();
         clone.encrypt(&kb)?;
         Ok(clone)
+    }
+
+    /// returns None for tombstone records.
+    pub fn payload_as<T>(&self) -> error::Result<Option<T>> where for<'a> T: Deserialize<'a> {
+        if self.is_encrypted() {
+            return Err(error::ErrorKind::BsoWrongCryptState(false).into());
+        }
+        if self.is_tombstone().unwrap() {
+            return Ok(None);
+        }
+        let deserialized = serde_json::from_value(self.payload.clone())?;
+        Ok(Some(deserialized))
     }
 }
 
