@@ -257,7 +257,7 @@ const BlogPosts = props => {
 
       return (
         <div className="blockElement alignCenter fourByGridBlock imageAlignTop" key={i}>
-        <a href={"/blog/" + post.path}>
+        <a href={"/application-services/blog/" + post.path}>
           <h3 className="indexPostTitle">{post.title}</h3>
           <p>by {post.author} on {month} {day}, {year}</p>
         </a>
