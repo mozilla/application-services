@@ -20,6 +20,6 @@ matrix:
 
 script:
   - cargo build --release
-  - cross test
+  - cargo test
 
 cache: cargo
