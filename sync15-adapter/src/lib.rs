@@ -44,7 +44,8 @@ use reqwest::{
     header::Accept
 };
 use hyper::Method;
-use bso_record::{BsoRecord, Sync15Record, MaybeTombstone, EncryptedPayload};
+use bso_record::{BsoRecord, Sync15Record, EncryptedPayload};
+use record_types::MaybeTombstone;
 use collection_keys::CollectionKeys;
 
 // Storage server's timestamp
@@ -63,6 +64,7 @@ pub struct Sync15Service {
     init_params: Sync15ServiceInit,
     root_key: KeyBundle,
     client: Client,
+    // We update this when we make requests
     last_server_time: Cell<f64>,
     tsc: token::TokenserverClient,
     keys: Option<CollectionKeys>,
@@ -117,7 +119,7 @@ impl Sync15Service {
         let mut keys_resp = self.make_storage_request(Method::Get, "storage/crypto/keys")?;
         let keys: BsoRecord<EncryptedPayload> = keys_resp.json()?;
         self.keys = Some(CollectionKeys::from_encrypted_bso(keys, &self.root_key)?);
-        // TODO: error handling...
+        // TODO: error handling... key upload?
         Ok(())
     }
 
