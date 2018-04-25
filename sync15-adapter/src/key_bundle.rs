@@ -77,6 +77,11 @@ impl KeyBundle {
         &self.mac_key
     }
 
+    #[inline]
+    pub fn to_b64_vec(&self) -> Vec<String> {
+        vec![base64::encode(&self.enc_key), base64::encode(&self.mac_key)]
+    }
+
     /// Returns the 32 byte digest by value since it's small enough to be passed
     /// around cheaply, and easily convertable into a slice or vec if you want.
     fn hmac(&self, ciphertext: &[u8]) -> Result<[u8; 32]> {

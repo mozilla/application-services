@@ -8,6 +8,9 @@ error_chain! {
         OpensslError(::openssl::error::ErrorStack);
         BadCleartextUtf8(::std::string::FromUtf8Error);
         JsonError(::serde_json::Error);
+        BadUrl(::reqwest::UrlError);
+        RequestError(::reqwest::Error);
+        HawkError(::hawk::Error);
     }
     errors {
         BadKeyLength(which_key: &'static str, length: usize) {
@@ -28,7 +31,31 @@ error_chain! {
                     if *is_decrypted { "encrypted" } else { "decrypted" },
                     if *is_decrypted { "decrypted" } else { "encrypted" })
         }
+
+        // Error from tokenserver. Ideally we should probably do a better job here...
+        TokenserverHttpError(code: ::reqwest::StatusCode) {
+            description("HTTP status {} when requesting a token from the tokenserver")
+            display("HTTP status {} when requesting a token from the tokenserver", code)
+        }
+
+        BackoffError(retry_after_secs: f64) {
+            description("Server requested backoff")
+            display("Server requested backoff. Retry after {} seconds.", retry_after_secs)
+        }
+
+        // We should probably get rid of the ones of these that are actually possible,
+        // but I'd like to get this done rather than spend tons of time worrying about
+        // the right error types for now (but at the same time, I'd rather not unwrap)
+        UnexpectedError(message: String) {
+            description("Unexpected error")
+            display("Unexpected error: {}", message)
+        }
     }
+}
+
+// Boilerplate helper...
+pub fn unexpected<S>(s: S) -> Error where S: Into<String> {
+    ErrorKind::UnexpectedError(s.into()).into()
 }
 
 

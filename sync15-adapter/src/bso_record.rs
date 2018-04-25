@@ -140,8 +140,11 @@ impl<T> MaybeTombstone<T> {
 impl<T> Sync15Record for MaybeTombstone<T> where T: Sync15Record {}
 
 impl BsoRecord<EncryptedPayload> {
-    pub fn decrypt<T>(self, key: &KeyBundle) -> error::Result<BsoRecord<MaybeTombstone<T>>>
-            where T: DeserializeOwned {
+    pub fn decrypt<T>(self, key: &KeyBundle) -> error::Result<BsoRecord<MaybeTombstone<T>>> where T: DeserializeOwned {
+        Ok(self.decrypt_as::<MaybeTombstone<T>>(key)?)
+    }
+
+    pub fn decrypt_as<T>(self, key: &KeyBundle) -> error::Result<BsoRecord<T>> where T: DeserializeOwned {
         if !key.verify_hmac_string(&self.payload.hmac, &self.payload.ciphertext)? {
             return Err(error::ErrorKind::HmacMismatch.into());
         }
@@ -150,7 +153,7 @@ impl BsoRecord<EncryptedPayload> {
         let ciphertext = base64::decode(&self.payload.ciphertext)?;
         let cleartext = key.decrypt(&ciphertext, &iv)?;
 
-        let new_payload = serde_json::from_str::<MaybeTombstone<T>>(&cleartext)?;
+        let new_payload = serde_json::from_str::<T>(&cleartext)?;
 
         let result = self.with_payload(new_payload);
         Ok(result)
