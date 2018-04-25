@@ -4,6 +4,7 @@ sudo: required
 
 matrix:
   include:
+    # Targets are not used at this time
     - env: TARGET=i686-unknown-linux-gnu
       rust: stable
     - env: TARGET=x86_64-unknown-linux-gnu
@@ -17,11 +18,8 @@ matrix:
     - env: TARGET=powerpc64-unknown-linux-gnu
       rust: stable
 
-install:
-  - curl -LSfs https://japaric.github.io/trust/install.sh | sh -s -- --git japaric/cross --force
-  - source ~/.cargo/env || true
-
 script:
-  - cross test --verbose --all --release --target $TARGET
+  - cargo build --release
+  - cross test
 
 cache: cargo
