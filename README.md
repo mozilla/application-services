@@ -3,6 +3,7 @@
 ### Contents
 
 * [boxlocker](boxlocker) - demo access to synced Firefox passwords via OAuth
+* [fxa-rust-client](fxa-rust-client) - cross compiled FxA Rust client that can work with Firefox Sync keys and more 
 * [docs](docs) - documentation sources 
 * [website](website) - website built from documentation sources
 
