@@ -4,6 +4,9 @@ extern crate error_chain;
 extern crate hawk;
 extern crate hex;
 extern crate hkdf;
+extern crate hmac;
+#[macro_use]
+extern crate log;
 extern crate openssl;
 extern crate reqwest;
 extern crate serde;
@@ -25,6 +28,7 @@ use self::login_sm::FxAState::*;
 mod errors;
 mod fxa_client;
 mod login_sm;
+mod util;
 
 #[derive(Serialize, Deserialize)]
 pub struct FxAConfig {

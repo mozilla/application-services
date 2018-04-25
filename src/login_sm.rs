@@ -1,13 +1,12 @@
 use std;
-use std::time::{SystemTime, UNIX_EPOCH};
 
-use errors::*;
 use fxa_client::*;
 use fxa_client::browser_id::BrowserIDKeyPair;
 use fxa_client::browser_id::rsa::RSABrowserIDKeyPair;
 use fxa_client::errors::Error as FxAClientError;
 use fxa_client::errors::ErrorKind::RemoteError as FxAClientRemoteError;
 use login_sm::FxAState::*;
+use util::{now, Xorable};
 
 pub struct FxALoginStateMachine<'a> {
   client: FxAClient<'a>
@@ -21,35 +20,45 @@ impl<'a> FxALoginStateMachine<'a> {
   }
 
   pub fn advance(&self, from: FxAState) -> FxAState {
-      let mut cur_state = from;
-      loop {
-        let cur_state_discriminant = std::mem::discriminant(&cur_state);
-        let new_state = self.advance_one(cur_state);
-        let new_state_discriminant = std::mem::discriminant(&new_state);
-        cur_state = new_state;
-        if cur_state_discriminant == new_state_discriminant { break }
-      }
-      cur_state
+    let mut cur_state = from;
+    loop {
+      let cur_state_discriminant = std::mem::discriminant(&cur_state);
+      let new_state = self.advance_one(cur_state);
+      let new_state_discriminant = std::mem::discriminant(&new_state);
+      cur_state = new_state;
+      if cur_state_discriminant == new_state_discriminant { break }
+    }
+    cur_state
   }
 
   // Returns None if the state hasn't changed.
   fn advance_one(&self, from: FxAState) -> FxAState {
+    info!("advancing from state {:?}", from);
     match from {
       Married(state) => {
         let now = now();
-        if state.token_keys_and_key_pair.key_pair_expires_at > now {
+        debug!("Checking key pair and certificate freshness.");
+        if now > state.token_keys_and_key_pair.key_pair_expires_at {
+          info!("Key pair has expired. Transitioning to CohabitingBeforeKeyPair.");
           CohabitingBeforeKeyPair(state.token_keys_and_key_pair.token_and_keys)
-        } else if state.certificate_expires_at > now {
+        } else if now > state.certificate_expires_at {
+          info!("Certificate has expired. Transitioning to CohabitingAfterKeyPair.");
           CohabitingAfterKeyPair(state.token_keys_and_key_pair)
         } else {
+          info!("Key pair and certificate are fresh; staying Married.");
           Married(state) // same
         }
       },
       CohabitingBeforeKeyPair(state) => {
+        debug!("Generating key pair.");
         let key_pair = match FxAClient::key_pair(2048) {
           Ok(key_pair) => key_pair,
-          Err(_) => { return Separated }
+          Err(_) => {
+            error!("Failed to generate key pair! Transitioning to Separated.");
+            return Separated
+          }
         };
+        info!("Key pair generated! Transitioning to CohabitingAfterKeyPairState.");
         let new_state = CohabitingAfterKeyPairState {
           token_and_keys: state,
           key_pair,
@@ -58,9 +67,11 @@ impl<'a> FxALoginStateMachine<'a> {
         CohabitingAfterKeyPair(new_state)
       },
       CohabitingAfterKeyPair(state) => {
+        debug!("Signing public key.");
         let resp = self.client.sign(&state.token_and_keys.session_token, (&state.key_pair).public_key());
         match resp {
           Ok(resp) => {
+            info!("Signed public key! Transitioning to Married.");
             let new_state = MarriedState {
               token_keys_and_key_pair: state,
               certificate: resp.certificate,
@@ -68,8 +79,14 @@ impl<'a> FxALoginStateMachine<'a> {
             };
             Married(new_state)
           },
-          Err(FxAClientError(FxAClientRemoteError(..), ..)) => Separated,
-          Err(_) => CohabitingAfterKeyPair(state) // same
+          Err(FxAClientError(err @ FxAClientRemoteError(..), ..)) => {
+            error!("Server error: {:?}. Transitioning to Separated.", err);
+            Separated
+          },
+          Err(err @ _) => {
+            error!("Unknown error: ({:?}). Assuming transient, not transitioning.", err);
+            CohabitingAfterKeyPair(state)
+          }
         }
       },
       EngagedBeforeVerified(state) => {
@@ -83,13 +100,18 @@ impl<'a> FxALoginStateMachine<'a> {
   }
 
   fn handle_ready_for_key_state<F: FnOnce(ReadyForKeysState)->FxAState>(&self, same: F, state: ReadyForKeysState) -> FxAState {
+    debug!("Fetching keys.");
     let resp = self.client.keys(&state.key_fetch_token);
     match resp {
       Ok(resp) => {
         let kb = match resp.wrap_kb.xored_with(&state.unwrap_kb) {
           Ok(kb) => kb,
-          Err(_) => { return same(state) }
+          Err(_) => {
+            error!("Failed to unwrap keys response!  Transitioning to Separated.");
+            return same(state)
+          }
         };
+        info!("Unwrapped keys response.  Transition to CohabitingBeforeKeyPair.");
         let sync_key = FxAClient::derive_sync_key(&kb);
         let xcs = FxAClient::compute_client_state(&kb);
         CohabitingBeforeKeyPair(TokenAndKeysState {
@@ -98,31 +120,19 @@ impl<'a> FxALoginStateMachine<'a> {
           xcs
         })
       },
-      Err(FxAClientError(FxAClientRemoteError(_, 104, ..), ..)) => same(state), // Response: Unverified
-      Err(FxAClientError(FxAClientRemoteError(..), ..)) => Separated,
-      Err(_) => same(state)
+      Err(FxAClientError(FxAClientRemoteError(_, 104, ..), ..)) => {
+        warn!("Account not yet verified, not transitioning.");
+        same(state)
+      },
+      Err(FxAClientError(err @ FxAClientRemoteError(..), ..)) => {
+        error!("Server error: {:?}. Transitioning to Separated.", err);
+        Separated
+      },
+      Err(err @ _) => {
+        error!("Unknown error: ({:?}). Assuming transient, not transitioning.", err);
+        same(state)
+      }
     }
-  }
-}
-
-// Gets the unix epoch in ms.
-// TODO: Probably doesn't belong here.
-fn now() -> u64 {
-  let since_epoch = SystemTime::now().duration_since(UNIX_EPOCH)
-    .expect("Something is very wrong.");
-  since_epoch.as_secs() * 1000 + since_epoch.subsec_nanos() as u64 / 1_000_000
-}
-
-trait Xorable {
-  fn xored_with(&self, other: &[u8]) -> Result<Vec<u8>>;
-}
-
-impl Xorable for [u8] {
-  fn xored_with(&self, other: &[u8]) -> Result<Vec<u8>> {
-    if self.len() != other.len() {
-      bail!("Slices have different sizes.")
-    }
-    Ok(self.iter().zip(other.iter()).map(|(&x, &y)| x ^ y).collect())
   }
 }
 

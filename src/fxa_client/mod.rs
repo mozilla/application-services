@@ -1,5 +1,6 @@
 use hex;
 use hkdf::Hkdf;
+use hmac::{Hmac, Mac};
 use reqwest;
 use reqwest::{Client, Method, Request};
 use serde::Deserialize;
@@ -7,6 +8,7 @@ use serde_json;
 use sha2::{Digest, Sha256};
 use std;
 use url::Url;
+use ::util::{Xorable};
 
 use self::browser_id::{jwt_utils, rsa, BrowserIDKeyPair, VerifyingPublicKey};
 use self::browser_id::rsa::RSABrowserIDKeyPair;
@@ -88,8 +90,39 @@ impl<'a> FxAClient<'a> {
     let url = self.build_url(&self.config.auth_url, "account/keys")?;
     let context_info = FxAClient::kw("keyFetchToken");
     let key = FxAClient::derive_hkdf_sha256_key(&key_fetch_token, &HKDF_SALT, &context_info, KEY_LENGTH * 3);
+    let key_request_key = &key[(KEY_LENGTH * 2)..(KEY_LENGTH * 3)];
     let request = FxAHAWKRequestBuilder::new(Method::Get, url, &key).build()?;
-    FxAClient::make_request(request)
+    let json: serde_json::Value = FxAClient::make_request(request)?;
+    let bundle = match json["bundle"].as_str() {
+      Some(bundle) => bundle,
+      None => bail!("Deserialization failed.")
+    };
+    let data = hex::decode(bundle)
+      .chain_err(|| "Could not decode bundle.")?;
+    if data.len() != 3 * KEY_LENGTH {
+      bail!("Data is not of the expected size.");
+    }
+    let ciphertext = &data[0..(KEY_LENGTH * 2)];
+    let mac_code = &data[(KEY_LENGTH * 2)..(KEY_LENGTH * 3)];
+    let context_info = FxAClient::kw("account/keys");
+    let bytes = FxAClient::derive_hkdf_sha256_key(key_request_key, &HKDF_SALT, &context_info, KEY_LENGTH * 3);
+    let hmac_key = &bytes[0..KEY_LENGTH];
+    let xor_key = &bytes[KEY_LENGTH..(KEY_LENGTH * 3)];
+
+    let mut mac = match Hmac::<Sha256>::new_varkey(hmac_key) {
+      Ok(mac) => mac,
+      Err(_) => bail!("Could not create MAC key.")
+    };
+    mac.input(ciphertext);
+    if let Err(_) = mac.verify(&mac_code) {
+      bail!("Bad HMAC!");
+    }
+
+    let xored_bytes = ciphertext.xored_with(xor_key)?;
+    let wrap_kb = xored_bytes[KEY_LENGTH..(KEY_LENGTH * 2)].to_vec();
+    Ok(KeysResponse {
+      wrap_kb
+    })
   }
 
   pub fn recovery_email_status(&self, session_token: &[u8]) -> Result<RecoveryEmailStatusResponse> {
@@ -169,7 +202,7 @@ impl<'a> FxAClient<'a> {
     if resp.status().is_success() {
       resp.json().chain_err(|| "Deserialization failed")
     } else {
-      let json: std::result::Result<serde_json:: Value, reqwest::Error> = resp.json();
+      let json: std::result::Result<serde_json::Value, reqwest::Error> = resp.json();
       match json {
         Ok(json) => bail!(ErrorKind::RemoteError(
           json["code"].as_u64().unwrap_or(0),
