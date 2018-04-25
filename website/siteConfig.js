@@ -14,10 +14,14 @@ const siteConfig = {
   baseUrl: '/application-services/' /* base url for your project */,
   projectName: 'application-services',
   headerLinks: [
-    { search: true }
+    {blog: true, label: 'Blog'},
+    {
+      href: 'https://github.com/mozilla/application-services',
+      label: 'GitHub',
+    },
+    { search: true },
     // {doc: 'doc1', label: 'Docs'},
     // {doc: 'doc4', label: 'API'},
-    // {page: 'help', label: 'Help'},
   ],
   disableHeaderTitle: true,
   useEnglishUrl: false,
