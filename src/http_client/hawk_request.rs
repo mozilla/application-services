@@ -36,8 +36,7 @@ impl<'a> FxAHAWKRequestBuilder<'a> {
     // Make sure we de-allocate the hash after hawk_request_builder.
     let hash;
     let method = format!("{}", self.method);
-    let mut hawk_request_builder = RequestBuilder::from_url(method.as_str(), &self.url)
-      .chain_err(|| "Could not parse URL")?;
+    let mut hawk_request_builder = RequestBuilder::from_url(method.as_str(), &self.url)?;
     if let Some(ref body) = self.body {
       hash = PayloadHasher::hash("application/json", &SHA256, &body);
       hawk_request_builder = hawk_request_builder.hash(&hash[..]);
@@ -49,8 +48,7 @@ impl<'a> FxAHAWKRequestBuilder<'a> {
         id: token_id,
         key: Key::new(hmac_key, &SHA256),
     };
-    let hawk_header = hawk_request.make_header(&hawk_credentials)
-      .chain_err(|| "Could not create hawk header")?;
+    let hawk_header = hawk_request.make_header(&hawk_credentials)?;
     let hawk_header = format!("Hawk {}", hawk_header);
 
     let mut request_builder = Client::new()
@@ -62,7 +60,6 @@ impl<'a> FxAHAWKRequestBuilder<'a> {
       request_builder.body(body);
     }
 
-    Ok(request_builder.build()
-        .chain_err(|| "Could not create request")?)
+    Ok(request_builder.build()?)
   }
 }

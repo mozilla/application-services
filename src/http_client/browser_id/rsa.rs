@@ -150,10 +150,9 @@ impl SigningPrivateKey for RSAPrivateKey {
   }
 
   fn sign(&self, message: &[u8]) -> Result<Vec<u8>> {
-    let mut signer = Signer::new(MessageDigest::sha256(), &self.key)
-      .chain_err(|| "Cannot instanciate the signer.")?;
-    signer.update(message).chain_err(|| "Cannot feed data to signer.")?;
-    signer.sign_to_vec().chain_err(|| "Cannot create signature.")
+    let mut signer = Signer::new(MessageDigest::sha256(), &self.key)?;
+    signer.update(message)?;
+    Ok(signer.sign_to_vec()?)
   }
 }
 
@@ -173,24 +172,21 @@ impl VerifyingPublicKey for RSAPublicKey {
   }
 
   fn verify_message(&self, message: &[u8], signature: &[u8]) -> Result<bool> {
-    let mut verifier = Verifier::new(MessageDigest::sha256(), &self.key)
-      .chain_err(|| "Cannot instanciate the verifier.")?;
-    verifier.update(message).chain_err(|| "Cannot feed data to verifier.")?;
-    verifier.verify(signature).chain_err(|| "Cannot feed data to verifier.")
+    let mut verifier = Verifier::new(MessageDigest::sha256(), &self.key)?;
+    verifier.update(message)?;
+    Ok(verifier.verify(signature)?)
   }
 }
 
 pub fn generate_keypair(len: u32) -> Result<RSABrowserIDKeyPair> {
-  let rsa = Rsa::generate(len)
-    .chain_err(|| "Could generate keypair.")?;
+  let rsa = Rsa::generate(len)?;
   let n = rsa.n().to_owned().unwrap();
   let e = rsa.e().to_owned().unwrap();
   let d = rsa.d().to_owned().unwrap();
   let d_str = format!("{}", d);
-  let public_key = create_public_key(n, e)
-    .chain_err(|| "Could not get public key.")?;
+  let public_key = create_public_key(n, e)?;
   let private_key = RSAPrivateKey {
-    key: PKey::from_rsa(rsa).chain_err(|| "Could not get private key.")?,
+    key: PKey::from_rsa(rsa)?,
     d: d_str
   };
 
@@ -201,12 +197,10 @@ pub fn generate_keypair(len: u32) -> Result<RSABrowserIDKeyPair> {
 }
 
 pub(crate) fn create_public_key(n: BigNum, e: BigNum) -> Result<RSAPublicKey> {
-  let n_str = format!("{}", n.to_dec_str().chain_err(|| "Could not convert n.")?);
-  let e_str = format!("{}", e.to_dec_str().chain_err(|| "Could not convert e.")?);
-  let rsa = Rsa::from_public_components(n, e)
-    .chain_err(|| "Could not create rsa.")?;
-  let public_key = PKey::from_rsa(rsa)
-    .chain_err(|| "Could not get public key.")?;
+  let n_str = format!("{}", n.to_dec_str()?);
+  let e_str = format!("{}", e.to_dec_str()?);
+  let rsa = Rsa::from_public_components(n, e)?;
+  let public_key = PKey::from_rsa(rsa)?;
   Ok(RSAPublicKey {
     key: public_key, n: n_str, e: e_str
   })
@@ -214,10 +208,9 @@ pub(crate) fn create_public_key(n: BigNum, e: BigNum) -> Result<RSAPublicKey> {
 
 pub(crate) fn create_private_key(n: BigNum, e: BigNum, d: BigNum) -> Result<RSAPrivateKey> {
   let d_str = format!("{}", d);
-  let rsa = Rsa::build(n, e, d)
-    .chain_err(|| "Could not create rsa.")?
+  let rsa = Rsa::build(n, e, d)?
     .build();
-  let key = PKey::from_rsa(rsa).chain_err(|| "Could not get private key.")?;
+  let key = PKey::from_rsa(rsa)?;
   Ok(RSAPrivateKey {
     key,
     d: d_str

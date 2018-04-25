@@ -71,8 +71,7 @@ impl<'a> FxAClient<'a> {
     let client = Client::new();
     let request = client.request(Method::Post, url)
       .query(&[("keys", get_keys)])
-      .body(parameters.to_string()).build()
-      .chain_err(|| "Could not build request.")?;
+      .body(parameters.to_string()).build()?;
     FxAClient::make_request(request)
   }
 
@@ -81,8 +80,7 @@ impl<'a> FxAClient<'a> {
 
     let client = Client::new();
     let request = client.get(url)
-      .query(&[("uid", uid)]).build()
-      .chain_err(|| "Could not build request.")?;
+      .query(&[("uid", uid)]).build()?;
     FxAClient::make_request(request)
   }
 
@@ -95,10 +93,9 @@ impl<'a> FxAClient<'a> {
     let json: serde_json::Value = FxAClient::make_request(request)?;
     let bundle = match json["bundle"].as_str() {
       Some(bundle) => bundle,
-      None => bail!("Deserialization failed.")
+      None => bail!(ErrorKind::JsonError)
     };
-    let data = hex::decode(bundle)
-      .chain_err(|| "Could not decode bundle.")?;
+    let data = hex::decode(bundle)?;
     if data.len() != 3 * KEY_LENGTH {
       bail!("Data is not of the expected size.");
     }
@@ -134,11 +131,9 @@ impl<'a> FxAClient<'a> {
 
   pub fn oauth_authorize(&self, session_token: &[u8], scope: &str) -> Result<OAuthAuthorizeResponse> {
     let audience = self.get_oauth_audience()?;
-    let key_pair = FxAClient::key_pair(1024)
-      .chain_err(|| "Could not create keypair.")?;
+    let key_pair = FxAClient::key_pair(1024)?;
     let certificate = self.sign(session_token, key_pair.public_key())?.certificate;
-    let assertion = jwt_utils::create_assertion(key_pair.private_key(), &certificate, &audience)
-      .chain_err(|| "Could not generate assertion.")?;
+    let assertion = jwt_utils::create_assertion(key_pair.private_key(), &certificate, &audience)?;
     let parameters = json!({
       "assertion": assertion,
       "client_id": OAUTH_CLIENT_ID,
@@ -153,8 +148,7 @@ impl<'a> FxAClient<'a> {
   }
 
   pub fn sign(&self, session_token: &[u8], public_key: &VerifyingPublicKey) -> Result<SignResponse> {
-    let public_key_json = public_key.to_json()
-      .chain_err(|| "Could not get public key json representation.")?;
+    let public_key_json = public_key.to_json()?;
     let parameters = json!({
       "publicKey": public_key_json,
       "duration": SIGN_DURATION_MS
@@ -167,10 +161,9 @@ impl<'a> FxAClient<'a> {
   }
 
   fn get_oauth_audience(&self) -> Result<String> {
-    let url = Url::parse(&self.config.oauth_url)
-      .chain_err(|| "Could not parse base URL")?;
+    let url = Url::parse(&self.config.oauth_url)?;
     let host = url.host_str()
-      .chain_err(|| "Could get host")?;
+      .chain_err(|| "This URL doesn't have a host!")?;
     match url.port() {
       Some(port) => Ok(format!("{}://{}:{}", url.scheme(), host, port)),
       None => Ok(format!("{}://{}", url.scheme(), host))
@@ -178,10 +171,8 @@ impl<'a> FxAClient<'a> {
   }
 
   fn build_url(&self, base_url: &String, path: &str) -> Result<Url> {
-    let base_url = Url::parse(base_url)
-      .chain_err(|| "Could not parse base URL")?;
-    base_url.join(path)
-      .chain_err(|| "Could not append path")
+    let base_url = Url::parse(base_url)?;
+    Ok(base_url.join(path)?)
   }
 
   fn derive_key_from_session_token(session_token: &[u8]) -> Result<Vec<u8>> {
@@ -196,11 +187,10 @@ impl<'a> FxAClient<'a> {
 
   fn make_request<T>(request: Request) -> Result<T> where for<'de> T: Deserialize<'de> {
     let client = Client::new();
-    let mut resp = client.execute(request)
-      .chain_err(|| "Request failed")?;
+    let mut resp = client.execute(request)?;
 
     if resp.status().is_success() {
-      resp.json().chain_err(|| "Deserialization failed")
+      Ok(resp.json()?)
     } else {
       let json: std::result::Result<serde_json::Value, reqwest::Error> = resp.json();
       match json {
@@ -210,9 +200,7 @@ impl<'a> FxAClient<'a> {
           json["error"].as_str().unwrap_or("").to_string(),
           json["message"].as_str().unwrap_or("").to_string(),
           json["info"].as_str().unwrap_or("").to_string())),
-        // This is a bit awkward: we wrap reqwest:Error in our Error type.
-        Err(_) => Err(resp.error_for_status().unwrap_err())
-                       .chain_err(|| "Request failed.")
+        Err(_) => Err(resp.error_for_status().unwrap_err().into())
       }
     }
   }

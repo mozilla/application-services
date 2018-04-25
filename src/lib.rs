@@ -55,7 +55,7 @@ pub struct FxAWebChannelResponse {
 
 impl FxAWebChannelResponse {
   pub fn from_json(json: &str) -> Result<FxAWebChannelResponse> {
-    serde_json::from_str(json).chain_err(|| "Could not parse JSON.")
+    Ok(serde_json::from_str(json)?)
   }
 }
 
@@ -72,12 +72,9 @@ impl FirefoxAccount {
   // Initialize state from Firefox Accounts credentials obtained using the
   // web flow.
   pub fn from_credentials(config: FxAConfig, credentials: FxAWebChannelResponse) -> Result<FirefoxAccount> {
-    let session_token = hex::decode(credentials.session_token)
-      .chain_err(|| "Could not decode session_token.")?;
-    let key_fetch_token = hex::decode(credentials.key_fetch_token)
-      .chain_err(|| "Could not decode key_fetch_token.")?;
-    let unwrap_kb = hex::decode(credentials.unwrap_kb)
-      .chain_err(|| "Could not decode unwrap_kb.")?;
+    let session_token = hex::decode(credentials.session_token)?;
+    let key_fetch_token = hex::decode(credentials.key_fetch_token)?;
+    let unwrap_kb = hex::decode(credentials.unwrap_kb)?;
     let state_data = ReadyForKeysState::new(session_token,
       key_fetch_token, unwrap_kb);
     let state = if credentials.verified {
@@ -96,13 +93,11 @@ impl FirefoxAccount {
   }
 
   pub fn from_json(data: &str) -> Result<FirefoxAccount> {
-    serde_json::from_str(data)
-      .chain_err(|| "Could not read from JSON representation.")
+    Ok(serde_json::from_str(data)?)
   }
 
   pub fn to_json(&self) -> Result<String> {
-    serde_json::to_string(self)
-      .chain_err(|| "Could not create JSON representation.")
+    Ok(serde_json::to_string(self)?)
   }
 
   pub fn to_married(&mut self) -> Option<&MarriedState> {
@@ -127,7 +122,7 @@ impl FirefoxAccount {
     let client = FxAClient::new(&self.config);
     let session_token = match FirefoxAccount::session_token_from_state(&self.state) {
       Some(session_token) => session_token,
-      None => bail!("Not in a session token state!")
+      None => bail!(ErrorKind::NoSessionToken)
     };
     let response = client.oauth_authorize(session_token, scope)?;
     let token = response.access_token;
@@ -148,17 +143,20 @@ impl FirefoxAccount {
   }
 
   pub fn generate_assertion(&mut self, audience: &str) -> Result<String> {
-    let married = self.to_married()
-      .chain_err(|| "Not in married state!")?;
+    let married = match self.to_married() {
+      Some(married) => married,
+      None => bail!(ErrorKind::NotMarried)
+    };
     let private_key = married.key_pair().private_key();
     let certificate = married.certificate();
-    jwt_utils::create_assertion(private_key, &certificate, audience)
-      .chain_err(|| "Cannot create assertion")
+    Ok(jwt_utils::create_assertion(private_key, &certificate, audience)?)
   }
 
   pub fn get_sync_keys(&mut self) -> Result<(String, String)> {
-    let married = self.to_married()
-      .chain_err(|| "Not in married state!")?;
+    let married = match self.to_married() {
+      Some(married) => married,
+      None => bail!(ErrorKind::NotMarried)
+    };
     let sync_key = hex::encode(married.sync_key());
     Ok((sync_key, married.xcs().to_string()))
   }

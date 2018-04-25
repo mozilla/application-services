@@ -25,16 +25,14 @@ pub fn create_assertion_full(private_key: &SigningPrivateKey, certificate: &str,
                              issued_at: u64, expires_at: u64) -> Result<String> {
   let assertion = SignedJWTBuilder::new(private_key, issuer, issued_at, expires_at)
     .audience(&audience)
-    .build()
-    .chain_err(|| "Could not build assertion.")?;
+    .build()?;
   Ok(format!("{}~{}", &certificate, &assertion))
 }
 
 pub fn create_certificate(public_key: &VerifyingPublicKey, email: &str,
                           issuer: &str, issued_at: u64, expires_at: u64,
                           private_key: &SigningPrivateKey) -> Result<String> {
-  let public_key_json = public_key.to_json()
-    .chain_err(|| "Could not get public key json representation.")?;
+  let public_key_json = public_key.to_json()?;
   let principal = json!({
     "email": email
   });
@@ -42,10 +40,9 @@ pub fn create_certificate(public_key: &VerifyingPublicKey, email: &str,
     "principal": principal,
     "public-key": public_key_json
   });
-  SignedJWTBuilder::new(private_key, issuer, issued_at, expires_at)
-    .payload(payload)
-    .build()
-    .chain_err(|| "Could not build certificate.")
+  Ok(SignedJWTBuilder::new(private_key, issuer, issued_at, expires_at)
+     .payload(payload)
+     .build()?)
 }
 
 struct SignedJWTBuilder<'a> {
@@ -92,7 +89,7 @@ impl<'a> SignedJWTBuilder<'a> {
     };
     let obj = match payload.as_object_mut() {
       Some(obj) => obj,
-      None => bail!("Not an object!")
+      None => bail!(ErrorKind::JsonError)
     };
     if let Some(ref audience) = self.audience {
       obj.insert("aud".to_string(), json!(audience));
@@ -118,16 +115,13 @@ fn decode(token: &str, public_key: &VerifyingPublicKey) -> Result<String> {
   let segments: Vec<&str> = token.split(".").collect();
   let message = format!("{}.{}", &segments[0], &segments[1]);
   let message_bytes = message.as_bytes();
-  let signature = base64::decode_config(&segments[2], base64::URL_SAFE_NO_PAD)
-    .chain_err(|| "Could not decode base64 signature.")?;
-  let verified = public_key.verify_message(&message_bytes, &signature)
-    .chain_err(|| "Could not verify message.")?;
+  let signature = base64::decode_config(&segments[2], base64::URL_SAFE_NO_PAD)?;
+  let verified = public_key.verify_message(&message_bytes, &signature)?;
   if !verified {
     bail!("Could not verify token.")
   }
-  let payload = base64::decode_config(&segments[1], base64::URL_SAFE_NO_PAD)
-    .chain_err(|| "Could not decode base64 payload.")?;
-  String::from_utf8(payload).chain_err(|| "Could not decode UTF-8 payload.")
+  let payload = base64::decode_config(&segments[1], base64::URL_SAFE_NO_PAD)?;
+  Ok(String::from_utf8(payload)?)
 }
 
 #[cfg(test)]

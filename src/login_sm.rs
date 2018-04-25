@@ -3,8 +3,8 @@ use std;
 use http_client::*;
 use http_client::browser_id::BrowserIDKeyPair;
 use http_client::browser_id::rsa::RSABrowserIDKeyPair;
-use http_client::errors::Error as FxAClientError;
-use http_client::errors::ErrorKind::RemoteError as FxAClientRemoteError;
+use http_client::errors::Error as HTTPClientError;
+use http_client::errors::ErrorKind::RemoteError as FxARemoteError;
 use login_sm::FxAState::*;
 use util::{now, Xorable};
 
@@ -79,7 +79,7 @@ impl<'a> FxALoginStateMachine<'a> {
             };
             Married(new_state)
           },
-          Err(FxAClientError(err @ FxAClientRemoteError(..), ..)) => {
+          Err(HTTPClientError(err @ FxARemoteError(..), ..)) => {
             error!("Server error: {:?}. Transitioning to Separated.", err);
             Separated
           },
@@ -120,11 +120,11 @@ impl<'a> FxALoginStateMachine<'a> {
           xcs
         })
       },
-      Err(FxAClientError(FxAClientRemoteError(_, 104, ..), ..)) => {
+      Err(HTTPClientError(FxARemoteError(_, 104, ..), ..)) => {
         warn!("Account not yet verified, not transitioning.");
         same(state)
       },
-      Err(FxAClientError(err @ FxAClientRemoteError(..), ..)) => {
+      Err(HTTPClientError(err @ FxARemoteError(..), ..)) => {
         error!("Server error: {:?}. Transitioning to Separated.", err);
         Separated
       },
