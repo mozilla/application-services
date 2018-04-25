@@ -1,10 +1,10 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64;
-use fxa_client::errors::*;
+use http_client::errors::*;
 use serde_json;
 
-use fxa_client::browser_id::{SigningPrivateKey, VerifyingPublicKey};
+use http_client::browser_id::{SigningPrivateKey, VerifyingPublicKey};
 
 const DEFAULT_ASSERTION_ISSUER: &str = "127.0.0.1";
 const DEFAULT_ASSERTION_DURATION: u64 = 60 * 60 * 1000;
@@ -132,8 +132,8 @@ fn decode(token: &str, public_key: &VerifyingPublicKey) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-  use fxa_client::browser_id::rsa;
-  use fxa_client::browser_id::{BrowserIDKeyPair};
+  use http_client::browser_id::rsa;
+  use http_client::browser_id::{BrowserIDKeyPair};
   use super::*;
   use openssl::bn::BigNum;
 

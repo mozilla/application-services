@@ -1,6 +1,6 @@
 use serde_json;
 
-use fxa_client::errors::*;
+use http_client::errors::*;
 
 pub mod jwt_utils;
 pub mod rsa;

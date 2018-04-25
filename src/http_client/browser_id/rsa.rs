@@ -10,7 +10,7 @@ use serde_json;
 use serde::de::{self, Deserialize, Deserializer, Visitor, MapAccess};
 use serde::ser::{Serialize, Serializer, SerializeStruct};
 
-use fxa_client::errors::*;
+use http_client::errors::*;
 use super::{BrowserIDKeyPair, SigningPrivateKey, VerifyingPublicKey};
 
 pub struct RSABrowserIDKeyPair {

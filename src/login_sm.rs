@@ -1,10 +1,10 @@
 use std;
 
-use fxa_client::*;
-use fxa_client::browser_id::BrowserIDKeyPair;
-use fxa_client::browser_id::rsa::RSABrowserIDKeyPair;
-use fxa_client::errors::Error as FxAClientError;
-use fxa_client::errors::ErrorKind::RemoteError as FxAClientRemoteError;
+use http_client::*;
+use http_client::browser_id::BrowserIDKeyPair;
+use http_client::browser_id::rsa::RSABrowserIDKeyPair;
+use http_client::errors::Error as FxAClientError;
+use http_client::errors::ErrorKind::RemoteError as FxAClientRemoteError;
 use login_sm::FxAState::*;
 use util::{now, Xorable};
 

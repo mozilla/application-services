@@ -2,7 +2,7 @@ extern crate fxa_client;
 extern crate libc;
 
 use std::ffi::{CString, CStr};
-use fxa_client::{FirefoxAccount, FxAWebChannelResponse, FxAConfig};
+use http_client::{FirefoxAccount, FxAWebChannelResponse, FxAConfig};
 use libc::c_char;
 
 #[no_mangle]

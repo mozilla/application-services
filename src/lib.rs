@@ -21,14 +21,14 @@ use std::collections::HashMap;
 use std::mem;
 
 use errors::*; // TODO: Error conflict because of the line bellow
-use fxa_client::FxAClient;
-use fxa_client::browser_id::{jwt_utils, BrowserIDKeyPair};
+use http_client::FxAClient;
+use http_client::browser_id::{jwt_utils, BrowserIDKeyPair};
 use self::login_sm::*;
 use self::login_sm::{FxAState, FxALoginStateMachine};
 use self::login_sm::FxAState::*;
 
 mod errors;
-mod fxa_client;
+mod http_client;
 mod login_sm;
 mod util;
 
