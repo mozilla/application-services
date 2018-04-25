@@ -38,6 +38,25 @@ pub struct FxAConfig {
   profile_url: String
 }
 
+#[derive(Deserialize)]
+pub struct FxAWebChannelResponse {
+  uid: String,
+  email: String,
+  verified: bool,
+  #[serde(rename = "sessionToken")]
+  session_token: String,
+  #[serde(rename = "keyFetchToken")]
+  key_fetch_token: String,
+  #[serde(rename = "unwrapBKey")]
+  unwrap_kb: String
+}
+
+impl FxAWebChannelResponse {
+  pub fn from_json(json: &str) -> Result<FxAWebChannelResponse> {
+    serde_json::from_str(json).chain_err(|| "Could not parse JSON.")
+  }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct FirefoxAccount {
   config: FxAConfig,
@@ -51,12 +70,18 @@ impl FirefoxAccount {
   // Initialize state from Firefox Accounts credentials obtained using the
   // web flow.
   pub fn from_credentials(config: FxAConfig, credentials: FxAWebChannelResponse) -> Result<FirefoxAccount> {
-    let state_data = ReadyForKeysState::new(credentials.session_token,
-      credentials.key_fetch_token, credentials.unwrap_kb);
+    let session_token = hex::decode(credentials.session_token)
+      .chain_err(|| "Could not decode session_token.")?;
+    let key_fetch_token = hex::decode(credentials.key_fetch_token)
+      .chain_err(|| "Could not decode key_fetch_token.")?;
+    let unwrap_kb = hex::decode(credentials.unwrap_kb)
+      .chain_err(|| "Could not decode unwrap_kb.")?;
+    let state_data = ReadyForKeysState::new(session_token,
+      key_fetch_token, unwrap_kb);
     let state = if credentials.verified {
-      EngagedBeforeVerified(state_data)
-    } else {
       EngagedAfterVerified(state_data)
+    } else {
+      EngagedBeforeVerified(state_data)
     };
 
     Ok(FirefoxAccount {
@@ -142,17 +167,4 @@ impl FirefoxAccount {
     client.sign_out();
     self.state = FxAState::Separated
   }
-}
-
-#[derive(Deserialize)]
-pub struct FxAWebChannelResponse {
-  uid: String,
-  email: String,
-  verified: bool,
-  #[serde(rename = "sessionToken")]
-  session_token: Vec<u8>,
-  #[serde(rename = "keyFetchToken")]
-  key_fetch_token: Vec<u8>,
-  #[serde(rename = "unwrapBKey")]
-  unwrap_kb: Vec<u8>
 }
