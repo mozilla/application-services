@@ -78,8 +78,8 @@ impl KeyBundle {
     }
 
     #[inline]
-    pub fn to_b64_vec(&self) -> Vec<String> {
-        vec![base64::encode(&self.enc_key), base64::encode(&self.mac_key)]
+    pub fn to_b64_array(&self) -> [String; 2] {
+        [base64::encode(&self.enc_key), base64::encode(&self.mac_key)]
     }
 
     /// Returns the 32 byte digest by value since it's small enough to be passed

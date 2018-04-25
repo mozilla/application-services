@@ -7,14 +7,18 @@ use serde::ser::Serialize;
 use serde_json;
 use error;
 use base64;
+use std::ops::{Deref, DerefMut};
+use std::convert::From;
 use key_bundle::KeyBundle;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BsoRecord<T> {
     pub id: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub collection: Option<String>,
+    // It's not clear to me if this actually can be empty in practice.
+    // firefox-ios seems to think it can...
+    #[serde(default = "String::new")]
+    pub collection: String,
 
     #[serde(skip_serializing)]
     pub modified: f64,
@@ -28,7 +32,7 @@ pub struct BsoRecord<T> {
     // We do some serde magic here with serde to parse the payload from JSON as we deserialize.
     // This avoids having a separate intermediate type that only exists so that we can deserialize
     // it's payload field as JSON (Especially since this one is going to exist more-or-less just so
-    // that we can decrypt the data...
+    // that we can decrypt the data...)
     #[serde(with = "as_json", bound(
         serialize = "T: Serialize",
         deserialize = "T: DeserializeOwned"))]
@@ -37,15 +41,68 @@ pub struct BsoRecord<T> {
 
 impl<T> BsoRecord<T> {
     #[inline]
-    pub fn with_payload<P>(self, payload: P) -> BsoRecord<P> {
+    pub fn map_payload<P, F>(self, mapper: F) -> BsoRecord<P> where F: FnOnce(T) -> P {
         BsoRecord {
             id: self.id,
             collection: self.collection,
             modified: self.modified,
             sortindex: self.sortindex,
             ttl: self.ttl,
-            payload: payload,
+            payload: mapper(self.payload),
         }
+    }
+
+    #[inline]
+    pub fn with_payload<P>(self, payload: P) -> BsoRecord<P> {
+        self.map_payload(|_| payload)
+    }
+}
+
+/// Marker trait that indicates that something is a sync record type. By not implementing this
+/// for EncryptedPayload, we can statically prevent double-encrypting.
+pub trait Sync15Record: Clone + DeserializeOwned + Serialize {
+    fn collection_tag() -> &'static str;
+    fn record_id(&self) -> &str;
+}
+
+impl<T> From<T> for BsoRecord<T> where T: Sync15Record {
+    #[inline]
+    fn from(payload: T) -> BsoRecord<T> {
+        let id = payload.record_id().into();
+        let collection = T::collection_tag().into();
+        BsoRecord {
+            id, collection, payload,
+            modified: 0.0,
+            sortindex: None,
+            ttl: None,
+        }
+    }
+}
+
+impl<T> BsoRecord<Option<T>> {
+    /// Helper to improve ergonomics for handling records that might be tombstones.
+    #[inline]
+    pub fn transpose(self) -> Option<BsoRecord<T>> {
+        let BsoRecord { id, collection, modified, sortindex, ttl, payload } = self;
+        match payload {
+            Some(p) => Some(BsoRecord { id, collection, modified, sortindex, ttl, payload: p }),
+            None => None
+        }
+    }
+}
+
+impl<T> Deref for BsoRecord<T> {
+    type Target = T;
+    #[inline]
+    fn deref(&self) -> &T {
+        &self.payload
+    }
+}
+
+impl<T> DerefMut for BsoRecord<T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut T {
+        &mut self.payload
     }
 }
 
@@ -76,12 +133,6 @@ pub struct EncryptedPayload {
     pub ciphertext: String,
 }
 
-/// Marker trait that indicates that something is a sync record type. By not implementing this
-/// for EncryptedPayload, we can statically prevent double-encrypting.
-pub trait Sync15Record: Clone + DeserializeOwned + Serialize {}
-
-impl Sync15Record for serde_json::Value {}
-
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum MaybeTombstone<T> {
@@ -90,7 +141,6 @@ pub enum MaybeTombstone<T> {
 }
 
 impl<T> MaybeTombstone<T> {
-
     #[inline]
     pub fn tombstone<R: Into<String>>(id: R) -> MaybeTombstone<T> {
         MaybeTombstone::Tombstone { id: id.into(), deleted: true }
@@ -137,14 +187,18 @@ impl<T> MaybeTombstone<T> {
     }
 }
 
-impl<T> Sync15Record for MaybeTombstone<T> where T: Sync15Record {}
+impl<T> Sync15Record for MaybeTombstone<T> where T: Sync15Record {
+    fn collection_tag() -> &'static str { T::collection_tag() }
+    fn record_id(&self) -> &str {
+        match self {
+            &MaybeTombstone::Tombstone { ref id, .. } => id,
+            &MaybeTombstone::Record(ref record) => record.record_id()
+        }
+    }
+}
 
 impl BsoRecord<EncryptedPayload> {
-    pub fn decrypt<T>(self, key: &KeyBundle) -> error::Result<BsoRecord<MaybeTombstone<T>>> where T: DeserializeOwned {
-        Ok(self.decrypt_as::<MaybeTombstone<T>>(key)?)
-    }
-
-    pub fn decrypt_as<T>(self, key: &KeyBundle) -> error::Result<BsoRecord<T>> where T: DeserializeOwned {
+    pub fn decrypt<T>(self, key: &KeyBundle) -> error::Result<BsoRecord<T>> where T: DeserializeOwned {
         if !key.verify_hmac_string(&self.payload.hmac, &self.payload.ciphertext)? {
             return Err(error::ErrorKind::HmacMismatch.into());
         }
@@ -183,19 +237,8 @@ impl<T> BsoRecord<MaybeTombstone<T>> {
     }
 
     #[inline]
-    pub fn with_record(self) -> Option<BsoRecord<T>> where T: Clone {
-        // XXX how to avoid the clone w/o inlining with_payload
-        match self.payload.clone() {
-            MaybeTombstone::Tombstone { .. } => None,
-            MaybeTombstone::Record(record) => Some(self.with_payload(record))
-        }
-    }
-
-    #[inline]
-    pub fn unwrap_record(self) -> BsoRecord<T> where T: Clone {
-        // XXX how to avoid the clone without inlining with_payload
-        let unwrapped_payload = self.payload.clone().unwrap();
-        self.with_payload(unwrapped_payload)
+    pub fn record(self) -> Option<BsoRecord<T>> where T: Clone {
+        self.map_payload(|payload| payload.record()).transpose()
     }
 }
 
@@ -214,7 +257,7 @@ mod tests {
         }"#;
         let record: BsoRecord<EncryptedPayload> = serde_json::from_str(serialized).unwrap();
         assert_eq!(&record.id, "1234");
-        assert_eq!(&record.collection.unwrap(), "passwords");
+        assert_eq!(&record.collection, "passwords");
         assert_eq!(record.modified, 12344321.0);
         assert_eq!(&record.payload.iv, "aaaaa");
         assert_eq!(&record.payload.hmac, "bbbbb");
@@ -227,7 +270,7 @@ mod tests {
         let record = BsoRecord {
             id: "1234".into(),
             modified: 999.0, // shouldn't be serialized by client no matter what it's value is
-            collection: Some("passwords".into()),
+            collection: "passwords".into(),
             sortindex: None,
             ttl: None,
             payload: EncryptedPayload {
@@ -247,13 +290,16 @@ mod tests {
         meta: String,
     }
 
-    impl Sync15Record for DummyRecord {}
+    impl Sync15Record for DummyRecord {
+        fn collection_tag() -> &'static str { "dummy" }
+        fn record_id(&self) -> &str { &self.id }
+    }
 
     #[test]
     fn test_roundtrip_crypt_tombstone() {
         let orig_record: MaybeTombstoneRecord<DummyRecord> = BsoRecord {
             id: "aaaaaaaaaaaa".into(),
-            collection: None,
+            collection: "dummy".into(),
             modified: 1234.0,
             sortindex: None,
             ttl: None,
@@ -278,7 +324,7 @@ mod tests {
     fn test_roundtrip_crypt_record() {
         let orig_record: MaybeTombstoneRecord<DummyRecord> = BsoRecord {
             id: "aaaaaaaaaaaa".into(),
-            collection: None,
+            collection: "dummy".into(),
             modified: 1234.0,
             sortindex: None,
             ttl: None,
