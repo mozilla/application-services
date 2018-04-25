@@ -84,10 +84,10 @@ impl FirefoxAccount {
     };
 
     Ok(FirefoxAccount {
-      config: config,
+      config,
       uid: credentials.uid,
       email: credentials.email,
-      state: state,
+      state,
       oauth_tokens_cache: HashMap::new()
     })
   }
