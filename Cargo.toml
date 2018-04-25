@@ -19,5 +19,8 @@ hawk = "1.0.2"
 error-chain = "0.11.0"
 openssl = { git = "https://github.com/eoger/rust-openssl", branch = "rsa-from-builder" }
 
+[workspace]
+members = ["ffi"]
+
 [dev-dependencies]
 ring = "0.13.0-alpha"

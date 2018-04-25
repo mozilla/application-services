@@ -216,3 +216,18 @@ impl SessionTokenState for MarriedState {
     self.token_keys_and_key_pair.session_token()
   }
 }
+
+impl MarriedState {
+  pub fn key_pair(&self) -> &RSABrowserIDKeyPair {
+    &self.token_keys_and_key_pair.key_pair
+  }
+  pub fn certificate(&self) -> &str {
+    &self.certificate
+  }
+  pub fn sync_key(&self) -> &[u8] {
+    &self.token_keys_and_key_pair.token_and_keys.sync_key
+  }
+  pub fn xcs(&self) -> &str {
+    &self.token_keys_and_key_pair.token_and_keys.xcs
+  }
+}

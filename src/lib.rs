@@ -18,9 +18,11 @@ extern crate sha2;
 extern crate url;
 
 use std::collections::HashMap;
+use std::mem;
 
 use errors::*; // TODO: Error conflict because of the line bellow
 use fxa_client::FxAClient;
+use fxa_client::browser_id::{jwt_utils, BrowserIDKeyPair};
 use self::login_sm::*;
 use self::login_sm::{FxAState, FxALoginStateMachine};
 use self::login_sm::FxAState::*;
@@ -33,9 +35,9 @@ mod util;
 #[derive(Serialize, Deserialize)]
 pub struct FxAConfig {
   // These URLs need a trailing slash if a path is specified!
-  auth_url: String,
-  oauth_url: String,
-  profile_url: String
+  pub auth_url: String,
+  pub oauth_url: String,
+  pub profile_url: String
 }
 
 #[derive(Deserialize)]
@@ -103,11 +105,19 @@ impl FirefoxAccount {
       .chain_err(|| "Could not create JSON representation.")
   }
 
-  pub fn advance(mut self) -> FxAState {
+  pub fn to_married(&mut self) -> Option<&MarriedState> {
+    self.advance();
+    match self.state {
+      Married(ref married) => Some(married),
+      _ => None
+    }
+  }
+
+  pub fn advance(&mut self) {
     let client = FxAClient::new(&self.config);
     let state_machine = FxALoginStateMachine::new(client);
-    self.state = state_machine.advance(self.state);
-    self.state
+    let state = mem::replace(&mut self.state, Separated);
+    self.state = state_machine.advance(state);
   }
 
   pub fn get_oauth_token(&mut self, scope: &str) -> Result<String> {
@@ -130,12 +140,27 @@ impl FirefoxAccount {
       &Separated => None,
       // Despite all these states implementing the same trait we can't treat
       // them in a single arm, so this will do for now :/
-      &EngagedBeforeVerified(ref state) => Some(state.session_token()),
-      &EngagedAfterVerified(ref state) => Some(state.session_token()),
+      &EngagedBeforeVerified(ref state) | &EngagedAfterVerified(ref state) => Some(state.session_token()),
       &CohabitingBeforeKeyPair(ref state) => Some(state.session_token()),
       &CohabitingAfterKeyPair(ref state) => Some(state.session_token()),
       &Married (ref state) => Some(state.session_token())
     }
+  }
+
+  pub fn generate_assertion(&mut self, audience: &str) -> Result<String> {
+    let married = self.to_married()
+      .chain_err(|| "Not in married state!")?;
+    let private_key = married.key_pair().private_key();
+    let certificate = married.certificate();
+    jwt_utils::create_assertion(private_key, &certificate, audience)
+      .chain_err(|| "Cannot create assertion")
+  }
+
+  pub fn get_sync_keys(&mut self) -> Result<(String, String)> {
+    let married = self.to_married()
+      .chain_err(|| "Not in married state!")?;
+    let sync_key = hex::encode(married.sync_key());
+    Ok((sync_key, married.xcs().to_string()))
   }
 
   pub fn handle_push_message() {
