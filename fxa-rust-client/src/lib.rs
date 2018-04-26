@@ -40,6 +40,16 @@ pub struct FxAConfig {
   pub profile_url: String
 }
 
+impl FxAConfig {
+  pub fn release() -> FxAConfig {
+    FxAConfig {
+      auth_url: "https://api.accounts.firefox.com/v1/".to_string(),
+      oauth_url: "https://oauth.accounts.firefox.com/v1/".to_string(),
+      profile_url: "https://oauth.accounts.firefox.com/v1/".to_string()
+    }
+  }
+}
+
 #[derive(Deserialize)]
 pub struct FxAWebChannelResponse {
   uid: String,
@@ -67,6 +77,8 @@ pub struct FirefoxAccount {
   state: FxAState,
   oauth_tokens_cache: HashMap<String, String>
 }
+
+pub type SyncKeys = (String, String);
 
 impl FirefoxAccount {
   // Initialize state from Firefox Accounts credentials obtained using the
@@ -152,7 +164,7 @@ impl FirefoxAccount {
     Ok(jwt_utils::create_assertion(private_key, &certificate, audience)?)
   }
 
-  pub fn get_sync_keys(&mut self) -> Result<(String, String)> {
+  pub fn get_sync_keys(&mut self) -> Result<SyncKeys> {
     let married = match self.to_married() {
       Some(married) => married,
       None => bail!(ErrorKind::NotMarried)
