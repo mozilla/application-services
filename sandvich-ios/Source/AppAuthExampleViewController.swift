@@ -68,11 +68,11 @@ class AppAuthExampleViewController: UIViewController {
         self.loadState()
         self.updateUI()
         
-        let cfg = FxAConfig.release()
-        let resp = "{\"customizeSync\":false,\"email\":\"vlad2@restmail.net\",\"keyFetchToken\":\"8f38ff59e9c84ca235dac64983d80919c71d84dd0ae25df6149ba23245a76d6a\",\"sessionToken\":\"48673a2305d570db593a9f115676e80e139d06e80f3c04e365203adc6b26d34e\",\"uid\":\"5946fdc94c964f3c88f4f629a31cad3d\",\"unwrapBKey\":\"5cbac7381e37e3db256313415e10d0462239589945a862f5827c958efe12133a\",\"verified\":true,\"verifiedCanLinkAccount\":true}"
-        let fxa = FirefoxAccount.from(config: cfg, webChannelResponse: resp)
-        let syncKeys = fxa.getSyncKeys()
-        assert(true);
+//        let cfg = FxAConfig.release()
+//        let resp = ""
+//        let fxa = FirefoxAccount.from(config: cfg, webChannelResponse: resp)
+//        let syncKeys = fxa.getSyncKeys()
+//        assert(true);
     }
 }
 
