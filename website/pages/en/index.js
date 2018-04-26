@@ -5,6 +5,8 @@ const MarkdownBlock = CompLibrary.MarkdownBlock; /* Used to read markdown */
 const Container = CompLibrary.Container;
 const GridBlock = require(process.cwd() + '/core/GridBlock.js');
 
+const MetadataBlog = require('../../core/MetadataBlog.js');
+
 const siteConfig = require(process.cwd() + '/siteConfig.js');
 
 function imgUrl(img) {
@@ -230,6 +232,50 @@ const Showcase = props => {
   );
 };
 
+
+const BlogPosts = props => {
+  const blogposts = MetadataBlog
+    .map((post, i) => {
+      const match = post.path.match(/([0-9]+)\/([0-9]+)\/([0-9]+)/);
+      // Because JavaScript sucks at date handling :(
+      const year = match[1];
+      const month = [
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December',
+      ][parseInt(match[2], 10) - 1];
+      const day = parseInt(match[3], 10);
+
+      return (
+        <div className="blockElement alignCenter fourByGridBlock imageAlignTop" key={i}>
+        <a href={"/application-services/blog/" + post.path}>
+          <h3 className="indexPostTitle">{post.title}</h3>
+          <p>by {post.author} on {month} {day}, {year}</p>
+        </a>
+        </div>
+      );
+    });
+
+  return (
+      <div className="productShowcaseSection container paddingBottom paddingTop">
+        <h2>{"Recent Blog Posts"}</h2>
+        <div className="gridBlock">
+          {blogposts}
+        </div>
+      </div>
+  );
+
+};
+
 class Index extends React.Component {
   render() {
     let language = this.props.language || '';
@@ -240,6 +286,7 @@ class Index extends React.Component {
         <div className="mainContainer">
           <Features />
           <FeatureCallout />
+          <BlogPosts />
         </div>
       </div>
     );

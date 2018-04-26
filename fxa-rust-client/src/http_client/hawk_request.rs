@@ -18,10 +18,10 @@ pub struct FxAHAWKRequestBuilder<'a> {
 impl<'a> FxAHAWKRequestBuilder<'a> {
   pub fn new(method: Method, url: Url, hkdf_sha256_key: &'a Vec<u8>) -> Self {
     FxAHAWKRequestBuilder {
-      url: url,
-      method: method,
+      url,
+      method,
       body: None,
-      hkdf_sha256_key: hkdf_sha256_key,
+      hkdf_sha256_key,
     }
   }
 
