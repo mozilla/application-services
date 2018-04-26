@@ -5,7 +5,7 @@ use openssl::bn::BigNum;
 use openssl::hash::MessageDigest;
 use openssl::pkey::{PKey, Public, Private};
 use openssl::sign::{Signer, Verifier};
-use openssl::rsa::Rsa;
+use openssl::rsa::{Rsa, RsaPrivateKeyBuilder};
 use serde_json;
 use serde::de::{self, Deserialize, Deserializer, Visitor, MapAccess};
 use serde::ser::{Serialize, Serializer, SerializeStruct};
@@ -208,8 +208,7 @@ pub(crate) fn create_public_key(n: BigNum, e: BigNum) -> Result<RSAPublicKey> {
 
 pub(crate) fn create_private_key(n: BigNum, e: BigNum, d: BigNum) -> Result<RSAPrivateKey> {
   let d_str = format!("{}", d);
-  let rsa = Rsa::build(n, e, d)?
-    .build();
+  let rsa = RsaPrivateKeyBuilder::new(n, e, d)?.build();
   let key = PKey::from_rsa(rsa)?;
   Ok(RSAPrivateKey {
     key,
