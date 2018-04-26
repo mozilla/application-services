@@ -71,11 +71,11 @@ fn start() -> Result<(), Box<Error>> {
             key_id: scope.kid.clone(),
             sync_key: scope.k.clone(),
             access_token: oauth_data.access_token.clone(),
-            tokenserver_base_url: "https://stable.dev.lcip.org/syncserver/token".into(),
+            tokenserver_base_url: "https://oauth-sync.dev.lcip.org/syncserver/token".into(),
         }
     )?;
 
-    svc.fetch_keys()?;
+    svc.remote_setup()?;
     let passwords = svc.all_records::<sync::record_types::PasswordRecord>("passwords")?;
 
     println!("Found {} passwords", passwords.len());

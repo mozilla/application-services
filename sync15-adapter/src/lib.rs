@@ -38,6 +38,7 @@ pub use MaybeTombstone::*;
 
 use std::cell::Cell;
 use std::time::{Duration};
+use std::collections::HashMap;
 
 use key_bundle::KeyBundle;
 use reqwest::{
@@ -49,7 +50,7 @@ use reqwest::{
 };
 use hyper::Method;
 use bso_record::{BsoRecord, Sync15Record, EncryptedPayload};
-use record_types::MaybeTombstone;
+use record_types::{MaybeTombstone, MetaGlobalRecord};
 use collection_keys::CollectionKeys;
 
 // Storage server's timestamp
@@ -63,6 +64,29 @@ pub struct Sync15ServiceInit {
     pub tokenserver_base_url: String,
 }
 
+#[derive(Deserialize, Debug, Clone)]
+pub struct InfoConfiguration {
+    /// The maximum size in bytes of the overall HTTP request body that will be accepted by the
+    /// server.
+    pub max_request_bytes: Option<usize>,
+    /// The maximum number of records that can be uploaded to a collection in a single POST request.
+    pub max_post_records: Option<usize>,
+    /// The maximum combined size in bytes of the record payloads that can be uploaded to a
+    /// collection in a single POST request.
+    pub max_post_bytes: Option<usize>,
+    /// The maximum total number of records that can be uploaded to a collection as part of a
+    /// batched upload.
+    pub max_total_records: Option<usize>,
+    /// The maximum total combined size in bytes of the record payloads that can be uploaded to a
+    /// collection as part of a batched upload.
+    pub max_total_bytes: Option<usize>,
+    /// The maximum size of an individual BSO payload, in bytes.
+    pub max_record_payload_bytes: Option<usize>,
+}
+
+
+
+
 #[derive(Debug)]
 pub struct Sync15Service {
     init_params: Sync15ServiceInit,
@@ -71,7 +95,9 @@ pub struct Sync15Service {
     // We update this when we make requests
     last_server_time: Cell<f64>,
     tsc: token::TokenserverClient,
+
     keys: Option<CollectionKeys>,
+    server_config: Option<InfoConfiguration>,
 }
 
 impl Sync15Service {
@@ -91,6 +117,7 @@ impl Sync15Service {
             tsc,
             last_server_time: Cell::new(timestamp),
             keys: None,
+            server_config: None,
         })
     }
 
@@ -109,17 +136,57 @@ impl Sync15Service {
     }
 
     fn make_storage_request<T>(&self, method: Method, relative_path: T) -> error::Result<Response> where T: AsRef<str> {
-        let resp = self.client.execute(self.storage_request(method, relative_path)?)?;
+        // I'm shocked that method isn't Copy...
+        let resp = self.client.execute(self.storage_request(method.clone(), relative_path.as_ref())?)?;
+
+        if let Some(ts) = resp.headers().get::<XWeaveTimestamp>().map(|h| **h) {
+            self.last_server_time.set(ts);
+        } else {
+            // Should we complain more here?
+            warn!("No X-Weave-Timestamp from storage server!");
+        }
+
+        if !resp.status().is_success() {
+            error!("HTTP error {} ({}) during storage {} to {}",
+                   resp.status().as_u16(), resp.status(), method, relative_path.as_ref());
+            bail!(error::ErrorKind::StorageHttpError(
+                resp.status(), method, relative_path.as_ref().into()));
+        }
+
         // TODO:
-        // - handle http errors...
-        // - record x-weave-timestamp
         // - handle backoff
         // - x-weave-quota?
         // - ... almost certainly other things too...
         Ok(resp)
     }
 
-    pub fn fetch_keys(&mut self) -> error::Result<()> {
+    fn fetch_info<T>(&self, path: &str) -> error::Result<T> where for <'a> T: serde::de::Deserialize<'a> {
+        let mut resp = self.make_storage_request(Method::Get, path)?;
+        let result: T = resp.json()?;
+        Ok(result)
+    }
+
+    pub fn remote_setup(&mut self) -> error::Result<()> {
+        let server_config = self.fetch_info::<InfoConfiguration>("info/configuration")?;
+        self.server_config = Some(server_config);
+        let mut resp = match self.make_storage_request(Method::Get, "storage/meta/global") {
+            Ok(r) => r,
+            // This is gross, but at least it works. Replace 404s on meta/global with NoMetaGlobal.
+            Err(error::Error(error::ErrorKind::StorageHttpError(hyper::StatusCode::NotFound, ..), _)) =>
+                bail!(error::ErrorKind::NoMetaGlobal),
+            Err(e) => return Err(e),
+        };
+        // Note: meta/global is not encrypted!
+        let meta_global: BsoRecord<MetaGlobalRecord> = resp.json()?;
+        info!("Meta global: {:?}", meta_global.payload);
+        let collections = self.fetch_info::<HashMap<String, f64>>("info/collections")?;
+        self.update_keys(&collections)?;
+        Ok(())
+    }
+
+    fn update_keys(&mut self, _info_collections: &HashMap<String, f64>) -> error::Result<()> {
+        // TODO: if info/collections says we should, upload keys.
+        // TODO: This should be handled in collection_keys.rs, which should track modified time, etc.
         let mut keys_resp = self.make_storage_request(Method::Get, "storage/crypto/keys")?;
         let keys: BsoRecord<EncryptedPayload> = keys_resp.json()?;
         self.keys = Some(CollectionKeys::from_encrypted_bso(keys, &self.root_key)?);

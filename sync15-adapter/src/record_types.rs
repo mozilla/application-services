@@ -4,6 +4,7 @@
 
 // use error::{ErrorKind, Result};
 use bso_record::{BsoRecord, Sync15Record};
+use std::collections::HashMap;
 
 pub use MaybeTombstone::*;
 
@@ -122,6 +123,28 @@ pub struct PasswordRecord {
 impl Sync15Record for PasswordRecord {
     fn collection_tag() -> &'static str { "passwords" }
     fn record_id(&self) -> &str { &self.id }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MetaGlobalEngine {
+    pub version: usize,
+    #[serde(rename = "syncID")]
+    pub sync_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MetaGlobalRecord {
+    #[serde(rename = "syncID")]
+    pub sync_id: String,
+    #[serde(rename = "storageVersion")]
+    pub storage_version: usize,
+    pub engines: HashMap<String, MetaGlobalEngine>,
+    pub declined: Vec<String>,
+}
+
+impl Sync15Record for MetaGlobalRecord {
+    fn collection_tag() -> &'static str { "meta" }
+    fn record_id(&self) -> &str { "global" }
 }
 
 #[cfg(test)]

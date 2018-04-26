@@ -86,7 +86,13 @@ impl TokenserverClient {
             bail!(error::ErrorKind::TokenserverHttpError(resp.status()));
         }
 
-        let token: TokenserverToken = resp.json()?;
+        let mut token: TokenserverToken = resp.json()?;
+        // Add a trailing slash to the api endpoint instead of at each endpoint. This is required
+        // for the uid not to get dropped by rust's url crate (which wants stuff like
+        // `Url::parse("http://example.com/foo.html").join("style.css")` to resolve to
+        // `http://example.com/style.css`, annoyingly.
+        token.api_endpoint.push('/');
+
         let timestamp = resp.headers()
                             .get::<XTimestamp>()
                             .map(|h| **h)

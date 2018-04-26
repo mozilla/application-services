@@ -34,13 +34,25 @@ error_chain! {
 
         // Error from tokenserver. Ideally we should probably do a better job here...
         TokenserverHttpError(code: ::reqwest::StatusCode) {
-            description("HTTP status {} when requesting a token from the tokenserver")
+            description("HTTP status when requesting a token from the tokenserver")
             display("HTTP status {} when requesting a token from the tokenserver", code)
+        }
+
+        // As above, but for storage requests
+        StorageHttpError(code: ::reqwest::StatusCode, method: ::hyper::Method, route: String) {
+            description("HTTP error status when making a request to storage server")
+            display("HTTP status {} during a storage {} request to \"{}\"", code, method, route)
         }
 
         BackoffError(retry_after_secs: f64) {
             description("Server requested backoff")
             display("Server requested backoff. Retry after {} seconds.", retry_after_secs)
+        }
+
+        // This might just be a NYI, since IDK if we want to upload this.
+        NoMetaGlobal {
+            description("No meta global on server for user")
+            display("No meta global on server for user")
         }
 
         // We should probably get rid of the ones of these that are actually possible,
