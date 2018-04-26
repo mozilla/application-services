@@ -3,6 +3,7 @@
 ### Contents
 
 * [boxlocker](boxlocker) - demo access to synced Firefox passwords via OAuth
+* [rust-cjose](rust-cjose) - WIP Rust bindings for [cjose](https://github.com/cisco/cjose)
 * [fxa-rust-client](fxa-rust-client) - cross compiled FxA Rust client that can work with Firefox Sync keys and more 
 * [docs](docs) - documentation sources 
 * [website](website) - website built from documentation sources
