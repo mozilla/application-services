@@ -79,7 +79,7 @@ impl TokenserverClient {
         if !resp.status().is_success() {
             warn!("Non-success status when fetching token: {}", resp.status());
             // TODO: the body should be JSON and contain a status parameter we might need?
-            trace!("  Response body {}", resp.text().unwrap_or("???".into()));
+            debug!("  Response body {}", resp.text().unwrap_or("???".into()));
             if let Some(seconds) = resp.headers().get::<RetryAfter>().map(|h| **h) {
                 bail!(error::ErrorKind::BackoffError(seconds));
             }
