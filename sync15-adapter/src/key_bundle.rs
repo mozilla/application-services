@@ -3,26 +3,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use error::{Result, ErrorKind};
+use util::base16_encode;
 use base64;
 use openssl::{self, symm};
 use openssl::hash::MessageDigest;
 use openssl::pkey::PKey;
 use openssl::sign::Signer;
-use std::fmt::Write;
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct KeyBundle {
     enc_key: Vec<u8>,
     mac_key: Vec<u8>,
-}
-
-fn bytes_to_hex(bytes: &[u8]) -> String {
-    let mut result = String::with_capacity(bytes.len() * 2);
-    for &byte in bytes {
-        // There's no way for this unwrap not to work.
-        write!(&mut result, "{:02x}", byte).unwrap();
-    }
-    result
 }
 
 impl KeyBundle {
@@ -96,7 +87,7 @@ impl KeyBundle {
     }
 
     pub fn hmac_string(&self, ciphertext: &[u8]) -> Result<String> {
-        Ok(bytes_to_hex(&self.hmac(ciphertext)?))
+        Ok(base16_encode(&self.hmac(ciphertext)?))
     }
 
     pub fn verify_hmac(&self, expected_hmac: &[u8], ciphertext_base64: &str) -> Result<bool> {
@@ -108,7 +99,7 @@ impl KeyBundle {
 
     pub fn verify_hmac_string(&self, expected_hmac: &str, ciphertext_base64: &str) -> Result<bool> {
         let computed_hmac = self.hmac(ciphertext_base64.as_bytes())?;
-        let computed_hmac_string = bytes_to_hex(&computed_hmac);
+        let computed_hmac_string = base16_encode(&computed_hmac);
         Ok(openssl::memcmp::eq(&expected_hmac.as_bytes(), &computed_hmac_string.as_bytes()))
     }
 

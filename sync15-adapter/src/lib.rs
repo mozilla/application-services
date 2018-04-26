@@ -31,6 +31,10 @@ pub mod bso_record;
 pub mod record_types;
 pub mod token;
 pub mod collection_keys;
+pub mod util;
+
+pub use MaybeTombstone::*;
+
 
 use std::cell::Cell;
 use std::time::{Duration};

@@ -5,23 +5,25 @@
 // use error::{ErrorKind, Result};
 use bso_record::{BsoRecord, Sync15Record};
 
+pub use MaybeTombstone::*;
+
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum MaybeTombstone<T> {
     Tombstone { id: String, deleted: bool },
-    Record(T)
+    NonTombstone(T)
 }
 
 impl<T> MaybeTombstone<T> {
     #[inline]
     pub fn tombstone<R: Into<String>>(id: R) -> MaybeTombstone<T> {
-        MaybeTombstone::Tombstone { id: id.into(), deleted: true }
+        Tombstone { id: id.into(), deleted: true }
     }
 
     #[inline]
     pub fn is_tombstone(&self) -> bool {
         match self {
-            &MaybeTombstone::Record(_) => false,
+            &NonTombstone(_) => false,
             _ => true
         }
     }
@@ -29,7 +31,7 @@ impl<T> MaybeTombstone<T> {
     #[inline]
     pub fn unwrap(self) -> T {
         match self {
-            MaybeTombstone::Record(record) => record,
+            NonTombstone(record) => record,
             _ => panic!("called `MaybeTombstone::unwrap()` on a Tombstone!"),
         }
     }
@@ -37,7 +39,7 @@ impl<T> MaybeTombstone<T> {
     #[inline]
     pub fn expect(self, msg: &str) -> T {
         match self {
-            MaybeTombstone::Record(record) => record,
+            NonTombstone(record) => record,
             _ => panic!("{}", msg),
         }
     }
@@ -45,7 +47,7 @@ impl<T> MaybeTombstone<T> {
     #[inline]
     pub fn ok_or<E>(self, err: E) -> ::std::result::Result<T, E> {
         match self {
-            MaybeTombstone::Record(record) => Ok(record),
+            NonTombstone(record) => Ok(record),
             _ => Err(err)
         }
     }
@@ -53,7 +55,7 @@ impl<T> MaybeTombstone<T> {
     #[inline]
     pub fn record(self) -> Option<T> {
         match self {
-            MaybeTombstone::Record(record) => Some(record),
+            NonTombstone(record) => Some(record),
             _ => None
         }
     }
@@ -63,8 +65,8 @@ impl<T> Sync15Record for MaybeTombstone<T> where T: Sync15Record {
     fn collection_tag() -> &'static str { T::collection_tag() }
     fn record_id(&self) -> &str {
         match self {
-            &MaybeTombstone::Tombstone { ref id, .. } => id,
-            &MaybeTombstone::Record(ref record) => record.record_id()
+            &Tombstone { ref id, .. } => id,
+            &NonTombstone(ref record) => record.record_id()
         }
     }
 }
@@ -173,7 +175,7 @@ mod tests {
             modified: 1234.0,
             sortindex: None,
             ttl: None,
-            payload: MaybeTombstone::Record(DummyRecord {
+            payload: NonTombstone(DummyRecord {
                 id: "aaaaaaaaaaaa".into(),
                 age: 105,
                 meta: "data".into()
