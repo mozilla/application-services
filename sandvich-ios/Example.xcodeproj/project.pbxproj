@@ -13,6 +13,7 @@
 		9F265BD51F9AC69300DC14BF /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F265BCF1F9AC69300DC14BF /* AppDelegate.swift */; };
 		9F265BDA1F9AE50400DC14BF /* AppAuth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9F265BD91F9AE50400DC14BF /* AppAuth.framework */; };
 		9FD378231FB7C6F800436204 /* AppAuthExampleViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD378221FB7C6F800436204 /* AppAuthExampleViewController.swift */; };
+		CFFEBB5F20924F3D00D9BABD /* FxAClient.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CFFEBB5E20924F3D00D9BABD /* FxAClient.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,6 +25,7 @@
 		9F265BD01F9AC69300DC14BF /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9F265BD91F9AE50400DC14BF /* AppAuth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppAuth.framework; path = Carthage/Build/iOS/AppAuth.framework; sourceTree = "<group>"; };
 		9FD378221FB7C6F800436204 /* AppAuthExampleViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppAuthExampleViewController.swift; sourceTree = "<group>"; };
+		CFFEBB5E20924F3D00D9BABD /* FxAClient.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FxAClient.framework; path = Carthage/Build/iOS/FxAClient.framework; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -32,6 +34,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9F265BDA1F9AE50400DC14BF /* AppAuth.framework in Frameworks */,
+				CFFEBB5F20924F3D00D9BABD /* FxAClient.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -71,6 +74,7 @@
 		9F265BD81F9AE4CA00DC14BF /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				CFFEBB5E20924F3D00D9BABD /* FxAClient.framework */,
 				9F265BD91F9AE50400DC14BF /* AppAuth.framework */,
 			);
 			name = Frameworks;
@@ -83,6 +87,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 9F265BBF1F9AC5D600DC14BF /* Build configuration list for PBXNativeTarget "Example" */;
 			buildPhases = (
+				CFFEBB5D20924EA600D9BABD /* ShellScript */,
 				9F265B931F9AC5D600DC14BF /* Sources */,
 				9F265B941F9AC5D600DC14BF /* Frameworks */,
 				9F265B951F9AC5D600DC14BF /* Resources */,
@@ -152,6 +157,21 @@
 			);
 			inputPaths = (
 				"$(SRCROOT)/Carthage/Build/iOS/AppAuth.framework",
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/local/bin/carthage copy-frameworks";
+		};
+		CFFEBB5D20924EA600D9BABD /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Carthage/Build/iOS/AppAuth.framework",
+				"$(SRCROOT)/Carthage/Build/iOS/FxAClient.framework",
 			);
 			outputPaths = (
 			);
@@ -306,6 +326,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 43AQ936H96;
+				ENABLE_BITCODE = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/Carthage/Build/iOS",
@@ -326,6 +347,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 43AQ936H96;
+				ENABLE_BITCODE = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/Carthage/Build/iOS",
