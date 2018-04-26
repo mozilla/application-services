@@ -43,9 +43,9 @@ pub struct FxAConfig {
 impl FxAConfig {
   pub fn release() -> FxAConfig {
     FxAConfig {
-      auth_url: "https://api.accounts.firefox.com/v1".to_string(),
-      oauth_url: "https://oauth.accounts.firefox.com/v1".to_string(),
-      profile_url: "https://oauth.accounts.firefox.com/v1".to_string()
+      auth_url: "https://api.accounts.firefox.com/v1/".to_string(),
+      oauth_url: "https://oauth.accounts.firefox.com/v1/".to_string(),
+      profile_url: "https://oauth.accounts.firefox.com/v1/".to_string()
     }
   }
 }
