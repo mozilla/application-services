@@ -23,21 +23,14 @@ class Footer extends React.Component {
           </div>
           <div>
             <h5>Community</h5>
-            <a href={this.pageUrl('users.html', this.props.language)}>
-              User Showcase
-            </a>
-            <a
-              href="http://stackoverflow.com/questions/tagged/"
-              target="_blank">
-              Stack Overflow
-            </a>
-            <a href="https://discordapp.com/">Project Chat</a>
-            <a href="https://twitter.com/" target="_blank">
-              Twitter
+            <a href="/application-services/blog">
+              Blog
             </a>
           </div>
           <div>
             <h5>More</h5>
+            <a href="https://github.com/mozilla/application-services">mozilla/application-services</a>
+            <a href="https://github.com/mozilla/fxa">mozilla/fxa</a>
             <a href="https://github.com/mozilla">github/mozilla</a>
             <a href="https://github.com/mozilla-services">github/mozilla-services</a>
           </div>

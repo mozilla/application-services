@@ -3,13 +3,14 @@
 ### Contents
 
 * [boxlocker](boxlocker) - demo access to synced Firefox passwords via OAuth
-* [rust-cjose](rust-cjose) - Rust bindings for [cjose](https://github.com/cisco/cjose)
+* [rust-cjose](rust-cjose) - WIP Rust bindings for [cjose](https://github.com/cisco/cjose)
+* [fxa-rust-client](fxa-rust-client) - cross compiled FxA Rust client that can work with Firefox Sync keys and more 
 * [docs](docs) - documentation sources 
 * [website](website) - website built from documentation sources
 
 
 ### Other Resources
 
-* [fxa-rust-client](https://github.com/eoger/fxa-rust-client) - Firefox Accounts Rust client
+* [fxa-client-ios](https://github.com/eoger/fxa-client-ios) - an iOS framework that exposes `fxa-rust-client`.
 * [mentat](https://github.com/mozilla/mentat) - a persistent, relational store inspired by Datomic and DataScript.
 * [sync-server](https://github.com/mozilla-services/syncserver) - an all-in-one package for running a self-hosted Firefox Sync server.

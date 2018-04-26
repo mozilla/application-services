@@ -1,4 +1,5 @@
 [workspace]
 members = [
-    "boxlocker"
+    "boxlocker",
+    "fxa-rust-client"
 ]
