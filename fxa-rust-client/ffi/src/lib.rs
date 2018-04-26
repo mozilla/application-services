@@ -45,6 +45,11 @@ pub unsafe extern "C" fn fxa_free(fxa: *mut FirefoxAccount) {
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn fxa_config_free(config: *mut FxAConfig) {
+  let _ = Box::from_raw(config);
+}
+
+#[no_mangle]
 pub extern "C" fn fxa_assertion_new(fxa: *mut FirefoxAccount, audience: *const c_char)
   -> *mut c_char {
   let audience = c_char_to_string(audience);
