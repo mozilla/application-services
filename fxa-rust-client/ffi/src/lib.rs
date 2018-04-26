@@ -1,38 +1,38 @@
 extern crate fxa_client;
 extern crate libc;
 
-use std::ffi::{CString, CStr};
+mod ctypes;
+mod util;
+
+use std::ffi::CString;
+
 use fxa_client::{FirefoxAccount, FxAWebChannelResponse, FxAConfig};
+use ctypes::*;
+use util::*;
 use libc::c_char;
 
 #[no_mangle]
-pub extern "C" fn fxa_config_release() -> *mut FxAConfigC {
-  let config = FxAConfigC {
-    auth_url: string_to_c_char("https://api.accounts.firefox.com/v1"),
-    oauth_url: string_to_c_char("https://oauth.accounts.firefox.com/v1"),
-    profile_url: string_to_c_char("https://oauth.accounts.firefox.com/v1")
-  };
+pub extern "C" fn fxa_config_release() -> *mut FxAConfig {
+  let config = FxAConfig::release();
   Box::into_raw(Box::new(config))
 }
 
+/// Note: After calling this function, Rust will now own `config`, therefore the caller's
+/// pointer should be dropped.
 #[no_mangle]
-pub extern "C" fn fxa_from_credentials(config: *mut FxAConfigC, json: *const c_char)
+pub extern "C" fn fxa_from_credentials(config: *mut FxAConfig, json: *const c_char)
   -> *mut FirefoxAccount {
   let config = unsafe {
       assert!(!config.is_null());
       &mut *config
   };
-  let config = FxAConfig {
-    auth_url: c_char_to_string(config.auth_url),
-    oauth_url: c_char_to_string(config.oauth_url),
-    profile_url: c_char_to_string(config.profile_url)
-  };
+  let config = unsafe { Box::from_raw(config) };
   let json = c_char_to_string(json);
   let resp = match FxAWebChannelResponse::from_json(&json) {
     Ok(resp) => resp,
     Err(_) => return std::ptr::null_mut()
   };
-  let fxa = match FirefoxAccount::from_credentials(config, resp) {
+  let fxa = match FirefoxAccount::from_credentials(*config, resp) {
     Ok(fxa) => fxa,
     Err(_) => return std::ptr::null_mut()
   };
@@ -73,36 +73,9 @@ pub extern "C" fn fxa_get_sync_keys(fxa: *mut FirefoxAccount) -> *mut SyncKeysC 
       assert!(!fxa.is_null());
       &mut *fxa
   };
-  let (sync_key, xcs) = match fxa.get_sync_keys() {
-    Ok((sync_key, xcs)) => (sync_key, xcs),
+  let sync_keys = match fxa.get_sync_keys() {
+    Ok(sync_keys) => sync_keys,
     Err(_) => return std::ptr::null_mut()
   };
-  let sync_keys = SyncKeysC {
-    sync_key: string_to_c_char(sync_key),
-    xcs: string_to_c_char(xcs)
-  };
-  Box::into_raw(Box::new(sync_keys))
-}
-
-pub fn c_char_to_string(cchar: *const c_char) -> String {
-  let c_str = unsafe { CStr::from_ptr(cchar) };
-  let r_str = c_str.to_str().unwrap_or("");
-  r_str.to_string()
-}
-
-pub fn string_to_c_char<T>(r_string: T) -> *mut c_char where T: Into<String> {
-  CString::new(r_string.into()).unwrap().into_raw()
-}
-
-#[repr(C)]
-pub struct SyncKeysC {
-  pub sync_key: *mut c_char,
-  pub xcs: *mut c_char
-}
-
-#[repr(C)]
-pub struct FxAConfigC {
-  pub auth_url: *mut c_char,
-  pub oauth_url: *mut c_char,
-  pub profile_url: *mut c_char,
+  Box::into_raw(Box::new(sync_keys.into()))
 }
