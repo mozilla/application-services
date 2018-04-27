@@ -4,7 +4,8 @@
 
 use std::convert::From;
 use std::time::Duration;
-use std::fmt;
+use std::{fmt, num};
+use std::str::FromStr;
 
 pub fn base16_encode(bytes: &[u8]) -> String {
     // This seems to be the fastest way of doing this without using a bunch of unsafe:
@@ -36,6 +37,14 @@ impl From<f64> for ServerTimestamp {
     fn from(ts: f64) -> Self {
         assert!(ts >= 0.0);
         ServerTimestamp(ts)
+    }
+}
+
+// This lets us use these in hyper header! blocks.
+impl FromStr for ServerTimestamp {
+    type Err = num::ParseFloatError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(ServerTimestamp(f64::from_str(s)?))
     }
 }
 

@@ -39,9 +39,9 @@ error_chain! {
         }
 
         // As above, but for storage requests
-        StorageHttpError(code: ::reqwest::StatusCode, method: ::hyper::Method, route: String) {
+        StorageHttpError(code: ::reqwest::StatusCode, route: String) {
             description("HTTP error status when making a request to storage server")
-            display("HTTP status {} during a storage {} request to \"{}\"", code, method, route)
+            display("HTTP status {} during a storage request to \"{}\"", code, route)
         }
 
         BackoffError(retry_after_secs: f64) {
@@ -61,6 +61,11 @@ error_chain! {
         UnexpectedError(message: String) {
             description("Unexpected error")
             display("Unexpected error: {}", message)
+        }
+
+        RecordTooLargeError {
+            description("Record is larger than the maximum size allowed by the server")
+            display("Record is larger than the maximum size allowed by the server")
         }
     }
 }

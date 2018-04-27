@@ -152,6 +152,7 @@ mod tests {
     use super::*;
     use key_bundle::KeyBundle;
     use util::ServerTimestamp;
+    use serde_json;
 
     #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
     struct DummyRecord {
@@ -185,6 +186,12 @@ mod tests {
         assert!(keybundle.verify_hmac_string(
             &encrypted.payload.hmac, &encrypted.payload.ciphertext).unwrap());
 
+        // While we're here, check on EncryptedPayload::serialized_len
+        let val_rec = serde_json::from_str::<serde_json::Value>(
+            &serde_json::to_string(&encrypted).unwrap()).unwrap();
+        assert_eq!(encrypted.payload.serialized_len(),
+                   val_rec["payload"].as_str().unwrap().len());
+
         let decrypted: MaybeTombstoneRecord<DummyRecord> = encrypted.decrypt(&keybundle).unwrap();
         assert!(decrypted.is_tombstone());
         assert_eq!(decrypted, orig_record);
@@ -213,6 +220,12 @@ mod tests {
 
         assert!(keybundle.verify_hmac_string(
             &encrypted.payload.hmac, &encrypted.payload.ciphertext).unwrap());
+
+        // While we're here, check on EncryptedPayload::serialized_len
+        let val_rec = serde_json::from_str::<serde_json::Value>(
+            &serde_json::to_string(&encrypted).unwrap()).unwrap();
+        assert_eq!(encrypted.payload.serialized_len(),
+                   val_rec["payload"].as_str().unwrap().len());
 
         let decrypted: MaybeTombstoneRecord<DummyRecord> = encrypted.decrypt(&keybundle).unwrap();
         assert!(!decrypted.is_tombstone());

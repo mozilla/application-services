@@ -134,6 +134,23 @@ pub struct EncryptedPayload {
     pub ciphertext: String,
 }
 
+// This is a little cludgey but I couldn't think of another way to have easy deserialization
+// without a bunch of wrapper types, while still only serializing a single time in the
+// postqueue.
+lazy_static! {
+    // The number of bytes taken up by padding in a EncryptedPayload.
+    static ref EMPTY_ENCRYPTED_PAYLOAD_SIZE: usize = serde_json::to_string(
+        &EncryptedPayload { iv: "".into(), hmac: "".into(), ciphertext: "".into() }
+    ).unwrap().len();
+}
+
+impl EncryptedPayload {
+    #[inline]
+    pub fn serialized_len(&self) -> usize {
+        (*EMPTY_ENCRYPTED_PAYLOAD_SIZE) + self.ciphertext.len() + self.hmac.len() + self.iv.len()
+    }
+}
+
 impl BsoRecord<EncryptedPayload> {
     pub fn decrypt<T>(self, key: &KeyBundle) -> error::Result<BsoRecord<T>> where T: DeserializeOwned {
         if !key.verify_hmac_string(&self.payload.hmac, &self.payload.ciphertext)? {
@@ -204,6 +221,10 @@ mod tests {
         };
         let actual = serde_json::to_string(&record).unwrap();
         assert_eq!(actual, goal);
+
+        let val_str_payload: serde_json::Value = serde_json::from_str(goal).unwrap();
+        assert_eq!(val_str_payload["payload"].as_str().unwrap().len(),
+                   record.payload.serialized_len())
     }
 
 }

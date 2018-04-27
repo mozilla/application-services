@@ -14,6 +14,9 @@ extern crate hawk;
 extern crate hyper;
 
 #[macro_use]
+extern crate lazy_static;
+
+#[macro_use]
 extern crate serde_derive;
 
 #[macro_use]
@@ -50,16 +53,21 @@ use reqwest::{
     Request,
     Response,
     Url,
-    header::Accept
+    header::{self, Accept}
 };
 use hyper::Method;
 use bso_record::{BsoRecord, Sync15Record, EncryptedPayload};
 use record_types::{MaybeTombstone, MetaGlobalRecord};
 use collection_keys::CollectionKeys;
-use request::CollectionRequest;
-
-// Storage server's timestamp
-header! { (XWeaveTimestamp, "X-Weave-Timestamp") => [f64] }
+use request::{
+    CollectionRequest,
+    InfoConfiguration,
+    XWeaveTimestamp,
+    XIfUnmodifiedSince,
+    PostResponse,
+    BatchPoster,
+    PostQueue
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Sync15ServiceInit {
@@ -68,29 +76,6 @@ pub struct Sync15ServiceInit {
     pub sync_key: String,
     pub tokenserver_base_url: String,
 }
-
-#[derive(Deserialize, Debug, Clone)]
-pub struct InfoConfiguration {
-    /// The maximum size in bytes of the overall HTTP request body that will be accepted by the
-    /// server.
-    pub max_request_bytes: Option<usize>,
-    /// The maximum number of records that can be uploaded to a collection in a single POST request.
-    pub max_post_records: Option<usize>,
-    /// The maximum combined size in bytes of the record payloads that can be uploaded to a
-    /// collection in a single POST request.
-    pub max_post_bytes: Option<usize>,
-    /// The maximum total number of records that can be uploaded to a collection as part of a
-    /// batched upload.
-    pub max_total_records: Option<usize>,
-    /// The maximum total combined size in bytes of the record payloads that can be uploaded to a
-    /// collection as part of a batched upload.
-    pub max_total_bytes: Option<usize>,
-    /// The maximum size of an individual BSO payload, in bytes.
-    pub max_record_payload_bytes: Option<usize>,
-}
-
-
-
 
 #[derive(Debug)]
 pub struct Sync15Service {
@@ -103,7 +88,11 @@ pub struct Sync15Service {
 
     keys: Option<CollectionKeys>,
     server_config: Option<InfoConfiguration>,
+    last_sync_remote: HashMap<String, ServerTimestamp>,
 }
+
+
+
 
 impl Sync15Service {
     pub fn new(init_params: Sync15ServiceInit) -> error::Result<Sync15Service> {
@@ -123,6 +112,7 @@ impl Sync15Service {
             last_server_time: Cell::new(timestamp),
             keys: None,
             server_config: None,
+            last_sync_remote: HashMap::new(),
         })
     }
 
@@ -147,26 +137,26 @@ impl Sync15Service {
 
     fn make_storage_request(&self, method: Method, url: Url) -> error::Result<Response> {
         // I'm shocked that method isn't Copy...
-        let resp = self.client.execute(self.build_request(method.clone(), url)?)?;
+        Ok(self.exec_request(self.build_request(method.clone(), url)?, true)?)
+    }
 
-        if let Some(ts) = resp.headers().get::<XWeaveTimestamp>().map(|h| **h) {
-            self.last_server_time.set(ServerTimestamp(ts));
-        } else {
-            // Should we complain more here?
-            warn!("No X-Weave-Timestamp from storage server!");
-        }
+    fn exec_request(&self, req: Request, require_success: bool) -> error::Result<Response> {
+        let resp = self.client.execute(req)?;
 
-        if !resp.status().is_success() {
-            error!("HTTP error {} ({}) during storage {} to {}",
-                   resp.status().as_u16(), resp.status(), method, resp.url().path());
+        self.update_timestamp(resp.headers());
+
+        if require_success && !resp.status().is_success() {
+            error!("HTTP error {} ({}) during storage request to {}",
+                   resp.status().as_u16(), resp.status(), resp.url().path());
             bail!(error::ErrorKind::StorageHttpError(
-                resp.status(), method, resp.url().path().into()));
+                resp.status(), resp.url().path().into()));
         }
 
         // TODO:
         // - handle backoff
         // - x-weave-quota?
         // - ... almost certainly other things too...
+
         Ok(resp)
     }
 
@@ -194,12 +184,13 @@ impl Sync15Service {
         // Note: meta/global is not encrypted!
         let meta_global: BsoRecord<MetaGlobalRecord> = resp.json()?;
         info!("Meta global: {:?}", meta_global.payload);
-        let collections = self.fetch_info::<HashMap<String, f64>>("info/collections")?;
+        let collections = self.fetch_info::<HashMap<String, ServerTimestamp>>("info/collections")?;
         self.update_keys(&collections)?;
+        self.last_sync_remote = collections;
         Ok(())
     }
 
-    fn update_keys(&mut self, _info_collections: &HashMap<String, f64>) -> error::Result<()> {
+    fn update_keys(&mut self, _info_collections: &HashMap<String, ServerTimestamp>) -> error::Result<()> {
         // TODO: if info/collections says we should, upload keys.
         // TODO: This should be handled in collection_keys.rs, which should track modified time, etc.
         let mut keys_resp = self.relative_storage_request(Method::Get, "storage/crypto/keys")?;
@@ -228,5 +219,41 @@ impl Sync15Service {
         }
         Ok(result)
     }
+
+    fn update_timestamp(&self, hs: &header::Headers) {
+        if let Some(ts) = hs.get::<XWeaveTimestamp>().map(|h| **h) {
+            self.last_server_time.set(ts);
+        } else {
+            // Should we complain more here?
+            warn!("No X-Weave-Timestamp from storage server!");
+        }
+    }
+
+    fn new_post_queue<'a, F: FnMut(PostResponse, bool) -> error::Result<()>>(&'a self, coll: &str, on_response: F)
+            -> error::Result<PostQueue<PostWrapper<'a>, F>> {
+        let ts = self.last_sync_remote
+                     .get(coll)
+                     .ok_or_else(|| error::unexpected(format!("Unknown collection {}", coll)))?;
+        let pw = PostWrapper { svc: self, coll: coll.into() };
+        Ok(PostQueue::new(self.server_config.as_ref().unwrap(), *ts, pw, on_response))
+    }
 }
 
+struct PostWrapper<'a> {
+    svc: &'a Sync15Service,
+    coll: String,
+}
+
+impl<'a> BatchPoster for PostWrapper<'a> {
+    fn post(&mut self, bytes: &[u8], xius: ServerTimestamp, batch: Option<String>, commit: bool) -> error::Result<PostResponse> {
+        let url = CollectionRequest::new(self.coll.clone())
+                                    .batch(batch)
+                                    .commit(commit)
+                                    .build_url(Url::parse(&self.svc.tsc.token().api_endpoint)?)?;
+
+        let mut req = self.svc.build_request(Method::Post, url)?;
+        req.headers_mut().set(XIfUnmodifiedSince(xius));
+        let mut resp = self.svc.exec_request(req, false)?;
+        Ok(PostResponse::from_response(&mut resp)?)
+    }
+}

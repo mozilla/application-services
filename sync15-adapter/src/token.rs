@@ -15,7 +15,7 @@ use util::ServerTimestamp;
 header! { (RetryAfter, "Retry-After") => [f64] }
 
 /// Tokenserver's timestamp is X-Timestamp and not X-Weave-Timestamp. The value is in seconds.
-header! { (XTimestamp, "X-Timestamp") => [f64] }
+header! { (XTimestamp, "X-Timestamp") => [ServerTimestamp] }
 
 /// OAuth tokenserver api uses this instead of X-Client-State.
 header! { (XKeyID, "X-KeyID") => [String] }
@@ -101,7 +101,7 @@ impl TokenserverClient {
         Ok(TokenserverClient {
             token,
             credentials,
-            server_timestamp: ServerTimestamp(timestamp)
+            server_timestamp: timestamp
         })
     }
 
