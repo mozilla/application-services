@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// use error::{ErrorKind, Result};
 use bso_record::{BsoRecord, Sync15Record};
 use std::collections::HashMap;
 
@@ -152,6 +151,7 @@ mod tests {
 
     use super::*;
     use key_bundle::KeyBundle;
+    use util::ServerTimestamp;
 
     #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
     struct DummyRecord {
@@ -170,7 +170,7 @@ mod tests {
         let orig_record: MaybeTombstoneRecord<DummyRecord> = BsoRecord {
             id: "aaaaaaaaaaaa".into(),
             collection: "dummy".into(),
-            modified: 1234.0,
+            modified: ServerTimestamp(1234.0),
             sortindex: None,
             ttl: None,
             payload: MaybeTombstone::tombstone("aaaaaaaaaaaa")
@@ -195,7 +195,7 @@ mod tests {
         let orig_record: MaybeTombstoneRecord<DummyRecord> = BsoRecord {
             id: "aaaaaaaaaaaa".into(),
             collection: "dummy".into(),
-            modified: 1234.0,
+            modified: ServerTimestamp(1234.0),
             sortindex: None,
             ttl: None,
             payload: NonTombstone(DummyRecord {

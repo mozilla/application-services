@@ -10,6 +10,7 @@ use base64;
 use std::ops::{Deref, DerefMut};
 use std::convert::From;
 use key_bundle::KeyBundle;
+use util::ServerTimestamp;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BsoRecord<T> {
@@ -21,7 +22,7 @@ pub struct BsoRecord<T> {
     pub collection: String,
 
     #[serde(skip_serializing)]
-    pub modified: f64,
+    pub modified: ServerTimestamp,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sortindex: Option<i32>,
@@ -72,7 +73,7 @@ impl<T> From<T> for BsoRecord<T> where T: Sync15Record {
         let collection = T::collection_tag().into();
         BsoRecord {
             id, collection, payload,
-            modified: 0.0,
+            modified: ServerTimestamp(0.0),
             sortindex: None,
             ttl: None,
         }
@@ -133,7 +134,6 @@ pub struct EncryptedPayload {
     pub ciphertext: String,
 }
 
-
 impl BsoRecord<EncryptedPayload> {
     pub fn decrypt<T>(self, key: &KeyBundle) -> error::Result<BsoRecord<T>> where T: DeserializeOwned {
         if !key.verify_hmac_string(&self.payload.hmac, &self.payload.ciphertext)? {
@@ -181,7 +181,7 @@ mod tests {
         let record: BsoRecord<EncryptedPayload> = serde_json::from_str(serialized).unwrap();
         assert_eq!(&record.id, "1234");
         assert_eq!(&record.collection, "passwords");
-        assert_eq!(record.modified, 12344321.0);
+        assert_eq!(record.modified.0, 12344321.0);
         assert_eq!(&record.payload.iv, "aaaaa");
         assert_eq!(&record.payload.hmac, "bbbbb");
         assert_eq!(&record.payload.ciphertext, "ccccc");
@@ -192,7 +192,7 @@ mod tests {
         let goal = r#"{"id":"1234","collection":"passwords","payload":"{\"IV\":\"aaaaa\",\"hmac\":\"bbbbb\",\"ciphertext\":\"ccccc\"}"}"#;
         let record = BsoRecord {
             id: "1234".into(),
-            modified: 999.0, // shouldn't be serialized by client no matter what it's value is
+            modified: ServerTimestamp(999.0), // shouldn't be serialized by client no matter what it's value is
             collection: "passwords".into(),
             sortindex: None,
             ttl: None,

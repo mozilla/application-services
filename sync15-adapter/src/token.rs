@@ -9,6 +9,7 @@ use hyper::header::{Authorization, Bearer};
 use error::{self, Result};
 use std::fmt;
 use std::borrow::{Borrow, Cow};
+use util::ServerTimestamp;
 
 /// Tokenserver's timestamp is X-Timestamp and not X-Weave-Timestamp.
 header! { (RetryAfter, "Retry-After") => [f64] }
@@ -34,7 +35,7 @@ pub struct TokenserverToken {
 /// This is really more of a TokenAuthenticator.
 pub struct TokenserverClient {
     token: TokenserverToken,
-    server_timestamp: f64,
+    server_timestamp: ServerTimestamp,
     credentials: hawk::Credentials,
 }
 
@@ -61,7 +62,7 @@ fn token_url(base_url: &str) -> Result<Url> {
 
 impl TokenserverClient {
     #[inline]
-    pub fn server_timestamp(&self) -> f64 {
+    pub fn server_timestamp(&self) -> ServerTimestamp {
         self.server_timestamp
     }
 
@@ -86,12 +87,7 @@ impl TokenserverClient {
             bail!(error::ErrorKind::TokenserverHttpError(resp.status()));
         }
 
-        let mut token: TokenserverToken = resp.json()?;
-        // Add a trailing slash to the api endpoint instead of at each endpoint. This is required
-        // for the uid not to get dropped by rust's url crate (which wants stuff like
-        // `Url::parse("http://example.com/foo.html").join("style.css")` to resolve to
-        // `http://example.com/style.css`, annoyingly.
-        token.api_endpoint.push('/');
+        let token: TokenserverToken = resp.json()?;
 
         let timestamp = resp.headers()
                             .get::<XTimestamp>()
@@ -102,7 +98,11 @@ impl TokenserverClient {
             id: token.id.clone(),
             key: hawk::Key::new(token.key.as_bytes(), &hawk::SHA256),
         };
-        Ok(TokenserverClient { token, credentials, server_timestamp: timestamp })
+        Ok(TokenserverClient {
+            token,
+            credentials,
+            server_timestamp: ServerTimestamp(timestamp)
+        })
     }
 
     pub fn authorization(&self, req: &Request) -> Result<Authorization<String>> {
