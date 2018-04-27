@@ -33,25 +33,28 @@ impl<'a> FxAHAWKRequestBuilder<'a> {
     }
 
     pub fn build(self) -> Result<Request> {
-        // Make sure we de-allocate the hash after hawk_request_builder.
-        let hash;
-        let method = format!("{}", self.method);
-        let mut hawk_request_builder = RequestBuilder::from_url(method.as_str(), &self.url)?;
-        if let Some(ref body) = self.body {
-            hash = PayloadHasher::hash("application/json", Digest::sha256(), &body)?;
-            hawk_request_builder = hawk_request_builder.hash(&hash[..]);
+        let hawk_header;
+        {
+            // Make sure we de-allocate the hash after hawk_request_builder.
+            let hash;
+            let method = format!("{}", self.method);
+            let mut hawk_request_builder = RequestBuilder::from_url(method.as_str(), &self.url)?;
+            if let Some(ref body) = self.body {
+                hash = PayloadHasher::hash("application/json", Digest::sha256(), &body)?;
+                hawk_request_builder = hawk_request_builder.hash(&hash[..]);
+            }
+            let hawk_request = hawk_request_builder.request();
+            let token_id = hex::encode(&self.hkdf_sha256_key[0..KEY_LENGTH]);
+            let hmac_key = &self.hkdf_sha256_key[KEY_LENGTH..(2 * KEY_LENGTH)];
+            let hawk_credentials = Credentials {
+                id: token_id,
+                key: Key::new(hmac_key, Digest::sha256())?,
+            };
+            let header = hawk_request.make_header(&hawk_credentials)?;
+            hawk_header = format!("Hawk {}", header);
         }
-        let hawk_request = hawk_request_builder.request();
-        let token_id = hex::encode(&self.hkdf_sha256_key[0..KEY_LENGTH]);
-        let hmac_key = &self.hkdf_sha256_key[KEY_LENGTH..(2 * KEY_LENGTH)];
-        let hawk_credentials = Credentials {
-            id: token_id,
-            key: Key::new(hmac_key, Digest::sha256())?,
-        };
-        let hawk_header = hawk_request.make_header(&hawk_credentials)?;
-        let hawk_header = format!("Hawk {}", hawk_header);
 
-        let mut request_builder = Client::new().request(self.method, self.url.as_str());
+        let mut request_builder = Client::new().request(self.method, self.url);
         request_builder.header(header::Authorization(hawk_header));
 
         if let Some(body) = self.body {

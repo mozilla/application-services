@@ -2,7 +2,7 @@ use hex;
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use reqwest;
-use reqwest::{Client, Method, Request};
+use reqwest::{header, Client, Method, Request};
 use serde::Deserialize;
 use serde_json;
 use sha2::{Digest, Sha256};
@@ -20,7 +20,6 @@ mod hawk_request;
 
 const HKDF_SALT: [u8; 32] = [0b0; 32];
 const KEY_LENGTH: usize = 32;
-const OAUTH_CLIENT_ID: &str = "5882386c6d801776"; // TODO: CHANGE ME!
 const SIGN_DURATION_MS: u64 = 24 * 60 * 60 * 1000;
 
 pub struct FxAClient<'a> {
@@ -140,12 +139,24 @@ impl<'a> FxAClient<'a> {
         FxAClient::make_request(request)
     }
 
-    pub fn oauth_authorize(
+    pub fn profile(&self, profile_access_token: &str) -> Result<ProfileResponse> {
+        let url = self.config.profile_url_path("v1/profile")?;
+        let client = Client::new();
+        let request = client
+            .request(Method::Get, url)
+            .header(header::Authorization(header::Bearer {
+                token: profile_access_token.to_string(),
+            }))
+            .build()?;
+        FxAClient::make_request(request)
+    }
+
+    pub fn oauth_token_with_assertion(
         &self,
+        client_id: &str,
         session_token: &[u8],
         scopes: &[&str],
-    ) -> Result<OAuthAuthorizeResponse> {
-        let scope = scopes.join(" ");
+    ) -> Result<OAuthTokenResponse> {
         let audience = self.get_oauth_audience()?;
         let key_pair = FxAClient::key_pair(1024)?;
         let certificate = self.sign(session_token, key_pair.public_key())?.certificate;
@@ -153,14 +164,54 @@ impl<'a> FxAClient<'a> {
             jwt_utils::create_assertion(key_pair.private_key(), &certificate, &audience)?;
         let parameters = json!({
           "assertion": assertion,
-          "client_id": OAUTH_CLIENT_ID,
+          "client_id": client_id,
           "response_type": "token",
-          "scope": scope
+          "scope": scopes.join(" ")
         });
         let key = FxAClient::derive_key_from_session_token(session_token)?;
         let url = self.config.oauth_url_path("v1/authorization")?;
         let request = FxAHAWKRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
+            .build()?;
+        FxAClient::make_request(request)
+    }
+
+    pub fn oauth_token_with_code(
+        &self,
+        code: &str,
+        code_verifier: &str,
+        client_id: &str,
+    ) -> Result<OAuthTokenResponse> {
+        let body = json!({
+            "code": code,
+            "client_id": client_id,
+            "code_verifier": code_verifier
+        });
+        self.make_oauth_token_request(body)
+    }
+
+    pub fn oauth_token_with_refresh_token(
+        &self,
+        client_id: &str,
+        refresh_token: &str,
+        scopes: &[&str],
+    ) -> Result<OAuthTokenResponse> {
+        let body = json!({
+            "grant_type": "refresh_token",
+            "client_id": client_id,
+            "refresh_token": refresh_token,
+            "scope": scopes.join(" ")
+        });
+        self.make_oauth_token_request(body)
+    }
+
+    fn make_oauth_token_request(&self, body: serde_json::Value) -> Result<OAuthTokenResponse> {
+        let url = self.config.oauth_url_path("v1/token")?;
+        let client = Client::new();
+        let request = client
+            .request(Method::Post, url)
+            .header(header::ContentType::json())
+            .body(body.to_string())
             .build()?;
         FxAClient::make_request(request)
     }
@@ -253,7 +304,11 @@ pub struct AccountStatusResponse {
 }
 
 #[derive(Deserialize)]
-pub struct OAuthAuthorizeResponse {
+pub struct OAuthTokenResponse {
+    pub keys_jwe: Option<String>,
+    pub refresh_token: Option<String>,
+    pub expires_in: u64,
+    pub scope: String,
     pub access_token: String,
 }
 
@@ -267,6 +322,20 @@ pub struct SignResponse {
 pub struct KeysResponse {
     // ka: Vec<u8>,
     pub wrap_kb: Vec<u8>,
+}
+
+#[derive(Deserialize)]
+pub struct ProfileResponse {
+    pub uid: String,
+    pub email: String,
+    pub locale: String,
+    #[serde(rename = "amrValues")]
+    pub amr_values: Vec<String>,
+    #[serde(rename = "twoFactorAuthentication")]
+    pub two_factor_authentication: bool,
+    pub avatar: String,
+    #[serde(rename = "avatarDefault")]
+    pub avatar_default: bool,
 }
 
 #[cfg(test)]
@@ -327,7 +396,7 @@ mod tests {
         let session_token = hex::decode(resp.session_token).unwrap();
 
         let resp = client
-            .oauth_authorize(&session_token, &["profile"])
+            .oauth_token_with_assertion("5882386c6d801776", &session_token, &["profile"])
             .unwrap();
         println!("OAuth Token obtained: {}", &resp.access_token);
     }
