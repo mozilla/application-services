@@ -22,6 +22,7 @@ extern crate serde_derive;
 #[macro_use]
 extern crate log;
 
+#[macro_use]
 extern crate serde_json;
 
 #[macro_use]
@@ -66,7 +67,8 @@ use request::{
     XIfUnmodifiedSince,
     PostResponse,
     BatchPoster,
-    PostQueue
+    PostQueue,
+    PostResponseHandler,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -229,7 +231,7 @@ impl Sync15Service {
         }
     }
 
-    fn new_post_queue<'a, F: FnMut(PostResponse, bool) -> error::Result<()>>(&'a self, coll: &str, on_response: F)
+    fn new_post_queue<'a, F: PostResponseHandler>(&'a self, coll: &str, on_response: F)
             -> error::Result<PostQueue<PostWrapper<'a>, F>> {
         let ts = self.last_sync_remote
                      .get(coll)
@@ -245,7 +247,13 @@ struct PostWrapper<'a> {
 }
 
 impl<'a> BatchPoster for PostWrapper<'a> {
-    fn post(&mut self, bytes: &[u8], xius: ServerTimestamp, batch: Option<String>, commit: bool) -> error::Result<PostResponse> {
+    fn post<T, O>(&self,
+                  bytes: &[u8],
+                  xius: ServerTimestamp,
+                  batch: Option<String>,
+                  commit: bool,
+                  _: &PostQueue<T, O>) -> error::Result<PostResponse>
+    {
         let url = CollectionRequest::new(self.coll.clone())
                                     .batch(batch)
                                     .commit(commit)
@@ -253,6 +261,9 @@ impl<'a> BatchPoster for PostWrapper<'a> {
 
         let mut req = self.svc.build_request(Method::Post, url)?;
         req.headers_mut().set(XIfUnmodifiedSince(xius));
+        // It's very annoying that we need to copy the body here, the request
+        // shouldn't need to take ownership of it...
+        *req.body_mut() = Some(Vec::from(bytes).into());
         let mut resp = self.svc.exec_request(req, false)?;
         Ok(PostResponse::from_response(&mut resp)?)
     }

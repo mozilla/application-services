@@ -24,6 +24,12 @@ pub fn base16_encode(bytes: &[u8]) -> String {
 
 /// Typesafe way to manage server timestamps without accidentally mixing them up with
 /// local ones.
+///
+/// TODO: We should probably store this as milliseconds (or something) for stability and to get
+/// Eq/Ord. The server guarantees that these are formatted to the hundreds place (not sure if this
+/// is documented but the code does it intentionally...). This would also let us throw out negative
+/// and NaN timestamps, which the server certainly won't send, but the guarantee would make me feel
+/// better.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
 pub struct ServerTimestamp(pub f64);
 
@@ -59,7 +65,7 @@ pub const SERVER_EPOCH: ServerTimestamp = ServerTimestamp(0.0);
 
 impl ServerTimestamp {
     /// Returns None if `other` is later than `self` (Duration may not represent
-    /// negative timespans in rust)
+    /// negative timespans in rust).
     #[inline]
     pub fn duration_since(self, other: ServerTimestamp) -> Option<Duration> {
         let delta = self.0 - other.0;
@@ -72,6 +78,12 @@ impl ServerTimestamp {
             let nanos = ((delta - secs) * 1_000_000_000.0).floor() as u32;
             Some(Duration::new(secs as u64, nanos))
         }
+    }
+
+    /// Get the milliseconds for the timestamp.
+    #[inline]
+    pub fn as_millis(self) -> u64 {
+        (self.0 * 1000.0).floor() as u64
     }
 }
 

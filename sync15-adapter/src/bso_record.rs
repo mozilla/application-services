@@ -22,6 +22,9 @@ pub struct BsoRecord<T> {
     pub collection: String,
 
     #[serde(skip_serializing)]
+    // If we don't give it a default, we fail to deserialize
+    // items we wrote out during tests and such.
+    #[serde(default = "default_modified")]
     pub modified: ServerTimestamp,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -39,6 +42,9 @@ pub struct BsoRecord<T> {
         deserialize = "T: DeserializeOwned"))]
     pub payload: T,
 }
+
+// ... ugh.
+fn default_modified() -> ServerTimestamp { ServerTimestamp(0.0) }
 
 impl<T> BsoRecord<T> {
     #[inline]
