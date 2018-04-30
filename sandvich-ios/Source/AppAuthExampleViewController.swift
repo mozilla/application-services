@@ -25,7 +25,8 @@ typealias PostRegistrationCallback = (_ configuration: OIDServiceConfiguration?,
 /**
  The OIDC issuer from which the configuration will be discovered.
 */
-let kIssuer: String = "http://127.0.0.1:3030";
+//let kIssuer: String = "http://127.0.0.1:3030";
+let kIssuer: String = "https://sandvich-ios.dev.lcip.org";
 
 /**
  The OAuth client ID.
@@ -405,14 +406,15 @@ extension AppAuthExampleViewController {
         assert(true);
         
         let addParams = [
-            "keys_jwk": dict["keys_jwk"]!
+            "keys_jwk": dict["keys_jwk"]!,
+            "access_type": "offline"
         ]
 
         // builds authentication request
         let request = OIDAuthorizationRequest(configuration: configuration,
                                               clientId: clientID,
                                               clientSecret: clientSecret,
-                                              scopes: [OIDScopeOpenID, OIDScopeProfile],
+                                              scopes: [OIDScopeOpenID, OIDScopeProfile, "https://identity.mozilla.com/apps/oldsync"],
                                               redirectURL: redirectURI,
                                               responseType: OIDResponseTypeCode,
                                               additionalParameters: addParams)
@@ -424,7 +426,9 @@ extension AppAuthExampleViewController {
 
             if let authState = authState {
                 self.setAuthState(authState)
+                
                 self.logMessage("Got authorization tokens. Access token: \(authState.lastTokenResponse?.accessToken ?? "DEFAULT_TOKEN")")
+                self.logMessage("Got keys_jwe: \(authState.lastTokenResponse?.additionalParameters!["keys_jwe"] ?? "DEFAULT_KEYS" as NSCopying & NSObjectProtocol)")
             } else {
                 self.logMessage("Authorization error: \(error?.localizedDescription ?? "DEFAULT_ERROR")")
                 self.setAuthState(nil)
