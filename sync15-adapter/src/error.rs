@@ -67,6 +67,17 @@ error_chain! {
             description("Record is larger than the maximum size allowed by the server")
             display("Record is larger than the maximum size allowed by the server")
         }
+
+        BatchInterrupted {
+            description("Batch interrupted: server responded with 412")
+            display("Batch interrupted: server responded with 412")
+        }
+
+        RecordUploadFailed(problems: ::std::collections::HashMap<String, String>) {
+            description("Some records failed to upload, but success was required for the collection")
+            display("Several records failed to upload ({}), but success was required for the collection",
+                    problems.len())
+        }
     }
 }
 

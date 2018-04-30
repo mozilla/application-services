@@ -24,7 +24,7 @@ pub struct BsoRecord<T> {
     #[serde(skip_serializing)]
     // If we don't give it a default, we fail to deserialize
     // items we wrote out during tests and such.
-    #[serde(default = "default_modified")]
+    #[serde(default = "ServerTimestamp::default")]
     pub modified: ServerTimestamp,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -42,9 +42,6 @@ pub struct BsoRecord<T> {
         deserialize = "T: DeserializeOwned"))]
     pub payload: T,
 }
-
-// ... ugh.
-fn default_modified() -> ServerTimestamp { ServerTimestamp(0.0) }
 
 impl<T> BsoRecord<T> {
     #[inline]
@@ -70,6 +67,13 @@ impl<T> BsoRecord<T> {
 pub trait Sync15Record: Clone + DeserializeOwned + Serialize {
     fn collection_tag() -> &'static str;
     fn record_id(&self) -> &str;
+
+    // Max TTL is actually 31536000, weirdly.
+    #[inline]
+    fn ttl() -> Option<u32> { None }
+
+    #[inline]
+    fn sortindex(&self) -> Option<i32> { None }
 }
 
 impl<T> From<T> for BsoRecord<T> where T: Sync15Record {
@@ -77,11 +81,11 @@ impl<T> From<T> for BsoRecord<T> where T: Sync15Record {
     fn from(payload: T) -> BsoRecord<T> {
         let id = payload.record_id().into();
         let collection = T::collection_tag().into();
+        let sortindex = payload.sortindex();
         BsoRecord {
-            id, collection, payload,
+            id, collection, payload, sortindex,
             modified: ServerTimestamp(0.0),
-            sortindex: None,
-            ttl: None,
+            ttl: T::ttl(),
         }
     }
 }
@@ -110,6 +114,21 @@ impl<T> DerefMut for BsoRecord<T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut T {
         &mut self.payload
+    }
+}
+
+impl<T> BsoRecord<T> {
+    /// If T is a Sync15Record, then you can/should just use record.into() instead!
+    #[inline]
+    pub fn new_non_record<I: Into<String>, C: Into<String>>(id: I, coll: C, payload: T) -> BsoRecord<T> {
+        BsoRecord {
+            id: id.into(),
+            collection: coll.into(),
+            ttl: None,
+            sortindex: None,
+            modified: ServerTimestamp::default(),
+            payload,
+        }
     }
 }
 
@@ -231,6 +250,38 @@ mod tests {
         let val_str_payload: serde_json::Value = serde_json::from_str(goal).unwrap();
         assert_eq!(val_str_payload["payload"].as_str().unwrap().len(),
                    record.payload.serialized_len())
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    struct MyRecordType {
+        id: String,
+        data: String,
+        idx: i32,
+    }
+
+    impl Sync15Record for MyRecordType {
+        fn collection_tag() -> &'static str { "my_cool_records" }
+        fn record_id(&self) -> &str { &self.id }
+        // 3 years in seconds
+        fn ttl() -> Option<u32> { Some(3 * 365 * 24 * 60 * 60) }
+        fn sortindex(&self) -> Option<i32> { Some(self.idx) }
+    }
+
+    #[test]
+    fn test_sync15record() {
+        let record: MyRecordType = MyRecordType {
+            id: "aaabbbcccddd".into(),
+            data: "this is extremely good and cool data".into(),
+            idx: 9001
+        };
+        let bso: BsoRecord<MyRecordType> = record.into();
+        let s = serde_json::to_string(&bso).unwrap();
+        let out: serde_json::Value = serde_json::from_str(&s).unwrap();
+        let ttl = 3*365*24*60*60;
+        assert_eq!(out["ttl"], json!(ttl));
+        assert_eq!(out["sortindex"], json!(9001));
+        assert_eq!(out["id"], json!("aaabbbcccddd"));
+        assert_eq!(out["collection"], json!("my_cool_records"));
     }
 
 }

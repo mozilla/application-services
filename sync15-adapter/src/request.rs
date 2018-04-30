@@ -14,7 +14,6 @@ use error::{self, Result};
 use hyper::{StatusCode};
 use reqwest::Response;
 
-
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RequestOrder { Oldest, Newest, Index }
 
@@ -250,9 +249,11 @@ impl Default for InfoConfiguration {
 #[derive(Debug, Clone, Deserialize)]
 pub struct UploadResult {
     batch: Option<String>,
-    /// Maps record id => why failde
+    /// Maps record id => why failed
+    #[serde(default = "HashMap::new")]
     pub failed: HashMap<String, String>,
     /// Vec of ids
+    #[serde(default = "Vec::new")]
     pub success: Vec<String>
 }
 
@@ -267,6 +268,7 @@ pub struct PostResponse {
 impl PostResponse {
     pub fn from_response(r: &mut Response) -> Result<PostResponse> {
         let result: UploadResult = r.json()?;
+        // TODO Can this happen in error cases?
         let last_modified = r.headers().get::<XLastModified>().map(|h| **h).ok_or_else(||
             error::unexpected("Server didn't send X-Last-Modified header"))?;
         let status = r.status();
@@ -285,6 +287,7 @@ pub enum BatchState {
 #[derive(Debug)]
 pub struct PostQueue<Post, OnResponse> {
     poster: Post,
+    // XXX: It's cludgey that this needs to be pub just so we can get at the data it saves...
     on_response: OnResponse,
     post_limits: LimitTracker,
     batch_limits: LimitTracker,
@@ -311,6 +314,56 @@ pub trait BatchPoster {
 // is somewhat better for documentation.
 pub trait PostResponseHandler {
     fn handle_response(&mut self, r: PostResponse, mid_batch: bool) -> Result<()>;
+}
+
+
+#[derive(Debug, Clone)]
+pub(crate) struct NormalResponseHandler {
+    pub failed_ids: Vec<String>,
+    pub successful_ids: Vec<String>,
+    pub allow_failed: bool,
+    pub pending_failed: Vec<String>,
+    pub pending_success: Vec<String>,
+}
+
+impl NormalResponseHandler {
+    pub fn new(allow_failed: bool) -> NormalResponseHandler {
+        NormalResponseHandler {
+            failed_ids: vec![],
+            successful_ids: vec![],
+            pending_failed: vec![],
+            pending_success: vec![],
+            allow_failed,
+        }
+    }
+}
+
+impl PostResponseHandler for NormalResponseHandler {
+    fn handle_response(&mut self, r: PostResponse, mid_batch: bool) -> error::Result<()> {
+        if !r.status.is_success() {
+            warn!("Got failure status from server while posting: {}", r.status);
+            if r.status == StatusCode::PreconditionFailed {
+                bail!(error::ErrorKind::BatchInterrupted);
+            } else {
+                bail!(error::ErrorKind::StorageHttpError(r.status,
+                    "collection storage (TODO: record route somewhere)".into()));
+            }
+        }
+        if r.result.failed.len() > 0 && !self.allow_failed {
+            bail!(error::ErrorKind::RecordUploadFailed(r.result.failed.clone()));
+        }
+        for id in r.result.success.iter() {
+            self.pending_success.push(id.clone());
+        }
+        for kv in r.result.failed.iter() {
+            self.pending_failed.push(kv.0.clone());
+        }
+        if !mid_batch {
+            self.successful_ids.append(&mut self.pending_success);
+            self.failed_ids.append(&mut self.pending_failed);
+        }
+        Ok(())
+    }
 }
 
 impl<Poster, OnResponse> PostQueue<Poster, OnResponse>
@@ -497,6 +550,23 @@ where
     }
 }
 
+impl<Poster> PostQueue<Poster, NormalResponseHandler> {
+    pub(crate) fn successful_and_failed_ids(&mut self) -> (Vec<String>, Vec<String>) {
+        let mut good = Vec::with_capacity(self.on_response.successful_ids.len());
+        // includes pending_success since they weren't committed!
+        let mut bad = Vec::with_capacity(self.on_response.failed_ids.len() +
+                                         self.on_response.pending_failed.len() +
+                                         self.on_response.pending_success.len());
+        good.append(&mut self.on_response.successful_ids);
+
+        bad.append(&mut self.on_response.failed_ids);
+        bad.append(&mut self.on_response.pending_failed);
+        bad.append(&mut self.on_response.pending_success);
+
+        (good, bad)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -541,21 +611,6 @@ mod test {
     }
 
     impl PostedData {
-        // Just for convenience when testing
-        // fn new<Body, Batch, S, Time>(body: Body, batch: Batch, ts: Time, commit: bool) -> PostedData
-        // where Body: Into<String>,
-        //       Batch: Into<Option<S>>,
-        //       S: Into<String>,
-        //       Time: Into<ServerTimestamp>
-        // {
-        //     PostedData {
-        //         body: body.into(),
-        //         xius: ts.into(),
-        //         batch: batch.into().map(|x| x.into()),
-        //         commit
-        //     }
-        // }
-
         fn records_as_json(&self) -> Vec<serde_json::Value> {
             let values = serde_json::from_str::<serde_json::Value>(&self.body).expect("Posted invalid json");
             // Check that they actually deserialize as what we want

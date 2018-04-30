@@ -6,6 +6,8 @@ use std::convert::From;
 use std::time::Duration;
 use std::{fmt, num};
 use std::str::FromStr;
+use openssl;
+use base64;
 
 pub fn base16_encode(bytes: &[u8]) -> String {
     // This seems to be the fastest way of doing this without using a bunch of unsafe:
@@ -22,6 +24,12 @@ pub fn base16_encode(bytes: &[u8]) -> String {
     String::from_utf8(result).unwrap()
 }
 
+pub fn random_guid() -> Result<String, openssl::error::ErrorStack> {
+    let mut bytes = vec![0u8; 9];
+    openssl::rand::rand_bytes(&mut bytes)?;
+    Ok(base64::encode_config(&bytes, base64::URL_SAFE_NO_PAD))
+}
+
 /// Typesafe way to manage server timestamps without accidentally mixing them up with
 /// local ones.
 ///
@@ -30,7 +38,7 @@ pub fn base16_encode(bytes: &[u8]) -> String {
 /// is documented but the code does it intentionally...). This would also let us throw out negative
 /// and NaN timestamps, which the server certainly won't send, but the guarantee would make me feel
 /// better.
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Deserialize, Serialize)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Default)]
 pub struct ServerTimestamp(pub f64);
 
 impl From<ServerTimestamp> for f64 {
@@ -90,6 +98,8 @@ impl ServerTimestamp {
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::collections::HashSet;
+
     #[test]
     fn test_server_timestamp() {
         let t0 = ServerTimestamp(10300.15);
@@ -110,5 +120,16 @@ mod test {
         assert_eq!(base16_encode(&[0xff, 0xff, 0xff, 0xff]), "ffffffff");
         assert_eq!(base16_encode(&[0x00, 0x01, 0x02, 0x03, 0x0a]), "000102030a");
         assert_eq!(base16_encode(&[0x00, 0x10, 0x20, 0x30, 0xa0]), "00102030a0");
+    }
+
+    #[test]
+    fn test_gen_guid() {
+        let mut set = HashSet::new();
+        for _ in 0..100 {
+            let res = random_guid().unwrap();
+            assert_eq!(res.len(), 12);
+            assert!(!set.contains(&res));
+            set.insert(res);
+        }
     }
 }
