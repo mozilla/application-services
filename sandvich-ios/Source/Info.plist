@@ -23,7 +23,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>https</string>
+				<string>com.mozilla.sandvich</string>
 			</array>
 		</dict>
 	</array>
