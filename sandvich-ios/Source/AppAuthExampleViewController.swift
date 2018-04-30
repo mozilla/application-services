@@ -25,7 +25,7 @@ typealias PostRegistrationCallback = (_ configuration: OIDServiceConfiguration?,
 /**
  The OIDC issuer from which the configuration will be discovered.
 */
-let kIssuer: String = "https://accounts.firefox.com";
+let kIssuer: String = "http://127.0.0.1:3030";
 
 /**
  The OAuth client ID.
@@ -33,7 +33,7 @@ let kIssuer: String = "https://accounts.firefox.com";
  For client configuration instructions, see the [README](https://github.com/openid/AppAuth-iOS/blob/master/Examples/Example-iOS_Swift-Carthage/README.md).
  Set to nil to use dynamic registration with this example.
 */
-let kClientID: String? = "7f368c6886429f19";
+let kClientID: String? = "22d74070a481bc73";
 
 /**
  The OAuth redirect URI for the client @c kClientID.
@@ -41,7 +41,7 @@ let kClientID: String? = "7f368c6886429f19";
  For client configuration instructions, see the [README](https://github.com/openid/AppAuth-iOS/blob/master/Examples/Example-iOS_Swift-Carthage/README.md).
 */
 //let kRedirectURI: String = "com.example.app:/oauth2redirect/example-provider";
-let kRedirectURI: String = "https://mozilla.github.io/notes/fxa/android-redirect.html";
+let kRedirectURI: String = "com.mozilla.sandvich:/oauth2redirect/fxa-provider";
 
 /**
  NSCoding key for the authState property.
@@ -350,6 +350,8 @@ extension AppAuthExampleViewController {
             self.logMessage("Error creating URL for : \(kRedirectURI)")
             return
         }
+        
+    
 
         let request: OIDRegistrationRequest = OIDRegistrationRequest(configuration: configuration,
                                                                      redirectURIs: [redirectURI],
@@ -386,6 +388,25 @@ extension AppAuthExampleViewController {
             self.logMessage("Error accessing AppDelegate")
             return
         }
+        
+        
+        let cfg = FxAConfig.release()
+        let resp = "{\"customizeSync\":false,\"email\":\"vlad2@restmail.net\",\"keyFetchToken\":\"e25ea2b104e061142fa53827fcf98c83cea46ebdb1988169b9166e07d6ba2834\",\"sessionToken\":\"9996bdf23e8bf59f66f64db61732ef853bb6d912ff567fa3a027db3afe564d31\",\"uid\":\"5946fdc94c964f3c88f4f629a31cad3d\",\"unwrapBKey\":\"5cbac7381e37e3db256313415e10d0462239589945a862f5827c958efe12133a\",\"verified\":false,\"verifiedCanLinkAccount\":true}"
+        let fxa = FirefoxAccount.from(config: cfg, webChannelResponse: resp)
+        let keys_jwk = URL(string: fxa.beginOAuthFlow(clientId: "WAT", redirectURI: "WAT", scopes: "WAT")!)!
+        var dict = [String:String]()
+        let components = URLComponents(url: keys_jwk, resolvingAgainstBaseURL: false)!
+        if let queryItems = components.queryItems {
+            for item in queryItems {
+                dict[item.name] = item.value!
+            }
+        }
+        print(dict)
+        assert(true);
+        
+        let addParams = [
+            "keys_jwk": dict["keys_jwk"]!
+        ]
 
         // builds authentication request
         let request = OIDAuthorizationRequest(configuration: configuration,
@@ -394,7 +415,7 @@ extension AppAuthExampleViewController {
                                               scopes: [OIDScopeOpenID, OIDScopeProfile],
                                               redirectURL: redirectURI,
                                               responseType: OIDResponseTypeCode,
-                                              additionalParameters: nil)
+                                              additionalParameters: addParams)
 
         // performs authentication request
         logMessage("Initiating authorization request with scope: \(request.scope ?? "DEFAULT_SCOPE")")
