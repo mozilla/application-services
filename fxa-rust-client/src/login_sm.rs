@@ -5,7 +5,7 @@ use http_client::browser_id::BrowserIDKeyPair;
 use http_client::errors::Error as HTTPClientError;
 use http_client::errors::ErrorKind::RemoteError as FxARemoteError;
 use http_client::*;
-use login_sm::FxAState::*;
+use login_sm::FxALoginState::*;
 use util::{now, Xorable};
 
 pub struct FxALoginStateMachine<'a> {
@@ -17,7 +17,7 @@ impl<'a> FxALoginStateMachine<'a> {
         FxALoginStateMachine { client }
     }
 
-    pub fn advance(&self, from: FxAState) -> FxAState {
+    pub fn advance(&self, from: FxALoginState) -> FxALoginState {
         let mut cur_state = from;
         loop {
             let cur_state_discriminant = std::mem::discriminant(&cur_state);
@@ -32,7 +32,7 @@ impl<'a> FxALoginStateMachine<'a> {
     }
 
     // Returns None if the state hasn't changed.
-    fn advance_one(&self, from: FxAState) -> FxAState {
+    fn advance_one(&self, from: FxALoginState) -> FxALoginState {
         info!("advancing from state {:?}", from);
         match from {
             Married(state) => {
@@ -105,11 +105,11 @@ impl<'a> FxALoginStateMachine<'a> {
         }
     }
 
-    fn handle_ready_for_key_state<F: FnOnce(ReadyForKeysState) -> FxAState>(
+    fn handle_ready_for_key_state<F: FnOnce(ReadyForKeysState) -> FxALoginState>(
         &self,
         same: F,
         state: ReadyForKeysState,
-    ) -> FxAState {
+    ) -> FxALoginState {
         debug!("Fetching keys.");
         let resp = self.client.keys(&state.key_fetch_token);
         match resp {
@@ -150,7 +150,7 @@ impl<'a> FxALoginStateMachine<'a> {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub enum FxAState {
+pub enum FxALoginState {
     Married(MarriedState),
     CohabitingBeforeKeyPair(CohabitingBeforeKeyPairState),
     CohabitingAfterKeyPair(CohabitingAfterKeyPairState),
