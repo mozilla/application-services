@@ -1,4 +1,4 @@
-use hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256};
+use hawk::{Credentials, Digest, Key, PayloadHasher, RequestBuilder};
 use hex;
 use reqwest::{header, Client, Method, Request};
 use serde_json;
@@ -38,7 +38,7 @@ impl<'a> FxAHAWKRequestBuilder<'a> {
         let method = format!("{}", self.method);
         let mut hawk_request_builder = RequestBuilder::from_url(method.as_str(), &self.url)?;
         if let Some(ref body) = self.body {
-            hash = PayloadHasher::hash("application/json", &SHA256, &body);
+            hash = PayloadHasher::hash("application/json", Digest::sha256(), &body)?;
             hawk_request_builder = hawk_request_builder.hash(&hash[..]);
         }
         let hawk_request = hawk_request_builder.request();
@@ -46,7 +46,7 @@ impl<'a> FxAHAWKRequestBuilder<'a> {
         let hmac_key = &self.hkdf_sha256_key[KEY_LENGTH..(2 * KEY_LENGTH)];
         let hawk_credentials = Credentials {
             id: token_id,
-            key: Key::new(hmac_key, &SHA256),
+            key: Key::new(hmac_key, Digest::sha256())?,
         };
         let hawk_header = hawk_request.make_header(&hawk_credentials)?;
         let hawk_header = format!("Hawk {}", hawk_header);

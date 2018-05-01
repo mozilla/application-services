@@ -25,7 +25,8 @@ typealias PostRegistrationCallback = (_ configuration: OIDServiceConfiguration?,
 /**
  The OIDC issuer from which the configuration will be discovered.
 */
-let kIssuer: String = "http://127.0.0.1:3030";
+//let kIssuer: String = "http://127.0.0.1:3030";
+let kIssuer: String = "https://sandvich-ios.dev.lcip.org";
 
 /**
  The OAuth client ID.
@@ -393,7 +394,10 @@ extension AppAuthExampleViewController {
         let cfg = FxAConfig.release()
         let resp = "{\"customizeSync\":false,\"email\":\"vlad2@restmail.net\",\"keyFetchToken\":\"e25ea2b104e061142fa53827fcf98c83cea46ebdb1988169b9166e07d6ba2834\",\"sessionToken\":\"9996bdf23e8bf59f66f64db61732ef853bb6d912ff567fa3a027db3afe564d31\",\"uid\":\"5946fdc94c964f3c88f4f629a31cad3d\",\"unwrapBKey\":\"5cbac7381e37e3db256313415e10d0462239589945a862f5827c958efe12133a\",\"verified\":false,\"verifiedCanLinkAccount\":true}"
         let fxa = FirefoxAccount.from(config: cfg, webChannelResponse: resp)
-        let keys_jwk = URL(string: fxa.beginOAuthFlow(clientId: "WAT", redirectURI: "WAT", scopes: "WAT")!)!
+        let oauthFlow = fxa.beginOAuthFlow(clientId: "WAT", redirectURI: "WAT", scopes: "WAT")!
+        let keys_jwk = URL(string: oauthFlow.redirectURI)!;
+        let kid = oauthFlow.kid;
+        
         var dict = [String:String]()
         let components = URLComponents(url: keys_jwk, resolvingAgainstBaseURL: false)!
         if let queryItems = components.queryItems {
@@ -405,14 +409,15 @@ extension AppAuthExampleViewController {
         assert(true);
         
         let addParams = [
-            "keys_jwk": dict["keys_jwk"]!
+            "keys_jwk": dict["keys_jwk"]!,
+            "access_type": "offline"
         ]
 
         // builds authentication request
         let request = OIDAuthorizationRequest(configuration: configuration,
                                               clientId: clientID,
                                               clientSecret: clientSecret,
-                                              scopes: [OIDScopeOpenID, OIDScopeProfile],
+                                              scopes: [OIDScopeOpenID, OIDScopeProfile, "https://identity.mozilla.com/apps/oldsync"],
                                               redirectURL: redirectURI,
                                               responseType: OIDResponseTypeCode,
                                               additionalParameters: addParams)
@@ -424,7 +429,14 @@ extension AppAuthExampleViewController {
 
             if let authState = authState {
                 self.setAuthState(authState)
+                
                 self.logMessage("Got authorization tokens. Access token: \(authState.lastTokenResponse?.accessToken ?? "DEFAULT_TOKEN")")
+                
+                let keys_jwe = authState.lastTokenResponse?.additionalParameters!["keys_jwe"];
+                self.logMessage("Got keys_jwe: \(keys_jwe)");
+                let syncKeys = fxa.finishOAuthFlow(jwe: keys_jwe as! String, kid: kid);
+                self.logMessage("Got sync keys: \(syncKeys)");
+                self.logMessage("Done");
             } else {
                 self.logMessage("Authorization error: \(error?.localizedDescription ?? "DEFAULT_ERROR")")
                 self.setAuthState(nil)
