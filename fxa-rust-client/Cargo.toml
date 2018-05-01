@@ -15,11 +15,9 @@ hex = "0.3.1"
 hkdf = "0.4"
 hmac = "0.6.2"
 sha2 = "0.7.0"
-# Replace with our openssl fork (https://github.com/eoger/rust-hawk/tree/use-openssl)
-# once openssl doesn't direct to a git repo.
-hawk = { git = "https://github.com/eoger/rust-hawk", branch = "use-ring-master" }
+hawk = { git = "https://github.com/eoger/rust-hawk", branch = "use-openssl" }
 error-chain = "0.11.0"
-openssl = { git = "https://github.com/sfackler/rust-openssl", rev = "24ece94" }
+openssl = "0.10.7"
 
 [workspace]
 members = ["ffi"]
