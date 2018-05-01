@@ -278,14 +278,15 @@ pub struct KeysResponse {
 
 #[cfg(test)]
 mod tests {
-    extern crate ring;
-    use self::ring::{digest, pbkdf2};
     use super::*;
+    use openssl::pkcs5::pbkdf2_hmac;
+    use openssl::hash::MessageDigest;
 
     fn quick_strech_pwd(email: &str, pwd: &str) -> Vec<u8> {
         let salt = FxAClient::kwe("quickStretch", email);
-        let mut out = [0u8; digest::SHA256_OUTPUT_LEN];
-        pbkdf2::derive(&digest::SHA256, 1000, &salt, pwd.as_bytes(), &mut out);
+        let digest = MessageDigest::sha256();
+        let mut out = [0u8; 32];
+        pbkdf2_hmac(pwd.as_bytes(), &salt, 1000, digest, &mut out);
         out.to_vec()
     }
 

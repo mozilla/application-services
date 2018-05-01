@@ -21,6 +21,3 @@ openssl = "0.10.7"
 
 [workspace]
 members = ["ffi"]
-
-[dev-dependencies]
-ring = "0.13.0-alpha"
