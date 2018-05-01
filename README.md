@@ -15,3 +15,8 @@
 * [fxa-client-ios](https://github.com/eoger/fxa-client-ios) - an iOS framework that exposes `fxa-rust-client`.
 * [mentat](https://github.com/mozilla/mentat) - a persistent, relational store inspired by Datomic and DataScript.
 * [sync-server](https://github.com/mozilla-services/syncserver) - an all-in-one package for running a self-hosted Firefox Sync server.
+
+### Tools
+
+* [eqrion/cbindgen](https://github.com/eqrion/cbindgen) - generate C bindings from Rust code
+* [rust-lang-nursery/rust-bindgen](https://github.com/rust-lang-nursery/rust-bindgen) - generate Rust FFI bindings to C (and some C++) libraries
