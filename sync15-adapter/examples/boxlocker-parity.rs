@@ -1,5 +1,5 @@
 
-extern crate sync15_adapter;
+extern crate sync15_adapter as sync;
 extern crate error_chain;
 extern crate url;
 extern crate base64;
@@ -19,7 +19,6 @@ use std::process;
 use std::time;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
-use sync15_adapter as sync;
 
 #[derive(Debug, Deserialize)]
 struct OAuthCredentials {

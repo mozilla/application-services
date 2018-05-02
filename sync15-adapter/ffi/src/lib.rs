@@ -2,10 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-extern crate sync15_adapter;
+extern crate sync15_adapter as sync;
 extern crate libc;
 
-use sync15_adapter as sync;
 use sync::record_types::{PasswordRecord};
 use std::ffi::{CStr, CString};
 use libc::c_char;
