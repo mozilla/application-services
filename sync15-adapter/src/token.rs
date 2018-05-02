@@ -8,7 +8,6 @@ use reqwest::{Client, Request, Url};
 use hyper::header::{Authorization, Bearer};
 use error::{self, Result};
 use std::fmt;
-use openssl::hash::MessageDigest;
 use std::borrow::{Borrow, Cow};
 use util::ServerTimestamp;
 
@@ -97,7 +96,7 @@ impl TokenserverClient {
                                 "Missing or corrupted X-Timestamp header from token server"))?;
         let credentials = hawk::Credentials {
             id: token.id.clone(),
-            key: hawk::Key::new(token.key.as_bytes(), MessageDigest::sha256())?,
+            key: hawk::Key::new(token.key.as_bytes(), hawk::Digest::sha256())?,
         };
         Ok(TokenserverClient {
             token,

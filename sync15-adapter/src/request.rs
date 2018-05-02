@@ -287,7 +287,6 @@ pub enum BatchState {
 #[derive(Debug)]
 pub struct PostQueue<Post, OnResponse> {
     poster: Post,
-    // XXX: It's cludgey that this needs to be pub just so we can get at the data it saves...
     on_response: OnResponse,
     post_limits: LimitTracker,
     batch_limits: LimitTracker,

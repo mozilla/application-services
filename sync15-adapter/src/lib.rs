@@ -22,7 +22,8 @@ extern crate serde_derive;
 #[macro_use]
 extern crate log;
 
-#[macro_use]
+// Right now we only need the `json!` macro in tests, and a raw `#[macro_use]` gives us a warning
+#[cfg_attr(test, macro_use)]
 extern crate serde_json;
 
 #[macro_use]
