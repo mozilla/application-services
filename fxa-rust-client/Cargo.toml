@@ -19,5 +19,3 @@ hawk = { git = "https://github.com/eoger/rust-hawk", branch = "use-openssl" }
 error-chain = "0.11.0"
 openssl = "0.10.7"
 
-[workspace]
-members = ["ffi"]
