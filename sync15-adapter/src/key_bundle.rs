@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use error::{Result, ErrorKind};
-use util::base16_encode;
+use base16;
 use base64;
 use openssl::{self, symm};
 use openssl::hash::MessageDigest;
@@ -86,8 +86,9 @@ impl KeyBundle {
         Ok(out)
     }
 
+    /// Important! Don't compare against this directly! use `verify_hmac` or `verify_hmac_string`!
     pub fn hmac_string(&self, ciphertext: &[u8]) -> Result<String> {
-        Ok(base16_encode(&self.hmac(ciphertext)?))
+        Ok(base16::encode_lower(&self.hmac(ciphertext)?))
     }
 
     pub fn verify_hmac(&self, expected_hmac: &[u8], ciphertext_base64: &str) -> Result<bool> {
@@ -99,8 +100,23 @@ impl KeyBundle {
 
     pub fn verify_hmac_string(&self, expected_hmac: &str, ciphertext_base64: &str) -> Result<bool> {
         let computed_hmac = self.hmac(ciphertext_base64.as_bytes())?;
-        let computed_hmac_string = base16_encode(&computed_hmac);
-        Ok(openssl::memcmp::eq(&expected_hmac.as_bytes(), &computed_hmac_string.as_bytes()))
+        // Note: openssl::memcmp::eq panics if the sizes aren't the same. Desktop returns that it
+        // was a verification failure, so we will too.
+        if expected_hmac.len() != 64 {
+            warn!("Garbage HMAC verification string: Wrong length");
+            return Ok(false);
+        }
+        // Decode the expected_hmac into bytes to avoid issues if a client happens to encode
+        // this as uppercase. This shouldn't happen in practice, but doing it this way is more
+        // robust and avoids an allocation.
+        let mut decoded_hmac = [0u8; 32];
+
+        if let Err(_) = base16::decode_slice(expected_hmac, &mut decoded_hmac) {
+            warn!("Garbage HMAC verification string: contained non base16 characters");
+            return Ok(false);
+        }
+
+        Ok(openssl::memcmp::eq(&decoded_hmac, &computed_hmac))
     }
 
     /// Decrypt the provided ciphertext with the given iv, and decodes the
@@ -173,8 +189,6 @@ mod test {
     fn test_hmac() {
         let key_bundle = KeyBundle::from_base64(ENC_KEY_B64, HMAC_KEY_B64).unwrap();
         let ciphertext_base64 = CIPHERTEXT_B64_PIECES.join("");
-        let hmac = key_bundle.hmac_string(ciphertext_base64.as_bytes()).unwrap();
-        assert_eq!(hmac, HMAC_B16);
         assert!(key_bundle.verify_hmac_string(HMAC_B16, &ciphertext_base64).unwrap());
     }
 
