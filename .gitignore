@@ -1,3 +1,4 @@
 website/build
-target/
+target
 Cargo.lock
+credentials.json

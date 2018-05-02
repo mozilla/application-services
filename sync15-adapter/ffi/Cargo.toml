@@ -1,0 +1,14 @@
+[package]
+name = "sync-adapter-ffi"
+version = "0.1.0"
+authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
+
+[lib]
+name = "sync_adapter"
+crate-type = ["staticlib"]
+
+[dependencies]
+libc = "0.2"
+
+[dependencies.sync15-adapter]
+path = "../"

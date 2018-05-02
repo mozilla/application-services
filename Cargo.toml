@@ -1,5 +1,6 @@
 [workspace]
 members = [
     "boxlocker",
-    "fxa-rust-client"
+    "sync15-adapter",
+    "sync15-adapter/ffi"
 ]
