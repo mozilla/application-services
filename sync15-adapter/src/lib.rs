@@ -206,18 +206,14 @@ impl Sync15Service {
                     .key_for_collection(collection))
     }
 
-    pub fn all_records<T>(&mut self, collection: &str) -> error::Result<Vec<BsoRecord<T>>> where T: Sync15Record {
+    pub fn all_records<T>(&mut self, collection: &str) ->
+            error::Result<Vec<BsoRecord<MaybeTombstone<T>>>> where T: Sync15Record {
         let key = self.key_for_collection(collection)?;
         let mut resp = self.collection_request(Method::Get, CollectionRequest::new(collection).full())?;
         let records: Vec<BsoRecord<EncryptedPayload>> = resp.json()?;
-        let mut result = Vec::with_capacity(records.len());
-        for record in records {
-            let decrypted: BsoRecord<MaybeTombstone<T>> = record.decrypt(key)?;
-            if let Some(record) = decrypted.record() {
-                result.push(record);
-            }
-        }
-        Ok(result)
+        records.into_iter()
+               .map(|record| record.decrypt::<MaybeTombstone<T>>(key))
+               .collect()
     }
 
     fn update_timestamp(&self, hs: &header::Headers) {

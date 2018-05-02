@@ -131,7 +131,10 @@ fn start() -> Result<(), Box<Error>> {
     )?;
 
     svc.remote_setup()?;
-    let passwords = svc.all_records::<sync::record_types::PasswordRecord>("passwords")?;
+    let passwords = svc.all_records::<sync::record_types::PasswordRecord>("passwords")?
+                       .into_iter()
+                       .filter_map(|r| r.record())
+                       .collect::<Vec<_>>();
 
     println!("Found {} passwords", passwords.len());
 

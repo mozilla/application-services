@@ -1,5 +1,6 @@
 [workspace]
 members = [
     "boxlocker",
-    "sync15-adapter"
+    "sync15-adapter",
+    "sync15-adapter/ffi"
 ]
