@@ -9,21 +9,6 @@ use std::str::FromStr;
 use openssl;
 use base64;
 
-pub fn base16_encode(bytes: &[u8]) -> String {
-    // This seems to be the fastest way of doing this without using a bunch of unsafe:
-    // https://gist.github.com/thomcc/c4860d68cf31f9b0283c692f83a239f3
-    static HEX_CHARS: &'static [u8] = b"0123456789abcdef";
-    let mut result = vec![0u8; bytes.len() * 2];
-    let mut index = 0;
-    for &byte in bytes {
-        result[index + 0] = HEX_CHARS[(byte >> 4) as usize];
-        result[index + 1] = HEX_CHARS[(byte & 15) as usize];
-        index += 2;
-    }
-    // We know statically that this unwrap is safe, since we can only write ascii
-    String::from_utf8(result).unwrap()
-}
-
 pub fn random_guid() -> Result<String, openssl::error::ErrorStack> {
     let mut bytes = vec![0u8; 9];
     openssl::rand::rand_bytes(&mut bytes)?;
@@ -109,17 +94,6 @@ mod test {
         let dur = t0.duration_since(t1).unwrap();
         assert_eq!(dur.as_secs(), 200);
         assert_eq!(dur.subsec_nanos(), 100_000_000);
-    }
-
-    #[test]
-    fn test_base16_encode() {
-        assert_eq!(base16_encode(&[0x01, 0x10, 0x00, 0x00, 0xab, 0xbc, 0xde, 0xff]),
-                   "01100000abbcdeff");
-        assert_eq!(base16_encode(&[]), "");
-        assert_eq!(base16_encode(&[0, 0, 0, 0]), "00000000");
-        assert_eq!(base16_encode(&[0xff, 0xff, 0xff, 0xff]), "ffffffff");
-        assert_eq!(base16_encode(&[0x00, 0x01, 0x02, 0x03, 0x0a]), "000102030a");
-        assert_eq!(base16_encode(&[0x00, 0x10, 0x20, 0x30, 0xa0]), "00102030a0");
     }
 
     #[test]

@@ -30,6 +30,7 @@ extern crate serde_json;
 extern crate error_chain;
 
 extern crate url;
+extern crate base16;
 
 // TODO: Some of these don't need to be pub...
 pub mod key_bundle;
