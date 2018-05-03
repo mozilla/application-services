@@ -146,19 +146,20 @@ impl<'a> FxAClient<'a> {
     pub fn oauth_authorize(
         &self,
         session_token: &[u8],
-        scope: &str,
+        scopes: &[&str],
     ) -> Result<OAuthAuthorizeResponse> {
+        let scope = scopes.join(" ");
         let audience = self.get_oauth_audience()?;
         let key_pair = FxAClient::key_pair(1024)?;
         let certificate = self.sign(session_token, key_pair.public_key())?.certificate;
         let assertion =
             jwt_utils::create_assertion(key_pair.private_key(), &certificate, &audience)?;
         let parameters = json!({
-      "assertion": assertion,
-      "client_id": OAUTH_CLIENT_ID,
-      "response_type": "token",
-      "scope": scope
-    });
+          "assertion": assertion,
+          "client_id": OAUTH_CLIENT_ID,
+          "response_type": "token",
+          "scope": scope
+        });
         let key = FxAClient::derive_key_from_session_token(session_token)?;
         let url = self.build_url(&self.config.oauth_url, "authorization")?;
         let request = FxAHAWKRequestBuilder::new(Method::Post, url, &key)
@@ -279,8 +280,8 @@ pub struct KeysResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openssl::pkcs5::pbkdf2_hmac;
     use openssl::hash::MessageDigest;
+    use openssl::pkcs5::pbkdf2_hmac;
 
     fn quick_strech_pwd(email: &str, pwd: &str) -> Vec<u8> {
         let salt = FxAClient::kwe("quickStretch", email);

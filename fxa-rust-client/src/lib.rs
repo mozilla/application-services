@@ -22,7 +22,7 @@ use std::mem;
 
 use self::login_sm::FxALoginState::*;
 use self::login_sm::*;
-use self::login_sm::{FxALoginStateMachine, FxALoginState};
+use self::login_sm::{FxALoginState, FxALoginStateMachine};
 use errors::*; // TODO: Error conflict because of the line bellow
 use http_client::browser_id::{jwt_utils, BrowserIDKeyPair};
 use http_client::FxAClient;
@@ -114,18 +114,14 @@ impl FirefoxAccount {
                 email: credentials.email,
                 login_state,
                 oauth_tokens_cache: HashMap::new(),
-            }
+            },
         })
     }
 
     pub fn from_json(data: &str) -> Result<FirefoxAccount> {
         let fxa_state: FxAState = serde_json::from_str(data)?;
         match fxa_state {
-            FxAState::V1(state) => {
-                Ok(FirefoxAccount {
-                    state: state
-                })
-            }
+            FxAState::V1(state) => Ok(FirefoxAccount { state: state }),
         }
     }
 
@@ -153,20 +149,27 @@ impl FirefoxAccount {
         self.state.login_state = state_machine.advance(state);
     }
 
-    pub fn get_oauth_token(&mut self, scope: &str) -> Result<String> {
-        if let Some(cached_token) = self.state.oauth_tokens_cache.get(scope) {
+    pub fn get_oauth_token(&mut self, scopes: Vec<&str>) -> Result<String> {
+        let scopes_key = self.scopes_key(&scopes);
+        if let Some(cached_token) = self.state.oauth_tokens_cache.get(&scopes_key) {
             return Ok(cached_token.clone());
         }
         let client = FxAClient::new(&self.state.config);
-        let session_token = match FirefoxAccount::session_token_from_state(&self.state.login_state) {
+        let session_token = match FirefoxAccount::session_token_from_state(&self.state.login_state)
+        {
             Some(session_token) => session_token,
             None => bail!(ErrorKind::NoSessionToken),
         };
-        let response = client.oauth_authorize(session_token, scope)?;
+        let response = client.oauth_authorize(session_token, &scopes)?;
         let token = response.access_token;
-        self.state.oauth_tokens_cache
-            .insert(scope.to_string(), token.clone());
+        self.state
+            .oauth_tokens_cache
+            .insert(scopes_key, token.clone());
         Ok(token)
+    }
+
+    fn scopes_key(&self, scopes: &[&str]) -> String {
+        scopes.join("|")
     }
 
     fn session_token_from_state(state: &FxALoginState) -> Option<&[u8]> {
@@ -237,7 +240,6 @@ impl FirefoxAccount {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,14 +247,17 @@ mod tests {
     #[test]
     fn test_serialize_deserialize() {
         let config = FxAConfig::release();
-        let mut fxa1 = FirefoxAccount::from_credentials(config, FxAWebChannelResponse {
-            uid: "123456".to_string(),
-            email: "foo@bar.com".to_string(),
-            verified: false,
-            session_token: "12".to_string(),
-            key_fetch_token: "34".to_string(),
-            unwrap_kb: "56".to_string(),
-        }).unwrap();
+        let mut fxa1 = FirefoxAccount::from_credentials(
+            config,
+            FxAWebChannelResponse {
+                uid: "123456".to_string(),
+                email: "foo@bar.com".to_string(),
+                verified: false,
+                session_token: "12".to_string(),
+                key_fetch_token: "34".to_string(),
+                unwrap_kb: "56".to_string(),
+            },
+        ).unwrap();
         let fxa1_json = fxa1.to_json().unwrap();
         drop(fxa1);
         let fxa2 = FirefoxAccount::from_json(&fxa1_json).unwrap();
