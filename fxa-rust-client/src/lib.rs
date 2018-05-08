@@ -30,32 +30,17 @@ use errors::*; // TODO: Error conflict because of the line bellow
 use http_client::browser_id::{jwt_utils, BrowserIDKeyPair};
 use http_client::FxAClient;
 
+mod config;
 mod errors;
 mod http_client;
 mod login_sm;
 mod util;
 
-#[derive(Serialize, Deserialize)]
-pub struct FxAConfig {
-    // These URLs need a trailing slash if a path is specified!
-    pub auth_url: String,
-    pub oauth_url: String,
-    pub profile_url: String,
-}
-
-impl FxAConfig {
-    pub fn release() -> FxAConfig {
-        FxAConfig {
-            auth_url: "https://api.accounts.firefox.com/v1/".to_string(),
-            oauth_url: "https://oauth.accounts.firefox.com/v1/".to_string(),
-            profile_url: "https://oauth.accounts.firefox.com/v1/".to_string(),
-        }
-    }
-}
+pub use config::Config;
 
 #[derive(Serialize, Deserialize)]
 struct FxAStateV1 {
-    config: FxAConfig,
+    config: Config,
     uid: String,
     email: String,
     login_state: FxALoginState,
@@ -97,7 +82,7 @@ impl FirefoxAccount {
     // Initialize state from Firefox Accounts credentials obtained using the
     // web flow.
     pub fn from_credentials(
-        config: FxAConfig,
+        config: Config,
         credentials: FxAWebChannelResponse,
     ) -> Result<FirefoxAccount> {
         let session_token = hex::decode(credentials.session_token)?;
@@ -249,8 +234,8 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize() {
-        let config = FxAConfig::release();
-        let mut fxa1 = FirefoxAccount::from_credentials(
+        let config = Config::stable().unwrap();
+        let fxa1 = FirefoxAccount::from_credentials(
             config,
             FxAWebChannelResponse {
                 uid: "123456".to_string(),
