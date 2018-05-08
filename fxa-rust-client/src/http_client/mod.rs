@@ -7,14 +7,13 @@ use serde::Deserialize;
 use serde_json;
 use sha2::{Digest, Sha256};
 use std;
-use url::Url;
 use util::Xorable;
 
 use self::browser_id::rsa::RSABrowserIDKeyPair;
 use self::browser_id::{jwt_utils, rsa, BrowserIDKeyPair, VerifyingPublicKey};
 use self::hawk_request::FxAHAWKRequestBuilder;
+use config::Config;
 use errors::*;
-use FxAConfig;
 
 pub mod browser_id;
 mod hawk_request;
@@ -25,11 +24,11 @@ const OAUTH_CLIENT_ID: &str = "5882386c6d801776"; // TODO: CHANGE ME!
 const SIGN_DURATION_MS: u64 = 24 * 60 * 60 * 1000;
 
 pub struct FxAClient<'a> {
-    config: &'a FxAConfig,
+    config: &'a Config,
 }
 
 impl<'a> FxAClient<'a> {
-    pub fn new(config: &'a FxAConfig) -> FxAClient<'a> {
+    pub fn new(config: &'a Config) -> FxAClient<'a> {
         FxAClient { config }
     }
 
@@ -64,7 +63,7 @@ impl<'a> FxAClient<'a> {
     }
 
     pub fn login(&self, email: &str, auth_pwd: &str, get_keys: bool) -> Result<LoginResponse> {
-        let url = self.build_url(&self.config.auth_url, "account/login")?;
+        let url = self.config.auth_url_path("v1/account/login")?;
         let parameters = json!({
       "email": email,
       "authPW": auth_pwd
@@ -79,15 +78,14 @@ impl<'a> FxAClient<'a> {
     }
 
     pub fn account_status(&self, uid: &String) -> Result<AccountStatusResponse> {
-        let url = self.build_url(&self.config.auth_url, "account/status")?;
-
+        let url = self.config.auth_url_path("v1/account/status")?;
         let client = Client::new();
         let request = client.get(url).query(&[("uid", uid)]).build()?;
         FxAClient::make_request(request)
     }
 
     pub fn keys(&self, key_fetch_token: &[u8]) -> Result<KeysResponse> {
-        let url = self.build_url(&self.config.auth_url, "account/keys")?;
+        let url = self.config.auth_url_path("v1/account/keys")?;
         let context_info = FxAClient::kw("keyFetchToken");
         let key = FxAClient::derive_hkdf_sha256_key(
             &key_fetch_token,
@@ -136,7 +134,7 @@ impl<'a> FxAClient<'a> {
         &self,
         session_token: &[u8],
     ) -> Result<RecoveryEmailStatusResponse> {
-        let url = self.build_url(&self.config.auth_url, "recovery_email/status")?;
+        let url = self.config.auth_url_path("v1/recovery_email/status")?;
         let key = FxAClient::derive_key_from_session_token(session_token)?;
         let request = FxAHAWKRequestBuilder::new(Method::Get, url, &key).build()?;
         FxAClient::make_request(request)
@@ -160,7 +158,7 @@ impl<'a> FxAClient<'a> {
           "scope": scope
         });
         let key = FxAClient::derive_key_from_session_token(session_token)?;
-        let url = self.build_url(&self.config.oauth_url, "authorization")?;
+        let url = self.config.oauth_url_path("v1/authorization")?;
         let request = FxAHAWKRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
@@ -178,7 +176,7 @@ impl<'a> FxAClient<'a> {
       "duration": SIGN_DURATION_MS
     });
         let key = FxAClient::derive_key_from_session_token(session_token)?;
-        let url = self.build_url(&self.config.auth_url, "certificate/sign")?;
+        let url = self.config.auth_url_path("v1/certificate/sign")?;
         let request = FxAHAWKRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
@@ -186,18 +184,13 @@ impl<'a> FxAClient<'a> {
     }
 
     fn get_oauth_audience(&self) -> Result<String> {
-        let url = Url::parse(&self.config.oauth_url)?;
+        let url = self.config.oauth_url()?;
         let host = url.host_str()
             .chain_err(|| "This URL doesn't have a host!")?;
         match url.port() {
             Some(port) => Ok(format!("{}://{}:{}", url.scheme(), host, port)),
             None => Ok(format!("{}://{}", url.scheme(), host)),
         }
-    }
-
-    fn build_url(&self, base_url: &String, path: &str) -> Result<Url> {
-        let base_url = Url::parse(base_url)?;
-        Ok(base_url.join(path)?)
     }
 
     fn derive_key_from_session_token(session_token: &[u8]) -> Result<Vec<u8>> {
@@ -326,18 +319,16 @@ mod tests {
         let pwd = "testfxarustclient@restmail.net";
         let auth_pwd = auth_pwd(email, pwd);
 
-        let config = FxAConfig {
-            auth_url: "https://stable.dev.lcip.org/auth/v1/".to_string(),
-            oauth_url: "https://oauth-stable.dev.lcip.org/v1/".to_string(),
-            profile_url: "https://stable.dev.lcip.org/profile/".to_string(),
-        };
+        let config = Config::stable().unwrap();
         let client = FxAClient::new(&config);
 
         let resp = client.login(&email, &auth_pwd, false).unwrap();
         println!("Session Token obtained: {}", &resp.session_token);
         let session_token = hex::decode(resp.session_token).unwrap();
 
-        let resp = client.oauth_authorize(&session_token, "profile").unwrap();
+        let resp = client
+            .oauth_authorize(&session_token, &["profile"])
+            .unwrap();
         println!("OAuth Token obtained: {}", &resp.access_token);
     }
 }

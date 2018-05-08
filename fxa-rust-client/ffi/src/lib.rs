@@ -7,13 +7,16 @@ mod util;
 use std::ffi::CString;
 
 use ctypes::*;
-use fxa_client::{FirefoxAccount, FxAConfig, FxAWebChannelResponse};
+use fxa_client::{Config, FirefoxAccount, FxAWebChannelResponse};
 use libc::c_char;
 use util::*;
 
 #[no_mangle]
-pub extern "C" fn fxa_config_release() -> *mut FxAConfig {
-    let config = FxAConfig::release();
+pub extern "C" fn fxa_get_release_config() -> *mut Config {
+    let config = match Config::release() {
+        Ok(config) => config,
+        Err(_) => return std::ptr::null_mut(),
+    };
     Box::into_raw(Box::new(config))
 }
 
@@ -21,7 +24,7 @@ pub extern "C" fn fxa_config_release() -> *mut FxAConfig {
 /// pointer should be dropped.
 #[no_mangle]
 pub extern "C" fn fxa_from_credentials(
-    config: *mut FxAConfig,
+    config: *mut Config,
     json: *const c_char,
 ) -> *mut FirefoxAccount {
     let config = unsafe {
@@ -46,9 +49,8 @@ pub unsafe extern "C" fn fxa_free(fxa: *mut FirefoxAccount) {
     let _ = Box::from_raw(fxa);
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn fxa_config_free(config: *mut FxAConfig) {
-    let _ = Box::from_raw(config);
+pub unsafe extern "C" fn fxa_config_free(config: *mut Config) {
+    drop(Box::from_raw(config));
 }
 
 #[no_mangle]
