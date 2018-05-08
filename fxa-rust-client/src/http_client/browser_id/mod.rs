@@ -1,6 +1,6 @@
 use serde_json;
 
-use http_client::errors::*;
+use errors::*;
 
 pub mod jwt_utils;
 pub mod rsa;

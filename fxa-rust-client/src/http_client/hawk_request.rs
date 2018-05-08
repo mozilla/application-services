@@ -4,7 +4,7 @@ use reqwest::{header, Client, Method, Request};
 use serde_json;
 use url::Url;
 
-use http_client::errors::*;
+use errors::*;
 
 const KEY_LENGTH: usize = 32;
 

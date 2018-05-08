@@ -12,12 +12,11 @@ use util::Xorable;
 
 use self::browser_id::rsa::RSABrowserIDKeyPair;
 use self::browser_id::{jwt_utils, rsa, BrowserIDKeyPair, VerifyingPublicKey};
-use self::errors::*;
 use self::hawk_request::FxAHAWKRequestBuilder;
+use errors::*;
 use FxAConfig;
 
 pub mod browser_id;
-pub mod errors;
 mod hawk_request;
 
 const HKDF_SALT: [u8; 32] = [0b0; 32];
@@ -101,7 +100,7 @@ impl<'a> FxAClient<'a> {
         let json: serde_json::Value = FxAClient::make_request(request)?;
         let bundle = match json["bundle"].as_str() {
             Some(bundle) => bundle,
-            None => bail!(ErrorKind::JsonError),
+            None => bail!("Invalid JSON"),
         };
         let data = hex::decode(bundle)?;
         if data.len() != 3 * KEY_LENGTH {

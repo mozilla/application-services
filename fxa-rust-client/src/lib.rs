@@ -1,3 +1,6 @@
+// For error_chain:
+#![recursion_limit = "128"]
+
 extern crate base64;
 #[macro_use]
 extern crate error_chain;

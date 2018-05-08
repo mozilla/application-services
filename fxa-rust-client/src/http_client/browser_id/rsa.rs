@@ -11,7 +11,7 @@ use serde::ser::{Serialize, SerializeStruct, Serializer};
 use serde_json;
 
 use super::{BrowserIDKeyPair, SigningPrivateKey, VerifyingPublicKey};
-use http_client::errors::*;
+use errors::*;
 
 pub struct RSABrowserIDKeyPair {
     private_key: RSAPrivateKey,

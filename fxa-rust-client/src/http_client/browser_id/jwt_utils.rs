@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64;
-use http_client::errors::*;
+use errors::*;
 use serde_json;
 
 use http_client::browser_id::{SigningPrivateKey, VerifyingPublicKey};
@@ -113,7 +113,7 @@ impl<'a> SignedJWTBuilder<'a> {
         };
         let obj = match payload.as_object_mut() {
             Some(obj) => obj,
-            None => bail!(ErrorKind::JsonError),
+            None => bail!("Invalid JSON"),
         };
         if let Some(ref audience) = self.audience {
             obj.insert("aud".to_string(), json!(audience));
