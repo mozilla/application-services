@@ -8,6 +8,13 @@ pub fn now() -> u64 {
     since_epoch.as_secs() * 1000 + since_epoch.subsec_nanos() as u64 / 1_000_000
 }
 
+pub fn now_secs() -> u64 {
+    let since_epoch = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Something is very wrong.");
+    since_epoch.as_secs()
+}
+
 pub trait Xorable {
     fn xored_with(&self, other: &[u8]) -> Result<Vec<u8>, &'static str>;
 }

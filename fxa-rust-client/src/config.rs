@@ -31,12 +31,19 @@ impl Config {
         let config_url = Url::parse(content_url)?.join(".well-known/fxa-client-configuration")?;
         let resp: FxAClientConfigurationResponse = reqwest::get(config_url)?.json()?;
         Ok(Config {
-            // We keep content_url around in case we want to re-fetch the config in the future.
             content_url: content_url.to_string(),
             auth_url: format!("{}/", resp.auth_server_base_url),
             oauth_url: format!("{}/", resp.oauth_server_base_url),
             profile_url: format!("{}/", resp.profile_server_base_url),
         })
+    }
+
+    pub fn content_url(&self) -> Result<Url> {
+        Ok(Url::parse(&self.content_url)?)
+    }
+
+    pub fn content_url_path(&self, path: &str) -> Result<Url> {
+        Ok(self.content_url()?.join(path)?)
     }
 
     pub fn auth_url(&self) -> Result<Url> {
