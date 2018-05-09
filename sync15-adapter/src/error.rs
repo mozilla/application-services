@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::time::SystemTime;
+
 error_chain! {
     foreign_links {
         Base64Decode(::base64::DecodeError);
@@ -44,9 +46,9 @@ error_chain! {
             display("HTTP status {} during a storage request to \"{}\"", code, route)
         }
 
-        BackoffError(retry_after_secs: f64) {
+        BackoffError(retry_after: SystemTime) {
             description("Server requested backoff")
-            display("Server requested backoff. Retry after {} seconds.", retry_after_secs)
+            display("Server requested backoff. Retry after {:?}.", retry_after)
         }
 
         // This might just be a NYI, since IDK if we want to upload this.
@@ -77,6 +79,13 @@ error_chain! {
             description("Some records failed to upload, but success was required for the collection")
             display("Several records failed to upload ({}), but success was required for the collection",
                     problems.len())
+        }
+
+        // Used for things like a node reassignment or an unexpected syncId
+        // implying the app needs to "reset" its understanding of remote storage.
+        StorageResetError {
+            description("The server has reset the storage for this account")
+            display("The server has reset the storage for this account")
         }
     }
 }
