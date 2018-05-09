@@ -57,16 +57,6 @@ pub extern "C" fn fxa_new(config: *mut Config) -> *mut FirefoxAccount {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn fxa_free(fxa: *mut FirefoxAccount) {
-    drop(Box::from_raw(fxa));
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn fxa_config_free(config: *mut Config) {
-    drop(Box::from_raw(config));
-}
-
-#[no_mangle]
 pub extern "C" fn fxa_profile(fxa: *mut FirefoxAccount) -> *mut ProfileC {
     let fxa = unsafe {
         assert!(!fxa.is_null());
@@ -152,16 +142,6 @@ pub extern "C" fn fxa_complete_oauth_flow(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn fxa_oauth_info_free(ptr: *mut OAuthInfoC) {
-    drop(Box::from_raw(ptr));
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn fxa_profile_free(ptr: *mut ProfileC) {
-    drop(Box::from_raw(ptr));
-}
-
-#[no_mangle]
 pub extern "C" fn fxa_free_str(s: *mut c_char) {
     unsafe {
         if s.is_null() {
@@ -170,3 +150,19 @@ pub extern "C" fn fxa_free_str(s: *mut c_char) {
         CString::from_raw(s)
     };
 }
+
+/// Creates a function with a given `$name` that releases the memory for a type `$t`.
+macro_rules! define_destructor (
+     ($name:ident, $t:ty) => (
+         #[no_mangle]
+         pub unsafe extern "C" fn $name(obj: *mut $t) {
+             if !obj.is_null() { drop(Box::from_raw(obj)); }
+         }
+     )
+);
+
+define_destructor!(fxa_free, FirefoxAccount);
+define_destructor!(fxa_config_free, Config);
+define_destructor!(fxa_oauth_info_free, OAuthInfoC);
+define_destructor!(fxa_profile_free, ProfileC);
+define_destructor!(fxa_sync_keys_free, SyncKeysC);
