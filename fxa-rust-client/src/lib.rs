@@ -10,9 +10,12 @@ extern crate hkdf;
 extern crate hmac;
 extern crate jose;
 #[macro_use]
+extern crate lazy_static;
+#[macro_use]
 extern crate log;
 extern crate openssl;
 extern crate rand;
+extern crate regex;
 extern crate reqwest;
 extern crate serde;
 #[macro_use]
@@ -39,6 +42,7 @@ mod config;
 mod errors;
 pub mod http_client;
 mod login_sm;
+mod oauth;
 mod util;
 
 pub use config::Config;
@@ -174,25 +178,24 @@ impl FirefoxAccount {
         self.state.oauth_cache.insert(scope_key, info);
     }
 
-    fn scope_key_contains_scopes(scope_key: &str, scopes: &[&str]) -> bool {
-        let available_scopes: Vec<&str> = scope_key.split(" ").collect();
-        for scope in scopes {
-            if !available_scopes.contains(scope) {
-                return false;
+    fn scope_implies_scopes(scope: &str, match_scopes: &[&str]) -> Result<bool> {
+        let available_scopes = oauth::Scope::from_string(scope)?;
+        for scope in match_scopes {
+            let scope = oauth::Scope::from_string(scope)?;
+            if !available_scopes.implies(&scope) {
+                return Ok(false);
             }
         }
-        return true;
+        return Ok(true);
     }
 
-    fn oauth_cache_find(&self, scopes: &[&str]) -> Option<&OAuthInfo> {
-        let scope_key = scopes.join("|");
+    fn oauth_cache_find(&self, requested_scopes: &[&str]) -> Option<&OAuthInfo> {
         // First we try to get the exact same scope.
-        if let Some(info) = self.state.oauth_cache.get(&scope_key) {
+        if let Some(info) = self.state.oauth_cache.get(&requested_scopes.join("|")) {
             return Some(info);
         }
-        // If we can't find it, we look into subsets and TODO: scope implications.
         for (scope_key, info) in self.state.oauth_cache.iter() {
-            if FirefoxAccount::scope_key_contains_scopes(scope_key, scopes) {
+            if FirefoxAccount::scope_implies_scopes(scope_key, requested_scopes).unwrap_or(false) {
                 return Some(info);
             }
         }
@@ -421,6 +424,7 @@ mod tests {
         let config = Config::stable().unwrap();
         let fxa1 = FirefoxAccount::from_credentials(
             config,
+            "5882386c6d801776",
             FxAWebChannelResponse {
                 uid: "123456".to_string(),
                 email: "foo@bar.com".to_string(),
