@@ -34,12 +34,12 @@ open class FirefoxAccount: RustObject {
 
     // webChannelResponse is a string for now, but will probably be a JSON
     // object in the future.
-    open class func from(config: FxAConfig, webChannelResponse: String) -> FirefoxAccount {
-        return FirefoxAccount(raw: fxa_from_credentials(config.intoRaw(), webChannelResponse))
+    open class func from(config: FxAConfig, clientId: String, webChannelResponse: String) -> FirefoxAccount {
+        return FirefoxAccount(raw: fxa_from_credentials(config.intoRaw(), clientId, webChannelResponse))
     }
 
-    public init(config: FxAConfig) {
-        self.raw = fxa_new(config.intoRaw())
+    public init(config: FxAConfig, clientId: String) {
+        self.raw = fxa_new(config.intoRaw(), clientId)
     }
 
     required public init(raw: OpaquePointer) {

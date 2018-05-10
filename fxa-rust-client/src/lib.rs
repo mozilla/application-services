@@ -43,15 +43,13 @@ mod util;
 
 pub use config::Config;
 
-// TODO: It should live in the FirefoxAccount object
-const OAUTH_CLIENT_ID: &str = "22d74070a481bc73";
-
 // If a cached token has less than `OAUTH_MIN_TIME_LEFT` seconds left to live,
 // it will be considered already expired.
 const OAUTH_MIN_TIME_LEFT: u64 = 60;
 
 #[derive(Serialize, Deserialize)]
 struct FxAStateV1 {
+    client_id: String,
     config: Config,
     login_state: FxALoginState,
     oauth_cache: HashMap<String, OAuthInfo>,
@@ -90,9 +88,10 @@ pub struct FirefoxAccount {
 pub type SyncKeys = (String, String);
 
 impl FirefoxAccount {
-    pub fn new(config: Config) -> FirefoxAccount {
+    pub fn new(config: Config, client_id: &str) -> FirefoxAccount {
         FirefoxAccount {
             state: FxAStateV1 {
+                client_id: client_id.to_string(),
                 config,
                 login_state: Unknown,
                 oauth_cache: HashMap::new(),
@@ -105,6 +104,7 @@ impl FirefoxAccount {
     // web flow.
     pub fn from_credentials(
         config: Config,
+        client_id: &str,
         credentials: FxAWebChannelResponse,
     ) -> Result<FirefoxAccount> {
         let session_token = hex::decode(credentials.session_token)?;
@@ -125,6 +125,7 @@ impl FirefoxAccount {
 
         Ok(FirefoxAccount {
             state: FxAStateV1 {
+                client_id: client_id.to_string(),
                 config,
                 login_state,
                 oauth_cache: HashMap::new(),
@@ -212,7 +213,7 @@ impl FirefoxAccount {
             if let Some(refresh_token) = refresh_token {
                 let client = FxAClient::new(&self.state.config);
                 resp = client.oauth_token_with_refresh_token(
-                    OAUTH_CLIENT_ID,
+                    &self.state.client_id,
                     &refresh_token,
                     &scopes,
                 )?;
@@ -220,7 +221,11 @@ impl FirefoxAccount {
                 FirefoxAccount::session_token_from_state(&self.state.login_state)
             {
                 let client = FxAClient::new(&self.state.config);
-                resp = client.oauth_token_with_assertion(OAUTH_CLIENT_ID, session_token, &scopes)?;
+                resp = client.oauth_token_with_assertion(
+                    &self.state.client_id,
+                    session_token,
+                    &scopes,
+                )?;
             } else {
                 return Ok(None);
             }
@@ -240,7 +245,7 @@ impl FirefoxAccount {
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         let mut url = self.state.config.content_url_path("oauth/signin")?;
         url.query_pairs_mut()
-            .append_pair("client_id", OAUTH_CLIENT_ID)
+            .append_pair("client_id", &self.state.client_id)
             .append_pair("redirect_uri", &redirect_uri)
             .append_pair("scope", &scopes.join(" "))
             .append_pair("response_type", "code")
@@ -277,7 +282,7 @@ impl FirefoxAccount {
                 None => bail!(ErrorKind::UnknownOAuthState),
             };
             let client = FxAClient::new(&self.state.config);
-            resp = client.oauth_token_with_code(&code, &flow.code_verifier, OAUTH_CLIENT_ID)?;
+            resp = client.oauth_token_with_code(&code, &flow.code_verifier, &self.state.client_id)?;
         }
         self.finish_oauth_flow(state, resp)
     }

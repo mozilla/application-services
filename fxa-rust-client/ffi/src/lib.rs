@@ -25,6 +25,7 @@ pub extern "C" fn fxa_get_release_config() -> *mut Config {
 #[no_mangle]
 pub extern "C" fn fxa_from_credentials(
     config: *mut Config,
+    client_id: *const c_char,
     json: *const c_char,
 ) -> *mut FirefoxAccount {
     let config = unsafe {
@@ -33,11 +34,12 @@ pub extern "C" fn fxa_from_credentials(
     };
     let config = unsafe { Box::from_raw(config) };
     let json = c_char_to_string(json);
+    let client_id = c_char_to_string(client_id);
     let resp = match FxAWebChannelResponse::from_json(&json) {
         Ok(resp) => resp,
         Err(_) => return std::ptr::null_mut(),
     };
-    let fxa = match FirefoxAccount::from_credentials(*config, resp) {
+    let fxa = match FirefoxAccount::from_credentials(*config, &client_id, resp) {
         Ok(fxa) => fxa,
         Err(_) => return std::ptr::null_mut(),
     };
@@ -47,13 +49,14 @@ pub extern "C" fn fxa_from_credentials(
 /// Note: After calling this function, Rust will now own `config`, therefore the caller's
 /// pointer should be dropped.
 #[no_mangle]
-pub extern "C" fn fxa_new(config: *mut Config) -> *mut FirefoxAccount {
+pub extern "C" fn fxa_new(config: *mut Config, client_id: *const c_char) -> *mut FirefoxAccount {
     let config = unsafe {
         assert!(!config.is_null());
         &mut *config
     };
+    let client_id = c_char_to_string(client_id);
     let config = unsafe { Box::from_raw(config) };
-    Box::into_raw(Box::new(FirefoxAccount::new(*config)))
+    Box::into_raw(Box::new(FirefoxAccount::new(*config, &client_id)))
 }
 
 #[no_mangle]
