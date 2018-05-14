@@ -95,5 +95,9 @@ mod tests {
             config.profile_url_path("v1/profile").unwrap().to_string(),
             "https://stable.dev.lcip.org/profile/v1/profile"
         );
+        assert_eq!(
+            config.content_url_path("oauth/signin").unwrap().to_string(),
+            "https://stable.dev.lcip.org/oauth/signin"
+        );
     }
 }
