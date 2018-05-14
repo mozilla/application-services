@@ -111,6 +111,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = CE9D202820914D0D00F1C8FA /* Build configuration list for PBXNativeTarget "FxAClient" */;
 			buildPhases = (
+				CEEA12EF20AA1D630018998A /* ShellScript */,
 				CE9D201B20914D0D00F1C8FA /* Sources */,
 				CE9D201C20914D0D00F1C8FA /* Frameworks */,
 				CE9D201D20914D0D00F1C8FA /* Headers */,
@@ -166,6 +167,23 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		CEEA12EF20AA1D630018998A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/../../../../target/universal/release/libfxa_client.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# build fxa-rust-client external libs dependencies\ncd \"$SRCROOT\"/../../../../libs/ios/\nenv -i ./build-all.sh #env -i doesn't pass xcode env variables\n\n# build fxa-rust-client lipoed library\ncd \"$SRCROOT\"/../../../ffi\nenv -i PATH=$PATH \\\nJANSSON_DIR=\"$SRCROOT\"/../../../../libs/ios/jansson \\\nOPENSSL_STATIC=0 OPENSSL_DIR=\"$SRCROOT\"/../../../../libs/ios/openssl \\\nCJOSE_DIR=\"$SRCROOT\"/../../../../libs/ios/cjose \\\ncargo +nightly lipo --release";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		CE9D201B20914D0D00F1C8FA /* Sources */ = {
