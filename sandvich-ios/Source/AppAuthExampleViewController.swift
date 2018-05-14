@@ -68,12 +68,7 @@ class AppAuthExampleViewController: UIViewController {
 
         self.loadState()
         self.updateUI()
-        
-//        let cfg = FxAConfig.release()
-//        let resp = ""
-//        let fxa = FirefoxAccount.from(config: cfg, webChannelResponse: resp)
-//        let syncKeys = fxa.getSyncKeys()
-//        assert(true);
+
     }
 }
 
@@ -379,69 +374,70 @@ extension AppAuthExampleViewController {
     }
 
     func doAuthWithAutoCodeExchange(configuration: OIDServiceConfiguration, clientID: String, clientSecret: String?) {
-
-        guard let redirectURI = URL(string: kRedirectURI) else {
-            self.logMessage("Error creating URL for : \(kRedirectURI)")
-            return
-        }
-
-        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
-            self.logMessage("Error accessing AppDelegate")
-            return
-        }
-        
+//
+//        guard let redirectURI = URL(string: kRedirectURI) else {
+//            self.logMessage("Error creating URL for : \(kRedirectURI)")
+//            return
+//        }
+//
+//        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
+//            self.logMessage("Error accessing AppDelegate")
+//            return
+//        }
+//
         
         let cfg = FxAConfig.release()
-        let resp = "{\"customizeSync\":false,\"email\":\"vlad2@restmail.net\",\"keyFetchToken\":\"e25ea2b104e061142fa53827fcf98c83cea46ebdb1988169b9166e07d6ba2834\",\"sessionToken\":\"9996bdf23e8bf59f66f64db61732ef853bb6d912ff567fa3a027db3afe564d31\",\"uid\":\"5946fdc94c964f3c88f4f629a31cad3d\",\"unwrapBKey\":\"5cbac7381e37e3db256313415e10d0462239589945a862f5827c958efe12133a\",\"verified\":false,\"verifiedCanLinkAccount\":true}"
-        let fxa = FirefoxAccount.from(config: cfg, webChannelResponse: resp)
-        let oauthFlow = fxa.beginOAuthFlow(clientId: "WAT", redirectURI: "WAT", scopes: "WAT")!
-        let keys_jwk = URL(string: oauthFlow.redirectURI)!;
-        let kid = oauthFlow.kid;
-        
-        var dict = [String:String]()
-        let components = URLComponents(url: keys_jwk, resolvingAgainstBaseURL: false)!
-        if let queryItems = components.queryItems {
-            for item in queryItems {
-                dict[item.name] = item.value!
-            }
-        }
-        print(dict)
-        assert(true);
-        
-        let addParams = [
-            "keys_jwk": dict["keys_jwk"]!,
-            "access_type": "offline"
-        ]
+        //let fxa = FirefoxAccount.from(config: cfg, webChannelResponse: resp)
+        let fxa = FirefoxAccount(config: cfg, clientId: "98adfa37698f255b")
+        let redirectUrl = fxa.beginOAuthFlow(redirectURI: "https://mozilla-lockbox.github.io/fxa/ios-redirect.html", scopes: ["profile", "openid", "https://identity.mozilla.com/apps/lockbox"], wantsKeys: true)!
+        FxAView.init();
+//
+//        var dict = [String:String]()
+//        let components = URLComponents(url: keys_jwk, resolvingAgainstBaseURL: false)!
+//        if let queryItems = components.queryItems {
+//            for item in queryItems {
+//                dict[item.name] = item.value!
+//            }
+//        }
+//        print(dict)
+//        assert(true);
+//
+//        let addParams = [
+//            "keys_jwk": dict["keys_jwk"]!,
+//            "access_type": "offline"
+//        ]
 
         // builds authentication request
-        let request = OIDAuthorizationRequest(configuration: configuration,
-                                              clientId: clientID,
-                                              clientSecret: clientSecret,
-                                              scopes: [OIDScopeOpenID, OIDScopeProfile, "https://identity.mozilla.com/apps/oldsync"],
-                                              redirectURL: redirectURI,
-                                              responseType: OIDResponseTypeCode,
-                                              additionalParameters: addParams)
-
-        // performs authentication request
-        logMessage("Initiating authorization request with scope: \(request.scope ?? "DEFAULT_SCOPE")")
-
-        appDelegate.currentAuthorizationFlow = OIDAuthState.authState(byPresenting: request, presenting: self) { authState, error in
-
-            if let authState = authState {
-                self.setAuthState(authState)
-                
-                self.logMessage("Got authorization tokens. Access token: \(authState.lastTokenResponse?.accessToken ?? "DEFAULT_TOKEN")")
-                
-                let keys_jwe = authState.lastTokenResponse?.additionalParameters!["keys_jwe"];
-                self.logMessage("Got keys_jwe: \(keys_jwe)");
-                let syncKeys = fxa.finishOAuthFlow(jwe: keys_jwe as! String, kid: kid);
-                self.logMessage("Got sync keys: \(syncKeys)");
-                self.logMessage("Done");
-            } else {
-                self.logMessage("Authorization error: \(error?.localizedDescription ?? "DEFAULT_ERROR")")
-                self.setAuthState(nil)
-            }
-        }
+        
+        
+//        let request = OIDAuthorizationRequest(configuration: configuration,
+//                                              clientId: clientID,
+//                                              clientSecret: clientSecret,
+//                                              scopes: [OIDScopeOpenID, OIDScopeProfile, "https://identity.mozilla.com/apps/oldsync"],
+//                                              redirectURL: redirectURI,
+//                                              responseType: OIDResponseTypeCode,
+//                                              additionalParameters: addParams)
+//
+//        // performs authentication request
+//        logMessage("Initiating authorization request with scope: \(request.scope ?? "DEFAULT_SCOPE")")
+//
+//        appDelegate.currentAuthorizationFlow = OIDAuthState.authState(byPresenting: request, presenting: self) { authState, error in
+//
+//            if let authState = authState {
+//                self.setAuthState(authState)
+//
+//                self.logMessage("Got authorization tokens. Access token: \(authState.lastTokenResponse?.accessToken ?? "DEFAULT_TOKEN")")
+//
+//                let keys_jwe = authState.lastTokenResponse?.additionalParameters!["keys_jwe"];
+//                self.logMessage("Got keys_jwe: \(keys_jwe)");
+//                let syncKeys = fxa.finishOAuthFlow(jwe: keys_jwe as! String, kid: kid);
+//                self.logMessage("Got sync keys: \(syncKeys)");
+//                self.logMessage("Done");
+//            } else {
+//                self.logMessage("Authorization error: \(error?.localizedDescription ?? "DEFAULT_ERROR")")
+//                self.setAuthState(nil)
+//            }
+//        }
     }
 
     func doAuthWithoutCodeExchange(configuration: OIDServiceConfiguration, clientID: String, clientSecret: String?) {
