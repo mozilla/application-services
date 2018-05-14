@@ -13,6 +13,7 @@
 		9F265BD51F9AC69300DC14BF /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F265BCF1F9AC69300DC14BF /* AppDelegate.swift */; };
 		9F265BDA1F9AE50400DC14BF /* AppAuth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9F265BD91F9AE50400DC14BF /* AppAuth.framework */; };
 		9FD378231FB7C6F800436204 /* AppAuthExampleViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD378221FB7C6F800436204 /* AppAuthExampleViewController.swift */; };
+		CFDB272D20AA4300005FE3A1 /* FxAView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFDB272C20AA4300005FE3A1 /* FxAView.swift */; };
 		CFFEBB5F20924F3D00D9BABD /* FxAClient.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CFFEBB5E20924F3D00D9BABD /* FxAClient.framework */; };
 /* End PBXBuildFile section */
 
@@ -25,6 +26,7 @@
 		9F265BD01F9AC69300DC14BF /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9F265BD91F9AE50400DC14BF /* AppAuth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppAuth.framework; path = Carthage/Build/iOS/AppAuth.framework; sourceTree = "<group>"; };
 		9FD378221FB7C6F800436204 /* AppAuthExampleViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppAuthExampleViewController.swift; sourceTree = "<group>"; };
+		CFDB272C20AA4300005FE3A1 /* FxAView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxAView.swift; sourceTree = "<group>"; };
 		CFFEBB5E20924F3D00D9BABD /* FxAClient.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FxAClient.framework; path = Carthage/Build/iOS/FxAClient.framework; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -67,6 +69,7 @@
 				9F265BCD1F9AC69300DC14BF /* Main.storyboard */,
 				9F265BC91F9AC69300DC14BF /* Assets.xcassets */,
 				9F265BD01F9AC69300DC14BF /* Info.plist */,
+				CFDB272C20AA4300005FE3A1 /* FxAView.swift */,
 			);
 			path = Source;
 			sourceTree = "<group>";
@@ -187,6 +190,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9FD378231FB7C6F800436204 /* AppAuthExampleViewController.swift in Sources */,
+				CFDB272D20AA4300005FE3A1 /* FxAView.swift in Sources */,
 				9F265BD51F9AC69300DC14BF /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
