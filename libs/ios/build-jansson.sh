@@ -9,6 +9,11 @@ JANSSON_VERSION="2.11"
 JANSSON_DIR="jansson-${JANSSON_VERSION}"
 IOS_MIN_SDK_VERSION="9.0"
 
+if [ -d "$DIST_DIR" ]; then
+  echo "$DIST_DIR"" folder already exists. Skipping build."
+  exit 0
+fi
+
 rm -rf "${JANSSON_DIR}"
 
 if [ ! -e "${JANSSON_DIR}.tar.gz" ]; then

@@ -17,6 +17,11 @@ OPENSSL_VERSION="openssl-1.0.2o"
 DEVELOPER=`xcode-select -print-path`
 DIST_DIR=$(pwd)/openssl
 
+if [ -d "$DIST_DIR" ]; then
+  echo "$DIST_DIR"" folder already exists. Skipping build."
+  exit 0
+fi
+
 buildIOS()
 {
   ARCH=$1

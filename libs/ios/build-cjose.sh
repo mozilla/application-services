@@ -11,6 +11,11 @@ IOS_MIN_SDK_VERSION="9.0"
 OPENSSLDIR=$(pwd)/openssl
 JANSSONDIR=$(pwd)/jansson
 
+if [ -d "$DIST_DIR" ]; then
+  echo "$DIST_DIR"" folder already exists. Skipping build."
+  exit 0
+fi
+
 rm -rf "${CJOSE_DIR}"
 
 if [ ! -e "${CJOSE_DIR}.tar.gz" ]; then
