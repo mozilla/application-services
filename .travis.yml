@@ -1,5 +1,5 @@
 language: rust
-services: docker
+os: osx
 sudo: required
 
 matrix:
@@ -12,4 +12,7 @@ matrix:
 script:
   - scripts/ci-test.sh
 
-cache: cargo
+cache:
+  cargo: true
+  directories:
+  - libs/ios/
