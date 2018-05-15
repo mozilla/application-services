@@ -174,7 +174,7 @@ impl FirefoxAccount {
 
     fn oauth_cache_store(&mut self, info: &OAuthInfo) {
         let info = info.clone();
-        let scope_key = info.scopes.join("|");
+        let scope_key = info.scopes.join(" ");
         self.state.oauth_cache.insert(scope_key, info);
     }
 
@@ -191,7 +191,7 @@ impl FirefoxAccount {
 
     fn oauth_cache_find(&self, requested_scopes: &[&str]) -> Option<&OAuthInfo> {
         // First we try to get the exact same scope.
-        if let Some(info) = self.state.oauth_cache.get(&requested_scopes.join("|")) {
+        if let Some(info) = self.state.oauth_cache.get(&requested_scopes.join(" ")) {
             return Some(info);
         }
         for (scope_key, info) in self.state.oauth_cache.iter() {
@@ -429,6 +429,20 @@ mod tests {
         let fxa2 = FirefoxAccount::from_json(&fxa1_json).unwrap();
         let fxa2_json = fxa2.to_json().unwrap();
         assert_eq!(fxa1_json, fxa2_json);
+    }
+
+    #[test]
+    fn test_oauth_cache_store_and_find() {
+        let mut fxa = FirefoxAccount::new(Config::stable().unwrap(), "12345678");
+        let oauth_info = OAuthInfo {
+            access_token: "abcdef".to_string(),
+            keys_jwe: None,
+            refresh_token: None,
+            expires_at: 1,
+            scopes: vec!["profile".to_string(), "https://identity.mozilla.com/apps/oldsync".to_string()],
+        };
+        fxa.oauth_cache_store(&oauth_info);
+        fxa.oauth_cache_find(&["profile"]).unwrap();
     }
 }
 
