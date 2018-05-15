@@ -189,7 +189,7 @@ impl TokenserverClient {
     // Attempt to fetch a new token and return a new state reflecting that
     // operation. If it worked a TokenState::Token state will be returned, but
     // errors may cause other states.
-    fn fetch_token(&self, request_client: &Client, previous_endpoint: Option<String>) -> TokenState {
+    fn fetch_token(&self, request_client: &Client, previous_endpoint: Option<&str>) -> TokenState {
         match TokenContext::new(self, request_client) {
             Ok(tc) => {
                 // We got a new token - check that the endpoint is the same
@@ -212,10 +212,10 @@ impl TokenserverClient {
             Err(e) => {
                 match error::Error::from("error!") {
                     error::Error(error::ErrorKind::BackoffError(ref be), _) => {
-                        TokenState::Backoff(*be, previous_endpoint)
+                        TokenState::Backoff(*be, previous_endpoint.map(|s| s.to_string()))
                     }
                     _ => {
-                        TokenState::Failed(Some(e), previous_endpoint)
+                        TokenState::Failed(Some(e), previous_endpoint.map(|s| s.to_string()))
                     }
                 }
             }
@@ -232,13 +232,13 @@ impl TokenserverClient {
                 Some(self.fetch_token(request_client, None))
             },
             TokenState::Failed(_, existing_endpoint) => {
-                Some(self.fetch_token(request_client, existing_endpoint.clone()))
+                Some(self.fetch_token(request_client, existing_endpoint.as_ref().map(|e| e.as_str())))
             },
             TokenState::Token(existing_context) => {
                 if existing_context.is_valid() {
                     None
                 } else {
-                    Some(self.fetch_token(request_client, Some(existing_context.token.api_endpoint.clone())))
+                    Some(self.fetch_token(request_client, Some(existing_context.token.api_endpoint.as_str())))
                 }
             },
             TokenState::Backoff(ref until, ref existing_endpoint) => {
@@ -247,7 +247,7 @@ impl TokenserverClient {
                     None
                 } else {
                     // backoff period is over
-                    Some(self.fetch_token(request_client, existing_endpoint.clone()))
+                    Some(self.fetch_token(request_client, existing_endpoint.as_ref().map(|e| e.as_str())))
                 }
             },
             TokenState::NodeReassigned => {
