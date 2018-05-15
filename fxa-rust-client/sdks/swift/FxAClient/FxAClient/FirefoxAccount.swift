@@ -54,7 +54,7 @@ open class FirefoxAccount: RustObject {
         self.raw = raw
     }
 
-    func toJSON() -> Optional<String> {
+    public func toJSON() -> Optional<String> {
         return String(cString: fxa_to_json(self.raw))
     }
 
