@@ -198,6 +198,11 @@ impl Cleartext {
         Ok(Cleartext::from_json(serde_json::to_value(v)?)?)
     }
 
+    pub fn into_json_string(self) -> String {
+        serde_json::to_string(&JsonValue::from(self))
+            .expect("JSON.stringify failed, wish shouldn't be possible")
+    }
+
 }
 
 impl From<Cleartext> for JsonValue {

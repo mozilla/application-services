@@ -1,4 +1,4 @@
-
+/*
 extern crate sync15_adapter as sync;
 extern crate error_chain;
 extern crate url;
@@ -186,3 +186,5 @@ fn main() {
     env_logger::init();
     start().unwrap();
 }
+*/
+fn main() {}

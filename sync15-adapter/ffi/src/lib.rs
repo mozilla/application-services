@@ -4,122 +4,82 @@
 
 extern crate sync15_adapter as sync;
 extern crate libc;
+extern crate serde_json;
 
-use sync::record_types::{PasswordRecord};
 use std::ffi::{CStr, CString};
-use libc::c_char;
-use std::ptr;
 
-fn c_char_to_string(cchar: *const c_char) -> String {
-    let c_str = unsafe { CStr::from_ptr(cchar) };
+use std::{ptr, mem};
+use sync::{RecordChangeset, CleartextBso, Cleartext, Sync15Service, Sync15ServiceInit};
+use sync::util::ServerTimestamp;
+use libc::c_char;
+
+
+fn c_str_to_string(cs: *const c_char) -> String {
+    let c_str = unsafe { CStr::from_ptr(cs) };
     let r_str = c_str.to_str().unwrap_or("");
     r_str.to_string()
 }
 
-fn string_to_c_char(s: String) -> *mut c_char {
+fn string_to_c_str(s: String) -> *mut c_char {
     CString::new(s).unwrap().into_raw()
 }
 
-fn opt_string_to_c_char(os: Option<String>) -> *mut c_char {
-    match os {
-        Some(s) => string_to_c_char(s),
-        _ => ptr::null_mut(),
+fn drop_c_str(cs: *mut c_char) {
+    if !cs.is_null() {
+        unsafe {
+            CString::from_raw(cs);
+        }
     }
+}
+
+fn drop_and_null_c_str(cs: &mut *mut c_char) {
+    drop_c_str(mem::replace(cs, ptr::null_mut()));
 }
 
 #[repr(C)]
-pub struct PasswordRecordC {
-    pub id: *mut c_char,
-
-    /// Might be null!
-    pub hostname: *mut c_char,
-
-    /// Might be null!
-    pub form_submit_url: *mut c_char,
-    pub http_realm: *mut c_char,
-
-    pub username: *mut c_char,
-    pub password: *mut c_char,
-
-    pub username_field: *mut c_char,
-    pub password_field: *mut c_char,
-
-    /// In ms since unix epoch
-    pub time_created: i64,
-
-    /// In ms since unix epoch
-    pub time_password_changed: i64,
-
-    /// -1 for missing, otherwise in ms_since_unix_epoch
-    pub time_last_used: i64,
-
-    /// -1 for missing
-    pub times_used: i64,
+pub struct CleartextBsoC {
+    pub server_modified: libc::c_double,
+    pub payload_str: *mut c_char,
 }
 
-unsafe fn drop_cchar_ptr(s: *mut c_char) {
-    if !s.is_null() {
-        let _ = CString::from_raw(s);
-    }
-}
-
-impl Drop for PasswordRecordC {
+impl Drop for CleartextBsoC {
     fn drop(&mut self) {
-        unsafe {
-            drop_cchar_ptr(self.id);
-            drop_cchar_ptr(self.hostname);
-            drop_cchar_ptr(self.form_submit_url);
-            drop_cchar_ptr(self.http_realm);
-            drop_cchar_ptr(self.username);
-            drop_cchar_ptr(self.password);
-            drop_cchar_ptr(self.username_field);
-            drop_cchar_ptr(self.password_field);
-        }
+        drop_and_null_c_str(&mut self.payload_str);
     }
 }
 
-impl From<PasswordRecord> for PasswordRecordC {
-    fn from(record: PasswordRecord) -> PasswordRecordC {
-        PasswordRecordC {
-            id: string_to_c_char(record.id),
-            hostname: opt_string_to_c_char(record.hostname),
-            form_submit_url: opt_string_to_c_char(record.form_submit_url),
-            http_realm: opt_string_to_c_char(record.http_realm),
-            username: string_to_c_char(record.username),
-            password: string_to_c_char(record.password),
-            username_field: string_to_c_char(record.username_field),
-            password_field: string_to_c_char(record.password_field),
-            time_created: record.time_created,
-            time_password_changed: record.time_password_changed,
-            time_last_used: record.time_last_used.unwrap_or(-1),
-            times_used: record.times_used.unwrap_or(-1),
-        }
+impl CleartextBsoC {
+    pub fn new(bso: &CleartextBso) -> Box<CleartextBsoC> {
+        Box::new(CleartextBsoC {
+            payload_str: string_to_c_str(bso.payload.clone().into_json_string()),
+            server_modified: bso.modified.0,
+        })
     }
 }
 
 #[no_mangle]
 pub extern "C" fn sync15_service_create(
-    key_id: *const c_char,
-    access_token: *const c_char,
-    sync_key: *const c_char,
-    tokenserver_base_url: *const c_char
-) -> *mut sync::Sync15Service {
-    let params = sync::Sync15ServiceInit {
-        key_id: c_char_to_string(key_id),
-        access_token: c_char_to_string(access_token),
-        sync_key: c_char_to_string(sync_key),
-        tokenserver_base_url: c_char_to_string(tokenserver_base_url),
+    key_id: *const libc::c_char ,
+    access_token: *const libc::c_char ,
+    sync_key: *const libc::c_char ,
+    tokenserver_base_url: *const libc::c_char
+) -> *mut Sync15Service {
+    let params = Sync15ServiceInit {
+        key_id: c_str_to_string(key_id),
+        access_token: c_str_to_string(access_token),
+        sync_key: c_str_to_string(sync_key),
+        tokenserver_base_url: c_str_to_string(tokenserver_base_url),
     };
-    let mut boxed = match sync::Sync15Service::new(params) {
+    let mut boxed = match Sync15Service::new(params) {
         Ok(svc) => Box::new(svc),
         Err(e) => {
-            println!("Unexpected error initializing Sync15Service: {}", e);
+            eprintln!("Unexpected error initializing Sync15Service: {}", e);
             // TODO: have thoughts about error handling.
             return ptr::null_mut();
         }
     };
     if let Err(e) = boxed.remote_setup() {
-        println!("Unexpected error performing remote sync setup: {}", e);
+        eprintln!("Unexpected error performing remote sync setup: {}", e);
         // TODO: have thoughts about error handling here too.
         return ptr::null_mut();
     }
@@ -127,80 +87,154 @@ pub extern "C" fn sync15_service_create(
 }
 
 #[no_mangle]
-pub extern "C" fn sync15_service_destroy(svc: *mut sync::Sync15Service) {
-    let _ = unsafe { Box::from_raw(svc) };
+pub unsafe extern "C" fn sync15_service_destroy(svc: *mut Sync15Service) {
+    Box::from_raw(svc);
 }
 
-// This is opaque to C
-pub struct PasswordCollection {
-    pub records: Vec<PasswordRecord>,
-    pub tombstones: Vec<String>,
-}
-
+/// Free a changeset previously returned by `sync15_changeset_create` or
+/// `sync15_changeset_fetch`.
 #[no_mangle]
-pub extern "C" fn sync15_service_request_passwords(
-    svc: *mut sync::Sync15Service
-) -> *mut PasswordCollection {
-    let service = unsafe { &mut *svc };
-    let passwords = match service.all_records::<PasswordRecord>("passwords") {
-        Ok(pws) => pws,
+pub unsafe extern "C" fn sync15_changeset_destroy(changeset: *mut RecordChangeset) {
+    Box::from_raw(changeset);
+}
+
+/// Free a record previously returned by `sync15_changeset_get_record_at`.
+#[no_mangle]
+pub unsafe extern "C" fn sync15_record_destroy(bso: *mut CleartextBsoC) {
+    Box::from_raw(bso);
+}
+
+/// Create a new outgoing changeset, which requires that the server have not been
+/// modified since it returned the provided `timestamp`.
+#[no_mangle]
+pub extern "C" fn sync15_changeset_create(
+    collection: *const c_char,
+    timestamp: libc::c_double,
+) -> *mut RecordChangeset {
+    assert!(timestamp >= 0.0);
+    Box::into_raw(Box::new(
+        RecordChangeset::new(c_str_to_string(collection),
+                             ServerTimestamp(timestamp))))
+}
+
+/// Get all the changes for the requested collection that have occurred since last_sync.
+/// Important: Caller frees!
+#[no_mangle]
+pub extern "C" fn sync15_changeset_fetch(
+    svc: *const Sync15Service,
+    collection_c: *const c_char,
+    last_sync: libc::c_double,
+) -> *mut RecordChangeset {
+    let service = unsafe { &*svc };
+    let collection = c_str_to_string(collection_c);
+    let result = RecordChangeset::fetch(service, collection, ServerTimestamp(last_sync as f64));
+    let fetched = match result {
+        Ok(r) => Box::new(r),
         Err(e) => {
-            // TODO: error handling...
-            println!("Unexpected error downloading passwords {}", e);
+            eprintln!("Unexpected error fetching collection: {}", e);
             return ptr::null_mut();
         }
     };
-    let mut tombstones = vec![];
-    let mut records = vec![];
-    for obj in passwords {
-        match obj.payload {
-            sync::Tombstone { id, .. } => tombstones.push(id),
-            sync::NonTombstone(record) => records.push(record),
-        }
+    Box::into_raw(fetched)
+}
+
+/// Get the last_sync timestamp for a (usually remote) changeset.
+#[no_mangle]
+pub extern "C" fn sync15_changeset_get_timestamp(changeset: *const RecordChangeset) -> libc::c_double {
+    let changeset = unsafe { &*changeset };
+    changeset.timestamp.0 as libc::c_double
+}
+
+/// Get the number of records from a (usually remote) changeset.
+#[no_mangle]
+pub extern "C" fn sync15_changeset_get_record_count(changeset: *const RecordChangeset) -> libc::size_t {
+    let changeset = unsafe { &*changeset };
+    changeset.changed.len()
+}
+
+/// Get the number of tombstones from a (usually remote) changeset.
+#[no_mangle]
+pub extern "C" fn sync15_changeset_get_tombstone_count(changeset: *const RecordChangeset) -> libc::size_t {
+    let changeset = unsafe { &*changeset };
+    changeset.deleted_ids.len()
+}
+
+/// Get the requested record from the (usually remote) changeset. `index` should be less
+/// than `sync15_changeset_get_record_count`, or NULL will be returned and a message
+/// logged to stderr.
+///
+/// Important: Caller needs to free the returned value using `sync15_record_destroy`
+#[no_mangle]
+pub extern "C" fn sync15_changeset_get_record_at(
+    changeset: *const RecordChangeset,
+    index: libc::size_t
+) -> *mut CleartextBsoC {
+    let changeset = unsafe { &*changeset };
+    if index >= changeset.changed.len() {
+        eprintln!("sync15_changeset_get_record_at was given an invalid index");
+        return ptr::null_mut();
     }
-    Box::into_raw(Box::new(PasswordCollection { records, tombstones }))
+    Box::into_raw(CleartextBsoC::new(&changeset.changed[index]))
 }
 
+/// Get the requested tombstone id from the (usually remote) changeset. `index`
+/// should be less than `sync15_changeset_get_tombstone_count`, or NULL will be
+/// returned an a message logged to stderr.
+///
+/// Important: Caller needs to free the returned string.
 #[no_mangle]
-pub extern "C" fn sync15_passwords_destroy(coll: *mut PasswordCollection) {
-    let _ = unsafe { Box::from_raw(coll) };
-}
-
-#[no_mangle]
-pub extern "C" fn sync15_passwords_tombstone_count(coll: *const PasswordCollection) -> libc::size_t {
-    let coll = unsafe { &*coll };
-    coll.tombstones.len() as libc::size_t
-}
-
-#[no_mangle]
-pub extern "C" fn sync15_passwords_record_count(coll: *const PasswordCollection) -> libc::size_t {
-    let coll = unsafe { &*coll };
-    coll.records.len() as libc::size_t
-}
-
-#[no_mangle]
-pub extern "C" fn sync15_passwords_get_tombstone_at(
-    coll: *const PasswordCollection,
+pub extern "C" fn sync15_changeset_get_tombstone_at(
+    changeset: *const RecordChangeset,
     index: libc::size_t
 ) -> *mut c_char {
-    let coll = unsafe { &*coll };
-    opt_string_to_c_char(coll.tombstones.get(index as usize).cloned())
-}
-
-#[no_mangle]
-pub extern "C" fn sync15_passwords_get_record_at(
-    coll: *const PasswordCollection,
-    index: libc::size_t
-) -> *mut PasswordRecordC {
-    let coll = unsafe { &*coll };
-    match coll.records.get(index as usize) {
-        Some(r) => Box::into_raw(Box::new(r.clone().into())),
-        None => ptr::null_mut(),
+    let changeset = unsafe { &*changeset };
+    if index >= changeset.deleted_ids.len() {
+        eprintln!("sync15_changeset_get_tombstone_at was given an invalid index");
+        return ptr::null_mut();
     }
+    string_to_c_str(changeset.deleted_ids[index].clone())
 }
 
+fn c_str_to_cleartext(json: *const c_char) -> sync::Result<Cleartext> {
+    let s = unsafe { CStr::from_ptr(json) };
+    Ok(Cleartext::from_json(
+        serde_json::from_slice(s.to_bytes())?)?)
+}
+
+/// Add a record to an outgoing changeset. Returns false in the case that
+/// we were unable to add the record for some reason (typically the json
+/// string provided was not well-formed json).
+///
+/// Note that The `record_json` should only be the record payload, and
+/// should not include the BSO envelope.
 #[no_mangle]
-pub extern "C" fn sync15_password_record_destroy(pw: *mut PasswordRecordC) {
-    // Our drop impl takes care of our strings.
-    let _ = unsafe { Box::from_raw(pw) };
+pub extern "C" fn sync15_changeset_add_record(
+    changeset: *mut RecordChangeset,
+    record_json: *const c_char
+) -> bool {
+    let changeset = unsafe { &mut *changeset };
+    assert!(!record_json.is_null());
+    let cleartext = match c_str_to_cleartext(record_json) {
+        Ok(ct) => ct,
+        Err(e) => {
+            eprintln!("Could not add record to changeset: {}", e);
+            return false;
+        }
+    };
+    // Arguably shouldn't support this and should have callers use add_tombstone, but w/e
+    if cleartext.is_tombstone() {
+        changeset.deleted_ids.push(cleartext.id);
+    } else {
+        let bso = cleartext.into_bso(changeset.collection.clone(), None);
+        changeset.changed.push(bso);
+    }
+    true
+}
+
+/// Add a tombstone to an outgoing changeset.
+#[no_mangle]
+pub extern "C" fn sync15_changeset_add_tombstone(changeset: *mut RecordChangeset,
+                                                 record_id: *const c_char) {
+    let changeset = unsafe { &mut *changeset };
+    changeset.deleted_ids.push(c_str_to_string(record_id));
 }
