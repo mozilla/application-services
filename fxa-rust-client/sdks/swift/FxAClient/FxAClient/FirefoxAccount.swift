@@ -38,12 +38,20 @@ open class FirefoxAccount: RustObject {
         return FirefoxAccount(raw: fxa_from_credentials(config.intoRaw(), clientId, webChannelResponse))
     }
 
+    open class func fromJSON(state: String) -> FirefoxAccount {
+        return FirefoxAccount(raw: fxa_from_json(state))
+    }
+
     public init(config: FxAConfig, clientId: String) {
         self.raw = fxa_new(config.intoRaw(), clientId)
     }
 
     required public init(raw: OpaquePointer) {
         self.raw = raw
+    }
+
+    func toJSON() -> Optional<String> {
+        return String(cString: fxa_to_json(self.raw))
     }
 
     func intoRaw() -> OpaquePointer {
@@ -85,6 +93,14 @@ open class FirefoxAccount: RustObject {
 
     public func completeOAuthFlow(code: String, state: String) -> Optional<OAuthInfo> {
         guard let pointer = fxa_complete_oauth_flow(raw, code, state) else {
+            return nil
+        }
+        return OAuthInfo(raw: pointer)
+    }
+
+    public func getOAuthToken(scopes: [String]) -> Optional<OAuthInfo> {
+        let scope = scopes.joined(separator: " ");
+        guard let pointer = fxa_get_oauth_token(raw, scope) else {
             return nil
         }
         return OAuthInfo(raw: pointer)

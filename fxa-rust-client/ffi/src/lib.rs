@@ -35,11 +35,11 @@ pub extern "C" fn fxa_from_credentials(
     let config = unsafe { Box::from_raw(config) };
     let json = c_char_to_string(json);
     let client_id = c_char_to_string(client_id);
-    let resp = match FxAWebChannelResponse::from_json(&json) {
+    let resp = match FxAWebChannelResponse::from_json(json) {
         Ok(resp) => resp,
         Err(_) => return std::ptr::null_mut(),
     };
-    let fxa = match FirefoxAccount::from_credentials(*config, &client_id, resp) {
+    let fxa = match FirefoxAccount::from_credentials(*config, client_id, resp) {
         Ok(fxa) => fxa,
         Err(_) => return std::ptr::null_mut(),
     };
@@ -56,7 +56,31 @@ pub extern "C" fn fxa_new(config: *mut Config, client_id: *const c_char) -> *mut
     };
     let client_id = c_char_to_string(client_id);
     let config = unsafe { Box::from_raw(config) };
-    Box::into_raw(Box::new(FirefoxAccount::new(*config, &client_id)))
+    Box::into_raw(Box::new(FirefoxAccount::new(*config, client_id)))
+}
+
+#[no_mangle]
+pub extern "C" fn fxa_from_json(json: *const c_char) -> *mut FirefoxAccount {
+    let json = c_char_to_string(json);
+    let fxa = match FirefoxAccount::from_json(json) {
+        Ok(fxa) => fxa,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    Box::into_raw(Box::new(fxa))
+}
+
+/// The caller should de-allocate the result using fxa_free_str after use.
+#[no_mangle]
+pub extern "C" fn fxa_to_json(fxa: *mut FirefoxAccount) -> *mut c_char {
+    let fxa = unsafe {
+        assert!(!fxa.is_null());
+        &mut *fxa
+    };
+    let json = match fxa.to_json() {
+        Ok(json) => json,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    string_to_c_char(json)
 }
 
 #[no_mangle]
@@ -83,7 +107,7 @@ pub extern "C" fn fxa_assertion_new(
         assert!(!fxa.is_null());
         &mut *fxa
     };
-    let assertion = match fxa.generate_assertion(&audience) {
+    let assertion = match fxa.generate_assertion(audience) {
         Ok(assertion) => assertion,
         Err(_) => return std::ptr::null_mut(),
     };
@@ -108,7 +132,7 @@ pub extern "C" fn fxa_get_sync_keys(fxa: *mut FirefoxAccount) -> *mut SyncKeysC 
 pub extern "C" fn fxa_begin_oauth_flow(
     fxa: *mut FirefoxAccount,
     redirect_uri: *const c_char,
-    scopes: *const c_char,
+    scope: *const c_char,
     wants_keys: bool,
 ) -> *mut c_char {
     let fxa = unsafe {
@@ -116,9 +140,9 @@ pub extern "C" fn fxa_begin_oauth_flow(
         &mut *fxa
     };
     let redirect_uri = c_char_to_string(redirect_uri);
-    let scope = c_char_to_string(scopes);
+    let scope = c_char_to_string(scope);
     let scopes: Vec<&str> = scope.split(" ").collect();
-    let oauth_flow = match fxa.begin_oauth_flow(&redirect_uri, &scopes, wants_keys) {
+    let oauth_flow = match fxa.begin_oauth_flow(redirect_uri, &scopes, wants_keys) {
         Ok(oauth_flow) => oauth_flow,
         Err(_) => return std::ptr::null_mut(),
     };
@@ -137,11 +161,32 @@ pub extern "C" fn fxa_complete_oauth_flow(
     };
     let code = c_char_to_string(code);
     let state = c_char_to_string(state);
-    let info = match fxa.complete_oauth_flow(&code, &state) {
+    let info = match fxa.complete_oauth_flow(code, state) {
         Ok(info) => info,
         Err(_) => return std::ptr::null_mut(),
     };
     Box::into_raw(Box::new(info.into()))
+}
+
+#[no_mangle]
+pub extern "C" fn fxa_get_oauth_token(
+    fxa: *mut FirefoxAccount,
+    scope: *const c_char,
+) -> *mut OAuthInfoC {
+    let fxa = unsafe {
+        assert!(!fxa.is_null());
+        &mut *fxa
+    };
+    let scope = c_char_to_string(scope);
+    let scopes: Vec<&str> = scope.split(" ").collect();
+    let auth_info = match fxa.get_oauth_token(&scopes) {
+        Ok(oauth_info) => oauth_info,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    match auth_info {
+        Some(oauth_info) => Box::into_raw(Box::new(oauth_info.into())),
+        None => return std::ptr::null_mut(),
+    }
 }
 
 #[no_mangle]

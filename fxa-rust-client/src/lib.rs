@@ -287,16 +287,6 @@ impl FirefoxAccount {
             let client = FxAClient::new(&self.state.config);
             resp = client.oauth_token_with_code(&code, &flow.code_verifier, &self.state.client_id)?;
         }
-        self.finish_oauth_flow(state, resp)
-    }
-
-    // TODO: We divided these operations in two methods to allow AuthApp to work,
-    // but we might want to just inline it.
-    pub fn finish_oauth_flow(
-        &mut self,
-        state: &str,
-        resp: OAuthTokenResponse,
-    ) -> Result<OAuthInfo> {
         let oauth_flow = match self.flow_store.remove(state) {
             Some(oauth_flow) => oauth_flow,
             None => bail!(ErrorKind::UnknownOAuthState),
@@ -388,23 +378,23 @@ impl FirefoxAccount {
         Ok((sync_key, married.xcs().to_string()))
     }
 
-    pub fn handle_push_message() {
+    pub fn handle_push_message(&self) {
         panic!("Not implemented yet!")
     }
 
-    pub fn register_device() {
+    pub fn register_device(&self) {
         panic!("Not implemented yet!")
     }
 
-    pub fn get_devices_list() {
+    pub fn get_devices_list(&self) {
         panic!("Not implemented yet!")
     }
 
-    pub fn send_message() {
+    pub fn send_message(&self) {
         panic!("Not implemented yet!")
     }
 
-    pub fn retrieve_messages() {
+    pub fn retrieve_messages(&self) {
         panic!("Not implemented yet!")
     }
 
