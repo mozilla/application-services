@@ -19,7 +19,6 @@ matrix:
       rust: stable
 
 script:
-  - cargo build --release
-  - cargo test
+  - scripts/ci-test.sh
 
 cache: cargo
