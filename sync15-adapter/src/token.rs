@@ -210,7 +210,7 @@ impl TokenserverClient {
                 }
             },
             Err(e) => {
-                match error::Error::from("error!") {
+                match e {
                     error::Error(error::ErrorKind::BackoffError(ref be), _) => {
                         TokenState::Backoff(*be, previous_endpoint.map(|s| s.to_string()))
                     }
