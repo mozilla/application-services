@@ -154,7 +154,7 @@ enum TokenState {
     // We failed to fetch a token. First elt is the error, second elt is
     // the api_endpoint we had before we failed to fetch a new token (or
     // None if the very first attempt at fetching a token failed)
-    Failed(error::Error, Option<String>),
+    Failed(Option<error::Error>, Option<String>),
     // Previously failed and told to back-off for SystemTime duration. Second
     // elt is the api_endpoint we had before we hit the backoff error.
     // XXX - should we roll Backoff and Failed together?
@@ -215,7 +215,7 @@ impl TokenserverClient {
                         TokenState::Backoff(*be, previous_endpoint)
                     }
                     _ => {
-                        TokenState::Failed(e, previous_endpoint)
+                        TokenState::Failed(Some(e), previous_endpoint)
                     }
                 }
             }
@@ -279,9 +279,9 @@ impl TokenserverClient {
                 // make the call.
                 func(token_context)
             }
-            TokenState::Failed(_, _) => {
-                // XXX - todo - work out how to return the value???
-                bail!(error::unexpected("todo - work out how to return the actual error?"))
+            TokenState::Failed(e, _) => {
+                // We swap the error out of the state enum and return it.
+                return Err(e.take().unwrap());
             }
             TokenState::NodeReassigned => {
                 // this is unrecoverable.
@@ -320,8 +320,9 @@ mod tests {
 
         // TODO: make this actually useful!
         let _e = tsc.api_endpoint(&client).expect_err("should fail");
-        // XXX - (a) it's an unexpected error rather than the original, and
-        // (b), how to sanely check it anyway?
-        // assert_eq!(e.kind(), error::ErrorKind::UnexpectedError);
+        println!("FAILED WITH {}", _e.kind());
+        // XXX - this will fail with |ErrorKind::BadUrl(RelativeUrlWithoutBase)|
+        // but I'm not sure how to test it!
+        //assert_eq!(_e, error::ErrorKind::BadUrl(RelativeUrlWithoutBase));
     }
 }
