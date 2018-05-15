@@ -65,8 +65,8 @@ impl<T> Sync15Record for MaybeTombstone<T> where T: Sync15Record {
     fn ttl() -> Option<u32> { T::ttl() }
     fn record_id(&self) -> &str {
         match self {
-            &Tombstone { ref id, .. } => id,
-            &NonTombstone(ref record) => record.record_id()
+            &Tombstone { ref id, .. } => id.as_str(),
+            &NonTombstone(ref record) => record.record_id(),
         }
     }
     fn sortindex(&self) -> Option<i32> {

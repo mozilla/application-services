@@ -22,8 +22,7 @@ extern crate serde_derive;
 #[macro_use]
 extern crate log;
 
-// Right now we only need the `json!` macro in tests, and a raw `#[macro_use]` gives us a warning
-#[cfg_attr(test, macro_use)]
+#[macro_use]
 extern crate serde_json;
 
 #[macro_use]
@@ -43,6 +42,7 @@ pub mod util;
 pub mod request;
 pub mod service;
 pub mod tombstone;
+pub mod sync;
 
 // Re-export some of the types callers are likely to want for convenience.
 pub use bso_record::{BsoRecord, Sync15Record};

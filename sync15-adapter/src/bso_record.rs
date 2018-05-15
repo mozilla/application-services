@@ -62,8 +62,7 @@ impl<T> BsoRecord<T> {
     }
 }
 
-/// Marker trait that indicates that something is a sync record type. By not implementing this
-/// for EncryptedPayload, we can statically prevent double-encrypting.
+/// Marker trait that indicates that something is a sync record type.
 pub trait Sync15Record: Clone + DeserializeOwned + Serialize {
     fn collection_tag() -> &'static str;
     fn record_id(&self) -> &str;
@@ -75,6 +74,12 @@ pub trait Sync15Record: Clone + DeserializeOwned + Serialize {
     #[inline]
     fn sortindex(&self) -> Option<i32> { None }
 }
+
+/// By not implementing this for EncryptedPayload, we can statically prevent double-encrypting.
+pub trait CleartextRecord: Clone + DeserializeOwned + Serialize {}
+
+// If you implement Sync15Record, you are automatically marked as a CleartextRecord
+impl<T> CleartextRecord for T where T: Sync15Record {}
 
 impl<T> From<T> for BsoRecord<T> where T: Sync15Record {
     #[inline]
@@ -98,6 +103,17 @@ impl<T> BsoRecord<Option<T>> {
         match payload {
             Some(p) => Some(BsoRecord { id, collection, modified, sortindex, ttl, payload: p }),
             None => None
+        }
+    }
+}
+
+impl<T, E> BsoRecord<Result<T, E>> {
+    #[inline]
+    pub fn transpose(self) -> Result<BsoRecord<T>, E> {
+        let BsoRecord { id, collection, modified, sortindex, ttl, payload } = self;
+        match payload {
+            Ok(p) => Ok(BsoRecord { id, collection, modified, sortindex, ttl, payload: p }),
+            Err(e) => Err(e),
         }
     }
 }
@@ -193,7 +209,7 @@ impl BsoRecord<EncryptedPayload> {
     }
 }
 
-impl<T> BsoRecord<T> where T: Sync15Record {
+impl<T> BsoRecord<T> where T: CleartextRecord {
     pub fn encrypt(self, key: &KeyBundle) -> error::Result<BsoRecord<EncryptedPayload>> {
         let cleartext = serde_json::to_string(&self.payload)?;
         let (enc_bytes, iv) = key.encrypt_bytes_rand_iv(&cleartext.as_bytes())?;
