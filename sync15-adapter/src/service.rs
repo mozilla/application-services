@@ -63,12 +63,10 @@ impl Sync15Service {
     pub fn new(init_params: Sync15ServiceInit) -> error::Result<Sync15Service> {
         let root_key = KeyBundle::from_ksync_base64(&init_params.sync_key)?;
         let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
-        // TODO Should we be doing this here? What if we get backoff? Who handles that?
-        let tsc = token::TokenserverClient::new(&client,
-                                                &init_params.tokenserver_base_url,
+        let tsc = token::TokenserverClient::new(init_params.tokenserver_base_url.clone(),
                                                 init_params.access_token.clone(),
-                                                init_params.key_id.clone())?;
-        let timestamp = tsc.server_timestamp();
+                                                init_params.key_id.clone());
+        let timestamp = ServerTimestamp(0f64);
         Ok(Sync15Service {
             client,
             init_params,
@@ -83,7 +81,7 @@ impl Sync15Service {
 
     #[inline]
     fn authorized(&self, mut req: Request) -> error::Result<Request> {
-        let header = self.tsc.authorization(&req)?;
+        let header = self.tsc.authorization(&self.client, &req)?;
         req.headers_mut().set(header);
         Ok(req)
     }
@@ -95,7 +93,7 @@ impl Sync15Service {
     }
 
     fn relative_storage_request<T>(&self, method: Method, relative_path: T) -> error::Result<Response> where T: AsRef<str> {
-        let s = self.tsc.token().api_endpoint.clone() + "/";
+        let s = self.tsc.api_endpoint(&self.client)? + "/";
         let url = Url::parse(&s)?.join(relative_path.as_ref())?;
         Ok(self.make_storage_request(method, url)?)
     }
@@ -127,7 +125,7 @@ impl Sync15Service {
 
     fn collection_request(&self, method: Method, r: &CollectionRequest) -> error::Result<Response> {
         self.make_storage_request(method.clone(),
-                                  r.build_url(Url::parse(&self.tsc.token().api_endpoint)?)?)
+                                  r.build_url(Url::parse(&self.tsc.api_endpoint(&self.client)?)?)?)
     }
 
     fn fetch_info<T>(&self, path: &str) -> error::Result<T> where for <'a> T: serde::de::Deserialize<'a> {
@@ -235,7 +233,7 @@ impl<'a> BatchPoster for PostWrapper<'a> {
         let url = CollectionRequest::new(self.coll.clone())
                                     .batch(batch)
                                     .commit(commit)
-                                    .build_url(Url::parse(&self.svc.tsc.token().api_endpoint)?)?;
+                                    .build_url(Url::parse(&self.svc.tsc.api_endpoint(&self.svc.client)?)?)?;
 
         let mut req = self.svc.build_request(Method::Post, url)?;
         req.headers_mut().set(header::ContentType::json());

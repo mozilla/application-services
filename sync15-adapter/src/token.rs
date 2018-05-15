@@ -9,6 +9,8 @@ use hyper::header::{Authorization, Bearer};
 use error::{self, Result};
 use std::fmt;
 use std::borrow::{Borrow, Cow};
+use std::time::{SystemTime, Duration};
+use std::cell::{RefCell};
 use util::ServerTimestamp;
 
 /// Tokenserver's timestamp is X-Timestamp and not X-Weave-Timestamp.
@@ -20,36 +22,6 @@ header! { (XTimestamp, "X-Timestamp") => [ServerTimestamp] }
 /// OAuth tokenserver api uses this instead of X-Client-State.
 header! { (XKeyID, "X-KeyID") => [String] }
 
-#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct TokenserverToken {
-    pub id: String,
-    pub key: String,
-    pub api_endpoint: String,
-    pub uid: u64,
-    pub duration: u64,
-    // This is treated as optional by at least the desktop client,
-    // but AFAICT it's always present.
-    pub hashed_fxa_uid: String,
-}
-
-/// This is really more of a TokenAuthenticator.
-pub struct TokenserverClient {
-    token: TokenserverToken,
-    server_timestamp: ServerTimestamp,
-    credentials: hawk::Credentials,
-}
-
-// hawk::Credentials doesn't implement debug -_-
-impl fmt::Debug for TokenserverClient {
-    fn fmt(&self, f: &mut fmt::Formatter) -> ::std::result::Result<(), fmt::Error> {
-        f.debug_struct("TokenserverClient")
-         .field("token", &self.token)
-         .field("server_timestamp", &self.server_timestamp)
-         .field("credentials", &"(omitted)")
-         .finish()
-    }
-}
-
 fn token_url(base_url: &str) -> Result<Url> {
     let mut url = Url::parse(base_url)?;
     // kind of gross but avoids problems if base_url has a trailing slash.
@@ -60,52 +32,92 @@ fn token_url(base_url: &str) -> Result<Url> {
     Ok(url)
 }
 
-impl TokenserverClient {
-    #[inline]
-    pub fn server_timestamp(&self) -> ServerTimestamp {
-        self.server_timestamp
-    }
+// The TokenserverToken is the token as received directly from the token server
+// and deserialized from JSON.
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+struct TokenserverToken {
+    id: String,
+    key: String,
+    api_endpoint: String,
+    uid: u64,
+    duration: u64,
+    hashed_fxa_uid: String,
+}
 
-    #[inline]
-    pub fn token(&self) -> &TokenserverToken {
-        &self.token
-    }
+// A context stored by our TokenserverClient when it has a TokenState::Token
+// state.
+struct TokenContext {
+    token: TokenserverToken,
+    credentials: hawk::Credentials,
+    server_timestamp: ServerTimestamp,
+    valid_until: SystemTime,
+}
 
-    pub fn new(request_client: &Client, base_url: &str, access_token: String, key_id: String) -> Result<TokenserverClient> {
-        let mut resp = request_client.get(token_url(base_url)?)
-                                     .header(Authorization(Bearer { token: access_token }))
-                                     .header(XKeyID(key_id))
+// hawk::Credentials doesn't implement debug -_-
+impl fmt::Debug for TokenContext {
+    fn fmt(&self, f: &mut fmt::Formatter) -> ::std::result::Result<(), fmt::Error> {
+        f.debug_struct("TokenContext")
+         .field("token", &self.token)
+         .field("credentials", &"(omitted)")
+         .field("server_timestamp", &self.server_timestamp)
+         .field("valid_until", &self.valid_until)
+         .finish()
+    }
+}
+
+impl TokenContext {
+    fn new(tsc: &TokenserverClient, request_client: &Client) -> Result<TokenContext> {
+        let mut resp = request_client.get(token_url(&tsc.base_url)?)
+                                     .header(Authorization(Bearer { token: tsc.access_token.clone() }))
+                                     .header(XKeyID(tsc.key_id.clone()))
                                      .send()?;
 
         if !resp.status().is_success() {
             warn!("Non-success status when fetching token: {}", resp.status());
             // TODO: the body should be JSON and contain a status parameter we might need?
             debug!("  Response body {}", resp.text().unwrap_or("???".into()));
-            if let Some(seconds) = resp.headers().get::<RetryAfter>().map(|h| **h) {
-                bail!(error::ErrorKind::BackoffError(seconds));
+            // XXX - shouldn't we "chain" these errors - ie, a BackoffError could
+            // have a TokenserverHttpError as its cause?
+            if let Some(ms) = resp.headers().get::<RetryAfter>().map(|h| (**h * 1000f64) as u64) {
+                let when = SystemTime::now() + Duration::from_millis(ms);
+                bail!(error::ErrorKind::BackoffError(when));
             }
             bail!(error::ErrorKind::TokenserverHttpError(resp.status()));
         }
 
         let token: TokenserverToken = resp.json()?;
+        let valid_until = SystemTime::now() + Duration::from_secs(token.duration);
 
         let timestamp = resp.headers()
                             .get::<XTimestamp>()
                             .map(|h| **h)
                             .ok_or_else(|| error::unexpected(
                                 "Missing or corrupted X-Timestamp header from token server"))?;
+
         let credentials = hawk::Credentials {
             id: token.id.clone(),
             key: hawk::Key::new(token.key.as_bytes(), hawk::Digest::sha256())?,
         };
-        Ok(TokenserverClient {
+
+        Ok(TokenContext {
             token,
             credentials,
-            server_timestamp: timestamp
+            server_timestamp: timestamp,
+            valid_until,
         })
     }
 
-    pub fn authorization(&self, req: &Request) -> Result<Authorization<String>> {
+    fn is_valid(&self) -> bool {
+        // We could consider making the duration a little shorter - if it
+        // only has 1 second validity there seems a reasonable chance it will
+        // have expired by the time it gets presented to the remote that wants
+        // it.
+        // Either way though, we will eventually need to handle a token being
+        // rejected as a non-fatal error and recover, so maybe we don't care?
+        SystemTime::now() < self.valid_until
+    }
+
+    fn authorization(&self, req: &Request) -> Result<Authorization<String>> {
         let url = req.url();
 
         let path_and_query = match url.query() {
@@ -129,5 +141,188 @@ impl TokenserverClient {
         ).request().make_header(&self.credentials)?;
 
         Ok(Authorization(format!("Hawk {}", header)))
+    }
+}
+
+// The state our TokenserverClient holds to reflect the state of the token.
+#[derive(Debug)]
+enum TokenState {
+    // We've never fetched a token.
+    NoToken,
+    // Have a token and last we checked it remained valid.
+    Token(TokenContext),
+    // We failed to fetch a token. First elt is the error, second elt is
+    // the api_endpoint we had before we failed to fetch a new token (or
+    // None if the very first attempt at fetching a token failed)
+    Failed(Option<error::Error>, Option<String>),
+    // Previously failed and told to back-off for SystemTime duration. Second
+    // elt is the api_endpoint we had before we hit the backoff error.
+    // XXX - should we roll Backoff and Failed together?
+    Backoff(SystemTime, Option<String>),
+    // api_endpoint changed - we are never going to get a token nor move out
+    // of this state.
+    NodeReassigned,
+}
+
+/// The TokenserverClient - long lived and fetches tokens on demand (eg, when
+/// first needed, or when an existing one expires.)
+#[derive(Debug)]
+pub struct TokenserverClient {
+    // The stuff needed to fetch a token.
+    base_url: String,
+    access_token: String,
+    key_id: String,
+    // Our token state (ie, whether we have a token, and if not, why not)
+    current_state: RefCell<TokenState>,
+}
+
+impl TokenserverClient {
+    pub fn new(base_url: String, access_token: String, key_id: String) -> TokenserverClient {
+        TokenserverClient {
+            base_url,
+            access_token,
+            key_id,
+            current_state: RefCell::new(TokenState::NoToken),
+        }
+    }
+
+    // Attempt to fetch a new token and return a new state reflecting that
+    // operation. If it worked a TokenState::Token state will be returned, but
+    // errors may cause other states.
+    fn fetch_token(&self, request_client: &Client, previous_endpoint: Option<&str>) -> TokenState {
+        match TokenContext::new(self, request_client) {
+            Ok(tc) => {
+                // We got a new token - check that the endpoint is the same
+                // as a previous endpoint we saw (if any)
+                match previous_endpoint {
+                    Some(prev) => {
+                        if prev == tc.token.api_endpoint {
+                            TokenState::Token(tc)
+                        } else {
+                            warn!("api_endpoint changed from {} to {}", prev, tc.token.api_endpoint);
+                            TokenState::NodeReassigned
+                        }
+                    },
+                    None => {
+                        // Never had an api_endpoint in the past, so this is OK.
+                        TokenState::Token(tc)
+                    }
+                }
+            },
+            Err(e) => {
+                match e {
+                    error::Error(error::ErrorKind::BackoffError(ref be), _) => {
+                        TokenState::Backoff(*be, previous_endpoint.map(|s| s.to_string()))
+                    }
+                    _ => {
+                        TokenState::Failed(Some(e), previous_endpoint.map(|s| s.to_string()))
+                    }
+                }
+            }
+        }
+    }
+
+    // Given the state we are currently in, return a new current state.
+    // Returns None if the current state should be used (eg, if we are
+    // holding a token that remains valid) or Some() if the state has changed
+    // (which may have changed to a state with a token or an error state)
+    fn advance_state(&self, request_client: &Client, state: &TokenState) -> Option<TokenState> {
+        match state {
+            TokenState::NoToken => {
+                Some(self.fetch_token(request_client, None))
+            },
+            TokenState::Failed(_, existing_endpoint) => {
+                Some(self.fetch_token(request_client, existing_endpoint.as_ref().map(|e| e.as_str())))
+            },
+            TokenState::Token(existing_context) => {
+                if existing_context.is_valid() {
+                    None
+                } else {
+                    Some(self.fetch_token(request_client, Some(existing_context.token.api_endpoint.as_str())))
+                }
+            },
+            TokenState::Backoff(ref until, ref existing_endpoint) => {
+                if let Ok(remaining) = until.duration_since(SystemTime::now()) {
+                    debug!("enforcing existing backoff - {:?} remains", remaining);
+                    None
+                } else {
+                    // backoff period is over
+                    Some(self.fetch_token(request_client, existing_endpoint.as_ref().map(|e| e.as_str())))
+                }
+            },
+            TokenState::NodeReassigned => {
+                // We never leave this state.
+                None
+            }
+        }
+    }
+
+    fn with_token<T, F>(&self, request_client: &Client, func: F) -> Result<T>
+            where F: FnOnce(&TokenContext) -> Result<T> {
+
+        // first get a mutable ref to our existing state, advance to the
+        // state we will use, then re-stash that state for next time.
+        let state: &mut TokenState = &mut self.current_state.borrow_mut();
+        match self.advance_state(request_client, state) {
+            Some(new_state) => *state = new_state,
+            None => ()
+        }
+
+        // Now re-fetch the state we should use for this call - if it's
+        // anything other than TokenState::Token we will fail.
+        match state {
+            TokenState::NoToken => {
+                // it should be impossible to get here.
+                panic!("Can't be in NoToken state after advancing");
+            }
+            TokenState::Token(ref token_context) => {
+                // make the call.
+                func(token_context)
+            }
+            TokenState::Failed(e, _) => {
+                // We swap the error out of the state enum and return it.
+                return Err(e.take().unwrap());
+            }
+            TokenState::NodeReassigned => {
+                // this is unrecoverable.
+                bail!(error::ErrorKind::StorageResetError);
+            }
+            TokenState::Backoff(ref remaining, _) => {
+                bail!(error::ErrorKind::BackoffError(*remaining));
+            }
+        }
+    }
+
+    pub fn authorization(&self, http_client: &Client, req: &Request) -> Result<Authorization<String>> {
+        Ok(self.with_token(http_client, |ctx| ctx.authorization(req))?)
+    }
+
+    pub fn api_endpoint(&self, http_client: &Client) -> Result<String> {
+        Ok(self.with_token(http_client, |ctx| Ok(ctx.token.api_endpoint.clone()))?)
+    }
+    // TODO: we probably want a "drop_token/context" type method so that when
+    // using a token with some validity fails the caller can force a new one
+    // (in which case the new token request will probably fail with a 401)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use reqwest::{Client};
+
+    #[test]
+    fn test_something() {
+        let client = Client::builder().timeout(Duration::from_secs(30)).build().expect("can't build client");
+        let tsc = TokenserverClient::new(String::from("base_url"),
+                                         String::from("access_token"),
+                                         String::from("key_id"));
+
+        // TODO: make this actually useful!
+        let _e = tsc.api_endpoint(&client).expect_err("should fail");
+        println!("FAILED WITH {}", _e.kind());
+        // XXX - this will fail with |ErrorKind::BadUrl(RelativeUrlWithoutBase)|
+        // but I'm not sure how to test it!
+        //assert_eq!(_e, error::ErrorKind::BadUrl(RelativeUrlWithoutBase));
     }
 }
