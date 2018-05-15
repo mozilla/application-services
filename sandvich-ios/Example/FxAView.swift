@@ -9,6 +9,7 @@ import FxAClient
 class FxAView: UIViewController, WKNavigationDelegate {
     private var webView: WKWebView
     var redirectUrl: String
+    var stateKey: String
     var fxa: FirefoxAccount?
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
@@ -17,8 +18,13 @@ class FxAView: UIViewController, WKNavigationDelegate {
 
     init(webView: WKWebView = WKWebView()) {
         self.webView = webView
-        self.redirectUrl = "https://mozilla-lockbox.github.io/fxa/ios-redirect.html"
+        self.stateKey = "fxaState"
+        self.redirectUrl = "com.mozilla.sandvich:/oauth2redirect/fxa-provider"
         super.init(nibName: nil, bundle: nil)
+    }
+
+    func persistState(_ fxa: FirefoxAccount) {
+        UserDefaults.standard.set(fxa.toJSON()!, forKey: self.stateKey)
     }
 
     override func viewDidLoad() {
@@ -27,14 +33,20 @@ class FxAView: UIViewController, WKNavigationDelegate {
         self.view = self.webView
         self.styleNavigationBar()
 
-        let config = FxAConfig.release();
-        // TODO: restore from prior state.
-        let fxa = FirefoxAccount(config: config, clientId: "98adfa37698f255b")
-        if let profile = fxa.profile { // Profile obtained = oauth token present (not a great approximation but ok for now).
+        let fxa: FirefoxAccount;
+        if let state_json = UserDefaults.standard.string(forKey: self.stateKey) {
+            fxa = FirefoxAccount.fromJSON(state: state_json)
+        } else {
+            let config = FxAConfig.custom(content_base: "https://sandvich-ios.dev.lcip.org");
+            fxa = FirefoxAccount(config: config, clientId: "22d74070a481bc73")
+            persistState(fxa)
+        }
+
+        if let profile = fxa.profile { // If we aren't able to get the profile, we'll try to get a token (we should probably check errors in the future).
             self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
         }
         self.fxa = fxa
-        let authUrl = fxa.beginOAuthFlow(redirectURI: self.redirectUrl, scopes: ["profile"], wantsKeys: false)!
+        let authUrl = fxa.beginOAuthFlow(redirectURI: self.redirectUrl, scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"], wantsKeys: true)!
         self.webView.load(URLRequest(url: authUrl))
     }
 
@@ -42,7 +54,8 @@ class FxAView: UIViewController, WKNavigationDelegate {
     func webViewRequest(decidePolicyFor navigationAction: WKNavigationAction,
                         decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         if let navigationURL = navigationAction.request.url {
-            if "\(navigationURL.scheme!)://\(navigationURL.host!)\(navigationURL.path)" == self.redirectUrl,
+            let expectedRedirectURL = URL(string: redirectUrl)!
+            if navigationURL.scheme == expectedRedirectURL.scheme && navigationURL.host == expectedRedirectURL.host && navigationURL.path == expectedRedirectURL.path,
                 let components = URLComponents(url: navigationURL, resolvingAgainstBaseURL: true) {
                 matchingRedirectURLReceived(components: components)
                 decisionHandler(.cancel)
@@ -57,6 +70,7 @@ class FxAView: UIViewController, WKNavigationDelegate {
         var dic = [String: String]()
         components.queryItems?.forEach { dic[$0.name] = $0.value }
         let oauthInfo = self.fxa!.completeOAuthFlow(code: dic["code"]!, state: dic["state"]!)!
+        persistState(self.fxa!) // Persist fxa state because it now holds the profile token.
         print("access_token: " + oauthInfo.accessToken)
         if let keys = oauthInfo.keysJWE {
             print("keysJWE: " + keys)
