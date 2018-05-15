@@ -21,10 +21,9 @@ typedef struct ProfileC {
 typedef struct FirefoxAccount FirefoxAccount;
 typedef struct Config Config;
 
-/*
- * The caller should de-allocate the result using fxa_free_str after use.
- */
-char *fxa_assertion_new(FirefoxAccount *fxa, const char *audience);
+Config *fxa_get_release_config(void);
+
+Config *fxa_get_custom_config(const char *content_base);
 
 /*
  * The caller should de-allocate the result using fxa_free_str after use.
@@ -37,16 +36,6 @@ char *fxa_begin_oauth_flow(FirefoxAccount *fxa,
 OAuthInfoC *fxa_complete_oauth_flow(FirefoxAccount *fxa, const char *code, const char *state);
 
 OAuthInfoC *fxa_get_oauth_token(FirefoxAccount *fxa, const char *scope);
-
-/*
- * Note: After calling this function, Rust will now own `config`, therefore the caller's
- * pointer should be dropped.
- */
-FirefoxAccount *fxa_from_credentials(Config *config, const char *client_id, const char *json);
-
-Config *fxa_get_release_config(void);
-
-SyncKeysC *fxa_get_sync_keys(FirefoxAccount *fxa);
 
 FirefoxAccount *fxa_from_json(const char *json);
 
@@ -62,6 +51,19 @@ char *fxa_to_json(FirefoxAccount *fxa);
 FirefoxAccount *fxa_new(Config *config, const char *client_id);
 
 ProfileC *fxa_profile(FirefoxAccount *fxa);
+
+/*
+ * Note: After calling this function, Rust will now own `config`, therefore the caller's
+ * pointer should be dropped.
+ */
+FirefoxAccount *fxa_from_credentials(Config *config, const char *client_id, const char *json);
+
+/*
+ * The caller should de-allocate the result using fxa_free_str after use.
+ */
+char *fxa_assertion_new(FirefoxAccount *fxa, const char *audience);
+
+SyncKeysC *fxa_get_sync_keys(FirefoxAccount *fxa);
 
 void fxa_free_str(char *s);
 

@@ -13,6 +13,10 @@ open class FxAConfig: RustObject {
         return FxAConfig(raw: fxa_get_release_config())
     }
 
+    open class func custom(content_base: String) -> FxAConfig {
+        return FxAConfig(raw: fxa_get_custom_config(content_base))
+    }
+
     required public init(raw: OpaquePointer) {
         self.raw = raw
     }

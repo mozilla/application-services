@@ -20,6 +20,16 @@ pub extern "C" fn fxa_get_release_config() -> *mut Config {
     Box::into_raw(Box::new(config))
 }
 
+#[no_mangle]
+pub extern "C" fn fxa_get_custom_config(content_base: *const c_char) -> *mut Config {
+    let content_base = c_char_to_string(content_base);
+    let config = match Config::import_from(content_base) {
+        Ok(config) => config,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    Box::into_raw(Box::new(config))
+}
+
 /// Note: After calling this function, Rust will now own `config`, therefore the caller's
 /// pointer should be dropped.
 #[no_mangle]
