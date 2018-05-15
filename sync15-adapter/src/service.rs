@@ -5,7 +5,7 @@
 
 use std::cell::Cell;
 use std::time::{Duration};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 
 use reqwest::{
     Client,
@@ -21,8 +21,7 @@ use util::{ServerTimestamp, SERVER_EPOCH};
 use token;
 use error;
 use key_bundle::KeyBundle;
-use bso_record::{BsoRecord, Sync15Record, EncryptedPayload};
-use tombstone::{MaybeTombstone, NonTombstone};
+use bso_record::{BsoRecord, EncryptedBso};
 use record_types::MetaGlobalRecord;
 use collection_keys::CollectionKeys;
 use request::{
@@ -34,7 +33,6 @@ use request::{
     BatchPoster,
     PostQueue,
     PostResponseHandler,
-    NormalResponseHandler,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -157,7 +155,7 @@ impl Sync15Service {
         // TODO: if info/collections says we should, upload keys.
         // TODO: This should be handled in collection_keys.rs, which should track modified time, etc.
         let mut keys_resp = self.relative_storage_request(Method::Get, "storage/crypto/keys")?;
-        let keys: BsoRecord<EncryptedPayload> = keys_resp.json()?;
+        let keys: EncryptedBso = keys_resp.json()?;
         self.keys = Some(CollectionKeys::from_encrypted_bso(keys, &self.root_key)?);
         // TODO: error handling... key upload?
         Ok(())
@@ -167,16 +165,6 @@ impl Sync15Service {
         Ok(self.keys.as_ref()
                     .ok_or_else(|| error::unexpected("Don't have keys (yet?)"))?
                     .key_for_collection(collection))
-    }
-
-    pub fn all_records<T>(&mut self, collection: &str) ->
-            error::Result<Vec<BsoRecord<MaybeTombstone<T>>>> where T: Sync15Record {
-        let key = self.key_for_collection(collection)?;
-        let mut resp = self.collection_request(Method::Get, CollectionRequest::new(collection).full())?;
-        let records: Vec<BsoRecord<EncryptedPayload>> = resp.json()?;
-        records.into_iter()
-               .map(|record| record.decrypt::<MaybeTombstone<T>>(key))
-               .collect()
     }
 
     fn update_timestamp(&self, hs: &header::Headers) {
@@ -192,7 +180,7 @@ impl Sync15Service {
         &self,
         collection: &str,
         since: ServerTimestamp,
-    ) -> error::Result<Vec<BsoRecord<EncryptedPayload>>> {
+    ) -> error::Result<Vec<EncryptedBso>> {
         self.key_for_collection(collection)?;
         let mut resp = self.collection_request(Method::Get,
                                                CollectionRequest::new(collection)
@@ -215,9 +203,14 @@ impl Sync15Service {
         let pw = PostWrapper { svc: self, coll: coll.into() };
         Ok(PostQueue::new(self.server_config.as_ref().unwrap(), ts, pw, on_response))
     }
+
+    #[inline]
+    pub fn last_server_time(&self) -> ServerTimestamp {
+        self.last_server_time.get()
+    }
 }
 
-struct PostWrapper<'a> {
+pub struct PostWrapper<'a> {
     svc: &'a Sync15Service,
     coll: String,
 }

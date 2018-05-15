@@ -22,7 +22,7 @@ extern crate serde_derive;
 #[macro_use]
 extern crate log;
 
-#[macro_use]
+#[cfg_attr(test, macro_use)]
 extern crate serde_json;
 
 #[macro_use]
@@ -41,13 +41,10 @@ pub mod collection_keys;
 pub mod util;
 pub mod request;
 pub mod service;
-pub mod tombstone;
 pub mod sync;
 
 // Re-export some of the types callers are likely to want for convenience.
-pub use bso_record::{BsoRecord, Sync15Record};
-pub use tombstone::{MaybeTombstone, Tombstone, NonTombstone};
-pub use service::{Sync15ServiceInit, Sync15Service, CollectionUpdate};
+pub use bso_record::{BsoRecord, EncryptedBso, Cleartext, CleartextBso};
+pub use service::{Sync15ServiceInit, Sync15Service};
+pub use sync::RecordChangeset;
 pub use error::{Result, Error, ErrorKind};
-
-pub use MaybeTombstone::*;

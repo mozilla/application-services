@@ -70,6 +70,11 @@ error_chain! {
             display("Record is larger than the maximum size allowed by the server")
         }
 
+        MalformedRecord(desc: String) {
+            description("Record is malformed after decrypting")
+            display("Record is malformed after decrypting: {}", desc)
+        }
+
         BatchInterrupted {
             description("Batch interrupted: server responded with 412")
             display("Batch interrupted: server responded with 412")

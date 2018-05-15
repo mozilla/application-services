@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use util::ServerTimestamp;
-use bso_record::{BsoRecord, EncryptedPayload};
+use bso_record::EncryptedBso;
 
 use serde_json;
 use std::fmt;
@@ -396,7 +396,7 @@ where
         }
     }
 
-    pub fn enqueue(&mut self, record: &BsoRecord<EncryptedPayload>) -> Result<bool> {
+    pub fn enqueue(&mut self, record: &EncryptedBso) -> Result<bool> {
         let payload_length = record.payload.serialized_len();
 
         if self.post_limits.can_never_add(payload_length) ||
@@ -569,6 +569,7 @@ impl<Poster> PostQueue<Poster, NormalResponseHandler> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use bso_record::{BsoRecord, EncryptedPayload};
     use std::collections::VecDeque;
     use std::cell::RefCell;
     use std::rc::Rc;
@@ -613,7 +614,7 @@ mod test {
         fn records_as_json(&self) -> Vec<serde_json::Value> {
             let values = serde_json::from_str::<serde_json::Value>(&self.body).expect("Posted invalid json");
             // Check that they actually deserialize as what we want
-            let records_or_err = serde_json::from_value::<Vec<BsoRecord<EncryptedPayload>>>(values.clone());
+            let records_or_err = serde_json::from_value::<Vec<EncryptedBso>>(values.clone());
             records_or_err.expect("Failed to deserialize data");
             serde_json::from_value(values).unwrap()
         }
@@ -806,7 +807,7 @@ mod test {
     }
 
     // Actual record size (for max_request_len) will be larger by some amount
-    fn make_record(payload_size: usize) -> BsoRecord<EncryptedPayload> {
+    fn make_record(payload_size: usize) -> EncryptedBso {
         assert!(payload_size > *PAYLOAD_OVERHEAD);
         let ciphertext_len = payload_size - *PAYLOAD_OVERHEAD;
         BsoRecord {
