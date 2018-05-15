@@ -4,19 +4,10 @@ sudo: required
 
 matrix:
   include:
-    # Targets are not used at this time
-    - env: TARGET=i686-unknown-linux-gnu
-      rust: stable
     - env: TARGET=x86_64-unknown-linux-gnu
       rust: stable
-    - env: TARGET=x86_64-unknown-linux-gnu
-      rust: 1.25.0
     - env: TARGET=x86_64-unknown-linux-gnu
       rust: nightly
-    - env: TARGET=powerpc-unknown-linux-gnu
-      rust: stable
-    - env: TARGET=powerpc64-unknown-linux-gnu
-      rust: stable
 
 script:
   - scripts/ci-test.sh
