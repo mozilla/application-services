@@ -5,136 +5,83 @@
 import Foundation
 import UIKit
 
-open class FxAConfig: RustObject {
-    var raw: OpaquePointer
-    var wasMoved = false
-
-    open class func release() -> FxAConfig {
-        return FxAConfig(raw: fxa_get_release_config())
+class FxAConfig: MovableRustOpaquePointer {
+    open class func release() throws -> FxAConfig {
+        let pointer = try fxa_get_release_config().pointee.unwrap()
+        return FxAConfig(raw: pointer)
     }
 
-    open class func custom(content_base: String) -> FxAConfig {
-        return FxAConfig(raw: fxa_get_custom_config(content_base))
+    open class func custom(content_base: String) throws -> FxAConfig {
+        let pointer = try fxa_get_custom_config(content_base).pointee.unwrap()
+        return FxAConfig(raw: pointer)
     }
 
-    required public init(raw: OpaquePointer) {
-        self.raw = raw
-    }
-
-    func intoRaw() -> OpaquePointer {
-        self.wasMoved = true
-        return self.raw
-    }
-
-    deinit {
-        if !wasMoved {
-            fxa_config_free(raw)
-        }
+    override func cleanup(pointer: OpaquePointer) {
+        fxa_config_free(pointer)
     }
 }
 
-open class FirefoxAccount: RustObject {
-    var raw: OpaquePointer
-
+class FirefoxAccount: RustOpaquePointer {
     // webChannelResponse is a string for now, but will probably be a JSON
     // object in the future.
-    open class func from(config: FxAConfig, clientId: String, webChannelResponse: String) -> FirefoxAccount {
-        return FirefoxAccount(raw: fxa_from_credentials(config.intoRaw(), clientId, webChannelResponse))
+    open class func from(config: FxAConfig, clientId: String, webChannelResponse: String) throws -> FirefoxAccount {
+        let pointer = try fxa_from_credentials(config.validPointer(), clientId, webChannelResponse).pointee.unwrap()
+        config.raw = nil
+        return FirefoxAccount(raw: pointer)
     }
 
-    open class func fromJSON(state: String) -> FirefoxAccount {
-        return FirefoxAccount(raw: fxa_from_json(state))
+    open class func fromJSON(state: String) throws -> FirefoxAccount {
+        let pointer = try fxa_from_json(state).pointee.unwrap()
+        return FirefoxAccount(raw: pointer)
     }
 
-    public init(config: FxAConfig, clientId: String) {
-        self.raw = fxa_new(config.intoRaw(), clientId)
+    public convenience init(config: FxAConfig, clientId: String) throws {
+        let pointer = try fxa_new(config.validPointer(), clientId).pointee.unwrap()
+        config.raw = nil
+        self.init(raw: pointer)
     }
 
-    required public init(raw: OpaquePointer) {
-        self.raw = raw
+    override func cleanup(pointer: OpaquePointer) {
+        fxa_free(pointer)
     }
 
-    public func toJSON() -> Optional<String> {
-        guard let pointer = fxa_to_json(raw) else {
-            return nil
-        }
-        return copy_and_free_str(pointer)
+    public func toJSON() throws -> String {
+        return copy_and_free_str(try fxa_to_json(self.raw).pointee.unwrap())
     }
 
-    func intoRaw() -> OpaquePointer {
-        return self.raw
+    public func getProfile() throws -> Profile {
+        return Profile(raw: try fxa_profile(self.raw).pointee.unwrap())
     }
 
-    deinit {
-        fxa_free(raw)
+    public func getSyncKeys() throws -> SyncKeys {
+        return SyncKeys(raw: try fxa_get_sync_keys(self.raw).pointee.unwrap())
     }
 
-    public var profile: Optional<Profile> {
-        get {
-            guard let pointer = fxa_profile(raw) else {
-                return nil
-            }
-            return Profile(raw: pointer)
-        }
-    }
-
-    public var syncKeys: Optional<SyncKeys> {
-        get {
-            guard let pointer = fxa_get_sync_keys(raw) else {
-                return nil
-            }
-            return SyncKeys(raw: pointer)
-        }
-    }
-
-    public var tokenServerEndpointURL: Optional<URL> {
-        get {
-            guard let pointer = fxa_get_token_server_endpoint_url(raw) else {
-                return nil
-            }
-            return URL(string: copy_and_free_str(pointer))
-        }
+    public var tokenServerEndpointURL: URL {
+        return URL(string: copy_and_free_str(fxa_get_token_server_endpoint_url(self.raw)))!
     }
 
     // Scopes is space separated for each scope.
-    public func beginOAuthFlow(redirectURI: String, scopes: [String], wantsKeys: Bool) -> Optional<URL> {
+    public func beginOAuthFlow(redirectURI: String, scopes: [String], wantsKeys: Bool) throws -> URL {
         let scope = scopes.joined(separator: " ");
-        guard let pointer = fxa_begin_oauth_flow(raw, redirectURI, scope, wantsKeys) else {
-            return nil
-        }
-        return URL(string: copy_and_free_str(pointer))
+        return URL(string: copy_and_free_str(try fxa_begin_oauth_flow(raw, redirectURI, scope, wantsKeys).pointee.unwrap()))!
     }
 
-    public func completeOAuthFlow(code: String, state: String) -> Optional<OAuthInfo> {
-        guard let pointer = fxa_complete_oauth_flow(raw, code, state) else {
-            return nil
-        }
-        return OAuthInfo(raw: pointer)
+    public func completeOAuthFlow(code: String, state: String) throws -> OAuthInfo {
+        return OAuthInfo(raw: try fxa_complete_oauth_flow(raw, code, state).pointee.unwrap())
     }
 
-    public func getOAuthToken(scopes: [String]) -> Optional<OAuthInfo> {
+    public func getOAuthToken(scopes: [String]) throws -> OAuthInfo {
         let scope = scopes.joined(separator: " ");
-        guard let pointer = fxa_get_oauth_token(raw, scope) else {
-            return nil
-        }
-        return OAuthInfo(raw: pointer)
+        return OAuthInfo(raw: try fxa_get_oauth_token(raw, scope).pointee.unwrap())
     }
 
-    public func generateAssertion(audience: String) -> Optional<String> {
-        guard let pointer = fxa_assertion_new(raw, audience) else {
-            return nil
-        }
-        return copy_and_free_str(pointer)
+    public func generateAssertion(audience: String) throws -> String {
+        return copy_and_free_str(try fxa_assertion_new(raw, audience).pointee.unwrap())
     }
 }
 
-open class OAuthInfo {
-    var raw: UnsafeMutablePointer<OAuthInfoC>
-
-    public init(raw: UnsafeMutablePointer<OAuthInfoC>) {
-        self.raw = raw
-    }
-
+class OAuthInfo: RustStructPointer<OAuthInfoC> {
     public var scopes: [String] {
         get {
             return String(cString: raw.pointee.scope).components(separatedBy: " ")
@@ -147,27 +94,21 @@ open class OAuthInfo {
         }
     }
 
-    public var keysJWE: Optional<String> {
+    public var keysJWE: String? {
         get {
-            if (raw.pointee.keys_jwe == nil) {
+            guard let pointer = raw.pointee.keys_jwe else {
                 return nil
             }
-            return String(cString: raw.pointee.keys_jwe)
+            return String(cString: pointer)
         }
     }
 
-    deinit {
-        fxa_oauth_info_free(raw)
+    override func cleanup(pointer: UnsafeMutablePointer<OAuthInfoC>) {
+        fxa_oauth_info_free(self.raw)
     }
 }
 
-open class Profile {
-    var raw: UnsafeMutablePointer<ProfileC>
-
-    public init(raw: UnsafeMutablePointer<ProfileC>) {
-        self.raw = raw
-    }
-
+class Profile: RustStructPointer<ProfileC> {
     public var uid: String {
         get {
             return String(cString: raw.pointee.uid)
@@ -186,18 +127,12 @@ open class Profile {
         }
     }
 
-    deinit {
+    override func cleanup(pointer: UnsafeMutablePointer<ProfileC>) {
         fxa_profile_free(raw)
     }
 }
 
-open class SyncKeys {
-    var raw: UnsafeMutablePointer<SyncKeysC>
-
-    public init(raw: UnsafeMutablePointer<SyncKeysC>) {
-        self.raw = raw
-    }
-
+class SyncKeys: RustStructPointer<SyncKeysC> {
     public var syncKey: String {
         get {
             return String(cString: raw.pointee.sync_key)
@@ -210,13 +145,13 @@ open class SyncKeys {
         }
     }
 
-    deinit {
+    override func cleanup(pointer: UnsafeMutablePointer<SyncKeysC>) {
         fxa_sync_keys_free(raw)
     }
 }
 
 func copy_and_free_str(_ pointer: UnsafeMutablePointer<Int8>) -> String {
     let copy = String(cString: pointer)
-    fxa_free_str(pointer)
+    fxa_str_free(pointer)
     return copy
 }

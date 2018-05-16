@@ -14,8 +14,11 @@
 		CE3E9D3520A36B63001B4B14 /* libfxa_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CE7B4B8A20A36B0500FC4422 /* libfxa_client.a */; };
 		CE9D202520914D0D00F1C8FA /* FxAClient.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9D202320914D0D00F1C8FA /* FxAClient.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CE9D203120914D2600F1C8FA /* FirefoxAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9D202B20914D2600F1C8FA /* FirefoxAccount.swift */; };
-		CE9D203420914D2600F1C8FA /* RustObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9D202E20914D2600F1C8FA /* RustObject.swift */; };
 		CE9D203520914D2600F1C8FA /* fxa.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9D202F20914D2600F1C8FA /* fxa.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CECB395420B5B92500DB3ED4 /* Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = CECB395220B5B77E00DB3ED4 /* Errors.swift */; };
+		CECB395520B5B92500DB3ED4 /* Result+Unwrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = CECB395020B5B77E00DB3ED4 /* Result+Unwrap.swift */; };
+		CECB395D20B5BE0200DB3ED4 /* RustPointer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CECB395B20B5BE0200DB3ED4 /* RustPointer.swift */; };
+		CECB396020B5BE6100DB3ED4 /* RustError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CECB395F20B5BE6100DB3ED4 /* RustError.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,8 +31,11 @@
 		CE9D202320914D0D00F1C8FA /* FxAClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FxAClient.h; sourceTree = "<group>"; };
 		CE9D202420914D0D00F1C8FA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		CE9D202B20914D2600F1C8FA /* FirefoxAccount.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FirefoxAccount.swift; sourceTree = "<group>"; };
-		CE9D202E20914D2600F1C8FA /* RustObject.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RustObject.swift; sourceTree = "<group>"; };
 		CE9D202F20914D2600F1C8FA /* fxa.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fxa.h; sourceTree = "<group>"; };
+		CECB395020B5B77E00DB3ED4 /* Result+Unwrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Result+Unwrap.swift"; sourceTree = "<group>"; };
+		CECB395220B5B77E00DB3ED4 /* Errors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Errors.swift; sourceTree = "<group>"; };
+		CECB395B20B5BE0200DB3ED4 /* RustPointer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RustPointer.swift; sourceTree = "<group>"; };
+		CECB395F20B5BE6100DB3ED4 /* RustError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RustError.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -68,11 +74,13 @@
 		CE9D202220914D0D00F1C8FA /* FxAClient */ = {
 			isa = PBXGroup;
 			children = (
+				CECB395A20B5BE0200DB3ED4 /* Rust */,
+				CECB395120B5B77E00DB3ED4 /* Errors */,
+				CECB394F20B5B77E00DB3ED4 /* Extensions */,
 				CE9D202320914D0D00F1C8FA /* FxAClient.h */,
 				CE9D202420914D0D00F1C8FA /* Info.plist */,
 				CE9D202B20914D2600F1C8FA /* FirefoxAccount.swift */,
 				CE9D202F20914D2600F1C8FA /* fxa.h */,
-				CE9D202E20914D2600F1C8FA /* RustObject.swift */,
 			);
 			path = FxAClient;
 			sourceTree = "<group>";
@@ -87,6 +95,31 @@
 				CE7B4B8A20A36B0500FC4422 /* libfxa_client.a */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		CECB394F20B5B77E00DB3ED4 /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				CECB395020B5B77E00DB3ED4 /* Result+Unwrap.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		CECB395120B5B77E00DB3ED4 /* Errors */ = {
+			isa = PBXGroup;
+			children = (
+				CECB395220B5B77E00DB3ED4 /* Errors.swift */,
+				CECB395F20B5BE6100DB3ED4 /* RustError.swift */,
+			);
+			path = Errors;
+			sourceTree = "<group>";
+		};
+		CECB395A20B5BE0200DB3ED4 /* Rust */ = {
+			isa = PBXGroup;
+			children = (
+				CECB395B20B5BE0200DB3ED4 /* RustPointer.swift */,
+			);
+			path = Rust;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -187,8 +220,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CE9D203420914D2600F1C8FA /* RustObject.swift in Sources */,
+				CECB395D20B5BE0200DB3ED4 /* RustPointer.swift in Sources */,
+				CECB395420B5B92500DB3ED4 /* Errors.swift in Sources */,
+				CECB395520B5B92500DB3ED4 /* Result+Unwrap.swift in Sources */,
 				CE9D203120914D2600F1C8FA /* FirefoxAccount.swift in Sources */,
+				CECB396020B5BE6100DB3ED4 /* RustError.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

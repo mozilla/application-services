@@ -39,7 +39,7 @@ use openssl::hash::{hash, MessageDigest};
 use rand::{OsRng, RngCore};
 
 mod config;
-mod errors;
+pub mod errors;
 pub mod http_client;
 mod login_sm;
 mod oauth;
@@ -153,7 +153,7 @@ impl FirefoxAccount {
         Ok(serde_json::to_string(&state)?)
     }
 
-    pub fn to_married(&mut self) -> Option<&MarriedState> {
+    fn to_married(&mut self) -> Option<&MarriedState> {
         self.advance();
         match self.state.login_state {
             Married(ref married) => Some(married),
@@ -356,13 +356,9 @@ impl FirefoxAccount {
         )?)
     }
 
-    pub fn get_profile(&mut self) -> Result<ProfileResponse> {
-        let token = match self.get_oauth_token(&["profile"])? {
-            Some(token) => token,
-            None => bail!(ErrorKind::NeededTokenNotFound),
-        };
+    pub fn get_profile(&mut self, profile_access_token: &str) -> Result<ProfileResponse> {
         let client = FxAClient::new(&self.state.config);
-        Ok(client.profile(&token.access_token)?)
+        Ok(client.profile(profile_access_token)?)
     }
 
     pub fn get_sync_keys(&mut self) -> Result<SyncKeys> {

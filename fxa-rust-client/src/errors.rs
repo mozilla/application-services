@@ -15,10 +15,6 @@ error_chain! {
           description("FxA Remote Error")
           display("Remote Error Description: '{}' '{}' '{}' '{}' '{}'", code, errno, error, message, info)
         }
-        NeededTokenNotFound {
-            description("Needed token not found")
-            display("Needed token not found.")
-        }
         UnknownOAuthState {
             description("Unknown OAuth state")
             display("Unknown OAuth state.")
@@ -26,10 +22,6 @@ error_chain! {
         NotMarried {
             description("Not in a Married state.")
             display("Not in a Married state.")
-        }
-        NoSessionToken {
-            description("Not in a session token state.")
-            display("Not in a session token state.")
         }
     }
 }
