@@ -172,6 +172,23 @@ pub(crate) struct RSAPublicKey {
     e: String,
 }
 
+impl Clone for RSABrowserIDKeyPair {
+    fn clone(&self) -> RSABrowserIDKeyPair {
+        let rsa = self.private_key.key.rsa().unwrap().clone();
+        let n = rsa.n().to_owned().unwrap();
+        let e = rsa.e().to_owned().unwrap();
+        let d = rsa.d().to_owned().unwrap();
+        let n_copy = n.to_owned().unwrap();
+        let e_copy = e.to_owned().unwrap();
+        let public_key = create_public_key(n_copy, e_copy).unwrap();
+        let private_key = create_private_key(n, e, d).unwrap();
+        RSABrowserIDKeyPair {
+            private_key,
+            public_key,
+        }
+    }
+}
+
 impl VerifyingPublicKey for RSAPublicKey {
     fn to_json(&self) -> Result<serde_json::Value> {
         Ok(json!({

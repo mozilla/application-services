@@ -151,7 +151,7 @@ impl<'a> FxALoginStateMachine<'a> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum FxALoginState {
     Married(MarriedState),
     CohabitingBeforeKeyPair(CohabitingBeforeKeyPairState),
@@ -162,7 +162,7 @@ pub enum FxALoginState {
     Unknown, // If a client never uses the session_token flows, we will be in this state.
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MarriedState {
     token_keys_and_key_pair: TokenKeysAndKeyPairState,
     certificate: String,
@@ -175,7 +175,7 @@ pub type EngagedBeforeVerifiedState = ReadyForKeysState;
 pub type EngagedAfterVerifiedState = ReadyForKeysState;
 pub type SeparatedState = BaseState;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ReadyForKeysState {
     base: BaseState,
     session_token: Vec<u8>,
@@ -183,7 +183,7 @@ pub struct ReadyForKeysState {
     unwrap_kb: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TokenAndKeysState {
     base: BaseState,
     session_token: Vec<u8>,
@@ -191,14 +191,14 @@ pub struct TokenAndKeysState {
     xcs: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TokenKeysAndKeyPairState {
     token_and_keys: TokenAndKeysState,
     key_pair: RSABrowserIDKeyPair,
     key_pair_expires_at: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct BaseState {
     uid: String,
     email: String,

@@ -51,7 +51,7 @@ pub use config::Config;
 // it will be considered already expired.
 const OAUTH_MIN_TIME_LEFT: u64 = 60;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct FxAStateV1 {
     client_id: String,
     config: Config,
@@ -149,12 +149,8 @@ impl FirefoxAccount {
     }
 
     pub fn to_json(&self) -> Result<String> {
-        let mut json = serde_json::to_value(&self.state)?;
-        // Hack: Instead of reconstructing the FxAState enum (and moving self.state!),
-        // we add the schema_version key manually.
-        let obj = json.as_object_mut().expect("Not an object!");
-        obj.insert("schema_version".to_string(), json!("V1"));
-        Ok(json!(obj).to_string())
+        let state = FxAState::V1(self.state.clone());
+        Ok(serde_json::to_string(&state)?)
     }
 
     pub fn to_married(&mut self) -> Option<&MarriedState> {
@@ -439,7 +435,10 @@ mod tests {
             keys_jwe: None,
             refresh_token: None,
             expires_at: 1,
-            scopes: vec!["profile".to_string(), "https://identity.mozilla.com/apps/oldsync".to_string()],
+            scopes: vec![
+                "profile".to_string(),
+                "https://identity.mozilla.com/apps/oldsync".to_string(),
+            ],
         };
         fxa.oauth_cache_store(&oauth_info);
         fxa.oauth_cache_find(&["profile"]).unwrap();

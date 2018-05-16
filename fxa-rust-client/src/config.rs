@@ -10,7 +10,7 @@ struct FxAClientConfigurationResponse {
     //sync_tokenserver_base_url: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
     content_url: String,
     auth_url: String,
