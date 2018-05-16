@@ -32,7 +32,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use self::login_sm::FxALoginState::*;
 use self::login_sm::*;
 use errors::*;
-use http_client::browser_id::{jwt_utils, BrowserIDKeyPair};
+use http_client::browser_id::jwt_utils;
 use http_client::{FxAClient, OAuthTokenResponse, ProfileResponse};
 use jose::{JWKECCurve, JWE, JWK};
 use openssl::hash::{hash, MessageDigest};
@@ -347,10 +347,10 @@ impl FirefoxAccount {
             Some(married) => married,
             None => bail!(ErrorKind::NotMarried),
         };
-        let private_key = married.key_pair().private_key();
+        let key_pair = married.key_pair();
         let certificate = married.certificate();
         Ok(jwt_utils::create_assertion(
-            private_key,
+            key_pair,
             &certificate,
             audience,
         )?)

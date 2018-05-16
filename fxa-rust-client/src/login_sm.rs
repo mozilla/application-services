@@ -3,7 +3,6 @@ use std;
 use errors::ErrorKind::RemoteError;
 use errors::*;
 use http_client::browser_id::rsa::RSABrowserIDKeyPair;
-use http_client::browser_id::BrowserIDKeyPair;
 use http_client::*;
 use login_sm::FxALoginState::*;
 use util::{now, Xorable};
@@ -68,10 +67,8 @@ impl<'a> FxALoginStateMachine<'a> {
             }
             CohabitingAfterKeyPair(state) => {
                 debug!("Signing public key.");
-                let resp = self.client.sign(
-                    &state.token_and_keys.session_token,
-                    (&state.key_pair).public_key(),
-                );
+                let resp = self.client
+                    .sign(&state.token_and_keys.session_token, &state.key_pair);
                 match resp {
                     Ok(resp) => {
                         info!("Signed public key! Transitioning to Married.");

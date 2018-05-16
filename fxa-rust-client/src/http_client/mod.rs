@@ -10,7 +10,7 @@ use std;
 use util::Xorable;
 
 use self::browser_id::rsa::RSABrowserIDKeyPair;
-use self::browser_id::{jwt_utils, rsa, BrowserIDKeyPair, VerifyingPublicKey};
+use self::browser_id::{jwt_utils, BrowserIDKeyPair};
 use self::hawk_request::FxAHAWKRequestBuilder;
 use config::Config;
 use errors::*;
@@ -37,6 +37,7 @@ impl<'a> FxAClient<'a> {
             .to_vec()
     }
 
+    #[allow(dead_code)]
     fn kwe(name: &str, email: &str) -> Vec<u8> {
         format!("identity.mozilla.com/picl/v1/{}:{}", name, email)
             .as_bytes()
@@ -44,7 +45,7 @@ impl<'a> FxAClient<'a> {
     }
 
     pub fn key_pair(len: u32) -> Result<RSABrowserIDKeyPair> {
-        rsa::generate_keypair(len)
+        RSABrowserIDKeyPair::generate_random(len)
     }
 
     pub fn derive_sync_key(kb: &[u8]) -> Vec<u8> {
@@ -159,9 +160,8 @@ impl<'a> FxAClient<'a> {
     ) -> Result<OAuthTokenResponse> {
         let audience = self.get_oauth_audience()?;
         let key_pair = FxAClient::key_pair(1024)?;
-        let certificate = self.sign(session_token, key_pair.public_key())?.certificate;
-        let assertion =
-            jwt_utils::create_assertion(key_pair.private_key(), &certificate, &audience)?;
+        let certificate = self.sign(session_token, &key_pair)?.certificate;
+        let assertion = jwt_utils::create_assertion(&key_pair, &certificate, &audience)?;
         let parameters = json!({
           "assertion": assertion,
           "client_id": client_id,
@@ -216,12 +216,8 @@ impl<'a> FxAClient<'a> {
         FxAClient::make_request(request)
     }
 
-    pub fn sign(
-        &self,
-        session_token: &[u8],
-        public_key: &VerifyingPublicKey,
-    ) -> Result<SignResponse> {
-        let public_key_json = public_key.to_json()?;
+    pub fn sign(&self, session_token: &[u8], key_pair: &BrowserIDKeyPair) -> Result<SignResponse> {
+        let public_key_json = key_pair.to_json(false)?;
         let parameters = json!({
       "publicKey": public_key_json,
       "duration": SIGN_DURATION_MS
@@ -348,7 +344,7 @@ mod tests {
         let salt = FxAClient::kwe("quickStretch", email);
         let digest = MessageDigest::sha256();
         let mut out = [0u8; 32];
-        pbkdf2_hmac(pwd.as_bytes(), &salt, 1000, digest, &mut out);
+        pbkdf2_hmac(pwd.as_bytes(), &salt, 1000, digest, &mut out).unwrap();
         out.to_vec()
     }
 
