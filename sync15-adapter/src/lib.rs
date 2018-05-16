@@ -41,10 +41,13 @@ pub mod collection_keys;
 pub mod util;
 pub mod request;
 pub mod service;
+pub mod changeset;
 pub mod sync;
 
 // Re-export some of the types callers are likely to want for convenience.
 pub use bso_record::{BsoRecord, EncryptedBso, Cleartext, CleartextBso};
 pub use service::{Sync15ServiceInit, Sync15Service};
-pub use sync::RecordChangeset;
+pub use changeset::{RecordChangeset, IncomingChangeset, OutgoingChangeset};
 pub use error::{Result, Error, ErrorKind};
+pub use sync::{sync, Store};
+pub use util::{ServerTimestamp, SERVER_EPOCH};

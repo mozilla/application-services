@@ -86,6 +86,11 @@ impl<T> BsoRecord<T> {
     ) -> Option<BsoRecord<P>> {
         self.map_payload(mapper).transpose()
     }
+
+    #[inline]
+    pub fn into_timestamped_payload(self) -> (T, ServerTimestamp) {
+        (self.payload, self.modified)
+    }
 }
 
 impl<T> BsoRecord<Option<T>> {
@@ -169,8 +174,7 @@ impl Cleartext {
 
     pub fn into_bso(
         self,
-        collection: String,
-        ttl: Option<u32>
+        collection: String
     ) -> CleartextBso {
         let id = self.id.clone();
         CleartextBso {
@@ -178,7 +182,7 @@ impl Cleartext {
             collection,
             modified: 0.0.into(), // Doesn't matter.
             sortindex: None, // Should we let consumer's set this?
-            ttl,
+            ttl: None, // Should we let consumer's set this?
             payload: self,
         }
     }
@@ -354,7 +358,7 @@ mod tests {
     fn test_roundtrip_crypt_tombstone() {
         let orig_record = Cleartext::from_json(
             json!({ "id": "aaaaaaaaaaaa", "deleted": true, })
-        ).unwrap().into_bso("dummy".into(), None);
+        ).unwrap().into_bso("dummy".into());
         assert!(orig_record.is_tombstone());
 
         let keybundle = KeyBundle::new_random().unwrap();
@@ -381,7 +385,7 @@ mod tests {
     fn test_roundtrip_crypt_record() {
         let payload = json!({ "id": "aaaaaaaaaaaa", "age": 105, "meta": "data" });
         let orig_record = Cleartext::from_json(payload.clone()).unwrap()
-            .into_bso("dummy".into(), None);
+            .into_bso("dummy".into());
 
         assert!(!orig_record.is_tombstone());
 

@@ -21,9 +21,9 @@ impl CollectionKeys {
             default: KeyBundle::from_base64(&keys.payload.default[0], &keys.payload.default[1])?,
             collections:
                 keys.payload.collections
-                              .into_iter()
-                              .map(|kv| Ok((kv.0, KeyBundle::from_base64(&kv.1[0], &kv.1[1])?)))
-                              .collect::<Result<HashMap<String, KeyBundle>>>()?
+                            .into_iter()
+                            .map(|kv| Ok((kv.0, KeyBundle::from_base64(&kv.1[0], &kv.1[1])?)))
+                            .collect::<Result<HashMap<String, KeyBundle>>>()?
         })
     }
 
@@ -35,7 +35,7 @@ impl CollectionKeys {
             collections: self.collections.iter().map(|kv|
                 (kv.0.clone(), kv.1.to_b64_array())).collect()
         };
-        let bso = Cleartext::from_record(record)?.into_bso("crypto".into(), None);
+        let bso = Cleartext::from_record(record)?.into_bso("crypto".into());
         Ok(bso.encrypt(root_key)?)
     }
 

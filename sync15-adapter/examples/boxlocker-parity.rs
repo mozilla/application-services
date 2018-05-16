@@ -1,3 +1,4 @@
+
 #![recursion_limit = "1024"]
 extern crate sync15_adapter as sync;
 extern crate error_chain;
@@ -18,9 +19,10 @@ use std::io::{self, Read, Write};
 use std::error::Error;
 use std::fs;
 use std::process;
-use sync::util::ServerTimestamp;
+use sync::{ServerTimestamp, OutgoingChangeset, Cleartext, Store};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
 
 #[derive(Debug, Deserialize)]
 struct OAuthCredentials {
@@ -272,112 +274,51 @@ impl PasswordEngine {
         Ok(true)
     }
 
-    pub fn apply_incoming(&mut self, svc: &sync::Sync15Service) -> Result<(), Box<Error>> {
-        let sync::RecordChangeset { deleted_ids, changed, timestamp, .. } =
-            sync::RecordChangeset::fetch(svc, "passwords".into(), self.last_sync)?;
-
-        let mut applied = 0;
-        let mut reconciled = 0;
-        let mut skipped = 0;
-        let mut total = 0;
-        let mut failed = 0;
-
-        for id in deleted_ids {
-            total += 1;
-            if !self.records.contains_key(&id) {
-                // Might have a tombstone
-                self.changes.remove(&id);
-            }
-            if self.changes.contains_key(&id) {
-                skipped += 1;
-                // TODO: We need to provide `modified` for tombstones!
-                println!("Record deleted remotely and updated locally. Ignoring remote delete");
-                continue;
-            }
-            println!("Deleting record {} because of remote tombstone", id);
-            applied += 1;
-            self.records.remove(&id);
-        }
-
-        for record in changed {
-            total += 1;
-            let id = record.id.clone();
-            let modified = record.modified;
-            let password = match record.payload.into_record() {
-                Ok(payload) => payload,
-                Err(e) => {
-                    println!("Failed to convert incoming payload into password record: {}", e);
-                    failed += 1;
-                    continue;
-                }
-            };
-            if !self.changes.contains_key(&id) {
-                println!("Update/insert for {}", id);
-                self.records.insert(id, password);
-                continue;
-            }
-
-            println!("Changed in both places!");
-            println!("Remote: {:?}", password);
-            let mut take_remote = match self.records.get(&id) {
-                Some(r) => { println!("Local: {:?}", r); false }
-                None => { println!("Local: DELETED (taking remote)"); true }
-            };
-            let remote_age = duration_ms(
-                timestamp.duration_since(modified)
-                         .unwrap_or(Duration::new(0, 0))) as i64;
-
-            let local_age = (unix_time_ms() as i64) - (self.changes.get(&id).cloned().unwrap() as i64);
-
-            println!("Local age: {}ms\nRemote age: {}ms", local_age, remote_age);
-            if take_remote || local_age > remote_age {
-                self.changes.remove(&id);
-                self.records.insert(id, password);
-                reconciled += 1;
-            } else {
-                skipped += 1;
-                println!("Data loss? Ignoring remote update.");
-            }
-        }
-        println!("Apply incoming finished. Saw: {}, Failed: {}, Applied: {}, Skipped: {}, Reconciled: {}. Saving...",
-                 total, failed, applied, skipped, reconciled);
-        self.last_sync = timestamp;
-        self.save()?; // Should we save here?
-        Ok(())
-    }
-
-    pub fn upload_outgoing(&mut self, svc: &sync::Sync15Service) -> Result<(), Box<Error>> {
-        let mut changeset = sync::RecordChangeset::new("passwords".into(), self.last_sync);
-        for (id, _) in self.changes.iter() {
-            if let Some(record) = self.records.get(id) {
-                changeset.changed.push(
-                    sync::Cleartext::from_record(record.clone())?
-                        .into_bso("passwords".into(), None)
-                );
-            } else {
-                changeset.deleted_ids.push(id.clone())
-            }
-        }
-        let result = changeset.post(svc, true)?;
-        // XXX This is dumb!
-        self.last_sync = svc.last_server_time();
-        self.changes.clear();
-        println!("Uploaded {} records. Saving...", result.0.len());
-        self.save()?;
-        Ok(())
-    }
-
     pub fn sync(&mut self, svc: &sync::Sync15Service) -> Result<(), Box<Error>> {
-        self.apply_incoming(svc)?;
-        let num_changes = self.changes.len();
-        if num_changes != 0 {
-            println!("We have {} outgoing changes!", num_changes);
-            prompt_string("Pausing in case you would like to try to force a mid-air collision for debugging. \
-                           Press enter if you don't know or care (nothing has gone wrong)");
-            self.upload_outgoing(svc)?;
-        } else {
-            println!("No outgoing changes!");
+        sync::sync(svc, self, true)?;
+        Ok(())
+    }
+}
+
+impl Store for PasswordEngine {
+    fn get_unsynced_changes(&self) -> sync::Result<OutgoingChangeset> {
+        let mut result = OutgoingChangeset::new("passwords".into(), self.last_sync);
+        result.changes.reserve(self.changes.len());
+        for (changed_id, time) in self.changes.iter() {
+            let ct = if let Some(record) = self.records.get(changed_id) {
+                Cleartext::from_record(record.clone())?
+            } else {
+                Cleartext::new_tombstone(changed_id.clone())
+            };
+            let mod_time = UNIX_EPOCH + Duration::new(
+                time / 1000, ((time % 1000) * 1_000_000) as u32);
+            result.changes.push((ct, mod_time));
         }
+        Ok(result)
+    }
+
+    fn apply_changes(&mut self,
+                     record_changes: &[Cleartext],
+                     new_last_sync: ServerTimestamp) -> sync::Result<Vec<Cleartext>> {
+        for change in record_changes {
+            if change.is_tombstone() {
+                self.records.remove(change.id());
+            } else {
+                self.records.insert(change.id().into(),
+                                    change.clone().into_record()?);
+            }
+        }
+        self.last_sync = new_last_sync;
+        self.save().map_err(|_| "Save failed!")?;
+        Ok(vec![])
+    }
+
+    fn sync_finished(&mut self, ids: &[&str], new_last_sync: ServerTimestamp) -> sync::Result<()> {
+        for &id in ids {
+            self.changes.remove(id);
+        }
+        self.last_sync = new_last_sync;
+        self.save().map_err(|_| "Save failed!")?;
         Ok(())
     }
 }

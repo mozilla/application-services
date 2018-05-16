@@ -503,10 +503,13 @@ where
             bail!(error::unexpected("Expected OnResponse to have bailed out!"));
         }
 
+        if want_commit || self.batch == BatchState::Unsupported {
+            self.last_modified = resp.last_modified;
+        }
+
         if want_commit {
             debug!("Committed batch {:?}", self.batch);
             self.batch = BatchState::NoBatch;
-            self.last_modified = resp.last_modified;
             self.on_response.handle_response(resp, false)?;
             return Ok(());
         }
@@ -549,20 +552,31 @@ where
     }
 }
 
+#[derive(Clone)]
+pub struct UploadInfo {
+    pub successful_ids: Vec<String>,
+    pub failed_ids: Vec<String>,
+    pub modified_timestamp: ServerTimestamp,
+}
+
 impl<Poster> PostQueue<Poster, NormalResponseHandler> {
-    pub(crate) fn successful_and_failed_ids(&mut self) -> (Vec<String>, Vec<String>) {
-        let mut good = Vec::with_capacity(self.on_response.successful_ids.len());
-        // includes pending_success since they weren't committed!
-        let mut bad = Vec::with_capacity(self.on_response.failed_ids.len() +
-                                         self.on_response.pending_failed.len() +
-                                         self.on_response.pending_success.len());
-        good.append(&mut self.on_response.successful_ids);
+    // TODO: should take by move
+    pub fn completed_upload_info(&mut self) -> UploadInfo {
+        let mut result = UploadInfo {
+            successful_ids: Vec::with_capacity(self.on_response.successful_ids.len()),
+            failed_ids: Vec::with_capacity(self.on_response.failed_ids.len() +
+                                           self.on_response.pending_failed.len() +
+                                           self.on_response.pending_success.len()),
+            modified_timestamp: self.last_modified
+        };
 
-        bad.append(&mut self.on_response.failed_ids);
-        bad.append(&mut self.on_response.pending_failed);
-        bad.append(&mut self.on_response.pending_success);
+        result.successful_ids.append(&mut self.on_response.successful_ids);
 
-        (good, bad)
+        result.failed_ids.append(&mut self.on_response.failed_ids);
+        result.failed_ids.append(&mut self.on_response.pending_failed);
+        result.failed_ids.append(&mut self.on_response.pending_success);
+
+        result
     }
 }
 
@@ -931,7 +945,7 @@ mod test {
         let cfg = InfoConfiguration::default();
         let time = 11111111.0;
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::Accepted, time, Some("1234")),
+            fake_response(StatusCode::Accepted, time + 100.0, Some("1234")),
         ]);
 
         let payload_size = 100 - *NON_PAYLOAD_OVERHEAD;
@@ -962,7 +976,7 @@ mod test {
         let time = 11111111.0;
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
             fake_response(StatusCode::Accepted, time, Some("1234")),
-            fake_response(StatusCode::Accepted, time, Some("1234")),
+            fake_response(StatusCode::Accepted, time + 100.0, Some("1234")),
         ]);
 
         pq.enqueue(&make_record(100)).unwrap();
@@ -1005,7 +1019,7 @@ mod test {
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
             fake_response(StatusCode::Accepted, time, Some("1234")),
             fake_response(StatusCode::Accepted, time, Some("1234")),
-            fake_response(StatusCode::Accepted, time, Some("1234")),
+            fake_response(StatusCode::Accepted, time + 100.0, Some("1234")),
         ]);
 
         pq.enqueue(&make_record(100)).unwrap();
@@ -1059,9 +1073,9 @@ mod test {
         let time = 11111111.0;
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
             fake_response(StatusCode::Accepted, time, Some("1234")),
-            fake_response(StatusCode::Accepted, time, Some("1234")),
-            fake_response(StatusCode::Accepted, time, Some("abcd")),
-            fake_response(StatusCode::Accepted, time, Some("abcd")),
+            fake_response(StatusCode::Accepted, time + 100.0, Some("1234")),
+            fake_response(StatusCode::Accepted, time + 100.0, Some("abcd")),
+            fake_response(StatusCode::Accepted, time + 200.0, Some("abcd")),
         ]);
 
         pq.enqueue(&make_record(100)).unwrap();
@@ -1131,24 +1145,30 @@ mod test {
         let time = 11111111.0;
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
             fake_response(StatusCode::Accepted, time, Some("1234")),
-            fake_response(StatusCode::Accepted, time, Some("1234")),
-            fake_response(StatusCode::Accepted, time, Some("abcd")),
-            fake_response(StatusCode::Accepted, time, Some("abcd")),
+            fake_response(StatusCode::Accepted, time + 100.0, Some("1234")), // should commit
+            fake_response(StatusCode::Accepted, time + 100.0, Some("abcd")),
+            fake_response(StatusCode::Accepted, time + 200.0, Some("abcd")), // should commit
         ]);
 
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
+        assert_eq!(pq.last_modified.0, time);
         // POST
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
         // POST + COMMIT
         pq.enqueue(&make_record(100)).unwrap();
+        assert_eq!(pq.last_modified.0, time + 100.0);
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
+
         // POST
         pq.enqueue(&make_record(100)).unwrap();
+        assert_eq!(pq.last_modified.0, time + 100.0);
         pq.flush(true).unwrap(); // COMMIT
+
+        assert_eq!(pq.last_modified.0, time + 200.0);
 
         let t = tester.borrow();
         assert!(t.cur_batch.is_none());
@@ -1176,7 +1196,6 @@ mod test {
         assert_eq!(t.batches[0].posts[1].commit, true);
         assert_eq!(t.batches[0].posts[1].body.len(),
                    request_bytes_for_payloads(&[100, 100]));
-
 
         assert_eq!(t.batches[1].posts[0].batch.as_ref().unwrap(), "true");
         assert_eq!(t.batches[1].posts[0].records, 3);

@@ -225,7 +225,7 @@ pub extern "C" fn sync15_changeset_add_record(
     if cleartext.is_tombstone() {
         changeset.deleted_ids.push(cleartext.id);
     } else {
-        let bso = cleartext.into_bso(changeset.collection.clone(), None);
+        let bso = cleartext.into_bso(changeset.collection.clone());
         changeset.changed.push(bso);
     }
     true

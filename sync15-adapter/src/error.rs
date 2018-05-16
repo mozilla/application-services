@@ -92,6 +92,7 @@ error_chain! {
             description("The server has reset the storage for this account")
             display("The server has reset the storage for this account")
         }
+
     }
 }
 
