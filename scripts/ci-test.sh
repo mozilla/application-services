@@ -23,7 +23,6 @@ do
    echo "Testing: $i"
    pushd .
    cd $i
-   cargo build --release
    cargo test
    popd
 done
