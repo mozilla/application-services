@@ -63,6 +63,11 @@ FirefoxAccount *fxa_from_credentials(Config *config, const char *client_id, cons
  */
 char *fxa_assertion_new(FirefoxAccount *fxa, const char *audience);
 
+/*
+ * The caller should de-allocate the result using fxa_free_str after use.
+ */
+char *fxa_get_token_server_endpoint_url(FirefoxAccount *fxa);
+
 SyncKeysC *fxa_get_sync_keys(FirefoxAccount *fxa);
 
 void fxa_free_str(char *s);

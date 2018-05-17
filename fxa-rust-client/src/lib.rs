@@ -374,6 +374,10 @@ impl FirefoxAccount {
         Ok((sync_key, married.xcs().to_string()))
     }
 
+    pub fn get_token_server_endpoint_url(&self) -> String {
+        self.state.config.token_server_endpoint_url()
+    }
+
     pub fn handle_push_message(&self) {
         panic!("Not implemented yet!")
     }

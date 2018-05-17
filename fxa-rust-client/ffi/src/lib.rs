@@ -108,6 +108,19 @@ pub extern "C" fn fxa_profile(fxa: *mut FirefoxAccount) -> *mut ProfileC {
 
 /// The caller should de-allocate the result using fxa_free_str after use.
 #[no_mangle]
+pub extern "C" fn fxa_get_token_server_endpoint_url(
+    fxa: *mut FirefoxAccount,
+) -> *mut c_char {
+    let fxa = unsafe {
+        assert!(!fxa.is_null());
+        &mut *fxa
+    };
+    let url = fxa.get_token_server_endpoint_url();
+    string_to_c_char(url)
+}
+
+/// The caller should de-allocate the result using fxa_free_str after use.
+#[no_mangle]
 pub extern "C" fn fxa_assertion_new(
     fxa: *mut FirefoxAccount,
     audience: *const c_char,

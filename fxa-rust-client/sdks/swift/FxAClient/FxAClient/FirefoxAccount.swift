@@ -55,7 +55,10 @@ open class FirefoxAccount: RustObject {
     }
 
     public func toJSON() -> Optional<String> {
-        return String(cString: fxa_to_json(self.raw))
+        guard let pointer = fxa_to_json(raw) else {
+            return nil
+        }
+        return copy_and_free_str(pointer)
     }
 
     func intoRaw() -> OpaquePointer {
@@ -75,14 +78,21 @@ open class FirefoxAccount: RustObject {
         }
     }
 
-    public var getSyncKeys: Optional<SyncKeys> {
+    public var syncKeys: Optional<SyncKeys> {
         get {
             guard let pointer = fxa_get_sync_keys(raw) else {
                 return nil
             }
-            let syncKeysC = pointer.pointee;
-            return SyncKeys (syncKey: String(cString: syncKeysC.sync_key).hexDecodedData,
-                             xcs: String(cString: syncKeysC.xcs).hexDecodedData)
+            return SyncKeys(raw: pointer)
+        }
+    }
+
+    public var tokenServerEndpointURL: Optional<String> {
+        get {
+            guard let pointer = fxa_get_token_server_endpoint_url(raw) else {
+                return nil
+            }
+            return copy_and_free_str(pointer)
         }
     }
 
@@ -114,7 +124,7 @@ open class FirefoxAccount: RustObject {
         guard let pointer = fxa_assertion_new(raw, audience) else {
             return nil
         }
-        return String(cString: pointer)
+        return copy_and_free_str(pointer)
     }
 }
 
@@ -181,7 +191,32 @@ open class Profile {
     }
 }
 
-public struct SyncKeys {
-    let syncKey: Data
-    let xcs: Data
+open class SyncKeys {
+    var raw: UnsafeMutablePointer<SyncKeysC>
+
+    public init(raw: UnsafeMutablePointer<SyncKeysC>) {
+        self.raw = raw
+    }
+
+    public var syncKey: String {
+        get {
+            return String(cString: raw.pointee.sync_key)
+        }
+    }
+
+    public var xcs: String {
+        get {
+            return String(cString: raw.pointee.xcs)
+        }
+    }
+
+    deinit {
+        fxa_sync_keys_free(raw)
+    }
+}
+
+func copy_and_free_str(_ pointer: UnsafeMutablePointer<Int8>) -> String {
+    let copy = String(cString: pointer)
+    fxa_free_str(pointer)
+    return copy
 }
