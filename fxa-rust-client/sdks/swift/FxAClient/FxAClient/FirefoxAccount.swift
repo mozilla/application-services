@@ -87,12 +87,12 @@ open class FirefoxAccount: RustObject {
         }
     }
 
-    public var tokenServerEndpointURL: Optional<String> {
+    public var tokenServerEndpointURL: Optional<URL> {
         get {
             guard let pointer = fxa_get_token_server_endpoint_url(raw) else {
                 return nil
             }
-            return copy_and_free_str(pointer)
+            return URL(string: copy_and_free_str(pointer))
         }
     }
 
