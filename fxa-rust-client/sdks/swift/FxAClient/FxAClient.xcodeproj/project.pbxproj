@@ -16,7 +16,6 @@
 		CE9D203120914D2600F1C8FA /* FirefoxAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9D202B20914D2600F1C8FA /* FirefoxAccount.swift */; };
 		CE9D203420914D2600F1C8FA /* RustObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9D202E20914D2600F1C8FA /* RustObject.swift */; };
 		CE9D203520914D2600F1C8FA /* fxa.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9D202F20914D2600F1C8FA /* fxa.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		CE9D203620914D2600F1C8FA /* HexExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9D203020914D2600F1C8FA /* HexExtensions.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -31,7 +30,6 @@
 		CE9D202B20914D2600F1C8FA /* FirefoxAccount.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FirefoxAccount.swift; sourceTree = "<group>"; };
 		CE9D202E20914D2600F1C8FA /* RustObject.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RustObject.swift; sourceTree = "<group>"; };
 		CE9D202F20914D2600F1C8FA /* fxa.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fxa.h; sourceTree = "<group>"; };
-		CE9D203020914D2600F1C8FA /* HexExtensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HexExtensions.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,7 +73,6 @@
 				CE9D202B20914D2600F1C8FA /* FirefoxAccount.swift */,
 				CE9D202F20914D2600F1C8FA /* fxa.h */,
 				CE9D202E20914D2600F1C8FA /* RustObject.swift */,
-				CE9D203020914D2600F1C8FA /* HexExtensions.swift */,
 			);
 			path = FxAClient;
 			sourceTree = "<group>";
@@ -191,7 +188,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				CE9D203420914D2600F1C8FA /* RustObject.swift in Sources */,
-				CE9D203620914D2600F1C8FA /* HexExtensions.swift in Sources */,
 				CE9D203120914D2600F1C8FA /* FirefoxAccount.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
