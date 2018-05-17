@@ -109,6 +109,13 @@ open class FirefoxAccount: RustObject {
         }
         return OAuthInfo(raw: pointer)
     }
+
+    public func generateAssertion(audience: String) -> Optional<String> {
+        guard let pointer = fxa_assertion_new(raw, audience) else {
+            return nil
+        }
+        return String(cString: pointer)
+    }
 }
 
 open class OAuthInfo {
