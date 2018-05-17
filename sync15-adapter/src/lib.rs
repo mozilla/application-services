@@ -49,5 +49,5 @@ pub use bso_record::{BsoRecord, EncryptedBso, Cleartext, CleartextBso};
 pub use service::{Sync15ServiceInit, Sync15Service};
 pub use changeset::{RecordChangeset, IncomingChangeset, OutgoingChangeset};
 pub use error::{Result, Error, ErrorKind};
-pub use sync::{sync, Store};
+pub use sync::{synchronize, Store};
 pub use util::{ServerTimestamp, SERVER_EPOCH};

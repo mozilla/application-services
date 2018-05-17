@@ -275,7 +275,7 @@ impl PasswordEngine {
     }
 
     pub fn sync(&mut self, svc: &sync::Sync15Service) -> Result<(), Box<Error>> {
-        sync::sync(svc, self, true)?;
+        sync::synchronize(svc, self, true)?;
         Ok(())
     }
 }

@@ -73,7 +73,7 @@ fn build_outgoing(
         record.into_bso(collection.clone()))
 }
 
-pub fn sync(svc: &Sync15Service, store: &mut Store, fully_atomic: bool) -> Result<UploadInfo> {
+pub fn synchronize(svc: &Sync15Service, store: &mut Store, fully_atomic: bool) -> Result<UploadInfo> {
     let changed = store.get_unsynced_changes()?;
 
     info!("Sync requested for collection {} with {} changes",
@@ -93,7 +93,8 @@ pub fn sync(svc: &Sync15Service, store: &mut Store, fully_atomic: bool) -> Resul
     let to_weak_upload = store.apply_changes(&reconciled.apply_as_incoming,
                                              incoming_changes.timestamp)?;
 
-    info!("Store requested weak upload of {} records", to_weak_upload.len());
+    info!("Store requested weak upload of {} records",
+          to_weak_upload.len());
 
     let key_bundle = svc.key_for_collection(&changed.collection)?;
 
@@ -114,7 +115,7 @@ pub fn sync(svc: &Sync15Service, store: &mut Store, fully_atomic: bool) -> Resul
           upload_info.successful_ids.len(),
           upload_info.failed_ids.len());
 
-    let changed_ids = changed.changes.iter().map(|r| r.0.id()).collect::<Vec<_>>();
+    let changed_ids = changed.changes.iter().map(|r| r.0.id()).collect::<Vec<_>> ();
     store.sync_finished(&changed_ids, upload_info.modified_timestamp)?;
 
     info!("Sync finished");
@@ -138,7 +139,7 @@ struct Reconciliation {
 
 impl Reconciliation {
 
-    fn reconcile_one(
+    pub fn reconcile_one(
         remote: &Cleartext,
         remote_age: Duration,
         local: Option<&(&Cleartext, Duration)>
@@ -152,7 +153,7 @@ impl Reconciliation {
             }
         };
 
-        return match (local.is_tombstone(), remote.is_tombstone()) {
+        match (local.is_tombstone(), remote.is_tombstone()) {
             (true, true) => {
                 trace!("Both records are tombstones (nothing to do)");
                 Choice::Skip
@@ -176,14 +177,13 @@ impl Reconciliation {
                     Choice::Remote(remote.clone())
                 }
             }
-        };
+        }
     }
 
     pub fn between(
         local_changes: &OutgoingChangeset,
         remote_changes: &IncomingChangeset
     ) -> Reconciliation {
-
         let mut result = Reconciliation {
             apply_as_incoming: vec![],
             apply_as_outgoing: vec![],
@@ -198,14 +198,12 @@ impl Reconciliation {
             }).collect();
 
         for (remote, remote_modified) in remote_changes.changes.iter() {
-
             let action = Reconciliation::reconcile_one(
                 remote,
                 remote_modified.duration_since(remote_changes.timestamp)
                                           .unwrap_or(Duration::new(0, 0)),
                 local_lookup.get(remote.id())
             );
-
             match action {
                 Choice::Skip => result.skipped.push(remote.id().into()),
                 Choice::Remote(ct) => result.apply_as_incoming.push(ct),
@@ -215,4 +213,3 @@ impl Reconciliation {
         result
     }
 }
-
