@@ -75,17 +75,33 @@ fn build_outgoing(
 
 pub fn sync(svc: &Sync15Service, store: &mut Store, fully_atomic: bool) -> Result<UploadInfo> {
     let changed = store.get_unsynced_changes()?;
+
+    info!("Sync requested for collection {} with {} changes",
+          changed.collection, changed.changes.len());
+
     let incoming_changes = IncomingChangeset::fetch(svc, changed.collection.clone(), changed.timestamp)?;
+
+    info!("Remote collection had {} changes", incoming_changes.changes.len());
+
     let reconciled = Reconciliation::between(&changed, &incoming_changes);
+
+    info!("Applying {} records to store ({} reconciled in favor of local, {} skipped)",
+          reconciled.apply_as_incoming.len(),
+          reconciled.apply_as_outgoing.len(),
+          reconciled.skipped.len());
 
     let to_weak_upload = store.apply_changes(&reconciled.apply_as_incoming,
                                              incoming_changes.timestamp)?;
+
+    info!("Store requested weak upload of {} records", to_weak_upload.len());
 
     let key_bundle = svc.key_for_collection(&changed.collection)?;
 
     let outgoing = build_outgoing(&changed, &reconciled, to_weak_upload)
         .map(|record| record.encrypt(key_bundle))
         .collect::<Result<Vec<_>>>()?;
+
+    info!("Uploading {} records to server", outgoing.len());
 
     let updater = CollectionUpdate::new(svc,
                                         changed.collection.clone(),
@@ -94,9 +110,14 @@ pub fn sync(svc: &Sync15Service, store: &mut Store, fully_atomic: bool) -> Resul
                                         fully_atomic);
 
     let upload_info = updater.upload()?;
+    info!("Successfully updated {} records ({} failed)",
+          upload_info.successful_ids.len(),
+          upload_info.failed_ids.len());
 
     let changed_ids = changed.changes.iter().map(|r| r.0.id()).collect::<Vec<_>>();
     store.sync_finished(&changed_ids, upload_info.modified_timestamp)?;
+
+    info!("Sync finished");
 
     Ok(upload_info)
 }
@@ -122,32 +143,38 @@ impl Reconciliation {
         remote_age: Duration,
         local: Option<&(&Cleartext, Duration)>
     ) -> Choice {
-
+        trace!("Reconciling record id = {}", remote.id());
         let (local, local_age) = match local {
             Some(&local) => local,
             None => {
-                if !remote.is_tombstone() {
-                    return Choice::Remote(remote.clone());
-                }
-                return Choice::Skip;
+                trace!("Local record unchanged, taking remote");
+                return Choice::Remote(remote.clone());
             }
         };
 
-        match (local.is_tombstone(), remote.is_tombstone()) {
-            // Both tombstones (nothing to do)
-            (true, true) => return Choice::Skip,
-            // Modified locally, remote tombstone. Take local (undelete)
-            (false, true) => return Choice::Local(local.clone()),
-            // Deleted locally, remote update. Take remote (undelete)
-            (true, false) => return Choice::Remote(remote.clone()),
-            // Moth modified locally.
+        return match (local.is_tombstone(), remote.is_tombstone()) {
+            (true, true) => {
+                trace!("Both records are tombstones (nothing to do)");
+                Choice::Skip
+            },
+            (false, true) => {
+                trace!("Modified locally, remote tombstone (keeping local)");
+                Choice::Local(local.clone())
+            },
+            (true, false) => {
+                trace!("Modified on remote, locally tombstone (keeping remote)");
+                Choice::Remote(remote.clone())
+            },
             (false, false) => {
+                trace!("Modified on both remote and local, chosing on age (remote = {}s, local = {}s)",
+                      remote_age.as_secs(), local_age.as_secs());
+
                 // Take younger.
-                return if local_age <= remote_age {
+                if local_age <= remote_age {
                     Choice::Local(local.clone())
                 } else {
                     Choice::Remote(remote.clone())
-                };
+                }
             }
         };
     }
