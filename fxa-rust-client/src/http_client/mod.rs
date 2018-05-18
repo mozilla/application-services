@@ -2,8 +2,7 @@ use hex;
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use reqwest;
-use reqwest::{header, Client, Method, Request};
-use serde::Deserialize;
+use reqwest::{header, Client, Method, Request, Response, StatusCode};
 use serde_json;
 use sha2::{Digest, Sha256};
 use std;
@@ -74,14 +73,14 @@ impl<'a> FxAClient<'a> {
             .query(&[("keys", get_keys)])
             .body(parameters.to_string())
             .build()?;
-        FxAClient::make_request(request)
+        Ok(FxAClient::make_request(request)?.json()?)
     }
 
     pub fn account_status(&self, uid: &String) -> Result<AccountStatusResponse> {
         let url = self.config.auth_url_path("v1/account/status")?;
         let client = Client::new();
         let request = client.get(url).query(&[("uid", uid)]).build()?;
-        FxAClient::make_request(request)
+        Ok(FxAClient::make_request(request)?.json()?)
     }
 
     pub fn keys(&self, key_fetch_token: &[u8]) -> Result<KeysResponse> {
@@ -95,7 +94,7 @@ impl<'a> FxAClient<'a> {
         );
         let key_request_key = &key[(KEY_LENGTH * 2)..(KEY_LENGTH * 3)];
         let request = FxAHAWKRequestBuilder::new(Method::Get, url, &key).build()?;
-        let json: serde_json::Value = FxAClient::make_request(request)?;
+        let json: serde_json::Value = FxAClient::make_request(request)?.json()?;
         let bundle = match json["bundle"].as_str() {
             Some(bundle) => bundle,
             None => bail!("Invalid JSON"),
@@ -137,19 +136,36 @@ impl<'a> FxAClient<'a> {
         let url = self.config.auth_url_path("v1/recovery_email/status")?;
         let key = FxAClient::derive_key_from_session_token(session_token)?;
         let request = FxAHAWKRequestBuilder::new(Method::Get, url, &key).build()?;
-        FxAClient::make_request(request)
+        Ok(FxAClient::make_request(request)?.json()?)
     }
 
-    pub fn profile(&self, profile_access_token: &str) -> Result<ProfileResponse> {
+    pub fn profile(
+        &self,
+        profile_access_token: &str,
+        etag: Option<String>,
+    ) -> Result<Option<ResponseAndETag<ProfileResponse>>> {
         let url = self.config.profile_url_path("v1/profile")?;
         let client = Client::new();
-        let request = client
-            .request(Method::Get, url)
-            .header(header::Authorization(header::Bearer {
-                token: profile_access_token.to_string(),
-            }))
-            .build()?;
-        FxAClient::make_request(request)
+        let mut builder = client.request(Method::Get, url);
+        builder.header(header::Authorization(header::Bearer {
+            token: profile_access_token.to_string(),
+        }));
+        if let Some(etag) = etag {
+            builder.header(header::IfNoneMatch::Items(vec![header::EntityTag::strong(
+                etag,
+            )]));
+        }
+        let request = builder.build()?;
+        let mut resp = FxAClient::make_request(request)?;
+        if resp.status() == StatusCode::NotModified {
+            return Ok(None);
+        }
+        Ok(Some(ResponseAndETag {
+            etag: resp.headers()
+                .get::<header::ETag>()
+                .map(|etag| etag.tag().to_string()),
+            response: resp.json()?,
+        }))
     }
 
     pub fn oauth_token_with_assertion(
@@ -173,7 +189,7 @@ impl<'a> FxAClient<'a> {
         let request = FxAHAWKRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
-        FxAClient::make_request(request)
+        Ok(FxAClient::make_request(request)?.json()?)
     }
 
     pub fn oauth_token_with_code(
@@ -213,7 +229,7 @@ impl<'a> FxAClient<'a> {
             .header(header::ContentType::json())
             .body(body.to_string())
             .build()?;
-        FxAClient::make_request(request)
+        Ok(FxAClient::make_request(request)?.json()?)
     }
 
     pub fn sign(&self, session_token: &[u8], key_pair: &BrowserIDKeyPair) -> Result<SignResponse> {
@@ -227,7 +243,7 @@ impl<'a> FxAClient<'a> {
         let request = FxAHAWKRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
-        FxAClient::make_request(request)
+        Ok(FxAClient::make_request(request)?.json()?)
     }
 
     fn get_oauth_audience(&self) -> Result<String> {
@@ -255,15 +271,13 @@ impl<'a> FxAClient<'a> {
         hk.expand(&info, len)
     }
 
-    fn make_request<T>(request: Request) -> Result<T>
-    where
-        for<'de> T: Deserialize<'de>,
-    {
+    fn make_request(request: Request) -> Result<Response> {
         let client = Client::new();
         let mut resp = client.execute(request)?;
+        let status = resp.status();
 
-        if resp.status().is_success() {
-            Ok(resp.json()?)
+        if status.is_success() || status == StatusCode::NotModified {
+            Ok(resp)
         } else {
             let json: std::result::Result<serde_json::Value, reqwest::Error> = resp.json();
             match json {
@@ -278,6 +292,11 @@ impl<'a> FxAClient<'a> {
             }
         }
     }
+}
+
+pub struct ResponseAndETag<T> {
+    pub response: T,
+    pub etag: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -320,7 +339,7 @@ pub struct KeysResponse {
     pub wrap_kb: Vec<u8>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ProfileResponse {
     pub uid: String,
     pub email: String,

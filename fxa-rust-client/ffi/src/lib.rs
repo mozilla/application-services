@@ -211,9 +211,10 @@ pub extern "C" fn fxa_to_json(fxa: *mut FirefoxAccount) -> *mut ExternResult {
 pub extern "C" fn fxa_profile(
     fxa: *mut FirefoxAccount,
     profile_access_token: &str,
+    ignore_cache: bool,
 ) -> *mut ExternResult {
     let fxa = unsafe { &mut *fxa };
-    let profile: ProfileC = match fxa.get_profile(profile_access_token) {
+    let profile: ProfileC = match fxa.get_profile(profile_access_token, ignore_cache) {
         Ok(profile) => profile.into(),
         Err(err) => return ExternResult::from_internal(err),
     };

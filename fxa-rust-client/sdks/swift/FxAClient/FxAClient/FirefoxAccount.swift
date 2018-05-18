@@ -50,7 +50,8 @@ class FirefoxAccount: RustOpaquePointer {
     }
 
     public func getProfile() throws -> Profile {
-        return Profile(raw: try fxa_profile(self.raw).pointee.unwrap())
+        let profileToken = try self.getOAuthToken(scopes: ["profile"]).accessToken;
+        return Profile(raw: try fxa_profile(self.raw, profileToken, false).pointee.unwrap())
     }
 
     public func getSyncKeys() throws -> SyncKeys {

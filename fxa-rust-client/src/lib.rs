@@ -37,6 +37,7 @@ use http_client::{FxAClient, OAuthTokenResponse, ProfileResponse};
 use jose::{JWKECCurve, JWE, JWK};
 use openssl::hash::{hash, MessageDigest};
 use rand::{OsRng, RngCore};
+use util::now;
 
 mod config;
 pub mod errors;
@@ -50,6 +51,8 @@ pub use config::Config;
 // If a cached token has less than `OAUTH_MIN_TIME_LEFT` seconds left to live,
 // it will be considered already expired.
 const OAUTH_MIN_TIME_LEFT: u64 = 60;
+// A cached profile response is considered fresh for `PROFILE_FRESHNESS_THRESHOLD` ms.
+const PROFILE_FRESHNESS_THRESHOLD: u64 = 120000; // 2 minutes
 
 #[derive(Clone, Serialize, Deserialize)]
 struct FxAStateV1 {
@@ -84,24 +87,36 @@ impl FxAWebChannelResponse {
     }
 }
 
+struct CachedResponse<T> {
+    response: T,
+    cached_at: u64,
+    etag: String,
+}
+
 pub struct FirefoxAccount {
     state: FxAStateV1,
     flow_store: HashMap<String, OAuthFlow>,
+    profile_cache: Option<CachedResponse<ProfileResponse>>,
 }
 
 pub type SyncKeys = (String, String);
 
 impl FirefoxAccount {
-    pub fn new(config: Config, client_id: &str) -> FirefoxAccount {
+    fn from_state(state: FxAStateV1) -> FirefoxAccount {
         FirefoxAccount {
-            state: FxAStateV1 {
-                client_id: client_id.to_string(),
-                config,
-                login_state: Unknown,
-                oauth_cache: HashMap::new(),
-            },
+            state,
             flow_store: HashMap::new(),
+            profile_cache: None,
         }
+    }
+
+    pub fn new(config: Config, client_id: &str) -> FirefoxAccount {
+        FirefoxAccount::from_state(FxAStateV1 {
+            client_id: client_id.to_string(),
+            config,
+            login_state: Unknown,
+            oauth_cache: HashMap::new(),
+        })
     }
 
     // Initialize state from Firefox Accounts credentials obtained using the
@@ -127,24 +142,18 @@ impl FirefoxAccount {
             EngagedBeforeVerified(login_state_data)
         };
 
-        Ok(FirefoxAccount {
-            state: FxAStateV1 {
-                client_id: client_id.to_string(),
-                config,
-                login_state,
-                oauth_cache: HashMap::new(),
-            },
-            flow_store: HashMap::new(),
-        })
+        Ok(FirefoxAccount::from_state(FxAStateV1 {
+            client_id: client_id.to_string(),
+            config,
+            login_state,
+            oauth_cache: HashMap::new(),
+        }))
     }
 
     pub fn from_json(data: &str) -> Result<FirefoxAccount> {
         let fxa_state: FxAState = serde_json::from_str(data)?;
         match fxa_state {
-            FxAState::V1(state) => Ok(FirefoxAccount {
-                state,
-                flow_store: HashMap::new(),
-            }),
+            FxAState::V1(state) => Ok(FirefoxAccount::from_state(state)),
         }
     }
 
@@ -356,9 +365,33 @@ impl FirefoxAccount {
         )?)
     }
 
-    pub fn get_profile(&mut self, profile_access_token: &str) -> Result<ProfileResponse> {
+    pub fn get_profile(&mut self, profile_access_token: &str, ignore_cache: bool) -> Result<ProfileResponse> {
+        let mut etag = None;
+        if let Some(ref cached_profile) = self.profile_cache {
+            if !ignore_cache && now() < cached_profile.cached_at + PROFILE_FRESHNESS_THRESHOLD {
+                return Ok(cached_profile.response.clone());
+            }
+            etag = Some(cached_profile.etag.clone());
+        }
         let client = FxAClient::new(&self.state.config);
-        Ok(client.profile(profile_access_token)?)
+        match client.profile(profile_access_token, etag)? {
+            Some(response_and_etag) => {
+                if let Some(etag) = response_and_etag.etag {
+                    self.profile_cache = Some(CachedResponse {
+                        response: response_and_etag.response.clone(),
+                        cached_at: now(),
+                        etag,
+                    });
+                }
+                Ok(response_and_etag.response)
+            }
+            None => match self.profile_cache {
+                Some(ref cached_profile) => Ok(cached_profile.response.clone()),
+                None => {
+                    bail!("Insane state! We got a 304 without having a cached response.");
+                }
+            },
+        }
     }
 
     pub fn get_sync_keys(&mut self) -> Result<SyncKeys> {
