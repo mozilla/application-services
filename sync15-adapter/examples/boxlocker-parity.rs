@@ -19,6 +19,7 @@ use std::process;
 use std::time;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::rc::Rc;
 
 #[derive(Debug, Deserialize)]
 struct OAuthCredentials {
@@ -120,17 +121,17 @@ fn start() -> Result<(), Box<Error>> {
 
     let scope = &oauth_data.keys["https://identity.mozilla.com/apps/oldsync"];
 
-    let mut svc = sync::Sync15Service::new(
-        sync::Sync15ServiceInit {
+    let storage_client = Rc::new(sync::StorageClient::new(
+        sync::StorageClientInit {
             key_id: scope.kid.clone(),
-            sync_key: scope.k.clone(),
             access_token: oauth_data.access_token.clone(),
             tokenserver_base_url: "https://oauth-sync.dev.lcip.org/syncserver/token".into(),
         }
-    )?;
+    )?);
+    let mut collections = sync::Collections::new(storage_client.clone(), &scope.k)?;
 
-    svc.remote_setup()?;
-    let passwords = svc.all_records::<sync::record_types::PasswordRecord>("passwords")?
+    collections.remote_setup()?;
+    let passwords = collections.all_records::<sync::record_types::PasswordRecord>("passwords")?
                        .into_iter()
                        .filter_map(|r| r.record())
                        .collect::<Vec<_>>();
@@ -147,7 +148,7 @@ fn start() -> Result<(), Box<Error>> {
 
     let mut ids: Vec<String> = passwords.iter().map(|p| p.id.clone()).collect();
 
-    let mut upd = sync::CollectionUpdate::new(&svc, false);
+    let mut upd = sync::CollectionUpdate::new(&collections, false);
     loop {
         match prompt_chars("Add, delete, or commit [adc]:").unwrap_or('s') {
             'A' | 'a' => {

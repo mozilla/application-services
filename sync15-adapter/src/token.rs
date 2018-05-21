@@ -11,6 +11,7 @@ use std::fmt;
 use std::borrow::{Borrow, Cow};
 use std::time::{SystemTime, Duration};
 use std::cell::{RefCell};
+use std::rc::Rc;
 use util::ServerTimestamp;
 
 /// Tokenserver's timestamp is X-Timestamp and not X-Weave-Timestamp.
@@ -168,6 +169,7 @@ enum TokenState {
 /// first needed, or when an existing one expires.)
 #[derive(Debug)]
 pub struct TokenserverClient {
+    request_client: Rc<Client>,
     // The stuff needed to fetch a token.
     base_url: String,
     access_token: String,
@@ -177,8 +179,9 @@ pub struct TokenserverClient {
 }
 
 impl TokenserverClient {
-    pub fn new(base_url: String, access_token: String, key_id: String) -> TokenserverClient {
+    pub fn new(request_client: Rc<Client>, base_url: String, access_token: String, key_id: String) -> TokenserverClient {
         TokenserverClient {
+            request_client,
             base_url,
             access_token,
             key_id,
@@ -189,8 +192,8 @@ impl TokenserverClient {
     // Attempt to fetch a new token and return a new state reflecting that
     // operation. If it worked a TokenState::Token state will be returned, but
     // errors may cause other states.
-    fn fetch_token(&self, request_client: &Client, previous_endpoint: Option<&str>) -> TokenState {
-        match TokenContext::new(self, request_client) {
+    fn fetch_token(&self, previous_endpoint: Option<&str>) -> TokenState {
+        match TokenContext::new(self, &self.request_client) {
             Ok(tc) => {
                 // We got a new token - check that the endpoint is the same
                 // as a previous endpoint we saw (if any)
@@ -226,19 +229,19 @@ impl TokenserverClient {
     // Returns None if the current state should be used (eg, if we are
     // holding a token that remains valid) or Some() if the state has changed
     // (which may have changed to a state with a token or an error state)
-    fn advance_state(&self, request_client: &Client, state: &TokenState) -> Option<TokenState> {
+    fn advance_state(&self, state: &TokenState) -> Option<TokenState> {
         match state {
             TokenState::NoToken => {
-                Some(self.fetch_token(request_client, None))
+                Some(self.fetch_token(None))
             },
             TokenState::Failed(_, existing_endpoint) => {
-                Some(self.fetch_token(request_client, existing_endpoint.as_ref().map(|e| e.as_str())))
+                Some(self.fetch_token(existing_endpoint.as_ref().map(|e| e.as_str())))
             },
             TokenState::Token(existing_context) => {
                 if existing_context.is_valid() {
                     None
                 } else {
-                    Some(self.fetch_token(request_client, Some(existing_context.token.api_endpoint.as_str())))
+                    Some(self.fetch_token(Some(existing_context.token.api_endpoint.as_str())))
                 }
             },
             TokenState::Backoff(ref until, ref existing_endpoint) => {
@@ -247,7 +250,7 @@ impl TokenserverClient {
                     None
                 } else {
                     // backoff period is over
-                    Some(self.fetch_token(request_client, existing_endpoint.as_ref().map(|e| e.as_str())))
+                    Some(self.fetch_token(existing_endpoint.as_ref().map(|e| e.as_str())))
                 }
             },
             TokenState::NodeReassigned => {
@@ -257,13 +260,13 @@ impl TokenserverClient {
         }
     }
 
-    fn with_token<T, F>(&self, request_client: &Client, func: F) -> Result<T>
+    fn with_token<T, F>(&self, func: F) -> Result<T>
             where F: FnOnce(&TokenContext) -> Result<T> {
 
         // first get a mutable ref to our existing state, advance to the
         // state we will use, then re-stash that state for next time.
         let state: &mut TokenState = &mut self.current_state.borrow_mut();
-        match self.advance_state(request_client, state) {
+        match self.advance_state(state) {
             Some(new_state) => *state = new_state,
             None => ()
         }
@@ -293,12 +296,12 @@ impl TokenserverClient {
         }
     }
 
-    pub fn authorization(&self, http_client: &Client, req: &Request) -> Result<Authorization<String>> {
-        Ok(self.with_token(http_client, |ctx| ctx.authorization(req))?)
+    pub fn authorization(&self, req: &Request) -> Result<Authorization<String>> {
+        Ok(self.with_token(|ctx| ctx.authorization(req))?)
     }
 
-    pub fn api_endpoint(&self, http_client: &Client) -> Result<String> {
-        Ok(self.with_token(http_client, |ctx| Ok(ctx.token.api_endpoint.clone()))?)
+    pub fn api_endpoint(&self) -> Result<String> {
+        Ok(self.with_token(|ctx| Ok(ctx.token.api_endpoint.clone()))?)
     }
     // TODO: we probably want a "drop_token/context" type method so that when
     // using a token with some validity fails the caller can force a new one
@@ -313,13 +316,14 @@ mod tests {
 
     #[test]
     fn test_something() {
-        let client = Client::builder().timeout(Duration::from_secs(30)).build().expect("can't build client");
-        let tsc = TokenserverClient::new(String::from("base_url"),
+        let client = Rc::new(Client::builder().timeout(Duration::from_secs(30)).build().expect("can't build client"));
+        let tsc = TokenserverClient::new(client.clone(),
+                                         String::from("base_url"),
                                          String::from("access_token"),
                                          String::from("key_id"));
 
         // TODO: make this actually useful!
-        let _e = tsc.api_endpoint(&client).expect_err("should fail");
+        let _e = tsc.api_endpoint().expect_err("should fail");
         println!("FAILED WITH {}", _e.kind());
         // XXX - this will fail with |ErrorKind::BadUrl(RelativeUrlWithoutBase)|
         // but I'm not sure how to test it!

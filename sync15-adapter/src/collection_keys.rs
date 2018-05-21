@@ -6,6 +6,7 @@ use bso_record::{BsoRecord, Sync15Record, EncryptedPayload};
 use key_bundle::KeyBundle;
 use std::collections::HashMap;
 use error::Result;
+use util::ServerTimestamp;
 
 #[derive(Deserialize, Serialize, Clone, Debug, Eq, PartialEq)]
 struct CryptoKeysRecord {
@@ -20,8 +21,9 @@ impl Sync15Record for CryptoKeysRecord {
     fn record_id(&self) -> &str { "keys" }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CollectionKeys {
+    pub modified: ServerTimestamp,
     pub default: KeyBundle,
     pub collections: HashMap<String, KeyBundle>
 }
@@ -30,6 +32,7 @@ impl CollectionKeys {
     pub fn from_encrypted_bso(record: BsoRecord<EncryptedPayload>, root_key: &KeyBundle) -> Result<CollectionKeys> {
         let keys: BsoRecord<CryptoKeysRecord> = record.decrypt(root_key)?;
         Ok(CollectionKeys {
+            modified: keys.modified,
             default: KeyBundle::from_base64(&keys.payload.default[0], &keys.payload.default[1])?,
             collections:
                 keys.payload.collections

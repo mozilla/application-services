@@ -57,6 +57,11 @@ error_chain! {
             display("No meta global on server for user")
         }
 
+        NoCryptoKeys {
+            description("No crypto keys on server for user")
+            display("No crypto keys on server for user")
+        }
+
         // We should probably get rid of the ones of these that are actually possible,
         // but I'd like to get this done rather than spend tons of time worrying about
         // the right error types for now (but at the same time, I'd rather not unwrap)
