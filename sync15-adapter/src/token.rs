@@ -109,7 +109,7 @@ impl TokenFetcher for TokenServerFetcher {
     }
 }
 
-// A context stored by our TokenserverClient when it has a TokenState::Token
+// The context stored by our TokenProvider when it has a TokenState::Token
 // state.
 struct TokenContext {
     token: TokenserverToken,
@@ -173,7 +173,7 @@ impl TokenContext {
     }
 }
 
-// The state our TokenserverClient holds to reflect the state of the token.
+// The state our TokenProvider holds to reflect the state of the token.
 #[derive(Debug)]
 enum TokenState {
     // We've never fetched a token.
@@ -193,18 +193,18 @@ enum TokenState {
     NodeReassigned,
 }
 
-/// The TokenserverClient - long lived and fetches tokens on demand (eg, when
-/// first needed, or when an existing one expires.)
+/// The generic TokenProvider implementation - long lived and fetches tokens
+/// on demand (eg, when first needed, or when an existing one expires.)
 #[derive(Debug)]
-struct TokenserverClientImpl<TF: TokenFetcher> {
+struct TokenProviderImpl<TF: TokenFetcher> {
     fetcher: TF,
     // Our token state (ie, whether we have a token, and if not, why not)
     current_state: RefCell<TokenState>,
 }
 
-impl<TF: TokenFetcher> TokenserverClientImpl<TF> {
+impl<TF: TokenFetcher> TokenProviderImpl<TF> {
     fn new(fetcher: TF) -> Self {
-        TokenserverClientImpl {
+        TokenProviderImpl {
             fetcher,
             current_state: RefCell::new(TokenState::NoToken),
         }
@@ -346,11 +346,11 @@ impl<TF: TokenFetcher> TokenserverClientImpl<TF> {
 
 // The public concrete object exposed by this module
 #[derive(Debug)]
-pub struct TokenserverClient {
-    imp: TokenserverClientImpl<TokenServerFetcher>,
+pub struct TokenProvider {
+    imp: TokenProviderImpl<TokenServerFetcher>,
 }
 
-impl TokenserverClient {
+impl TokenProvider {
     pub fn new(base_url: String, access_token: String, key_id: String) -> Self {
         let fetcher = TokenServerFetcher::new(base_url.clone(),
                                               access_token.clone(),
@@ -381,9 +381,9 @@ mod tests {
 
     #[test]
     fn test_bad_url() {
-        let tsc = TokenserverClient::new(String::from("base_url"),
-                                         String::from("access_token"),
-                                         String::from("key_id"));
+        let tsc = TokenProvider::new(String::from("base_url"),
+                                     String::from("access_token"),
+                                     String::from("key_id"));
 
         // TODO: make this actually useful!
         let e = tsc.api_endpoint(&make_client()).expect_err("should fail");
@@ -411,14 +411,14 @@ mod tests {
         }
     }
 
-    fn make_tsc<FF, FN>(fetch: FF, now: FN) -> TokenserverClientImpl<TestFetcher<FF, FN>>
+    fn make_tsc<FF, FN>(fetch: FF, now: FN) -> TokenProviderImpl<TestFetcher<FF, FN>>
         where FF: Fn() -> Result<TokenFetchResult>,
               FN: Fn() -> SystemTime {
         let fetcher: TestFetcher<FF, FN> = TestFetcher {
             fetch,
             now,
         };
-        TokenserverClientImpl::new(fetcher)
+        TokenProviderImpl::new(fetcher)
     }
 
     #[test]
