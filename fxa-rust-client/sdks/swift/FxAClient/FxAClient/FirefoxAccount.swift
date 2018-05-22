@@ -102,7 +102,7 @@ open class FirefoxAccount: RustObject {
         guard let pointer = fxa_begin_oauth_flow(raw, redirectURI, scope, wantsKeys) else {
             return nil
         }
-        return URL(string: String(cString: pointer))
+        return URL(string: copy_and_free_str(pointer))
     }
 
     public func completeOAuthFlow(code: String, state: String) -> Optional<OAuthInfo> {
