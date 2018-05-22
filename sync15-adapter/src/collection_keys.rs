@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use bso_record::{Cleartext, EncryptedBso};
+use bso_record::{Payload, EncryptedBso};
 use key_bundle::KeyBundle;
 use std::collections::HashMap;
 use error::Result;
@@ -35,7 +35,7 @@ impl CollectionKeys {
             collections: self.collections.iter().map(|kv|
                 (kv.0.clone(), kv.1.to_b64_array())).collect()
         };
-        let bso = Cleartext::from_record(record)?.into_bso("crypto".into());
+        let bso = Payload::from_record(record)?.into_bso("crypto".into());
         Ok(bso.encrypt(root_key)?)
     }
 

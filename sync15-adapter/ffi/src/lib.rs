@@ -9,7 +9,7 @@ extern crate serde_json;
 use std::ffi::{CStr, CString};
 
 use std::{ptr, mem};
-use sync::{RecordChangeset, CleartextBso, Cleartext, Sync15Service, Sync15ServiceInit};
+use sync::{RecordChangeset, CleartextBso, Payload, Sync15Service, Sync15ServiceInit};
 use sync::util::ServerTimestamp;
 use libc::c_char;
 
@@ -195,9 +195,9 @@ pub extern "C" fn sync15_changeset_get_tombstone_at(
     string_to_c_str(changeset.deleted_ids[index].clone())
 }
 
-fn c_str_to_cleartext(json: *const c_char) -> sync::Result<Cleartext> {
+fn c_str_to_cleartext(json: *const c_char) -> sync::Result<Payload> {
     let s = unsafe { CStr::from_ptr(json) };
-    Ok(Cleartext::from_json(
+    Ok(Payload::from_json(
         serde_json::from_slice(s.to_bytes())?)?)
 }
 

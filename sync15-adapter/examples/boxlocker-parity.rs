@@ -19,7 +19,7 @@ use std::io::{self, Read, Write};
 use std::error::Error;
 use std::fs;
 use std::process;
-use sync::{ServerTimestamp, OutgoingChangeset, Cleartext, Store};
+use sync::{ServerTimestamp, OutgoingChangeset, Payload, BasicStore};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -275,20 +275,21 @@ impl PasswordEngine {
     }
 
     pub fn sync(&mut self, svc: &sync::Sync15Service) -> Result<(), Box<Error>> {
-        sync::synchronize(svc, self, true)?;
+        let ts = self.last_sync;
+        sync::synchronize(svc, self, "passwords".into(), ts, true)?;
         Ok(())
     }
 }
 
-impl Store for PasswordEngine {
+impl BasicStore for PasswordEngine {
     fn get_unsynced_changes(&self) -> sync::Result<OutgoingChangeset> {
         let mut result = OutgoingChangeset::new("passwords".into(), self.last_sync);
         result.changes.reserve(self.changes.len());
         for (changed_id, time) in self.changes.iter() {
             let ct = if let Some(record) = self.records.get(changed_id) {
-                Cleartext::from_record(record.clone())?
+                Payload::from_record(record.clone())?
             } else {
-                Cleartext::new_tombstone(changed_id.clone())
+                Payload::new_tombstone(changed_id.clone())
             };
             let mod_time = UNIX_EPOCH + Duration::new(
                 time / 1000, ((time % 1000) * 1_000_000) as u32);
@@ -297,9 +298,9 @@ impl Store for PasswordEngine {
         Ok(result)
     }
 
-    fn apply_changes(&mut self,
-                     record_changes: &[Cleartext],
-                     new_last_sync: ServerTimestamp) -> sync::Result<Vec<Cleartext>> {
+    fn apply_reconciled_changes(&mut self,
+                                record_changes: &[Payload],
+                                new_last_sync: ServerTimestamp) -> sync::Result<()> {
         for change in record_changes {
             if change.is_tombstone() {
                 self.records.remove(change.id());
@@ -310,11 +311,11 @@ impl Store for PasswordEngine {
         }
         self.last_sync = new_last_sync;
         self.save().map_err(|_| "Save failed!")?;
-        Ok(vec![])
+        Ok(())
     }
 
-    fn sync_finished(&mut self, ids: &[&str], new_last_sync: ServerTimestamp) -> sync::Result<()> {
-        for &id in ids {
+    fn sync_finished(&mut self, new_last_sync: ServerTimestamp, ids: &[String]) -> sync::Result<()> {
+        for id in ids {
             self.changes.remove(id);
         }
         self.last_sync = new_last_sync;

@@ -137,7 +137,7 @@ impl<T> DerefMut for BsoRecord<T> {
 /// (we did this in the past as well), but for now, since everything is just going over the FFI, there's not a lot of
 /// benefit here.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Cleartext {
+pub struct Payload {
     pub id: String,
 
     #[serde(default)]
@@ -155,11 +155,11 @@ fn is_false(b: &bool) -> bool {
     !*b
 }
 
-impl Cleartext {
+impl Payload {
 
     #[inline]
-    pub fn new_tombstone(id: String) -> Cleartext {
-        Cleartext { id, deleted: true, data: Map::new() }
+    pub fn new_tombstone(id: String) -> Payload {
+        Payload { id, deleted: true, data: Map::new() }
     }
 
     #[inline]
@@ -187,7 +187,7 @@ impl Cleartext {
         }
     }
 
-    pub fn from_json(value: JsonValue) -> error::Result<Cleartext> {
+    pub fn from_json(value: JsonValue) -> error::Result<Payload> {
         Ok(serde_json::from_value(value)?)
     }
 
@@ -195,23 +195,22 @@ impl Cleartext {
         Ok(serde_json::from_value(JsonValue::from(self))?)
     }
 
-    pub fn from_record<T: Serialize>(v: T) -> error::Result<Cleartext> {
+    pub fn from_record<T: Serialize>(v: T) -> error::Result<Payload> {
         // TODO: This is dumb, we do to_value and then from_value. If we end up using this
         // method a lot we should rethink... As it is it should just be for uploading
         // meta/global or crypto/keys which is rare enough that it doesn't matter.
-        Ok(Cleartext::from_json(serde_json::to_value(v)?)?)
+        Ok(Payload::from_json(serde_json::to_value(v)?)?)
     }
 
     pub fn into_json_string(self) -> String {
         serde_json::to_string(&JsonValue::from(self))
             .expect("JSON.stringify failed, wish shouldn't be possible")
     }
-
 }
 
-impl From<Cleartext> for JsonValue {
-    fn from(cleartext: Cleartext) -> Self {
-        let Cleartext { mut data, id, deleted } = cleartext;
+impl From<Payload> for JsonValue {
+    fn from(cleartext: Payload) -> Self {
+        let Payload { mut data, id, deleted } = cleartext;
         data.insert("id".to_string(), JsonValue::String(id));
         if deleted {
             data.insert("deleted".to_string(), JsonValue::Bool(true));
@@ -221,7 +220,7 @@ impl From<Cleartext> for JsonValue {
 }
 
 pub type EncryptedBso = BsoRecord<EncryptedPayload>;
-pub type CleartextBso = BsoRecord<Cleartext>;
+pub type CleartextBso = BsoRecord<Payload>;
 
 // Contains the methods to automatically deserialize the payload to/from json.
 mod as_json {
@@ -356,7 +355,7 @@ mod tests {
 
     #[test]
     fn test_roundtrip_crypt_tombstone() {
-        let orig_record = Cleartext::from_json(
+        let orig_record = Payload::from_json(
             json!({ "id": "aaaaaaaaaaaa", "deleted": true, })
         ).unwrap().into_bso("dummy".into());
         assert!(orig_record.is_tombstone());
@@ -384,8 +383,8 @@ mod tests {
     #[test]
     fn test_roundtrip_crypt_record() {
         let payload = json!({ "id": "aaaaaaaaaaaa", "age": 105, "meta": "data" });
-        let orig_record = Cleartext::from_json(payload.clone()).unwrap()
-            .into_bso("dummy".into());
+        let orig_record = Payload::from_json(payload.clone()).unwrap()
+                                                             .into_bso("dummy".into());
 
         assert!(!orig_record.is_tombstone());
 

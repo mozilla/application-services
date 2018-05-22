@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use service::Sync15Service;
-use bso_record::{Cleartext, EncryptedBso};
+use bso_record::{Payload, EncryptedBso};
 use request::{NormalResponseHandler, UploadInfo};
 use util::ServerTimestamp;
 use error::{self, ErrorKind, Result};
@@ -13,7 +13,7 @@ use std::time::SystemTime;
 
 #[derive(Debug, Clone)]
 pub struct RecordChangeset<Timestamp> {
-    pub changes: Vec<(Cleartext, Timestamp)>,
+    pub changes: Vec<(Payload, Timestamp)>,
     /// For GETs, the last sync timestamp that should be persisted after
     /// applying the records.
     /// For POSTs, this is the XIUS timestamp.
