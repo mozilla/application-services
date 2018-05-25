@@ -22,10 +22,10 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		CE3CB15020A4BBA80085FC07 /* libcjose.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcjose.a; path = ../../../../libs/ios/cjose/lib/libcjose.a; sourceTree = "<group>"; };
-		CE3CB15220A4BBAD0085FC07 /* libjansson.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libjansson.a; path = ../../../../libs/ios/jansson/lib/libjansson.a; sourceTree = "<group>"; };
-		CE3CB15420A4BBB20085FC07 /* libssl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libssl.a; path = ../../../../libs/ios/openssl/lib/libssl.a; sourceTree = "<group>"; };
-		CE3CB15520A4BBB20085FC07 /* libcrypto.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcrypto.a; path = ../../../../libs/ios/openssl/lib/libcrypto.a; sourceTree = "<group>"; };
+		CE3CB15020A4BBA80085FC07 /* libcjose.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcjose.a; path = ../../../../libs/ios/universal/cjose/lib/libcjose.a; sourceTree = "<group>"; };
+		CE3CB15220A4BBAD0085FC07 /* libjansson.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libjansson.a; path = ../../../../libs/ios/universal/jansson/lib/libjansson.a; sourceTree = "<group>"; };
+		CE3CB15420A4BBB20085FC07 /* libssl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libssl.a; path = ../../../../libs/ios/universal/openssl/lib/libssl.a; sourceTree = "<group>"; };
+		CE3CB15520A4BBB20085FC07 /* libcrypto.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcrypto.a; path = ../../../../libs/ios/universal/openssl/lib/libcrypto.a; sourceTree = "<group>"; };
 		CE7B4B8A20A36B0500FC4422 /* libfxa_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfxa_client.a; path = ../../../../target/universal/release/libfxa_client.a; sourceTree = "<group>"; };
 		CE9D202020914D0D00F1C8FA /* FxAClient.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FxAClient.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE9D202320914D0D00F1C8FA /* FxAClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FxAClient.h; sourceTree = "<group>"; };
@@ -211,7 +211,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# build fxa-rust-client external libs dependencies\ncd \"$SRCROOT\"/../../../../libs/ios/\nenv -i ./build-all.sh #env -i doesn't pass xcode env variables\n\n# build fxa-rust-client lipoed library\ncd \"$SRCROOT\"/../../../ffi\nPATH=$PATH \\\nJANSSON_DIR=\"$SRCROOT\"/../../../../libs/ios/jansson \\\nOPENSSL_STATIC=0 OPENSSL_DIR=\"$SRCROOT\"/../../../../libs/ios/openssl \\\nCJOSE_DIR=\"$SRCROOT\"/../../../../libs/ios/cjose \\\n\"$HOME\"/.cargo/bin/cargo +nightly lipo --release";
+			shellScript = "# build fxa-rust-client external libs dependencies\ncd \"$SRCROOT\"/../../../../libs/\nenv -i ./build-all.sh ios #env -i doesn't pass xcode env variables\n\n# build fxa-rust-client lipoed library\ncd \"$SRCROOT\"/../../../ffi\nPATH=$PATH \\\nJANSSON_DIR=\"$SRCROOT\"/../../../../libs/ios/universal/jansson \\\nOPENSSL_STATIC=0 OPENSSL_DIR=\"$SRCROOT\"/../../../../libs/ios/universal/openssl \\\nCJOSE_DIR=\"$SRCROOT\"/../../../../libs/ios/universal/cjose \\\n\"$HOME\"/.cargo/bin/cargo +nightly lipo --release";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -365,9 +365,9 @@
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				ENABLE_BITCODE = NO;
 				HEADER_SEARCH_PATHS = (
-					"\"$(SRCROOT)/../../../../libs/ios/openssl/include/openssl\"",
-					"\"$(SRCROOT)/../../../../libs/ios/cjose/include\"",
-					"\"$(SRCROOT)/../../../../libs/ios/jansson/include\"",
+					"\"$(SRCROOT)/../../../../libs/ios/universal/openssl/include/openssl\"",
+					"\"$(SRCROOT)/../../../../libs/ios/universal/cjose/include\"",
+					"\"$(SRCROOT)/../../../../libs/ios/universal/jansson/include\"",
 				);
 				INFOPLIST_FILE = FxAClient/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
@@ -380,9 +380,9 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/../../../../target/universal/release/",
-					"\"$(SRCROOT)/../../../../libs/ios/jansson/lib\"",
-					"\"$(SRCROOT)/../../../../libs/ios/openssl/lib\"",
-					"\"$(SRCROOT)/../../../../libs/ios/cjose/lib\"",
+					"\"$(SRCROOT)/../../../../libs/ios/universal/jansson/lib\"",
+					"\"$(SRCROOT)/../../../../libs/ios/universal/openssl/lib\"",
+					"\"$(SRCROOT)/../../../../libs/ios/universal/cjose/lib\"",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.FxAClient;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
@@ -407,9 +407,9 @@
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				ENABLE_BITCODE = NO;
 				HEADER_SEARCH_PATHS = (
-					"\"$(SRCROOT)/../../../../libs/ios/openssl/include/openssl\"",
-					"\"$(SRCROOT)/../../../../libs/ios/cjose/include\"",
-					"\"$(SRCROOT)/../../../../libs/ios/jansson/include\"",
+					"\"$(SRCROOT)/../../../../libs/ios/universal/openssl/include/openssl\"",
+					"\"$(SRCROOT)/../../../../libs/ios/universal/cjose/include\"",
+					"\"$(SRCROOT)/../../../../libs/ios/universal/jansson/include\"",
 				);
 				INFOPLIST_FILE = FxAClient/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
@@ -422,9 +422,9 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/../../../../target/universal/release/",
-					"\"$(SRCROOT)/../../../../libs/ios/jansson/lib\"",
-					"\"$(SRCROOT)/../../../../libs/ios/openssl/lib\"",
-					"\"$(SRCROOT)/../../../../libs/ios/cjose/lib\"",
+					"\"$(SRCROOT)/../../../../libs/ios/universal/jansson/lib\"",
+					"\"$(SRCROOT)/../../../../libs/ios/universal/openssl/lib\"",
+					"\"$(SRCROOT)/../../../../libs/ios/universal/cjose/lib\"",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.FxAClient;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
