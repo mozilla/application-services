@@ -7,7 +7,7 @@ set -e
 if [ "$#" -ne 5 ]
 then
     echo "Usage:"
-    echo "./build-jansson.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <TOOLCHAIN_PATH> <TOOLCHAIN> <ANDROID_API_VERSION>"
+    echo "./build-jansson-android.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <TOOLCHAIN_PATH> <TOOLCHAIN> <ANDROID_API_VERSION>"
     exit 1
 fi
 
@@ -33,7 +33,7 @@ export AR="$TOOLCHAIN_BIN""$TOOLCHAIN""-ar"
 export CFLAGS="-D__ANDROID_API__=$ANDROID_API_VERSION"
 
 make clean || true
-./configure --host=${TOOLCHAIN} && make
+./configure --host="$TOOLCHAIN" && make
 mkdir -p "$DIST_DIR""/include"
 mkdir -p "$DIST_DIR""/lib"
 cp -p src/.libs/libjansson.so "$DIST_DIR""/lib"

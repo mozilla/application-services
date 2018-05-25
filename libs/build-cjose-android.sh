@@ -7,7 +7,7 @@ set -e
 if [ "$#" -ne 7 ]
 then
     echo "Usage:"
-    echo "./build-cjose.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <TOOLCHAIN_PATH> <TOOLCHAIN> <ANDROID_API_VERSION> <JANSSON_DIR> <OPENSSL_DIR>"
+    echo "./build-cjose-android.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <TOOLCHAIN_PATH> <TOOLCHAIN> <ANDROID_API_VERSION> <JANSSON_DIR> <OPENSSL_DIR>"
     exit 1
 fi
 
@@ -35,7 +35,7 @@ export AR="$TOOLCHAIN_BIN""$TOOLCHAIN""-ar"
 export CFLAGS="-D__ANDROID_API__=$ANDROID_API_VERSION"
 
 make clean || true
-./configure --host=${TOOLCHAIN} --with-openssl="${OPENSSL_DIR}" --with-jansson="${JANSSON_DIR}" && make
+./configure --host="$TOOLCHAIN" --with-openssl="$OPENSSL_DIR" --with-jansson="$JANSSON_DIR" && make
 mkdir -p "$DIST_DIR""/include"
 mkdir -p "$DIST_DIR""/lib"
 cp -p src/.libs/libcjose.so "$DIST_DIR""/lib"
