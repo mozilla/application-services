@@ -41,13 +41,16 @@ pub mod token;
 pub mod collection_keys;
 pub mod util;
 pub mod request;
-pub mod service;
+pub mod storage_client;
+pub mod collections;
 pub mod tombstone;
+pub mod state_machine;
 
 // Re-export some of the types callers are likely to want for convenience.
 pub use bso_record::{BsoRecord, Sync15Record};
 pub use tombstone::{MaybeTombstone, Tombstone, NonTombstone};
-pub use service::{Sync15ServiceInit, Sync15Service, CollectionUpdate};
+pub use storage_client::{StorageClientInit, StorageClient};
+pub use collections::{Collections, CollectionUpdate};
 pub use error::{Result, Error, ErrorKind};
 
 pub use MaybeTombstone::*;

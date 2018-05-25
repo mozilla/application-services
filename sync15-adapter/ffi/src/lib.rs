@@ -97,68 +97,10 @@ impl From<PasswordRecord> for PasswordRecordC {
     }
 }
 
-#[no_mangle]
-pub extern "C" fn sync15_service_create(
-    key_id: *const c_char,
-    access_token: *const c_char,
-    sync_key: *const c_char,
-    tokenserver_base_url: *const c_char
-) -> *mut sync::Sync15Service {
-    let params = sync::Sync15ServiceInit {
-        key_id: c_char_to_string(key_id),
-        access_token: c_char_to_string(access_token),
-        sync_key: c_char_to_string(sync_key),
-        tokenserver_base_url: c_char_to_string(tokenserver_base_url),
-    };
-    let mut boxed = match sync::Sync15Service::new(params) {
-        Ok(svc) => Box::new(svc),
-        Err(e) => {
-            println!("Unexpected error initializing Sync15Service: {}", e);
-            // TODO: have thoughts about error handling.
-            return ptr::null_mut();
-        }
-    };
-    if let Err(e) = boxed.remote_setup() {
-        println!("Unexpected error performing remote sync setup: {}", e);
-        // TODO: have thoughts about error handling here too.
-        return ptr::null_mut();
-    }
-    Box::into_raw(boxed)
-}
-
-#[no_mangle]
-pub extern "C" fn sync15_service_destroy(svc: *mut sync::Sync15Service) {
-    let _ = unsafe { Box::from_raw(svc) };
-}
-
 // This is opaque to C
 pub struct PasswordCollection {
     pub records: Vec<PasswordRecord>,
     pub tombstones: Vec<String>,
-}
-
-#[no_mangle]
-pub extern "C" fn sync15_service_request_passwords(
-    svc: *mut sync::Sync15Service
-) -> *mut PasswordCollection {
-    let service = unsafe { &mut *svc };
-    let passwords = match service.all_records::<PasswordRecord>("passwords") {
-        Ok(pws) => pws,
-        Err(e) => {
-            // TODO: error handling...
-            println!("Unexpected error downloading passwords {}", e);
-            return ptr::null_mut();
-        }
-    };
-    let mut tombstones = vec![];
-    let mut records = vec![];
-    for obj in passwords {
-        match obj.payload {
-            sync::Tombstone { id, .. } => tombstones.push(id),
-            sync::NonTombstone(record) => records.push(record),
-        }
-    }
-    Box::into_raw(Box::new(PasswordCollection { records, tombstones }))
 }
 
 #[no_mangle]
