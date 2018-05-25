@@ -11,6 +11,8 @@ users to opt into two-step authentication. If you enable this feature,
 then in addition to your password, an additional security code will be
 required to log in.
 
+<!--truncate-->
+
 We chose to implement this feature
 using the well-known authentication standard TOTP (Time-based One-Time Password).
 TOTP codes can be generated using a variety of authenticator applications. For example, Google Authenticator, Duo and Authy all support generating TOTP codes.
