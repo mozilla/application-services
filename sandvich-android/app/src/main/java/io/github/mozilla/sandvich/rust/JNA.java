@@ -10,4 +10,6 @@ public interface JNA extends Library {
     NativeLibrary JNA_NATIVE_LIB = NativeLibrary.getInstance(JNA_LIBRARY_NAME);
 
     JNA INSTANCE = (JNA) Native.loadLibrary(JNA_LIBRARY_NAME, JNA.class);
+
+    RustResult fxa_get_release_config();
 }
