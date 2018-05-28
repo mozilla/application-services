@@ -8,7 +8,7 @@ jni = { version = "0.5", default-features = false }
 
 [lib]
 name = "fxa_client"
-crate-type = ["dylib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 libc = "0.2"
