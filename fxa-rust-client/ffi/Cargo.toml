@@ -3,6 +3,9 @@ name = "fxa-client-ffi"
 version = "0.1.0"
 authors = ["Edouard Oger <eoger@fastmail.com>"]
 
+[target.'cfg(target_os="android")'.dependencies]
+jni = { version = "0.5", default-features = false }
+
 [lib]
 name = "fxa_client"
 crate-type = ["staticlib", "cdylib"]
