@@ -11,7 +11,7 @@ CJOSE_VERSION="0.6.1"
 if [ "$#" -ne 1 ]
 then
     echo "Usage:"
-    echo "./build-all.sh [ios|android]"
+    echo "./build-all.sh [ios|android|desktop]"
     exit 1
 fi
 
@@ -59,6 +59,9 @@ then
 elif [ "$PLATFORM" == "android" ]
 then
   ./build-all-android.sh "$JANSSON_SRC_PATH" "$OPENSSL_SRC_PATH" "$CJOSE_SRC_PATH"
+elif [ "$PLATFORM" == "desktop" ]
+then
+  ./build-all-desktop.sh "$JANSSON_SRC_PATH" "$OPENSSL_SRC_PATH" "$CJOSE_SRC_PATH"
 else
   echo "Unrecognized platform"
   exit 1

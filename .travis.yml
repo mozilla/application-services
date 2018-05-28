@@ -1,5 +1,4 @@
 language: rust
-os: osx
 
 rust:
   - stable
@@ -11,4 +10,4 @@ script:
 cache:
   cargo: true
   directories:
-  - libs/ios/
+  - libs/desktop
