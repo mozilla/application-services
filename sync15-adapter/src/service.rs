@@ -52,7 +52,7 @@ pub struct Sync15Service {
     client: Client,
     // We update this when we make requests
     last_server_time: Cell<ServerTimestamp>,
-    tsc: token::TokenserverClient,
+    tsc: token::TokenProvider,
 
     keys: Option<CollectionKeys>,
     server_config: Option<InfoConfiguration>,
@@ -63,9 +63,9 @@ impl Sync15Service {
     pub fn new(init_params: Sync15ServiceInit) -> error::Result<Sync15Service> {
         let root_key = KeyBundle::from_ksync_base64(&init_params.sync_key)?;
         let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
-        let tsc = token::TokenserverClient::new(init_params.tokenserver_base_url.clone(),
-                                                init_params.access_token.clone(),
-                                                init_params.key_id.clone());
+        let tsc = token::TokenProvider::new(init_params.tokenserver_base_url.clone(),
+                                            init_params.access_token.clone(),
+                                            init_params.key_id.clone());
         let timestamp = ServerTimestamp(0f64);
         Ok(Sync15Service {
             client,
