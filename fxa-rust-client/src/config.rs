@@ -1,6 +1,7 @@
 use super::errors::*;
 use reqwest;
 use url::Url;
+extern crate openssl_probe;
 
 #[derive(Deserialize)]
 struct FxAClientConfigurationResponse {
@@ -21,7 +22,7 @@ pub struct Config {
 
 impl Config {
     pub fn release() -> Result<Config> {
-        Config::import_from("https://accounts.firefox.com")
+        Config::import_from("http://127.0.0.1:3030")
     }
 
     pub fn stable() -> Result<Config> {
@@ -29,6 +30,7 @@ impl Config {
     }
 
     pub fn import_from(content_url: &str) -> Result<Config> {
+        openssl_probe::init_ssl_cert_env_vars();
         let config_url = Url::parse(content_url)?.join(".well-known/fxa-client-configuration")?;
         let resp: FxAClientConfigurationResponse = reqwest::get(config_url)?.json()?;
         Ok(Config {

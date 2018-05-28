@@ -1,5 +1,7 @@
 package io.github.mozilla.sandvich.rust;
 
+import android.util.Log;
+
 import com.sun.jna.Pointer;
 import com.sun.jna.Structure;
 
@@ -10,6 +12,7 @@ public class Error extends Structure {
 
     public Error (Pointer ptr) {
         super (ptr);
+        read();
     }
 
 //
