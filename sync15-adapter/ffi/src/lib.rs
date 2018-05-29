@@ -6,12 +6,25 @@ extern crate sync15_adapter as sync;
 extern crate libc;
 extern crate serde_json;
 
+#[macro_use]
+extern crate error_chain;
+
 use std::ffi::{CStr, CString};
 
-use std::{ptr, mem};
-use sync::{RecordChangeset, CleartextBso, Payload, Sync15Service, Sync15ServiceInit};
-use sync::util::ServerTimestamp;
-use libc::c_char;
+use std::{ptr, mem, time};
+use sync::error::unexpected;
+use sync::{
+    Payload,
+    Sync15Service,
+    Sync15ServiceInit,
+    IncomingChangeset,
+    OutgoingChangeset,
+    ServerTimestamp,
+    Id,
+    BasicStore,
+};
+
+use libc::{c_char, c_double, size_t};
 
 
 fn c_str_to_string(cs: *const c_char) -> String {
@@ -38,7 +51,7 @@ fn drop_and_null_c_str(cs: &mut *mut c_char) {
 
 #[repr(C)]
 pub struct CleartextBsoC {
-    pub server_modified: libc::c_double,
+    pub server_modified: c_double,
     pub payload_str: *mut c_char,
 }
 
@@ -49,20 +62,21 @@ impl Drop for CleartextBsoC {
 }
 
 impl CleartextBsoC {
-    pub fn new(bso: &CleartextBso) -> Box<CleartextBsoC> {
+    pub fn new(bso_data: &(Payload, ServerTimestamp)) -> Box<CleartextBsoC> {
         Box::new(CleartextBsoC {
-            payload_str: string_to_c_str(bso.payload.clone().into_json_string()),
-            server_modified: bso.modified.0,
+            payload_str: string_to_c_str(bso_data.0.clone().into_json_string()),
+            server_modified: bso_data.1.into(),
         })
     }
 }
 
+/// Create a new Sync15Service instance.
 #[no_mangle]
 pub extern "C" fn sync15_service_create(
-    key_id: *const libc::c_char ,
-    access_token: *const libc::c_char ,
-    sync_key: *const libc::c_char ,
-    tokenserver_base_url: *const libc::c_char
+    key_id: *const c_char,
+    access_token: *const c_char ,
+    sync_key: *const c_char ,
+    tokenserver_base_url: *const c_char
 ) -> *mut Sync15Service {
     let params = Sync15ServiceInit {
         key_id: c_str_to_string(key_id),
@@ -86,48 +100,53 @@ pub extern "C" fn sync15_service_create(
     Box::into_raw(boxed)
 }
 
+/// Free a `Sync15Service` returned by `sync15_service_create`
 #[no_mangle]
 pub unsafe extern "C" fn sync15_service_destroy(svc: *mut Sync15Service) {
-    Box::from_raw(svc);
+    let _ = Box::from_raw(svc);
 }
 
-/// Free a changeset previously returned by `sync15_changeset_create` or
-/// `sync15_changeset_fetch`.
+/// Free an inbound changeset previously returned by `sync15_incoming_changeset_fetch`
 #[no_mangle]
-pub unsafe extern "C" fn sync15_changeset_destroy(changeset: *mut RecordChangeset) {
-    Box::from_raw(changeset);
+pub unsafe extern "C" fn sync15_incoming_changeset_destroy(changeset: *mut IncomingChangeset) {
+    let _ = Box::from_raw(changeset);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sync15_outgoing_changeset_destroy(changeset: *mut OutgoingChangeset) {
+    let _ = Box::from_raw(changeset);
 }
 
 /// Free a record previously returned by `sync15_changeset_get_record_at`.
 #[no_mangle]
 pub unsafe extern "C" fn sync15_record_destroy(bso: *mut CleartextBsoC) {
-    Box::from_raw(bso);
+    let _ = Box::from_raw(bso);
 }
 
 /// Create a new outgoing changeset, which requires that the server have not been
 /// modified since it returned the provided `timestamp`.
 #[no_mangle]
-pub extern "C" fn sync15_changeset_create(
+pub extern "C" fn sync15_outbound_changeset_create(
     collection: *const c_char,
-    timestamp: libc::c_double,
-) -> *mut RecordChangeset {
+    timestamp: c_double,
+) -> *mut OutgoingChangeset {
     assert!(timestamp >= 0.0);
     Box::into_raw(Box::new(
-        RecordChangeset::new(c_str_to_string(collection),
+        OutgoingChangeset::new(c_str_to_string(collection),
                              ServerTimestamp(timestamp))))
 }
 
 /// Get all the changes for the requested collection that have occurred since last_sync.
 /// Important: Caller frees!
 #[no_mangle]
-pub extern "C" fn sync15_changeset_fetch(
+pub extern "C" fn sync15_incoming_changeset_fetch(
     svc: *const Sync15Service,
     collection_c: *const c_char,
-    last_sync: libc::c_double,
-) -> *mut RecordChangeset {
+    last_sync: c_double,
+) -> *mut IncomingChangeset {
     let service = unsafe { &*svc };
     let collection = c_str_to_string(collection_c);
-    let result = RecordChangeset::fetch(service, collection, ServerTimestamp(last_sync as f64));
+    let result = IncomingChangeset::fetch(service, collection, ServerTimestamp(last_sync as f64));
     let fetched = match result {
         Ok(r) => Box::new(r),
         Err(e) => {
@@ -138,67 +157,49 @@ pub extern "C" fn sync15_changeset_fetch(
     Box::into_raw(fetched)
 }
 
-/// Get the last_sync timestamp for a (usually remote) changeset.
+/// Get the last_sync timestamp for an inbound changeset.
 #[no_mangle]
-pub extern "C" fn sync15_changeset_get_timestamp(changeset: *const RecordChangeset) -> libc::c_double {
+pub extern "C" fn sync15_incoming_changeset_get_timestamp(changeset: *const IncomingChangeset) -> c_double {
     let changeset = unsafe { &*changeset };
-    changeset.timestamp.0 as libc::c_double
+    changeset.timestamp.0 as c_double
 }
 
-/// Get the number of records from a (usually remote) changeset.
+/// Get the number of records from an inbound changeset.
 #[no_mangle]
-pub extern "C" fn sync15_changeset_get_record_count(changeset: *const RecordChangeset) -> libc::size_t {
+pub extern "C" fn sync15_incoming_changeset_get_len(changeset: *const IncomingChangeset) -> size_t {
     let changeset = unsafe { &*changeset };
-    changeset.changed.len()
+    changeset.changes.len()
 }
 
-/// Get the number of tombstones from a (usually remote) changeset.
-#[no_mangle]
-pub extern "C" fn sync15_changeset_get_tombstone_count(changeset: *const RecordChangeset) -> libc::size_t {
-    let changeset = unsafe { &*changeset };
-    changeset.deleted_ids.len()
-}
-
-/// Get the requested record from the (usually remote) changeset. `index` should be less
-/// than `sync15_changeset_get_record_count`, or NULL will be returned and a message
-/// logged to stderr.
+/// Get the requested record from the changeset. `index` should be less than
+/// `sync15_changeset_get_record_count`, or NULL will be returned and a
+/// message logged to stderr.
 ///
 /// Important: Caller needs to free the returned value using `sync15_record_destroy`
 #[no_mangle]
-pub extern "C" fn sync15_changeset_get_record_at(
-    changeset: *const RecordChangeset,
-    index: libc::size_t
+pub extern "C" fn sync15_incoming_changeset_get_at(
+    changeset: *const IncomingChangeset,
+    index: size_t
 ) -> *mut CleartextBsoC {
     let changeset = unsafe { &*changeset };
-    if index >= changeset.changed.len() {
+    if index >= changeset.changes.len() {
         eprintln!("sync15_changeset_get_record_at was given an invalid index");
         return ptr::null_mut();
     }
-    Box::into_raw(CleartextBsoC::new(&changeset.changed[index]))
+    Box::into_raw(CleartextBsoC::new(&changeset.changes[index]))
 }
 
-/// Get the requested tombstone id from the (usually remote) changeset. `index`
-/// should be less than `sync15_changeset_get_tombstone_count`, or NULL will be
-/// returned an a message logged to stderr.
-///
-/// Important: Caller needs to free the returned string.
-#[no_mangle]
-pub extern "C" fn sync15_changeset_get_tombstone_at(
-    changeset: *const RecordChangeset,
-    index: libc::size_t
-) -> *mut c_char {
-    let changeset = unsafe { &*changeset };
-    if index >= changeset.deleted_ids.len() {
-        eprintln!("sync15_changeset_get_tombstone_at was given an invalid index");
-        return ptr::null_mut();
-    }
-    string_to_c_str(changeset.deleted_ids[index].clone())
-}
-
-fn c_str_to_cleartext(json: *const c_char) -> sync::Result<Payload> {
+fn c_str_to_payload(json: *const c_char) -> sync::Result<Payload> {
     let s = unsafe { CStr::from_ptr(json) };
     Ok(Payload::from_json(
         serde_json::from_slice(s.to_bytes())?)?)
+}
+
+fn u64_to_system_time(time_ms: libc::uint64_t) -> time::SystemTime {
+    time::UNIX_EPOCH + time::Duration::new(
+        time_ms / 1000,
+        ((time_ms % 1000) * 1_000_000) as u32
+    )
 }
 
 /// Add a record to an outgoing changeset. Returns false in the case that
@@ -208,33 +209,185 @@ fn c_str_to_cleartext(json: *const c_char) -> sync::Result<Payload> {
 /// Note that The `record_json` should only be the record payload, and
 /// should not include the BSO envelope.
 #[no_mangle]
-pub extern "C" fn sync15_changeset_add_record(
-    changeset: *mut RecordChangeset,
-    record_json: *const c_char
+pub extern "C" fn sync15_outgoing_changeset_add_record(
+    changeset: *mut OutgoingChangeset,
+    record_json: *const c_char,
+    modification_timestamp_ms: libc::uint64_t
 ) -> bool {
     let changeset = unsafe { &mut *changeset };
     assert!(!record_json.is_null());
-    let cleartext = match c_str_to_cleartext(record_json) {
+    let cleartext = match c_str_to_payload(record_json) {
         Ok(ct) => ct,
         Err(e) => {
             eprintln!("Could not add record to changeset: {}", e);
             return false;
         }
     };
-    // Arguably shouldn't support this and should have callers use add_tombstone, but w/e
-    if cleartext.is_tombstone() {
-        changeset.deleted_ids.push(cleartext.id);
-    } else {
-        let bso = cleartext.into_bso(changeset.collection.clone());
-        changeset.changed.push(bso);
-    }
+    let system_time = u64_to_system_time(modification_timestamp_ms);
+    changeset.changes.push((cleartext, system_time));
     true
 }
 
-/// Add a tombstone to an outgoing changeset.
+/// Add a tombstone to an outgoing changeset. This is equivalent to using
+/// `sync15_outgoing_changeset_add_record` with a record that represents a tombstone.
 #[no_mangle]
-pub extern "C" fn sync15_changeset_add_tombstone(changeset: *mut RecordChangeset,
-                                                 record_id: *const c_char) {
+pub extern "C" fn sync15_outgoing_changeset_add_tombstone(
+    changeset: *mut OutgoingChangeset,
+    record_id: *const c_char,
+    deletion_timestamp_ms: libc::uint64_t
+) {
     let changeset = unsafe { &mut *changeset };
-    changeset.deleted_ids.push(c_str_to_string(record_id));
+    let system_time = u64_to_system_time(deletion_timestamp_ms);
+    let payload = Payload::new_tombstone(c_str_to_string(record_id).into());
+    changeset.changes.push((payload, system_time));
+}
+
+pub type StoreGetUnsyncedChanges = unsafe extern "C" fn(self_: *mut libc::c_void) -> *mut OutgoingChangeset;
+pub type StoreApplyReconciledChange = unsafe extern "C" fn(self_: *mut libc::c_void, record_change_json: *const c_char) -> bool;
+pub type StoreSetLastSync = unsafe extern "C" fn(self_: *mut libc::c_void, new_last_sync: c_double) -> bool;
+pub type StoreNoteSyncFinished = unsafe extern "C" fn(self_: *mut libc::c_void, new_last_sync: c_double, synced_ids: *const *const c_char, num_synced_ids: size_t) -> bool;
+
+#[repr(C)]
+pub struct FFIStore {
+    user_data: *mut libc::c_void,
+    get_unsynced_changes_cb: StoreGetUnsyncedChanges,
+    apply_reconciled_change_cb: StoreApplyReconciledChange,
+    set_last_sync_cb: StoreSetLastSync,
+    note_sync_finished_cb: StoreNoteSyncFinished,
+}
+
+struct DropCStrs<'a>(&'a mut [*mut c_char]);
+impl<'a> Drop for DropCStrs<'a> {
+    fn drop(&mut self) {
+        for &c in self.0.iter() {
+            drop_c_str(c);
+        }
+    }
+}
+
+impl FFIStore {
+    fn call_get_unsynced_changes(&self) -> sync::Result<Box<OutgoingChangeset>> {
+        let this = self.user_data;
+        let res = unsafe { (self.get_unsynced_changes_cb)(this) };
+        if res.is_null() {
+            bail!(unexpected("FFI store failed to fetch changes"));
+        }
+        Ok(unsafe { Box::from_raw(res) })
+    }
+
+    fn call_apply_reconciled_change(&self, record_change_json: &CStr) -> sync::Result<()> {
+        let this = self.user_data;
+        let ok = unsafe { (self.apply_reconciled_change_cb)(this, record_change_json.as_ptr()) };
+        if !ok {
+            bail!(unexpected("FFI store failed to apply reconciled change"));
+        }
+        Ok(())
+    }
+    fn call_set_last_sync(&self, ls: ServerTimestamp) -> sync::Result<()> {
+        let this = self.user_data;
+        let ok = unsafe { (self.set_last_sync_cb)(this, ls.0 as c_double) };
+        if !ok {
+            bail!(unexpected("FFI store failed to update last_sync"));
+        }
+        Ok(())
+    }
+
+    fn call_note_finished(&self, ls: ServerTimestamp, ids: &[*mut c_char]) -> sync::Result<()> {
+        let this = self.user_data;
+        let ok = unsafe {
+            let ptr_to_mut: *const *mut c_char = ids.as_ptr();
+            let ptr_as_const: *const *const c_char = mem::transmute(ptr_to_mut);
+            (self.note_sync_finished_cb)(this, ls.0 as c_double, ptr_as_const, ids.len() as size_t)
+        };
+        if !ok {
+            bail!(unexpected("FFI store failed to note sync finished"));
+        }
+        Ok(())
+    }
+}
+
+// TODO: better error handling...
+impl BasicStore for FFIStore {
+    fn get_unsynced_changes(&self) -> sync::Result<OutgoingChangeset> {
+        Ok(*self.call_get_unsynced_changes()?)
+    }
+
+    /// Apply the changes in the list, and update the sync timestamp.
+    fn apply_reconciled_changes(
+        &mut self,
+        record_changes: &[Payload],
+        new_last_sync: ServerTimestamp
+    ) -> sync::Result<()> {
+        let mut v: Vec<u8> = Vec::new();
+        for c in record_changes {
+            v.clear();
+            serde_json::to_writer(&mut v, c)?;
+            v.push(0u8);
+            self.call_apply_reconciled_change(&CStr::from_bytes_with_nul(&v).unwrap())?;
+        }
+        self.call_set_last_sync(new_last_sync)?;
+        Ok(())
+    }
+
+    /// Called when a sync finishes successfully. The store should remove all items in
+    /// `synced_ids` from the set of items that need to be synced. and update
+    fn sync_finished(
+        &mut self,
+        new_last_sync: ServerTimestamp,
+        synced_ids: &[Id]
+    ) -> sync::Result<()> {
+        let mut buf = Vec::with_capacity(synced_ids.len());
+        for id in synced_ids {
+            buf.push(CString::new(&id[..]).unwrap().into_raw());
+        }
+        // More verbose but less error prone than just cleaning up at the end.
+        let dropper = DropCStrs(&mut buf);
+        self.call_note_finished(new_last_sync, &dropper.0)?;
+        Ok(())
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn sync15_store_create(
+    user_data: *mut libc::c_void,
+    get_unsynced_changes_cb: StoreGetUnsyncedChanges,
+    apply_reconciled_change_cb: StoreApplyReconciledChange,
+    set_last_sync_cb: StoreSetLastSync,
+    note_sync_finished_cb: StoreNoteSyncFinished
+) -> *mut FFIStore {
+    let store = Box::new(FFIStore {
+        user_data,
+        get_unsynced_changes_cb,
+        apply_reconciled_change_cb,
+        set_last_sync_cb,
+        note_sync_finished_cb
+    });
+    Box::into_raw(store)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sync15_store_destroy(store: *mut FFIStore) {
+    assert!(!store.is_null());
+    let _ = Box::from_raw(store);
+}
+
+#[no_mangle]
+pub extern "C" fn sync15_synchronize(
+    svc: *const Sync15Service,
+    store: *mut FFIStore,
+    collection: *const c_char,
+    timestamp: c_double,
+    fully_atomic: bool
+) -> bool {
+    assert!(!svc.is_null());
+    assert!(!store.is_null());
+    let svc = unsafe { &*svc };
+    let store = unsafe { &mut *store };
+    sync::synchronize(
+        svc,
+        store,
+        c_str_to_string(collection),
+        ServerTimestamp(timestamp as f64),
+        fully_atomic
+    ).is_ok()
 }

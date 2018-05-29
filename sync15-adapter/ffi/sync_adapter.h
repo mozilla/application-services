@@ -1,63 +1,123 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-#ifndef SYNC_ADAPTER_15_H
-#define SYNC_ADAPTER_15_H
-// size_t
-#include <stddef.h>
-// int64_t
+#ifndef SYNC15_ADAPTER_H
+#define SYNC15_ADAPTER_H
+
+/* Generated with cbindgen:0.6.0 */
+
 #include <stdint.h>
+#include <stdlib.h>
+#include <stdbool.h>
 
-typedef struct sync15_PasswordRecord     sync15_PasswordRecord;
-typedef struct sync15_PasswordCollection sync15_PasswordCollection;
-typedef struct sync15_Service            sync15_Service;
+typedef struct CleartextBsoC {
+  double server_modified;
+  char *payload_str;
+} CleartextBsoC;
 
-struct sync15_PasswordRecord {
-    const char* id;
-    // Might be null!
-    const char* hostname;
-    // Might be null!
-    const char* form_submit_url;
-    const char* http_realm;
+typedef OutgoingChangeset *(*StoreGetUnsyncedChanges)(void*);
 
-    const char* username;
-    const char* password;
+typedef bool (*StoreApplyReconciledChange)(void*, const char*);
 
-    const char* username_field;
-    const char* password_field;
+typedef bool (*StoreSetLastSync)(void*, double);
 
-    // In ms since unix epoch
-    int64_t time_created;
+typedef bool (*StoreNoteSyncFinished)(void*, double, const char*const *, size_t);
 
-    // In ms since unix epoch
-    int64_t time_password_changed;
+typedef struct FFIStore {
+  void *user_data;
+  StoreGetUnsyncedChanges get_unsynced_changes_cb;
+  StoreApplyReconciledChange apply_reconciled_change_cb;
+  StoreSetLastSync set_last_sync_cb;
+  StoreNoteSyncFinished note_sync_finished_cb;
+} FFIStore;
 
-    // -1 for missing, otherwise in ms_since_unix_epoch
-    int64_t time_last_used;
+/*
+ * Free an inbound changeset previously returned by `sync15_incoming_changeset_fetch`
+ */
+void sync15_incoming_changeset_destroy(IncomingChangeset *changeset);
 
-    // -1 for missing
-    int64_t times_used;
-};
+/*
+ * Get all the changes for the requested collection that have occurred since last_sync.
+ * Important: Caller frees!
+ */
+IncomingChangeset *sync15_incoming_changeset_fetch(const Sync15Service *svc,
+                                                   const char *collection_c,
+                                                   double last_sync);
 
-sync15_Service *sync15_service_create(const char* key_id,
-                                      const char* access_token,
-                                      const char* sync_key,
-                                      const char* tokenserver_base_url);
+/*
+ * Get the requested record from the changeset. `index` should be less than
+ * `sync15_changeset_get_record_count`, or NULL will be returned and a
+ * message logged to stderr.
+ *
+ * Important: Caller needs to free the returned value using `sync15_record_destroy`
+ */
+CleartextBsoC *sync15_incoming_changeset_get_at(const IncomingChangeset *changeset, size_t index);
 
-void sync15_service_destroy(sync15_Service* svc);
+/*
+ * Get the number of records from an inbound changeset.
+ */
+size_t sync15_incoming_changeset_get_len(const IncomingChangeset *changeset);
 
-sync15_PasswordCollection* sync15_service_request_passwords(sync15_Service* svc);
-void sync15_passwords_destroy(sync15_PasswordCollection *passwords);
+/*
+ * Get the last_sync timestamp for an inbound changeset.
+ */
+double sync15_incoming_changeset_get_timestamp(const IncomingChangeset *changeset);
 
-size_t sync15_passwords_record_count(const sync15_PasswordCollection* passwords);
-size_t sync15_passwords_tombstone_count(const sync15_PasswordCollection* passwords);
+/*
+ * Create a new outgoing changeset, which requires that the server have not been
+ * modified since it returned the provided `timestamp`.
+ */
+OutgoingChangeset *sync15_outbound_changeset_create(const char *collection, double timestamp);
 
-// Caller frees! Returns null if index > sync15_passwords_tombstone_count(passwords)
-char *sync15_passwords_get_tombstone_at(const sync15_PasswordCollection* pws, size_t i);
+/*
+ * Add a record to an outgoing changeset. Returns false in the case that
+ * we were unable to add the record for some reason (typically the json
+ * string provided was not well-formed json).
+ *
+ * Note that The `record_json` should only be the record payload, and
+ * should not include the BSO envelope.
+ */
+bool sync15_outgoing_changeset_add_record(OutgoingChangeset *changeset,
+                                          const char *record_json,
+                                          uint64_t modification_timestamp_ms);
 
-// Caller frees (via sync15_password_record_free) Returns null if index > sync15_passwords_record_count(pws)
-sync15_PasswordRecord* sync15_passwords_get_record_at(const sync15_PasswordCollection* pws, size_t i);
+/*
+ * Add a tombstone to an outgoing changeset. This is equivalent to using
+ * `sync15_outgoing_changeset_add_record` with a record that represents a tombstone.
+ */
+void sync15_outgoing_changeset_add_tombstone(OutgoingChangeset *changeset,
+                                             const char *record_id,
+                                             uint64_t deletion_timestamp_ms);
 
-void sync15_password_record_destroy(sync15_PasswordRecord *record);
+void sync15_outgoing_changeset_destroy(OutgoingChangeset *changeset);
 
-#endif
+/*
+ * Free a record previously returned by `sync15_changeset_get_record_at`.
+ */
+void sync15_record_destroy(CleartextBsoC *bso);
+
+/*
+ * Create a new Sync15Service instance.
+ */
+Sync15Service *sync15_service_create(const char *key_id,
+                                     const char *access_token,
+                                     const char *sync_key,
+                                     const char *tokenserver_base_url);
+
+/*
+ * Free a `Sync15Service` returned by `sync15_service_create`
+ */
+void sync15_service_destroy(Sync15Service *svc);
+
+FFIStore *sync15_store_create(void *user_data,
+                              StoreGetUnsyncedChanges get_unsynced_changes_cb,
+                              StoreApplyReconciledChange apply_reconciled_change_cb,
+                              StoreSetLastSync set_last_sync_cb,
+                              StoreNoteSyncFinished note_sync_finished_cb);
+
+void sync15_store_destroy(FFIStore *store);
+
+bool sync15_synchronize(const Sync15Service *svc,
+                        FFIStore *store,
+                        const char *collection,
+                        double timestamp,
+                        bool fully_atomic);
+
+#endif /* SYNC15_ADAPTER_H */
