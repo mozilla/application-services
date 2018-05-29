@@ -14,7 +14,7 @@ import java.util.UUID;
  * will have their {@link Pointer} destroyed when the Java wrapper is destroyed.
  */
 abstract class RustObject implements Closeable {
-    Pointer rawPointer;
+    public Pointer rawPointer;
 
     /**
      * Throws a {@link NullPointerException} if the underlying {@link Pointer} is null.

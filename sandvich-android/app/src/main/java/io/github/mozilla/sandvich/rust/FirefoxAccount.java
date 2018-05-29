@@ -2,10 +2,9 @@ package io.github.mozilla.sandvich.rust;
 
 import com.sun.jna.Pointer;
 
-public class Config extends RustObject {
+public class FirefoxAccount extends RustObject {
 
-
-    public Config(Pointer pointer) {
+    public FirefoxAccount(Pointer pointer) {
         this.rawPointer = pointer;
     }
 
