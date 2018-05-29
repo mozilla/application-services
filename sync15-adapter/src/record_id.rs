@@ -149,7 +149,6 @@ impl ops::Index<ops::RangeFull> for Id {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;

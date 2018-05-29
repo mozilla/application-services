@@ -50,7 +50,7 @@ pub use bso_record::{BsoRecord, EncryptedBso, Payload, CleartextBso};
 pub use service::{Sync15ServiceInit, Sync15Service};
 pub use changeset::{RecordChangeset, IncomingChangeset, OutgoingChangeset};
 pub use error::{Result, Error, ErrorKind};
-pub use sync::{synchronize, FullStore, BasicStore};
+pub use sync::{synchronize, Store};
 pub use util::{ServerTimestamp, SERVER_EPOCH};
 
 pub use record_id::Id;

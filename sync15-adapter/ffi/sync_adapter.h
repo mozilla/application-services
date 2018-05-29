@@ -7,25 +7,24 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+typedef struct IncomingChangeset IncomingChangeset;
+typedef struct Sync15Service Sync15Service;
+typedef struct OutgoingChangeset OutgoingChangeset;
+
 typedef struct CleartextBsoC {
   double server_modified;
   char *payload_str;
 } CleartextBsoC;
 
-typedef OutgoingChangeset *(*StoreGetUnsyncedChanges)(void*);
 
-typedef bool (*StoreApplyReconciledChange)(void*, const char*);
+typedef OutgoingChangeset *(*StoreApplyIncoming)(void*, const IncomingChangeset*);
 
-typedef bool (*StoreSetLastSync)(void*, double);
-
-typedef bool (*StoreNoteSyncFinished)(void*, double, const char*const *, size_t);
+typedef bool (*StoreSyncFinished)(void*, double, const char*const *, size_t);
 
 typedef struct FFIStore {
   void *user_data;
-  StoreGetUnsyncedChanges get_unsynced_changes_cb;
-  StoreApplyReconciledChange apply_reconciled_change_cb;
-  StoreSetLastSync set_last_sync_cb;
-  StoreNoteSyncFinished note_sync_finished_cb;
+  StoreApplyIncoming apply_incoming_cb;
+  StoreSyncFinished sync_finished_cb;
 } FFIStore;
 
 /*
@@ -107,10 +106,8 @@ Sync15Service *sync15_service_create(const char *key_id,
 void sync15_service_destroy(Sync15Service *svc);
 
 FFIStore *sync15_store_create(void *user_data,
-                              StoreGetUnsyncedChanges get_unsynced_changes_cb,
-                              StoreApplyReconciledChange apply_reconciled_change_cb,
-                              StoreSetLastSync set_last_sync_cb,
-                              StoreNoteSyncFinished note_sync_finished_cb);
+                              StoreApplyIncoming apply_incoming_cb,
+                              StoreSyncFinished sync_finished_cb);
 
 void sync15_store_destroy(FFIStore *store);
 

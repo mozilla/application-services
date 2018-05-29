@@ -20,12 +20,11 @@ use sync::{
     IncomingChangeset,
     OutgoingChangeset,
     ServerTimestamp,
+    Store,
     Id,
-    BasicStore,
 };
 
 use libc::{c_char, c_double, size_t};
-
 
 fn c_str_to_string(cs: *const c_char) -> String {
     let c_str = unsafe { CStr::from_ptr(cs) };
@@ -74,8 +73,8 @@ impl CleartextBsoC {
 #[no_mangle]
 pub extern "C" fn sync15_service_create(
     key_id: *const c_char,
-    access_token: *const c_char ,
-    sync_key: *const c_char ,
+    access_token: *const c_char,
+    sync_key: *const c_char,
     tokenserver_base_url: *const c_char
 ) -> *mut Sync15Service {
     let params = Sync15ServiceInit {
@@ -242,18 +241,23 @@ pub extern "C" fn sync15_outgoing_changeset_add_tombstone(
     changeset.changes.push((payload, system_time));
 }
 
-pub type StoreGetUnsyncedChanges = unsafe extern "C" fn(self_: *mut libc::c_void) -> *mut OutgoingChangeset;
-pub type StoreApplyReconciledChange = unsafe extern "C" fn(self_: *mut libc::c_void, record_change_json: *const c_char) -> bool;
-pub type StoreSetLastSync = unsafe extern "C" fn(self_: *mut libc::c_void, new_last_sync: c_double) -> bool;
-pub type StoreNoteSyncFinished = unsafe extern "C" fn(self_: *mut libc::c_void, new_last_sync: c_double, synced_ids: *const *const c_char, num_synced_ids: size_t) -> bool;
+pub type StoreApplyIncoming = unsafe extern "C" fn(
+    self_: *mut libc::c_void,
+    incoming: *const IncomingChangeset
+) -> *mut OutgoingChangeset;
+
+pub type StoreSyncFinished = unsafe extern "C" fn(
+    self_: *mut libc::c_void,
+    new_last_sync: c_double,
+    synced_ids: *const *const c_char,
+    num_synced_ids: size_t
+) -> bool;
 
 #[repr(C)]
 pub struct FFIStore {
     user_data: *mut libc::c_void,
-    get_unsynced_changes_cb: StoreGetUnsyncedChanges,
-    apply_reconciled_change_cb: StoreApplyReconciledChange,
-    set_last_sync_cb: StoreSetLastSync,
-    note_sync_finished_cb: StoreNoteSyncFinished,
+    apply_incoming_cb: StoreApplyIncoming,
+    sync_finished_cb: StoreSyncFinished,
 }
 
 struct DropCStrs<'a>(&'a mut [*mut c_char]);
@@ -266,38 +270,26 @@ impl<'a> Drop for DropCStrs<'a> {
 }
 
 impl FFIStore {
-    fn call_get_unsynced_changes(&self) -> sync::Result<Box<OutgoingChangeset>> {
+    fn call_apply_incoming(
+        &self,
+        incoming: &IncomingChangeset
+    ) -> sync::Result<Box<OutgoingChangeset>> {
         let this = self.user_data;
-        let res = unsafe { (self.get_unsynced_changes_cb)(this) };
+        let res = unsafe {
+            (self.apply_incoming_cb)(this, incoming as *const IncomingChangeset)
+        };
         if res.is_null() {
-            bail!(unexpected("FFI store failed to fetch changes"));
+            bail!(unexpected("FFI store failed to apply and fetch changes"));
         }
         Ok(unsafe { Box::from_raw(res) })
     }
 
-    fn call_apply_reconciled_change(&self, record_change_json: &CStr) -> sync::Result<()> {
-        let this = self.user_data;
-        let ok = unsafe { (self.apply_reconciled_change_cb)(this, record_change_json.as_ptr()) };
-        if !ok {
-            bail!(unexpected("FFI store failed to apply reconciled change"));
-        }
-        Ok(())
-    }
-    fn call_set_last_sync(&self, ls: ServerTimestamp) -> sync::Result<()> {
-        let this = self.user_data;
-        let ok = unsafe { (self.set_last_sync_cb)(this, ls.0 as c_double) };
-        if !ok {
-            bail!(unexpected("FFI store failed to update last_sync"));
-        }
-        Ok(())
-    }
-
-    fn call_note_finished(&self, ls: ServerTimestamp, ids: &[*mut c_char]) -> sync::Result<()> {
+    fn call_sync_finished(&self, ls: ServerTimestamp, ids: &[*mut c_char]) -> sync::Result<()> {
         let this = self.user_data;
         let ok = unsafe {
             let ptr_to_mut: *const *mut c_char = ids.as_ptr();
             let ptr_as_const: *const *const c_char = mem::transmute(ptr_to_mut);
-            (self.note_sync_finished_cb)(this, ls.0 as c_double, ptr_as_const, ids.len() as size_t)
+            (self.sync_finished_cb)(this, ls.0 as c_double, ptr_as_const, ids.len() as size_t)
         };
         if !ok {
             bail!(unexpected("FFI store failed to note sync finished"));
@@ -307,42 +299,21 @@ impl FFIStore {
 }
 
 // TODO: better error handling...
-impl BasicStore for FFIStore {
-    fn get_unsynced_changes(&self) -> sync::Result<OutgoingChangeset> {
-        Ok(*self.call_get_unsynced_changes()?)
-    }
-
-    /// Apply the changes in the list, and update the sync timestamp.
-    fn apply_reconciled_changes(
-        &mut self,
-        record_changes: &[Payload],
-        new_last_sync: ServerTimestamp
-    ) -> sync::Result<()> {
-        let mut v: Vec<u8> = Vec::new();
-        for c in record_changes {
-            v.clear();
-            serde_json::to_writer(&mut v, c)?;
-            v.push(0u8);
-            self.call_apply_reconciled_change(&CStr::from_bytes_with_nul(&v).unwrap())?;
-        }
-        self.call_set_last_sync(new_last_sync)?;
-        Ok(())
+impl Store for FFIStore {
+    fn apply_incoming(&mut self, incoming: IncomingChangeset) -> sync::Result<OutgoingChangeset> {
+        Ok(*self.call_apply_incoming(&incoming)?)
     }
 
     /// Called when a sync finishes successfully. The store should remove all items in
     /// `synced_ids` from the set of items that need to be synced. and update
-    fn sync_finished(
-        &mut self,
-        new_last_sync: ServerTimestamp,
-        synced_ids: &[Id]
-    ) -> sync::Result<()> {
+    fn sync_finished(&mut self, new_last_sync: ServerTimestamp, synced_ids: &[Id]) -> sync::Result<()> {
         let mut buf = Vec::with_capacity(synced_ids.len());
         for id in synced_ids {
             buf.push(CString::new(&id[..]).unwrap().into_raw());
         }
         // More verbose but less error prone than just cleaning up at the end.
         let dropper = DropCStrs(&mut buf);
-        self.call_note_finished(new_last_sync, &dropper.0)?;
+        self.call_sync_finished(new_last_sync, &dropper.0)?;
         Ok(())
     }
 }
@@ -350,17 +321,13 @@ impl BasicStore for FFIStore {
 #[no_mangle]
 pub extern "C" fn sync15_store_create(
     user_data: *mut libc::c_void,
-    get_unsynced_changes_cb: StoreGetUnsyncedChanges,
-    apply_reconciled_change_cb: StoreApplyReconciledChange,
-    set_last_sync_cb: StoreSetLastSync,
-    note_sync_finished_cb: StoreNoteSyncFinished
+    apply_incoming_cb: StoreApplyIncoming,
+    sync_finished_cb: StoreSyncFinished,
 ) -> *mut FFIStore {
     let store = Box::new(FFIStore {
         user_data,
-        get_unsynced_changes_cb,
-        apply_reconciled_change_cb,
-        set_last_sync_cb,
-        note_sync_finished_cb
+        apply_incoming_cb,
+        sync_finished_cb
     });
     Box::into_raw(store)
 }

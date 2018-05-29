@@ -13,16 +13,18 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 
+#[macro_use]
+extern crate log;
+
 extern crate env_logger;
 
 use std::io::{self, Read, Write};
 use std::error::Error;
 use std::fs;
 use std::process;
-use sync::{Id, ServerTimestamp, OutgoingChangeset, Payload, BasicStore};
+use sync::{Id, ServerTimestamp, OutgoingChangeset, Payload, Store};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
 
 #[derive(Debug, Deserialize)]
 struct OAuthCredentials {
@@ -291,10 +293,8 @@ impl PasswordEngine {
         self.save()?;
         Ok(())
     }
-}
 
-impl BasicStore for PasswordEngine {
-    fn get_unsynced_changes(&self) -> sync::Result<OutgoingChangeset> {
+    pub fn get_unsynced_changes(&self) -> sync::Result<OutgoingChangeset> {
         let mut result = OutgoingChangeset::new("passwords".into(), self.last_sync);
         result.changes.reserve(self.changes.len());
         for (changed_id, time) in self.changes.iter() {
@@ -310,9 +310,11 @@ impl BasicStore for PasswordEngine {
         Ok(result)
     }
 
-    fn apply_reconciled_changes(&mut self,
-                                record_changes: &[Payload],
-                                new_last_sync: ServerTimestamp) -> sync::Result<()> {
+    pub fn apply_reconciled_changes(
+        &mut self,
+         record_changes: &[Payload],
+         new_last_sync: ServerTimestamp
+    ) -> sync::Result<()> {
         for change in record_changes {
             if change.is_tombstone() {
                 self.records.remove(change.id());
@@ -325,14 +327,135 @@ impl BasicStore for PasswordEngine {
         self.save().map_err(|_| "Save failed!")?;
         Ok(())
     }
+}
 
-    fn sync_finished(&mut self, new_last_sync: ServerTimestamp, ids: &[Id]) -> sync::Result<()> {
-        for id in ids {
+
+impl Store for PasswordEngine {
+    fn apply_incoming(
+        &mut self,
+        inbound: sync::IncomingChangeset
+    ) -> sync::Result<OutgoingChangeset> {
+        info!("Remote collection has {} changes", inbound.changes.len());
+
+        let outbound = self.get_unsynced_changes()?;
+        info!("Local collection has {} changes", outbound.changes.len());
+
+        let reconciled = Reconciliation::between(outbound.changes,
+                                                 inbound.changes,
+                                                 inbound.timestamp)?;
+
+        info!("Finished Reconciling: apply local {}, apply remote {}",
+              reconciled.apply_as_incoming.len(),
+              reconciled.apply_as_outgoing.len());
+
+        self.apply_reconciled_changes(&reconciled.apply_as_incoming[..], inbound.timestamp)?;
+
+        Ok(OutgoingChangeset {
+            changes: reconciled.apply_as_outgoing.into_iter().map(|ct| (ct, UNIX_EPOCH)).collect(),
+            timestamp: outbound.timestamp,
+            collection: outbound.collection
+        })
+    }
+
+    fn sync_finished(&mut self, new_last_sync: ServerTimestamp, records_synced: &[Id]) -> sync::Result<()> {
+        for id in records_synced {
             self.changes.remove(id);
         }
         self.last_sync = new_last_sync;
         self.save().map_err(|_| "Save failed!")?;
         Ok(())
+    }
+}
+
+#[derive(Clone, Debug)]
+struct Reconciliation {
+    apply_as_incoming: Vec<Payload>,
+    apply_as_outgoing: Vec<Payload>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum RecordChoice {
+    TakeLocal,
+    TakeRemote,
+    TakeCombined(Payload),
+}
+
+impl Reconciliation {
+    fn reconcile_single(
+        remote: (&Payload, Duration),
+        local: (&Payload, Duration)
+    ) -> sync::Result<RecordChoice> {
+        Ok(match (local.0.is_tombstone(), remote.0.is_tombstone()) {
+            (true, true) => {
+                trace!("Both records are tombstones, doesn't matter which we take");
+                RecordChoice::TakeRemote
+            },
+            (false, true) => {
+                trace!("Modified locally, remote tombstone (keeping local)");
+                RecordChoice::TakeLocal
+            },
+            (true, false) => {
+                trace!("Modified on remote, locally tombstone (keeping remote)");
+                RecordChoice::TakeRemote
+            },
+            (false, false) => {
+                trace!("Modified on both remote and local, chosing on age (remote = {}s, local = {}s)",
+                       remote.1.as_secs(), local.1.as_secs());
+
+                // Take younger.
+                if local.1 <= remote.1 {
+                    RecordChoice::TakeLocal
+                } else {
+                    RecordChoice::TakeRemote
+                }
+            }
+        })
+    }
+
+    pub fn between(
+        local_changes: Vec<(Payload, SystemTime)>,
+        remote_changes: Vec<(Payload, ServerTimestamp)>,
+        remote_timestamp: ServerTimestamp
+    ) -> sync::Result<Reconciliation> {
+        let mut result = Reconciliation {
+            apply_as_incoming: vec![],
+            apply_as_outgoing: vec![],
+        };
+
+        let mut local_lookup: HashMap<Id, (Payload, Duration)> =
+            local_changes.into_iter().map(|(record, time)| {
+                (record.id.clone(),
+                 (record,
+                  time.elapsed().unwrap_or(Duration::new(0, 0))))
+            }).collect();
+
+        for (remote, remote_modified) in remote_changes.into_iter() {
+            let remote_age = remote_modified.duration_since(remote_timestamp)
+                                            .unwrap_or(Duration::new(0, 0));
+
+            let (choice, local) =
+                if let Some((local, local_age)) = local_lookup.remove(remote.id()) {
+                    (Reconciliation::reconcile_single((&remote, remote_age), (&local, local_age))?, Some(local))
+                } else {
+                    // No local change with that ID
+                    (RecordChoice::TakeRemote, None)
+                };
+
+            match choice {
+                RecordChoice::TakeRemote => result.apply_as_incoming.push(remote),
+                RecordChoice::TakeLocal => result.apply_as_outgoing.push(local.unwrap()),
+                RecordChoice::TakeCombined(ct) => {
+                    result.apply_as_incoming.push(ct.clone());
+                    result.apply_as_outgoing.push(ct);
+                }
+            }
+        }
+
+        for (_, (local_record, _)) in local_lookup.into_iter() {
+            result.apply_as_outgoing.push(local_record);
+        }
+
+        Ok(result)
     }
 }
 
