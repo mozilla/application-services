@@ -1,0 +1,13 @@
+language: rust
+
+rust:
+  - stable
+  - nightly
+
+script:
+  - scripts/ci-test.sh
+
+cache:
+  cargo: true
+  directories:
+  - libs/desktop

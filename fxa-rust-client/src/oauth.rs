@@ -184,6 +184,7 @@ impl Scope {
         Ok(Scope { values })
     }
 
+    #[allow(dead_code)]
     pub fn to_string(&self) -> String {
         self.values
             .iter()

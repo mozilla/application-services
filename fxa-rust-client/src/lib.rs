@@ -32,14 +32,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use self::login_sm::FxALoginState::*;
 use self::login_sm::*;
 use errors::*;
-use http_client::browser_id::{jwt_utils, BrowserIDKeyPair};
+use http_client::browser_id::jwt_utils;
 use http_client::{FxAClient, OAuthTokenResponse, ProfileResponse};
 use jose::{JWKECCurve, JWE, JWK};
 use openssl::hash::{hash, MessageDigest};
 use rand::{OsRng, RngCore};
 
 mod config;
-mod errors;
+pub mod errors;
 pub mod http_client;
 mod login_sm;
 mod oauth;
@@ -51,7 +51,7 @@ pub use config::Config;
 // it will be considered already expired.
 const OAUTH_MIN_TIME_LEFT: u64 = 60;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct FxAStateV1 {
     client_id: String,
     config: Config,
@@ -149,15 +149,11 @@ impl FirefoxAccount {
     }
 
     pub fn to_json(&self) -> Result<String> {
-        let mut json = serde_json::to_value(&self.state)?;
-        // Hack: Instead of reconstructing the FxAState enum (and moving self.state!),
-        // we add the schema_version key manually.
-        let obj = json.as_object_mut().expect("Not an object!");
-        obj.insert("schema_version".to_string(), json!("V1"));
-        Ok(json!(obj).to_string())
+        let state = FxAState::V1(self.state.clone());
+        Ok(serde_json::to_string(&state)?)
     }
 
-    pub fn to_married(&mut self) -> Option<&MarriedState> {
+    fn to_married(&mut self) -> Option<&MarriedState> {
         self.advance();
         match self.state.login_state {
             Married(ref married) => Some(married),
@@ -174,7 +170,7 @@ impl FirefoxAccount {
 
     fn oauth_cache_store(&mut self, info: &OAuthInfo) {
         let info = info.clone();
-        let scope_key = info.scopes.join("|");
+        let scope_key = info.scopes.join(" ");
         self.state.oauth_cache.insert(scope_key, info);
     }
 
@@ -191,7 +187,7 @@ impl FirefoxAccount {
 
     fn oauth_cache_find(&self, requested_scopes: &[&str]) -> Option<&OAuthInfo> {
         // First we try to get the exact same scope.
-        if let Some(info) = self.state.oauth_cache.get(&requested_scopes.join("|")) {
+        if let Some(info) = self.state.oauth_cache.get(&requested_scopes.join(" ")) {
             return Some(info);
         }
         for (scope_key, info) in self.state.oauth_cache.iter() {
@@ -287,16 +283,6 @@ impl FirefoxAccount {
             let client = FxAClient::new(&self.state.config);
             resp = client.oauth_token_with_code(&code, &flow.code_verifier, &self.state.client_id)?;
         }
-        self.finish_oauth_flow(state, resp)
-    }
-
-    // TODO: We divided these operations in two methods to allow AuthApp to work,
-    // but we might want to just inline it.
-    pub fn finish_oauth_flow(
-        &mut self,
-        state: &str,
-        resp: OAuthTokenResponse,
-    ) -> Result<OAuthInfo> {
         let oauth_flow = match self.flow_store.remove(state) {
             Some(oauth_flow) => oauth_flow,
             None => bail!(ErrorKind::UnknownOAuthState),
@@ -361,22 +347,18 @@ impl FirefoxAccount {
             Some(married) => married,
             None => bail!(ErrorKind::NotMarried),
         };
-        let private_key = married.key_pair().private_key();
+        let key_pair = married.key_pair();
         let certificate = married.certificate();
         Ok(jwt_utils::create_assertion(
-            private_key,
+            key_pair,
             &certificate,
             audience,
         )?)
     }
 
-    pub fn get_profile(&mut self) -> Result<ProfileResponse> {
-        let token = match self.get_oauth_token(&["profile"])? {
-            Some(token) => token,
-            None => bail!(ErrorKind::NeededTokenNotFound),
-        };
+    pub fn get_profile(&mut self, profile_access_token: &str) -> Result<ProfileResponse> {
         let client = FxAClient::new(&self.state.config);
-        Ok(client.profile(&token.access_token)?)
+        Ok(client.profile(profile_access_token)?)
     }
 
     pub fn get_sync_keys(&mut self) -> Result<SyncKeys> {
@@ -388,23 +370,27 @@ impl FirefoxAccount {
         Ok((sync_key, married.xcs().to_string()))
     }
 
-    pub fn handle_push_message() {
+    pub fn get_token_server_endpoint_url(&self) -> String {
+        self.state.config.token_server_endpoint_url()
+    }
+
+    pub fn handle_push_message(&self) {
         panic!("Not implemented yet!")
     }
 
-    pub fn register_device() {
+    pub fn register_device(&self) {
         panic!("Not implemented yet!")
     }
 
-    pub fn get_devices_list() {
+    pub fn get_devices_list(&self) {
         panic!("Not implemented yet!")
     }
 
-    pub fn send_message() {
+    pub fn send_message(&self) {
         panic!("Not implemented yet!")
     }
 
-    pub fn retrieve_messages() {
+    pub fn retrieve_messages(&self) {
         panic!("Not implemented yet!")
     }
 
@@ -439,6 +425,23 @@ mod tests {
         let fxa2 = FirefoxAccount::from_json(&fxa1_json).unwrap();
         let fxa2_json = fxa2.to_json().unwrap();
         assert_eq!(fxa1_json, fxa2_json);
+    }
+
+    #[test]
+    fn test_oauth_cache_store_and_find() {
+        let mut fxa = FirefoxAccount::new(Config::stable().unwrap(), "12345678");
+        let oauth_info = OAuthInfo {
+            access_token: "abcdef".to_string(),
+            keys_jwe: None,
+            refresh_token: None,
+            expires_at: 1,
+            scopes: vec![
+                "profile".to_string(),
+                "https://identity.mozilla.com/apps/oldsync".to_string(),
+            ],
+        };
+        fxa.oauth_cache_store(&oauth_info);
+        fxa.oauth_cache_find(&["profile"]).unwrap();
     }
 }
 

@@ -1,2 +1,1 @@
-github "eoger/fxa-client-ios" "da36560980bb1e3a8d4247dc537eb50d8596926d"
-github "openid/AppAuth-iOS" "0.92.0"
+github "mozilla/application-services" "0.1.0"

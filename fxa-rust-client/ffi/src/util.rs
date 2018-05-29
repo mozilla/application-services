@@ -1,10 +1,9 @@
 use libc::c_char;
 use std::ffi::{CStr, CString};
 
-pub fn c_char_to_string(cchar: *const c_char) -> String {
+pub fn c_char_to_string(cchar: *const c_char) -> &'static str {
     let c_str = unsafe { CStr::from_ptr(cchar) };
-    let r_str = c_str.to_str().unwrap_or("");
-    r_str.to_string()
+    c_str.to_str().unwrap_or("")
 }
 
 pub fn string_to_c_char<T>(r_string: T) -> *mut c_char
