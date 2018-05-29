@@ -7,6 +7,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::collections::HashMap;
 use util::ServerTimestamp;
 use bso_record::Payload;
+use record_id::Id;
 use error::Result;
 use service::Sync15Service;
 
@@ -32,7 +33,7 @@ pub trait FullStore {
     fn sync_finished(
         &mut self,
         new_timestamp: ServerTimestamp,
-        records_synced: &[String],
+        records_synced: &[Id],
     ) -> Result<()>;
 }
 
@@ -51,7 +52,7 @@ pub trait BasicStore {
     /// `synced_ids` from the set of items that need to be synced. and update
     fn sync_finished(&mut self,
                      new_last_sync: ServerTimestamp,
-                     synced_ids: &[String]) -> Result<()>;
+                     synced_ids: &[Id]) -> Result<()>;
 
     fn reconcile_single(
         &mut self,
@@ -143,7 +144,7 @@ impl<T> FullStore for T where T: BasicStore {
         reconcile_and_apply(self, inbound)
     }
 
-    fn sync_finished(&mut self, new_timestamp: ServerTimestamp, records_synced: &[String]) -> Result<()> {
+    fn sync_finished(&mut self, new_timestamp: ServerTimestamp, records_synced: &[Id]) -> Result<()> {
         <Self as BasicStore>::sync_finished(self, new_timestamp, records_synced)
     }
 }
@@ -168,7 +169,7 @@ impl Reconciliation {
             apply_as_outgoing: vec![],
         };
 
-        let mut local_lookup: HashMap<String, (Payload, Duration)> =
+        let mut local_lookup: HashMap<Id, (Payload, Duration)> =
             local_changes.into_iter().map(|(record, time)| {
                 (record.id.clone(),
                  (record,

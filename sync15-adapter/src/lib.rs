@@ -43,6 +43,7 @@ pub mod request;
 pub mod service;
 pub mod changeset;
 pub mod sync;
+mod record_id;
 
 // Re-export some of the types callers are likely to want for convenience.
 pub use bso_record::{BsoRecord, EncryptedBso, Payload, CleartextBso};
@@ -51,3 +52,5 @@ pub use changeset::{RecordChangeset, IncomingChangeset, OutgoingChangeset};
 pub use error::{Result, Error, ErrorKind};
 pub use sync::{synchronize, FullStore, BasicStore};
 pub use util::{ServerTimestamp, SERVER_EPOCH};
+
+pub use record_id::Id;

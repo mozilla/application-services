@@ -11,10 +11,11 @@ use std::ops::{Deref, DerefMut};
 use std::convert::From;
 use key_bundle::KeyBundle;
 use util::ServerTimestamp;
+pub use record_id::Id;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BsoRecord<T> {
-    pub id: String,
+    pub id: Id,
 
     // It's not clear to me if this actually can be empty in practice.
     // firefox-ios seems to think it can...
@@ -138,7 +139,7 @@ impl<T> DerefMut for BsoRecord<T> {
 /// benefit here.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Payload {
-    pub id: String,
+    pub id: Id,
 
     #[serde(default)]
     #[serde(skip_serializing_if = "is_false")]
@@ -158,7 +159,7 @@ fn is_false(b: &bool) -> bool {
 impl Payload {
 
     #[inline]
-    pub fn new_tombstone(id: String) -> Payload {
+    pub fn new_tombstone(id: Id) -> Payload {
         Payload { id, deleted: true, data: Map::new() }
     }
 
@@ -211,7 +212,7 @@ impl Payload {
 impl From<Payload> for JsonValue {
     fn from(cleartext: Payload) -> Self {
         let Payload { mut data, id, deleted } = cleartext;
-        data.insert("id".to_string(), JsonValue::String(id));
+        data.insert("id".to_string(), JsonValue::String(id.into()));
         if deleted {
             data.insert("deleted".to_string(), JsonValue::Bool(true));
         }
