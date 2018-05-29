@@ -22,7 +22,7 @@ pub struct Config {
 
 impl Config {
     pub fn release() -> Result<Config> {
-        Config::import_from("http://127.0.0.1:3030")
+        Config::import_from("https://accounts.firefox.com")
     }
 
     pub fn stable() -> Result<Config> {
