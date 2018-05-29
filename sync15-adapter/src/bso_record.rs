@@ -205,7 +205,7 @@ impl Payload {
 
     pub fn into_json_string(self) -> String {
         serde_json::to_string(&JsonValue::from(self))
-            .expect("JSON.stringify failed, wish shouldn't be possible")
+            .expect("JSON.stringify failed, which shouldn't be possible")
     }
 }
 

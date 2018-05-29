@@ -185,7 +185,6 @@ fn string_opt_or<'a>(o: &'a Option<String>, or: &'a str) -> &'a str {
 }
 
 fn update_login(record: &mut PasswordRecord) {
-
     update_string("username", &mut record.username, ", leave blank to keep");
     let changed_password = update_string("password", &mut record.password, ", leave blank to keep");
 
@@ -196,7 +195,6 @@ fn update_login(record: &mut PasswordRecord) {
     update_string("username_field", &mut record.username_field, ", leave blank to keep");
     update_string("password_field", &mut record.password_field, ", leave blank to keep");
 
-
     if prompt_bool(&format!("edit hostname? (now {}) [yN]", string_opt_or(&record.hostname, "(none)"))).unwrap_or(false) {
         record.hostname = prompt_string("hostname");
     }
@@ -204,7 +202,6 @@ fn update_login(record: &mut PasswordRecord) {
     if prompt_bool(&format!("edit form_submit_url? (now {}) [yN]", string_opt_or(&record.form_submit_url, "(none)"))).unwrap_or(false) {
         record.form_submit_url = prompt_string("form_submit_url");
     }
-
 }
 
 fn prompt_bool(msg: &str) -> Option<bool> {

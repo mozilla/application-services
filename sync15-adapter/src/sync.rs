@@ -49,7 +49,7 @@ pub trait BasicStore {
                                 new_last_sync: ServerTimestamp) -> Result<()>;
 
     /// Called when a sync finishes successfully. The store should remove all items in
-    /// `synced_ids` from the set of items that need to be synced. and update
+    /// `synced_ids` from the set of items that need to be synced.
     fn sync_finished(&mut self,
                      new_last_sync: ServerTimestamp,
                      synced_ids: &[Id]) -> Result<()>;
