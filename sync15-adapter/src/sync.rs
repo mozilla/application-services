@@ -95,9 +95,15 @@ pub fn synchronize(svc: &Sync15Service,
 
     info!("Syncing collection {}", collection);
     let incoming_changes = IncomingChangeset::fetch(svc, collection.clone(), timestamp)?;
+    let last_changed_remote = incoming_changes.timestamp;
 
     info!("Downloaded {} remote changes", incoming_changes.changes.len());
-    let outgoing = store.apply_incoming(incoming_changes)?;
+    let mut outgoing = store.apply_incoming(incoming_changes)?;
+
+    assert_eq!(outgoing.timestamp, timestamp,
+        "last sync timestamp should never change unless we change it");
+
+    outgoing.timestamp = last_changed_remote;
 
     info!("Uploading {} outgoing changes", outgoing.changes.len());
     let upload_info = CollectionUpdate::new_from_changeset(svc, outgoing, fully_atomic)?.upload()?;

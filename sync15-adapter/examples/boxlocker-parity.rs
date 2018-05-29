@@ -279,6 +279,21 @@ impl PasswordEngine {
         sync::synchronize(svc, self, "passwords".into(), ts, true)?;
         Ok(())
     }
+
+    pub fn reset(&mut self) -> Result<(), Box<Error>> {
+        self.last_sync = 0.0.into();
+        self.changes.clear();
+        self.save()?;
+        Ok(())
+    }
+
+    pub fn wipe(&mut self) -> Result<(), Box<Error>> {
+        self.last_sync = 0.0.into();
+        self.changes.clear();
+        self.records.clear();
+        self.save()?;
+        Ok(())
+    }
 }
 
 impl BasicStore for PasswordEngine {
@@ -335,7 +350,9 @@ fn show_all(e: &PasswordEngine) -> Vec<&str> {
             // Skipping metadata so this isn't insanely long
         ]);
     let mut v = Vec::with_capacity(e.records.len());
-    for (id, rec) in e.records.iter() {
+    let mut records = e.records.iter().collect::<Vec<_>>();
+    records.sort_by(|a, b| a.0.cmp(b.0));
+    for (id, rec) in records.iter() {
         table.add_row(row![
                 v.len(),
                 &id,
@@ -394,7 +411,7 @@ fn main() -> Result<(), Box<Error>> {
     show_all(&engine);
 
     loop {
-        match prompt_chars("[A]dd, [D]elete, [U]pdate, [S]ync, [V]iew, or [Q]uit").unwrap_or('?') {
+        match prompt_chars("[A]dd, [D]elete, [U]pdate, [S]ync, [V]iew, [R]eset, [W]ipe or [Q]uit").unwrap_or('?') {
             'A' | 'a' => {
                 println!("Adding new record");
                 let record = read_login();
@@ -416,6 +433,18 @@ fn main() -> Result<(), Box<Error>> {
                     if let Err(e) = engine.update(&id, update_login) {
                         println!("Failed to update record! {}", e);
                     }
+                }
+            }
+            'R' | 'r' => {
+                println!("Resetting client's last sync timestamp (was {}).", engine.last_sync);
+                if let Err(e) = engine.reset() {
+                    println!("Failed to reset! {}", e);
+                }
+            }
+            'W' | 'w' => {
+                println!("Wiping all data from client!");
+                if let Err(e) = engine.wipe() {
+                    println!("Failed to wipe! {}", e);
                 }
             }
             'S' | 's' => {
