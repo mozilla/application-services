@@ -7,7 +7,7 @@ set -e
 if [ "$#" -ne 3 ]
 then
     echo "Usage:"
-    echo "./build-all-android.sh <JANSSON_SRC_PATH> <OPENSSL_SRC_PATH> <CJOSE_SRC_PATH>"
+    echo "./build-all-desktop.sh <JANSSON_SRC_PATH> <OPENSSL_SRC_PATH> <CJOSE_SRC_PATH>"
     exit 1
 fi
 
