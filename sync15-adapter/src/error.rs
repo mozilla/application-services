@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::time::SystemTime;
+use record_id::Id;
 
 error_chain! {
     foreign_links {
@@ -70,12 +71,17 @@ error_chain! {
             display("Record is larger than the maximum size allowed by the server")
         }
 
+        MalformedRecord(desc: String) {
+            description("Record is malformed after decrypting")
+            display("Record is malformed after decrypting: {}", desc)
+        }
+
         BatchInterrupted {
             description("Batch interrupted: server responded with 412")
             display("Batch interrupted: server responded with 412")
         }
 
-        RecordUploadFailed(problems: ::std::collections::HashMap<String, String>) {
+        RecordUploadFailed(problems: ::std::collections::HashMap<Id, String>) {
             description("Some records failed to upload, but success was required for the collection")
             display("Several records failed to upload ({}), but success was required for the collection",
                     problems.len())
@@ -87,6 +93,7 @@ error_chain! {
             description("The server has reset the storage for this account")
             display("The server has reset the storage for this account")
         }
+
     }
 }
 

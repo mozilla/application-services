@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use util::ServerTimestamp;
-use bso_record::{BsoRecord, EncryptedPayload};
+use bso_record::{EncryptedBso, Id};
 
 use serde_json;
 use std::fmt;
@@ -251,10 +251,10 @@ pub struct UploadResult {
     batch: Option<String>,
     /// Maps record id => why failed
     #[serde(default = "HashMap::new")]
-    pub failed: HashMap<String, String>,
+    pub failed: HashMap<Id, String>,
     /// Vec of ids
     #[serde(default = "Vec::new")]
-    pub success: Vec<String>
+    pub success: Vec<Id>
 }
 
 // Easier to fake during tests
@@ -318,11 +318,11 @@ pub trait PostResponseHandler {
 
 #[derive(Debug, Clone)]
 pub(crate) struct NormalResponseHandler {
-    pub failed_ids: Vec<String>,
-    pub successful_ids: Vec<String>,
+    pub failed_ids: Vec<Id>,
+    pub successful_ids: Vec<Id>,
     pub allow_failed: bool,
-    pub pending_failed: Vec<String>,
-    pub pending_success: Vec<String>,
+    pub pending_failed: Vec<Id>,
+    pub pending_success: Vec<Id>,
 }
 
 impl NormalResponseHandler {
@@ -396,7 +396,7 @@ where
         }
     }
 
-    pub fn enqueue(&mut self, record: &BsoRecord<EncryptedPayload>) -> Result<bool> {
+    pub fn enqueue(&mut self, record: &EncryptedBso) -> Result<bool> {
         let payload_length = record.payload.serialized_len();
 
         if self.post_limits.can_never_add(payload_length) ||
@@ -503,10 +503,13 @@ where
             bail!(error::unexpected("Expected OnResponse to have bailed out!"));
         }
 
+        if want_commit || self.batch == BatchState::Unsupported {
+            self.last_modified = resp.last_modified;
+        }
+
         if want_commit {
             debug!("Committed batch {:?}", self.batch);
             self.batch = BatchState::NoBatch;
-            self.last_modified = resp.last_modified;
             self.on_response.handle_response(resp, false)?;
             return Ok(());
         }
@@ -549,26 +552,38 @@ where
     }
 }
 
+#[derive(Clone)]
+pub struct UploadInfo {
+    pub successful_ids: Vec<Id>,
+    pub failed_ids: Vec<Id>,
+    pub modified_timestamp: ServerTimestamp,
+}
+
 impl<Poster> PostQueue<Poster, NormalResponseHandler> {
-    pub(crate) fn successful_and_failed_ids(&mut self) -> (Vec<String>, Vec<String>) {
-        let mut good = Vec::with_capacity(self.on_response.successful_ids.len());
-        // includes pending_success since they weren't committed!
-        let mut bad = Vec::with_capacity(self.on_response.failed_ids.len() +
-                                         self.on_response.pending_failed.len() +
-                                         self.on_response.pending_success.len());
-        good.append(&mut self.on_response.successful_ids);
+    // TODO: should take by move
+    pub fn completed_upload_info(&mut self) -> UploadInfo {
+        let mut result = UploadInfo {
+            successful_ids: Vec::with_capacity(self.on_response.successful_ids.len()),
+            failed_ids: Vec::with_capacity(self.on_response.failed_ids.len() +
+                                           self.on_response.pending_failed.len() +
+                                           self.on_response.pending_success.len()),
+            modified_timestamp: self.last_modified
+        };
 
-        bad.append(&mut self.on_response.failed_ids);
-        bad.append(&mut self.on_response.pending_failed);
-        bad.append(&mut self.on_response.pending_success);
+        result.successful_ids.append(&mut self.on_response.successful_ids);
 
-        (good, bad)
+        result.failed_ids.append(&mut self.on_response.failed_ids);
+        result.failed_ids.append(&mut self.on_response.pending_failed);
+        result.failed_ids.append(&mut self.on_response.pending_success);
+
+        result
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use bso_record::{BsoRecord, EncryptedPayload};
     use std::collections::VecDeque;
     use std::cell::RefCell;
     use std::rc::Rc;
@@ -613,7 +628,7 @@ mod test {
         fn records_as_json(&self) -> Vec<serde_json::Value> {
             let values = serde_json::from_str::<serde_json::Value>(&self.body).expect("Posted invalid json");
             // Check that they actually deserialize as what we want
-            let records_or_err = serde_json::from_value::<Vec<BsoRecord<EncryptedPayload>>>(values.clone());
+            let records_or_err = serde_json::from_value::<Vec<EncryptedBso>>(values.clone());
             records_or_err.expect("Failed to deserialize data");
             serde_json::from_value(values).unwrap()
         }
@@ -806,7 +821,7 @@ mod test {
     }
 
     // Actual record size (for max_request_len) will be larger by some amount
-    fn make_record(payload_size: usize) -> BsoRecord<EncryptedPayload> {
+    fn make_record(payload_size: usize) -> EncryptedBso {
         assert!(payload_size > *PAYLOAD_OVERHEAD);
         let ciphertext_len = payload_size - *PAYLOAD_OVERHEAD;
         BsoRecord {
@@ -930,7 +945,7 @@ mod test {
         let cfg = InfoConfiguration::default();
         let time = 11111111.0;
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::Accepted, time, Some("1234")),
+            fake_response(StatusCode::Accepted, time + 100.0, Some("1234")),
         ]);
 
         let payload_size = 100 - *NON_PAYLOAD_OVERHEAD;
@@ -961,7 +976,7 @@ mod test {
         let time = 11111111.0;
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
             fake_response(StatusCode::Accepted, time, Some("1234")),
-            fake_response(StatusCode::Accepted, time, Some("1234")),
+            fake_response(StatusCode::Accepted, time + 100.0, Some("1234")),
         ]);
 
         pq.enqueue(&make_record(100)).unwrap();
@@ -1004,7 +1019,7 @@ mod test {
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
             fake_response(StatusCode::Accepted, time, Some("1234")),
             fake_response(StatusCode::Accepted, time, Some("1234")),
-            fake_response(StatusCode::Accepted, time, Some("1234")),
+            fake_response(StatusCode::Accepted, time + 100.0, Some("1234")),
         ]);
 
         pq.enqueue(&make_record(100)).unwrap();
@@ -1058,9 +1073,9 @@ mod test {
         let time = 11111111.0;
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
             fake_response(StatusCode::Accepted, time, Some("1234")),
-            fake_response(StatusCode::Accepted, time, Some("1234")),
-            fake_response(StatusCode::Accepted, time, Some("abcd")),
-            fake_response(StatusCode::Accepted, time, Some("abcd")),
+            fake_response(StatusCode::Accepted, time + 100.0, Some("1234")),
+            fake_response(StatusCode::Accepted, time + 100.0, Some("abcd")),
+            fake_response(StatusCode::Accepted, time + 200.0, Some("abcd")),
         ]);
 
         pq.enqueue(&make_record(100)).unwrap();
@@ -1130,24 +1145,30 @@ mod test {
         let time = 11111111.0;
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
             fake_response(StatusCode::Accepted, time, Some("1234")),
-            fake_response(StatusCode::Accepted, time, Some("1234")),
-            fake_response(StatusCode::Accepted, time, Some("abcd")),
-            fake_response(StatusCode::Accepted, time, Some("abcd")),
+            fake_response(StatusCode::Accepted, time + 100.0, Some("1234")), // should commit
+            fake_response(StatusCode::Accepted, time + 100.0, Some("abcd")),
+            fake_response(StatusCode::Accepted, time + 200.0, Some("abcd")), // should commit
         ]);
 
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
+        assert_eq!(pq.last_modified.0, time);
         // POST
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
         // POST + COMMIT
         pq.enqueue(&make_record(100)).unwrap();
+        assert_eq!(pq.last_modified.0, time + 100.0);
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
+
         // POST
         pq.enqueue(&make_record(100)).unwrap();
+        assert_eq!(pq.last_modified.0, time + 100.0);
         pq.flush(true).unwrap(); // COMMIT
+
+        assert_eq!(pq.last_modified.0, time + 200.0);
 
         let t = tester.borrow();
         assert!(t.cur_batch.is_none());
@@ -1175,7 +1196,6 @@ mod test {
         assert_eq!(t.batches[0].posts[1].commit, true);
         assert_eq!(t.batches[0].posts[1].body.len(),
                    request_bytes_for_payloads(&[100, 100]));
-
 
         assert_eq!(t.batches[1].posts[0].batch.as_ref().unwrap(), "true");
         assert_eq!(t.batches[1].posts[0].records, 3);

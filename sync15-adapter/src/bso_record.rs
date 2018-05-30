@@ -2,19 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use serde::de::DeserializeOwned;
+use serde::de::{Deserialize, DeserializeOwned};
 use serde::ser::Serialize;
-use serde_json;
+use serde_json::{self, Value as JsonValue, Map};
 use error;
 use base64;
 use std::ops::{Deref, DerefMut};
 use std::convert::From;
 use key_bundle::KeyBundle;
 use util::ServerTimestamp;
+pub use record_id::Id;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BsoRecord<T> {
-    pub id: String,
+    pub id: Id,
 
     // It's not clear to me if this actually can be empty in practice.
     // firefox-ios seems to think it can...
@@ -60,33 +61,36 @@ impl<T> BsoRecord<T> {
     pub fn with_payload<P>(self, payload: P) -> BsoRecord<P> {
         self.map_payload(|_| payload)
     }
-}
-
-/// Marker trait that indicates that something is a sync record type. By not implementing this
-/// for EncryptedPayload, we can statically prevent double-encrypting.
-pub trait Sync15Record: Clone + DeserializeOwned + Serialize {
-    fn collection_tag() -> &'static str;
-    fn record_id(&self) -> &str;
-
-    // Max TTL is actually 31536000, weirdly.
-    #[inline]
-    fn ttl() -> Option<u32> { None }
 
     #[inline]
-    fn sortindex(&self) -> Option<i32> { None }
-}
-
-impl<T> From<T> for BsoRecord<T> where T: Sync15Record {
-    #[inline]
-    fn from(payload: T) -> BsoRecord<T> {
-        let id = payload.record_id().into();
-        let collection = T::collection_tag().into();
-        let sortindex = payload.sortindex();
+    pub fn new_non_record(id: String, coll: String, payload: T) -> BsoRecord<T> {
         BsoRecord {
-            id, collection, payload, sortindex,
-            modified: ServerTimestamp(0.0),
-            ttl: T::ttl(),
+            id: id.into(),
+            collection: coll.into(),
+            ttl: None,
+            sortindex: None,
+            modified: ServerTimestamp::default(),
+            payload,
         }
+    }
+
+    pub fn try_map_payload<P, E>(
+        self,
+        mapper: impl FnOnce(T) -> Result<P, E>
+    ) -> Result<BsoRecord<P>, E> {
+        self.map_payload(mapper).transpose()
+    }
+
+    pub fn map_payload_or<P>(
+        self,
+        mapper: impl FnOnce(T) -> Option<P>
+    ) -> Option<BsoRecord<P>> {
+        self.map_payload(mapper).transpose()
+    }
+
+    #[inline]
+    pub fn into_timestamped_payload(self) -> (T, ServerTimestamp) {
+        (self.payload, self.modified)
     }
 }
 
@@ -98,6 +102,17 @@ impl<T> BsoRecord<Option<T>> {
         match payload {
             Some(p) => Some(BsoRecord { id, collection, modified, sortindex, ttl, payload: p }),
             None => None
+        }
+    }
+}
+
+impl<T, E> BsoRecord<Result<T, E>> {
+    #[inline]
+    pub fn transpose(self) -> Result<BsoRecord<T>, E> {
+        let BsoRecord { id, collection, modified, sortindex, ttl, payload } = self;
+        match payload {
+            Ok(p) => Ok(BsoRecord { id, collection, modified, sortindex, ttl, payload: p }),
+            Err(e) => Err(e),
         }
     }
 }
@@ -117,20 +132,96 @@ impl<T> DerefMut for BsoRecord<T> {
     }
 }
 
-impl<T> BsoRecord<T> {
-    /// If T is a Sync15Record, then you can/should just use record.into() instead!
+/// Represents the decrypted payload in a Bso. Provides a minimal layer of type safety to avoid double-encrypting.
+///
+/// Note: If we implement a full sync client in rust we may want to consider using stronger types for each record
+/// (we did this in the past as well), but for now, since everything is just going over the FFI, there's not a lot of
+/// benefit here.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Payload {
+    pub id: Id,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "is_false")]
+    pub deleted: bool,
+
+    #[serde(flatten)]
+    pub data: Map<String, JsonValue>,
+}
+
+// `#[serde(skip_if)]` only allows a function (not an expression).
+// Is there a builtin way to do this?
+#[inline]
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+
+impl Payload {
+
     #[inline]
-    pub fn new_non_record<I: Into<String>, C: Into<String>>(id: I, coll: C, payload: T) -> BsoRecord<T> {
-        BsoRecord {
-            id: id.into(),
-            collection: coll.into(),
-            ttl: None,
-            sortindex: None,
-            modified: ServerTimestamp::default(),
-            payload,
+    pub fn new_tombstone(id: Id) -> Payload {
+        Payload { id, deleted: true, data: Map::new() }
+    }
+
+    #[inline]
+    pub fn id(&self) -> &str {
+        &self.id[..]
+    }
+
+    #[inline]
+    pub fn is_tombstone(&self) -> bool {
+        self.deleted
+    }
+
+    pub fn into_bso(
+        self,
+        collection: String
+    ) -> CleartextBso {
+        let id = self.id.clone();
+        CleartextBso {
+            id,
+            collection,
+            modified: 0.0.into(), // Doesn't matter.
+            sortindex: None, // Should we let consumer's set this?
+            ttl: None, // Should we let consumer's set this?
+            payload: self,
         }
     }
+
+    pub fn from_json(value: JsonValue) -> error::Result<Payload> {
+        Ok(serde_json::from_value(value)?)
+    }
+
+    pub fn into_record<T>(self) -> error::Result<T> where for<'a> T: Deserialize<'a> {
+        Ok(serde_json::from_value(JsonValue::from(self))?)
+    }
+
+    pub fn from_record<T: Serialize>(v: T) -> error::Result<Payload> {
+        // TODO: This is dumb, we do to_value and then from_value. If we end up using this
+        // method a lot we should rethink... As it is it should just be for uploading
+        // meta/global or crypto/keys which is rare enough that it doesn't matter.
+        Ok(Payload::from_json(serde_json::to_value(v)?)?)
+    }
+
+    pub fn into_json_string(self) -> String {
+        serde_json::to_string(&JsonValue::from(self))
+            .expect("JSON.stringify failed, which shouldn't be possible")
+    }
 }
+
+impl From<Payload> for JsonValue {
+    fn from(cleartext: Payload) -> Self {
+        let Payload { mut data, id, deleted } = cleartext;
+        data.insert("id".to_string(), JsonValue::String(id.into()));
+        if deleted {
+            data.insert("deleted".to_string(), JsonValue::Bool(true));
+        }
+        JsonValue::Object(data)
+    }
+}
+
+pub type EncryptedBso = BsoRecord<EncryptedPayload>;
+pub type CleartextBso = BsoRecord<Payload>;
 
 // Contains the methods to automatically deserialize the payload to/from json.
 mod as_json {
@@ -176,8 +267,8 @@ impl EncryptedPayload {
     }
 }
 
-impl BsoRecord<EncryptedPayload> {
-    pub fn decrypt<T>(self, key: &KeyBundle) -> error::Result<BsoRecord<T>> where T: DeserializeOwned {
+impl EncryptedBso {
+    pub fn decrypt(self, key: &KeyBundle) -> error::Result<CleartextBso> {
         if !key.verify_hmac_string(&self.payload.hmac, &self.payload.ciphertext)? {
             return Err(error::ErrorKind::HmacMismatch.into());
         }
@@ -186,15 +277,21 @@ impl BsoRecord<EncryptedPayload> {
         let ciphertext = base64::decode(&self.payload.ciphertext)?;
         let cleartext = key.decrypt(&ciphertext, &iv)?;
 
-        let new_payload = serde_json::from_str::<T>(&cleartext)?;
+        let new_payload = serde_json::from_str(&cleartext)?;
 
         let result = self.with_payload(new_payload);
         Ok(result)
     }
+
+    pub fn decrypt_as<T>(self, key: &KeyBundle) -> error::Result<BsoRecord<T>>
+        where for<'a> T: Deserialize<'a>
+    {
+        Ok(self.decrypt(key)?.into_record::<T>()?)
+    }
 }
 
-impl<T> BsoRecord<T> where T: Sync15Record {
-    pub fn encrypt(self, key: &KeyBundle) -> error::Result<BsoRecord<EncryptedPayload>> {
+impl CleartextBso {
+    pub fn encrypt(self, key: &KeyBundle) -> error::Result<EncryptedBso> {
         let cleartext = serde_json::to_string(&self.payload)?;
         let (enc_bytes, iv) = key.encrypt_bytes_rand_iv(&cleartext.as_bytes())?;
         let iv_base64 = base64::encode(&iv);
@@ -202,16 +299,21 @@ impl<T> BsoRecord<T> where T: Sync15Record {
         let hmac = key.hmac_string(enc_base64.as_bytes())?;
         let result = self.with_payload(EncryptedPayload {
             iv: iv_base64,
-            hmac: hmac,
+            hmac,
             ciphertext: enc_base64,
         });
         Ok(result)
+    }
+
+    pub fn into_record<T>(self) -> error::Result<BsoRecord<T>> where for<'a> T: Deserialize<'a> {
+        Ok(self.try_map_payload(|payload| payload.into_record())?)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn test_deserialize_enc() {
         let serialized = r#"{
@@ -252,36 +354,61 @@ mod tests {
                    record.payload.serialized_len())
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    struct MyRecordType {
-        id: String,
-        data: String,
-        idx: i32,
-    }
+    #[test]
+    fn test_roundtrip_crypt_tombstone() {
+        let orig_record = Payload::from_json(
+            json!({ "id": "aaaaaaaaaaaa", "deleted": true, })
+        ).unwrap().into_bso("dummy".into());
+        assert!(orig_record.is_tombstone());
 
-    impl Sync15Record for MyRecordType {
-        fn collection_tag() -> &'static str { "my_cool_records" }
-        fn record_id(&self) -> &str { &self.id }
-        // 3 years in seconds
-        fn ttl() -> Option<u32> { Some(3 * 365 * 24 * 60 * 60) }
-        fn sortindex(&self) -> Option<i32> { Some(self.idx) }
+        let keybundle = KeyBundle::new_random().unwrap();
+
+        let encrypted = orig_record.clone().encrypt(&keybundle).unwrap();
+
+        assert!(keybundle.verify_hmac_string(
+            &encrypted.payload.hmac,
+            &encrypted.payload.ciphertext).unwrap());
+
+        // While we're here, check on EncryptedPayload::serialized_len
+        let val_rec = serde_json::from_str::<JsonValue>(
+            &serde_json::to_string(&encrypted).unwrap()).unwrap();
+
+        assert_eq!(encrypted.payload.serialized_len(),
+                   val_rec["payload"].as_str().unwrap().len());
+
+        let decrypted: CleartextBso = encrypted.decrypt(&keybundle).unwrap();
+        assert!(decrypted.is_tombstone());
+        assert_eq!(decrypted, orig_record);
     }
 
     #[test]
-    fn test_sync15record() {
-        let record: MyRecordType = MyRecordType {
-            id: "aaabbbcccddd".into(),
-            data: "this is extremely good and cool data".into(),
-            idx: 9001
-        };
-        let bso: BsoRecord<MyRecordType> = record.into();
-        let s = serde_json::to_string(&bso).unwrap();
-        let out: serde_json::Value = serde_json::from_str(&s).unwrap();
-        let ttl = 3*365*24*60*60;
-        assert_eq!(out["ttl"], json!(ttl));
-        assert_eq!(out["sortindex"], json!(9001));
-        assert_eq!(out["id"], json!("aaabbbcccddd"));
-        assert_eq!(out["collection"], json!("my_cool_records"));
+    fn test_roundtrip_crypt_record() {
+        let payload = json!({ "id": "aaaaaaaaaaaa", "age": 105, "meta": "data" });
+        let orig_record = Payload::from_json(payload.clone()).unwrap()
+                                                             .into_bso("dummy".into());
+
+        assert!(!orig_record.is_tombstone());
+
+        let keybundle = KeyBundle::new_random().unwrap();
+
+        let encrypted = orig_record.clone().encrypt(&keybundle).unwrap();
+
+        assert!(keybundle.verify_hmac_string(
+            &encrypted.payload.hmac,
+            &encrypted.payload.ciphertext
+        ).unwrap());
+
+        // While we're here, check on EncryptedPayload::serialized_len
+        let val_rec = serde_json::from_str::<JsonValue>(
+            &serde_json::to_string(&encrypted).unwrap()).unwrap();
+        assert_eq!(encrypted.payload.serialized_len(),
+                   val_rec["payload"].as_str().unwrap().len());
+
+        let decrypted = encrypted.decrypt(&keybundle).unwrap();
+        assert!(!decrypted.is_tombstone());
+        assert_eq!(decrypted, orig_record);
+        assert_eq!(serde_json::to_value(decrypted.payload).unwrap(), payload);
     }
+
 
 }

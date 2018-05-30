@@ -22,7 +22,6 @@ extern crate serde_derive;
 #[macro_use]
 extern crate log;
 
-// Right now we only need the `json!` macro in tests, and a raw `#[macro_use]` gives us a warning
 #[cfg_attr(test, macro_use)]
 extern crate serde_json;
 
@@ -42,12 +41,16 @@ pub mod collection_keys;
 pub mod util;
 pub mod request;
 pub mod service;
-pub mod tombstone;
+pub mod changeset;
+pub mod sync;
+mod record_id;
 
 // Re-export some of the types callers are likely to want for convenience.
-pub use bso_record::{BsoRecord, Sync15Record};
-pub use tombstone::{MaybeTombstone, Tombstone, NonTombstone};
-pub use service::{Sync15ServiceInit, Sync15Service, CollectionUpdate};
+pub use bso_record::{BsoRecord, EncryptedBso, Payload, CleartextBso};
+pub use service::{Sync15ServiceInit, Sync15Service};
+pub use changeset::{RecordChangeset, IncomingChangeset, OutgoingChangeset};
 pub use error::{Result, Error, ErrorKind};
+pub use sync::{synchronize, Store};
+pub use util::{ServerTimestamp, SERVER_EPOCH};
 
-pub use MaybeTombstone::*;
+pub use record_id::Id;

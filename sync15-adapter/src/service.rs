@@ -5,7 +5,7 @@
 
 use std::cell::Cell;
 use std::time::{Duration};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 
 use reqwest::{
     Client,
@@ -21,8 +21,7 @@ use util::{ServerTimestamp, SERVER_EPOCH};
 use token;
 use error;
 use key_bundle::KeyBundle;
-use bso_record::{BsoRecord, Sync15Record, EncryptedPayload};
-use tombstone::{MaybeTombstone, NonTombstone};
+use bso_record::{BsoRecord, EncryptedBso};
 use record_types::MetaGlobalRecord;
 use collection_keys::CollectionKeys;
 use request::{
@@ -34,7 +33,6 @@ use request::{
     BatchPoster,
     PostQueue,
     PostResponseHandler,
-    NormalResponseHandler,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -157,7 +155,7 @@ impl Sync15Service {
         // TODO: if info/collections says we should, upload keys.
         // TODO: This should be handled in collection_keys.rs, which should track modified time, etc.
         let mut keys_resp = self.relative_storage_request(Method::Get, "storage/crypto/keys")?;
-        let keys: BsoRecord<EncryptedPayload> = keys_resp.json()?;
+        let keys: EncryptedBso = keys_resp.json()?;
         self.keys = Some(CollectionKeys::from_encrypted_bso(keys, &self.root_key)?);
         // TODO: error handling... key upload?
         Ok(())
@@ -169,16 +167,6 @@ impl Sync15Service {
                     .key_for_collection(collection))
     }
 
-    pub fn all_records<T>(&mut self, collection: &str) ->
-            error::Result<Vec<BsoRecord<MaybeTombstone<T>>>> where T: Sync15Record {
-        let key = self.key_for_collection(collection)?;
-        let mut resp = self.collection_request(Method::Get, CollectionRequest::new(collection).full())?;
-        let records: Vec<BsoRecord<EncryptedPayload>> = resp.json()?;
-        records.into_iter()
-               .map(|record| record.decrypt::<MaybeTombstone<T>>(key))
-               .collect()
-    }
-
     fn update_timestamp(&self, hs: &header::Headers) {
         if let Some(ts) = hs.get::<XWeaveTimestamp>().map(|h| **h) {
             self.last_server_time.set(ts);
@@ -186,6 +174,19 @@ impl Sync15Service {
             // Should we complain more here?
             warn!("No X-Weave-Timestamp from storage server!");
         }
+    }
+
+    pub fn get_encrypted_records(
+        &self,
+        collection: &str,
+        since: ServerTimestamp,
+    ) -> error::Result<Vec<EncryptedBso>> {
+        self.key_for_collection(collection)?;
+        let mut resp = self.collection_request(Method::Get,
+                                               CollectionRequest::new(collection)
+                                                   .full()
+                                                   .newer_than(since))?;
+        Ok(resp.json()?)
     }
 
     pub fn last_modified(&self, coll: &str) -> Option<ServerTimestamp> {
@@ -196,15 +197,20 @@ impl Sync15Service {
         self.last_modified(coll).unwrap_or(SERVER_EPOCH)
     }
 
-    fn new_post_queue<'a, F: PostResponseHandler>(&'a self, coll: &str, lm: Option<ServerTimestamp>, on_response: F)
+    pub fn new_post_queue<'a, F: PostResponseHandler>(&'a self, coll: &str, lm: Option<ServerTimestamp>, on_response: F)
             -> error::Result<PostQueue<PostWrapper<'a>, F>> {
         let ts = lm.unwrap_or_else(|| self.last_modified_or_zero(&coll));
         let pw = PostWrapper { svc: self, coll: coll.into() };
         Ok(PostQueue::new(self.server_config.as_ref().unwrap(), ts, pw, on_response))
     }
+
+    #[inline]
+    pub fn last_server_time(&self) -> ServerTimestamp {
+        self.last_server_time.get()
+    }
 }
 
-struct PostWrapper<'a> {
+pub struct PostWrapper<'a> {
     svc: &'a Sync15Service,
     coll: String,
 }
@@ -230,75 +236,5 @@ impl<'a> BatchPoster for PostWrapper<'a> {
         *req.body_mut() = Some(Vec::from(bytes).into());
         let mut resp = self.svc.exec_request(req, false)?;
         Ok(PostResponse::from_response(&mut resp)?)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct CollectionUpdate<'a, T> {
-    svc: &'a Sync15Service,
-    last_sync: ServerTimestamp,
-    to_update: Vec<MaybeTombstone<T>>,
-    allow_dropped_records: bool,
-    queued_ids: HashSet<String>
-}
-
-impl<'a, T> CollectionUpdate<'a, T> where T: Sync15Record {
-    pub fn new(svc: &'a Sync15Service, allow_dropped_records: bool) -> CollectionUpdate<'a, T> {
-        let coll = T::collection_tag();
-        let ts = svc.last_modified_or_zero(coll);
-        CollectionUpdate {
-            svc,
-            last_sync: ts,
-            to_update: vec![],
-            allow_dropped_records,
-            queued_ids: HashSet::new(),
-        }
-    }
-
-    pub fn add(&mut self, rec_or_tombstone: MaybeTombstone<T>) {
-        // Block to limit scope of the `id` borrow.
-        {
-            let id = rec_or_tombstone.record_id();
-            // Should this be an Err and not an assertion?
-            assert!(!self.queued_ids.contains(id),
-                    "Attempt to update ID multiple times in the same batch {}", id);
-            self.queued_ids.insert(id.into());
-        }
-        self.to_update.push(rec_or_tombstone);
-    }
-
-    pub fn add_record(&mut self, record: T) {
-        self.add(NonTombstone(record));
-    }
-
-    pub fn add_tombstone(&mut self, id: String) {
-        self.add(MaybeTombstone::tombstone(id));
-    }
-
-    /// Returns a list of the IDs that failed if allowed_dropped_records is true, otherwise
-    /// returns an empty vec.
-    pub fn upload(self) -> error::Result<(Vec<String>, Vec<String>)> {
-        let mut failed = vec![];
-        let key = self.svc.key_for_collection(T::collection_tag())?;
-        let mut q = self.svc.new_post_queue(T::collection_tag(), Some(self.last_sync),
-            NormalResponseHandler::new(self.allow_dropped_records))?;
-
-        for record in self.to_update.into_iter() {
-            let record_cleartext: BsoRecord<MaybeTombstone<T>> = record.into();
-            let encrypted = record_cleartext.encrypt(key)?;
-            let enqueued = q.enqueue(&encrypted)?;
-            if !enqueued && !self.allow_dropped_records {
-                bail!(error::ErrorKind::RecordTooLargeError);
-            }
-        }
-
-        q.flush(true)?;
-        let (successful_ids, mut failed_ids) = q.successful_and_failed_ids();
-        failed_ids.append(&mut failed);
-        if !self.allow_dropped_records {
-            assert_eq!(failed_ids.len(), 0,
-                "Bug: Should have failed by now if we aren't allowing dropped records");
-        }
-        Ok((successful_ids, failed_ids))
     }
 }
