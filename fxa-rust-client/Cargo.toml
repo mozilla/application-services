@@ -22,3 +22,4 @@ sha2 = "0.7.0"
 hawk = { git = "https://github.com/eoger/rust-hawk", branch = "use-openssl" }
 error-chain = "0.11.0"
 openssl = "0.10.7"
+openssl-probe = "0.1.2"
