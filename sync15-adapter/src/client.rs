@@ -176,7 +176,7 @@ impl Sync15StorageClient {
                 resp.url().path()
             );
             return Err(ErrorKind::StorageHttpError {
-                code: resp.status(),
+                code: resp.status().as_u16(),
                 route: resp.url().path().into(),
             }.into());
         }

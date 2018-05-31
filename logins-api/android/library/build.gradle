@@ -33,7 +33,7 @@ android {
 
 cargo {
     // The directory of the Cargo.toml to build.
-    module = '../../../sync15/passwords/ffi'
+    module = '../../../logins-sql/ffi'
 
     // The Android NDK API level to target.
     apiLevel = 21

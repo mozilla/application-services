@@ -46,9 +46,6 @@ where E: From<error::Error>
     info!("Downloaded {} remote changes", incoming_changes.changes.len());
     let mut outgoing = store.apply_incoming(incoming_changes)?;
 
-    assert_eq!(outgoing.timestamp, timestamp,
-        "last sync timestamp should never change unless we change it");
-
     outgoing.timestamp = last_changed_remote;
 
     info!("Uploading {} outgoing changes", outgoing.changes.len());

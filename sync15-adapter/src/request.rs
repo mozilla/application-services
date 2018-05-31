@@ -198,7 +198,7 @@ impl LimitTracker {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InfoConfiguration {
     /// The maximum size in bytes of the overall HTTP request body that will be accepted by the
     /// server.
@@ -247,7 +247,7 @@ impl Default for InfoConfiguration {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct InfoCollections(HashMap<String, ServerTimestamp>);
 
 impl InfoCollections {
@@ -363,7 +363,7 @@ impl PostResponseHandler for NormalResponseHandler {
                 return Err(ErrorKind::BatchInterrupted.into());
             } else {
                 return Err(ErrorKind::StorageHttpError {
-                    code: r.status,
+                    code: r.status.as_u16(),
                     route: "collection storage (TODO: record route somewhere)".into()
                 }.into());
             }
@@ -519,7 +519,7 @@ where
         let resp = resp_or_error?;
 
         if !resp.status.is_success() {
-            let code = resp.status;
+            let code = resp.status.as_u16();
             self.on_response.handle_response(resp, !want_commit)?;
             error!("Bug: expected OnResponse to have bailed out!");
             // Should we assert here instead?

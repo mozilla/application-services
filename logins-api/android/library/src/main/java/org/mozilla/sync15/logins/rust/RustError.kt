@@ -60,7 +60,7 @@ open class RustError : Structure() {
     fun consumeErrorMessage(): String {
         val result = this.getMessage()
         if (this.message != null) {
-            PasswordSyncAdapter.INSTANCE.destroy_c_char(this.message!!);
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_destroy_string(this.message!!);
             this.message = null
         }
         if (result == null) {

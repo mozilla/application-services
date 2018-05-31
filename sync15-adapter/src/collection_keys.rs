@@ -9,7 +9,7 @@ use error::Result;
 use record_types::CryptoKeysRecord;
 use util::ServerTimestamp;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CollectionKeys {
     pub timestamp: ServerTimestamp,
     pub default: KeyBundle,

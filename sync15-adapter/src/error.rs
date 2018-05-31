@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::time::SystemTime;
-use reqwest::{self, StatusCode as HttpStatusCode};
+use reqwest;
 use failure::{self, Fail, Context, Backtrace, SyncFailure};
 use std::{fmt, result, string};
 use std::boxed::Box;
@@ -44,7 +44,7 @@ impl Error {
 
     pub fn is_not_found(&self) -> bool {
         match self.kind() {
-            ErrorKind::StorageHttpError { code: HttpStatusCode::NotFound, .. } => true,
+            ErrorKind::StorageHttpError { code: 404, .. } => true,
             _ => false
         }
     }
@@ -72,12 +72,11 @@ pub enum ErrorKind {
     #[fail(display = "SHA256 HMAC Mismatch error")]
     HmacMismatch,
 
-    // TODO: it would be nice if this were _0.to_u16(), but we cant have an expression there...
     #[fail(display = "HTTP status {} when requesting a token from the tokenserver", _0)]
-    TokenserverHttpError(HttpStatusCode),
+    TokenserverHttpError(u16),
 
     #[fail(display = "HTTP status {} during a storage request to \"{}\"", code, route)]
-    StorageHttpError { code: HttpStatusCode, route: String },
+    StorageHttpError { code: u16, route: String },
 
     #[fail(display = "Server requested backoff. Retry after {:?}", _0)]
     BackoffError(SystemTime),
