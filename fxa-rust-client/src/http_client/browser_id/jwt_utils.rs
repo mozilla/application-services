@@ -45,7 +45,7 @@ pub fn create_assertion_full(
     let assertion = SignedJWTBuilder::new(key_pair, issuer, issued_at, expires_at)
         .audience(&audience)
         .build()?;
-    Ok(format!("{}~{}", &certificate, &assertion))
+    Ok(format!("{}~{}", certificate, assertion))
 }
 
 struct SignedJWTBuilder<'a> {
