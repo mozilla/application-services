@@ -31,7 +31,7 @@ pub struct ExternError {
     message: *const c_char,
 }
 
-/// A C representation Rust's [Result](std::result::Result).
+/// A C representation of Rust's [Result](std::result::Result).
 /// A value of `Ok` results in `ok` containing a raw pointer as a `c_void`
 /// and `err` containing a null pointer.
 /// A value of `Err` results in `value` containing a null pointer and `err` containing an error struct.
@@ -119,8 +119,7 @@ pub extern "C" fn fxa_get_custom_config(content_base: *const c_char) -> *mut Ext
     }
 }
 
-/// Creates a [FirefoxAccount] from credentials obtained with the "session-token" FxA
-/// login flow.
+/// Creates a [FirefoxAccount] from credentials obtained with the onepw FxA login flow.
 ///
 /// This is typically used by the legacy Sync clients: new clients mainly use OAuth flows and
 /// therefore should use `fxa_new`.
