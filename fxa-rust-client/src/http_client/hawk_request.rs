@@ -12,16 +12,16 @@ use errors::*;
 
 const KEY_LENGTH: usize = 32;
 
-pub struct FxAHAWKRequestBuilder<'a> {
+pub struct HAWKRequestBuilder<'a> {
     url: Url,
     method: Method,
     body: Option<String>,
     hkdf_sha256_key: &'a Vec<u8>,
 }
 
-impl<'a> FxAHAWKRequestBuilder<'a> {
+impl<'a> HAWKRequestBuilder<'a> {
     pub fn new(method: Method, url: Url, hkdf_sha256_key: &'a Vec<u8>) -> Self {
-        FxAHAWKRequestBuilder {
+        HAWKRequestBuilder {
             url,
             method,
             body: None,

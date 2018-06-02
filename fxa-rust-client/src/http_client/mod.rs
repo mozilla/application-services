@@ -14,7 +14,7 @@ use util::Xorable;
 
 use self::browser_id::rsa::RSABrowserIDKeyPair;
 use self::browser_id::{jwt_utils, BrowserIDKeyPair};
-use self::hawk_request::FxAHAWKRequestBuilder;
+use self::hawk_request::HAWKRequestBuilder;
 use config::Config;
 use errors::*;
 
@@ -97,7 +97,7 @@ impl<'a> FxAClient<'a> {
             KEY_LENGTH * 3,
         );
         let key_request_key = &key[(KEY_LENGTH * 2)..(KEY_LENGTH * 3)];
-        let request = FxAHAWKRequestBuilder::new(Method::Get, url, &key).build()?;
+        let request = HAWKRequestBuilder::new(Method::Get, url, &key).build()?;
         let json: serde_json::Value = FxAClient::make_request(request)?.json()?;
         let bundle = match json["bundle"].as_str() {
             Some(bundle) => bundle,
@@ -139,7 +139,7 @@ impl<'a> FxAClient<'a> {
     ) -> Result<RecoveryEmailStatusResponse> {
         let url = self.config.auth_url_path("v1/recovery_email/status")?;
         let key = FxAClient::derive_key_from_session_token(session_token)?;
-        let request = FxAHAWKRequestBuilder::new(Method::Get, url, &key).build()?;
+        let request = HAWKRequestBuilder::new(Method::Get, url, &key).build()?;
         Ok(FxAClient::make_request(request)?.json()?)
     }
 
@@ -190,7 +190,7 @@ impl<'a> FxAClient<'a> {
         });
         let key = FxAClient::derive_key_from_session_token(session_token)?;
         let url = self.config.oauth_url_path("v1/authorization")?;
-        let request = FxAHAWKRequestBuilder::new(Method::Post, url, &key)
+        let request = HAWKRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
         Ok(FxAClient::make_request(request)?.json()?)
@@ -244,7 +244,7 @@ impl<'a> FxAClient<'a> {
     });
         let key = FxAClient::derive_key_from_session_token(session_token)?;
         let url = self.config.auth_url_path("v1/certificate/sign")?;
-        let request = FxAHAWKRequestBuilder::new(Method::Post, url, &key)
+        let request = HAWKRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
         Ok(FxAClient::make_request(request)?.json()?)
