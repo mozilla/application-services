@@ -48,25 +48,25 @@ pub fn create_assertion_full(
     Ok(format!("{}~{}", certificate, assertion))
 }
 
-struct SignedJWTBuilder<'a> {
-    key_pair: &'a BrowserIDKeyPair,
-    issuer: &'a str,
+struct SignedJWTBuilder<'keypair> {
+    key_pair: &'keypair BrowserIDKeyPair,
+    issuer: String,
     issued_at: u64,
     expires_at: u64,
-    audience: Option<&'a str>,
+    audience: Option<String>,
     payload: Option<serde_json::Value>,
 }
 
-impl<'a> SignedJWTBuilder<'a> {
+impl<'keypair> SignedJWTBuilder<'keypair> {
     fn new(
-        key_pair: &'a BrowserIDKeyPair,
-        issuer: &'a str,
+        key_pair: &'keypair BrowserIDKeyPair,
+        issuer: &str,
         issued_at: u64,
         expires_at: u64,
-    ) -> SignedJWTBuilder<'a> {
+    ) -> SignedJWTBuilder<'keypair> {
         SignedJWTBuilder {
             key_pair,
-            issuer,
+            issuer: issuer.to_owned(),
             issued_at,
             expires_at,
             audience: None,
@@ -74,13 +74,13 @@ impl<'a> SignedJWTBuilder<'a> {
         }
     }
 
-    fn audience(mut self, audience: &'a str) -> SignedJWTBuilder<'a> {
-        self.audience = Some(audience);
+    fn audience(mut self, audience: &str) -> SignedJWTBuilder<'keypair> {
+        self.audience = Some(audience.to_owned());
         self
     }
 
     #[allow(dead_code)]
-    fn payload(mut self, payload: serde_json::Value) -> SignedJWTBuilder<'a> {
+    fn payload(mut self, payload: serde_json::Value) -> SignedJWTBuilder<'keypair> {
         self.payload = Some(payload);
         self
     }
