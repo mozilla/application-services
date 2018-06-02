@@ -4,15 +4,15 @@
 
 error_chain! {
     foreign_links {
-        Base64Decode(::base64::DecodeError);
-        OpensslError(::openssl::error::ErrorStack);
-        BadUrl(::reqwest::UrlError);
         BadCleartextUtf8(::std::string::FromUtf8Error);
-        HexError(::hex::FromHexError);
-        JsonError(::serde_json::Error);
-        RequestError(::reqwest::Error);
+        BadUrl(::reqwest::UrlError);
+        Base64Decode(::base64::DecodeError);
         HawkError(::hawk::Error);
+        HexError(::hex::FromHexError);
         JWTError(::jose::error::Error);
+        JsonError(::serde_json::Error);
+        OpensslError(::openssl::error::ErrorStack);
+        RequestError(::reqwest::Error);
     }
     errors {
         RemoteError(code: u64, errno: u64, error: String, message: String, info: String) {
