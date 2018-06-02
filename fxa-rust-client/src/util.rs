@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
 // Gets the unix epoch in ms.
@@ -24,7 +28,8 @@ impl Xorable for [u8] {
         if self.len() != other.len() {
             Err("Slices have different sizes.")
         } else {
-            Ok(self.iter()
+            Ok(self
+                .iter()
                 .zip(other.iter())
                 .map(|(&x, &y)| x ^ y)
                 .collect())

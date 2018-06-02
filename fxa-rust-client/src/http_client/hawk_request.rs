@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 use hawk::{Credentials, Digest, Key, PayloadHasher, RequestBuilder};
 use hex;
 use reqwest::{header, Client, Method, Request};
@@ -8,16 +12,16 @@ use errors::*;
 
 const KEY_LENGTH: usize = 32;
 
-pub struct FxAHAWKRequestBuilder<'a> {
+pub struct HAWKRequestBuilder<'a> {
     url: Url,
     method: Method,
     body: Option<String>,
     hkdf_sha256_key: &'a Vec<u8>,
 }
 
-impl<'a> FxAHAWKRequestBuilder<'a> {
+impl<'a> HAWKRequestBuilder<'a> {
     pub fn new(method: Method, url: Url, hkdf_sha256_key: &'a Vec<u8>) -> Self {
-        FxAHAWKRequestBuilder {
+        HAWKRequestBuilder {
             url,
             method,
             body: None,

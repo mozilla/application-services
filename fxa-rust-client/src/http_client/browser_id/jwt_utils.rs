@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64;
@@ -41,28 +45,28 @@ pub fn create_assertion_full(
     let assertion = SignedJWTBuilder::new(key_pair, issuer, issued_at, expires_at)
         .audience(&audience)
         .build()?;
-    Ok(format!("{}~{}", &certificate, &assertion))
+    Ok(format!("{}~{}", certificate, assertion))
 }
 
-struct SignedJWTBuilder<'a> {
-    key_pair: &'a BrowserIDKeyPair,
-    issuer: &'a str,
+struct SignedJWTBuilder<'keypair> {
+    key_pair: &'keypair BrowserIDKeyPair,
+    issuer: String,
     issued_at: u64,
     expires_at: u64,
-    audience: Option<&'a str>,
+    audience: Option<String>,
     payload: Option<serde_json::Value>,
 }
 
-impl<'a> SignedJWTBuilder<'a> {
+impl<'keypair> SignedJWTBuilder<'keypair> {
     fn new(
-        key_pair: &'a BrowserIDKeyPair,
-        issuer: &'a str,
+        key_pair: &'keypair BrowserIDKeyPair,
+        issuer: &str,
         issued_at: u64,
         expires_at: u64,
-    ) -> SignedJWTBuilder<'a> {
+    ) -> SignedJWTBuilder<'keypair> {
         SignedJWTBuilder {
             key_pair,
-            issuer,
+            issuer: issuer.to_owned(),
             issued_at,
             expires_at,
             audience: None,
@@ -70,13 +74,13 @@ impl<'a> SignedJWTBuilder<'a> {
         }
     }
 
-    fn audience(mut self, audience: &'a str) -> SignedJWTBuilder<'a> {
-        self.audience = Some(audience);
+    fn audience(mut self, audience: &str) -> SignedJWTBuilder<'keypair> {
+        self.audience = Some(audience.to_owned());
         self
     }
 
     #[allow(dead_code)]
-    fn payload(mut self, payload: serde_json::Value) -> SignedJWTBuilder<'a> {
+    fn payload(mut self, payload: serde_json::Value) -> SignedJWTBuilder<'keypair> {
         self.payload = Some(payload);
         self
     }
@@ -131,9 +135,9 @@ mod tests {
     ) -> Result<String> {
         let principal = json!({ "email": email });
         let payload = json!({
-    "principal": principal,
-    "public-key": serialized_public_key
-  });
+        "principal": principal,
+        "public-key": serialized_public_key
+      });
         Ok(
             SignedJWTBuilder::new(key_pair, issuer, issued_at, expires_at)
                 .payload(payload)
@@ -175,6 +179,7 @@ mod tests {
     }
 
     #[test]
+    // These tests were copied from Firefox for Android (TestJSONWebTokenUtils.java).
     fn test_rsa_generation() {
         let mock_modulus = "15498874758090276039465094105837231567265546373975960480941122651107772824121527483107402353899846252489837024870191707394743196399582959425513904762996756672089693541009892030848825079649783086005554442490232900875792851786203948088457942416978976455297428077460890650409549242124655536986141363719589882160081480785048965686285142002320767066674879737238012064156675899512503143225481933864507793118457805792064445502834162315532113963746801770187685650408560424682654937744713813773896962263709692724630650952159596951348264005004375017610441835956073275708740239518011400991972811669493356682993446554779893834303";
         let mock_public_exponent = "65537";

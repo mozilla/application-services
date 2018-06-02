@@ -50,15 +50,16 @@ class FirefoxAccount: RustOpaquePointer {
     }
 
     public func getProfile() throws -> Profile {
-        return Profile(raw: try fxa_profile(self.raw).pointee.unwrap())
+        let profileToken = try self.getOAuthToken(scopes: ["profile"]).accessToken;
+        return Profile(raw: try fxa_profile(self.raw, profileToken, false).pointee.unwrap())
     }
 
     public func getSyncKeys() throws -> SyncKeys {
         return SyncKeys(raw: try fxa_get_sync_keys(self.raw).pointee.unwrap())
     }
 
-    public var tokenServerEndpointURL: URL {
-        return URL(string: copy_and_free_str(fxa_get_token_server_endpoint_url(self.raw)))!
+    public func getTokenServerEndpointURL() throws -> URL {
+        return URL(string: copy_and_free_str(try fxa_get_token_server_endpoint_url(self.raw).pointee.unwrap()))!
     }
 
     // Scopes is space separated for each scope.

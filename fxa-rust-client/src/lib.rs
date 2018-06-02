@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 // For error_chain:
 #![recursion_limit = "128"]
 
@@ -29,14 +33,16 @@ use std::collections::HashMap;
 use std::mem;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use self::login_sm::FxALoginState::*;
+use self::login_sm::LoginState::*;
 use self::login_sm::*;
 use errors::*;
 use http_client::browser_id::jwt_utils;
-use http_client::{FxAClient, OAuthTokenResponse, ProfileResponse};
+use http_client::{Client, OAuthTokenResponse, ProfileResponse};
 use jose::{JWKECCurve, JWE, JWK};
 use openssl::hash::{hash, MessageDigest};
 use rand::{OsRng, RngCore};
+use url::Url;
+use util::now;
 
 mod config;
 pub mod errors;
@@ -50,23 +56,25 @@ pub use config::Config;
 // If a cached token has less than `OAUTH_MIN_TIME_LEFT` seconds left to live,
 // it will be considered already expired.
 const OAUTH_MIN_TIME_LEFT: u64 = 60;
+// A cached profile response is considered fresh for `PROFILE_FRESHNESS_THRESHOLD` ms.
+const PROFILE_FRESHNESS_THRESHOLD: u64 = 120000; // 2 minutes
 
 #[derive(Clone, Serialize, Deserialize)]
-struct FxAStateV1 {
+struct StateV1 {
     client_id: String,
     config: Config,
-    login_state: FxALoginState,
+    login_state: LoginState,
     oauth_cache: HashMap<String, OAuthInfo>,
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "schema_version")]
-enum FxAState {
-    V1(FxAStateV1),
+enum State {
+    V1(StateV1),
 }
 
 #[derive(Deserialize)]
-pub struct FxAWebChannelResponse {
+pub struct WebChannelResponse {
     uid: String,
     email: String,
     verified: bool,
@@ -78,30 +86,42 @@ pub struct FxAWebChannelResponse {
     unwrap_kb: String,
 }
 
-impl FxAWebChannelResponse {
-    pub fn from_json(json: &str) -> Result<FxAWebChannelResponse> {
+impl WebChannelResponse {
+    pub fn from_json(json: &str) -> Result<WebChannelResponse> {
         Ok(serde_json::from_str(json)?)
     }
 }
 
+struct CachedResponse<T> {
+    response: T,
+    cached_at: u64,
+    etag: String,
+}
+
 pub struct FirefoxAccount {
-    state: FxAStateV1,
+    state: StateV1,
     flow_store: HashMap<String, OAuthFlow>,
+    profile_cache: Option<CachedResponse<ProfileResponse>>,
 }
 
 pub type SyncKeys = (String, String);
 
 impl FirefoxAccount {
-    pub fn new(config: Config, client_id: &str) -> FirefoxAccount {
+    fn from_state(state: StateV1) -> FirefoxAccount {
         FirefoxAccount {
-            state: FxAStateV1 {
-                client_id: client_id.to_string(),
-                config,
-                login_state: Unknown,
-                oauth_cache: HashMap::new(),
-            },
+            state,
             flow_store: HashMap::new(),
+            profile_cache: None,
         }
+    }
+
+    pub fn new(config: Config, client_id: &str) -> FirefoxAccount {
+        FirefoxAccount::from_state(StateV1 {
+            client_id: client_id.to_string(),
+            config,
+            login_state: Unknown,
+            oauth_cache: HashMap::new(),
+        })
     }
 
     // Initialize state from Firefox Accounts credentials obtained using the
@@ -109,7 +129,7 @@ impl FirefoxAccount {
     pub fn from_credentials(
         config: Config,
         client_id: &str,
-        credentials: FxAWebChannelResponse,
+        credentials: WebChannelResponse,
     ) -> Result<FirefoxAccount> {
         let session_token = hex::decode(credentials.session_token)?;
         let key_fetch_token = hex::decode(credentials.key_fetch_token)?;
@@ -127,29 +147,23 @@ impl FirefoxAccount {
             EngagedBeforeVerified(login_state_data)
         };
 
-        Ok(FirefoxAccount {
-            state: FxAStateV1 {
-                client_id: client_id.to_string(),
-                config,
-                login_state,
-                oauth_cache: HashMap::new(),
-            },
-            flow_store: HashMap::new(),
-        })
+        Ok(FirefoxAccount::from_state(StateV1 {
+            client_id: client_id.to_string(),
+            config,
+            login_state,
+            oauth_cache: HashMap::new(),
+        }))
     }
 
     pub fn from_json(data: &str) -> Result<FirefoxAccount> {
-        let fxa_state: FxAState = serde_json::from_str(data)?;
+        let fxa_state: State = serde_json::from_str(data)?;
         match fxa_state {
-            FxAState::V1(state) => Ok(FirefoxAccount {
-                state,
-                flow_store: HashMap::new(),
-            }),
+            State::V1(state) => Ok(FirefoxAccount::from_state(state)),
         }
     }
 
     pub fn to_json(&self) -> Result<String> {
-        let state = FxAState::V1(self.state.clone());
+        let state = State::V1(self.state.clone());
         Ok(serde_json::to_string(&state)?)
     }
 
@@ -162,8 +176,8 @@ impl FirefoxAccount {
     }
 
     pub fn advance(&mut self) {
-        let client = FxAClient::new(&self.state.config);
-        let state_machine = FxALoginStateMachine::new(client);
+        let client = Client::new(&self.state.config);
+        let state_machine = LoginStateMachine::new(client);
         let state = mem::replace(&mut self.state.login_state, Unknown);
         self.state.login_state = state_machine.advance(state);
     }
@@ -210,7 +224,7 @@ impl FirefoxAccount {
         let resp;
         {
             if let Some(refresh_token) = refresh_token {
-                let client = FxAClient::new(&self.state.config);
+                let client = Client::new(&self.state.config);
                 resp = client.oauth_token_with_refresh_token(
                     &self.state.client_id,
                     &refresh_token,
@@ -219,7 +233,7 @@ impl FirefoxAccount {
             } else if let Some(session_token) =
                 FirefoxAccount::session_token_from_state(&self.state.login_state)
             {
-                let client = FxAClient::new(&self.state.config);
+                let client = Client::new(&self.state.config);
                 resp = client.oauth_token_with_assertion(
                     &self.state.client_id,
                     session_token,
@@ -280,7 +294,7 @@ impl FirefoxAccount {
                 Some(flow) => flow,
                 None => bail!(ErrorKind::UnknownOAuthState),
             };
-            let client = FxAClient::new(&self.state.config);
+            let client = Client::new(&self.state.config);
             resp = client.oauth_token_with_code(&code, &flow.code_verifier, &self.state.client_id)?;
         }
         let oauth_flow = match self.flow_store.remove(state) {
@@ -328,7 +342,7 @@ impl FirefoxAccount {
         random
     }
 
-    fn session_token_from_state(state: &FxALoginState) -> Option<&[u8]> {
+    fn session_token_from_state(state: &LoginState) -> Option<&[u8]> {
         match state {
             &Separated(_) | Unknown => None,
             // Despite all these states implementing the same trait we can't treat
@@ -356,9 +370,37 @@ impl FirefoxAccount {
         )?)
     }
 
-    pub fn get_profile(&mut self, profile_access_token: &str) -> Result<ProfileResponse> {
-        let client = FxAClient::new(&self.state.config);
-        Ok(client.profile(profile_access_token)?)
+    pub fn get_profile(
+        &mut self,
+        profile_access_token: &str,
+        ignore_cache: bool,
+    ) -> Result<ProfileResponse> {
+        let mut etag = None;
+        if let Some(ref cached_profile) = self.profile_cache {
+            if !ignore_cache && now() < cached_profile.cached_at + PROFILE_FRESHNESS_THRESHOLD {
+                return Ok(cached_profile.response.clone());
+            }
+            etag = Some(cached_profile.etag.clone());
+        }
+        let client = Client::new(&self.state.config);
+        match client.profile(profile_access_token, etag)? {
+            Some(response_and_etag) => {
+                if let Some(etag) = response_and_etag.etag {
+                    self.profile_cache = Some(CachedResponse {
+                        response: response_and_etag.response.clone(),
+                        cached_at: now(),
+                        etag,
+                    });
+                }
+                Ok(response_and_etag.response)
+            }
+            None => match self.profile_cache {
+                Some(ref cached_profile) => Ok(cached_profile.response.clone()),
+                None => {
+                    bail!("Insane state! We got a 304 without having a cached response.");
+                }
+            },
+        }
     }
 
     pub fn get_sync_keys(&mut self) -> Result<SyncKeys> {
@@ -370,7 +412,7 @@ impl FirefoxAccount {
         Ok((sync_key, married.xcs().to_string()))
     }
 
-    pub fn get_token_server_endpoint_url(&self) -> String {
+    pub fn get_token_server_endpoint_url(&self) -> Result<Url> {
         self.state.config.token_server_endpoint_url()
     }
 
@@ -395,7 +437,7 @@ impl FirefoxAccount {
     }
 
     pub fn sign_out(mut self) {
-        let client = FxAClient::new(&self.state.config);
+        let client = Client::new(&self.state.config);
         client.sign_out();
         self.state.login_state = self.state.login_state.to_separated();
     }
@@ -411,7 +453,7 @@ mod tests {
         let fxa1 = FirefoxAccount::from_credentials(
             config,
             "5882386c6d801776",
-            FxAWebChannelResponse {
+            WebChannelResponse {
                 uid: "123456".to_string(),
                 email: "foo@bar.com".to_string(),
                 verified: false,

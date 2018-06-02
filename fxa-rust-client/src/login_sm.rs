@@ -1,22 +1,26 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 use std;
 
 use errors::ErrorKind::RemoteError;
 use errors::*;
 use http_client::browser_id::rsa::RSABrowserIDKeyPair;
 use http_client::*;
-use login_sm::FxALoginState::*;
+use login_sm::LoginState::*;
 use util::{now, Xorable};
 
-pub struct FxALoginStateMachine<'a> {
-    client: FxAClient<'a>,
+pub struct LoginStateMachine<'a> {
+    client: Client<'a>,
 }
 
-impl<'a> FxALoginStateMachine<'a> {
-    pub fn new(client: FxAClient<'a>) -> FxALoginStateMachine {
-        FxALoginStateMachine { client }
+impl<'a> LoginStateMachine<'a> {
+    pub fn new(client: Client<'a>) -> LoginStateMachine {
+        LoginStateMachine { client }
     }
 
-    pub fn advance(&self, from: FxALoginState) -> FxALoginState {
+    pub fn advance(&self, from: LoginState) -> LoginState {
         let mut cur_state = from;
         loop {
             let cur_state_discriminant = std::mem::discriminant(&cur_state);
@@ -30,8 +34,7 @@ impl<'a> FxALoginStateMachine<'a> {
         cur_state
     }
 
-    // Returns None if the state hasn't changed.
-    fn advance_one(&self, from: FxALoginState) -> FxALoginState {
+    fn advance_one(&self, from: LoginState) -> LoginState {
         info!("advancing from state {:?}", from);
         match from {
             Married(state) => {
@@ -50,7 +53,7 @@ impl<'a> FxALoginStateMachine<'a> {
             }
             CohabitingBeforeKeyPair(state) => {
                 debug!("Generating key pair.");
-                let key_pair = match FxAClient::key_pair(2048) {
+                let key_pair = match Client::key_pair(2048) {
                     Ok(key_pair) => key_pair,
                     Err(_) => {
                         error!("Failed to generate key pair! Transitioning to Separated.");
@@ -67,7 +70,8 @@ impl<'a> FxALoginStateMachine<'a> {
             }
             CohabitingAfterKeyPair(state) => {
                 debug!("Signing public key.");
-                let resp = self.client
+                let resp = self
+                    .client
                     .sign(&state.token_and_keys.session_token, &state.key_pair);
                 match resp {
                     Ok(resp) => {
@@ -103,11 +107,11 @@ impl<'a> FxALoginStateMachine<'a> {
         }
     }
 
-    fn handle_ready_for_key_state<F: FnOnce(ReadyForKeysState) -> FxALoginState>(
+    fn handle_ready_for_key_state<F: FnOnce(ReadyForKeysState) -> LoginState>(
         &self,
         same: F,
         state: ReadyForKeysState,
-    ) -> FxALoginState {
+    ) -> LoginState {
         debug!("Fetching keys.");
         let resp = self.client.keys(&state.key_fetch_token);
         match resp {
@@ -120,8 +124,8 @@ impl<'a> FxALoginStateMachine<'a> {
                     }
                 };
                 info!("Unwrapped keys response.  Transition to CohabitingBeforeKeyPair.");
-                let sync_key = FxAClient::derive_sync_key(&kb);
-                let xcs = FxAClient::compute_client_state(&kb);
+                let sync_key = Client::derive_sync_key(&kb);
+                let xcs = Client::compute_client_state(&kb);
                 CohabitingBeforeKeyPair(TokenAndKeysState {
                     base: state.base,
                     session_token: state.session_token.to_vec(),
@@ -149,7 +153,7 @@ impl<'a> FxALoginStateMachine<'a> {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum FxALoginState {
+pub enum LoginState {
     Married(MarriedState),
     CohabitingBeforeKeyPair(CohabitingBeforeKeyPairState),
     CohabitingAfterKeyPair(CohabitingAfterKeyPairState),
@@ -261,8 +265,8 @@ impl MarriedState {
     }
 }
 
-impl FxALoginState {
-    pub fn to_separated(self) -> FxALoginState {
+impl LoginState {
+    pub fn to_separated(self) -> LoginState {
         match self {
             Married(state) => Separated(state.token_keys_and_key_pair.token_and_keys.base),
             CohabitingBeforeKeyPair(state) => Separated(state.base),

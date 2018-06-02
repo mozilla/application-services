@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 extern crate fxa_client;
 extern crate libc;
 
@@ -9,7 +13,7 @@ use std::ffi::CString;
 use ctypes::*;
 use fxa_client::errors::Error as InternalError;
 use fxa_client::errors::ErrorKind::*;
-use fxa_client::{Config, FirefoxAccount, FxAWebChannelResponse};
+use fxa_client::{Config, FirefoxAccount, WebChannelResponse};
 use libc::{c_char, c_void};
 use util::*;
 
@@ -27,7 +31,7 @@ pub struct ExternError {
     message: *const c_char,
 }
 
-/// A C representation Rust's [Result](std::result::Result).
+/// A C representation of Rust's [Result](std::result::Result).
 /// A value of `Ok` results in `ok` containing a raw pointer as a `c_void`
 /// and `err` containing a null pointer.
 /// A value of `Err` results in `value` containing a null pointer and `err` containing an error struct.
@@ -115,8 +119,7 @@ pub extern "C" fn fxa_get_custom_config(content_base: *const c_char) -> *mut Ext
     }
 }
 
-/// Creates a [FirefoxAccount] from credentials obtained with the "session-token" FxA
-/// login flow.
+/// Creates a [FirefoxAccount] from credentials obtained with the onepw FxA login flow.
 ///
 /// This is typically used by the legacy Sync clients: new clients mainly use OAuth flows and
 /// therefore should use `fxa_new`.
@@ -136,7 +139,7 @@ pub extern "C" fn fxa_from_credentials(
     let config = unsafe { Box::from_raw(&mut *config) };
     let json = c_char_to_string(json);
     let client_id = c_char_to_string(client_id);
-    let resp = match FxAWebChannelResponse::from_json(json) {
+    let resp = match WebChannelResponse::from_json(json) {
         Ok(resp) => resp,
         Err(err) => return ExternResult::from_internal(err),
     };
@@ -211,9 +214,10 @@ pub extern "C" fn fxa_to_json(fxa: *mut FirefoxAccount) -> *mut ExternResult {
 pub extern "C" fn fxa_profile(
     fxa: *mut FirefoxAccount,
     profile_access_token: &str,
+    ignore_cache: bool,
 ) -> *mut ExternResult {
     let fxa = unsafe { &mut *fxa };
-    let profile: ProfileC = match fxa.get_profile(profile_access_token) {
+    let profile: ProfileC = match fxa.get_profile(profile_access_token, ignore_cache) {
         Ok(profile) => profile.into(),
         Err(err) => return ExternResult::from_internal(err),
     };
@@ -227,10 +231,12 @@ pub extern "C" fn fxa_profile(
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_get_token_server_endpoint_url(fxa: *mut FirefoxAccount) -> *mut c_char {
+pub extern "C" fn fxa_get_token_server_endpoint_url(fxa: *mut FirefoxAccount) -> *mut ExternResult {
     let fxa = unsafe { &mut *fxa };
-    let url = fxa.get_token_server_endpoint_url();
-    string_to_c_char(url)
+    match fxa.get_token_server_endpoint_url() {
+        Ok(url) => ExternResult::ok(string_to_c_char(url.to_string())),
+        Err(err) => ExternResult::from_internal(err),
+    }
 }
 
 /// Generate an assertion for a specified audience. Requires to be in a `Married` state.

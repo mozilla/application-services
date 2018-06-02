@@ -1,9 +1,12 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 use hex;
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use reqwest;
-use reqwest::{header, Client, Method, Request};
-use serde::Deserialize;
+use reqwest::{header, Client as ReqwestClient, Method, Request, Response, StatusCode};
 use serde_json;
 use sha2::{Digest, Sha256};
 use std;
@@ -11,7 +14,7 @@ use util::Xorable;
 
 use self::browser_id::rsa::RSABrowserIDKeyPair;
 use self::browser_id::{jwt_utils, BrowserIDKeyPair};
-use self::hawk_request::FxAHAWKRequestBuilder;
+use self::hawk_request::HAWKRequestBuilder;
 use config::Config;
 use errors::*;
 
@@ -22,13 +25,13 @@ const HKDF_SALT: [u8; 32] = [0b0; 32];
 const KEY_LENGTH: usize = 32;
 const SIGN_DURATION_MS: u64 = 24 * 60 * 60 * 1000;
 
-pub struct FxAClient<'a> {
+pub struct Client<'a> {
     config: &'a Config,
 }
 
-impl<'a> FxAClient<'a> {
-    pub fn new(config: &'a Config) -> FxAClient<'a> {
-        FxAClient { config }
+impl<'a> Client<'a> {
+    pub fn new(config: &'a Config) -> Client<'a> {
+        Client { config }
     }
 
     fn kw(name: &str) -> Vec<u8> {
@@ -50,8 +53,8 @@ impl<'a> FxAClient<'a> {
 
     pub fn derive_sync_key(kb: &[u8]) -> Vec<u8> {
         let salt = [0u8; 0];
-        let context_info = FxAClient::kw("oldsync");
-        FxAClient::derive_hkdf_sha256_key(&kb, &salt, &context_info, KEY_LENGTH * 2)
+        let context_info = Client::kw("oldsync");
+        Client::derive_hkdf_sha256_key(&kb, &salt, &context_info, KEY_LENGTH * 2)
     }
 
     pub fn compute_client_state(kb: &[u8]) -> String {
@@ -65,37 +68,37 @@ impl<'a> FxAClient<'a> {
     pub fn login(&self, email: &str, auth_pwd: &str, get_keys: bool) -> Result<LoginResponse> {
         let url = self.config.auth_url_path("v1/account/login")?;
         let parameters = json!({
-      "email": email,
-      "authPW": auth_pwd
-    });
-        let client = Client::new();
+          "email": email,
+          "authPW": auth_pwd
+        });
+        let client = ReqwestClient::new();
         let request = client
             .request(Method::Post, url)
             .query(&[("keys", get_keys)])
             .body(parameters.to_string())
             .build()?;
-        FxAClient::make_request(request)
+        Ok(Client::make_request(request)?.json()?)
     }
 
     pub fn account_status(&self, uid: &String) -> Result<AccountStatusResponse> {
         let url = self.config.auth_url_path("v1/account/status")?;
-        let client = Client::new();
+        let client = ReqwestClient::new();
         let request = client.get(url).query(&[("uid", uid)]).build()?;
-        FxAClient::make_request(request)
+        Ok(Client::make_request(request)?.json()?)
     }
 
     pub fn keys(&self, key_fetch_token: &[u8]) -> Result<KeysResponse> {
         let url = self.config.auth_url_path("v1/account/keys")?;
-        let context_info = FxAClient::kw("keyFetchToken");
-        let key = FxAClient::derive_hkdf_sha256_key(
+        let context_info = Client::kw("keyFetchToken");
+        let key = Client::derive_hkdf_sha256_key(
             &key_fetch_token,
             &HKDF_SALT,
             &context_info,
             KEY_LENGTH * 3,
         );
         let key_request_key = &key[(KEY_LENGTH * 2)..(KEY_LENGTH * 3)];
-        let request = FxAHAWKRequestBuilder::new(Method::Get, url, &key).build()?;
-        let json: serde_json::Value = FxAClient::make_request(request)?;
+        let request = HAWKRequestBuilder::new(Method::Get, url, &key).build()?;
+        let json: serde_json::Value = Client::make_request(request)?.json()?;
         let bundle = match json["bundle"].as_str() {
             Some(bundle) => bundle,
             None => bail!("Invalid JSON"),
@@ -106,8 +109,8 @@ impl<'a> FxAClient<'a> {
         }
         let ciphertext = &data[0..(KEY_LENGTH * 2)];
         let mac_code = &data[(KEY_LENGTH * 2)..(KEY_LENGTH * 3)];
-        let context_info = FxAClient::kw("account/keys");
-        let bytes = FxAClient::derive_hkdf_sha256_key(
+        let context_info = Client::kw("account/keys");
+        let bytes = Client::derive_hkdf_sha256_key(
             key_request_key,
             &HKDF_SALT,
             &context_info,
@@ -135,21 +138,39 @@ impl<'a> FxAClient<'a> {
         session_token: &[u8],
     ) -> Result<RecoveryEmailStatusResponse> {
         let url = self.config.auth_url_path("v1/recovery_email/status")?;
-        let key = FxAClient::derive_key_from_session_token(session_token)?;
-        let request = FxAHAWKRequestBuilder::new(Method::Get, url, &key).build()?;
-        FxAClient::make_request(request)
+        let key = Client::derive_key_from_session_token(session_token)?;
+        let request = HAWKRequestBuilder::new(Method::Get, url, &key).build()?;
+        Ok(Client::make_request(request)?.json()?)
     }
 
-    pub fn profile(&self, profile_access_token: &str) -> Result<ProfileResponse> {
+    pub fn profile(
+        &self,
+        profile_access_token: &str,
+        etag: Option<String>,
+    ) -> Result<Option<ResponseAndETag<ProfileResponse>>> {
         let url = self.config.profile_url_path("v1/profile")?;
-        let client = Client::new();
-        let request = client
-            .request(Method::Get, url)
-            .header(header::Authorization(header::Bearer {
-                token: profile_access_token.to_string(),
-            }))
-            .build()?;
-        FxAClient::make_request(request)
+        let client = ReqwestClient::new();
+        let mut builder = client.request(Method::Get, url);
+        builder.header(header::Authorization(header::Bearer {
+            token: profile_access_token.to_string(),
+        }));
+        if let Some(etag) = etag {
+            builder.header(header::IfNoneMatch::Items(vec![header::EntityTag::strong(
+                etag,
+            )]));
+        }
+        let request = builder.build()?;
+        let mut resp = Client::make_request(request)?;
+        if resp.status() == StatusCode::NotModified {
+            return Ok(None);
+        }
+        Ok(Some(ResponseAndETag {
+            etag: resp
+                .headers()
+                .get::<header::ETag>()
+                .map(|etag| etag.tag().to_string()),
+            response: resp.json()?,
+        }))
     }
 
     pub fn oauth_token_with_assertion(
@@ -159,7 +180,7 @@ impl<'a> FxAClient<'a> {
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse> {
         let audience = self.get_oauth_audience()?;
-        let key_pair = FxAClient::key_pair(1024)?;
+        let key_pair = Client::key_pair(1024)?;
         let certificate = self.sign(session_token, &key_pair)?.certificate;
         let assertion = jwt_utils::create_assertion(&key_pair, &certificate, &audience)?;
         let parameters = json!({
@@ -168,12 +189,12 @@ impl<'a> FxAClient<'a> {
           "response_type": "token",
           "scope": scopes.join(" ")
         });
-        let key = FxAClient::derive_key_from_session_token(session_token)?;
+        let key = Client::derive_key_from_session_token(session_token)?;
         let url = self.config.oauth_url_path("v1/authorization")?;
-        let request = FxAHAWKRequestBuilder::new(Method::Post, url, &key)
+        let request = HAWKRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
-        FxAClient::make_request(request)
+        Ok(Client::make_request(request)?.json()?)
     }
 
     pub fn oauth_token_with_code(
@@ -207,32 +228,33 @@ impl<'a> FxAClient<'a> {
 
     fn make_oauth_token_request(&self, body: serde_json::Value) -> Result<OAuthTokenResponse> {
         let url = self.config.oauth_url_path("v1/token")?;
-        let client = Client::new();
+        let client = ReqwestClient::new();
         let request = client
             .request(Method::Post, url)
             .header(header::ContentType::json())
             .body(body.to_string())
             .build()?;
-        FxAClient::make_request(request)
+        Ok(Client::make_request(request)?.json()?)
     }
 
     pub fn sign(&self, session_token: &[u8], key_pair: &BrowserIDKeyPair) -> Result<SignResponse> {
         let public_key_json = key_pair.to_json(false)?;
         let parameters = json!({
-      "publicKey": public_key_json,
-      "duration": SIGN_DURATION_MS
-    });
-        let key = FxAClient::derive_key_from_session_token(session_token)?;
+          "publicKey": public_key_json,
+          "duration": SIGN_DURATION_MS
+        });
+        let key = Client::derive_key_from_session_token(session_token)?;
         let url = self.config.auth_url_path("v1/certificate/sign")?;
-        let request = FxAHAWKRequestBuilder::new(Method::Post, url, &key)
+        let request = HAWKRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
-        FxAClient::make_request(request)
+        Ok(Client::make_request(request)?.json()?)
     }
 
     fn get_oauth_audience(&self) -> Result<String> {
         let url = self.config.oauth_url()?;
-        let host = url.host_str()
+        let host = url
+            .host_str()
             .chain_err(|| "This URL doesn't have a host!")?;
         match url.port() {
             Some(port) => Ok(format!("{}://{}:{}", url.scheme(), host, port)),
@@ -241,8 +263,8 @@ impl<'a> FxAClient<'a> {
     }
 
     fn derive_key_from_session_token(session_token: &[u8]) -> Result<Vec<u8>> {
-        let context_info = FxAClient::kw("sessionToken");
-        Ok(FxAClient::derive_hkdf_sha256_key(
+        let context_info = Client::kw("sessionToken");
+        Ok(Client::derive_hkdf_sha256_key(
             session_token,
             &HKDF_SALT,
             &context_info,
@@ -255,15 +277,13 @@ impl<'a> FxAClient<'a> {
         hk.expand(&info, len)
     }
 
-    fn make_request<T>(request: Request) -> Result<T>
-    where
-        for<'de> T: Deserialize<'de>,
-    {
-        let client = Client::new();
+    fn make_request(request: Request) -> Result<Response> {
+        let client = ReqwestClient::new();
         let mut resp = client.execute(request)?;
+        let status = resp.status();
 
-        if resp.status().is_success() {
-            Ok(resp.json()?)
+        if status.is_success() || status == StatusCode::NotModified {
+            Ok(resp)
         } else {
             let json: std::result::Result<serde_json::Value, reqwest::Error> = resp.json();
             match json {
@@ -278,6 +298,11 @@ impl<'a> FxAClient<'a> {
             }
         }
     }
+}
+
+pub struct ResponseAndETag<T> {
+    pub response: T,
+    pub etag: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -320,7 +345,7 @@ pub struct KeysResponse {
     pub wrap_kb: Vec<u8>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ProfileResponse {
     pub uid: String,
     pub email: String,
@@ -341,7 +366,7 @@ mod tests {
     use openssl::pkcs5::pbkdf2_hmac;
 
     fn quick_strech_pwd(email: &str, pwd: &str) -> Vec<u8> {
-        let salt = FxAClient::kwe("quickStretch", email);
+        let salt = Client::kwe("quickStretch", email);
         let digest = MessageDigest::sha256();
         let mut out = [0u8; 32];
         pbkdf2_hmac(pwd.as_bytes(), &salt, 1000, digest, &mut out).unwrap();
@@ -351,8 +376,8 @@ mod tests {
     fn auth_pwd(email: &str, pwd: &str) -> String {
         let streched = quick_strech_pwd(email, pwd);
         let salt = [0u8; 0];
-        let context = FxAClient::kw("authPW");
-        let derived = FxAClient::derive_hkdf_sha256_key(&streched, &salt, &context, 32);
+        let context = Client::kw("authPW");
+        let derived = Client::derive_hkdf_sha256_key(&streched, &salt, &context, 32);
         hex::encode(derived)
     }
 
@@ -385,7 +410,7 @@ mod tests {
         let auth_pwd = auth_pwd(email, pwd);
 
         let config = Config::stable().unwrap();
-        let client = FxAClient::new(&config);
+        let client = Client::new(&config);
 
         let resp = client.login(&email, &auth_pwd, false).unwrap();
         println!("Session Token obtained: {}", &resp.session_token);
