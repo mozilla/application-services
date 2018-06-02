@@ -20,7 +20,7 @@ pub struct Config {
     auth_url: String,
     oauth_url: String,
     profile_url: String,
-    token_server_url: String,
+    token_server_endpoint_url: String,
 }
 
 impl Config {
@@ -40,7 +40,7 @@ impl Config {
             auth_url: format!("{}/", resp.auth_server_base_url),
             oauth_url: format!("{}/", resp.oauth_server_base_url),
             profile_url: format!("{}/", resp.profile_server_base_url),
-            token_server_url: resp.sync_tokenserver_base_url,
+            token_server_endpoint_url: format!("{}/1.0/sync/1.5", resp.sync_tokenserver_base_url),
         })
     }
 
@@ -76,8 +76,8 @@ impl Config {
         Ok(self.oauth_url()?.join(path)?)
     }
 
-    pub fn token_server_endpoint_url(&self) -> String {
-        format!("{}/1.0/sync/1.5", &self.token_server_url)
+    pub fn token_server_endpoint_url(&self) -> Result<Url> {
+        Ok(Url::parse(&self.token_server_endpoint_url)?)
     }
 }
 
@@ -92,7 +92,8 @@ mod tests {
             auth_url: "https://stable.dev.lcip.org/auth/".to_string(),
             oauth_url: "https://oauth-stable.dev.lcip.org/".to_string(),
             profile_url: "https://stable.dev.lcip.org/profile/".to_string(),
-            token_server_url: "https://stable.dev.lcip.org/syncserver/token".to_string(),
+            token_server_endpoint_url: "https://stable.dev.lcip.org/syncserver/token/1.0/sync/1.5"
+                .to_string(),
         };
         assert_eq!(
             config.auth_url_path("v1/account/keys").unwrap().to_string(),
@@ -111,7 +112,7 @@ mod tests {
             "https://stable.dev.lcip.org/oauth/signin"
         );
         assert_eq!(
-            config.token_server_endpoint_url(),
+            config.token_server_endpoint_url().unwrap().to_string(),
             "https://stable.dev.lcip.org/syncserver/token/1.0/sync/1.5"
         );
     }

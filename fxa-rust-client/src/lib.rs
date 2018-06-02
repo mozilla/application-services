@@ -41,6 +41,7 @@ use http_client::{FxAClient, OAuthTokenResponse, ProfileResponse};
 use jose::{JWKECCurve, JWE, JWK};
 use openssl::hash::{hash, MessageDigest};
 use rand::{OsRng, RngCore};
+use url::Url;
 use util::now;
 
 mod config;
@@ -369,7 +370,11 @@ impl FirefoxAccount {
         )?)
     }
 
-    pub fn get_profile(&mut self, profile_access_token: &str, ignore_cache: bool) -> Result<ProfileResponse> {
+    pub fn get_profile(
+        &mut self,
+        profile_access_token: &str,
+        ignore_cache: bool,
+    ) -> Result<ProfileResponse> {
         let mut etag = None;
         if let Some(ref cached_profile) = self.profile_cache {
             if !ignore_cache && now() < cached_profile.cached_at + PROFILE_FRESHNESS_THRESHOLD {
@@ -407,7 +412,7 @@ impl FirefoxAccount {
         Ok((sync_key, married.xcs().to_string()))
     }
 
-    pub fn get_token_server_endpoint_url(&self) -> String {
+    pub fn get_token_server_endpoint_url(&self) -> Result<Url> {
         self.state.config.token_server_endpoint_url()
     }
 

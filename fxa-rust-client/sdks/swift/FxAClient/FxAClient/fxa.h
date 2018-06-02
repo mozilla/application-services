@@ -74,7 +74,7 @@ Result*_Nonnull fxa_new(Config *config, const char *_Nonnull client_id);
 Result*_Nonnull fxa_profile(FirefoxAccount *_Nonnull fxa, const char *_Nonnull profile_access_token, bool ignore_cache);
 Result*_Nonnull fxa_from_credentials(Config *_Nonnull config, const char *_Nonnull client_id, const char *_Nonnull json);
 Result*_Nonnull fxa_assertion_new(FirefoxAccount *_Nonnull fxa, const char *_Nonnull audience);
-char *_Nonnull fxa_get_token_server_endpoint_url(FirefoxAccount *_Nonnull fxa);
+Result*_Nonnull fxa_get_token_server_endpoint_url(FirefoxAccount *_Nonnull fxa);
 Result*_Nonnull fxa_get_sync_keys(FirefoxAccount *_Nonnull fxa);
 
 void free_extern_result(Result* _Nullable ptr);

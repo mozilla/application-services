@@ -231,10 +231,12 @@ pub extern "C" fn fxa_profile(
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_get_token_server_endpoint_url(fxa: *mut FirefoxAccount) -> *mut c_char {
+pub extern "C" fn fxa_get_token_server_endpoint_url(fxa: *mut FirefoxAccount) -> *mut ExternResult {
     let fxa = unsafe { &mut *fxa };
-    let url = fxa.get_token_server_endpoint_url();
-    string_to_c_char(url)
+    match fxa.get_token_server_endpoint_url() {
+        Ok(url) => ExternResult::ok(string_to_c_char(url.to_string())),
+        Err(err) => ExternResult::from_internal(err),
+    }
 }
 
 /// Generate an assertion for a specified audience. Requires to be in a `Married` state.
