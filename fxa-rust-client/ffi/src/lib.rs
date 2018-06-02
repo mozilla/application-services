@@ -13,7 +13,7 @@ use std::ffi::CString;
 use ctypes::*;
 use fxa_client::errors::Error as InternalError;
 use fxa_client::errors::ErrorKind::*;
-use fxa_client::{Config, FirefoxAccount, FxAWebChannelResponse};
+use fxa_client::{Config, FirefoxAccount, WebChannelResponse};
 use libc::{c_char, c_void};
 use util::*;
 
@@ -139,7 +139,7 @@ pub extern "C" fn fxa_from_credentials(
     let config = unsafe { Box::from_raw(&mut *config) };
     let json = c_char_to_string(json);
     let client_id = c_char_to_string(client_id);
-    let resp = match FxAWebChannelResponse::from_json(json) {
+    let resp = match WebChannelResponse::from_json(json) {
         Ok(resp) => resp,
         Err(err) => return ExternResult::from_internal(err),
     };

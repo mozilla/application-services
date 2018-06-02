@@ -7,7 +7,7 @@ use reqwest;
 use url::Url;
 
 #[derive(Deserialize)]
-struct FxAClientConfigurationResponse {
+struct ClientConfigurationResponse {
     auth_server_base_url: String,
     oauth_server_base_url: String,
     profile_server_base_url: String,
@@ -34,7 +34,7 @@ impl Config {
 
     pub fn import_from(content_url: &str) -> Result<Config> {
         let config_url = Url::parse(content_url)?.join(".well-known/fxa-client-configuration")?;
-        let resp: FxAClientConfigurationResponse = reqwest::get(config_url)?.json()?;
+        let resp: ClientConfigurationResponse = reqwest::get(config_url)?.json()?;
         Ok(Config {
             content_url: content_url.to_string(),
             auth_url: format!("{}/", resp.auth_server_base_url),

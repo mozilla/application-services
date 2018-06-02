@@ -92,35 +92,44 @@ impl Serialize for RSABrowserIDKeyPair {
         S: Serializer,
     {
         let mut state = serializer.serialize_struct("RSABrowserIDKeyPair", 2)?;
-        let rsa = self.key
+        let rsa = self
+            .key
             .rsa()
             .map_err(|err| ser::Error::custom(err.to_string()))?;
-        let n = rsa.n()
+        let n = rsa
+            .n()
             .to_dec_str()
             .map_err(|err| ser::Error::custom(err.to_string()))?;
-        let e = rsa.e()
+        let e = rsa
+            .e()
             .to_dec_str()
             .map_err(|err| ser::Error::custom(err.to_string()))?;
-        let d = rsa.d()
+        let d = rsa
+            .d()
             .to_dec_str()
             .map_err(|err| ser::Error::custom(err.to_string()))?;
         state.serialize_field("n", &format!("{}", n))?;
         state.serialize_field("e", &format!("{}", e))?;
         state.serialize_field("d", &format!("{}", d))?;
         if let (Some(p), Some(q)) = (rsa.p(), rsa.q()) {
-            let p = p.to_dec_str()
+            let p = p
+                .to_dec_str()
                 .map_err(|err| ser::Error::custom(err.to_string()))?;
-            let q = q.to_dec_str()
+            let q = q
+                .to_dec_str()
                 .map_err(|err| ser::Error::custom(err.to_string()))?;
             state.serialize_field("p", &format!("{}", p))?;
             state.serialize_field("q", &format!("{}", q))?;
         }
         if let (Some(dmp1), Some(dmq1), Some(iqmp)) = (rsa.dmp1(), rsa.dmq1(), rsa.iqmp()) {
-            let dmp1 = dmp1.to_dec_str()
+            let dmp1 = dmp1
+                .to_dec_str()
                 .map_err(|err| ser::Error::custom(err.to_string()))?;
-            let dmq1 = dmq1.to_dec_str()
+            let dmq1 = dmq1
+                .to_dec_str()
                 .map_err(|err| ser::Error::custom(err.to_string()))?;
-            let iqmp = iqmp.to_dec_str()
+            let iqmp = iqmp
+                .to_dec_str()
                 .map_err(|err| ser::Error::custom(err.to_string()))?;
             state.serialize_field("dmp1", &format!("{}", dmp1))?;
             state.serialize_field("dmq1", &format!("{}", dmq1))?;

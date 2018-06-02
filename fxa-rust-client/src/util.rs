@@ -28,7 +28,8 @@ impl Xorable for [u8] {
         if self.len() != other.len() {
             Err("Slices have different sizes.")
         } else {
-            Ok(self.iter()
+            Ok(self
+                .iter()
                 .zip(other.iter())
                 .map(|(&x, &y)| x ^ y)
                 .collect())
