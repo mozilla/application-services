@@ -20,6 +20,11 @@ JANSSON_SRC_PATH=$1
 OPENSSL_SRC_PATH=$2
 CJOSE_SRC_PATH=$3
 
+if [ -d "android" ]; then
+  echo "android folder already exists. Skipping build."
+  exit 0
+fi
+
 NDK_PATH=$(abspath "android-ndk-r""$NDK_VERSION")
 
 echo "# Preparing build environment"

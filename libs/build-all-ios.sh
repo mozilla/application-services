@@ -35,6 +35,11 @@ function universal_lib() {
   fi
 }
 
+if [ -d "ios" ]; then
+  echo "ios folder already exists. Skipping build."
+  exit 0
+fi
+
 echo "# Building jansson"
 for i in "${!TARGET_ARCHS[@]}"; do
   ARCH=${TARGET_ARCHS[$i]}
