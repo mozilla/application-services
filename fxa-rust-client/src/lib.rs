@@ -256,7 +256,7 @@ impl FirefoxAccount {
         let code_verifier = FirefoxAccount::random_base64_url_string(43);
         let code_challenge = hash(MessageDigest::sha256(), &code_verifier.as_bytes())?;
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
-        let mut url = self.state.config.content_url_path("oauth/signin")?;
+        let mut url = self.state.config.authorization_endpoint()?;
         url.query_pairs_mut()
             .append_pair("client_id", &self.state.client_id)
             .append_pair("redirect_uri", &redirect_uri)

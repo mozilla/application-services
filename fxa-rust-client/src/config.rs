@@ -14,6 +14,15 @@ struct ClientConfigurationResponse {
     sync_tokenserver_base_url: String,
 }
 
+#[derive(Deserialize)]
+struct OpenIdConfigurationResponse {
+    authorization_endpoint: String,
+    issuer: String,
+    jwks_uri: String,
+    token_endpoint: String,
+    userinfo_endpoint: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
     content_url: String,
@@ -21,6 +30,11 @@ pub struct Config {
     oauth_url: String,
     profile_url: String,
     token_server_endpoint_url: String,
+    authorization_endpoint: String,
+    issuer: String,
+    jwks_uri: String,
+    token_endpoint: String,
+    userinfo_endpoint: String,
 }
 
 impl Config {
@@ -35,12 +49,21 @@ impl Config {
     pub fn import_from(content_url: &str) -> Result<Config> {
         let config_url = Url::parse(content_url)?.join(".well-known/fxa-client-configuration")?;
         let resp: ClientConfigurationResponse = reqwest::get(config_url)?.json()?;
+
+        let openid_config_url = Url::parse(content_url)?.join(".well-known/openid-configuration")?;
+        let openid_resp: OpenIdConfigurationResponse = reqwest::get(openid_config_url)?.json()?;
+
         Ok(Config {
             content_url: content_url.to_string(),
             auth_url: format!("{}/", resp.auth_server_base_url),
             oauth_url: format!("{}/", resp.oauth_server_base_url),
             profile_url: format!("{}/", resp.profile_server_base_url),
             token_server_endpoint_url: format!("{}/1.0/sync/1.5", resp.sync_tokenserver_base_url),
+            authorization_endpoint: openid_resp.authorization_endpoint,
+            issuer: openid_resp.issuer,
+            jwks_uri: openid_resp.jwks_uri,
+            token_endpoint: openid_resp.token_endpoint,
+            userinfo_endpoint: openid_resp.userinfo_endpoint,
         })
     }
 
@@ -79,6 +102,26 @@ impl Config {
     pub fn token_server_endpoint_url(&self) -> Result<Url> {
         Ok(Url::parse(&self.token_server_endpoint_url)?)
     }
+
+    pub fn authorization_endpoint(&self) -> Result<Url> {
+        Ok(Url::parse(&self.authorization_endpoint)?)
+    }
+
+    pub fn issuer(&self) -> Result<Url> {
+        Ok(Url::parse(&self.issuer)?)
+    }
+
+    pub fn jwks_uri(&self) -> Result<Url> {
+        Ok(Url::parse(&self.jwks_uri)?)
+    }
+
+    pub fn token_endpoint(&self) -> Result<Url> {
+        Ok(Url::parse(&self.token_endpoint)?)
+    }
+
+    pub fn userinfo_endpoint(&self) -> Result<Url> {
+        Ok(Url::parse(&self.userinfo_endpoint)?)
+    }
 }
 
 #[cfg(test)]
@@ -94,6 +137,11 @@ mod tests {
             profile_url: "https://stable.dev.lcip.org/profile/".to_string(),
             token_server_endpoint_url: "https://stable.dev.lcip.org/syncserver/token/1.0/sync/1.5"
                 .to_string(),
+            authorization_endpoint: "https://oauth-stable.dev.lcip.org/v1/authorization".to_string(),
+            issuer: "https://dev.lcip.org/".to_string(),
+            jwks_uri: "https://oauth-stable.dev.lcip.org/v1/jwks".to_string(),
+            token_endpoint: "https://oauth-stable.dev.lcip.org/v1/token".to_string(),
+            userinfo_endpoint: "https://stable.dev.lcip.org/profile/v1/profile".to_string(),
         };
         assert_eq!(
             config.auth_url_path("v1/account/keys").unwrap().to_string(),
