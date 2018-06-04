@@ -82,7 +82,7 @@ impl ExternResult {
 
     pub fn from_internal(err: InternalError) -> *mut Self {
         match err {
-            InternalError(RemoteError(_, 401, ..), ..) | InternalError(NotMarried, ..) => {
+            InternalError(RemoteError(401, ..), ..) | InternalError(NotMarried, ..) => {
                 ExternResult::err(ErrorCode::AuthenticationError, err.to_string())
             }
             _ => ExternResult::err(ErrorCode::Other, err.to_string()),
