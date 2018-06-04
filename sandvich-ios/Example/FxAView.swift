@@ -19,12 +19,12 @@ class FxAView: UIViewController, WKNavigationDelegate {
     init(webView: WKWebView = WKWebView()) {
         self.webView = webView
         self.stateKey = "fxaState"
-        self.redirectUrl = "com.mozilla.sandvich:/oauth2redirect/fxa-provider"
+        self.redirectUrl = "https://mozilla-lockbox.github.io/fxa/ios-redirect.html"
         super.init(nibName: nil, bundle: nil)
     }
 
     func persistState(_ fxa: FirefoxAccount) {
-        UserDefaults.standard.set(fxa.toJSON()!, forKey: self.stateKey)
+        UserDefaults.standard.set(try! fxa.toJSON(), forKey: self.stateKey)
     }
 
     override func viewDidLoad() {
@@ -35,19 +35,24 @@ class FxAView: UIViewController, WKNavigationDelegate {
 
         let fxa: FirefoxAccount;
         if let state_json = UserDefaults.standard.string(forKey: self.stateKey) {
-            fxa = FirefoxAccount.fromJSON(state: state_json)
+            fxa = try! FirefoxAccount.fromJSON(state: state_json)
         } else {
-            let config = FxAConfig.custom(content_base: "https://sandvich-ios.dev.lcip.org");
-            fxa = FirefoxAccount(config: config, clientId: "22d74070a481bc73")
+            let config = try! FxAConfig.custom(content_base: "https://sandvich-ios.dev.lcip.org");
+            fxa = try! FirefoxAccount(config: config, clientId: "22d74070a481bc73")
             persistState(fxa)
         }
 
-        if let profile = fxa.profile { // If we aren't able to get the profile, we'll try to get a token (we should probably check errors in the future).
+        do {
+            let profile = try fxa.getProfile()
             self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
+            return
+        } catch FxAError.Unauthorized {
+            self.fxa = fxa
+            let authUrl = try! fxa.beginOAuthFlow(redirectURI: self.redirectUrl, scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"], wantsKeys: true)
+            self.webView.load(URLRequest(url: authUrl))
+        } catch {
+            assert(false, "Unexpected error :(")
         }
-        self.fxa = fxa
-        let authUrl = fxa.beginOAuthFlow(redirectURI: self.redirectUrl, scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"], wantsKeys: true)!
-        self.webView.load(URLRequest(url: authUrl))
     }
 
 
@@ -69,19 +74,20 @@ class FxAView: UIViewController, WKNavigationDelegate {
     func matchingRedirectURLReceived(components: URLComponents) {
         var dic = [String: String]()
         components.queryItems?.forEach { dic[$0.name] = $0.value }
-        let oauthInfo = self.fxa!.completeOAuthFlow(code: dic["code"]!, state: dic["state"]!)!
+        let oauthInfo = try! self.fxa!.completeOAuthFlow(code: dic["code"]!, state: dic["state"]!)
         persistState(self.fxa!) // Persist fxa state because it now holds the profile token.
         print("access_token: " + oauthInfo.accessToken)
         if let keys = oauthInfo.keysJWE {
             print("keysJWE: " + keys)
         }
         print("obtained scopes: " + oauthInfo.scopes.joined(separator: " "))
-        guard let profile = fxa!.profile else {
-            print("Something is super wrong")
-            assert(false)
+        do {
+            let profile = try fxa!.getProfile()
+            self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
+            return
+        } catch {
+            assert(false, "ok something's really wrong there.")
         }
-        self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
-        return
     }
 
     func webView(_ webView: WKWebView,
