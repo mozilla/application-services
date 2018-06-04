@@ -50,8 +50,12 @@ pub struct ExternResult {
 
 impl ExternResult {
     pub fn ok<T>(result: T) -> *mut Self {
+        Self::ok_ptr(Box::into_raw(Box::new(result)))
+    }
+
+    pub fn ok_ptr<T>(result: *mut T) -> *mut Self {
         Box::into_raw(Box::new(ExternResult {
-            ok: Box::into_raw(Box::new(result)) as *const _ as *const c_void,
+            ok: result as *const _ as *const c_void,
             err: std::ptr::null_mut(),
         }))
     }
@@ -194,11 +198,10 @@ pub extern "C" fn fxa_from_json(json: *const c_char) -> *mut ExternResult {
 #[no_mangle]
 pub extern "C" fn fxa_to_json(fxa: *mut FirefoxAccount) -> *mut ExternResult {
     let fxa = unsafe { &mut *fxa };
-    let json = match fxa.to_json() {
-        Ok(json) => json,
+    match fxa.to_json() {
+        Ok(json) => ExternResult::ok_ptr(string_to_c_char(json)),
         Err(err) => return ExternResult::from_internal(err),
-    };
-    ExternResult::ok(json)
+    }
 }
 
 /// Fetches the profile associated with a Firefox Account.
@@ -234,7 +237,7 @@ pub extern "C" fn fxa_profile(
 pub extern "C" fn fxa_get_token_server_endpoint_url(fxa: *mut FirefoxAccount) -> *mut ExternResult {
     let fxa = unsafe { &mut *fxa };
     match fxa.get_token_server_endpoint_url() {
-        Ok(url) => ExternResult::ok(string_to_c_char(url.to_string())),
+        Ok(url) => ExternResult::ok_ptr(string_to_c_char(url.to_string())),
         Err(err) => ExternResult::from_internal(err),
     }
 }
@@ -253,11 +256,10 @@ pub extern "C" fn fxa_assertion_new(
 ) -> *mut ExternResult {
     let fxa = unsafe { &mut *fxa };
     let audience = c_char_to_string(audience);
-    let assertion = match fxa.generate_assertion(audience) {
-        Ok(assertion) => string_to_c_char(assertion),
+    match fxa.generate_assertion(audience) {
+        Ok(assertion) => ExternResult::ok_ptr(string_to_c_char(assertion)),
         Err(err) => return ExternResult::from_internal(err),
-    };
-    ExternResult::ok(assertion)
+    }
 }
 
 /// Gets the Sync Keys. Requires to be in a `Married` state.
@@ -302,11 +304,10 @@ pub extern "C" fn fxa_begin_oauth_flow(
     let redirect_uri = c_char_to_string(redirect_uri);
     let scope = c_char_to_string(scope);
     let scopes: Vec<&str> = scope.split(" ").collect();
-    let oauth_flow = match fxa.begin_oauth_flow(redirect_uri, &scopes, wants_keys) {
-        Ok(oauth_flow) => string_to_c_char(oauth_flow),
+    match fxa.begin_oauth_flow(redirect_uri, &scopes, wants_keys) {
+        Ok(oauth_flow) => ExternResult::ok_ptr(string_to_c_char(oauth_flow)),
         Err(err) => return ExternResult::from_internal(err),
-    };
-    ExternResult::ok(oauth_flow)
+    }
 }
 
 /// Finish an OAuth flow initiated by [fxa_begin_oauth_flow] and returns token/keys.
