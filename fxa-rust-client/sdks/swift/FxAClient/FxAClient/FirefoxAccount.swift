@@ -5,7 +5,7 @@
 import Foundation
 import UIKit
 
-class FxAConfig: MovableRustOpaquePointer {
+public class FxAConfig: MovableRustOpaquePointer {
     open class func release() throws -> FxAConfig {
         let pointer = try fxa_get_release_config().pointee.unwrap()
         return FxAConfig(raw: pointer)
@@ -21,7 +21,7 @@ class FxAConfig: MovableRustOpaquePointer {
     }
 }
 
-class FirefoxAccount: RustOpaquePointer {
+public class FirefoxAccount: RustOpaquePointer {
     // webChannelResponse is a string for now, but will probably be a JSON
     // object in the future.
     open class func from(config: FxAConfig, clientId: String, webChannelResponse: String) throws -> FirefoxAccount {
@@ -82,7 +82,7 @@ class FirefoxAccount: RustOpaquePointer {
     }
 }
 
-class OAuthInfo: RustStructPointer<OAuthInfoC> {
+public class OAuthInfo: RustStructPointer<OAuthInfoC> {
     public var scopes: [String] {
         get {
             return String(cString: raw.pointee.scope).components(separatedBy: " ")
@@ -109,7 +109,7 @@ class OAuthInfo: RustStructPointer<OAuthInfoC> {
     }
 }
 
-class Profile: RustStructPointer<ProfileC> {
+public class Profile: RustStructPointer<ProfileC> {
     public var uid: String {
         get {
             return String(cString: raw.pointee.uid)
@@ -133,7 +133,7 @@ class Profile: RustStructPointer<ProfileC> {
     }
 }
 
-class SyncKeys: RustStructPointer<SyncKeysC> {
+public class SyncKeys: RustStructPointer<SyncKeysC> {
     public var syncKey: String {
         get {
             return String(cString: raw.pointee.sync_key)

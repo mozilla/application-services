@@ -9,6 +9,5 @@ public enum PointerError: Error {
 }
 
 public enum ResultError: Error {
-    case error(RustError)
     case empty
 }

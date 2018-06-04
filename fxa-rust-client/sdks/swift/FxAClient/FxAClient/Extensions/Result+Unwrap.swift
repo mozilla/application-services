@@ -17,7 +17,7 @@ extension Result {
     @discardableResult public func unwrap() throws -> OpaquePointer {
         guard let success = self.ok else {
             if let error = self.err {
-                throw ResultError.error(RustError(raw: error))
+                throw FxAError.from(rustError: RustError(raw: error))
             }
             throw ResultError.empty
         }
@@ -27,7 +27,7 @@ extension Result {
     @discardableResult public func unwrap<T>() throws -> UnsafeMutablePointer<T> {
         guard let success = self.ok else {
             if let error = self.err {
-                throw ResultError.error(RustError(raw: error))
+                throw FxAError.from(rustError: RustError(raw: error))
             }
             throw ResultError.empty
         }
@@ -43,7 +43,7 @@ extension Result {
      */
     @discardableResult public func tryUnwrap<T>() throws -> UnsafeMutablePointer<T>? {
         if let error = self.err {
-            throw ResultError.error(RustError(raw: error))
+            throw FxAError.from(rustError: RustError(raw: error))
         }
         return self.ok?.assumingMemoryBound(to: T.self)
     }
