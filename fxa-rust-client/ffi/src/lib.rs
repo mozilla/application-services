@@ -216,10 +216,11 @@ pub extern "C" fn fxa_to_json(fxa: *mut FirefoxAccount) -> *mut ExternResult {
 #[no_mangle]
 pub extern "C" fn fxa_profile(
     fxa: *mut FirefoxAccount,
-    profile_access_token: &str,
+    profile_access_token: *const c_char,
     ignore_cache: bool,
 ) -> *mut ExternResult {
     let fxa = unsafe { &mut *fxa };
+    let profile_access_token = c_char_to_string(profile_access_token);
     let profile: ProfileC = match fxa.get_profile(profile_access_token, ignore_cache) {
         Ok(profile) => profile.into(),
         Err(err) => return ExternResult::from_internal(err),
