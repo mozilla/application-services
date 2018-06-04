@@ -4,7 +4,7 @@
 
 import Foundation
 
-enum FxAError: Error {
+public enum FxAError: Error {
     case Unauthorized(message: String)
     case Unspecified(message: String)
 
