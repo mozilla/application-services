@@ -20,8 +20,7 @@ use sync::{
     IncomingChangeset,
     OutgoingChangeset,
     ServerTimestamp,
-    Store,
-    Id,
+    Store
 };
 
 use libc::{c_char, c_double, size_t};
@@ -306,7 +305,7 @@ impl Store for FFIStore {
 
     /// Called when a sync finishes successfully. The store should remove all items in
     /// `synced_ids` from the set of items that need to be synced. and update
-    fn sync_finished(&mut self, new_last_sync: ServerTimestamp, synced_ids: &[Id]) -> sync::Result<()> {
+    fn sync_finished(&mut self, new_last_sync: ServerTimestamp, synced_ids: &[String]) -> sync::Result<()> {
         let mut buf = Vec::with_capacity(synced_ids.len());
         for id in synced_ids {
             buf.push(CString::new(&id[..]).unwrap().into_raw());

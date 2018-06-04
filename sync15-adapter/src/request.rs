@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use util::ServerTimestamp;
-use bso_record::{EncryptedBso, Id};
+use bso_record::{EncryptedBso};
 
 use serde_json;
 use std::fmt;
@@ -251,10 +251,10 @@ pub struct UploadResult {
     batch: Option<String>,
     /// Maps record id => why failed
     #[serde(default = "HashMap::new")]
-    pub failed: HashMap<Id, String>,
+    pub failed: HashMap<String, String>,
     /// Vec of ids
     #[serde(default = "Vec::new")]
-    pub success: Vec<Id>
+    pub success: Vec<String>
 }
 
 // Easier to fake during tests
@@ -318,11 +318,11 @@ pub trait PostResponseHandler {
 
 #[derive(Debug, Clone)]
 pub(crate) struct NormalResponseHandler {
-    pub failed_ids: Vec<Id>,
-    pub successful_ids: Vec<Id>,
+    pub failed_ids: Vec<String>,
+    pub successful_ids: Vec<String>,
     pub allow_failed: bool,
-    pub pending_failed: Vec<Id>,
-    pub pending_success: Vec<Id>,
+    pub pending_failed: Vec<String>,
+    pub pending_success: Vec<String>,
 }
 
 impl NormalResponseHandler {
@@ -554,8 +554,8 @@ where
 
 #[derive(Clone)]
 pub struct UploadInfo {
-    pub successful_ids: Vec<Id>,
-    pub failed_ids: Vec<Id>,
+    pub successful_ids: Vec<String>,
+    pub failed_ids: Vec<String>,
     pub modified_timestamp: ServerTimestamp,
 }
 

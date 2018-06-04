@@ -11,11 +11,10 @@ use std::ops::{Deref, DerefMut};
 use std::convert::From;
 use key_bundle::KeyBundle;
 use util::ServerTimestamp;
-pub use record_id::Id;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BsoRecord<T> {
-    pub id: Id,
+    pub id: String,
 
     // It's not clear to me if this actually can be empty in practice.
     // firefox-ios seems to think it can...
@@ -65,7 +64,7 @@ impl<T> BsoRecord<T> {
     #[inline]
     pub fn new_non_record(id: String, coll: String, payload: T) -> BsoRecord<T> {
         BsoRecord {
-            id: id.into(),
+            id,
             collection: coll.into(),
             ttl: None,
             sortindex: None,
@@ -139,7 +138,7 @@ impl<T> DerefMut for BsoRecord<T> {
 /// benefit here.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Payload {
-    pub id: Id,
+    pub id: String,
 
     #[serde(default)]
     #[serde(skip_serializing_if = "is_false")]
@@ -159,7 +158,7 @@ fn is_false(b: &bool) -> bool {
 impl Payload {
 
     #[inline]
-    pub fn new_tombstone(id: Id) -> Payload {
+    pub fn new_tombstone(id: String) -> Payload {
         Payload { id, deleted: true, data: Map::new() }
     }
 
