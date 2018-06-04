@@ -50,8 +50,10 @@ public class FirefoxAccount: RustOpaquePointer {
     }
 
     public func getProfile() throws -> Profile {
-        let profileToken = try self.getOAuthToken(scopes: ["profile"]).accessToken;
-        return Profile(raw: try fxa_profile(self.raw, profileToken, false).pointee.unwrap())
+        guard let oauth_token = try self.getOAuthToken(scopes: ["profile"]) else {
+            throw FxAError.Unauthorized(message: "No suitable cached OAuth token found for this operation.")
+        }
+        return Profile(raw: try fxa_profile(self.raw, oauth_token.accessToken, false).pointee.unwrap())
     }
 
     public func getSyncKeys() throws -> SyncKeys {
@@ -72,9 +74,12 @@ public class FirefoxAccount: RustOpaquePointer {
         return OAuthInfo(raw: try fxa_complete_oauth_flow(raw, code, state).pointee.unwrap())
     }
 
-    public func getOAuthToken(scopes: [String]) throws -> OAuthInfo {
-        let scope = scopes.joined(separator: " ");
-        return OAuthInfo(raw: try fxa_get_oauth_token(raw, scope).pointee.unwrap())
+    public func getOAuthToken(scopes: [String]) throws -> OAuthInfo? {
+        let scope = scopes.joined(separator: " ")
+        guard let ptr: UnsafeMutablePointer<OAuthInfoC> = try fxa_get_oauth_token(raw, scope).pointee.tryUnwrap() else {
+            return nil
+        }
+        return OAuthInfo(raw: ptr)
     }
 
     public func generateAssertion(audience: String) throws -> String {
