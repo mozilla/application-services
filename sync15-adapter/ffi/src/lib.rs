@@ -11,7 +11,7 @@ extern crate error_chain;
 
 use std::ffi::{CStr, CString};
 
-use std::{ptr, mem, time};
+use std::{ptr, mem};
 use sync::error::unexpected;
 use sync::{
     Payload,
@@ -20,8 +20,7 @@ use sync::{
     IncomingChangeset,
     OutgoingChangeset,
     ServerTimestamp,
-    Store,
-    Id,
+    Store
 };
 
 use libc::{c_char, c_double, size_t};
@@ -132,7 +131,7 @@ pub extern "C" fn sync15_outbound_changeset_create(
     assert!(timestamp >= 0.0);
     Box::into_raw(Box::new(
         OutgoingChangeset::new(c_str_to_string(collection),
-                             ServerTimestamp(timestamp))))
+                               ServerTimestamp(timestamp))))
 }
 
 /// Get all the changes for the requested collection that have occurred since last_sync.
@@ -194,13 +193,6 @@ fn c_str_to_payload(json: *const c_char) -> sync::Result<Payload> {
         serde_json::from_slice(s.to_bytes())?)?)
 }
 
-fn u64_to_system_time(time_ms: libc::uint64_t) -> time::SystemTime {
-    time::UNIX_EPOCH + time::Duration::new(
-        time_ms / 1000,
-        ((time_ms % 1000) * 1_000_000) as u32
-    )
-}
-
 /// Add a record to an outgoing changeset. Returns false in the case that
 /// we were unable to add the record for some reason (typically the json
 /// string provided was not well-formed json).
@@ -210,8 +202,7 @@ fn u64_to_system_time(time_ms: libc::uint64_t) -> time::SystemTime {
 #[no_mangle]
 pub extern "C" fn sync15_outgoing_changeset_add_record(
     changeset: *mut OutgoingChangeset,
-    record_json: *const c_char,
-    modification_timestamp_ms: libc::uint64_t
+    record_json: *const c_char
 ) -> bool {
     let changeset = unsafe { &mut *changeset };
     assert!(!record_json.is_null());
@@ -222,8 +213,7 @@ pub extern "C" fn sync15_outgoing_changeset_add_record(
             return false;
         }
     };
-    let system_time = u64_to_system_time(modification_timestamp_ms);
-    changeset.changes.push((cleartext, system_time));
+    changeset.changes.push(cleartext);
     true
 }
 
@@ -232,13 +222,11 @@ pub extern "C" fn sync15_outgoing_changeset_add_record(
 #[no_mangle]
 pub extern "C" fn sync15_outgoing_changeset_add_tombstone(
     changeset: *mut OutgoingChangeset,
-    record_id: *const c_char,
-    deletion_timestamp_ms: libc::uint64_t
+    record_id: *const c_char
 ) {
     let changeset = unsafe { &mut *changeset };
-    let system_time = u64_to_system_time(deletion_timestamp_ms);
     let payload = Payload::new_tombstone(c_str_to_string(record_id).into());
-    changeset.changes.push((payload, system_time));
+    changeset.changes.push(payload);
 }
 
 pub type StoreApplyIncoming = unsafe extern "C" fn(
@@ -306,7 +294,7 @@ impl Store for FFIStore {
 
     /// Called when a sync finishes successfully. The store should remove all items in
     /// `synced_ids` from the set of items that need to be synced. and update
-    fn sync_finished(&mut self, new_last_sync: ServerTimestamp, synced_ids: &[Id]) -> sync::Result<()> {
+    fn sync_finished(&mut self, new_last_sync: ServerTimestamp, synced_ids: &[String]) -> sync::Result<()> {
         let mut buf = Vec::with_capacity(synced_ids.len());
         for id in synced_ids {
             buf.push(CString::new(&id[..]).unwrap().into_raw());

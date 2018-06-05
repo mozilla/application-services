@@ -8,12 +8,10 @@ use request::{NormalResponseHandler, UploadInfo};
 use util::ServerTimestamp;
 use error::{self, ErrorKind, Result};
 use key_bundle::KeyBundle;
-use std::time::SystemTime;
-
 
 #[derive(Debug, Clone)]
-pub struct RecordChangeset<Timestamp> {
-    pub changes: Vec<(Payload, Timestamp)>,
+pub struct RecordChangeset<Payload> {
+    pub changes: Vec<Payload>,
     /// For GETs, the last sync timestamp that should be persisted after
     /// applying the records.
     /// For POSTs, this is the XIUS timestamp.
@@ -21,8 +19,8 @@ pub struct RecordChangeset<Timestamp> {
     pub collection: String,
 }
 
-pub type IncomingChangeset = RecordChangeset<ServerTimestamp>;
-pub type OutgoingChangeset = RecordChangeset<SystemTime>;
+pub type IncomingChangeset = RecordChangeset<(Payload, ServerTimestamp)>;
+pub type OutgoingChangeset = RecordChangeset<Payload>;
 
 // TODO: use a trait to unify this with the non-json versions
 impl<T> RecordChangeset<T> {
@@ -43,8 +41,7 @@ impl OutgoingChangeset {
     pub fn encrypt(self, key: &KeyBundle) -> Result<Vec<EncryptedBso>> {
         let RecordChangeset { changes, collection, .. } = self;
         changes.into_iter()
-               .map(|(change, _)|
-                   change.into_bso(collection.clone()).encrypt(key))
+               .map(|change| change.into_bso(collection.clone()).encrypt(key))
                .collect()
     }
 

@@ -22,7 +22,7 @@ use std::io::{self, Read, Write};
 use std::error::Error;
 use std::fs;
 use std::process;
-use sync::{Id, ServerTimestamp, OutgoingChangeset, Payload, Store};
+use sync::{ServerTimestamp, OutgoingChangeset, Payload, Store};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -45,7 +45,7 @@ struct ScopedKeyData {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PasswordRecord {
-    pub id: Id,
+    pub id: String,
     pub hostname: Option<String>,
 
     // rename_all = "camelCase" by default will do formSubmitUrl, but we can just
@@ -223,8 +223,8 @@ fn prompt_chars(msg: &str) -> Option<char> {
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 struct PasswordEngine {
     pub last_sync: ServerTimestamp,
-    pub records: HashMap<Id, PasswordRecord>,
-    pub changes: HashMap<Id, u64>,
+    pub records: HashMap<String, PasswordRecord>,
+    pub changes: HashMap<String, u64>,
     // TODO: meta global stuff
 }
 
@@ -255,7 +255,7 @@ impl PasswordEngine {
         self.save()
     }
 
-    pub fn delete(&mut self, id: Id) -> Result<(), Box<Error>> {
+    pub fn delete(&mut self, id: String) -> Result<(), Box<Error>> {
         if self.records.remove(&id).is_none() {
             println!("No such record by that id, but we'll add a tombstone anyway");
         }
@@ -294,9 +294,8 @@ impl PasswordEngine {
         Ok(())
     }
 
-    pub fn get_unsynced_changes(&self) -> sync::Result<OutgoingChangeset> {
-        let mut result = OutgoingChangeset::new("passwords".into(), self.last_sync);
-        result.changes.reserve(self.changes.len());
+    pub fn get_unsynced_changes(&self) -> sync::Result<(Vec<(Payload, SystemTime)>, ServerTimestamp)> {
+        let mut result = Vec::with_capacity(self.changes.len());
         for (changed_id, time) in self.changes.iter() {
             let ct = if let Some(record) = self.records.get(changed_id) {
                 Payload::from_record(record.clone())?
@@ -305,9 +304,9 @@ impl PasswordEngine {
             };
             let mod_time = UNIX_EPOCH + Duration::new(
                 time / 1000, ((time % 1000) * 1_000_000) as u32);
-            result.changes.push((ct, mod_time));
+            result.push((ct, mod_time));
         }
-        Ok(result)
+        Ok((result, self.last_sync))
     }
 
     pub fn apply_reconciled_changes(
@@ -337,10 +336,10 @@ impl Store for PasswordEngine {
     ) -> sync::Result<OutgoingChangeset> {
         info!("Remote collection has {} changes", inbound.changes.len());
 
-        let outbound = self.get_unsynced_changes()?;
-        info!("Local collection has {} changes", outbound.changes.len());
+        let (outbound_changes, last_sync) = self.get_unsynced_changes()?;
+        info!("Local collection has {} changes", outbound_changes.len());
 
-        let reconciled = Reconciliation::between(outbound.changes,
+        let reconciled = Reconciliation::between(outbound_changes,
                                                  inbound.changes,
                                                  inbound.timestamp)?;
 
@@ -351,13 +350,13 @@ impl Store for PasswordEngine {
         self.apply_reconciled_changes(&reconciled.apply_as_incoming[..], inbound.timestamp)?;
 
         Ok(OutgoingChangeset {
-            changes: reconciled.apply_as_outgoing.into_iter().map(|ct| (ct, UNIX_EPOCH)).collect(),
-            timestamp: outbound.timestamp,
-            collection: outbound.collection
+            changes: reconciled.apply_as_outgoing,
+            timestamp: last_sync,
+            collection: "passwords".into()
         })
     }
 
-    fn sync_finished(&mut self, new_last_sync: ServerTimestamp, records_synced: &[Id]) -> sync::Result<()> {
+    fn sync_finished(&mut self, new_last_sync: ServerTimestamp, records_synced: &[String]) -> sync::Result<()> {
         for id in records_synced {
             self.changes.remove(id);
         }
@@ -422,7 +421,7 @@ impl Reconciliation {
             apply_as_outgoing: vec![],
         };
 
-        let mut local_lookup: HashMap<Id, (Payload, Duration)> =
+        let mut local_lookup: HashMap<String, (Payload, Duration)> =
             local_changes.into_iter().map(|(record, time)| {
                 (record.id.clone(),
                  (record,
@@ -489,7 +488,7 @@ fn show_all(e: &PasswordEngine) -> Vec<&str> {
     v
 }
 
-fn prompt_record_id(e: &PasswordEngine, action: &str) -> Option<Id> {
+fn prompt_record_id(e: &PasswordEngine, action: &str) -> Option<String> {
     let index_to_id = show_all(e);
     let input = prompt_usize(&format!("Enter (idx) of record to {}", action))?;
     if input >= index_to_id.len() {

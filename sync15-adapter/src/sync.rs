@@ -4,7 +4,6 @@
 
 use changeset::{OutgoingChangeset, IncomingChangeset, CollectionUpdate};
 use util::ServerTimestamp;
-use record_id::Id;
 use error::Result;
 use service::Sync15Service;
 
@@ -19,7 +18,7 @@ pub trait Store {
     fn sync_finished(
         &mut self,
         new_timestamp: ServerTimestamp,
-        records_synced: &[Id],
+        records_synced: &[String],
     ) -> Result<()>;
 }
 
