@@ -214,7 +214,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# build fxa-rust-client external libs dependencies\ncd \"$SRCROOT\"/../../../../libs/\nenv -i ./build-all.sh ios #env -i doesn't pass xcode env variables\n\n# build fxa-rust-client lipoed library\ncd \"$SRCROOT\"/../../../ffi\nPATH=$PATH \\\nJANSSON_DIR=\"$SRCROOT\"/../../../../libs/ios/universal/jansson \\\nOPENSSL_STATIC=0 OPENSSL_DIR=\"$SRCROOT\"/../../../../libs/ios/universal/openssl \\\nCJOSE_DIR=\"$SRCROOT\"/../../../../libs/ios/universal/cjose \\\n\"$HOME\"/.cargo/bin/cargo +nightly lipo --release";
+			shellScript = "# build fxa-rust-client external libs dependencies\ncd \"$SRCROOT\"/../../../../libs/\nenv -i ./build-all.sh ios #env -i doesn't pass xcode env variables\n\n# build fxa-rust-client lipoed library\ncd \"$SRCROOT\"/../../../ffi\nenv -i PATH=$PATH \\\nJANSSON_DIR=\"$SRCROOT\"/../../../../libs/ios/universal/jansson \\\nOPENSSL_STATIC=0 OPENSSL_DIR=\"$SRCROOT\"/../../../../libs/ios/universal/openssl \\\nCJOSE_DIR=\"$SRCROOT\"/../../../../libs/ios/universal/cjose \\\n\"$HOME\"/.cargo/bin/cargo +nightly lipo --release";
 		};
 /* End PBXShellScriptBuildPhase section */
 
