@@ -294,9 +294,8 @@ impl PasswordEngine {
         Ok(())
     }
 
-    pub fn get_unsynced_changes(&self) -> sync::Result<OutgoingChangeset> {
-        let mut result = OutgoingChangeset::new("passwords".into(), self.last_sync);
-        result.changes.reserve(self.changes.len());
+    pub fn get_unsynced_changes(&self) -> sync::Result<(Vec<(Payload, SystemTime)>, ServerTimestamp)> {
+        let mut result = Vec::with_capacity(self.changes.len());
         for (changed_id, time) in self.changes.iter() {
             let ct = if let Some(record) = self.records.get(changed_id) {
                 Payload::from_record(record.clone())?
@@ -305,9 +304,9 @@ impl PasswordEngine {
             };
             let mod_time = UNIX_EPOCH + Duration::new(
                 time / 1000, ((time % 1000) * 1_000_000) as u32);
-            result.changes.push((ct, mod_time));
+            result.push((ct, mod_time));
         }
-        Ok(result)
+        Ok((result, self.last_sync))
     }
 
     pub fn apply_reconciled_changes(
@@ -337,10 +336,10 @@ impl Store for PasswordEngine {
     ) -> sync::Result<OutgoingChangeset> {
         info!("Remote collection has {} changes", inbound.changes.len());
 
-        let outbound = self.get_unsynced_changes()?;
-        info!("Local collection has {} changes", outbound.changes.len());
+        let (outbound_changes, last_sync) = self.get_unsynced_changes()?;
+        info!("Local collection has {} changes", outbound_changes.len());
 
-        let reconciled = Reconciliation::between(outbound.changes,
+        let reconciled = Reconciliation::between(outbound_changes,
                                                  inbound.changes,
                                                  inbound.timestamp)?;
 
@@ -351,9 +350,9 @@ impl Store for PasswordEngine {
         self.apply_reconciled_changes(&reconciled.apply_as_incoming[..], inbound.timestamp)?;
 
         Ok(OutgoingChangeset {
-            changes: reconciled.apply_as_outgoing.into_iter().map(|ct| (ct, UNIX_EPOCH)).collect(),
-            timestamp: outbound.timestamp,
-            collection: outbound.collection
+            changes: reconciled.apply_as_outgoing,
+            timestamp: last_sync,
+            collection: "passwords".into()
         })
     }
 
