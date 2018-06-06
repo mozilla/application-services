@@ -10,3 +10,6 @@ members = [
 # For RSA keys cloning. Remove once openssl 0.10.8+ is released.
 [patch.crates-io]
 openssl = { git = 'https://github.com/sfackler/rust-openssl', rev = '5debc1ba5a78963acea2229fd9be5f0e5e0aaa99' }
+# Remove these two once https://github.com/carllerche/mio/pull/846 and https://github.com/rust-lang-nursery/net2-rs/pull/74 are merged.
+net2 = { git = 'https://github.com/mehcode/net2-rs', branch = 'master' }
+mio = { git = 'https://github.com/mehcode/mio', branch = 'master' }

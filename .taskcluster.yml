@@ -1,0 +1,40 @@
+version: 0
+allowPullRequests: collaborators
+tasks:
+  - provisionerId: '{{ taskcluster.docker.provisionerId }}'
+    workerType: '{{ taskcluster.docker.workerType }}'
+    extra:
+      github:
+        events:
+          - release
+    payload:
+      maxRunTime: 3600
+      deadline: "{{ '2 hours' | $fromNow }}"
+      image: 'rust:latest'
+      command:
+        - /bin/bash
+        - '-c'
+        - >-
+          apt-get update && apt-get install zip -y &&
+          git clone {{event.head.repo.url}} repo &&
+          cd repo &&
+          git config advice.detachedHead false &&
+          git checkout {{event.head.sha}} &&
+          mkdir -p .cargo &&
+          yes | cp -rf scripts/taskcluster-cargo-config .cargo/config &&
+          cd libs/ && ./build-all.sh android && cd .. &&
+          ./scripts/taskcluster-android.sh &&
+          zip -r fxa_client_android.zip fxa-client &&
+          zip -r fxa_client_android_deps.zip fxa-client-deps
+      artifacts:
+        'public/bin/fxa-client/fxa_client_android.zip':
+          type: 'file'
+          path: '/repo/fxa_client_android.zip'
+        'public/bin/fxa-client/fxa_client_android_deps.zip':
+          type: 'file'
+          path: '/repo/fxa_client_android_deps.zip'
+    metadata:
+      name: fxa-rust-client Android Build
+      description: Builds the FxA rust lib for Android architectures
+      owner: '{{ event.head.user.email }}'
+      source: '{{ event.head.repo.url }}'
