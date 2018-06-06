@@ -7,6 +7,9 @@
       "accounts/welcome",
       "accounts/project-details"
     ],
+    "Mobile SDKs": [
+      "accounts/fxa-client-ios"
+    ],
     "Other Features": [
       "accounts/end-to-end-encryption"
     ]

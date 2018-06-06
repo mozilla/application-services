@@ -5,6 +5,7 @@
     "previous": "Previous",
     "tagline": "Build the next thing...",
     "accounts/end-to-end-encryption": "End-to-end encryption",
+    "accounts/fxa-client-ios": "iOS SDK",
     "accounts/project-details": "Project Details",
     "Project Details": "Project Details",
     "accounts/welcome": "About Firefox Accounts",
@@ -15,6 +16,7 @@
     "GitHub": "GitHub",
     "Accounts": "Accounts",
     "Firefox Accounts": "Firefox Accounts",
+    "Mobile SDKs": "Mobile SDKs",
     "Other Features": "Other Features"
   },
   "pages-strings": {
