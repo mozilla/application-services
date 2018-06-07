@@ -6,14 +6,28 @@ import Foundation
 import UIKit
 
 public class FxAConfig: MovableRustOpaquePointer {
-    open class func release() throws -> FxAConfig {
-        let pointer = try fxa_get_release_config().pointee.unwrap()
-        return FxAConfig(raw: pointer)
+    open class func release(completionHandler: @escaping (FxAConfig?, Error?) -> Void) {
+        let concurrentQueue = DispatchQueue(label: "com.fxaclient.release", attributes: .concurrent)
+        concurrentQueue.async {
+            do {
+                let pointer = try fxa_get_release_config().pointee.unwrap()
+                completionHandler(FxAConfig(raw: pointer), nil)
+            } catch {
+                completionHandler(nil, error)
+            }
+        }
     }
 
-    open class func custom(content_base: String) throws -> FxAConfig {
-        let pointer = try fxa_get_custom_config(content_base).pointee.unwrap()
-        return FxAConfig(raw: pointer)
+    open class func custom(content_base: String, completionHandler: @escaping (FxAConfig?, Error?) -> Void) {
+        let concurrentQueue = DispatchQueue(label: "com.fxaclient.custom", attributes: .concurrent)
+        concurrentQueue.async {
+            do {
+                let pointer = try fxa_get_custom_config(content_base).pointee.unwrap()
+                completionHandler(FxAConfig(raw: pointer), nil)
+            } catch {
+                completionHandler(nil, error)
+            }
+        }
     }
 
     override func cleanup(pointer: OpaquePointer) {
@@ -49,8 +63,19 @@ public class FirefoxAccount: RustOpaquePointer {
         return copy_and_free_str(try fxa_to_json(self.raw).pointee.unwrap())
     }
 
-    public func getProfile() throws -> Profile {
-        return Profile(raw: try fxa_profile(self.raw, false).pointee.unwrap())
+    public func getProfile(completionHandler: @escaping (Profile?, Error?) -> Void) {
+        let concurrentQueue = DispatchQueue(label: "com.fxaclient.release", attributes: .concurrent)
+        concurrentQueue.async {
+            do {
+                guard let oauth_token = try self.getOAuthToken(scopes: ["profile"]) else {
+                    throw FxAError.Unauthorized(message: "No suitable cached OAuth token found for this operation.")
+                }
+                let profile = Profile(raw: try fxa_profile(self.raw, oauth_token.accessToken, false).pointee.unwrap())
+                completionHandler(profile, nil)
+            } catch {
+                completionHandler(nil, error)
+            }
+        }
     }
 
     public func getSyncKeys() throws -> SyncKeys {
@@ -62,13 +87,29 @@ public class FirefoxAccount: RustOpaquePointer {
     }
 
     // Scopes is space separated for each scope.
-    public func beginOAuthFlow(redirectURI: String, scopes: [String], wantsKeys: Bool) throws -> URL {
-        let scope = scopes.joined(separator: " ");
-        return URL(string: copy_and_free_str(try fxa_begin_oauth_flow(raw, redirectURI, scope, wantsKeys).pointee.unwrap()))!
+    public func beginOAuthFlow(redirectURI: String, scopes: [String], wantsKeys: Bool, completionHandler: @escaping (URL?, Error?) -> Void) {
+        let concurrentQueue = DispatchQueue(label: "com.fxaclient.beginoauthflow", attributes: .concurrent)
+        concurrentQueue.async {
+            let scope = scopes.joined(separator: " ");
+            do {
+                let urlString: String = copy_and_free_str(try fxa_begin_oauth_flow(self.raw, redirectURI, scope, wantsKeys).pointee.unwrap())
+                completionHandler(URL(string: urlString)!, nil)
+            } catch {
+                completionHandler(nil, error)
+            }
+        }
     }
 
-    public func completeOAuthFlow(code: String, state: String) throws -> OAuthInfo {
-        return OAuthInfo(raw: try fxa_complete_oauth_flow(raw, code, state).pointee.unwrap())
+    public func completeOAuthFlow(code: String, state: String, completionHandler: @escaping (OAuthInfo?, Error?) -> Void) {
+        let concurrentQueue = DispatchQueue(label: "com.fxaclient.beginoauthflow", attributes: .concurrent)
+        concurrentQueue.async {
+            do {
+                let result = OAuthInfo(raw: try fxa_complete_oauth_flow(self.raw, code, state).pointee.unwrap())
+                completionHandler(result, nil)
+            } catch {
+                completionHandler(nil, error)
+            }
+        }
     }
 
     public func getOAuthToken(scopes: [String]) throws -> OAuthInfo? {
