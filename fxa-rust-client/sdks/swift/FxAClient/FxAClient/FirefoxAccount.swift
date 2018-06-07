@@ -50,10 +50,7 @@ public class FirefoxAccount: RustOpaquePointer {
     }
 
     public func getProfile() throws -> Profile {
-        guard let oauth_token = try self.getOAuthToken(scopes: ["profile"]) else {
-            throw FxAError.Unauthorized(message: "No suitable cached OAuth token found for this operation.")
-        }
-        return Profile(raw: try fxa_profile(self.raw, oauth_token.accessToken, false).pointee.unwrap())
+        return Profile(raw: try fxa_profile(self.raw, false).pointee.unwrap())
     }
 
     public func getSyncKeys() throws -> SyncKeys {

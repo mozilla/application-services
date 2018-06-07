@@ -137,7 +137,8 @@ mod tests {
             profile_url: "https://stable.dev.lcip.org/profile/".to_string(),
             token_server_endpoint_url: "https://stable.dev.lcip.org/syncserver/token/1.0/sync/1.5"
                 .to_string(),
-            authorization_endpoint: "https://oauth-stable.dev.lcip.org/v1/authorization".to_string(),
+            authorization_endpoint: "https://oauth-stable.dev.lcip.org/v1/authorization"
+                .to_string(),
             issuer: "https://dev.lcip.org/".to_string(),
             jwks_uri: "https://oauth-stable.dev.lcip.org/v1/jwks".to_string(),
             token_endpoint: "https://oauth-stable.dev.lcip.org/v1/token".to_string(),

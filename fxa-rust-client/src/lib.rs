@@ -370,11 +370,11 @@ impl FirefoxAccount {
         )?)
     }
 
-    pub fn get_profile(
-        &mut self,
-        profile_access_token: &str,
-        ignore_cache: bool,
-    ) -> Result<ProfileResponse> {
+    pub fn get_profile(&mut self, ignore_cache: bool) -> Result<ProfileResponse> {
+        let profile_access_token = match self.get_oauth_token(&["profile"])? {
+            Some(token) => token.access_token,
+            None => bail!(ErrorKind::NeededTokenNotFound),
+        };
         let mut etag = None;
         if let Some(ref cached_profile) = self.profile_cache {
             if !ignore_cache && now() < cached_profile.cached_at + PROFILE_FRESHNESS_THRESHOLD {
@@ -383,7 +383,7 @@ impl FirefoxAccount {
             etag = Some(cached_profile.etag.clone());
         }
         let client = Client::new(&self.state.config);
-        match client.profile(profile_access_token, etag)? {
+        match client.profile(&profile_access_token, etag)? {
             Some(response_and_etag) => {
                 if let Some(etag) = response_and_etag.etag {
                     self.profile_cache = Some(CachedResponse {

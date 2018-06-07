@@ -88,7 +88,9 @@ impl ExternResult {
 
     pub fn from_internal(err: InternalError) -> *mut Self {
         match err {
-            InternalError(RemoteError(401, ..), ..) | InternalError(NotMarried, ..) => {
+            InternalError(RemoteError(401, ..), ..)
+            | InternalError(NotMarried, ..)
+            | InternalError(NeededTokenNotFound, ..) => {
                 ExternResult::err(ErrorCode::AuthenticationError, err.to_string())
             }
             _ => ExternResult::err(ErrorCode::Other, err.to_string()),
@@ -220,14 +222,9 @@ pub extern "C" fn fxa_to_json(fxa: *mut FirefoxAccount) -> *mut ExternResult {
 /// A destructor [fxa_profile_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_profile(
-    fxa: *mut FirefoxAccount,
-    profile_access_token: *const c_char,
-    ignore_cache: bool,
-) -> *mut ExternResult {
+pub extern "C" fn fxa_profile(fxa: *mut FirefoxAccount, ignore_cache: bool) -> *mut ExternResult {
     let fxa = unsafe { &mut *fxa };
-    let profile_access_token = c_char_to_string(profile_access_token);
-    let profile: ProfileC = match fxa.get_profile(profile_access_token, ignore_cache) {
+    let profile: ProfileC = match fxa.get_profile(ignore_cache) {
         Ok(profile) => profile.into(),
         Err(err) => return ExternResult::from_internal(err),
     };

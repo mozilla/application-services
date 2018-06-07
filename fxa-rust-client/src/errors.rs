@@ -19,8 +19,12 @@ error_chain! {
           description("FxA Remote Error")
           display("Remote Error Description: '{}' '{}' '{}' '{}' '{}'", code, errno, error, message, info)
         }
+        NeededTokenNotFound {
+            description("Required token needed for current operation not found.")
+            display("Required token needed for current operation not found.")
+        }
         UnknownOAuthState {
-            description("Unknown OAuth state")
+            description("Unknown OAuth state.")
             display("Unknown OAuth state.")
         }
         NotMarried {
