@@ -42,8 +42,12 @@ impl Config {
         Config::import_from("https://accounts.firefox.com")
     }
 
-    pub fn stable() -> Result<Config> {
+    pub fn stable_dev() -> Result<Config> {
         Config::import_from("https://stable.dev.lcip.org")
+    }
+
+    pub fn stage_dev() -> Result<Config> {
+        Config::import_from("https://accounts.stage.mozaws.net")
     }
 
     pub fn import_from(content_url: &str) -> Result<Config> {

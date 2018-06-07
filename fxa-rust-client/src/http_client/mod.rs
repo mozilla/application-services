@@ -409,7 +409,7 @@ mod tests {
         let pwd = "testfxarustclient@restmail.net";
         let auth_pwd = auth_pwd(email, pwd);
 
-        let config = Config::stable().unwrap();
+        let config = Config::stable_dev().unwrap();
         let client = Client::new(&config);
 
         let resp = client.login(&email, &auth_pwd, false).unwrap();

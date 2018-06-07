@@ -449,7 +449,7 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize() {
-        let config = Config::stable().unwrap();
+        let config = Config::stable_dev().unwrap();
         let fxa1 = FirefoxAccount::from_credentials(
             config,
             "5882386c6d801776",
@@ -471,7 +471,7 @@ mod tests {
 
     #[test]
     fn test_oauth_cache_store_and_find() {
-        let mut fxa = FirefoxAccount::new(Config::stable().unwrap(), "12345678");
+        let mut fxa = FirefoxAccount::new(Config::stable_dev().unwrap(), "12345678");
         let oauth_info = OAuthInfo {
             access_token: "abcdef".to_string(),
             keys: None,
