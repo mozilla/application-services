@@ -313,11 +313,17 @@ impl FirefoxAccount {
         // This assumes that if the server returns keys_jwe, the jwk argument is Some.
         let keys = match resp.keys_jwe {
             Some(jwe) => {
-                let jwk = jwk.expect("Insane state!");
+                let jwk = jwk.expect("Insane state! If we are getting back a JWE this means we should have a JWK.");
                 let jwe = JWE::import(&jwe)?;
                 Some(jwk.decrypt(&jwe)?)
             }
-            None => None,
+            None => {
+                if jwk.is_some() {
+                    bail!("We expected to get keys back but the server didn't send them.")
+                } else {
+                    None
+                }
+            },
         };
         let since_epoch = SystemTime::now()
             .duration_since(UNIX_EPOCH)
