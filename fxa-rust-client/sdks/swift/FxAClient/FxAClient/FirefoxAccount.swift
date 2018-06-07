@@ -97,9 +97,9 @@ public class OAuthInfo: RustStructPointer<OAuthInfoC> {
         }
     }
 
-    public var keysJWE: String? {
+    public var keys: String? {
         get {
-            guard let pointer = raw.pointee.keys_jwe else {
+            guard let pointer = raw.pointee.keys else {
                 return nil
             }
             return String(cString: pointer)

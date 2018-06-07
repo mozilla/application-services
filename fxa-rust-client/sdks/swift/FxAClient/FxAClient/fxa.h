@@ -42,7 +42,7 @@ typedef struct Result {
 
 typedef struct OAuthInfoC {
     char *_Nonnull access_token;
-    char *_Nullable keys_jwe;
+    char *_Nullable keys;
     char *_Nonnull scope;
 } OAuthInfoC;
 

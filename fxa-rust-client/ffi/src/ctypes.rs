@@ -26,7 +26,7 @@ impl From<SyncKeys> for SyncKeysC {
 #[repr(C)]
 pub struct OAuthInfoC {
     pub access_token: *mut c_char,
-    pub keys_jwe: *mut c_char,
+    pub keys: *mut c_char,
     pub scope: *mut c_char,
 }
 
@@ -35,8 +35,8 @@ impl From<OAuthInfo> for OAuthInfoC {
         let scopes = info.scopes.join(" ");
         OAuthInfoC {
             access_token: string_to_c_char(info.access_token),
-            keys_jwe: match info.keys_jwe {
-                Some(keys_jwe) => string_to_c_char(keys_jwe),
+            keys: match info.keys {
+                Some(keys) => string_to_c_char(keys),
                 None => std::ptr::null_mut(),
             },
             scope: string_to_c_char(scopes),

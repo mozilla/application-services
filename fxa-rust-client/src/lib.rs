@@ -311,7 +311,7 @@ impl FirefoxAccount {
     ) -> Result<OAuthInfo> {
         let granted_scopes = resp.scope.split(" ").map(|s| s.to_string()).collect();
         // This assumes that if the server returns keys_jwe, the jwk argument is Some.
-        let keys_jwe = match resp.keys_jwe {
+        let keys = match resp.keys_jwe {
             Some(jwe) => {
                 let jwk = jwk.expect("Insane state!");
                 let jwe = JWE::import(&jwe)?;
@@ -325,7 +325,7 @@ impl FirefoxAccount {
         let expires_at = since_epoch.as_secs() + resp.expires_in;
         let oauth_info = OAuthInfo {
             access_token: resp.access_token,
-            keys_jwe,
+            keys,
             refresh_token: resp.refresh_token,
             expires_at,
             scopes: granted_scopes,
@@ -474,7 +474,7 @@ mod tests {
         let mut fxa = FirefoxAccount::new(Config::stable().unwrap(), "12345678");
         let oauth_info = OAuthInfo {
             access_token: "abcdef".to_string(),
-            keys_jwe: None,
+            keys: None,
             refresh_token: None,
             expires_at: 1,
             scopes: vec![
@@ -495,7 +495,7 @@ pub struct OAuthFlow {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct OAuthInfo {
     pub access_token: String,
-    pub keys_jwe: Option<String>,
+    pub keys: Option<String>,
     pub refresh_token: Option<String>,
     pub expires_at: u64, // seconds since epoch
     pub scopes: Vec<String>,

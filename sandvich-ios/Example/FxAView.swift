@@ -77,7 +77,7 @@ class FxAView: UIViewController, WKNavigationDelegate {
         let oauthInfo = try! self.fxa!.completeOAuthFlow(code: dic["code"]!, state: dic["state"]!)
         persistState(self.fxa!) // Persist fxa state because it now holds the profile token.
         print("access_token: " + oauthInfo.accessToken)
-        if let keys = oauthInfo.keysJWE {
+        if let keys = oauthInfo.keys {
             print("keysJWE: " + keys)
         }
         print("obtained scopes: " + oauthInfo.scopes.joined(separator: " "))
