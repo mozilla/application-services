@@ -5,17 +5,33 @@
 import Foundation
 import UIKit
 
+let concurrentQueue = DispatchQueue(label: "com.fxaclient", attributes: .concurrent)
+
 public class FxAConfig: MovableRustOpaquePointer {
-    open class func release() throws -> FxAConfig {
-        return FxAConfig(raw: try FxAError.unwrap({err in
-            fxa_get_release_config(err)
-        }))
+    open class func release(completionHandler: @escaping (FxAConfig?, Error?) -> Void) {
+        concurrentQueue.async {
+            do {
+                let config = FxAConfig(raw: try FxAError.unwrap({err in
+                    fxa_get_release_config(err)
+                }))
+                completionHandler(config, nil)
+            } catch {
+                completionHandler(nil, error)
+            }
+        }
     }
 
-    open class func custom(content_base: String) throws -> FxAConfig {
-        return FxAConfig(raw: try FxAError.unwrap({err in
-            fxa_get_custom_config(content_base, err)
-        }))
+    open class func custom(content_base: String, completionHandler: @escaping (FxAConfig?, Error?) -> Void) {
+        concurrentQueue.async {
+            do {
+                let config = FxAConfig(raw: try FxAError.unwrap({err in
+                    fxa_get_custom_config(content_base, err)
+                }))
+                completionHandler(config, nil)
+            } catch {
+                completionHandler(nil, error)
+            }
+        }
     }
 
     override func cleanup(pointer: OpaquePointer) {
@@ -24,8 +40,6 @@ public class FxAConfig: MovableRustOpaquePointer {
 }
 
 public class FirefoxAccount: RustOpaquePointer {
-    // webChannelResponse is a string for now, but will probably be a JSON
-    // object in the future.
     open class func from(config: FxAConfig, clientId: String, webChannelResponse: String) throws -> FirefoxAccount {
         let pointer = try FxAError.unwrap({err in
             fxa_from_credentials(try config.movePointer(), clientId, webChannelResponse, err)
@@ -55,10 +69,17 @@ public class FirefoxAccount: RustOpaquePointer {
         }))
     }
 
-    public func getProfile() throws -> Profile {
-        return Profile(raw: try FxAError.unwrap({err in
-            fxa_profile(self.raw, false, err)
-        }))
+    public func getProfile(completionHandler: @escaping (Profile?, Error?) -> Void) {
+        concurrentQueue.async {
+            do {
+                let profile = Profile(raw: try FxAError.unwrap({err in
+                    fxa_profile(self.raw, false, err)
+                }))
+                completionHandler(profile, nil)
+            } catch {
+                completionHandler(nil, error)
+            }
+        }
     }
 
     public func getSyncKeys() throws -> SyncKeys {
@@ -74,28 +95,51 @@ public class FirefoxAccount: RustOpaquePointer {
     }
 
     // Scopes is space separated for each scope.
-    public func beginOAuthFlow(redirectURI: String, scopes: [String], wantsKeys: Bool) throws -> URL {
-        let scope = scopes.joined(separator: " ");
-        return URL(string: String(freeingFxaString: try FxAError.unwrap({err in
-            fxa_begin_oauth_flow(raw, redirectURI, scope, wantsKeys, err)
-        })))!
-    }
-
-    public func completeOAuthFlow(code: String, state: String) throws -> OAuthInfo {
-        return OAuthInfo(raw: try FxAError.unwrap({err in
-             fxa_complete_oauth_flow(self.raw, code, state, err)
-        }))
-    }
-
-    public func getOAuthToken(scopes: [String]) throws -> OAuthInfo? {
-        let scope = scopes.joined(separator: " ")
-        let info = try FxAError.tryUnwrap({err in
-            fxa_get_oauth_token(self.raw, scope, err)
-        })
-        guard let ptr: UnsafeMutablePointer<OAuthInfoC> = info else {
-            return nil
+    public func beginOAuthFlow(redirectURI: String, scopes: [String], wantsKeys: Bool, completionHandler: @escaping (URL?, Error?) -> Void) {
+        concurrentQueue.async {
+            do {
+                let scope = scopes.joined(separator: " ")
+                let url = URL(string: String(freeingFxaString: try FxAError.unwrap({err in
+                    fxa_begin_oauth_flow(self.raw, redirectURI, scope, wantsKeys, err)
+                })))!
+                completionHandler(url, nil)
+            } catch {
+                completionHandler(nil, error)
+            }
         }
-        return OAuthInfo(raw: ptr)
+    }
+
+    public func completeOAuthFlow(code: String, state: String, completionHandler: @escaping (OAuthInfo?, Error?) -> Void) {
+        concurrentQueue.async {
+            do {
+                let oauthInfo = OAuthInfo(raw: try FxAError.unwrap({err in
+                    fxa_complete_oauth_flow(self.raw, code, state, err)
+                }))
+                completionHandler(oauthInfo, nil)
+            } catch {
+                completionHandler(nil, error)
+            }
+        }
+    }
+
+
+    public func getOAuthToken(scopes: [String], completionHandler: @escaping (OAuthInfo?, Error?) -> Void) {
+        concurrentQueue.async {
+            do {
+                let scope = scopes.joined(separator: " ")
+                let info = try FxAError.tryUnwrap({err in
+                    fxa_get_oauth_token(self.raw, scope, err)
+                })
+                guard let ptr: UnsafeMutablePointer<OAuthInfoC> = info else {
+                    completionHandler(nil, nil)
+                    return
+                }
+                let oauthInfo = OAuthInfo(raw: ptr)
+                completionHandler(oauthInfo, nil)
+            } catch {
+                completionHandler(nil, error)
+            }
+        }
     }
 
     public func generateAssertion(audience: String) throws -> String {

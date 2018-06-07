@@ -77,7 +77,7 @@ public class MovableRustPointer<T>: Destroyable {
         guard let r = self.raw else {
             throw PointerError.pointerConsumed
         }
-        self.raw = nil;
+        self.raw = nil
         return r
     }
 

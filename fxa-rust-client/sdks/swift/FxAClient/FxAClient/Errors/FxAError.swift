@@ -13,7 +13,7 @@ public enum FxAError: Error {
     // existed, and that it's a very bad idea to touch it after you call this
     // function
     static func fromConsuming(_ fxaError: FxAErrorC) -> FxAError? {
-        let message = fxaError.message;
+        let message = fxaError.message
         switch fxaError.code {
         case NoError:
             return nil

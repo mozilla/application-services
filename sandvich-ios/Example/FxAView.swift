@@ -33,25 +33,53 @@ class FxAView: UIViewController, WKNavigationDelegate {
         self.view = self.webView
         self.styleNavigationBar()
 
-        let fxa: FirefoxAccount;
         if let state_json = UserDefaults.standard.string(forKey: self.stateKey) {
-            fxa = try! FirefoxAccount.fromJSON(state: state_json)
-        } else {
-            let config = try! FxAConfig.custom(content_base: "https://sandvich-ios.dev.lcip.org");
-            fxa = try! FirefoxAccount(config: config, clientId: "22d74070a481bc73")
-            persistState(fxa)
-        }
+            //let state_json = UserDefaults.standard.string(forKey: self.stateKey)
+            self.fxa = try! FirefoxAccount.fromJSON(state: state_json)
 
-        do {
-            let profile = try fxa.getProfile()
-            self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
-            return
-        } catch FxAError.Unauthorized {
-            self.fxa = fxa
-            let authUrl = try! fxa.beginOAuthFlow(redirectURI: self.redirectUrl, scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"], wantsKeys: true)
-            self.webView.load(URLRequest(url: authUrl))
-        } catch {
-            assert(false, "Unexpected error :(")
+            if let fxa = self.fxa {
+                fxa.getProfile() { result, error in
+                    if let error = error as? FxAError, case FxAError.Unauthorized = error {
+                        fxa.beginOAuthFlow(redirectURI: self.redirectUrl, scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"], wantsKeys: true) { result, error in
+                            guard let authUrl = result else { return }
+                            DispatchQueue.main.async {
+                                self.webView.load(URLRequest(url: authUrl))
+                            }
+                        }
+                    } else if let profile = result {
+                        DispatchQueue.main.async {
+                            self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
+                        }
+                    } else {
+                        assert(false, "Unexpected error :(")
+                    }
+                }
+            }
+        } else {
+            FxAConfig.custom(content_base: "https://sandvich-ios.dev.lcip.org") { result, error in
+                guard let config = result else { return } // The original implementation uses try! anyway so the error would have been swallowed
+                self.fxa = try! FirefoxAccount(config: config, clientId: "22d74070a481bc73")
+                self.persistState(self.fxa!)
+
+                if let fxa = self.fxa {
+                    fxa.getProfile() { result, error in
+                        if let error = error as? FxAError, case FxAError.Unauthorized = error {
+                            fxa.beginOAuthFlow(redirectURI: self.redirectUrl, scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"], wantsKeys: true) { result, error in
+                                guard let authUrl = result else { return }
+                                DispatchQueue.main.async {
+                                    self.webView.load(URLRequest(url: authUrl))
+                                }
+                            }
+                        } else if let profile = result {
+                            DispatchQueue.main.async {
+                                self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
+                            }
+                        } else {
+                            assert(false, "Unexpected error :(")
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -74,19 +102,23 @@ class FxAView: UIViewController, WKNavigationDelegate {
     func matchingRedirectURLReceived(components: URLComponents) {
         var dic = [String: String]()
         components.queryItems?.forEach { dic[$0.name] = $0.value }
-        let oauthInfo = try! self.fxa!.completeOAuthFlow(code: dic["code"]!, state: dic["state"]!)
-        persistState(self.fxa!) // Persist fxa state because it now holds the profile token.
-        print("access_token: " + oauthInfo.accessToken)
-        if let keys = oauthInfo.keys {
-            print("keysJWE: " + keys)
-        }
-        print("obtained scopes: " + oauthInfo.scopes.joined(separator: " "))
-        do {
-            let profile = try fxa!.getProfile()
-            self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
-            return
-        } catch {
-            assert(false, "ok something's really wrong there.")
+        self.fxa!.completeOAuthFlow(code: dic["code"]!, state: dic["state"]!) { result, error in
+            guard let oauthInfo = result else { return }
+            self.persistState(self.fxa!) // Persist fxa state because it now holds the profile token.
+            print("access_token: " + oauthInfo.accessToken)
+            if let keys = oauthInfo.keys {
+                print("keysJWE: " + keys)
+            }
+            print("obtained scopes: " + oauthInfo.scopes.joined(separator: " "))
+            self.fxa!.getProfile() { result, error in
+                guard let profile = result else {
+                    assert(false, "ok something's really wrong there")
+                    return
+                }
+                DispatchQueue.main.async {
+                    self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
+                }
+            }
         }
     }
 
