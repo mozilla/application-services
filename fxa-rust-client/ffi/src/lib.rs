@@ -24,6 +24,12 @@ pub enum ErrorCode {
     AuthenticationError,
 }
 
+/// An error struct containing an error code and a description string.
+/// #Safety
+///
+/// Callers are responsible for managing the memory for the return value.
+/// A destructor `free_extern_error` is provided for releasing the memory for this
+/// pointer type.
 #[repr(C)]
 #[derive(Debug)]
 pub struct ExternError {
@@ -39,7 +45,7 @@ pub struct ExternError {
 /// #Safety
 ///
 /// Callers are responsible for managing the memory for the return value.
-/// A destructor `destroy` is provided for releasing the memory for this
+/// A destructor `free_extern_result` is provided for releasing the memory for this
 /// pointer type.
 #[repr(C)]
 #[derive(Debug)]
