@@ -25,17 +25,24 @@ if [ -d "android" ]; then
   exit 0
 fi
 
-NDK_PATH=$(abspath "android-ndk-r""$NDK_VERSION")
+NDK_PATH="/tmp/android-ndk-r$NDK_VERSION"
 
 echo "# Preparing build environment"
 
 if [ -d "$NDK_PATH" ]; then
   echo "Using existing NDK"
 else
-  #TODO: replacing "darwin" by "linux" would allow this script to run on linux potentially.
-  NDK_ZIP="android-ndk-r""$NDK_VERSION""-darwin-x86_64.zip"
+  if [[ "$OSTYPE" == "linux-gnu" ]]; then
+    NDK_ZIP="android-ndk-r""$NDK_VERSION""-linux-x86_64.zip"
+  elif [[ "$OSTYPE" == "darwin"* ]]; then
+    NDK_ZIP="android-ndk-r""$NDK_VERSION""-darwin-x86_64.zip"
+  else
+    echo "Unsupported platform!"
+    exit 1
+  fi
   curl -O "https://dl.google.com/android/repository/""$NDK_ZIP"
-  unzip "$NDK_ZIP"
+  unzip "$NDK_ZIP" -d /tmp
+  rm -f "$NDK_ZIP"
 fi
 
 declare -a TOOLCHAINS_PATHS
