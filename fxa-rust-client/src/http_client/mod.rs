@@ -148,7 +148,7 @@ impl<'a> Client<'a> {
         profile_access_token: &str,
         etag: Option<String>,
     ) -> Result<Option<ResponseAndETag<ProfileResponse>>> {
-        let url = self.config.profile_url_path("v1/profile")?;
+        let url = self.config.userinfo_endpoint()?;
         let client = ReqwestClient::new();
         let mut builder = client.request(Method::Get, url);
         builder.header(header::Authorization(header::Bearer {
@@ -190,7 +190,7 @@ impl<'a> Client<'a> {
           "scope": scopes.join(" ")
         });
         let key = Client::derive_key_from_session_token(session_token)?;
-        let url = self.config.oauth_url_path("v1/authorization")?;
+        let url = self.config.authorization_endpoint()?;
         let request = HAWKRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
@@ -227,7 +227,7 @@ impl<'a> Client<'a> {
     }
 
     fn make_oauth_token_request(&self, body: serde_json::Value) -> Result<OAuthTokenResponse> {
-        let url = self.config.oauth_url_path("v1/token")?;
+        let url = self.config.token_endpoint()?;
         let client = ReqwestClient::new();
         let request = client
             .request(Method::Post, url)
