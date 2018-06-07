@@ -87,7 +87,7 @@ impl<'keypair> SignedJWTBuilder<'keypair> {
 
     fn build(self) -> Result<String> {
         let payload_string = self.get_payload_string()?;
-        encode(&payload_string, self.key_pair)
+        encode_and_sign(&payload_string, self.key_pair)
     }
 
     fn get_payload_string(&self) -> Result<String> {
@@ -109,7 +109,7 @@ impl<'keypair> SignedJWTBuilder<'keypair> {
     }
 }
 
-fn encode(payload: &str, key_pair: &BrowserIDKeyPair) -> Result<String> {
+fn encode_and_sign(payload: &str, key_pair: &BrowserIDKeyPair) -> Result<String> {
     let headers_str = json!({"alg": key_pair.get_algo()}).to_string();
     let encoded_header = base64::encode_config(headers_str.as_bytes(), base64::URL_SAFE_NO_PAD);
     let encoded_payload = base64::encode_config(payload.as_bytes(), base64::URL_SAFE_NO_PAD);
@@ -164,7 +164,7 @@ mod tests {
     fn do_test_encode_decode(key_pair: &BrowserIDKeyPair) {
         let payload = json!({"key": "value"}).to_string();
 
-        let token = encode(&payload, key_pair).unwrap();
+        let token = encode_and_sign(&payload, key_pair).unwrap();
         let decoded = decode(&token, key_pair).unwrap();
         assert_eq!(decoded, payload);
 
