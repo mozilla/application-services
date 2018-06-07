@@ -27,6 +27,7 @@ impl RSABrowserIDKeyPair {
         let key = PKey::from_rsa(rsa)?;
         Ok(RSABrowserIDKeyPair { key })
     }
+
     pub fn generate_random(len: u32) -> Result<RSABrowserIDKeyPair> {
         let rsa = Rsa::generate(len)?;
         RSABrowserIDKeyPair::from_rsa(rsa)
@@ -49,13 +50,13 @@ impl BrowserIDKeyPair for RSABrowserIDKeyPair {
     fn sign(&self, message: &[u8]) -> Result<Vec<u8>> {
         let mut signer = Signer::new(MessageDigest::sha256(), &self.key)?;
         signer.update(message)?;
-        Ok(signer.sign_to_vec()?)
+        signer.sign_to_vec().map_err(|e| e.into())
     }
 
     fn verify_message(&self, message: &[u8], signature: &[u8]) -> Result<bool> {
         let mut verifier = Verifier::new(MessageDigest::sha256(), &self.key)?;
         verifier.update(message)?;
-        Ok(verifier.verify(signature)?)
+        verifier.verify(signature).map_err(|e| e.into())
     }
 
     fn to_json(&self, include_private: bool) -> Result<serde_json::Value> {

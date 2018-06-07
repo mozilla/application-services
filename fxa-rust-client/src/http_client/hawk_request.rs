@@ -66,6 +66,6 @@ impl<'a> HAWKRequestBuilder<'a> {
             request_builder.body(body);
         }
 
-        Ok(request_builder.build()?)
+        request_builder.build().map_err(|e| e.into())
     }
 }

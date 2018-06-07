@@ -68,59 +68,59 @@ impl Config {
     }
 
     pub fn content_url(&self) -> Result<Url> {
-        Ok(Url::parse(&self.content_url)?)
+        Url::parse(&self.content_url).map_err(|e| e.into())
     }
 
     pub fn content_url_path(&self, path: &str) -> Result<Url> {
-        Ok(self.content_url()?.join(path)?)
+        self.content_url()?.join(path).map_err(|e| e.into())
     }
 
     pub fn auth_url(&self) -> Result<Url> {
-        Ok(Url::parse(&self.auth_url)?)
+        Url::parse(&self.auth_url).map_err(|e| e.into())
     }
 
     pub fn auth_url_path(&self, path: &str) -> Result<Url> {
-        Ok(self.auth_url()?.join(path)?)
+        self.auth_url()?.join(path).map_err(|e| e.into())
     }
 
     pub fn profile_url(&self) -> Result<Url> {
-        Ok(Url::parse(&self.profile_url)?)
+        Url::parse(&self.profile_url).map_err(|e| e.into())
     }
 
     pub fn profile_url_path(&self, path: &str) -> Result<Url> {
-        Ok(self.profile_url()?.join(path)?)
+        self.profile_url()?.join(path).map_err(|e| e.into())
     }
 
     pub fn oauth_url(&self) -> Result<Url> {
-        Ok(Url::parse(&self.oauth_url)?)
+        Url::parse(&self.oauth_url).map_err(|e| e.into())
     }
 
     pub fn oauth_url_path(&self, path: &str) -> Result<Url> {
-        Ok(self.oauth_url()?.join(path)?)
+        self.oauth_url()?.join(path).map_err(|e| e.into())
     }
 
     pub fn token_server_endpoint_url(&self) -> Result<Url> {
-        Ok(Url::parse(&self.token_server_endpoint_url)?)
+        Url::parse(&self.token_server_endpoint_url).map_err(|e| e.into())
     }
 
     pub fn authorization_endpoint(&self) -> Result<Url> {
-        Ok(Url::parse(&self.authorization_endpoint)?)
+        Url::parse(&self.authorization_endpoint).map_err(|e| e.into())
     }
 
     pub fn issuer(&self) -> Result<Url> {
-        Ok(Url::parse(&self.issuer)?)
+        Url::parse(&self.issuer).map_err(|e| e.into())
     }
 
     pub fn jwks_uri(&self) -> Result<Url> {
-        Ok(Url::parse(&self.jwks_uri)?)
+        Url::parse(&self.jwks_uri).map_err(|e| e.into())
     }
 
     pub fn token_endpoint(&self) -> Result<Url> {
-        Ok(Url::parse(&self.token_endpoint)?)
+        Url::parse(&self.token_endpoint).map_err(|e| e.into())
     }
 
     pub fn userinfo_endpoint(&self) -> Result<Url> {
-        Ok(Url::parse(&self.userinfo_endpoint)?)
+        Url::parse(&self.userinfo_endpoint).map_err(|e| e.into())
     }
 }
 

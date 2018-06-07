@@ -77,14 +77,14 @@ impl<'a> Client<'a> {
             .query(&[("keys", get_keys)])
             .body(parameters.to_string())
             .build()?;
-        Ok(Client::make_request(request)?.json()?)
+        Client::make_request(request)?.json().map_err(|e| e.into())
     }
 
     pub fn account_status(&self, uid: &String) -> Result<AccountStatusResponse> {
         let url = self.config.auth_url_path("v1/account/status")?;
         let client = ReqwestClient::new();
         let request = client.get(url).query(&[("uid", uid)]).build()?;
-        Ok(Client::make_request(request)?.json()?)
+        Client::make_request(request)?.json().map_err(|e| e.into())
     }
 
     pub fn keys(&self, key_fetch_token: &[u8]) -> Result<KeysResponse> {
@@ -140,7 +140,7 @@ impl<'a> Client<'a> {
         let url = self.config.auth_url_path("v1/recovery_email/status")?;
         let key = Client::derive_key_from_session_token(session_token)?;
         let request = HAWKRequestBuilder::new(Method::Get, url, &key).build()?;
-        Ok(Client::make_request(request)?.json()?)
+        Client::make_request(request)?.json().map_err(|e| e.into())
     }
 
     pub fn profile(
@@ -194,7 +194,7 @@ impl<'a> Client<'a> {
         let request = HAWKRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
-        Ok(Client::make_request(request)?.json()?)
+        Client::make_request(request)?.json().map_err(|e| e.into())
     }
 
     pub fn oauth_token_with_code(
@@ -234,7 +234,7 @@ impl<'a> Client<'a> {
             .header(header::ContentType::json())
             .body(body.to_string())
             .build()?;
-        Ok(Client::make_request(request)?.json()?)
+        Client::make_request(request)?.json().map_err(|e| e.into())
     }
 
     pub fn sign(&self, session_token: &[u8], key_pair: &BrowserIDKeyPair) -> Result<SignResponse> {
@@ -248,7 +248,7 @@ impl<'a> Client<'a> {
         let request = HAWKRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
-        Ok(Client::make_request(request)?.json()?)
+        Client::make_request(request)?.json().map_err(|e| e.into())
     }
 
     fn get_oauth_audience(&self) -> Result<String> {

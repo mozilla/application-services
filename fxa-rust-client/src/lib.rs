@@ -88,7 +88,7 @@ pub struct WebChannelResponse {
 
 impl WebChannelResponse {
     pub fn from_json(json: &str) -> Result<WebChannelResponse> {
-        Ok(serde_json::from_str(json)?)
+        serde_json::from_str(json).map_err(|e| e.into())
     }
 }
 
@@ -164,7 +164,7 @@ impl FirefoxAccount {
 
     pub fn to_json(&self) -> Result<String> {
         let state = State::V1(self.state.clone());
-        Ok(serde_json::to_string(&state)?)
+        serde_json::to_string(&state).map_err(|e| e.into())
     }
 
     fn to_married(&mut self) -> Option<&MarriedState> {

@@ -155,7 +155,7 @@ mod tests {
             bail!("Could not verify token.")
         }
         let payload = base64::decode_config(&segments[1], base64::URL_SAFE_NO_PAD)?;
-        Ok(String::from_utf8(payload)?)
+        String::from_utf8(payload).map_err(|e| e.into())
     }
 
     // These tests are copied directly from Firefox for Android's TestJSONWebTokenUtils.
