@@ -234,7 +234,7 @@ impl FirefoxAccount {
                 FirefoxAccount::session_token_from_state(&self.state.login_state)
             {
                 let client = Client::new(&self.state.config);
-                resp = client.oauth_token_with_assertion(
+                resp = client.oauth_token_with_session_token(
                     &self.state.client_id,
                     session_token,
                     &scopes,

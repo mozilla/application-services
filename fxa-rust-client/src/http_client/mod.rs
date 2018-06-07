@@ -173,7 +173,7 @@ impl<'a> Client<'a> {
         }))
     }
 
-    pub fn oauth_token_with_assertion(
+    pub fn oauth_token_with_session_token(
         &self,
         client_id: &str,
         session_token: &[u8],
@@ -417,7 +417,7 @@ mod tests {
         let session_token = hex::decode(resp.session_token).unwrap();
 
         let resp = client
-            .oauth_token_with_assertion("5882386c6d801776", &session_token, &["profile"])
+            .oauth_token_with_session_token("5882386c6d801776", &session_token, &["profile"])
             .unwrap();
         println!("OAuth Token obtained: {}", &resp.access_token);
     }
