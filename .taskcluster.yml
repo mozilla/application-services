@@ -27,12 +27,14 @@ tasks:
           zip -r fxa_client_android.zip fxa-client &&
           zip -r fxa_client_android_deps.zip fxa-client-deps
       artifacts:
-        'public/bin/fxa-client/fxa_client_android.zip':
+        'public/bin/mozilla/fxa_client_android_{{ event.version }}.zip':
           type: 'file'
           path: '/repo/fxa_client_android.zip'
-        'public/bin/fxa-client/fxa_client_android_deps.zip':
+        'public/bin/mozilla/fxa_client_android_deps_{{ event.version }}.zip':
           type: 'file'
           path: '/repo/fxa_client_android_deps.zip'
+    routes:
+      - index.project.fxaclient.builds.{{ event.version }}
     metadata:
       name: fxa-rust-client Android Build
       description: Builds the FxA rust lib for Android architectures
