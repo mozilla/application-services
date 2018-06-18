@@ -1,0 +1,5 @@
+exclude:
+  - FxAClient/Errors/Errors.swift
+  - FxAClient/Errors/RustError.swift
+  - FxAClient/Extensions/*
+  - FxAClient/Rust/*
