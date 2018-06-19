@@ -16,10 +16,10 @@ tasks:
         - '-c'
         - >-
           apt-get update && apt-get install zip -y &&
-          git clone {{ event.head.repo.url }} repo &&
+          git clone '{{ event.head.repo.url }}' repo &&
           cd repo &&
           git config advice.detachedHead false &&
-          git checkout {{ event.head.sha }} &&
+          git checkout '{{ event.head.sha }}' &&
           mkdir -p .cargo &&
           yes | cp -rf scripts/taskcluster-cargo-config .cargo/config &&
           cd libs/ && ./build-all.sh android && cd .. &&
