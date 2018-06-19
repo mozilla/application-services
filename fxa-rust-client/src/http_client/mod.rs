@@ -403,22 +403,22 @@ mod tests {
         );
     }
 
-    #[test]
-    fn live_account_test() {
-        let email = "testfxarustclient@restmail.net";
-        let pwd = "testfxarustclient@restmail.net";
-        let auth_pwd = auth_pwd(email, pwd);
+    // #[test]
+    // fn live_account_test() {
+    //     let email = "testfxarustclient@restmail.net";
+    //     let pwd = "testfxarustclient@restmail.net";
+    //     let auth_pwd = auth_pwd(email, pwd);
 
-        let config = Config::stable_dev().unwrap();
-        let client = Client::new(&config);
+    //     let config = Config::stable_dev().unwrap();
+    //     let client = Client::new(&config);
 
-        let resp = client.login(&email, &auth_pwd, false).unwrap();
-        println!("Session Token obtained: {}", &resp.session_token);
-        let session_token = hex::decode(resp.session_token).unwrap();
+    //     let resp = client.login(&email, &auth_pwd, false).unwrap();
+    //     println!("Session Token obtained: {}", &resp.session_token);
+    //     let session_token = hex::decode(resp.session_token).unwrap();
 
-        let resp = client
-            .oauth_token_with_session_token("5882386c6d801776", &session_token, &["profile"])
-            .unwrap();
-        println!("OAuth Token obtained: {}", &resp.access_token);
-    }
+    //     let resp = client
+    //         .oauth_token_with_session_token("5882386c6d801776", &session_token, &["profile"])
+    //         .unwrap();
+    //     println!("OAuth Token obtained: {}", &resp.access_token);
+    // }
 }
