@@ -19,7 +19,7 @@ tasks:
           git clone '{{ event.head.repo.url }}' repo &&
           cd repo &&
           git config advice.detachedHead false &&
-          git checkout '{{ event.head.sha }}' &&
+          git checkout '{{ event.version }}' &&
           mkdir -p .cargo &&
           yes | cp -rf scripts/taskcluster-cargo-config .cargo/config &&
           cd libs/ && ./build-all.sh android && cd .. &&
