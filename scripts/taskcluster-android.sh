@@ -55,5 +55,9 @@ do
   mkdir -p fxa-client/$target
   cp target/${android_targets[$target]}/release/libfxa_client.so fxa-client/$target
   mkdir -p fxa-client-deps/$target
-  cp -r libs/android/$target/* fxa-client-deps/$target
+  cp -r libs/android/$target/*/lib/*.so fxa-client-deps/$target
+
+  # Because Android needs the lib to be in a armeabi dir.
+  mv fxa-client/arm fxa-client/armeabi
+  mv fxa-client-deps/arm fxa-client-deps/armeabi
 done

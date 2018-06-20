@@ -24,8 +24,8 @@ tasks:
           yes | cp -rf scripts/taskcluster-cargo-config .cargo/config &&
           cd libs/ && ./build-all.sh android && cd .. &&
           ./scripts/taskcluster-android.sh &&
-          zip -r fxa_client_android.zip fxa-client &&
-          zip -r fxa_client_android_deps.zip fxa-client-deps
+          zip -r fxa_client_android.zip fxa-client/* &&
+          zip -r fxa_client_android_deps.zip fxa-client-deps/*
       artifacts:
         'public/bin/mozilla/fxa_client_android_{{ event.version }}.zip':
           type: 'file'
