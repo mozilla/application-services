@@ -55,6 +55,7 @@ typedef struct ProfileC {
     char *_Nonnull uid;
     char *_Nonnull email;
     char *_Nonnull avatar;
+    char *_Nullable display_name;
 } ProfileC;
 
 typedef struct FirefoxAccount FirefoxAccount;
