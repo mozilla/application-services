@@ -2,6 +2,7 @@ package io.github.mozilla.sandvich;
 
 import android.content.Intent;
 import android.net.Uri;
+import android.support.customtabs.CustomTabsIntent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -24,6 +25,11 @@ public class SandvichActivity extends AppCompatActivity {
         setContentView(R.layout.activity_sandvich);
         Button btn = (Button) findViewById(R.id.button);
 
+        final CustomTabsIntent customTabsIntent = new CustomTabsIntent.Builder()
+            .addDefaultShareMenuItem()
+            .setShowTitle(true)
+            .build();
+
         Config config = Config.custom("https://sandvich-ios.dev.lcip.org");
 
         String clientId = "22d74070a481bc73";
@@ -37,9 +43,14 @@ public class SandvichActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Log.i("sandvich", "Starting FxA login");
-                Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://google.com"));
-                startActivity(browserIntent);
+                customTabsIntent.launchUrl(SandvichActivity.this, Uri.parse(flowUrl));
             }
         });
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+
     }
 }

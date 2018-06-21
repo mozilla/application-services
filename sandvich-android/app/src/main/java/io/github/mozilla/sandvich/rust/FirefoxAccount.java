@@ -39,7 +39,7 @@ public class FirefoxAccount extends RustObject {
         RustResult result = JNA.INSTANCE.fxa_begin_oauth_flow(this.validPointer(), redirectURI, scope, wantsKeys);
         result.logIfFailure("FirefoxAccount.beginOAuthFlow");
         if (result.isSuccess()) {
-            return result.consumeSuccess().getPointer(0).getString(0, "utf8");
+            return result.consumeSuccess().getString(0, "utf8");
         } else {
             // TODO: Don't return an empty string
             return "";
