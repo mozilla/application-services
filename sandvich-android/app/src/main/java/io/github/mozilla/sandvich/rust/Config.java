@@ -7,30 +7,36 @@ import com.sun.jna.Pointer;
 public class Config extends RustObject {
 
     public Config(Pointer pointer) {
-        super(pointer);
+        this.rawPointer = pointer;
     }
 
     @Override
-    protected void destroyPointer(Pointer config) {
-        JNA.INSTANCE.fxa_config_free(config);
+    public void close() {
+        if (this.rawPointer != null) {
+            JNA.INSTANCE.fxa_config_free(this.rawPointer);
+        }
     }
 
     public static Config release() {
         RustResult result = JNA.INSTANCE.fxa_get_release_config();
-        result.logIfFailure("Config.release");
         if (result.isSuccess()) {
-            return new Config(result.consumeSuccess());
+            Pointer ptr = result.ok;
+            result.ok = null;
+            return new Config(ptr);
         } else {
+            Log.e("Config.release", result.getError().message);
             return null;
         }
     }
 
     public static Config custom(String content_base) {
         RustResult result = JNA.INSTANCE.fxa_get_custom_config(content_base);
-        result.logIfFailure("Config.custom");
         if (result.isSuccess()) {
-            return new Config(result.consumeSuccess());
+            Pointer ptr = result.ok;
+            result.ok = null;
+            return new Config(ptr);
         } else {
+            Log.e("Config.custom", result.getError().message);
             return null;
         }
     }

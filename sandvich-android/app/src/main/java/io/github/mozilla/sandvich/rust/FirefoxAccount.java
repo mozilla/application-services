@@ -8,41 +8,55 @@ import com.sun.jna.Pointer;
 public class FirefoxAccount extends RustObject {
 
     public FirefoxAccount(Pointer pointer) {
-        super(pointer);
+        this.rawPointer = pointer;
     }
 
     /* TODO: This throws a runtime exception if the fxa_new command doesn't complete for whatever
      *       reason (eg. no internet, no whatever). Ask Christian what to do with the super.
      */
     public FirefoxAccount(Config config, String clientId) {
-        super(JNA.INSTANCE.fxa_new(config.consumePointer(), clientId).consumeSuccess());
+        RustResult result = JNA.INSTANCE.fxa_new(config.rawPointer, clientId);
+        config.rawPointer = null;
+        if (result.isSuccess()) {
+            Pointer ptr = result.ok;
+            result.ok = null;
+            this.rawPointer = ptr;
+        } else {
+            Log.e("FirefoxAccount.init", result.getError().message);
+            this.rawPointer = null;
+        }
     }
 
     @Override
-    protected void destroyPointer(Pointer fxa) {
-        JNA.INSTANCE.fxa_free(fxa);
+    public void close() {
+        if (this.rawPointer != null) {
+            JNA.INSTANCE.fxa_free(this.rawPointer);
+        }
     }
 
     public static FirefoxAccount from(Config config, String clientId, String webChannelResponse) {
-        RustResult result = JNA.INSTANCE.fxa_from_credentials(config.consumePointer(), clientId, webChannelResponse);
-        result.logIfFailure("FirefoxAccount.from");
+        RustResult result = JNA.INSTANCE.fxa_from_credentials(config.rawPointer, clientId, webChannelResponse);
+        config.rawPointer = null;
         if (result.isSuccess()) {
-            return new FirefoxAccount(result.consumeSuccess());
+            Pointer ptr = result.ok;
+            result.ok = null;
+            return new FirefoxAccount(ptr);
         } else {
-            // TODO: Don't return a null thing
-            return new FirefoxAccount(null);
+            Log.e("fxa.from", result.getError().message);
+            return null;
         }
     }
 
     public String beginOAuthFlow(String redirectURI, String[] scopes, Boolean wantsKeys) {
         String scope = TextUtils.join(" ", scopes);
-        RustResult result = JNA.INSTANCE.fxa_begin_oauth_flow(this.validPointer(), redirectURI, scope, wantsKeys);
-        result.logIfFailure("FirefoxAccount.beginOAuthFlow");
+        RustResult result = JNA.INSTANCE.fxa_begin_oauth_flow(this.rawPointer, redirectURI, scope, wantsKeys);
         if (result.isSuccess()) {
-            return result.consumeSuccess().getString(0, "utf8");
+            Pointer ptr = result.ok;
+            result.ok = null;
+            return ptr.getString(0, "utf8");
         } else {
-            // TODO: Don't return an empty string
-            return "";
+            Log.e("fxa.beginOAuthFlow", result.getError().message);
+            return null;
         }
     }
 }
