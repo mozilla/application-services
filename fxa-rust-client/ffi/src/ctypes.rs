@@ -49,6 +49,7 @@ pub struct ProfileC {
     pub uid: *mut c_char,
     pub email: *mut c_char,
     pub avatar: *mut c_char,
+    pub display_name: *mut c_char
 }
 
 impl From<ProfileResponse> for ProfileC {
@@ -57,6 +58,7 @@ impl From<ProfileResponse> for ProfileC {
             uid: string_to_c_char(profile.uid),
             email: string_to_c_char(profile.email),
             avatar: string_to_c_char(profile.avatar),
+            display_name: profile.display_name.map_or(std::ptr::null_mut(), |s| string_to_c_char(s)),
         }
     }
 }

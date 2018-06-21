@@ -130,6 +130,15 @@ public class Profile: RustStructPointer<ProfileC> {
         }
     }
 
+    public var displayName: String? {
+        get {
+            guard let pointer = raw.pointee.display_name else {
+                return nil
+            }
+            return String(cString: pointer)
+        }
+    }
+
     override func cleanup(pointer: UnsafeMutablePointer<ProfileC>) {
         fxa_profile_free(raw)
     }
