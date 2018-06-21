@@ -2,7 +2,7 @@
 
 set -e
 
-NDK_VERSION="10e"
+NDK_VERSION="17"
 ANDROID_API_VERSION="26"
 TARGET_ARCHS=("x86" "arm64" "arm")
 TARGET_ARCHS_TOOLCHAINS=("i686-linux-android" "aarch64-linux-android" "arm-linux-androideabi")
