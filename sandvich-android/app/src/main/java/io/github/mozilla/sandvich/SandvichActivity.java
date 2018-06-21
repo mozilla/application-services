@@ -32,11 +32,12 @@ public class SandvichActivity extends AppCompatActivity {
         FirefoxAccount fxa = new FirefoxAccount(config, clientId);
         String[] scopes = new String[] {"profile"};
         final String flowUrl = fxa.beginOAuthFlow(redirectUri, scopes, false);
+
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Log.i("sandvich", "Starting FxA login");
-                Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(flowUrl));
+                Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://google.com"));
                 startActivity(browserIntent);
             }
         });

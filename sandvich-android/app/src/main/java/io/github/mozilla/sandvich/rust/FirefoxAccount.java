@@ -15,7 +15,7 @@ public class FirefoxAccount extends RustObject {
      *       reason (eg. no internet, no whatever). Ask Christian what to do with the super.
      */
     public FirefoxAccount(Config config, String clientId) {
-        super(JNA.INSTANCE.fxa_new(config.validPointer(), clientId).consumeSuccess());
+        super(JNA.INSTANCE.fxa_new(config.consumePointer(), clientId).consumeSuccess());
     }
 
     @Override
@@ -24,7 +24,7 @@ public class FirefoxAccount extends RustObject {
     }
 
     public static FirefoxAccount from(Config config, String clientId, String webChannelResponse) {
-        RustResult result = JNA.INSTANCE.fxa_from_credentials(config.validPointer(), clientId, webChannelResponse);
+        RustResult result = JNA.INSTANCE.fxa_from_credentials(config.consumePointer(), clientId, webChannelResponse);
         result.logIfFailure("FirefoxAccount.from");
         if (result.isSuccess()) {
             return new FirefoxAccount(result.consumeSuccess());
