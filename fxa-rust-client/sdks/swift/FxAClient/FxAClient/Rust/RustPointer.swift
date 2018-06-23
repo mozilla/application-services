@@ -72,6 +72,15 @@ public class MovableRustPointer<T>: Destroyable {
         return r
     }
 
+    /** Equivalent to validPointer, but clears `self.raw` after use */
+    func movePointer() throws -> T {
+        guard let r = self.raw else {
+            throw PointerError.pointerConsumed
+        }
+        self.raw = nil;
+        return r
+    }
+
     func cleanup(pointer: T) {
         fatalError("\(cleanup) is not implemented.")
     }
