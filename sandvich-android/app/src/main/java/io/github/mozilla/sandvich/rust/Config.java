@@ -4,39 +4,34 @@ import android.util.Log;
 
 import com.sun.jna.Pointer;
 
-public class Config extends RustObject {
-
-    public Config(Pointer pointer) {
+public class Config extends RustObject<JNA.RawConfig> {
+    public Config(JNA.RawConfig pointer) {
         this.rawPointer = pointer;
     }
 
     @Override
-    public void close() {
-        if (this.rawPointer != null) {
-            JNA.INSTANCE.fxa_config_free(this.rawPointer);
-        }
+    protected void destroyPointer(JNA.RawConfig cfg) {
+        JNA.INSTANCE.fxa_config_free(cfg);
     }
 
     public static Config release() {
-        RustResult result = JNA.INSTANCE.fxa_get_release_config();
-        if (result.isSuccess()) {
-            Pointer ptr = result.ok;
-            result.ok = null;
-            return new Config(ptr);
+        Error.ByReference e = new Error.ByReference();
+        JNA.RawConfig cfg = JNA.INSTANCE.fxa_get_release_config(e);
+        if (e.isSuccess()) {
+            return new Config(cfg);
         } else {
-            Log.e("Config.release", result.getError().message);
+            Log.e("Config.release", e.consumeMessage());
             return null;
         }
     }
 
     public static Config custom(String content_base) {
-        RustResult result = JNA.INSTANCE.fxa_get_custom_config(content_base);
-        if (result.isSuccess()) {
-            Pointer ptr = result.ok;
-            result.ok = null;
-            return new Config(ptr);
+        Error.ByReference e = new Error.ByReference();
+        JNA.RawConfig cfg = JNA.INSTANCE.fxa_get_custom_config(content_base, e);
+        if (e.isSuccess()) {
+            return new Config(cfg);
         } else {
-            Log.e("Config.custom", result.getError().message);
+            Log.e("Config.custom", e.consumeMessage());
             return null;
         }
     }

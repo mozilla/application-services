@@ -10,23 +10,46 @@ import java.util.List;
 
 public class Error extends Structure {
 
-    public Error (Pointer ptr) {
-        super (ptr);
-        read();
+    public static class ByReference extends Error implements Structure.ByReference {
     }
 
-//
-//    public static interface ErrorCode {
-//        public static final int Other = 0;
-//        public static final int AuthenticationError = 1;
-//    }
-//
-//    public enum ErrorCode {
-//        Other, AuthenticationError
-//    }
-
     public int code;
-    public String message;
+    // It's probably a mistake to touch this, but it needs to be public for JNA
+    public Pointer message;
+
+
+    /**
+     * Does this represent success?
+     */
+    public boolean isSuccess() {
+        return this.code == 0;
+    }
+
+    /**
+     * Does this represent failure?
+     */
+    public boolean isFailure() {
+        return this.code != 0;
+    }
+
+    /**
+     * Get and consume the error message, or null if there is none.
+     */
+    public String consumeMessage() {
+        String result = this.getMessage();
+        if (this.message != null) {
+            JNA.INSTANCE.fxa_str_free(this.message);
+            this.message = null;
+        }
+        return result;
+    }
+
+    /**
+     * Get the error message or null if there is none.
+     */
+    public String getMessage() {
+        return this.message == null ? null : this.message.getString(0, "utf8");
+    }
 
     @Override
     protected List<String> getFieldOrder() {
