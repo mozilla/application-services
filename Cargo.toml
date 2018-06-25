@@ -13,5 +13,3 @@ openssl = { git = 'https://github.com/sfackler/rust-openssl', rev = '5debc1ba5a7
 # Remove these two once https://github.com/carllerche/mio/pull/846 and https://github.com/rust-lang-nursery/net2-rs/pull/74 are merged.
 net2 = { git = 'https://github.com/mehcode/net2-rs', branch = 'master' }
 mio = { git = 'https://github.com/mehcode/mio', branch = 'master' }
-# Remove once a new version of rust-native-tls containing this commit is released.
-native-tls = { git = 'https://github.com/sfackler/rust-native-tls', rev = 'a33506c6639acca37d8d381f4a2c5a105c02ead8' }
