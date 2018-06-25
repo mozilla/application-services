@@ -18,6 +18,7 @@ extern crate lazy_static;
 #[macro_use]
 extern crate log;
 extern crate openssl;
+extern crate openssl_probe;
 extern crate rand;
 extern crate regex;
 extern crate reqwest;
