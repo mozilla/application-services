@@ -113,7 +113,7 @@ public class FirefoxAccount extends RustObject<JNA.RawFxAccount> {
         return getProfile(false);
     }
 
-    OAuthInfo completeOAuthFlow(String code, String state) {
+    public OAuthInfo completeOAuthFlow(String code, String state) {
         Error.ByReference e = new Error.ByReference();
         OAuthInfo.Raw p = JNA.INSTANCE.fxa_complete_oauth_flow(this.validPointer(), code, state, e);
         if (e.isSuccess()) {
@@ -132,18 +132,6 @@ public class FirefoxAccount extends RustObject<JNA.RawFxAccount> {
             return new OAuthInfo(p);
         } else {
             Log.e("FirefoxAccount", e.consumeMessage());
-            return null;
-        }
-    }
-
-    public String completeOAuthFlow(String code, String state) {
-        RustResult result = JNA.INSTANCE.fxa_complete_oauth_flow(this.rawPointer, code, state);
-        if (result.isSuccess()) {
-            Pointer ptr = result.ok;
-            result.ok = null;
-            return OAuthInfo(ptr);
-        } else {
-            Log.e("fxa.completeOAuthFlow", result.getError().message);
             return null;
         }
     }

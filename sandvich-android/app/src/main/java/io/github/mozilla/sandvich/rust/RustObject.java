@@ -46,7 +46,9 @@ abstract class RustObject<T> implements Closeable {
             return null;
         }
         try {
-            return stringPtr.getString(0, "utf8");
+            String str = stringPtr.getString(0, "utf8");
+            Log.e("getcons",str);
+            return str;
         } finally {
             JNA.INSTANCE.fxa_str_free(stringPtr);
         }

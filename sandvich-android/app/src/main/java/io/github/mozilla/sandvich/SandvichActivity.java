@@ -22,6 +22,8 @@ import java.util.List;
 
 import io.github.mozilla.sandvich.rust.Config;
 import io.github.mozilla.sandvich.rust.FirefoxAccount;
+import io.github.mozilla.sandvich.rust.OAuthInfo;
+import io.github.mozilla.sandvich.rust.Profile;
 
 import static android.provider.ContactsContract.Directory.PACKAGE_NAME;
 
@@ -36,9 +38,12 @@ public class SandvichActivity extends AppCompatActivity {
 
     // Globals
     final String contentBase = "https://sandvich-ios.dev.lcip.org";
-    final String clientId = "98adfa37698f255b";
-    private final String redirectUri =
-            "lockbox://redirect.ios";
+    //final String clientId = "98adfa37698f255b";
+    //private final String redirectUri =
+    //        "lockbox://redirect.ios";
+    final String clientId = " 22d74070a481bc73";
+    final String redirectUri = "https://mozilla-lockbox.github.io/fxa/ios-redirect.html";
+
     private String flowUrl;
     public static final String CUSTOM_TAB_PACKAGE_NAME = "com.android.chrome";
 
@@ -55,14 +60,13 @@ public class SandvichActivity extends AppCompatActivity {
         this.fxa = new FirefoxAccount(config, clientId);
         String[] scopes = new String[] {"profile"};
         this.flowUrl = fxa.beginOAuthFlow(redirectUri, scopes, false);
-        Log.i("sandvich.flowUrl", flowUrl);
 
-
+        Log.i("flowUrl", TextUtils.join(" ", scopes));
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Log.i("sandvich", "Starting FxA login");
-                openAuthTab("https://google.com");
+                openAuthTab("");
             }
         });
     }
@@ -132,14 +136,14 @@ public class SandvichActivity extends AppCompatActivity {
         OAuthInfo oauthInfo = fxa.completeOAuthFlow(code, state);
         Log.i("sandvich token", oauthInfo.accessToken);
         Log.i("sandvich keys ", oauthInfo.keys);
-        Log.i("sandvich scope", oauthInfo.scopes);
+        Log.i("sandvich scope", oauthInfo.scope);
 
         Profile profile = fxa.getProfile();
         return profile.email;
     }
 
     private void openAuthTab(String url) {
-         CustomTabsIntent customTabsIntent = new CustomTabsIntent.Builder()
+        CustomTabsIntent customTabsIntent = new CustomTabsIntent.Builder()
                 .addDefaultShareMenuItem()
                 .setShowTitle(true)
                 .build();
