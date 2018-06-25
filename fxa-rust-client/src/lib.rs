@@ -460,6 +460,7 @@ mod tests {
         let fxa1 = FirefoxAccount::from_credentials(
             config,
             "5882386c6d801776",
+            "https://foo.bar",
             WebChannelResponse {
                 uid: "123456".to_string(),
                 email: "foo@bar.com".to_string(),
@@ -478,7 +479,7 @@ mod tests {
 
     #[test]
     fn test_oauth_cache_store_and_find() {
-        let mut fxa = FirefoxAccount::new(Config::stable_dev().unwrap(), "12345678");
+        let mut fxa = FirefoxAccount::new(Config::stable_dev().unwrap(), "12345678", "https://foo.bar");
         let oauth_info = OAuthInfo {
             access_token: "abcdef".to_string(),
             keys: None,
