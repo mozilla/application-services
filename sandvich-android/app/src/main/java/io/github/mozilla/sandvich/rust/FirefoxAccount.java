@@ -59,4 +59,16 @@ public class FirefoxAccount extends RustObject {
             return null;
         }
     }
+
+    public String completeOAuthFlow(String code, String state) {
+        RustResult result = JNA.INSTANCE.fxa_complete_oauth_flow(this.rawPointer, code, state);
+        if (result.isSuccess()) {
+            Pointer ptr = result.ok;
+            result.ok = null;
+            return OAuthInfo(ptr);
+        } else {
+            Log.e("fxa.completeOAuthFlow", result.getError().message);
+            return null;
+        }
+    }
 }

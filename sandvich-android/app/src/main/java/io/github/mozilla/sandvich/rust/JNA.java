@@ -19,6 +19,7 @@ public interface JNA extends Library {
     RustResult fxa_new(Pointer config, String clientId);
     RustResult fxa_from_credentials(Pointer config, String clientId, String webChannelResponse);
     RustResult fxa_begin_oauth_flow(Pointer fxa, String redirectUri, String scopes, boolean wantsKeys);
+    RustResult fxa_complete_oauth_flow(Pointer fxa, String code, String state);
     void fxa_config_free(Pointer config);
     void fxa_str_free(Pointer string);
     void fxa_free(Pointer fxa);
