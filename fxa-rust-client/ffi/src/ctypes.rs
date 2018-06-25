@@ -7,11 +7,19 @@ use fxa_client::{OAuthInfo, SyncKeys};
 use libc::c_char;
 use std;
 use util::*;
+use {fxa_str_free};
 
 #[repr(C)]
 pub struct SyncKeysC {
     pub sync_key: *mut c_char,
     pub xcs: *mut c_char,
+}
+
+impl Drop for SyncKeysC {
+    fn drop(&mut self) {
+        fxa_str_free(self.sync_key);
+        fxa_str_free(self.xcs);
+    }
 }
 
 impl From<SyncKeys> for SyncKeysC {
@@ -28,6 +36,14 @@ pub struct OAuthInfoC {
     pub access_token: *mut c_char,
     pub keys: *mut c_char,
     pub scope: *mut c_char,
+}
+
+impl Drop for OAuthInfoC {
+    fn drop(&mut self) {
+        fxa_str_free(self.access_token);
+        fxa_str_free(self.keys);
+        fxa_str_free(self.scope);
+    }
 }
 
 impl From<OAuthInfo> for OAuthInfoC {
@@ -50,6 +66,15 @@ pub struct ProfileC {
     pub email: *mut c_char,
     pub avatar: *mut c_char,
     pub display_name: *mut c_char
+}
+
+impl Drop for ProfileC {
+    fn drop(&mut self) {
+        fxa_str_free(self.uid);
+        fxa_str_free(self.email);
+        fxa_str_free(self.avatar);
+        fxa_str_free(self.display_name);
+    }
 }
 
 impl From<ProfileResponse> for ProfileC {

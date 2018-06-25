@@ -5,8 +5,9 @@
 use libc::c_char;
 use std::ffi::{CStr, CString};
 
-pub fn c_char_to_string(cchar: *const c_char) -> &'static str {
-    let c_str = unsafe { CStr::from_ptr(cchar) };
+pub unsafe fn c_char_to_string(cchar: *const c_char) -> &'static str {
+    assert!(!cchar.is_null(), "Null pointer passed to rust!");
+    let c_str = CStr::from_ptr(cchar);
     c_str.to_str().unwrap_or("")
 }
 

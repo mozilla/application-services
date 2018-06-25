@@ -4,8 +4,9 @@
 
 import Foundation
 
-public class RustError: RustStructPointer<ErrorC> {
-   override func cleanup(pointer: UnsafeMutablePointer<ErrorC>) {
-        free_extern_error(pointer)
+extension String {
+    public init(freeingFxaString fxaString: UnsafeMutablePointer<CChar>) {
+        defer { fxa_str_free(fxaString) }
+        self.init(cString: fxaString)
     }
 }

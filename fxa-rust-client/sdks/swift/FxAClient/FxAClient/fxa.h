@@ -20,66 +20,90 @@
  A mapping of the ErrorCode repr(C) Rust enum.
  */
 typedef enum ErrorCode {
-    Other,
-    AuthenticationError
+    NoError = 0,
+    Other = 1,
+    AuthenticationError = 2,
+    InternalPanic = 3,
 } ErrorCode;
 
 /*
  A mapping of the ExternError repr(C) Rust struct.
  */
-typedef struct ErrorC {
+typedef struct FxAErrorC {
     ErrorCode code;
-    char *_Nonnull message;
-} ErrorC;
-
-/*
- A mapping of the ExternResult repr(C) Rust struct.
- */
-typedef struct Result {
-    void* _Nullable ok; // Might be a nullptr if optional.
-    ErrorC *_Nullable err;
-} Result;
+    char *_Nullable message;
+} FxAErrorC;
 
 typedef struct OAuthInfoC {
-    char *_Nonnull access_token;
-    char *_Nullable keys;
-    char *_Nonnull scope;
+    const char *const _Nonnull access_token;
+    const char *const _Nullable keys;
+    const char *const _Nonnull scope;
 } OAuthInfoC;
 
 typedef struct SyncKeysC {
-    char *_Nonnull sync_key;
-    char *_Nonnull xcs;
+    const char *const _Nonnull sync_key;
+    const char *const _Nonnull xcs;
 } SyncKeysC;
 
 typedef struct ProfileC {
-    char *_Nonnull uid;
-    char *_Nonnull email;
-    char *_Nonnull avatar;
-    char *_Nullable display_name;
+    const char *const _Nonnull uid;
+    const char *const _Nonnull email;
+    const char *const _Nonnull avatar;
+    const char *const _Nullable display_name;
 } ProfileC;
 
 typedef struct FirefoxAccount FirefoxAccount;
 typedef struct Config Config;
 
-Result*_Nonnull fxa_get_release_config(void);
-Result*_Nonnull fxa_get_custom_config(const char *_Nonnull content_base);
-Result*_Nonnull fxa_begin_oauth_flow(FirefoxAccount *_Nonnull fxa,
-                           const char *_Nonnull redirect_uri,
-                           const char *_Nonnull scopes,
-                           bool wants_keys);
-Result*_Nonnull fxa_complete_oauth_flow(FirefoxAccount *_Nonnull fxa, const char *_Nonnull code, const char *_Nonnull state);
-Result*_Nonnull fxa_get_oauth_token(FirefoxAccount *_Nonnull fxa, const char *_Nonnull scope);
-Result*_Nonnull fxa_from_json(const char *_Nonnull json);
-Result*_Nonnull fxa_to_json(FirefoxAccount *_Nonnull fxa);
-Result*_Nonnull fxa_new(Config *config, const char *_Nonnull client_id);
-Result*_Nonnull fxa_profile(FirefoxAccount *_Nonnull fxa, bool ignore_cache);
-Result*_Nonnull fxa_from_credentials(Config *_Nonnull config, const char *_Nonnull client_id, const char *_Nonnull json);
-Result*_Nonnull fxa_assertion_new(FirefoxAccount *_Nonnull fxa, const char *_Nonnull audience);
-Result*_Nonnull fxa_get_token_server_endpoint_url(FirefoxAccount *_Nonnull fxa);
-Result*_Nonnull fxa_get_sync_keys(FirefoxAccount *_Nonnull fxa);
+Config *_Nullable fxa_get_release_config(FxAErrorC *_Nonnull out);
 
-void free_extern_result(Result* _Nullable ptr);
-void free_extern_error(ErrorC* _Nullable ptr);
+Config *_Nullable fxa_get_custom_config(const char *_Nonnull content_base,
+                                        FxAErrorC *_Nonnull out);
+
+char *_Nonnull fxa_begin_oauth_flow(FirefoxAccount *_Nonnull fxa,
+                                    const char *_Nonnull redirect_uri,
+                                    const char *_Nonnull scopes,
+                                    bool wants_keys,
+                                    FxAErrorC *_Nonnull out);
+
+OAuthInfoC *_Nullable fxa_complete_oauth_flow(FirefoxAccount *_Nonnull fxa,
+                                              const char *_Nonnull code,
+                                              const char *_Nonnull state,
+                                              FxAErrorC *_Nonnull out);
+
+OAuthInfoC *_Nullable fxa_get_oauth_token(FirefoxAccount *_Nonnull fxa,
+                                          const char *_Nonnull scope,
+                                          FxAErrorC *_Nonnull out);
+
+FirefoxAccount *_Nullable fxa_from_json(const char *_Nonnull json,
+                                        FxAErrorC *_Nonnull out);
+
+char *_Nullable fxa_to_json(FirefoxAccount *_Nonnull rxa,
+                            FxAErrorC *_Nonnull out);
+
+FirefoxAccount *_Nullable fxa_new(Config *_Nonnull config,
+                                  const char *_Nonnull client_id,
+                                  FxAErrorC *_Nonnull out);
+
+ProfileC *_Nullable fxa_profile(FirefoxAccount *_Nonnull fxa,
+                                bool ignore_cache,
+                                FxAErrorC *_Nonnull out);
+
+FirefoxAccount *_Nullable fxa_from_credentials(Config *_Nonnull config,
+                                               const char *_Nonnull client_id,
+                                               const char *_Nonnull json,
+                                               FxAErrorC *_Nonnull out);
+
+char *_Nullable fxa_assertion_new(FirefoxAccount *_Nonnull fxa,
+                                  const char *_Nonnull audience,
+                                  FxAErrorC *_Nonnull out);
+
+char *_Nullable fxa_get_token_server_endpoint_url(FirefoxAccount *_Nonnull fxa,
+                                                  FxAErrorC *_Nonnull out);
+
+SyncKeysC *_Nullable fxa_get_sync_keys(FirefoxAccount *_Nonnull fxa,
+                                       FxAErrorC *_Nonnull out);
+
 void fxa_str_free(char* _Nullable ptr);
 void fxa_free(FirefoxAccount* _Nullable ptr);
 void fxa_oauth_info_free(OAuthInfoC* _Nullable ptr);

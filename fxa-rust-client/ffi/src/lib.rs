@@ -7,93 +7,166 @@ extern crate libc;
 
 mod ctypes;
 mod util;
-
+use std::ptr;
 use std::ffi::CString;
 
 use ctypes::*;
 use fxa_client::errors::Error as InternalError;
 use fxa_client::errors::ErrorKind::*;
 use fxa_client::{Config, FirefoxAccount, WebChannelResponse};
-use libc::{c_char, c_void};
+use libc::c_char;
 use util::*;
 
 #[repr(C)]
 #[derive(Debug)]
 pub enum ErrorCode {
-    Other,
-    AuthenticationError,
+    NoError = 0,
+    Other = 1,
+    AuthenticationError = 2,
+    InternalPanic = 3,
 }
 
-/// An error struct containing an error code and a description string.
-/// #Safety
+/// An error struct containing an error code and a description string. Callers
+/// should create values of this type locally and pass pointers to them in as
+/// the last argument of functions which may fail.
 ///
-/// Callers are responsible for managing the memory for the return value.
-/// A destructor `free_extern_error` is provided for releasing the memory for this
-/// pointer type.
+/// In the case that an error occurs, callers are responsible for freeing the
+/// string stored in `message` using fxa_str_free.
 #[repr(C)]
 #[derive(Debug)]
 pub struct ExternError {
-    code: ErrorCode,
-    message: *const c_char,
+    pub code: ErrorCode,
+    pub message: *mut c_char,
 }
 
-/// A C representation of Rust's [Result](std::result::Result).
-/// A value of `Ok` results in `ok` containing a raw pointer as a `c_void`
-/// and `err` containing a null pointer.
-/// A value of `Err` results in `value` containing a null pointer and `err` containing an error struct.
-///
-/// #Safety
-///
-/// Callers are responsible for managing the memory for the return value.
-/// A destructor `free_extern_result` is provided for releasing the memory for this
-/// pointer type.
-#[repr(C)]
-#[derive(Debug)]
-pub struct ExternResult {
-    pub ok: *const c_void, // We could have used `*const T` instead, but that would have meant creating one `free` function per variant.
-    pub err: *const ExternError,
+impl Default for ExternError {
+    fn default() -> ExternError {
+        ExternError {
+            code: ErrorCode::NoError,
+            message: ptr::null_mut()
+        }
+    }
 }
 
-impl ExternResult {
-    pub fn ok<T>(result: T) -> *mut Self {
-        Self::ok_ptr(Box::into_raw(Box::new(result)))
-    }
-
-    pub fn ok_ptr<T>(result: *mut T) -> *mut Self {
-        Box::into_raw(Box::new(ExternResult {
-            ok: result as *const _ as *const c_void,
-            err: std::ptr::null_mut(),
-        }))
-    }
-
-    pub fn ok_null() -> *mut Self {
-        Box::into_raw(Box::new(ExternResult {
-            ok: std::ptr::null_mut(),
-            err: std::ptr::null_mut(),
-        }))
-    }
-
-    fn err<S>(code: ErrorCode, msg: S) -> *mut Self
-    where
-        S: Into<String>,
-    {
-        Box::into_raw(Box::new(ExternResult {
-            ok: std::ptr::null_mut(),
-            err: Box::into_raw(Box::new(ExternError {
-                code,
-                message: string_to_c_char(msg),
-            })),
-        }))
-    }
-
-    pub fn from_internal(err: InternalError) -> *mut Self {
+impl From<InternalError> for ExternError {
+    fn from(err: InternalError) -> ExternError {
         match err {
             InternalError(RemoteError(401, ..), ..)
             | InternalError(NotMarried, ..)
             | InternalError(NeededTokenNotFound, ..) => {
-                ExternResult::err(ErrorCode::AuthenticationError, err.to_string())
+                ExternError {
+                    code: ErrorCode::AuthenticationError,
+                    message: string_to_c_char(err.to_string())
+                }
             }
-            _ => ExternResult::err(ErrorCode::Other, err.to_string()),
+            err => ExternError {
+                code: ErrorCode::Other,
+                message: string_to_c_char(err.to_string())
+            }
+        }
+    }
+}
+
+// This is the `Err` of std::thread::Result, which is what
+// `std::panic::catch_unwind` returns.
+impl From<Box<std::any::Any + Send + 'static>> for ExternError {
+    fn from(e: Box<std::any::Any + Send + 'static>) -> ExternError {
+        // The documentation suggests that it will usually be a str or String.
+        let message = if let Some(s) = e.downcast_ref::<&'static str>() {
+            string_to_c_char(*s)
+        } else if let Some(s) = e.downcast_ref::<String>() {
+            string_to_c_char(s.clone())
+        } else {
+            // Note that it's important that this be allocated on the heap,
+            // since we'll free it later!
+            string_to_c_char("Unknown panic!")
+        };
+
+        ExternError {
+            code: ErrorCode::InternalPanic,
+            message,
+        }
+    }
+}
+
+/// Call a function returning Result<T, E> inside catch_unwind, writing any error
+/// or panic into ExternError.
+///
+/// In the case the call returns an error, information about this will be
+/// written into the ExternError, and a null pointer will be returned.
+///
+/// In the case that the call succeeds, then the ExternError will have
+/// `code == ErrorCode::NoError` and `message == ptr::null_mut()`.
+///
+/// Note that we allow out_error to be null (it's not like we can panic if it's
+/// not...), but *highly* discourage doing so. We will log error information to
+/// stderr in the case that something goes wrong and you fail to provide an
+/// error output.
+///
+/// Note: it's undefined behavior (e.g. very bad) to panic across the FFI
+/// boundary, so it's important that we wrap calls that may fail in catch_unwind
+/// like this.
+unsafe fn call_with_result<R, F>(out_error: *mut ExternError, callback: F) -> *mut R
+where
+    F: std::panic::UnwindSafe + FnOnce() -> Result<R, InternalError>,
+{
+    try_call_with_result(out_error, callback)
+        .map(|v| Box::into_raw(Box::new(v)))
+        .unwrap_or(ptr::null_mut())
+}
+
+/// A version of call_with_result for the cases when `R` is a type you'd like
+/// to return directly to C. For example, a `*mut c_char`, or a `#[repr(C)]`
+/// struct.
+///
+/// This requires you provide a default value to return in the error case.
+unsafe fn call_with_result_by_value<R, F>(out_error: *mut ExternError, default: R, callback: F) -> R
+where
+    F: std::panic::UnwindSafe + FnOnce() -> Result<R, InternalError>,
+{
+    try_call_with_result(out_error, callback).unwrap_or(default)
+}
+
+/// Helper for the fairly common case where we want to return a string to C.
+unsafe fn call_with_string_result<R, F>(out_error: *mut ExternError, callback: F) -> *mut c_char
+where
+    F: std::panic::UnwindSafe + FnOnce() -> Result<R, InternalError>,
+    R: Into<String>
+{
+    call_with_result_by_value(out_error, ptr::null_mut(), ||
+        callback().map(string_to_c_char))
+}
+
+/// Common code between call_with_result and call_with_result_by_value.
+unsafe fn try_call_with_result<R, F>(out_error: *mut ExternError, callback: F) -> Option<R>
+where
+    F: std::panic::UnwindSafe + FnOnce() -> Result<R, InternalError>,
+{
+    let res: std::thread::Result<(ExternError, Option<R>)> = std::panic::catch_unwind(|| {
+        match callback() {
+            Ok(v) => (ExternError::default(), Some(v)),
+            Err(e) => (e.into(), None),
+        }
+    });
+    match res {
+        Ok((err, o)) => {
+            if !out_error.is_null() {
+                let eref = &mut *out_error;
+                *eref = err;
+            } else {
+                eprintln!("Warning: an error occurred but no error parameter was given: {:?}", err);
+            }
+            o
+        }
+        Err(e) => {
+            if !out_error.is_null() {
+                let eref = &mut *out_error;
+                *eref = e.into();
+            } else {
+                let err: ExternError = e.into();
+                eprintln!("Warning: a panic occurred but no error parameter was given: {:?}", err);
+            }
+            None
         }
     }
 }
@@ -101,11 +174,8 @@ impl ExternResult {
 /// Convenience function over [fxa_get_custom_config] that provides a pointer to a [Config] that
 /// points to the production FxA servers.
 #[no_mangle]
-pub extern "C" fn fxa_get_release_config() -> *mut ExternResult {
-    match Config::release() {
-        Ok(config) => ExternResult::ok(config),
-        Err(err) => ExternResult::from_internal(err),
-    }
+pub unsafe extern "C" fn fxa_get_release_config(err: *mut ExternError) -> *mut Config {
+    call_with_result(err, Config::release)
 }
 
 /// Creates a [Config] by making a request to `<content_base>/.well-known/fxa-client-configuration`
@@ -123,12 +193,10 @@ pub extern "C" fn fxa_get_release_config() -> *mut ExternResult {
 /// A destructor [fxa_config_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_get_custom_config(content_base: *const c_char) -> *mut ExternResult {
-    let content_base = c_char_to_string(content_base);
-    match Config::import_from(content_base) {
-        Ok(config) => ExternResult::ok(config),
-        Err(err) => ExternResult::from_internal(err),
-    }
+pub unsafe extern "C" fn fxa_get_custom_config(content_base: *const c_char, err: *mut ExternError) -> *mut Config {
+    call_with_result(err, || {
+        Config::import_from(c_char_to_string(content_base))
+    })
 }
 
 /// Creates a [FirefoxAccount] from credentials obtained with the onepw FxA login flow.
@@ -143,23 +211,20 @@ pub extern "C" fn fxa_get_custom_config(content_base: *const c_char) -> *mut Ext
 /// A destructor [fxa_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_from_credentials(
+pub unsafe extern "C" fn fxa_from_credentials(
     config: *mut Config,
     client_id: *const c_char,
     json: *const c_char,
-) -> *mut ExternResult {
-    let config = unsafe { Box::from_raw(&mut *config) };
-    let json = c_char_to_string(json);
-    let client_id = c_char_to_string(client_id);
-    let resp = match WebChannelResponse::from_json(json) {
-        Ok(resp) => resp,
-        Err(err) => return ExternResult::from_internal(err),
-    };
-    let fxa = match FirefoxAccount::from_credentials(*config, client_id, resp) {
-        Ok(fxa) => fxa,
-        Err(err) => return ExternResult::from_internal(err),
-    };
-    ExternResult::ok(fxa)
+    err: *mut ExternError,
+) -> *mut FirefoxAccount {
+    call_with_result(err, || {
+        assert!(!config.is_null());
+        let config = Box::from_raw(config);
+        let json = c_char_to_string(json);
+        let client_id = c_char_to_string(client_id);
+        let resp = WebChannelResponse::from_json(json)?;
+        FirefoxAccount::from_credentials(*config, client_id, resp)
+    })
 }
 
 /// Creates a [FirefoxAccount].
@@ -171,11 +236,13 @@ pub extern "C" fn fxa_from_credentials(
 /// A destructor [fxa_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_new(config: *mut Config, client_id: *const c_char) -> *mut ExternResult {
-    let client_id = c_char_to_string(client_id);
-    let config = unsafe { Box::from_raw(&mut *config) };
-    let fxa = FirefoxAccount::new(*config, client_id);
-    ExternResult::ok(fxa)
+pub unsafe extern "C" fn fxa_new(config: *mut Config, client_id: *const c_char, err: *mut ExternError) -> *mut FirefoxAccount {
+    call_with_result(err, || {
+        assert!(!config.is_null());
+        let client_id = c_char_to_string(client_id);
+        let config = Box::from_raw(config);
+        Ok(FirefoxAccount::new(*config, client_id))
+    })
 }
 
 /// Restore a [FirefoxAccount] instance from an serialized state (created with [fxa_to_json]).
@@ -185,13 +252,10 @@ pub extern "C" fn fxa_new(config: *mut Config, client_id: *const c_char) -> *mut
 /// A destructor [fxa_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_from_json(json: *const c_char) -> *mut ExternResult {
-    let json = c_char_to_string(json);
-    let fxa = match FirefoxAccount::from_json(json) {
-        Ok(fxa) => fxa,
-        Err(err) => return ExternResult::from_internal(err),
-    };
-    ExternResult::ok(fxa)
+pub unsafe extern "C" fn fxa_from_json(json: *const c_char, err: *mut ExternError) -> *mut FirefoxAccount {
+    call_with_result(err, || {
+        FirefoxAccount::from_json(c_char_to_string(json))
+    })
 }
 
 /// Serializes the state of a [FirefoxAccount] instance. It can be restored later with [fxa_from_json].
@@ -204,12 +268,12 @@ pub extern "C" fn fxa_from_json(json: *const c_char) -> *mut ExternResult {
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_to_json(fxa: *mut FirefoxAccount) -> *mut ExternResult {
-    let fxa = unsafe { &mut *fxa };
-    match fxa.to_json() {
-        Ok(json) => ExternResult::ok_ptr(string_to_c_char(json)),
-        Err(err) => return ExternResult::from_internal(err),
-    }
+pub unsafe extern "C" fn fxa_to_json(fxa: *mut FirefoxAccount, error: *mut ExternError) -> *mut c_char {
+    call_with_string_result(error, || {
+        assert!(!fxa.is_null());
+        let fxa = &mut *fxa;
+        fxa.to_json()
+    })
 }
 
 /// Fetches the profile associated with a Firefox Account.
@@ -222,13 +286,12 @@ pub extern "C" fn fxa_to_json(fxa: *mut FirefoxAccount) -> *mut ExternResult {
 /// A destructor [fxa_profile_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_profile(fxa: *mut FirefoxAccount, ignore_cache: bool) -> *mut ExternResult {
-    let fxa = unsafe { &mut *fxa };
-    let profile: ProfileC = match fxa.get_profile(ignore_cache) {
-        Ok(profile) => profile.into(),
-        Err(err) => return ExternResult::from_internal(err),
-    };
-    ExternResult::ok(profile)
+pub unsafe extern "C" fn fxa_profile(fxa: *mut FirefoxAccount, ignore_cache: bool, error: *mut ExternError) -> *mut ProfileC {
+    call_with_result(error, || {
+        assert!(!fxa.is_null());
+        let fxa = &mut *fxa;
+        Ok(fxa.get_profile(ignore_cache)?.into())
+    })
 }
 
 /// Get the Sync token server endpoint URL.
@@ -238,12 +301,12 @@ pub extern "C" fn fxa_profile(fxa: *mut FirefoxAccount, ignore_cache: bool) -> *
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_get_token_server_endpoint_url(fxa: *mut FirefoxAccount) -> *mut ExternResult {
-    let fxa = unsafe { &mut *fxa };
-    match fxa.get_token_server_endpoint_url() {
-        Ok(url) => ExternResult::ok_ptr(string_to_c_char(url.to_string())),
-        Err(err) => ExternResult::from_internal(err),
-    }
+pub unsafe extern "C" fn fxa_get_token_server_endpoint_url(fxa: *mut FirefoxAccount, error: *mut ExternError) -> *mut c_char {
+    call_with_string_result(error, || {
+        assert!(!fxa.is_null());
+        let fxa = &mut *fxa;
+        fxa.get_token_server_endpoint_url().map(|u| u.to_string())
+    })
 }
 
 /// Generate an assertion for a specified audience. Requires to be in a `Married` state.
@@ -254,16 +317,17 @@ pub extern "C" fn fxa_get_token_server_endpoint_url(fxa: *mut FirefoxAccount) ->
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_assertion_new(
+pub unsafe extern "C" fn fxa_assertion_new(
     fxa: *mut FirefoxAccount,
     audience: *const c_char,
-) -> *mut ExternResult {
-    let fxa = unsafe { &mut *fxa };
-    let audience = c_char_to_string(audience);
-    match fxa.generate_assertion(audience) {
-        Ok(assertion) => ExternResult::ok_ptr(string_to_c_char(assertion)),
-        Err(err) => return ExternResult::from_internal(err),
-    }
+    error: *mut ExternError,
+) -> *mut c_char {
+    call_with_string_result(error, || {
+        assert!(!fxa.is_null());
+        let fxa = &mut *fxa;
+        let audience = c_char_to_string(audience);
+        fxa.generate_assertion(audience)
+    })
 }
 
 /// Gets the Sync Keys. Requires to be in a `Married` state.
@@ -274,13 +338,13 @@ pub extern "C" fn fxa_assertion_new(
 /// A destructor [fxa_sync_keys_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_get_sync_keys(fxa: *mut FirefoxAccount) -> *mut ExternResult {
-    let fxa = unsafe { &mut *fxa };
-    let sync_keys: SyncKeysC = match fxa.get_sync_keys() {
-        Ok(sync_keys) => sync_keys.into(),
-        Err(err) => return ExternResult::from_internal(err),
-    };
-    ExternResult::ok(sync_keys)
+pub unsafe extern "C" fn fxa_get_sync_keys(fxa: *mut FirefoxAccount, error: *mut ExternError) -> *mut SyncKeysC {
+    call_with_result(error, || {
+        assert!(!fxa.is_null());
+        let fxa = &mut *fxa;
+        let keys: SyncKeysC = fxa.get_sync_keys()?.into();
+        Ok(keys)
+    })
 }
 
 /// Request a OAuth token by starting a new OAuth flow.
@@ -298,20 +362,21 @@ pub extern "C" fn fxa_get_sync_keys(fxa: *mut FirefoxAccount) -> *mut ExternResu
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_begin_oauth_flow(
+pub unsafe extern "C" fn fxa_begin_oauth_flow(
     fxa: *mut FirefoxAccount,
     redirect_uri: *const c_char,
     scope: *const c_char,
     wants_keys: bool,
-) -> *mut ExternResult {
-    let fxa = unsafe { &mut *fxa };
-    let redirect_uri = c_char_to_string(redirect_uri);
-    let scope = c_char_to_string(scope);
-    let scopes: Vec<&str> = scope.split(" ").collect();
-    match fxa.begin_oauth_flow(redirect_uri, &scopes, wants_keys) {
-        Ok(oauth_flow) => ExternResult::ok_ptr(string_to_c_char(oauth_flow)),
-        Err(err) => return ExternResult::from_internal(err),
-    }
+    error: *mut ExternError,
+) -> *mut c_char {
+    call_with_string_result(error, || {
+        assert!(!fxa.is_null());
+        let fxa = &mut *fxa;
+        let redirect_uri = c_char_to_string(redirect_uri);
+        let scope = c_char_to_string(scope);
+        let scopes: Vec<&str> = scope.split(" ").collect();
+        fxa.begin_oauth_flow(redirect_uri, &scopes, wants_keys)
+    })
 }
 
 /// Finish an OAuth flow initiated by [fxa_begin_oauth_flow] and returns token/keys.
@@ -324,19 +389,20 @@ pub extern "C" fn fxa_begin_oauth_flow(
 /// A destructor [fxa_oauth_info_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_complete_oauth_flow(
+pub unsafe extern "C" fn fxa_complete_oauth_flow(
     fxa: *mut FirefoxAccount,
     code: *const c_char,
     state: *const c_char,
-) -> *mut ExternResult {
-    let fxa = unsafe { &mut *fxa };
-    let code = c_char_to_string(code);
-    let state = c_char_to_string(state);
-    let info: OAuthInfoC = match fxa.complete_oauth_flow(code, state) {
-        Ok(info) => info.into(),
-        Err(err) => return ExternResult::from_internal(err),
-    };
-    ExternResult::ok(info)
+    error: *mut ExternError,
+) -> *mut OAuthInfoC {
+    call_with_result(error, || {
+        assert!(!fxa.is_null());
+        let fxa = &mut *fxa;
+        let code = c_char_to_string(code);
+        let state = c_char_to_string(state);
+        let info = fxa.complete_oauth_flow(code, state)?;
+        Ok(info.into())
+    })
 }
 
 /// Try to get a previously obtained cached token.
@@ -353,24 +419,21 @@ pub extern "C" fn fxa_complete_oauth_flow(
 /// A destructor [fxa_oauth_info_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_get_oauth_token(
+pub unsafe extern "C" fn fxa_get_oauth_token(
     fxa: *mut FirefoxAccount,
     scope: *const c_char,
-) -> *mut ExternResult {
-    let fxa = unsafe { &mut *fxa };
-    let scope = c_char_to_string(scope);
-    let scopes: Vec<&str> = scope.split(" ").collect();
-    let auth_info = match fxa.get_oauth_token(&scopes) {
-        Ok(oauth_info) => oauth_info,
-        Err(err) => return ExternResult::from_internal(err),
-    };
-    match auth_info {
-        Some(oauth_info) => {
-            let oauth_info: OAuthInfoC = oauth_info.into();
-            ExternResult::ok(oauth_info)
-        }
-        None => ExternResult::ok_null(),
-    }
+    error: *mut ExternError,
+) -> *mut OAuthInfoC {
+    call_with_result_by_value(error, ptr::null_mut(), || {
+        assert!(!fxa.is_null());
+        let fxa = &mut *fxa;
+        let scope = c_char_to_string(scope);
+        let scopes: Vec<&str> = scope.split(" ").collect();
+        Ok(match fxa.get_oauth_token(&scopes)? {
+            Some(info) => Box::into_raw(Box::new(info.into())),
+            None => ptr::null_mut()
+        })
+    })
 }
 
 /// Free a Rust-created string.
@@ -394,8 +457,6 @@ macro_rules! define_destructor (
      )
 );
 
-define_destructor!(free_extern_result, ExternResult);
-define_destructor!(free_extern_error, ExternError);
 define_destructor!(fxa_free, FirefoxAccount);
 define_destructor!(fxa_config_free, Config);
 define_destructor!(fxa_oauth_info_free, OAuthInfoC);
