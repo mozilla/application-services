@@ -7,8 +7,8 @@ extern crate libc;
 
 mod ctypes;
 mod util;
-use std::ptr;
 use std::ffi::CString;
+use std::ptr;
 
 use ctypes::*;
 use fxa_client::errors::Error as InternalError;
@@ -43,7 +43,7 @@ impl Default for ExternError {
     fn default() -> ExternError {
         ExternError {
             code: ErrorCode::NoError,
-            message: ptr::null_mut()
+            message: ptr::null_mut(),
         }
     }
 }
@@ -53,16 +53,14 @@ impl From<InternalError> for ExternError {
         match err {
             InternalError(RemoteError(401, ..), ..)
             | InternalError(NotMarried, ..)
-            | InternalError(NeededTokenNotFound, ..) => {
-                ExternError {
-                    code: ErrorCode::AuthenticationError,
-                    message: string_to_c_char(err.to_string())
-                }
-            }
+            | InternalError(NeededTokenNotFound, ..) => ExternError {
+                code: ErrorCode::AuthenticationError,
+                message: string_to_c_char(err.to_string()),
+            },
             err => ExternError {
                 code: ErrorCode::Other,
-                message: string_to_c_char(err.to_string())
-            }
+                message: string_to_c_char(err.to_string()),
+            },
         }
     }
 }
@@ -131,10 +129,11 @@ where
 unsafe fn call_with_string_result<R, F>(out_error: *mut ExternError, callback: F) -> *mut c_char
 where
     F: std::panic::UnwindSafe + FnOnce() -> Result<R, InternalError>,
-    R: Into<String>
+    R: Into<String>,
 {
-    call_with_result_by_value(out_error, ptr::null_mut(), ||
-        callback().map(string_to_c_char))
+    call_with_result_by_value(out_error, ptr::null_mut(), || {
+        callback().map(string_to_c_char)
+    })
 }
 
 /// Common code between call_with_result and call_with_result_by_value.
@@ -142,19 +141,21 @@ unsafe fn try_call_with_result<R, F>(out_error: *mut ExternError, callback: F) -
 where
     F: std::panic::UnwindSafe + FnOnce() -> Result<R, InternalError>,
 {
-    let res: std::thread::Result<(ExternError, Option<R>)> = std::panic::catch_unwind(|| {
-        match callback() {
+    let res: std::thread::Result<(ExternError, Option<R>)> =
+        std::panic::catch_unwind(|| match callback() {
             Ok(v) => (ExternError::default(), Some(v)),
             Err(e) => (e.into(), None),
-        }
-    });
+        });
     match res {
         Ok((err, o)) => {
             if !out_error.is_null() {
                 let eref = &mut *out_error;
                 *eref = err;
             } else {
-                eprintln!("Warning: an error occurred but no error parameter was given: {:?}", err);
+                eprintln!(
+                    "Warning: an error occurred but no error parameter was given: {:?}",
+                    err
+                );
             }
             o
         }
@@ -164,7 +165,10 @@ where
                 *eref = e.into();
             } else {
                 let err: ExternError = e.into();
-                eprintln!("Warning: a panic occurred but no error parameter was given: {:?}", err);
+                eprintln!(
+                    "Warning: a panic occurred but no error parameter was given: {:?}",
+                    err
+                );
             }
             None
         }
@@ -193,10 +197,11 @@ pub unsafe extern "C" fn fxa_get_release_config(err: *mut ExternError) -> *mut C
 /// A destructor [fxa_config_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub unsafe extern "C" fn fxa_get_custom_config(content_base: *const c_char, err: *mut ExternError) -> *mut Config {
-    call_with_result(err, || {
-        Config::import_from(c_char_to_string(content_base))
-    })
+pub unsafe extern "C" fn fxa_get_custom_config(
+    content_base: *const c_char,
+    err: *mut ExternError,
+) -> *mut Config {
+    call_with_result(err, || Config::import_from(c_char_to_string(content_base)))
 }
 
 /// Creates a [FirefoxAccount] from credentials obtained with the onepw FxA login flow.
@@ -214,6 +219,7 @@ pub unsafe extern "C" fn fxa_get_custom_config(content_base: *const c_char, err:
 pub unsafe extern "C" fn fxa_from_credentials(
     config: *mut Config,
     client_id: *const c_char,
+    redirect_uri: *const c_char,
     json: *const c_char,
     err: *mut ExternError,
 ) -> *mut FirefoxAccount {
@@ -222,8 +228,9 @@ pub unsafe extern "C" fn fxa_from_credentials(
         let config = Box::from_raw(config);
         let json = c_char_to_string(json);
         let client_id = c_char_to_string(client_id);
+        let redirect_uri = c_char_to_string(redirect_uri);
         let resp = WebChannelResponse::from_json(json)?;
-        FirefoxAccount::from_credentials(*config, client_id, resp)
+        FirefoxAccount::from_credentials(*config, client_id, redirect_uri, resp)
     })
 }
 
@@ -236,12 +243,18 @@ pub unsafe extern "C" fn fxa_from_credentials(
 /// A destructor [fxa_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub unsafe extern "C" fn fxa_new(config: *mut Config, client_id: *const c_char, err: *mut ExternError) -> *mut FirefoxAccount {
+pub unsafe extern "C" fn fxa_new(
+    config: *mut Config,
+    client_id: *const c_char,
+    redirect_uri: *const c_char,
+    err: *mut ExternError,
+) -> *mut FirefoxAccount {
     call_with_result(err, || {
         assert!(!config.is_null());
         let client_id = c_char_to_string(client_id);
+        let redirect_uri = c_char_to_string(redirect_uri);
         let config = Box::from_raw(config);
-        Ok(FirefoxAccount::new(*config, client_id))
+        Ok(FirefoxAccount::new(*config, client_id, redirect_uri))
     })
 }
 
@@ -252,10 +265,11 @@ pub unsafe extern "C" fn fxa_new(config: *mut Config, client_id: *const c_char, 
 /// A destructor [fxa_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub unsafe extern "C" fn fxa_from_json(json: *const c_char, err: *mut ExternError) -> *mut FirefoxAccount {
-    call_with_result(err, || {
-        FirefoxAccount::from_json(c_char_to_string(json))
-    })
+pub unsafe extern "C" fn fxa_from_json(
+    json: *const c_char,
+    err: *mut ExternError,
+) -> *mut FirefoxAccount {
+    call_with_result(err, || FirefoxAccount::from_json(c_char_to_string(json)))
 }
 
 /// Serializes the state of a [FirefoxAccount] instance. It can be restored later with [fxa_from_json].
@@ -268,7 +282,10 @@ pub unsafe extern "C" fn fxa_from_json(json: *const c_char, err: *mut ExternErro
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub unsafe extern "C" fn fxa_to_json(fxa: *mut FirefoxAccount, error: *mut ExternError) -> *mut c_char {
+pub unsafe extern "C" fn fxa_to_json(
+    fxa: *mut FirefoxAccount,
+    error: *mut ExternError,
+) -> *mut c_char {
     call_with_string_result(error, || {
         assert!(!fxa.is_null());
         let fxa = &mut *fxa;
@@ -286,7 +303,11 @@ pub unsafe extern "C" fn fxa_to_json(fxa: *mut FirefoxAccount, error: *mut Exter
 /// A destructor [fxa_profile_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub unsafe extern "C" fn fxa_profile(fxa: *mut FirefoxAccount, ignore_cache: bool, error: *mut ExternError) -> *mut ProfileC {
+pub unsafe extern "C" fn fxa_profile(
+    fxa: *mut FirefoxAccount,
+    ignore_cache: bool,
+    error: *mut ExternError,
+) -> *mut ProfileC {
     call_with_result(error, || {
         assert!(!fxa.is_null());
         let fxa = &mut *fxa;
@@ -301,7 +322,10 @@ pub unsafe extern "C" fn fxa_profile(fxa: *mut FirefoxAccount, ignore_cache: boo
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub unsafe extern "C" fn fxa_get_token_server_endpoint_url(fxa: *mut FirefoxAccount, error: *mut ExternError) -> *mut c_char {
+pub unsafe extern "C" fn fxa_get_token_server_endpoint_url(
+    fxa: *mut FirefoxAccount,
+    error: *mut ExternError,
+) -> *mut c_char {
     call_with_string_result(error, || {
         assert!(!fxa.is_null());
         let fxa = &mut *fxa;
@@ -338,7 +362,10 @@ pub unsafe extern "C" fn fxa_assertion_new(
 /// A destructor [fxa_sync_keys_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub unsafe extern "C" fn fxa_get_sync_keys(fxa: *mut FirefoxAccount, error: *mut ExternError) -> *mut SyncKeysC {
+pub unsafe extern "C" fn fxa_get_sync_keys(
+    fxa: *mut FirefoxAccount,
+    error: *mut ExternError,
+) -> *mut SyncKeysC {
     call_with_result(error, || {
         assert!(!fxa.is_null());
         let fxa = &mut *fxa;
@@ -364,7 +391,6 @@ pub unsafe extern "C" fn fxa_get_sync_keys(fxa: *mut FirefoxAccount, error: *mut
 #[no_mangle]
 pub unsafe extern "C" fn fxa_begin_oauth_flow(
     fxa: *mut FirefoxAccount,
-    redirect_uri: *const c_char,
     scope: *const c_char,
     wants_keys: bool,
     error: *mut ExternError,
@@ -372,10 +398,9 @@ pub unsafe extern "C" fn fxa_begin_oauth_flow(
     call_with_string_result(error, || {
         assert!(!fxa.is_null());
         let fxa = &mut *fxa;
-        let redirect_uri = c_char_to_string(redirect_uri);
         let scope = c_char_to_string(scope);
         let scopes: Vec<&str> = scope.split(" ").collect();
-        fxa.begin_oauth_flow(redirect_uri, &scopes, wants_keys)
+        fxa.begin_oauth_flow(&scopes, wants_keys)
     })
 }
 
@@ -431,7 +456,7 @@ pub unsafe extern "C" fn fxa_get_oauth_token(
         let scopes: Vec<&str> = scope.split(" ").collect();
         Ok(match fxa.get_oauth_token(&scopes)? {
             Some(info) => Box::into_raw(Box::new(info.into())),
-            None => ptr::null_mut()
+            None => ptr::null_mut(),
         })
     })
 }

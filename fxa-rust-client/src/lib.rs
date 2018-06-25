@@ -62,6 +62,7 @@ const PROFILE_FRESHNESS_THRESHOLD: u64 = 120000; // 2 minutes
 #[derive(Clone, Serialize, Deserialize)]
 struct StateV1 {
     client_id: String,
+    redirect_uri: String,
     config: Config,
     login_state: LoginState,
     oauth_cache: HashMap<String, OAuthInfo>,
@@ -115,9 +116,10 @@ impl FirefoxAccount {
         }
     }
 
-    pub fn new(config: Config, client_id: &str) -> FirefoxAccount {
+    pub fn new(config: Config, client_id: &str, redirect_uri: &str) -> FirefoxAccount {
         FirefoxAccount::from_state(StateV1 {
             client_id: client_id.to_string(),
+            redirect_uri: redirect_uri.to_string(),
             config,
             login_state: Unknown,
             oauth_cache: HashMap::new(),
@@ -129,6 +131,7 @@ impl FirefoxAccount {
     pub fn from_credentials(
         config: Config,
         client_id: &str,
+        redirect_uri: &str,
         credentials: WebChannelResponse,
     ) -> Result<FirefoxAccount> {
         let session_token = hex::decode(credentials.session_token)?;
@@ -149,6 +152,7 @@ impl FirefoxAccount {
 
         Ok(FirefoxAccount::from_state(StateV1 {
             client_id: client_id.to_string(),
+            redirect_uri: redirect_uri.to_string(),
             config,
             login_state,
             oauth_cache: HashMap::new(),
@@ -246,12 +250,7 @@ impl FirefoxAccount {
         Ok(Some(self.handle_oauth_token_response(resp, None)?))
     }
 
-    pub fn begin_oauth_flow(
-        &mut self,
-        redirect_uri: &str,
-        scopes: &[&str],
-        wants_keys: bool,
-    ) -> Result<String> {
+    pub fn begin_oauth_flow(&mut self, scopes: &[&str], wants_keys: bool) -> Result<String> {
         let state = FirefoxAccount::random_base64_url_string(16);
         let code_verifier = FirefoxAccount::random_base64_url_string(43);
         let code_challenge = hash(MessageDigest::sha256(), &code_verifier.as_bytes())?;
@@ -259,7 +258,7 @@ impl FirefoxAccount {
         let mut url = self.state.config.authorization_endpoint()?;
         url.query_pairs_mut()
             .append_pair("client_id", &self.state.client_id)
-            .append_pair("redirect_uri", &redirect_uri)
+            .append_pair("redirect_uri", &self.state.redirect_uri)
             .append_pair("scope", &scopes.join(" "))
             .append_pair("response_type", "code")
             .append_pair("state", &state)
@@ -313,7 +312,9 @@ impl FirefoxAccount {
         // This assumes that if the server returns keys_jwe, the jwk argument is Some.
         let keys = match resp.keys_jwe {
             Some(jwe) => {
-                let jwk = jwk.expect("Insane state! If we are getting back a JWE this means we should have a JWK.");
+                let jwk = jwk.expect(
+                    "Insane state! If we are getting back a JWE this means we should have a JWK.",
+                );
                 let jwe = JWE::import(&jwe)?;
                 Some(jwk.decrypt(&jwe)?)
             }
@@ -323,7 +324,7 @@ impl FirefoxAccount {
                 } else {
                     None
                 }
-            },
+            }
         };
         let since_epoch = SystemTime::now()
             .duration_since(UNIX_EPOCH)

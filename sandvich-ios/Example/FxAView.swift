@@ -40,7 +40,7 @@ class FxAView: UIViewController, WKNavigationDelegate {
             if let fxa = self.fxa {
                 fxa.getProfile() { result, error in
                     if let error = error as? FxAError, case FxAError.Unauthorized = error {
-                        fxa.beginOAuthFlow(redirectURI: self.redirectUrl, scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"], wantsKeys: true) { result, error in
+                        fxa.beginOAuthFlow(scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"], wantsKeys: true) { result, error in
                             guard let authUrl = result else { return }
                             DispatchQueue.main.async {
                                 self.webView.load(URLRequest(url: authUrl))
@@ -58,13 +58,13 @@ class FxAView: UIViewController, WKNavigationDelegate {
         } else {
             FxAConfig.custom(content_base: "https://sandvich-ios.dev.lcip.org") { result, error in
                 guard let config = result else { return } // The original implementation uses try! anyway so the error would have been swallowed
-                self.fxa = try! FirefoxAccount(config: config, clientId: "22d74070a481bc73")
+                self.fxa = try! FirefoxAccount(config: config, clientId: "22d74070a481bc73", redirectUri: self.redirectUrl)
                 self.persistState(self.fxa!)
 
                 if let fxa = self.fxa {
                     fxa.getProfile() { result, error in
                         if let error = error as? FxAError, case FxAError.Unauthorized = error {
-                            fxa.beginOAuthFlow(redirectURI: self.redirectUrl, scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"], wantsKeys: true) { result, error in
+                            fxa.beginOAuthFlow(scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"], wantsKeys: true) { result, error in
                                 guard let authUrl = result else { return }
                                 DispatchQueue.main.async {
                                     self.webView.load(URLRequest(url: authUrl))

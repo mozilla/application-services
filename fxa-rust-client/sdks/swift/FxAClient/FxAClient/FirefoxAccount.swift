@@ -40,9 +40,9 @@ public class FxAConfig: MovableRustOpaquePointer {
 }
 
 public class FirefoxAccount: RustOpaquePointer {
-    open class func from(config: FxAConfig, clientId: String, webChannelResponse: String) throws -> FirefoxAccount {
+    open class func from(config: FxAConfig, clientId: String, redirectUri: String, webChannelResponse: String) throws -> FirefoxAccount {
         let pointer = try FxAError.unwrap({err in
-            fxa_from_credentials(try config.movePointer(), clientId, webChannelResponse, err)
+            fxa_from_credentials(try config.movePointer(), clientId, redirectUri, webChannelResponse, err)
         })
         return FirefoxAccount(raw: pointer)
     }
@@ -52,9 +52,9 @@ public class FirefoxAccount: RustOpaquePointer {
         return FirefoxAccount(raw: pointer)
     }
 
-    public convenience init(config: FxAConfig, clientId: String) throws {
+    public convenience init(config: FxAConfig, clientId: String, redirectUri: String) throws {
         let pointer = try FxAError.unwrap({err in
-            fxa_new(try config.movePointer(), clientId, err)
+            fxa_new(try config.movePointer(), clientId, redirectUri, err)
         })
         self.init(raw: pointer)
     }
@@ -95,12 +95,12 @@ public class FirefoxAccount: RustOpaquePointer {
     }
 
     // Scopes is space separated for each scope.
-    public func beginOAuthFlow(redirectURI: String, scopes: [String], wantsKeys: Bool, completionHandler: @escaping (URL?, Error?) -> Void) {
+    public func beginOAuthFlow(scopes: [String], wantsKeys: Bool, completionHandler: @escaping (URL?, Error?) -> Void) {
         concurrentQueue.async {
             do {
                 let scope = scopes.joined(separator: " ")
                 let url = URL(string: String(freeingFxaString: try FxAError.unwrap({err in
-                    fxa_begin_oauth_flow(self.raw, redirectURI, scope, wantsKeys, err)
+                    fxa_begin_oauth_flow(self.raw, scope, wantsKeys, err)
                 })))!
                 completionHandler(url, nil)
             } catch {

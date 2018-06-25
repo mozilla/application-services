@@ -61,7 +61,6 @@ Config *_Nullable fxa_get_custom_config(const char *_Nonnull content_base,
                                         FxAErrorC *_Nonnull out);
 
 char *_Nonnull fxa_begin_oauth_flow(FirefoxAccount *_Nonnull fxa,
-                                    const char *_Nonnull redirect_uri,
                                     const char *_Nonnull scopes,
                                     bool wants_keys,
                                     FxAErrorC *_Nonnull out);
@@ -83,6 +82,7 @@ char *_Nullable fxa_to_json(FirefoxAccount *_Nonnull rxa,
 
 FirefoxAccount *_Nullable fxa_new(Config *_Nonnull config,
                                   const char *_Nonnull client_id,
+                                  const char *_Nonnull redirect_uri,
                                   FxAErrorC *_Nonnull out);
 
 ProfileC *_Nullable fxa_profile(FirefoxAccount *_Nonnull fxa,
@@ -91,6 +91,7 @@ ProfileC *_Nullable fxa_profile(FirefoxAccount *_Nonnull fxa,
 
 FirefoxAccount *_Nullable fxa_from_credentials(Config *_Nonnull config,
                                                const char *_Nonnull client_id,
+                                               const char *_Nonnull redirect_uri,
                                                const char *_Nonnull json,
                                                FxAErrorC *_Nonnull out);
 
