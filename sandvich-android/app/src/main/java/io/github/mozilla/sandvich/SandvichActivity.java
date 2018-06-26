@@ -38,11 +38,9 @@ public class SandvichActivity extends AppCompatActivity {
 
     // Globals
     final String contentBase = "https://sandvich-ios.dev.lcip.org";
-    //final String clientId = "98adfa37698f255b";
-    //private final String redirectUri =
-    //        "lockbox://redirect.ios";
-    final String clientId = " 22d74070a481bc73";
-    final String redirectUri = "https://mozilla-lockbox.github.io/fxa/ios-redirect.html";
+    final String clientId = "98adfa37698f255b";
+    private final String redirectUri =
+            "lockbox://redirect.ios";
 
     private String flowUrl;
     public static final String CUSTOM_TAB_PACKAGE_NAME = "com.android.chrome";
@@ -61,12 +59,10 @@ public class SandvichActivity extends AppCompatActivity {
         String[] scopes = new String[] {"profile"};
         this.flowUrl = fxa.beginOAuthFlow(redirectUri, scopes, false);
 
-        Log.i("flowUrl", TextUtils.join(" ", scopes));
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Log.i("sandvich", "Starting FxA login");
-                openAuthTab("");
+                openAuthTab(flowUrl);
             }
         });
     }
@@ -78,20 +74,8 @@ public class SandvichActivity extends AppCompatActivity {
             @Override
             public void onCustomTabsServiceConnected(ComponentName name, CustomTabsClient client) {
                 client.warmup(0L);
-                CustomTabsSession session = client.newSession(new CustomTabsCallback() {
-                    @Override
-                    public void onNavigationEvent(int navigationEvent, Bundle extras) {
-                        super.onNavigationEvent(navigationEvent, extras);
-                        Log.i("bing", String.valueOf(navigationEvent));
-                    }
+                CustomTabsSession session = client.newSession(null);
 
-                    @Override
-                    public void onPostMessage(String message, Bundle extras) {
-                        super.onPostMessage(message, extras);
-                        Log.i("bang", message);
-                    }
-                });
-                Log.i("onstart.flowUrl", flowUrl);
                 session.mayLaunchUrl(Uri.parse(flowUrl), null, null);
             }
 
@@ -115,28 +99,20 @@ public class SandvichActivity extends AppCompatActivity {
         super.onNewIntent(intent);
         String action = intent.getAction();
         String data = intent.getDataString();
-        Log.i("onNewIntent", action);
-        Log.i("onNewIntent", data);
 
-        String info = "";
         if (Intent.ACTION_VIEW.equals(action) && data != null) {
-            info = authenticate(data);
-            Log.i("profile", info);
+            String info = authenticate(data);
             TextView txtView = findViewById(R.id.txtView);
             txtView.setText(info);
         }
     }
 
     private String authenticate(String redirectUrl) {
-        Log.i("sandvich auth", redirectUrl);
         Uri url = Uri.parse(redirectUrl);
         String code = url.getQueryParameter("code");
         String state = url.getQueryParameter("state");
 
         OAuthInfo oauthInfo = fxa.completeOAuthFlow(code, state);
-        Log.i("sandvich token", oauthInfo.accessToken);
-        Log.i("sandvich keys ", oauthInfo.keys);
-        Log.i("sandvich scope", oauthInfo.scope);
 
         Profile profile = fxa.getProfile();
         return profile.email;
