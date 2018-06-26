@@ -7,12 +7,16 @@ import java.util.Arrays;
 import java.util.List;
 
 public class SyncKeys {
+    /**
+     * Represents a raw SyncKeys pointer to a Rust struct.
+     * Public for use with JNA; Raw should not be used in code beyond the FxA package.
+     */
     /* package-local */
-    static class Raw extends Structure {
-        String sync_key;
-        String xcs;
+    public static class Raw extends Structure {
+        public String sync_key;
+        public String xcs;
 
-        Raw(Pointer p) {
+        public Raw(Pointer p) {
             super(p);
             read();
         }
@@ -30,5 +34,4 @@ public class SyncKeys {
         this.xcs = raw.xcs;
         JNA.INSTANCE.fxa_sync_keys_free(raw.getPointer());
     }
-
 }

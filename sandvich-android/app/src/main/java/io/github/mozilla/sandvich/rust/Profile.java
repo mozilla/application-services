@@ -7,14 +7,18 @@ import java.util.Arrays;
 import java.util.List;
 
 public class Profile {
+    /**
+     * Represents a raw Profile pointer to a Rust struct.
+     * Public for use with JNA; Raw should not be used in code beyond the FxA package.
+     */
     /* package-local */
-    static class Raw extends Structure {
-        String uid;
-        String email;
-        String avatar;
-        String display_name;
+    public static class Raw extends Structure {
+        public String uid;
+        public String email;
+        public String avatar;
+        public String display_name;
 
-        Raw(Pointer p) {
+        public Raw(Pointer p) {
             super(p);
             read();
         }

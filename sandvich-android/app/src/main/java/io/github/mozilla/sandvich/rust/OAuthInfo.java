@@ -7,13 +7,17 @@ import java.util.Arrays;
 import java.util.List;
 
 public class OAuthInfo {
+    /**
+     * Represents a raw OAuthInfo pointer to a Rust struct.
+     * Public for use with JNA; Raw should not be used in code beyond the FxA package.
+     */
     /* package-local */
-    static class Raw extends Structure {
-        String access_token;
-        String keys;
-        String scope;
+    public static class Raw extends Structure {
+        public String access_token;
+        public String keys;
+        public String scope;
 
-        Raw(Pointer p) {
+        public Raw(Pointer p) {
             super(p);
             read();
         }
