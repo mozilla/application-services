@@ -77,8 +77,15 @@ OAuthInfoC *_Nullable fxa_get_oauth_token(FirefoxAccount *_Nonnull fxa,
 FirefoxAccount *_Nullable fxa_from_json(const char *_Nonnull json,
                                         FxAErrorC *_Nonnull out);
 
-char *_Nullable fxa_to_json(FirefoxAccount *_Nonnull rxa,
+char *_Nullable fxa_to_json(FirefoxAccount *_Nonnull fxa,
                             FxAErrorC *_Nonnull out);
+
+void fxa_register_persist_callback(FirefoxAccount *_Nonnull fxa,
+                                   void (*_Nonnull callback_fn)(const char* _Nonnull json),
+                                   FxAErrorC *_Nonnull out);
+
+void fxa_unregister_persist_callback(FirefoxAccount *_Nonnull fxa,
+                                     FxAErrorC *_Nonnull out);
 
 FirefoxAccount *_Nullable fxa_new(Config *_Nonnull config,
                                   const char *_Nonnull client_id,

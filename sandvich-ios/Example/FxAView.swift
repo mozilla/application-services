@@ -6,10 +6,11 @@ import WebKit
 import UIKit
 import FxAClient
 
+let stateKey = "fxaState"
+
 class FxAView: UIViewController, WKNavigationDelegate {
     private var webView: WKWebView
     var redirectUrl: String
-    var stateKey: String
     var fxa: FirefoxAccount?
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
@@ -18,13 +19,35 @@ class FxAView: UIViewController, WKNavigationDelegate {
 
     init(webView: WKWebView = WKWebView()) {
         self.webView = webView
-        self.stateKey = "fxaState"
         self.redirectUrl = "https://mozilla-lockbox.github.io/fxa/ios-redirect.html"
         super.init(nibName: nil, bundle: nil)
     }
 
-    func persistState(_ fxa: FirefoxAccount) {
-        UserDefaults.standard.set(try! fxa.toJSON(), forKey: self.stateKey)
+    func tryGetProfile() {
+        if let fxa = self.fxa {
+            fxa.getProfile() { result, error in
+                if let error = error as? FxAError, case FxAError.Unauthorized = error {
+                    fxa.beginOAuthFlow(scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"], wantsKeys: true) { result, error in
+                        guard let authUrl = result else { return }
+                        DispatchQueue.main.async {
+                            self.webView.load(URLRequest(url: authUrl))
+                        }
+                    }
+                } else if let profile = result {
+                    DispatchQueue.main.async {
+                        self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
+                    }
+                } else {
+                    assert(false, "Unexpected error :(")
+                }
+            }
+        }
+    }
+
+    class EzPersistor: PersistCallback {
+        func persist(json: String) {
+            UserDefaults.standard.set(json, forKey: stateKey)
+        }
     }
 
     override func viewDidLoad() {
@@ -33,52 +56,20 @@ class FxAView: UIViewController, WKNavigationDelegate {
         self.view = self.webView
         self.styleNavigationBar()
 
-        if let state_json = UserDefaults.standard.string(forKey: self.stateKey) {
-            //let state_json = UserDefaults.standard.string(forKey: self.stateKey)
-            self.fxa = try! FirefoxAccount.fromJSON(state: state_json)
+        let persistor = EzPersistor()
 
-            if let fxa = self.fxa {
-                fxa.getProfile() { result, error in
-                    if let error = error as? FxAError, case FxAError.Unauthorized = error {
-                        fxa.beginOAuthFlow(scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"], wantsKeys: true) { result, error in
-                            guard let authUrl = result else { return }
-                            DispatchQueue.main.async {
-                                self.webView.load(URLRequest(url: authUrl))
-                            }
-                        }
-                    } else if let profile = result {
-                        DispatchQueue.main.async {
-                            self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
-                        }
-                    } else {
-                        assert(false, "Unexpected error :(")
-                    }
-                }
-            }
+        if let state_json = UserDefaults.standard.string(forKey: stateKey) {
+            self.fxa = try! FirefoxAccount.fromJSON(state: state_json)
+            persistor.persist(json: (try! fxa?.toJSON())!) // Persist the FxA state right after its creation in case something goes wrong.
+            try! fxa!.registerPersistCallback(persistor) // After this, mutating changes will be persisted automatically.
+            self.tryGetProfile()
         } else {
             FxAConfig.custom(content_base: "https://sandvich-ios.dev.lcip.org") { result, error in
                 guard let config = result else { return } // The original implementation uses try! anyway so the error would have been swallowed
                 self.fxa = try! FirefoxAccount(config: config, clientId: "22d74070a481bc73", redirectUri: self.redirectUrl)
-                self.persistState(self.fxa!)
-
-                if let fxa = self.fxa {
-                    fxa.getProfile() { result, error in
-                        if let error = error as? FxAError, case FxAError.Unauthorized = error {
-                            fxa.beginOAuthFlow(scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"], wantsKeys: true) { result, error in
-                                guard let authUrl = result else { return }
-                                DispatchQueue.main.async {
-                                    self.webView.load(URLRequest(url: authUrl))
-                                }
-                            }
-                        } else if let profile = result {
-                            DispatchQueue.main.async {
-                                self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
-                            }
-                        } else {
-                            assert(false, "Unexpected error :(")
-                        }
-                    }
-                }
+                persistor.persist(json: (try! self.fxa?.toJSON())!)
+                try! self.fxa!.registerPersistCallback(persistor)
+                self.tryGetProfile()
             }
         }
     }
@@ -104,7 +95,6 @@ class FxAView: UIViewController, WKNavigationDelegate {
         components.queryItems?.forEach { dic[$0.name] = $0.value }
         self.fxa!.completeOAuthFlow(code: dic["code"]!, state: dic["state"]!) { result, error in
             guard let oauthInfo = result else { return }
-            self.persistState(self.fxa!) // Persist fxa state because it now holds the profile token.
             print("access_token: " + oauthInfo.accessToken)
             if let keys = oauthInfo.keys {
                 print("keysJWE: " + keys)
