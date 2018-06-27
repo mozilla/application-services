@@ -29,6 +29,7 @@ extern crate url;
 
 use std::collections::HashMap;
 use std::mem;
+use std::panic::RefUnwindSafe;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(feature = "browserid")]
@@ -111,16 +112,37 @@ struct CachedResponse<T> {
 pub struct FirefoxAccount {
     state: StateV1,
     flow_store: HashMap<String, OAuthFlow>,
+    persist_callback: Option<PersistCallback>,
     profile_cache: Option<CachedResponse<ProfileResponse>>,
 }
 
 pub type SyncKeys = (String, String);
+
+pub struct PersistCallback {
+    callback_fn: Box<Fn(&str) + RefUnwindSafe>,
+}
+
+impl PersistCallback {
+    pub fn new<F>(callback_fn: F) -> PersistCallback
+    where
+        F: Fn(&str) + 'static + RefUnwindSafe,
+    {
+        PersistCallback {
+            callback_fn: Box::new(callback_fn),
+        }
+    }
+
+    pub fn call(&self, json: &str) {
+        (*self.callback_fn)(json);
+    }
+}
 
 impl FirefoxAccount {
     fn from_state(state: StateV1) -> FirefoxAccount {
         FirefoxAccount {
             state,
             flow_store: HashMap::new(),
+            persist_callback: None,
             profile_cache: None,
         }
     }
@@ -360,6 +382,7 @@ impl FirefoxAccount {
             scopes: granted_scopes,
         };
         self.oauth_cache_store(&oauth_info);
+        self.maybe_call_persist_callback();
         Ok(oauth_info)
     }
 
@@ -465,6 +488,27 @@ impl FirefoxAccount {
 
     pub fn retrieve_messages(&self) {
         panic!("Not implemented yet!")
+    }
+
+    pub fn register_persist_callback(&mut self, persist_callback: PersistCallback) {
+        self.persist_callback = Some(persist_callback);
+    }
+
+    pub fn unregister_persist_callback(&mut self) {
+        self.persist_callback = None;
+    }
+
+    fn maybe_call_persist_callback(&self) {
+        if let Some(ref cb) = self.persist_callback {
+            let json = match self.to_json() {
+                Ok(json) => json,
+                Err(_) => {
+                    error!("Error with to_json in persist_callback");
+                    return;
+                }
+            };
+            cb.call(&json);
+        }
     }
 
     #[cfg(feature = "browserid")]
