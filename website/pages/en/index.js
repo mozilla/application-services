@@ -102,7 +102,7 @@ const Features = props => (
       {
         imageAlign: 'top',
         title: 'Sync',
-        imageLink: `https://moz-services-docs.readthedocs.io/en/latest/sync/`,
+        imageLink: `${siteConfig.baseUrl}docs/sync/welcome.html`,
         image: imgUrl('sync-16.svg'),
       },
       {

@@ -20,6 +20,9 @@ class Footer extends React.Component {
             <a href={this.docUrl('accounts/welcome.html', this.props.language)}>
               Firefox Accounts
             </a>
+            <a href={this.docUrl('sync/welcome.html', this.props.language)}>
+              Sync
+            </a>
           </div>
           <div>
             <h5>Community</h5>
