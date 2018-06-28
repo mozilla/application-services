@@ -104,7 +104,7 @@ impl<'a> CollectionUpdate<'a> {
         let xius = changeset.timestamp;
         if xius < svc.last_modified_or_zero(&collection) {
             // Not actually interrupted, but we know we'd fail the XIUS check.
-            bail!(ErrorKind::BatchInterrupted);
+            return Err(ErrorKind::BatchInterrupted.into());
         }
         let to_update = changeset.encrypt(&key_bundle)?;
         Ok(CollectionUpdate::new(svc, collection, xius, to_update, fully_atomic))
@@ -121,7 +121,7 @@ impl<'a> CollectionUpdate<'a> {
         for record in self.to_update.into_iter() {
             let enqueued = q.enqueue(&record)?;
             if !enqueued && self.fully_atomic {
-                bail!(ErrorKind::RecordTooLargeError);
+                return Err(ErrorKind::RecordTooLargeError.into());
             }
         }
 

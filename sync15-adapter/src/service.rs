@@ -19,7 +19,7 @@ use serde;
 
 use util::{ServerTimestamp, SERVER_EPOCH};
 use token;
-use error;
+use error::{self, ErrorKind};
 use key_bundle::KeyBundle;
 use bso_record::{BsoRecord, EncryptedBso};
 use record_types::MetaGlobalRecord;
@@ -109,8 +109,10 @@ impl Sync15Service {
         if require_success && !resp.status().is_success() {
             error!("HTTP error {} ({}) during storage request to {}",
                    resp.status().as_u16(), resp.status(), resp.url().path());
-            bail!(error::ErrorKind::StorageHttpError(
-                resp.status(), resp.url().path().into()));
+            return Err(ErrorKind::StorageHttpError {
+                code: resp.status(),
+                route: resp.url().path().into()
+            }.into());
         }
 
         // TODO:
@@ -138,9 +140,12 @@ impl Sync15Service {
         let mut resp = match self.relative_storage_request(Method::Get, "storage/meta/global") {
             Ok(r) => r,
             // This is gross, but at least it works. Replace 404s on meta/global with NoMetaGlobal.
-            Err(error::Error(error::ErrorKind::StorageHttpError(StatusCode::NotFound, ..), _)) =>
-                bail!(error::ErrorKind::NoMetaGlobal),
-            Err(e) => return Err(e),
+            Err(e) => {
+                if let ErrorKind::StorageHttpError { code: StatusCode::NotFound, .. } = e.kind() {
+                    return Err(ErrorKind::NoMetaGlobal.into())
+                }
+                return Err(e)
+            }
         };
         // Note: meta/global is not encrypted!
         let meta_global: BsoRecord<MetaGlobalRecord> = resp.json()?;
@@ -163,7 +168,7 @@ impl Sync15Service {
 
     pub fn key_for_collection(&self, collection: &str) -> error::Result<&KeyBundle> {
         Ok(self.keys.as_ref()
-                    .ok_or_else(|| error::unexpected("Don't have keys (yet?)"))?
+                    .ok_or_else(|| ErrorKind::NoCryptoKeys)?
                     .key_for_collection(collection))
     }
 

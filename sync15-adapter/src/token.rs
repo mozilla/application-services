@@ -6,7 +6,7 @@ use hawk;
 
 use reqwest::{Client, Request, Url};
 use hyper::header::{Authorization, Bearer};
-use error::{self, Result};
+use error::{self, Result, ErrorKind};
 use std::fmt;
 use std::borrow::{Borrow, Cow};
 use std::time::{SystemTime, Duration};
@@ -26,8 +26,9 @@ fn token_url(base_url: &str) -> Result<Url> {
     let mut url = Url::parse(base_url)?;
     // kind of gross but avoids problems if base_url has a trailing slash.
     url.path_segments_mut()
-        // We can't do anything anyway if this is the case.
-       .map_err(|_| error::unexpected("Bad tokenserver url (cannot be base)"))?
+        // We were given a data url or similar.
+       .map_err(|_| ErrorKind::UnacceptableUrl(
+            "Url provided for tokenserver must be allowed to have a path".into()))?
        .extend(&["1.0", "sync", "1.5"]);
     Ok(url)
 }
@@ -85,23 +86,22 @@ impl TokenFetcher for TokenServerFetcher {
         if !resp.status().is_success() {
             warn!("Non-success status when fetching token: {}", resp.status());
             // TODO: the body should be JSON and contain a status parameter we might need?
-            debug!("  Response body {}", resp.text().unwrap_or("???".into()));
+            debug!("  Response body {}", resp.text().unwrap_or_else(|_| "???".into()));
             // XXX - shouldn't we "chain" these errors - ie, a BackoffError could
             // have a TokenserverHttpError as its cause?
             if let Some(ms) = resp.headers().get::<RetryAfter>().map(|h| (**h * 1000f64) as u64) {
                 let when = self.now() + Duration::from_millis(ms);
-                bail!(error::ErrorKind::BackoffError(when));
+                return Err(ErrorKind::BackoffError(when).into());
             }
-            bail!(error::ErrorKind::TokenserverHttpError(resp.status()));
+            return Err(ErrorKind::TokenserverHttpError(resp.status()).into());
         }
 
         let token: TokenserverToken = resp.json()?;
         let server_timestamp = resp.headers()
                     .get::<XTimestamp>()
                     .map(|h| **h)
-                    .ok_or_else(|| error::unexpected(
-                        "Missing or corrupted X-Timestamp header from token server"))?;
-        Ok(TokenFetchResult{token, server_timestamp})
+                    .ok_or_else(|| ErrorKind::MissingServerTimestamp)?;
+        Ok(TokenFetchResult { token, server_timestamp })
     }
 
     fn now(&self) -> SystemTime {
@@ -133,7 +133,7 @@ impl fmt::Debug for TokenContext {
 impl TokenContext {
     fn new(token: TokenserverToken, credentials: hawk::Credentials,
            server_timestamp: ServerTimestamp, valid_until: SystemTime) -> Self {
-        Self {token, credentials, server_timestamp, valid_until}
+        Self { token, credentials, server_timestamp, valid_until }
     }
 
     fn is_valid(&self, now: SystemTime) -> bool {
@@ -155,12 +155,12 @@ impl TokenContext {
         };
 
         let host = url.host_str().ok_or_else(||
-            error::unexpected("Tried to authorize bad URL using hawk (no host)"))?;
+            ErrorKind::UnacceptableUrl("Storage URL has no host".into()))?;
 
         // Known defaults exist for https? (among others), so this should be impossible
         let port = url.port_or_known_default().ok_or_else(||
-            error::unexpected(
-                "Tried to authorize bad URL using hawk (no port -- unknown protocol?)"))?;
+            ErrorKind::UnacceptableUrl(
+                "Storage URL has no port and no default port is known for the protocol".into()))?;
 
         let header = hawk::RequestBuilder::new(
             req.method().as_ref(),
@@ -249,14 +249,11 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
                 }
             },
             Err(e) => {
-                match e {
-                    error::Error(error::ErrorKind::BackoffError(ref be), _) => {
-                        TokenState::Backoff(*be, previous_endpoint.map(|s| s.to_string()))
-                    }
-                    _ => {
-                        TokenState::Failed(Some(e), previous_endpoint.map(|s| s.to_string()))
-                    }
+                // Early to avoid nll issues...
+                if let ErrorKind::BackoffError(be) = e.kind() {
+                    return TokenState::Backoff(*be, previous_endpoint.map(|s| s.to_string()));
                 }
+                TokenState::Failed(Some(e), previous_endpoint.map(|s| s.to_string()))
             }
         }
     }
@@ -324,20 +321,20 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
             }
             TokenState::NodeReassigned => {
                 // this is unrecoverable.
-                bail!(error::ErrorKind::StorageResetError);
+                return Err(ErrorKind::StorageResetError.into());
             }
             TokenState::Backoff(ref remaining, _) => {
-                bail!(error::ErrorKind::BackoffError(*remaining));
+                return Err(ErrorKind::BackoffError(*remaining).into());
             }
         }
     }
 
     fn authorization(&self, http_client: &Client, req: &Request) -> Result<Authorization<String>> {
-        Ok(self.with_token(http_client, |ctx| ctx.authorization(req))?)
+        self.with_token(http_client, |ctx| ctx.authorization(req))
     }
 
     fn api_endpoint(&self, http_client: &Client) -> Result<String> {
-        Ok(self.with_token(http_client, |ctx| Ok(ctx.token.api_endpoint.clone()))?)
+        self.with_token(http_client, |ctx| Ok(ctx.token.api_endpoint.clone()))
     }
     // TODO: we probably want a "drop_token/context" type method so that when
     // using a token with some validity fails the caller can force a new one
@@ -387,8 +384,8 @@ mod tests {
 
         // TODO: make this actually useful!
         let e = tsc.api_endpoint(&make_client()).expect_err("should fail");
-        let ok = match e {
-            error::Error(error::ErrorKind::BadUrl(_), _) => true,
+        let ok = match e.kind() {
+            ErrorKind::MalformedUrl(_) => true,
             _ => false,
         };
         assert!(ok);
@@ -458,7 +455,7 @@ mod tests {
         let fetch = || {
             counter.set(counter.get() + 1);
             let when = SystemTime::now() + Duration::from_millis(10000);
-            bail!(error::ErrorKind::BackoffError(when));
+            return Err(error::Error::from(ErrorKind::BackoffError(when)));
         };
         let now: Cell<SystemTime> = Cell::new(SystemTime::now());
         let tsc = make_tsc(fetch, || {now.get()});
