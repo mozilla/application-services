@@ -12,7 +12,7 @@ use std::ptr;
 
 use ctypes::*;
 use fxa_client::errors::Error as InternalError;
-use fxa_client::errors::ErrorKind::*;
+use fxa_client::errors::ErrorKind as InternalErrorKind;
 use fxa_client::{Config, FirefoxAccount, WebChannelResponse};
 use libc::c_char;
 use util::*;
@@ -50,10 +50,10 @@ impl Default for ExternError {
 
 impl From<InternalError> for ExternError {
     fn from(err: InternalError) -> ExternError {
-        match err {
-            InternalError(RemoteError(401, ..), ..)
-            | InternalError(NotMarried, ..)
-            | InternalError(NeededTokenNotFound, ..) => ExternError {
+        match err.kind() {
+            InternalErrorKind::RemoteError { code: 401, .. }
+            | InternalErrorKind::NotMarried
+            | InternalErrorKind::NoCachedToken(_) => ExternError {
                 code: ErrorCode::AuthenticationError,
                 message: string_to_c_char(err.to_string()),
             },

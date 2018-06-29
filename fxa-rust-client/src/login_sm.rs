@@ -4,7 +4,6 @@
 
 use std;
 
-use errors::ErrorKind::RemoteError;
 use errors::*;
 use http_client::browser_id::rsa::RSABrowserIDKeyPair;
 use http_client::*;
@@ -83,16 +82,17 @@ impl<'a> LoginStateMachine<'a> {
                         };
                         Married(new_state)
                     }
-                    Err(Error(err @ RemoteError(..), ..)) => {
-                        error!("Server error: {:?}. Transitioning to Separated.", err);
-                        Separated(state.token_and_keys.base)
-                    }
-                    Err(err @ _) => {
-                        error!(
-                            "Unknown error: ({:?}). Assuming transient, not transitioning.",
-                            err
-                        );
-                        CohabitingAfterKeyPair(state)
+                    Err(e) => {
+                        if let ErrorKind::RemoteError { .. } = e.kind() {
+                            error!("Server error: {:?}. Transitioning to Separated.", e);
+                            Separated(state.token_and_keys.base)
+                        } else {
+                            error!(
+                                "Unknown error: ({:?}). Assuming transient, not transitioning.",
+                                e
+                            );
+                            CohabitingAfterKeyPair(state)
+                        }
                     }
                 }
             }
@@ -133,21 +133,23 @@ impl<'a> LoginStateMachine<'a> {
                     xcs,
                 })
             }
-            Err(Error(RemoteError(_, 104, ..), ..)) => {
-                warn!("Account not yet verified, not transitioning.");
-                same(state)
-            }
-            Err(Error(err @ RemoteError(..), ..)) => {
-                error!("Server error: {:?}. Transitioning to Separated.", err);
-                Separated(state.base)
-            }
-            Err(err @ _) => {
-                error!(
-                    "Unknown error: ({:?}). Assuming transient, not transitioning.",
-                    err
-                );
-                same(state)
-            }
+            Err(e) => match e.kind() {
+                ErrorKind::RemoteError { errno: 104, .. } => {
+                    warn!("Account not yet verified, not transitioning.");
+                    same(state)
+                }
+                ErrorKind::RemoteError { .. } => {
+                    error!("Server error: {:?}. Transitioning to Separated.", e);
+                    Separated(state.base)
+                }
+                _ => {
+                    error!(
+                        "Unknown error: ({:?}). Assuming transient, not transitioning.",
+                        e
+                    );
+                    same(state)
+                }
+            },
         }
     }
 }
