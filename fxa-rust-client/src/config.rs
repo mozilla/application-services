@@ -5,6 +5,7 @@
 use super::errors::*;
 use reqwest;
 use url::Url;
+extern crate openssl_probe;
 
 #[derive(Deserialize)]
 struct ClientConfigurationResponse {
@@ -51,6 +52,7 @@ impl Config {
     }
 
     pub fn import_from(content_url: &str) -> Result<Config> {
+        openssl_probe::init_ssl_cert_env_vars();
         let config_url = Url::parse(content_url)?.join(".well-known/fxa-client-configuration")?;
         let resp: ClientConfigurationResponse = reqwest::get(config_url)?.json()?;
 
