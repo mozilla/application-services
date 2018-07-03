@@ -346,6 +346,35 @@ where Q: Queryable
     Ok(local_time_last_used)
 }
 
+/// Return the last time the credential with given `id` was modified locally, or `None` if such a
+/// credential doesn't exist.
+pub fn time_last_modified<Q>(queryable: &Q, id: CredentialId) -> Result<Option<DateTime<Utc>>>
+where Q: Queryable
+{
+    // TODO: handle optional usernames.
+    let q = r#"[:find
+                [?username-txInstant ?password-txInstant]
+                :in
+                ?id
+                :where
+                [?credential :credential/id ?id]
+                [?credential :credential/username ?username ?username-tx]
+                [?username-tx :db/txInstant ?username-txInstant]
+                [?credential :credential/password ?password ?password-tx]
+                [?password-tx :db/txInstant ?password-txInstant]]"#;
+    let inputs = QueryInputs::with_value_sequence(vec![(var!(?id), TypedValue::typed_string(id))]);
+
+    match queryable.q_once(q, inputs)?.into_tuple()? {
+        Some((Binding::Scalar(TypedValue::Instant(username_tx_instant)),
+              Binding::Scalar(TypedValue::Instant(password_tx_instant)))) => {
+            let last_modified = ::std::cmp::max(username_tx_instant, password_tx_instant);
+            Ok(Some(last_modified))
+        },
+        None => Ok(None),
+        _ => bail!(Error::BadQueryResultType),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use mentat::{

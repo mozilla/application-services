@@ -30,6 +30,7 @@ pub use errors::{
     Result,
 };
 mod json;
+pub mod passwords;
 pub mod types;
 pub use types::{
     Credential,
