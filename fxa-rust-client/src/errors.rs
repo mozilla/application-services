@@ -9,9 +9,9 @@ use base64;
 use failure::{Backtrace, Context, Fail, SyncFailure};
 use hawk;
 use hex;
-use jose;
 use openssl;
 use reqwest;
+use ring;
 use serde_json;
 
 pub type Result<T> = result::Result<T, Error>;
@@ -133,8 +133,8 @@ pub enum ErrorKind {
     #[fail(display = "HAWK error: {}", _0)]
     HawkError(#[fail(cause)] SyncFailure<hawk::Error>),
 
-    #[fail(display = "JOSE error: {}", _0)]
-    JoseError(#[fail(cause)] SyncFailure<jose::error::Error>),
+    #[fail(display = "Unspecified ring error: {}", _0)]
+    UnspecifiedRingError(#[fail(cause)] ring::error::Unspecified),
 }
 
 macro_rules! impl_from_error {
@@ -162,10 +162,11 @@ impl_from_error! {
     (JsonError, ::serde_json::Error),
     (UTF8DecodeError, ::std::string::FromUtf8Error),
     (RequestError, ::reqwest::Error),
-    (MalformedUrl, ::reqwest::UrlError)
+    (MalformedUrl, ::reqwest::UrlError),
+    (UnspecifiedRingError, ::ring::error::Unspecified)
 }
 
-// ::hawk::Error and jose use error_chain, and so it's not trivially compatible with failure.
+// ::hawk::Error uses error_chain, and so it's not trivially compatible with failure.
 // We have to box it inside a SyncError (which allows errors to be accessed from multiple
 // threads at the same time, which failure requires for some reason...).
 impl From<hawk::Error> for ErrorKind {
@@ -177,19 +178,6 @@ impl From<hawk::Error> for ErrorKind {
 impl From<hawk::Error> for Error {
     #[inline]
     fn from(e: hawk::Error) -> Error {
-        ErrorKind::from(e).into()
-    }
-}
-
-impl From<jose::error::Error> for ErrorKind {
-    #[inline]
-    fn from(e: jose::error::Error) -> ErrorKind {
-        ErrorKind::JoseError(SyncFailure::new(e))
-    }
-}
-impl From<jose::error::Error> for Error {
-    #[inline]
-    fn from(e: jose::error::Error) -> Error {
         ErrorKind::from(e).into()
     }
 }

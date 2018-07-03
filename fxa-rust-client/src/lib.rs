@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 extern crate base64;
+extern crate byteorder;
 extern crate failure;
 #[macro_use]
 extern crate failure_derive;
@@ -10,7 +11,6 @@ extern crate hawk;
 extern crate hex;
 extern crate hkdf;
 extern crate hmac;
-extern crate jose;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
@@ -19,12 +19,14 @@ extern crate openssl;
 extern crate rand;
 extern crate regex;
 extern crate reqwest;
+extern crate ring;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
 extern crate sha2;
+extern crate untrusted;
 extern crate url;
 
 use std::collections::HashMap;
@@ -33,12 +35,16 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use self::login_sm::LoginState::*;
 use self::login_sm::*;
+use byteorder::{ByteOrder, BigEndian};
 use errors::*;
 use http_client::browser_id::jwt_utils;
 use http_client::{Client, OAuthTokenResponse, ProfileResponse};
-use jose::{JWKECCurve, JWE, JWK};
 use openssl::hash::{hash, MessageDigest};
+use sha2::{Sha256, Digest};
 use rand::{OsRng, RngCore};
+use ring::{aead, agreement, rand as ring_rand};
+use ring::agreement::EphemeralPrivateKey;
+use untrusted::Input;
 use url::Url;
 use util::now;
 
@@ -264,19 +270,34 @@ impl FirefoxAccount {
             .append_pair("code_challenge_method", "S256")
             .append_pair("code_challenge", &code_challenge)
             .append_pair("access_type", "offline");
-        let jwk = match wants_keys {
+        let jwk_prv_key = match wants_keys {
             true => {
-                let jwk = JWK::from_random_ec(JWKECCurve::P256)?;
-                let jwk_json = jwk.to_json(false)?.to_string();
+                let rng = ring_rand::SystemRandom::new();
+                let prv_key = EphemeralPrivateKey::generate(&agreement::ECDH_P256, &rng)?;
+                let mut pub_key = vec![0u8; prv_key.public_key_len()];
+                prv_key.compute_public_key(&mut pub_key)?;
+                // First byte is 4, then 32 bytes for x, and 32 bytes for y.
+                assert_eq!(pub_key.len(), 1 + 32 + 32);
+                assert_eq!(pub_key[0], 0x04);
+                let x = Vec::from(&pub_key[1..33]);
+                let x = base64::encode_config(&x, base64::URL_SAFE_NO_PAD);
+                let y = Vec::from(&pub_key[33..]);
+                let y = base64::encode_config(&y, base64::URL_SAFE_NO_PAD);
+                let jwk_json = json!({
+                    "crv": "P-256",
+                    "kty": "EC",
+                    "x": x,
+                    "y": y,
+                }).to_string();
                 let keys_jwk = base64::encode_config(&jwk_json, base64::URL_SAFE_NO_PAD);
                 url.query_pairs_mut().append_pair("keys_jwk", &keys_jwk);
-                Some(jwk)
+                Some(prv_key)
             }
             false => None,
         };
         self.flow_store.insert(
             state.clone(), // Since state is supposed to be unique, we use it to key our flows.
-            OAuthFlow { jwk, code_verifier },
+            OAuthFlow { jwk_prv_key, code_verifier },
         );
         Ok(url.to_string())
     }
@@ -296,26 +317,75 @@ impl FirefoxAccount {
             Some(oauth_flow) => oauth_flow,
             None => return Err(ErrorKind::UnknownOAuthState.into()),
         };
-        self.handle_oauth_token_response(resp, oauth_flow.jwk)
+        self.handle_oauth_token_response(resp, oauth_flow.jwk_prv_key)
     }
 
     fn handle_oauth_token_response(
         &mut self,
         resp: OAuthTokenResponse,
-        jwk: Option<JWK>,
+        jwk_prv_key: Option<EphemeralPrivateKey>,
     ) -> Result<OAuthInfo> {
         let granted_scopes = resp.scope.split(" ").map(|s| s.to_string()).collect();
         // This assumes that if the server returns keys_jwe, the jwk argument is Some.
         let keys = match resp.keys_jwe {
             Some(jwe) => {
-                let jwk = jwk.expect(
-                    "Insane state! If we are getting back a JWE this means we should have a JWK.",
+                let jwk_prv_key = jwk_prv_key.expect(
+                    "Insane state! If we are getting back a JWE this means we should have a JWK private key.",
                 );
-                let jwe = JWE::import(&jwe)?;
-                Some(jwk.decrypt(&jwe)?)
+                let segments: Vec<&str> = jwe.split(".").collect();
+                let header = base64::decode_config(&segments[0], base64::URL_SAFE_NO_PAD)?;
+                let protected_header: serde_json::Value = serde_json::from_slice(&header)?;
+                assert_eq!(protected_header["epk"]["kty"], "EC");
+                assert_eq!(protected_header["epk"]["crv"], "P-256");
+
+                // Part 1: Grab the x/y from the other party and construct the secret.
+                let x = base64::decode_config(&protected_header["epk"]["x"].as_str().unwrap(), base64::URL_SAFE_NO_PAD)?;
+                let y = base64::decode_config(&protected_header["epk"]["y"].as_str().unwrap(), base64::URL_SAFE_NO_PAD)?;
+                let mut peer_pub_key: Vec<u8> = vec![0x04];
+                peer_pub_key.extend_from_slice(&x);
+                peer_pub_key.extend_from_slice(&y);
+                let peer_pub_key = Input::from(&peer_pub_key);
+                let secret = agreement::agree_ephemeral(jwk_prv_key, &agreement::ECDH_P256, peer_pub_key, ring::error::Unspecified, |z| {
+                    // ConcatKDF
+                    let counter = 1;
+                    let alg = protected_header["enc"].as_str().unwrap();
+                    let apu = "";
+                    let apv = "";
+                    let mut buf: Vec<u8> = vec![];
+                    buf.extend_from_slice(&to_32b_buf(counter));
+                    buf.extend_from_slice(&z);
+                    buf.extend_from_slice(&to_32b_buf(alg.len() as u32));
+                    buf.extend_from_slice(alg.as_bytes());
+                    buf.extend_from_slice(&to_32b_buf(apu.len() as u32));
+                    buf.extend_from_slice(apu.as_bytes());
+                    buf.extend_from_slice(&to_32b_buf(apv.len() as u32));
+                    buf.extend_from_slice(apv.as_bytes());
+                    buf.extend_from_slice(&to_32b_buf(256));
+                    Ok(Sha256::digest(&buf)[0..32].to_vec())
+                })?;
+
+                // Part 2: decrypt the payload with the obtained secret
+                assert_eq!(segments[1].len(), 0); // Encrypted Key is zero-length.
+                let iv = base64::decode_config(&segments[2], base64::URL_SAFE_NO_PAD)?;
+                let ciphertext = base64::decode_config(&segments[3], base64::URL_SAFE_NO_PAD)?;
+                let auth_tag = base64::decode_config(&segments[4], base64::URL_SAFE_NO_PAD)?;
+                assert_eq!(auth_tag.len(), 128 / 8);
+                assert_eq!(iv.len(), 96 / 8);
+                let opening_key = aead::OpeningKey::new(&aead::AES_256_GCM, &secret)?;
+                let mut in_out = ciphertext.to_vec();
+                in_out.append(&mut auth_tag.to_vec());
+                let plaintext = aead::open_in_place(
+                    &opening_key,
+                    &iv,
+                    segments[0].as_bytes(),
+                    0,
+                    &mut in_out,
+                )?;
+                let plaintext = String::from_utf8(plaintext.to_vec())?;
+                Some(plaintext)
             }
             None => {
-                if jwk.is_some() {
+                if jwk_prv_key.is_some() {
                     error!("Expected to get keys back alongside the token but the server didn't send them.");
                     return Err(ErrorKind::TokenWithoutKeys.into());
                 } else {
@@ -494,8 +564,14 @@ mod tests {
     }
 }
 
+fn to_32b_buf(n: u32) -> Vec<u8> {
+    let mut buf = [0; 4];
+    BigEndian::write_u32(&mut buf, n);
+    buf.to_vec()
+}
+
 pub struct OAuthFlow {
-    pub jwk: Option<JWK>,
+    pub jwk_prv_key: Option<EphemeralPrivateKey>,
     pub code_verifier: String,
 }
 
