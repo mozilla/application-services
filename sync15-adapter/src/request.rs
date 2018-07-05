@@ -10,7 +10,7 @@ use std::fmt;
 use std::collections::HashMap;
 use std::default::Default;
 use url::{Url, UrlQuery, form_urlencoded::Serializer};
-use error::{self, Result};
+use error::{self, Result, ErrorKind};
 use hyper::{StatusCode};
 use reqwest::Response;
 
@@ -139,7 +139,7 @@ impl CollectionRequest {
 
     pub fn build_url(&self, mut base_url: Url) -> Result<Url> {
         base_url.path_segments_mut()
-                .map_err(|_| error::unexpected("Not base URL??"))?
+                .map_err(|_| ErrorKind::UnacceptableUrl("Storage server URL is not a base".into()))?
                 .extend(&["storage", &self.collection]);
         self.build_query(&mut base_url.query_pairs_mut());
         // This is strange but just accessing query_pairs_mut makes you have
@@ -270,7 +270,7 @@ impl PostResponse {
         let result: UploadResult = r.json()?;
         // TODO Can this happen in error cases?
         let last_modified = r.headers().get::<XLastModified>().map(|h| **h).ok_or_else(||
-            error::unexpected("Server didn't send X-Last-Modified header"))?;
+            ErrorKind::MissingServerTimestamp)?;
         let status = r.status();
         Ok(PostResponse { status, result, last_modified })
     }
@@ -342,14 +342,16 @@ impl PostResponseHandler for NormalResponseHandler {
         if !r.status.is_success() {
             warn!("Got failure status from server while posting: {}", r.status);
             if r.status == StatusCode::PreconditionFailed {
-                bail!(error::ErrorKind::BatchInterrupted);
+                return Err(ErrorKind::BatchInterrupted.into());
             } else {
-                bail!(error::ErrorKind::StorageHttpError(r.status,
-                    "collection storage (TODO: record route somewhere)".into()));
+                return Err(ErrorKind::StorageHttpError {
+                    code: r.status,
+                    route: "collection storage (TODO: record route somewhere)".into()
+                }.into());
             }
         }
         if r.result.failed.len() > 0 && !self.allow_failed {
-            bail!(error::ErrorKind::RecordUploadFailed(r.result.failed.clone()));
+            return Err(ErrorKind::RecordUploadFailed.into());
         }
         for id in r.result.success.iter() {
             self.pending_success.push(id.clone());
@@ -499,8 +501,11 @@ where
         let resp = resp_or_error?;
 
         if !resp.status.is_success() {
+            let code = resp.status;
             self.on_response.handle_response(resp, !want_commit)?;
-            bail!(error::unexpected("Expected OnResponse to have bailed out!"));
+            error!("Bug: expected OnResponse to have bailed out!");
+            // Should we assert here instead?
+            return Err(ErrorKind::StorageHttpError { code, route: "Client bug!".into() }.into());
         }
 
         if want_commit || self.batch == BatchState::Unsupported {
@@ -516,8 +521,8 @@ where
 
         if resp.status != StatusCode::Accepted {
             if self.in_batch() {
-                bail!(error::unexpected(
-                    "Server responded non-202 success code while a batch was in progress"));
+                return Err(ErrorKind::ServerBatchProblem(
+                    "Server responded non-202 success code while a batch was in progress").into());
             }
             self.last_modified = resp.last_modified;
             self.batch = BatchState::Unsupported;
@@ -527,7 +532,7 @@ where
         }
 
         let batch_id = resp.result.batch.as_ref().ok_or_else(||
-            error::unexpected("Invalid server response: 202 without a batch ID"))?.clone();
+            ErrorKind::ServerBatchProblem("Invalid server response: 202 without a batch ID"))?.clone();
 
         match &self.batch {
             &BatchState::Unsupported => {
@@ -536,7 +541,8 @@ where
 
             &BatchState::InBatch(ref cur_id) => {
                 if cur_id != &batch_id {
-                    bail!(error::unexpected("Server changed batch id mid-batch!"));
+                    return Err(ErrorKind::ServerBatchProblem(
+                        "Invalid server response: 202 without a batch ID").into());
                 }
             },
             _ => {}

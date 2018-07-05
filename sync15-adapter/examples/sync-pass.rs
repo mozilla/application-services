@@ -1,7 +1,5 @@
 
-#![recursion_limit = "1024"]
 extern crate sync15_adapter as sync;
-extern crate error_chain;
 extern crate url;
 extern crate base64;
 extern crate reqwest;
@@ -17,9 +15,9 @@ extern crate serde_json;
 extern crate log;
 
 extern crate env_logger;
+extern crate failure;
 
 use std::io::{self, Read, Write};
-use std::error::Error;
 use std::fs;
 use std::process;
 use sync::{ServerTimestamp, OutgoingChangeset, Payload, Store};
@@ -76,7 +74,7 @@ pub struct PasswordRecord {
     pub times_used: Option<i64>,
 }
 
-fn do_auth(recur: bool) -> Result<OAuthCredentials, Box<Error>> {
+fn do_auth(recur: bool) -> Result<OAuthCredentials, failure::Error> {
     match fs::File::open("./credentials.json") {
         Err(_) => {
             if recur {
@@ -101,7 +99,7 @@ fn do_auth(recur: bool) -> Result<OAuthCredentials, Box<Error>> {
     }
 }
 
-fn read_json_file<T>(path: &str) -> Result<T, Box<Error>> where for<'a> T: serde::de::Deserialize<'a> {
+fn read_json_file<T>(path: &str) -> Result<T, failure::Error> where for<'a> T: serde::de::Deserialize<'a> {
     let file = fs::File::open(path)?;
     Ok(serde_json::from_reader(&file)?)
 }
@@ -241,21 +239,21 @@ impl PasswordEngine {
         }
     }
 
-    pub fn save(&mut self) -> Result<(), Box<Error>> {
+    pub fn save(&mut self) -> Result<(), failure::Error> {
         // We should really be doing this atomically. I'm just lazy.
         let file = fs::File::create("./password-engine.json")?;
         serde_json::to_writer(file, &self)?;
         Ok(())
     }
 
-    pub fn create(&mut self, r: PasswordRecord) -> Result<(), Box<Error>> {
+    pub fn create(&mut self, r: PasswordRecord) -> Result<(), failure::Error> {
         let id = r.id.clone();
         self.changes.insert(id.clone(), unix_time_ms());
         self.records.insert(id, r);
         self.save()
     }
 
-    pub fn delete(&mut self, id: String) -> Result<(), Box<Error>> {
+    pub fn delete(&mut self, id: String) -> Result<(), failure::Error> {
         if self.records.remove(&id).is_none() {
             println!("No such record by that id, but we'll add a tombstone anyway");
         }
@@ -263,7 +261,7 @@ impl PasswordEngine {
         self.save()
     }
 
-    pub fn update(&mut self, id: &str, updater: impl FnMut(&mut PasswordRecord)) -> Result<bool, Box<Error>> {
+    pub fn update(&mut self, id: &str, updater: impl FnMut(&mut PasswordRecord)) -> Result<bool, failure::Error> {
         if self.records.get_mut(id).map(updater).is_none() {
             println!("No such record!");
             return Ok(false);
@@ -273,20 +271,20 @@ impl PasswordEngine {
         Ok(true)
     }
 
-    pub fn sync(&mut self, svc: &sync::Sync15Service) -> Result<(), Box<Error>> {
+    pub fn sync(&mut self, svc: &sync::Sync15Service) -> Result<(), failure::Error> {
         let ts = self.last_sync;
         sync::synchronize(svc, self, "passwords".into(), ts, true)?;
         Ok(())
     }
 
-    pub fn reset(&mut self) -> Result<(), Box<Error>> {
+    pub fn reset(&mut self) -> Result<(), failure::Error> {
         self.last_sync = 0.0.into();
         self.changes.clear();
         self.save()?;
         Ok(())
     }
 
-    pub fn wipe(&mut self) -> Result<(), Box<Error>> {
+    pub fn wipe(&mut self) -> Result<(), failure::Error> {
         self.last_sync = 0.0.into();
         self.changes.clear();
         self.records.clear();
@@ -323,7 +321,7 @@ impl PasswordEngine {
             }
         }
         self.last_sync = new_last_sync;
-        self.save().map_err(|_| "Save failed!")?;
+        self.save().map_err(sync::error::ErrorKind::StoreError)?;
         Ok(())
     }
 }
@@ -361,7 +359,7 @@ impl Store for PasswordEngine {
             self.changes.remove(id);
         }
         self.last_sync = new_last_sync;
-        self.save().map_err(|_| "Save failed!")?;
+        self.save().map_err(sync::error::ErrorKind::StoreError)?;
         Ok(())
     }
 }
@@ -498,7 +496,7 @@ fn prompt_record_id(e: &PasswordEngine, action: &str) -> Option<String> {
     Some(index_to_id[input].into())
 }
 
-fn main() -> Result<(), Box<Error>> {
+fn main() -> Result<(), failure::Error> {
     env_logger::init();
     let oauth_data = do_auth(false)?;
 
