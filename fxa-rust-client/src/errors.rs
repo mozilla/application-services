@@ -11,7 +11,6 @@ use hawk;
 use hex;
 use openssl;
 use reqwest;
-use ring;
 use serde_json;
 
 pub type Result<T> = result::Result<T, Error>;
@@ -97,6 +96,21 @@ pub enum ErrorKind {
     #[fail(display = "JWT signature validation failed")]
     JWTSignatureValidationFailed,
 
+    #[fail(display = "ECDH key generation failed")]
+    KeyGenerationFailed,
+
+    #[fail(display = "Public key computation failed")]
+    PublicKeyComputationFailed,
+
+    #[fail(display = "Key agreement failed")]
+    KeyAgreementFailed,
+
+    #[fail(display = "Key import failed")]
+    KeyImportFailed,
+
+    #[fail(display = "AEAD open failure")]
+    AEADOpenFailure,
+
     #[fail(
         display = "Remote server error: '{}' '{}' '{}' '{}' '{}'", code, errno, error, message, info
     )]
@@ -132,9 +146,6 @@ pub enum ErrorKind {
 
     #[fail(display = "HAWK error: {}", _0)]
     HawkError(#[fail(cause)] SyncFailure<hawk::Error>),
-
-    #[fail(display = "Unspecified ring error: {}", _0)]
-    UnspecifiedRingError(#[fail(cause)] ring::error::Unspecified),
 }
 
 macro_rules! impl_from_error {
@@ -162,8 +173,7 @@ impl_from_error! {
     (JsonError, ::serde_json::Error),
     (UTF8DecodeError, ::std::string::FromUtf8Error),
     (RequestError, ::reqwest::Error),
-    (MalformedUrl, ::reqwest::UrlError),
-    (UnspecifiedRingError, ::ring::error::Unspecified)
+    (MalformedUrl, ::reqwest::UrlError)
 }
 
 // ::hawk::Error uses error_chain, and so it's not trivially compatible with failure.
