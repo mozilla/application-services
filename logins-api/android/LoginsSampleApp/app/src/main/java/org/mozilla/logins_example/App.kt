@@ -2,6 +2,7 @@ package org.mozilla.logins_example
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import mozilla.components.service.fxa.FxaClient
 
 // The credentials the login flow gave us.
 class Credentials(
@@ -21,6 +22,10 @@ class ExampleApp: Application() {
             get() {
                 return singleton!!
             }
+
+        init {
+            FxaClient.init()
+        }
     }
 
     override fun onCreate() {
