@@ -4,9 +4,8 @@ import android.net.Uri
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.webkit.*
-
-import io.github.mozilla.sandvich.rust.Config
-import io.github.mozilla.sandvich.rust.FirefoxAccount
+import mozilla.components.service.fxa.Config
+import mozilla.components.service.fxa.FirefoxAccount
 
 // In *theory*, we could change this to be any of the FxA stacks (eg, stage, dev, sandvich, etc)
 // although the flies in the ointment are that the clientId may not be valid in all of them, and
@@ -58,11 +57,11 @@ class LoginActivity : AppCompatActivity() {
                     // we are done!
                     val code = uri.getQueryParameter("code")
                     val state = uri.getQueryParameter("state")
-                    val oauthInfo = fxa.completeOAuthFlow(code, state)
-                    val profile = fxa.profile
+                    val oauthInfo = fxa.completeOAuthFlow(code, state)!!
+                    val profile = fxa.getProfile()
 
-                    val creds = Credentials(oauthInfo.accessToken, oauthInfo.keys, fxa.tokenServerEndpointURL)
-                    ExampleApp.instance.account = Account(profile.email, creds)
+                    val creds = Credentials(oauthInfo.accessToken!!, oauthInfo.keys!!, fxa.getTokenServerEndpointURL()!!)
+                    ExampleApp.instance.account = Account(profile!!.email!!, creds)
                     ExampleApp.instance.startNewIntent()
                     this@LoginActivity.finish()
                     return true
