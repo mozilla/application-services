@@ -2,12 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// For error_chain:
-#![recursion_limit = "128"]
-
 extern crate base64;
+extern crate failure;
 #[macro_use]
-extern crate error_chain;
+extern crate failure_derive;
 extern crate hawk;
 extern crate hex;
 extern crate hkdf;
@@ -291,14 +289,14 @@ impl FirefoxAccount {
         {
             let flow = match self.flow_store.get(state) {
                 Some(flow) => flow,
-                None => bail!(ErrorKind::UnknownOAuthState),
+                None => return Err(ErrorKind::UnknownOAuthState.into()),
             };
             let client = Client::new(&self.state.config);
             resp = client.oauth_token_with_code(&code, &flow.code_verifier, &self.state.client_id)?;
         }
         let oauth_flow = match self.flow_store.remove(state) {
             Some(oauth_flow) => oauth_flow,
-            None => bail!(ErrorKind::UnknownOAuthState),
+            None => return Err(ErrorKind::UnknownOAuthState.into()),
         };
         self.handle_oauth_token_response(resp, oauth_flow.jwk)
     }
@@ -320,7 +318,8 @@ impl FirefoxAccount {
             }
             None => {
                 if jwk.is_some() {
-                    bail!("We expected to get keys back but the server didn't send them.")
+                    error!("Expected to get keys back alongside the token but the server didn't send them.");
+                    return Err(ErrorKind::TokenWithoutKeys.into());
                 } else {
                     None
                 }
@@ -366,7 +365,7 @@ impl FirefoxAccount {
     pub fn generate_assertion(&mut self, audience: &str) -> Result<String> {
         let married = match self.to_married() {
             Some(married) => married,
-            None => bail!(ErrorKind::NotMarried),
+            None => return Err(ErrorKind::NotMarried.into()),
         };
         let key_pair = married.key_pair();
         let certificate = married.certificate();
@@ -380,7 +379,7 @@ impl FirefoxAccount {
     pub fn get_profile(&mut self, ignore_cache: bool) -> Result<ProfileResponse> {
         let profile_access_token = match self.get_oauth_token(&["profile"])? {
             Some(token) => token.access_token,
-            None => bail!(ErrorKind::NeededTokenNotFound),
+            None => return Err(ErrorKind::NoCachedToken("profile").into()),
         };
         let mut etag = None;
         if let Some(ref cached_profile) = self.profile_cache {
@@ -404,7 +403,8 @@ impl FirefoxAccount {
             None => match self.profile_cache {
                 Some(ref cached_profile) => Ok(cached_profile.response.clone()),
                 None => {
-                    bail!("Insane state! We got a 304 without having a cached response.");
+                    error!("Insane state! We got a 304 without having a cached response.");
+                    Err(ErrorKind::UnrecoverableServerError.into())
                 }
             },
         }
@@ -413,7 +413,7 @@ impl FirefoxAccount {
     pub fn get_sync_keys(&mut self) -> Result<SyncKeys> {
         let married = match self.to_married() {
             Some(married) => married,
-            None => bail!(ErrorKind::NotMarried),
+            None => return Err(ErrorKind::NotMarried.into()),
         };
         let sync_key = hex::encode(married.sync_key());
         Ok((sync_key, married.xcs().to_string()))
@@ -479,7 +479,8 @@ mod tests {
 
     #[test]
     fn test_oauth_cache_store_and_find() {
-        let mut fxa = FirefoxAccount::new(Config::stable_dev().unwrap(), "12345678", "https://foo.bar");
+        let mut fxa =
+            FirefoxAccount::new(Config::stable_dev().unwrap(), "12345678", "https://foo.bar");
         let oauth_info = OAuthInfo {
             access_token: "abcdef".to_string(),
             keys: None,

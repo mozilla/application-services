@@ -101,11 +101,11 @@ impl<'a> Client<'a> {
         let json: serde_json::Value = Client::make_request(request)?.json()?;
         let bundle = match json["bundle"].as_str() {
             Some(bundle) => bundle,
-            None => bail!("Invalid JSON"),
+            None => panic!("Invalid JSON"),
         };
         let data = hex::decode(bundle)?;
         if data.len() != 3 * KEY_LENGTH {
-            bail!("Data is not of the expected size.");
+            return Err(ErrorKind::BadKeyLength("bundle", 3 * KEY_LENGTH, data.len()).into());
         }
         let ciphertext = &data[0..(KEY_LENGTH * 2)];
         let mac_code = &data[(KEY_LENGTH * 2)..(KEY_LENGTH * 3)];
@@ -121,11 +121,11 @@ impl<'a> Client<'a> {
 
         let mut mac = match Hmac::<Sha256>::new_varkey(hmac_key) {
             Ok(mac) => mac,
-            Err(_) => bail!("Could not create MAC key."),
+            Err(_) => panic!("Could not create MAC key."),
         };
         mac.input(ciphertext);
         if let Err(_) = mac.verify(&mac_code) {
-            bail!("Bad HMAC!");
+            return Err(ErrorKind::HmacMismatch.into());
         }
 
         let xored_bytes = ciphertext.xored_with(xor_key)?;
@@ -255,7 +255,7 @@ impl<'a> Client<'a> {
         let url = self.config.oauth_url()?;
         let host = url
             .host_str()
-            .chain_err(|| "This URL doesn't have a host!")?;
+            .ok_or_else(|| ErrorKind::AudienceURLWithoutHost)?;
         match url.port() {
             Some(port) => Ok(format!("{}://{}:{}", url.scheme(), host, port)),
             None => Ok(format!("{}://{}", url.scheme(), host)),
@@ -287,13 +287,13 @@ impl<'a> Client<'a> {
         } else {
             let json: std::result::Result<serde_json::Value, reqwest::Error> = resp.json();
             match json {
-                Ok(json) => bail!(ErrorKind::RemoteError(
-                    json["code"].as_u64().unwrap_or(0),
-                    json["errno"].as_u64().unwrap_or(0),
-                    json["error"].as_str().unwrap_or("").to_string(),
-                    json["message"].as_str().unwrap_or("").to_string(),
-                    json["info"].as_str().unwrap_or("").to_string()
-                )),
+                Ok(json) => Err(ErrorKind::RemoteError {
+                    code: json["code"].as_u64().unwrap_or(0),
+                    errno: json["errno"].as_u64().unwrap_or(0),
+                    error: json["error"].as_str().unwrap_or("").to_string(),
+                    message: json["message"].as_str().unwrap_or("").to_string(),
+                    info: json["info"].as_str().unwrap_or("").to_string(),
+                }.into()),
                 Err(_) => Err(resp.error_for_status().unwrap_err().into()),
             }
         }

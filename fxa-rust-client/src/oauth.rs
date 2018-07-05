@@ -29,7 +29,7 @@ struct ShortScopeValue {
 impl ShortScopeValue {
     pub fn new(value: &str) -> Result<ShortScopeValue> {
         if !VALID_SCOPE_VALUE.is_match(value) {
-            bail!("Invalid scope value: {}", value);
+            return Err(ErrorKind::InvalidOAuthScopeValue(value.to_string()).into());
         }
         let mut names = value
             .split(":")
@@ -37,7 +37,7 @@ impl ShortScopeValue {
             .collect::<Vec<String>>();
         for name in &names {
             if !VALID_SHORT_NAME_VALUE.is_match(name) {
-                bail!("Invalid scope value: {}", value);
+                return Err(ErrorKind::InvalidOAuthScopeValue(value.to_string()).into());
             }
         }
         let has_write = match names.last() {
@@ -45,13 +45,13 @@ impl ShortScopeValue {
                 "write" => {
                     if names.len() == 1 {
                         // write was the last and only item.
-                        bail!("Invalid scope value: {}", value);
+                        return Err(ErrorKind::InvalidOAuthScopeValue(value.to_string()).into());
                     }
                     true
                 }
                 _ => false,
             },
-            None => bail!("Empty names!"),
+            None => return Err(ErrorKind::EmptyOAuthScopeNames.into()),
         };
         if has_write {
             names.pop();
@@ -88,22 +88,22 @@ struct URLScopeValue {
 impl URLScopeValue {
     pub fn new(value: &str) -> Result<URLScopeValue> {
         if !VALID_SCOPE_VALUE.is_match(value) {
-            bail!("Invalid scope value: {}", value);
+            return Err(ErrorKind::InvalidOAuthScopeValue(value.to_string()).into());
         }
         let url = Url::parse(value)?;
         if url.scheme() != "https" {
-            bail!("Invalid scope value: {}", value);
+            return Err(ErrorKind::InvalidOAuthScopeValue(value.to_string()).into());
         }
         if url.username().len() > 0 || url.password().is_some() || url.query().is_some() {
-            bail!("Invalid scope value: {}", value);
+            return Err(ErrorKind::InvalidOAuthScopeValue(value.to_string()).into());
         }
         if let Some(fragment) = url.fragment() {
             if !VALID_FRAGMENT_VALUE.is_match(fragment) {
-                bail!("Invalid scope value: {}", value);
+                return Err(ErrorKind::InvalidOAuthScopeValue(value.to_string()).into());
             }
         }
         if url.to_string() != value {
-            bail!("Invalid scope value: {}", value);
+            return Err(ErrorKind::InvalidOAuthScopeValue(value.to_string()).into());
         }
         Ok(URLScopeValue { url })
     }

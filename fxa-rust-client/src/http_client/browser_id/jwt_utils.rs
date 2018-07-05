@@ -97,7 +97,7 @@ impl<'keypair> SignedJWTBuilder<'keypair> {
         };
         let obj = match payload.as_object_mut() {
             Some(obj) => obj,
-            None => bail!("Invalid JSON"),
+            None => panic!("The supplied payload was not an object"),
         };
         if let Some(ref audience) = self.audience {
             obj.insert("aud".to_string(), json!(audience));
@@ -152,7 +152,7 @@ mod tests {
         let signature = base64::decode_config(&segments[2], base64::URL_SAFE_NO_PAD)?;
         let verified = key_pair.verify_message(&message_bytes, &signature)?;
         if !verified {
-            bail!("Could not verify token.")
+            return Err(ErrorKind::JWTSignatureValidationFailed.into());
         }
         let payload = base64::decode_config(&segments[1], base64::URL_SAFE_NO_PAD)?;
         String::from_utf8(payload).map_err(|e| e.into())
