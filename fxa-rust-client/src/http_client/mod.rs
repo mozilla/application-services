@@ -364,14 +364,12 @@ pub struct ProfileResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openssl::hash::MessageDigest;
-    use openssl::pkcs5::pbkdf2_hmac;
+    use ring::{digest, pbkdf2};
 
     fn quick_strech_pwd(email: &str, pwd: &str) -> Vec<u8> {
         let salt = Client::kwe("quickStretch", email);
-        let digest = MessageDigest::sha256();
         let mut out = [0u8; 32];
-        pbkdf2_hmac(pwd.as_bytes(), &salt, 1000, digest, &mut out).unwrap();
+        pbkdf2::derive(&digest::SHA256, 1000, &salt, pwd.as_bytes(), &mut out);
         out.to_vec()
     }
 
