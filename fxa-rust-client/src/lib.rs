@@ -44,12 +44,13 @@ use util::now;
 
 mod config;
 pub mod errors;
-pub mod http_client;
+mod http_client;
 mod login_sm;
 mod oauth;
 mod util;
 
 pub use config::Config;
+pub use http_client::ProfileResponse as Profile;
 
 // If a cached token has less than `OAUTH_MIN_TIME_LEFT` seconds left to live,
 // it will be considered already expired.
