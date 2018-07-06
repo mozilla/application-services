@@ -69,6 +69,7 @@ use vocab::{
     SYNC_PASSWORD_TIME_LAST_USED,
     SYNC_PASSWORD_TIME_PASSWORD_CHANGED,
     SYNC_PASSWORD_UUID,
+    SYNC_PASSWORDS_LAST_SERVER_TIMESTAMP,
 };
 
 /// Fetch the Sync 1.5 password with given `uuid`.
@@ -375,10 +376,48 @@ pub fn mark_synced_by_sync_uuids(in_progress: &mut InProgress, uuids: Vec<SyncGu
     in_progress.transact_builder(builder).map_err(|e| e.into()).and(Ok(()))
 }
 
+/// Return the last witnessed server timestamp, or `None` if such a timestamp has not been witnessed.
+///
+/// The timestamp is returned as an `f64`, since that's what the Sync 1.5 service provides.
+///
+/// TODO: it would be better to store this as a string, or even as bytes, since it's just a token
+/// returned to the service.
+pub fn get_last_server_timestamp<Q>(queryable: &Q) -> Result<Option<f64>>
+where Q: Queryable
+{
+    // It's convenient to hang our last server timestamp off a known entity, and the attribute
+    // entity itself is to hand... this is the kind of thing that could hang off a device identifier
+    // instead.
+    let q = r#"[:find ?t . :where [:sync.passwords/lastServerTimestamp :sync.passwords/lastServerTimestamp ?t]]"#;
+
+    match queryable.q_once(q, None)?.into_scalar()? {
+        Some(Binding::Scalar(TypedValue::Double(t))) => Ok(Some(t.0)),
+        Some(_) => bail!(Error::BadQueryResultType),
+        None => Ok(None),
+    }
+}
+
+/// Set the last witnessed server timestamp.
+///
+/// The timestamp is stored as an `f64`, since that's what the Sync 1.5 service provides.
+///
+/// TODO: it would be better to store this as a string, or even as bytes, since it's just a token
+/// returned to the service.
+pub fn set_last_server_timestamp(in_progress: &mut InProgress, server_timestamp: f64) -> Result<TxReport> {
+    let mut builder = TermBuilder::new();
+
+    // See the comment in `get_last_server_timestamp` for the choice of known entity.
+    builder.add(SYNC_PASSWORDS_LAST_SERVER_TIMESTAMP.clone(),
+                SYNC_PASSWORDS_LAST_SERVER_TIMESTAMP.clone(),
+                TypedValue::Double(server_timestamp.into()))?;
+
+    Ok(in_progress.transact_builder(builder)?)
+}
+
 /// Mark all known Sync 1.5 passwords as having never been synced.
 ///
 /// After this reset, every Sync 1.5 password record will be considered modified (locally).
-pub fn reset_client(in_progress: &mut InProgress) -> Result<()> {
+pub fn reset_client(in_progress: &mut InProgress) -> Result<TxReport> {
     let q = r#"[
 :find
  [?e ...]
@@ -408,7 +447,15 @@ pub fn reset_client(in_progress: &mut InProgress) -> Result<()> {
         _ => bail!(Error::BadQueryResultType),
     }
 
-    in_progress.transact_builder(builder).map_err(|e| e.into()).and(Ok(()))
+    // TODO: it would be nice to have https://github.com/mozilla/mentat/issues/631 here.
+    match get_last_server_timestamp(in_progress)? {
+        Some(t) => builder.retract(SYNC_PASSWORDS_LAST_SERVER_TIMESTAMP.clone(),
+                                   SYNC_PASSWORDS_LAST_SERVER_TIMESTAMP.clone(),
+                                   TypedValue::Double(t.into()))?,
+        None => {},
+    }
+
+    Ok(in_progress.transact_builder(builder)?)
 }
 
 /// Return the credential ID associated to the given Sync 1.5 password `uuid`, or `None` if no such

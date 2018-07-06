@@ -270,7 +270,7 @@ lazy_static! {
 
     pub static ref SYNC_PASSWORD_VOCAB: vocabulary::Definition = {
         vocabulary::Definition {
-            name: kw!(:org.mozilla.sync/login),
+            name: kw!(:org.mozilla/sync.password),
             version: 1,
             attributes: vec![
                 (SYNC_PASSWORD_CREDENTIAL.clone(),
@@ -325,6 +325,26 @@ lazy_static! {
             post: vocabulary::Definition::no_op,
         }
     };
+
+    pub static ref SYNC_PASSWORDS_LAST_SERVER_TIMESTAMP: Keyword = {
+        kw!(:sync.passwords/lastServerTimestamp)
+    };
+
+    pub static ref SYNC_PASSWORDS_VOCAB: vocabulary::Definition = {
+        vocabulary::Definition {
+            name: kw!(:org.mozilla/sync.passwords),
+            version: 1,
+            attributes: vec![
+                (SYNC_PASSWORDS_LAST_SERVER_TIMESTAMP.clone(),
+                 vocabulary::AttributeBuilder::helpful()
+                 .value_type(ValueType::Double)
+                 .multival(false)
+                 .build()),
+            ],
+            pre: vocabulary::Definition::no_op,
+            post: vocabulary::Definition::no_op,
+        }
+    };
 }
 
 pub fn ensure_vocabulary(in_progress: &mut InProgress) -> Result<()> {
@@ -336,6 +356,7 @@ pub fn ensure_vocabulary(in_progress: &mut InProgress) -> Result<()> {
     in_progress.ensure_vocabulary(&LOGIN_VOCAB)?;
     in_progress.ensure_vocabulary(&FORM_VOCAB)?;
     in_progress.ensure_vocabulary(&SYNC_PASSWORD_VOCAB)?;
+    in_progress.ensure_vocabulary(&SYNC_PASSWORDS_VOCAB)?;
 
     Ok(())
 }
