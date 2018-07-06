@@ -38,9 +38,9 @@ use self::login_sm::*;
 use errors::*;
 use http_client::browser_id::jwt_utils;
 use http_client::{Client, OAuthTokenResponse, ProfileResponse};
-use openssl::hash::{hash, MessageDigest};
 use scoped_keys::ScopedKeysFlow;
 use rand::{OsRng, RngCore};
+use ring::digest;
 use ring::rand::SystemRandom;
 use url::Url;
 use util::now;
@@ -256,7 +256,7 @@ impl FirefoxAccount {
     pub fn begin_oauth_flow(&mut self, scopes: &[&str], wants_keys: bool) -> Result<String> {
         let state = FirefoxAccount::random_base64_url_string(16);
         let code_verifier = FirefoxAccount::random_base64_url_string(43);
-        let code_challenge = hash(MessageDigest::sha256(), &code_verifier.as_bytes())?;
+        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         let mut url = self.state.config.authorization_endpoint()?;
         url.query_pairs_mut()

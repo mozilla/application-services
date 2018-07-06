@@ -2,11 +2,10 @@ use errors::*;
 
 use base64;
 use byteorder::{ByteOrder, BigEndian};
-use ring::{aead, agreement};
+use ring::{aead, agreement, digest, rand};
 use ring::agreement::EphemeralPrivateKey;
 use ring::rand::SecureRandom;
 use serde_json;
-use sha2::{Sha256, Digest};
 use untrusted::Input;
 
 pub struct ScopedKeysFlow {
@@ -79,7 +78,7 @@ impl ScopedKeysFlow {
         buf.extend_from_slice(&to_32b_buf(apv.len() as u32));
         buf.extend_from_slice(apv.as_bytes());
         buf.extend_from_slice(&to_32b_buf(256));
-        Ok(Sha256::digest(&buf)[0..32].to_vec())
+        Ok(digest::digest(&digest::SHA256, &buf).as_ref()[0..32].to_vec())
     })?;
 
     // Part 2: decrypt the payload with the obtained secret
