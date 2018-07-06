@@ -10,13 +10,18 @@ use serde_json;
 use std;
 use util::Xorable;
 
+#[cfg(feature = "browserid")]
 use self::browser_id::rsa::RSABrowserIDKeyPair;
+#[cfg(feature = "browserid")]
 use self::browser_id::{jwt_utils, BrowserIDKeyPair};
+#[cfg(feature = "browserid")]
 use self::hawk_request::HAWKRequestBuilder;
 use config::Config;
 use errors::*;
 
+#[cfg(feature = "browserid")]
 pub mod browser_id;
+#[cfg(feature = "browserid")]
 mod hawk_request;
 
 const HKDF_SALT: [u8; 32] = [0b0; 32];
@@ -45,6 +50,7 @@ impl<'a> Client<'a> {
             .to_vec()
     }
 
+    #[cfg(feature = "browserid")]
     pub fn key_pair(len: u32) -> Result<RSABrowserIDKeyPair> {
         RSABrowserIDKeyPair::generate_random(len)
     }
@@ -63,6 +69,7 @@ impl<'a> Client<'a> {
         panic!("Not implemented yet!");
     }
 
+    #[cfg(feature = "browserid")]
     pub fn login(&self, email: &str, auth_pwd: &str, get_keys: bool) -> Result<LoginResponse> {
         let url = self.config.auth_url_path("v1/account/login")?;
         let parameters = json!({
@@ -85,6 +92,7 @@ impl<'a> Client<'a> {
         Client::make_request(request)?.json().map_err(|e| e.into())
     }
 
+    #[cfg(feature = "browserid")]
     pub fn keys(&self, key_fetch_token: &[u8]) -> Result<KeysResponse> {
         let url = self.config.auth_url_path("v1/account/keys")?;
         let context_info = Client::kw("keyFetchToken");
@@ -118,13 +126,14 @@ impl<'a> Client<'a> {
         let xor_key = &bytes[KEY_LENGTH..(KEY_LENGTH * 3)];
 
         let v_key = hmac::VerificationKey::new(&digest::SHA256, hmac_key.as_ref());
-        hmac::verify(&v_key, ciphertext, mac_code)?;
+        hmac::verify(&v_key, ciphertext, mac_code).map_err(|_| ErrorKind::HmacVerifyFail)?;
 
         let xored_bytes = ciphertext.xored_with(xor_key)?;
         let wrap_kb = xored_bytes[KEY_LENGTH..(KEY_LENGTH * 2)].to_vec();
         Ok(KeysResponse { wrap_kb })
     }
 
+    #[cfg(feature = "browserid")]
     pub fn recovery_email_status(
         &self,
         session_token: &[u8],
@@ -165,6 +174,7 @@ impl<'a> Client<'a> {
         }))
     }
 
+    #[cfg(feature = "browserid")]
     pub fn oauth_token_with_session_token(
         &self,
         client_id: &str,
@@ -229,6 +239,7 @@ impl<'a> Client<'a> {
         Client::make_request(request)?.json().map_err(|e| e.into())
     }
 
+    #[cfg(feature = "browserid")]
     pub fn sign(&self, session_token: &[u8], key_pair: &BrowserIDKeyPair) -> Result<SignResponse> {
         let public_key_json = key_pair.to_json(false)?;
         let parameters = json!({

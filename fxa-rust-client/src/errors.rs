@@ -7,8 +7,10 @@ use std::{fmt, result, string};
 
 use base64;
 use failure::{Backtrace, Context, Fail, SyncFailure};
+#[cfg(feature = "browserid")]
 use hawk;
 use hex;
+#[cfg(feature = "browserid")]
 use openssl;
 use reqwest;
 use serde_json;
@@ -108,6 +110,12 @@ pub enum ErrorKind {
     #[fail(display = "AEAD open failure")]
     AEADOpenFailure,
 
+    #[fail(display = "Random number generation failure")]
+    RngFailure,
+
+    #[fail(display = "HMAC verification failed")]
+    HmacVerifyFail,
+
     #[fail(
         display = "Remote server error: '{}' '{}' '{}' '{}' '{}'", code, errno, error, message, info
     )]
@@ -123,6 +131,7 @@ pub enum ErrorKind {
     #[fail(display = "Hex decode error: {}", _0)]
     HexDecodeError(#[fail(cause)] hex::FromHexError),
 
+    #[cfg(feature = "browserid")]
     #[fail(display = "OpenSSL error: {}", _0)]
     OpensslError(#[fail(cause)] openssl::error::ErrorStack),
 
@@ -141,6 +150,7 @@ pub enum ErrorKind {
     #[fail(display = "Malformed URL error: {}", _0)]
     MalformedUrl(#[fail(cause)] reqwest::UrlError),
 
+    #[cfg(feature = "browserid")]
     #[fail(display = "HAWK error: {}", _0)]
     HawkError(#[fail(cause)] SyncFailure<hawk::Error>),
 }
@@ -165,7 +175,6 @@ macro_rules! impl_from_error {
 
 impl_from_error! {
     (HexDecodeError, ::hex::FromHexError),
-    (OpensslError, ::openssl::error::ErrorStack),
     (Base64Decode, ::base64::DecodeError),
     (JsonError, ::serde_json::Error),
     (UTF8DecodeError, ::std::string::FromUtf8Error),
@@ -173,15 +182,22 @@ impl_from_error! {
     (MalformedUrl, ::reqwest::UrlError)
 }
 
+#[cfg(feature = "browserid")]
+impl_from_error! {
+    (OpensslError, ::openssl::error::ErrorStack)
+}
+
 // ::hawk::Error uses error_chain, and so it's not trivially compatible with failure.
 // We have to box it inside a SyncError (which allows errors to be accessed from multiple
 // threads at the same time, which failure requires for some reason...).
+#[cfg(feature = "browserid")]
 impl From<hawk::Error> for ErrorKind {
     #[inline]
     fn from(e: hawk::Error) -> ErrorKind {
         ErrorKind::HawkError(SyncFailure::new(e))
     }
 }
+#[cfg(feature = "browserid")]
 impl From<hawk::Error> for Error {
     #[inline]
     fn from(e: hawk::Error) -> Error {

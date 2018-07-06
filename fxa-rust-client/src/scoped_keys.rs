@@ -2,7 +2,7 @@ use errors::*;
 
 use base64;
 use byteorder::{ByteOrder, BigEndian};
-use ring::{aead, agreement, digest, rand};
+use ring::{aead, agreement, digest};
 use ring::agreement::EphemeralPrivateKey;
 use ring::rand::SecureRandom;
 use serde_json;

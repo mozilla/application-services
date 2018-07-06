@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use hawk::{Credentials, Digest, Key, PayloadHasher, RequestBuilder};
+use hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256};
 use hex;
 use reqwest::{header, Client, Method, Request};
 use serde_json;
@@ -44,7 +44,7 @@ impl<'a> HAWKRequestBuilder<'a> {
             let method = format!("{}", self.method);
             let mut hawk_request_builder = RequestBuilder::from_url(method.as_str(), &self.url)?;
             if let Some(ref body) = self.body {
-                hash = PayloadHasher::hash("application/json", Digest::sha256(), &body)?;
+                hash = PayloadHasher::hash("application/json", &SHA256, &body);
                 hawk_request_builder = hawk_request_builder.hash(&hash[..]);
             }
             let hawk_request = hawk_request_builder.request();
@@ -52,7 +52,7 @@ impl<'a> HAWKRequestBuilder<'a> {
             let hmac_key = &self.hkdf_sha256_key[KEY_LENGTH..(2 * KEY_LENGTH)];
             let hawk_credentials = Credentials {
                 id: token_id,
-                key: Key::new(hmac_key, Digest::sha256())?,
+                key: Key::new(hmac_key, &SHA256),
             };
             let header = hawk_request.make_header(&hawk_credentials)?;
             hawk_header = format!("Hawk {}", header);
