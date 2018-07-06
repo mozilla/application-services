@@ -3,12 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use hex;
-use hkdf::Hkdf;
 use reqwest;
 use reqwest::{header, Client as ReqwestClient, Method, Request, Response, StatusCode};
-use ring::{digest, hmac};
+use ring::{digest, hkdf, hmac};
 use serde_json;
-use sha2::{Digest, Sha256};
 use std;
 use util::Xorable;
 
@@ -58,7 +56,7 @@ impl<'a> Client<'a> {
     }
 
     pub fn compute_client_state(kb: &[u8]) -> String {
-        hex::encode(&Sha256::digest(kb)[0..16])
+        hex::encode(digest::digest(&digest::SHA256, &kb).as_ref()[0..16].to_vec())
     }
 
     pub fn sign_out(&self) {
@@ -266,9 +264,11 @@ impl<'a> Client<'a> {
         ))
     }
 
-    fn derive_hkdf_sha256_key(ikm: &[u8], xts: &[u8], info: &[u8], len: usize) -> Vec<u8> {
-        let hk = Hkdf::<Sha256>::extract(&xts, &ikm);
-        hk.expand(&info, len)
+    fn derive_hkdf_sha256_key(ikm: &[u8], salt: &[u8], info: &[u8], len: usize) -> Vec<u8> {
+        let salt = hmac::SigningKey::new(&digest::SHA256, salt);
+        let mut out = vec![0u8; len];
+        hkdf::extract_and_expand(&salt, ikm, info, &mut out);
+        out.to_vec()
     }
 
     fn make_request(request: Request) -> Result<Response> {
