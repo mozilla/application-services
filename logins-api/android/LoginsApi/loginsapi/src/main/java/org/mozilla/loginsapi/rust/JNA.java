@@ -66,9 +66,8 @@ public interface JNA extends Library {
 
     class RawLoginSyncState extends PointerType {}
 
-    RawLoginSyncState sync15_logins_state_new(
+    RawLoginSyncState sync15_passwords_state_new(
             String mentat_db_path,
-            String metadata_path,
             String encryption_key,
 
             String key_id,
@@ -79,21 +78,21 @@ public interface JNA extends Library {
             RustError.ByReference error
     );
 
-    void sync15_logins_state_destroy(RawLoginSyncState p);
+    void sync15_passwords_state_destroy(RawLoginSyncState p);
 
     // Returns null if the id does not exist, otherwise json
-    Pointer sync15_logins_get_by_id(RawLoginSyncState state, String id, RustError.ByReference error);
+    Pointer sync15_passwords_get_by_id(RawLoginSyncState state, String id, RustError.ByReference error);
 
     // return json array
-    Pointer sync15_logins_get_all(RawLoginSyncState state, RustError.ByReference error);
+    Pointer sync15_passwords_get_all(RawLoginSyncState state, RustError.ByReference error);
 
-    void sync15_logins_sync(RawLoginSyncState state, RustError.ByReference error);
+    void sync15_passwords_sync(RawLoginSyncState state, RustError.ByReference error);
 
-    void sync15_logins_wipe(RawLoginSyncState state, RustError.ByReference error);
-    void sync15_logins_reset(RawLoginSyncState state, RustError.ByReference error);
+    void sync15_passwords_wipe(RawLoginSyncState state, RustError.ByReference error);
+    void sync15_passwords_reset(RawLoginSyncState state, RustError.ByReference error);
 
-    void sync15_logins_touch(RawLoginSyncState state, String id, RustError.ByReference error);
-    void sync15_logins_delete(RawLoginSyncState state, String id, RustError.ByReference error);
+    void sync15_passwords_touch(RawLoginSyncState state, String id, RustError.ByReference error);
+    void sync15_passwords_delete(RawLoginSyncState state, String id, RustError.ByReference error);
 
     void destroy_c_char(Pointer p);
 
