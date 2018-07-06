@@ -215,6 +215,7 @@ pub unsafe extern "C" fn fxa_get_custom_config(
 ///
 /// A destructor [fxa_free] is provided for releasing the memory for this
 /// pointer type.
+#[cfg(feature = "browserid")]
 #[no_mangle]
 pub unsafe extern "C" fn fxa_from_credentials(
     config: *mut Config,
@@ -340,6 +341,7 @@ pub unsafe extern "C" fn fxa_get_token_server_endpoint_url(
 ///
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
 /// pointer type.
+#[cfg(feature = "browserid")]
 #[no_mangle]
 pub unsafe extern "C" fn fxa_assertion_new(
     fxa: *mut FirefoxAccount,
@@ -361,6 +363,7 @@ pub unsafe extern "C" fn fxa_assertion_new(
 ///
 /// A destructor [fxa_sync_keys_free] is provided for releasing the memory for this
 /// pointer type.
+#[cfg(feature = "browserid")]
 #[no_mangle]
 pub unsafe extern "C" fn fxa_get_sync_keys(
     fxa: *mut FirefoxAccount,

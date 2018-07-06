@@ -40,12 +40,14 @@ public class FxAConfig: MovableRustOpaquePointer {
 }
 
 public class FirefoxAccount: RustOpaquePointer {
+    #if BROWSERID_FEATURES
     open class func from(config: FxAConfig, clientId: String, redirectUri: String, webChannelResponse: String) throws -> FirefoxAccount {
         let pointer = try FxAError.unwrap({err in
             fxa_from_credentials(try config.movePointer(), clientId, redirectUri, webChannelResponse, err)
         })
         return FirefoxAccount(raw: pointer)
     }
+    #endif
 
     open class func fromJSON(state: String) throws -> FirefoxAccount {
         let pointer = try FxAError.unwrap({ err in fxa_from_json(state, err) })
@@ -82,11 +84,13 @@ public class FirefoxAccount: RustOpaquePointer {
         }
     }
 
+    #if BROWSERID_FEATURES
     public func getSyncKeys() throws -> SyncKeys {
         return SyncKeys(raw: try FxAError.unwrap({err in
             fxa_get_sync_keys(self.raw, err)
         }))
     }
+    #endif
 
     public func getTokenServerEndpointURL() throws -> URL {
         return URL(string: String(freeingFxaString: try FxAError.unwrap({err in
@@ -142,11 +146,13 @@ public class FirefoxAccount: RustOpaquePointer {
         }
     }
 
+    #if BROWSERID_FEATURES
     public func generateAssertion(audience: String) throws -> String {
         return String(freeingFxaString: try FxAError.unwrap({err in
             fxa_assertion_new(raw, audience, err)
         }))
     }
+    #endif
 }
 
 public class OAuthInfo: RustStructPointer<OAuthInfoC> {
