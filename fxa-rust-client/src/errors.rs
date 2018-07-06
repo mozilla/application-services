@@ -81,9 +81,6 @@ pub enum ErrorKind {
     #[fail(display = "Empty names")]
     EmptyOAuthScopeNames,
 
-    #[fail(display = "SHA256 HMAC Mismatch error")]
-    HmacMismatch,
-
     #[fail(display = "Key {} had wrong length, got {}, expected {}", _0, _1, _2)]
     BadKeyLength(&'static str, usize, usize),
 

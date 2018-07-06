@@ -4,9 +4,9 @@
 
 use hex;
 use hkdf::Hkdf;
-use hmac::{Hmac, Mac};
 use reqwest;
 use reqwest::{header, Client as ReqwestClient, Method, Request, Response, StatusCode};
+use ring::{digest, hmac};
 use serde_json;
 use sha2::{Digest, Sha256};
 use std;
@@ -119,14 +119,8 @@ impl<'a> Client<'a> {
         let hmac_key = &bytes[0..KEY_LENGTH];
         let xor_key = &bytes[KEY_LENGTH..(KEY_LENGTH * 3)];
 
-        let mut mac = match Hmac::<Sha256>::new_varkey(hmac_key) {
-            Ok(mac) => mac,
-            Err(_) => panic!("Could not create MAC key."),
-        };
-        mac.input(ciphertext);
-        if let Err(_) = mac.verify(&mac_code) {
-            return Err(ErrorKind::HmacMismatch.into());
-        }
+        let v_key = hmac::VerificationKey::new(&digest::SHA256, hmac_key.as_ref());
+        hmac::verify(&v_key, ciphertext, mac_code)?;
 
         let xored_bytes = ciphertext.xored_with(xor_key)?;
         let wrap_kb = xored_bytes[KEY_LENGTH..(KEY_LENGTH * 2)].to_vec();
