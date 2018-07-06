@@ -120,7 +120,6 @@ class MainActivity : AppCompatActivity() {
         val appFiles = this.applicationContext.getExternalFilesDir(null)
         val store = Api.createLoginsStore(
                 databasePath   = appFiles.absolutePath + "/logins.mentatdb",
-                metadataPath   = appFiles.absolutePath + "/login-metadata.json",
                 databaseKey    = "my_secret_key",
                 kid            = info.string("kid")!!,
                 accessToken    = creds.accessToken,

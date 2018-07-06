@@ -18,7 +18,6 @@ class Api {
             System.loadLibrary("loginsapi_ffi")
         }
         fun createLoginsStore(databasePath: String,
-                              metadataPath: String,
                               databaseKey: String,
                               kid: String,
                               accessToken: String,
@@ -26,9 +25,8 @@ class Api {
                               tokenserverURL: String): LoginsStore {
             Log.d("API", "in the module")
             val rawStore = LoginsStore.withErrorCheck { error ->
-                JNA.INSTANCE.sync15_logins_state_new(
+                JNA.INSTANCE.sync15_passwords_state_new(
                         databasePath,
-                        metadataPath,
                         databaseKey,
                         kid,
                         accessToken,
@@ -48,29 +46,29 @@ class LoginsStore(private var raw: JNA.RawLoginSyncState?) : Closeable {
 
     fun sync() {
         Log.d("LoginsAPI", "sync")
-        withErrorCheck { JNA.INSTANCE.sync15_logins_sync(this.raw!!, it) }
+        withErrorCheck { JNA.INSTANCE.sync15_passwords_sync(this.raw!!, it) }
     }
 
     fun reset() {
         Log.d("LoginsAPI", "reset")
-        withErrorCheck { JNA.INSTANCE.sync15_logins_reset(this.raw!!, it) }
+        withErrorCheck { JNA.INSTANCE.sync15_passwords_reset(this.raw!!, it) }
     }
 
     fun wipe() {
         Log.d("LoginsAPI", "wipe")
-        withErrorCheck { JNA.INSTANCE.sync15_logins_wipe(this.raw!!, it) }
+        withErrorCheck { JNA.INSTANCE.sync15_passwords_wipe(this.raw!!, it) }
     }
 
     fun delete(id: String) {
         Log.d("LoginsAPI", "delete by id")
         withErrorCheck { error ->
-            JNA.INSTANCE.sync15_logins_delete(this.raw!!, id, error)
+            JNA.INSTANCE.sync15_passwords_delete(this.raw!!, id, error)
         }
     }
 
     fun get(id: String): ServerPassword? {
         val json = withErrorCheckedString { error ->
-            JNA.INSTANCE.sync15_logins_get_by_id(this.raw!!, id, error)
+            JNA.INSTANCE.sync15_passwords_get_by_id(this.raw!!, id, error)
         } ?: return null
         return Klaxon().parse<ServerPassword>(json)!!
     }
@@ -78,14 +76,14 @@ class LoginsStore(private var raw: JNA.RawLoginSyncState?) : Closeable {
     fun touch(id: String) {
         Log.d("LoginsAPI", "touch by id")
         withErrorCheck { error ->
-            JNA.INSTANCE.sync15_logins_touch(this.raw!!, id, error)
+            JNA.INSTANCE.sync15_passwords_touch(this.raw!!, id, error)
         }
     }
 
     fun list(): List<ServerPassword> {
         Log.d("LoginsAPI", "list all")
         val json = withErrorCheckedString {
-            JNA.INSTANCE.sync15_logins_get_all(this.raw!!, it)
+            JNA.INSTANCE.sync15_passwords_get_all(this.raw!!, it)
         }!!
         Log.d("Logins", "got list: " + json);
         return Klaxon().parseArray<ServerPassword>(json)!!
@@ -93,7 +91,7 @@ class LoginsStore(private var raw: JNA.RawLoginSyncState?) : Closeable {
 
     override fun close() {
         if (this.raw != null) {
-            JNA.INSTANCE.sync15_logins_state_destroy(this.raw)
+            JNA.INSTANCE.sync15_passwords_state_destroy(this.raw)
             this.raw = null
         }
     }
