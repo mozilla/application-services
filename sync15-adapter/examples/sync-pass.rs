@@ -20,7 +20,7 @@ extern crate failure;
 use std::io::{self, Read, Write};
 use std::fs;
 use std::process;
-use sync::{ServerTimestamp, OutgoingChangeset, Payload, Store};
+use sync::{error, ServerTimestamp, OutgoingChangeset, Payload, Store};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -330,6 +330,8 @@ impl PasswordEngine {
 
 
 impl Store for PasswordEngine {
+    type Error = error::Error;
+
     fn apply_incoming(
         &mut self,
         inbound: sync::IncomingChangeset
