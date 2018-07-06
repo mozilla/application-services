@@ -10,7 +10,6 @@ extern crate failure_derive;
 extern crate hawk;
 extern crate hex;
 extern crate hkdf;
-extern crate hmac;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]

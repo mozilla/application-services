@@ -11,7 +11,6 @@ failure_derive = "0.1.1"
 hawk = { git = "https://github.com/eoger/rust-hawk", branch = "use-openssl" }
 hex = "0.3.1"
 hkdf = "0.4"
-hmac = "0.6.2"
 lazy_static = "1.0.0"
 log = "0.4"
 openssl = "0.10.7"
