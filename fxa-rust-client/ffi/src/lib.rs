@@ -16,6 +16,7 @@ use fxa_client::errors::ErrorKind as InternalErrorKind;
 use fxa_client::{Config, FirefoxAccount, WebChannelResponse};
 use libc::c_char;
 use util::*;
+use std::sync::Mutex;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -175,6 +176,17 @@ where
     }
 }
 
+// Note that it's probably best to `unwrap()` the result from unlocking here, to propagate the panic.
+// These only fail if the lock has been poisoned. In the future we may want to reinitialize the
+// account/config in these cases though.
+pub struct ExternFxAccount(Mutex<FirefoxAccount>);
+
+impl From<FirefoxAccount> for ExternFxAccount {
+    fn from(fxa: FirefoxAccount) -> Self {
+        ExternFxAccount(Mutex::new(fxa))
+    }
+}
+
 /// Convenience function over [fxa_get_custom_config] that provides a pointer to a [Config] that
 /// points to the production FxA servers.
 #[no_mangle]
@@ -222,7 +234,7 @@ pub unsafe extern "C" fn fxa_from_credentials(
     redirect_uri: *const c_char,
     json: *const c_char,
     err: *mut ExternError,
-) -> *mut FirefoxAccount {
+) -> *mut ExternFxAccount {
     call_with_result(err, || {
         assert!(!config.is_null());
         let config = Box::from_raw(config);
@@ -230,7 +242,7 @@ pub unsafe extern "C" fn fxa_from_credentials(
         let client_id = c_char_to_string(client_id);
         let redirect_uri = c_char_to_string(redirect_uri);
         let resp = WebChannelResponse::from_json(json)?;
-        FirefoxAccount::from_credentials(*config, client_id, redirect_uri, resp)
+        Ok(FirefoxAccount::from_credentials(*config, client_id, redirect_uri, resp)?.into())
     })
 }
 
@@ -248,13 +260,13 @@ pub unsafe extern "C" fn fxa_new(
     client_id: *const c_char,
     redirect_uri: *const c_char,
     err: *mut ExternError,
-) -> *mut FirefoxAccount {
+) -> *mut ExternFxAccount {
     call_with_result(err, || {
         assert!(!config.is_null());
         let client_id = c_char_to_string(client_id);
         let redirect_uri = c_char_to_string(redirect_uri);
         let config = Box::from_raw(config);
-        Ok(FirefoxAccount::new(*config, client_id, redirect_uri))
+        Ok(FirefoxAccount::new(*config, client_id, redirect_uri).into())
     })
 }
 
@@ -268,8 +280,8 @@ pub unsafe extern "C" fn fxa_new(
 pub unsafe extern "C" fn fxa_from_json(
     json: *const c_char,
     err: *mut ExternError,
-) -> *mut FirefoxAccount {
-    call_with_result(err, || FirefoxAccount::from_json(c_char_to_string(json)))
+) -> *mut ExternFxAccount {
+    call_with_result(err, || Ok(FirefoxAccount::from_json(c_char_to_string(json))?.into()))
 }
 
 /// Serializes the state of a [FirefoxAccount] instance. It can be restored later with [fxa_from_json].
@@ -283,13 +295,14 @@ pub unsafe extern "C" fn fxa_from_json(
 /// pointer type.
 #[no_mangle]
 pub unsafe extern "C" fn fxa_to_json(
-    fxa: *mut FirefoxAccount,
+    fxa: *const ExternFxAccount,
     error: *mut ExternError,
 ) -> *mut c_char {
     call_with_string_result(error, || {
         assert!(!fxa.is_null());
-        let fxa = &mut *fxa;
-        fxa.to_json()
+        let fxa = &*fxa;
+        let unlocked = fxa.0.lock().unwrap();
+        unlocked.to_json()
     })
 }
 
@@ -304,14 +317,15 @@ pub unsafe extern "C" fn fxa_to_json(
 /// pointer type.
 #[no_mangle]
 pub unsafe extern "C" fn fxa_profile(
-    fxa: *mut FirefoxAccount,
+    fxa: *const ExternFxAccount,
     ignore_cache: bool,
     error: *mut ExternError,
 ) -> *mut ProfileC {
     call_with_result(error, || {
         assert!(!fxa.is_null());
-        let fxa = &mut *fxa;
-        Ok(fxa.get_profile(ignore_cache)?.into())
+        let fxa = &*fxa;
+        let mut unlocked = fxa.0.lock().unwrap();
+        Ok(unlocked.get_profile(ignore_cache)?.into())
     })
 }
 
@@ -323,13 +337,14 @@ pub unsafe extern "C" fn fxa_profile(
 /// pointer type.
 #[no_mangle]
 pub unsafe extern "C" fn fxa_get_token_server_endpoint_url(
-    fxa: *mut FirefoxAccount,
+    fxa: *const ExternFxAccount,
     error: *mut ExternError,
 ) -> *mut c_char {
     call_with_string_result(error, || {
         assert!(!fxa.is_null());
-        let fxa = &mut *fxa;
-        fxa.get_token_server_endpoint_url().map(|u| u.to_string())
+        let fxa = &*fxa;
+        let unlocked = fxa.0.lock().unwrap();
+        unlocked.get_token_server_endpoint_url().map(|u| u.to_string())
     })
 }
 
@@ -342,15 +357,16 @@ pub unsafe extern "C" fn fxa_get_token_server_endpoint_url(
 /// pointer type.
 #[no_mangle]
 pub unsafe extern "C" fn fxa_assertion_new(
-    fxa: *mut FirefoxAccount,
+    fxa: *const ExternFxAccount,
     audience: *const c_char,
     error: *mut ExternError,
 ) -> *mut c_char {
     call_with_string_result(error, || {
         assert!(!fxa.is_null());
-        let fxa = &mut *fxa;
+        let fxa = &*fxa;
         let audience = c_char_to_string(audience);
-        fxa.generate_assertion(audience)
+        let mut unlocked = fxa.0.lock().unwrap();
+        unlocked.generate_assertion(audience)
     })
 }
 
@@ -363,13 +379,14 @@ pub unsafe extern "C" fn fxa_assertion_new(
 /// pointer type.
 #[no_mangle]
 pub unsafe extern "C" fn fxa_get_sync_keys(
-    fxa: *mut FirefoxAccount,
+    fxa: *const ExternFxAccount,
     error: *mut ExternError,
 ) -> *mut SyncKeysC {
     call_with_result(error, || {
         assert!(!fxa.is_null());
-        let fxa = &mut *fxa;
-        let keys: SyncKeysC = fxa.get_sync_keys()?.into();
+        let fxa = &*fxa;
+        let mut unlocked = fxa.0.lock().unwrap();
+        let keys: SyncKeysC = unlocked.get_sync_keys()?.into();
         Ok(keys)
     })
 }
@@ -390,17 +407,18 @@ pub unsafe extern "C" fn fxa_get_sync_keys(
 /// pointer type.
 #[no_mangle]
 pub unsafe extern "C" fn fxa_begin_oauth_flow(
-    fxa: *mut FirefoxAccount,
+    fxa: *const ExternFxAccount,
     scope: *const c_char,
     wants_keys: bool,
     error: *mut ExternError,
 ) -> *mut c_char {
     call_with_string_result(error, || {
         assert!(!fxa.is_null());
-        let fxa = &mut *fxa;
+        let fxa = &*fxa;
         let scope = c_char_to_string(scope);
         let scopes: Vec<&str> = scope.split(" ").collect();
-        fxa.begin_oauth_flow(&scopes, wants_keys)
+        let mut unlocked = fxa.0.lock().unwrap();
+        unlocked.begin_oauth_flow(&scopes, wants_keys)
     })
 }
 
@@ -415,17 +433,18 @@ pub unsafe extern "C" fn fxa_begin_oauth_flow(
 /// pointer type.
 #[no_mangle]
 pub unsafe extern "C" fn fxa_complete_oauth_flow(
-    fxa: *mut FirefoxAccount,
+    fxa: *const ExternFxAccount,
     code: *const c_char,
     state: *const c_char,
     error: *mut ExternError,
 ) -> *mut OAuthInfoC {
     call_with_result(error, || {
         assert!(!fxa.is_null());
-        let fxa = &mut *fxa;
+        let fxa = &*fxa;
         let code = c_char_to_string(code);
         let state = c_char_to_string(state);
-        let info = fxa.complete_oauth_flow(code, state)?;
+        let mut unlocked = fxa.0.lock().unwrap();
+        let info = unlocked.complete_oauth_flow(code, state)?;
         Ok(info.into())
     })
 }
@@ -445,16 +464,17 @@ pub unsafe extern "C" fn fxa_complete_oauth_flow(
 /// pointer type.
 #[no_mangle]
 pub unsafe extern "C" fn fxa_get_oauth_token(
-    fxa: *mut FirefoxAccount,
+    fxa: *const ExternFxAccount,
     scope: *const c_char,
     error: *mut ExternError,
 ) -> *mut OAuthInfoC {
     call_with_result_by_value(error, ptr::null_mut(), || {
         assert!(!fxa.is_null());
-        let fxa = &mut *fxa;
+        let fxa = &*fxa;
         let scope = c_char_to_string(scope);
         let scopes: Vec<&str> = scope.split(" ").collect();
-        Ok(match fxa.get_oauth_token(&scopes)? {
+        let mut unlocked = fxa.0.lock().unwrap();
+        Ok(match unlocked.get_oauth_token(&scopes)? {
             Some(info) => Box::into_raw(Box::new(info.into())),
             None => ptr::null_mut(),
         })
@@ -482,7 +502,7 @@ macro_rules! define_destructor (
      )
 );
 
-define_destructor!(fxa_free, FirefoxAccount);
+define_destructor!(fxa_free, ExternFxAccount);
 define_destructor!(fxa_config_free, Config);
 define_destructor!(fxa_oauth_info_free, OAuthInfoC);
 define_destructor!(fxa_profile_free, ProfileC);
