@@ -5,7 +5,7 @@
 import Foundation
 import UIKit
 
-let concurrentQueue = DispatchQueue(label: "com.fxaclient", attributes: .concurrent)
+let concurrentQueue = DispatchQueue(label: "com.fxaclient")
 
 public class FxAConfig: MovableRustOpaquePointer {
     open class func release(completionHandler: @escaping (FxAConfig?, Error?) -> Void) {
