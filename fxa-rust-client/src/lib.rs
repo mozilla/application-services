@@ -274,14 +274,11 @@ impl FirefoxAccount {
             }
             false => None,
         };
-        let authorization_uri = url.to_string();
-        // TODO: FxA doesn't accept spaces encoded as + :(
-        let authorization_uri = authorization_uri.replace("+", "%20");
         self.flow_store.insert(
             state.clone(), // Since state is supposed to be unique, we use it to key our flows.
             OAuthFlow { jwk, code_verifier },
         );
-        Ok(authorization_uri)
+        Ok(url.to_string())
     }
 
     pub fn complete_oauth_flow(&mut self, code: &str, state: &str) -> Result<OAuthInfo> {
