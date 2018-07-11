@@ -4,39 +4,20 @@ set -e
 
 # End of configuration.
 
-if [ "$#" -ne 3 ]
+if [ "$#" -ne 1 ]
 then
     echo "Usage:"
-    echo "./build-all-desktop.sh <JANSSON_SRC_PATH> <OPENSSL_SRC_PATH> <CJOSE_SRC_PATH>"
+    echo "./build-all-desktop.sh <OPENSSL_SRC_PATH>"
     exit 1
 fi
 
-JANSSON_SRC_PATH=$1
-OPENSSL_SRC_PATH=$2
-CJOSE_SRC_PATH=$3
-
-JANSSON_DIR=$(abspath "desktop/jansson")
+OPENSSL_SRC_PATH=$1
 OPENSSL_DIR=$(abspath "desktop/openssl")
-CJOSE_DIR=$(abspath "desktop/cjose")
 
 if [ $(uname -s) == "Darwin" ]; then
   LIB_EXTENSION=dylib
 else
   LIB_EXTENSION=so
-fi
-
-if [ -d "$JANSSON_DIR" ]; then
-  echo "$JANSSON_DIR"" folder already exists. Skipping build."
-else
-  echo "# Building jansson"
-  cd "${JANSSON_SRC_PATH}"
-  rm -rf lib && rm -rf include
-  cmake -DJANSSON_BUILD_SHARED_LIBS=1 && make
-  mkdir -p "$JANSSON_DIR""/include"
-  mkdir -p "$JANSSON_DIR""/lib"
-  cp -p lib/libjansson."$LIB_EXTENSION"* "$JANSSON_DIR""/lib"
-  cp "$PWD"/include/*.h "$JANSSON_DIR""/include"
-  cd ..
 fi
 
 if [ -d "$OPENSSL_DIR" ]; then
@@ -61,18 +42,3 @@ else
   rm -rf "$OPENSSL_OUTPUT_PATH"
   cd ..
 fi
-
-if [ -d "$CJOSE_DIR" ]; then
-  echo "$CJOSE_DIR"" folder already exists. Skipping build."
-else
-  echo "# Building cjose"
-  cd "${CJOSE_SRC_PATH}"
-  make clean || true
-  ./configure --with-openssl="$OPENSSL_DIR" --with-jansson="$JANSSON_DIR" && make
-  mkdir -p "$CJOSE_DIR""/include"
-  mkdir -p "$CJOSE_DIR""/lib"
-  cp -p src/.libs/libcjose."$LIB_EXTENSION"* "$CJOSE_DIR""/lib"
-  cp "$PWD"/include/cjose/*.h "$CJOSE_DIR""/include"
-  cd ..
-fi
-
