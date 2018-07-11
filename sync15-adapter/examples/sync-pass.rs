@@ -17,25 +17,27 @@ extern crate log;
 extern crate env_logger;
 extern crate failure;
 
+extern crate fxa_client;
+
 use std::io::{self, Read, Write};
 use std::fs;
 use std::process;
-use sync::{error, ServerTimestamp, OutgoingChangeset, Payload, Store};
 use std::collections::HashMap;
+use std::borrow::Cow;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-#[derive(Debug, Deserialize)]
-struct OAuthCredentials {
-    access_token: String,
-    refresh_token: String,
-    keys: HashMap<String, ScopedKeyData>,
-    expires_in: u64,
-    auth_at: u64,
-}
+use fxa_client::{FirefoxAccount, Config, OAuthInfo};
+use sync::{error, ServerTimestamp, OutgoingChangeset, Payload, Store};
+
+const CLIENT_ID: &str = "3c8bd3fe92e1ddf1";
+const REDIRECT_URI: &str = "http://localhost:13131/oauth/complete";
+const SYNC_SCOPE: &str = "https://identity.mozilla.com/apps/oldsync";
+
 
 #[derive(Debug, Deserialize)]
 struct ScopedKeyData {
     k: String,
+    kty: String,
     kid: String,
     scope: String,
 }
@@ -76,30 +78,52 @@ pub struct PasswordRecord {
     pub times_used: Option<i64>,
 }
 
-fn do_auth(recur: bool) -> Result<OAuthCredentials, failure::Error> {
+
+fn load_or_create_fxa_creds(cfg: Config) -> Result<FirefoxAccount, failure::Error> {
     match fs::File::open("./credentials.json") {
         Err(_) => {
-            if recur {
-                panic!("Failed to open credentials 2nd time");
-            }
-            println!("No credentials found, invoking boxlocker.py...");
-            process::Command::new("python")
-                .arg("../boxlocker/boxlocker.py").output()
-                .expect("Failed to run boxlocker.py");
-            return do_auth(true);
+            println!("No credentials found, launching OAuth flow.");
+            create_fxa_creds(cfg)
         },
         Ok(mut file) => {
             let mut s = String::new();
             file.read_to_string(&mut s)?;
-            let creds: OAuthCredentials = serde_json::from_str(&s)?;
-            let time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-            if creds.expires_in + creds.auth_at < time {
-                println!("Warning, credentials may be stale.");
+            match FirefoxAccount::from_json(&s) {
+                Ok(acct) => Ok(acct),
+                Err(_) => {
+                  println!("Unable to load credentials from file, launching OAuth flow.");
+                  create_fxa_creds(cfg)
+                }
             }
-            Ok(creds)
         }
     }
 }
+
+
+fn create_fxa_creds(cfg: Config) -> Result<FirefoxAccount, failure::Error> {
+    let mut acct = FirefoxAccount::new(cfg, CLIENT_ID, REDIRECT_URI);
+    let oauth_uri = acct.begin_oauth_flow(&[SYNC_SCOPE], true)?;
+    println!("Please visit this URL, sign in, and then copy-paste the final URL below.");
+    println!("");
+    println!("    {}", oauth_uri);
+    println!("");
+    let final_url = url::Url::parse(&prompt_string("Final URL").unwrap_or(String::new()))?;
+    let mut code = String::new();
+    let mut state = String::new();
+    for param in final_url.query_pairs() {
+        match param {
+          (Cow::Borrowed("code"), c) => { code = c.into_owned() },
+          (Cow::Borrowed("state"), s) => { state = s.into_owned() },
+          _ => {}
+        }
+    };
+    acct.complete_oauth_flow(&code, &state)?;
+    let mut file = fs::File::create("./credentials.json")?;
+    write!(file, "{}", acct.to_json()?)?;
+    file.flush()?;
+    Ok(acct)
+}
+
 
 fn read_json_file<T>(path: &str) -> Result<T, failure::Error> where for<'a> T: serde::de::Deserialize<'a> {
     let file = fs::File::open(path)?;
@@ -502,16 +526,30 @@ fn prompt_record_id(e: &PasswordEngine, action: &str) -> Option<String> {
 
 fn main() -> Result<(), failure::Error> {
     env_logger::init();
-    let oauth_data = do_auth(false)?;
 
-    let scope = &oauth_data.keys["https://identity.mozilla.com/apps/oldsync"];
+    let cfg = Config::import_from("https://oauth-sync.dev.lcip.org")?;
+    let tokenserver_base_url = cfg.token_server_endpoint_url()?.join("../../")?.as_str().to_string();
+
+    let mut acct = load_or_create_fxa_creds(cfg.clone())?;
+    let token: OAuthInfo;
+    match acct.get_oauth_token(&[SYNC_SCOPE])? {
+      Some(t) => token = t,
+      None => {
+        // The cached credentials did not have appropriate scope, sign in again.
+        println!("Credentials do not have appropriate scope, launching OAuth flow.");
+        acct = create_fxa_creds(cfg.clone())?;
+        token = acct.get_oauth_token(&[SYNC_SCOPE])?.unwrap();
+      }
+    }
+    let keys: HashMap<String, ScopedKeyData> = serde_json::from_str(&token.keys.unwrap())?;
+    let key = keys.get(SYNC_SCOPE).unwrap();
 
     let mut svc = sync::Sync15Service::new(
         sync::Sync15ServiceInit {
-            key_id: scope.kid.clone(),
-            sync_key: scope.k.clone(),
-            access_token: oauth_data.access_token.clone(),
-            tokenserver_base_url: "https://oauth-sync.dev.lcip.org/syncserver/token".into(),
+            key_id: key.kid.clone(),
+            sync_key: key.k.clone(),
+            access_token: token.access_token.clone(),
+            tokenserver_base_url: tokenserver_base_url
         }
     )?;
 
