@@ -1,3 +1,3 @@
 # sandvich-android
 
-> Use of FxA Client SDK in Android
+> Example of sandvich-android has moved to [github.com/mozilla-mobile/android-components](https://github.com/mozilla-mobile/android-components/tree/master/samples/fxa)
