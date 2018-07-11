@@ -39,9 +39,9 @@ use errors::*;
 #[cfg(feature = "browserid")]
 use http_client::browser_id::jwt_utils;
 use http_client::{Client, OAuthTokenResponse, ProfileResponse};
-use scoped_keys::ScopedKeysFlow;
 use ring::digest;
-use ring::rand::{SystemRandom, SecureRandom};
+use ring::rand::{SecureRandom, SystemRandom};
+use scoped_keys::ScopedKeysFlow;
 use url::Url;
 use util::now;
 
@@ -299,7 +299,10 @@ impl FirefoxAccount {
         };
         self.flow_store.insert(
             state.clone(), // Since state is supposed to be unique, we use it to key our flows.
-            OAuthFlow { scoped_keys_flow, code_verifier },
+            OAuthFlow {
+                scoped_keys_flow,
+                code_verifier,
+            },
         );
         Ok(url.to_string())
     }

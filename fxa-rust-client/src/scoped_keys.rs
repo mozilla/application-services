@@ -1,15 +1,15 @@
 use errors::*;
 
 use base64;
-use byteorder::{ByteOrder, BigEndian};
-use ring::{aead, agreement, digest};
+use byteorder::{BigEndian, ByteOrder};
 use ring::agreement::EphemeralPrivateKey;
 use ring::rand::SecureRandom;
+use ring::{aead, agreement, digest};
 use serde_json;
 use untrusted::Input;
 
 pub struct ScopedKeysFlow {
-  private_key: EphemeralPrivateKey
+    private_key: EphemeralPrivateKey,
 }
 
 /// Theorically, everything done in this file could and should be done in a JWT library.
@@ -18,88 +18,99 @@ pub struct ScopedKeysFlow {
 /// In the past, we chose cjose to do that job, but it added three C dependencies to build and link
 /// against: jansson, openssl and cjose itself.
 impl ScopedKeysFlow {
-  pub fn with_random_key(rng: &SecureRandom) -> Result<ScopedKeysFlow> {
-    let private_key = EphemeralPrivateKey::generate(&agreement::ECDH_P256, rng).map_err(|_| ErrorKind::KeyGenerationFailed)?;
-    Ok(ScopedKeysFlow {
-      private_key
-    })
-  }
+    pub fn with_random_key(rng: &SecureRandom) -> Result<ScopedKeysFlow> {
+        let private_key = EphemeralPrivateKey::generate(&agreement::ECDH_P256, rng)
+            .map_err(|_| ErrorKind::KeyGenerationFailed)?;
+        Ok(ScopedKeysFlow { private_key })
+    }
 
-  pub fn generate_keys_jwk(&self) -> Result<String> {
-    let mut pub_key = vec![0u8; self.private_key.public_key_len()];
-    &self.private_key.compute_public_key(&mut pub_key).map_err(|_| ErrorKind::PublicKeyComputationFailed)?;
-    // Uncompressed form (see SECG SEC1 section 2.3.3).
-    // First byte is 4, then 32 bytes for x, and 32 bytes for y.
-    assert_eq!(pub_key.len(), 1 + 32 + 32);
-    assert_eq!(pub_key[0], 0x04);
-    let x = Vec::from(&pub_key[1..33]);
-    let x = base64::encode_config(&x, base64::URL_SAFE_NO_PAD);
-    let y = Vec::from(&pub_key[33..]);
-    let y = base64::encode_config(&y, base64::URL_SAFE_NO_PAD);
-    Ok(json!({
+    pub fn generate_keys_jwk(&self) -> Result<String> {
+        let mut pub_key = vec![0u8; self.private_key.public_key_len()];
+        &self
+            .private_key
+            .compute_public_key(&mut pub_key)
+            .map_err(|_| ErrorKind::PublicKeyComputationFailed)?;
+        // Uncompressed form (see SECG SEC1 section 2.3.3).
+        // First byte is 4, then 32 bytes for x, and 32 bytes for y.
+        assert_eq!(pub_key.len(), 1 + 32 + 32);
+        assert_eq!(pub_key[0], 0x04);
+        let x = Vec::from(&pub_key[1..33]);
+        let x = base64::encode_config(&x, base64::URL_SAFE_NO_PAD);
+        let y = Vec::from(&pub_key[33..]);
+        let y = base64::encode_config(&y, base64::URL_SAFE_NO_PAD);
+        Ok(json!({
         "crv": "P-256",
         "kty": "EC",
         "x": x,
         "y": y,
     }).to_string())
-  }
+    }
 
-  pub fn decrypt_keys_jwe(self, jwe: &str) -> Result<String> {
-    let segments: Vec<&str> = jwe.split(".").collect();
-    let header = base64::decode_config(&segments[0], base64::URL_SAFE_NO_PAD)?;
-    let protected_header: serde_json::Value = serde_json::from_slice(&header)?;
-    assert_eq!(protected_header["epk"]["kty"], "EC");
-    assert_eq!(protected_header["epk"]["crv"], "P-256");
+    pub fn decrypt_keys_jwe(self, jwe: &str) -> Result<String> {
+        let segments: Vec<&str> = jwe.split(".").collect();
+        let header = base64::decode_config(&segments[0], base64::URL_SAFE_NO_PAD)?;
+        let protected_header: serde_json::Value = serde_json::from_slice(&header)?;
+        assert_eq!(protected_header["epk"]["kty"], "EC");
+        assert_eq!(protected_header["epk"]["crv"], "P-256");
 
-    // Part 1: Grab the x/y from the other party and construct the secret.
-    let x = base64::decode_config(&protected_header["epk"]["x"].as_str().unwrap(), base64::URL_SAFE_NO_PAD)?;
-    let y = base64::decode_config(&protected_header["epk"]["y"].as_str().unwrap(), base64::URL_SAFE_NO_PAD)?;
-    assert_eq!(x.len(), 256 / 8);
-    assert_eq!(y.len(), 256 / 8);
-    let mut peer_pub_key: Vec<u8> = vec![0x04];
-    peer_pub_key.extend_from_slice(&x);
-    peer_pub_key.extend_from_slice(&y);
-    let peer_pub_key = Input::from(&peer_pub_key);
-    let secret = agreement::agree_ephemeral(self.private_key, &agreement::ECDH_P256, peer_pub_key, ErrorKind::KeyAgreementFailed, |z| {
-        // ConcatKDF (1 iteration since keyLen <= hashLen).
-        // See rfc7518 section 4.6 for reference.
-        let counter = 1;
-        let alg = protected_header["enc"].as_str().unwrap();
-        let apu = protected_header["apu"].as_str().unwrap_or("");
-        let apv = protected_header["apv"].as_str().unwrap_or("");
-        let mut buf: Vec<u8> = vec![];
-        buf.extend_from_slice(&to_32b_buf(counter));
-        buf.extend_from_slice(&z);
-        // otherinfo
-        buf.extend_from_slice(&to_32b_buf(alg.len() as u32));
-        buf.extend_from_slice(alg.as_bytes());
-        buf.extend_from_slice(&to_32b_buf(apu.len() as u32));
-        buf.extend_from_slice(apu.as_bytes());
-        buf.extend_from_slice(&to_32b_buf(apv.len() as u32));
-        buf.extend_from_slice(apv.as_bytes());
-        buf.extend_from_slice(&to_32b_buf(256));
-        Ok(digest::digest(&digest::SHA256, &buf).as_ref()[0..32].to_vec())
-    })?;
+        // Part 1: Grab the x/y from the other party and construct the secret.
+        let x = base64::decode_config(
+            &protected_header["epk"]["x"].as_str().unwrap(),
+            base64::URL_SAFE_NO_PAD,
+        )?;
+        let y = base64::decode_config(
+            &protected_header["epk"]["y"].as_str().unwrap(),
+            base64::URL_SAFE_NO_PAD,
+        )?;
+        assert_eq!(x.len(), 256 / 8);
+        assert_eq!(y.len(), 256 / 8);
+        let mut peer_pub_key: Vec<u8> = vec![0x04];
+        peer_pub_key.extend_from_slice(&x);
+        peer_pub_key.extend_from_slice(&y);
+        let peer_pub_key = Input::from(&peer_pub_key);
+        let secret = agreement::agree_ephemeral(
+            self.private_key,
+            &agreement::ECDH_P256,
+            peer_pub_key,
+            ErrorKind::KeyAgreementFailed,
+            |z| {
+                // ConcatKDF (1 iteration since keyLen <= hashLen).
+                // See rfc7518 section 4.6 for reference.
+                let counter = 1;
+                let alg = protected_header["enc"].as_str().unwrap();
+                let apu = protected_header["apu"].as_str().unwrap_or("");
+                let apv = protected_header["apv"].as_str().unwrap_or("");
+                let mut buf: Vec<u8> = vec![];
+                buf.extend_from_slice(&to_32b_buf(counter));
+                buf.extend_from_slice(&z);
+                // otherinfo
+                buf.extend_from_slice(&to_32b_buf(alg.len() as u32));
+                buf.extend_from_slice(alg.as_bytes());
+                buf.extend_from_slice(&to_32b_buf(apu.len() as u32));
+                buf.extend_from_slice(apu.as_bytes());
+                buf.extend_from_slice(&to_32b_buf(apv.len() as u32));
+                buf.extend_from_slice(apv.as_bytes());
+                buf.extend_from_slice(&to_32b_buf(256));
+                Ok(digest::digest(&digest::SHA256, &buf).as_ref()[0..32].to_vec())
+            },
+        )?;
 
-    // Part 2: decrypt the payload with the obtained secret
-    assert_eq!(segments[1].len(), 0); // Encrypted Key is zero-length.
-    let iv = base64::decode_config(&segments[2], base64::URL_SAFE_NO_PAD)?;
-    let ciphertext = base64::decode_config(&segments[3], base64::URL_SAFE_NO_PAD)?;
-    let auth_tag = base64::decode_config(&segments[4], base64::URL_SAFE_NO_PAD)?;
-    assert_eq!(auth_tag.len(), 128 / 8);
-    assert_eq!(iv.len(), 96 / 8);
-    let opening_key = aead::OpeningKey::new(&aead::AES_256_GCM, &secret).map_err(|_| ErrorKind::KeyImportFailed)?;
-    let mut in_out = ciphertext.to_vec();
-    in_out.append(&mut auth_tag.to_vec());
-    let plaintext = aead::open_in_place(
-        &opening_key,
-        &iv,
-        segments[0].as_bytes(),
-        0,
-        &mut in_out,
-    ).map_err(|_| ErrorKind::AEADOpenFailure)?;
-    String::from_utf8(plaintext.to_vec()).map_err(|e| e.into())
-  }
+        // Part 2: decrypt the payload with the obtained secret
+        assert_eq!(segments[1].len(), 0); // Encrypted Key is zero-length.
+        let iv = base64::decode_config(&segments[2], base64::URL_SAFE_NO_PAD)?;
+        let ciphertext = base64::decode_config(&segments[3], base64::URL_SAFE_NO_PAD)?;
+        let auth_tag = base64::decode_config(&segments[4], base64::URL_SAFE_NO_PAD)?;
+        assert_eq!(auth_tag.len(), 128 / 8);
+        assert_eq!(iv.len(), 96 / 8);
+        let opening_key = aead::OpeningKey::new(&aead::AES_256_GCM, &secret)
+            .map_err(|_| ErrorKind::KeyImportFailed)?;
+        let mut in_out = ciphertext.to_vec();
+        in_out.append(&mut auth_tag.to_vec());
+        let plaintext =
+            aead::open_in_place(&opening_key, &iv, segments[0].as_bytes(), 0, &mut in_out)
+                .map_err(|_| ErrorKind::AEADOpenFailure)?;
+        String::from_utf8(plaintext.to_vec()).map_err(|e| e.into())
+    }
 }
 
 fn to_32b_buf(n: u32) -> Vec<u8> {
@@ -116,7 +127,10 @@ mod tests {
     #[test]
     fn test_flow() {
         let fake_rng = FixedSliceRandom {
-            bytes: &[81, 172, 131, 226, 73, 255, 225, 1, 239, 46, 242, 203, 73, 38, 128, 53, 240, 212, 167, 208, 28, 66, 119, 80, 187, 244, 232, 133, 2, 168, 202, 127],
+            bytes: &[
+                81, 172, 131, 226, 73, 255, 225, 1, 239, 46, 242, 203, 73, 38, 128, 53, 240, 212,
+                167, 208, 28, 66, 119, 80, 187, 244, 232, 133, 2, 168, 202, 127,
+            ],
         };
         let flow = ScopedKeysFlow::with_random_key(&fake_rng).unwrap();
         let json = flow.generate_keys_jwk().unwrap();
