@@ -57,9 +57,8 @@ h2 {
 }
 
 .homeContainer {
-  min-height: 500px;
   background: #424c55;
-  background-image: url('../img/71686-unsplash.jpg');
+  background: url('../img/tail.png') top -40px center no-repeat,linear-gradient(to bottom,#424c55 0,#000000 100%);
   background-size: cover;
 }
 

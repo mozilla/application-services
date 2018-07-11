@@ -1,6 +1,7 @@
 {
   "docs": {
-    "Accounts": ["accounts/welcome"]
+    "Accounts": ["accounts/welcome"],
+    "Applications": ["applications/welcome"]
   },
   "accounts": {
     "Firefox Accounts": [
@@ -10,6 +11,12 @@
     "Other Features": [
       "accounts/end-to-end-encryption",
       "accounts/50000-most-common-passwords"
+    ]
+  },
+  "applications": {
+    "Applications": [
+      "applications/welcome",
+      "applications/signing-android-apps"
     ]
   }
 }
