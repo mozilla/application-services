@@ -15,6 +15,7 @@ tasks:
         - /bin/bash
         - '-c'
         - >-
+          rustup install beta &&
           apt-get update && apt-get install zip -y &&
           git clone '{{ event.head.repo.url }}' repo &&
           cd repo &&

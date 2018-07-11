@@ -13,3 +13,8 @@ openssl = { git = 'https://github.com/sfackler/rust-openssl', rev = '5debc1ba5a7
 # Remove these two once https://github.com/carllerche/mio/pull/846 and https://github.com/rust-lang-nursery/net2-rs/pull/74 are merged.
 net2 = { git = 'https://github.com/mehcode/net2-rs', branch = 'master' }
 mio = { git = 'https://github.com/mehcode/mio', branch = 'master' }
+
+[profile.release]
+opt-level = "z"
+debug = false
+lto = true

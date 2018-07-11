@@ -42,14 +42,14 @@ echo "Building selected targets: ${selected_targets[@]}."
 
 for target in "${selected_targets[@]}"
 do
-  rustup target add ${android_targets[$target]}
+  rustup target add --toolchain beta ${android_targets[$target]}
   echo "Creating toolchain for ${android_targets[$target]}"
   TOOLCHAIN_DIR="/tmp/android-toolchain-$target"
   "$NDK_PATH/build/tools/make-standalone-toolchain.sh" --arch="$target" --install-dir="$TOOLCHAIN_DIR" --platform="android-$ANDROID_API_VERSION" --force
   PATH="$TOOLCHAIN_DIR/bin:$PATH"
   echo "Building target $target. Signature: ${android_targets[$target]}"
   OPENSSL_STATIC=0 OPENSSL_DIR="$PWD"/libs/android/$target/openssl \
-  cargo build -p fxa-client-ffi --target ${android_targets[$target]} --release
+  cargo +beta build -p fxa-client-ffi --target ${android_targets[$target]} --release
   mkdir -p fxa-client/$target
   cp target/${android_targets[$target]}/release/libfxa_client.so fxa-client/$target
   mkdir -p fxa-client-deps/$target
