@@ -9,16 +9,14 @@ TARGET_ARCHS_TOOLCHAINS=("i686-linux-android" "aarch64-linux-android" "arm-linux
 
 # End of configuration.
 
-if [ "$#" -ne 3 ]
+if [ "$#" -ne 1 ]
 then
     echo "Usage:"
-    echo "./build-all-android.sh <JANSSON_SRC_PATH> <OPENSSL_SRC_PATH> <CJOSE_SRC_PATH>"
+    echo "./build-all-android.sh <OPENSSL_SRC_PATH>"
     exit 1
 fi
 
-JANSSON_SRC_PATH=$1
-OPENSSL_SRC_PATH=$2
-CJOSE_SRC_PATH=$3
+OPENSSL_SRC_PATH=$1
 
 if [ -d "android" ]; then
   echo "android folder already exists. Skipping build."
@@ -55,25 +53,9 @@ for i in "${!TARGET_ARCHS[@]}"; do
   TOOLCHAINS_PATHS[$i]=$TOOLCHAIN_DIR
 done
 
-echo "# Building jansson"
-for i in "${!TARGET_ARCHS[@]}"; do
-  ARCH=${TARGET_ARCHS[$i]}
-  DIST_DIR=$(abspath "android/""$ARCH""/jansson")
-  ./build-jansson-android.sh "$JANSSON_SRC_PATH" "$DIST_DIR" "${TOOLCHAINS_PATHS[$i]}" "${TARGET_ARCHS_TOOLCHAINS[$i]}" "$ANDROID_API_VERSION"
-done
-
 echo "# Building openssl"
 for i in "${!TARGET_ARCHS[@]}"; do
   ARCH=${TARGET_ARCHS[$i]}
   DIST_DIR=$(abspath "android/""$ARCH""/openssl")
   ./build-openssl-android.sh "$OPENSSL_SRC_PATH" "$DIST_DIR" "${TOOLCHAINS_PATHS[$i]}" "${TARGET_ARCHS_TOOLCHAINS[$i]}" "$ANDROID_API_VERSION"
-done
-
-echo "# Building cjose"
-for i in "${!TARGET_ARCHS[@]}"; do
-  ARCH=${TARGET_ARCHS[$i]}
-  DIST_DIR=$(abspath "android/""$ARCH""/cjose")
-  JANSSON_DIR=$(abspath "android/""$ARCH""/jansson")
-  OPENSSL_DIR=$(abspath "android/""$ARCH""/openssl")
-  ./build-cjose-android.sh "$CJOSE_SRC_PATH" "$DIST_DIR" "${TOOLCHAINS_PATHS[$i]}" "${TARGET_ARCHS_TOOLCHAINS[$i]}" "$ANDROID_API_VERSION" "$JANSSON_DIR" "$OPENSSL_DIR"
 done

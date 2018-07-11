@@ -48,9 +48,7 @@ do
   "$NDK_PATH/build/tools/make-standalone-toolchain.sh" --arch="$target" --install-dir="$TOOLCHAIN_DIR" --platform="android-$ANDROID_API_VERSION" --force
   PATH="$TOOLCHAIN_DIR/bin:$PATH"
   echo "Building target $target. Signature: ${android_targets[$target]}"
-  JANSSON_DIR="$PWD"/libs/android/$target/jansson/lib \
   OPENSSL_STATIC=0 OPENSSL_DIR="$PWD"/libs/android/$target/openssl \
-  CJOSE_DIR="$PWD"/libs/android/$target/cjose/lib \
   cargo build -p fxa-client-ffi --target ${android_targets[$target]} --release
   mkdir -p fxa-client/$target
   cp target/${android_targets[$target]}/release/libfxa_client.so fxa-client/$target
