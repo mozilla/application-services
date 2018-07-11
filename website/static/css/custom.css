@@ -96,7 +96,7 @@ h2 {
 
 .customFeatureCallout {
   background: #424c55;
-  background: url('../img/tail.png') top -40px center no-repeat,linear-gradient(to bottom, #ca9209 0,#000000 100%);
+  background-image: url('../img/mobile-63635-unsplash.jpg');
   background-size: cover;
   min-height: 220px;
   padding-top: 20px;
