@@ -9,6 +9,8 @@ import UIKit
 let queue = DispatchQueue(label: "com.fxaclient")
 
 public class FxAConfig: MovableRustOpaquePointer {
+    /// Convenience method over `custom(...)` which provides an `FxAConfig` that
+    /// points to the production FxA servers.
     open class func release(completionHandler: @escaping (FxAConfig?, Error?) -> Void) {
         queue.async {
             do {
@@ -22,6 +24,10 @@ public class FxAConfig: MovableRustOpaquePointer {
         }
     }
 
+    /// Fetches an `FxAConfig` by making a request to `<content_base>/.well-known/fxa-client-configuration`
+    /// and parsing the newly fetched configuration object.
+    ///
+    /// Note: `content_base` shall not have a trailing slash.
     open class func custom(content_base: String, completionHandler: @escaping (FxAConfig?, Error?) -> Void) {
         queue.async {
             do {
@@ -44,6 +50,11 @@ public class FxAConfig: MovableRustOpaquePointer {
 
 public class FirefoxAccount: RustOpaquePointer {
     #if BROWSERID_FEATURES
+    /// Creates a `FirefoxAccount` instance from credentials obtained with the onepw FxA login flow.
+    /// This is typically used by the legacy Sync clients: new clients mainly use OAuth flows and
+    /// therefore should use `init`.
+    /// Please note that the `FxAConfig` provided will be consumed and therefore
+    /// should not be re-used.
     open class func from(config: FxAConfig, clientId: String, redirectUri: String, webChannelResponse: String) throws -> FirefoxAccount {
         return try queue.sync(execute: {
             let pointer = try FxAError.unwrap({err in
@@ -54,6 +65,7 @@ public class FirefoxAccount: RustOpaquePointer {
     }
     #endif
 
+    /// Restore a previous instance of `FirefoxAccount` from a serialized state (obtained with `toJSON(...)`).
     open class func fromJSON(state: String) throws -> FirefoxAccount {
         return try queue.sync(execute: {
             let pointer = try FxAError.unwrap({ err in fxa_from_json(state, err) })
@@ -61,6 +73,10 @@ public class FirefoxAccount: RustOpaquePointer {
         })
     }
 
+    /// Create a `FirefoxAccount` from scratch. This is suitable for callers using the
+    /// OAuth Flow.
+    /// Please note that the `FxAConfig` provided will be consumed and therefore
+    /// should not be re-used.
     public convenience init(config: FxAConfig, clientId: String, redirectUri: String) throws {
         let pointer = try queue.sync(execute: {
             return try FxAError.unwrap({err in
@@ -76,6 +92,8 @@ public class FirefoxAccount: RustOpaquePointer {
         })
     }
 
+    /// Serializes the state of a `FirefoxAccount` instance. It can be restored later with `fromJSON(...)`.
+    /// It is the responsability of the caller to persist that serialized state regularly (after operations that mutate `FirefoxAccount`) in a **secure** location.
     public func toJSON() throws -> String {
         return try queue.sync(execute: {
             return String(freeingFxaString: try FxAError.unwrap({err in
@@ -84,6 +102,10 @@ public class FirefoxAccount: RustOpaquePointer {
         })
     }
 
+    /// Gets the logged-in user profile.
+    /// Throws FxAError.Unauthorized we couldn't find any suitable access token
+    /// to make that call. The caller should then start the OAuth Flow again with
+    /// the "profile" scope.
     public func getProfile(completionHandler: @escaping (Profile?, Error?) -> Void) {
         queue.async {
             do {
@@ -115,7 +137,15 @@ public class FirefoxAccount: RustOpaquePointer {
         })
     }
 
-    // Scopes is space separated for each scope.
+    /// Request a OAuth token by starting a new OAuth flow.
+    ///
+    /// This function returns a URL string that the caller should open in a webview.
+    ///
+    /// Once the user has confirmed the authorization grant, they will get redirected to `redirect_url`:
+    /// the caller must intercept that redirection, extract the `code` and `state` query parameters and call
+    /// `completeOAuthFlow(...)` to complete the flow.
+    ///
+    /// It is possible also to request keys (e.g. sync keys) during that flow by setting `wants_keys` to true.
     public func beginOAuthFlow(scopes: [String], wantsKeys: Bool, completionHandler: @escaping (URL?, Error?) -> Void) {
         queue.async {
             do {
@@ -130,6 +160,10 @@ public class FirefoxAccount: RustOpaquePointer {
         }
     }
 
+    /// Finish an OAuth flow initiated by `beginOAuthFlow(...)` and returns token/keys.
+    ///
+    /// This resulting token might not have all the `scopes` the caller have requested (e.g. the user
+    /// might have denied some of them): it is the responsibility of the caller to accomodate that.
     public func completeOAuthFlow(code: String, state: String, completionHandler: @escaping (OAuthInfo?, Error?) -> Void) {
         queue.async {
             do {
@@ -143,7 +177,14 @@ public class FirefoxAccount: RustOpaquePointer {
         }
     }
 
-
+    /// Try to get a previously obtained cached token.
+    ///
+    /// If the token is expired, the system will try to refresh it automatically using
+    /// a `refresh_token` or `session_token`.
+    ///
+    /// If the system can't find a suitable token but has a `session_token`, it will generate a new one on the go.
+    ///
+    /// If not, the caller must start an OAuth flow with `beginOAuthFlow(...)`.
     public func getOAuthToken(scopes: [String], completionHandler: @escaping (OAuthInfo?, Error?) -> Void) {
         queue.async {
             do {

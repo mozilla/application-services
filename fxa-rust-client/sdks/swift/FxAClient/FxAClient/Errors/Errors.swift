@@ -4,10 +4,10 @@
 
 import Foundation
 
-public enum PointerError: Error {
+enum PointerError: Error {
     case pointerConsumed
 }
 
-public enum ResultError: Error {
+enum ResultError: Error {
     case empty
 }
