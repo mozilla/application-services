@@ -1,13 +1,12 @@
 language: rust
-
+script:
+  - cargo test --all-features --verbose
 rust:
   - stable
+  - beta
   - nightly
-
-script:
-  - scripts/ci-test.sh
-
-cache:
-  cargo: true
-  directories:
-  - libs/desktop
+matrix:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+cache: cargo
