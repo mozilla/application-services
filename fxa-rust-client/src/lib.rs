@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 extern crate base64;
+extern crate byteorder;
 extern crate failure;
 #[macro_use]
 extern crate failure_derive;
@@ -10,7 +11,6 @@ extern crate hawk;
 extern crate hex;
 extern crate hkdf;
 extern crate hmac;
-extern crate jose;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
@@ -19,12 +19,14 @@ extern crate openssl;
 extern crate rand;
 extern crate regex;
 extern crate reqwest;
+extern crate ring;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
 extern crate sha2;
+extern crate untrusted;
 extern crate url;
 
 use std::collections::HashMap;
@@ -36,9 +38,10 @@ use self::login_sm::*;
 use errors::*;
 use http_client::browser_id::jwt_utils;
 use http_client::{Client, OAuthTokenResponse, ProfileResponse};
-use jose::{JWKECCurve, JWE, JWK};
 use openssl::hash::{hash, MessageDigest};
+use scoped_keys::ScopedKeysFlow;
 use rand::{OsRng, RngCore};
+use ring::rand::SystemRandom;
 use url::Url;
 use util::now;
 
@@ -47,6 +50,7 @@ pub mod errors;
 mod http_client;
 mod login_sm;
 mod oauth;
+mod scoped_keys;
 mod util;
 
 pub use config::Config;
@@ -264,19 +268,20 @@ impl FirefoxAccount {
             .append_pair("code_challenge_method", "S256")
             .append_pair("code_challenge", &code_challenge)
             .append_pair("access_type", "offline");
-        let jwk = match wants_keys {
+        let scoped_keys_flow = match wants_keys {
             true => {
-                let jwk = JWK::from_random_ec(JWKECCurve::P256)?;
-                let jwk_json = jwk.to_json(false)?.to_string();
+                let rng = SystemRandom::new();
+                let flow = ScopedKeysFlow::with_random_key(&rng)?;
+                let jwk_json = flow.generate_keys_jwk()?;
                 let keys_jwk = base64::encode_config(&jwk_json, base64::URL_SAFE_NO_PAD);
                 url.query_pairs_mut().append_pair("keys_jwk", &keys_jwk);
-                Some(jwk)
+                Some(flow)
             }
             false => None,
         };
         self.flow_store.insert(
             state.clone(), // Since state is supposed to be unique, we use it to key our flows.
-            OAuthFlow { jwk, code_verifier },
+            OAuthFlow { scoped_keys_flow, code_verifier },
         );
         Ok(url.to_string())
     }
@@ -296,26 +301,25 @@ impl FirefoxAccount {
             Some(oauth_flow) => oauth_flow,
             None => return Err(ErrorKind::UnknownOAuthState.into()),
         };
-        self.handle_oauth_token_response(resp, oauth_flow.jwk)
+        self.handle_oauth_token_response(resp, oauth_flow.scoped_keys_flow)
     }
 
     fn handle_oauth_token_response(
         &mut self,
         resp: OAuthTokenResponse,
-        jwk: Option<JWK>,
+        scoped_keys_flow: Option<ScopedKeysFlow>,
     ) -> Result<OAuthInfo> {
         let granted_scopes = resp.scope.split(" ").map(|s| s.to_string()).collect();
         // This assumes that if the server returns keys_jwe, the jwk argument is Some.
         let keys = match resp.keys_jwe {
             Some(jwe) => {
-                let jwk = jwk.expect(
-                    "Insane state! If we are getting back a JWE this means we should have a JWK.",
+                let scoped_keys_flow = scoped_keys_flow.expect(
+                    "Insane state! If we are getting back a JWE this means we should have a JWK private key.",
                 );
-                let jwe = JWE::import(&jwe)?;
-                Some(jwk.decrypt(&jwe)?)
+                Some(scoped_keys_flow.decrypt_keys_jwe(&jwe)?)
             }
             None => {
-                if jwk.is_some() {
+                if scoped_keys_flow.is_some() {
                     error!("Expected to get keys back alongside the token but the server didn't send them.");
                     return Err(ErrorKind::TokenWithoutKeys.into());
                 } else {
@@ -495,7 +499,7 @@ mod tests {
 }
 
 pub struct OAuthFlow {
-    pub jwk: Option<JWK>,
+    pub scoped_keys_flow: Option<ScopedKeysFlow>,
     pub code_verifier: String,
 }
 
