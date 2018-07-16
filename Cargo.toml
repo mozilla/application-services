@@ -3,9 +3,8 @@ members = [
     "boxlocker",
     "fxa-rust-client",
     "fxa-rust-client/ffi",
-    "logins",
     "sync15-adapter",
-    "sync15-adapter/ffi",
+    "sync15-adapter/ffi"
 ]
 
 # For RSA keys cloning. Remove once openssl 0.10.8+ is released.
