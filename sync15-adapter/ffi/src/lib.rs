@@ -290,6 +290,8 @@ impl FFIStore {
 
 // TODO: better error handling...
 impl Store for FFIStore {
+    type Error = sync::Error;
+
     fn apply_incoming(&mut self, incoming: IncomingChangeset) -> sync::Result<OutgoingChangeset> {
         Ok(*self.call_apply_incoming(&incoming)?)
     }
