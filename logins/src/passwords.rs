@@ -8,6 +8,31 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
+//! An interface to Sync 1.5 *passwords*, stored in a Mentat store.
+//!
+//! This module is not intended for general consumers, who should generally use the [`credentials`]
+//! module.
+//!
+//! [`ServerPassword`] is the main type exposed.  Such passwords are identified by an opaque GUID.
+//!
+//! # Internals
+//!
+//! Passwords mirror the state observed (or propagated) to the service at a particular
+//! `:sync.password/materialTx` transaction ID.  That is, for each password we're always computing
+//! local changes after the per-password material transaction marker.  Why "material"?  It's a
+//! reference to the password synchronizer in Firefox for iOS, which differentiates "material"
+//! changes from "metadata" changes.  Firefox for Desktop historically has not produced (or even
+//! maintained existing) metadata changes (like usage counts and last used timestamps), so uploading
+//! records with only metadata changes uses network bandwidth to churn other clients into
+//! potentially uploading conflicting changes.  Therefore, we track material changes separately from
+//! metadata changes and we compute local material changes after `:sync.password/materialTx` and
+//! local metadata changes after `:sync.password/metadataTx`.
+//!
+//! When passwords are uploaded to the service, local changes are incorporated into the uploaded
+//! records (although the mirrored metadata is not correctly updated yet), the
+//! `:sync.password/{metadata,password}Tx` markers are advanced, and the local change tracking moves
+//! forward.
+
 use chrono::{
     TimeZone,
 };
@@ -72,7 +97,7 @@ use vocab::{
     SYNC_PASSWORDS_LAST_SERVER_TIMESTAMP,
 };
 
-/// Fetch the Sync 1.5 password with given `uuid`.
+/// Fetch the Sync 1.5 password with given `uuid`, if one exists.
 pub fn get_sync_password<Q>(queryable: &Q, uuid: SyncGuid) -> Result<Option<ServerPassword>>
 where Q: Queryable {
     let q = r#"[:find

@@ -24,12 +24,6 @@ use errors::{
 };
 
 lazy_static! {
-    // [:credential/username       :db.type/string  :db.cardinality/one]
-    // [:credential/password       :db.type/string  :db.cardinality/one]
-    // [:credential/created        :db.type/instant :db.cardinality/one]
-    // An application might allow users to name their credentials; e.g., "My LDAP".
-    // [:credential/title          :db.type/string  :db.cardinality/one]
-
     pub static ref CREDENTIAL_ID: Keyword = {
         kw!(:credential/id)
     };
@@ -50,6 +44,15 @@ lazy_static! {
         kw!(:credential/title)
     };
 
+    /// The vocabulary describing *credentials*, i.e., username/password pairs; `:credential/*`.
+    ///
+    /// ```edn
+    /// [:credential/username       :db.type/string  :db.cardinality/one]
+    /// [:credential/password       :db.type/string  :db.cardinality/one]
+    /// [:credential/created        :db.type/instant :db.cardinality/one]
+    /// ; An application might allow users to name their credentials; e.g., "My LDAP".
+    /// [:credential/title          :db.type/string  :db.cardinality/one]
+    /// ```
     pub static ref CREDENTIAL_VOCAB: vocabulary::Definition = {
         vocabulary::Definition {
             name: kw!(:org.mozilla/credential),
@@ -87,11 +90,6 @@ lazy_static! {
         }
     };
 
-    // This is metadata recording user behavior.
-    // [:login/at                  :db.type/instant :db.cardinality/one]
-    // [:login/device              :db.type/ref     :db.cardinality/one]
-    // [:login/credential          :db.type/ref     :db.cardinality/one]
-    // [:login/form                :db.type/ref     :db.cardinality/one]
     pub static ref LOGIN_AT: Keyword = {
         kw!(:login/at)
     };
@@ -108,6 +106,16 @@ lazy_static! {
         kw!(:login/form)
     };
 
+    /// The vocabulary describing *logins* (usages); `:logins/*`.
+    ///
+    /// This is metadata capturing user behavior.
+    ///
+    /// ```edn
+    // [:login/at                  :db.type/instant :db.cardinality/one]
+    // [:login/device              :db.type/ref     :db.cardinality/one]
+    // [:login/credential          :db.type/ref     :db.cardinality/one]
+    // [:login/form                :db.type/ref     :db.cardinality/one]
+    /// ```
     pub static ref LOGIN_VOCAB: vocabulary::Definition = {
         vocabulary::Definition {
             name: kw!(:org.mozilla/login),
@@ -139,15 +147,6 @@ lazy_static! {
         }
     };
 
-    // A 'form' is either an HTTP login box _or_ a web form.
-    // [:http/realm                :db.type/string  :db.cardinality/one]
-    // It's possible that hostname or submitOrigin are unique-identity attributes.
-    // [:form/hostname             :db.type/string  :db.cardinality/one]
-    // [:form/submitOrigin         :db.type/string  :db.cardinality/one]
-    // [:form/usernameField        :db.type/string  :db.cardinality/one]
-    // [:form/passwordField        :db.type/string  :db.cardinality/one]
-    // This is our many-to-many relation between forms and credentials.
-    // [:form/credential           :db.type/ref     :db.cardinality/many]
     pub static ref FORM_HOSTNAME: Keyword = {
         kw!(:form/hostname)
     };
@@ -164,10 +163,6 @@ lazy_static! {
         kw!(:form/passwordField)
     };
 
-    pub static ref FORM_CREDENTIAL: Keyword = {
-        kw!(:form/credential)
-    };
-
     pub static ref FORM_HTTP_REALM: Keyword = {
         kw!(:form/httpRealm)
     };
@@ -181,6 +176,17 @@ lazy_static! {
         kw!(:form/syncPassword)
     };
 
+    /// The vocabulary describing *forms* (usage contexts in a Web browser); `:forms/*`.
+    ///
+    /// A form is either an HTTP login box _or_ a Web form.
+    ///
+    /// ```edn
+    /// [:http/httpRealm            :db.type/string  :db.cardinality/one]
+    /// ; It's possible that hostname or submitUrl are unique-identity attributes.
+    /// [:form/hostname             :db.type/string  :db.cardinality/one]
+    /// [:form/submitUrl            :db.type/string  :db.cardinality/one]
+    /// [:form/usernameField        :db.type/string  :db.cardinality/one]
+    /// [:form/passwordField        :db.type/string  :db.cardinality/one]
     pub static ref FORM_VOCAB: vocabulary::Definition = {
         vocabulary::Definition {
             name: kw!(:org.mozilla/form),
@@ -212,11 +218,6 @@ lazy_static! {
                  .value_type(ValueType::String)
                  .multival(false)
                  .build()),
-                (FORM_CREDENTIAL.clone(),
-                 vocabulary::AttributeBuilder::helpful()
-                 .value_type(ValueType::Ref)
-                 .multival(true)
-                 .build()),
                 (FORM_HTTP_REALM.clone(),
                  vocabulary::AttributeBuilder::helpful()
                  .value_type(ValueType::String)
@@ -228,47 +229,52 @@ lazy_static! {
         }
     };
 
-    pub static ref SYNC_PASSWORD_CREDENTIAL: Keyword = {
-        kw!(:sync.password/credential)
+    pub(crate) static ref SYNC_PASSWORD_UUID: Keyword = {
+        kw!(:sync.password/uuid)
     };
 
-    pub static ref SYNC_PASSWORD_UUID: Keyword = {
-        kw!(:sync.password/uuid)
+    pub(crate) static ref SYNC_PASSWORD_CREDENTIAL: Keyword = {
+        kw!(:sync.password/credential)
     };
 
     // Use materialTx for material change comparisons, metadataTx for metadata change
     // comparisons.  Downloading updates materialTx only.  We only use materialTx to
     // determine whether or not to upload.  Uploaded records are built using metadataTx,
     // however.  Successful upload sets both materialTx and metadataTx.
-    pub static ref SYNC_PASSWORD_MATERIAL_TX: Keyword = {
+    pub(crate) static ref SYNC_PASSWORD_MATERIAL_TX: Keyword = {
         kw!(:sync.password/materialTx)
     };
 
-    pub static ref SYNC_PASSWORD_METADATA_TX: Keyword = {
+    pub(crate) static ref SYNC_PASSWORD_METADATA_TX: Keyword = {
         kw!(:sync.password/metadataTx)
     };
 
-    pub static ref SYNC_PASSWORD_SERVER_MODIFIED: Keyword = {
+    pub(crate) static ref SYNC_PASSWORD_SERVER_MODIFIED: Keyword = {
         kw!(:sync.password/serverModified)
     };
 
-    pub static ref SYNC_PASSWORD_TIMES_USED: Keyword = {
+    pub(crate) static ref SYNC_PASSWORD_TIMES_USED: Keyword = {
         kw!(:sync.password/timesUsed)
     };
 
-    pub static ref SYNC_PASSWORD_TIME_CREATED: Keyword = {
+    pub(crate) static ref SYNC_PASSWORD_TIME_CREATED: Keyword = {
         kw!(:sync.password/timeCreated)
     };
 
-    pub static ref SYNC_PASSWORD_TIME_LAST_USED: Keyword = {
+    pub(crate) static ref SYNC_PASSWORD_TIME_LAST_USED: Keyword = {
         kw!(:sync.password/timeLastUsed)
     };
 
-    pub static ref SYNC_PASSWORD_TIME_PASSWORD_CHANGED: Keyword = {
+    pub(crate) static ref SYNC_PASSWORD_TIME_PASSWORD_CHANGED: Keyword = {
         kw!(:sync.password/timePasswordChanged)
     };
 
-    pub static ref SYNC_PASSWORD_VOCAB: vocabulary::Definition = {
+    /// The vocabulary describing *Sync 1.5 passwords*; `:sync.password/*`.
+    ///
+    /// A Sync 1.5 password joins a credential (via `:sync.password/credential), a form (via the inverse relationship `:form/syncPassword`), and usages together.
+    ///
+    /// Consumers should not use this vocabulary directly; it is here only to support Sync 1.5.
+    pub(crate) static ref SYNC_PASSWORD_VOCAB: vocabulary::Definition = {
         vocabulary::Definition {
             name: kw!(:org.mozilla/sync.password),
             version: 1,
@@ -326,11 +332,14 @@ lazy_static! {
         }
     };
 
-    pub static ref SYNC_PASSWORDS_LAST_SERVER_TIMESTAMP: Keyword = {
+    pub(crate) static ref SYNC_PASSWORDS_LAST_SERVER_TIMESTAMP: Keyword = {
         kw!(:sync.passwords/lastServerTimestamp)
     };
 
-    pub static ref SYNC_PASSWORDS_VOCAB: vocabulary::Definition = {
+    /// The vocabulary describing the last time the Sync 1.5 "passwords" collection was synced.
+    ///
+    /// Consumers should not use this vocabulary directly; it is here only to support Sync 1.5.
+    pub(crate) static ref SYNC_PASSWORDS_VOCAB: vocabulary::Definition = {
         vocabulary::Definition {
             name: kw!(:org.mozilla/sync.passwords),
             version: 1,
@@ -347,6 +356,11 @@ lazy_static! {
     };
 }
 
+/// Ensure that the Mentat vocabularies describing *credentials*, *logins*, *forms*, and *Sync 1.5
+/// passwords* is present in the store.
+///
+/// This will install or upgrade the vocabularies as necessary, and should be called by every
+/// consumer early in its lifecycle.
 pub fn ensure_vocabulary(in_progress: &mut InProgress) -> Result<()> {
     debug!("Ensuring logins vocabulary is installed.");
 

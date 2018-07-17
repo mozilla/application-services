@@ -9,13 +9,6 @@
 // specific language governing permissions and limitations under the License.
 
 ///! This module defines some core types that support Sync 1.5 passwords and arbitrary logins.
-///!
-///! We use "passwords" or "password records" to talk about Sync 1.5's object format stored in the
-///! "passwords" collection.  We use "logins" to talk about local credentials, which might be more
-///! general than Sync 1.5's limited object format.
-///!
-///! Throughout, we reference the somewhat out-dated but still useful client documentation at
-///! https://mozilla-services.readthedocs.io/en/latest/sync/objectformats.html#passwords
 
 use std::convert::{
     AsRef,
@@ -105,10 +98,7 @@ impl<T> From<T> for CredentialId where T: Into<String> {
     }
 }
 
-/// A Sync.next credential.
-///
-/// A credential is a username/password pair, optionally decorated with a user-specified
-/// title.
+/// A username/password pair, optionally decorated with a user-specified title.
 ///
 /// A credential is uniquely identified by its `id`.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]

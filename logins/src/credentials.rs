@@ -8,6 +8,19 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
+//! An interface to *credentials* (username/password pairs, optionally titled) and *logins* (usages
+//! at points in time), stored in a Mentat store.
+//!
+//! [`Credential`] is the main type exposed.  Credentials are identified by opaque IDs.
+//!
+//! Store credentials in Mentat with [`add_credential`].  Retrieve credentials present in the Mentat
+//! store with [`get_credential`] and [`get_all_credentials`].
+//!
+//! Record local usages of a credential with [`touch_by_id`].  Retrieve local metadata about a
+//! credential with [`times_used`], [`time_last_used`], and [`time_last_modified`].
+//!
+//! Remove credentials from the Mentat store with [`delete_by_id`] and [`delete_by_ids`].
+
 use mentat::{
     Binding,
     DateTime,
