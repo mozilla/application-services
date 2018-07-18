@@ -119,13 +119,13 @@ pub struct FirefoxAccount {
 pub type SyncKeys = (String, String);
 
 pub struct PersistCallback {
-    callback_fn: Box<Fn(&str) + RefUnwindSafe>,
+    callback_fn: Box<Fn(&str) + Send + RefUnwindSafe>,
 }
 
 impl PersistCallback {
     pub fn new<F>(callback_fn: F) -> PersistCallback
     where
-        F: Fn(&str) + 'static + RefUnwindSafe,
+        F: Fn(&str) + 'static + Send + RefUnwindSafe,
     {
         PersistCallback {
             callback_fn: Box::new(callback_fn),
@@ -522,6 +522,12 @@ impl FirefoxAccount {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_fxa_is_send() {
+        fn is_send<T: Send>() {}
+        is_send::<FirefoxAccount>();
+    }
 
     #[test]
     fn test_serialize_deserialize() {
