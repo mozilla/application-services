@@ -22,17 +22,13 @@ import java.io.*
 import com.beust.klaxon.Parser
 import com.beust.klaxon.JsonObject
 
-import org.mozilla.loginsapi.LoginsStore
-import org.mozilla.loginsapi.RustException
-import org.mozilla.loginsapi.ServerPassword
-import org.mozilla.loginsapi.Api
-
 import kotlinx.android.synthetic.main.activity_main.*
+import org.mozilla.loginsapi.*
 
 class MainActivity : AppCompatActivity() {
     var store: LoginsStore? = null;
 
-    fun dumpError(tag: String, e: RustException) {
+    fun dumpError(tag: String, e: Exception) {
         val sw = StringWriter();
         val pw = PrintWriter(sw);
         e.printStackTrace(pw);
@@ -70,29 +66,37 @@ class MainActivity : AppCompatActivity() {
             Snackbar.make(recyclerView, "Loading logins...", Snackbar.LENGTH_LONG)
                     .setAction("Action", null).show()
 
-            if (this.store == null) {
+
+            var whenStoreReady = if (this.store == null) {
                 try {
-                    this.store = initFromCredentials(ExampleApp.instance.account?.creds!!)
+                    initFromCredentials(ExampleApp.instance.account?.creds!!).then({ store ->
+                        this.store = store;
+                        SyncResult.fromValue(Unit)
+                    }, { error ->
+                        dumpError("LoginInit: ", error);
+                        throw error
+                    })
                 } catch (e: RustException) {
-                    dumpError("LoginInit: ", e);
                     return
                 }
+            } else {
+                SyncResult.fromValue(Unit)
             }
-            try {
+            whenStoreReady.then({
                 this.store!!.sync()
-            } catch (e: RustException) {
-                dumpError("LoginSync: ", e);
-                return
+            }, { err ->
+                dumpError("LoginSync: ", err);
+                throw err;
+            }).then({
+                this.store!!.list();
+            }, { err ->
+                dumpError("LoginList: ", err);
+                throw err;
+            }).whenComplete {logins ->
+                runOnUiThread {
+                    (recyclerView.adapter as LoginViewAdapter).setLogins(logins)
+                }
             }
-            val logins: List<ServerPassword>;
-            try {
-                logins = this.store!!.list();
-            } catch (e: RustException) {
-                dumpError("LoginList: ", e);
-                return
-            }
-
-            (recyclerView.adapter as LoginViewAdapter).setLogins(logins)
         }
 
         fab.setOnClickListener { _ ->
@@ -111,14 +115,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun initFromCredentials(creds: Credentials): LoginsStore {
+    fun initFromCredentials(creds: Credentials): SyncResult<LoginsStore> {
         // The format is a bit weird so I'm not sure if I can map this make klaxon do the
         // deserializing for us...
         val stringBuilder: StringBuilder = StringBuilder(creds.keys)
         val o = Parser().parse(stringBuilder) as JsonObject
         val info = o.obj("https://identity.mozilla.com/apps/oldsync")!!
         val appFiles = this.applicationContext.getExternalFilesDir(null)
-        val store = Api.createLoginsStore(
+        return LoginsStore.create(
                 databasePath   = appFiles.absolutePath + "/logins.mentatdb",
                 databaseKey    = "my_secret_key",
                 kid            = info.string("kid")!!,
@@ -130,7 +134,6 @@ class MainActivity : AppCompatActivity() {
 //                tokenserverURL = creds.tokenServer
                 tokenserverURL = "https://token.services.mozilla.com"
         )
-        return store
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

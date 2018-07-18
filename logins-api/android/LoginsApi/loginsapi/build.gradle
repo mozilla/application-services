@@ -33,6 +33,7 @@ dependencies {
     implementation 'net.java.dev.jna:jna:4.5.1'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation "net.zetetic:android-database-sqlcipher:3.5.9@aar"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:0.23.4"
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'

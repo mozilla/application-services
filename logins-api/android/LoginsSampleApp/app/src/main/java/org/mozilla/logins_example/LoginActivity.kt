@@ -3,9 +3,11 @@ package org.mozilla.logins_example
 import android.net.Uri
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
 import android.webkit.*
 import mozilla.components.service.fxa.Config
 import mozilla.components.service.fxa.FirefoxAccount
+import mozilla.components.service.fxa.OAuthInfo
 
 // In *theory*, we could change this to be any of the FxA stacks (eg, stage, dev, sandvich, etc)
 // although the flies in the ointment are that the clientId may not be valid in all of them, and
@@ -33,17 +35,30 @@ class LoginActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
+        var fxa: FirefoxAccount? = null;
+        Config.custom(contentBase).then({ value: Config ->
+            fxa = FirefoxAccount(value, clientId, redirectUri)
+            var scopes = arrayOf("profile",
+                    "https://identity.mozilla.com/apps/oldsync",
+                    "https://identity.mozilla.com/apps/lockbox"
+            );
 
-        val config = Config.custom(contentBase)
+            fxa!!.beginOAuthFlow(scopes, true)
+        }, { err ->
+            Log.e("Logins", "(begin oauth): ", err);
+            throw err;
+        }).whenComplete { flowUrl: String ->
+            // XXX Hack: FxA prod doesn't accept + in urls but fxa-client leaves them in for now...
+            val fixedUrl = flowUrl.replace("+", "%20");
+            Log.d("Logins", "Flow URL: " + fixedUrl)
+            runOnUiThread {
+                showWebView(fixedUrl, fxa!!)
+            }
+        }
+    }
 
-        val fxa = FirefoxAccount(config!!, clientId)
-        val scopes = arrayOf("profile",
-                             "https://identity.mozilla.com/apps/oldsync",
-                             "https://identity.mozilla.com/apps/lockbox"
-        )
-        val flowUrl = fxa.beginOAuthFlow(redirectUri, scopes, true)
-
-        val wv: WebView =  findViewById(R.id.webview)
+    private fun showWebView(flowUrl: String, fxa: FirefoxAccount) {
+        val wv: WebView = findViewById(R.id.webview)
         // Need JS, cookies and localStorage.
         wv.settings.domStorageEnabled = true
         wv.settings.javaScriptEnabled = true
@@ -57,14 +72,17 @@ class LoginActivity : AppCompatActivity() {
                     // we are done!
                     val code = uri.getQueryParameter("code")
                     val state = uri.getQueryParameter("state")
-                    val oauthInfo = fxa.completeOAuthFlow(code, state)!!
-                    val profile = fxa.getProfile()
-
-                    val creds = Credentials(oauthInfo.accessToken!!, oauthInfo.keys!!, fxa.getTokenServerEndpointURL()!!)
-                    ExampleApp.instance.account = Account(profile!!.email!!, creds)
-                    ExampleApp.instance.startNewIntent()
-                    this@LoginActivity.finish()
-                    return true
+                    var oauthInfo: OAuthInfo? = null;
+                    fxa.completeOAuthFlow(code, state).then { info ->
+                        oauthInfo = info;
+                        fxa.getProfile()
+                    }.whenComplete { profile ->
+                        val creds = Credentials(oauthInfo!!.accessToken!!, oauthInfo!!.keys!!, fxa.getTokenServerEndpointURL()!!)
+                        ExampleApp.instance.account = Account(profile.email!!, creds)
+                        ExampleApp.instance.startNewIntent()
+                        this@LoginActivity.finish()
+                    }
+                    return true;
                 }
                 wv.loadUrl(url)
                 return true

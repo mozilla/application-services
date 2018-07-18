@@ -20,6 +20,7 @@ extern crate serde_json;
 extern crate mentat;
 extern crate sync15_passwords;
 extern crate sync15_adapter as sync;
+#[macro_use] extern crate log;
 
 mod error;
 
@@ -58,6 +59,41 @@ pub struct PasswordSyncState {
     service: sync::Sync15Service,
 }
 
+#[cfg(target_os = "android")]
+extern { pub fn __android_log_write(level: ::std::os::raw::c_int, tag: *const c_char, text: *const c_char) -> ::std::os::raw::c_int; }
+
+struct DevLogger;
+impl log::Log for DevLogger {
+    fn enabled(&self, _: &log::Metadata) -> bool { true }
+    fn log(&self, record: &log::Record) {
+        let message = format!("{}:{} -- {}", record.level(), record.target(), record.args());
+        println!("{}", message);
+        #[cfg(target_os = "android")]
+        {
+            unsafe {
+                let message = ::std::ffi::CString::new(message).unwrap();
+                let level_int = match record.level() {
+                    log::Level::Trace => 2,
+                    log::Level::Debug => 3,
+                    log::Level::Info => 4,
+                    log::Level::Warn => 5,
+                    log::Level::Error => 6,
+                };
+                let message = message.as_ptr();
+                let tag = b"RustInternal\0";
+                __android_log_write(level_int, tag.as_ptr() as *const c_char, message);
+            }
+        }
+        // TODO ios (use NSLog(__CFStringMakeConstantString(b"%s\0"), ...), maybe windows? (OutputDebugStringA)
+    }
+    fn flush(&self) {}
+}
+static DEV_LOGGER: &'static log::Log = &DevLogger;
+fn init_logger() {
+    log::set_logger(DEV_LOGGER).unwrap();
+    info!("Hooked up rust logger!");
+}
+
 define_destructor!(sync15_passwords_state_destroy, PasswordSyncState);
 
 // This is probably too many string arguments...
@@ -74,6 +110,7 @@ pub unsafe extern "C" fn sync15_passwords_state_new(
 
     error: *mut ExternError
 ) -> *mut PasswordSyncState {
+    init_logger();
     with_translated_result(error, || {
         let params = Sync15ServiceInit {
             key_id: c_char_to_string(key_id).into(),
