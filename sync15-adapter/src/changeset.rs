@@ -2,12 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use service::Sync15Service;
-use bso_record::{Payload, EncryptedBso};
-use request::{NormalResponseHandler, UploadInfo};
-use util::ServerTimestamp;
+use bso_record::{EncryptedBso, Payload};
+use client::Sync15StorageClient;
 use error::{self, ErrorKind, Result};
 use key_bundle::KeyBundle;
+use request::{NormalResponseHandler, UploadInfo};
+use state::GlobalState;
+use util::ServerTimestamp;
 
 #[derive(Debug, Clone)]
 pub struct RecordChangeset<Payload> {
@@ -39,27 +40,38 @@ impl<T> RecordChangeset<T> {
 
 impl OutgoingChangeset {
     pub fn encrypt(self, key: &KeyBundle) -> Result<Vec<EncryptedBso>> {
-        let RecordChangeset { changes, collection, .. } = self;
-        changes.into_iter()
-               .map(|change| change.into_bso(collection.clone()).encrypt(key))
-               .collect()
+        let RecordChangeset {
+            changes,
+            collection,
+            ..
+        } = self;
+        changes
+            .into_iter()
+            .map(|change| change.into_bso(collection.clone()).encrypt(key))
+            .collect()
     }
 
-    pub fn post(self, svc: &Sync15Service, fully_atomic: bool) -> Result<UploadInfo> {
-        Ok(CollectionUpdate::new_from_changeset(svc, self, fully_atomic)?.upload()?)
+    pub fn post(
+        self,
+        client: &Sync15StorageClient,
+        state: &GlobalState,
+        fully_atomic: bool,
+    ) -> Result<UploadInfo> {
+        Ok(CollectionUpdate::new_from_changeset(client, state, self, fully_atomic)?.upload()?)
     }
 }
 
 impl IncomingChangeset {
     pub fn fetch(
-        svc: &Sync15Service,
+        client: &Sync15StorageClient,
+        state: &GlobalState,
         collection: String,
-        since: ServerTimestamp
+        since: ServerTimestamp,
     ) -> Result<IncomingChangeset> {
-        let records = svc.get_encrypted_records(&collection, since)?;
-        let mut result = IncomingChangeset::new(collection, svc.last_server_time());
+        let records = client.get_encrypted_records(&collection, since)?;
+        let mut result = IncomingChangeset::new(collection, client.last_server_time());
         result.changes.reserve(records.len());
-        let key = svc.key_for_collection(&result.collection)?;
+        let key = state.key_for_collection(&result.collection)?;
         for record in records {
             // TODO: if we see a HMAC error, may need to update crypto/keys?
             let decrypted = record.decrypt(&key)?;
@@ -70,23 +82,27 @@ impl IncomingChangeset {
 }
 
 #[derive(Debug, Clone)]
-pub struct CollectionUpdate<'a> {
-    svc: &'a Sync15Service,
+pub struct CollectionUpdate<'a, 'b> {
+    client: &'a Sync15StorageClient,
+    state: &'b GlobalState,
     collection: String,
     xius: ServerTimestamp,
     to_update: Vec<EncryptedBso>,
     fully_atomic: bool,
 }
 
-impl<'a> CollectionUpdate<'a> {
-
-    pub fn new(svc: &'a Sync15Service,
-               collection: String,
-               xius: ServerTimestamp,
-               records: Vec<EncryptedBso>,
-               fully_atomic: bool) -> CollectionUpdate<'a> {
+impl<'a, 'b> CollectionUpdate<'a, 'b> {
+    pub fn new(
+        client: &'a Sync15StorageClient,
+        state: &'b GlobalState,
+        collection: String,
+        xius: ServerTimestamp,
+        records: Vec<EncryptedBso>,
+        fully_atomic: bool,
+    ) -> CollectionUpdate<'a, 'b> {
         CollectionUpdate {
-            svc,
+            client,
+            state,
             collection,
             xius,
             to_update: records,
@@ -95,28 +111,39 @@ impl<'a> CollectionUpdate<'a> {
     }
 
     pub fn new_from_changeset(
-        svc: &'a Sync15Service,
+        client: &'a Sync15StorageClient,
+        state: &'b GlobalState,
         changeset: OutgoingChangeset,
-        fully_atomic: bool
-    ) -> Result<CollectionUpdate<'a>> {
+        fully_atomic: bool,
+    ) -> Result<CollectionUpdate<'a, 'b>> {
         let collection = changeset.collection.clone();
-        let key_bundle = svc.key_for_collection(&collection)?;
+        let key_bundle = state.key_for_collection(&collection)?;
         let xius = changeset.timestamp;
-        if xius < svc.last_modified_or_zero(&collection) {
+        if xius < state.last_modified_or_zero(&collection) {
             // Not actually interrupted, but we know we'd fail the XIUS check.
             return Err(ErrorKind::BatchInterrupted.into());
         }
         let to_update = changeset.encrypt(&key_bundle)?;
-        Ok(CollectionUpdate::new(svc, collection, xius, to_update, fully_atomic))
+        Ok(CollectionUpdate::new(
+            client,
+            state,
+            collection,
+            xius,
+            to_update,
+            fully_atomic,
+        ))
     }
 
     /// Returns a list of the IDs that failed if allowed_dropped_records is true, otherwise
     /// returns an empty vec.
     pub fn upload(self) -> error::Result<UploadInfo> {
         let mut failed = vec![];
-        let mut q = self.svc.new_post_queue(&self.collection,
-                                            Some(self.xius),
-                                            NormalResponseHandler::new(!self.fully_atomic))?;
+        let mut q = self.client.new_post_queue(
+            &self.collection,
+            &self.state.config,
+            self.xius,
+            NormalResponseHandler::new(!self.fully_atomic),
+        )?;
 
         for record in self.to_update.into_iter() {
             let enqueued = q.enqueue(&record)?;

@@ -297,9 +297,13 @@ impl PasswordEngine {
         Ok(true)
     }
 
-    pub fn sync(&mut self, svc: &sync::Sync15Service) -> Result<(), failure::Error> {
+    pub fn sync(
+        &mut self,
+        client: &sync::Sync15StorageClient,
+        state: &sync::GlobalState,
+    ) -> Result<(), failure::Error> {
         let ts = self.last_sync;
-        sync::synchronize(svc, self, "passwords".into(), ts, true)?;
+        sync::synchronize(client, state, self, "passwords".into(), ts, true)?;
         Ok(())
     }
 
@@ -544,21 +548,17 @@ fn main() -> Result<(), failure::Error> {
     let keys: HashMap<String, ScopedKeyData> = serde_json::from_str(&token.keys.unwrap())?;
     let key = keys.get(SYNC_SCOPE).unwrap();
 
-    let mut svc = sync::Sync15Service::new(
-        sync::Sync15ServiceInit {
-            key_id: key.kid.clone(),
-            sync_key: key.k.clone(),
-            access_token: token.access_token.clone(),
-            tokenserver_base_url: tokenserver_base_url
-        }
-    )?;
-
-    svc.remote_setup()?;
+    let client = sync::Sync15StorageClient::new(sync::Sync15StorageClientInit {
+        key_id: key.kid.clone(),
+        access_token: token.access_token.clone(),
+        tokenserver_base_url,
+    })?;
+    let state = sync::GlobalState::default();
 
     let mut engine = PasswordEngine::load_or_create();
     println!("Performing startup sync");
 
-    if let Err(e) = engine.sync(&svc) {
+    if let Err(e) = engine.sync(&client, &state) {
         println!("Initial sync failed: {}", e);
         if !prompt_bool("Would you like to continue [yN]").unwrap_or(false) {
             return Err(e);
@@ -608,7 +608,7 @@ fn main() -> Result<(), failure::Error> {
             }
             'S' | 's' => {
                 println!("Syncing!");
-                if let Err(e) = engine.sync(&svc) {
+                if let Err(e) = engine.sync(&client, &state) {
                     println!("Sync failed! {}", e);
                 } else {
                     println!("Sync was successful!");

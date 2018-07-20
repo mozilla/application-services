@@ -40,15 +40,17 @@ pub mod token;
 pub mod collection_keys;
 pub mod util;
 pub mod request;
-pub mod service;
 pub mod changeset;
 pub mod sync;
+pub mod client;
+pub mod state;
 
 // Re-export some of the types callers are likely to want for convenience.
 pub use bso_record::{BsoRecord, EncryptedBso, Payload, CleartextBso};
-pub use service::{Sync15ServiceInit, Sync15Service};
 pub use changeset::{RecordChangeset, IncomingChangeset, OutgoingChangeset};
 pub use error::{Result, Error, ErrorKind};
 pub use sync::{synchronize, Store};
 pub use util::{ServerTimestamp, SERVER_EPOCH};
-
+pub use key_bundle::KeyBundle;
+pub use client::{Sync15StorageClientInit, Sync15StorageClient};
+pub use state::GlobalState;

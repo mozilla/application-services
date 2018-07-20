@@ -2,10 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use changeset::{OutgoingChangeset, IncomingChangeset, CollectionUpdate};
-use util::ServerTimestamp;
+use changeset::{CollectionUpdate, IncomingChangeset, OutgoingChangeset};
+use client::Sync15StorageClient;
 use error;
-use service::Sync15Service;
+use state::GlobalState;
+use util::ServerTimestamp;
 
 /// Low-level store functionality. Stores that need custom reconciliation logic should use this.
 ///
@@ -29,7 +30,8 @@ pub trait Store {
     ) -> Result<(), Self::Error>;
 }
 
-pub fn synchronize<E>(svc: &Sync15Service,
+pub fn synchronize<E>(client: &Sync15StorageClient,
+                   state: &GlobalState,
                    store: &mut Store<Error=E>,
                    collection: String,
                    timestamp: ServerTimestamp,
@@ -38,7 +40,7 @@ where E: From<error::Error>
 {
 
     info!("Syncing collection {}", collection);
-    let incoming_changes = IncomingChangeset::fetch(svc, collection.clone(), timestamp)?;
+    let incoming_changes = IncomingChangeset::fetch(client, state, collection.clone(), timestamp)?;
     let last_changed_remote = incoming_changes.timestamp;
 
     info!("Downloaded {} remote changes", incoming_changes.changes.len());
@@ -50,7 +52,8 @@ where E: From<error::Error>
     outgoing.timestamp = last_changed_remote;
 
     info!("Uploading {} outgoing changes", outgoing.changes.len());
-    let upload_info = CollectionUpdate::new_from_changeset(svc, outgoing, fully_atomic)?.upload()?;
+    let upload_info =
+        CollectionUpdate::new_from_changeset(client, state, outgoing, fully_atomic)?.upload()?;
 
     info!("Upload success ({} records success, {} records failed)",
           upload_info.successful_ids.len(),
