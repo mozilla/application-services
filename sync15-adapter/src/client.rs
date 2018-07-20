@@ -9,6 +9,7 @@ use std::time::Duration;
 use hyper::{Method, StatusCode};
 use reqwest::{Client, Request, Response, Url, header::{self, Accept}};
 use serde;
+use serde_json;
 
 use bso_record::{BsoRecord, EncryptedBso};
 use error::{self, ErrorKind};
@@ -25,12 +26,90 @@ pub struct Sync15StorageClientInit {
     pub tokenserver_base_url: String,
 }
 
+pub trait SetupStorageClient {
+    fn fetch_info_configuration(&self) -> error::Result<InfoConfiguration>;
+    fn fetch_info_collections(&self) -> error::Result<HashMap<String, ServerTimestamp>>;
+    fn fetch_meta_global(&self) -> error::Result<BsoRecord<MetaGlobalRecord>>;
+    fn put_meta_global(&self, global: &BsoRecord<MetaGlobalRecord>) -> error::Result<()>;
+    fn fetch_crypto_keys(&self) -> error::Result<EncryptedBso>;
+    fn put_crypto_keys(&self, keys: &EncryptedBso) -> error::Result<()>;
+    fn wipe_all(&self) -> error::Result<()>;
+}
+
 #[derive(Debug)]
 pub struct Sync15StorageClient {
     http_client: Client,
     // We update this when we make requests
     timestamp: Cell<ServerTimestamp>,
     tsc: token::TokenProvider,
+}
+
+impl SetupStorageClient for Sync15StorageClient {
+    fn fetch_info_configuration(&self) -> error::Result<InfoConfiguration> {
+        let server_config = self.fetch_info::<InfoConfiguration>("info/configuration")?;
+        Ok(server_config)
+    }
+
+    fn fetch_info_collections(&self) -> error::Result<HashMap<String, ServerTimestamp>> {
+        let collections = self.fetch_info::<HashMap<String, ServerTimestamp>>("info/collections")?;
+        Ok(collections)
+    }
+
+    fn fetch_meta_global(&self) -> error::Result<BsoRecord<MetaGlobalRecord>> {
+        let mut resp = match self.relative_storage_request(Method::Get, "storage/meta/global") {
+            Ok(r) => r,
+            // This is gross, but at least it works. Replace 404s on meta/global with NoMetaGlobal.
+            Err(e) => {
+                if let ErrorKind::StorageHttpError {
+                    code: StatusCode::NotFound,
+                    ..
+                } = e.kind()
+                {
+                    return Err(ErrorKind::NoMetaGlobal.into());
+                }
+                return Err(e);
+            }
+        };
+        // Note: meta/global is not encrypted!
+        let meta_global: BsoRecord<MetaGlobalRecord> = resp.json()?;
+        info!("Meta global: {:?}", meta_global.payload);
+        Ok(meta_global)
+    }
+
+    fn put_meta_global(&self, global: &BsoRecord<MetaGlobalRecord>) -> error::Result<()> {
+        self.put("storage/meta/global", None, global)
+    }
+
+    fn fetch_crypto_keys(&self) -> error::Result<EncryptedBso> {
+        let mut keys_resp = self.relative_storage_request(Method::Get, "storage/crypto/keys")?;
+        let keys: EncryptedBso = keys_resp.json()?;
+        Ok(keys)
+    }
+
+    fn put_crypto_keys(&self, keys: &EncryptedBso) -> error::Result<()> {
+        self.put("storage/crypto/keys", None, keys)
+    }
+
+    fn wipe_all(&self) -> error::Result<()> {
+        let s = self.tsc.api_endpoint(&self.http_client)?;
+        let url = Url::parse(&s)?;
+
+        let req = self.build_request(Method::Delete, url)?;
+        match self.exec_request(req, true) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                if let ErrorKind::StorageHttpError {
+                    code: StatusCode::NotFound,
+                    ..
+                } = e.kind()
+                {
+                    Ok(())
+                } else {
+                    Err(e)
+                }
+            }
+        }
+    }
 }
 
 impl Sync15StorageClient {
@@ -52,43 +131,6 @@ impl Sync15StorageClient {
     #[inline]
     pub fn last_server_time(&self) -> ServerTimestamp {
         return self.timestamp.get();
-    }
-
-    pub fn fetch_info_configuration(&self) -> error::Result<InfoConfiguration> {
-        let server_config = self.fetch_info::<InfoConfiguration>("info/configuration")?;
-        Ok(server_config)
-    }
-
-    pub fn fetch_info_collections(&self) -> error::Result<HashMap<String, ServerTimestamp>> {
-        let collections = self.fetch_info::<HashMap<String, ServerTimestamp>>("info/collections")?;
-        Ok(collections)
-    }
-
-    pub fn fetch_meta_global(&self) -> error::Result<BsoRecord<MetaGlobalRecord>> {
-        let mut resp = match self.relative_storage_request(Method::Get, "storage/meta/global") {
-            Ok(r) => r,
-            // This is gross, but at least it works. Replace 404s on meta/global with NoMetaGlobal.
-            Err(e) => {
-                if let ErrorKind::StorageHttpError {
-                    code: StatusCode::NotFound,
-                    ..
-                } = e.kind()
-                {
-                    return Err(ErrorKind::NoMetaGlobal.into());
-                }
-                return Err(e);
-            }
-        };
-        // Note: meta/global is not encrypted!
-        let meta_global: BsoRecord<MetaGlobalRecord> = resp.json()?;
-        info!("Meta global: {:?}", meta_global.payload);
-        Ok(meta_global)
-    }
-
-    pub fn fetch_crypto_keys(&self) -> error::Result<EncryptedBso> {
-        let mut keys_resp = self.relative_storage_request(Method::Get, "storage/crypto/keys")?;
-        let keys: EncryptedBso = keys_resp.json()?;
-        Ok(keys)
     }
 
     pub fn get_encrypted_records(
@@ -200,6 +242,32 @@ impl Sync15StorageClient {
             coll: coll.into(),
         };
         Ok(PostQueue::new(config, ts, pw, on_response))
+    }
+
+    fn put<P, B>(
+        &self,
+        relative_path: P,
+        xius: Option<ServerTimestamp>,
+        body: &B,
+    ) -> error::Result<()>
+    where
+        P: AsRef<str>,
+        B: serde::ser::Serialize,
+    {
+        let s = self.tsc.api_endpoint(&self.http_client)? + "/";
+        let url = Url::parse(&s)?.join(relative_path.as_ref())?;
+
+        let bytes = serde_json::to_vec(body)?;
+
+        let mut req = self.build_request(Method::Put, url)?;
+        req.headers_mut().set(header::ContentType::json());
+        if let Some(ts) = xius {
+            req.headers_mut().set(XIfUnmodifiedSince(ts));
+        }
+        *req.body_mut() = Some(bytes.into());
+        let _ = self.exec_request(req, true)?;
+
+        Ok(())
     }
 }
 

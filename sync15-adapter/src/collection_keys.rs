@@ -7,17 +7,32 @@ use key_bundle::KeyBundle;
 use std::collections::HashMap;
 use error::Result;
 use record_types::CryptoKeysRecord;
+use util::ServerTimestamp;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CollectionKeys {
+    pub timestamp: ServerTimestamp,
     pub default: KeyBundle,
-    pub collections: HashMap<String, KeyBundle>
+    pub collections: HashMap<String, KeyBundle>,
 }
 
 impl CollectionKeys {
-    pub fn from_encrypted_bso(record: EncryptedBso, root_key: &KeyBundle) -> Result<CollectionKeys> {
+    pub fn new_random() -> Result<CollectionKeys> {
+        let default = KeyBundle::new_random()?;
+        Ok(CollectionKeys {
+            timestamp: 0.0.into(),
+            default,
+            collections: HashMap::new(),
+        })
+    }
+
+    pub fn from_encrypted_bso(
+        record: EncryptedBso,
+        root_key: &KeyBundle,
+    ) -> Result<CollectionKeys> {
         let keys = record.decrypt_as::<CryptoKeysRecord>(root_key)?;
         Ok(CollectionKeys {
+            timestamp: keys.modified,
             default: KeyBundle::from_base64(&keys.payload.default[0], &keys.payload.default[1])?,
             collections:
                 keys.payload.collections

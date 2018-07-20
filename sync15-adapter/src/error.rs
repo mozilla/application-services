@@ -108,6 +108,15 @@ pub enum ErrorKind {
     #[fail(display = "Error reported by storage: {}", _0)]
     StoreError(#[fail(cause)] failure::Error),
 
+    #[fail(display = "Setup state machine cycle detected")]
+    SetupStateCycleError,
+
+    #[fail(display = "Client upgrade required; server storage version too new")]
+    ClientUpgradeRequired,
+
+    #[fail(display = "Unexpected state in setup state machine")]
+    UnexpectedSetupState,
+
     // Basically reimplement error_chain's foreign_links. (Ugh, this sucks)
 
     #[fail(display = "OpenSSL error: {}", _0)]

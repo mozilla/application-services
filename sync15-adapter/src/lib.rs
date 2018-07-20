@@ -53,4 +53,4 @@ pub use sync::{synchronize, Store};
 pub use util::{ServerTimestamp, SERVER_EPOCH};
 pub use key_bundle::KeyBundle;
 pub use client::{Sync15StorageClientInit, Sync15StorageClient};
-pub use state::GlobalState;
+pub use state::{GlobalState, SetupStateMachine};

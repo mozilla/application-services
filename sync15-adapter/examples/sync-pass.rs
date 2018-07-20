@@ -553,7 +553,17 @@ fn main() -> Result<(), failure::Error> {
         access_token: token.access_token.clone(),
         tokenserver_base_url,
     })?;
-    let state = sync::GlobalState::default();
+    let mut state = sync::GlobalState::default();
+
+    let root_sync_key = sync::KeyBundle::from_ksync_base64(&key.k)?;
+    {
+        let mut state_machine = sync::SetupStateMachine::new(&client, &mut state, &root_sync_key);
+        state_machine.to_ready()?;
+        let engines_that_need_reset = state_machine.engines_that_need_reset();
+        if engines_that_need_reset.contains("passwords") {
+            println!("Passwords sync ID changed; engine needs reset");
+        }
+    }
 
     let mut engine = PasswordEngine::load_or_create();
     println!("Performing startup sync");
