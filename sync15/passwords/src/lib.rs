@@ -27,6 +27,7 @@ pub use engine::{
 pub mod errors;
 pub use errors::{
     Sync15PasswordsError,
+    Sync15PasswordsErrorKind,
     Result,
 };
 

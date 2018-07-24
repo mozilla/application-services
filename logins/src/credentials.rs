@@ -141,7 +141,10 @@ pub fn get_credential<Q>(queryable: &Q, id: CredentialId) -> Result<Option<Crede
     let scalar = queryable.q_once(q, inputs)?.into_scalar()?;
     let credential = match scalar {
         Some(Binding::Map(cm)) => Ok(Credential::from_structured_map(cm.as_ref())),
-        Some(_) => bail!(Error::BadQueryResultType),
+        Some(other) => {
+            error!("Unexpected query result: {:?}", other);
+            bail!(Error::BadQueryResultType);
+        },
         None => Ok(None),
     };
 
@@ -168,7 +171,10 @@ where Q: Queryable {
         .map(|id| {
             match id {
                 Binding::Scalar(TypedValue::String(id)) => Ok(CredentialId((*id).clone())),
-                _ => bail!(Error::BadQueryResultType),
+                other => {
+                    error!("Unexpected query result: {:?}", other);
+                    bail!(Error::BadQueryResultType);
+                },
             }
         })
         .collect();
@@ -247,11 +253,17 @@ where I: IntoIterator<Item=CredentialId> {
                         (3, Some(&Binding::Scalar(TypedValue::Ref(e))), Some(&Binding::Scalar(TypedValue::Ref(a))), Some(&Binding::Scalar(ref v))) => {
                             builder.retract(e, a, v.clone())?; // TODO: don't clone.
                         }
-                        _ => bail!(Error::BadQueryResultType),
+                        other => {
+                            error!("Unexpected query result: {:?}", other);
+                            bail!(Error::BadQueryResultType);
+                        },
                     }
                 }
             },
-            _ => bail!(Error::BadQueryResultType),
+            other => {
+                error!("Unexpected query result: {:?}", other);
+                bail!(Error::BadQueryResultType);
+            },
         }
     }
 
@@ -280,7 +292,10 @@ where Q: Queryable
         Some(x) => {
             match x.into_string() {
                 Some(x) => CredentialId((*x).clone()),
-                None => bail!(Error::BadQueryResultType),
+                None => {
+                    error!("Unexpected query result! find_credential_by_content returned None");
+                    bail!(Error::BadQueryResultType);
+                }
             }
         }
         None => return Ok(None),
@@ -322,7 +337,10 @@ where Q: Queryable
     let local_times_used = match queryable.q_once(q, values)?.into_scalar()? {
         Some(Binding::Scalar(TypedValue::Long(times_used))) => Some(times_used), // TODO: work out overflow for u64.
         None => None,
-        _ => bail!(Error::BadQueryResultType),
+        Some(other) => {
+            error!("Unexpected result from times_used query! {:?}", other);
+            bail!(Error::BadQueryResultType);
+        },
     };
 
     Ok(local_times_used)
@@ -353,7 +371,10 @@ where Q: Queryable
     let local_time_last_used = match queryable.q_once(q, values)?.into_scalar()? {
         Some(Binding::Scalar(TypedValue::Instant(time_last_used))) => Some(time_last_used),
         None => None,
-        _ => bail!(Error::BadQueryResultType),
+        Some(other) => {
+            error!("Unexpected query result! {:?}", other);
+            bail!(Error::BadQueryResultType);
+        }
     };
 
     Ok(local_time_last_used)
@@ -384,7 +405,10 @@ where Q: Queryable
             Ok(Some(last_modified))
         },
         None => Ok(None),
-        _ => bail!(Error::BadQueryResultType),
+        Some(other) => {
+            error!("Unexpected query result: {:?}", other);
+            bail!(Error::BadQueryResultType);
+        }
     }
 }
 

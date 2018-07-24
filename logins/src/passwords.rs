@@ -118,7 +118,10 @@ where Q: Queryable {
 
     let server_password = match queryable.q_once(q, inputs)?.into_tuple()? {
         Some((Binding::Map(cm), Binding::Map(fm))) => {
-            let credential = Credential::from_structured_map(cm.as_ref()).ok_or_else(|| Error::BadQueryResultType)?;
+            let credential = Credential::from_structured_map(cm.as_ref()).ok_or_else(|| {
+                error!("Credential::from_structured_map failed!");
+                Error::BadQueryResultType
+            })?;
 
             // TODO: improve error handling and messaging throughout.
             let hostname = fm.0.get(&*FORM_HOSTNAME).and_then(|x| x.as_string()).map(|x| (**x).clone()).unwrap();
@@ -131,11 +134,18 @@ where Q: Queryable {
             // TODO: produce a more informative error in this situation.
             let target = match (form_submit_url, http_realm) {
                 // Logins with both a formSubmitURL and httpRealm are not valid.
-                (Some(_), Some(_)) => bail!(Error::BadQueryResultType),
-                (Some(form_submit_url), _) => FormTarget::FormSubmitURL(form_submit_url),
-                (_, Some(http_realm)) => FormTarget::HttpRealm(http_realm),
+                (Some(a), Some(b)) => {
+                    error!("Unexpected query result (login has both formSubmitURL and httpRealm): {:?}",
+                           (a, b));
+                    bail!(Error::BadQueryResultType);
+                }
+                (Some(form_submit_url), None) => FormTarget::FormSubmitURL(form_submit_url),
+                (None, Some(http_realm)) => FormTarget::HttpRealm(http_realm),
                 // Login must have at least a formSubmitURL or httpRealm.
-                _ => bail!(Error::BadQueryResultType),
+                (None, None) => {
+                    error!("Unexpected query result! (no formSubmitURL and no httpRealm!)");
+                    bail!(Error::BadQueryResultType);
+                }
             };
 
             Ok(Some(ServerPassword {
@@ -154,7 +164,10 @@ where Q: Queryable {
             }))
         },
         None => Ok(None),
-        _ => bail!(Error::BadQueryResultType),
+        other => {
+            error!("Unexpected query result! {:?}", other);
+            bail!(Error::BadQueryResultType)
+        }
     };
 
     server_password
@@ -180,7 +193,10 @@ where Q: Queryable {
         .map(|uuid| {
             match uuid {
                 Binding::Scalar(TypedValue::String(uuid)) => Ok(SyncGuid((*uuid).clone())),
-                _ => bail!(Error::BadQueryResultType),
+                other => {
+                    error!("Unexpected query result! {:?}", other);
+                    bail!(Error::BadQueryResultType);
+                }
             }
         })
         .collect();
@@ -220,7 +236,10 @@ where Q: Queryable
     let new_ids: Result<Vec<_>> = vs.into_iter()
         .map(|id| match id {
             Binding::Scalar(TypedValue::String(id)) => Ok(CredentialId((*id).clone())),
-            _ => bail!(Error::BadQueryResultType),
+            other => {
+                error!("Unexpected query result! {:?}", other);
+                bail!(Error::BadQueryResultType);
+            }
         })
         .collect();
     new_ids
@@ -249,7 +268,10 @@ where Q: Queryable
     let deleted_uuids: Result<Vec<_>> = vs.into_iter()
         .map(|id| match id {
             Binding::Scalar(TypedValue::String(id)) => Ok(SyncGuid((*id).clone())),
-            _ => bail!(Error::BadQueryResultType),
+            other => {
+                error!("Unexpected query result! {:?}", other);
+                bail!(Error::BadQueryResultType);
+            }
         })
         .collect();
     deleted_uuids
@@ -306,11 +328,17 @@ pub fn delete_by_sync_uuids(in_progress: &mut InProgress, uuids: Vec<SyncGuid>) 
                         (3, Some(&Binding::Scalar(TypedValue::Ref(e))), Some(&Binding::Scalar(TypedValue::Ref(a))), Some(&Binding::Scalar(ref v))) => {
                             builder.retract(e, a, v.clone())?; // TODO: don't clone.
                         }
-                        _ => bail!(Error::BadQueryResultType),
+                        other => {
+                            error!("Unexpected query result! {:?}", other);
+                            bail!(Error::BadQueryResultType);
+                        }
                     }
                 }
             },
-            _ => bail!(Error::BadQueryResultType),
+            other => {
+                error!("Unexpected query result! {:?}", other);
+                bail!(Error::BadQueryResultType)
+            }
         }
     }
 
@@ -355,7 +383,10 @@ where Q: Queryable
         .map(|uuid| {
             match uuid {
                 Binding::Scalar(TypedValue::String(uuid)) => Ok(SyncGuid((*uuid).clone())),
-                _ => bail!(Error::BadQueryResultType),
+                other => {
+                    error!("Unexpected query result! {:?}", other);
+                    bail!(Error::BadQueryResultType);
+                }
             }
         })
         .collect();
@@ -394,7 +425,10 @@ pub fn mark_synced_by_sync_uuids(in_progress: &mut InProgress, uuids: Vec<SyncGu
                 builder.add(e, SYNC_PASSWORD_MATERIAL_TX.clone(), tx.clone())?;
                 builder.add(e, SYNC_PASSWORD_METADATA_TX.clone(), tx.clone())?;
             },
-            _ => bail!(Error::BadQueryResultType),
+            other => {
+                error!("Unexpected query result! {:?}", other);
+                bail!(Error::BadQueryResultType)
+            }
         }
     }
 
@@ -417,7 +451,10 @@ where Q: Queryable
 
     match queryable.q_once(q, None)?.into_scalar()? {
         Some(Binding::Scalar(TypedValue::Double(t))) => Ok(Some(t.0)),
-        Some(_) => bail!(Error::BadQueryResultType),
+        Some(other) => {
+            error!("Unexpected query result! {:?}", other);
+            bail!(Error::BadQueryResultType);
+        }
         None => Ok(None),
     }
 }
@@ -465,11 +502,17 @@ pub fn reset_client(in_progress: &mut InProgress) -> Result<TxReport> {
                         builder.add(e, SYNC_PASSWORD_MATERIAL_TX.clone(), tx.clone())?;
                         builder.add(e, SYNC_PASSWORD_METADATA_TX.clone(), tx.clone())?;
                     },
-                    _ => bail!(Error::BadQueryResultType),
+                    other => {
+                        error!("Unexpected query result! {:?}", other);
+                        bail!(Error::BadQueryResultType)
+                    }
                 }
             }
         },
-        _ => bail!(Error::BadQueryResultType),
+        other => {
+            error!("Unexpected query result! {:?}", other);
+            bail!(Error::BadQueryResultType)
+        }
     }
 
     // TODO: it would be nice to have https://github.com/mozilla/mentat/issues/631 here.
@@ -502,7 +545,10 @@ where Q: Queryable
         Some(x) => {
             match x.into_string() {
                 Some(x) => Ok(Some(CredentialId((*x).clone()))),
-                None => bail!(Error::BadQueryResultType),
+                None => {
+                    error!("Unexpected query result! (find_credential_id_by_sync_password_uuid returned None!)");
+                    bail!(Error::BadQueryResultType);
+                }
             }
         }
         None => Ok(None),
@@ -528,7 +574,10 @@ where Q: Queryable
 
         match result {
             Some(Binding::Scalar(TypedValue::Instant(t))) => t,
-            Some(_) => bail!(Error::BadQueryResultType),
+            Some(other) => {
+                error!("Unexpected query result! {:?}", other);
+                bail!(Error::BadQueryResultType)
+            }
             None => return Ok(None),
         }
     };
@@ -565,7 +614,10 @@ where Q: Queryable
 
         match result {
             Some(Binding::Scalar(TypedValue::Instant(t))) => Some(t),
-            Some(_) => bail!(Error::BadQueryResultType),
+            Some(other) => {
+                error!("Unexpected query result! {:?}", other);
+                bail!(Error::BadQueryResultType)
+            }
             None => None,
         }
     };
@@ -607,7 +659,10 @@ where Q: Queryable
                 Ok(Some((times_used, tx)))
             },
             None => Ok(None),
-            _ => bail!(Error::BadQueryResultType),
+            other => {
+                error!("Unexpected query result! {:?}", other);
+                bail!(Error::BadQueryResultType)
+            }
         };
 
         sync_mirror?
@@ -654,7 +709,10 @@ where Q: Queryable
             }
         },
         None => Ok(0),
-        _ => bail!(Error::BadQueryResultType),
+        other => {
+            error!("Unexpected query result! {:?}", other);
+            bail!(Error::BadQueryResultType)
+        }
     };
     let local_times_used = local_times_used?;
 
@@ -695,7 +753,10 @@ fn time_last_used<Q>(queryable: &Q, uuid: SyncGuid) -> Result<DateTime<Utc>>
             Some((Binding::Scalar(TypedValue::Instant(time_last_used)), Binding::Scalar(TypedValue::Ref(tx)))) =>
                 Ok(Some((time_last_used, tx))),
             None => Ok(None),
-            _ => bail!(Error::BadQueryResultType),
+            other => {
+                error!("Unexpected query result! {:?}", other);
+                bail!(Error::BadQueryResultType)
+            }
         };
 
         sync_mirror?
@@ -736,7 +797,10 @@ fn time_last_used<Q>(queryable: &Q, uuid: SyncGuid) -> Result<DateTime<Utc>>
     let local_time_last_used: Result<_> = match queryable.q_once(q, inputs)?.into_scalar()? {
         Some(Binding::Scalar(TypedValue::Instant(time_last_used))) => Ok(Some(time_last_used)),
         None => Ok(None),
-            _ => bail!(Error::BadQueryResultType),
+        other => {
+            error!("Unexpected query result! {:?}", other);
+            bail!(Error::BadQueryResultType)
+        }
     };
 
     let local_time_last_used = local_time_last_used?.unwrap_or_else(|| Utc.timestamp(0, 0));
@@ -773,7 +837,10 @@ fn time_password_changed<Q>(queryable: &Q, uuid: SyncGuid) -> Result<Option<Date
 
         let remote_time_password_changed = match remote_time_password_changed {
             Some(Binding::Scalar(TypedValue::Instant(time_password_changed))) => time_password_changed,
-            Some(_) => bail!(Error::BadQueryResultType),
+            Some(other) => {
+                error!("Unexpected query result! {:?}", other);
+                bail!(Error::BadQueryResultType)
+            }
             None => return Ok(None),
         };
 
@@ -813,7 +880,10 @@ fn time_password_changed<Q>(queryable: &Q, uuid: SyncGuid) -> Result<Option<Date
                       password_tx_instant.clone()))
             },
             None => None,
-            _ => bail!(Error::BadQueryResultType),
+            other => {
+                error!("Unexpected query result! {:?}", other);
+                bail!(Error::BadQueryResultType)
+            }
         }
     };
 
@@ -925,7 +995,10 @@ fn merge_into_credential(
 
     let local_modified = match credentials::time_last_modified(in_progress, id.clone())? {
         Some(x) => x,
-        None => bail!(Error::BadQueryResultType),
+        None => {
+            error!("Unexpected query result: merge_into_credential returned None");
+            bail!(Error::BadQueryResultType);
+        }
     };
 
     debug!("merge_into_credential({}): remote modified {}, local modified {}",

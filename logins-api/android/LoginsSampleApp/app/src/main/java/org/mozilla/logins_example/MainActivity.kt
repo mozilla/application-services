@@ -122,6 +122,19 @@ class MainActivity : AppCompatActivity() {
         val o = Parser().parse(stringBuilder) as JsonObject
         val info = o.obj("https://identity.mozilla.com/apps/oldsync")!!
         val appFiles = this.applicationContext.getExternalFilesDir(null)
+        try {
+            val file = File(appFiles.absolutePath + "/logins.mentatdb");
+            if (file.exists()) {
+                if (!file.delete()) {
+                    Log.w("logins", "Failed to delete mentat db");
+                } else {
+                    Log.w("logins", "deleted mentat db");
+                }
+            }
+        } catch(e: Exception) {
+            e.printStackTrace();
+        }
+
         return LoginsStore.create(
                 databasePath   = appFiles.absolutePath + "/logins.mentatdb",
                 databaseKey    = "my_secret_key",

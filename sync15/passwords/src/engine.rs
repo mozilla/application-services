@@ -43,12 +43,12 @@ use errors::{
 pub struct PasswordEngine {
     pub last_server_timestamp: ServerTimestamp,
     pub current_tx_id: Option<mentat::Entid>,
-    pub store: mentat::Store,
+    pub store: mentat::store::Store,
 }
 
 impl PasswordEngine {
 
-    pub fn new(mut store: mentat::Store) -> Result<PasswordEngine> {
+    pub fn new(mut store: mentat::store::Store) -> Result<PasswordEngine> {
         let last_server_timestamp: ServerTimestamp = { // Scope borrow of `store`.
             let mut in_progress = store.begin_transaction()?;
 
@@ -130,14 +130,14 @@ impl PasswordEngine {
         let in_progress_read = self.store.begin_read()?;
 
         let deleted = passwords::get_deleted_sync_password_uuids_to_upload(&in_progress_read)?;
-        println!("{} deleted records to upload: {:?}", deleted.len(), deleted);
+        debug!("{} deleted records to upload: {:?}", deleted.len(), deleted);
 
         for r in deleted {
             result.push(Payload::new_tombstone(r.0))
         }
 
         let modified = passwords::get_modified_sync_passwords_to_upload(&in_progress_read)?;
-        println!("{} modified records to upload: {:?}", modified.len(), modified.iter().map(|r| &r.uuid.0).collect::<Vec<_>>());
+        debug!("{} modified records to upload: {:?}", modified.len(), modified.iter().map(|r| &r.uuid.0).collect::<Vec<_>>());
 
         for r in modified {
             result.push(Payload::from_record(r)?);
@@ -154,13 +154,13 @@ impl sync::Store for PasswordEngine {
         &mut self,
         inbound: sync::IncomingChangeset
     ) -> Result<OutgoingChangeset> {
-        println!("Remote collection has {} changes timestamped at {}",
+        debug!("Remote collection has {} changes timestamped at {}",
                inbound.changes.len(), inbound.timestamp);
 
         { // Scope borrow of inbound.changes.
             let (to_delete, to_apply): (Vec<_>, Vec<_>) = inbound.changes.iter().partition(|(payload, _)| payload.is_tombstone());
-            println!("{} records to delete: {:?}", to_delete.len(), to_delete);
-            println!("{} records to apply: {:?}", to_apply.len(), to_apply);
+            debug!("{} records to delete: {:?}", to_delete.len(), to_delete);
+            debug!("{} records to apply: {:?}", to_apply.len(), to_apply);
         }
 
         self.current_tx_id = { // Scope borrow of self.
@@ -170,7 +170,7 @@ impl sync::Store for PasswordEngine {
                 if payload.is_tombstone() {
                     passwords::delete_by_sync_uuid(&mut in_progress, payload.id().into())?;
                 } else {
-                    println!("Applying: {:?}", payload);
+                    debug!("Applying: {:?}", payload);
 
                     let mut server_password: ServerPassword = payload.clone().into_record()?;
                     server_password.modified = DateTime::<Utc>::from_millis(server_timestamp.as_millis() as i64);
@@ -193,16 +193,16 @@ impl sync::Store for PasswordEngine {
             collection: "passwords".into()
         };
 
-        println!("After applying incoming changes, local collection has {} outgoing changes timestamped at {}",
+        debug!("After applying incoming changes, local collection has {} outgoing changes timestamped at {}",
                outbound.changes.len(), outbound.timestamp);
 
         Ok(outbound)
     }
 
     fn sync_finished(&mut self, new_last_server_timestamp: ServerTimestamp, records_synced: &[String]) -> Result<()> {
-        println!("Synced {} outbound changes at remote timestamp {}", records_synced.len(), new_last_server_timestamp);
+        debug!("Synced {} outbound changes at remote timestamp {}", records_synced.len(), new_last_server_timestamp);
         for id in records_synced {
-            println!("  {:?}", id);
+            trace!("  {:?}", id);
         }
 
         let current_tx_id = self.current_tx_id.unwrap(); // XXX

@@ -38,7 +38,8 @@ class LoginActivity : AppCompatActivity() {
         var fxa: FirefoxAccount? = null;
         Config.custom(contentBase).then({ value: Config ->
             fxa = FirefoxAccount(value, clientId, redirectUri)
-            var scopes = arrayOf("profile",
+            var scopes = arrayOf(
+                    "profile",
                     "https://identity.mozilla.com/apps/oldsync",
                     "https://identity.mozilla.com/apps/lockbox"
             );
@@ -49,10 +50,10 @@ class LoginActivity : AppCompatActivity() {
             throw err;
         }).whenComplete { flowUrl: String ->
             // XXX Hack: FxA prod doesn't accept + in urls but fxa-client leaves them in for now...
-            val fixedUrl = flowUrl.replace("+", "%20");
-            Log.d("Logins", "Flow URL: " + fixedUrl)
+//            val fixedUrl = flowUrl.replace("+", "%20");
+            Log.d("Logins", "Flow URL: " + flowUrl)
             runOnUiThread {
-                showWebView(fixedUrl, fxa!!)
+                showWebView(flowUrl, fxa!!)
             }
         }
     }

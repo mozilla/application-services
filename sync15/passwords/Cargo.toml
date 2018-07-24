@@ -23,8 +23,10 @@ prettytable-rs = "0.6"
 path = "../../sync15-adapter"
 
 [dependencies.mentat]
-git = "https://github.com/mozilla/mentat"
-tag = "v0.8.1"
+git = "https://github.com/thomcc/mentat"
+branch = "failure-keep-backtraces"
+# git = "https://github.com/mozilla/mentat"
+# tag = "v0.8.1"
 features = ["sqlcipher"]
 default_features = false
 

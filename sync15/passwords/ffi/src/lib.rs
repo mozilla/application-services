@@ -91,6 +91,8 @@ impl log::Log for DevLogger {
 static DEV_LOGGER: &'static log::Log = &DevLogger;
 fn init_logger() {
     log::set_logger(DEV_LOGGER).unwrap();
+    log::set_max_level(log::LevelFilter::Trace);
+    std::env::set_var("RUST_BACKTRACE", "1");
     info!("Hooked up rust logger!");
 }
 
