@@ -301,6 +301,7 @@ impl FirefoxAccount {
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         let mut url = self.state.config.authorization_endpoint()?;
         url.query_pairs_mut()
+            .append_pair("action", "email")
             .append_pair("client_id", &self.state.client_id)
             .append_pair("redirect_uri", &self.state.redirect_uri)
             .append_pair("scope", &scopes.join(" "))
