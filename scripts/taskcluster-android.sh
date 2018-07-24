@@ -56,6 +56,6 @@ do
   cp -r libs/android/$target/*/lib/*.so fxa-client-deps/$target
 done
 
-# Because Android needs the lib to be in a armeabi dir.
-mv fxa-client/arm fxa-client/armeabi
-mv fxa-client-deps/arm fxa-client-deps/armeabi
+# Because Android needs the lib to be in a armeabi-v7a dir.
+mv fxa-client/arm fxa-client/armeabi-v7a
+mv fxa-client-deps/arm fxa-client-deps/armeabi-v7a
