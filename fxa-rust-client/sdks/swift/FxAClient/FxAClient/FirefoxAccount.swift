@@ -8,7 +8,7 @@ import UIKit
 // We use a serial queue to protect access to the rust object.
 let queue = DispatchQueue(label: "com.fxaclient")
 
-public class FxAConfig: MovableRustOpaquePointer {
+open class FxAConfig: MovableRustOpaquePointer {
     /// Convenience method over `custom(...)` which provides an `FxAConfig` that
     /// points to the production FxA servers.
     open class func release(completionHandler: @escaping (FxAConfig?, Error?) -> Void) {
@@ -52,7 +52,7 @@ public protocol PersistCallback {
     func persist(json: String)
 }
 
-public class FirefoxAccount: RustOpaquePointer {
+open class FirefoxAccount: RustOpaquePointer {
     fileprivate static var persistCallback: PersistCallback?
 
     #if BROWSERID_FEATURES
@@ -100,7 +100,7 @@ public class FirefoxAccount: RustOpaquePointer {
 
     /// Serializes the state of a `FirefoxAccount` instance. It can be restored later with `fromJSON(...)`.
     /// It is the responsability of the caller to persist that serialized state regularly (after operations that mutate `FirefoxAccount`) in a **secure** location.
-    public func toJSON() throws -> String {
+    open func toJSON() throws -> String {
         return try queue.sync(execute: {
             return String(freeingFxaString: try FxAError.unwrap({err in
                 fxa_to_json(self.raw, err)
@@ -130,7 +130,7 @@ public class FirefoxAccount: RustOpaquePointer {
     /// Throws FxAError.Unauthorized we couldn't find any suitable access token
     /// to make that call. The caller should then start the OAuth Flow again with
     /// the "profile" scope.
-    public func getProfile(completionHandler: @escaping (Profile?, Error?) -> Void) {
+    open func getProfile(completionHandler: @escaping (Profile?, Error?) -> Void) {
         queue.async {
             do {
                 let profile = Profile(raw: try FxAError.unwrap({err in
@@ -153,7 +153,7 @@ public class FirefoxAccount: RustOpaquePointer {
     }
     #endif
 
-    public func getTokenServerEndpointURL() throws -> URL {
+    open func getTokenServerEndpointURL() throws -> URL {
         return try queue.sync(execute: {
             return URL(string: String(freeingFxaString: try FxAError.unwrap({err in
                 fxa_get_token_server_endpoint_url(self.raw, err)
@@ -170,7 +170,7 @@ public class FirefoxAccount: RustOpaquePointer {
     /// `completeOAuthFlow(...)` to complete the flow.
     ///
     /// It is possible also to request keys (e.g. sync keys) during that flow by setting `wants_keys` to true.
-    public func beginOAuthFlow(scopes: [String], wantsKeys: Bool, completionHandler: @escaping (URL?, Error?) -> Void) {
+    open func beginOAuthFlow(scopes: [String], wantsKeys: Bool, completionHandler: @escaping (URL?, Error?) -> Void) {
         queue.async {
             do {
                 let scope = scopes.joined(separator: " ")
@@ -188,7 +188,7 @@ public class FirefoxAccount: RustOpaquePointer {
     ///
     /// This resulting token might not have all the `scopes` the caller have requested (e.g. the user
     /// might have denied some of them): it is the responsibility of the caller to accomodate that.
-    public func completeOAuthFlow(code: String, state: String, completionHandler: @escaping (OAuthInfo?, Error?) -> Void) {
+    open func completeOAuthFlow(code: String, state: String, completionHandler: @escaping (OAuthInfo?, Error?) -> Void) {
         queue.async {
             do {
                 let oauthInfo = OAuthInfo(raw: try FxAError.unwrap({err in
@@ -209,7 +209,7 @@ public class FirefoxAccount: RustOpaquePointer {
     /// If the system can't find a suitable token but has a `session_token`, it will generate a new one on the go.
     ///
     /// If not, the caller must start an OAuth flow with `beginOAuthFlow(...)`.
-    public func getOAuthToken(scopes: [String], completionHandler: @escaping (OAuthInfo?, Error?) -> Void) {
+    open func getOAuthToken(scopes: [String], completionHandler: @escaping (OAuthInfo?, Error?) -> Void) {
         queue.async {
             do {
                 let scope = scopes.joined(separator: " ")
@@ -252,20 +252,20 @@ private func persistCallbackFunction(json: UnsafePointer<CChar>) {
     }
 }
 
-public class OAuthInfo: RustStructPointer<OAuthInfoC> {
+open class OAuthInfo: RustStructPointer<OAuthInfoC> {
     public var scopes: [String] {
         get {
             return String(cString: raw.pointee.scope).components(separatedBy: " ")
         }
     }
 
-    public var accessToken: String {
+    open var accessToken: String {
         get {
             return String(cString: raw.pointee.access_token)
         }
     }
 
-    public var keys: String? {
+    open var keys: String? {
         get {
             guard let pointer = raw.pointee.keys else {
                 return nil
@@ -281,26 +281,26 @@ public class OAuthInfo: RustStructPointer<OAuthInfoC> {
     }
 }
 
-public class Profile: RustStructPointer<ProfileC> {
-    public var uid: String {
+open class Profile: RustStructPointer<ProfileC> {
+    open var uid: String {
         get {
             return String(cString: raw.pointee.uid)
         }
     }
 
-    public var email: String {
+    open var email: String {
         get {
             return String(cString: raw.pointee.email)
         }
     }
 
-    public var avatar: String {
+    open var avatar: String {
         get {
             return String(cString: raw.pointee.avatar)
         }
     }
 
-    public var displayName: String? {
+    open var displayName: String? {
         get {
             guard let pointer = raw.pointee.display_name else {
                 return nil
@@ -316,14 +316,14 @@ public class Profile: RustStructPointer<ProfileC> {
     }
 }
 
-public class SyncKeys: RustStructPointer<SyncKeysC> {
-    public var syncKey: String {
+open class SyncKeys: RustStructPointer<SyncKeysC> {
+    open var syncKey: String {
         get {
             return String(cString: raw.pointee.sync_key)
         }
     }
 
-    public var xcs: String {
+    open var xcs: String {
         get {
             return String(cString: raw.pointee.xcs)
         }

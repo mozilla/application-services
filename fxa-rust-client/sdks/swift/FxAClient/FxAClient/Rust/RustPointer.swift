@@ -20,7 +20,7 @@ public typealias MovableRustOpaquePointer = MovableRustPointer<OpaquePointer>
  that inherit from it will have their pointer destroyed when the Swift wrapper is destroyed.
  If a class does not override `cleanup` then a `fatalError` is thrown.
  */
-public class RustPointer<T>: Destroyable {
+open class RustPointer<T>: Destroyable {
     var raw: T
 
     init(raw: T) {
@@ -48,7 +48,7 @@ public class RustPointer<T>: Destroyable {
  The optional pointer is managed here such that is the pointer is nil, then the cleanup function is not called
  ensuring that we do not double free the pointer on exit.
  */
-public class MovableRustPointer<T>: Destroyable {
+open class MovableRustPointer<T>: Destroyable {
     var raw: T?
 
     init(raw: T) {
