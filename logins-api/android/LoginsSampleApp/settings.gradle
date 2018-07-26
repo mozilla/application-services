@@ -1,0 +1,3 @@
+include ':app', ':loginsapi-debug'
+
+project (':loginsapi-debug').projectDir = new File('../LoginsAPI/loginsapi')
