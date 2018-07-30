@@ -121,8 +121,8 @@ pub enum ErrorKind {
     #[fail(display = "Client upgrade required; server storage version too new")]
     ClientUpgradeRequired,
 
-    #[fail(display = "Unexpected state in setup state machine")]
-    UnexpectedSetupState,
+    #[fail(display = "Setup state machine disallowed state {}", _0)]
+    DisallowedStateError(&'static str),
 
     // Basically reimplement error_chain's foreign_links. (Ugh, this sucks)
 

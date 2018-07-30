@@ -455,7 +455,7 @@ impl<'c, 'k> SetupStateMachine<'c, 'k> {
                 }
             }
 
-            Ready(_) => Err(ErrorKind::UnexpectedSetupState.into()),
+            Ready(state) => Ok(Ready(state)),
 
             FreshStartRequired(state) => {
                 // Wipe the server.
@@ -509,6 +509,9 @@ impl<'c, 'k> SetupStateMachine<'c, 'k> {
                     return Err(ErrorKind::SetupStateCycleError.into());
                 }
                 _ => {
+                    if !self.allowed_states.contains(&s.label()) {
+                        return Err(ErrorKind::DisallowedStateError(&s.label()).into());
+                    }
                     self.sequence.push(&s.label());
                 }
             }
