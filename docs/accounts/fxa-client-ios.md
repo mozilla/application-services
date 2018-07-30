@@ -14,7 +14,7 @@ to integrate this component into your application.
 
 ## Implementing the OAuth flow in iOS
 
-> This tutorial is for FxAClient iOS 0.1.0.
+> This tutorial is for FxAClient iOS 0.2.0.
 
 
 ### Setup Environment 
@@ -29,7 +29,7 @@ Currently the SDK does not provide the Web view, you have to write it yourself.
 We use Carthage to distribute this library. Add the following to your `Cartfile`:
 
 ```
-github "mozilla/application-services" "0.1.0"
+github "mozilla/application-services" "0.2.0"
 ```
 
 After that run `carthage update`, this will download the prebuilt components.
@@ -49,7 +49,7 @@ import FxAClient
 Create a global `fxa` object: 
 
 ```swift
-let fxa: FirefoxAccount;
+var fxa: FirefoxAccount?
 ```
 
 You will need to save state for FxA in your app, this example just uses `UserDefaults`. We suggest using the iOS key store for this data.
@@ -66,9 +66,10 @@ Then you can write the following:
 if let state_json = UserDefaults.standard.string(forKey: self.stateKey) {
     fxa = try! FirefoxAccount.fromJSON(state: state_json)
 } else {
-    let config = try! FxAConfig.custom(content_base: "https://accounts.firefox.com");
-    fxa = try! FirefoxAccount(config: config, clientId: "[YOUR_CLIENT_ID]")
-    persistState(fxa) 
+    FxAConfig.custom(content_base: "https://accounts.firefox.com") { result, error in
+        guard let config = result else { return }
+        fxa = try! FirefoxAccount(config: config, clientId: "[YOUR_CLIENT_ID]")
+    }
 }
 ```
 
@@ -79,48 +80,45 @@ You can now attempt to fetch the FxA profile. The first time the application sta
 in the web view.
 
 ```swift
-do {
-    let profile = try fxa.getProfile()
-    self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
-    return
-} catch FxAError.Unauthorized {
-    self.fxa = fxa
-    let authUrl = try! fxa.beginOAuthFlow(redirectURI: self.redirectUrl, scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"], wantsKeys: true)
-    self.webView.load(URLRequest(url: authUrl))
-} catch {
-    assert(false, "Unexpected error :(")
+fxa.getProfile() { result, error in
+    if let error = error as? FxAError, case FxAError.Unauthorized = error {
+        fxa.beginOAuthFlow(scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"], wantsKeys: true) { result, error in
+            guard let authUrl = result else { return }
+            DispatchQueue.main.async {
+                self.webView.load(URLRequest(url: authUrl))
+            }
+        }
+    } else if let profile = result {
+        DispatchQueue.main.async {
+            self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
+        }
+    } else {
+        assert(false, "Unexpected error :(")
+    }
 }
 ```
-
-
 
 ```swift
 func matchingRedirectURLReceived(components: URLComponents) {
     var dic = [String: String]()
     components.queryItems?.forEach { dic[$0.name] = $0.value }
-    let oauthInfo = try! self.fxa!.completeOAuthFlow(code: dic["code"]!, state: dic["state"]!)
-    persistState(self.fxa!) // Persist fxa state because it now holds the profile token.
-    print("access_token: " + oauthInfo.accessToken)
-    if let keys = oauthInfo.keys {
-        print("keysJWE: " + keys)
-    }
-    print("obtained scopes: " + oauthInfo.scopes.joined(separator: " "))
-    do {
-        let profile = try fxa!.getProfile()
-        self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
-        return
-    } catch {
-        assert(false, "ok something's really wrong there.")
+    self.fxa!.completeOAuthFlow(code: dic["code"]!, state: dic["state"]!) { result, error in
+        guard let oauthInfo = result else { return }
+        print("access_token: " + oauthInfo.accessToken)
+        if let keys = oauthInfo.keys {
+            print("keysJWE: " + keys)
+        }
+        print("obtained scopes: " + oauthInfo.scopes.joined(separator: " "))
+        self.fxa!.getProfile() { result, error in
+            guard let profile = result else {
+                assert(false, "ok something's really wrong there")
+                return
+            }
+            DispatchQueue.main.async {
+                self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
+            }
+        }
     }
 }
 ```
-## Persisting and restoring state
 
-## Getting the profile
-
-## The OAuth flow
-
-begin/ get oauth token 
-
-Notes: Lifecycle of FxA class
-Config is owned 
