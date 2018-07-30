@@ -69,7 +69,8 @@ impl IncomingChangeset {
         since: ServerTimestamp,
     ) -> Result<IncomingChangeset> {
         let records = client.get_encrypted_records(&collection, since)?;
-        let mut result = IncomingChangeset::new(collection, client.last_server_time());
+        let timestamp = state.last_modified_or_zero(&collection);
+        let mut result = IncomingChangeset::new(collection, timestamp);
         result.changes.reserve(records.len());
         let key = state.key_for_collection(&result.collection)?;
         for record in records {
