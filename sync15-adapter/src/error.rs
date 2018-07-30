@@ -41,6 +41,13 @@ impl Error {
     pub fn kind(&self) -> &ErrorKind {
         &*self.0.get_context()
     }
+
+    pub fn is_not_found(&self) -> bool {
+        match self.kind() {
+            ErrorKind::StorageHttpError { code: HttpStatusCode::NotFound, .. } => true,
+            _ => false
+        }
+    }
 }
 
 impl From<ErrorKind> for Error {

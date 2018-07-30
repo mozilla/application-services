@@ -11,7 +11,7 @@ use collection_keys::CollectionKeys;
 use error::{self, ErrorKind};
 use key_bundle::KeyBundle;
 use record_types::{MetaGlobalEngine, MetaGlobalRecord};
-use request::InfoConfiguration;
+use request::{InfoCollections, InfoConfiguration};
 use util::{random_guid, ServerTimestamp, SERVER_EPOCH};
 
 use self::SetupState::*;
@@ -45,7 +45,7 @@ lazy_static! {
 #[derive(Debug)]
 pub struct GlobalState {
     pub config: InfoConfiguration,
-    pub collections: HashMap<String, ServerTimestamp>,
+    pub collections: InfoCollections,
     pub global: Option<BsoRecord<MetaGlobalRecord>>,
     pub keys: Option<CollectionKeys>,
 }
@@ -54,7 +54,7 @@ impl Default for GlobalState {
     fn default() -> Self {
         GlobalState {
             config: InfoConfiguration::default(),
-            collections: HashMap::new(),
+            collections: InfoCollections::default(),
             global: None,
             keys: None,
         }
@@ -497,7 +497,7 @@ mod tests {
 
     struct InMemoryClient {
         info_configuration: error::Result<InfoConfiguration>,
-        info_collections: error::Result<HashMap<String, ServerTimestamp>>,
+        info_collections: error::Result<InfoCollections>,
         meta_global: error::Result<BsoRecord<MetaGlobalRecord>>,
         crypto_keys: error::Result<BsoRecord<EncryptedPayload>>,
     }
@@ -513,7 +513,7 @@ mod tests {
             }
         }
 
-        fn fetch_info_collections(&self) -> error::Result<HashMap<String, ServerTimestamp>> {
+        fn fetch_info_collections(&self) -> error::Result<InfoCollections> {
             match &self.info_collections {
                 Ok(collections) => Ok(collections.clone()),
                 Err(_) => Err(ErrorKind::StorageHttpError {
@@ -566,7 +566,7 @@ mod tests {
     }
 
     #[test]
-    fn test_state_machine() {
+    fn test_state_machine_ready_from_empty() {
         let root_key = KeyBundle::new_random().unwrap();
         let keys = CollectionKeys {
             timestamp: 123.4.into(),
@@ -575,11 +575,12 @@ mod tests {
         };
         let client = InMemoryClient {
             info_configuration: Ok(InfoConfiguration::default()),
-            info_collections: Ok(vec![("meta", 123.456), ("crypto", 145.0)]
-                .iter()
-                .cloned()
-                .map(|(key, value)| (key.to_owned(), value.into()))
-                .collect()),
+            info_collections: Ok(InfoCollections::new(
+                vec![("meta", 123.456), ("crypto", 145.0)]
+                    .into_iter()
+                    .map(|(key, value)| (key.to_owned(), value.into()))
+                    .collect(),
+            )),
             meta_global: Ok(BsoRecord {
                 id: "global".into(),
                 modified: ServerTimestamp(999.0),
@@ -597,8 +598,7 @@ mod tests {
                                 sync_id: "syncIDBBBBBB".to_owned(),
                             },
                         ),
-                    ].iter()
-                        .cloned()
+                    ].into_iter()
                         .map(|(key, value)| (key.to_owned(), value.into()))
                         .collect(),
                     declined: vec![],

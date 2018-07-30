@@ -9,6 +9,7 @@ use serde_json;
 use std::fmt;
 use std::collections::HashMap;
 use std::default::Default;
+use std::ops::Deref;
 use url::{Url, UrlQuery, form_urlencoded::Serializer};
 use error::{self, Result, ErrorKind};
 use hyper::{StatusCode};
@@ -243,6 +244,23 @@ impl Default for InfoConfiguration {
             max_total_records: usize::max_value(),
             max_total_bytes: usize::max_value(),
         }
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct InfoCollections(HashMap<String, ServerTimestamp>);
+
+impl InfoCollections {
+    pub fn new(collections: HashMap<String, ServerTimestamp>) -> InfoCollections {
+        InfoCollections(collections)
+    }
+}
+
+impl Deref for InfoCollections {
+    type Target = HashMap<String, ServerTimestamp>;
+
+    fn deref(&self) -> &HashMap<String, ServerTimestamp> {
+        &self.0
     }
 }
 

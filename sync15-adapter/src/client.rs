@@ -3,10 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::cell::Cell;
-use std::collections::HashMap;
 use std::time::Duration;
 
-use hyper::{Method, StatusCode};
+use hyper::{Method};
 use reqwest::{Client, Request, Response, Url, header::{self, Accept}};
 use serde;
 use serde_json;
@@ -15,7 +14,7 @@ use bso_record::{BsoRecord, EncryptedBso};
 use error::{self, ErrorKind};
 use record_types::MetaGlobalRecord;
 use request::{BatchPoster, CollectionRequest, InfoConfiguration, PostQueue, PostResponse,
-              PostResponseHandler, XIfUnmodifiedSince, XWeaveTimestamp};
+              PostResponseHandler, XIfUnmodifiedSince, XWeaveTimestamp, InfoCollections};
 use token;
 use util::ServerTimestamp;
 
@@ -28,7 +27,7 @@ pub struct Sync15StorageClientInit {
 
 pub trait SetupStorageClient {
     fn fetch_info_configuration(&self) -> error::Result<InfoConfiguration>;
-    fn fetch_info_collections(&self) -> error::Result<HashMap<String, ServerTimestamp>>;
+    fn fetch_info_collections(&self) -> error::Result<InfoCollections>;
     fn fetch_meta_global(&self) -> error::Result<BsoRecord<MetaGlobalRecord>>;
     fn put_meta_global(&self, global: &BsoRecord<MetaGlobalRecord>) -> error::Result<()>;
     fn fetch_crypto_keys(&self) -> error::Result<EncryptedBso>;
@@ -50,26 +49,17 @@ impl SetupStorageClient for Sync15StorageClient {
         Ok(server_config)
     }
 
-    fn fetch_info_collections(&self) -> error::Result<HashMap<String, ServerTimestamp>> {
-        let collections = self.fetch_info::<HashMap<String, ServerTimestamp>>("info/collections")?;
+    fn fetch_info_collections(&self) -> error::Result<InfoCollections> {
+        let collections = self.fetch_info::<InfoCollections>("info/collections")?;
         Ok(collections)
     }
 
     fn fetch_meta_global(&self) -> error::Result<BsoRecord<MetaGlobalRecord>> {
         let mut resp = match self.relative_storage_request(Method::Get, "storage/meta/global") {
-            Ok(r) => r,
-            // This is gross, but at least it works. Replace 404s on meta/global with NoMetaGlobal.
-            Err(e) => {
-                if let ErrorKind::StorageHttpError {
-                    code: StatusCode::NotFound,
-                    ..
-                } = e.kind()
-                {
-                    return Err(ErrorKind::NoMetaGlobal.into());
-                }
-                return Err(e);
-            }
-        };
+            Ok(r) => Ok(r),
+            Err(ref e) if e.is_not_found() => Err(ErrorKind::NoMetaGlobal.into()),
+            Err(e) => Err(e)
+        }?;
         // Note: meta/global is not encrypted!
         let meta_global: BsoRecord<MetaGlobalRecord> = resp.json()?;
         info!("Meta global: {:?}", meta_global.payload);
@@ -97,17 +87,8 @@ impl SetupStorageClient for Sync15StorageClient {
         let req = self.build_request(Method::Delete, url)?;
         match self.exec_request(req, true) {
             Ok(_) => Ok(()),
-            Err(e) => {
-                if let ErrorKind::StorageHttpError {
-                    code: StatusCode::NotFound,
-                    ..
-                } = e.kind()
-                {
-                    Ok(())
-                } else {
-                    Err(e)
-                }
-            }
+            Err(ref e) if e.is_not_found() => Ok(()),
+            Err(e) => Err(e)
         }
     }
 }
