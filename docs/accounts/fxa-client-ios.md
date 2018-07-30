@@ -122,3 +122,50 @@ func matchingRedirectURLReceived(components: URLComponents) {
 }
 ```
 
+## Key SDK concepts
+
+The iOS SDK makes use of a few main concepts:
+
+* Usage of callbacks for potentially long-running tasks
+* Persisting changes to the `FirefoxAccount` object
+
+### Asynchronous methods
+
+For long-running tasks such as network calls, the library opts to run all tasks on a separate, serial queue to
+protect access to the Rust library and avoid blocking the UI thread in the client application.
+
+True async methods are implemented using callbacks that take exactly two parameters: a result of a specific
+type (eg. `FxAConfig`, `Profile`) and an error. To avoid deadlocks on the serial queue when chaining multiple
+calls to the backing Rust library, callbacks will be run on the main thread.
+
+### Persisting `FirefoxAccount` changes
+
+As the `FirefoxAccount` object maintains a "cache" of sorts for user profile information and authentication
+credentials, a client application can save a user's auth state by persisting a JSON string containing their
+information to a secure location (eg. using the [iOS Keychain API](https://developer.apple.com/documentation/security/keychain_services)).
+
+For example, `getProfile()` will cause the user's profile information to be cached in the `FirefoxAccount`
+object, so on the second run, it won't have to make a network call. In that case, you would want to save the
+account state, as it has been mutated:
+
+```swift
+fxa.getProfile() // Saves profile information
+UserDefaults.standard.set(fxa?.toJSON(), forKey: stateKey)
+```
+
+Since there are many methods in the library that may affect the state of the `FirefoxAccount` object, it may
+be difficult to keep track of all those operations. To minimize the change of error, the SDK provides a method
+to register a callback that will be invoked whenever a state-mutating function is called:
+
+```swift
+class EzPersistor: PersistCallback {
+    func persist(json: String) {
+        UserDefaults.standard.set(json, forKey: stateKey)
+    }
+}
+
+let persistor = EzPersistor()
+fxa!.registerPersistCallback(persistor)
+
+fxa.getProfile() // Saves profile information
+```
