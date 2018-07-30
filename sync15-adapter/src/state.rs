@@ -376,7 +376,7 @@ impl<'c, 's, 'k> SetupStateMachine<'c, 's, 'k> {
 
             FreshStartRequired { previous_global } => {
                 // Wipe the server.
-                self.client.wipe_all()?;
+                self.client.wipe_all_remote()?;
                 self.state.global = None;
                 self.state.keys = None;
                 self.engine_state_changes.push(EngineStateChange::ResetAll {
@@ -560,7 +560,7 @@ mod tests {
             }.into())
         }
 
-        fn wipe_all(&self) -> error::Result<()> {
+        fn wipe_all_remote(&self) -> error::Result<()> {
             Ok(())
         }
     }

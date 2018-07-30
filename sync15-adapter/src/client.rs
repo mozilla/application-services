@@ -32,7 +32,7 @@ pub trait SetupStorageClient {
     fn put_meta_global(&self, global: &BsoRecord<MetaGlobalRecord>) -> error::Result<()>;
     fn fetch_crypto_keys(&self) -> error::Result<EncryptedBso>;
     fn put_crypto_keys(&self, keys: &EncryptedBso) -> error::Result<()>;
-    fn wipe_all(&self) -> error::Result<()>;
+    fn wipe_all_remote(&self) -> error::Result<()>;
 }
 
 #[derive(Debug)]
@@ -80,7 +80,7 @@ impl SetupStorageClient for Sync15StorageClient {
         self.put("storage/crypto/keys", None, keys)
     }
 
-    fn wipe_all(&self) -> error::Result<()> {
+    fn wipe_all_remote(&self) -> error::Result<()> {
         let s = self.tsc.api_endpoint(&self.http_client)?;
         let url = Url::parse(&s)?;
 
