@@ -6,6 +6,7 @@
     "tagline": "Build the next thing...",
     "accounts/50000-most-common-passwords": "50,000 Most Common Passwords",
     "accounts/end-to-end-encryption": "End-to-end encryption",
+    "accounts/fxa-client-ios": "iOS SDK",
     "accounts/project-details": "Project Details",
     "Project Details": "Project Details",
     "accounts/welcome": "About Firefox Accounts",
@@ -21,6 +22,7 @@
     "Accounts": "Accounts",
     "Applications": "Applications",
     "Firefox Accounts": "Firefox Accounts",
+    "Mobile SDKs": "Mobile SDKs",
     "Other Features": "Other Features"
   },
   "pages-strings": {
