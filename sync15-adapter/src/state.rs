@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::collections::{HashMap, HashSet};
-use std::mem;
 
 use bso_record::BsoRecord;
 use client::SetupStorageClient;
@@ -42,23 +41,13 @@ lazy_static! {
 /// Holds global Sync state, including server upload limits, and the
 /// last-fetched collection modified times, `meta/global` record, and
 /// collection encryption keys.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct GlobalState {
     pub config: InfoConfiguration,
     pub collections: InfoCollections,
     pub global: Option<BsoRecord<MetaGlobalRecord>>,
     pub keys: Option<CollectionKeys>,
-}
-
-impl Default for GlobalState {
-    fn default() -> Self {
-        GlobalState {
-            config: InfoConfiguration::default(),
-            collections: InfoCollections::default(),
-            global: None,
-            keys: None,
-        }
-    }
+    pub engine_state_changes: Vec<EngineStateChange>,
 }
 
 impl GlobalState {
@@ -72,6 +61,74 @@ impl GlobalState {
     pub fn last_modified_or_zero(&self, coll: &str) -> ServerTimestamp {
         self.collections.get(coll).cloned().unwrap_or(SERVER_EPOCH)
     }
+
+    /// Returns a set of all engine names that should be reset locally.
+    pub fn engines_that_need_reset(&self) -> HashSet<String> {
+        let all_engines = self.global
+            .as_ref()
+            .map(|global| {
+                global
+                    .engines
+                    .keys()
+                    .map(|key| key.to_string())
+                    .collect::<HashSet<String>>()
+            })
+            .unwrap_or_default();
+        let mut engines_to_reset = HashSet::new();
+        for change in &self.engine_state_changes {
+            match change {
+                EngineStateChange::Reset(name) => {
+                    engines_to_reset.insert(name.to_string());
+                }
+                EngineStateChange::ResetAll => {
+                    engines_to_reset.reserve(all_engines.len());
+                    for name in all_engines.iter() {
+                        engines_to_reset.insert(name.to_string());
+                    }
+                }
+                EngineStateChange::ResetAllExcept(except) => {
+                    for name in all_engines.difference(except) {
+                        engines_to_reset.insert(name.to_string());
+                    }
+                }
+                _ => {}
+            }
+        }
+        engines_to_reset
+    }
+}
+
+fn reconcile_meta_global(
+    previous_global: &MetaGlobalRecord,
+    new_global: &MetaGlobalRecord,
+) -> Vec<EngineStateChange> {
+    let mut changes = Vec::new();
+
+    let previous_engine_names = previous_global.engines.keys().collect::<HashSet<&String>>();
+    let new_engine_names = new_global.engines.keys().collect::<HashSet<&String>>();
+
+    // Disable any local engines that aren't mentioned
+    // in the new `meta/global`.
+    for name in previous_engine_names.difference(&new_engine_names) {
+        changes.push(EngineStateChange::Disable(name.to_string()));
+    }
+
+    // Enable any new engines that aren't mentioned in
+    // the locally cached `meta/global`.
+    for name in new_engine_names.difference(&previous_engine_names) {
+        changes.push(EngineStateChange::Enable(name.to_string()));
+    }
+
+    // Reset engines with sync ID changes.
+    for name in new_engine_names.intersection(&previous_engine_names) {
+        let previous_engine = previous_global.engines.get(*name).unwrap();
+        let new_engine = new_global.engines.get(*name).unwrap();
+        if previous_engine.sync_id != new_engine.sync_id {
+            changes.push(EngineStateChange::Reset(name.to_string()));
+        }
+    }
+
+    changes
 }
 
 /// Creates a fresh `meta/global` record, using the default engine selections,
@@ -107,90 +164,139 @@ fn new_global_from_previous(
     })
 }
 
-pub struct SetupStateMachine<'c, 's, 'k> {
+pub struct SetupStateMachine<'c, 'k> {
     client: &'c SetupStorageClient,
-    state: &'s mut GlobalState,
     root_key: &'k KeyBundle,
-    sequence: Vec<mem::Discriminant<SetupState>>,
-    engine_state_changes: Vec<EngineStateChange>,
+    allowed_states: Vec<&'static str>,
+    sequence: Vec<&'static str>,
 }
 
-impl<'c, 's, 'k> SetupStateMachine<'c, 's, 'k> {
+impl<'c, 'k> SetupStateMachine<'c, 'k> {
+    /// Creates a state machine for a "classic" Sync 1.5 client that supports
+    /// all states, including uploading a fresh `meta/global` and `crypto/keys`
+    /// after a node reassignment.
     pub fn new(
         client: &'c SetupStorageClient,
-        state: &'s mut GlobalState,
         root_key: &'k KeyBundle,
-    ) -> SetupStateMachine<'c, 's, 'k> {
+    ) -> SetupStateMachine<'c, 'k> {
+        SetupStateMachine::new_with_allowed_states(
+            client,
+            root_key,
+            vec![
+                "InitialWithLiveToken",
+                "InitialWithLiveTokenAndConfig",
+                "InitialWithLiveTokenAndInfo",
+                "NeedsFreshMetaGlobal",
+                "HasMetaGlobal",
+                "ResolveMetaGlobal",
+                "NeedsFreshCryptoKeys",
+                "Ready",
+                "FreshStartRequired",
+            ],
+        )
+    }
+
+    /// Creates a state machine for a fast sync, which only uses locally
+    /// cached global state, and bails if `meta/global` or `crypto/keys`
+    /// are missing or out-of-date. This is useful in cases where it's
+    /// important to get to ready as quickly as possible, like syncing before
+    /// sleep, or when conserving time or battery life.
+    fn new_fast(
+        client: &'c SetupStorageClient,
+        root_key: &'k KeyBundle,
+    ) -> SetupStateMachine<'c, 'k> {
+        SetupStateMachine::new_with_allowed_states(
+            client,
+            root_key,
+            vec![
+                "InitialWithLiveToken",
+                "InitialWithLiveTokenAndConfig",
+                "InitialWithLiveTokenAndInfo",
+                "HasMetaGlobal",
+                "Ready",
+            ],
+        )
+    }
+
+    /// Creates a state machine for a read-only sync, where the client can't
+    /// upload `meta/global` or `crypto/keys`. Useful for clients that only
+    /// sync specific collections, like Lockbox.
+    fn new_readonly(
+        client: &'c SetupStorageClient,
+        root_key: &'k KeyBundle,
+    ) -> SetupStateMachine<'c, 'k> {
+        SetupStateMachine::new_with_allowed_states(
+            client,
+            root_key,
+            vec![
+                "InitialWithLiveToken",
+                "InitialWithLiveTokenAndConfig",
+                "InitialWithLiveTokenAndInfo",
+                "NeedsFreshMetaGlobal",
+                "HasMetaGlobal",
+                "ResolveMetaGlobal",
+                "NeedsFreshCryptoKeys",
+                "Ready",
+            ],
+        )
+    }
+
+    pub fn new_with_allowed_states(
+        client: &'c SetupStorageClient,
+        root_key: &'k KeyBundle,
+        allowed_states: Vec<&'static str>,
+    ) -> SetupStateMachine<'c, 'k> {
         SetupStateMachine {
             client,
-            state,
             root_key,
             sequence: Vec::new(),
-            engine_state_changes: Vec::new(),
+            allowed_states,
         }
     }
 
-    /// Returns a set of all engine names that should be reset locally.
-    pub fn engines_that_need_reset(&self) -> HashSet<String> {
-        let all_engines = self.state
-            .global
-            .as_ref()
-            .map(|global| {
-                global
-                    .engines
-                    .keys()
-                    .map(|key| key.to_string())
-                    .collect::<HashSet<String>>()
-            })
-            .unwrap_or_default();
-        let mut engines_to_reset = HashSet::new();
-        for change in &self.engine_state_changes {
-            match change {
-                EngineStateChange::Reset(name) => {
-                    engines_to_reset.insert(name.to_string());
-                }
-                EngineStateChange::ResetAll { except } => {
-                    for engine in all_engines.difference(except) {
-                        engines_to_reset.insert(engine.to_string());
-                    }
-                }
-                _ => {}
-            }
-        }
-        engines_to_reset
-    }
-
-    fn advance(&mut self, from: SetupState) -> error::Result<SetupState> {
+    fn advance(&self, from: SetupState) -> error::Result<SetupState> {
         match from {
             // Fetch `info/configuration` with current server limits, and
             // `info/collections` with collection last modified times.
-            InitialWithLiveToken => {
-                let config = self.client.fetch_info_configuration().unwrap_or_default();
-                self.state.config = config;
+            InitialWithLiveToken(state) => {
+                let config = self.client
+                    .fetch_info_configuration()
+                    .unwrap_or(state.config);
+                Ok(InitialWithLiveTokenAndConfig(GlobalState {
+                    config,
+                    collections: state.collections,
+                    global: state.global,
+                    keys: state.keys,
+                    engine_state_changes: Vec::new(),
+                }))
+            }
 
+            InitialWithLiveTokenAndConfig(state) => {
                 let collections = self.client.fetch_info_collections()?;
-                self.state.collections = collections;
-                Ok(InitialWithLiveTokenAndInfo)
+                Ok(InitialWithLiveTokenAndInfo(GlobalState {
+                    config: state.config,
+                    collections,
+                    global: state.global,
+                    keys: state.keys,
+                    engine_state_changes: state.engine_state_changes,
+                }))
             }
 
             // Compare local and remote `meta/global` timestamps to determine
             // if our locally cached `meta/global` is up-to-date.
-            InitialWithLiveTokenAndInfo => {
+            InitialWithLiveTokenAndInfo(state) => {
                 let action = {
-                    let local = self.state.global.as_ref().map(|global| &global.modified);
-                    let remote = self.state.collections.get("meta");
+                    let local = state.global.as_ref().map(|global| &global.modified);
+                    let remote = state.collections.get("meta");
                     FetchAction::from_modified(local, remote)
                 };
                 Ok(match action {
                     // Hooray, we don't need to fetch `meta/global`. Skip to
                     // the next state.
-                    FetchAction::Skip => HasMetaGlobal,
+                    FetchAction::Skip => HasMetaGlobal(state),
                     // Our `meta/global` is out of date, or isn't cached
                     // locally, so we need to fetch it from the server.
-                    FetchAction::Fetch => {
-                        let previous_global = mem::replace(&mut self.state.global, None);
-                        NeedsFreshMetaGlobal { previous_global }
-                    }
+                    FetchAction::Fetch => NeedsFreshMetaGlobal(state),
                     // We have a `meta/global` record in our cache, but not on
                     // the server. This likely means we're the first client to
                     // sync after a node reassignment. Invalidate our cached
@@ -198,140 +304,118 @@ impl<'c, 's, 'k> SetupStateMachine<'c, 's, 'k> {
                     // `meta/global` from the server anyway. If another client
                     // wins the race, we'll fetch its `meta/global`; if not,
                     // we'll fail and upload our own.
-                    FetchAction::InvalidateThenUpload => {
-                        let previous_global = mem::replace(&mut self.state.global, None);
-                        self.state.keys = None;
-                        NeedsFreshMetaGlobal { previous_global }
-                    }
+                    FetchAction::InvalidateThenUpload => NeedsFreshMetaGlobal(GlobalState {
+                        config: state.config,
+                        collections: state.collections,
+                        global: None,
+                        keys: None,
+                        engine_state_changes: state.engine_state_changes,
+                    }),
                 })
             }
 
             // Fetch `meta/global` from the server.
-            NeedsFreshMetaGlobal { previous_global } => match self.client.fetch_meta_global() {
-                Ok(new_global) => Ok(ResolveMetaGlobal {
-                    previous_global,
-                    new_global,
-                }),
+            NeedsFreshMetaGlobal(state) => match self.client.fetch_meta_global() {
+                Ok(new_global) => Ok(ResolveMetaGlobal(state, new_global)),
                 Err(err) => match err.kind() {
-                    ErrorKind::NoMetaGlobal { .. } => Ok(FreshStartRequired { previous_global }),
+                    ErrorKind::NoMetaGlobal { .. } => Ok(FreshStartRequired(state)),
                     _ => Err(err),
                 },
             },
 
             // Reconcile the server's `meta/global` with our locally cached
             // `meta/global`, if any.
-            ResolveMetaGlobal {
-                previous_global,
-                new_global,
-            } => {
+            ResolveMetaGlobal(state, new_global) => {
                 // If the server has a newer storage version, we can't
                 // sync until our client is updated.
-                if &new_global.payload.storage_version > &STORAGE_VERSION {
+                if new_global.payload.storage_version > STORAGE_VERSION {
                     return Err(ErrorKind::ClientUpgradeRequired.into());
                 }
 
                 // If the server has an older storage version, wipe and
                 // reupload.
-                if &new_global.payload.storage_version < &STORAGE_VERSION {
-                    return Ok(FreshStartRequired { previous_global });
+                if new_global.payload.storage_version < STORAGE_VERSION {
+                    return Ok(FreshStartRequired(state));
                 }
 
-                match &previous_global {
+                let mut changes = state.engine_state_changes;
+                let (new_global, previous_keys) = match &state.global {
                     Some(previous_global) => {
-                        if &previous_global.sync_id != &new_global.sync_id {
-                            self.state.keys = None;
-                            self.engine_state_changes.push(EngineStateChange::ResetAll {
-                                except: HashSet::new(),
-                            });
+                        if previous_global.sync_id != new_global.sync_id {
+                            changes.push(EngineStateChange::ResetAll);
+                            (new_global, None)
                         } else {
-                            let previous_engine_names =
-                                previous_global.engines.keys().collect::<HashSet<&String>>();
-                            let new_engine_names =
-                                new_global.engines.keys().collect::<HashSet<&String>>();
-
-                            // Disable any local engines that aren't mentioned
-                            // in the new `meta/global`.
-                            for name in previous_engine_names.difference(&new_engine_names) {
-                                self.engine_state_changes
-                                    .push(EngineStateChange::Disable(name.to_string()));
-                            }
-
-                            // Enable any new engines that aren't mentioned in
-                            // the locally cached `meta/global`.
-                            for name in new_engine_names.difference(&previous_engine_names) {
-                                self.engine_state_changes
-                                    .push(EngineStateChange::Enable(name.to_string()));
-                            }
-
-                            // Reset engines with sync ID changes.
-                            for name in new_engine_names.intersection(&previous_engine_names) {
-                                let previous_engine = previous_global.engines.get(*name).unwrap();
-                                let new_engine = new_global.engines.get(*name).unwrap();
-                                if previous_engine.sync_id != new_engine.sync_id {
-                                    self.engine_state_changes
-                                        .push(EngineStateChange::Reset(name.to_string()));
-                                }
-                            }
+                            let mut new_changes =
+                                reconcile_meta_global(previous_global, &new_global);
+                            changes.append(&mut new_changes);
+                            (new_global, state.keys)
                         }
                     }
                     None => {
-                        self.state.keys = None;
-                        self.engine_state_changes.push(EngineStateChange::ResetAll {
-                            except: HashSet::new(),
-                        });
+                        changes.push(EngineStateChange::ResetAll);
+                        (new_global, None)
                     }
-                }
-                self.state.global = Some(new_global);
-                Ok(HasMetaGlobal)
+                };
+                Ok(HasMetaGlobal(GlobalState {
+                    config: state.config,
+                    collections: state.collections,
+                    global: Some(new_global),
+                    keys: previous_keys,
+                    engine_state_changes: changes,
+                }))
             }
 
             // Check if our locally cached `crypto/keys` collection is
             // up-to-date.
-            HasMetaGlobal => {
+            HasMetaGlobal(state) => {
                 // TODO(lina): Check if we've enabled or disabled any engines
                 // locally, and update `m/g` to reflect that.
                 let action = {
-                    let local = self.state.keys.as_ref().map(|keys| &keys.timestamp);
-                    let remote = self.state.collections.get("crypto");
+                    let local = state.keys.as_ref().map(|keys| &keys.timestamp);
+                    let remote = state.collections.get("crypto");
                     FetchAction::from_modified(local, remote)
                 };
                 Ok(match action {
                     // If `crypto/keys` is up-to-date, we're ready to go!
-                    FetchAction::Skip => Ready,
+                    FetchAction::Skip => Ready(state),
                     // We need to fetch and cache new keys.
-                    FetchAction::Fetch => NeedsFreshCryptoKeys,
+                    FetchAction::Fetch => NeedsFreshCryptoKeys(state),
                     // We need to invalidate our locally cached `crypto/keys`,
                     // then try to fetch new keys, and reupload if fetching
                     // fails.
-                    FetchAction::InvalidateThenUpload => {
-                        self.state.keys = None;
-                        NeedsFreshCryptoKeys
-                    }
+                    FetchAction::InvalidateThenUpload => NeedsFreshCryptoKeys(GlobalState {
+                        config: state.config,
+                        collections: state.collections,
+                        global: state.global,
+                        keys: None,
+                        engine_state_changes: state.engine_state_changes,
+                    }),
                 })
             }
 
-            NeedsFreshCryptoKeys => {
+            NeedsFreshCryptoKeys(state) => {
                 match self.client.fetch_crypto_keys() {
                     Ok(encrypted_bso) => {
                         let fresh_keys =
                             CollectionKeys::from_encrypted_bso(encrypted_bso, self.root_key)?;
-                        match &self.state.keys {
+                        let mut changes = state.engine_state_changes;
+                        match &state.keys {
                             Some(stale_keys) => {
                                 if fresh_keys.default == stale_keys.default {
                                     // The default bundle is the same, so only reset
                                     // engines with different collection-specific keys.
                                     for (collection, key_bundle) in &stale_keys.collections {
                                         if key_bundle != fresh_keys.key_for_collection(collection) {
-                                            self.engine_state_changes.push(
-                                                EngineStateChange::Reset(collection.to_string()),
-                                            );
+                                            changes.push(EngineStateChange::Reset(
+                                                collection.to_string(),
+                                            ));
                                         }
                                     }
                                     for (collection, key_bundle) in &fresh_keys.collections {
                                         if key_bundle != stale_keys.key_for_collection(collection) {
-                                            self.engine_state_changes.push(
-                                                EngineStateChange::Reset(collection.to_string()),
-                                            );
+                                            changes.push(EngineStateChange::Reset(
+                                                collection.to_string(),
+                                            ));
                                         }
                                     }
                                 } else {
@@ -349,39 +433,33 @@ impl<'c, 's, 'k> SetupStateMachine<'c, 's, 'k> {
                                             except.insert(collection.to_string());
                                         }
                                     }
-                                    self.engine_state_changes
-                                        .push(EngineStateChange::ResetAll { except });
+                                    changes.push(EngineStateChange::ResetAllExcept(except));
                                 }
                             }
-                            None => self.engine_state_changes.push(EngineStateChange::ResetAll {
-                                except: HashSet::new(),
-                            }),
+                            None => changes.push(EngineStateChange::ResetAll),
                         }
-                        self.state.keys = Some(fresh_keys);
-                        Ok(Ready)
+                        Ok(Ready(GlobalState {
+                            config: state.config,
+                            collections: state.collections,
+                            global: state.global,
+                            keys: Some(fresh_keys),
+                            engine_state_changes: changes,
+                        }))
                     }
                     Err(err) => match err.kind() {
                         // If the server doesn't have a `crypto/keys`, start over
                         // and reupload our `meta/global` and `crypto/keys`.
-                        ErrorKind::NoCryptoKeys { .. } => {
-                            let previous_global = mem::replace(&mut self.state.global, None);
-                            Ok(FreshStartRequired { previous_global })
-                        }
+                        ErrorKind::NoCryptoKeys { .. } => Ok(FreshStartRequired(state)),
                         _ => Err(err),
                     },
                 }
             }
 
-            Ready => Err(ErrorKind::UnexpectedSetupState.into()),
+            Ready(_) => Err(ErrorKind::UnexpectedSetupState.into()),
 
-            FreshStartRequired { previous_global } => {
+            FreshStartRequired(state) => {
                 // Wipe the server.
                 self.client.wipe_all_remote()?;
-                self.state.global = None;
-                self.state.keys = None;
-                self.engine_state_changes.push(EngineStateChange::ResetAll {
-                    except: HashSet::new(),
-                });
 
                 // Upload a fresh `meta/global`...
                 let new_global = BsoRecord {
@@ -390,7 +468,7 @@ impl<'c, 's, 'k> SetupStateMachine<'c, 's, 'k> {
                     modified: 0.0.into(), // Doesn't matter.
                     sortindex: None,
                     ttl: None,
-                    payload: new_global_from_previous(previous_global)?,
+                    payload: new_global_from_previous(state.global)?,
                 };
                 self.client.put_meta_global(&new_global)?;
 
@@ -400,55 +478,74 @@ impl<'c, 's, 'k> SetupStateMachine<'c, 's, 'k> {
                 let new_keys = CollectionKeys::new_random()?.to_encrypted_bso(&self.root_key)?;
                 self.client.put_crypto_keys(&new_keys)?;
 
-                Ok(InitialWithLiveToken)
+                // TODO(lina): Can we pass along server timestamps from the PUTs
+                // above, and avoid re-fetching the `m/g` and `c/k` we just
+                // uploaded?
+                Ok(InitialWithLiveTokenAndConfig(GlobalState {
+                    config: state.config,
+                    collections: InfoCollections::default(),
+                    global: None,
+                    keys: None,
+                    engine_state_changes: vec![EngineStateChange::ResetAll],
+                }))
             }
         }
     }
 
     /// Runs through the state machine to the ready state.
-    pub fn to_ready(&mut self) -> error::Result<()> {
-        let mut state = InitialWithLiveToken;
+    pub fn to_ready(&mut self, state: GlobalState) -> error::Result<GlobalState> {
+        let mut s = InitialWithLiveToken(state);
+        self.sequence.push(&s.label());
+
         loop {
-            match &state {
-                Ready => {
-                    self.sequence.push(mem::discriminant(&state));
-                    break;
-                }
+            s = self.advance(s)?;
+            match &s {
                 // If we already started over once before, we're likely in a
                 // cycle, and should try again later. Like the iOS state
                 // machine, other cycles aren't a problem; we'll cycle through
                 // earlier states if we need to reupload `meta/global` or
                 // `crypto/keys`.
-                FreshStartRequired { .. } if self.sequence.contains(&mem::discriminant(&state)) => {
+                FreshStartRequired(_) if self.sequence.contains(&s.label()) => {
                     return Err(ErrorKind::SetupStateCycleError.into());
                 }
                 _ => {
-                    self.sequence.push(mem::discriminant(&state));
-                    state = self.advance(state)?;
+                    self.sequence.push(&s.label());
                 }
             }
+            if let Ready(state) = s {
+                return Ok(state);
+            }
         }
-        Ok(())
     }
 }
 
 #[derive(Debug)]
 enum SetupState {
-    InitialWithLiveToken,
-    InitialWithLiveTokenAndInfo,
-    NeedsFreshMetaGlobal {
-        previous_global: Option<BsoRecord<MetaGlobalRecord>>,
-    },
-    HasMetaGlobal,
-    ResolveMetaGlobal {
-        previous_global: Option<BsoRecord<MetaGlobalRecord>>,
-        new_global: BsoRecord<MetaGlobalRecord>,
-    },
-    NeedsFreshCryptoKeys,
-    Ready,
-    FreshStartRequired {
-        previous_global: Option<BsoRecord<MetaGlobalRecord>>,
-    },
+    InitialWithLiveToken(GlobalState),
+    InitialWithLiveTokenAndConfig(GlobalState),
+    InitialWithLiveTokenAndInfo(GlobalState),
+    NeedsFreshMetaGlobal(GlobalState),
+    HasMetaGlobal(GlobalState),
+    ResolveMetaGlobal(GlobalState, BsoRecord<MetaGlobalRecord>),
+    NeedsFreshCryptoKeys(GlobalState),
+    Ready(GlobalState),
+    FreshStartRequired(GlobalState),
+}
+
+impl SetupState {
+    fn label(&self) -> &'static str {
+        match self {
+            InitialWithLiveToken(_) => "InitialWithLiveToken",
+            InitialWithLiveTokenAndConfig(_) => "InitialWithLiveTokenAndConfig",
+            InitialWithLiveTokenAndInfo(_) => "InitialWithLiveTokenAndInfo",
+            NeedsFreshMetaGlobal(_) => "NeedsFreshMetaGlobal",
+            HasMetaGlobal(_) => "HasMetaGlobal",
+            ResolveMetaGlobal(_, _) => "ResolveMetaGlobal",
+            NeedsFreshCryptoKeys(_) => "NeedsFreshCryptoKeys",
+            Ready(_) => "Ready",
+            FreshStartRequired(_) => "FreshStartRequired",
+        }
+    }
 }
 
 /// Whether we should skip fetching `meta/global` or `crypto/keys` from the
@@ -481,8 +578,10 @@ impl FetchAction {
 }
 
 /// Flags an engine for enablement or disablement.
+#[derive(Debug)]
 pub enum EngineStateChange {
-    ResetAll { except: HashSet<String> },
+    ResetAll,
+    ResetAllExcept(HashSet<String>),
     Enable(String),
     Disable(String),
     Reset(String),
@@ -607,33 +706,24 @@ mod tests {
             crypto_keys: keys.to_encrypted_bso(&root_key),
         };
 
-        let mut state = GlobalState::default();
-        let sequence = {
-            let mut state_machine = SetupStateMachine::new(&client, &mut state, &root_key);
-            assert!(
-                state_machine.to_ready().is_ok(),
-                "Should drive state machine to ready"
-            );
-            state_machine.sequence
-        };
+        let state = GlobalState::default();
+        let mut state_machine = SetupStateMachine::new(&client, &root_key);
+        assert!(
+            state_machine.to_ready(state).is_ok(),
+            "Should drive state machine to ready"
+        );
         assert_eq!(
-            sequence,
+            state_machine.sequence,
             vec![
-                InitialWithLiveToken,
-                InitialWithLiveTokenAndInfo,
-                NeedsFreshMetaGlobal {
-                    previous_global: None,
-                },
-                ResolveMetaGlobal {
-                    previous_global: None,
-                    new_global: state.global.unwrap(),
-                },
-                HasMetaGlobal,
-                NeedsFreshCryptoKeys,
-                Ready,
-            ].into_iter()
-                .map(|state| mem::discriminant(&state))
-                .collect::<Vec<mem::Discriminant<_>>>(),
+                "InitialWithLiveToken",
+                "InitialWithLiveTokenAndConfig",
+                "InitialWithLiveTokenAndInfo",
+                "NeedsFreshMetaGlobal",
+                "ResolveMetaGlobal",
+                "HasMetaGlobal",
+                "NeedsFreshCryptoKeys",
+                "Ready",
+            ],
             "Should cycle through all states"
         );
     }
