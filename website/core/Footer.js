@@ -26,9 +26,6 @@ class Footer extends React.Component {
             <a href="https://mozilla.org">
               <img src={ imgUrl('mozilla.svg') } style={{height: '50px'}} alt="Mozilla" />
             </a>
-            <a href={this.docUrl('sync/welcome.html', this.props.language)}>
-              Sync
-            </a>
           </div>
           <div>
             <h5>Links</h5>
@@ -37,6 +34,9 @@ class Footer extends React.Component {
             </a>
             <a href={this.docUrl('accounts/welcome.html', this.props.language)}>
             Firefox Accounts Docs
+            </a>
+            <a href={this.docUrl('sync/welcome.html', this.props.language)}>
+            Firdfox Sync Docs
             </a>
           </div>
           <div>
