@@ -1,6 +1,7 @@
 {
   "docs": {
     "Accounts": ["accounts/welcome"],
+    "Sync": ["sync/welcome"],
     "Applications": ["applications/welcome"]
   },
   "accounts": {
@@ -17,6 +18,24 @@
     "Applications": [
       "applications/welcome",
       "applications/signing-android-apps"
+    ]
+  },
+  "sync": {
+    "Firefox Sync": [
+      "sync/welcome",
+      "sync/file-desktop-bug",
+      "sync/faq"
+    ],
+    "Testing": [
+      "sync/tps"
+    ],
+    "Design Docs": [
+      "sync/extension-storage",
+      "sync/state-machines"
+    ],
+    "Team": [
+      "sync/canned-bug-responses",
+      "sync/redash"
     ]
   }
 }

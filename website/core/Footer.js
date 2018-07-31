@@ -26,6 +26,9 @@ class Footer extends React.Component {
             <a href="https://mozilla.org">
               <img src={ imgUrl('mozilla.svg') } style={{height: '50px'}} alt="Mozilla" />
             </a>
+            <a href={this.docUrl('sync/welcome.html', this.props.language)}>
+              Sync
+            </a>
           </div>
           <div>
             <h5>Links</h5>

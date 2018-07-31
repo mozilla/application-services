@@ -28,6 +28,17 @@ h2 {
   font-weight: bold;
 }
 
+h5, h6 {
+  font-family: -apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen,Ubuntu,Cantarell,"Fira Sans","Droid Sans","Helvetica Neue",Arial,sans-serif;
+  font-weight: 300;
+  color: #424c55;
+}
+
+.mainContainer .wrapper .post h6 {
+  font-weight: 300;
+  font-style: italic;
+}
+
 .navigationWrapper .slidingNav .nav-site ul li a {
   font-weight: bold;
 }
