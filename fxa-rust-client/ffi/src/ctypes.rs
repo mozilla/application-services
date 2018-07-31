@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use fxa_client::http_client::ProfileResponse;
+use fxa_client::Profile;
 use fxa_client::{OAuthInfo, SyncKeys};
 use fxa_str_free;
 use libc::c_char;
@@ -77,8 +77,8 @@ impl Drop for ProfileC {
     }
 }
 
-impl From<ProfileResponse> for ProfileC {
-    fn from(profile: ProfileResponse) -> Self {
+impl From<Profile> for ProfileC {
+    fn from(profile: Profile) -> Self {
         ProfileC {
             uid: string_to_c_char(profile.uid),
             email: string_to_c_char(profile.email),

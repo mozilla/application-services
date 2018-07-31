@@ -1,10 +1,12 @@
 [workspace]
 members = [
-    "boxlocker",
     "fxa-rust-client",
     "fxa-rust-client/ffi",
+    "logins",
     "sync15-adapter",
-    "sync15-adapter/ffi"
+    "sync15-adapter/ffi",
+    "sync15/passwords",
+    "sync15/passwords/ffi",
 ]
 
 # For RSA keys cloning. Remove once openssl 0.10.8+ is released.
@@ -13,3 +15,10 @@ openssl = { git = 'https://github.com/sfackler/rust-openssl', rev = '5debc1ba5a7
 # Remove these two once https://github.com/carllerche/mio/pull/846 and https://github.com/rust-lang-nursery/net2-rs/pull/74 are merged.
 net2 = { git = 'https://github.com/mehcode/net2-rs', branch = 'master' }
 mio = { git = 'https://github.com/mehcode/mio', branch = 'master' }
+# Remove once a new version of rust-native-tls containing this commit is released.
+native-tls = { git = 'https://github.com/vladikoff/rust-native-tls', rev = '885617dbb827728e81650ba6785fcd25b33e7860' }
+
+[profile.release]
+opt-level = "z"
+debug = false
+lto = true

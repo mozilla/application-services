@@ -4,29 +4,38 @@
 
 use changeset::{OutgoingChangeset, IncomingChangeset, CollectionUpdate};
 use util::ServerTimestamp;
-use error::Result;
+use error;
 use service::Sync15Service;
 
-/// Low-level store functionality. Stores that need custom reconciliation logic
-/// should use this.
+/// Low-level store functionality. Stores that need custom reconciliation logic should use this.
+///
+/// Different stores will produce errors of different types.  To accommodate this, we can either
+/// have the store's error type encapsulate errors while syncing, or we can have the Sync 1.5
+/// adapter's error type encapsulate the underlying error types.  Right now, it's less clear how to
+/// encapsulate errors in a generic way, so we expect `Store` implementations to define an
+/// associated `Error` type, and we expect to be able to convert our error type into that type.
 pub trait Store {
+    type Error;
+
     fn apply_incoming(
         &mut self,
         inbound: IncomingChangeset
-    ) -> Result<OutgoingChangeset>;
+    ) -> Result<OutgoingChangeset, Self::Error>;
 
     fn sync_finished(
         &mut self,
         new_timestamp: ServerTimestamp,
         records_synced: &[String],
-    ) -> Result<()>;
+    ) -> Result<(), Self::Error>;
 }
 
-pub fn synchronize(svc: &Sync15Service,
-                   store: &mut Store,
+pub fn synchronize<E>(svc: &Sync15Service,
+                   store: &mut Store<Error=E>,
                    collection: String,
                    timestamp: ServerTimestamp,
-                   fully_atomic: bool) -> Result<()> {
+                   fully_atomic: bool) -> Result<(), E>
+where E: From<error::Error>
+{
 
     info!("Syncing collection {}", collection);
     let incoming_changes = IncomingChangeset::fetch(svc, collection.clone(), timestamp)?;

@@ -101,6 +101,12 @@ const Features = props => (
       },
       {
         imageAlign: 'top',
+        title: 'Applications',
+        imageLink: `${siteConfig.baseUrl}docs/applications/welcome.html`,
+        image: imgUrl('apps.svg'),
+      },
+      {
+        imageAlign: 'top',
         title: 'Sync',
         imageLink: `${siteConfig.baseUrl}docs/sync/welcome.html`,
         image: imgUrl('sync-16.svg'),

@@ -2,56 +2,61 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// For error_chain:
-#![recursion_limit = "128"]
-
 extern crate base64;
+extern crate byteorder;
+extern crate failure;
 #[macro_use]
-extern crate error_chain;
+extern crate failure_derive;
+#[cfg(feature = "browserid")]
 extern crate hawk;
 extern crate hex;
-extern crate hkdf;
-extern crate hmac;
-extern crate jose;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
+#[cfg(feature = "browserid")]
 extern crate openssl;
-extern crate rand;
 extern crate regex;
 extern crate reqwest;
+extern crate ring;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
-extern crate sha2;
+extern crate untrusted;
 extern crate url;
 
 use std::collections::HashMap;
 use std::mem;
+use std::panic::RefUnwindSafe;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[cfg(feature = "browserid")]
 use self::login_sm::LoginState::*;
+#[cfg(feature = "browserid")]
 use self::login_sm::*;
 use errors::*;
+#[cfg(feature = "browserid")]
 use http_client::browser_id::jwt_utils;
 use http_client::{Client, OAuthTokenResponse, ProfileResponse};
-use jose::{JWKECCurve, JWE, JWK};
-use openssl::hash::{hash, MessageDigest};
-use rand::{OsRng, RngCore};
+use ring::digest;
+use ring::rand::{SecureRandom, SystemRandom};
+use scoped_keys::ScopedKeysFlow;
 use url::Url;
 use util::now;
 
 mod config;
 pub mod errors;
-pub mod http_client;
+mod http_client;
+#[cfg(feature = "browserid")]
 mod login_sm;
 mod oauth;
+mod scoped_keys;
 mod util;
 
 pub use config::Config;
+pub use http_client::ProfileResponse as Profile;
 
 // If a cached token has less than `OAUTH_MIN_TIME_LEFT` seconds left to live,
 // it will be considered already expired.
@@ -59,11 +64,16 @@ const OAUTH_MIN_TIME_LEFT: u64 = 60;
 // A cached profile response is considered fresh for `PROFILE_FRESHNESS_THRESHOLD` ms.
 const PROFILE_FRESHNESS_THRESHOLD: u64 = 120000; // 2 minutes
 
+lazy_static! {
+    static ref RNG: SystemRandom = SystemRandom::new();
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 struct StateV1 {
     client_id: String,
     redirect_uri: String,
     config: Config,
+    #[cfg(feature = "browserid")]
     login_state: LoginState,
     oauth_cache: HashMap<String, OAuthInfo>,
 }
@@ -102,16 +112,37 @@ struct CachedResponse<T> {
 pub struct FirefoxAccount {
     state: StateV1,
     flow_store: HashMap<String, OAuthFlow>,
+    persist_callback: Option<PersistCallback>,
     profile_cache: Option<CachedResponse<ProfileResponse>>,
 }
 
 pub type SyncKeys = (String, String);
+
+pub struct PersistCallback {
+    callback_fn: Box<Fn(&str) + RefUnwindSafe>,
+}
+
+impl PersistCallback {
+    pub fn new<F>(callback_fn: F) -> PersistCallback
+    where
+        F: Fn(&str) + 'static + RefUnwindSafe,
+    {
+        PersistCallback {
+            callback_fn: Box::new(callback_fn),
+        }
+    }
+
+    pub fn call(&self, json: &str) {
+        (*self.callback_fn)(json);
+    }
+}
 
 impl FirefoxAccount {
     fn from_state(state: StateV1) -> FirefoxAccount {
         FirefoxAccount {
             state,
             flow_store: HashMap::new(),
+            persist_callback: None,
             profile_cache: None,
         }
     }
@@ -121,6 +152,7 @@ impl FirefoxAccount {
             client_id: client_id.to_string(),
             redirect_uri: redirect_uri.to_string(),
             config,
+            #[cfg(feature = "browserid")]
             login_state: Unknown,
             oauth_cache: HashMap::new(),
         })
@@ -128,6 +160,7 @@ impl FirefoxAccount {
 
     // Initialize state from Firefox Accounts credentials obtained using the
     // web flow.
+    #[cfg(feature = "browserid")]
     pub fn from_credentials(
         config: Config,
         client_id: &str,
@@ -171,6 +204,7 @@ impl FirefoxAccount {
         serde_json::to_string(&state).map_err(|e| e.into())
     }
 
+    #[cfg(feature = "browserid")]
     fn to_married(&mut self) -> Option<&MarriedState> {
         self.advance();
         match self.state.login_state {
@@ -179,6 +213,7 @@ impl FirefoxAccount {
         }
     }
 
+    #[cfg(feature = "browserid")]
     pub fn advance(&mut self) {
         let client = Client::new(&self.state.config);
         let state_machine = LoginStateMachine::new(client);
@@ -234,29 +269,39 @@ impl FirefoxAccount {
                     &refresh_token,
                     &scopes,
                 )?;
-            } else if let Some(session_token) =
-                FirefoxAccount::session_token_from_state(&self.state.login_state)
-            {
-                let client = Client::new(&self.state.config);
-                resp = client.oauth_token_with_session_token(
-                    &self.state.client_id,
-                    session_token,
-                    &scopes,
-                )?;
             } else {
-                return Ok(None);
+                #[cfg(feature = "browserid")]
+                {
+                    if let Some(session_token) =
+                        FirefoxAccount::session_token_from_state(&self.state.login_state)
+                    {
+                        let client = Client::new(&self.state.config);
+                        resp = client.oauth_token_with_session_token(
+                            &self.state.client_id,
+                            session_token,
+                            &scopes,
+                        )?;
+                    } else {
+                        return Ok(None);
+                    }
+                }
+                #[cfg(not(feature = "browserid"))]
+                {
+                    return Ok(None);
+                }
             }
         }
         Ok(Some(self.handle_oauth_token_response(resp, None)?))
     }
 
     pub fn begin_oauth_flow(&mut self, scopes: &[&str], wants_keys: bool) -> Result<String> {
-        let state = FirefoxAccount::random_base64_url_string(16);
-        let code_verifier = FirefoxAccount::random_base64_url_string(43);
-        let code_challenge = hash(MessageDigest::sha256(), &code_verifier.as_bytes())?;
+        let state = FirefoxAccount::random_base64_url_string(16)?;
+        let code_verifier = FirefoxAccount::random_base64_url_string(43)?;
+        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         let mut url = self.state.config.authorization_endpoint()?;
         url.query_pairs_mut()
+            .append_pair("action", "email")
             .append_pair("client_id", &self.state.client_id)
             .append_pair("redirect_uri", &self.state.redirect_uri)
             .append_pair("scope", &scopes.join(" "))
@@ -265,24 +310,24 @@ impl FirefoxAccount {
             .append_pair("code_challenge_method", "S256")
             .append_pair("code_challenge", &code_challenge)
             .append_pair("access_type", "offline");
-        let jwk = match wants_keys {
+        let scoped_keys_flow = match wants_keys {
             true => {
-                let jwk = JWK::from_random_ec(JWKECCurve::P256)?;
-                let jwk_json = jwk.to_json(false)?.to_string();
+                let flow = ScopedKeysFlow::with_random_key(&*RNG)?;
+                let jwk_json = flow.generate_keys_jwk()?;
                 let keys_jwk = base64::encode_config(&jwk_json, base64::URL_SAFE_NO_PAD);
                 url.query_pairs_mut().append_pair("keys_jwk", &keys_jwk);
-                Some(jwk)
+                Some(flow)
             }
             false => None,
         };
-        let authorization_uri = url.to_string();
-        // TODO: FxA doesn't accept spaces encoded as + :(
-        let authorization_uri = authorization_uri.replace("+", "%20");
         self.flow_store.insert(
             state.clone(), // Since state is supposed to be unique, we use it to key our flows.
-            OAuthFlow { jwk, code_verifier },
+            OAuthFlow {
+                scoped_keys_flow,
+                code_verifier,
+            },
         );
-        Ok(authorization_uri)
+        Ok(url.to_string())
     }
 
     pub fn complete_oauth_flow(&mut self, code: &str, state: &str) -> Result<OAuthInfo> {
@@ -291,36 +336,36 @@ impl FirefoxAccount {
         {
             let flow = match self.flow_store.get(state) {
                 Some(flow) => flow,
-                None => bail!(ErrorKind::UnknownOAuthState),
+                None => return Err(ErrorKind::UnknownOAuthState.into()),
             };
             let client = Client::new(&self.state.config);
             resp = client.oauth_token_with_code(&code, &flow.code_verifier, &self.state.client_id)?;
         }
         let oauth_flow = match self.flow_store.remove(state) {
             Some(oauth_flow) => oauth_flow,
-            None => bail!(ErrorKind::UnknownOAuthState),
+            None => return Err(ErrorKind::UnknownOAuthState.into()),
         };
-        self.handle_oauth_token_response(resp, oauth_flow.jwk)
+        self.handle_oauth_token_response(resp, oauth_flow.scoped_keys_flow)
     }
 
     fn handle_oauth_token_response(
         &mut self,
         resp: OAuthTokenResponse,
-        jwk: Option<JWK>,
+        scoped_keys_flow: Option<ScopedKeysFlow>,
     ) -> Result<OAuthInfo> {
         let granted_scopes = resp.scope.split(" ").map(|s| s.to_string()).collect();
         // This assumes that if the server returns keys_jwe, the jwk argument is Some.
         let keys = match resp.keys_jwe {
             Some(jwe) => {
-                let jwk = jwk.expect(
-                    "Insane state! If we are getting back a JWE this means we should have a JWK.",
+                let scoped_keys_flow = scoped_keys_flow.expect(
+                    "Insane state! If we are getting back a JWE this means we should have a JWK private key.",
                 );
-                let jwe = JWE::import(&jwe)?;
-                Some(jwk.decrypt(&jwe)?)
+                Some(scoped_keys_flow.decrypt_keys_jwe(&jwe)?)
             }
             None => {
-                if jwk.is_some() {
-                    bail!("We expected to get keys back but the server didn't send them.")
+                if scoped_keys_flow.is_some() {
+                    error!("Expected to get keys back alongside the token but the server didn't send them.");
+                    return Err(ErrorKind::TokenWithoutKeys.into());
                 } else {
                     None
                 }
@@ -338,17 +383,17 @@ impl FirefoxAccount {
             scopes: granted_scopes,
         };
         self.oauth_cache_store(&oauth_info);
+        self.maybe_call_persist_callback();
         Ok(oauth_info)
     }
 
-    fn random_base64_url_string(len: usize) -> String {
-        let mut r = OsRng::new().expect("Could not instantiate RNG");
-        let mut buf: Vec<u8> = vec![0; len];
-        r.fill_bytes(buf.as_mut_slice());
-        let random = base64::encode_config(&buf, base64::URL_SAFE_NO_PAD);
-        random
+    fn random_base64_url_string(len: usize) -> Result<String> {
+        let mut out = vec![0u8; len];
+        RNG.fill(&mut out).map_err(|_| ErrorKind::RngFailure)?;
+        Ok(base64::encode_config(&out, base64::URL_SAFE_NO_PAD))
     }
 
+    #[cfg(feature = "browserid")]
     fn session_token_from_state(state: &LoginState) -> Option<&[u8]> {
         match state {
             &Separated(_) | Unknown => None,
@@ -363,10 +408,11 @@ impl FirefoxAccount {
         }
     }
 
+    #[cfg(feature = "browserid")]
     pub fn generate_assertion(&mut self, audience: &str) -> Result<String> {
         let married = match self.to_married() {
             Some(married) => married,
-            None => bail!(ErrorKind::NotMarried),
+            None => return Err(ErrorKind::NotMarried.into()),
         };
         let key_pair = married.key_pair();
         let certificate = married.certificate();
@@ -380,7 +426,7 @@ impl FirefoxAccount {
     pub fn get_profile(&mut self, ignore_cache: bool) -> Result<ProfileResponse> {
         let profile_access_token = match self.get_oauth_token(&["profile"])? {
             Some(token) => token.access_token,
-            None => bail!(ErrorKind::NeededTokenNotFound),
+            None => return Err(ErrorKind::NoCachedToken("profile").into()),
         };
         let mut etag = None;
         if let Some(ref cached_profile) = self.profile_cache {
@@ -404,16 +450,18 @@ impl FirefoxAccount {
             None => match self.profile_cache {
                 Some(ref cached_profile) => Ok(cached_profile.response.clone()),
                 None => {
-                    bail!("Insane state! We got a 304 without having a cached response.");
+                    error!("Insane state! We got a 304 without having a cached response.");
+                    Err(ErrorKind::UnrecoverableServerError.into())
                 }
             },
         }
     }
 
+    #[cfg(feature = "browserid")]
     pub fn get_sync_keys(&mut self) -> Result<SyncKeys> {
         let married = match self.to_married() {
             Some(married) => married,
-            None => bail!(ErrorKind::NotMarried),
+            None => return Err(ErrorKind::NotMarried.into()),
         };
         let sync_key = hex::encode(married.sync_key());
         Ok((sync_key, married.xcs().to_string()))
@@ -443,6 +491,28 @@ impl FirefoxAccount {
         panic!("Not implemented yet!")
     }
 
+    pub fn register_persist_callback(&mut self, persist_callback: PersistCallback) {
+        self.persist_callback = Some(persist_callback);
+    }
+
+    pub fn unregister_persist_callback(&mut self) {
+        self.persist_callback = None;
+    }
+
+    fn maybe_call_persist_callback(&self) {
+        if let Some(ref cb) = self.persist_callback {
+            let json = match self.to_json() {
+                Ok(json) => json,
+                Err(_) => {
+                    error!("Error with to_json in persist_callback");
+                    return;
+                }
+            };
+            cb.call(&json);
+        }
+    }
+
+    #[cfg(feature = "browserid")]
     pub fn sign_out(mut self) {
         let client = Client::new(&self.state.config);
         client.sign_out();
@@ -456,20 +526,8 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize() {
-        let config = Config::stable_dev().unwrap();
-        let fxa1 = FirefoxAccount::from_credentials(
-            config,
-            "5882386c6d801776",
-            "https://foo.bar",
-            WebChannelResponse {
-                uid: "123456".to_string(),
-                email: "foo@bar.com".to_string(),
-                verified: false,
-                session_token: "12".to_string(),
-                key_fetch_token: "34".to_string(),
-                unwrap_kb: "56".to_string(),
-            },
-        ).unwrap();
+        let mut fxa1 =
+            FirefoxAccount::new(Config::stable_dev().unwrap(), "12345678", "https://foo.bar");
         let fxa1_json = fxa1.to_json().unwrap();
         drop(fxa1);
         let fxa2 = FirefoxAccount::from_json(&fxa1_json).unwrap();
@@ -479,7 +537,8 @@ mod tests {
 
     #[test]
     fn test_oauth_cache_store_and_find() {
-        let mut fxa = FirefoxAccount::new(Config::stable_dev().unwrap(), "12345678", "https://foo.bar");
+        let mut fxa =
+            FirefoxAccount::new(Config::stable_dev().unwrap(), "12345678", "https://foo.bar");
         let oauth_info = OAuthInfo {
             access_token: "abcdef".to_string(),
             keys: None,
@@ -496,7 +555,7 @@ mod tests {
 }
 
 pub struct OAuthFlow {
-    pub jwk: Option<JWK>,
+    pub scoped_keys_flow: Option<ScopedKeysFlow>,
     pub code_verifier: String,
 }
 

@@ -1,13 +1,12 @@
 ## libs
 
-This directory builds `openssl`, `cjose` and `jansson` for iOS and Android.
-`jansson` is required for `cjose`.
+This directory builds `openssl` for iOS, Android and desktop platforms.
 
 ### Usage
 
-* `./build-all.sh` - Build for both iOS and Android
-* `./build-all.sh ios` - Just iOS
-* `./build-all.sh android` - Just Android
+* `./build-all.sh ios` - Build for iOS
+* `./build-all.sh android` - Build for Android
+* `./build-all.sh desktop` - Build for Desktop
 
 
 ### Supported Arch

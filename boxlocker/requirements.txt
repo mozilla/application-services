@@ -1,4 +1,0 @@
-requests
-jwcrypto
-tabulate
-https://github.com/mozilla/PyFxA/archive/add-pkce-support.zip

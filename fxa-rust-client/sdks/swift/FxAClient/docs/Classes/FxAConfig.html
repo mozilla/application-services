@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>FxAConfig Class Reference</title>
+    <link rel="stylesheet" type="text/css" href="../css/jazzy.css" />
+    <link rel="stylesheet" type="text/css" href="../css/highlight.css" />
+    <meta charset='utf-8'>
+    <script src="../js/jquery.min.js" defer></script>
+    <script src="../js/jazzy.js" defer></script>
+    
+  </head>
+  <body>
+    <a name="//apple_ref/swift/Class/FxAConfig" class="dashAnchor"></a>
+    <a title="FxAConfig Class Reference"></a>
+    <header>
+      <div class="content-wrapper">
+        <p><a href="../index.html"> Docs</a> (30% documented)</p>
+      </div>
+    </header>
+    <div class="content-wrapper">
+      <p id="breadcrumbs">
+        <a href="../index.html"> Reference</a>
+        <img id="carat" src="../img/carat.png" />
+        FxAConfig Class Reference
+      </p>
+    </div>
+    <div class="content-wrapper">
+      <nav class="sidebar">
+        <ul class="nav-groups">
+          <li class="nav-group-name">
+            <a href="../Classes.html">Classes</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Classes/FirefoxAccount.html">FirefoxAccount</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/FxAConfig.html">FxAConfig</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/OAuthInfo.html">OAuthInfo</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/Profile.html">Profile</a>
+              </li>
+              <li class="nav-group-task">
+                <a href="../Classes/SyncKeys.html">SyncKeys</a>
+              </li>
+            </ul>
+          </li>
+          <li class="nav-group-name">
+            <a href="../Enums.html">Enumerations</a>
+            <ul class="nav-group-tasks">
+              <li class="nav-group-task">
+                <a href="../Enums/FxAError.html">FxAError</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </nav>
+      <article class="main-content">
+        <section>
+          <section class="section">
+            <h1>FxAConfig</h1>
+              <div class="declaration">
+                <div class="language">
+                  <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">class</span> <span class="kt">FxAConfig</span> <span class="p">:</span> <span class="kt">MovableRustOpaquePointer</span></code></pre>
+
+                </div>
+              </div>
+            <p>Undocumented</p>
+
+          </section>
+          <section class="section task-group-section">
+            <div class="task-group">
+              <ul>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:9FxAClient0A7AConfigC7releaseyyACSg_s5Error_pSgtc17completionHandler_tFZ"></a>
+                    <a name="//apple_ref/swift/Method/release(completionHandler:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:9FxAClient0A7AConfigC7releaseyyACSg_s5Error_pSgtc17completionHandler_tFZ">release(completionHandler:)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Convenience method over <code><a href="../Classes/FxAConfig.html#/s:9FxAClient0A7AConfigC6customySS12content_base_yACSg_s5Error_pSgtc17completionHandlertFZ">custom(...)</a></code> which provides an <code>FxAConfig</code> that
+points to the production FxA servers.</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">class</span> <span class="kd">func</span> <span class="nf">release</span><span class="p">(</span><span class="nv">completionHandler</span><span class="p">:</span> <span class="kd">@escaping</span> <span class="p">(</span><span class="kt">FxAConfig</span><span class="p">?,</span> <span class="kt">Error</span><span class="p">?)</span> <span class="o">-&gt;</span> <span class="kt">Void</span><span class="p">)</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:9FxAClient0A7AConfigC6customySS12content_base_yACSg_s5Error_pSgtc17completionHandlertFZ"></a>
+                    <a name="//apple_ref/swift/Method/custom(content_base:completionHandler:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:9FxAClient0A7AConfigC6customySS12content_base_yACSg_s5Error_pSgtc17completionHandlertFZ">custom(content_base:completionHandler:)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Fetches an <code>FxAConfig</code> by making a request to <code>&lt;content_base&gt;/.well-known/fxa-client-configuration</code>
+and parsing the newly fetched configuration object.</p>
+
+<p>Note: <code>content_base</code> shall not have a trailing slash.</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">class</span> <span class="kd">func</span> <span class="nf">custom</span><span class="p">(</span><span class="nv">content_base</span><span class="p">:</span> <span class="kt">String</span><span class="p">,</span> <span class="nv">completionHandler</span><span class="p">:</span> <span class="kd">@escaping</span> <span class="p">(</span><span class="kt">FxAConfig</span><span class="p">?,</span> <span class="kt">Error</span><span class="p">?)</span> <span class="o">-&gt;</span> <span class="kt">Void</span><span class="p">)</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </section>
+        </section>
+        <section id="footer">
+          <p>&copy; 2018 <a class="link" href="" target="_blank" rel="external"></a>. All rights reserved. (Last updated: 2018-07-11)</p>
+          <p>Generated by <a class="link" href="https://github.com/realm/jazzy" target="_blank" rel="external">jazzy ♪♫ v0.9.3</a>, a <a class="link" href="https://realm.io" target="_blank" rel="external">Realm</a> project.</p>
+        </section>
+      </article>
+    </div>
+  </body>
+</div>
+</html>

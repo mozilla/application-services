@@ -1,5 +1,0 @@
-credentials.json
-Cargo.lock
-/target
-**/*.rs.bk
-*.swp

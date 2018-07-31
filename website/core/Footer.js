@@ -1,5 +1,12 @@
 const React = require('react');
 
+const siteConfig = require(process.cwd() + '/siteConfig.js');
+
+
+function imgUrl(img) {
+  return siteConfig.baseUrl + 'img/' + img;
+}
+
 class Footer extends React.Component {
   docUrl(doc, language) {
     const baseUrl = this.props.config.baseUrl;
@@ -16,18 +23,20 @@ class Footer extends React.Component {
       <footer className="productShowcaseSection nav-footer"  id="footer">
         <section className="sitemap">
           <div>
-            <h5>Docs</h5>
-            <a href={this.docUrl('accounts/welcome.html', this.props.language)}>
-              Firefox Accounts
+            <a href="https://mozilla.org">
+              <img src={ imgUrl('mozilla.svg') } style={{height: '50px'}} alt="Mozilla" />
             </a>
             <a href={this.docUrl('sync/welcome.html', this.props.language)}>
               Sync
             </a>
           </div>
           <div>
-            <h5>Community</h5>
+            <h5>Links</h5>
             <a href="/application-services/blog">
               Blog
+            </a>
+            <a href={this.docUrl('accounts/welcome.html', this.props.language)}>
+            Firefox Accounts Docs
             </a>
           </div>
           <div>

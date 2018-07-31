@@ -2,14 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// `error_chain!` can recurse deeply and I guess we're just supposed to live with that...
-#![recursion_limit = "1024"]
-
 extern crate serde;
 extern crate base64;
 extern crate openssl;
 extern crate reqwest;
 extern crate hawk;
+
+extern crate failure;
+
+#[macro_use]
+extern crate failure_derive;
+
 #[macro_use]
 extern crate hyper;
 
@@ -24,9 +27,6 @@ extern crate log;
 
 #[cfg_attr(test, macro_use)]
 extern crate serde_json;
-
-#[macro_use]
-extern crate error_chain;
 
 extern crate url;
 extern crate base16;

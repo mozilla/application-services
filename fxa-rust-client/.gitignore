@@ -4,4 +4,4 @@
 /target/
 **/*.rs.bk
 Cargo.lock
-sdks/swift/FxAClient/*.xcodeproj/project.xcworkspace/xcuserdata
+xcuserdata/

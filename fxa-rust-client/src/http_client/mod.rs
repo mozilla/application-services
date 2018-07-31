@@ -3,22 +3,25 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use hex;
-use hkdf::Hkdf;
-use hmac::{Hmac, Mac};
 use reqwest;
 use reqwest::{header, Client as ReqwestClient, Method, Request, Response, StatusCode};
+use ring::{digest, hkdf, hmac};
 use serde_json;
-use sha2::{Digest, Sha256};
 use std;
 use util::Xorable;
 
+#[cfg(feature = "browserid")]
 use self::browser_id::rsa::RSABrowserIDKeyPair;
+#[cfg(feature = "browserid")]
 use self::browser_id::{jwt_utils, BrowserIDKeyPair};
+#[cfg(feature = "browserid")]
 use self::hawk_request::HAWKRequestBuilder;
 use config::Config;
 use errors::*;
 
+#[cfg(feature = "browserid")]
 pub mod browser_id;
+#[cfg(feature = "browserid")]
 mod hawk_request;
 
 const HKDF_SALT: [u8; 32] = [0b0; 32];
@@ -47,6 +50,7 @@ impl<'a> Client<'a> {
             .to_vec()
     }
 
+    #[cfg(feature = "browserid")]
     pub fn key_pair(len: u32) -> Result<RSABrowserIDKeyPair> {
         RSABrowserIDKeyPair::generate_random(len)
     }
@@ -58,13 +62,14 @@ impl<'a> Client<'a> {
     }
 
     pub fn compute_client_state(kb: &[u8]) -> String {
-        hex::encode(&Sha256::digest(kb)[0..16])
+        hex::encode(digest::digest(&digest::SHA256, &kb).as_ref()[0..16].to_vec())
     }
 
     pub fn sign_out(&self) {
         panic!("Not implemented yet!");
     }
 
+    #[cfg(feature = "browserid")]
     pub fn login(&self, email: &str, auth_pwd: &str, get_keys: bool) -> Result<LoginResponse> {
         let url = self.config.auth_url_path("v1/account/login")?;
         let parameters = json!({
@@ -87,6 +92,7 @@ impl<'a> Client<'a> {
         Client::make_request(request)?.json().map_err(|e| e.into())
     }
 
+    #[cfg(feature = "browserid")]
     pub fn keys(&self, key_fetch_token: &[u8]) -> Result<KeysResponse> {
         let url = self.config.auth_url_path("v1/account/keys")?;
         let context_info = Client::kw("keyFetchToken");
@@ -101,11 +107,11 @@ impl<'a> Client<'a> {
         let json: serde_json::Value = Client::make_request(request)?.json()?;
         let bundle = match json["bundle"].as_str() {
             Some(bundle) => bundle,
-            None => bail!("Invalid JSON"),
+            None => panic!("Invalid JSON"),
         };
         let data = hex::decode(bundle)?;
         if data.len() != 3 * KEY_LENGTH {
-            bail!("Data is not of the expected size.");
+            return Err(ErrorKind::BadKeyLength("bundle", 3 * KEY_LENGTH, data.len()).into());
         }
         let ciphertext = &data[0..(KEY_LENGTH * 2)];
         let mac_code = &data[(KEY_LENGTH * 2)..(KEY_LENGTH * 3)];
@@ -119,20 +125,15 @@ impl<'a> Client<'a> {
         let hmac_key = &bytes[0..KEY_LENGTH];
         let xor_key = &bytes[KEY_LENGTH..(KEY_LENGTH * 3)];
 
-        let mut mac = match Hmac::<Sha256>::new_varkey(hmac_key) {
-            Ok(mac) => mac,
-            Err(_) => bail!("Could not create MAC key."),
-        };
-        mac.input(ciphertext);
-        if let Err(_) = mac.verify(&mac_code) {
-            bail!("Bad HMAC!");
-        }
+        let v_key = hmac::VerificationKey::new(&digest::SHA256, hmac_key.as_ref());
+        hmac::verify(&v_key, ciphertext, mac_code).map_err(|_| ErrorKind::HmacVerifyFail)?;
 
         let xored_bytes = ciphertext.xored_with(xor_key)?;
         let wrap_kb = xored_bytes[KEY_LENGTH..(KEY_LENGTH * 2)].to_vec();
         Ok(KeysResponse { wrap_kb })
     }
 
+    #[cfg(feature = "browserid")]
     pub fn recovery_email_status(
         &self,
         session_token: &[u8],
@@ -173,6 +174,7 @@ impl<'a> Client<'a> {
         }))
     }
 
+    #[cfg(feature = "browserid")]
     pub fn oauth_token_with_session_token(
         &self,
         client_id: &str,
@@ -237,6 +239,7 @@ impl<'a> Client<'a> {
         Client::make_request(request)?.json().map_err(|e| e.into())
     }
 
+    #[cfg(feature = "browserid")]
     pub fn sign(&self, session_token: &[u8], key_pair: &BrowserIDKeyPair) -> Result<SignResponse> {
         let public_key_json = key_pair.to_json(false)?;
         let parameters = json!({
@@ -255,7 +258,7 @@ impl<'a> Client<'a> {
         let url = self.config.oauth_url()?;
         let host = url
             .host_str()
-            .chain_err(|| "This URL doesn't have a host!")?;
+            .ok_or_else(|| ErrorKind::AudienceURLWithoutHost)?;
         match url.port() {
             Some(port) => Ok(format!("{}://{}:{}", url.scheme(), host, port)),
             None => Ok(format!("{}://{}", url.scheme(), host)),
@@ -272,9 +275,11 @@ impl<'a> Client<'a> {
         ))
     }
 
-    fn derive_hkdf_sha256_key(ikm: &[u8], xts: &[u8], info: &[u8], len: usize) -> Vec<u8> {
-        let hk = Hkdf::<Sha256>::extract(&xts, &ikm);
-        hk.expand(&info, len)
+    fn derive_hkdf_sha256_key(ikm: &[u8], salt: &[u8], info: &[u8], len: usize) -> Vec<u8> {
+        let salt = hmac::SigningKey::new(&digest::SHA256, salt);
+        let mut out = vec![0u8; len];
+        hkdf::extract_and_expand(&salt, ikm, info, &mut out);
+        out.to_vec()
     }
 
     fn make_request(request: Request) -> Result<Response> {
@@ -287,13 +292,13 @@ impl<'a> Client<'a> {
         } else {
             let json: std::result::Result<serde_json::Value, reqwest::Error> = resp.json();
             match json {
-                Ok(json) => bail!(ErrorKind::RemoteError(
-                    json["code"].as_u64().unwrap_or(0),
-                    json["errno"].as_u64().unwrap_or(0),
-                    json["error"].as_str().unwrap_or("").to_string(),
-                    json["message"].as_str().unwrap_or("").to_string(),
-                    json["info"].as_str().unwrap_or("").to_string()
-                )),
+                Ok(json) => Err(ErrorKind::RemoteError {
+                    code: json["code"].as_u64().unwrap_or(0),
+                    errno: json["errno"].as_u64().unwrap_or(0),
+                    error: json["error"].as_str().unwrap_or("").to_string(),
+                    message: json["message"].as_str().unwrap_or("").to_string(),
+                    info: json["info"].as_str().unwrap_or("").to_string(),
+                }.into()),
                 Err(_) => Err(resp.error_for_status().unwrap_err().into()),
             }
         }
@@ -364,14 +369,12 @@ pub struct ProfileResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openssl::hash::MessageDigest;
-    use openssl::pkcs5::pbkdf2_hmac;
+    use ring::{digest, pbkdf2};
 
     fn quick_strech_pwd(email: &str, pwd: &str) -> Vec<u8> {
         let salt = Client::kwe("quickStretch", email);
-        let digest = MessageDigest::sha256();
         let mut out = [0u8; 32];
-        pbkdf2_hmac(pwd.as_bytes(), &salt, 1000, digest, &mut out).unwrap();
+        pbkdf2::derive(&digest::SHA256, 1000, &salt, pwd.as_bytes(), &mut out);
         out.to_vec()
     }
 

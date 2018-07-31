@@ -1,7 +1,8 @@
 {
   "docs": {
     "Accounts": ["accounts/welcome"],
-    "Sync": ["sync/welcome"]
+    "Sync": ["sync/welcome"],
+    "Applications": ["applications/welcome"]
   },
   "accounts": {
     "Firefox Accounts": [
@@ -9,7 +10,14 @@
       "accounts/project-details"
     ],
     "Other Features": [
-      "accounts/end-to-end-encryption"
+      "accounts/end-to-end-encryption",
+      "accounts/50000-most-common-passwords"
+    ]
+  },
+  "applications": {
+    "Applications": [
+      "applications/welcome",
+      "applications/signing-android-apps"
     ]
   },
   "sync": {

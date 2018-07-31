@@ -8,12 +8,13 @@ extern crate libc;
 mod ctypes;
 mod util;
 use std::ffi::CString;
+use std::panic::AssertUnwindSafe;
 use std::ptr;
 
 use ctypes::*;
 use fxa_client::errors::Error as InternalError;
-use fxa_client::errors::ErrorKind::*;
-use fxa_client::{Config, FirefoxAccount, WebChannelResponse};
+use fxa_client::errors::ErrorKind as InternalErrorKind;
+use fxa_client::{Config, FirefoxAccount, PersistCallback, WebChannelResponse};
 use libc::c_char;
 use util::*;
 
@@ -50,10 +51,10 @@ impl Default for ExternError {
 
 impl From<InternalError> for ExternError {
     fn from(err: InternalError) -> ExternError {
-        match err {
-            InternalError(RemoteError(401, ..), ..)
-            | InternalError(NotMarried, ..)
-            | InternalError(NeededTokenNotFound, ..) => ExternError {
+        match err.kind() {
+            InternalErrorKind::RemoteError { code: 401, .. }
+            | InternalErrorKind::NotMarried
+            | InternalErrorKind::NoCachedToken(_) => ExternError {
                 code: ErrorCode::AuthenticationError,
                 message: string_to_c_char(err.to_string()),
             },
@@ -215,6 +216,7 @@ pub unsafe extern "C" fn fxa_get_custom_config(
 ///
 /// A destructor [fxa_free] is provided for releasing the memory for this
 /// pointer type.
+#[cfg(feature = "browserid")]
 #[no_mangle]
 pub unsafe extern "C" fn fxa_from_credentials(
     config: *mut Config,
@@ -275,7 +277,7 @@ pub unsafe extern "C" fn fxa_from_json(
 /// Serializes the state of a [FirefoxAccount] instance. It can be restored later with [fxa_from_json].
 ///
 /// It is the responsability of the caller to persist that serialized state regularly (after operations that mutate [FirefoxAccount])
-/// in a **secure** location.
+/// in a **secure** location or to use [fxa_register_persist_callback].
 ///
 /// # Safety
 ///
@@ -291,6 +293,41 @@ pub unsafe extern "C" fn fxa_to_json(
         let fxa = &mut *fxa;
         fxa.to_json()
     })
+}
+
+/// Registers a callback that gets called every time the FirefoxAccount internal state
+/// changed and therefore need to be persisted.
+#[no_mangle]
+pub unsafe extern "C" fn fxa_register_persist_callback(
+    fxa: *mut FirefoxAccount,
+    callback: extern "C" fn(json: *const c_char),
+    error: *mut ExternError,
+) {
+    AssertUnwindSafe(callback);
+    call_with_result(error, || {
+        assert!(!fxa.is_null());
+        let fxa = &mut *fxa;
+        fxa.register_persist_callback(PersistCallback::new(move |json| {
+            let s = string_to_c_char(json);
+            callback(s);
+            drop(CString::from_raw(s));
+        }));
+        Ok(()) // call_with_result needs a result
+    });
+}
+
+/// Unregisters a previous registered persist callback
+#[no_mangle]
+pub unsafe extern "C" fn fxa_unregister_persist_callback(
+    fxa: *mut FirefoxAccount,
+    error: *mut ExternError,
+) {
+    call_with_result(error, || {
+        assert!(!fxa.is_null());
+        let fxa = &mut *fxa;
+        fxa.unregister_persist_callback();
+        Ok(()) // call_with_result needs a result
+    });
 }
 
 /// Fetches the profile associated with a Firefox Account.
@@ -340,6 +377,7 @@ pub unsafe extern "C" fn fxa_get_token_server_endpoint_url(
 ///
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
 /// pointer type.
+#[cfg(feature = "browserid")]
 #[no_mangle]
 pub unsafe extern "C" fn fxa_assertion_new(
     fxa: *mut FirefoxAccount,
@@ -361,6 +399,7 @@ pub unsafe extern "C" fn fxa_assertion_new(
 ///
 /// A destructor [fxa_sync_keys_free] is provided for releasing the memory for this
 /// pointer type.
+#[cfg(feature = "browserid")]
 #[no_mangle]
 pub unsafe extern "C" fn fxa_get_sync_keys(
     fxa: *mut FirefoxAccount,

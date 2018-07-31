@@ -6,13 +6,12 @@ extern crate sync15_adapter as sync;
 extern crate libc;
 extern crate serde_json;
 
-#[macro_use]
-extern crate error_chain;
+extern crate failure;
 
 use std::ffi::{CStr, CString};
 
 use std::{ptr, mem};
-use sync::error::unexpected;
+
 use sync::{
     Payload,
     Sync15Service,
@@ -20,7 +19,8 @@ use sync::{
     IncomingChangeset,
     OutgoingChangeset,
     ServerTimestamp,
-    Store
+    Store,
+    ErrorKind
 };
 
 use libc::{c_char, c_double, size_t};
@@ -267,7 +267,8 @@ impl FFIStore {
             (self.apply_incoming_cb)(this, incoming as *const IncomingChangeset)
         };
         if res.is_null() {
-            bail!(unexpected("FFI store failed to apply and fetch changes"));
+            return Err(ErrorKind::StoreError(
+                failure::err_msg("FFI store failed to apply and fetch changes")).into());
         }
         Ok(unsafe { Box::from_raw(res) })
     }
@@ -280,7 +281,8 @@ impl FFIStore {
             (self.sync_finished_cb)(this, ls.0 as c_double, ptr_as_const, ids.len() as size_t)
         };
         if !ok {
-            bail!(unexpected("FFI store failed to note sync finished"));
+            return Err(ErrorKind::StoreError(
+                failure::err_msg("FFI store failed to note sync finished")).into());
         }
         Ok(())
     }
@@ -288,6 +290,8 @@ impl FFIStore {
 
 // TODO: better error handling...
 impl Store for FFIStore {
+    type Error = sync::Error;
+
     fn apply_incoming(&mut self, incoming: IncomingChangeset) -> sync::Result<OutgoingChangeset> {
         Ok(*self.call_apply_incoming(&incoming)?)
     }
