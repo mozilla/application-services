@@ -18,9 +18,7 @@ serde_derive = "^1.0.63"
 serde_json = "1.0"
 
 [dependencies.mentat]
-git = "https://github.com/thomcc/mentat"
-branch = "failure-keep-backtraces"
-# git = "https://github.com/mozilla/mentat"
-# tag = "v0.8.1"
+git = "https://github.com/mozilla/mentat"
+tag = "v0.8.1"
 features = ["sqlcipher"]
 default_features = false
