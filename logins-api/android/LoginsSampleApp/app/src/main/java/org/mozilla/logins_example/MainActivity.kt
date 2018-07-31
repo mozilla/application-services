@@ -22,11 +22,10 @@ import java.io.*
 import com.beust.klaxon.Parser
 import com.beust.klaxon.JsonObject
 
-import kotlinx.android.synthetic.main.activity_main.*
 import org.mozilla.loginsapi.*
 
 class MainActivity : AppCompatActivity() {
-    var store: LoginsStore? = null;
+    var store: MentatLoginsStorage? = null;
 
     fun dumpError(tag: String, e: Exception) {
         val sw = StringWriter();
@@ -76,7 +75,7 @@ class MainActivity : AppCompatActivity() {
                         dumpError("LoginInit: ", error);
                         throw error
                     })
-                } catch (e: RustException) {
+                } catch (e: MentatStorageException) {
                     return
                 }
             } else {
@@ -115,7 +114,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun initFromCredentials(creds: Credentials): SyncResult<LoginsStore> {
+    fun initFromCredentials(creds: Credentials): SyncResult<MentatLoginsStorage> {
         // The format is a bit weird so I'm not sure if I can map this make klaxon do the
         // deserializing for us...
         val stringBuilder: StringBuilder = StringBuilder(creds.keys)
@@ -135,18 +134,17 @@ class MainActivity : AppCompatActivity() {
             e.printStackTrace();
         }
 
-        return LoginsStore.create(
-                databasePath   = appFiles.absolutePath + "/logins.mentatdb",
-                databaseKey    = "my_secret_key",
-                kid            = info.string("kid")!!,
-                accessToken    = creds.accessToken,
-                syncKey        = info.string("k")!!,
-// XXX - note that the sync15-adapter tacks on 1.0/sync/1.5, but that's already on the endpoint
-// we get from FxA. So this is limited to working against prod. The rust fix to this is
-// simple, but not yet done.
-//                tokenserverURL = creds.tokenServer
-                tokenserverURL = "https://token.services.mozilla.com"
+        val storage = MentatLoginsStorage(appFiles.absolutePath + "/logins.mentatdb");
+        val unlockInfo = SyncUnlockInfo(
+                kid = info.string("kid")!!,
+                fxaAccessToken = creds.accessToken,
+                syncKey = info.string("k")!!,
+                tokenserverBaseURL = "https://token.services.mozilla.com"
         )
+
+        return storage.unlock("my_secret_key", unlockInfo).then {
+            SyncResult.fromValue(storage)
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

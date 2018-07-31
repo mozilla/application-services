@@ -9,39 +9,79 @@ import org.mozilla.loginsapi.rust.RawLoginSyncState
 import org.mozilla.loginsapi.rust.RustError
 import java.io.Closeable
 
-class RustException(msg: String): Exception(msg) {}
+class MentatLoginsStorage(private val dbPath: String) : Closeable, LoginsStorage {
 
-class LoginsStore(private var raw: RawLoginSyncState?) : Closeable {
+    private var raw: RawLoginSyncState? = null;
 
-    fun sync(): SyncResult<Unit> {
+    override fun isLocked(): SyncResult<Boolean> {
+        return safeAsync {
+            // Run inside a safeAsync block to be sure that all pending operations have finished.
+            raw != null
+        }
+    }
+
+    override fun lock(): SyncResult<Unit> {
+        return safeAsync {
+            Log.d("LoginsAPI", "locking!");
+            if (raw == null) {
+                throw MismatchedLockException("Lock called when we are already locked")
+            }
+            // Free the sync state object
+            var raw = this.raw;
+            this.raw = null;
+            if (raw != null) {
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_state_destroy(raw)
+            }
+        }
+    }
+
+    override fun unlock(encryptionKey: String, syncInfo: SyncUnlockInfo): SyncResult<Unit> {
+        return safeAsync { error ->
+            Log.d("LoginsAPI", "unlock");
+            if (raw != null) {
+                throw MismatchedLockException("Unlock called when we are already unlocked");
+            }
+            raw = PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new(
+                    dbPath,
+                    encryptionKey,
+                    syncInfo.kid,
+                    syncInfo.fxaAccessToken,
+                    syncInfo.syncKey,
+                    syncInfo.tokenserverBaseURL,
+                    error
+            )
+        }
+    }
+
+    override fun sync(): SyncResult<Unit> {
         return safeAsync { error ->
             Log.d("LoginsAPI", "sync")
             PasswordSyncAdapter.INSTANCE.sync15_passwords_sync(this.raw!!, error)
         }
     }
 
-    fun reset(): SyncResult<Unit> {
+    override fun reset(): SyncResult<Unit> {
         return safeAsync { error ->
             Log.d("LoginsAPI", "reset")
             PasswordSyncAdapter.INSTANCE.sync15_passwords_reset(this.raw!!, error)
         }
     }
 
-    fun wipe(): SyncResult<Unit> {
+    override fun wipe(): SyncResult<Unit> {
         return safeAsync { error ->
             Log.d("LoginsAPI", "wipe")
             PasswordSyncAdapter.INSTANCE.sync15_passwords_wipe(this.raw!!, error)
         }
     }
 
-    fun delete(id: String): SyncResult<Unit> {
+    override fun delete(id: String): SyncResult<Unit> {
         return safeAsync { error ->
             Log.d("LoginsAPI", "delete by id")
             PasswordSyncAdapter.INSTANCE.sync15_passwords_delete(this.raw!!, id, error)
         }
     }
 
-    fun get(id: String): SyncResult<ServerPassword?> {
+    override fun get(id: String): SyncResult<ServerPassword?> {
         return safeAsyncString { error ->
             PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_id(this.raw!!, id, error)
         }.then { json ->
@@ -52,14 +92,14 @@ class LoginsStore(private var raw: RawLoginSyncState?) : Closeable {
         }
     }
 
-    fun touch(id: String): SyncResult<Unit> {
+    override fun touch(id: String): SyncResult<Unit> {
         return safeAsync { error ->
             Log.d("LoginsAPI", "touch by id")
             PasswordSyncAdapter.INSTANCE.sync15_passwords_touch(this.raw!!, id, error)
         }
     }
 
-    fun list(): SyncResult<List<ServerPassword>> {
+    override fun list(): SyncResult<List<ServerPassword>> {
         return safeAsyncString {
             Log.d("LoginsAPI", "list all")
             PasswordSyncAdapter.INSTANCE.sync15_passwords_get_all(this.raw!!, it)
@@ -87,28 +127,6 @@ class LoginsStore(private var raw: RawLoginSyncState?) : Closeable {
 
     companion object {
 
-        fun create(databasePath: String,
-                              databaseKey: String,
-                              kid: String,
-                              accessToken: String,
-                              syncKey: String,
-                              tokenserverURL: String): SyncResult<LoginsStore> {
-            Log.d("API", "in the module")
-            return safeAsync { error ->
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new(
-                        databasePath,
-                        databaseKey,
-                        kid,
-                        accessToken,
-                        syncKey,
-                        tokenserverURL,
-                        error
-                )
-            }.then { rawStore ->
-                SyncResult.fromValue(LoginsStore(rawStore))
-            }
-        }
-
         internal fun getAndConsumeString(p: Pointer?): String? {
             if (p == null) {
                 return null;
@@ -125,9 +143,15 @@ class LoginsStore(private var raw: RawLoginSyncState?) : Closeable {
             val e = RustError.ByReference()
             launch {
                 synchronized(PasswordSyncAdapter.INSTANCE) {
-                    val ret = callback(e)
+                    val ret: U;
+                    try {
+                        ret = callback(e)
+                    } catch (e: Exception) {
+                        result.completeExceptionally(e)
+                        return@launch
+                    }
                     if (e.isFailure()) {
-                        result.completeExceptionally(RustException(e.consumeErrorMessage()))
+                        result.completeExceptionally(MentatStorageException(e.consumeErrorMessage()))
                     } else {
                         result.complete(ret)
                     }

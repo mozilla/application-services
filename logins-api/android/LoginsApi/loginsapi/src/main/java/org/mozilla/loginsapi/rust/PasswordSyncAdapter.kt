@@ -23,12 +23,10 @@ internal interface PasswordSyncAdapter : Library {
     fun sync15_passwords_state_new(
             mentat_db_path: String,
             encryption_key: String,
-
             key_id: String,
             access_token: String,
             sync_key: String,
             token_server_base_url: String,
-
             error: RustError.ByReference
     ): RawLoginSyncState
 
