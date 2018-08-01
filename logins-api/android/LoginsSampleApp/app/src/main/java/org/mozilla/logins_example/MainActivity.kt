@@ -75,7 +75,7 @@ class MainActivity : AppCompatActivity() {
                         dumpError("LoginInit: ", error);
                         throw error
                     })
-                } catch (e: MentatStorageException) {
+                } catch (e: LoginsStorageException) {
                     return
                 }
             } else {

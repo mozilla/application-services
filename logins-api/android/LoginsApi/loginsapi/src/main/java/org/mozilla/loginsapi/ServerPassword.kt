@@ -1,8 +1,5 @@
 package org.mozilla.loginsapi
 
-import android.net.Uri
-
-
 /**
  * Raw password data that is stored by the LoginsStorage implementation.
  */
