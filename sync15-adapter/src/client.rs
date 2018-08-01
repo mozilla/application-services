@@ -25,6 +25,9 @@ pub struct Sync15StorageClientInit {
     pub tokenserver_base_url: String,
 }
 
+/// A trait containing the methods required to run through the setup state
+/// machine. This is factored out into a separate trait to make mocking
+/// easier.
 pub trait SetupStorageClient {
     fn fetch_info_configuration(&self) -> error::Result<InfoConfiguration>;
     fn fetch_info_collections(&self) -> error::Result<InfoCollections>;

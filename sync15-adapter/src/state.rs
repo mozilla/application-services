@@ -99,7 +99,38 @@ impl GlobalState {
     }
 }
 
-fn reconcile_meta_global(
+fn resolve_global(
+    previous_state: GlobalState,
+    new_global: BsoRecord<MetaGlobalRecord>,
+) -> GlobalState {
+    let mut changes = previous_state.engine_state_changes;
+    let (new_global, previous_keys) = match &previous_state.global {
+        Some(previous_global) => {
+            if previous_global.sync_id != new_global.sync_id {
+                changes.push(EngineStateChange::ResetAll);
+                (new_global, None)
+            } else {
+                let mut new_changes =
+                    engine_state_changes_from_new_global(previous_global, &new_global);
+                changes.append(&mut new_changes);
+                (new_global, previous_state.keys)
+            }
+        }
+        None => {
+            changes.push(EngineStateChange::ResetAll);
+            (new_global, None)
+        }
+    };
+    GlobalState {
+        config: previous_state.config,
+        collections: previous_state.collections,
+        global: Some(new_global),
+        keys: previous_keys,
+        engine_state_changes: changes,
+    }
+}
+
+fn engine_state_changes_from_new_global(
     previous_global: &MetaGlobalRecord,
     new_global: &MetaGlobalRecord,
 ) -> Vec<EngineStateChange> {
@@ -130,6 +161,52 @@ fn reconcile_meta_global(
     }
 
     changes
+}
+
+fn resolve_keys(previous_state: GlobalState, new_keys: CollectionKeys) -> GlobalState {
+    let mut changes = previous_state.engine_state_changes;
+    match &previous_state.keys {
+        Some(previous_global) => {
+            if new_keys.default == previous_global.default {
+                // The default bundle is the same, so only reset
+                // engines with different collection-specific keys.
+                for (collection, key_bundle) in &previous_global.collections {
+                    if key_bundle != new_keys.key_for_collection(collection) {
+                        changes.push(EngineStateChange::Reset(collection.to_string()));
+                    }
+                }
+                for (collection, key_bundle) in &new_keys.collections {
+                    if key_bundle != previous_global.key_for_collection(collection) {
+                        changes.push(EngineStateChange::Reset(collection.to_string()));
+                    }
+                }
+            } else {
+                // The default bundle changed, so reset all engines
+                // except those with the same collection-specific
+                // keys.
+                let mut except = HashSet::new();
+                for (collection, key_bundle) in &previous_global.collections {
+                    if key_bundle == new_keys.key_for_collection(collection) {
+                        except.insert(collection.to_string());
+                    }
+                }
+                for (collection, key_bundle) in &new_keys.collections {
+                    if key_bundle != previous_global.key_for_collection(collection) {
+                        except.insert(collection.to_string());
+                    }
+                }
+                changes.push(EngineStateChange::ResetAllExcept(except));
+            }
+        }
+        None => changes.push(EngineStateChange::ResetAll),
+    }
+    GlobalState {
+        config: previous_state.config,
+        collections: previous_state.collections,
+        global: previous_state.global,
+        keys: Some(new_keys),
+        engine_state_changes: changes,
+    }
 }
 
 /// Creates a fresh `meta/global` record, using the default engine selections,
@@ -339,31 +416,8 @@ impl<'client, 'keys> SetupStateMachine<'client, 'keys> {
                     return Ok(FreshStartRequired(state));
                 }
 
-                let mut changes = state.engine_state_changes;
-                let (new_global, previous_keys) = match &state.global {
-                    Some(previous_global) => {
-                        if previous_global.sync_id != new_global.sync_id {
-                            changes.push(EngineStateChange::ResetAll);
-                            (new_global, None)
-                        } else {
-                            let mut new_changes =
-                                reconcile_meta_global(previous_global, &new_global);
-                            changes.append(&mut new_changes);
-                            (new_global, state.keys)
-                        }
-                    }
-                    None => {
-                        changes.push(EngineStateChange::ResetAll);
-                        (new_global, None)
-                    }
-                };
-                Ok(HasMetaGlobal(GlobalState {
-                    config: state.config,
-                    collections: state.collections,
-                    global: Some(new_global),
-                    keys: previous_keys,
-                    engine_state_changes: changes,
-                }))
+                let new_state = resolve_global(state, new_global);
+                Ok(HasMetaGlobal(new_state))
             }
 
             // Check if our locally cached `crypto/keys` collection is
@@ -397,55 +451,10 @@ impl<'client, 'keys> SetupStateMachine<'client, 'keys> {
             NeedsFreshCryptoKeys(state) => {
                 match self.client.fetch_crypto_keys() {
                     Ok(encrypted_bso) => {
-                        let fresh_keys =
+                        let new_keys =
                             CollectionKeys::from_encrypted_bso(encrypted_bso, self.root_key)?;
-                        let mut changes = state.engine_state_changes;
-                        match &state.keys {
-                            Some(stale_keys) => {
-                                if fresh_keys.default == stale_keys.default {
-                                    // The default bundle is the same, so only reset
-                                    // engines with different collection-specific keys.
-                                    for (collection, key_bundle) in &stale_keys.collections {
-                                        if key_bundle != fresh_keys.key_for_collection(collection) {
-                                            changes.push(EngineStateChange::Reset(
-                                                collection.to_string(),
-                                            ));
-                                        }
-                                    }
-                                    for (collection, key_bundle) in &fresh_keys.collections {
-                                        if key_bundle != stale_keys.key_for_collection(collection) {
-                                            changes.push(EngineStateChange::Reset(
-                                                collection.to_string(),
-                                            ));
-                                        }
-                                    }
-                                } else {
-                                    // The default bundle changed, so reset all engines
-                                    // except those with the same collection-specific
-                                    // keys.
-                                    let mut except = HashSet::new();
-                                    for (collection, key_bundle) in &stale_keys.collections {
-                                        if key_bundle == fresh_keys.key_for_collection(collection) {
-                                            except.insert(collection.to_string());
-                                        }
-                                    }
-                                    for (collection, key_bundle) in &fresh_keys.collections {
-                                        if key_bundle != stale_keys.key_for_collection(collection) {
-                                            except.insert(collection.to_string());
-                                        }
-                                    }
-                                    changes.push(EngineStateChange::ResetAllExcept(except));
-                                }
-                            }
-                            None => changes.push(EngineStateChange::ResetAll),
-                        }
-                        Ok(Ready(GlobalState {
-                            config: state.config,
-                            collections: state.collections,
-                            global: state.global,
-                            keys: Some(fresh_keys),
-                            engine_state_changes: changes,
-                        }))
+                        let new_state = resolve_keys(state, new_keys);
+                        Ok(Ready(new_state))
                     }
                     Err(err) => match err.kind() {
                         // If the server doesn't have a `crypto/keys`, start over
@@ -463,14 +472,11 @@ impl<'client, 'keys> SetupStateMachine<'client, 'keys> {
                 self.client.wipe_all_remote()?;
 
                 // Upload a fresh `meta/global`...
-                let new_global = BsoRecord {
-                    id: "global".into(),
-                    collection: "meta".into(),
-                    modified: 0.0.into(), // Doesn't matter.
-                    sortindex: None,
-                    ttl: None,
-                    payload: new_global_from_previous(state.global)?,
-                };
+                let new_global = BsoRecord::new_record(
+                    "global".into(),
+                    "meta".into(),
+                    new_global_from_previous(state.global)?,
+                );
                 self.client.put_meta_global(&new_global)?;
 
                 // ...And a fresh `crypto/keys`. Note that we'll update the
@@ -496,33 +502,35 @@ impl<'client, 'keys> SetupStateMachine<'client, 'keys> {
     /// Runs through the state machine to the ready state.
     pub fn to_ready(&mut self, state: GlobalState) -> error::Result<GlobalState> {
         let mut s = InitialWithLiveToken(state);
-        self.sequence.push(&s.label());
-
         loop {
-            s = self.advance(s)?;
-            match &s {
+            let label = &s.label();
+            match s {
+                Ready(state) => {
+                    self.sequence.push(label);
+                    return Ok(state);
+                }
                 // If we already started over once before, we're likely in a
                 // cycle, and should try again later. Like the iOS state
                 // machine, other cycles aren't a problem; we'll cycle through
                 // earlier states if we need to reupload `meta/global` or
                 // `crypto/keys`.
-                FreshStartRequired(_) if self.sequence.contains(&s.label()) => {
+                FreshStartRequired(_) if self.sequence.contains(&label) => {
                     return Err(ErrorKind::SetupStateCycleError.into());
                 }
-                _ => {
-                    if !self.allowed_states.contains(&s.label()) {
-                        return Err(ErrorKind::DisallowedStateError(&s.label()).into());
+                previous_s => {
+                    if !self.allowed_states.contains(&label) {
+                        return Err(ErrorKind::DisallowedStateError(&label).into());
                     }
-                    self.sequence.push(&s.label());
+                    self.sequence.push(label);
+                    s = self.advance(previous_s)?;
                 }
-            }
-            if let Ready(state) = s {
-                return Ok(state);
             }
         }
     }
 }
 
+/// States in the remote setup process.
+/// TODO(lina): Add link once #56 is merged.
 #[derive(Debug)]
 enum SetupState {
     InitialWithLiveToken(GlobalState),
