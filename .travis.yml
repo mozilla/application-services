@@ -2,6 +2,7 @@ language: rust
 # We use OSX so that we can get a reasonably up to date version of SQLCipher.
 # (The version in Travis's default Ubuntu Trusty is much too old).
 os: osx
+osx_image: xcode9.4
 before_install:
   - brew install sqlcipher --with-fts
 rust:
@@ -12,6 +13,22 @@ matrix:
   allow_failures:
     - rust: nightly
   fast_finish: true
-script:
-  - cargo test --all-features --verbose
+script: cargo test --all-features --verbose
 cache: cargo
+
+jobs:
+  include:
+    - stage: iOS GitHub Release
+      if: tag IS present
+      rust: beta
+      script: ./scripts/travis-ci-ios.sh
+      deploy:
+        provider: releases
+        api_key:
+          secure: PEbRLdoGVRgx6jlfvp8LzG/SRbVspWkVn3jpjkdy7jjeZ/BHsy8LSQhw37IcydqrtmCFPJBVLx1Uw0cj4H7qfVD5eSg7m6L/mXIJ+pXmhxtGVlD2IF+sNQDPgWs8DZ4diHkSntw5oSekvisT5yi3IaTP/2y9LvLBB9oJnZtaYT27Rv0B8hQN0/Etfr69i6yhNwlcfuBJ0BmVN2gMNCPydR9Xeq050AEpsVoPkFL3m5Xy7n6sUJ/DAOM0lBr4hUp2jP5ciPd3iwo1fndGvuzVFpxGdnH2DSHgD4mo2AF8vcrecr9Fkax9yxMHC5Ua2+9c4Z69fx19rP8DyKsJDR8wmPIa9fwEabgEmgTu4HRNC6Y9VCGuM7CTZMTv1iVwdV3q33K9eJtI4tBjwQyaon9owVrHBZQXB4+KqP2/Id/v0PDp3WhEN9YQQGn/HF+IvcjTMDvdkaj3q34pqbocfOpWFcTO83aQX/JYkYHKq0r1mGrPDKfTrdIBUg26jtrI64KflyXENOvU95jW3TfcwljOOsXnuI2Owov619CqJXpvyJ62CAoagRFdPRbi3VARC4mGZt/PBz1FxlDWydOMmJnK242RXapAWcRMsEVK7Mowj/+IFSD4OTF57aP66gkn4tNh/5qx0RPcwcMEpFPM9bTim3vecN15dB0f5MZelkbr7Gw=
+        file: FxAClient.framework.zip
+        skip_cleanup: true
+        overwrite: true
+        name: FxA SDK
+        on:
+          tags: true
