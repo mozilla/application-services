@@ -36,7 +36,7 @@ class Footer extends React.Component {
             Firefox Accounts Docs
             </a>
             <a href={this.docUrl('sync/welcome.html', this.props.language)}>
-            Firdfox Sync Docs
+            Firefox Sync Docs
             </a>
           </div>
           <div>
