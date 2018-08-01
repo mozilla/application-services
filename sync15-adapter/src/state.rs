@@ -19,10 +19,11 @@ const STORAGE_VERSION: usize = 5;
 
 lazy_static! {
     /// Maps names to storage versions for engines to include in a fresh
-    /// `meta/global` record.
+    /// `meta/global` record. We include engines that we don't implement
+    /// because they'll be disabled on other clients if we omit them
+    /// (bug 1479929).
     static ref DEFAULT_ENGINES: Vec<(&'static str, usize)> = vec![
         ("passwords", 1),
-        // Unsupported engines.
         ("clients", 1),
         ("addons", 1),
         ("addresses", 1),
@@ -63,7 +64,7 @@ impl GlobalState {
     }
 
     /// Returns a set of all engine names that should be reset locally.
-    pub fn engines_that_need_reset(&self) -> HashSet<String> {
+    pub fn engines_that_need_local_reset(&self) -> HashSet<String> {
         let all_engines = self.global
             .as_ref()
             .map(|global| {
@@ -164,22 +165,22 @@ fn new_global_from_previous(
     })
 }
 
-pub struct SetupStateMachine<'c, 'k> {
-    client: &'c SetupStorageClient,
-    root_key: &'k KeyBundle,
+pub struct SetupStateMachine<'client, 'keys> {
+    client: &'client SetupStorageClient,
+    root_key: &'keys KeyBundle,
     allowed_states: Vec<&'static str>,
     sequence: Vec<&'static str>,
 }
 
-impl<'c, 'k> SetupStateMachine<'c, 'k> {
+impl<'client, 'keys> SetupStateMachine<'client, 'keys> {
     /// Creates a state machine for a "classic" Sync 1.5 client that supports
     /// all states, including uploading a fresh `meta/global` and `crypto/keys`
     /// after a node reassignment.
-    pub fn new(
-        client: &'c SetupStorageClient,
-        root_key: &'k KeyBundle,
-    ) -> SetupStateMachine<'c, 'k> {
-        SetupStateMachine::new_with_allowed_states(
+    pub fn for_full_sync(
+        client: &'client SetupStorageClient,
+        root_key: &'keys KeyBundle,
+    ) -> SetupStateMachine<'client, 'keys> {
+        SetupStateMachine::with_allowed_states(
             client,
             root_key,
             vec![
@@ -201,11 +202,11 @@ impl<'c, 'k> SetupStateMachine<'c, 'k> {
     /// are missing or out-of-date. This is useful in cases where it's
     /// important to get to ready as quickly as possible, like syncing before
     /// sleep, or when conserving time or battery life.
-    fn new_fast(
-        client: &'c SetupStorageClient,
-        root_key: &'k KeyBundle,
-    ) -> SetupStateMachine<'c, 'k> {
-        SetupStateMachine::new_with_allowed_states(
+    pub fn for_fast_sync(
+        client: &'client SetupStorageClient,
+        root_key: &'keys KeyBundle,
+    ) -> SetupStateMachine<'client, 'keys> {
+        SetupStateMachine::with_allowed_states(
             client,
             root_key,
             vec![
@@ -221,11 +222,11 @@ impl<'c, 'k> SetupStateMachine<'c, 'k> {
     /// Creates a state machine for a read-only sync, where the client can't
     /// upload `meta/global` or `crypto/keys`. Useful for clients that only
     /// sync specific collections, like Lockbox.
-    fn new_readonly(
-        client: &'c SetupStorageClient,
-        root_key: &'k KeyBundle,
-    ) -> SetupStateMachine<'c, 'k> {
-        SetupStateMachine::new_with_allowed_states(
+    pub fn for_readonly_sync(
+        client: &'client SetupStorageClient,
+        root_key: &'keys KeyBundle,
+    ) -> SetupStateMachine<'client, 'keys> {
+        SetupStateMachine::with_allowed_states(
             client,
             root_key,
             vec![
@@ -241,11 +242,11 @@ impl<'c, 'k> SetupStateMachine<'c, 'k> {
         )
     }
 
-    pub fn new_with_allowed_states(
-        client: &'c SetupStorageClient,
-        root_key: &'k KeyBundle,
+    fn with_allowed_states(
+        client: &'client SetupStorageClient,
+        root_key: &'keys KeyBundle,
         allowed_states: Vec<&'static str>,
-    ) -> SetupStateMachine<'c, 'k> {
+    ) -> SetupStateMachine<'client, 'keys> {
         SetupStateMachine {
             client,
             root_key,
@@ -710,7 +711,7 @@ mod tests {
         };
 
         let state = GlobalState::default();
-        let mut state_machine = SetupStateMachine::new(&client, &root_key);
+        let mut state_machine = SetupStateMachine::for_full_sync(&client, &root_key);
         assert!(
             state_machine.to_ready(state).is_ok(),
             "Should drive state machine to ready"

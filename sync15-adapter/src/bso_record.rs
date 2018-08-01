@@ -62,7 +62,7 @@ impl<T> BsoRecord<T> {
     }
 
     #[inline]
-    pub fn new_non_record(id: String, coll: String, payload: T) -> BsoRecord<T> {
+    pub fn new_record(id: String, coll: String, payload: T) -> BsoRecord<T> {
         BsoRecord {
             id,
             collection: coll.into(),

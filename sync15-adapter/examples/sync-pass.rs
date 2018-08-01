@@ -557,11 +557,11 @@ fn main() -> Result<(), failure::Error> {
 
     let root_sync_key = sync::KeyBundle::from_ksync_base64(&key.k)?;
 
-    let mut state_machine = sync::SetupStateMachine::new(&client, &root_sync_key);
+    let mut state_machine = sync::SetupStateMachine::for_readonly_sync(&client, &root_sync_key);
     state = state_machine.to_ready(state)?;
-    let engines_that_need_reset = state.engines_that_need_reset();
+    let engines_that_need_reset = state.engines_that_need_local_reset();
     if engines_that_need_reset.contains("passwords") {
-        println!("Passwords sync ID changed; engine needs reset");
+        println!("Passwords sync ID changed; engine needs local reset");
     }
 
     let mut engine = PasswordEngine::load_or_create();
