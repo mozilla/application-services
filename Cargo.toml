@@ -4,7 +4,6 @@ members = [
     "fxa-rust-client/ffi",
     "logins",
     "sync15-adapter",
-    "sync15-adapter/ffi",
     "sync15/passwords",
     "sync15/passwords/ffi",
 ]

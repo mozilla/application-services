@@ -1,4 +1,0 @@
-include_version = true
-language = "C"
-include_guard = "SYNC15_ADAPTER_H"
-style = "Both"
