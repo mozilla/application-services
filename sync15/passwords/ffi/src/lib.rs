@@ -44,8 +44,9 @@ pub use ffi_toolkit::memory::{
 };
 
 use sync::{
-    Sync15Service,
-    Sync15ServiceInit,
+    Sync15StorageClient,
+    Sync15StorageClientInit,
+    GlobalState,
 };
 use sync15_passwords::{
     passwords,
@@ -55,7 +56,8 @@ use sync15_passwords::{
 
 pub struct PasswordSyncState {
     engine: PasswordEngine,
-    service: sync::Sync15Service,
+    client: Sync15StorageClient,
+    sync_state: GlobalState,
 }
 
 define_destructor!(sync15_passwords_state_destroy, PasswordSyncState);
@@ -75,21 +77,30 @@ pub unsafe extern "C" fn sync15_passwords_state_new(
     error: *mut ExternError
 ) -> *mut PasswordSyncState {
     with_translated_result(error, || {
-        let params = Sync15ServiceInit {
+        let client = Sync15StorageClient::new(Sync15StorageClientInit {
             key_id: c_char_to_string(key_id).into(),
             access_token: c_char_to_string(access_token).into(),
-            sync_key: c_char_to_string(sync_key).into(),
             tokenserver_base_url: c_char_to_string(tokenserver_base_url).into(),
-        };
+        })?;
+        let mut sync_state = GlobalState::default();
 
-        let mut service = Sync15Service::new(params)?;
-        service.remote_setup()?;
+        let root_sync_key = sync::KeyBundle::from_ksync_base64(c_char_to_string(sync_key).into())?;
+
+        { // Scope borrow of `client`.
+            let mut state_machine =
+                sync::SetupStateMachine::for_readonly_sync(&client, &root_sync_key);
+            sync_state = state_machine.to_ready(sync_state)?;
+        }
 
         let store = mentat::Store::open_with_key(c_char_to_string(mentat_db_path),
                                                  c_char_to_string(encryption_key))?;
 
         let engine = PasswordEngine::new(store)?;
-        Ok(PasswordSyncState { service, engine })
+        Ok(PasswordSyncState {
+            engine,
+            client,
+            sync_state,
+        })
     })
 }
 
@@ -98,7 +109,7 @@ pub unsafe extern "C" fn sync15_passwords_sync(state: *mut PasswordSyncState, er
     with_translated_void_result(error, || {
         assert_pointer_not_null!(state);
         let state = &mut *state;
-        state.engine.sync(&state.service)?;
+        state.engine.sync(&state.client, &state.sync_state)?;
         Ok(())
     });
 }

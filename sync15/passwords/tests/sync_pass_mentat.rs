@@ -284,21 +284,23 @@ fn main() -> Result<(), Error> {
 
     let scope = &oauth_data.keys["https://identity.mozilla.com/apps/oldsync"];
 
-    let mut svc = sync::Sync15Service::new(
-        sync::Sync15ServiceInit {
-            key_id: scope.kid.clone(),
-            sync_key: scope.k.clone(),
-            access_token: oauth_data.access_token.clone(),
-            tokenserver_base_url: "https://oauth-sync.dev.lcip.org/syncserver/token".into(),
-        }
-    )?;
+    let client = sync::Sync15StorageClient::new(sync::Sync15StorageClientInit {
+        key_id: scope.kid.clone(),
+        access_token: oauth_data.access_token.clone(),
+        tokenserver_base_url: "https://oauth-sync.dev.lcip.org/syncserver/token".into(),
+    })?;
+    let mut sync_state = sync::GlobalState::default();
 
-    svc.remote_setup()?;
+    let root_sync_key = sync::KeyBundle::from_ksync_base64(&scope.k)?;
+
+    let mut state_machine =
+        sync::SetupStateMachine::for_readonly_sync(&client, &root_sync_key);
+    sync_state = state_machine.to_ready(sync_state)?;
 
     let mut engine = PasswordEngine::new(mentat::Store::open("logins.mentatdb")?)?;
     println!("Performing startup sync; engine has last server timestamp {}.", engine.last_server_timestamp);
 
-    if let Err(e) = engine.sync(&svc) {
+    if let Err(e) = engine.sync(&client, &sync_state) {
         println!("Initial sync failed: {}", e);
         if !prompt_bool("Would you like to continue [yN]").unwrap_or(false) {
             return Err(e.into());
@@ -361,7 +363,7 @@ fn main() -> Result<(), Error> {
             }
             'S' | 's' => {
                 println!("Syncing engine with last server timestamp {}!", engine.last_server_timestamp);
-                if let Err(e) = engine.sync(&svc) {
+                if let Err(e) = engine.sync(&client, &sync_state) {
                     println!("Sync failed! {}", e);
                 } else {
                     println!("Sync was successful!");

@@ -95,9 +95,13 @@ impl PasswordEngine {
         Ok(true)
     }
 
-    pub fn sync(&mut self, svc: &sync::Sync15Service) -> Result<()> {
+    pub fn sync(
+        &mut self,
+        client: &sync::Sync15StorageClient,
+        state: &sync::GlobalState,
+    ) -> Result<()> {
         let ts = self.last_server_timestamp;
-        sync::synchronize(svc, self, "passwords".into(), ts, true)?;
+        sync::synchronize(client, state, self, "passwords".into(), ts, true)?;
         Ok(())
     }
 
