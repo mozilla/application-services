@@ -1,4 +1,4 @@
-package org.mozilla.logins_example
+package org.mozilla.sync15_logins_example
 
 import android.support.test.InstrumentationRegistry
 import android.support.test.runner.AndroidJUnit4

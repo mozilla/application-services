@@ -6,15 +6,15 @@
  * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License. */
-package org.mozilla.loginsapi
+package org.mozilla.sync15.logins
 
-import org.mozilla.loginsapi.rust.PasswordSyncAdapter
 import android.util.Log
 import com.beust.klaxon.Klaxon
 import com.sun.jna.Pointer
 import kotlinx.coroutines.experimental.launch
-import org.mozilla.loginsapi.rust.RawLoginSyncState
-import org.mozilla.loginsapi.rust.RustError
+import org.mozilla.sync15.logins.rust.PasswordSyncAdapter
+import org.mozilla.sync15.logins.rust.RawLoginSyncState
+import org.mozilla.sync15.logins.rust.RustError
 import java.io.Closeable
 
 class MentatLoginsStorage(private val dbPath: String) : Closeable, LoginsStorage {
@@ -94,8 +94,11 @@ class MentatLoginsStorage(private val dbPath: String) : Closeable, LoginsStorage
             PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_id(this.raw!!, id, error)
         }.then { json ->
             SyncResult.fromValue(
-                    if (json == null) { null }
-                    else { Klaxon().parse<ServerPassword>(json) }
+                    if (json == null) {
+                        null
+                    } else {
+                        Klaxon().parse<ServerPassword>(json)
+                    }
             )
         }
     }

@@ -6,20 +6,10 @@
  * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License. */
-package org.mozilla.loginsapi;
+package org.mozilla.sync15.logins
 
-import org.junit.Test;
+// TODO: Get more descriptive errors here.
+class LoginsStorageException(msg: String): Exception(msg)
 
-import static org.junit.Assert.*;
-
-/**
- * Example local unit test, which will execute on the development machine (host).
- *
- * @see <a href="http://d.android.com/tools/testing">Testing documentation</a>
- */
-public class ExampleUnitTest {
-    @Test
-    public void addition_isCorrect() {
-        assertEquals(4, 2 + 2);
-    }
-}
+// This doesn't really belong in this file...
+class MismatchedLockException(msg: String): Exception(msg)

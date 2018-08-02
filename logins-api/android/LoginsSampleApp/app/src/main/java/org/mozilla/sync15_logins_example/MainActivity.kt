@@ -6,7 +6,7 @@
  * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License. */
-package org.mozilla.logins_example
+package org.mozilla.sync15_logins_example
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -32,7 +32,7 @@ import com.beust.klaxon.JsonObject
 import kotlinx.android.synthetic.main.activity_main.*;
 
 
-import org.mozilla.loginsapi.*
+import org.mozilla.sync15.logins.*
 
 class MainActivity : AppCompatActivity() {
     var store: MentatLoginsStorage? = null;
