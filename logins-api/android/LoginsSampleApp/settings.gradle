@@ -1,3 +1,3 @@
-include ':app', ':loginsapi-debug'
+include ':app', ':loginsapi'
 
-project (':loginsapi-debug').projectDir = new File('../LoginsAPI/loginsapi')
+project (':loginsapi').projectDir = new File('../LoginsAPI/loginsapi')

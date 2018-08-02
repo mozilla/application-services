@@ -57,8 +57,6 @@ class LoginActivity : AppCompatActivity() {
             Log.e("Logins", "(begin oauth): ", err);
             throw err;
         }).whenComplete { flowUrl: String ->
-            // XXX Hack: FxA prod doesn't accept + in urls but fxa-client leaves them in for now...
-//            val fixedUrl = flowUrl.replace("+", "%20");
             Log.d("Logins", "Flow URL: " + flowUrl)
             runOnUiThread {
                 showWebView(flowUrl, fxa!!)
