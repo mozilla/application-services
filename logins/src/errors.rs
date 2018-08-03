@@ -15,6 +15,7 @@ use std; // To refer to std::result::Result.
 use mentat::{
     MentatError,
 };
+use failure::Fail;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -37,8 +38,13 @@ pub enum Error {
 // Because Mentat doesn't expose its entire API from the top-level `mentat` crate, we sometimes
 // witness error types that are logically subsumed by `MentatError`.  We wrap those here, since
 // _our_ consumers should not care about the specific Mentat error type.
-impl<E: Into<MentatError>> From<E> for Error {
+impl<E: Into<MentatError> + std::fmt::Debug> From<E> for Error {
     fn from(error: E) -> Error {
-        Error::MentatError(error.into())
+        error!("MentatError -> LoginsError {:?}", error);
+        let mentat_err: MentatError = error.into();
+        if let Some(bt) = mentat_err.backtrace() {
+            debug!("Backtrace: {:?}", bt);
+        }
+        Error::MentatError(mentat_err)
     }
 }

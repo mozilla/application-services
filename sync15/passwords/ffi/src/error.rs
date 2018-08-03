@@ -96,6 +96,7 @@ pub unsafe fn translate_result<T>(result: Result<T>, error: *mut ExternError) ->
     match result {
         Ok(val) => Box::into_raw(Box::new(val)),
         Err(e) => {
+            error!("Rust Error: {:?}", e);
             error.message = string_to_c_char(e.to_string());
             ptr::null_mut()
         }
@@ -110,6 +111,7 @@ pub unsafe fn try_translate_result<T>(result: Result<T>, error: *mut ExternError
     match result {
         Ok(val) => Some(val),
         Err(e) => {
+            error!("Rust Error: {:?}", e);
             error.message = string_to_c_char(e.to_string());
             None
         }
