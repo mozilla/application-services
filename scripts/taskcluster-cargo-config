@@ -1,8 +1,8 @@
 [target.i686-linux-android]
-linker = "/tmp/android-toolchain-x86/bin/i686-linux-android-clang"
+linker = "/build/android-ndk-toolchain/x86-26/bin/i686-linux-android-clang"
 
 [target.armv7-linux-androideabi]
-linker = "/tmp/android-toolchain-arm/bin/arm-linux-androideabi-clang"
+linker = "/build/android-ndk-toolchain/arm-26/bin/arm-linux-androideabi-clang"
 
 [target.aarch64-linux-android]
-linker = "/tmp/android-toolchain-arm64/bin/aarch64-linux-android-clang"
+linker = "/build/android-ndk-toolchain/arm64-26/bin/aarch64-linux-android-clang"

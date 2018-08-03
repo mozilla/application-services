@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 
-set -ex
+set -euvx
 
-ANDROID_API_VERSION="26"
-NDK_VERSION="17"
+apt-get update -qq && apt-get install zip -y
+
+mkdir -p .cargo
+yes | cp -rf scripts/taskcluster-cargo-config .cargo/config
+pushd libs/ && ./build-all.sh android && popd
 
 declare -A android_targets
 android_targets=(
@@ -11,21 +14,6 @@ android_targets=(
   ["arm"]="armv7-linux-androideabi"
   ["arm64"]="aarch64-linux-android"
 )
-
-NDK_PATH="/tmp/android-ndk-r$NDK_VERSION"
-if ! [ -d "$NDK_PATH" ]; then
-  if [[ "$OSTYPE" == "linux-gnu" ]]; then
-    NDK_ZIP="android-ndk-r""$NDK_VERSION""-linux-x86_64.zip"
-  elif [[ "$OSTYPE" == "darwin"* ]]; then
-    NDK_ZIP="android-ndk-r""$NDK_VERSION""-darwin-x86_64.zip"
-  else
-    echo "Unsupported platform!"
-    exit 1
-  fi
-  curl -O "https://dl.google.com/android/repository/""$NDK_ZIP"
-  unzip -o "$NDK_ZIP" -d /tmp
-  rm -f "$NDK_ZIP"
-fi
 
 if [ "$#" -eq 0 ]
 then
@@ -40,16 +28,15 @@ fi
 
 echo "Building selected targets: ${selected_targets[@]}."
 
+cd /build/application-services
+
+ORIG_PATH="$PATH"
 for target in "${selected_targets[@]}"
 do
-  rustup target add --toolchain beta ${android_targets[$target]}
-  echo "Creating toolchain for ${android_targets[$target]}"
-  TOOLCHAIN_DIR="/tmp/android-toolchain-$target"
-  "$NDK_PATH/build/tools/make-standalone-toolchain.sh" --arch="$target" --install-dir="$TOOLCHAIN_DIR" --platform="android-$ANDROID_API_VERSION" --force
-  PATH="$TOOLCHAIN_DIR/bin:$PATH"
+  PATH="$ANDROID_NDK_TOOLCHAIN_DIR/$target-$ANDROID_NDK_API_VERSION/bin:$ORIG_PATH"
   echo "Building target $target. Signature: ${android_targets[$target]}"
-  OPENSSL_STATIC=0 OPENSSL_DIR="$PWD"/libs/android/$target/openssl \
-  cargo +beta build -p fxa-client-ffi --target ${android_targets[$target]} --release
+  OPENSSL_STATIC=0 OPENSSL_DIR=/build/application-services/libs/android/$target/openssl \
+    cargo +beta build -p fxa-client-ffi --target ${android_targets[$target]} --release
   mkdir -p fxa-client/$target
   cp target/${android_targets[$target]}/release/libfxa_client.so fxa-client/$target
   mkdir -p fxa-client-deps/$target
@@ -59,3 +46,6 @@ done
 # Because Android needs the lib to be in a armeabi-v7a dir.
 mv fxa-client/arm fxa-client/armeabi-v7a
 mv fxa-client-deps/arm fxa-client-deps/armeabi-v7a
+
+cd fxa-client && zip -r fxa_client_android.zip * && cd ..
+cd fxa-client-deps && zip -r fxa_client_android_deps.zip * && cd ..
