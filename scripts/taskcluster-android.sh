@@ -40,12 +40,17 @@ do
   mkdir -p fxa-client/$target
   cp target/${android_targets[$target]}/release/libfxa_client.so fxa-client/$target
   mkdir -p fxa-client-deps/$target
-  cp -r libs/android/$target/*/lib/*.so fxa-client-deps/$target
+  cp -r libs/android/$target/*/lib/{libssl,libcrypto}.so fxa-client-deps/$target
+
+  mkdir -p logins-deps/$target
+  cp -r libs/android/$target/*/lib/{libssl,libcrypto,libsqlcipher}.so logins-deps/$target
 done
 
 # Because Android needs the lib to be in a armeabi-v7a dir.
 mv fxa-client/arm fxa-client/armeabi-v7a
 mv fxa-client-deps/arm fxa-client-deps/armeabi-v7a
+mv logins-deps/arm logins-deps/armeabi-v7a
 
 cd fxa-client && zip -r fxa_client_android.zip * && cd ..
 cd fxa-client-deps && zip -r fxa_client_android_deps.zip * && cd ..
+cd logins-deps && zip -r logins_android_deps.zip * && cd ..

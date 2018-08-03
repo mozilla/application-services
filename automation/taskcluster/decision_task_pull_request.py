@@ -64,6 +64,10 @@ def create_fxaclient_task():
                     "type": "file",
                     "path": "/build/application-services/fxa-client-deps/fxa_client_android_deps.zip",
                 },
+                "public/bin/mozilla/logins_android_deps.zip": {
+                    "type": "file",
+                    "path": "/build/application-services/logins-deps/logins_android_deps.zip",
+                },
             },
             "deadline": taskcluster.stringDate(deadline)
         },
