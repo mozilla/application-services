@@ -72,6 +72,9 @@ tasks:
         'public/bin/mozilla/fxa_client_android_deps_{{ event.version }}.zip':
           type: 'file'
           path: '/build/application-services/fxa-client-deps/fxa_client_android_deps.zip'
+        'public/bin/mozilla/logins_android_deps_{{ event.version }}.zip':
+          type: 'file'
+          path: '/build/application-services/logins-deps/logins_android_deps.zip'
     routes:
       - index.project.fxaclient.builds.{{ event.version }}
     metadata:
