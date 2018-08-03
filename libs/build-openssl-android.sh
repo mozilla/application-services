@@ -2,12 +2,12 @@
 
 # This script downloads and builds the Android openssl library.
 
-set -e
+set -euvx
 
 if [ "$#" -ne 5 ]
 then
     echo "Usage:"
-    echo "./build-openssl-android.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <TOOLCHAIN_PATH> <TOOLCHAIN> <ANDROID_API_VERSION>"
+    echo "./build-openssl-android.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <TOOLCHAIN_PATH> <TOOLCHAIN> <ANDROID_NDK_API_VERSION>"
     exit 1
 fi
 
@@ -15,7 +15,7 @@ OPENSSL_DIR=$1
 DIST_DIR=$2
 TOOLCHAIN_PATH=$3
 TOOLCHAIN=$4
-ANDROID_API_VERSION=$5
+ANDROID_NDK_API_VERSION=$5
 
 if [ -d "$DIST_DIR" ]; then
   echo "$DIST_DIR"" folder already exists. Skipping build."
@@ -30,7 +30,7 @@ export CXX="$TOOLCHAIN_BIN""$TOOLCHAIN""-g++"
 export RANLIB="$TOOLCHAIN_BIN""$TOOLCHAIN""-ranlib"
 export LD="$TOOLCHAIN_BIN""$TOOLCHAIN""-ld"
 export AR="$TOOLCHAIN_BIN""$TOOLCHAIN""-ar"
-export CFLAGS="-D__ANDROID_API__=$ANDROID_API_VERSION"
+export CFLAGS="-D__ANDROID_API__=$ANDROID_NDK_API_VERSION"
 
 OPENSSL_OUTPUT_PATH="/tmp/openssl-""$TOOLCHAIN"_$$
 mkdir -p "$OPENSSL_OUTPUT_PATH"
@@ -51,7 +51,8 @@ fi
 
 make clean || true
 ./Configure "$CONFIGURE_ARCH" shared --openssldir="$OPENSSL_OUTPUT_PATH"
-make && make install
+make
+make install_sw
 mkdir -p "$DIST_DIR""/include/openssl"
 mkdir -p "$DIST_DIR""/lib"
 cp -p "$OPENSSL_OUTPUT_PATH"/lib/libssl.so "$DIST_DIR"/lib

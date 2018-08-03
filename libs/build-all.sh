@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -euvx
 
 OPENSSL_VERSION="1.0.2o"
 
@@ -22,7 +22,7 @@ OPENSSL="openssl-${OPENSSL_VERSION}"
 rm -rf "${OPENSSL}"
 if [ ! -e "${OPENSSL}.tar.gz" ]; then
   echo "Downloading ${OPENSSL}.tar.gz"
-  curl -O "https://www.openssl.org/source/""${OPENSSL}"".tar.gz"
+  curl -L -O "https://www.openssl.org/source/""${OPENSSL}"".tar.gz"
 else
   echo "Using ${OPENSSL}.tar.gz"
 fi
