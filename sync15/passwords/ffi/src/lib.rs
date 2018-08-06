@@ -35,6 +35,7 @@ use error::{
 use std::os::raw::{
     c_char,
 };
+use std::sync::{Once, ONCE_INIT};
 
 use ffi_toolkit::string::{
     c_char_to_string,
@@ -90,6 +91,7 @@ impl log::Log for DevLogger {
     }
     fn flush(&self) {}
 }
+static INIT_LOGGER: Once = ONCE_INIT;
 static DEV_LOGGER: &'static log::Log = &DevLogger;
 fn init_logger() {
     log::set_logger(DEV_LOGGER).unwrap();
@@ -114,7 +116,7 @@ pub unsafe extern "C" fn sync15_passwords_state_new(
 
     error: *mut ExternError
 ) -> *mut PasswordSyncState {
-    init_logger();
+    INIT_LOGGER.call_once(init_logger);
     with_translated_result(error, || {
         let client = Sync15StorageClient::new(Sync15StorageClientInit {
             key_id: c_char_to_string(key_id).into(),
