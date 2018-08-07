@@ -84,10 +84,12 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : Closeable, L
         }
     }
 
-    override fun delete(id: String): SyncResult<Unit> {
+    override fun delete(id: String): SyncResult<Boolean> {
         return asyncResult {
             checkUnlocked()
+            val oldLen = list.size
             list = list.filter { it.id == id }
+            oldLen != list.size
         }
     }
 

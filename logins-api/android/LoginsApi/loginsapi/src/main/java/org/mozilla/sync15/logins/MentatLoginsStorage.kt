@@ -82,7 +82,7 @@ class MentatLoginsStorage(private val dbPath: String) : Closeable, LoginsStorage
         }
     }
 
-    override fun delete(id: String): SyncResult<Unit> {
+    override fun delete(id: String): SyncResult<Boolean> {
         return safeAsync { error ->
             Log.d("LoginsAPI", "delete by id")
             PasswordSyncAdapter.INSTANCE.sync15_passwords_delete(this.raw!!, id, error)
