@@ -28,6 +28,11 @@ where F: FnOnce() -> Result<()> {
     translate_void_result(callback(), error);
 }
 
+pub unsafe fn with_translated_value_result<F, T>(error: *mut ExternError, callback: F) -> T
+where F: FnOnce() -> Result<T>, T: Default {
+    try_translate_result(callback(), error).unwrap_or_default()
+}
+
 pub unsafe fn with_translated_string_result<F>(error: *mut ExternError, callback: F) -> *mut c_char
 where F: FnOnce() -> Result<String> {
     if let Some(s) = try_translate_result(callback(), error) {

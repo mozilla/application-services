@@ -55,7 +55,7 @@ internal interface PasswordSyncAdapter : Library {
     fun sync15_passwords_reset(state: RawLoginSyncState, error: RustError.ByReference)
 
     fun sync15_passwords_touch(state: RawLoginSyncState, id: String, error: RustError.ByReference)
-    fun sync15_passwords_delete(state: RawLoginSyncState, id: String, error: RustError.ByReference)
+    fun sync15_passwords_delete(state: RawLoginSyncState, id: String, error: RustError.ByReference): Boolean
 
     fun destroy_c_char(p: Pointer)
 }

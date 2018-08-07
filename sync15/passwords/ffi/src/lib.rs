@@ -27,6 +27,7 @@ mod error;
 use error::{
     ExternError,
     with_translated_result,
+    with_translated_value_result,
     with_translated_void_result,
     with_translated_string_result,
     with_translated_opt_string_result,
@@ -166,17 +167,17 @@ pub unsafe extern "C" fn sync15_passwords_touch(state: *mut PasswordSyncState, i
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_delete(state: *mut PasswordSyncState, id: *const c_char, error: *mut ExternError) {
-    with_translated_void_result(error, || {
+pub unsafe extern "C" fn sync15_passwords_delete(state: *mut PasswordSyncState, id: *const c_char, error: *mut ExternError) -> bool {
+    with_translated_value_result(error, || {
         assert_pointer_not_null!(state);
         let state = &mut *state;
-        {
+        Ok({
             let mut in_progress = state.engine.store.begin_transaction()?;
-            passwords::delete_by_sync_uuid(&mut in_progress, c_char_to_string(id).into())?;
+            let deleted = passwords::delete_by_sync_uuid(&mut in_progress, c_char_to_string(id).into())?;
             in_progress.commit()?;
-        }
-        Ok(())
-    });
+            deleted
+        })
+    })
 }
 
 #[no_mangle]

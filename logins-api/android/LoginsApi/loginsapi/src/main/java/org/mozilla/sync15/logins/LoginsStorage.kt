@@ -43,7 +43,7 @@ interface LoginsStorage : Closeable {
     /**
      * Delete a password with the given ID. TODO: should be SyncResult<bool>!
      */
-    fun delete(id: String): SyncResult<Unit>
+    fun delete(id: String): SyncResult<Boolean>
 
     /**
      * Fetch a password from the underlying storage layer by ID.

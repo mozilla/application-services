@@ -21,6 +21,12 @@ android {
     buildToolsVersion '27.0.3'
     productFlavors {
     }
+    // Help folks debugging by including symbols in our native libraries.  Yes, this makes the
+    // resulting AAR very large.  The Android ecosystem seems to be in flux around who is in charge
+    // of stripping native binaries, but for now let's provide symbols and see how consumers react.
+    packagingOptions {
+        doNotStrip "**/*.so"
+    }
 }
 
 dependencies {

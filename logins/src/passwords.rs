@@ -279,13 +279,13 @@ where Q: Queryable
 
 /// Delete the underlying credential, any logins, and the Sync 1.5 password record with the given
 /// `uuid`, if such a record exists.
-pub fn delete_by_sync_uuid(in_progress: &mut InProgress, uuid: SyncGuid) -> Result<()> {
-    delete_by_sync_uuids(in_progress, vec![uuid])
+pub fn delete_by_sync_uuid(in_progress: &mut InProgress, uuid: SyncGuid) -> Result<bool> {
+    Ok(delete_by_sync_uuids(in_progress, vec![uuid])? == 1)
 }
 
 /// Delete the underlying credentials, any logins, and the Sync 1.5 password records with the given
 /// `uuids`, if any such records exist.
-pub fn delete_by_sync_uuids(in_progress: &mut InProgress, uuids: Vec<SyncGuid>) -> Result<()> {
+pub fn delete_by_sync_uuids(in_progress: &mut InProgress, uuids: Vec<SyncGuid>) -> Result<usize> {
     // TODO: use `:db/retractEntity` to make this less onerous and avoid cloning.
     let q = r#"[
         :find
@@ -313,6 +313,7 @@ pub fn delete_by_sync_uuids(in_progress: &mut InProgress, uuids: Vec<SyncGuid>) 
         ]"#;
 
     let mut builder = TermBuilder::new();
+    let mut deleted = 0;
 
     // TODO: do this in one query.  It's awkward because Mentat doesn't support binding non-scalar
     // inputs yet; see https://github.com/mozilla/mentat/issues/714.
@@ -322,6 +323,9 @@ pub fn delete_by_sync_uuids(in_progress: &mut InProgress, uuids: Vec<SyncGuid>) 
 
         match results {
             QueryResults::Rel(vals) => {
+                if vals.row_count() > 0 {
+                    deleted += 1;
+                }
                 // TODO: implement tuple binding for rel result rows.
                 for vs in vals {
                     match (vs.len(), vs.get(0), vs.get(1), vs.get(2)) {
@@ -342,7 +346,7 @@ pub fn delete_by_sync_uuids(in_progress: &mut InProgress, uuids: Vec<SyncGuid>) 
         }
     }
 
-    in_progress.transact_builder(builder).map_err(|e| e.into()).and(Ok(()))
+    in_progress.transact_builder(builder).map_err(|e| e.into()).and(Ok(deleted))
 }
 
 /// Fetch Sync 1.5 passwords that have been modified locally and need to have fresh records uploaded
@@ -1464,7 +1468,8 @@ mod tests {
         apply_password(&mut in_progress, PASSWORD1.clone()).expect("to apply");
         apply_password(&mut in_progress, PASSWORD2.clone()).expect("to apply");
 
-        delete_by_sync_uuid(&mut in_progress, PASSWORD1.uuid.clone()).expect("to delete by sync uuid");
+        let did_delete = delete_by_sync_uuid(&mut in_progress, PASSWORD1.uuid.clone()).expect("to delete by sync uuid");
+        assert_eq!(did_delete, true);
 
         // The record's gone.
         let sp = get_sync_password(&in_progress,
@@ -1476,8 +1481,8 @@ mod tests {
         assert_eq!(sp, vec![]);
 
         // If we try to delete again, that's okay.
-        delete_by_sync_uuid(&mut in_progress, PASSWORD1.uuid.clone()).expect("to delete by sync uuid");
-
+        let did_delete = delete_by_sync_uuid(&mut in_progress, PASSWORD1.uuid.clone()).expect("to delete by sync uuid");
+        assert_eq!(did_delete, false);
 
         let sp = get_sync_password(&in_progress,
                                    PASSWORD1.uuid.clone()).expect("to get_sync_password");
@@ -1498,7 +1503,8 @@ mod tests {
         apply_password(&mut in_progress, PASSWORD2.clone()).expect("to apply");
 
         let uuids = vec![PASSWORD1.uuid.clone(), PASSWORD2.uuid.clone()];
-        delete_by_sync_uuids(&mut in_progress, uuids.clone()).expect("to delete by sync uuids");
+        let count = delete_by_sync_uuids(&mut in_progress, uuids.clone()).expect("to delete by sync uuids");
+        assert_eq!(count, 2);
 
         // The record's gone.
         let sp = get_sync_password(&in_progress,
@@ -1515,6 +1521,8 @@ mod tests {
 
         // If we try to delete again, that's okay.
         delete_by_sync_uuids(&mut in_progress, uuids.clone()).expect("to delete by sync uuid");
+        let count = delete_by_sync_uuids(&mut in_progress, uuids.clone()).expect("to delete by sync uuid");
+        assert_eq!(count, 0);
     }
 
     #[test]
