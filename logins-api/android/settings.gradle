@@ -1,1 +1,1 @@
-include ':loginsapi'
+include ':library'
