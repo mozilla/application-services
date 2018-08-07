@@ -9,6 +9,7 @@
 package org.mozilla.sync15_logins_example
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.support.design.widget.Snackbar
@@ -22,6 +23,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.ViewGroup
 import android.view.View
+import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 
@@ -33,9 +35,12 @@ import kotlinx.android.synthetic.main.activity_main.*;
 
 
 import org.mozilla.sync15.logins.*
+import java.util.*
+import java.text.SimpleDateFormat
 
 class MainActivity : AppCompatActivity() {
-    var store: MentatLoginsStorage? = null;
+    private var store: MentatLoginsStorage? = null;
+    private var recyclerView: RecyclerView? = null;
 
     fun dumpError(tag: String, e: Exception) {
         val sw = StringWriter();
@@ -46,6 +51,44 @@ class MainActivity : AppCompatActivity() {
         Log.e(tag, stack);
         // XXX - need to do something better on error.
         // this.editText.setText("rust error (${tag}): : ${e.message}\n\n${stack}\n");
+    }
+
+    fun whenStoreReady(): SyncResult<LoginsStorage> {
+        return if (this.store != null) {
+            SyncResult.fromValue(this.store as LoginsStorage)
+        } else {
+            initFromCredentials(ExampleApp.instance.account?.creds!!).then({ store ->
+                this.store = store;
+                SyncResult.fromValue(store as LoginsStorage)
+            }, { error ->
+                dumpError("LoginInit: ", error);
+                SyncResult.fromException(error)
+            })
+        }
+    }
+
+    fun refresh(sync: Boolean) {
+        Log.d("TEST", "Refreshing logins...")
+
+        Snackbar.make(recyclerView!!, "Loading logins...", Snackbar.LENGTH_LONG)
+                .setAction("Action", null).show()
+
+        whenStoreReady().then { store ->
+            if (sync) {
+                store.sync().then { SyncResult.fromValue(store) }
+            } else {
+                SyncResult.fromValue(store)
+            }
+        }.then { store ->
+            store.list()
+        }.then({ SyncResult.fromValue(it) }) { err ->
+            dumpError("LoginsMainActivity", err)
+            SyncResult.fromException(err)
+        } .whenComplete { logins ->
+            runOnUiThread {
+                (this.recyclerView!!.adapter as LoginViewAdapter).setLogins(logins)
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,54 +107,21 @@ class MainActivity : AppCompatActivity() {
             finish()
         }
 
-        val recyclerView = findViewById<RecyclerView>(R.id.recycler_view).apply {
+        recyclerView = findViewById<RecyclerView>(R.id.recycler_view).apply {
             setHasFixedSize(true)
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = LoginViewAdapter(listOf<ServerPassword>())
         }
 
-        fun refresh() {
-            Log.d("TEST", "Refreshing logins...")
-            Snackbar.make(recyclerView, "Loading logins...", Snackbar.LENGTH_LONG)
-                    .setAction("Action", null).show()
-
-
-            var whenStoreReady = if (this.store == null) {
-                try {
-                    initFromCredentials(ExampleApp.instance.account?.creds!!).then({ store ->
-                        this.store = store;
-                        SyncResult.fromValue(Unit)
-                    }, { error ->
-                        dumpError("LoginInit: ", error);
-                        throw error
-                    })
-                } catch (e: LoginsStorageException) {
-                    return
-                }
-            } else {
-                SyncResult.fromValue(Unit)
-            }
-            whenStoreReady.then({
-                this.store!!.sync()
-            }, { err ->
-                dumpError("LoginSync: ", err);
-                throw err;
-            }).then({
-                this.store!!.list();
-            }, { err ->
-                dumpError("LoginList: ", err);
-                throw err;
-            }).whenComplete {logins ->
-                runOnUiThread {
-                    (recyclerView.adapter as LoginViewAdapter).setLogins(logins)
-                }
-            }
-        }
-
         fab.setOnClickListener { _ ->
-            refresh()
+            refresh(true)
         }
-        refresh()
+        refresh(true)
+    }
+    fun refreshOnUiThread(sync: Boolean) {
+        runOnUiThread {
+            this@MainActivity.refresh(sync);
+        }
     }
 
     fun checkPermissions() {
@@ -131,18 +141,6 @@ class MainActivity : AppCompatActivity() {
         val o = Parser().parse(stringBuilder) as JsonObject
         val info = o.obj("https://identity.mozilla.com/apps/oldsync")!!
         val appFiles = this.applicationContext.getExternalFilesDir(null)
-        try {
-            val file = File(appFiles.absolutePath + "/logins.mentatdb");
-            if (file.exists()) {
-                if (!file.delete()) {
-                    Log.w("logins", "Failed to delete mentat db");
-                } else {
-                    Log.w("logins", "deleted mentat db");
-                }
-            }
-        } catch(e: Exception) {
-            e.printStackTrace();
-        }
 
         val storage = MentatLoginsStorage(appFiles.absolutePath + "/logins.mentatdb");
         val unlockInfo = SyncUnlockInfo(
@@ -196,12 +194,91 @@ class LoginViewAdapter(private var logins: List<ServerPassword>) :
         return ViewHolder(l)
     }
 
-    // Replace the contents of a view (invoked by the layout manager)
+    @SuppressLint("SimpleDateFormat")
+    private fun formatTimestamp(ts: Long): String {
+        return SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSS").format(Date(ts))
+    }
+
+    // Replace the contents of a view (invoked by the layout manager).
+    @SuppressLint("SetTextI18n") // Just a sample app so we don't care about i18n/l10n
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val p = logins[position]
+
         holder.v.apply {
-            findViewById<TextView>(R.id.login_host).setText(p.hostname)
-            findViewById<TextView>(R.id.login_username).setText(p.username)
+            // Helper function to update storage and refresh the activity. Note that refreshing the
+            // activity for a single item is overkill, and we should probably use LoginsStorage.get()
+            // and RecyclerView.notifyItemChanged
+
+            fun mutateStorage(callback: (LoginsStorage) -> SyncResult<Unit>) {
+                val activity = getContext() as MainActivity
+                activity.whenStoreReady().then(callback) { err ->
+                    activity.dumpError("LoginViewAdapter", err);
+                    SyncResult.fromException(err)
+                }.whenComplete {
+                    activity.refreshOnUiThread(false)
+                    Log.d("LoginViewAdapter", "Finished update");
+                }
+            }
+
+            findViewById<TextView>(R.id.login_host).text = "Hostname: ${p.hostname}"
+            findViewById<TextView>(R.id.login_form_http_info).text = if (p.formSubmitURL != null) {
+                "Form Submit URL: ${p.formSubmitURL}"
+            } else {
+                "HTTP Realm: ${p.httpRealm}"
+            }
+
+            findViewById<TextView>(R.id.login_username).text = "Username: ${p.username}"
+            findViewById<TextView>(R.id.login_password).text = "Password: ${p.password}"
+
+
+            var usage = "Used ${p.timesUsed} times"
+            if (p.timeLastUsed != 0L) {
+                usage += ", last used at ${formatTimestamp(p.timeLastUsed)}"
+            }
+
+            findViewById<TextView>(R.id.login_usage).text = usage
+
+            findViewById<TextView>(R.id.login_created_at).let { createdAtView ->
+                if (p.timeCreated != 0L) {
+                    createdAtView.visibility = View.VISIBLE;
+                    createdAtView.text = "Created at ${formatTimestamp(p.timeCreated)}"
+                } else {
+                    createdAtView.visibility = View.GONE
+                }
+            }
+
+            findViewById<TextView>(R.id.login_pass_changed_at).let { passChangedAtView ->
+                if (p.timePasswordChanged != 0L) {
+                    passChangedAtView.visibility = View.VISIBLE;
+                    passChangedAtView.text = "Password last changed on ${formatTimestamp(p.timePasswordChanged)}"
+                } else {
+                    passChangedAtView.visibility = View.GONE
+                }
+            }
+
+            val haveLoginFields = p.usernameField != null || p.passwordField != null
+
+            // Hide the login fields if we don't have either
+            findViewById<LinearLayout>(R.id.login_form_fields).visibility = if (haveLoginFields) View.VISIBLE else View.GONE
+            if (haveLoginFields) {
+                findViewById<TextView>(R.id.login_username_field).text = "Username Field: ${
+                    if (p.usernameField != null && p.usernameField != "") p.usernameField  else "N/A"
+                }";
+                findViewById<TextView>(R.id.login_password_field).text = "Password Field: ${
+                    if (p.passwordField != null && p.passwordField != "") p.passwordField  else "N/A"
+                }"
+            }
+
+
+            findViewById<Button>(R.id.login_btn_delete).setOnClickListener {
+                Log.d("LoginViewAdapter", "Deleting ServerPassword with id: " + p.id);
+                mutateStorage { store -> store.delete(p.id) }
+            }
+
+            findViewById<Button>(R.id.login_btn_touch).setOnClickListener {
+                Log.d("LoginViewAdapter", "Touching ServerPassword with id: " + p.id);
+                mutateStorage { store -> store.touch(p.id) }
+            }
         }
     }
 
