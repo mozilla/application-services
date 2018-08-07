@@ -9,7 +9,7 @@
 package org.mozilla.sync15.logins
 
 // TODO: Get more descriptive errors here.
-class LoginsStorageException(msg: String): Exception(msg)
+open class LoginsStorageException(msg: String): Exception(msg)
 
 // This doesn't really belong in this file...
-class MismatchedLockException(msg: String): Exception(msg)
+class MismatchedLockException(msg: String): LoginsStorageException(msg)

@@ -57,7 +57,7 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : Closeable, L
 
     override fun isLocked(): SyncResult<Boolean> {
         return asyncResult {
-            state == LoginsStorageState.Unlocked
+            state == LoginsStorageState.Locked
         }
     }
 
@@ -84,10 +84,12 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : Closeable, L
         }
     }
 
-    override fun delete(id: String): SyncResult<Unit> {
+    override fun delete(id: String): SyncResult<Boolean> {
         return asyncResult {
             checkUnlocked()
-            list = list.filter { it.id == id }
+            val oldLen = list.size
+            list = list.filter { it.id != id }
+            oldLen != list.size
         }
     }
 
@@ -105,7 +107,7 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : Closeable, L
             if (sp != null) {
                 // ServerPasswords are immutable, so we remove the current one from the list and
                 // add a new one with updated properties
-                list = list.filter { it.id == id };
+                list = list.filter { it.id != id };
                 // Is there a better way to do this?
                 val newsp = ServerPassword(
                         id = sp.id,

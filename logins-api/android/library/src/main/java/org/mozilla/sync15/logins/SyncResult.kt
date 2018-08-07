@@ -135,6 +135,10 @@ class SyncResult<T> {
         return result
     }
 
+    fun thenCatch(efn: (exception: Exception) -> SyncResult<T>): SyncResult<T> {
+        return then({ SyncResult.fromValue(it) }, efn)
+    }
+
     /**
      * Adds a value listener to be called when the [SyncResult] and the whole chain of [then]
      * calls is completed with a value. Listeners will be invoked on the same thread in
