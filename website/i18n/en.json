@@ -6,6 +6,8 @@
     "tagline": "Build the next thing...",
     "accounts/50000-most-common-passwords": "50,000 Most Common Passwords",
     "accounts/end-to-end-encryption": "End-to-end encryption",
+    "accounts/fxa-client-ios": "iOS SDK",
+    "accounts/fxa-client-android": "Android SDK",
     "accounts/project-details": "Project Details",
     "Project Details": "Project Details",
     "accounts/welcome": "About Firefox Accounts",
@@ -35,7 +37,8 @@
     "Firefox Sync": "Firefox Sync",
     "Testing": "Testing",
     "Design Docs": "Design Docs",
-    "Team": "Team"
+    "Team": "Team",
+    "Mobile SDKs": "Mobile SDKs"
   },
   "pages-strings": {
     "Help Translate|recruit community translators for your project": "Help Translate",

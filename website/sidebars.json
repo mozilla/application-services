@@ -9,6 +9,10 @@
       "accounts/welcome",
       "accounts/project-details"
     ],
+    "Mobile SDKs": [
+      "accounts/fxa-client-ios",
+      "accounts/fxa-client-android"
+    ],
     "Other Features": [
       "accounts/end-to-end-encryption",
       "accounts/50000-most-common-passwords"
