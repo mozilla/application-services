@@ -209,7 +209,7 @@ class LoginViewAdapter(private var logins: List<ServerPassword>) :
             // activity for a single item is overkill, and we should probably use LoginsStorage.get()
             // and RecyclerView.notifyItemChanged
 
-            fun mutateStorage(callback: (LoginsStorage) -> SyncResult<Unit>) {
+            fun <T> mutateStorage(callback: (LoginsStorage) -> SyncResult<T>) {
                 val activity = getContext() as MainActivity
                 activity.whenStoreReady().then(callback) { err ->
                     activity.dumpError("LoginViewAdapter", err);
