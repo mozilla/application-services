@@ -23,6 +23,8 @@ struct OpenIdConfigurationResponse {
     userinfo_endpoint: String,
 }
 
+// IMPORTANT: If you add any methods that mutate this type, you need to change the FFI to use a mutex!
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
     content_url: String,
