@@ -171,12 +171,8 @@ pub unsafe extern "C" fn sync15_passwords_delete(state: *mut PasswordSyncState, 
     with_translated_value_result(error, || {
         assert_pointer_not_null!(state);
         let state = &mut *state;
-        Ok({
-            let mut in_progress = state.engine.store.begin_transaction()?;
-            let deleted = passwords::delete_by_sync_uuid(&mut in_progress, c_char_to_string(id).into())?;
-            in_progress.commit()?;
-            deleted
-        })
+        let deleted = state.engine.delete_credential(c_char_to_string(id).into())?;
+        Ok(deleted)
     })
 }
 

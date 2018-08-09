@@ -210,12 +210,12 @@ pub fn touch_by_id(in_progress: &mut InProgress, id: CredentialId, at: Option<Da
 }
 
 /// Delete the credential with the given `id`, if one exists.
-pub fn delete_by_id(in_progress: &mut InProgress, id: CredentialId) -> Result<()> {
-    delete_by_ids(in_progress, ::std::iter::once(id))
+pub fn delete_by_id(in_progress: &mut InProgress, id: CredentialId) -> Result<bool> {
+    Ok(delete_by_ids(in_progress, ::std::iter::once(id))? == 1)
 }
 
 /// Delete credentials with the given `ids`, if any exist.
-pub fn delete_by_ids<I>(in_progress: &mut InProgress, ids: I) -> Result<()>
+pub fn delete_by_ids<I>(in_progress: &mut InProgress, ids: I) -> Result<usize>
 where I: IntoIterator<Item=CredentialId> {
     // TODO: implement and use some version of `:db/retractEntity`, rather than onerously deleting
     // credential data and usage data.
@@ -241,13 +241,16 @@ where I: IntoIterator<Item=CredentialId> {
 ]"#;
 
     let mut builder = TermBuilder::new();
-
+    let mut deleted = 0;
     for id in ids {
         let inputs = QueryInputs::with_value_sequence(vec![(var!(?id), TypedValue::typed_string(id))]);
         let results = in_progress.q_once(q, inputs)?.results;
 
         match results {
             QueryResults::Rel(vals) => {
+                if vals.row_count() > 0 {
+                    deleted += 1;
+                }
                 for vs in vals {
                     match (vs.len(), vs.get(0), vs.get(1), vs.get(2)) {
                         (3, Some(&Binding::Scalar(TypedValue::Ref(e))), Some(&Binding::Scalar(TypedValue::Ref(a))), Some(&Binding::Scalar(ref v))) => {
@@ -267,7 +270,7 @@ where I: IntoIterator<Item=CredentialId> {
         }
     }
 
-    in_progress.transact_builder(builder).map_err(|e| e.into()).and(Ok(()))
+    in_progress.transact_builder(builder).map_err(|e| e.into()).and(Ok(deleted))
 }
 
 /// Find a credential matching the given `username` and `password`, if one exists.
@@ -507,7 +510,8 @@ mod tests {
         add_credential(&mut in_progress, CREDENTIAL1.clone()).expect("to add_credential 1");
         add_credential(&mut in_progress, CREDENTIAL2.clone()).expect("to add_credential 2");
 
-        delete_by_id(&mut in_progress, CREDENTIAL1.id.clone()).expect("to delete by id");
+        let deleted = delete_by_id(&mut in_progress, CREDENTIAL1.id.clone()).expect("to delete by id");
+        assert!(deleted);
 
         // The record's gone.
         let c = get_credential(&in_progress,
@@ -515,7 +519,8 @@ mod tests {
         assert_eq!(c, None);
 
         // If we try to delete again, that's okay.
-        delete_by_id(&mut in_progress, CREDENTIAL1.id.clone()).expect("to delete by id when it's already deleted");
+        let deleted = delete_by_id(&mut in_progress, CREDENTIAL1.id.clone()).expect("to delete by id when it's already deleted");
+        assert!(!deleted);
 
         let c = get_credential(&in_progress,
                                CREDENTIAL1.id.clone()).expect("to get_credential");
@@ -537,7 +542,9 @@ mod tests {
         add_credential(&mut in_progress, CREDENTIAL2.clone()).expect("to add_credential 2");
 
         let iters = ::std::iter::once(CREDENTIAL1.id.clone()).chain(::std::iter::once(CREDENTIAL2.id.clone()));
-        delete_by_ids(&mut in_progress, iters.clone()).expect("to delete_by_ids");
+        let count = delete_by_ids(&mut in_progress, iters.clone()).expect("to delete_by_ids");
+
+        assert_eq!(count, 2);
 
         // The records are gone.
         let c = get_credential(&in_progress,
@@ -549,7 +556,8 @@ mod tests {
         assert_eq!(c, None);
 
         // If we try to delete again, that's okay.
-        delete_by_ids(&mut in_progress, iters.clone()).expect("to delete_by_ids");
+        let count = delete_by_ids(&mut in_progress, iters.clone()).expect("to delete_by_ids");
+        assert_eq!(count, 0);
     }
 
     #[test]

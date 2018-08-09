@@ -75,11 +75,11 @@ impl PasswordEngine {
         Ok(())
     }
 
-    pub fn delete_credential(&mut self, id: String) -> Result<()> {
+    pub fn delete_credential(&mut self, id: String) -> Result<bool> {
         let mut in_progress = self.store.begin_transaction()?;
-        credentials::delete_by_id(&mut in_progress, CredentialId(id))?;
+        let deleted = credentials::delete_by_id(&mut in_progress, CredentialId(id))?;
         in_progress.commit()?;
-        Ok(())
+        Ok(deleted)
     }
 
     pub fn update_credential(&mut self, id: &str, updater: impl FnMut(&mut Credential)) -> Result<bool> {
