@@ -16,13 +16,10 @@ import com.sun.jna.PointerType
 @Suppress("FunctionNaming", "TooManyFunctions", "TooGenericExceptionThrown")
 internal interface PasswordSyncAdapter : Library {
     companion object {
-        private const val JNA_LIBRARY_NAME = "loginsapi_ffi"
+        private const val JNA_LIBRARY_NAME = "moz_as_megazord"
         internal var INSTANCE: PasswordSyncAdapter
 
         init {
-            System.loadLibrary("crypto")
-            System.loadLibrary("ssl")
-            System.loadLibrary("sqlcipher")
             INSTANCE = Native.loadLibrary(JNA_LIBRARY_NAME, PasswordSyncAdapter::class.java) as PasswordSyncAdapter
         }
     }

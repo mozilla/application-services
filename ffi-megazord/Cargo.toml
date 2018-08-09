@@ -1,0 +1,18 @@
+[package]
+name = "ffi-megazord"
+version = "0.1.0"
+authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
+
+[lib]
+name = "moz_as_megazord"
+crate-type = ["cdylib"]
+
+[features]
+default = ["loginsapi"]
+fxa_browserid = ["fxa-client-ffi/browserid"]
+loginsapi = ["loginsapi_ffi"]
+
+[dependencies]
+fxa-client-ffi = { path = "../fxa-client/ffi" }
+loginsapi_ffi = { path = "../sync15/passwords/ffi", optional = true }
+
