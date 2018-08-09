@@ -1,152 +1,152 @@
 {
   "warnings": [
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/Errors/FxAError.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/Errors/FxAError.swift",
       "line": 7,
       "symbol": "FxAError",
       "symbol_kind": "source.lang.swift.decl.enum",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/Errors/FxAError.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/Errors/FxAError.swift",
       "line": 8,
       "symbol": "FxAError.Unauthorized",
       "symbol_kind": "source.lang.swift.decl.enumelement",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/Errors/FxAError.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/Errors/FxAError.swift",
       "line": 9,
       "symbol": "FxAError.Unspecified",
       "symbol_kind": "source.lang.swift.decl.enumelement",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/Errors/FxAError.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/Errors/FxAError.swift",
       "line": 10,
       "symbol": "FxAError.Panic",
       "symbol_kind": "source.lang.swift.decl.enumelement",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/Errors/FxAError.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/Errors/FxAError.swift",
       "line": 32,
       "symbol": "FxAError.unwrap(_:)",
       "symbol_kind": "source.lang.swift.decl.function.method.static",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/Errors/FxAError.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/Errors/FxAError.swift",
       "line": 44,
       "symbol": "FxAError.tryUnwrap(_:)",
       "symbol_kind": "source.lang.swift.decl.function.method.static",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
       "line": 11,
       "symbol": "FxAConfig",
       "symbol_kind": "source.lang.swift.decl.class",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
       "line": 51,
       "symbol": "FirefoxAccount",
       "symbol_kind": "source.lang.swift.decl.class",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
       "line": 132,
       "symbol": "FirefoxAccount.getTokenServerEndpointURL()",
       "symbol_kind": "source.lang.swift.decl.function.method.instance",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
       "line": 218,
       "symbol": "OAuthInfo",
       "symbol_kind": "source.lang.swift.decl.class",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
       "line": 219,
       "symbol": "OAuthInfo.scopes",
       "symbol_kind": "source.lang.swift.decl.var.instance",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
       "line": 225,
       "symbol": "OAuthInfo.accessToken",
       "symbol_kind": "source.lang.swift.decl.var.instance",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
       "line": 231,
       "symbol": "OAuthInfo.keys",
       "symbol_kind": "source.lang.swift.decl.var.instance",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
       "line": 247,
       "symbol": "Profile",
       "symbol_kind": "source.lang.swift.decl.class",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
       "line": 248,
       "symbol": "Profile.uid",
       "symbol_kind": "source.lang.swift.decl.var.instance",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
       "line": 254,
       "symbol": "Profile.email",
       "symbol_kind": "source.lang.swift.decl.var.instance",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
       "line": 260,
       "symbol": "Profile.avatar",
       "symbol_kind": "source.lang.swift.decl.var.instance",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
       "line": 266,
       "symbol": "Profile.displayName",
       "symbol_kind": "source.lang.swift.decl.var.instance",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
       "line": 282,
       "symbol": "SyncKeys",
       "symbol_kind": "source.lang.swift.decl.class",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
       "line": 283,
       "symbol": "SyncKeys.syncKey",
       "symbol_kind": "source.lang.swift.decl.var.instance",
       "warning": "undocumented"
     },
     {
-      "file": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
+      "file": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient/FxAClient/FirefoxAccount.swift",
       "line": 289,
       "symbol": "SyncKeys.xcs",
       "symbol_kind": "source.lang.swift.decl.var.instance",
       "warning": "undocumented"
     }
   ],
-  "source_directory": "/Users/eoger/application-services/fxa-rust-client/sdks/swift/FxAClient"
+  "source_directory": "/Users/eoger/application-services/fxa-client/sdks/swift/FxAClient"
 }
