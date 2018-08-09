@@ -1,4 +1,0 @@
-include_version = true
-language = "C"
-include_guard = "fxa_h"
-style = "Both"
