@@ -3,8 +3,7 @@
 ### Contents
 
 * [fxa-rust-client](fxa-rust-client) - cross compiled FxA Rust client that can work with Firefox Sync keys and more 
-* [sandvich-android](sandvich-ios) - Example App that is a "Sandwich", it combines the fxa-rust-client with Android sync login
-* [sandvich-ios](sandvich-ios) - Example App that is a "Sandwich", it combines the fxa-rust-client with iOS sync login
+* [sandvich](sandvich) - Example apps that use SDKs built on top of `fxa-rust-client` to demonstrate an FxA login flow.
 * [sync15-adapter](sync15-adapter) - Sync 1.5 adapter
 * [libs](libs) - libs directory has build scripts for native libraries
 * [docs](docs) - documentation sources 

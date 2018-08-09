@@ -3,7 +3,7 @@ members = [
     "fxa-rust-client",
     "fxa-rust-client/ffi",
     "logins",
-    "sandvich-desktop",
+    "sandvich/desktop",
     "sync15-adapter",
     "sync15/passwords",
     "sync15/passwords/ffi",
