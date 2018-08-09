@@ -62,9 +62,8 @@ mkdir -p "$DIST_DIR""/lib"
 
 # Turn libsqlcipher.so.0.8.6 into libsqlcipher.so.
 REALLIB=`readlink "$SQLCIPHER_OUTPUT_PATH"/lib/libsqlcipher.so`
-cp -p "$SQLCIPHER_OUTPUT_PATH"/lib/"$REALLIB" "$DIST_DIR"/lib/libsqlcipher.so
-cp -L "$SQLCIPHER_OUTPUT_PATH"/include/sqlcipher/*.h "${DIST_DIR}/include/sqlcipher"
+cp -p "$SQLCIPHER_OUTPUT_PATH"/lib/libsqlcipher.a "$DIST_DIR"/lib/libsqlcipher.a
 
 # Just in case, ensure that the created binaries are not -w.
-chmod +w "$DIST_DIR"/lib/libsqlcipher.so
+chmod +w "$DIST_DIR"/lib/libsqlcipher.a
 rm -rf "$SQLCIPHER_OUTPUT_PATH"
