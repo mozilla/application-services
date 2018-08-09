@@ -1,4 +1,5 @@
 apply plugin: 'com.android.library'
+apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
@@ -30,21 +31,80 @@ android {
     }
 }
 
+cargo {
+    // The directory of the Cargo.toml to build.
+    module = '../../../sync15/passwords/ffi'
+
+    // The Android NDK API level to target.
+    apiLevel = 21
+
+    // Where Cargo writes its outputs.
+    targetDirectory = '../../../target'
+
+    // The Cargo outputs to include in the AAR.
+    targetIncludes = ['libloginsapi_ffi.so'] // TODO: for unit tests, include ['libloginsapi_ffi.dylib', 'libloginsapi_ffi.dll']
+
+    // The Cargo targets to invoke.  The mapping from short name to target
+    // triple is defined by the `rust-android-gradle` plugin.
+    targets = [
+        // 'default', // TODO: For unit tests.
+        'arm',
+        'arm64',
+        'x86',
+    ]
+
+    // Configure some environment variables, per toolchain, that will apply
+    // during the Cargo build.  Paths are relative to this file.  We assume that
+    // the `libs/` directory has been populated before invoking Gradle (or Cargo).
+    exec = { spec, toolchain ->
+        switch (toolchain.platform) {
+            // TODO: For unit tests.
+            // case 'default':
+            //     spec.environment("OPENSSL_DIR", file('../../../libs/desktop/openssl').absolutePath)
+            //     break;
+            case 'arm':
+            case 'arm64':
+            case 'x86':
+                spec.environment("OPENSSL_STATIC",        "1")
+                spec.environment("OPENSSL_DIR",           file("../../../libs/android/${toolchain.platform}/openssl").absolutePath)
+                spec.environment("SQLCIPHER_LIB_DIR",     file("../../../libs/android/${toolchain.platform}/sqlcipher/lib").absolutePath)
+                spec.environment("SQLCIPHER_INCLUDE_DIR", file("../../../libs/android/${toolchain.platform}/sqlcipher/include").absolutePath)
+                break;
+            default:
+                throw GradleException("Unknown toolchain platform ${toolchain.platform}")
+        }
+    }
+
+    // TODO: For unit tests.
+    // This puts the output of `cargo build` (the "default" toolchain) into the correct directory
+    // for JNA to find it.
+    // defaultToolchainBuildPrefixDir = Platform.RESOURCE_PREFIX
+}
+
 dependencies {
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
-
-    implementation 'com.beust:klaxon:3.0.1' // JSON parsing.
-
-    implementation 'com.android.support:appcompat-v7:27.1.1'
-    implementation 'net.java.dev.jna:jna:4.5.1'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation "net.zetetic:android-database-sqlcipher:3.5.9@aar"
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:0.23.4"
+    implementation 'com.android.support:appcompat-v7:27.1.1'
+    implementation 'com.beust:klaxon:3.0.1' // JSON parsing.
+    implementation 'net.java.dev.jna:jna:4.5.2@aar'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:0.23.4'
+
     testImplementation 'junit:junit:4.12'
+
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
 }
-repositories {
-    mavenCentral()
-    jcenter()
+
+afterEvaluate {
+    // The `cargoBuild` task isn't available until after evaluation.
+    android.libraryVariants.all { variant ->
+        def productFlavor = ""
+        variant.productFlavors.each {
+            productFlavor += "${it.name.capitalize()}"
+        }
+        def buildType = "${variant.buildType.name.capitalize()}"
+        tasks["generate${productFlavor}${buildType}Assets"].dependsOn(tasks["cargoBuild"])
+
+        // TODO: For unit tests.
+        // tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["cargoBuild"])
+    }
 }
