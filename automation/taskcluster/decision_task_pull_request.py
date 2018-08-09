@@ -48,7 +48,7 @@ def create_fxaclient_task():
         "payload": {
             "features": {},
             "maxRunTime": 7200,
-            "image": "mozillamobile/rust-component:buildtools-27.0.3-ndk-r17b-ndk-version-26-rust-stable-rust-beta",
+            "image": "mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-rust-beta",
             "command": [
                 "/bin/bash",
                 "--login",
