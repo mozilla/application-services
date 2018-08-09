@@ -2,6 +2,13 @@
 
 buildscript {
     ext.kotlin_version = '1.2.50'
+
+    ext.build = [
+        compileSdkVersion: 27,
+        targetSdkVersion: 27,
+        minSdkVersion: 21, // So that we can publish for aarch64.
+    ]
+
     repositories {
         google()
         jcenter()
