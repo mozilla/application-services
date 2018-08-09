@@ -55,10 +55,10 @@ make
 make install_sw
 mkdir -p "$DIST_DIR""/include/openssl"
 mkdir -p "$DIST_DIR""/lib"
-cp -p "$OPENSSL_OUTPUT_PATH"/lib/libssl.so "$DIST_DIR"/lib
-cp -p "$OPENSSL_OUTPUT_PATH"/lib/libcrypto.so "$DIST_DIR"/lib
+cp -p "$OPENSSL_OUTPUT_PATH"/lib/libssl.a "$DIST_DIR"/lib
+cp -p "$OPENSSL_OUTPUT_PATH"/lib/libcrypto.a "$DIST_DIR"/lib
 cp -L "$PWD"/include/openssl/*.h "${DIST_DIR}/include/openssl"
 # For some reason the created binaries are -w.
-chmod +w "$DIST_DIR"/lib/libssl.so
-chmod +w "$DIST_DIR"/lib/libcrypto.so
+chmod +w "$DIST_DIR"/lib/libssl.a
+chmod +w "$DIST_DIR"/lib/libcrypto.a
 rm -rf "$OPENSSL_OUTPUT_PATH"
