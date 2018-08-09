@@ -51,7 +51,7 @@ fi
 
 make clean || true
 ./Configure "$CONFIGURE_ARCH" shared --openssldir="$OPENSSL_OUTPUT_PATH"
-make
+make -j6
 make install_sw
 mkdir -p "$DIST_DIR""/include/openssl"
 mkdir -p "$DIST_DIR""/lib"
