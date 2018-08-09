@@ -10,6 +10,12 @@
 * [website](website) - website built from documentation sources
 
 
+### Overview
+
+The following diagram describes how some of the components hosted here relate to each other within an app.
+
+![Relationship between application-services components](docs/a-s-components.svg)
+
 ### Other Resources
 
 * [mentat](https://github.com/mozilla/mentat) - a persistent, relational store inspired by Datomic and DataScript.
