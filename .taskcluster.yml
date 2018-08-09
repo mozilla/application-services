@@ -78,7 +78,7 @@ tasks:
     routes:
       - index.project.fxaclient.builds.{{ event.version }}
     metadata:
-      name: fxa-rust-client Android Build
-      description: Builds the FxA rust lib for Android architectures
+      name: fxa-client Android Build
+      description: Builds the FxA lib for Android architectures
       owner: '{{ event.head.user.email }}'
       source: '{{ event.head.repo.url }}'

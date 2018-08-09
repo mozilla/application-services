@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Edouard Oger <eoger@fastmail.com>"]
 
 [dependencies.fxa-client]
-path = "../../fxa-rust-client"
+path = "../../fxa-client"
 
 [dependencies]
 text_io = "0.1.7"

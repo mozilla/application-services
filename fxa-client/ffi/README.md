@@ -1,4 +1,4 @@
-# FxA Rust Client FFI
+# FxA Client FFI
 
 ## iOS build
 

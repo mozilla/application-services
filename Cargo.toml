@@ -1,7 +1,7 @@
 [workspace]
 members = [
-    "fxa-rust-client",
-    "fxa-rust-client/ffi",
+    "fxa-client",
+    "fxa-client/ffi",
     "logins",
     "sandvich/desktop",
     "sync15-adapter",
