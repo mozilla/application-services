@@ -2,7 +2,10 @@
 
 set -euvx
 
-apt-get update -qq && apt-get install zip -y
+# libtool/automake/autoconf are needed for the patchelf build (The project is
+# small enough (one file) that this is probably not necessary, it's easy
+# enough to just do it the right way).
+apt-get update -qq && apt-get install zip libtool automake autoconf -y
 
 mkdir -p .cargo
 yes | cp -rf scripts/taskcluster-cargo-config .cargo/config
