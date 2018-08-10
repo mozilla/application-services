@@ -6,7 +6,7 @@ apt-get update -qq && apt-get install zip -y
 
 mkdir -p .cargo
 yes | cp -rf scripts/taskcluster-cargo-config .cargo/config
-pushd libs/ && ./build-all.sh android && popd
+pushd libs/ && ./build-all.sh android && ./build-patchelf.sh && popd
 
 declare -A android_targets
 android_targets=(
@@ -39,6 +39,7 @@ do
     cargo +beta build -p fxa-client-ffi --target ${android_targets[$target]} --release
   mkdir -p fxa-client/$target
   cp target/${android_targets[$target]}/release/libfxa_client.so fxa-client/$target
+  ./libs/bin/patchelf --set-soname libfxa_client.so fxa-client/$target/libfxa_client.so
 done
 
 # Because Android needs the lib to be in a armeabi-v7a dir.
