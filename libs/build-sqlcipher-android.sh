@@ -54,7 +54,7 @@ SQLCIPHER_CFLAGS="-DSQLITE_HAS_CODEC -DSQLITE_SOUNDEX -DHAVE_USLEEP=1 -DSQLITE_M
 
 make clean || true
 ./configure --host="${HOST}" --enable-tempstore=yes CFLAGS="${CFLAGS} ${SQLCIPHER_CFLAGS} -I${OPENSSL_DIR}/include -L${OPENSSL_DIR}/lib" LDFLAGS="-lcrypto -llog -lm" --prefix="${SQLCIPHER_OUTPUT_PATH}"
-make
+make -j6
 make install
 
 mkdir -p "$DIST_DIR""/include/sqlcipher"

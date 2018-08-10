@@ -33,7 +33,7 @@ else
   else
     ./config shared --openssldir="$OPENSSL_OUTPUT_PATH"
   fi
-  make && make install
+  make -j6 && make install
   mkdir -p "$OPENSSL_DIR""/include/openssl"
   mkdir -p "$OPENSSL_DIR""/lib"
   cp -p "$OPENSSL_OUTPUT_PATH"/lib/libssl."$LIB_EXTENSION"* "$OPENSSL_DIR""/lib"

@@ -48,7 +48,7 @@ fi
 
 sed -ie "s!^CFLAG=!CFLAG=-isysroot ${CROSS_TOP}/SDKs/${CROSS_SDK} -miphoneos-version-min=${IOS_MIN_SDK_VERSION} !" "Makefile"
 
-make && make install
+make -j6 && make install
 mkdir -p "$DIST_DIR""/include/openssl"
 mkdir -p "$DIST_DIR""/lib"
 cp -p "$OPENSSL_OUTPUT_PATH"/lib/libssl.a "$DIST_DIR""/lib"
