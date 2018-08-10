@@ -1,6 +1,6 @@
 
-extern crate fxa_client;
-pub use fxa_client::*;
+extern crate fxa_client_ffi;
+pub use fxa_client_ffi::*;
 
 #[cfg(feature = "loginsapi")]
 extern crate loginsapi_ffi;
@@ -18,7 +18,7 @@ pub use loginsapi_ffi::*;
 /// basically the grosest thing ever), because
 // 
 /// - it doesn't require all the types in the crate in question be public (in
-///   particular, the fxa_client ffi has some #[repr(C)] structs that are not
+///   particular, fxa_client_ffi has some #[repr(C)] structs that are not
 ///   reexported).
 /// - It also doesn't produce extra functions in the symbol table, nor does it require
 ///   updating when the arguments in question change.
@@ -27,32 +27,32 @@ pub use loginsapi_ffi::*;
 #[no_mangle]
 pub unsafe extern "C" fn NEVER_CALL_THIS_workaround_rustlang_36342() {
     let mut functions = vec![
-        &fxa_client::fxa_get_release_config as *const _ as *const u8,
-        &fxa_client::fxa_get_custom_config as *const _ as *const u8,
-        &fxa_client::fxa_new as *const _ as *const u8,
-        &fxa_client::fxa_from_json as *const _ as *const u8,
-        &fxa_client::fxa_to_json as *const _ as *const u8,
-        &fxa_client::fxa_profile as *const _ as *const u8,
-        &fxa_client::fxa_get_token_server_endpoint_url as *const _ as *const u8,
-        &fxa_client::fxa_begin_oauth_flow as *const _ as *const u8,
-        &fxa_client::fxa_complete_oauth_flow as *const _ as *const u8,
-        &fxa_client::fxa_get_oauth_token as *const _ as *const u8,
-        &fxa_client::fxa_str_free as *const _ as *const u8,
-        &fxa_client::fxa_free as *const _ as *const u8,
-        &fxa_client::fxa_config_free as *const _ as *const u8,
-        &fxa_client::fxa_oauth_info_free as *const _ as *const u8,
-        &fxa_client::fxa_profile_free as *const _ as *const u8,
-        &fxa_client::fxa_sync_keys_free as *const _ as *const u8,
-        &fxa_client::fxa_register_persist_callback as *const _ as *const u8,
-        &fxa_client::fxa_unregister_persist_callback as *const _ as *const u8,
+        &fxa_client_ffi::fxa_get_release_config as *const _ as *const u8,
+        &fxa_client_ffi::fxa_get_custom_config as *const _ as *const u8,
+        &fxa_client_ffi::fxa_new as *const _ as *const u8,
+        &fxa_client_ffi::fxa_from_json as *const _ as *const u8,
+        &fxa_client_ffi::fxa_to_json as *const _ as *const u8,
+        &fxa_client_ffi::fxa_profile as *const _ as *const u8,
+        &fxa_client_ffi::fxa_get_token_server_endpoint_url as *const _ as *const u8,
+        &fxa_client_ffi::fxa_begin_oauth_flow as *const _ as *const u8,
+        &fxa_client_ffi::fxa_complete_oauth_flow as *const _ as *const u8,
+        &fxa_client_ffi::fxa_get_oauth_token as *const _ as *const u8,
+        &fxa_client_ffi::fxa_str_free as *const _ as *const u8,
+        &fxa_client_ffi::fxa_free as *const _ as *const u8,
+        &fxa_client_ffi::fxa_config_free as *const _ as *const u8,
+        &fxa_client_ffi::fxa_oauth_info_free as *const _ as *const u8,
+        &fxa_client_ffi::fxa_profile_free as *const _ as *const u8,
+        &fxa_client_ffi::fxa_sync_keys_free as *const _ as *const u8,
+        &fxa_client_ffi::fxa_register_persist_callback as *const _ as *const u8,
+        &fxa_client_ffi::fxa_unregister_persist_callback as *const _ as *const u8,
     ];
     // These are only present when fxa is built with the browserid feature.
     #[cfg(feature = "fxa_browserid")]
     {
         functions.extend(&[
-            &fxa_client::fxa_from_credentials as *const _ as *const u8,
-            &fxa_client::fxa_assertion_new as *const _ as *const u8,
-            &fxa_client::fxa_get_sync_keys as *const _ as *const u8,
+            &fxa_client_ffi::fxa_from_credentials as *const _ as *const u8,
+            &fxa_client_ffi::fxa_assertion_new as *const _ as *const u8,
+            &fxa_client_ffi::fxa_get_sync_keys as *const _ as *const u8,
         ]);
     }
     #[cfg(feature = "loginsapi")]

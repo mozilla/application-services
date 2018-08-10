@@ -7,7 +7,8 @@ members = [
     "sync15-adapter",
     "sync15/passwords",
     "sync15/passwords/ffi",
-    "ffi-megazord"
+    "ffi-megazord",
+    "megazord-symbol-checker"
 ]
 
 # For RSA keys cloning. Remove once openssl 0.10.8+ is released.

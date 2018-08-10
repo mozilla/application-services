@@ -5,7 +5,7 @@ set -evx
 TARGET=$1
 TRIPLE=""
 if [ -z "$TARGET" ]; then
-    echo "Usage: $0 (x86|arm|arm64) [debug|release = debug]"
+    echo "Usage: $0 (x86|arm|arm64) [debug|release = debug] [workspace-relative-crate-dir = ffi-megazord]"
     exit 1
 fi
 
@@ -30,6 +30,12 @@ if [ -z "$BUILD_TYPE" ]; then
     BUILD_TYPE=debug
 fi
 
+# XXX this script is abused by `
+ROOT_REL_LIB_PATH=$3
+if [ -z "$ROOT_REL_LIB_PATH" ]; then
+    ROOT_REL_LIB_PATH=ffi-megazord
+fi
+
 if [ ! -f libs/android/$TARGET/sqlcipher/lib/libsqlcipher.a ]; then
     echo "Error: no static lib of libsqlcipher (or probably openssl)."
     echo "  You probably want to erase libs/android and then run ./libs/build-all.sh android"
@@ -39,7 +45,7 @@ fi
 
 APPSVC_ROOT="$PWD"
 
-cd ffi-megazord
+cd $ROOT_REL_LIB_PATH
 
 CARGO_ARGS="--target $TRIPLE --verbose"
 if [ "$BUILD_TYPE" = "release" ]; then
@@ -55,5 +61,3 @@ env PATH="$PATH:$ANDROID_NDK_TOOLCHAIN_DIR/$TARGET-$ANDROID_NDK_API_VERSION/bin"
     cargo build $CARGO_ARGS
 
 cd -
-
-echo "Lib should be located at target/$TRIPLE/$BUILD_TYPE/libmoz_as_megazord.so"

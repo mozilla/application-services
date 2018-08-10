@@ -1,0 +1,11 @@
+[package]
+name = "megazord-symbol-checker"
+version = "0.1.0"
+authors = ["Thom Chiovoloni <chiovolonit@gmail.com>"]
+
+[dependencies]
+goblin = "0.0.17"
+failure = "0.1.1"
+toml = "0.4.6"
+log = "0.4.3"
+env_logger = "0.5.12"
