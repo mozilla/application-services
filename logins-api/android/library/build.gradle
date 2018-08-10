@@ -108,3 +108,11 @@ afterEvaluate {
         // tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["cargoBuild"])
     }
 }
+
+archivesBaseName = 'logins'
+
+apply from: '../publish.gradle'
+ext.configurePublish(
+        'org.mozilla.sync15',
+        'logins',
+        'Sync 1.5 logins implementation.')
