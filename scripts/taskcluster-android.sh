@@ -3,7 +3,7 @@
 set -euvx
 
 # libtool/automake/autoconf are needed for the patchelf build (The project is
-# small enough (one file) that this is probably not necessary, it's easy
+# small enough (one file) that this is probably not necessary, but it's easy
 # enough to just do it the right way).
 apt-get update -qq && apt-get install zip libtool automake autoconf -y
 
@@ -42,6 +42,9 @@ do
     cargo +beta build -p fxa-client-ffi --target ${android_targets[$target]} --release
   mkdir -p fxa-client/$target
   cp target/${android_targets[$target]}/release/libfxa_client.so fxa-client/$target
+
+  # Patch the soname of this lib since rustc (currently) won't, but android's
+  # linker needs it: https://github.com/mozilla/application-services/issues/174
   ./libs/bin/patchelf --set-soname libfxa_client.so fxa-client/$target/libfxa_client.so
 done
 
