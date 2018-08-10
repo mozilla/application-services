@@ -44,6 +44,7 @@ class ExampleApp: Application() {
         } else {
             intent = Intent(baseContext, MainActivity::class.java)
         }
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
         startActivity(intent)
     }
 

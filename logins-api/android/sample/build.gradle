@@ -6,8 +6,8 @@ android {
     compileSdkVersion 27
     defaultConfig {
         applicationId "org.mozilla.logins_example"
-        minSdkVersion 23
-        targetSdkVersion 27
+        minSdkVersion rootProject.ext.build['minSdkVersion']
+        targetSdkVersion rootProject.ext.build['targetSdkVersion']
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"

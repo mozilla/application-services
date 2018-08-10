@@ -72,7 +72,45 @@ tasks:
     routes:
       - index.project.fxaclient.builds.{{ event.version }}
     metadata:
-      name: fxa-client Android Build
+      name: fxa-client Android Build - Release ({{ event.version }})
       description: Builds the FxA lib for Android architectures
+      owner: '{{ event.head.user.email }}'
+      source: '{{ event.head.repo.url }}'
+
+####################################################################################################
+# Task: Tag
+####################################################################################################
+  - provisionerId: '{{ taskcluster.docker.provisionerId }}'
+    workerType: '{{ taskcluster.docker.workerType }}'
+    extra:
+      github:
+        events:
+          - release
+    payload:
+      maxRunTime: 3600
+      deadline: "{{ '2 hours' | $fromNow }}"
+      image: 'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-rust-beta'
+      command:
+        - /bin/bash
+        - '-c'
+        - >-
+          git clone '{{ event.head.repo.url }}' repo &&
+          cd repo &&
+          git config advice.detachedHead false &&
+          git checkout '{{ event.head.tag }}' &&
+          ./scripts/taskcluster-android.sh
+          && python automation/taskcluster/release/fetch-bintray-api-key.py
+          && cd logins-api/android
+          && ./gradlew --no-daemon clean library:assembleRelease
+          && VCS_TAG=`git show-ref {{ event.head.tag }}` ./gradlew bintrayUpload --debug -PvcsTag="$VCS_TAG"
+      artifacts:
+        'public/bin/mozilla/fxa_client_android_{{ event.head.tag }}.zip':
+          type: 'file'
+          path: '/build/application-services/fxa-client/fxa_client_android.zip'
+      features:
+        taskclusterProxy: true
+    metadata:
+      name: application-services Android Build - Tag ({{ event.head.tag }})
+      description: Builds the FxA client and the Logins API for Android architectures.
       owner: '{{ event.head.user.email }}'
       source: '{{ event.head.repo.url }}'
