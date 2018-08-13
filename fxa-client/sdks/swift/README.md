@@ -6,5 +6,5 @@
 Use Carthage to download the library from our Github releases:
 
 ```
-github "mozilla/application-services" "0.2.1"
+github "mozilla/application-services" "0.2.2"
 ```
