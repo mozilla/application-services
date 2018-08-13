@@ -57,10 +57,9 @@ use sync15_passwords::{
     ServerPassword,
 };
 
-pub struct PasswordSyncState {
+pub struct PasswordState {
     engine: PasswordEngine,
-    client: Sync15StorageClient,
-    sync_state: GlobalState,
+    sync_state: Option<GlobalState>,
 }
 
 #[cfg(target_os = "android")]
@@ -92,8 +91,10 @@ impl log::Log for DevLogger {
     }
     fn flush(&self) {}
 }
+
 static INIT_LOGGER: Once = ONCE_INIT;
 static DEV_LOGGER: &'static log::Log = &DevLogger;
+
 fn init_logger() {
     log::set_logger(DEV_LOGGER).unwrap();
     log::set_max_level(log::LevelFilter::Trace);
@@ -101,63 +102,76 @@ fn init_logger() {
     info!("Hooked up rust logger!");
 }
 
-define_destructor!(sync15_passwords_state_destroy, PasswordSyncState);
+define_destructor!(sync15_passwords_state_destroy, PasswordState);
 
 // This is probably too many string arguments...
 #[no_mangle]
 pub unsafe extern "C" fn sync15_passwords_state_new(
     mentat_db_path: *const c_char,
-
     encryption_key: *const c_char,
-
-    key_id: *const c_char,
-    access_token: *const c_char,
-    sync_key: *const c_char,
-    tokenserver_base_url: *const c_char,
-
     error: *mut ExternError
-) -> *mut PasswordSyncState {
+) -> *mut PasswordState {
     INIT_LOGGER.call_once(init_logger);
     with_translated_result(error, || {
-        let client = Sync15StorageClient::new(Sync15StorageClientInit {
-            key_id: c_char_to_string(key_id).into(),
-            access_token: c_char_to_string(access_token).into(),
-            tokenserver_base_url: c_char_to_string(tokenserver_base_url).into(),
-        })?;
-        let mut sync_state = GlobalState::default();
-
-        let root_sync_key = sync::KeyBundle::from_ksync_base64(c_char_to_string(sync_key).into())?;
-
-        { // Scope borrow of `client`.
-            let mut state_machine =
-                sync::SetupStateMachine::for_readonly_sync(&client, &root_sync_key);
-            sync_state = state_machine.to_ready(sync_state)?;
-        }
 
         let store = mentat::Store::open_with_key(c_char_to_string(mentat_db_path),
                                                  c_char_to_string(encryption_key))?;
 
         let engine = PasswordEngine::new(store)?;
-        Ok(PasswordSyncState {
+        Ok(PasswordState {
             engine,
-            client,
-            sync_state,
+            sync_state: None,
         })
     })
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_sync(state: *mut PasswordSyncState, error: *mut ExternError) {
+pub unsafe extern "C" fn sync15_passwords_sync(
+    state: *mut PasswordState,
+    key_id: *const c_char,
+    access_token: *const c_char,
+    sync_key: *const c_char,
+    tokenserver_base_url: *const c_char,
+    error: *mut ExternError
+) {
     with_translated_void_result(error, || {
         assert_pointer_not_null!(state);
         let state = &mut *state;
-        state.engine.sync(&state.client, &state.sync_state)?;
-        Ok(())
+
+        // TODO: Work out when this is ok to keep around rather than recreating.
+        let client = Sync15StorageClient::new(Sync15StorageClientInit {
+            key_id: c_char_to_string(key_id).into(),
+            access_token: c_char_to_string(access_token).into(),
+            tokenserver_base_url: c_char_to_string(tokenserver_base_url).into(),
+        })?;
+
+        let root_sync_key = sync::KeyBundle::from_ksync_base64(
+            c_char_to_string(sync_key).into())?;
+
+        // TODO: If `to_ready` fails below we end up with
+        // `state.sync_state.is_none()`, which means the next sync will
+        // redownload meta/global, crypto/keys, etc. without needing to. (AFAICT
+        // fixing this requires a change in sync15-adapter, since to_ready takes
+        // GlobalState as a move).
+        let mut sync_state = state.sync_state.take()
+            .unwrap_or_else(GlobalState::default);
+
+        { // Scope borrow of `client`
+            let mut state_machine =
+                sync::SetupStateMachine::for_readonly_sync(&client, &root_sync_key);
+
+            let next_sync_state = state_machine.to_ready(sync_state)?;
+            sync_state = next_sync_state;
+        }
+
+        let result = state.engine.sync(&client, &sync_state);
+        state.sync_state = Some(sync_state);
+        result
     });
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_touch(state: *mut PasswordSyncState, id: *const c_char, error: *mut ExternError) {
+pub unsafe extern "C" fn sync15_passwords_touch(state: *mut PasswordState, id: *const c_char, error: *mut ExternError) {
     with_translated_void_result(error, || {
         assert_pointer_not_null!(state);
         let state = &mut *state;
@@ -167,7 +181,7 @@ pub unsafe extern "C" fn sync15_passwords_touch(state: *mut PasswordSyncState, i
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_delete(state: *mut PasswordSyncState, id: *const c_char, error: *mut ExternError) -> bool {
+pub unsafe extern "C" fn sync15_passwords_delete(state: *mut PasswordState, id: *const c_char, error: *mut ExternError) -> bool {
     with_translated_value_result(error, || {
         assert_pointer_not_null!(state);
         let state = &mut *state;
@@ -177,7 +191,7 @@ pub unsafe extern "C" fn sync15_passwords_delete(state: *mut PasswordSyncState, 
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_wipe(state: *mut PasswordSyncState, error: *mut ExternError) {
+pub unsafe extern "C" fn sync15_passwords_wipe(state: *mut PasswordState, error: *mut ExternError) {
     with_translated_void_result(error, || {
         assert_pointer_not_null!(state);
         let state = &mut *state;
@@ -187,7 +201,7 @@ pub unsafe extern "C" fn sync15_passwords_wipe(state: *mut PasswordSyncState, er
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_reset(state: *mut PasswordSyncState, error: *mut ExternError) {
+pub unsafe extern "C" fn sync15_passwords_reset(state: *mut PasswordState, error: *mut ExternError) {
     with_translated_void_result(error, || {
         assert_pointer_not_null!(state);
         let state = &mut *state;
@@ -198,7 +212,7 @@ pub unsafe extern "C" fn sync15_passwords_reset(state: *mut PasswordSyncState, e
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_get_all(state: *mut PasswordSyncState, error: *mut ExternError) -> *mut c_char {
+pub unsafe extern "C" fn sync15_passwords_get_all(state: *mut PasswordState, error: *mut ExternError) -> *mut c_char {
     with_translated_string_result(error, || {
         assert_pointer_not_null!(state);
         let state = &mut *state;
@@ -213,7 +227,7 @@ pub unsafe extern "C" fn sync15_passwords_get_all(state: *mut PasswordSyncState,
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_get_by_id(state: *mut PasswordSyncState, id: *const c_char, error: *mut ExternError) -> *mut c_char {
+pub unsafe extern "C" fn sync15_passwords_get_by_id(state: *mut PasswordState, id: *const c_char, error: *mut ExternError) -> *mut c_char {
     with_translated_opt_string_result(error, || {
         assert_pointer_not_null!(state);
         let state = &mut *state;

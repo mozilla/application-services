@@ -43,7 +43,7 @@ class MentatLoginsStorage(private val dbPath: String) : Closeable, LoginsStorage
         }
     }
 
-    override fun unlock(encryptionKey: String, syncInfo: SyncUnlockInfo): SyncResult<Unit> {
+    override fun unlock(encryptionKey: String): SyncResult<Unit> {
         return safeAsync { error ->
             Log.d("LoginsAPI", "unlock");
             if (raw != null) {
@@ -52,19 +52,20 @@ class MentatLoginsStorage(private val dbPath: String) : Closeable, LoginsStorage
             raw = PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new(
                     dbPath,
                     encryptionKey,
-                    syncInfo.kid,
-                    syncInfo.fxaAccessToken,
-                    syncInfo.syncKey,
-                    syncInfo.tokenserverBaseURL,
                     error
             )
         }
     }
 
-    override fun sync(): SyncResult<Unit> {
+    override fun sync(syncInfo: SyncUnlockInfo): SyncResult<Unit> {
         return safeAsync { error ->
             Log.d("LoginsAPI", "sync")
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_sync(this.raw!!, error)
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_sync(this.raw!!,
+                    syncInfo.kid,
+                    syncInfo.fxaAccessToken,
+                    syncInfo.syncKey,
+                    syncInfo.tokenserverBaseURL,
+                    error)
         }
     }
 

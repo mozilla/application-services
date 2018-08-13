@@ -133,10 +133,10 @@ class MemoryLoginsTest {
         waitForException(test.delete("aaaaaaaaaaaa"))
         waitForException(test.touch("bbbbbbbbbbbb"))
         waitForException(test.wipe())
-        waitForException(test.sync())
+        waitForException(test.sync(SyncUnlockInfo("", "", "", "")))
         waitForException(test.reset())
 
-        waitForResult(test.unlock("", SyncUnlockInfo("", "", "", "")))
+        waitForResult(test.unlock(""))
         assertEquals(waitForResult(test.isLocked()), false);
         // Make sure things didn't change despite being locked
         assertNotNull(waitForResult(test.get("aaaaaaaaaaaa")))
@@ -148,7 +148,7 @@ class MemoryLoginsTest {
     @Test
     fun testTouch() {
         val test = getTestStore()
-        waitForResult(test.unlock("", SyncUnlockInfo("", "", "", "")))
+        waitForResult(test.unlock(""))
         assertEquals(waitForResult(test.list())!!.size, 2)
         val b = waitForResult(test.get("bbbbbbbbbbbb"))!!
         assertEquals(0, b.timesUsed)
@@ -170,7 +170,7 @@ class MemoryLoginsTest {
     @Test
     fun testDelete() {
         val test = getTestStore();
-        waitForResult(test.unlock("", SyncUnlockInfo("", "", "", "")))
+        waitForResult(test.unlock(""))
 
         assertNotNull(waitForResult(test.get("aaaaaaaaaaaa")))
         assertTrue(waitForResult(test.delete("aaaaaaaaaaaa"))!!)
@@ -185,7 +185,7 @@ class MemoryLoginsTest {
     @Test
     fun testListWipe() {
         val test = getTestStore();
-        waitForResult(test.unlock("", SyncUnlockInfo("", "", "", "")))
+        waitForResult(test.unlock(""))
         assertEquals(2, waitForResult(test.list())!!.size);
 
         waitForResult(test.wipe())

@@ -30,10 +30,6 @@ internal interface PasswordSyncAdapter : Library {
     fun sync15_passwords_state_new(
             mentat_db_path: String,
             encryption_key: String,
-            key_id: String,
-            access_token: String,
-            sync_key: String,
-            token_server_base_url: String,
             error: RustError.ByReference
     ): RawLoginSyncState
 
@@ -49,7 +45,12 @@ internal interface PasswordSyncAdapter : Library {
     // return json array
     fun sync15_passwords_get_all(state: RawLoginSyncState, error: RustError.ByReference): Pointer
 
-    fun sync15_passwords_sync(state: RawLoginSyncState, error: RustError.ByReference)
+    fun sync15_passwords_sync(state: RawLoginSyncState,
+                              key_id: String,
+                              access_token: String,
+                              sync_key: String,
+                              token_server_base_url: String,
+                              error: RustError.ByReference)
 
     fun sync15_passwords_wipe(state: RawLoginSyncState, error: RustError.ByReference)
     fun sync15_passwords_reset(state: RawLoginSyncState, error: RustError.ByReference)

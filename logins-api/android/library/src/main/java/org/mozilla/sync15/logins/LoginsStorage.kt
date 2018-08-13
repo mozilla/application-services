@@ -21,14 +21,14 @@ interface LoginsStorage : Closeable {
 
     fun lock(): SyncResult<Unit>
 
-    fun unlock(encryptionKey: String, syncInfo: SyncUnlockInfo): SyncResult<Unit>
+    fun unlock(encryptionKey: String): SyncResult<Unit>
 
     fun isLocked(): SyncResult<Boolean>
 
     /**
      * Synchronize the logins storage layer with a remote layer.
      */
-    fun sync(): SyncResult<Unit>
+    fun sync(syncInfo: SyncUnlockInfo): SyncResult<Unit>
 
     /**
      * Delete all locally stored login sync metadata.
