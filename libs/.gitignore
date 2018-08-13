@@ -1,4 +1,13 @@
-openssl*
-*.tar.gz
-android-ndk-r*
 bin/patchelf
+
+# Downloaded sources tarballs.
+*.tar.gz
+
+# Intermediate folders leftover on build failures.
+openssl-*
+sqlcipher-*
+
+# Final artifacts
+/android
+/desktop
+/ios
