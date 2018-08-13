@@ -57,9 +57,16 @@ use sync15_passwords::{
     ServerPassword,
 };
 
+pub struct SyncInfo {
+    state: GlobalState,
+    client: Sync15StorageClient,
+    // Used so that we know whether or not we need to re-initialize `client`
+    last_client_init: Sync15StorageClientInit,
+}
+
 pub struct PasswordState {
     engine: PasswordEngine,
-    sync_state: Option<GlobalState>,
+    sync: Option<SyncInfo>,
 }
 
 #[cfg(target_os = "android")]
@@ -120,7 +127,7 @@ pub unsafe extern "C" fn sync15_passwords_state_new(
         let engine = PasswordEngine::new(store)?;
         Ok(PasswordState {
             engine,
-            sync_state: None,
+            sync: None,
         })
     })
 }
@@ -138,34 +145,53 @@ pub unsafe extern "C" fn sync15_passwords_sync(
         assert_pointer_not_null!(state);
         let state = &mut *state;
 
-        // TODO: Work out when this is ok to keep around rather than recreating.
-        let client = Sync15StorageClient::new(Sync15StorageClientInit {
-            key_id: c_char_to_string(key_id).into(),
-            access_token: c_char_to_string(access_token).into(),
-            tokenserver_base_url: c_char_to_string(tokenserver_base_url).into(),
-        })?;
-
         let root_sync_key = sync::KeyBundle::from_ksync_base64(
             c_char_to_string(sync_key).into())?;
 
-        // TODO: If `to_ready` fails below we end up with
-        // `state.sync_state.is_none()`, which means the next sync will
-        // redownload meta/global, crypto/keys, etc. without needing to. (AFAICT
-        // fixing this requires a change in sync15-adapter, since to_ready takes
-        // GlobalState as a move).
-        let mut sync_state = state.sync_state.take()
-            .unwrap_or_else(GlobalState::default);
+        let requested_init = Sync15StorageClientInit {
+            key_id: c_char_to_string(key_id).into(),
+            access_token: c_char_to_string(access_token).into(),
+            tokenserver_base_url: c_char_to_string(tokenserver_base_url).into(),
+        };
 
-        { // Scope borrow of `client`
-            let mut state_machine =
-                sync::SetupStateMachine::for_readonly_sync(&client, &root_sync_key);
+        // TODO: If `to_ready` (or anything else with a ?) fails below, this
+        // `take()` means we end up with `state.sync.is_none()`, which means the
+        // next sync will redownload meta/global, crypto/keys, etc. without
+        // needing to. (AFAICT fixing this requires a change in sync15-adapter,
+        // since to_ready takes GlobalState as a move, and it's not clear if
+        // that change even is a good idea).
+        let mut sync_info = state.sync.take().map(Ok)
+                .unwrap_or_else(|| -> sync::Result<SyncInfo> {
+            let state = GlobalState::default();
+            let client = Sync15StorageClient::new(requested_init.clone())?;
+            Ok(SyncInfo {
+                state,
+                client,
+                last_client_init: requested_init.clone(),
+            })
+        })?;
 
-            let next_sync_state = state_machine.to_ready(sync_state)?;
-            sync_state = next_sync_state;
+        // If the options passed for initialization of the storage client aren't
+        // the same as the ones we used last time, reinitialize it. (Note that
+        // we could avoid the comparison in the case where we had `None` in
+        // `state.sync` before, but this probably doesn't matter).
+        if requested_init != sync_info.last_client_init {
+            sync_info.client = Sync15StorageClient::new(requested_init.clone())?;
+            sync_info.last_client_init = requested_init;
         }
 
-        let result = state.engine.sync(&client, &sync_state);
-        state.sync_state = Some(sync_state);
+        { // Scope borrow of `sync_info.client`
+            let mut state_machine =
+                sync::SetupStateMachine::for_readonly_sync(&sync_info.client, &root_sync_key);
+
+            let next_sync_state = state_machine.to_ready(sync_info.state)?;
+            sync_info.state = next_sync_state;
+        }
+
+        // We don't use a ? on the next line so that even if `state.engine.sync`
+        // fails, we don't forget the sync_state.
+        let result = state.engine.sync(&sync_info.client, &sync_info.state);
+        state.sync = Some(sync_info);
         result
     });
 }
