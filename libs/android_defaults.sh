@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [ -z "${ANDROID_NDK_TOOLCHAIN_DIR:-}" ]; then
     export ANDROID_NDK_TOOLCHAIN_DIR="/tmp/android-ndk-toolchain"
