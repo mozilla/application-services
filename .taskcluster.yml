@@ -60,8 +60,8 @@ tasks:
         - /bin/bash
         - '-c'
         - >-
-          git clone '{{ event.head.repo.url }}' repo &&
-          cd repo &&
+          git clone '{{ event.head.repo.url }}' &&
+          cd application-services &&
           git config advice.detachedHead false &&
           git checkout '{{ event.version }}' &&
           ./scripts/taskcluster-android.sh
