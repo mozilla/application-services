@@ -163,7 +163,7 @@ class MentatLoginsStorage(private val dbPath: String) : Closeable, LoginsStorage
                         return@launch
                     }
                     if (e.isFailure()) {
-                        result.completeExceptionally(LoginsStorageException(e.consumeErrorMessage()))
+                        result.completeExceptionally(e.intoException())
                     } else {
                         result.complete(ret)
                     }

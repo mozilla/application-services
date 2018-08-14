@@ -16,6 +16,13 @@ use std::os::raw::c_char;
 
 use sync15_passwords::{
     Result,
+    Sync15PasswordsError,
+    Sync15PasswordsErrorKind,
+};
+
+use reqwest::StatusCode;
+use sync::{
+    ErrorKind as Sync15ErrorKind
 };
 
 pub unsafe fn with_translated_result<F, T>(error: *mut ExternError, callback: F) -> *mut T
@@ -52,6 +59,29 @@ where F: FnOnce() -> Result<Option<String>> {
     }
 }
 
+/// C-compatible Error code. Negative codes are not expected to be handled by
+/// the application, a code of zero indicates that no error occurred, and a
+/// positive error code indicates an error that will likely need to be handled
+/// by the application
+#[repr(i32)]
+#[derive(Clone, Copy, Debug)]
+pub enum ExternErrorCode {
+    // TODO: When/if we make this API panic-safe, add an `UnexpectedPanic = -2`
+
+    /// An unexpected error occurred which likely cannot be meaningfully handled
+    /// by the application.
+    OtherError = -1,
+
+    /// No error occcurred.
+    NoError = 0,
+
+    /// Indicates the FxA credentials are invalid, and should be refreshed.
+    AuthInvalidError = 1,
+
+    // TODO: lockbox indicated that they would want to know when we fail to open
+    // the DB due to invalid key.
+}
+
 // XXX rest of this is COPYPASTE from mentat/ffi/util.rs, this likely belongs in ffi-toolkit
 // (something similar is there, but it is more error prone and not usable in a general way)
 // XXX Actually, once errors are more stable we should do something more like fxa (and put that in
@@ -77,15 +107,42 @@ where F: FnOnce() -> Result<Option<String>> {
 #[repr(C)]
 #[derive(Debug)]
 pub struct ExternError {
+
+    /// A string message, primarially intended for debugging.
     pub message: *mut c_char,
-    // TODO: Include an error code here.
+
+    /// Error code.
+    /// - A code of 0 indicates no error
+    /// - A negative error code indicates an error which is not expected to be
+    ///   handled by the application.
+    pub code: ExternErrorCode,
+
+    // TODO: We probably want an extra (json?) property for misc. metadata.
 }
 
 impl Default for ExternError {
     fn default() -> ExternError {
-        ExternError { message: ptr::null_mut() }
+        ExternError {
+            message: ptr::null_mut(),
+            code: ExternErrorCode::NoError,
+        }
     }
 }
+
+fn get_code(err: &Sync15PasswordsError) -> ExternErrorCode {
+    match err.kind() {
+        Sync15PasswordsErrorKind::Sync15AdapterError(e) => {
+            match e.kind() {
+                Sync15ErrorKind::TokenserverHttpError(StatusCode::Unauthorized) => {
+                    ExternErrorCode::AuthInvalidError
+                }
+                _ => ExternErrorCode::OtherError,
+            }
+        }
+        _ => ExternErrorCode::OtherError,
+    }
+}
+
 /// Translate Result<T, E>, into something C can understand, when T is not `#[repr(C)]`
 ///
 /// - If `result` is `Ok(v)`, moves `v` to the heap and returns a pointer to it, and sets
@@ -103,6 +160,7 @@ pub unsafe fn translate_result<T>(result: Result<T>, error: *mut ExternError) ->
         Err(e) => {
             error!("Rust Error: {:?}", e);
             error.message = string_to_c_char(e.to_string());
+            error.code = get_code(&e);
             ptr::null_mut()
         }
     }
@@ -118,6 +176,7 @@ pub unsafe fn try_translate_result<T>(result: Result<T>, error: *mut ExternError
         Err(e) => {
             error!("Rust Error: {:?}", e);
             error.message = string_to_c_char(e.to_string());
+            error.code = get_code(&e);
             None
         }
     }

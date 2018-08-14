@@ -10,6 +10,8 @@ package org.mozilla.sync15.logins.rust
 
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
+import org.mozilla.sync15.logins.LoginsStorageException
+import org.mozilla.sync15.logins.SyncAuthInvalidException
 import java.util.Arrays
 
 /**
@@ -20,6 +22,7 @@ open class RustError : Structure() {
     class ByReference : RustError(), Structure.ByReference
 
     @JvmField var message: Pointer? = null
+    @JvmField var code: Int = 0
 
     init {
         read()
@@ -29,14 +32,26 @@ open class RustError : Structure() {
      * Does this represent success?
      */
     fun isSuccess(): Boolean {
-        return message == null;
+        return code == 0;
     }
 
     /**
      * Does this represent failure?
      */
     fun isFailure(): Boolean {
-        return message != null;
+        return code != 0;
+    }
+
+    fun intoException(): LoginsStorageException {
+        if (!isFailure()) {
+            // It's probably a bad idea to throw here! We're probably leaking something if this is
+            // ever hit! (But we shouldn't ever hit it?)
+            throw RuntimeException("[Bug] intoException called on non-failure!");
+        }
+        if (code == 1) {
+            return SyncAuthInvalidException(this.consumeErrorMessage());
+        }
+        return LoginsStorageException(this.consumeErrorMessage());
     }
 
     /**
@@ -62,6 +77,6 @@ open class RustError : Structure() {
     }
 
     override fun getFieldOrder(): List<String> {
-        return Arrays.asList("message")
+        return Arrays.asList("message", "code")
     }
 }

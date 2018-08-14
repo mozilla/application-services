@@ -16,6 +16,7 @@
 extern crate failure;
 extern crate serde_json;
 extern crate url;
+extern crate reqwest;
 
 #[macro_use] extern crate ffi_toolkit;
 extern crate mentat;
