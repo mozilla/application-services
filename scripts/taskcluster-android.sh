@@ -40,15 +40,15 @@ do
   echo "Building target $target. Signature: ${android_targets[$target]}"
   OPENSSL_STATIC=1 OPENSSL_DIR=/build/application-services/libs/android/$target/openssl \
     cargo +beta build -p fxa-client-ffi --target ${android_targets[$target]} --release
-  mkdir -p fxa-client/$target
-  cp target/${android_targets[$target]}/release/libfxa_client.so fxa-client/$target
+  mkdir -p dist/$target
+  cp target/${android_targets[$target]}/release/libfxa_client.so dist/$target
 
   # Patch the soname of this lib since rustc (currently) won't, but android's
   # linker needs it: https://github.com/mozilla/application-services/issues/174
-  ./libs/bin/patchelf --set-soname libfxa_client.so fxa-client/$target/libfxa_client.so
+  ./libs/bin/patchelf --set-soname libfxa_client.so dist/$target/libfxa_client.so
 done
 
 # Because Android needs the lib to be in a armeabi-v7a dir.
-mv fxa-client/arm fxa-client/armeabi-v7a
+mv dist/arm dist/armeabi-v7a
 
-cd fxa-client && zip -r fxa_client_android.zip * && cd ..
+cd dist && zip -r fxa_client_android.zip * && cd ..
