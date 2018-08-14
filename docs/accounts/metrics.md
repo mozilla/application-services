@@ -32,7 +32,7 @@ By following these instructions you provide both of our teams with data needed t
 |Name|Description|Example Values|Amplitude Chart Example|
 |----|-----------|-------------|-----------------|
 |`entrypoint`|The specific page or browser UI element containing the first step of the FxA sign-in/sign-up process (e.g., enter email form)|`firstrun`|[Firstrun form views](https://analytics.amplitude.com/mozilla-corp/chart/n8cd9no)|
-|`service`|The name of the FxA relier/service that the user is signing into|`sync`|[Completed Registrations by Service](https://analytics.amplitude.com/mozilla-corp/chart/85v4c88)|
+|`service`|The name of the FxA relier/service that the user is signing into. **Note that in some cases this parameter does more than just metrics**. For example, `sync` will ensure that the browser starts to sync and will also ask users to choose what to sync at registration.|`sync`|[Completed Registrations by Service](https://analytics.amplitude.com/mozilla-corp/chart/85v4c88)|
 |`form_type`|For self-hosted forms only (see above) the type of form that the user submits to begin the FxA flow|either: `email` if the form captures the user's email, otherwise `other`|NA|
 |`utm_source`|Unambiguous identifier of site or browser UI element that linked to the page containing the beginning of the FxA sign-in/sign-up process |`blog.mozilla.org`|[Registration form views segmented by utm_source](https://analytics.amplitude.com/mozilla-corp/chart/f5sz7kt)|
 |`utm_campaign`|More general label for the campaign that the site is part of|`firstrun`|TBD|
