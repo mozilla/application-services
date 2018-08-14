@@ -14,7 +14,6 @@ matrix:
     - rust: nightly
   fast_finish: true
 script: cargo test --all-features --verbose
-cache: cargo
 
 jobs:
   include:
