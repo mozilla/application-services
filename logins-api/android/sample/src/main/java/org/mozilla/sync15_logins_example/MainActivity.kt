@@ -156,13 +156,13 @@ class MainActivity : AppCompatActivity() {
                 kid = info.string("kid")!!,
                 fxaAccessToken = creds.accessToken,
                 syncKey = info.string("k")!!,
-                tokenserverBaseURL = "https://token.services.mozilla.com"
+                tokenserverURL = creds.tokenServer
         )
     }
 
     fun initMentatStore(): SyncResult<MentatLoginsStorage> {
         val appFiles = this.applicationContext.getExternalFilesDir(null)
-        val storage = MentatLoginsStorage(appFiles.absolutePath + "/logins.mentatdb");
+        val storage = MentatLoginsStorage(appFiles.absolutePath + "/logins3.mentatdb");
         return storage.unlock("my_secret_key").then {
             SyncResult.fromValue(storage)
         }

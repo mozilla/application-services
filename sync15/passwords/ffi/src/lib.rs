@@ -15,6 +15,7 @@
 
 extern crate failure;
 extern crate serde_json;
+extern crate url;
 
 #[macro_use] extern crate ffi_toolkit;
 extern crate mentat;
@@ -132,13 +133,18 @@ pub unsafe extern "C" fn sync15_passwords_state_new(
     })
 }
 
+// indirection to help `?` figure out the target error type
+fn parse_url(url: &str) -> sync::Result<url::Url> {
+    Ok(url::Url::parse(url)?)
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn sync15_passwords_sync(
     state: *mut PasswordState,
     key_id: *const c_char,
     access_token: *const c_char,
     sync_key: *const c_char,
-    tokenserver_base_url: *const c_char,
+    tokenserver_url: *const c_char,
     error: *mut ExternError
 ) {
     with_translated_void_result(error, || {
@@ -151,7 +157,7 @@ pub unsafe extern "C" fn sync15_passwords_sync(
         let requested_init = Sync15StorageClientInit {
             key_id: c_char_to_string(key_id).into(),
             access_token: c_char_to_string(access_token).into(),
-            tokenserver_base_url: c_char_to_string(tokenserver_base_url).into(),
+            tokenserver_url: parse_url(c_char_to_string(tokenserver_url))?,
         };
 
         // TODO: If `to_ready` (or anything else with a ?) fails below, this

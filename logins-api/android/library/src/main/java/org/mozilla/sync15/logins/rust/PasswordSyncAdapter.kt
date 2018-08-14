@@ -49,7 +49,7 @@ internal interface PasswordSyncAdapter : Library {
                               key_id: String,
                               access_token: String,
                               sync_key: String,
-                              token_server_base_url: String,
+                              token_server_url: String,
                               error: RustError.ByReference)
 
     fun sync15_passwords_wipe(state: RawLoginSyncState, error: RustError.ByReference)

@@ -532,18 +532,18 @@ fn main() -> Result<(), failure::Error> {
     env_logger::init();
 
     let cfg = Config::import_from("https://oauth-sync.dev.lcip.org")?;
-    let tokenserver_base_url = cfg.token_server_endpoint_url()?.join("../../")?.as_str().to_string();
+    let tokenserver_url = cfg.token_server_endpoint_url()?;
 
     let mut acct = load_or_create_fxa_creds(cfg.clone())?;
     let token: OAuthInfo;
     match acct.get_oauth_token(&[SYNC_SCOPE])? {
-      Some(t) => token = t,
-      None => {
-        // The cached credentials did not have appropriate scope, sign in again.
-        println!("Credentials do not have appropriate scope, launching OAuth flow.");
-        acct = create_fxa_creds(cfg.clone())?;
-        token = acct.get_oauth_token(&[SYNC_SCOPE])?.unwrap();
-      }
+        Some(t) => token = t,
+        None => {
+            // The cached credentials did not have appropriate scope, sign in again.
+            println!("Credentials do not have appropriate scope, launching OAuth flow.");
+            acct = create_fxa_creds(cfg.clone())?;
+            token = acct.get_oauth_token(&[SYNC_SCOPE])?.unwrap();
+        }
     }
     let keys: HashMap<String, ScopedKeyData> = serde_json::from_str(&token.keys.unwrap())?;
     let key = keys.get(SYNC_SCOPE).unwrap();
@@ -551,7 +551,7 @@ fn main() -> Result<(), failure::Error> {
     let client = sync::Sync15StorageClient::new(sync::Sync15StorageClientInit {
         key_id: key.kid.clone(),
         access_token: token.access_token.clone(),
-        tokenserver_base_url,
+        tokenserver_url,
     })?;
     let mut state = sync::GlobalState::default();
 

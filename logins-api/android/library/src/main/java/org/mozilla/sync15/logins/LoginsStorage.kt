@@ -14,7 +14,7 @@ class SyncUnlockInfo (
         val kid: String,
         val fxaAccessToken: String,
         val syncKey: String,
-        val tokenserverBaseURL: String
+        val tokenserverURL: String
 )
 
 interface LoginsStorage : Closeable {

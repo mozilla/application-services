@@ -64,7 +64,7 @@ class MentatLoginsStorage(private val dbPath: String) : Closeable, LoginsStorage
                     syncInfo.kid,
                     syncInfo.fxaAccessToken,
                     syncInfo.syncKey,
-                    syncInfo.tokenserverBaseURL,
+                    syncInfo.tokenserverURL,
                     error)
         }
     }

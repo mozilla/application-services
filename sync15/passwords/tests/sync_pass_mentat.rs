@@ -14,6 +14,7 @@ extern crate failure;
 extern crate serde;
 #[macro_use] extern crate serde_derive;
 extern crate serde_json;
+extern crate url;
 
 extern crate logins;
 extern crate mentat;
@@ -287,7 +288,7 @@ fn main() -> Result<(), Error> {
     let client = sync::Sync15StorageClient::new(sync::Sync15StorageClientInit {
         key_id: scope.kid.clone(),
         access_token: oauth_data.access_token.clone(),
-        tokenserver_base_url: "https://oauth-sync.dev.lcip.org/syncserver/token".into(),
+        tokenserver_url: url::Url::parse("https://oauth-sync.dev.lcip.org/syncserver/token/1.0/sync/1.5")?,
     })?;
     let mut sync_state = sync::GlobalState::default();
 
