@@ -22,6 +22,7 @@ tasks:
     scopes:
       - "queue:create-task:aws-provisioner-v1/github-worker"
       - "queue:scheduler-id:taskcluster-github"
+      - "secrets:get:garbage/tcsc/bintray-test"
     payload:
       maxRunTime: 3600
       deadline: "{{ '2 hours' | $fromNow }}"

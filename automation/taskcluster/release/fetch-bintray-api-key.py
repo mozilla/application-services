@@ -5,7 +5,7 @@
 import os
 import taskcluster
 
-SECRET_NAME = 'project/mentat/publish'
+SECRET_NAME = 'garbage/tcsc/bintray-test'
 TASKCLUSTER_BASE_URL = 'http://taskcluster/secrets/v1'
 
 
@@ -20,6 +20,8 @@ def main():
     and save it to local.properties in the project root directory.
     """
     data = fetch_publish_secrets(SECRET_NAME)
+    print("Printing secrets: ")
+    print(data)
 
     properties_file_path = os.path.join(os.path.dirname(__file__), '../../../logins-api/android/local.properties')
     with open(properties_file_path, 'w') as properties_file:
