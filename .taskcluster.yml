@@ -68,7 +68,7 @@ tasks:
       artifacts:
         'public/bin/mozilla/fxa_client_android_{{ event.version }}.zip':
           type: 'file'
-          path: '/build/application-services/fxa-client/fxa_client_android.zip'
+          path: '/build/application-services/dist/fxa_client_android.zip'
     routes:
       - index.project.fxaclient.builds.{{ event.version }}
     metadata:
