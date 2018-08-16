@@ -32,7 +32,6 @@ By following these instructions you provide both of our teams with data needed t
 |Name|Description|Example Values|Validation regex|Amplitude Chart Example|
 |----|-----------|--------------|----------------|-----------------------|
 |`entrypoint`|The specific page or browser UI element containing the first step of the FxA sign-in/sign-up process (e.g., enter email form)|`firstrun`|<!--begin-validation-entrypoint-->^[\w.:-]+$<!--end-validation-entrypoint-->|[Firstrun form views](https://analytics.amplitude.com/mozilla-corp/chart/n8cd9no)|
-|`service`|The name of the FxA relier/service that the user is signing into|`sync`|<!--begin-validation-service-->^(sync&#124;content-server&#124;none&#124;[0-9a-f]{16})$<!--end-validation-service-->|[Completed Registrations by Service](https://analytics.amplitude.com/mozilla-corp/chart/85v4c88)|
 |`form_type`|For self-hosted forms only (see above) the type of form that the user submits to begin the FxA flow|either: `email` if the form captures the user's email, otherwise `other`||NA|
 |`utm_source`|Unambiguous identifier of site or browser UI element that linked to the page containing the beginning of the FxA sign-in/sign-up process |`blog.mozilla.org`|<!--begin-validation-utm_source-->^[\w\/.%-]+$<!--end-validation-utm_source-->|[Registration form views segmented by utm_source](https://analytics.amplitude.com/mozilla-corp/chart/f5sz7kt)|
 |`utm_campaign`|More general label for the campaign that the site is part of|`firstrun`|<!--begin-validation-utm_campaign-->^[\w\/.%-]+$<!--end-validation-utm_campaign-->|TBD|
