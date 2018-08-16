@@ -29,16 +29,16 @@ By following these instructions you provide both of our teams with data needed t
 
 **If you are a developer, please read the following before checking the chart below.** The values that are passed in the parameters below are subject to validation via regular expressions. **If the parameter values do not conform to their associated regexes in [this file](https://github.com/mozilla/fxa-content-server/blob/0921bc53e92f3b8e4e796f51cc46202d1cfae25e/server/lib/flow-event.js) then all metrics events associated with the nonconforming parameters will fail to be logged!**
 
-|Name|Description|Example Values|Amplitude Chart Example|
-|----|-----------|-------------|-----------------|
-|`entrypoint`|The specific page or browser UI element containing the first step of the FxA sign-in/sign-up process (e.g., enter email form)|`firstrun`|[Firstrun form views](https://analytics.amplitude.com/mozilla-corp/chart/n8cd9no)|
-|`service`|The name of the FxA relier/service that the user is signing into|`sync`|[Completed Registrations by Service](https://analytics.amplitude.com/mozilla-corp/chart/85v4c88)|
-|`form_type`|For self-hosted forms only (see above) the type of form that the user submits to begin the FxA flow|either: `email` if the form captures the user's email, otherwise `other`|NA|
-|`utm_source`|Unambiguous identifier of site or browser UI element that linked to the page containing the beginning of the FxA sign-in/sign-up process |`blog.mozilla.org`|[Registration form views segmented by utm_source](https://analytics.amplitude.com/mozilla-corp/chart/f5sz7kt)|
-|`utm_campaign`|More general label for the campaign that the site is part of|`firstrun`|TBD|
-|`utm_content`|Used to track the name of an A-B test|`my-experiment`|TBD|
-|`utm_term`|Used to track the cohort or variation in an A-B test|`my-experiment-var-a`|TBD|
-|`utm_medium`|What type of link was used to direct to the page, if it came through a marketing campaign|`email`, `cpc`|TBD|
+|Name|Description|Example Values|Validation regex|Amplitude Chart Example|
+|----|-----------|--------------|----------------|-----------------------|
+|`entrypoint`|The specific page or browser UI element containing the first step of the FxA sign-in/sign-up process (e.g., enter email form)|`firstrun`|<!--begin-validation-entrypoint-->^[\w.:-]+$<!--end-validation-entrypoint-->|[Firstrun form views](https://analytics.amplitude.com/mozilla-corp/chart/n8cd9no)|
+|`service`|The name of the FxA relier/service that the user is signing into|`sync`|<!--begin-validation-service-->^(sync&#124;content-server&#124;none&#124;[0-9a-f]{16})$<!--end-validation-service-->|[Completed Registrations by Service](https://analytics.amplitude.com/mozilla-corp/chart/85v4c88)|
+|`form_type`|For self-hosted forms only (see above) the type of form that the user submits to begin the FxA flow|either: `email` if the form captures the user's email, otherwise `other`||NA|
+|`utm_source`|Unambiguous identifier of site or browser UI element that linked to the page containing the beginning of the FxA sign-in/sign-up process |`blog.mozilla.org`|<!--begin-validation-utm_source-->^[\w\/.%-]+$<!--end-validation-utm_source-->|[Registration form views segmented by utm_source](https://analytics.amplitude.com/mozilla-corp/chart/f5sz7kt)|
+|`utm_campaign`|More general label for the campaign that the site is part of|`firstrun`|<!--begin-validation-utm_campaign-->^[\w\/.%-]+$<!--end-validation-utm_campaign-->|TBD|
+|`utm_content`|Used to track the name of an A-B test|`my-experiment`|<!--begin-validation-utm_content-->^[\w\/.%-]+$<!--end-validation-utm_content-->|TBD|
+|`utm_term`|Used to track the cohort or variation in an A-B test|`my-experiment-var-a`|<!--begin-validation-utm_term-->^[\w\/.%-]+$<!--end-validation-utm_term-->|TBD|
+|`utm_medium`|What type of link was used to direct to the page, if it came through a marketing campaign|`email`, `cpc`|<!--begin-validation-utm_medium-->^[\w\/.%-]+$<!--end-validation-utm_medium-->|TBD|
 
 **Note these may not be all the parameters you need to pass for your integration to work!** A more exhaustive but [less detailed list can be found here.](https://github.com/mozilla/fxa-content-server/blob/549fc459b851088ea910da182e17e748fa157f26/docs/query-params.md#context) What is documented above are only the parameters that are relevant for metrics analysis in (e.g.) amplitude.
 
