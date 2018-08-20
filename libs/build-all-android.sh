@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euvx
 
@@ -17,6 +17,7 @@ then
     exit 1
 fi
 
+source "$(dirname "$0")/android_defaults.sh"
 OPENSSL_SRC_PATH=$1
 SQLCIPHER_SRC_PATH=$2
 
