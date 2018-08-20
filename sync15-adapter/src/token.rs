@@ -22,17 +22,6 @@ header! { (XTimestamp, "X-Timestamp") => [ServerTimestamp] }
 /// OAuth tokenserver api uses this instead of X-Client-State.
 header! { (XKeyID, "X-KeyID") => [String] }
 
-fn token_url(base_url: &str) -> Result<Url> {
-    let mut url = Url::parse(base_url)?;
-    // kind of gross but avoids problems if base_url has a trailing slash.
-    url.path_segments_mut()
-        // We were given a data url or similar.
-       .map_err(|_| ErrorKind::UnacceptableUrl(
-            "Url provided for tokenserver must be allowed to have a path".into()))?
-       .extend(&["1.0", "sync", "1.5"]);
-    Ok(url)
-}
-
 // The TokenserverToken is the token as received directly from the token server
 // and deserialized from JSON.
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -65,20 +54,20 @@ trait TokenFetcher {
 #[derive(Debug)]
 struct TokenServerFetcher {
     // The stuff needed to fetch a token.
-    base_url: String,
+    server_url: Url,
     access_token: String,
     key_id: String,
 }
 
 impl TokenServerFetcher {
-    fn new(base_url: String, access_token: String, key_id: String) -> TokenServerFetcher{
-        TokenServerFetcher {base_url, access_token, key_id}
+    fn new(server_url: Url, access_token: String, key_id: String) -> TokenServerFetcher {
+        TokenServerFetcher { server_url, access_token, key_id }
     }
 }
 
 impl TokenFetcher for TokenServerFetcher {
     fn fetch_token(&self, request_client: &Client) -> Result<TokenFetchResult> {
-        let mut resp = request_client.get(token_url(&self.base_url)?)
+        let mut resp = request_client.get(self.server_url.clone())
                                      .header(Authorization(Bearer { token: self.access_token.clone() }))
                                      .header(XKeyID(self.key_id.clone()))
                                      .send()?;
@@ -348,10 +337,8 @@ pub struct TokenProvider {
 }
 
 impl TokenProvider {
-    pub fn new(base_url: String, access_token: String, key_id: String) -> Self {
-        let fetcher = TokenServerFetcher::new(base_url.clone(),
-                                              access_token.clone(),
-                                              key_id.clone());
+    pub fn new(url: Url, access_token: String, key_id: String) -> Self {
+        let fetcher = TokenServerFetcher::new(url, access_token, key_id);
         Self {
             imp: TokenProviderImpl::new(fetcher),
         }
@@ -374,21 +361,6 @@ mod tests {
 
     fn make_client() -> Client {
         Client::builder().timeout(Duration::from_secs(30)).build().expect("can't build client")
-    }
-
-    #[test]
-    fn test_bad_url() {
-        let tsc = TokenProvider::new(String::from("base_url"),
-                                     String::from("access_token"),
-                                     String::from("key_id"));
-
-        // TODO: make this actually useful!
-        let e = tsc.api_endpoint(&make_client()).expect_err("should fail");
-        let ok = match e.kind() {
-            ErrorKind::MalformedUrl(_) => true,
-            _ => false,
-        };
-        assert!(ok);
     }
 
     struct TestFetcher<FF, FN>

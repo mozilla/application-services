@@ -45,7 +45,7 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : Closeable, L
         }
     }
 
-    override fun unlock(encryptionKey: String, syncInfo: SyncUnlockInfo): SyncResult<Unit> {
+    override fun unlock(encryptionKey: String): SyncResult<Unit> {
         return asyncResult {
             checkNotClosed()
             if (state == LoginsStorageState.Unlocked) {
@@ -61,7 +61,7 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : Closeable, L
         }
     }
 
-    override fun sync(): SyncResult<Unit> {
+    override fun sync(syncInfo: SyncUnlockInfo): SyncResult<Unit> {
         return asyncResult {
             checkUnlocked()
             Log.w("MemoryLoginsStorage", "Not syncing because this implementation can not sync")

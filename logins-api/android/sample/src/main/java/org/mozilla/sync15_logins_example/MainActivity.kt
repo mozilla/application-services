@@ -57,7 +57,7 @@ class MainActivity : AppCompatActivity() {
         return if (this.store != null) {
             SyncResult.fromValue(this.store as LoginsStorage)
         } else {
-            initFromCredentials(ExampleApp.instance.account?.creds!!).then({ store ->
+            initMentatStore().then({ store ->
                 this.store = store;
                 SyncResult.fromValue(store as LoginsStorage)
             }, { error ->
@@ -67,15 +67,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun refresh(sync: Boolean) {
+    fun refresh(sync: Boolean): SyncResult<Unit> {
         Log.d("TEST", "Refreshing logins...")
 
-        Snackbar.make(recyclerView!!, "Loading logins...", Snackbar.LENGTH_LONG)
-                .setAction("Action", null).show()
+        if (sync) {
+            Snackbar.make(recyclerView!!, "Loading logins...", Snackbar.LENGTH_LONG)
+                    .setAction("Action", null).show()
+        }
 
-        whenStoreReady().then { store ->
+        return whenStoreReady().then { store ->
             if (sync) {
-                store.sync().then { SyncResult.fromValue(store) }
+                store.sync(getUnlockInfo()).then { SyncResult.fromValue(store) }
             } else {
                 SyncResult.fromValue(store)
             }
@@ -84,10 +86,11 @@ class MainActivity : AppCompatActivity() {
         }.then({ SyncResult.fromValue(it) }) { err ->
             dumpError("LoginsMainActivity", err)
             SyncResult.fromException(err)
-        } .whenComplete { logins ->
+        }.then { logins ->
             runOnUiThread {
                 (this.recyclerView!!.adapter as LoginViewAdapter).setLogins(logins)
             }
+            SyncResult.fromValue(Unit)
         }
     }
 
@@ -116,7 +119,11 @@ class MainActivity : AppCompatActivity() {
         fab.setOnClickListener { _ ->
             refresh(true)
         }
-        refresh(true)
+        // Initially refresh without syncing to display the currently
+        // downloaded data, but start a sync as soon as that finishes.
+        refresh(false).whenComplete {
+            refresh(true)
+        }
     }
     fun refreshOnUiThread(sync: Boolean) {
         runOnUiThread {
@@ -134,23 +141,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun initFromCredentials(creds: Credentials): SyncResult<MentatLoginsStorage> {
+    private fun getUnlockInfo(): SyncUnlockInfo {
+        return credentialsToUnlockInfo(ExampleApp.instance.account?.creds!!)
+    }
+
+    private fun credentialsToUnlockInfo(creds: Credentials): SyncUnlockInfo {
         // The format is a bit weird so I'm not sure if I can map this make klaxon do the
         // deserializing for us...
         val stringBuilder: StringBuilder = StringBuilder(creds.keys)
         val o = Parser().parse(stringBuilder) as JsonObject
         val info = o.obj("https://identity.mozilla.com/apps/oldsync")!!
-        val appFiles = this.applicationContext.getExternalFilesDir(null)
 
-        val storage = MentatLoginsStorage(appFiles.absolutePath + "/logins.mentatdb");
-        val unlockInfo = SyncUnlockInfo(
+        return SyncUnlockInfo(
                 kid = info.string("kid")!!,
                 fxaAccessToken = creds.accessToken,
                 syncKey = info.string("k")!!,
-                tokenserverBaseURL = "https://token.services.mozilla.com"
+                tokenserverURL = creds.tokenServer
         )
+    }
 
-        return storage.unlock("my_secret_key", unlockInfo).then {
+    fun initMentatStore(): SyncResult<MentatLoginsStorage> {
+        val appFiles = this.applicationContext.getExternalFilesDir(null)
+        val storage = MentatLoginsStorage(appFiles.absolutePath + "/logins3.mentatdb");
+        return storage.unlock("my_secret_key").then {
             SyncResult.fromValue(storage)
         }
     }
