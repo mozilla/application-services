@@ -20,9 +20,6 @@ internal interface PasswordSyncAdapter : Library {
         internal var INSTANCE: PasswordSyncAdapter
 
         init {
-            System.loadLibrary("crypto")
-            System.loadLibrary("ssl")
-            System.loadLibrary("sqlcipher")
             INSTANCE = Native.loadLibrary(JNA_LIBRARY_NAME, PasswordSyncAdapter::class.java) as PasswordSyncAdapter
         }
     }
