@@ -22,7 +22,7 @@ use util::ServerTimestamp;
 pub struct Sync15StorageClientInit {
     pub key_id: String,
     pub access_token: String,
-    pub tokenserver_base_url: String,
+    pub tokenserver_url: Url,
 }
 
 /// A trait containing the methods required to run through the setup state
@@ -100,9 +100,9 @@ impl Sync15StorageClient {
     pub fn new(init_params: Sync15StorageClientInit) -> error::Result<Sync15StorageClient> {
         let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
         let tsc = token::TokenProvider::new(
-            init_params.tokenserver_base_url.clone(),
-            init_params.access_token.clone(),
-            init_params.key_id.clone(),
+            init_params.tokenserver_url,
+            init_params.access_token,
+            init_params.key_id,
         );
         let timestamp = ServerTimestamp(0f64);
         Ok(Sync15StorageClient {

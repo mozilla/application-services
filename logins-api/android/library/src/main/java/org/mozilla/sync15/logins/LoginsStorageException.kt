@@ -11,5 +11,10 @@ package org.mozilla.sync15.logins
 // TODO: Get more descriptive errors here.
 open class LoginsStorageException(msg: String): Exception(msg)
 
+/** Indicates that the sync authentication is invalid, likely due to having
+ * expired.
+ */
+class SyncAuthInvalidException(msg: String): LoginsStorageException(msg)
+
 // This doesn't really belong in this file...
 class MismatchedLockException(msg: String): LoginsStorageException(msg)
