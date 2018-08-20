@@ -1,5 +1,5 @@
 # Firefox Accounts Metrics
-*Last updated 2018-08-03*<br />
+*Last updated 2018-08-20*<br />
 *Compiled by Leif Oines loines at mozilla dot com*
 
 **This file is WIP**. In the future it will be a combined resource detailing data collection, metrics definitions, pipeline information, etc. For now it mainly documents metrics parameters (e.g. utm_*) that reliers pass to Firefox Accounts servers.
