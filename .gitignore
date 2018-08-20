@@ -4,3 +4,7 @@ Cargo.lock
 credentials.json
 *-engine.json
 .cargo
+# Mentat database and journal files
+*.db*
+# Sqlite database and journal files
+*.sqlite*

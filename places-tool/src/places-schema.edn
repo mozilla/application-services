@@ -1,0 +1,51 @@
+[
+  { :db/ident :place/url
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    }
+
+  { :db/ident :place/url_hash
+    :db/valueType :db.type/long
+    :db/cardinality :db.cardinality/one
+    }
+
+  { :db/ident :place/title
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    }
+
+  { :db/ident :place/description
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    }
+
+  { :db/ident :place/frecency
+    :db/valueType :db.type/long
+    :db/cardinality :db.cardinality/one
+    }
+
+  { :db/ident :visit/place
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    }
+
+  { :db/ident :visit/type
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    }
+
+  { :db/ident :visit/date
+    :db/valueType :db.type/instant
+    :db/cardinality :db.cardinality/one
+    }
+
+  { :db/ident :visit.type/link }
+  { :db/ident :visit.type/typed }
+  { :db/ident :visit.type/bookmark }
+  { :db/ident :visit.type/embed }
+  { :db/ident :visit.type/redirect_permanent }
+  { :db/ident :visit.type/redirect_temporary }
+  { :db/ident :visit.type/download }
+  { :db/ident :visit.type/framed_link }
+  { :db/ident :visit.type/reload }
+]
