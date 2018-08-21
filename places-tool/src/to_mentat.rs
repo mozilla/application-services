@@ -4,6 +4,7 @@ use std::fs;
 use std::io::{Write, self};
 use std::fmt::{Write as FmtWrite};
 use std::path::PathBuf;
+use std::collections::HashMap;
 use tempfile;
 use rand::prelude::*;
 
@@ -17,6 +18,7 @@ use mentat::{
     self,
     Store,
     Keyword,
+    Queryable,
     errors::Result as MentatResult,
 };
 
@@ -44,16 +46,6 @@ impl TransactBuilder {
     #[inline]
     pub fn add_ref_to_tmpid(&mut self, tmpid: &str, attr: &Keyword, ref_tmpid: &str) {
         write!(self.data, " [:db/add {:?} {} {:?}]\n", tmpid, attr, ref_tmpid).unwrap();
-        self.terms += 1;
-        self.total_terms += 1;
-    }
-
-    #[inline]
-    pub fn add_ref_to_lookup_ref_long(&mut self,
-                                      tmpid: &str, attr: &Keyword,
-                                      lookup_ref_attr: &Keyword, lookup_ref_val: i64) {
-        write!(self.data, " [:db/add {:?} {} (lookup-ref {} {})]\n",
-            tmpid, attr, lookup_ref_attr, lookup_ref_val).unwrap();
         self.terms += 1;
         self.total_terms += 1;
     }
@@ -138,10 +130,6 @@ lazy_static! {
     static ref PAGE_META_DESCRIPTION: Keyword = kw!(:page_meta/description);
     static ref PAGE_META_PREVIEW_IMAGE_URL: Keyword = kw!(:page_meta/preview_image_url);
 
-    // static ref CONTEXT_DEVICE: Keyword = kw!(:context/device);
-    // static ref CONTEXT_CONTAINER: Keyword = kw!(:context/container);
-    static ref CONTEXT_ID: Keyword = kw!(:context/id);
-
     static ref VISIT_PAGE_META: Keyword = kw!(:visit/page_meta);
     static ref VISIT_CONTEXT: Keyword = kw!(:visit/context);
     static ref VISIT_PAGE: Keyword = kw!(:visit/page);
@@ -160,10 +148,11 @@ lazy_static! {
     // static ref DEVICE_TYPE_MOBILE: Keyword = kw!(:device.type/mobile)
     // static ref CONTAINER_NAME: Keyword = kw!(:container/name)
 
+    // static ref CONTEXT_DEVICE: Keyword = kw!(:context/device);
+    // static ref CONTEXT_CONTAINER: Keyword = kw!(:context/container);
+    // static ref CONTEXT_ID: Keyword = kw!(:context/id);
+
 }
-
-const MAX_CONTEXT_ID: i64 = 4;
-
 
 #[derive(Debug, Clone, Default)]
 struct VisitInfo {
@@ -183,10 +172,20 @@ struct PlaceEntry {
 }
 
 impl PlaceEntry {
-    pub fn add(&self, builder: &mut TransactBuilder, store: &mut Store) -> Result<(), failure::Error> {
+    pub fn add(
+        &self,
+        builder: &mut TransactBuilder,
+        store: &mut Store,
+        context_ids: &[i64],
+        origin_ids: &HashMap<i64, i64>
+    ) -> Result<(), failure::Error> {
         let page_id = builder.next_tempid();
         builder.add_str(&page_id, &*PAGE_URL, &self.url);
-        builder.add_ref_to_lookup_ref_long(&page_id, &*PAGE_ORIGIN, &*ORIGIN_PLACES_ID, self.origin_id);
+        if let Some(origin_entid) = origin_ids.get(&self.origin_id) {
+            builder.add_long(&page_id, &*PAGE_ORIGIN, *origin_entid);
+        } else {
+            warn!("Unknown entid? {}", self.origin_id);
+        }
 
         let page_meta_id = builder.next_tempid();
 
@@ -204,9 +203,7 @@ impl PlaceEntry {
             builder.add_ref_to_tmpid(&visit_id, &*VISIT_PAGE, &page_id);
             builder.add_ref_to_tmpid(&visit_id, &*VISIT_PAGE_META, &page_meta_id);
             // unwrap is safe, only None for an empty slice.
-            builder.add_ref_to_lookup_ref_long(&visit_id, &*VISIT_CONTEXT,
-                                               &*CONTEXT_ID,
-                                               rng.gen_range(0, MAX_CONTEXT_ID));
+            builder.add_long(&visit_id, &*VISIT_CONTEXT,  *rng.choose(context_ids).unwrap());
             builder.add_inst(&visit_id, &*VISIT_DATE, visit.date);
             // Point the visit at itself. This doesn't really matter, but
             // pointing at another visit would require us keep a huge hashmap in
@@ -264,7 +261,7 @@ impl PlacesToMentat {
         let max_buffer_size = if self.realistic { 0 } else { 1024 * 1024 * 1024 * 1024 };
         let mut builder = TransactBuilder::new_with_size(max_buffer_size);
 
-        {
+        let origin_ids = {
             let mut origins_stmt = places.prepare("SELECT id, prefix, host FROM moz_origins")?;
             let origins = origins_stmt.query_map(&[], |row| {
                 (row.get::<_, i64>("id"),
@@ -273,16 +270,30 @@ impl PlacesToMentat {
             })?.collect::<Result<Vec<_>, _>>()?;
 
             println!("Adding {} origins...", origins.len());
-            for (id, prefix, host) in origins {
+            let temp_ids = origins.into_iter().map(|(id, prefix, host)| {
                 let tmpid = builder.next_tempid();
-                builder.add_long(&tmpid, &*ORIGIN_PLACES_ID, id);
                 builder.add_str(&tmpid, &*ORIGIN_PREFIX, &host);
                 builder.add_str(&tmpid, &*ORIGIN_HOST, &prefix);
-                builder.maybe_transact(&mut store)?;
+                (id, tmpid)
+            }).collect::<Vec<(i64, String)>>();
+            if let Some(tx_report) = builder.transact(&mut store)? {
+                let mut table: HashMap<i64, i64> = HashMap::with_capacity(temp_ids.len());
+                for (origin_id, tmpid) in temp_ids {
+                    let entid = tx_report.tempids.get(&tmpid).unwrap();
+                    table.insert(origin_id, *entid);
+                }
+                table
+            } else {
+                HashMap::default()
             }
-            // Force a transaction so that lookup refs work.
-            builder.transact(&mut store)?;
-        }
+        };
+
+        let context_ids = store.q_once("[:find [?e ...] :where [?e :context/device _]]", None)?
+            .results
+            .into_coll()?
+            .into_iter()
+            .map(|binding| binding.into_entid().unwrap())
+            .collect::<Vec<_>>();
 
         let (place_count, visit_count) = {
             let mut stmt = places.prepare("SELECT count(*) FROM moz_places").unwrap();
@@ -326,8 +337,7 @@ impl PlacesToMentat {
             }
 
             if current_place.id >= 0 {
-                current_place.add(&mut builder, &mut store)?;
-                // builder.maybe_transact(&mut store)?;
+                current_place.add(&mut builder, &mut store, &context_ids, &origin_ids)?;
                 print!("\rProcessing {} / {} places (approx.)", so_far, place_count);
                 io::stdout().flush()?;
                 so_far += 1;
@@ -336,8 +346,7 @@ impl PlacesToMentat {
         }
 
         if current_place.id >= 0 {
-            current_place.add(&mut builder, &mut store)?;
-            // builder.maybe_transact(&mut store)?;
+            current_place.add(&mut builder, &mut store, &context_ids, &origin_ids)?;
             println!("\rProcessing {} / {} places (approx.)", so_far + 1, place_count);
         }
         builder.transact(&mut store)?;

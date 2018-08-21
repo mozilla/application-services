@@ -13,12 +13,12 @@
   ; used for lookup refs so that we aren't force to insert everything in
   ; one enormous transaction (making --realistic impossible)
 
-  { :db/ident :origin/places_id
-    :db/valueType :db.type/long
-    :db/cardinality :db.cardinality/one
-    :db/unique :db.unique/identity
-    :db/index true
-    }
+  ; { :db/ident :origin/places_id
+  ;   :db/valueType :db.type/long
+  ;   :db/cardinality :db.cardinality/one
+  ;   :db/unique :db.unique/identity
+  ;   :db/index true
+  ;   }
 
   ; Pages
 
