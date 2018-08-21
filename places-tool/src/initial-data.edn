@@ -1,0 +1,14 @@
+
+[
+    {:db/id "container0" :container/name "Default"}
+    {:db/id "container1" :container/name "Personal"}
+    
+    {:db/id "device0" :device/name "My very cool computer" :device/type :device.type/desktop}
+    {:db/id "device1" :device/name "My cool phone"         :device/type :device.type/mobile}
+    
+    ; We randomly assign one of these to each visit.
+    {:context/id 0 :context/device "device0" :context/container "container0"}
+    {:context/id 1 :context/device "device1" :context/container "container0"}
+    {:context/id 2 :context/device "device0" :context/container "container1"}
+    {:context/id 3 :context/device "device1" :context/container "container1"}
+]

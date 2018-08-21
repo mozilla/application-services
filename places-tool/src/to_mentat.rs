@@ -5,6 +5,7 @@ use std::io::{Write, self};
 use std::fmt::{Write as FmtWrite};
 use std::path::PathBuf;
 use tempfile;
+use rand::prelude::*;
 
 use rusqlite::{
     Connection,
@@ -35,44 +36,47 @@ impl TransactBuilder {
     }
 
     #[inline]
-    pub fn next_tempid(&mut self) -> u64 {
+    pub fn next_tempid(&mut self) -> String {
         self.counter += 1;
-        self.counter
+        self.counter.to_string()
     }
 
     #[inline]
-    pub fn add_ref_to_tmpid(&mut self, tmpid: u64, attr: &Keyword, ref_tmpid: u64) {
-        write!(self.data, " [:db/add \"{}\" {} \"{}\"]\n", tmpid, attr, ref_tmpid).unwrap();
+    pub fn add_ref_to_tmpid(&mut self, tmpid: &str, attr: &Keyword, ref_tmpid: &str) {
+        write!(self.data, " [:db/add {:?} {} {:?}]\n", tmpid, attr, ref_tmpid).unwrap();
         self.terms += 1;
         self.total_terms += 1;
     }
 
     #[inline]
-    pub fn add_inst(&mut self, tmpid: u64, attr: &Keyword, micros: i64) {
-        write!(self.data, " [:db/add \"{}\" {} #instmicros {}]\n", tmpid, attr, micros).unwrap();
+    pub fn add_ref_to_lookup_ref_long(&mut self,
+                                      tmpid: &str, attr: &Keyword,
+                                      lookup_ref_attr: &Keyword, lookup_ref_val: i64) {
+        write!(self.data, " [:db/add {:?} {} (lookup-ref {} {})]\n",
+            tmpid, attr, lookup_ref_attr, lookup_ref_val).unwrap();
         self.terms += 1;
         self.total_terms += 1;
     }
 
     #[inline]
-    pub fn add_kw(&mut self, tmpid: u64, attr: &Keyword, val: &Keyword) {
-        write!(self.data, " [:db/add \"{}\" {} {}]\n", tmpid, attr, val).unwrap();
+    pub fn add_inst(&mut self, tmpid: &str, attr: &Keyword, micros: i64) {
+        write!(self.data, " [:db/add {:?} {} #instmicros {}]\n", tmpid, attr, micros).unwrap();
         self.terms += 1;
         self.total_terms += 1;
     }
 
     #[inline]
-    pub fn add_str(&mut self, tmpid: u64, attr: &Keyword, val: &str) {
+    pub fn add_str(&mut self, tmpid: &str, attr: &Keyword, val: &str) {
         // {:?} escapes some chars EDN can't parse (e.g. \'...)
         let s = val.replace("\\", "\\\\").replace("\"", "\\\"");
-        write!(self.data, " [:db/add \"{}\" {} \"{}\"]\n", tmpid, attr, s).unwrap();
+        write!(self.data, " [:db/add {:?} {} \"{}\"]\n", tmpid, attr, s).unwrap();
         self.terms += 1;
         self.total_terms += 1;
     }
 
     #[inline]
-    pub fn add_long(&mut self, tmpid: u64, attr: &Keyword, val: i64) {
-        write!(self.data, " [:db/add \"{}\" {} {}]\n", tmpid, attr, val).unwrap();
+    pub fn add_long(&mut self, tmpid: &str, attr: &Keyword, val: i64) {
+        write!(self.data, " [:db/add {:?} {} {}]\n", tmpid, attr, val).unwrap();
         self.terms += 1;
         self.total_terms += 1;
     }
@@ -120,86 +124,112 @@ impl TransactBuilder {
 }
 
 lazy_static! {
-    static ref PLACE_URL: Keyword = kw!(:place/url);
-    static ref PLACE_URL_HASH: Keyword = kw!(:place/url_hash);
-    static ref PLACE_TITLE: Keyword = kw!(:place/title);
-    static ref PLACE_DESCRIPTION: Keyword = kw!(:place/description);
-    static ref PLACE_FRECENCY: Keyword = kw!(:place/frecency);
-    static ref VISIT_PLACE: Keyword = kw!(:visit/place);
-    static ref VISIT_DATE: Keyword = kw!(:visit/date);
-    static ref VISIT_TYPE: Keyword = kw!(:visit/type);
 
-    static ref VISIT_TYPES: Vec<Keyword> = vec![
-        kw!(:visit.type/link),
-        kw!(:visit.type/typed),
-        kw!(:visit.type/bookmark),
-        kw!(:visit.type/embed),
-        kw!(:visit.type/redirect_permanent),
-        kw!(:visit.type/redirect_temporary),
-        kw!(:visit.type/download),
-        kw!(:visit.type/framed_link),
-        kw!(:visit.type/reload),
-    ];
+    static ref ORIGIN_PREFIX: Keyword = kw!(:origin/prefix);
+    static ref ORIGIN_HOST: Keyword = kw!(:origin/host);
+    static ref ORIGIN_PLACES_ID: Keyword = kw!(:origin/places_id);
+    
+
+    static ref PAGE_URL: Keyword = kw!(:page/url);
+    static ref PAGE_ORIGIN: Keyword = kw!(:page/origin);
+
+    static ref PAGE_META_TITLE: Keyword = kw!(:page_meta/title);
+    // static ref PAGE_META_FAVICON_URL: Keyword = kw!(:page_meta/favicon_url);
+    static ref PAGE_META_DESCRIPTION: Keyword = kw!(:page_meta/description);
+    static ref PAGE_META_PREVIEW_IMAGE_URL: Keyword = kw!(:page_meta/preview_image_url);
+
+    // static ref CONTEXT_DEVICE: Keyword = kw!(:context/device);
+    // static ref CONTEXT_CONTAINER: Keyword = kw!(:context/container);
+    static ref CONTEXT_ID: Keyword = kw!(:context/id);
+
+    static ref VISIT_PAGE_META: Keyword = kw!(:visit/page_meta);
+    static ref VISIT_CONTEXT: Keyword = kw!(:visit/context);
+    static ref VISIT_PAGE: Keyword = kw!(:visit/page);
+    static ref VISIT_DATE: Keyword = kw!(:visit/date);
+
+    static ref VISIT_SOURCE_VISIT: Keyword = kw!(:visit/source_visit);
+
+    // static ref VISIT_SOURCE_REDIRECT: Keyword = kw!(:visit/source_redirect);
+    // static ref VISIT_SOURCE_BOOKMARK: Keyword = kw!(:visit/source_bookmark);
+
+    // Only used in `initial-data.edn`
+    //
+    // static ref DEVICE_NAME: Keyword = kw!(:device/name)
+    // static ref DEVICE_TYPE: Keyword = kw!(:device/type)
+    // static ref DEVICE_TYPE_DESKTOP: Keyword = kw!(:device.type/desktop)
+    // static ref DEVICE_TYPE_MOBILE: Keyword = kw!(:device.type/mobile)
+    // static ref CONTAINER_NAME: Keyword = kw!(:container/name)
+
 }
 
-#[derive(Debug, Clone)]
+const MAX_CONTEXT_ID: i64 = 4;
+
+
+#[derive(Debug, Clone, Default)]
+struct VisitInfo {
+    // Everything else we fabricate (for reasons).
+    date: i64,
+}
+
+#[derive(Debug, Clone, Default)]
 struct PlaceEntry {
     pub id: i64,
     pub url: String,
-    pub url_hash: i64,
     pub description: Option<String>,
+    pub preview_image_url: Option<String>,
     pub title: String,
-    pub frecency: i64,
-    pub visits: Vec<(i64, &'static Keyword)>,
+    pub origin_id: i64,
+    pub visits: Vec<VisitInfo>,
 }
 
 impl PlaceEntry {
     pub fn add(&self, builder: &mut TransactBuilder, store: &mut Store) -> Result<(), failure::Error> {
-        let place_id = builder.next_tempid();
-        builder.add_str(place_id, &*PLACE_URL, &self.url);
-        builder.add_long(place_id, &*PLACE_URL_HASH, self.url_hash);
-        builder.add_str(place_id, &*PLACE_TITLE, &self.title);
+        let page_id = builder.next_tempid();
+        builder.add_str(&page_id, &*PAGE_URL, &self.url);
+        builder.add_ref_to_lookup_ref_long(&page_id, &*PAGE_ORIGIN, &*ORIGIN_PLACES_ID, self.origin_id);
+
+        let page_meta_id = builder.next_tempid();
+
+        builder.add_str(&page_meta_id, &*PAGE_META_TITLE, &self.title);
         if let Some(desc) = &self.description {
-            builder.add_str(place_id, &*PLACE_DESCRIPTION, desc);
+            builder.add_str(&page_meta_id, &*PAGE_META_DESCRIPTION, &desc);
+        }
+        if let Some(preview) = &self.preview_image_url {
+            builder.add_str(&page_meta_id, &*PAGE_META_PREVIEW_IMAGE_URL, &preview);
         }
 
-        builder.add_long(place_id, &*PLACE_FRECENCY, self.frecency);
-
-        assert!(self.visits.len() > 0);
-
-        if builder.max_buffer_size == 0 {
-            let report = builder.transact(store)?.unwrap();
-            let place_eid = report.tempids.get(&format!("{}", place_id)).unwrap();
-            // One transaction per visit.
-            for (microtime, visit_type) in &self.visits {
-                let visit_id = builder.next_tempid();
-                builder.add_long(visit_id, &*VISIT_PLACE, *place_eid);
-                builder.add_inst(visit_id, &*VISIT_DATE, *microtime);
-                builder.add_kw(visit_id, &*VISIT_TYPE, visit_type);
-                builder.transact(store)?;
-            }
-        } else {
-            for (microtime, visit_type) in &self.visits {
-                let visit_id = builder.next_tempid();
-                builder.add_ref_to_tmpid(visit_id, &*VISIT_PLACE, place_id);
-                builder.add_inst(visit_id, &*VISIT_DATE, *microtime);
-                builder.add_kw(visit_id, &*VISIT_TYPE, visit_type);
-            }
-            builder.maybe_transact(store)?;
+        let mut rng = thread_rng();
+        for visit in &self.visits {
+            let visit_id = builder.next_tempid();
+            builder.add_ref_to_tmpid(&visit_id, &*VISIT_PAGE, &page_id);
+            builder.add_ref_to_tmpid(&visit_id, &*VISIT_PAGE_META, &page_meta_id);
+            // unwrap is safe, only None for an empty slice.
+            builder.add_ref_to_lookup_ref_long(&visit_id, &*VISIT_CONTEXT,
+                                               &*CONTEXT_ID,
+                                               rng.gen_range(0, MAX_CONTEXT_ID));
+            builder.add_inst(&visit_id, &*VISIT_DATE, visit.date);
+            // Point the visit at itself. This doesn't really matter, but
+            // pointing at another visit would require us keep a huge hashmap in
+            // memory, or to keep the places id on the visit as a unique
+            // identity which we use as a lookup ref, which will effect the db
+            // size a lot in a way we wouldn't need to in reality.
+            builder.add_ref_to_tmpid(&visit_id, &*VISIT_SOURCE_VISIT, &visit_id);
         }
+        // not one tx per visit anymore (and doing per place instead) because
+        // the bookkeeping/separation required is too annoying.
+        builder.maybe_transact(store)?;
         Ok(())
     }
 
     pub fn from_row(row: &Row) -> PlaceEntry {
-        let transition_type: i64 = row.get("visit_type");
         PlaceEntry {
             id: row.get("place_id"),
             url: row.get("place_url"),
-            url_hash: row.get("place_url_hash"),
+            origin_id: row.get("place_origin_id"),
             description: row.get("place_description"),
+            preview_image_url: row.get("place_preview_image_url"),
             title: row.get::<_, Option<String>>("place_title").unwrap_or("".into()),
-            frecency: row.get("place_frecency"),
-            visits: vec![(row.get("visit_date"), &VISIT_TYPES[(transition_type as usize).saturating_sub(1)])],
+            visits: vec![VisitInfo { date: row.get("visit_date") }],
         }
     }
 }
@@ -208,12 +238,11 @@ impl PlaceEntry {
 pub struct PlacesToMentat {
     pub mentat_db_path: PathBuf,
     pub places_db_path: PathBuf,
-    pub one_tx_per_visit: bool,
+    pub realistic: bool,
 }
 
-
 static SCHEMA: &'static str = include_str!("places-schema.edn");
-
+static INITIAL_DATA: &'static str = include_str!("initial-data.edn");
 
 impl PlacesToMentat {
     pub fn run(self) -> Result<(), failure::Error> {
@@ -225,33 +254,42 @@ impl PlacesToMentat {
         fs::copy(&self.places_db_path, &temp_places_path)?;
         let places = Connection::open_with_flags(&temp_places_path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
 
-        let mut store = Store::open_empty(self.mentat_db_path.to_str().unwrap())?;
+        // New versions of mentat kill open_empty, and we already know this is empty.
+        let mut store = Store::open(self.mentat_db_path.to_str().unwrap())?;
 
         debug!("Transacting initial schema");
         store.transact(SCHEMA)?;
+        store.transact(INITIAL_DATA)?;
+        
+        let max_buffer_size = if self.realistic { 0 } else { 1024 * 1024 * 1024 * 1024 };
+        let mut builder = TransactBuilder::new_with_size(max_buffer_size);
 
-        let mut stmt = places.prepare("
-            SELECT
-                p.id          as place_id,
-                p.url         as place_url,
-                p.url_hash    as place_url_hash,
-                p.description as place_description,
-                p.title       as place_title,
-                p.frecency    as place_frecency,
-                v.visit_date  as visit_date,
-                v.visit_type  as visit_type
-            FROM moz_places p
-            JOIN moz_historyvisits v
-                ON p.id = v.place_id
-            ORDER BY p.id
-        ").unwrap();
+        {
+            let mut origins_stmt = places.prepare("SELECT id, prefix, host FROM moz_origins")?;
+            let origins = origins_stmt.query_map(&[], |row| {
+                (row.get::<_, i64>("id"),
+                 row.get::<_, String>("prefix"),
+                 row.get::<_, String>("host"))
+            })?.collect::<Result<Vec<_>, _>>()?;
+
+            println!("Adding {} origins...", origins.len());
+            for (id, prefix, host) in origins {
+                let tmpid = builder.next_tempid();
+                builder.add_long(&tmpid, &*ORIGIN_PLACES_ID, id);
+                builder.add_str(&tmpid, &*ORIGIN_PREFIX, &host);
+                builder.add_str(&tmpid, &*ORIGIN_HOST, &prefix);
+                builder.maybe_transact(&mut store)?;
+            }
+            // Force a transaction so that lookup refs work.
+            builder.transact(&mut store)?;
+        }
 
         let (place_count, visit_count) = {
-            let mut stmt = places.prepare("select count(*) from moz_places").unwrap();
+            let mut stmt = places.prepare("SELECT count(*) FROM moz_places").unwrap();
             let mut rows = stmt.query(&[]).unwrap();
             let ps: i64 = rows.next().unwrap()?.get(0);
 
-            let mut stmt = places.prepare("select count(*) from moz_historyvisits").unwrap();
+            let mut stmt = places.prepare("SELECT count(*) FROM moz_historyvisits").unwrap();
             let mut rows = stmt.query(&[]).unwrap();
             let vs: i64 = rows.next().unwrap()?.get(0);
             (ps, vs)
@@ -259,19 +297,22 @@ impl PlacesToMentat {
 
         println!("Querying {} places ({} visits)", place_count, visit_count);
 
-        let mut current_place = PlaceEntry {
-            id: -1,
-            url: "".into(),
-            url_hash: 0,
-            description: None,
-            title: "".into(),
-            frecency: 0,
-            visits: vec![],
-        };
+        let mut stmt = places.prepare("
+            SELECT
+                p.id                as place_id,
+                p.url               as place_url,
+                p.description       as place_description,
+                p.preview_image_url as place_preview_image_url,
+                p.title             as place_title,
+                p.origin_id         as place_origin_id,
+                v.visit_date        as visit_date
+            FROM moz_places p
+            JOIN moz_historyvisits v
+                ON p.id = v.place_id
+            ORDER BY p.id
+        ")?;
 
-        let max_buffer_size = if self.one_tx_per_visit { 0 } else { 1024 * 1024 * 1024 * 1024 };
-
-        let mut builder = TransactBuilder::new_with_size(max_buffer_size);
+        let mut current_place = PlaceEntry { id: -1, .. PlaceEntry::default() };
 
         let mut so_far = 0;
         let mut rows = stmt.query(&[])?;
@@ -280,12 +321,7 @@ impl PlacesToMentat {
             let row = row_or_error?;
             let id: i64 = row.get("place_id");
             if current_place.id == id {
-                let tty: i64 = row.get("visit_type");
-                current_place.visits.push((
-                    row.get("visit_date"),
-                    &VISIT_TYPES.get((tty.max(0) as usize).saturating_sub(1))
-                        .unwrap_or_else(|| &VISIT_TYPES[0])
-                ));
+                current_place.visits.push(VisitInfo { date: row.get("visit_date") });
                 continue;
             }
 
@@ -305,8 +341,14 @@ impl PlacesToMentat {
             println!("\rProcessing {} / {} places (approx.)", so_far + 1, place_count);
         }
         builder.transact(&mut store)?;
+
+        println!("Vacuuming mentat DB");
+
+        let mentat_sqlite_conn = store.dismantle().0;
+        mentat_sqlite_conn.execute("VACUUM", &[])?;
         println!("Done!");
         Ok(())
     }
+
 }
 

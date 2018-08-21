@@ -1,35 +1,98 @@
 [
-  { :db/ident :place/url
+  
+  { :db/ident :origin/prefix
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one
     }
 
-  { :db/ident :place/url_hash
+  { :db/ident :origin/host
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    }
+
+  ; used for lookup refs so that we aren't force to insert everything in
+  ; one enormous transaction (making --realistic impossible)
+
+  { :db/ident :origin/places_id
     :db/valueType :db.type/long
     :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/identity
+    :db/index true
     }
 
-  { :db/ident :place/title
+  ; Pages
+
+  { :db/ident :page/url
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/value
+    :db/index true ; required for unique/value.
+    ; TODO: should this be fulltext?
     }
 
-  { :db/ident :place/description
-    :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one
-    }
-
-  { :db/ident :place/frecency
-    :db/valueType :db.type/long
-    :db/cardinality :db.cardinality/one
-    }
-
-  { :db/ident :visit/place
+  { :db/ident :page/origin
     :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/one
     }
 
-  { :db/ident :visit/type
+  ; Page metadata (frequently stuff from the HEAD of the page)
+
+  { :db/ident :page_meta/title
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    ; TODO this probably should have :db/index true :db/fulltext true
+    }
+
+  ; This is stored in favicons.sqlite, which we don't read, so in practice
+  ; it's always empty >_>.
+  { :db/ident :page_meta/favicon_url
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    }
+
+  { :db/ident :page_meta/description
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    ; TODO: should this have index or fulltext?
+    }
+
+  { :db/ident :page_meta/preview_image_url
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    }
+  
+  ; A "context" is a tuple of (device, container). 
+  
+  ; This ID is just so that we can insert with a lookup ref.
+  { :db/ident :context/id
+    :db/valueType :db.type/long
+    :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/identity
+    :db/index true
+    }
+
+  { :db/ident :context/device
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    }
+
+  { :db/ident :context/container
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    }
+
+  ; Visits
+  { :db/ident :visit/page_meta
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    }
+
+  { :db/ident :visit/context
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    }
+
+  { :db/ident :visit/page
     :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/one
     }
@@ -37,15 +100,55 @@
   { :db/ident :visit/date
     :db/valueType :db.type/instant
     :db/cardinality :db.cardinality/one
+    :db/index true
     }
 
-  { :db/ident :visit.type/link }
-  { :db/ident :visit.type/typed }
-  { :db/ident :visit.type/bookmark }
-  { :db/ident :visit.type/embed }
-  { :db/ident :visit.type/redirect_permanent }
-  { :db/ident :visit.type/redirect_temporary }
-  { :db/ident :visit.type/download }
-  { :db/ident :visit.type/framed_link }
-  { :db/ident :visit.type/reload }
+  ; In the future we probably will always have sources. In practice, at the
+  ; moment, we only sometimes have them. Unfortunately, even if we do have them,
+  ; we fake it (and make `:visit/source_visit` point to the visit itself)
+  ; because otherwise this would be really tricky to do in --realistic mode.
+  ; 
+  { :db/ident :visit/source_visit
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    }
+
+  ; { :db/ident :visit/source_redirect
+  ;   :db/valueType :db.type/ref
+  ;   :db/cardinality :db.cardinality/one
+  ;   }
+
+  ; Never used at the moment because I'm too lazy to try and model bookmarks.
+  ; { :db/ident :visit/source_bookmark
+  ;   :db/valueType :db.type/ref
+  ;   :db/cardinality :db.cardinality/one
+  ; }
+
+  ; Device
+
+  { :db/ident :device/name
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    }
+
+  { :db/ident :device/type
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/one
+    }
+
+  ; Several other things...
+  
+  ; (Open) enumeration of possible device types
+  { :db/ident :device.type/desktop }
+  { :db/ident :device.type/mobile }
+
+  ; Container
+  { :db/ident :container/name
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    }
+  ; ... etc. We're omitting color, the fact that some origins will open in a
+  ; specific container by default, etc.
+
+
 ]

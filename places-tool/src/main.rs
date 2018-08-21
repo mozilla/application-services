@@ -122,7 +122,7 @@ fn main() -> Result<(), failure::Error> {
         let cmd = to_mentat::PlacesToMentat {
             mentat_db_path: PathBuf::from(out_db_path),
             places_db_path: places_db.path,
-            one_tx_per_visit: subcmd_matches.is_present("realistic"),
+            realistic: subcmd_matches.is_present("realistic"),
         };
         cmd.run()?;
     }
