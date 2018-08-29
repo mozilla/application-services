@@ -30,15 +30,6 @@ const val clientId = "98adfa37698f255b"
 const val redirectUri = "https://lockbox.firefox.com/fxa/ios-redirect.html"
 
 class LoginActivity : AppCompatActivity() {
-    companion object {
-        init {
-            // We need to pre-load some of these libraries or fxa_client tries to load them with strange
-            // names (eg, lib_sso.1.1.0.so or something...)
-            System.loadLibrary("crypto")
-            System.loadLibrary("ssl")
-            System.loadLibrary("fxa_client")
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,7 +37,7 @@ class LoginActivity : AppCompatActivity() {
         var fxa: FirefoxAccount? = null;
         Config.custom(contentBase).then({ value: Config ->
             fxa = FirefoxAccount(value, clientId, redirectUri)
-            var scopes = arrayOf(
+            val scopes = arrayOf(
                     "profile",
                     "https://identity.mozilla.com/apps/oldsync",
                     "https://identity.mozilla.com/apps/lockbox"

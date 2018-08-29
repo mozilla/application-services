@@ -39,7 +39,7 @@ import java.util.*
 import java.text.SimpleDateFormat
 
 class MainActivity : AppCompatActivity() {
-    private var store: MentatLoginsStorage? = null;
+    private var store: DatabaseLoginsStorage? = null;
     private var recyclerView: RecyclerView? = null;
 
     fun dumpError(tag: String, e: Exception) {
@@ -57,7 +57,7 @@ class MainActivity : AppCompatActivity() {
         return if (this.store != null) {
             SyncResult.fromValue(this.store as LoginsStorage)
         } else {
-            initMentatStore().then({ store ->
+            initStore().then({ store ->
                 this.store = store;
                 SyncResult.fromValue(store as LoginsStorage)
             }, { error ->
@@ -160,9 +160,9 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    fun initMentatStore(): SyncResult<MentatLoginsStorage> {
+    fun initStore(): SyncResult<DatabaseLoginsStorage> {
         val appFiles = this.applicationContext.getExternalFilesDir(null)
-        val storage = MentatLoginsStorage(appFiles.absolutePath + "/logins3.mentatdb");
+        val storage = DatabaseLoginsStorage(appFiles.absolutePath + "/logins.db");
         return storage.unlock("my_secret_key").then {
             SyncResult.fromValue(storage)
         }

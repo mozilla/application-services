@@ -17,7 +17,10 @@ import org.mozilla.sync15.logins.rust.RawLoginSyncState
 import org.mozilla.sync15.logins.rust.RustError
 import java.io.Closeable
 
-class MentatLoginsStorage(private val dbPath: String) : Closeable, LoginsStorage {
+/**
+ * LoginsStorage implementation backed by a database.
+ */
+class DatabaseLoginsStorage(private val dbPath: String) : Closeable, LoginsStorage {
 
     private var raw: RawLoginSyncState? = null;
 
