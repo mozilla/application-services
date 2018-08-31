@@ -102,10 +102,10 @@ tasks:
           && git config advice.detachedHead false
           && git checkout '{{ event.head.tag }}'
           && ./scripts/taskcluster-android.sh
-          # && python automation/taskcluster/release/fetch-bintray-api-key.py
+          && python automation/taskcluster/release/fetch-bintray-api-key.py
           && cd logins-api/android
           && ./gradlew --no-daemon clean library:assembleRelease
-          # && VCS_TAG=`git show-ref {{ event.head.tag }}` ./gradlew bintrayUpload --debug -PvcsTag="$VCS_TAG"
+          && VCS_TAG=`git show-ref {{ event.head.tag }}` ./gradlew bintrayUpload --debug -PvcsTag="$VCS_TAG"
       artifacts:
         'public/bin/mozilla/fxa_client_android_{{ event.head.tag }}.zip':
           type: 'file'
