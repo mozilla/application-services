@@ -5,9 +5,12 @@
     "previous": "Previous",
     "tagline": "Build the next thing...",
     "accounts/50000-most-common-passwords": "50,000 Most Common Passwords",
+    "accounts/dev-process": "Development Process",
+    "Development Process": "Development Process",
     "accounts/end-to-end-encryption": "End-to-end encryption",
-    "accounts/fxa-client-ios": "iOS SDK",
     "accounts/fxa-client-android": "Android SDK",
+    "accounts/fxa-client-ios": "iOS SDK",
+    "accounts/metrics": "accounts/metrics",
     "accounts/project-details": "Project Details",
     "Project Details": "Project Details",
     "accounts/welcome": "About Firefox Accounts",
@@ -33,12 +36,12 @@
     "Sync": "Sync",
     "Applications": "Applications",
     "Firefox Accounts": "Firefox Accounts",
+    "Mobile SDKs": "Mobile SDKs",
     "Other Features": "Other Features",
     "Firefox Sync": "Firefox Sync",
     "Testing": "Testing",
     "Design Docs": "Design Docs",
-    "Team": "Team",
-    "Mobile SDKs": "Mobile SDKs"
+    "Team": "Team"
   },
   "pages-strings": {
     "Help Translate|recruit community translators for your project": "Help Translate",
