@@ -5,7 +5,7 @@
 import os
 import taskcluster
 
-SECRET_NAME = 'project/mentat/publish'
+SECRET_NAME = 'project/application-services/publish'
 TASKCLUSTER_BASE_URL = 'http://taskcluster/secrets/v1'
 
 
