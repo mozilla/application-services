@@ -39,7 +39,7 @@ class ExampleApp: Application() {
     fun startNewIntent() {
         val acct = account
         val intent: Intent
-        if (acct == null || acct.creds == null) {
+        if (acct?.creds == null) {
             intent = Intent(baseContext, LoginActivity::class.java)
         } else {
             intent = Intent(baseContext, MainActivity::class.java)
