@@ -56,8 +56,8 @@ tasks:
     scopes:
       - "secrets:get:project/application-services/publish"
     payload:
-      maxRunTime: 3600
-      deadline: "{{ '2 hours' | $fromNow }}"
+      maxRunTime: 7200
+      deadline: "{{ '4 hours' | $fromNow }}"
       image: 'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-rust-beta'
       command:
         - /bin/bash
@@ -97,8 +97,8 @@ tasks:
     scopes:
       - "secrets:get:project/application-services/publish"
     payload:
-      maxRunTime: 3600
-      deadline: "{{ '2 hours' | $fromNow }}"
+      maxRunTime: 7200
+      deadline: "{{ '4 hours' | $fromNow }}"
       image: 'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-rust-beta'
       command:
         - /bin/bash
