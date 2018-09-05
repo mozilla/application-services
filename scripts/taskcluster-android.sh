@@ -48,7 +48,10 @@ do
   ./libs/bin/patchelf --set-soname libfxa_client.so dist/$target/libfxa_client.so
 done
 
+# Valid ABI are listed here: https://developer.android.com/ndk/guides/abis
 # Because Android needs the lib to be in a armeabi-v7a dir.
 mv dist/arm dist/armeabi-v7a
+# Because Android needs the arm64 lib to be in a arm64-v8a dir.
+mv dist/arm64 dist/arm64-v8a
 
 cd dist && zip -r fxa_client_android.zip * && cd ..
