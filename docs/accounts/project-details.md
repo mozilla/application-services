@@ -53,7 +53,7 @@ development, and will be happy to help answer any questions you might have:
 We meet regularly to triage bugs and make grand plans for the future.  Anyone is welcome to
 join us in the following forums:
 
-* Regular video meetings, as noted on the [project calendar](https://www.google.com/calendar/embed?src=mozilla.com_urbkla6jvphpk1t8adi5c12kic%40group.calendar.google.com) and with minutes in the [coordination etherpad](https://id.etherpad.mozilla.org/fxa-engineering-coordination)
+* Regular video meetings, as noted on the [project calendar](https://www.google.com/calendar/embed?src=mozilla.com_urbkla6jvphpk1t8adi5c12kic%40group.calendar.google.com) and with minutes in the [coordination google-doc](https://docs.google.com/document/d/1r_qfb-D1Yt5KAT8IIVPvjaeliFORbQk-xFE_tRNM4Rc/)
 * The [Firefox Accounts mailing list](https://mail.mozilla.org/listinfo/dev-fxacct)
 * The `#fxa` channel on [Mozilla IRC](https://wiki.mozilla.org/IRC)
 
@@ -71,7 +71,7 @@ being developed in a separate repository.  The main components fit together like
 
 Most repositories are [available via GitHub](https://github.com/mozilla?utf8=%E2%9C%93&query=fxa)
 
-You can read more about the [details of our development process](/dev-process/)
+You can read more about the [details of our development process](./dev-process.html)
 
 ### Core Servers and Libraries
 
@@ -159,7 +159,7 @@ If you have found a bug in FxA, please file it via the dashboard above
 There is also a "Core/FxAccounts" bugzilla component that covers the accounts code inside Firefox itself, and a "Server: Firefox Accounts" component for when FxA code interacts with parts of Mozilla that operate out of bugzilla:
 
 * [Bugzilla search for "Core/FxAccounts"](https://bugzilla.mozilla.org/buglist.cgi?query_format=advanced&bug_status=UNCONFIRMED&bug_status=NEW&bug_status=ASSIGNED&bug_status=REOPENED&component=FxAccounts&product=Core&list_id=12360036)
-* [Bugzilla search for "Server: Firefox Accounts"](https://bugzilla.mozilla.org/buglist.cgi?query_format=advanced&bug_status=UNCONFIRMED&bug_status=NEW&bug_status=ASSIGNED&bug_status=REOPENED&component=Server%3A Firefox Accounts&product=Cloud Services)
+* [Bugzilla search for "Server: Firefox Accounts"](https://bugzilla.mozilla.org/buglist.cgi?query_format=advanced&bug_status=UNCONFIRMED&bug_status=NEW&bug_status=ASSIGNED&bug_status=REOPENED&component=Server%3A%20Firefox%20Accounts&product=Cloud%20Services)
 
 
 ## How To
