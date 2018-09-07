@@ -1,0 +1,29 @@
+[package]
+name = "places"
+version = "0.1.0"
+authors = []
+
+[dependencies]
+sync15-adapter = { path = "../sync15-adapter" }
+serde = "1.0.75"
+serde_derive = "1.0.75"
+serde_json = "1.0.26"
+log = "0.4.4"
+lazy_static = "1.1.0"
+more-asserts = "0.2.1"
+url = "1.7.1"
+failure = "0.1"
+failure_derive = "0.1"
+unicode-segmentation = "1.2.1"
+
+[dependencies.rusqlite]
+version = "0.14.0"
+# features = ["sqlcipher"] - XXX - enable this only for mobile?
+features = ["bundled"] # XXX - *sob*, windows
+
+[dev-dependencies]
+env_logger = "0.5.13"
+prettytable-rs = "0.7.0"
+fxa-client = { path = "../fxa-client" }
+webbrowser = "0.3.1"
+chrono = "0.4.6"
