@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/local/bin/bash bash
 
 set -euvx
 
@@ -8,7 +8,7 @@ set -euvx
 apt-get update -qq && apt-get install zip libtool automake autoconf -y
 
 mkdir -p .cargo
-yes | cp -rf scripts/taskcluster-cargo-config .cargo/config
+# yes | cp -rf scripts/taskcluster-cargo-config .cargo/config
 pushd libs/ && ./build-all.sh android && ./build-patchelf.sh && popd
 
 declare -A android_targets
@@ -31,27 +31,27 @@ fi
 
 echo "Building selected targets: ${selected_targets[@]}."
 
-cd /build/application-services
+# cd /build/application-services
 
 ORIG_PATH="$PATH"
 for target in "${selected_targets[@]}"
 do
   PATH="$ANDROID_NDK_TOOLCHAIN_DIR/$target-$ANDROID_NDK_API_VERSION/bin:$ORIG_PATH"
   echo "Building target $target. Signature: ${android_targets[$target]}"
-  OPENSSL_STATIC=1 OPENSSL_DIR=/build/application-services/libs/android/$target/openssl \
+  OPENSSL_STATIC=1 OPENSSL_DIR=/Users/vladikoff/mozilla/application-services/libs/android/$target/openssl \
     cargo +beta build -p fxa-client-ffi --target ${android_targets[$target]} --release
-  mkdir -p dist/$target
-  cp target/${android_targets[$target]}/release/libfxa_client.so dist/$target
+  mkdir -p /Users/vladikoff/mozilla/application-services/dist/$target
+  cp /Users/vladikoff/mozilla/application-services/target/${android_targets[$target]}/release/libfxa_client.so /Users/vladikoff/mozilla/application-services/dist/$target
 
   # Patch the soname of this lib since rustc (currently) won't, but android's
   # linker needs it: https://github.com/mozilla/application-services/issues/174
-  ./libs/bin/patchelf --set-soname libfxa_client.so dist/$target/libfxa_client.so
+  ../libs/bin/patchelf --set-soname libfxa_client.so /Users/vladikoff/mozilla/application-services/dist/$target/libfxa_client.so
 done
 
 # Valid ABI are listed here: https://developer.android.com/ndk/guides/abis
 # Because Android needs the lib to be in a armeabi-v7a dir.
-mv dist/arm dist/armeabi-v7a
+mv /Users/vladikoff/mozilla/application-services/dist/arm /Users/vladikoff/mozilla/application-services/dist/armeabi-v7a
 # Because Android needs the arm64 lib to be in a arm64-v8a dir.
-mv dist/arm64 dist/arm64-v8a
+mv /Users/vladikoff/mozilla/application-services/dist/arm64 /Users/vladikoff/mozilla/application-services/dist/arm64-v8a
 
 cd dist && zip -r fxa_client_android.zip * && cd ..
