@@ -229,6 +229,7 @@ Below is a list of current and future Mozilla services that delegate authenticat
 *   [Find My Device](https://wiki.mozilla.org/CloudServices/FindMyDevice)
 *   [Firefox Marketplace](/en-US/Marketplace)
 *   [addons.mozilla.org](https://addons.mozilla.org)
+*   [Mozilla IAM](https://github.com/mozilla-iam/mozilla-iam) (since [June 2018](https://discourse.mozilla.org/t/announcing-firefox-accounts-in-mozilla-iam/29218))
 
 Contact
 -------
