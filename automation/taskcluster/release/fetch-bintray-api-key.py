@@ -5,7 +5,7 @@
 import os
 import taskcluster
 
-SECRET_NAME = 'project/mentat/publish'
+SECRET_NAME = 'project/application-services/publish'
 TASKCLUSTER_BASE_URL = 'http://taskcluster/secrets/v1'
 
 
@@ -19,7 +19,9 @@ def main():
     """Fetch the bintray user and api key from taskcluster's secret service
     and save it to local.properties in the project root directory.
     """
+    print('fetching {} ...'.format(SECRET_NAME))
     data = fetch_publish_secrets(SECRET_NAME)
+    print('fetching {} ... DONE ({} bytes)'.format(SECRET_NAME, len(str(data))))
 
     properties_file_path = os.path.join(os.path.dirname(__file__), '../../../logins-api/android/local.properties')
     with open(properties_file_path, 'w') as properties_file:
