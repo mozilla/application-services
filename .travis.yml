@@ -4,7 +4,6 @@ language: rust
 os: osx
 osx_image:
   - xcode10
-  - xcode9.4 # Remove once 10 is released
 before_install:
   - brew install sqlcipher --with-fts
 rust:
