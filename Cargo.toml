@@ -2,11 +2,10 @@
 members = [
     "fxa-client",
     "fxa-client/ffi",
-    "logins",
     "sandvich/desktop",
     "sync15-adapter",
-    "sync15/passwords",
-    "sync15/passwords/ffi",
+    "logins-sql",
+    "logins-sql/ffi"
 ]
 
 # For RSA keys cloning. Remove once openssl 0.10.8+ is released.

@@ -82,7 +82,8 @@ impl TokenFetcher for TokenServerFetcher {
                 let when = self.now() + Duration::from_millis(ms);
                 return Err(ErrorKind::BackoffError(when).into());
             }
-            return Err(ErrorKind::TokenserverHttpError(resp.status()).into());
+            let status = resp.status().as_u16();
+            return Err(ErrorKind::TokenserverHttpError(status).into());
         }
 
         let token: TokenserverToken = resp.json()?;

@@ -162,7 +162,7 @@ class MainActivity : AppCompatActivity() {
 
     fun initStore(): SyncResult<DatabaseLoginsStorage> {
         val appFiles = this.applicationContext.getExternalFilesDir(null)
-        val storage = DatabaseLoginsStorage(appFiles.absolutePath + "/logins.db");
+        val storage = DatabaseLoginsStorage(appFiles.absolutePath + "/logins.sqlite");
         return storage.unlock("my_secret_key").then {
             SyncResult.fromValue(storage)
         }

@@ -149,7 +149,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : Closeable, LoginsStora
             try {
                 return p.getString(0, "utf8");
             } finally {
-                PasswordSyncAdapter.INSTANCE.destroy_c_char(p);
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_destroy_string(p);
             }
         }
 
