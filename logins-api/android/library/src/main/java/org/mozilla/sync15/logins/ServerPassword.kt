@@ -7,6 +7,9 @@
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License. */
 package org.mozilla.sync15.logins
+import org.json.JSONArray
+import org.json.JSONException
+import org.json.JSONObject;
 
 /**
  * Raw password data that is stored by the LoginsStorage implementation.
@@ -47,5 +50,45 @@ class ServerPassword (
 
     val usernameField: String? = null,
     val passwordField: String? = null
-)
+) {
 
+
+    companion object {
+        fun fromJSON(jsonObject: JSONObject): ServerPassword {
+
+            return ServerPassword(
+                    id = jsonObject.getString("id"),
+
+                    hostname = jsonObject.getString("hostname"),
+                    password = jsonObject.getString("password"),
+                    username = jsonObject.optString("username", null),
+
+                    httpRealm = jsonObject.optString("httpRealm", null),
+                    formSubmitURL = jsonObject.optString("formSubmitURL", null),
+
+                    usernameField = jsonObject.optString("usernameField", null),
+                    passwordField = jsonObject.optString("passwordField", null),
+
+                    timesUsed = jsonObject.getInt("timesUsed"),
+
+                    timeCreated = jsonObject.getLong("timeCreated"),
+                    timeLastUsed = jsonObject.getLong("timeLastUsed"),
+                    timePasswordChanged = jsonObject.getLong("timePasswordChanged")
+            )
+        }
+
+        fun fromJSON(jsonText: String): ServerPassword {
+            return fromJSON(JSONObject(jsonText))
+        }
+
+        fun fromJSONArray(jsonArrayText: String): List<ServerPassword> {
+            val result: MutableList<ServerPassword> = mutableListOf();
+            val array = JSONArray(jsonArrayText);
+            for (index in 0..array.length()) {
+                result.add(fromJSON(array.getJSONObject(index)));
+            }
+            return result
+        }
+
+    }
+}
