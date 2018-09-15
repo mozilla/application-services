@@ -126,6 +126,16 @@ pub enum ExternErrorCode {
     /// Indicates the FxA credentials are invalid, and should be refreshed.
     AuthInvalidError = 1,
 
+    /// Returned from an `update()` call where the record ID did not exist.
+    NoSuchRecord = 2,
+
+    /// Returned from an `add()` call that was provided an ID, where the ID
+    /// already existed.
+    DuplicateGuid = 3,
+
+    /// Attempted to insert or update a record so that it is invalid
+    InvalidLogin = 4,
+
     // TODO: lockbox indicated that they would want to know when we fail to open
     // the DB due to invalid key.
     // https://github.com/mozilla/application-services/issues/231
@@ -182,6 +192,18 @@ fn get_code(err: &Error) -> ExternErrorCode {
                 }
                 _ => ExternErrorCode::OtherError,
             }
+        }
+        ErrorKind::DuplicateGuid(id) => {
+            error!("Guid already exists: {}", id);
+            ExternErrorCode::DuplicateGuid
+        }
+        ErrorKind::NoSuchRecord(id) => {
+            error!("No record exists with id {}", id);
+            ExternErrorCode::NoSuchRecord
+        }
+        ErrorKind::InvalidLogin(desc) => {
+            error!("Invalid login: {}", desc);
+            ExternErrorCode::InvalidLogin
         }
         err => {
             error!("Unexpected error: {:?}", err);

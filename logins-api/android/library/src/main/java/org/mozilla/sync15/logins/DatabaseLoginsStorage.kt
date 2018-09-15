@@ -123,6 +123,22 @@ class DatabaseLoginsStorage(private val dbPath: String) : Closeable, LoginsStora
         }
     }
 
+    override fun add(login: ServerPassword): SyncResult<String> {
+        return safeAsyncString {
+            val s = login.toJSON().toString()
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_add(this.raw!!, s, it)
+        }.then {
+            SyncResult.fromValue(it!!)
+        }
+    }
+
+    override fun update(login: ServerPassword): SyncResult<Unit> {
+        return safeAsync {
+            val s = login.toJSON().toString()
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_update(this.raw!!, s, it)
+        }
+    }
+
     override fun close() {
         synchronized(PasswordSyncAdapter.INSTANCE) {
             var raw = this.raw;
