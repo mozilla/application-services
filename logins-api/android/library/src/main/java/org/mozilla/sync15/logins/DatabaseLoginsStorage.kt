@@ -9,7 +9,6 @@
 package org.mozilla.sync15.logins
 
 import android.util.Log
-import com.beust.klaxon.Klaxon
 import com.sun.jna.Pointer
 import kotlinx.coroutines.experimental.launch
 import org.mozilla.sync15.logins.rust.PasswordSyncAdapter
@@ -101,7 +100,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : Closeable, LoginsStora
                     if (json == null) {
                         null
                     } else {
-                        Klaxon().parse<ServerPassword>(json)
+                        ServerPassword.fromJSON(json)
                     }
             )
         }
@@ -120,7 +119,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : Closeable, LoginsStora
             PasswordSyncAdapter.INSTANCE.sync15_passwords_get_all(this.raw!!, it)
         }.then { json ->
             Log.d("Logins", "got list: " + json);
-            SyncResult.fromValue(Klaxon().parseArray<ServerPassword>(json!!)!!)
+            SyncResult.fromValue(ServerPassword.fromJSONArray(json!!))
         }
     }
 
@@ -149,7 +148,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : Closeable, LoginsStora
             try {
                 return p.getString(0, "utf8");
             } finally {
-                PasswordSyncAdapter.INSTANCE.destroy_c_char(p);
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_destroy_string(p);
             }
         }
 

@@ -1,1 +1,0 @@
-../tests/sync_pass_mentat.rs

@@ -12,6 +12,7 @@ use key_bundle::KeyBundle;
 use record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use request::{InfoCollections, InfoConfiguration};
 use util::{random_guid, ServerTimestamp, SERVER_EPOCH};
+use serde_json;
 
 use self::SetupState::*;
 
@@ -39,10 +40,16 @@ lazy_static! {
     static ref DEFAULT_DECLINED: Vec<&'static str> = vec![];
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "schema_version")]
+enum PersistedState {
+    V1(GlobalState),
+}
+
 /// Holds global Sync state, including server upload limits, and the
 /// last-fetched collection modified times, `meta/global` record, and
 /// collection encryption keys.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct GlobalState {
     pub config: InfoConfiguration,
     pub collections: InfoCollections,
@@ -52,6 +59,18 @@ pub struct GlobalState {
 }
 
 impl GlobalState {
+    pub fn to_persistable_string(&self) -> String {
+        let state = PersistedState::V1(self.clone());
+        serde_json::to_string(&state)
+            .expect("Should only fail for recursive types (this is not recursive)")
+    }
+
+    pub fn from_persisted_string(data: &str) -> error::Result<Self> {
+        match serde_json::from_str(data)? {
+            PersistedState::V1(global_state) => Ok(global_state)
+        }
+    }
+
     pub fn key_for_collection(&self, collection: &str) -> error::Result<&KeyBundle> {
         Ok(self.keys
             .as_ref()
@@ -590,7 +609,7 @@ impl FetchAction {
 }
 
 /// Flags an engine for enablement or disablement.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum EngineStateChange {
     ResetAll,
     ResetAllExcept(HashSet<String>),
@@ -602,7 +621,6 @@ pub enum EngineStateChange {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use reqwest;
 
     use bso_record::{BsoRecord, EncryptedBso, EncryptedPayload};
 
@@ -618,7 +636,7 @@ mod tests {
             match &self.info_configuration {
                 Ok(config) => Ok(config.clone()),
                 Err(_) => Err(ErrorKind::StorageHttpError {
-                    code: reqwest::StatusCode::InternalServerError,
+                    code: 500,
                     route: "info/configuration".to_string(),
                 }.into()),
             }
@@ -628,7 +646,7 @@ mod tests {
             match &self.info_collections {
                 Ok(collections) => Ok(collections.clone()),
                 Err(_) => Err(ErrorKind::StorageHttpError {
-                    code: reqwest::StatusCode::InternalServerError,
+                    code: 500,
                     route: "info/collections".to_string(),
                 }.into()),
             }
@@ -640,15 +658,15 @@ mod tests {
                 // TODO(lina): Special handling for 404s, we want to ensure we
                 // handle missing keys and other server errors correctly.
                 Err(_) => Err(ErrorKind::StorageHttpError {
-                    code: reqwest::StatusCode::InternalServerError,
+                    code: 500,
                     route: "meta/global".to_string(),
                 }.into()),
             }
         }
 
-        fn put_meta_global(&self, global: &BsoRecord<MetaGlobalRecord>) -> error::Result<()> {
+        fn put_meta_global(&self, _global: &BsoRecord<MetaGlobalRecord>) -> error::Result<()> {
             Err(ErrorKind::StorageHttpError {
-                code: reqwest::StatusCode::InternalServerError,
+                code: 500,
                 route: "meta/global".to_string(),
             }.into())
         }
@@ -658,15 +676,15 @@ mod tests {
                 Ok(keys) => Ok(keys.clone()),
                 // TODO(lina): Same as above, for 404s.
                 Err(_) => Err(ErrorKind::StorageHttpError {
-                    code: reqwest::StatusCode::InternalServerError,
+                    code: 500,
                     route: "crypto/keys".to_string(),
                 }.into()),
             }
         }
 
-        fn put_crypto_keys(&self, keys: &EncryptedBso) -> error::Result<()> {
+        fn put_crypto_keys(&self, _keys: &EncryptedBso) -> error::Result<()> {
             Err(ErrorKind::StorageHttpError {
-                code: reqwest::StatusCode::InternalServerError,
+                code: 500,
                 route: "crypto/keys".to_string(),
             }.into())
         }

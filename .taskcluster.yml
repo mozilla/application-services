@@ -53,9 +53,11 @@ tasks:
       github:
         events:
           - release
+    scopes:
+      - "secrets:get:project/application-services/publish"
     payload:
-      maxRunTime: 3600
-      deadline: "{{ '2 hours' | $fromNow }}"
+      maxRunTime: 7200
+      deadline: "{{ '4 hours' | $fromNow }}"
       image: 'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-rust-beta'
       command:
         - /bin/bash
@@ -66,7 +68,11 @@ tasks:
           && cd application-services
           && git config advice.detachedHead false
           && git checkout '{{ event.version }}'
+          && python automation/taskcluster/release/fetch-bintray-api-key.py
           && ./scripts/taskcluster-android.sh
+          && cd logins-api/android
+          && ./gradlew --no-daemon clean library:assembleRelease
+          && ./gradlew bintrayUpload --debug -PvcsTag="{{ event.head.sha }}"
       artifacts:
         'public/bin/mozilla/fxa_client_android_{{ event.version }}.zip':
           type: 'file'
@@ -88,9 +94,11 @@ tasks:
       github:
         events:
           - tag
+    scopes:
+      - "secrets:get:project/application-services/publish"
     payload:
-      maxRunTime: 3600
-      deadline: "{{ '2 hours' | $fromNow }}"
+      maxRunTime: 7200
+      deadline: "{{ '4 hours' | $fromNow }}"
       image: 'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-rust-beta'
       command:
         - /bin/bash
@@ -101,11 +109,11 @@ tasks:
           && cd application-services
           && git config advice.detachedHead false
           && git checkout '{{ event.head.tag }}'
+          && python automation/taskcluster/release/fetch-bintray-api-key.py
           && ./scripts/taskcluster-android.sh
-          # && python automation/taskcluster/release/fetch-bintray-api-key.py
           && cd logins-api/android
           && ./gradlew --no-daemon clean library:assembleRelease
-          # && VCS_TAG=`git show-ref {{ event.head.tag }}` ./gradlew bintrayUpload --debug -PvcsTag="$VCS_TAG"
+          && ./gradlew bintrayUpload --debug -PvcsTag="{{ event.head.sha }}"
       artifacts:
         'public/bin/mozilla/fxa_client_android_{{ event.head.tag }}.zip':
           type: 'file'

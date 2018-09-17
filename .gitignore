@@ -4,3 +4,4 @@ Cargo.lock
 credentials.json
 *-engine.json
 .cargo
+*.db
