@@ -48,12 +48,19 @@ def create_fxaclient_task():
         "payload": {
             "features": {},
             "maxRunTime": 7200,
-            "image": "mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-rust-beta",
+            "image": "mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-1.28.0-rust-beta-1.29.0-beta.15",
             "command": [
                 "/bin/bash",
                 "--login",
                 "-cx",
-                "export TERM=dumb && git clone %s && cd application-services && git fetch %s %s && git config advice.detachedHead false && git checkout %s && ./scripts/taskcluster-android.sh" % (REPO_URL, REPO_URL, BRANCH, COMMIT)
+                "export TERM=dumb \
+                 && git clone %s \
+                 && cd application-services \
+                 && git fetch %s %s \
+                 && git config advice.detachedHead false \
+                 && git checkout %s \
+                 && ./scripts/taskcluster-android.sh \
+                 && ./gradlew --no-daemon clean :logins-library:assembleRelease" % (REPO_URL, REPO_URL, BRANCH, COMMIT)
             ],
             "artifacts": {
                 "public/bin/mozilla/fxa_client_android.zip": {
