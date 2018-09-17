@@ -413,6 +413,33 @@ pub unsafe extern "C" fn fxa_get_sync_keys(
     })
 }
 
+/// Request a OAuth token by starting a new pairing flow, by calling the content server pairing endpoint.
+///
+/// This function returns a URL string that the caller should open in a webview.
+///
+/// Pairing assumes you want keys by default, so you must provide a scoped key scope.
+///
+/// # Safety
+///
+/// A destructor [fxa_str_free] is provided for releasing the memory for this
+/// pointer type.
+#[no_mangle]
+pub unsafe extern "C" fn fxa_begin_pairing_flow(
+    fxa: *mut FirefoxAccount,
+    pairing_url: *const c_char,
+    scope: *const c_char,
+    error: *mut ExternError,
+) -> *mut c_char {
+    call_with_string_result(error, || {
+        assert!(!fxa.is_null());
+        let fxa = &mut *fxa;
+        let pairing_url = c_char_to_string(pairing_url);
+        let scope = c_char_to_string(scope);
+        let scopes: Vec<&str> = scope.split(" ").collect();
+        fxa.begin_pairing_flow(&pairing_url, &scopes)
+    })
+}
+
 /// Request a OAuth token by starting a new OAuth flow.
 ///
 /// This function returns a URL string that the caller should open in a webview.

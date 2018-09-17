@@ -294,6 +294,44 @@ impl FirefoxAccount {
         Ok(Some(self.handle_oauth_token_response(resp, None)?))
     }
 
+    pub fn begin_pairing_flow(&mut self, pairing_url: &str, scopes: &[&str]) -> Result<String> {
+        let mut url = self.state.config.content_url_path("/pair/supp")?;
+        let pairing_url = Url::parse(pairing_url)?;
+
+        let state = FirefoxAccount::random_base64_url_string(16)?;
+        let code_verifier = FirefoxAccount::random_base64_url_string(43)?;
+        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
+        let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
+
+        url.query_pairs_mut()
+            .append_pair("client_id", &self.state.client_id)
+            .append_pair("redirect_uri", &self.state.redirect_uri)
+            .append_pair("scope", &scopes.join(" "))
+            .append_pair("state", &state)
+            .append_pair("code_challenge_method", "S256")
+            .append_pair("code_challenge", &code_challenge)
+            .append_pair("access_type", "offline");
+
+        url.set_fragment(pairing_url.fragment());
+
+        let flow = ScopedKeysFlow::with_random_key(&*RNG)?;
+        let jwk_json = flow.generate_keys_jwk()?;
+        let scoped_keys_flow = Some(flow);
+        let keys_jwk = base64::encode_config(&jwk_json, base64::URL_SAFE_NO_PAD);
+        url.query_pairs_mut().append_pair("keys_jwk", &keys_jwk);
+
+        self.flow_store.insert(
+            state.clone(), // Since state is supposed to be unique, we use it to key our flows.
+            OAuthFlow {
+                scoped_keys_flow,
+                code_verifier,
+            },
+        );
+
+        Ok(url.to_string())
+    }
+
+
     pub fn begin_oauth_flow(&mut self, scopes: &[&str], wants_keys: bool) -> Result<String> {
         let state = FirefoxAccount::random_base64_url_string(16)?;
         let code_verifier = FirefoxAccount::random_base64_url_string(43)?;
@@ -539,6 +577,22 @@ mod tests {
         let fxa2 = FirefoxAccount::from_json(&fxa1_json).unwrap();
         let fxa2_json = fxa2.to_json().unwrap();
         assert_eq!(fxa1_json, fxa2_json);
+    }
+
+    #[test]
+    fn test_pairing_flow_url() {
+        static SCOPES: &'static [&'static str] = &["https://identity.mozilla.com/apps/oldsync"];
+        static PAIRING_URL: &'static str = "https://accounts.firefox.com/pair#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
+        static EXPECTED_URL: &'static str = "https://accounts.firefox.com/pair/supp?client_id=12345678&redirect_uri=https%3A%2F%2Ffoo.bar&scope=https%3A%2F%2Fidentity.mozilla.com%2Fapps%2Foldsync&state=SmbAA_9EA5v1R2bgIPeWWw&code_challenge_method=S256&code_challenge=ZgHLPPJ8XYbXpo7VIb7wFw0yXlTa6MUOVfGiADt0JSM&access_type=offline&keys_jwk=eyJjcnYiOiJQLTI1NiIsImt0eSI6IkVDIiwieCI6Ing5LUltQjJveDM0LTV6c1VmbW5sNEp0Ti14elV2eFZlZXJHTFRXRV9BT0kiLCJ5IjoiNXBKbTB3WGQ4YXdHcm0zREl4T1pWMl9qdl9tZEx1TWlMb1RkZ1RucWJDZyJ9#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
+
+        let mut fxa = FirefoxAccount::new(Config::release().unwrap(), "12345678", "https://foo.bar");
+        let url = fxa.begin_pairing_flow(&PAIRING_URL, &SCOPES).unwrap();
+        let flow_url = Url::parse(&url).unwrap();
+        let expected_parsed_url = Url::parse(EXPECTED_URL).unwrap();
+
+        assert_eq!(flow_url.host_str(), Some("accounts.firefox.com"));
+        assert_eq!(flow_url.path(), "/pair/supp");
+        assert_eq!(flow_url.fragment(), expected_parsed_url.fragment());
     }
 
     #[test]
