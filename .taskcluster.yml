@@ -70,8 +70,7 @@ tasks:
           && git checkout '{{ event.version }}'
           && python automation/taskcluster/release/fetch-bintray-api-key.py
           && ./scripts/taskcluster-android.sh
-          && cd logins-api/android
-          && ./gradlew --no-daemon clean library:assembleRelease
+          && ./gradlew --no-daemon clean :logins-library:assembleRelease
           && ./gradlew bintrayUpload --debug -PvcsTag="{{ event.head.sha }}"
       artifacts:
         'public/bin/mozilla/fxa_client_android_{{ event.version }}.zip':
@@ -113,8 +112,7 @@ tasks:
           && git checkout '{{ event.head.tag }}'
           && python automation/taskcluster/release/fetch-bintray-api-key.py
           && ./scripts/taskcluster-android.sh
-          && cd logins-api/android
-          && ./gradlew --no-daemon clean library:assembleRelease
+          && ./gradlew --no-daemon clean :logins-library:assembleRelease
           && ./gradlew bintrayUpload --debug -PvcsTag="{{ event.head.sha }}"
       artifacts:
         'public/bin/mozilla/fxa_client_android_{{ event.head.tag }}.zip':
