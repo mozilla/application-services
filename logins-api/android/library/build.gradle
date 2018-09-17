@@ -53,6 +53,10 @@ cargo {
         'x86',
     ]
 
+    // Perform release builds (which should have debug info, due to
+    // `debug = true` in Cargo.toml).
+    profile = "release"
+
     // Configure some environment variables, per toolchain, that will apply
     // during the Cargo build.  Paths are relative to this file.  We assume that
     // the `libs/` directory has been populated before invoking Gradle (or Cargo).
