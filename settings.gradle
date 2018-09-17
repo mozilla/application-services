@@ -1,1 +1,5 @@
-include ':library', ':sample'
+include ':logins-library'
+include ':logins-sample'
+
+project(':logins-library').projectDir = new File("logins-api/android/library")
+project(':logins-sample').projectDir = new File("logins-api/android/sample")

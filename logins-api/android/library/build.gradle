@@ -147,7 +147,7 @@ afterEvaluate {
 
 archivesBaseName = 'logins'
 
-apply from: '../publish.gradle'
+apply from: '../../../publish.gradle'
 ext.configurePublish(
         'org.mozilla.sync15',
         'logins',
