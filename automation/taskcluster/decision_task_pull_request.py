@@ -60,12 +60,16 @@ def create_fxaclient_task():
                  && git config advice.detachedHead false \
                  && git checkout %s \
                  && ./scripts/taskcluster-android.sh \
-                 && ./gradlew --no-daemon clean :logins-library:assembleRelease" % (REPO_URL, REPO_URL, BRANCH, COMMIT)
+                 && ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease" % (REPO_URL, REPO_URL, BRANCH, COMMIT)
             ],
             "artifacts": {
-                "public/bin/mozilla/fxa_client_android.zip": {
+                "public/bin/mozilla/fxa_client-release.aar": {
                     "type": "file",
-                    "path": "/build/application-services/fxa-client/fxa_client_android.zip",
+                    "path": "/build/application-services/fxa-client/sdks/android/library/build/outputs/aar/fxa_client-release.aar",
+                },
+                "public/bin/mozilla/logins-release.aar": {
+                    "type": "file",
+                    "path": "/build/application-services/logins-api/android/library/build/outputs/aar/logins-release.aar",
                 },
             },
             "deadline": taskcluster.stringDate(deadline)
@@ -73,7 +77,7 @@ def create_fxaclient_task():
         "provisionerId": "aws-provisioner-v1",
         "metadata": {
             "name": "application-services - FxA client library",
-            "description": "Building FxA client Rust library and native code dependencies",
+            "description": "Builds the FxA client and the Logins API for Android architectures.",
             "owner": "nalexander@mozilla.com",
             "source": "https://github.com/mozilla/application-services"
         }
