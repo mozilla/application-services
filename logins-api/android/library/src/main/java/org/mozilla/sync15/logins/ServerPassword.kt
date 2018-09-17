@@ -84,7 +84,7 @@ class ServerPassword (
         fun fromJSONArray(jsonArrayText: String): List<ServerPassword> {
             val result: MutableList<ServerPassword> = mutableListOf();
             val array = JSONArray(jsonArrayText);
-            for (index in 0..array.length()) {
+            for (index in 0 until array.length()) {
                 result.add(fromJSON(array.getJSONObject(index)));
             }
             return result
