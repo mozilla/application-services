@@ -10,7 +10,9 @@ package org.mozilla.sync15.logins.rust
 
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
+import org.mozilla.sync15.logins.IdCollisionException
 import org.mozilla.sync15.logins.LoginsStorageException
+import org.mozilla.sync15.logins.NoSuchRecordException
 import org.mozilla.sync15.logins.SyncAuthInvalidException
 import java.util.Arrays
 
@@ -47,6 +49,12 @@ open class RustError : Structure() {
             // It's probably a bad idea to throw here! We're probably leaking something if this is
             // ever hit! (But we shouldn't ever hit it?)
             throw RuntimeException("[Bug] intoException called on non-failure!");
+        }
+        if (code == 3) {
+            return IdCollisionException(this.consumeErrorMessage())
+        }
+        if (code == 2) {
+            return NoSuchRecordException(this.consumeErrorMessage())
         }
         if (code == 1) {
             return SyncAuthInvalidException(this.consumeErrorMessage());
