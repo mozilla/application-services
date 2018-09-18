@@ -109,7 +109,7 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : Closeable, L
             // ServerPasswords are immutable, so we remove the current one from the list and
             // add a new one with updated properties
             list = list.filter { it.id != id }
-            // Is there a better way to do this?
+
             val newsp = sp.copy(
                 timeLastUsed = System.currentTimeMillis(),
                 timesUsed = sp.timesUsed + 1
