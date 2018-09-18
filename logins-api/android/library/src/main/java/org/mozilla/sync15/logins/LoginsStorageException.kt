@@ -42,3 +42,18 @@ class IdCollisionException(msg: String): LoginsStorageException(msg)
  * - and exactly one of `httpRealm` or `formSubmitUrl` is non-null.
  */
 class InvalidRecordException(msg: String): LoginsStorageException(msg)
+
+/**
+ * This error is emitted in two cases:
+ *
+ * 1. An incorrect key is used to to open the login database
+ * 2. The file at the path specified is not a sqlite database.
+ */
+class InvalidKeyException(msg: String): LoginsStorageException(msg)
+
+/**
+ * This error is emitted if a request to a sync server failed.
+ */
+class RequestFailedException(msg: String): LoginsStorageException(msg)
+
+
