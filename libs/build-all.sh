@@ -60,8 +60,8 @@ then
   ./build-all-android.sh "$OPENSSL_SRC_PATH" "$SQLCIPHER_SRC_PATH"
 elif [ "$PLATFORM" == "desktop" ]
 then
-  # TODO: "$SQLCIPHER_SRC_PATH"
-  ./build-all-desktop.sh "$OPENSSL_SRC_PATH"
+  ./build-openssl-desktop.sh "$OPENSSL_SRC_PATH"
+  ./build-sqlcipher-desktop.sh "$SQLCIPHER_SRC_PATH" $(abspath "desktop/openssl")
 else
   echo "Unrecognized platform"
   exit 1
