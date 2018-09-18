@@ -7,6 +7,10 @@ authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 name = "loginsapi_ffi"
 crate-type = ["lib", "staticlib", "cdylib"]
 
+[features]
+default-features = ["sqlcipher"]
+sqlcipher = ["rusqlite/sqlcipher", "logins-sql/sqlcipher"]
+
 [dependencies]
 serde_json = "1.0.26"
 log = "0.4.4"
@@ -14,7 +18,7 @@ url = "1.7.1"
 
 [dependencies.rusqlite]
 version = "0.14.0"
-features = ["sqlcipher"]
+features = []
 
 [dependencies.logins-sql]
 path = ".."

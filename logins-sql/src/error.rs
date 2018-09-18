@@ -79,6 +79,9 @@ pub enum ErrorKind {
     #[fail(display = "No record with guid exists (when one was required): {:?}", _0)]
     NoSuchRecord(String),
 
+    #[fail(display = "Encryption requested but not supported (need feature = \"sqlcipher\")")]
+    EncryptionUnsupported,
+
     #[fail(display = "Error synchronizing: {}", _0)]
     SyncAdapterError(#[fail(cause)] sync::Error),
 

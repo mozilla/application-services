@@ -32,15 +32,24 @@ impl LoginDb {
             util::init_test_logging();
         }
 
-        let encryption_pragmas = if let Some(key) = encryption_key {
-            // TODO: We probably should support providing a key that doesn't go
-            // through PBKDF2 (e.g. pass it in as hex, or use sqlite3_key
-            // directly. See https://www.zetetic.net/sqlcipher/sqlcipher-api/#key
-            // "Raw Key Data" example. Note that this would be required to open
-            // existing iOS sqlcipher databases).
-            format!("PRAGMA key = '{}';", escape_string_for_pragma(key))
-        } else {
-            "".to_owned()
+        let encryption_pragmas = match (encryption_key, cfg!(feature = "sqlcipher")) {
+            (Some(key), true) => {
+                // TODO: We probably should support providing a key that doesn't go
+                // through PBKDF2 (e.g. pass it in as hex, or use sqlite3_key
+                // directly. See https://www.zetetic.net/sqlcipher/sqlcipher-api/#key
+                // "Raw Key Data" example. Note that this would be required to open
+                // existing iOS sqlcipher databases).
+                format!("PRAGMA key = '{}';", escape_string_for_pragma(key))
+            }
+            (Some(_), false) => {
+                // Log both of these so that the message gets through even if
+                // error logs aren't enabled, then return an error. We don't
+                // want this to happen accidentally.
+                eprintln!("Cannot create encrypted login database, no sqlcipher!");
+                error!("Cannot create encrypted login database, no sqlcipher!");
+                throw!(ErrorKind::EncryptionUnsupported)
+            }
+            (None, _) => String::default()
         };
 
         // `temp_store = 2` is required on Android to force the DB to keep temp

@@ -336,8 +336,7 @@ fn main() -> Result<()> {
             .long("key")
             .value_name("ENCRYPTION_KEY")
             .takes_value(true)
-            .help("Database encryption key.")
-            .required(true))
+            .help("Database encryption key."))
 
         .arg(clap::Arg::with_name("credential_file")
             .short("c")
@@ -350,11 +349,13 @@ fn main() -> Result<()> {
 
     let cred_file = matches.value_of("credential_file").unwrap_or("./credentials.json");
     let db_path = matches.value_of("database_path").unwrap_or("./logins.db");
-    // This should already be checked by `clap`, IIUC
-    let encryption_key = matches.value_of("encryption_key").expect("Encryption key is not optional");
+
+    let encryption_key: Option<&str> = matches.value_of("encryption_key");
 
     // Lets not log the encryption key, it's just not a good habit to be in.
     debug!("Using credential file = {:?}, db = {:?}", cred_file, db_path);
+
+    let mut engine = PasswordEngine::new(db_path, encryption_key)?;
 
     // TODO: allow users to use stage/etc.
     let cfg = Config::import_from(CONTENT_BASE)?;
@@ -383,8 +384,6 @@ fn main() -> Result<()> {
         tokenserver_url,
     };
     let root_sync_key = KeyBundle::from_ksync_base64(&key.k)?;
-
-    let mut engine = PasswordEngine::new(db_path, Some(encryption_key))?;
 
     info!("Engine has {} passwords", engine.list()?.len());
 
