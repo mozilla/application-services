@@ -26,7 +26,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : Closeable, LoginsStora
     override fun isLocked(): SyncResult<Boolean> {
         return safeAsync {
             // Run inside a safeAsync block to be sure that all pending operations have finished.
-            raw != null
+            raw == null
         }
     }
 
