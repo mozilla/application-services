@@ -41,8 +41,7 @@ cargo {
     // Where Cargo writes its outputs.
     targetDirectory = '../../../../target'
 
-    // The Cargo outputs to include in the AAR.
-    targetIncludes = ['libfxa_client.so'] // TODO: for unit tests, include ['libfxa_client.dylib', 'libfxa_client.dll']
+    libname = 'libfxa_client'
 
     // The Cargo targets to invoke.  The mapping from short name to target
     // triple is defined by the `rust-android-gradle` plugin.

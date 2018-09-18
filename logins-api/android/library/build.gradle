@@ -49,8 +49,7 @@ cargo {
     // Where Cargo writes its outputs.
     targetDirectory = '../../../target'
 
-    // The Cargo outputs to include in the AAR.
-    targetIncludes = ['libloginsapi_ffi.so', 'libloginsapi_ffi.dylib', 'libloginsapi_ffi.dll']
+    libname = 'libloginsapi_ffi'
 
     // The Cargo targets to invoke.  The mapping from short name to target
     // triple is defined by the `rust-android-gradle` plugin.
