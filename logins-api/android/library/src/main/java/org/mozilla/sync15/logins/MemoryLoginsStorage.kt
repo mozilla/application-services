@@ -105,17 +105,16 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : Closeable, L
         return asyncResult {
             checkUnlocked()
             val sp = list.find { it.id == id }
-            if (sp != null) {
-                // ServerPasswords are immutable, so we remove the current one from the list and
-                // add a new one with updated properties
-                list = list.filter { it.id != id };
-                // Is there a better way to do this?
-                val newsp = sp.copy(
-                    timeLastUsed = System.currentTimeMillis(),
-                    timesUsed = sp.timesUsed + 1
-                )
-                list += newsp
-            }
+                    ?: throw NoSuchRecordException("No such record: $id")
+            // ServerPasswords are immutable, so we remove the current one from the list and
+            // add a new one with updated properties
+            list = list.filter { it.id != id }
+
+            val newsp = sp.copy(
+                timeLastUsed = System.currentTimeMillis(),
+                timesUsed = sp.timesUsed + 1
+            )
+            list += newsp
         }
     }
 
@@ -210,7 +209,6 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : Closeable, L
                     "Invalid login: Neither `formSubmitUrl` and `httpRealm` are present")
         }
     }
-
 
     private fun <T> asyncResult(callback: () -> T): SyncResult<T> {
         // Roughly mimic the semantics of MentatLoginsStorage -- serialize all calls to this API (

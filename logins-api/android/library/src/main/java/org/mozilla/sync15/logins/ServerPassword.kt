@@ -31,7 +31,7 @@ data class ServerPassword (
      */
     val hostname: String,
 
-    val username: String?,
+    val username: String? = null,
 
     /**
      * The password field of this record. It is an error to attempt to insert or update
@@ -54,22 +54,22 @@ data class ServerPassword (
     /**
      * Number of times this password has been used.
      */
-    val timesUsed: Int,
+    val timesUsed: Int = 0,
 
     /**
      * Time of creation in milliseconds from the unix epoch.
      */
-    val timeCreated: Long,
+    val timeCreated: Long = 0L,
 
     /**
      * Time of last use in milliseconds from the unix epoch.
      */
-    val timeLastUsed: Long,
+    val timeLastUsed: Long = 0L,
 
     /**
      * Time of last password change in milliseconds from the unix epoch.
      */
-    val timePasswordChanged: Long,
+    val timePasswordChanged: Long = 0L,
 
     val usernameField: String? = null,
     val passwordField: String? = null
