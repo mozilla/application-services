@@ -51,7 +51,7 @@ cargo {
     // The Cargo targets to invoke.  The mapping from short name to target
     // triple is defined by the `rust-android-gradle` plugin.
     targets = [
-        'default',
+        // 'default', // TODO: not until https://github.com/mozilla/application-services/issues/259 is fixed.
         'arm',
         'arm64',
         'x86',
