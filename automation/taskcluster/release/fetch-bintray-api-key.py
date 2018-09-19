@@ -23,7 +23,7 @@ def main():
     data = fetch_publish_secrets(SECRET_NAME)
     print('fetching {} ... DONE ({} bytes)'.format(SECRET_NAME, len(str(data))))
 
-    properties_file_path = os.path.join(os.path.dirname(__file__), '../../../logins-api/android/local.properties')
+    properties_file_path = os.path.join(os.path.dirname(__file__), '../../../local.properties')
     with open(properties_file_path, 'w') as properties_file:
         properties_file.write("bintray.user=%s\n" % data['secret']['bintray_user'])
         properties_file.write("bintray.apikey=%s\n" % data['secret']['bintray_apikey'])
