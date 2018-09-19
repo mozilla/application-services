@@ -9,9 +9,9 @@ credentials.json
 # Android stuff.
 *.iml
 .gradle
-/local.properties
+local.properties
 .idea
-/build
+build
 .DS_Store
-/captures
+captures
 .externalNativeBuild
