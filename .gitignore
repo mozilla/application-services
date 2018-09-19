@@ -5,3 +5,13 @@ credentials.json
 *-engine.json
 .cargo
 *.db
+
+# Android stuff.
+*.iml
+.gradle
+/local.properties
+.idea
+/build
+.DS_Store
+/captures
+.externalNativeBuild
