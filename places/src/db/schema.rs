@@ -7,9 +7,9 @@
 // We should work out how to turn this into something that can use a shared
 // db.rs.
 
-use db;
+use super::db::{PlacesDb};
 
-//use error::*;
+use error::*;
 
 const VERSION: i64 = 0; // should bump to 1 when we consider it vaguely stable
 
@@ -35,7 +35,7 @@ lazy_static! {
             url_hash INTEGER DEFAULT 0 NOT NULL,
             description TEXT, -- XXXX - title above?
             preview_image_url TEXT,
-            origin_id INTEGER NOT NULL,
+            origin_id INTEGER, -- NOT NULL XXXX - not clear if there should always be a moz_origin
 
             FOREIGN KEY(origin_id) REFERENCES moz_origins(id) ON DELETE CASCADE
         )"
@@ -49,7 +49,7 @@ lazy_static! {
             place_id INTEGER NOT NULL,
             visit_date INTEGER,
             visit_type INTEGER,
-            session INTEGER, -- XXX - what is 'session'?
+            -- session INTEGER, -- XXX - what is 'session'? Appears unused.
 
             FOREIGN KEY(place_id) REFERENCES moz_places(id) ON DELETE CASCADE,
             FOREIGN KEY(from_visit) REFERENCES moz_historyvisits(id)
@@ -112,7 +112,7 @@ pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM: &'static str = "origin_frece
 pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM_OF_SQUARES: &'static str = "origin_frecency_sum_of_squares";
 
 
-pub fn init(db: &db::PlacesDb) -> db::Result<()> {
+pub fn init(db: &PlacesDb) -> Result<()> {
     let user_version = db.query_one::<i64>("PRAGMA user_version")?;
     if user_version == 0 {
         let table_list_exists = db.query_one::<i64>(
@@ -136,16 +136,16 @@ pub fn init(db: &db::PlacesDb) -> db::Result<()> {
 }
 
 // https://github.com/mozilla-mobile/firefox-ios/blob/master/Storage/SQL/LoginsSchema.swift#L100
-fn upgrade(db: &db::PlacesDb, from: i64) -> db::Result<()> {
+fn upgrade(_db: &PlacesDb, from: i64) -> Result<()> {
     debug!("Upgrading schema from {} to {}", from, VERSION);
     if from == VERSION {
         return Ok(());
     }
     // hrmph - do something here?
-    Ok(())
+    panic!("sorry, no upgrades yet - delete your db!");
 }
 
-pub fn create(db: &db::PlacesDb) -> db::Result<()> {
+pub fn create(db: &PlacesDb) -> Result<()> {
     debug!("Creating schema");
     db.execute_all(&[
         &*CREATE_TABLE_PLACES_SQL,
@@ -156,41 +156,4 @@ pub fn create(db: &db::PlacesDb) -> db::Result<()> {
         &*SET_VERSION_SQL,
     ])?;
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use db;
-    use unicode_segmentation::UnicodeSegmentation;
-
-    struct Origin {
-        prefix: String,
-        host: String,
-        frecency: i64,
-    }
-    impl Origin {
-        pub fn rev_host(&self) -> String {
-            self.host.graphemes(true).rev().flat_map(|g| g.chars()).collect()
-        }
-    }
-
-    #[test]
-    fn test_reverse() {
-        let o = Origin {prefix: "http".to_string(),
-                        host: "foo.com".to_string(),
-                        frecency: 0 };
-        assert_eq!(o.prefix, "http");
-        assert_eq!(o.frecency, 0);
-        assert_eq!(o.rev_host(), "moc.oof");
-    }
-
-
-    fn open_test_db() -> db::PlacesDb {
-        db::PlacesDb::open_in_memory(None).expect("opening memory db")
-    }
-
-    #[test]
-    fn test_schema() {
-        open_test_db();
-    }
 }

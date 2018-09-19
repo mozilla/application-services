@@ -6,15 +6,13 @@
 // wip-sync-sql-store branch, but with login specific code removed.
 // We should work out how to split this into a library we can reuse.
 
-use rusqlite::{Connection, types::{ToSql, FromSql}, Row, Transaction, Error};
-use schema;
-use types;
+use rusqlite::{Connection, types::{ToSql, FromSql}, Row};
+use error::*;
+use super::schema;
 
-use std::{self};
 use std::path::Path;
-
-
-pub type Result<T> = std::result::Result<T, Error>;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 pub const MAX_VARIABLE_NUMBER: usize = 999;
 
@@ -57,9 +55,11 @@ impl PlacesDb {
         ", encryption_pragmas);
 
         db.execute_batch(&initial_pragmas)?;
+        define_functions(&db)?;
 
         let mut res = Self { db };
         schema::init(&mut res)?;
+
         Ok(res)
     }
 
@@ -173,15 +173,41 @@ impl PlacesDb {
             None => Ok(None),
         }
     }
+
+    pub fn query_row_named<T>(&self, sql: &str, args: &[(&str, &ToSql)], f: impl FnOnce(&Row) -> Result<T>) -> Result<Option<T>> {
+        let mut stmt = self.db.prepare(sql)?;
+        let res = stmt.query_named(args);
+        if let Err(e) = &res {
+            warn!("Error executing query: {}. Query: {}", e, sql);
+        }
+        let mut rows = res?;
+        match rows.next() {
+            Some(result) => Ok(Some(f(&result?)?)),
+            None => Ok(None),
+        }
+    }
 }
 
 // ----------------------------- end of stuff that should be common --------------------
 
-impl PlacesDb {
-    // PlacesUtils.history.update()
-    fn update(info: &types::AddablePlaceInfo) -> Result<()> {
-        // So I guess we need to lookup moz_places and moz_origins etc and
-        // "just do it".
-        Ok(())
+fn define_functions(c: &Connection) -> Result<()> {
+    // This is good enough for now
+    c.create_scalar_function("hash", 1, true, move |ctx| {
+        let value = try!(ctx.get::<String>(0));
+        let mut s = DefaultHasher::new();
+        value.hash(&mut s);
+        Ok(s.finish() as i64)
+    })?;
+    Ok(())
+}
+
+// Sanity check that we can create a database.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_open() {
+        PlacesDb::open_in_memory(None).expect("no memory db");
     }
 }

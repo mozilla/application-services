@@ -18,7 +18,7 @@ unicode-segmentation = "1.2.1"
 
 [dependencies.rusqlite]
 version = "0.14.0"
-features = ["sqlcipher"]
+features = ["sqlcipher", "functions"]
 
 [dev-dependencies]
 env_logger = "0.5.13"

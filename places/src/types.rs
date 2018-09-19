@@ -4,9 +4,11 @@
 
 use std::{fmt};
 use std::time::{SystemTime, UNIX_EPOCH};
-use url::{Url};
 
-// XXX - copied from logins - should be in a shared crate
+use rusqlite::{types::{ToSql, FromSql, ToSqlOutput, FromSqlResult, ValueRef}};
+use rusqlite::Result as RusqliteResult;
+
+// XXX - copied from logins - surprised it's not in `sync`
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub struct SyncGuid(pub String);
 
@@ -22,11 +24,28 @@ impl<T> From<T> for SyncGuid where T: Into<String> {
     }
 }
 
+impl ToSql for SyncGuid {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
+        Ok(ToSqlOutput::from(self.0.clone())) // cloning seems wrong?
+    }
+}
+
+impl FromSql for SyncGuid {
+    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
+        value.as_str().map(|v| SyncGuid(v.to_string()))
+    }
+}
+
 // Typesafe way to manage timestamps.
 // We should probably work out how to share this too?
-//
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Default)]
 pub struct Timestamp(pub u64);
+
+impl Timestamp {
+    pub fn now() -> Self {
+        SystemTime::now().into()
+    }
+}
 
 impl From<Timestamp> for u64 {
     #[inline]
@@ -56,10 +75,23 @@ impl fmt::Display for Timestamp {
     }
 }
 
+impl ToSql for Timestamp {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
+        Ok(ToSqlOutput::from(self.0 as i64)) // hrm - no u64 in rusqlite
+    }
+}
+
+impl FromSql for Timestamp {
+    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
+        value.as_i64().map(|v| Timestamp(v as u64)) // hrm - no u64
+    }
+}
+
+
 // NOTE: These discriminator values are the same as those used by Desktop
 // Firefox and are what is written to the database.
 #[derive(Debug, Copy, Clone, PartialEq)]
-enum VisitTransition {
+pub enum VisitTransition {
     // This transition type means the user followed a link.
     Link = 1,
 
@@ -77,8 +109,15 @@ enum VisitTransition {
     Reload = 9,
 }
 
+impl ToSql for VisitTransition {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
+        Ok(ToSqlOutput::from(*self as u8))
+    }
+}
+
 // Until std::num::FromPrimitive exists use this.
 // (shame we can't use the From trait here!)
+// XXX - this can probably just be FromSql - DB reads is the only use-case.
 fn visit_from_primitive(p: u32) -> Option<VisitTransition> {
     match p {
         1 => Some(VisitTransition::Link),
@@ -103,23 +142,4 @@ mod tests {
         assert_eq!(Some(VisitTransition::Link), visit_from_primitive(1));
         assert_eq!(None, visit_from_primitive(99));
     }
-}
-
-#[derive(Debug)]
-struct AddableVisit {
-    date: Timestamp,
-    transition: VisitTransition,
-    referrer: Option<Url>,
-}
-
-// A struct representing a "place info" which can be added/updated.
-// Consumers who want to record a visit need only supply one of these.
-// (Not clear this makes sense - it's a copy of what desktop does just to
-// get started)
-#[derive(Debug)]
-pub struct AddablePlaceInfo {
-    guid: Option<SyncGuid>,
-    url: Option<Url>,
-    title: Option<String>,
-    visits: Vec<AddableVisit>,
 }

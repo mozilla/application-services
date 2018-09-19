@@ -21,9 +21,6 @@ extern crate unicode_segmentation;
 #[macro_use]
 extern crate failure_derive;
 
-#[macro_use]
-extern crate more_asserts;
-
 extern crate url;
 
 extern crate rusqlite;
@@ -34,9 +31,8 @@ extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 
-#[macro_use]
-pub mod schema;
+pub mod api;
+pub mod error;
 pub mod types;
-// XXX - somehow we want to reuse db.rs across these libs
-pub mod db;
-//pub mod util;
+mod db;
+mod storage;
