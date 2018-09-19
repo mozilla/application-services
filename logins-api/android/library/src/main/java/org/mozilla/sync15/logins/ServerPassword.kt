@@ -105,18 +105,26 @@ data class ServerPassword (
     companion object {
         fun fromJSON(jsonObject: JSONObject): ServerPassword {
 
+            fun stringOrNull(key: String): String? {
+                try {
+                    return jsonObject.getString(key)
+                } catch (e: JSONException) {
+                    return null
+                }
+            }
+
             return ServerPassword(
                     id = jsonObject.getString("id"),
 
                     hostname = jsonObject.getString("hostname"),
                     password = jsonObject.getString("password"),
-                    username = jsonObject.optString("username", null),
+                    username = stringOrNull("username"),
 
-                    httpRealm = jsonObject.optString("httpRealm", null),
-                    formSubmitURL = jsonObject.optString("formSubmitURL", null),
+                    httpRealm = stringOrNull("httpRealm"),
+                    formSubmitURL = stringOrNull("formSubmitURL"),
 
-                    usernameField = jsonObject.optString("usernameField", null),
-                    passwordField = jsonObject.optString("passwordField", null),
+                    usernameField = stringOrNull("usernameField"),
+                    passwordField = stringOrNull("passwordField"),
 
                     timesUsed = jsonObject.getInt("timesUsed"),
 
