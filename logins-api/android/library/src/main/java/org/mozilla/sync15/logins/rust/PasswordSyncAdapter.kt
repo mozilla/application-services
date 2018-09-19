@@ -53,7 +53,9 @@ internal interface PasswordSyncAdapter : Library {
     fun sync15_passwords_reset(state: RawLoginSyncState, error: RustError.ByReference)
 
     fun sync15_passwords_touch(state: RawLoginSyncState, id: String, error: RustError.ByReference)
-    fun sync15_passwords_delete(state: RawLoginSyncState, id: String, error: RustError.ByReference): Boolean
+    // This is 1 for true and 0 for false, it would be a boolean but we need to return a value with
+    // a known size.
+    fun sync15_passwords_delete(state: RawLoginSyncState, id: String, error: RustError.ByReference): Byte
     // Note: returns guid of new login entry (unless one was specifically requested)
     fun sync15_passwords_add(state: RawLoginSyncState, new_login_json: String, error: RustError.ByReference): Pointer
     fun sync15_passwords_update(state: RawLoginSyncState, existing_login_json: String, error: RustError.ByReference)

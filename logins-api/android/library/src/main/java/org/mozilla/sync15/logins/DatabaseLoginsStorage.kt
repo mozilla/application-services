@@ -88,7 +88,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : Closeable, LoginsStora
     override fun delete(id: String): SyncResult<Boolean> {
         return safeAsync { error ->
             Log.d("LoginsAPI", "delete by id")
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_delete(this.raw!!, id, error)
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_delete(this.raw!!, id, error).toInt() != 0
         }
     }
 
