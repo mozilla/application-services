@@ -18,17 +18,17 @@ use ::storage::{PageId, fetch_page_info, new_page_info, NewPageInfo, add_visit};
 // get started)
 #[derive(Debug)]
 pub struct AddablePlaceInfo {
-    page_id: PageId,
-    title: Option<String>,
-    visits: Vec<AddableVisit>,
+    pub page_id: PageId,
+    pub title: Option<String>,
+    pub visits: Vec<AddableVisit>,
 }
 
 #[derive(Debug)]
 pub struct AddableVisit {
-    date: Timestamp,
-    transition: VisitTransition,
-    referrer: Option<Url>,
-    is_local: bool,
+    pub date: Timestamp,
+    pub transition: VisitTransition,
+    pub referrer: Option<Url>,
+    pub is_local: bool,
 }
 
 // insert a visit.

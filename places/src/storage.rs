@@ -4,6 +4,7 @@
 
 // A "storage" module - this module is intended to be the layer between the
 // API and the database.
+// This should probably be a sub-directory
 
 use std::{fmt};
 use url::{Url};
@@ -95,7 +96,8 @@ impl FetchedPageInfo {
 
 // History::FetchPageInfo
 pub fn fetch_page_info(db: &PlacesDb, page_id: &PageId) -> Result<Option<FetchedPageInfo>> {
-    let row = match page_id {
+    Ok(match page_id {
+        // XXX - there's way too much sql and db.query duplicated here!?
         PageId::Guid(ref guid) => {
             let sql = "
               SELECT guid, url, id, title, hidden, typed, frecency,
@@ -118,8 +120,7 @@ pub fn fetch_page_info(db: &PlacesDb, page_id: &PageId) -> Result<Option<Fetched
               WHERE url_hash = hash(:page_url) AND url = :page_url";
             db.query_row_named(sql, &[(":page_url", &url.clone().into_string())], FetchedPageInfo::from_row)?
         }
-    };
-    Ok(row)
+    })
 }
 
 // What you need to supply when calling new_page_info()
