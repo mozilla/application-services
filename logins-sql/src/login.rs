@@ -19,19 +19,24 @@ pub struct Login {
     // rename_all = "camelCase" by default will do formSubmitUrl, but we can just
     // override this one field.
     #[serde(rename = "formSubmitURL")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub form_submit_url: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub http_realm: Option<String>,
 
     #[serde(default)]
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub username: String,
 
     pub password: String,
 
     #[serde(default)]
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub username_field: String,
 
     #[serde(default)]
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub password_field: String,
 
     #[serde(default)]
