@@ -6,9 +6,10 @@
 // wip-sync-sql-store branch, but with login specific code removed.
 // We should work out how to split this into a library we can reuse.
 
-use rusqlite::{Connection, types::{ToSql, FromSql}, Row};
+use rusqlite::{self, Connection, types::{ToSql, FromSql}, Row};
 use error::*;
 use super::schema;
+use hash;
 
 use std::path::Path;
 use std::collections::hash_map::DefaultHasher;
@@ -193,10 +194,30 @@ impl PlacesDb {
 fn define_functions(c: &Connection) -> Result<()> {
     // This is good enough for now
     c.create_scalar_function("hash", 1, true, move |ctx| {
-        let value = try!(ctx.get::<String>(0));
-        let mut s = DefaultHasher::new();
-        value.hash(&mut s);
-        Ok(s.finish() as i64)
+        Ok(match ctx.len() {
+            1 => {
+                let value = ctx.get::<String>(0)?;
+                hash::hash_url(&value)
+            }
+            2 => {
+                let value = ctx.get::<String>(0)?;
+                let mode = ctx.get::<String>(1)?;
+                match mode.as_str() {
+                    "" => hash::hash_url(&value),
+                    "prefix_lo" => hash::hash_url_prefix(&value, hash::PrefixMode::Lo),
+                    "prefix_hi" => hash::hash_url_prefix(&value, hash::PrefixMode::Hi),
+                    arg => {
+                        return Err(rusqlite::Error::UserFunctionError(format!(
+                            "`hash` second argument must be either '', 'prefix_lo', or 'prefix_hi', got {:?}.",
+                            arg).into()));
+                    }
+                }
+            }
+            n => {
+                return Err(rusqlite::Error::UserFunctionError(format!(
+                    "`hash` expects 1 or 2 arguments, got {}.", n).into()));
+            }
+        } as i64)
     })?;
     Ok(())
 }

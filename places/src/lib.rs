@@ -36,3 +36,4 @@ pub mod error;
 pub mod types;
 mod db;
 mod storage;
+mod hash;
