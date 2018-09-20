@@ -58,7 +58,7 @@ mod tests {
     use ::storage::{PageId};
     #[test]
     fn test_dumb_search() {
-        let c = Connection::new_in_memory(None).expect("should get a connection");
+        let c = Connection::new_in_memory("search_test", None).expect("should get a connection");
         let url = Url::parse("http://example.com").expect("it's a valid url");
         let visits = vec![AddableVisit { date: Timestamp::now(),
                                          transition: VisitTransition::Link,

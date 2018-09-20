@@ -6,6 +6,7 @@ use std::path::Path;
 
 use error::*;
 use ::db::PlacesDb;
+use url::percent_encoding;
 
 // A Places "Connection"
 pub struct Connection {
@@ -19,8 +20,12 @@ impl Connection {
         Ok(Self { db })
     }
 
-    pub fn new_in_memory(encryption_key: Option<&str>) -> Result<Self> {
-        let db = PlacesDb::open_in_memory(encryption_key)?;
+    pub fn new_in_memory(mem_db_name: &str, encryption_key: Option<&str>) -> Result<Self> {
+        let name = format!("file:{}?mode=memory&cache=shared",
+            percent_encoding::percent_encode(mem_db_name.as_bytes(),
+                                             percent_encoding::DEFAULT_ENCODE_SET));
+
+        let db = PlacesDb::open(&name, encryption_key)?;
         Ok(Self { db })
     }
 
