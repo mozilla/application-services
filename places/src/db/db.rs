@@ -12,8 +12,6 @@ use super::schema;
 use hash;
 
 use std::path::Path;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 
 pub const MAX_VARIABLE_NUMBER: usize = 999;
 
