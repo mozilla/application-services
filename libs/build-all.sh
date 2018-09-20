@@ -53,8 +53,7 @@ SQLCIPHER_SRC_PATH=$(abspath "sqlcipher-${SQLCIPHER_VERSION}")
 
 if [ "$PLATFORM" == "ios" ]
 then
-  # TODO: "$SQLCIPHER_SRC_PATH"
-  ./build-all-ios.sh "$OPENSSL_SRC_PATH"
+  ./build-all-ios.sh "$OPENSSL_SRC_PATH" "$SQLCIPHER_SRC_PATH"
 elif [ "$PLATFORM" == "android" ]
 then
   ./build-all-android.sh "$OPENSSL_SRC_PATH" "$SQLCIPHER_SRC_PATH"
