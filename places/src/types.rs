@@ -90,6 +90,7 @@ impl FromSql for Timestamp {
 
 // NOTE: These discriminator values are the same as those used by Desktop
 // Firefox and are what is written to the database.
+#[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum VisitTransition {
     // This transition type means the user followed a link.
@@ -115,21 +116,20 @@ impl ToSql for VisitTransition {
     }
 }
 
-// Until std::num::FromPrimitive exists use this.
-// (shame we can't use the From trait here!)
-// XXX - this can probably just be FromSql - DB reads is the only use-case.
-fn visit_from_primitive(p: u32) -> Option<VisitTransition> {
-    match p {
-        1 => Some(VisitTransition::Link),
-        2 => Some(VisitTransition::Typed),
-        3 => Some(VisitTransition::Bookmark),
-        4 => Some(VisitTransition::Embed),
-        5 => Some(VisitTransition::RedirectPermanent),
-        6 => Some(VisitTransition::RedirectTemporary),
-        7 => Some(VisitTransition::Download),
-        8 => Some(VisitTransition::FramedLink),
-        9 => Some(VisitTransition::Reload),
-        _ => None,
+impl VisitTransition {
+    pub fn from_primitive(p: u32) -> Option<Self> {
+        match p {
+            1 => Some(VisitTransition::Link),
+            2 => Some(VisitTransition::Typed),
+            3 => Some(VisitTransition::Bookmark),
+            4 => Some(VisitTransition::Embed),
+            5 => Some(VisitTransition::RedirectPermanent),
+            6 => Some(VisitTransition::RedirectTemporary),
+            7 => Some(VisitTransition::Download),
+            8 => Some(VisitTransition::FramedLink),
+            9 => Some(VisitTransition::Reload),
+            _ => None,
+        }
     }
 }
 
@@ -139,7 +139,7 @@ mod tests {
 
     #[test]
     fn test_primitive() {
-        assert_eq!(Some(VisitTransition::Link), visit_from_primitive(1));
-        assert_eq!(None, visit_from_primitive(99));
+        assert_eq!(Some(VisitTransition::Link), VisitTransition::from_primitive(1));
+        assert_eq!(None, VisitTransition::from_primitive(99));
     }
 }
