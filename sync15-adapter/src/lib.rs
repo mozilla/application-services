@@ -7,14 +7,12 @@ extern crate base64;
 extern crate openssl;
 extern crate reqwest;
 extern crate hawk;
+extern crate hyper;
 
 extern crate failure;
 
 #[macro_use]
 extern crate failure_derive;
-
-#[macro_use]
-extern crate hyper;
 
 #[macro_use]
 extern crate lazy_static;

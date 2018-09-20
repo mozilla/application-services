@@ -8,7 +8,7 @@ name = "fxa_client"
 crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
-libc = "0.2"
+libc = "0.2.43"
 
 [dependencies.fxa-client]
 path = "../"

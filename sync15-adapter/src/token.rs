@@ -5,22 +5,23 @@
 use hawk;
 
 use reqwest::{Client, Request, Url};
-use hyper::header::{Authorization, Bearer};
+use hyper::header::AUTHORIZATION;
 use error::{self, Result, ErrorKind};
 use std::fmt;
 use std::borrow::{Borrow, Cow};
+use std::str::FromStr;
 use std::time::{SystemTime, Duration};
 use std::cell::{RefCell};
 use util::ServerTimestamp;
 
 /// Tokenserver's timestamp is X-Timestamp and not X-Weave-Timestamp.
-header! { (RetryAfter, "Retry-After") => [f64] }
+const RETRY_AFTER: &str = "Retry-After";
 
 /// Tokenserver's timestamp is X-Timestamp and not X-Weave-Timestamp. The value is in seconds.
-header! { (XTimestamp, "X-Timestamp") => [ServerTimestamp] }
+const X_TIMESTAMP: &str = "X-Timestamp";
 
 /// OAuth tokenserver api uses this instead of X-Client-State.
-header! { (XKeyID, "X-KeyID") => [String] }
+const X_KEY_ID: &str = "X-KeyID";
 
 // The TokenserverToken is the token as received directly from the token server
 // and deserialized from JSON.
@@ -68,8 +69,8 @@ impl TokenServerFetcher {
 impl TokenFetcher for TokenServerFetcher {
     fn fetch_token(&self, request_client: &Client) -> Result<TokenFetchResult> {
         let mut resp = request_client.get(self.server_url.clone())
-                                     .header(Authorization(Bearer { token: self.access_token.clone() }))
-                                     .header(XKeyID(self.key_id.clone()))
+                                     .header(AUTHORIZATION, format!("Bearer {}", self.access_token))
+                                     .header(X_KEY_ID, self.key_id.clone())
                                      .send()?;
 
         if !resp.status().is_success() {
@@ -78,7 +79,8 @@ impl TokenFetcher for TokenServerFetcher {
             debug!("  Response body {}", resp.text().unwrap_or_else(|_| "???".into()));
             // XXX - shouldn't we "chain" these errors - ie, a BackoffError could
             // have a TokenserverHttpError as its cause?
-            if let Some(ms) = resp.headers().get::<RetryAfter>().map(|h| (**h * 1000f64) as u64) {
+            // XXX - we are silentely dropping UTF8 parsing/number parsing errors here.
+            if let Some(ms) = resp.headers().get(RETRY_AFTER).and_then(|v| v.to_str().ok()).and_then(|s| s.parse::<f64>().ok()).map(|f| (f * 1000f64) as u64) {
                 let when = self.now() + Duration::from_millis(ms);
                 return Err(ErrorKind::BackoffError(when).into());
             }
@@ -88,8 +90,9 @@ impl TokenFetcher for TokenServerFetcher {
 
         let token: TokenserverToken = resp.json()?;
         let server_timestamp = resp.headers()
-                    .get::<XTimestamp>()
-                    .map(|h| **h)
+                    .get(X_TIMESTAMP)
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|s| ServerTimestamp::from_str(s).ok())
                     .ok_or_else(|| ErrorKind::MissingServerTimestamp)?;
         Ok(TokenFetchResult { token, server_timestamp })
     }
@@ -136,7 +139,7 @@ impl TokenContext {
         now < self.valid_until
     }
 
-    fn authorization(&self, req: &Request) -> Result<Authorization<String>> {
+    fn authorization(&self, req: &Request) -> Result<String> {
         let url = req.url();
 
         let path_and_query = match url.query() {
@@ -159,7 +162,7 @@ impl TokenContext {
             path_and_query.borrow()
         ).request().make_header(&self.credentials)?;
 
-        Ok(Authorization(format!("Hawk {}", header)))
+        Ok(format!("Hawk {}", header))
     }
 }
 
@@ -319,7 +322,7 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
         }
     }
 
-    fn authorization(&self, http_client: &Client, req: &Request) -> Result<Authorization<String>> {
+    fn authorization(&self, http_client: &Client, req: &Request) -> Result<String> {
         self.with_token(http_client, |ctx| ctx.authorization(req))
     }
 
@@ -345,7 +348,7 @@ impl TokenProvider {
         }
     }
 
-    pub fn authorization(&self, http_client: &Client, req: &Request) -> Result<Authorization<String>> {
+    pub fn authorization(&self, http_client: &Client, req: &Request) -> Result<String> {
         self.imp.authorization(http_client, req)
     }
 

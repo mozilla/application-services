@@ -153,6 +153,12 @@ pub enum ErrorKind {
     #[fail(display = "Malformed URL error: {}", _0)]
     MalformedUrl(#[fail(cause)] reqwest::UrlError),
 
+    #[fail(display = "Header parsing error: {}", _0)]
+    HeaderParseError(#[fail(cause)] reqwest::header::ToStrError),
+
+    #[fail(display = "Malformed header error: {}", _0)]
+    MalformedHeader(#[fail(cause)] reqwest::header::InvalidHeaderValue),
+
     #[cfg(feature = "browserid")]
     #[fail(display = "HAWK error: {}", _0)]
     HawkError(#[fail(cause)] SyncFailure<hawk::Error>),
@@ -182,7 +188,9 @@ impl_from_error! {
     (JsonError, ::serde_json::Error),
     (UTF8DecodeError, ::std::string::FromUtf8Error),
     (RequestError, ::reqwest::Error),
-    (MalformedUrl, ::reqwest::UrlError)
+    (MalformedUrl, ::reqwest::UrlError),
+    (HeaderParseError, ::reqwest::header::ToStrError),
+    (MalformedHeader, ::reqwest::header::InvalidHeaderValue)
 }
 
 #[cfg(feature = "browserid")]
