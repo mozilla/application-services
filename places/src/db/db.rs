@@ -190,8 +190,7 @@ impl PlacesDb {
 // ----------------------------- end of stuff that should be common --------------------
 
 fn define_functions(c: &Connection) -> Result<()> {
-    // This is good enough for now
-    c.create_scalar_function("hash", 1, true, move |ctx| {
+    c.create_scalar_function("hash", -1, true, move |ctx| {
         Ok(match ctx.len() {
             1 => {
                 let value = ctx.get::<String>(0)?;
