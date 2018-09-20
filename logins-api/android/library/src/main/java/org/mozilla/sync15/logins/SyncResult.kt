@@ -21,7 +21,13 @@ import java.util.ArrayList
  */
 class SyncResult<T> {
 
-    private var mComplete: Boolean = false
+    private enum class State {
+        Pending,
+        Success,
+        Failure,
+    }
+
+    private var mState: State = State.Pending
     private var mValue: T? = null
     private var mError: Exception? = null
 
@@ -117,19 +123,27 @@ class SyncResult<T> {
 
             override fun onException(exception: Exception) {
                 if (exceptionListener == null) {
-                    // Do not swallow thrown exceptions if a listener is not present
-                    throw exception
+                    // Let later handlers in the chain handle the exception.
+                    result.completeFrom(fromException(exception))
+                } else {
+                    try {
+                        result.completeFrom(exceptionListener.onException(exception))
+                    } catch (ex: Exception) {
+                        // Allow users to `throw err` instead of returning `SyncResult.fromException`
+                        // (similar to JavaScript promises).
+                        result.completeFrom(fromException(ex))
+                    }
                 }
-
-                result.completeFrom(exceptionListener.onException(exception))
             }
         }
 
-        if (mComplete) {
-            mError?.let { listener.onException(it) }
-            mValue?.let { listener.onValue(it) }
-        } else {
-            mListeners.add(listener)
+        // Note: This cast from `T?` to `T` can't be `mValue!!` because
+        // `T` could be a nullable type.
+        @Suppress("UNCHECKED_CAST")
+        when (mState) {
+            State.Success -> listener.onValue(mValue as T)
+            State.Failure -> listener.onException(mError!!)
+            State.Pending -> mListeners.add(listener)
         }
 
         return result
@@ -166,12 +180,12 @@ class SyncResult<T> {
      */
     @Synchronized
     fun complete(value: T) {
-        if (mComplete) {
+        if (mState != State.Pending) {
             throw IllegalStateException("result is already complete")
         }
 
         mValue = value
-        mComplete = true
+        mState = State.Success
 
         ArrayList(mListeners).forEach { it.onValue(value) }
     }
@@ -185,12 +199,12 @@ class SyncResult<T> {
      */
     @Synchronized
     fun completeExceptionally(exception: Exception) {
-        if (mComplete) {
+        if (mState != State.Pending) {
             throw IllegalStateException("result is already complete")
         }
 
         mError = exception
-        mComplete = true
+        mState = State.Failure
 
         ArrayList(mListeners).forEach { it.onException(exception) }
     }

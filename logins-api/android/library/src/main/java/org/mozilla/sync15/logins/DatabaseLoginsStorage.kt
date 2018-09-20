@@ -26,7 +26,13 @@ class DatabaseLoginsStorage(private val dbPath: String) : Closeable, LoginsStora
     override fun isLocked(): SyncResult<Boolean> {
         return safeAsync {
             // Run inside a safeAsync block to be sure that all pending operations have finished.
-            raw != null
+            raw == null
+        }
+    }
+
+    private fun checkUnlocked() {
+        if (raw == null) {
+            throw LoginsStorageException("Using DatabaseLoginsStorage without unlocking first");
         }
     }
 
@@ -62,6 +68,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : Closeable, LoginsStora
     override fun sync(syncInfo: SyncUnlockInfo): SyncResult<Unit> {
         return safeAsync { error ->
             Log.d("LoginsAPI", "sync")
+            checkUnlocked()
             PasswordSyncAdapter.INSTANCE.sync15_passwords_sync(this.raw!!,
                     syncInfo.kid,
                     syncInfo.fxaAccessToken,
@@ -74,6 +81,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : Closeable, LoginsStora
     override fun reset(): SyncResult<Unit> {
         return safeAsync { error ->
             Log.d("LoginsAPI", "reset")
+            checkUnlocked()
             PasswordSyncAdapter.INSTANCE.sync15_passwords_reset(this.raw!!, error)
         }
     }
@@ -81,6 +89,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : Closeable, LoginsStora
     override fun wipe(): SyncResult<Unit> {
         return safeAsync { error ->
             Log.d("LoginsAPI", "wipe")
+            checkUnlocked()
             PasswordSyncAdapter.INSTANCE.sync15_passwords_wipe(this.raw!!, error)
         }
     }
@@ -88,12 +97,15 @@ class DatabaseLoginsStorage(private val dbPath: String) : Closeable, LoginsStora
     override fun delete(id: String): SyncResult<Boolean> {
         return safeAsync { error ->
             Log.d("LoginsAPI", "delete by id")
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_delete(this.raw!!, id, error)
+            checkUnlocked()
+            val deleted = PasswordSyncAdapter.INSTANCE.sync15_passwords_delete(this.raw!!, id, error)
+            deleted.toInt() != 0
         }
     }
 
     override fun get(id: String): SyncResult<ServerPassword?> {
         return safeAsyncString { error ->
+            checkUnlocked()
             PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_id(this.raw!!, id, error)
         }.then { json ->
             SyncResult.fromValue(
@@ -109,6 +121,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : Closeable, LoginsStora
     override fun touch(id: String): SyncResult<Unit> {
         return safeAsync { error ->
             Log.d("LoginsAPI", "touch by id")
+            checkUnlocked()
             PasswordSyncAdapter.INSTANCE.sync15_passwords_touch(this.raw!!, id, error)
         }
     }
@@ -116,10 +129,30 @@ class DatabaseLoginsStorage(private val dbPath: String) : Closeable, LoginsStora
     override fun list(): SyncResult<List<ServerPassword>> {
         return safeAsyncString {
             Log.d("LoginsAPI", "list all")
+            checkUnlocked()
             PasswordSyncAdapter.INSTANCE.sync15_passwords_get_all(this.raw!!, it)
         }.then { json ->
-            Log.d("Logins", "got list: " + json);
+            Log.d("Logins", "got list: " + json)
+            checkUnlocked()
             SyncResult.fromValue(ServerPassword.fromJSONArray(json!!))
+        }
+    }
+
+    override fun add(login: ServerPassword): SyncResult<String> {
+        return safeAsyncString {
+            val s = login.toJSON().toString()
+            checkUnlocked()
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_add(this.raw!!, s, it)
+        }.then {
+            SyncResult.fromValue(it!!)
+        }
+    }
+
+    override fun update(login: ServerPassword): SyncResult<Unit> {
+        return safeAsync {
+            val s = login.toJSON().toString()
+            checkUnlocked()
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_update(this.raw!!, s, it)
         }
     }
 

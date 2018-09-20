@@ -5,6 +5,7 @@
 use std::{self, panic, thread, ptr, process};
 use std::os::raw::c_char;
 use std::ffi::CString;
+use rusqlite;
 
 use logins_sql::{
     Result,
@@ -126,9 +127,22 @@ pub enum ExternErrorCode {
     /// Indicates the FxA credentials are invalid, and should be refreshed.
     AuthInvalidError = 1,
 
-    // TODO: lockbox indicated that they would want to know when we fail to open
-    // the DB due to invalid key.
-    // https://github.com/mozilla/application-services/issues/231
+    /// Returned from an `update()` call where the record ID did not exist.
+    NoSuchRecord = 2,
+
+    /// Returned from an `add()` call that was provided an ID, where the ID
+    /// already existed.
+    DuplicateGuid = 3,
+
+    /// Attempted to insert or update a record so that it is invalid
+    InvalidLogin = 4,
+
+    /// Either the file is not a database, or it is not encrypted with the
+    /// provided encryption key.
+    InvalidKeyError = 5,
+
+    /// A request to the sync server failed.
+    NetworkError = 6,
 }
 
 /// Represents an error that occurred on the rust side. Many rust FFI functions take a
@@ -179,9 +193,31 @@ fn get_code(err: &Error) -> ExternErrorCode {
             match e.kind() {
                 Sync15ErrorKind::TokenserverHttpError(401) => {
                     ExternErrorCode::AuthInvalidError
+                },
+                Sync15ErrorKind::RequestError(_) => {
+                    ExternErrorCode::NetworkError
                 }
                 _ => ExternErrorCode::OtherError,
             }
+        }
+        ErrorKind::DuplicateGuid(id) => {
+            error!("Guid already exists: {}", id);
+            ExternErrorCode::DuplicateGuid
+        }
+        ErrorKind::NoSuchRecord(id) => {
+            error!("No record exists with id {}", id);
+            ExternErrorCode::NoSuchRecord
+        }
+        ErrorKind::InvalidLogin(desc) => {
+            error!("Invalid login: {}", desc);
+            ExternErrorCode::InvalidLogin
+        }
+        // We can't destructure `err` without bringing in the libsqlite3_sys crate
+        // (and I'd really rather not) so we can't put this in the match.
+        ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, _))
+                if err.code == rusqlite::ErrorCode::NotADatabase => {
+            error!("Not a database / invalid key error");
+            ExternErrorCode::InvalidKeyError
         }
         err => {
             error!("Unexpected error: {:?}", err);

@@ -11,6 +11,7 @@ package org.mozilla.sync15.logins
 import android.util.Log
 import kotlinx.coroutines.experimental.launch
 import java.io.Closeable
+import java.util.UUID
 
 private enum class LoginsStorageState {
     Unlocked,
@@ -104,27 +105,70 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : Closeable, L
         return asyncResult {
             checkUnlocked()
             val sp = list.find { it.id == id }
+                    ?: throw NoSuchRecordException("No such record: $id")
+            // ServerPasswords are immutable, so we remove the current one from the list and
+            // add a new one with updated properties
+            list = list.filter { it.id != id }
+
+            val newsp = sp.copy(
+                timeLastUsed = System.currentTimeMillis(),
+                timesUsed = sp.timesUsed + 1
+            )
+            list += newsp
+        }
+    }
+
+    override fun add(login: ServerPassword): SyncResult<String> {
+        return asyncResult {
+            checkUnlocked()
+
+            val toInsert = if (login.id.isEmpty()) {
+                // This isn't anything like what the IDs we generate in rust look like
+                // but whatever.
+                login.copy(id = UUID.randomUUID().toString())
+            } else {
+                login
+            }.copy(
+                timesUsed = 1,
+                timeLastUsed = System.currentTimeMillis(),
+                timeCreated = System.currentTimeMillis(),
+                timePasswordChanged = System.currentTimeMillis()
+            )
+
+            checkValid(toInsert)
+
+            val sp = list.find { it.id == toInsert.id }
             if (sp != null) {
-                // ServerPasswords are immutable, so we remove the current one from the list and
-                // add a new one with updated properties
-                list = list.filter { it.id != id };
-                // Is there a better way to do this?
-                val newsp = ServerPassword(
-                        id = sp.id,
-                        hostname = sp.hostname,
-                        username = sp.username,
-                        password = sp.password,
-                        httpRealm = sp.httpRealm,
-                        formSubmitURL = sp.formSubmitURL,
-                        timeCreated = sp.timeCreated,
-                        timePasswordChanged = sp.timePasswordChanged,
-                        usernameField = sp.usernameField,
-                        passwordField = sp.passwordField,
-                        timeLastUsed = System.currentTimeMillis(),
-                        timesUsed = sp.timesUsed + 1
-                )
-                list += newsp
+                // Note: Not the way this is formatted in rust -- don't rely on the formatting!
+                throw IdCollisionException("Id already exists " + toInsert.id)
             }
+
+            list += toInsert
+            toInsert.id
+        }
+    }
+
+    override fun update(login: ServerPassword): SyncResult<Unit> {
+        return asyncResult {
+            checkUnlocked()
+            val current = list.find { it.id == login.id }
+                    ?: throw NoSuchRecordException("No such record: " + login.id)
+
+            val newRecord = login.copy(
+                    timeLastUsed = System.currentTimeMillis(),
+                    timesUsed = current.timesUsed + 1,
+                    timeCreated = current.timeCreated,
+                    timePasswordChanged = if (current.password == login.password) {
+                        current.timePasswordChanged
+                    } else {
+                        System.currentTimeMillis()
+                    })
+
+            checkValid(newRecord)
+
+            list = list.filter { it.id != login.id }
+
+            list += newRecord
         }
     }
 
@@ -146,6 +190,23 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : Closeable, L
     private fun checkUnlocked() {
         if (state != LoginsStorageState.Unlocked) {
             throw LoginsStorageException("Using MemoryLoginsStorage without unlocking first: $state");
+        }
+    }
+
+    private fun checkValid(login: ServerPassword) {
+        if (login.hostname == "") {
+            throw InvalidRecordException("Invalid login: Hostname is empty")
+        }
+        if (login.password == "") {
+            throw InvalidRecordException("Invalid login: Password is empty")
+        }
+        if (login.formSubmitURL != null && login.httpRealm != null) {
+            throw InvalidRecordException(
+                    "Invalid login: Both `formSubmitUrl` and `httpRealm` are present")
+        }
+        if (login.formSubmitURL == null && login.httpRealm == null) {
+            throw InvalidRecordException(
+                    "Invalid login: Neither `formSubmitUrl` and `httpRealm` are present")
         }
     }
 

@@ -1,4 +1,0 @@
-# We don't check the jniLibs folder into git - eventually we need a build
-# process to populate it.
-# We also don't want to use git symlinks as they don't work on Windows :(
-jniLibs

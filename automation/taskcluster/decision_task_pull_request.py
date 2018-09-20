@@ -48,17 +48,28 @@ def create_fxaclient_task():
         "payload": {
             "features": {},
             "maxRunTime": 7200,
-            "image": "mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-rust-beta",
+            "image": "mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-1.28.0-rust-beta-1.29.0-beta.15",
             "command": [
                 "/bin/bash",
                 "--login",
                 "-cx",
-                "export TERM=dumb && git clone %s && cd application-services && git fetch %s %s && git config advice.detachedHead false && git checkout %s && ./scripts/taskcluster-android.sh" % (REPO_URL, REPO_URL, BRANCH, COMMIT)
+                "export TERM=dumb \
+                 && git clone %s \
+                 && cd application-services \
+                 && git fetch %s %s \
+                 && git config advice.detachedHead false \
+                 && git checkout %s \
+                 && ./scripts/taskcluster-android.sh \
+                 && ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease" % (REPO_URL, REPO_URL, BRANCH, COMMIT)
             ],
             "artifacts": {
-                "public/bin/mozilla/fxa_client_android.zip": {
+                "public/bin/mozilla/fxa_client-release.aar": {
                     "type": "file",
-                    "path": "/build/application-services/fxa-client/fxa_client_android.zip",
+                    "path": "/build/application-services/fxa-client/sdks/android/library/build/outputs/aar/fxa_client-release.aar",
+                },
+                "public/bin/mozilla/logins-release.aar": {
+                    "type": "file",
+                    "path": "/build/application-services/logins-api/android/library/build/outputs/aar/logins-release.aar",
                 },
             },
             "deadline": taskcluster.stringDate(deadline)
@@ -66,7 +77,7 @@ def create_fxaclient_task():
         "provisionerId": "aws-provisioner-v1",
         "metadata": {
             "name": "application-services - FxA client library",
-            "description": "Building FxA client Rust library and native code dependencies",
+            "description": "Builds the FxA client and the Logins API for Android architectures.",
             "owner": "nalexander@mozilla.com",
             "source": "https://github.com/mozilla/application-services"
         }

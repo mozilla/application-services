@@ -20,5 +20,5 @@ native-tls = { git = 'https://github.com/vladikoff/rust-native-tls', rev = '8856
 
 [profile.release]
 opt-level = "z"
-debug = false
+debug = true
 lto = true

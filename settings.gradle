@@ -1,0 +1,7 @@
+include ':fxa-client-library'
+include ':logins-library'
+include ':logins-sample'
+
+project(':fxa-client-library').projectDir = new File("fxa-client/sdks/android/library")
+project(':logins-library').projectDir = new File("logins-api/android/library")
+project(':logins-sample').projectDir = new File("logins-api/android/sample")

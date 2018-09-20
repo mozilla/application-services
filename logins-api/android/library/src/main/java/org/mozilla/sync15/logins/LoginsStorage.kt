@@ -41,7 +41,7 @@ interface LoginsStorage : Closeable {
     fun wipe(): SyncResult<Unit>
 
     /**
-     * Delete a password with the given ID. TODO: should be SyncResult<bool>!
+     * Delete a password with the given ID.
      */
     fun delete(id: String): SyncResult<Boolean>
 
@@ -59,4 +59,39 @@ interface LoginsStorage : Closeable {
      * Fetch the full list of passwords from the underlying storage layer.
      */
     fun list(): SyncResult<List<ServerPassword>>
+
+    /**
+     * Insert the provided login into the database.
+     *
+     * This function ignores values in metadata fields (`timesUsed`,
+     * `timeCreated`, `timeLastUsed`, and `timePasswordChanged`).
+     *
+     * If login has an empty id field, then a GUID will be
+     * generated automatically. The format of generated guids
+     * are left up to the implementation of LoginsStorage (in
+     * practice the [DatabaseLoginsStorage] generates 12-character
+     * base64url (RFC 4648) encoded strings, and [MemoryLoginsStorage]
+     * generates strings using [java.util.UUID.toString])
+     *
+     * This will return an error result if a GUID is provided but
+     * collides with an existing record, or if the provided record
+     * is invalid (missing password, hostname, or doesn't have exactly
+     * one of formSubmitURL and httpRealm).
+     */
+    fun add(login: ServerPassword): SyncResult<String>
+
+    /**
+     * Update the fields in the provided record.
+     *
+     * This will return an error if `login.id` does not refer to
+     * a record that exists in the database, or if the provided record
+     * is invalid (missing password, hostname, or doesn't have exactly
+     * one of formSubmitURL and httpRealm).
+     *
+     * Like `add`, this function will ignore values in metadata
+     * fields (`timesUsed`, `timeCreated`, `timeLastUsed`, and
+     * `timePasswordChanged`).
+     */
+    fun update(login: ServerPassword): SyncResult<Unit>
+
 }

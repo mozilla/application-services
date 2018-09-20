@@ -14,7 +14,7 @@ import org.json.JSONObject;
 /**
  * Raw password data that is stored by the LoginsStorage implementation.
  */
-class ServerPassword (
+data class ServerPassword (
 
      /**
       * The unique ID associated with this login.
@@ -25,9 +25,18 @@ class ServerPassword (
       */
     val id: String,
 
+    /**
+     * The hostname this record corresponds to. It is an error to
+     * attempt to insert or update a record to have a blank hostname.
+     */
     val hostname: String,
-    val username: String?,
 
+    val username: String? = null,
+
+    /**
+     * The password field of this record. It is an error to attempt to insert or update
+     * a record to have a blank password.
+     */
     val password: String,
 
     /**
@@ -42,32 +51,80 @@ class ServerPassword (
      */
     val formSubmitURL: String? = null,
 
-    val timesUsed: Int,
+    /**
+     * Number of times this password has been used.
+     */
+    val timesUsed: Int = 0,
 
-    val timeCreated: Long,
-    val timeLastUsed: Long,
-    val timePasswordChanged: Long,
+    /**
+     * Time of creation in milliseconds from the unix epoch.
+     */
+    val timeCreated: Long = 0L,
+
+    /**
+     * Time of last use in milliseconds from the unix epoch.
+     */
+    val timeLastUsed: Long = 0L,
+
+    /**
+     * Time of last password change in milliseconds from the unix epoch.
+     */
+    val timePasswordChanged: Long = 0L,
 
     val usernameField: String? = null,
     val passwordField: String? = null
 ) {
 
+    fun toJSON(): JSONObject {
+        val o = JSONObject()
+        o.put("id", this.id)
+        o.put("hostname", this.hostname)
+        o.put("password", password)
+        o.put("timesUsed", timesUsed)
+        o.put("timeCreated", timeCreated)
+        o.put("timeLastUsed", timeLastUsed)
+        o.put("timePasswordChanged", timePasswordChanged)
+        if (username != null) {
+            o.put("username", username)
+        }
+        if (httpRealm != null) {
+            o.put("httpRealm", httpRealm)
+        }
+        if (formSubmitURL != null) {
+            o.put("formSubmitURL", formSubmitURL)
+        }
+        if (usernameField != null) {
+            o.put("usernameField", usernameField)
+        }
+        if (passwordField != null) {
+            o.put("passwordField", passwordField)
+        }
+        return o
+    }
 
     companion object {
         fun fromJSON(jsonObject: JSONObject): ServerPassword {
+
+            fun stringOrNull(key: String): String? {
+                try {
+                    return jsonObject.getString(key)
+                } catch (e: JSONException) {
+                    return null
+                }
+            }
 
             return ServerPassword(
                     id = jsonObject.getString("id"),
 
                     hostname = jsonObject.getString("hostname"),
                     password = jsonObject.getString("password"),
-                    username = jsonObject.optString("username", null),
+                    username = stringOrNull("username"),
 
-                    httpRealm = jsonObject.optString("httpRealm", null),
-                    formSubmitURL = jsonObject.optString("formSubmitURL", null),
+                    httpRealm = stringOrNull("httpRealm"),
+                    formSubmitURL = stringOrNull("formSubmitURL"),
 
-                    usernameField = jsonObject.optString("usernameField", null),
-                    passwordField = jsonObject.optString("passwordField", null),
+                    usernameField = stringOrNull("usernameField"),
+                    passwordField = stringOrNull("passwordField"),
 
                     timesUsed = jsonObject.getInt("timesUsed"),
 
@@ -77,6 +134,7 @@ class ServerPassword (
             )
         }
 
+
         fun fromJSON(jsonText: String): ServerPassword {
             return fromJSON(JSONObject(jsonText))
         }
@@ -84,7 +142,7 @@ class ServerPassword (
         fun fromJSONArray(jsonArrayText: String): List<ServerPassword> {
             val result: MutableList<ServerPassword> = mutableListOf();
             val array = JSONArray(jsonArrayText);
-            for (index in 0..array.length()) {
+            for (index in 0 until array.length()) {
                 result.add(fromJSON(array.getJSONObject(index)));
             }
             return result

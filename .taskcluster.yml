@@ -58,7 +58,7 @@ tasks:
     payload:
       maxRunTime: 7200
       deadline: "{{ '4 hours' | $fromNow }}"
-      image: 'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-rust-beta'
+      image: 'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-1.28.0-rust-beta-1.29.0-beta.15'
       command:
         - /bin/bash
         - '-c'
@@ -70,18 +70,22 @@ tasks:
           && git checkout '{{ event.version }}'
           && python automation/taskcluster/release/fetch-bintray-api-key.py
           && ./scripts/taskcluster-android.sh
-          && cd logins-api/android
-          && ./gradlew --no-daemon clean library:assembleRelease
+          && ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease
           && ./gradlew bintrayUpload --debug -PvcsTag="{{ event.head.sha }}"
       artifacts:
-        'public/bin/mozilla/fxa_client_android_{{ event.version }}.zip':
+        'public/bin/mozilla/fxa_client-release-{{ event.version }}.aar':
           type: 'file'
-          path: '/build/application-services/dist/fxa_client_android.zip'
+          path: '/build/application-services/fxa-client/sdks/android/library/build/outputs/aar/fxa_client-release.aar'
+        'public/bin/mozilla/logins-release-{{ event.version }}.aar':
+          type: 'file'
+          path: '/build/application-services/logins-api/android/library/build/outputs/aar/logins-release.aar'
+      features:
+        taskclusterProxy: true
     routes:
       - index.project.fxaclient.builds.{{ event.version }}
     metadata:
       name: fxa-client Android Build - Release ({{ event.version }})
-      description: Builds the FxA lib for Android architectures
+      description: Builds the FxA client and the Logins API for Android architectures.
       owner: '{{ event.head.user.email }}'
       source: '{{ event.head.repo.url }}'
 
@@ -99,7 +103,7 @@ tasks:
     payload:
       maxRunTime: 7200
       deadline: "{{ '4 hours' | $fromNow }}"
-      image: 'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-rust-beta'
+      image: 'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-1.28.0-rust-beta-1.29.0-beta.15'
       command:
         - /bin/bash
         - '-c'
@@ -111,13 +115,15 @@ tasks:
           && git checkout '{{ event.head.tag }}'
           && python automation/taskcluster/release/fetch-bintray-api-key.py
           && ./scripts/taskcluster-android.sh
-          && cd logins-api/android
-          && ./gradlew --no-daemon clean library:assembleRelease
+          && ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease
           && ./gradlew bintrayUpload --debug -PvcsTag="{{ event.head.sha }}"
       artifacts:
-        'public/bin/mozilla/fxa_client_android_{{ event.head.tag }}.zip':
+        'public/bin/mozilla/fxa_client-release-{{ event.head.tag }}.aar':
           type: 'file'
-          path: '/build/application-services/fxa-client/fxa_client_android.zip'
+          path: '/build/application-services/fxa-client/sdks/android/library/build/outputs/aar/fxa_client-release.aar'
+        'public/bin/mozilla/logins-release-{{ event.head.tag }}.aar':
+          type: 'file'
+          path: '/build/application-services/logins-api/android/library/build/outputs/aar/logins-release.aar'
       features:
         taskclusterProxy: true
     metadata:

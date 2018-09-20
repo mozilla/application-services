@@ -112,12 +112,13 @@ pub unsafe extern "C" fn sync15_passwords_delete(
     state: *const PasswordEngine,
     id: *const c_char,
     error: *mut ExternError
-) -> bool {
+) -> u8 {
     trace!("sync15_passwords_delete");
     with_translated_value_result(error, || {
         assert!(!state.is_null(), "Null state passed to sync15_passwords_delete");
         let state = &*state;
-        state.delete(c_str_to_str(id))
+        let deleted = state.delete(c_str_to_str(id))?;
+        Ok(if deleted { 1 } else { 0 })
     })
 }
 

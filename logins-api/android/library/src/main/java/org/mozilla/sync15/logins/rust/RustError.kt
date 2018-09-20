@@ -10,8 +10,7 @@ package org.mozilla.sync15.logins.rust
 
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
-import org.mozilla.sync15.logins.LoginsStorageException
-import org.mozilla.sync15.logins.SyncAuthInvalidException
+import org.mozilla.sync15.logins.*
 import java.util.Arrays
 
 /**
@@ -48,10 +47,16 @@ open class RustError : Structure() {
             // ever hit! (But we shouldn't ever hit it?)
             throw RuntimeException("[Bug] intoException called on non-failure!");
         }
-        if (code == 1) {
-            return SyncAuthInvalidException(this.consumeErrorMessage());
+        val message = this.consumeErrorMessage();
+        when (code) {
+            1 -> return SyncAuthInvalidException(message)
+            2 -> return NoSuchRecordException(message)
+            3 -> return IdCollisionException(message)
+            4 -> return InvalidRecordException(message)
+            5 -> return InvalidKeyException(message)
+            6 -> return RequestFailedException(message)
+            else -> return LoginsStorageException(message)
         }
-        return LoginsStorageException(this.consumeErrorMessage());
     }
 
     /**
