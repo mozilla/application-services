@@ -417,7 +417,7 @@ pub unsafe extern "C" fn fxa_get_sync_keys(
 ///
 /// This function returns a URL string that the caller should open in a webview.
 ///
-/// Pairing assumes you want keys by default, so you must provide a scoped key scope.
+/// Pairing assumes you want keys by default, so you must provide a key-bearing scope.
 ///
 /// # Safety
 ///

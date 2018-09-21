@@ -296,8 +296,6 @@ impl FirefoxAccount {
 
     pub fn begin_pairing_flow(&mut self, pairing_url: &str, scopes: &[&str]) -> Result<String> {
         let mut url = self.state.config.content_url_path("/pair/supp")?;
-        let pairing_url = Url::parse(pairing_url)?;
-
         let state = FirefoxAccount::random_base64_url_string(16)?;
         let code_verifier = FirefoxAccount::random_base64_url_string(43)?;
         let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
@@ -311,6 +309,12 @@ impl FirefoxAccount {
             .append_pair("code_challenge_method", "S256")
             .append_pair("code_challenge", &code_challenge)
             .append_pair("access_type", "offline");
+
+        let pairing_url = Url::parse(pairing_url)?;
+
+        if url.host_str() != pairing_url.host_str() {
+            return Err(ErrorKind::OriginMismatch.into());
+        };
 
         url.set_fragment(pairing_url.fragment());
 
@@ -593,6 +597,16 @@ mod tests {
         assert_eq!(flow_url.host_str(), Some("accounts.firefox.com"));
         assert_eq!(flow_url.path(), "/pair/supp");
         assert_eq!(flow_url.fragment(), expected_parsed_url.fragment());
+    }
+
+    #[test]
+    fn test_pairing_flow_origin_mismatch() {
+        static PAIRING_URL: &'static str = "https://bad.origin.com/pair#channel_id=foo&channel_key=bar";
+        let mut fxa = FirefoxAccount::new(Config::release().unwrap(), "12345678", "https://foo.bar");
+        let url = fxa.begin_pairing_flow(&PAIRING_URL, &["https://identity.mozilla.com/apps/oldsync"]);
+
+        assert!(url.is_err());
+        assert_eq!(format!("{:?}", url), "Err(Error(\n\nOrigin mismatch))")
     }
 
     #[test]
