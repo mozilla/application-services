@@ -296,58 +296,33 @@ impl FirefoxAccount {
 
     pub fn begin_pairing_flow(&mut self, pairing_url: &str, scopes: &[&str]) -> Result<String> {
         let mut url = self.state.config.content_url_path("/pair/supp")?;
-        let state = FirefoxAccount::random_base64_url_string(16)?;
-        let code_verifier = FirefoxAccount::random_base64_url_string(43)?;
-        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
-        let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
-
-        url.query_pairs_mut()
-            .append_pair("client_id", &self.state.client_id)
-            .append_pair("redirect_uri", &self.state.redirect_uri)
-            .append_pair("scope", &scopes.join(" "))
-            .append_pair("state", &state)
-            .append_pair("code_challenge_method", "S256")
-            .append_pair("code_challenge", &code_challenge)
-            .append_pair("access_type", "offline");
-
         let pairing_url = Url::parse(pairing_url)?;
-
         if url.host_str() != pairing_url.host_str() {
             return Err(ErrorKind::OriginMismatch.into());
-        };
-
+        }
         url.set_fragment(pairing_url.fragment());
 
-        let flow = ScopedKeysFlow::with_random_key(&*RNG)?;
-        let jwk_json = flow.generate_keys_jwk()?;
-        let scoped_keys_flow = Some(flow);
-        let keys_jwk = base64::encode_config(&jwk_json, base64::URL_SAFE_NO_PAD);
-        url.query_pairs_mut().append_pair("keys_jwk", &keys_jwk);
-
-        self.flow_store.insert(
-            state.clone(), // Since state is supposed to be unique, we use it to key our flows.
-            OAuthFlow {
-                scoped_keys_flow,
-                code_verifier,
-            },
-        );
-
-        Ok(url.to_string())
+        self.oauth_flow(url, scopes, true)
     }
 
-
     pub fn begin_oauth_flow(&mut self, scopes: &[&str], wants_keys: bool) -> Result<String> {
-        let state = FirefoxAccount::random_base64_url_string(16)?;
-        let code_verifier = FirefoxAccount::random_base64_url_string(43)?;
-        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
-        let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         let mut url = self.state.config.authorization_endpoint()?;
         url.query_pairs_mut()
             .append_pair("action", "email")
+            .append_pair("response_type", "code");
+
+        self.oauth_flow(url, scopes, wants_keys)
+    }
+
+    pub fn oauth_flow(&mut self, mut url: Url, scopes: &[&str], wants_keys: bool) -> Result<String> {
+        let state = FirefoxAccount::random_base64_url_string(16)?;
+        let code_verifier = FirefoxAccount::random_base64_url_string(43)?;
+        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
+        let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
+        url.query_pairs_mut()
             .append_pair("client_id", &self.state.client_id)
             .append_pair("redirect_uri", &self.state.redirect_uri)
             .append_pair("scope", &scopes.join(" "))
-            .append_pair("response_type", "code")
             .append_pair("state", &state)
             .append_pair("code_challenge_method", "S256")
             .append_pair("code_challenge", &code_challenge)
@@ -565,6 +540,7 @@ impl FirefoxAccount {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::borrow::Cow;
 
     #[test]
     fn test_fxa_is_send() {
@@ -584,6 +560,61 @@ mod tests {
     }
 
     #[test]
+    fn test_oauth_flow_url() {
+        let mut fxa = FirefoxAccount::new(Config::release().unwrap(), "12345678", "https://foo.bar");
+        let url = fxa.begin_oauth_flow(&["profile"], false).unwrap();
+        let flow_url = Url::parse(&url).unwrap();
+
+        assert_eq!(flow_url.host_str(), Some("accounts.firefox.com"));
+        assert_eq!(flow_url.path(), "/authorization");
+
+        let mut pairs = flow_url.query_pairs();
+        assert_eq!(pairs.count(), 9);
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("action"), Cow::Borrowed("email"))));
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("response_type"), Cow::Borrowed("code"))));
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("client_id"), Cow::Borrowed("12345678"))));
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("redirect_uri"), Cow::Borrowed("https://foo.bar"))));
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("scope"), Cow::Borrowed("profile"))));
+        let state_param = pairs.next().unwrap();
+        assert_eq!(state_param.0, Cow::Borrowed("state"));
+        assert_eq!(state_param.1.len(), 22);
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("code_challenge_method"), Cow::Borrowed("S256"))));
+        let code_challenge_param = pairs.next().unwrap();
+        assert_eq!(code_challenge_param.0, Cow::Borrowed("code_challenge"));
+        assert_eq!(code_challenge_param.1.len(), 43);
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("access_type"), Cow::Borrowed("offline"))));
+    }
+
+    #[test]
+    fn test_oauth_flow_url_with_keys() {
+        let mut fxa = FirefoxAccount::new(Config::release().unwrap(), "12345678", "https://foo.bar");
+        let url = fxa.begin_oauth_flow(&["profile"], true).unwrap();
+        let flow_url = Url::parse(&url).unwrap();
+
+        assert_eq!(flow_url.host_str(), Some("accounts.firefox.com"));
+        assert_eq!(flow_url.path(), "/authorization");
+
+        let mut pairs = flow_url.query_pairs();
+        assert_eq!(pairs.count(), 10);
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("action"), Cow::Borrowed("email"))));
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("response_type"), Cow::Borrowed("code"))));
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("client_id"), Cow::Borrowed("12345678"))));
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("redirect_uri"), Cow::Borrowed("https://foo.bar"))));
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("scope"), Cow::Borrowed("profile"))));
+        let state_param = pairs.next().unwrap();
+        assert_eq!(state_param.0, Cow::Borrowed("state"));
+        assert_eq!(state_param.1.len(), 22);
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("code_challenge_method"), Cow::Borrowed("S256"))));
+        let code_challenge_param = pairs.next().unwrap();
+        assert_eq!(code_challenge_param.0, Cow::Borrowed("code_challenge"));
+        assert_eq!(code_challenge_param.1.len(), 43);
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("access_type"), Cow::Borrowed("offline"))));
+        let keys_jwk = pairs.next().unwrap();
+        assert_eq!(keys_jwk.0, Cow::Borrowed("keys_jwk"));
+        assert_eq!(keys_jwk.1.len(), 168);
+    }
+
+    #[test]
     fn test_pairing_flow_url() {
         static SCOPES: &'static [&'static str] = &["https://identity.mozilla.com/apps/oldsync"];
         static PAIRING_URL: &'static str = "https://accounts.firefox.com/pair#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
@@ -597,6 +628,23 @@ mod tests {
         assert_eq!(flow_url.host_str(), Some("accounts.firefox.com"));
         assert_eq!(flow_url.path(), "/pair/supp");
         assert_eq!(flow_url.fragment(), expected_parsed_url.fragment());
+
+        let mut pairs = flow_url.query_pairs();
+        assert_eq!(pairs.count(), 8);
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("client_id"), Cow::Borrowed("12345678"))));
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("redirect_uri"), Cow::Borrowed("https://foo.bar"))));
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("scope"), Cow::Borrowed("https://identity.mozilla.com/apps/oldsync"))));
+        let state_param = pairs.next().unwrap();
+        assert_eq!(state_param.0, Cow::Borrowed("state"));
+        assert_eq!(state_param.1.len(), 22);
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("code_challenge_method"), Cow::Borrowed("S256"))));
+        let code_challenge_param = pairs.next().unwrap();
+        assert_eq!(code_challenge_param.0, Cow::Borrowed("code_challenge"));
+        assert_eq!(code_challenge_param.1.len(), 43);
+        assert_eq!(pairs.next(), Some((Cow::Borrowed("access_type"), Cow::Borrowed("offline"))));
+        let keys_jwk = pairs.next().unwrap();
+        assert_eq!(keys_jwk.0, Cow::Borrowed("keys_jwk"));
+        assert_eq!(keys_jwk.1.len(), 168);
     }
 
     #[test]
