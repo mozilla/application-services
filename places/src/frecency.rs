@@ -14,8 +14,6 @@ enum RedirectBonus {
     Normal
 }
 
-const FRECENCY_NUM_VISITS: usize = 10; // In desktop this is ""
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct FrecencySettings {
     // TODO: These probably should not all be i32s...
@@ -74,7 +72,7 @@ pub const DEFAULT_FRECENCY_SETTINGS: FrecencySettings = FrecencySettings {
 impl Default for FrecencySettings {
     #[inline]
     fn default() -> Self {
-        return DEFAULT_FRECENCY_SETTINGS
+        DEFAULT_FRECENCY_SETTINGS
     }
 }
 
@@ -139,7 +137,7 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
     ) -> Result<Self> {
 
         let (typed, visit_count, foreign_count, is_query) = conn.db.query_row_named("
-            SELECT typed, visit_count, foreign_count, (substr(url, 0, 7) = 'place:') as is_query
+            SELECT typed, (visit_count_local + visit_count_remote) as visit_count, foreign_count, (substr(url, 0, 7) = 'place:') as is_query
             FROM moz_places
             WHERE id = :page_id
         ", &[(":page_id", &page_id)], |row| {
@@ -149,6 +147,7 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
             let is_query: bool = row.get("is_query");
             (typed, visit_count, foreign_count, is_query)
         })?;
+        println!("QRY {:?}", (page_id, typed, visit_count, foreign_count, is_query));
 
         Ok(Self {
             conn,
@@ -192,12 +191,12 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
         let mut stmt = self.conn.db.prepare(&get_recent_visits)?;
 
         let row_iter = stmt.query_map_named(&[(":page_id", &self.page_id)], |row| {
-            let visit_type: u32 = row.get("visit_type");
-            let target_visit_type: u32 = row.get("target_visit_type");
-            let age_in_days: i32 = row.get("age_in_days");
+            let visit_type = row.get::<_, Option<u32>>("visit_type").unwrap_or(0);
+            let target_visit_type = row.get::<_, Option<u32>>("target_visit_type").unwrap_or(0);
+            let age_in_days: f64 = row.get("age_in_days");
             (VisitTransition::from_primitive(visit_type),
              VisitTransition::from_primitive(target_visit_type),
-             age_in_days)
+             age_in_days as i32)
         })?;
 
         let mut num_sampled_visits = 0;
@@ -229,6 +228,7 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
             }
             num_sampled_visits += 1;
         }
+        println!("Recent visits: {:?}", (num_sampled_visits, points_for_sampled_visits));
 
         Ok((num_sampled_visits, points_for_sampled_visits))
     }
@@ -249,8 +249,6 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
     }
 
     fn compute_unvisited_bookmark_frecency(&self) -> i32 {
-        let visit_count = 1;
-
         // Make it so something bookmarked and typed will have a higher frecency
         // than something just typed or just bookmarked.
         let mut bonus = self.settings.get_transition_bonus(Some(VisitTransition::Bookmark), false, false);

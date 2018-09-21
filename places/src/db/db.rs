@@ -10,8 +10,6 @@ use rusqlite::{self, Connection, types::{ToSql, FromSql}, Row};
 use error::*;
 use super::schema;
 use hash;
-use frecency;
-
 use std::path::Path;
 
 pub const MAX_VARIABLE_NUMBER: usize = 999;

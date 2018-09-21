@@ -7,7 +7,9 @@ use url::{Url};
 use error::*;
 use types::*;
 use super::connection::{Connection};
-use ::storage::{PageId, fetch_page_info, new_page_info, NewPageInfo, add_visit};
+use ::storage::{PageId, fetch_page_info, new_page_info, NewPageInfo, add_visit, update_frecency};
+
+use ::frecency;
 
 // This module can become, roughly: PlacesUtils.history()
 
@@ -52,10 +54,16 @@ pub fn insert(conn: &Connection, place: AddablePlaceInfo) -> Result<()> {
         }
     };
     for v in place.visits {
+        println!("visit: {:?}", v);
         add_visit(&conn.get_db(), &place_row_id, &None, &v.date, &v.transition, &v.is_local)?;
     }
-    // Recalc frecency. Referrers. Other stuff :(
+    // Referrers. Other stuff :(
     // Possibly update place, not clear yet :)
+
+    // TODO: Pass Some(true) in here based on logic like
+    // https://searchfox.org/mozilla-central/source/toolkit/components/places/History.cpp#2229
+    update_frecency(&conn.get_db(), place_row_id, None)?;
+
     Ok(())
 }
 
@@ -96,6 +104,7 @@ mod tests {
 
         assert_eq!(row.get::<_, String>("url"), "http://example.com/"); // hrmph - note trailing slash
         assert_eq!(row.get::<_, Timestamp>("visit_date"), date);
+        assert_ne!(row.get::<_, i32>("frecency"), 0);
         // XXX - check more.
     }
 }

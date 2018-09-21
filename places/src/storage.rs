@@ -11,6 +11,8 @@ use url::{Url};
 use types::{SyncGuid, Timestamp, VisitTransition};
 use error::{Result};
 
+use frecency;
+
 use rusqlite::{Row};
 use rusqlite::{types::{ToSql, FromSql, ToSqlOutput, FromSqlResult, ValueRef}};
 use rusqlite::Result as RusqliteResult;
@@ -169,8 +171,54 @@ pub fn add_visit(db: &PlacesDb,
         (":visit_type", visit_type),
         (":is_local", is_local),
     ])?;
+    db.execute_named_cached("
+        UPDATE moz_places
+        SET visit_count_local =
+                CASE WHEN :is_local
+                THEN visit_count_local + 1
+                ELSE visit_count_local
+                END,
+            visit_count_remote =
+                CASE WHEN :is_local
+                    THEN visit_count_remote
+                    ELSE visit_count_remote + 1
+                    END,
+            last_visit_date_local =
+                CASE WHEN :is_local
+                THEN max(last_visit_date_local, :visit_date)
+                ELSE last_visit_date_local
+                END,
+            last_visit_date_remote =
+                CASE WHEN :is_local
+                THEN last_visit_date_remote
+                ELSE max(last_visit_date_remote, :visit_date)
+                END
+            -- TODO: Set frecency to -1 to indicate need recalc?
+        WHERE id = :page_id
+        ", &[
+        (":page_id", page_id),
+        (":visit_date", visit_date),
+        (":is_local", is_local),
+    ])?;
     let rid = db.db.last_insert_rowid();
     Ok(RowId(rid))
+}
+
+pub fn update_frecency(db: &PlacesDb, id: RowId, redirect: Option<bool>) -> Result<()> {
+    let score = frecency::calculate_frecency(&db,
+        &frecency::DEFAULT_FRECENCY_SETTINGS,
+        id.0, // TODO: calculate_frecency should take a RowId here.
+        redirect)?;
+
+    println!("Frecency is {}", score);
+
+    db.execute_named("
+        UPDATE moz_places
+        SET frecency = :frecency
+        WHERE id = :page_id",
+        &[(":frecency", &score), (":page_id", &id.0)])?;
+
+    Ok(())
 }
 
 // Mini experiment with an "Origin" object that knows how to rev_host() itself,
