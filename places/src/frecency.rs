@@ -147,7 +147,6 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
             let is_query: bool = row.get("is_query");
             (typed, visit_count, foreign_count, is_query)
         })?;
-        println!("QRY {:?}", (page_id, typed, visit_count, foreign_count, is_query));
 
         Ok(Self {
             conn,

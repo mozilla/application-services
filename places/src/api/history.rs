@@ -54,7 +54,6 @@ pub fn insert(conn: &Connection, place: AddablePlaceInfo) -> Result<()> {
         }
     };
     for v in place.visits {
-        println!("visit: {:?}", v);
         add_visit(&conn.get_db(), &place_row_id, &None, &v.date, &v.transition, &v.is_local)?;
     }
     // Referrers. Other stuff :(

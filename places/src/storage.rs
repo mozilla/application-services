@@ -210,8 +210,6 @@ pub fn update_frecency(db: &PlacesDb, id: RowId, redirect: Option<bool>) -> Resu
         id.0, // TODO: calculate_frecency should take a RowId here.
         redirect)?;
 
-    println!("Frecency is {}", score);
-
     db.execute_named("
         UPDATE moz_places
         SET frecency = :frecency
