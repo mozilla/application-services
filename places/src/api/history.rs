@@ -66,7 +66,7 @@ mod tests {
 
     #[test]
     fn test_insert() {
-        let c = Connection::new_in_memory("insert_test", None).expect("should get a connection");
+        let c = Connection::new_in_memory(None).expect("should get a connection");
         let url = Url::parse("http://example.com").expect("it's a valid url");
         let date = Timestamp::now();
         let visits = vec![AddableVisit { date,

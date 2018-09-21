@@ -8,7 +8,6 @@
 
 use rusqlite::{self, Connection, types::{ToSql, FromSql}, Row};
 use error::*;
-use std::sync::{Arc, Mutex};
 use super::schema;
 use hash;
 use frecency;
@@ -18,7 +17,6 @@ use std::path::Path;
 pub const MAX_VARIABLE_NUMBER: usize = 999;
 
 pub struct PlacesDb {
-    // Read/Write connection
     pub db: Connection,
 }
 
@@ -31,12 +29,7 @@ fn escape_string_for_pragma(s: &str) -> String {
 }
 
 impl PlacesDb {
-    // This takes two connections, one of which being protected by a mutex because of the annoying
-    // requirements rusqlite puts on `create_scalar_function`, which make it very difficult
-    // to have a function which runs a query. XXX: Elaborate here.
-    pub fn with_connections(write_conn: Connection,
-                            read_conn: Arc<Mutex<Connection>>,
-                            encryption_key: Option<&str>) -> Result<Self> {
+    pub fn with_connection(db: Connection, encryption_key: Option<&str>) -> Result<Self> {
         #[cfg(test)] {
 //            util::init_test_logging();
         }
@@ -61,35 +54,21 @@ impl PlacesDb {
             PRAGMA temp_store = 2;
         ", encryption_pragmas);
 
-        write_conn.execute_batch(&initial_pragmas)?;
-        {
-            let read_conn = read_conn.lock().unwrap();
-            read_conn.execute_batch(&initial_pragmas)?;
-        }
-        define_functions(&write_conn, read_conn)?;
+        db.execute_batch(&initial_pragmas)?;
+        define_functions(&db)?;
 
-        let mut res = Self { db: write_conn };
+        let mut res = Self { db };
         schema::init(&mut res)?;
 
         Ok(res)
     }
 
-    // Note: users wanting an in-memory connection should open with a path that specifies a *named*
-    // in-memory database, which isn't possible using rusqlite::Connection::open_in_memory. This is
-    // because we need multiple connections open to the DB. For example
     pub fn open(path: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Self> {
-        let p = path.as_ref();
-        let write_conn = Connection::open_with_flags(p,
-            rusqlite::OpenFlags::SQLITE_OPEN_SHARED_CACHE |
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE |
-            rusqlite::OpenFlags::SQLITE_OPEN_CREATE
-        )?;
+        Ok(Self::with_connection(Connection::open(path)?, encryption_key)?)
+    }
 
-        let read_conn = Arc::new(Mutex::new(Connection::open_with_flags(p,
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY |
-            rusqlite::OpenFlags::SQLITE_OPEN_SHARED_CACHE
-        )?));
-        Ok(Self::with_connections(write_conn, read_conn, encryption_key)?)
+    pub fn open_in_memory(encryption_key: Option<&str>) -> Result<Self> {
+        Ok(Self::with_connection(Connection::open_in_memory()?, encryption_key)?)
     }
 
     pub fn vacuum(&self) -> Result<()> {
@@ -211,73 +190,33 @@ impl PlacesDb {
 
 // ----------------------------- end of stuff that should be common --------------------
 
-fn define_functions(write: &Connection, read: Arc<Mutex<Connection>>) -> Result<()> {
-    {
-        // Scope unlock of `read`
-        let read = read.clone();
-        let unlocked = read.lock().unwrap();
-        for c in &[write, &*unlocked] {
-            // Add functions which don't need access to the database connection here.
-            c.create_scalar_function("hash", -1, true, move |ctx| {
-                Ok(match ctx.len() {
-                    1 => {
-                        let value = ctx.get::<String>(0)?;
-                        hash::hash_url(&value)
-                    }
-                    2 => {
-                        let value = ctx.get::<String>(0)?;
-                        let mode = ctx.get::<String>(1)?;
-                        match mode.as_str() {
-                            "" => hash::hash_url(&value),
-                            "prefix_lo" => hash::hash_url_prefix(&value, hash::PrefixMode::Lo),
-                            "prefix_hi" => hash::hash_url_prefix(&value, hash::PrefixMode::Hi),
-                            arg => {
-                                return Err(rusqlite::Error::UserFunctionError(format!(
-                                    "`hash` second argument must be either '', 'prefix_lo', or 'prefix_hi', got {:?}.",
-                                    arg).into()));
-                            }
-                        }
-                    }
-                    n => {
+fn define_functions(c: &Connection) -> Result<()> {
+    c.create_scalar_function("hash", -1, true, move |ctx| {
+        Ok(match ctx.len() {
+            1 => {
+                let value = ctx.get::<String>(0)?;
+                hash::hash_url(&value)
+            }
+            2 => {
+                let value = ctx.get::<String>(0)?;
+                let mode = ctx.get::<String>(1)?;
+                match mode.as_str() {
+                    "" => hash::hash_url(&value),
+                    "prefix_lo" => hash::hash_url_prefix(&value, hash::PrefixMode::Lo),
+                    "prefix_hi" => hash::hash_url_prefix(&value, hash::PrefixMode::Hi),
+                    arg => {
                         return Err(rusqlite::Error::UserFunctionError(format!(
-                            "`hash` expects 1 or 2 arguments, got {}.", n).into()));
+                            "`hash` second argument must be either '', 'prefix_lo', or 'prefix_hi', got {:?}.",
+                            arg).into()));
                     }
-                } as i64)
-            })?;
-        }
-    }
-
-    // Functions which do need access to the database connection should go here.
-    // Each one will need to do it's own `let read = read.clone();`
-    {
-        let read = read.clone();
-        write.create_scalar_function("compute_frecency", -1, true, move |ctx| {
-            let (page_id, is_redirect) = match ctx.len() {
-                1 => (ctx.get::<i64>(0)?, None),
-                2 => (ctx.get::<i64>(0)?, ctx.get::<Option<bool>>(1)?),
-                n => {
-                    return Err(rusqlite::Error::UserFunctionError(format!(
-                        "`compute_frecency` expects 1 or 2 arguments, got {}.", n).into()));
                 }
-            };
-            let unlocked_read = read.lock().unwrap();
-            Ok(frecency::calculate_frecency(
-                &unlocked_read,
-                &frecency::DEFAULT_FRECENCY_SETTINGS,
-                page_id,
-                is_redirect
-            ).map_err(|e| {
-                // XXX error::Error implements Fail (and thus) cannot implement std::error::Error,
-                // which is required for `rusqlite::Error::UserFunctionError`. We convert the error
-                // to a string which does implement the right type, but we're losing information
-                // about the issue. Fixing this might just be writing an `impl std::error::Error`
-                // for our error type!
-                error!("calulate_frecency hit an error: {:?}", e);
-                use failure::Fail;
-                rusqlite::Error::UserFunctionError(e.compat().into())
-            })?)
-        })?;
-    }
+            }
+            n => {
+                return Err(rusqlite::Error::UserFunctionError(format!(
+                    "`hash` expects 1 or 2 arguments, got {}.", n).into()));
+            }
+        } as i64)
+    })?;
     Ok(())
 }
 
@@ -288,7 +227,6 @@ mod tests {
 
     #[test]
     fn test_open() {
-        PlacesDb::open("file:example_memory_database?mode=memory&cache=shared", None)
-            .expect("no memory db");
+        PlacesDb::open_in_memory(None).expect("no memory db");
     }
 }
