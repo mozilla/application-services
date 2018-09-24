@@ -188,10 +188,10 @@ pub fn visit_uri(conn: &Connection,
     if is_error_page {
         obs = obs.is_error();
     }
-    if redirect_source.is_some() {
-        obs = obs.is_redirect_source();
-    }
-
     obs = obs.visit_type(transition);
+    let obs = match redirect_source {
+        Some(RedirectSourceType::Permanent) => obs.is_permanent_redirect_source(),
+        _ => obs,
+    };
     apply_observation(conn, obs)
 }

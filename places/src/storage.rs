@@ -184,7 +184,7 @@ pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<()
             page_info.frecency = frecency::calculate_frecency(&db,
                 &frecency::DEFAULT_FRECENCY_SETTINGS,
                 page_info.row_id.0, // TODO: calculate_frecency should take a RowId here.
-                Some(visit_ob.get_is_redirect_source()))?; // Not clear this is correct - is it really tri-state?
+                Some(visit_ob.get_redirect_frecency_boost()))?;
             updates.push(("frecency", ":frecency", &page_info.frecency));
         }
     }

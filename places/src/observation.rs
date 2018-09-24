@@ -2,23 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use types::*;
+use url::{Url};
+use storage::{PageId}; // XXX - this should probably be in types.rs?
+
 // An "observation" based model for updating history.
 // You create a VisitObservation, call functions on it which correspond
 // with what you observed. The page will then be updated using this info.
 //
 // It's implemented such that the making of an "observation" is itself
-// significant. A sql storage would be expected to update one or more records,
-// while a mentat-like storage would know exactly what changes to write.
-
-use types::*;
-use url::{Url};
-use storage::{PageId}; // XXX - this should probably be in types.rs?
-
+// significant - it records what specific changes should be made to storage.
 pub struct VisitObservation {
     pub page_id: PageId,
     title: Option<String>,
     visit_type: Option<VisitTransition>,
-    was_typed: Option<()>,
     is_error: Option<()>,
     is_redirect_source: Option<()>,
     at: Option<Timestamp>,
@@ -32,7 +29,6 @@ impl VisitObservation {
             page_id,
             title: None,
             visit_type: None,
-            was_typed: None,
             is_error: None,
             is_redirect_source: None,
             at: None,
@@ -69,28 +65,13 @@ impl VisitObservation {
         self.at
     }
 
-    pub fn was_typed(mut self) -> Self {
-        assert!(self.was_typed.is_none(), "don't call this twice");
-        self.was_typed = Some(());
-        self
-    }
-    pub fn get_was_typed(&self) -> bool {
-        match self.was_typed {
-            Some(_) => true,
-            None => false,
-        }
-    }
-
     pub fn is_error(mut self) -> Self {
         assert!(self.is_error.is_none(), "don't call this twice");
         self.is_error = Some(());
         self
     }
     pub fn get_is_error(&self) -> bool {
-        match self.is_error {
-            Some(_) => true,
-            None => false,
-        }
+        self.is_error.is_some()
     }
 
     pub fn is_remote(mut self) -> Self {
@@ -100,23 +81,29 @@ impl VisitObservation {
     }
 
     pub fn get_is_remote(&self) -> bool{
-        match self.is_remote {
-            Some(_) => true,
-            None => false,
-        }
+        self.is_remote.is_some()
     }
 
-    // XXXX - redir source and frecency needs more thought.
-    pub fn is_redirect_source(mut self) -> Self {
+    // possibly used for frecency.
+    pub fn is_permanent_redirect_source(mut self) -> Self {
         assert!(self.is_redirect_source.is_none(), "don't call this twice");
         self.is_redirect_source = Some(());
         self
     }
 
-    pub fn get_is_redirect_source(& self) -> bool {
-        match self.is_redirect_source {
-            Some(_) => true,
-            None => false,
+    // Other helpers which can be derived.
+    pub fn get_was_typed(&self) -> bool {
+        match self.visit_type {
+            Some(VisitTransition::Typed) => true,
+            _ => false,
+        }
+    }
+
+    pub fn get_redirect_frecency_boost(&self) -> bool {
+        self.is_redirect_source.is_some() &&
+        match self.visit_type {
+            Some(t) => t != VisitTransition::Typed,
+            _ => true,
         }
     }
 
