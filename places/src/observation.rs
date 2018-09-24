@@ -5,6 +5,10 @@
 // An "observation" based model for updating history.
 // You create a VisitObservation, call functions on it which correspond
 // with what you observed. The page will then be updated using this info.
+//
+// It's implemented such that the making of an "observation" is itself
+// significant. A sql storage would be expected to update one or more records,
+// while a mentat-like storage would know exactly what changes to write.
 
 use types::*;
 use url::{Url};

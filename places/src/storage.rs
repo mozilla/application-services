@@ -148,43 +148,36 @@ pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<()
         Some(info) => info.page,
         None => new_page_info(&db, &visit_ob.page_id)?,
     };
-    let mut updates: Vec<&str> = Vec::new();
-    let mut params: Vec<(&str, &ToSql)> = Vec::new();
+    let mut updates: Vec<(&str, &str, &ToSql)> = Vec::new();
     if let Some(title) = visit_ob.get_title() {
-        updates.push("title = :title");
         page_info.title = title.clone();
+        updates.push(("title", ":title", &page_info.title));
     }
 
     // There's a new visit, so update everything that implies
     if let Some(visit_type) = visit_ob.get_visit_type() {
         // A single non-hidden visit makes the place non-hidden.
         if !visit_ob.get_is_hidden() {
-            updates.push("hidden = :hidden");
-            params.push((":hidden", &false));
+            updates.push(("hidden", ":hidden", &false));
         }
         if visit_ob.get_was_typed() {
             page_info.typed += 1;
-            updates.push("typed = :typed");
-            params.push((":typed", &page_info.typed));
+            updates.push(("typed", ":typed", &page_info.typed));
         }
 
         let at = visit_ob.get_at().unwrap_or_else(|| Timestamp::now());
         let is_remote = visit_ob.get_is_remote();
         add_visit(db, &page_info.row_id, &None, &at, &visit_type, &is_remote)?;
         if is_remote {
-            page_info.visit_count_remote = page_info.visit_count_remote + 1;
+            page_info.visit_count_remote += 1;
+            updates.push(("visit_count_remote", ":visit_count_remote", &page_info.visit_count_remote));
             page_info.last_visit_date_remote = cmp::max(at, page_info.last_visit_date_remote);
-            updates.push("visit_count_remote = :visit_count_remote");
-            params.push((":visit_count_remote", &page_info.visit_count_remote));
-            updates.push("last_visit_date_remote = :last_visit_date_remote");
-            params.push((":last_visit_date_remote", &page_info.last_visit_date_remote));
+            updates.push(("last_visit_date_remote", ":last_visit_date_remote", &page_info.last_visit_date_remote));
         } else {
-            page_info.visit_count_local = page_info.visit_count_local + 1;
+            page_info.visit_count_local += 1;
+            updates.push(("visit_count_local", ":visit_count_local", &page_info.visit_count_local));
             page_info.last_visit_date_local = cmp::max(at, page_info.last_visit_date_local);
-            updates.push("visit_count_local = :visit_count_local");
-            params.push((":visit_count_local", &page_info.visit_count_local));
-            updates.push("last_visit_date_local = :last_visit_date_local");
-            params.push((":last_visit_date_local", &page_info.last_visit_date_local));
+            updates.push(("last_visit_date_local", ":last_visit_date_local", &page_info.last_visit_date_local));
         }
         // a new visit implies new frecency except in error cases.
         if !visit_ob.get_is_error() {
@@ -192,17 +185,19 @@ pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<()
                 &frecency::DEFAULT_FRECENCY_SETTINGS,
                 page_info.row_id.0, // TODO: calculate_frecency should take a RowId here.
                 Some(visit_ob.get_is_redirect_source()))?; // Not clear this is correct - is it really tri-state?
-            updates.push("frecency = :frecency");
-            params.push((":frecency", &page_info.frecency));
+            updates.push(("frecency", ":frecency", &page_info.frecency));
         }
     }
-    assert_eq!(updates.len(), params.len());
     if updates.len() != 0 {
-        // We supply every field as a param even though we only reference some.
-        // We could optimize this if we think it's worthwhile.
+        let mut params: Vec<(&str, &ToSql)> = Vec::new();
+        let mut sets: Vec<String> = Vec::new();
+        for (col, name, val) in updates {
+            sets.push(format!("{} = {}", col, name));
+            params.push((name, val))
+        }
         let sql = format!("UPDATE moz_places
                           SET {}
-                          WHERE id == :row_id", updates.join(","));
+                          WHERE id == :row_id", sets.join(","));
         db.execute_named_cached(&sql, &params)?;
     }
     Ok(())

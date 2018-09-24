@@ -45,13 +45,12 @@ pub struct AddableVisit {
 // insert a visit a'la PlacesUtils.history.insert()
 pub fn insert(conn: &Connection, place: AddablePlaceInfo) -> Result<()> {
     for v in place.visits {
-        let mut obs = VisitObservation::new(place.page_id.clone());
-        obs = match place.title {
-            Some(ref new_title) => obs.title(new_title.clone()),
-            _ => obs,
+        let mut obs = VisitObservation::new(place.page_id.clone()
+                                        ).visit_type(v.transition
+                                        ).at(v.date);
+        if let Some(ref title) = place.title {
+            obs = obs.title(title.clone());
         };
-        obs = obs.visit_type(v.transition);
-        obs = obs.at(v.date);
 
         //if place.referrer
         if !v.is_local {
