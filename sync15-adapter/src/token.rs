@@ -23,6 +23,8 @@ const X_TIMESTAMP: &str = "X-Timestamp";
 /// OAuth tokenserver api uses this instead of X-Client-State.
 const X_KEY_ID: &str = "X-KeyID";
 
+const RETRY_AFTER_DEFAULT_MS: u64 = 10000;
+
 // The TokenserverToken is the token as received directly from the token server
 // and deserialized from JSON.
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -79,8 +81,10 @@ impl TokenFetcher for TokenServerFetcher {
             debug!("  Response body {}", resp.text().unwrap_or_else(|_| "???".into()));
             // XXX - shouldn't we "chain" these errors - ie, a BackoffError could
             // have a TokenserverHttpError as its cause?
-            // XXX - we are silentely dropping UTF8 parsing/number parsing errors here.
-            if let Some(ms) = resp.headers().get(RETRY_AFTER).and_then(|v| v.to_str().ok()).and_then(|s| s.parse::<f64>().ok()).map(|f| (f * 1000f64) as u64) {
+            if let Some(header) = resp.headers().get(RETRY_AFTER) {
+                // XXX - We are silently dropping parsing errors here.
+                let ms = header.to_str().ok().and_then(|s| s.parse::<f64>().ok())
+                    .map_or(RETRY_AFTER_DEFAULT_MS, |f| (f * 1000f64) as u64);
                 let when = self.now() + Duration::from_millis(ms);
                 return Err(ErrorKind::BackoffError(when).into());
             }
