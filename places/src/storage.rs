@@ -6,10 +6,11 @@
 // API and the database.
 // This should probably be a sub-directory
 
-use std::{fmt};
+use std::{fmt, cmp};
 use url::{Url};
 use types::{SyncGuid, Timestamp, VisitTransition};
 use error::{Result};
+use observation::{VisitObservation};
 
 use frecency;
 
@@ -50,15 +51,17 @@ impl FromSql for RowId {
 // A PageId is an enum, either a Guid or a Url, to identify a unique key for a
 // page as specifying both doesn't make sense (and specifying the guid is
 // slighly faster, plus sync might *only* have the guid?)
-#[derive(Debug)]
+// XXX - not clear this makes sense as it doesn't make sense to create a
+// moz_places row given just a guid - so, in that sense at least, it's not
+// really true that you can have one or the other.
+#[derive(Debug, Clone)]
 pub enum PageId {
     Guid(SyncGuid),
     Url(Url),
 }
 
-// fetch_page_info gives you one of these.
 #[derive(Debug)]
-pub struct FetchedPageInfo {
+pub struct PageInfo {
     pub page_id: PageId,
     pub row_id: RowId,
     pub url: Url,
@@ -70,12 +73,9 @@ pub struct FetchedPageInfo {
     pub visit_count_remote: i32,
     pub last_visit_date_local: Timestamp,
     pub last_visit_date_remote: Timestamp,
-    // XXX - not clear what this is used for yet, and whether it should be local, remote or either?
-    // The sql below isn't quite sure either :)
-    pub last_visit_id: RowId,
 }
 
-impl FetchedPageInfo {
+impl PageInfo {
     pub fn from_row(row: &Row) -> Result<Self> {
         Ok(Self {
             page_id: PageId::Guid(row.get_checked("guid")?),
@@ -91,13 +91,30 @@ impl FetchedPageInfo {
 
             last_visit_date_local: row.get_checked("last_visit_date_local")?,
             last_visit_date_remote: row.get_checked("last_visit_date_remote")?,
+        })
+    }
+}
+
+// fetch_page_info gives you one of these.
+#[derive(Debug)]
+struct FetchedPageInfo {
+    page: PageInfo,
+    // XXX - not clear what this is used for yet, and whether it should be local, remote or either?
+    // The sql below isn't quite sure either :)
+    last_visit_id: RowId,
+}
+
+impl FetchedPageInfo {
+    pub fn from_row(row: &Row) -> Result<Self> {
+        Ok(Self {
+            page: PageInfo::from_row(row)?,
             last_visit_id: row.get_checked("last_visit_id")?,
         })
     }
 }
 
 // History::FetchPageInfo
-pub fn fetch_page_info(db: &PlacesDb, page_id: &PageId) -> Result<Option<FetchedPageInfo>> {
+fn fetch_page_info(db: &PlacesDb, page_id: &PageId) -> Result<Option<FetchedPageInfo>> {
     Ok(match page_id {
         // XXX - there's way too much sql and db.query duplicated here!?
         PageId::Guid(ref guid) => {
@@ -125,36 +142,104 @@ pub fn fetch_page_info(db: &PlacesDb, page_id: &PageId) -> Result<Option<Fetched
     })
 }
 
-// What you need to supply when calling new_page_info()
-#[derive(Debug)]
-pub struct NewPageInfo {
-    pub url: Url,
-    pub title: Option<String>,
-    pub hidden: bool,
-    pub typed: u32,
+pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<()> {
+    // XXX - transaction!
+    let mut page_info = match fetch_page_info(&db, &visit_ob.page_id)? {
+        Some(info) => info.page,
+        None => new_page_info(&db, &visit_ob.page_id)?,
+    };
+    let mut updates: Vec<&str> = Vec::new();
+    let mut params: Vec<(&str, &ToSql)> = Vec::new();
+    if let Some(title) = visit_ob.get_title() {
+        updates.push("title = :title");
+        page_info.title = title.clone();
+    }
+
+    // There's a new visit, so update everything that implies
+    if let Some(visit_type) = visit_ob.get_visit_type() {
+        // A single non-hidden visit makes the place non-hidden.
+        if !visit_ob.get_is_hidden() {
+            updates.push("hidden = :hidden");
+            params.push((":hidden", &false));
+        }
+        if visit_ob.get_was_typed() {
+            page_info.typed += 1;
+            updates.push("typed = :typed");
+            params.push((":typed", &page_info.typed));
+        }
+
+        let at = visit_ob.get_at().unwrap_or_else(|| Timestamp::now());
+        let is_remote = visit_ob.get_is_remote();
+        add_visit(db, &page_info.row_id, &None, &at, &visit_type, &is_remote)?;
+        if is_remote {
+            page_info.visit_count_remote = page_info.visit_count_remote + 1;
+            page_info.last_visit_date_remote = cmp::max(at, page_info.last_visit_date_remote);
+            updates.push("visit_count_remote = :visit_count_remote");
+            params.push((":visit_count_remote", &page_info.visit_count_remote));
+            updates.push("last_visit_date_remote = :last_visit_date_remote");
+            params.push((":last_visit_date_remote", &page_info.last_visit_date_remote));
+        } else {
+            page_info.visit_count_local = page_info.visit_count_local + 1;
+            page_info.last_visit_date_local = cmp::max(at, page_info.last_visit_date_local);
+            updates.push("visit_count_local = :visit_count_local");
+            params.push((":visit_count_local", &page_info.visit_count_local));
+            updates.push("last_visit_date_local = :last_visit_date_local");
+            params.push((":last_visit_date_local", &page_info.last_visit_date_local));
+        }
+        // a new visit implies new frecency except in error cases.
+        if !visit_ob.get_is_error() {
+            page_info.frecency = frecency::calculate_frecency(&db,
+                &frecency::DEFAULT_FRECENCY_SETTINGS,
+                page_info.row_id.0, // TODO: calculate_frecency should take a RowId here.
+                Some(visit_ob.get_is_redirect_source()))?; // Not clear this is correct - is it really tri-state?
+            updates.push("frecency = :frecency");
+            params.push((":frecency", &page_info.frecency));
+        }
+    }
+    assert_eq!(updates.len(), params.len());
+    if updates.len() != 0 {
+        // We supply every field as a param even though we only reference some.
+        // We could optimize this if we think it's worthwhile.
+        let sql = format!("UPDATE moz_places
+                          SET {}
+                          WHERE id == :row_id", updates.join(","));
+        db.execute_named_cached(&sql, &params)?;
+    }
+    Ok(())
 }
 
-pub fn new_page_info(db: &PlacesDb, pi: &NewPageInfo) -> Result<(PageId, RowId)> {
-    let sql = "
-        INSERT INTO moz_places
-        (url, url_hash, title, hidden, typed, frecency, guid)
-        VALUES (:url, hash(:url), :title, :hidden, :typed, :frecency, :guid)";
-
-    let guid = super::sync::util::random_guid().expect("according to logins-sql, this is fine :)");
-    db.execute_named_cached(sql, &[
-        (":url", &pi.url.clone().into_string()),
-        (":title", &pi.title),
-        (":hidden", &pi.hidden),
-        (":typed", &pi.typed),
-        (":frecency", &-1),
-        (":guid", &guid),
-    ])?;
-    Ok((PageId::Guid(SyncGuid(guid)), RowId(db.db.last_insert_rowid())))
+fn new_page_info(db: &PlacesDb, pid: &PageId) -> Result<PageInfo> {
+    match pid {
+        PageId::Guid(_) => panic!("Need to think this through, but items must be created with a url"),
+        PageId::Url(ref url) => {
+            let guid = super::sync::util::random_guid().expect("according to logins-sql, this is fine :)");
+            let sql = "INSERT INTO moz_places (guid, url, url_hash)
+                       VALUES (:guid, :url, hash(:url))";
+            db.execute_named_cached(sql, &[
+                (":guid", &guid),
+                (":url", &url.clone().into_string()),
+            ])?;
+            Ok(PageInfo {
+                page_id: PageId::Guid(SyncGuid(guid)),
+                row_id: RowId(db.db.last_insert_rowid()),
+                url: url.clone(),
+                title: "".into(),
+                hidden: true, // will be set to false as soon as a non-hidden visit appears.
+                typed: 0,
+                frecency: -1,
+                visit_count_local: 0,
+                visit_count_remote: 0,
+                last_visit_date_local: Timestamp(0),
+                last_visit_date_remote: Timestamp(0),
+            })
+        }
+    }
 }
 
-// Add a single visit - you must know the page rowid.
-// (Why so many params here? A struct?)
-pub fn add_visit(db: &PlacesDb,
+// Add a single visit - you must know the page rowid. Does not update the
+// page info - if you are calling this, you will also need to update the
+// parent page with the new visit count, frecency, etc.
+fn add_visit(db: &PlacesDb,
                  page_id: &RowId,
                  from_visit: &Option<RowId>,
                  visit_date: &Timestamp,
@@ -171,39 +256,11 @@ pub fn add_visit(db: &PlacesDb,
         (":visit_type", visit_type),
         (":is_local", is_local),
     ])?;
-    db.execute_named_cached("
-        UPDATE moz_places
-        SET visit_count_local =
-                CASE WHEN :is_local
-                THEN visit_count_local + 1
-                ELSE visit_count_local
-                END,
-            visit_count_remote =
-                CASE WHEN :is_local
-                    THEN visit_count_remote
-                    ELSE visit_count_remote + 1
-                    END,
-            last_visit_date_local =
-                CASE WHEN :is_local
-                THEN max(last_visit_date_local, :visit_date)
-                ELSE last_visit_date_local
-                END,
-            last_visit_date_remote =
-                CASE WHEN :is_local
-                THEN last_visit_date_remote
-                ELSE max(last_visit_date_remote, :visit_date)
-                END
-            -- TODO: Set frecency to -1 to indicate need recalc?
-        WHERE id = :page_id
-        ", &[
-        (":page_id", page_id),
-        (":visit_date", visit_date),
-        (":is_local", is_local),
-    ])?;
     let rid = db.db.last_insert_rowid();
     Ok(RowId(rid))
 }
 
+// Currently not used - we update the frecency as we update the page info.
 pub fn update_frecency(db: &PlacesDb, id: RowId, redirect: Option<bool>) -> Result<()> {
     let score = frecency::calculate_frecency(&db,
         &frecency::DEFAULT_FRECENCY_SETTINGS,

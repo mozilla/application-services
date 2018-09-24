@@ -5,3 +5,10 @@
 pub mod history;
 pub mod autocomplete;
 pub mod connection;
+
+use error::{Result};
+use ::observation::{VisitObservation};
+
+pub fn apply_observation(conn: &connection::Connection, visit_obs: VisitObservation) -> Result<()> {
+    ::storage::apply_observation(conn.get_db(), visit_obs)
+}

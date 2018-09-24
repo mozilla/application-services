@@ -38,7 +38,7 @@ impl FromSql for SyncGuid {
 
 // Typesafe way to manage timestamps.
 // We should probably work out how to share this too?
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Default)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, Default)]
 pub struct Timestamp(pub u64);
 
 impl Timestamp {

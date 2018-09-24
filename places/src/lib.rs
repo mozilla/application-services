@@ -38,3 +38,4 @@ mod db;
 mod storage;
 mod hash;
 mod frecency;
+mod observation;
