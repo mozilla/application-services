@@ -11,7 +11,7 @@ use super::db::{PlacesDb};
 
 use error::*;
 
-const VERSION: i64 = 0; // should bump to 1 when we consider it vaguely stable
+const VERSION: i64 = 1;
 
 
 // XXX - should we just use "TEXT" in place of LONGVARCHAR?
@@ -115,13 +115,7 @@ pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM_OF_SQUARES: &'static str = "o
 pub fn init(db: &PlacesDb) -> Result<()> {
     let user_version = db.query_one::<i64>("PRAGMA user_version")?;
     if user_version == 0 {
-        let table_list_exists = db.query_one::<i64>(
-            "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'tableList'"
-        )? != 0;
-
-        if !table_list_exists {
-            return create(db);
-        }
+        return create(db);
     }
     if user_version != VERSION {
         if user_version < VERSION {
