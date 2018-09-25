@@ -16,6 +16,8 @@ protect their privacy. Resetting the password destroys the
 encryption key and leaves the data inaccessible which
 eventually is deleted.
 
+<!--truncate-->
+
 There are some password reset scenarios that will not lose user
 data. For example, if the user has an existing Firefox profile
 with a local copy of their data, then it will eventually re-encrypt
