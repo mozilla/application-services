@@ -81,7 +81,7 @@ impl PageInfo {
             page_id: PageId::Guid(row.get_checked("guid")?),
             url: Url::parse(&row.get_checked::<_, Option<String>>("url")?.expect("non null column"))?,
             row_id: row.get_checked("id")?,
-            title: row.get_checked("title")?,
+            title: row.get_checked::<_, Option<String>>("title")?.unwrap_or_default(),
             hidden: row.get_checked("hidden")?,
             typed: row.get_checked("typed")?,
 
@@ -89,8 +89,10 @@ impl PageInfo {
             visit_count_local: row.get_checked("visit_count_local")?,
             visit_count_remote: row.get_checked("visit_count_remote")?,
 
-            last_visit_date_local: row.get_checked("last_visit_date_local")?,
-            last_visit_date_remote: row.get_checked("last_visit_date_remote")?,
+            last_visit_date_local: row.get_checked::<_, Option<Timestamp>>(
+                "last_visit_date_local")?.unwrap_or_default(),
+            last_visit_date_remote: row.get_checked::<_, Option<Timestamp>>(
+                "last_visit_date_remote")?.unwrap_or_default(),
         })
     }
 }
@@ -108,7 +110,7 @@ impl FetchedPageInfo {
     pub fn from_row(row: &Row) -> Result<Self> {
         Ok(Self {
             page: PageInfo::from_row(row)?,
-            last_visit_id: row.get_checked("last_visit_id")?,
+            last_visit_id: row.get_checked::<_, Option<RowId>>("last_visit_id")?.expect("No visit id!"),
         })
     }
 }
@@ -123,7 +125,9 @@ fn fetch_page_info(db: &PlacesDb, page_id: &PageId) -> Result<Option<FetchedPage
                      visit_count_local, visit_count_remote,
                      last_visit_date_local, last_visit_date_remote,
               (SELECT id FROM moz_historyvisits
-               WHERE place_id = h.id AND visit_date = h.last_visit_date_local) AS last_visit_id
+               WHERE place_id = h.id
+                 AND (visit_date = h.last_visit_date_local OR
+                      visit_date = h.last_visit_date_remote)) AS last_visit_id
               FROM moz_places h
               WHERE guid = :guid";
             db.query_row_named(sql, &[(":guid", guid)], FetchedPageInfo::from_row)?
@@ -134,7 +138,9 @@ fn fetch_page_info(db: &PlacesDb, page_id: &PageId) -> Result<Option<FetchedPage
                      visit_count_local, visit_count_remote,
                      last_visit_date_local, last_visit_date_remote,
               (SELECT id FROM moz_historyvisits
-               WHERE place_id = h.id AND visit_date = h.last_visit_date_local) AS last_visit_id
+               WHERE place_id = h.id
+                 AND (visit_date = h.last_visit_date_local OR
+                      visit_date = h.last_visit_date_remote)) AS last_visit_id
               FROM moz_places h
               WHERE url_hash = hash(:page_url) AND url = :page_url";
             db.query_row_named(sql, &[(":page_url", &url.clone().into_string())], FetchedPageInfo::from_row)?
@@ -189,12 +195,13 @@ pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<()
         }
     }
     if updates.len() != 0 {
-        let mut params: Vec<(&str, &ToSql)> = Vec::new();
-        let mut sets: Vec<String> = Vec::new();
+        let mut params: Vec<(&str, &ToSql)> = Vec::with_capacity(updates.len() + 1);
+        let mut sets: Vec<String> = Vec::with_capacity(updates.len());
         for (col, name, val) in updates {
             sets.push(format!("{} = {}", col, name));
             params.push((name, val))
         }
+        params.push((":row_id", &page_info.row_id.0));
         let sql = format!("UPDATE moz_places
                           SET {}
                           WHERE id == :row_id", sets.join(","));

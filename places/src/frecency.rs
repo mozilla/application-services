@@ -227,7 +227,6 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
             }
             num_sampled_visits += 1;
         }
-        println!("Recent visits: {:?}", (num_sampled_visits, points_for_sampled_visits));
 
         Ok((num_sampled_visits, points_for_sampled_visits))
     }

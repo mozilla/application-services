@@ -34,8 +34,16 @@ extern crate serde_derive;
 pub mod api;
 pub mod error;
 pub mod types;
-mod db;
-mod storage;
-mod hash;
-mod frecency;
-mod observation;
+// Making these all pub for now while we flesh out the API.
+pub mod db;
+pub mod storage;
+pub mod hash;
+pub mod frecency;
+pub mod observation;
+
+pub use error::*;
+pub use types::*;
+pub use observation::VisitObservation;
+pub use storage::{RowId, PageId, PageInfo};
+pub use api::{connection::Connection, apply_observation};
+

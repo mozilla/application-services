@@ -37,6 +37,13 @@ impl VisitObservation {
         }
     }
 
+    pub fn get_url(&self) -> Option<&Url> {
+        match &self.page_id {
+            PageId::Url(url) => Some(url),
+            _ => None
+        }
+    }
+
     pub fn title(mut self, s: String) -> Self {
         assert!(self.title.is_none(), "don't call this twice");
         self.title = Some(s);
@@ -89,6 +96,20 @@ impl VisitObservation {
         assert!(self.is_redirect_source.is_none(), "don't call this twice");
         self.is_redirect_source = Some(());
         self
+    }
+
+    pub fn referrer(mut self, ref_url: Url) -> Self {
+        assert!(self.referrer.is_none(), "don't call this twice");
+        self.referrer = Some(ref_url);
+        self
+    }
+
+    pub fn get_referrer(&self) -> Option<&Url> {
+        self.referrer.as_ref()
+    }
+
+    pub fn get_is_permanent_redirect_source(&self) -> bool {
+        self.is_redirect_source.is_some()
     }
 
     // Other helpers which can be derived.

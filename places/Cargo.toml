@@ -10,7 +10,6 @@ serde_derive = "1.0.75"
 serde_json = "1.0.26"
 log = "0.4.4"
 lazy_static = "1.1.0"
-more-asserts = "0.2.1"
 url = "1.7.1"
 failure = "0.1"
 failure_derive = "0.1"
@@ -21,8 +20,12 @@ version = "0.14.0"
 features = ["sqlcipher", "functions"]
 
 [dev-dependencies]
+more-asserts = "0.2.1"
 env_logger = "0.5.13"
-prettytable-rs = "0.7.0"
-fxa-client = { path = "../fxa-client" }
-webbrowser = "0.3.1"
 chrono = "0.4.6"
+termion = "1.5.1"
+find-places-db = "0.1.0"
+clap = "2.32.0"
+tempfile = "3.0.4"
+rand = "0.5.5"
+
