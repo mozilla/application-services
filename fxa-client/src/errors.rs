@@ -92,6 +92,9 @@ pub enum ErrorKind {
     #[fail(display = "Audience URL without a host")]
     AudienceURLWithoutHost,
 
+    #[fail(display = "Origin mismatch")]
+    OriginMismatch,
+
     #[fail(display = "JWT signature validation failed")]
     JWTSignatureValidationFailed,
 
