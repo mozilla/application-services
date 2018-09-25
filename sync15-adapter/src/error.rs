@@ -4,7 +4,7 @@
 
 use std::time::SystemTime;
 use reqwest;
-use failure::{self, Fail, Context, Backtrace, SyncFailure};
+use failure::{Fail, Context, Backtrace, SyncFailure};
 use std::{fmt, result, string};
 use std::boxed::Box;
 use openssl;
@@ -110,9 +110,6 @@ pub enum ErrorKind {
 
     #[fail(display = "Unexpected server behavior during batch upload: {}", _0)]
     ServerBatchProblem(&'static str),
-
-    #[fail(display = "Error reported by storage: {}", _0)]
-    StoreError(#[fail(cause)] failure::Error),
 
     #[fail(display = "Setup state machine cycle detected")]
     SetupStateCycleError,
