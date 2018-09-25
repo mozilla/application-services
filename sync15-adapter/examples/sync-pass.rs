@@ -21,13 +21,12 @@ extern crate fxa_client;
 
 use std::io::{self, Read, Write};
 use std::fs;
-use std::process;
 use std::collections::HashMap;
 use std::borrow::Cow;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use fxa_client::{FirefoxAccount, Config, OAuthInfo};
-use sync::{error, ServerTimestamp, OutgoingChangeset, Payload, Store};
+use sync::{ServerTimestamp, OutgoingChangeset, Payload, Store};
 
 const CLIENT_ID: &str = "3c8bd3fe92e1ddf1";
 const REDIRECT_URI: &str = "http://localhost:13131/oauth/complete";
@@ -341,7 +340,7 @@ impl PasswordEngine {
         &mut self,
          record_changes: &[Payload],
          new_last_sync: ServerTimestamp
-    ) -> sync::Result<()> {
+    ) -> Result<(), failure::Error> {
         for change in record_changes {
             if change.is_tombstone() {
                 self.records.remove(change.id());
@@ -351,19 +350,19 @@ impl PasswordEngine {
             }
         }
         self.last_sync = new_last_sync;
-        self.save().map_err(sync::error::ErrorKind::StoreError)?;
+        self.save()?;
         Ok(())
     }
 }
 
 
 impl Store for PasswordEngine {
-    type Error = error::Error;
+    type Error = failure::Error;
 
     fn apply_incoming(
         &mut self,
         inbound: sync::IncomingChangeset
-    ) -> sync::Result<OutgoingChangeset> {
+    ) -> Result<OutgoingChangeset, failure::Error> {
         info!("Remote collection has {} changes", inbound.changes.len());
 
         let (outbound_changes, last_sync) = self.get_unsynced_changes()?;
@@ -386,12 +385,12 @@ impl Store for PasswordEngine {
         })
     }
 
-    fn sync_finished(&mut self, new_last_sync: ServerTimestamp, records_synced: &[String]) -> sync::Result<()> {
+    fn sync_finished(&mut self, new_last_sync: ServerTimestamp, records_synced: &[String]) -> Result<(), failure::Error> {
         for id in records_synced {
             self.changes.remove(id);
         }
         self.last_sync = new_last_sync;
-        self.save().map_err(sync::error::ErrorKind::StoreError)?;
+        self.save()?;
         Ok(())
     }
 }
