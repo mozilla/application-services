@@ -664,6 +664,7 @@ fn main() -> Result<()> {
         .arg(clap::Arg::with_name("database_path")
             .long("database")
             .short("d")
+            .takes_value(true)
             .help("Path to the database (with the *new* schema). Defaults to './new-places.db'"))
         .arg(clap::Arg::with_name("encryption_key")
             .long("encryption-key")
