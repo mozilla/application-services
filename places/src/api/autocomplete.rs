@@ -95,7 +95,7 @@ mod tests {
         insert(&c, a).expect("should insert");
 
         // phew - finally we can search
-        let maybe = search_frecent(&c, SearchParams { search_string: "%exam%".into(), limit: 2 }).expect("must have worked");
+        let maybe = search_frecent(&c, SearchParams { search_string: "exam".into(), limit: 2 }).expect("must have worked");
         let result = maybe.get(0).expect("should have actually matched too!");
         assert_eq!(result.url.to_string(), "http://example.com/"); // hrmph - note trailing slash
     }
