@@ -76,45 +76,50 @@ impl PlacesDb {
     pub fn open_in_memory(encryption_key: Option<&str>) -> Result<Self> {
         Ok(Self::with_connection(Connection::open_in_memory()?, encryption_key)?)
     }
+}
 
-    pub fn vacuum(&self) -> Result<()> {
+/// This trait exists so that we can use these helpers on rusqlite::{Transaction,Connection}, as well as
+/// PlacesDb. Note that you must import ConnectionUtil in order to call thes methods!
+pub trait ConnectionUtil {
+    fn conn(&self) -> &Connection;
+
+    // TODO: better versions of most exist in logins-sql.
+    // need to get on sharing this stuff...
+
+    fn vacuum(&self) -> Result<()> {
         self.execute("VACUUM")?;
         Ok(())
     }
 
-    pub fn execute_all(&self, stmts: &[&str]) -> Result<()> {
+    fn execute_all(&self, stmts: &[&str]) -> Result<()> {
         for sql in stmts {
             self.execute(sql)?;
         }
         Ok(())
     }
 
-    #[inline]
-    pub fn execute(&self, stmt: &str) -> Result<usize> {
+    fn execute(&self, stmt: &str) -> Result<usize> {
         Ok(self.do_exec(stmt, &[], false)?)
     }
 
-    #[inline]
-    pub fn execute_cached(&self, stmt: &str) -> Result<usize> {
+    fn execute_cached(&self, stmt: &str) -> Result<usize> {
         Ok(self.do_exec(stmt, &[], true)?)
     }
 
-    #[inline]
-    pub fn execute_with_args(&self, stmt: &str, params: &[&ToSql]) -> Result<usize> {
+    fn execute_with_args(&self, stmt: &str, params: &[&ToSql]) -> Result<usize> {
         Ok(self.do_exec(stmt, params, false)?)
     }
 
-    #[inline]
-    pub fn execute_cached_with_args(&self, stmt: &str, params: &[&ToSql]) -> Result<usize> {
+    fn execute_cached_with_args(&self, stmt: &str, params: &[&ToSql]) -> Result<usize> {
         Ok(self.do_exec(stmt, params, true)?)
     }
 
     fn do_exec(&self, sql: &str, params: &[&ToSql], cache: bool) -> Result<usize> {
         let res = if cache {
-            self.db.prepare_cached(sql)
+            self.conn().prepare_cached(sql)
                    .and_then(|mut s| s.execute(params))
         } else {
-            self.db.execute(sql, params)
+            self.conn().execute(sql, params)
         };
         if let Err(e) = &res {
             warn!("Error running SQL {}. Statement: {:?}", e, sql);
@@ -122,22 +127,20 @@ impl PlacesDb {
         Ok(res?)
     }
 
-    #[inline]
-    pub fn execute_named(&self, stmt: &str, params: &[(&str, &ToSql)]) -> Result<usize> {
+    fn execute_named(&self, stmt: &str, params: &[(&str, &ToSql)]) -> Result<usize> {
         Ok(self.do_exec_named(stmt, params, false)?)
     }
 
-    #[inline]
-    pub fn execute_named_cached(&self, stmt: &str, params: &[(&str, &ToSql)]) -> Result<usize> {
+    fn execute_named_cached(&self, stmt: &str, params: &[(&str, &ToSql)]) -> Result<usize> {
         Ok(self.do_exec_named(stmt, params, true)?)
     }
 
     fn do_exec_named(&self, sql: &str, params: &[(&str, &ToSql)], cache: bool) -> Result<usize> {
         let res = if cache {
-            self.db.prepare_cached(sql)
-                   .and_then(|mut s| s.execute_named(params))
+            self.conn().prepare_cached(sql)
+                       .and_then(|mut s| s.execute_named(params))
         } else {
-            self.db.execute_named(sql, params)
+            self.conn().execute_named(sql, params)
         };
         if let Err(e) = &res {
             warn!("Error running SQL {}. Statement: {:?}", e, sql);
@@ -145,15 +148,15 @@ impl PlacesDb {
         Ok(res?)
     }
 
-    pub fn query_one<T: FromSql>(&self, sql: &str) -> Result<T> {
-        let res: T = self.db.query_row(sql, &[], |row| row.get(0))?;
+    fn query_one<T: FromSql>(&self, sql: &str) -> Result<T> {
+        let res: T = self.conn().query_row(sql, &[], |row| row.get(0))?;
         Ok(res)
     }
 
     // Note that there are several differences between these and `self.db.query_row`: it returns
     // None and not an error if no rows are returned, it allows the function to return a result, etc
-    pub fn query_row_cached<T>(&self, sql: &str, args: &[&ToSql], f: impl FnOnce(&Row) -> Result<T>) -> Result<Option<T>> {
-        let mut stmt = self.db.prepare_cached(sql)?;
+    fn query_row_cached<T>(&self, sql: &str, args: &[&ToSql], f: impl FnOnce(&Row) -> Result<T>) -> Result<Option<T>> {
+        let mut stmt = self.conn().prepare_cached(sql)?;
         let res = stmt.query(args);
         if let Err(e) = &res {
             warn!("Error executing query: {}. Query: {}", e, sql);
@@ -167,8 +170,8 @@ impl PlacesDb {
 
     // cached and uncached stmt types are completely different so we can't remove the duplication
     // between query_row_cached and query_row... :/
-    pub fn query_row<T>(&self, sql: &str, args: &[&ToSql], f: impl FnOnce(&Row) -> Result<T>) -> Result<Option<T>> {
-        let mut stmt = self.db.prepare(sql)?;
+    fn query_row<T>(&self, sql: &str, args: &[&ToSql], f: impl FnOnce(&Row) -> Result<T>) -> Result<Option<T>> {
+        let mut stmt = self.conn().prepare(sql)?;
         let res = stmt.query(args);
         if let Err(e) = &res {
             warn!("Error executing query: {}. Query: {}", e, sql);
@@ -180,8 +183,8 @@ impl PlacesDb {
         }
     }
 
-    pub fn query_row_named<T>(&self, sql: &str, args: &[(&str, &ToSql)], f: impl FnOnce(&Row) -> Result<T>) -> Result<Option<T>> {
-        let mut stmt = self.db.prepare(sql)?;
+    fn query_row_named<T>(&self, sql: &str, args: &[(&str, &ToSql)], f: impl FnOnce(&Row) -> Result<T>) -> Result<Option<T>> {
+        let mut stmt = self.conn().prepare(sql)?;
         let res = stmt.query_named(args);
         if let Err(e) = &res {
             warn!("Error executing query: {}. Query: {}", e, sql);
@@ -191,6 +194,28 @@ impl PlacesDb {
             Some(result) => Ok(Some(f(&result?)?)),
             None => Ok(None),
         }
+    }
+}
+
+impl ConnectionUtil for Connection {
+    #[inline]
+    fn conn(&self) -> &Connection {
+        self
+    }
+}
+
+impl<'conn> ConnectionUtil for rusqlite::Transaction<'conn> {
+    #[inline]
+    fn conn(&self) -> &Connection {
+        use std::ops::Deref;
+        Deref::deref(self)
+    }
+}
+
+impl ConnectionUtil for PlacesDb {
+    #[inline]
+    fn conn(&self) -> &Connection {
+        &self.db
     }
 }
 

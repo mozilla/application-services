@@ -43,6 +43,8 @@ use places::{
     PageId,
     VisitObservation,
     VisitTransition,
+    PlacesDb,
+    ConnectionUtil,
 };
 
 use std::{fs, path::{Path, PathBuf}};

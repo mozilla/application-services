@@ -11,14 +11,13 @@ use url::{Url};
 use types::{SyncGuid, Timestamp, VisitTransition};
 use error::{Result};
 use observation::{VisitObservation};
-
 use frecency;
 
-use rusqlite::{Row};
+use rusqlite::{Row, Connection};
 use rusqlite::{types::{ToSql, FromSql, ToSqlOutput, FromSqlResult, ValueRef}};
 use rusqlite::Result as RusqliteResult;
 
-use ::db::PlacesDb;
+use db::{PlacesDb, ConnectionUtil};
 
 // Typesafe way to manage RowIds. Does it make sense? A better way?
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Default)]
@@ -116,8 +115,8 @@ impl FetchedPageInfo {
 }
 
 // History::FetchPageInfo
-fn fetch_page_info(db: &PlacesDb, page_id: &PageId) -> Result<Option<FetchedPageInfo>> {
-    Ok(match page_id {
+fn fetch_page_info(db: &impl ConnectionUtil, page_id: &PageId) -> Result<Option<FetchedPageInfo>> {
+    match page_id {
         // XXX - there's way too much sql and db.query duplicated here!?
         PageId::Guid(ref guid) => {
             let sql = "
@@ -130,7 +129,7 @@ fn fetch_page_info(db: &PlacesDb, page_id: &PageId) -> Result<Option<FetchedPage
                       visit_date = h.last_visit_date_remote)) AS last_visit_id
               FROM moz_places h
               WHERE guid = :guid";
-            db.query_row_named(sql, &[(":guid", guid)], FetchedPageInfo::from_row)?
+            Ok(db.query_row_named(sql, &[(":guid", guid)], FetchedPageInfo::from_row)?)
         },
         PageId::Url(url) => {
             let sql = "
@@ -143,16 +142,16 @@ fn fetch_page_info(db: &PlacesDb, page_id: &PageId) -> Result<Option<FetchedPage
                       visit_date = h.last_visit_date_remote)) AS last_visit_id
               FROM moz_places h
               WHERE url_hash = hash(:page_url) AND url = :page_url";
-            db.query_row_named(sql, &[(":page_url", &url.clone().into_string())], FetchedPageInfo::from_row)?
+            Ok(db.query_row_named(sql, &[(":page_url", &url.clone().into_string())], FetchedPageInfo::from_row)?)
         }
-    })
+    }
 }
 
-pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<()> {
-    // XXX - transaction!
-    let mut page_info = match fetch_page_info(&db, &visit_ob.page_id)? {
+pub fn apply_observation(db: &mut PlacesDb, visit_ob: VisitObservation) -> Result<()> {
+    let tx = db.db.transaction()?;
+    let mut page_info = match fetch_page_info(&tx, &visit_ob.page_id)? {
         Some(info) => info.page,
-        None => new_page_info(&db, &visit_ob.page_id)?,
+        None => new_page_info(&tx, &visit_ob.page_id)?,
     };
     let mut updates: Vec<(&str, &str, &ToSql)> = Vec::new();
     if let Some(title) = visit_ob.get_title() {
@@ -175,7 +174,7 @@ pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<()
 
         let at = visit_ob.get_at().unwrap_or_else(|| Timestamp::now());
         let is_remote = visit_ob.get_is_remote();
-        add_visit(db, &page_info.row_id, &None, &at, &visit_type, &is_remote)?;
+        add_visit(&tx, &page_info.row_id, &None, &at, &visit_type, &is_remote)?;
         if is_remote {
             page_info.visit_count_remote += 1;
             updates.push(("visit_count_remote", ":visit_count_remote", &page_info.visit_count_remote));
@@ -203,11 +202,11 @@ pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<()
         let sql = format!("UPDATE moz_places
                           SET {}
                           WHERE id == :row_id", sets.join(","));
-        db.execute_named_cached(&sql, &params)?;
+        tx.execute_named_cached(&sql, &params)?;
     }
     // This needs to happen after the other updates.
     if update_frecency {
-        page_info.frecency = frecency::calculate_frecency(&db,
+        page_info.frecency = frecency::calculate_frecency(&tx,
             &frecency::DEFAULT_FRECENCY_SETTINGS,
             page_info.row_id.0, // TODO: calculate_frecency should take a RowId here.
             Some(visit_ob.get_redirect_frecency_boost()))?;
@@ -216,15 +215,16 @@ pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<()
             SET frecency = :frecency
             WHERE id = :row_id
         ";
-        db.execute_named_cached(sql, &[
+        tx.execute_named_cached(sql, &[
             (":row_id", &page_info.row_id.0),
             (":frecency", &page_info.frecency),
         ])?;
     }
+    tx.commit()?;
     Ok(())
 }
 
-fn new_page_info(db: &PlacesDb, pid: &PageId) -> Result<PageInfo> {
+fn new_page_info(db: &impl ConnectionUtil, pid: &PageId) -> Result<PageInfo> {
     match pid {
         PageId::Guid(_) => panic!("Need to think this through, but items must be created with a url"),
         PageId::Url(ref url) => {
@@ -237,7 +237,7 @@ fn new_page_info(db: &PlacesDb, pid: &PageId) -> Result<PageInfo> {
             ])?;
             Ok(PageInfo {
                 page_id: PageId::Guid(SyncGuid(guid)),
-                row_id: RowId(db.db.last_insert_rowid()),
+                row_id: RowId(db.conn().last_insert_rowid()),
                 url: url.clone(),
                 title: "".into(),
                 hidden: true, // will be set to false as soon as a non-hidden visit appears.
@@ -255,12 +255,12 @@ fn new_page_info(db: &PlacesDb, pid: &PageId) -> Result<PageInfo> {
 // Add a single visit - you must know the page rowid. Does not update the
 // page info - if you are calling this, you will also need to update the
 // parent page with the new visit count, frecency, etc.
-fn add_visit(db: &PlacesDb,
-                 page_id: &RowId,
-                 from_visit: &Option<RowId>,
-                 visit_date: &Timestamp,
-                 visit_type: &VisitTransition,
-                 is_local: &bool) -> Result<RowId> {
+fn add_visit(db: &impl ConnectionUtil,
+             page_id: &RowId,
+             from_visit: &Option<RowId>,
+             visit_date: &Timestamp,
+             visit_type: &VisitTransition,
+             is_local: &bool) -> Result<RowId> {
     let sql =
         "INSERT INTO moz_historyvisits
             (from_visit, place_id, visit_date, visit_type, is_local)
@@ -272,13 +272,13 @@ fn add_visit(db: &PlacesDb,
         (":visit_type", visit_type),
         (":is_local", is_local),
     ])?;
-    let rid = db.db.last_insert_rowid();
+    let rid = db.conn().last_insert_rowid();
     Ok(RowId(rid))
 }
 
 // Currently not used - we update the frecency as we update the page info.
-pub fn update_frecency(db: &PlacesDb, id: RowId, redirect: Option<bool>) -> Result<()> {
-    let score = frecency::calculate_frecency(&db,
+pub fn update_frecency(db: &mut PlacesDb, id: RowId, redirect: Option<bool>) -> Result<()> {
+    let score = frecency::calculate_frecency(db.conn(),
         &frecency::DEFAULT_FRECENCY_SETTINGS,
         id.0, // TODO: calculate_frecency should take a RowId here.
         redirect)?;

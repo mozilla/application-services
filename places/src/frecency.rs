@@ -2,7 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use db::PlacesDb;
+use db::{ConnectionUtil};
+use rusqlite::Connection;
 use error::*;
 use types::VisitTransition;
 
@@ -114,7 +115,7 @@ impl FrecencySettings {
 }
 
 struct FrecencyComputation<'db, 's> {
-    conn: &'db PlacesDb,
+    conn: &'db Connection,
     settings: &'s FrecencySettings,
     page_id: i64,
     most_recent_redirect_bonus: RedirectBonus,
@@ -126,16 +127,14 @@ struct FrecencyComputation<'db, 's> {
 }
 
 impl<'db, 's> FrecencyComputation<'db, 's> {
-
-
     fn new(
-        conn: &'db PlacesDb,
+        conn: &'db Connection,
         settings: &'s FrecencySettings,
         page_id: i64,
         most_recent_redirect_bonus: RedirectBonus
     ) -> Result<Self> {
 
-        let (typed, visit_count, foreign_count, is_query) = conn.db.query_row_named("
+        let (typed, visit_count, foreign_count, is_query) = conn.query_row_named("
             SELECT typed, (visit_count_local + visit_count_remote) as visit_count, foreign_count, (substr(url, 0, 7) = 'place:') as is_query
             FROM moz_places
             WHERE id = :page_id
@@ -186,7 +185,7 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
             max_visits = self.settings.num_visits,
         );
 
-        let mut stmt = self.conn.db.prepare(&get_recent_visits)?;
+        let mut stmt = self.conn.prepare(&get_recent_visits)?;
 
         let row_iter = stmt.query_map_named(&[(":page_id", &self.page_id)], |row| {
             let visit_type = row.get::<_, Option<u32>>("visit_type").unwrap_or(0);
@@ -262,7 +261,7 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
     }
 }
 
-pub fn calculate_frecency(db: &PlacesDb, settings: &FrecencySettings, page_id: i64, is_redirect: Option<bool>) -> Result<i32> {
+pub fn calculate_frecency(db: &Connection, settings: &FrecencySettings, page_id: i64, is_redirect: Option<bool>) -> Result<i32> {
     assert!(page_id > 0, "calculate_frecency given invalid page_id");
 
     let most_recent_redirect_bonus = match is_redirect {
