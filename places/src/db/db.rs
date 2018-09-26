@@ -17,6 +17,7 @@ use rusqlite::{
 use std::path::Path;
 
 use caseless::canonical_caseless_match_str;
+use unicode_segmentation::UnicodeSegmentation;
 
 use api::matcher::MatchBehavior;
 
@@ -222,6 +223,11 @@ impl ConnectionUtil for PlacesDb {
 // ----------------------------- end of stuff that should be common --------------------
 
 fn define_functions(c: &Connection) -> Result<()> {
+    c.create_scalar_function("reverse_host", 1, true, move |ctx| {
+        let host = ctx.get::<String>(0)?;
+        let rev_host: String = host.graphemes(true).rev().flat_map(|g| g.chars().flat_map(|c| c.to_lowercase())).collect();
+        Ok(rev_host + ".")
+    })?;
     c.create_scalar_function("autocomplete_match", -1, true, move |ctx| {
         let search_string = ctx.get::<Option<String>>(0)?.unwrap_or_default();
         let url = ctx.get::<Option<String>>(1)?.unwrap_or_default();
@@ -295,5 +301,15 @@ mod tests {
     #[test]
     fn test_open() {
         PlacesDb::open_in_memory(None).expect("no memory db");
+    }
+
+    #[test]
+    fn test_reverse_host() {
+        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let rev_host: String = conn.db.query_row("SELECT reverse_host('www.mozilla.org')", &[], |row| row.get(0)).unwrap();
+        assert_eq!(rev_host, "gro.allizom.www.");
+
+        let rev_host: String = conn.db.query_row("SELECT reverse_host('')", &[], |row| row.get(0)).unwrap();
+        assert_eq!(rev_host, ".");
     }
 }
