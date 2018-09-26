@@ -42,6 +42,7 @@ pub mod storage;
 pub mod hash;
 pub mod frecency;
 pub mod observation;
+pub mod util;
 
 pub use error::*;
 pub use types::*;

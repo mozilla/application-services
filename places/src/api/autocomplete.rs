@@ -7,7 +7,8 @@
 use url::{Url};
 use error::*;
 use super::connection::{Connection};
-
+use db::db::MAX_VARIABLE_NUMBER;
+use util;
 // rusqlite imports probably reflect that some of this should be in ::storage
 use rusqlite;
 
@@ -21,6 +22,7 @@ pub struct SearchParams {
 pub struct SearchResult {
     pub title: Option<String>,
     pub url: Url,
+    pub frecency: i64
 }
 
 impl SearchResult {
@@ -28,6 +30,7 @@ impl SearchResult {
         Ok(Self {
             title: row.get_checked::<_, Option<String>>("title")?,
             url: Url::parse(&row.get_checked::<_, Option<String>>("url")?.expect("we gotta have a url in the resultset"))?,
+            frecency: row.get_checked("frecency")?
         })
     }
 }
@@ -40,24 +43,30 @@ pub fn search_frecent(conn: &Connection, params: SearchParams) -> Result<Vec<Sea
     // * obvs the most trivial impl possible!
     // * etc...
 
-    let sql = "
-        SELECT url, title
-        FROM moz_places
-        WHERE url LIKE :search_string
-          OR title LIKE :search_string
-        LIMIT :max
-    ";
-    // Note: I've moved these here since they refer to strings in the sql, so it seems like
-    // we want them to be near the sql and not in a method on SearchResult.
-    let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
-        (":search_string", &params.search_string),
-        (":max", &params.limit),
-    ];
+    let tokens = params.search_string.split_whitespace().collect::<Vec<&str>>();
+    // Discard tokens beyond MAX_VARIABLE_NUMBER (Hacky, but almost certainly doesn't matter)
+    let token_slice = &tokens[..tokens.len().min(MAX_VARIABLE_NUMBER)];
+
+    let tokens_as_tosql = token_slice.iter()
+        .map(|t| t as &dyn rusqlite::types::ToSql)
+        .collect::<Vec<_>>();
+
+    let sql = format!("
+        WITH search_tokens(token) AS (VALUES {values})
+        SELECT url, title, frecency
+        FROM moz_places p
+        JOIN search_tokens t
+        ON (instr(p.url, t.token) OR instr(p.title, t.token))
+        ORDER BY frecency DESC
+        LIMIT {max}
+    ", values = util::repeat_display(tokens.len(), ",", |_, f| write!(f, "(?)")),
+       max = params.limit);
+
     let conn_db = conn.get_db();
-    let mut stmt = conn_db.db.prepare(sql)?;
+    let mut stmt = conn_db.db.prepare(&sql)?;
     // Couldn't make this work as a collect (probably because of all the Result<>)
     let mut result = vec![];
-    for res_row in stmt.query_map_named(params, SearchResult::from_row)? {
+    for res_row in stmt.query_map(&tokens_as_tosql, SearchResult::from_row)? {
         // First ? is rusqlite errors, second is errors in SearchResult::from_row.
         let parsed = res_row??;
         result.push(parsed);

@@ -440,10 +440,10 @@ fn find_highlighted_sections<'a>(source: &'a str, search_tokens: &[&str]) -> Vec
     result
 }
 
-fn highlight_sections<W: Write>(out: &mut W, source: &str, search_tokens: &[&str]) -> Result<()> {
+fn highlight_sections<W: Write>(out: &mut W, source: &str, search_tokens: &[&str], pad: usize) -> Result<()> {
     use termion::style::{Bold, NoFaint};
     let (term_width, _) = termion::terminal_size()?;
-    let mut source_shortened = source.chars().take(term_width as usize - 10).collect::<String>();
+    let mut source_shortened = source.chars().take(term_width as usize - 10 - pad).collect::<String>();
     if source_shortened.len() != source.len() {
         source_shortened.push_str("...");
     }
@@ -479,6 +479,7 @@ fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<
         clear,
         style::{Invert, NoInvert},
         cursor::{self, Goto},
+        color,
     };
 
     let mut autocompleter = BackgroundAutocomplete::start(ConnectionArgs {
@@ -513,7 +514,7 @@ fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<
                     if !query_str.is_empty() {
                         last_query = Instant::now();
                         autocompleter.query(SearchParams {
-                            search_string: format!("%{}%", query_str), // XXX
+                            search_string: format!("{}", query_str), // XXX
                             limit: 5,
                         })?;
                     }
@@ -593,7 +594,7 @@ fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<
             last_query = now;
             if !query_str.is_empty() && now.duration_since(last) > Duration::from_millis(100) {
                 autocompleter.query(SearchParams {
-                    search_string: format!("%{}%", query_str), // XXX
+                    search_string: format!("{}", query_str), // XXX
                     limit: 5,
                 })?;
             }
@@ -615,9 +616,7 @@ fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<
         if repaint_results {
             match &results {
                 Some(results) => {
-                    // Strip away leading/trailing %
-                    let search_query = (&results.search.search_string[
-                        1..(results.search.search_string.len()-1)]).to_string();
+                    // let search_query = results.search.search_string;
                     write!(stdout, "{}{}{}Query id={} gave {} results (max {}) for \"{}\" after {}us",
                         cursor::Save, Goto(1, 3), clear::AfterCursor,
                         results.id,
@@ -627,22 +626,40 @@ fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<
                         results.took.as_secs() * 1_000_000 + (results.took.subsec_nanos() as u64 / 1000)
                     )?;
                     write!(stdout, "{}", Goto(1, 4));
+                    let search_tokens = results.search.search_string
+                        .split_whitespace().collect::<Vec<&str>>();
                     for (i, item) in results.results.iter().enumerate() {
                         write!(stdout, "{}", Goto(1, 4 + (i as u16) * 2))?;
+                        let prefix = format!("{}. ({}) ", i + 1, item.frecency);
                         if i == pos {
                             write!(stdout, "{}", Invert)?;
+                            write!(stdout, "{}{}{}. ({}{}{}) ",
+                                color::Bg(color::Blue), i + 1, color::Bg(color::Reset),
+                                color::Bg(color::Red), item.frecency, color::Bg(color::Reset))?;
+                        } else {
+                            write!(stdout, "{}{}{}. ({}{}{}) ",
+                                color::Fg(color::Blue), i + 1, color::Fg(color::Reset),
+                                color::Fg(color::Red), item.frecency, color::Fg(color::Reset))?;
                         }
-                        write!(stdout, "{}. ", i + 1);
+
                         if let Some(title) = item.title.as_ref() {
-                            highlight_sections(&mut stdout, &title, &[&search_query])?;
+                            highlight_sections(&mut stdout, &title, &search_tokens, prefix.len())?;
                         } else {
                             write!(stdout, "{}", no_title)?;
                         }
                         write!(stdout, "{}    ", Goto(1, 5 + (i as u16) * 2))?;
                         let url_str = item.url.to_string();
-                        highlight_sections(&mut stdout, &url_str, &[&search_query])?;
                         if i == pos {
-                            write!(stdout, "{}", NoInvert)?;
+                            write!(stdout, "{}", color::Bg(color::Green))?;
+                        } else {
+                            write!(stdout, "{}", color::Fg(color::Green))?;
+                        }
+
+                        highlight_sections(&mut stdout, &url_str, &search_tokens, 4)?;
+                        if i == pos {
+                            write!(stdout, "{}{}", color::Bg(color::Reset), NoInvert)?;
+                        } else {
+                            write!(stdout, "{}", color::Fg(color::Reset))?;
                         }
                     }
                     write!(stdout, "{}", cursor::Restore)?;
