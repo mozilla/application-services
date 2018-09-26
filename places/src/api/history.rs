@@ -6,9 +6,9 @@ use url::{Url};
 
 use error::*;
 use types::*;
-use super::connection::{Connection};
+use db::PlacesDb;
 use super::apply_observation;
-use ::storage::{PageId};
+use storage::{PageId};
 use observation::{VisitObservation};
 
 // This module can become, roughly: PlacesUtils.history()
@@ -43,7 +43,7 @@ pub struct AddableVisit {
 }
 
 // insert a visit a'la PlacesUtils.history.insert()
-pub fn insert(conn: &Connection, place: AddablePlaceInfo) -> Result<()> {
+pub fn insert(conn: &mut PlacesDb, place: AddablePlaceInfo) -> Result<()> {
     for v in place.visits {
         let mut obs = VisitObservation::new(place.page_id.clone()
                                         ).visit_type(v.transition
@@ -64,11 +64,10 @@ pub fn insert(conn: &Connection, place: AddablePlaceInfo) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use super::super::connection::Connection;
 
     #[test]
     fn test_insert() {
-        let c = Connection::new_in_memory(None).expect("should get a connection");
+        let mut c = PlacesDb::open_in_memory(None).expect("should get a connection");
         let url = Url::parse("http://example.com").expect("it's a valid url");
         let date = Timestamp::now();
         let visits = vec![AddableVisit { date,
@@ -77,7 +76,7 @@ mod tests {
                                          is_local: true}];
         let a = AddablePlaceInfo { page_id: PageId::Url(url), title: None, visits };
 
-        insert(&c, a).expect("should insert");
+        insert(&mut c, a).expect("should insert");
 
         // For now, a raw read of the DB.
         let sql = "SELECT p.id, p.url, p.title,
@@ -91,7 +90,7 @@ mod tests {
                     FROM moz_places p, moz_historyvisits v
                     WHERE v.place_id = p.id";
 
-        let mut stmt = c.get_db().db.prepare(sql).expect("valid sql");
+        let mut stmt = c.db.prepare(sql).expect("valid sql");
         let mut rows = stmt.query(&[]).expect("should execute");
         let result = rows.next().expect("should get a row");
         let row = result.expect("expect anything");
@@ -141,7 +140,7 @@ pub enum RedirectSourceType {
 // of using various browser-specific heuristics to compute the VisitTransition
 // we assume the caller has already done this and passed the correct transition
 // flags in.
-pub fn visit_uri(conn: &Connection,
+pub fn visit_uri(conn: &mut PlacesDb,
                  url: &Url,
                  last_url: Option<Url>,
                  // To be more honest, this would *not* take a VisitTransition,

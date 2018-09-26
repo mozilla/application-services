@@ -4,12 +4,12 @@
 
 pub mod history;
 pub mod autocomplete;
-pub mod connection;
 pub mod matcher;
-
+use db::PlacesDb;
 use error::{Result};
-use ::observation::{VisitObservation};
+use observation::{VisitObservation};
+use storage;
 
-pub fn apply_observation(conn: &connection::Connection, visit_obs: VisitObservation) -> Result<()> {
-    ::storage::apply_observation(conn.get_db(), visit_obs)
+pub fn apply_observation(conn: &mut PlacesDb, visit_obs: VisitObservation) -> Result<()> {
+    storage::apply_observation(conn, visit_obs)
 }

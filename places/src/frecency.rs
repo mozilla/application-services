@@ -4,7 +4,6 @@
 
 use db::PlacesDb;
 use error::*;
-use rusqlite;
 use types::VisitTransition;
 
 #[derive(Debug, Clone, Copy, PartialEq)]

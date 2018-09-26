@@ -48,5 +48,6 @@ pub use error::*;
 pub use types::*;
 pub use observation::VisitObservation;
 pub use storage::{RowId, PageId, PageInfo};
-pub use api::{connection::Connection, apply_observation};
+pub use db::PlacesDb;
+pub use api::apply_observation;
 

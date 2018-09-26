@@ -6,8 +6,7 @@
 
 use url::{Url};
 use error::*;
-use super::connection::{Connection};
-use db::db::MAX_VARIABLE_NUMBER;
+use db::{PlacesDb, db::MAX_VARIABLE_NUMBER};
 use util;
 // rusqlite imports probably reflect that some of this should be in ::storage
 use rusqlite;
@@ -37,7 +36,7 @@ impl SearchResult {
 
 // There's a lot of boilerplate to return an iterator here (we can't just return
 // `impl Iterator<Item = ...> + 'a` because of rusqlite restrictions)
-pub fn search_frecent(conn: &Connection, params: SearchParams) -> Result<Vec<SearchResult>> {
+pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<SearchResult>> {
     // * result should be an iter of SearchResult...
     // * should have a "::storage" layer and not touch the db directly?
     // * obvs the most trivial impl possible!
@@ -64,8 +63,7 @@ pub fn search_frecent(conn: &Connection, params: SearchParams) -> Result<Vec<Sea
                    var_num = i + 1)),
        max = params.limit);
 
-    let conn_db = conn.get_db();
-    let mut stmt = conn_db.db.prepare(&sql)?;
+    let mut stmt = conn.db.prepare(&sql)?;
     // Couldn't make this work as a collect (probably because of all the Result<>)
     let mut result = vec![];
     for res_row in stmt.query_map(&tokens_as_tosql, SearchResult::from_row)? {
@@ -80,13 +78,12 @@ pub fn search_frecent(conn: &Connection, params: SearchParams) -> Result<Vec<Sea
 mod tests {
     use super::*;
     use super::super::history::*;
-    use super::super::connection::Connection;
     use url::{Url};
     use ::types::*;
     use ::storage::{PageId};
     #[test]
     fn test_dumb_search() {
-        let c = Connection::new_in_memory(None).expect("should get a connection");
+        let mut c = PlacesDb::open_in_memory(None).expect("should get a connection");
         let url = Url::parse("http://example.com").expect("it's a valid url");
         let visits = vec![AddableVisit { date: Timestamp::now(),
                                          transition: VisitTransition::Link,
@@ -94,7 +91,7 @@ mod tests {
                                          is_local: true}];
         let a = AddablePlaceInfo { page_id: PageId::Url(url), title: None, visits };
 
-        insert(&c, a).expect("should insert");
+        insert(&mut c, a).expect("should insert");
 
         // phew - finally we can search
         let maybe = search_frecent(&c, SearchParams { search_string: "exam".into(), limit: 2 }).expect("must have worked");

@@ -160,7 +160,7 @@ impl LegacyPlace {
             ],
         }
     }
-    pub fn insert(self, conn: &places::Connection, options: &ImportPlacesOptions) -> Result<()> {
+    pub fn insert(self, conn: &mut places::PlacesDb, options: &ImportPlacesOptions) -> Result<()> {
         places::api::history::insert(conn, history::AddablePlaceInfo {
             page_id: PageId::Url(Url::parse(&self.url)?),
             title: self.title,
@@ -178,7 +178,7 @@ impl LegacyPlace {
 }
 
 fn import_places(
-    new: &places::Connection,
+    new: &mut places::PlacesDb,
     old_path: PathBuf,
     options: ImportPlacesOptions
 ) -> Result<()> {
@@ -268,13 +268,13 @@ struct ConnectionArgs {
 }
 
 impl ConnectionArgs {
-    pub fn connect(&self) -> Result<places::Connection> {
+    pub fn connect(&self) -> Result<places::PlacesDb> {
         let key = match &self.encryption_key {
             Some(k) => Some(k.as_str()),
             _ => None,
         };
         // TODO: it would be nice if this could be a read-only connection.
-        Ok(places::Connection::new(&self.path, key)?)
+        Ok(places::PlacesDb::open(&self.path, key)?)
     }
 }
 
@@ -711,7 +711,7 @@ fn main() -> Result<()> {
     let db_path = matches.value_of("database_path").unwrap_or("./new-places.db");
     let encryption_key = matches.value_of("encryption_key");
 
-    let conn = places::Connection::new(&db_path, encryption_key)?;
+    let mut conn = places::PlacesDb::open(&db_path, encryption_key)?;
 
     if let Some(import_places_arg) = matches.value_of("import_places") {
         let options = ImportPlacesOptions {
@@ -749,7 +749,7 @@ fn main() -> Result<()> {
         let temp_places = dir.path().join("places-tmp.sqlite");
 
         fs::copy(&import_source, &temp_places)?;
-        import_places(&conn, temp_places, options)?;
+        import_places(&mut conn, temp_places, options)?;
     }
 
     if let Some(observations_json) = matches.value_of("import_observations") {
@@ -760,7 +760,7 @@ fn main() -> Result<()> {
         let mut counter = 0;
         for obs in observations {
             let visit = obs.into_visit()?;
-            places::apply_observation(&conn, visit)?;
+            places::apply_observation(&mut conn, visit)?;
             counter += 1;
             if (counter % 1000) == 0 {
                 trace!("Importing observations {} / {}", counter, num_observations);
