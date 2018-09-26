@@ -160,6 +160,8 @@ pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<()
         updates.push(("title", ":title", &page_info.title));
     }
 
+    let mut update_frecency = false;
+
     // There's a new visit, so update everything that implies
     if let Some(visit_type) = visit_ob.get_visit_type() {
         // A single non-hidden visit makes the place non-hidden.
@@ -187,11 +189,7 @@ pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<()
         }
         // a new visit implies new frecency except in error cases.
         if !visit_ob.get_is_error() {
-            page_info.frecency = frecency::calculate_frecency(&db,
-                &frecency::DEFAULT_FRECENCY_SETTINGS,
-                page_info.row_id.0, // TODO: calculate_frecency should take a RowId here.
-                Some(visit_ob.get_redirect_frecency_boost()))?;
-            updates.push(("frecency", ":frecency", &page_info.frecency));
+            update_frecency = true;
         }
     }
     if updates.len() != 0 {
@@ -206,6 +204,22 @@ pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<()
                           SET {}
                           WHERE id == :row_id", sets.join(","));
         db.execute_named_cached(&sql, &params)?;
+    }
+    // This needs to happen after the other updates.
+    if update_frecency {
+        page_info.frecency = frecency::calculate_frecency(&db,
+            &frecency::DEFAULT_FRECENCY_SETTINGS,
+            page_info.row_id.0, // TODO: calculate_frecency should take a RowId here.
+            Some(visit_ob.get_redirect_frecency_boost()))?;
+        let sql = "
+            UPDATE moz_places
+            SET frecency = :frecency
+            WHERE id = :row_id
+        ";
+        db.execute_named_cached(sql, &[
+            (":row_id", &page_info.row_id.0),
+            (":frecency", &page_info.frecency),
+        ])?;
     }
     Ok(())
 }
