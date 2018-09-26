@@ -4,7 +4,7 @@
 
 use rusqlite::{
     self,
-    types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef},
+    types::{FromSql, FromSqlError, FromSqlResult, Null, ToSql, ToSqlOutput, ValueRef},
 };
 use url::Url;
 
@@ -31,20 +31,41 @@ pub struct Matcher<'conn> {
     conn: &'conn PlacesDb,
 }
 
+fn looks_like_origin(string: &str) -> bool {
+    return !string.is_empty() && !string.chars().any(|c|
+        c.is_whitespace() || c == '/' || c == '?' || c == '#'
+    );
+}
+
 impl<'conn> Matcher<'conn> {
     /// Synchronously queries all providers for autocomplete matches, given a
     /// query string and options. This isn't cancelable yet; once a search is
     /// started, it can't be interrupted, even if the user moves on (see
     /// https://github.com/mozilla/application-services/issues/265).
     pub fn search<Q: AsRef<str>>(&self, query: Q, options: &[SearchOption]) -> Result<Vec<Match>> {
-        /// TODO: Tokenize the query.
+        // TODO: Tokenize the query.
         let matches = Vec::new();
 
+        // Try to find the first heuristic result. Desktop tries extensions,
+        // search engine aliases, Places keywords, origins, URLs, search
+        // engine domains, and preloaded sites, before trying to fall back
+        // to fixing up the URL, and a search if all else fails. We only try
+        // keywords, origins, and URLs, to keep things simple.
+
+        // Try to match on the origin, or the full URL.
+        let origin_or_url = OriginOrURL::new(query.as_ref(), self.conn);
+        let origin_or_url_matches = origin_or_url.search()?;
+
+        // After the first result, try the queries for adaptive matches and
+        // suggestions for bookmarked URLs.
         let adaptive = Adaptive::new(query.as_ref(), self.conn, MAX_RESULTS);
         let adaptive_matches = adaptive.search()?;
 
         let suggestions = Suggestions::new(query.as_ref(), self.conn, MAX_RESULTS);
         let suggestions_matches = suggestions.search()?;
+
+        // TODO: If we don't have enough results, re-run `Adaptive` and
+        // `Suggestions`, this time with `MatchBehavior::Anywhere`.
 
         Ok(matches)
     }
@@ -53,41 +74,22 @@ impl<'conn> Matcher<'conn> {
 /// The match reason specifies why an autocomplete search result matched a
 /// query. This can be used to filter and sort matches.
 pub enum MatchReason {
-    QueryString,
-    Path,
+    Keyword,
     Origin,
-    Label,
+    URL,
     PreviousUse,
-    Boundary,
-    Fuzzy,
+    Bookmark,
     Tags(String),
 }
 
-pub enum MatchLabel {
-    BookmarkTag,
-    Tag,
-    Bookmark,
-    SwitchTab,
-    Extension,
-    SearchEngine,
-    SearchEngineSuggestion,
-    RemoteTab,
-    VisitURL,
-    SearchEngineFavicon,
-    Favicon,
-}
-
 pub struct Match {
-    /// The URL to autocomplete when the user confirms a match. This is
-    /// equivalent to `nsIAutoCompleteResult.getFinalCompleteValueAt`;
-    /// we don't implement `display_url`.
+    /// The URL to open when the user confirms a match. This is
+    /// equivalent to `nsIAutoCompleteResult.getFinalCompleteValueAt`.
     pub url: Url,
 
-    /// The title of the autocomplete entry.
+    /// The title of the autocompleted value, to show in the UI. This can be the
+    /// title of the bookmark or page, origin, URL, or URL fragment.
     pub title: String,
-
-    // Merge with `reasons`; these don't need to be separate for the UI.
-    pub label: MatchLabel,
 
     /// The favicon URL.
     pub icon_url: Option<Url>,
@@ -103,30 +105,93 @@ impl Match {
     /// Default search behaviors from Desktop: HISTORY, BOOKMARK, OPENPAGE, SEARCHES.
     /// Default match behavior: MATCH_BOUNDARY_ANYWHERE.
     pub fn from_adaptive_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
-        let mut reasons = Vec::new();
+        let mut reasons = vec![MatchReason::PreviousUse];
 
         let place_id = row.get_checked::<_, i64>("id")?;
         let url = row.get_checked::<_, String>("url")?;
         let history_title = row.get_checked::<_, Option<String>>("title")?;
-        let bookmarked = row.get_checked::<_, String>("bookmarked")?;
+        let bookmarked = row.get_checked::<_, bool>("bookmarked")?;
         let bookmark_title = row.get_checked::<_, Option<String>>("btitle")?;
-        let tags = row.get_checked::<_, Option<String>>("tags")?;
         let frecency = row.get_checked::<_, i64>("frecency")?;
 
         let title = bookmark_title.or_else(|| history_title).unwrap_or_default();
 
-        let label = if let Some(tags) = tags {
+        let tags = row.get_checked::<_, Option<String>>("tags")?;
+        if let Some(tags) = tags {
             reasons.push(MatchReason::Tags(tags));
-            MatchLabel::BookmarkTag
-        } else {
-            MatchLabel::Bookmark
-        };
+        }
+        if bookmarked {
+            reasons.push(MatchReason::Bookmark);
+        }
         let url = Url::parse(&url).expect("Invalid URL in Places");
 
         Ok(Self {
             url,
             title,
-            label,
+            icon_url: None,
+            frecency,
+            reasons,
+        })
+    }
+
+    pub fn from_suggestion_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        let mut reasons = vec![MatchReason::Bookmark];
+
+        let url = row.get_checked::<_, String>("url")?;
+
+        let history_title = row.get_checked::<_, Option<String>>("title")?;
+        let bookmark_title = row.get_checked::<_, Option<String>>("btitle")?;
+        let title = bookmark_title.or_else(|| history_title).unwrap_or_default();
+
+        let tags = row.get_checked::<_, Option<String>>("tags")?;
+        if let Some(tags) = tags {
+            reasons.push(MatchReason::Tags(tags));
+        }
+        let url = Url::parse(&url).expect("Invalid URL in Places");
+
+        let frecency = row.get_checked::<_, i64>("frecency")?;
+
+        Ok(Self {
+            url,
+            title,
+            icon_url: None,
+            frecency,
+            reasons,
+        })
+    }
+
+    pub fn from_origin_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        let url = row.get_checked::<_, String>("url")?;
+        let display_url = row.get_checked::<_, String>("displayURL")?;
+        let frecency = row.get_checked::<_, i64>("frecency")?;
+
+        let url = Url::parse(&url).expect("Invalid URL in Places");
+
+        Ok(Self {
+            url,
+            title: display_url,
+            icon_url: None,
+            frecency,
+            reasons: vec![MatchReason::Origin],
+        })
+    }
+
+    pub fn from_url_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        let url = row.get_checked::<_, String>("url")?;
+        let display_url = row.get_checked::<_, String>("displayURL")?;
+        let frecency = row.get_checked::<_, i64>("frecency")?;
+        let bookmarked = row.get_checked::<_, bool>("bookmarked")?;
+
+        let mut reasons = vec![MatchReason::URL];
+        if bookmarked {
+            reasons.push(MatchReason::Bookmark);
+        }
+
+        let url = Url::parse(&url).expect("Invalid URL in Places");
+
+        Ok(Self {
+            url,
+            title: display_url,
             icon_url: None,
             frecency,
             reasons,
@@ -155,6 +220,91 @@ impl ToSql for MatchBehavior {
             MatchBehavior::Anywhere => ToSqlOutput::from(0i64),
             MatchBehavior::BoundaryAnywhere => ToSqlOutput::from(1i64),
         })
+    }
+}
+
+struct OriginOrURL<'query, 'conn> {
+    query: &'query str,
+    conn: &'conn PlacesDb,
+}
+
+impl<'query, 'conn> OriginOrURL<'query, 'conn> {
+    pub fn new(query: &'query str, conn: &'conn PlacesDb) -> OriginOrURL<'query, 'conn> {
+        OriginOrURL { query, conn }
+    }
+
+    pub fn search(&self) -> Result<Vec<Match>> {
+        let mut results = Vec::new();
+        if looks_like_origin(self.query) {
+            let mut stmt = self.conn.db.prepare("
+                SELECT host || '/' AS url,
+                       IFNULL(:prefix, prefix) || moz_origins.host || '/' AS displayURL,
+                       frecency,
+                       id
+                FROM (
+                  SELECT host,
+                         TOTAL(frecency) AS host_frecency
+                  FROM moz_origins
+                  WHERE host BETWEEN :searchString AND :searchString || X'FFFF'
+                  GROUP BY host
+                  HAVING host_frecency >= :frecencyThreshold
+                  UNION ALL
+                  SELECT host,
+                         TOTAL(frecency) AS host_frecency
+                  FROM moz_origins
+                  WHERE host BETWEEN 'www.' || :searchString AND 'www.' || :searchString || X'FFFF'
+                  GROUP BY host
+                  HAVING host_frecency >= :frecencyThreshold
+                ) AS grouped_hosts
+                JOIN moz_origins ON moz_origins.host = grouped_hosts.host
+                ORDER BY frecency DESC, id DESC
+                LIMIT 1
+            ")?;
+            let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
+                (":prefix", &Null),
+                (":searchString", &self.query),
+                (":frecencyThreshold", &0i64),
+            ];
+            for result in stmt.query_and_then_named(params, Match::from_origin_row)? {
+                results.push(result?);
+            }
+        } else if let Some(end_host) = self.query.find(|c| c == '/' || c == ':' || c == '?') {
+            let host = self.query[..end_host].to_owned();
+            let mut stmt = self.conn.db.prepare("
+                SELECT url,
+                       :strippedURL AS displayURL,
+                       frecency,
+                       foreign_count > 0 AS bookmarked,
+                       id
+                FROM moz_places
+                WHERE rev_host = reverse_host(:host)
+                      AND MAX(frecency, 0) >= :frecencyThreshold
+                      AND hidden = 0
+                      AND strip_prefix_and_userinfo(url) BETWEEN :strippedURL AND :strippedURL || X'FFFF'
+                UNION ALL
+                SELECT url,
+                       :strippedURL AS displayURL,
+                       frecency,
+                       foreign_count > 0 AS bookmarked,
+                       id
+                FROM moz_places
+                WHERE rev_host = reverse_host(:host) || 'www.'
+                      AND MAX(frecency, 0) >= :frecencyThreshold
+                      AND hidden = 0
+                      AND strip_prefix_and_userinfo(url) BETWEEN 'www.' || :strippedURL AND 'www.' || :strippedURL || X'FFFF'
+                ORDER BY frecency DESC, id DESC
+                LIMIT 1
+            ")?;
+            let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
+                (":strippedURL", &self.query),
+                (":host", &host),
+                (":frecencyThreshold", &0i64),
+            ];
+            for result in stmt.query_and_then_named(params, Match::from_url_row)? {
+                results.push(result?);
+            }
+        }
+        Ok(results)
     }
 }
 
@@ -189,8 +339,7 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
     }
 
     pub fn search(&self) -> Result<Vec<Match>> {
-        let mut stmt = self.conn.db.prepare(
-            "
+        let mut stmt = self.conn.db.prepare("
             SELECT h.url, h.title,
                    EXISTS(SELECT 1 FROM moz_bookmarks
                           WHERE fk = h.id) AS bookmarked,
@@ -215,8 +364,7 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
                                      NULL, :matchBehavior)
             ORDER BY rank DESC, h.frecency DESC
             LIMIT :maxResults
-        ",
-        )?;
+        ")?;
         let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
             (":search_string", &self.query),
             (":matchBehavior", &self.match_behavior),
@@ -261,13 +409,8 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
     }
 
     pub fn search(&self) -> Result<Vec<Match>> {
-        let mut results = Vec::new();
-
-        let mut stmt = self.conn.db.prepare(
-            "
+        let mut stmt = self.conn.db.prepare("
             SELECT h.url, h.title,
-                   EXISTS(SELECT 1 FROM moz_bookmarks
-                          WHERE fk = h.id) AS bookmarked,
                    (SELECT title FROM moz_bookmarks
                     WHERE fk = h.id AND
                           title NOT NULL
@@ -277,27 +420,26 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
                    h.visit_count, h.typed, h.id, NULL AS open_count, h.frecency
             FROM moz_places h
             WHERE h.frecency <> 0
-              AND CASE WHEN bookmarked
-                THEN
-                  AUTOCOMPLETE_MATCH(:searchString, h.url,
+              AND AUTOCOMPLETE_MATCH(:searchString, h.url,
                                      IFNULL(btitle, h.title), tags,
                                      h.visit_count, h.typed,
                                      1, NULL,
                                      :matchBehavior)
-                ELSE
-                  AUTOCOMPLETE_MATCH(:searchString, h.url,
-                                     h.title, '',
-                                     h.visit_count, h.typed,
-                                     0, NULL,
-                                     :matchBehavior)
-                END
               AND +h.visit_count > 0
-              AND bookmarked
+              AND EXISTS(SELECT 1 FROM moz_bookmarks
+                         WHERE fk = h.id)
             ORDER BY h.frecency DESC, h.id DESC
             LIMIT :maxResults
-        ",
-        )?;
-
+        ")?;
+        let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
+            (":search_string", &self.query),
+            (":matchBehavior", &self.match_behavior),
+            (":maxResults", &(self.max_results as i64)),
+        ];
+        let mut results = Vec::new();
+        for result in stmt.query_and_then_named(params, Match::from_suggestion_row)? {
+            results.push(result?);
+        }
         Ok(results)
     }
 }
