@@ -669,6 +669,7 @@ fn main() -> Result<()> {
         .arg(clap::Arg::with_name("encryption_key")
             .long("encryption-key")
             .short("k")
+            .takes_value(true)
             .help("Encryption key to use with the database. Leave blank for unencrypted"))
         .arg(clap::Arg::with_name("import_places")
             .long("import-places")
@@ -686,6 +687,7 @@ fn main() -> Result<()> {
             .long("import-observations")
             .short("o")
             .takes_value(true)
+            .value_name("path/to/observations.json")
             .help("Path to a JSON file containing a list of 'observations'"))
         .get_matches();
 
