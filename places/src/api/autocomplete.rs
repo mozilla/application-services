@@ -45,21 +45,23 @@ pub fn search_frecent(conn: &Connection, params: SearchParams) -> Result<Vec<Sea
 
     let tokens = params.search_string.split_whitespace().collect::<Vec<&str>>();
     // Discard tokens beyond MAX_VARIABLE_NUMBER (Hacky, but almost certainly doesn't matter)
-    let token_slice = &tokens[..tokens.len().min(MAX_VARIABLE_NUMBER)];
+    let token_slice = &tokens[..tokens.len().min(MAX_VARIABLE_NUMBER - 1)];
 
     let tokens_as_tosql = token_slice.iter()
         .map(|t| t as &dyn rusqlite::types::ToSql)
         .collect::<Vec<_>>();
 
     let sql = format!("
-        WITH search_tokens(token) AS (VALUES {values})
         SELECT url, title, frecency
-        FROM moz_places p
-        JOIN search_tokens t
-        ON (instr(p.url, t.token) OR instr(p.title, t.token))
+        FROM moz_places
+        WHERE {clause}
         ORDER BY frecency DESC
         LIMIT {max}
-    ", values = util::repeat_display(tokens.len(), ",", |_, f| write!(f, "(?)")),
+    ", clause = util::repeat_display(tokens.len(), " AND ", |i, f|
+            write!(f, "(INSTR(url, ?{var_num}) > 0
+                        OR (title IS NOT NULL AND
+                            INSTR(title, ?{var_num}) > 0))",
+                   var_num = i + 1)),
        max = params.limit);
 
     let conn_db = conn.get_db();
