@@ -78,7 +78,7 @@ impl<'a> Client<'a> {
         });
         let client = ReqwestClient::new();
         let request = client
-            .request(Method::Post, url)
+            .request(Method::POST, url)
             .query(&[("keys", get_keys)])
             .body(parameters.to_string())
             .build()?;
@@ -103,7 +103,7 @@ impl<'a> Client<'a> {
             KEY_LENGTH * 3,
         );
         let key_request_key = &key[(KEY_LENGTH * 2)..(KEY_LENGTH * 3)];
-        let request = HAWKRequestBuilder::new(Method::Get, url, &key).build()?;
+        let request = HAWKRequestBuilder::new(Method::GET, url, &key).build()?;
         let json: serde_json::Value = Client::make_request(request)?.json()?;
         let bundle = match json["bundle"].as_str() {
             Some(bundle) => bundle,
@@ -140,7 +140,7 @@ impl<'a> Client<'a> {
     ) -> Result<RecoveryEmailStatusResponse> {
         let url = self.config.auth_url_path("v1/recovery_email/status")?;
         let key = Client::derive_key_from_session_token(session_token)?;
-        let request = HAWKRequestBuilder::new(Method::Get, url, &key).build()?;
+        let request = HAWKRequestBuilder::new(Method::GET, url, &key).build()?;
         Client::make_request(request)?.json().map_err(|e| e.into())
     }
 
@@ -151,25 +151,19 @@ impl<'a> Client<'a> {
     ) -> Result<Option<ResponseAndETag<ProfileResponse>>> {
         let url = self.config.userinfo_endpoint()?;
         let client = ReqwestClient::new();
-        let mut builder = client.request(Method::Get, url);
-        builder.header(header::Authorization(header::Bearer {
-            token: profile_access_token.to_string(),
-        }));
+        let mut builder = client.request(Method::GET, url)
+            .header(header::AUTHORIZATION, format!("Bearer {}", profile_access_token));
         if let Some(etag) = etag {
-            builder.header(header::IfNoneMatch::Items(vec![header::EntityTag::strong(
-                etag,
-            )]));
+            builder = builder.header(header::IF_NONE_MATCH, format!("\"{}\"", etag));
         }
         let request = builder.build()?;
         let mut resp = Client::make_request(request)?;
-        if resp.status() == StatusCode::NotModified {
+        if resp.status() == StatusCode::NOT_MODIFIED {
             return Ok(None);
         }
+        let etag = resp.headers().get(header::ETAG).and_then(|v| v.to_str().ok()).map(|s| s.to_owned());
         Ok(Some(ResponseAndETag {
-            etag: resp
-                .headers()
-                .get::<header::ETag>()
-                .map(|etag| etag.tag().to_string()),
+            etag,
             response: resp.json()?,
         }))
     }
@@ -193,7 +187,7 @@ impl<'a> Client<'a> {
         });
         let key = Client::derive_key_from_session_token(session_token)?;
         let url = self.config.authorization_endpoint()?;
-        let request = HAWKRequestBuilder::new(Method::Post, url, &key)
+        let request = HAWKRequestBuilder::new(Method::POST, url, &key)
             .body(parameters)
             .build()?;
         Client::make_request(request)?.json().map_err(|e| e.into())
@@ -232,8 +226,8 @@ impl<'a> Client<'a> {
         let url = self.config.token_endpoint()?;
         let client = ReqwestClient::new();
         let request = client
-            .request(Method::Post, url)
-            .header(header::ContentType::json())
+            .request(Method::POST, url)
+            .header(header::CONTENT_TYPE, "application/json")
             .body(body.to_string())
             .build()?;
         Client::make_request(request)?.json().map_err(|e| e.into())
@@ -248,7 +242,7 @@ impl<'a> Client<'a> {
         });
         let key = Client::derive_key_from_session_token(session_token)?;
         let url = self.config.auth_url_path("v1/certificate/sign")?;
-        let request = HAWKRequestBuilder::new(Method::Post, url, &key)
+        let request = HAWKRequestBuilder::new(Method::POST, url, &key)
             .body(parameters)
             .build()?;
         Client::make_request(request)?.json().map_err(|e| e.into())
@@ -287,7 +281,7 @@ impl<'a> Client<'a> {
         let mut resp = client.execute(request)?;
         let status = resp.status();
 
-        if status.is_success() || status == StatusCode::NotModified {
+        if status.is_success() || status == StatusCode::NOT_MODIFIED {
             Ok(resp)
         } else {
             let json: std::result::Result<serde_json::Value, reqwest::Error> = resp.json();

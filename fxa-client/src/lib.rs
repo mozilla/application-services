@@ -550,8 +550,7 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize() {
-        let mut fxa1 =
-            FirefoxAccount::new(Config::stable_dev().unwrap(), "12345678", "https://foo.bar");
+        let fxa1 = FirefoxAccount::new(Config::stable_dev().unwrap(), "12345678", "https://foo.bar");
         let fxa1_json = fxa1.to_json().unwrap();
         drop(fxa1);
         let fxa2 = FirefoxAccount::from_json(&fxa1_json).unwrap();
