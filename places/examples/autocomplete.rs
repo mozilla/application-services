@@ -385,12 +385,99 @@ impl BackgroundAutocomplete {
     }
 }
 
+// TODO: we should normalize and casefold both of these.
+fn find_highlighted_sections<'a>(source: &'a str, search_tokens: &[&str]) -> Vec<(&'a str, bool)> {
+    if search_tokens.is_empty() {
+        return vec![(source, false)];
+    }
+    // (start, end) indices in `source` where an item in
+    // `search_tokens` appears.
+    let mut ranges = vec![];
+    for token in search_tokens {
+        let mut offset = 0;
+        while let Some(index) = source[offset..].find(token) {
+            ranges.push((offset + index, offset + index + token.len()));
+            offset += index + 1;
+        }
+    }
+    if ranges.is_empty() {
+        return vec![(source, false)];
+    }
+    // Sort ranges in ascending order based on where they appear in `source`.
+    ranges.sort_by(|a, b| a.0.cmp(&b.0));
+
+    // Combine ranges that overlap.
+    let mut coalesced = vec![ranges[0]];
+    for i in 1..ranges.len() {
+        // we know `coalesced` is never empty
+        let prev = *coalesced.last().unwrap();
+        let curr = ranges[i];
+        if curr.0 < prev.1 {
+            // Found an overlap. Update prev, but don't add cur.
+            if curr.1 > prev.0 {
+                *coalesced.last_mut().unwrap() = (prev.0, curr.1);
+            }
+            // else `prev` already encompasses `curr` entirely... (IIRC
+            // this is possible in weird cases).
+        } else {
+            coalesced.push(curr);
+        }
+    }
+
+    let mut result = Vec::with_capacity(coalesced.len() + 1);
+    let mut pos = 0;
+    for (start, end) in coalesced {
+        if pos < start {
+            result.push((&source[pos..start], false));
+        }
+        result.push((&source[start..end], true));
+        pos = end;
+    }
+    if pos < source.len() {
+        result.push((&source[pos..], false))
+    }
+
+    result
+}
+
+fn highlight_sections<W: Write>(out: &mut W, source: &str, search_tokens: &[&str]) -> Result<()> {
+    use termion::style::{Bold, NoFaint};
+    let (term_width, _) = termion::terminal_size()?;
+    let mut source_shortened = source.chars().take(term_width as usize - 10).collect::<String>();
+    if source_shortened.len() != source.len() {
+        source_shortened.push_str("...");
+    }
+    let sections = find_highlighted_sections(&source_shortened, search_tokens);
+    let mut highlight_on = false; // Not necessary beyond an optimization
+    for (text, need_highlight) in sections {
+        if need_highlight == highlight_on {
+            write!(out, "{}", text)?;
+        } else if need_highlight {
+            // Annoyingly Bold and NoBold are different types,
+            // so we can't unify these branches.
+            write!(out, "{}{}", Bold, text)?;
+        } else {
+            // The code termion uses for NoBold isn't widely supported...
+            // And they don't have an issue tracker (PRs only). NoFaint
+            // uses a code that should reset to normal though.
+            write!(out, "{}{}", NoFaint, text)?;
+        }
+        highlight_on = need_highlight;
+    }
+    if highlight_on {
+        // This probably shouldn't be possible
+        write!(out, "{}", NoFaint)?;
+    }
+    Ok(())
+}
+
 fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<()> {
     use termion::{
         event::Key,
         input::TermRead,
         raw::IntoRawMode,
         clear,
+        style::{Invert, NoInvert},
         cursor::{self, Goto},
     };
 
@@ -528,6 +615,9 @@ fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<
         if repaint_results {
             match &results {
                 Some(results) => {
+                    // Strip away leading/trailing %
+                    let search_query = (&results.search.search_string[
+                        1..(results.search.search_string.len()-1)]).to_string();
                     write!(stdout, "{}{}{}Query id={} gave {} results (max {}) for \"{}\" after {}us",
                         cursor::Save, Goto(1, 3), clear::AfterCursor,
                         results.id,
@@ -540,12 +630,19 @@ fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<
                     for (i, item) in results.results.iter().enumerate() {
                         write!(stdout, "{}", Goto(1, 4 + (i as u16) * 2))?;
                         if i == pos {
-                            write!(stdout, "{}", termion::style::Invert)?;
+                            write!(stdout, "{}", Invert)?;
                         }
-                        write!(stdout, "{}. {}", i + 1, item.title.as_ref().unwrap_or(&no_title))?;
-                        write!(stdout, "{}    {}", Goto(1, 5 + (i as u16) * 2), item.url.to_string())?;
+                        write!(stdout, "{}. ", i + 1);
+                        if let Some(title) = item.title.as_ref() {
+                            highlight_sections(&mut stdout, &title, &[&search_query])?;
+                        } else {
+                            write!(stdout, "{}", no_title)?;
+                        }
+                        write!(stdout, "{}    ", Goto(1, 5 + (i as u16) * 2))?;
+                        let url_str = item.url.to_string();
+                        highlight_sections(&mut stdout, &url_str, &[&search_query])?;
                         if i == pos {
-                            write!(stdout, "{}", termion::style::NoInvert)?;
+                            write!(stdout, "{}", NoInvert)?;
                         }
                     }
                     write!(stdout, "{}", cursor::Restore)?;
