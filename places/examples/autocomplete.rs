@@ -22,11 +22,28 @@ extern crate find_places_db;
 extern crate tempfile;
 extern crate termion;
 extern crate rand;
+
+use std::thread;
+use std::time::{Instant, Duration};
+use std::sync::{mpsc, atomic::{AtomicUsize, Ordering}, Arc};
+
 use std::io::prelude::*;
 // use rand::prelude::*;
 use url::Url;
 // use failure::Fail;
-use places::{api::history, PageId, VisitObservation, VisitTransition};
+use places::{
+    api::{
+        history,
+        autocomplete::{
+            self,
+            SearchParams,
+            SearchResult,
+        }
+    },
+    PageId,
+    VisitObservation,
+    VisitTransition,
+};
 
 use std::{fs, path::{Path, PathBuf}};
 
@@ -244,16 +261,308 @@ fn read_json_file<T>(path: impl AsRef<Path>) -> Result<T> where for<'a> T: serde
     Ok(serde_json::from_reader(&file)?)
 }
 
-fn init_logging() {
-    // Explicitly ignore some rather noisy crates. Turn on trace for everyone else.
-    let spec = "trace,tokio_threadpool=warn,tokio_reactor=warn,tokio_core=warn,tokio=warn,hyper=warn,want=warn,mio=warn,reqwest=warn";
-    env_logger::init_from_env(
-        env_logger::Env::default().filter_or("RUST_LOG", spec)
-    );
+#[derive(Debug, Clone)]
+struct ConnectionArgs {
+    path: PathBuf,
+    encryption_key: Option<String>
+}
+
+impl ConnectionArgs {
+    pub fn connect(&self) -> Result<places::Connection> {
+        let key = match &self.encryption_key {
+            Some(k) => Some(k.as_str()),
+            _ => None,
+        };
+        // TODO: it would be nice if this could be a read-only connection.
+        Ok(places::Connection::new(&self.path, key)?)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct AutocompleteRequest {
+    id: usize,
+    search: SearchParams,
+}
+
+#[derive(Debug, Clone)]
+struct AutocompleteResponse {
+    id: usize,
+    search: SearchParams,
+    results: Vec<SearchResult>,
+    took: Duration,
+}
+
+struct BackgroundAutocomplete {
+    // Only written from the main thread, and read from the background thread.
+    // We use this to signal to the background thread that it shouldn't start on a query that has
+    // an ID below this value, since we already have added a newer one into the queue. Note that
+    // an ID higher than this value is allowed (it indicates that the BG thread is reading in the
+    // window between when we added the search to the queue and when we )
+    last_id: Arc<AtomicUsize>,
+    // Write-only interface to the queue that the BG thread reads from.
+    send_query: mpsc::Sender<AutocompleteRequest>,
+    // Read-only interface to the queue the BG thread returns results from.
+    recv_results: mpsc::Receiver<AutocompleteResponse>,
+    // Currently not used but if we wanted to restart the thread or start additional threads
+    // we could use this.
+    // conn_args: ConnectionArgs,
+    // Thread handle for the BG thread. We can't drop this without problems so we
+    // prefix with _ to shut rust up about it being unused.
+    _handle: thread::JoinHandle<Result<()>>,
+}
+
+impl BackgroundAutocomplete {
+    pub fn start(conn_args: ConnectionArgs) -> Result<Self> {
+        let (send_query, recv_query) = mpsc::channel::<AutocompleteRequest>();
+
+        // Should this channel have a buffer?
+        let (send_results, recv_results) = mpsc::channel::<AutocompleteResponse>();
+
+        let last_id = Arc::new(AtomicUsize::new(0usize));
+
+        let handle = {
+            let last_id = last_id.clone();
+            let conn_args = conn_args.clone();
+            thread::spawn(move || {
+                // Note: unwraps/panics here won't bring down the main thread.
+                let conn = conn_args.connect().expect("Failed to open connection on BG thread");
+                for AutocompleteRequest { id, search } in recv_query.iter() {
+                    // Check if this query is worth processing. Note that we check that the id
+                    // isn't known to be stale. The id can be ahead of `last_id`, since
+                    // we push the item on before incrementing `last_id`.
+                    if id < last_id.load(Ordering::SeqCst) {
+                        continue;
+                    }
+                    let start = Instant::now();
+                    match autocomplete::search_frecent(&conn, search.clone()) {
+                        Ok(results) => {
+                            // Should we skip sending results if `last_id` indicates we
+                            // don't care anymore?
+                            send_results.send(AutocompleteResponse {
+                                id,
+                                search,
+                                results,
+                                took: Instant::now().duration_since(start)
+                            }).unwrap(); // This failing means the main thread has died (most likely)
+                        }
+                        Err(e) => {
+                            // TODO: this is likely not to go very well since we're in raw mode...
+                            error!("Got error doing autocomplete: {:?}", e);
+                            panic!("Got error doing autocomplete: {:?}", e);
+                            // return Err(e.into());
+                        }
+                    }
+                }
+                Ok(())
+            })
+        };
+
+        Ok(BackgroundAutocomplete {
+            last_id,
+            send_query,
+            recv_results,
+            // conn_args,
+            _handle: handle,
+        })
+    }
+
+    pub fn query(&mut self, search: SearchParams) -> Result<()> {
+        // Cludgey but whatever.
+        let id = self.last_id.load(Ordering::SeqCst) + 1;
+        let request = AutocompleteRequest { id, search };
+        let res = self.send_query.send(request);
+        self.last_id.store(id, Ordering::SeqCst);
+        res?;
+        Ok(())
+    }
+
+    pub fn poll_results(&mut self) -> Result<Option<AutocompleteResponse>> {
+        match self.recv_results.try_recv() {
+            Ok(results) => Ok(Some(results)),
+            Err(mpsc::TryRecvError::Empty) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+}
+
+fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<()> {
+    use termion::{
+        event::Key,
+        input::TermRead,
+        raw::IntoRawMode,
+        clear,
+        cursor::{self, Goto},
+    };
+
+    let mut autocompleter = BackgroundAutocomplete::start(ConnectionArgs {
+        path: db_path,
+        encryption_key: encryption_key.map(|s| s.to_owned())
+    })?;
+
+    let mut stdin = termion::async_stdin();
+    let stdout = std::io::stdout().into_raw_mode()?;
+    let mut stdout = termion::screen::AlternateScreen::from(stdout);
+    write!(stdout, "{}{}Autocomplete demo (press escape to exit){}> ",
+           clear::All, Goto(1, 1), Goto(1, 2))?;
+    stdout.flush()?;
+
+    let no_title = format!("{}(no title){}", termion::style::Faint, termion::style::NoFaint);
+    // TODO: refactor these to be part of a struct or something.
+    let mut query_str = String::new();
+    let mut last_query = Instant::now();
+    let mut results: Option<AutocompleteResponse> = None;
+    let mut pos = 0;
+    let mut cursor_idx = 0;
+    let mut repaint_results = true;
+    let mut input_changed = true;
+    loop {
+        for res in (&mut stdin).keys() {//.events_and_raw() {
+            let key = res?;
+            match key {
+                Key::Esc => {
+                    return Ok(())
+                }
+                Key::Char('\n') | Key::Char('\r') => {
+                    if !query_str.is_empty() {
+                        last_query = Instant::now();
+                        autocompleter.query(SearchParams {
+                            search_string: format!("%{}%", query_str), // XXX
+                            limit: 5,
+                        })?;
+                    }
+                }
+                Key::Char(ch) => {
+                    query_str.insert(cursor_idx, ch);
+                    cursor_idx += 1;
+                    input_changed = true;
+                }
+                Key::Ctrl('n') | Key::Down => {
+                    if let Some(res) = &results {
+                        if pos + 1 < res.results.len() {
+                            pos = pos + 1;
+                            repaint_results = true;
+                        }
+                    }
+                }
+                Key::Ctrl('p') | Key::Up => {
+                    if results.is_some() && pos > 0 {
+                        pos = pos - 1;
+                        repaint_results = true;
+                    }
+                }
+                Key::Ctrl('k') => {
+                    query_str.truncate(cursor_idx);
+                    input_changed = true;
+                }
+                Key::Right | Key::Ctrl('f') => {
+                    if cursor_idx < query_str.len() {
+                        write!(stdout, "{}", termion::cursor::Right(1))?;
+                        cursor_idx += 1;
+                    }
+                }
+                Key::Left | Key::Ctrl('b') => {
+                    if cursor_idx > 0 {
+                        write!(stdout, "{}", termion::cursor::Left(1))?;
+                        cursor_idx -= 1;
+                    }
+                }
+                Key::Backspace => {
+                    if cursor_idx > 0 {
+                        query_str.remove(cursor_idx - 1);
+                        cursor_idx -= 1;
+                        input_changed = true;
+                    }
+                }
+                Key::Delete | Key::Ctrl('d') => {
+                    if cursor_idx + 1 != query_str.len() {
+                        query_str.remove(cursor_idx + 1);
+                        input_changed = true;
+                    }
+                }
+                Key::Ctrl('a') | Key::Home => {
+                    write!(stdout, "{}", Goto(3, 2));
+                    cursor_idx = 0;
+                }
+                Key::Ctrl('e') | Key::End => {
+                    write!(stdout, "{}", Goto(3 + query_str.len() as u16, 2));
+                    cursor_idx = query_str.len();
+                }
+                Key::Ctrl('u') => {
+                    cursor_idx = 0;
+                    query_str.clear();
+                    input_changed = true;
+                }
+                _ => {}
+            }
+        }
+        if let Some(new_res) = autocompleter.poll_results()? {
+            results = Some(new_res);
+            pos = 0;
+            repaint_results = true;
+        }
+        if input_changed {
+            let now = Instant::now();
+            let last = last_query;
+            last_query = now;
+            if !query_str.is_empty() && now.duration_since(last) > Duration::from_millis(100) {
+                autocompleter.query(SearchParams {
+                    search_string: format!("%{}%", query_str), // XXX
+                    limit: 5,
+                })?;
+            }
+            write!(stdout, "{}{}> {}{}",
+                Goto(1, 2),
+                clear::CurrentLine,
+                query_str,
+                Goto(3 + cursor_idx as u16, 2))?;
+
+            if query_str.is_empty() {
+                results = None;
+                pos = 0;
+                repaint_results = true;
+            }
+            input_changed = false;
+        }
+
+
+        if repaint_results {
+            match &results {
+                Some(results) => {
+                    write!(stdout, "{}{}{}Query id={} gave {} results (max {}) for \"{}\" after {}us",
+                        cursor::Save, Goto(1, 3), clear::AfterCursor,
+                        results.id,
+                        results.results.len(),
+                        results.search.limit,
+                        results.search.search_string,
+                        results.took.as_secs() * 1_000_000 + (results.took.subsec_nanos() as u64 / 1000)
+                    )?;
+                    write!(stdout, "{}", Goto(1, 4));
+                    for (i, item) in results.results.iter().enumerate() {
+                        write!(stdout, "{}", Goto(1, 4 + (i as u16) * 2))?;
+                        if i == pos {
+                            write!(stdout, "{}", termion::style::Invert)?;
+                        }
+                        write!(stdout, "{}. {}", i + 1, item.title.as_ref().unwrap_or(&no_title))?;
+                        write!(stdout, "{}    {}", Goto(1, 5 + (i as u16) * 2), item.url.to_string())?;
+                        if i == pos {
+                            write!(stdout, "{}", termion::style::NoInvert)?;
+                        }
+                    }
+                    write!(stdout, "{}", cursor::Restore)?;
+                }
+                None => {
+                    write!(stdout, "{}{}{}{}", cursor::Save, Goto(1, 3), clear::AfterCursor, cursor::Restore)?;
+                }
+            }
+            repaint_results = false;
+        }
+        stdout.flush()?;
+        thread::sleep(Duration::from_millis(16));
+    }
 }
 
 fn main() -> Result<()> {
-    init_logging();
+
     let matches = clap::App::new("autocomplete-example")
         .arg(clap::Arg::with_name("database_path")
             .long("database")
@@ -285,7 +594,7 @@ fn main() -> Result<()> {
     let db_path = matches.value_of("database_path").unwrap_or("./new-places.db");
     let encryption_key = matches.value_of("encryption_key");
 
-    let conn = places::Connection::new(db_path, encryption_key)?;
+    let conn = places::Connection::new(&db_path, encryption_key)?;
 
     if let Some(import_places_arg) = matches.value_of("import_places") {
         let options = ImportPlacesOptions {
@@ -341,6 +650,9 @@ fn main() -> Result<()> {
             }
         }
     }
+    // Close our connection before starting autocomplete.
+    drop(conn);
+    start_autocomplete(Path::new(db_path).to_owned(), encryption_key)?;
 
     Ok(())
 }

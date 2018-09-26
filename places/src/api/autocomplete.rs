@@ -11,16 +11,16 @@ use super::connection::{Connection};
 // rusqlite imports probably reflect that some of this should be in ::storage
 use rusqlite;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SearchParams {
-    search_string: String,
-    limit: u32
+    pub search_string: String,
+    pub limit: u32
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SearchResult {
-    title: Option<String>,
-    url: Url,
+    pub title: Option<String>,
+    pub url: Url,
 }
 
 impl SearchResult {
