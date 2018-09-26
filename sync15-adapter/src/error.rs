@@ -142,6 +142,9 @@ pub enum ErrorKind {
 
     #[fail(display = "Malformed URL error: {}", _0)]
     MalformedUrl(#[fail(cause)] reqwest::UrlError),
+
+    #[fail(display = "Malformed header error: {}", _0)]
+    MalformedHeader(#[fail(cause)] reqwest::header::InvalidHeaderValue),
 }
 
 macro_rules! impl_from_error {
@@ -168,7 +171,8 @@ impl_from_error! {
     (JsonError, ::serde_json::Error),
     (BadCleartextUtf8, ::std::string::FromUtf8Error),
     (RequestError, ::reqwest::Error),
-    (MalformedUrl, ::reqwest::UrlError)
+    (MalformedUrl, ::reqwest::UrlError),
+    (MalformedHeader, ::reqwest::header::InvalidHeaderValue)
 }
 
 // ::hawk::Error uses error_chain, and so it's not trivially compatible with failure.
