@@ -5,6 +5,7 @@
 pub mod history;
 pub mod autocomplete;
 pub mod connection;
+pub mod matcher;
 
 use error::{Result};
 use ::observation::{VisitObservation};

@@ -14,6 +14,7 @@ url = "1.7.1"
 failure = "0.1"
 failure_derive = "0.1"
 unicode-segmentation = "1.2.1"
+caseless = "0.2.1"
 
 [dependencies.rusqlite]
 version = "0.14.0"

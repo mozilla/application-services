@@ -6,11 +6,19 @@
 // wip-sync-sql-store branch, but with login specific code removed.
 // We should work out how to split this into a library we can reuse.
 
-use rusqlite::{self, Connection, types::{ToSql, FromSql}, Row};
-use error::*;
 use super::schema;
+use error::*;
 use hash;
+use rusqlite::{
+    self,
+    types::{FromSql, ToSql},
+    Connection, Row,
+};
 use std::path::Path;
+
+use caseless::canonical_caseless_match_str;
+
+use api::matcher::MatchBehavior;
 
 pub const MAX_VARIABLE_NUMBER: usize = 999;
 
@@ -189,6 +197,42 @@ impl PlacesDb {
 // ----------------------------- end of stuff that should be common --------------------
 
 fn define_functions(c: &Connection) -> Result<()> {
+    c.create_scalar_function("autocomplete_match", -1, true, move |ctx| {
+        let search_string = ctx.get::<Option<String>>(0)?.unwrap_or_default();
+        let url = ctx.get::<Option<String>>(1)?.unwrap_or_default();
+        let title = ctx.get::<Option<String>>(2)?.unwrap_or_default();
+        let tags = ctx.get::<Option<String>>(3)?;
+        let visit_count = ctx.get::<i64>(4)?;
+        let typed = ctx.get::<bool>(5)?;
+        let bookmarked = ctx.get::<bool>(6)?;
+        let open_page_count = ctx.get::<Option<i64>>(7)?;
+        let match_behavior = ctx.get::<MatchBehavior>(8);
+
+        let trimmed_url = &url[..255];
+        let trimmed_title = &url[..255];
+
+        if !(visit_count > 0
+            || bookmarked
+            || tags.is_some()
+            || open_page_count.map(|count| count > 0).unwrap_or(false))
+        {
+            return Ok(false);
+        }
+
+        for token in search_string.split_whitespace() {
+            if !canonical_caseless_match_str(token, trimmed_title)
+                && !tags
+                    .as_ref()
+                    .map(|tags| canonical_caseless_match_str(token, tags))
+                    .unwrap_or(true)
+                && !canonical_caseless_match_str(token, trimmed_url)
+            {
+                return Ok(false);
+            }
+        }
+
+        return Ok(true);
+    })?;
     c.create_scalar_function("hash", -1, true, move |ctx| {
         Ok(match ctx.len() {
             1 => {
