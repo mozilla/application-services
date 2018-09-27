@@ -73,6 +73,19 @@ lazy_static! {
     // XXX - TODO - moz_bookmarks
     // XXX - TODO - moz_bookmarks_deleted
 
+    // TODO: This isn't the complete `moz_bookmarks` definition, just enough to
+    // test autocomplete.
+    static ref CREATE_TABLE_BOOKMARKS_SQL: String = format!(
+        "CREATE TABLE moz_bookmarks (
+            id INTEGER PRIMARY KEY,
+            fk INTEGER,
+            title TEXT,
+            lastModified INTEGER NOT NULL DEFAULT 0,
+
+            FOREIGN KEY(fk) REFERENCES moz_places(id) ON DELETE RESTRICT
+        )"
+    );
+
     // Note: desktop has/had a 'keywords' table, but we intentionally do not.
 
     static ref CREATE_TABLE_ORIGINS_SQL: String = format!(
@@ -85,6 +98,23 @@ lazy_static! {
             UNIQUE (prefix, host)
         )"
     );
+
+    static ref CREATE_TRIGGER_AFTER_INSERT_ON_PLACES: String = format!("
+        CREATE TEMP TRIGGER moz_places_afterinsert_trigger
+        AFTER INSERT ON moz_places FOR EACH ROW
+        BEGIN
+            INSERT OR IGNORE INTO moz_origins(prefix, host, rev_host, frecency)
+            VALUES(get_prefix(NEW.url), get_host_and_port(NEW.url), reverse_host(get_host_and_port(NEW.url)), NEW.frecency);
+
+            -- This is temporary.
+            UPDATE moz_places SET
+              origin_id = (SELECT id FROM moz_origins
+                           WHERE prefix = get_prefix(NEW.url) AND
+                                 host = get_host_and_port(NEW.url) AND
+                                 rev_host = reverse_host(get_host_and_port(NEW.url)))
+            WHERE id = NEW.id;
+        END
+    ");
 
     // XXX - TODO - lots of desktop temp tables - but it's not clear they make sense here yet?
 
@@ -170,6 +200,7 @@ pub fn create(db: &PlacesDb) -> Result<()> {
         &*CREATE_TABLE_PLACES_SQL,
         &*CREATE_TABLE_HISTORYVISITS_SQL,
         &*CREATE_TABLE_INPUTHISTORY_SQL,
+        &*CREATE_TABLE_BOOKMARKS_SQL,
         &*CREATE_TABLE_ORIGINS_SQL,
         &*CREATE_TABLE_META_SQL,
         CREATE_IDX_MOZ_PLACES_URL_HASH,
@@ -185,6 +216,10 @@ pub fn create(db: &PlacesDb) -> Result<()> {
         CREATE_IDX_MOZ_HISTORYVISITS_VISITDATE,
         CREATE_IDX_MOZ_HISTORYVISITS_ISLOCAL,
         &*SET_VERSION_SQL,
+    ])?;
+    debug!("Creating temp tables and triggers");
+    db.execute_all(&[
+        &*CREATE_TRIGGER_AFTER_INSERT_ON_PLACES,
     ])?;
     Ok(())
 }

@@ -73,25 +73,28 @@ impl<'conn> Matcher<'conn> {
     /// https://github.com/mozilla/application-services/issues/265).
     pub fn search<Q: AsRef<str>>(&self, query: Q, options: &[SearchOption]) -> Result<Vec<Match>> {
         // TODO: Tokenize the query.
-        let matches = Vec::new();
+        let mut matches = Vec::new();
 
         // Try to find the first heuristic result. Desktop tries extensions,
-        // search engine aliases, Places keywords, origins, URLs, search
-        // engine domains, and preloaded sites, before trying to fall back
-        // to fixing up the URL, and a search if all else fails. We only try
-        // keywords, origins, and URLs, to keep things simple.
+        // search engine aliases, origins, URLs, search engine domains, and
+        // preloaded sites, before trying to fall back to fixing up the URL,
+        // and a search if all else fails. We only try origins and URLs for
+        // heuristic matches, since that's all we support.
 
         // Try to match on the origin, or the full URL.
         let origin_or_url = OriginOrURL::new(query.as_ref(), self.conn);
         let origin_or_url_matches = origin_or_url.search()?;
+        matches.extend(origin_or_url_matches);
 
         // After the first result, try the queries for adaptive matches and
         // suggestions for bookmarked URLs.
         let adaptive = Adaptive::new(query.as_ref(), self.conn, MAX_RESULTS);
         let adaptive_matches = adaptive.search()?;
+        matches.extend(adaptive_matches);
 
         let suggestions = Suggestions::new(query.as_ref(), self.conn, MAX_RESULTS);
         let suggestions_matches = suggestions.search()?;
+        matches.extend(suggestions_matches);
 
         // TODO: If we don't have enough results, re-run `Adaptive` and
         // `Suggestions`, this time with `MatchBehavior::Anywhere`.
@@ -121,6 +124,7 @@ impl<'conn> Matcher<'conn> {
 
 /// The match reason specifies why an autocomplete search result matched a
 /// query. This can be used to filter and sort matches.
+#[derive(Debug)]
 pub enum MatchReason {
     Keyword,
     Origin,
@@ -130,6 +134,7 @@ pub enum MatchReason {
     Tags(String),
 }
 
+#[derive(Debug)]
 pub struct Match {
     /// The URL to open when the user confirms a match. This is
     /// equivalent to `nsIAutoCompleteResult.getFinalCompleteValueAt`.
@@ -285,8 +290,8 @@ impl<'query, 'conn> OriginOrURL<'query, 'conn> {
         let mut results = Vec::new();
         if looks_like_origin(self.query) {
             let mut stmt = self.conn.db.prepare("
-                SELECT host || '/' AS url,
-                       IFNULL(:prefix, prefix) || moz_origins.host || '/' AS displayURL,
+                SELECT IFNULL(:prefix, prefix) || moz_origins.host || '/' AS url,
+                       moz_origins.host || '/' AS displayURL,
                        frecency,
                        id
                 FROM (
@@ -311,42 +316,44 @@ impl<'query, 'conn> OriginOrURL<'query, 'conn> {
             let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
                 (":prefix", &Null),
                 (":searchString", &self.query),
-                (":frecencyThreshold", &0i64),
+                (":frecencyThreshold", &-1i64),
             ];
             for result in stmt.query_and_then_named(params, Match::from_origin_row)? {
                 results.push(result?);
             }
-        } else if let Some(end_host) = self.query.find(|c| c == '/' || c == ':' || c == '?') {
-            let host = self.query[..end_host].to_owned();
+        } else if self.query.contains(|c| c == '/' || c == ':' || c == '?') {
+            let (host, stripped_url) = split_after_host_and_port(self.query);
             let mut stmt = self.conn.db.prepare("
-                SELECT url,
+                SELECT h.url,
                        :strippedURL AS displayURL,
-                       frecency,
-                       foreign_count > 0 AS bookmarked,
-                       id
-                FROM moz_places
-                WHERE rev_host = reverse_host(:host)
-                      AND MAX(frecency, 0) >= :frecencyThreshold
-                      AND hidden = 0
-                      AND strip_prefix_and_userinfo(url) BETWEEN :strippedURL AND :strippedURL || X'FFFF'
+                       h.frecency,
+                       h.foreign_count > 0 AS bookmarked,
+                       h.id
+                FROM moz_places h
+                JOIN moz_origins o ON o.id = h.origin_id
+                WHERE o.rev_host = reverse_host(:host)
+                      AND MAX(h.frecency, 0) >= :frecencyThreshold
+                      AND h.hidden = 0
+                      AND strip_prefix_and_userinfo(h.url) BETWEEN :strippedURL AND :strippedURL || X'FFFF'
                 UNION ALL
-                SELECT url,
+                SELECT h.url,
                        :strippedURL AS displayURL,
-                       frecency,
-                       foreign_count > 0 AS bookmarked,
-                       id
-                FROM moz_places
-                WHERE rev_host = reverse_host(:host) || 'www.'
-                      AND MAX(frecency, 0) >= :frecencyThreshold
-                      AND hidden = 0
-                      AND strip_prefix_and_userinfo(url) BETWEEN 'www.' || :strippedURL AND 'www.' || :strippedURL || X'FFFF'
-                ORDER BY frecency DESC, id DESC
+                       h.frecency,
+                       h.foreign_count > 0 AS bookmarked,
+                       h.id
+                FROM moz_places h
+                JOIN moz_origins o ON o.id = h.origin_id
+                WHERE o.rev_host = reverse_host(:host) || 'www.'
+                      AND MAX(h.frecency, 0) >= :frecencyThreshold
+                      AND h.hidden = 0
+                      AND strip_prefix_and_userinfo(h.url) BETWEEN 'www.' || :strippedURL AND 'www.' || :strippedURL || X'FFFF'
+                ORDER BY h.frecency DESC, h.id DESC
                 LIMIT 1
             ")?;
             let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
-                (":strippedURL", &self.query),
+                (":strippedURL", &stripped_url),
                 (":host", &host),
-                (":frecencyThreshold", &0i64),
+                (":frecencyThreshold", &-1i64),
             ];
             for result in stmt.query_and_then_named(params, Match::from_url_row)? {
                 results.push(result?);
@@ -397,24 +404,24 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
                     ORDER BY lastModified DESC
                     LIMIT 1) AS btitle,
                    NULL AS tags,
-                   h.visit_count, h.typed, h.id, NULL AS open_count, h.frecency
+                   h.visit_count_local, h.typed, h.id, NULL AS open_count, h.frecency
             FROM (
-              SELECT ROUND(MAX(use_count) * (1 + (input = :search_string)), 1) AS rank,
+              SELECT ROUND(MAX(use_count) * (1 + (input = :searchString)), 1) AS rank,
                      place_id
               FROM moz_inputhistory
-              WHERE input BETWEEN :search_string AND :search_string || X'FFFF'
+              WHERE input BETWEEN :searchString AND :searchString || X'FFFF'
               GROUP BY place_id
             ) AS i
             JOIN moz_places h ON h.id = i.place_id
-            WHERE AUTOCOMPLETE_MATCH(NULL, h.url,
+            WHERE AUTOCOMPLETE_MATCH(:searchString, h.url,
                                      IFNULL(btitle, h.title), tags,
-                                     h.visit_count, h.typed, bookmarked,
+                                     h.visit_count_local, h.typed, bookmarked,
                                      NULL, :matchBehavior)
             ORDER BY rank DESC, h.frecency DESC
             LIMIT :maxResults
         ")?;
         let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
-            (":search_string", &self.query),
+            (":searchString", &self.query),
             (":matchBehavior", &self.match_behavior),
             (":maxResults", &(self.max_results as i64)),
         ];
@@ -465,22 +472,22 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
                     ORDER BY lastModified DESC
                     LIMIT 1) AS btitle,
                    NULL AS tags,
-                   h.visit_count, h.typed, h.id, NULL AS open_count, h.frecency
+                   h.visit_count_local, h.typed, h.id, NULL AS open_count, h.frecency
             FROM moz_places h
             WHERE h.frecency <> 0
               AND AUTOCOMPLETE_MATCH(:searchString, h.url,
                                      IFNULL(btitle, h.title), tags,
-                                     h.visit_count, h.typed,
+                                     h.visit_count_local, h.typed,
                                      1, NULL,
                                      :matchBehavior)
-              AND +h.visit_count > 0
+              AND +h.visit_count_local > 0
               AND EXISTS(SELECT 1 FROM moz_bookmarks
                          WHERE fk = h.id)
             ORDER BY h.frecency DESC, h.id DESC
             LIMIT :maxResults
         ")?;
         let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
-            (":search_string", &self.query),
+            (":searchString", &self.query),
             (":matchBehavior", &self.match_behavior),
             (":maxResults", &(self.max_results as i64)),
         ];
