@@ -20,7 +20,7 @@ use caseless::canonical_caseless_match_str;
 use unicode_segmentation::UnicodeSegmentation;
 use caseless::{CaseFold, Caseless};
 
-use api::matcher::MatchBehavior;
+use api::matcher::{MatchBehavior, split_after_prefix, split_after_host_and_port};
 
 pub const MAX_VARIABLE_NUMBER: usize = 999;
 
@@ -229,6 +229,21 @@ impl ConnectionUtil for PlacesDb {
 // ----------------------------- end of stuff that should be common --------------------
 
 fn define_functions(c: &Connection) -> Result<()> {
+    c.create_scalar_function("get_prefix", 1, true, move |ctx| {
+        let href = ctx.get::<String>(0)?;
+        let (prefix, _) = split_after_prefix(&href);
+        Ok(prefix.to_owned())
+    })?;
+    c.create_scalar_function("get_host_and_port", 1, true, move |ctx| {
+        let href = ctx.get::<String>(0)?;
+        let (host_and_port, _) = split_after_host_and_port(&href);
+        Ok(host_and_port.to_owned())
+    })?;
+    c.create_scalar_function("strip_prefix_and_userinfo", 1, true, move |ctx| {
+        let href = ctx.get::<String>(0)?;
+        let (_, remainder) = split_after_host_and_port(&href);
+        Ok(remainder.to_owned())
+    })?;
     c.create_scalar_function("reverse_host", 1, true, move |ctx| {
         let host = ctx.get::<String>(0)?;
         let rev_host: String = host.graphemes(true).rev().flat_map(|g| g.chars().flat_map(|c| c.to_lowercase())).collect();

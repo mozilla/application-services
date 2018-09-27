@@ -13,6 +13,41 @@ use error::{ErrorKind, Result};
 
 const MAX_RESULTS: usize = 10;
 
+pub fn split_after_prefix(href: &str) -> (&str, &str) {
+    match href.find(':') {
+        None => ("", href),
+        Some(index) => {
+            let mut end = index + 1;
+            if href.len() >= end + 2 && &href[end..end + 2] == "//" {
+                end += 2;
+            }
+            (&href[0..end], &href[end..])
+        }
+    }
+}
+
+pub fn split_after_host_and_port(href: &str) -> (&str, &str) {
+    let (_, remainder) = split_after_prefix(href);
+    let mut start = 0;
+    let mut end = remainder.len();
+    for (index, c) in remainder.chars().enumerate() {
+        if c == '/' || c == '?' || c == '#' {
+            end = index;
+            break;
+        }
+        if c == '@' {
+            start = index + 1;
+        }
+    }
+    (&remainder[start..end], &remainder[end..])
+}
+
+fn looks_like_origin(string: &str) -> bool {
+    return !string.is_empty() && !string.chars().any(|c|
+        c.is_whitespace() || c == '/' || c == '?' || c == '#'
+    );
+}
+
 #[derive(Hash, Eq, PartialEq, Clone, Copy)]
 pub enum SearchOption {
     EnableActions,
@@ -29,12 +64,6 @@ pub enum SearchOption {
 /// suggestions, and extension keywords.
 pub struct Matcher<'conn> {
     conn: &'conn PlacesDb,
-}
-
-fn looks_like_origin(string: &str) -> bool {
-    return !string.is_empty() && !string.chars().any(|c|
-        c.is_whitespace() || c == '/' || c == '?' || c == '#'
-    );
 }
 
 impl<'conn> Matcher<'conn> {
