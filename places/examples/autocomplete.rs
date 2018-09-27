@@ -33,7 +33,6 @@ use url::Url;
 // use failure::Fail;
 use places::{
     api::{
-        history,
         autocomplete::{
             self,
             SearchParams,
@@ -43,7 +42,6 @@ use places::{
     PageId,
     VisitObservation,
     VisitTransition,
-    PlacesDb,
     ConnectionUtil,
 };
 
@@ -522,8 +520,8 @@ fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<
                     if !query_str.is_empty() {
                         last_query = Instant::now();
                         autocompleter.query(SearchParams {
-                            search_string: format!("{}", query_str), // XXX
-                            limit: 5,
+                            search_string: query_str.clone(),
+                            limit: 10,
                         })?;
                     }
                 }
@@ -602,8 +600,8 @@ fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<
             last_query = now;
             if !query_str.is_empty() && now.duration_since(last) > Duration::from_millis(100) {
                 autocompleter.query(SearchParams {
-                    search_string: format!("{}", query_str), // XXX
-                    limit: 5,
+                    search_string: query_str.clone(),
+                    limit: 10,
                 })?;
             }
             write!(stdout, "{}{}> {}{}",
@@ -620,7 +618,6 @@ fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<
             input_changed = false;
         }
 
-
         if repaint_results {
             match &results {
                 Some(results) => {
@@ -633,10 +630,14 @@ fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<
                         results.search.search_string,
                         results.took.as_secs() * 1_000_000 + (results.took.subsec_nanos() as u64 / 1000)
                     )?;
-                    write!(stdout, "{}", Goto(1, 4));
+                    let (_, term_h) = termion::terminal_size()?;
+                    write!(stdout, "{}", Goto(1, 4))?;
                     let search_tokens = results.search.search_string
                         .split_whitespace().collect::<Vec<&str>>();
                     for (i, item) in results.results.iter().enumerate() {
+                        if 4 + (1 + i as u16) * 2 >= term_h {
+                            break;
+                        }
                         write!(stdout, "{}", Goto(1, 4 + (i as u16) * 2))?;
                         let prefix = format!("{}. ({}) ", i + 1, item.frecency);
                         if i == pos {
@@ -714,6 +715,11 @@ fn main() -> Result<()> {
             .takes_value(true)
             .value_name("path/to/observations.json")
             .help("Path to a JSON file containing a list of 'observations'"))
+        .arg(clap::Arg::with_name("no_interactive")
+            .long("no-interactive")
+            .short("x")
+            .help("Don't run the interactive demo after completion (if you just want to run an \
+                   import and exit, for example)"))
         .get_matches();
 
     let db_path = matches.value_of("database_path").unwrap_or("./new-places.db");
@@ -777,7 +783,9 @@ fn main() -> Result<()> {
     }
     // Close our connection before starting autocomplete.
     drop(conn);
-    start_autocomplete(Path::new(db_path).to_owned(), encryption_key)?;
+    if !matches.is_present("no_interactive") {
+        start_autocomplete(Path::new(db_path).to_owned(), encryption_key)?;
+    }
 
     Ok(())
 }
