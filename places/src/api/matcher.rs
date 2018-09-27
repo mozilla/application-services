@@ -11,7 +11,69 @@ use url::Url;
 use db::PlacesDb;
 use error::{ErrorKind, Result};
 
-const MAX_RESULTS: usize = 10;
+#[derive(Debug, Clone)]
+pub struct SearchParams {
+    pub search_string: String,
+    pub limit: u32,
+}
+
+/// Synchronously queries all providers for autocomplete matches, then filters
+/// the matches. This isn't cancelable yet; once a search is started, it can't
+/// be interrupted, even if the user moves on (see
+/// https://github.com/mozilla/application-services/issues/265).
+///
+/// A provider can be anything that returns URL suggestions: Places history
+/// and bookmarks, synced tabs, search engine suggestions, and search keywords.
+pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<SearchResult>> {
+    // TODO: Tokenize the query.
+    let mut matches = Vec::new();
+
+    // Try to find the first heuristic result. Desktop tries extensions,
+    // search engine aliases, origins, URLs, search engine domains, and
+    // preloaded sites, before trying to fall back to fixing up the URL,
+    // and a search if all else fails. We only try origins and URLs for
+    // heuristic matches, since that's all we support.
+
+    // Try to match on the origin, or the full URL.
+    let origin_or_url = OriginOrURL::new(&params.search_string, conn);
+    let origin_or_url_matches = origin_or_url.search()?;
+    matches.extend(origin_or_url_matches);
+
+    // After the first result, try the queries for adaptive matches and
+    // suggestions for bookmarked URLs.
+    let adaptive = Adaptive::new(&params.search_string, conn, params.limit);
+    let adaptive_matches = adaptive.search()?;
+    matches.extend(adaptive_matches);
+
+    let suggestions = Suggestions::new(&params.search_string, conn, params.limit);
+    let suggestions_matches = suggestions.search()?;
+    matches.extend(suggestions_matches);
+
+    // TODO: If we don't have enough results, re-run `Adaptive` and
+    // `Suggestions`, this time with `MatchBehavior::Anywhere`.
+
+    Ok(matches)
+}
+
+/// Records an accepted autocomplete match, recording the query string,
+/// and chosen URL for subsequent matches.
+pub fn accept_result(conn: &PlacesDb, result: &SearchResult) -> Result<()> {
+    // See `nsNavHistory::AutoCompleteFeedback`.
+    let mut stmt = conn.db.prepare("
+        INSERT OR REPLACE INTO moz_inputhistory(place_id, input, use_count)
+        SELECT h.id, IFNULL(i.input, :input_text), IFNULL(i.use_count, 0) * .9 + 1
+        FROM moz_places h
+        LEFT JOIN moz_inputhistory i ON i.place_id = h.id AND i.input = :input_text
+        WHERE url_hash = hash(:page_url) AND url = :page_url
+    ")?;
+    let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
+        (":input_text", &result.search_string),
+        (":page_url", &result.url.as_str()),
+    ];
+    stmt.execute_named(params)?;
+    Ok(())
+}
+
 
 pub fn split_after_prefix(href: &str) -> (&str, &str) {
     match href.find(':') {
@@ -48,80 +110,6 @@ fn looks_like_origin(string: &str) -> bool {
     );
 }
 
-#[derive(Hash, Eq, PartialEq, Clone, Copy)]
-pub enum SearchOption {
-    EnableActions,
-    DisablePrivateActions,
-    PrivateWindow,
-    UserContextId(i64),
-}
-
-/// A matcher returns autocomplete matches for a query string. Given a query
-/// and options, a matcher tokenizes the query, passes the tokens to all its
-/// registered providers, finds matches, filters them using a set of criteria,
-/// and returns them. A provider can be anything that returns URL suggestions:
-/// Places history, bookmarks, and keywords, synced tabs, search engine
-/// suggestions, and extension keywords.
-pub struct Matcher<'conn> {
-    conn: &'conn PlacesDb,
-}
-
-impl<'conn> Matcher<'conn> {
-    /// Synchronously queries all providers for autocomplete matches, given a
-    /// query string and options. This isn't cancelable yet; once a search is
-    /// started, it can't be interrupted, even if the user moves on (see
-    /// https://github.com/mozilla/application-services/issues/265).
-    pub fn search<Q: AsRef<str>>(&self, query: Q, options: &[SearchOption]) -> Result<Vec<Match>> {
-        // TODO: Tokenize the query.
-        let mut matches = Vec::new();
-
-        // Try to find the first heuristic result. Desktop tries extensions,
-        // search engine aliases, origins, URLs, search engine domains, and
-        // preloaded sites, before trying to fall back to fixing up the URL,
-        // and a search if all else fails. We only try origins and URLs for
-        // heuristic matches, since that's all we support.
-
-        // Try to match on the origin, or the full URL.
-        let origin_or_url = OriginOrURL::new(query.as_ref(), self.conn);
-        let origin_or_url_matches = origin_or_url.search()?;
-        matches.extend(origin_or_url_matches);
-
-        // After the first result, try the queries for adaptive matches and
-        // suggestions for bookmarked URLs.
-        let adaptive = Adaptive::new(query.as_ref(), self.conn, MAX_RESULTS);
-        let adaptive_matches = adaptive.search()?;
-        matches.extend(adaptive_matches);
-
-        let suggestions = Suggestions::new(query.as_ref(), self.conn, MAX_RESULTS);
-        let suggestions_matches = suggestions.search()?;
-        matches.extend(suggestions_matches);
-
-        // TODO: If we don't have enough results, re-run `Adaptive` and
-        // `Suggestions`, this time with `MatchBehavior::Anywhere`.
-
-        Ok(matches)
-    }
-
-    /// Records an accepted autocomplete match, recording the query string,
-    /// and chosen URL for subsequent matches.
-    pub fn accept<Q: AsRef<str>>(&self, query: Q, m: &Match) -> Result<()> {
-        // See `nsNavHistory::AutoCompleteFeedback`.
-        let mut stmt = self.conn.db.prepare("
-            INSERT OR REPLACE INTO moz_inputhistory(place_id, input, use_count)
-            SELECT h.id, IFNULL(i.input, :input_text), IFNULL(i.use_count, 0) * .9 + 1
-            FROM moz_places h
-            LEFT JOIN moz_inputhistory i ON i.place_id = h.id AND i.input = :input_text
-            WHERE url_hash = hash(:page_url) AND url = :page_url
-        ")?;
-        let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
-            (":input_text", &query.as_ref()),
-            (":page_url", &m.url.as_str()),
-        ];
-        stmt.execute_named(params)?;
-        Ok(())
-    }
-}
-
 /// The match reason specifies why an autocomplete search result matched a
 /// query. This can be used to filter and sort matches.
 #[derive(Debug)]
@@ -135,7 +123,10 @@ pub enum MatchReason {
 }
 
 #[derive(Debug)]
-pub struct Match {
+pub struct SearchResult {
+    /// The search string for this match.
+    pub search_string: String,
+
     /// The URL to open when the user confirms a match. This is
     /// equivalent to `nsIAutoCompleteResult.getFinalCompleteValueAt`.
     pub url: Url,
@@ -154,12 +145,13 @@ pub struct Match {
     pub reasons: Vec<MatchReason>,
 }
 
-impl Match {
+impl SearchResult {
     /// Default search behaviors from Desktop: HISTORY, BOOKMARK, OPENPAGE, SEARCHES.
     /// Default match behavior: MATCH_BOUNDARY_ANYWHERE.
     pub fn from_adaptive_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
         let mut reasons = vec![MatchReason::PreviousUse];
 
+        let search_string = row.get_checked::<_, String>("searchString")?;
         let place_id = row.get_checked::<_, i64>("id")?;
         let url = row.get_checked::<_, String>("url")?;
         let history_title = row.get_checked::<_, Option<String>>("title")?;
@@ -179,6 +171,7 @@ impl Match {
         let url = Url::parse(&url).expect("Invalid URL in Places");
 
         Ok(Self {
+            search_string,
             url,
             title,
             icon_url: None,
@@ -190,6 +183,7 @@ impl Match {
     pub fn from_suggestion_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
         let mut reasons = vec![MatchReason::Bookmark];
 
+        let search_string = row.get_checked::<_, String>("searchString")?;
         let url = row.get_checked::<_, String>("url")?;
 
         let history_title = row.get_checked::<_, Option<String>>("title")?;
@@ -205,6 +199,7 @@ impl Match {
         let frecency = row.get_checked::<_, i64>("frecency")?;
 
         Ok(Self {
+            search_string,
             url,
             title,
             icon_url: None,
@@ -214,6 +209,7 @@ impl Match {
     }
 
     pub fn from_origin_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        let search_string = row.get_checked::<_, String>("searchString")?;
         let url = row.get_checked::<_, String>("url")?;
         let display_url = row.get_checked::<_, String>("displayURL")?;
         let frecency = row.get_checked::<_, i64>("frecency")?;
@@ -221,6 +217,7 @@ impl Match {
         let url = Url::parse(&url).expect("Invalid URL in Places");
 
         Ok(Self {
+            search_string,
             url,
             title: display_url,
             icon_url: None,
@@ -230,6 +227,7 @@ impl Match {
     }
 
     pub fn from_url_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        let search_string = row.get_checked::<_, String>("searchString")?;
         let url = row.get_checked::<_, String>("url")?;
         let display_url = row.get_checked::<_, String>("displayURL")?;
         let frecency = row.get_checked::<_, i64>("frecency")?;
@@ -243,6 +241,7 @@ impl Match {
         let url = Url::parse(&url).expect("Invalid URL in Places");
 
         Ok(Self {
+            search_string,
             url,
             title: display_url,
             icon_url: None,
@@ -286,14 +285,15 @@ impl<'query, 'conn> OriginOrURL<'query, 'conn> {
         OriginOrURL { query, conn }
     }
 
-    pub fn search(&self) -> Result<Vec<Match>> {
+    pub fn search(&self) -> Result<Vec<SearchResult>> {
         let mut results = Vec::new();
         if looks_like_origin(self.query) {
             let mut stmt = self.conn.db.prepare("
                 SELECT IFNULL(:prefix, prefix) || moz_origins.host || '/' AS url,
                        moz_origins.host || '/' AS displayURL,
                        frecency,
-                       id
+                       id,
+                       :searchString AS searchString
                 FROM (
                   SELECT host,
                          TOTAL(frecency) AS host_frecency
@@ -318,7 +318,7 @@ impl<'query, 'conn> OriginOrURL<'query, 'conn> {
                 (":searchString", &self.query),
                 (":frecencyThreshold", &-1i64),
             ];
-            for result in stmt.query_and_then_named(params, Match::from_origin_row)? {
+            for result in stmt.query_and_then_named(params, SearchResult::from_origin_row)? {
                 results.push(result?);
             }
         } else if self.query.contains(|c| c == '/' || c == ':' || c == '?') {
@@ -328,7 +328,8 @@ impl<'query, 'conn> OriginOrURL<'query, 'conn> {
                        :strippedURL AS displayURL,
                        h.frecency,
                        h.foreign_count > 0 AS bookmarked,
-                       h.id
+                       h.id,
+                       :searchString AS searchString
                 FROM moz_places h
                 JOIN moz_origins o ON o.id = h.origin_id
                 WHERE o.rev_host = reverse_host(:host)
@@ -340,7 +341,8 @@ impl<'query, 'conn> OriginOrURL<'query, 'conn> {
                        :strippedURL AS displayURL,
                        h.frecency,
                        h.foreign_count > 0 AS bookmarked,
-                       h.id
+                       h.id,
+                       :searchString AS searchString
                 FROM moz_places h
                 JOIN moz_origins o ON o.id = h.origin_id
                 WHERE o.rev_host = reverse_host(:host) || 'www.'
@@ -351,11 +353,12 @@ impl<'query, 'conn> OriginOrURL<'query, 'conn> {
                 LIMIT 1
             ")?;
             let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
+                (":searchString", &self.query),
                 (":strippedURL", &stripped_url),
                 (":host", &host),
                 (":frecencyThreshold", &-1i64),
             ];
-            for result in stmt.query_and_then_named(params, Match::from_url_row)? {
+            for result in stmt.query_and_then_named(params, SearchResult::from_url_row)? {
                 results.push(result?);
             }
         }
@@ -366,7 +369,7 @@ impl<'query, 'conn> OriginOrURL<'query, 'conn> {
 struct Adaptive<'query, 'conn> {
     query: &'query str,
     conn: &'conn PlacesDb,
-    max_results: usize,
+    max_results: u32,
     match_behavior: MatchBehavior,
 }
 
@@ -374,7 +377,7 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
     pub fn new(
         query: &'query str,
         conn: &'conn PlacesDb,
-        max_results: usize,
+        max_results: u32,
     ) -> Adaptive<'query, 'conn> {
         Adaptive::with_behavior(query, conn, max_results, MatchBehavior::BoundaryAnywhere)
     }
@@ -382,7 +385,7 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
     pub fn with_behavior(
         query: &'query str,
         conn: &'conn PlacesDb,
-        max_results: usize,
+        max_results: u32,
         match_behavior: MatchBehavior,
     ) -> Adaptive<'query, 'conn> {
         Adaptive {
@@ -393,7 +396,7 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
         }
     }
 
-    pub fn search(&self) -> Result<Vec<Match>> {
+    pub fn search(&self) -> Result<Vec<SearchResult>> {
         let mut stmt = self.conn.db.prepare("
             SELECT h.url, h.title,
                    EXISTS(SELECT 1 FROM moz_bookmarks
@@ -404,7 +407,8 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
                     ORDER BY lastModified DESC
                     LIMIT 1) AS btitle,
                    NULL AS tags,
-                   h.visit_count_local, h.typed, h.id, NULL AS open_count, h.frecency
+                   h.visit_count_local, h.typed, h.id, NULL AS open_count, h.frecency,
+                   :searchString AS searchString
             FROM (
               SELECT ROUND(MAX(use_count) * (1 + (input = :searchString)), 1) AS rank,
                      place_id
@@ -423,10 +427,10 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
         let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
             (":searchString", &self.query),
             (":matchBehavior", &self.match_behavior),
-            (":maxResults", &(self.max_results as i64)),
+            (":maxResults", &self.max_results),
         ];
         let mut results = Vec::new();
-        for result in stmt.query_and_then_named(params, Match::from_adaptive_row)? {
+        for result in stmt.query_and_then_named(params, SearchResult::from_adaptive_row)? {
             results.push(result?);
         }
         Ok(results)
@@ -436,7 +440,7 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
 struct Suggestions<'query, 'conn> {
     query: &'query str,
     conn: &'conn PlacesDb,
-    max_results: usize,
+    max_results: u32,
     match_behavior: MatchBehavior,
 }
 
@@ -444,7 +448,7 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
     pub fn new(
         query: &'query str,
         conn: &'conn PlacesDb,
-        max_results: usize,
+        max_results: u32,
     ) -> Suggestions<'query, 'conn> {
         Suggestions::with_behavior(query, conn, max_results, MatchBehavior::BoundaryAnywhere)
     }
@@ -452,7 +456,7 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
     pub fn with_behavior(
         query: &'query str,
         conn: &'conn PlacesDb,
-        max_results: usize,
+        max_results: u32,
         match_behavior: MatchBehavior,
     ) -> Suggestions<'query, 'conn> {
         Suggestions {
@@ -463,7 +467,7 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
         }
     }
 
-    pub fn search(&self) -> Result<Vec<Match>> {
+    pub fn search(&self) -> Result<Vec<SearchResult>> {
         let mut stmt = self.conn.db.prepare("
             SELECT h.url, h.title,
                    (SELECT title FROM moz_bookmarks
@@ -472,7 +476,8 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
                     ORDER BY lastModified DESC
                     LIMIT 1) AS btitle,
                    NULL AS tags,
-                   h.visit_count_local, h.typed, h.id, NULL AS open_count, h.frecency
+                   h.visit_count_local, h.typed, h.id, NULL AS open_count, h.frecency,
+                   :searchString AS searchString
             FROM moz_places h
             WHERE h.frecency <> 0
               AND AUTOCOMPLETE_MATCH(:searchString, h.url,
@@ -489,10 +494,10 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
         let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
             (":searchString", &self.query),
             (":matchBehavior", &self.match_behavior),
-            (":maxResults", &(self.max_results as i64)),
+            (":maxResults", &self.max_results),
         ];
         let mut results = Vec::new();
-        for result in stmt.query_and_then_named(params, Match::from_suggestion_row)? {
+        for result in stmt.query_and_then_named(params, SearchResult::from_suggestion_row)? {
             results.push(result?);
         }
         Ok(results)
@@ -525,21 +530,36 @@ mod tests {
     fn search() {
         let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
 
-        let page_id = PageId::Url(Url::parse("http://example.com/123").unwrap());
+        let url = Url::parse("http://example.com/123").unwrap();
+        let page_id = PageId::Url(url.clone());
         let visit = VisitObservation::new(page_id).title("Example page 123".into()).visit_type(VisitTransition::Typed).at(Timestamp::now());
 
         apply_observation(&mut conn, visit).expect("Should apply visit");
 
-        let m = Matcher { conn: &conn };
-
-        let by_origin = m.search("example.com", &[]).expect("Should search by origin");
+        let by_origin = search_frecent(&conn, SearchParams {
+            search_string: "example.com".into(),
+            limit: 10,
+        }).expect("Should search by origin");
         println!("Matches by origin: {:?}", by_origin);
 
-        let by_url = m.search("http://example.com", &[]).expect("Should search by URL");
+        let by_url = search_frecent(&conn, SearchParams {
+            search_string: "http://example.com".into(),
+            limit: 10,
+        }).expect("Should search by URL");
         println!("Matches by URL: {:?}", by_url);
 
-        m.accept("ample", &by_url[0]).expect("Should accept input history match");
-        let by_adaptive = m.search("ample", &[]).expect("Should search by adaptive input history");
+        accept_result(&conn, &SearchResult {
+            search_string: "ample".into(),
+            url: url.clone(),
+            title: "Example page 123".into(),
+            icon_url: None,
+            frecency: -1,
+            reasons: vec![],
+        }).expect("Should accept input history match");
+        let by_adaptive = search_frecent(&conn, SearchParams {
+            search_string: "ample".into(),
+            limit: 10,
+        }).expect("Should search by adaptive input history");
         println!("Matches by adaptive input history: {:?}", by_adaptive);
     }
 }
