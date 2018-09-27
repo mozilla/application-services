@@ -149,9 +149,15 @@ fn fetch_page_info(db: &impl ConnectionUtil, page_id: &PageId) -> Result<Option<
 
 pub fn apply_observation(db: &mut PlacesDb, visit_ob: VisitObservation) -> Result<()> {
     let tx = db.db.transaction()?;
-    let mut page_info = match fetch_page_info(&tx, &visit_ob.page_id)? {
+    apply_observation_direct(tx.conn(), visit_ob)?;
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> Result<()> {
+    let mut page_info = match fetch_page_info(db, &visit_ob.page_id)? {
         Some(info) => info.page,
-        None => new_page_info(&tx, &visit_ob.page_id)?,
+        None => new_page_info(db, &visit_ob.page_id)?,
     };
     let mut updates: Vec<(&str, &str, &ToSql)> = Vec::new();
     if let Some(title) = visit_ob.get_title() {
@@ -174,7 +180,7 @@ pub fn apply_observation(db: &mut PlacesDb, visit_ob: VisitObservation) -> Resul
 
         let at = visit_ob.get_at().unwrap_or_else(|| Timestamp::now());
         let is_remote = visit_ob.get_is_remote();
-        add_visit(&tx, &page_info.row_id, &None, &at, &visit_type, &is_remote)?;
+        add_visit(db, &page_info.row_id, &None, &at, &visit_type, &is_remote)?;
         if is_remote {
             page_info.visit_count_remote += 1;
             updates.push(("visit_count_remote", ":visit_count_remote", &page_info.visit_count_remote));
@@ -202,11 +208,11 @@ pub fn apply_observation(db: &mut PlacesDb, visit_ob: VisitObservation) -> Resul
         let sql = format!("UPDATE moz_places
                           SET {}
                           WHERE id == :row_id", sets.join(","));
-        tx.execute_named_cached(&sql, &params)?;
+        db.execute_named_cached(&sql, &params)?;
     }
     // This needs to happen after the other updates.
     if update_frecency {
-        page_info.frecency = frecency::calculate_frecency(&tx,
+        page_info.frecency = frecency::calculate_frecency(db,
             &frecency::DEFAULT_FRECENCY_SETTINGS,
             page_info.row_id.0, // TODO: calculate_frecency should take a RowId here.
             Some(visit_ob.get_redirect_frecency_boost()))?;
@@ -215,12 +221,11 @@ pub fn apply_observation(db: &mut PlacesDb, visit_ob: VisitObservation) -> Resul
             SET frecency = :frecency
             WHERE id = :row_id
         ";
-        tx.execute_named_cached(sql, &[
+        db.execute_named_cached(sql, &[
             (":row_id", &page_info.row_id.0),
             (":frecency", &page_info.frecency),
         ])?;
     }
-    tx.commit()?;
     Ok(())
 }
 

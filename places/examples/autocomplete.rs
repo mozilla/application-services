@@ -162,19 +162,21 @@ impl LegacyPlace {
             ],
         }
     }
-    pub fn insert(self, conn: &mut places::PlacesDb, options: &ImportPlacesOptions) -> Result<()> {
-        places::api::history::insert(conn, history::AddablePlaceInfo {
-            page_id: PageId::Url(Url::parse(&self.url)?),
-            title: self.title,
-            // TODO: this should take a bunch of other things from `self`.
-            visits: self.visits.into_iter().map(|v| history::AddableVisit {
-                date: places::Timestamp((v.date / 1000) as u64),
-                transition: VisitTransition::from_primitive(v.visit_type)
-                                .unwrap_or(VisitTransition::Link),
-                referrer: None,
-                is_local: rand::random::<f64>() >= options.remote_probability,
-            }).collect(),
-        })?;
+    pub fn insert(self, conn: &rusqlite::Connection, options: &ImportPlacesOptions) -> Result<()> {
+        let page_id = PageId::Url(Url::parse(&self.url)?);
+        for v in self.visits {
+            let mut obs = VisitObservation::new(page_id.clone())
+                .visit_type(VisitTransition::from_primitive(v.visit_type)
+                            .unwrap_or(VisitTransition::Link))
+                .at(places::Timestamp((v.date / 1000) as u64));
+            if let Some(ref title) = self.title {
+                obs = obs.title(title.clone());
+            }
+            if rand::random::<f64>() < options.remote_probability {
+                obs = obs.is_remote();
+            }
+            places::storage::apply_observation_direct(conn, obs)?;
+        };
         Ok(())
     }
 }
@@ -228,6 +230,8 @@ fn import_places(
     let mut current_place = LegacyPlace { id: -1, .. LegacyPlace::default() };
     let mut place_counter = 0;
 
+    let tx = new.db.transaction()?;
+
     print!("Processing {} / {} places (approx.)", place_counter, place_count);
     let _ = std::io::stdout().flush();
     while let Some(row_or_error) = rows.next() {
@@ -246,14 +250,16 @@ fn import_places(
         print!("\rProcessing {} / {} places (approx.)", place_counter, place_count);
         let _ = std::io::stdout().flush();
         if current_place.id != -1 {
-            current_place.insert(new, &options)?;
+            current_place.insert(tx.conn(), &options)?;
         }
         current_place = LegacyPlace::from_row(&row);
     }
     if current_place.id != -1 {
-        current_place.insert(new, &options)?;
+        current_place.insert(tx.conn(), &options)?;
     }
     println!("Finished processing records");
+    println!("Committing....");
+    tx.commit()?;
     info!("Finished import!");
     Ok(())
 }
