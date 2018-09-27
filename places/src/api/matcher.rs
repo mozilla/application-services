@@ -69,6 +69,25 @@ impl<'conn> Matcher<'conn> {
 
         Ok(matches)
     }
+
+    /// Records an accepted autocomplete match, recording the query string,
+    /// and chosen URL for subsequent matches.
+    pub fn accept<Q: AsRef<str>>(&self, query: Q, m: &Match) -> Result<()> {
+        // See `nsNavHistory::AutoCompleteFeedback`.
+        let mut stmt = self.conn.db.prepare("
+            INSERT OR REPLACE INTO moz_inputhistory(place_id, input, use_count)
+            SELECT h.id, IFNULL(i.input, :input_text), IFNULL(i.use_count, 0) * .9 + 1
+            FROM moz_places h
+            LEFT JOIN moz_inputhistory i ON i.place_id = h.id AND i.input = :input_text
+            WHERE url_hash = hash(:page_url) AND url = :page_url
+        ")?;
+        let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
+            (":input_text", &query.as_ref()),
+            (":page_url", &m.url.as_str()),
+        ];
+        stmt.execute_named(params)?;
+        Ok(())
+    }
 }
 
 /// The match reason specifies why an autocomplete search result matched a
