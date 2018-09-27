@@ -1,4 +1,9 @@
-# Firefox Accounts Metrics
+---
+id: metrics
+title: Metrics for Reliers
+sidebar_label: Metrics for Reliers
+---
+
 *Last updated 2018-08-20*<br />
 *Compiled by Leif Oines loines at mozilla dot com*
 
