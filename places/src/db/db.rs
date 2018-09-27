@@ -16,9 +16,8 @@ use rusqlite::{
 };
 use std::path::Path;
 
-use caseless::canonical_caseless_match_str;
 use unicode_segmentation::UnicodeSegmentation;
-use caseless::{CaseFold, Caseless};
+use caseless::Caseless;
 
 use api::matcher::{MatchBehavior, split_after_prefix, split_after_host_and_port};
 
@@ -246,7 +245,11 @@ fn define_functions(c: &Connection) -> Result<()> {
     })?;
     c.create_scalar_function("reverse_host", 1, true, move |ctx| {
         let host = ctx.get::<String>(0)?;
-        let rev_host: String = host.graphemes(true).rev().flat_map(|g| g.chars().flat_map(|c| c.to_lowercase())).collect();
+        // TODO: This should be ASCII in all cases, so we could get a ~10x speedup (
+        // according to some microbenchmarks) with something like
+        // `let rev_host = String::from_utf8(host.bytes().map(|b| b.to_ascii_lowercase()).collect())?;`
+        // (We may want to map_err and say something like "invalid nonascii host passed to reverse_host")
+        let rev_host: String = host.chars().rev().flat_map(|c| c.to_lowercase()).collect();
         Ok(rev_host + ".")
     })?;
     c.create_scalar_function("autocomplete_match", -1, true, move |ctx| {
@@ -255,10 +258,10 @@ fn define_functions(c: &Connection) -> Result<()> {
         let title = ctx.get::<Option<String>>(2)?.unwrap_or_default();
         let tags = ctx.get::<Option<String>>(3)?;
         let visit_count = ctx.get::<i64>(4)?;
-        let typed = ctx.get::<bool>(5)?;
+        let _typed = ctx.get::<bool>(5)?;
         let bookmarked = ctx.get::<bool>(6)?;
         let open_page_count = ctx.get::<Option<i64>>(7)?;
-        let match_behavior = ctx.get::<MatchBehavior>(8);
+        let _match_behavior = ctx.get::<MatchBehavior>(8);
 
         if !(visit_count > 0
             || bookmarked
@@ -275,14 +278,13 @@ fn define_functions(c: &Connection) -> Result<()> {
         let norm_title = unicode_normalize(trimmed_title);
         let norm_search = unicode_normalize(&search_string);
         let norm_tags = unicode_normalize(&tags.unwrap_or_default());
+        let every_token_matched = norm_search
+            .unicode_words()
+            .all(|token| norm_url.contains(token) ||
+                         norm_tags.contains(token) ||
+                         norm_title.contains(token));
 
-        for token in norm_search.unicode_words() {
-            if norm_url.contains(token) || norm_tags.contains(token) || norm_title.contains(token) {
-                return Ok(true);
-            }
-        }
-
-        Ok(false)
+        Ok(every_token_matched)
     })?;
     c.create_scalar_function("hash", -1, true, move |ctx| {
         Ok(match ctx.len() {
