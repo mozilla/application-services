@@ -498,3 +498,48 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
         Ok(results)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use observation::{VisitObservation};
+    use storage::{apply_observation, PageId};
+    use types::{Timestamp, VisitTransition};
+
+    #[test]
+    fn split() {
+        assert_eq!(split_after_prefix("http://example.com"), ("http://", "example.com"));
+        assert_eq!(split_after_prefix("foo:example"), ("foo:", "example"));
+        assert_eq!(split_after_prefix("foo:"), ("foo:", ""));
+        assert_eq!(split_after_prefix("notaspec"), ("", "notaspec"));
+        assert_eq!(split_after_prefix("http:/"), ("http:", "/"));
+        assert_eq!(split_after_prefix("http://"), ("http://", ""));
+
+        assert_eq!(split_after_host_and_port("http://example.com/"), ("example.com", "/"));
+        assert_eq!(split_after_host_and_port("http://example.com:8888/"), ("example.com:8888", "/"));
+        assert_eq!(split_after_host_and_port("http://user:pass@example.com/"), ("example.com", "/"));
+        assert_eq!(split_after_host_and_port("foo:example"), ("example", ""));
+    }
+
+    #[test]
+    fn search() {
+        let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
+
+        let page_id = PageId::Url(Url::parse("http://example.com/123").unwrap());
+        let visit = VisitObservation::new(page_id).title("Example page 123".into()).visit_type(VisitTransition::Typed).at(Timestamp::now());
+
+        apply_observation(&mut conn, visit).expect("Should apply visit");
+
+        let m = Matcher { conn: &conn };
+
+        let by_origin = m.search("example.com", &[]).expect("Should search by origin");
+        println!("Matches by origin: {:?}", by_origin);
+
+        let by_url = m.search("http://example.com", &[]).expect("Should search by URL");
+        println!("Matches by URL: {:?}", by_url);
+
+        m.accept("ample", &by_url[0]).expect("Should accept input history match");
+        let by_adaptive = m.search("ample", &[]).expect("Should search by adaptive input history");
+        println!("Matches by adaptive input history: {:?}", by_adaptive);
+    }
+}
