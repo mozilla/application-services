@@ -501,17 +501,27 @@ fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<
     stdout.flush()?;
 
     let no_title = format!("{}(no title){}", termion::style::Faint, termion::style::NoFaint);
+    let throttle_dur = Duration::from_millis(100);
     // TODO: refactor these to be part of a struct or something.
     let mut query_str = String::new();
     let mut last_query = Instant::now();
+    let mut last_keypress = Instant::now();
     let mut results: Option<AutocompleteResponse> = None;
+    // The index of the highlighted item in the results.
     let mut pos = 0;
+    // The index in `query_str` the cursor is at
     let mut cursor_idx = 0;
+    // Whether or not we need to repain the re
     let mut repaint_results = true;
+    // Whether or not the input changed and needs repainting / possible requerying
     let mut input_changed = true;
+    // true if the input changed, we rendered the change, but we didn't execute the query because
+    // it was within throttle_dur.
+    let mut pending_change = false;
     loop {
         for res in (&mut stdin).keys() {//.events_and_raw() {
             let key = res?;
+            last_keypress = Instant::now();
             match key {
                 Key::Esc => {
                     return Ok(())
@@ -519,6 +529,7 @@ fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<
                 Key::Char('\n') | Key::Char('\r') => {
                     if !query_str.is_empty() {
                         last_query = Instant::now();
+                        pending_change = false;
                         autocompleter.query(SearchParams {
                             search_string: query_str.clone(),
                             limit: 10,
@@ -598,11 +609,18 @@ fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<
             let now = Instant::now();
             let last = last_query;
             last_query = now;
-            if !query_str.is_empty() && now.duration_since(last) > Duration::from_millis(100) {
-                autocompleter.query(SearchParams {
-                    search_string: query_str.clone(),
-                    limit: 10,
-                })?;
+            if !query_str.is_empty() {
+                if now.duration_since(last) > throttle_dur {
+                    pending_change = false;
+                    autocompleter.query(SearchParams {
+                        search_string: query_str.clone(),
+                        limit: 10,
+                    })?;
+                } else {
+                    pending_change = true;
+                }
+            } else {
+                pending_change = false;
             }
             write!(stdout, "{}{}> {}{}",
                 Goto(1, 2),
@@ -616,6 +634,14 @@ fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<
                 repaint_results = true;
             }
             input_changed = false;
+        } else if  pending_change && last_keypress.elapsed() > throttle_dur {
+            pending_change = false;
+            if !query_str.is_empty() {
+                autocompleter.query(SearchParams {
+                    search_string: query_str.clone(),
+                    limit: 10,
+                })?;
+            }
         }
 
         if repaint_results {
