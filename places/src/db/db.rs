@@ -252,7 +252,7 @@ fn define_functions(c: &Connection) -> Result<()> {
         let rev_host: String = host.chars().rev().flat_map(|c| c.to_lowercase()).collect();
         Ok(rev_host + ".")
     })?;
-    c.create_scalar_function("autocomplete_match", -1, true, move |ctx| {
+    c.create_scalar_function("autocomplete_match", 9, true, move |ctx| {
         let search_string = ctx.get::<Option<String>>(0)?.unwrap_or_default();
         let url = ctx.get::<Option<String>>(1)?.unwrap_or_default();
         let title = ctx.get::<Option<String>>(2)?.unwrap_or_default();

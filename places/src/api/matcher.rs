@@ -407,7 +407,8 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
                     ORDER BY lastModified DESC
                     LIMIT 1) AS btitle,
                    NULL AS tags,
-                   h.visit_count_local, h.typed, h.id, NULL AS open_count, h.frecency,
+                   h.visit_count_local + h.visit_count_remote AS visit_count, h.typed,
+                   h.id, NULL AS open_count, h.frecency,
                    :searchString AS searchString
             FROM (
               SELECT ROUND(MAX(use_count) * (1 + (input = :searchString)), 1) AS rank,
@@ -419,7 +420,7 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
             JOIN moz_places h ON h.id = i.place_id
             WHERE AUTOCOMPLETE_MATCH(:searchString, h.url,
                                      IFNULL(btitle, h.title), tags,
-                                     h.visit_count_local, h.typed, bookmarked,
+                                     visit_count, h.typed, bookmarked,
                                      NULL, :matchBehavior)
             ORDER BY rank DESC, h.frecency DESC
             LIMIT :maxResults
@@ -476,16 +477,16 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
                     ORDER BY lastModified DESC
                     LIMIT 1) AS btitle,
                    NULL AS tags,
-                   h.visit_count_local, h.typed, h.id, NULL AS open_count, h.frecency,
-                   :searchString AS searchString
+                   h.visit_count_local + h.visit_count_remote AS visit_count, h.typed, h.id,
+                   NULL AS open_count, h.frecency, :searchString AS searchString
             FROM moz_places h
             WHERE h.frecency <> 0
               AND AUTOCOMPLETE_MATCH(:searchString, h.url,
                                      IFNULL(btitle, h.title), tags,
-                                     h.visit_count_local, h.typed,
+                                     visit_count, h.typed,
                                      1, NULL,
                                      :matchBehavior)
-              AND +h.visit_count_local > 0
+              AND (+h.visit_count_local > 0 OR +h.visit_count_remote > 0)
               AND EXISTS(SELECT 1 FROM moz_bookmarks
                          WHERE fk = h.id)
             ORDER BY h.frecency DESC, h.id DESC
