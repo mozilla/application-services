@@ -244,13 +244,18 @@ fn define_functions(c: &Connection) -> Result<()> {
         Ok(remainder.to_owned())
     })?;
     c.create_scalar_function("reverse_host", 1, true, move |ctx| {
-        let host = ctx.get::<String>(0)?;
-        // TODO: This should be ASCII in all cases, so we could get a ~10x speedup (
-        // according to some microbenchmarks) with something like
-        // `let rev_host = String::from_utf8(host.bytes().map(|b| b.to_ascii_lowercase()).collect())?;`
-        // (We may want to map_err and say something like "invalid nonascii host passed to reverse_host")
-        let rev_host: String = host.chars().rev().flat_map(|c| c.to_lowercase()).collect();
-        Ok(rev_host + ".")
+        let mut host = ctx.get::<String>(0)?;
+        debug_assert!(host.is_ascii(), "Hosts must be Punycoded");
+
+        host.make_ascii_lowercase();
+        let mut rev_host_bytes = host.into_bytes();
+        rev_host_bytes.reverse();
+        rev_host_bytes.push(b'.');
+
+        let rev_host = String::from_utf8(rev_host_bytes).map_err(|err|
+            rusqlite::Error::UserFunctionError(err.into())
+        )?;
+        Ok(rev_host)
     })?;
     c.create_scalar_function("autocomplete_match", 9, true, move |ctx| {
         let search_string = ctx.get::<Option<String>>(0)?.unwrap_or_default();
