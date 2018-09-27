@@ -32,6 +32,7 @@ extern crate serde_json;
 extern crate serde_derive;
 
 extern crate caseless;
+extern crate unicode_normalization;
 
 pub mod api;
 pub mod error;

@@ -18,6 +18,7 @@ use std::path::Path;
 
 use caseless::canonical_caseless_match_str;
 use unicode_segmentation::UnicodeSegmentation;
+use caseless::{CaseFold, Caseless};
 
 use api::matcher::MatchBehavior;
 
@@ -33,6 +34,11 @@ pub struct PlacesDb {
 // the single quote, which is escaped by placing two single quotes in a row.
 fn escape_string_for_pragma(s: &str) -> String {
     s.replace("'", "''")
+}
+
+fn unicode_normalize(s: &str) -> String {
+    use unicode_normalization::UnicodeNormalization;
+    s.chars().nfd().default_case_fold().nfd().collect()
 }
 
 impl PlacesDb {
@@ -239,9 +245,6 @@ fn define_functions(c: &Connection) -> Result<()> {
         let open_page_count = ctx.get::<Option<i64>>(7)?;
         let match_behavior = ctx.get::<MatchBehavior>(8);
 
-        let trimmed_url = &url[..255];
-        let trimmed_title = &url[..255];
-
         if !(visit_count > 0
             || bookmarked
             || tags.is_some()
@@ -250,19 +253,21 @@ fn define_functions(c: &Connection) -> Result<()> {
             return Ok(false);
         }
 
-        for token in search_string.split_whitespace() {
-            if !canonical_caseless_match_str(token, trimmed_title)
-                && !tags
-                    .as_ref()
-                    .map(|tags| canonical_caseless_match_str(token, tags))
-                    .unwrap_or(true)
-                && !canonical_caseless_match_str(token, trimmed_url)
-            {
-                return Ok(false);
+        let trimmed_url = &url[..255.min(url.len())];
+        let trimmed_title = &title[..255.min(title.len())];
+
+        let norm_url = unicode_normalize(trimmed_url);
+        let norm_title = unicode_normalize(trimmed_title);
+        let norm_search = unicode_normalize(&search_string);
+        let norm_tags = unicode_normalize(&tags.unwrap_or_default());
+
+        for token in norm_search.unicode_words() {
+            if norm_url.contains(token) || norm_tags.contains(token) || norm_title.contains(token) {
+                return Ok(true);
             }
         }
 
-        return Ok(true);
+        Ok(false)
     })?;
     c.create_scalar_function("hash", -1, true, move |ctx| {
         Ok(match ctx.len() {
