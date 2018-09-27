@@ -106,10 +106,35 @@ lazy_static! {
     );
 }
 
+// See https://searchfox.org/mozilla-central/source/toolkit/components/places/nsPlacesIndexes.h
+const CREATE_IDX_MOZ_PLACES_URL_HASH: &str = "CREATE INDEX url_hashindex ON moz_places(url_hash)";
+
+// const CREATE_IDX_MOZ_PLACES_REVHOST: &str = "CREATE INDEX hostindex ON moz_places(rev_host)";
+
+const CREATE_IDX_MOZ_PLACES_VISITCOUNT_LOCAL: &str = "CREATE INDEX visitcountlocal ON moz_places(visit_count_local)";
+const CREATE_IDX_MOZ_PLACES_VISITCOUNT_REMOTE: &str = "CREATE INDEX visitcountremote ON moz_places(visit_count_remote)";
+
+const CREATE_IDX_MOZ_PLACES_FRECENCY: &str = "CREATE INDEX frecencyindex ON moz_places(frecency)";
+
+const CREATE_IDX_MOZ_PLACES_LASTVISITDATE_LOCAL: &str = "CREATE INDEX lastvisitdatelocalindex ON moz_places(last_visit_date_local)";
+const CREATE_IDX_MOZ_PLACES_LASTVISITDATE_REMOTE: &str = "CREATE INDEX lastvisitdateremoteindex ON moz_places(last_visit_date_remote)";
+
+const CREATE_IDX_MOZ_PLACES_GUID: &str = "CREATE UNIQUE INDEX guid_uniqueindex ON moz_places(guid)";
+
+const CREATE_IDX_MOZ_PLACES_ORIGIN_ID: &str = "CREATE INDEX originidindex ON moz_places(origin_id)";
+
+const CREATE_IDX_MOZ_HISTORYVISITS_PLACEDATE: &str = "CREATE INDEX placedateindex ON moz_historyvisits(place_id, visit_date)";
+const CREATE_IDX_MOZ_HISTORYVISITS_FROMVISIT: &str = "CREATE INDEX fromindex ON moz_historyvisits(from_visit)";
+
+const CREATE_IDX_MOZ_HISTORYVISITS_VISITDATE: &str = "CREATE INDEX dateindex ON moz_historyvisits(visit_date)";
+
+const CREATE_IDX_MOZ_HISTORYVISITS_ISLOCAL: &str = "CREATE INDEX islocalindex ON moz_historyvisits(is_local)";
+
+
 // Keys in the moz_meta table.
-pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_COUNT: &'static str = "origin_frecency_count";
-pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM: &'static str = "origin_frecency_sum";
-pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM_OF_SQUARES: &'static str = "origin_frecency_sum_of_squares";
+// pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_COUNT: &'static str = "origin_frecency_count";
+// pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM: &'static str = "origin_frecency_sum";
+// pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM_OF_SQUARES: &'static str = "origin_frecency_sum_of_squares";
 
 
 pub fn init(db: &PlacesDb) -> Result<()> {
@@ -147,6 +172,18 @@ pub fn create(db: &PlacesDb) -> Result<()> {
         &*CREATE_TABLE_INPUTHISTORY_SQL,
         &*CREATE_TABLE_ORIGINS_SQL,
         &*CREATE_TABLE_META_SQL,
+        CREATE_IDX_MOZ_PLACES_URL_HASH,
+        CREATE_IDX_MOZ_PLACES_VISITCOUNT_LOCAL,
+        CREATE_IDX_MOZ_PLACES_VISITCOUNT_REMOTE,
+        CREATE_IDX_MOZ_PLACES_FRECENCY,
+        CREATE_IDX_MOZ_PLACES_LASTVISITDATE_LOCAL,
+        CREATE_IDX_MOZ_PLACES_LASTVISITDATE_REMOTE,
+        CREATE_IDX_MOZ_PLACES_GUID,
+        CREATE_IDX_MOZ_PLACES_ORIGIN_ID,
+        CREATE_IDX_MOZ_HISTORYVISITS_PLACEDATE,
+        CREATE_IDX_MOZ_HISTORYVISITS_FROMVISIT,
+        CREATE_IDX_MOZ_HISTORYVISITS_VISITDATE,
+        CREATE_IDX_MOZ_HISTORYVISITS_ISLOCAL,
         &*SET_VERSION_SQL,
     ])?;
     Ok(())
