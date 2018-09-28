@@ -112,17 +112,17 @@ fn looks_like_origin(string: &str) -> bool {
 
 /// The match reason specifies why an autocomplete search result matched a
 /// query. This can be used to filter and sort matches.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MatchReason {
     Keyword,
     Origin,
-    URL,
+    Url,
     PreviousUse,
     Bookmark,
     Tags(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SearchResult {
     /// The search string for this match.
     pub search_string: String,
@@ -233,7 +233,7 @@ impl SearchResult {
         let frecency = row.get_checked::<_, i64>("frecency")?;
         let bookmarked = row.get_checked::<_, bool>("bookmarked")?;
 
-        let mut reasons = vec![MatchReason::URL];
+        let mut reasons = vec![MatchReason::Url];
         if bookmarked {
             reasons.push(MatchReason::Bookmark);
         }
@@ -480,15 +480,13 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
                    h.visit_count_local + h.visit_count_remote AS visit_count, h.typed, h.id,
                    NULL AS open_count, h.frecency, :searchString AS searchString
             FROM moz_places h
-            WHERE h.frecency <> 0
+            WHERE h.frecency > 0
               AND AUTOCOMPLETE_MATCH(:searchString, h.url,
                                      IFNULL(btitle, h.title), tags,
                                      visit_count, h.typed,
                                      1, NULL,
                                      :matchBehavior)
               AND (+h.visit_count_local > 0 OR +h.visit_count_remote > 0)
-              AND EXISTS(SELECT 1 FROM moz_bookmarks
-                         WHERE fk = h.id)
             ORDER BY h.frecency DESC, h.id DESC
             LIMIT :maxResults
         ")?;

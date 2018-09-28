@@ -33,8 +33,8 @@ use url::Url;
 // use failure::Fail;
 use places::{
     api::{
-        autocomplete::{
-            self,
+        matcher::{
+            search_frecent,
             SearchParams,
             SearchResult,
         }
@@ -340,7 +340,7 @@ impl BackgroundAutocomplete {
                         continue;
                     }
                     let start = Instant::now();
-                    match autocomplete::search_frecent(&conn, search.clone()) {
+                    match search_frecent(&conn, search.clone()) {
                         Ok(results) => {
                             // Should we skip sending results if `last_id` indicates we
                             // don't care anymore?
@@ -677,8 +677,8 @@ fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<
                                 color::Fg(color::Red), item.frecency, color::Fg(color::Reset))?;
                         }
 
-                        if let Some(title) = item.title.as_ref() {
-                            highlight_sections(&mut stdout, &title, &search_tokens, prefix.len())?;
+                        if !item.title.is_empty() {
+                            highlight_sections(&mut stdout, &item.title, &search_tokens, prefix.len())?;
                         } else {
                             write!(stdout, "{}", no_title)?;
                         }
