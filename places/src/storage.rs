@@ -302,7 +302,6 @@ pub fn update_frecency(db: &mut PlacesDb, id: RowId, redirect: Option<bool>) -> 
 // moz_origins fits in TBH :/
 #[cfg(test)]
 mod tests {
-    use unicode_segmentation::UnicodeSegmentation;
 
     struct Origin {
         prefix: String,
@@ -311,7 +310,13 @@ mod tests {
     }
     impl Origin {
         pub fn rev_host(&self) -> String {
-            self.host.graphemes(true).rev().flat_map(|g| g.chars()).collect()
+            // Note: this is consistent with how places handles hosts, and our `reverse_host`
+            // function. We explictly don't want to use unicode_segmentation because it's not
+            // stable across unicode versions, and valid hosts are expected to be strings.
+            // (The `url` crate will punycode them for us).
+            String::from_utf8(self.host.bytes().rev().map(|b|
+                b.to_ascii_lowercase()).collect::<Vec<_>>())
+                .unwrap() // TODO: We should return a Result, or punycode on construction if needed.
         }
     }
 

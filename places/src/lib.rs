@@ -15,7 +15,6 @@ extern crate lazy_static;
 
 extern crate failure;
 
-// reversing a unicode string is more difficult than it sounds!
 extern crate unicode_segmentation;
 
 #[macro_use]
