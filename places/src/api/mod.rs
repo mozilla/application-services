@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub mod history;
-pub mod autocomplete;
 pub mod matcher;
 use db::PlacesDb;
 use error::{Result};
