@@ -14,7 +14,7 @@ use observation::{VisitObservation};
 // This module can become, roughly: PlacesUtils.history()
 
 // functions used internally.
-fn can_add_url(url: &Url) -> Result<bool> {
+fn can_add_url(_url: &Url) -> Result<bool> {
     Ok(true)
 }
 
@@ -104,7 +104,7 @@ mod tests {
 
 /////////////////////////////////////////////
 // Stuff to reimplement nsHistory::VisitUri()
-fn is_recently_visited(url: &Url) -> Result<bool> {
+fn is_recently_visited(_url: &Url) -> Result<bool> {
     // History.cpp keeps an in-memory hashtable of urls visited in the last
     // 6 minutes to avoid pages which self-refresh from getting many entries.
     // ie, there's no DB query done here.
@@ -112,7 +112,7 @@ fn is_recently_visited(url: &Url) -> Result<bool> {
     Ok(false)
 }
 
-fn add_recently_visited(url: &Url) -> Result<()> {
+fn add_recently_visited(_url: &Url) -> Result<()> {
     Ok(())
 }
 

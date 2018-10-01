@@ -13,15 +13,6 @@ use url;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-// Backported part of the (someday real) failure 1.x API, basically equivalent
-// to error_chain's `bail!` (We don't call it that because `failure` has a
-// `bail` macro with different semantics)
-macro_rules! throw {
-    ($e:expr) => {
-        return Err(::std::convert::Into::into($e));
-    }
-}
-
 #[derive(Debug)]
 pub struct Error(Box<Context<ErrorKind>>);
 

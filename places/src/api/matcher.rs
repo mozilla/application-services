@@ -9,7 +9,7 @@ use rusqlite::{
 use url::Url;
 
 use db::PlacesDb;
-use error::{ErrorKind, Result};
+use error::Result;
 
 #[derive(Debug, Clone)]
 pub struct SearchParams {
@@ -152,7 +152,7 @@ impl SearchResult {
         let mut reasons = vec![MatchReason::PreviousUse];
 
         let search_string = row.get_checked::<_, String>("searchString")?;
-        let place_id = row.get_checked::<_, i64>("id")?;
+        let _place_id = row.get_checked::<_, i64>("id")?;
         let url = row.get_checked::<_, String>("url")?;
         let history_title = row.get_checked::<_, Option<String>>("title")?;
         let bookmarked = row.get_checked::<_, bool>("bookmarked")?;
