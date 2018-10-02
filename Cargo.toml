@@ -5,7 +5,8 @@ members = [
     "sandvich/desktop",
     "sync15-adapter",
     "logins-sql",
-    "logins-sql/ffi"
+    "logins-sql/ffi",
+    "places"
 ]
 
 [profile.release]
