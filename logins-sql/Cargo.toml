@@ -13,6 +13,7 @@ lazy_static = "1.1.0"
 url = "1.7.1"
 failure = "0.1.2"
 failure_derive = "0.1.2"
+sql-support = { path = "../components/support/sql" }
 
 [dependencies.rusqlite]
 version = "0.14.0"
