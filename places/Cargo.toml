@@ -25,9 +25,13 @@ features = ["sqlcipher", "functions"]
 more-asserts = "0.2.1"
 env_logger = "0.5.13"
 chrono = "0.4.6"
-termion = "1.5.1"
 find-places-db = "0.1.0"
 clap = "2.32.0"
 tempfile = "3.0.4"
 rand = "0.5.5"
 
+# While we don't have a replacement for termion on Windows yet (and thus
+# our example doesn't work on Windows), it does get further in the compilation
+# such that "cargo test" etc shows errors in our code rather than in termion.
+[target.'cfg(not(windows))'.dev-dependencies]
+termion = "1.5.1"
