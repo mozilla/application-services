@@ -7,7 +7,8 @@
 // We should work out how to turn this into something that can use a shared
 // db.rs.
 
-use super::db::{PlacesDb, ConnectionUtil};
+use db::PlacesDb;
+use sql_support::ConnExt;
 
 use error::*;
 

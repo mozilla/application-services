@@ -9,13 +9,10 @@
 use super::schema;
 use error::*;
 use hash;
-use rusqlite::{
-    self,
-    types::{FromSql, ToSql},
-    Connection, Row,
-};
+use rusqlite::{self, Connection};
+use sql_support::{self, ConnExt};
 use std::path::Path;
-
+use std::ops::Deref;
 use unicode_segmentation::UnicodeSegmentation;
 use caseless::Caseless;
 
@@ -25,14 +22,6 @@ pub const MAX_VARIABLE_NUMBER: usize = 999;
 
 pub struct PlacesDb {
     pub db: Connection,
-}
-
-// In PRAGMA foo='bar', `'bar'` must be a constant string (it cannot be a
-// bound parameter), so we need to escape manually. According to
-// https://www.sqlite.org/faq.html, the only character that must be escaped is
-// the single quote, which is escaped by placing two single quotes in a row.
-fn escape_string_for_pragma(s: &str) -> String {
-    s.replace("'", "''")
 }
 
 fn unicode_normalize(s: &str) -> String {
@@ -52,7 +41,7 @@ impl PlacesDb {
             // directly. See https://www.zetetic.net/sqlcipher/sqlcipher-api/#key
             // "Raw Key Data" example. Note that this would be required to open
             // existing iOS sqlcipher databases).
-            format!("PRAGMA key = '{}';", escape_string_for_pragma(key))
+            format!("PRAGMA key = '{}';", sql_support::escape_string_for_pragma(key))
         } else {
             "".to_owned()
         };
@@ -84,148 +73,20 @@ impl PlacesDb {
     }
 }
 
-/// This trait exists so that we can use these helpers on rusqlite::{Transaction,Connection}, as well as
-/// PlacesDb. Note that you must import ConnectionUtil in order to call thes methods!
-pub trait ConnectionUtil {
-    fn conn(&self) -> &Connection;
-
-    // TODO: better versions of most exist in logins-sql.
-    // need to get on sharing this stuff...
-
-    fn vacuum(&self) -> Result<()> {
-        self.execute("VACUUM")?;
-        Ok(())
-    }
-
-    fn execute_all(&self, stmts: &[&str]) -> Result<()> {
-        for sql in stmts {
-            self.execute(sql)?;
-        }
-        Ok(())
-    }
-
-    fn execute(&self, stmt: &str) -> Result<usize> {
-        Ok(self.do_exec(stmt, &[], false)?)
-    }
-
-    fn execute_cached(&self, stmt: &str) -> Result<usize> {
-        Ok(self.do_exec(stmt, &[], true)?)
-    }
-
-    fn execute_with_args(&self, stmt: &str, params: &[&ToSql]) -> Result<usize> {
-        Ok(self.do_exec(stmt, params, false)?)
-    }
-
-    fn execute_cached_with_args(&self, stmt: &str, params: &[&ToSql]) -> Result<usize> {
-        Ok(self.do_exec(stmt, params, true)?)
-    }
-
-    fn do_exec(&self, sql: &str, params: &[&ToSql], cache: bool) -> Result<usize> {
-        let res = if cache {
-            self.conn().prepare_cached(sql)
-                   .and_then(|mut s| s.execute(params))
-        } else {
-            self.conn().execute(sql, params)
-        };
-        if let Err(e) = &res {
-            warn!("Error running SQL {}. Statement: {:?}", e, sql);
-        }
-        Ok(res?)
-    }
-
-    fn execute_named(&self, stmt: &str, params: &[(&str, &ToSql)]) -> Result<usize> {
-        Ok(self.do_exec_named(stmt, params, false)?)
-    }
-
-    fn execute_named_cached(&self, stmt: &str, params: &[(&str, &ToSql)]) -> Result<usize> {
-        Ok(self.do_exec_named(stmt, params, true)?)
-    }
-
-    fn do_exec_named(&self, sql: &str, params: &[(&str, &ToSql)], cache: bool) -> Result<usize> {
-        let res = if cache {
-            self.conn().prepare_cached(sql)
-                       .and_then(|mut s| s.execute_named(params))
-        } else {
-            self.conn().execute_named(sql, params)
-        };
-        if let Err(e) = &res {
-            warn!("Error running SQL {}. Statement: {:?}", e, sql);
-        }
-        Ok(res?)
-    }
-
-    fn query_one<T: FromSql>(&self, sql: &str) -> Result<T> {
-        let res: T = self.conn().query_row(sql, &[], |row| row.get(0))?;
-        Ok(res)
-    }
-
-    // Note that there are several differences between these and `self.db.query_row`: it returns
-    // None and not an error if no rows are returned, it allows the function to return a result, etc
-    fn query_row_cached<T>(&self, sql: &str, args: &[&ToSql], f: impl FnOnce(&Row) -> Result<T>) -> Result<Option<T>> {
-        let mut stmt = self.conn().prepare_cached(sql)?;
-        let res = stmt.query(args);
-        if let Err(e) = &res {
-            warn!("Error executing query: {}. Query: {}", e, sql);
-        }
-        let mut rows = res?;
-        match rows.next() {
-            Some(result) => Ok(Some(f(&result?)?)),
-            None => Ok(None),
-        }
-    }
-
-    // cached and uncached stmt types are completely different so we can't remove the duplication
-    // between query_row_cached and query_row... :/
-    fn query_row<T>(&self, sql: &str, args: &[&ToSql], f: impl FnOnce(&Row) -> Result<T>) -> Result<Option<T>> {
-        let mut stmt = self.conn().prepare(sql)?;
-        let res = stmt.query(args);
-        if let Err(e) = &res {
-            warn!("Error executing query: {}. Query: {}", e, sql);
-        }
-        let mut rows = res?;
-        match rows.next() {
-            Some(result) => Ok(Some(f(&result?)?)),
-            None => Ok(None),
-        }
-    }
-
-    fn query_row_named<T>(&self, sql: &str, args: &[(&str, &ToSql)], f: impl FnOnce(&Row) -> Result<T>) -> Result<Option<T>> {
-        let mut stmt = self.conn().prepare(sql)?;
-        let res = stmt.query_named(args);
-        if let Err(e) = &res {
-            warn!("Error executing query: {}. Query: {}", e, sql);
-        }
-        let mut rows = res?;
-        match rows.next() {
-            Some(result) => Ok(Some(f(&result?)?)),
-            None => Ok(None),
-        }
-    }
-}
-
-impl ConnectionUtil for Connection {
-    #[inline]
-    fn conn(&self) -> &Connection {
-        self
-    }
-}
-
-impl<'conn> ConnectionUtil for rusqlite::Transaction<'conn> {
-    #[inline]
-    fn conn(&self) -> &Connection {
-        use std::ops::Deref;
-        Deref::deref(self)
-    }
-}
-
-impl ConnectionUtil for PlacesDb {
+impl ConnExt for PlacesDb {
     #[inline]
     fn conn(&self) -> &Connection {
         &self.db
     }
 }
 
-// ----------------------------- end of stuff that should be common --------------------
+impl Deref for PlacesDb {
+    type Target = Connection;
+    #[inline]
+    fn deref(&self) -> &Connection {
+        &self.db
+    }
+}
 
 fn define_functions(c: &Connection) -> Result<()> {
     c.create_scalar_function("get_prefix", 1, true, move |ctx| {

@@ -17,7 +17,8 @@ use rusqlite::{Row, Connection};
 use rusqlite::{types::{ToSql, FromSql, ToSqlOutput, FromSqlResult, ValueRef}};
 use rusqlite::Result as RusqliteResult;
 
-use db::{PlacesDb, ConnectionUtil};
+use db::PlacesDb;
+use sql_support::ConnExt;
 
 // Typesafe way to manage RowIds. Does it make sense? A better way?
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Default)]
@@ -103,7 +104,7 @@ impl FetchedPageInfo {
 }
 
 // History::FetchPageInfo
-fn fetch_page_info(db: &impl ConnectionUtil, url: &Url) -> Result<Option<FetchedPageInfo>> {
+fn fetch_page_info(db: &impl ConnExt, url: &Url) -> Result<Option<FetchedPageInfo>> {
     let sql = "
       SELECT guid, url, id, title, hidden, typed, frecency,
              visit_count_local, visit_count_remote,
@@ -114,7 +115,7 @@ fn fetch_page_info(db: &impl ConnectionUtil, url: &Url) -> Result<Option<Fetched
               visit_date = h.last_visit_date_remote)) AS last_visit_id
       FROM moz_places h
       WHERE url_hash = hash(:page_url) AND url = :page_url";
-    Ok(db.query_row_named(sql, &[(":page_url", &url.clone().into_string())], FetchedPageInfo::from_row)?)
+    Ok(db.try_query_row(sql, &[(":page_url", &url.clone().into_string())], FetchedPageInfo::from_row, true)?)
 }
 
 pub fn apply_observation(db: &mut PlacesDb, visit_ob: VisitObservation) -> Result<()> {
@@ -199,7 +200,7 @@ pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> 
     Ok(())
 }
 
-fn new_page_info(db: &impl ConnectionUtil, url: &Url) -> Result<PageInfo> {
+fn new_page_info(db: &impl ConnExt, url: &Url) -> Result<PageInfo> {
     let guid = super::sync::util::random_guid().expect("according to logins-sql, this is fine :)");
     let sql = "INSERT INTO moz_places (guid, url, url_hash)
                VALUES (:guid, :url, hash(:url))";
@@ -225,7 +226,7 @@ fn new_page_info(db: &impl ConnectionUtil, url: &Url) -> Result<PageInfo> {
 // Add a single visit - you must know the page rowid. Does not update the
 // page info - if you are calling this, you will also need to update the
 // parent page with the new visit count, frecency, etc.
-fn add_visit(db: &impl ConnectionUtil,
+fn add_visit(db: &impl ConnExt,
              page_id: &RowId,
              from_visit: &Option<RowId>,
              visit_date: &Timestamp,
