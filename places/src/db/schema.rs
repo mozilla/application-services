@@ -13,128 +13,115 @@ use error::*;
 
 const VERSION: i64 = 1;
 
+const CREATE_TABLE_PLACES_SQL: &str =
+    "CREATE TABLE IF NOT EXISTS moz_places (
+        id INTEGER PRIMARY KEY,
+        url LONGVARCHAR,
+        title LONGVARCHAR,
+        -- note - desktop has rev_host here - that's now in moz_origin.
+        visit_count_local INTEGER DEFAULT 0,
+        visit_count_remote INTEGER DEFAULT 0,
+        hidden INTEGER DEFAULT 0 NOT NULL,
+        typed INTEGER DEFAULT 0 NOT NULL, -- XXX - is 'typed' ok? Note also we want this as a *count*, not a bool.
+        frecency INTEGER DEFAULT -1 NOT NULL,
+        -- XXX - splitting last visit into local and remote correct?
+        last_visit_date_local INTEGER,
+        last_visit_date_remote INTEGER,
+        guid TEXT UNIQUE,
+        foreign_count INTEGER DEFAULT 0 NOT NULL,
+        url_hash INTEGER DEFAULT 0 NOT NULL,
+        description TEXT, -- XXXX - title above?
+        preview_image_url TEXT,
+        origin_id INTEGER, -- NOT NULL XXXX - not clear if there should always be a moz_origin
 
-// XXX - should we just use "TEXT" in place of LONGVARCHAR?
-lazy_static! {
-    static ref CREATE_TABLE_PLACES_SQL: String = format!(
-        "CREATE TABLE IF NOT EXISTS moz_places (
-            id INTEGER PRIMARY KEY,
-            url LONGVARCHAR,
-            title LONGVARCHAR,
-            -- note - desktop has rev_host here - that's now in moz_origin.
-            visit_count_local INTEGER DEFAULT 0,
-            visit_count_remote INTEGER DEFAULT 0,
-            hidden INTEGER DEFAULT 0 NOT NULL,
-            typed INTEGER DEFAULT 0 NOT NULL, -- XXX - is 'typed' ok? Note also we want this as a *count*, not a bool.
-            frecency INTEGER DEFAULT -1 NOT NULL,
-            -- XXX - splitting last visit into local and remote correct?
-            last_visit_date_local INTEGER,
-            last_visit_date_remote INTEGER,
-            guid TEXT UNIQUE,
-            foreign_count INTEGER DEFAULT 0 NOT NULL,
-            url_hash INTEGER DEFAULT 0 NOT NULL,
-            description TEXT, -- XXXX - title above?
-            preview_image_url TEXT,
-            origin_id INTEGER, -- NOT NULL XXXX - not clear if there should always be a moz_origin
+        FOREIGN KEY(origin_id) REFERENCES moz_origins(id) ON DELETE CASCADE
+    )";
 
-            FOREIGN KEY(origin_id) REFERENCES moz_origins(id) ON DELETE CASCADE
-        )"
-    );
 
-    static ref CREATE_TABLE_HISTORYVISITS_SQL: String = format!(
-        "CREATE TABLE moz_historyvisits (
-            id INTEGER PRIMARY KEY,
-            is_local INTEGER NOT NULL, -- XXX - not in desktop - will always be true for visits added locally, always false visits added by sync.
-            from_visit INTEGER, -- XXX - self-reference?
-            place_id INTEGER NOT NULL,
-            visit_date INTEGER,
-            visit_type INTEGER,
-            -- session INTEGER, -- XXX - what is 'session'? Appears unused.
+const CREATE_TABLE_HISTORYVISITS_SQL: &str =
+    "CREATE TABLE moz_historyvisits (
+        id INTEGER PRIMARY KEY,
+        is_local INTEGER NOT NULL, -- XXX - not in desktop - will always be true for visits added locally, always false visits added by sync.
+        from_visit INTEGER, -- XXX - self-reference?
+        place_id INTEGER NOT NULL,
+        visit_date INTEGER,
+        visit_type INTEGER,
+        -- session INTEGER, -- XXX - what is 'session'? Appears unused.
 
-            FOREIGN KEY(place_id) REFERENCES moz_places(id) ON DELETE CASCADE,
-            FOREIGN KEY(from_visit) REFERENCES moz_historyvisits(id)
-        )"
-    );
+        FOREIGN KEY(place_id) REFERENCES moz_places(id) ON DELETE CASCADE,
+        FOREIGN KEY(from_visit) REFERENCES moz_historyvisits(id)
+    )";
 
-    static ref CREATE_TABLE_INPUTHISTORY_SQL: String = format!(
-        "CREATE TABLE moz_inputhistory (
-            place_id INTEGER NOT NULL,
-            input LONGVARCHAR NOT NULL,
-            use_count INTEGER,
+const CREATE_TABLE_INPUTHISTORY_SQL: &str =
+    "CREATE TABLE moz_inputhistory (
+        place_id INTEGER NOT NULL,
+        input LONGVARCHAR NOT NULL,
+        use_count INTEGER,
 
-            PRIMARY KEY (place_id, input),
-            FOREIGN KEY(place_id) REFERENCES moz_places(id) ON DELETE CASCADE
-        )"
-    );
+        PRIMARY KEY (place_id, input),
+        FOREIGN KEY(place_id) REFERENCES moz_places(id) ON DELETE CASCADE
+    )";
 
-    // XXX - TODO - moz_annos
-    // XXX - TODO - moz_anno_attributes
-    // XXX - TODO - moz_items_annos
-    // XXX - TODO - moz_bookmarks
-    // XXX - TODO - moz_bookmarks_deleted
+// XXX - TODO - moz_annos
+// XXX - TODO - moz_anno_attributes
+// XXX - TODO - moz_items_annos
+// XXX - TODO - moz_bookmarks
+// XXX - TODO - moz_bookmarks_deleted
 
-    // TODO: This isn't the complete `moz_bookmarks` definition, just enough to
-    // test autocomplete.
-    static ref CREATE_TABLE_BOOKMARKS_SQL: String = format!(
-        "CREATE TABLE moz_bookmarks (
-            id INTEGER PRIMARY KEY,
-            fk INTEGER,
-            title TEXT,
-            lastModified INTEGER NOT NULL DEFAULT 0,
+// TODO: This isn't the complete `moz_bookmarks` definition, just enough to
+// test autocomplete.
+const CREATE_TABLE_BOOKMARKS_SQL: &str =
+    "CREATE TABLE moz_bookmarks (
+        id INTEGER PRIMARY KEY,
+        fk INTEGER,
+        title TEXT,
+        lastModified INTEGER NOT NULL DEFAULT 0,
 
-            FOREIGN KEY(fk) REFERENCES moz_places(id) ON DELETE RESTRICT
-        )"
-    );
+        FOREIGN KEY(fk) REFERENCES moz_places(id) ON DELETE RESTRICT
+    )";
 
-    // Note: desktop has/had a 'keywords' table, but we intentionally do not.
 
-    static ref CREATE_TABLE_ORIGINS_SQL: String = format!(
-        "CREATE TABLE moz_origins (
-            id INTEGER PRIMARY KEY,
-            prefix TEXT NOT NULL,
-            host TEXT NOT NULL,
-            rev_host TEXT NOT NULL,
-            frecency INTEGER NOT NULL, -- XXX - why not default of -1 like in moz_places?
-            UNIQUE (prefix, host)
-        )"
-    );
+// Note: desktop has/had a 'keywords' table, but we intentionally do not.
 
-    static ref CREATE_TRIGGER_AFTER_INSERT_ON_PLACES: String = format!("
-        CREATE TEMP TRIGGER moz_places_afterinsert_trigger
-        AFTER INSERT ON moz_places FOR EACH ROW
-        BEGIN
-            INSERT OR IGNORE INTO moz_origins(prefix, host, rev_host, frecency)
-            VALUES(get_prefix(NEW.url), get_host_and_port(NEW.url), reverse_host(get_host_and_port(NEW.url)), NEW.frecency);
+const CREATE_TABLE_ORIGINS_SQL: &str =
+    "CREATE TABLE moz_origins (
+        id INTEGER PRIMARY KEY,
+        prefix TEXT NOT NULL,
+        host TEXT NOT NULL,
+        rev_host TEXT NOT NULL,
+        frecency INTEGER NOT NULL, -- XXX - why not default of -1 like in moz_places?
+        UNIQUE (prefix, host)
+    )";
 
-            -- This is temporary.
-            UPDATE moz_places SET
-              origin_id = (SELECT id FROM moz_origins
-                           WHERE prefix = get_prefix(NEW.url) AND
-                                 host = get_host_and_port(NEW.url) AND
-                                 rev_host = reverse_host(get_host_and_port(NEW.url)))
-            WHERE id = NEW.id;
-        END
-    ");
+const CREATE_TRIGGER_AFTER_INSERT_ON_PLACES: &str = "
+    CREATE TEMP TRIGGER moz_places_afterinsert_trigger
+    AFTER INSERT ON moz_places FOR EACH ROW
+    BEGIN
+        INSERT OR IGNORE INTO moz_origins(prefix, host, rev_host, frecency)
+        VALUES(get_prefix(NEW.url), get_host_and_port(NEW.url), reverse_host(get_host_and_port(NEW.url)), NEW.frecency);
 
-    // XXX - TODO - lots of desktop temp tables - but it's not clear they make sense here yet?
+        -- This is temporary.
+        UPDATE moz_places SET
+          origin_id = (SELECT id FROM moz_origins
+                       WHERE prefix = get_prefix(NEW.url) AND
+                             host = get_host_and_port(NEW.url) AND
+                             rev_host = reverse_host(get_host_and_port(NEW.url)))
+        WHERE id = NEW.id;
+    END
+";
 
-    // XXX - TODO - lots of favicon related tables - but it's not clear they make sense here yet?
+// XXX - TODO - lots of desktop temp tables - but it's not clear they make sense here yet?
 
-    // This table holds key-value metadata for Places and its consumers. Sync stores
-    // the sync IDs for the bookmarks and history collections in this table, and the
-    // last sync time for history.
-    static ref CREATE_TABLE_META_SQL: String = format!(
-        "CREATE TABLE moz_meta (
-            key TEXT PRIMARY KEY,
-            value NOT NULL
-        ) WITHOUT ROWID"
-    );
+// XXX - TODO - lots of favicon related tables - but it's not clear they make sense here yet?
 
-    static ref SET_VERSION_SQL: String = format!(
-        "PRAGMA user_version = {version}",
-        version = VERSION
-    );
-}
+// This table holds key-value metadata for Places and its consumers. Sync stores
+// the sync IDs for the bookmarks and history collections in this table, and the
+// last sync time for history.
+const CREATE_TABLE_META_SQL: &str =
+    "CREATE TABLE moz_meta (
+        key TEXT PRIMARY KEY,
+        value NOT NULL
+    ) WITHOUT ROWID";
 
 // See https://searchfox.org/mozilla-central/source/toolkit/components/places/nsPlacesIndexes.h
 const CREATE_IDX_MOZ_PLACES_URL_HASH: &str = "CREATE INDEX url_hashindex ON moz_places(url_hash)";
@@ -197,12 +184,12 @@ fn upgrade(_db: &PlacesDb, from: i64) -> Result<()> {
 pub fn create(db: &PlacesDb) -> Result<()> {
     debug!("Creating schema");
     db.execute_all(&[
-        &*CREATE_TABLE_PLACES_SQL,
-        &*CREATE_TABLE_HISTORYVISITS_SQL,
-        &*CREATE_TABLE_INPUTHISTORY_SQL,
-        &*CREATE_TABLE_BOOKMARKS_SQL,
-        &*CREATE_TABLE_ORIGINS_SQL,
-        &*CREATE_TABLE_META_SQL,
+        CREATE_TABLE_PLACES_SQL,
+        CREATE_TABLE_HISTORYVISITS_SQL,
+        CREATE_TABLE_INPUTHISTORY_SQL,
+        CREATE_TABLE_BOOKMARKS_SQL,
+        CREATE_TABLE_ORIGINS_SQL,
+        CREATE_TABLE_META_SQL,
         CREATE_IDX_MOZ_PLACES_URL_HASH,
         CREATE_IDX_MOZ_PLACES_VISITCOUNT_LOCAL,
         CREATE_IDX_MOZ_PLACES_VISITCOUNT_REMOTE,
@@ -215,11 +202,14 @@ pub fn create(db: &PlacesDb) -> Result<()> {
         CREATE_IDX_MOZ_HISTORYVISITS_FROMVISIT,
         CREATE_IDX_MOZ_HISTORYVISITS_VISITDATE,
         CREATE_IDX_MOZ_HISTORYVISITS_ISLOCAL,
-        &*SET_VERSION_SQL,
+        &format!("PRAGMA user_version = {version}",
+                 version = VERSION),
     ])?;
+
     debug!("Creating temp tables and triggers");
     db.execute_all(&[
-        &*CREATE_TRIGGER_AFTER_INSERT_ON_PLACES,
+        CREATE_TRIGGER_AFTER_INSERT_ON_PLACES,
     ])?;
+
     Ok(())
 }
