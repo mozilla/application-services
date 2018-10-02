@@ -10,6 +10,7 @@ tasks:
 ####################################################################################################
   - provisionerId: '{{ taskcluster.docker.provisionerId }}'
     workerType: '{{ taskcluster.docker.workerType }}'
+    deadline: "{{ '2 hours' | $fromNow }}"
     extra:
       github:
         env: true
@@ -24,7 +25,6 @@ tasks:
       - "queue:scheduler-id:taskcluster-github"
     payload:
       maxRunTime: 3600
-      deadline: "{{ '2 hours' | $fromNow }}"
       image: 'mozillamobile/android-components:1.4'
       command:
         - /bin/bash
@@ -49,6 +49,7 @@ tasks:
 ####################################################################################################
   - provisionerId: '{{ taskcluster.docker.provisionerId }}'
     workerType: '{{ taskcluster.docker.workerType }}'
+    deadline: "{{ '4 hours' | $fromNow }}"
     extra:
       github:
         events:
@@ -57,7 +58,6 @@ tasks:
       - "secrets:get:project/application-services/publish"
     payload:
       maxRunTime: 7200
-      deadline: "{{ '4 hours' | $fromNow }}"
       image: 'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-1.28.0-rust-beta-1.29.0-beta.15'
       command:
         - /bin/bash
@@ -94,6 +94,7 @@ tasks:
 ####################################################################################################
   - provisionerId: '{{ taskcluster.docker.provisionerId }}'
     workerType: '{{ taskcluster.docker.workerType }}'
+    deadline: "{{ '4 hours' | $fromNow }}"
     extra:
       github:
         events:
@@ -102,7 +103,6 @@ tasks:
       - "secrets:get:project/application-services/publish"
     payload:
       maxRunTime: 7200
-      deadline: "{{ '4 hours' | $fromNow }}"
       image: 'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-1.28.0-rust-beta-1.29.0-beta.15'
       command:
         - /bin/bash
