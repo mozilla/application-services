@@ -71,8 +71,7 @@ def create_fxaclient_task():
                     "type": "file",
                     "path": "/build/application-services/logins-api/android/library/build/outputs/aar/logins-release.aar",
                 },
-            },
-            "deadline": taskcluster.stringDate(deadline)
+            }
         },
         "provisionerId": "aws-provisioner-v1",
         "metadata": {
