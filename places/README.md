@@ -11,7 +11,7 @@ So, instead of:
 It's more:
 
     let visits = vec![Visit { date, transition: ...} ];
-    let place = Place { page_id: PageId::Url(url), title: ..., visits };
+    let place = Place { url, title: ..., visits };
     places::api::history::insert(db, place);
 
 The short-term goal is to demonstrate a "port" of:
@@ -23,7 +23,9 @@ However, it's very incomplete - schema is a poor copy/paste of desktop, no temp 
 
 # Notes about desktop's implementation of the above:
 
-* seems to prefer a guid over a url - hence our PageId concept
+* seems to prefer a guid over a url - however, this appears completely unused
+  except by code supporting sync - the logical API for real consumers is via
+  a URL, so we largely ignore GUIDs for now.
 
 specifically, the following "scratchpad" code:
 

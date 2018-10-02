@@ -39,7 +39,6 @@ use places::{
             SearchResult,
         }
     },
-    PageId,
     VisitObservation,
     VisitTransition,
     ConnectionUtil,
@@ -66,12 +65,12 @@ pub struct SerializedObservation {
 impl SerializedObservation {
     // We'd use TryFrom/TryInto but those are nightly only... :|
     pub fn into_visit(self) -> Result<VisitObservation> {
-        let page_id = PageId::Url(Url::parse(&self.url)?);
+        let url = Url::parse(&self.url)?;
         let referrer = match self.referrer {
             Some(s) => Some(Url::parse(&s)?),
             _ => None,
         };
-        let mut obs = VisitObservation::new(page_id)
+        let mut obs = VisitObservation::new(url)
                       .with_title(self.title)
                       .with_is_error(self.error)
                       .with_is_remote(self.remote)
@@ -91,7 +90,7 @@ impl SerializedObservation {
 impl From<VisitObservation> for SerializedObservation {
     fn from(visit: VisitObservation) -> Self {
         Self {
-            url: visit.get_url().expect("TODO: handle VisitObservation not based on URL").to_string(),
+            url: visit.url.to_string(),
             title: visit.title.clone(),
             visit_type: visit.visit_type.map(|vt| vt as u32),
             at: visit.at.map(|at| at.into()),
@@ -156,9 +155,9 @@ impl LegacyPlace {
         }
     }
     pub fn insert(self, conn: &rusqlite::Connection, options: &ImportPlacesOptions) -> Result<()> {
-        let page_id = PageId::Url(Url::parse(&self.url)?);
+        let url = Url::parse(&self.url)?;
         for v in self.visits {
-            let obs = VisitObservation::new(page_id.clone())
+            let obs = VisitObservation::new(url.clone())
                 .with_visit_type(VisitTransition::from_primitive(v.visit_type)
                             .unwrap_or(VisitTransition::Link))
                 .with_at(places::Timestamp((v.date / 1000) as u64))

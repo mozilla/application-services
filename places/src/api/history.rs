@@ -8,7 +8,6 @@ use error::*;
 use types::*;
 use db::PlacesDb;
 use super::apply_observation;
-use storage::{PageId};
 use observation::{VisitObservation};
 
 // This module can become, roughly: PlacesUtils.history()
@@ -29,7 +28,7 @@ fn can_add_url(_url: &Url) -> Result<bool> {
 // They should really be moved into an "examples" folder.
 #[derive(Debug)]
 pub struct AddablePlaceInfo {
-    pub page_id: PageId,
+    pub url: Url,
     pub title: Option<String>,
     pub visits: Vec<AddableVisit>,
 }
@@ -45,7 +44,7 @@ pub struct AddableVisit {
 // insert a visit a'la PlacesUtils.history.insert()
 pub fn insert(conn: &mut PlacesDb, place: AddablePlaceInfo) -> Result<()> {
     for v in place.visits {
-        let obs = VisitObservation::new(place.page_id.clone())
+        let obs = VisitObservation::new(place.url.clone())
                   .with_visit_type(v.transition)
                   .with_at(v.date)
                   .with_title(place.title.clone())
@@ -71,7 +70,7 @@ mod tests {
                                          transition: VisitTransition::Link,
                                          referrer: None,
                                          is_local: true}];
-        let a = AddablePlaceInfo { page_id: PageId::Url(url), title: None, visits };
+        let a = AddablePlaceInfo { url, title: None, visits };
 
         insert(&mut c, a).expect("should insert");
 
@@ -181,7 +180,7 @@ pub fn visit_uri(conn: &mut PlacesDb,
         return Ok(())
     }
 
-    let obs = VisitObservation::new(PageId::Url(url.clone()))
+    let obs = VisitObservation::new(url.clone())
               .with_is_error(is_error_page)
               .with_visit_type(transition)
               .with_is_redirect_source(redirect_source.map(|_r| true))

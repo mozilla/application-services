@@ -4,7 +4,6 @@
 
 use types::*;
 use url::{Url};
-use storage::{PageId}; // XXX - this should probably be in types.rs?
 
 /// An "observation" based model for updating history.
 /// You create a VisitObservation, call functions on it which correspond
@@ -21,7 +20,7 @@ use storage::{PageId}; // XXX - this should probably be in types.rs?
 /// no observation.
 #[derive(Debug)]
 pub struct VisitObservation {
-    pub page_id: PageId,
+    pub url: Url,
     pub title: Option<String>,
     pub visit_type: Option<VisitTransition>,
     pub is_error: Option<bool>,
@@ -33,9 +32,9 @@ pub struct VisitObservation {
 }
 
 impl VisitObservation {
-    pub fn new(page_id: PageId) -> Self {
+    pub fn new(url: Url) -> Self {
         VisitObservation {
-            page_id,
+            url,
             title: None,
             visit_type: None,
             is_error: None,
@@ -88,14 +87,6 @@ impl VisitObservation {
     pub fn with_referrer(mut self, v: impl Into<Option<Url>>) -> Self {
         self.referrer = v.into();
         self
-    }
-
-    // Other misc functions.
-    pub fn get_url(&self) -> Option<&Url> {
-        match &self.page_id {
-            PageId::Url(url) => Some(url),
-            _ => None
-        }
     }
 
     // Other helpers which can be derived.

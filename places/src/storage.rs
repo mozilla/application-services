@@ -47,23 +47,11 @@ impl FromSql for RowId {
     }
 }
 
-// A PageId is an enum, either a Guid or a Url, to identify a unique key for a
-// page as specifying both doesn't make sense (and specifying the guid is
-// slighly faster, plus sync might *only* have the guid?)
-// XXX - not clear this makes sense as it doesn't make sense to create a
-// moz_places row given just a guid - so, in that sense at least, it's not
-// really true that you can have one or the other.
-#[derive(Debug, Clone)]
-pub enum PageId {
-    Guid(SyncGuid),
-    Url(Url),
-}
-
 #[derive(Debug)]
 pub struct PageInfo {
-    pub page_id: PageId,
-    pub row_id: RowId,
     pub url: Url,
+    pub guid: SyncGuid,
+    pub row_id: RowId,
     pub title: String,
     pub hidden: bool,
     pub typed: u32,
@@ -77,8 +65,8 @@ pub struct PageInfo {
 impl PageInfo {
     pub fn from_row(row: &Row) -> Result<Self> {
         Ok(Self {
-            page_id: PageId::Guid(row.get_checked("guid")?),
             url: Url::parse(&row.get_checked::<_, Option<String>>("url")?.expect("non null column"))?,
+            guid: SyncGuid(row.get_checked::<_, Option<String>>("guid")?.expect("non null column")),
             row_id: row.get_checked("id")?,
             title: row.get_checked::<_, Option<String>>("title")?.unwrap_or_default(),
             hidden: row.get_checked("hidden")?,
@@ -115,36 +103,18 @@ impl FetchedPageInfo {
 }
 
 // History::FetchPageInfo
-fn fetch_page_info(db: &impl ConnectionUtil, page_id: &PageId) -> Result<Option<FetchedPageInfo>> {
-    match page_id {
-        // XXX - there's way too much sql and db.query duplicated here!?
-        PageId::Guid(ref guid) => {
-            let sql = "
-              SELECT guid, url, id, title, hidden, typed, frecency,
-                     visit_count_local, visit_count_remote,
-                     last_visit_date_local, last_visit_date_remote,
-              (SELECT id FROM moz_historyvisits
-               WHERE place_id = h.id
-                 AND (visit_date = h.last_visit_date_local OR
-                      visit_date = h.last_visit_date_remote)) AS last_visit_id
-              FROM moz_places h
-              WHERE guid = :guid";
-            Ok(db.query_row_named(sql, &[(":guid", guid)], FetchedPageInfo::from_row)?)
-        },
-        PageId::Url(url) => {
-            let sql = "
-              SELECT guid, url, id, title, hidden, typed, frecency,
-                     visit_count_local, visit_count_remote,
-                     last_visit_date_local, last_visit_date_remote,
-              (SELECT id FROM moz_historyvisits
-               WHERE place_id = h.id
-                 AND (visit_date = h.last_visit_date_local OR
-                      visit_date = h.last_visit_date_remote)) AS last_visit_id
-              FROM moz_places h
-              WHERE url_hash = hash(:page_url) AND url = :page_url";
-            Ok(db.query_row_named(sql, &[(":page_url", &url.clone().into_string())], FetchedPageInfo::from_row)?)
-        }
-    }
+fn fetch_page_info(db: &impl ConnectionUtil, url: &Url) -> Result<Option<FetchedPageInfo>> {
+    let sql = "
+      SELECT guid, url, id, title, hidden, typed, frecency,
+             visit_count_local, visit_count_remote,
+             last_visit_date_local, last_visit_date_remote,
+      (SELECT id FROM moz_historyvisits
+       WHERE place_id = h.id
+         AND (visit_date = h.last_visit_date_local OR
+              visit_date = h.last_visit_date_remote)) AS last_visit_id
+      FROM moz_places h
+      WHERE url_hash = hash(:page_url) AND url = :page_url";
+    Ok(db.query_row_named(sql, &[(":page_url", &url.clone().into_string())], FetchedPageInfo::from_row)?)
 }
 
 pub fn apply_observation(db: &mut PlacesDb, visit_ob: VisitObservation) -> Result<()> {
@@ -155,9 +125,9 @@ pub fn apply_observation(db: &mut PlacesDb, visit_ob: VisitObservation) -> Resul
 }
 
 pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> Result<()> {
-    let mut page_info = match fetch_page_info(db, &visit_ob.page_id)? {
+    let mut page_info = match fetch_page_info(db, &visit_ob.url)? {
         Some(info) => info.page,
-        None => new_page_info(db, &visit_ob.page_id)?,
+        None => new_page_info(db, &visit_ob.url)?,
     };
     let mut updates: Vec<(&str, &str, &ToSql)> = Vec::new();
     if let Some(ref title) = visit_ob.title {
@@ -229,32 +199,27 @@ pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> 
     Ok(())
 }
 
-fn new_page_info(db: &impl ConnectionUtil, pid: &PageId) -> Result<PageInfo> {
-    match pid {
-        PageId::Guid(_) => panic!("Need to think this through, but items must be created with a url"),
-        PageId::Url(ref url) => {
-            let guid = super::sync::util::random_guid().expect("according to logins-sql, this is fine :)");
-            let sql = "INSERT INTO moz_places (guid, url, url_hash)
-                       VALUES (:guid, :url, hash(:url))";
-            db.execute_named_cached(sql, &[
-                (":guid", &guid),
-                (":url", &url.clone().into_string()),
-            ])?;
-            Ok(PageInfo {
-                page_id: PageId::Guid(SyncGuid(guid)),
-                row_id: RowId(db.conn().last_insert_rowid()),
-                url: url.clone(),
-                title: "".into(),
-                hidden: true, // will be set to false as soon as a non-hidden visit appears.
-                typed: 0,
-                frecency: -1,
-                visit_count_local: 0,
-                visit_count_remote: 0,
-                last_visit_date_local: Timestamp(0),
-                last_visit_date_remote: Timestamp(0),
-            })
-        }
-    }
+fn new_page_info(db: &impl ConnectionUtil, url: &Url) -> Result<PageInfo> {
+    let guid = super::sync::util::random_guid().expect("according to logins-sql, this is fine :)");
+    let sql = "INSERT INTO moz_places (guid, url, url_hash)
+               VALUES (:guid, :url, hash(:url))";
+    db.execute_named_cached(sql, &[
+        (":guid", &guid),
+        (":url", &url.clone().into_string()),
+    ])?;
+    Ok(PageInfo {
+        url: url.clone(),
+        guid: SyncGuid(guid),
+        row_id: RowId(db.conn().last_insert_rowid()),
+        title: "".into(),
+        hidden: true, // will be set to false as soon as a non-hidden visit appears.
+        typed: 0,
+        frecency: -1,
+        visit_count_local: 0,
+        visit_count_remote: 0,
+        last_visit_date_local: Timestamp(0),
+        last_visit_date_remote: Timestamp(0),
+    })
 }
 
 // Add a single visit - you must know the page rowid. Does not update the

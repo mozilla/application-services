@@ -507,7 +507,7 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
 mod tests {
     use super::*;
     use observation::{VisitObservation};
-    use storage::{apply_observation, PageId};
+    use storage::{apply_observation};
     use types::{Timestamp, VisitTransition};
 
     #[test]
@@ -530,8 +530,7 @@ mod tests {
         let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
 
         let url = Url::parse("http://example.com/123").unwrap();
-        let page_id = PageId::Url(url.clone());
-        let visit = VisitObservation::new(page_id)
+        let visit = VisitObservation::new(url.clone())
                    .with_title("Example page 123".to_string())
                    .with_visit_type(VisitTransition::Typed)
                    .with_at(Timestamp::now());
