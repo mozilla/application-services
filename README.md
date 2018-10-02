@@ -14,7 +14,7 @@
 
 The following diagram describes how some of the components hosted here relate to each other within an app.
 
-![Relationship between application-services components](docs/a-s-components.svg)
+<img src="https://www.lucidchart.com/publicSegments/view/99d1529a-585a-4f43-bfe8-26ba82f3db51/image.png" width="500" />
 
 ### Other Resources
 
