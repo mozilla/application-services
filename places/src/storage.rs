@@ -160,7 +160,7 @@ pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> 
         None => new_page_info(db, &visit_ob.page_id)?,
     };
     let mut updates: Vec<(&str, &str, &ToSql)> = Vec::new();
-    if let Some(title) = visit_ob.get_title() {
+    if let Some(ref title) = visit_ob.title {
         page_info.title = title.clone();
         updates.push(("title", ":title", &page_info.title));
     }
@@ -168,18 +168,18 @@ pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> 
     let mut update_frecency = false;
 
     // There's a new visit, so update everything that implies
-    if let Some(visit_type) = visit_ob.get_visit_type() {
+    if let Some(visit_type) = visit_ob.visit_type {
         // A single non-hidden visit makes the place non-hidden.
         if !visit_ob.get_is_hidden() {
             updates.push(("hidden", ":hidden", &false));
         }
-        if visit_ob.get_was_typed() {
+        if visit_type == VisitTransition::Typed {
             page_info.typed += 1;
             updates.push(("typed", ":typed", &page_info.typed));
         }
 
-        let at = visit_ob.get_at().unwrap_or_else(|| Timestamp::now());
-        let is_remote = visit_ob.get_is_remote();
+        let at = visit_ob.at.unwrap_or_else(|| Timestamp::now());
+        let is_remote = visit_ob.is_remote.unwrap_or(false);
         add_visit(db, &page_info.row_id, &None, &at, &visit_type, &is_remote)?;
         if is_remote {
             page_info.visit_count_remote += 1;
@@ -193,7 +193,7 @@ pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> 
             updates.push(("last_visit_date_local", ":last_visit_date_local", &page_info.last_visit_date_local));
         }
         // a new visit implies new frecency except in error cases.
-        if !visit_ob.get_is_error() {
+        if !visit_ob.is_error.unwrap_or(false) {
             update_frecency = true;
         }
     }

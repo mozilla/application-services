@@ -67,28 +67,22 @@ impl SerializedObservation {
     // We'd use TryFrom/TryInto but those are nightly only... :|
     pub fn into_visit(self) -> Result<VisitObservation> {
         let page_id = PageId::Url(Url::parse(&self.url)?);
-        let mut obs = VisitObservation::new(page_id);
-        if let Some(title) = self.title {
-            obs = obs.title(title);
-        }
+        let referrer = match self.referrer {
+            Some(s) => Some(Url::parse(&s)?),
+            _ => None,
+        };
+        let mut obs = VisitObservation::new(page_id)
+                      .with_title(self.title)
+                      .with_is_error(self.error)
+                      .with_is_remote(self.remote)
+                      .with_is_redirect_source(self.is_redirect_source)
+//                      .with_is_permanent_redirect_source(self.is_permanent_redirect_source)
+                      .with_referrer(referrer);
         if let Some(visit_type) = self.visit_type.and_then(VisitTransition::from_primitive) {
-            obs = obs.visit_type(visit_type);
+            obs = obs.with_visit_type(visit_type);
         }
         if let Some(time) = self.at {
-            obs = obs.at(places::Timestamp(time));
-        }
-        if self.error {
-            obs = obs.is_error();
-        }
-        if self.remote {
-            obs = obs.is_remote();
-        }
-        if self.is_redirect_source {
-            obs = obs.is_permanent_redirect_source();
-        }
-        if let Some(referrer) = self.referrer {
-            let referrer_url = Url::parse(&referrer)?;
-            obs = obs.referrer(referrer_url);
+            obs = obs.with_at(places::Timestamp(time));
         }
         Ok(obs)
     }
@@ -98,13 +92,14 @@ impl From<VisitObservation> for SerializedObservation {
     fn from(visit: VisitObservation) -> Self {
         Self {
             url: visit.get_url().expect("TODO: handle VisitObservation not based on URL").to_string(),
-            title: visit.get_title().cloned(),
-            visit_type: visit.get_visit_type().map(|vt| vt as u32),
-            at: visit.get_at().map(|at| at.into()),
-            error: visit.get_is_error(),
-            is_redirect_source: visit.get_is_permanent_redirect_source(),
-            remote: visit.get_is_remote(),
-            referrer: visit.get_referrer().map(|url| url.to_string()),
+            title: visit.title.clone(),
+            visit_type: visit.visit_type.map(|vt| vt as u32),
+            at: visit.at.map(|at| at.into()),
+            error: visit.is_error.unwrap_or(false),
+            is_redirect_source: visit.is_redirect_source.unwrap_or(false),
+//            is_permanent_redirect_source: visit.is_permanent_redirect_source,
+            remote: visit.is_remote.unwrap_or(false),
+            referrer: visit.referrer.map(|url| url.to_string()),
         }
     }
 }
@@ -163,16 +158,12 @@ impl LegacyPlace {
     pub fn insert(self, conn: &rusqlite::Connection, options: &ImportPlacesOptions) -> Result<()> {
         let page_id = PageId::Url(Url::parse(&self.url)?);
         for v in self.visits {
-            let mut obs = VisitObservation::new(page_id.clone())
-                .visit_type(VisitTransition::from_primitive(v.visit_type)
+            let obs = VisitObservation::new(page_id.clone())
+                .with_visit_type(VisitTransition::from_primitive(v.visit_type)
                             .unwrap_or(VisitTransition::Link))
-                .at(places::Timestamp((v.date / 1000) as u64));
-            if let Some(ref title) = self.title {
-                obs = obs.title(title.clone());
-            }
-            if rand::random::<f64>() < options.remote_probability {
-                obs = obs.is_remote();
-            }
+                .with_at(places::Timestamp((v.date / 1000) as u64))
+                .with_title(self.title.clone())
+                .with_is_remote(rand::random::<f64>() < options.remote_probability);
             places::storage::apply_observation_direct(conn, obs)?;
         };
         Ok(())

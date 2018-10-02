@@ -45,17 +45,14 @@ pub struct AddableVisit {
 // insert a visit a'la PlacesUtils.history.insert()
 pub fn insert(conn: &mut PlacesDb, place: AddablePlaceInfo) -> Result<()> {
     for v in place.visits {
-        let mut obs = VisitObservation::new(place.page_id.clone()
-                                        ).visit_type(v.transition
-                                        ).at(v.date);
-        if let Some(ref title) = place.title {
-            obs = obs.title(title.clone());
-        };
+        let obs = VisitObservation::new(place.page_id.clone())
+                  .with_visit_type(v.transition)
+                  .with_at(v.date)
+                  .with_title(place.title.clone())
+                  .with_is_remote(!v.is_local);
+                  // .with_referrer(...) ????
 
         //if place.referrer
-        if !v.is_local {
-            obs = obs.is_remote();
-        }
         apply_observation(conn, obs)?;
     };
     Ok(())
@@ -129,6 +126,7 @@ fn add_recently_visited(_url: &Url) -> Result<()> {
 // Is this URL the *source* is a redirect? Note that this is different than
 // the redirect flags in the TransitionType, as that is the flag for the
 // *target* of the redirect.
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub enum RedirectSourceType {
     Temporary,
     Permanent,
@@ -183,14 +181,10 @@ pub fn visit_uri(conn: &mut PlacesDb,
         return Ok(())
     }
 
-    let mut obs = VisitObservation::new(PageId::Url(url.clone()));
-    if is_error_page {
-        obs = obs.is_error();
-    }
-    obs = obs.visit_type(transition);
-    let obs = match redirect_source {
-        Some(RedirectSourceType::Permanent) => obs.is_permanent_redirect_source(),
-        _ => obs,
-    };
+    let obs = VisitObservation::new(PageId::Url(url.clone()))
+              .with_is_error(is_error_page)
+              .with_visit_type(transition)
+              .with_is_redirect_source(redirect_source.map(|_r| true))
+              .with_is_permanent_redirect_source(redirect_source.map(|r| r == RedirectSourceType::Permanent));
     apply_observation(conn, obs)
 }

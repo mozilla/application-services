@@ -531,7 +531,10 @@ mod tests {
 
         let url = Url::parse("http://example.com/123").unwrap();
         let page_id = PageId::Url(url.clone());
-        let visit = VisitObservation::new(page_id).title("Example page 123".into()).visit_type(VisitTransition::Typed).at(Timestamp::now());
+        let visit = VisitObservation::new(page_id)
+                   .with_title("Example page 123".to_string())
+                   .with_visit_type(VisitTransition::Typed)
+                   .with_at(Timestamp::now());
 
         apply_observation(&mut conn, visit).expect("Should apply visit");
 

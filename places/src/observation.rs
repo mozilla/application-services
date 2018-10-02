@@ -6,21 +6,30 @@ use types::*;
 use url::{Url};
 use storage::{PageId}; // XXX - this should probably be in types.rs?
 
-// An "observation" based model for updating history.
-// You create a VisitObservation, call functions on it which correspond
-// with what you observed. The page will then be updated using this info.
-//
-// It's implemented such that the making of an "observation" is itself
-// significant - it records what specific changes should be made to storage.
+/// An "observation" based model for updating history.
+/// You create a VisitObservation, call functions on it which correspond
+/// with what you observed. The page will then be updated using this info.
+///
+/// It's implemented such that the making of an "observation" is itself
+/// significant - it records what specific changes should be made to storage.
+/// For example, instead of simple bools with defaults (where you can't
+/// differentiate explicitly setting a value from the default value), we use
+/// Option<bool>, with the idea being it's better for a store shaped like Mentat.
+///
+/// It exposes a "builder api", but for convenience, that API allows Options too.
+/// So, eg, `.with_title(None)` or `with_is_error(None)` is allowed but records
+/// no observation.
+#[derive(Debug)]
 pub struct VisitObservation {
     pub page_id: PageId,
-    title: Option<String>,
-    visit_type: Option<VisitTransition>,
-    is_error: Option<()>,
-    is_redirect_source: Option<()>,
-    at: Option<Timestamp>,
-    referrer: Option<Url>,
-    is_remote: Option<()>,
+    pub title: Option<String>,
+    pub visit_type: Option<VisitTransition>,
+    pub is_error: Option<bool>,
+    pub is_redirect_source: Option<bool>,
+    pub is_permanent_redirect_source: Option<bool>,
+    pub at: Option<Timestamp>,
+    pub referrer: Option<Url>,
+    pub is_remote: Option<bool>,
 }
 
 impl VisitObservation {
@@ -31,12 +40,57 @@ impl VisitObservation {
             visit_type: None,
             is_error: None,
             is_redirect_source: None,
+            is_permanent_redirect_source: None,
             at: None,
             referrer: None,
             is_remote: None
         }
     }
 
+    // A "builder" API to sanely build an observation. Note that this can be
+    // called with Option<String> (and if None will effectively be a no-op)
+    // or directly with a string.
+    pub fn with_title(mut self, t: impl Into<Option<String>>) -> Self {
+        self.title = t.into();
+        self
+    }
+
+    pub fn with_visit_type(mut self, t: impl Into<Option<VisitTransition>>) -> Self {
+        self.visit_type = t.into();
+        self
+    }
+
+    pub fn with_is_error(mut self, v: impl Into<Option<bool>>) -> Self {
+        self.is_error = v.into();
+        self
+    }
+
+    pub fn with_is_redirect_source(mut self, v: impl Into<Option<bool>>) -> Self {
+        self.is_redirect_source = v.into();
+        self
+    }
+
+    pub fn with_is_permanent_redirect_source(mut self, v: impl Into<Option<bool>>) -> Self {
+        self.is_permanent_redirect_source = v.into();
+        self
+    }
+
+    pub fn with_at(mut self, v: impl Into<Option<Timestamp>>) -> Self {
+        self.at = v.into();
+        self
+    }
+
+    pub fn with_is_remote(mut self, v: impl Into<Option<bool>>) -> Self {
+        self.is_remote = v.into();
+        self
+    }
+
+    pub fn with_referrer(mut self, v: impl Into<Option<Url>>) -> Self {
+        self.referrer = v.into();
+        self
+    }
+
+    // Other misc functions.
     pub fn get_url(&self) -> Option<&Url> {
         match &self.page_id {
             PageId::Url(url) => Some(url),
@@ -44,82 +98,7 @@ impl VisitObservation {
         }
     }
 
-    pub fn title(mut self, s: String) -> Self {
-        assert!(self.title.is_none(), "don't call this twice");
-        self.title = Some(s);
-        self
-    }
-    pub fn get_title(&self) -> Option<&String> {
-        match self.title {
-            Some(ref title) => Some(title),
-            None => None,
-        }
-    }
-
-    pub fn visit_type(mut self, vt: VisitTransition) -> Self {
-        self.visit_type = Some(vt);
-        self
-    }
-    pub fn get_visit_type(&self) -> Option<VisitTransition> {
-        self.visit_type
-    }
-
-    pub fn at(mut self, ts: Timestamp) -> Self {
-        self.at = Some(ts);
-        self
-    }
-    pub fn get_at(&self) -> Option<Timestamp> {
-        self.at
-    }
-
-    pub fn is_error(mut self) -> Self {
-        assert!(self.is_error.is_none(), "don't call this twice");
-        self.is_error = Some(());
-        self
-    }
-    pub fn get_is_error(&self) -> bool {
-        self.is_error.is_some()
-    }
-
-    pub fn is_remote(mut self) -> Self {
-        assert!(self.is_remote.is_none(), "don't call this twice");
-        self.is_remote = Some(());
-        self
-    }
-
-    pub fn get_is_remote(&self) -> bool{
-        self.is_remote.is_some()
-    }
-
-    // possibly used for frecency.
-    pub fn is_permanent_redirect_source(mut self) -> Self {
-        assert!(self.is_redirect_source.is_none(), "don't call this twice");
-        self.is_redirect_source = Some(());
-        self
-    }
-
-    pub fn referrer(mut self, ref_url: Url) -> Self {
-        assert!(self.referrer.is_none(), "don't call this twice");
-        self.referrer = Some(ref_url);
-        self
-    }
-
-    pub fn get_referrer(&self) -> Option<&Url> {
-        self.referrer.as_ref()
-    }
-
-    pub fn get_is_permanent_redirect_source(&self) -> bool {
-        self.is_redirect_source.is_some()
-    }
-
     // Other helpers which can be derived.
-    pub fn get_was_typed(&self) -> bool {
-        match self.visit_type {
-            Some(VisitTransition::Typed) => true,
-            _ => false,
-        }
-    }
-
     pub fn get_redirect_frecency_boost(&self) -> bool {
         self.is_redirect_source.is_some() &&
         match self.visit_type {
@@ -128,7 +107,6 @@ impl VisitObservation {
         }
     }
 
-    // Other helpers which can be derived.
     // nsHistory::GetHiddenState()
     pub fn get_is_hidden(&self) -> bool {
         match self.visit_type {
