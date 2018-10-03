@@ -10,7 +10,7 @@ const users = [
 const siteConfig = {
   title: 'Firefox Application Services' /* title for your website */,
   tagline: 'Build the next thing...',
-  url: 'https://mozilla.github.io/application-services' /* your website url */,
+  url: 'https://mozilla.github.io' /* your website url */,
   baseUrl: '/application-services/' /* base url for your project */,
   projectName: 'application-services',
   headerLinks: [
