@@ -8,6 +8,7 @@ use rusqlite::{
 };
 use url::Url;
 use util;
+use url_serde;
 use db::PlacesDb;
 use error::Result;
 
@@ -112,23 +113,25 @@ fn looks_like_origin(string: &str) -> bool {
 
 /// The match reason specifies why an autocomplete search result matched a
 /// query. This can be used to filter and sort matches.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum MatchReason {
     Keyword,
     Origin,
     Url,
     PreviousUse,
     Bookmark,
+    // Hrm... This will probably make this all serialize weird...
     Tags(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SearchResult {
     /// The search string for this match.
     pub search_string: String,
 
     /// The URL to open when the user confirms a match. This is
     /// equivalent to `nsIAutoCompleteResult.getFinalCompleteValueAt`.
+    #[serde(with = "url_serde")]
     pub url: Url,
 
     /// The title of the autocompleted value, to show in the UI. This can be the
@@ -136,6 +139,8 @@ pub struct SearchResult {
     pub title: String,
 
     /// The favicon URL.
+    #[serde(with = "url_serde")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub icon_url: Option<Url>,
 
     /// A frecency score for this match.

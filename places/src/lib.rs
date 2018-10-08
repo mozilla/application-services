@@ -30,6 +30,7 @@ extern crate serde_derive;
 extern crate caseless;
 extern crate unicode_normalization;
 extern crate sql_support;
+extern crate url_serde;
 
 pub mod api;
 pub mod error;
