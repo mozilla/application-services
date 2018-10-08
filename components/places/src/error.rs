@@ -56,20 +56,12 @@ impl From<Context<ErrorKind>> for Error {
     }
 }
 
-
+// Note: If you add new error types that should be returned to consumers on the other side of the
+// FFI, update `get_code` in `ffi.rs`
 #[derive(Debug, Fail)]
 pub enum ErrorKind {
     #[fail(display = "Invalid place info: {}", _0)]
     InvalidPlaceInfo(InvalidPlaceInfo),
-
-//    #[fail(display = "The `sync_status` column in DB has an illegal value: {}", _0)]
-//    BadSyncStatus(u8),
-
-    #[fail(display = "A duplicate GUID is present: {:?}", _0)]
-    DuplicateGuid(String),
-
-    #[fail(display = "No record with guid exists (when one was required): {:?}", _0)]
-    NoSuchRecord(String),
 
 //    #[fail(display = "Error synchronizing: {}", _0)]
 //    SyncAdapterError(#[fail(cause)] sync::Error),

@@ -3,6 +3,10 @@ name = "places"
 version = "0.1.0"
 authors = []
 
+[features]
+ffi = ["ffi-support"]
+default = []
+
 [dependencies]
 sync15-adapter = { path = "../../sync15-adapter" }
 serde = "1.0.75"
@@ -18,6 +22,7 @@ caseless = "0.2.1"
 unicode-normalization = "0.1.7"
 sql-support = { path = "../support/sql" }
 url_serde = "0.2.0"
+ffi-support = { path = "../support/ffi", optional = true }
 
 [dependencies.rusqlite]
 version = "0.14.0"

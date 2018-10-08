@@ -32,6 +32,10 @@ extern crate unicode_normalization;
 extern crate sql_support;
 extern crate url_serde;
 
+#[cfg(feature = "ffi")]
+#[macro_use]
+extern crate ffi_support;
+
 pub mod api;
 pub mod error;
 pub mod types;
@@ -42,6 +46,8 @@ pub mod hash;
 pub mod frecency;
 pub mod observation;
 mod util;
+#[cfg(feature = "ffi")]
+pub mod ffi;
 
 pub use error::*;
 pub use types::*;
