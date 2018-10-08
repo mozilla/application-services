@@ -8,6 +8,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use rusqlite::{types::{ToSql, FromSql, ToSqlOutput, FromSqlResult, ValueRef}};
 use rusqlite::Result as RusqliteResult;
 
+use serde;
+
 // XXX - copied from logins - surprised it's not in `sync`
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub struct SyncGuid(pub String);
@@ -130,6 +132,39 @@ impl VisitTransition {
             9 => Some(VisitTransition::Reload),
             _ => None,
         }
+    }
+}
+
+struct VisitTransitionSerdeVisitor;
+
+impl<'de> serde::de::Visitor<'de> for VisitTransitionSerdeVisitor {
+    type Value = VisitTransition;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("positive integer representing VisitTransition")
+    }
+
+    fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<VisitTransition, E> {
+        use std::u32::{MAX as U32_MAX};
+        if value > (U32_MAX as u64) {
+            // In practice this is *way* out of the valid range of VisitTransition, but
+            // serde requires us to implement this as visit_u64 so...
+            return Err(E::custom(format!("value out of u32 range: {}", value)));
+        }
+        VisitTransition::from_primitive(value as u32).ok_or_else(||
+            E::custom(format!("unknown VisitTransition value: {}", value)))
+    }
+}
+
+impl serde::Serialize for VisitTransition {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_u64(*self as u64)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for VisitTransition {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_u64(VisitTransitionSerdeVisitor)
     }
 }
 

@@ -4,6 +4,7 @@
 
 use types::*;
 use url::{Url};
+use url_serde;
 
 /// An "observation" based model for updating history.
 /// You create a VisitObservation, call functions on it which correspond
@@ -18,16 +19,42 @@ use url::{Url};
 /// It exposes a "builder api", but for convenience, that API allows Options too.
 /// So, eg, `.with_title(None)` or `with_is_error(None)` is allowed but records
 /// no observation.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct VisitObservation {
+    #[serde(with = "url_serde")]
     pub url: Url,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub title: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub visit_type: Option<VisitTransition>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub is_error: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub is_redirect_source: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub is_permanent_redirect_source: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub at: Option<Timestamp>,
+
+    #[serde(with = "url_serde")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub referrer: Option<Url>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub is_remote: Option<bool>,
 }
 
