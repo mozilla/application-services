@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use rusqlite::{Connection, types::{ToSql, FromSql}, Row, limits};
+use rusqlite::{Connection, types::{ToSql, FromSql}};
 use std::time::SystemTime;
 use std::path::Path;
 use std::collections::HashSet;
@@ -11,19 +11,12 @@ use schema;
 use login::{LocalLogin, MirrorLogin, Login, SyncStatus, SyncLoginData};
 use sync::{self, ServerTimestamp, IncomingChangeset, Store, OutgoingChangeset, Payload};
 use update_plan::UpdatePlan;
+use sql_support::{self, ConnExt};
 use util;
+use std::ops::Deref;
 
 pub struct LoginDb {
     pub db: Connection,
-    pub max_var_count: usize,
-}
-
-// In PRAGMA foo='bar', `'bar'` must be a constant string (it cannot be a
-// bound parameter), so we need to escape manually. According to
-// https://www.sqlite.org/faq.html, the only character that must be escaped is
-// the single quote, which is escaped by placing two single quotes in a row.
-fn escape_string_for_pragma(s: &str) -> String {
-    s.replace("'", "''")
 }
 
 impl LoginDb {
@@ -38,7 +31,7 @@ impl LoginDb {
             // directly. See https://www.zetetic.net/sqlcipher/sqlcipher-api/#key
             // "Raw Key Data" example. Note that this would be required to open
             // existing iOS sqlcipher databases).
-            format!("PRAGMA key = '{}';", escape_string_for_pragma(key))
+            format!("PRAGMA key = '{}';", sql_support::escape_string_for_pragma(key))
         } else {
             "".to_owned()
         };
@@ -54,17 +47,7 @@ impl LoginDb {
 
         db.execute_batch(&initial_pragmas)?;
 
-        let max_var_limit = db.limit(limits::Limit::SQLITE_LIMIT_VARIABLE_NUMBER);
-        // This is an i32, so check before casting it. We also disallow 0
-        // because it's not clear how we could ever possibly handle it.
-        // (Realistically, we'll also fail to handle low values, but oh well).
-        assert!(max_var_limit > 0,
-                "SQLITE_LIMIT_VARIABLE_NUMBER must not be 0 or negative!");
-
-        let mut logins = Self {
-            db,
-            max_var_count: max_var_limit as usize
-        };
+        let mut logins = Self { db };
         schema::init(&mut logins)?;
         Ok(logins)
     }
@@ -76,82 +59,33 @@ impl LoginDb {
     pub fn open_in_memory(encryption_key: Option<&str>) -> Result<Self> {
         Ok(Self::with_connection(Connection::open_in_memory()?, encryption_key)?)
     }
+}
 
-    pub fn execute_all(&self, stmts: &[&str]) -> Result<()> {
-        for sql in stmts {
-            self.execute(sql, &[])?;
-        }
-        Ok(())
-    }
-
+impl ConnExt for LoginDb {
     #[inline]
-    pub fn execute(&self, stmt: &str, params: &[(&str, &ToSql)]) -> Result<usize> {
-        Ok(self.do_exec(stmt, params, false)?)
-    }
-
-    #[inline]
-    pub fn execute_cached(&self, stmt: &str, params: &[(&str, &ToSql)]) -> Result<usize> {
-        Ok(self.do_exec(stmt, params, true)?)
-    }
-
-    fn do_exec(&self, sql: &str, params: &[(&str, &ToSql)], cache: bool) -> Result<usize> {
-        let res = if cache {
-            self.db.prepare_cached(sql)
-                   .and_then(|mut s| s.execute_named(params))
-        } else {
-            self.db.execute_named(sql, params)
-        };
-        if let Err(e) = &res {
-            warn!("Error running SQL {}. Statement: {:?}", e, sql);
-        }
-        Ok(res?)
-    }
-
-    pub fn query_one<T: FromSql>(&self, sql: &str) -> Result<T> {
-        let res: T = self.db.query_row(sql, &[], |row| row.get(0))?;
-        Ok(res)
-    }
-
-    // The type returned by prepare/prepare_cached are different, but must live
-    // to the end of the function, so (AFAICT) it's difficult/impossible to
-    // remove the duplication between query_row/query_row_cached.
-
-    pub fn query_row<T>(&self, sql: &str, args: &[(&str, &ToSql)], f: impl FnOnce(&Row) -> Result<T>) -> Result<Option<T>> {
-        let mut stmt = self.db.prepare(sql)?;
-        let res = stmt.query_named(args);
-        if let Err(e) = &res {
-            warn!("Error executing query: {}. Query: {}", e, sql);
-        }
-        let mut rows = res?;
-        match rows.next() {
-            Some(result) => Ok(Some(f(&result?)?)),
-            None => Ok(None),
-        }
-    }
-
-    pub fn query_row_cached<T>(&self, sql: &str, args: &[(&str, &ToSql)], f: impl FnOnce(&Row) -> Result<T>) -> Result<Option<T>> {
-        let mut stmt = self.db.prepare_cached(sql)?;
-        let res = stmt.query_named(args);
-        if let Err(e) = &res {
-            warn!("Error executing query: {}. Query: {}", e, sql);
-        }
-        let mut rows = res?;
-        match rows.next() {
-            Some(result) => Ok(Some(f(&result?)?)),
-            None => Ok(None),
-        }
+    fn conn(&self) -> &Connection {
+        &self.db
     }
 }
+
+impl Deref for LoginDb {
+    type Target = Connection;
+    #[inline]
+    fn deref(&self) -> &Connection {
+        &self.db
+    }
+}
+
 
 // login specific stuff.
 
 impl LoginDb {
 
     fn mark_as_synchronized(&mut self, guids: &[&str], ts: ServerTimestamp) -> Result<()> {
-        util::each_chunk(guids, self.max_var_count, |chunk, _| {
+        sql_support::each_chunk(guids, |chunk, _| -> Result<()> {
             self.db.execute(
                 &format!("DELETE FROM loginsM WHERE guid IN ({vars})",
-                         vars = util::sql_vars(chunk.len())),
+                         vars = sql_support::repeat_sql_vars(chunk.len())),
                 chunk
             )?;
 
@@ -165,13 +99,13 @@ impl LoginDb {
                     WHERE is_deleted = 0 AND guid IN ({vars})",
                     common_cols = schema::COMMON_COLS,
                     modified_ms_i64 = ts.as_millis() as i64,
-                    vars = util::sql_vars(chunk.len())),
+                    vars = sql_support::repeat_sql_vars(chunk.len())),
                 chunk
             )?;
 
             self.db.execute(
                 &format!("DELETE FROM loginsL WHERE guid IN ({vars})",
-                         vars = util::sql_vars(chunk.len())),
+                         vars = sql_support::repeat_sql_vars(chunk.len())),
                 chunk
             )?;
             Ok(())
@@ -196,9 +130,9 @@ impl LoginDb {
             }
         }
 
-        util::each_chunk_mapped(&records, self.max_var_count, |r| &r.0.id as &ToSql, |chunk, offset| {
+        sql_support::each_chunk_mapped(&records, |r| &r.0.id as &ToSql, |chunk, offset| -> Result<()> {
             // pairs the bound parameter for the guid with an integer index.
-            let values_with_idx = util::repeat_display(chunk.len(), ",", |i, f| write!(f, "({},?)", i + offset));
+            let values_with_idx = sql_support::repeat_display(chunk.len(), ",", |i, f| write!(f, "({},?)", i + offset));
             let query = format!("
                 WITH to_fetch(guid_idx, fetch_guid) AS (VALUES {vals})
                 SELECT
@@ -280,7 +214,7 @@ impl LoginDb {
         } else {
             query += " AND formSubmitURL IS :form_submit"
         }
-        Ok(self.query_row(&query, args, |row| Login::from_row(row))?)
+        Ok(self.try_query_row(&query, args, |row| Login::from_row(row), false)?)
     }
 
     pub fn get_all(&self) -> Result<Vec<Login>> {
@@ -290,10 +224,10 @@ impl LoginDb {
     }
 
     pub fn get_by_id(&self, id: &str) -> Result<Option<Login>> {
-        // Probably should be cached...
-        self.query_row(&GET_BY_GUID_SQL,
-                       &[(":guid", &id as &ToSql)],
-                       Login::from_row)
+        self.try_query_row(&GET_BY_GUID_SQL,
+                           &[(":guid", &id as &ToSql)],
+                           Login::from_row,
+                           true)
     }
 
     pub fn touch(&self, id: &str) -> Result<()> {
@@ -302,7 +236,7 @@ impl LoginDb {
         let now_ms = util::system_time_ms_i64(SystemTime::now());
         // As on iOS, just using a record doesn't flip it's status to changed.
         // TODO: this might be wrong for lockbox!
-        self.execute_cached("
+        self.execute_named_cached("
             UPDATE loginsL
                SET timeLastUsed = :now_millis,
                    timesUsed = timesUsed + 1,
@@ -375,7 +309,7 @@ impl LoginDb {
                 {new} -- sync_status
             )", new = SyncStatus::New as u8);
 
-        let rows_changed = self.execute(&sql, &[
+        let rows_changed = self.execute_named(&sql, &[
             (":hostname", &login.hostname as &ToSql),
             (":http_realm", &login.http_realm as &ToSql),
             (":form_submit_url", &login.form_submit_url as &ToSql),
@@ -445,7 +379,7 @@ impl LoginDb {
     }
 
     pub fn exists(&self, id: &str) -> Result<bool> {
-        Ok(self.query_row("
+        Ok(self.db.query_row_named("
             SELECT EXISTS(
                 SELECT 1 FROM loginsL
                 WHERE guid = :guid AND is_deleted = 0
@@ -454,8 +388,8 @@ impl LoginDb {
                 WHERE guid = :guid AND is_overridden IS NOT 1
             )",
             &[(":guid", &id as &ToSql)],
-            |row| Ok(row.get(0))
-        )?.unwrap_or(false))
+            |row| row.get(0)
+        )?)
     }
 
     /// Delete the record with the provided id. Returns true if the record
@@ -465,7 +399,7 @@ impl LoginDb {
         let now_ms = util::system_time_ms_i64(SystemTime::now());
 
         // Directly delete IDs that have not yet been synced to the server
-        self.execute(&format!("
+        self.execute_named(&format!("
             DELETE FROM loginsL
             WHERE guid = :guid
               AND sync_status = {status_new}",
@@ -474,7 +408,7 @@ impl LoginDb {
         )?;
 
         // For IDs that have, mark is_deleted and clear sensitive fields
-        self.execute(&format!("
+        self.execute_named(&format!("
             UPDATE loginsL
             SET local_modified = :now_ms,
                 sync_status = {status_changed},
@@ -487,12 +421,12 @@ impl LoginDb {
             &[(":now_ms", &now_ms as &ToSql), (":guid", &id as &ToSql)])?;
 
         // Mark the mirror as overridden
-        self.execute("UPDATE loginsM SET is_overridden = 1 WHERE guid = :guid",
+        self.execute_named("UPDATE loginsM SET is_overridden = 1 WHERE guid = :guid",
                      &[(":guid", &id as &ToSql)])?;
 
         // If we don't have a local record for this ID, but do have it in the mirror
         // insert a tombstone.
-        self.execute(&format!("
+        self.execute_named(&format!("
             INSERT OR IGNORE INTO loginsL
                     (guid, local_modified, is_deleted, sync_status, hostname, timeCreated, timePasswordChanged, password, username)
             SELECT   guid, :now_ms,        1,          {changed},   '',       timeCreated, :now_ms,                   '',       ''
@@ -506,7 +440,7 @@ impl LoginDb {
     }
 
     fn mark_mirror_overridden(&self, guid: &str) -> Result<()> {
-        self.execute_cached("
+        self.execute_named_cached("
             UPDATE loginsM SET
             is_overridden = 1
             WHERE guid = :guid
@@ -515,11 +449,11 @@ impl LoginDb {
     }
 
     fn ensure_local_overlay_exists(&self, guid: &str) -> Result<()> {
-        let already_have_local: bool = self.query_row_cached(
+        let already_have_local: bool = self.db.query_row_named(
             "SELECT EXISTS(SELECT 1 FROM loginsL WHERE guid = :guid)",
             &[(":guid", &guid as &ToSql)],
-            |row| Ok(row.get(0))
-        )?.unwrap_or_default();
+            |row| row.get(0)
+        )?;
 
         if already_have_local {
             return Ok(())
@@ -535,10 +469,10 @@ impl LoginDb {
     }
 
     fn clone_mirror_to_overlay(&self, guid: &str) -> Result<usize> {
-        self.execute_cached(
+        Ok(self.execute_named_cached(
             &*CLONE_SINGLE_MIRROR_SQL,
             &[(":guid", &guid as &ToSql)]
-        )
+        )?)
     }
 
     pub fn reset(&self) -> Result<()> {
@@ -558,7 +492,7 @@ impl LoginDb {
         let now_ms = util::system_time_ms_i64(SystemTime::now());
 
         self.execute(&format!("DELETE FROM loginsL WHERE sync_status = {new}", new = SyncStatus::New as u8), &[])?;
-        self.execute(
+        self.execute_named(
             &format!("
                 UPDATE loginsL
                 SET local_modified = :now_ms,
@@ -573,7 +507,7 @@ impl LoginDb {
 
         self.execute("UPDATE loginsM SET is_overridden = 1", &[])?;
 
-        self.execute(
+        self.execute_named(
             &format!("
                 INSERT OR IGNORE INTO loginsL
                       (guid, local_modified, is_deleted, sync_status, hostname, timeCreated, timePasswordChanged, password, username)
@@ -628,7 +562,7 @@ impl LoginDb {
 
     fn execute_plan(&mut self, plan: UpdatePlan) -> Result<()> {
         let mut tx = self.db.transaction()?;
-        plan.execute(&mut tx, self.max_var_count)?;
+        plan.execute(&mut tx)?;
         tx.commit()?;
         Ok(())
     }
@@ -664,7 +598,7 @@ impl LoginDb {
     }
 
     fn put_meta(&self, key: &str, value: &ToSql) -> Result<()> {
-        self.execute_cached(
+        self.execute_named_cached(
             "REPLACE INTO loginsSyncMeta (key, value) VALUES (:key, :value)",
             &[(":key", &key as &ToSql), (":value", value)]
         )?;
@@ -672,11 +606,12 @@ impl LoginDb {
     }
 
     fn get_meta<T: FromSql>(&self, key: &str) -> Result<Option<T>> {
-        self.query_row_cached(
+        Ok(self.try_query_row(
             "SELECT value FROM loginsSyncMeta WHERE key = :key",
             &[(":key", &key as &ToSql)],
-            |row| Ok(row.get_checked(0)?)
-        )
+            |row| Ok::<_, Error>(row.get_checked(0)?),
+            true
+        )?)
     }
 
     pub fn set_last_sync(&self, last_sync: ServerTimestamp) -> Result<()> {

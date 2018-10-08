@@ -7,6 +7,7 @@ use std::time::SystemTime;
 use error::*;
 use login::{LocalLogin, MirrorLogin, Login, SyncStatus};
 use sync::ServerTimestamp;
+use sql_support;
 use util;
 
 #[derive(Default, Debug, Clone)]
@@ -66,21 +67,20 @@ impl UpdatePlan {
         self.mirror_inserts.push((login, time.as_millis() as i64, is_override));
     }
 
-    fn perform_deletes(&self, tx: &mut Transaction, max_var_count: usize) -> Result<()> {
-        util::each_chunk(&self.delete_local, max_var_count, |chunk, _| {
+    fn perform_deletes(&self, tx: &mut Transaction) -> Result<()> {
+        sql_support::each_chunk(&self.delete_local, |chunk, _| -> Result<()> {
             tx.execute(&format!("DELETE FROM loginsL WHERE guid IN ({vars})",
-                                vars = util::sql_vars(chunk.len())),
+                                vars = sql_support::repeat_sql_vars(chunk.len())),
                        chunk)?;
             Ok(())
         })?;
 
-        util::each_chunk(&self.delete_mirror, max_var_count, |chunk, _| {
+        sql_support::each_chunk(&self.delete_mirror, |chunk, _| {
             tx.execute(&format!("DELETE FROM loginsM WHERE guid IN ({vars})",
-                                vars = util::sql_vars(chunk.len())),
+                                vars = sql_support::repeat_sql_vars(chunk.len())),
                        chunk)?;
             Ok(())
-        })?;
-        Ok(())
+        })
     }
 
     // These aren't batched but probably should be.
@@ -235,9 +235,9 @@ impl UpdatePlan {
         Ok(())
     }
 
-    pub fn execute(&self, tx: &mut Transaction, max_var_count: usize) -> Result<()> {
+    pub fn execute(&self, tx: &mut Transaction) -> Result<()> {
         debug!("UpdatePlan: deleting records...");
-        self.perform_deletes(tx, max_var_count)?;
+        self.perform_deletes(tx)?;
         debug!("UpdatePlan: Updating existing mirror records...");
         self.perform_mirror_updates(tx)?;
         debug!("UpdatePlan: Inserting new mirror records...");

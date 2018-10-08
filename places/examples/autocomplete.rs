@@ -20,6 +20,8 @@ extern crate url;
 extern crate clap;
 extern crate find_places_db;
 extern crate tempfile;
+extern crate sql_support;
+use sql_support::ConnExt;
 
 #[cfg(not(windows))]
 extern crate termion;
@@ -33,7 +35,6 @@ use url::Url;
 use places::{
     VisitObservation,
     VisitTransition,
-    ConnectionUtil,
 };
 
 use std::{fs, path::{Path, PathBuf}};

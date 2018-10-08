@@ -32,6 +32,8 @@ extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 
+extern crate sql_support;
+
 #[macro_use]
 mod error;
 mod login;

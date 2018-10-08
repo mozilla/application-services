@@ -29,6 +29,7 @@ extern crate serde_derive;
 
 extern crate caseless;
 extern crate unicode_normalization;
+extern crate sql_support;
 
 pub mod api;
 pub mod error;
@@ -39,12 +40,11 @@ pub mod storage;
 pub mod hash;
 pub mod frecency;
 pub mod observation;
-pub mod util;
 
 pub use error::*;
 pub use types::*;
 pub use observation::VisitObservation;
 pub use storage::{RowId, PageInfo};
-pub use db::{PlacesDb, ConnectionUtil};
+pub use db::PlacesDb;
 pub use api::apply_observation;
 
