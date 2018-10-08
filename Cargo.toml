@@ -6,7 +6,7 @@ members = [
     "sync15-adapter",
     "logins-sql",
     "logins-sql/ffi",
-    "places",
+    "components/places",
     "components/support/sql",
     "components/support/ffi",
 ]

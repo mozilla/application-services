@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = []
 
 [dependencies]
-sync15-adapter = { path = "../sync15-adapter" }
+sync15-adapter = { path = "../../sync15-adapter" }
 serde = "1.0.75"
 serde_derive = "1.0.75"
 serde_json = "1.0.26"
@@ -16,7 +16,7 @@ failure_derive = "0.1"
 unicode-segmentation = "1.2.1"
 caseless = "0.2.1"
 unicode-normalization = "0.1.7"
-sql-support = { path = "../components/support/sql" }
+sql-support = { path = "../support/sql" }
 url_serde = "0.2.0"
 
 [dependencies.rusqlite]
