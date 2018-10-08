@@ -7,6 +7,7 @@ members = [
     "logins-sql",
     "logins-sql/ffi",
     "components/places",
+    "components/places/ffi",
     "components/support/sql",
     "components/support/ffi",
 ]
