@@ -88,6 +88,20 @@ impl Deref for PlacesDb {
     }
 }
 
+// equivalent to `&s[..max_len.min(s.len())]`, but handles the case where
+// `s.is_char_boundary(max_len)` is false (which would otherwise panic).
+fn slice_up_to_safe(s: &str, max_len: usize) -> &str {
+    if max_len >= s.len() {
+        return s;
+    }
+    let mut idx = max_len;
+    while !s.is_char_boundary(idx) {
+        idx -= 1;
+    }
+    &s[..idx]
+}
+
+
 fn define_functions(c: &Connection) -> Result<()> {
     c.create_scalar_function("get_prefix", 1, true, move |ctx| {
         let href = ctx.get::<String>(0)?;
@@ -137,8 +151,8 @@ fn define_functions(c: &Connection) -> Result<()> {
             return Ok(false);
         }
 
-        let trimmed_url = &url[..255.min(url.len())];
-        let trimmed_title = &title[..255.min(title.len())];
+        let trimmed_url = slice_up_to_safe(&url, 255);
+        let trimmed_title = slice_up_to_safe(&title, 255);
 
         let norm_url = unicode_normalize(trimmed_url);
         let norm_title = unicode_normalize(trimmed_title);
@@ -199,5 +213,20 @@ mod tests {
 
         let rev_host: String = conn.db.query_row("SELECT reverse_host('')", &[], |row| row.get(0)).unwrap();
         assert_eq!(rev_host, ".");
+    }
+
+    // not part of the public api, but needs a test.
+    #[test]
+    fn test_slice_up_to() {
+        assert_eq!(slice_up_to_safe("abcde", 4), "abcd");
+        assert_eq!(slice_up_to_safe("abcde", 5), "abcde");
+        assert_eq!(slice_up_to_safe("abcde", 6), "abcde");
+        let s = "abcd😀";
+        assert_eq!(s.len(), 8);
+        assert_eq!(slice_up_to_safe(s, 4), "abcd");
+        assert_eq!(slice_up_to_safe(s, 5), "abcd");
+        assert_eq!(slice_up_to_safe(s, 6), "abcd");
+        assert_eq!(slice_up_to_safe(s, 7), "abcd");
+        assert_eq!(slice_up_to_safe(s, 8), s);
     }
 }
