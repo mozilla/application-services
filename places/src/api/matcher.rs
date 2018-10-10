@@ -323,43 +323,45 @@ impl<'query, 'conn> OriginOrURL<'query, 'conn> {
             }
         } else if self.query.contains(|c| c == '/' || c == ':' || c == '?') {
             let (host, stripped_url) = split_after_host_and_port(self.query);
-            let mut stmt = self.conn.db.prepare("
-                SELECT h.url,
-                       :strippedURL AS displayURL,
-                       h.frecency,
-                       h.foreign_count > 0 AS bookmarked,
-                       h.id,
-                       :searchString AS searchString
-                FROM moz_places h
-                JOIN moz_origins o ON o.id = h.origin_id
-                WHERE o.rev_host = reverse_host(:host)
-                      AND MAX(h.frecency, 0) >= :frecencyThreshold
-                      AND h.hidden = 0
-                      AND strip_prefix_and_userinfo(h.url) BETWEEN :strippedURL AND :strippedURL || X'FFFF'
-                UNION ALL
-                SELECT h.url,
-                       :strippedURL AS displayURL,
-                       h.frecency,
-                       h.foreign_count > 0 AS bookmarked,
-                       h.id,
-                       :searchString AS searchString
-                FROM moz_places h
-                JOIN moz_origins o ON o.id = h.origin_id
-                WHERE o.rev_host = reverse_host(:host) || 'www.'
-                      AND MAX(h.frecency, 0) >= :frecencyThreshold
-                      AND h.hidden = 0
-                      AND strip_prefix_and_userinfo(h.url) BETWEEN 'www.' || :strippedURL AND 'www.' || :strippedURL || X'FFFF'
-                ORDER BY h.frecency DESC, h.id DESC
-                LIMIT 1
-            ")?;
-            let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
-                (":searchString", &self.query),
-                (":strippedURL", &stripped_url),
-                (":host", &host),
-                (":frecencyThreshold", &-1i64),
-            ];
-            for result in stmt.query_and_then_named(params, SearchResult::from_url_row)? {
-                results.push(result?);
+            if host.len() != 0 && stripped_url.len() != 0 {
+                let mut stmt = self.conn.db.prepare("
+                    SELECT h.url,
+                           :strippedURL AS displayURL,
+                           h.frecency,
+                           h.foreign_count > 0 AS bookmarked,
+                           h.id,
+                           :searchString AS searchString
+                    FROM moz_places h
+                    JOIN moz_origins o ON o.id = h.origin_id
+                    WHERE o.rev_host = reverse_host(:host)
+                          AND MAX(h.frecency, 0) >= :frecencyThreshold
+                          AND h.hidden = 0
+                          AND strip_prefix_and_userinfo(h.url) BETWEEN :strippedURL AND :strippedURL || X'FFFF'
+                    UNION ALL
+                    SELECT h.url,
+                           :strippedURL AS displayURL,
+                           h.frecency,
+                           h.foreign_count > 0 AS bookmarked,
+                           h.id,
+                           :searchString AS searchString
+                    FROM moz_places h
+                    JOIN moz_origins o ON o.id = h.origin_id
+                    WHERE o.rev_host = reverse_host(:host) || 'www.'
+                          AND MAX(h.frecency, 0) >= :frecencyThreshold
+                          AND h.hidden = 0
+                          AND strip_prefix_and_userinfo(h.url) BETWEEN 'www.' || :strippedURL AND 'www.' || :strippedURL || X'FFFF'
+                    ORDER BY h.frecency DESC, h.id DESC
+                    LIMIT 1
+                ")?;
+                let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
+                    (":searchString", &self.query),
+                    (":strippedURL", &stripped_url),
+                    (":host", &host),
+                    (":frecencyThreshold", &-1i64),
+                ];
+                for result in stmt.query_and_then_named(params, SearchResult::from_url_row)? {
+                    results.push(result?);
+                }
             }
         }
         Ok(results)
