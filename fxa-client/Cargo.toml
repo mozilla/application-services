@@ -21,6 +21,9 @@ serde_derive = "1.0.79"
 serde_json = "1.0.28"
 untrusted = "0.6.2"
 url = "1.7.1"
+ffi-support = { path = "../components/support/ffi", optional = true }
 
 [features]
 browserid = ["openssl", "hawk"]
+ffi = ["ffi-support"]
+default = ["ffi"]

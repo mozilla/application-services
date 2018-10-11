@@ -8,10 +8,11 @@ name = "fxa_client"
 crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
-libc = "0.2.43"
+ffi-support = { path = "../../components/support/ffi" }
 
 [dependencies.fxa-client]
 path = "../"
+features = ["ffi"]
 
 [features]
 browserid = ["fxa-client/browserid"]

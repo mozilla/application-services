@@ -14,7 +14,7 @@ public enum FxAError: Error {
     // function
     static func fromConsuming(_ fxaError: FxAErrorC) -> FxAError? {
         let message = fxaError.message
-        switch fxaError.code {
+        switch Int(fxaError.code) {
         case NoError:
             return nil
         case AuthenticationError:
@@ -30,7 +30,7 @@ public enum FxAError: Error {
 
     @discardableResult
     public static func unwrap<T>(_ callback: (UnsafeMutablePointer<FxAErrorC>) throws -> T?) throws -> T {
-        var err = FxAErrorC(code: NoError, message: nil)
+        var err = FxAErrorC(code: Int32(NoError), message: nil)
         guard let result = try callback(&err) else {
             if let fxaErr = FxAError.fromConsuming(err) {
                 throw fxaErr
@@ -42,7 +42,7 @@ public enum FxAError: Error {
 
     @discardableResult
     public static func tryUnwrap<T>(_ callback: (UnsafeMutablePointer<FxAErrorC>) throws -> T?) throws -> T? {
-        var err = FxAErrorC(code: NoError, message: nil)
+        var err = FxAErrorC(code: Int32(NoError), message: nil)
         guard let result = try callback(&err) else {
             if let fxaErr = FxAError.fromConsuming(err) {
                 throw fxaErr

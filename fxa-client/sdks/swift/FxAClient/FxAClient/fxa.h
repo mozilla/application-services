@@ -10,27 +10,27 @@
 
 /*
  * This file contains headers for all of the structs and functions that map directly to the functions
- * defined in fxa_rust_client/ffi/src/lib.rs.
+ * defined in fxa-client/src/ffi.rs, fxa-client/ffi/src/lib.rs, and components/support/ffi/src/error.rs.
  *
  * The C in this file is specifically formatted to be used with Objective C and Swift and contains
  * macros and flags that will not be recognised by other C based languages.
  */
 
 /*
- A mapping of the ErrorCode repr(C) Rust enum.
+  Error codes reported by the fxa-client library, from fxa-client/src/ffi.rs
  */
-typedef enum ErrorCode {
+enum {
+    InternalPanic = -1,
     NoError = 0,
     Other = 1,
     AuthenticationError = 2,
-    InternalPanic = 3,
-} ErrorCode;
+};
 
 /*
- A mapping of the ExternError repr(C) Rust struct.
+ A mapping of the ExternError repr(C) Rust struct, from components/support/ffi/src/error.rs.
  */
 typedef struct FxAErrorC {
-    ErrorCode code;
+    int32_t code;
     char *_Nullable message;
 } FxAErrorC;
 
