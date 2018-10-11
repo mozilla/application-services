@@ -20,8 +20,8 @@ open class RustError : Structure() {
 
     class ByReference : RustError(), Structure.ByReference
 
-    @JvmField var message: Pointer? = null
     @JvmField var code: Int = 0
+    @JvmField var message: Pointer? = null
 
     init {
         read()
@@ -82,6 +82,6 @@ open class RustError : Structure() {
     }
 
     override fun getFieldOrder(): List<String> {
-        return Arrays.asList("message", "code")
+        return Arrays.asList("code", "message")
     }
 }

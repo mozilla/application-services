@@ -34,6 +34,10 @@ extern crate serde_derive;
 
 extern crate sql_support;
 
+#[cfg(feature = "ffi")]
+#[macro_use]
+extern crate ffi_support;
+
 #[macro_use]
 mod error;
 mod login;
@@ -43,6 +47,9 @@ mod util;
 mod db;
 mod engine;
 mod update_plan;
+
+#[cfg(feature = "ffi")]
+mod ffi;
 
 pub use error::*;
 pub use login::*;
