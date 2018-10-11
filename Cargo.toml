@@ -7,7 +7,8 @@ members = [
     "logins-sql",
     "logins-sql/ffi",
     "places",
-    "components/support/sql"
+    "components/support/sql",
+    "components/support/ffi",
 ]
 
 [profile.release]
