@@ -26,6 +26,9 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate untrusted;
 extern crate url;
+#[cfg(feature = "ffi")]
+#[macro_use]
+extern crate ffi_support;
 
 use std::collections::HashMap;
 #[cfg(feature = "browserid")]
@@ -55,6 +58,8 @@ mod login_sm;
 mod oauth;
 mod scoped_keys;
 mod util;
+#[cfg(feature = "ffi")]
+pub mod ffi;
 
 pub use config::Config;
 pub use http_client::ProfileResponse as Profile;
@@ -119,7 +124,7 @@ pub struct FirefoxAccount {
     profile_cache: Option<CachedResponse<ProfileResponse>>,
 }
 
-pub type SyncKeys = (String, String);
+pub struct SyncKeys(pub String, pub String);
 
 pub struct PersistCallback {
     callback_fn: Box<Fn(&str) + Send + RefUnwindSafe>,
@@ -484,7 +489,7 @@ impl FirefoxAccount {
             None => return Err(ErrorKind::NotMarried.into()),
         };
         let sync_key = hex::encode(married.sync_key());
-        Ok((sync_key, married.xcs().to_string()))
+        Ok(SyncKeys(sync_key, married.xcs().to_string()))
     }
 
     pub fn get_token_server_endpoint_url(&self) -> Result<Url> {
