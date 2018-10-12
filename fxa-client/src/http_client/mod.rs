@@ -375,6 +375,7 @@ pub struct ProfileResponse {
 }
 
 #[cfg(test)]
+#[cfg(feature = "browserid")]
 mod tests {
     use super::*;
     use ring::{digest, pbkdf2};
@@ -386,7 +387,6 @@ mod tests {
         out.to_vec()
     }
 
-    #[cfg(feature = "browserid")]
     fn auth_pwd(email: &str, pwd: &str) -> String {
         let streched = quick_strech_pwd(email, pwd);
         let salt = [0u8; 0];
@@ -396,7 +396,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "browserid")]
     fn test_quick_strech_pwd() {
         let email = "andré@example.org";
         let pwd = "pässwörd";
@@ -408,7 +407,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "browserid")]
     fn test_auth_pwd() {
         let email = "andré@example.org";
         let pwd = "pässwörd";
