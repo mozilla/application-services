@@ -271,7 +271,7 @@ impl<'a> Client<'a> {
         }
     }
 
-    #[cfg(feature = "browserid")] 
+    #[cfg(feature = "browserid")]
     fn derive_key_from_session_token(session_token: &[u8]) -> Result<Vec<u8>> {
         let context_info = Client::kw("sessionToken");
         Ok(Client::derive_hkdf_sha256_key(
@@ -386,7 +386,7 @@ mod tests {
         out.to_vec()
     }
 
-    #[cfg(feature = "browserid")] 
+    #[cfg(feature = "browserid")]
     fn auth_pwd(email: &str, pwd: &str) -> String {
         let streched = quick_strech_pwd(email, pwd);
         let salt = [0u8; 0];
@@ -396,6 +396,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "browserid")]
     fn test_quick_strech_pwd() {
         let email = "andré@example.org";
         let pwd = "pässwörd";
@@ -407,7 +408,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "browserid")] 
+    #[cfg(feature = "browserid")]
     fn test_auth_pwd() {
         let email = "andré@example.org";
         let pwd = "pässwörd";
