@@ -14,7 +14,12 @@ matrix:
   allow_failures:
     - rust: nightly
   fast_finish: true
-script: cargo test --all-features --verbose
+script:
+  # Test with 1. only default features on, 2. all features on, 3. no features on.
+  # This is not perfect (really we want the cartesian product), but is good enough in practice.
+  - cargo test --all --verbose
+  - cargo test --all --all-features --verbose
+  - cargo test --all --no-default-features --verbose
 
 jobs:
   include:
