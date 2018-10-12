@@ -2,12 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#[cfg(feature = "browserid")]
 use hex;
 use reqwest;
 use reqwest::{header, Client as ReqwestClient, Method, Request, Response, StatusCode};
+#[cfg(feature = "browserid")]
 use ring::{digest, hkdf, hmac};
 use serde_json;
 use std;
+#[cfg(feature = "browserid")]
 use util::Xorable;
 
 #[cfg(feature = "browserid")]
@@ -24,8 +27,11 @@ pub mod browser_id;
 #[cfg(feature = "browserid")]
 mod hawk_request;
 
+#[cfg(feature = "browserid")]
 const HKDF_SALT: [u8; 32] = [0b0; 32];
+#[cfg(feature = "browserid")]
 const KEY_LENGTH: usize = 32;
+#[cfg(feature = "browserid")]
 const SIGN_DURATION_MS: u64 = 24 * 60 * 60 * 1000;
 
 pub struct Client<'a> {
@@ -37,6 +43,7 @@ impl<'a> Client<'a> {
         Client { config }
     }
 
+    #[cfg(feature = "browserid")]
     fn kw(name: &str) -> Vec<u8> {
         format!("identity.mozilla.com/picl/v1/{}", name)
             .as_bytes()
@@ -55,16 +62,19 @@ impl<'a> Client<'a> {
         RSABrowserIDKeyPair::generate_random(len)
     }
 
+    #[cfg(feature = "browserid")]
     pub fn derive_sync_key(kb: &[u8]) -> Vec<u8> {
         let salt = [0u8; 0];
         let context_info = Client::kw("oldsync");
         Client::derive_hkdf_sha256_key(&kb, &salt, &context_info, KEY_LENGTH * 2)
     }
 
+    #[cfg(feature = "browserid")]
     pub fn compute_client_state(kb: &[u8]) -> String {
         hex::encode(digest::digest(&digest::SHA256, &kb).as_ref()[0..16].to_vec())
     }
 
+    #[cfg(feature = "browserid")]
     pub fn sign_out(&self) {
         panic!("Not implemented yet!");
     }
@@ -85,6 +95,7 @@ impl<'a> Client<'a> {
         Client::make_request(request)?.json().map_err(|e| e.into())
     }
 
+    #[cfg(feature = "browserid")]
     pub fn account_status(&self, uid: &String) -> Result<AccountStatusResponse> {
         let url = self.config.auth_url_path("v1/account/status")?;
         let client = ReqwestClient::new();
@@ -248,6 +259,7 @@ impl<'a> Client<'a> {
         Client::make_request(request)?.json().map_err(|e| e.into())
     }
 
+    #[cfg(feature = "browserid")]
     fn get_oauth_audience(&self) -> Result<String> {
         let url = self.config.oauth_url()?;
         let host = url
@@ -259,6 +271,7 @@ impl<'a> Client<'a> {
         }
     }
 
+    #[cfg(feature = "browserid")]
     fn derive_key_from_session_token(session_token: &[u8]) -> Result<Vec<u8>> {
         let context_info = Client::kw("sessionToken");
         Ok(Client::derive_hkdf_sha256_key(
@@ -269,6 +282,7 @@ impl<'a> Client<'a> {
         ))
     }
 
+    #[cfg(feature = "browserid")]
     fn derive_hkdf_sha256_key(ikm: &[u8], salt: &[u8], info: &[u8], len: usize) -> Vec<u8> {
         let salt = hmac::SigningKey::new(&digest::SHA256, salt);
         let mut out = vec![0u8; len];
@@ -361,6 +375,7 @@ pub struct ProfileResponse {
 }
 
 #[cfg(test)]
+#[cfg(feature = "browserid")]
 mod tests {
     use super::*;
     use ring::{digest, pbkdf2};

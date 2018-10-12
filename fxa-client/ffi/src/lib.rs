@@ -14,7 +14,9 @@ use std::ptr;
 use ctypes::*;
 use fxa_client::errors::Error as InternalError;
 use fxa_client::errors::ErrorKind as InternalErrorKind;
-use fxa_client::{Config, FirefoxAccount, PersistCallback, WebChannelResponse};
+use fxa_client::{Config, FirefoxAccount, PersistCallback};
+#[cfg(feature = "browserid")]
+use fxa_client::WebChannelResponse;
 use libc::c_char;
 use util::*;
 

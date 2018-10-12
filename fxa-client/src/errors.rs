@@ -6,7 +6,9 @@ use std::boxed::Box;
 use std::{fmt, result, string};
 
 use base64;
-use failure::{Backtrace, Context, Fail, SyncFailure};
+use failure::{Backtrace, Context, Fail};
+#[cfg(feature = "browserid")]
+use failure::SyncFailure;
 #[cfg(feature = "browserid")]
 use hawk;
 use hex;

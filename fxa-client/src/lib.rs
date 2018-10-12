@@ -28,6 +28,7 @@ extern crate untrusted;
 extern crate url;
 
 use std::collections::HashMap;
+#[cfg(feature = "browserid")]
 use std::mem;
 use std::panic::RefUnwindSafe;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -84,6 +85,7 @@ enum State {
     V1(StateV1),
 }
 
+#[cfg(feature = "browserid")]
 #[derive(Deserialize)]
 pub struct WebChannelResponse {
     uid: String,
@@ -97,6 +99,7 @@ pub struct WebChannelResponse {
     unwrap_kb: String,
 }
 
+#[cfg(feature = "browserid")]
 impl WebChannelResponse {
     pub fn from_json(json: &str) -> Result<WebChannelResponse> {
         serde_json::from_str(json).map_err(|e| e.into())
