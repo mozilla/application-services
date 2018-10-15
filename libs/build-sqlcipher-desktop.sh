@@ -20,6 +20,10 @@ fi
 
 echo "# Building sqlcipher"
 
+# Keep in sync with SQLCIPHER_CFLAGS in `build-sqlcipher-desktop.sh` for now (it probably makes
+# sense to try to avoid this duplication in the future).
+# TODO: We could probably prune some of these, and it would be nice to allow debug builds (which
+# should set `SQLITE_DEBUG` and `SQLITE_ENABLE_API_ARMOR` and not `NDEBUG`).
 SQLCIPHER_CFLAGS=" \
   -DSQLITE_HAS_CODEC \
   -DSQLITE_SOUNDEX \
@@ -41,7 +45,10 @@ SQLCIPHER_CFLAGS=" \
   -DSQLITE_ENABLE_FTS4 \
   -DSQLITE_ENABLE_FTS5 \
   -DSQLCIPHER_CRYPTO_OPENSSL \
-  -DSQLITE_ENABLE_DBSTAT_VTA \
+  -DSQLITE_ENABLE_DBSTAT_VTAB \
+  -DSQLITE_SECURE_DELETE=1 \
+  -DSQLITE_DEFAULT_PAGE_SIZE=32768 \
+  -DSQLITE_MAX_DEFAULT_PAGE_SIZE=32768 \
 "
 
 rm -rf "$SQLCIPHER_SRC_PATH/build-desktop"
