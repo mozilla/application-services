@@ -7,7 +7,7 @@ use rusqlite::{
     types::{FromSql, FromSqlError, FromSqlResult, Null, ToSql, ToSqlOutput, ValueRef},
 };
 use url::Url;
-
+use util;
 use db::PlacesDb;
 use error::Result;
 
@@ -425,8 +425,9 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
             ORDER BY rank DESC, h.frecency DESC
             LIMIT :maxResults
         ")?;
+        let query = util::to_normalized_words(&self.query);
         let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
-            (":searchString", &self.query),
+            (":searchString", &query),
             (":matchBehavior", &self.match_behavior),
             (":maxResults", &self.max_results),
         ];
@@ -490,8 +491,9 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
             ORDER BY h.frecency DESC, h.id DESC
             LIMIT :maxResults
         ")?;
+        let query = util::to_normalized_words(&self.query);
         let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
-            (":searchString", &self.query),
+            (":searchString", &query),
             (":matchBehavior", &self.match_behavior),
             (":maxResults", &self.max_results),
         ];
