@@ -653,7 +653,14 @@ mod tests {
         let url = fxa.begin_pairing_flow(&PAIRING_URL, &["https://identity.mozilla.com/apps/oldsync"]);
 
         assert!(url.is_err());
-        assert_eq!(format!("{:?}", url), "Err(Error(\n\nOrigin mismatch))")
+
+        match url {
+            Ok(_) => { panic!("should have error"); }
+            Err(err) => match err.kind() {
+                ErrorKind::OriginMismatch { .. } => {},
+                _ => panic!("error not OriginMismatch")
+            }
+        }
     }
 
     #[test]
