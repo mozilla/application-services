@@ -45,6 +45,12 @@ internal interface LibPlacesFFI : Library {
             out_err: RustError.ByReference
     ): Pointer?
 
+    fun places_get_visited(
+            conn: RawPlacesConnection,
+            urls_json: String,
+            out_err: RustError.ByReference
+    ): Pointer?
+
     /** Destroy strings returned from libplaces_ffi calls. */
     fun places_destroy_string(s: Pointer)
 
