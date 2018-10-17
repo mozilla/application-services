@@ -89,5 +89,28 @@ pub unsafe extern "C" fn places_query_autocomplete(
     })
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn places_get_visited(
+    conn: &PlacesDb,
+    urls_json: *const c_char,
+    error: &mut ExternError,
+) -> *mut c_char {
+    trace!("places_get_visited");
+    // This function has a dumb amount of overhead and copying...
+    call_with_result(error, || -> places::Result<String> {
+        let json = ffi_support::rust_str_from_c(urls_json);
+        let url_strings: Vec<String> = serde_json::from_str(json)?;
+        let urls = url_strings
+            .into_iter()
+            .map(|url| url::Url::parse(&url))
+            .collect::<Result<Vec<_>, _>>()?;
+        // We need to call `to_string` manually because primitives (e.g. bool) don't implement
+        // `ffi_support::IntoFfiJsonTag` (Not clear if they should, needs more thought).
+        let visited = places::get_visited(conn, &urls)?;
+        Ok(serde_json::to_string(&visited)?)
+    })
+}
+
+
 define_string_destructor!(places_destroy_string);
 define_box_destructor!(PlacesDb, places_connection_destroy);

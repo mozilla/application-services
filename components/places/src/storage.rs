@@ -18,7 +18,8 @@ use rusqlite::{types::{ToSql, FromSql, ToSqlOutput, FromSqlResult, ValueRef}};
 use rusqlite::Result as RusqliteResult;
 
 use db::PlacesDb;
-use sql_support::ConnExt;
+use hash;
+use sql_support::{self, ConnExt};
 
 // Typesafe way to manage RowIds. Does it make sense? A better way?
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Default)]
@@ -263,11 +264,37 @@ pub fn update_frecency(db: &mut PlacesDb, id: RowId, redirect: Option<bool>) -> 
     Ok(())
 }
 
+pub fn get_visited(db: &PlacesDb, urls: &[Url]) -> Result<Vec<bool>> {
+    let mut result = vec![false; urls.len()];
+    // Note: this Vec is avoidable in the next rusqlite.
+    let url_strs: Vec<&str> = urls.iter().map(|v| v.as_ref()).collect();
+    sql_support::each_chunk_mapped(&url_strs, |url| url as &dyn ToSql, |chunk, offset| -> Result<()> {
+        let values_with_idx = sql_support::repeat_display(chunk.len(), ",", |i, f|
+            write!(f, "({},{},?)", i + offset, hash::hash_url(url_strs[i + offset])));
+        let sql = format!("
+            WITH to_fetch(fetch_url_index, url_hash, url) AS (VALUES {})
+            SELECT fetch_url_index
+            FROM moz_places h
+            JOIN to_fetch f
+            ON h.url_hash = f.url_hash
+              AND h.url = f.url
+        ", values_with_idx);
+        let mut stmt = db.prepare(&sql)?;
+        for idx_r in stmt.query_map(chunk, |row| row.get::<_, i64>(0) as usize)? {
+            let idx = idx_r?;
+            result[idx] = true;
+        }
+        Ok(())
+    })?;
+    Ok(result)
+}
+
 // Mini experiment with an "Origin" object that knows how to rev_host() itself,
 // that I don't want to throw away yet :) I'm really not sure exactly how
 // moz_origins fits in TBH :/
 #[cfg(test)]
 mod tests {
+    use super::*;
 
     struct Origin {
         prefix: String,
@@ -296,4 +323,52 @@ mod tests {
         assert_eq!(o.rev_host(), "moc.oof");
     }
 
+    #[test]
+    fn test_get_visited() {
+        let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
+
+        let to_add = [
+            "https://www.example.com/1",
+            "https://www.example.com/12",
+            "https://www.example.com/123",
+            "https://www.example.com/1234",
+            "https://www.mozilla.com",
+            "https://www.firefox.com",
+        ];
+
+        for item in &to_add {
+            apply_observation(&mut conn, VisitObservation::new(Url::parse(item).unwrap()))
+                .expect("Should apply visit");
+        }
+
+        let to_search = [
+            ("https://www.example.com", false),
+            ("https://www.example.com/1", true),
+            ("https://www.example.com/12", true),
+            ("https://www.example.com/123", true),
+            ("https://www.example.com/1234", true),
+            ("https://www.example.com/12345", false),
+            ("https://www.mozilla.com", true),
+            ("https://www.firefox.com", true),
+            ("https://www.mozilla.org", false),
+            // dupes should still work!
+            ("https://www.example.com/1234", true),
+            ("https://www.example.com/12345", false),
+        ];
+
+        let urls = to_search.iter()
+            .map(|(url, _expect)| Url::parse(url).unwrap())
+            .collect::<Vec<_>>();
+
+        let visited = get_visited(&conn, &urls).unwrap();
+
+        assert_eq!(visited.len(), to_search.len());
+
+        for (i, &did_see) in visited.iter().enumerate() {
+            assert_eq!(did_see, to_search[i].1,
+                "Wrong value in get_visited for '{}' (idx {}), want {}, have {}",
+                to_search[i].0, i, // idx is logged because some things are repeated
+                to_search[i].1, did_see);
+        }
+    }
 }

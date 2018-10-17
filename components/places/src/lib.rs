@@ -52,7 +52,7 @@ pub mod ffi;
 pub use error::*;
 pub use types::*;
 pub use observation::VisitObservation;
-pub use storage::{RowId, PageInfo};
+pub use storage::{RowId, PageInfo, get_visited};
 pub use db::PlacesDb;
 pub use api::apply_observation;
 

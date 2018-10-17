@@ -42,6 +42,23 @@ open class PlacesConnection(path: String, encryption_key: String? = null) : Auto
         return SearchResult.fromJSONArray(json)
     }
 
+    fun getVisited(urls: List<String>): List<Boolean> {
+        val urlsToJson = JSONArray()
+        for (url in urls) {
+            urlsToJson.put(url)
+        }
+        val urlStr = urls.toString()
+        val visitedStr = rustCallForString { error ->
+            LibPlacesFFI.INSTANCE.places_get_visited(this.db!!, urlStr, error)
+        }
+        val visited = JSONArray(visitedStr)
+        val result = mutableListOf<Boolean>()
+        for (index in 0 until visited.length()) {
+            result.add(visited.getBoolean(index))
+        }
+        return result
+    }
+
     private inline fun <U> rustCall(callback: (RustError.ByReference) -> U): U {
         synchronized(this) {
             val e = RustError.ByReference()
