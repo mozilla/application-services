@@ -83,7 +83,7 @@ different kinds of keys used during encryption. Below is a
 summary of those keys and how they are created.
 
 * Recovery Key (recoveryKey)
-  * 16 digit [Crockford Base32](https://en.wikipedia.org/wiki/Base32) that is generated client-side and shown to the user only once
+  * 28-character [Crockford Base32](https://en.wikipedia.org/wiki/Base32) that is generated client-side and shown to the user only once
 * Recovery Key ID (recoveryKeyId)
   * recoveryKeyId = HKDF(recoveryKey, salt=uid, info=“fxa recovery fingerprint”, length=16)
   * Opaque key generated from the recovery key and sent to our servers
@@ -117,7 +117,7 @@ For more details about this encryption check out this [article](https://openid.n
 
 1. From Firefox Account settings, a user visits the new "Account Recovery" section and clicks `Generate`
 2. User is prompted to enter their password and retrieves their kB
-3. Client-side web content generates a 16 digit Crockford Base32 string for recovery key
+3. Client-side web content generates a 28-character Crockford Base32 string for recovery key
 * This is the string that is shown to the user and what they must store
 4. Client transforms the recovery key into a JSON Web Key (JWK)
   * The recovery key ID is created as part of this process
