@@ -40,6 +40,10 @@ cargo {
     // The directory of the Cargo.toml to build.
     module = '../../../logins-sql/ffi'
 
+    features {
+        defaultAnd("sqlcipher")
+    }
+
     // The Android NDK API level to target.
     apiLevel = 21
 

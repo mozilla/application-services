@@ -203,7 +203,11 @@ mod test {
 
     #[test]
     fn test_general() {
-        let engine = PasswordEngine::new_in_memory(Some("secret")).unwrap();
+        #[cfg(feature = "sqlcipher")]
+        let key = Some("secret");
+        #[cfg(not(feature = "sqlcipher"))]
+        let key: Option<&str> = None;
+        let engine = PasswordEngine::new_in_memory(key).unwrap();
         let list = engine.list().expect("Grabbing Empty list to work");
         assert_eq!(list.len(), 0);
         let start_us = util::system_time_ms_i64(SystemTime::now());

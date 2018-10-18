@@ -57,6 +57,10 @@ cargo {
         'x86',
     ]
 
+    features {
+        defaultAnd("sqlcipher")
+    }
+
     // Perform release builds (which should have debug info, due to
     // `debug = true` in Cargo.toml).
     profile = "release"
