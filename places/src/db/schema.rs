@@ -149,6 +149,12 @@ const CREATE_IDX_MOZ_HISTORYVISITS_VISITDATE: &str = "CREATE INDEX dateindex ON 
 const CREATE_IDX_MOZ_HISTORYVISITS_ISLOCAL: &str = "CREATE INDEX islocalindex ON moz_historyvisits(is_local)";
 
 
+// const CREATE_IDX_MOZ_BOOKMARKS_PLACETYPE: &str = "CREATE INDEX itemindex ON moz_bookmarks(fk, type)";
+// const CREATE_IDX_MOZ_BOOKMARKS_PARENTPOSITION: &str = "CREATE INDEX parentindex ON moz_bookmarks(parent, position)";
+const CREATE_IDX_MOZ_BOOKMARKS_PLACELASTMODIFIED: &str = "CREATE INDEX itemlastmodifiedindex ON moz_bookmarks(fk, lastModified)";
+// const CREATE_IDX_MOZ_BOOKMARKS_DATEADDED: &str = "CREATE INDEX dateaddedindex ON moz_bookmarks(dateAdded)";
+// const CREATE_IDX_MOZ_BOOKMARKS_GUID: &str = "CREATE UNIQUE INDEX guid_uniqueindex ON moz_bookmarks(guid)";
+
 // Keys in the moz_meta table.
 // pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_COUNT: &'static str = "origin_frecency_count";
 // pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM: &'static str = "origin_frecency_sum";
@@ -203,6 +209,7 @@ pub fn create(db: &PlacesDb) -> Result<()> {
         CREATE_IDX_MOZ_HISTORYVISITS_FROMVISIT,
         CREATE_IDX_MOZ_HISTORYVISITS_VISITDATE,
         CREATE_IDX_MOZ_HISTORYVISITS_ISLOCAL,
+        CREATE_IDX_MOZ_BOOKMARKS_PLACELASTMODIFIED,
         &format!("PRAGMA user_version = {version}",
                  version = VERSION),
     ])?;
