@@ -41,6 +41,8 @@ impl PlacesDb {
         // help ensure good performance on autocomplete-style queries. The default value is 1024,
         // which the SQLcipher docs themselves say is too small and should be changed.
         let encryption_pragmas = if let Some(key) = encryption_key {
+            assert!(cfg!(feature = "sqlcipher"),
+                "Encryption key provided but encryption is not supported");
             format!("
                 PRAGMA key = '{key}';
                 PRAGMA cipher_page_size = {page_size};

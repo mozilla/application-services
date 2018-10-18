@@ -5,6 +5,8 @@ authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 
 [features]
 ffi = ["ffi-support"]
+sqlcipher = ["rusqlite/sqlcipher"]
+bundled = ["rusqlite/bundled"]
 default = []
 
 [dependencies]
@@ -22,7 +24,7 @@ ffi-support = { path = "../components/support/ffi", optional = true }
 
 [dependencies.rusqlite]
 version = "0.14.0"
-features = ["sqlcipher", "limits"]
+features = ["limits"]
 
 [dev-dependencies]
 more-asserts = "0.2.1"

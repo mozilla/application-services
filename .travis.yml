@@ -26,11 +26,24 @@ before_deploy:
   - carthage archive --output $FRAMEWORK_NAME
   - rm -rf Carthage
 script:
-  # Test with 1. only default features on, 2. all features on, 3. no features on.
-  # This is not perfect (really we want the cartesian product), but is good enough in practice.
+  # Test with 1. only default features on, 2. no features on, 3. all features on for the crates
+  # where this is a sensible request, and the supported configs for the others.
   - cargo test --all --verbose
-  - cargo test --all --all-features --verbose
   - cargo test --all --no-default-features --verbose
+  # note: -p doesn't work correctly in conjunction with --all-features,
+  # but manifest-path works https://github.com/rust-lang/cargo/issues/5364
+  - |
+    # Test the crates that actually work with --all-features (everything except components/places and logins-sql)
+    for crate in "fxa-client" "sync15-adapter" "components/support/sql" "components/support/ffi"; do
+      cargo test --manifest-path ./$crate/Cargo.toml --all-features --verbose
+    done
+  - |
+    # Test the crates that have separate sqlcipher and bundled features.
+    for crate in "logins-sql" "components/places"; do
+      cargo test --manifest-path ./$crate/Cargo.toml --features 'bundled' --verbose
+      cargo test --manifest-path ./$crate/Cargo.toml --features 'sqlcipher' --verbose
+    done
+
 
 jobs:
   include:

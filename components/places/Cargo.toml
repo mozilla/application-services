@@ -5,6 +5,8 @@ authors = []
 
 [features]
 ffi = ["ffi-support"]
+bundled = ["rusqlite/bundled"]
+sqlcipher = ["rusqlite/sqlcipher"]
 default = []
 
 [dependencies]
@@ -27,7 +29,7 @@ bitflags = "1.0.4"
 
 [dependencies.rusqlite]
 version = "0.14.0"
-features = ["sqlcipher", "functions"]
+features = ["functions"]
 
 [dev-dependencies]
 more-asserts = "0.2.1"

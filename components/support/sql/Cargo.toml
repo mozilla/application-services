@@ -3,14 +3,12 @@ name = "sql-support"
 version = "0.1.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 
-[features]
-default = ["sqlcipher"]
-sqlcipher = ["rusqlite/sqlcipher"]
-
 [dependencies]
 log = "0.4.5"
 lazy_static = "1.1.0"
 
 [dependencies.rusqlite]
 version = "0.14.0"
+# note: this isn't an exclusive list, things should still work if you use
+# this and are using rusqlite with sqlcipher
 features = ["functions", "limits"]

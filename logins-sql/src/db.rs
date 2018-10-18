@@ -36,6 +36,8 @@ impl LoginDb {
         }
 
         let encryption_pragmas = if let Some(key) = encryption_key {
+            assert!(cfg!(feature = "sqlcipher"),
+                    "Encryption key provided but encryption is not supported");
             // TODO: We probably should support providing a key that doesn't go
             // through PBKDF2 (e.g. pass it in as hex, or use sqlite3_key
             // directly. See https://www.zetetic.net/sqlcipher/sqlcipher-api/#key
