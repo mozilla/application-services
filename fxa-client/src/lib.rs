@@ -496,6 +496,15 @@ impl FirefoxAccount {
         self.state.config.token_server_endpoint_url()
     }
 
+    pub fn get_connection_success_endpoint_url(&self) -> Result<Url> {
+        match self.state.config.content_url_path("connect_another_device") {
+            Ok(url) => {
+                Ok(Url::parse_with_params(&url.to_string(), &[("showSuccessMessage", "true")])?)
+            }
+            Err(err) => Err(err)
+        }
+    }
+
     pub fn handle_push_message(&self) {
         panic!("Not implemented yet!")
     }
@@ -687,6 +696,14 @@ mod tests {
         };
         fxa.oauth_cache_store(&oauth_info);
         fxa.oauth_cache_find(&["profile"]).unwrap();
+    }
+
+    #[test]
+    fn test_get_connection_success_endpoint_url() {
+        let fxa =
+            FirefoxAccount::new(Config::stable_dev().unwrap(), "12345678", "https://foo.bar");
+        let url = fxa.get_connection_success_endpoint_url().unwrap().to_string();
+        assert_eq!(url, "https://stable.dev.lcip.org/connect_another_device?showSuccessMessage=true");
     }
 }
 

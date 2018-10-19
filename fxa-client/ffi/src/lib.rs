@@ -202,6 +202,22 @@ pub extern "C" fn fxa_get_token_server_endpoint_url(
     })
 }
 
+/// Get the url to redirect after there has been a successful connection to FxA.
+///
+/// # Safety
+///
+/// A destructor [fxa_str_free] is provided for releasing the memory for this
+/// pointer type.
+#[no_mangle]
+pub extern "C" fn fxa_get_connection_success_endpoint_url(
+    fxa: &FirefoxAccount,
+    error: &mut ExternError,
+) -> *mut c_char {
+    call_with_result(error, || {
+        fxa.get_token_server_endpoint_url().map(|u| u.to_string())
+    })
+}
+
 /// Generate an assertion for a specified audience. Requires to be in a `Married` state.
 /// Note that new clients don't use assertions and use Oauth flows instead.
 ///
