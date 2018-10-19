@@ -80,6 +80,8 @@ cargo {
 }
 
 dependencies {
+    implementation 'net.java.dev.jna:jna:4.5.2@aar'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 }
 
 afterEvaluate {
@@ -101,6 +103,6 @@ archivesBaseName = 'fxa_client'
 
 apply from: '../../../../publish.gradle'
 ext.configurePublish(
-        'org.mozilla.fxa_client',
+        'org.mozilla.fxaclient',
         'fxa_client',
         'Firefox Accounts client.')
