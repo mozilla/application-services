@@ -498,9 +498,8 @@ impl LoginDb {
     }
 
     pub fn wipe(&self) -> Result<()> {
-        info!("Executing reset on password store!");
+        info!("Executing wipe on password store!");
         let now_ms = util::system_time_ms_i64(SystemTime::now());
-
         self.execute(&format!("DELETE FROM loginsL WHERE sync_status = {new}", new = SyncStatus::New as u8), &[])?;
         self.execute_named(
             &format!("
@@ -638,8 +637,12 @@ impl LoginDb {
                .map(|millis| ServerTimestamp(millis as f64 / 1000.0)))
     }
 
-    pub fn set_global_state(&self, global_state: &str) -> Result<()> {
-        self.put_meta(schema::GLOBAL_STATE_META_KEY, &global_state)
+    pub fn set_global_state(&self, global_state: Option<String>) -> Result<()> {
+        let to_write = match global_state {
+            Some(ref s) => s,
+            None => "",
+        };
+        self.put_meta(schema::GLOBAL_STATE_META_KEY, &to_write)
     }
 
     pub fn get_global_state(&self) -> Result<Option<String>> {
@@ -648,6 +651,10 @@ impl LoginDb {
 }
 
 impl Store for LoginDb {
+    fn collection_name(&self) -> &'static str {
+        "passwords"
+    }
+
     fn apply_incoming(
         &self,
         inbound: IncomingChangeset
@@ -669,6 +676,16 @@ impl Store for LoginDb {
     fn get_collection_request(&self) -> result::Result<CollectionRequest, failure::Error> {
         let since = self.get_last_sync()?.unwrap_or_default();
         Ok(CollectionRequest::new("passwords").full().newer_than(since))
+    }
+
+    fn reset(&self) -> result::Result<(), failure::Error> {
+        LoginDb::reset(self)?;
+        Ok(())
+    }
+
+    fn wipe(&self) -> result::Result<(), failure::Error> {
+        LoginDb::wipe(self)?;
+        Ok(())
     }
 }
 

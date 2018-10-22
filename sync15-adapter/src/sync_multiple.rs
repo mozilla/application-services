@@ -1,0 +1,144 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+// This helps you perform a sync of multiple stores and helps you manage
+// global and local state between syncs.
+
+use std::result;
+use std::cell::Cell;
+use std::collections::HashMap;
+use client::{Sync15StorageClient, Sync15StorageClientInit};
+use state::{GlobalState, SetupStateMachine};
+use sync::{self, Store};
+use key_bundle::KeyBundle;
+use error::Error;
+use serde_json;
+
+// Info stored in memory about the client to use. We reuse the client unless
+// we discover the client_init has changed, in which case we re-create one.
+pub struct ClientInfo {
+    // the client_init used to create the client.
+    client_init: Sync15StorageClientInit,
+    // the client we will reuse if possible.
+    client: Sync15StorageClient,
+}
+
+/// Sync multiple stores
+/// * `stores` - The stores to sync
+/// * `persisted_global_state` - The global state to use, or None if never
+///   before provided. At the end of the sync, the value in this cell should
+///   be persisted to permanent storage and provided next time the sync is
+//    called.
+/// * `last_client_info` - The client state to use, or None if never before
+///   provided. At the end of the sync, the value should be persisted
+///   *in memory only* - it should not be persisted to disk.
+/// * `storage_init` - Information about how the sync http client should be
+///   configured.
+/// * `root_sync_key` - The KeyBundle used for encryption.
+pub fn sync_multiple(
+    stores: &[&dyn Store],
+    persisted_global_state: &Cell<Option<String>>,
+    last_client_info: &Cell<Option<ClientInfo>>,
+    storage_init: &Sync15StorageClientInit,
+    root_sync_key: &KeyBundle
+) -> result::Result<HashMap<String, Error>, Error> {
+
+    // Note: We explicitly swap a None back as the state, meaning if we
+    // unexpectedly fail below, the next sync will redownload meta/global,
+    // crypto/keys, etc. without needing to. Apparently this is both okay
+    // and by design.
+    let persisted = persisted_global_state.replace(None);
+    let maybe_global = match persisted {
+        Some(persisted_string) => {
+            match serde_json::from_str::<GlobalState>(&persisted_string) {
+                Ok(state) => Some(state),
+                _ => {
+                    // Don't log the error since it might contain sensitive
+                    // info like keys (the JSON does, after all).
+                    error!("Failed to parse GlobalState from JSON! Falling back to default");
+                    None
+                }
+            }
+        },
+        None => None
+    };
+
+    let mut global_state = match maybe_global {
+        Some(g) => g,
+        None => {
+            info!("First time through since unlock. Creating default global state.");
+            last_client_info.replace(None);
+            GlobalState::default()
+        }
+    };
+
+    // Ditto for the ClientInfo - if we fail below the GlobalStateProvider will
+    // not have the last client and client_init, so will be re-initialized on
+    // the next sync.
+    let client_info = match last_client_info.replace(None) {
+        Some(client_info) => {
+            if client_info.client_init != *storage_init {
+                ClientInfo {
+                    client_init: storage_init.clone(),
+                    client: Sync15StorageClient::new(storage_init.clone())?,
+                }
+            } else {
+                // we can reuse it.
+                client_info
+            }
+        },
+        None => {
+            ClientInfo {
+                client_init: storage_init.clone(),
+                client: Sync15StorageClient::new(storage_init.clone())?,
+            }
+        }
+    };
+
+    // Advance the state machine to the point where it can perform a full
+    // sync. This may involve uploading meta/global, crypto/keys etc.
+    {
+        // Scope borrow of `sync_info.client`
+        let mut state_machine =
+            SetupStateMachine::for_full_sync(&client_info.client, &root_sync_key);
+        info!("Advancing state machine to ready (full)");
+        global_state = state_machine.to_ready(global_state)?;
+    }
+
+    // Reset our local state if necessary.
+    for store in stores {
+        if global_state.engines_that_need_local_reset().contains(store.collection_name()) {
+            info!("{} sync ID changed; engine needs local reset", store.collection_name());
+            store.reset()?;
+        }
+    }
+
+    let mut failures: HashMap<String, Error> = HashMap::new();
+    for store in stores {
+        let name = store.collection_name();
+        info!("Syncing {} engine!", name);
+
+        let result = sync::synchronize(
+            &client_info.client,
+            &global_state,
+            *store,
+            true
+        );
+
+        match result {
+            Ok(()) => info!("Sync of {} was successful!", name),
+            Err(e) => {
+                warn!("Sync of {} failed! {:?}", name, e);
+                failures.insert(name.into(), e.into());
+            },
+        }
+    }
+
+    info!("Updating persisted global state");
+    persisted_global_state.replace(Some(global_state.to_persistable_string()));
+    last_client_info.replace(Some(client_info));
+
+    Ok(failures)
+}
+

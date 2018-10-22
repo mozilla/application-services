@@ -362,16 +362,15 @@ fn main() -> Result<()> {
 
     // TODO: we should probably set a persist callback on acct?
     let mut acct = load_or_create_fxa_creds(cred_file, cfg.clone())?;
-    let token: OAuthInfo;
-    match acct.get_oauth_token(SCOPES)? {
-        Some(t) => token = t,
+    let token: OAuthInfo = match acct.get_oauth_token(SCOPES)? {
+        Some(t) => t,
         None => {
             // The cached credentials did not have appropriate scope, sign in again.
             warn!("Credentials do not have appropriate scope, launching OAuth flow.");
             acct = create_fxa_creds(cred_file, cfg.clone())?;
-            token = acct.get_oauth_token(SCOPES)?.unwrap();
+            acct.get_oauth_token(SCOPES)?.unwrap()
         }
-    }
+    };
 
     let keys: HashMap<String, ScopedKeyData> = serde_json::from_str(&token.keys.unwrap())?;
 
@@ -443,13 +442,13 @@ fn main() -> Result<()> {
             }
             'R' | 'r' => {
                 info!("Resetting client.");
-                if let Err(e) = engine.reset() {
+                if let Err(e) = engine.db.reset() {
                     warn!("Failed to reset! {}", e);
                 }
             }
             'W' | 'w' => {
                 info!("Wiping all data from client!");
-                if let Err(e) = engine.wipe() {
+                if let Err(e) = engine.db.wipe() {
                     warn!("Failed to wipe! {}", e);
                 }
             }

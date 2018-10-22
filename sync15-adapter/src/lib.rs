@@ -40,6 +40,7 @@ pub mod util;
 pub mod request;
 pub mod changeset;
 pub mod sync;
+pub mod sync_multiple;
 pub mod client;
 pub mod state;
 
@@ -48,6 +49,7 @@ pub use bso_record::{BsoRecord, EncryptedBso, Payload, CleartextBso};
 pub use changeset::{RecordChangeset, IncomingChangeset, OutgoingChangeset};
 pub use error::{Result, Error, ErrorKind};
 pub use sync::{synchronize, Store};
+pub use sync_multiple::{ClientInfo, sync_multiple};
 pub use util::{ServerTimestamp, SERVER_EPOCH};
 pub use key_bundle::KeyBundle;
 pub use client::{Sync15StorageClientInit, Sync15StorageClient};

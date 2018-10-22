@@ -15,6 +15,8 @@ use util::ServerTimestamp;
 /// Different stores will produce errors of different types.  To accommodate this, we force them
 /// all to return failure::Error, which we expose as ErrorKind::StoreError.
 pub trait Store {
+    fn collection_name(&self) -> &'static str;
+
     fn apply_incoming(
         &self,
         inbound: IncomingChangeset
@@ -32,18 +34,22 @@ pub trait Store {
     /// engines might do something fancier. This could even later be extended
     /// to handle "backfills" etc
     fn get_collection_request(&self) -> Result<CollectionRequest, failure::Error>;
+
+    fn reset(&self) -> Result<(), failure::Error>;
+
+    fn wipe(&self) -> Result<(), failure::Error>;
 }
 
 pub fn synchronize(client: &Sync15StorageClient,
                    state: &GlobalState,
                    store: &Store,
-                   collection: String,
                    fully_atomic: bool) -> Result<(), Error>
 {
 
+    let collection = store.collection_name();
     info!("Syncing collection {}", collection);
     let collection_request = store.get_collection_request()?;
-    let incoming_changes = IncomingChangeset::fetch(client, state, collection.clone(), &collection_request)?;
+    let incoming_changes = IncomingChangeset::fetch(client, state, collection.into(), &collection_request)?;
     let last_changed_remote = incoming_changes.timestamp;
 
     info!("Downloaded {} remote changes", incoming_changes.changes.len());
