@@ -498,9 +498,8 @@ impl LoginDb {
     }
 
     pub fn wipe(&self) -> Result<()> {
-        info!("Executing reset on password store!");
+        info!("Executing wipe on password store!");
         let now_ms = util::system_time_ms_i64(SystemTime::now());
-
         self.execute(&format!("DELETE FROM loginsL WHERE sync_status = {new}", new = SyncStatus::New as u8), &[])?;
         self.execute_named(
             &format!("
@@ -643,6 +642,10 @@ impl LoginDb {
 }
 
 impl Store for LoginDb {
+    fn collection_name(&self) -> String {
+        "passwords".into()
+    }
+
     fn apply_incoming(
         &self,
         inbound: IncomingChangeset
@@ -666,6 +669,16 @@ impl Store for LoginDb {
                         .map(|millis| ServerTimestamp(millis as f64 / 1000.0))
                         .unwrap_or_default();
         Ok(CollectionRequest::new("passwords").full().newer_than(since))
+    }
+
+    fn reset(&self) -> result::Result<(), failure::Error> {
+        LoginDb::reset(self)?;
+        Ok(())
+    }
+
+    fn wipe(&self) -> result::Result<(), failure::Error> {
+        LoginDb::wipe(self)?;
+        Ok(())
     }
 }
 
