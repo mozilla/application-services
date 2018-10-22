@@ -42,7 +42,7 @@ sys.modules["taskcluster"] = sys.modules[__name__]
 sys.dont_write_bytecode = True
 os.environ.update(**{k: k for k in "TASK_ID TASK_OWNER TASK_SOURCE GIT_URL GIT_SHA".split()})
 os.environ["GIT_REF"] = "refs/heads/auto"
-import decision_task
+import decision_task_pull_request as decision_task
 
 print("\n# Push:")
 decision_task.main("github-push", mock=True)
@@ -50,5 +50,5 @@ decision_task.main("github-push", mock=True)
 print("\n# Push with hot caches:")
 decision_task.main("github-push", mock=True)
 
-print("\n# Daily:")
-decision_task.main("daily", mock=True)
+# print("\n# Daily:")
+# decision_task.main("daily", mock=True)
