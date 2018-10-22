@@ -37,7 +37,7 @@ class Config:
     """
     def __init__(self):
         self.task_name_template = "%s"
-        self.index_prefix = "garbage.servo-decisionlib"
+        self.index_prefix = "garbage.application-services-decisionlib"
         self.scopes_for_all_subtasks = []
         self.routes_for_all_subtasks = []
         self.docker_images_expire_in = "1 month"
