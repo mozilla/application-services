@@ -32,8 +32,8 @@ use failure::Fail;
 use std::{fs, io::{self, Read, Write}};
 use std::collections::HashMap;
 use fxa_client::{FirefoxAccount, Config, OAuthInfo};
-use sync::{Sync15StorageClientInit, KeyBundle};
-use logins_sql::{PasswordEngine, Login};
+use sync::{Sync15StorageClientInit, KeyBundle, Store};
+use logins_sql::{PasswordEngine, Login, sync};
 
 const CLIENT_ID: &str = "98adfa37698f255b";
 const REDIRECT_URI: &str = "https://lockbox.firefox.com/fxa/ios-redirect.html";
@@ -442,19 +442,19 @@ fn main() -> Result<()> {
             }
             'R' | 'r' => {
                 info!("Resetting client.");
-                if let Err(e) = engine.reset() {
+                if let Err(e) = engine.db.reset() {
                     warn!("Failed to reset! {}", e);
                 }
             }
             'W' | 'w' => {
                 info!("Wiping all data from client!");
-                if let Err(e) = engine.wipe() {
+                if let Err(e) = engine.db.wipe() {
                     warn!("Failed to wipe! {}", e);
                 }
             }
             'S' | 's' => {
                 info!("Syncing!");
-                if let Err(e) = engine.sync(&client_init, &root_sync_key) {
+                if let Err(e) = sync(&engine.db, &engine.db, &client_init, &root_sync_key) {
                     warn!("Sync failed! {}", e);
                     warn!("BT: {:?}", e.backtrace());
                 } else {

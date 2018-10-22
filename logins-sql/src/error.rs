@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use failure::{Fail, Context, Backtrace};
+use failure::{self, Fail, Context, Backtrace};
 use std::{self, fmt};
 use std::boxed::Box;
 use rusqlite;
@@ -90,6 +90,10 @@ pub enum ErrorKind {
 
     #[fail(display = "Error parsing URL: {}", _0)]
     UrlParseError(#[fail(cause)] url::ParseError),
+
+    // Not clear we want StoreError here?
+    #[fail(display = "Store error: {}", _0)]
+    StoreError(#[fail(cause)] failure::Error),
 }
 
 macro_rules! impl_from_error {
@@ -115,7 +119,10 @@ impl_from_error! {
     (JsonError, serde_json::Error),
     (UrlParseError, url::ParseError),
     (SqlError, rusqlite::Error),
-    (InvalidLogin, InvalidLogin)
+    (InvalidLogin, InvalidLogin),
+    // A bit dubious, since we only want this to happen inside `synchronize`
+    // Extra dubious as this is copied from sync's error.rs
+    (StoreError, ::failure::Error)
 }
 
 #[derive(Debug, Fail)]

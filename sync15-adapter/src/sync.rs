@@ -24,6 +24,14 @@ pub trait Store {
         new_timestamp: ServerTimestamp,
         records_synced: &[String],
     ) -> Result<(), failure::Error>;
+
+    fn get_last_sync(&self) -> Result<Option<ServerTimestamp>, failure::Error>;
+
+    fn set_last_sync(&self, last_sync: ServerTimestamp) -> Result<(), failure::Error>;
+
+    fn reset(&self) -> Result<(), failure::Error>;
+
+    fn wipe(&self) -> Result<(), failure::Error>;
 }
 
 pub fn synchronize(client: &Sync15StorageClient,

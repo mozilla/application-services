@@ -4,6 +4,7 @@
 
 use rusqlite::{Connection, types::{ToSql, FromSql}};
 use std::time::SystemTime;
+use std::cell::RefCell;
 use std::path::Path;
 use std::collections::HashSet;
 use error::*;
@@ -11,7 +12,7 @@ use std::result;
 use failure;
 use schema;
 use login::{LocalLogin, MirrorLogin, Login, SyncStatus, SyncLoginData};
-use sync::{self, ServerTimestamp, IncomingChangeset, Store, OutgoingChangeset, Payload};
+use sync::{self, ServerTimestamp, IncomingChangeset, Store, OutgoingChangeset, Payload, Sync15StorageClientInit};
 use update_plan::UpdatePlan;
 use sql_support::{self, ConnExt};
 use util;
@@ -19,6 +20,7 @@ use std::ops::Deref;
 
 pub struct LoginDb {
     pub db: Connection,
+    pub client_init: RefCell<Option<Sync15StorageClientInit>>,
 }
 
 impl LoginDb {
@@ -49,7 +51,7 @@ impl LoginDb {
 
         db.execute_batch(&initial_pragmas)?;
 
-        let mut logins = Self { db };
+        let mut logins = Self { db, client_init: RefCell::new(None) };
         schema::init(&mut logins)?;
         Ok(logins)
     }
@@ -477,50 +479,6 @@ impl LoginDb {
         )?)
     }
 
-    pub fn reset(&self) -> Result<()> {
-        info!("Executing reset on password store!");
-        self.execute_all(&[
-            &*CLONE_ENTIRE_MIRROR_SQL,
-            "DELETE FROM loginsM",
-            &format!("UPDATE loginsL SET sync_status = {}", SyncStatus::New as u8),
-        ])?;
-        self.set_last_sync(ServerTimestamp(0.0))?;
-        // TODO: Should we clear global_state?
-        Ok(())
-    }
-
-    pub fn wipe(&self) -> Result<()> {
-        info!("Executing reset on password store!");
-        let now_ms = util::system_time_ms_i64(SystemTime::now());
-
-        self.execute(&format!("DELETE FROM loginsL WHERE sync_status = {new}", new = SyncStatus::New as u8), &[])?;
-        self.execute_named(
-            &format!("
-                UPDATE loginsL
-                SET local_modified = :now_ms,
-                    sync_status = {changed},
-                    is_deleted = 1,
-                    password = '',
-                    hostname = '',
-                    username = ''
-                WHERE is_deleted = 0",
-                changed = SyncStatus::Changed as u8),
-            &[(":now_ms", &now_ms as &ToSql)])?;
-
-        self.execute("UPDATE loginsM SET is_overridden = 1", &[])?;
-
-        self.execute_named(
-            &format!("
-                INSERT OR IGNORE INTO loginsL
-                      (guid, local_modified, is_deleted, sync_status, hostname, timeCreated, timePasswordChanged, password, username)
-                SELECT guid, :now_ms,        1,          {changed},   '',       timeCreated, :now_ms,             '',       ''
-                FROM loginsM",
-                changed = SyncStatus::Changed as u8),
-            &[(":now_ms", &now_ms as &ToSql)])?;
-
-        Ok(())
-    }
-
     fn reconcile(&self, records: Vec<SyncLoginData>, server_now: ServerTimestamp) -> Result<UpdatePlan> {
         let mut plan = UpdatePlan::default();
 
@@ -567,7 +525,7 @@ impl LoginDb {
         // (as a way to save us from ourselves), we side-step that by creating
         // it manually.
         let tx = self.db.unchecked_transaction()?;
-        plan.execute(&tx)?;
+        plan.execute(&self.db)?;
         tx.commit()?;
         Ok(())
     }
@@ -619,19 +577,8 @@ impl LoginDb {
         )?)
     }
 
-    pub fn set_last_sync(&self, last_sync: ServerTimestamp) -> Result<()> {
-        debug!("Updating last sync to {}", last_sync);
-        let last_sync_millis = last_sync.as_millis() as i64;
-        self.put_meta(schema::LAST_SYNC_META_KEY, &last_sync_millis)
-    }
-
     pub fn set_global_state(&self, global_state: &str) -> Result<()> {
         self.put_meta(schema::GLOBAL_STATE_META_KEY, &global_state)
-    }
-
-    pub fn get_last_sync(&self) -> Result<Option<ServerTimestamp>> {
-        Ok(self.get_meta::<i64>(schema::LAST_SYNC_META_KEY)?
-            .map(|millis| ServerTimestamp(millis as f64 / 1000.0)))
     }
 
     pub fn get_global_state(&self) -> Result<Option<String>> {
@@ -656,6 +603,62 @@ impl Store for LoginDb {
             &records_synced.iter().map(|r| r.as_str()).collect::<Vec<_>>(),
             new_timestamp
         )?)
+    }
+
+    fn get_last_sync(&self) -> result::Result<Option<ServerTimestamp>, failure::Error> {
+        Ok(self.get_meta::<i64>(schema::LAST_SYNC_META_KEY)?
+            .map(|millis| ServerTimestamp(millis as f64 / 1000.0)))
+    }
+
+    fn set_last_sync(&self, last_sync: ServerTimestamp) -> result::Result<(), failure::Error> {
+        debug!("Updating last sync to {}", last_sync);
+        let last_sync_millis = last_sync.as_millis() as i64;
+        Ok(self.put_meta(schema::LAST_SYNC_META_KEY, &last_sync_millis)?)
+    }
+
+    fn reset(&self) -> result::Result<(), failure::Error> {
+        info!("Executing reset on password store!");
+        self.execute_all(&[
+            &*CLONE_ENTIRE_MIRROR_SQL,
+            "DELETE FROM loginsM",
+            &format!("UPDATE loginsL SET sync_status = {}", SyncStatus::New as u8),
+        ])?;
+        self.set_last_sync(ServerTimestamp(0.0))?;
+        // TODO: Should we clear global_state? (although note that this should
+        // probably be the responsibility of the caller rather than us)
+        Ok(())
+    }
+
+    fn wipe(&self) -> result::Result<(), failure::Error> {
+        info!("Executing wipe on password store!");
+        let now_ms = util::system_time_ms_i64(SystemTime::now());
+
+        self.execute(&format!("DELETE FROM loginsL WHERE sync_status = {new}", new = SyncStatus::New as u8), &[])?;
+        self.execute_named(
+            &format!("
+                UPDATE loginsL
+                SET local_modified = :now_ms,
+                    sync_status = {changed},
+                    is_deleted = 1,
+                    password = '',
+                    hostname = '',
+                    username = ''
+                WHERE is_deleted = 0",
+                changed = SyncStatus::Changed as u8),
+            &[(":now_ms", &now_ms as &ToSql)])?;
+
+        self.execute("UPDATE loginsM SET is_overridden = 1", &[])?;
+
+        self.execute_named(
+            &format!("
+                INSERT OR IGNORE INTO loginsL
+                      (guid, local_modified, is_deleted, sync_status, hostname, timeCreated, timePasswordChanged, password, username)
+                SELECT guid, :now_ms,        1,          {changed},   '',       timeCreated, :now_ms,             '',       ''
+                FROM loginsM",
+                changed = SyncStatus::Changed as u8),
+            &[(":now_ms", &now_ms as &ToSql)])?;
+
+        Ok(())
     }
 }
 
