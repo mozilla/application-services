@@ -7,6 +7,8 @@ use std::time::SystemTime;
 use std::path::Path;
 use std::collections::HashSet;
 use error::*;
+use std::result;
+use failure;
 use schema;
 use login::{LocalLogin, MirrorLogin, Login, SyncStatus, SyncLoginData};
 use sync::{self, ServerTimestamp, IncomingChangeset, Store, OutgoingChangeset, Payload};
@@ -638,24 +640,22 @@ impl LoginDb {
 }
 
 impl Store for LoginDb {
-    type Error = Error;
-
     fn apply_incoming(
         &self,
         inbound: IncomingChangeset
-    ) -> Result<OutgoingChangeset> {
-        self.do_apply_incoming(inbound)
+    ) -> result::Result<OutgoingChangeset, failure::Error> {
+        Ok(self.do_apply_incoming(inbound)?)
     }
 
     fn sync_finished(
         &self,
         new_timestamp: ServerTimestamp,
         records_synced: &[String],
-    ) -> Result<()> {
-        self.mark_as_synchronized(
+    ) -> result::Result<(), failure::Error> {
+        Ok(self.mark_as_synchronized(
             &records_synced.iter().map(|r| r.as_str()).collect::<Vec<_>>(),
             new_timestamp
-        )
+        )?)
     }
 }
 

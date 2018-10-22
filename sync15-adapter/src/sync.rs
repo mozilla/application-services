@@ -4,39 +4,34 @@
 
 use changeset::{CollectionUpdate, IncomingChangeset, OutgoingChangeset};
 use client::Sync15StorageClient;
-use error;
+use error::Error;
+use failure;
 use state::GlobalState;
 use util::ServerTimestamp;
 
 /// Low-level store functionality. Stores that need custom reconciliation logic should use this.
 ///
-/// Different stores will produce errors of different types.  To accommodate this, we can either
-/// have the store's error type encapsulate errors while syncing, or we can have the Sync 1.5
-/// adapter's error type encapsulate the underlying error types.  Right now, it's less clear how to
-/// encapsulate errors in a generic way, so we expect `Store` implementations to define an
-/// associated `Error` type, and we expect to be able to convert our error type into that type.
+/// Different stores will produce errors of different types.  To accommodate this, we force them
+/// all to return failure::Error, which we expose as ErrorKind::StoreError.
 pub trait Store {
-    type Error;
-
     fn apply_incoming(
         &self,
         inbound: IncomingChangeset
-    ) -> Result<OutgoingChangeset, Self::Error>;
+    ) -> Result<OutgoingChangeset, failure::Error>;
 
     fn sync_finished(
         &self,
         new_timestamp: ServerTimestamp,
         records_synced: &[String],
-    ) -> Result<(), Self::Error>;
+    ) -> Result<(), failure::Error>;
 }
 
-pub fn synchronize<E>(client: &Sync15StorageClient,
+pub fn synchronize(client: &Sync15StorageClient,
                    state: &GlobalState,
-                   store: &Store<Error=E>,
+                   store: &Store,
                    collection: String,
                    timestamp: ServerTimestamp,
-                   fully_atomic: bool) -> Result<(), E>
-where E: From<error::Error>
+                   fully_atomic: bool) -> Result<(), Error>
 {
 
     info!("Syncing collection {}", collection);

@@ -1,6 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+use std::result;
 use login::Login;
 use error::*;
 use sync::{self, Sync15StorageClient, Sync15StorageClientInit, GlobalState, KeyBundle};
@@ -81,7 +82,7 @@ impl PasswordEngine {
         &self,
         storage_init: &Sync15StorageClientInit,
         root_sync_key: &KeyBundle
-    ) -> Result<()> {
+    ) -> result::Result<(), Error> {
 
         // Note: If `to_ready` (or anything else with a ?) fails below, this
         // `replace()` means we end up with `state.sync.is_none()`, which means the
