@@ -29,6 +29,8 @@ use logins_sql::{
     PasswordEngine,
 };
 
+use sync15_adapter::sync_stateful;
+
 fn logging_init() {
     #[cfg(target_os = "android")]
     {
@@ -70,8 +72,11 @@ pub unsafe extern "C" fn sync15_passwords_sync(
 ) {
     trace!("sync15_passwords_sync");
     // TODO: Is there any way to convince rust that some `&mut T` is unwind safe?
-    call_with_result(error, || {
-        state.sync(
+    call_with_result(error, || -> Result<()> {
+        Ok(sync_stateful(
+            &state.db,
+            &state.db,
+            &state.client_info,
             &sync15_adapter::Sync15StorageClientInit {
                 key_id: rust_string_from_c(key_id),
                 access_token: rust_string_from_c(access_token),
@@ -80,7 +85,7 @@ pub unsafe extern "C" fn sync15_passwords_sync(
             &sync15_adapter::KeyBundle::from_ksync_base64(
                 rust_str_from_c(sync_key)
             )?
-        )
+        )?)
     })
 }
 
