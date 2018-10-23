@@ -560,9 +560,12 @@ impl LoginDb {
         Ok(plan)
     }
 
-    fn execute_plan(&mut self, plan: UpdatePlan) -> Result<()> {
-        let mut tx = self.db.transaction()?;
-        plan.execute(&mut tx)?;
+    fn execute_plan(&self, plan: UpdatePlan) -> Result<()> {
+        // Because rusqlite want a mutable reference to create a transaction
+        // (as a way to save us from ourselves), we side-step that by creating
+        // it manually.
+        let tx = self.db.unchecked_transaction()?;
+        plan.execute(&tx)?;
         tx.commit()?;
         Ok(())
     }
