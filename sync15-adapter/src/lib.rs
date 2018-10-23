@@ -42,6 +42,7 @@ pub mod changeset;
 pub mod sync;
 pub mod client;
 pub mod state;
+pub mod driver;
 
 // Re-export some of the types callers are likely to want for convenience.
 pub use bso_record::{BsoRecord, EncryptedBso, Payload, CleartextBso};
@@ -52,3 +53,4 @@ pub use util::{ServerTimestamp, SERVER_EPOCH};
 pub use key_bundle::KeyBundle;
 pub use client::{Sync15StorageClientInit, Sync15StorageClient};
 pub use state::{GlobalState, SetupStateMachine};
+pub use driver::{sync};

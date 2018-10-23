@@ -27,8 +27,9 @@ use logins_sql::{
     Result,
     Login,
     PasswordEngine,
-    sync,
 };
+
+use sync15_adapter::sync;
 
 fn logging_init() {
     #[cfg(target_os = "android")]
