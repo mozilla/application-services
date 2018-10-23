@@ -73,9 +73,9 @@ tasks:
           && ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease
           && ./gradlew bintrayUpload --debug -PvcsTag="{{ event.head.sha }}"
       artifacts:
-        'public/bin/mozilla/fxa_client-release-{{ event.version }}.aar':
+        'public/bin/mozilla/fxaclient-release-{{ event.version }}.aar':
           type: 'file'
-          path: '/build/application-services/fxa-client/sdks/android/library/build/outputs/aar/fxa_client-release.aar'
+          path: '/build/application-services/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-release.aar'
         'public/bin/mozilla/logins-release-{{ event.version }}.aar':
           type: 'file'
           path: '/build/application-services/logins-api/android/library/build/outputs/aar/logins-release.aar'
@@ -118,9 +118,9 @@ tasks:
           && ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease
           && ./gradlew bintrayUpload --debug -PvcsTag="{{ event.head.sha }}"
       artifacts:
-        'public/bin/mozilla/fxa_client-release-{{ event.head.tag }}.aar':
+        'public/bin/mozilla/fxaclient-release-{{ event.head.tag }}.aar':
           type: 'file'
-          path: '/build/application-services/fxa-client/sdks/android/library/build/outputs/aar/fxa_client-release.aar'
+          path: '/build/application-services/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-release.aar'
         'public/bin/mozilla/logins-release-{{ event.head.tag }}.aar':
           type: 'file'
           path: '/build/application-services/logins-api/android/library/build/outputs/aar/logins-release.aar'
