@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use rusqlite::{types::ToSql, Transaction};
+use rusqlite::{types::ToSql, Connection};
 use std::time::SystemTime;
 use error::*;
 use login::{LocalLogin, MirrorLogin, Login, SyncStatus};
@@ -67,24 +67,24 @@ impl UpdatePlan {
         self.mirror_inserts.push((login, time.as_millis() as i64, is_override));
     }
 
-    fn perform_deletes(&self, tx: &mut Transaction) -> Result<()> {
+    fn perform_deletes(&self, conn: &Connection) -> Result<()> {
         sql_support::each_chunk(&self.delete_local, |chunk, _| -> Result<()> {
-            tx.execute(&format!("DELETE FROM loginsL WHERE guid IN ({vars})",
-                                vars = sql_support::repeat_sql_vars(chunk.len())),
+            conn.execute(&format!("DELETE FROM loginsL WHERE guid IN ({vars})",
+                                  vars = sql_support::repeat_sql_vars(chunk.len())),
                        chunk)?;
             Ok(())
         })?;
 
         sql_support::each_chunk(&self.delete_mirror, |chunk, _| {
-            tx.execute(&format!("DELETE FROM loginsM WHERE guid IN ({vars})",
-                                vars = sql_support::repeat_sql_vars(chunk.len())),
+            conn.execute(&format!("DELETE FROM loginsM WHERE guid IN ({vars})",
+                                  vars = sql_support::repeat_sql_vars(chunk.len())),
                        chunk)?;
             Ok(())
         })
     }
 
     // These aren't batched but probably should be.
-    fn perform_mirror_updates(&self, tx: &mut Transaction) -> Result<()> {
+    fn perform_mirror_updates(&self, conn: &Connection) -> Result<()> {
         let sql = "
             UPDATE loginsM
             SET server_modified = :server_modified,
@@ -102,7 +102,7 @@ impl UpdatePlan {
                 timeCreated         = coalesce(nullif(:time_created,          0), timeCreated)
             WHERE guid = :guid
         ";
-        let mut stmt = tx.prepare_cached(sql)?;
+        let mut stmt = conn.prepare_cached(sql)?;
         for (login, timestamp) in &self.mirror_updates {
             trace!("Updating mirror {:?}", login.guid_str());
             stmt.execute_named(&[
@@ -126,7 +126,7 @@ impl UpdatePlan {
         Ok(())
     }
 
-    fn perform_mirror_inserts(&self, tx: &mut Transaction) -> Result<()> {
+    fn perform_mirror_inserts(&self, conn: &Connection) -> Result<()> {
         let sql = "
             INSERT OR IGNORE INTO loginsM (
                 is_overridden,
@@ -165,7 +165,7 @@ impl UpdatePlan {
 
                 :guid
             )";
-        let mut stmt = tx.prepare_cached(&sql)?;
+        let mut stmt = conn.prepare_cached(&sql)?;
 
         for (login, timestamp, is_overridden) in &self.mirror_inserts {
             trace!("Inserting mirror {:?}", login.guid_str());
@@ -192,7 +192,7 @@ impl UpdatePlan {
         Ok(())
     }
 
-    fn perform_local_updates(&self, tx: &mut Transaction) -> Result<()> {
+    fn perform_local_updates(&self, conn: &Connection) -> Result<()> {
         let sql = format!("
             UPDATE loginsL
             SET local_modified      = :local_modified,
@@ -209,7 +209,7 @@ impl UpdatePlan {
                 sync_status         = {changed}
             WHERE guid = :guid",
             changed = SyncStatus::Changed as u8);
-        let mut stmt = tx.prepare_cached(&sql)?;
+        let mut stmt = conn.prepare_cached(&sql)?;
         // XXX OutgoingChangeset should no longer have timestamp.
         let local_ms: i64 = util::system_time_ms_i64(SystemTime::now());
         for l in &self.local_updates {
@@ -235,15 +235,15 @@ impl UpdatePlan {
         Ok(())
     }
 
-    pub fn execute(&self, tx: &mut Transaction) -> Result<()> {
+    pub fn execute(&self, conn: &Connection) -> Result<()> {
         debug!("UpdatePlan: deleting records...");
-        self.perform_deletes(tx)?;
+        self.perform_deletes(conn)?;
         debug!("UpdatePlan: Updating existing mirror records...");
-        self.perform_mirror_updates(tx)?;
+        self.perform_mirror_updates(conn)?;
         debug!("UpdatePlan: Inserting new mirror records...");
-        self.perform_mirror_inserts(tx)?;
+        self.perform_mirror_inserts(conn)?;
         debug!("UpdatePlan: Updating reconciled local records...");
-        self.perform_local_updates(tx)?;
+        self.perform_local_updates(conn)?;
         Ok(())
     }
 }

@@ -2,11 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::ops::Deref;
 use rusqlite::{
     self,
     types::{ToSql, FromSql},
     Connection,
     Transaction,
+    TransactionBehavior,
     Savepoint,
     Row,
     Result as SqlResult,
@@ -98,6 +100,10 @@ pub trait ConnExt {
             }
         })
     }
+
+    fn unchecked_transaction(&self) -> SqlResult<UncheckedTransaction> {
+        UncheckedTransaction::new(self.conn(), TransactionBehavior::Deferred)
+    }
 }
 
 impl ConnExt for Connection {
@@ -115,6 +121,73 @@ impl<'conn> ConnExt for Transaction<'conn> {
 }
 
 impl<'conn> ConnExt for Savepoint<'conn> {
+    #[inline]
+    fn conn(&self) -> &Connection {
+        &*self
+    }
+}
+
+/// rusqlite, in an attempt to save us from ourselves, needs a mutable ref to
+/// a connection to start a transaction. That is a bit of a PITA in some cases,
+/// so we offer this as an alternative - but the responsibility of ensuring
+/// there are no concurrent transactions is on our head.
+pub struct UncheckedTransaction<'conn> {
+    conn: &'conn Connection,
+    // we could add drop_behavior etc too, but we don't need it yet - we
+    // always rollback.
+}
+
+impl<'conn> UncheckedTransaction<'conn> {
+    pub fn new(conn: &'conn Connection, behavior: TransactionBehavior) -> SqlResult<Self> {
+        let query = match behavior {
+            TransactionBehavior::Deferred => "BEGIN DEFERRED",
+            TransactionBehavior::Immediate => "BEGIN IMMEDIATE",
+            TransactionBehavior::Exclusive => "BEGIN EXCLUSIVE",
+        };
+        conn.execute_batch(query).map(move |_| UncheckedTransaction {
+            conn,
+        })
+    }
+
+    pub fn commit(self) -> SqlResult<()> {
+        self.conn.execute_batch("COMMIT")?;
+        Ok(())
+    }
+
+    pub fn rollback(self) -> SqlResult<()> {
+        self.rollback_()
+    }
+
+    fn rollback_(&self) -> SqlResult<()> {
+        self.conn.execute_batch("ROLLBACK")?;
+        Ok(())
+    }
+
+    fn finish_(&self) -> SqlResult<()> {
+        if self.conn.is_autocommit() {
+            return Ok(());
+        }
+        self.rollback_()?;
+        Ok(())
+    }
+}
+
+impl<'conn> Deref for UncheckedTransaction<'conn> {
+    type Target = Connection;
+
+    fn deref(&self) -> &Connection {
+        self.conn
+    }
+}
+
+#[allow(unused_must_use)]
+impl<'conn> Drop for UncheckedTransaction<'conn> {
+    fn drop(&mut self) {
+        self.finish_();
+    }
+}
+
+impl<'conn> ConnExt for UncheckedTransaction<'conn> {
     #[inline]
     fn conn(&self) -> &Connection {
         &*self
