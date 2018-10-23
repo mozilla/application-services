@@ -2,15 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use rusqlite::{
-    self,
-    types::{FromSql, FromSqlError, FromSqlResult, Null, ToSql, ToSqlOutput, ValueRef},
-};
+use rusqlite;
 use url::Url;
-use util;
 use url_serde;
 use db::PlacesDb;
 use error::Result;
+
+pub use match_impl::{MatchBehavior, SearchBehavior};
 
 #[derive(Debug, Clone)]
 pub struct SearchParams {
@@ -256,30 +254,6 @@ impl SearchResult {
     }
 }
 
-pub enum MatchBehavior {
-    Anywhere = 0,
-    BoundaryAnywhere = 1,
-}
-
-impl FromSql for MatchBehavior {
-    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
-        Ok(match value.as_i64()? {
-            0 => MatchBehavior::Anywhere,
-            1 => MatchBehavior::BoundaryAnywhere,
-            _ => Err(FromSqlError::InvalidType)?,
-        })
-    }
-}
-
-impl ToSql for MatchBehavior {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput> {
-        Ok(match self {
-            MatchBehavior::Anywhere => ToSqlOutput::from(0i64),
-            MatchBehavior::BoundaryAnywhere => ToSqlOutput::from(1i64),
-        })
-    }
-}
-
 struct OriginOrURL<'query, 'conn> {
     query: &'query str,
     conn: &'conn PlacesDb,
@@ -319,7 +293,7 @@ impl<'query, 'conn> OriginOrURL<'query, 'conn> {
                 LIMIT 1
             ")?;
             let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
-                (":prefix", &Null),
+                (":prefix", &rusqlite::types::Null),
                 (":searchString", &self.query),
                 (":frecencyThreshold", &-1i64),
             ];
@@ -376,6 +350,7 @@ struct Adaptive<'query, 'conn> {
     conn: &'conn PlacesDb,
     max_results: u32,
     match_behavior: MatchBehavior,
+    search_behavior: SearchBehavior,
 }
 
 impl<'query, 'conn> Adaptive<'query, 'conn> {
@@ -384,7 +359,9 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
         conn: &'conn PlacesDb,
         max_results: u32,
     ) -> Adaptive<'query, 'conn> {
-        Adaptive::with_behavior(query, conn, max_results, MatchBehavior::BoundaryAnywhere)
+        Adaptive::with_behavior(query, conn, max_results,
+            MatchBehavior::BoundaryAnywhere,
+            SearchBehavior::any())
     }
 
     pub fn with_behavior(
@@ -392,12 +369,14 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
         conn: &'conn PlacesDb,
         max_results: u32,
         match_behavior: MatchBehavior,
+        search_behavior: SearchBehavior
     ) -> Adaptive<'query, 'conn> {
         Adaptive {
             query,
             conn,
             max_results,
             match_behavior,
+            search_behavior,
         }
     }
 
@@ -426,14 +405,14 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
             WHERE AUTOCOMPLETE_MATCH(:searchString, h.url,
                                      IFNULL(btitle, h.title), tags,
                                      visit_count, h.typed, bookmarked,
-                                     NULL, :matchBehavior)
+                                     NULL, :matchBehavior, :searchBehavior)
             ORDER BY rank DESC, h.frecency DESC
             LIMIT :maxResults
         ")?;
-        let query = util::to_normalized_words(&self.query);
         let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
-            (":searchString", &query),
+            (":searchString", &self.query),
             (":matchBehavior", &self.match_behavior),
+            (":searchBehavior", &self.search_behavior),
             (":maxResults", &self.max_results),
         ];
         let mut results = Vec::new();
@@ -449,6 +428,7 @@ struct Suggestions<'query, 'conn> {
     conn: &'conn PlacesDb,
     max_results: u32,
     match_behavior: MatchBehavior,
+    search_behavior: SearchBehavior,
 }
 
 impl<'query, 'conn> Suggestions<'query, 'conn> {
@@ -457,7 +437,8 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
         conn: &'conn PlacesDb,
         max_results: u32,
     ) -> Suggestions<'query, 'conn> {
-        Suggestions::with_behavior(query, conn, max_results, MatchBehavior::BoundaryAnywhere)
+        Suggestions::with_behavior(query, conn, max_results,
+            MatchBehavior::BoundaryAnywhere, SearchBehavior::any())
     }
 
     pub fn with_behavior(
@@ -465,12 +446,14 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
         conn: &'conn PlacesDb,
         max_results: u32,
         match_behavior: MatchBehavior,
+        search_behavior: SearchBehavior,
     ) -> Suggestions<'query, 'conn> {
         Suggestions {
             query,
             conn,
             max_results,
             match_behavior,
+            search_behavior,
         }
     }
 
@@ -491,15 +474,15 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
                                      IFNULL(btitle, h.title), tags,
                                      visit_count, h.typed,
                                      1, NULL,
-                                     :matchBehavior)
+                                     :matchBehavior, :searchBehavior)
               AND (+h.visit_count_local > 0 OR +h.visit_count_remote > 0)
             ORDER BY h.frecency DESC, h.id DESC
             LIMIT :maxResults
         ")?;
-        let query = util::to_normalized_words(&self.query);
         let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
-            (":searchString", &query),
+            (":searchString", &self.query),
             (":matchBehavior", &self.match_behavior),
+            (":searchBehavior", &self.search_behavior),
             (":maxResults", &self.max_results),
         ];
         let mut results = Vec::new();
