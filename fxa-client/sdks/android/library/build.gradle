@@ -99,10 +99,10 @@ afterEvaluate {
     }
 }
 
-archivesBaseName = 'fxa_client'
+archivesBaseName = 'fxaclient'
 
 apply from: '../../../../publish.gradle'
 ext.configurePublish(
         'org.mozilla.fxaclient',
-        'fxa_client',
+        'fxaclient',
         'Firefox Accounts client.')

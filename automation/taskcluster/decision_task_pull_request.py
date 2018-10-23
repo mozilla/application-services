@@ -63,9 +63,9 @@ def create_fxaclient_task():
                  && ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease" % (REPO_URL, REPO_URL, BRANCH, COMMIT)
             ],
             "artifacts": {
-                "public/bin/mozilla/fxa_client-release.aar": {
+                "public/bin/mozilla/fxaclient-release.aar": {
                     "type": "file",
-                    "path": "/build/application-services/fxa-client/sdks/android/library/build/outputs/aar/fxa_client-release.aar",
+                    "path": "/build/application-services/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-release.aar",
                 },
                 "public/bin/mozilla/logins-release.aar": {
                     "type": "file",
