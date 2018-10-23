@@ -19,12 +19,12 @@ pub trait Store {
     type Error;
 
     fn apply_incoming(
-        &mut self,
+        &self,
         inbound: IncomingChangeset
     ) -> Result<OutgoingChangeset, Self::Error>;
 
     fn sync_finished(
-        &mut self,
+        &self,
         new_timestamp: ServerTimestamp,
         records_synced: &[String],
     ) -> Result<(), Self::Error>;
@@ -32,7 +32,7 @@ pub trait Store {
 
 pub fn synchronize<E>(client: &Sync15StorageClient,
                    state: &GlobalState,
-                   store: &mut Store<Error=E>,
+                   store: &Store<Error=E>,
                    collection: String,
                    timestamp: ServerTimestamp,
                    fully_atomic: bool) -> Result<(), E>

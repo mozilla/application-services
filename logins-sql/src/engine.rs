@@ -6,6 +6,7 @@ use error::*;
 use sync::{self, Sync15StorageClient, Sync15StorageClientInit, GlobalState, KeyBundle};
 use db::LoginDb;
 use std::path::Path;
+use std::cell::RefCell;
 use serde_json;
 use rusqlite;
 
@@ -21,7 +22,7 @@ pub(crate) struct SyncInfo {
 // really a bundle of state that contains the sync storage client, the sync
 // state, and the login DB.
 pub struct PasswordEngine {
-    sync: Option<SyncInfo>,
+    sync: RefCell<Option<SyncInfo>>,
     db: LoginDb,
 }
 
@@ -29,12 +30,12 @@ impl PasswordEngine {
 
     pub fn new(path: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Self> {
         let db = LoginDb::open(path, encryption_key)?;
-        Ok(Self { db, sync: None })
+        Ok(Self { db, sync: RefCell::new(None) })
     }
 
     pub fn new_in_memory(encryption_key: Option<&str>) -> Result<Self> {
         let db = LoginDb::open_in_memory(encryption_key)?;
-        Ok(Self { db, sync: None })
+        Ok(Self { db, sync: RefCell::new(None) })
     }
 
     pub fn list(&self) -> Result<Vec<Login>> {
@@ -77,16 +78,16 @@ impl PasswordEngine {
     }
 
     pub fn sync(
-        &mut self,
+        &self,
         storage_init: &Sync15StorageClientInit,
         root_sync_key: &KeyBundle
     ) -> Result<()> {
 
         // Note: If `to_ready` (or anything else with a ?) fails below, this
-        // `take()` means we end up with `state.sync.is_none()`, which means the
+        // `replace()` means we end up with `state.sync.is_none()`, which means the
         // next sync will redownload meta/global, crypto/keys, etc. without
         // needing to. Apparently this is both okay and by design.
-        let maybe_sync_info = self.sync.take().map(Ok);
+        let maybe_sync_info = self.sync.replace(None).map(Ok);
 
         // `maybe_sync_info` is None if we haven't called `sync` since
         // restarting the browser.
@@ -165,7 +166,7 @@ impl PasswordEngine {
         let result = sync::synchronize(
             &sync_info.client,
             &sync_info.state,
-            &mut self.db,
+            &self.db,
             "passwords".into(),
             ts,
             true
@@ -177,7 +178,7 @@ impl PasswordEngine {
         }
 
         // Restore our value of `sync_info` even if the sync failed.
-        self.sync = Some(sync_info);
+        self.sync.replace(Some(sync_info));
 
         Ok(result?)
     }

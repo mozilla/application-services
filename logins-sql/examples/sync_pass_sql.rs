@@ -384,7 +384,7 @@ fn main() -> Result<()> {
     };
     let root_sync_key = KeyBundle::from_ksync_base64(&key.k)?;
 
-    let mut engine = PasswordEngine::new(db_path, Some(encryption_key))?;
+    let engine = PasswordEngine::new(db_path, Some(encryption_key))?;
 
     info!("Engine has {} passwords", engine.list()?.len());
 

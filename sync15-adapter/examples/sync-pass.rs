@@ -360,7 +360,7 @@ impl Store for PasswordEngine {
     type Error = failure::Error;
 
     fn apply_incoming(
-        &mut self,
+        &self,
         inbound: sync::IncomingChangeset
     ) -> Result<OutgoingChangeset, failure::Error> {
         info!("Remote collection has {} changes", inbound.changes.len());
@@ -385,7 +385,7 @@ impl Store for PasswordEngine {
         })
     }
 
-    fn sync_finished(&mut self, new_last_sync: ServerTimestamp, records_synced: &[String]) -> Result<(), failure::Error> {
+    fn sync_finished(&self, new_last_sync: ServerTimestamp, records_synced: &[String]) -> Result<(), failure::Error> {
         for id in records_synced {
             self.changes.remove(id);
         }
