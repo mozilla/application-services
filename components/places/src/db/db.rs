@@ -13,9 +13,9 @@ use rusqlite::{self, Connection};
 use sql_support::{self, ConnExt};
 use std::path::Path;
 use std::ops::Deref;
-use util;
 
-use api::matcher::{MatchBehavior, split_after_prefix, split_after_host_and_port};
+use api::matcher::{split_after_prefix, split_after_host_and_port};
+use match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
 
 pub const MAX_VARIABLE_NUMBER: usize = 999;
 
@@ -142,42 +142,32 @@ fn define_functions(c: &Connection) -> Result<()> {
         )?;
         Ok(rev_host)
     })?;
-    c.create_scalar_function("autocomplete_match", 9, true, move |ctx| {
-        let search_string = ctx.get::<Option<String>>(0)?.unwrap_or_default();
-        let url = ctx.get::<Option<String>>(1)?.unwrap_or_default();
+    c.create_scalar_function("autocomplete_match", 10, true, move |ctx| {
+        // Eventually we'll be able to borrow out of `ctx`, and avoid many of these copies.
+        let search_string = ctx.get::<String>(0)?;
+        let url = ctx.get::<String>(1)?;
         let title = ctx.get::<Option<String>>(2)?.unwrap_or_default();
-        let tags = ctx.get::<Option<String>>(3)?;
-        let visit_count = ctx.get::<i64>(4)?;
-        let _typed = ctx.get::<bool>(5)?;
+        let tags = ctx.get::<Option<String>>(3)?.unwrap_or_default();
+        let visit_count = ctx.get::<u32>(4)?;
+        let typed = ctx.get::<bool>(5)?;
         let bookmarked = ctx.get::<bool>(6)?;
-        let open_page_count = ctx.get::<Option<i64>>(7)?;
-        let _match_behavior = ctx.get::<MatchBehavior>(8);
+        let open_page_count = ctx.get::<Option<u32>>(7)?.unwrap_or(0);
+        let match_behavior = ctx.get::<MatchBehavior>(8)?;
+        let search_behavior = ctx.get::<SearchBehavior>(9)?;
 
-        if !(visit_count > 0
-            || bookmarked
-            || tags.is_some()
-            || open_page_count.map(|count| count > 0).unwrap_or(false))
-        {
-            return Ok(false);
-        }
-
-        // Note: URLs are serialized as ASCII. Ideally this would actually to do something
-        // equivalent to NS_UnescapeURL, and then normalize that, but for now this is fine.
-        let trimmed_url = util::slice_up_to(&url, 255);
-        let trimmed_title = util::slice_up_to(&title, 255);
-
-        let norm_title = util::unicode_normalize(trimmed_title);
-        let norm_tags = tags.map(|s| util::unicode_normalize(&s)).unwrap_or_default();
-
-        // Note: we know that the search string is the output of `util::to_normalized_words`, so
-        // we don't need to unicode_normalize, and can just split on space.
-        let every_token_matched = search_string
-            .split(' ')
-            .all(|token| trimmed_url.contains(token) ||
-                         norm_tags.contains(token) ||
-                         norm_title.contains(token));
-
-        Ok(every_token_matched)
+        let matcher = AutocompleteMatch {
+            search_str: &search_string,
+            url_str: &url,
+            title_str: &title,
+            tags: &tags,
+            visit_count,
+            typed,
+            bookmarked,
+            open_page_count,
+            match_behavior,
+            search_behavior,
+        };
+        Ok(matcher.invoke())
     })?;
     c.create_scalar_function("hash", -1, true, move |ctx| {
         Ok(match ctx.len() {

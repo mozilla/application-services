@@ -23,6 +23,7 @@ unicode-normalization = "0.1.7"
 sql-support = { path = "../support/sql" }
 url_serde = "0.2.0"
 ffi-support = { path = "../support/ffi", optional = true }
+bitflags = "1.0.4"
 
 [dependencies.rusqlite]
 version = "0.14.0"

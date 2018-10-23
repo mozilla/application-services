@@ -31,6 +31,8 @@ extern crate caseless;
 extern crate unicode_normalization;
 extern crate sql_support;
 extern crate url_serde;
+#[macro_use]
+extern crate bitflags;
 
 #[cfg(feature = "ffi")]
 #[macro_use]
@@ -48,6 +50,7 @@ pub mod observation;
 mod util;
 #[cfg(feature = "ffi")]
 pub mod ffi;
+mod match_impl;
 
 pub use error::*;
 pub use types::*;
