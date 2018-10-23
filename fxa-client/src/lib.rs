@@ -695,7 +695,7 @@ pub struct OAuthFlow {
     pub code_verifier: String,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OAuthInfo {
     pub access_token: String,
     pub keys: Option<String>,
