@@ -96,6 +96,24 @@ open class PlacesConnection(path: String, encryption_key: String? = null) : Auto
             LibPlacesFFI.INSTANCE.places_destroy_string(cstring)
         }
     }
+
+    companion object {
+        // Constants for use on VisitObservation visitType
+        /** This transition type means the user followed a link. */
+        const val VISIT_TYPE_LINK: Int = 1
+        /** This transition type means that the user typed the page's URL in the
+         *  URL bar or selected it from UI (URL bar autocomplete results, etc).
+         */
+        const val VISIT_TYPE_TYPED: Int = 2
+        // TODO: rest of docs
+        const val VISIT_TYPE_BOOKMARK = 3
+        const val VISIT_TYPE_EMBED = 4
+        const val VISIT_TYPE_REDIRECT_PERMANENT = 5
+        const val VISIT_TYPE_REDIRECT_TEMPORARY = 6
+        const val VISIT_TYPE_DOWNLOAD = 7
+        const val VISIT_TYPE_FRAMED_LINK = 8
+        const val VISIT_TYPE_RELOAD = 9
+    }
 }
 
 open class PlacesException(msg: String): Exception(msg)

@@ -91,7 +91,8 @@ impl FromSql for Timestamp {
 
 
 // NOTE: These discriminator values are the same as those used by Desktop
-// Firefox and are what is written to the database.
+// Firefox and are what is written to the database. We also duplicate them
+// in the android lib as constants on PlacesConnection.
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum VisitTransition {
