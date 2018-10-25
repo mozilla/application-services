@@ -289,6 +289,32 @@ pub fn get_visited(db: &PlacesDb, urls: &[Url]) -> Result<Vec<bool>> {
     Ok(result)
 }
 
+/// Get the set of urls that were visited between `start` and `end`. Only considers local visits
+/// unless you pass in `include_remote`.
+pub fn get_visited_urls(db: &PlacesDb, start: Timestamp, end: Timestamp, include_remote: bool) -> Result<Vec<String>> {
+    // TODO: if `end` is >= now then we can probably just look at last_visit_date_{local,remote},
+    // and avoid touching `moz_historyvisits` at all. That said, this query is taken more or less
+    // from what places does so it's probably fine.
+    let mut stmt = db.prepare(&format!("
+        SELECT h.url
+        FROM moz_places h
+        WHERE EXISTS (
+            SELECT 1 FROM moz_historyvisits v
+            WHERE place_id = h.id
+                AND visit_date BETWEEN :start AND :end
+                {and_is_local}
+            LIMIT 1
+        )
+    ", and_is_local = if include_remote { "" } else { "AND is_local" }))?;
+
+    let iter = stmt.query_map_named(&[
+        ("start", &start),
+        ("end", &end),
+    ], |row| row.get::<_, String>(0))?;
+
+    Ok(iter.collect::<RusqliteResult<Vec<_>>>()?)
+}
+
 // Mini experiment with an "Origin" object that knows how to rev_host() itself,
 // that I don't want to throw away yet :) I'm really not sure exactly how
 // moz_origins fits in TBH :/

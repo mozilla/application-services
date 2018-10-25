@@ -59,6 +59,21 @@ open class PlacesConnection(path: String, encryption_key: String? = null) : Auto
         return result
     }
 
+    /** NB: start and end are unix timestamps in milliseconds! */
+    fun getVisitedUrlsInRange(start: Long, end: Long, includeRemote: Boolean): List<String> {
+        val urlsJson = rustCallForString { error ->
+            val incRemoteArg: Byte = if (includeRemote) { 1 } else { 0 }
+            LibPlacesFFI.INSTANCE.places_get_visited_urls_in_range(
+                    this.db!!, start, end, incRemoteArg, error)
+        }
+        val arr = JSONArray(urlsJson)
+        val result = mutableListOf<String>();
+        for (idx in 0 until arr.length()) {
+            result.add(arr.getString(idx))
+        }
+        return result
+    }
+
     private inline fun <U> rustCall(callback: (RustError.ByReference) -> U): U {
         synchronized(this) {
             val e = RustError.ByReference()
