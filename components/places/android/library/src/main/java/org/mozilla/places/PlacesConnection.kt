@@ -137,6 +137,7 @@ data class VisitObservation(
         val o = JSONObject()
         o.put("url", this.url)
         this.visitType?.let { o.put("visit_type", it) }
+        this.title?.let { o.put("title", it) }
         this.isError?.let { o.put("is_error", it) }
         this.isRedirectSource?.let { o.put("is_redirect_source", it) }
         this.isPermanentRedirectSource?.let { o.put("is_permanent_redirect_source", it) }
