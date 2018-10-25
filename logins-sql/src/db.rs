@@ -81,7 +81,7 @@ impl Deref for LoginDb {
 
 impl LoginDb {
 
-    fn mark_as_synchronized(&mut self, guids: &[&str], ts: ServerTimestamp) -> Result<()> {
+    fn mark_as_synchronized(&self, guids: &[&str], ts: ServerTimestamp) -> Result<()> {
         sql_support::each_chunk(guids, |chunk, _| -> Result<()> {
             self.db.execute(
                 &format!("DELETE FROM loginsM WHERE guid IN ({vars})",
@@ -560,9 +560,12 @@ impl LoginDb {
         Ok(plan)
     }
 
-    fn execute_plan(&mut self, plan: UpdatePlan) -> Result<()> {
-        let mut tx = self.db.transaction()?;
-        plan.execute(&mut tx)?;
+    fn execute_plan(&self, plan: UpdatePlan) -> Result<()> {
+        // Because rusqlite want a mutable reference to create a transaction
+        // (as a way to save us from ourselves), we side-step that by creating
+        // it manually.
+        let tx = self.db.unchecked_transaction()?;
+        plan.execute(&tx)?;
         tx.commit()?;
         Ok(())
     }
@@ -588,7 +591,7 @@ impl LoginDb {
     }
 
     fn do_apply_incoming(
-        &mut self,
+        &self,
         inbound: IncomingChangeset
     ) -> Result<OutgoingChangeset> {
         let data = self.fetch_login_data(&inbound.changes)?;
@@ -638,14 +641,14 @@ impl Store for LoginDb {
     type Error = Error;
 
     fn apply_incoming(
-        &mut self,
+        &self,
         inbound: IncomingChangeset
     ) -> Result<OutgoingChangeset> {
         self.do_apply_incoming(inbound)
     }
 
     fn sync_finished(
-        &mut self,
+        &self,
         new_timestamp: ServerTimestamp,
         records_synced: &[String],
     ) -> Result<()> {

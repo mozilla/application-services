@@ -2,11 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::ops::Deref;
 use rusqlite::{
     self,
     types::{ToSql, FromSql},
     Connection,
     Transaction,
+    TransactionBehavior,
     Savepoint,
     Row,
     Result as SqlResult,
@@ -98,6 +100,10 @@ pub trait ConnExt {
             }
         })
     }
+
+    fn unchecked_transaction(&self) -> SqlResult<UncheckedTransaction> {
+        UncheckedTransaction::new(self.conn(), TransactionBehavior::Deferred)
+    }
 }
 
 impl ConnExt for Connection {
@@ -115,6 +121,83 @@ impl<'conn> ConnExt for Transaction<'conn> {
 }
 
 impl<'conn> ConnExt for Savepoint<'conn> {
+    #[inline]
+    fn conn(&self) -> &Connection {
+        &*self
+    }
+}
+
+/// rusqlite, in an attempt to save us from ourselves, needs a mutable ref to
+/// a connection to start a transaction. That is a bit of a PITA in some cases,
+/// so we offer this as an alternative - but the responsibility of ensuring
+/// there are no concurrent transactions is on our head.
+///
+/// This is very similar to the rusqlite `Transaction` - it doesn't prevent
+/// against nested transactions but does allow you to use an immutable
+/// `Connection`.
+pub struct UncheckedTransaction<'conn> {
+    conn: &'conn Connection,
+    // we could add drop_behavior etc too, but we don't need it yet - we
+    // always rollback.
+}
+
+impl<'conn> UncheckedTransaction<'conn> {
+    /// Begin a new unchecked transaction. Cannot be nested, but this is not
+    /// enforced (hence 'unchecked'); use a rusqlite `savepoint` for nested
+    /// transactions.
+    pub fn new(conn: &'conn Connection, behavior: TransactionBehavior) -> SqlResult<Self> {
+        let query = match behavior {
+            TransactionBehavior::Deferred => "BEGIN DEFERRED",
+            TransactionBehavior::Immediate => "BEGIN IMMEDIATE",
+            TransactionBehavior::Exclusive => "BEGIN EXCLUSIVE",
+        };
+        conn.execute_batch(query).map(move |_| UncheckedTransaction {
+            conn,
+        })
+    }
+
+    /// Consumes and commits an unchecked transaction.
+    pub fn commit(self) -> SqlResult<()> {
+        self.conn.execute_batch("COMMIT")?;
+        Ok(())
+    }
+
+    /// Consumes and rolls back an unchecked transaction.
+    pub fn rollback(self) -> SqlResult<()> {
+        self.rollback_()
+    }
+
+    fn rollback_(&self) -> SqlResult<()> {
+        self.conn.execute_batch("ROLLBACK")?;
+        Ok(())
+    }
+
+    fn finish_(&self) -> SqlResult<()> {
+        if self.conn.is_autocommit() {
+            return Ok(());
+        }
+        self.rollback_()?;
+        Ok(())
+    }
+}
+
+impl<'conn> Deref for UncheckedTransaction<'conn> {
+    type Target = Connection;
+
+    fn deref(&self) -> &Connection {
+        self.conn
+    }
+}
+
+impl<'conn> Drop for UncheckedTransaction<'conn> {
+    fn drop(&mut self) {
+        if let Err(e) = self.finish_() {
+            warn!("Error dropping an unchecked transaction: {}", e);
+        }
+    }
+}
+
+impl<'conn> ConnExt for UncheckedTransaction<'conn> {
     #[inline]
     fn conn(&self) -> &Connection {
         &*self

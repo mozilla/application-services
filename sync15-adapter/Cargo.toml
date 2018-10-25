@@ -23,6 +23,3 @@ failure_derive = "0.1.2"
 env_logger = "0.5"
 prettytable-rs = "0.6"
 fxa-client = { path = "../fxa-client" }
-
-[[example]]
-name = "sync-pass"
