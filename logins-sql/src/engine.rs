@@ -6,7 +6,7 @@ use error::*;
 use sync::{self, Sync15StorageClient, Sync15StorageClientInit, GlobalState, KeyBundle};
 use db::LoginDb;
 use std::path::Path;
-use std::cell::RefCell;
+use std::cell::Cell;
 use serde_json;
 use rusqlite;
 
@@ -22,7 +22,7 @@ pub(crate) struct SyncInfo {
 // really a bundle of state that contains the sync storage client, the sync
 // state, and the login DB.
 pub struct PasswordEngine {
-    sync: RefCell<Option<SyncInfo>>,
+    sync: Cell<Option<SyncInfo>>,
     db: LoginDb,
 }
 
@@ -30,12 +30,12 @@ impl PasswordEngine {
 
     pub fn new(path: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Self> {
         let db = LoginDb::open(path, encryption_key)?;
-        Ok(Self { db, sync: RefCell::new(None) })
+        Ok(Self { db, sync: Cell::new(None) })
     }
 
     pub fn new_in_memory(encryption_key: Option<&str>) -> Result<Self> {
         let db = LoginDb::open_in_memory(encryption_key)?;
-        Ok(Self { db, sync: RefCell::new(None) })
+        Ok(Self { db, sync: Cell::new(None) })
     }
 
     pub fn list(&self) -> Result<Vec<Login>> {
