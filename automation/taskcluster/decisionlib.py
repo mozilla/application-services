@@ -54,10 +54,21 @@ class Config:
         self.git_ref = os.environ.get("GIT_REF")
         self.git_sha = os.environ.get("GIT_SHA")
 
+        # Map directory string to git sha for that directory.
+        self._git_sha_for_directory = {}
+
     def git_sha_is_current_head(self):
         output = subprocess.check_output(["git", "rev-parse", "HEAD"])
         self.git_sha = output.decode("utf8").strip()
 
+    def git_sha_for_directory(self, directory):
+        try:
+            return self._git_sha_for_directory[directory]
+        except KeyError:
+            output = subprocess.check_output(["git", "rev-parse", "HEAD:{}".format(directory)])
+            sha = output.decode("utf8").strip()
+            self._git_sha_for_directory[directory] = sha
+            return sha
 
 
 class Shared:

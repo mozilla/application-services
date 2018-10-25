@@ -29,7 +29,6 @@ SQLCIPHER_CFLAGS=" \
   -DSQLITE_SOUNDEX \
   -DHAVE_USLEEP=1 \
   -DSQLITE_MAX_VARIABLE_NUMBER=99999 \
-  -DSQLITE_TEMP_STORE=3 \
   -DSQLITE_THREADSAFE=1 \
   -DSQLITE_DEFAULT_JOURNAL_SIZE_LIMIT=1048576 \
   -DNDEBUG=1 \
@@ -55,12 +54,26 @@ rm -rf "$SQLCIPHER_SRC_PATH/build-desktop"
 mkdir -p "$SQLCIPHER_SRC_PATH/build-desktop/install-prefix"
 pushd "$SQLCIPHER_SRC_PATH/build-desktop"
 
-../configure --prefix="$PWD/install-prefix" \
-  --enable-tempstore=yes \
-  CFLAGS="$SQLCIPHER_CFLAGS -I$OPENSSL_DIR/include -L$OPENSSL_DIR/lib" \
-  LDFLAGS="-lcrypto -lm"
+make clean || true
 
-make -j6 && make install
+if [ $(uname -s) == "Darwin" ]; then
+  ../configure --prefix="$PWD/install-prefix" \
+    --enable-tempstore=yes \
+    CFLAGS="${SQLCIPHER_CFLAGS} -I${OPENSSL_DIR}/include -L${OPENSSL_DIR}/lib" \
+    LDFLAGS="-lcrypto -lm"
+elif [ $(uname -s) == "Linux" ]; then
+  ../configure --prefix="$PWD/install-prefix" \
+    --enable-tempstore=yes \
+    CFLAGS="${SQLCIPHER_CFLAGS} -I${OPENSSL_DIR}/include -L${OPENSSL_DIR}/lib" \
+    LIBS="-ldl -lcrypto -lm" \
+    LDFLAGS="${OPENSSL_DIR}/lib/libcrypto.a "
+else
+   echo "Cannot build SQLcipher on unrecognized host OS $(uname -s)"
+   exit 1
+fi
+
+make -j6
+make install
 
 mkdir -p "$SQLCIPHER_DIR/lib"
 cp -r "install-prefix/include" "$SQLCIPHER_DIR"

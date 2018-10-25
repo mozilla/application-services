@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+
 version: 1
 policy:
   # https://docs.taskcluster.net/docs/reference/integrations/taskcluster-github/docs/taskcluster-yml-v1#pull-requests
@@ -14,7 +15,7 @@ tasks:
         taskGroupId: {$eval: as_slugid("decision_task")}
         taskId: {$eval: as_slugid("decision_task")}
         provisionerId: aws-provisioner-v1
-        workerType: github-worker
+        workerType: application-services-r
         created: {$fromNow: ''}
         deadline: {$fromNow: '1 day'}
         metadata:
@@ -23,7 +24,7 @@ tasks:
           owner: &task_owner ${event.pull_request.head.user.login}@users.noreply.github.com
           source: &task_source ${event.pull_request.head.repo.url}
         scopes:
-          - "queue:create-task:aws-provisioner-v1/github-worker"
+          - "queue:create-task:highest:aws-provisioner-v1/application-services-r"
           - "queue:scheduler-id:taskcluster-github"
 
           # # Granted to role https://tools.taskcluster.net/auth/roles/repo%3Agithub.com%2Fmozilla%2Fapplication-services%3A*

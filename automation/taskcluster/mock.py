@@ -45,10 +45,10 @@ os.environ["GIT_REF"] = "refs/heads/auto"
 import decision_task_pull_request as decision_task
 
 print("\n# Push:")
-decision_task.main("github-push", mock=True)
+decision_task.main("github-pull-request", mock=True)
 
 print("\n# Push with hot caches:")
-decision_task.main("github-push", mock=True)
+decision_task.main("github-pull-request", mock=True)
 
 # print("\n# Daily:")
 # decision_task.main("daily", mock=True)

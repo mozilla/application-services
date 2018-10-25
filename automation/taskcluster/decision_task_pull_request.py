@@ -11,7 +11,9 @@ from decisionlib import *
 def main(task_for, mock=False):
     if task_for == "github-pull-request":
         # linux_tidy_unit()
-        android_arm32()
+        android_libs_task = android_libs()
+        desktop_linux_libs_task = desktop_linux_libs()
+        android_arm32(android_libs_task)
         # if mock:
         #     linux_wpt()
         #     linux_build_task("Indexed by task definition").find_or_create()
@@ -59,19 +61,51 @@ linux_build_env = {
 #     """).create()
 
 
-def android_arm32():
+# TODO: work through /repo vs /build/repo
+
+def android_libs():
+    return (
+        linux_build_task("Android libs (all architectures): build")
+        .with_script("""
+            ./scripts/taskcluster-android.sh
+            tar -czf /build/repo/target.tar.gz libs/android
+        """)
+        # XXX names change: public/bin/mozilla/XXX to public/XXX
+        .with_artifacts(
+            "/build/repo/target.tar.gz",
+        )
+        .find_or_create("build.libs.android." + CONFIG.git_sha_for_directory("libs"))
+    )
+
+def desktop_linux_libs():
+    return (
+        linux_build_task("Desktop libs (Linux): build")
+        .with_script("""
+            pushd libs && ./build-all.sh desktop && popd
+            tar -czf /build/repo/target.tar.gz libs/desktop
+        """)
+        # XXX names change: public/bin/mozilla/XXX to public/XXX
+        .with_artifacts(
+            "/build/repo/target.tar.gz",
+        )
+        .find_or_create("build.libs.desktop.linux." + CONFIG.git_sha_for_directory("libs"))
+    )
+
+def android_arm32(build_task):
     return (
         linux_build_task("Android (all architectures): build")
         # file: NDK parses $(file $SHELL) to tell x64 host from x86
         # wget: servo-media-gstreamer’s build script
+        .with_env(BUILD_TASK_ID=build_task)
+        .with_dependencies(build_task)
         .with_script("""
-            ./scripts/taskcluster-android.sh \
+            ./automation/taskcluster/curl-artifact.sh ${BUILD_TASK_ID} target.tar.gz | tar -xz
             ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease
         """)
         # XXX names change: public/bin/mozilla/XXX to public/XXX
         .with_artifacts(
-            "/repo/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-release.aar",
-            "/repo/logins-api/android/library/build/outputs/aar/logins-release.aar",
+            "/build/repo/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-release.aar",
+            "/build/repo/logins-api/android/library/build/outputs/aar/logins-release.aar",
         )
         .create()
         # .find_or_create("build.android_armv7_release." + CONFIG.git_sha)
@@ -121,7 +155,7 @@ def android_arm32():
 #     """
 #     # FIXME: --reporter-api default
 #     # IndexError: list index out of range
-#     # File "/repo/python/servo/testing_commands.py", line 533, in filter_intermittents
+#     # File "/build/repo/python/servo/testing_commands.py", line 533, in filter_intermittents
 #     #   pull_request = int(last_merge.split(' ')[4][1:])
 #     if this_chunk == 1:
 #         name += " + extra"
@@ -151,7 +185,7 @@ def android_arm32():
 #         .with_script(script)
 #         .with_index_and_artifacts_expire_in(log_artifacts_expire_in)
 #         .with_artifacts(*[
-#             "/repo/" + word
+#             "/build/repo/" + word
 #             for word in script.split() if word.endswith(".log")
 #         ])
 #         .with_max_run_time_minutes(60)
@@ -163,7 +197,7 @@ def dockerfile_path(name):
 
 
 def linux_task(name):
-    return DockerWorkerTask(name).with_worker_type("github-worker")
+    return DockerWorkerTask(name).with_worker_type("application-services-r")
 
 
 def linux_build_task(name):
