@@ -180,7 +180,10 @@ def linux_build_task(name):
         # })
         .with_index_and_artifacts_expire_in(build_artifacts_expire_in)
         .with_max_run_time_minutes(60)
-        .with_dockerfile(dockerfile_path("build"))
+        .with_docker_image(
+            'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-1.28.0-rust-beta-1.29.0-beta.15'
+        )
+        # .with_dockerfile(dockerfile_path("build"))
         .with_env(**build_env, **linux_build_env)
         .with_repo()
         .with_index_and_artifacts_expire_in(build_artifacts_expire_in)
