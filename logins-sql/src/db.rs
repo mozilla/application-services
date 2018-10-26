@@ -525,7 +525,7 @@ impl LoginDb {
         // (as a way to save us from ourselves), we side-step that by creating
         // it manually.
         let tx = self.db.unchecked_transaction()?;
-        plan.execute(&self.db)?;
+        plan.execute(&tx)?;
         tx.commit()?;
         Ok(())
     }

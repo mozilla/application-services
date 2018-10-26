@@ -127,10 +127,14 @@ impl<'conn> ConnExt for Savepoint<'conn> {
     }
 }
 
-// rusqlite, in an attempt to save us from ourselves, needs a mutable ref to
-// a connection to start a transaction. That is a bit of a PITA in some cases,
-// so we offer this as an alternative - but the responsibility of ensuring
-// there are no concurrent transactions is on our head.
+/// rusqlite, in an attempt to save us from ourselves, needs a mutable ref to
+/// a connection to start a transaction. That is a bit of a PITA in some cases,
+/// so we offer this as an alternative - but the responsibility of ensuring
+/// there are no concurrent transactions is on our head.
+///
+/// This is very similar to the rusqlite `Transaction` - it doesn't prevent
+/// against nested transactions but does allow you to use an immutable
+/// `Connection`.
 pub struct UncheckedTransaction<'conn> {
     conn: &'conn Connection,
     // we could add drop_behavior etc too, but we don't need it yet - we
@@ -138,6 +142,9 @@ pub struct UncheckedTransaction<'conn> {
 }
 
 impl<'conn> UncheckedTransaction<'conn> {
+    /// Begin a new unchecked transaction. Cannot be nested, but this is not
+    /// enforced (hence 'unchecked'); use a rusqlite `savepoint` for nested
+    /// transactions.
     pub fn new(conn: &'conn Connection, behavior: TransactionBehavior) -> SqlResult<Self> {
         let query = match behavior {
             TransactionBehavior::Deferred => "BEGIN DEFERRED",
@@ -149,11 +156,13 @@ impl<'conn> UncheckedTransaction<'conn> {
         })
     }
 
+    /// Consumes and commits an unchecked transaction.
     pub fn commit(self) -> SqlResult<()> {
         self.conn.execute_batch("COMMIT")?;
         Ok(())
     }
 
+    /// Consumes and rolls back an unchecked transaction.
     pub fn rollback(self) -> SqlResult<()> {
         self.rollback_()
     }
@@ -180,10 +189,11 @@ impl<'conn> Deref for UncheckedTransaction<'conn> {
     }
 }
 
-#[allow(unused_must_use)]
 impl<'conn> Drop for UncheckedTransaction<'conn> {
     fn drop(&mut self) {
-        self.finish_();
+        if let Err(e) = self.finish_() {
+            warn!("Error dropping an unchecked transaction: {}", e);
+        }
     }
 }
 

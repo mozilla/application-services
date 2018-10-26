@@ -143,8 +143,8 @@ afterEvaluate {
 
 archivesBaseName = 'places'
 
-// apply from: '../../../../publish.gradle'
-// ext.configurePublish(
-//         'org.mozilla.places',
-//         'places',
-//         'Low level places storage implementation.')
+apply from: '../../../../publish.gradle'
+ext.configurePublish(
+        'org.mozilla.places',
+        'places',
+        'Low level places storage implementation.')

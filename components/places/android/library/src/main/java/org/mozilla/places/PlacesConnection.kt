@@ -59,6 +59,21 @@ open class PlacesConnection(path: String, encryption_key: String? = null) : Auto
         return result
     }
 
+    /** NB: start and end are unix timestamps in milliseconds! */
+    fun getVisitedUrlsInRange(start: Long, end: Long, includeRemote: Boolean): List<String> {
+        val urlsJson = rustCallForString { error ->
+            val incRemoteArg: Byte = if (includeRemote) { 1 } else { 0 }
+            LibPlacesFFI.INSTANCE.places_get_visited_urls_in_range(
+                    this.db!!, start, end, incRemoteArg, error)
+        }
+        val arr = JSONArray(urlsJson)
+        val result = mutableListOf<String>();
+        for (idx in 0 until arr.length()) {
+            result.add(arr.getString(idx))
+        }
+        return result
+    }
+
     private inline fun <U> rustCall(callback: (RustError.ByReference) -> U): U {
         synchronized(this) {
             val e = RustError.ByReference()
@@ -80,6 +95,24 @@ open class PlacesConnection(path: String, encryption_key: String? = null) : Auto
         } finally {
             LibPlacesFFI.INSTANCE.places_destroy_string(cstring)
         }
+    }
+
+    companion object {
+        // Constants for use on VisitObservation visitType
+        /** This transition type means the user followed a link. */
+        const val VISIT_TYPE_LINK: Int = 1
+        /** This transition type means that the user typed the page's URL in the
+         *  URL bar or selected it from UI (URL bar autocomplete results, etc).
+         */
+        const val VISIT_TYPE_TYPED: Int = 2
+        // TODO: rest of docs
+        const val VISIT_TYPE_BOOKMARK = 3
+        const val VISIT_TYPE_EMBED = 4
+        const val VISIT_TYPE_REDIRECT_PERMANENT = 5
+        const val VISIT_TYPE_REDIRECT_TEMPORARY = 6
+        const val VISIT_TYPE_DOWNLOAD = 7
+        const val VISIT_TYPE_FRAMED_LINK = 8
+        const val VISIT_TYPE_RELOAD = 9
     }
 }
 
@@ -104,6 +137,7 @@ data class VisitObservation(
         val o = JSONObject()
         o.put("url", this.url)
         this.visitType?.let { o.put("visit_type", it) }
+        this.title?.let { o.put("title", it) }
         this.isError?.let { o.put("is_error", it) }
         this.isRedirectSource?.let { o.put("is_redirect_source", it) }
         this.isPermanentRedirectSource?.let { o.put("is_permanent_redirect_source", it) }
