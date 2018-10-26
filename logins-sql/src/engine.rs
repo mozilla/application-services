@@ -5,7 +5,7 @@ use std::result;
 use login::Login;
 use error::*;
 use failure;
-use sync::{Sync15StorageClientInit, GlobalState, Store};
+use sync::{Sync15StorageClientInit, GlobalState};
 use sync::driver::{GlobalStateProvider};
 use db::LoginDb;
 use std::path::Path;

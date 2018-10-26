@@ -584,6 +584,51 @@ impl LoginDb {
     pub fn get_global_state(&self) -> Result<Option<String>> {
         self.get_meta::<String>(schema::GLOBAL_STATE_META_KEY)
     }
+
+    pub fn reset(&self) -> Result<()> {
+        self.execute_all(&[
+            &*CLONE_ENTIRE_MIRROR_SQL,
+            "DELETE FROM loginsM",
+            &format!("UPDATE loginsL SET sync_status = {}", SyncStatus::New as u8),
+        ])?;
+        self.set_last_sync(ServerTimestamp(0.0))?;
+        Ok(())
+    }
+
+    pub fn wipe(&self) -> Result<()> {
+        let now_ms = util::system_time_ms_i64(SystemTime::now());
+        self.execute(&format!("DELETE FROM loginsL WHERE sync_status = {new}", new = SyncStatus::New as u8), &[])?;
+        self.execute_named(
+            &format!("
+                UPDATE loginsL
+                SET local_modified = :now_ms,
+                    sync_status = {changed},
+                    is_deleted = 1,
+                    password = '',
+                    hostname = '',
+                    username = ''
+                WHERE is_deleted = 0",
+                changed = SyncStatus::Changed as u8),
+            &[(":now_ms", &now_ms as &ToSql)])?;
+
+        self.execute("UPDATE loginsM SET is_overridden = 1", &[])?;
+
+        self.execute_named(
+            &format!("
+                INSERT OR IGNORE INTO loginsL
+                      (guid, local_modified, is_deleted, sync_status, hostname, timeCreated, timePasswordChanged, password, username)
+                SELECT guid, :now_ms,        1,          {changed},   '',       timeCreated, :now_ms,             '',       ''
+                FROM loginsM",
+                changed = SyncStatus::Changed as u8),
+            &[(":now_ms", &now_ms as &ToSql)])?;
+        Ok(())
+    }
+
+    fn set_last_sync(&self, last_sync: ServerTimestamp) -> Result<()> {
+        debug!("Updating last sync to {}", last_sync);
+        let last_sync_millis = last_sync.as_millis() as i64;
+        self.put_meta(schema::LAST_SYNC_META_KEY, &last_sync_millis)
+    }
 }
 
 impl Store for LoginDb {
@@ -611,53 +656,18 @@ impl Store for LoginDb {
     }
 
     fn set_last_sync(&self, last_sync: ServerTimestamp) -> result::Result<(), failure::Error> {
-        debug!("Updating last sync to {}", last_sync);
-        let last_sync_millis = last_sync.as_millis() as i64;
-        Ok(self.put_meta(schema::LAST_SYNC_META_KEY, &last_sync_millis)?)
+        Ok(LoginDb::set_last_sync(self, last_sync)?)
     }
 
     fn reset(&self) -> result::Result<(), failure::Error> {
         info!("Executing reset on password store!");
-        self.execute_all(&[
-            &*CLONE_ENTIRE_MIRROR_SQL,
-            "DELETE FROM loginsM",
-            &format!("UPDATE loginsL SET sync_status = {}", SyncStatus::New as u8),
-        ])?;
-        self.set_last_sync(ServerTimestamp(0.0))?;
-        // TODO: Should we clear global_state? (although note that this should
-        // probably be the responsibility of the caller rather than us)
+        LoginDb::reset(self)?;
         Ok(())
     }
 
     fn wipe(&self) -> result::Result<(), failure::Error> {
         info!("Executing wipe on password store!");
-        let now_ms = util::system_time_ms_i64(SystemTime::now());
-
-        self.execute(&format!("DELETE FROM loginsL WHERE sync_status = {new}", new = SyncStatus::New as u8), &[])?;
-        self.execute_named(
-            &format!("
-                UPDATE loginsL
-                SET local_modified = :now_ms,
-                    sync_status = {changed},
-                    is_deleted = 1,
-                    password = '',
-                    hostname = '',
-                    username = ''
-                WHERE is_deleted = 0",
-                changed = SyncStatus::Changed as u8),
-            &[(":now_ms", &now_ms as &ToSql)])?;
-
-        self.execute("UPDATE loginsM SET is_overridden = 1", &[])?;
-
-        self.execute_named(
-            &format!("
-                INSERT OR IGNORE INTO loginsL
-                      (guid, local_modified, is_deleted, sync_status, hostname, timeCreated, timePasswordChanged, password, username)
-                SELECT guid, :now_ms,        1,          {changed},   '',       timeCreated, :now_ms,             '',       ''
-                FROM loginsM",
-                changed = SyncStatus::Changed as u8),
-            &[(":now_ms", &now_ms as &ToSql)])?;
-
+        LoginDb::wipe(self)?;
         Ok(())
     }
 }

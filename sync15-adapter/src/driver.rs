@@ -10,6 +10,7 @@ use client::{Sync15StorageClient, Sync15StorageClientInit};
 use state::{GlobalState, SetupStateMachine};
 use sync::{self, Store};
 use key_bundle::KeyBundle;
+use error::Error;
 
 
 pub trait GlobalStateProvider {
@@ -28,7 +29,7 @@ pub fn sync_global(
     gsp: &GlobalStateProvider,
     storage_init: &Sync15StorageClientInit,
     root_sync_key: &KeyBundle
-) -> result::Result<(), failure::Error> {
+) -> result::Result<(), Error> {
     let maybe_global = gsp.load()?;
     // Note: We explicitly write a None back as the state, meaning if we
     // unexpectedly fail below, the next sync will redownload meta/global,
