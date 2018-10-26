@@ -29,7 +29,7 @@ use logins_sql::{
     PasswordEngine,
 };
 
-use sync15_adapter::sync;
+use sync15_adapter::sync_global;
 
 fn logging_init() {
     #[cfg(target_os = "android")]
@@ -73,7 +73,7 @@ pub unsafe extern "C" fn sync15_passwords_sync(
     trace!("sync15_passwords_sync");
     // TODO: Is there any way to convince rust that some `&mut T` is unwind safe?
     call_with_result(error, || {
-        sync(
+        sync_global(
             &state.db,
             &state.db,
             &sync15_adapter::Sync15StorageClientInit {

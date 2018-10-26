@@ -23,7 +23,7 @@ pub trait GlobalStateProvider {
     fn set_client_init(&self, init: Option<Sync15StorageClientInit>) -> result::Result<(), failure::Error>;
 }
 
-pub fn sync(
+pub fn sync_global(
     store: &Store,
     gsp: &GlobalStateProvider,
     storage_init: &Sync15StorageClientInit,
