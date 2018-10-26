@@ -34,7 +34,7 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
     // heuristic matches, since that's all we support.
 
     // Try to match on the origin, or the full URL.
-    let origin_or_url = OriginOrURL::new(&params.search_string, conn);
+    let origin_or_url = OriginOrUrl::new(&params.search_string, conn);
     let origin_or_url_matches = origin_or_url.search()?;
     matches.extend(origin_or_url_matches);
 
@@ -254,14 +254,14 @@ impl SearchResult {
     }
 }
 
-struct OriginOrURL<'query, 'conn> {
+struct OriginOrUrl<'query, 'conn> {
     query: &'query str,
     conn: &'conn PlacesDb,
 }
 
-impl<'query, 'conn> OriginOrURL<'query, 'conn> {
-    pub fn new(query: &'query str, conn: &'conn PlacesDb) -> OriginOrURL<'query, 'conn> {
-        OriginOrURL { query, conn }
+impl<'query, 'conn> OriginOrUrl<'query, 'conn> {
+    pub fn new(query: &'query str, conn: &'conn PlacesDb) -> OriginOrUrl<'query, 'conn> {
+        OriginOrUrl { query, conn }
     }
 
     pub fn search(&self) -> Result<Vec<SearchResult>> {
@@ -303,11 +303,11 @@ impl<'query, 'conn> OriginOrURL<'query, 'conn> {
         } else if self.query.contains(|c| c == '/' || c == ':' || c == '?') {
             let (host, stripped_url) = split_after_host_and_port(self.query);
             let mut stmt = self.conn.db.prepare("
-                SELECT h.url,
+                SELECT h.url as url,
                        :strippedURL AS displayURL,
-                       h.frecency,
+                       h.frecency as frecency,
                        h.foreign_count > 0 AS bookmarked,
-                       h.id,
+                       h.id as id,
                        :searchString AS searchString
                 FROM moz_places h
                 JOIN moz_origins o ON o.id = h.origin_id
@@ -316,11 +316,11 @@ impl<'query, 'conn> OriginOrURL<'query, 'conn> {
                       AND h.hidden = 0
                       AND strip_prefix_and_userinfo(h.url) BETWEEN :strippedURL AND :strippedURL || X'FFFF'
                 UNION ALL
-                SELECT h.url,
+                SELECT h.url as url,
                        :strippedURL AS displayURL,
-                       h.frecency,
+                       h.frecency as frecency,
                        h.foreign_count > 0 AS bookmarked,
-                       h.id,
+                       h.id as id,
                        :searchString AS searchString
                 FROM moz_places h
                 JOIN moz_origins o ON o.id = h.origin_id
@@ -382,7 +382,8 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
 
     pub fn search(&self) -> Result<Vec<SearchResult>> {
         let mut stmt = self.conn.db.prepare("
-            SELECT h.url, h.title,
+            SELECT h.url as url,
+                   h.title as title,
                    EXISTS(SELECT 1 FROM moz_bookmarks
                           WHERE fk = h.id) AS bookmarked,
                    (SELECT title FROM moz_bookmarks
@@ -391,8 +392,11 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
                     ORDER BY lastModified DESC
                     LIMIT 1) AS btitle,
                    NULL AS tags,
-                   h.visit_count_local + h.visit_count_remote AS visit_count, h.typed,
-                   h.id, NULL AS open_count, h.frecency,
+                   h.visit_count_local + h.visit_count_remote AS visit_count,
+                   h.typed as typed,
+                   h.id as id,
+                   NULL AS open_count,
+                   h.frecency as frecency,
                    :searchString AS searchString
             FROM (
               SELECT ROUND(MAX(use_count) * (1 + (input = :searchString)), 1) AS rank,
@@ -466,7 +470,9 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
                     ORDER BY lastModified DESC
                     LIMIT 1) AS btitle,
                    NULL AS tags,
-                   h.visit_count_local + h.visit_count_remote AS visit_count, h.typed, h.id,
+                   h.visit_count_local + h.visit_count_remote AS visit_count,
+                   h.typed as typed,
+                   h.id as id,
                    NULL AS open_count, h.frecency, :searchString AS searchString
             FROM moz_places h
             WHERE h.frecency > 0
