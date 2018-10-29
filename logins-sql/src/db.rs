@@ -12,7 +12,8 @@ use std::result;
 use failure;
 use schema;
 use login::{LocalLogin, MirrorLogin, Login, SyncStatus, SyncLoginData};
-use sync::{self, ServerTimestamp, IncomingChangeset, Store, OutgoingChangeset, Payload, Sync15StorageClientInit};
+use sync::{self, ServerTimestamp, IncomingChangeset, Store, OutgoingChangeset, Payload};
+use sync::driver::{ClientInfo};
 use update_plan::UpdatePlan;
 use sql_support::{self, ConnExt};
 use util;
@@ -20,7 +21,7 @@ use std::ops::Deref;
 
 pub struct LoginDb {
     pub db: Connection,
-    pub client_init: RefCell<Option<Sync15StorageClientInit>>,
+    pub client_info: RefCell<Option<ClientInfo>>,
 }
 
 impl LoginDb {
@@ -51,7 +52,7 @@ impl LoginDb {
 
         db.execute_batch(&initial_pragmas)?;
 
-        let mut logins = Self { db, client_init: RefCell::new(None) };
+        let mut logins = Self { db, client_info: RefCell::new(None) };
         schema::init(&mut logins)?;
         Ok(logins)
     }

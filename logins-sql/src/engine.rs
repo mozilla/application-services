@@ -5,8 +5,8 @@ use std::result;
 use login::Login;
 use error::*;
 use failure;
-use sync::{Sync15StorageClientInit, GlobalState};
-use sync::driver::{GlobalStateProvider};
+use sync::{GlobalState};
+use sync::driver::{GlobalStateProvider, ClientInfo};
 use db::LoginDb;
 use std::path::Path;
 use serde_json;
@@ -42,13 +42,8 @@ impl GlobalStateProvider for LoginDb {
         Ok(())
     }
 
-    fn get_client_init(&self) -> result::Result<Option<Sync15StorageClientInit>, failure::Error> {
-        Ok(self.client_init.replace(None))
-    }
-
-    fn set_client_init(&self, init: Option<Sync15StorageClientInit>) -> result::Result<(), failure::Error> {
-        self.client_init.replace(init);
-        Ok(())
+    fn swap_client_info(&self, new_info: Option<ClientInfo>) -> result::Result<Option<ClientInfo>, failure::Error> {
+        Ok(self.client_info.replace(new_info))
     }
 }
 

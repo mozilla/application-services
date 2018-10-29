@@ -32,7 +32,7 @@ use failure::Fail;
 use std::{fs, io::{self, Read, Write}};
 use std::collections::HashMap;
 use fxa_client::{FirefoxAccount, Config, OAuthInfo};
-use sync::{Sync15StorageClientInit, KeyBundle, Store, sync_global};
+use sync::{Sync15StorageClientInit, KeyBundle, sync_global};
 use logins_sql::{PasswordEngine, Login};
 
 const CLIENT_ID: &str = "98adfa37698f255b";
