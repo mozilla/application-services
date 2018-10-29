@@ -14,6 +14,8 @@ use util::ServerTimestamp;
 /// Different stores will produce errors of different types.  To accommodate this, we force them
 /// all to return failure::Error, which we expose as ErrorKind::StoreError.
 pub trait Store {
+    fn collection_name(&self) -> String;
+
     fn apply_incoming(
         &self,
         inbound: IncomingChangeset
@@ -27,7 +29,9 @@ pub trait Store {
 
     fn get_last_sync(&self) -> Result<Option<ServerTimestamp>, failure::Error>;
 
-    fn set_last_sync(&self, last_sync: ServerTimestamp) -> Result<(), failure::Error>;
+    // Note there's no set_last_sync - it is expected that a Store will set
+    // the timestamp internally as part of sync_finished.
+//    fn set_last_sync(&self, last_sync: ServerTimestamp) -> Result<(), failure::Error>;
 
     fn reset(&self) -> Result<(), failure::Error>;
 
@@ -37,11 +41,11 @@ pub trait Store {
 pub fn synchronize(client: &Sync15StorageClient,
                    state: &GlobalState,
                    store: &Store,
-                   collection: String,
                    timestamp: ServerTimestamp,
                    fully_atomic: bool) -> Result<(), Error>
 {
 
+    let collection = store.collection_name();
     info!("Syncing collection {}", collection);
     let incoming_changes = IncomingChangeset::fetch(client, state, collection.clone(), timestamp)?;
     let last_changed_remote = incoming_changes.timestamp;

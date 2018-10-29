@@ -633,6 +633,10 @@ impl LoginDb {
 }
 
 impl Store for LoginDb {
+    fn collection_name(&self) -> String {
+        "passwords".into()
+    }
+
     fn apply_incoming(
         &self,
         inbound: IncomingChangeset
@@ -654,10 +658,6 @@ impl Store for LoginDb {
     fn get_last_sync(&self) -> result::Result<Option<ServerTimestamp>, failure::Error> {
         Ok(self.get_meta::<i64>(schema::LAST_SYNC_META_KEY)?
             .map(|millis| ServerTimestamp(millis as f64 / 1000.0)))
-    }
-
-    fn set_last_sync(&self, last_sync: ServerTimestamp) -> result::Result<(), failure::Error> {
-        Ok(LoginDb::set_last_sync(self, last_sync)?)
     }
 
     fn reset(&self) -> result::Result<(), failure::Error> {

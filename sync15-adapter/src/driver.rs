@@ -88,8 +88,8 @@ pub fn sync_global(
     }
 
     // Reset our local state if necessary.
-    if global_state.engines_that_need_local_reset().contains("passwords") {
-        info!("Passwords sync ID changed; engine needs local reset");
+    if global_state.engines_that_need_local_reset().contains(&store.collection_name()) {
+        info!("{} sync ID changed; engine needs local reset", &store.collection_name());
         store.reset()?;
     }
 
@@ -97,7 +97,7 @@ pub fn sync_global(
     info!("Updating persisted global state");
     gsp.save(Some(&global_state))?;
 
-    info!("Syncing passwords engine!");
+    info!("Syncing engine!");
     let ts = store.get_last_sync()?.unwrap_or_default();
 
     // We don't use `?` here so that we can restore the value of of
@@ -106,7 +106,6 @@ pub fn sync_global(
         &client_info.client,
         &global_state,
         store,
-        "passwords".into(),
         ts,
         true
     );
