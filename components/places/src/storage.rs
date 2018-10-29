@@ -202,7 +202,7 @@ pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> 
 }
 
 fn new_page_info(db: &impl ConnExt, url: &Url) -> Result<PageInfo> {
-    let guid = super::sync::util::random_guid().expect("according to logins-sql, this is fine :)");
+    let guid = super::sync15_adapter::util::random_guid().expect("according to logins-sql, this is fine :)");
     let sql = "INSERT INTO moz_places (guid, url, url_hash)
                VALUES (:guid, :url, hash(:url))";
     db.execute_named_cached(sql, &[

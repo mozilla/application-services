@@ -8,7 +8,7 @@
 
 use rusqlite;
 use ffi_support::{ErrorCode, ExternError};
-use sync::{ErrorKind as Sync15ErrorKind};
+use sync15_adapter::{ErrorKind as Sync15ErrorKind};
 use {Error, ErrorKind, PasswordEngine, Login};
 
 pub mod error_codes {

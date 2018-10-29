@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use sync::{self, ServerTimestamp};
+use sync15_adapter::{self, ServerTimestamp};
 use rusqlite::Row;
 use util;
 use std::time::{self, SystemTime};
@@ -242,7 +242,7 @@ impl SyncLoginData {
     }
 
     #[inline]
-    pub fn from_payload(payload: sync::Payload, ts: ServerTimestamp) -> Result<Self> {
+    pub fn from_payload(payload: sync15_adapter::Payload, ts: ServerTimestamp) -> Result<Self> {
         let guid = payload.id.clone();
         let login: Option<Login> =
             if payload.is_tombstone() {

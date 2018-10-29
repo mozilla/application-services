@@ -10,6 +10,7 @@ use std::boxed::Box;
 use rusqlite;
 use serde_json;
 use url;
+use sync15_adapter;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -63,8 +64,8 @@ pub enum ErrorKind {
     #[fail(display = "Invalid place info: {}", _0)]
     InvalidPlaceInfo(InvalidPlaceInfo),
 
-//    #[fail(display = "Error synchronizing: {}", _0)]
-//    SyncAdapterError(#[fail(cause)] sync::Error),
+    #[fail(display = "Error synchronizing: {}", _0)]
+    SyncAdapterError(#[fail(cause)] sync15_adapter::Error),
 
     #[fail(display = "Error parsing JSON data: {}", _0)]
     JsonError(#[fail(cause)] serde_json::Error),
@@ -95,7 +96,7 @@ macro_rules! impl_from_error {
 }
 
 impl_from_error! {
-//    (SyncAdapterError, sync::Error),
+    (SyncAdapterError, sync15_adapter::Error),
     (JsonError, serde_json::Error),
     (UrlParseError, url::ParseError),
     (SqlError, rusqlite::Error),

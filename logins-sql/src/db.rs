@@ -12,8 +12,8 @@ use std::result;
 use failure;
 use schema;
 use login::{LocalLogin, MirrorLogin, Login, SyncStatus, SyncLoginData};
-use sync::{self, ServerTimestamp, IncomingChangeset, Store, OutgoingChangeset, Payload};
-use sync::driver::{ClientInfo};
+use sync15_adapter::{self, ServerTimestamp, IncomingChangeset, Store, OutgoingChangeset, Payload};
+use sync15_adapter::driver::{ClientInfo};
 use update_plan::UpdatePlan;
 use sql_support::{self, ConnExt};
 use util;
@@ -122,7 +122,7 @@ impl LoginDb {
     // Fetch all the data for the provided IDs.
     // TODO: Might be better taking a fn instead of returning all of it... But that func will likely
     // want to insert stuff while we're doing this so ugh.
-    fn fetch_login_data(&self, records: &[(sync::Payload, ServerTimestamp)]) -> Result<Vec<SyncLoginData>> {
+    fn fetch_login_data(&self, records: &[(sync15_adapter::Payload, ServerTimestamp)]) -> Result<Vec<SyncLoginData>> {
         let mut sync_data = Vec::with_capacity(records.len());
         {
             let mut seen_ids: HashSet<String> = HashSet::with_capacity(records.len());
@@ -268,7 +268,7 @@ impl LoginDb {
             // unnecessary, so we likely could fall back to something less
             // fallible eventually, but it's unlikely very much else will work
             // if this fails, so it doesn't matter much.
-            login.id = sync::util::random_guid()
+            login.id = sync15_adapter::util::random_guid()
                 .expect("Failed to generate failed to generate random bytes for GUID");
         }
 

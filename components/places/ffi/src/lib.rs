@@ -5,6 +5,7 @@
 extern crate serde_json;
 extern crate rusqlite;
 extern crate places;
+extern crate sync15_adapter;
 extern crate url;
 
 #[macro_use]
@@ -18,12 +19,20 @@ extern crate ffi_support;
 
 use std::os::raw::c_char;
 use places::{storage, PlacesDb};
-use ffi_support::{call_with_result, ExternError};
+use places::sync::history::store::{HistoryStore};
+use ffi_support::{call_with_result, rust_string_from_c, rust_str_from_c, ExternError};
 
 use places::api::matcher::{
     search_frecent,
     SearchParams,
 };
+
+use sync15_adapter::sync_global;
+
+// indirection to help `?` figure out the target error type
+fn parse_url(url: &str) -> sync15_adapter::Result<url::Url> {
+    Ok(url::Url::parse(url)?)
+}
 
 fn logging_init() {
     #[cfg(target_os = "android")]
@@ -130,6 +139,36 @@ pub extern "C" fn places_get_visited_urls_in_range(
             include_remote != 0
         )?;
         Ok(serde_json::to_string(&visited)?)
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sync15_history_sync(
+    conn: &PlacesDb,
+    key_id: *const c_char,
+    access_token: *const c_char,
+    sync_key: *const c_char,
+    tokenserver_url: *const c_char,
+    error: &mut ExternError
+) {
+    trace!("sync15_history_sync");
+    // TODO: Is there any way to convince rust that some `&mut T` is unwind safe?
+    call_with_result(error, || -> places::Result<()> {
+        // XXX - this is wrong - we kinda want this to be long-lived - the "Db"
+        // should own the store, but it's not part of the db.
+        let store = HistoryStore::new(conn);
+        Ok(sync_global(
+            &store,
+            &store,
+            &sync15_adapter::Sync15StorageClientInit {
+                key_id: rust_string_from_c(key_id),
+                access_token: rust_string_from_c(access_token),
+                tokenserver_url: parse_url(rust_str_from_c(tokenserver_url))?,
+            },
+            &sync15_adapter::KeyBundle::from_ksync_base64(
+                rust_str_from_c(sync_key)
+            )?
+        )?)
     })
 }
 

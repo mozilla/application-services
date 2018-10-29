@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-extern crate sync15_adapter as sync;
+extern crate sync15_adapter;
 
 #[macro_use]
 extern crate log;
@@ -27,6 +27,9 @@ extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 
+#[macro_use]
+extern crate lazy_static;
+
 extern crate caseless;
 extern crate unicode_normalization;
 extern crate sql_support;
@@ -47,6 +50,7 @@ pub mod storage;
 pub mod hash;
 pub mod frecency;
 pub mod observation;
+pub mod sync;
 mod util;
 #[cfg(feature = "ffi")]
 pub mod ffi;

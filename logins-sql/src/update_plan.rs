@@ -6,7 +6,7 @@ use rusqlite::{types::ToSql, Connection};
 use std::time::SystemTime;
 use error::*;
 use login::{LocalLogin, MirrorLogin, Login, SyncStatus};
-use sync::ServerTimestamp;
+use sync15_adapter::ServerTimestamp;
 use sql_support;
 use util;
 
