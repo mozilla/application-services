@@ -60,7 +60,7 @@ open class PlacesConnection(path: String, encryption_key: String? = null) : Auto
     }
 
     /** NB: start and end are unix timestamps in milliseconds! */
-    fun getVisitedUrlsInRange(start: Long, end: Long, includeRemote: Boolean): List<String> {
+    fun getVisitedUrlsInRange(start: Long, end: Long = Long.MAX_VALUE, includeRemote: Boolean = true): List<String> {
         val urlsJson = rustCallForString { error ->
             val incRemoteArg: Byte = if (includeRemote) { 1 } else { 0 }
             LibPlacesFFI.INSTANCE.places_get_visited_urls_in_range(
