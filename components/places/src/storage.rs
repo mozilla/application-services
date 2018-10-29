@@ -152,7 +152,7 @@ pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> 
 
         let at = visit_ob.at.unwrap_or_else(|| Timestamp::now());
         let is_remote = visit_ob.is_remote.unwrap_or(false);
-        add_visit(db, &page_info.row_id, &None, &at, &visit_type, &is_remote)?;
+        add_visit(db, &page_info.row_id, &None, &at, &visit_type, &!is_remote)?;
         if is_remote {
             page_info.visit_count_remote += 1;
             updates.push(("visit_count_remote", ":visit_count_remote", &page_info.visit_count_remote));
@@ -308,8 +308,8 @@ pub fn get_visited_urls(db: &PlacesDb, start: Timestamp, end: Timestamp, include
     ", and_is_local = if include_remote { "" } else { "AND is_local" }))?;
 
     let iter = stmt.query_map_named(&[
-        ("start", &start),
-        ("end", &end),
+        (":start", &start),
+        (":end", &end),
     ], |row| row.get::<_, String>(0))?;
 
     Ok(iter.collect::<RusqliteResult<Vec<_>>>()?)
@@ -350,6 +350,56 @@ mod tests {
     }
 
     #[test]
+    fn test_get_visited_urls() {
+        use std::time::SystemTime;
+        use std::collections::HashSet;
+        let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let now: Timestamp = SystemTime::now().into();
+        let now_u64 = now.0;
+        // (url, when, is_remote, (expected_always, expected_only_local)
+        let to_add = [
+            ("https://www.example.com/1",    now_u64 - 200100, false, (false, false)),
+            ("https://www.example.com/12",   now_u64 - 200000, false, (true,  true )),
+            ("https://www.example.com/123",  now_u64 - 10000,  true,  (true,  false)),
+            ("https://www.example.com/1234", now_u64 - 1000,   false, (true,  true )),
+            ("https://www.mozilla.com",      now_u64 - 500,    false, (false, false)),
+        ];
+
+        for &(url, when, remote, _) in &to_add {
+            apply_observation(
+                &mut conn,
+                VisitObservation::new(Url::parse(url).unwrap())
+                    .with_at(Timestamp(when))
+                    .with_is_remote(remote)
+                    .with_visit_type(VisitTransition::Link)
+            ).expect("Should apply visit");
+        }
+
+        let visited_all = get_visited_urls(
+            &conn,
+            Timestamp(now_u64 - 200000),
+            Timestamp(now_u64 - 1000),
+            true
+        ).unwrap().into_iter().collect::<HashSet<_>>();
+
+        let visited_local = get_visited_urls(
+            &conn,
+            Timestamp(now_u64 - 200000),
+            Timestamp(now_u64 - 1000),
+            false
+        ).unwrap().into_iter().collect::<HashSet<_>>();
+
+        for &(url, ts, is_remote, (expected_in_all, expected_in_local)) in &to_add {
+            // Make sure we format stuff the same way (in practice, just trailing slashes)
+            let url = Url::parse(url).unwrap().to_string();
+            assert_eq!(expected_in_local, visited_local.contains(&url),
+                       "Failed in local for {:?}", (url, ts, is_remote));
+            assert_eq!(expected_in_all, visited_all.contains(&url),
+                       "Failed in all for {:?}", (url, ts, is_remote));
+        }
+    }
+
+    #[test]
     fn test_get_visited() {
         let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
 
@@ -363,7 +413,8 @@ mod tests {
         ];
 
         for item in &to_add {
-            apply_observation(&mut conn, VisitObservation::new(Url::parse(item).unwrap()))
+            apply_observation(&mut conn, VisitObservation::new(Url::parse(item).unwrap())
+                .with_visit_type(VisitTransition::Link))
                 .expect("Should apply visit");
         }
 
