@@ -93,6 +93,7 @@
 use std::{panic, thread};
 
 mod error;
+pub mod handle_map;
 mod into_ffi;
 mod macros;
 mod string;
@@ -101,6 +102,10 @@ pub use crate::error::*;
 pub use crate::into_ffi::*;
 pub use crate::macros::*;
 pub use crate::string::*;
+
+// We export most of the types from this, but some constants
+// (MAX_CAPACITY) don't make sense at the top level.
+pub use crate::handle_map::{ConcurrentHandleMap, Handle, HandleError, HandleMap};
 
 /// Call a callback that returns a `Result<T, E>` while:
 ///

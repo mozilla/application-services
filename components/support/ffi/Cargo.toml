@@ -21,6 +21,9 @@ log_backtraces = ["backtrace"]
 serde_json = "1.0.32"
 serde = "1.0.79"
 log = "0.4"
+lazy_static = "1.2.0"
+failure = "0.1.5"
+failure_derive = "0.1.5"
 
 [dependencies.backtrace]
 optional = true
