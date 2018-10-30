@@ -209,8 +209,8 @@ def linux_build_task(name):
         # https://docs.taskcluster.net/docs/reference/workers/docker-worker/docs/caches
         .with_scopes("docker-worker:cache:application-services-*")
         .with_caches(**{
-            # "servo-cargo-registry": "/root/.cargo/registry",
-            # "servo-cargo-git": "/root/.cargo/git",
+            "application-services-cargo-registry": "/root/.cargo/registry",
+            "application-services-cargo-git": "/root/.cargo/git",
             # "servo-rustup": "/root/.rustup",
             "application-services-sccache": "/root/.cache/sccache",
             "application-services-gradle": "/root/.gradle",
