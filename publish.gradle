@@ -84,6 +84,8 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg ->
         user = localProperties != null ? localProperties.getProperty("bintray.user") : ""
         key = localProperties != null ? localProperties.getProperty("bintray.apikey") : ""
 
+        dryRun = true
+
         configurations = ['archives']
         pkg {
             repo = libRepoName

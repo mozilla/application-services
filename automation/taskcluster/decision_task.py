@@ -10,10 +10,21 @@ from decisionlib import *
 
 def main(task_for, mock=False):
     if task_for == "github-pull-request":
-        # linux_tidy_unit()
+        # Pull request.
         android_libs_task = android_libs()
         desktop_linux_libs_task = desktop_linux_libs()
         android_arm32(android_libs_task)
+
+    elif task_for == "github-push":
+        # Push to master or a tag.
+        android_libs_task = android_libs()
+        desktop_linux_libs_task = desktop_linux_libs()
+        android_arm32(android_libs_task)
+
+        if CONFIG.git_ref.startswith('refs/tags/'):
+            # A release.
+            android_arm32_release(android_libs_task)
+
         # if mock:
         #     linux_wpt()
         #     linux_build_task("Indexed by task definition").find_or_create()
@@ -104,6 +115,27 @@ def android_arm32(build_task):
             curl --silent --show-error --fail --location --retry 5 --retry-delay 10 https://github.com/mozilla/sccache/releases/download/0.2.7/sccache-0.2.7-x86_64-unknown-linux-musl.tar.gz | tar -xz --strip-components=1 -C /usr/local/bin/ sccache-0.2.7-x86_64-unknown-linux-musl/sccache
             ./automation/taskcluster/curl-artifact.sh ${BUILD_TASK_ID} target.tar.gz | tar -xz
             ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease
+        """)
+        # XXX names change: public/bin/mozilla/XXX to public/XXX
+        .with_artifacts(
+            "/build/repo/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-release.aar",
+            "/build/repo/logins-api/android/library/build/outputs/aar/logins-release.aar",
+        )
+        .create()
+        # .find_or_create("build.android_armv7_release." + CONFIG.git_sha)
+    )
+
+def android_arm32_release(build_task):
+    return (
+        linux_build_task("Android (all architectures): build and release")
+        .with_env(BUILD_TASK_ID=build_task)
+        .with_dependencies(build_task)
+        .with_script("""
+            curl --silent --show-error --fail --location --retry 5 --retry-delay 10 https://github.com/mozilla/sccache/releases/download/0.2.7/sccache-0.2.7-x86_64-unknown-linux-musl.tar.gz | tar -xz --strip-components=1 -C /usr/local/bin/ sccache-0.2.7-x86_64-unknown-linux-musl/sccache
+            ./automation/taskcluster/curl-artifact.sh ${BUILD_TASK_ID} target.tar.gz | tar -xz
+            ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease
+            python automation/taskcluster/release/fetch-bintray-api-key.py
+            ./gradlew bintrayUpload --debug -PvcsTag="${GIT_SHA}"
         """)
         # XXX names change: public/bin/mozilla/XXX to public/XXX
         .with_artifacts(
