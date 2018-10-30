@@ -131,7 +131,7 @@ pub enum ErrorKind {
     #[fail(display = "Base64 decode error: {}", _0)]
     Base64Decode(#[fail(cause)] base64::DecodeError),
 
-    #[fail(display = "JSON parse error: {}", _0)]
+    #[fail(display = "JSON error: {}", _0)]
     JsonError(#[fail(cause)] serde_json::Error),
 
     #[fail(display = "Bad cleartext UTF8: {}", _0)]

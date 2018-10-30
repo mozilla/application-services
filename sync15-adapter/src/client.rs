@@ -165,7 +165,9 @@ impl Sync15StorageClient {
     }
 
     fn exec_request(&self, req: Request, require_success: bool) -> error::Result<Response> {
+        trace!("request: {} {}", req.method(), req.url().path());
         let resp = self.http_client.execute(req)?;
+        trace!("response: {}", resp.status());
 
         self.update_timestamp(resp.headers());
 

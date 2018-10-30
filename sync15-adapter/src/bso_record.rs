@@ -326,9 +326,23 @@ mod tests {
         assert_eq!(&record.id, "1234");
         assert_eq!(&record.collection, "passwords");
         assert_eq!(record.modified.0, 12344321.0);
+        assert_eq!(record.sortindex, None);
         assert_eq!(&record.payload.iv, "aaaaa");
         assert_eq!(&record.payload.hmac, "bbbbb");
         assert_eq!(&record.payload.ciphertext, "ccccc");
+    }
+
+    #[test]
+    fn test_deserialize_sortindex() {
+        let serialized = r#"{
+            "id": "1234",
+            "collection": "passwords",
+            "modified": 12344321.0,
+            "sortindex": 100,
+            "payload": "{\"IV\": \"aaaaa\", \"hmac\": \"bbbbb\", \"ciphertext\": \"ccccc\"}"
+        }"#;
+        let record: BsoRecord<EncryptedPayload> = serde_json::from_str(serialized).unwrap();
+        assert_eq!(record.sortindex, Some(100));
     }
 
     #[test]
