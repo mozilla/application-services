@@ -72,7 +72,6 @@ fn init_logging() {
 
 fn main() -> Result<()> {
     init_logging();
-    std::env::set_var("RUST_BACKTRACE", "1");
 
     let matches = clap::App::new("sync_history")
         .about("History syncing tool")
