@@ -213,7 +213,7 @@ def linux_build_task(name):
             # "servo-cargo-git": "/root/.cargo/git",
             # "servo-rustup": "/root/.rustup",
             "application-services-sccache": "/root/.cache/sccache",
-            # "servo-gradle": "/root/.gradle",
+            "application-services-gradle": "/root/.gradle",
         })
         .with_index_and_artifacts_expire_in(build_artifacts_expire_in)
         .with_artifacts("/build/sccache.log")
