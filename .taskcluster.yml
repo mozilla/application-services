@@ -2,132 +2,117 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-version: 0
-allowPullRequests: collaborators
-tasks:
-####################################################################################################
-# Task: Pull requests
-####################################################################################################
-  - provisionerId: '{{ taskcluster.docker.provisionerId }}'
-    workerType: '{{ taskcluster.docker.workerType }}'
-    deadline: "{{ '2 hours' | $fromNow }}"
-    extra:
-      github:
-        env: true
-        events:
-          - pull_request.opened
-          - pull_request.edited
-          - pull_request.synchronize
-          - pull_request.reopened
-          - push
-    scopes:
-      - "queue:create-task:aws-provisioner-v1/github-worker"
-      - "queue:scheduler-id:taskcluster-github"
-    payload:
-      maxRunTime: 3600
-      image: 'mozillamobile/android-components:1.4'
-      command:
-        - /bin/bash
-        - '--login'
-        - '-cx'
-        - >-
-          export TERM=dumb
-          && git clone {{ event.head.repo.url }}
-          && cd application-services
-          && git config advice.detachedHead false
-          && git checkout {{ event.head.sha }}
-          && python automation/taskcluster/decision_task_pull_request.py
-      features:
-        taskclusterProxy: true
-    metadata:
-      name: application-services - Pull Request
-      description: Building and testing the Application Services repository - triggered by a pull request.
-      owner: '{{ event.head.user.email }}'
-      source: '{{ event.head.repo.url }}'
-####################################################################################################
-# Task: Release
-####################################################################################################
-  - provisionerId: '{{ taskcluster.docker.provisionerId }}'
-    workerType: '{{ taskcluster.docker.workerType }}'
-    deadline: "{{ '4 hours' | $fromNow }}"
-    extra:
-      github:
-        events:
-          - release
-    scopes:
-      - "secrets:get:project/application-services/publish"
-    payload:
-      maxRunTime: 7200
-      image: 'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-1.28.0-rust-beta-1.29.0-beta.15'
-      command:
-        - /bin/bash
-        - '-c'
-        - >-
-          export TERM=dumb
-          && git clone '{{ event.head.repo.url }}' application-services
-          && cd application-services
-          && git config advice.detachedHead false
-          && git checkout '{{ event.version }}'
-          && python automation/taskcluster/release/fetch-bintray-api-key.py
-          && ./scripts/taskcluster-android.sh
-          && ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease
-          && ./gradlew bintrayUpload --debug -PvcsTag="{{ event.head.sha }}"
-      artifacts:
-        'public/bin/mozilla/fxaclient-release-{{ event.version }}.aar':
-          type: 'file'
-          path: '/build/application-services/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-release.aar'
-        'public/bin/mozilla/logins-release-{{ event.version }}.aar':
-          type: 'file'
-          path: '/build/application-services/logins-api/android/library/build/outputs/aar/logins-release.aar'
-      features:
-        taskclusterProxy: true
-    routes:
-      - index.project.fxaclient.builds.{{ event.version }}
-    metadata:
-      name: fxa-client Android Build - Release ({{ event.version }})
-      description: Builds the FxA client and the Logins API for Android architectures.
-      owner: '{{ event.head.user.email }}'
-      source: '{{ event.head.repo.url }}'
 
-####################################################################################################
-# Task: Tag
-####################################################################################################
-  - provisionerId: '{{ taskcluster.docker.provisionerId }}'
-    workerType: '{{ taskcluster.docker.workerType }}'
-    deadline: "{{ '4 hours' | $fromNow }}"
-    extra:
-      github:
-        events:
-          - tag
-    scopes:
-      - "secrets:get:project/application-services/publish"
-    payload:
-      maxRunTime: 7200
-      image: 'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-1.28.0-rust-beta-1.29.0-beta.15'
-      command:
-        - /bin/bash
-        - '-c'
-        - >-
-          export TERM=dumb
-          && git clone '{{ event.head.repo.url }}' application-services
-          && cd application-services
-          && git config advice.detachedHead false
-          && git checkout '{{ event.head.tag }}'
-          && python automation/taskcluster/release/fetch-bintray-api-key.py
-          && ./scripts/taskcluster-android.sh
-          && ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease
-          && ./gradlew bintrayUpload --debug -PvcsTag="{{ event.head.sha }}"
-      artifacts:
-        'public/bin/mozilla/fxaclient-release-{{ event.head.tag }}.aar':
-          type: 'file'
-          path: '/build/application-services/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-release.aar'
-        'public/bin/mozilla/logins-release-{{ event.head.tag }}.aar':
-          type: 'file'
-          path: '/build/application-services/logins-api/android/library/build/outputs/aar/logins-release.aar'
-      features:
-        taskclusterProxy: true
-    metadata:
-      name: application-services Android Build - Tag ({{ event.head.tag }})
-      description: Builds the FxA client and the Logins API for Android architectures.
-      owner: '{{ event.head.user.email }}'
-      source: '{{ event.head.repo.url }}'
+version: 1
+policy:
+  # https://docs.taskcluster.net/docs/reference/integrations/taskcluster-github/docs/taskcluster-yml-v1#pull-requests
+  pullRequests: collaborators
+
+tasks:
+  - $if: 'tasks_for == "github-pull-request"'
+    then:
+      $if: 'event.action in ["opened", "reopened", "synchronize"]'
+      then:
+        taskGroupId: {$eval: as_slugid("decision_task")}
+        taskId: {$eval: as_slugid("decision_task")}
+        provisionerId: aws-provisioner-v1
+        workerType: application-services-r
+        created: {$fromNow: ''}
+        deadline: {$fromNow: '1 day'}
+        metadata:
+          name: "Application Services: GitHub decision task"
+          description: ""
+          owner: &task_owner ${event.pull_request.head.user.login}@users.noreply.github.com
+          source: &task_source ${event.pull_request.head.repo.url}
+        scopes:
+          - "queue:scheduler-id:taskcluster-github"
+          # So that we can use our own "application-services-r" worker-type.
+          - "queue:create-task:highest:aws-provisioner-v1/application-services-r"
+
+          # So that we can cache task outputs for re-use.
+          - "queue:route:index.project.application-services.*"
+
+          # So that we can re-use Gradle/Cargo/sccache bits between tasks.
+          - "docker-worker:cache:application-services-*"
+
+        payload:
+          maxRunTime: {$eval: '20 * 60'}
+          # https://github.com/servo/taskcluster-bootstrap-docker-images#decision-task
+          image: "servobrowser/taskcluster-bootstrap:decision-task@sha256:28045b7ec0485ef363f8cb14f194008b47e9ede99f2ea40a1e945e921fce976e"
+          features:
+            taskclusterProxy: true
+          env:
+            GIT_URL: ${event.pull_request.head.repo.clone_url}
+            GIT_REF: ${event.pull_request.head.ref}
+            GIT_SHA: ${event.pull_request.head.sha}
+            TASK_FOR: ${tasks_for}
+            TASK_OWNER: *task_owner
+            TASK_SOURCE: *task_source
+          command:
+            - /bin/bash
+            - '--login'
+            - '-e'
+            - '-c'
+            - >-
+              git init repo &&
+              cd repo &&
+              git fetch --depth 1 "$GIT_URL" "$GIT_REF" &&
+              git reset --hard "$GIT_SHA" &&
+              python3 automation/taskcluster/decision_task.py
+
+  - $if: 'tasks_for == "github-push"'
+    then:
+      $if: 'event.ref[:10] == "refs/tags/" || event.ref[:10] == "refs/heads/master"'
+      then:
+        taskGroupId: {$eval: as_slugid("decision_task")}
+        taskId: {$eval: as_slugid("decision_task")}
+        provisionerId: aws-provisioner-v1
+        workerType: application-services-r
+        created: {$fromNow: ''}
+        deadline: {$fromNow: '1 day'}
+        metadata:
+          name: "Application Services: GitHub decision task"
+          description: ""
+          owner: &task_owner ${event.pusher.name}@users.noreply.github.com
+          source: &task_source ${event.compare}
+        scopes:
+          - "queue:scheduler-id:taskcluster-github"
+          # So that we can use our own "application-services-r" worker-type.
+          - "queue:create-task:highest:aws-provisioner-v1/application-services-r"
+
+          # So that we can cache task outputs for re-use.
+          - "queue:route:index.project.application-services.*"
+
+          # So that we can re-use Gradle/Cargo/sccache bits between tasks.
+          - "docker-worker:cache:application-services-*"
+
+          # So that we can publish to nalexander@'s personal bintray
+          # at https://bintray.com/ncalexander/application-services.
+          - "secrets:get:project/application-services/publish"
+
+        payload:
+          maxRunTime: {$eval: '20 * 60'}
+          # https://github.com/servo/taskcluster-bootstrap-docker-images#decision-task
+          image: "servobrowser/taskcluster-bootstrap:decision-task@sha256:28045b7ec0485ef363f8cb14f194008b47e9ede99f2ea40a1e945e921fce976e"
+          features:
+            taskclusterProxy: true
+
+          env:
+            GIT_URL: ${event.repository.clone_url}
+            GIT_REF: ${event.ref}
+            GIT_SHA: ${event.after}
+            TASK_FOR: ${tasks_for}
+            TASK_OWNER: *task_owner
+            TASK_SOURCE: *task_source
+
+          command:
+            - /bin/bash
+            - '--login'
+            - '-e'
+            - '-c'
+            - >-
+              git init repo &&
+              cd repo &&
+              git fetch --depth 1 "$GIT_URL" "$GIT_REF" &&
+              git reset --hard "$GIT_SHA" &&
+              python3 automation/taskcluster/decision_task.py
