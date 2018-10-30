@@ -193,7 +193,15 @@ impl Payload {
     }
 
     pub fn into_record<T>(self) -> error::Result<T> where for<'a> T: Deserialize<'a> {
-        Ok(serde_json::from_value(JsonValue::from(self))?)
+        println!("into {:?}", self);
+        match serde_json::from_value(JsonValue::from(self)) {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                println!("serde error {}", e);
+//                panic!("oh no"); // XXXXXXXXXXXXX - uncomment this and this function appears in a backtrace!
+                Err(e.into())
+            },
+        }
     }
 
     pub fn from_record<T: Serialize>(v: T) -> error::Result<Payload> {
