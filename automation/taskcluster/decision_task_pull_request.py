@@ -32,9 +32,13 @@ build_env = {
     "CARGO_INCREMENTAL": "0",
 }
 linux_build_env = {
+    "TERM": "dumb",  # Keep Gradle output sensible.
     "CCACHE": "sccache",
     "RUSTC_WRAPPER": "sccache",
     "SCCACHE_IDLE_TIMEOUT": "1200",
+    "SCCACHE_CACHE_SIZE": "40G",
+    "SCCACHE_ERROR_LOG": "/build/sccache.log",
+    "RUST_LOG": "sccache=info",
     # "SHELL": "/bin/dash",  # For SpiderMonkey’s build system
 }
 
@@ -95,8 +99,6 @@ def android_arm32(build_task):
     return (
         linux_build_task("Android (all architectures): build")
         .with_env(BUILD_TASK_ID=build_task)
-        .with_env(SCCACHE_CACHE_SIZE='40G')
-        .with_env(RUST_LOG='sccache=info')
         .with_dependencies(build_task)
         .with_script("""
             curl --silent --show-error --fail --location --retry 5 --retry-delay 10 https://github.com/mozilla/sccache/releases/download/0.2.7/sccache-0.2.7-x86_64-unknown-linux-musl.tar.gz | tar -xz --strip-components=1 -C /usr/local/bin/ sccache-0.2.7-x86_64-unknown-linux-musl/sccache
@@ -214,6 +216,7 @@ def linux_build_task(name):
             # "servo-gradle": "/root/.gradle",
         })
         .with_index_and_artifacts_expire_in(build_artifacts_expire_in)
+        .with_artifacts("/build/sccache.log")
         .with_max_run_time_minutes(60)
         .with_docker_image(
             'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-1.28.0-rust-beta-1.29.0-beta.15'
@@ -221,7 +224,6 @@ def linux_build_task(name):
         # .with_dockerfile(dockerfile_path("build"))
         .with_env(**build_env, **linux_build_env)
         .with_repo()
-        .with_index_and_artifacts_expire_in(build_artifacts_expire_in)
     )
 
 
