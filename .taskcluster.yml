@@ -86,6 +86,10 @@ tasks:
           # So that we can re-use Gradle/Cargo/sccache bits between tasks.
           - "docker-worker:cache:application-services-*"
 
+          # So that we can publish to nalexander@'s personal bintray
+          # at https://bintray.com/ncalexander/application-services.
+          - "secrets:get:project/application-services/publish"
+
         payload:
           maxRunTime: {$eval: '20 * 60'}
           # https://github.com/servo/taskcluster-bootstrap-docker-images#decision-task

@@ -19,11 +19,13 @@ def main(task_for, mock=False):
         # Push to master or a tag.
         android_libs_task = android_libs()
         desktop_linux_libs_task = desktop_linux_libs()
-        android_arm32(android_libs_task)
 
         if CONFIG.git_ref.startswith('refs/tags/'):
             # A release.
             android_arm32_release(android_libs_task)
+        else:
+            # A regular build.
+            android_arm32(android_libs_task)
 
         # if mock:
         #     linux_wpt()
@@ -142,6 +144,8 @@ def android_arm32_release(build_task):
             "/build/repo/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-release.aar",
             "/build/repo/logins-api/android/library/build/outputs/aar/logins-release.aar",
         )
+        .with_scopes("secrets:get:project/application-services/publish")
+        .with_features("taskclusterProxy")
         .create()
         # .find_or_create("build.android_armv7_release." + CONFIG.git_sha)
     )
