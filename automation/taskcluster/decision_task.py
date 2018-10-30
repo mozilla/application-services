@@ -85,11 +85,12 @@ def android_arm32(build_task):
         .with_script("""
             curl --silent --show-error --fail --location --retry 5 --retry-delay 10 https://github.com/mozilla/sccache/releases/download/0.2.7/sccache-0.2.7-x86_64-unknown-linux-musl.tar.gz | tar -xz --strip-components=1 -C /usr/local/bin/ sccache-0.2.7-x86_64-unknown-linux-musl/sccache
             ./automation/taskcluster/curl-artifact.sh ${BUILD_TASK_ID} target.tar.gz | tar -xz
-            ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease
+            ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
         """)
         .with_artifacts(
             "/build/repo/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-release.aar",
             "/build/repo/logins-api/android/library/build/outputs/aar/logins-release.aar",
+            "/build/repo/components/places/android/library/build/outputs/aar/places-release.aar",
         )
         .create()
     )
@@ -102,13 +103,14 @@ def android_arm32_release(build_task):
         .with_script("""
             curl --silent --show-error --fail --location --retry 5 --retry-delay 10 https://github.com/mozilla/sccache/releases/download/0.2.7/sccache-0.2.7-x86_64-unknown-linux-musl.tar.gz | tar -xz --strip-components=1 -C /usr/local/bin/ sccache-0.2.7-x86_64-unknown-linux-musl/sccache
             ./automation/taskcluster/curl-artifact.sh ${BUILD_TASK_ID} target.tar.gz | tar -xz
-            ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease
+            ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
             python automation/taskcluster/release/fetch-bintray-api-key.py
             ./gradlew bintrayUpload --debug -PvcsTag="${GIT_SHA}"
         """)
         .with_artifacts(
             "/build/repo/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-release.aar",
             "/build/repo/logins-api/android/library/build/outputs/aar/logins-release.aar",
+            "/build/repo/components/places/android/library/build/outputs/aar/places-release.aar",
         )
         .with_scopes("secrets:get:project/application-services/publish")
         .with_features("taskclusterProxy")
