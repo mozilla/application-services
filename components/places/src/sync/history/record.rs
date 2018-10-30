@@ -25,7 +25,7 @@ pub struct HistoryRecord {
     pub title: String,
 
     pub hist_uri: String,
-    pub sort_index: i32,
+    pub sortindex: i32,
     pub visits: Vec<HistoryRecordVisit>,
 }
 

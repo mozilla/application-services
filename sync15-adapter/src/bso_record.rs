@@ -174,15 +174,16 @@ impl Payload {
     }
 
     pub fn into_bso(
-        self,
+        mut self,
         collection: String
     ) -> CleartextBso {
         let id = self.id.clone();
+        let sortindex: Option<i32> = self.take_auto_field("sortindex");
         CleartextBso {
             id,
             collection,
             modified: 0.0.into(), // Doesn't matter.
-            sortindex: None, // Should we let consumer's set this?
+            sortindex,
             ttl: None, // Should we let consumer's set this?
             payload: self,
         }
@@ -206,6 +207,44 @@ impl Payload {
     pub fn into_json_string(self) -> String {
         serde_json::to_string(&JsonValue::from(self))
             .expect("JSON.stringify failed, which shouldn't be possible")
+    }
+
+    /// "Auto" fields are fields like 'sortindex' (and potentially 'ttl' in
+    /// the future) which are:
+    ///
+    /// - Added to the payload automatically when deserializing if present on
+    ///   the incoming BSO.
+    /// - Removed from the payload automatically and attached to the BSO if
+    ///   present on the outgoing payload.
+    pub(crate) fn add_auto_field<T: Into<JsonValue>>(&mut self, name: &str, v: Option<T>) {
+        // This is a little dubious, but it seems like if we have a e.g. `sortindex` field on the payload
+        // it's going to be a bug if we use it instead of the "real" sort index.
+        if self.data.contains_key(name) {
+            warn!("Payload for record {} already contains 'automatic' field \"{}\"? \
+                   Overwriting with 'real' sortindex",
+                  self.id, name);
+        }
+
+        if let Some(value) = v {
+            self.data.insert(name.into(), value.into());
+        } else {
+            self.data.remove(name);
+        }
+    }
+
+    pub(crate) fn take_auto_field<V>(&mut self, name: &str) -> Option<V>
+    where
+        for<'a> V: Deserialize<'a>
+    {
+        let v = self.data.remove(name)?;
+        match serde_json::from_value(v) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                error!("Automatic field {} exists on payload, but cannot be deserialized: {}",
+                       name, e);
+                None
+            }
+        }
     }
 }
 
@@ -277,7 +316,9 @@ impl EncryptedBso {
         let ciphertext = base64::decode(&self.payload.ciphertext)?;
         let cleartext = key.decrypt(&ciphertext, &iv)?;
 
-        let new_payload = serde_json::from_str(&cleartext)?;
+        let mut new_payload: Payload = serde_json::from_str(&cleartext)?;
+        // This is a slightly dodgy place to do this, but whatever.
+        new_payload.add_auto_field("sortindex", self.sortindex);
 
         let result = self.with_payload(new_payload);
         Ok(result)
@@ -331,6 +372,7 @@ mod tests {
         assert_eq!(&record.payload.hmac, "bbbbb");
         assert_eq!(&record.payload.ciphertext, "ccccc");
     }
+
 
     #[test]
     fn test_deserialize_sortindex() {
@@ -422,6 +464,34 @@ mod tests {
         assert!(!decrypted.is_tombstone());
         assert_eq!(decrypted, orig_record);
         assert_eq!(serde_json::to_value(decrypted.payload).unwrap(), payload);
+    }
+
+    #[test]
+    fn test_record_auto_fields() {
+        let payload = json!({ "id": "aaaaaaaaaaaa", "age": 105, "meta": "data", "sortindex": 100 });
+        let bso = Payload::from_json(payload.clone())
+            .unwrap()
+            .into_bso("dummy".into());
+
+        // We don't want the key ending up in the actual record data on the server.
+        assert!(!bso.payload.data.contains_key("sortindex"));
+
+        // But we do want it in the BsoRecord.
+        assert_eq!(bso.sortindex, Some(100));
+
+        let keybundle = KeyBundle::new_random().unwrap();
+        let encrypted = bso.clone().encrypt(&keybundle).unwrap();
+
+        assert!(keybundle.verify_hmac_string(
+            &encrypted.payload.hmac,
+            &encrypted.payload.ciphertext
+        ).unwrap());
+
+        let decrypted = encrypted.decrypt(&keybundle).unwrap();
+        // We add auto fields during decryption.
+        assert_eq!(decrypted.payload.data["sortindex"], 100);
+
+        assert_eq!(decrypted.sortindex, Some(100));
     }
 
 
