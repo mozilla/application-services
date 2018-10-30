@@ -27,6 +27,8 @@ tasks:
           - "queue:create-task:highest:aws-provisioner-v1/application-services-r"
           - "queue:scheduler-id:taskcluster-github"
 
+          - "docker-worker:cache:application-services-*"
+
           # # Granted to role https://tools.taskcluster.net/auth/roles/repo%3Agithub.com%2Fmozilla%2Fapplication-services%3A*
           # - "queue:create-task:highest:aws-provisioner-v1/servo-*"
           - "queue:route:index.project.application-services.*"

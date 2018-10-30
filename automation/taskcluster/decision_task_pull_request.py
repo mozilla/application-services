@@ -32,9 +32,9 @@ build_env = {
     "CARGO_INCREMENTAL": "0",
 }
 linux_build_env = {
-    # "CCACHE": "sccache",
-    # "RUSTC_WRAPPER": "sccache",
-    # "SCCACHE_IDLE_TIMEOUT": "1200",
+    "CCACHE": "sccache",
+    "RUSTC_WRAPPER": "sccache",
+    "SCCACHE_IDLE_TIMEOUT": "1200",
     # "SHELL": "/bin/dash",  # For SpiderMonkey’s build system
 }
 
@@ -94,11 +94,12 @@ def desktop_linux_libs():
 def android_arm32(build_task):
     return (
         linux_build_task("Android (all architectures): build")
-        # file: NDK parses $(file $SHELL) to tell x64 host from x86
-        # wget: servo-media-gstreamer’s build script
         .with_env(BUILD_TASK_ID=build_task)
+        .with_env(SCCACHE_CACHE_SIZE='40G')
+        .with_env(RUST_LOG='sccache=info')
         .with_dependencies(build_task)
         .with_script("""
+            curl --silent --show-error --fail --location --retry 5 --retry-delay 10 https://github.com/mozilla/sccache/releases/download/0.2.7/sccache-0.2.7-x86_64-unknown-linux-musl.tar.gz | tar -xz --strip-components=1 -C /usr/local/bin/ sccache-0.2.7-x86_64-unknown-linux-musl/sccache
             ./automation/taskcluster/curl-artifact.sh ${BUILD_TASK_ID} target.tar.gz | tar -xz
             ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease
         """)
@@ -204,14 +205,14 @@ def linux_build_task(name):
     return (
         linux_task(name)
         # https://docs.taskcluster.net/docs/reference/workers/docker-worker/docs/caches
-        # .with_scopes("docker-worker:cache:servo-*")
-        # .with_caches(**{
-        #     "servo-cargo-registry": "/root/.cargo/registry",
-        #     "servo-cargo-git": "/root/.cargo/git",
-        #     "servo-rustup": "/root/.rustup",
-        #     "servo-sccache": "/root/.cache/sccache",
-        #     "servo-gradle": "/root/.gradle",
-        # })
+        .with_scopes("docker-worker:cache:application-services-*")
+        .with_caches(**{
+            # "servo-cargo-registry": "/root/.cargo/registry",
+            # "servo-cargo-git": "/root/.cargo/git",
+            # "servo-rustup": "/root/.rustup",
+            "application-services-sccache": "/root/.cache/sccache",
+            # "servo-gradle": "/root/.gradle",
+        })
         .with_index_and_artifacts_expire_in(build_artifacts_expire_in)
         .with_max_run_time_minutes(60)
         .with_docker_image(
