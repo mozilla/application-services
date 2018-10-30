@@ -403,7 +403,7 @@ class WindowsGenericWorkerTask(GenericWorkerTask):
             self.env["SPARSE_CHECKOUT_BASE64"] = base64.b64encode(
                 "\n".join(sparse_checkout).encode("utf-8"))
         git += """
-            git fetch --depth 1 %GIT_URL% %GIT_REF%
+            git fetch --quiet --depth 1 %GIT_URL% %GIT_REF%
             git reset --hard %GIT_SHA%
         """
         return self \
@@ -585,7 +585,7 @@ class DockerWorkerTask(Task):
         .with_early_script("""
             git init repo
             cd repo
-            git fetch --depth 1 "$GIT_URL" "$GIT_REF"
+            git fetch --quiet --depth 1 "$GIT_URL" "$GIT_REF"
             git reset --hard "$GIT_SHA"
         """)
 
