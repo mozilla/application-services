@@ -60,7 +60,7 @@ def create_fxaclient_task():
                  && git config advice.detachedHead false \
                  && git checkout %s \
                  && ./scripts/taskcluster-android.sh \
-                 && ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease" % (REPO_URL, REPO_URL, BRANCH, COMMIT)
+                 && ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease" % (REPO_URL, REPO_URL, BRANCH, COMMIT)
             ],
             "artifacts": {
                 "public/bin/mozilla/fxaclient-release.aar": {
@@ -70,6 +70,10 @@ def create_fxaclient_task():
                 "public/bin/mozilla/logins-release.aar": {
                     "type": "file",
                     "path": "/build/application-services/logins-api/android/library/build/outputs/aar/logins-release.aar",
+                },
+                "public/bin/mozilla/places-release.aar": {
+                    "type": "file",
+                    "path": "/build/application-services/components/places/android/library/build/outputs/aar/places-release.aar",
                 },
             }
         },

@@ -70,7 +70,7 @@ tasks:
           && git checkout '{{ event.version }}'
           && python automation/taskcluster/release/fetch-bintray-api-key.py
           && ./scripts/taskcluster-android.sh
-          && ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease
+          && ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
           && ./gradlew bintrayUpload --debug -PvcsTag="{{ event.head.sha }}"
       artifacts:
         'public/bin/mozilla/fxaclient-release-{{ event.version }}.aar':
@@ -79,6 +79,9 @@ tasks:
         'public/bin/mozilla/logins-release-{{ event.version }}.aar':
           type: 'file'
           path: '/build/application-services/logins-api/android/library/build/outputs/aar/logins-release.aar'
+        'public/bin/mozilla/places-release-{{ event.head.tag }}.aar':
+          type: 'file'
+          path: '/build/application-services/components/places/android/library/build/outputs/aar/places-release.aar'
       features:
         taskclusterProxy: true
     routes:
@@ -115,7 +118,7 @@ tasks:
           && git checkout '{{ event.head.tag }}'
           && python automation/taskcluster/release/fetch-bintray-api-key.py
           && ./scripts/taskcluster-android.sh
-          && ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease
+          && ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
           && ./gradlew bintrayUpload --debug -PvcsTag="{{ event.head.sha }}"
       artifacts:
         'public/bin/mozilla/fxaclient-release-{{ event.head.tag }}.aar':
@@ -124,6 +127,9 @@ tasks:
         'public/bin/mozilla/logins-release-{{ event.head.tag }}.aar':
           type: 'file'
           path: '/build/application-services/logins-api/android/library/build/outputs/aar/logins-release.aar'
+        'public/bin/mozilla/places-release-{{ event.head.tag }}.aar':
+          type: 'file'
+          path: '/build/application-services/components/places/android/library/build/outputs/aar/places-release.aar'
       features:
         taskclusterProxy: true
     metadata:
