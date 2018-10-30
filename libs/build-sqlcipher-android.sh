@@ -59,7 +59,6 @@ SQLCIPHER_CFLAGS=" \
   -DSQLITE_SOUNDEX \
   -DHAVE_USLEEP=1 \
   -DSQLITE_MAX_VARIABLE_NUMBER=99999 \
-  -DSQLITE_TEMP_STORE=3 \
   -DSQLITE_THREADSAFE=1 \
   -DSQLITE_DEFAULT_JOURNAL_SIZE_LIMIT=1048576 \
   -DNDEBUG=1 \
@@ -82,15 +81,20 @@ SQLCIPHER_CFLAGS=" \
 "
 
 make clean || true
-./configure --host="${HOST}" --enable-tempstore=yes CFLAGS="${CFLAGS} ${SQLCIPHER_CFLAGS} -I${OPENSSL_DIR}/include -L${OPENSSL_DIR}/lib" LDFLAGS="-lcrypto -llog -lm" --prefix="${SQLCIPHER_OUTPUT_PATH}"
+
+./configure --prefix="${SQLCIPHER_OUTPUT_PATH}" \
+  --host="${HOST}" \
+  --enable-tempstore=always \
+  CFLAGS="${CFLAGS} ${SQLCIPHER_CFLAGS} -I${OPENSSL_DIR}/include -L${OPENSSL_DIR}/lib" \
+  LIBS="-lcrypto -llog -lm" \
+  LDFLAGS="$OPENSSL_DIR/lib/libcrypto.a "
+
 make -j6
 make install
 
 mkdir -p "$DIST_DIR""/include/sqlcipher"
 mkdir -p "$DIST_DIR""/lib"
 
-# Turn libsqlcipher.so.0.8.6 into libsqlcipher.so.
-REALLIB=`readlink "$SQLCIPHER_OUTPUT_PATH"/lib/libsqlcipher.so`
 cp -p "$SQLCIPHER_OUTPUT_PATH"/lib/libsqlcipher.a "$DIST_DIR"/lib/libsqlcipher.a
 
 # Just in case, ensure that the created binaries are not -w.
