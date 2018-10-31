@@ -248,6 +248,45 @@ fn add_visit(db: &impl ConnExt,
     Ok(RowId(rid))
 }
 
+#[derive(Debug)]
+pub struct FetchedVisit {
+    pub is_local: bool,
+    pub visit_date: Timestamp,
+    pub visit_type: VisitTransition, // Will be VisitTransition::Link if unknown
+}
+
+impl FetchedVisit {
+    pub fn from_row(row: &Row) -> Result<Self> {
+        Ok(Self {
+            is_local: row.get_checked("is_local")?,
+            visit_date: row.get_checked::<_, Option<Timestamp>>("visit_date")?
+                 .unwrap_or_default(),
+            visit_type: VisitTransition::from_primitive(
+                            row.get_checked::<_, Option<u32>>("visit_type")?.unwrap_or(0)
+                        ).unwrap_or(VisitTransition::Link),
+        })
+    }
+}
+
+pub fn fetch_visits(db: &Connection, url: &Url, limit: u32) -> Result<Vec<FetchedVisit>> {
+    let mut stmt = db.prepare("
+      SELECT is_local, visit_type, visit_date
+      FROM moz_historyvisits
+      JOIN moz_places h ON h.id = place_id
+      WHERE url_hash = hash(:url) AND url = :url
+      ORDER BY visit_date DESC LIMIT :limit")?;
+    let iter = stmt.query_and_then_named(&[(":url", &url.clone().to_string()),
+                                           (":limit", &limit)],
+                                         FetchedVisit::from_row)?;
+    // markh should work out how to iter.collect this ;)
+    let mut results = Vec::new();
+    for result in iter {
+        results.push(result?);
+    }
+    Ok(results)
+}
+
+
 // Currently not used - we update the frecency as we update the page info.
 pub fn update_frecency(db: &mut PlacesDb, id: RowId, redirect: Option<bool>) -> Result<()> {
     let score = frecency::calculate_frecency(db.conn(),
@@ -396,5 +435,16 @@ mod tests {
                 to_search[i].0, i, // idx is logged because some things are repeated
                 to_search[i].1, did_see);
         }
+    }
+
+    #[test]
+    fn test_fetch_visits() {
+        let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
+
+        let url = Url::parse("https://www.example.com/1").unwrap();
+        apply_observation(&mut conn, VisitObservation::new(url.clone()).with_visit_type(VisitTransition::Link))
+            .expect("Should apply visit");
+        assert_eq!(fetch_visits(&conn, &url, 0).unwrap().len(), 0);
+        assert_eq!(fetch_visits(&conn, &url, 1).unwrap().len(), 1);
     }
 }

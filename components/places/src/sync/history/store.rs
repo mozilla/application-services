@@ -10,16 +10,28 @@ use failure;
 use rusqlite::{Connection};
 use rusqlite::{types::{ToSql, FromSql}};
 use serde_json;
+use url::{Url};
 
-use types::{Timestamp};
+use types::{SyncGuid, Timestamp};
 use sql_support::{ConnExt};
 use sync15_adapter::{GlobalState, IncomingChangeset, OutgoingChangeset, Store, ServerTimestamp};
 use sync15_adapter::driver::{GlobalStateProvider, ClientInfo};
 
-use super::record::{HistorySyncRecord};
+use super::record::{HistorySyncRecord, HistoryRecord};
+use super::super::super::api::history::{can_add_url};
+use super::super::super::storage::{fetch_visits};
 
 static LAST_SYNC_META_KEY:    &'static str = "history_last_sync_time";
 static GLOBAL_STATE_META_KEY: &'static str = "history_global_state";
+
+#[derive(Debug)]
+enum IncomingPlan {
+    Skip, // An entry we just want to ignore.
+    Invalid(SyncGuid, Error), // Something's wrong with this entry.
+    Failed(SyncGuid, Error), // The entry appears sane, but there was some error.
+    Delete(SyncGuid), // We should delete this.
+    Whatever(SyncGuid),
+}
 
 // Lifetime here seems wrong
 pub struct HistoryStore<'a> {
@@ -42,6 +54,29 @@ impl<'a> HistoryStore<'a> {
             return *EARLIEST_BOOKMARK_TIMESTAMP;
         }
         return visit_date;
+    }
+
+    fn process_record(&self, record: HistoryRecord) -> IncomingPlan {
+        let url = match Url::parse(&record.hist_uri) {
+            Ok(u) => u,
+            Err(e) => return IncomingPlan::Invalid(record.id.clone(), e.into()),
+        };
+        match can_add_url(&url) {
+            Ok(can) => if !can { return IncomingPlan::Skip },
+            Err(e) => return IncomingPlan::Failed(record.id.clone(), e.into()),
+        }
+        // Let's get what we know about it, if anything - last 20, like desktop?
+        let visits = match fetch_visits(self.db, &url, 20) {
+            Ok(v) => v,
+            Err(e) => return IncomingPlan::Failed(record.id.clone(), e.into()),
+        };
+        println!("url {} has visits {:?}", url, visits);
+
+        for visit in visits {
+            println!("visit at {}", visit.visit_date);
+        }
+
+        IncomingPlan::Whatever(record.id)
     }
 
     fn put_meta(&self, key: &str, value: &ToSql) -> Result<()> {
@@ -67,9 +102,12 @@ impl<'a> HistoryStore<'a> {
     ) -> Result<OutgoingChangeset> {
         // for a first-cut, let's do this in the most naive way possible...
         for incoming in inbound.changes.iter() {
-            println!("incoming {:?}", incoming);
             let item = HistorySyncRecord::from_payload(incoming.0.clone())?;
-            println!("record {:?}", item);
+            let plan = match item.record {
+                Some(record) => self.process_record(record),
+                None => IncomingPlan::Delete(item.guid.clone()),
+            };
+            println!("incoming {:?} -> {:?}", &item.guid, &plan)
         }
         let outgoing = OutgoingChangeset::new("history".into(), inbound.timestamp);
         Ok(outgoing)
@@ -109,7 +147,8 @@ impl<'a> Store for HistoryStore<'a> {
         new_timestamp: ServerTimestamp,
         records_synced: &[String],
     ) -> result::Result<(), failure::Error> {
-        panic!("not implemented");
+        println!("sync done!");
+        Ok(())
         // Ok(self.mark_as_synchronized(
         //     &records_synced.iter().map(|r| r.as_str()).collect::<Vec<_>>(),
         //     new_timestamp

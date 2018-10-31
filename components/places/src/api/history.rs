@@ -12,8 +12,7 @@ use observation::{VisitObservation};
 
 // This module can become, roughly: PlacesUtils.history()
 
-// functions used internally.
-fn can_add_url(_url: &Url) -> Result<bool> {
+pub fn can_add_url(_url: &Url) -> Result<bool> {
     Ok(true)
 }
 
