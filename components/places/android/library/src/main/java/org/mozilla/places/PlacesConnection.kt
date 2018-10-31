@@ -135,6 +135,8 @@ open class InvalidPlaceInfo(msg: String): PlacesException(msg)
 
 @SuppressWarnings("MagicNumber")
 enum class VisitType(val type: Int) {
+    /** This isn't a visit, but a request to update meta data about a page */
+    UPDATE_PLACE(-1),
     /** This transition type means the user followed a link. */
     LINK(1),
     /** This transition type means that the user typed the page's URL in the
@@ -152,15 +154,12 @@ enum class VisitType(val type: Int) {
 }
 
 /**
- * Encapsulates either information about a visit to a page, or meta information about the page, or both.
- *
- * @param visitType one of [VisitType] or [Nothing].
- *  When [Nothing], this observation will not be considered a new visit and will instead update meta
- *  information about the [url].
+ * Encapsulates either information about a visit to a page, or meta information about the page,
+ * or both. Use [VisitType.UPDATE_PLACE] to differentiate an update from a visit.
  */
 data class VisitObservation(
     val url: String,
-    val visitType: Int? = null,
+    val visitType: VisitType,
     val title: String? = null,
     val isError: Boolean? = null,
     val isRedirectSource: Boolean? = null,
@@ -173,7 +172,10 @@ data class VisitObservation(
     fun toJSON(): JSONObject {
         val o = JSONObject()
         o.put("url", this.url)
-        this.visitType?.let { o.put("visit_type", it) }
+        // Absence of visit_type indicates that this is an update.
+        if (this.visitType != VisitType.UPDATE_PLACE) {
+            o.put("visit_type", this.visitType.type)
+        }
         this.title?.let { o.put("title", it) }
         this.isError?.let { o.put("is_error", it) }
         this.isRedirectSource?.let { o.put("is_redirect_source", it) }
