@@ -14,11 +14,11 @@ pub struct HistoryRecordVisit {
     transition: u32,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryRecord {
     // TODO: consider `#[serde(rename = "id")] pub guid: String` to avoid confusion
-    pub id: String,
+    pub id: SyncGuid,
 
     #[serde(default)]
     #[serde(skip_serializing_if = "String::is_empty")]
