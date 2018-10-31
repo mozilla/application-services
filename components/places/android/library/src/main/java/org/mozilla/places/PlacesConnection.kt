@@ -9,6 +9,13 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 
+/**
+ * An API for interacting with a Places database.
+ *
+ * @param path an absolute path to a file that will be used for the internal database.
+ * @param encryption_key an optional key used for encrypting/decrypting data stored in the internal
+ *  database. If omitted, data will be stored in plaintext.
+ */
 open class PlacesConnection(path: String, encryption_key: String? = null) : AutoCloseable {
 
     private var db: RawPlacesConnection? = null
@@ -28,6 +35,9 @@ open class PlacesConnection(path: String, encryption_key: String? = null) : Auto
         }
     }
 
+    /**
+     * Record a visit to a URL, or update meta information about page URL. See [VisitObservation].
+     */
     fun noteObservation(data: VisitObservation) {
         val json = data.toJSON().toString()
         rustCall { error ->
@@ -35,6 +45,13 @@ open class PlacesConnection(path: String, encryption_key: String? = null) : Auto
         }
     }
 
+    /**
+     * A way to search the internal database tailored for autocompletion purposes.
+     *
+     * @param query a string to match results against.
+     * @param limit a maximum number of results to retrieve.
+     * @return a list of [SearchResult] matching the [query], in arbitrary order.
+     */
     fun queryAutocomplete(query: String, limit: Int = 10): List<SearchResult> {
         val json = rustCallForString { error ->
             LibPlacesFFI.INSTANCE.places_query_autocomplete(this.db!!, query, limit, error)
@@ -42,6 +59,12 @@ open class PlacesConnection(path: String, encryption_key: String? = null) : Auto
         return SearchResult.fromJSONArray(json)
     }
 
+    /**
+     * Maps a list of page URLs to a list of booleans indicating if each URL was visited.
+     * @param urls a list of page URLs about which "visited" information is being requested.
+     * @return a list of booleans indicating visited status of each
+     * corresponding page URI from [urls].
+     */
     fun getVisited(urls: List<String>): List<Boolean> {
         val urlsToJson = JSONArray()
         for (url in urls) {
@@ -59,7 +82,14 @@ open class PlacesConnection(path: String, encryption_key: String? = null) : Auto
         return result
     }
 
-    /** NB: start and end are unix timestamps in milliseconds! */
+    /**
+     * Returns a list of visited URLs for a given time range.
+     *
+     * @param start beginning of the range, unix timestamp in milliseconds.
+     * @param end end of the range, unix timestamp in milliseconds.
+     * @param includeRemote boolean flag indicating whether or not to include remote visits. A visit
+     *  is (roughly) considered remote if it didn't originate on the current device.
+     */
     fun getVisitedUrlsInRange(start: Long, end: Long = Long.MAX_VALUE, includeRemote: Boolean = true): List<String> {
         val urlsJson = rustCallForString { error ->
             val incRemoteArg: Byte = if (includeRemote) { 1 } else { 0 }
@@ -96,24 +126,6 @@ open class PlacesConnection(path: String, encryption_key: String? = null) : Auto
             LibPlacesFFI.INSTANCE.places_destroy_string(cstring)
         }
     }
-
-    companion object {
-        // Constants for use on VisitObservation visitType
-        /** This transition type means the user followed a link. */
-        const val VISIT_TYPE_LINK: Int = 1
-        /** This transition type means that the user typed the page's URL in the
-         *  URL bar or selected it from UI (URL bar autocomplete results, etc).
-         */
-        const val VISIT_TYPE_TYPED: Int = 2
-        // TODO: rest of docs
-        const val VISIT_TYPE_BOOKMARK = 3
-        const val VISIT_TYPE_EMBED = 4
-        const val VISIT_TYPE_REDIRECT_PERMANENT = 5
-        const val VISIT_TYPE_REDIRECT_TEMPORARY = 6
-        const val VISIT_TYPE_DOWNLOAD = 7
-        const val VISIT_TYPE_FRAMED_LINK = 8
-        const val VISIT_TYPE_RELOAD = 9
-    }
 }
 
 open class PlacesException(msg: String): Exception(msg)
@@ -121,9 +133,33 @@ open class InternalPanic(msg: String): PlacesException(msg)
 open class UrlParseFailed(msg: String): PlacesException(msg)
 open class InvalidPlaceInfo(msg: String): PlacesException(msg)
 
+@SuppressWarnings("MagicNumber")
+enum class VisitType(val type: Int) {
+    /** This isn't a visit, but a request to update meta data about a page */
+    UPDATE_PLACE(-1),
+    /** This transition type means the user followed a link. */
+    LINK(1),
+    /** This transition type means that the user typed the page's URL in the
+     *  URL bar or selected it from UI (URL bar autocomplete results, etc).
+     */
+    TYPED(2),
+    // TODO: rest of docs
+    BOOKMARK(3),
+    EMBED(4),
+    REDIRECT_PERMANENT(5),
+    REDIRECT_TEMPORARY(6),
+    DOWNLOAD(7),
+    FRAMED_LINK(8),
+    RELOAD(9)
+}
+
+/**
+ * Encapsulates either information about a visit to a page, or meta information about the page,
+ * or both. Use [VisitType.UPDATE_PLACE] to differentiate an update from a visit.
+ */
 data class VisitObservation(
     val url: String,
-    val visitType: Int? = null,
+    val visitType: VisitType,
     val title: String? = null,
     val isError: Boolean? = null,
     val isRedirectSource: Boolean? = null,
@@ -136,7 +172,10 @@ data class VisitObservation(
     fun toJSON(): JSONObject {
         val o = JSONObject()
         o.put("url", this.url)
-        this.visitType?.let { o.put("visit_type", it) }
+        // Absence of visit_type indicates that this is an update.
+        if (this.visitType != VisitType.UPDATE_PLACE) {
+            o.put("visit_type", this.visitType.type)
+        }
         this.title?.let { o.put("title", it) }
         this.isError?.let { o.put("is_error", it) }
         this.isRedirectSource?.let { o.put("is_redirect_source", it) }
