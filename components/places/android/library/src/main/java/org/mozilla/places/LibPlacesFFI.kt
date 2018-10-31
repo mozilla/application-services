@@ -8,14 +8,21 @@ import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
+import java.lang.reflect.Proxy
 
 internal interface LibPlacesFFI : Library {
     companion object {
         private const val JNA_LIBRARY_NAME = "places_ffi"
-        internal var INSTANCE: LibPlacesFFI
 
-        init {
-            INSTANCE = Native.loadLibrary(JNA_LIBRARY_NAME, LibPlacesFFI::class.java) as LibPlacesFFI
+        internal var INSTANCE: LibPlacesFFI = try {
+            Native.loadLibrary(JNA_LIBRARY_NAME, LibPlacesFFI::class.java) as LibPlacesFFI
+        } catch (e: UnsatisfiedLinkError) {
+            Proxy.newProxyInstance(
+                LibPlacesFFI::class.java.classLoader,
+                arrayOf(LibPlacesFFI::class.java))
+            { _, _, _ ->
+                throw RuntimeException("Places functionality not available", e)
+            } as LibPlacesFFI
         }
     }
 
