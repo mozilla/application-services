@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::{fmt};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, Duration, UNIX_EPOCH};
 
 use rusqlite::{types::{ToSql, FromSql, ToSqlOutput, FromSqlResult, ValueRef}};
 use rusqlite::Result as RusqliteResult;
@@ -62,6 +62,13 @@ impl From<SystemTime> for Timestamp {
     }
 }
 
+impl From<Timestamp> for SystemTime {
+    #[inline]
+    fn from(ts: Timestamp) -> Self {
+        UNIX_EPOCH + Duration::from_millis(ts.into())
+    }
+}
+
 impl From<u64> for Timestamp {
     #[inline]
     fn from(ts: u64) -> Self {
@@ -94,7 +101,7 @@ impl FromSql for Timestamp {
 // Firefox and are what is written to the database. We also duplicate them
 // in the android lib as constants on PlacesConnection.
 #[repr(u8)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum VisitTransition {
     // This transition type means the user followed a link.
     Link = 1,
