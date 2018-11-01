@@ -120,7 +120,7 @@ impl ToSql for VisitTransition {
 }
 
 impl VisitTransition {
-    pub fn from_primitive(p: u32) -> Option<Self> {
+    pub fn from_primitive(p: u8) -> Option<Self> {
         match p {
             1 => Some(VisitTransition::Link),
             2 => Some(VisitTransition::Typed),
@@ -152,7 +152,7 @@ impl<'de> serde::de::Visitor<'de> for VisitTransitionSerdeVisitor {
             // serde requires us to implement this as visit_u64 so...
             return Err(E::custom(format!("value out of u32 range: {}", value)));
         }
-        VisitTransition::from_primitive(value as u32).ok_or_else(||
+        VisitTransition::from_primitive(value as u8).ok_or_else(||
             E::custom(format!("unknown VisitTransition value: {}", value)))
     }
 }

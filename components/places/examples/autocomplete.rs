@@ -47,7 +47,7 @@ type Result<T> = std::result::Result<T, failure::Error>;
 pub struct SerializedObservation {
     pub url: String, // This is actually required but we check after deserializing
     pub title: Option<String>,
-    pub visit_type: Option<u32>,
+    pub visit_type: Option<u8>,
     pub error: bool,
     pub is_redirect_source: bool,
     pub at: Option<u64>, // milliseconds
@@ -84,7 +84,7 @@ impl From<VisitObservation> for SerializedObservation {
         Self {
             url: visit.url.to_string(),
             title: visit.title.clone(),
-            visit_type: visit.visit_type.map(|vt| vt as u32),
+            visit_type: visit.visit_type.map(|vt| vt as u8),
             at: visit.at.map(|at| at.into()),
             error: visit.is_error.unwrap_or(false),
             is_redirect_source: visit.is_redirect_source.unwrap_or(false),
@@ -103,7 +103,7 @@ struct ImportPlacesOptions {
 struct LegacyPlaceVisit {
     id: i64,
     date: i64,
-    visit_type: u32,
+    visit_type: u8,
     from_visit: i64,
 }
 
