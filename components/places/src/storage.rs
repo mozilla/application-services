@@ -252,7 +252,7 @@ fn add_visit(db: &impl ConnExt,
 pub struct FetchedVisit {
     pub is_local: bool,
     pub visit_date: Timestamp,
-    pub visit_type: VisitTransition, // Will be VisitTransition::Link if unknown
+    pub visit_type: Option<VisitTransition>,
 }
 
 impl FetchedVisit {
@@ -262,8 +262,8 @@ impl FetchedVisit {
             visit_date: row.get_checked::<_, Option<Timestamp>>("visit_date")?
                  .unwrap_or_default(),
             visit_type: VisitTransition::from_primitive(
-                            row.get_checked::<_, Option<u32>>("visit_type")?.unwrap_or(0)
-                        ).unwrap_or(VisitTransition::Link),
+                            row.get_checked::<_, Option<u8>>("visit_type")?.unwrap_or(0)
+                        ),
         })
     }
 }

@@ -9,9 +9,9 @@ use sync15_adapter;
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryRecordVisit {
-    date: Timestamp,
+    pub date: Timestamp,
     #[serde(rename = "type")]
-    transition: u32,
+    pub transition: u8,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize)]
