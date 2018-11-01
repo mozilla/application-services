@@ -187,8 +187,8 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
         let mut stmt = self.conn.prepare(&get_recent_visits)?;
 
         let row_iter = stmt.query_map_named(&[(":page_id", &self.page_id)], |row| {
-            let visit_type = row.get::<_, Option<u32>>("visit_type").unwrap_or(0);
-            let target_visit_type = row.get::<_, Option<u32>>("target_visit_type").unwrap_or(0);
+            let visit_type = row.get::<_, Option<u8>>("visit_type").unwrap_or(0);
+            let target_visit_type = row.get::<_, Option<u8>>("target_visit_type").unwrap_or(0);
             let age_in_days: f64 = row.get("age_in_days");
             (VisitTransition::from_primitive(visit_type),
              VisitTransition::from_primitive(target_visit_type),
