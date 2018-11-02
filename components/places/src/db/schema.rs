@@ -111,6 +111,48 @@ const CREATE_TRIGGER_AFTER_INSERT_ON_PLACES: &str = "
     END
 ";
 
+// Triggers which update visit_count and last_visit_date based on historyvisits
+// table changes.
+const  EXCLUDED_VISIT_TYPES: &str = "0, 4, 7, 8, 9"; // stolen from desktop
+
+lazy_static! {
+    static ref CREATE_TRIGGER_HISTORYVISITS_AFTERINSERT: String = format!("
+        CREATE TEMP TRIGGER moz_historyvisits_afterinsert_trigger
+        AFTER INSERT ON moz_historyvisits FOR EACH ROW
+        BEGIN
+            UPDATE moz_places SET
+                visit_count_remote = visit_count_remote + (SELECT NEW.visit_type NOT IN ({}) AND NOT(NEW.is_local)),
+                visit_count_local =  visit_count_local + (SELECT NEW.visit_type NOT IN ({}) AND NEW.is_local),
+                last_visit_date_local = MAX(IFNULL(last_visit_date_local, 0),
+                                            CASE NEW.is_local
+                                                WHEN 0 THEN 0
+                                                WHEN 1 THEN NEW.visit_date
+                                            END),
+                last_visit_date_remote = MAX(IFNULL(last_visit_date_remote, 0),
+                                             CASE NEW.is_local
+                                                WHEN 0 THEN NEW.visit_date
+                                                WHEN 1 THEN 0
+                                             END)
+            WHERE id = NEW.place_id;
+        END", EXCLUDED_VISIT_TYPES, EXCLUDED_VISIT_TYPES);
+
+    static ref CREATE_TRIGGER_HISTORYVISITS_AFTERDELETE: String = format!("
+        CREATE TEMP TRIGGER moz_historyvisits_afterdelete_trigger
+        AFTER DELETE ON moz_historyvisits FOR EACH ROW
+        BEGIN
+            UPDATE moz_places SET
+                visit_count_local = visit_count_local - (SELECT OLD.visit_type NOT IN ({}) AND OLD.is_local),
+                visit_count_remote = visit_count_remote - (SELECT OLD.visit_type NOT IN ({}) AND NOT(OLD.is_local)),
+                last_visit_date_local = (SELECT visit_date FROM moz_historyvisits
+                                         WHERE place_id = OLD.place_id AND is_local
+                                         ORDER BY visit_date DESC LIMIT 1),
+                last_visit_date_remote = (SELECT visit_date FROM moz_historyvisits
+                                          WHERE place_id = OLD.place_id AND NOT(is_local)
+                                          ORDER BY visit_date DESC LIMIT 1)
+            WHERE id = OLD.place_id;
+        END", EXCLUDED_VISIT_TYPES, EXCLUDED_VISIT_TYPES);
+}
+
 // XXX - TODO - lots of desktop temp tables - but it's not clear they make sense here yet?
 
 // XXX - TODO - lots of favicon related tables - but it's not clear they make sense here yet?
@@ -217,6 +259,8 @@ pub fn create(db: &PlacesDb) -> Result<()> {
     debug!("Creating temp tables and triggers");
     db.execute_all(&[
         CREATE_TRIGGER_AFTER_INSERT_ON_PLACES,
+        &CREATE_TRIGGER_HISTORYVISITS_AFTERINSERT,
+        &CREATE_TRIGGER_HISTORYVISITS_AFTERDELETE,
     ])?;
 
     Ok(())

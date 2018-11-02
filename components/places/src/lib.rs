@@ -38,6 +38,9 @@ extern crate bitflags;
 #[macro_use]
 extern crate ffi_support;
 
+#[macro_use]
+extern crate lazy_static;
+
 pub mod api;
 pub mod error;
 pub mod types;
