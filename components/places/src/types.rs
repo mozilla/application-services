@@ -146,11 +146,11 @@ impl<'de> serde::de::Visitor<'de> for VisitTransitionSerdeVisitor {
     }
 
     fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<VisitTransition, E> {
-        use std::u32::{MAX as U32_MAX};
-        if value > (U32_MAX as u64) {
+        use std::u8::{MAX as U8_MAX};
+        if value > (U8_MAX as u64) {
             // In practice this is *way* out of the valid range of VisitTransition, but
             // serde requires us to implement this as visit_u64 so...
-            return Err(E::custom(format!("value out of u32 range: {}", value)));
+            return Err(E::custom(format!("value out of u8 range: {}", value)));
         }
         VisitTransition::from_primitive(value as u8).ok_or_else(||
             E::custom(format!("unknown VisitTransition value: {}", value)))
