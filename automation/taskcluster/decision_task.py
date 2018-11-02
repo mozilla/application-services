@@ -13,19 +13,22 @@ def main(task_for, mock=False):
         # Pull request.
         android_libs_task = android_libs()
         desktop_linux_libs_task = desktop_linux_libs()
-        android_arm32(android_libs_task)
+        desktop_macos_libs_task = desktop_macos_libs()
+
+        android_arm32(android_libs_task, desktop_linux_libs_task)
 
     elif task_for == "github-push":
         # Push to master or a tag.
         android_libs_task = android_libs()
         desktop_linux_libs_task = desktop_linux_libs()
+        desktop_macos_libs_task = desktop_macos_libs()
 
         if CONFIG.git_ref.startswith('refs/tags/'):
             # A release.
-            android_arm32_release(android_libs_task)
+            android_arm32_release(android_libs_task, desktop_linux_libs_task)
         else:
-            # A regular build.
-            android_arm32(android_libs_task)
+            # A regular push to master.
+            android_arm32(android_libs_task, desktop_linux_libs_task)
 
     else:  # pragma: no cover
         raise ValueError("Unrecognized $TASK_FOR value: %r", task_for)
@@ -68,7 +71,9 @@ def desktop_linux_libs():
     return (
         linux_build_task("Desktop libs (Linux): build")
         .with_script("""
-            pushd libs && ./build-all.sh desktop && popd
+            pushd libs
+            ./build-all.sh desktop
+            popd
             tar -czf /build/repo/target.tar.gz libs/desktop
         """)
         .with_artifacts(
@@ -77,15 +82,37 @@ def desktop_linux_libs():
         .find_or_create("build.libs.desktop.linux." + CONFIG.git_sha_for_directory("libs"))
     )
 
-def android_arm32(build_task):
+def desktop_macos_libs():
     return (
-        linux_build_task("Android (all architectures): build")
-        .with_env(BUILD_TASK_ID=build_task)
-        .with_dependencies(build_task)
+        linux_build_task("Desktop libs (macOS): build")
+        .with_script("""
+            pushd libs
+            ./cross-compile-macos-on-linux-desktop-libs.sh
+            ./build-all.sh osx-cross
+            popd
+            tar -czf /build/repo/target.tar.gz libs/desktop
+        """)
+        .with_scopes('docker-worker:relengapi-proxy:tooltool.download.internal')
+        .with_features('relengAPIProxy')
+        .with_artifacts(
+            "/build/repo/target.tar.gz",
+        )
+        .find_or_create("build.libs.desktop.macos." + CONFIG.git_sha_for_directory("libs"))
+    )
+
+def android_arm32(android_libs_task, desktop_libs_task):
+    return (
+        linux_build_task("Android (all architectures): build and test")
+        .with_env(ANDROID_LIBS_TASK_ID=android_libs_task)
+        .with_env(DESKTOP_LIBS_TASK_ID=desktop_libs_task)
+        .with_dependencies(android_libs_task, desktop_libs_task)
         .with_script("""
             curl --silent --show-error --fail --location --retry 5 --retry-delay 10 https://github.com/mozilla/sccache/releases/download/0.2.7/sccache-0.2.7-x86_64-unknown-linux-musl.tar.gz | tar -xz --strip-components=1 -C /usr/local/bin/ sccache-0.2.7-x86_64-unknown-linux-musl/sccache
-            ./automation/taskcluster/curl-artifact.sh ${BUILD_TASK_ID} target.tar.gz | tar -xz
-            ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
+            ./automation/taskcluster/curl-artifact.sh ${ANDROID_LIBS_TASK_ID} target.tar.gz | tar -xz
+            ./automation/taskcluster/curl-artifact.sh ${DESKTOP_LIBS_TASK_ID} target.tar.gz | tar -xz
+            ./gradlew --no-daemon clean
+            ./gradlew --no-daemon :fxa-client-library:testDebug :logins-library:testDebug :places-library:testDebug
+            ./gradlew --no-daemon :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
         """)
         .with_artifacts(
             "/build/repo/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-release.aar",
@@ -95,15 +122,19 @@ def android_arm32(build_task):
         .create()
     )
 
-def android_arm32_release(build_task):
+def android_arm32_release(android_libs_task, desktop_libs_task):
     return (
-        linux_build_task("Android (all architectures): build and release")
-        .with_env(BUILD_TASK_ID=build_task)
-        .with_dependencies(build_task)
+        linux_build_task("Android (all architectures): build and test and release")
+        .with_env(ANDROID_LIBS_TASK_ID=android_libs_task)
+        .with_env(DESKTOP_LIBS_TASK_ID=desktop_libs_task)
+        .with_dependencies(android_libs_task, desktop_libs_task)
         .with_script("""
             curl --silent --show-error --fail --location --retry 5 --retry-delay 10 https://github.com/mozilla/sccache/releases/download/0.2.7/sccache-0.2.7-x86_64-unknown-linux-musl.tar.gz | tar -xz --strip-components=1 -C /usr/local/bin/ sccache-0.2.7-x86_64-unknown-linux-musl/sccache
-            ./automation/taskcluster/curl-artifact.sh ${BUILD_TASK_ID} target.tar.gz | tar -xz
-            ./gradlew --no-daemon clean :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
+            ./automation/taskcluster/curl-artifact.sh ${ANDROID_LIBS_TASK_ID} target.tar.gz | tar -xz
+            ./automation/taskcluster/curl-artifact.sh ${DESKTOP_LIBS_TASK_ID} target.tar.gz | tar -xz
+            ./gradlew --no-daemon clean
+            ./gradlew --no-daemon :fxa-client-library:testDebug :logins-library:testDebug :places-library:testDebug
+            ./gradlew --no-daemon :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
             python automation/taskcluster/release/fetch-bintray-api-key.py
             ./gradlew bintrayUpload --debug -PvcsTag="${GIT_SHA}"
         """)

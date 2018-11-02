@@ -61,7 +61,11 @@ then
 elif [ "$PLATFORM" == "desktop" ]
 then
   ./build-openssl-desktop.sh "$OPENSSL_SRC_PATH"
-  ./build-sqlcipher-desktop.sh "$SQLCIPHER_SRC_PATH" $(abspath "desktop/openssl")
+  ./build-sqlcipher-desktop.sh "$SQLCIPHER_SRC_PATH"
+elif [ "$PLATFORM" == "osx-cross" ]
+then
+  ./build-openssl-desktop.sh "$OPENSSL_SRC_PATH" "yes-cross-compile"
+  ./build-sqlcipher-desktop.sh "$SQLCIPHER_SRC_PATH" "yes-cross-compile"
 else
   echo "Unrecognized platform"
   exit 1
