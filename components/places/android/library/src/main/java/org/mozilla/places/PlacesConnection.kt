@@ -10,18 +10,17 @@ import org.json.JSONException
 import org.json.JSONObject
 
 /**
- * An API for interacting with a Places database.
+ * An implementation of a [PlacesAPI] backed by a Rust Places library.
  *
  * @param path an absolute path to a file that will be used for the internal database.
  * @param encryption_key an optional key used for encrypting/decrypting data stored in the internal
  *  database. If omitted, data will be stored in plaintext.
  */
-open class PlacesConnection(path: String, encryption_key: String? = null) : AutoCloseable {
-
-    private var db: RawPlacesConnection? = null
+class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI, AutoCloseable {
+    private var db: RawPlacesConnection?
 
     init {
-        this.db = rustCall { error ->
+        db = rustCall { error ->
             LibPlacesFFI.INSTANCE.places_connection_new(path, encryption_key, error)
         }
     }
@@ -35,37 +34,21 @@ open class PlacesConnection(path: String, encryption_key: String? = null) : Auto
         }
     }
 
-    /**
-     * Record a visit to a URL, or update meta information about page URL. See [VisitObservation].
-     */
-    fun noteObservation(data: VisitObservation) {
+    override fun noteObservation(data: VisitObservation) {
         val json = data.toJSON().toString()
         rustCall { error ->
             LibPlacesFFI.INSTANCE.places_note_observation(this.db!!, json, error)
         }
     }
 
-    /**
-     * A way to search the internal database tailored for autocompletion purposes.
-     *
-     * @param query a string to match results against.
-     * @param limit a maximum number of results to retrieve.
-     * @return a list of [SearchResult] matching the [query], in arbitrary order.
-     */
-    fun queryAutocomplete(query: String, limit: Int = 10): List<SearchResult> {
+    override fun queryAutocomplete(query: String, limit: Int): List<SearchResult> {
         val json = rustCallForString { error ->
             LibPlacesFFI.INSTANCE.places_query_autocomplete(this.db!!, query, limit, error)
         }
         return SearchResult.fromJSONArray(json)
     }
 
-    /**
-     * Maps a list of page URLs to a list of booleans indicating if each URL was visited.
-     * @param urls a list of page URLs about which "visited" information is being requested.
-     * @return a list of booleans indicating visited status of each
-     * corresponding page URI from [urls].
-     */
-    fun getVisited(urls: List<String>): List<Boolean> {
+    override fun getVisited(urls: List<String>): List<Boolean> {
         val urlsToJson = JSONArray()
         for (url in urls) {
             urlsToJson.put(url)
@@ -82,15 +65,7 @@ open class PlacesConnection(path: String, encryption_key: String? = null) : Auto
         return result
     }
 
-    /**
-     * Returns a list of visited URLs for a given time range.
-     *
-     * @param start beginning of the range, unix timestamp in milliseconds.
-     * @param end end of the range, unix timestamp in milliseconds.
-     * @param includeRemote boolean flag indicating whether or not to include remote visits. A visit
-     *  is (roughly) considered remote if it didn't originate on the current device.
-     */
-    fun getVisitedUrlsInRange(start: Long, end: Long = Long.MAX_VALUE, includeRemote: Boolean = true): List<String> {
+    override fun getVisitedUrlsInRange(start: Long, end: Long, includeRemote: Boolean): List<String> {
         val urlsJson = rustCallForString { error ->
             val incRemoteArg: Byte = if (includeRemote) { 1 } else { 0 }
             LibPlacesFFI.INSTANCE.places_get_visited_urls_in_range(
@@ -119,13 +94,50 @@ open class PlacesConnection(path: String, encryption_key: String? = null) : Auto
     private inline fun rustCallForString(callback: (RustError.ByReference) -> Pointer?): String {
         val cstring = rustCall(callback)
                 ?: throw RuntimeException("Bug: Don't use this function when you can return" +
-                                          " null on success.")
+                        " null on success.")
         try {
             return cstring.getString(0, "utf8")
         } finally {
             LibPlacesFFI.INSTANCE.places_destroy_string(cstring)
         }
     }
+}
+
+/**
+ * An API for interacting with Places.
+ */
+interface PlacesAPI {
+    /**
+     * Record a visit to a URL, or update meta information about page URL. See [VisitObservation].
+     */
+    fun noteObservation(data: VisitObservation)
+
+    /**
+     * A way to search the internal database tailored for autocompletion purposes.
+     *
+     * @param query a string to match results against.
+     * @param limit a maximum number of results to retrieve.
+     * @return a list of [SearchResult] matching the [query], in arbitrary order.
+     */
+    fun queryAutocomplete(query: String, limit: Int): List<SearchResult>
+
+    /**
+     * Maps a list of page URLs to a list of booleans indicating if each URL was visited.
+     * @param urls a list of page URLs about which "visited" information is being requested.
+     * @return a list of booleans indicating visited status of each
+     * corresponding page URI from [urls].
+     */
+    fun getVisited(urls: List<String>): List<Boolean>
+
+    /**
+     * Returns a list of visited URLs for a given time range.
+     *
+     * @param start beginning of the range, unix timestamp in milliseconds.
+     * @param end end of the range, unix timestamp in milliseconds.
+     * @param includeRemote boolean flag indicating whether or not to include remote visits. A visit
+     *  is (roughly) considered remote if it didn't originate on the current device.
+     */
+    fun getVisitedUrlsInRange(start: Long, end: Long = Long.MAX_VALUE, includeRemote: Boolean = true): List<String>
 }
 
 open class PlacesException(msg: String): Exception(msg)
