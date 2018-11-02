@@ -12,7 +12,7 @@ use url::{Url};
 use types::{SyncGuid, Timestamp, VisitTransition};
 use super::record::{HistoryRecord, HistoryRecordVisit};
 use super::super::super::api::history::{can_add_url};
-use super::super::super::storage::{fetch_visits, FetchedVisit, FetchedVisitPage} ;
+use super::super::super::storage::history_sync::{fetch_visits, FetchedVisit, FetchedVisitPage} ;
 
 /// Clamps a history visit date between the current date and the earliest
 /// sensible date.
@@ -122,6 +122,7 @@ mod tests {
     use super::super::super::super::observation::{VisitObservation};
 
     use db::PlacesDb;
+    use sql_support::ConnExt;
 
     #[test]
     fn test_invalid() {
@@ -156,7 +157,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dupe_visit() {
+    fn test_dupe_visit_same_guid() {
         let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
         let now = SystemTime::now();
         let url = Url::parse("https://example.com").expect("is valid");
@@ -165,9 +166,17 @@ mod tests {
                       .with_visit_type(VisitTransition::Link)
                       .with_at(Some(now.into()));
         apply_observation(&mut conn, obs).expect("should apply");
+
+        // fetch the guid of the item we just created.
+        let guid_result: Result<Option<String>> = conn.try_query_row(
+                    "SELECT guid from moz_places WHERE url = :url;",
+                    &[(":url", &url.clone().into_string())],
+                    |row| Ok(row.get::<_, String>(0).clone()), true);
+        let guid = guid_result.expect("should have worked").expect("should have got a value");
+
         // try and add it remotely.
         let visits = vec![HistoryRecordVisit {date: now.into(), transition: 1}];
-        let record = HistoryRecord { id: SyncGuid("foo".to_string()),
+        let record = HistoryRecord { id: SyncGuid(guid),
                                      title: "title".into(),
                                      hist_uri: "https://example.com".into(),
                                      sortindex: 0,

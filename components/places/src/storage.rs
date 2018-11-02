@@ -129,7 +129,7 @@ pub fn apply_observation(db: &mut PlacesDb, visit_ob: VisitObservation) -> Resul
 pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> Result<()> {
     let mut page_info = match fetch_page_info(db, &visit_ob.url)? {
         Some(info) => info.page,
-        None => new_page_info(db, &visit_ob.url)?,
+        None => new_page_info(db, &visit_ob.url, None)?,
     };
     let mut updates: Vec<(&str, &str, &ToSql)> = Vec::new();
     if let Some(ref title) = visit_ob.title {
@@ -201,8 +201,11 @@ pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> 
     Ok(())
 }
 
-fn new_page_info(db: &impl ConnExt, url: &Url) -> Result<PageInfo> {
-    let guid = super::sync15_adapter::util::random_guid().expect("according to logins-sql, this is fine :)");
+fn new_page_info(db: &impl ConnExt, url: &Url, new_guid: Option<SyncGuid>) -> Result<PageInfo> {
+    let guid = match new_guid {
+        Some(guid) => guid,
+        None => super::sync15_adapter::util::random_guid().expect("according to logins-sql, this is fine :)").into(),
+    };
     let sql = "INSERT INTO moz_places (guid, url, url_hash)
                VALUES (:guid, :url, hash(:url))";
     db.execute_named_cached(sql, &[
@@ -211,7 +214,7 @@ fn new_page_info(db: &impl ConnExt, url: &Url) -> Result<PageInfo> {
     ])?;
     Ok(PageInfo {
         url: url.clone(),
-        guid: SyncGuid(guid),
+        guid: guid,
         row_id: RowId(db.conn().last_insert_rowid()),
         title: "".into(),
         hidden: true, // will be set to false as soon as a non-hidden visit appears.
@@ -248,44 +251,103 @@ fn add_visit(db: &impl ConnExt,
     Ok(RowId(rid))
 }
 
-#[derive(Debug)]
-pub struct FetchedVisit {
-    pub is_local: bool,
-    pub visit_date: Timestamp,
-    pub visit_type: Option<VisitTransition>,
-}
+// Support for Sync - in its own module to try and keep a delineation
+pub mod history_sync {
+    use super::*;
+    use sync::history::record::{HistoryRecordVisit};
 
-impl FetchedVisit {
-    pub fn from_row(row: &Row) -> Result<Self> {
-        Ok(Self {
-            is_local: row.get_checked("is_local")?,
-            visit_date: row.get_checked::<_, Option<Timestamp>>("visit_date")?
-                 .unwrap_or_default(),
-            visit_type: VisitTransition::from_primitive(
-                            row.get_checked::<_, Option<u8>>("visit_type")?.unwrap_or(0)
-                        ),
-        })
+    #[derive(Debug)]
+    pub struct FetchedVisit {
+        pub is_local: bool,
+        pub visit_date: Timestamp,
+        pub visit_type: Option<VisitTransition>,
     }
-}
 
-pub fn fetch_visits(db: &Connection, url: &Url, limit: u32) -> Result<Vec<FetchedVisit>> {
-    let mut stmt = db.prepare("
-      SELECT is_local, visit_type, visit_date
-      FROM moz_historyvisits
-      JOIN moz_places h ON h.id = place_id
-      WHERE url_hash = hash(:url) AND url = :url
-      ORDER BY visit_date DESC LIMIT :limit")?;
-    let iter = stmt.query_and_then_named(&[(":url", &url.clone().to_string()),
-                                           (":limit", &limit)],
-                                         FetchedVisit::from_row)?;
-    // markh should work out how to iter.collect this ;)
-    let mut results = Vec::new();
-    for result in iter {
-        results.push(result?);
+    impl FetchedVisit {
+        pub fn from_row(row: &Row) -> Result<Self> {
+            Ok(Self {
+                is_local: row.get_checked("is_local")?,
+                visit_date: row.get_checked::<_, Option<Timestamp>>("visit_date")?
+                     .unwrap_or_default(),
+                visit_type: VisitTransition::from_primitive(
+                                row.get_checked::<_, Option<u8>>("visit_type")?.unwrap_or(0)
+                            ),
+            })
+        }
     }
-    Ok(results)
-}
 
+    #[derive(Debug)]
+    pub struct FetchedVisitPage {
+        pub url: Url,
+        pub guid: SyncGuid,
+        pub row_id: RowId,
+        pub title: String,
+    }
+
+    impl FetchedVisitPage {
+        pub fn from_row(row: &Row) -> Result<Self> {
+            Ok(Self {
+                url: Url::parse(&row.get_checked::<_, Option<String>>("url")?.expect("non null column"))?,
+                guid: SyncGuid(row.get_checked::<_, Option<String>>("guid")?.expect("non null column")),
+                row_id: row.get_checked("id")?,
+                title: row.get_checked::<_, Option<String>>("title")?.unwrap_or_default(),
+            })
+        }
+    }
+
+    pub fn fetch_visits(db: &Connection, url: &Url, limit: u32) -> Result<Option<(FetchedVisitPage, Vec<FetchedVisit>)>> {
+        // We do this in 2 steps - "do we have a page" then "get visits"
+        let page_sql = "
+          SELECT guid, url, id, title
+          FROM moz_places h
+          WHERE url_hash = hash(:url) AND url = :url";
+
+        let page_info = match db.try_query_row(page_sql, &[(":url", &url.clone().into_string())], FetchedVisitPage::from_row, true)? {
+            None => return Ok(None),
+            Some(pi) => pi,
+        };
+
+        let mut stmt = db.prepare("
+          SELECT is_local, visit_type, visit_date
+          FROM moz_historyvisits
+          WHERE place_id = :place_id
+          LIMIT :limit")?;
+        let iter = stmt.query_and_then_named(&[(":place_id", &page_info.row_id),
+                                               (":limit", &limit)],
+                                             FetchedVisit::from_row)?;
+        // markh should work out how to iter.collect this ;)
+        let mut visits = Vec::new();
+        for result in iter {
+            visits.push(result?);
+        }
+        Ok(Some((page_info, visits)))
+    }
+
+    /// Apply history visist from sync. This assumes they have all been
+    /// validated, deduped, etc - it's just the storage we do here.
+    pub fn apply_synced_visits(db: &Connection, guid: &SyncGuid, url: &Url, title: &Option<String>, visits: &Vec<HistoryRecordVisit>) -> Result<()> {
+        let page_info = match fetch_page_info(db, &url)? {
+            Some(info) => {
+                // XXX - we want to change the GUID in this case.
+                assert_eq!(info.page.guid, *guid);
+                info.page
+            },
+            None => new_page_info(db, &url, Some(guid.clone()))?,
+        };
+        for visit in visits {
+            let transition = VisitTransition::from_primitive(visit.transition).expect("these should already be validated");
+            add_visit(db, &page_info.row_id, &None, &visit.date, &transition, &false)?;
+        }
+        // and the place itself if necessary.
+        if let Some(title) = title {
+            db.execute_named_cached(
+                "UPDATE moz_places SET title = :title WHERE id == :row_id",
+                &[(":title", title), (":row_id", &page_info.row_id)]
+            )?;
+        }
+        Ok(())
+    }
+} // end of sync module.
 
 // Currently not used - we update the frecency as we update the page info.
 pub fn update_frecency(db: &mut PlacesDb, id: RowId, redirect: Option<bool>) -> Result<()> {
@@ -360,6 +422,7 @@ pub fn get_visited_urls(db: &PlacesDb, start: Timestamp, end: Timestamp, include
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::history_sync::*;
 
     struct Origin {
         prefix: String,
@@ -444,7 +507,7 @@ mod tests {
         let url = Url::parse("https://www.example.com/1").unwrap();
         apply_observation(&mut conn, VisitObservation::new(url.clone()).with_visit_type(VisitTransition::Link))
             .expect("Should apply visit");
-        assert_eq!(fetch_visits(&conn, &url, 0).unwrap().len(), 0);
-        assert_eq!(fetch_visits(&conn, &url, 1).unwrap().len(), 1);
+        assert_eq!(fetch_visits(&conn, &url, 0).unwrap().unwrap().1.len(), 0);
+        assert_eq!(fetch_visits(&conn, &url, 1).unwrap().unwrap().1.len(), 1);
     }
 }

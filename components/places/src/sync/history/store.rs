@@ -17,6 +17,8 @@ use sync15_adapter::driver::{GlobalStateProvider, ClientInfo};
 use types::{VisitTransition};
 use super::record::{HistorySyncRecord};
 use super::incoming_plan::{IncomingPlan, plan_incoming_record};
+use super::super::super::storage::history_sync::{apply_synced_visits} ;
+
 
 static LAST_SYNC_META_KEY:    &'static str = "history_last_sync_time";
 static GLOBAL_STATE_META_KEY: &'static str = "history_global_state";
@@ -76,20 +78,7 @@ impl<'a> HistoryStore<'a> {
                 IncomingPlan::Apply(guid, url, title, visits_to_add) => {
                     trace!("will apply {:?}: url={:?}, title={:?}, to_add={}",
                           guid, url, title, visits_to_add.len());
-                    // I did say "most naive way possible..." ;)
-                    for visit in visits_to_add {
-                        // 'use' these here for now as we will remove them soon.
-                        use super::super::super::storage::{apply_observation};
-                        use super::super::super::observation::{VisitObservation};
-
-                        let obs = VisitObservation::new(url.clone())
-                                          // If we haven't de-duped the visit, it must be remote.
-                                          .with_is_remote(true)
-// sob                                          .with_title(title.into())
-                                          .with_visit_type(VisitTransition::from_primitive(visit.transition))
-                                          .with_at(visit.date);
-                        apply_observation(&self.db, obs)?;
-                    }
+                    apply_synced_visits(&self.db, &guid, &url, title, visits_to_add)?;
                 },
             };
         }
