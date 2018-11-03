@@ -160,8 +160,6 @@ impl PasswordEngine {
 
         info!("Syncing passwords engine!");
 
-        let ts = self.db.get_last_sync()?.unwrap_or_default();
-
         // We don't use `?` here so that we can restore the value of of
         // `self.sync` even if sync fails.
         let result = sync::synchronize(
@@ -169,7 +167,6 @@ impl PasswordEngine {
             &sync_info.state,
             &self.db,
             "passwords".into(),
-            ts,
             true
         );
 

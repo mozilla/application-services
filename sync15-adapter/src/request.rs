@@ -64,49 +64,49 @@ impl CollectionRequest {
     }
 
     #[inline]
-    pub fn ids<V>(&mut self, v: V) -> &mut CollectionRequest where V: Into<Vec<String>> {
+    pub fn ids<V>(mut self, v: V) -> CollectionRequest where V: Into<Vec<String>> {
         self.ids = Some(v.into());
         self
     }
 
     #[inline]
-    pub fn full(&mut self) -> &mut CollectionRequest {
+    pub fn full(mut self) -> CollectionRequest {
         self.full = true;
         self
     }
 
     #[inline]
-    pub fn older_than(&mut self, ts: ServerTimestamp) -> &mut CollectionRequest {
+    pub fn older_than(mut self, ts: ServerTimestamp) -> CollectionRequest {
         self.older = Some(ts);
         self
     }
 
     #[inline]
-    pub fn newer_than(&mut self, ts: ServerTimestamp) -> &mut CollectionRequest {
+    pub fn newer_than(mut self, ts: ServerTimestamp) -> CollectionRequest {
         self.newer = Some(ts);
         self
     }
 
     #[inline]
-    pub fn sort_by(&mut self, order: RequestOrder) -> &mut CollectionRequest {
+    pub fn sort_by(mut self, order: RequestOrder) -> CollectionRequest {
         self.order = Some(order);
         self
     }
 
     #[inline]
-    pub fn limit(&mut self, num: usize) -> &mut CollectionRequest {
+    pub fn limit(mut self, num: usize) -> CollectionRequest {
         self.limit = num;
         self
     }
 
     #[inline]
-    pub fn batch(&mut self, batch: Option<String>) -> &mut CollectionRequest {
+    pub fn batch(mut self, batch: Option<String>) -> CollectionRequest {
         self.batch = batch;
         self
     }
 
     #[inline]
-    pub fn commit(&mut self, v: bool) -> &mut CollectionRequest {
+    pub fn commit(mut self, v: bool) -> CollectionRequest {
         self.commit = v;
         self
     }
