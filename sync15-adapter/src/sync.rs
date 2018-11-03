@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use changeset::{CollectionUpdate, IncomingChangeset, OutgoingChangeset};
+use request::{CollectionRequest};
 use client::Sync15StorageClient;
 use error::Error;
 use failure;
@@ -24,18 +25,25 @@ pub trait Store {
         new_timestamp: ServerTimestamp,
         records_synced: &[String],
     ) -> Result<(), failure::Error>;
+
+    // The store is responsible for building the collection request. Engines
+    // typically will store a lastModified timestamp and use that to build
+    // a request saying "give me full records since that date" - however, other
+    // engines might do something fancier. This could even later be extended
+    // to handle "backfills" etc
+    fn get_collection_request(&self) -> Result<CollectionRequest, failure::Error>;
 }
 
 pub fn synchronize(client: &Sync15StorageClient,
                    state: &GlobalState,
                    store: &Store,
                    collection: String,
-                   timestamp: ServerTimestamp,
                    fully_atomic: bool) -> Result<(), Error>
 {
 
     info!("Syncing collection {}", collection);
-    let incoming_changes = IncomingChangeset::fetch(client, state, collection.clone(), timestamp)?;
+    let collection_request = store.get_collection_request()?;
+    let incoming_changes = IncomingChangeset::fetch(client, state, collection.clone(), &collection_request)?;
     let last_changed_remote = incoming_changes.timestamp;
 
     info!("Downloaded {} remote changes", incoming_changes.changes.len());

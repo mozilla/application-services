@@ -6,7 +6,7 @@ use bso_record::{EncryptedBso, Payload};
 use client::Sync15StorageClient;
 use error::{self, ErrorKind, Result};
 use key_bundle::KeyBundle;
-use request::{NormalResponseHandler, UploadInfo};
+use request::{NormalResponseHandler, UploadInfo, CollectionRequest};
 use state::GlobalState;
 use util::ServerTimestamp;
 
@@ -66,9 +66,9 @@ impl IncomingChangeset {
         client: &Sync15StorageClient,
         state: &GlobalState,
         collection: String,
-        since: ServerTimestamp,
+        collection_request: &CollectionRequest,
     ) -> Result<IncomingChangeset> {
-        let records = client.get_encrypted_records(&collection, since)?;
+        let records = client.get_encrypted_records(collection_request)?;
         let timestamp = state.last_modified_or_zero(&collection);
         let mut result = IncomingChangeset::new(collection, timestamp);
         result.changes.reserve(records.len());
