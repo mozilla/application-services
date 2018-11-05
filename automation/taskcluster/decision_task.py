@@ -42,6 +42,7 @@ build_env = {
     "RUST_BACKTRACE": "1",
     "RUSTFLAGS": "-Dwarnings",
     "CARGO_INCREMENTAL": "0",
+    "CI": "1",
 }
 linux_build_env = {
     "TERM": "dumb",  # Keep Gradle output sensible.
