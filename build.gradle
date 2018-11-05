@@ -90,7 +90,7 @@ if (rootProject.ext.libsGitSha != null) {
             switch (DefaultPlatform.RESOURCE_PREFIX) {
                 case 'darwin':
                     return "https://index.taskcluster.net/v1/task/project.application-services.application-services.build.libs.desktop.macos.${rootProject.ext.libsGitSha}/artifacts/public/target.tar.gz"
-                case 'linux':
+                case 'linux-x86-64':
                     return "https://index.taskcluster.net/v1/task/project.application-services.application-services.build.libs.desktop.linux.${rootProject.ext.libsGitSha}/artifacts/public/target.tar.gz"
                 default:
                     throw new GradleException("Unknown host platform '${DefaultPlatform.RESOURCE_PREFIX}'.  " +
@@ -104,7 +104,7 @@ if (rootProject.ext.libsGitSha != null) {
             switch (DefaultPlatform.RESOURCE_PREFIX) {
                 case 'darwin':
                     return new File(buildDir, "libs.desktop.macos.${rootProject.ext.libsGitSha}.tar.gz")
-                case 'linux':
+                case 'linux-x86-64':
                     return new File(buildDir, "libs.desktop.linux.${rootProject.ext.libsGitSha}.tar.gz")
                 default:
                     throw new GradleException("Unknown host platform '${DefaultPlatform.RESOURCE_PREFIX}'.  " +
