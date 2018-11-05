@@ -49,3 +49,32 @@ allprojects {
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
+
+// Avoid Gradle namespace collision.  This is here, rather than in `buildscript
+// { ... }`, to avoid issues with importing.
+import com.sun.jna.Platform as DefaultPlatform
+
+// Configure some environment variables, per toolchain, that will apply during
+// the Cargo build.  We assume that the `libs/` directory has been populated
+// before invoking Gradle (or Cargo).
+ext.cargoExec = { spec, toolchain ->
+    spec.environment("OPENSSL_STATIC", "1")
+
+    switch (toolchain.platform) {
+        case 'default':
+            spec.environment("OPENSSL_DIR",           rootProject.file("libs/desktop/${DefaultPlatform.RESOURCE_PREFIX}/openssl").absolutePath)
+            spec.environment("SQLCIPHER_LIB_DIR",     rootProject.file("libs/desktop/${DefaultPlatform.RESOURCE_PREFIX}/sqlcipher/lib").absolutePath)
+            spec.environment("SQLCIPHER_INCLUDE_DIR", rootProject.file("libs/desktop/${DefaultPlatform.RESOURCE_PREFIX}/sqlcipher/include").absolutePath)
+            break;
+        case 'arm':
+        case 'arm64':
+        case 'x86':
+        case 'x86_64':
+            spec.environment("OPENSSL_DIR",           rootProject.file("libs/android/${toolchain.platform}/openssl").absolutePath)
+            spec.environment("SQLCIPHER_LIB_DIR",     rootProject.file("libs/android/${toolchain.platform}/sqlcipher/lib").absolutePath)
+            spec.environment("SQLCIPHER_INCLUDE_DIR", rootProject.file("libs/android/${toolchain.platform}/sqlcipher/include").absolutePath)
+            break;
+        default:
+            throw GradleException("Unknown toolchain platform ${toolchain.platform}")
+    }
+}
