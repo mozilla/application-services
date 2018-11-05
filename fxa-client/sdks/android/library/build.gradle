@@ -53,30 +53,12 @@ cargo {
     // `debug = true` in Cargo.toml).
     profile = "release"
 
-    // Configure some environment variables, per toolchain, that will apply
-    // during the Cargo build.  Paths are relative to this file.  We assume that
-    // the `libs/` directory has been populated before invoking Gradle (or Cargo).
-    exec = { spec, toolchain ->
-        switch (toolchain.platform) {
-            // TODO: For unit tests.
-            // case 'default':
-            //     spec.environment("OPENSSL_DIR", file('../../../../libs/desktop/openssl').absolutePath)
-            //     break;
-            case 'arm':
-            case 'arm64':
-            case 'x86':
-                spec.environment("OPENSSL_STATIC",        "1")
-                spec.environment("OPENSSL_DIR",           file("../../../../libs/android/${toolchain.platform}/openssl").absolutePath)
-                break;
-            default:
-                throw GradleException("Unknown toolchain platform ${toolchain.platform}")
-        }
-    }
+    exec = rootProject.ext.cargoExec
 
     // TODO: For unit tests.
     // This puts the output of `cargo build` (the "default" toolchain) into the correct directory
     // for JNA to find it.
-    // defaultToolchainBuildPrefixDir = Platform.RESOURCE_PREFIX
+    // defaultToolchainBuildPrefixDir = com.sun.jna.Platform.RESOURCE_PREFIX
 }
 
 dependencies {

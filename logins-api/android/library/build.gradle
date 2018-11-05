@@ -5,8 +5,6 @@ apply plugin: 'kotlin-android-extensions'
 
 apply plugin: 'com.github.dcendents.android-maven'
 
-import com.sun.jna.Platform
-
 android {
     compileSdkVersion 27
 
@@ -61,34 +59,12 @@ cargo {
     // `debug = true` in Cargo.toml).
     profile = "release"
 
-    // Configure some environment variables, per toolchain, that will apply
-    // during the Cargo build.  Paths are relative to this file.  We assume that
-    // the `libs/` directory has been populated before invoking Gradle (or Cargo).
-    exec = { spec, toolchain ->
-        switch (toolchain.platform) {
-            case 'default':
-                 spec.environment("OPENSSL_STATIC", "1")
-                 spec.environment("OPENSSL_DIR",           file("../../../libs/desktop/${Platform.RESOURCE_PREFIX}/openssl").absolutePath)
-                 spec.environment("SQLCIPHER_LIB_DIR",     file("../../../libs/desktop/${Platform.RESOURCE_PREFIX}/sqlcipher/lib").absolutePath)
-                 spec.environment("SQLCIPHER_INCLUDE_DIR", file("../../../libs/desktop/${Platform.RESOURCE_PREFIX}/sqlcipher/include").absolutePath)
-                 break;
-            case 'arm':
-            case 'arm64':
-            case 'x86':
-                spec.environment("OPENSSL_STATIC",        "1")
-                spec.environment("OPENSSL_DIR",           file("../../../libs/android/${toolchain.platform}/openssl").absolutePath)
-                spec.environment("SQLCIPHER_LIB_DIR",     file("../../../libs/android/${toolchain.platform}/sqlcipher/lib").absolutePath)
-                spec.environment("SQLCIPHER_INCLUDE_DIR", file("../../../libs/android/${toolchain.platform}/sqlcipher/include").absolutePath)
-                break;
-            default:
-                throw GradleException("Unknown toolchain platform ${toolchain.platform}")
-        }
-    }
+    exec = rootProject.ext.cargoExec
 
     // For unit tests.
     // This puts the output of `cargo build` (the "default" toolchain) into the correct directory
     // for JNA to find it.
-    defaultToolchainBuildPrefixDir = Platform.RESOURCE_PREFIX
+    defaultToolchainBuildPrefixDir = com.sun.jna.Platform.RESOURCE_PREFIX
 }
 
 configurations {
