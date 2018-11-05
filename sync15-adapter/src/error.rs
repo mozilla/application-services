@@ -4,7 +4,7 @@
 
 use std::time::SystemTime;
 use reqwest;
-use failure::{Fail, Context, Backtrace, SyncFailure};
+use failure::{self, Fail, Context, Backtrace, SyncFailure};
 use std::{fmt, result, string};
 use std::boxed::Box;
 use openssl;
@@ -120,6 +120,9 @@ pub enum ErrorKind {
     #[fail(display = "Setup state machine disallowed state {}", _0)]
     DisallowedStateError(&'static str),
 
+    #[fail(display = "Store error: {}", _0)]
+    StoreError(#[fail(cause)] failure::Error),
+
     // Basically reimplement error_chain's foreign_links. (Ugh, this sucks)
 
     #[fail(display = "OpenSSL error: {}", _0)]
@@ -128,7 +131,7 @@ pub enum ErrorKind {
     #[fail(display = "Base64 decode error: {}", _0)]
     Base64Decode(#[fail(cause)] base64::DecodeError),
 
-    #[fail(display = "JSON parse error: {}", _0)]
+    #[fail(display = "JSON error: {}", _0)]
     JsonError(#[fail(cause)] serde_json::Error),
 
     #[fail(display = "Bad cleartext UTF8: {}", _0)]
@@ -172,7 +175,9 @@ impl_from_error! {
     (BadCleartextUtf8, ::std::string::FromUtf8Error),
     (RequestError, ::reqwest::Error),
     (MalformedUrl, ::reqwest::UrlError),
-    (MalformedHeader, ::reqwest::header::InvalidHeaderValue)
+    (MalformedHeader, ::reqwest::header::InvalidHeaderValue),
+    // A bit dubious, since we only want this to happen inside `synchronize`
+    (StoreError, ::failure::Error)
 }
 
 // ::hawk::Error uses error_chain, and so it's not trivially compatible with failure.

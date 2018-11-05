@@ -51,7 +51,7 @@ cargo {
     // The Cargo targets to invoke.  The mapping from short name to target
     // triple is defined by the `rust-android-gradle` plugin.
     targets = [
-        // 'default', // TODO: not until https://github.com/mozilla/application-services/issues/259 is fixed.
+        'default',
         'arm',
         'arm64',
         'x86',
@@ -68,9 +68,9 @@ cargo {
         switch (toolchain.platform) {
             case 'default':
                  spec.environment("OPENSSL_STATIC", "1")
-                 spec.environment("OPENSSL_DIR",           file("../../../libs/desktop/openssl").absolutePath)
-                 spec.environment("SQLCIPHER_LIB_DIR",     file("../../../libs/desktop/sqlcipher/lib").absolutePath)
-                 spec.environment("SQLCIPHER_INCLUDE_DIR", file("../../../libs/desktop/sqlcipher/include").absolutePath)
+                 spec.environment("OPENSSL_DIR",           file("../../../libs/desktop/${Platform.RESOURCE_PREFIX}/openssl").absolutePath)
+                 spec.environment("SQLCIPHER_LIB_DIR",     file("../../../libs/desktop/${Platform.RESOURCE_PREFIX}/sqlcipher/lib").absolutePath)
+                 spec.environment("SQLCIPHER_INCLUDE_DIR", file("../../../libs/desktop/${Platform.RESOURCE_PREFIX}/sqlcipher/include").absolutePath)
                  break;
             case 'arm':
             case 'arm64':
