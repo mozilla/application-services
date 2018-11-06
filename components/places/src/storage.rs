@@ -6,7 +6,7 @@
 // API and the database.
 // This should probably be a sub-directory
 
-use std::{fmt, cmp};
+use std::{fmt};
 use url::{Url};
 use types::{SyncGuid, Timestamp, VisitTransition};
 use error::{Result};
@@ -119,14 +119,16 @@ fn fetch_page_info(db: &impl ConnExt, url: &Url) -> Result<Option<FetchedPageInf
     Ok(db.try_query_row(sql, &[(":page_url", &url.clone().into_string())], FetchedPageInfo::from_row, true)?)
 }
 
-pub fn apply_observation(db: &mut PlacesDb, visit_ob: VisitObservation) -> Result<()> {
+/// Returns the RowId of a new visit in moz_historyvisits, or None if no new visit was added.
+pub fn apply_observation(db: &mut PlacesDb, visit_ob: VisitObservation) -> Result<Option<RowId>> {
     let tx = db.db.transaction()?;
-    apply_observation_direct(tx.conn(), visit_ob)?;
+    let result = apply_observation_direct(tx.conn(), visit_ob)?;
     tx.commit()?;
-    Ok(())
+    Ok(result)
 }
 
-pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> Result<()> {
+/// Returns the RowId of a new visit in moz_historyvisits, or None if no new visit was added.
+pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> Result<Option<RowId>> {
     let mut page_info = match fetch_page_info(db, &visit_ob.url)? {
         Some(info) => info.page,
         None => new_page_info(db, &visit_ob.url)?,
@@ -139,36 +141,31 @@ pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> 
 
     let mut update_frecency = false;
 
-    // There's a new visit, so update everything that implies
-    if let Some(visit_type) = visit_ob.visit_type {
-        // A single non-hidden visit makes the place non-hidden.
-        if !visit_ob.get_is_hidden() {
-            updates.push(("hidden", ":hidden", &false));
-        }
-        if visit_type == VisitTransition::Typed {
-            page_info.typed += 1;
-            updates.push(("typed", ":typed", &page_info.typed));
-        }
+    // There's a new visit, so update everything that implies. To help with
+    // testing we return the rowid of the visit we added.
+    let visit_row_id = match visit_ob.visit_type {
+        Some(visit_type) => {
+            // A single non-hidden visit makes the place non-hidden.
+            if !visit_ob.get_is_hidden() {
+                updates.push(("hidden", ":hidden", &false));
+            }
+            if visit_type == VisitTransition::Typed {
+                page_info.typed += 1;
+                updates.push(("typed", ":typed", &page_info.typed));
+            }
 
-        let at = visit_ob.at.unwrap_or_else(|| Timestamp::now());
-        let is_remote = visit_ob.is_remote.unwrap_or(false);
-        add_visit(db, &page_info.row_id, &None, &at, &visit_type, &!is_remote)?;
-        if is_remote {
-            page_info.visit_count_remote += 1;
-            updates.push(("visit_count_remote", ":visit_count_remote", &page_info.visit_count_remote));
-            page_info.last_visit_date_remote = cmp::max(at, page_info.last_visit_date_remote);
-            updates.push(("last_visit_date_remote", ":last_visit_date_remote", &page_info.last_visit_date_remote));
-        } else {
-            page_info.visit_count_local += 1;
-            updates.push(("visit_count_local", ":visit_count_local", &page_info.visit_count_local));
-            page_info.last_visit_date_local = cmp::max(at, page_info.last_visit_date_local);
-            updates.push(("last_visit_date_local", ":last_visit_date_local", &page_info.last_visit_date_local));
-        }
-        // a new visit implies new frecency except in error cases.
-        if !visit_ob.is_error.unwrap_or(false) {
-            update_frecency = true;
-        }
-    }
+            let at = visit_ob.at.unwrap_or_else(|| Timestamp::now());
+            let is_remote = visit_ob.is_remote.unwrap_or(false);
+            let row_id = add_visit(db, &page_info.row_id, &None, &at, &visit_type, &!is_remote)?;
+            // a new visit implies new frecency except in error cases.
+            if !visit_ob.is_error.unwrap_or(false) {
+                update_frecency = true;
+            }
+            Some(row_id)
+        },
+        None => None,
+    };
+
     if updates.len() != 0 {
         let mut params: Vec<(&str, &ToSql)> = Vec::with_capacity(updates.len() + 1);
         let mut sets: Vec<String> = Vec::with_capacity(updates.len());
@@ -198,7 +195,7 @@ pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> 
             (":frecency", &page_info.frecency),
         ])?;
     }
-    Ok(())
+    Ok(visit_row_id)
 }
 
 fn new_page_info(db: &impl ConnExt, url: &Url) -> Result<PageInfo> {
@@ -321,6 +318,7 @@ pub fn get_visited_urls(db: &PlacesDb, start: Timestamp, end: Timestamp, include
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{Duration, SystemTime};
 
     struct Origin {
         prefix: String,
@@ -397,6 +395,70 @@ mod tests {
             assert_eq!(expected_in_all, visited_all.contains(&url),
                        "Failed in all for {:?}", (url, ts, is_remote));
         }
+    }
+
+    #[test]
+    fn test_visit_counts() {
+        let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let url = Url::parse("https://www.example.com").expect("it's a valid url");
+        let early_time = SystemTime::now() - Duration::new(60, 0);
+        let late_time = SystemTime::now();
+
+        // add 2 local visits - add latest first
+        let rid1 = apply_observation(&mut conn, VisitObservation::new(url.clone())
+                    .with_visit_type(VisitTransition::Link)
+                    .with_at(Some(late_time.into())))
+                    .expect("Should apply visit").expect("should get a rowid");
+
+        let _rid2 = apply_observation(&mut conn, VisitObservation::new(url.clone())
+                    .with_visit_type(VisitTransition::Link)
+                    .with_at(Some(early_time.into())))
+                    .expect("Should apply visit").expect("should get a rowid");
+
+        let mut pi = fetch_page_info(&conn, &url).expect("should not fail").expect("should have the page");
+        assert_eq!(pi.page.visit_count_local, 2);
+        assert_eq!(pi.page.last_visit_date_local, late_time.into());
+        assert_eq!(pi.page.visit_count_remote, 0);
+        assert_eq!(pi.page.last_visit_date_remote.0, 0);
+
+        // 2 remote visits, earliest first.
+        let rid3 = apply_observation(&mut conn, VisitObservation::new(url.clone())
+                    .with_visit_type(VisitTransition::Link)
+                    .with_at(Some(early_time.into()))
+                    .with_is_remote(true))
+                    .expect("Should apply visit").expect("should get a rowid");
+
+        let _rid4 = apply_observation(&mut conn, VisitObservation::new(url.clone())
+                    .with_visit_type(VisitTransition::Link)
+                    .with_at(Some(late_time.into()))
+                    .with_is_remote(true))
+                    .expect("Should apply visit").expect("should get a rowid");
+
+        pi = fetch_page_info(&conn, &url).expect("should not fail").expect("should have the page");
+        assert_eq!(pi.page.visit_count_local, 2);
+        assert_eq!(pi.page.last_visit_date_local, late_time.into());
+        assert_eq!(pi.page.visit_count_remote, 2);
+        assert_eq!(pi.page.last_visit_date_remote, late_time.into());
+
+        // Delete some and make sure things update.
+        // XXX - we should add a trigger to update frecency on delete, but at
+        // this stage we don't "officially" support deletes, so this is TODO.
+        let sql = "DELETE FROM moz_historyvisits WHERE id = :row_id";
+        // Delete the latest local visit.
+        conn.execute_named_cached(&sql, &[(":row_id", &rid1)]).expect("delete should work");
+        pi = fetch_page_info(&conn, &url).expect("should not fail").expect("should have the page");
+        assert_eq!(pi.page.visit_count_local, 1);
+        assert_eq!(pi.page.last_visit_date_local, early_time.into());
+        assert_eq!(pi.page.visit_count_remote, 2);
+        assert_eq!(pi.page.last_visit_date_remote, late_time.into());
+
+        // Delete the earliest remote  visit.
+        conn.execute_named_cached(&sql, &[(":row_id", &rid3)]).expect("delete should work");
+        pi = fetch_page_info(&conn, &url).expect("should not fail").expect("should have the page");
+        assert_eq!(pi.page.visit_count_local, 1);
+        assert_eq!(pi.page.last_visit_date_local, early_time.into());
+        assert_eq!(pi.page.visit_count_remote, 1);
+        assert_eq!(pi.page.last_visit_date_remote, late_time.into());
     }
 
     #[test]

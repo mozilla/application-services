@@ -67,7 +67,7 @@ pub unsafe extern "C" fn places_note_observation(
     call_with_result(error, || {
         let json = ffi_support::rust_str_from_c(json_observation);
         let visit: places::VisitObservation = serde_json::from_str(&json)?;
-        places::storage::apply_observation(conn, visit)
+        places::api::apply_observation(conn, visit)
     })
 }
 

@@ -17,23 +17,25 @@ const VERSION: i64 = 1;
 const CREATE_TABLE_PLACES_SQL: &str =
     "CREATE TABLE IF NOT EXISTS moz_places (
         id INTEGER PRIMARY KEY,
-        url LONGVARCHAR,
+        url LONGVARCHAR NOT NULL,
         title LONGVARCHAR,
         -- note - desktop has rev_host here - that's now in moz_origin.
-        visit_count_local INTEGER DEFAULT 0,
-        visit_count_remote INTEGER DEFAULT 0,
+        visit_count_local INTEGER NOT NULL DEFAULT 0,
+        visit_count_remote INTEGER NOT NULL DEFAULT 0,
         hidden INTEGER DEFAULT 0 NOT NULL,
         typed INTEGER DEFAULT 0 NOT NULL, -- XXX - is 'typed' ok? Note also we want this as a *count*, not a bool.
         frecency INTEGER DEFAULT -1 NOT NULL,
         -- XXX - splitting last visit into local and remote correct?
-        last_visit_date_local INTEGER,
-        last_visit_date_remote INTEGER,
-        guid TEXT UNIQUE,
+        last_visit_date_local INTEGER NOT NULL DEFAULT 0,
+        last_visit_date_remote INTEGER NOT NULL DEFAULT 0,
+        guid TEXT NOT NULL UNIQUE,
         foreign_count INTEGER DEFAULT 0 NOT NULL,
         url_hash INTEGER DEFAULT 0 NOT NULL,
         description TEXT, -- XXXX - title above?
         preview_image_url TEXT,
-        origin_id INTEGER, -- NOT NULL XXXX - not clear if there should always be a moz_origin
+        -- origin_id would ideally be NOT NULL, but we use a trigger to keep
+        -- it up to date, so do perform the initial insert with a null.
+        origin_id INTEGER,
 
         FOREIGN KEY(origin_id) REFERENCES moz_origins(id) ON DELETE CASCADE
     )";
@@ -45,8 +47,8 @@ const CREATE_TABLE_HISTORYVISITS_SQL: &str =
         is_local INTEGER NOT NULL, -- XXX - not in desktop - will always be true for visits added locally, always false visits added by sync.
         from_visit INTEGER, -- XXX - self-reference?
         place_id INTEGER NOT NULL,
-        visit_date INTEGER,
-        visit_type INTEGER,
+        visit_date INTEGER NOT NULL,
+        visit_type INTEGER NOT NULL,
         -- session INTEGER, -- XXX - what is 'session'? Appears unused.
 
         FOREIGN KEY(place_id) REFERENCES moz_places(id) ON DELETE CASCADE,
@@ -110,6 +112,42 @@ const CREATE_TRIGGER_AFTER_INSERT_ON_PLACES: &str = "
         WHERE id = NEW.id;
     END
 ";
+
+// Triggers which update visit_count and last_visit_date based on historyvisits
+// table changes.
+const EXCLUDED_VISIT_TYPES: &str = "0, 4, 7, 8, 9"; // stolen from desktop
+
+lazy_static! {
+    static ref CREATE_TRIGGER_HISTORYVISITS_AFTERINSERT: String = format!("
+        CREATE TEMP TRIGGER moz_historyvisits_afterinsert_trigger
+        AFTER INSERT ON moz_historyvisits FOR EACH ROW
+        BEGIN
+            UPDATE moz_places SET
+                visit_count_remote = visit_count_remote + (NEW.visit_type NOT IN ({excluded}) AND NOT(NEW.is_local)),
+                visit_count_local =  visit_count_local + (NEW.visit_type NOT IN ({excluded}) AND NEW.is_local),
+                last_visit_date_local = MAX(last_visit_date_local,
+                                            CASE WHEN NEW.is_local THEN NEW.visit_date ELSE 0 END),
+                last_visit_date_remote = MAX(last_visit_date_remote,
+                                             CASE WHEN NEW.is_local THEN 0 ELSE NEW.visit_date END)
+            WHERE id = NEW.place_id;
+        END", excluded = EXCLUDED_VISIT_TYPES);
+
+    static ref CREATE_TRIGGER_HISTORYVISITS_AFTERDELETE: String = format!("
+        CREATE TEMP TRIGGER moz_historyvisits_afterdelete_trigger
+        AFTER DELETE ON moz_historyvisits FOR EACH ROW
+        BEGIN
+            UPDATE moz_places SET
+                visit_count_local = visit_count_local - (OLD.visit_type NOT IN ({excluded}) AND OLD.is_local),
+                visit_count_remote = visit_count_remote - (OLD.visit_type NOT IN ({excluded}) AND NOT(OLD.is_local)),
+                last_visit_date_local = (SELECT visit_date FROM moz_historyvisits
+                                         WHERE place_id = OLD.place_id AND is_local
+                                         ORDER BY visit_date DESC LIMIT 1),
+                last_visit_date_remote = (SELECT visit_date FROM moz_historyvisits
+                                          WHERE place_id = OLD.place_id AND NOT(is_local)
+                                          ORDER BY visit_date DESC LIMIT 1)
+            WHERE id = OLD.place_id;
+        END", excluded = EXCLUDED_VISIT_TYPES);
+}
 
 // XXX - TODO - lots of desktop temp tables - but it's not clear they make sense here yet?
 
@@ -217,6 +255,8 @@ pub fn create(db: &PlacesDb) -> Result<()> {
     debug!("Creating temp tables and triggers");
     db.execute_all(&[
         CREATE_TRIGGER_AFTER_INSERT_ON_PLACES,
+        &CREATE_TRIGGER_HISTORYVISITS_AFTERINSERT,
+        &CREATE_TRIGGER_HISTORYVISITS_AFTERDELETE,
     ])?;
 
     Ok(())

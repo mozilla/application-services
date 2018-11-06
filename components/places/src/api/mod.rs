@@ -10,5 +10,6 @@ use observation::{VisitObservation};
 use storage;
 
 pub fn apply_observation(conn: &mut PlacesDb, visit_obs: VisitObservation) -> Result<()> {
-    storage::apply_observation(conn, visit_obs)
+    storage::apply_observation(conn, visit_obs)?;
+    Ok(())
 }
