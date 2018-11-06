@@ -123,8 +123,8 @@ lazy_static! {
         AFTER INSERT ON moz_historyvisits FOR EACH ROW
         BEGIN
             UPDATE moz_places SET
-                visit_count_remote = visit_count_remote + (SELECT NEW.visit_type NOT IN ({excluded}) AND NOT(NEW.is_local)),
-                visit_count_local =  visit_count_local + (SELECT NEW.visit_type NOT IN ({excluded}) AND NEW.is_local),
+                visit_count_remote = visit_count_remote + (NEW.visit_type NOT IN ({excluded}) AND NOT(NEW.is_local)),
+                visit_count_local =  visit_count_local + (NEW.visit_type NOT IN ({excluded}) AND NEW.is_local),
                 last_visit_date_local = MAX(last_visit_date_local,
                                             CASE WHEN NEW.is_local THEN NEW.visit_date ELSE 0 END),
                 last_visit_date_remote = MAX(last_visit_date_remote,
@@ -137,8 +137,8 @@ lazy_static! {
         AFTER DELETE ON moz_historyvisits FOR EACH ROW
         BEGIN
             UPDATE moz_places SET
-                visit_count_local = visit_count_local - (SELECT OLD.visit_type NOT IN ({excluded}) AND OLD.is_local),
-                visit_count_remote = visit_count_remote - (SELECT OLD.visit_type NOT IN ({excluded}) AND NOT(OLD.is_local)),
+                visit_count_local = visit_count_local - (OLD.visit_type NOT IN ({excluded}) AND OLD.is_local),
+                visit_count_remote = visit_count_remote - (OLD.visit_type NOT IN ({excluded}) AND NOT(OLD.is_local)),
                 last_visit_date_local = (SELECT visit_date FROM moz_historyvisits
                                          WHERE place_id = OLD.place_id AND is_local
                                          ORDER BY visit_date DESC LIMIT 1),

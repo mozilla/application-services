@@ -119,6 +119,7 @@ fn fetch_page_info(db: &impl ConnExt, url: &Url) -> Result<Option<FetchedPageInf
     Ok(db.try_query_row(sql, &[(":page_url", &url.clone().into_string())], FetchedPageInfo::from_row, true)?)
 }
 
+/// Returns the RowId of a new visit in moz_historyvisits, or None if no new visit was added.
 pub fn apply_observation(db: &mut PlacesDb, visit_ob: VisitObservation) -> Result<Option<RowId>> {
     let tx = db.db.transaction()?;
     let result = apply_observation_direct(tx.conn(), visit_ob)?;
@@ -126,6 +127,7 @@ pub fn apply_observation(db: &mut PlacesDb, visit_ob: VisitObservation) -> Resul
     Ok(result)
 }
 
+/// Returns the RowId of a new visit in moz_historyvisits, or None if no new visit was added.
 pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> Result<Option<RowId>> {
     let mut page_info = match fetch_page_info(db, &visit_ob.url)? {
         Some(info) => info.page,
@@ -441,7 +443,7 @@ mod tests {
         // Delete some and make sure things update.
         // XXX - we should add a trigger to update frecency on delete, but at
         // this stage we don't "officially" support deletes, so this is TODO.
-        let sql = "DELETE FROM moz_historyvisits WHERE id == :row_id";
+        let sql = "DELETE FROM moz_historyvisits WHERE id = :row_id";
         // Delete the latest local visit.
         conn.execute_named_cached(&sql, &[(":row_id", &rid1)]).expect("delete should work");
         pi = fetch_page_info(&conn, &url).expect("should not fail").expect("should have the page");
