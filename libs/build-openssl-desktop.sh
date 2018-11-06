@@ -2,25 +2,33 @@
 
 set -euvx
 
+abspath () { case "$1" in /*)printf "%s\\n" "$1";; *)printf "%s\\n" "$PWD/$1";; esac; }
+export -f abspath
+
 # End of configuration.
 
 if [ "$#" -lt 1 -o "$#" -gt 2 ]
 then
     echo "Usage:"
-    echo "./build-openssl-desktop.sh <OPENSSL_SRC_PATH> [CROSS_COMPILE_MACOS]"
+    echo "./build-openssl-desktop.sh <OPENSSL_SRC_PATH> [CROSS_COMPILE_TARGET]"
     exit 1
 fi
 
 OPENSSL_SRC_PATH=$1
-CROSS_COMPILE_MACOS=${2-}
+CROSS_COMPILE_TARGET=${2-}
 
-if [ -n "$CROSS_COMPILE_MACOS" -a $(uname -s) != "Linux" ]; then
-  echo "Can only cross compile to macOS from 'Linux'; 'uname -s' is $(uname -s)"
+if [ -n "$CROSS_COMPILE_TARGET" -a $(uname -s) != "Linux" ]; then
+  echo "Can only cross compile from 'Linux'; 'uname -s' is $(uname -s)"
   exit 1
 fi
 
-if [ -n "$CROSS_COMPILE_MACOS" ]; then
+if [[ "$CROSS_COMPILE_TARGET" =~ "win32-x86-64" ]]; then
+  OPENSSL_DIR=$(abspath "desktop/win32-x86-64/openssl")
+elif [[ "$CROSS_COMPILE_TARGET" =~ "darwin" ]]; then
   OPENSSL_DIR=$(abspath "desktop/darwin/openssl")
+elif [ -n "$CROSS_COMPILE_TARGET" ]; then
+  echo "Cannot build OpenSSL for unrecognized target OS $CROSS_COMPILE_TARGET"
+  exit 1
 elif [ $(uname -s) == "Darwin" ]; then
   OPENSSL_DIR=$(abspath "desktop/darwin/openssl")
 elif [ $(uname -s) == "Linux" ]; then
@@ -41,7 +49,7 @@ OPENSSL_OUTPUT_PATH="/tmp/openssl"_$$
 pushd "${OPENSSL_SRC_PATH}"
 mkdir -p "$OPENSSL_OUTPUT_PATH"
 
-if [ -n "$CROSS_COMPILE_MACOS" ]; then
+if [[ "$CROSS_COMPILE_TARGET" =~ "darwin" ]]; then
   # OpenSSL's configure script isn't very robust: it appears to look
   # in $PATH.  This is all cribbed from
   # https://searchfox.org/mozilla-central/rev/8848b9741fc4ee4e9bc3ae83ea0fc048da39979f/build/macosx/cross-mozconfig.common.
@@ -68,6 +76,11 @@ if [ -n "$CROSS_COMPILE_MACOS" ]; then
 
   # See https://searchfox.org/mozilla-central/rev/8848b9741fc4ee4e9bc3ae83ea0fc048da39979f/build/macosx/cross-mozconfig.common#12-13.
   export LD_LIBRARY_PATH=/tmp/clang/lib 
+elif [[ "$CROSS_COMPILE_TARGET" =~ "win32-x86-64" ]]; then
+    # Force 64 bits on Windows..
+    ./Configure --cross-compile-prefix=x86_64-w64-mingw32- mingw64 \
+      shared \
+      --openssldir="$OPENSSL_OUTPUT_PATH"
 elif [ $(uname -s) == "Darwin" ]; then
     # Force 64 bits on macOS.
     ./Configure darwin64-x86_64-cc \
@@ -76,9 +89,6 @@ elif [ $(uname -s) == "Darwin" ]; then
 elif [ $(uname -s) == "Linux" ]; then
     ./config shared \
       --openssldir="$OPENSSL_OUTPUT_PATH"
-else
-   echo "Cannot build OpenSSL on unrecognized host OS $(uname -s)"
-   exit 1
 fi
 
 make clean || true
@@ -91,5 +101,11 @@ cp -p "$OPENSSL_OUTPUT_PATH"/lib/libssl.a "$OPENSSL_DIR""/lib"
 cp -p "$OPENSSL_OUTPUT_PATH"/lib/libcrypto.a "$OPENSSL_DIR""/lib"
 cp -L "$PWD"/include/openssl/*.h "${OPENSSL_DIR}/include/openssl"
 rm -rf "$OPENSSL_OUTPUT_PATH"
+
+if [[ "$CROSS_COMPILE_TARGET" =~ "win32-x86-64" ]]; then
+  # See https://www.wagner.pp.ru/~vitus/articles/openssl-mingw.html.
+  mv "$OPENSSL_DIR/lib/libssl.a" "$OPENSSL_DIR/lib/ssleay32.lib"
+  mv "$OPENSSL_DIR/lib/libcrypto.a" "$OPENSSL_DIR/lib/libeay32.lib"
+fi
 
 popd

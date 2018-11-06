@@ -50,6 +50,7 @@ RUN apt-get update -qq \
                           xz-utils \
                           make \
                           tclsh \
+                          patch \
     && apt-get clean
 
 RUN pip install --upgrade pip

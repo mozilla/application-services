@@ -8,23 +8,29 @@ export -f abspath
 if [ "$#" -lt 1 -o "$#" -gt 2 -o ]
 then
   echo "Usage:"
-  echo "./build-sqlcipher-desktop.sh <SQLCIPHER_SRC_PATH> [CROSS_COMPILE_MACOS]"
+  echo "./build-sqlcipher-desktop.sh <SQLCIPHER_SRC_PATH> [CROSS_COMPILE_TARGET]"
   exit 1
 fi
 
 SQLCIPHER_SRC_PATH=$1
-# Whether to cross compile from Linux to macOS.  Really only intended
-# for automation.
-CROSS_COMPILE_MACOS=${2-}
+# Whether to cross compile from Linux to a different target.  Really
+# only intended for automation.
+CROSS_COMPILE_TARGET=${2-}
 
-if [ -n "$CROSS_COMPILE_MACOS" -a $(uname -s) != "Linux" ]; then
-  echo "Can only cross compile to macOS from 'Linux'; 'uname -s' is $(uname -s)"
+if [ -n "$CROSS_COMPILE_TARGET" -a $(uname -s) != "Linux" ]; then
+  echo "Can only cross compile from 'Linux'; 'uname -s' is $(uname -s)"
   exit 1
 fi
 
-if [ -n "$CROSS_COMPILE_MACOS" ]; then
+if [[ "$CROSS_COMPILE_TARGET" =~ "win32-x86-64" ]]; then
+  SQLCIPHER_DIR=$(abspath "desktop/win32-x86-64/sqlcipher")
+  OPENSSL_DIR=$(abspath "desktop/win32-x86-64/openssl")
+elif [[ "$CROSS_COMPILE_TARGET" =~ "darwin" ]]; then
   SQLCIPHER_DIR=$(abspath "desktop/darwin/sqlcipher")
   OPENSSL_DIR=$(abspath "desktop/darwin/openssl")
+elif [ -n "$CROSS_COMPILE_TARGET" ]; then
+  echo "Cannot build SQLCipher for unrecognized target OS $CROSS_COMPILE_TARGET"
+  exit 1
 elif [ $(uname -s) == "Darwin" ]; then
   SQLCIPHER_DIR=$(abspath "desktop/darwin/sqlcipher")
   OPENSSL_DIR=$(abspath "desktop/darwin/openssl")
@@ -87,7 +93,7 @@ make clean || true
 # We achieve that by forcing PIC (even for the .a) and disabling the
 # shared library (.so) entirely.
 
-if [ -n "$CROSS_COMPILE_MACOS" ]; then
+if [[ "$CROSS_COMPILE_TARGET" =~ "darwin" ]]; then
   export CC=/tmp/clang/bin/clang
 
   export AR=/tmp/cctools/bin/x86_64-apple-darwin11-ar
@@ -118,6 +124,41 @@ if [ -n "$CROSS_COMPILE_MACOS" ]; then
     CFLAGS="${CFLAGS} ${SQLCIPHER_CFLAGS} -I${OPENSSL_DIR}/include -L${OPENSSL_DIR}/lib" \
     LDFLAGS="${LDFLAGS} -L${OPENSSL_DIR}/lib" \
     LIBS="-lcrypto"
+elif [[ "$CROSS_COMPILE_TARGET" =~ "win32-x86-64" ]]; then
+
+pushd ..
+
+# From https://github.com/qTox/qTox/blob/9525505bff8719c84b6193174ea5e7ec097c54b8/windows/cross-compile/build.sh#L390-L446.
+sed -i s/'if test "$TARGET_EXEEXT" = ".exe"'/'if test ".exe" = ".exe"'/g configure
+
+> Makefile.in-patch cat << "EOF"
+--- Makefile.in        2017-12-21 19:31:28.000000000 +0000
++++ Makefile.in        2018-11-06 23:58:45.576548000 +0000
+@@ -1092,9 +1092,9 @@
+    $(TOP)/ext/fts5/fts5_unicode2.c \
+    $(TOP)/ext/fts5/fts5_varint.c \
+    $(TOP)/ext/fts5/fts5_vocab.c  \
+
+-fts5parse.c:  $(TOP)/ext/fts5/fts5parse.y lemon
++fts5parse.c:  $(TOP)/ext/fts5/fts5parse.y lemon$(BEXE)
+       cp $(TOP)/ext/fts5/fts5parse.y .
+       rm -f fts5parse.h
+       ./lemon$(BEXE) $(OPTS) fts5parse.y
+EOF
+
+patch --forward --ignore-whitespace < Makefile.in-patch
+popd
+
+  ../configure --prefix="$PWD/install-prefix" \
+    --with-pic \
+    --disable-shared \
+    --host=x86_64-w64-mingw32 \
+    --enable-tempstore=yes \
+    --with-crypto-lib=none \
+    --disable-tcl \
+    CFLAGS="${SQLCIPHER_CFLAGS} -I${OPENSSL_DIR}/include -L${OPENSSL_DIR}/lib" \
+    LDFLAGS="-L${OPENSSL_DIR}/lib" \
+    LIBS="-llibeay32 -lgdi32"
 elif [ $(uname -s) == "Darwin" ]; then
   ../configure --prefix="$PWD/install-prefix" \
     --with-pic \
@@ -138,9 +179,6 @@ elif [ $(uname -s) == "Linux" ]; then
     CFLAGS="${SQLCIPHER_CFLAGS} -I${OPENSSL_DIR}/include -L${OPENSSL_DIR}/lib" \
     LDFLAGS="-L${OPENSSL_DIR}/lib" \
     LIBS="-lcrypto -ldl -lm"
-else
-   echo "Cannot build SQLcipher on unrecognized host OS $(uname -s)"
-   exit 1
 fi
 
 make -j6
@@ -151,5 +189,9 @@ cp -r "install-prefix/include" "$SQLCIPHER_DIR"
 cp -p "install-prefix/lib/libsqlcipher.a" "$SQLCIPHER_DIR/lib/libsqlcipher.a"
 
 chmod +w "$SQLCIPHER_DIR/lib/libsqlcipher.a"
+
+if [[ "$CROSS_COMPILE_TARGET" =~ "win32-x86-64" ]]; then
+  mv "$SQLCIPHER_DIR/lib/libsqlcipher.a" "$SQLCIPHER_DIR/lib/sqlcipher.lib"
+fi
 
 popd

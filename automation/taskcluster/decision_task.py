@@ -14,21 +14,23 @@ def main(task_for, mock=False):
         android_libs_task = android_libs()
         desktop_linux_libs_task = desktop_linux_libs()
         desktop_macos_libs_task = desktop_macos_libs()
+        desktop_win32_x86_64_libs_task = desktop_win32_x86_64_libs()
 
-        android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task)
+        android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task)
 
     elif task_for == "github-push":
         # Push to master or a tag.
         android_libs_task = android_libs()
         desktop_linux_libs_task = desktop_linux_libs()
         desktop_macos_libs_task = desktop_macos_libs()
+        desktop_win32_x86_64_libs_task = desktop_win32_x86_64_libs()
 
         if CONFIG.git_ref.startswith('refs/tags/'):
             # A release.
-            android_arm32_release(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task)
+            android_arm32_release(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task)
         else:
             # A regular push to master.
-            android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task)
+            android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task)
 
     else:  # pragma: no cover
         raise ValueError("Unrecognized $TASK_FOR value: %r", task_for)
@@ -88,7 +90,7 @@ def desktop_macos_libs():
         linux_target_macos_build_task("Desktop libs (macOS): build")
         .with_script("""
             pushd libs
-            ./build-all.sh osx-cross
+            ./build-all.sh darwin
             popd
             tar -czf /build/repo/target.tar.gz libs/desktop
         """)
@@ -98,7 +100,23 @@ def desktop_macos_libs():
         .find_or_create("build.libs.desktop.macos." + CONFIG.git_sha_for_directory("libs"))
     )
 
-def android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task):
+def desktop_win32_x86_64_libs():
+    return (
+        linux_build_task("Desktop libs (win32-x86-64): build")
+        .with_script("""
+            apt-get install --quiet --yes --no-install-recommends mingw-w64
+            pushd libs
+            ./build-all.sh win32-x86-64
+            popd
+            tar -czf /build/repo/target.tar.gz libs/desktop
+        """)
+        .with_artifacts(
+            "/build/repo/target.tar.gz",
+        )
+        .find_or_create("build.libs.desktop.win32-x86-64." + CONFIG.git_sha_for_directory("libs"))
+    )
+
+def android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task):
     return (
         linux_target_macos_build_task("Android (all architectures): build and test")
         .with_curl_artifact_script(android_libs_task, "target.tar.gz")
@@ -106,6 +124,8 @@ def android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs
         .with_curl_artifact_script(desktop_linux_libs_task, "target.tar.gz")
         .with_script("tar -xzf target.tar.gz")
         .with_curl_artifact_script(desktop_macos_libs_task, "target.tar.gz")
+        .with_script("tar -xzf target.tar.gz")
+        .with_curl_artifact_script(desktop_win32_x86_64_libs_task, "target.tar.gz")
         .with_script("tar -xzf target.tar.gz")
         .with_script("""
             ./gradlew --no-daemon clean
@@ -117,7 +137,7 @@ def android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs
         .create()
     )
 
-def android_arm32_release(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task):
+def android_arm32_release(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs):
     return (
         linux_target_macos_build_task("Android (all architectures): build and test and release")
         .with_curl_artifact_script(android_libs_task, "target.tar.gz")
@@ -125,6 +145,8 @@ def android_arm32_release(android_libs_task, desktop_linux_libs_task, desktop_ma
         .with_curl_artifact_script(desktop_linux_libs_task, "target.tar.gz")
         .with_script("tar -xzf target.tar.gz")
         .with_curl_artifact_script(desktop_macos_libs_task, "target.tar.gz")
+        .with_script("tar -xzf target.tar.gz")
+        .with_curl_artifact_script(desktop_win32_x86_64_libs_task, "target.tar.gz")
         .with_script("tar -xzf target.tar.gz")
         .with_script("""
             ./gradlew --no-daemon clean
@@ -211,6 +233,12 @@ def linux_target_macos_build_task(name):
             export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS="-C linker=/tmp/clang/bin/clang -C link-arg=-B -C link-arg=/tmp/cctools/bin -C link-arg=-target -C link-arg=x86_64-apple-darwin11 -C link-arg=-isysroot -C link-arg=/tmp/MacOSX10.11.sdk -C link-arg=-Wl,-syslibroot,/tmp/MacOSX10.11.sdk -C link-arg=-Wl,-dead_strip"
             # For ring's use of `cc`.
             export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_CFLAGS_x86_64_apple_darwin="-B /tmp/cctools/bin -target x86_64-apple-darwin11 -isysroot /tmp/MacOSX10.11.sdk -Wl,-syslibroot,/tmp/MacOSX10.11.sdk -Wl,-dead_strip"
+
+            apt-get install --quiet --yes --no-install-recommends mingw-w64
+            rustup target add x86_64-pc-windows-gnu
+            export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_PC_WINDOWS_GNU_RUSTFLAGS="-C linker=x86_64-w64-mingw32-gcc"
+            export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_PC_WINDOWS_GNU_AR=x86_64-w64-mingw32-ar
+            export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_PC_WINDOWS_GNU_CC=x86_64-w64-mingw32-gcc
         """)
     )
 
