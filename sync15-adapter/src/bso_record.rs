@@ -178,12 +178,13 @@ impl Payload {
     ) -> CleartextBso {
         let id = self.id.clone();
         let sortindex: Option<i32> = self.take_auto_field("sortindex");
+        let ttl: Option<u32> = self.take_auto_field("ttl");
         CleartextBso {
             id,
             collection,
             modified: 0.0.into(), // Doesn't matter.
             sortindex,
-            ttl: None, // Should we let consumer's set this?
+            ttl,
             payload: self,
         }
     }
@@ -215,12 +216,12 @@ impl Payload {
     ///   the incoming BSO.
     /// - Removed from the payload automatically and attached to the BSO if
     ///   present on the outgoing payload.
-    pub(crate) fn add_auto_field<T: Into<JsonValue>>(&mut self, name: &str, v: Option<T>) {
+    fn add_auto_field<T: Into<JsonValue>>(&mut self, name: &str, v: Option<T>) {
         // This is a little dubious, but it seems like if we have a e.g. `sortindex` field on the payload
         // it's going to be a bug if we use it instead of the "real" sort index.
         if self.data.contains_key(name) {
             warn!("Payload for record {} already contains 'automatic' field \"{}\"? \
-                   Overwriting with 'real' sortindex",
+                   Overwriting with 'real' value",
                   self.id, name);
         }
 
@@ -231,7 +232,7 @@ impl Payload {
         }
     }
 
-    pub(crate) fn take_auto_field<V>(&mut self, name: &str) -> Option<V>
+    fn take_auto_field<V>(&mut self, name: &str) -> Option<V>
     where
         for<'a> V: Deserialize<'a>
     {
@@ -318,6 +319,7 @@ impl EncryptedBso {
         let mut new_payload: Payload = serde_json::from_str(&cleartext)?;
         // This is a slightly dodgy place to do this, but whatever.
         new_payload.add_auto_field("sortindex", self.sortindex);
+        new_payload.add_auto_field("ttl", self.ttl);
 
         let result = self.with_payload(new_payload);
         Ok(result)
@@ -373,16 +375,18 @@ mod tests {
     }
 
     #[test]
-    fn test_deserialize_sortindex() {
+    fn test_deserialize_autofields() {
         let serialized = r#"{
             "id": "1234",
             "collection": "passwords",
             "modified": 12344321.0,
             "sortindex": 100,
+            "ttl": 99,
             "payload": "{\"IV\": \"aaaaa\", \"hmac\": \"bbbbb\", \"ciphertext\": \"ccccc\"}"
         }"#;
         let record: BsoRecord<EncryptedPayload> = serde_json::from_str(serialized).unwrap();
         assert_eq!(record.sortindex, Some(100));
+        assert_eq!(record.ttl, Some(99));
     }
 
     #[test]
@@ -466,16 +470,18 @@ mod tests {
 
     #[test]
     fn test_record_auto_fields() {
-        let payload = json!({ "id": "aaaaaaaaaaaa", "age": 105, "meta": "data", "sortindex": 100 });
+        let payload = json!({ "id": "aaaaaaaaaaaa", "age": 105, "meta": "data", "sortindex": 100, "ttl": 99 });
         let bso = Payload::from_json(payload.clone())
             .unwrap()
             .into_bso("dummy".into());
 
-        // We don't want the key ending up in the actual record data on the server.
+        // We don't want the keys ending up in the actual record data on the server.
         assert!(!bso.payload.data.contains_key("sortindex"));
+        assert!(!bso.payload.data.contains_key("ttl"));
 
-        // But we do want it in the BsoRecord.
+        // But we do want them in the BsoRecord.
         assert_eq!(bso.sortindex, Some(100));
+        assert_eq!(bso.ttl, Some(99));
 
         let keybundle = KeyBundle::new_random().unwrap();
         let encrypted = bso.clone().encrypt(&keybundle).unwrap();
@@ -488,9 +494,9 @@ mod tests {
         let decrypted = encrypted.decrypt(&keybundle).unwrap();
         // We add auto fields during decryption.
         assert_eq!(decrypted.payload.data["sortindex"], 100);
+        assert_eq!(decrypted.payload.data["ttl"], 99);
 
         assert_eq!(decrypted.sortindex, Some(100));
+        assert_eq!(decrypted.ttl, Some(99));
     }
-
-
 }
