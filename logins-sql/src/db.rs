@@ -11,7 +11,15 @@ use std::result;
 use failure;
 use schema;
 use login::{LocalLogin, MirrorLogin, Login, SyncStatus, SyncLoginData};
-use sync::{self, ServerTimestamp, IncomingChangeset, Store, OutgoingChangeset, Payload};
+use sync::{
+    self,
+    CollectionRequest,
+    IncomingChangeset,
+    OutgoingChangeset,
+    Payload,
+    ServerTimestamp,
+    Store,
+};
 use update_plan::UpdatePlan;
 use sql_support::{self, ConnExt};
 use util;
@@ -619,19 +627,19 @@ impl LoginDb {
         )?)
     }
 
-    pub fn set_last_sync(&self, last_sync: ServerTimestamp) -> Result<()> {
+    fn set_last_sync(&self, last_sync: ServerTimestamp) -> Result<()> {
         debug!("Updating last sync to {}", last_sync);
         let last_sync_millis = last_sync.as_millis() as i64;
         self.put_meta(schema::LAST_SYNC_META_KEY, &last_sync_millis)
     }
 
-    pub fn set_global_state(&self, global_state: &str) -> Result<()> {
-        self.put_meta(schema::GLOBAL_STATE_META_KEY, &global_state)
+    fn get_last_sync(&self) -> Result<Option<ServerTimestamp>> {
+        Ok(self.get_meta::<i64>(schema::LAST_SYNC_META_KEY)?
+               .map(|millis| ServerTimestamp(millis as f64 / 1000.0)))
     }
 
-    pub fn get_last_sync(&self) -> Result<Option<ServerTimestamp>> {
-        Ok(self.get_meta::<i64>(schema::LAST_SYNC_META_KEY)?
-            .map(|millis| ServerTimestamp(millis as f64 / 1000.0)))
+    pub fn set_global_state(&self, global_state: &str) -> Result<()> {
+        self.put_meta(schema::GLOBAL_STATE_META_KEY, &global_state)
     }
 
     pub fn get_global_state(&self) -> Result<Option<String>> {
@@ -656,6 +664,11 @@ impl Store for LoginDb {
             &records_synced.iter().map(|r| r.as_str()).collect::<Vec<_>>(),
             new_timestamp
         )?)
+    }
+
+    fn get_collection_request(&self) -> result::Result<CollectionRequest, failure::Error> {
+        let since = self.get_last_sync()?.unwrap_or_default();
+        Ok(CollectionRequest::new("passwords").full().newer_than(since))
     }
 }
 

@@ -120,12 +120,11 @@ impl Sync15StorageClient {
 
     pub fn get_encrypted_records(
         &self,
-        collection: &str,
-        since: ServerTimestamp,
+        collection_request: &CollectionRequest,
     ) -> error::Result<Vec<EncryptedBso>> {
         let mut resp = self.collection_request(
             Method::GET,
-            CollectionRequest::new(collection).full().newer_than(since),
+            collection_request,
         )?;
         Ok(resp.json()?)
     }
@@ -165,7 +164,9 @@ impl Sync15StorageClient {
     }
 
     fn exec_request(&self, req: Request, require_success: bool) -> error::Result<Response> {
+        trace!("request: {} {}", req.method(), req.url().path());
         let resp = self.http_client.execute(req)?;
+        trace!("response: {}", resp.status());
 
         self.update_timestamp(resp.headers());
 
