@@ -64,6 +64,7 @@ cargo {
     targets = [
         'linux-x86-64',
         'darwin',
+        'win32-x86-64-gnu',
         'arm',
         'arm64',
         'x86',

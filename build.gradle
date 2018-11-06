@@ -28,7 +28,7 @@ buildscript {
         classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.4'
         classpath 'digital.wup:android-maven-publish:3.6.2'
 
-        classpath 'gradle.plugin.org.mozilla.rust-android-gradle:plugin:0.7.0'
+        classpath 'gradle.plugin.org.mozilla.rust-android-gradle:plugin:0.8.0'
 
         // Yes, this is unusual.  We want to access some host-specific
         // computation at build time.
