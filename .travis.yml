@@ -3,7 +3,7 @@ language: rust
 # (The version in Travis's default Ubuntu Trusty is much too old).
 os: osx
 osx_image:
-  - xcode10
+  - xcode10.1
 before_install:
   - brew install sqlcipher --with-fts
 rust:
@@ -26,7 +26,7 @@ jobs:
     - stage: iOS GitHub Release
       if: tag IS present
       rust: beta
-      osx_image: xcode10
+      osx_image: xcode10.1
       script: ./scripts/travis-ci-ios.sh
       deploy:
         provider: releases
