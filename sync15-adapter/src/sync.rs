@@ -26,11 +26,11 @@ pub trait Store {
         records_synced: &[String],
     ) -> Result<(), failure::Error>;
 
-    // The store is responsible for building the collection request. Engines
-    // typically will store a lastModified timestamp and use that to build
-    // a request saying "give me full records since that date" - however, other
-    // engines might do something fancier. This could even later be extended
-    // to handle "backfills" etc
+    /// The store is responsible for building the collection request. Engines
+    /// typically will store a lastModified timestamp and use that to build
+    /// a request saying "give me full records since that date" - however, other
+    /// engines might do something fancier. This could even later be extended
+    /// to handle "backfills" etc
     fn get_collection_request(&self) -> Result<CollectionRequest, failure::Error>;
 }
 
