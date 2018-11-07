@@ -84,7 +84,7 @@ import com.sun.jna.Platform as DefaultPlatform
 // prerequisite libraries.
 //
 // Set this to `= null` in order to use libs from the source directory.
-ext.libsGitSha = 'ebc93cc7f561c908279f1850eacee34ab3739af3'
+ext.libsGitSha = '948cdd72ce2825909575c73c74177f76e66aafe6'
 
 if (rootProject.ext.libsGitSha != null) {
     task downloadAndroidLibs(type: Download) {
@@ -111,6 +111,8 @@ if (rootProject.ext.libsGitSha != null) {
                     return "https://index.taskcluster.net/v1/task/project.application-services.application-services.build.libs.desktop.macos.${rootProject.ext.libsGitSha}/artifacts/public/target.tar.gz"
                 case 'linux-x86-64':
                     return "https://index.taskcluster.net/v1/task/project.application-services.application-services.build.libs.desktop.linux.${rootProject.ext.libsGitSha}/artifacts/public/target.tar.gz"
+                case 'win32-x86-64':
+                    return "https://index.taskcluster.net/v1/task/project.application-services.application-services.build.libs.desktop.win32-x86-64.${rootProject.ext.libsGitSha}/artifacts/public/target.tar.gz"
                 default:
                     throw new GradleException("Unknown host platform '${DefaultPlatform.RESOURCE_PREFIX}'.  " +
                                               "Set `ext.libsGitSha = null` in ${rootProject.rootDir}/build.gradle and build your own libs.  " +
@@ -125,6 +127,8 @@ if (rootProject.ext.libsGitSha != null) {
                     return new File(buildDir, "libs.desktop.macos.${rootProject.ext.libsGitSha}.tar.gz")
                 case 'linux-x86-64':
                     return new File(buildDir, "libs.desktop.linux.${rootProject.ext.libsGitSha}.tar.gz")
+                case 'win32-x86-64':
+                    return new File(buildDir, "libs.desktop.win32-x86-64.${rootProject.ext.libsGitSha}.tar.gz")
                 default:
                     throw new GradleException("Unknown host platform '${DefaultPlatform.RESOURCE_PREFIX}'.  " +
                                               "Set `ext.libsGitSha = null` in ${rootProject.rootDir}/build.gradle and build your own libs.")
