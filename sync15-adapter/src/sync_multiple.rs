@@ -15,8 +15,9 @@ use key_bundle::KeyBundle;
 use error::Error;
 use serde_json;
 
-// Info stored in memory about the client to use. We reuse the client unless
-// we discover the client_init has changed, in which case we re-create one.
+/// Info stored in memory about the client to use. We reuse the client unless
+/// we discover the client_init has changed, in which case we re-create one.
+#[derive(Debug)]
 pub struct ClientInfo {
     // the client_init used to create the client.
     client_init: Sync15StorageClientInit,
@@ -27,15 +28,20 @@ pub struct ClientInfo {
 /// Sync multiple stores
 /// * `stores` - The stores to sync
 /// * `persisted_global_state` - The global state to use, or None if never
-///   before provided. At the end of the sync, the value in this cell should
-///   be persisted to permanent storage and provided next time the sync is
-//    called.
+///   before provided. At the end of the sync, and even when the sync fails,
+///   the value in this cell should be persisted to permanent storage and
+///   provided next time the sync is called.
 /// * `last_client_info` - The client state to use, or None if never before
 ///   provided. At the end of the sync, the value should be persisted
 ///   *in memory only* - it should not be persisted to disk.
 /// * `storage_init` - Information about how the sync http client should be
 ///   configured.
 /// * `root_sync_key` - The KeyBundle used for encryption.
+///
+/// Returns a map, keyed by name and holding an error value - if any store
+/// fails, the sync will continue on to other stores, but the error will be
+/// places in this map. The absence of a name in the map implies the store
+/// succeeded.
 pub fn sync_multiple(
     stores: &[&dyn Store],
     persisted_global_state: &Cell<Option<String>>,
@@ -73,9 +79,8 @@ pub fn sync_multiple(
         }
     };
 
-    // Ditto for the ClientInfo - if we fail below the GlobalStateProvider will
-    // not have the last client and client_init, so will be re-initialized on
-    // the next sync.
+    // Ditto for the ClientInfo - if we fail below the cell will have None, so
+    // will be re-initialized on the next sync.
     let client_info = match last_client_info.replace(None) {
         Some(client_info) => {
             if client_info.client_init != *storage_init {
@@ -84,7 +89,7 @@ pub fn sync_multiple(
                     client: Sync15StorageClient::new(storage_init.clone())?,
                 }
             } else {
-                // we can reuse it.
+                // we can reuse it (which should be the common path)
                 client_info
             }
         },
