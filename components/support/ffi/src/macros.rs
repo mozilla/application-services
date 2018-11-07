@@ -143,6 +143,43 @@ macro_rules! define_box_destructor {
     };
 }
 
+
+/// Define a (public) destructor for a type that lives inside a lazy_static
+/// [`ConcurrentHandleMap`].
+///
+/// Note that this is actually totally safe, unlike the other
+/// `define_blah_destructor` macros.
+///
+/// A critical difference, however, is that this dtor takes an `err` out
+/// parameter to indicate failure. This difference is why the name is different
+/// as well (deleter vs destructor).
+///
+/// ## Example
+///
+/// ```rust
+/// # use lazy_static::lazy_static;
+/// # use ffi_support::{ConcurrentHandleMap, define_handle_map_deleter};
+/// struct Thing(Vec<i32>);
+/// // Somewhere...
+/// lazy_static! {
+///     static ref THING_HANDLES: ConcurrentHandleMap<Thing> = ConcurrentHandleMap::new();
+/// }
+/// define_handle_map_deleter!(THING_HANDLES, mylib_destroy_thing);
+/// ```
+#[macro_export]
+macro_rules! define_handle_map_deleter {
+    ($HANDLE_MAP_NAME:ident, $destructor_name:ident) => {
+        #[no_mangle]
+        pub extern "C" fn $destructor_name(v: u64, err: &mut $crate::ExternError) {
+            $crate::call_with_result(err, || {
+                // Force type errors here.
+                let map: &ConcurrentHandleMap<_> = &*$HANDLE_MAP_NAME;
+                map.delete_u64(v)
+            })
+        }
+    };
+}
+
 // Needs to be pub so the macro can call it, but that's all.
 #[doc(hidden)]
 pub fn convert_to_json_string<T: serde::Serialize>(value: &T) -> *mut c_char {

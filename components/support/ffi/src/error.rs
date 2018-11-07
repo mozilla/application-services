@@ -231,7 +231,11 @@ impl ErrorCode {
     pub const SUCCESS: ErrorCode = ErrorCode(0);
 
     /// The ErrorCode used for panics. It's unlikely you need to ever use this.
+    // TODO: Consider moving to the reserved region...
     pub const PANIC: ErrorCode = ErrorCode(-1);
+
+    /// The ErrorCode used for handle map errors.
+    pub const INVALID_HANDLE: ErrorCode = ErrorCode(-1000);
 
     /// Construct an error code from an integer code.
     ///
@@ -241,12 +245,13 @@ impl ErrorCode {
     /// that's what you want), or -1 (reserved for panics, but you can use `ErrorCode::PANIC` if
     /// that's what you want).
     pub fn new(code: i32) -> Self {
-        assert!(code != ErrorCode::PANIC.0 && code != ErrorCode::SUCCESS.0,
-            "Error: The ErrorCodes `{panic}` and `{success}` (got {code}) are all reserved. You may use the associated \
-            constants on this type (`ErrorCode::PANIC`, etc) if you'd like instances of those error \
-            codes.",
+        assert!(code > ErrorCode::PANIC.0 && code != ErrorCode::PANIC.0 && code != ErrorCode::SUCCESS.0,
+            "Error: The ErrorCodes `{success}`, `{panic}`, and all error codes less than or equal \
+            to `{reserved}` are reserved (got {code}). You may use the associated constants on this \
+            type (`ErrorCode::PANIC`, etc) if you'd like instances of those error codes.",
             panic = ErrorCode::PANIC.0,
             success = ErrorCode::SUCCESS.0,
+            reserved = ErrorCode::INVALID_HANDLE.0,
             code = code,
         );
 
@@ -283,8 +288,21 @@ mod test {
     }
 
     #[test]
+    #[should_panic]
+    fn test_code_new_reserved_handle_error() {
+        ErrorCode::new(-1000);
+    }
+    #[test]
+    #[should_panic]
+    fn test_code_new_reserved_unknown() {
+        // Everything below -1000 should be reserved.
+        ErrorCode::new(-1043);
+    }
+
+    #[test]
     fn test_code() {
         assert!(!ErrorCode::PANIC.is_success());
+        assert!(!ErrorCode::INVALID_HANDLE.is_success());
         assert!(ErrorCode::SUCCESS.is_success());
         assert_eq!(ErrorCode::default(), ErrorCode::SUCCESS);
     }

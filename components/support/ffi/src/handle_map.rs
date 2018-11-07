@@ -50,6 +50,7 @@
 //! just might fail to notice a bug). The third issue also seems unimportant for
 //! our use case.
 
+use crate::error::{ErrorCode, ExternError};
 use crate::into_ffi::IntoFfi;
 use failure_derive::Fail;
 use std::ops;
@@ -103,7 +104,7 @@ enum EntryState<T> {
 }
 
 impl<T> EntryState<T> {
-    #[inline]
+    #[cfg(any(debug_assertions, test))]
     fn is_end_of_list(&self) -> bool {
         match self {
             EntryState::EndOfFreeList => true,
@@ -176,6 +177,12 @@ pub enum HandleError {
     /// attempted to be used with.
     #[fail(display = "Handle is from a different map")]
     WrongMap,
+}
+
+impl From<HandleError> for ExternError {
+    fn from(e: HandleError) -> Self {
+        ExternError::new_error(ErrorCode::INVALID_HANDLE, e.to_string())
+    }
 }
 
 impl<T> HandleMap<T> {
@@ -593,9 +600,51 @@ unsafe impl IntoFfi for Handle {
 /// `ConcurrentHandleMap` is a relatively thin wrapper around
 /// `RwLock<HandleMap<Mutex<T>>>`. Due to the nested locking, it's not possible
 /// to implement the same API as [`HandleMap`], however it does implement an API
-/// that offers equivalent functionality.
+/// that offers equivalent functionality, as well as several functions that
+/// greatly simplify FFI usage (see example below).
 ///
 /// See the [module level documentation](index.html) for more info.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// # #[macro_use] extern crate lazy_static;
+/// # extern crate ffi_support;
+/// # use ffi_support::*;
+/// # use std::sync::*;
+///
+/// // Somewhere...
+/// struct Thing { value: f64 }
+///
+/// lazy_static! {
+///     static ref ITEMS: ConcurrentHandleMap<Thing> = ConcurrentHandleMap::new();
+/// }
+///
+/// #[no_mangle]
+/// pub extern "C" fn mylib_new_thing(value: f64, err: &mut ExternError) -> u64 {
+///     // Most uses will be `ITEMS.insert_with_result`. Note that this already
+///     // calls `call_with_output` (or `call_with_result` if this were
+///     // `insert_with_result`) for you.
+///     ITEMS.insert_with_output(err, || Thing { value })
+/// }
+///
+/// #[no_mangle]
+/// pub extern "C" fn mylib_thing_value(h: u64, err: &mut ExternError) -> f64 {
+///     // Or `ITEMS.call_with_result` for the fallible functions.
+///     ITEMS.call_with_output(err, h, |thing| thing.value)
+/// }
+///
+/// #[no_mangle]
+/// pub extern "C" fn mylib_thing_set_value(h: u64, new_value: f64, err: &mut ExternError) {
+///     ITEMS.call_with_output_mut(err, h, |thing| {
+///         thing.value = new_value;
+///     })
+/// }
+///
+/// // Note: defines the following function:
+/// // pub extern "C" fn mylib_destroy_thing(h: u64, err: &mut ExternError)
+/// define_handle_map_deleter!(ITEMS, mylib_destroy_thing);
+/// ```
 pub struct ConcurrentHandleMap<T> {
     pub map: RwLock<HandleMap<Mutex<T>>>,
 }
@@ -671,11 +720,7 @@ impl<T> ConcurrentHandleMap<T> {
         F: FnOnce(&T) -> Result<R, E>,
         E: From<HandleError>,
     {
-        // XXX figure out how to handle poison...
-        let map = self.map.read().unwrap();
-        let mtx = map.get(h)?;
-        let hm = mtx.lock().unwrap();
-        callback(&*hm)
+        self.get_mut(h, |v| callback(v))
     }
 
     /// Call `callback` with a mutable reference to the item from the map, after
@@ -760,6 +805,111 @@ impl<T> ConcurrentHandleMap<T> {
         E: From<HandleError>,
     {
         self.get_mut(Handle::from_u64(u)?, callback)
+    }
+
+    /// Helper that performs both a [`call_with_result`] and [`get`](ConcurrentHandleMap::get_mut).
+    pub fn call_with_result_mut<R, E, F>(
+        &self,
+        out_error: &mut ExternError,
+        h: u64,
+        callback: F,
+    ) -> R::Value
+    where
+        F: FnOnce(&mut T) -> Result<R, E>,
+        ExternError: From<E>,
+        R: IntoFfi,
+    {
+        use crate::call_with_result;
+        call_with_result(out_error, || -> Result<_, ExternError> {
+            // We can't reuse get_mut here because it would require E:
+            // From<HandleError>, which is inconvenient...
+            let h = Handle::from_u64(h)?;
+            let map = self.map.read().unwrap();
+            let mtx = map.get(h)?;
+            let mut hm = mtx.lock().unwrap();
+            Ok(callback(&mut *hm)?)
+        })
+    }
+
+    /// Helper that performs both a [`call_with_result`] and [`get`](ConcurrentHandleMap::get).
+    pub fn call_with_result<R, E, F>(
+        &self,
+        out_error: &mut ExternError,
+        h: u64,
+        callback: F,
+    ) -> R::Value
+    where
+        F: FnOnce(&T) -> Result<R, E>,
+        ExternError: From<E>,
+        R: IntoFfi,
+    {
+        self.call_with_result_mut(out_error, h, |r| callback(r))
+    }
+
+    /// Helper that performs both a [`call_with_output`] and [`get`](ConcurrentHandleMap::get).
+    pub fn call_with_output<R, F>(
+        &self,
+        out_error: &mut ExternError,
+        h: u64,
+        callback: F,
+    ) -> R::Value
+    where
+        F: FnOnce(&T) -> R,
+        R: IntoFfi,
+    {
+        self.call_with_result(out_error, h, |r| -> Result<_, HandleError> {
+            Ok(callback(r))
+        })
+    }
+
+    /// Helper that performs both a [`call_with_output`] and [`get_mut`](ConcurrentHandleMap::get).
+    pub fn call_with_output_mut<R, F>(
+        &self,
+        out_error: &mut ExternError,
+        h: u64,
+        callback: F,
+    ) -> R::Value
+    where
+        F: FnOnce(&mut T) -> R,
+        R: IntoFfi,
+    {
+        self.call_with_result_mut(out_error, h, |r| -> Result<_, HandleError> {
+            Ok(callback(r))
+        })
+    }
+
+    /// Use `constructor` to create and insert a `T`, while inside a
+    /// [`call_with_result`] call (to handle panics and map errors onto an
+    /// `ExternError`).
+    pub fn insert_with_result<E, F>(&self, out_error: &mut ExternError, constructor: F) -> u64
+    where
+        F: FnOnce() -> Result<T, E>,
+        ExternError: From<E>,
+    {
+        use crate::call_with_result;
+        call_with_result(out_error, || -> Result<_, ExternError> {
+            // Note: it's important that we don't call the constructor while
+            // we're holding the write lock, because we don't want to poison
+            // the entire map if it panics!
+            let to_insert = constructor()?;
+            Ok(self.insert(to_insert))
+        })
+    }
+
+    /// Equivalent to
+    /// [`insert_with_result`](ConcurrentHandleMap::insert_with_result) for the
+    /// case where the constructor cannot produce an error.
+    ///
+    /// The name is somewhat dubious, since there's no `output`, but it's intended to make it
+    /// clear that it contains a [`call_with_output`] internally.
+    pub fn insert_with_output<F>(&self, out_error: &mut ExternError, constructor: F) -> u64
+    where
+        F: FnOnce() -> T,
+    {
+        // The Err type isn't important here beyond being convertable to ExternError
+        self.insert_with_result(out_error, || -> Result<_, HandleError> {
+            Ok(constructor())
+        })
     }
 }
 
