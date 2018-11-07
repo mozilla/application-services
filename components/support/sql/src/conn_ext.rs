@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::ops::Deref;
+use std::time::{Instant};
 use rusqlite::{
     self,
     types::{ToSql, FromSql},
@@ -137,6 +138,7 @@ impl<'conn> ConnExt for Savepoint<'conn> {
 /// `Connection`.
 pub struct UncheckedTransaction<'conn> {
     conn: &'conn Connection,
+    started_at: Instant,
     // we could add drop_behavior etc too, but we don't need it yet - we
     // always rollback.
 }
@@ -153,12 +155,14 @@ impl<'conn> UncheckedTransaction<'conn> {
         };
         conn.execute_batch(query).map(move |_| UncheckedTransaction {
             conn,
+            started_at: Instant::now(),
         })
     }
 
     /// Consumes and commits an unchecked transaction.
     pub fn commit(self) -> SqlResult<()> {
         self.conn.execute_batch("COMMIT")?;
+        trace!("Transaction commited after {:?}", self.started_at.elapsed());
         Ok(())
     }
 
