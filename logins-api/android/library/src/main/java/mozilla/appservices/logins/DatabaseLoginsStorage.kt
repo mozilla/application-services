@@ -6,14 +6,14 @@
  * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License. */
-package org.mozilla.sync15.logins
+package mozilla.appservices.logins
 
 import android.util.Log
 import com.sun.jna.Pointer
 import kotlinx.coroutines.experimental.launch
-import org.mozilla.sync15.logins.rust.PasswordSyncAdapter
-import org.mozilla.sync15.logins.rust.RawLoginSyncState
-import org.mozilla.sync15.logins.rust.RustError
+import mozilla.appservices.logins.rust.PasswordSyncAdapter
+import mozilla.appservices.logins.rust.RawLoginSyncState
+import mozilla.appservices.logins.rust.RustError
 import java.io.Closeable
 
 /**
