@@ -92,14 +92,14 @@ struct FetchedPageInfo {
     page: PageInfo,
     // XXX - not clear what this is used for yet, and whether it should be local, remote or either?
     // The sql below isn't quite sure either :)
-    last_visit_id: RowId,
+    last_visit_id: Option<RowId>,
 }
 
 impl FetchedPageInfo {
     pub fn from_row(row: &Row) -> Result<Self> {
         Ok(Self {
             page: PageInfo::from_row(row)?,
-            last_visit_id: row.get_checked::<_, Option<RowId>>("last_visit_id")?.expect("No visit id!"),
+            last_visit_id: row.get_checked::<_, Option<RowId>>("last_visit_id")?,
         })
     }
 }
@@ -410,7 +410,7 @@ mod tests {
                     .with_at(Some(late_time.into())))
                     .expect("Should apply visit").expect("should get a rowid");
 
-        let _rid2 = apply_observation(&mut conn, VisitObservation::new(url.clone())
+        let rid2 = apply_observation(&mut conn, VisitObservation::new(url.clone())
                     .with_visit_type(VisitTransition::Link)
                     .with_at(Some(early_time.into())))
                     .expect("Should apply visit").expect("should get a rowid");
@@ -428,7 +428,7 @@ mod tests {
                     .with_is_remote(true))
                     .expect("Should apply visit").expect("should get a rowid");
 
-        let _rid4 = apply_observation(&mut conn, VisitObservation::new(url.clone())
+        let rid4 = apply_observation(&mut conn, VisitObservation::new(url.clone())
                     .with_visit_type(VisitTransition::Link)
                     .with_at(Some(late_time.into()))
                     .with_is_remote(true))
@@ -459,6 +459,17 @@ mod tests {
         assert_eq!(pi.page.last_visit_date_local, early_time.into());
         assert_eq!(pi.page.visit_count_remote, 1);
         assert_eq!(pi.page.last_visit_date_remote, late_time.into());
+
+        // Delete all visits.
+        conn.execute_named_cached(&sql, &[(":row_id", &rid2)]).expect("delete should work");
+        conn.execute_named_cached(&sql, &[(":row_id", &rid4)]).expect("delete should work");
+        // It may turn out that we also delete the place after deleting all
+        // visits, but for now we don't - check the values are sane though.
+        pi = fetch_page_info(&conn, &url).expect("should not fail").expect("should have the page");
+        assert_eq!(pi.page.visit_count_local, 0);
+        assert_eq!(pi.page.last_visit_date_local, Timestamp(0).into());
+        assert_eq!(pi.page.visit_count_remote, 0);
+        assert_eq!(pi.page.last_visit_date_remote, Timestamp(0).into());
     }
 
     #[test]

@@ -139,12 +139,12 @@ lazy_static! {
             UPDATE moz_places SET
                 visit_count_local = visit_count_local - (OLD.visit_type NOT IN ({excluded}) AND OLD.is_local),
                 visit_count_remote = visit_count_remote - (OLD.visit_type NOT IN ({excluded}) AND NOT(OLD.is_local)),
-                last_visit_date_local = (SELECT visit_date FROM moz_historyvisits
-                                         WHERE place_id = OLD.place_id AND is_local
-                                         ORDER BY visit_date DESC LIMIT 1),
-                last_visit_date_remote = (SELECT visit_date FROM moz_historyvisits
-                                          WHERE place_id = OLD.place_id AND NOT(is_local)
-                                          ORDER BY visit_date DESC LIMIT 1)
+                last_visit_date_local = IFNULL((SELECT visit_date FROM moz_historyvisits
+                                                WHERE place_id = OLD.place_id AND is_local
+                                                ORDER BY visit_date DESC LIMIT 1), 0),
+                last_visit_date_remote = IFNULL((SELECT visit_date FROM moz_historyvisits
+                                                 WHERE place_id = OLD.place_id AND NOT(is_local)
+                                                 ORDER BY visit_date DESC LIMIT 1), 0)
             WHERE id = OLD.place_id;
         END", excluded = EXCLUDED_VISIT_TYPES);
 }
