@@ -1,7 +1,7 @@
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
-package org.mozilla.sync15.logins
+package mozilla.appservices.logins
 
 import org.junit.Test
 import org.junit.Assert.*
@@ -21,20 +21,20 @@ abstract class LoginsStorageTest {
         waitForResult(store.unlock(encryptionKey))
 
         waitForResult(store.add(ServerPassword(
-            id = "aaaaaaaaaaaa",
-            hostname = "https://www.example.com",
-            httpRealm = "Something",
-            username = "Foobar2000",
-            password = "hunter2",
-            usernameField = "users_name",
-            passwordField = "users_password"
+                id = "aaaaaaaaaaaa",
+                hostname = "https://www.example.com",
+                httpRealm = "Something",
+                username = "Foobar2000",
+                password = "hunter2",
+                usernameField = "users_name",
+                passwordField = "users_password"
         )))
 
         waitForResult(store.add(ServerPassword(
-            id = "bbbbbbbbbbbb",
-            hostname = "https://www.example.org",
-            formSubmitURL = "https://www.example.org/login",
-            password = "MyVeryCoolPassword"
+                id = "bbbbbbbbbbbb",
+                hostname = "https://www.example.org",
+                formSubmitURL = "https://www.example.org/login",
+                password = "MyVeryCoolPassword"
         )))
 
         waitForResult(store.lock())
@@ -184,11 +184,11 @@ abstract class LoginsStorageTest {
         }
 
         val toInsert = ServerPassword(
-            id = "",
-            hostname = "https://www.foo.org",
-            httpRealm = "Some Realm",
-            password = "MyPassword",
-            username = null
+                id = "",
+                hostname = "https://www.foo.org",
+                httpRealm = "Some Realm",
+                password = "MyPassword",
+                username = null
         )
 
         val generatedID = waitForResult(test.add(toInsert))
@@ -281,37 +281,37 @@ abstract class LoginsStorageTest {
     companion object {
         val INVALID_RECORDS: List<ServerPassword> = listOf(
             // Both formSubmitURL and httpRealm
-            ServerPassword(
-                id = "",
-                hostname = "https://www.foo.org",
-                httpRealm = "Test Realm",
-                formSubmitURL = "https://www.foo.org/login",
-                password = "MyPassword",
-                username = "MyUsername"
-            ),
+                ServerPassword(
+                        id = "",
+                        hostname = "https://www.foo.org",
+                        httpRealm = "Test Realm",
+                        formSubmitURL = "https://www.foo.org/login",
+                        password = "MyPassword",
+                        username = "MyUsername"
+                ),
             // Neither formSubmitURL nor httpRealm
-            ServerPassword(
-                id = "",
-                hostname = "https://www.foo.org",
-                password = "MyPassword",
-                username = "MyUsername"
-            ),
+                ServerPassword(
+                        id = "",
+                        hostname = "https://www.foo.org",
+                        password = "MyPassword",
+                        username = "MyUsername"
+                ),
             // Empty password
-            ServerPassword(
-                id = "",
-                hostname = "https://www.foo.org",
-                httpRealm = "Some Realm",
-                password = "",
-                username = "MyUsername"
-            ),
+                ServerPassword(
+                        id = "",
+                        hostname = "https://www.foo.org",
+                        httpRealm = "Some Realm",
+                        password = "",
+                        username = "MyUsername"
+                ),
             // Empty hostname
-            ServerPassword(
-                id = "",
-                hostname = "",
-                httpRealm = "Some Realm",
-                password = "MyPassword",
-                username = "MyUsername"
-            )
+                ServerPassword(
+                        id = "",
+                        hostname = "",
+                        httpRealm = "Some Realm",
+                        password = "MyPassword",
+                        username = "MyUsername"
+                )
         )
     }
 }
