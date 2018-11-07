@@ -229,10 +229,15 @@ impl FirefoxAccount {
         self.state.login_state = state_machine.advance(state);
     }
 
-    fn oauth_cache_store(&mut self, info: &OAuthInfo) {
-        let info = info.clone();
+    fn oauth_cache_store(&mut self, info: &mut OAuthInfo) {
         let scope_key = info.scopes.join(" ");
-        self.state.oauth_cache.insert(scope_key, info);
+        // If the new OAuthInfo doesn't have keys, but the old one does, carry them forward.
+        if info.keys.is_none() {
+            if let Some(OAuthInfo { keys: Some(keys), .. }) = self.state.oauth_cache.remove(&scope_key) {
+                info.keys = Some(keys);
+            }
+        }
+        self.state.oauth_cache.insert(scope_key, info.clone());
     }
 
     fn scope_implies_scopes(scope: &str, match_scopes: &[&str]) -> Result<bool> {
@@ -400,14 +405,14 @@ impl FirefoxAccount {
             .duration_since(UNIX_EPOCH)
             .expect("Something is very wrong.");
         let expires_at = since_epoch.as_secs() + resp.expires_in;
-        let oauth_info = OAuthInfo {
+        let mut oauth_info = OAuthInfo {
             access_token: resp.access_token,
             keys,
             refresh_token: resp.refresh_token,
             expires_at,
             scopes: granted_scopes,
         };
-        self.oauth_cache_store(&oauth_info);
+        self.oauth_cache_store(&mut oauth_info);
         self.maybe_call_persist_callback();
         Ok(oauth_info)
     }
@@ -675,7 +680,20 @@ mod tests {
     fn test_oauth_cache_store_and_find() {
         let mut fxa =
             FirefoxAccount::new(Config::stable_dev().unwrap(), "12345678", "https://foo.bar");
-        let oauth_info = OAuthInfo {
+        let mut oauth_info = OAuthInfo {
+            access_token: "abcdef".to_string(),
+            keys: Some("abcd".to_string()),
+            refresh_token: None,
+            expires_at: 1,
+            scopes: vec![
+                "profile".to_string(),
+                "https://identity.mozilla.com/apps/oldsync".to_string(),
+            ],
+        };
+        fxa.oauth_cache_store(&mut oauth_info);
+        fxa.oauth_cache_find(&["profile"]).unwrap();
+        // No keys, but store should fix that.
+        let mut oauth_info2 = OAuthInfo {
             access_token: "abcdef".to_string(),
             keys: None,
             refresh_token: None,
@@ -685,8 +703,15 @@ mod tests {
                 "https://identity.mozilla.com/apps/oldsync".to_string(),
             ],
         };
-        fxa.oauth_cache_store(&oauth_info);
-        fxa.oauth_cache_find(&["profile"]).unwrap();
+
+        fxa.oauth_cache_store(&mut oauth_info2);
+        assert_eq!(
+            fxa.oauth_cache_find(&[
+                "profile",
+                "https://identity.mozilla.com/apps/oldsync"
+            ]).unwrap().keys,
+            Some("abcd".to_string()));
+
     }
 }
 
