@@ -13,6 +13,8 @@ use error::{Result};
 use observation::{VisitObservation};
 use frecency;
 
+use sync15_adapter;
+
 use rusqlite::{Row, Connection};
 use rusqlite::{types::{ToSql, FromSql, ToSqlOutput, FromSqlResult, ValueRef}};
 use rusqlite::Result as RusqliteResult;
@@ -131,16 +133,15 @@ pub fn apply_observation(db: &mut PlacesDb, visit_ob: VisitObservation) -> Resul
 pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> Result<Option<RowId>> {
     let mut page_info = match fetch_page_info(db, &visit_ob.url)? {
         Some(info) => info.page,
-        None => new_page_info(db, &visit_ob.url)?,
+        None => new_page_info(db, &visit_ob.url, None)?,
     };
+    let mut update_frec = false;
     let mut updates: Vec<(&str, &str, &ToSql)> = Vec::new();
+
     if let Some(ref title) = visit_ob.title {
         page_info.title = title.clone();
         updates.push(("title", ":title", &page_info.title));
     }
-
-    let mut update_frecency = false;
-
     // There's a new visit, so update everything that implies. To help with
     // testing we return the rowid of the visit we added.
     let visit_row_id = match visit_ob.visit_type {
@@ -159,7 +160,7 @@ pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> 
             let row_id = add_visit(db, &page_info.row_id, &None, &at, &visit_type, &!is_remote)?;
             // a new visit implies new frecency except in error cases.
             if !visit_ob.is_error.unwrap_or(false) {
-                update_frecency = true;
+                update_frec = true;
             }
             Some(row_id)
         },
@@ -180,26 +181,32 @@ pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> 
         db.execute_named_cached(&sql, &params)?;
     }
     // This needs to happen after the other updates.
-    if update_frecency {
-        page_info.frecency = frecency::calculate_frecency(db,
-            &frecency::DEFAULT_FRECENCY_SETTINGS,
-            page_info.row_id.0, // TODO: calculate_frecency should take a RowId here.
-            Some(visit_ob.get_redirect_frecency_boost()))?;
-        let sql = "
-            UPDATE moz_places
-            SET frecency = :frecency
-            WHERE id = :row_id
-        ";
-        db.execute_named_cached(sql, &[
-            (":row_id", &page_info.row_id.0),
-            (":frecency", &page_info.frecency),
-        ])?;
+    if update_frec {
+        update_frecency(&db, page_info.row_id, Some(visit_ob.get_redirect_frecency_boost()))?;
     }
     Ok(visit_row_id)
 }
 
-fn new_page_info(db: &impl ConnExt, url: &Url) -> Result<PageInfo> {
-    let guid = super::sync::util::random_guid().expect("according to logins-sql, this is fine :)");
+pub fn update_frecency(db: &Connection, id: RowId, redirect_boost: Option<bool>) -> Result<()> {
+    let score = frecency::calculate_frecency(db.conn(),
+        &frecency::DEFAULT_FRECENCY_SETTINGS,
+        id.0, // TODO: calculate_frecency should take a RowId here.
+        redirect_boost)?;
+
+    db.execute_named("
+        UPDATE moz_places
+        SET frecency = :frecency
+        WHERE id = :page_id",
+        &[(":frecency", &score), (":page_id", &id.0)])?;
+
+    Ok(())
+}
+
+fn new_page_info(db: &impl ConnExt, url: &Url, new_guid: Option<SyncGuid>) -> Result<PageInfo> {
+    let guid = match new_guid {
+        Some(guid) => guid,
+        None => sync15_adapter::util::random_guid().expect("according to logins-sql, this is fine :)").into(),
+    };
     let sql = "INSERT INTO moz_places (guid, url, url_hash)
                VALUES (:guid, :url, hash(:url))";
     db.execute_named_cached(sql, &[
@@ -208,7 +215,7 @@ fn new_page_info(db: &impl ConnExt, url: &Url) -> Result<PageInfo> {
     ])?;
     Ok(PageInfo {
         url: url.clone(),
-        guid: SyncGuid(guid),
+        guid,
         row_id: RowId(db.conn().last_insert_rowid()),
         title: "".into(),
         hidden: true, // will be set to false as soon as a non-hidden visit appears.
@@ -223,7 +230,7 @@ fn new_page_info(db: &impl ConnExt, url: &Url) -> Result<PageInfo> {
 
 // Add a single visit - you must know the page rowid. Does not update the
 // page info - if you are calling this, you will also need to update the
-// parent page with the new visit count, frecency, etc.
+// parent page with an updated change counter etc.
 fn add_visit(db: &impl ConnExt,
              page_id: &RowId,
              from_visit: &Option<RowId>,
@@ -245,21 +252,130 @@ fn add_visit(db: &impl ConnExt,
     Ok(RowId(rid))
 }
 
-// Currently not used - we update the frecency as we update the page info.
-pub fn update_frecency(db: &mut PlacesDb, id: RowId, redirect: Option<bool>) -> Result<()> {
-    let score = frecency::calculate_frecency(db.conn(),
-        &frecency::DEFAULT_FRECENCY_SETTINGS,
-        id.0, // TODO: calculate_frecency should take a RowId here.
-        redirect)?;
+// Support for Sync - in its own module to try and keep a delineation
+pub mod history_sync {
+    use super::*;
+    use history_sync::record::{HistoryRecordVisit};
 
-    db.execute_named("
-        UPDATE moz_places
-        SET frecency = :frecency
-        WHERE id = :page_id",
-        &[(":frecency", &score), (":page_id", &id.0)])?;
+    #[derive(Debug)]
+    pub struct FetchedVisit {
+        pub is_local: bool,
+        pub visit_date: Timestamp,
+        pub visit_type: Option<VisitTransition>,
+    }
 
-    Ok(())
-}
+    impl FetchedVisit {
+        pub fn from_row(row: &Row) -> Result<Self> {
+            Ok(Self {
+                is_local: row.get_checked("is_local")?,
+                visit_date: row.get_checked::<_, Option<Timestamp>>("visit_date")?
+                     .unwrap_or_default(),
+                visit_type: VisitTransition::from_primitive(
+                                row.get_checked::<_, Option<u8>>("visit_type")?.unwrap_or(0)
+                            ),
+            })
+        }
+    }
+
+    #[derive(Debug)]
+    pub struct FetchedVisitPage {
+        pub url: Url,
+        pub guid: SyncGuid,
+        pub row_id: RowId,
+        pub title: String,
+    }
+
+    impl FetchedVisitPage {
+        pub fn from_row(row: &Row) -> Result<Self> {
+            Ok(Self {
+                url: Url::parse(&row.get_checked::<_, Option<String>>("url")?.expect("non null column"))?,
+                guid: SyncGuid(row.get_checked::<_, Option<String>>("guid")?.expect("non null column")),
+                row_id: row.get_checked("id")?,
+                title: row.get_checked::<_, Option<String>>("title")?.unwrap_or_default(),
+            })
+        }
+    }
+
+    pub fn fetch_visits(db: &Connection, url: &Url, limit: usize) -> Result<Option<(FetchedVisitPage, Vec<FetchedVisit>)>> {
+        // We do this in 2 steps - "do we have a page" then "get visits"
+        let page_sql = "
+          SELECT guid, url, id, title
+          FROM moz_places h
+          WHERE url_hash = hash(:url) AND url = :url";
+
+        let page_info = match db.try_query_row(page_sql, &[(":url", &url.clone().into_string())], FetchedVisitPage::from_row, true)? {
+            None => return Ok(None),
+            Some(pi) => pi,
+        };
+
+        let mut stmt = db.prepare("
+          SELECT is_local, visit_type, visit_date
+          FROM moz_historyvisits
+          WHERE place_id = :place_id
+          LIMIT :limit")?;
+        let visits = stmt.query_and_then_named(&[(":place_id", &page_info.row_id),
+                                                 (":limit", &(limit as u32))],
+                                               FetchedVisit::from_row)?
+                         .collect::<Result<Vec<_>>>()?;
+        Ok(Some((page_info, visits)))
+    }
+
+    /// Apply history visist from sync. This assumes they have all been
+    /// validated, deduped, etc - it's just the storage we do here.
+    pub fn apply_synced_visits(db: &Connection, new_guid: &SyncGuid, existing_guid: &Option<SyncGuid>, url: &Url, title: &Option<String>, visits: &Vec<HistoryRecordVisit>) -> Result<()> {
+        let tx = db.unchecked_transaction()?;
+        let page_info = match fetch_page_info(db, &url)? {
+            Some(info) => {
+                assert_eq!(info.page.guid, *new_guid);
+                info.page
+            },
+            None => {
+                assert!(existing_guid.is_none());
+                new_page_info(db, &url, Some(new_guid.clone()))?
+            },
+        };
+        for visit in visits {
+            let transition = VisitTransition::from_primitive(visit.transition).expect("these should already be validated");
+            add_visit(db, &page_info.row_id, &None, &visit.date, &transition, &false)?;
+        }
+        // XXX - we really need a better story for frecency-boost than
+        // Option<bool> - None vs Some(false) is confusing. We should use an enum.
+        update_frecency(&db, page_info.row_id, None)?;
+
+        // and the place itself if necessary.
+        let new_title: &String = match title {
+            Some(title) => title,
+            None => &page_info.title,
+        };
+        db.execute_named_cached(
+            "UPDATE moz_places
+             SET title = :title
+             WHERE id == :row_id",
+            &[(":title", new_title), (":row_id", &page_info.row_id)]
+        )?;
+
+        // and finally update the guid if necessary.
+        // XXX - we should consider doing this as part of the update above, but
+        // it complicates the code and should be rare.
+        if let Some(ref existing_guid) = existing_guid {
+            if existing_guid != new_guid {
+                db.execute_named_cached(
+                    "UPDATE moz_places SET guid = :new_guid WHERE guid == :old_guid",
+                    &[(":new_guid", new_guid), (":old_guid", existing_guid)]
+                )?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn apply_synced_deletion(db: &Connection, guid: &SyncGuid) -> Result<()> {
+        db.execute_named_cached(
+            "DELETE moz_places WHERE guid = :guid",
+            &[(":guid", guid)])?;
+        Ok(())
+    }
+} // end of sync module.
 
 pub fn get_visited(db: &PlacesDb, urls: &[Url]) -> Result<Vec<bool>> {
     let mut result = vec![false; urls.len()];
@@ -318,6 +434,7 @@ pub fn get_visited_urls(db: &PlacesDb, start: Timestamp, end: Timestamp, include
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::history_sync::*;
     use std::time::{Duration, SystemTime};
 
     struct Origin {
@@ -520,5 +637,16 @@ mod tests {
                 to_search[i].0, i, // idx is logged because some things are repeated
                 to_search[i].1, did_see);
         }
+    }
+
+    #[test]
+    fn test_fetch_visits() {
+        let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
+
+        let url = Url::parse("https://www.example.com/1").unwrap();
+        apply_observation(&mut conn, VisitObservation::new(url.clone()).with_visit_type(VisitTransition::Link))
+            .expect("Should apply visit");
+        assert_eq!(fetch_visits(&conn, &url, 0).unwrap().unwrap().1.len(), 0);
+        assert_eq!(fetch_visits(&conn, &url, 1).unwrap().unwrap().1.len(), 1);
     }
 }

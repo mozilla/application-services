@@ -17,6 +17,9 @@ ffi-support = { path = "../../support/ffi" }
 version = "0.14.0"
 features = ["sqlcipher", "limits", "functions"]
 
+[dependencies.sync15-adapter]
+path = "../../../sync15-adapter"
+
 [dependencies.places]
 path = ".."
 features = ["ffi"]
