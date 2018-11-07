@@ -28,7 +28,7 @@ internal interface PasswordSyncAdapter : Library {
             mentat_db_path: String,
             encryption_key: String,
             error: RustError.ByReference
-    ): RawLoginSyncState
+    ): RawLoginSyncState?
 
     fun sync15_passwords_state_destroy(p: RawLoginSyncState)
 
@@ -37,10 +37,10 @@ internal interface PasswordSyncAdapter : Library {
     // free them).
 
     // Returns null if the id does not exist, otherwise json
-    fun sync15_passwords_get_by_id(state: RawLoginSyncState, id: String, error: RustError.ByReference): Pointer
+    fun sync15_passwords_get_by_id(state: RawLoginSyncState, id: String, error: RustError.ByReference): Pointer?
 
     // return json array
-    fun sync15_passwords_get_all(state: RawLoginSyncState, error: RustError.ByReference): Pointer
+    fun sync15_passwords_get_all(state: RawLoginSyncState, error: RustError.ByReference): Pointer?
 
     fun sync15_passwords_sync(state: RawLoginSyncState,
                               key_id: String,
@@ -57,7 +57,7 @@ internal interface PasswordSyncAdapter : Library {
     // a known size.
     fun sync15_passwords_delete(state: RawLoginSyncState, id: String, error: RustError.ByReference): Byte
     // Note: returns guid of new login entry (unless one was specifically requested)
-    fun sync15_passwords_add(state: RawLoginSyncState, new_login_json: String, error: RustError.ByReference): Pointer
+    fun sync15_passwords_add(state: RawLoginSyncState, new_login_json: String, error: RustError.ByReference): Pointer?
     fun sync15_passwords_update(state: RawLoginSyncState, existing_login_json: String, error: RustError.ByReference)
 
     fun sync15_passwords_destroy_string(p: Pointer)
