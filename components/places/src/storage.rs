@@ -8,7 +8,7 @@
 
 use std::{fmt};
 use url::{Url};
-use types::{SyncGuid, Timestamp, VisitTransition};
+use types::{SyncGuid, Timestamp, VisitTransition, SyncStatus};
 use error::{Result};
 use observation::{VisitObservation};
 use frecency;
@@ -62,6 +62,8 @@ pub struct PageInfo {
     pub visit_count_remote: i32,
     pub last_visit_date_local: Timestamp,
     pub last_visit_date_remote: Timestamp,
+    pub sync_status: SyncStatus,
+    pub sync_change_counter: u32,
 }
 
 impl PageInfo {
@@ -82,6 +84,11 @@ impl PageInfo {
                 "last_visit_date_local")?.unwrap_or_default(),
             last_visit_date_remote: row.get_checked::<_, Option<Timestamp>>(
                 "last_visit_date_remote")?.unwrap_or_default(),
+
+            sync_status: SyncStatus::from_u8(row.get_checked::<_, u8>(
+                 "sync_status")?),
+            sync_change_counter: row.get_checked::<_, Option<u32>>(
+                "sync_change_counter")?.unwrap_or_default(),
         })
     }
 }
@@ -110,10 +117,11 @@ fn fetch_page_info(db: &impl ConnExt, url: &Url) -> Result<Option<FetchedPageInf
       SELECT guid, url, id, title, hidden, typed, frecency,
              visit_count_local, visit_count_remote,
              last_visit_date_local, last_visit_date_remote,
-      (SELECT id FROM moz_historyvisits
-       WHERE place_id = h.id
-         AND (visit_date = h.last_visit_date_local OR
-              visit_date = h.last_visit_date_remote)) AS last_visit_id
+             sync_status, sync_change_counter,
+             (SELECT id FROM moz_historyvisits
+              WHERE place_id = h.id
+                AND (visit_date = h.last_visit_date_local OR
+                     visit_date = h.last_visit_date_remote)) AS last_visit_id
       FROM moz_places h
       WHERE url_hash = hash(:page_url) AND url = :page_url";
     Ok(db.try_query_row(sql, &[(":page_url", &url.clone().into_string())], FetchedPageInfo::from_row, true)?)
@@ -133,10 +141,12 @@ pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> 
         Some(info) => info.page,
         None => new_page_info(db, &visit_ob.url)?,
     };
+    let mut update_change_counter = false;
     let mut updates: Vec<(&str, &str, &ToSql)> = Vec::new();
     if let Some(ref title) = visit_ob.title {
         page_info.title = title.clone();
         updates.push(("title", ":title", &page_info.title));
+        update_change_counter = true;
     }
 
     let mut update_frecency = false;
@@ -161,10 +171,16 @@ pub fn apply_observation_direct(db: &Connection, visit_ob: VisitObservation) -> 
             if !visit_ob.is_error.unwrap_or(false) {
                 update_frecency = true;
             }
+            update_change_counter = true;
             Some(row_id)
         },
         None => None,
     };
+
+    if update_change_counter {
+        page_info.sync_change_counter += 1;
+        updates.push(("sync_change_counter", ":sync_change_counter", &page_info.sync_change_counter));
+    }
 
     if updates.len() != 0 {
         let mut params: Vec<(&str, &ToSql)> = Vec::with_capacity(updates.len() + 1);
@@ -218,6 +234,8 @@ fn new_page_info(db: &impl ConnExt, url: &Url) -> Result<PageInfo> {
         visit_count_remote: 0,
         last_visit_date_local: Timestamp(0),
         last_visit_date_remote: Timestamp(0),
+        sync_status: SyncStatus::New,
+        sync_change_counter: 0,
     })
 }
 
@@ -520,5 +538,23 @@ mod tests {
                 to_search[i].0, i, // idx is logged because some things are repeated
                 to_search[i].1, did_see);
         }
+    }
+
+    #[test]
+    fn test_change_counter() {
+        let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let url = Url::parse("http://example.com").unwrap();
+        apply_observation(&mut conn, VisitObservation::new(url.clone())
+                .with_visit_type(VisitTransition::Link))
+                .expect("Should apply visit");
+        let mut pi = fetch_page_info(&conn, &url).expect("should work").expect("page should exist");
+        assert_eq!(pi.page.sync_change_counter, 1);
+        // A new observation with just a title should update it.
+        apply_observation(&mut conn, VisitObservation::new(url.clone())
+                .with_title(Some("new title".into())))
+                .expect("Should apply new title");
+        pi = fetch_page_info(&conn, &url).expect("should work").expect("page should exist");
+        assert_eq!(pi.page.title, "new title");
+        assert_eq!(pi.page.sync_change_counter, 2);
     }
 }
