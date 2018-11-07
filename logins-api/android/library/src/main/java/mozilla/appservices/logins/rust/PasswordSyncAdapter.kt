@@ -11,16 +11,25 @@ import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
+import java.lang.reflect.Proxy
 
 
 @Suppress("FunctionNaming", "TooManyFunctions", "TooGenericExceptionThrown")
 internal interface PasswordSyncAdapter : Library {
     companion object {
+        // If our shared object isn't available, error when you attempt to call our methods
+        // intead of at startup.
         private const val JNA_LIBRARY_NAME = "loginsapi_ffi"
-        internal var INSTANCE: PasswordSyncAdapter
 
-        init {
-            INSTANCE = Native.loadLibrary(JNA_LIBRARY_NAME, PasswordSyncAdapter::class.java) as PasswordSyncAdapter
+        internal var INSTANCE: PasswordSyncAdapter = try {
+            Native.loadLibrary(JNA_LIBRARY_NAME, PasswordSyncAdapter::class.java) as PasswordSyncAdapter
+        } catch (e: UnsatisfiedLinkError) {
+            Proxy.newProxyInstance(
+                    PasswordSyncAdapter::class.java.classLoader,
+                    arrayOf(PasswordSyncAdapter::class.java))
+            { _, _, _ ->
+                throw RuntimeException("Logins storage functionality not available (no native library)", e)
+            } as PasswordSyncAdapter
         }
     }
 
