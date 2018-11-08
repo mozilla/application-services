@@ -11,7 +11,6 @@ package mozilla.appservices.logins.rust
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
 import mozilla.appservices.logins.*
-import org.mozilla.sync15.logins.*
 import java.util.Arrays
 
 /**
@@ -26,13 +25,6 @@ open class RustError : Structure() {
 
     init {
         read()
-    }
-
-    /**
-     * Does this represent success?
-     */
-    fun isSuccess(): Boolean {
-        return code == 0;
     }
 
     /**
@@ -63,23 +55,27 @@ open class RustError : Structure() {
     /**
      * Get and consume the error message, or null if there is none.
      */
+    @Synchronized
     fun consumeErrorMessage(): String {
-        val result = this.getMessage()
-        if (this.message != null) {
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_destroy_string(this.message!!);
-            this.message = null
-        }
+        val result = this.message?.getAndConsumeRustString()
+        this.message = null
         if (result == null) {
             throw NullPointerException("consumeErrorMessage called with null message!");
         }
         return result
     }
 
+    @Synchronized
+    fun ensureConsumed() {
+        this.message?.getAndConsumeRustString()
+        this.message = null
+    }
+
     /**
      * Get the error message or null if there is none.
      */
     fun getMessage(): String? {
-        return this.message?.getString(0, "utf8")
+        return this.message?.getRustString()
     }
 
     override fun getFieldOrder(): List<String> {

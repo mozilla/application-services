@@ -5,9 +5,6 @@ package mozilla.appservices.logins
 
 import org.junit.Test
 import org.junit.Assert.*
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicReference
 
 abstract class LoginsStorageTest {
 
@@ -18,9 +15,9 @@ abstract class LoginsStorageTest {
     private fun getTestStore(): LoginsStorage {
         val store = createTestStore()
 
-        waitForResult(store.unlock(encryptionKey))
+        store.unlock(encryptionKey)
 
-        waitForResult(store.add(ServerPassword(
+        store.add(ServerPassword(
                 id = "aaaaaaaaaaaa",
                 hostname = "https://www.example.com",
                 httpRealm = "Something",
@@ -28,110 +25,74 @@ abstract class LoginsStorageTest {
                 password = "hunter2",
                 usernameField = "users_name",
                 passwordField = "users_password"
-        )))
+        ))
 
-        waitForResult(store.add(ServerPassword(
+        store.add(ServerPassword(
                 id = "bbbbbbbbbbbb",
                 hostname = "https://www.example.org",
                 formSubmitURL = "https://www.example.org/login",
                 password = "MyVeryCoolPassword"
-        )))
+        ))
 
-        waitForResult(store.lock())
+        store.lock()
         return store
     }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun <T> waitForResult(e: SyncResult<T>): T {
-        val result: AtomicReference<T?> = AtomicReference(null)
-        val finished = AtomicBoolean(false) // Needed since T may be nullable
-        val gate = CountDownLatch(1)
-        e.thenCatch { err ->
-            fail(err.message)
-            gate.countDown()
-
-            throw err // Needed to typecheck, kotlin doesn't know that fail() doesn't return
-        }.whenComplete {
-            result.set(it)
-            if (finished.getAndSet(true)) {
-                fail("Timed out!")
-            }
-            gate.countDown()
-        }
-        gate.await()
-        val v = result.get()
-        assert(finished.get())
-        return v as T
-    }
-
-    private fun <T> waitForException(e: SyncResult<T>): Exception {
-        val result: AtomicReference<Exception?> = AtomicReference(null)
-        val gate = CountDownLatch(1)
-        e.then({
-            fail("Expected exception but resolved successfully")
-            SyncResult.fromValue(Unit)
-        }) { err ->
-            if (result.getAndSet(err) != null) {
-                // Probably something will have killed this thread by this point.
-                fail("Timed Out!")
-            }
-            gate.countDown()
-            SyncResult.fromValue(Unit)
-        }
-
-        gate.await()
-        val v = result.get()
-        assertNotNull(v)
-        return v!!
-    }
-
     private fun finishAndClose(store: LoginsStorage) {
-        waitForResult(store.lock())
-        assertEquals(waitForResult(store.isLocked()), true)
+        store.lock()
+        assertEquals(store.isLocked(), true)
         store.close()
+    }
+
+    private inline fun <T: Any?, reified E: Throwable> expectException(klass: Class<E>, callback: () -> T) {
+        try {
+            callback()
+            fail("Expected exception!")
+        } catch (e: Throwable) {
+            assert(klass.isInstance(e))
+        }
     }
 
     @Test
     fun testLockedOperations() {
         val test = getTestStore()
-        assertEquals(waitForResult(test.isLocked()), true)
-        // Note that waitForException fails the test if it successfully resolves
-        waitForException(test.get("aaaaaaaaaaaa"))
-        waitForException(test.list())
-        waitForException(test.delete("aaaaaaaaaaaa"))
-        waitForException(test.touch("bbbbbbbbbbbb"))
-        waitForException(test.wipe())
-        waitForException(test.sync(SyncUnlockInfo("", "", "", "")))
-        waitForException(test.reset())
+        assertEquals(test.isLocked(), true)
 
-        waitForResult(test.unlock(encryptionKey))
-        assertEquals(waitForResult(test.isLocked()), false)
+        expectException(LoginsStorageException::class.java) { test.get("aaaaaaaaaaaa") }
+        expectException(LoginsStorageException::class.java) { test.list() }
+        expectException(LoginsStorageException::class.java) { test.delete("aaaaaaaaaaaa") }
+        expectException(LoginsStorageException::class.java) { test.touch("bbbbbbbbbbbb") }
+        expectException(LoginsStorageException::class.java) { test.wipe() }
+        expectException(LoginsStorageException::class.java) { test.sync(SyncUnlockInfo("", "", "", "")) }
+        expectException(LoginsStorageException::class.java) { test.reset() }
+
+        test.unlock(encryptionKey)
+        assertEquals(test.isLocked(), false)
         // Make sure things didn't change despite being locked
-        assertNotNull(waitForResult(test.get("aaaaaaaaaaaa")))
+        assertNotNull(test.get("aaaaaaaaaaaa"))
         // "bbbbbbbbbbbb" has a single use (from insertion)
-        assertEquals(1, waitForResult(test.get("bbbbbbbbbbbb"))!!.timesUsed)
+        assertEquals(1, test.get("bbbbbbbbbbbb")!!.timesUsed)
         finishAndClose(test)
     }
 
     @Test
     fun testTouch() {
         val test = getTestStore()
-        waitForResult(test.unlock(encryptionKey))
-        assertEquals(waitForResult(test.list()).size, 2)
-        val b = waitForResult(test.get("bbbbbbbbbbbb"))!!
+        test.unlock(encryptionKey)
+        assertEquals(test.list().size, 2)
+        val b = test.get("bbbbbbbbbbbb")!!
 
         // Wait 100ms so that touch is certain to change timeLastUsed.
         Thread.sleep(100)
-        waitForResult(test.touch("bbbbbbbbbbbb"))
+        test.touch("bbbbbbbbbbbb")
 
-        val newB = waitForResult(test.get("bbbbbbbbbbbb"))
+        val newB = test.get("bbbbbbbbbbbb")
 
         assertNotNull(newB)
         assertEquals(b.timesUsed + 1, newB!!.timesUsed)
         assert(newB.timeLastUsed > b.timeLastUsed)
 
-        val exn = waitForException(test.touch("abcdabcdabcd"))
-        assert(exn is NoSuchRecordException)
+        expectException(NoSuchRecordException::class.java) { test.touch("abcdabcdabcd") }
 
         finishAndClose(test)
     }
@@ -140,12 +101,12 @@ abstract class LoginsStorageTest {
     fun testDelete() {
         val test = getTestStore()
 
-        waitForResult(test.unlock(encryptionKey))
-        assertNotNull(waitForResult(test.get("aaaaaaaaaaaa")))
-        assertTrue(waitForResult(test.delete("aaaaaaaaaaaa")))
-        assertNull(waitForResult(test.get("aaaaaaaaaaaa")))
-        assertFalse(waitForResult(test.delete("aaaaaaaaaaaa")))
-        assertNull(waitForResult(test.get("aaaaaaaaaaaa")))
+        test.unlock(encryptionKey)
+        assertNotNull(test.get("aaaaaaaaaaaa"))
+        assertTrue(test.delete("aaaaaaaaaaaa"))
+        assertNull(test.get("aaaaaaaaaaaa"))
+        assertFalse(test.delete("aaaaaaaaaaaa"))
+        assertNull(test.get("aaaaaaaaaaaa"))
 
         finishAndClose(test)
     }
@@ -153,14 +114,14 @@ abstract class LoginsStorageTest {
     @Test
     fun testListWipe() {
         val test = getTestStore()
-        waitForResult(test.unlock(encryptionKey))
-        assertEquals(2, waitForResult(test.list()).size)
+        test.unlock(encryptionKey)
+        assertEquals(2, test.list().size)
 
-        waitForResult(test.wipe())
-        assertEquals(0, waitForResult(test.list()).size)
+        test.wipe()
+        assertEquals(0, test.list().size)
 
-        assertNull(waitForResult(test.get("aaaaaaaaaaaa")))
-        assertNull(waitForResult(test.get("bbbbbbbbbbbb")))
+        assertNull(test.get("aaaaaaaaaaaa"))
+        assertNull(test.get("bbbbbbbbbbbb"))
 
         finishAndClose(test)
     }
@@ -168,19 +129,22 @@ abstract class LoginsStorageTest {
     @Test
     fun testAdd() {
         val test = getTestStore()
-        waitForResult(test.unlock(encryptionKey))
+        test.unlock(encryptionKey)
 
-        assert(waitForException(test.add(ServerPassword(
-                id = "aaaaaaaaaaaa",
-                hostname = "https://www.foo.org",
-                httpRealm = "Some Realm",
-                password = "MyPassword",
-                username = "MyUsername"
-        ))) is IdCollisionException)
+        expectException(IdCollisionException::class.java) {
+            test.add(ServerPassword(
+                    id = "aaaaaaaaaaaa",
+                    hostname = "https://www.foo.org",
+                    httpRealm = "Some Realm",
+                    password = "MyPassword",
+                    username = "MyUsername"
+            ))
+        }
 
         for (record in INVALID_RECORDS) {
-            assert(waitForException(test.add(record)) is InvalidRecordException,
-                    { "Expected InvalidRecordException adding $record" })
+            expectException(InvalidRecordException::class.java) {
+                test.add(record)
+            }
         }
 
         val toInsert = ServerPassword(
@@ -191,9 +155,9 @@ abstract class LoginsStorageTest {
                 username = null
         )
 
-        val generatedID = waitForResult(test.add(toInsert))
+        val generatedID = test.add(toInsert)
 
-        val record = waitForResult(test.get(generatedID))!!
+        val record = test.get(generatedID)!!
         assertEquals(generatedID, record.id)
         assertEquals(toInsert.hostname, record.hostname)
         assertEquals(toInsert.httpRealm, record.httpRealm)
@@ -208,12 +172,12 @@ abstract class LoginsStorageTest {
         assertNotEquals(0L, record.timeCreated)
         assertNotEquals(0L, record.timePasswordChanged)
 
-        val specificID = waitForResult(test.add(ServerPassword(
+        val specificID = test.add(ServerPassword(
                 id = "123412341234",
                 hostname = "http://www.bar.com",
                 formSubmitURL = "http://login.bar.com",
                 password = "DummyPassword",
-                username = "DummyUsername")))
+                username = "DummyUsername"))
 
         assertEquals("123412341234", specificID)
 
@@ -223,34 +187,37 @@ abstract class LoginsStorageTest {
     @Test
     fun testUpdate() {
         val test = getTestStore()
-        waitForResult(test.unlock(encryptionKey))
+        test.unlock(encryptionKey)
 
-        assert(waitForException(test.update(ServerPassword(
-                id = "123412341234",
-                hostname = "https://www.foo.org",
-                httpRealm = "Some Realm",
-                password = "MyPassword",
-                username = "MyUsername"
-        ))) is NoSuchRecordException)
+        expectException(NoSuchRecordException::class.java) {
+            test.update(ServerPassword(
+                    id = "123412341234",
+                    hostname = "https://www.foo.org",
+                    httpRealm = "Some Realm",
+                    password = "MyPassword",
+                    username = "MyUsername"
+            ))
+        }
 
         for (record in INVALID_RECORDS) {
             val updateArg = record.copy(id = "aaaaaaaaaaaa")
-            assert(waitForException(test.update(updateArg)) is InvalidRecordException,
-                    { "Expected InvalidRecordException updating $updateArg" })
+            expectException(InvalidRecordException::class.java) {
+                test.update(updateArg)
+            }
         }
 
-        val toUpdate = waitForResult(test.get("aaaaaaaaaaaa"))!!.copy(
-            password = "myNewPassword"
+        val toUpdate = test.get("aaaaaaaaaaaa")!!.copy(
+                password = "myNewPassword"
         )
 
         // Sleep so that the current time for test.update is guaranteed to be
         // different.
         Thread.sleep(100)
 
-        waitForResult(test.update(toUpdate))
+        test.update(toUpdate)
 
 
-        val record = waitForResult(test.get(toUpdate.id))!!
+        val record = test.get(toUpdate.id)!!
         assertEquals(toUpdate.hostname, record.hostname)
         assertEquals(toUpdate.httpRealm, record.httpRealm)
         assertEquals(toUpdate.password, record.password)
@@ -266,12 +233,12 @@ abstract class LoginsStorageTest {
         assert(toUpdate.timeLastUsed < record.timeLastUsed)
         assert(toUpdate.timeLastUsed < record.timePasswordChanged)
 
-        val specificID = waitForResult(test.add(ServerPassword(
+        val specificID = test.add(ServerPassword(
                 id = "123412341234",
                 hostname = "http://www.bar.com",
                 formSubmitURL = "http://login.bar.com",
                 password = "DummyPassword",
-                username = "DummyUsername")))
+                username = "DummyUsername"))
 
         assertEquals("123412341234", specificID)
 
@@ -280,7 +247,7 @@ abstract class LoginsStorageTest {
 
     companion object {
         val INVALID_RECORDS: List<ServerPassword> = listOf(
-            // Both formSubmitURL and httpRealm
+                // Both formSubmitURL and httpRealm
                 ServerPassword(
                         id = "",
                         hostname = "https://www.foo.org",
@@ -289,14 +256,14 @@ abstract class LoginsStorageTest {
                         password = "MyPassword",
                         username = "MyUsername"
                 ),
-            // Neither formSubmitURL nor httpRealm
+                // Neither formSubmitURL nor httpRealm
                 ServerPassword(
                         id = "",
                         hostname = "https://www.foo.org",
                         password = "MyPassword",
                         username = "MyUsername"
                 ),
-            // Empty password
+                // Empty password
                 ServerPassword(
                         id = "",
                         hostname = "https://www.foo.org",
@@ -304,7 +271,7 @@ abstract class LoginsStorageTest {
                         password = "",
                         username = "MyUsername"
                 ),
-            // Empty hostname
+                // Empty hostname
                 ServerPassword(
                         id = "",
                         hostname = "",

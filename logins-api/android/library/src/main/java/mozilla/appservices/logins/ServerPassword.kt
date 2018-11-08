@@ -106,10 +106,10 @@ data class ServerPassword (
         fun fromJSON(jsonObject: JSONObject): ServerPassword {
 
             fun stringOrNull(key: String): String? {
-                try {
-                    return jsonObject.getString(key)
+                return try {
+                    jsonObject.getString(key)
                 } catch (e: JSONException) {
-                    return null
+                    null
                 }
             }
 
@@ -140,10 +140,10 @@ data class ServerPassword (
         }
 
         fun fromJSONArray(jsonArrayText: String): List<ServerPassword> {
-            val result: MutableList<ServerPassword> = mutableListOf();
+            val result: MutableList<ServerPassword> = mutableListOf()
             val array = JSONArray(jsonArrayText);
             for (index in 0 until array.length()) {
-                result.add(fromJSON(array.getJSONObject(index)));
+                result.add(fromJSON(array.getJSONObject(index)))
             }
             return result
         }
