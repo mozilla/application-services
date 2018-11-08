@@ -169,6 +169,45 @@ impl<'de> serde::Deserialize<'de> for VisitTransition {
     }
 }
 
+/// Re SyncStatus - note that:
+/// * logins_sql has synced=0, changed=1, new=2
+/// * desktop bookmarks has unknown=0, new=1, normal=2
+/// This is "places", so eventually bookmarks will have a status - should history
+/// and bookmarks share this enum?
+/// Note that history specifically needs neither (a) login's "changed" (the
+/// changeCounter works there), nor (b) bookmark's "unknown" (as that's only
+/// used after a restore).
+/// History only needs a distinction between "synced" and "new" so it doesn't
+/// accumulate never-to-be-synced tombstones - so we basically copy bookmarks
+/// and treat unknown as new.
+/// Which means we get the "bonus side-effect" ;) of ::Unknown replacing Option<>!
+///
+/// Note that some of these values are in schema.rs
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[repr(u8)]
+pub enum SyncStatus {
+    Unknown = 0,
+    New = 1,
+    Normal = 2,
+}
+
+impl SyncStatus {
+    #[inline]
+    pub fn from_u8(v: u8) -> Self {
+        match v {
+            1 => SyncStatus::New,
+            2 => SyncStatus::Normal,
+            _ => SyncStatus::Unknown,
+        }
+    }
+}
+
+impl ToSql for SyncStatus {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
+        Ok(ToSqlOutput::from(*self as u8))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
