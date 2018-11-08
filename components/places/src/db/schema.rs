@@ -45,9 +45,8 @@ const CREATE_TABLE_PLACES_SQL: &str =
 
 const CREATE_TABLE_PLACES_TOMBSTONES_SQL: &str =
     "CREATE TABLE IF NOT EXISTS moz_places_tombstones (
-        id INTEGER PRIMARY KEY,
-        guid TEXT NOT NULL UNIQUE
-    )";
+        guid TEXT PRIMARY KEY
+    ) WITHOUT ROWID";
 
 
 const CREATE_TABLE_HISTORYVISITS_SQL: &str =
@@ -130,6 +129,16 @@ const CREATE_TRIGGER_MOZPLACES_AFTERDELETE: &str = "
         INSERT OR IGNORE INTO moz_places_tombstones (guid) VALUES (OLD.guid);
     END
 ";
+
+const CREATE_TRIGGER_MOZPLACES_AFTERINSERT_REMOVE_TOMBSTONES: &str = "
+    CREATE TEMP TRIGGER moz_places_afterinsert_trigger_tombstone
+    AFTER INSERT ON moz_places
+    FOR EACH ROW
+    BEGIN
+        DELETE FROM moz_places_tombstones WHERE guid = NEW.guid;
+    END
+";
+
 
 // Triggers which update visit_count and last_visit_date based on historyvisits
 // table changes.
@@ -276,7 +285,8 @@ pub fn create(db: &PlacesDb) -> Result<()> {
         CREATE_TRIGGER_AFTER_INSERT_ON_PLACES,
         &CREATE_TRIGGER_HISTORYVISITS_AFTERINSERT,
         &CREATE_TRIGGER_HISTORYVISITS_AFTERDELETE,
-        &CREATE_TRIGGER_MOZPLACES_AFTERDELETE
+        &CREATE_TRIGGER_MOZPLACES_AFTERDELETE,
+        &CREATE_TRIGGER_MOZPLACES_AFTERINSERT_REMOVE_TOMBSTONES
     ])?;
 
     Ok(())
@@ -343,5 +353,16 @@ mod tests {
 
         // should have a tombstone.
         assert!(has_tombstone(&conn, &guid));
+
+        // re-insert into moz_places - the tombstone should be removed.
+        conn.execute_named_cached(
+            "INSERT INTO moz_places (guid, url, url_hash, sync_status)
+             VALUES (:guid, :url, hash(:url), :sync_status)",
+            &[(":guid", &guid),
+              (":url", &Url::parse("http://example.com").expect("valid url").into_string()),
+              (":sync_status", &SyncStatus::Normal),
+             ]
+        ).expect("should work");
+        assert!(!has_tombstone(&conn, &guid));
     }
 }
