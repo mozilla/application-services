@@ -10,6 +10,8 @@ members = [
     "components/places/ffi",
     "components/support/sql",
     "components/support/ffi",
+    "composites/lockbox",
+    "composites/reference-browser",
 ]
 
 [profile.release]
