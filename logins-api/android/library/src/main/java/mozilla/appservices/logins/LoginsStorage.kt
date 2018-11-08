@@ -8,8 +8,6 @@
  * specific language governing permissions and limitations under the License. */
 package mozilla.appservices.logins
 
-import java.io.Closeable
-
 class SyncUnlockInfo (
         val kid: String,
         val fxaAccessToken: String,
@@ -17,48 +15,48 @@ class SyncUnlockInfo (
         val tokenserverURL: String
 )
 
-interface LoginsStorage : Closeable {
+interface LoginsStorage : AutoCloseable {
 
-    fun lock(): SyncResult<Unit>
+    fun lock()
 
-    fun unlock(encryptionKey: String): SyncResult<Unit>
+    fun unlock(encryptionKey: String)
 
-    fun isLocked(): SyncResult<Boolean>
+    fun isLocked(): Boolean
 
     /**
      * Synchronize the logins storage layer with a remote layer.
      */
-    fun sync(syncInfo: SyncUnlockInfo): SyncResult<Unit>
+    fun sync(syncInfo: SyncUnlockInfo)
 
     /**
      * Delete all locally stored login sync metadata.
      */
-    fun reset(): SyncResult<Unit>
+    fun reset()
 
     /**
      * Delete all locally stored login data.
      */
-    fun wipe(): SyncResult<Unit>
+    fun wipe()
 
     /**
      * Delete a password with the given ID.
      */
-    fun delete(id: String): SyncResult<Boolean>
+    fun delete(id: String): Boolean
 
     /**
      * Fetch a password from the underlying storage layer by ID.
      */
-    fun get(id: String): SyncResult<ServerPassword?>
+    fun get(id: String): ServerPassword?
 
     /**
      * Mark the login with the given ID as `in-use`.
      */
-    fun touch(id: String): SyncResult<Unit>
+    fun touch(id: String)
 
     /**
      * Fetch the full list of passwords from the underlying storage layer.
      */
-    fun list(): SyncResult<List<ServerPassword>>
+    fun list(): List<ServerPassword>
 
     /**
      * Insert the provided login into the database.
@@ -78,7 +76,7 @@ interface LoginsStorage : Closeable {
      * is invalid (missing password, hostname, or doesn't have exactly
      * one of formSubmitURL and httpRealm).
      */
-    fun add(login: ServerPassword): SyncResult<String>
+    fun add(login: ServerPassword): String
 
     /**
      * Update the fields in the provided record.
@@ -92,6 +90,6 @@ interface LoginsStorage : Closeable {
      * fields (`timesUsed`, `timeCreated`, `timeLastUsed`, and
      * `timePasswordChanged`).
      */
-    fun update(login: ServerPassword): SyncResult<Unit>
+    fun update(login: ServerPassword)
 
 }

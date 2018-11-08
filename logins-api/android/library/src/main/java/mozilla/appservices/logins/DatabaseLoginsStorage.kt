@@ -8,208 +8,181 @@
  * specific language governing permissions and limitations under the License. */
 package mozilla.appservices.logins
 
-import android.util.Log
 import com.sun.jna.Pointer
-import kotlinx.coroutines.experimental.launch
 import mozilla.appservices.logins.rust.PasswordSyncAdapter
 import mozilla.appservices.logins.rust.RawLoginSyncState
 import mozilla.appservices.logins.rust.RustError
-import java.io.Closeable
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * LoginsStorage implementation backed by a database.
  */
-class DatabaseLoginsStorage(private val dbPath: String) : Closeable, LoginsStorage {
+class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsStorage {
 
-    private var raw: RawLoginSyncState? = null;
+    private var raw: AtomicReference<RawLoginSyncState?> = AtomicReference(null)
 
-    override fun isLocked(): SyncResult<Boolean> {
-        return safeAsync {
-            // Run inside a safeAsync block to be sure that all pending operations have finished.
-            raw == null
-        }
+    override fun isLocked(): Boolean {
+        return raw.get() == null
     }
 
     private fun checkUnlocked() {
-        if (raw == null) {
+        if (isLocked()) {
             throw LoginsStorageException("Using DatabaseLoginsStorage without unlocking first");
         }
     }
 
-    override fun lock(): SyncResult<Unit> {
-        return safeAsync {
-            Log.d("LoginsAPI", "locking!");
-            if (raw == null) {
-                throw MismatchedLockException("Lock called when we are already locked")
-            }
-            // Free the sync state object
-            var raw = this.raw;
-            this.raw = null;
-            if (raw != null) {
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_state_destroy(raw)
-            }
+    @Synchronized
+    override fun lock() {
+        if (isLocked()) {
+            throw MismatchedLockException("Lock called when we are already locked")
+        }
+        val raw = this.raw.getAndSet(null)
+        if (raw != null) {
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_state_destroy(raw)
         }
     }
 
-    override fun unlock(encryptionKey: String): SyncResult<Unit> {
-        return safeAsync { error ->
-            Log.d("LoginsAPI", "unlock");
-            if (raw != null) {
+    @Synchronized
+    override fun unlock(encryptionKey: String) {
+        return rustCall {
+            if (!isLocked()) {
                 throw MismatchedLockException("Unlock called when we are already unlocked");
             }
-            raw = PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new(
+            raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new(
                     dbPath,
                     encryptionKey,
+                    it))
+        }
+    }
+
+    override fun sync(syncInfo: SyncUnlockInfo) {
+        rustCallWithLock { raw, error ->
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_sync(
+                    raw,
+                    syncInfo.kid,
+                    syncInfo.fxaAccessToken,
+                    syncInfo.syncKey,
+                    syncInfo.tokenserverURL,
                     error
             )
         }
     }
 
-    override fun sync(syncInfo: SyncUnlockInfo): SyncResult<Unit> {
-        return safeAsync { error ->
-            Log.d("LoginsAPI", "sync")
-            checkUnlocked()
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_sync(this.raw!!,
-                    syncInfo.kid,
-                    syncInfo.fxaAccessToken,
-                    syncInfo.syncKey,
-                    syncInfo.tokenserverURL,
-                    error)
+    override fun reset() {
+        rustCallWithLock { raw, error ->
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_reset(raw, error)
         }
     }
 
-    override fun reset(): SyncResult<Unit> {
-        return safeAsync { error ->
-            Log.d("LoginsAPI", "reset")
-            checkUnlocked()
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_reset(this.raw!!, error)
+    override fun wipe() {
+        rustCallWithLock { raw, error ->
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_wipe(raw, error)
         }
     }
 
-    override fun wipe(): SyncResult<Unit> {
-        return safeAsync { error ->
-            Log.d("LoginsAPI", "wipe")
-            checkUnlocked()
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_wipe(this.raw!!, error)
-        }
-    }
-
-    override fun delete(id: String): SyncResult<Boolean> {
-        return safeAsync { error ->
-            Log.d("LoginsAPI", "delete by id")
-            checkUnlocked()
-            val deleted = PasswordSyncAdapter.INSTANCE.sync15_passwords_delete(this.raw!!, id, error)
+    override fun delete(id: String): Boolean {
+        return rustCallWithLock { raw, error ->
+            val deleted = PasswordSyncAdapter.INSTANCE.sync15_passwords_delete(raw, id, error)
             deleted.toInt() != 0
         }
     }
 
-    override fun get(id: String): SyncResult<ServerPassword?> {
-        return safeAsyncString { error ->
+    override fun get(id: String): ServerPassword? {
+        val json = nullableRustCallWithLock { raw, error ->
             checkUnlocked()
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_id(this.raw!!, id, error)
-        }.then { json ->
-            SyncResult.fromValue(
-                    if (json == null) {
-                        null
-                    } else {
-                        ServerPassword.fromJSON(json)
-                    }
-            )
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_id(raw, id, error)
+        }?.getAndConsumeRustString()
+        return json?.let { ServerPassword.fromJSON(it) }
+    }
+
+    override fun touch(id: String) {
+        rustCallWithLock { raw, error ->
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_touch(raw, id, error)
         }
     }
 
-    override fun touch(id: String): SyncResult<Unit> {
-        return safeAsync { error ->
-            Log.d("LoginsAPI", "touch by id")
-            checkUnlocked()
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_touch(this.raw!!, id, error)
+    override fun list(): List<ServerPassword> {
+        val json = rustCallWithLock { raw, error ->
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_get_all(raw, error)
+        }.getAndConsumeRustString()
+        return ServerPassword.fromJSONArray(json)
+    }
+
+    override fun add(login: ServerPassword): String {
+        val s = login.toJSON().toString()
+        return rustCallWithLock { raw, error ->
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_add(raw, s, error)
+        }.getAndConsumeRustString()
+    }
+
+    override fun update(login: ServerPassword) {
+        val s = login.toJSON().toString()
+        return rustCallWithLock { raw, error ->
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_update(raw, s, error)
         }
     }
 
-    override fun list(): SyncResult<List<ServerPassword>> {
-        return safeAsyncString {
-            Log.d("LoginsAPI", "list all")
-            checkUnlocked()
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_get_all(this.raw!!, it)
-        }.then { json ->
-            Log.d("Logins", "got list: " + json)
-            checkUnlocked()
-            SyncResult.fromValue(ServerPassword.fromJSONArray(json!!))
-        }
-    }
-
-    override fun add(login: ServerPassword): SyncResult<String> {
-        return safeAsyncString {
-            val s = login.toJSON().toString()
-            checkUnlocked()
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_add(this.raw!!, s, it)
-        }.then {
-            SyncResult.fromValue(it!!)
-        }
-    }
-
-    override fun update(login: ServerPassword): SyncResult<Unit> {
-        return safeAsync {
-            val s = login.toJSON().toString()
-            checkUnlocked()
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_update(this.raw!!, s, it)
-        }
-    }
-
+    @Synchronized
     override fun close() {
-        synchronized(PasswordSyncAdapter.INSTANCE) {
-            var raw = this.raw;
-            this.raw = null;
-            if (raw != null) {
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_state_destroy(raw)
-            }
+        val raw = this.raw.getAndSet(null)
+        if (raw != null) {
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_state_destroy(raw)
         }
     }
 
-    // This says it's unused but apparently this is how you add a finalizer in kotlin.
-    // No override or anything
-    fun finalize() {
-        this.close()
-    }
-
-    companion object {
-
-        internal fun getAndConsumeString(p: Pointer?): String? {
-            if (p == null) {
-                return null;
+    // In practice we usually need to be synchronized to call this safely, so it doesn't
+    // synchronize itself
+    private inline fun <U> nullableRustCall(callback: (RustError.ByReference) -> U?): U? {
+        val e = RustError.ByReference()
+        try {
+            val ret = callback(e)
+            if (e.isFailure()) {
+                throw e.intoException()
             }
-            try {
-                return p.getString(0, "utf8");
-            } finally {
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_destroy_string(p);
-            }
-        }
-
-        internal fun <U> safeAsync(callback: (RustError.ByReference) -> U): SyncResult<U> {
-            val result = SyncResult<U>()
-            val e = RustError.ByReference()
-            launch {
-                synchronized(PasswordSyncAdapter.INSTANCE) {
-                    val ret: U;
-                    try {
-                        ret = callback(e)
-                    } catch (e: Exception) {
-                        result.completeExceptionally(e)
-                        return@launch
-                    }
-                    if (e.isFailure()) {
-                        result.completeExceptionally(e.intoException())
-                    } else {
-                        result.complete(ret)
-                    }
-                }
-            }
-            return result
-        }
-
-        internal fun safeAsyncString(callback: (RustError.ByReference) -> Pointer?): SyncResult<String?> {
-            return safeAsync { e -> getAndConsumeString(callback(e)) }
+            return ret
+        } finally {
+            // This only matters if `callback` throws (or does a non-local return, which
+            // we currently don't do)
+            e.ensureConsumed()
         }
     }
+
+    private inline fun <U> rustCall(callback: (RustError.ByReference) -> U?): U {
+        return nullableRustCall(callback)!!
+    }
+
+    private inline fun <U> nullableRustCallWithLock(callback: (RawLoginSyncState, RustError.ByReference) -> U?): U? {
+        return synchronized(this) {
+            checkUnlocked()
+            val raw = this.raw.get()!!
+            nullableRustCall { callback(raw, it) }
+        }
+    }
+
+    private inline fun <U> rustCallWithLock(callback: (RawLoginSyncState, RustError.ByReference) -> U?): U {
+        return nullableRustCallWithLock(callback)!!
+    }
+}
+
+/**
+ * Helper to read a null terminated String out of the Pointer and free it.
+ *
+ * Important: Do not use this pointer after this! For anything!
+ */
+internal fun Pointer.getAndConsumeRustString(): String {
+    try {
+        return this.getRustString()
+    } finally {
+        PasswordSyncAdapter.INSTANCE.sync15_passwords_destroy_string(this)
+    }
+}
+
+/**
+ * Helper to read a null terminated string out of the pointer.
+ *
+ * Important: doesn't free the pointer, use [getAndConsumeRustString] for that!
+ */
+internal fun Pointer.getRustString(): String {
+    return this.getString(0, "utf8")
 }
 
