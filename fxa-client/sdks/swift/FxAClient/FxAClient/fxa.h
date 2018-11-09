@@ -34,11 +34,12 @@ typedef struct FxAErrorC {
     char *_Nullable message;
 } FxAErrorC;
 
-typedef struct OAuthInfoC {
-    const char *const _Nonnull access_token;
-    const char *const _Nullable keys;
+typedef struct AccessTokenInfoC {
     const char *const _Nonnull scope;
-} OAuthInfoC;
+    const char *const _Nonnull token;
+    const char *const _Nullable key;
+    const int64_t expires_at;
+} AccessTokenInfoC;
 
 typedef struct SyncKeysC {
     const char *const _Nonnull sync_key;
@@ -65,14 +66,14 @@ char *_Nonnull fxa_begin_oauth_flow(FirefoxAccount *_Nonnull fxa,
                                     bool wants_keys,
                                     FxAErrorC *_Nonnull out);
 
-OAuthInfoC *_Nullable fxa_complete_oauth_flow(FirefoxAccount *_Nonnull fxa,
-                                              const char *_Nonnull code,
-                                              const char *_Nonnull state,
-                                              FxAErrorC *_Nonnull out);
+void fxa_complete_oauth_flow(FirefoxAccount *_Nonnull fxa,
+                             const char *_Nonnull code,
+                             const char *_Nonnull state,
+                             FxAErrorC *_Nonnull out);
 
-OAuthInfoC *_Nullable fxa_get_oauth_token(FirefoxAccount *_Nonnull fxa,
-                                          const char *_Nonnull scope,
-                                          FxAErrorC *_Nonnull out);
+AccessTokenInfoC *_Nullable fxa_get_access_token(FirefoxAccount *_Nonnull fxa,
+                                                 const char *_Nonnull scope,
+                                                 FxAErrorC *_Nonnull out);
 
 FirefoxAccount *_Nullable fxa_from_json(const char *_Nonnull json,
                                         FxAErrorC *_Nonnull out);
@@ -114,7 +115,7 @@ SyncKeysC *_Nullable fxa_get_sync_keys(FirefoxAccount *_Nonnull fxa,
 
 void fxa_str_free(char* _Nullable ptr);
 void fxa_free(FirefoxAccount* _Nullable ptr);
-void fxa_oauth_info_free(OAuthInfoC* _Nullable ptr);
+void fxa_oauth_info_free(AccessTokenInfoC* _Nullable ptr);
 void fxa_profile_free(ProfileC* _Nullable ptr);
 void fxa_config_free(Config* _Nullable ptr);
 void fxa_sync_keys_free(SyncKeysC* _Nullable ptr);

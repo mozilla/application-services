@@ -195,7 +195,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# build fxa-client lipoed library\ncd \"$SRCROOT\"/../../../ffi\nenv -i PATH=$PATH \\\n\"$HOME\"/.cargo/bin/cargo lipo --release\n";
+			shellScript = "# build fxa-client lipoed library\ncd \"$SRCROOT\"/../../../ffi\nenv -i PATH=\"$PATH\" \\\n\"$HOME\"/.cargo/bin/cargo lipo --release\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

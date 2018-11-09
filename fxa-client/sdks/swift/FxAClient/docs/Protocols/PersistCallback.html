@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>SyncKeys Class Reference</title>
+    <title>PersistCallback Protocol Reference</title>
     <link rel="stylesheet" type="text/css" href="../css/jazzy.css" />
     <link rel="stylesheet" type="text/css" href="../css/highlight.css" />
     <meta charset='utf-8'>
@@ -10,8 +10,8 @@
     
   </head>
   <body>
-    <a name="//apple_ref/swift/Class/SyncKeys" class="dashAnchor"></a>
-    <a title="SyncKeys Class Reference"></a>
+    <a name="//apple_ref/swift/Protocol/PersistCallback" class="dashAnchor"></a>
+    <a title="PersistCallback Protocol Reference"></a>
     <header>
       <div class="content-wrapper">
         <p><a href="../index.html"> Docs</a> (31% documented)</p>
@@ -21,7 +21,7 @@
       <p id="breadcrumbs">
         <a href="../index.html"> Reference</a>
         <img id="carat" src="../img/carat.png" />
-        SyncKeys Class Reference
+        PersistCallback Protocol Reference
       </p>
     </div>
     <div class="content-wrapper">
@@ -68,10 +68,10 @@
       <article class="main-content">
         <section>
           <section class="section">
-            <h1>SyncKeys</h1>
+            <h1>PersistCallback</h1>
               <div class="declaration">
                 <div class="language">
-                  <pre class="highlight swift"><code><span class="kd">open</span> <span class="kd">class</span> <span class="kt">SyncKeys</span> <span class="p">:</span> <span class="kt">RustStructPointer</span><span class="o">&lt;</span><span class="kt">SyncKeysC</span><span class="o">&gt;</span></code></pre>
+                  <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">protocol</span> <span class="kt">PersistCallback</span></code></pre>
 
                 </div>
               </div>
@@ -84,9 +84,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:9FxAClient8SyncKeysC7syncKeySSvp"></a>
-                    <a name="//apple_ref/swift/Property/syncKey" class="dashAnchor"></a>
-                    <a class="token" href="#/s:9FxAClient8SyncKeysC7syncKeySSvp">syncKey</a>
+                    <a name="/s:9FxAClient15PersistCallbackP7persist4jsonySS_tF"></a>
+                    <a name="//apple_ref/swift/Method/persist(json:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:9FxAClient15PersistCallbackP7persist4jsonySS_tF">persist(json:)</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -101,34 +101,7 @@
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="k">var</span> <span class="nv">syncKey</span><span class="p">:</span> <span class="kt">String</span> <span class="p">{</span> <span class="k">get</span> <span class="p">}</span></code></pre>
-
-                        </div>
-                      </div>
-                    </section>
-                  </div>
-                </li>
-                <li class="item">
-                  <div>
-                    <code>
-                    <a name="/s:9FxAClient8SyncKeysC3xcsSSvp"></a>
-                    <a name="//apple_ref/swift/Property/xcs" class="dashAnchor"></a>
-                    <a class="token" href="#/s:9FxAClient8SyncKeysC3xcsSSvp">xcs</a>
-                    </code>
-                  </div>
-                  <div class="height-container">
-                    <div class="pointer-container"></div>
-                    <section class="section">
-                      <div class="pointer"></div>
-                      <div class="abstract">
-                        <p>Undocumented</p>
-
-                      </div>
-                      <div class="declaration">
-                        <h4>Declaration</h4>
-                        <div class="language">
-                          <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="kd">open</span> <span class="k">var</span> <span class="nv">xcs</span><span class="p">:</span> <span class="kt">String</span> <span class="p">{</span> <span class="k">get</span> <span class="p">}</span></code></pre>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">persist</span><span class="p">(</span><span class="nv">json</span><span class="p">:</span> <span class="kt">String</span><span class="p">)</span></code></pre>
 
                         </div>
                       </div>

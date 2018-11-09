@@ -127,7 +127,7 @@ open class FirefoxAccount: RustOpaquePointer {
     }
 
     /// Gets the logged-in user profile.
-    /// Throws FxAError.Unauthorized we couldn't find any suitable access token
+    /// Throws `FxAError.Unauthorized` if we couldn't find any suitable access token
     /// to make that call. The caller should then start the OAuth Flow again with
     /// the "profile" scope.
     open func getProfile(completionHandler: @escaping (Profile?, Error?) -> Void) {
@@ -188,40 +188,31 @@ open class FirefoxAccount: RustOpaquePointer {
     ///
     /// This resulting token might not have all the `scopes` the caller have requested (e.g. the user
     /// might have denied some of them): it is the responsibility of the caller to accomodate that.
-    open func completeOAuthFlow(code: String, state: String, completionHandler: @escaping (OAuthInfo?, Error?) -> Void) {
+    open func completeOAuthFlow(code: String, state: String, completionHandler: @escaping (Void, Error?) -> Void) {
         queue.async {
             do {
-                let oauthInfo = OAuthInfo(raw: try FxAError.unwrap({err in
+                try FxAError.unwrap({err in
                     fxa_complete_oauth_flow(self.raw, code, state, err)
-                }))
-                DispatchQueue.main.async { completionHandler(oauthInfo, nil) }
+                })
+                DispatchQueue.main.async { completionHandler((), nil) }
             } catch {
-                DispatchQueue.main.async { completionHandler(nil, error) }
+                DispatchQueue.main.async { completionHandler((), error) }
             }
         }
     }
 
-    /// Try to get a previously obtained cached token.
+    /// Try to get an OAuth access token.
     ///
-    /// If the token is expired, the system will try to refresh it automatically using
-    /// a `refresh_token` or `session_token`.
-    ///
-    /// If the system can't find a suitable token but has a `session_token`, it will generate a new one on the go.
-    ///
-    /// If not, the caller must start an OAuth flow with `beginOAuthFlow(...)`.
-    open func getOAuthToken(scopes: [String], completionHandler: @escaping (OAuthInfo?, Error?) -> Void) {
+    /// Throws `FxAError.Unauthorized` if we couldn't provide an access token
+    /// for this scope. The caller should then start the OAuth Flow again with
+    /// the desired scope.
+    open func getAccessToken(scope: String, completionHandler: @escaping (AccessTokenInfo?, Error?) -> Void) {
         queue.async {
             do {
-                let scope = scopes.joined(separator: " ")
-                let info = try FxAError.tryUnwrap({err in
-                    fxa_get_oauth_token(self.raw, scope, err)
-                })
-                guard let ptr: UnsafeMutablePointer<OAuthInfoC> = info else {
-                    DispatchQueue.main.async { completionHandler(nil, nil) }
-                    return
-                }
-                let oauthInfo = OAuthInfo(raw: ptr)
-                    DispatchQueue.main.async { completionHandler(oauthInfo, nil) }
+                let tokenInfo = AccessTokenInfo(raw: try FxAError.unwrap({err in
+                    fxa_get_access_token(self.raw, scope, err)
+                }))
+                DispatchQueue.main.async { completionHandler(tokenInfo, nil) }
             } catch {
                 DispatchQueue.main.async { completionHandler(nil, error) }
             }
@@ -252,29 +243,35 @@ private func persistCallbackFunction(json: UnsafePointer<CChar>) {
     }
 }
 
-open class OAuthInfo: RustStructPointer<OAuthInfoC> {
-    public var scopes: [String] {
+open class AccessTokenInfo: RustStructPointer<AccessTokenInfoC> {
+    open var scope: String {
         get {
-            return String(cString: raw.pointee.scope).components(separatedBy: " ")
+            return String(cString: raw.pointee.scope)
         }
     }
 
-    open var accessToken: String {
+    open var token: String {
         get {
-            return String(cString: raw.pointee.access_token)
+            return String(cString: raw.pointee.token)
         }
     }
 
-    open var keys: String? {
+    open var key: String? {
         get {
-            guard let pointer = raw.pointee.keys else {
+            guard let pointer = raw.pointee.key else {
                 return nil
             }
             return String(cString: pointer)
         }
     }
 
-    override func cleanup(pointer: UnsafeMutablePointer<OAuthInfoC>) {
+    open var expiresAt: Date {
+        get {
+            return Date.init(timeIntervalSince1970: Double(raw.pointee.expires_at))
+        }
+    }
+
+    override func cleanup(pointer: UnsafeMutablePointer<AccessTokenInfoC>) {
         queue.sync {
             fxa_oauth_info_free(self.raw)
         }

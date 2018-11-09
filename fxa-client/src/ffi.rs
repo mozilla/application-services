@@ -28,7 +28,7 @@ use {
     FirefoxAccount,
     Config,
     SyncKeys,
-    OAuthInfo,
+    AccessTokenInfo,
     Profile,
 
 };
@@ -68,7 +68,7 @@ impl From<Error> for ExternError {
     }
 }
 
-// `SyncKeysC`/`OAuthInfoC`/`ProfileC` are `#[repr(C)]` types which are heap allocated and returned
+// `SyncKeysC`/`AccessTokenInfoC`/`ProfileC` are `#[repr(C)]` types which are heap allocated and returned
 // by a boxed pointer.
 //
 // The fields of these are private for safety reasons (if they were pub, you could cause memory
@@ -100,29 +100,30 @@ impl From<SyncKeys> for SyncKeysC {
 }
 
 #[repr(C)]
-pub struct OAuthInfoC {
-    access_token: *mut c_char,
-    keys: *mut c_char,
+pub struct AccessTokenInfoC {
     scope: *mut c_char,
+    token: *mut c_char,
+    key: *mut c_char,
+    expires_at: i64,
 }
 
-impl Drop for OAuthInfoC {
+impl Drop for AccessTokenInfoC {
     fn drop(&mut self) {
         unsafe {
-            destroy_c_string(self.access_token);
-            destroy_c_string(self.keys);
             destroy_c_string(self.scope);
+            destroy_c_string(self.token);
+            destroy_c_string(self.key);
         }
     }
 }
 
-impl From<OAuthInfo> for OAuthInfoC {
-    fn from(info: OAuthInfo) -> Self {
-        let scopes = info.scopes.join(" ");
-        OAuthInfoC {
-            access_token: rust_string_to_c(info.access_token),
-            keys: opt_rust_string_to_c(info.keys),
-            scope: rust_string_to_c(scopes),
+impl From<AccessTokenInfo> for AccessTokenInfoC {
+    fn from(info: AccessTokenInfo) -> Self {
+        AccessTokenInfoC {
+            scope: rust_string_to_c(info.scope),
+            token: rust_string_to_c(info.token),
+            key: opt_rust_string_to_c(info.key),
+            expires_at: info.expires_at as i64,
         }
     }
 }
@@ -177,7 +178,7 @@ macro_rules! implement_into_ffi_converting {
 }
 
 implement_into_ffi_converting!(SyncKeys, SyncKeysC);
-implement_into_ffi_converting!(OAuthInfo, OAuthInfoC);
+implement_into_ffi_converting!(AccessTokenInfo, AccessTokenInfoC);
 implement_into_ffi_converting!(Profile, ProfileC);
 
 // More normal opaque tyeps

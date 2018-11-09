@@ -65,6 +65,8 @@ class FirefoxAccount : RustObject<RawFxAccount> {
      *
      * @param ignoreCache Fetch the profile information directly from the server
      * @return [Profile] representing the user's basic profile info
+     * @throws FxaException.Unauthorized We couldn't find any suitable access token to make that call.
+     * The caller should then start the OAuth Flow again with the "profile" scope.
      */
     fun getProfile(ignoreCache: Boolean): Profile {
         return Profile(rustCall { e ->
@@ -79,6 +81,8 @@ class FirefoxAccount : RustObject<RawFxAccount> {
      * This performs network requests, and should not be used on the main thread.
      *
      * @return [Profile] representing the user's basic profile info
+     * @throws FxaException.Unauthorized We couldn't find any suitable access token to make that call.
+     * The caller should then start the OAuth Flow again with the "profile" scope.
      */
     fun getProfile(): Profile {
         return getProfile(false)
@@ -103,27 +107,27 @@ class FirefoxAccount : RustObject<RawFxAccount> {
      *
      * This performs network requests, and should not be used on the main thread.
      */
-    fun completeOAuthFlow(code: String, state: String): OAuthInfo {
-        return OAuthInfo(rustCall { e ->
+    fun completeOAuthFlow(code: String, state: String) {
+        rustCall { e ->
             FxaClient.INSTANCE.fxa_complete_oauth_flow(validPointer(), code, state, e)
-        })
+        }
     }
 
     /**
-     * Tries to fetch a cached access token for the given scope.
-     *
-     * If the token is close to expiration, we may refresh it.
+     * Tries to fetch an access token for the given scope.
      *
      * This performs network requests, and should not be used on the main thread.
      *
-     * @param scopes List of OAuth scopes for which the client wants access
-     * @return [OAuthInfo] that stores the token, along with its scopes and keys when complete
+     * @param scope Single OAuth scope (no spaces) for which the client wants access
+     * @return [AccessTokenInfo] that stores the token, along with its scopes and keys when complete
+     * @throws FxaException.Unauthorized We couldn't provide an access token
+     * for this scope. The caller should then start the OAuth Flow again with
+     * the desired scope.
      */
-    fun getCachedOAuthToken(scopes: Array<String>): OAuthInfo? {
-        val scope = scopes.joinToString(" ")
-        return nullableRustCall { e ->
-            FxaClient.INSTANCE.fxa_get_oauth_token(validPointer(), scope, e)
-        }?.let { OAuthInfo(it) }
+    fun getAccessToken(scope: String): AccessTokenInfo {
+        return rustCall { e ->
+            FxaClient.INSTANCE.fxa_get_access_token(validPointer(), scope, e)
+        }.let { AccessTokenInfo(it) }
     }
 
     /**
