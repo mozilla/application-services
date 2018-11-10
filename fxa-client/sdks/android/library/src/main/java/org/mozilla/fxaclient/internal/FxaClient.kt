@@ -4,6 +4,7 @@
 
 package org.mozilla.fxaclient.internal
 
+import android.util.Log
 import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
@@ -13,7 +14,16 @@ import java.lang.reflect.Proxy
 @Suppress("FunctionNaming", "TooManyFunctions", "TooGenericExceptionThrown")
 internal interface FxaClient : Library {
     companion object {
-        private const val JNA_LIBRARY_NAME = "fxaclient_ffi"
+        private val JNA_LIBRARY_NAME = {
+            val libname = System.getProperty("mozilla.appservices.fxaclient_ffi_lib_name")
+            if (libname != null) {
+                Log.i("AppServices", "Using fxaclient_ffi_lib_name: " + libname);
+                libname
+            } else {
+                "fxaclient_ffi"
+            }
+        }()
+
         internal var INSTANCE: FxaClient
 
         init {
