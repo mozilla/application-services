@@ -30,8 +30,7 @@ extern crate url;
 #[macro_use]
 extern crate ffi_support;
 
-use std::collections::HashMap;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 #[cfg(feature = "browserid")]
 use std::mem;
@@ -39,18 +38,19 @@ use std::panic::RefUnwindSafe;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(feature = "browserid")]
-use self::login_sm::LoginState::*;
-#[cfg(feature = "browserid")]
-use self::login_sm::*;
+use self::login_sm::{LoginState::*, *};
 use errors::*;
 #[cfg(feature = "browserid")]
 use http_client::browser_id::jwt_utils;
-use http_client::{Client, ProfileResponse};
+use http_client::{
+    Client, ClientInstanceRequest, ClientInstanceRequestBuilder, ClientInstanceResponse,
+    PendingCommandsResponse, ProfileResponse, PushSubscription,
+};
 use ring::digest;
-use ring::rand::{SecureRandom, SystemRandom};
+use ring::rand::SystemRandom;
 use scoped_keys::ScopedKeysFlow;
 use url::Url;
-use util::now;
+use util::{now, random_base64_url_string};
 
 mod config;
 pub mod errors;
@@ -60,6 +60,7 @@ mod http_client;
 #[cfg(feature = "browserid")]
 mod login_sm;
 mod scoped_keys;
+mod scopes;
 mod state_persistence;
 mod util;
 
@@ -142,8 +143,8 @@ impl PersistCallback {
 }
 
 impl FirefoxAccount {
-    fn from_state(state: StateV2) -> FirefoxAccount {
-        FirefoxAccount {
+    fn from_state(state: StateV2) -> Self {
+        Self {
             state,
             access_token_cache: HashMap::new(),
             flow_store: HashMap::new(),
@@ -152,8 +153,8 @@ impl FirefoxAccount {
         }
     }
 
-    pub fn with_config(config: Config) -> FirefoxAccount {
-        FirefoxAccount::from_state(StateV2 {
+    pub fn with_config(config: Config) -> Self {
+        Self::from_state(StateV2 {
             config,
             #[cfg(feature = "browserid")]
             login_state: Unknown,
@@ -162,9 +163,9 @@ impl FirefoxAccount {
         })
     }
 
-    pub fn new(content_url: &str, client_id: &str, redirect_uri: &str) -> FirefoxAccount {
+    pub fn new(content_url: &str, client_id: &str, redirect_uri: &str) -> Self {
         let config = Config::new(content_url, client_id, redirect_uri);
-        FirefoxAccount::with_config(config)
+        Self::with_config(config)
     }
 
     // Initialize state from Firefox Accounts credentials obtained using the
@@ -175,7 +176,7 @@ impl FirefoxAccount {
         client_id: &str,
         redirect_uri: &str,
         credentials: WebChannelResponse,
-    ) -> Result<FirefoxAccount> {
+    ) -> Result<Self> {
         let config = Config::new(content_url, client_id, redirect_uri);
         let session_token = hex::decode(credentials.session_token)?;
         let key_fetch_token = hex::decode(credentials.key_fetch_token)?;
@@ -193,7 +194,7 @@ impl FirefoxAccount {
             EngagedBeforeVerified(login_state_data)
         };
 
-        Ok(FirefoxAccount::from_state(StateV2 {
+        Ok(Self::from_state(StateV2 {
             config,
             login_state,
             refresh_token: None,
@@ -201,9 +202,9 @@ impl FirefoxAccount {
         }))
     }
 
-    pub fn from_json(data: &str) -> Result<FirefoxAccount> {
+    pub fn from_json(data: &str) -> Result<Self> {
         let state = state_persistence::state_from_json(data)?;
-        Ok(FirefoxAccount::from_state(state))
+        Ok(Self::from_state(state))
     }
 
     pub fn to_json(&self) -> Result<String> {
@@ -250,7 +251,7 @@ impl FirefoxAccount {
                 #[cfg(feature = "browserid")]
                 {
                     if let Some(session_token) =
-                        FirefoxAccount::session_token_from_state(&self.state.login_state)
+                        Self::session_token_from_state(&self.state.login_state)
                     {
                         let client = Client::new(&self.state.config);
                         resp = client.oauth_token_with_session_token(session_token, &[scope])?;
@@ -319,8 +320,8 @@ impl FirefoxAccount {
     }
 
     fn oauth_flow(&mut self, mut url: Url, scopes: &[&str], wants_keys: bool) -> Result<String> {
-        let state = FirefoxAccount::random_base64_url_string(16)?;
-        let code_verifier = FirefoxAccount::random_base64_url_string(43)?;
+        let state = random_base64_url_string(&*RNG, 16)?;
+        let code_verifier = random_base64_url_string(&*RNG, 43)?;
         let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         url.query_pairs_mut()
@@ -372,8 +373,8 @@ impl FirefoxAccount {
                 let scoped_keys_flow = match oauth_flow.scoped_keys_flow {
                     Some(flow) => flow,
                     None => {
-                        return Err(ErrorKind::IllegalState(
-                            "Got a JWE with have no JWK.".to_string(),
+                        return Err(ErrorKind::UnrecoverableServerError(
+                            "Got a JWE without sending a JWK.",
                         )
                         .into())
                     }
@@ -418,12 +419,6 @@ impl FirefoxAccount {
         Ok(())
     }
 
-    fn random_base64_url_string(len: usize) -> Result<String> {
-        let mut out = vec![0u8; len];
-        RNG.fill(&mut out).map_err(|_| ErrorKind::RngFailure)?;
-        Ok(base64::encode_config(&out, base64::URL_SAFE_NO_PAD))
-    }
-
     #[cfg(feature = "browserid")]
     fn session_token_from_state(state: &LoginState) -> Option<&[u8]> {
         match state {
@@ -455,7 +450,7 @@ impl FirefoxAccount {
     }
 
     pub fn get_profile(&mut self, ignore_cache: bool) -> Result<ProfileResponse> {
-        let profile_access_token = self.get_access_token("profile")?.token;
+        let profile_access_token = self.get_access_token(scopes::PROFILE)?.token;
         let mut etag = None;
         if let Some(ref cached_profile) = self.profile_cache {
             if !ignore_cache && now() < cached_profile.cached_at + PROFILE_FRESHNESS_THRESHOLD {
@@ -477,10 +472,10 @@ impl FirefoxAccount {
             }
             None => match self.profile_cache {
                 Some(ref cached_profile) => Ok(cached_profile.response.clone()),
-                None => {
-                    error!("Insane state! We got a 304 without having a cached response.");
-                    Err(ErrorKind::UnrecoverableServerError.into())
-                }
+                None => Err(ErrorKind::UnrecoverableServerError(
+                    "Got a 304 without having sent an eTag.",
+                )
+                .into()),
             },
         }
     }
@@ -509,24 +504,95 @@ impl FirefoxAccount {
         Ok(url)
     }
 
-    pub fn handle_push_message(&self) {
-        panic!("Not implemented yet!")
+    /// Retrieve our own client instance metadata.
+    pub fn get_instance(&mut self) -> Result<ClientInstanceResponse> {
+        let refresh_token = self.get_refresh_token()?;
+        let client = Client::new(&self.state.config);
+        client.instance(&refresh_token)
     }
 
-    pub fn register_device(&self) {
-        panic!("Not implemented yet!")
+    /// Retrieve the metadata from all the clients instances connected to
+    /// the account (including ours).
+    pub fn get_instances(&mut self) -> Result<Vec<ClientInstanceResponse>> {
+        let access_token = self.get_access_token(scopes::INSTANCES_READ)?.token;
+        let client = Client::new(&self.state.config);
+        client.instances(&access_token)
     }
 
-    pub fn get_devices_list(&self) {
-        panic!("Not implemented yet!")
+    pub fn fetch_pending_commands(
+        &self,
+        index: i64,
+        limit: Option<i64>,
+    ) -> Result<PendingCommandsResponse> {
+        let refresh_token = self.get_refresh_token()?;
+        let client = Client::new(&self.state.config);
+        client.pending_commands(refresh_token, index, limit)
     }
 
-    pub fn send_message(&self) {
-        panic!("Not implemented yet!")
+    pub fn invoke_command(
+        &mut self,
+        command: &str,
+        target_device_id: &str,
+        payload: &serde_json::Value,
+    ) -> Result<()> {
+        let access_token = self.get_access_token(scopes::COMMANDS_WRITE)?.token;
+        let client = Client::new(&self.state.config);
+        client.invoke_command(&access_token, command, target_device_id, payload)
     }
 
-    pub fn retrieve_messages(&self) {
-        panic!("Not implemented yet!")
+    pub fn set_push_subscription(&self, push_subscription: PushSubscription) -> Result<()> {
+        let metadata = ClientInstanceRequestBuilder::new()
+            .push_subscription(push_subscription)
+            .build();
+        self.upsert_instance(metadata)
+    }
+
+    pub fn set_display_name(&self, name: &str) -> Result<()> {
+        let metadata = ClientInstanceRequestBuilder::new().name(name).build();
+        self.upsert_instance(metadata)
+    }
+
+    pub fn clear_display_name(&self) -> Result<()> {
+        let metadata = ClientInstanceRequestBuilder::new().clear_name().build();
+        self.upsert_instance(metadata)
+    }
+
+    pub fn register_command(&self, command: &str, value: &str) -> Result<()> {
+        self.patch_instance_command(command, Some(value.to_string()))
+    }
+
+    pub fn unregister_command(&self, command: &str) -> Result<()> {
+        self.patch_instance_command(command, None)
+    }
+
+    fn patch_instance_command(&self, command: &str, value: Option<String>) -> Result<()> {
+        let refresh_token = self.get_refresh_token()?;
+        let mut commands: HashMap<String, Option<String>> = HashMap::new();
+        commands.insert(command.to_string(), value);
+        let client = Client::new(&self.state.config);
+        client.patch_instance_commands(refresh_token, commands)?;
+        Ok(())
+    }
+
+    pub fn clear_commands(&self) -> Result<()> {
+        let metadata = ClientInstanceRequestBuilder::new()
+            .clear_available_commands()
+            .build();
+        self.upsert_instance(metadata)
+    }
+
+    fn upsert_instance(&self, metadata: ClientInstanceRequest) -> Result<()> {
+        let refresh_token = self.get_refresh_token()?;
+        let client = Client::new(&self.state.config);
+        client.upsert_instance(refresh_token, metadata)?;
+        Ok(())
+    }
+
+    fn get_refresh_token(&self) -> Result<&str> {
+        match self.state.refresh_token {
+            Some(ref token_info) => Ok(&token_info.token),
+            None => Err(ErrorKind::NoRefreshToken.into()),
+        }
     }
 
     pub fn register_persist_callback(&mut self, persist_callback: PersistCallback) {
