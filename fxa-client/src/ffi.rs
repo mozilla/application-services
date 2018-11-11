@@ -51,6 +51,7 @@ fn get_code(err: &Error) -> ErrorCode {
     match err.kind() {
         ErrorKind::RemoteError { code: 401, .. } |
         ErrorKind::NotMarried |
+        ErrorKind::NoRefreshToken |
         ErrorKind::NoCachedToken(_) => {
             warn!("Authentication error: {:?}", err);
             ErrorCode::new(error_codes::AUTHENTICATION)

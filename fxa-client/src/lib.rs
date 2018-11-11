@@ -45,7 +45,7 @@ use self::login_sm::*;
 use errors::*;
 #[cfg(feature = "browserid")]
 use http_client::browser_id::jwt_utils;
-use http_client::{Client, ProfileResponse};
+use http_client::{Client, ClientInstanceResponse, ClientInstanceRequest, ClientInstanceRequestBuilder, PendingCommandsResponse, PushSubscription, ProfileResponse};
 use ring::digest;
 use ring::rand::{SecureRandom, SystemRandom};
 use scoped_keys::ScopedKeysFlow;
@@ -59,6 +59,7 @@ mod http_client;
 mod login_sm;
 mod state_persistence;
 mod scoped_keys;
+mod scopes;
 mod util;
 #[cfg(feature = "ffi")]
 pub mod ffi;
@@ -376,7 +377,7 @@ impl FirefoxAccount {
             Some(ref jwe) => {
                 let scoped_keys_flow = match oauth_flow.scoped_keys_flow {
                     Some(flow) => flow,
-                    None => return Err(ErrorKind::IllegalState("Got a JWE with have no JWK.".to_string()).into())
+                    None => return Err(ErrorKind::UnrecoverableServerError("Got a JWE without sending a JWK.").into())
                 };
                 let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe)?;
                 let scoped_keys: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&decrypted_keys)?;
@@ -454,7 +455,7 @@ impl FirefoxAccount {
     }
 
     pub fn get_profile(&mut self, ignore_cache: bool) -> Result<ProfileResponse> {
-        let profile_access_token = self.get_access_token("profile")?.token;
+        let profile_access_token = self.get_access_token(scopes::PROFILE)?.token;
         let mut etag = None;
         if let Some(ref cached_profile) = self.profile_cache {
             if !ignore_cache && now() < cached_profile.cached_at + PROFILE_FRESHNESS_THRESHOLD {
@@ -477,8 +478,7 @@ impl FirefoxAccount {
             None => match self.profile_cache {
                 Some(ref cached_profile) => Ok(cached_profile.response.clone()),
                 None => {
-                    error!("Insane state! We got a 304 without having a cached response.");
-                    Err(ErrorKind::UnrecoverableServerError.into())
+                    Err(ErrorKind::UnrecoverableServerError("Got a 304 without having sent an eTag.").into())
                 }
             },
         }
@@ -498,24 +498,82 @@ impl FirefoxAccount {
         self.state.config.token_server_endpoint_url()
     }
 
-    pub fn handle_push_message(&self) {
-        panic!("Not implemented yet!")
+    /// Retrieve our own client instance metadata.
+    pub fn client_instance(&mut self) -> Result<ClientInstanceResponse> {
+        let refresh_token = self.get_refresh_token()?;
+        let client = Client::new(&self.state.config);
+        client.client_instance(&refresh_token)
     }
 
-    pub fn register_device(&self) {
-        panic!("Not implemented yet!")
+    /// Retrieve the metadata from all the clients instances connected to
+    /// the account (including ours).
+    pub fn clients_instances(&mut self) -> Result<Vec<ClientInstanceResponse>> {
+        let access_token = self.get_access_token(scopes::CLIENTS_READ)?.token;
+        let client = Client::new(&self.state.config);
+        client.clients_instances(&access_token)
     }
 
-    pub fn get_devices_list(&self) {
-        panic!("Not implemented yet!")
+    pub fn pending_commands(&self) -> Result<PendingCommandsResponse> {
+        let refresh_token = self.get_refresh_token()?;
+        let client = Client::new(&self.state.config);
+        client.pending_commands(refresh_token)
     }
 
-    pub fn send_message(&self) {
-        panic!("Not implemented yet!")
+    pub fn invoke_command(&mut self, command: &str, target_device_id: &str, payload: &serde_json::Value) -> Result<()> {
+        let access_token = self.get_access_token(scopes::COMMANDS_WRITE)?.token;
+        let client = Client::new(&self.state.config);
+        client.invoke_command(&access_token, command, target_device_id, payload)
     }
 
-    pub fn retrieve_messages(&self) {
-        panic!("Not implemented yet!")
+    pub fn set_push_subscription(&self, push_subscription: PushSubscription) -> Result<()> {
+        let metadata = ClientInstanceRequestBuilder::new().push_subscription(push_subscription).build();
+        self.upsert_client_instance(metadata)
+    }
+
+    pub fn set_name(&self, name: &str) -> Result<()> {
+        let metadata = ClientInstanceRequestBuilder::new().name(name).build();
+        self.upsert_client_instance(metadata)
+    }
+
+    pub fn clear_name(&self) -> Result<()> {
+        let metadata = ClientInstanceRequestBuilder::new().clear_name().build();
+        self.upsert_client_instance(metadata)
+    }
+
+    pub fn register_command(&self, command: &str, value: &str) -> Result<()> {
+        self.patch_client_instance_command(command, Some(value.to_string()))
+    }
+
+    pub fn unregister_command(&self, command: &str) -> Result<()> {
+        self.patch_client_instance_command(command, None)
+    }
+
+    fn patch_client_instance_command(&self, command: &str, value: Option<String>) -> Result<()> {
+        let refresh_token = self.get_refresh_token()?;
+        let mut commands: HashMap<String, Option<String>> = HashMap::new();
+        commands.insert(command.to_string(), value);
+        let client = Client::new(&self.state.config);
+        client.patch_client_instance_commands(refresh_token, commands)?;
+        Ok(())
+    }
+
+    pub fn clear_commands(&self) -> Result<()> {
+        let metadata = ClientInstanceRequestBuilder::new().clear_available_commands().build();
+        self.upsert_client_instance(metadata)
+    }
+
+    fn upsert_client_instance(&self, metadata: ClientInstanceRequest) -> Result<()> {
+        let refresh_token = self.get_refresh_token()?;
+        let client = Client::new(&self.state.config);
+        client.upsert_client_instance(refresh_token, metadata)?;
+        Ok(())
+    }
+
+    fn get_refresh_token(&self) -> Result<&str> {
+        match self.state.refresh_token {
+            Some(ref token_info) => Ok(&token_info.token),
+            None => Err(ErrorKind::NoRefreshToken.into()),
+        }
     }
 
     pub fn register_persist_callback(&mut self, persist_callback: PersistCallback) {

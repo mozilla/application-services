@@ -79,11 +79,14 @@ pub enum ErrorKind {
     #[fail(display = "No cached token for scope {}", _0)]
     NoCachedToken(String),
 
+    #[fail(display = "No cached refresh token")]
+    NoRefreshToken,
+
     #[fail(display = "Could not find a refresh token in the server response")]
     RefreshTokenNotPresent,
 
-    #[fail(display = "Unrecoverable server error")]
-    UnrecoverableServerError,
+    #[fail(display = "Unrecoverable server error {}", _0)]
+    UnrecoverableServerError(&'static str),
 
     #[fail(display = "Invalid OAuth scope value {}", _0)]
     InvalidOAuthScopeValue(String),

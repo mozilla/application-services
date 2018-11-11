@@ -10,6 +10,7 @@ use reqwest::{header, Client as ReqwestClient, Method, Request, Response, Status
 use ring::{digest, hkdf, hmac};
 use serde_json;
 use std;
+use std::collections::HashMap;
 #[cfg(feature = "browserid")]
 use util::Xorable;
 
@@ -157,13 +158,13 @@ impl<'a> Client<'a> {
 
     pub fn profile(
         &self,
-        profile_access_token: &str,
+        access_token: &str,
         etag: Option<String>,
     ) -> Result<Option<ResponseAndETag<ProfileResponse>>> {
         let url = self.config.userinfo_endpoint()?;
         let client = ReqwestClient::new();
         let mut builder = client.request(Method::GET, url)
-            .header(header::AUTHORIZATION, format!("Bearer {}", profile_access_token));
+            .header(header::AUTHORIZATION, Self::bearer_token(access_token));
         if let Some(etag) = etag {
             builder = builder.header(header::IF_NONE_MATCH, format!("\"{}\"", etag));
         }
@@ -259,6 +260,82 @@ impl<'a> Client<'a> {
         Ok(())
     }
 
+    pub fn pending_commands(&self, refresh_token: &str) -> Result<PendingCommandsResponse> {
+        let url = self.config.auth_url_path("v1/client_instance/pending_commands")?;
+        let client = ReqwestClient::new();
+        let request = client
+            .request(Method::GET, url)
+            .header(header::AUTHORIZATION, Self::bearer_token(refresh_token))
+            .build()?;
+        Client::make_request(request)?.json().map_err(|e| e.into())
+    }
+
+    pub fn invoke_command(&self, access_token: &str, command: &str, target: &str, payload: &serde_json::Value) -> Result<()> {
+        let body = json!({
+            "command": command,
+            "target": target,
+            "payload": payload
+        });
+        let url = self.config.auth_url_path("v1/clients_instances/invoke_command")?;
+        let client = ReqwestClient::new();
+        let request = client
+            .request(Method::POST, url)
+            .header(header::AUTHORIZATION, Self::bearer_token(access_token))
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(body.to_string())
+            .build()?;
+        Client::make_request(request)?;
+        Ok(())
+    }
+
+    pub fn client_instance(&self, refresh_token: &str) -> Result<ClientInstanceResponse> {
+        let url = self.config.auth_url_path("v1/client_instance")?;
+        let client = ReqwestClient::new();
+        let request = client
+            .request(Method::GET, url)
+            .header(header::AUTHORIZATION, Self::bearer_token(refresh_token))
+            .build()?;
+        Client::make_request(request)?.json().map_err(|e| e.into())
+    }
+
+    pub fn clients_instances(&self, access_token: &str) -> Result<Vec<ClientInstanceResponse>> {
+        let url = self.config.auth_url_path("v1/clients_instances")?;
+        let client = ReqwestClient::new();
+        let request = client
+            .request(Method::GET, url)
+            .header(header::AUTHORIZATION, Self::bearer_token(access_token))
+            .build()?;
+        Client::make_request(request)?.json().map_err(|e| e.into())
+    }
+
+    pub fn upsert_client_instance(&self, refresh_token: &str, metadata: ClientInstanceRequest) -> Result<()> {
+        let body = serde_json::to_string(&metadata)?;
+        let url = self.config.auth_url_path("v1/client_instance")?;
+        let client = ReqwestClient::new();
+        let request = client
+            .request(Method::POST, url)
+            .header(header::AUTHORIZATION, Self::bearer_token(refresh_token))
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(body)
+            .build()?;
+        Client::make_request(request)?;
+        Ok(())
+    }
+
+    pub fn patch_client_instance_commands(&self, refresh_token: &str, commands: HashMap<String, Option<String>>) -> Result<()> {
+        let body = serde_json::to_string(&commands)?;
+        let url = self.config.auth_url_path("v1/client_instance/commands")?;
+        let client = ReqwestClient::new();
+        let request = client
+            .request(Method::PATCH, url)
+            .header(header::AUTHORIZATION, Self::bearer_token(refresh_token))
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(body)
+            .build()?;
+        Client::make_request(request)?;
+        Ok(())
+    }
+
     #[cfg(feature = "browserid")]
     pub fn sign(&self, session_token: &[u8], key_pair: &BrowserIDKeyPair) -> Result<SignResponse> {
         let public_key_json = key_pair.to_json(false)?;
@@ -305,6 +382,10 @@ impl<'a> Client<'a> {
         out.to_vec()
     }
 
+    fn bearer_token(token: &str) -> String {
+        format!("Bearer {}", token)
+    }
+
     fn make_request(request: Request) -> Result<Response> {
         let client = ReqwestClient::new();
         let mut resp = client.execute(request)?;
@@ -331,6 +412,110 @@ impl<'a> Client<'a> {
 pub struct ResponseAndETag<T> {
     pub response: T,
     pub etag: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct PendingCommandsResponse {
+    pub index: u64,
+    pub last: Option<bool>,
+    pub messages: Vec<PendingCommand>,
+}
+
+#[derive(Deserialize)]
+pub struct PendingCommand {
+    pub index: u64,
+    pub data: CommandData,
+}
+
+#[derive(Deserialize)]
+pub struct CommandData {
+    pub command: String,
+    pub payload: serde_json::Value,
+    pub sender: Option<String>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct PushSubscription {
+    #[serde(rename = "pushEndpoint")]
+    pub endpoint: String,
+    #[serde(rename = "pushPublicKey")]
+    pub public_key: String,
+    #[serde(rename = "pushAuthKey")]
+    pub auth_key: String,
+}
+
+/// We use the double Option pattern in this struct.
+/// The outer option represents the existence of the field
+/// and the inner option its value or null.
+/// TL;DR:
+/// `None`: the field will not be present in the JSON body.
+/// `Some(None)`: the field will have a `null` value.
+/// `Some(Some(T))`: the field will have the serialized value of T.
+#[derive(Serialize)]
+pub struct ClientInstanceRequest {
+    #[serde(skip_serializing_if="Option::is_none")]
+    name: Option<Option<String>>,
+    #[serde(flatten)]
+    push_subscription: Option<PushSubscription>,
+    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(rename = "availableCommands")]
+    available_commands: Option<Option<HashMap<String, String>>>,
+}
+
+pub struct ClientInstanceRequestBuilder {
+    name: Option<Option<String>>,
+    push_subscription: Option<PushSubscription>,
+    available_commands: Option<Option<HashMap<String, String>>>,
+}
+
+impl ClientInstanceRequestBuilder {
+    pub fn new() -> Self {
+        Self {
+            name: None,
+            push_subscription: None,
+            available_commands: None,
+        }
+    }
+
+    pub fn push_subscription(mut self, push_subscription: PushSubscription) -> ClientInstanceRequestBuilder {
+        self.push_subscription = Some(push_subscription);
+        self
+    }
+
+    pub fn clear_available_commands(mut self) -> ClientInstanceRequestBuilder {
+        self.available_commands = Some(None);
+        self
+    }
+
+    pub fn name(mut self, name: &str) -> ClientInstanceRequestBuilder {
+        self.name = Some(Some(name.to_string()));
+        self
+    }
+
+    pub fn clear_name(mut self) -> ClientInstanceRequestBuilder {
+        self.name = Some(None);
+        self
+    }
+
+    pub fn build(self) -> ClientInstanceRequest {
+        ClientInstanceRequest {
+            name: self.name,
+            push_subscription: self.push_subscription,
+            available_commands: self.available_commands,
+        }
+    }
+}
+
+#[derive(Deserialize)]
+pub struct ClientInstanceResponse {
+    pub id: String,
+    #[serde(rename = "clientId")]
+    pub client_id: String,
+    pub name: Option<String>,
+    #[serde(flatten)]
+    pub push_subscription: Option<PushSubscription>,
+    #[serde(rename = "availableCommands")]
+    pub available_commands: Option<HashMap<String, String>>,
 }
 
 #[derive(Deserialize)]
@@ -369,7 +554,6 @@ pub struct SignResponse {
 
 #[derive(Deserialize)]
 pub struct KeysResponse {
-    // ka: Vec<u8>,
     pub wrap_kb: Vec<u8>,
 }
 
@@ -431,23 +615,4 @@ mod tests {
             "247b675ffb4c46310bc87e26d712153abe5e1c90ef00a4784594f97ef54f2375"
         );
     }
-
-    // #[test]
-    // fn live_account_test() {
-    //     let email = "testfxarustclient@restmail.net";
-    //     let pwd = "testfxarustclient@restmail.net";
-    //     let auth_pwd = auth_pwd(email, pwd);
-
-    //     let config = Config::stable_dev().unwrap();
-    //     let client = Client::new(&config);
-
-    //     let resp = client.login(&email, &auth_pwd, false).unwrap();
-    //     println!("Session Token obtained: {}", &resp.session_token);
-    //     let session_token = hex::decode(resp.session_token).unwrap();
-
-    //     let resp = client
-    //         .oauth_token_with_session_token("5882386c6d801776", &session_token, &["profile"])
-    //         .unwrap();
-    //     println!("OAuth Token obtained: {}", &resp.access_token);
-    // }
 }
