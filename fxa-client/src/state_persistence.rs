@@ -133,11 +133,18 @@ mod tests {
         let state = state_from_json(state_v1_json).unwrap();
         assert!(state.refresh_token.is_some());
         let refresh_token = state.refresh_token.unwrap();
-        assert_eq!(refresh_token.token, "bed5532f4fea7e39c5c4f609f53603ee7518fd1c103cc4034da3618f786ed188");
+        assert_eq!(
+            refresh_token.token,
+            "bed5532f4fea7e39c5c4f609f53603ee7518fd1c103cc4034da3618f786ed188"
+        );
         assert_eq!(refresh_token.scopes.len(), 3);
         assert!(refresh_token.scopes.contains("profile"));
-        assert!(refresh_token.scopes.contains("https://identity.mozilla.com/apps/oldsync"));
-        assert!(refresh_token.scopes.contains("https://identity.mozilla.com/apps/lockbox"));
+        assert!(refresh_token
+            .scopes
+            .contains("https://identity.mozilla.com/apps/oldsync"));
+        assert!(refresh_token
+            .scopes
+            .contains("https://identity.mozilla.com/apps/lockbox"));
         assert_eq!(state.scoped_keys.len(), 2);
         assert_eq!(state.scoped_keys.get("https://identity.mozilla.com/apps/oldsync").unwrap().to_string(), "{\"k\":\"kMtwpVC0ZaYFJymPza8rXK_0CgCp3KMwRStwGfBRBDtL6hXRDVJgQFaoOQ2dimw0Bko5WVv2gNTy7RX5zFYZHg\",\"kid\":\"1542236016429-Ox1FbJfFfwTe5t-xq4v2hQ\",\"kty\":\"oct\",\"scope\":\"https://identity.mozilla.com/apps/oldsync\"}");
         assert_eq!(state.scoped_keys.get("https://identity.mozilla.com/apps/lockbox").unwrap().to_string(), "{\"k\":\"Qk4K4xF2PgQ6XvBXW8X7B7AWwWgW2bHQov9NHNd4v-k\",\"kid\":\"1231014287-KDVj0DFaO3wGpPJD8oPwVg\",\"kty\":\"oct\",\"scope\":\"https://identity.mozilla.com/apps/lockbox\"}");
