@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		CE3E9D3520A36B63001B4B14 /* libfxa_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CE7B4B8A20A36B0500FC4422 /* libfxa_client.a */; };
+		CE3E9D3520A36B63001B4B14 /* libfxaclient_ffi.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CE7B4B8A20A36B0500FC4422 /* libfxaclient_ffi.a */; };
 		CE9D202520914D0D00F1C8FA /* FxAClient.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9D202320914D0D00F1C8FA /* FxAClient.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CE9D203120914D2600F1C8FA /* FirefoxAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9D202B20914D2600F1C8FA /* FirefoxAccount.swift */; };
 		CE9D203520914D2600F1C8FA /* fxa.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9D202F20914D2600F1C8FA /* fxa.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -18,7 +18,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		CE7B4B8A20A36B0500FC4422 /* libfxa_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfxa_client.a; path = ../../../../target/universal/release/libfxa_client.a; sourceTree = "<group>"; };
+		CE7B4B8A20A36B0500FC4422 /* libfxaclient_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfxaclient_ffi.a; path = ../../../../target/universal/release/libfxaclient_ffi.a; sourceTree = "<group>"; };
 		CE9D202020914D0D00F1C8FA /* FxAClient.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FxAClient.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE9D202320914D0D00F1C8FA /* FxAClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FxAClient.h; sourceTree = "<group>"; };
 		CE9D202420914D0D00F1C8FA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -35,7 +35,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CE3E9D3520A36B63001B4B14 /* libfxa_client.a in Frameworks */,
+				CE3E9D3520A36B63001B4B14 /* libfxaclient_ffi.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -76,7 +76,7 @@
 		CE9D203720914D4800F1C8FA /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				CE7B4B8A20A36B0500FC4422 /* libfxa_client.a */,
+				CE7B4B8A20A36B0500FC4422 /* libfxaclient_ffi.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -191,7 +191,7 @@
 			inputPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/../../../../target/universal/release/libfxa_client.a",
+				"$(SRCROOT)/../../../../target/universal/release/libfxaclient_ffi.a",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;

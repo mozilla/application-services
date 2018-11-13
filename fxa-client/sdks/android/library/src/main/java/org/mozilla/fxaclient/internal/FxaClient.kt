@@ -13,7 +13,7 @@ import java.lang.reflect.Proxy
 @Suppress("FunctionNaming", "TooManyFunctions", "TooGenericExceptionThrown")
 internal interface FxaClient : Library {
     companion object {
-        private const val JNA_LIBRARY_NAME = "fxa_client"
+        private const val JNA_LIBRARY_NAME = "fxaclient_ffi"
         internal var INSTANCE: FxaClient
 
         init {

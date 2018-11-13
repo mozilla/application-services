@@ -34,7 +34,7 @@ fn logging_init() {
     {
         android_logger::init_once(
             android_logger::Filter::default().with_min_level(log::Level::Trace),
-            Some("libloginsapi_ffi"));
+            Some("liblogins_ffi"));
         debug!("Android logging should be hooked up!")
     }
 }

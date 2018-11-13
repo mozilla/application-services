@@ -1,11 +1,11 @@
 [package]
-name = "fxa-client-ffi"
+name = "fxaclient_ffi"
 version = "0.1.0"
 authors = ["Edouard Oger <eoger@fastmail.com>"]
 
 [lib]
-name = "fxa_client"
-crate-type = ["staticlib", "cdylib"]
+name = "fxaclient_ffi"
+crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
 ffi-support = { path = "../../components/support/ffi" }
