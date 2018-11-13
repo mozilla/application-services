@@ -32,6 +32,23 @@ android {
     }
 }
 
+configurations {
+    // There's an interaction between Gradle's resolution of dependencies with different types
+    // (@jar, @aar) for `implementation` and `testImplementation` and with Android Studio's built-in
+    // JUnit test runner.  The runtime classpath in the built-in JUnit test runner gets the
+    // dependency from the `implementation`, which is type @aar, and therefore the JNA dependency
+    // doesn't provide the JNI dispatch libraries in the correct Java resource directories.  I think
+    // what's happening is that @aar type in `implementation` resolves to the @jar type in
+    // `testImplementation`, and that it wins the dependency resolution battle.
+    //
+    // A workaround is to add a new configuration which depends on the @jar type and to reference
+    // the underlying JAR file directly in `testImplementation`.  This JAR file doesn't resolve to
+    // the @aar type in `implementation`.  This works when invoked via `gradle`, but also sets the
+    // correct runtime classpath when invoked with Android Studio's built-in JUnit test runner.
+    // Success!
+    jnaForTest
+}
+
 cargo {
     // The directory of the Cargo.toml to build.
     module = '../..'
@@ -64,3 +81,35 @@ cargo {
     // for JNA to find it.
     defaultToolchainBuildPrefixDir = Platform.RESOURCE_PREFIX
 }
+
+dependencies {
+    api project(path: ':fxa-client-library', configuration: 'withoutLib')
+    api project(path: ':logins-library', configuration: 'withoutLib')
+    api project(path: ':places-library', configuration: 'withoutLib')
+
+    jnaForTest 'net.java.dev.jna:jna:4.5.2@jar'
+}
+
+afterEvaluate {
+    // The `cargoBuild` task isn't available until after evaluation.
+    android.libraryVariants.all { variant ->
+        def productFlavor = ""
+        variant.productFlavors.each {
+            productFlavor += "${it.name.capitalize()}"
+        }
+        def buildType = "${variant.buildType.name.capitalize()}"
+        tasks["generate${productFlavor}${buildType}Assets"].dependsOn(tasks["cargoBuild"])
+
+        // For unit tests.
+        tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["cargoBuild"])
+    }
+}
+
+apply from: "$rootDir/publish.gradle"
+ext.configurePublish(
+        'org.mozilla.appservices.composites',
+        'reference-browser',
+        'Composite of [fxaclient, logins, places]',
+        /* jnaForTestConfiguration= */ configurations.jnaForTest,
+        /* variantWithoutLib= */ null,
+)
