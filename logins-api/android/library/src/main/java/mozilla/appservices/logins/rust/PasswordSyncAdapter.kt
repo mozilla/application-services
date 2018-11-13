@@ -16,7 +16,7 @@ internal interface PasswordSyncAdapter : Library {
     companion object {
         // If our shared object isn't available, error when you attempt to call our methods
         // intead of at startup.
-        private const val JNA_LIBRARY_NAME = "loginsapi_ffi"
+        private const val JNA_LIBRARY_NAME = "logins_ffi"
 
         internal var INSTANCE: PasswordSyncAdapter = try {
             Native.loadLibrary(JNA_LIBRARY_NAME, PasswordSyncAdapter::class.java) as PasswordSyncAdapter
