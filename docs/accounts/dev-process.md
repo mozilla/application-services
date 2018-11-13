@@ -24,6 +24,9 @@ cut a release "train" that goes through deployment to stage and into production.
   * [What if the merge messes up the changelog?](#what-if-the-merge-messes-up-the-changelog)
   * [What if I already pushed a fix to `master` and it needs to be uplifted to an earlier train?](#what-if-i-already-pushed-a-fix-to-master-and-it-needs-to-be-uplifted-to-an-earlier-train)
   * [What if there are two separate train branches containing parallel updates?](#what-if-there-are-two-separate-train-branches-containing-parallel-updates)
+* [Security issues](#security-issues)
+  * [Filing security issues](#filing-security-issues)
+  * [Making a private point-release](#making-a-private-point-release)
 
 ## Product Planning
 
@@ -365,3 +368,98 @@ is to:
    remember to fix up the changelog before pushing
    if required.
 
+## Security issues
+
+Since most of our work happens in the open,
+we need special procedures
+for dealing with security-sensitive issues
+that must be fixed in production
+before being made visible to the public.
+
+We use private bugzilla bugs
+for tracking security-related issues,
+because this allows us to manage visibility
+for other stakeholders at Mozilla
+while maintaining confidentiality.
+
+We use private github repos
+for developing security fixes
+and tagging security-related releases.
+
+### Filing security issues
+
+If you believe you have found
+a security-sensitive issue
+with any part of the Firefox Accounts service,
+please file it as confidential security bug
+in Bugzilla via this link:
+
+* [File a security-sensitive FxA bug](https://bugzilla.mozilla.org/enter_bug.cgi?product=Cloud%20Services&component=Server:%20Firefox%20Accounts&groups=cloud-services-security)
+
+The Firefox Accounts service
+is part of Mozilla's [bug bounty program](https://www.mozilla.org/en-US/security/bug-bounty/),
+which provides additional guidelines
+on [reporting security bugs](https://www.mozilla.org/en-US/security/bug-bounty/faq-webapp/#bug-reporting).
+
+### Making a private point-release
+
+We maintain the following private github repos
+that can be used for making security-related point-releases
+
+* https://github.com/mozilla/fxa-content-server-private
+* https://github.com/mozilla/fxa-auth-server-private
+* https://github.com/mozilla/fxa-auth-db-mysql-private
+* https://github.com/mozilla/fxa-customs-server-private
+* https://github.com/mozilla/fxa-js-client-private
+
+The recommended procedure for doing so is:
+
+* Check out the private repo, independently from your normal working repo:
+  * `git clone git@github.com:mozilla/fxa-auth-server-private`
+  * `cd fxa-auth-server-private`
+  * N.B: Do not add it
+    as a remote on your normal working repo,
+    because this increases the risk
+    of pushing a private fix to the public repo
+    by mistake.
+* Add the corresponding public repo as a remote named "public",
+  and ensure it's up-to-date:
+  * `git remote add public git@github.com:mozilla/fxa-auth-server`
+  * `git fetch public`
+* Check out the latest release branch and push it to the private repo:
+  * `git checkout public/train-XYZ`
+  * `git push origin train-XYZ`
+* Develop your fix against this as a new branch in the private repo:
+  * `git checkout -b train-XYZ-my-security-fix`
+  * `git commit -a`
+  * git push -u origin train-XYZ-my-security-fix`
+* Submit and review the fix as a PR in the private repo,
+  targetting the `train-XYZ` branch.
+* Tag a point release in the private repo, following the [steps above](#tagging-releases):
+  * `git checkout train-XYZ; git pull  # ensure we have the merged PR`
+  * `grunt version:patch`
+  * `git push`
+* Push the tag in order to trigger a CircleCI build:
+  * `git push origin v1.XYZ.N`
+  * N.B: Do not use `git push --tags`
+    as this will not correctly trigger
+    the CircleCI build.
+* File an issue on the public repo
+  as a reminder to uplift the fix
+  once it has been deployed to production.
+
+Once the fix has been deployed
+and is safe to reveal publicly,
+it can be merged back into the public repo
+by doing the following:
+
+* Push the private train branch to the public repo,
+  as a new branch:
+  * `git push public train-XYZ:train-XYZ-uplift` 
+* Open a PR in the public repo,
+  targeting the public `train-XYZ` branch,
+  for review and merge.
+* Push the tag to the public repo:
+  * `git push public v1.XYZ.N`
+* Merge the `train-XYZ` branch to master
+  following the [usual steps](#tagging-releases).
