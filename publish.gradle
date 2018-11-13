@@ -8,13 +8,20 @@ def libRepositoryName = properties.libRepositoryName
 def libUrl = properties.libUrl
 def libVcsUrl = properties.libVcsUrl
 
-ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg, jnaForTestConfiguration = null ->
+ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg,
+                         jnaForTestConfiguration = null,
+                         variantWithoutLib = null ->
     // `jnaForTestConfiguration` is a hacky way to say yes, I'm using JNA and
     // want to pack the JNA dispatch libraries and my Rust libraries into a
     // single JAR for use in unit tests that run on a development host (and not
     // an Android target device).  We extract the JNA libraries and our local
     // Rust libraries and stick them into a JAR that consumers augment their
     // test configuration with.
+    //
+    // `variantWithoutLib` says to publish an AAR that doesn't have native Rust
+    // libraries packed into it.  Such an AAR will be aggregated into another
+    // Maven publication that has a single composite Rust library that provides
+    // the native code functionality.
     if (jnaForTestConfiguration != null) {
         task extractJnaResources(type: Sync) {
             dependsOn jnaForTestConfiguration
@@ -98,6 +105,51 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg, jnaForTestCo
                         url = libUrl
                     }
                 }
+
+                if (variantWithoutLib != null) {
+                    // If we are publishing a `-withoutLib` publication, we
+                    // never want to choose the real one when a parent project
+                    // has us as a child `project()` dependency.
+                    alias = true
+                }
+            }
+
+            if (variantWithoutLib != null) {
+                aarWithoutLib(MavenPublication) {
+                    project.afterEvaluate {
+                        from components.findByName(variantWithoutLib)
+                    }
+                    artifact sourcesJar
+                    // Can't publish Javadoc yet: fxaclient isn't well behaved.
+                    // artifact javadocJar
+
+                    pom {
+                        groupId = groupIdArg
+                        artifactId = "${artifactIdArg}-withoutLib"
+                        description = descriptionArg
+                        version = rootProject.ext.library['version']
+
+                        licenses {
+                            license {
+                                name = properties.libLicense
+                                url = properties.libLicenseUrl
+                            }
+                        }
+
+                        developers {
+                            developer {
+                                name = 'Mozilla Application Services'
+                                email = 'application-services@mozilla.com'
+                            }
+                        }
+
+                        scm {
+                            connection = properties.libVcsUrl
+                            developerConnection = properties.libVcsUrl
+                            url = properties.libUrl
+                        }
+                    }
+                }
             }
 
             if (jnaForTestConfiguration != null) {
@@ -153,16 +205,19 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg, jnaForTestCo
         localProperties.load(project.rootProject.file('local.properties').newDataInputStream())
     }
 
+    def thePublications = ['aar']
+    if (variantWithoutLib != null) {
+        thePublications << 'aarWithoutLib'
+    }
+    if (jnaForTestConfiguration != null) {
+        thePublications << 'forUnitTestsJar'
+    }
+
     bintray {
         user = localProperties != null ? localProperties.getProperty("bintray.user") : ""
         key = localProperties != null ? localProperties.getProperty("bintray.apikey") : ""
 
-        publications = ['aar']
-        if (jnaForTestConfiguration != null) {
-            // Scoping in extensions can be strange: appending to the list isn't
-            // doing what I expect, so I'll just set it twice.
-            publications = ['aar', 'forUnitTestsJar']
-        }
+        publications = thePublications
 
         pkg {
             repo = libRepositoryName

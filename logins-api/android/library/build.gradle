@@ -18,6 +18,10 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+
+        withoutLib {
+            initWith release
+        }
     }
 
     sourceSets {
@@ -30,6 +34,17 @@ android {
     packagingOptions {
         doNotStrip "**/*.so"
     }
+}
+
+configurations {
+    withoutLib {
+    }
+}
+
+afterEvaluate {
+    android.sourceSets.debug.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
+    android.sourceSets.release.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
+    android.sourceSets.main.jniLibs.srcDirs = []
 }
 
 cargo {
@@ -112,10 +127,11 @@ afterEvaluate {
     }
 }
 
-apply from: '../../../publish.gradle'
+apply from: "$rootDir/publish.gradle"
 ext.configurePublish(
         'org.mozilla.sync15',
         'logins',
         'Sync 1.5 logins implementation.',
-        configurations.jnaForTest,
+        /* jnaForTestConfiguration= */ configurations.jnaForTest,
+        /* variantWithoutLib= */ 'androidWithoutLib',
 )

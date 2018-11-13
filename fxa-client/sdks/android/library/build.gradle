@@ -18,6 +18,10 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+
+        withoutLib {
+            initWith release
+        }
     }
 
     // Help folks debugging by including symbols in our native libraries.  Yes, this makes the
@@ -26,6 +30,17 @@ android {
     packagingOptions {
         doNotStrip "**/*.so"
     }
+}
+
+configurations {
+    withoutLib {
+    }
+}
+
+afterEvaluate {
+    android.sourceSets.debug.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
+    android.sourceSets.release.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
+    android.sourceSets.main.jniLibs.srcDirs = []
 }
 
 cargo {
@@ -74,15 +89,20 @@ afterEvaluate {
             productFlavor += "${it.name.capitalize()}"
         }
         def buildType = "${variant.buildType.name.capitalize()}"
-        tasks["generate${productFlavor}${buildType}Assets"].dependsOn(tasks["cargoBuild"])
+        if (variant.buildType.name != 'withoutLib') {
+            tasks["generate${productFlavor}${buildType}Assets"].dependsOn(tasks["cargoBuild"])
+        }
 
         // TODO: For unit tests.
         // tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["cargoBuild"])
     }
 }
 
-apply from: '../../../../publish.gradle'
+apply from: "$rootDir/publish.gradle"
 ext.configurePublish(
         'org.mozilla.fxaclient',
         'fxaclient',
-        'Firefox Accounts client.')
+        'Firefox Accounts client.',
+        /* jnaForTestConfiguration= */ null,
+        /* variantWithoutLib= */ 'androidWithoutLib',
+)

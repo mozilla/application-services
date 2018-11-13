@@ -18,6 +18,10 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+
+        withoutLib {
+            initWith release
+        }
     }
 
     sourceSets {
@@ -30,6 +34,17 @@ android {
     packagingOptions {
         doNotStrip "**/*.so"
     }
+}
+
+configurations {
+    withoutLib {
+    }
+}
+
+afterEvaluate {
+    android.sourceSets.debug.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
+    android.sourceSets.release.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
+    android.sourceSets.main.jniLibs.srcDirs = []
 }
 
 cargo {
@@ -97,7 +112,6 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
 }
 
-
 afterEvaluate {
     // The `cargoBuild` task isn't available until after evaluation.
     android.libraryVariants.all { variant ->
@@ -106,17 +120,20 @@ afterEvaluate {
             productFlavor += "${it.name.capitalize()}"
         }
         def buildType = "${variant.buildType.name.capitalize()}"
-        tasks["generate${productFlavor}${buildType}Assets"].dependsOn(tasks["cargoBuild"])
+        if (variant.buildType.name != 'withoutLib') {
+            tasks["generate${productFlavor}${buildType}Assets"].dependsOn(tasks["cargoBuild"])
+        }
 
         // For unit tests.
         tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["cargoBuild"])
     }
 }
 
-apply from: '../../../../publish.gradle'
+apply from: "$rootDir/publish.gradle"
 ext.configurePublish(
         'org.mozilla.places',
         'places',
         'Low level places storage implementation.',
-        configurations.jnaForTest,
+        /* jnaForTestConfiguration= */ configurations.jnaForTest,
+        /* variantWithoutLib= */ 'androidWithoutLib',
 )
