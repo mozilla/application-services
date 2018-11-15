@@ -119,4 +119,6 @@ apply from: '../../../../publish.gradle'
 ext.configurePublish(
         'org.mozilla.places',
         'places',
-        'Low level places storage implementation.')
+        'Low level places storage implementation.',
+        configurations.jnaForTest,
+)
