@@ -6,34 +6,36 @@ package org.mozilla.fxaclient.internal
 
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
+import java.util.*
 
-import java.util.Arrays
+class AccessTokenInfo internal constructor(raw: Raw) {
 
-class OAuthInfo internal constructor(raw: Raw) {
-
-    val accessToken: String?
-    val keys: String?
-    val scope: String?
+    val scope: String
+    val token: String
+    val key: String?
+    val expiresAt: Long
 
     class Raw(p: Pointer) : Structure(p) {
-        @JvmField var accessToken: Pointer? = null
-        @JvmField var keys: Pointer? = null
         @JvmField var scope: Pointer? = null
+        @JvmField var token: Pointer? = null
+        @JvmField var key: Pointer? = null
+        @JvmField var expiresAt: Long = 0 // In seconds.
 
         init {
             read()
         }
 
         override fun getFieldOrder(): List<String> {
-            return Arrays.asList("accessToken", "keys", "scope")
+            return Arrays.asList("scope", "token", "key", "expiresAt")
         }
     }
 
     init {
         try {
-            this.accessToken = raw.accessToken?.getRustString()
-            this.keys = raw.keys?.getRustString()
-            this.scope = raw.scope?.getRustString()
+            this.scope = raw.scope?.getRustString()!! // This field is always present.
+            this.token = raw.token?.getRustString()!! // Ditto.
+            this.key = raw.key?.getRustString()
+            this.expiresAt = raw.expiresAt
         } finally {
             FxaClient.INSTANCE.fxa_oauth_info_free(raw.pointer)
         }

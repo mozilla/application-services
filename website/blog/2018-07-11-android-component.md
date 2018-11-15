@@ -49,7 +49,7 @@ open class MainActivity : AppCompatActivity() {
             val code = url.getQueryParameter("code")
             val state = url.getQueryParameter("state")
 
-            val handleAuth = { _: OAuthInfo? -> account?.getProfile() }
+            val handleAuth = { _: AccessTokenInfo? -> account?.getProfile() }
             val handleProfile = { value: Profile? ->
                 value?.let {
                     runOnUiThread {

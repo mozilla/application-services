@@ -31,7 +31,7 @@ use failure::Fail;
 
 use std::{fs, io::{self, Read, Write}};
 use std::collections::HashMap;
-use fxa_client::{FirefoxAccount, Config, OAuthInfo};
+use fxa_client::{FirefoxAccount, Config, AccessTokenInfo};
 use sync::{Sync15StorageClientInit, KeyBundle};
 use logins_sql::{PasswordEngine, Login};
 
@@ -40,11 +40,6 @@ const REDIRECT_URI: &str = "https://lockbox.firefox.com/fxa/ios-redirect.html";
 
 const CONTENT_BASE: &str = "https://accounts.firefox.com";
 const SYNC_SCOPE: &str = "https://identity.mozilla.com/apps/oldsync";
-
-const SCOPES: &[&str] = &[
-    SYNC_SCOPE,
-    "https://identity.mozilla.com/apps/lockbox",
-];
 
 // I'm completely punting on good error handling here.
 type Result<T> = std::result::Result<T, failure::Error>;
@@ -74,7 +69,7 @@ fn load_or_create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
 
 fn create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
     let mut acct = FirefoxAccount::new(cfg, CLIENT_ID, REDIRECT_URI);
-    let oauth_uri = acct.begin_oauth_flow(SCOPES, true)?;
+    let oauth_uri = acct.begin_oauth_flow(&[SYNC_SCOPE], true)?;
 
     if let Err(_) = webbrowser::open(&oauth_uri.as_ref()) {
         warn!("Failed to open a web browser D:");
@@ -362,23 +357,21 @@ fn main() -> Result<()> {
 
     // TODO: we should probably set a persist callback on acct?
     let mut acct = load_or_create_fxa_creds(cred_file, cfg.clone())?;
-    let token: OAuthInfo = match acct.get_oauth_token(SCOPES)? {
-        Some(t) => t,
-        None => {
+    let token_info: AccessTokenInfo = match acct.get_access_token(SYNC_SCOPE) {
+        Ok(t) => t,
+        Err(_) => {
             // The cached credentials did not have appropriate scope, sign in again.
             warn!("Credentials do not have appropriate scope, launching OAuth flow.");
             acct = create_fxa_creds(cred_file, cfg.clone())?;
-            acct.get_oauth_token(SCOPES)?.unwrap()
+            acct.get_access_token(SYNC_SCOPE)?
         }
     };
 
-    let keys: HashMap<String, ScopedKeyData> = serde_json::from_str(&token.keys.unwrap())?;
-
-    let key = keys.get(SYNC_SCOPE).unwrap();
+    let key: ScopedKeyData = serde_json::from_str(&token_info.key.unwrap())?;
 
     let client_init = Sync15StorageClientInit {
         key_id: key.kid.clone(),
-        access_token: token.access_token.clone(),
+        access_token: token_info.token.clone(),
         tokenserver_url,
     };
     let root_sync_key = KeyBundle::from_ksync_base64(&key.k)?;

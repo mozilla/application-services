@@ -73,14 +73,23 @@ pub enum ErrorKind {
     #[fail(display = "Login state needs to be Married for the current operation")]
     NotMarried,
 
+    #[fail(display = "Multiple OAuth scopes requested")]
+    MultipleScopesRequested,
+
     #[fail(display = "No cached token for scope {}", _0)]
-    NoCachedToken(&'static str),
+    NoCachedToken(String),
+
+    #[fail(display = "Could not find a refresh token in the server response")]
+    RefreshTokenNotPresent,
 
     #[fail(display = "Unrecoverable server error")]
     UnrecoverableServerError,
 
     #[fail(display = "Invalid OAuth scope value {}", _0)]
     InvalidOAuthScopeValue(String),
+
+    #[fail(display = "Illegal state: {}", _0)]
+    IllegalState(String),
 
     #[fail(display = "Empty names")]
     EmptyOAuthScopeNames,

@@ -38,19 +38,45 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn release() -> Result<Config> {
-        Config::import_from("https://accounts.firefox.com")
+    pub fn release() -> Result<Self> {
+        Self::import_from("https://accounts.firefox.com")
     }
 
-    pub fn stable_dev() -> Result<Config> {
-        Config::import_from("https://stable.dev.lcip.org")
+    pub fn stable_dev() -> Result<Self> {
+        Self::import_from("https://stable.dev.lcip.org")
     }
 
-    pub fn stage_dev() -> Result<Config> {
-        Config::import_from("https://accounts.stage.mozaws.net")
+    pub fn stage_dev() -> Result<Self> {
+        Self::import_from("https://accounts.stage.mozaws.net")
     }
 
-    pub fn import_from(content_url: &str) -> Result<Config> {
+    pub(crate) fn new(
+        content_url: String,
+        auth_url: String,
+        oauth_url: String,
+        profile_url: String,
+        token_server_endpoint_url: String,
+        authorization_endpoint: String,
+        issuer: String,
+        jwks_uri: String,
+        token_endpoint: String,
+        userinfo_endpoint: String
+    ) -> Self {
+        Config {
+            content_url,
+            auth_url,
+            oauth_url,
+            profile_url,
+            token_server_endpoint_url,
+            authorization_endpoint,
+            issuer,
+            jwks_uri,
+            token_endpoint,
+            userinfo_endpoint
+        }
+    }
+
+    pub fn import_from(content_url: &str) -> Result<Self> {
         let config_url = Url::parse(content_url)?.join(".well-known/fxa-client-configuration")?;
         let resp: ClientConfigurationResponse = reqwest::get(config_url)?.json()?;
 
