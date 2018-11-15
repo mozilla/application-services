@@ -86,7 +86,6 @@ dependencies {
     jnaForTest 'net.java.dev.jna:jna:4.5.2@jar'
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation 'com.android.support:appcompat-v7:27.1.1'
     implementation 'net.java.dev.jna:jna:4.5.2@aar'
 
     testImplementation files(configurations.jnaForTest.files)
