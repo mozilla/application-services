@@ -9,7 +9,7 @@ use rusqlite::{Connection};
 use sql_support::ConnExt;
 use url::{Url};
 
-use super::{MAX_OUTGOING_PLACES, MAX_VISITS};
+use super::{MAX_OUTGOING_PLACES, MAX_VISITS, HISTORY_TTL};
 use super::record::{HistoryRecord, HistoryRecordVisit, HistorySyncRecord};
 use types::{SyncGuid, Timestamp, VisitTransition};
 use storage::history_sync::{
@@ -59,7 +59,7 @@ pub enum IncomingPlan {
     Skip, // An entry we just want to ignore - either due to the URL etc, or because no changes.
     Invalid(Error), // Something's wrong with this entry.
     Failed(Error), // The entry appears sane, but there was some error.
-    Delete(), // We should delete this.
+    Delete, // We should delete this.
     // We should apply this. If SyncGuid is Some, then it is the existing guid
     // for the same URL, and if that doesn't match the incoming record, we
     // should change the existing item to the incoming one and upload a tombstone.
@@ -148,20 +148,20 @@ fn plan_incoming_record(conn: &Connection, record: HistoryRecord, max_visits: us
 pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<OutgoingChangeset> {
     // for a first-cut, let's do this in the most naive way possible...
     let mut plans: Vec<(SyncGuid, IncomingPlan)> = Vec::with_capacity(inbound.changes.len());
-    for incoming in inbound.changes.iter() {
-        let item = HistorySyncRecord::from_payload(incoming.0.clone())?;
+    for incoming in inbound.changes {
+        let item = HistorySyncRecord::from_payload(incoming.0)?;
         let plan = match item.record {
             Some(record) => plan_incoming_record(conn, record, MAX_VISITS),
-            None => IncomingPlan::Delete(),
+            None => IncomingPlan::Delete,
         };
         let guid = item.guid.clone();
         plans.push((guid, plan));
     }
 
     let tx = conn.unchecked_transaction()?;
-    let mut napplied = 0;
-    let mut ndeleted = 0;
-    let mut nreconciled = 0;
+    let mut num_applied = 0;
+    let mut num_deleted = 0;
+    let mut num_reconciled = 0;
 
     let mut outgoing = OutgoingChangeset::new("history".into(), inbound.timestamp);
     for (guid, plan) in plans {
@@ -175,13 +175,13 @@ pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<Outgo
             IncomingPlan::Failed(err) => {
                 error!("incoming: record {:?} failed to apply: {}", guid, err);
             },
-            IncomingPlan::Delete() => {
+            IncomingPlan::Delete => {
                 trace!("incoming: deleting {:?}", guid);
-                ndeleted += 1;
+                num_deleted += 1;
                 apply_synced_deletion(&conn, &guid)?;
             },
             IncomingPlan::Apply(old_guid, url, title, visits_to_add) => {
-                napplied += 1;
+                num_applied += 1;
                 trace!("incoming: will apply {:?}: url={:?}, title={:?}, to_add={:?}",
                       guid, url, title, visits_to_add);
                 apply_synced_visits(&conn, &guid, &old_guid, &url, title, visits_to_add)?;
@@ -190,7 +190,7 @@ pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<Outgo
                 }
             },
             IncomingPlan::Reconciled => {
-                nreconciled += 1;
+                num_reconciled += 1;
                 trace!("incoming: reconciled {:?}", guid);
                 apply_synced_reconcilliation(&conn, &guid)?;
             },
@@ -208,14 +208,15 @@ pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<Outgo
                 Payload::from_record(record)?
             },
             // XXX - we need a way to ensure the TTL is set on the tombstone?
-            OutgoingInfo::Tombstone => Payload::new_tombstone(guid.0.clone()),
+            OutgoingInfo::Tombstone => Payload::new_tombstone_with_ttl(guid.0.clone(),
+                                                                       HISTORY_TTL),
         };
         trace!("outgoing {:?}", payload);
         outgoing.changes.push(payload);
     }
     tx.commit()?;
 
-    info!("incoming: applied {}, deleted {}, reconciled {}", napplied, ndeleted, nreconciled);
+    info!("incoming: applied {}, deleted {}, reconciled {}", num_applied, num_deleted, num_reconciled);
 
     Ok(outgoing)
 }

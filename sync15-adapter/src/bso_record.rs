@@ -163,6 +163,13 @@ impl Payload {
     }
 
     #[inline]
+    pub fn new_tombstone_with_ttl(id: String, ttl: u32) -> Payload {
+        let mut result = Payload::new_tombstone(id);
+        result.data.insert("ttl".into(), ttl.into());
+        result
+    }
+
+    #[inline]
     pub fn id(&self) -> &str {
         &self.id[..]
     }

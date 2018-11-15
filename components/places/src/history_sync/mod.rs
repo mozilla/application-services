@@ -6,7 +6,7 @@ pub mod store;
 pub mod record;
 mod plan;
 
-static MAX_INCOMING_PLACES: usize = 5000;
-static MAX_OUTGOING_PLACES: usize = 5000;
-static MAX_VISITS: usize = 20;
-pub static HISTORY_TTL: u32 = 5184000; // 60 days in milliseconds
+const MAX_INCOMING_PLACES: usize = 5000;
+const MAX_OUTGOING_PLACES: usize = 5000;
+const MAX_VISITS: usize = 20;
+pub const HISTORY_TTL: u32 = 5184000; // 60 days in milliseconds
