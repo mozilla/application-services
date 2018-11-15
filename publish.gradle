@@ -2,7 +2,41 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg ->
+ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg, jnaForTestConfiguration = null ->
+    // `jnaForTestConfiguration` is a hacky way to say yes, I'm using JNA and
+    // want to pack the JNA dispatch libraries and my Rust libraries into a
+    // single JAR for use in unit tests that run on a development host (and not
+    // an Android target device).  We extract the JNA libraries and our local
+    // Rust libraries and stick them into a JAR that consumers augment their
+    // test configuration with.
+    if (jnaForTestConfiguration != null) {
+        task extractJnaResources(type: Sync) {
+            dependsOn jnaForTestConfiguration
+
+            from zipTree(jnaForTestConfiguration.singleFile)
+
+            into "${buildDir}/jnaResources/"
+
+            eachFile { FileCopyDetails fcp ->
+                // The intention is to just keep the various `*jnidispatch.*` files.
+                if (fcp.relativePath.pathString.startsWith("META-INFO") || fcp.relativePath.pathString.endsWith(".class")) {
+                    fcp.exclude()
+                }
+            }
+
+            includeEmptyDirs false
+        }
+
+        def forUnitTestsJarTask = task forUnitTestsJar(type: Jar) {
+            from extractJnaResources
+            from "$buildDir/rustResources"
+        }
+
+        project.afterEvaluate {
+            forUnitTestsJarTask.dependsOn(tasks["cargoBuild"])
+        }
+    }
+
     task sourcesJar(type: Jar) {
         from android.sourceSets.main.java.srcDirs
         classifier = 'sources'
@@ -59,6 +93,43 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg ->
                     }
                 }
             }
+
+            if (jnaForTestConfiguration != null) {
+                forUnitTestsJar(MavenPublication) {
+                    artifact tasks['forUnitTestsJar']
+
+                    pom {
+                        groupId = groupIdArg
+                        artifactId = "${artifactIdArg}-forUnitTests"
+                        description = descriptionArg
+                        version = rootProject.ext.library['version']
+
+                        licenses {
+                            license {
+                                name = properties.libLicense
+                                url = properties.libLicenseUrl
+                            }
+                        }
+
+                        developers {
+                            developer {
+                                name = 'Mozilla Application Services'
+                                email = 'application-services@mozilla.com'
+                            }
+                        }
+
+                        scm {
+                            connection = properties.libVcsUrl
+                            developerConnection = properties.libVcsUrl
+                            url = properties.libUrl
+                        }
+                    }
+
+                    // This is never the publication we want to use when publishing a
+                    // parent project with us as a child `project()` dependency.
+                    alias = true
+                }
+            }
         }
     }
 
@@ -81,6 +152,12 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg ->
         key = localProperties != null ? localProperties.getProperty("bintray.apikey") : ""
 
         publications = ['aar']
+        if (jnaForTestConfiguration != null) {
+            // Scoping in extensions can be strange: appending to the list isn't
+            // doing what I expect, so I'll just set it twice.
+            publications = ['aar', 'forUnitTestsJar']
+        }
+
         pkg {
             repo = properties.libRepositoryName
             name = artifactIdArg

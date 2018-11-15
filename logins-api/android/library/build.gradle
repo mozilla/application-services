@@ -98,7 +98,6 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
 }
 
-
 afterEvaluate {
     // The `cargoBuild` task isn't available until after evaluation.
     android.libraryVariants.all { variant ->
@@ -118,4 +117,6 @@ apply from: '../../../publish.gradle'
 ext.configurePublish(
         'org.mozilla.sync15',
         'logins',
-        'Sync 1.5 logins implementation.')
+        'Sync 1.5 logins implementation.',
+        configurations.jnaForTest,
+)
