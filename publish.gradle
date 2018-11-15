@@ -2,58 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-def libRepoName = properties.libRepositoryName
-def libUrl = properties.libUrl
-def libVcsUrl = properties.libVcsUrl
-def libLicense = properties.libLicense
-def libLicenseUrl = properties.libLicenseUrl
-
 ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg ->
-    apply plugin: 'com.github.dcendents.android-maven'
-
-    group = groupIdArg
-
-    install {
-        repositories.mavenInstaller {
-            pom {
-                project {
-                    packaging 'aar'
-                    groupId groupIdArg
-                    artifactId artifactIdArg
-
-                    name libRepoName
-                    description descriptionArg
-                    url libUrl
-
-                    licenses {
-                        license {
-                            name libLicense
-                            url libLicenseUrl
-                        }
-                    }
-
-                    developers {
-                        developer {
-                            id 'nalexander'
-                            name 'Nick Alexander'
-                            email 'nalexander@mozilla.com'
-                        }
-                    }
-
-                    scm {
-                        connection libVcsUrl
-                        developerConnection libVcsUrl
-                        url libUrl
-                    }
-                }
-            }
-        }
-    }
-
-    apply plugin: 'com.jfrog.bintray'
-
-    version = rootProject.ext.library['version']
-
     task sourcesJar(type: Jar) {
         from android.sourceSets.main.java.srcDirs
         classifier = 'sources'
@@ -69,10 +18,57 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg ->
         from javadoc.destinationDir
     }
 
-    artifacts {
-        //archives javadocJar
-        archives sourcesJar
+    publishing {
+        publications {
+            aar(MavenPublication) {
+                project.afterEvaluate {
+                    from components.findByName("androidRelease")
+                }
+                artifact sourcesJar
+                // Can't publish Javadoc yet: fxaclient isn't well behaved.
+                // artifact javadocJar
+
+                // If this goes haywire with
+                // 'Cannot configure the 'publishing' extension after it has been accessed.',
+                // see https://github.com/researchgate/gradle-release/issues/125 and
+                // https://stackoverflow.com/q/28020520.
+                pom {
+                    groupId = groupIdArg
+                    artifactId = artifactIdArg
+                    description = descriptionArg
+                    version = rootProject.ext.library['version']
+
+                    licenses {
+                        license {
+                            name = properties.libLicense
+                            url = properties.libLicenseUrl
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            name = 'Mozilla Application Services'
+                            email = 'application-services@mozilla.com'
+                        }
+                    }
+
+                    scm {
+                        connection = properties.libVcsUrl
+                        developerConnection = properties.libVcsUrl
+                        url = properties.libUrl
+                    }
+                }
+            }
+        }
     }
+
+    apply plugin: 'com.jfrog.bintray'
+
+    // It feels like this shouldn't be necessary, but without it an
+    // "unspecified" creeps into bintray URLs -- just like
+    // https://github.com/bintray/gradle-bintray-plugin/issues/244, but not
+    // fixed by gradle-bintray-plugin:1.8.4.
+    version = rootProject.ext.library['version']
 
     Properties localProperties = null;
     if (project.rootProject.file('local.properties').canRead()) {
@@ -84,17 +80,17 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg ->
         user = localProperties != null ? localProperties.getProperty("bintray.user") : ""
         key = localProperties != null ? localProperties.getProperty("bintray.apikey") : ""
 
-        configurations = ['archives']
+        publications = ['aar']
         pkg {
-            repo = libRepoName
+            repo = properties.libRepositoryName
             name = artifactIdArg
             desc = descriptionArg
-            websiteUrl = libUrl
-            vcsUrl = libVcsUrl
+            websiteUrl = properties.libUrl
+            vcsUrl = properties.libVcsUrl
             if (project.ext.has('vcsTag')) {
                 vcsTag = project.ext.vcsTag
             }
-            licenses = [libLicense]
+            licenses = [properties.libLicense]
             publish = true
             publicDownloadNumbers = true
         }

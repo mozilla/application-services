@@ -81,8 +81,6 @@ afterEvaluate {
     }
 }
 
-archivesBaseName = 'fxaclient'
-
 apply from: '../../../../publish.gradle'
 ext.configurePublish(
         'org.mozilla.fxaclient',

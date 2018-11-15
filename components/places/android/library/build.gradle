@@ -3,8 +3,6 @@ apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
-apply plugin: 'com.github.dcendents.android-maven'
-
 android {
     compileSdkVersion 27
 
@@ -116,8 +114,6 @@ afterEvaluate {
         tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["cargoBuild"])
     }
 }
-
-archivesBaseName = 'places'
 
 apply from: '../../../../publish.gradle'
 ext.configurePublish(
