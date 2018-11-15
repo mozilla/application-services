@@ -25,8 +25,7 @@ extern crate places;
 use failure::Fail;
 
 use std::{fs, io::{Read}};
-use std::collections::HashMap;
-use fxa_client::{FirefoxAccount, Config, OAuthInfo};
+use fxa_client::{FirefoxAccount, Config, AccessTokenInfo};
 use sync15_adapter::{Sync15StorageClient, Sync15StorageClientInit, KeyBundle, Store};
 use sync15_adapter::client::SetupStorageClient;
 use places::{PlacesDb};
@@ -34,11 +33,6 @@ use places::history_sync::store::{HistoryStore};
 
 const CONTENT_BASE: &str = "https://accounts.firefox.com";
 const SYNC_SCOPE: &str = "https://identity.mozilla.com/apps/oldsync";
-
-const SCOPES: &[&str] = &[
-    SYNC_SCOPE,
-    "https://identity.mozilla.com/apps/lockbox",
-];
 
 // I'm completely punting on good error handling here.
 type Result<T> = std::result::Result<T, failure::Error>;
@@ -121,21 +115,18 @@ fn main() -> Result<()> {
 
     // TODO: we should probably set a persist callback on acct?
     let mut acct = load_fxa_creds(cred_file)?;
-    let token: OAuthInfo = match acct.get_oauth_token(SCOPES)? {
-        Some(t) => t,
-        None => {
-            // The cached credentials did not have appropriate scope, sign in again.
+    let token_info: AccessTokenInfo = match acct.get_access_token(SYNC_SCOPE) {
+        Ok(t) => t,
+        Err(_) => {
             panic!("No creds - run some other tool to set them up.");
         }
     };
 
-    let keys: HashMap<String, ScopedKeyData> = serde_json::from_str(&token.keys.unwrap())?;
-
-    let key = keys.get(SYNC_SCOPE).unwrap();
+    let key: ScopedKeyData = serde_json::from_str(&token_info.key.unwrap())?;
 
     let client_init = Sync15StorageClientInit {
         key_id: key.kid.clone(),
-        access_token: token.access_token.clone(),
+        access_token: token_info.token.clone(),
         tokenserver_url,
     };
     let root_sync_key = KeyBundle::from_ksync_base64(&key.k)?;
