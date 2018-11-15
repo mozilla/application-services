@@ -42,14 +42,12 @@ internal interface FxaClient : Library {
         }
     }
 
-    fun fxa_get_release_config(e: Error.ByReference): RawConfig?
-    fun fxa_get_custom_config(content_base: String, e: Error.ByReference): RawConfig?
+    fun fxa_get_release_config(clientId: String, redirectUri: String, e: Error.ByReference): RawConfig?
+    fun fxa_get_custom_config(contentBase: String, clientId: String, redirectUri: String, e: Error.ByReference): RawConfig?
 
-    fun fxa_new(config: RawConfig, clientId: String, redirectUri: String, e: Error.ByReference): RawFxAccount?
+    fun fxa_new(config: RawConfig, e: Error.ByReference): RawFxAccount?
     fun fxa_from_credentials(
         config: RawConfig,
-        clientId: String,
-        redirectUri: String,
         webChannelResponse: String,
         e: Error.ByReference
     ): RawFxAccount?
@@ -74,6 +72,7 @@ internal interface FxaClient : Library {
     fun fxa_profile(fxa: RawFxAccount, ignoreCache: Boolean, e: Error.ByReference): Profile.Raw?
 
     fun fxa_get_token_server_endpoint_url(fxa: RawFxAccount, e: Error.ByReference): Pointer?
+    fun fxa_get_connection_success_url(fxa: RawFxAccount, e: Error.ByReference): Pointer?
 
     fun fxa_complete_oauth_flow(fxa: RawFxAccount, code: String, state: String, e: Error.ByReference)
     fun fxa_get_access_token(fxa: RawFxAccount, scope: String, e: Error.ByReference): AccessTokenInfo.Raw?

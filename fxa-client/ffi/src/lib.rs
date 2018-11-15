@@ -22,13 +22,27 @@ use fxa_client::ffi::*;
 
 /// Convenience function over [fxa_get_custom_config] that provides a pointer to a [Config] that
 /// points to the production FxA servers.
+///
+/// # Safety
+///
+/// Please note that most methods taking a [Config] as argument will take ownership of it and
+/// therefore the callers shall **not** free the [Config] afterwards.
+///
+/// A destructor [fxa_config_free] is provided for releasing the memory for this
+/// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_get_release_config(err: &mut ExternError) -> *mut Config {
-    call_with_result(err, Config::release)
+pub unsafe extern "C" fn fxa_get_release_config(
+    client_id: *const c_char,
+    redirect_uri: *const c_char,
+    err: &mut ExternError,
+) -> *mut Config {
+    call_with_result(err, || Config::release(
+        rust_str_from_c(client_id),
+        rust_str_from_c(redirect_uri)))
 }
 
-/// Creates a [Config] by making a request to `<content_base>/.well-known/fxa-client-configuration`
-/// and parsing the newly fetched configuration object.
+/// Creates a [Config] by making a request to `<content_base>/.well-known/fxa-client-configuration`,
+/// parsing the newly fetched configuration object and setting the `client_id` and `redirect_uri`.
 ///
 /// Note: `content_base` shall not have a trailing slash.
 ///
@@ -44,9 +58,14 @@ pub extern "C" fn fxa_get_release_config(err: &mut ExternError) -> *mut Config {
 #[no_mangle]
 pub unsafe extern "C" fn fxa_get_custom_config(
     content_base: *const c_char,
+    client_id: *const c_char,
+    redirect_uri: *const c_char,
     err: &mut ExternError,
 ) -> *mut Config {
-    call_with_result(err, || Config::import_from(rust_str_from_c(content_base)))
+    call_with_result(err, || Config::import_from(
+        rust_str_from_c(content_base),
+        rust_str_from_c(client_id),
+        rust_str_from_c(redirect_uri)))
 }
 
 /// Creates a [FirefoxAccount] from credentials obtained with the onepw FxA login flow.
@@ -64,8 +83,6 @@ pub unsafe extern "C" fn fxa_get_custom_config(
 #[no_mangle]
 pub unsafe extern "C" fn fxa_from_credentials(
     config: *mut Config,
-    client_id: *const c_char,
-    redirect_uri: *const c_char,
     json: *const c_char,
     err: &mut ExternError,
 ) -> *mut FirefoxAccount {
@@ -74,10 +91,8 @@ pub unsafe extern "C" fn fxa_from_credentials(
         assert!(!config.is_null());
         let config = Box::from_raw(config);
         let json = rust_str_from_c(json);
-        let client_id = rust_str_from_c(client_id);
-        let redirect_uri = rust_str_from_c(redirect_uri);
         let resp = WebChannelResponse::from_json(json)?;
-        FirefoxAccount::from_credentials(*config, client_id, redirect_uri, resp)
+        FirefoxAccount::from_credentials(*config, resp)
     })
 }
 
@@ -92,16 +107,12 @@ pub unsafe extern "C" fn fxa_from_credentials(
 #[no_mangle]
 pub unsafe extern "C" fn fxa_new(
     config: *mut Config,
-    client_id: *const c_char,
-    redirect_uri: *const c_char,
     err: &mut ExternError,
 ) -> *mut FirefoxAccount {
     call_with_output(err, || {
         assert!(!config.is_null());
-        let client_id = rust_str_from_c(client_id);
-        let redirect_uri = rust_str_from_c(redirect_uri);
         let config = Box::from_raw(config);
-        FirefoxAccount::new(*config, client_id, redirect_uri)
+        FirefoxAccount::new(*config)
     })
 }
 
@@ -199,6 +210,22 @@ pub extern "C" fn fxa_get_token_server_endpoint_url(
 ) -> *mut c_char {
     call_with_result(error, || {
         fxa.get_token_server_endpoint_url().map(|u| u.to_string())
+    })
+}
+
+/// Get the url to redirect after there has been a successful connection to FxA.
+///
+/// # Safety
+///
+/// A destructor [fxa_str_free] is provided for releasing the memory for this
+/// pointer type.
+#[no_mangle]
+pub extern "C" fn fxa_get_connection_success_url(
+    fxa: &FirefoxAccount,
+    error: &mut ExternError,
+) -> *mut c_char {
+    call_with_result(error, || {
+        fxa.get_connection_success_url().map(|u| u.to_string())
     })
 }
 

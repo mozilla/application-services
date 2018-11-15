@@ -12,8 +12,8 @@ static REDIRECT_URI: &'static str = "https://mozilla.github.io/notes/fxa/android
 static SCOPES: &'static [&'static str] = &["https://identity.mozilla.com/apps/oldsync"];
 
 fn main() {
-    let config = Config::import_from(CONTENT_SERVER).unwrap();
-    let mut fxa = FirefoxAccount::new(config, CLIENT_ID, REDIRECT_URI);
+    let config = Config::import_from(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI).unwrap();
+    let mut fxa = FirefoxAccount::new(config);
     let url = fxa.begin_oauth_flow(&SCOPES, false).unwrap();
     println!("Open the following URL:");
     println!("{}", url);

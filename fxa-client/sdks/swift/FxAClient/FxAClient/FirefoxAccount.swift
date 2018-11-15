@@ -11,11 +11,11 @@ let queue = DispatchQueue(label: "com.fxaclient")
 open class FxAConfig: MovableRustOpaquePointer {
     /// Convenience method over `custom(...)` which provides an `FxAConfig` that
     /// points to the production FxA servers.
-    open class func release(completionHandler: @escaping (FxAConfig?, Error?) -> Void) {
+    open class func release(client_id: String, redirect_uri: String, completionHandler: @escaping (FxAConfig?, Error?) -> Void) {
         queue.async {
             do {
                 let config = FxAConfig(raw: try FxAError.unwrap({err in
-                    fxa_get_release_config(err)
+                    fxa_get_release_config(client_id, redirect_uri, err)
                 }))
                 DispatchQueue.main.async { completionHandler(config, nil) }
             } catch {
@@ -28,11 +28,11 @@ open class FxAConfig: MovableRustOpaquePointer {
     /// and parsing the newly fetched configuration object.
     ///
     /// Note: `content_base` shall not have a trailing slash.
-    open class func custom(content_base: String, completionHandler: @escaping (FxAConfig?, Error?) -> Void) {
+    open class func custom(content_base: String, client_id: String, redirect_uri: String, completionHandler: @escaping (FxAConfig?, Error?) -> Void) {
         queue.async {
             do {
                 let config = FxAConfig(raw: try FxAError.unwrap({err in
-                    fxa_get_custom_config(content_base, err)
+                    fxa_get_custom_config(content_base, client_id, redirect_uri, err)
                 }))
                 DispatchQueue.main.async { completionHandler(config, nil) }
             } catch {
@@ -61,10 +61,10 @@ open class FirefoxAccount: RustOpaquePointer {
     /// therefore should use `init`.
     /// Please note that the `FxAConfig` provided will be consumed and therefore
     /// should not be re-used.
-    open class func from(config: FxAConfig, clientId: String, redirectUri: String, webChannelResponse: String) throws -> FirefoxAccount {
+    open class func from(config: FxAConfig, webChannelResponse: String) throws -> FirefoxAccount {
         return try queue.sync(execute: {
             let pointer = try FxAError.unwrap({err in
-                fxa_from_credentials(try config.movePointer(), clientId, redirectUri, webChannelResponse, err)
+                fxa_from_credentials(try config.movePointer(), webChannelResponse, err)
             })
             return FirefoxAccount(raw: pointer)
         })
@@ -83,10 +83,10 @@ open class FirefoxAccount: RustOpaquePointer {
     /// OAuth Flow.
     /// Please note that the `FxAConfig` provided will be consumed and therefore
     /// should not be re-used.
-    public convenience init(config: FxAConfig, clientId: String, redirectUri: String) throws {
+    public convenience init(config: FxAConfig) throws {
         let pointer = try queue.sync(execute: {
             return try FxAError.unwrap({err in
-                fxa_new(try config.movePointer(), clientId, redirectUri, err)
+                fxa_new(try config.movePointer(), err)
             })
         })
         self.init(raw: pointer)
@@ -157,6 +157,14 @@ open class FirefoxAccount: RustOpaquePointer {
         return try queue.sync(execute: {
             return URL(string: String(freeingFxaString: try FxAError.unwrap({err in
                 fxa_get_token_server_endpoint_url(self.raw, err)
+            })))!
+        })
+    }
+
+    open func getConnectionSuccessURL() throws -> URL {
+        return try queue.sync(execute: {
+            return URL(string: String(freeingFxaString: try FxAError.unwrap({err in
+                fxa_get_connection_success_url(self.raw, err)
             })))!
         })
     }

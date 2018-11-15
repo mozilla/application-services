@@ -12,16 +12,16 @@ class FirefoxAccount : RustObject<RawFxAccount> {
     internal constructor(rawPointer: RawFxAccount): super(rawPointer)
 
     /**
-     * Create a FirefoxAccount using the given config, client id, and redirect uri.
+     * Create a FirefoxAccount using the given config.
      *
      * If the config is passed into this method, calling `close` on it is no longer required
      * (but may be done if desired).
      *
      * This does not make network requests, and can be used on the main thread.
      */
-    constructor(config: Config, clientId: String, redirectUri: String)
+    constructor(config: Config)
     : this(config.rustCall { e ->
-        FxaClient.INSTANCE.fxa_new(config.consumePointer(), clientId, redirectUri, e)
+        FxaClient.INSTANCE.fxa_new(config.consumePointer(), e)
     })
 
     override fun destroy(p: RawFxAccount) {
@@ -96,6 +96,17 @@ class FirefoxAccount : RustObject<RawFxAccount> {
     fun getTokenServerEndpointURL(): String {
         return rustCall { e ->
             FxaClient.INSTANCE.fxa_get_token_server_endpoint_url(validPointer(), e)
+        }.getAndConsumeString()
+    }
+
+    /**
+     * Fetches the connection success url.
+     *
+     * This does not make network requests, and can be used on the main thread.
+     */
+    fun getConnectionSuccessURL(): String {
+        return rustCall { e ->
+            FxaClient.INSTANCE.fxa_get_connection_success_url(validPointer(), e)
         }.getAndConsumeString()
     }
 

@@ -78,8 +78,6 @@ lazy_static! {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct StateV2 {
-    client_id: String,
-    redirect_uri: String,
     config: Config,
     #[cfg(feature = "browserid")]
     login_state: LoginState,
@@ -154,10 +152,8 @@ impl FirefoxAccount {
         }
     }
 
-    pub fn new(config: Config, client_id: &str, redirect_uri: &str) -> FirefoxAccount {
+    pub fn new(config: Config) -> FirefoxAccount {
         FirefoxAccount::from_state(StateV2 {
-            client_id: client_id.to_string(),
-            redirect_uri: redirect_uri.to_string(),
             config,
             #[cfg(feature = "browserid")]
             login_state: Unknown,
@@ -171,8 +167,6 @@ impl FirefoxAccount {
     #[cfg(feature = "browserid")]
     pub fn from_credentials(
         config: Config,
-        client_id: &str,
-        redirect_uri: &str,
         credentials: WebChannelResponse,
     ) -> Result<FirefoxAccount> {
         let session_token = hex::decode(credentials.session_token)?;
@@ -192,8 +186,6 @@ impl FirefoxAccount {
         };
 
         Ok(FirefoxAccount::from_state(StateV2 {
-            client_id: client_id.to_string(),
-            redirect_uri: redirect_uri.to_string(),
             config,
             login_state,
             refresh_token: None,
@@ -243,7 +235,6 @@ impl FirefoxAccount {
                 if refresh_token.scopes.contains(scope) {
                     let client = Client::new(&self.state.config);
                     resp = client.oauth_token_with_refresh_token(
-                        &self.state.client_id,
                         &refresh_token.token,
                         &[scope],
                     )?;
@@ -258,7 +249,6 @@ impl FirefoxAccount {
                     {
                         let client = Client::new(&self.state.config);
                         resp = client.oauth_token_with_session_token(
-                            &self.state.client_id,
                             session_token,
                             &[scope],
                         )?;
@@ -329,8 +319,8 @@ impl FirefoxAccount {
         let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         url.query_pairs_mut()
-            .append_pair("client_id", &self.state.client_id)
-            .append_pair("redirect_uri", &self.state.redirect_uri)
+            .append_pair("client_id", &self.state.config.client_id)
+            .append_pair("redirect_uri", &self.state.config.redirect_uri)
             .append_pair("scope", &scopes.join(" "))
             .append_pair("state", &state)
             .append_pair("code_challenge_method", "S256")
@@ -365,7 +355,7 @@ impl FirefoxAccount {
                 None => return Err(ErrorKind::UnknownOAuthState.into()),
             };
             let client = Client::new(&self.state.config);
-            resp = client.oauth_token_with_code(&code, &flow.code_verifier, &self.state.client_id)?;
+            resp = client.oauth_token_with_code(&code, &flow.code_verifier)?;
         }
         let oauth_flow = match self.flow_store.remove(state) {
             Some(oauth_flow) => oauth_flow,
@@ -498,6 +488,12 @@ impl FirefoxAccount {
         self.state.config.token_server_endpoint_url()
     }
 
+    pub fn get_connection_success_url(&self) -> Result<Url> {
+        let mut url = self.state.config.content_url_path("connect_another_device")?;
+        url.query_pairs_mut().append_pair("showSuccessMessage", "true");
+        Ok(url)
+    }
+
     pub fn handle_push_message(&self) {
         panic!("Not implemented yet!")
     }
@@ -579,7 +575,7 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize() {
-        let fxa1 = FirefoxAccount::new(Config::stable_dev().unwrap(), "12345678", "https://foo.bar");
+        let fxa1 = FirefoxAccount::new(Config::stable_dev("12345678", "https://foo.bar").unwrap());
         let fxa1_json = fxa1.to_json().unwrap();
         drop(fxa1);
         let fxa2 = FirefoxAccount::from_json(&fxa1_json).unwrap();
@@ -589,7 +585,7 @@ mod tests {
 
     #[test]
     fn test_oauth_flow_url() {
-        let mut fxa = FirefoxAccount::new(Config::release().unwrap(), "12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::new(Config::release("12345678", "https://foo.bar").unwrap());
         let url = fxa.begin_oauth_flow(&["profile"], false).unwrap();
         let flow_url = Url::parse(&url).unwrap();
 
@@ -615,7 +611,7 @@ mod tests {
 
     #[test]
     fn test_oauth_flow_url_with_keys() {
-        let mut fxa = FirefoxAccount::new(Config::release().unwrap(), "12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::new(Config::release("12345678", "https://foo.bar").unwrap());
         let url = fxa.begin_oauth_flow(&["profile"], true).unwrap();
         let flow_url = Url::parse(&url).unwrap();
 
@@ -648,7 +644,7 @@ mod tests {
         static PAIRING_URL: &'static str = "https://accounts.firefox.com/pair#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
         static EXPECTED_URL: &'static str = "https://accounts.firefox.com/pair/supp?client_id=12345678&redirect_uri=https%3A%2F%2Ffoo.bar&scope=https%3A%2F%2Fidentity.mozilla.com%2Fapps%2Foldsync&state=SmbAA_9EA5v1R2bgIPeWWw&code_challenge_method=S256&code_challenge=ZgHLPPJ8XYbXpo7VIb7wFw0yXlTa6MUOVfGiADt0JSM&access_type=offline&keys_jwk=eyJjcnYiOiJQLTI1NiIsImt0eSI6IkVDIiwieCI6Ing5LUltQjJveDM0LTV6c1VmbW5sNEp0Ti14elV2eFZlZXJHTFRXRV9BT0kiLCJ5IjoiNXBKbTB3WGQ4YXdHcm0zREl4T1pWMl9qdl9tZEx1TWlMb1RkZ1RucWJDZyJ9#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
 
-        let mut fxa = FirefoxAccount::new(Config::release().unwrap(), "12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::new(Config::release("12345678", "https://foo.bar").unwrap());
         let url = fxa.begin_pairing_flow(&PAIRING_URL, &SCOPES).unwrap();
         let flow_url = Url::parse(&url).unwrap();
         let expected_parsed_url = Url::parse(EXPECTED_URL).unwrap();
@@ -678,7 +674,7 @@ mod tests {
     #[test]
     fn test_pairing_flow_origin_mismatch() {
         static PAIRING_URL: &'static str = "https://bad.origin.com/pair#channel_id=foo&channel_key=bar";
-        let mut fxa = FirefoxAccount::new(Config::release().unwrap(), "12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::new(Config::release("12345678", "https://foo.bar").unwrap());
         let url = fxa.begin_pairing_flow(&PAIRING_URL, &["https://identity.mozilla.com/apps/oldsync"]);
 
         assert!(url.is_err());
@@ -690,5 +686,13 @@ mod tests {
                 _ => panic!("error not OriginMismatch")
             }
         }
+    }
+
+    #[test]
+    fn test_get_connection_success_url() {
+        let fxa =
+            FirefoxAccount::new(Config::stable_dev("12345678", "https://foo.bar").unwrap());
+        let url = fxa.get_connection_success_url().unwrap().to_string();
+        assert_eq!(url, "https://stable.dev.lcip.org/connect_another_device?showSuccessMessage=true".to_string());
     }
 }

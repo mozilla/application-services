@@ -68,7 +68,7 @@ fn load_or_create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
 }
 
 fn create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
-    let mut acct = FirefoxAccount::new(cfg, CLIENT_ID, REDIRECT_URI);
+    let mut acct = FirefoxAccount::new(cfg);
     let oauth_uri = acct.begin_oauth_flow(&[SYNC_SCOPE], true)?;
 
     if let Err(_) = webbrowser::open(&oauth_uri.as_ref()) {
@@ -352,7 +352,7 @@ fn main() -> Result<()> {
     debug!("Using credential file = {:?}, db = {:?}", cred_file, db_path);
 
     // TODO: allow users to use stage/etc.
-    let cfg = Config::import_from(CONTENT_BASE)?;
+    let cfg = Config::import_from(CONTENT_BASE, CLIENT_ID, REDIRECT_URI)?;
     let tokenserver_url = cfg.token_server_endpoint_url()?;
 
     // TODO: we should probably set a persist callback on acct?

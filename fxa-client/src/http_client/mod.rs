@@ -182,7 +182,6 @@ impl<'a> Client<'a> {
     #[cfg(feature = "browserid")]
     pub fn oauth_token_with_session_token(
         &self,
-        client_id: &str,
         session_token: &[u8],
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse> {
@@ -192,7 +191,7 @@ impl<'a> Client<'a> {
         let assertion = jwt_utils::create_assertion(&key_pair, &certificate, &audience)?;
         let parameters = json!({
           "assertion": assertion,
-          "client_id": client_id,
+          "client_id": self.config.client_id,
           "response_type": "token",
           "scope": scopes.join(" ")
         });
@@ -208,11 +207,10 @@ impl<'a> Client<'a> {
         &self,
         code: &str,
         code_verifier: &str,
-        client_id: &str,
     ) -> Result<OAuthTokenResponse> {
         let body = json!({
             "code": code,
-            "client_id": client_id,
+            "client_id": self.config.client_id,
             "code_verifier": code_verifier
         });
         self.make_oauth_token_request(body)
@@ -220,13 +218,12 @@ impl<'a> Client<'a> {
 
     pub fn oauth_token_with_refresh_token(
         &self,
-        client_id: &str,
         refresh_token: &str,
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse> {
         let body = json!({
             "grant_type": "refresh_token",
-            "client_id": client_id,
+            "client_id": self.config.client_id,
             "refresh_token": refresh_token,
             "scope": scopes.join(" ")
         });

@@ -63,8 +63,6 @@ impl From<StateV1> for Result<StateV2> {
                 scopes: HashSet::from_iter(token.scopes.iter().map(|s| s.to_string())),
             });
         Ok(StateV2 {
-            client_id: state.client_id,
-            redirect_uri: state.redirect_uri,
             config: Config::new(
                 state.config.content_url,
                 state.config.auth_url,
@@ -76,6 +74,8 @@ impl From<StateV1> for Result<StateV2> {
                 state.config.jwks_uri,
                 state.config.token_endpoint,
                 state.config.userinfo_endpoint,
+                state.client_id,
+                state.redirect_uri,
             ),
             #[cfg(feature = "browserid")]
             login_state: super::login_sm::LoginState::Unknown,
