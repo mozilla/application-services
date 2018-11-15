@@ -107,5 +107,7 @@ impl_from_error! {
 pub enum InvalidPlaceInfo {
     #[fail(display = "No url specified")]
     NoUrl,
+    #[fail(display = "Invalid guid")]
+    InvalidGuid,
 }
 

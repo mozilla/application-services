@@ -56,6 +56,7 @@ mod util;
 #[cfg(feature = "ffi")]
 pub mod ffi;
 mod match_impl;
+mod valid_guid;
 
 pub use error::*;
 pub use types::*;

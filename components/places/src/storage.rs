@@ -71,8 +71,8 @@ pub struct PageInfo {
 impl PageInfo {
     pub fn from_row(row: &Row) -> Result<Self> {
         Ok(Self {
-            url: Url::parse(&row.get_checked::<_, Option<String>>("url")?.expect("non null column"))?,
-            guid: SyncGuid(row.get_checked::<_, Option<String>>("guid")?.expect("non null column")),
+            url: Url::parse(&row.get_checked::<_, String>("url")?)?,
+            guid: SyncGuid(row.get_checked::<_, String>("guid")?),
             row_id: row.get_checked("id")?,
             title: row.get_checked::<_, Option<String>>("title")?.unwrap_or_default(),
             hidden: row.get_checked("hidden")?,
@@ -308,8 +308,8 @@ pub mod history_sync {
     impl FetchedVisitPage {
         pub fn from_row(row: &Row) -> Result<Self> {
             Ok(Self {
-                url: Url::parse(&row.get_checked::<_, Option<String>>("url")?.expect("non null column"))?,
-                guid: SyncGuid(row.get_checked::<_, Option<String>>("guid")?.expect("non null column")),
+                url: Url::parse(&row.get_checked::<_, String>("url")?)?,
+                guid: SyncGuid(row.get_checked::<_, String>("guid")?),
                 row_id: row.get_checked("id")?,
                 title: row.get_checked::<_, Option<String>>("title")?.unwrap_or_default(),
             })
@@ -346,7 +346,7 @@ pub mod history_sync {
                                new_guid: &SyncGuid,
                                existing_guid: &Option<SyncGuid>,
                                url: &Url, title: &Option<String>,
-                               visits: &Vec<HistoryRecordVisit>) -> Result<()> {
+                               visits: &[HistoryRecordVisit]) -> Result<()> {
         let page_info = match fetch_page_info(db, &url)? {
             Some(info) => {
                 assert_eq!(info.page.guid, *new_guid);
@@ -366,10 +366,7 @@ pub mod history_sync {
         update_frecency(&db, page_info.row_id, None)?;
 
         // and the place itself if necessary.
-        let new_title: &String = match title {
-            Some(title) => title,
-            None => &page_info.title,
-        };
+        let new_title = title.as_ref().unwrap_or(&page_info.title);
         // We set the Status to Normal, otherwise we will re-upload it as
         // outgoing even if nothing has changed.
         db.execute_named_cached(
@@ -426,7 +423,7 @@ pub mod history_sync {
         Tombstone,
     }
 
-    pub fn fetch_outgoing(db: &impl ConnExt,
+    pub fn fetch_outgoing(db: &Connection,
                           max_places: usize,
                           max_visits: usize) -> Result<HashMap<SyncGuid, OutgoingInfo>> {
         // Note that we want *all* "new" regardless of change counter,
@@ -482,7 +479,7 @@ pub mod history_sync {
 
         let rows = stmt.query_and_then_named(&[(":max_places",&(max_places_left as u32))],
                                              PageInfo::from_row)?;
-        let mut ids_to_update = Vec::with_capacity(rows.size_hint().1.unwrap_or(500));
+        let mut ids_to_update = Vec::new();
         for t in rows {
             let page = t?;
             let visit_rows = visits.query_map_named(&[(":max_visits", &(max_visits as u32)),
@@ -533,7 +530,7 @@ pub mod history_sync {
         Ok(result)
     }
 
-    pub fn finish_outgoing(db: &impl ConnExt) -> Result<()> {
+    pub fn finish_outgoing(db: &Connection) -> Result<()> {
         // So all items *other* than those above must be set to "not dirty"
         // (ie, status=SyncStatus::Normal, change_counter=0). Otherwise every
         // subsequent sync will continue to add more and more local visits
@@ -567,7 +564,7 @@ pub mod history_sync {
         Ok(())
     }
 
-    pub fn reset_storage(db: &impl ConnExt) -> Result<()> {
+    pub fn reset_storage(db: &Connection) -> Result<()> {
         db.conn().execute_cached(
             &format!("
                 UPDATE moz_places

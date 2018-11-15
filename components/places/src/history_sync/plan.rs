@@ -23,6 +23,7 @@ use storage::history_sync::{
     finish_outgoing,
     OutgoingInfo,
 };
+use valid_guid::{is_valid_places_guid};
 
 use api::history::{can_add_url};
 use error::*;
@@ -73,6 +74,11 @@ fn plan_incoming_record(conn: &Connection, record: HistoryRecord, max_visits: us
         Ok(u) => u,
         Err(e) => return IncomingPlan::Invalid(e.into()),
     };
+
+    if !is_valid_places_guid(record.id.as_ref()) {
+        return IncomingPlan::Invalid(InvalidPlaceInfo::InvalidGuid.into());
+    }
+
     match can_add_url(&url) {
         Ok(can) => if !can { return IncomingPlan::Skip },
         Err(e) => return IncomingPlan::Failed(e.into()),
@@ -91,7 +97,7 @@ fn plan_incoming_record(conn: &Connection, record: HistoryRecord, max_visits: us
     };
 
     let mut old_guid: Option<SyncGuid> = None;
-    let mut cur_visit_map: HashSet<(VisitTransition, Timestamp)> = HashSet::new();
+    let mut cur_visit_map: HashSet<(VisitTransition, Timestamp)> = HashSet::with_capacity(existing_visits.len());
     if let Some(p) = &existing_page {
         if p.guid != record.id {
             old_guid = Some(p.guid.clone());
@@ -274,10 +280,28 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid() -> Result<()> {
+    fn test_invalid_guid() -> Result<()> {
         let _ = env_logger::try_init();
         let conn = PlacesDb::open_in_memory(None)?;
         let record = HistoryRecord { id: SyncGuid("foo".to_string()),
+                                     title: "title".into(),
+                                     hist_uri: "http://example.com".into(),
+                                     sortindex: 0,
+                                     ttl: 100,
+                                     visits: vec![]};
+
+        assert!(match plan_incoming_record(&conn, record, 10) {
+            IncomingPlan::Invalid(_) => true,
+            _ => false
+        });
+        Ok(())
+    }
+
+    #[test]
+    fn test_invalid_url() -> Result<()> {
+        let _ = env_logger::try_init();
+        let conn = PlacesDb::open_in_memory(None)?;
+        let record = HistoryRecord { id: SyncGuid("aaaaaaaaaaaa".to_string()),
                                      title: "title".into(),
                                      hist_uri: "invalid".into(),
                                      sortindex: 0,
@@ -297,7 +321,7 @@ mod tests {
         let conn = PlacesDb::open_in_memory(None)?;
         let visits = vec![HistoryRecordVisit {date: SystemTime::now().into(),
                                               transition: 1}];
-        let record = HistoryRecord { id: SyncGuid("foo".to_string()),
+        let record = HistoryRecord { id: SyncGuid("aaaaaaaaaaaa".to_string()),
                                      title: "title".into(),
                                      hist_uri: "https://example.com".into(),
                                      sortindex: 0,
@@ -382,7 +406,7 @@ mod tests {
         let _ = env_logger::try_init();
         let now: Timestamp = SystemTime::now().into();
         let json = json!({
-            "id": "foo",
+            "id": "aaaaaaaaaaaa",
             "title": "title",
             "histUri": "http://example.com",
             "sortindex": 0,
