@@ -38,7 +38,7 @@ cargo {
     // Where Cargo writes its outputs.
     targetDirectory = '../../../../target'
 
-    libname = 'libfxa_client'
+    libname = 'fxaclient_ffi'
 
     // The Cargo targets to invoke.  The mapping from short name to target
     // triple is defined by the `rust-android-gradle` plugin.
@@ -80,8 +80,6 @@ afterEvaluate {
         // tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["cargoBuild"])
     }
 }
-
-archivesBaseName = 'fxaclient'
 
 apply from: '../../../../publish.gradle'
 ext.configurePublish(

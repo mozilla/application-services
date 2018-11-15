@@ -244,6 +244,21 @@ impl<'a> Client<'a> {
         Client::make_request(request)?.json().map_err(|e| e.into())
     }
 
+    pub fn destroy_oauth_token(&self, token: &str) -> Result<()> {
+        let body = json!({
+            "token": token,
+        });
+        let url = self.config.oauth_url_path("v1/destroy")?;
+        let client = ReqwestClient::new();
+        let request = client
+            .request(Method::POST, url)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(body.to_string())
+            .build()?;
+        Client::make_request(request)?;
+        Ok(())
+    }
+
     #[cfg(feature = "browserid")]
     pub fn sign(&self, session_token: &[u8], key_pair: &BrowserIDKeyPair) -> Result<SignResponse> {
         let public_key_json = key_pair.to_json(false)?;

@@ -1,3 +1,6 @@
+// See https://docs.gradle.org/current/userguide/publishing_maven.html#publishing_maven:deferred_configuration.
+enableFeaturePreview('STABLE_PUBLISHING')
+
 include ':fxa-client-library'
 include ':logins-library'
 include ':places-library'

@@ -94,19 +94,20 @@ class FxAView: UIViewController, WKNavigationDelegate {
         var dic = [String: String]()
         components.queryItems?.forEach { dic[$0.name] = $0.value }
         self.fxa!.completeOAuthFlow(code: dic["code"]!, state: dic["state"]!) { result, error in
-            guard let oauthInfo = result else { return }
-            print("access_token: " + oauthInfo.accessToken)
-            if let keys = oauthInfo.keys {
-                print("keysJWE: " + keys)
-            }
-            print("obtained scopes: " + oauthInfo.scopes.joined(separator: " "))
-            self.fxa!.getProfile() { result, error in
-                guard let profile = result else {
-                    assert(false, "ok something's really wrong there")
-                    return
+            self.fxa!.getAccessToken(scope: "https://identity.mozilla.com/apps/oldsync") { result, error in
+                guard let tokenInfo = result else { return }
+                print("access_token: " + tokenInfo.token)
+                if let key = tokenInfo.key {
+                    print("key: " + key)
                 }
-                DispatchQueue.main.async {
-                    self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
+                self.fxa!.getProfile() { result, error in
+                    guard let profile = result else {
+                        assert(false, "ok something's really wrong there")
+                        return
+                    }
+                    DispatchQueue.main.async {
+                        self.navigationController?.pushViewController(ProfileView(email: profile.email), animated: true)
+                    }
                 }
             }
         }

@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 
 [lib]
-name = "loginsapi_ffi"
+name = "logins_ffi"
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]

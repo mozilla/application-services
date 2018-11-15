@@ -3,8 +3,6 @@ apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
-apply plugin: 'com.github.dcendents.android-maven'
-
 android {
     compileSdkVersion 27
 
@@ -44,7 +42,7 @@ cargo {
     // Where Cargo writes its outputs.
     targetDirectory = '../../../../target'
 
-    libname = 'libplaces_ffi'
+    libname = 'places_ffi'
 
     // The Cargo targets to invoke.  The mapping from short name to target
     // triple is defined by the `rust-android-gradle` plugin.
@@ -117,10 +115,10 @@ afterEvaluate {
     }
 }
 
-archivesBaseName = 'places'
-
 apply from: '../../../../publish.gradle'
 ext.configurePublish(
         'org.mozilla.places',
         'places',
-        'Low level places storage implementation.')
+        'Low level places storage implementation.',
+        configurations.jnaForTest,
+)

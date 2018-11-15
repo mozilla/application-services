@@ -3,8 +3,6 @@ apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
-apply plugin: 'com.github.dcendents.android-maven'
-
 android {
     compileSdkVersion 27
 
@@ -44,7 +42,7 @@ cargo {
     // Where Cargo writes its outputs.
     targetDirectory = '../../../target'
 
-    libname = 'libloginsapi_ffi'
+    libname = 'logins_ffi'
 
     // The Cargo targets to invoke.  The mapping from short name to target
     // triple is defined by the `rust-android-gradle` plugin.
@@ -100,7 +98,6 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
 }
 
-
 afterEvaluate {
     // The `cargoBuild` task isn't available until after evaluation.
     android.libraryVariants.all { variant ->
@@ -116,10 +113,10 @@ afterEvaluate {
     }
 }
 
-archivesBaseName = 'logins'
-
 apply from: '../../../publish.gradle'
 ext.configurePublish(
         'org.mozilla.sync15',
         'logins',
-        'Sync 1.5 logins implementation.')
+        'Sync 1.5 logins implementation.',
+        configurations.jnaForTest,
+)

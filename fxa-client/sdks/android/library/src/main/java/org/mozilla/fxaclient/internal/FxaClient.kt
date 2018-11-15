@@ -13,7 +13,7 @@ import java.lang.reflect.Proxy
 @Suppress("FunctionNaming", "TooManyFunctions", "TooGenericExceptionThrown")
 internal interface FxaClient : Library {
     companion object {
-        private const val JNA_LIBRARY_NAME = "fxa_client"
+        private const val JNA_LIBRARY_NAME = "fxaclient_ffi"
         internal var INSTANCE: FxaClient
 
         init {
@@ -65,15 +65,15 @@ internal interface FxaClient : Library {
 
     fun fxa_get_token_server_endpoint_url(fxa: RawFxAccount, e: Error.ByReference): Pointer?
 
-    fun fxa_complete_oauth_flow(fxa: RawFxAccount, code: String, state: String, e: Error.ByReference): OAuthInfo.Raw?
-    fun fxa_get_oauth_token(fxa: RawFxAccount, scope: String, e: Error.ByReference): OAuthInfo.Raw?
+    fun fxa_complete_oauth_flow(fxa: RawFxAccount, code: String, state: String, e: Error.ByReference)
+    fun fxa_get_access_token(fxa: RawFxAccount, scope: String, e: Error.ByReference): AccessTokenInfo.Raw?
 
     fun fxa_config_free(config: RawConfig)
     fun fxa_str_free(string: Pointer)
     fun fxa_free(fxa: RawFxAccount)
 
-    // In theory these would take `OAuthInfo.Raw.ByReference` (and etc), but
-    // the rust functions that return these return `OAuthInfo.Raw` and not
+    // In theory these would take `AccessTokenInfo.Raw.ByReference` (and etc), but
+    // the rust functions that return these return `AccessTokenInfo.Raw` and not
     // the ByReference subtypes. So I'm not sure there's a way to do this
     // when using Structure.
     fun fxa_oauth_info_free(ptr: Pointer)

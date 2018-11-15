@@ -293,10 +293,7 @@ pub unsafe extern "C" fn fxa_begin_oauth_flow(
     })
 }
 
-/// Finish an OAuth flow initiated by [fxa_begin_oauth_flow] and returns token/keys.
-///
-/// This resulting token might not have all the `scopes` the caller have requested (e.g. the user
-/// might have denied some of them): it is the responsibility of the caller to accomodate that.
+/// Finish an OAuth flow initiated by [fxa_begin_oauth_flow].
 ///
 /// # Safety
 ///
@@ -308,20 +305,18 @@ pub unsafe extern "C" fn fxa_complete_oauth_flow(
     code: *const c_char,
     state: *const c_char,
     error: &mut ExternError,
-) -> *mut OAuthInfoC {
+) {
     call_with_result(error, || {
         let code = rust_str_from_c(code);
         let state = rust_str_from_c(state);
         fxa.complete_oauth_flow(code, state)
-    })
+    });
 }
 
-/// Try to get a previously obtained cached token.
+/// Try to get an access token.
 ///
-/// If the token is expired, the system will try to refresh it automatically using
-/// a `refresh_token` or `session_token`.
-///
-/// If the system can't find a suitable token but has a `session_token`, it will generate a new one on the go.
+/// If the system can't find a suitable token but has a `refresh token` or a `session_token`,
+/// it will generate a new one on the go.
 ///
 /// If not, the caller must start an OAuth flow with [fxa_begin_oauth_flow].
 ///
@@ -330,15 +325,14 @@ pub unsafe extern "C" fn fxa_complete_oauth_flow(
 /// A destructor [fxa_oauth_info_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub unsafe extern "C" fn fxa_get_oauth_token(
+pub unsafe extern "C" fn fxa_get_access_token(
     fxa: &mut FirefoxAccount,
     scope: *const c_char,
     error: &mut ExternError,
-) -> *mut OAuthInfoC {
+) -> *mut AccessTokenInfoC {
     call_with_result(error, || {
         let scope = rust_str_from_c(scope);
-        let scopes: Vec<&str> = scope.split(" ").collect();
-        fxa.get_oauth_token(&scopes)
+        fxa.get_access_token(&scope)
     })
 }
 
@@ -346,6 +340,6 @@ define_string_destructor!(fxa_str_free);
 
 define_box_destructor!(FirefoxAccount, fxa_free);
 define_box_destructor!(Config, fxa_config_free);
-define_box_destructor!(OAuthInfoC, fxa_oauth_info_free);
+define_box_destructor!(AccessTokenInfoC, fxa_oauth_info_free);
 define_box_destructor!(ProfileC, fxa_profile_free);
 define_box_destructor!(SyncKeysC, fxa_sync_keys_free);

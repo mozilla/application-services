@@ -4,7 +4,7 @@ buildscript {
     ext.kotlin_version = '1.2.50'
 
     ext.library = [
-        version: '0.10.0'
+        version: '0.10.1'
     ]
 
     ext.build = [
@@ -25,10 +25,10 @@ buildscript {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
 
         // Publish.
-        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.7.3'
-        classpath 'com.github.dcendents:android-maven-gradle-plugin:2.1'
+        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.4'
+        classpath 'digital.wup:android-maven-publish:3.6.2'
 
-        classpath 'gradle.plugin.org.mozilla.rust-android-gradle:plugin:0.4.0'
+        classpath 'gradle.plugin.org.mozilla.rust-android-gradle:plugin:0.6.0'
 
         // Yes, this is unusual.  We want to access some host-specific
         // computation at build time.
@@ -48,6 +48,25 @@ allprojects {
     repositories {
         google()
         jcenter()
+    }
+}
+
+subprojects {
+    apply plugin: 'digital.wup.android-maven-publish'
+
+    // This allows to invoke Gradle like `./gradlew publishToRootProjectBuildDir` (equivalent to
+    // `./gradlew publish`) and also `./gradlew publishToProjectBuildDir`.
+    publishing {
+        repositories {
+            maven {
+                name = "rootProjectBuildDir"
+                url "file://${project.rootProject.buildDir}/maven"
+            }
+            maven {
+                name = "projectBuildDir"
+                url "file://${project.buildDir}/maven"
+            }
+        }
     }
 }
 
