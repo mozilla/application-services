@@ -2,6 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+def libLicense = properties.libLicense
+def libLicenseUrl = properties.libLicenseUrl
+def libRepositoryName = properties.libRepositoryName
+def libUrl = properties.libUrl
+def libVcsUrl = properties.libVcsUrl
+
 ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg, jnaForTestConfiguration = null ->
     // `jnaForTestConfiguration` is a hacky way to say yes, I'm using JNA and
     // want to pack the JNA dispatch libraries and my Rust libraries into a
@@ -74,8 +80,8 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg, jnaForTestCo
 
                     licenses {
                         license {
-                            name = properties.libLicense
-                            url = properties.libLicenseUrl
+                            name = libLicense
+                            url = libLicenseUrl
                         }
                     }
 
@@ -87,9 +93,9 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg, jnaForTestCo
                     }
 
                     scm {
-                        connection = properties.libVcsUrl
-                        developerConnection = properties.libVcsUrl
-                        url = properties.libUrl
+                        connection = libVcsUrl
+                        developerConnection = libVcsUrl
+                        url = libUrl
                     }
                 }
             }
@@ -106,8 +112,8 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg, jnaForTestCo
 
                         licenses {
                             license {
-                                name = properties.libLicense
-                                url = properties.libLicenseUrl
+                                name = libLicense
+                                url = libLicenseUrl
                             }
                         }
 
@@ -119,9 +125,9 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg, jnaForTestCo
                         }
 
                         scm {
-                            connection = properties.libVcsUrl
-                            developerConnection = properties.libVcsUrl
-                            url = properties.libUrl
+                            connection = libVcsUrl
+                            developerConnection = libVcsUrl
+                            url = libUrl
                         }
                     }
 
@@ -159,15 +165,15 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg, jnaForTestCo
         }
 
         pkg {
-            repo = properties.libRepositoryName
+            repo = libRepositoryName
             name = artifactIdArg
             desc = descriptionArg
-            websiteUrl = properties.libUrl
-            vcsUrl = properties.libVcsUrl
+            websiteUrl = libUrl
+            vcsUrl = libVcsUrl
             if (project.ext.has('vcsTag')) {
                 vcsTag = project.ext.vcsTag
             }
-            licenses = [properties.libLicense]
+            licenses = [libLicense]
             publish = true
             publicDownloadNumbers = true
         }
