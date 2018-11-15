@@ -38,7 +38,7 @@ cargo {
     // Where Cargo writes its outputs.
     targetDirectory = '../../../../target'
 
-    libname = 'libfxaclient_ffi'
+    libname = 'fxaclient_ffi'
 
     // The Cargo targets to invoke.  The mapping from short name to target
     // triple is defined by the `rust-android-gradle` plugin.
