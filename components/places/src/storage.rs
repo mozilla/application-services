@@ -323,7 +323,7 @@ pub mod history_sync {
           FROM moz_places h
           WHERE url_hash = hash(:url) AND url = :url";
 
-        let page_info = match db.try_query_row(page_sql, &[(":url", &url.clone().into_string())], FetchedVisitPage::from_row, true)? {
+        let page_info = match db.try_query_row(page_sql, &[(":url", &url.to_string())], FetchedVisitPage::from_row, true)? {
             None => return Ok(None),
             Some(pi) => pi,
         };
@@ -457,7 +457,7 @@ pub mod history_sync {
         for r in ts_rows {
             let guid = r?;
             trace!("outgoing tombstone {:?}", &guid);
-            result.insert(guid.clone(), OutgoingInfo::Tombstone);
+            result.insert(guid, OutgoingInfo::Tombstone);
         }
 
         // Max records is now limited by how many tombstones we found.
