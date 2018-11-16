@@ -62,7 +62,7 @@ impl Config {
         token_endpoint: String,
         userinfo_endpoint: String
     ) -> Self {
-        Config {
+        Self {
             content_url,
             auth_url,
             oauth_url,
@@ -83,7 +83,7 @@ impl Config {
         let openid_config_url = Url::parse(content_url)?.join(".well-known/openid-configuration")?;
         let openid_resp: OpenIdConfigurationResponse = reqwest::get(openid_config_url)?.json()?;
 
-        Ok(Config {
+        Ok(Self {
             content_url: content_url.to_string(),
             auth_url: format!("{}/", resp.auth_server_base_url),
             oauth_url: format!("{}/", resp.oauth_server_base_url),

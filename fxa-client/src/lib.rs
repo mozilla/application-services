@@ -145,8 +145,8 @@ impl PersistCallback {
 }
 
 impl FirefoxAccount {
-    fn from_state(state: StateV2) -> FirefoxAccount {
-        FirefoxAccount {
+    fn from_state(state: StateV2) -> Self {
+        Self {
             state,
             access_token_cache: HashMap::new(),
             flow_store: HashMap::new(),
@@ -155,8 +155,8 @@ impl FirefoxAccount {
         }
     }
 
-    pub fn new(config: Config, client_id: &str, redirect_uri: &str) -> FirefoxAccount {
-        FirefoxAccount::from_state(StateV2 {
+    pub fn new(config: Config, client_id: &str, redirect_uri: &str) -> Self {
+        Self::from_state(StateV2 {
             client_id: client_id.to_string(),
             redirect_uri: redirect_uri.to_string(),
             config,
@@ -175,7 +175,7 @@ impl FirefoxAccount {
         client_id: &str,
         redirect_uri: &str,
         credentials: WebChannelResponse,
-    ) -> Result<FirefoxAccount> {
+    ) -> Result<Self> {
         let session_token = hex::decode(credentials.session_token)?;
         let key_fetch_token = hex::decode(credentials.key_fetch_token)?;
         let unwrap_kb = hex::decode(credentials.unwrap_kb)?;
@@ -192,7 +192,7 @@ impl FirefoxAccount {
             EngagedBeforeVerified(login_state_data)
         };
 
-        Ok(FirefoxAccount::from_state(StateV2 {
+        Ok(Self::from_state(StateV2 {
             client_id: client_id.to_string(),
             redirect_uri: redirect_uri.to_string(),
             config,
@@ -202,9 +202,9 @@ impl FirefoxAccount {
         }))
     }
 
-    pub fn from_json(data: &str) -> Result<FirefoxAccount> {
+    pub fn from_json(data: &str) -> Result<Self> {
         let state = state_persistence::state_from_json(data)?;
-        Ok(FirefoxAccount::from_state(state))
+        Ok(Self::from_state(state))
     }
 
     pub fn to_json(&self) -> Result<String> {
@@ -255,7 +255,7 @@ impl FirefoxAccount {
                 #[cfg(feature = "browserid")]
                 {
                     if let Some(session_token) =
-                        FirefoxAccount::session_token_from_state(&self.state.login_state)
+                        Self::session_token_from_state(&self.state.login_state)
                     {
                         let client = Client::new(&self.state.config);
                         resp = client.oauth_token_with_session_token(
@@ -325,8 +325,8 @@ impl FirefoxAccount {
     }
 
     fn oauth_flow(&mut self, mut url: Url, scopes: &[&str], wants_keys: bool) -> Result<String> {
-        let state = FirefoxAccount::random_base64_url_string(16)?;
-        let code_verifier = FirefoxAccount::random_base64_url_string(43)?;
+        let state = Self::random_base64_url_string(16)?;
+        let code_verifier = Self::random_base64_url_string(43)?;
         let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         url.query_pairs_mut()
