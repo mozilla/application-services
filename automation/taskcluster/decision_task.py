@@ -104,13 +104,12 @@ def desktop_macos_libs():
 def android_arm32(android_libs_task, desktop_libs_task):
     return (
         linux_build_task("Android (all architectures): build and test")
-        .with_env(ANDROID_LIBS_TASK_ID=android_libs_task)
-        .with_env(DESKTOP_LIBS_TASK_ID=desktop_libs_task)
-        .with_dependencies(android_libs_task, desktop_libs_task)
+        .with_curl_artifact_script(android_libs_task, "target.tar.gz")
+        .with_script("tar -xzf target.tar.gz")
+        .with_curl_artifact_script(desktop_libs_task, "target.tar.gz")
+        .with_script("tar -xzf target.tar.gz")
         .with_script("""
             curl --silent --show-error --fail --location --retry 5 --retry-delay 10 https://github.com/mozilla/sccache/releases/download/0.2.7/sccache-0.2.7-x86_64-unknown-linux-musl.tar.gz | tar -xz --strip-components=1 -C /usr/local/bin/ sccache-0.2.7-x86_64-unknown-linux-musl/sccache
-            ./automation/taskcluster/curl-artifact.sh ${ANDROID_LIBS_TASK_ID} target.tar.gz | tar -xz
-            ./automation/taskcluster/curl-artifact.sh ${DESKTOP_LIBS_TASK_ID} target.tar.gz | tar -xz
             ./gradlew --no-daemon clean
             ./gradlew --no-daemon :fxa-client-library:testDebug :logins-library:testDebug :places-library:testDebug
             ./gradlew --no-daemon :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
@@ -126,13 +125,12 @@ def android_arm32(android_libs_task, desktop_libs_task):
 def android_arm32_release(android_libs_task, desktop_libs_task):
     return (
         linux_build_task("Android (all architectures): build and test and release")
-        .with_env(ANDROID_LIBS_TASK_ID=android_libs_task)
-        .with_env(DESKTOP_LIBS_TASK_ID=desktop_libs_task)
-        .with_dependencies(android_libs_task, desktop_libs_task)
+        .with_curl_artifact_script(android_libs_task, "target.tar.gz")
+        .with_script("tar -xzf target.tar.gz")
+        .with_curl_artifact_script(desktop_libs_task, "target.tar.gz")
+        .with_script("tar -xzf target.tar.gz")
         .with_script("""
             curl --silent --show-error --fail --location --retry 5 --retry-delay 10 https://github.com/mozilla/sccache/releases/download/0.2.7/sccache-0.2.7-x86_64-unknown-linux-musl.tar.gz | tar -xz --strip-components=1 -C /usr/local/bin/ sccache-0.2.7-x86_64-unknown-linux-musl/sccache
-            ./automation/taskcluster/curl-artifact.sh ${ANDROID_LIBS_TASK_ID} target.tar.gz | tar -xz
-            ./automation/taskcluster/curl-artifact.sh ${DESKTOP_LIBS_TASK_ID} target.tar.gz | tar -xz
             ./gradlew --no-daemon clean
             ./gradlew --no-daemon :fxa-client-library:testDebug :logins-library:testDebug :places-library:testDebug
             ./gradlew --no-daemon :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
