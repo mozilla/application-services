@@ -1,0 +1,18 @@
+[package]
+name = "sendtab-proto"
+version = "0.1.0"
+authors = ["Edouard Oger <eoger@fastmail.com>"]
+
+[dependencies.fxa-client]
+path = "../fxa-client"
+
+[dependencies]
+base64 = "0.9.3"
+dialoguer = "0.1.0"
+text_io = "0.1.7"
+sync15-adapter = { path = "../sync15-adapter" }
+url = "1.7.1"
+ece = {git = "https://github.com/eoger/rust-ece"}
+hex = "0.3.2"
+serde = "1.0"
+serde_json = "1.0"

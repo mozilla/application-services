@@ -6,6 +6,7 @@ members = [
     "sync15-adapter",
     "logins-sql",
     "logins-sql/ffi",
+    "sendtab-proto",
     "components/places",
     "components/places/ffi",
     "components/support/sql",
