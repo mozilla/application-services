@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use errors::*;
-use std::time::{SystemTime, UNIX_EPOCH};
 use ring::rand::SecureRandom;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 // Gets the unix epoch in ms.
 pub fn now() -> u64 {

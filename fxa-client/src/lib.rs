@@ -30,8 +30,7 @@ extern crate url;
 #[macro_use]
 extern crate ffi_support;
 
-use std::collections::HashMap;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 #[cfg(feature = "browserid")]
 use std::mem;
@@ -39,13 +38,14 @@ use std::panic::RefUnwindSafe;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(feature = "browserid")]
-use self::login_sm::LoginState::*;
-#[cfg(feature = "browserid")]
-use self::login_sm::*;
+use self::login_sm::{LoginState::*, *};
 use errors::*;
 #[cfg(feature = "browserid")]
 use http_client::browser_id::jwt_utils;
-use http_client::{Client, ClientInstanceResponse, ClientInstanceRequest, ClientInstanceRequestBuilder, PendingCommandsResponse, PushSubscription, ProfileResponse};
+use http_client::{
+    Client, ClientInstanceRequest, ClientInstanceRequestBuilder, ClientInstanceResponse,
+    PendingCommandsResponse, ProfileResponse, PushSubscription,
+};
 use ring::digest;
 use ring::rand::SystemRandom;
 use scoped_keys::ScopedKeysFlow;
@@ -54,15 +54,15 @@ use util::{now, random_base64_url_string};
 
 mod config;
 pub mod errors;
+#[cfg(feature = "ffi")]
+pub mod ffi;
 mod http_client;
 #[cfg(feature = "browserid")]
 mod login_sm;
-mod state_persistence;
 mod scoped_keys;
 mod scopes;
+mod state_persistence;
 mod util;
-#[cfg(feature = "ffi")]
-pub mod ffi;
 
 pub use config::Config;
 pub use http_client::ProfileResponse as Profile;
@@ -230,7 +230,7 @@ impl FirefoxAccount {
 
     pub fn get_access_token(&mut self, scope: &str) -> Result<AccessTokenInfo> {
         if scope.contains(" ") {
-            return Err(ErrorKind::MultipleScopesRequested.into())
+            return Err(ErrorKind::MultipleScopesRequested.into());
         }
         if let Some(oauth_info) = self.access_token_cache.get(scope) {
             if oauth_info.expires_at > util::now_secs() + OAUTH_MIN_TIME_LEFT {
@@ -249,7 +249,7 @@ impl FirefoxAccount {
                         &[scope],
                     )?;
                 } else {
-                    return Err(ErrorKind::NoCachedToken(scope.to_string()).into())
+                    return Err(ErrorKind::NoCachedToken(scope.to_string()).into());
                 }
             } else {
                 #[cfg(feature = "browserid")]
@@ -264,12 +264,12 @@ impl FirefoxAccount {
                             &[scope],
                         )?;
                     } else {
-                        return Err(ErrorKind::NoCachedToken(scope.to_string()).into())
+                        return Err(ErrorKind::NoCachedToken(scope.to_string()).into());
                     }
                 }
                 #[cfg(not(feature = "browserid"))]
                 {
-                    return Err(ErrorKind::NoCachedToken(scope.to_string()).into())
+                    return Err(ErrorKind::NoCachedToken(scope.to_string()).into());
                 }
             }
         }
@@ -290,7 +290,8 @@ impl FirefoxAccount {
             key,
             expires_at,
         };
-        self.access_token_cache.insert(scope.to_string(), token_info.clone());
+        self.access_token_cache
+            .insert(scope.to_string(), token_info.clone());
         Ok(token_info)
     }
 
@@ -316,8 +317,10 @@ impl FirefoxAccount {
                 all_scopes.extend(scopes.iter().map(|s| s.to_string()));
                 let existing_scopes = refresh_token.scopes.clone();
                 all_scopes.extend(existing_scopes);
-                HashSet::<String>::from_iter(all_scopes).into_iter().collect()
-            },
+                HashSet::<String>::from_iter(all_scopes)
+                    .into_iter()
+                    .collect()
+            }
             None => scopes.iter().map(|s| s.to_string()).collect(),
         };
         let scopes: Vec<&str> = scopes.iter().map(<_>::as_ref).collect();
@@ -366,7 +369,8 @@ impl FirefoxAccount {
                 None => return Err(ErrorKind::UnknownOAuthState.into()),
             };
             let client = Client::new(&self.state.config);
-            resp = client.oauth_token_with_code(&code, &flow.code_verifier, &self.state.client_id)?;
+            resp =
+                client.oauth_token_with_code(&code, &flow.code_verifier, &self.state.client_id)?;
         }
         let oauth_flow = match self.flow_store.remove(state) {
             Some(oauth_flow) => oauth_flow,
@@ -377,10 +381,16 @@ impl FirefoxAccount {
             Some(ref jwe) => {
                 let scoped_keys_flow = match oauth_flow.scoped_keys_flow {
                     Some(flow) => flow,
-                    None => return Err(ErrorKind::UnrecoverableServerError("Got a JWE without sending a JWK.").into())
+                    None => {
+                        return Err(ErrorKind::UnrecoverableServerError(
+                            "Got a JWE without sending a JWK.",
+                        )
+                        .into())
+                    }
                 };
                 let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe)?;
-                let scoped_keys: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&decrypted_keys)?;
+                let scoped_keys: serde_json::Map<String, serde_json::Value> =
+                    serde_json::from_str(&decrypted_keys)?;
                 for (scope, key) in scoped_keys {
                     self.state.scoped_keys.insert(scope.clone(), key.clone());
                 }
@@ -401,7 +411,7 @@ impl FirefoxAccount {
         }
         let refresh_token = match resp.refresh_token {
             Some(ref refresh_token) => refresh_token.clone(),
-            None => return Err(ErrorKind::RefreshTokenNotPresent.into())
+            None => return Err(ErrorKind::RefreshTokenNotPresent.into()),
         };
         // In order to keep 1 and only 1 refresh token alive per client instance,
         // we also destroy the existing refresh token.
@@ -471,9 +481,10 @@ impl FirefoxAccount {
             }
             None => match self.profile_cache {
                 Some(ref cached_profile) => Ok(cached_profile.response.clone()),
-                None => {
-                    Err(ErrorKind::UnrecoverableServerError("Got a 304 without having sent an eTag.").into())
-                }
+                None => Err(ErrorKind::UnrecoverableServerError(
+                    "Got a 304 without having sent an eTag.",
+                )
+                .into()),
             },
         }
     }
@@ -513,14 +524,21 @@ impl FirefoxAccount {
         client.pending_commands(refresh_token)
     }
 
-    pub fn invoke_command(&mut self, command: &str, target_device_id: &str, payload: &serde_json::Value) -> Result<()> {
+    pub fn invoke_command(
+        &mut self,
+        command: &str,
+        target_device_id: &str,
+        payload: &serde_json::Value,
+    ) -> Result<()> {
         let access_token = self.get_access_token(scopes::COMMANDS_WRITE)?.token;
         let client = Client::new(&self.state.config);
         client.invoke_command(&access_token, command, target_device_id, payload)
     }
 
     pub fn set_push_subscription(&self, push_subscription: PushSubscription) -> Result<()> {
-        let metadata = ClientInstanceRequestBuilder::new().push_subscription(push_subscription).build();
+        let metadata = ClientInstanceRequestBuilder::new()
+            .push_subscription(push_subscription)
+            .build();
         self.upsert_client_instance(metadata)
     }
 
@@ -552,7 +570,9 @@ impl FirefoxAccount {
     }
 
     pub fn clear_commands(&self) -> Result<()> {
-        let metadata = ClientInstanceRequestBuilder::new().clear_available_commands().build();
+        let metadata = ClientInstanceRequestBuilder::new()
+            .clear_available_commands()
+            .build();
         self.upsert_client_instance(metadata)
     }
 
@@ -631,7 +651,8 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize() {
-        let fxa1 = FirefoxAccount::new(Config::stable_dev().unwrap(), "12345678", "https://foo.bar");
+        let fxa1 =
+            FirefoxAccount::new(Config::stable_dev().unwrap(), "12345678", "https://foo.bar");
         let fxa1_json = fxa1.to_json().unwrap();
         drop(fxa1);
         let fxa2 = FirefoxAccount::from_json(&fxa1_json).unwrap();
@@ -641,7 +662,8 @@ mod tests {
 
     #[test]
     fn test_oauth_flow_url() {
-        let mut fxa = FirefoxAccount::new(Config::release().unwrap(), "12345678", "https://foo.bar");
+        let mut fxa =
+            FirefoxAccount::new(Config::release().unwrap(), "12345678", "https://foo.bar");
         let url = fxa.begin_oauth_flow(&["profile"], false).unwrap();
         let flow_url = Url::parse(&url).unwrap();
 
@@ -650,24 +672,52 @@ mod tests {
 
         let mut pairs = flow_url.query_pairs();
         assert_eq!(pairs.count(), 9);
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("action"), Cow::Borrowed("email"))));
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("response_type"), Cow::Borrowed("code"))));
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("client_id"), Cow::Borrowed("12345678"))));
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("redirect_uri"), Cow::Borrowed("https://foo.bar"))));
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("scope"), Cow::Borrowed("profile"))));
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("action"), Cow::Borrowed("email")))
+        );
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("response_type"), Cow::Borrowed("code")))
+        );
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("client_id"), Cow::Borrowed("12345678")))
+        );
+        assert_eq!(
+            pairs.next(),
+            Some((
+                Cow::Borrowed("redirect_uri"),
+                Cow::Borrowed("https://foo.bar")
+            ))
+        );
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("scope"), Cow::Borrowed("profile")))
+        );
         let state_param = pairs.next().unwrap();
         assert_eq!(state_param.0, Cow::Borrowed("state"));
         assert_eq!(state_param.1.len(), 22);
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("code_challenge_method"), Cow::Borrowed("S256"))));
+        assert_eq!(
+            pairs.next(),
+            Some((
+                Cow::Borrowed("code_challenge_method"),
+                Cow::Borrowed("S256")
+            ))
+        );
         let code_challenge_param = pairs.next().unwrap();
         assert_eq!(code_challenge_param.0, Cow::Borrowed("code_challenge"));
         assert_eq!(code_challenge_param.1.len(), 43);
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("access_type"), Cow::Borrowed("offline"))));
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("access_type"), Cow::Borrowed("offline")))
+        );
     }
 
     #[test]
     fn test_oauth_flow_url_with_keys() {
-        let mut fxa = FirefoxAccount::new(Config::release().unwrap(), "12345678", "https://foo.bar");
+        let mut fxa =
+            FirefoxAccount::new(Config::release().unwrap(), "12345678", "https://foo.bar");
         let url = fxa.begin_oauth_flow(&["profile"], true).unwrap();
         let flow_url = Url::parse(&url).unwrap();
 
@@ -676,19 +726,46 @@ mod tests {
 
         let mut pairs = flow_url.query_pairs();
         assert_eq!(pairs.count(), 10);
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("action"), Cow::Borrowed("email"))));
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("response_type"), Cow::Borrowed("code"))));
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("client_id"), Cow::Borrowed("12345678"))));
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("redirect_uri"), Cow::Borrowed("https://foo.bar"))));
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("scope"), Cow::Borrowed("profile"))));
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("action"), Cow::Borrowed("email")))
+        );
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("response_type"), Cow::Borrowed("code")))
+        );
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("client_id"), Cow::Borrowed("12345678")))
+        );
+        assert_eq!(
+            pairs.next(),
+            Some((
+                Cow::Borrowed("redirect_uri"),
+                Cow::Borrowed("https://foo.bar")
+            ))
+        );
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("scope"), Cow::Borrowed("profile")))
+        );
         let state_param = pairs.next().unwrap();
         assert_eq!(state_param.0, Cow::Borrowed("state"));
         assert_eq!(state_param.1.len(), 22);
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("code_challenge_method"), Cow::Borrowed("S256"))));
+        assert_eq!(
+            pairs.next(),
+            Some((
+                Cow::Borrowed("code_challenge_method"),
+                Cow::Borrowed("S256")
+            ))
+        );
         let code_challenge_param = pairs.next().unwrap();
         assert_eq!(code_challenge_param.0, Cow::Borrowed("code_challenge"));
         assert_eq!(code_challenge_param.1.len(), 43);
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("access_type"), Cow::Borrowed("offline"))));
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("access_type"), Cow::Borrowed("offline")))
+        );
         let keys_jwk = pairs.next().unwrap();
         assert_eq!(keys_jwk.0, Cow::Borrowed("keys_jwk"));
         assert_eq!(keys_jwk.1.len(), 168);
@@ -700,7 +777,8 @@ mod tests {
         static PAIRING_URL: &'static str = "https://accounts.firefox.com/pair#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
         static EXPECTED_URL: &'static str = "https://accounts.firefox.com/pair/supp?client_id=12345678&redirect_uri=https%3A%2F%2Ffoo.bar&scope=https%3A%2F%2Fidentity.mozilla.com%2Fapps%2Foldsync&state=SmbAA_9EA5v1R2bgIPeWWw&code_challenge_method=S256&code_challenge=ZgHLPPJ8XYbXpo7VIb7wFw0yXlTa6MUOVfGiADt0JSM&access_type=offline&keys_jwk=eyJjcnYiOiJQLTI1NiIsImt0eSI6IkVDIiwieCI6Ing5LUltQjJveDM0LTV6c1VmbW5sNEp0Ti14elV2eFZlZXJHTFRXRV9BT0kiLCJ5IjoiNXBKbTB3WGQ4YXdHcm0zREl4T1pWMl9qdl9tZEx1TWlMb1RkZ1RucWJDZyJ9#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
 
-        let mut fxa = FirefoxAccount::new(Config::release().unwrap(), "12345678", "https://foo.bar");
+        let mut fxa =
+            FirefoxAccount::new(Config::release().unwrap(), "12345678", "https://foo.bar");
         let url = fxa.begin_pairing_flow(&PAIRING_URL, &SCOPES).unwrap();
         let flow_url = Url::parse(&url).unwrap();
         let expected_parsed_url = Url::parse(EXPECTED_URL).unwrap();
@@ -711,17 +789,41 @@ mod tests {
 
         let mut pairs = flow_url.query_pairs();
         assert_eq!(pairs.count(), 8);
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("client_id"), Cow::Borrowed("12345678"))));
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("redirect_uri"), Cow::Borrowed("https://foo.bar"))));
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("scope"), Cow::Borrowed("https://identity.mozilla.com/apps/oldsync"))));
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("client_id"), Cow::Borrowed("12345678")))
+        );
+        assert_eq!(
+            pairs.next(),
+            Some((
+                Cow::Borrowed("redirect_uri"),
+                Cow::Borrowed("https://foo.bar")
+            ))
+        );
+        assert_eq!(
+            pairs.next(),
+            Some((
+                Cow::Borrowed("scope"),
+                Cow::Borrowed("https://identity.mozilla.com/apps/oldsync")
+            ))
+        );
         let state_param = pairs.next().unwrap();
         assert_eq!(state_param.0, Cow::Borrowed("state"));
         assert_eq!(state_param.1.len(), 22);
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("code_challenge_method"), Cow::Borrowed("S256"))));
+        assert_eq!(
+            pairs.next(),
+            Some((
+                Cow::Borrowed("code_challenge_method"),
+                Cow::Borrowed("S256")
+            ))
+        );
         let code_challenge_param = pairs.next().unwrap();
         assert_eq!(code_challenge_param.0, Cow::Borrowed("code_challenge"));
         assert_eq!(code_challenge_param.1.len(), 43);
-        assert_eq!(pairs.next(), Some((Cow::Borrowed("access_type"), Cow::Borrowed("offline"))));
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("access_type"), Cow::Borrowed("offline")))
+        );
         let keys_jwk = pairs.next().unwrap();
         assert_eq!(keys_jwk.0, Cow::Borrowed("keys_jwk"));
         assert_eq!(keys_jwk.1.len(), 168);
@@ -729,18 +831,23 @@ mod tests {
 
     #[test]
     fn test_pairing_flow_origin_mismatch() {
-        static PAIRING_URL: &'static str = "https://bad.origin.com/pair#channel_id=foo&channel_key=bar";
-        let mut fxa = FirefoxAccount::new(Config::release().unwrap(), "12345678", "https://foo.bar");
-        let url = fxa.begin_pairing_flow(&PAIRING_URL, &["https://identity.mozilla.com/apps/oldsync"]);
+        static PAIRING_URL: &'static str =
+            "https://bad.origin.com/pair#channel_id=foo&channel_key=bar";
+        let mut fxa =
+            FirefoxAccount::new(Config::release().unwrap(), "12345678", "https://foo.bar");
+        let url =
+            fxa.begin_pairing_flow(&PAIRING_URL, &["https://identity.mozilla.com/apps/oldsync"]);
 
         assert!(url.is_err());
 
         match url {
-            Ok(_) => { panic!("should have error"); }
-            Err(err) => match err.kind() {
-                ErrorKind::OriginMismatch { .. } => {},
-                _ => panic!("error not OriginMismatch")
+            Ok(_) => {
+                panic!("should have error");
             }
+            Err(err) => match err.kind() {
+                ErrorKind::OriginMismatch { .. } => {}
+                _ => panic!("error not OriginMismatch"),
+            },
         }
     }
 }

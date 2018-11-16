@@ -2,19 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use config::Config;
+use errors::*;
+use serde_json;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter::FromIterator;
-use serde_json;
-use errors::*;
-use config::Config;
-use StateV2;
 use RefreshToken;
+use StateV2;
 type State = StateV2;
 
 pub(crate) fn state_from_json(data: &str) -> Result<State> {
     let stored_state: PersistedState = serde_json::from_str(data)?;
-    return upgrade_state(stored_state)
+    return upgrade_state(stored_state);
 }
 
 pub(crate) fn state_to_json(state: &State) -> Result<String> {
@@ -34,7 +34,7 @@ fn upgrade_state(in_state: PersistedState) -> Result<State> {
     return match in_state {
         PersistedState::V1(state) => state.into(),
         PersistedState::V2(state) => Ok(state),
-    }
+    };
 }
 
 // Migrations
@@ -47,7 +47,8 @@ impl From<StateV1> for Result<StateV2> {
                 all_refresh_tokens.push(access_token.clone());
             }
             if let Some(ref scoped_keys) = access_token.keys {
-                let scoped_keys: serde_json::Map<String, serde_json::Value> = serde_json::from_str(scoped_keys)?;
+                let scoped_keys: serde_json::Map<String, serde_json::Value> =
+                    serde_json::from_str(scoped_keys)?;
                 for (scope, key) in scoped_keys {
                     all_scoped_keys.insert(scope.clone(), key.clone());
                 }
@@ -56,10 +57,13 @@ impl From<StateV1> for Result<StateV2> {
         // In StateV2 we hold one and only one refresh token.
         // Obviously this means a loss of information.
         // Heuristic: We keep the most recent token.
-        let refresh_token = all_refresh_tokens.iter()
+        let refresh_token = all_refresh_tokens
+            .iter()
             .max_by(|a, b| a.expires_at.cmp(&b.expires_at))
             .map(|token| RefreshToken {
-                token: token.refresh_token.clone().expect("all_refresh_tokens should only contain access tokens with refresh tokens"),
+                token: token.refresh_token.clone().expect(
+                    "all_refresh_tokens should only contain access tokens with refresh tokens",
+                ),
                 scopes: HashSet::from_iter(token.scopes.iter().map(|s| s.to_string())),
             });
         Ok(StateV2 {

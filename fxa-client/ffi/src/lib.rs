@@ -10,15 +10,10 @@ extern crate ffi_support;
 use std::ffi::CString;
 use std::os::raw::c_char;
 
-use ffi_support::{
-    rust_str_from_c,
-    call_with_result,
-    call_with_output,
-    ExternError,
-};
+use ffi_support::{call_with_output, call_with_result, rust_str_from_c, ExternError};
 
-use fxa_client::{Config, FirefoxAccount, PersistCallback};
 use fxa_client::ffi::*;
+use fxa_client::{Config, FirefoxAccount, PersistCallback};
 
 /// Convenience function over [fxa_get_custom_config] that provides a pointer to a [Config] that
 /// points to the production FxA servers.
@@ -129,13 +124,8 @@ pub unsafe extern "C" fn fxa_from_json(
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_to_json(
-    fxa: &mut FirefoxAccount,
-    error: &mut ExternError,
-) -> *mut c_char {
-    call_with_result(error, || {
-        fxa.to_json()
-    })
+pub extern "C" fn fxa_to_json(fxa: &mut FirefoxAccount, error: &mut ExternError) -> *mut c_char {
+    call_with_result(error, || fxa.to_json())
 }
 
 /// Registers a callback that gets called every time the FirefoxAccount internal state
@@ -181,9 +171,7 @@ pub extern "C" fn fxa_profile(
     ignore_cache: bool,
     error: &mut ExternError,
 ) -> *mut ProfileC {
-    call_with_result(error, || {
-        fxa.get_profile(ignore_cache)
-    })
+    call_with_result(error, || fxa.get_profile(ignore_cache))
 }
 
 /// Get the Sync token server endpoint URL.
@@ -235,9 +223,7 @@ pub extern "C" fn fxa_get_sync_keys(
     fxa: &mut FirefoxAccount,
     error: &mut ExternError,
 ) -> *mut SyncKeysC {
-    call_with_result(error, || {
-        fxa.get_sync_keys()
-    })
+    call_with_result(error, || fxa.get_sync_keys())
 }
 
 /// Request a OAuth token by starting a new pairing flow, by calling the content server pairing endpoint.

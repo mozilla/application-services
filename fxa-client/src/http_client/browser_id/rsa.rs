@@ -67,9 +67,9 @@ impl BrowserIDKeyPair for RSABrowserIDKeyPair {
         let n = format!("{}", rsa.n().to_dec_str()?);
         let e = format!("{}", rsa.e().to_dec_str()?);
         Ok(json!({
-          "algorithm": "RS",
-          "n": n,
-          "e": e
+            "algorithm": "RS",
+            "n": n,
+            "e": e
         }))
     }
 }
@@ -266,18 +266,21 @@ impl<'de> Deserialize<'de> for RSABrowserIDKeyPair {
                     }
                 }
                 let n = n.ok_or_else(|| de::Error::missing_field("n"))?;
-                let n = BigNum::from_dec_str(n).map_err(|err| de::Error::custom(err.to_string()))?;
+                let n =
+                    BigNum::from_dec_str(n).map_err(|err| de::Error::custom(err.to_string()))?;
                 let e = e.ok_or_else(|| de::Error::missing_field("e"))?;
-                let e = BigNum::from_dec_str(e).map_err(|err| de::Error::custom(err.to_string()))?;
+                let e =
+                    BigNum::from_dec_str(e).map_err(|err| de::Error::custom(err.to_string()))?;
                 let d = d.ok_or_else(|| de::Error::missing_field("d"))?;
-                let d = BigNum::from_dec_str(d).map_err(|err| de::Error::custom(err.to_string()))?;
+                let d =
+                    BigNum::from_dec_str(d).map_err(|err| de::Error::custom(err.to_string()))?;
                 let mut builder = RsaPrivateKeyBuilder::new(n, e, d)
                     .map_err(|err| de::Error::custom(err.to_string()))?;
                 if let (Some(p), Some(q)) = (p, q) {
-                    let p =
-                        BigNum::from_dec_str(p).map_err(|err| de::Error::custom(err.to_string()))?;
-                    let q =
-                        BigNum::from_dec_str(q).map_err(|err| de::Error::custom(err.to_string()))?;
+                    let p = BigNum::from_dec_str(p)
+                        .map_err(|err| de::Error::custom(err.to_string()))?;
+                    let q = BigNum::from_dec_str(q)
+                        .map_err(|err| de::Error::custom(err.to_string()))?;
                     builder = builder
                         .set_factors(p, q)
                         .map_err(|err| de::Error::custom(err.to_string()))?;

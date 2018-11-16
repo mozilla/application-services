@@ -60,7 +60,7 @@ impl Config {
         issuer: String,
         jwks_uri: String,
         token_endpoint: String,
-        userinfo_endpoint: String
+        userinfo_endpoint: String,
     ) -> Self {
         Self {
             content_url,
@@ -72,7 +72,7 @@ impl Config {
             issuer,
             jwks_uri,
             token_endpoint,
-            userinfo_endpoint
+            userinfo_endpoint,
         }
     }
 
@@ -80,7 +80,8 @@ impl Config {
         let config_url = Url::parse(content_url)?.join(".well-known/fxa-client-configuration")?;
         let resp: ClientConfigurationResponse = reqwest::get(config_url)?.json()?;
 
-        let openid_config_url = Url::parse(content_url)?.join(".well-known/openid-configuration")?;
+        let openid_config_url =
+            Url::parse(content_url)?.join(".well-known/openid-configuration")?;
         let openid_resp: OpenIdConfigurationResponse = reqwest::get(openid_config_url)?.json()?;
 
         Ok(Self {

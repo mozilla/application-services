@@ -6,9 +6,9 @@ use std::boxed::Box;
 use std::{fmt, result, string};
 
 use base64;
-use failure::{Backtrace, Context, Fail};
 #[cfg(feature = "browserid")]
 use failure::SyncFailure;
+use failure::{Backtrace, Context, Fail};
 #[cfg(feature = "browserid")]
 use hawk;
 use hex;
@@ -100,7 +100,10 @@ pub enum ErrorKind {
     #[fail(display = "Key {} had wrong length, got {}, expected {}", _0, _1, _2)]
     BadKeyLength(&'static str, usize, usize),
 
-    #[fail(display = "Cannot xor arrays with different lengths: {} and {}", _0, _1)]
+    #[fail(
+        display = "Cannot xor arrays with different lengths: {} and {}",
+        _0, _1
+    )]
     XorLengthMismatch(usize, usize),
 
     #[fail(display = "Audience URL without a host")]
@@ -134,7 +137,8 @@ pub enum ErrorKind {
     HmacVerifyFail,
 
     #[fail(
-        display = "Remote server error: '{}' '{}' '{}' '{}' '{}'", code, errno, error, message, info
+        display = "Remote server error: '{}' '{}' '{}' '{}' '{}'",
+        code, errno, error, message, info
     )]
     RemoteError {
         code: u64,

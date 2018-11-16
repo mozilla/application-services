@@ -84,8 +84,8 @@ impl<'a> Client<'a> {
     pub fn login(&self, email: &str, auth_pwd: &str, get_keys: bool) -> Result<LoginResponse> {
         let url = self.config.auth_url_path("v1/account/login")?;
         let parameters = json!({
-          "email": email,
-          "authPW": auth_pwd
+            "email": email,
+            "authPW": auth_pwd
         });
         let client = ReqwestClient::new();
         let request = client
@@ -163,7 +163,8 @@ impl<'a> Client<'a> {
     ) -> Result<Option<ResponseAndETag<ProfileResponse>>> {
         let url = self.config.userinfo_endpoint()?;
         let client = ReqwestClient::new();
-        let mut builder = client.request(Method::GET, url)
+        let mut builder = client
+            .request(Method::GET, url)
             .header(header::AUTHORIZATION, Self::bearer_token(access_token));
         if let Some(etag) = etag {
             builder = builder.header(header::IF_NONE_MATCH, format!("\"{}\"", etag));
@@ -173,7 +174,11 @@ impl<'a> Client<'a> {
         if resp.status() == StatusCode::NOT_MODIFIED {
             return Ok(None);
         }
-        let etag = resp.headers().get(header::ETAG).and_then(|v| v.to_str().ok()).map(|s| s.to_owned());
+        let etag = resp
+            .headers()
+            .get(header::ETAG)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_owned());
         Ok(Some(ResponseAndETag {
             etag,
             response: resp.json()?,
@@ -192,10 +197,10 @@ impl<'a> Client<'a> {
         let certificate = self.sign(session_token, &key_pair)?.certificate;
         let assertion = jwt_utils::create_assertion(&key_pair, &certificate, &audience)?;
         let parameters = json!({
-          "assertion": assertion,
-          "client_id": client_id,
-          "response_type": "token",
-          "scope": scopes.join(" ")
+            "assertion": assertion,
+            "client_id": client_id,
+            "response_type": "token",
+            "scope": scopes.join(" ")
         });
         let key = Self::derive_key_from_session_token(session_token)?;
         let url = self.config.authorization_endpoint()?;
@@ -261,7 +266,9 @@ impl<'a> Client<'a> {
     }
 
     pub fn pending_commands(&self, refresh_token: &str) -> Result<PendingCommandsResponse> {
-        let url = self.config.auth_url_path("v1/client_instance/pending_commands")?;
+        let url = self
+            .config
+            .auth_url_path("v1/client_instance/pending_commands")?;
         let client = ReqwestClient::new();
         let request = client
             .request(Method::GET, url)
@@ -270,13 +277,21 @@ impl<'a> Client<'a> {
         Self::make_request(request)?.json().map_err(|e| e.into())
     }
 
-    pub fn invoke_command(&self, access_token: &str, command: &str, target: &str, payload: &serde_json::Value) -> Result<()> {
+    pub fn invoke_command(
+        &self,
+        access_token: &str,
+        command: &str,
+        target: &str,
+        payload: &serde_json::Value,
+    ) -> Result<()> {
         let body = json!({
             "command": command,
             "target": target,
             "payload": payload
         });
-        let url = self.config.auth_url_path("v1/clients_instances/invoke_command")?;
+        let url = self
+            .config
+            .auth_url_path("v1/clients_instances/invoke_command")?;
         let client = ReqwestClient::new();
         let request = client
             .request(Method::POST, url)
@@ -308,7 +323,11 @@ impl<'a> Client<'a> {
         Self::make_request(request)?.json().map_err(|e| e.into())
     }
 
-    pub fn upsert_client_instance(&self, refresh_token: &str, metadata: ClientInstanceRequest) -> Result<()> {
+    pub fn upsert_client_instance(
+        &self,
+        refresh_token: &str,
+        metadata: ClientInstanceRequest,
+    ) -> Result<()> {
         let body = serde_json::to_string(&metadata)?;
         let url = self.config.auth_url_path("v1/client_instance")?;
         let client = ReqwestClient::new();
@@ -322,7 +341,11 @@ impl<'a> Client<'a> {
         Ok(())
     }
 
-    pub fn patch_client_instance_commands(&self, refresh_token: &str, commands: HashMap<String, Option<String>>) -> Result<()> {
+    pub fn patch_client_instance_commands(
+        &self,
+        refresh_token: &str,
+        commands: HashMap<String, Option<String>>,
+    ) -> Result<()> {
         let body = serde_json::to_string(&commands)?;
         let url = self.config.auth_url_path("v1/client_instance/commands")?;
         let client = ReqwestClient::new();
@@ -340,8 +363,8 @@ impl<'a> Client<'a> {
     pub fn sign(&self, session_token: &[u8], key_pair: &BrowserIDKeyPair) -> Result<SignResponse> {
         let public_key_json = key_pair.to_json(false)?;
         let parameters = json!({
-          "publicKey": public_key_json,
-          "duration": SIGN_DURATION_MS
+            "publicKey": public_key_json,
+            "duration": SIGN_DURATION_MS
         });
         let key = Self::derive_key_from_session_token(session_token)?;
         let url = self.config.auth_url_path("v1/certificate/sign")?;
@@ -402,7 +425,8 @@ impl<'a> Client<'a> {
                     error: json["error"].as_str().unwrap_or("").to_string(),
                     message: json["message"].as_str().unwrap_or("").to_string(),
                     info: json["info"].as_str().unwrap_or("").to_string(),
-                }.into()),
+                }
+                .into()),
                 Err(_) => Err(resp.error_for_status().unwrap_err().into()),
             }
         }
@@ -453,11 +477,11 @@ pub struct PushSubscription {
 /// `Some(Some(T))`: the field will have the serialized value of T.
 #[derive(Serialize)]
 pub struct ClientInstanceRequest {
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     name: Option<Option<String>>,
     #[serde(flatten)]
     push_subscription: Option<PushSubscription>,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "availableCommands")]
     available_commands: Option<Option<HashMap<String, String>>>,
 }
@@ -477,7 +501,10 @@ impl ClientInstanceRequestBuilder {
         }
     }
 
-    pub fn push_subscription(mut self, push_subscription: PushSubscription) -> ClientInstanceRequestBuilder {
+    pub fn push_subscription(
+        mut self,
+        push_subscription: PushSubscription,
+    ) -> ClientInstanceRequestBuilder {
         self.push_subscription = Some(push_subscription);
         self
     }
