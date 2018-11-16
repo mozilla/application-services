@@ -178,7 +178,7 @@ def linux_build_task(name):
         .with_artifacts("/build/sccache.log")
         .with_max_run_time_minutes(60)
         .with_docker_image(
-            'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-1.28.0-rust-beta-1.29.0-beta.15'
+            'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-1.30.1-rust-beta-1.31.0-beta.11'
         )
         # After we get the docker-in-docker image building working, we can
         # build images rather than import them from Docker hub.
