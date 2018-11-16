@@ -4,6 +4,7 @@
 
 use errors::*;
 use std::time::{SystemTime, UNIX_EPOCH};
+use ring::rand::SecureRandom;
 
 // Gets the unix epoch in ms.
 pub fn now() -> u64 {
@@ -18,6 +19,12 @@ pub fn now_secs() -> u64 {
         .duration_since(UNIX_EPOCH)
         .expect("Something is very wrong.");
     since_epoch.as_secs()
+}
+
+pub fn random_base64_url_string(rng: &SecureRandom, len: usize) -> Result<String> {
+    let mut out = vec![0u8; len];
+    rng.fill(&mut out).map_err(|_| ErrorKind::RngFailure)?;
+    Ok(base64::encode_config(&out, base64::URL_SAFE_NO_PAD))
 }
 
 pub trait Xorable {

@@ -47,10 +47,10 @@ use errors::*;
 use http_client::browser_id::jwt_utils;
 use http_client::{Client, ClientInstanceResponse, ClientInstanceRequest, ClientInstanceRequestBuilder, PendingCommandsResponse, PushSubscription, ProfileResponse};
 use ring::digest;
-use ring::rand::{SecureRandom, SystemRandom};
+use ring::rand::SystemRandom;
 use scoped_keys::ScopedKeysFlow;
 use url::Url;
-use util::now;
+use util::{now, random_base64_url_string};
 
 mod config;
 pub mod errors;
@@ -325,8 +325,8 @@ impl FirefoxAccount {
     }
 
     fn oauth_flow(&mut self, mut url: Url, scopes: &[&str], wants_keys: bool) -> Result<String> {
-        let state = Self::random_base64_url_string(16)?;
-        let code_verifier = Self::random_base64_url_string(43)?;
+        let state = random_base64_url_string(&*RNG, 16)?;
+        let code_verifier = random_base64_url_string(&*RNG, 43)?;
         let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         url.query_pairs_mut()
@@ -416,12 +416,6 @@ impl FirefoxAccount {
         });
         self.maybe_call_persist_callback();
         Ok(())
-    }
-
-    fn random_base64_url_string(len: usize) -> Result<String> {
-        let mut out = vec![0u8; len];
-        RNG.fill(&mut out).map_err(|_| ErrorKind::RngFailure)?;
-        Ok(base64::encode_config(&out, base64::URL_SAFE_NO_PAD))
     }
 
     #[cfg(feature = "browserid")]
