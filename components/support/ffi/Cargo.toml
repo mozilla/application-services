@@ -3,7 +3,16 @@ name = "ffi-support"
 version = "0.1.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 
+[features]
+default = ["log_backtraces"]
+log_backtraces = ["backtrace"]
+
 [dependencies]
 serde_json = "1.0.32"
 serde = "1.0.79"
 log = "0.4.5"
+
+[dependencies.backtrace]
+optional = true
+version = "0.3.9"
+
