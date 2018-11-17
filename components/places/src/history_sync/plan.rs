@@ -108,7 +108,7 @@ fn plan_incoming_record(conn: &Connection, record: HistoryRecord, max_visits: us
                 Some(t) => t,
                 None => continue,
             };
-            let date_use = clamp_visit_date(visit.visit_date);
+            let date_use = clamp_visit_date(visit.visit_date.into());
             cur_visit_map.insert((transition, date_use));
         }
     }
@@ -129,14 +129,14 @@ fn plan_incoming_record(conn: &Connection, record: HistoryRecord, max_visits: us
             Some(v) => v,
             None => continue,
         };
-        let timestamp = clamp_visit_date(incoming_visit.date);
+        let timestamp = clamp_visit_date(incoming_visit.date.into());
         if earliest_allowed > timestamp.into() {
             continue;
         }
         // If the entry isn't in our map we should add it.
         let key = (transition, timestamp);
         if !cur_visit_map.contains(&key) {
-            to_apply.push(HistoryRecordVisit { date: timestamp, transition: transition as u8 });
+            to_apply.push(HistoryRecordVisit { date: timestamp.into(), transition: transition as u8 });
             cur_visit_map.insert(key);
         }
     }
@@ -244,6 +244,7 @@ mod tests {
     use observation::{VisitObservation};
     use api::matcher::{SearchParams, search_frecent};
     use types::{Timestamp, SyncStatus};
+    use history_sync::ServerVisitTimestamp;
     use db::PlacesDb;
 
     use sql_support::ConnExt;
@@ -411,7 +412,7 @@ mod tests {
             "histUri": "http://example.com",
             "sortindex": 0,
             "ttl": 100,
-            "visits": [ {"date": now, "type": 1}]
+            "visits": [ {"date": ServerVisitTimestamp::from(now), "type": 1}]
         });
         let mut result = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
         let payload = Payload::from_json(json).unwrap();
@@ -483,7 +484,7 @@ mod tests {
             "histUri": url.as_str(),
             "sortindex": 0,
             "ttl": 100,
-            "visits": [ {"date": ts, "type": 1}]
+            "visits": [ {"date": ServerVisitTimestamp::from(ts), "type": 1}]
         });
 
         let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
@@ -524,7 +525,7 @@ mod tests {
             "histUri": url.as_str(),
             "sortindex": 0,
             "ttl": 100,
-            "visits": [ {"date": ts2, "type": 1}]
+            "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
         });
 
         let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
@@ -543,8 +544,8 @@ mod tests {
         assert_eq!(out_maybe_record.guid, guid);
         let record = out_maybe_record.record.expect("not a tombstone");
         assert_eq!(record.visits.len(), 2, "should have both visits outgoing");
-        assert_eq!(record.visits[0].date, ts2, "most recent timestamp should be first");
-        assert_eq!(record.visits[1].date, ts1, "both timestamps should appear");
+        assert_eq!(record.visits[0].date, ts2.into(), "most recent timestamp should be first");
+        assert_eq!(record.visits[1].date, ts1.into(), "both timestamps should appear");
         Ok(())
     }
 

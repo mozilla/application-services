@@ -2,14 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use types::{SyncGuid, Timestamp};
+use types::{SyncGuid};
 use error::*;
 use sync15_adapter;
+use super::{ServerVisitTimestamp};
 
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryRecordVisit {
-    pub date: Timestamp,
+    pub date: ServerVisitTimestamp,
     #[serde(rename = "type")]
     pub transition: u8,
 }

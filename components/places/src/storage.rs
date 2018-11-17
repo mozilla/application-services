@@ -359,7 +359,7 @@ pub mod history_sync {
         };
         for visit in visits {
             let transition = VisitTransition::from_primitive(visit.transition).expect("these should already be validated");
-            add_visit(db, &page_info.row_id, &None, &visit.date, &transition, &false)?;
+            add_visit(db, &page_info.row_id, &None, &visit.date.into(), &transition, &false)?;
         }
         // XXX - we really need a better story for frecency-boost than
         // Option<bool> - None vs Some(false) is confusing. We should use an enum.
@@ -485,7 +485,7 @@ pub mod history_sync {
             let visit_rows = visits.query_map_named(&[(":max_visits", &(max_visits as u32)),
                                                       (":place_id", &page.row_id)],
                                                     |row| HistoryRecordVisit {
-                date: row.get::<_, Timestamp>("date"),
+                date: row.get::<_, Timestamp>("date").into(),
                 transition: row.get::<_, u8>("transition"),
             })?;
             let visits = visit_rows.collect::<RusqliteResult<Vec<_>>>()?;
