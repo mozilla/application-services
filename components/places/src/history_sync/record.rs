@@ -25,9 +25,19 @@ pub struct HistoryRecord {
     pub title: String,
 
     pub hist_uri: String,
-    pub sortindex: i32,
-    pub ttl: u32,
+
     pub visits: Vec<HistoryRecordVisit>,
+
+    // These fields are somewhat magic - they are moved to and from the
+    // BSO record, so are not expected to be on the unencrypted payload
+    // when incoming and are not put on the unencrypted payload when outgoing.
+    // There are hysterical raisens for this, which we should fix.
+    #[serde(default)]
+    pub sortindex: i32,
+
+    #[serde(default)]
+    pub ttl: u32,
+
 }
 
 #[derive(Debug)]
