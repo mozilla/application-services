@@ -47,7 +47,7 @@ const EARLIEST_TIMESTAMP: Timestamp = Timestamp(727747200000);
 fn clamp_visit_date(visit_date: Timestamp) -> Timestamp {
     let now = Timestamp::now();
     if visit_date > now {
-        return visit_date;
+        return now;
     }
     if visit_date < EARLIEST_TIMESTAMP {
         return EARLIEST_TIMESTAMP;
@@ -155,7 +155,15 @@ pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<Outgo
     // for a first-cut, let's do this in the most naive way possible...
     let mut plans: Vec<(SyncGuid, IncomingPlan)> = Vec::with_capacity(inbound.changes.len());
     for incoming in inbound.changes {
-        let item = HistorySyncRecord::from_payload(incoming.0)?;
+        let item = match HistorySyncRecord::from_payload(incoming.0) {
+            Ok(item) => item,
+            Err(e) => {
+                // We can't push IncomingPlan::Invalid into plans as we don't
+                // know the guid - just skip it.
+                warn!("Error deserializing incoming record: {}", e);
+                continue;
+            }
+        };
         let plan = match item.record {
             Some(record) => plan_incoming_record(conn, record, MAX_VISITS),
             None => IncomingPlan::Delete,
@@ -400,6 +408,75 @@ mod tests {
             },
             _ => false,
         });
+    }
+
+    #[test]
+    fn test_apply_plan_incoming_invalid_timestamp() -> Result<()> {
+        let _ = env_logger::try_init();
+        let json = json!({
+            "id": "aaaaaaaaaaaa",
+            "title": "title",
+            "histUri": "http://example.com",
+            "sortindex": 0,
+            "ttl": 100,
+            "visits": [ {"date": 15423493234840000000u64, "type": 1}]
+        });
+        let mut result = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
+        let payload = Payload::from_json(json).unwrap();
+        result.changes.push((payload, ServerTimestamp(0f64)));
+
+        let db = PlacesDb::open_in_memory(None)?;
+        let outgoing = apply_plan(&db, result)?;
+        assert_eq!(outgoing.changes.len(), 0, "nothing outgoing");
+
+        let now: Timestamp = SystemTime::now().into();
+        let (_page, visits) = fetch_visits(&db, &Url::parse("http://example.com").unwrap(), 2)?
+                             .expect("page exists");
+        assert_eq!(visits.len(), 1);
+        assert!(visits[0].visit_date <= now, "should have clamped the timestamp");
+        Ok(())
+    }
+
+    #[test]
+    fn test_apply_plan_incoming_invalid_negative_timestamp() -> Result<()> {
+        let _ = env_logger::try_init();
+        let json = json!({
+            "id": "aaaaaaaaaaaa",
+            "title": "title",
+            "histUri": "http://example.com",
+            "sortindex": 0,
+            "ttl": 100,
+            "visits": [ {"date": -123, "type": 1}]
+        });
+        let mut result = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
+        let payload = Payload::from_json(json).unwrap();
+        result.changes.push((payload, ServerTimestamp(0f64)));
+
+        let db = PlacesDb::open_in_memory(None)?;
+        let outgoing = apply_plan(&db, result)?;
+        assert_eq!(outgoing.changes.len(), 0, "should skip the invalid entry");
+        Ok(())
+    }
+
+    #[test]
+    fn test_apply_plan_incoming_invalid_visit_type() -> Result<()> {
+        let db = PlacesDb::open_in_memory(None)?;
+        let visits = vec![HistoryRecordVisit {date: SystemTime::now().into(),
+                                              transition: 99}];
+        let record = HistoryRecord { id: SyncGuid("aaaaaaaaaaaa".to_string()),
+                                     title: "title".into(),
+                                     hist_uri: "http://example.com".into(),
+                                     sortindex: 0,
+                                     ttl: 100,
+                                     visits};
+        let plan = plan_incoming_record(&db, record, 10);
+        // We expect "Reconciled" because after skipping the invalid visit
+        // we found nothing to apply.
+        assert!(match plan {
+            IncomingPlan::Reconciled => true,
+            _ => false,
+        });
+        Ok(())
     }
 
     #[test]
