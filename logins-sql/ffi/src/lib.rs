@@ -69,7 +69,6 @@ pub unsafe extern "C" fn sync15_passwords_sync(
     error: &mut ExternError
 ) {
     trace!("sync15_passwords_sync");
-    // TODO: Is there any way to convince rust that some `&mut T` is unwind safe?
     call_with_result(error, || -> Result<()> {
         state.sync(
             &sync15_adapter::Sync15StorageClientInit {

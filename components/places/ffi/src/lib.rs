@@ -150,7 +150,6 @@ pub unsafe extern "C" fn sync15_history_sync(
     error: &mut ExternError
 ) {
     trace!("sync15_history_sync");
-    // TODO: Is there any way to convince rust that some `&mut T` is unwind safe?
     call_with_result(error, || -> places::Result<()> {
         // XXX - this is wrong - we kinda want this to be long-lived - the "Db"
         // should own the store, but it's not part of the db.
