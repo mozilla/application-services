@@ -1,0 +1,14 @@
+[package]
+name = "ac_log"
+version = "0.1.0"
+edition = "2018"
+authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
+
+[lib]
+name = "ac_rust_log"
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+log = { version = "0.4.6", features = ["std"] }
+crossbeam-channel = "0.3.2"
+ffi-support = { path = "../support/ffi" }

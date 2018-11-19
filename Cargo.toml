@@ -9,6 +9,7 @@ members = [
     "components/support/sql",
     "components/support/ffi",
     "components/sync15",
+    "components/ac_log",
     "megazords/lockbox",
     "megazords/reference-browser",
     "testing/sync-test",
