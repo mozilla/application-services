@@ -227,7 +227,7 @@ pub unsafe extern "C" fn fxa_begin_pairing_flow(
     call_with_result(error, || {
         let pairing_url = rust_str_from_c(pairing_url);
         let scope = rust_str_from_c(scope);
-        let scopes: Vec<&str> = scope.split(" ").collect();
+        let scopes: Vec<&str> = scope.split(' ').collect();
         fxa.begin_pairing_flow(&pairing_url, &scopes)
     })
 }
@@ -255,7 +255,7 @@ pub unsafe extern "C" fn fxa_begin_oauth_flow(
 ) -> *mut c_char {
     call_with_result(error, || {
         let scope = rust_str_from_c(scope);
-        let scopes: Vec<&str> = scope.split(" ").collect();
+        let scopes: Vec<&str> = scope.split(' ').collect();
         fxa.begin_oauth_flow(&scopes, wants_keys)
     })
 }

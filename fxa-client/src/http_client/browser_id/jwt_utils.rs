@@ -146,7 +146,7 @@ mod tests {
     }
 
     fn decode(token: &str, key_pair: &BrowserIDKeyPair) -> Result<String> {
-        let segments: Vec<&str> = token.split(".").collect();
+        let segments: Vec<&str> = token.split('.').collect();
         let message = format!("{}.{}", &segments[0], &segments[1]);
         let message_bytes = message.as_bytes();
         let signature = base64::decode_config(&segments[2], base64::URL_SAFE_NO_PAD)?;

@@ -138,7 +138,7 @@ impl<'a> Client<'a> {
         let xor_key = &bytes[KEY_LENGTH..(KEY_LENGTH * 3)];
 
         let v_key = hmac::VerificationKey::new(&digest::SHA256, hmac_key.as_ref());
-        hmac::verify(&v_key, ciphertext, mac_code).map_err(|_| ErrorKind::HmacVerifyFail)?;
+        hmac::verify(&v_key, ciphertext, mac_code).map_err(|_| ErrorKind::HmacMismatch)?;
 
         let xored_bytes = ciphertext.xored_with(xor_key)?;
         let wrap_kb = xored_bytes[KEY_LENGTH..(KEY_LENGTH * 2)].to_vec();
@@ -265,8 +265,8 @@ impl<'a> Client<'a> {
     pub fn pending_commands(
         &self,
         refresh_token: &str,
-        index: i64,
-        limit: Option<i64>,
+        index: u64,
+        limit: Option<u64>,
     ) -> Result<PendingCommandsResponse> {
         let url = self
             .config

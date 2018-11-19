@@ -5,3 +5,4 @@
 pub const PROFILE: &'static str = "profile";
 pub const INSTANCES_READ: &'static str = "clients:read";
 pub const COMMANDS_WRITE: &'static str = "commands:write";
+pub const OLD_SYNC: &'static str = "https://identity.mozilla.com/apps/oldsync";

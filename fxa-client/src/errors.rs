@@ -124,6 +124,9 @@ pub enum ErrorKind {
     #[fail(display = "Key agreement failed")]
     KeyAgreementFailed,
 
+    #[fail(display = "Remote key and local key mismatch")]
+    MismatchedKeys,
+
     #[fail(display = "Key import failed")]
     KeyImportFailed,
 
@@ -133,8 +136,14 @@ pub enum ErrorKind {
     #[fail(display = "Random number generation failure")]
     RngFailure,
 
-    #[fail(display = "HMAC verification failed")]
-    HmacVerifyFail,
+    #[fail(display = "HMAC mismatch")]
+    HmacMismatch,
+
+    #[fail(display = "Sync error: {}", _0)]
+    SyncError(&'static str),
+
+    #[fail(display = "Unsupported command: {}", _0)]
+    UnsupportedCommand(&'static str),
 
     #[fail(
         display = "Remote server error: '{}' '{}' '{}' '{}' '{}'",

@@ -50,7 +50,8 @@ impl From<StateV1> for Result<StateV2> {
                 let scoped_keys: serde_json::Map<String, serde_json::Value> =
                     serde_json::from_str(scoped_keys)?;
                 for (scope, key) in scoped_keys {
-                    all_scoped_keys.insert(scope.clone(), key.clone());
+                    let scoped_key = serde_json::from_value(key)?;
+                    all_scoped_keys.insert(scope, scoped_key);
                 }
             }
         }
@@ -85,6 +86,9 @@ impl From<StateV1> for Result<StateV2> {
             login_state: super::login_sm::LoginState::Unknown,
             refresh_token,
             scoped_keys: all_scoped_keys,
+            handled_commands: Vec::new(),
+            last_handled_command: None,
+            commands_data: HashMap::new(),
         })
     }
 }

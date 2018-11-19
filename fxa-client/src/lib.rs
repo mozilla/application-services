@@ -4,6 +4,7 @@
 
 extern crate base64;
 extern crate byteorder;
+extern crate ece;
 extern crate failure;
 #[macro_use]
 extern crate failure_derive;
@@ -24,6 +25,7 @@ extern crate serde;
 extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
+extern crate sync15_adapter as sync;
 extern crate untrusted;
 extern crate url;
 #[cfg(feature = "ffi")]
@@ -39,11 +41,17 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(feature = "browserid")]
 use self::login_sm::{LoginState::*, *};
+use commands::{
+    send_tab::{SendTab, SendTabPayload},
+    CommandsHandler,
+};
+pub use commands::send_tab::TabReceivedCallback;
 use errors::*;
 #[cfg(feature = "browserid")]
 use http_client::browser_id::jwt_utils;
 use http_client::{
-    Client, ClientInstanceRequest, ClientInstanceRequestBuilder, ClientInstanceResponse,
+    Client, ClientInstanceRequest, ClientInstanceRequestBuilder,
+    ClientInstanceResponse as ClientInstance, PendingCommand,
     PendingCommandsResponse, ProfileResponse, PushSubscription,
 };
 use ring::digest;
@@ -52,6 +60,7 @@ use scoped_keys::ScopedKeysFlow;
 use url::Url;
 use util::{now, random_base64_url_string};
 
+mod commands;
 mod config;
 pub mod errors;
 #[cfg(feature = "ffi")]
@@ -83,7 +92,13 @@ pub(crate) struct StateV2 {
     #[cfg(feature = "browserid")]
     login_state: LoginState,
     refresh_token: Option<RefreshToken>,
-    scoped_keys: HashMap<String, serde_json::Value>,
+    scoped_keys: HashMap<String, ScopedKey>,
+    last_handled_command: Option<u64>,
+    // Remove serde(default) once we are V3.
+    #[serde(default)]
+    handled_commands: Vec<u64>,
+    #[serde(default)]
+    commands_data: HashMap<String, String>,
 }
 
 #[cfg(feature = "browserid")]
@@ -119,6 +134,7 @@ pub struct FirefoxAccount {
     flow_store: HashMap<String, OAuthFlow>,
     persist_callback: Option<PersistCallback>,
     profile_cache: Option<CachedResponse<ProfileResponse>>,
+    command_handlers: HashMap<String, Box<dyn CommandsHandler + 'static + Send + Sync>>,
 }
 
 pub struct SyncKeys(pub String, pub String);
@@ -150,6 +166,7 @@ impl FirefoxAccount {
             flow_store: HashMap::new(),
             persist_callback: None,
             profile_cache: None,
+            command_handlers: HashMap::new(),
         }
     }
 
@@ -160,6 +177,9 @@ impl FirefoxAccount {
             login_state: Unknown,
             refresh_token: None,
             scoped_keys: HashMap::new(),
+            handled_commands: Vec::new(),
+            last_handled_command: None,
+            commands_data: HashMap::new(),
         })
     }
 
@@ -199,6 +219,8 @@ impl FirefoxAccount {
             login_state,
             refresh_token: None,
             scoped_keys: HashMap::new(),
+            handled_commands: Vec::new(),
+            last_handled_command: None,
         }))
     }
 
@@ -239,6 +261,7 @@ impl FirefoxAccount {
         }
         // This is a bit awkward, borrow checker weirdness.
         let resp;
+        // XXX: NLL.
         {
             if let Some(ref refresh_token) = self.state.refresh_token {
                 if refresh_token.scopes.contains(scope) {
@@ -354,7 +377,7 @@ impl FirefoxAccount {
 
     pub fn complete_oauth_flow(&mut self, code: &str, state: &str) -> Result<()> {
         let resp;
-        // Needs non-lexical borrow checking.
+        // XXX: NLL.
         {
             let flow = match self.flow_store.get(state) {
                 Some(flow) => flow,
@@ -383,7 +406,8 @@ impl FirefoxAccount {
                 let scoped_keys: serde_json::Map<String, serde_json::Value> =
                     serde_json::from_str(&decrypted_keys)?;
                 for (scope, key) in scoped_keys {
-                    self.state.scoped_keys.insert(scope.clone(), key.clone());
+                    let scoped_key: ScopedKey = serde_json::from_value(key)?;
+                    self.state.scoped_keys.insert(scope, scoped_key);
                 }
             }
             None => {
@@ -505,7 +529,7 @@ impl FirefoxAccount {
     }
 
     /// Retrieve our own client instance metadata.
-    pub fn get_instance(&mut self) -> Result<ClientInstanceResponse> {
+    pub fn get_instance(&mut self) -> Result<ClientInstance> {
         let refresh_token = self.get_refresh_token()?;
         let client = Client::new(&self.state.config);
         client.instance(&refresh_token)
@@ -513,7 +537,7 @@ impl FirefoxAccount {
 
     /// Retrieve the metadata from all the clients instances connected to
     /// the account (including ours).
-    pub fn get_instances(&mut self) -> Result<Vec<ClientInstanceResponse>> {
+    pub fn get_instances(&mut self) -> Result<Vec<ClientInstance>> {
         let access_token = self.get_access_token(scopes::INSTANCES_READ)?.token;
         let client = Client::new(&self.state.config);
         client.instances(&access_token)
@@ -521,8 +545,8 @@ impl FirefoxAccount {
 
     pub fn fetch_pending_commands(
         &self,
-        index: i64,
-        limit: Option<i64>,
+        index: u64,
+        limit: Option<u64>,
     ) -> Result<PendingCommandsResponse> {
         let refresh_token = self.get_refresh_token()?;
         let client = Client::new(&self.state.config);
@@ -532,12 +556,78 @@ impl FirefoxAccount {
     pub fn invoke_command(
         &mut self,
         command: &str,
-        target_device_id: &str,
+        target: &ClientInstance,
         payload: &serde_json::Value,
     ) -> Result<()> {
         let access_token = self.get_access_token(scopes::COMMANDS_WRITE)?.token;
         let client = Client::new(&self.state.config);
-        client.invoke_command(&access_token, command, target_device_id, payload)
+        client.invoke_command(&access_token, command, &target.id, payload)
+    }
+
+    pub fn consume_remote_command(&mut self, index: u64) -> Result<()> {
+        let messages = self.fetch_pending_commands(index, None)?.messages;
+        if messages.len() != 1 {
+            warn!(
+                "Should have retrieved 1 and only 1 message, got {}",
+                messages.len()
+            );
+        }
+        let mut indexes: Vec<_> = messages.iter().map(|m| m.index).collect();
+        self.state.handled_commands.append(&mut indexes);
+        self.maybe_call_persist_callback();
+        self.handle_commands(messages)?;
+        // Once the handledCommands array length passes a threshold, check the
+        // potentially missed remote commands in order to clear it.
+        if self.state.handled_commands.len() > 20 {
+            if let Err(err) = self.fetch_missed_remote_commands() {
+                warn!("Error fetching missed remote commands: {:?}", err);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn fetch_missed_remote_commands(&mut self) -> Result<()> {
+        let last_command_index = self.state.last_handled_command.unwrap_or(0);
+        self.state.handled_commands.push(last_command_index); // Because the server also returns this command.
+        let pending_commands = self.fetch_pending_commands(last_command_index, None)?;
+        let missed_messages: Vec<_> = pending_commands.messages.into_iter().filter(|m| !self.state.handled_commands.contains(&m.index)).collect();
+        if missed_messages.len() > 0 {
+            info!("Handling {} missed messages", missed_messages.len());
+            self.handle_commands(missed_messages)?;
+        }
+        self.state.handled_commands.clear();
+        self.state.last_handled_command = Some(pending_commands.index);
+        self.maybe_call_persist_callback();
+        Ok(())
+    }
+
+    fn handle_commands(&mut self, messages: Vec<PendingCommand>) -> Result<()> {
+        let commands: Vec<_> = messages.into_iter().map(|m| m.data).collect();
+        let clients_instances = self.get_instances()?;
+        for data in commands {
+            let sender = data
+                .sender
+                .clone()
+                .and_then(|s| clients_instances.iter().find(|i| i.id == s));
+            let command = data.command.as_str();
+            if let Some(handler) = self.command_handlers.get_mut(command) {
+                let local_data = self.state.commands_data.get(command).ok_or_else(|| {
+                    ErrorKind::IllegalState("Local data was not initialized".to_string())
+                })?;
+                handler.handle_command(local_data, sender, data.payload)?;
+            } else {
+                error!("Unknown command: {}", command)
+            }
+        }
+        Ok(())
+    }
+
+    fn register_command_handler(
+        &mut self,
+        command: &str,
+        handler: Box<CommandsHandler + Send + Sync>,
+    ) {
+        self.command_handlers.insert(command.to_string(), handler);
     }
 
     pub fn set_push_subscription(&self, push_subscription: PushSubscription) -> Result<()> {
@@ -605,14 +695,10 @@ impl FirefoxAccount {
 
     fn maybe_call_persist_callback(&self) {
         if let Some(ref cb) = self.persist_callback {
-            let json = match self.to_json() {
-                Ok(json) => json,
-                Err(_) => {
-                    error!("Error with to_json in persist_callback");
-                    return;
-                }
+            match self.to_json() {
+                Ok(ref json) => cb.call(json),
+                Err(_) => error!("Error with to_json in persist_callback"),
             };
-            cb.call(&json);
         }
     }
 
@@ -622,6 +708,47 @@ impl FirefoxAccount {
         client.sign_out();
         self.state.login_state = self.state.login_state.to_separated();
     }
+
+    pub fn send_tab(&mut self, target: &ClientInstance, title: &str, url: &str) -> Result<()> {
+        let command = SendTab::command_name();
+        let command_payload;
+        {
+            let send_tab = self.command_handlers.get(&command).unwrap();
+            let send_tab = send_tab.as_any().downcast_ref::<SendTab>().unwrap();
+            let payload = SendTabPayload::single_tab(title, url);
+            command_payload = send_tab.build_send_command(target, &payload).unwrap();
+        }
+        self.invoke_command(&command, target, &command_payload)
+    }
+
+    pub fn init_send_tab(&mut self, tab_received_callback: TabReceivedCallback) -> Result<()> {
+        let command = SendTab::command_name();
+        // TODO: unwraps
+        let mut send_tab;
+        // XXX: NLL.
+        {
+            let oldsync_key = self.state.scoped_keys.get(scopes::OLD_SYNC).unwrap();
+            let ksync = base64::decode_config(&oldsync_key.k, base64::URL_SAFE_NO_PAD)?;
+            let kxcs: &str = oldsync_key.kid.splitn(2, '-').collect::<Vec<_>>()[1];
+            let kxcs = base64::decode_config(&kxcs, base64::URL_SAFE_NO_PAD)?;
+            send_tab = SendTab::new(&ksync, &kxcs, tab_received_callback);
+        }
+        let (command_value, local_data) = send_tab.init(self.state.commands_data.get(&command).map(|s| s.as_str()))?;
+        self.register_command(&command, &command_value)?;
+        self.state.commands_data.insert(command.clone(), local_data);
+        self.maybe_call_persist_callback();
+        self.register_command_handler(&command, Box::new(send_tab));
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ScopedKey {
+    pub kty: String,
+    pub scope: String,
+    /// URL Safe Base 64 encoded key.
+    pub k: String,
+    pub kid: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -41,6 +41,7 @@ impl<'a> HAWKRequestBuilder<'a> {
 
     pub fn build(self) -> Result<Request> {
         let hawk_header;
+        // XXX: NLL.
         {
             // Make sure we de-allocate the hash after hawk_request_builder.
             let hash;
