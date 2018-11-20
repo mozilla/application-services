@@ -191,12 +191,12 @@ tasks:
             public/task-graph.json:
               type: file
               path: /build/repo/task-graph.json
-              expires: ${expires_in}
+              expires: {$fromNow: '1 year'}
             public/actions.json:
               type: file
               path: /build/repo/actions.json
-              expires: ${expires_in}
+              expires: {$fromNow: '1 year'}
             public/parameters.yml:
               type: file
               path: /build/repo/parameters.yml
-              expires: ${expires_in}
+              expires: {$fromNow: '1 year'}
