@@ -145,7 +145,7 @@ tasks:
           - "queue:create-task:highest:aws-provisioner-v1/gecko-focus"
 
           # So that we can schedule beetmover tasks.
-          - "queue:create-task:highest:scriptworker-prov-v1/mobile-beetmover-v1"
+          # - "queue:create-task:highest:scriptworker-prov-v1/mobile-beetmover-v1"
 
           # TODO: think about not indexing?
           # So that we can cache task outputs for re-use.
