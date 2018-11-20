@@ -65,7 +65,63 @@ tasks:
 
   - $if: 'tasks_for == "github-push"'
     then:
-      $if: 'event.ref[:10] == "refs/tags/" || event.ref[:10] == "refs/heads/master"'
+      $if: 'event.ref[:10] == "refs/heads/master"'
+      then:
+        taskGroupId: {$eval: as_slugid("decision_task")}
+        taskId: {$eval: as_slugid("decision_task")}
+        provisionerId: aws-provisioner-v1
+        workerType: application-services-r
+        created: {$fromNow: ''}
+        deadline: {$fromNow: '1 day'}
+        metadata:
+          name: "Application Services: GitHub decision task"
+          description: ""
+          owner: &task_owner ${event.pusher.name}@users.noreply.github.com
+          source: &task_source ${event.compare}
+        scopes:
+          - "queue:scheduler-id:taskcluster-github"
+          # So that we can use our own "application-services-r" worker-type.
+          - "queue:create-task:highest:aws-provisioner-v1/application-services-r"
+
+          # So that we can cache task outputs for re-use.
+          - "queue:route:index.project.application-services.*"
+
+          # So that we can re-use Gradle/Cargo/sccache bits between tasks.
+          - "docker-worker:cache:application-services-*"
+
+          # So that we can fetch the macOS SDK from internal tooltool.
+          - "docker-worker:relengapi-proxy:tooltool.download.internal"
+
+        payload:
+          maxRunTime: {$eval: '20 * 60'}
+          # https://github.com/servo/taskcluster-bootstrap-docker-images#decision-task
+          image: "servobrowser/taskcluster-bootstrap:decision-task@sha256:28045b7ec0485ef363f8cb14f194008b47e9ede99f2ea40a1e945e921fce976e"
+          features:
+            taskclusterProxy: true
+
+          env:
+            GIT_URL: ${event.repository.clone_url}
+            GIT_REF: ${event.ref}
+            GIT_SHA: ${event.after}
+            TASK_FOR: ${tasks_for}
+            TASK_OWNER: *task_owner
+            TASK_SOURCE: *task_source
+
+          command:
+            - /bin/bash
+            - '--login'
+            - '-e'
+            - '-c'
+            - >-
+              git init repo &&
+              cd repo &&
+              git fetch --depth 1 "$GIT_URL" "$GIT_REF" &&
+              git reset --hard "$GIT_SHA" &&
+              python3 automation/taskcluster/decision_task.py
+
+  - $if: 'tasks_for == "github-push"'
+    then:
+      $if: 'event.ref[:10] == "refs/tags/"'
       then:
         taskGroupId: {$eval: as_slugid("decision_task")}
         taskId: {$eval: as_slugid("decision_task")}
