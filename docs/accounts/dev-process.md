@@ -215,7 +215,7 @@ sans any confidential operational notes.
 
 ## Code Review
 
-This project is production Mozilla code and subject to our [engineering practices and quality standards](https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Committing_Rules_and_Responsibilities).  Every patch must be [reviewed](https://developer.mozilla.org/en-US/docs/Code_Review_FAQ) by an owner or peer of the [Firefox Accounts module](https://wiki.mozilla.org/Modules/Other#Firefox_Accounts).
+This project is production Mozilla code and subject to our [engineering practices and quality standards](https://developer.mozilla.org/docs/Mozilla/Developer_guide/Committing_Rules_and_Responsibilities).  Every patch must be [reviewed](https://developer.mozilla.org/docs/Code_Review_FAQ) by an owner or peer of the [Firefox Accounts module](https://wiki.mozilla.org/Modules/Other#Firefox_Accounts).
 
 ### Review Checklist
 
@@ -397,9 +397,9 @@ in Bugzilla via this link:
 * [File a security-sensitive FxA bug](https://bugzilla.mozilla.org/enter_bug.cgi?product=Cloud%20Services&component=Server:%20Firefox%20Accounts&groups=cloud-services-security)
 
 The Firefox Accounts service
-is part of Mozilla's [bug bounty program](https://www.mozilla.org/en-US/security/bug-bounty/),
+is part of Mozilla's [bug bounty program](https://www.mozilla.org/security/bug-bounty/),
 which provides additional guidelines
-on [reporting security bugs](https://www.mozilla.org/en-US/security/bug-bounty/faq-webapp/#bug-reporting).
+on [reporting security bugs](https://www.mozilla.org/security/bug-bounty/faq-webapp/#bug-reporting).
 
 ### Making a private point-release
 
