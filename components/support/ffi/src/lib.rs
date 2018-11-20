@@ -99,6 +99,15 @@ extern crate log;
 
 use std::{panic, thread};
 
+// We could use failure for failure::Backtrace (and we enable RUST_BACKTRACE
+// to opt-in to backtraces on failure errors if possible), however:
+// - we don't already have a failure dependency (one is likely inevitable,
+//   and all our clients do, so this doesn't matter)
+// - `failure` only checks the RUST_BACKTRACE variable once, and we could have errors
+//   before this. So we just use the backtrace crate directly.
+#[cfg(feature = "log_backtraces")]
+extern crate backtrace;
+
 #[macro_use]
 mod macros;
 mod string;
@@ -141,6 +150,7 @@ pub use into_ffi::*;
 /// # use ffi_support::{ExternError, ErrorCode};
 /// # use std::os::raw::c_char;
 ///
+/// # #[derive(Debug)]
 /// # struct BadEmptyString;
 /// # impl From<BadEmptyString> for ExternError {
 /// #     fn from(e: BadEmptyString) -> Self {
@@ -209,7 +219,10 @@ pub use into_ffi::*;
 pub fn call_with_result<R, E, F>(out_error: &mut ExternError, callback: F) -> R::Value
 where
     F: FnOnce() -> Result<R, E>,
-    E: Into<ExternError>,
+    // It would be nice to only require std::fmt::Debug if the `log_backtraces`
+    // feature is on, but there's not really a way to do that in stable rust (at least
+    // not in a way that wouldn't add more work for consumers of this lib).
+    E: Into<ExternError> + std::fmt::Debug,
     R: IntoFfi,
 {
     call_with_result_impl(out_error, callback, false)
@@ -242,7 +255,7 @@ where
 fn call_with_result_impl<R, E, F>(out_error: &mut ExternError, callback: F, abort_on_panic: bool) -> R::Value
 where
     F: FnOnce() -> Result<R, E>,
-    E: Into<ExternError>,
+    E: Into<ExternError> + std::fmt::Debug,
     R: IntoFfi,
 {
     *out_error = ExternError::success();
@@ -251,9 +264,17 @@ where
     // memory safety violations by breaking unwind safety (note that this function is not `unsafe`),
     // short of bugs in unsafe code elsewhere, so this isn't the *worst* thing we could be doing.
     let res: thread::Result<(ExternError, R::Value)> = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+        init_backtraces_once();
         match callback() {
             Ok(v) => (ExternError::default(), v.into_ffi_value()),
-            Err(e) => (e.into(), R::ffi_default()),
+            Err(e) => {
+                #[cfg(feature = "log_backtraces")] {
+                    // If this is a `failure` error, it's Debug impl will include a
+                    // stack trace, so we log it.
+                    error!("Call returned error: Debug info: {:#?}", e);
+                }
+                (e.into(), R::ffi_default())
+            },
         }
     }));
     match res {
@@ -282,7 +303,7 @@ pub mod abort_on_panic {
     pub fn call_with_result<R, E, F>(out_error: &mut ExternError, callback: F) -> R::Value
     where
         F: FnOnce() -> Result<R, E>,
-        E: Into<ExternError>,
+        E: Into<ExternError> + std::fmt::Debug,
         R: IntoFfi,
     {
         super::call_with_result_impl(out_error, callback, true)
@@ -303,3 +324,30 @@ pub mod abort_on_panic {
     }
 }
 
+#[cfg(feature = "log_backtraces")]
+fn init_backtraces_once() {
+    use std::sync::{Once, ONCE_INIT};
+    static INIT_BACKTRACES: Once = ONCE_INIT;
+    INIT_BACKTRACES.call_once(move || {
+        // Turn on backtraces for failure, if it's still listening.
+        std::env::set_var("RUST_BACKTRACE", "1");
+        // Turn on a panic hook which logs both backtraces and the panic
+        // "Location" (file/line). We do both in case we've been stripped,
+        // ).
+        std::panic::set_hook(Box::new(move |panic_info| {
+            let (file, line) = if let Some(loc) = panic_info.location() {
+                (loc.file(), loc.line())
+            } else {
+                // Apparently this won't happen but rust has reserved the
+                // ability to start returning None from location in some cases
+                // in the future.
+                ("<unknown>", 0)
+            };
+            error!("### Rust `panic!` hit at file '{}', line {}", file, line);
+            error!("  Complete stack trace:\n{:?}", backtrace::Backtrace::new());
+        }));
+    });
+}
+
+#[cfg(not(feature = "log_backtraces"))]
+fn init_backtraces_once() {}
