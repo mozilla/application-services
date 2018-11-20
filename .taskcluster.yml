@@ -123,10 +123,14 @@ tasks:
     then:
       $if: 'event.ref[:10] == "refs/tags/"'
       then:
-        taskGroupId: {$eval: as_slugid("decision_task")}
+        taskGroupId: {$eval: as_slugid("decision_task")}  # Must be explicit because of Chain of Trust
         taskId: {$eval: as_slugid("decision_task")}
         provisionerId: aws-provisioner-v1
-        workerType: application-services-r
+        workerType: gecko-focus
+        schedulerId: taskcluster-github   # Must be explicit because of Chain of Trust
+        requires: all-completed   # Must be explicit because of Chain of Trust
+        priority: highest
+        retries: 5
         created: {$fromNow: ''}
         deadline: {$fromNow: '1 day'}
         metadata:
@@ -136,18 +140,24 @@ tasks:
           source: &task_source ${event.compare}
         scopes:
           - "queue:scheduler-id:taskcluster-github"
-          # So that we can use our own "application-services-r" worker-type.
-          - "queue:create-task:highest:aws-provisioner-v1/application-services-r"
 
+          # So that we can schedule gecko-focus script worker tasks.
+          - "queue:create-task:highest:aws-provisioner-v1/gecko-focus"
+
+          # So that we can schedule beetmover tasks.
+          - "queue:create-task:highest:scriptworker-prov-v1/mobile-beetmover-v1"
+
+          # TODO: think about not indexing?
           # So that we can cache task outputs for re-use.
           - "queue:route:index.project.application-services.*"
 
+          # TODO: think about caching?
           # So that we can re-use Gradle/Cargo/sccache bits between tasks.
           - "docker-worker:cache:application-services-*"
 
-          # So that we can publish to nalexander@'s personal bintray
-          # at https://bintray.com/ncalexander/application-services.
-          - "secrets:get:project/application-services/publish"
+          # # So that we can publish to maven.mozilla.org.
+          # - "project:mobile:application-services:releng:beetmover:action:push-to-maven"
+          # - "project:mobile:application-services:releng:beetmover:bucket:maven-production"
 
         payload:
           maxRunTime: {$eval: '20 * 60'}
@@ -155,6 +165,7 @@ tasks:
           image: "servobrowser/taskcluster-bootstrap:decision-task@sha256:28045b7ec0485ef363f8cb14f194008b47e9ede99f2ea40a1e945e921fce976e"
           features:
             taskclusterProxy: true
+            chainOfTrust: true
 
           env:
             GIT_URL: ${event.repository.clone_url}
@@ -175,3 +186,17 @@ tasks:
               git fetch --depth 1 "$GIT_URL" "$GIT_REF" &&
               git reset --hard "$GIT_SHA" &&
               python3 automation/taskcluster/decision_task.py
+
+          artifacts:
+            public/task-graph.json:
+              type: file
+              path: /build/repo/task-graph.json
+              expires: ${expires_in}
+            public/actions.json:
+              type: file
+              path: /build/repo/actions.json
+              expires: ${expires_in}
+            public/parameters.yml:
+              type: file
+              path: /build/repo/parameters.yml
+              expires: ${expires_in}

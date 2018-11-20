@@ -8,6 +8,17 @@ import os.path
 from decisionlib import *
 
 
+
+def populate_chain_of_trust_required_but_unused_files():
+    # Thoses files are needed to keep chainOfTrust happy. However, they have no
+    # need for android-components, at the moment. For more details, see:
+    # https://github.com/mozilla-releng/scriptworker/pull/209/files#r184180585
+
+    for file_names in ('actions.json', 'parameters.yml'):
+        with open(file_names, 'w') as f:
+            json.dump({}, f)    # Yaml is a super-set of JSON.
+
+
 def main(task_for, mock=False):
     if task_for == "github-pull-request":
         # Pull request.
@@ -25,7 +36,20 @@ def main(task_for, mock=False):
 
         if CONFIG.git_ref.startswith('refs/tags/'):
             # A release.
-            android_arm32_release(android_libs_task, desktop_linux_libs_task)
+            build_task = android_arm32_release(android_libs_task, desktop_linux_libs_task)
+
+            task_graph = {}
+            task_graph[build_task] = {}
+            task_graph[build_task]["task"] = SHARED.queue_service.task(build_task)
+
+            print(json.dumps(task_graph, indent=4, separators=(',', ': ')))
+
+            task_graph_path = "task-graph.json"
+            with open(task_graph_path, 'w') as f:
+                json.dump(task_graph, f)
+
+            populate_chain_of_trust_required_but_unused_files()
+
         else:
             # A regular push to master.
             android_arm32(android_libs_task, desktop_linux_libs_task)
@@ -142,6 +166,10 @@ def android_arm32_release(android_libs_task, desktop_libs_task):
         )
         .with_scopes("secrets:get:project/application-services/publish")
         .with_features("taskclusterProxy")
+
+        .with_features("chainOfTrust")
+        .with_worker_type("gecko-focus")
+
         .create()
         # Eventually we can index these releases, if we choose to.
         # .find_or_create("build.android_release." + CONFIG.git_sha)
