@@ -79,6 +79,19 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
         return result
     }
 
+    override fun sync(syncInfo: SyncAuthInfo) {
+        rustCall { error ->
+            LibPlacesFFI.INSTANCE.sync15_history_sync(
+                    this.db!!,
+                    syncInfo.kid,
+                    syncInfo.fxaAccessToken,
+                    syncInfo.syncKey,
+                    syncInfo.tokenserverURL,
+                    error
+            )
+        }
+    }
+
     private inline fun <U> rustCall(callback: (RustError.ByReference) -> U): U {
         synchronized(this) {
             val e = RustError.ByReference()
@@ -102,6 +115,18 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
         }
     }
 }
+
+/**
+ * A class for providing the auth-related information needed to sync.
+ * Note that this has the same shape as `SyncUnlockInfo` from logins - we
+ * probably want a way of sharing these.
+ */
+class SyncAuthInfo (
+    val kid: String,
+    val fxaAccessToken: String,
+    val syncKey: String,
+    val tokenserverURL: String
+)
 
 /**
  * An API for interacting with Places.
@@ -138,6 +163,17 @@ interface PlacesAPI {
      *  is (roughly) considered remote if it didn't originate on the current device.
      */
     fun getVisitedUrlsInRange(start: Long, end: Long = Long.MAX_VALUE, includeRemote: Boolean = true): List<String>
+
+    /**
+     * Syncs the history store.
+     *
+     * Note that this function blocks until the sync is complete, which may
+     * take some time due to the network etc. Because only 1 thread can be
+     * using a PlacesAPI at a time, it is recommended, but not enforced, that
+     * you use a separate PlacesAPI instance purely for syncing.
+     *
+     */
+    fun sync(syncInfo: SyncAuthInfo)
 }
 
 open class PlacesException(msg: String): Exception(msg)

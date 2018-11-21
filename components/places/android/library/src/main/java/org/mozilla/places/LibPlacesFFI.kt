@@ -75,6 +75,15 @@ internal interface LibPlacesFFI : Library {
             out_err: RustError.ByReference
     ): Pointer?
 
+    fun sync15_history_sync(
+            conn: RawPlacesConnection,
+            key_id: String,
+            access_token: String,
+            sync_key: String,
+            tokenserver_url: String,
+            out_err: RustError.ByReference
+    )
+
     /** Destroy strings returned from libplaces_ffi calls. */
     fun places_destroy_string(s: Pointer)
 
