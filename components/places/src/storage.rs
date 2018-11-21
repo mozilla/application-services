@@ -349,7 +349,7 @@ pub mod history_sync {
                                visits: &[HistoryRecordVisit]) -> Result<()> {
         let page_info = match fetch_page_info(db, &url)? {
             Some(info) => {
-                assert_eq!(info.page.guid, *new_guid);
+                assert!(existing_guid.is_none() || info.page.guid == *existing_guid.as_ref().unwrap());
                 info.page
             },
             None => {
@@ -368,7 +368,9 @@ pub mod history_sync {
         // and the place itself if necessary.
         let new_title = title.as_ref().unwrap_or(&page_info.title);
         // We set the Status to Normal, otherwise we will re-upload it as
-        // outgoing even if nothing has changed.
+        // outgoing even if nothing has changed. Note that we *do not* reset
+        // the change counter - if it is non-zero now, we want it to remain
+        // as non-zero, so we do re-upload it if there were actual changes)
         db.execute_named_cached(
             "UPDATE moz_places
              SET title = :title,
@@ -393,7 +395,7 @@ pub mod history_sync {
         Ok(())
     }
 
-    pub fn apply_synced_reconcilliation(db: &Connection, guid: &SyncGuid) -> Result<()> {
+    pub fn apply_synced_reconciliation(db: &Connection, guid: &SyncGuid) -> Result<()> {
         db.execute_named_cached(
             "UPDATE moz_places
              SET sync_status = :status,
@@ -411,6 +413,8 @@ pub mod history_sync {
             &[(":guid", guid)])?;
         // This might have created a local tombstone for the item, which we
         // don't want.
+        // XXX - we can delete this when we do
+        // https://github.com/mozilla/application-services/issues/415
         db.execute_named_cached(
             "DELETE FROM moz_places_tombstones WHERE guid = :guid",
             &[(":guid", guid)])?;
@@ -468,11 +472,9 @@ pub mod history_sync {
         // in `finish_outgoing` anyway, because we execute a `NOT IN` query
         // there - which, in a worst-case scenario, is a very large `NOT IN`
         // set.
-        db.execute_all(&["DROP TABLE IF EXISTS temp_sync_updated_meta",
-                         "CREATE TEMP TABLE temp_sync_updated_meta
-                          (id INTEGER PRIMARY KEY,
-                           change_delta INTEGER NOT NULL)
-                          WITHOUT ROWID"])?;
+        db.execute("CREATE TEMP TABLE IF NOT EXISTS temp_sync_updated_meta
+                    (id INTEGER PRIMARY KEY,
+                     change_delta INTEGER NOT NULL)", &[])?;
 
         let insert_meta_sql = "
             INSERT INTO temp_sync_updated_meta VALUES (:row_id, :change_delta)";
@@ -533,8 +535,8 @@ pub mod history_sync {
     pub fn finish_outgoing(db: &Connection) -> Result<()> {
         // So all items *other* than those above must be set to "not dirty"
         // (ie, status=SyncStatus::Normal, change_counter=0). Otherwise every
-        // subsequent sync will continue to add more and more local visits
-        // until every visit we have is uploaded. And we only want to do it
+        // subsequent sync will continue to add more and more local pages
+        // until every page we have is uploaded. And we only want to do it
         // at the end of the sync because if we are interrupted, we'll end up
         // thinking we have nothing to upload.
         // BUT - this is potentially alot of rows! Because we want "NOT IN (...)"
@@ -556,7 +558,7 @@ pub mod history_sync {
                                    SET sync_change_counter = 0, sync_status = {}
                                    WHERE id NOT IN (SELECT id from temp_sync_updated_meta)",
                                    (SyncStatus::Normal as u8)),
-                         "DROP TABLE temp_sync_updated_meta"])?;
+                         "DELETE FROM temp_sync_updated_meta"])?;
 
         trace!("Removing local tombstones");
         db.conn().execute_cached("DELETE from moz_places_tombstones", &[])?;
@@ -965,13 +967,13 @@ mod tests {
     }
 
     #[test]
-    fn test_apply_synced_reconcilliation() -> Result<()> {
+    fn test_apply_synced_reconciliation() -> Result<()> {
         let _ = env_logger::try_init();
         let mut conn = PlacesDb::open_in_memory(None)?;
         let mut pi = get_observed_page(&mut conn, "http://example.com/1")?;
         assert_eq!(pi.sync_status, SyncStatus::New);
         assert_eq!(pi.sync_change_counter, 1);
-        apply_synced_reconcilliation(&conn, &pi.guid)?;
+        apply_synced_reconciliation(&conn, &pi.guid)?;
         pi = fetch_page_info(&conn, &pi.url)?.expect("page should exist").page;
         assert_eq!(pi.sync_status, SyncStatus::Normal);
         assert_eq!(pi.sync_change_counter, 0);

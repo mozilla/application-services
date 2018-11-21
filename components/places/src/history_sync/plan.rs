@@ -15,7 +15,7 @@ use types::{SyncGuid, Timestamp, VisitTransition};
 use storage::history_sync::{
     apply_synced_deletion,
     apply_synced_visits,
-    apply_synced_reconcilliation,
+    apply_synced_reconciliation,
     fetch_outgoing,
     fetch_visits,
     FetchedVisit,
@@ -55,17 +55,33 @@ fn clamp_visit_date(visit_date: Timestamp) -> Timestamp {
     return visit_date;
 }
 
+/// This is the action we will take *locally* for each incoming record.
+/// For example, IncomingPlan::Delete means we will be deleting a local record
+/// and not that we will be uploading a tombstone or deleting the record itself.
 #[derive(Debug)]
 pub enum IncomingPlan {
-    Skip, // An entry we just want to ignore - either due to the URL etc, or because no changes.
-    Invalid(Error), // Something's wrong with this entry.
-    Failed(Error), // The entry appears sane, but there was some error.
-    Delete, // We should delete this.
-    // We should apply this. If SyncGuid is Some, then it is the existing guid
-    // for the same URL, and if that doesn't match the incoming record, we
-    // should change the existing item to the incoming one and upload a tombstone.
-    Apply(Option<SyncGuid>, Url, Option<String>, Vec<HistoryRecordVisit>),
-    Reconciled, // Entry exists locally and it's the same as the incoming record.
+    /// An entry we just want to ignore - either due to the URL etc, or because no changes.
+    Skip,
+    /// Something's wrong with this entry.
+    Invalid(Error),
+    /// The entry appears sane, but there was some error.
+    Failed(Error),
+    /// We should locally delete this.
+    Delete,
+    /// We should apply this. If old_guid is Some, then it is the existing,
+    /// local guid which is different from the incoming guid, so we need to
+    /// change the existing item to the incoming one and upload a tombstone for
+    /// old_guid.
+    Apply{
+        old_guid: Option<SyncGuid>,
+        url: Url,
+        new_title: Option<String>,
+        visits: Vec<HistoryRecordVisit>
+    },
+    /// Entry exists locally and it's the same as the incoming record. This is
+    /// subtly different from Skip as we may still need to write metadata to
+    /// the local DB for reconciled items.
+    Reconciled,
 }
 
 
@@ -90,7 +106,10 @@ fn plan_incoming_record(conn: &Connection, record: HistoryRecord, max_visits: us
     };
 
     // This all seems more messy than it should be - struggling to find the
-    // correct signature for fetch_visits
+    // correct signature for fetch_visits.
+    // An improvement might be to do this via a temp table so we can dedupe
+    // and apply in one operation rather than the fetch, rust-merge and update
+    // we are doing here.
     let (existing_page, existing_visits): (Option<FetchedVisitPage>, Vec<FetchedVisit>) = match visit_tuple {
         None => (None, Vec::new()),
         Some((p, v)) => (Some(p), v),
@@ -113,9 +132,11 @@ fn plan_incoming_record(conn: &Connection, record: HistoryRecord, max_visits: us
         }
     }
     // If we already have MAX_RECORDS visits, then we will ignore incoming
-    // visits older than that. (Not really clear why we do this and why 20 is
-    // magic, but what's good enough for desktop is good enough for us at this
-    // stage.)
+    // visits older than that, to avoid adding dupes of earlier visits.
+    // (Not really clear why 20 is magic, but what's good enough for desktop
+    // is good enough for us at this stage.)
+    // We should also consider pushing this deduping down into storage, where
+    // it can possibly do a better job directly in SQL or similar.
     let earliest_allowed: SystemTime = if existing_visits.len() == max_visits as usize {
         existing_visits[existing_visits.len() - 1].visit_date.into()
     } else {
@@ -145,7 +166,12 @@ fn plan_incoming_record(conn: &Connection, record: HistoryRecord, max_visits: us
         // Check if we should update title? For now, assume yes. It appears
         // as though desktop always updates it.
         let new_title = Some(record.title);
-        IncomingPlan::Apply(old_guid, url.clone(), new_title, to_apply)
+        IncomingPlan::Apply {
+            old_guid,
+            url: url.clone(),
+            new_title,
+            visits: to_apply
+        }
     } else {
         IncomingPlan::Reconciled
     }
@@ -194,19 +220,26 @@ pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<Outgo
                 num_deleted += 1;
                 apply_synced_deletion(&conn, &guid)?;
             },
-            IncomingPlan::Apply(old_guid, url, title, visits_to_add) => {
+            IncomingPlan::Apply { old_guid, url, new_title, visits } => {
                 num_applied += 1;
                 trace!("incoming: will apply {:?}: url={:?}, title={:?}, to_add={:?}",
-                      guid, url, title, visits_to_add);
-                apply_synced_visits(&conn, &guid, &old_guid, &url, title, visits_to_add)?;
+                       guid, url, new_title, visits);
+                apply_synced_visits(&conn, &guid, &old_guid, &url, new_title, visits)?;
+                // For now, we *do not* upload a tombstone for the item. See
+                // https://github.com/mozilla/application-services/issues/414
+                // for the discussion.
+                // (Note also that no tests needed to be changed when commenting
+                // this out, which is another indication it needs thought and tests!)
+                /*
                 if let Some(ref old_guid) = old_guid {
                     outgoing.changes.push(Payload::new_tombstone(old_guid.0.clone()));
                 }
+                */
             },
             IncomingPlan::Reconciled => {
                 num_reconciled += 1;
                 trace!("incoming: reconciled {:?}", guid);
-                apply_synced_reconcilliation(&conn, &guid)?;
+                apply_synced_reconciliation(&conn, &guid)?;
             },
         };
     }
@@ -217,11 +250,8 @@ pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<Outgo
     for (guid, out_record) in out_infos.drain() {
         let payload = match out_record {
             OutgoingInfo::Record(record) => {
-                // XXX - comments in `from_record` imply this is dumb. I'm
-                // really not sure I'm using `Payload` correctly?
                 Payload::from_record(record)?
             },
-            // XXX - we need a way to ensure the TTL is set on the tombstone?
             OutgoingInfo::Tombstone => Payload::new_tombstone_with_ttl(guid.0.clone(),
                                                                        HISTORY_TTL),
         };
@@ -338,7 +368,7 @@ mod tests {
                                      visits};
 
         assert!(match plan_incoming_record(&conn, record, 10) {
-            IncomingPlan::Apply(None, _, _, _) => true,
+            IncomingPlan::Apply{ old_guid: None, .. } => true,
             _ => false,
         });
         Ok(())
@@ -402,7 +432,7 @@ mod tests {
         // Even though there are no visits we should record that it will be
         // applied with the guid change.
         assert!(match plan_incoming_record(&conn, record, 10) {
-            IncomingPlan::Apply(Some(got_old_guid), _, _, _) => {
+            IncomingPlan::Apply {old_guid: Some(got_old_guid), .. } => {
                 assert_eq!(got_old_guid, old_guid);
                 true
             },
