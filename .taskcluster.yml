@@ -190,13 +190,13 @@ tasks:
           artifacts:
             public/task-graph.json:
               type: file
-              path: /build/repo/task-graph.json
+              path: /task-graph.json
               expires: {$fromNow: '1 year'}
             public/actions.json:
               type: file
-              path: /build/repo/actions.json
+              path: /actions.json
               expires: {$fromNow: '1 year'}
             public/parameters.yml:
               type: file
-              path: /build/repo/parameters.yml
+              path: /parameters.yml
               expires: {$fromNow: '1 year'}

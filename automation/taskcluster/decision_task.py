@@ -14,7 +14,7 @@ def populate_chain_of_trust_required_but_unused_files():
     # need for android-components, at the moment. For more details, see:
     # https://github.com/mozilla-releng/scriptworker/pull/209/files#r184180585
 
-    for file_names in ('/build/repo/actions.json', '/build/repo/parameters.yml'):
+    for file_names in ('/actions.json', '/parameters.yml'):
         with open(file_names, 'w') as f:
             json.dump({}, f)    # Yaml is a super-set of JSON.
 
@@ -44,7 +44,7 @@ def main(task_for, mock=False):
 
             print(json.dumps(task_graph, indent=4, separators=(',', ': ')))
 
-            task_graph_path = '/build/repo/task-graph.json'
+            task_graph_path = "/task-graph.json"
             with open(task_graph_path, 'w') as f:
                 json.dump(task_graph, f)
 
