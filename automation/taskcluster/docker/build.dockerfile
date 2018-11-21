@@ -1,0 +1,111 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+FROM ubuntu:bionic-20181018
+
+MAINTAINER Nick Alexander "nalexander@mozilla.com"
+
+# Configuration
+
+ENV ANDROID_BUILD_TOOLS "28.0.3"
+ENV ANDROID_SDK_VERSION "3859397"
+ENV ANDROID_PLATFORM_VERSION "28"
+
+ENV LANG en_US.UTF-8
+
+# Do not use fancy output on taskcluster
+ENV TERM dumb
+
+ENV GRADLE_OPTS -Xmx4096m -Dorg.gradle.daemon=false
+
+# Used to detect in scripts whether we are running on taskcluster
+ENV CI_TASKCLUSTER true
+
+ENV \
+    #
+    # Some APT packages like 'tzdata' wait for user input on install by default.
+    # https://stackoverflow.com/questions/44331836/apt-get-install-tzdata-noninteractive
+    DEBIAN_FRONTEND=noninteractive
+
+# System.
+
+RUN apt-get update -qq \
+    # We need to install tzdata before all of the other packages. Otherwise it will show an interactive dialog that
+    # we cannot navigate while building the Docker image.
+    && apt-get install -qy tzdata \
+    && apt-get install -qy --no-install-recommends openjdk-8-jdk \
+                          wget \
+                          expect \
+                          git \
+                          curl \
+                          # For `cc` crates; see https://github.com/jwilm/alacritty/issues/1440.
+                          g++ \
+                          clang \
+                          python \
+                          python-pip \
+                          python-setuptools \
+                          locales \
+                          unzip \
+    && apt-get clean
+
+RUN pip install --upgrade pip
+RUN pip install 'taskcluster>=4,<5'
+
+RUN locale-gen en_US.UTF-8
+
+# Android SDK
+
+RUN mkdir -p /build/android-sdk
+WORKDIR /build
+
+ENV ANDROID_HOME /build/android-sdk
+ENV ANDROID_SDK_HOME /build/android-sdk
+ENV PATH ${PATH}:${ANDROID_SDK_HOME}/tools:${ANDROID_SDK_HOME}/tools/bin:${ANDROID_SDK_HOME}/platform-tools:/opt/tools:${ANDROID_SDK_HOME}/build-tools/${ANDROID_BUILD_TOOLS}
+
+RUN curl -L https://dl.google.com/android/repository/sdk-tools-linux-${ANDROID_SDK_VERSION}.zip > sdk.zip \
+    && unzip -q sdk.zip -d ${ANDROID_SDK_HOME} \
+    && rm sdk.zip \
+    && mkdir -p /build/android-sdk/.android/ \
+    && touch /build/android-sdk/.android/repositories.cfg \
+    && yes | sdkmanager --licenses \
+    && sdkmanager --verbose "platform-tools" \
+        "platforms;android-${ANDROID_PLATFORM_VERSION}" \
+        "build-tools;${ANDROID_BUILD_TOOLS}" \
+        "extras;android;m2repository" \
+        "extras;google;m2repository"
+
+# Android NDK
+
+# r15c agrees with mozilla-central and, critically, supports the --deprecated-headers flag needed to
+# build OpenSSL.
+ENV ANDROID_NDK_VERSION "r15c"
+
+ENV ANDROID_NDK_HOME /build/android-ndk
+
+RUN curl -L https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux-x86_64.zip > ndk.zip \
+	&& unzip -q ndk.zip -d /build \
+	&& rm ndk.zip \
+  && mv /build/android-ndk-${ANDROID_NDK_VERSION} ${ANDROID_NDK_HOME}
+
+ENV ANDROID_NDK_TOOLCHAIN_DIR /root/.android-ndk-r15c-toolchain
+ENV ANDROID_NDK_API_VERSION 21
+
+# Rust (cribbed from https://github.com/rust-lang-nursery/docker-rust/blob/ced83778ec6fea7f63091a484946f95eac0ee611/1.27.1/stretch/Dockerfile)
+
+RUN set -eux; \
+    rustArch='x86_64-unknown-linux-gnu'; rustupSha256='0077ff9c19f722e2be202698c037413099e1188c0c233c12a2297bf18e9ff6e7'; \
+    url="https://static.rust-lang.org/rustup/archive/1.14.0/${rustArch}/rustup-init"; \
+    wget "$url"; \
+    echo "${rustupSha256} *rustup-init" | sha256sum -c -; \
+    chmod +x rustup-init; \
+    ./rustup-init -y --no-modify-path --default-toolchain none; \
+    rm rustup-init
+
+ENV PATH=/root/.cargo/bin:$PATH
+
+RUN \
+    curl --silent --show-error --fail --location --retry 5 --retry-delay 10 \
+        https://github.com/mozilla/sccache/releases/download/0.2.7/sccache-0.2.7-x86_64-unknown-linux-musl.tar.gz \
+        | tar -xz --strip-components=1 -C /usr/local/bin/ \
+            sccache-0.2.7-x86_64-unknown-linux-musl/sccache

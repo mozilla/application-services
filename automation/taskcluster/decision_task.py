@@ -104,21 +104,19 @@ def desktop_macos_libs():
 def android_arm32(android_libs_task, desktop_libs_task):
     return (
         linux_build_task("Android (all architectures): build and test")
-        .with_env(ANDROID_LIBS_TASK_ID=android_libs_task)
-        .with_env(DESKTOP_LIBS_TASK_ID=desktop_libs_task)
-        .with_dependencies(android_libs_task, desktop_libs_task)
+        .with_curl_artifact_script(android_libs_task, "target.tar.gz")
+        .with_script("tar -xzf target.tar.gz")
+        .with_curl_artifact_script(desktop_libs_task, "target.tar.gz")
+        .with_script("tar -xzf target.tar.gz")
         .with_script("""
-            curl --silent --show-error --fail --location --retry 5 --retry-delay 10 https://github.com/mozilla/sccache/releases/download/0.2.7/sccache-0.2.7-x86_64-unknown-linux-musl.tar.gz | tar -xz --strip-components=1 -C /usr/local/bin/ sccache-0.2.7-x86_64-unknown-linux-musl/sccache
-            ./automation/taskcluster/curl-artifact.sh ${ANDROID_LIBS_TASK_ID} target.tar.gz | tar -xz
-            ./automation/taskcluster/curl-artifact.sh ${DESKTOP_LIBS_TASK_ID} target.tar.gz | tar -xz
             ./gradlew --no-daemon clean
             ./gradlew --no-daemon :fxa-client-library:testDebug :logins-library:testDebug :places-library:testDebug
             ./gradlew --no-daemon :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
         """)
         .with_artifacts(
-            "/build/repo/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-release.aar",
-            "/build/repo/logins-api/android/library/build/outputs/aar/logins-release.aar",
-            "/build/repo/components/places/android/library/build/outputs/aar/places-release.aar",
+            "/build/repo/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-library-release.aar",
+            "/build/repo/logins-api/android/library/build/outputs/aar/logins-library-release.aar",
+            "/build/repo/components/places/android/library/build/outputs/aar/places-library-release.aar",
         )
         .create()
     )
@@ -126,13 +124,11 @@ def android_arm32(android_libs_task, desktop_libs_task):
 def android_arm32_release(android_libs_task, desktop_libs_task):
     return (
         linux_build_task("Android (all architectures): build and test and release")
-        .with_env(ANDROID_LIBS_TASK_ID=android_libs_task)
-        .with_env(DESKTOP_LIBS_TASK_ID=desktop_libs_task)
-        .with_dependencies(android_libs_task, desktop_libs_task)
+        .with_curl_artifact_script(android_libs_task, "target.tar.gz")
+        .with_script("tar -xzf target.tar.gz")
+        .with_curl_artifact_script(desktop_libs_task, "target.tar.gz")
+        .with_script("tar -xzf target.tar.gz")
         .with_script("""
-            curl --silent --show-error --fail --location --retry 5 --retry-delay 10 https://github.com/mozilla/sccache/releases/download/0.2.7/sccache-0.2.7-x86_64-unknown-linux-musl.tar.gz | tar -xz --strip-components=1 -C /usr/local/bin/ sccache-0.2.7-x86_64-unknown-linux-musl/sccache
-            ./automation/taskcluster/curl-artifact.sh ${ANDROID_LIBS_TASK_ID} target.tar.gz | tar -xz
-            ./automation/taskcluster/curl-artifact.sh ${DESKTOP_LIBS_TASK_ID} target.tar.gz | tar -xz
             ./gradlew --no-daemon clean
             ./gradlew --no-daemon :fxa-client-library:testDebug :logins-library:testDebug :places-library:testDebug
             ./gradlew --no-daemon :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
@@ -140,9 +136,9 @@ def android_arm32_release(android_libs_task, desktop_libs_task):
             ./gradlew bintrayUpload --debug -PvcsTag="${GIT_SHA}"
         """)
         .with_artifacts(
-            "/build/repo/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-release.aar",
-            "/build/repo/logins-api/android/library/build/outputs/aar/logins-release.aar",
-            "/build/repo/components/places/android/library/build/outputs/aar/places-release.aar",
+            "/build/repo/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-library-release.aar",
+            "/build/repo/logins-api/android/library/build/outputs/aar/logins-library-release.aar",
+            "/build/repo/components/places/android/library/build/outputs/aar/places-library-release.aar",
         )
         .with_scopes("secrets:get:project/application-services/publish")
         .with_features("taskclusterProxy")
@@ -170,26 +166,36 @@ def linux_build_task(name):
             "application-services-cargo-git": "/root/.cargo/git",
             "application-services-sccache": "/root/.cache/sccache",
             "application-services-gradle": "/root/.gradle",
-            # After we get the docker-in-docker image building working, we can
-            # do this instead of baking Rust into our images.
-            # "application-services-rustup": "/root/.rustup",
+            "application-services-rustup": "/root/.rustup",
+            "application-services-android-ndk-toolchain": "/root/.android-ndk-r15c-toolchain",
         })
         .with_index_and_artifacts_expire_in(build_artifacts_expire_in)
         .with_artifacts("/build/sccache.log")
         .with_max_run_time_minutes(60)
-        .with_docker_image(
-            'mozillamobile/rust-component:buildtools-27.0.3-ndk-r15c-ndk-version-21-rust-stable-1.30.1-rust-beta-1.31.0-beta.11'
-        )
-        # After we get the docker-in-docker image building working, we can
-        # build images rather than import them from Docker hub.
-        # .with_dockerfile(dockerfile_path("build"))
+        .with_dockerfile(dockerfile_path("build"))
         .with_env(**build_env, **linux_build_env)
+        .with_script("""
+            rustup toolchain install 1.30.1
+            rustup default 1.30.1
+            # rustup target add x86_64-unknown-linux-gnu # See https://github.com/rust-lang-nursery/rustup.rs/issues/1533.
+            rustup target add x86_64-apple-darwin
+
+            rustup target add i686-linux-android
+            rustup target add armv7-linux-androideabi
+            rustup target add aarch64-linux-android
+        """)
+        .with_script("""
+            test -d $ANDROID_NDK_TOOLCHAIN_DIR/arm-$ANDROID_NDK_API_VERSION   || $ANDROID_NDK_HOME/build/tools/make_standalone_toolchain.py --arch="arm"   --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/arm-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
+            test -d $ANDROID_NDK_TOOLCHAIN_DIR/arm64-$ANDROID_NDK_API_VERSION || $ANDROID_NDK_HOME/build/tools/make_standalone_toolchain.py --arch="arm64" --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/arm64-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
+            test -d $ANDROID_NDK_TOOLCHAIN_DIR/x86-$ANDROID_NDK_API_VERSION   || $ANDROID_NDK_HOME/build/tools/make_standalone_toolchain.py --arch="x86"   --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/x86-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
+        """)
         .with_repo()
     )
 
 
 CONFIG.task_name_template = "Application Services: %s"
 CONFIG.index_prefix = "project.application-services.application-services"
+CONFIG.docker_image_build_worker_type = "application-services-r"
 CONFIG.docker_images_expire_in = build_dependencies_artifacts_expire_in
 CONFIG.repacked_msi_files_expire_in = build_dependencies_artifacts_expire_in
 

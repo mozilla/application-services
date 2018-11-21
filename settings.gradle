@@ -8,3 +8,9 @@ include ':places-library'
 project(':fxa-client-library').projectDir = new File("fxa-client/sdks/android/library")
 project(':logins-library').projectDir = new File("logins-api/android/library")
 project(':places-library').projectDir = new File("components/places/android/library")
+
+include ':composites-lockbox'
+project(':composites-lockbox').projectDir = new File("composites/lockbox/android/library")
+
+include ':composites-reference-browser'
+project(':composites-reference-browser').projectDir = new File("composites/reference-browser/android/library")

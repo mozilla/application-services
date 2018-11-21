@@ -4,6 +4,7 @@
 
 package org.mozilla.places
 
+import android.util.Log
 import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
@@ -12,7 +13,15 @@ import java.lang.reflect.Proxy
 
 internal interface LibPlacesFFI : Library {
     companion object {
-        private const val JNA_LIBRARY_NAME = "places_ffi"
+        private val JNA_LIBRARY_NAME = {
+            val libname = System.getProperty("mozilla.appservices.places_ffi_lib_name")
+            if (libname != null) {
+                Log.i("AppServices", "Using places_ffi_lib_name: " + libname);
+                libname
+            } else {
+                "places_ffi"
+            }
+        }()
 
         internal var INSTANCE: LibPlacesFFI = try {
             Native.loadLibrary(JNA_LIBRARY_NAME, LibPlacesFFI::class.java) as LibPlacesFFI

@@ -4,6 +4,7 @@
 
 package mozilla.appservices.logins.rust
 
+import android.util.Log
 import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
@@ -14,9 +15,15 @@ import java.lang.reflect.Proxy
 @Suppress("FunctionNaming", "TooManyFunctions", "TooGenericExceptionThrown")
 internal interface PasswordSyncAdapter : Library {
     companion object {
-        // If our shared object isn't available, error when you attempt to call our methods
-        // intead of at startup.
-        private const val JNA_LIBRARY_NAME = "logins_ffi"
+        private val JNA_LIBRARY_NAME = {
+            val libname = System.getProperty("mozilla.appservices.logins_ffi_lib_name")
+            if (libname != null) {
+                Log.i("AppServices", "Using logins_ffi_lib_name: " + libname);
+                libname
+            } else {
+                "logins_ffi"
+            }
+        }()
 
         internal var INSTANCE: PasswordSyncAdapter = try {
             Native.loadLibrary(JNA_LIBRARY_NAME, PasswordSyncAdapter::class.java) as PasswordSyncAdapter
