@@ -16,6 +16,7 @@ def main(task_for, mock=False):
         desktop_macos_libs_task = desktop_macos_libs()
 
         android_arm32(android_libs_task, desktop_linux_libs_task)
+        ios_multiarch()
 
     elif task_for == "github-push":
         # Push to master or a tag.
@@ -26,9 +27,11 @@ def main(task_for, mock=False):
         if CONFIG.git_ref.startswith('refs/tags/'):
             # A release.
             android_arm32_release(android_libs_task, desktop_linux_libs_task)
+            ios_multiarch_release()
         else:
             # A regular push to master.
             android_arm32(android_libs_task, desktop_linux_libs_task)
+            ios_multiarch()
 
     else:  # pragma: no cover
         raise ValueError("Unrecognized $TASK_FOR value: %r", task_for)
@@ -53,6 +56,7 @@ linux_build_env = {
     "SCCACHE_ERROR_LOG": "/build/sccache.log",
     "RUST_LOG": "sccache=info",
 }
+macos_build_env = {} # TODO sccache
 
 
 def android_libs():
@@ -147,6 +151,25 @@ def android_arm32_release(android_libs_task, desktop_libs_task):
         # .find_or_create("build.android_release." + CONFIG.git_sha)
     )
 
+def ios_multiarch():
+    return (
+        ios_build_task("iOS (all architectures): build")
+        .with_script("""
+            echo $PWD
+            cd fxa-client/sdks && carthage build --no-skip-current --verbose && carthage archive && cd -
+        """)
+        # TODO Need to figure out the path (hence the echo earlier).
+        # .with_artifacts(
+        #     "/build/repo/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-library-release.aar",
+        #     "/build/repo/logins-api/android/library/build/outputs/aar/logins-library-release.aar",
+        #     "/build/repo/components/places/android/library/build/outputs/aar/places-library-release.aar",
+        # )
+        .create()
+    )
+
+def ios_multiarch_release():
+    return () #TODO
+
 
 def dockerfile_path(name):
     return os.path.join(os.path.dirname(__file__), "docker", name + ".dockerfile")
@@ -155,6 +178,12 @@ def dockerfile_path(name):
 def linux_task(name):
     return DockerWorkerTask(name).with_worker_type("application-services-r")
 
+def macos_task(name):
+    return (
+        MacOsGenericWorkerTask(name)
+        .with_provisioner_id("application-services") # TODO: needs to be changed later
+        .with_worker_type("macos")
+    )
 
 def linux_build_task(name):
     return (
@@ -192,6 +221,42 @@ def linux_build_task(name):
         .with_repo()
     )
 
+def macos_build_task(name):
+    return (
+        macos_task(name)
+        # https://docs.taskcluster.net/docs/reference/workers/docker-worker/docs/caches
+        # TODO uncomment bellow
+        # .with_scopes("docker-worker:cache:application-services-*")
+        # .with_caches(**{
+        #     "application-services-cargo-registry": "/root/.cargo/registry",
+        #     "application-services-cargo-git": "/root/.cargo/git",
+        #     "application-services-sccache": "/root/.cache/sccache",
+        #     "application-services-gradle": "/root/.gradle",
+        #     "application-services-rustup": "/root/.rustup",
+        #     "application-services-android-ndk-toolchain": "/root/.android-ndk-r15c-toolchain",
+        # })
+        # .with_artifacts("/build/sccache.log")
+        .with_index_and_artifacts_expire_in(build_artifacts_expire_in)
+        .with_max_run_time_minutes(60)
+        .with_env(**build_env, **macos_build_env)
+        .with_script("""
+            rustup toolchain install 1.30.1
+            rustup default 1.30.1
+        """)
+        .with_repo()
+    )
+
+def ios_build_task(name):
+    return (
+        macos_build_task(name)
+        .with_script("""
+            rustup target add aarch64-apple-ios
+            rustup target add armv7-apple-ios
+            rustup target add i386-apple-ios
+            rustup target add x86_64-apple-ios
+            cargo install cargo-lipo
+        """)
+    )
 
 CONFIG.task_name_template = "Application Services: %s"
 CONFIG.index_prefix = "project.application-services.application-services"
