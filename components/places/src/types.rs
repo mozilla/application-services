@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::{fmt};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, Duration, UNIX_EPOCH};
 
 use rusqlite::{types::{ToSql, FromSql, ToSqlOutput, FromSqlResult, ValueRef}};
 use rusqlite::Result as RusqliteResult;
@@ -40,7 +40,7 @@ impl FromSql for SyncGuid {
 
 // Typesafe way to manage timestamps.
 // We should probably work out how to share this too?
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize, Default)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Default)]
 pub struct Timestamp(pub u64);
 
 impl Timestamp {
@@ -59,6 +59,13 @@ impl From<SystemTime> for Timestamp {
     fn from(st: SystemTime) -> Self {
         let d = st.duration_since(UNIX_EPOCH).unwrap(); // hrmph - unwrap doesn't seem ideal
         Timestamp((d.as_secs() as u64) * 1000 + ((d.subsec_nanos() as u64) / 1_000_000))
+    }
+}
+
+impl From<Timestamp> for SystemTime {
+    #[inline]
+    fn from(ts: Timestamp) -> Self {
+        UNIX_EPOCH + Duration::from_millis(ts.into())
     }
 }
 
@@ -94,7 +101,7 @@ impl FromSql for Timestamp {
 // Firefox and are what is written to the database. We also duplicate them
 // in the android lib as constants on PlacesConnection.
 #[repr(u8)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum VisitTransition {
     // This transition type means the user followed a link.
     Link = 1,

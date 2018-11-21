@@ -298,7 +298,7 @@ mod tests {
     use url::{Url};
     use db::{PlacesDb};
     use types::{SyncStatus};
-    use sync::util::{random_guid};
+    use sync15_adapter::util::{random_guid};
 
     fn has_tombstone(conn: &PlacesDb, guid: &str) -> bool {
         let count: Result<Option<u32>> = conn.try_query_row(
