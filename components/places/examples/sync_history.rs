@@ -32,6 +32,8 @@ use places::{PlacesDb};
 use places::history_sync::store::{HistoryStore};
 
 const CONTENT_BASE: &str = "https://accounts.firefox.com";
+const CLIENT_ID: &str = "";
+const REDIRECT_URI: &str = "";
 const SYNC_SCOPE: &str = "https://identity.mozilla.com/apps/oldsync";
 
 // I'm completely punting on good error handling here.
@@ -110,7 +112,7 @@ fn main() -> Result<()> {
     debug!("Using credential file = {:?}, db = {:?}", cred_file, db_path);
 
     // TODO: allow users to use stage/etc.
-    let cfg = Config::import_from(CONTENT_BASE)?;
+    let cfg = Config::import_from(CONTENT_BASE, CLIENT_ID, REDIRECT_URI)?;
     let tokenserver_url = cfg.token_server_endpoint_url()?;
 
     // TODO: we should probably set a persist callback on acct?

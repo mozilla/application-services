@@ -14,7 +14,7 @@ struct ClientConfigurationResponse {
     sync_tokenserver_base_url: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct OpenIdConfigurationResponse {
     authorization_endpoint: String,
     issuer: String,
@@ -26,6 +26,16 @@ struct OpenIdConfigurationResponse {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
     content_url: String,
+    remote_config: RemoteConfig,
+    pub client_id: String,
+    pub redirect_uri: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+/// `RemoteConfig` struct stores configuration values from the FxA
+/// `/.well-known/fxa-client-configuration` and the
+/// `/.well-known/openid-configuration` endpoints.
+pub struct RemoteConfig {
     auth_url: String,
     oauth_url: String,
     profile_url: String,
@@ -38,16 +48,16 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn release() -> Result<Self> {
-        Self::import_from("https://accounts.firefox.com")
+    pub fn release(client_id: &str, redirect_uri: &str) -> Result<Self> {
+        Self::import_from("https://accounts.firefox.com", client_id, redirect_uri)
     }
 
-    pub fn stable_dev() -> Result<Self> {
-        Self::import_from("https://stable.dev.lcip.org")
+    pub fn stable_dev(client_id: &str, redirect_uri: &str) -> Result<Self> {
+        Self::import_from("https://stable.dev.lcip.org", client_id, redirect_uri)
     }
 
-    pub fn stage_dev() -> Result<Self> {
-        Self::import_from("https://accounts.stage.mozaws.net")
+    pub fn stage_dev(client_id: &str, redirect_uri: &str) -> Result<Self> {
+        Self::import_from("https://accounts.stage.mozaws.net", client_id, redirect_uri)
     }
 
     pub(crate) fn new(
@@ -60,10 +70,11 @@ impl Config {
         issuer: String,
         jwks_uri: String,
         token_endpoint: String,
-        userinfo_endpoint: String
+        userinfo_endpoint: String,
+        client_id: String,
+        redirect_uri: String,
     ) -> Self {
-        Config {
-            content_url,
+        let remote_config = RemoteConfig {
             auth_url,
             oauth_url,
             profile_url,
@@ -72,19 +83,25 @@ impl Config {
             issuer,
             jwks_uri,
             token_endpoint,
-            userinfo_endpoint
+            userinfo_endpoint,
+        };
+
+        Config {
+            content_url,
+            remote_config,
+            client_id,
+            redirect_uri
         }
     }
 
-    pub fn import_from(content_url: &str) -> Result<Self> {
+    pub fn import_from(content_url: &str, client_id: &str, redirect_uri: &str) -> Result<Self> {
         let config_url = Url::parse(content_url)?.join(".well-known/fxa-client-configuration")?;
         let resp: ClientConfigurationResponse = reqwest::get(config_url)?.json()?;
 
         let openid_config_url = Url::parse(content_url)?.join(".well-known/openid-configuration")?;
         let openid_resp: OpenIdConfigurationResponse = reqwest::get(openid_config_url)?.json()?;
 
-        Ok(Config {
-            content_url: content_url.to_string(),
+        let remote_config = RemoteConfig {
             auth_url: format!("{}/", resp.auth_server_base_url),
             oauth_url: format!("{}/", resp.oauth_server_base_url),
             profile_url: format!("{}/", resp.profile_server_base_url),
@@ -94,6 +111,13 @@ impl Config {
             jwks_uri: openid_resp.jwks_uri,
             token_endpoint: openid_resp.token_endpoint,
             userinfo_endpoint: openid_resp.userinfo_endpoint,
+        };
+
+        Ok(Config {
+            content_url: content_url.to_string(),
+            remote_config,
+            client_id: client_id.to_string(),
+            redirect_uri: redirect_uri.to_string(),
         })
     }
 
@@ -106,7 +130,7 @@ impl Config {
     }
 
     pub fn auth_url(&self) -> Result<Url> {
-        Url::parse(&self.auth_url).map_err(|e| e.into())
+        Url::parse(&self.remote_config.auth_url).map_err(|e| e.into())
     }
 
     pub fn auth_url_path(&self, path: &str) -> Result<Url> {
@@ -114,7 +138,7 @@ impl Config {
     }
 
     pub fn profile_url(&self) -> Result<Url> {
-        Url::parse(&self.profile_url).map_err(|e| e.into())
+        Url::parse(&self.remote_config.profile_url).map_err(|e| e.into())
     }
 
     pub fn profile_url_path(&self, path: &str) -> Result<Url> {
@@ -122,7 +146,7 @@ impl Config {
     }
 
     pub fn oauth_url(&self) -> Result<Url> {
-        Url::parse(&self.oauth_url).map_err(|e| e.into())
+        Url::parse(&self.remote_config.oauth_url).map_err(|e| e.into())
     }
 
     pub fn oauth_url_path(&self, path: &str) -> Result<Url> {
@@ -130,27 +154,27 @@ impl Config {
     }
 
     pub fn token_server_endpoint_url(&self) -> Result<Url> {
-        Url::parse(&self.token_server_endpoint_url).map_err(|e| e.into())
+        Url::parse(&self.remote_config.token_server_endpoint_url).map_err(|e| e.into())
     }
 
     pub fn authorization_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.authorization_endpoint).map_err(|e| e.into())
+        Url::parse(&self.remote_config.authorization_endpoint).map_err(|e| e.into())
     }
 
     pub fn issuer(&self) -> Result<Url> {
-        Url::parse(&self.issuer).map_err(|e| e.into())
+        Url::parse(&self.remote_config.issuer).map_err(|e| e.into())
     }
 
     pub fn jwks_uri(&self) -> Result<Url> {
-        Url::parse(&self.jwks_uri).map_err(|e| e.into())
+        Url::parse(&self.remote_config.jwks_uri).map_err(|e| e.into())
     }
 
     pub fn token_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.token_endpoint).map_err(|e| e.into())
+        Url::parse(&self.remote_config.token_endpoint).map_err(|e| e.into())
     }
 
     pub fn userinfo_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.userinfo_endpoint).map_err(|e| e.into())
+        Url::parse(&self.remote_config.userinfo_endpoint).map_err(|e| e.into())
     }
 }
 
@@ -160,8 +184,7 @@ mod tests {
 
     #[test]
     fn test_paths() {
-        let config = Config {
-            content_url: "https://stable.dev.lcip.org/".to_string(),
+        let remote_config = RemoteConfig {
             auth_url: "https://stable.dev.lcip.org/auth/".to_string(),
             oauth_url: "https://oauth-stable.dev.lcip.org/".to_string(),
             profile_url: "https://stable.dev.lcip.org/profile/".to_string(),
@@ -173,6 +196,13 @@ mod tests {
             jwks_uri: "https://oauth-stable.dev.lcip.org/v1/jwks".to_string(),
             token_endpoint: "https://oauth-stable.dev.lcip.org/v1/token".to_string(),
             userinfo_endpoint: "https://stable.dev.lcip.org/profile/v1/profile".to_string(),
+        };
+
+        let config = Config {
+            content_url: "https://stable.dev.lcip.org/".to_string(),
+            remote_config,
+            client_id: "263ceaa5546dce83".to_string(),
+            redirect_uri: "https://127.0.0.1:8080".to_string(),
         };
         assert_eq!(
             config.auth_url_path("v1/account/keys").unwrap().to_string(),

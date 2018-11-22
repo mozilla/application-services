@@ -20,10 +20,13 @@ class Config internal constructor(rawPointer: RawConfig) : RustObject<RawConfig>
          * Set up endpoints used in the production Firefox Accounts instance.
          *
          * This performs network requests, and should not be used on the main thread.
+         *
+         * @param clientId Client Id of the FxA relier
+         * @param redirectUri Redirect Uri of the FxA relier
          */
-        fun release(): Config {
+        fun release(clientId: String, redirectUri: String): Config {
             return Config(unlockedRustCall { e ->
-                FxaClient.INSTANCE.fxa_get_release_config(e)
+                FxaClient.INSTANCE.fxa_get_release_config(clientId, redirectUri, e)
             })
         }
 
@@ -32,11 +35,13 @@ class Config internal constructor(rawPointer: RawConfig) : RustObject<RawConfig>
          *
          * This performs network requests, and should not be used on the main thread.
          *
-         * @param content_base Hostname of the FxA auth service provider
+         * @param contentBase Hostname of the FxA auth service provider
+         * @param clientId Client Id of the FxA relier
+         * @param redirectUri Redirect Uri of the FxA relier
          */
-        fun custom(content_base: String): Config {
+        fun custom(contentBase: String, clientId: String, redirectUri: String): Config {
             return Config(unlockedRustCall { e ->
-                FxaClient.INSTANCE.fxa_get_custom_config(content_base, e)
+                FxaClient.INSTANCE.fxa_get_custom_config(contentBase, clientId, redirectUri, e)
             })
         }
     }
