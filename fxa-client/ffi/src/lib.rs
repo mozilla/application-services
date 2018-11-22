@@ -10,70 +10,15 @@ extern crate ffi_support;
 use std::ffi::CString;
 use std::os::raw::c_char;
 
-use ffi_support::{
-    rust_str_from_c,
-    call_with_result,
-    call_with_output,
-    ExternError,
-};
+use ffi_support::{call_with_output, call_with_result, rust_str_from_c, ExternError};
 
-use fxa_client::{Config, FirefoxAccount, PersistCallback};
 use fxa_client::ffi::*;
-
-/// Convenience function over [fxa_get_custom_config] that provides a pointer to a [Config] that
-/// points to the production FxA servers.
-///
-/// # Safety
-///
-/// Please note that most methods taking a [Config] as argument will take ownership of it and
-/// therefore the callers shall **not** free the [Config] afterwards.
-///
-/// A destructor [fxa_config_free] is provided for releasing the memory for this
-/// pointer type.
-#[no_mangle]
-pub unsafe extern "C" fn fxa_get_release_config(
-    client_id: *const c_char,
-    redirect_uri: *const c_char,
-    err: &mut ExternError,
-) -> *mut Config {
-    call_with_result(err, || Config::release(
-        rust_str_from_c(client_id),
-        rust_str_from_c(redirect_uri)))
-}
-
-/// Creates a [Config] by making a request to `<content_base>/.well-known/fxa-client-configuration`,
-/// parsing the newly fetched configuration object and setting the `client_id` and `redirect_uri`.
-///
-/// Note: `content_base` shall not have a trailing slash.
-///
-/// Returns a [Result<Config>](fxa_client::Config) as an [ExternResult].
-///
-/// # Safety
-///
-/// Please note that most methods taking a [Config] as argument will take ownership of it and
-/// therefore the callers shall **not** free the [Config] afterwards.
-///
-/// A destructor [fxa_config_free] is provided for releasing the memory for this
-/// pointer type.
-#[no_mangle]
-pub unsafe extern "C" fn fxa_get_custom_config(
-    content_base: *const c_char,
-    client_id: *const c_char,
-    redirect_uri: *const c_char,
-    err: &mut ExternError,
-) -> *mut Config {
-    call_with_result(err, || Config::import_from(
-        rust_str_from_c(content_base),
-        rust_str_from_c(client_id),
-        rust_str_from_c(redirect_uri)))
-}
+use fxa_client::{FirefoxAccount, PersistCallback};
 
 /// Creates a [FirefoxAccount] from credentials obtained with the onepw FxA login flow.
 ///
 /// This is typically used by the legacy Sync clients: new clients mainly use OAuth flows and
 /// therefore should use `fxa_new`.
-///
-/// Note: This takes ownership of `Config`.
 ///
 /// # Safety
 ///
@@ -82,23 +27,24 @@ pub unsafe extern "C" fn fxa_get_custom_config(
 #[cfg(feature = "browserid")]
 #[no_mangle]
 pub unsafe extern "C" fn fxa_from_credentials(
-    config: *mut Config,
+    content_url: *const c_char,
+    client_id: *const c_char,
+    redirect_uri: *const c_char,
     json: *const c_char,
     err: &mut ExternError,
 ) -> *mut FirefoxAccount {
     use fxa_client::WebChannelResponse;
     call_with_result(err, || {
-        assert!(!config.is_null());
-        let config = Box::from_raw(config);
+        let content_url = rust_str_from_c(content_url);
+        let client_id = rust_str_from_c(client_id);
+        let redirect_uri = rust_str_from_c(redirect_uri);
         let json = rust_str_from_c(json);
         let resp = WebChannelResponse::from_json(json)?;
-        FirefoxAccount::from_credentials(*config, resp)
+        FirefoxAccount::from_credentials(content_url, client_id, redirect_uri, resp)
     })
 }
 
 /// Creates a [FirefoxAccount].
-///
-/// Note: This takes ownership of `Config`.
 ///
 /// # Safety
 ///
@@ -106,13 +52,16 @@ pub unsafe extern "C" fn fxa_from_credentials(
 /// pointer type.
 #[no_mangle]
 pub unsafe extern "C" fn fxa_new(
-    config: *mut Config,
+    content_url: *const c_char,
+    client_id: *const c_char,
+    redirect_uri: *const c_char,
     err: &mut ExternError,
 ) -> *mut FirefoxAccount {
     call_with_output(err, || {
-        assert!(!config.is_null());
-        let config = Box::from_raw(config);
-        FirefoxAccount::new(*config)
+        let content_url = rust_str_from_c(content_url);
+        let client_id = rust_str_from_c(client_id);
+        let redirect_uri = rust_str_from_c(redirect_uri);
+        FirefoxAccount::new(content_url, client_id, redirect_uri)
     })
 }
 
@@ -140,13 +89,8 @@ pub unsafe extern "C" fn fxa_from_json(
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_to_json(
-    fxa: &mut FirefoxAccount,
-    error: &mut ExternError,
-) -> *mut c_char {
-    call_with_result(error, || {
-        fxa.to_json()
-    })
+pub extern "C" fn fxa_to_json(fxa: &mut FirefoxAccount, error: &mut ExternError) -> *mut c_char {
+    call_with_result(error, || fxa.to_json())
 }
 
 /// Registers a callback that gets called every time the FirefoxAccount internal state
@@ -192,9 +136,7 @@ pub extern "C" fn fxa_profile(
     ignore_cache: bool,
     error: &mut ExternError,
 ) -> *mut ProfileC {
-    call_with_result(error, || {
-        fxa.get_profile(ignore_cache)
-    })
+    call_with_result(error, || fxa.get_profile(ignore_cache))
 }
 
 /// Get the Sync token server endpoint URL.
@@ -262,9 +204,7 @@ pub extern "C" fn fxa_get_sync_keys(
     fxa: &mut FirefoxAccount,
     error: &mut ExternError,
 ) -> *mut SyncKeysC {
-    call_with_result(error, || {
-        fxa.get_sync_keys()
-    })
+    call_with_result(error, || fxa.get_sync_keys())
 }
 
 /// Request a OAuth token by starting a new pairing flow, by calling the content server pairing endpoint.
@@ -366,7 +306,6 @@ pub unsafe extern "C" fn fxa_get_access_token(
 define_string_destructor!(fxa_str_free);
 
 define_box_destructor!(FirefoxAccount, fxa_free);
-define_box_destructor!(Config, fxa_config_free);
 define_box_destructor!(AccessTokenInfoC, fxa_oauth_info_free);
 define_box_destructor!(ProfileC, fxa_profile_free);
 define_box_destructor!(SyncKeysC, fxa_sync_keys_free);

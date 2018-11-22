@@ -54,14 +54,6 @@ typedef struct ProfileC {
 } ProfileC;
 
 typedef struct FirefoxAccount FirefoxAccount;
-typedef struct Config Config;
-
-Config *_Nullable fxa_get_release_config(const char *_Nonnull client_id, const char *_Nonnull redirect_uri, FxAErrorC *_Nonnull out);
-
-Config *_Nullable fxa_get_custom_config(const char *_Nonnull content_base,
-                                        const char *_Nonnull client_id,
-                                        const char *_Nonnull redirect_uri,
-                                        FxAErrorC *_Nonnull out);
 
 char *_Nonnull fxa_begin_oauth_flow(FirefoxAccount *_Nonnull fxa,
                                     const char *_Nonnull scopes,
@@ -90,14 +82,18 @@ void fxa_register_persist_callback(FirefoxAccount *_Nonnull fxa,
 void fxa_unregister_persist_callback(FirefoxAccount *_Nonnull fxa,
                                      FxAErrorC *_Nonnull out);
 
-FirefoxAccount *_Nullable fxa_new(Config *_Nonnull config,
+FirefoxAccount *_Nullable fxa_new(const char *_Nonnull content_base,
+                                  const char *_Nonnull client_id,
+                                  const char *_Nonnull redirect_uri,
                                   FxAErrorC *_Nonnull out);
 
 ProfileC *_Nullable fxa_profile(FirefoxAccount *_Nonnull fxa,
                                 bool ignore_cache,
                                 FxAErrorC *_Nonnull out);
 
-FirefoxAccount *_Nullable fxa_from_credentials(Config *_Nonnull config,
+FirefoxAccount *_Nullable fxa_from_credentials(const char *_Nonnull content_base,
+                                               const char *_Nonnull client_id,
+                                               const char *_Nonnull redirect_uri,
                                                const char *_Nonnull json,
                                                FxAErrorC *_Nonnull out);
 
@@ -118,7 +114,6 @@ void fxa_str_free(char* _Nullable ptr);
 void fxa_free(FirefoxAccount* _Nullable ptr);
 void fxa_oauth_info_free(AccessTokenInfoC* _Nullable ptr);
 void fxa_profile_free(ProfileC* _Nullable ptr);
-void fxa_config_free(Config* _Nullable ptr);
 void fxa_sync_keys_free(SyncKeysC* _Nullable ptr);
 
 #endif /* fxa_h */

@@ -15,26 +15,10 @@
 #![cfg(feature = "ffi")]
 
 use ffi_support::{
-    IntoFfi,
-    ErrorCode,
-    ExternError,
-    rust_string_to_c,
-    opt_rust_string_to_c,
-    destroy_c_string,
-};
-use {
-    Error,
-    ErrorKind,
-    FirefoxAccount,
-    Config,
-    SyncKeys,
-    AccessTokenInfo,
-    Profile,
-
+    destroy_c_string, opt_rust_string_to_c, rust_string_to_c, ErrorCode, ExternError, IntoFfi,
 };
 use std::os::raw::c_char;
-
-
+use {AccessTokenInfo, Error, ErrorKind, FirefoxAccount, Profile, SyncKeys};
 
 pub mod error_codes {
     // Note: -1 and 0 (panic and success) codes are reserved by the ffi-support library
@@ -49,12 +33,12 @@ pub mod error_codes {
 
 fn get_code(err: &Error) -> ErrorCode {
     match err.kind() {
-        ErrorKind::RemoteError { code: 401, .. } |
-        ErrorKind::NotMarried |
-        ErrorKind::NoCachedToken(_) => {
+        ErrorKind::RemoteError { code: 401, .. }
+        | ErrorKind::NotMarried
+        | ErrorKind::NoCachedToken(_) => {
             warn!("Authentication error: {:?}", err);
             ErrorCode::new(error_codes::AUTHENTICATION)
-        },
+        }
         _ => {
             warn!("Unexpected error: {:?}", err);
             ErrorCode::new(error_codes::OTHER)
@@ -174,7 +158,7 @@ macro_rules! implement_into_ffi_converting {
                 Box::into_raw(Box::new($CType::from(self)))
             }
         }
-    }
+    };
 }
 
 implement_into_ffi_converting!(SyncKeys, SyncKeysC);
@@ -182,4 +166,4 @@ implement_into_ffi_converting!(AccessTokenInfo, AccessTokenInfoC);
 implement_into_ffi_converting!(Profile, ProfileC);
 
 // More normal opaque tyeps
-implement_into_ffi_by_pointer!(FirefoxAccount, Config);
+implement_into_ffi_by_pointer!(FirefoxAccount);

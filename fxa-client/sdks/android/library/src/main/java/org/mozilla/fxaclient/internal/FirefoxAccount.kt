@@ -14,14 +14,11 @@ class FirefoxAccount : RustObject<RawFxAccount> {
     /**
      * Create a FirefoxAccount using the given config.
      *
-     * If the config is passed into this method, calling `close` on it is no longer required
-     * (but may be done if desired).
-     *
      * This does not make network requests, and can be used on the main thread.
      */
     constructor(config: Config)
-    : this(config.rustCall { e ->
-        FxaClient.INSTANCE.fxa_new(config.consumePointer(), e)
+    : this(unlockedRustCall { e ->
+        FxaClient.INSTANCE.fxa_new(config.contentUrl, config.clientId, config.redirectUri, e)
     })
 
     override fun destroy(p: RawFxAccount) {

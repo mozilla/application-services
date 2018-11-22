@@ -8,43 +8,39 @@ import UIKit
 // We use a serial queue to protect access to the rust object.
 let queue = DispatchQueue(label: "com.fxaclient")
 
-open class FxAConfig: MovableRustOpaquePointer {
-    /// Convenience method over `custom(...)` which provides an `FxAConfig` that
-    /// points to the production FxA servers.
-    open class func release(client_id: String, redirect_uri: String, completionHandler: @escaping (FxAConfig?, Error?) -> Void) {
-        queue.async {
-            do {
-                let config = FxAConfig(raw: try FxAError.unwrap({err in
-                    fxa_get_release_config(client_id, redirect_uri, err)
-                }))
-                DispatchQueue.main.async { completionHandler(config, nil) }
-            } catch {
-                DispatchQueue.main.async { completionHandler(nil, error) }
-            }
-        }
+open class FxAConfig {
+    public enum Server: String {
+        case Release = "https://accounts.firefox.com"
+        case Stable = "https://stable.dev.lcip.org"
+        case Dev = "https://accounts.stage.mozaws.net"
     }
 
-    /// Fetches an `FxAConfig` by making a request to `<content_base>/.well-known/fxa-client-configuration`
-    /// and parsing the newly fetched configuration object.
-    ///
-    /// Note: `content_base` shall not have a trailing slash.
-    open class func custom(content_base: String, client_id: String, redirect_uri: String, completionHandler: @escaping (FxAConfig?, Error?) -> Void) {
-        queue.async {
-            do {
-                let config = FxAConfig(raw: try FxAError.unwrap({err in
-                    fxa_get_custom_config(content_base, client_id, redirect_uri, err)
-                }))
-                DispatchQueue.main.async { completionHandler(config, nil) }
-            } catch {
-                DispatchQueue.main.async { completionHandler(nil, error) }
-            }
-        }
+    let contentUrl: String
+    let clientId: String
+    let redirectUri: String
+
+    init(contentUrl: String, clientId: String, redirectUri: String) {
+        self.contentUrl = contentUrl
+        self.clientId = clientId
+        self.redirectUri = redirectUri
     }
 
-    override func cleanup(pointer: OpaquePointer) {
-        queue.sync {
-            fxa_config_free(pointer)
-        }
+    init(withServer server: Server, clientId: String, redirectUri: String) {
+        self.contentUrl = server.rawValue
+        self.clientId = clientId
+        self.redirectUri = redirectUri
+    }
+
+    static func release(clientId: String, redirectUri: String) -> FxAConfig {
+        return FxAConfig.init(withServer: FxAConfig.Server.Release, clientId: clientId, redirectUri: redirectUri)
+    }
+
+    static func stable(clientId: String, redirectUri: String) -> FxAConfig {
+        return FxAConfig.init(withServer: FxAConfig.Server.Stable, clientId: clientId, redirectUri: redirectUri)
+    }
+
+    static func dev(clientId: String, redirectUri: String) -> FxAConfig {
+        return FxAConfig.init(withServer: FxAConfig.Server.Dev, clientId: clientId, redirectUri: redirectUri)
     }
 }
 
@@ -64,7 +60,7 @@ open class FirefoxAccount: RustOpaquePointer {
     open class func from(config: FxAConfig, webChannelResponse: String) throws -> FirefoxAccount {
         return try queue.sync(execute: {
             let pointer = try FxAError.unwrap({err in
-                fxa_from_credentials(try config.movePointer(), webChannelResponse, err)
+                fxa_from_credentials(config.contentUrl, config.clientId, config.redirectUri, webChannelResponse, err)
             })
             return FirefoxAccount(raw: pointer)
         })
@@ -86,7 +82,7 @@ open class FirefoxAccount: RustOpaquePointer {
     public convenience init(config: FxAConfig) throws {
         let pointer = try queue.sync(execute: {
             return try FxAError.unwrap({err in
-                fxa_new(try config.movePointer(), err)
+                fxa_new(config.contentUrl, config.clientId, config.redirectUri, err)
             })
         })
         self.init(raw: pointer)
