@@ -9,7 +9,6 @@
 * [docs](docs) - documentation sources 
 * [website](website) - website built from documentation sources
 
-
 ### Overview
 
 The following diagram describes how some of the components hosted here relate to each other within an app.
