@@ -38,7 +38,6 @@ use logins_sql::{PasswordEngine, Login};
 const CLIENT_ID: &str = "98adfa37698f255b";
 const REDIRECT_URI: &str = "https://lockbox.firefox.com/fxa/ios-redirect.html";
 
-const CONTENT_BASE: &str = "https://accounts.firefox.com";
 const SYNC_SCOPE: &str = "https://identity.mozilla.com/apps/oldsync";
 
 // I'm completely punting on good error handling here.
@@ -68,7 +67,7 @@ fn load_or_create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
 }
 
 fn create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
-    let mut acct = FirefoxAccount::new(cfg);
+    let mut acct = FirefoxAccount::with_config(cfg);
     let oauth_uri = acct.begin_oauth_flow(&[SYNC_SCOPE], true)?;
 
     if let Err(_) = webbrowser::open(&oauth_uri.as_ref()) {
@@ -352,7 +351,7 @@ fn main() -> Result<()> {
     debug!("Using credential file = {:?}, db = {:?}", cred_file, db_path);
 
     // TODO: allow users to use stage/etc.
-    let cfg = Config::import_from(CONTENT_BASE, CLIENT_ID, REDIRECT_URI)?;
+    let cfg = Config::release(CLIENT_ID, REDIRECT_URI);
     let tokenserver_url = cfg.token_server_endpoint_url()?;
 
     // TODO: we should probably set a persist callback on acct?

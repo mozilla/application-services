@@ -199,7 +199,8 @@ mod tests {
             mock_modulus,
             mock_public_exponent,
             mock_private_exponent,
-        ).unwrap();
+        )
+        .unwrap();
         let key_pair_to_sign = RSABrowserIDKeyPair::from_exponents_base10(n, e, d).unwrap();
 
         let certificate = create_certificate(
@@ -209,7 +210,8 @@ mod tests {
             iat,
             exp,
             &mock_key_pair,
-        ).unwrap();
+        )
+        .unwrap();
         let assertion =
             create_assertion_full(&key_pair_to_sign, &certificate, audience, issuer, iat, exp)
                 .unwrap();

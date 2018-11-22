@@ -42,13 +42,10 @@ internal interface FxaClient : Library {
         }
     }
 
-    fun fxa_get_release_config(clientId: String, redirectUri: String, e: Error.ByReference): RawConfig?
-    fun fxa_get_custom_config(contentBase: String, clientId: String, redirectUri: String, e: Error.ByReference): RawConfig?
-
-    fun fxa_new(config: RawConfig, e: Error.ByReference): RawFxAccount?
-    fun fxa_from_credentials(
-        config: RawConfig,
-        webChannelResponse: String,
+    fun fxa_new(
+        contentUrl: String,
+        clientId: String,
+        redirectUri: String,
         e: Error.ByReference
     ): RawFxAccount?
 
@@ -77,7 +74,6 @@ internal interface FxaClient : Library {
     fun fxa_complete_oauth_flow(fxa: RawFxAccount, code: String, state: String, e: Error.ByReference)
     fun fxa_get_access_token(fxa: RawFxAccount, scope: String, e: Error.ByReference): AccessTokenInfo.Raw?
 
-    fun fxa_config_free(config: RawConfig)
     fun fxa_str_free(string: Pointer)
     fun fxa_free(fxa: RawFxAccount)
 
@@ -88,8 +84,6 @@ internal interface FxaClient : Library {
     fun fxa_oauth_info_free(ptr: Pointer)
 
     fun fxa_profile_free(ptr: Pointer)
-    fun fxa_sync_keys_free(ptr: Pointer)
 }
 
 class RawFxAccount : PointerType()
-class RawConfig : PointerType()

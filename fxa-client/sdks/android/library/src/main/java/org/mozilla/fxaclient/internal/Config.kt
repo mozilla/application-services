@@ -8,41 +8,47 @@ package org.mozilla.fxaclient.internal
  * Config represents the server endpoint configurations needed for the
  * authentication flow.
  */
-class Config internal constructor(rawPointer: RawConfig) : RustObject<RawConfig>(rawPointer) {
+class Config constructor(val contentUrl: String, val clientId: String, val redirectUri: String) {
 
-    override fun destroy(p: RawConfig) {
-        // We're already synchronized by RustObject
-        FxaClient.INSTANCE.fxa_config_free(p)
+    enum class Server(val contentUrl: String) {
+        RELEASE("https://accounts.firefox.com"),
+        STABLE("https://stable.dev.lcip.org"),
+        DEV("https://accounts.stage.mozaws.net")
     }
+
+    constructor(server: Server, clientId: String, redirectUri: String):
+    	this(server.contentUrl, clientId, redirectUri)
 
     companion object {
         /**
          * Set up endpoints used in the production Firefox Accounts instance.
          *
-         * This performs network requests, and should not be used on the main thread.
-         *
          * @param clientId Client Id of the FxA relier
          * @param redirectUri Redirect Uri of the FxA relier
          */
         fun release(clientId: String, redirectUri: String): Config {
-            return Config(unlockedRustCall { e ->
-                FxaClient.INSTANCE.fxa_get_release_config(clientId, redirectUri, e)
-            })
+            return Config(Server.RELEASE.contentUrl, clientId, redirectUri)
         }
 
         /**
-         * Set up endpoints used by a custom host for authentication
+         * Set up endpoints used in the stable Firefox Accounts instance.
          *
-         * This performs network requests, and should not be used on the main thread.
-         *
-         * @param contentBase Hostname of the FxA auth service provider
          * @param clientId Client Id of the FxA relier
          * @param redirectUri Redirect Uri of the FxA relier
          */
-        fun custom(contentBase: String, clientId: String, redirectUri: String): Config {
-            return Config(unlockedRustCall { e ->
-                FxaClient.INSTANCE.fxa_get_custom_config(contentBase, clientId, redirectUri, e)
-            })
+        fun stable(clientId: String, redirectUri: String): Config {
+            return Config(Server.STABLE.contentUrl, clientId, redirectUri)
+        }
+
+        /**
+         * Set up endpoints used in the dev
+         * Firefox Accounts instance.
+         *
+         * @param clientId Client Id of the FxA relier
+         * @param redirectUri Redirect Uri of the FxA relier
+         */
+        fun dev(clientId: String, redirectUri: String): Config {
+            return Config(Server.DEV.contentUrl, clientId, redirectUri)
         }
     }
 }

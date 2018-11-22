@@ -4,7 +4,10 @@
 
 use hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256};
 use hex;
-use reqwest::{header::{self, HeaderValue}, Client, Method, Request};
+use reqwest::{
+    header::{self, HeaderValue},
+    Client, Method, Request,
+};
 use serde_json;
 use url::Url;
 
@@ -59,7 +62,8 @@ impl<'a> HAWKRequestBuilder<'a> {
         }
 
         let mut request_builder = Client::new().request(self.method, self.url);
-        request_builder = request_builder.header(header::AUTHORIZATION, HeaderValue::from_str(&hawk_header)?);
+        request_builder =
+            request_builder.header(header::AUTHORIZATION, HeaderValue::from_str(&hawk_header)?);
 
         if let Some(body) = self.body {
             request_builder = request_builder.header(header::CONTENT_TYPE, "application/json");

@@ -162,8 +162,10 @@ impl<'a> Client<'a> {
     ) -> Result<Option<ResponseAndETag<ProfileResponse>>> {
         let url = self.config.userinfo_endpoint()?;
         let client = ReqwestClient::new();
-        let mut builder = client.request(Method::GET, url)
-            .header(header::AUTHORIZATION, format!("Bearer {}", profile_access_token));
+        let mut builder = client.request(Method::GET, url).header(
+            header::AUTHORIZATION,
+            format!("Bearer {}", profile_access_token),
+        );
         if let Some(etag) = etag {
             builder = builder.header(header::IF_NONE_MATCH, format!("\"{}\"", etag));
         }
@@ -172,7 +174,11 @@ impl<'a> Client<'a> {
         if resp.status() == StatusCode::NOT_MODIFIED {
             return Ok(None);
         }
-        let etag = resp.headers().get(header::ETAG).and_then(|v| v.to_str().ok()).map(|s| s.to_owned());
+        let etag = resp
+            .headers()
+            .get(header::ETAG)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_owned());
         Ok(Some(ResponseAndETag {
             etag,
             response: resp.json()?,
@@ -318,7 +324,8 @@ impl<'a> Client<'a> {
                     error: json["error"].as_str().unwrap_or("").to_string(),
                     message: json["message"].as_str().unwrap_or("").to_string(),
                     info: json["info"].as_str().unwrap_or("").to_string(),
-                }.into()),
+                }
+                .into()),
                 Err(_) => Err(resp.error_for_status().unwrap_err().into()),
             }
         }

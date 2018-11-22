@@ -2,7 +2,7 @@ extern crate fxa_client;
 #[macro_use] extern crate text_io;
 extern crate url;
 
-use fxa_client::{Config, FirefoxAccount};
+use fxa_client::{FirefoxAccount};
 use std::collections::HashMap;
 use url::Url;
 
@@ -12,8 +12,7 @@ static REDIRECT_URI: &'static str = "https://mozilla.github.io/notes/fxa/android
 static SCOPES: &'static [&'static str] = &["https://identity.mozilla.com/apps/oldsync"];
 
 fn main() {
-    let config = Config::import_from(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI).unwrap();
-    let mut fxa = FirefoxAccount::new(config);
+    let mut fxa = FirefoxAccount::new(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI);
     let url = fxa.begin_oauth_flow(&SCOPES, false).unwrap();
     println!("Open the following URL:");
     println!("{}", url);
