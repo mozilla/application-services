@@ -1,5 +1,6 @@
 language: rust
-cache: cargo
+# We use OSX so that we can get a reasonably up to date version of SQLCipher.
+# (The version in Travis's default Ubuntu Trusty is much too old).
 os: osx
 osx_image:
   - xcode10.1
@@ -7,15 +8,14 @@ rust:
   - stable
   - beta
   - nightly
+cache: cargo
 matrix:
   allow_failures:
     - rust: nightly
   fast_finish: true
-env:
-  global:
-    - FRAMEWORK_NAME=ApplicationServices.framework.zip
 before_install:
   - brew install sqlcipher --with-fts
+before_deploy:
   - brew update
   - brew outdated carthage || brew upgrade carthage
   - rustup target add aarch64-apple-ios
@@ -23,8 +23,7 @@ before_install:
   - rustup target add i386-apple-ios
   - rustup target add x86_64-apple-ios
   - cargo install cargo-lipo
-before_deploy:
-  - carthage build --no-skip-current
+  - carthage build --no-skip-current --verbose
   - carthage archive $FRAMEWORK_NAME
   - rm -rf Carthage
 script:
@@ -38,6 +37,7 @@ jobs:
   include:
     - stage: Carthage framework GitHub Release
       if: tag IS present
+      env: FRAMEWORK_NAME=ApplicationServices.framework.zip
       rust: stable
       osx_image: xcode10.1
       deploy:
