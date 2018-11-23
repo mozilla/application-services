@@ -40,7 +40,7 @@ jobs:
       env: FRAMEWORK_NAME=ApplicationServices.framework.zip
       rust: stable
       osx_image: xcode10.1
-      script: skip
+      script: skip # Do not re-run tests
       deploy:
         provider: releases
         api_key:
