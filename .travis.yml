@@ -13,6 +13,9 @@ matrix:
   allow_failures:
     - rust: nightly
   fast_finish: true
+env:
+  global:
+  - FRAMEWORK_NAME=ApplicationServices.framework.zip
 before_install:
   - brew install sqlcipher --with-fts
 before_deploy:
@@ -24,7 +27,7 @@ before_deploy:
   - rustup target add x86_64-apple-ios
   - cargo install cargo-lipo
   - carthage build --no-skip-current --verbose
-  - carthage archive $FRAMEWORK_NAME
+  - carthage archive --output $FRAMEWORK_NAME
   - rm -rf Carthage
 script:
   # Test with 1. only default features on, 2. all features on, 3. no features on.
@@ -37,7 +40,6 @@ jobs:
   include:
     - stage: Carthage framework GitHub Release
       if: tag IS present
-      env: FRAMEWORK_NAME=ApplicationServices.framework.zip
       rust: stable
       osx_image: xcode10.1
       script: skip # Do not re-run tests
