@@ -1,6 +1,4 @@
 language: rust
-# We use OSX so that we can get a reasonably up to date version of SQLCipher.
-# (The version in Travis's default Ubuntu Trusty is much too old).
 os: osx
 osx_image:
   - xcode10.1
@@ -25,7 +23,7 @@ jobs:
   include:
     - stage: iOS GitHub Release
       if: tag IS present
-      rust: beta
+      rust: stable
       osx_image: xcode10.1
       script: ./scripts/travis-ci-ios.sh
       deploy:
@@ -35,6 +33,5 @@ jobs:
         file: FxAClient.framework.zip
         skip_cleanup: true
         overwrite: true
-        name: FxA SDK
         on:
           tags: true
