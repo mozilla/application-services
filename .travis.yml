@@ -26,15 +26,16 @@ before_deploy:
   - carthage build --no-skip-current --verbose
   - carthage archive $FRAMEWORK_NAME
   - rm -rf Carthage
-script:
-  # Test with 1. only default features on, 2. all features on, 3. no features on.
-  # This is not perfect (really we want the cartesian product), but is good enough in practice.
-  - cargo test --all --verbose
-  - cargo test --all --all-features --verbose
-  - cargo test --all --no-default-features --verbose
 
 jobs:
   include:
+    - stage: Test
+      script:
+      # Test with 1. only default features on, 2. all features on, 3. no features on.
+      # This is not perfect (really we want the cartesian product), but is good enough in practice.
+      - cargo test --all --verbose
+      - cargo test --all --all-features --verbose
+      - cargo test --all --no-default-features --verbose
     - stage: Carthage framework GitHub Release
       if: tag IS present
       env: FRAMEWORK_NAME=ApplicationServices.framework.zip
