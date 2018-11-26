@@ -122,3 +122,24 @@ struct V1AuthInfo {
     pub expires_at: u64, // seconds since epoch
     pub scopes: Vec<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_v1_migration() {
+        let state_v1_json = "{\"schema_version\":\"V1\",\"client_id\":\"98adfa37698f255b\",\"redirect_uri\":\"https://lockbox.firefox.com/fxa/ios-redirect.html\",\"config\":{\"content_url\":\"https://accounts.firefox.com\",\"auth_url\":\"https://api.accounts.firefox.com/\",\"oauth_url\":\"https://oauth.accounts.firefox.com/\",\"profile_url\":\"https://profile.accounts.firefox.com/\",\"token_server_endpoint_url\":\"https://token.services.mozilla.com/1.0/sync/1.5\",\"authorization_endpoint\":\"https://accounts.firefox.com/authorization\",\"issuer\":\"https://accounts.firefox.com\",\"jwks_uri\":\"https://oauth.accounts.firefox.com/v1/jwks\",\"token_endpoint\":\"https://oauth.accounts.firefox.com/v1/token\",\"userinfo_endpoint\":\"https://profile.accounts.firefox.com/v1/profile\"},\"oauth_cache\":{\"https://identity.mozilla.com/apps/oldsync https://identity.mozilla.com/apps/lockbox profile\":{\"access_token\":\"bef37ec0340783356bcac67a86c4efa23a56f2ddd0c7a6251d19988bab7bdc99\",\"keys\":\"{\\\"https://identity.mozilla.com/apps/oldsync\\\":{\\\"kty\\\":\\\"oct\\\",\\\"scope\\\":\\\"https://identity.mozilla.com/apps/oldsync\\\",\\\"k\\\":\\\"kMtwpVC0ZaYFJymPza8rXK_0CgCp3KMwRStwGfBRBDtL6hXRDVJgQFaoOQ2dimw0Bko5WVv2gNTy7RX5zFYZHg\\\",\\\"kid\\\":\\\"1542236016429-Ox1FbJfFfwTe5t-xq4v2hQ\\\"},\\\"https://identity.mozilla.com/apps/lockbox\\\":{\\\"kty\\\":\\\"oct\\\",\\\"scope\\\":\\\"https://identity.mozilla.com/apps/lockbox\\\",\\\"k\\\":\\\"Qk4K4xF2PgQ6XvBXW8X7B7AWwWgW2bHQov9NHNd4v-k\\\",\\\"kid\\\":\\\"1231014287-KDVj0DFaO3wGpPJD8oPwVg\\\"}}\",\"refresh_token\":\"bed5532f4fea7e39c5c4f609f53603ee7518fd1c103cc4034da3618f786ed188\",\"expires_at\":1543474657,\"scopes\":[\"https://identity.mozilla.com/apps/oldsync\",\"https://identity.mozilla.com/apps/lockbox\",\"profile\"]}}}";
+        let state = state_from_json(state_v1_json).unwrap();
+        assert!(state.refresh_token.is_some());
+        let refresh_token = state.refresh_token.unwrap();
+        assert_eq!(refresh_token.token, "bed5532f4fea7e39c5c4f609f53603ee7518fd1c103cc4034da3618f786ed188");
+        assert_eq!(refresh_token.scopes.len(), 3);
+        assert!(refresh_token.scopes.contains("profile"));
+        assert!(refresh_token.scopes.contains("https://identity.mozilla.com/apps/oldsync"));
+        assert!(refresh_token.scopes.contains("https://identity.mozilla.com/apps/lockbox"));
+        assert_eq!(state.scoped_keys.len(), 2);
+        assert_eq!(state.scoped_keys.get("https://identity.mozilla.com/apps/oldsync").unwrap().to_string(), "{\"k\":\"kMtwpVC0ZaYFJymPza8rXK_0CgCp3KMwRStwGfBRBDtL6hXRDVJgQFaoOQ2dimw0Bko5WVv2gNTy7RX5zFYZHg\",\"kid\":\"1542236016429-Ox1FbJfFfwTe5t-xq4v2hQ\",\"kty\":\"oct\",\"scope\":\"https://identity.mozilla.com/apps/oldsync\"}");
+        assert_eq!(state.scoped_keys.get("https://identity.mozilla.com/apps/lockbox").unwrap().to_string(), "{\"k\":\"Qk4K4xF2PgQ6XvBXW8X7B7AWwWgW2bHQov9NHNd4v-k\",\"kid\":\"1231014287-KDVj0DFaO3wGpPJD8oPwVg\",\"kty\":\"oct\",\"scope\":\"https://identity.mozilla.com/apps/lockbox\"}");
+    }
+}
