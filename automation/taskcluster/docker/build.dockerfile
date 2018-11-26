@@ -47,6 +47,9 @@ RUN apt-get update -qq \
                           python-setuptools \
                           locales \
                           unzip \
+                          xz-utils \
+                          make \
+                          tclsh \
     && apt-get clean
 
 RUN pip install --upgrade pip
