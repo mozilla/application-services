@@ -17,6 +17,7 @@
 use ffi_support::{
     destroy_c_string, opt_rust_string_to_c, rust_string_to_c, ErrorCode, ExternError, IntoFfi,
 };
+use serde_json;
 use std::os::raw::c_char;
 use {AccessTokenInfo, Error, ErrorKind, FirefoxAccount, Profile, SyncKeys};
 
@@ -103,10 +104,11 @@ impl Drop for AccessTokenInfoC {
 
 impl From<AccessTokenInfo> for AccessTokenInfoC {
     fn from(info: AccessTokenInfo) -> Self {
+        let key = info.key.map(|k| serde_json::to_string(&k).unwrap());
         AccessTokenInfoC {
             scope: rust_string_to_c(info.scope),
             token: rust_string_to_c(info.token),
-            key: opt_rust_string_to_c(info.key),
+            key: opt_rust_string_to_c(key),
             expires_at: info.expires_at as i64,
         }
     }

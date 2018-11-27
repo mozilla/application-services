@@ -43,14 +43,6 @@ const SYNC_SCOPE: &str = "https://identity.mozilla.com/apps/oldsync";
 // I'm completely punting on good error handling here.
 type Result<T> = std::result::Result<T, failure::Error>;
 
-#[derive(Debug, Deserialize)]
-struct ScopedKeyData {
-    k: String,
-    kty: String,
-    kid: String,
-    scope: String,
-}
-
 fn load_fxa_creds(path: &str) -> Result<FirefoxAccount> {
     let mut file = fs::File::open(path)?;
     let mut s = String::new();
@@ -365,15 +357,14 @@ fn main() -> Result<()> {
             acct.get_access_token(SYNC_SCOPE)?
         }
     };
-
-    let key: ScopedKeyData = serde_json::from_str(&token_info.key.unwrap())?;
+    let key = token_info.key.unwrap();
 
     let client_init = Sync15StorageClientInit {
         key_id: key.kid.clone(),
         access_token: token_info.token.clone(),
         tokenserver_url,
     };
-    let root_sync_key = KeyBundle::from_ksync_base64(&key.k)?;
+    let root_sync_key = KeyBundle::from_ksync_bytes(&key.key_bytes()?)?;
 
     let engine = PasswordEngine::new(db_path, Some(encryption_key))?;
 
