@@ -5,7 +5,12 @@ set -euvx
 abspath () { case "$1" in /*)printf "%s\\n" "$1";; *)printf "%s\\n" "$PWD/$1";; esac; }
 export -f abspath
 
+# Our short-names for the architectures.
 TARGET_ARCHS=("x86" "arm64" "arm")
+# The directories required for the Android-Gradle plugin and APK
+# layout, like `jniLibs/x86` or `lib/x86` respectively.
+TARGET_ARCHS_DISTS=("x86" "arm64-v8a" "armeabi-v7a")
+# The corresponding Rust target names.
 TARGET_ARCHS_TOOLCHAINS=("i686-linux-android" "aarch64-linux-android" "arm-linux-androideabi")
 
 # End of configuration.
@@ -24,7 +29,8 @@ SQLCIPHER_SRC_PATH=$2
 echo "# Building openssl"
 for i in "${!TARGET_ARCHS[@]}"; do
   ARCH=${TARGET_ARCHS[$i]}
-  DIST_DIR=$(abspath "android/""$ARCH""/openssl")
+  DIST=${TARGET_ARCHS_DISTS[$i]}
+  DIST_DIR=$(abspath "android/""$DIST""/openssl")
   if [ -d "$DIST_DIR" ]; then
     echo "$DIST_DIR already exists. Skipping building openssl."
   else
@@ -35,8 +41,9 @@ done
 echo "# Building sqlcipher"
 for i in "${!TARGET_ARCHS[@]}"; do
   ARCH=${TARGET_ARCHS[$i]}
-  OPENSSL_DIR=$(abspath "android/""$ARCH""/openssl")
-  DIST_DIR=$(abspath "android/""$ARCH""/sqlcipher")
+  DIST=${TARGET_ARCHS_DISTS[$i]}
+  OPENSSL_DIR=$(abspath "android/""$DIST""/openssl")
+  DIST_DIR=$(abspath "android/""$DIST""/sqlcipher")
   if [ -d "$DIST_DIR" ]; then
     echo "$DIST_DIR already exists. Skipping building sqlcipher."
   else
