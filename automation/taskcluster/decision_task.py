@@ -112,12 +112,9 @@ def android_arm32(android_libs_task, desktop_libs_task):
             ./gradlew --no-daemon clean
             ./gradlew --no-daemon :fxa-client-library:testDebug :logins-library:testDebug :places-library:testDebug
             ./gradlew --no-daemon :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
+            ./gradlew --no-daemon publish :zipMavenArtifacts
         """)
-        .with_artifacts(
-            "/build/repo/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-library-release.aar",
-            "/build/repo/logins-api/android/library/build/outputs/aar/logins-library-release.aar",
-            "/build/repo/components/places/android/library/build/outputs/aar/places-library-release.aar",
-        )
+        .with_artifacts("/build/repo/build/target.maven.zip")
         .create()
     )
 
@@ -132,14 +129,11 @@ def android_arm32_release(android_libs_task, desktop_libs_task):
             ./gradlew --no-daemon clean
             ./gradlew --no-daemon :fxa-client-library:testDebug :logins-library:testDebug :places-library:testDebug
             ./gradlew --no-daemon :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
+            ./gradlew --no-daemon publish :zipMavenArtifacts
             python automation/taskcluster/release/fetch-bintray-api-key.py
             ./gradlew bintrayUpload --debug -PvcsTag="${GIT_SHA}"
         """)
-        .with_artifacts(
-            "/build/repo/fxa-client/sdks/android/library/build/outputs/aar/fxaclient-library-release.aar",
-            "/build/repo/logins-api/android/library/build/outputs/aar/logins-library-release.aar",
-            "/build/repo/components/places/android/library/build/outputs/aar/places-library-release.aar",
-        )
+        .with_artifacts("/build/repo/build/target.maven.zip")
         .with_scopes("secrets:get:project/application-services/publish")
         .with_features("taskclusterProxy")
         .create()
