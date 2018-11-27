@@ -25,7 +25,7 @@ android {
     }
 
     sourceSets {
-        test.resources.srcDirs += "$buildDir/rustResources"
+        test.resources.srcDirs += "$buildDir/rustJniLibs/desktop"
     }
 
     // Help folks debugging by including symbols in our native libraries.  Yes, this makes the
@@ -62,7 +62,8 @@ cargo {
     // The Cargo targets to invoke.  The mapping from short name to target
     // triple is defined by the `rust-android-gradle` plugin.
     targets = [
-        'default',
+        'linux-x86-64',
+        'darwin',
         'arm',
         'arm64',
         'x86',
@@ -73,11 +74,6 @@ cargo {
     profile = "release"
 
     exec = rootProject.ext.cargoExec
-
-    // For unit tests.
-    // This puts the output of `cargo build` (the "default" toolchain) into the correct directory
-    // for JNA to find it.
-    defaultToolchainBuildPrefixDir = com.sun.jna.Platform.RESOURCE_PREFIX
 }
 
 configurations {

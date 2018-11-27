@@ -28,7 +28,7 @@ buildscript {
         classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.4'
         classpath 'digital.wup:android-maven-publish:3.6.2'
 
-        classpath 'gradle.plugin.org.mozilla.rust-android-gradle:plugin:0.6.0'
+        classpath 'gradle.plugin.org.mozilla.rust-android-gradle:plugin:0.7.0'
 
         // Yes, this is unusual.  We want to access some host-specific
         // computation at build time.
@@ -165,21 +165,8 @@ ext.cargoExec = { spec, toolchain ->
     // downloaded libs.
     def libsRootDir = (System.getenv('CI') || ext.libsGitSha == null) ? rootProject.rootDir : rootProject.buildDir
 
-    switch (toolchain.platform) {
-        case 'default':
-            spec.environment("OPENSSL_DIR",           new File(libsRootDir, "libs/desktop/${DefaultPlatform.RESOURCE_PREFIX}/openssl").absolutePath)
-            spec.environment("SQLCIPHER_LIB_DIR",     new File(libsRootDir, "libs/desktop/${DefaultPlatform.RESOURCE_PREFIX}/sqlcipher/lib").absolutePath)
-            spec.environment("SQLCIPHER_INCLUDE_DIR", new File(libsRootDir, "libs/desktop/${DefaultPlatform.RESOURCE_PREFIX}/sqlcipher/include").absolutePath)
-            break;
-        case 'arm':
-        case 'arm64':
-        case 'x86':
-        case 'x86_64':
-            spec.environment("OPENSSL_DIR",           new File(libsRootDir, "libs/android/${toolchain.platform}/openssl").absolutePath)
-            spec.environment("SQLCIPHER_LIB_DIR",     new File(libsRootDir, "libs/android/${toolchain.platform}/sqlcipher/lib").absolutePath)
-            spec.environment("SQLCIPHER_INCLUDE_DIR", new File(libsRootDir, "libs/android/${toolchain.platform}/sqlcipher/include").absolutePath)
-            break;
-        default:
-            throw new GradleException("Unknown toolchain platform ${toolchain.platform}")
-    }
+    spec.environment("OPENSSL_DIR",           new File(libsRootDir, "libs/${toolchain.folder}/openssl").absolutePath)
+    spec.environment("SQLCIPHER_LIB_DIR",     new File(libsRootDir, "libs/${toolchain.folder}/sqlcipher/lib").absolutePath)
+    spec.environment("SQLCIPHER_INCLUDE_DIR", new File(libsRootDir, "libs/${toolchain.folder}/sqlcipher/include").absolutePath)
+}
 }

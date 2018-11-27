@@ -58,7 +58,6 @@ cargo {
     // The Cargo targets to invoke.  The mapping from short name to target
     // triple is defined by the `rust-android-gradle` plugin.
     targets = [
-        // 'default', // TODO: For unit tests.
         'arm',
         'arm64',
         'x86',
@@ -69,11 +68,6 @@ cargo {
     profile = "release"
 
     exec = rootProject.ext.cargoExec
-
-    // TODO: For unit tests.
-    // This puts the output of `cargo build` (the "default" toolchain) into the correct directory
-    // for JNA to find it.
-    // defaultToolchainBuildPrefixDir = com.sun.jna.Platform.RESOURCE_PREFIX
 }
 
 dependencies {
