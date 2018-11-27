@@ -76,13 +76,17 @@ lazy_static! {
     static ref RNG: SystemRandom = SystemRandom::new();
 }
 
+// If this structure is modified, please
+// check whether or not a migration needs to be done
+// as these fields are persisted as a JSON string
+// (see `state_persistence.rs`).
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct StateV2 {
     config: Config,
     #[cfg(feature = "browserid")]
     login_state: LoginState,
     refresh_token: Option<RefreshToken>,
-    scoped_keys: HashMap<String, serde_json::Value>,
+    scoped_keys: HashMap<String, ScopedKey>,
 }
 
 #[cfg(feature = "browserid")]
@@ -264,13 +268,6 @@ impl FirefoxAccount {
                 }
             }
         }
-        let key = match self.state.scoped_keys.get(scope) {
-            Some(k) => match serde_json::to_string(k) {
-                Ok(k) => Some(k),
-                _ => None,
-            },
-            None => None,
-        };
         let since_epoch = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|_| ErrorKind::IllegalState("Current date before Unix Epoch.".to_string()))?;
@@ -278,7 +275,7 @@ impl FirefoxAccount {
         let token_info = AccessTokenInfo {
             scope: resp.scope,
             token: resp.access_token,
-            key,
+            key: self.state.scoped_keys.get(scope).cloned(),
             expires_at,
         };
         self.access_token_cache
@@ -382,7 +379,8 @@ impl FirefoxAccount {
                 let scoped_keys: serde_json::Map<String, serde_json::Value> =
                     serde_json::from_str(&decrypted_keys)?;
                 for (scope, key) in scoped_keys {
-                    self.state.scoped_keys.insert(scope.clone(), key.clone());
+                    let scoped_key: ScopedKey = serde_json::from_value(key)?;
+                    self.state.scoped_keys.insert(scope, scoped_key);
                 }
             }
             None => {
@@ -559,6 +557,21 @@ impl FirefoxAccount {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ScopedKey {
+    pub kty: String,
+    pub scope: String,
+    /// URL Safe Base 64 encoded key.
+    pub k: String,
+    pub kid: String,
+}
+
+impl ScopedKey {
+    pub fn key_bytes(&self) -> Result<Vec<u8>> {
+        Ok(base64::decode_config(&self.k, base64::URL_SAFE_NO_PAD)?)
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RefreshToken {
     pub token: String,
     pub scopes: HashSet<String>,
@@ -573,7 +586,7 @@ pub struct OAuthFlow {
 pub struct AccessTokenInfo {
     pub scope: String,
     pub token: String,
-    pub key: Option<String>,
+    pub key: Option<ScopedKey>,
     pub expires_at: u64, // seconds since epoch
 }
 

@@ -8,8 +8,7 @@ use serde_json;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter::FromIterator;
-use RefreshToken;
-use StateV2;
+use {RefreshToken, ScopedKey, StateV2};
 type State = StateV2;
 
 pub(crate) fn state_from_json(data: &str) -> Result<State> {
@@ -50,7 +49,8 @@ impl From<StateV1> for Result<StateV2> {
                 let scoped_keys: serde_json::Map<String, serde_json::Value> =
                     serde_json::from_str(scoped_keys)?;
                 for (scope, key) in scoped_keys {
-                    all_scoped_keys.insert(scope.clone(), key.clone());
+                    let scoped_key: ScopedKey = serde_json::from_value(key)?;
+                    all_scoped_keys.insert(scope, scoped_key);
                 }
             }
         }
@@ -139,7 +139,15 @@ mod tests {
         assert!(refresh_token.scopes.contains("https://identity.mozilla.com/apps/oldsync"));
         assert!(refresh_token.scopes.contains("https://identity.mozilla.com/apps/lockbox"));
         assert_eq!(state.scoped_keys.len(), 2);
-        assert_eq!(state.scoped_keys.get("https://identity.mozilla.com/apps/oldsync").unwrap().to_string(), "{\"k\":\"kMtwpVC0ZaYFJymPza8rXK_0CgCp3KMwRStwGfBRBDtL6hXRDVJgQFaoOQ2dimw0Bko5WVv2gNTy7RX5zFYZHg\",\"kid\":\"1542236016429-Ox1FbJfFfwTe5t-xq4v2hQ\",\"kty\":\"oct\",\"scope\":\"https://identity.mozilla.com/apps/oldsync\"}");
-        assert_eq!(state.scoped_keys.get("https://identity.mozilla.com/apps/lockbox").unwrap().to_string(), "{\"k\":\"Qk4K4xF2PgQ6XvBXW8X7B7AWwWgW2bHQov9NHNd4v-k\",\"kid\":\"1231014287-KDVj0DFaO3wGpPJD8oPwVg\",\"kty\":\"oct\",\"scope\":\"https://identity.mozilla.com/apps/lockbox\"}");
+        let oldsync_key = state.scoped_keys.get("https://identity.mozilla.com/apps/oldsync").unwrap();
+        assert_eq!(oldsync_key.kid, "1542236016429-Ox1FbJfFfwTe5t-xq4v2hQ");
+        assert_eq!(oldsync_key.k, "kMtwpVC0ZaYFJymPza8rXK_0CgCp3KMwRStwGfBRBDtL6hXRDVJgQFaoOQ2dimw0Bko5WVv2gNTy7RX5zFYZHg");
+        assert_eq!(oldsync_key.kty, "oct");
+        assert_eq!(oldsync_key.scope, "https://identity.mozilla.com/apps/oldsync");
+        let lockbox_key = state.scoped_keys.get("https://identity.mozilla.com/apps/lockbox").unwrap();
+        assert_eq!(lockbox_key.kid, "1231014287-KDVj0DFaO3wGpPJD8oPwVg");
+        assert_eq!(lockbox_key.k, "Qk4K4xF2PgQ6XvBXW8X7B7AWwWgW2bHQov9NHNd4v-k");
+        assert_eq!(lockbox_key.kty, "oct");
+        assert_eq!(lockbox_key.scope, "https://identity.mozilla.com/apps/lockbox");
     }
 }
