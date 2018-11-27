@@ -15,7 +15,7 @@ def main(task_for, mock=False):
         desktop_linux_libs_task = desktop_linux_libs()
         desktop_macos_libs_task = desktop_macos_libs()
 
-        android_arm32(android_libs_task, desktop_linux_libs_task)
+        android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task)
 
     elif task_for == "github-push":
         # Push to master or a tag.
@@ -25,10 +25,10 @@ def main(task_for, mock=False):
 
         if CONFIG.git_ref.startswith('refs/tags/'):
             # A release.
-            android_arm32_release(android_libs_task, desktop_linux_libs_task)
+            android_arm32_release(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task)
         else:
             # A regular push to master.
-            android_arm32(android_libs_task, desktop_linux_libs_task)
+            android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task)
 
     else:  # pragma: no cover
         raise ValueError("Unrecognized $TASK_FOR value: %r", task_for)
@@ -85,28 +85,27 @@ def desktop_linux_libs():
 
 def desktop_macos_libs():
     return (
-        linux_build_task("Desktop libs (macOS): build")
+        linux_target_macos_build_task("Desktop libs (macOS): build")
         .with_script("""
             pushd libs
-            ./cross-compile-macos-on-linux-desktop-libs.sh
             ./build-all.sh osx-cross
             popd
             tar -czf /build/repo/target.tar.gz libs/desktop
         """)
-        .with_scopes('docker-worker:relengapi-proxy:tooltool.download.internal')
-        .with_features('relengAPIProxy')
         .with_artifacts(
             "/build/repo/target.tar.gz",
         )
         .find_or_create("build.libs.desktop.macos." + CONFIG.git_sha_for_directory("libs"))
     )
 
-def android_arm32(android_libs_task, desktop_libs_task):
+def android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task):
     return (
-        linux_build_task("Android (all architectures): build and test")
+        linux_target_macos_build_task("Android (all architectures): build and test")
         .with_curl_artifact_script(android_libs_task, "target.tar.gz")
         .with_script("tar -xzf target.tar.gz")
-        .with_curl_artifact_script(desktop_libs_task, "target.tar.gz")
+        .with_curl_artifact_script(desktop_linux_libs_task, "target.tar.gz")
+        .with_script("tar -xzf target.tar.gz")
+        .with_curl_artifact_script(desktop_macos_libs_task, "target.tar.gz")
         .with_script("tar -xzf target.tar.gz")
         .with_script("""
             ./gradlew --no-daemon clean
@@ -118,12 +117,14 @@ def android_arm32(android_libs_task, desktop_libs_task):
         .create()
     )
 
-def android_arm32_release(android_libs_task, desktop_libs_task):
+def android_arm32_release(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task):
     return (
-        linux_build_task("Android (all architectures): build and test and release")
+        linux_target_macos_build_task("Android (all architectures): build and test and release")
         .with_curl_artifact_script(android_libs_task, "target.tar.gz")
         .with_script("tar -xzf target.tar.gz")
-        .with_curl_artifact_script(desktop_libs_task, "target.tar.gz")
+        .with_curl_artifact_script(desktop_linux_libs_task, "target.tar.gz")
+        .with_script("tar -xzf target.tar.gz")
+        .with_curl_artifact_script(desktop_macos_libs_task, "target.tar.gz")
         .with_script("tar -xzf target.tar.gz")
         .with_script("""
             ./gradlew --no-daemon clean
@@ -172,7 +173,6 @@ def linux_build_task(name):
             rustup toolchain install 1.30.1
             rustup default 1.30.1
             # rustup target add x86_64-unknown-linux-gnu # See https://github.com/rust-lang-nursery/rustup.rs/issues/1533.
-            rustup target add x86_64-apple-darwin
 
             rustup target add i686-linux-android
             rustup target add armv7-linux-androideabi
@@ -186,6 +186,33 @@ def linux_build_task(name):
         .with_repo()
     )
 
+def linux_target_macos_build_task(name):
+    return (
+        linux_build_task(name)
+        .with_scopes('docker-worker:relengapi-proxy:tooltool.download.internal')
+        .with_features('relengAPIProxy')
+        .with_script("""
+            rustup target add x86_64-apple-darwin
+
+            pushd libs
+            ./cross-compile-macos-on-linux-desktop-libs.sh
+            popd
+
+            # Rust requires dsymutil on the PATH: https://github.com/rust-lang/rust/issues/52728.
+            export PATH=$PATH:/tmp/clang/bin
+
+            export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_SQLCIPHER_LIB_DIR=/build/repo/libs/desktop/darwin/sqlcipher/lib
+            export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_OPENSSL_DIR=/build/repo/libs/desktop/darwin/openssl
+            export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_CC=/tmp/clang/bin/clang
+            export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_TOOLCHAIN_PREFIX=/tmp/cctools/bin
+            export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_AR=/tmp/cctools/bin/x86_64-apple-darwin11-ar
+            export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_RANLIB=/tmp/cctools/bin/x86_64-apple-darwin11-ranlib
+            export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_LD_LIBRARY_PATH=/tmp/clang/lib
+            export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS="-C linker=/tmp/clang/bin/clang -C link-arg=-B -C link-arg=/tmp/cctools/bin -C link-arg=-target -C link-arg=x86_64-apple-darwin11 -C link-arg=-isysroot -C link-arg=/tmp/MacOSX10.11.sdk -C link-arg=-Wl,-syslibroot,/tmp/MacOSX10.11.sdk -C link-arg=-Wl,-dead_strip"
+            # For ring's use of `cc`.
+            export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_CFLAGS_x86_64_apple_darwin="-B /tmp/cctools/bin -target x86_64-apple-darwin11 -isysroot /tmp/MacOSX10.11.sdk -Wl,-syslibroot,/tmp/MacOSX10.11.sdk -Wl,-dead_strip"
+        """)
+    )
 
 CONFIG.task_name_template = "Application Services: %s"
 CONFIG.index_prefix = "project.application-services.application-services"
