@@ -48,9 +48,12 @@ open class RustError : Structure() {
         }
         val message = this.consumeErrorMessage();
         when (code) {
-            1 -> return InvalidPlaceInfo(message)
-            2 -> return UrlParseFailed(message)
+            2 -> return InvalidPlaceInfo(message)
+            3 -> return UrlParseFailed(message)
+            4 -> return PlacesConnectionBusy(message)
             -1 -> return InternalPanic(message)
+            // Note: `1` is used as a generic catch all, but we
+            // might as well handle the others the same way.
             else -> return PlacesException(message)
         }
     }
