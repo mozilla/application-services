@@ -24,6 +24,10 @@ pub mod error_codes {
 
     /// A URL was provided that we failed to parse
     pub const URL_PARSE_ERROR: i32 = 3;
+
+    /// The requested operation failed because the database was busy
+    /// performing operations on a separate connection to the same DB.
+    pub const DATABASE_BUSY: i32 = 4;
 }
 
 fn get_code(err: &Error) -> ErrorCode {
@@ -35,6 +39,13 @@ fn get_code(err: &Error) -> ErrorCode {
         ErrorKind::UrlParseError(e) => {
             error!("URL parse error: {}", e);
             ErrorCode::new(error_codes::URL_PARSE_ERROR)
+        }
+        // Can't pattern match on `err` without adding a dep on the sqlite3-sys crate,
+        // so we just use a `if` guard.
+        ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, msg))
+        if err.code == rusqlite::ErrorCode::DatabaseBusy => {
+            error!("Database busy: {:?} {:?}", err, msg);
+            ErrorCode::new(error_codes::DATABASE_BUSY)
         }
         err => {
             error!("Unexpected error: {:?}", err);

@@ -198,6 +198,7 @@ open class PlacesException(msg: String): Exception(msg)
 open class InternalPanic(msg: String): PlacesException(msg)
 open class UrlParseFailed(msg: String): PlacesException(msg)
 open class InvalidPlaceInfo(msg: String): PlacesException(msg)
+open class PlacesConnectionBusy(msg: String): PlacesException(msg)
 
 @SuppressWarnings("MagicNumber")
 enum class VisitType(val type: Int) {
