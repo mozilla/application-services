@@ -137,7 +137,7 @@ def android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs
         .create()
     )
 
-def android_arm32_release(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs):
+def android_arm32_release(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task):
     return (
         linux_target_macos_build_task("Android (all architectures): build and test and release")
         .with_curl_artifact_script(android_libs_task, "target.tar.gz")
