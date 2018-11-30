@@ -8,6 +8,7 @@ import com.sun.jna.Pointer
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
+import java.io.File
 
 /**
  * An implementation of a [PlacesAPI] backed by a Rust Places library.
@@ -20,8 +21,25 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
     private var db: RawPlacesConnection?
 
     init {
-        db = rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_connection_new(path, encryption_key, error)
+        try {
+            db = rustCall { error ->
+                LibPlacesFFI.INSTANCE.places_connection_new(path, encryption_key, error)
+            }
+        } catch (e: InternalPanic) {
+
+            // Places Rust library does not yet support schema migrations; as a very temporary quick
+            // fix to avoid crashes of our upstream consumers, let's delete the database file
+            // entirely and try again.
+            // FIXME https://github.com/mozilla/application-services/issues/438
+            if (e.message != "sorry, no upgrades yet - delete your db!") {
+                throw e
+            }
+
+            File(path).delete()
+
+            db = rustCall { error ->
+                LibPlacesFFI.INSTANCE.places_connection_new(path, encryption_key, error)
+            }
         }
     }
 

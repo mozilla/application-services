@@ -249,7 +249,8 @@ fn upgrade(_db: &PlacesDb, from: i64) -> Result<()> {
     if from == VERSION {
         return Ok(());
     }
-    // hrmph - do something here?
+    // FIXME https://github.com/mozilla/application-services/issues/438
+    // NB: PlacesConnection.kt checks for this error message verbatim as a workaround.
     panic!("sorry, no upgrades yet - delete your db!");
 }
 
