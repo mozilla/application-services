@@ -8,7 +8,8 @@
     "Firefox Accounts": [
       "accounts/welcome",
       "accounts/project-details",
-      "accounts/dev-process"
+      "accounts/dev-process",
+      "accounts/metrics"
     ],
     "Mobile SDKs": [
       "accounts/fxa-client-ios",

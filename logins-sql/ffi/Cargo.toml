@@ -4,12 +4,12 @@ version = "0.1.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 
 [lib]
-name = "loginsapi_ffi"
+name = "logins_ffi"
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
-serde_json = "1.0.26"
-log = "0.4.4"
+serde_json = "1.0.28"
+log = "0.4.5"
 url = "1.7.1"
 
 [dependencies.rusqlite]
@@ -18,9 +18,13 @@ features = ["sqlcipher"]
 
 [dependencies.logins-sql]
 path = ".."
+features = ["ffi"]
 
 [dependencies.sync15-adapter]
 path = "../../sync15-adapter"
+
+[dependencies.ffi-support]
+path = "../../components/support/ffi"
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.6.0"

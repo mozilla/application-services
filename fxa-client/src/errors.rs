@@ -6,7 +6,9 @@ use std::boxed::Box;
 use std::{fmt, result, string};
 
 use base64;
-use failure::{Backtrace, Context, Fail, SyncFailure};
+#[cfg(feature = "browserid")]
+use failure::SyncFailure;
+use failure::{Backtrace, Context, Fail};
 #[cfg(feature = "browserid")]
 use hawk;
 use hex;
@@ -71,8 +73,14 @@ pub enum ErrorKind {
     #[fail(display = "Login state needs to be Married for the current operation")]
     NotMarried,
 
+    #[fail(display = "Multiple OAuth scopes requested")]
+    MultipleScopesRequested,
+
     #[fail(display = "No cached token for scope {}", _0)]
-    NoCachedToken(&'static str),
+    NoCachedToken(String),
+
+    #[fail(display = "Could not find a refresh token in the server response")]
+    RefreshTokenNotPresent,
 
     #[fail(display = "Unrecoverable server error")]
     UnrecoverableServerError,
@@ -80,17 +88,26 @@ pub enum ErrorKind {
     #[fail(display = "Invalid OAuth scope value {}", _0)]
     InvalidOAuthScopeValue(String),
 
+    #[fail(display = "Illegal state: {}", _0)]
+    IllegalState(String),
+
     #[fail(display = "Empty names")]
     EmptyOAuthScopeNames,
 
     #[fail(display = "Key {} had wrong length, got {}, expected {}", _0, _1, _2)]
     BadKeyLength(&'static str, usize, usize),
 
-    #[fail(display = "Cannot xor arrays with different lengths: {} and {}", _0, _1)]
+    #[fail(
+        display = "Cannot xor arrays with different lengths: {} and {}",
+        _0, _1
+    )]
     XorLengthMismatch(usize, usize),
 
     #[fail(display = "Audience URL without a host")]
     AudienceURLWithoutHost,
+
+    #[fail(display = "Origin mismatch")]
+    OriginMismatch,
 
     #[fail(display = "JWT signature validation failed")]
     JWTSignatureValidationFailed,
@@ -117,7 +134,8 @@ pub enum ErrorKind {
     HmacVerifyFail,
 
     #[fail(
-        display = "Remote server error: '{}' '{}' '{}' '{}' '{}'", code, errno, error, message, info
+        display = "Remote server error: '{}' '{}' '{}' '{}' '{}'",
+        code, errno, error, message, info
     )]
     RemoteError {
         code: u64,
@@ -138,7 +156,7 @@ pub enum ErrorKind {
     #[fail(display = "Base64 decode error: {}", _0)]
     Base64Decode(#[fail(cause)] base64::DecodeError),
 
-    #[fail(display = "JSON parse error: {}", _0)]
+    #[fail(display = "JSON error: {}", _0)]
     JsonError(#[fail(cause)] serde_json::Error),
 
     #[fail(display = "UTF8 decode error: {}", _0)]
@@ -149,6 +167,12 @@ pub enum ErrorKind {
 
     #[fail(display = "Malformed URL error: {}", _0)]
     MalformedUrl(#[fail(cause)] reqwest::UrlError),
+
+    #[fail(display = "Header parsing error: {}", _0)]
+    HeaderParseError(#[fail(cause)] reqwest::header::ToStrError),
+
+    #[fail(display = "Malformed header error: {}", _0)]
+    MalformedHeader(#[fail(cause)] reqwest::header::InvalidHeaderValue),
 
     #[cfg(feature = "browserid")]
     #[fail(display = "HAWK error: {}", _0)]
@@ -179,7 +203,9 @@ impl_from_error! {
     (JsonError, ::serde_json::Error),
     (UTF8DecodeError, ::std::string::FromUtf8Error),
     (RequestError, ::reqwest::Error),
-    (MalformedUrl, ::reqwest::UrlError)
+    (MalformedUrl, ::reqwest::UrlError),
+    (HeaderParseError, ::reqwest::header::ToStrError),
+    (MalformedHeader, ::reqwest::header::InvalidHeaderValue)
 }
 
 #[cfg(feature = "browserid")]

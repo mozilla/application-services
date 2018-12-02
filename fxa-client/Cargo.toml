@@ -4,23 +4,26 @@ version = "0.1.0"
 authors = ["Edouard Oger <eoger@fastmail.com>"]
 
 [dependencies]
-base64 = "0.9.0"
-byteorder = "1.2.3"
-failure = "0.1.1"
-failure_derive = "0.1.1"
-hawk = { git = "https://github.com/eoger/rust-hawk", branch = "use-ring-latest", optional = true }
-hex = "0.3.1"
+base64 = "0.9.3"
+byteorder = "1.2.6"
+failure = "0.1.3"
+failure_derive = "0.1.3"
+hawk = { version = "1.0.4", optional = true }
+hex = "0.3.2"
 lazy_static = "1.0.0"
-log = "0.4"
-openssl = { version = "0.10.7", optional = true }
+log = "0.4.5"
+openssl = { version = "0.10.12", optional = true }
 regex = "1.0.0"
-reqwest = "0.8.2"
-ring = "0.13.0-alpha5"
-serde = "1.0"
-serde_derive = "1.0"
-serde_json = "1.0"
+reqwest = "0.9.1"
+ring = "0.13.5"
+serde = { version = "1.0.79", features = ["rc"] }
+serde_derive = "1.0.79"
+serde_json = "1.0.28"
 untrusted = "0.6.2"
-url = "1.6.0"
+url = "1.7.1"
+ffi-support = { path = "../components/support/ffi", optional = true }
 
 [features]
 browserid = ["openssl", "hawk"]
+ffi = ["ffi-support"]
+default = ["ffi"]

@@ -2,12 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#[cfg(feature = "browserid")]
 use hex;
 use reqwest;
 use reqwest::{header, Client as ReqwestClient, Method, Request, Response, StatusCode};
+#[cfg(feature = "browserid")]
 use ring::{digest, hkdf, hmac};
 use serde_json;
 use std;
+#[cfg(feature = "browserid")]
 use util::Xorable;
 
 #[cfg(feature = "browserid")]
@@ -24,8 +27,11 @@ pub mod browser_id;
 #[cfg(feature = "browserid")]
 mod hawk_request;
 
+#[cfg(feature = "browserid")]
 const HKDF_SALT: [u8; 32] = [0b0; 32];
+#[cfg(feature = "browserid")]
 const KEY_LENGTH: usize = 32;
+#[cfg(feature = "browserid")]
 const SIGN_DURATION_MS: u64 = 24 * 60 * 60 * 1000;
 
 pub struct Client<'a> {
@@ -37,6 +43,7 @@ impl<'a> Client<'a> {
         Client { config }
     }
 
+    #[cfg(feature = "browserid")]
     fn kw(name: &str) -> Vec<u8> {
         format!("identity.mozilla.com/picl/v1/{}", name)
             .as_bytes()
@@ -55,16 +62,19 @@ impl<'a> Client<'a> {
         RSABrowserIDKeyPair::generate_random(len)
     }
 
+    #[cfg(feature = "browserid")]
     pub fn derive_sync_key(kb: &[u8]) -> Vec<u8> {
         let salt = [0u8; 0];
         let context_info = Client::kw("oldsync");
         Client::derive_hkdf_sha256_key(&kb, &salt, &context_info, KEY_LENGTH * 2)
     }
 
+    #[cfg(feature = "browserid")]
     pub fn compute_client_state(kb: &[u8]) -> String {
         hex::encode(digest::digest(&digest::SHA256, &kb).as_ref()[0..16].to_vec())
     }
 
+    #[cfg(feature = "browserid")]
     pub fn sign_out(&self) {
         panic!("Not implemented yet!");
     }
@@ -78,13 +88,14 @@ impl<'a> Client<'a> {
         });
         let client = ReqwestClient::new();
         let request = client
-            .request(Method::Post, url)
+            .request(Method::POST, url)
             .query(&[("keys", get_keys)])
             .body(parameters.to_string())
             .build()?;
         Client::make_request(request)?.json().map_err(|e| e.into())
     }
 
+    #[cfg(feature = "browserid")]
     pub fn account_status(&self, uid: &String) -> Result<AccountStatusResponse> {
         let url = self.config.auth_url_path("v1/account/status")?;
         let client = ReqwestClient::new();
@@ -103,7 +114,7 @@ impl<'a> Client<'a> {
             KEY_LENGTH * 3,
         );
         let key_request_key = &key[(KEY_LENGTH * 2)..(KEY_LENGTH * 3)];
-        let request = HAWKRequestBuilder::new(Method::Get, url, &key).build()?;
+        let request = HAWKRequestBuilder::new(Method::GET, url, &key).build()?;
         let json: serde_json::Value = Client::make_request(request)?.json()?;
         let bundle = match json["bundle"].as_str() {
             Some(bundle) => bundle,
@@ -140,7 +151,7 @@ impl<'a> Client<'a> {
     ) -> Result<RecoveryEmailStatusResponse> {
         let url = self.config.auth_url_path("v1/recovery_email/status")?;
         let key = Client::derive_key_from_session_token(session_token)?;
-        let request = HAWKRequestBuilder::new(Method::Get, url, &key).build()?;
+        let request = HAWKRequestBuilder::new(Method::GET, url, &key).build()?;
         Client::make_request(request)?.json().map_err(|e| e.into())
     }
 
@@ -151,25 +162,25 @@ impl<'a> Client<'a> {
     ) -> Result<Option<ResponseAndETag<ProfileResponse>>> {
         let url = self.config.userinfo_endpoint()?;
         let client = ReqwestClient::new();
-        let mut builder = client.request(Method::Get, url);
-        builder.header(header::Authorization(header::Bearer {
-            token: profile_access_token.to_string(),
-        }));
+        let mut builder = client.request(Method::GET, url).header(
+            header::AUTHORIZATION,
+            format!("Bearer {}", profile_access_token),
+        );
         if let Some(etag) = etag {
-            builder.header(header::IfNoneMatch::Items(vec![header::EntityTag::strong(
-                etag,
-            )]));
+            builder = builder.header(header::IF_NONE_MATCH, format!("\"{}\"", etag));
         }
         let request = builder.build()?;
         let mut resp = Client::make_request(request)?;
-        if resp.status() == StatusCode::NotModified {
+        if resp.status() == StatusCode::NOT_MODIFIED {
             return Ok(None);
         }
+        let etag = resp
+            .headers()
+            .get(header::ETAG)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_owned());
         Ok(Some(ResponseAndETag {
-            etag: resp
-                .headers()
-                .get::<header::ETag>()
-                .map(|etag| etag.tag().to_string()),
+            etag,
             response: resp.json()?,
         }))
     }
@@ -177,7 +188,6 @@ impl<'a> Client<'a> {
     #[cfg(feature = "browserid")]
     pub fn oauth_token_with_session_token(
         &self,
-        client_id: &str,
         session_token: &[u8],
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse> {
@@ -187,13 +197,13 @@ impl<'a> Client<'a> {
         let assertion = jwt_utils::create_assertion(&key_pair, &certificate, &audience)?;
         let parameters = json!({
           "assertion": assertion,
-          "client_id": client_id,
+          "client_id": self.config.client_id,
           "response_type": "token",
           "scope": scopes.join(" ")
         });
         let key = Client::derive_key_from_session_token(session_token)?;
         let url = self.config.authorization_endpoint()?;
-        let request = HAWKRequestBuilder::new(Method::Post, url, &key)
+        let request = HAWKRequestBuilder::new(Method::POST, url, &key)
             .body(parameters)
             .build()?;
         Client::make_request(request)?.json().map_err(|e| e.into())
@@ -203,11 +213,10 @@ impl<'a> Client<'a> {
         &self,
         code: &str,
         code_verifier: &str,
-        client_id: &str,
     ) -> Result<OAuthTokenResponse> {
         let body = json!({
             "code": code,
-            "client_id": client_id,
+            "client_id": self.config.client_id,
             "code_verifier": code_verifier
         });
         self.make_oauth_token_request(body)
@@ -215,13 +224,12 @@ impl<'a> Client<'a> {
 
     pub fn oauth_token_with_refresh_token(
         &self,
-        client_id: &str,
         refresh_token: &str,
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse> {
         let body = json!({
             "grant_type": "refresh_token",
-            "client_id": client_id,
+            "client_id": self.config.client_id,
             "refresh_token": refresh_token,
             "scope": scopes.join(" ")
         });
@@ -232,11 +240,26 @@ impl<'a> Client<'a> {
         let url = self.config.token_endpoint()?;
         let client = ReqwestClient::new();
         let request = client
-            .request(Method::Post, url)
-            .header(header::ContentType::json())
+            .request(Method::POST, url)
+            .header(header::CONTENT_TYPE, "application/json")
             .body(body.to_string())
             .build()?;
         Client::make_request(request)?.json().map_err(|e| e.into())
+    }
+
+    pub fn destroy_oauth_token(&self, token: &str) -> Result<()> {
+        let body = json!({
+            "token": token,
+        });
+        let url = self.config.oauth_url_path("v1/destroy")?;
+        let client = ReqwestClient::new();
+        let request = client
+            .request(Method::POST, url)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(body.to_string())
+            .build()?;
+        Client::make_request(request)?;
+        Ok(())
     }
 
     #[cfg(feature = "browserid")]
@@ -248,12 +271,13 @@ impl<'a> Client<'a> {
         });
         let key = Client::derive_key_from_session_token(session_token)?;
         let url = self.config.auth_url_path("v1/certificate/sign")?;
-        let request = HAWKRequestBuilder::new(Method::Post, url, &key)
+        let request = HAWKRequestBuilder::new(Method::POST, url, &key)
             .body(parameters)
             .build()?;
         Client::make_request(request)?.json().map_err(|e| e.into())
     }
 
+    #[cfg(feature = "browserid")]
     fn get_oauth_audience(&self) -> Result<String> {
         let url = self.config.oauth_url()?;
         let host = url
@@ -265,6 +289,7 @@ impl<'a> Client<'a> {
         }
     }
 
+    #[cfg(feature = "browserid")]
     fn derive_key_from_session_token(session_token: &[u8]) -> Result<Vec<u8>> {
         let context_info = Client::kw("sessionToken");
         Ok(Client::derive_hkdf_sha256_key(
@@ -275,6 +300,7 @@ impl<'a> Client<'a> {
         ))
     }
 
+    #[cfg(feature = "browserid")]
     fn derive_hkdf_sha256_key(ikm: &[u8], salt: &[u8], info: &[u8], len: usize) -> Vec<u8> {
         let salt = hmac::SigningKey::new(&digest::SHA256, salt);
         let mut out = vec![0u8; len];
@@ -287,7 +313,7 @@ impl<'a> Client<'a> {
         let mut resp = client.execute(request)?;
         let status = resp.status();
 
-        if status.is_success() || status == StatusCode::NotModified {
+        if status.is_success() || status == StatusCode::NOT_MODIFIED {
             Ok(resp)
         } else {
             let json: std::result::Result<serde_json::Value, reqwest::Error> = resp.json();
@@ -298,7 +324,8 @@ impl<'a> Client<'a> {
                     error: json["error"].as_str().unwrap_or("").to_string(),
                     message: json["message"].as_str().unwrap_or("").to_string(),
                     info: json["info"].as_str().unwrap_or("").to_string(),
-                }.into()),
+                }
+                .into()),
                 Err(_) => Err(resp.error_for_status().unwrap_err().into()),
             }
         }
@@ -367,6 +394,7 @@ pub struct ProfileResponse {
 }
 
 #[cfg(test)]
+#[cfg(feature = "browserid")]
 mod tests {
     use super::*;
     use ring::{digest, pbkdf2};

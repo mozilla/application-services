@@ -1,0 +1,284 @@
+/* Any copyright is dedicated to the Public Domain.
+   http://creativecommons.org/publicdomain/zero/1.0/ */
+
+package mozilla.appservices.logins
+
+import org.junit.Test
+import org.junit.Assert.*
+
+abstract class LoginsStorageTest {
+
+    abstract fun createTestStore(): LoginsStorage
+
+    private val encryptionKey = "testEncryptionKey"
+
+    private fun getTestStore(): LoginsStorage {
+        val store = createTestStore()
+
+        store.unlock(encryptionKey)
+
+        store.add(ServerPassword(
+                id = "aaaaaaaaaaaa",
+                hostname = "https://www.example.com",
+                httpRealm = "Something",
+                username = "Foobar2000",
+                password = "hunter2",
+                usernameField = "users_name",
+                passwordField = "users_password"
+        ))
+
+        store.add(ServerPassword(
+                id = "bbbbbbbbbbbb",
+                hostname = "https://www.example.org",
+                formSubmitURL = "https://www.example.org/login",
+                password = "MyVeryCoolPassword"
+        ))
+
+        store.lock()
+        return store
+    }
+
+    private fun finishAndClose(store: LoginsStorage) {
+        store.lock()
+        assertEquals(store.isLocked(), true)
+        store.close()
+    }
+
+    private inline fun <T: Any?, reified E: Throwable> expectException(klass: Class<E>, callback: () -> T) {
+        try {
+            callback()
+            fail("Expected exception!")
+        } catch (e: Throwable) {
+            assert(klass.isInstance(e))
+        }
+    }
+
+    @Test
+    fun testLockedOperations() {
+        val test = getTestStore()
+        assertEquals(test.isLocked(), true)
+
+        expectException(LoginsStorageException::class.java) { test.get("aaaaaaaaaaaa") }
+        expectException(LoginsStorageException::class.java) { test.list() }
+        expectException(LoginsStorageException::class.java) { test.delete("aaaaaaaaaaaa") }
+        expectException(LoginsStorageException::class.java) { test.touch("bbbbbbbbbbbb") }
+        expectException(LoginsStorageException::class.java) { test.wipe() }
+        expectException(LoginsStorageException::class.java) { test.sync(SyncUnlockInfo("", "", "", "")) }
+        expectException(LoginsStorageException::class.java) { test.reset() }
+
+        test.unlock(encryptionKey)
+        assertEquals(test.isLocked(), false)
+        // Make sure things didn't change despite being locked
+        assertNotNull(test.get("aaaaaaaaaaaa"))
+        // "bbbbbbbbbbbb" has a single use (from insertion)
+        assertEquals(1, test.get("bbbbbbbbbbbb")!!.timesUsed)
+        finishAndClose(test)
+    }
+
+    @Test
+    fun testTouch() {
+        val test = getTestStore()
+        test.unlock(encryptionKey)
+        assertEquals(test.list().size, 2)
+        val b = test.get("bbbbbbbbbbbb")!!
+
+        // Wait 100ms so that touch is certain to change timeLastUsed.
+        Thread.sleep(100)
+        test.touch("bbbbbbbbbbbb")
+
+        val newB = test.get("bbbbbbbbbbbb")
+
+        assertNotNull(newB)
+        assertEquals(b.timesUsed + 1, newB!!.timesUsed)
+        assert(newB.timeLastUsed > b.timeLastUsed)
+
+        expectException(NoSuchRecordException::class.java) { test.touch("abcdabcdabcd") }
+
+        finishAndClose(test)
+    }
+
+    @Test
+    fun testDelete() {
+        val test = getTestStore()
+
+        test.unlock(encryptionKey)
+        assertNotNull(test.get("aaaaaaaaaaaa"))
+        assertTrue(test.delete("aaaaaaaaaaaa"))
+        assertNull(test.get("aaaaaaaaaaaa"))
+        assertFalse(test.delete("aaaaaaaaaaaa"))
+        assertNull(test.get("aaaaaaaaaaaa"))
+
+        finishAndClose(test)
+    }
+
+    @Test
+    fun testListWipe() {
+        val test = getTestStore()
+        test.unlock(encryptionKey)
+        assertEquals(2, test.list().size)
+
+        test.wipe()
+        assertEquals(0, test.list().size)
+
+        assertNull(test.get("aaaaaaaaaaaa"))
+        assertNull(test.get("bbbbbbbbbbbb"))
+
+        finishAndClose(test)
+    }
+
+    @Test
+    fun testAdd() {
+        val test = getTestStore()
+        test.unlock(encryptionKey)
+
+        expectException(IdCollisionException::class.java) {
+            test.add(ServerPassword(
+                    id = "aaaaaaaaaaaa",
+                    hostname = "https://www.foo.org",
+                    httpRealm = "Some Realm",
+                    password = "MyPassword",
+                    username = "MyUsername"
+            ))
+        }
+
+        for (record in INVALID_RECORDS) {
+            expectException(InvalidRecordException::class.java) {
+                test.add(record)
+            }
+        }
+
+        val toInsert = ServerPassword(
+                id = "",
+                hostname = "https://www.foo.org",
+                httpRealm = "Some Realm",
+                password = "MyPassword",
+                username = null
+        )
+
+        val generatedID = test.add(toInsert)
+
+        val record = test.get(generatedID)!!
+        assertEquals(generatedID, record.id)
+        assertEquals(toInsert.hostname, record.hostname)
+        assertEquals(toInsert.httpRealm, record.httpRealm)
+        assertEquals(toInsert.password, record.password)
+        assertEquals(toInsert.username, record.username)
+        assertEquals(toInsert.passwordField, record.passwordField)
+        assertEquals(toInsert.usernameField, record.usernameField)
+        assertEquals(toInsert.formSubmitURL, record.formSubmitURL)
+        assertEquals(1, record.timesUsed)
+
+        assertNotEquals(0L, record.timeLastUsed)
+        assertNotEquals(0L, record.timeCreated)
+        assertNotEquals(0L, record.timePasswordChanged)
+
+        val specificID = test.add(ServerPassword(
+                id = "123412341234",
+                hostname = "http://www.bar.com",
+                formSubmitURL = "http://login.bar.com",
+                password = "DummyPassword",
+                username = "DummyUsername"))
+
+        assertEquals("123412341234", specificID)
+
+        finishAndClose(test)
+    }
+
+    @Test
+    fun testUpdate() {
+        val test = getTestStore()
+        test.unlock(encryptionKey)
+
+        expectException(NoSuchRecordException::class.java) {
+            test.update(ServerPassword(
+                    id = "123412341234",
+                    hostname = "https://www.foo.org",
+                    httpRealm = "Some Realm",
+                    password = "MyPassword",
+                    username = "MyUsername"
+            ))
+        }
+
+        for (record in INVALID_RECORDS) {
+            val updateArg = record.copy(id = "aaaaaaaaaaaa")
+            expectException(InvalidRecordException::class.java) {
+                test.update(updateArg)
+            }
+        }
+
+        val toUpdate = test.get("aaaaaaaaaaaa")!!.copy(
+                password = "myNewPassword"
+        )
+
+        // Sleep so that the current time for test.update is guaranteed to be
+        // different.
+        Thread.sleep(100)
+
+        test.update(toUpdate)
+
+
+        val record = test.get(toUpdate.id)!!
+        assertEquals(toUpdate.hostname, record.hostname)
+        assertEquals(toUpdate.httpRealm, record.httpRealm)
+        assertEquals(toUpdate.password, record.password)
+        assertEquals(toUpdate.username, record.username)
+        assertEquals(toUpdate.passwordField, record.passwordField)
+        assertEquals(toUpdate.usernameField, record.usernameField)
+        assertEquals(toUpdate.formSubmitURL, record.formSubmitURL)
+        assertEquals(toUpdate.timesUsed + 1, record.timesUsed)
+        assertEquals(toUpdate.timeCreated, record.timeCreated)
+
+        assert(toUpdate.timeLastUsed < record.timeLastUsed)
+
+        assert(toUpdate.timeLastUsed < record.timeLastUsed)
+        assert(toUpdate.timeLastUsed < record.timePasswordChanged)
+
+        val specificID = test.add(ServerPassword(
+                id = "123412341234",
+                hostname = "http://www.bar.com",
+                formSubmitURL = "http://login.bar.com",
+                password = "DummyPassword",
+                username = "DummyUsername"))
+
+        assertEquals("123412341234", specificID)
+
+        finishAndClose(test)
+    }
+
+    companion object {
+        val INVALID_RECORDS: List<ServerPassword> = listOf(
+                // Both formSubmitURL and httpRealm
+                ServerPassword(
+                        id = "",
+                        hostname = "https://www.foo.org",
+                        httpRealm = "Test Realm",
+                        formSubmitURL = "https://www.foo.org/login",
+                        password = "MyPassword",
+                        username = "MyUsername"
+                ),
+                // Neither formSubmitURL nor httpRealm
+                ServerPassword(
+                        id = "",
+                        hostname = "https://www.foo.org",
+                        password = "MyPassword",
+                        username = "MyUsername"
+                ),
+                // Empty password
+                ServerPassword(
+                        id = "",
+                        hostname = "https://www.foo.org",
+                        httpRealm = "Some Realm",
+                        password = "",
+                        username = "MyUsername"
+                ),
+                // Empty hostname
+                ServerPassword(
+                        id = "",
+                        hostname = "",
+                        httpRealm = "Some Realm",
+                        password = "MyPassword",
+                        username = "MyUsername"
+                )
+        )
+    }
+}

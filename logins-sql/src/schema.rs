@@ -89,6 +89,7 @@
 //!
 
 use error::*;
+use sql_support::ConnExt;
 use db;
 
 /// Note that firefox-ios is currently on version 3. Version 4 is this version,

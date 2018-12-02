@@ -1,0 +1,12 @@
+[package]
+name = "reference-browser"
+version = "0.1.0"
+authors = ["application-services <application-services@mozilla.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+fxaclient_ffi = { path = "../../fxa-client/ffi" }
+loginsql_ffi = { path = "../../logins-sql/ffi" }
+places-ffi = { path = "../../components/places/ffi" }

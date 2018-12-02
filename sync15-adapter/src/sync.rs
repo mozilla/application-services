@@ -3,44 +3,53 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use changeset::{CollectionUpdate, IncomingChangeset, OutgoingChangeset};
+use request::{CollectionRequest};
 use client::Sync15StorageClient;
-use error;
+use error::Error;
+use failure;
 use state::GlobalState;
 use util::ServerTimestamp;
 
 /// Low-level store functionality. Stores that need custom reconciliation logic should use this.
 ///
-/// Different stores will produce errors of different types.  To accommodate this, we can either
-/// have the store's error type encapsulate errors while syncing, or we can have the Sync 1.5
-/// adapter's error type encapsulate the underlying error types.  Right now, it's less clear how to
-/// encapsulate errors in a generic way, so we expect `Store` implementations to define an
-/// associated `Error` type, and we expect to be able to convert our error type into that type.
+/// Different stores will produce errors of different types.  To accommodate this, we force them
+/// all to return failure::Error, which we expose as ErrorKind::StoreError.
 pub trait Store {
-    type Error;
+    fn collection_name(&self) -> &'static str;
 
     fn apply_incoming(
-        &mut self,
+        &self,
         inbound: IncomingChangeset
-    ) -> Result<OutgoingChangeset, Self::Error>;
+    ) -> Result<OutgoingChangeset, failure::Error>;
 
     fn sync_finished(
-        &mut self,
+        &self,
         new_timestamp: ServerTimestamp,
         records_synced: &[String],
-    ) -> Result<(), Self::Error>;
+    ) -> Result<(), failure::Error>;
+
+    /// The store is responsible for building the collection request. Engines
+    /// typically will store a lastModified timestamp and use that to build
+    /// a request saying "give me full records since that date" - however, other
+    /// engines might do something fancier. This could even later be extended
+    /// to handle "backfills" etc
+    fn get_collection_request(&self) -> Result<CollectionRequest, failure::Error>;
+
+    fn reset(&self) -> Result<(), failure::Error>;
+
+    fn wipe(&self) -> Result<(), failure::Error>;
 }
 
-pub fn synchronize<E>(client: &Sync15StorageClient,
+pub fn synchronize(client: &Sync15StorageClient,
                    state: &GlobalState,
-                   store: &mut Store<Error=E>,
-                   collection: String,
-                   timestamp: ServerTimestamp,
-                   fully_atomic: bool) -> Result<(), E>
-where E: From<error::Error>
+                   store: &Store,
+                   fully_atomic: bool) -> Result<(), Error>
 {
 
+    let collection = store.collection_name();
     info!("Syncing collection {}", collection);
-    let incoming_changes = IncomingChangeset::fetch(client, state, collection.clone(), timestamp)?;
+    let collection_request = store.get_collection_request()?;
+    let incoming_changes = IncomingChangeset::fetch(client, state, collection.into(), &collection_request)?;
     let last_changed_remote = incoming_changes.timestamp;
 
     info!("Downloaded {} remote changes", incoming_changes.changes.len());

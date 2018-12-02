@@ -2,8 +2,8 @@
 
 set -euvx
 
-OPENSSL_VERSION="1.0.2o"
-OPENSSL_SHA256="ec3f5c9714ba0fd45cb4e087301eb1336c317e0d20b575a125050470e8089e4d"
+OPENSSL_VERSION="1.0.2p"
+OPENSSL_SHA256="50a98e07b1a89eb8f6a99477f262df71c6fa7bef77df4dc83025a2845c827d00"
 
 SQLCIPHER_VERSION="3.4.2"
 SQLCIPHER_SHA256="69897a5167f34e8a84c7069f1b283aba88cdfa8ec183165c4a5da2c816cfaadb"
@@ -61,7 +61,11 @@ then
 elif [ "$PLATFORM" == "desktop" ]
 then
   ./build-openssl-desktop.sh "$OPENSSL_SRC_PATH"
-  ./build-sqlcipher-desktop.sh "$SQLCIPHER_SRC_PATH" $(abspath "desktop/openssl")
+  ./build-sqlcipher-desktop.sh "$SQLCIPHER_SRC_PATH"
+elif [ "$PLATFORM" == "darwin" -o "$PLATFORM" == "win32-x86-64" ]
+then
+  ./build-openssl-desktop.sh "$OPENSSL_SRC_PATH" "$PLATFORM"
+  ./build-sqlcipher-desktop.sh "$SQLCIPHER_SRC_PATH" "$PLATFORM"
 else
   echo "Unrecognized platform"
   exit 1

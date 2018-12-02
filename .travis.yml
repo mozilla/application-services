@@ -3,33 +3,48 @@ language: rust
 # (The version in Travis's default Ubuntu Trusty is much too old).
 os: osx
 osx_image:
-  - xcode10
-before_install:
-  - brew install sqlcipher --with-fts
+  - xcode10.1
 rust:
   - stable
   - beta
   - nightly
+cache: cargo
 matrix:
   allow_failures:
     - rust: nightly
   fast_finish: true
-script: cargo test --all-features --verbose
+env:
+  global:
+    - FRAMEWORK_NAME=ApplicationServices.framework.zip
+before_install:
+  - brew install sqlcipher --with-fts
+before_deploy:
+  - rustup target add aarch64-apple-ios armv7-apple-ios i386-apple-ios x86_64-apple-ios
+  - cargo install cargo-lipo
+  - brew update && (brew outdated carthage || brew upgrade carthage)
+  - carthage build --no-skip-current --verbose
+  - carthage archive --output $FRAMEWORK_NAME
+  - rm -rf Carthage
+script:
+  # Test with 1. only default features on, 2. all features on, 3. no features on.
+  # This is not perfect (really we want the cartesian product), but is good enough in practice.
+  - cargo test --all --verbose
+  - cargo test --all --all-features --verbose
+  - cargo test --all --no-default-features --verbose
 
 jobs:
   include:
-    - stage: iOS GitHub Release
+    - stage: Carthage framework GitHub Release
       if: tag IS present
-      rust: beta
-      osx_image: xcode10
-      script: ./scripts/travis-ci-ios.sh
+      rust: stable
+      osx_image: xcode10.1
+      script: skip # Do not re-run tests
       deploy:
         provider: releases
         api_key:
           secure: PEbRLdoGVRgx6jlfvp8LzG/SRbVspWkVn3jpjkdy7jjeZ/BHsy8LSQhw37IcydqrtmCFPJBVLx1Uw0cj4H7qfVD5eSg7m6L/mXIJ+pXmhxtGVlD2IF+sNQDPgWs8DZ4diHkSntw5oSekvisT5yi3IaTP/2y9LvLBB9oJnZtaYT27Rv0B8hQN0/Etfr69i6yhNwlcfuBJ0BmVN2gMNCPydR9Xeq050AEpsVoPkFL3m5Xy7n6sUJ/DAOM0lBr4hUp2jP5ciPd3iwo1fndGvuzVFpxGdnH2DSHgD4mo2AF8vcrecr9Fkax9yxMHC5Ua2+9c4Z69fx19rP8DyKsJDR8wmPIa9fwEabgEmgTu4HRNC6Y9VCGuM7CTZMTv1iVwdV3q33K9eJtI4tBjwQyaon9owVrHBZQXB4+KqP2/Id/v0PDp3WhEN9YQQGn/HF+IvcjTMDvdkaj3q34pqbocfOpWFcTO83aQX/JYkYHKq0r1mGrPDKfTrdIBUg26jtrI64KflyXENOvU95jW3TfcwljOOsXnuI2Owov619CqJXpvyJ62CAoagRFdPRbi3VARC4mGZt/PBz1FxlDWydOMmJnK242RXapAWcRMsEVK7Mowj/+IFSD4OTF57aP66gkn4tNh/5qx0RPcwcMEpFPM9bTim3vecN15dB0f5MZelkbr7Gw=
-        file: FxAClient.framework.zip
+        file: $FRAMEWORK_NAME
         skip_cleanup: true
         overwrite: true
-        name: FxA SDK
         on:
           tags: true

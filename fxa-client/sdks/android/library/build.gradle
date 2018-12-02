@@ -17,6 +17,11 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            consumerProguardFiles "$rootDir/proguard-rules-consumer-jna.pro"
+        }
+
+        withoutLib {
+            initWith release
         }
     }
 
@@ -26,6 +31,17 @@ android {
     packagingOptions {
         doNotStrip "**/*.so"
     }
+}
+
+configurations {
+    withoutLib {
+    }
+}
+
+afterEvaluate {
+    android.sourceSets.debug.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
+    android.sourceSets.release.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
+    android.sourceSets.main.jniLibs.srcDirs = []
 }
 
 cargo {
@@ -38,12 +54,11 @@ cargo {
     // Where Cargo writes its outputs.
     targetDirectory = '../../../../target'
 
-    libname = 'libfxa_client'
+    libname = 'fxaclient_ffi'
 
     // The Cargo targets to invoke.  The mapping from short name to target
     // triple is defined by the `rust-android-gradle` plugin.
     targets = [
-        // 'default', // TODO: For unit tests.
         'arm',
         'arm64',
         'x86',
@@ -53,33 +68,12 @@ cargo {
     // `debug = true` in Cargo.toml).
     profile = "release"
 
-    // Configure some environment variables, per toolchain, that will apply
-    // during the Cargo build.  Paths are relative to this file.  We assume that
-    // the `libs/` directory has been populated before invoking Gradle (or Cargo).
-    exec = { spec, toolchain ->
-        switch (toolchain.platform) {
-            // TODO: For unit tests.
-            // case 'default':
-            //     spec.environment("OPENSSL_DIR", file('../../../../libs/desktop/openssl').absolutePath)
-            //     break;
-            case 'arm':
-            case 'arm64':
-            case 'x86':
-                spec.environment("OPENSSL_STATIC",        "1")
-                spec.environment("OPENSSL_DIR",           file("../../../../libs/android/${toolchain.platform}/openssl").absolutePath)
-                break;
-            default:
-                throw GradleException("Unknown toolchain platform ${toolchain.platform}")
-        }
-    }
-
-    // TODO: For unit tests.
-    // This puts the output of `cargo build` (the "default" toolchain) into the correct directory
-    // for JNA to find it.
-    // defaultToolchainBuildPrefixDir = Platform.RESOURCE_PREFIX
+    exec = rootProject.ext.cargoExec
 }
 
 dependencies {
+    implementation 'net.java.dev.jna:jna:4.5.2@aar'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 }
 
 afterEvaluate {
@@ -90,17 +84,20 @@ afterEvaluate {
             productFlavor += "${it.name.capitalize()}"
         }
         def buildType = "${variant.buildType.name.capitalize()}"
-        tasks["generate${productFlavor}${buildType}Assets"].dependsOn(tasks["cargoBuild"])
+        if (variant.buildType.name != 'withoutLib') {
+            tasks["generate${productFlavor}${buildType}Assets"].dependsOn(tasks["cargoBuild"])
+        }
 
         // TODO: For unit tests.
         // tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["cargoBuild"])
     }
 }
 
-archivesBaseName = 'fxa_client'
-
-apply from: '../../../../publish.gradle'
+apply from: "$rootDir/publish.gradle"
 ext.configurePublish(
-        'org.mozilla.fxa_client',
-        'fxa_client',
-        'Firefox Accounts client.')
+        'org.mozilla.fxaclient',
+        'fxaclient',
+        'Firefox Accounts client.',
+        /* jnaForTestConfiguration= */ null,
+        /* variantWithoutLib= */ 'androidWithoutLib',
+)

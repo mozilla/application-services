@@ -163,6 +163,13 @@ impl Payload {
     }
 
     #[inline]
+    pub fn new_tombstone_with_ttl(id: String, ttl: u32) -> Payload {
+        let mut result = Payload::new_tombstone(id);
+        result.data.insert("ttl".into(), ttl.into());
+        result
+    }
+
+    #[inline]
     pub fn id(&self) -> &str {
         &self.id[..]
     }
@@ -173,16 +180,18 @@ impl Payload {
     }
 
     pub fn into_bso(
-        self,
+        mut self,
         collection: String
     ) -> CleartextBso {
         let id = self.id.clone();
+        let sortindex: Option<i32> = self.take_auto_field("sortindex");
+        let ttl: Option<u32> = self.take_auto_field("ttl");
         CleartextBso {
             id,
             collection,
             modified: 0.0.into(), // Doesn't matter.
-            sortindex: None, // Should we let consumer's set this?
-            ttl: None, // Should we let consumer's set this?
+            sortindex,
+            ttl,
             payload: self,
         }
     }
@@ -205,6 +214,44 @@ impl Payload {
     pub fn into_json_string(self) -> String {
         serde_json::to_string(&JsonValue::from(self))
             .expect("JSON.stringify failed, which shouldn't be possible")
+    }
+
+    /// "Auto" fields are fields like 'sortindex' (and potentially 'ttl' in
+    /// the future) which are:
+    ///
+    /// - Added to the payload automatically when deserializing if present on
+    ///   the incoming BSO.
+    /// - Removed from the payload automatically and attached to the BSO if
+    ///   present on the outgoing payload.
+    fn add_auto_field<T: Into<JsonValue>>(&mut self, name: &str, v: Option<T>) {
+        // This is a little dubious, but it seems like if we have a e.g. `sortindex` field on the payload
+        // it's going to be a bug if we use it instead of the "real" sort index.
+        if self.data.contains_key(name) {
+            warn!("Payload for record {} already contains 'automatic' field \"{}\"? \
+                   Overwriting with 'real' value",
+                  self.id, name);
+        }
+
+        if let Some(value) = v {
+            self.data.insert(name.into(), value.into());
+        } else {
+            self.data.remove(name);
+        }
+    }
+
+    fn take_auto_field<V>(&mut self, name: &str) -> Option<V>
+    where
+        for<'a> V: Deserialize<'a>
+    {
+        let v = self.data.remove(name)?;
+        match serde_json::from_value(v) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                error!("Automatic field {} exists on payload, but cannot be deserialized: {}",
+                       name, e);
+                None
+            }
+        }
     }
 }
 
@@ -276,7 +323,10 @@ impl EncryptedBso {
         let ciphertext = base64::decode(&self.payload.ciphertext)?;
         let cleartext = key.decrypt(&ciphertext, &iv)?;
 
-        let new_payload = serde_json::from_str(&cleartext)?;
+        let mut new_payload: Payload = serde_json::from_str(&cleartext)?;
+        // This is a slightly dodgy place to do this, but whatever.
+        new_payload.add_auto_field("sortindex", self.sortindex);
+        new_payload.add_auto_field("ttl", self.ttl);
 
         let result = self.with_payload(new_payload);
         Ok(result)
@@ -325,9 +375,25 @@ mod tests {
         assert_eq!(&record.id, "1234");
         assert_eq!(&record.collection, "passwords");
         assert_eq!(record.modified.0, 12344321.0);
+        assert_eq!(record.sortindex, None);
         assert_eq!(&record.payload.iv, "aaaaa");
         assert_eq!(&record.payload.hmac, "bbbbb");
         assert_eq!(&record.payload.ciphertext, "ccccc");
+    }
+
+    #[test]
+    fn test_deserialize_autofields() {
+        let serialized = r#"{
+            "id": "1234",
+            "collection": "passwords",
+            "modified": 12344321.0,
+            "sortindex": 100,
+            "ttl": 99,
+            "payload": "{\"IV\": \"aaaaa\", \"hmac\": \"bbbbb\", \"ciphertext\": \"ccccc\"}"
+        }"#;
+        let record: BsoRecord<EncryptedPayload> = serde_json::from_str(serialized).unwrap();
+        assert_eq!(record.sortindex, Some(100));
+        assert_eq!(record.ttl, Some(99));
     }
 
     #[test]
@@ -409,5 +475,35 @@ mod tests {
         assert_eq!(serde_json::to_value(decrypted.payload).unwrap(), payload);
     }
 
+    #[test]
+    fn test_record_auto_fields() {
+        let payload = json!({ "id": "aaaaaaaaaaaa", "age": 105, "meta": "data", "sortindex": 100, "ttl": 99 });
+        let bso = Payload::from_json(payload.clone())
+            .unwrap()
+            .into_bso("dummy".into());
 
+        // We don't want the keys ending up in the actual record data on the server.
+        assert!(!bso.payload.data.contains_key("sortindex"));
+        assert!(!bso.payload.data.contains_key("ttl"));
+
+        // But we do want them in the BsoRecord.
+        assert_eq!(bso.sortindex, Some(100));
+        assert_eq!(bso.ttl, Some(99));
+
+        let keybundle = KeyBundle::new_random().unwrap();
+        let encrypted = bso.clone().encrypt(&keybundle).unwrap();
+
+        assert!(keybundle.verify_hmac_string(
+            &encrypted.payload.hmac,
+            &encrypted.payload.ciphertext
+        ).unwrap());
+
+        let decrypted = encrypted.decrypt(&keybundle).unwrap();
+        // We add auto fields during decryption.
+        assert_eq!(decrypted.payload.data["sortindex"], 100);
+        assert_eq!(decrypted.payload.data["ttl"], 99);
+
+        assert_eq!(decrypted.sortindex, Some(100));
+        assert_eq!(decrypted.ttl, Some(99));
+    }
 }

@@ -103,12 +103,12 @@ func matchingRedirectURLReceived(components: URLComponents) {
     var dic = [String: String]()
     components.queryItems?.forEach { dic[$0.name] = $0.value }
     self.fxa!.completeOAuthFlow(code: dic["code"]!, state: dic["state"]!) { result, error in
-        guard let oauthInfo = result else { return }
-        print("access_token: " + oauthInfo.accessToken)
-        if let keys = oauthInfo.keys {
+        guard let tokenInfo = result else { return }
+        print("access_token: " + tokenInfo.token)
+        if let keys = tokenInfo.keys {
             print("keysJWE: " + keys)
         }
-        print("obtained scopes: " + oauthInfo.scopes.joined(separator: " "))
+        print("obtained scope: " + tokenInfo.scope)
         self.fxa!.getProfile() { result, error in
             guard let profile = result else {
                 assert(false, "ok something's really wrong there")

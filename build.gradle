@@ -4,7 +4,7 @@ buildscript {
     ext.kotlin_version = '1.2.50'
 
     ext.library = [
-        version: '0.5.0'
+        version: '0.11.3'
     ]
 
     ext.build = [
@@ -21,23 +21,28 @@ buildscript {
         }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.1.3'
+        classpath 'com.android.tools.build:gradle:3.1.4'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
 
         // Publish.
-        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.7.3'
-        classpath 'com.github.dcendents:android-maven-gradle-plugin:2.1'
+        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.4'
+        classpath 'digital.wup:android-maven-publish:3.6.2'
 
-        classpath 'gradle.plugin.org.mozilla.rust-android-gradle:plugin:0.4.0'
+        classpath 'gradle.plugin.org.mozilla.rust-android-gradle:plugin:0.8.0'
 
         // Yes, this is unusual.  We want to access some host-specific
         // computation at build time.
         classpath 'net.java.dev.jna:jna:4.5.2'
 
+        // Downloading libs/ archives from Taskcluster.
+        classpath 'de.undercouch:gradle-download-task:3.4.3'
+
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
     }
 }
+
+apply plugin: 'de.undercouch.download'
 
 allprojects {
     repositories {
@@ -46,6 +51,142 @@ allprojects {
     }
 }
 
+subprojects {
+    apply plugin: 'digital.wup.android-maven-publish'
+
+    // This allows to invoke Gradle like `./gradlew publishToRootProjectBuildDir` (equivalent to
+    // `./gradlew publish`) and also `./gradlew publishToProjectBuildDir`.
+    publishing {
+        repositories {
+            maven {
+                name = "rootProjectBuildDir"
+                url "file://${project.rootProject.buildDir}/maven"
+            }
+            maven {
+                name = "projectBuildDir"
+                url "file://${project.buildDir}/maven"
+            }
+        }
+    }
+}
+
 task clean(type: Delete) {
     delete rootProject.buildDir
+}
+
+// Avoid Gradle namespace collision.  This is here, rather than in `buildscript
+// { ... }`, to avoid issues with importing.
+import com.sun.jna.Platform as DefaultPlatform
+
+// This is the output `git rev-parse HEAD:libs`.  We could discover this automatically, but
+// let's keep things simple and bump this manually for a while.  If and when we grow SNAPSHOT
+// support on maven.mozilla.org, we can invest in a better approach for versioning these
+// prerequisite libraries.
+//
+// Set this to `= null` in order to use libs from the source directory.
+ext.libsGitSha = '948cdd72ce2825909575c73c74177f76e66aafe6'
+
+if (rootProject.ext.libsGitSha != null) {
+    task downloadAndroidLibs(type: Download) {
+        src "https://index.taskcluster.net/v1/task/project.application-services.application-services.build.libs.android.${rootProject.ext.libsGitSha}/artifacts/public/target.tar.gz"
+        dest new File(buildDir, "libs.android.${rootProject.ext.libsGitSha}.tar.gz")
+
+        doFirst {
+            if (it.dest.exists()) {
+                throw new StopExecutionException("File to download already exists: ${it.dest.path}")
+            }
+        }
+        overwrite true
+    }
+
+    task untarAndroidLibs(dependsOn: downloadAndroidLibs, type: Copy) {
+        from tarTree(downloadAndroidLibs.dest)
+        into rootProject.buildDir
+    }
+
+    task downloadDesktopLibs(type: Download) {
+        src {
+            switch (DefaultPlatform.RESOURCE_PREFIX) {
+                case 'darwin':
+                    return "https://index.taskcluster.net/v1/task/project.application-services.application-services.build.libs.desktop.macos.${rootProject.ext.libsGitSha}/artifacts/public/target.tar.gz"
+                case 'linux-x86-64':
+                    return "https://index.taskcluster.net/v1/task/project.application-services.application-services.build.libs.desktop.linux.${rootProject.ext.libsGitSha}/artifacts/public/target.tar.gz"
+                case 'win32-x86-64':
+                    return "https://index.taskcluster.net/v1/task/project.application-services.application-services.build.libs.desktop.win32-x86-64.${rootProject.ext.libsGitSha}/artifacts/public/target.tar.gz"
+                default:
+                    throw new GradleException("Unknown host platform '${DefaultPlatform.RESOURCE_PREFIX}'.  " +
+                                              "Set `ext.libsGitSha = null` in ${rootProject.rootDir}/build.gradle and build your own libs.  " +
+                                              "If you don't want to build your own libs for Android, you can untar\n\n${downloadAndroidLibs.src}\n\nat top-level to populate `libs/android/`.  " +
+                                              "You'll need build your own libs for your host platform in order to be able to build and run unit tests.")
+            }
+        }
+
+        dest {
+            switch (DefaultPlatform.RESOURCE_PREFIX) {
+                case 'darwin':
+                    return new File(buildDir, "libs.desktop.macos.${rootProject.ext.libsGitSha}.tar.gz")
+                case 'linux-x86-64':
+                    return new File(buildDir, "libs.desktop.linux.${rootProject.ext.libsGitSha}.tar.gz")
+                case 'win32-x86-64':
+                    return new File(buildDir, "libs.desktop.win32-x86-64.${rootProject.ext.libsGitSha}.tar.gz")
+                default:
+                    throw new GradleException("Unknown host platform '${DefaultPlatform.RESOURCE_PREFIX}'.  " +
+                                              "Set `ext.libsGitSha = null` in ${rootProject.rootDir}/build.gradle and build your own libs.")
+            }
+        }
+
+        doFirst {
+            if (it.dest.exists()) {
+                throw new StopExecutionException("File to download already exists: ${it.dest.path}")
+            }
+        }
+        overwrite true
+    }
+
+    task untarDesktopLibs(dependsOn: downloadDesktopLibs, type: Copy) {
+        from tarTree(downloadDesktopLibs.dest)
+        into rootProject.buildDir
+    }
+
+    subprojects { project ->
+        afterEvaluate {
+            android.libraryVariants.all { v ->
+                def task = v.preBuild
+                task.dependsOn(rootProject.untarAndroidLibs)
+                task.dependsOn(rootProject.untarDesktopLibs)
+            }
+        }
+    }
+}
+
+// Configure some environment variables, per toolchain, that will apply during
+// the Cargo build.  We assume that the `libs/` directory has been populated
+// before invoking Gradle (or Cargo).
+ext.cargoExec = { spec, toolchain ->
+    spec.environment("OPENSSL_STATIC", "1")
+
+    // Use in-tree libs from the source directory in CI or if the git SHA is unset; otherwise use
+    // downloaded libs.
+    def libsRootDir = (System.getenv('CI') || ext.libsGitSha == null) ? rootProject.rootDir : rootProject.buildDir
+
+    spec.environment("OPENSSL_DIR",           new File(libsRootDir, "libs/${toolchain.folder}/openssl").absolutePath)
+    spec.environment("SQLCIPHER_LIB_DIR",     new File(libsRootDir, "libs/${toolchain.folder}/sqlcipher/lib").absolutePath)
+    spec.environment("SQLCIPHER_INCLUDE_DIR", new File(libsRootDir, "libs/${toolchain.folder}/sqlcipher/include").absolutePath)
+}
+
+task zipMavenArtifacts(type: Zip) {
+    from "${project.buildDir}/maven"
+
+    include '**/*.aar'
+    include '**/*.jar'
+    include '**/*.pom'
+    include '**/*.md5'
+    include '**/*.sha1'
+
+    // Metadata is generated by maven.mozilla.org directly
+    exclude '**/*maven-metadata.xml*'
+
+    archiveName "target.maven.zip"
+    includeEmptyDirs = false
+    destinationDir(file("${project.buildDir}"))
 }

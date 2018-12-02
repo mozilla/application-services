@@ -3,16 +3,22 @@ name = "logins-sql"
 version = "0.1.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 
+[features]
+ffi = ["ffi-support"]
+default = []
+
 [dependencies]
 sync15-adapter = { path = "../sync15-adapter" }
-serde = "1.0.75"
-serde_derive = "1.0.75"
-serde_json = "1.0.26"
-log = "0.4.4"
+serde = "1.0.79"
+serde_derive = "1.0.79"
+serde_json = "1.0.28"
+log = "0.4.5"
 lazy_static = "1.1.0"
 url = "1.7.1"
-failure = "0.1"
-failure_derive = "0.1"
+failure = "0.1.3"
+failure_derive = "0.1.3"
+sql-support = { path = "../components/support/sql" }
+ffi-support = { path = "../components/support/ffi", optional = true }
 
 [dependencies.rusqlite]
 version = "0.14.0"

@@ -7,14 +7,12 @@ extern crate base64;
 extern crate openssl;
 extern crate reqwest;
 extern crate hawk;
+extern crate hyper;
 
 extern crate failure;
 
 #[macro_use]
 extern crate failure_derive;
-
-#[macro_use]
-extern crate hyper;
 
 #[macro_use]
 extern crate lazy_static;
@@ -42,6 +40,7 @@ pub mod util;
 pub mod request;
 pub mod changeset;
 pub mod sync;
+pub mod sync_multiple;
 pub mod client;
 pub mod state;
 
@@ -50,7 +49,9 @@ pub use bso_record::{BsoRecord, EncryptedBso, Payload, CleartextBso};
 pub use changeset::{RecordChangeset, IncomingChangeset, OutgoingChangeset};
 pub use error::{Result, Error, ErrorKind};
 pub use sync::{synchronize, Store};
+pub use sync_multiple::{ClientInfo, sync_multiple};
 pub use util::{ServerTimestamp, SERVER_EPOCH};
 pub use key_bundle::KeyBundle;
 pub use client::{Sync15StorageClientInit, Sync15StorageClient};
 pub use state::{GlobalState, SetupStateMachine};
+pub use request::{CollectionRequest};

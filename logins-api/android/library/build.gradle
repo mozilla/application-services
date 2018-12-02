@@ -3,10 +3,6 @@ apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
-apply plugin: 'com.github.dcendents.android-maven'
-
-import com.sun.jna.Platform
-
 android {
     compileSdkVersion 27
 
@@ -21,11 +17,16 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            consumerProguardFiles "$rootDir/proguard-rules-consumer-jna.pro"
+        }
+
+        withoutLib {
+            initWith release
         }
     }
 
     sourceSets {
-        test.resources.srcDirs += "$buildDir/rustResources"
+        test.resources.srcDirs += "$buildDir/rustJniLibs/desktop"
     }
 
     // Help folks debugging by including symbols in our native libraries.  Yes, this makes the
@@ -34,6 +35,17 @@ android {
     packagingOptions {
         doNotStrip "**/*.so"
     }
+}
+
+configurations {
+    withoutLib {
+    }
+}
+
+afterEvaluate {
+    android.sourceSets.debug.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
+    android.sourceSets.release.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
+    android.sourceSets.main.jniLibs.srcDirs = []
 }
 
 cargo {
@@ -46,12 +58,14 @@ cargo {
     // Where Cargo writes its outputs.
     targetDirectory = '../../../target'
 
-    libname = 'libloginsapi_ffi'
+    libname = 'logins_ffi'
 
     // The Cargo targets to invoke.  The mapping from short name to target
     // triple is defined by the `rust-android-gradle` plugin.
     targets = [
-        // 'default', // TODO: not until https://github.com/mozilla/application-services/issues/259 is fixed.
+        'linux-x86-64',
+        'darwin',
+        'win32-x86-64-gnu',
         'arm',
         'arm64',
         'x86',
@@ -61,34 +75,7 @@ cargo {
     // `debug = true` in Cargo.toml).
     profile = "release"
 
-    // Configure some environment variables, per toolchain, that will apply
-    // during the Cargo build.  Paths are relative to this file.  We assume that
-    // the `libs/` directory has been populated before invoking Gradle (or Cargo).
-    exec = { spec, toolchain ->
-        switch (toolchain.platform) {
-            case 'default':
-                 spec.environment("OPENSSL_STATIC", "1")
-                 spec.environment("OPENSSL_DIR",           file("../../../libs/desktop/openssl").absolutePath)
-                 spec.environment("SQLCIPHER_LIB_DIR",     file("../../../libs/desktop/sqlcipher/lib").absolutePath)
-                 spec.environment("SQLCIPHER_INCLUDE_DIR", file("../../../libs/desktop/sqlcipher/include").absolutePath)
-                 break;
-            case 'arm':
-            case 'arm64':
-            case 'x86':
-                spec.environment("OPENSSL_STATIC",        "1")
-                spec.environment("OPENSSL_DIR",           file("../../../libs/android/${toolchain.platform}/openssl").absolutePath)
-                spec.environment("SQLCIPHER_LIB_DIR",     file("../../../libs/android/${toolchain.platform}/sqlcipher/lib").absolutePath)
-                spec.environment("SQLCIPHER_INCLUDE_DIR", file("../../../libs/android/${toolchain.platform}/sqlcipher/include").absolutePath)
-                break;
-            default:
-                throw GradleException("Unknown toolchain platform ${toolchain.platform}")
-        }
-    }
-
-    // For unit tests.
-    // This puts the output of `cargo build` (the "default" toolchain) into the correct directory
-    // for JNA to find it.
-    defaultToolchainBuildPrefixDir = Platform.RESOURCE_PREFIX
+    exec = rootProject.ext.cargoExec
 }
 
 configurations {
@@ -112,9 +99,7 @@ dependencies {
     jnaForTest 'net.java.dev.jna:jna:4.5.2@jar'
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation 'com.android.support:appcompat-v7:27.1.1'
     implementation 'net.java.dev.jna:jna:4.5.2@aar'
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:0.23.4'
 
     testImplementation files(configurations.jnaForTest.files)
     testImplementation 'junit:junit:4.12'
@@ -124,7 +109,6 @@ dependencies {
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
 }
-
 
 afterEvaluate {
     // The `cargoBuild` task isn't available until after evaluation.
@@ -141,10 +125,11 @@ afterEvaluate {
     }
 }
 
-archivesBaseName = 'logins'
-
-apply from: '../../../publish.gradle'
+apply from: "$rootDir/publish.gradle"
 ext.configurePublish(
         'org.mozilla.sync15',
         'logins',
-        'Sync 1.5 logins implementation.')
+        'Sync 1.5 logins implementation.',
+        /* jnaForTestConfiguration= */ configurations.jnaForTest,
+        /* variantWithoutLib= */ 'androidWithoutLib',
+)

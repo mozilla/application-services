@@ -2,57 +2,53 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-def libRepoName = properties.libRepositoryName
-def libUrl = properties.libUrl
-def libVcsUrl = properties.libVcsUrl
 def libLicense = properties.libLicense
 def libLicenseUrl = properties.libLicenseUrl
+def libRepositoryName = properties.libRepositoryName
+def libUrl = properties.libUrl
+def libVcsUrl = properties.libVcsUrl
 
-ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg ->
-    apply plugin: 'com.github.dcendents.android-maven'
+ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg,
+                         jnaForTestConfiguration = null,
+                         variantWithoutLib = null ->
+    // `jnaForTestConfiguration` is a hacky way to say yes, I'm using JNA and
+    // want to pack the JNA dispatch libraries and my Rust libraries into a
+    // single JAR for use in unit tests that run on a development host (and not
+    // an Android target device).  We extract the JNA libraries and our local
+    // Rust libraries and stick them into a JAR that consumers augment their
+    // test configuration with.
+    //
+    // `variantWithoutLib` says to publish an AAR that doesn't have native Rust
+    // libraries packed into it.  Such an AAR will be aggregated into another
+    // Maven publication that has a single composite Rust library that provides
+    // the native code functionality.
+    if (jnaForTestConfiguration != null) {
+        task extractJnaResources(type: Sync) {
+            dependsOn jnaForTestConfiguration
 
-    group = groupIdArg
+            from zipTree(jnaForTestConfiguration.singleFile)
 
-    install {
-        repositories.mavenInstaller {
-            pom {
-                project {
-                    packaging 'aar'
-                    groupId groupIdArg
-                    artifactId artifactIdArg
+            into "${buildDir}/jnaResources/"
 
-                    name libRepoName
-                    description descriptionArg
-                    url libUrl
-
-                    licenses {
-                        license {
-                            name libLicense
-                            url libLicenseUrl
-                        }
-                    }
-
-                    developers {
-                        developer {
-                            id 'nalexander'
-                            name 'Nick Alexander'
-                            email 'nalexander@mozilla.com'
-                        }
-                    }
-
-                    scm {
-                        connection libVcsUrl
-                        developerConnection libVcsUrl
-                        url libUrl
-                    }
+            eachFile { FileCopyDetails fcp ->
+                // The intention is to just keep the various `*jnidispatch.*` files.
+                if (fcp.relativePath.pathString.startsWith("META-INFO") || fcp.relativePath.pathString.endsWith(".class")) {
+                    fcp.exclude()
                 }
             }
+
+            includeEmptyDirs false
+        }
+
+        def forUnitTestsJarTask = task forUnitTestsJar(type: Jar) {
+            from extractJnaResources
+            from "$buildDir/rustJniLibs/desktop"
+        }
+
+        project.afterEvaluate {
+            forUnitTestsJarTask.dependsOn(tasks["cargoBuild"])
         }
     }
-
-    apply plugin: 'com.jfrog.bintray'
-
-    version = rootProject.ext.library['version']
 
     task sourcesJar(type: Jar) {
         from android.sourceSets.main.java.srcDirs
@@ -69,10 +65,139 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg ->
         from javadoc.destinationDir
     }
 
-    artifacts {
-        //archives javadocJar
-        archives sourcesJar
+    publishing {
+        publications {
+            aar(MavenPublication) {
+                project.afterEvaluate {
+                    from components.findByName("androidRelease")
+                }
+                artifact sourcesJar
+                // Can't publish Javadoc yet: fxaclient isn't well behaved.
+                // artifact javadocJar
+
+                // If this goes haywire with
+                // 'Cannot configure the 'publishing' extension after it has been accessed.',
+                // see https://github.com/researchgate/gradle-release/issues/125 and
+                // https://stackoverflow.com/q/28020520.
+                pom {
+                    groupId = groupIdArg
+                    artifactId = artifactIdArg
+                    description = descriptionArg
+                    version = rootProject.ext.library['version']
+
+                    licenses {
+                        license {
+                            name = libLicense
+                            url = libLicenseUrl
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            name = 'Mozilla Application Services'
+                            email = 'application-services@mozilla.com'
+                        }
+                    }
+
+                    scm {
+                        connection = libVcsUrl
+                        developerConnection = libVcsUrl
+                        url = libUrl
+                    }
+                }
+
+                if (variantWithoutLib != null) {
+                    // If we are publishing a `-withoutLib` publication, we
+                    // never want to choose the real one when a parent project
+                    // has us as a child `project()` dependency.
+                    alias = true
+                }
+            }
+
+            if (variantWithoutLib != null) {
+                aarWithoutLib(MavenPublication) {
+                    project.afterEvaluate {
+                        from components.findByName(variantWithoutLib)
+                    }
+                    artifact sourcesJar
+                    // Can't publish Javadoc yet: fxaclient isn't well behaved.
+                    // artifact javadocJar
+
+                    pom {
+                        groupId = "${groupIdArg}-withoutLib"
+                        artifactId = "${artifactIdArg}-withoutLib"
+                        description = descriptionArg
+                        version = rootProject.ext.library['version']
+
+                        licenses {
+                            license {
+                                name = properties.libLicense
+                                url = properties.libLicenseUrl
+                            }
+                        }
+
+                        developers {
+                            developer {
+                                name = 'Mozilla Application Services'
+                                email = 'application-services@mozilla.com'
+                            }
+                        }
+
+                        scm {
+                            connection = properties.libVcsUrl
+                            developerConnection = properties.libVcsUrl
+                            url = properties.libUrl
+                        }
+                    }
+                }
+            }
+
+            if (jnaForTestConfiguration != null) {
+                forUnitTestsJar(MavenPublication) {
+                    artifact tasks['forUnitTestsJar']
+
+                    pom {
+                        groupId = "${groupIdArg}-forUnitTests"
+                        artifactId = "${artifactIdArg}-forUnitTests"
+                        description = descriptionArg
+                        version = rootProject.ext.library['version']
+
+                        licenses {
+                            license {
+                                name = libLicense
+                                url = libLicenseUrl
+                            }
+                        }
+
+                        developers {
+                            developer {
+                                name = 'Mozilla Application Services'
+                                email = 'application-services@mozilla.com'
+                            }
+                        }
+
+                        scm {
+                            connection = libVcsUrl
+                            developerConnection = libVcsUrl
+                            url = libUrl
+                        }
+                    }
+
+                    // This is never the publication we want to use when publishing a
+                    // parent project with us as a child `project()` dependency.
+                    alias = true
+                }
+            }
+        }
     }
+
+    apply plugin: 'com.jfrog.bintray'
+
+    // It feels like this shouldn't be necessary, but without it an
+    // "unspecified" creeps into bintray URLs -- just like
+    // https://github.com/bintray/gradle-bintray-plugin/issues/244, but not
+    // fixed by gradle-bintray-plugin:1.8.4.
+    version = rootProject.ext.library['version']
 
     Properties localProperties = null;
     if (project.rootProject.file('local.properties').canRead()) {
@@ -80,13 +205,22 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg ->
         localProperties.load(project.rootProject.file('local.properties').newDataInputStream())
     }
 
+    def thePublications = ['aar']
+    if (variantWithoutLib != null) {
+        thePublications << 'aarWithoutLib'
+    }
+    if (jnaForTestConfiguration != null) {
+        thePublications << 'forUnitTestsJar'
+    }
+
     bintray {
         user = localProperties != null ? localProperties.getProperty("bintray.user") : ""
         key = localProperties != null ? localProperties.getProperty("bintray.apikey") : ""
 
-        configurations = ['archives']
+        publications = thePublications
+
         pkg {
-            repo = libRepoName
+            repo = libRepositoryName
             name = artifactIdArg
             desc = descriptionArg
             websiteUrl = libUrl
@@ -98,5 +232,22 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg ->
             publish = true
             publicDownloadNumbers = true
         }
+    }
+
+    task zipMavenArtifacts(type: Zip) {
+        from "${project.buildDir}/maven"
+
+        include '**/*.aar'
+        include '**/*.jar'
+        include '**/*.pom'
+        include '**/*.md5'
+        include '**/*.sha1'
+
+        // Metadata is generated by maven.mozilla.org directly
+        exclude '**/*maven-metadata.xml*'
+
+        archiveName "target.maven.zip"
+        includeEmptyDirs = false
+        destinationDir(file("${project.buildDir}"))
     }
 }

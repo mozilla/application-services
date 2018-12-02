@@ -10,6 +10,7 @@ use std::fmt;
 use std::collections::HashMap;
 use std::default::Default;
 use std::ops::Deref;
+use std::str::FromStr;
 use url::{Url, UrlQuery, form_urlencoded::Serializer};
 use error::{self, Result, ErrorKind};
 use hyper::{StatusCode};
@@ -18,9 +19,9 @@ use reqwest::Response;
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RequestOrder { Oldest, Newest, Index }
 
-header! { (XIfUnmodifiedSince, "X-If-Unmodified-Since") => [ServerTimestamp] }
-header! { (XLastModified, "X-Last-Modified") => [ServerTimestamp] }
-header! { (XWeaveTimestamp, "X-Weave-Timestamp") => [ServerTimestamp] }
+pub const X_IF_UNMODIFIED_SINCE: &str = "X-If-Unmodified-Since";
+pub const X_WEAVE_TIMESTAMP: &str = "X-Weave-Timestamp";
+const X_LAST_MODIFIED: &str = "X-Last-Modified";
 
 impl fmt::Display for RequestOrder {
     #[inline]
@@ -63,49 +64,49 @@ impl CollectionRequest {
     }
 
     #[inline]
-    pub fn ids<V>(&mut self, v: V) -> &mut CollectionRequest where V: Into<Vec<String>> {
+    pub fn ids<V>(mut self, v: V) -> CollectionRequest where V: Into<Vec<String>> {
         self.ids = Some(v.into());
         self
     }
 
     #[inline]
-    pub fn full(&mut self) -> &mut CollectionRequest {
+    pub fn full(mut self) -> CollectionRequest {
         self.full = true;
         self
     }
 
     #[inline]
-    pub fn older_than(&mut self, ts: ServerTimestamp) -> &mut CollectionRequest {
+    pub fn older_than(mut self, ts: ServerTimestamp) -> CollectionRequest {
         self.older = Some(ts);
         self
     }
 
     #[inline]
-    pub fn newer_than(&mut self, ts: ServerTimestamp) -> &mut CollectionRequest {
+    pub fn newer_than(mut self, ts: ServerTimestamp) -> CollectionRequest {
         self.newer = Some(ts);
         self
     }
 
     #[inline]
-    pub fn sort_by(&mut self, order: RequestOrder) -> &mut CollectionRequest {
+    pub fn sort_by(mut self, order: RequestOrder) -> CollectionRequest {
         self.order = Some(order);
         self
     }
 
     #[inline]
-    pub fn limit(&mut self, num: usize) -> &mut CollectionRequest {
+    pub fn limit(mut self, num: usize) -> CollectionRequest {
         self.limit = num;
         self
     }
 
     #[inline]
-    pub fn batch(&mut self, batch: Option<String>) -> &mut CollectionRequest {
+    pub fn batch(mut self, batch: Option<String>) -> CollectionRequest {
         self.batch = batch;
         self
     }
 
     #[inline]
-    pub fn commit(&mut self, v: bool) -> &mut CollectionRequest {
+    pub fn commit(mut self, v: bool) -> CollectionRequest {
         self.commit = v;
         self
     }
@@ -287,7 +288,7 @@ impl PostResponse {
     pub fn from_response(r: &mut Response) -> Result<PostResponse> {
         let result: UploadResult = r.json()?;
         // TODO Can this happen in error cases?
-        let last_modified = r.headers().get::<XLastModified>().map(|h| **h).ok_or_else(||
+        let last_modified = r.headers().get(X_LAST_MODIFIED).and_then(|v| v.to_str().ok()).and_then(|s| ServerTimestamp::from_str(s).ok()).ok_or_else(||
             ErrorKind::MissingServerTimestamp)?;
         let status = r.status();
         Ok(PostResponse { status, result, last_modified })
@@ -359,7 +360,7 @@ impl PostResponseHandler for NormalResponseHandler {
     fn handle_response(&mut self, r: PostResponse, mid_batch: bool) -> error::Result<()> {
         if !r.status.is_success() {
             warn!("Got failure status from server while posting: {}", r.status);
-            if r.status == StatusCode::PreconditionFailed {
+            if r.status == StatusCode::PRECONDITION_FAILED {
                 return Err(ErrorKind::BatchInterrupted.into());
             } else {
                 return Err(ErrorKind::StorageHttpError {
@@ -537,7 +538,7 @@ where
             return Ok(());
         }
 
-        if resp.status != StatusCode::Accepted {
+        if resp.status != StatusCode::ACCEPTED {
             if self.in_batch() {
                 return Err(ErrorKind::ServerBatchProblem(
                     "Server responded non-202 success code while a batch was in progress").into());
@@ -875,7 +876,7 @@ mod test {
         };
         let time = 11111111.0;
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::Ok, time + 100.0, None),
+            fake_response(StatusCode::OK, time + 100.0, None),
         ]);
 
         pq.enqueue(&make_record(100)).unwrap();
@@ -900,8 +901,8 @@ mod test {
         };
         let time = 11111111.0;
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::Ok, time + 100.0, None),
-            fake_response(StatusCode::Ok, time + 200.0, None),
+            fake_response(StatusCode::OK, time + 100.0, None),
+            fake_response(StatusCode::OK, time + 200.0, None),
         ]);
 
         // Note that the total record overhead is around 85 bytes
@@ -941,8 +942,8 @@ mod test {
         };
         let time = 11111111.0;
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::Ok, time + 100.0, None),
-            fake_response(StatusCode::Ok, time + 200.0, None),
+            fake_response(StatusCode::OK, time + 100.0, None),
+            fake_response(StatusCode::OK, time + 200.0, None),
         ]);
 
         // Note that the total record overhead is around 85 bytes
@@ -969,7 +970,7 @@ mod test {
         let cfg = InfoConfiguration::default();
         let time = 11111111.0;
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::Accepted, time + 100.0, Some("1234")),
+            fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")),
         ]);
 
         let payload_size = 100 - *NON_PAYLOAD_OVERHEAD;
@@ -999,8 +1000,8 @@ mod test {
         };
         let time = 11111111.0;
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::Accepted, time, Some("1234")),
-            fake_response(StatusCode::Accepted, time + 100.0, Some("1234")),
+            fake_response(StatusCode::ACCEPTED, time, Some("1234")),
+            fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")),
         ]);
 
         pq.enqueue(&make_record(100)).unwrap();
@@ -1041,9 +1042,9 @@ mod test {
         };
         let time = 11111111.0;
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::Accepted, time, Some("1234")),
-            fake_response(StatusCode::Accepted, time, Some("1234")),
-            fake_response(StatusCode::Accepted, time + 100.0, Some("1234")),
+            fake_response(StatusCode::ACCEPTED, time, Some("1234")),
+            fake_response(StatusCode::ACCEPTED, time, Some("1234")),
+            fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")),
         ]);
 
         pq.enqueue(&make_record(100)).unwrap();
@@ -1096,10 +1097,10 @@ mod test {
         };
         let time = 11111111.0;
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::Accepted, time, Some("1234")),
-            fake_response(StatusCode::Accepted, time + 100.0, Some("1234")),
-            fake_response(StatusCode::Accepted, time + 100.0, Some("abcd")),
-            fake_response(StatusCode::Accepted, time + 200.0, Some("abcd")),
+            fake_response(StatusCode::ACCEPTED, time, Some("1234")),
+            fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")),
+            fake_response(StatusCode::ACCEPTED, time + 100.0, Some("abcd")),
+            fake_response(StatusCode::ACCEPTED, time + 200.0, Some("abcd")),
         ]);
 
         pq.enqueue(&make_record(100)).unwrap();
@@ -1168,10 +1169,10 @@ mod test {
         };
         let time = 11111111.0;
         let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::Accepted, time, Some("1234")),
-            fake_response(StatusCode::Accepted, time + 100.0, Some("1234")), // should commit
-            fake_response(StatusCode::Accepted, time + 100.0, Some("abcd")),
-            fake_response(StatusCode::Accepted, time + 200.0, Some("abcd")), // should commit
+            fake_response(StatusCode::ACCEPTED, time, Some("1234")),
+            fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")), // should commit
+            fake_response(StatusCode::ACCEPTED, time + 100.0, Some("abcd")),
+            fake_response(StatusCode::ACCEPTED, time + 200.0, Some("abcd")), // should commit
         ]);
 
         pq.enqueue(&make_record(100)).unwrap();

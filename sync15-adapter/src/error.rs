@@ -111,9 +111,6 @@ pub enum ErrorKind {
     #[fail(display = "Unexpected server behavior during batch upload: {}", _0)]
     ServerBatchProblem(&'static str),
 
-    #[fail(display = "Error reported by storage: {}", _0)]
-    StoreError(#[fail(cause)] failure::Error),
-
     #[fail(display = "Setup state machine cycle detected")]
     SetupStateCycleError,
 
@@ -123,6 +120,9 @@ pub enum ErrorKind {
     #[fail(display = "Setup state machine disallowed state {}", _0)]
     DisallowedStateError(&'static str),
 
+    #[fail(display = "Store error: {}", _0)]
+    StoreError(#[fail(cause)] failure::Error),
+
     // Basically reimplement error_chain's foreign_links. (Ugh, this sucks)
 
     #[fail(display = "OpenSSL error: {}", _0)]
@@ -131,7 +131,7 @@ pub enum ErrorKind {
     #[fail(display = "Base64 decode error: {}", _0)]
     Base64Decode(#[fail(cause)] base64::DecodeError),
 
-    #[fail(display = "JSON parse error: {}", _0)]
+    #[fail(display = "JSON error: {}", _0)]
     JsonError(#[fail(cause)] serde_json::Error),
 
     #[fail(display = "Bad cleartext UTF8: {}", _0)]
@@ -145,6 +145,9 @@ pub enum ErrorKind {
 
     #[fail(display = "Malformed URL error: {}", _0)]
     MalformedUrl(#[fail(cause)] reqwest::UrlError),
+
+    #[fail(display = "Malformed header error: {}", _0)]
+    MalformedHeader(#[fail(cause)] reqwest::header::InvalidHeaderValue),
 }
 
 macro_rules! impl_from_error {
@@ -171,7 +174,10 @@ impl_from_error! {
     (JsonError, ::serde_json::Error),
     (BadCleartextUtf8, ::std::string::FromUtf8Error),
     (RequestError, ::reqwest::Error),
-    (MalformedUrl, ::reqwest::UrlError)
+    (MalformedUrl, ::reqwest::UrlError),
+    (MalformedHeader, ::reqwest::header::InvalidHeaderValue),
+    // A bit dubious, since we only want this to happen inside `synchronize`
+    (StoreError, ::failure::Error)
 }
 
 // ::hawk::Error uses error_chain, and so it's not trivially compatible with failure.

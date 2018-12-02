@@ -1,40 +1,37 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+use std::path::Path;
+use std::cell::Cell;
 use login::Login;
 use error::*;
-use sync::{self, Sync15StorageClient, Sync15StorageClientInit, GlobalState, KeyBundle};
+use sync::{
+    ClientInfo,
+    KeyBundle,
+    Sync15StorageClientInit,
+    sync_multiple
+};
 use db::LoginDb;
-use std::path::Path;
-use serde_json;
 use rusqlite;
-
-#[derive(Debug)]
-pub(crate) struct SyncInfo {
-    pub state: GlobalState,
-    pub client: Sync15StorageClient,
-    // Used so that we know whether or not we need to re-initialize `client`
-    pub last_client_init: Sync15StorageClientInit,
-}
 
 // This isn't really an engine in the firefox sync15 desktop sense -- it's
 // really a bundle of state that contains the sync storage client, the sync
 // state, and the login DB.
 pub struct PasswordEngine {
-    sync: Option<SyncInfo>,
-    db: LoginDb,
+    pub db: LoginDb,
+    pub client_info: Cell<Option<ClientInfo>>,
 }
 
 impl PasswordEngine {
 
     pub fn new(path: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Self> {
         let db = LoginDb::open(path, encryption_key)?;
-        Ok(Self { db, sync: None })
+        Ok(Self { db, client_info: Cell::new(None) })
     }
 
     pub fn new_in_memory(encryption_key: Option<&str>) -> Result<Self> {
         let db = LoginDb::open_in_memory(encryption_key)?;
-        Ok(Self { db, sync: None })
+        Ok(Self { db, client_info: Cell::new(None) })
     }
 
     pub fn list(&self) -> Result<Vec<Login>> {
@@ -54,11 +51,13 @@ impl PasswordEngine {
     }
 
     pub fn wipe(&self) -> Result<()> {
-        self.db.wipe()
+        self.db.wipe()?;
+        Ok(())
     }
 
     pub fn reset(&self) -> Result<()> {
-        self.db.reset()
+        self.db.reset()?;
+        Ok(())
     }
 
     pub fn update(&self, login: Login) -> Result<()> {
@@ -70,116 +69,32 @@ impl PasswordEngine {
         self.db.add(login).map(|record| record.id)
     }
 
-    // This is basiclaly exposed just for sync_pass_sql, but it doesn't seem
+    // This is basically exposed just for sync_pass_sql, but it doesn't seem
     // unreasonable.
     pub fn conn(&self) -> &rusqlite::Connection {
         &self.db.db
     }
 
-    pub fn sync(
-        &mut self,
-        storage_init: &Sync15StorageClientInit,
-        root_sync_key: &KeyBundle
-    ) -> Result<()> {
-
-        // Note: If `to_ready` (or anything else with a ?) fails below, this
-        // `take()` means we end up with `state.sync.is_none()`, which means the
-        // next sync will redownload meta/global, crypto/keys, etc. without
-        // needing to. Apparently this is both okay and by design.
-        let maybe_sync_info = self.sync.take().map(Ok);
-
-        // `maybe_sync_info` is None if we haven't called `sync` since
-        // restarting the browser.
-        //
-        // If this is the case we may or may not have a persisted version of
-        // GlobalState stored in the DB (we will iff we've synced before, unless
-        // we've `reset()`, which clears it out).
-        let mut sync_info = maybe_sync_info.unwrap_or_else(|| -> Result<SyncInfo> {
-            info!("First time through since unlock. Trying to load persisted global state.");
-            let state = if let Some(persisted_global_state) = self.db.get_global_state()? {
-                serde_json::from_str::<GlobalState>(&persisted_global_state)
-                .unwrap_or_else(|_| {
-                    // Don't log the error since it might contain sensitive
-                    // info like keys (the JSON does, after all).
-                    error!("Failed to parse GlobalState from JSON! Falling back to default");
-                    // Unstick ourselves by using the default state.
-                    GlobalState::default()
-                })
-            } else {
-                info!("No previously persisted global state, using default");
-                GlobalState::default()
-            };
-            let client = Sync15StorageClient::new(storage_init.clone())?;
-            Ok(SyncInfo {
-                state,
-                client,
-                last_client_init: storage_init.clone(),
-            })
-        })?;
-
-        // If the options passed for initialization of the storage client aren't
-        // the same as the ones we used last time, reinitialize it. (Note that
-        // we could avoid the comparison in the case where we had `None` in
-        // `state.sync` before, but this probably doesn't matter).
-        //
-        // It's a little confusing that we do things this way (transparently
-        // re-initialize the client), but it reduces the size of the API surface
-        // exposed over the FFI, and simplifies the states that the client code
-        // has to consider (as far as it's concerned it just has to pass
-        // `current` values for these things, and not worry about having to
-        // re-initialize the sync state).
-        if storage_init != &sync_info.last_client_init {
-            info!("Detected change in storage client init, updating");
-            sync_info.client = Sync15StorageClient::new(storage_init.clone())?;
-            sync_info.last_client_init = storage_init.clone();
+    /// A convenience wrapper around sync_multiple.
+    pub fn sync(&self,
+                storage_init: &Sync15StorageClientInit,
+                root_sync_key: &KeyBundle) -> Result<()> {
+        let global_state: Cell<Option<String>> = Cell::new(self.db.get_global_state()?);
+        let result = sync_multiple(&[&self.db],
+                                   &global_state,
+                                   &self.client_info,
+                                   storage_init,
+                                   root_sync_key);
+        self.db.set_global_state(global_state.replace(None))?;
+        let failures = result?;
+        if failures.len() == 0 {
+            Ok(())
+        } else {
+            assert_eq!(failures.len(), 1);
+            let (name, err) = failures.into_iter().next().unwrap();
+            assert_eq!(name, "passwords");
+            Err(err.into())
         }
-
-        // Advance the state machine to the point where it can perform a full
-        // sync. This may involve uploading meta/global, crypto/keys etc.
-        {
-            // Scope borrow of `sync_info.client`
-            let mut state_machine =
-                sync::SetupStateMachine::for_full_sync(&sync_info.client, &root_sync_key);
-            info!("Advancing state machine to ready (full)");
-            let next_sync_state = state_machine.to_ready(sync_info.state)?;
-            sync_info.state = next_sync_state;
-        }
-
-        // Reset our local state if necessary.
-        if sync_info.state.engines_that_need_local_reset().contains("passwords") {
-            info!("Passwords sync ID changed; engine needs local reset");
-            self.db.reset()?;
-        }
-
-        // Persist the current sync state in the DB.
-        info!("Updating persisted global state");
-        let s = sync_info.state.to_persistable_string();
-        self.db.set_global_state(&s)?;
-
-        info!("Syncing passwords engine!");
-
-        let ts = self.db.get_last_sync()?.unwrap_or_default();
-
-        // We don't use `?` here so that we can restore the value of of
-        // `self.sync` even if sync fails.
-        let result = sync::synchronize(
-            &sync_info.client,
-            &sync_info.state,
-            &mut self.db,
-            "passwords".into(),
-            ts,
-            true
-        );
-
-        match &result {
-            Ok(()) => info!("Sync was successful!"),
-            Err(e) => warn!("Sync failed! {:?}", e),
-        }
-
-        // Restore our value of `sync_info` even if the sync failed.
-        self.sync = Some(sync_info);
-
-        Ok(result?)
     }
 }
 

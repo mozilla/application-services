@@ -43,7 +43,8 @@ impl ScopedKeysFlow {
         "kty": "EC",
         "x": x,
         "y": y,
-    }).to_string())
+    })
+        .to_string())
     }
 
     pub fn decrypt_keys_jwe(self, jwe: &str) -> Result<String> {

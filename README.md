@@ -14,14 +14,4 @@
 
 The following diagram describes how some of the components hosted here relate to each other within an app.
 
-![Relationship between application-services components](docs/a-s-components.svg)
-
-### Other Resources
-
-* [mentat](https://github.com/mozilla/mentat) - a persistent, relational store inspired by Datomic and DataScript.
-* [sync-server](https://github.com/mozilla-services/syncserver) - an all-in-one package for running a self-hosted Firefox Sync server.
-
-### Tools
-
-* [eqrion/cbindgen](https://github.com/eqrion/cbindgen) - generate C bindings from Rust code
-* [rust-lang-nursery/rust-bindgen](https://github.com/rust-lang-nursery/rust-bindgen) - generate Rust FFI bindings to C (and some C++) libraries
+<img src="https://www.lucidchart.com/publicSegments/view/99d1529a-585a-4f43-bfe8-26ba82f3db51/image.png" width="500" />
