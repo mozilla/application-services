@@ -268,11 +268,6 @@ where
         match callback() {
             Ok(v) => (ExternError::default(), v.into_ffi_value()),
             Err(e) => {
-                #[cfg(feature = "log_backtraces")] {
-                    // If this is a `failure` error, it's Debug impl will include a
-                    // stack trace, so we log it.
-                    error!("Call returned error: Debug info: {:#?}", e);
-                }
                 (e.into(), R::ffi_default())
             },
         }
