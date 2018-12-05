@@ -131,6 +131,11 @@ pushd ..
 # From https://github.com/qTox/qTox/blob/9525505bff8719c84b6193174ea5e7ec097c54b8/windows/cross-compile/build.sh#L390-L446.
 sed -i s/'if test "$TARGET_EXEEXT" = ".exe"'/'if test ".exe" = ".exe"'/g configure
 
+# Can't quite figure out what to tell ./configure so that it gets the picture
+# here (it doesn't seem to handle host/build/target args correctly)... Oh well,
+# this is a bit of a sledgehammer but does the job.
+sed -i s/'BEXE = @BUILD_EXEEXT@'/'BEXE = ""'/g Makefile.in
+
 > Makefile.in-patch cat << "EOF"
 --- Makefile.in        2017-12-21 19:31:28.000000000 +0000
 +++ Makefile.in        2018-11-06 23:58:45.576548000 +0000
@@ -152,7 +157,9 @@ popd
   ../configure --prefix="$PWD/install-prefix" \
     --with-pic \
     --disable-shared \
+    --build=x86_64 \
     --host=x86_64-w64-mingw32 \
+    --target=x86_64-w64-mingw32 \
     --enable-tempstore=yes \
     --with-crypto-lib=none \
     --disable-tcl \
