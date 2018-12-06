@@ -71,7 +71,7 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
         for (url in urls) {
             urlsToJson.put(url)
         }
-        val urlStr = urls.toString()
+        val urlStr = urlsToJson.toString()
         val visitedStr = rustCallForString { error ->
             LibPlacesFFI.INSTANCE.places_get_visited(this.db!!, urlStr, error)
         }
