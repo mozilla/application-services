@@ -8,12 +8,16 @@
 
 /* Begin PBXBuildFile section */
 		CDB5AAED21535E7F00B66D7E /* LoginRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDB5AAEC21535E7F00B66D7E /* LoginRecord.swift */; };
-		CDFA91EE2153568E0074CABF /* RustPasswordAPI.h in Headers */ = {isa = PBXBuildFile; fileRef = CDFA91ED2153568E0074CABF /* RustPasswordAPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		CDFA91EE2153568E0074CABF /* RustPasswordAPI.h in Headers */ = {isa = PBXBuildFile; fileRef = CDFA91ED2153568E0074CABF /* RustPasswordAPI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CE9D202520914D0D00F1C8FA /* Sync15Logins.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9D202320914D0D00F1C8FA /* Sync15Logins.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CE9D203120914D2600F1C8FA /* LoginsStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9D202B20914D2600F1C8FA /* LoginsStorage.swift */; };
 		CECB395420B5B92500DB3ED4 /* Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = CECB395220B5B77E00DB3ED4 /* Errors.swift */; };
 		CEE1087620C5ADF9007048AC /* LoginStoreError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEE1087520C5ADF9007048AC /* LoginStoreError.swift */; };
 		D5C6DB0020DDBA7C009ACDD2 /* String+Free.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5C6DAFF20DDBA7C009ACDD2 /* String+Free.swift */; };
+		D819A4A821B861D6004EE6F3 /* liblogins_ffi.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4A721B861D6004EE6F3 /* liblogins_ffi.a */; };
+		D819A4AB21B86384004EE6F3 /* libssl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4A921B86384004EE6F3 /* libssl.a */; };
+		D819A4AD21B87457004EE6F3 /* libcrypto.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4AA21B86384004EE6F3 /* libcrypto.a */; };
+		D819A4AF21B87468004EE6F3 /* libsqlcipher.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4AE21B87467004EE6F3 /* libsqlcipher.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,6 +31,10 @@
 		CECB395220B5B77E00DB3ED4 /* Errors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Errors.swift; sourceTree = "<group>"; };
 		CEE1087520C5ADF9007048AC /* LoginStoreError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginStoreError.swift; sourceTree = "<group>"; };
 		D5C6DAFF20DDBA7C009ACDD2 /* String+Free.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Free.swift"; sourceTree = "<group>"; };
+		D819A4A721B861D6004EE6F3 /* liblogins_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = liblogins_ffi.a; path = ../../target/universal/release/liblogins_ffi.a; sourceTree = "<group>"; };
+		D819A4A921B86384004EE6F3 /* libssl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libssl.a; path = ../../libs/ios/universal/openssl/lib/libssl.a; sourceTree = "<group>"; };
+		D819A4AA21B86384004EE6F3 /* libcrypto.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcrypto.a; path = ../../libs/ios/universal/openssl/lib/libcrypto.a; sourceTree = "<group>"; };
+		D819A4AE21B87467004EE6F3 /* libsqlcipher.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsqlcipher.a; path = ../../libs/ios/universal/sqlcipher/lib/libsqlcipher.a; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -34,6 +42,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D819A4AF21B87468004EE6F3 /* libsqlcipher.a in Frameworks */,
+				D819A4AD21B87457004EE6F3 /* libcrypto.a in Frameworks */,
+				D819A4AB21B86384004EE6F3 /* libssl.a in Frameworks */,
+				D819A4A821B861D6004EE6F3 /* liblogins_ffi.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -74,6 +86,10 @@
 		CE9D203720914D4800F1C8FA /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				D819A4AE21B87467004EE6F3 /* libsqlcipher.a */,
+				D819A4AA21B86384004EE6F3 /* libcrypto.a */,
+				D819A4A921B86384004EE6F3 /* libssl.a */,
+				D819A4A721B861D6004EE6F3 /* liblogins_ffi.a */,
 				CE7B4B8A20A36B0500FC4422 /* libfxa_client.a */,
 			);
 			name = Frameworks;
@@ -126,7 +142,7 @@
 			dependencies = (
 			);
 			name = Sync15Logins;
-			productName = FxAClient;
+			productName = Sync15Logins;
 			productReference = CE9D202020914D0D00F1C8FA /* Sync15Logins.framework */;
 			productType = "com.apple.product-type.framework";
 		};
@@ -181,11 +197,11 @@
 			inputPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/../../target/universal/release/libfxa_client.a",
+				"$(SRCROOT)/../../target/universal/release/liblogins_ffi.a",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\ncd \"$SRCROOT\"/../../logins-sql/ffi\nenv -i PATH=$PATH \\\n\"$HOME\"/.cargo/bin/cargo +beta lipo --release\n";
+			shellScript = "\n#cd \"$SRCROOT\"/../../logins-sql/ffi\n#env -i PATH=$PATH \\\n#env -i OPENSSL_DIR=/usr/local/Cellar/openssl/1.0.2p/ \\\n#\"$HOME\"/.cargo/bin/cargo +beta lipo --release --verbose\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -209,6 +225,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -273,6 +290,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -331,6 +349,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BITCODE_GENERATION_MODE = bitcode;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
@@ -341,7 +360,7 @@
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				ENABLE_BITCODE = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = FxAClient/Info.plist;
+				INFOPLIST_FILE = Sync15Logins/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 10.3;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -351,7 +370,9 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/../../../../target/universal/release/",
+					"$(PROJECT_DIR)/../../target/universal/release/",
+					"$(PROJECT_DIR)/../../libs/ios/universal/openssl/lib",
+					"$(PROJECT_DIR)/../../libs/ios/universal/sqlcipher/lib",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.Sync15Passwords;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
@@ -366,6 +387,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BITCODE_GENERATION_MODE = bitcode;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Automatic;
@@ -376,7 +398,7 @@
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				ENABLE_BITCODE = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = FxAClient/Info.plist;
+				INFOPLIST_FILE = Sync15Logins/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				IPHONEOS_DEPLOYMENT_TARGET = 10.3;
 				LD_RUNPATH_SEARCH_PATHS = (

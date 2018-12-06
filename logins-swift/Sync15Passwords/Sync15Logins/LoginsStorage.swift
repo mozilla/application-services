@@ -11,16 +11,23 @@ open class SyncUnlockInfo {
     public var fxaAccessToken: String
     public var syncKey: String
     public var tokenserverURL: String
+
+    public init (kid: String, fxaAccessToken: String, syncKey: String, tokenserverURL: String) {
+        self.kid = kid
+        self.fxaAccessToken = fxaAccessToken
+        self.syncKey = syncKey
+        self.tokenserverURL = tokenserverURL
+    }
 }
 
 // We use a serial queue to protect access to the rust object.
 let queue = DispatchQueue(label: "com.sync15.logins")
 
 open class LoginsStorage {
-    var raw: MutableOpaquePointer? = nil
+    var raw: OpaquePointer? = nil
     let dbPath: String
     
-    init(databasePath: String) {
+    public init(databasePath: String) {
         self.dbPath = databasePath
     }
     
@@ -64,7 +71,7 @@ open class LoginsStorage {
     /// Lock the database.
     ///
     /// Throws `LockError.mismatched` if the database is already locked.
-    open func lock() {
+    open func lock() throws {
         try queue.sync(execute: {
             if self.raw == nil {
                 throw LockError.mismatched
@@ -80,7 +87,7 @@ open class LoginsStorage {
                 throw LockError.locked
             }
             try LoginsStoreError.unwrap({ err in
-                sync15_passwords_state_sync(engine,
+                sync15_passwords_sync(engine,
                                             unlockInfo.kid,
                                             unlockInfo.fxaAccessToken,
                                             unlockInfo.syncKey,
@@ -98,7 +105,7 @@ open class LoginsStorage {
                 throw LockError.locked
             }
             try LoginsStoreError.unwrap({ err in
-                sync15_passwords_state_reset(engine, err)
+                sync15_passwords_reset(engine, err)
             })
         })
     }
@@ -110,7 +117,7 @@ open class LoginsStorage {
                 throw LockError.locked
             }
             try LoginsStoreError.unwrap({ err in
-                sync15_passwords_state_wipe(engine, err)
+                sync15_passwords_wipe(engine, err)
             })
         })
     }
@@ -122,7 +129,7 @@ open class LoginsStorage {
                 throw LockError.locked
             }
             let boolAsU8 = try LoginsStoreError.unwrap({ err in
-                sync15_passwords_state_delete(engine, id, err)
+                sync15_passwords_delete(engine, id, err)
             })
             return boolAsU8 != 0
         })
@@ -137,7 +144,7 @@ open class LoginsStorage {
                 throw LockError.locked
             }
             try LoginsStoreError.unwrap({ err in
-                sync15_passwords_state_touch(engine, id, err)
+                sync15_passwords_touch(engine, id, err)
             })
         })
     }
@@ -153,7 +160,7 @@ open class LoginsStorage {
                 throw LockError.locked
             }
             let ptr = try LoginsStoreError.unwrap({ err in
-                sync15_passwords_state_add(engine, json, err)
+                sync15_passwords_add(engine, json, err)
             })
             return String(freeingRustString: ptr)
         })
@@ -168,7 +175,7 @@ open class LoginsStorage {
                 throw LockError.locked
             }
             return try LoginsStoreError.unwrap({ err in
-                sync15_passwords_state_update(engine, json, err)
+                sync15_passwords_update(engine, json, err)
             })
         })
     }
@@ -180,13 +187,13 @@ open class LoginsStorage {
                 throw LockError.locked
             }
             let ptr = try LoginsStoreError.tryUnwrap({ err in
-                sync15_passwords_state_get(engine, id, err)
+                sync15_passwords_get_by_id(engine, id, err)
             })
             guard let rustStr = ptr else {
                 return nil
             }
             let jsonStr = String(freeingRustString: rustStr)
-            return LoginRecord(fromJSONString: jsonStr)
+            return try LoginRecord(fromJSONString: jsonStr)
         })
     }
     
@@ -197,11 +204,11 @@ open class LoginsStorage {
             guard let engine = self.raw else {
                 throw LockError.locked
             }
-            let ptr = try LoginsStoreError.unwrap({ err in
-                sync15_passwords_state_list(engine, err)
+            let rustStr = try LoginsStoreError.unwrap({ err in
+                sync15_passwords_get_all(engine, err)
             })
             let jsonStr = String(freeingRustString: rustStr)
-            return try LoginRecord.fromJSONArray(fromJSONString: jsonStr)
+            return try LoginRecord.fromJSONArray(jsonStr)
         })
     }
 

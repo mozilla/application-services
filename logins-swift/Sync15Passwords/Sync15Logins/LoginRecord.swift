@@ -109,41 +109,74 @@ open class LoginRecord {
     
     open func toJSON() throws -> String {
         // We need a String to pass back to rust.
-        let data: Data = try JSONSerialization.data(self.toJSONDict())
+        let data: Data = try JSONSerialization.data(withJSONObject: self.toJSONDict())
         return String(data: data, encoding: String.Encoding.utf8)!
     }
     
     // TODO: handle errors in these... (they shouldn't ever happen
     // outside of bugs since we write the json in rust, but still)
 
-    open init(fromJSONDict dict: [String: Any]) {
+    public convenience init(fromJSONDict dict: [String: Any]) {
         self.init(
-            id: dict["id"]! as String,
-            password: dict["password"]! as String,
-            hostname: dict["hostname"]! as String,
+            id: dict["id"] as? String ?? "",
+            password: dict["password"] as? String ?? "",
+            hostname: dict["hostname"] as? String ?? "",
 
-            username: dict["username"] as? String?,
+            username: dict["username"] as? String ?? "",
 
-            formSubmitURL: dict["formSubmitURL"] as? String?,
-            httpRealm: dict["httpRealm"] as? String?,
+            formSubmitURL: dict["formSubmitURL"] as? String ?? "",
+            httpRealm: dict["httpRealm"] as? String ?? "",
 
-            timesUsed: (dict["timesUsed"] as? Int?) ?? 0,
-            timeLastUsed: (dict["timeLastUsed"] as? Int64?) ?? 0,
-            timeCreated: (dict["timeCreated"] as? Int64?) ?? 0,
-            timePasswordChanged: (dict["timePasswordChanged"] as? Int64?) ?? 0,
+            timesUsed: (dict["timesUsed"] as? Int) ?? 0,
+            timeLastUsed: (dict["timeLastUsed"] as? Int64) ?? 0,
+            timeCreated: (dict["timeCreated"] as? Int64) ?? 0,
+            timePasswordChanged: (dict["timePasswordChanged"] as? Int64) ?? 0,
 
-            usernameField: dict["usernameField"] as? String?,
-            passwordField: dict["passwordField"] as? String?
+            usernameField: dict["usernameField"] as? String ?? "",
+            passwordField: dict["passwordField"] as? String ?? ""
         )
     }
 
-    open init(fromJSONString json: String) throws {
-        let dict = try JSONSerialization.jsonObject(with: json, options: []) as [String: Any];
+
+
+    init(id: String,
+        password: String,
+        hostname: String,
+        username: String,
+        formSubmitURL: String,
+        httpRealm: String,
+        timesUsed: Int,
+        timeLastUsed: Int64,
+        timeCreated: Int64,
+        timePasswordChanged: Int64,
+        usernameField: String,
+        passwordField: String) {
+            self.id = id
+            self.password = password
+            self.hostname = hostname
+            self.username = username
+            self.formSubmitURL = formSubmitURL
+            self.httpRealm = httpRealm
+            self.timesUsed = timesUsed
+            self.timeLastUsed = timeLastUsed
+            self.timeCreated = timeCreated
+            self.timePasswordChanged = timePasswordChanged
+            self.usernameField = usernameField
+            self.passwordField = passwordField
+    }
+
+
+    public convenience init(fromJSONString json: String) throws {
+        let dict = try JSONSerialization.jsonObject(with: json.data(using: .utf8)!, options: []) as? [String: Any] ?? [String: Any]()
         self.init(fromJSONDict: dict)
     }
 
-    open func fromJSONArray(_ jsonArray: String) throws -> [LoginRecord] {
-        let arr = try JSONSerialization.jsonObject(with: jsonArray, options: []) as [[String: Any]];
-        return arr.map({ dict in LoginRecord(fromJSONDict: dict) })
+    public static func fromJSONArray(_ jsonArray: String) throws -> [LoginRecord] {
+        if  let arr = try JSONSerialization.jsonObject(with: jsonArray.data(using: .utf8)!, options: []) as? [[String: Any]] {
+            return arr.map { (dict) -> LoginRecord in
+                return LoginRecord(fromJSONDict: dict)
+            }
+        }
+        return [LoginRecord]()
     }
 }

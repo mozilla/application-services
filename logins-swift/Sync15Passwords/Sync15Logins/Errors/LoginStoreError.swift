@@ -45,7 +45,7 @@ public enum LoginsStoreError: Error {
     // The name is attempting to indicate that we free rustError.message if it
     // existed, and that it's a very bad idea to touch it after you call this
     // function
-    static func fromConsuming(_ rustError: Sync15PasswordsError) -> FxAError? {
+    static func fromConsuming(_ rustError: Sync15PasswordsError) -> LoginsStoreError? {
         let message = rustError.message
         
         switch rustError.code {
@@ -77,7 +77,7 @@ public enum LoginsStoreError: Error {
             return .Network(message: String(freeingRustString: message!))
                 
         default:
-            return .Unspecified(message: String(freeingFxaString: message!))
+            return .Unspecified(message: String(freeingRustString: message!))
         }
     }
 

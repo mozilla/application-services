@@ -3,6 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #pragma once
 
+#ifndef rustpasswordapi_h
+#define rustpasswordapi_h
 #include <stdint.h>
 
 typedef enum Sync15PasswordsErrorCode {
@@ -18,8 +20,8 @@ typedef enum Sync15PasswordsErrorCode {
 } Sync15PasswordsErrorCode;
 
 typedef struct Sync15PasswordsError {
-    char* _Nullable message;
     Sync15PasswordsErrorCode code;
+    char* _Nullable message;
 } Sync15PasswordsError;
 
 typedef struct Sync15PasswordEngineRaw Sync15PasswordEngineRaw;
@@ -73,3 +75,5 @@ void sync15_passwords_update(Sync15PasswordEngineRaw* _Nonnull engine,
                              Sync15PasswordsError *_Nonnull error);
 
 char* sync15_passwords_destroy_string(char const* _Nonnull str);
+
+#endif /* rustpasswordapi_h */
