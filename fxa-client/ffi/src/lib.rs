@@ -13,7 +13,7 @@ use std::os::raw::c_char;
 use ffi_support::{call_with_output, call_with_result, rust_str_from_c, ExternError};
 
 use fxa_client::ffi::*;
-use fxa_client::{FirefoxAccount, PersistCallback};
+use fxa_client::{FirefoxAccount, PersistCallback, TabReceivedCallback};
 
 /// Creates a [FirefoxAccount] from credentials obtained with the onepw FxA login flow.
 ///
@@ -302,6 +302,39 @@ pub unsafe extern "C" fn fxa_get_access_token(
         fxa.get_access_token(&scope)
     })
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn fxa_send_tab_init(
+    fxa: &mut FirefoxAccount,
+    on_tab_received_cb: extern "C" fn(title: *const c_char, url: *const c_char),
+    error: &mut ExternError,
+) {
+    call_with_result(error, || {
+        fxa.init_send_tab(TabReceivedCallback::new(move |title, url| {
+            let title = CString::new(title).unwrap();
+            let url = CString::new(url).unwrap();
+            on_tab_received_cb(title.as_ptr(), url.as_ptr())
+        }))
+    });
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn fxa_send_tab(
+    fxa: &mut FirefoxAccount,
+    target_id: *const c_char,
+    title: *const c_char,
+    url: *const c_char,
+    error: &mut ExternError,
+) {
+    call_with_result(error, || {
+        let target_id = rust_str_from_c(target_id);
+        let title = rust_str_from_c(title);
+        let url = rust_str_from_c(url);
+        fxa.send_tab_2(target_id, title, url)
+    });
+}
+
+    // pub fn init_send_tab(&mut self, tab_received_callback: TabReceivedCallback) -> Result<()> {
 
 define_string_destructor!(fxa_str_free);
 

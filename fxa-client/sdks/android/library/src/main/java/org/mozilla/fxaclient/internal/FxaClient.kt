@@ -74,6 +74,9 @@ internal interface FxaClient : Library {
     fun fxa_complete_oauth_flow(fxa: RawFxAccount, code: String, state: String, e: Error.ByReference)
     fun fxa_get_access_token(fxa: RawFxAccount, scope: String, e: Error.ByReference): AccessTokenInfo.Raw?
 
+    // TODO: add receive tabs
+    fun fxa_send_tab(fxa: RawFxAccount, targetId: String, title: String, url: String, e: Error.ByReference)
+
     fun fxa_str_free(string: Pointer)
     fun fxa_free(fxa: RawFxAccount)
 

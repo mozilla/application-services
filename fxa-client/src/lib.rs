@@ -709,6 +709,13 @@ impl FirefoxAccount {
         self.state.login_state = self.state.login_state.to_separated();
     }
 
+    // TODO: this is a weird helper method.
+    pub fn send_tab_2(&mut self, target_id: &str, title: &str, url: &str) -> Result<()> {
+        let instances = self.get_instances()?;
+        let target = instances.iter().find(|i| i.id == target_id).unwrap();
+        self.send_tab(target, title, url)
+    }
+
     pub fn send_tab(&mut self, target: &ClientInstance, title: &str, url: &str) -> Result<()> {
         let command = SendTab::command_name();
         let command_payload;

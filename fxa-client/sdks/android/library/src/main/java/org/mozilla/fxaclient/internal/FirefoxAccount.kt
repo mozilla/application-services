@@ -153,6 +153,12 @@ class FirefoxAccount : RustObject<RawFxAccount> {
         }.getAndConsumeString()
     }
 
+    fun sendTab(targetId: String, title: String, url: String) {
+        rustCall { e ->
+            FxaClient.INSTANCE.fxa_send_tab(validPointer(), targetId, title, url, e)
+        }
+    }
+
     companion object {
 
         /**
