@@ -14,7 +14,6 @@ extern crate failure;
 
 extern crate unicode_segmentation;
 
-#[macro_use]
 extern crate failure_derive;
 
 extern crate url;

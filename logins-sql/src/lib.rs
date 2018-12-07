@@ -15,7 +15,6 @@ extern crate lazy_static;
 
 extern crate failure;
 
-#[macro_use]
 extern crate failure_derive;
 
 #[cfg(test)]
