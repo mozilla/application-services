@@ -44,6 +44,10 @@ open class LoginsStorage {
         }
     }
 
+    open func close() {
+        self.doDestroy()
+    }
+
     /// Test if the database is locked.
     open func isLocked() -> Bool {
         return queue.sync(execute: {
