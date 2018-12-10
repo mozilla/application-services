@@ -2,53 +2,30 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-extern crate base64;
-extern crate byteorder;
-extern crate failure;
-#[cfg(feature = "browserid")]
-extern crate hawk;
-extern crate hex;
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate log;
-#[cfg(feature = "browserid")]
-extern crate openssl;
-extern crate regex;
-extern crate reqwest;
-extern crate ring;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-#[macro_use]
-extern crate serde_json;
-extern crate untrusted;
-extern crate url;
-#[cfg(feature = "ffi")]
-#[macro_use]
-extern crate ffi_support;
-
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::iter::FromIterator;
-#[cfg(feature = "browserid")]
-use std::mem;
-use std::panic::RefUnwindSafe;
-use std::time::{SystemTime, UNIX_EPOCH};
-
-#[cfg(feature = "browserid")]
-use self::login_sm::LoginState::*;
-#[cfg(feature = "browserid")]
-use self::login_sm::*;
-use errors::*;
-#[cfg(feature = "browserid")]
-use http_client::browser_id::jwt_utils;
-use http_client::{Client, ProfileResponse};
-use ring::digest;
-use ring::rand::{SecureRandom, SystemRandom};
-use scoped_keys::ScopedKeysFlow;
+pub use crate::{config::Config, http_client::ProfileResponse as Profile};
+use crate::{errors::*, http_client::Client, scoped_keys::ScopedKeysFlow, util::now};
+use lazy_static::lazy_static;
+use log::*;
+use ring::{
+    digest,
+    rand::{SecureRandom, SystemRandom},
+};
+use serde_derive::*;
+use std::{
+    collections::{HashMap, HashSet},
+    iter::FromIterator,
+    panic::RefUnwindSafe,
+    time::{SystemTime, UNIX_EPOCH},
+};
 use url::Url;
-use util::now;
+#[cfg(feature = "browserid")]
+use {
+    crate::{
+        http_client::browser_id::jwt_utils,
+        login_sm::{LoginState::*, *},
+    },
+    std::mem,
+};
 
 mod config;
 pub mod errors;
@@ -60,9 +37,6 @@ mod login_sm;
 mod scoped_keys;
 mod state_persistence;
 mod util;
-
-pub use config::Config;
-pub use http_client::ProfileResponse as Profile;
 
 // If a cached token has less than `OAUTH_MIN_TIME_LEFT` seconds left to live,
 // it will be considered already expired.
@@ -119,7 +93,7 @@ pub struct FirefoxAccount {
     access_token_cache: HashMap<String, AccessTokenInfo>,
     flow_store: HashMap<String, OAuthFlow>,
     persist_callback: Option<PersistCallback>,
-    profile_cache: Option<CachedResponse<ProfileResponse>>,
+    profile_cache: Option<CachedResponse<Profile>>,
 }
 
 pub struct SyncKeys(pub String, pub String);
@@ -238,26 +212,20 @@ impl FirefoxAccount {
                 return Ok(oauth_info.clone());
             }
         }
-        // This is a bit awkward, borrow checker weirdness.
-        let resp;
-        {
-            if let Some(ref refresh_token) = self.state.refresh_token {
-                if refresh_token.scopes.contains(scope) {
-                    let client = Client::new(&self.state.config);
-                    resp = client.oauth_token_with_refresh_token(&refresh_token.token, &[scope])?;
-                } else {
-                    return Err(ErrorKind::NoCachedToken(scope.to_string()).into());
-                }
-            } else {
+        let client = Client::new(&self.state.config);
+        let resp = match self.state.refresh_token {
+            Some(ref refresh_token) => match refresh_token.scopes.contains(scope) {
+                true => client.oauth_token_with_refresh_token(&refresh_token.token, &[scope])?,
+                false => return Err(ErrorKind::NoCachedToken(scope.to_string()).into()),
+            },
+            None => {
                 #[cfg(feature = "browserid")]
                 {
-                    if let Some(session_token) =
-                        FirefoxAccount::session_token_from_state(&self.state.login_state)
-                    {
-                        let client = Client::new(&self.state.config);
-                        resp = client.oauth_token_with_session_token(session_token, &[scope])?;
-                    } else {
-                        return Err(ErrorKind::NoCachedToken(scope.to_string()).into());
+                    match FirefoxAccount::session_token_from_state(&self.state.login_state) {
+                        Some(session_token) => {
+                            client.oauth_token_with_session_token(session_token, &[scope])?
+                        }
+                        None => return Err(ErrorKind::NoCachedToken(scope.to_string()).into()),
                     }
                 }
                 #[cfg(not(feature = "browserid"))]
@@ -265,7 +233,7 @@ impl FirefoxAccount {
                     return Err(ErrorKind::NoCachedToken(scope.to_string()).into());
                 }
             }
-        }
+        };
         let since_epoch = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|_| ErrorKind::IllegalState("Current date before Unix Epoch.".to_string()))?;
@@ -347,20 +315,12 @@ impl FirefoxAccount {
     }
 
     pub fn complete_oauth_flow(&mut self, code: &str, state: &str) -> Result<()> {
-        let resp;
-        // Needs non-lexical borrow checking.
-        {
-            let flow = match self.flow_store.get(state) {
-                Some(flow) => flow,
-                None => return Err(ErrorKind::UnknownOAuthState.into()),
-            };
-            let client = Client::new(&self.state.config);
-            resp = client.oauth_token_with_code(&code, &flow.code_verifier)?;
-        }
         let oauth_flow = match self.flow_store.remove(state) {
             Some(oauth_flow) => oauth_flow,
             None => return Err(ErrorKind::UnknownOAuthState.into()),
         };
+        let client = Client::new(&self.state.config);
+        let resp = client.oauth_token_with_code(&code, &oauth_flow.code_verifier)?;
         // This assumes that if the server returns keys_jwe, the jwk argument is Some.
         match resp.keys_jwe {
             Some(ref jwe) => {
@@ -450,7 +410,7 @@ impl FirefoxAccount {
         )?)
     }
 
-    pub fn get_profile(&mut self, ignore_cache: bool) -> Result<ProfileResponse> {
+    pub fn get_profile(&mut self, ignore_cache: bool) -> Result<Profile> {
         let profile_access_token = self.get_access_token("profile")?.token;
         let mut etag = None;
         if let Some(ref cached_profile) = self.profile_cache {

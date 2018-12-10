@@ -2,21 +2,21 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std;
-use std::fmt;
-
-use openssl::bn::BigNum;
-use openssl::hash::MessageDigest;
-use openssl::pkey::{PKey, Private};
-use openssl::rsa::{Rsa, RsaPrivateKeyBuilder};
-use openssl::sign::{Signer, Verifier};
-use serde::de::{self, Deserialize, Deserializer, MapAccess, Visitor};
-use serde::ser;
-use serde::ser::{Serialize, SerializeStruct, Serializer};
-use serde_json;
-
 use super::BrowserIDKeyPair;
-use errors::*;
+use crate::errors::*;
+use openssl::{
+    bn::BigNum,
+    hash::MessageDigest,
+    pkey::{PKey, Private},
+    rsa::{Rsa, RsaPrivateKeyBuilder},
+    sign::{Signer, Verifier},
+};
+use serde::{
+    de::{self, Deserialize, Deserializer, MapAccess, Visitor},
+    ser::{self, Serialize, SerializeStruct, Serializer},
+};
+use serde_json::{self, json};
+use std::fmt;
 
 pub struct RSABrowserIDKeyPair {
     key: PKey<Private>,

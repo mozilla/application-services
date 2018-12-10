@@ -2,13 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::{errors::*, http_client::browser_id::BrowserIDKeyPair};
+use serde_json::{self, json};
 use std::time::{SystemTime, UNIX_EPOCH};
-
-use base64;
-use errors::*;
-use serde_json;
-
-use http_client::browser_id::BrowserIDKeyPair;
 
 const DEFAULT_ASSERTION_ISSUER: &str = "127.0.0.1";
 const DEFAULT_ASSERTION_DURATION: u64 = 60 * 60 * 1000;
@@ -122,8 +118,8 @@ fn encode_and_sign(payload: &str, key_pair: &BrowserIDKeyPair) -> Result<String>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use http_client::browser_id::rsa::RSABrowserIDKeyPair;
-    use http_client::browser_id::BrowserIDKeyPair;
+    use crate::http_client::browser_id::rsa::RSABrowserIDKeyPair;
+    use crate::http_client::browser_id::BrowserIDKeyPair;
 
     pub fn create_certificate(
         serialized_public_key: &serde_json::Value,
@@ -135,9 +131,9 @@ mod tests {
     ) -> Result<String> {
         let principal = json!({ "email": email });
         let payload = json!({
-        "principal": principal,
-        "public-key": serialized_public_key
-      });
+          "principal": principal,
+          "public-key": serialized_public_key
+        });
         Ok(
             SignedJWTBuilder::new(key_pair, issuer, issued_at, expires_at)
                 .payload(payload)

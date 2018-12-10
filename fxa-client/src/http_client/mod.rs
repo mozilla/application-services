@@ -2,25 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::{config::Config, errors::*};
+use reqwest::{self, header, Client as ReqwestClient, Method, Request, Response, StatusCode};
+use serde_derive::*;
+use serde_json::json;
 #[cfg(feature = "browserid")]
-use hex;
-use reqwest;
-use reqwest::{header, Client as ReqwestClient, Method, Request, Response, StatusCode};
-#[cfg(feature = "browserid")]
-use ring::{digest, hkdf, hmac};
-use serde_json;
-use std;
-#[cfg(feature = "browserid")]
-use util::Xorable;
-
-#[cfg(feature = "browserid")]
-use self::browser_id::rsa::RSABrowserIDKeyPair;
-#[cfg(feature = "browserid")]
-use self::browser_id::{jwt_utils, BrowserIDKeyPair};
-#[cfg(feature = "browserid")]
-use self::hawk_request::HAWKRequestBuilder;
-use config::Config;
-use errors::*;
+use {
+    self::{
+        browser_id::{jwt_utils, rsa::RSABrowserIDKeyPair, BrowserIDKeyPair},
+        hawk_request::HAWKRequestBuilder,
+    },
+    crate::util::Xorable,
+    ring::{digest, hkdf, hmac},
+};
 
 #[cfg(feature = "browserid")]
 pub mod browser_id;

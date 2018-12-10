@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::errors::*;
-use reqwest;
+use crate::errors::*;
+use serde_derive::*;
 use std::{cell::RefCell, sync::Arc};
 use url::Url;
 

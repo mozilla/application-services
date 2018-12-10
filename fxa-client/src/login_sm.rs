@@ -2,13 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std;
-
-use errors::*;
-use http_client::browser_id::rsa::RSABrowserIDKeyPair;
-use http_client::*;
-use login_sm::LoginState::*;
-use util::{now, Xorable};
+use crate::{
+    errors::*,
+    http_client::{browser_id::rsa::RSABrowserIDKeyPair, *},
+    util::{now, Xorable},
+};
+use log::*;
+use serde_derive::*;
 
 pub struct LoginStateMachine<'a> {
     client: Client<'a>,
@@ -36,27 +36,29 @@ impl<'a> LoginStateMachine<'a> {
     fn advance_one(&self, from: LoginState) -> LoginState {
         info!("advancing from state {:?}", from);
         match from {
-            Married(state) => {
+            LoginState::Married(state) => {
                 let now = now();
                 debug!("Checking key pair and certificate freshness.");
                 if now > state.token_keys_and_key_pair.key_pair_expires_at {
                     info!("Key pair has expired. Transitioning to CohabitingBeforeKeyPair.");
-                    CohabitingBeforeKeyPair(state.token_keys_and_key_pair.token_and_keys)
+                    LoginState::CohabitingBeforeKeyPair(
+                        state.token_keys_and_key_pair.token_and_keys,
+                    )
                 } else if now > state.certificate_expires_at {
                     info!("Certificate has expired. Transitioning to CohabitingAfterKeyPair.");
-                    CohabitingAfterKeyPair(state.token_keys_and_key_pair)
+                    LoginState::CohabitingAfterKeyPair(state.token_keys_and_key_pair)
                 } else {
                     info!("Key pair and certificate are fresh; staying Married.");
-                    Married(state) // same
+                    LoginState::Married(state) // same
                 }
             }
-            CohabitingBeforeKeyPair(state) => {
+            LoginState::CohabitingBeforeKeyPair(state) => {
                 debug!("Generating key pair.");
                 let key_pair = match Client::key_pair(2048) {
                     Ok(key_pair) => key_pair,
                     Err(_) => {
                         error!("Failed to generate key pair! Transitioning to Separated.");
-                        return Separated(state.base);
+                        return LoginState::Separated(state.base);
                     }
                 };
                 info!("Key pair generated! Transitioning to CohabitingAfterKeyPairState.");
@@ -65,9 +67,9 @@ impl<'a> LoginStateMachine<'a> {
                     key_pair,
                     key_pair_expires_at: now() + 30 * 24 * 3600 * 1000,
                 };
-                CohabitingAfterKeyPair(new_state)
+                LoginState::CohabitingAfterKeyPair(new_state)
             }
-            CohabitingAfterKeyPair(state) => {
+            LoginState::CohabitingAfterKeyPair(state) => {
                 debug!("Signing public key.");
                 let resp = self
                     .client
@@ -80,30 +82,30 @@ impl<'a> LoginStateMachine<'a> {
                             certificate: resp.certificate,
                             certificate_expires_at: now() + 24 * 3600 * 1000,
                         };
-                        Married(new_state)
+                        LoginState::Married(new_state)
                     }
                     Err(e) => {
                         if let ErrorKind::RemoteError { .. } = e.kind() {
                             error!("Server error: {:?}. Transitioning to Separated.", e);
-                            Separated(state.token_and_keys.base)
+                            LoginState::Separated(state.token_and_keys.base)
                         } else {
                             error!(
                                 "Unknown error: ({:?}). Assuming transient, not transitioning.",
                                 e
                             );
-                            CohabitingAfterKeyPair(state)
+                            LoginState::CohabitingAfterKeyPair(state)
                         }
                     }
                 }
             }
-            EngagedBeforeVerified(state) => {
-                self.handle_ready_for_key_state(EngagedBeforeVerified, state)
+            LoginState::EngagedBeforeVerified(state) => {
+                self.handle_ready_for_key_state(LoginState::EngagedBeforeVerified, state)
             }
-            EngagedAfterVerified(state) => {
-                self.handle_ready_for_key_state(EngagedAfterVerified, state)
+            LoginState::EngagedAfterVerified(state) => {
+                self.handle_ready_for_key_state(LoginState::EngagedAfterVerified, state)
             }
-            Separated(_) => from,
-            Unknown => from,
+            LoginState::Separated(_) => from,
+            LoginState::Unknown => from,
         }
     }
 
@@ -126,7 +128,7 @@ impl<'a> LoginStateMachine<'a> {
                 info!("Unwrapped keys response.  Transition to CohabitingBeforeKeyPair.");
                 let sync_key = Client::derive_sync_key(&kb);
                 let xcs = Client::compute_client_state(&kb);
-                CohabitingBeforeKeyPair(TokenAndKeysState {
+                LoginState::CohabitingBeforeKeyPair(TokenAndKeysState {
                     base: state.base,
                     session_token: state.session_token.to_vec(),
                     sync_key,
@@ -140,7 +142,7 @@ impl<'a> LoginStateMachine<'a> {
                 }
                 ErrorKind::RemoteError { .. } => {
                     error!("Server error: {:?}. Transitioning to Separated.", e);
-                    Separated(state.base)
+                    LoginState::Separated(state.base)
                 }
                 _ => {
                     error!(
@@ -268,7 +270,8 @@ impl MarriedState {
 }
 
 impl LoginState {
-    pub fn to_separated(self) -> LoginState {
+    pub fn to_separated(self) -> Self {
+        use self::LoginState::*;
         match self {
             Married(state) => Separated(state.token_keys_and_key_pair.token_and_keys.base),
             CohabitingBeforeKeyPair(state) => Separated(state.base),

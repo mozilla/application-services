@@ -1,11 +1,11 @@
-use errors::*;
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use base64;
+use crate::errors::*;
 use byteorder::{BigEndian, ByteOrder};
-use ring::agreement::EphemeralPrivateKey;
-use ring::rand::SecureRandom;
-use ring::{aead, agreement, digest};
-use serde_json;
+use ring::{aead, agreement, agreement::EphemeralPrivateKey, digest, rand::SecureRandom};
+use serde_json::{self, json};
 use untrusted::Input;
 
 pub struct ScopedKeysFlow {
@@ -39,11 +39,11 @@ impl ScopedKeysFlow {
         let y = Vec::from(&pub_key[33..]);
         let y = base64::encode_config(&y, base64::URL_SAFE_NO_PAD);
         Ok(json!({
-        "crv": "P-256",
-        "kty": "EC",
-        "x": x,
-        "y": y,
-    })
+            "crv": "P-256",
+            "kty": "EC",
+            "x": x,
+            "y": y,
+        })
         .to_string())
     }
 
