@@ -4,16 +4,12 @@
 
 extern crate fxa_client;
 
-#[macro_use]
-extern crate ffi_support;
-
-use std::ffi::CString;
-use std::os::raw::c_char;
-
-use ffi_support::{call_with_output, call_with_result, rust_str_from_c, ExternError};
-
-use fxa_client::ffi::*;
-use fxa_client::{FirefoxAccount, PersistCallback};
+use ffi_support::{
+    call_with_output, call_with_result, define_box_destructor, define_string_destructor,
+    rust_str_from_c, ExternError,
+};
+use fxa_client::{ffi::*, FirefoxAccount, PersistCallback};
+use std::{ffi::CString, os::raw::c_char};
 
 /// Creates a [FirefoxAccount] from credentials obtained with the onepw FxA login flow.
 ///

@@ -1,5 +1,6 @@
 [package]
 name = "fxaclient_ffi"
+edition = "2018"
 version = "0.1.0"
 authors = ["Edouard Oger <eoger@fastmail.com>"]
 

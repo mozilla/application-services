@@ -14,12 +14,13 @@
 
 #![cfg(feature = "ffi")]
 
+use crate::{AccessTokenInfo, Error, ErrorKind, FirefoxAccount, Profile, SyncKeys};
 use ffi_support::{
-    destroy_c_string, opt_rust_string_to_c, rust_string_to_c, ErrorCode, ExternError, IntoFfi,
+    destroy_c_string, implement_into_ffi_by_pointer, opt_rust_string_to_c, rust_string_to_c,
+    ErrorCode, ExternError, IntoFfi,
 };
-use serde_json;
+use log::*;
 use std::os::raw::c_char;
-use {AccessTokenInfo, Error, ErrorKind, FirefoxAccount, Profile, SyncKeys};
 
 pub mod error_codes {
     // Note: -1 and 0 (panic and success) codes are reserved by the ffi-support library

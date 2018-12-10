@@ -2,20 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::boxed::Box;
-use std::{fmt, result, string};
-
-use base64;
 #[cfg(feature = "browserid")]
 use failure::SyncFailure;
 use failure::{Backtrace, Context, Fail};
-#[cfg(feature = "browserid")]
-use hawk;
-use hex;
-#[cfg(feature = "browserid")]
-use openssl;
-use reqwest;
-use serde_json;
+use std::{boxed::Box, fmt, result, string};
 
 pub type Result<T> = result::Result<T, Error>;
 

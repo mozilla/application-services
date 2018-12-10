@@ -13,7 +13,7 @@ reqwest = "0.9.1"
 openssl = "0.10.12"
 hawk = { git = "https://github.com/eoger/rust-hawk", branch = "use-openssl" }
 hyper = "0.12.10"
-log = "0.4.5"
+log = "0.4"
 lazy_static = "1.0"
 base16 = "0.1.1"
 failure = "0.1.3"
