@@ -39,11 +39,11 @@ impl ScopedKeysFlow {
         let y = Vec::from(&pub_key[33..]);
         let y = base64::encode_config(&y, base64::URL_SAFE_NO_PAD);
         Ok(json!({
-        "crv": "P-256",
-        "kty": "EC",
-        "x": x,
-        "y": y,
-    })
+            "crv": "P-256",
+            "kty": "EC",
+            "x": x,
+            "y": y,
+        })
         .to_string())
     }
 
