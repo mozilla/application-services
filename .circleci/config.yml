@@ -1,0 +1,17 @@
+version: 2
+jobs:
+  rustfmt:
+    docker:
+      - image: circleci/rust:latest
+    steps:
+      - checkout
+      - run: rustup component add rustfmt
+      # In the future cargo fmt the whole dir and ignore other projects using rustfmt.toml
+      - run: cd fxa-client && cargo fmt -- --check && cd -
+      - run: cd fxa-client/ffi && cargo fmt -- --check && cd -
+
+workflows:
+  version: 2
+  check_formating:
+    jobs:
+      - rustfmt
