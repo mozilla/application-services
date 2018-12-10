@@ -14,8 +14,6 @@ extern crate failure;
 
 extern crate unicode_segmentation;
 
-extern crate failure_derive;
-
 extern crate url;
 
 extern crate rusqlite;

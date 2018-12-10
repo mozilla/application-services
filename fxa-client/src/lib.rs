@@ -5,7 +5,6 @@
 extern crate base64;
 extern crate byteorder;
 extern crate failure;
-extern crate failure_derive;
 #[cfg(feature = "browserid")]
 extern crate hawk;
 extern crate hex;
