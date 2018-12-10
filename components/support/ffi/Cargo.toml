@@ -1,7 +1,16 @@
 [package]
 name = "ffi-support"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
+description = "A crate to help expose Rust functions over the FFI."
+repository = "https://github.com/mozilla/application-services"
+readme = "README.md"
+keywords = ["ffi", "bindings"]
+categories = ["development-tools::ffi"]
+license = "MPL-2.0"
+
+[badges]
+travis-ci = { repository = "mozilla/application-services" }
 
 [features]
 default = ["log_backtraces"]
