@@ -5,12 +5,8 @@
 // XXX - more copy-pasta from logins-sql.
 
 use failure::{Backtrace, Context, Fail};
-use rusqlite;
-use serde_json;
 use std::boxed::Box;
 use std::{self, fmt};
-use sync15_adapter;
-use url;
 
 pub type Result<T> = std::result::Result<T, Error>;
 

@@ -7,15 +7,15 @@
 // We should work out how to split this into a library we can reuse.
 
 use super::schema;
-use error::*;
-use hash;
+use crate::error::*;
+use crate::hash;
 use rusqlite::{self, Connection};
 use sql_support::{self, ConnExt};
 use std::ops::Deref;
 use std::path::Path;
 
-use api::matcher::{split_after_host_and_port, split_after_prefix};
-use match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
+use crate::api::matcher::{split_after_host_and_port, split_after_prefix};
+use crate::match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
 
 pub const MAX_VARIABLE_NUMBER: usize = 999;
 

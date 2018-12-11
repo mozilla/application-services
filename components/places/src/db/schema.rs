@@ -7,10 +7,11 @@
 // We should work out how to turn this into something that can use a shared
 // db.rs.
 
-use db::PlacesDb;
+use crate::db::PlacesDb;
+use crate::error::*;
+use lazy_static::lazy_static;
+use log::*;
 use sql_support::ConnExt;
-
-use error::*;
 
 const VERSION: i64 = 2;
 
@@ -297,9 +298,9 @@ pub fn create(db: &PlacesDb) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use db::PlacesDb;
+    use crate::db::PlacesDb;
+    use crate::types::SyncStatus;
     use sync15_adapter::util::random_guid;
-    use types::SyncStatus;
     use url::Url;
 
     fn has_tombstone(conn: &PlacesDb, guid: &str) -> bool {

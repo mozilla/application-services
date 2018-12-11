@@ -2,13 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use url::Url;
-
 use super::apply_observation;
-use db::PlacesDb;
-use error::*;
-use observation::VisitObservation;
-use types::*;
+use crate::db::PlacesDb;
+use crate::error::*;
+use crate::observation::VisitObservation;
+use crate::types::*;
+use log::*;
+use url::Url;
 
 // This module can become, roughly: PlacesUtils.history()
 

@@ -2,13 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use db::PlacesDb;
-use error::Result;
-use rusqlite;
+use crate::db::PlacesDb;
+use crate::error::Result;
+use serde_derive::*;
 use url::Url;
-use url_serde;
 
-pub use match_impl::{MatchBehavior, SearchBehavior};
+pub use crate::match_impl::{MatchBehavior, SearchBehavior};
 
 #[derive(Debug, Clone)]
 pub struct SearchParams {
@@ -519,9 +518,9 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use observation::VisitObservation;
-    use storage::apply_observation;
-    use types::{Timestamp, VisitTransition};
+    use crate::observation::VisitObservation;
+    use crate::storage::apply_observation;
+    use crate::types::{Timestamp, VisitTransition};
 
     #[test]
     fn split() {

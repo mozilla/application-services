@@ -3,9 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::ServerVisitTimestamp;
-use error::*;
-use sync15_adapter;
-use types::SyncGuid;
+use crate::error::*;
+use crate::types::SyncGuid;
+use serde_derive::*;
 
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]

@@ -6,22 +6,20 @@
 // API and the database.
 // This should probably be a sub-directory
 
-use error::Result;
-use frecency;
-use observation::VisitObservation;
-use std::fmt;
-use types::{SyncGuid, SyncStatus, Timestamp, VisitTransition};
-use url::Url;
-
-use sync15_adapter;
-
+use crate::db::PlacesDb;
+use crate::error::Result;
+use crate::frecency;
+use crate::hash;
+use crate::observation::VisitObservation;
+use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition};
+use log::*;
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use rusqlite::{Connection, Row};
-
-use db::PlacesDb;
-use hash;
+use serde_derive::*;
 use sql_support::{self, ConnExt};
+use std::fmt;
+use url::Url;
 
 // Typesafe way to manage RowIds. Does it make sense? A better way?
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Default)]
@@ -309,8 +307,8 @@ fn add_visit(
 // Support for Sync - in its own module to try and keep a delineation
 pub mod history_sync {
     use super::*;
-    use history_sync::record::{HistoryRecord, HistoryRecordVisit};
-    use history_sync::HISTORY_TTL;
+    use crate::history_sync::record::{HistoryRecord, HistoryRecordVisit};
+    use crate::history_sync::HISTORY_TTL;
     use std::collections::HashMap;
 
     #[derive(Debug)]
@@ -771,8 +769,7 @@ pub fn get_visited_urls(
 mod tests {
     use super::history_sync::*;
     use super::*;
-    use env_logger;
-    use history_sync::record::HistoryRecord;
+    use crate::history_sync::record::HistoryRecord;
     use std::time::{Duration, SystemTime};
 
     struct Origin {

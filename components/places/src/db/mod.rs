@@ -4,6 +4,6 @@
 
 // We don't want 'db.rs' as a sub-module. We could move the contents here? Or something else?
 pub mod db;
-pub use db::db::PlacesDb;
+pub use crate::db::db::PlacesDb;
 
 mod schema;

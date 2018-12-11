@@ -2,22 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-extern crate places;
-extern crate rusqlite;
-extern crate serde_json;
-extern crate sync15_adapter;
-extern crate url;
-
-#[macro_use]
-extern crate log;
-
-#[cfg(target_os = "android")]
-extern crate android_logger;
-
-#[macro_use]
-extern crate ffi_support;
-
-use ffi_support::{call_with_result, rust_str_from_c, rust_string_from_c, ExternError};
+use ffi_support::{
+    call_with_result, define_box_destructor, define_string_destructor, rust_str_from_c,
+    rust_string_from_c, ExternError,
+};
+use log::*;
 use places::history_sync::store::HistoryStore;
 use places::{storage, PlacesDb};
 use std::os::raw::c_char;

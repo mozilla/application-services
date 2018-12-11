@@ -2,9 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::types::Timestamp;
+use serde_derive::*;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
-use types::Timestamp;
 
 mod plan;
 pub mod record;

@@ -2,42 +2,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-extern crate places;
-
-#[macro_use]
-extern crate log;
-extern crate env_logger;
-#[macro_use]
-extern crate failure;
-extern crate rusqlite;
-
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-extern crate url;
-#[macro_use]
-extern crate clap;
-extern crate find_places_db;
-extern crate sql_support;
-extern crate tempfile;
-use sql_support::ConnExt;
-
-#[cfg(not(windows))]
-extern crate termion;
-
-extern crate rand;
-
-use std::io::prelude::*;
-
-use url::Url;
-
+use clap::value_t;
+use failure::bail;
+use log::*;
 use places::{VisitObservation, VisitTransition};
-
+use serde_derive::*;
+use sql_support::ConnExt;
+use std::io::prelude::*;
 use std::{
     fs,
     path::{Path, PathBuf},
 };
+use url::Url;
 
 type Result<T> = std::result::Result<T, failure::Error>;
 
@@ -619,11 +595,11 @@ mod autocomplete {
                         }
                     }
                     Key::Ctrl('a') | Key::Home => {
-                        write!(stdout, "{}", Goto(3, 2));
+                        write!(stdout, "{}", Goto(3, 2))?;
                         cursor_idx = 0;
                     }
                     Key::Ctrl('e') | Key::End => {
-                        write!(stdout, "{}", Goto(3 + query_str.len() as u16, 2));
+                        write!(stdout, "{}", Goto(3 + query_str.len() as u16, 2))?;
                         cursor_idx = query_str.len();
                     }
                     Key::Ctrl('u') => {
