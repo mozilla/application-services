@@ -9,9 +9,9 @@ export -f abspath
 
 if [ "$#" -lt 1 -o "$#" -gt 2 ]
 then
-    echo "Usage:"
-    echo "./build-openssl-desktop.sh <OPENSSL_SRC_PATH> [CROSS_COMPILE_TARGET]"
-    exit 1
+  echo "Usage:"
+  echo "./build-openssl-desktop.sh <OPENSSL_SRC_PATH> [CROSS_COMPILE_TARGET]"
+  exit 1
 fi
 
 OPENSSL_SRC_PATH=$1
