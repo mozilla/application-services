@@ -2,15 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use base64;
-use error;
-use key_bundle::KeyBundle;
+use crate::error;
+use crate::key_bundle::KeyBundle;
+use crate::util::ServerTimestamp;
+use lazy_static::lazy_static;
+use log::*;
 use serde::de::{Deserialize, DeserializeOwned};
 use serde::ser::Serialize;
+use serde_derive::*;
 use serde_json::{self, Map, Value as JsonValue};
 use std::convert::From;
 use std::ops::{Deref, DerefMut};
-use util::ServerTimestamp;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BsoRecord<T> {
@@ -313,7 +315,6 @@ pub type CleartextBso = BsoRecord<Payload>;
 mod as_json {
     use serde::de::{self, Deserialize, DeserializeOwned, Deserializer};
     use serde::ser::{self, Serialize, Serializer};
-    use serde_json;
 
     pub fn serialize<T, S>(t: &T, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -412,6 +413,7 @@ impl CleartextBso {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn test_deserialize_enc() {

@@ -2,17 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use hawk;
-
-use error::{self, ErrorKind, Result};
+use crate::error::{self, ErrorKind, Result};
+use crate::util::ServerTimestamp;
 use hyper::header::AUTHORIZATION;
+use log::*;
 use reqwest::{Client, Request, Url};
+use serde_derive::*;
 use std::borrow::{Borrow, Cow};
 use std::cell::RefCell;
 use std::fmt;
 use std::str::FromStr;
 use std::time::{Duration, SystemTime};
-use util::ServerTimestamp;
 
 /// Tokenserver's timestamp is X-Timestamp and not X-Weave-Timestamp.
 const RETRY_AFTER: &str = "Retry-After";

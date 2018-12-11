@@ -2,12 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use bso_record::{EncryptedBso, Payload};
-use error::Result;
-use key_bundle::KeyBundle;
-use record_types::CryptoKeysRecord;
+use crate::bso_record::{EncryptedBso, Payload};
+use crate::error::Result;
+use crate::key_bundle::KeyBundle;
+use crate::record_types::CryptoKeysRecord;
+use crate::util::ServerTimestamp;
+use serde_derive::*;
 use std::collections::HashMap;
-use util::ServerTimestamp;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CollectionKeys {

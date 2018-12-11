@@ -2,27 +2,24 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::cell::Cell;
-use std::time::Duration;
-
+use crate::bso_record::{BsoRecord, EncryptedBso};
+use crate::error::{self, ErrorKind};
+use crate::record_types::MetaGlobalRecord;
+use crate::request::{
+    BatchPoster, CollectionRequest, InfoCollections, InfoConfiguration, PostQueue, PostResponse,
+    PostResponseHandler, X_IF_UNMODIFIED_SINCE, X_WEAVE_TIMESTAMP,
+};
+use crate::token;
+use crate::util::ServerTimestamp;
 use hyper::Method;
+use log::*;
 use reqwest::{
     header::{self, HeaderValue, ACCEPT, AUTHORIZATION},
     Client, Request, Response, Url,
 };
-use serde;
-use serde_json;
-
-use bso_record::{BsoRecord, EncryptedBso};
-use error::{self, ErrorKind};
-use record_types::MetaGlobalRecord;
-use request::{
-    BatchPoster, CollectionRequest, InfoCollections, InfoConfiguration, PostQueue, PostResponse,
-    PostResponseHandler, X_IF_UNMODIFIED_SINCE, X_WEAVE_TIMESTAMP,
-};
+use std::cell::Cell;
 use std::str::FromStr;
-use token;
-use util::ServerTimestamp;
+use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Sync15StorageClientInit {

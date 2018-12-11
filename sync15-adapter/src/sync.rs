@@ -2,13 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use changeset::{CollectionUpdate, IncomingChangeset, OutgoingChangeset};
-use client::Sync15StorageClient;
-use error::Error;
-use failure;
-use request::CollectionRequest;
-use state::GlobalState;
-use util::ServerTimestamp;
+use crate::changeset::{CollectionUpdate, IncomingChangeset, OutgoingChangeset};
+use crate::client::Sync15StorageClient;
+use crate::error::Error;
+use crate::request::CollectionRequest;
+use crate::state::GlobalState;
+use crate::util::ServerTimestamp;
+use log::*;
 
 /// Low-level store functionality. Stores that need custom reconciliation logic should use this.
 ///

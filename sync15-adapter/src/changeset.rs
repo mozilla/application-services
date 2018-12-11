@@ -2,13 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use bso_record::{EncryptedBso, Payload};
-use client::Sync15StorageClient;
-use error::{self, ErrorKind, Result};
-use key_bundle::KeyBundle;
-use request::{CollectionRequest, NormalResponseHandler, UploadInfo};
-use state::GlobalState;
-use util::ServerTimestamp;
+use crate::bso_record::{EncryptedBso, Payload};
+use crate::client::Sync15StorageClient;
+use crate::error::{self, ErrorKind, Result};
+use crate::key_bundle::KeyBundle;
+use crate::request::{CollectionRequest, NormalResponseHandler, UploadInfo};
+use crate::state::GlobalState;
+use crate::util::ServerTimestamp;
 
 #[derive(Debug, Clone)]
 pub struct RecordChangeset<Payload> {

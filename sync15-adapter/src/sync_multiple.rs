@@ -5,15 +5,15 @@
 // This helps you perform a sync of multiple stores and helps you manage
 // global and local state between syncs.
 
-use client::{Sync15StorageClient, Sync15StorageClientInit};
-use error::Error;
-use key_bundle::KeyBundle;
-use serde_json;
-use state::{GlobalState, SetupStateMachine};
+use crate::client::{Sync15StorageClient, Sync15StorageClientInit};
+use crate::error::Error;
+use crate::key_bundle::KeyBundle;
+use crate::state::{GlobalState, SetupStateMachine};
+use crate::sync::{self, Store};
+use log::*;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::result;
-use sync::{self, Store};
 
 /// Info stored in memory about the client to use. We reuse the client unless
 /// we discover the client_init has changed, in which case we re-create one.
