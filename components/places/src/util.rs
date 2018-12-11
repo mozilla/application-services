@@ -32,6 +32,3 @@ mod test {
         assert_eq!(slice_up_to(s, 8), s);
     }
 }
-
-
-

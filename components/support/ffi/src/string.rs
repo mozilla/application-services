@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::os::raw::c_char;
 use std::ffi::{CStr, CString};
+use std::os::raw::c_char;
 use std::ptr;
 
 /// Convert a rust string into a NUL-terminated utf-8 string suitable for passing to C, or to things
@@ -26,7 +26,6 @@ pub fn rust_string_to_c(rust_string: impl Into<String>) -> *mut c_char {
         .expect("Error: Rust string contained an interior null byte.")
         .into_raw()
 }
-
 
 /// Variant of [`rust_string_to_c`] which takes an Option, and returns null for None.
 #[inline]
@@ -111,7 +110,10 @@ pub unsafe fn opt_rust_str_from_c<'a>(c_string: *const c_char) -> Option<&'a str
             Err(e) => {
                 // Currently I think this is impossible, so I'd like to know if it can happen
                 // (Java/Swift shouldn't pass us invalid UTF-8... right?).
-                error!("[Bug] Invalid UTF-8 was passed to rust! Report this! {:?}", e);
+                error!(
+                    "[Bug] Invalid UTF-8 was passed to rust! Report this! {:?}",
+                    e
+                );
                 Some("")
             }
         }

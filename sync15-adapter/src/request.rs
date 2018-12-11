@@ -2,22 +2,26 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use bso_record::EncryptedBso;
 use util::ServerTimestamp;
-use bso_record::{EncryptedBso};
 
+use error::{self, ErrorKind, Result};
+use hyper::StatusCode;
+use reqwest::Response;
 use serde_json;
-use std::fmt;
 use std::collections::HashMap;
 use std::default::Default;
+use std::fmt;
 use std::ops::Deref;
 use std::str::FromStr;
-use url::{Url, UrlQuery, form_urlencoded::Serializer};
-use error::{self, Result, ErrorKind};
-use hyper::{StatusCode};
-use reqwest::Response;
+use url::{form_urlencoded::Serializer, Url, UrlQuery};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum RequestOrder { Oldest, Newest, Index }
+pub enum RequestOrder {
+    Oldest,
+    Newest,
+    Index,
+}
 
 pub const X_IF_UNMODIFIED_SINCE: &str = "X-If-Unmodified-Since";
 pub const X_WEAVE_TIMESTAMP: &str = "X-Weave-Timestamp";
@@ -29,7 +33,7 @@ impl fmt::Display for RequestOrder {
         match self {
             &RequestOrder::Oldest => f.write_str("oldest"),
             &RequestOrder::Newest => f.write_str("newest"),
-            &RequestOrder::Index => f.write_str("index")
+            &RequestOrder::Index => f.write_str("index"),
         }
     }
 }
@@ -49,7 +53,10 @@ pub struct CollectionRequest {
 
 impl CollectionRequest {
     #[inline]
-    pub fn new<S>(collection: S) -> CollectionRequest where S: Into<String> {
+    pub fn new<S>(collection: S) -> CollectionRequest
+    where
+        S: Into<String>,
+    {
         CollectionRequest {
             collection: collection.into(),
             full: false,
@@ -64,7 +71,10 @@ impl CollectionRequest {
     }
 
     #[inline]
-    pub fn ids<V>(mut self, v: V) -> CollectionRequest where V: Into<Vec<String>> {
+    pub fn ids<V>(mut self, v: V) -> CollectionRequest
+    where
+        V: Into<Vec<String>>,
+    {
         self.ids = Some(v.into());
         self
     }
@@ -140,9 +150,10 @@ impl CollectionRequest {
     }
 
     pub fn build_url(&self, mut base_url: Url) -> Result<Url> {
-        base_url.path_segments_mut()
-                .map_err(|_| ErrorKind::UnacceptableUrl("Storage server URL is not a base".into()))?
-                .extend(&["storage", &self.collection]);
+        base_url
+            .path_segments_mut()
+            .map_err(|_| ErrorKind::UnacceptableUrl("Storage server URL is not a base".into()))?
+            .extend(&["storage", &self.collection]);
         self.build_query(&mut base_url.query_pairs_mut());
         // This is strange but just accessing query_pairs_mut makes you have
         // a trailing question mark on your url. I don't think anything bad
@@ -171,7 +182,7 @@ impl LimitTracker {
             max_bytes,
             max_records,
             cur_bytes: 0,
-            cur_records: 0
+            cur_records: 0,
         }
     }
 
@@ -183,8 +194,7 @@ impl LimitTracker {
     pub fn can_add_record(&self, payload_size: usize) -> bool {
         // Desktop does the cur_bytes check as exclusive, but we shouldn't see any servers that
         // don't have https://github.com/mozilla-services/server-syncstorage/issues/73
-        self.cur_records + 1 <= self.max_records &&
-        self.cur_bytes + payload_size <= self.max_bytes
+        self.cur_records + 1 <= self.max_records && self.cur_bytes + payload_size <= self.max_bytes
     }
 
     pub fn can_never_add(&self, record_size: usize) -> bool {
@@ -192,8 +202,10 @@ impl LimitTracker {
     }
 
     pub fn record_added(&mut self, record_size: usize) {
-        assert!(self.can_add_record(record_size),
-                "LimitTracker::record_added caller must check can_add_record");
+        assert!(
+            self.can_add_record(record_size),
+            "LimitTracker::record_added caller must check can_add_record"
+        );
         self.cur_records += 1;
         self.cur_bytes += record_size;
     }
@@ -231,8 +243,12 @@ pub struct InfoConfiguration {
 }
 
 // This is annoying but seems to be the only way to do it...
-fn default_max_request_bytes() -> usize { 260 * 1024 }
-fn default_max_record_payload_bytes() -> usize { 256 * 1024 }
+fn default_max_request_bytes() -> usize {
+    260 * 1024
+}
+fn default_max_record_payload_bytes() -> usize {
+    256 * 1024
+}
 
 impl Default for InfoConfiguration {
     #[inline]
@@ -273,7 +289,7 @@ pub struct UploadResult {
     pub failed: HashMap<String, String>,
     /// Vec of ids
     #[serde(default = "Vec::new")]
-    pub success: Vec<String>
+    pub success: Vec<String>,
 }
 
 // Easier to fake during tests
@@ -288,13 +304,20 @@ impl PostResponse {
     pub fn from_response(r: &mut Response) -> Result<PostResponse> {
         let result: UploadResult = r.json()?;
         // TODO Can this happen in error cases?
-        let last_modified = r.headers().get(X_LAST_MODIFIED).and_then(|v| v.to_str().ok()).and_then(|s| ServerTimestamp::from_str(s).ok()).ok_or_else(||
-            ErrorKind::MissingServerTimestamp)?;
+        let last_modified = r
+            .headers()
+            .get(X_LAST_MODIFIED)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| ServerTimestamp::from_str(s).ok())
+            .ok_or_else(|| ErrorKind::MissingServerTimestamp)?;
         let status = r.status();
-        Ok(PostResponse { status, result, last_modified })
+        Ok(PostResponse {
+            status,
+            result,
+            last_modified,
+        })
     }
 }
-
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum BatchState {
@@ -319,12 +342,14 @@ pub struct PostQueue<Post, OnResponse> {
 pub trait BatchPoster {
     /// Note: Last argument (reference to the batch poster) is provided for the purposes of testing
     /// Important: Poster should not report non-success HTTP statuses as errors!!
-    fn post<P, O>(&self,
-            body: &[u8],
-            xius: ServerTimestamp,
-            batch: Option<String>,
-            commit: bool,
-            queue: &PostQueue<P, O>) -> Result<PostResponse>;
+    fn post<P, O>(
+        &self,
+        body: &[u8],
+        xius: ServerTimestamp,
+        batch: Option<String>,
+        commit: bool,
+        queue: &PostQueue<P, O>,
+    ) -> Result<PostResponse>;
 }
 
 // We don't just use a FnMut here since we want to override it in mocking for RefCell<TestType>,
@@ -333,7 +358,6 @@ pub trait BatchPoster {
 pub trait PostResponseHandler {
     fn handle_response(&mut self, r: PostResponse, mid_batch: bool) -> Result<()>;
 }
-
 
 #[derive(Debug, Clone)]
 pub(crate) struct NormalResponseHandler {
@@ -365,8 +389,9 @@ impl PostResponseHandler for NormalResponseHandler {
             } else {
                 return Err(ErrorKind::StorageHttpError {
                     code: r.status.as_u16(),
-                    route: "collection storage (TODO: record route somewhere)".into()
-                }.into());
+                    route: "collection storage (TODO: record route somewhere)".into(),
+                }
+                .into());
             }
         }
         if r.result.failed.len() > 0 && !self.allow_failed {
@@ -389,12 +414,14 @@ impl PostResponseHandler for NormalResponseHandler {
 impl<Poster, OnResponse> PostQueue<Poster, OnResponse>
 where
     Poster: BatchPoster,
-    OnResponse: PostResponseHandler
+    OnResponse: PostResponseHandler,
 {
-    pub fn new(config: &InfoConfiguration,
-               ts: ServerTimestamp,
-               poster: Poster,
-               on_response: OnResponse) -> PostQueue<Poster, OnResponse> {
+    pub fn new(
+        config: &InfoConfiguration,
+        ts: ServerTimestamp,
+        poster: Poster,
+        on_response: OnResponse,
+    ) -> PostQueue<Poster, OnResponse> {
         PostQueue {
             poster,
             on_response,
@@ -411,19 +438,22 @@ where
     #[inline]
     fn in_batch(&self) -> bool {
         match &self.batch {
-            &BatchState::Unsupported |
-            &BatchState::NoBatch => false,
-            _ => true
+            &BatchState::Unsupported | &BatchState::NoBatch => false,
+            _ => true,
         }
     }
 
     pub fn enqueue(&mut self, record: &EncryptedBso) -> Result<bool> {
         let payload_length = record.payload.serialized_len();
 
-        if self.post_limits.can_never_add(payload_length) ||
-           self.batch_limits.can_never_add(payload_length) ||
-           payload_length >= self.max_payload_bytes {
-            warn!("Single record too large to submit to server ({} b)", payload_length);
+        if self.post_limits.can_never_add(payload_length)
+            || self.batch_limits.can_never_add(payload_length)
+            || payload_length >= self.max_payload_bytes
+        {
+            warn!(
+                "Single record too large to submit to server ({} b)",
+                payload_length
+            );
             return Ok(false);
         }
 
@@ -447,15 +477,20 @@ where
 
         let item_end = self.queued.len();
 
-        debug_assert!(item_end >= payload_length,
-                      "EncryptedPayload::serialized_len is bugged");
+        debug_assert!(
+            item_end >= payload_length,
+            "EncryptedPayload::serialized_len is bugged"
+        );
 
         // The + 1 is only relevant for the final record, which will have a trailing ']'.
         let item_len = item_end - item_start + 1;
 
         if item_len >= self.max_request_bytes {
             self.queued.truncate(item_start);
-            warn!("Single record too large to submit to server ({} b)", item_len);
+            warn!(
+                "Single record too large to submit to server ({} b)",
+                item_len
+            );
             return Ok(false);
         }
 
@@ -464,8 +499,10 @@ where
         let can_send_record = self.queued.len() < self.max_request_bytes;
 
         if !can_post_record || !can_send_record || !can_batch_record {
-            debug!("PostQueue flushing! (can_post = {}, can_send = {}, can_batch = {})",
-                   can_post_record, can_send_record, can_batch_record);
+            debug!(
+                "PostQueue flushing! (can_post = {}, can_send = {}, can_batch = {})",
+                can_post_record, can_send_record, can_batch_record
+            );
             // "unwrite" the record.
             self.queued.truncate(item_start);
             // Flush whatever we have queued.
@@ -484,8 +521,10 @@ where
 
     pub fn flush(&mut self, want_commit: bool) -> Result<()> {
         if self.queued.len() == 0 {
-            assert!(!self.in_batch(),
-                    "Bug: Somehow we're in a batch but have no queued records");
+            assert!(
+                !self.in_batch(),
+                "Bug: Somehow we're in a batch but have no queued records"
+            );
             // Nothing to do!
             return Ok(());
         }
@@ -497,18 +536,20 @@ where
             // First commit in possible batch
             &BatchState::NoBatch => Some("true".into()),
             // In a batch and we have a batch id.
-            &BatchState::InBatch(ref s) => Some(s.clone())
+            &BatchState::InBatch(ref s) => Some(s.clone()),
         };
 
-        info!("Posting {} records of {} bytes", self.post_limits.cur_records, self.queued.len());
+        info!(
+            "Posting {} records of {} bytes",
+            self.post_limits.cur_records,
+            self.queued.len()
+        );
 
         let is_commit = want_commit && !batch_id.is_none();
         // Weird syntax for calling a function object that is a property.
-        let resp_or_error = self.poster.post(&self.queued,
-                                             self.last_modified,
-                                             batch_id,
-                                             is_commit,
-                                             self);
+        let resp_or_error =
+            self.poster
+                .post(&self.queued, self.last_modified, batch_id, is_commit, self);
 
         self.queued.truncate(0);
 
@@ -524,7 +565,11 @@ where
             self.on_response.handle_response(resp, !want_commit)?;
             error!("Bug: expected OnResponse to have bailed out!");
             // Should we assert here instead?
-            return Err(ErrorKind::StorageHttpError { code, route: "Client bug!".into() }.into());
+            return Err(ErrorKind::StorageHttpError {
+                code,
+                route: "Client bug!".into(),
+            }
+            .into());
         }
 
         if want_commit || self.batch == BatchState::Unsupported {
@@ -541,7 +586,9 @@ where
         if resp.status != StatusCode::ACCEPTED {
             if self.in_batch() {
                 return Err(ErrorKind::ServerBatchProblem(
-                    "Server responded non-202 success code while a batch was in progress").into());
+                    "Server responded non-202 success code while a batch was in progress",
+                )
+                .into());
             }
             self.last_modified = resp.last_modified;
             self.batch = BatchState::Unsupported;
@@ -550,20 +597,28 @@ where
             return Ok(());
         }
 
-        let batch_id = resp.result.batch.as_ref().ok_or_else(||
-            ErrorKind::ServerBatchProblem("Invalid server response: 202 without a batch ID"))?.clone();
+        let batch_id = resp
+            .result
+            .batch
+            .as_ref()
+            .ok_or_else(|| {
+                ErrorKind::ServerBatchProblem("Invalid server response: 202 without a batch ID")
+            })?
+            .clone();
 
         match &self.batch {
             &BatchState::Unsupported => {
                 warn!("Server changed it's mind about supporting batching mid-batch...");
-            },
+            }
 
             &BatchState::InBatch(ref cur_id) => {
                 if cur_id != &batch_id {
                     return Err(ErrorKind::ServerBatchProblem(
-                        "Invalid server response: 202 without a batch ID").into());
+                        "Invalid server response: 202 without a batch ID",
+                    )
+                    .into());
                 }
-            },
+            }
             _ => {}
         }
 
@@ -589,17 +644,25 @@ impl<Poster> PostQueue<Poster, NormalResponseHandler> {
     pub fn completed_upload_info(&mut self) -> UploadInfo {
         let mut result = UploadInfo {
             successful_ids: Vec::with_capacity(self.on_response.successful_ids.len()),
-            failed_ids: Vec::with_capacity(self.on_response.failed_ids.len() +
-                                           self.on_response.pending_failed.len() +
-                                           self.on_response.pending_success.len()),
-            modified_timestamp: self.last_modified
+            failed_ids: Vec::with_capacity(
+                self.on_response.failed_ids.len()
+                    + self.on_response.pending_failed.len()
+                    + self.on_response.pending_success.len(),
+            ),
+            modified_timestamp: self.last_modified,
         };
 
-        result.successful_ids.append(&mut self.on_response.successful_ids);
+        result
+            .successful_ids
+            .append(&mut self.on_response.successful_ids);
 
         result.failed_ids.append(&mut self.on_response.failed_ids);
-        result.failed_ids.append(&mut self.on_response.pending_failed);
-        result.failed_ids.append(&mut self.on_response.pending_success);
+        result
+            .failed_ids
+            .append(&mut self.on_response.pending_failed);
+        result
+            .failed_ids
+            .append(&mut self.on_response.pending_success);
 
         result
     }
@@ -609,34 +672,55 @@ impl<Poster> PostQueue<Poster, NormalResponseHandler> {
 mod test {
     use super::*;
     use bso_record::{BsoRecord, EncryptedPayload};
-    use std::collections::VecDeque;
     use std::cell::RefCell;
+    use std::collections::VecDeque;
     use std::rc::Rc;
     #[test]
     fn test_url_building() {
         let base = Url::parse("https://example.com/sync").unwrap();
-        let empty = CollectionRequest::new("foo").build_url(base.clone()).unwrap();
+        let empty = CollectionRequest::new("foo")
+            .build_url(base.clone())
+            .unwrap();
         assert_eq!(empty.as_str(), "https://example.com/sync/storage/foo");
-        let batch_start = CollectionRequest::new("bar").batch(Some("true".into())).commit(false)
-                                                       .build_url(base.clone()).unwrap();
-        assert_eq!(batch_start.as_str(), "https://example.com/sync/storage/bar?batch=true");
-        let batch_commit = CollectionRequest::new("asdf").batch(Some("1234abc".into())).commit(true)
-                                                         .build_url(base.clone())
-                                                         .unwrap();
-        assert_eq!(batch_commit.as_str(),
-            "https://example.com/sync/storage/asdf?batch=1234abc&commit=true");
+        let batch_start = CollectionRequest::new("bar")
+            .batch(Some("true".into()))
+            .commit(false)
+            .build_url(base.clone())
+            .unwrap();
+        assert_eq!(
+            batch_start.as_str(),
+            "https://example.com/sync/storage/bar?batch=true"
+        );
+        let batch_commit = CollectionRequest::new("asdf")
+            .batch(Some("1234abc".into()))
+            .commit(true)
+            .build_url(base.clone())
+            .unwrap();
+        assert_eq!(
+            batch_commit.as_str(),
+            "https://example.com/sync/storage/asdf?batch=1234abc&commit=true"
+        );
 
-        let idreq = CollectionRequest::new("wutang").full().ids(vec!["rza".into(), "gza".into()])
-                                                    .build_url(base.clone()).unwrap();
-        assert_eq!(idreq.as_str(), "https://example.com/sync/storage/wutang?full=1&ids=rza%2Cgza");
+        let idreq = CollectionRequest::new("wutang")
+            .full()
+            .ids(vec!["rza".into(), "gza".into()])
+            .build_url(base.clone())
+            .unwrap();
+        assert_eq!(
+            idreq.as_str(),
+            "https://example.com/sync/storage/wutang?full=1&ids=rza%2Cgza"
+        );
 
-        let complex = CollectionRequest::new("specific").full().limit(10).sort_by(RequestOrder::Oldest)
-                                                        .older_than(ServerTimestamp(9876.54))
-                                                        .newer_than(ServerTimestamp(1234.56))
-                                                        .build_url(base.clone()).unwrap();
+        let complex = CollectionRequest::new("specific")
+            .full()
+            .limit(10)
+            .sort_by(RequestOrder::Oldest)
+            .older_than(ServerTimestamp(9876.54))
+            .newer_than(ServerTimestamp(1234.56))
+            .build_url(base.clone())
+            .unwrap();
         assert_eq!(complex.as_str(),
             "https://example.com/sync/storage/specific?full=1&limit=10&older=9876.54&newer=1234.56&sort=oldest");
-
     }
 
     #[derive(Debug, Clone)]
@@ -646,19 +730,19 @@ mod test {
         batch: Option<String>,
         commit: bool,
         payload_bytes: usize,
-        records: usize
+        records: usize,
     }
 
     impl PostedData {
         fn records_as_json(&self) -> Vec<serde_json::Value> {
-            let values = serde_json::from_str::<serde_json::Value>(&self.body).expect("Posted invalid json");
+            let values =
+                serde_json::from_str::<serde_json::Value>(&self.body).expect("Posted invalid json");
             // Check that they actually deserialize as what we want
             let records_or_err = serde_json::from_value::<Vec<EncryptedBso>>(values.clone());
             records_or_err.expect("Failed to deserialize data");
             serde_json::from_value(values).unwrap()
         }
     }
-
 
     #[derive(Debug, Clone)]
     struct BatchInfo {
@@ -680,7 +764,9 @@ mod test {
     type TestPosterRef = Rc<RefCell<TestPoster>>;
     impl TestPoster {
         pub fn new<T>(cfg: &InfoConfiguration, responses: T) -> TestPosterRef
-        where T: Into<VecDeque<PostResponse>> {
+        where
+            T: Into<VecDeque<PostResponse>>,
+        {
             Rc::new(RefCell::new(TestPoster {
                 all_posts: vec![],
                 responses: responses.into(),
@@ -696,9 +782,8 @@ mod test {
             xius: ServerTimestamp,
             batch: Option<String>,
             commit: bool,
-            queue: &PostQueue<T, O>
+            queue: &PostQueue<T, O>,
         ) -> Result<PostResponse> {
-
             let mut post = PostedData {
                 body: String::from_utf8(body.into()).expect("Posted invalid utf8..."),
                 batch: batch.clone(),
@@ -714,11 +799,17 @@ mod test {
                 let recs = post.records_as_json();
                 assert!(recs.len() <= self.cfg.max_post_records);
                 assert!(recs.len() <= self.cfg.max_total_records);
-                let payload_bytes: usize = recs.iter().map(|r| {
-                    let len = r["payload"].as_str().expect("Non string payload property").len();
-                    assert!(len <= self.cfg.max_record_payload_bytes);
-                    len
-                }).sum();
+                let payload_bytes: usize = recs
+                    .iter()
+                    .map(|r| {
+                        let len = r["payload"]
+                            .as_str()
+                            .expect("Non string payload property")
+                            .len();
+                        assert!(len <= self.cfg.max_record_payload_bytes);
+                        len
+                    })
+                    .sum();
                 assert!(payload_bytes <= self.cfg.max_post_bytes);
                 assert!(payload_bytes <= self.cfg.max_total_bytes);
 
@@ -733,8 +824,10 @@ mod test {
             let response = self.responses.pop_front().unwrap();
 
             if self.cur_batch.is_none() {
-                assert!(batch.is_none() || batch == Some("true".into()),
-                        "We shouldn't be in a batch now");
+                assert!(
+                    batch.is_none() || batch == Some("true".into()),
+                    "We shouldn't be in a batch now"
+                );
                 self.cur_batch = Some(BatchInfo {
                     id: response.result.batch.clone(),
                     posts: vec![],
@@ -742,8 +835,11 @@ mod test {
                     bytes: 0,
                 });
             } else {
-                assert_eq!(batch, self.cur_batch.as_ref().unwrap().id,
-                           "We're in a batch but got the wrong batch id");
+                assert_eq!(
+                    batch,
+                    self.cur_batch.as_ref().unwrap().id,
+                    "We're in a batch but got the wrong batch id"
+                );
             }
 
             {
@@ -759,7 +855,6 @@ mod test {
                 assert_eq!(batch.bytes, queue.batch_limits.cur_bytes);
             }
 
-
             if commit || response.result.batch.is_none() {
                 let batch = self.cur_batch.take().unwrap();
                 self.batches.push(batch);
@@ -774,12 +869,14 @@ mod test {
         }
     }
     impl BatchPoster for TestPosterRef {
-        fn post<T, O>(&self,
-                      body: &[u8],
-                      xius: ServerTimestamp,
-                      batch: Option<String>,
-                      commit: bool,
-                      queue: &PostQueue<T, O>) -> Result<PostResponse> {
+        fn post<T, O>(
+            &self,
+            body: &[u8],
+            xius: ServerTimestamp,
+            batch: Option<String>,
+            commit: bool,
+            queue: &PostQueue<T, O>,
+        ) -> Result<PostResponse> {
             self.borrow_mut().do_post(body, xius, batch, commit, queue)
         }
     }
@@ -792,13 +889,21 @@ mod test {
 
     type MockedPostQueue = PostQueue<TestPosterRef, TestPosterRef>;
 
-    fn pq_test_setup(cfg: InfoConfiguration, lm: f64, resps: Vec<PostResponse>) -> (MockedPostQueue, TestPosterRef) {
+    fn pq_test_setup(
+        cfg: InfoConfiguration,
+        lm: f64,
+        resps: Vec<PostResponse>,
+    ) -> (MockedPostQueue, TestPosterRef) {
         let tester = TestPoster::new(&cfg, resps);
         let pq = PostQueue::new(&cfg, ServerTimestamp(lm), tester.clone(), tester.clone());
         (pq, tester)
     }
 
-    fn fake_response<'a, T: Into<Option<&'a str>>>(status: StatusCode, lm: f64, batch: T) -> PostResponse {
+    fn fake_response<'a, T: Into<Option<&'a str>>>(
+        status: StatusCode,
+        lm: f64,
+        batch: T,
+    ) -> PostResponse {
         PostResponse {
             status,
             last_modified: ServerTimestamp(lm),
@@ -806,7 +911,7 @@ mod test {
                 batch: batch.into().map(|x| x.into()),
                 failed: HashMap::new(),
                 success: vec![],
-            }
+            },
         }
     }
 
@@ -858,13 +963,16 @@ mod test {
             payload: EncryptedPayload {
                 iv: "".into(),
                 hmac: "".into(),
-                ciphertext: "x".repeat(ciphertext_len)
-            }
+                ciphertext: "x".repeat(ciphertext_len),
+            },
         }
     }
 
     fn request_bytes_for_payloads(payloads: &[usize]) -> usize {
-        1 + payloads.iter().map(|&size| size + 1 + *NON_PAYLOAD_OVERHEAD).sum::<usize>()
+        1 + payloads
+            .iter()
+            .map(|&size| size + 1 + *NON_PAYLOAD_OVERHEAD)
+            .sum::<usize>()
     }
 
     #[test]
@@ -875,9 +983,11 @@ mod test {
             ..InfoConfiguration::default()
         };
         let time = 11111111.0;
-        let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::OK, time + 100.0, None),
-        ]);
+        let (mut pq, tester) = pq_test_setup(
+            cfg,
+            time,
+            vec![fake_response(StatusCode::OK, time + 100.0, None)],
+        );
 
         pq.enqueue(&make_record(100)).unwrap();
         pq.flush(true).unwrap();
@@ -889,8 +999,10 @@ mod test {
         assert_eq!(t.batches[0].posts.len(), 1);
         assert_eq!(t.batches[0].records, 1);
         assert_eq!(t.batches[0].bytes, 100);
-        assert_eq!(t.batches[0].posts[0].body.len(),
-                   request_bytes_for_payloads(&[100]));
+        assert_eq!(
+            t.batches[0].posts[0].body.len(),
+            request_bytes_for_payloads(&[100])
+        );
     }
 
     #[test]
@@ -900,10 +1012,14 @@ mod test {
             ..InfoConfiguration::default()
         };
         let time = 11111111.0;
-        let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::OK, time + 100.0, None),
-            fake_response(StatusCode::OK, time + 200.0, None),
-        ]);
+        let (mut pq, tester) = pq_test_setup(
+            cfg,
+            time,
+            vec![
+                fake_response(StatusCode::OK, time + 100.0, None),
+                fake_response(StatusCode::OK, time + 200.0, None),
+            ],
+        );
 
         // Note that the total record overhead is around 85 bytes
         let payload_size = 100 - *NON_PAYLOAD_OVERHEAD;
@@ -920,8 +1036,10 @@ mod test {
         assert_eq!(t.batches[0].records, 2);
         assert_eq!(t.batches[0].bytes, payload_size * 2);
         assert_eq!(t.batches[0].posts[0].batch, Some("true".into()));
-        assert_eq!(t.batches[0].posts[0].body.len(),
-                   request_bytes_for_payloads(&[payload_size, payload_size]));
+        assert_eq!(
+            t.batches[0].posts[0].body.len(),
+            request_bytes_for_payloads(&[payload_size, payload_size])
+        );
 
         assert_eq!(t.batches[1].posts.len(), 1);
         assert_eq!(t.batches[1].records, 1);
@@ -929,8 +1047,10 @@ mod test {
         // We know at this point that the server does not support batching.
         assert_eq!(t.batches[1].posts[0].batch, None);
         assert_eq!(t.batches[1].posts[0].commit, false);
-        assert_eq!(t.batches[1].posts[0].body.len(),
-                   request_bytes_for_payloads(&[payload_size]));
+        assert_eq!(
+            t.batches[1].posts[0].body.len(),
+            request_bytes_for_payloads(&[payload_size])
+        );
     }
 
     #[test]
@@ -941,10 +1061,14 @@ mod test {
             ..InfoConfiguration::default()
         };
         let time = 11111111.0;
-        let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::OK, time + 100.0, None),
-            fake_response(StatusCode::OK, time + 200.0, None),
-        ]);
+        let (mut pq, tester) = pq_test_setup(
+            cfg,
+            time,
+            vec![
+                fake_response(StatusCode::OK, time + 100.0, None),
+                fake_response(StatusCode::OK, time + 200.0, None),
+            ],
+        );
 
         // Note that the total record overhead is around 85 bytes
         let payload_size = 100 - *NON_PAYLOAD_OVERHEAD;
@@ -961,17 +1085,25 @@ mod test {
         assert_eq!(t.batches[0].posts.len(), 1);
         assert_eq!(t.batches[0].records, 2);
         assert_eq!(t.batches[0].bytes, payload_size * 2);
-        assert_eq!(t.batches[0].posts[0].body.len(),
-                   request_bytes_for_payloads(&[payload_size, payload_size]));
+        assert_eq!(
+            t.batches[0].posts[0].body.len(),
+            request_bytes_for_payloads(&[payload_size, payload_size])
+        );
     }
 
     #[test]
     fn test_pq_single_batch() {
         let cfg = InfoConfiguration::default();
         let time = 11111111.0;
-        let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")),
-        ]);
+        let (mut pq, tester) = pq_test_setup(
+            cfg,
+            time,
+            vec![fake_response(
+                StatusCode::ACCEPTED,
+                time + 100.0,
+                Some("1234"),
+            )],
+        );
 
         let payload_size = 100 - *NON_PAYLOAD_OVERHEAD;
         pq.enqueue(&make_record(payload_size)).unwrap();
@@ -988,21 +1120,27 @@ mod test {
         assert_eq!(t.batches[0].records, 3);
         assert_eq!(t.batches[0].bytes, payload_size * 3);
         assert_eq!(t.batches[0].posts[0].commit, true);
-        assert_eq!(t.batches[0].posts[0].body.len(),
-                   request_bytes_for_payloads(&[payload_size, payload_size, payload_size]));
+        assert_eq!(
+            t.batches[0].posts[0].body.len(),
+            request_bytes_for_payloads(&[payload_size, payload_size, payload_size])
+        );
     }
 
     #[test]
     fn test_pq_multi_post_batch_bytes() {
-        let cfg =  InfoConfiguration {
+        let cfg = InfoConfiguration {
             max_post_bytes: 200,
             ..InfoConfiguration::default()
         };
         let time = 11111111.0;
-        let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::ACCEPTED, time, Some("1234")),
-            fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")),
-        ]);
+        let (mut pq, tester) = pq_test_setup(
+            cfg,
+            time,
+            vec![
+                fake_response(StatusCode::ACCEPTED, time, Some("1234")),
+                fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")),
+            ],
+        );
 
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
@@ -1022,30 +1160,37 @@ mod test {
         assert_eq!(t.batches[0].posts[0].records, 2);
         assert_eq!(t.batches[0].posts[0].payload_bytes, 200);
         assert_eq!(t.batches[0].posts[0].commit, false);
-        assert_eq!(t.batches[0].posts[0].body.len(),
-                   request_bytes_for_payloads(&[100, 100]));
+        assert_eq!(
+            t.batches[0].posts[0].body.len(),
+            request_bytes_for_payloads(&[100, 100])
+        );
 
         assert_eq!(t.batches[0].posts[1].batch.as_ref().unwrap(), "1234");
         assert_eq!(t.batches[0].posts[1].records, 1);
         assert_eq!(t.batches[0].posts[1].payload_bytes, 100);
         assert_eq!(t.batches[0].posts[1].commit, true);
-        assert_eq!(t.batches[0].posts[1].body.len(),
-                   request_bytes_for_payloads(&[100]));
+        assert_eq!(
+            t.batches[0].posts[1].body.len(),
+            request_bytes_for_payloads(&[100])
+        );
     }
-
 
     #[test]
     fn test_pq_multi_post_batch_records() {
-        let cfg =  InfoConfiguration {
+        let cfg = InfoConfiguration {
             max_post_records: 3,
             ..InfoConfiguration::default()
         };
         let time = 11111111.0;
-        let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::ACCEPTED, time, Some("1234")),
-            fake_response(StatusCode::ACCEPTED, time, Some("1234")),
-            fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")),
-        ]);
+        let (mut pq, tester) = pq_test_setup(
+            cfg,
+            time,
+            vec![
+                fake_response(StatusCode::ACCEPTED, time, Some("1234")),
+                fake_response(StatusCode::ACCEPTED, time, Some("1234")),
+                fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")),
+            ],
+        );
 
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
@@ -1070,38 +1215,48 @@ mod test {
         assert_eq!(t.batches[0].posts[0].records, 3);
         assert_eq!(t.batches[0].posts[0].payload_bytes, 300);
         assert_eq!(t.batches[0].posts[0].commit, false);
-        assert_eq!(t.batches[0].posts[0].body.len(),
-                   request_bytes_for_payloads(&[100, 100, 100]));
+        assert_eq!(
+            t.batches[0].posts[0].body.len(),
+            request_bytes_for_payloads(&[100, 100, 100])
+        );
 
         assert_eq!(t.batches[0].posts[1].batch.as_ref().unwrap(), "1234");
         assert_eq!(t.batches[0].posts[1].records, 3);
         assert_eq!(t.batches[0].posts[1].payload_bytes, 300);
         assert_eq!(t.batches[0].posts[1].commit, false);
-        assert_eq!(t.batches[0].posts[1].body.len(),
-                   request_bytes_for_payloads(&[100, 100, 100]));
+        assert_eq!(
+            t.batches[0].posts[1].body.len(),
+            request_bytes_for_payloads(&[100, 100, 100])
+        );
 
         assert_eq!(t.batches[0].posts[2].batch.as_ref().unwrap(), "1234");
         assert_eq!(t.batches[0].posts[2].records, 1);
         assert_eq!(t.batches[0].posts[2].payload_bytes, 100);
         assert_eq!(t.batches[0].posts[2].commit, true);
-        assert_eq!(t.batches[0].posts[2].body.len(),
-                   request_bytes_for_payloads(&[100]));
+        assert_eq!(
+            t.batches[0].posts[2].body.len(),
+            request_bytes_for_payloads(&[100])
+        );
     }
 
     #[test]
     fn test_pq_multi_post_multi_batch_records() {
-        let cfg =  InfoConfiguration {
+        let cfg = InfoConfiguration {
             max_post_records: 3,
             max_total_records: 5,
             ..InfoConfiguration::default()
         };
         let time = 11111111.0;
-        let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::ACCEPTED, time, Some("1234")),
-            fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")),
-            fake_response(StatusCode::ACCEPTED, time + 100.0, Some("abcd")),
-            fake_response(StatusCode::ACCEPTED, time + 200.0, Some("abcd")),
-        ]);
+        let (mut pq, tester) = pq_test_setup(
+            cfg,
+            time,
+            vec![
+                fake_response(StatusCode::ACCEPTED, time, Some("1234")),
+                fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")),
+                fake_response(StatusCode::ACCEPTED, time + 100.0, Some("abcd")),
+                fake_response(StatusCode::ACCEPTED, time + 200.0, Some("abcd")),
+            ],
+        );
 
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
@@ -1134,46 +1289,57 @@ mod test {
         assert_eq!(t.batches[0].posts[0].records, 3);
         assert_eq!(t.batches[0].posts[0].payload_bytes, 300);
         assert_eq!(t.batches[0].posts[0].commit, false);
-        assert_eq!(t.batches[0].posts[0].body.len(),
-                   request_bytes_for_payloads(&[100, 100, 100]));
+        assert_eq!(
+            t.batches[0].posts[0].body.len(),
+            request_bytes_for_payloads(&[100, 100, 100])
+        );
 
         assert_eq!(t.batches[0].posts[1].batch.as_ref().unwrap(), "1234");
         assert_eq!(t.batches[0].posts[1].records, 2);
         assert_eq!(t.batches[0].posts[1].payload_bytes, 200);
         assert_eq!(t.batches[0].posts[1].commit, true);
-        assert_eq!(t.batches[0].posts[1].body.len(),
-                   request_bytes_for_payloads(&[100, 100]));
-
+        assert_eq!(
+            t.batches[0].posts[1].body.len(),
+            request_bytes_for_payloads(&[100, 100])
+        );
 
         assert_eq!(t.batches[1].posts[0].batch.as_ref().unwrap(), "true");
         assert_eq!(t.batches[1].posts[0].records, 3);
         assert_eq!(t.batches[1].posts[0].payload_bytes, 300);
         assert_eq!(t.batches[1].posts[0].commit, false);
-        assert_eq!(t.batches[1].posts[0].body.len(),
-                   request_bytes_for_payloads(&[100, 100, 100]));
+        assert_eq!(
+            t.batches[1].posts[0].body.len(),
+            request_bytes_for_payloads(&[100, 100, 100])
+        );
 
         assert_eq!(t.batches[1].posts[1].batch.as_ref().unwrap(), "abcd");
         assert_eq!(t.batches[1].posts[1].records, 1);
         assert_eq!(t.batches[1].posts[1].payload_bytes, 100);
         assert_eq!(t.batches[1].posts[1].commit, true);
-        assert_eq!(t.batches[1].posts[1].body.len(),
-                   request_bytes_for_payloads(&[100]));
+        assert_eq!(
+            t.batches[1].posts[1].body.len(),
+            request_bytes_for_payloads(&[100])
+        );
     }
 
     #[test]
     fn test_pq_multi_post_multi_batch_bytes() {
-        let cfg =  InfoConfiguration {
+        let cfg = InfoConfiguration {
             max_post_bytes: 300,
             max_total_bytes: 500,
             ..InfoConfiguration::default()
         };
         let time = 11111111.0;
-        let (mut pq, tester) = pq_test_setup(cfg, time, vec![
-            fake_response(StatusCode::ACCEPTED, time, Some("1234")),
-            fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")), // should commit
-            fake_response(StatusCode::ACCEPTED, time + 100.0, Some("abcd")),
-            fake_response(StatusCode::ACCEPTED, time + 200.0, Some("abcd")), // should commit
-        ]);
+        let (mut pq, tester) = pq_test_setup(
+            cfg,
+            time,
+            vec![
+                fake_response(StatusCode::ACCEPTED, time, Some("1234")),
+                fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")), // should commit
+                fake_response(StatusCode::ACCEPTED, time + 100.0, Some("abcd")),
+                fake_response(StatusCode::ACCEPTED, time + 200.0, Some("abcd")), // should commit
+            ],
+        );
 
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
@@ -1212,29 +1378,37 @@ mod test {
         assert_eq!(t.batches[0].posts[0].records, 3);
         assert_eq!(t.batches[0].posts[0].payload_bytes, 300);
         assert_eq!(t.batches[0].posts[0].commit, false);
-        assert_eq!(t.batches[0].posts[0].body.len(),
-                   request_bytes_for_payloads(&[100, 100, 100]));
+        assert_eq!(
+            t.batches[0].posts[0].body.len(),
+            request_bytes_for_payloads(&[100, 100, 100])
+        );
 
         assert_eq!(t.batches[0].posts[1].batch.as_ref().unwrap(), "1234");
         assert_eq!(t.batches[0].posts[1].records, 2);
         assert_eq!(t.batches[0].posts[1].payload_bytes, 200);
         assert_eq!(t.batches[0].posts[1].commit, true);
-        assert_eq!(t.batches[0].posts[1].body.len(),
-                   request_bytes_for_payloads(&[100, 100]));
+        assert_eq!(
+            t.batches[0].posts[1].body.len(),
+            request_bytes_for_payloads(&[100, 100])
+        );
 
         assert_eq!(t.batches[1].posts[0].batch.as_ref().unwrap(), "true");
         assert_eq!(t.batches[1].posts[0].records, 3);
         assert_eq!(t.batches[1].posts[0].payload_bytes, 300);
         assert_eq!(t.batches[1].posts[0].commit, false);
-        assert_eq!(t.batches[1].posts[0].body.len(),
-                   request_bytes_for_payloads(&[100, 100, 100]));
+        assert_eq!(
+            t.batches[1].posts[0].body.len(),
+            request_bytes_for_payloads(&[100, 100, 100])
+        );
 
         assert_eq!(t.batches[1].posts[1].batch.as_ref().unwrap(), "abcd");
         assert_eq!(t.batches[1].posts[1].records, 1);
         assert_eq!(t.batches[1].posts[1].payload_bytes, 100);
         assert_eq!(t.batches[1].posts[1].commit, true);
-        assert_eq!(t.batches[1].posts[1].body.len(),
-                   request_bytes_for_payloads(&[100]));
+        assert_eq!(
+            t.batches[1].posts[1].body.len(),
+            request_bytes_for_payloads(&[100])
+        );
     }
 
     // TODO: Test

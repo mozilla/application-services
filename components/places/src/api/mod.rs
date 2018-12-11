@@ -5,8 +5,8 @@
 pub mod history;
 pub mod matcher;
 use db::PlacesDb;
-use error::{Result};
-use observation::{VisitObservation};
+use error::Result;
+use observation::VisitObservation;
 use storage;
 
 pub fn apply_observation(conn: &mut PlacesDb, visit_obs: VisitObservation) -> Result<()> {

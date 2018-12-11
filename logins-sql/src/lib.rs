@@ -39,18 +39,15 @@ extern crate ffi_support;
 mod error;
 mod login;
 
-pub mod schema;
-mod util;
 mod db;
 mod engine;
+pub mod schema;
 mod update_plan;
+mod util;
 
 #[cfg(feature = "ffi")]
 mod ffi;
 
+pub use engine::*;
 pub use error::*;
 pub use login::*;
-pub use engine::*;
-
-
-

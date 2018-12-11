@@ -4,13 +4,13 @@
 
 // XXX - more copy-pasta from logins-sql.
 
-use failure::{Fail, Context, Backtrace};
-use std::{self, fmt};
-use std::boxed::Box;
+use failure::{Backtrace, Context, Fail};
 use rusqlite;
 use serde_json;
-use url;
+use std::boxed::Box;
+use std::{self, fmt};
 use sync15_adapter;
+use url;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -110,4 +110,3 @@ pub enum InvalidPlaceInfo {
     #[fail(display = "Invalid guid")]
     InvalidGuid,
 }
-

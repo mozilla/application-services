@@ -3,10 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use changeset::{CollectionUpdate, IncomingChangeset, OutgoingChangeset};
-use request::{CollectionRequest};
 use client::Sync15StorageClient;
 use error::Error;
 use failure;
+use request::CollectionRequest;
 use state::GlobalState;
 use util::ServerTimestamp;
 
@@ -19,7 +19,7 @@ pub trait Store {
 
     fn apply_incoming(
         &self,
-        inbound: IncomingChangeset
+        inbound: IncomingChangeset,
     ) -> Result<OutgoingChangeset, failure::Error>;
 
     fn sync_finished(
@@ -40,19 +40,23 @@ pub trait Store {
     fn wipe(&self) -> Result<(), failure::Error>;
 }
 
-pub fn synchronize(client: &Sync15StorageClient,
-                   state: &GlobalState,
-                   store: &Store,
-                   fully_atomic: bool) -> Result<(), Error>
-{
-
+pub fn synchronize(
+    client: &Sync15StorageClient,
+    state: &GlobalState,
+    store: &Store,
+    fully_atomic: bool,
+) -> Result<(), Error> {
     let collection = store.collection_name();
     info!("Syncing collection {}", collection);
     let collection_request = store.get_collection_request()?;
-    let incoming_changes = IncomingChangeset::fetch(client, state, collection.into(), &collection_request)?;
+    let incoming_changes =
+        IncomingChangeset::fetch(client, state, collection.into(), &collection_request)?;
     let last_changed_remote = incoming_changes.timestamp;
 
-    info!("Downloaded {} remote changes", incoming_changes.changes.len());
+    info!(
+        "Downloaded {} remote changes",
+        incoming_changes.changes.len()
+    );
     let mut outgoing = store.apply_incoming(incoming_changes)?;
 
     outgoing.timestamp = last_changed_remote;
@@ -61,9 +65,11 @@ pub fn synchronize(client: &Sync15StorageClient,
     let upload_info =
         CollectionUpdate::new_from_changeset(client, state, outgoing, fully_atomic)?.upload()?;
 
-    info!("Upload success ({} records success, {} records failed)",
-          upload_info.successful_ids.len(),
-          upload_info.failed_ids.len());
+    info!(
+        "Upload success ({} records success, {} records failed)",
+        upload_info.successful_ids.len(),
+        upload_info.failed_ids.len()
+    );
 
     store.sync_finished(upload_info.modified_timestamp, &upload_info.successful_ids)?;
 

@@ -2,11 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::ptr;
-use std::os::raw::c_char;
-use string::*;
 use serde;
 use serde_json;
+use std::os::raw::c_char;
+use std::ptr;
+use string::*;
 
 /// This trait is used to return types over the FFI. It essentially is a mapping between a type and
 /// version of that type we can pass back to C (`IntoFfi::Value`).
@@ -248,8 +248,14 @@ impl<T: IntoFfi + IntoFfiJsonTag + serde::Serialize> IntoFfiJsonTag for Vec<T> {
 // we convert them to `u8`.
 unsafe impl IntoFfi for bool {
     type Value = u8;
-    #[inline] fn ffi_default() -> Self::Value { 0u8 }
-    #[inline] fn into_ffi_value(self) -> Self::Value { self as u8 }
+    #[inline]
+    fn ffi_default() -> Self::Value {
+        0u8
+    }
+    #[inline]
+    fn into_ffi_value(self) -> Self::Value {
+        self as u8
+    }
 }
 
 // just cuts down on boilerplate. Not public.
@@ -264,16 +270,4 @@ macro_rules! impl_into_ffi_for_primitive {
 }
 
 // See IntoFfi docs for why this is not exhaustive
-impl_into_ffi_for_primitive![
-    (),
-    i8,
-    u8,
-    i16,
-    u16,
-    i32,
-    u32,
-    i64,
-    u64,
-    f32,
-    f64
-];
+impl_into_ffi_for_primitive![(), i8, u8, i16, u16, i32, u32, i64, u64, f32, f64];

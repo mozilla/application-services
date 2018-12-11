@@ -11,10 +11,10 @@ use error::*;
 use hash;
 use rusqlite::{self, Connection};
 use sql_support::{self, ConnExt};
-use std::path::Path;
 use std::ops::Deref;
+use std::path::Path;
 
-use api::matcher::{split_after_prefix, split_after_host_and_port};
+use api::matcher::{split_after_host_and_port, split_after_prefix};
 use match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
 
 pub const MAX_VARIABLE_NUMBER: usize = 999;
@@ -41,7 +41,8 @@ impl PlacesDb {
         // help ensure good performance on autocomplete-style queries. The default value is 1024,
         // which the SQLcipher docs themselves say is too small and should be changed.
         let encryption_pragmas = if let Some(key) = encryption_key {
-            format!("
+            format!(
+                "
                 PRAGMA key = '{key}';
                 PRAGMA cipher_page_size = {page_size};
             ",
@@ -52,7 +53,8 @@ impl PlacesDb {
             format!("PRAGMA page_size = {};", PAGE_SIZE)
         };
 
-        let initial_pragmas = format!("
+        let initial_pragmas = format!(
+            "
             {}
 
             -- `temp_store = 2` is required on Android to force the DB to keep temp
@@ -79,11 +81,17 @@ impl PlacesDb {
     }
 
     pub fn open(path: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Self> {
-        Ok(Self::with_connection(Connection::open(path)?, encryption_key)?)
+        Ok(Self::with_connection(
+            Connection::open(path)?,
+            encryption_key,
+        )?)
     }
 
     pub fn open_in_memory(encryption_key: Option<&str>) -> Result<Self> {
-        Ok(Self::with_connection(Connection::open_in_memory()?, encryption_key)?)
+        Ok(Self::with_connection(
+            Connection::open_in_memory()?,
+            encryption_key,
+        )?)
     }
 }
 
@@ -137,9 +145,8 @@ fn define_functions(c: &Connection) -> Result<()> {
         rev_host_bytes.reverse();
         rev_host_bytes.push(b'.');
 
-        let rev_host = String::from_utf8(rev_host_bytes).map_err(|err|
-            rusqlite::Error::UserFunctionError(err.into())
-        )?;
+        let rev_host = String::from_utf8(rev_host_bytes)
+            .map_err(|err| rusqlite::Error::UserFunctionError(err.into()))?;
         Ok(rev_host)
     })?;
     c.create_scalar_function("autocomplete_match", 10, true, move |ctx| {
@@ -211,10 +218,18 @@ mod tests {
     #[test]
     fn test_reverse_host() {
         let conn = PlacesDb::open_in_memory(None).expect("no memory db");
-        let rev_host: String = conn.db.query_row("SELECT reverse_host('www.mozilla.org')", &[], |row| row.get(0)).unwrap();
+        let rev_host: String = conn
+            .db
+            .query_row("SELECT reverse_host('www.mozilla.org')", &[], |row| {
+                row.get(0)
+            })
+            .unwrap();
         assert_eq!(rev_host, "gro.allizom.www.");
 
-        let rev_host: String = conn.db.query_row("SELECT reverse_host('')", &[], |row| row.get(0)).unwrap();
+        let rev_host: String = conn
+            .db
+            .query_row("SELECT reverse_host('')", &[], |row| row.get(0))
+            .unwrap();
         assert_eq!(rev_host, ".");
     }
 }

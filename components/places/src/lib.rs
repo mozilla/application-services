@@ -26,8 +26,8 @@ extern crate serde_json;
 extern crate serde_derive;
 
 extern crate caseless;
-extern crate unicode_normalization;
 extern crate sql_support;
+extern crate unicode_normalization;
 extern crate url_serde;
 #[macro_use]
 extern crate bitflags;
@@ -44,21 +44,20 @@ pub mod error;
 pub mod types;
 // Making these all pub for now while we flesh out the API.
 pub mod db;
-pub mod storage;
-pub mod hash;
-pub mod frecency;
-pub mod observation;
-pub mod history_sync;
-mod util;
 #[cfg(feature = "ffi")]
 pub mod ffi;
+pub mod frecency;
+pub mod hash;
+pub mod history_sync;
 mod match_impl;
+pub mod observation;
+pub mod storage;
+mod util;
 mod valid_guid;
 
-pub use error::*;
-pub use types::*;
-pub use observation::VisitObservation;
-pub use storage::{RowId, PageInfo};
-pub use db::PlacesDb;
 pub use api::apply_observation;
-
+pub use db::PlacesDb;
+pub use error::*;
+pub use observation::VisitObservation;
+pub use storage::{PageInfo, RowId};
+pub use types::*;

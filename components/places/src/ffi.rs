@@ -6,10 +6,10 @@
 
 // This module implement the traits that make the FFI code easier to manage.
 
-use ffi_support::{ErrorCode, ExternError};
 use api::matcher::SearchResult;
 use db::PlacesDb;
 use error::{Error, ErrorKind};
+use ffi_support::{ErrorCode, ExternError};
 
 pub mod error_codes {
     // Note: 0 (success) and -1 (panic) are reserved by ffi_support
@@ -43,7 +43,8 @@ fn get_code(err: &Error) -> ErrorCode {
         // Can't pattern match on `err` without adding a dep on the sqlite3-sys crate,
         // so we just use a `if` guard.
         ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, msg))
-        if err.code == rusqlite::ErrorCode::DatabaseBusy => {
+            if err.code == rusqlite::ErrorCode::DatabaseBusy =>
+        {
             error!("Database busy: {:?} {:?}", err, msg);
             ErrorCode::new(error_codes::DATABASE_BUSY)
         }

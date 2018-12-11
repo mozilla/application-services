@@ -6,10 +6,10 @@
 
 // This module implement the traits that make the FFI code easier to manage.
 
-use rusqlite;
 use ffi_support::{ErrorCode, ExternError};
-use sync::{ErrorKind as Sync15ErrorKind};
-use {Error, ErrorKind, PasswordEngine, Login};
+use rusqlite;
+use sync::ErrorKind as Sync15ErrorKind;
+use {Error, ErrorKind, Login, PasswordEngine};
 
 pub mod error_codes {
     /// An unexpected error occurred which likely cannot be meaningfully handled
@@ -46,10 +46,8 @@ fn get_code(err: &Error) -> ErrorCode {
             match e.kind() {
                 Sync15ErrorKind::TokenserverHttpError(401) => {
                     ErrorCode::new(error_codes::AUTH_INVALID)
-                },
-                Sync15ErrorKind::RequestError(_) => {
-                    ErrorCode::new(error_codes::NETWORK)
                 }
+                Sync15ErrorKind::RequestError(_) => ErrorCode::new(error_codes::NETWORK),
                 _ => ErrorCode::new(error_codes::UNEXPECTED),
             }
         }
@@ -68,7 +66,8 @@ fn get_code(err: &Error) -> ErrorCode {
         // We can't destructure `err` without bringing in the libsqlite3_sys crate
         // (and I'd really rather not) so we can't put this in the match.
         ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, _))
-                if err.code == rusqlite::ErrorCode::NotADatabase => {
+            if err.code == rusqlite::ErrorCode::NotADatabase =>
+        {
             error!("Not a database / invalid key error");
             ErrorCode::new(error_codes::INVALID_KEY)
         }

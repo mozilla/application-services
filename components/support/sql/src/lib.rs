@@ -10,15 +10,15 @@ extern crate rusqlite;
 #[macro_use]
 extern crate lazy_static;
 
-mod each_chunk;
-mod repeat;
 mod conn_ext;
+mod each_chunk;
 mod maybe_cached;
+mod repeat;
 
-pub use repeat::*;
-pub use each_chunk::*;
 pub use conn_ext::*;
+pub use each_chunk::*;
 pub use maybe_cached::*;
+pub use repeat::*;
 
 /// In PRAGMA foo='bar', `'bar'` must be a constant string (it cannot be a
 /// bound parameter), so we need to escape manually. According to

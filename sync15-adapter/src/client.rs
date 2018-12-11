@@ -5,16 +5,21 @@
 use std::cell::Cell;
 use std::time::Duration;
 
-use hyper::{Method};
-use reqwest::{Client, Request, Response, Url, header::{self, HeaderValue, ACCEPT, AUTHORIZATION}};
+use hyper::Method;
+use reqwest::{
+    header::{self, HeaderValue, ACCEPT, AUTHORIZATION},
+    Client, Request, Response, Url,
+};
 use serde;
 use serde_json;
 
 use bso_record::{BsoRecord, EncryptedBso};
 use error::{self, ErrorKind};
 use record_types::MetaGlobalRecord;
-use request::{BatchPoster, CollectionRequest, InfoConfiguration, PostQueue, PostResponse,
-              PostResponseHandler, X_IF_UNMODIFIED_SINCE, X_WEAVE_TIMESTAMP, InfoCollections};
+use request::{
+    BatchPoster, CollectionRequest, InfoCollections, InfoConfiguration, PostQueue, PostResponse,
+    PostResponseHandler, X_IF_UNMODIFIED_SINCE, X_WEAVE_TIMESTAMP,
+};
 use std::str::FromStr;
 use token;
 use util::ServerTimestamp;
@@ -62,7 +67,7 @@ impl SetupStorageClient for Sync15StorageClient {
         let mut resp = match self.relative_storage_request(Method::GET, "storage/meta/global") {
             Ok(r) => Ok(r),
             Err(ref e) if e.is_not_found() => Err(ErrorKind::NoMetaGlobal.into()),
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }?;
         // Note: meta/global is not encrypted!
         let meta_global: BsoRecord<MetaGlobalRecord> = resp.json()?;
@@ -92,7 +97,7 @@ impl SetupStorageClient for Sync15StorageClient {
         match self.exec_request(req, true) {
             Ok(_) => Ok(()),
             Err(ref e) if e.is_not_found() => Ok(()),
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
 }
@@ -122,27 +127,27 @@ impl Sync15StorageClient {
         &self,
         collection_request: &CollectionRequest,
     ) -> error::Result<Vec<EncryptedBso>> {
-        let mut resp = self.collection_request(
-            Method::GET,
-            collection_request,
-        )?;
+        let mut resp = self.collection_request(Method::GET, collection_request)?;
         Ok(resp.json()?)
     }
 
     #[inline]
     fn authorized(&self, mut req: Request) -> error::Result<Request> {
         let hawk_header_value = self.tsc.authorization(&self.http_client, &req)?;
-        req.headers_mut().insert(AUTHORIZATION, HeaderValue::from_str(&hawk_header_value)?);
+        req.headers_mut()
+            .insert(AUTHORIZATION, HeaderValue::from_str(&hawk_header_value)?);
         Ok(req)
     }
 
     // TODO: probably want a builder-like API to do collection requests (e.g. something
     // that occupies roughly the same conceptual role as the Collection class in desktop)
     fn build_request(&self, method: Method, url: Url) -> error::Result<Request> {
-        self.authorized(self.http_client
-            .request(method, url)
-            .header(ACCEPT, "application/json")
-            .build()?)
+        self.authorized(
+            self.http_client
+                .request(method, url)
+                .header(ACCEPT, "application/json")
+                .build()?,
+        )
     }
 
     fn relative_storage_request<T>(
@@ -180,7 +185,8 @@ impl Sync15StorageClient {
             return Err(ErrorKind::StorageHttpError {
                 code: resp.status().as_u16(),
                 route: resp.url().path().into(),
-            }.into());
+            }
+            .into());
         }
 
         // TODO:
@@ -208,7 +214,11 @@ impl Sync15StorageClient {
     }
 
     fn update_timestamp(&self, hm: &header::HeaderMap) {
-        if let Some(ts) = hm.get(X_WEAVE_TIMESTAMP).and_then(|v| v.to_str().ok()).and_then(|s| ServerTimestamp::from_str(s).ok()) {
+        if let Some(ts) = hm
+            .get(X_WEAVE_TIMESTAMP)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| ServerTimestamp::from_str(s).ok())
+        {
             self.timestamp.set(ts);
         } else {
             // Should we complain more here?
@@ -246,9 +256,15 @@ impl Sync15StorageClient {
         let bytes = serde_json::to_vec(body)?;
 
         let mut req = self.build_request(Method::PUT, url)?;
-        req.headers_mut().insert(header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        req.headers_mut().insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
+        );
         if let Some(ts) = xius {
-            req.headers_mut().insert(X_IF_UNMODIFIED_SINCE, HeaderValue::from_str(&format!("{}", ts))?);
+            req.headers_mut().insert(
+                X_IF_UNMODIFIED_SINCE,
+                HeaderValue::from_str(&format!("{}", ts))?,
+            );
         }
         *req.body_mut() = Some(bytes.into());
         let _ = self.exec_request(req, true)?;
@@ -274,13 +290,19 @@ impl<'a> BatchPoster for PostWrapper<'a> {
         let url = CollectionRequest::new(self.coll.clone())
             .batch(batch)
             .commit(commit)
-            .build_url(Url::parse(&self.client
-                .tsc
-                .api_endpoint(&self.client.http_client)?)?)?;
+            .build_url(Url::parse(
+                &self.client.tsc.api_endpoint(&self.client.http_client)?,
+            )?)?;
 
         let mut req = self.client.build_request(Method::POST, url)?;
-        req.headers_mut().insert(header::CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        req.headers_mut().insert(X_IF_UNMODIFIED_SINCE, HeaderValue::from_str(&format!("{}", xius))?);
+        req.headers_mut().insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("application/json"),
+        );
+        req.headers_mut().insert(
+            X_IF_UNMODIFIED_SINCE,
+            HeaderValue::from_str(&format!("{}", xius))?,
+        );
         // It's very annoying that we need to copy the body here, the request
         // shouldn't need to take ownership of it...
         *req.body_mut() = Some(Vec::from(bytes).into());

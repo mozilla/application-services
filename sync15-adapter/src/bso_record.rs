@@ -2,14 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use base64;
+use error;
+use key_bundle::KeyBundle;
 use serde::de::{Deserialize, DeserializeOwned};
 use serde::ser::Serialize;
-use serde_json::{self, Value as JsonValue, Map};
-use error;
-use base64;
-use std::ops::{Deref, DerefMut};
+use serde_json::{self, Map, Value as JsonValue};
 use std::convert::From;
-use key_bundle::KeyBundle;
+use std::ops::{Deref, DerefMut};
 use util::ServerTimestamp;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -37,15 +37,19 @@ pub struct BsoRecord<T> {
     // This avoids having a separate intermediate type that only exists so that we can deserialize
     // it's payload field as JSON (Especially since this one is going to exist more-or-less just so
     // that we can decrypt the data...)
-    #[serde(with = "as_json", bound(
-        serialize = "T: Serialize",
-        deserialize = "T: DeserializeOwned"))]
+    #[serde(
+        with = "as_json",
+        bound(serialize = "T: Serialize", deserialize = "T: DeserializeOwned")
+    )]
     pub payload: T,
 }
 
 impl<T> BsoRecord<T> {
     #[inline]
-    pub fn map_payload<P, F>(self, mapper: F) -> BsoRecord<P> where F: FnOnce(T) -> P {
+    pub fn map_payload<P, F>(self, mapper: F) -> BsoRecord<P>
+    where
+        F: FnOnce(T) -> P,
+    {
         BsoRecord {
             id: self.id,
             collection: self.collection,
@@ -75,15 +79,12 @@ impl<T> BsoRecord<T> {
 
     pub fn try_map_payload<P, E>(
         self,
-        mapper: impl FnOnce(T) -> Result<P, E>
+        mapper: impl FnOnce(T) -> Result<P, E>,
     ) -> Result<BsoRecord<P>, E> {
         self.map_payload(mapper).transpose()
     }
 
-    pub fn map_payload_or<P>(
-        self,
-        mapper: impl FnOnce(T) -> Option<P>
-    ) -> Option<BsoRecord<P>> {
+    pub fn map_payload_or<P>(self, mapper: impl FnOnce(T) -> Option<P>) -> Option<BsoRecord<P>> {
         self.map_payload(mapper).transpose()
     }
 
@@ -97,10 +98,24 @@ impl<T> BsoRecord<Option<T>> {
     /// Helper to improve ergonomics for handling records that might be tombstones.
     #[inline]
     pub fn transpose(self) -> Option<BsoRecord<T>> {
-        let BsoRecord { id, collection, modified, sortindex, ttl, payload } = self;
+        let BsoRecord {
+            id,
+            collection,
+            modified,
+            sortindex,
+            ttl,
+            payload,
+        } = self;
         match payload {
-            Some(p) => Some(BsoRecord { id, collection, modified, sortindex, ttl, payload: p }),
-            None => None
+            Some(p) => Some(BsoRecord {
+                id,
+                collection,
+                modified,
+                sortindex,
+                ttl,
+                payload: p,
+            }),
+            None => None,
         }
     }
 }
@@ -108,9 +123,23 @@ impl<T> BsoRecord<Option<T>> {
 impl<T, E> BsoRecord<Result<T, E>> {
     #[inline]
     pub fn transpose(self) -> Result<BsoRecord<T>, E> {
-        let BsoRecord { id, collection, modified, sortindex, ttl, payload } = self;
+        let BsoRecord {
+            id,
+            collection,
+            modified,
+            sortindex,
+            ttl,
+            payload,
+        } = self;
         match payload {
-            Ok(p) => Ok(BsoRecord { id, collection, modified, sortindex, ttl, payload: p }),
+            Ok(p) => Ok(BsoRecord {
+                id,
+                collection,
+                modified,
+                sortindex,
+                ttl,
+                payload: p,
+            }),
             Err(e) => Err(e),
         }
     }
@@ -156,10 +185,13 @@ fn is_false(b: &bool) -> bool {
 }
 
 impl Payload {
-
     #[inline]
     pub fn new_tombstone(id: String) -> Payload {
-        Payload { id, deleted: true, data: Map::new() }
+        Payload {
+            id,
+            deleted: true,
+            data: Map::new(),
+        }
     }
 
     #[inline]
@@ -179,10 +211,7 @@ impl Payload {
         self.deleted
     }
 
-    pub fn into_bso(
-        mut self,
-        collection: String
-    ) -> CleartextBso {
+    pub fn into_bso(mut self, collection: String) -> CleartextBso {
         let id = self.id.clone();
         let sortindex: Option<i32> = self.take_auto_field("sortindex");
         let ttl: Option<u32> = self.take_auto_field("ttl");
@@ -200,7 +229,10 @@ impl Payload {
         Ok(serde_json::from_value(value)?)
     }
 
-    pub fn into_record<T>(self) -> error::Result<T> where for<'a> T: Deserialize<'a> {
+    pub fn into_record<T>(self) -> error::Result<T>
+    where
+        for<'a> T: Deserialize<'a>,
+    {
         Ok(serde_json::from_value(JsonValue::from(self))?)
     }
 
@@ -227,9 +259,11 @@ impl Payload {
         // This is a little dubious, but it seems like if we have a e.g. `sortindex` field on the payload
         // it's going to be a bug if we use it instead of the "real" sort index.
         if self.data.contains_key(name) {
-            warn!("Payload for record {} already contains 'automatic' field \"{}\"? \
-                   Overwriting with 'real' value",
-                  self.id, name);
+            warn!(
+                "Payload for record {} already contains 'automatic' field \"{}\"? \
+                 Overwriting with 'real' value",
+                self.id, name
+            );
         }
 
         if let Some(value) = v {
@@ -241,14 +275,16 @@ impl Payload {
 
     fn take_auto_field<V>(&mut self, name: &str) -> Option<V>
     where
-        for<'a> V: Deserialize<'a>
+        for<'a> V: Deserialize<'a>,
     {
         let v = self.data.remove(name)?;
         match serde_json::from_value(v) {
             Ok(v) => Some(v),
             Err(e) => {
-                error!("Automatic field {} exists on payload, but cannot be deserialized: {}",
-                       name, e);
+                error!(
+                    "Automatic field {} exists on payload, but cannot be deserialized: {}",
+                    name, e
+                );
                 None
             }
         }
@@ -257,7 +293,11 @@ impl Payload {
 
 impl From<Payload> for JsonValue {
     fn from(cleartext: Payload) -> Self {
-        let Payload { mut data, id, deleted } = cleartext;
+        let Payload {
+            mut data,
+            id,
+            deleted,
+        } = cleartext;
         data.insert("id".to_string(), JsonValue::String(id.into()));
         if deleted {
             data.insert("deleted".to_string(), JsonValue::Bool(true));
@@ -271,18 +311,24 @@ pub type CleartextBso = BsoRecord<Payload>;
 
 // Contains the methods to automatically deserialize the payload to/from json.
 mod as_json {
-    use serde_json;
     use serde::de::{self, Deserialize, DeserializeOwned, Deserializer};
     use serde::ser::{self, Serialize, Serializer};
+    use serde_json;
 
     pub fn serialize<T, S>(t: &T, serializer: S) -> Result<S::Ok, S::Error>
-            where T: Serialize, S: Serializer {
+    where
+        T: Serialize,
+        S: Serializer,
+    {
         let j = serde_json::to_string(t).map_err(ser::Error::custom)?;
         serializer.serialize_str(&j)
     }
 
     pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
-            where T: DeserializeOwned, D: Deserializer<'de> {
+    where
+        T: DeserializeOwned,
+        D: Deserializer<'de>,
+    {
         let j = String::deserialize(deserializer)?;
         serde_json::from_str(&j).map_err(de::Error::custom)
     }
@@ -333,7 +379,8 @@ impl EncryptedBso {
     }
 
     pub fn decrypt_as<T>(self, key: &KeyBundle) -> error::Result<BsoRecord<T>>
-        where for<'a> T: Deserialize<'a>
+    where
+        for<'a> T: Deserialize<'a>,
     {
         Ok(self.decrypt(key)?.into_record::<T>()?)
     }
@@ -354,7 +401,10 @@ impl CleartextBso {
         Ok(result)
     }
 
-    pub fn into_record<T>(self) -> error::Result<BsoRecord<T>> where for<'a> T: Deserialize<'a> {
+    pub fn into_record<T>(self) -> error::Result<BsoRecord<T>>
+    where
+        for<'a> T: Deserialize<'a>,
+    {
         Ok(self.try_map_payload(|payload| payload.into_record())?)
     }
 }
@@ -409,37 +459,41 @@ mod tests {
                 iv: "aaaaa".into(),
                 hmac: "bbbbb".into(),
                 ciphertext: "ccccc".into(),
-            }
+            },
         };
         let actual = serde_json::to_string(&record).unwrap();
         assert_eq!(actual, goal);
 
         let val_str_payload: serde_json::Value = serde_json::from_str(goal).unwrap();
-        assert_eq!(val_str_payload["payload"].as_str().unwrap().len(),
-                   record.payload.serialized_len())
+        assert_eq!(
+            val_str_payload["payload"].as_str().unwrap().len(),
+            record.payload.serialized_len()
+        )
     }
 
     #[test]
     fn test_roundtrip_crypt_tombstone() {
-        let orig_record = Payload::from_json(
-            json!({ "id": "aaaaaaaaaaaa", "deleted": true, })
-        ).unwrap().into_bso("dummy".into());
+        let orig_record = Payload::from_json(json!({ "id": "aaaaaaaaaaaa", "deleted": true, }))
+            .unwrap()
+            .into_bso("dummy".into());
         assert!(orig_record.is_tombstone());
 
         let keybundle = KeyBundle::new_random().unwrap();
 
         let encrypted = orig_record.clone().encrypt(&keybundle).unwrap();
 
-        assert!(keybundle.verify_hmac_string(
-            &encrypted.payload.hmac,
-            &encrypted.payload.ciphertext).unwrap());
+        assert!(keybundle
+            .verify_hmac_string(&encrypted.payload.hmac, &encrypted.payload.ciphertext)
+            .unwrap());
 
         // While we're here, check on EncryptedPayload::serialized_len
-        let val_rec = serde_json::from_str::<JsonValue>(
-            &serde_json::to_string(&encrypted).unwrap()).unwrap();
+        let val_rec =
+            serde_json::from_str::<JsonValue>(&serde_json::to_string(&encrypted).unwrap()).unwrap();
 
-        assert_eq!(encrypted.payload.serialized_len(),
-                   val_rec["payload"].as_str().unwrap().len());
+        assert_eq!(
+            encrypted.payload.serialized_len(),
+            val_rec["payload"].as_str().unwrap().len()
+        );
 
         let decrypted: CleartextBso = encrypted.decrypt(&keybundle).unwrap();
         assert!(decrypted.is_tombstone());
@@ -449,8 +503,9 @@ mod tests {
     #[test]
     fn test_roundtrip_crypt_record() {
         let payload = json!({ "id": "aaaaaaaaaaaa", "age": 105, "meta": "data" });
-        let orig_record = Payload::from_json(payload.clone()).unwrap()
-                                                             .into_bso("dummy".into());
+        let orig_record = Payload::from_json(payload.clone())
+            .unwrap()
+            .into_bso("dummy".into());
 
         assert!(!orig_record.is_tombstone());
 
@@ -458,16 +513,17 @@ mod tests {
 
         let encrypted = orig_record.clone().encrypt(&keybundle).unwrap();
 
-        assert!(keybundle.verify_hmac_string(
-            &encrypted.payload.hmac,
-            &encrypted.payload.ciphertext
-        ).unwrap());
+        assert!(keybundle
+            .verify_hmac_string(&encrypted.payload.hmac, &encrypted.payload.ciphertext)
+            .unwrap());
 
         // While we're here, check on EncryptedPayload::serialized_len
-        let val_rec = serde_json::from_str::<JsonValue>(
-            &serde_json::to_string(&encrypted).unwrap()).unwrap();
-        assert_eq!(encrypted.payload.serialized_len(),
-                   val_rec["payload"].as_str().unwrap().len());
+        let val_rec =
+            serde_json::from_str::<JsonValue>(&serde_json::to_string(&encrypted).unwrap()).unwrap();
+        assert_eq!(
+            encrypted.payload.serialized_len(),
+            val_rec["payload"].as_str().unwrap().len()
+        );
 
         let decrypted = encrypted.decrypt(&keybundle).unwrap();
         assert!(!decrypted.is_tombstone());
@@ -493,10 +549,9 @@ mod tests {
         let keybundle = KeyBundle::new_random().unwrap();
         let encrypted = bso.clone().encrypt(&keybundle).unwrap();
 
-        assert!(keybundle.verify_hmac_string(
-            &encrypted.payload.hmac,
-            &encrypted.payload.ciphertext
-        ).unwrap());
+        assert!(keybundle
+            .verify_hmac_string(&encrypted.payload.hmac, &encrypted.payload.ciphertext)
+            .unwrap());
 
         let decrypted = encrypted.decrypt(&keybundle).unwrap();
         // We add auto fields during decryption.

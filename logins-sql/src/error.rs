@@ -2,11 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use failure::{Fail, Context, Backtrace};
-use std::{self, fmt};
-use std::boxed::Box;
+use failure::{Backtrace, Context, Fail};
 use rusqlite;
 use serde_json;
+use std::boxed::Box;
+use std::{self, fmt};
 use sync;
 use url;
 
@@ -18,7 +18,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 macro_rules! throw {
     ($e:expr) => {
         return Err(::std::convert::Into::into($e));
-    }
+    };
 }
 
 #[derive(Debug)]
@@ -64,19 +64,24 @@ impl From<Context<ErrorKind>> for Error {
     }
 }
 
-
 #[derive(Debug, Fail)]
 pub enum ErrorKind {
     #[fail(display = "Invalid login: {}", _0)]
     InvalidLogin(InvalidLogin),
 
-    #[fail(display = "The `sync_status` column in DB has an illegal value: {}", _0)]
+    #[fail(
+        display = "The `sync_status` column in DB has an illegal value: {}",
+        _0
+    )]
     BadSyncStatus(u8),
 
     #[fail(display = "A duplicate GUID is present: {:?}", _0)]
     DuplicateGuid(String),
 
-    #[fail(display = "No record with guid exists (when one was required): {:?}", _0)]
+    #[fail(
+        display = "No record with guid exists (when one was required): {:?}",
+        _0
+    )]
     NoSuchRecord(String),
 
     #[fail(display = "Error synchronizing: {}", _0)]
@@ -129,4 +134,3 @@ pub enum InvalidLogin {
     #[fail(display = "Neither `formSubmitUrl` and `httpRealm` are present")]
     NoTarget,
 }
-

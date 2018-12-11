@@ -4,14 +4,14 @@
 
 use hawk;
 
-use reqwest::{Client, Request, Url};
+use error::{self, ErrorKind, Result};
 use hyper::header::AUTHORIZATION;
-use error::{self, Result, ErrorKind};
-use std::fmt;
+use reqwest::{Client, Request, Url};
 use std::borrow::{Borrow, Cow};
+use std::cell::RefCell;
+use std::fmt;
 use std::str::FromStr;
-use std::time::{SystemTime, Duration};
-use std::cell::{RefCell};
+use std::time::{Duration, SystemTime};
 use util::ServerTimestamp;
 
 /// Tokenserver's timestamp is X-Timestamp and not X-Weave-Timestamp.
@@ -64,26 +64,37 @@ struct TokenServerFetcher {
 
 impl TokenServerFetcher {
     fn new(server_url: Url, access_token: String, key_id: String) -> TokenServerFetcher {
-        TokenServerFetcher { server_url, access_token, key_id }
+        TokenServerFetcher {
+            server_url,
+            access_token,
+            key_id,
+        }
     }
 }
 
 impl TokenFetcher for TokenServerFetcher {
     fn fetch_token(&self, request_client: &Client) -> Result<TokenFetchResult> {
-        let mut resp = request_client.get(self.server_url.clone())
-                                     .header(AUTHORIZATION, format!("Bearer {}", self.access_token))
-                                     .header(X_KEY_ID, self.key_id.clone())
-                                     .send()?;
+        let mut resp = request_client
+            .get(self.server_url.clone())
+            .header(AUTHORIZATION, format!("Bearer {}", self.access_token))
+            .header(X_KEY_ID, self.key_id.clone())
+            .send()?;
 
         if !resp.status().is_success() {
             warn!("Non-success status when fetching token: {}", resp.status());
             // TODO: the body should be JSON and contain a status parameter we might need?
-            debug!("  Response body {}", resp.text().unwrap_or_else(|_| "???".into()));
+            debug!(
+                "  Response body {}",
+                resp.text().unwrap_or_else(|_| "???".into())
+            );
             // XXX - shouldn't we "chain" these errors - ie, a BackoffError could
             // have a TokenserverHttpError as its cause?
             if let Some(header) = resp.headers().get(RETRY_AFTER) {
                 // XXX - We are silently dropping parsing errors here.
-                let ms = header.to_str().ok().and_then(|s| s.parse::<f64>().ok())
+                let ms = header
+                    .to_str()
+                    .ok()
+                    .and_then(|s| s.parse::<f64>().ok())
                     .map_or(RETRY_AFTER_DEFAULT_MS, |f| (f * 1000f64) as u64);
                 let when = self.now() + Duration::from_millis(ms);
                 return Err(ErrorKind::BackoffError(when).into());
@@ -93,12 +104,16 @@ impl TokenFetcher for TokenServerFetcher {
         }
 
         let token: TokenserverToken = resp.json()?;
-        let server_timestamp = resp.headers()
-                    .get(X_TIMESTAMP)
-                    .and_then(|v| v.to_str().ok())
-                    .and_then(|s| ServerTimestamp::from_str(s).ok())
-                    .ok_or_else(|| ErrorKind::MissingServerTimestamp)?;
-        Ok(TokenFetchResult { token, server_timestamp })
+        let server_timestamp = resp
+            .headers()
+            .get(X_TIMESTAMP)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| ServerTimestamp::from_str(s).ok())
+            .ok_or_else(|| ErrorKind::MissingServerTimestamp)?;
+        Ok(TokenFetchResult {
+            token,
+            server_timestamp,
+        })
     }
 
     fn now(&self) -> SystemTime {
@@ -119,18 +134,27 @@ struct TokenContext {
 impl fmt::Debug for TokenContext {
     fn fmt(&self, f: &mut fmt::Formatter) -> ::std::result::Result<(), fmt::Error> {
         f.debug_struct("TokenContext")
-         .field("token", &self.token)
-         .field("credentials", &"(omitted)")
-         .field("server_timestamp", &self.server_timestamp)
-         .field("valid_until", &self.valid_until)
-         .finish()
+            .field("token", &self.token)
+            .field("credentials", &"(omitted)")
+            .field("server_timestamp", &self.server_timestamp)
+            .field("valid_until", &self.valid_until)
+            .finish()
     }
 }
 
 impl TokenContext {
-    fn new(token: TokenserverToken, credentials: hawk::Credentials,
-           server_timestamp: ServerTimestamp, valid_until: SystemTime) -> Self {
-        Self { token, credentials, server_timestamp, valid_until }
+    fn new(
+        token: TokenserverToken,
+        credentials: hawk::Credentials,
+        server_timestamp: ServerTimestamp,
+        valid_until: SystemTime,
+    ) -> Self {
+        Self {
+            token,
+            credentials,
+            server_timestamp,
+            valid_until,
+        }
     }
 
     fn is_valid(&self, now: SystemTime) -> bool {
@@ -148,23 +172,24 @@ impl TokenContext {
 
         let path_and_query = match url.query() {
             None => Cow::from(url.path()),
-            Some(qs) => Cow::from(format!("{}?{}", url.path(), qs))
+            Some(qs) => Cow::from(format!("{}?{}", url.path(), qs)),
         };
 
-        let host = url.host_str().ok_or_else(||
-            ErrorKind::UnacceptableUrl("Storage URL has no host".into()))?;
+        let host = url
+            .host_str()
+            .ok_or_else(|| ErrorKind::UnacceptableUrl("Storage URL has no host".into()))?;
 
         // Known defaults exist for https? (among others), so this should be impossible
-        let port = url.port_or_known_default().ok_or_else(||
+        let port = url.port_or_known_default().ok_or_else(|| {
             ErrorKind::UnacceptableUrl(
-                "Storage URL has no port and no default port is known for the protocol".into()))?;
+                "Storage URL has no port and no default port is known for the protocol".into(),
+            )
+        })?;
 
-        let header = hawk::RequestBuilder::new(
-            req.method().as_ref(),
-            host,
-            port,
-            path_and_query.borrow()
-        ).request().make_header(&self.credentials)?;
+        let header =
+            hawk::RequestBuilder::new(req.method().as_ref(), host, port, path_and_query.borrow())
+                .request()
+                .make_header(&self.credentials)?;
 
         Ok(format!("Hawk {}", header))
     }
@@ -219,7 +244,12 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
             key: hawk::Key::new(token.key.as_bytes(), hawk::Digest::sha256())?,
         };
 
-        Ok(TokenContext::new(token, credentials, result.server_timestamp, valid_until))
+        Ok(TokenContext::new(
+            token,
+            credentials,
+            result.server_timestamp,
+            valid_until,
+        ))
     }
 
     // Attempt to fetch a new token and return a new state reflecting that
@@ -235,16 +265,19 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
                         if prev == tc.token.api_endpoint {
                             TokenState::Token(tc)
                         } else {
-                            warn!("api_endpoint changed from {} to {}", prev, tc.token.api_endpoint);
+                            warn!(
+                                "api_endpoint changed from {} to {}",
+                                prev, tc.token.api_endpoint
+                            );
                             TokenState::NodeReassigned
                         }
-                    },
+                    }
                     None => {
                         // Never had an api_endpoint in the past, so this is OK.
                         TokenState::Token(tc)
                     }
                 }
-            },
+            }
             Err(e) => {
                 // Early to avoid nll issues...
                 if let ErrorKind::BackoffError(be) = e.kind() {
@@ -261,28 +294,33 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
     // (which may have changed to a state with a token or an error state)
     fn advance_state(&self, request_client: &Client, state: &TokenState) -> Option<TokenState> {
         match state {
-            TokenState::NoToken => {
-                Some(self.fetch_token(request_client, None))
-            },
-            TokenState::Failed(_, existing_endpoint) => {
-                Some(self.fetch_token(request_client, existing_endpoint.as_ref().map(|e| e.as_str())))
-            },
+            TokenState::NoToken => Some(self.fetch_token(request_client, None)),
+            TokenState::Failed(_, existing_endpoint) => Some(self.fetch_token(
+                request_client,
+                existing_endpoint.as_ref().map(|e| e.as_str()),
+            )),
             TokenState::Token(existing_context) => {
                 if existing_context.is_valid(self.fetcher.now()) {
                     None
                 } else {
-                    Some(self.fetch_token(request_client, Some(existing_context.token.api_endpoint.as_str())))
+                    Some(self.fetch_token(
+                        request_client,
+                        Some(existing_context.token.api_endpoint.as_str()),
+                    ))
                 }
-            },
+            }
             TokenState::Backoff(ref until, ref existing_endpoint) => {
                 if let Ok(remaining) = until.duration_since(self.fetcher.now()) {
                     debug!("enforcing existing backoff - {:?} remains", remaining);
                     None
                 } else {
                     // backoff period is over
-                    Some(self.fetch_token(request_client, existing_endpoint.as_ref().map(|e| e.as_str())))
+                    Some(self.fetch_token(
+                        request_client,
+                        existing_endpoint.as_ref().map(|e| e.as_str()),
+                    ))
                 }
-            },
+            }
             TokenState::NodeReassigned => {
                 // We never leave this state.
                 None
@@ -291,14 +329,15 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
     }
 
     fn with_token<T, F>(&self, request_client: &Client, func: F) -> Result<T>
-            where F: FnOnce(&TokenContext) -> Result<T> {
-
+    where
+        F: FnOnce(&TokenContext) -> Result<T>,
+    {
         // first get a mutable ref to our existing state, advance to the
         // state we will use, then re-stash that state for next time.
         let state: &mut TokenState = &mut self.current_state.borrow_mut();
         match self.advance_state(request_client, state) {
             Some(new_state) => *state = new_state,
-            None => ()
+            None => (),
         }
 
         // Now re-fetch the state we should use for this call - if it's
@@ -364,22 +403,29 @@ impl TokenProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::Cell;
     use reqwest::Client;
+    use std::cell::Cell;
 
     fn make_client() -> Client {
-        Client::builder().timeout(Duration::from_secs(30)).build().expect("can't build client")
+        Client::builder()
+            .timeout(Duration::from_secs(30))
+            .build()
+            .expect("can't build client")
     }
 
     struct TestFetcher<FF, FN>
-        where FF: Fn() -> Result<TokenFetchResult>,
-              FN: Fn() -> SystemTime {
+    where
+        FF: Fn() -> Result<TokenFetchResult>,
+        FN: Fn() -> SystemTime,
+    {
         fetch: FF,
         now: FN,
     }
     impl<FF, FN> TokenFetcher for TestFetcher<FF, FN>
-        where FF: Fn() -> Result<TokenFetchResult>,
-              FN: Fn() -> SystemTime {
+    where
+        FF: Fn() -> Result<TokenFetchResult>,
+        FN: Fn() -> SystemTime,
+    {
         fn fetch_token(&self, _: &Client) -> Result<TokenFetchResult> {
             (self.fetch)()
         }
@@ -389,12 +435,11 @@ mod tests {
     }
 
     fn make_tsc<FF, FN>(fetch: FF, now: FN) -> TokenProviderImpl<TestFetcher<FF, FN>>
-        where FF: Fn() -> Result<TokenFetchResult>,
-              FN: Fn() -> SystemTime {
-        let fetcher: TestFetcher<FF, FN> = TestFetcher {
-            fetch,
-            now,
-        };
+    where
+        FF: Fn() -> Result<TokenFetchResult>,
+        FN: Fn() -> SystemTime,
+    {
+        let fetcher: TestFetcher<FF, FN> = TestFetcher { fetch, now };
         TokenProviderImpl::new(fetcher)
     }
 
@@ -417,7 +462,7 @@ mod tests {
             })
         };
 
-        let tsc = make_tsc(fetch, || {SystemTime::now()});
+        let tsc = make_tsc(fetch, || SystemTime::now());
 
         let e = tsc.api_endpoint(&make_client()).expect("should work");
         assert_eq!(e, "api_endpoint".to_string());
@@ -438,7 +483,7 @@ mod tests {
             return Err(error::Error::from(ErrorKind::BackoffError(when)));
         };
         let now: Cell<SystemTime> = Cell::new(SystemTime::now());
-        let tsc = make_tsc(fetch, || {now.get()});
+        let tsc = make_tsc(fetch, || now.get());
 
         tsc.api_endpoint(&make_client()).expect_err("should bail");
         // XXX - check error type.
@@ -475,14 +520,16 @@ mod tests {
             })
         };
         let now: Cell<SystemTime> = Cell::new(SystemTime::now());
-        let tsc = make_tsc(fetch, || {now.get()});
+        let tsc = make_tsc(fetch, || now.get());
 
-        tsc.api_endpoint(&make_client()).expect("should get a valid token");
+        tsc.api_endpoint(&make_client())
+            .expect("should get a valid token");
         assert_eq!(counter.get(), 1);
 
         // try and get another token - should not re-fetch as the old one
         // remains valid.
-        tsc.api_endpoint(&make_client()).expect("should reuse existing token");
+        tsc.api_endpoint(&make_client())
+            .expect("should reuse existing token");
         assert_eq!(counter.get(), 1);
 
         // Advance the clock.

@@ -28,5 +28,5 @@ pub struct CryptoKeysRecord {
     pub id: String,
     pub collection: String,
     pub default: [String; 2],
-    pub collections: HashMap<String, [String; 2]>
+    pub collections: HashMap<String, [String; 2]>,
 }

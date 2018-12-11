@@ -91,8 +91,8 @@
 //!
 
 // TODO: it would be nice if this was an optional dep.
-extern crate serde_json;
 extern crate serde;
+extern crate serde_json;
 
 #[macro_use]
 extern crate log;
@@ -110,14 +110,14 @@ extern crate backtrace;
 
 #[macro_use]
 mod macros;
-mod string;
 mod error;
 mod into_ffi;
+mod string;
 
-pub use macros::*;
-pub use string::*;
 pub use error::*;
 pub use into_ffi::*;
+pub use macros::*;
+pub use string::*;
 
 /// Call a callback that returns a `Result<T, E>` while:
 ///
@@ -247,12 +247,14 @@ where
 {
     // We need something that's `Into<ExternError>`, even though we never return it, so just use
     // `ExternError` itself.
-    call_with_result(out_error, || -> Result<_, ExternError> {
-        Ok(callback())
-    })
+    call_with_result(out_error, || -> Result<_, ExternError> { Ok(callback()) })
 }
 
-fn call_with_result_impl<R, E, F>(out_error: &mut ExternError, callback: F, abort_on_panic: bool) -> R::Value
+fn call_with_result_impl<R, E, F>(
+    out_error: &mut ExternError,
+    callback: F,
+    abort_on_panic: bool,
+) -> R::Value
 where
     F: FnOnce() -> Result<R, E>,
     E: Into<ExternError> + std::fmt::Debug,
@@ -263,15 +265,14 @@ where
     // expect the FFI code to think about this in a meaningful way. That said, you cannot cause
     // memory safety violations by breaking unwind safety (note that this function is not `unsafe`),
     // short of bugs in unsafe code elsewhere, so this isn't the *worst* thing we could be doing.
-    let res: thread::Result<(ExternError, R::Value)> = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-        init_backtraces_once();
-        match callback() {
-            Ok(v) => (ExternError::default(), v.into_ffi_value()),
-            Err(e) => {
-                (e.into(), R::ffi_default())
-            },
-        }
-    }));
+    let res: thread::Result<(ExternError, R::Value)> =
+        panic::catch_unwind(panic::AssertUnwindSafe(|| {
+            init_backtraces_once();
+            match callback() {
+                Ok(v) => (ExternError::default(), v.into_ffi_value()),
+                Err(e) => (e.into(), R::ffi_default()),
+            }
+        }));
     match res {
         Ok((err, o)) => {
             *out_error = err;
@@ -313,9 +314,11 @@ pub mod abort_on_panic {
         R: IntoFfi,
     {
         let mut dummy = ExternError::success();
-        super::call_with_result_impl(&mut dummy, || -> Result<_, ExternError> {
-            Ok(callback())
-        }, true)
+        super::call_with_result_impl(
+            &mut dummy,
+            || -> Result<_, ExternError> { Ok(callback()) },
+            true,
+        )
     }
 }
 

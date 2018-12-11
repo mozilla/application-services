@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use types::*;
-use url::{Url};
+use url::Url;
 use url_serde;
 
 /// An "observation" based model for updating history.
@@ -69,7 +69,7 @@ impl VisitObservation {
             is_permanent_redirect_source: None,
             at: None,
             referrer: None,
-            is_remote: None
+            is_remote: None,
         }
     }
 
@@ -118,20 +118,21 @@ impl VisitObservation {
 
     // Other helpers which can be derived.
     pub fn get_redirect_frecency_boost(&self) -> bool {
-        self.is_redirect_source.is_some() &&
-        match self.visit_type {
-            Some(t) => t != VisitTransition::Typed,
-            _ => true,
-        }
+        self.is_redirect_source.is_some()
+            && match self.visit_type {
+                Some(t) => t != VisitTransition::Typed,
+                _ => true,
+            }
     }
 
     // nsHistory::GetHiddenState()
     pub fn get_is_hidden(&self) -> bool {
         match self.visit_type {
-            Some(visit_type) =>
-                self.is_redirect_source.is_some() ||
-                visit_type == VisitTransition::FramedLink ||
-                visit_type == VisitTransition::Embed,
+            Some(visit_type) => {
+                self.is_redirect_source.is_some()
+                    || visit_type == VisitTransition::FramedLink
+                    || visit_type == VisitTransition::Embed
+            }
             None => false,
         }
     }

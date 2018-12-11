@@ -2,12 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use base64;
+use openssl;
 use std::convert::From;
+use std::str::FromStr;
 use std::time::Duration;
 use std::{fmt, num};
-use std::str::FromStr;
-use openssl;
-use base64;
 
 pub fn random_guid() -> Result<String, openssl::error::ErrorStack> {
     let mut bytes = vec![0u8; 9];
@@ -28,7 +28,9 @@ pub struct ServerTimestamp(pub f64);
 
 impl From<ServerTimestamp> for f64 {
     #[inline]
-    fn from(ts: ServerTimestamp) -> Self { ts.0 }
+    fn from(ts: ServerTimestamp) -> Self {
+        ts.0
+    }
 }
 
 impl From<f64> for ServerTimestamp {

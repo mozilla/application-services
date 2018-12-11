@@ -5,34 +5,23 @@
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use rusqlite::{Connection};
+use rusqlite::Connection;
 use sql_support::ConnExt;
-use url::{Url};
+use url::Url;
 
-use super::{MAX_OUTGOING_PLACES, MAX_VISITS, HISTORY_TTL};
 use super::record::{HistoryRecord, HistoryRecordVisit, HistorySyncRecord};
-use types::{SyncGuid, Timestamp, VisitTransition};
+use super::{HISTORY_TTL, MAX_OUTGOING_PLACES, MAX_VISITS};
 use storage::history_sync::{
-    apply_synced_deletion,
-    apply_synced_visits,
-    apply_synced_reconciliation,
-    fetch_outgoing,
-    fetch_visits,
-    FetchedVisit,
-    FetchedVisitPage,
-    finish_outgoing,
-    OutgoingInfo,
+    apply_synced_deletion, apply_synced_reconciliation, apply_synced_visits, fetch_outgoing,
+    fetch_visits, finish_outgoing, FetchedVisit, FetchedVisitPage, OutgoingInfo,
 };
-use valid_guid::{is_valid_places_guid};
+use types::{SyncGuid, Timestamp, VisitTransition};
+use valid_guid::is_valid_places_guid;
 
-use api::history::{can_add_url};
+use api::history::can_add_url;
 use error::*;
 
-use sync15_adapter::{
-    IncomingChangeset,
-    OutgoingChangeset,
-    Payload,
-};
+use sync15_adapter::{IncomingChangeset, OutgoingChangeset, Payload};
 
 // In desktop sync, bookmarks are clamped to Jan 23, 1993 (which is 727747200000)
 // There's no good reason history records could be older than that, so we do
@@ -72,11 +61,11 @@ pub enum IncomingPlan {
     /// local guid which is different from the incoming guid, so we need to
     /// change the existing item to the incoming one and upload a tombstone for
     /// old_guid.
-    Apply{
+    Apply {
         old_guid: Option<SyncGuid>,
         url: Url,
         new_title: Option<String>,
-        visits: Vec<HistoryRecordVisit>
+        visits: Vec<HistoryRecordVisit>,
     },
     /// Entry exists locally and it's the same as the incoming record. This is
     /// subtly different from Skip as we may still need to write metadata to
@@ -84,8 +73,11 @@ pub enum IncomingPlan {
     Reconciled,
 }
 
-
-fn plan_incoming_record(conn: &Connection, record: HistoryRecord, max_visits: usize) -> IncomingPlan {
+fn plan_incoming_record(
+    conn: &Connection,
+    record: HistoryRecord,
+    max_visits: usize,
+) -> IncomingPlan {
     let url = match Url::parse(&record.hist_uri) {
         Ok(u) => u,
         Err(e) => return IncomingPlan::Invalid(e.into()),
@@ -96,7 +88,11 @@ fn plan_incoming_record(conn: &Connection, record: HistoryRecord, max_visits: us
     }
 
     match can_add_url(&url) {
-        Ok(can) => if !can { return IncomingPlan::Skip },
+        Ok(can) => {
+            if !can {
+                return IncomingPlan::Skip;
+            }
+        }
         Err(e) => return IncomingPlan::Failed(e.into()),
     }
     // Let's get what we know about it, if anything - last 20, like desktop?
@@ -110,13 +106,15 @@ fn plan_incoming_record(conn: &Connection, record: HistoryRecord, max_visits: us
     // An improvement might be to do this via a temp table so we can dedupe
     // and apply in one operation rather than the fetch, rust-merge and update
     // we are doing here.
-    let (existing_page, existing_visits): (Option<FetchedVisitPage>, Vec<FetchedVisit>) = match visit_tuple {
-        None => (None, Vec::new()),
-        Some((p, v)) => (Some(p), v),
-    };
+    let (existing_page, existing_visits): (Option<FetchedVisitPage>, Vec<FetchedVisit>) =
+        match visit_tuple {
+            None => (None, Vec::new()),
+            Some((p, v)) => (Some(p), v),
+        };
 
     let mut old_guid: Option<SyncGuid> = None;
-    let mut cur_visit_map: HashSet<(VisitTransition, Timestamp)> = HashSet::with_capacity(existing_visits.len());
+    let mut cur_visit_map: HashSet<(VisitTransition, Timestamp)> =
+        HashSet::with_capacity(existing_visits.len());
     if let Some(p) = &existing_page {
         if p.guid != record.id {
             old_guid = Some(p.guid.clone());
@@ -157,7 +155,10 @@ fn plan_incoming_record(conn: &Connection, record: HistoryRecord, max_visits: us
         // If the entry isn't in our map we should add it.
         let key = (transition, timestamp);
         if !cur_visit_map.contains(&key) {
-            to_apply.push(HistoryRecordVisit { date: timestamp.into(), transition: transition as u8 });
+            to_apply.push(HistoryRecordVisit {
+                date: timestamp.into(),
+                transition: transition as u8,
+            });
             cur_visit_map.insert(key);
         }
     }
@@ -170,7 +171,7 @@ fn plan_incoming_record(conn: &Connection, record: HistoryRecord, max_visits: us
             old_guid,
             url: url.clone(),
             new_title,
-            visits: to_apply
+            visits: to_apply,
         }
     } else {
         IncomingPlan::Reconciled
@@ -208,22 +209,35 @@ pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<Outgo
         match &plan {
             IncomingPlan::Skip => {
                 trace!("incoming: skipping item {:?}", guid);
-            },
+            }
             IncomingPlan::Invalid(err) => {
-                warn!("incoming: record {:?} skipped because it is invalid: {}", guid, err);
-            },
+                warn!(
+                    "incoming: record {:?} skipped because it is invalid: {}",
+                    guid, err
+                );
+            }
             IncomingPlan::Failed(err) => {
                 error!("incoming: record {:?} failed to apply: {}", guid, err);
-            },
+            }
             IncomingPlan::Delete => {
                 trace!("incoming: deleting {:?}", guid);
                 num_deleted += 1;
                 apply_synced_deletion(&conn, &guid)?;
-            },
-            IncomingPlan::Apply { old_guid, url, new_title, visits } => {
+            }
+            IncomingPlan::Apply {
+                old_guid,
+                url,
+                new_title,
+                visits,
+            } => {
                 num_applied += 1;
-                trace!("incoming: will apply {:?}: url={:?}, title={:?}, to_add={:?}",
-                       guid, url, new_title, visits);
+                trace!(
+                    "incoming: will apply {:?}: url={:?}, title={:?}, to_add={:?}",
+                    guid,
+                    url,
+                    new_title,
+                    visits
+                );
                 apply_synced_visits(&conn, &guid, &old_guid, &url, new_title, visits)?;
                 // For now, we *do not* upload a tombstone for the item. See
                 // https://github.com/mozilla/application-services/issues/414
@@ -235,12 +249,12 @@ pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<Outgo
                     outgoing.changes.push(Payload::new_tombstone(old_guid.0.clone()));
                 }
                 */
-            },
+            }
             IncomingPlan::Reconciled => {
                 num_reconciled += 1;
                 trace!("incoming: reconciled {:?}", guid);
                 apply_synced_reconciliation(&conn, &guid)?;
-            },
+            }
         };
     }
     // XXX - we could probably commit the transaction here and start a new
@@ -249,18 +263,18 @@ pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<Outgo
 
     for (guid, out_record) in out_infos.drain() {
         let payload = match out_record {
-            OutgoingInfo::Record(record) => {
-                Payload::from_record(record)?
-            },
-            OutgoingInfo::Tombstone => Payload::new_tombstone_with_ttl(guid.0.clone(),
-                                                                       HISTORY_TTL),
+            OutgoingInfo::Record(record) => Payload::from_record(record)?,
+            OutgoingInfo::Tombstone => Payload::new_tombstone_with_ttl(guid.0.clone(), HISTORY_TTL),
         };
         trace!("outgoing {:?}", payload);
         outgoing.changes.push(payload);
     }
     tx.commit()?;
 
-    info!("incoming: applied {}, deleted {}, reconciled {}", num_applied, num_deleted, num_reconciled);
+    info!(
+        "incoming: applied {}, deleted {}, reconciled {}",
+        num_applied, num_deleted, num_reconciled
+    );
 
     Ok(outgoing)
 }
@@ -276,62 +290,84 @@ pub fn finish_plan(conn: &Connection) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{Duration};
-    use storage::{apply_observation};
-    use storage::history_sync::{fetch_visits};
-    use observation::{VisitObservation};
-    use api::matcher::{SearchParams, search_frecent};
-    use types::{Timestamp, SyncStatus};
-    use history_sync::ServerVisitTimestamp;
+    use api::matcher::{search_frecent, SearchParams};
     use db::PlacesDb;
+    use history_sync::ServerVisitTimestamp;
+    use observation::VisitObservation;
+    use std::time::Duration;
+    use storage::apply_observation;
+    use storage::history_sync::fetch_visits;
+    use types::{SyncStatus, Timestamp};
 
     use sql_support::ConnExt;
-    use sync15_adapter::util::{random_guid};
+    use sync15_adapter::util::random_guid;
 
-    use sync15_adapter::{IncomingChangeset, ServerTimestamp};
-    use url::{Url};
     use env_logger;
+    use sync15_adapter::{IncomingChangeset, ServerTimestamp};
+    use url::Url;
 
     fn get_existing_guid(conn: &PlacesDb, url: &Url) -> SyncGuid {
         let guid_result: Result<Option<String>> = conn.try_query_row(
-                    "SELECT guid from moz_places WHERE url = :url;",
-                    &[(":url", &url.clone().into_string())],
-                    |row| Ok(row.get::<_, String>(0).clone()), true);
-        guid_result.expect("should have worked").expect("should have got a value").into()
+            "SELECT guid from moz_places WHERE url = :url;",
+            &[(":url", &url.clone().into_string())],
+            |row| Ok(row.get::<_, String>(0).clone()),
+            true,
+        );
+        guid_result
+            .expect("should have worked")
+            .expect("should have got a value")
+            .into()
     }
 
     fn get_tombstone_count(conn: &PlacesDb) -> u32 {
         let result: Result<Option<u32>> = conn.try_query_row(
-                        "SELECT COUNT(*) from moz_places_tombstones;",
-                        &[],
-                        |row| Ok(row.get::<_, u32>(0).clone()), true);
-        result.expect("should have worked").expect("should have got a value").into()
+            "SELECT COUNT(*) from moz_places_tombstones;",
+            &[],
+            |row| Ok(row.get::<_, u32>(0).clone()),
+            true,
+        );
+        result
+            .expect("should have worked")
+            .expect("should have got a value")
+            .into()
     }
 
     fn get_sync(conn: &PlacesDb, url: &Url) -> (SyncStatus, u32) {
         let guid_result: Result<Option<(SyncStatus, u32)>> = conn.try_query_row(
-                    "SELECT sync_status, sync_change_counter
+            "SELECT sync_status, sync_change_counter
                      FROM moz_places
                      WHERE url = :url;",
-                    &[(":url", &url.clone().into_string())],
-                    |row| Ok((SyncStatus::from_u8(row.get::<_, u8>(0)), row.get::<_, u32>(1))), true);
-        guid_result.expect("should have worked").expect("should have got values").into()
+            &[(":url", &url.clone().into_string())],
+            |row| {
+                Ok((
+                    SyncStatus::from_u8(row.get::<_, u8>(0)),
+                    row.get::<_, u32>(1),
+                ))
+            },
+            true,
+        );
+        guid_result
+            .expect("should have worked")
+            .expect("should have got values")
+            .into()
     }
 
     #[test]
     fn test_invalid_guid() -> Result<()> {
         let _ = env_logger::try_init();
         let conn = PlacesDb::open_in_memory(None)?;
-        let record = HistoryRecord { id: SyncGuid("foo".to_string()),
-                                     title: "title".into(),
-                                     hist_uri: "http://example.com".into(),
-                                     sortindex: 0,
-                                     ttl: 100,
-                                     visits: vec![]};
+        let record = HistoryRecord {
+            id: SyncGuid("foo".to_string()),
+            title: "title".into(),
+            hist_uri: "http://example.com".into(),
+            sortindex: 0,
+            ttl: 100,
+            visits: vec![],
+        };
 
         assert!(match plan_incoming_record(&conn, record, 10) {
             IncomingPlan::Invalid(_) => true,
-            _ => false
+            _ => false,
         });
         Ok(())
     }
@@ -340,16 +376,18 @@ mod tests {
     fn test_invalid_url() -> Result<()> {
         let _ = env_logger::try_init();
         let conn = PlacesDb::open_in_memory(None)?;
-        let record = HistoryRecord { id: SyncGuid("aaaaaaaaaaaa".to_string()),
-                                     title: "title".into(),
-                                     hist_uri: "invalid".into(),
-                                     sortindex: 0,
-                                     ttl: 100,
-                                     visits: vec![]};
+        let record = HistoryRecord {
+            id: SyncGuid("aaaaaaaaaaaa".to_string()),
+            title: "title".into(),
+            hist_uri: "invalid".into(),
+            sortindex: 0,
+            ttl: 100,
+            visits: vec![],
+        };
 
         assert!(match plan_incoming_record(&conn, record, 10) {
             IncomingPlan::Invalid(_) => true,
-            _ => false
+            _ => false,
         });
         Ok(())
     }
@@ -358,17 +396,21 @@ mod tests {
     fn test_new() -> Result<()> {
         let _ = env_logger::try_init();
         let conn = PlacesDb::open_in_memory(None)?;
-        let visits = vec![HistoryRecordVisit {date: SystemTime::now().into(),
-                                              transition: 1}];
-        let record = HistoryRecord { id: SyncGuid("aaaaaaaaaaaa".to_string()),
-                                     title: "title".into(),
-                                     hist_uri: "https://example.com".into(),
-                                     sortindex: 0,
-                                     ttl: 100,
-                                     visits};
+        let visits = vec![HistoryRecordVisit {
+            date: SystemTime::now().into(),
+            transition: 1,
+        }];
+        let record = HistoryRecord {
+            id: SyncGuid("aaaaaaaaaaaa".to_string()),
+            title: "title".into(),
+            hist_uri: "https://example.com".into(),
+            sortindex: 0,
+            ttl: 100,
+            visits,
+        };
 
         assert!(match plan_incoming_record(&conn, record, 10) {
-            IncomingPlan::Apply{ old_guid: None, .. } => true,
+            IncomingPlan::Apply { old_guid: None, .. } => true,
             _ => false,
         });
         Ok(())
@@ -382,8 +424,8 @@ mod tests {
         let url = Url::parse("https://example.com").expect("is valid");
         // add it locally
         let obs = VisitObservation::new(url.clone())
-                      .with_visit_type(VisitTransition::Link)
-                      .with_at(Some(now.into()));
+            .with_visit_type(VisitTransition::Link)
+            .with_at(Some(now.into()));
         apply_observation(&mut conn, obs).expect("should apply");
         // should be New with a change counter.
         assert_eq!(get_sync(&conn, &url), (SyncStatus::New, 1));
@@ -391,13 +433,18 @@ mod tests {
         let guid = get_existing_guid(&conn, &url);
 
         // try and add it remotely.
-        let visits = vec![HistoryRecordVisit {date: now.into(), transition: 1}];
-        let record = HistoryRecord { id: guid,
-                                     title: "title".into(),
-                                     hist_uri: "https://example.com".into(),
-                                     sortindex: 0,
-                                     ttl: 100,
-                                     visits };
+        let visits = vec![HistoryRecordVisit {
+            date: now.into(),
+            transition: 1,
+        }];
+        let record = HistoryRecord {
+            id: guid,
+            title: "title".into(),
+            hist_uri: "https://example.com".into(),
+            sortindex: 0,
+            ttl: 100,
+            visits,
+        };
         // We should have reconciled it.
         assert!(match plan_incoming_record(&conn, record, 10) {
             IncomingPlan::Reconciled => true,
@@ -414,28 +461,36 @@ mod tests {
         let url = Url::parse("https://example.com").expect("is valid");
         // add it locally
         let obs = VisitObservation::new(url.clone())
-                      .with_visit_type(VisitTransition::Link)
-                      .with_at(Some(now.into()));
+            .with_visit_type(VisitTransition::Link)
+            .with_at(Some(now.into()));
         apply_observation(&mut conn, obs).expect("should apply");
 
         let old_guid = get_existing_guid(&conn, &url);
 
         // try and add an incoming record with the same URL but different guid.
         let new_guid = random_guid().expect("according to logins-sql, this is fine :)");
-        let visits = vec![HistoryRecordVisit {date: now.into(), transition: 1}];
-        let record = HistoryRecord { id: new_guid.into(),
-                                     title: "title".into(),
-                                     hist_uri: "https://example.com".into(),
-                                     sortindex: 0,
-                                     ttl: 100,
-                                     visits };
+        let visits = vec![HistoryRecordVisit {
+            date: now.into(),
+            transition: 1,
+        }];
+        let record = HistoryRecord {
+            id: new_guid.into(),
+            title: "title".into(),
+            hist_uri: "https://example.com".into(),
+            sortindex: 0,
+            ttl: 100,
+            visits,
+        };
         // Even though there are no visits we should record that it will be
         // applied with the guid change.
         assert!(match plan_incoming_record(&conn, record, 10) {
-            IncomingPlan::Apply {old_guid: Some(got_old_guid), .. } => {
+            IncomingPlan::Apply {
+                old_guid: Some(got_old_guid),
+                ..
+            } => {
                 assert_eq!(got_old_guid, old_guid);
                 true
-            },
+            }
             _ => false,
         });
     }
@@ -460,10 +515,13 @@ mod tests {
         assert_eq!(outgoing.changes.len(), 0, "nothing outgoing");
 
         let now: Timestamp = SystemTime::now().into();
-        let (_page, visits) = fetch_visits(&db, &Url::parse("http://example.com").unwrap(), 2)?
-                             .expect("page exists");
+        let (_page, visits) =
+            fetch_visits(&db, &Url::parse("http://example.com").unwrap(), 2)?.expect("page exists");
         assert_eq!(visits.len(), 1);
-        assert!(visits[0].visit_date <= now, "should have clamped the timestamp");
+        assert!(
+            visits[0].visit_date <= now,
+            "should have clamped the timestamp"
+        );
         Ok(())
     }
 
@@ -491,14 +549,18 @@ mod tests {
     #[test]
     fn test_apply_plan_incoming_invalid_visit_type() -> Result<()> {
         let db = PlacesDb::open_in_memory(None)?;
-        let visits = vec![HistoryRecordVisit {date: SystemTime::now().into(),
-                                              transition: 99}];
-        let record = HistoryRecord { id: SyncGuid("aaaaaaaaaaaa".to_string()),
-                                     title: "title".into(),
-                                     hist_uri: "http://example.com".into(),
-                                     sortindex: 0,
-                                     ttl: 100,
-                                     visits};
+        let visits = vec![HistoryRecordVisit {
+            date: SystemTime::now().into(),
+            transition: 99,
+        }];
+        let record = HistoryRecord {
+            id: SyncGuid("aaaaaaaaaaaa".to_string()),
+            title: "title".into(),
+            hist_uri: "http://example.com".into(),
+            sortindex: 0,
+            ttl: 100,
+            visits,
+        };
         let plan = plan_incoming_record(&db, record, 10);
         // We expect "Reconciled" because after skipping the invalid visit
         // we found nothing to apply.
@@ -529,8 +591,8 @@ mod tests {
         let outgoing = apply_plan(&db, result)?;
 
         // should have applied it locally.
-        let (page, visits) = fetch_visits(&db, &Url::parse("http://example.com").unwrap(), 2)?
-                             .expect("page exists");
+        let (page, visits) =
+            fetch_visits(&db, &Url::parse("http://example.com").unwrap(), 2)?.expect("page exists");
         assert_eq!(page.title, "title");
         assert_eq!(visits.len(), 1);
         let visit = visits.into_iter().next().unwrap();
@@ -539,7 +601,13 @@ mod tests {
         // page should have frecency (going through a public api to get this is a pain)
         // XXX - FIXME - searching for "title" here fails to find a result?
         // But above, we've checked title is in the record.
-        let found = search_frecent(&db, SearchParams{ search_string: "http://example.com".into(), limit: 2 })?;
+        let found = search_frecent(
+            &db,
+            SearchParams {
+                search_string: "http://example.com".into(),
+                limit: 2,
+            },
+        )?;
         assert_eq!(found.len(), 1);
         let result = found.into_iter().next().unwrap();
         assert!(result.frecency > 0, "should have frecency");
@@ -556,8 +624,8 @@ mod tests {
         let url = Url::parse("https://example.com")?;
         let now = SystemTime::now();
         let obs = VisitObservation::new(url.clone())
-                      .with_visit_type(VisitTransition::Link)
-                      .with_at(Some(now.into()));
+            .with_visit_type(VisitTransition::Link)
+            .with_at(Some(now.into()));
         apply_observation(&mut db, obs)?;
 
         let incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
@@ -576,8 +644,8 @@ mod tests {
 
         // First add a local visit with the timestamp.
         let obs = VisitObservation::new(url.clone())
-                      .with_visit_type(VisitTransition::Link)
-                      .with_at(Some(ts));
+            .with_visit_type(VisitTransition::Link)
+            .with_at(Some(ts));
         apply_observation(&mut db, obs)?;
         // Sync status should be "new" and have a change recorded.
         assert_eq!(get_sync(&db, &url), (SyncStatus::New, 1));
@@ -619,8 +687,8 @@ mod tests {
 
         // First add a local visit with ts1.
         let obs = VisitObservation::new(url.clone())
-                      .with_visit_type(VisitTransition::Link)
-                      .with_at(Some(ts1));
+            .with_visit_type(VisitTransition::Link)
+            .with_at(Some(ts1));
         apply_observation(&mut db, obs)?;
 
         let guid = get_existing_guid(&db, &url);
@@ -651,8 +719,16 @@ mod tests {
         assert_eq!(out_maybe_record.guid, guid);
         let record = out_maybe_record.record.expect("not a tombstone");
         assert_eq!(record.visits.len(), 2, "should have both visits outgoing");
-        assert_eq!(record.visits[0].date, ts2.into(), "most recent timestamp should be first");
-        assert_eq!(record.visits[1].date, ts1.into(), "both timestamps should appear");
+        assert_eq!(
+            record.visits[0].date,
+            ts2.into(),
+            "most recent timestamp should be first"
+        );
+        assert_eq!(
+            record.visits[1].date,
+            ts1.into(),
+            "both timestamps should appear"
+        );
         Ok(())
     }
 
@@ -662,8 +738,8 @@ mod tests {
         let mut db = PlacesDb::open_in_memory(None)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
-                      .with_visit_type(VisitTransition::Link)
-                      .with_at(Some(SystemTime::now().into()));
+            .with_visit_type(VisitTransition::Link)
+            .with_at(Some(SystemTime::now().into()));
         apply_observation(&mut db, obs)?;
         assert_eq!(get_sync(&db, &url), (SyncStatus::New, 1));
 
@@ -691,14 +767,16 @@ mod tests {
         let mut db = PlacesDb::open_in_memory(None)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
-                      .with_visit_type(VisitTransition::Link)
-                      .with_at(Some(SystemTime::now().into()));
+            .with_visit_type(VisitTransition::Link)
+            .with_at(Some(SystemTime::now().into()));
         apply_observation(&mut db, obs)?;
         let guid = get_existing_guid(&db, &url);
 
         // Set the status to normal
-        apply_plan(&db,
-                   IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64)))?;
+        apply_plan(
+            &db,
+            IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64)),
+        )?;
         // It should have changed to normal but still have the initial counter.
         assert_eq!(get_sync(&db, &url), (SyncStatus::Normal, 1));
 
@@ -723,25 +801,32 @@ mod tests {
         let mut db = PlacesDb::open_in_memory(None)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
-                      .with_visit_type(VisitTransition::Link)
-                      .with_at(Some(SystemTime::now().into()));
+            .with_visit_type(VisitTransition::Link)
+            .with_at(Some(SystemTime::now().into()));
         apply_observation(&mut db, obs)?;
         let guid = get_existing_guid(&db, &url);
 
         // Set the status to normal
-        apply_plan(&db, IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64)))?;
+        apply_plan(
+            &db,
+            IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64)),
+        )?;
         // It should have changed to normal but still have the initial counter.
         assert_eq!(get_sync(&db, &url), (SyncStatus::Normal, 1));
 
         // Delete it.
         db.execute_named_cached(
             "DELETE FROM moz_places WHERE guid = :guid",
-            &[(":guid", &guid)])?;
+            &[(":guid", &guid)],
+        )?;
 
         // should be a local tombstone.
         assert_eq!(get_tombstone_count(&db), 1);
 
-        let outgoing = apply_plan(&db, IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64)))?;
+        let outgoing = apply_plan(
+            &db,
+            IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64)),
+        )?;
         assert_eq!(outgoing.changes.len(), 1, "tombstone should be uploaded");
         finish_plan(&db)?;
         // tombstone should be removed.

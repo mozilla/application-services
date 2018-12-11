@@ -2,11 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use db::PlacesDb;
+use error::Result;
 use rusqlite;
 use url::Url;
 use url_serde;
-use db::PlacesDb;
-use error::Result;
 
 pub use match_impl::{MatchBehavior, SearchBehavior};
 
@@ -58,13 +58,15 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
 /// and chosen URL for subsequent matches.
 pub fn accept_result(conn: &PlacesDb, result: &SearchResult) -> Result<()> {
     // See `nsNavHistory::AutoCompleteFeedback`.
-    let mut stmt = conn.db.prepare("
+    let mut stmt = conn.db.prepare(
+        "
         INSERT OR REPLACE INTO moz_inputhistory(place_id, input, use_count)
         SELECT h.id, IFNULL(i.input, :input_text), IFNULL(i.use_count, 0) * .9 + 1
         FROM moz_places h
         LEFT JOIN moz_inputhistory i ON i.place_id = h.id AND i.input = :input_text
         WHERE url_hash = hash(:page_url) AND url = :page_url
-    ")?;
+    ",
+    )?;
     let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
         (":input_text", &result.search_string),
         (":page_url", &result.url.as_str()),
@@ -72,7 +74,6 @@ pub fn accept_result(conn: &PlacesDb, result: &SearchResult) -> Result<()> {
     stmt.execute_named(params)?;
     Ok(())
 }
-
 
 pub fn split_after_prefix(href: &str) -> (&str, &str) {
     match href.find(':') {
@@ -104,9 +105,10 @@ pub fn split_after_host_and_port(href: &str) -> (&str, &str) {
 }
 
 fn looks_like_origin(string: &str) -> bool {
-    return !string.is_empty() && !string.chars().any(|c|
-        c.is_whitespace() || c == '/' || c == '?' || c == '#'
-    );
+    return !string.is_empty()
+        && !string
+            .chars()
+            .any(|c| c.is_whitespace() || c == '/' || c == '?' || c == '#');
 }
 
 /// The match reason specifies why an autocomplete search result matched a
@@ -267,7 +269,8 @@ impl<'query, 'conn> OriginOrUrl<'query, 'conn> {
     pub fn search(&self) -> Result<Vec<SearchResult>> {
         let mut results = Vec::new();
         if looks_like_origin(self.query) {
-            let mut stmt = self.conn.db.prepare("
+            let mut stmt = self.conn.db.prepare(
+                "
                 SELECT IFNULL(:prefix, prefix) || moz_origins.host || '/' AS url,
                        moz_origins.host || '/' AS displayURL,
                        frecency,
@@ -291,7 +294,8 @@ impl<'query, 'conn> OriginOrUrl<'query, 'conn> {
                 JOIN moz_origins ON moz_origins.host = grouped_hosts.host
                 ORDER BY frecency DESC, id DESC
                 LIMIT 1
-            ")?;
+            ",
+            )?;
             let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
                 (":prefix", &rusqlite::types::Null),
                 (":searchString", &self.query),
@@ -359,9 +363,13 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
         conn: &'conn PlacesDb,
         max_results: u32,
     ) -> Adaptive<'query, 'conn> {
-        Adaptive::with_behavior(query, conn, max_results,
+        Adaptive::with_behavior(
+            query,
+            conn,
+            max_results,
             MatchBehavior::BoundaryAnywhere,
-            SearchBehavior::any())
+            SearchBehavior::any(),
+        )
     }
 
     pub fn with_behavior(
@@ -369,7 +377,7 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
         conn: &'conn PlacesDb,
         max_results: u32,
         match_behavior: MatchBehavior,
-        search_behavior: SearchBehavior
+        search_behavior: SearchBehavior,
     ) -> Adaptive<'query, 'conn> {
         Adaptive {
             query,
@@ -381,7 +389,8 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
     }
 
     pub fn search(&self) -> Result<Vec<SearchResult>> {
-        let mut stmt = self.conn.db.prepare("
+        let mut stmt = self.conn.db.prepare(
+            "
             SELECT h.url as url,
                    h.title as title,
                    EXISTS(SELECT 1 FROM moz_bookmarks
@@ -412,7 +421,8 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
                                      NULL, :matchBehavior, :searchBehavior)
             ORDER BY rank DESC, h.frecency DESC
             LIMIT :maxResults
-        ")?;
+        ",
+        )?;
         let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
             (":searchString", &self.query),
             (":matchBehavior", &self.match_behavior),
@@ -441,8 +451,13 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
         conn: &'conn PlacesDb,
         max_results: u32,
     ) -> Suggestions<'query, 'conn> {
-        Suggestions::with_behavior(query, conn, max_results,
-            MatchBehavior::BoundaryAnywhere, SearchBehavior::any())
+        Suggestions::with_behavior(
+            query,
+            conn,
+            max_results,
+            MatchBehavior::BoundaryAnywhere,
+            SearchBehavior::any(),
+        )
     }
 
     pub fn with_behavior(
@@ -462,7 +477,8 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
     }
 
     pub fn search(&self) -> Result<Vec<SearchResult>> {
-        let mut stmt = self.conn.db.prepare("
+        let mut stmt = self.conn.db.prepare(
+            "
             SELECT h.url, h.title,
                    (SELECT title FROM moz_bookmarks
                     WHERE fk = h.id AND
@@ -484,7 +500,8 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
               AND (+h.visit_count_local > 0 OR +h.visit_count_remote > 0)
             ORDER BY h.frecency DESC, h.id DESC
             LIMIT :maxResults
-        ")?;
+        ",
+        )?;
         let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
             (":searchString", &self.query),
             (":matchBehavior", &self.match_behavior),
@@ -502,22 +519,34 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use observation::{VisitObservation};
-    use storage::{apply_observation};
+    use observation::VisitObservation;
+    use storage::apply_observation;
     use types::{Timestamp, VisitTransition};
 
     #[test]
     fn split() {
-        assert_eq!(split_after_prefix("http://example.com"), ("http://", "example.com"));
+        assert_eq!(
+            split_after_prefix("http://example.com"),
+            ("http://", "example.com")
+        );
         assert_eq!(split_after_prefix("foo:example"), ("foo:", "example"));
         assert_eq!(split_after_prefix("foo:"), ("foo:", ""));
         assert_eq!(split_after_prefix("notaspec"), ("", "notaspec"));
         assert_eq!(split_after_prefix("http:/"), ("http:", "/"));
         assert_eq!(split_after_prefix("http://"), ("http://", ""));
 
-        assert_eq!(split_after_host_and_port("http://example.com/"), ("example.com", "/"));
-        assert_eq!(split_after_host_and_port("http://example.com:8888/"), ("example.com:8888", "/"));
-        assert_eq!(split_after_host_and_port("http://user:pass@example.com/"), ("example.com", "/"));
+        assert_eq!(
+            split_after_host_and_port("http://example.com/"),
+            ("example.com", "/")
+        );
+        assert_eq!(
+            split_after_host_and_port("http://example.com:8888/"),
+            ("example.com:8888", "/")
+        );
+        assert_eq!(
+            split_after_host_and_port("http://user:pass@example.com/"),
+            ("example.com", "/")
+        );
         assert_eq!(split_after_host_and_port("foo:example"), ("example", ""));
     }
 
@@ -527,36 +556,52 @@ mod tests {
 
         let url = Url::parse("http://example.com/123").unwrap();
         let visit = VisitObservation::new(url.clone())
-                   .with_title("Example page 123".to_string())
-                   .with_visit_type(VisitTransition::Typed)
-                   .with_at(Timestamp::now());
+            .with_title("Example page 123".to_string())
+            .with_visit_type(VisitTransition::Typed)
+            .with_at(Timestamp::now());
 
         apply_observation(&mut conn, visit).expect("Should apply visit");
 
-        let by_origin = search_frecent(&conn, SearchParams {
-            search_string: "example.com".into(),
-            limit: 10,
-        }).expect("Should search by origin");
+        let by_origin = search_frecent(
+            &conn,
+            SearchParams {
+                search_string: "example.com".into(),
+                limit: 10,
+            },
+        )
+        .expect("Should search by origin");
         println!("Matches by origin: {:?}", by_origin);
 
-        let by_url = search_frecent(&conn, SearchParams {
-            search_string: "http://example.com".into(),
-            limit: 10,
-        }).expect("Should search by URL");
+        let by_url = search_frecent(
+            &conn,
+            SearchParams {
+                search_string: "http://example.com".into(),
+                limit: 10,
+            },
+        )
+        .expect("Should search by URL");
         println!("Matches by URL: {:?}", by_url);
 
-        accept_result(&conn, &SearchResult {
-            search_string: "ample".into(),
-            url: url.clone(),
-            title: "Example page 123".into(),
-            icon_url: None,
-            frecency: -1,
-            reasons: vec![],
-        }).expect("Should accept input history match");
-        let by_adaptive = search_frecent(&conn, SearchParams {
-            search_string: "ample".into(),
-            limit: 10,
-        }).expect("Should search by adaptive input history");
+        accept_result(
+            &conn,
+            &SearchResult {
+                search_string: "ample".into(),
+                url: url.clone(),
+                title: "Example page 123".into(),
+                icon_url: None,
+                frecency: -1,
+                reasons: vec![],
+            },
+        )
+        .expect("Should accept input history match");
+        let by_adaptive = search_frecent(
+            &conn,
+            SearchParams {
+                search_string: "ample".into(),
+                limit: 10,
+            },
+        )
+        .expect("Should search by adaptive input history");
         println!("Matches by adaptive input history: {:?}", by_adaptive);
     }
 }

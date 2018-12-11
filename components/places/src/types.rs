@@ -2,10 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::{fmt};
-use std::time::{SystemTime, Duration, UNIX_EPOCH};
+use std::fmt;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use rusqlite::{types::{ToSql, FromSql, ToSqlOutput, FromSqlResult, ValueRef}};
+use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 
 use serde;
@@ -20,7 +20,10 @@ impl AsRef<str> for SyncGuid {
     }
 }
 
-impl<T> From<T> for SyncGuid where T: Into<String> {
+impl<T> From<T> for SyncGuid
+where
+    T: Into<String>,
+{
     fn from(x: T) -> SyncGuid {
         SyncGuid(x.into())
     }
@@ -40,7 +43,9 @@ impl FromSql for SyncGuid {
 
 // Typesafe way to manage timestamps.
 // We should probably work out how to share this too?
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Default)]
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Default,
+)]
 pub struct Timestamp(pub u64);
 
 impl Timestamp {
@@ -51,7 +56,9 @@ impl Timestamp {
 
 impl From<Timestamp> for u64 {
     #[inline]
-    fn from(ts: Timestamp) -> Self { ts.0 }
+    fn from(ts: Timestamp) -> Self {
+        ts.0
+    }
 }
 
 impl From<SystemTime> for Timestamp {
@@ -95,7 +102,6 @@ impl FromSql for Timestamp {
         value.as_i64().map(|v| Timestamp(v as u64)) // hrm - no u64
     }
 }
-
 
 // NOTE: These discriminator values are the same as those used by Desktop
 // Firefox and are what is written to the database. We also duplicate them
@@ -153,14 +159,14 @@ impl<'de> serde::de::Visitor<'de> for VisitTransitionSerdeVisitor {
     }
 
     fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<VisitTransition, E> {
-        use std::u8::{MAX as U8_MAX};
+        use std::u8::MAX as U8_MAX;
         if value > (U8_MAX as u64) {
             // In practice this is *way* out of the valid range of VisitTransition, but
             // serde requires us to implement this as visit_u64 so...
             return Err(E::custom(format!("value out of u8 range: {}", value)));
         }
-        VisitTransition::from_primitive(value as u8).ok_or_else(||
-            E::custom(format!("unknown VisitTransition value: {}", value)))
+        VisitTransition::from_primitive(value as u8)
+            .ok_or_else(|| E::custom(format!("unknown VisitTransition value: {}", value)))
     }
 }
 
@@ -221,7 +227,10 @@ mod tests {
 
     #[test]
     fn test_primitive() {
-        assert_eq!(Some(VisitTransition::Link), VisitTransition::from_primitive(1));
+        assert_eq!(
+            Some(VisitTransition::Link),
+            VisitTransition::from_primitive(1)
+        );
         assert_eq!(None, VisitTransition::from_primitive(99));
     }
 }

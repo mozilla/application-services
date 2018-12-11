@@ -1,18 +1,13 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use std::path::Path;
-use std::cell::Cell;
-use login::Login;
-use error::*;
-use sync::{
-    ClientInfo,
-    KeyBundle,
-    Sync15StorageClientInit,
-    sync_multiple
-};
 use db::LoginDb;
+use error::*;
+use login::Login;
 use rusqlite;
+use std::cell::Cell;
+use std::path::Path;
+use sync::{sync_multiple, ClientInfo, KeyBundle, Sync15StorageClientInit};
 
 // This isn't really an engine in the firefox sync15 desktop sense -- it's
 // really a bundle of state that contains the sync storage client, the sync
@@ -23,15 +18,20 @@ pub struct PasswordEngine {
 }
 
 impl PasswordEngine {
-
     pub fn new(path: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Self> {
         let db = LoginDb::open(path, encryption_key)?;
-        Ok(Self { db, client_info: Cell::new(None) })
+        Ok(Self {
+            db,
+            client_info: Cell::new(None),
+        })
     }
 
     pub fn new_in_memory(encryption_key: Option<&str>) -> Result<Self> {
         let db = LoginDb::open_in_memory(encryption_key)?;
-        Ok(Self { db, client_info: Cell::new(None) })
+        Ok(Self {
+            db,
+            client_info: Cell::new(None),
+        })
     }
 
     pub fn list(&self) -> Result<Vec<Login>> {
@@ -76,15 +76,19 @@ impl PasswordEngine {
     }
 
     /// A convenience wrapper around sync_multiple.
-    pub fn sync(&self,
-                storage_init: &Sync15StorageClientInit,
-                root_sync_key: &KeyBundle) -> Result<()> {
+    pub fn sync(
+        &self,
+        storage_init: &Sync15StorageClientInit,
+        root_sync_key: &KeyBundle,
+    ) -> Result<()> {
         let global_state: Cell<Option<String>> = Cell::new(self.db.get_global_state()?);
-        let result = sync_multiple(&[&self.db],
-                                   &global_state,
-                                   &self.client_info,
-                                   storage_init,
-                                   root_sync_key);
+        let result = sync_multiple(
+            &[&self.db],
+            &global_state,
+            &self.client_info,
+            storage_init,
+            root_sync_key,
+        );
         self.db.set_global_state(global_state.replace(None))?;
         let failures = result?;
         if failures.len() == 0 {
@@ -130,7 +134,7 @@ mod test {
             password: "p4ssw0rd".into(),
             username_field: "user_input".into(),
             password_field: "pass_input".into(),
-            .. Login::default()
+            ..Login::default()
         };
 
         let b = Login {
@@ -141,7 +145,7 @@ mod test {
             password: "fdsa".into(),
             username_field: "input_user".into(),
             password_field: "input_pass".into(),
-            .. Login::default()
+            ..Login::default()
         };
 
         let a_id = engine.add(a.clone()).expect("added a");
@@ -151,7 +155,8 @@ mod test {
 
         assert_ne!(b_id, b.id, "Should generate guid when none provided");
 
-        let a_from_db = engine.get(&a_id)
+        let a_from_db = engine
+            .get(&a_id)
             .expect("Not to error getting a")
             .expect("a to exist");
 
@@ -161,14 +166,18 @@ mod test {
         assert_ge!(a_from_db.time_last_used, start_us);
         assert_eq!(a_from_db.times_used, 1);
 
-        let b_from_db = engine.get(&b_id)
+        let b_from_db = engine
+            .get(&b_id)
             .expect("Not to error getting b")
             .expect("b to exist");
 
-        assert_logins_equiv(&b_from_db, &Login {
-            id: b_id.clone(),
-            .. b.clone()
-        });
+        assert_logins_equiv(
+            &b_from_db,
+            &Login {
+                id: b_id.clone(),
+                ..b.clone()
+            },
+        );
         assert_ge!(b_from_db.time_created, start_us);
         assert_ge!(b_from_db.time_password_changed, start_us);
         assert_ge!(b_from_db.time_last_used, start_us);
@@ -183,7 +192,8 @@ mod test {
         assert_eq!(list, expect);
 
         engine.delete(&a_id).expect("Successful delete");
-        assert!(engine.get(&a_id)
+        assert!(engine
+            .get(&a_id)
             .expect("get after delete should still work")
             .is_none());
 
@@ -192,11 +202,16 @@ mod test {
         assert_eq!(list[0], b_from_db);
 
         let now_us = util::system_time_ms_i64(SystemTime::now());
-        let b2 = Login { password: "newpass".into(), id: b_id.clone(), .. b.clone() };
+        let b2 = Login {
+            password: "newpass".into(),
+            id: b_id.clone(),
+            ..b.clone()
+        };
 
         engine.update(b2.clone()).expect("update b should work");
 
-        let b_after_update = engine.get(&b_id)
+        let b_after_update = engine
+            .get(&b_id)
             .expect("Not to error getting b")
             .expect("b to exist");
 

@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-extern crate serde_json;
-extern crate rusqlite;
 extern crate places;
+extern crate rusqlite;
+extern crate serde_json;
 extern crate sync15_adapter;
 extern crate url;
 
@@ -17,15 +17,12 @@ extern crate android_logger;
 #[macro_use]
 extern crate ffi_support;
 
-use std::os::raw::c_char;
+use ffi_support::{call_with_result, rust_str_from_c, rust_string_from_c, ExternError};
+use places::history_sync::store::HistoryStore;
 use places::{storage, PlacesDb};
-use places::history_sync::store::{HistoryStore};
-use ffi_support::{call_with_result, rust_string_from_c, rust_str_from_c, ExternError};
+use std::os::raw::c_char;
 
-use places::api::matcher::{
-    search_frecent,
-    SearchParams,
-};
+use places::api::matcher::{search_frecent, SearchParams};
 
 // indirection to help `?` figure out the target error type
 fn parse_url(url: &str) -> sync15_adapter::Result<url::Url> {
@@ -37,7 +34,8 @@ fn logging_init() {
     {
         android_logger::init_once(
             android_logger::Filter::default().with_min_level(log::Level::Trace),
-            Some("libplaces_ffi"));
+            Some("libplaces_ffi"),
+        );
         debug!("Android logging should be hooked up!")
     }
 }
@@ -89,10 +87,13 @@ pub unsafe extern "C" fn places_query_autocomplete(
 ) -> *mut c_char {
     trace!("places_query_autocomplete");
     call_with_result(error, || {
-        search_frecent(conn, SearchParams {
-            search_string: ffi_support::rust_string_from_c(search),
-            limit,
-        })
+        search_frecent(
+            conn,
+            SearchParams {
+                search_string: ffi_support::rust_string_from_c(search),
+                limit,
+            },
+        )
     })
 }
 
@@ -118,7 +119,6 @@ pub unsafe extern "C" fn places_get_visited(
     })
 }
 
-
 #[no_mangle]
 pub extern "C" fn places_get_visited_urls_in_range(
     conn: &PlacesDb,
@@ -134,7 +134,7 @@ pub extern "C" fn places_get_visited_urls_in_range(
             // Probably should allow into()...
             places::Timestamp(start.max(0) as u64),
             places::Timestamp(end.max(0) as u64),
-            include_remote != 0
+            include_remote != 0,
         )?;
         Ok(serde_json::to_string(&visited)?)
     })
@@ -147,7 +147,7 @@ pub unsafe extern "C" fn sync15_history_sync(
     access_token: *const c_char,
     sync_key: *const c_char,
     tokenserver_url: *const c_char,
-    error: &mut ExternError
+    error: &mut ExternError,
 ) {
     trace!("sync15_history_sync");
     call_with_result(error, || -> places::Result<()> {
@@ -160,13 +160,10 @@ pub unsafe extern "C" fn sync15_history_sync(
                 access_token: rust_string_from_c(access_token),
                 tokenserver_url: parse_url(rust_str_from_c(tokenserver_url))?,
             },
-            &sync15_adapter::KeyBundle::from_ksync_base64(
-                rust_str_from_c(sync_key)
-            )?
+            &sync15_adapter::KeyBundle::from_ksync_base64(rust_str_from_c(sync_key))?,
         )
     })
 }
-
 
 define_string_destructor!(places_destroy_string);
 define_box_destructor!(PlacesDb, places_connection_destroy);
