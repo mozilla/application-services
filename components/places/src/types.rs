@@ -2,13 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::fmt;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
-
-use serde;
+use serde_derive::*;
+use std::fmt;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 // XXX - copied from logins - surprised it's not in `sync`
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]

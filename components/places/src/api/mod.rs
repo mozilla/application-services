@@ -4,10 +4,10 @@
 
 pub mod history;
 pub mod matcher;
-use db::PlacesDb;
-use error::Result;
-use observation::VisitObservation;
-use storage;
+use crate::db::PlacesDb;
+use crate::error::Result;
+use crate::observation::VisitObservation;
+use crate::storage;
 
 pub fn apply_observation(conn: &mut PlacesDb, visit_obs: VisitObservation) -> Result<()> {
     storage::apply_observation(conn, visit_obs)?;

@@ -2,26 +2,23 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::HashSet;
-use std::time::{SystemTime, UNIX_EPOCH};
-
-use rusqlite::Connection;
-use sql_support::ConnExt;
-use url::Url;
-
 use super::record::{HistoryRecord, HistoryRecordVisit, HistorySyncRecord};
 use super::{HISTORY_TTL, MAX_OUTGOING_PLACES, MAX_VISITS};
-use storage::history_sync::{
+use crate::api::history::can_add_url;
+use crate::error::*;
+use crate::storage::history_sync::{
     apply_synced_deletion, apply_synced_reconciliation, apply_synced_visits, fetch_outgoing,
     fetch_visits, finish_outgoing, FetchedVisit, FetchedVisitPage, OutgoingInfo,
 };
-use types::{SyncGuid, Timestamp, VisitTransition};
-use valid_guid::is_valid_places_guid;
-
-use api::history::can_add_url;
-use error::*;
-
+use crate::types::{SyncGuid, Timestamp, VisitTransition};
+use crate::valid_guid::is_valid_places_guid;
+use log::*;
+use rusqlite::Connection;
+use sql_support::ConnExt;
+use std::collections::HashSet;
+use std::time::{SystemTime, UNIX_EPOCH};
 use sync15_adapter::{IncomingChangeset, OutgoingChangeset, Payload};
+use url::Url;
 
 // In desktop sync, bookmarks are clamped to Jan 23, 1993 (which is 727747200000)
 // There's no good reason history records could be older than that, so we do
@@ -290,19 +287,17 @@ pub fn finish_plan(conn: &Connection) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use api::matcher::{search_frecent, SearchParams};
-    use db::PlacesDb;
-    use history_sync::ServerVisitTimestamp;
-    use observation::VisitObservation;
-    use std::time::Duration;
-    use storage::apply_observation;
-    use storage::history_sync::fetch_visits;
-    use types::{SyncStatus, Timestamp};
-
+    use crate::api::matcher::{search_frecent, SearchParams};
+    use crate::db::PlacesDb;
+    use crate::history_sync::ServerVisitTimestamp;
+    use crate::observation::VisitObservation;
+    use crate::storage::apply_observation;
+    use crate::storage::history_sync::fetch_visits;
+    use crate::types::{SyncStatus, Timestamp};
+    use serde_json::json;
     use sql_support::ConnExt;
+    use std::time::Duration;
     use sync15_adapter::util::random_guid;
-
-    use env_logger;
     use sync15_adapter::{IncomingChangeset, ServerTimestamp};
     use url::Url;
 

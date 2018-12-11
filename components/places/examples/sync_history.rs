@@ -2,29 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-extern crate fxa_client;
-extern crate sync15_adapter;
-extern crate url;
-
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-
-extern crate rusqlite;
-
-extern crate clap;
-
-#[macro_use]
-extern crate log;
-extern crate env_logger;
-extern crate failure;
-
-extern crate places;
-
 use failure::Fail;
-
 use fxa_client::{AccessTokenInfo, Config, FirefoxAccount};
+use log::*;
 use places::history_sync::store::HistoryStore;
 use places::PlacesDb;
 use std::{fs, io::Read};

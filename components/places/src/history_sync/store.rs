@@ -2,15 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use error::*;
-use failure;
+use crate::error::*;
+use crate::storage::history_sync::reset_storage;
+use log::*;
 use rusqlite::types::{FromSql, ToSql};
 use rusqlite::Connection;
 use sql_support::ConnExt;
 use std::cell::Cell;
 use std::ops::Deref;
 use std::result;
-use storage::history_sync::reset_storage;
 use sync15_adapter::request::CollectionRequest;
 use sync15_adapter::{
     sync_multiple, ClientInfo, IncomingChangeset, KeyBundle, OutgoingChangeset, ServerTimestamp,

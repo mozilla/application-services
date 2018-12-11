@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::util;
+use bitflags::bitflags;
 use caseless::Caseless;
 use rusqlite::{
     self,
@@ -9,7 +11,6 @@ use rusqlite::{
 };
 use std::borrow::Cow;
 use url::percent_encoding;
-use util;
 
 const MAX_CHARS_TO_SEARCH_THROUGH: usize = 255;
 
