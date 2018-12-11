@@ -191,11 +191,11 @@
 			inputPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/../../../../target/universal/release/liblogins_ffi.a",
+				"$(SRCROOT)/../../../../target/universal/release/libfxaclient_ffi.a",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# build fxa-client lipoed library\ncd \"$SRCROOT\"/../../../ffi\nenv -i PATH=\"$PATH\" \\\n\"$HOME\"/.cargo/bin/cargo +beta lipo --release\n";
+			shellScript = "# build fxa-client lipoed library\ncd \"$SRCROOT\"/../../../ffi\nenv -i PATH=\"$PATH\" \\\n\"$HOME\"/.cargo/bin/cargo lipo --release\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
