@@ -171,7 +171,7 @@ impl Sync15StorageClient {
         self.update_timestamp(resp.headers());
 
         if require_success && !resp.status().is_success() {
-            error!(
+            warn!(
                 "HTTP error {} ({}) during storage request to {}",
                 resp.status().as_u16(),
                 resp.status(),
