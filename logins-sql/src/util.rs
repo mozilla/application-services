@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use error::*;
+use crate::error::*;
 use rusqlite::Row;
 use std::time;
 use url::Url;
@@ -35,7 +35,6 @@ pub fn system_time_ms_i64(t: time::SystemTime) -> i64 {
 // Unfortunately, there's not a better way to turn on logging in tests AFAICT
 #[cfg(test)]
 pub(crate) fn init_test_logging() {
-    use env_logger;
     use std::sync::{Once, ONCE_INIT};
     static INIT_LOGGING: Once = ONCE_INIT;
     INIT_LOGGING.call_once(|| {

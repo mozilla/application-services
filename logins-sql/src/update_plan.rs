@@ -2,13 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use error::*;
-use login::{LocalLogin, Login, MirrorLogin, SyncStatus};
+use crate::error::*;
+use crate::login::{LocalLogin, Login, MirrorLogin, SyncStatus};
+use crate::sync::ServerTimestamp;
+use crate::util;
+use log::*;
 use rusqlite::{types::ToSql, Connection};
-use sql_support;
 use std::time::SystemTime;
-use sync::ServerTimestamp;
-use util;
 
 #[derive(Default, Debug, Clone)]
 pub(crate) struct UpdatePlan {

@@ -2,13 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::sync;
 use failure::{Backtrace, Context, Fail};
-use rusqlite;
-use serde_json;
 use std::boxed::Box;
 use std::{self, fmt};
-use sync;
-use url;
 
 pub type Result<T> = std::result::Result<T, Error>;
 

@@ -2,25 +2,26 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use error::*;
-use failure;
-use login::{LocalLogin, Login, MirrorLogin, SyncLoginData, SyncStatus};
+use crate::error::*;
+use crate::login::{LocalLogin, Login, MirrorLogin, SyncLoginData, SyncStatus};
+use crate::schema;
+use crate::sync::{
+    self, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload, ServerTimestamp, Store,
+};
+use crate::update_plan::UpdatePlan;
+use crate::util;
+use lazy_static::lazy_static;
+use log::*;
 use rusqlite::{
     types::{FromSql, ToSql},
     Connection,
 };
-use schema;
 use sql_support::{self, ConnExt};
 use std::collections::HashSet;
 use std::ops::Deref;
 use std::path::Path;
 use std::result;
 use std::time::SystemTime;
-use sync::{
-    self, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload, ServerTimestamp, Store,
-};
-use update_plan::UpdatePlan;
-use util;
 
 pub struct LoginDb {
     pub db: Connection,

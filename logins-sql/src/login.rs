@@ -2,11 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use error::*;
+use crate::error::*;
+use crate::sync::{self, ServerTimestamp};
+use crate::util;
+use log::*;
 use rusqlite::Row;
+use serde_derive::*;
 use std::time::{self, SystemTime};
-use sync::{self, ServerTimestamp};
-use util;
 
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]

@@ -1,5 +1,6 @@
 [package]
 name = "logins-sql"
+edition = "2018"
 version = "0.1.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 

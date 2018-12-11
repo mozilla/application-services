@@ -4,39 +4,19 @@
 
 #![recursion_limit = "4096"]
 
-extern crate fxa_client;
-extern crate logins_sql;
-extern crate sync15_adapter as sync;
-extern crate url;
-#[macro_use]
-extern crate prettytable;
-
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-
-extern crate rusqlite;
-
-extern crate clap;
-extern crate webbrowser;
-
-#[macro_use]
-extern crate log;
-extern crate chrono;
-extern crate env_logger;
-extern crate failure;
-
 use failure::Fail;
 
+use crate::sync::{KeyBundle, Sync15StorageClientInit};
 use fxa_client::{AccessTokenInfo, Config, FirefoxAccount};
+use log::*;
 use logins_sql::{Login, PasswordEngine};
+use prettytable::*;
 use std::collections::HashMap;
 use std::{
     fs,
     io::{self, Read, Write},
 };
-use sync::{KeyBundle, Sync15StorageClientInit};
+use sync15_adapter as sync;
 
 const CLIENT_ID: &str = "98adfa37698f255b";
 const REDIRECT_URI: &str = "https://lockbox.firefox.com/fxa/ios-redirect.html";
