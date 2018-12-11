@@ -88,8 +88,10 @@
 //!    JSON.
 //!
 
-use db;
-use error::*;
+use crate::db;
+use crate::error::*;
+use lazy_static::lazy_static;
+use log::*;
 use sql_support::ConnExt;
 
 /// Note that firefox-ios is currently on version 3. Version 4 is this version,

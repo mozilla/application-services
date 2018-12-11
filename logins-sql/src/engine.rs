@@ -1,13 +1,12 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use db::LoginDb;
-use error::*;
-use login::Login;
-use rusqlite;
+use crate::db::LoginDb;
+use crate::error::*;
+use crate::login::Login;
+use crate::sync::{sync_multiple, ClientInfo, KeyBundle, Sync15StorageClientInit};
 use std::cell::Cell;
 use std::path::Path;
-use sync::{sync_multiple, ClientInfo, KeyBundle, Sync15StorageClientInit};
 
 // This isn't really an engine in the firefox sync15 desktop sense -- it's
 // really a bundle of state that contains the sync storage client, the sync
@@ -105,8 +104,9 @@ impl PasswordEngine {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::util;
+    use more_asserts::*;
     use std::time::SystemTime;
-    use util;
     // Doesn't check metadata fields
     fn assert_logins_equiv(a: &Login, b: &Login) {
         assert_eq!(b.id, a.id);

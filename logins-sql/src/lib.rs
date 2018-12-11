@@ -5,37 +5,6 @@
 extern crate sync15_adapter as sync;
 
 #[macro_use]
-extern crate log;
-
-#[cfg(test)]
-extern crate env_logger;
-
-#[macro_use]
-extern crate lazy_static;
-
-extern crate failure;
-
-#[cfg(test)]
-#[macro_use]
-extern crate more_asserts;
-
-extern crate url;
-
-extern crate rusqlite;
-
-extern crate serde;
-extern crate serde_json;
-
-#[macro_use]
-extern crate serde_derive;
-
-extern crate sql_support;
-
-#[cfg(feature = "ffi")]
-#[macro_use]
-extern crate ffi_support;
-
-#[macro_use]
 mod error;
 mod login;
 
@@ -48,6 +17,6 @@ mod util;
 #[cfg(feature = "ffi")]
 mod ffi;
 
-pub use engine::*;
-pub use error::*;
-pub use login::*;
+pub use crate::engine::*;
+pub use crate::error::*;
+pub use crate::login::*;

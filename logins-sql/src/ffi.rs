@@ -6,10 +6,12 @@
 
 // This module implement the traits that make the FFI code easier to manage.
 
-use ffi_support::{ErrorCode, ExternError};
-use rusqlite;
+use crate::{Error, ErrorKind, Login, PasswordEngine};
+use ffi_support::{
+    implement_into_ffi_by_json, implement_into_ffi_by_pointer, ErrorCode, ExternError,
+};
+use log::*;
 use sync::ErrorKind as Sync15ErrorKind;
-use {Error, ErrorKind, Login, PasswordEngine};
 
 pub mod error_codes {
     /// An unexpected error occurred which likely cannot be meaningfully handled
