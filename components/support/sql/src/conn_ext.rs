@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use log::*;
 use rusqlite::{
     self,
     types::{FromSql, ToSql},
@@ -10,7 +11,7 @@ use rusqlite::{
 use std::ops::Deref;
 use std::time::Instant;
 
-use maybe_cached::MaybeCached;
+use crate::maybe_cached::MaybeCached;
 
 /// This trait exists so that we can use these helpers on `rusqlite::{Transaction, Connection}`.
 /// Note that you must import ConnExt in order to call these methods on anything.

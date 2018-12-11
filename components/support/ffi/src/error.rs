@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::string::{destroy_c_string, rust_str_from_c, rust_string_to_c};
 use std::os::raw::c_char;
 use std::{self, ptr};
-use string::{destroy_c_string, rust_str_from_c, rust_string_to_c};
 
 /// Represents an error that occured within rust, storing both an error code, and additional data
 /// that may be used by the caller.

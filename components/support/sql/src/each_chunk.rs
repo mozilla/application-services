@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use lazy_static::lazy_static;
 use rusqlite::{self, limits::Limit, types::ToSql};
 
 /// Returns SQLITE_LIMIT_VARIABLE_NUMBER as read from an in-memory connection and cached.
