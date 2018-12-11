@@ -1,18 +1,3 @@
-language: rust
-# We use OSX so that we can get a reasonably up to date version of SQLCipher.
-# (The version in Travis's default Ubuntu Trusty is much too old).
-os: osx
-osx_image:
-  - xcode10.1
-rust:
-  - stable
-  - beta
-  - nightly
-cache: cargo
-matrix:
-  allow_failures:
-    - rust: nightly
-  fast_finish: true
 env:
   global:
     - FRAMEWORK_NAME=ApplicationServices.framework.zip
@@ -25,19 +10,18 @@ before_deploy:
   - carthage build --no-skip-current --verbose
   - carthage archive --output $FRAMEWORK_NAME
   - rm -rf Carthage
-script:
-  # Test with 1. only default features on, 2. all features on, 3. no features on.
-  # This is not perfect (really we want the cartesian product), but is good enough in practice.
-  - cargo test --all --verbose
-  - cargo test --all --all-features --verbose
-  - cargo test --all --no-default-features --verbose
 
 jobs:
   include:
     - stage: Carthage framework GitHub Release
       if: tag IS present
+      language: rust
       rust: stable
+      # We use OSX so that we can get a reasonably up to date version of SQLCipher.
+      # (The version in Travis's default Ubuntu Trusty is much too old).
+      os: osx
       osx_image: xcode10.1
+      if: tag IS present
       script: skip # Do not re-run tests
       deploy:
         provider: releases
