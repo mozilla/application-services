@@ -142,25 +142,25 @@ open class LoginRecord {
     init(id: String,
         password: String,
         hostname: String,
-        username: String,
-        formSubmitURL: String,
-        httpRealm: String,
-        timesUsed: Int,
-        timeLastUsed: Int64,
-        timeCreated: Int64,
-        timePasswordChanged: Int64,
-        usernameField: String,
-        passwordField: String) {
+        username: String?,
+        formSubmitURL: String?,
+        httpRealm: String?,
+        timesUsed: Int?,
+        timeLastUsed: Int64?,
+        timeCreated: Int64?,
+        timePasswordChanged: Int64?,
+        usernameField: String?,
+        passwordField: String?) {
             self.id = id
             self.password = password
             self.hostname = hostname
             self.username = username
             self.formSubmitURL = formSubmitURL
             self.httpRealm = httpRealm
-            self.timesUsed = timesUsed
-            self.timeLastUsed = timeLastUsed
-            self.timeCreated = timeCreated
-            self.timePasswordChanged = timePasswordChanged
+            self.timesUsed = timesUsed ?? 0
+            self.timeLastUsed = timeLastUsed ?? 0
+            self.timeCreated = timeCreated ?? 0
+            self.timePasswordChanged = timePasswordChanged ?? 0
             self.usernameField = usernameField
             self.passwordField = passwordField
     }

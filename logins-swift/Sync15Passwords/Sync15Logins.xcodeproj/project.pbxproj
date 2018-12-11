@@ -23,7 +23,6 @@
 /* Begin PBXFileReference section */
 		CDB5AAEC21535E7F00B66D7E /* LoginRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginRecord.swift; sourceTree = "<group>"; };
 		CDFA91ED2153568E0074CABF /* RustPasswordAPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustPasswordAPI.h; sourceTree = "<group>"; };
-		CE7B4B8A20A36B0500FC4422 /* libfxa_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfxa_client.a; path = ../../../../target/universal/release/libfxa_client.a; sourceTree = "<group>"; };
 		CE9D202020914D0D00F1C8FA /* Sync15Logins.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Sync15Logins.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE9D202320914D0D00F1C8FA /* Sync15Logins.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Sync15Logins.h; sourceTree = "<group>"; };
 		CE9D202420914D0D00F1C8FA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -90,7 +89,6 @@
 				D819A4AA21B86384004EE6F3 /* libcrypto.a */,
 				D819A4A921B86384004EE6F3 /* libssl.a */,
 				D819A4A721B861D6004EE6F3 /* liblogins_ffi.a */,
-				CE7B4B8A20A36B0500FC4422 /* libfxa_client.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -201,7 +199,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n#cd \"$SRCROOT\"/../../logins-sql/ffi\n#env -i PATH=$PATH \\\n#env -i OPENSSL_DIR=/usr/local/Cellar/openssl/1.0.2p/ \\\n#\"$HOME\"/.cargo/bin/cargo +beta lipo --release --verbose\n";
+			shellScript = "\ncd \"$SRCROOT\"/../../logins-sql/ffi\nenv -i PATH=$PATH OPENSSL_DIR=\"$SRCROOT\"/../../libs/ios/x86_64/openssl/ \\\n\"$HOME\"/.cargo/bin/cargo lipo --release --verbose\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

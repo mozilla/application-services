@@ -5,7 +5,7 @@
 import Foundation
 import UIKit
 
-/// Set of arguments requires to sync.
+/// Set of arguments required to sync.
 open class SyncUnlockInfo {
     public var kid: String
     public var fxaAccessToken: String
@@ -91,12 +91,7 @@ open class LoginsStorage {
                 throw LockError.locked
             }
             try LoginsStoreError.unwrap({ err in
-                sync15_passwords_sync(engine,
-                                            unlockInfo.kid,
-                                            unlockInfo.fxaAccessToken,
-                                            unlockInfo.syncKey,
-                                            unlockInfo.tokenserverURL,
-                                            err)
+                sync15_passwords_sync(engine, unlockInfo.kid, unlockInfo.fxaAccessToken, unlockInfo.syncKey, unlockInfo.tokenserverURL, err)
             })
         })
     }

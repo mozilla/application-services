@@ -15,6 +15,6 @@ enum ResultError: Error {
 enum LockError: Error {
     /// Indicates that lock/unlock pairs were mismatched
     case mismatched
-    /// Indicates a use attempt when the database is locked locked
+    /// Indicates a use attempt when the database is locked
     case locked
 }
