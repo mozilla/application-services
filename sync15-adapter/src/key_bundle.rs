@@ -2,13 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use base16;
-use base64;
-use error::{ErrorKind, Result};
+use crate::error::{ErrorKind, Result};
+use log::*;
 use openssl::hash::MessageDigest;
 use openssl::pkey::PKey;
 use openssl::sign::Signer;
 use openssl::{self, symm};
+use serde_derive::*;
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct KeyBundle {

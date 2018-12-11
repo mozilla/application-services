@@ -4,15 +4,16 @@
 
 use std::collections::{HashMap, HashSet};
 
-use bso_record::BsoRecord;
-use client::SetupStorageClient;
-use collection_keys::CollectionKeys;
-use error::{self, ErrorKind};
-use key_bundle::KeyBundle;
-use record_types::{MetaGlobalEngine, MetaGlobalRecord};
-use request::{InfoCollections, InfoConfiguration};
-use serde_json;
-use util::{random_guid, ServerTimestamp, SERVER_EPOCH};
+use crate::bso_record::BsoRecord;
+use crate::client::SetupStorageClient;
+use crate::collection_keys::CollectionKeys;
+use crate::error::{self, ErrorKind};
+use crate::key_bundle::KeyBundle;
+use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
+use crate::request::{InfoCollections, InfoConfiguration};
+use crate::util::{random_guid, ServerTimestamp, SERVER_EPOCH};
+use lazy_static::lazy_static;
+use serde_derive::*;
 
 use self::SetupState::*;
 
@@ -625,7 +626,7 @@ pub enum EngineStateChange {
 mod tests {
     use super::*;
 
-    use bso_record::{BsoRecord, EncryptedBso, EncryptedPayload};
+    use crate::bso_record::{BsoRecord, EncryptedBso, EncryptedPayload};
 
     struct InMemoryClient {
         info_configuration: error::Result<InfoConfiguration>,
