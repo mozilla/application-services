@@ -48,7 +48,6 @@ const CREATE_TABLE_PLACES_TOMBSTONES_SQL: &str =
         guid TEXT PRIMARY KEY
     ) WITHOUT ROWID";
 
-
 const CREATE_TABLE_HISTORYVISITS_SQL: &str =
     "CREATE TABLE moz_historyvisits (
         id INTEGER PRIMARY KEY,
@@ -63,8 +62,7 @@ const CREATE_TABLE_HISTORYVISITS_SQL: &str =
         FOREIGN KEY(from_visit) REFERENCES moz_historyvisits(id)
     )";
 
-const CREATE_TABLE_INPUTHISTORY_SQL: &str =
-    "CREATE TABLE moz_inputhistory (
+const CREATE_TABLE_INPUTHISTORY_SQL: &str = "CREATE TABLE moz_inputhistory (
         place_id INTEGER NOT NULL,
         input LONGVARCHAR NOT NULL,
         use_count INTEGER,
@@ -81,8 +79,7 @@ const CREATE_TABLE_INPUTHISTORY_SQL: &str =
 
 // TODO: This isn't the complete `moz_bookmarks` definition, just enough to
 // test autocomplete.
-const CREATE_TABLE_BOOKMARKS_SQL: &str =
-    "CREATE TABLE moz_bookmarks (
+const CREATE_TABLE_BOOKMARKS_SQL: &str = "CREATE TABLE moz_bookmarks (
         id INTEGER PRIMARY KEY,
         fk INTEGER,
         title TEXT,
@@ -91,11 +88,9 @@ const CREATE_TABLE_BOOKMARKS_SQL: &str =
         FOREIGN KEY(fk) REFERENCES moz_places(id) ON DELETE RESTRICT
     )";
 
-
 // Note: desktop has/had a 'keywords' table, but we intentionally do not.
 
-const CREATE_TABLE_ORIGINS_SQL: &str =
-    "CREATE TABLE moz_origins (
+const CREATE_TABLE_ORIGINS_SQL: &str = "CREATE TABLE moz_origins (
         id INTEGER PRIMARY KEY,
         prefix TEXT NOT NULL,
         host TEXT NOT NULL,
@@ -138,7 +133,6 @@ const CREATE_TRIGGER_MOZPLACES_AFTERINSERT_REMOVE_TOMBSTONES: &str = "
         DELETE FROM moz_places_tombstones WHERE guid = NEW.guid;
     END
 ";
-
 
 // Triggers which update visit_count and last_visit_date based on historyvisits
 // table changes.
@@ -183,8 +177,7 @@ lazy_static! {
 // This table holds key-value metadata for Places and its consumers. Sync stores
 // the sync IDs for the bookmarks and history collections in this table, and the
 // last sync time for history.
-const CREATE_TABLE_META_SQL: &str =
-    "CREATE TABLE moz_meta (
+const CREATE_TABLE_META_SQL: &str = "CREATE TABLE moz_meta (
         key TEXT PRIMARY KEY,
         value NOT NULL
     ) WITHOUT ROWID";
@@ -194,29 +187,37 @@ const CREATE_IDX_MOZ_PLACES_URL_HASH: &str = "CREATE INDEX url_hashindex ON moz_
 
 // const CREATE_IDX_MOZ_PLACES_REVHOST: &str = "CREATE INDEX hostindex ON moz_places(rev_host)";
 
-const CREATE_IDX_MOZ_PLACES_VISITCOUNT_LOCAL: &str = "CREATE INDEX visitcountlocal ON moz_places(visit_count_local)";
-const CREATE_IDX_MOZ_PLACES_VISITCOUNT_REMOTE: &str = "CREATE INDEX visitcountremote ON moz_places(visit_count_remote)";
+const CREATE_IDX_MOZ_PLACES_VISITCOUNT_LOCAL: &str =
+    "CREATE INDEX visitcountlocal ON moz_places(visit_count_local)";
+const CREATE_IDX_MOZ_PLACES_VISITCOUNT_REMOTE: &str =
+    "CREATE INDEX visitcountremote ON moz_places(visit_count_remote)";
 
 const CREATE_IDX_MOZ_PLACES_FRECENCY: &str = "CREATE INDEX frecencyindex ON moz_places(frecency)";
 
-const CREATE_IDX_MOZ_PLACES_LASTVISITDATE_LOCAL: &str = "CREATE INDEX lastvisitdatelocalindex ON moz_places(last_visit_date_local)";
-const CREATE_IDX_MOZ_PLACES_LASTVISITDATE_REMOTE: &str = "CREATE INDEX lastvisitdateremoteindex ON moz_places(last_visit_date_remote)";
+const CREATE_IDX_MOZ_PLACES_LASTVISITDATE_LOCAL: &str =
+    "CREATE INDEX lastvisitdatelocalindex ON moz_places(last_visit_date_local)";
+const CREATE_IDX_MOZ_PLACES_LASTVISITDATE_REMOTE: &str =
+    "CREATE INDEX lastvisitdateremoteindex ON moz_places(last_visit_date_remote)";
 
 const CREATE_IDX_MOZ_PLACES_GUID: &str = "CREATE UNIQUE INDEX guid_uniqueindex ON moz_places(guid)";
 
 const CREATE_IDX_MOZ_PLACES_ORIGIN_ID: &str = "CREATE INDEX originidindex ON moz_places(origin_id)";
 
-const CREATE_IDX_MOZ_HISTORYVISITS_PLACEDATE: &str = "CREATE INDEX placedateindex ON moz_historyvisits(place_id, visit_date)";
-const CREATE_IDX_MOZ_HISTORYVISITS_FROMVISIT: &str = "CREATE INDEX fromindex ON moz_historyvisits(from_visit)";
+const CREATE_IDX_MOZ_HISTORYVISITS_PLACEDATE: &str =
+    "CREATE INDEX placedateindex ON moz_historyvisits(place_id, visit_date)";
+const CREATE_IDX_MOZ_HISTORYVISITS_FROMVISIT: &str =
+    "CREATE INDEX fromindex ON moz_historyvisits(from_visit)";
 
-const CREATE_IDX_MOZ_HISTORYVISITS_VISITDATE: &str = "CREATE INDEX dateindex ON moz_historyvisits(visit_date)";
+const CREATE_IDX_MOZ_HISTORYVISITS_VISITDATE: &str =
+    "CREATE INDEX dateindex ON moz_historyvisits(visit_date)";
 
-const CREATE_IDX_MOZ_HISTORYVISITS_ISLOCAL: &str = "CREATE INDEX islocalindex ON moz_historyvisits(is_local)";
-
+const CREATE_IDX_MOZ_HISTORYVISITS_ISLOCAL: &str =
+    "CREATE INDEX islocalindex ON moz_historyvisits(is_local)";
 
 // const CREATE_IDX_MOZ_BOOKMARKS_PLACETYPE: &str = "CREATE INDEX itemindex ON moz_bookmarks(fk, type)";
 // const CREATE_IDX_MOZ_BOOKMARKS_PARENTPOSITION: &str = "CREATE INDEX parentindex ON moz_bookmarks(parent, position)";
-const CREATE_IDX_MOZ_BOOKMARKS_PLACELASTMODIFIED: &str = "CREATE INDEX itemlastmodifiedindex ON moz_bookmarks(fk, lastModified)";
+const CREATE_IDX_MOZ_BOOKMARKS_PLACELASTMODIFIED: &str =
+    "CREATE INDEX itemlastmodifiedindex ON moz_bookmarks(fk, lastModified)";
 // const CREATE_IDX_MOZ_BOOKMARKS_DATEADDED: &str = "CREATE INDEX dateaddedindex ON moz_bookmarks(dateAdded)";
 // const CREATE_IDX_MOZ_BOOKMARKS_GUID: &str = "CREATE UNIQUE INDEX guid_uniqueindex ON moz_bookmarks(guid)";
 
@@ -224,7 +225,6 @@ const CREATE_IDX_MOZ_BOOKMARKS_PLACELASTMODIFIED: &str = "CREATE INDEX itemlastm
 // pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_COUNT: &'static str = "origin_frecency_count";
 // pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM: &'static str = "origin_frecency_sum";
 // pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM_OF_SQUARES: &'static str = "origin_frecency_sum_of_squares";
-
 
 pub fn init(db: &PlacesDb) -> Result<()> {
     let user_version = db.query_one::<i64>("PRAGMA user_version")?;
@@ -235,9 +235,11 @@ pub fn init(db: &PlacesDb) -> Result<()> {
         if user_version < VERSION {
             upgrade(db, user_version)?;
         } else {
-            warn!("Loaded future schema version {} (we only understand version {}). \
-                   Optimisitically ",
-                  user_version, VERSION)
+            warn!(
+                "Loaded future schema version {} (we only understand version {}). \
+                 Optimisitically ",
+                user_version, VERSION
+            )
         }
     }
     Ok(())
@@ -277,8 +279,7 @@ pub fn create(db: &PlacesDb) -> Result<()> {
         CREATE_IDX_MOZ_HISTORYVISITS_VISITDATE,
         CREATE_IDX_MOZ_HISTORYVISITS_ISLOCAL,
         CREATE_IDX_MOZ_BOOKMARKS_PLACELASTMODIFIED,
-        &format!("PRAGMA user_version = {version}",
-                 version = VERSION),
+        &format!("PRAGMA user_version = {version}", version = VERSION),
     ])?;
 
     debug!("Creating temp tables and triggers");
@@ -287,7 +288,7 @@ pub fn create(db: &PlacesDb) -> Result<()> {
         &CREATE_TRIGGER_HISTORYVISITS_AFTERINSERT,
         &CREATE_TRIGGER_HISTORYVISITS_AFTERDELETE,
         &CREATE_TRIGGER_MOZPLACES_AFTERDELETE,
-        &CREATE_TRIGGER_MOZPLACES_AFTERINSERT_REMOVE_TOMBSTONES
+        &CREATE_TRIGGER_MOZPLACES_AFTERINSERT_REMOVE_TOMBSTONES,
     ])?;
 
     Ok(())
@@ -296,17 +297,19 @@ pub fn create(db: &PlacesDb) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use url::{Url};
-    use db::{PlacesDb};
-    use types::{SyncStatus};
-    use sync15_adapter::util::{random_guid};
+    use db::PlacesDb;
+    use sync15_adapter::util::random_guid;
+    use types::SyncStatus;
+    use url::Url;
 
     fn has_tombstone(conn: &PlacesDb, guid: &str) -> bool {
         let count: Result<Option<u32>> = conn.try_query_row(
-                    "SELECT COUNT(*) from moz_places_tombstones
+            "SELECT COUNT(*) from moz_places_tombstones
                      WHERE guid = :guid",
-                    &[(":guid", &guid)],
-                    |row| Ok(row.get::<_, u32>(0)), true);
+            &[(":guid", &guid)],
+            |row| Ok(row.get::<_, u32>(0)),
+            true,
+        );
         count.unwrap().unwrap() == 1
     }
 
@@ -317,16 +320,24 @@ mod tests {
 
         conn.execute_named_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES (:guid, :url, hash(:url))",
-            &[(":guid", &guid),
-              (":url", &Url::parse("http://example.com").expect("valid url").into_string())
-             ]
-        ).expect("should work");
+            &[
+                (":guid", &guid),
+                (
+                    ":url",
+                    &Url::parse("http://example.com")
+                        .expect("valid url")
+                        .into_string(),
+                ),
+            ],
+        )
+        .expect("should work");
 
         let place_id = conn.last_insert_rowid();
         conn.execute_named_cached(
             "DELETE FROM moz_places WHERE id = :id",
-            &[(":id", &place_id)]
-        ).expect("should work");
+            &[(":id", &place_id)],
+        )
+        .expect("should work");
 
         // should not have a tombstone.
         assert!(!has_tombstone(&conn, &guid));
@@ -340,17 +351,25 @@ mod tests {
         conn.execute_named_cached(
             "INSERT INTO moz_places (guid, url, url_hash, sync_status)
              VALUES (:guid, :url, hash(:url), :sync_status)",
-            &[(":guid", &guid),
-              (":url", &Url::parse("http://example.com").expect("valid url").into_string()),
-              (":sync_status", &SyncStatus::Normal),
-             ]
-        ).expect("should work");
+            &[
+                (":guid", &guid),
+                (
+                    ":url",
+                    &Url::parse("http://example.com")
+                        .expect("valid url")
+                        .into_string(),
+                ),
+                (":sync_status", &SyncStatus::Normal),
+            ],
+        )
+        .expect("should work");
 
         let place_id = conn.last_insert_rowid();
         conn.execute_named_cached(
             "DELETE FROM moz_places WHERE id = :id",
-            &[(":id", &place_id)]
-        ).expect("should work");
+            &[(":id", &place_id)],
+        )
+        .expect("should work");
 
         // should have a tombstone.
         assert!(has_tombstone(&conn, &guid));
@@ -359,11 +378,18 @@ mod tests {
         conn.execute_named_cached(
             "INSERT INTO moz_places (guid, url, url_hash, sync_status)
              VALUES (:guid, :url, hash(:url), :sync_status)",
-            &[(":guid", &guid),
-              (":url", &Url::parse("http://example.com").expect("valid url").into_string()),
-              (":sync_status", &SyncStatus::Normal),
-             ]
-        ).expect("should work");
+            &[
+                (":guid", &guid),
+                (
+                    ":url",
+                    &Url::parse("http://example.com")
+                        .expect("valid url")
+                        .into_string(),
+                ),
+                (":sync_status", &SyncStatus::Normal),
+            ],
+        )
+        .expect("should work");
         assert!(!has_tombstone(&conn, &guid));
     }
 }

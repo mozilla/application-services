@@ -18,7 +18,9 @@ pub fn url_host_port(url_str: &str) -> Option<String> {
 }
 
 pub fn system_time_millis_from_row(row: &Row, col_name: &str) -> Result<time::SystemTime> {
-    let time_ms = row.get_checked::<_, Option<i64>>(col_name)?.unwrap_or_default() as u64;
+    let time_ms = row
+        .get_checked::<_, Option<i64>>(col_name)?
+        .unwrap_or_default() as u64;
     Ok(time::UNIX_EPOCH + time::Duration::from_millis(time_ms))
 }
 
@@ -37,8 +39,6 @@ pub(crate) fn init_test_logging() {
     use std::sync::{Once, ONCE_INIT};
     static INIT_LOGGING: Once = ONCE_INIT;
     INIT_LOGGING.call_once(|| {
-        env_logger::init_from_env(
-            env_logger::Env::default().filter_or("RUST_LOG", "trace")
-        );
+        env_logger::init_from_env(env_logger::Env::default().filter_or("RUST_LOG", "trace"));
     });
 }

@@ -2,43 +2,43 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use rusqlite::Connection;
 use error::*;
+use rusqlite::Connection;
 use types::VisitTransition;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum RedirectBonus {
     Unknown,
     Redirect,
-    Normal
+    Normal,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FrecencySettings {
     // TODO: These probably should not all be i32s...
-    pub num_visits: i32,                // from "places.frecency.numVisits"
-    pub first_bucket_cutoff_days: i32,  // from "places.frecency.firstBucketCutoff"
-    pub second_bucket_cutoff_days: i32, // from "places.frecency.secondBucketCutoff"
-    pub third_bucket_cutoff_days: i32,  // from "places.frecency.thirdBucketCutoff"
-    pub fourth_bucket_cutoff_days: i32, // from "places.frecency.fourthBucketCutoff"
-    pub first_bucket_weight: i32,       // from "places.frecency.firstBucketWeight"
-    pub second_bucket_weight: i32,      // from "places.frecency.secondBucketWeight"
-    pub third_bucket_weight: i32,       // from "places.frecency.thirdBucketWeight"
-    pub fourth_bucket_weight: i32,      // from "places.frecency.fourthBucketWeight"
-    pub default_bucket_weight: i32,     // from "places.frecency.defaultBucketWeight"
-    pub embed_visit_bonus: i32,         // from "places.frecency.embedVisitBonus"
-    pub framed_link_visit_bonus: i32,   // from "places.frecency.framedLinkVisitBonus"
-    pub link_visit_bonus: i32,          // from "places.frecency.linkVisitBonus"
-    pub typed_visit_bonus: i32,         // from "places.frecency.typedVisitBonus"
-    pub bookmark_visit_bonus: i32,      // from "places.frecency.bookmarkVisitBonus"
-    pub download_visit_bonus: i32,      // from "places.frecency.downloadVisitBonus"
+    pub num_visits: i32,                     // from "places.frecency.numVisits"
+    pub first_bucket_cutoff_days: i32,       // from "places.frecency.firstBucketCutoff"
+    pub second_bucket_cutoff_days: i32,      // from "places.frecency.secondBucketCutoff"
+    pub third_bucket_cutoff_days: i32,       // from "places.frecency.thirdBucketCutoff"
+    pub fourth_bucket_cutoff_days: i32,      // from "places.frecency.fourthBucketCutoff"
+    pub first_bucket_weight: i32,            // from "places.frecency.firstBucketWeight"
+    pub second_bucket_weight: i32,           // from "places.frecency.secondBucketWeight"
+    pub third_bucket_weight: i32,            // from "places.frecency.thirdBucketWeight"
+    pub fourth_bucket_weight: i32,           // from "places.frecency.fourthBucketWeight"
+    pub default_bucket_weight: i32,          // from "places.frecency.defaultBucketWeight"
+    pub embed_visit_bonus: i32,              // from "places.frecency.embedVisitBonus"
+    pub framed_link_visit_bonus: i32,        // from "places.frecency.framedLinkVisitBonus"
+    pub link_visit_bonus: i32,               // from "places.frecency.linkVisitBonus"
+    pub typed_visit_bonus: i32,              // from "places.frecency.typedVisitBonus"
+    pub bookmark_visit_bonus: i32,           // from "places.frecency.bookmarkVisitBonus"
+    pub download_visit_bonus: i32,           // from "places.frecency.downloadVisitBonus"
     pub permanent_redirect_visit_bonus: i32, // from "places.frecency.permRedirectVisitBonus"
     pub temporary_redirect_visit_bonus: i32, // from "places.frecency.tempRedirectVisitBonus"
-    pub redirect_source_visit_bonus: i32,  // from "places.frecency.redirectSourceVisitBonus"
-    pub default_visit_bonus: i32,       // from "places.frecency.defaultVisitBonus"
-    pub unvisited_bookmark_bonus: i32,  // from "places.frecency.unvisitedBookmarkBonus"
-    pub unvisited_typed_bonus: i32,     // from "places.frecency.unvisitedTypedBonus"
-    pub reload_visit_bonus: i32,        // from "places.frecency.reloadVisitBonus"
+    pub redirect_source_visit_bonus: i32,    // from "places.frecency.redirectSourceVisitBonus"
+    pub default_visit_bonus: i32,            // from "places.frecency.defaultVisitBonus"
+    pub unvisited_bookmark_bonus: i32,       // from "places.frecency.unvisitedBookmarkBonus"
+    pub unvisited_typed_bonus: i32,          // from "places.frecency.unvisitedTypedBonus"
+    pub reload_visit_bonus: i32,             // from "places.frecency.reloadVisitBonus"
 }
 
 pub const DEFAULT_FRECENCY_SETTINGS: FrecencySettings = FrecencySettings {
@@ -77,7 +77,12 @@ impl Default for FrecencySettings {
 
 impl FrecencySettings {
     // Note: in Places, `redirect` defaults to false.
-    pub fn get_transition_bonus(&self, visit_type: Option<VisitTransition>, visited: bool, redirect: bool) -> i32 {
+    pub fn get_transition_bonus(
+        &self,
+        visit_type: Option<VisitTransition>,
+        visited: bool,
+        redirect: bool,
+    ) -> i32 {
         if redirect {
             return self.redirect_source_visit_bonus;
         }
@@ -130,9 +135,8 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
         conn: &'db Connection,
         settings: &'s FrecencySettings,
         page_id: i64,
-        most_recent_redirect_bonus: RedirectBonus
+        most_recent_redirect_bonus: RedirectBonus,
     ) -> Result<Self> {
-
         let (typed, visit_count, foreign_count, is_query) = conn.query_row_named("
             SELECT typed, (visit_count_local + visit_count_remote) as visit_count, foreign_count, (substr(url, 0, 7) = 'place:') as is_query
             FROM moz_places
@@ -153,7 +157,7 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
             typed,
             visit_count,
             foreign_count,
-            is_query
+            is_query,
         })
     }
 
@@ -190,9 +194,11 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
             let visit_type = row.get::<_, Option<u8>>("visit_type").unwrap_or(0);
             let target_visit_type = row.get::<_, Option<u8>>("target_visit_type").unwrap_or(0);
             let age_in_days: f64 = row.get("age_in_days");
-            (VisitTransition::from_primitive(visit_type),
-             VisitTransition::from_primitive(target_visit_type),
-             age_in_days as i32)
+            (
+                VisitTransition::from_primitive(visit_type),
+                VisitTransition::from_primitive(target_visit_type),
+                age_in_days as i32,
+            )
         })?;
 
         let mut num_sampled_visits = 0;
@@ -204,19 +210,26 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
             // use the redirect bonus. We can't fetch this information from the
             // database, because we only store redirect targets.
             // For older visits we extract the value from the database.
-            let use_redirect_bonus =
-                if self.most_recent_redirect_bonus == RedirectBonus::Unknown || num_sampled_visits > 0 {
-                    target_visit_type == Some(VisitTransition::RedirectPermanent) ||
-                    (target_visit_type == Some(VisitTransition::RedirectTemporary) &&
-                     visit_type != Some(VisitTransition::Typed))
-                } else {
-                    self.most_recent_redirect_bonus == RedirectBonus::Redirect
-                };
+            let use_redirect_bonus = if self.most_recent_redirect_bonus == RedirectBonus::Unknown
+                || num_sampled_visits > 0
+            {
+                target_visit_type == Some(VisitTransition::RedirectPermanent)
+                    || (target_visit_type == Some(VisitTransition::RedirectTemporary)
+                        && visit_type != Some(VisitTransition::Typed))
+            } else {
+                self.most_recent_redirect_bonus == RedirectBonus::Redirect
+            };
 
-            let mut bonus = self.settings.get_transition_bonus(visit_type, true, use_redirect_bonus);
+            let mut bonus =
+                self.settings
+                    .get_transition_bonus(visit_type, true, use_redirect_bonus);
 
             if self.has_bookmark() {
-                bonus += self.settings.get_transition_bonus(Some(VisitTransition::Bookmark), true, false);
+                bonus += self.settings.get_transition_bonus(
+                    Some(VisitTransition::Bookmark),
+                    true,
+                    false,
+                );
             }
             if bonus != 0 {
                 let weight = self.settings.get_frecency_aged_weight(age_in_days) as f32;
@@ -246,9 +259,13 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
     fn compute_unvisited_bookmark_frecency(&self) -> i32 {
         // Make it so something bookmarked and typed will have a higher frecency
         // than something just typed or just bookmarked.
-        let mut bonus = self.settings.get_transition_bonus(Some(VisitTransition::Bookmark), false, false);
+        let mut bonus =
+            self.settings
+                .get_transition_bonus(Some(VisitTransition::Bookmark), false, false);
         if self.typed != 0 {
-            bonus += self.settings.get_transition_bonus(Some(VisitTransition::Typed), false, false);
+            bonus += self
+                .settings
+                .get_transition_bonus(Some(VisitTransition::Typed), false, false);
         }
 
         // Assume "now" as our age_in_days, so use the first bucket.
@@ -260,7 +277,12 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
     }
 }
 
-pub fn calculate_frecency(db: &Connection, settings: &FrecencySettings, page_id: i64, is_redirect: Option<bool>) -> Result<i32> {
+pub fn calculate_frecency(
+    db: &Connection,
+    settings: &FrecencySettings,
+    page_id: i64,
+    is_redirect: Option<bool>,
+) -> Result<i32> {
     assert!(page_id > 0, "calculate_frecency given invalid page_id");
 
     let most_recent_redirect_bonus = match is_redirect {
@@ -289,5 +311,3 @@ pub fn calculate_frecency(db: &Connection, settings: &FrecencySettings, page_id:
         fc.compute_unvisited_bookmark_frecency()
     })
 }
-
-

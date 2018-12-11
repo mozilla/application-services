@@ -11,8 +11,8 @@ use error::{self, ErrorKind};
 use key_bundle::KeyBundle;
 use record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use request::{InfoCollections, InfoConfiguration};
-use util::{random_guid, ServerTimestamp, SERVER_EPOCH};
 use serde_json;
+use util::{random_guid, ServerTimestamp, SERVER_EPOCH};
 
 use self::SetupState::*;
 
@@ -67,12 +67,13 @@ impl GlobalState {
 
     pub fn from_persisted_string(data: &str) -> error::Result<Self> {
         match serde_json::from_str(data)? {
-            PersistedState::V1(global_state) => Ok(global_state)
+            PersistedState::V1(global_state) => Ok(global_state),
         }
     }
 
     pub fn key_for_collection(&self, collection: &str) -> error::Result<&KeyBundle> {
-        Ok(self.keys
+        Ok(self
+            .keys
             .as_ref()
             .ok_or_else(|| ErrorKind::NoCryptoKeys)?
             .key_for_collection(collection))
@@ -84,7 +85,8 @@ impl GlobalState {
 
     /// Returns a set of all engine names that should be reset locally.
     pub fn engines_that_need_local_reset(&self) -> HashSet<String> {
-        let all_engines = self.global
+        let all_engines = self
+            .global
             .as_ref()
             .map(|global| {
                 global
@@ -356,7 +358,8 @@ impl<'client, 'keys> SetupStateMachine<'client, 'keys> {
             // Fetch `info/configuration` with current server limits, and
             // `info/collections` with collection last modified times.
             InitialWithLiveToken(state) => {
-                let config = self.client
+                let config = self
+                    .client
                     .fetch_info_configuration()
                     .unwrap_or(state.config);
                 Ok(InitialWithLiveTokenAndConfig(GlobalState {
@@ -638,7 +641,8 @@ mod tests {
                 Err(_) => Err(ErrorKind::StorageHttpError {
                     code: 500,
                     route: "info/configuration".to_string(),
-                }.into()),
+                }
+                .into()),
             }
         }
 
@@ -648,7 +652,8 @@ mod tests {
                 Err(_) => Err(ErrorKind::StorageHttpError {
                     code: 500,
                     route: "info/collections".to_string(),
-                }.into()),
+                }
+                .into()),
             }
         }
 
@@ -660,7 +665,8 @@ mod tests {
                 Err(_) => Err(ErrorKind::StorageHttpError {
                     code: 500,
                     route: "meta/global".to_string(),
-                }.into()),
+                }
+                .into()),
             }
         }
 
@@ -668,7 +674,8 @@ mod tests {
             Err(ErrorKind::StorageHttpError {
                 code: 500,
                 route: "meta/global".to_string(),
-            }.into())
+            }
+            .into())
         }
 
         fn fetch_crypto_keys(&self) -> error::Result<BsoRecord<EncryptedPayload>> {
@@ -678,7 +685,8 @@ mod tests {
                 Err(_) => Err(ErrorKind::StorageHttpError {
                     code: 500,
                     route: "crypto/keys".to_string(),
-                }.into()),
+                }
+                .into()),
             }
         }
 
@@ -686,7 +694,8 @@ mod tests {
             Err(ErrorKind::StorageHttpError {
                 code: 500,
                 route: "crypto/keys".to_string(),
-            }.into())
+            }
+            .into())
         }
 
         fn wipe_all_remote(&self) -> error::Result<()> {
@@ -719,17 +728,16 @@ mod tests {
                 payload: MetaGlobalRecord {
                     sync_id: "syncIDAAAAAA".to_owned(),
                     storage_version: 5usize,
-                    engines: vec![
-                        (
-                            "bookmarks",
-                            MetaGlobalEngine {
-                                version: 1usize,
-                                sync_id: "syncIDBBBBBB".to_owned(),
-                            },
-                        ),
-                    ].into_iter()
-                        .map(|(key, value)| (key.to_owned(), value.into()))
-                        .collect(),
+                    engines: vec![(
+                        "bookmarks",
+                        MetaGlobalEngine {
+                            version: 1usize,
+                            sync_id: "syncIDBBBBBB".to_owned(),
+                        },
+                    )]
+                    .into_iter()
+                    .map(|(key, value)| (key.to_owned(), value.into()))
+                    .collect(),
                     declined: vec![],
                 },
             }),

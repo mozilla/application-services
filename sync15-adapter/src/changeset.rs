@@ -6,7 +6,7 @@ use bso_record::{EncryptedBso, Payload};
 use client::Sync15StorageClient;
 use error::{self, ErrorKind, Result};
 use key_bundle::KeyBundle;
-use request::{NormalResponseHandler, UploadInfo, CollectionRequest};
+use request::{CollectionRequest, NormalResponseHandler, UploadInfo};
 use state::GlobalState;
 use util::ServerTimestamp;
 
@@ -26,10 +26,7 @@ pub type OutgoingChangeset = RecordChangeset<Payload>;
 // TODO: use a trait to unify this with the non-json versions
 impl<T> RecordChangeset<T> {
     #[inline]
-    pub fn new(
-        collection: String,
-        timestamp: ServerTimestamp
-    ) -> RecordChangeset<T> {
+    pub fn new(collection: String, timestamp: ServerTimestamp) -> RecordChangeset<T> {
         RecordChangeset {
             changes: vec![],
             timestamp,
@@ -157,8 +154,11 @@ impl<'a, 'b> CollectionUpdate<'a, 'b> {
         let mut info = q.completed_upload_info();
         info.failed_ids.append(&mut failed);
         if self.fully_atomic {
-            assert_eq!(info.failed_ids.len(), 0,
-                       "Bug: Should have failed by now if we aren't allowing dropped records");
+            assert_eq!(
+                info.failed_ids.len(),
+                0,
+                "Bug: Should have failed by now if we aren't allowing dropped records"
+            );
         }
         Ok(info)
     }

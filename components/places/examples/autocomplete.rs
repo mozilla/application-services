@@ -19,8 +19,8 @@ extern crate url;
 #[macro_use]
 extern crate clap;
 extern crate find_places_db;
-extern crate tempfile;
 extern crate sql_support;
+extern crate tempfile;
 use sql_support::ConnExt;
 
 #[cfg(not(windows))]
@@ -32,15 +32,14 @@ use std::io::prelude::*;
 
 use url::Url;
 
-use places::{
-    VisitObservation,
-    VisitTransition,
+use places::{VisitObservation, VisitTransition};
+
+use std::{
+    fs,
+    path::{Path, PathBuf},
 };
 
-use std::{fs, path::{Path, PathBuf}};
-
 type Result<T> = std::result::Result<T, failure::Error>;
-
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -50,7 +49,7 @@ pub struct SerializedObservation {
     pub visit_type: Option<u8>,
     pub error: bool,
     pub is_redirect_source: bool,
-    pub at: Option<u64>, // milliseconds
+    pub at: Option<u64>,          // milliseconds
     pub referrer: Option<String>, // A URL
     pub remote: bool,
 }
@@ -64,11 +63,11 @@ impl SerializedObservation {
             _ => None,
         };
         let mut obs = VisitObservation::new(url)
-                      .with_title(self.title)
-                      .with_is_error(self.error)
-                      .with_is_remote(self.remote)
-                      .with_is_redirect_source(self.is_redirect_source)
-                      .with_referrer(referrer);
+            .with_title(self.title)
+            .with_is_error(self.error)
+            .with_is_remote(self.remote)
+            .with_is_redirect_source(self.is_redirect_source)
+            .with_referrer(referrer);
         if let Some(visit_type) = self.visit_type.and_then(VisitTransition::from_primitive) {
             obs = obs.with_visit_type(visit_type);
         }
@@ -119,7 +118,7 @@ struct LegacyPlace {
     visit_count: i64,
     description: Option<String>,
     preview_image_url: Option<String>,
-    visits: Vec<LegacyPlaceVisit>
+    visits: Vec<LegacyPlaceVisit>,
 }
 
 impl LegacyPlace {
@@ -135,27 +134,26 @@ impl LegacyPlace {
             hidden: row.get("place_hidden"),
             visit_count: row.get("place_visit_count"),
             last_visit_date: row.get("place_last_visit_date"),
-            visits: vec![
-                LegacyPlaceVisit {
-                    id: row.get("visit_id"),
-                    date: row.get("visit_date"),
-                    visit_type: row.get("visit_type"),
-                    from_visit: row.get("visit_from_visit"),
-                }
-            ],
+            visits: vec![LegacyPlaceVisit {
+                id: row.get("visit_id"),
+                date: row.get("visit_date"),
+                visit_type: row.get("visit_type"),
+                from_visit: row.get("visit_from_visit"),
+            }],
         }
     }
     pub fn insert(self, conn: &rusqlite::Connection, options: &ImportPlacesOptions) -> Result<()> {
         let url = Url::parse(&self.url)?;
         for v in self.visits {
             let obs = VisitObservation::new(url.clone())
-                .with_visit_type(VisitTransition::from_primitive(v.visit_type)
-                            .unwrap_or(VisitTransition::Link))
+                .with_visit_type(
+                    VisitTransition::from_primitive(v.visit_type).unwrap_or(VisitTransition::Link),
+                )
                 .with_at(places::Timestamp((v.date / 1000) as u64))
                 .with_title(self.title.clone())
                 .with_is_remote(rand::random::<f64>() < options.remote_probability);
             places::storage::apply_observation_direct(conn, obs)?;
-        };
+        }
         Ok(())
     }
 }
@@ -163,24 +161,32 @@ impl LegacyPlace {
 fn import_places(
     new: &mut places::PlacesDb,
     old_path: PathBuf,
-    options: ImportPlacesOptions
+    options: ImportPlacesOptions,
 ) -> Result<()> {
-    let old = rusqlite::Connection::open_with_flags(&old_path,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    let old = rusqlite::Connection::open_with_flags(
+        &old_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )?;
 
     let (place_count, visit_count) = {
         let mut stmt = old.prepare("SELECT count(*) FROM moz_places").unwrap();
         let mut rows = stmt.query(&[]).unwrap();
         let ps: i64 = rows.next().unwrap()?.get(0);
 
-        let mut stmt = old.prepare("SELECT count(*) FROM moz_historyvisits").unwrap();
+        let mut stmt = old
+            .prepare("SELECT count(*) FROM moz_historyvisits")
+            .unwrap();
         let mut rows = stmt.query(&[]).unwrap();
         let vs: i64 = rows.next().unwrap()?.get(0);
         (ps, vs)
     };
 
-    info!("Importing {} visits across {} places!", place_count, visit_count);
-    let mut stmt = old.prepare("
+    info!(
+        "Importing {} visits across {} places!",
+        place_count, visit_count
+    );
+    let mut stmt = old.prepare(
+        "
         SELECT
             p.id                as place_id,
             p.guid              as place_guid,
@@ -203,15 +209,22 @@ fn import_places(
         JOIN moz_historyvisits v
             ON p.id = v.place_id
         ORDER BY p.id
-    ")?;
+    ",
+    )?;
 
     let mut rows = stmt.query(&[])?;
-    let mut current_place = LegacyPlace { id: -1, .. LegacyPlace::default() };
+    let mut current_place = LegacyPlace {
+        id: -1,
+        ..LegacyPlace::default()
+    };
     let mut place_counter = 0;
 
     let tx = new.db.transaction()?;
 
-    print!("Processing {} / {} places (approx.)", place_counter, place_count);
+    print!(
+        "Processing {} / {} places (approx.)",
+        place_counter, place_count
+    );
     let _ = std::io::stdout().flush();
     while let Some(row_or_error) = rows.next() {
         let row = row_or_error?;
@@ -226,7 +239,10 @@ fn import_places(
             continue;
         }
         place_counter += 1;
-        print!("\rProcessing {} / {} places (approx.)", place_counter, place_count);
+        print!(
+            "\rProcessing {} / {} places (approx.)",
+            place_counter, place_count
+        );
         let _ = std::io::stdout().flush();
         if current_place.id != -1 {
             current_place.insert(tx.conn(), &options)?;
@@ -243,7 +259,10 @@ fn import_places(
     Ok(())
 }
 
-fn read_json_file<T>(path: impl AsRef<Path>) -> Result<T> where for<'a> T: serde::de::Deserialize<'a> {
+fn read_json_file<T>(path: impl AsRef<Path>) -> Result<T>
+where
+    for<'a> T: serde::de::Deserialize<'a>,
+{
     let file = fs::File::open(path.as_ref())?;
     Ok(serde_json::from_reader(&file)?)
 }
@@ -251,20 +270,19 @@ fn read_json_file<T>(path: impl AsRef<Path>) -> Result<T> where for<'a> T: serde
 #[cfg(not(windows))]
 mod autocomplete {
     use super::*;
-    use std::thread;
-    use std::time::{Instant, Duration};
-    use std::sync::{mpsc, atomic::{AtomicUsize, Ordering}, Arc};
-
-    use places::api::matcher::{
-        search_frecent,
-        SearchParams,
-        SearchResult,
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        mpsc, Arc,
     };
+    use std::thread;
+    use std::time::{Duration, Instant};
+
+    use places::api::matcher::{search_frecent, SearchParams, SearchResult};
 
     #[derive(Debug, Clone)]
     struct ConnectionArgs {
         path: PathBuf,
-        encryption_key: Option<String>
+        encryption_key: Option<String>,
     }
 
     impl ConnectionArgs {
@@ -325,7 +343,9 @@ mod autocomplete {
                 let conn_args = conn_args.clone();
                 thread::spawn(move || {
                     // Note: unwraps/panics here won't bring down the main thread.
-                    let conn = conn_args.connect().expect("Failed to open connection on BG thread");
+                    let conn = conn_args
+                        .connect()
+                        .expect("Failed to open connection on BG thread");
                     for AutocompleteRequest { id, search } in recv_query.iter() {
                         // Check if this query is worth processing. Note that we check that the id
                         // isn't known to be stale. The id can be ahead of `last_id`, since
@@ -338,12 +358,14 @@ mod autocomplete {
                             Ok(results) => {
                                 // Should we skip sending results if `last_id` indicates we
                                 // don't care anymore?
-                                send_results.send(AutocompleteResponse {
-                                    id,
-                                    search,
-                                    results,
-                                    took: Instant::now().duration_since(start)
-                                }).unwrap(); // This failing means the main thread has died (most likely)
+                                send_results
+                                    .send(AutocompleteResponse {
+                                        id,
+                                        search,
+                                        results,
+                                        took: Instant::now().duration_since(start),
+                                    })
+                                    .unwrap(); // This failing means the main thread has died (most likely)
                             }
                             Err(e) => {
                                 // TODO: this is likely not to go very well since we're in raw mode...
@@ -386,7 +408,10 @@ mod autocomplete {
     }
 
     // TODO: we should normalize and casefold both of these.
-    fn find_highlighted_sections<'a>(source: &'a str, search_tokens: &[&str]) -> Vec<(&'a str, bool)> {
+    fn find_highlighted_sections<'a>(
+        source: &'a str,
+        search_tokens: &[&str],
+    ) -> Vec<(&'a str, bool)> {
         if search_tokens.is_empty() {
             return vec![(source, false)];
         }
@@ -417,8 +442,8 @@ mod autocomplete {
                 if curr.1 > prev.0 {
                     *coalesced.last_mut().unwrap() = (prev.0, curr.1);
                 }
-                // else `prev` already encompasses `curr` entirely... (IIRC
-                // this is possible in weird cases).
+            // else `prev` already encompasses `curr` entirely... (IIRC
+            // this is possible in weird cases).
             } else {
                 coalesced.push(curr);
             }
@@ -440,10 +465,18 @@ mod autocomplete {
         result
     }
 
-    fn highlight_sections<W: Write>(out: &mut W, source: &str, search_tokens: &[&str], pad: usize) -> Result<()> {
+    fn highlight_sections<W: Write>(
+        out: &mut W,
+        source: &str,
+        search_tokens: &[&str],
+        pad: usize,
+    ) -> Result<()> {
         use termion::style::{Bold, NoFaint};
         let (term_width, _) = termion::terminal_size()?;
-        let mut source_shortened = source.chars().take(term_width as usize - 10 - pad).collect::<String>();
+        let mut source_shortened = source
+            .chars()
+            .take(term_width as usize - 10 - pad)
+            .collect::<String>();
         if source_shortened.len() != source.len() {
             source_shortened.push_str("...");
         }
@@ -473,28 +506,36 @@ mod autocomplete {
 
     pub fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<()> {
         use termion::{
+            clear, color,
+            cursor::{self, Goto},
             event::Key,
             input::TermRead,
             raw::IntoRawMode,
-            clear,
             style::{Invert, NoInvert},
-            cursor::{self, Goto},
-            color,
         };
 
         let mut autocompleter = BackgroundAutocomplete::start(ConnectionArgs {
             path: db_path,
-            encryption_key: encryption_key.map(|s| s.to_owned())
+            encryption_key: encryption_key.map(|s| s.to_owned()),
         })?;
 
         let mut stdin = termion::async_stdin();
         let stdout = std::io::stdout().into_raw_mode()?;
         let mut stdout = termion::screen::AlternateScreen::from(stdout);
-        write!(stdout, "{}{}Autocomplete demo (press escape to exit){}> ",
-               clear::All, Goto(1, 1), Goto(1, 2))?;
+        write!(
+            stdout,
+            "{}{}Autocomplete demo (press escape to exit){}> ",
+            clear::All,
+            Goto(1, 1),
+            Goto(1, 2)
+        )?;
         stdout.flush()?;
 
-        let no_title = format!("{}(no title){}", termion::style::Faint, termion::style::NoFaint);
+        let no_title = format!(
+            "{}(no title){}",
+            termion::style::Faint,
+            termion::style::NoFaint
+        );
         let throttle_dur = Duration::from_millis(100);
         // TODO: refactor these to be part of a struct or something.
         let mut query_str = String::new();
@@ -513,13 +554,12 @@ mod autocomplete {
         // it was within throttle_dur.
         let mut pending_change = false;
         loop {
-            for res in (&mut stdin).keys() {//.events_and_raw() {
+            for res in (&mut stdin).keys() {
+                //.events_and_raw() {
                 let key = res?;
                 last_keypress = Instant::now();
                 match key {
-                    Key::Esc => {
-                        return Ok(())
-                    }
+                    Key::Esc => return Ok(()),
                     Key::Char('\n') | Key::Char('\r') => {
                         if !query_str.is_empty() {
                             last_query = Instant::now();
@@ -616,11 +656,14 @@ mod autocomplete {
                 } else {
                     pending_change = false;
                 }
-                write!(stdout, "{}{}> {}{}",
+                write!(
+                    stdout,
+                    "{}{}> {}{}",
                     Goto(1, 2),
                     clear::CurrentLine,
                     query_str,
-                    Goto(3 + cursor_idx as u16, 2))?;
+                    Goto(3 + cursor_idx as u16, 2)
+                )?;
 
                 if query_str.is_empty() {
                     results = None;
@@ -628,7 +671,7 @@ mod autocomplete {
                     repaint_results = true;
                 }
                 input_changed = false;
-            } else if  pending_change && last_keypress.elapsed() > throttle_dur {
+            } else if pending_change && last_keypress.elapsed() > throttle_dur {
                 pending_change = false;
                 if !query_str.is_empty() {
                     autocompleter.query(SearchParams {
@@ -642,18 +685,26 @@ mod autocomplete {
                 match &results {
                     Some(results) => {
                         // let search_query = results.search.search_string;
-                        write!(stdout, "{}{}{}Query id={} gave {} results (max {}) for \"{}\" after {}us",
-                            cursor::Save, Goto(1, 3), clear::AfterCursor,
+                        write!(
+                            stdout,
+                            "{}{}{}Query id={} gave {} results (max {}) for \"{}\" after {}us",
+                            cursor::Save,
+                            Goto(1, 3),
+                            clear::AfterCursor,
                             results.id,
                             results.results.len(),
                             results.search.limit,
                             results.search.search_string,
-                            results.took.as_secs() * 1_000_000 + (results.took.subsec_nanos() as u64 / 1000)
+                            results.took.as_secs() * 1_000_000
+                                + (results.took.subsec_nanos() as u64 / 1000)
                         )?;
                         let (_, term_h) = termion::terminal_size()?;
                         write!(stdout, "{}", Goto(1, 4))?;
-                        let search_tokens = results.search.search_string
-                            .split_whitespace().collect::<Vec<&str>>();
+                        let search_tokens = results
+                            .search
+                            .search_string
+                            .split_whitespace()
+                            .collect::<Vec<&str>>();
                         for (i, item) in results.results.iter().enumerate() {
                             if 4 + (1 + i as u16) * 2 >= term_h {
                                 break;
@@ -662,17 +713,36 @@ mod autocomplete {
                             let prefix = format!("{}. ({}) ", i + 1, item.frecency);
                             if i == pos {
                                 write!(stdout, "{}", Invert)?;
-                                write!(stdout, "{}{}{}. ({}{}{}) ",
-                                    color::Bg(color::Blue), i + 1, color::Bg(color::Reset),
-                                    color::Bg(color::Red), item.frecency, color::Bg(color::Reset))?;
+                                write!(
+                                    stdout,
+                                    "{}{}{}. ({}{}{}) ",
+                                    color::Bg(color::Blue),
+                                    i + 1,
+                                    color::Bg(color::Reset),
+                                    color::Bg(color::Red),
+                                    item.frecency,
+                                    color::Bg(color::Reset)
+                                )?;
                             } else {
-                                write!(stdout, "{}{}{}. ({}{}{}) ",
-                                    color::Fg(color::Blue), i + 1, color::Fg(color::Reset),
-                                    color::Fg(color::Red), item.frecency, color::Fg(color::Reset))?;
+                                write!(
+                                    stdout,
+                                    "{}{}{}. ({}{}{}) ",
+                                    color::Fg(color::Blue),
+                                    i + 1,
+                                    color::Fg(color::Reset),
+                                    color::Fg(color::Red),
+                                    item.frecency,
+                                    color::Fg(color::Reset)
+                                )?;
                             }
 
                             if !item.title.is_empty() {
-                                highlight_sections(&mut stdout, &item.title, &search_tokens, prefix.len())?;
+                                highlight_sections(
+                                    &mut stdout,
+                                    &item.title,
+                                    &search_tokens,
+                                    prefix.len(),
+                                )?;
                             } else {
                                 write!(stdout, "{}", no_title)?;
                             }
@@ -694,7 +764,14 @@ mod autocomplete {
                         write!(stdout, "{}", cursor::Restore)?;
                     }
                     None => {
-                        write!(stdout, "{}{}{}{}", cursor::Save, Goto(1, 3), clear::AfterCursor, cursor::Restore)?;
+                        write!(
+                            stdout,
+                            "{}{}{}{}",
+                            cursor::Save,
+                            Goto(1, 3),
+                            clear::AfterCursor,
+                            cursor::Restore
+                        )?;
                     }
                 }
                 repaint_results = false;
@@ -706,7 +783,6 @@ mod autocomplete {
 }
 
 fn main() -> Result<()> {
-
     let matches = clap::App::new("autocomplete-example")
         .arg(clap::Arg::with_name("database_path")
             .long("database")
@@ -743,15 +819,17 @@ fn main() -> Result<()> {
                    import and exit, for example)"))
         .get_matches();
 
-    let db_path = matches.value_of("database_path").unwrap_or("./new-places.db");
+    let db_path = matches
+        .value_of("database_path")
+        .unwrap_or("./new-places.db");
     let encryption_key = matches.value_of("encryption_key");
 
     let mut conn = places::PlacesDb::open(&db_path, encryption_key)?;
 
     if let Some(import_places_arg) = matches.value_of("import_places") {
         let options = ImportPlacesOptions {
-            remote_probability: value_t!(matches,
-                "import_places_remote_weight", f64).unwrap_or(0.1),
+            remote_probability: value_t!(matches, "import_places_remote_weight", f64)
+                .unwrap_or(0.1),
         };
         let import_source = if import_places_arg == "auto" {
             info!("Automatically locating largest places DB in your profile(s)");
@@ -761,18 +839,24 @@ fn main() -> Result<()> {
                 error!("Failed to locate your firefox profile!");
                 bail!("--import-places=auto specified, but couldn't find a `places.sqlite`");
             };
-            info!("Using a {} places.sqlite from profile '{}' (places path = {:?})",
-                  profile_info.friendly_db_size(),
-                  profile_info.profile_name,
-                  profile_info.path);
-            assert!(profile_info.path.exists(),
-                    "Bug in find_places_db, provided path doesn't exist!");
+            info!(
+                "Using a {} places.sqlite from profile '{}' (places path = {:?})",
+                profile_info.friendly_db_size(),
+                profile_info.profile_name,
+                profile_info.path
+            );
+            assert!(
+                profile_info.path.exists(),
+                "Bug in find_places_db, provided path doesn't exist!"
+            );
             profile_info.path
         } else {
             let path = Path::new(import_places_arg);
             if !path.exists() {
-                bail!("Provided path to --import-places doesn't exist and isn't 'auto': {:?}",
-                      import_places_arg);
+                bail!(
+                    "Provided path to --import-places doesn't exist and isn't 'auto': {:?}",
+                    import_places_arg
+                );
             }
             path.to_owned()
         };
@@ -805,11 +889,13 @@ fn main() -> Result<()> {
     // Close our connection before starting autocomplete.
     drop(conn);
     if !matches.is_present("no_interactive") {
-        #[cfg(not(windows))] {
+        #[cfg(not(windows))]
+        {
             // Can't use cfg! macro, this module doesn't exist at all on windows
             autocomplete::start_autocomplete(Path::new(db_path).to_owned(), encryption_key)?;
         }
-        #[cfg(windows)] {
+        #[cfg(windows)]
+        {
             println!("The interactive autocomplete demo isn't available on windows currently :(");
         }
     }

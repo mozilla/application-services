@@ -68,8 +68,10 @@ fn add_u32_to_hash(hash: u32, new_value: u32) -> u32 {
 /// This should return identical results to `mozilla::HashString`!
 #[inline]
 pub fn hash_string(string: &str) -> u32 {
-    string.as_bytes().iter().fold(0u32, |hash, &cur|
-        add_u32_to_hash(hash, cur as u32))
+    string
+        .as_bytes()
+        .iter()
+        .fold(0u32, |hash, &cur| add_u32_to_hash(hash, cur as u32))
 }
 
 #[cfg(test)]
@@ -81,22 +83,30 @@ mod tests {
         // These are the unique 16 bits of the prefix. You can generate these with:
         // `PlacesUtils.history.hashURL(val, "prefix_lo").toString(16).slice(0, 4)`.
         let test_values = &[
-            ("http",        0x7226u16),
-            ("https",       0x2b12),
-            ("blob",        0x2612),
-            ("data",        0x9736),
-            ("chrome",      0x75fc),
-            ("resource",    0x37f8),
-            ("file",        0xc7c9),
-            ("place",       0xf434),
+            ("http", 0x7226u16),
+            ("https", 0x2b12),
+            ("blob", 0x2612),
+            ("data", 0x9736),
+            ("chrome", 0x75fc),
+            ("resource", 0x37f8),
+            ("file", 0xc7c9),
+            ("place", 0xf434),
         ];
         for &(prefix, top16bits) in test_values {
             let expected_lo = (top16bits as u64) << 32;
             let expected_hi = expected_lo | 0xffff_ffffu64;
-            assert_eq!(hash_url_prefix(prefix, PrefixMode::Lo), expected_lo,
-                       "wrong value for hash_url_prefix({:?}, PrefixMode::Lo)", prefix);
-            assert_eq!(hash_url_prefix(prefix, PrefixMode::Hi), expected_hi,
-                       "wrong value for hash_url_prefix({:?}, PrefixMode::Hi)", prefix);
+            assert_eq!(
+                hash_url_prefix(prefix, PrefixMode::Lo),
+                expected_lo,
+                "wrong value for hash_url_prefix({:?}, PrefixMode::Lo)",
+                prefix
+            );
+            assert_eq!(
+                hash_url_prefix(prefix, PrefixMode::Hi),
+                expected_hi,
+                "wrong value for hash_url_prefix({:?}, PrefixMode::Hi)",
+                prefix
+            );
         }
     }
 
@@ -107,9 +117,15 @@ mod tests {
         let test_values = &[
             ("http://www.example.com", 0x7226_2c1a_3496u64),
             ("http://user:pass@foo:21/bar;par?b#c", 0x7226_61d2_18a7u64),
-            ("https://github.com/mozilla/application-services/", 0x2b12_e7bd_7fcdu64),
+            (
+                "https://github.com/mozilla/application-services/",
+                0x2b12_e7bd_7fcdu64,
+            ),
             ("place:transition=7&sort=4", 0xf434_ac2b_2dafu64),
-            ("blob:36c6ded1-6190-45f4-8fcd-355d1b6c9f48", 0x2612_0a43_1050u64),
+            (
+                "blob:36c6ded1-6190-45f4-8fcd-355d1b6c9f48",
+                0x2612_0a43_1050u64,
+            ),
             ("www.example.com", 0x8b14_9337u64), // URLs without a prefix are hashed to 32 bits
             (&data_url[..], 0x9736_d65d_86d9u64),
         ];
@@ -119,4 +135,3 @@ mod tests {
         }
     }
 }
-

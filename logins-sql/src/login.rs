@@ -2,11 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use sync::{self, ServerTimestamp};
-use rusqlite::Row;
-use util;
-use std::time::{self, SystemTime};
 use error::*;
+use rusqlite::Row;
+use std::time::{self, SystemTime};
+use sync::{self, ServerTimestamp};
+use util;
 
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -53,7 +53,9 @@ pub struct Login {
 }
 
 fn string_or_default(row: &Row, col: &str) -> Result<String> {
-    Ok(row.get_checked::<_, Option<String>>(col)?.unwrap_or_default())
+    Ok(row
+        .get_checked::<_, Option<String>>(col)?
+        .unwrap_or_default())
 }
 
 impl Login {
@@ -92,7 +94,7 @@ impl Login {
             password: row.get_checked("password")?,
             username: string_or_default(row, "username")?,
 
-            hostname:   row.get_checked("hostname")?,
+            hostname: row.get_checked("hostname")?,
             http_realm: row.get_checked("httpRealm")?,
 
             form_submit_url: row.get_checked("formSubmitURL")?,
@@ -100,12 +102,14 @@ impl Login {
             username_field: string_or_default(row, "usernameField")?,
             password_field: string_or_default(row, "passwordField")?,
 
-            time_created:   row.get_checked("timeCreated")?,
+            time_created: row.get_checked("timeCreated")?,
             // Might be null
-            time_last_used: row.get_checked::<_, Option<i64>>("timeLastUsed")?.unwrap_or_default(),
+            time_last_used: row
+                .get_checked::<_, Option<i64>>("timeLastUsed")?
+                .unwrap_or_default(),
 
             time_password_changed: row.get_checked("timePasswordChanged")?,
-            times_used:            row.get_checked("timesUsed")?,
+            times_used: row.get_checked("timesUsed")?,
         })
     }
 }
@@ -128,7 +132,8 @@ impl MirrorLogin {
             login: Login::from_row(row)?,
             is_overridden: row.get_checked("is_overridden")?,
             server_modified: ServerTimestamp(
-                row.get_checked::<_, i64>("server_modified")? as f64 / 1000.0)
+                row.get_checked::<_, i64>("server_modified")? as f64 / 1000.0,
+            ),
         })
     }
 }
@@ -173,7 +178,7 @@ impl LocalLogin {
             login: Login::from_row(row)?,
             sync_status: SyncStatus::from_u8(row.get_checked("sync_status")?)?,
             is_deleted: row.get_checked("is_deleted")?,
-            local_modified: util::system_time_millis_from_row(row, "local_modified")?
+            local_modified: util::system_time_millis_from_row(row, "local_modified")?,
         })
     }
 }
@@ -244,35 +249,44 @@ impl SyncLoginData {
     #[inline]
     pub fn from_payload(payload: sync::Payload, ts: ServerTimestamp) -> Result<Self> {
         let guid = payload.id.clone();
-        let login: Option<Login> =
-            if payload.is_tombstone() {
-                None
-            } else {
-                let record: Login = payload.into_record()?;
-                Some(record)
-            };
-        Ok(Self { guid, local: None, mirror: None, inbound: (login, ts) })
+        let login: Option<Login> = if payload.is_tombstone() {
+            None
+        } else {
+            let record: Login = payload.into_record()?;
+            Some(record)
+        };
+        Ok(Self {
+            guid,
+            local: None,
+            mirror: None,
+            inbound: (login, ts),
+        })
     }
 }
 
 macro_rules! impl_login_setter {
     ($setter_name:ident, $field:ident, $Login:ty) => {
         impl SyncLoginData {
-            pub(crate) fn $setter_name (&mut self, record: $Login) -> Result<()> {
+            pub(crate) fn $setter_name(&mut self, record: $Login) -> Result<()> {
                 // TODO: We probably shouldn't panic in this function!
                 if self.$field.is_some() {
                     // Shouldn't be possible (only could happen if UNIQUE fails in sqlite, or if we
                     // get duplicate guids somewhere,but we check).
-                    panic!("SyncLoginData::{} called on object that already has {} data",
-                           stringify!($setter_name),
-                           stringify!($field));
+                    panic!(
+                        "SyncLoginData::{} called on object that already has {} data",
+                        stringify!($setter_name),
+                        stringify!($field)
+                    );
                 }
 
                 if self.guid_str() != record.guid_str() {
                     // This is almost certainly a bug in our code.
-                    panic!("Wrong guid on login in {}: {:?} != {:?}",
-                           stringify!($setter_name),
-                           self.guid_str(), record.guid_str());
+                    panic!(
+                        "Wrong guid on login in {}: {:?} != {:?}",
+                        stringify!($setter_name),
+                        self.guid_str(),
+                        record.guid_str()
+                    );
                 }
 
                 self.$field = Some(record);
@@ -287,7 +301,6 @@ impl_login_setter!(set_mirror, mirror, MirrorLogin);
 
 #[derive(Debug, Default, Clone)]
 pub(crate) struct LoginDelta {
-
     // "non-commutative" fields
     pub hostname: Option<String>,
     pub password: Option<String>,
@@ -354,9 +367,7 @@ macro_rules! apply_field {
 }
 
 impl Login {
-
     pub(crate) fn apply_delta(&mut self, mut delta: LoginDelta) {
-
         apply_field!(self, delta, hostname);
 
         apply_field!(self, delta, password);
@@ -423,7 +434,9 @@ impl Login {
         if self.time_last_used > 0 && self.time_last_used != older.time_last_used {
             delta.time_last_used = Some(self.time_last_used);
         }
-        if self.time_password_changed > 0 && self.time_password_changed != older.time_password_changed {
+        if self.time_password_changed > 0
+            && self.time_password_changed != older.time_password_changed
+        {
             delta.time_password_changed = Some(self.time_password_changed);
         }
 

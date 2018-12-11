@@ -5,10 +5,10 @@
 use caseless::Caseless;
 use rusqlite::{
     self,
-    types::{FromSql, ValueRef, ToSql, FromSqlResult, FromSqlError, ToSqlOutput}
+    types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef},
 };
-use url::percent_encoding;
 use std::borrow::Cow;
+use url::percent_encoding;
 use util;
 
 const MAX_CHARS_TO_SEARCH_THROUGH: usize = 255;
@@ -151,9 +151,13 @@ fn next_search_candidate(to_search: &str, search_for: char) -> Option<usize> {
         // in the loop below.  For other characters we fall back to 0xff, which
         // is not a valid UTF-8 byte.
         let target = dubious_to_ascii_lower(search_for as u8);
-        let special = if target == b'i' { 0xc4u8 }
-                      else if target == b'k' { 0xe2u8 }
-                      else { 0xffu8 };
+        let special = if target == b'i' {
+            0xc4u8
+        } else if target == b'k' {
+            0xe2u8
+        } else {
+            0xffu8
+        };
         // Note: rustc doesn't do great at all on the more idiomatic
         // implementation of this (or below), but it does okay for this.
         let mut ci = 0;
@@ -218,7 +222,11 @@ fn string_match(token: &str, source: &str) -> bool {
         match (ti.next(), si.next()) {
             (None, _) => return true,
             (Some(_), None) => return false,
-            (Some(x), Some(y)) => if x != y { return false },
+            (Some(x), Some(y)) => {
+                if x != y {
+                    return false;
+                }
+            }
         }
     }
 }
@@ -334,7 +342,6 @@ pub struct AutocompleteMatch<'search, 'url, 'title, 'tags> {
 }
 
 impl<'search, 'url, 'title, 'tags> AutocompleteMatch<'search, 'url, 'title, 'tags> {
-
     fn get_search_fn(&self) -> fn(&str, &str) -> bool {
         match self.match_behavior {
             MatchBehavior::Anywhere | MatchBehavior::AnywhereUnmodified => find_anywhere,
@@ -346,9 +353,13 @@ impl<'search, 'url, 'title, 'tags> AutocompleteMatch<'search, 'url, 'title, 'tag
 
     fn fixup_url_str<'a>(&self, mut s: &'a str) -> Cow<'a, str> {
         if self.match_behavior != MatchBehavior::AnywhereUnmodified {
-            if s.starts_with("http://") { s = &s[7..]; }
-            else if s.starts_with("https://") { s = &s[8..]; }
-            else if s.starts_with("ftp://") { s = &s[6..]; }
+            if s.starts_with("http://") {
+                s = &s[7..];
+            } else if s.starts_with("https://") {
+                s = &s[8..];
+            } else if s.starts_with("ftp://") {
+                s = &s[6..];
+            }
         }
         // TODO: would be nice to decode punycode here too, but for now
         // this is probably fine.
@@ -366,25 +377,25 @@ impl<'search, 'url, 'title, 'tags> AutocompleteMatch<'search, 'url, 'title, 'tag
     pub fn invoke(&self) -> bool {
         // We only want to filter javascript: URLs if we are not supposed to search
         // for them, and the search does not start with "javascript:".
-        if self.match_behavior == MatchBehavior::AnywhereUnmodified &&
-           self.url_str.starts_with("javascript:") &&
-           !self.has_behavior(SearchBehavior::JAVASCRIPT) &&
-           !self.search_str.starts_with("javascript:")
+        if self.match_behavior == MatchBehavior::AnywhereUnmodified
+            && self.url_str.starts_with("javascript:")
+            && !self.has_behavior(SearchBehavior::JAVASCRIPT)
+            && !self.search_str.starts_with("javascript:")
         {
             return false;
         }
         let matches = if self.has_behavior(SearchBehavior::RESTRICT) {
-            (!self.has_behavior(SearchBehavior::HISTORY) || self.visit_count > 0) &&
-            (!self.has_behavior(SearchBehavior::TYPED) || self.typed) &&
-            (!self.has_behavior(SearchBehavior::BOOKMARK) || self.bookmarked) &&
-            (!self.has_behavior(SearchBehavior::TAG) || !self.tags.is_empty()) &&
-            (!self.has_behavior(SearchBehavior::OPENPAGE) || self.open_page_count > 0)
+            (!self.has_behavior(SearchBehavior::HISTORY) || self.visit_count > 0)
+                && (!self.has_behavior(SearchBehavior::TYPED) || self.typed)
+                && (!self.has_behavior(SearchBehavior::BOOKMARK) || self.bookmarked)
+                && (!self.has_behavior(SearchBehavior::TAG) || !self.tags.is_empty())
+                && (!self.has_behavior(SearchBehavior::OPENPAGE) || self.open_page_count > 0)
         } else {
-            (self.has_behavior(SearchBehavior::HISTORY) && self.visit_count > 0) ||
-            (self.has_behavior(SearchBehavior::TYPED) && self.typed) ||
-            (self.has_behavior(SearchBehavior::BOOKMARK) && self.bookmarked) ||
-            (self.has_behavior(SearchBehavior::TAG) && !self.tags.is_empty()) ||
-            (self.has_behavior(SearchBehavior::OPENPAGE) && self.open_page_count > 0)
+            (self.has_behavior(SearchBehavior::HISTORY) && self.visit_count > 0)
+                || (self.has_behavior(SearchBehavior::TYPED) && self.typed)
+                || (self.has_behavior(SearchBehavior::BOOKMARK) && self.bookmarked)
+                || (self.has_behavior(SearchBehavior::TAG) && !self.tags.is_empty())
+                || (self.has_behavior(SearchBehavior::OPENPAGE) && self.open_page_count > 0)
         };
         if !matches {
             return false;
@@ -395,18 +406,21 @@ impl<'search, 'url, 'title, 'tags> AutocompleteMatch<'search, 'url, 'title, 'tag
         let trimmed_url = util::slice_up_to(fixed_url.as_ref(), MAX_CHARS_TO_SEARCH_THROUGH);
         let trimmed_title = util::slice_up_to(self.title_str, MAX_CHARS_TO_SEARCH_THROUGH);
         for token in ascii_words(self.search_str) {
-            let matches = match (self.has_behavior(SearchBehavior::TITLE), self.has_behavior(SearchBehavior::URL)) {
-                (true, true) =>
-                    (search_fn(token, trimmed_title) || search_fn(token, self.tags)) &&
-                     search_fn(token, trimmed_url),
-                (true, false) =>
-                    search_fn(token, trimmed_title) || search_fn(token, self.tags),
-                (false, true) =>
-                    search_fn(token, trimmed_url),
-                (false, false) =>
-                    search_fn(token, trimmed_url) ||
-                    search_fn(token, trimmed_title) ||
-                    search_fn(token, self.tags),
+            let matches = match (
+                self.has_behavior(SearchBehavior::TITLE),
+                self.has_behavior(SearchBehavior::URL),
+            ) {
+                (true, true) => {
+                    (search_fn(token, trimmed_title) || search_fn(token, self.tags))
+                        && search_fn(token, trimmed_url)
+                }
+                (true, false) => search_fn(token, trimmed_title) || search_fn(token, self.tags),
+                (false, true) => search_fn(token, trimmed_url),
+                (false, false) => {
+                    search_fn(token, trimmed_url)
+                        || search_fn(token, trimmed_title)
+                        || search_fn(token, self.tags)
+                }
             };
             if !matches {
                 return false;
@@ -423,9 +437,13 @@ mod test {
     #[test]
     fn test_is_ascii_lower_alpha() {
         // just check exhaustively
-        for c in 0u8 ..= 255u8 {
-            assert_eq!(is_ascii_lower_alpha(c), b'a' <= c && c <= b'z',
-                "is_lower_ascii_alpha is wrong for {}", c);
+        for c in 0u8..=255u8 {
+            assert_eq!(
+                is_ascii_lower_alpha(c),
+                b'a' <= c && c <= b'z',
+                "is_lower_ascii_alpha is wrong for {}",
+                c
+            );
         }
     }
 
@@ -449,15 +467,27 @@ mod test {
                     let mut li = ch.to_lowercase();
                     let lc = li.next().unwrap();
                     if c != 304 && c != 8490 {
-                        assert!((lc as u32) >= 128, "Lower case of non-ascii '{}' ({}) was unexpectedly ascii",
-                                ch, c);
+                        assert!(
+                            (lc as u32) >= 128,
+                            "Lower case of non-ascii '{}' ({}) was unexpectedly ascii",
+                            ch,
+                            c
+                        );
                         // This one we added (it's an implicit assumption in the utilities the
                         // places code uses).
-                        assert!(li.next().is_none(),
-                            "Lower case of '{}' ({}) produced multiple codepoints unexpectedly", ch, c);
+                        assert!(
+                            li.next().is_none(),
+                            "Lower case of '{}' ({}) produced multiple codepoints unexpectedly",
+                            ch,
+                            c
+                        );
                     } else {
-                        assert!((lc as u32) < 128, "Lower case of non-ascii '{}' ({}) was unexpectedly not ascii",
-                                ch, c);
+                        assert!(
+                            (lc as u32) < 128,
+                            "Lower case of non-ascii '{}' ({}) was unexpectedly not ascii",
+                            ch,
+                            c
+                        );
                     }
                 }
                 _ => {
@@ -472,15 +502,21 @@ mod test {
             let ch = char::from_u32(c).unwrap();
             let mut li = ch.to_lowercase();
             let lc = li.next().unwrap();
-            assert!(li.next().is_none() && (lc as u32) < 128,
-                    "Lower case of ascii '{}' ({}) wasn't ascii :(",
-                    ch, c);
+            assert!(
+                li.next().is_none() && (lc as u32) < 128,
+                "Lower case of ascii '{}' ({}) wasn't ascii :(",
+                ch,
+                c
+            );
         }
 
-        for c in (b'a' ..= b'z').into_iter().chain(b'A' ..= b'Z') {
-            assert_eq!(dubious_to_ascii_lower(c),
-                       c.to_ascii_lowercase(),
-                       "c: '{}'", c as char);
+        for c in (b'a'..=b'z').into_iter().chain(b'A'..=b'Z') {
+            assert_eq!(
+                dubious_to_ascii_lower(c),
+                c.to_ascii_lowercase(),
+                "c: '{}'",
+                c as char
+            );
         }
     }
 }

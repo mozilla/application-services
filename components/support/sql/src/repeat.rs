@@ -11,11 +11,13 @@ use std::fmt;
 pub struct RepeatDisplay<'a, F> {
     count: usize,
     sep: &'a str,
-    fmt_one: F
+    fmt_one: F,
 }
 
 impl<'a, F> fmt::Display for RepeatDisplay<'a, F>
-where F: Fn(usize, &mut fmt::Formatter) -> fmt::Result {
+where
+    F: Fn(usize, &mut fmt::Formatter) -> fmt::Result,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for i in 0..self.count {
             if i != 0 {
@@ -43,8 +45,14 @@ where F: Fn(usize, &mut fmt::Formatter) -> fmt::Result {
 /// ```
 #[inline]
 pub fn repeat_display<'a, F>(count: usize, sep: &'a str, fmt_one: F) -> RepeatDisplay<'a, F>
-where F: Fn(usize, &mut fmt::Formatter) -> fmt::Result {
-    RepeatDisplay { count, sep, fmt_one }
+where
+    F: Fn(usize, &mut fmt::Formatter) -> fmt::Result,
+{
+    RepeatDisplay {
+        count,
+        sep,
+        fmt_one,
+    }
 }
 
 /// Returns a value that formats as `count` instances of `?` separated by commas.
@@ -95,6 +103,11 @@ pub fn repeat_sql_values(count: usize) -> impl fmt::Display {
 /// assert_eq!(format!("{}", repeat_multi_values(3, 1)), "(?),(?),(?)");
 /// ```
 pub fn repeat_multi_values(num_values: usize, vars_per_value: usize) -> impl fmt::Display {
-    assert_ne!(vars_per_value, 0, "Illegal value for `vars_per_value`, must not be zero");
-    repeat_display(num_values, ",", move |_, f| write!(f, "({})", repeat_sql_vars(vars_per_value)))
+    assert_ne!(
+        vars_per_value, 0,
+        "Illegal value for `vars_per_value`, must not be zero"
+    );
+    repeat_display(num_values, ",", move |_, f| {
+        write!(f, "({})", repeat_sql_vars(vars_per_value))
+    })
 }

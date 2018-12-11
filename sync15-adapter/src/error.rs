@@ -2,15 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::time::SystemTime;
-use reqwest;
-use failure::{self, Fail, Context, Backtrace, SyncFailure};
-use std::{fmt, result, string};
-use std::boxed::Box;
-use openssl;
 use base64;
-use serde_json;
+use failure::{self, Backtrace, Context, Fail, SyncFailure};
 use hawk;
+use openssl;
+use reqwest;
+use serde_json;
+use std::boxed::Box;
+use std::time::SystemTime;
+use std::{fmt, result, string};
 
 pub type Result<T> = result::Result<T, Error>;
 
@@ -45,7 +45,7 @@ impl Error {
     pub fn is_not_found(&self) -> bool {
         match self.kind() {
             ErrorKind::StorageHttpError { code: 404, .. } => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -72,10 +72,16 @@ pub enum ErrorKind {
     #[fail(display = "SHA256 HMAC Mismatch error")]
     HmacMismatch,
 
-    #[fail(display = "HTTP status {} when requesting a token from the tokenserver", _0)]
+    #[fail(
+        display = "HTTP status {} when requesting a token from the tokenserver",
+        _0
+    )]
     TokenserverHttpError(u16),
 
-    #[fail(display = "HTTP status {} during a storage request to \"{}\"", code, route)]
+    #[fail(
+        display = "HTTP status {} during a storage request to \"{}\"",
+        code, route
+    )]
     StorageHttpError { code: u16, route: String },
 
     #[fail(display = "Server requested backoff. Retry after {:?}", _0)]
@@ -124,7 +130,6 @@ pub enum ErrorKind {
     StoreError(#[fail(cause)] failure::Error),
 
     // Basically reimplement error_chain's foreign_links. (Ugh, this sucks)
-
     #[fail(display = "OpenSSL error: {}", _0)]
     OpensslError(#[fail(cause)] openssl::error::ErrorStack),
 

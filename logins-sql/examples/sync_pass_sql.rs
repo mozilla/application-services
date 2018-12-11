@@ -4,9 +4,9 @@
 
 #![recursion_limit = "4096"]
 
+extern crate fxa_client;
 extern crate logins_sql;
 extern crate sync15_adapter as sync;
-extern crate fxa_client;
 extern crate url;
 #[macro_use]
 extern crate prettytable;
@@ -18,22 +18,25 @@ extern crate serde_json;
 
 extern crate rusqlite;
 
-extern crate webbrowser;
 extern crate clap;
+extern crate webbrowser;
 
 #[macro_use]
 extern crate log;
-extern crate env_logger;
 extern crate chrono;
+extern crate env_logger;
 extern crate failure;
 
 use failure::Fail;
 
-use std::{fs, io::{self, Read, Write}};
+use fxa_client::{AccessTokenInfo, Config, FirefoxAccount};
+use logins_sql::{Login, PasswordEngine};
 use std::collections::HashMap;
-use fxa_client::{FirefoxAccount, Config, AccessTokenInfo};
-use sync::{Sync15StorageClientInit, KeyBundle};
-use logins_sql::{PasswordEngine, Login};
+use std::{
+    fs,
+    io::{self, Read, Write},
+};
+use sync::{KeyBundle, Sync15StorageClientInit};
 
 const CLIENT_ID: &str = "98adfa37698f255b";
 const REDIRECT_URI: &str = "https://lockbox.firefox.com/fxa/ios-redirect.html";
@@ -51,9 +54,11 @@ fn load_fxa_creds(path: &str) -> Result<FirefoxAccount> {
 }
 
 fn load_or_create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
-    load_fxa_creds(path)
-    .or_else(|e| {
-        info!("Failed to load existing FxA credentials from {:?} (error: {}), launching OAuth flow", path, e);
+    load_fxa_creds(path).or_else(|e| {
+        info!(
+            "Failed to load existing FxA credentials from {:?} (error: {}), launching OAuth flow",
+            path, e
+        );
         create_fxa_creds(path, cfg)
     })
 }
@@ -71,7 +76,10 @@ fn create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
     }
 
     let final_url = url::Url::parse(&prompt_string("Final URL").unwrap_or(String::new()))?;
-    let query_params = final_url.query_pairs().into_owned().collect::<HashMap<String, String>>();
+    let query_params = final_url
+        .query_pairs()
+        .into_owned()
+        .collect::<HashMap<String, String>>();
 
     acct.complete_oauth_flow(&query_params["code"], &query_params["state"])?;
     let mut file = fs::File::create(path)?;
@@ -84,9 +92,15 @@ fn prompt_string<S: AsRef<str>>(prompt: S) -> Option<String> {
     print!("{}: ", prompt.as_ref());
     let _ = io::stdout().flush(); // Don't care if flush fails really.
     let mut s = String::new();
-    io::stdin().read_line(&mut s).expect("Failed to read line...");
-    if let Some('\n') = s.chars().next_back() { s.pop(); }
-    if let Some('\r') = s.chars().next_back() { s.pop(); }
+    io::stdin()
+        .read_line(&mut s)
+        .expect("Failed to read line...");
+    if let Some('\n') = s.chars().next_back() {
+        s.pop();
+    }
+    if let Some('\r') = s.chars().next_back() {
+        s.pop();
+    }
     if s.len() == 0 {
         None
     } else {
@@ -125,7 +139,7 @@ fn read_login() -> Login {
         form_submit_url,
         http_realm,
         hostname,
-        .. Login::default()
+        ..Login::default()
     };
 
     if let Err(e) = record.check_valid() {
@@ -157,14 +171,32 @@ fn update_login(record: &mut Login) {
     update_string("password", &mut record.password, ", leave blank to keep");
     update_string("hostname", &mut record.hostname, ", leave blank to keep");
 
-    update_string("username_field", &mut record.username_field, ", leave blank to keep");
-    update_string("password_field", &mut record.password_field, ", leave blank to keep");
+    update_string(
+        "username_field",
+        &mut record.username_field,
+        ", leave blank to keep",
+    );
+    update_string(
+        "password_field",
+        &mut record.password_field,
+        ", leave blank to keep",
+    );
 
-    if prompt_bool(&format!("edit form_submit_url? (now {}) [yN]", string_opt_or(&record.form_submit_url, "(none)"))).unwrap_or(false) {
+    if prompt_bool(&format!(
+        "edit form_submit_url? (now {}) [yN]",
+        string_opt_or(&record.form_submit_url, "(none)")
+    ))
+    .unwrap_or(false)
+    {
         record.form_submit_url = prompt_string("form_submit_url");
     }
 
-    if prompt_bool(&format!("edit http_realm? (now {}) [yN]", string_opt_or(&record.http_realm, "(none)"))).unwrap_or(false) {
+    if prompt_bool(&format!(
+        "edit http_realm? (now {}) [yN]",
+        string_opt_or(&record.http_realm, "(none)")
+    ))
+    .unwrap_or(false)
+    {
         record.http_realm = prompt_string("http_realm");
     }
 
@@ -178,7 +210,7 @@ fn prompt_bool(msg: &str) -> Option<bool> {
     result.and_then(|r| match r.chars().next().unwrap() {
         'y' | 'Y' | 't' | 'T' => Some(true),
         'n' | 'N' | 'f' | 'F' => Some(false),
-        _ => None
+        _ => None,
     })
 }
 
@@ -187,35 +219,42 @@ fn prompt_chars(msg: &str) -> Option<char> {
 }
 
 fn timestamp_to_string(milliseconds: i64) -> String {
-    use chrono::{Local, DateTime};
-    use std::time::{UNIX_EPOCH, Duration};
+    use chrono::{DateTime, Local};
+    use std::time::{Duration, UNIX_EPOCH};
     let time = UNIX_EPOCH + Duration::from_millis(milliseconds as u64);
     let dtl: DateTime<Local> = time.into();
     dtl.format("%l:%M:%S %p%n%h %e, %Y").to_string()
 }
 
 fn show_sql(e: &PasswordEngine, sql: &str) -> Result<()> {
-    use prettytable::{row::Row, cell::Cell, Table};
+    use prettytable::{cell::Cell, row::Row, Table};
     use rusqlite::types::Value;
     let conn = e.conn();
     let mut stmt = conn.prepare(sql)?;
-    let cols: Vec<String> = stmt.column_names().into_iter().map(|x| x.to_owned()).collect();
+    let cols: Vec<String> = stmt
+        .column_names()
+        .into_iter()
+        .map(|x| x.to_owned())
+        .collect();
     let len = cols.len();
     let mut table = Table::new();
     table.add_row(Row::new(
-        cols.iter().map(|name| Cell::new(&name).style_spec("bc")).collect()
+        cols.iter()
+            .map(|name| Cell::new(&name).style_spec("bc"))
+            .collect(),
     ));
 
     let rows = stmt.query_map(&[], |row| {
-        (0..len).into_iter().map(|idx| {
-            match row.get::<_, Value>(idx) {
+        (0..len)
+            .into_iter()
+            .map(|idx| match row.get::<_, Value>(idx) {
                 Value::Null => Cell::new("null").style_spec("Fd"),
                 Value::Integer(i) => Cell::new(&i.to_string()).style_spec("Fb"),
                 Value::Real(r) => Cell::new(&r.to_string()).style_spec("Fb"),
                 Value::Text(s) => Cell::new(&s.to_string()).style_spec("Fr"),
-                Value::Blob(b) => Cell::new(&format!("{}b blob", b.len()))
-            }
-        }).collect::<Vec<_>>()
+                Value::Blob(b) => Cell::new(&format!("{}b blob", b.len())),
+            })
+            .collect::<Vec<_>>()
     })?;
 
     for row in rows {
@@ -298,9 +337,7 @@ fn prompt_record_id(e: &PasswordEngine, action: &str) -> Result<Option<String>> 
 fn init_logging() {
     // Explicitly ignore some rather noisy crates. Turn on trace for everyone else.
     let spec = "trace,tokio_threadpool=warn,tokio_reactor=warn,tokio_core=warn,tokio=warn,hyper=warn,want=warn,mio=warn,reqwest=warn";
-    env_logger::init_from_env(
-        env_logger::Env::default().filter_or("RUST_LOG", spec)
-    );
+    env_logger::init_from_env(env_logger::Env::default().filter_or("RUST_LOG", spec));
 }
 
 fn main() -> Result<()> {
@@ -309,38 +346,49 @@ fn main() -> Result<()> {
 
     let matches = clap::App::new("sync_pass_sql")
         .about("CLI login syncing tool (backed by sqlcipher)")
-
-        .arg(clap::Arg::with_name("database_path")
-            .short("d")
-            .long("database")
-            .value_name("LOGINS_DATABASE")
-            .takes_value(true)
-            .help("Path to the logins database (default: \"./logins.db\")"))
-
-        .arg(clap::Arg::with_name("encryption_key")
-            .short("k")
-            .long("key")
-            .value_name("ENCRYPTION_KEY")
-            .takes_value(true)
-            .help("Database encryption key.")
-            .required(true))
-
-        .arg(clap::Arg::with_name("credential_file")
-            .short("c")
-            .long("credentials")
-            .value_name("CREDENTIAL_JSON")
-            .takes_value(true)
-            .help("Path to store our cached fxa credentials (defaults to \"./credentials.json\""))
-
+        .arg(
+            clap::Arg::with_name("database_path")
+                .short("d")
+                .long("database")
+                .value_name("LOGINS_DATABASE")
+                .takes_value(true)
+                .help("Path to the logins database (default: \"./logins.db\")"),
+        )
+        .arg(
+            clap::Arg::with_name("encryption_key")
+                .short("k")
+                .long("key")
+                .value_name("ENCRYPTION_KEY")
+                .takes_value(true)
+                .help("Database encryption key.")
+                .required(true),
+        )
+        .arg(
+            clap::Arg::with_name("credential_file")
+                .short("c")
+                .long("credentials")
+                .value_name("CREDENTIAL_JSON")
+                .takes_value(true)
+                .help(
+                    "Path to store our cached fxa credentials (defaults to \"./credentials.json\"",
+                ),
+        )
         .get_matches();
 
-    let cred_file = matches.value_of("credential_file").unwrap_or("./credentials.json");
+    let cred_file = matches
+        .value_of("credential_file")
+        .unwrap_or("./credentials.json");
     let db_path = matches.value_of("database_path").unwrap_or("./logins.db");
     // This should already be checked by `clap`, IIUC
-    let encryption_key = matches.value_of("encryption_key").expect("Encryption key is not optional");
+    let encryption_key = matches
+        .value_of("encryption_key")
+        .expect("Encryption key is not optional");
 
     // Lets not log the encryption key, it's just not a good habit to be in.
-    debug!("Using credential file = {:?}, db = {:?}", cred_file, db_path);
+    debug!(
+        "Using credential file = {:?}, db = {:?}",
+        cred_file, db_path
+    );
 
     // TODO: allow users to use stage/etc.
     let cfg = Config::release(CLIENT_ID, REDIRECT_URI);

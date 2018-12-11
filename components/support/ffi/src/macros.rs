@@ -4,8 +4,8 @@
 
 use serde;
 use serde_json;
-use string::rust_string_to_c;
 use std::os::raw::c_char;
+use string::rust_string_to_c;
 
 /// Implements [`IntoFfi`] for the provided types (more than one may be passed in) by allocating
 /// `$T` on the heap as an opaque pointer.
@@ -110,7 +110,7 @@ macro_rules! define_string_destructor {
                 $crate::destroy_c_string(s)
             }
         }
-    }
+    };
 }
 
 /// Define a (public) destructor for a type that was allocated by `Box::into_raw(Box::new(value))`

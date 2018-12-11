@@ -88,9 +88,9 @@
 //!    JSON.
 //!
 
+use db;
 use error::*;
 use sql_support::ConnExt;
-use db;
 
 /// Note that firefox-ios is currently on version 3. Version 4 is this version,
 /// which adds a metadata table and changes timestamps to be in milliseconds
@@ -128,7 +128,6 @@ pub const COMMON_COLS: &'static str = "
     timesUsed
 ";
 
-
 const COMMON_SQL: &'static str = "
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     hostname            TEXT NOT NULL,
@@ -158,7 +157,6 @@ lazy_static! {
         )",
         common_sql = COMMON_SQL
     );
-
     static ref CREATE_MIRROR_TABLE_SQL: String = format!(
         "CREATE TABLE IF NOT EXISTS loginsM (
             {common_sql},
@@ -169,11 +167,8 @@ lazy_static! {
         )",
         common_sql = COMMON_SQL
     );
-
-    static ref SET_VERSION_SQL: String = format!(
-        "PRAGMA user_version = {version}",
-        version = VERSION
-    );
+    static ref SET_VERSION_SQL: String =
+        format!("PRAGMA user_version = {version}", version = VERSION);
 }
 
 const CREATE_META_TABLE_SQL: &'static str = "
@@ -209,7 +204,7 @@ const UPDATE_MIRROR_TIMESTAMPS_TO_MILLIS_SQL: &'static str = "
         timePasswordChanged = timePasswordChanged / 1000
 ";
 
-pub(crate) static LAST_SYNC_META_KEY:    &'static str = "last_sync_time";
+pub(crate) static LAST_SYNC_META_KEY: &'static str = "last_sync_time";
 pub(crate) static GLOBAL_STATE_META_KEY: &'static str = "global_state";
 
 pub(crate) fn init(db: &db::LoginDb) -> Result<()> {
@@ -230,7 +225,7 @@ pub(crate) fn init(db: &db::LoginDb) -> Result<()> {
         // - Otherwise, it's a normal schema upgrade from an earlier
         //   `PRAGMA user_version`.
         let table_list_exists = db.query_one::<i64>(
-            "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'tableList'"
+            "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'tableList'",
         )? != 0;
 
         if table_list_exists {
@@ -242,9 +237,11 @@ pub(crate) fn init(db: &db::LoginDb) -> Result<()> {
         if user_version < VERSION {
             upgrade(db, user_version)?;
         } else {
-            warn!("Loaded future schema version {} (we only understand version {}). \
-                   Optimisitically ",
-                  user_version, VERSION)
+            warn!(
+                "Loaded future schema version {} (we only understand version {}). \
+                 Optimisitically ",
+                user_version, VERSION
+            )
         }
     }
     Ok(())
@@ -256,8 +253,10 @@ fn upgrade(db: &db::LoginDb, from: i64) -> Result<()> {
     if from == VERSION {
         return Ok(());
     }
-    assert_ne!(from, 0,
-        "Upgrading from user_version = 0 should already be handled (in `init`)");
+    assert_ne!(
+        from, 0,
+        "Upgrading from user_version = 0 should already be handled (in `init`)"
+    );
     if from < 3 {
         // These indices were added in v3 (apparently)
         db.execute_all(&[

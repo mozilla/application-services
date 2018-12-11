@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use string::{rust_string_to_c, rust_str_from_c, destroy_c_string};
-use std::{self, ptr};
 use std::os::raw::c_char;
+use std::{self, ptr};
+use string::{destroy_c_string, rust_str_from_c, rust_string_to_c};
 
 /// Represents an error that occured within rust, storing both an error code, and additional data
 /// that may be used by the caller.
@@ -141,14 +141,23 @@ impl ExternError {
     /// Construct an ExternError representing failure from a code and a message.
     #[inline]
     pub fn new_error(code: ErrorCode, message: impl Into<String>) -> Self {
-        assert!(!code.is_success(), "Attempted to construct a success ExternError with a message");
-        Self { code, message: rust_string_to_c(message) }
+        assert!(
+            !code.is_success(),
+            "Attempted to construct a success ExternError with a message"
+        );
+        Self {
+            code,
+            message: rust_string_to_c(message),
+        }
     }
 
     /// Returns a ExternError representing a success. Also returned by ExternError::default()
     #[inline]
     pub fn success() -> Self {
-        Self { code: ErrorCode::SUCCESS, message: ptr::null_mut() }
+        Self {
+            code: ErrorCode::SUCCESS,
+            message: ptr::null_mut(),
+        }
     }
 
     /// Get the `code` property.
@@ -245,12 +254,17 @@ impl ErrorCode {
     }
 
     /// Get the raw numeric value of this ErrorCode.
-    #[inline] pub fn code(self) -> i32 { self.0 }
+    #[inline]
+    pub fn code(self) -> i32 {
+        self.0
+    }
 
     /// Returns whether or not this is a success code.
-    #[inline] pub fn is_success(&self) -> bool { self.code() == 0 }
+    #[inline]
+    pub fn is_success(&self) -> bool {
+        self.code() == 0
+    }
 }
-
 
 #[cfg(test)]
 mod test {

@@ -2,13 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use error::{Result, ErrorKind};
 use base16;
 use base64;
-use openssl::{self, symm};
+use error::{ErrorKind, Result};
 use openssl::hash::MessageDigest;
 use openssl::pkey::PKey;
 use openssl::sign::Signer;
+use openssl::{self, symm};
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct KeyBundle {
@@ -17,7 +17,6 @@ pub struct KeyBundle {
 }
 
 impl KeyBundle {
-
     /// Construct a key bundle from the already-decoded encrypt and hmac keys.
     /// Panics (asserts) if they aren't both 32 bytes.
     pub fn new(enc: Vec<u8>, mac: Vec<u8>) -> Result<KeyBundle> {
@@ -29,7 +28,10 @@ impl KeyBundle {
             error!("Bad key length (mac_key): {} != 32", mac.len());
             return Err(ErrorKind::BadKeyLength("mac_key", mac.len(), 32).into());
         }
-        Ok(KeyBundle { enc_key: enc, mac_key: mac })
+        Ok(KeyBundle {
+            enc_key: enc,
+            mac_key: mac,
+        })
     }
 
     pub fn new_random() -> Result<KeyBundle> {
@@ -45,7 +47,7 @@ impl KeyBundle {
         }
         Ok(KeyBundle {
             enc_key: ksync[0..32].into(),
-            mac_key: ksync[32..64].into()
+            mac_key: ksync[32..64].into(),
         })
     }
 
@@ -84,7 +86,10 @@ impl KeyBundle {
         signer.update(ciphertext)?;
         let size = signer.sign(&mut out)?;
         // This isn't an Err since it really should not be possible.
-        assert!(size == 32, "Somehow the 256 bits from sha256 do not add up into 32 bytes...");
+        assert!(
+            size == 32,
+            "Somehow the 256 bits from sha256 do not add up into 32 bytes..."
+        );
         Ok(out)
     }
 
@@ -124,20 +129,24 @@ impl KeyBundle {
     /// Decrypt the provided ciphertext with the given iv, and decodes the
     /// result as a utf8 string.  Important: Caller must check verify_hmac first!
     pub fn decrypt(&self, ciphertext: &[u8], iv: &[u8]) -> Result<String> {
-        let cleartext_bytes = symm::decrypt(symm::Cipher::aes_256_cbc(),
-                                            self.encryption_key(),
-                                            Some(iv),
-                                            ciphertext)?;
+        let cleartext_bytes = symm::decrypt(
+            symm::Cipher::aes_256_cbc(),
+            self.encryption_key(),
+            Some(iv),
+            ciphertext,
+        )?;
         let cleartext = String::from_utf8(cleartext_bytes)?;
         Ok(cleartext)
     }
 
     /// Encrypt using the provided IV.
     pub fn encrypt_bytes_with_iv(&self, cleartext_bytes: &[u8], iv: &[u8]) -> Result<Vec<u8>> {
-        let ciphertext = symm::encrypt(symm::Cipher::aes_256_cbc(),
-                                       self.encryption_key(),
-                                       Some(iv),
-                                       cleartext_bytes)?;
+        let ciphertext = symm::encrypt(
+            symm::Cipher::aes_256_cbc(),
+            self.encryption_key(),
+            Some(iv),
+            cleartext_bytes,
+        )?;
         Ok(ciphertext)
     }
 
@@ -163,10 +172,11 @@ impl KeyBundle {
 mod test {
     use super::*;
 
-    static HMAC_B16: &'static str = "b1e6c18ac30deb70236bc0d65a46f7a4dce3b8b0e02cf92182b914e3afa5eebc";
+    static HMAC_B16: &'static str =
+        "b1e6c18ac30deb70236bc0d65a46f7a4dce3b8b0e02cf92182b914e3afa5eebc";
     static IV_B64: &'static str = "GX8L37AAb2FZJMzIoXlX8w==";
     static HMAC_KEY_B64: &'static str = "MMntEfutgLTc8FlTLQFms8/xMPmCldqPlq/QQXEjx70=";
-    static ENC_KEY_B64: &'static str ="9K/wLdXdw+nrTtXo4ZpECyHFNr4d7aYHqeg3KW9+m6Q=";
+    static ENC_KEY_B64: &'static str = "9K/wLdXdw+nrTtXo4ZpECyHFNr4d7aYHqeg3KW9+m6Q=";
 
     static CIPHERTEXT_B64_PIECES: &'static [&'static str] = &[
         "NMsdnRulLwQsVcwxKW9XwaUe7ouJk5Wn80QhbD80l0HEcZGCynh45qIbeYBik0lgcHbK",
@@ -175,7 +185,7 @@ mod test {
         "vsKiJ2Hq6VCo7hu123wNegmujHWQSGyf8JeudZjKzfi0OFRRvvm4QAKyBWf0MgrW1F8S",
         "FDnVfkq8amCB7NhdwhgLWbN+21NitNwWYknoEWe1m6hmGZDgDT32uxzWxCV8QqqrpH/Z",
         "ggViEr9uMgoy4lYaWqP7G5WKvvechc62aqnsNEYhH26A5QgzmlNyvB+KPFvPsYzxDnSC",
-        "jOoRSLx7GG86wT59QZw="
+        "jOoRSLx7GG86wT59QZw=",
     ];
 
     static CLEARTEXT_B64_PIECES: &'static [&'static str] = &[
@@ -184,14 +194,16 @@ mod test {
         "ZDd3cGsuTG9jYWxTeW5jU2VydmVyL3dlYXZlL2xvZ3MvIiwidGl0bGUiOiJJbmRleCBv",
         "ZiBmaWxlOi8vL1VzZXJzL2phc29uL0xpYnJhcnkvQXBwbGljYXRpb24gU3VwcG9ydC9G",
         "aXJlZm94L1Byb2ZpbGVzL2tzZ2Q3d3BrLkxvY2FsU3luY1NlcnZlci93ZWF2ZS9sb2dz",
-        "LyIsInZpc2l0cyI6W3siZGF0ZSI6MTMxOTE0OTAxMjM3MjQyNSwidHlwZSI6MX1dfQ=="
+        "LyIsInZpc2l0cyI6W3siZGF0ZSI6MTMxOTE0OTAxMjM3MjQyNSwidHlwZSI6MX1dfQ==",
     ];
 
     #[test]
     fn test_hmac() {
         let key_bundle = KeyBundle::from_base64(ENC_KEY_B64, HMAC_KEY_B64).unwrap();
         let ciphertext_base64 = CIPHERTEXT_B64_PIECES.join("");
-        assert!(key_bundle.verify_hmac_string(HMAC_B16, &ciphertext_base64).unwrap());
+        assert!(key_bundle
+            .verify_hmac_string(HMAC_B16, &ciphertext_base64)
+            .unwrap());
     }
 
     #[test]
@@ -201,8 +213,8 @@ mod test {
         let iv = base64::decode(IV_B64).unwrap();
         let s = key_bundle.decrypt(&ciphertext, &iv).unwrap();
 
-        let cleartext = String::from_utf8(
-            base64::decode(&CLEARTEXT_B64_PIECES.join("")).unwrap()).unwrap();
+        let cleartext =
+            String::from_utf8(base64::decode(&CLEARTEXT_B64_PIECES.join("")).unwrap()).unwrap();
         assert_eq!(&cleartext, &s);
     }
 
@@ -212,7 +224,9 @@ mod test {
         let iv = base64::decode(IV_B64).unwrap();
 
         let cleartext_bytes = base64::decode(&CLEARTEXT_B64_PIECES.join("")).unwrap();
-        let encrypted_bytes = key_bundle.encrypt_bytes_with_iv(&cleartext_bytes, &iv).unwrap();
+        let encrypted_bytes = key_bundle
+            .encrypt_bytes_with_iv(&cleartext_bytes, &iv)
+            .unwrap();
 
         let expect_ciphertext = base64::decode(&CIPHERTEXT_B64_PIECES.join("")).unwrap();
 

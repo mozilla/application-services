@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-extern crate sync15_adapter;
 extern crate fxa_client;
+extern crate sync15_adapter;
 extern crate url;
 
 extern crate serde;
@@ -24,12 +24,12 @@ extern crate places;
 
 use failure::Fail;
 
-use std::{fs, io::{Read}};
-use fxa_client::{FirefoxAccount, Config, AccessTokenInfo};
-use sync15_adapter::{Sync15StorageClient, Sync15StorageClientInit, KeyBundle, Store};
+use fxa_client::{AccessTokenInfo, Config, FirefoxAccount};
+use places::history_sync::store::HistoryStore;
+use places::PlacesDb;
+use std::{fs, io::Read};
 use sync15_adapter::client::SetupStorageClient;
-use places::{PlacesDb};
-use places::history_sync::store::{HistoryStore};
+use sync15_adapter::{KeyBundle, Store, Sync15StorageClient, Sync15StorageClientInit};
 
 const CLIENT_ID: &str = "";
 const REDIRECT_URI: &str = "";
@@ -45,13 +45,10 @@ fn load_fxa_creds(path: &str) -> Result<FirefoxAccount> {
     Ok(FirefoxAccount::from_json(&s)?)
 }
 
-
 fn init_logging() {
     // Explicitly ignore some rather noisy crates. Turn on trace for everyone else.
     let spec = "trace,tokio_threadpool=warn,tokio_reactor=warn,tokio_core=warn,tokio=warn,hyper=warn,want=warn,mio=warn,reqwest=warn";
-    env_logger::init_from_env(
-        env_logger::Env::default().filter_or("RUST_LOG", spec)
-    );
+    env_logger::init_from_env(env_logger::Env::default().filter_or("RUST_LOG", spec));
 }
 
 fn main() -> Result<()> {
@@ -59,48 +56,61 @@ fn main() -> Result<()> {
 
     let matches = clap::App::new("sync_history")
         .about("History syncing tool")
-
-        .arg(clap::Arg::with_name("database_path")
-            .short("d")
-            .long("database")
-            .value_name("LOGINS_DATABASE")
-            .takes_value(true)
-            .help("Path to the logins database (default: \"./logins.db\")"))
-
-        .arg(clap::Arg::with_name("encryption_key")
-            .short("k")
-            .long("key")
-            .value_name("ENCRYPTION_KEY")
-            .takes_value(true)
-            .help("Database encryption key.")
-            .required(true))
-
-        .arg(clap::Arg::with_name("credential_file")
-            .short("c")
-            .long("credentials")
-            .value_name("CREDENTIAL_JSON")
-            .takes_value(true)
-            .help("Path to store our cached fxa credentials (defaults to \"./credentials.json\""))
-
-        .arg(clap::Arg::with_name("reset")
-            .short("r")
-            .long("reset")
-            .help("Reset the store before syncing"))
-
-        .arg(clap::Arg::with_name("wipe-remote")
-            .short("w")
-            .long("wipe-remote")
-            .help("Wipe the server store before syncing"))
-
+        .arg(
+            clap::Arg::with_name("database_path")
+                .short("d")
+                .long("database")
+                .value_name("LOGINS_DATABASE")
+                .takes_value(true)
+                .help("Path to the logins database (default: \"./logins.db\")"),
+        )
+        .arg(
+            clap::Arg::with_name("encryption_key")
+                .short("k")
+                .long("key")
+                .value_name("ENCRYPTION_KEY")
+                .takes_value(true)
+                .help("Database encryption key.")
+                .required(true),
+        )
+        .arg(
+            clap::Arg::with_name("credential_file")
+                .short("c")
+                .long("credentials")
+                .value_name("CREDENTIAL_JSON")
+                .takes_value(true)
+                .help(
+                    "Path to store our cached fxa credentials (defaults to \"./credentials.json\"",
+                ),
+        )
+        .arg(
+            clap::Arg::with_name("reset")
+                .short("r")
+                .long("reset")
+                .help("Reset the store before syncing"),
+        )
+        .arg(
+            clap::Arg::with_name("wipe-remote")
+                .short("w")
+                .long("wipe-remote")
+                .help("Wipe the server store before syncing"),
+        )
         .get_matches();
 
-    let cred_file = matches.value_of("credential_file").unwrap_or("./credentials.json");
+    let cred_file = matches
+        .value_of("credential_file")
+        .unwrap_or("./credentials.json");
     let db_path = matches.value_of("database_path").unwrap_or("./logins.db");
     // This should already be checked by `clap`, IIUC
-    let encryption_key = matches.value_of("encryption_key").expect("Encryption key is not optional");
+    let encryption_key = matches
+        .value_of("encryption_key")
+        .expect("Encryption key is not optional");
 
     // Lets not log the encryption key, it's just not a good habit to be in.
-    debug!("Using credential file = {:?}, db = {:?}", cred_file, db_path);
+    debug!(
+        "Using credential file = {:?}, db = {:?}",
+        cred_file, db_path
+    );
 
     // TODO: allow users to use stage/etc.
     let cfg = Config::release(CLIENT_ID, REDIRECT_URI);

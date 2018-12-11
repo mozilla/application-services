@@ -2,13 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use url::{Url};
+use url::Url;
 
-use error::*;
-use types::*;
-use db::PlacesDb;
 use super::apply_observation;
-use observation::{VisitObservation};
+use db::PlacesDb;
+use error::*;
+use observation::VisitObservation;
+use types::*;
 
 // This module can become, roughly: PlacesUtils.history()
 
@@ -44,15 +44,15 @@ pub struct AddableVisit {
 pub fn insert(conn: &mut PlacesDb, place: AddablePlaceInfo) -> Result<()> {
     for v in place.visits {
         let obs = VisitObservation::new(place.url.clone())
-                  .with_visit_type(v.transition)
-                  .with_at(v.date)
-                  .with_title(place.title.clone())
-                  .with_is_remote(!v.is_local);
-                  // .with_referrer(...) ????
+            .with_visit_type(v.transition)
+            .with_at(v.date)
+            .with_title(place.title.clone())
+            .with_is_remote(!v.is_local);
+        // .with_referrer(...) ????
 
         //if place.referrer
         apply_observation(conn, obs)?;
-    };
+    }
     Ok(())
 }
 
@@ -65,11 +65,17 @@ mod tests {
         let mut c = PlacesDb::open_in_memory(None).expect("should get a connection");
         let url = Url::parse("http://example.com").expect("it's a valid url");
         let date = Timestamp::now();
-        let visits = vec![AddableVisit { date,
-                                         transition: VisitTransition::Link,
-                                         referrer: None,
-                                         is_local: true}];
-        let a = AddablePlaceInfo { url, title: None, visits };
+        let visits = vec![AddableVisit {
+            date,
+            transition: VisitTransition::Link,
+            referrer: None,
+            is_local: true,
+        }];
+        let a = AddablePlaceInfo {
+            url,
+            title: None,
+            visits,
+        };
 
         insert(&mut c, a).expect("should insert");
 
@@ -136,16 +142,17 @@ pub enum RedirectSourceType {
 // of using various browser-specific heuristics to compute the VisitTransition
 // we assume the caller has already done this and passed the correct transition
 // flags in.
-pub fn visit_uri(conn: &mut PlacesDb,
-                 url: &Url,
-                 last_url: Option<Url>,
-                 // To be more honest, this would *not* take a VisitTransition,
-                 // but instead other "internal" nsIHistory flags, from which
-                 // it would deduce the VisitTransition.
-                 transition: VisitTransition,
-                 redirect_source: Option<RedirectSourceType>,
-                 is_error_page: bool,
-                ) -> Result<()> {
+pub fn visit_uri(
+    conn: &mut PlacesDb,
+    url: &Url,
+    last_url: Option<Url>,
+    // To be more honest, this would *not* take a VisitTransition,
+    // but instead other "internal" nsIHistory flags, from which
+    // it would deduce the VisitTransition.
+    transition: VisitTransition,
+    redirect_source: Option<RedirectSourceType>,
+    is_error_page: bool,
+) -> Result<()> {
     // Silently return if URI is something we shouldn't add to DB.
     if !can_add_url(&url)? {
         return Ok(());
@@ -176,13 +183,15 @@ pub fn visit_uri(conn: &mut PlacesDb,
     // They exist only to keep track of isVisited status during the session.
     if transition == VisitTransition::Embed {
         warn!("Embed visit, but in-memory storage of these isn't done yet");
-        return Ok(())
+        return Ok(());
     }
 
     let obs = VisitObservation::new(url.clone())
-              .with_is_error(is_error_page)
-              .with_visit_type(transition)
-              .with_is_redirect_source(redirect_source.map(|_r| true))
-              .with_is_permanent_redirect_source(redirect_source.map(|r| r == RedirectSourceType::Permanent));
+        .with_is_error(is_error_page)
+        .with_visit_type(transition)
+        .with_is_redirect_source(redirect_source.map(|_r| true))
+        .with_is_permanent_redirect_source(
+            redirect_source.map(|r| r == RedirectSourceType::Permanent),
+        );
     apply_observation(conn, obs)
 }

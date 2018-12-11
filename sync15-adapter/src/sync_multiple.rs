@@ -5,15 +5,15 @@
 // This helps you perform a sync of multiple stores and helps you manage
 // global and local state between syncs.
 
-use std::result;
+use client::{Sync15StorageClient, Sync15StorageClientInit};
+use error::Error;
+use key_bundle::KeyBundle;
+use serde_json;
+use state::{GlobalState, SetupStateMachine};
 use std::cell::Cell;
 use std::collections::HashMap;
-use client::{Sync15StorageClient, Sync15StorageClientInit};
-use state::{GlobalState, SetupStateMachine};
+use std::result;
 use sync::{self, Store};
-use key_bundle::KeyBundle;
-use error::Error;
-use serde_json;
 
 /// Info stored in memory about the client to use. We reuse the client unless
 /// we discover the client_init has changed, in which case we re-create one.
@@ -47,9 +47,8 @@ pub fn sync_multiple(
     persisted_global_state: &Cell<Option<String>>,
     last_client_info: &Cell<Option<ClientInfo>>,
     storage_init: &Sync15StorageClientInit,
-    root_sync_key: &KeyBundle
+    root_sync_key: &KeyBundle,
 ) -> result::Result<HashMap<String, Error>, Error> {
-
     // Note: We explicitly swap a None back as the state, meaning if we
     // unexpectedly fail below, the next sync will redownload meta/global,
     // crypto/keys, etc. without needing to. Apparently this is both okay
@@ -66,8 +65,8 @@ pub fn sync_multiple(
                     None
                 }
             }
-        },
-        None => None
+        }
+        None => None,
     };
 
     let mut global_state = match maybe_global {
@@ -92,13 +91,11 @@ pub fn sync_multiple(
                 // we can reuse it (which should be the common path)
                 client_info
             }
-        },
-        None => {
-            ClientInfo {
-                client_init: storage_init.clone(),
-                client: Sync15StorageClient::new(storage_init.clone())?,
-            }
         }
+        None => ClientInfo {
+            client_init: storage_init.clone(),
+            client: Sync15StorageClient::new(storage_init.clone())?,
+        },
     };
 
     // Advance the state machine to the point where it can perform a full
@@ -113,8 +110,14 @@ pub fn sync_multiple(
 
     // Reset our local state if necessary.
     for store in stores {
-        if global_state.engines_that_need_local_reset().contains(store.collection_name()) {
-            info!("{} sync ID changed; engine needs local reset", store.collection_name());
+        if global_state
+            .engines_that_need_local_reset()
+            .contains(store.collection_name())
+        {
+            info!(
+                "{} sync ID changed; engine needs local reset",
+                store.collection_name()
+            );
             store.reset()?;
         }
     }
@@ -124,19 +127,14 @@ pub fn sync_multiple(
         let name = store.collection_name();
         info!("Syncing {} engine!", name);
 
-        let result = sync::synchronize(
-            &client_info.client,
-            &global_state,
-            *store,
-            true
-        );
+        let result = sync::synchronize(&client_info.client, &global_state, *store, true);
 
         match result {
             Ok(()) => info!("Sync of {} was successful!", name),
             Err(e) => {
                 warn!("Sync of {} failed! {:?}", name, e);
                 failures.insert(name.into(), e.into());
-            },
+            }
         }
     }
 
@@ -146,4 +144,3 @@ pub fn sync_multiple(
 
     Ok(failures)
 }
-

@@ -2,39 +2,33 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-extern crate serde_json;
-extern crate rusqlite;
 extern crate logins_sql;
+extern crate rusqlite;
+extern crate serde_json;
 extern crate sync15_adapter;
 extern crate url;
 
-#[macro_use] extern crate ffi_support;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate ffi_support;
+#[macro_use]
+extern crate log;
 
 #[cfg(target_os = "android")]
 extern crate android_logger;
 
 use std::os::raw::c_char;
 
-use ffi_support::{
-    rust_str_from_c,
-    rust_string_from_c,
-    call_with_result,
-    ExternError,
-};
+use ffi_support::{call_with_result, rust_str_from_c, rust_string_from_c, ExternError};
 
-use logins_sql::{
-    Result,
-    Login,
-    PasswordEngine,
-};
+use logins_sql::{Login, PasswordEngine, Result};
 
 fn logging_init() {
     #[cfg(target_os = "android")]
     {
         android_logger::init_once(
             android_logger::Filter::default().with_min_level(log::Level::Trace),
-            Some("liblogins_ffi"));
+            Some("liblogins_ffi"),
+        );
         debug!("Android logging should be hooked up!")
     }
 }
@@ -66,7 +60,7 @@ pub unsafe extern "C" fn sync15_passwords_sync(
     access_token: *const c_char,
     sync_key: *const c_char,
     tokenserver_url: *const c_char,
-    error: &mut ExternError
+    error: &mut ExternError,
 ) {
     trace!("sync15_passwords_sync");
     call_with_result(error, || -> Result<()> {
@@ -76,9 +70,7 @@ pub unsafe extern "C" fn sync15_passwords_sync(
                 access_token: rust_string_from_c(access_token),
                 tokenserver_url: parse_url(rust_str_from_c(tokenserver_url))?,
             },
-            &sync15_adapter::KeyBundle::from_ksync_base64(
-                rust_str_from_c(sync_key)
-            )?
+            &sync15_adapter::KeyBundle::from_ksync_base64(rust_str_from_c(sync_key))?,
         )
     })
 }
@@ -87,52 +79,38 @@ pub unsafe extern "C" fn sync15_passwords_sync(
 pub unsafe extern "C" fn sync15_passwords_touch(
     state: &PasswordEngine,
     id: *const c_char,
-    error: &mut ExternError
+    error: &mut ExternError,
 ) {
     trace!("sync15_passwords_touch");
-    call_with_result(error, || {
-        state.touch(rust_str_from_c(id))
-    })
+    call_with_result(error, || state.touch(rust_str_from_c(id)))
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn sync15_passwords_delete(
     state: &PasswordEngine,
     id: *const c_char,
-    error: &mut ExternError
+    error: &mut ExternError,
 ) -> u8 {
     trace!("sync15_passwords_delete");
-    call_with_result(error, || {
-        state.delete(rust_str_from_c(id))
-    })
+    call_with_result(error, || state.delete(rust_str_from_c(id)))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_wipe(
-    state: &PasswordEngine,
-    error: &mut ExternError
-) {
+pub unsafe extern "C" fn sync15_passwords_wipe(state: &PasswordEngine, error: &mut ExternError) {
     trace!("sync15_passwords_wipe");
-    call_with_result(error, || {
-        state.wipe()
-    })
+    call_with_result(error, || state.wipe())
 }
 
 #[no_mangle]
-pub extern "C" fn sync15_passwords_reset(
-    state: &PasswordEngine,
-    error: &mut ExternError
-) {
+pub extern "C" fn sync15_passwords_reset(state: &PasswordEngine, error: &mut ExternError) {
     trace!("sync15_passwords_reset");
-    call_with_result(error, || {
-        state.reset()
-    })
+    call_with_result(error, || state.reset())
 }
 
 #[no_mangle]
 pub extern "C" fn sync15_passwords_get_all(
     state: &PasswordEngine,
-    error: &mut ExternError
+    error: &mut ExternError,
 ) -> *mut c_char {
     trace!("sync15_passwords_get_all");
     call_with_result(error, || -> Result<String> {
@@ -146,19 +124,17 @@ pub extern "C" fn sync15_passwords_get_all(
 pub unsafe extern "C" fn sync15_passwords_get_by_id(
     state: &PasswordEngine,
     id: *const c_char,
-    error: &mut ExternError
+    error: &mut ExternError,
 ) -> *mut c_char {
     trace!("sync15_passwords_get_by_id");
-    call_with_result(error, || {
-        state.get(rust_str_from_c(id))
-    })
+    call_with_result(error, || state.get(rust_str_from_c(id)))
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn sync15_passwords_add(
     state: &PasswordEngine,
     record_json: *const c_char,
-    error: &mut ExternError
+    error: &mut ExternError,
 ) -> *mut c_char {
     trace!("sync15_passwords_add");
     call_with_result(error, || {

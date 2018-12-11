@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use rusqlite::{self, Connection, Statement, CachedStatement};
+use rusqlite::{self, CachedStatement, Connection, Statement};
 
 use std::ops::{Deref, DerefMut};
 
@@ -19,7 +19,7 @@ impl<'conn> Deref for MaybeCached<'conn> {
     fn deref(&self) -> &Statement<'conn> {
         match self {
             MaybeCached::Cached(cached) => Deref::deref(cached),
-            MaybeCached::Uncached(uncached) => uncached
+            MaybeCached::Uncached(uncached) => uncached,
         }
     }
 }
@@ -29,7 +29,7 @@ impl<'conn> DerefMut for MaybeCached<'conn> {
     fn deref_mut(&mut self) -> &mut Statement<'conn> {
         match self {
             MaybeCached::Cached(cached) => DerefMut::deref_mut(cached),
-            MaybeCached::Uncached(uncached) => uncached
+            MaybeCached::Uncached(uncached) => uncached,
         }
     }
 }
@@ -50,7 +50,11 @@ impl<'conn> From<CachedStatement<'conn>> for MaybeCached<'conn> {
 
 impl<'conn> MaybeCached<'conn> {
     #[inline]
-    pub fn prepare(conn: &'conn Connection, sql: &str, cached: bool) -> rusqlite::Result<MaybeCached<'conn>> {
+    pub fn prepare(
+        conn: &'conn Connection,
+        sql: &str,
+        cached: bool,
+    ) -> rusqlite::Result<MaybeCached<'conn>> {
         if cached {
             Ok(MaybeCached::Cached(conn.prepare_cached(sql)?))
         } else {
@@ -58,6 +62,3 @@ impl<'conn> MaybeCached<'conn> {
         }
     }
 }
-
-
-

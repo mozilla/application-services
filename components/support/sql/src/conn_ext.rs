@@ -2,30 +2,28 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::ops::Deref;
-use std::time::{Instant};
 use rusqlite::{
     self,
-    types::{ToSql, FromSql},
-    Connection,
-    Transaction,
-    TransactionBehavior,
-    Savepoint,
-    Row,
-    Result as SqlResult,
+    types::{FromSql, ToSql},
+    Connection, Result as SqlResult, Row, Savepoint, Transaction, TransactionBehavior,
 };
+use std::ops::Deref;
+use std::time::Instant;
 
 use maybe_cached::MaybeCached;
 
 /// This trait exists so that we can use these helpers on `rusqlite::{Transaction, Connection}`.
 /// Note that you must import ConnExt in order to call these methods on anything.
 pub trait ConnExt {
-
     /// The method you need to implement to opt in to all of this.
     fn conn(&self) -> &Connection;
 
     /// Get a cached or uncached statement based on a flag.
-    fn prepare_maybe_cached<'conn>(&'conn self, sql: &str, cache: bool) -> SqlResult<MaybeCached<'conn>> {
+    fn prepare_maybe_cached<'conn>(
+        &'conn self,
+        sql: &str,
+        cache: bool,
+    ) -> SqlResult<MaybeCached<'conn>> {
         MaybeCached::prepare(self.conn(), sql, cache)
     }
 
@@ -54,7 +52,9 @@ pub trait ConnExt {
 
     /// Execute a query that returns a single result column, and return that result.
     fn query_one<T: FromSql>(&self, sql: &str) -> SqlResult<T> {
-        let res: T = self.conn().query_row_and_then(sql, &[], |row| row.get_checked(0))?;
+        let res: T = self
+            .conn()
+            .query_row_and_then(sql, &[], |row| row.get_checked(0))?;
         Ok(res)
     }
 
@@ -72,7 +72,8 @@ pub trait ConnExt {
         E: From<rusqlite::Error>,
         F: FnOnce(&Row) -> Result<T, E>,
     {
-        Ok(self.try_query_row(sql, params, mapper, cache)?
+        Ok(self
+            .try_query_row(sql, params, mapper, cache)?
             .ok_or(rusqlite::Error::QueryReturnedNoRows)?)
     }
 
@@ -153,10 +154,11 @@ impl<'conn> UncheckedTransaction<'conn> {
             TransactionBehavior::Immediate => "BEGIN IMMEDIATE",
             TransactionBehavior::Exclusive => "BEGIN EXCLUSIVE",
         };
-        conn.execute_batch(query).map(move |_| UncheckedTransaction {
-            conn,
-            started_at: Instant::now(),
-        })
+        conn.execute_batch(query)
+            .map(move |_| UncheckedTransaction {
+                conn,
+                started_at: Instant::now(),
+            })
     }
 
     /// Consumes and commits an unchecked transaction.

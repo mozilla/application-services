@@ -2,11 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use bso_record::{Payload, EncryptedBso};
-use key_bundle::KeyBundle;
-use std::collections::HashMap;
+use bso_record::{EncryptedBso, Payload};
 use error::Result;
+use key_bundle::KeyBundle;
 use record_types::CryptoKeysRecord;
+use std::collections::HashMap;
 use util::ServerTimestamp;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -34,11 +34,12 @@ impl CollectionKeys {
         Ok(CollectionKeys {
             timestamp: keys.modified,
             default: KeyBundle::from_base64(&keys.payload.default[0], &keys.payload.default[1])?,
-            collections:
-                keys.payload.collections
-                            .into_iter()
-                            .map(|kv| Ok((kv.0, KeyBundle::from_base64(&kv.1[0], &kv.1[1])?)))
-                            .collect::<Result<HashMap<String, KeyBundle>>>()?
+            collections: keys
+                .payload
+                .collections
+                .into_iter()
+                .map(|kv| Ok((kv.0, KeyBundle::from_base64(&kv.1[0], &kv.1[1])?)))
+                .collect::<Result<HashMap<String, KeyBundle>>>()?,
         })
     }
 
@@ -47,8 +48,11 @@ impl CollectionKeys {
             id: "keys".into(),
             collection: "crypto".into(),
             default: self.default.to_b64_array(),
-            collections: self.collections.iter().map(|kv|
-                (kv.0.clone(), kv.1.to_b64_array())).collect()
+            collections: self
+                .collections
+                .iter()
+                .map(|kv| (kv.0.clone(), kv.1.to_b64_array()))
+                .collect(),
         };
         let bso = Payload::from_record(record)?.into_bso("crypto".into());
         Ok(bso.encrypt(root_key)?)

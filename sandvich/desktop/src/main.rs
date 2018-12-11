@@ -1,8 +1,9 @@
 extern crate fxa_client;
-#[macro_use] extern crate text_io;
+#[macro_use]
+extern crate text_io;
 extern crate url;
 
-use fxa_client::{FirefoxAccount};
+use fxa_client::FirefoxAccount;
 use std::collections::HashMap;
 use url::Url;
 
