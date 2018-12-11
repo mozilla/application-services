@@ -2,11 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use serde;
-use serde_json;
+use crate::string::*;
 use std::os::raw::c_char;
 use std::ptr;
-use string::*;
 
 /// This trait is used to return types over the FFI. It essentially is a mapping between a type and
 /// version of that type we can pass back to C (`IntoFfi::Value`).

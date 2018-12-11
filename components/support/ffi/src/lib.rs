@@ -90,34 +90,18 @@
 //! [`opt_rust_string_from_c`], etc.
 //!
 
-// TODO: it would be nice if this was an optional dep.
-extern crate serde;
-extern crate serde_json;
-
-#[macro_use]
-extern crate log;
-
+use log::*;
 use std::{panic, thread};
 
-// We could use failure for failure::Backtrace (and we enable RUST_BACKTRACE
-// to opt-in to backtraces on failure errors if possible), however:
-// - we don't already have a failure dependency (one is likely inevitable,
-//   and all our clients do, so this doesn't matter)
-// - `failure` only checks the RUST_BACKTRACE variable once, and we could have errors
-//   before this. So we just use the backtrace crate directly.
-#[cfg(feature = "log_backtraces")]
-extern crate backtrace;
-
-#[macro_use]
-mod macros;
 mod error;
 mod into_ffi;
+mod macros;
 mod string;
 
-pub use error::*;
-pub use into_ffi::*;
-pub use macros::*;
-pub use string::*;
+pub use crate::error::*;
+pub use crate::into_ffi::*;
+pub use crate::macros::*;
+pub use crate::string::*;
 
 /// Call a callback that returns a `Result<T, E>` while:
 ///
@@ -342,6 +326,12 @@ fn init_backtraces_once() {
                 ("<unknown>", 0)
             };
             error!("### Rust `panic!` hit at file '{}', line {}", file, line);
+            // We could use failure for failure::Backtrace (and we enable RUST_BACKTRACE
+            // to opt-in to backtraces on failure errors if possible), however:
+            // - we don't already have a failure dependency (one is likely inevitable,
+            //   and all our clients do, so this doesn't matter)
+            // - `failure` only checks the RUST_BACKTRACE variable once, and we could have errors
+            //   before this. So we just use the backtrace crate directly.
             error!("  Complete stack trace:\n{:?}", backtrace::Backtrace::new());
         }));
     });

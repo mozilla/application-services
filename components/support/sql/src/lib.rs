@@ -2,23 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#[macro_use]
-extern crate log;
-
-extern crate rusqlite;
-
-#[macro_use]
-extern crate lazy_static;
-
 mod conn_ext;
 mod each_chunk;
 mod maybe_cached;
 mod repeat;
 
-pub use conn_ext::*;
-pub use each_chunk::*;
-pub use maybe_cached::*;
-pub use repeat::*;
+pub use crate::conn_ext::*;
+pub use crate::each_chunk::*;
+pub use crate::maybe_cached::*;
+pub use crate::repeat::*;
 
 /// In PRAGMA foo='bar', `'bar'` must be a constant string (it cannot be a
 /// bound parameter), so we need to escape manually. According to

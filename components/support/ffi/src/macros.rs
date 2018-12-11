@@ -2,10 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use serde;
-use serde_json;
+use crate::string::rust_string_to_c;
 use std::os::raw::c_char;
-use string::rust_string_to_c;
 
 /// Implements [`IntoFfi`] for the provided types (more than one may be passed in) by allocating
 /// `$T` on the heap as an opaque pointer.
@@ -97,7 +95,7 @@ macro_rules! implement_into_ffi_by_json {
 /// ## Example
 ///
 /// ```rust
-/// # #[macro_use] extern crate ffi_support;
+/// # use ffi_support::define_string_destructor;
 /// define_string_destructor!(mylib_destroy_string);
 /// ```
 #[macro_export]
@@ -128,7 +126,7 @@ macro_rules! define_string_destructor {
 /// ## Example
 ///
 /// ```rust
-/// # #[macro_use] extern crate ffi_support;
+/// # use ffi_support::define_box_destructor;
 /// struct CoolType(Vec<i32>);
 ///
 /// define_box_destructor!(CoolType, mylib_destroy_cooltype);
