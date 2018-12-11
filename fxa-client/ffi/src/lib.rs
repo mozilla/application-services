@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-extern crate fxa_client;
-
 use ffi_support::{
     call_with_output, call_with_result, define_box_destructor, define_string_destructor,
     rust_str_from_c, ExternError,
