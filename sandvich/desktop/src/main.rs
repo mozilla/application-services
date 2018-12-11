@@ -1,10 +1,6 @@
-extern crate fxa_client;
-#[macro_use]
-extern crate text_io;
-extern crate url;
-
 use fxa_client::FirefoxAccount;
 use std::collections::HashMap;
+use text_io::*;
 use url::Url;
 
 static CONTENT_SERVER: &'static str = "http://127.0.0.1:3030";
