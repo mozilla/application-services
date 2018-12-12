@@ -116,15 +116,8 @@ const CREATE_TRIGGER_AFTER_INSERT_ON_PLACES: &str = "
     END
 ";
 
-const CREATE_TRIGGER_MOZPLACES_AFTERDELETE: &str = "
-    CREATE TEMP TRIGGER moz_places_afterdelete_trigger
-    AFTER DELETE ON moz_places
-    FOR EACH ROW WHEN OLD.sync_status == 2 -- 2 == SyncStatus::Normal
-    BEGIN
-        INSERT OR IGNORE INTO moz_places_tombstones (guid) VALUES (OLD.guid);
-    END
-";
-
+// Note that while we create tombstones manually, we rely on this trigger to
+// delete any which might exist when a new record is written to moz_places.
 const CREATE_TRIGGER_MOZPLACES_AFTERINSERT_REMOVE_TOMBSTONES: &str = "
     CREATE TEMP TRIGGER moz_places_afterinsert_trigger_tombstone
     AFTER INSERT ON moz_places
@@ -288,7 +281,6 @@ pub fn create(db: &PlacesDb) -> Result<()> {
         CREATE_TRIGGER_AFTER_INSERT_ON_PLACES,
         &CREATE_TRIGGER_HISTORYVISITS_AFTERINSERT,
         &CREATE_TRIGGER_HISTORYVISITS_AFTERDELETE,
-        &CREATE_TRIGGER_MOZPLACES_AFTERDELETE,
         &CREATE_TRIGGER_MOZPLACES_AFTERINSERT_REMOVE_TOMBSTONES,
     ])?;
 
@@ -345,37 +337,17 @@ mod tests {
     }
 
     #[test]
-    fn test_places_tombstone() {
+    fn test_places_tombstone_removal() {
         let conn = PlacesDb::open_in_memory(None).expect("no memory db");
         let guid = random_guid().expect("should get a guid");
 
         conn.execute_named_cached(
-            "INSERT INTO moz_places (guid, url, url_hash, sync_status)
-             VALUES (:guid, :url, hash(:url), :sync_status)",
-            &[
-                (":guid", &guid),
-                (
-                    ":url",
-                    &Url::parse("http://example.com")
-                        .expect("valid url")
-                        .into_string(),
-                ),
-                (":sync_status", &SyncStatus::Normal),
-            ],
+            "INSERT INTO moz_places_tombstones VALUES (:guid)",
+            &[(":guid", &guid)],
         )
         .expect("should work");
 
-        let place_id = conn.last_insert_rowid();
-        conn.execute_named_cached(
-            "DELETE FROM moz_places WHERE id = :id",
-            &[(":id", &place_id)],
-        )
-        .expect("should work");
-
-        // should have a tombstone.
-        assert!(has_tombstone(&conn, &guid));
-
-        // re-insert into moz_places - the tombstone should be removed.
+        // insert into moz_places - the tombstone should be removed.
         conn.execute_named_cached(
             "INSERT INTO moz_places (guid, url, url_hash, sync_status)
              VALUES (:guid, :url, hash(:url), :sync_status)",

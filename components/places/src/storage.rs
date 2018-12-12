@@ -303,6 +303,43 @@ fn add_visit(
     Ok(RowId(rid))
 }
 
+/// Returns the GUID for the specified Url, or None if it doesn't exist.
+pub fn url_to_guid(db: &impl ConnExt, url: &Url) -> Result<Option<SyncGuid>> {
+    let sql = "SELECT guid FROM moz_places WHERE url_hash = hash(:url) AND url = :url";
+    let result: Option<(SyncGuid)> = db.try_query_row(
+        sql,
+        &[(":url", &url.clone().into_string())],
+        // subtle: we explicitly need to specify rusqlite::Result or the compiler
+        // struggles to work out what error type to return from try_query_row.
+        |row| -> rusqlite::Result<_> { Ok(row.get_checked::<_, SyncGuid>(0)?) },
+        true,
+    )?;
+    Ok(result)
+}
+
+/// Internal function for deleting a place, creating a tombstone if necessary.
+/// Assumes a transaction is already set up by the caller.
+fn do_delete_place_by_guid(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
+    // We only create tombstones for history which exists and with sync_status
+    // == SyncStatus::Normal
+    let sql = "INSERT OR IGNORE INTO moz_places_tombstones (guid)
+               SELECT guid FROM moz_places
+               WHERE guid = :guid AND sync_status = :status";
+    db.execute_named_cached(sql, &[(":guid", guid), (":status", &SyncStatus::Normal)])?;
+    // and try the delete - it might not exist, but that's ok.
+    let delete_sql = "DELETE FROM moz_places WHERE guid = :guid";
+    db.execute_named_cached(delete_sql, &[(":guid", guid)])?;
+    Ok(())
+}
+
+/// Delete a place given its guid, creating a tombstone if necessary.
+pub fn delete_place_by_guid(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
+    let tx = db.unchecked_transaction()?;
+    let result = do_delete_place_by_guid(db, guid);
+    tx.commit()?;
+    result
+}
+
 // Support for Sync - in its own module to try and keep a delineation
 pub mod history_sync {
     use super::*;
@@ -474,16 +511,10 @@ pub mod history_sync {
     }
 
     pub fn apply_synced_deletion(db: &Connection, guid: &SyncGuid) -> Result<()> {
+        // Note that we don't use delete_place_by_guid because we do not want
+        // a local tombstone for this item.
         db.execute_named_cached(
             "DELETE FROM moz_places WHERE guid = :guid",
-            &[(":guid", guid)],
-        )?;
-        // This might have created a local tombstone for the item, which we
-        // don't want.
-        // XXX - we can delete this when we do
-        // https://github.com/mozilla/application-services/issues/415
-        db.execute_named_cached(
-            "DELETE FROM moz_places_tombstones WHERE guid = :guid",
             &[(":guid", guid)],
         )?;
         Ok(())
@@ -1161,6 +1192,43 @@ mod tests {
             .page;
         assert_eq!(pi3.sync_change_counter, 0);
         assert_eq!(pi3.sync_status, SyncStatus::Normal);
+        Ok(())
+    }
+
+    #[test]
+    fn test_tombstones() -> Result<()> {
+        let _ = env_logger::try_init();
+        let mut db = PlacesDb::open_in_memory(None)?;
+        let url = Url::parse("https://example.com")?;
+        let obs = VisitObservation::new(url.clone())
+            .with_visit_type(VisitTransition::Link)
+            .with_at(Some(SystemTime::now().into()));
+        apply_observation(&mut db, obs)?;
+        let guid = url_to_guid(&db, &url)?.expect("should exist");
+
+        delete_place_by_guid(&db, &guid)?;
+
+        // status was "New", so expect no tombstone.
+        assert_eq!(get_tombstone_count(&db), 0);
+
+        let obs = VisitObservation::new(url.clone())
+            .with_visit_type(VisitTransition::Link)
+            .with_at(Some(SystemTime::now().into()));
+        apply_observation(&mut db, obs)?;
+        let new_guid = url_to_guid(&db, &url)?.expect("should exist");
+
+        // Set the status to normal
+        db.execute_named_cached(
+            &format!(
+                "UPDATE moz_places
+                 SET sync_status = {}
+                 WHERE guid = :guid",
+                (SyncStatus::Normal as u8)
+            ),
+            &[(":guid", &new_guid)],
+        )?;
+        delete_place_by_guid(&db, &new_guid)?;
+        assert_eq!(get_tombstone_count(&db), 1);
         Ok(())
     }
 
