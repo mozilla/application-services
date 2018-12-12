@@ -8,8 +8,10 @@
     "Firefox Accounts": [
       "accounts/welcome",
       "accounts/project-details",
+      "accounts/faq",
       "accounts/dev-process",
-      "accounts/metrics"
+      "accounts/metrics",
+      "accounts/local-development"
     ],
     "Mobile SDKs": [
       "accounts/fxa-client-ios",
@@ -23,7 +25,9 @@
   "applications": {
     "Applications": [
       "applications/welcome",
-      "applications/signing-android-apps"
+      "applications/signing-android-apps",
+      "applications/android-components",
+      "applications/working-with-reference-browser"
     ]
   },
   "sync": {
