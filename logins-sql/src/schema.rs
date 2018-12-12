@@ -91,7 +91,6 @@
 use crate::db;
 use crate::error::*;
 use lazy_static::lazy_static;
-use log::*;
 use sql_support::ConnExt;
 
 /// Note that firefox-ios is currently on version 3. Version 4 is this version,
@@ -239,10 +238,11 @@ pub(crate) fn init(db: &db::LoginDb) -> Result<()> {
         if user_version < VERSION {
             upgrade(db, user_version)?;
         } else {
-            warn!(
+            log::warn!(
                 "Loaded future schema version {} (we only understand version {}). \
                  Optimisitically ",
-                user_version, VERSION
+                user_version,
+                VERSION
             )
         }
     }
@@ -251,7 +251,7 @@ pub(crate) fn init(db: &db::LoginDb) -> Result<()> {
 
 // https://github.com/mozilla-mobile/firefox-ios/blob/master/Storage/SQL/LoginsSchema.swift#L100
 fn upgrade(db: &db::LoginDb, from: i64) -> Result<()> {
-    debug!("Upgrading schema from {} to {}", from, VERSION);
+    log::debug!("Upgrading schema from {} to {}", from, VERSION);
     if from == VERSION {
         return Ok(());
     }
@@ -282,7 +282,7 @@ fn upgrade(db: &db::LoginDb, from: i64) -> Result<()> {
 }
 
 pub(crate) fn create(db: &db::LoginDb) -> Result<()> {
-    debug!("Creating schema");
+    log::debug!("Creating schema");
     db.execute_all(&[
         &*CREATE_LOCAL_TABLE_SQL,
         &*CREATE_MIRROR_TABLE_SQL,
@@ -295,7 +295,7 @@ pub(crate) fn create(db: &db::LoginDb) -> Result<()> {
 }
 
 pub(crate) fn drop(db: &db::LoginDb) -> Result<()> {
-    debug!("Dropping schema");
+    log::debug!("Dropping schema");
     db.execute_all(&[
         "DROP TABLE IF EXISTS loginsM",
         "DROP TABLE IF EXISTS loginsL",

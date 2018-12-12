@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use log::*;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::ptr;
@@ -111,7 +110,7 @@ pub unsafe fn opt_rust_str_from_c<'a>(c_string: *const c_char) -> Option<&'a str
             Err(e) => {
                 // Currently I think this is impossible, so I'd like to know if it can happen
                 // (Java/Swift shouldn't pass us invalid UTF-8... right?).
-                error!(
+                log::error!(
                     "[Bug] Invalid UTF-8 was passed to rust! Report this! {:?}",
                     e
                 );

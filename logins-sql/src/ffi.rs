@@ -10,7 +10,6 @@ use crate::{Error, ErrorKind, Login, PasswordEngine};
 use ffi_support::{
     implement_into_ffi_by_json, implement_into_ffi_by_pointer, ErrorCode, ExternError,
 };
-use log::*;
 use sync::ErrorKind as Sync15ErrorKind;
 
 pub mod error_codes {
@@ -44,7 +43,7 @@ pub mod error_codes {
 fn get_code(err: &Error) -> ErrorCode {
     match err.kind() {
         ErrorKind::SyncAdapterError(e) => {
-            error!("Sync error {:?}", e);
+            log::error!("Sync error {:?}", e);
             match e.kind() {
                 Sync15ErrorKind::TokenserverHttpError(401) => {
                     ErrorCode::new(error_codes::AUTH_INVALID)
@@ -54,15 +53,15 @@ fn get_code(err: &Error) -> ErrorCode {
             }
         }
         ErrorKind::DuplicateGuid(id) => {
-            error!("Guid already exists: {}", id);
+            log::error!("Guid already exists: {}", id);
             ErrorCode::new(error_codes::DUPLICATE_GUID)
         }
         ErrorKind::NoSuchRecord(id) => {
-            error!("No record exists with id {}", id);
+            log::error!("No record exists with id {}", id);
             ErrorCode::new(error_codes::NO_SUCH_RECORD)
         }
         ErrorKind::InvalidLogin(desc) => {
-            error!("Invalid login: {}", desc);
+            log::error!("Invalid login: {}", desc);
             ErrorCode::new(error_codes::INVALID_LOGIN)
         }
         // We can't destructure `err` without bringing in the libsqlite3_sys crate
@@ -70,11 +69,11 @@ fn get_code(err: &Error) -> ErrorCode {
         ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, _))
             if err.code == rusqlite::ErrorCode::NotADatabase =>
         {
-            error!("Not a database / invalid key error");
+            log::error!("Not a database / invalid key error");
             ErrorCode::new(error_codes::INVALID_KEY)
         }
         err => {
-            error!("Unexpected error: {:?}", err);
+            log::error!("Unexpected error: {:?}", err);
             ErrorCode::new(error_codes::UNEXPECTED)
         }
     }

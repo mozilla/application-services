@@ -12,7 +12,6 @@ use crate::request::{
 use crate::token;
 use crate::util::ServerTimestamp;
 use hyper::Method;
-use log::*;
 use reqwest::{
     header::{self, HeaderValue, ACCEPT, AUTHORIZATION},
     Client, Request, Response, Url,
@@ -68,7 +67,7 @@ impl SetupStorageClient for Sync15StorageClient {
         }?;
         // Note: meta/global is not encrypted!
         let meta_global: BsoRecord<MetaGlobalRecord> = resp.json()?;
-        info!("Meta global: {:?}", meta_global.payload);
+        log::info!("Meta global: {:?}", meta_global.payload);
         Ok(meta_global)
     }
 
@@ -166,14 +165,14 @@ impl Sync15StorageClient {
     }
 
     fn exec_request(&self, req: Request, require_success: bool) -> error::Result<Response> {
-        trace!("request: {} {}", req.method(), req.url().path());
+        log::trace!("request: {} {}", req.method(), req.url().path());
         let resp = self.http_client.execute(req)?;
-        trace!("response: {}", resp.status());
+        log::trace!("response: {}", resp.status());
 
         self.update_timestamp(resp.headers());
 
         if require_success && !resp.status().is_success() {
-            warn!(
+            log::warn!(
                 "HTTP error {} ({}) during storage request to {}",
                 resp.status().as_u16(),
                 resp.status(),
@@ -219,7 +218,7 @@ impl Sync15StorageClient {
             self.timestamp.set(ts);
         } else {
             // Should we complain more here?
-            warn!("No X-Weave-Timestamp from storage server!");
+            log::warn!("No X-Weave-Timestamp from storage server!");
         }
     }
 

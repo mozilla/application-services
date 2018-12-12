@@ -90,7 +90,6 @@
 //! [`opt_rust_string_from_c`], etc.
 //!
 
-use log::*;
 use std::{panic, thread};
 
 mod error;
@@ -263,7 +262,7 @@ where
             o
         }
         Err(e) => {
-            error!("Caught a panic calling rust code: {:?}", e);
+            log::error!("Caught a panic calling rust code: {:?}", e);
             if abort_on_panic {
                 std::process::abort();
             }
@@ -325,14 +324,14 @@ fn init_backtraces_once() {
                 // in the future.
                 ("<unknown>", 0)
             };
-            error!("### Rust `panic!` hit at file '{}', line {}", file, line);
+            log::error!("### Rust `panic!` hit at file '{}', line {}", file, line);
             // We could use failure for failure::Backtrace (and we enable RUST_BACKTRACE
             // to opt-in to backtraces on failure errors if possible), however:
             // - we don't already have a failure dependency (one is likely inevitable,
             //   and all our clients do, so this doesn't matter)
             // - `failure` only checks the RUST_BACKTRACE variable once, and we could have errors
             //   before this. So we just use the backtrace crate directly.
-            error!("  Complete stack trace:\n{:?}", backtrace::Backtrace::new());
+            log::error!("  Complete stack trace:\n{:?}", backtrace::Backtrace::new());
         }));
     });
 }

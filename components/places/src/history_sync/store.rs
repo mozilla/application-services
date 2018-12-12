@@ -4,7 +4,6 @@
 
 use crate::error::*;
 use crate::storage::history_sync::reset_storage;
-use log::*;
 use rusqlite::types::{FromSql, ToSql};
 use rusqlite::Connection;
 use sql_support::ConnExt;
@@ -68,7 +67,7 @@ impl<'a> HistoryStore<'a> {
         new_timestamp: ServerTimestamp,
         records_synced: &[String],
     ) -> Result<()> {
-        info!(
+        log::info!(
             "sync completed after uploading {} records",
             records_synced.len()
         );
@@ -81,7 +80,7 @@ impl<'a> HistoryStore<'a> {
     }
 
     fn do_reset(&self) -> Result<()> {
-        info!("Resetting history store");
+        log::info!("Resetting history store");
         reset_storage(self.db)?;
         self.put_meta(LAST_SYNC_META_KEY, &0)?;
         Ok(())
@@ -178,7 +177,7 @@ impl<'a> Store for HistoryStore<'a> {
     }
 
     fn wipe(&self) -> result::Result<(), failure::Error> {
-        warn!("not implemented");
+        log::warn!("not implemented");
         Ok(())
     }
 }

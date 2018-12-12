@@ -6,7 +6,6 @@ use crate::bso_record::EncryptedBso;
 use crate::error::{self, ErrorKind, Result};
 use crate::util::ServerTimestamp;
 use hyper::StatusCode;
-use log::*;
 use reqwest::Response;
 use serde_derive::*;
 use std::collections::HashMap;
@@ -383,7 +382,7 @@ impl NormalResponseHandler {
 impl PostResponseHandler for NormalResponseHandler {
     fn handle_response(&mut self, r: PostResponse, mid_batch: bool) -> error::Result<()> {
         if !r.status.is_success() {
-            warn!("Got failure status from server while posting: {}", r.status);
+            log::warn!("Got failure status from server while posting: {}", r.status);
             if r.status == StatusCode::PRECONDITION_FAILED {
                 return Err(ErrorKind::BatchInterrupted.into());
             } else {
@@ -450,7 +449,7 @@ where
             || self.batch_limits.can_never_add(payload_length)
             || payload_length >= self.max_payload_bytes
         {
-            warn!(
+            log::warn!(
                 "Single record too large to submit to server ({} b)",
                 payload_length
             );
@@ -487,7 +486,7 @@ where
 
         if item_len >= self.max_request_bytes {
             self.queued.truncate(item_start);
-            warn!(
+            log::warn!(
                 "Single record too large to submit to server ({} b)",
                 item_len
             );
@@ -499,9 +498,11 @@ where
         let can_send_record = self.queued.len() < self.max_request_bytes;
 
         if !can_post_record || !can_send_record || !can_batch_record {
-            debug!(
+            log::debug!(
                 "PostQueue flushing! (can_post = {}, can_send = {}, can_batch = {})",
-                can_post_record, can_send_record, can_batch_record
+                can_post_record,
+                can_send_record,
+                can_batch_record
             );
             // "unwrite" the record.
             self.queued.truncate(item_start);
@@ -539,7 +540,7 @@ where
             &BatchState::InBatch(ref s) => Some(s.clone()),
         };
 
-        info!(
+        log::info!(
             "Posting {} records of {} bytes",
             self.post_limits.cur_records,
             self.queued.len()
@@ -563,7 +564,7 @@ where
         if !resp.status.is_success() {
             let code = resp.status.as_u16();
             self.on_response.handle_response(resp, !want_commit)?;
-            error!("Bug: expected OnResponse to have bailed out!");
+            log::error!("Bug: expected OnResponse to have bailed out!");
             // Should we assert here instead?
             return Err(ErrorKind::StorageHttpError {
                 code,
@@ -577,7 +578,7 @@ where
         }
 
         if want_commit {
-            debug!("Committed batch {:?}", self.batch);
+            log::debug!("Committed batch {:?}", self.batch);
             self.batch = BatchState::NoBatch;
             self.on_response.handle_response(resp, false)?;
             return Ok(());
@@ -608,7 +609,7 @@ where
 
         match &self.batch {
             &BatchState::Unsupported => {
-                warn!("Server changed it's mind about supporting batching mid-batch...");
+                log::warn!("Server changed it's mind about supporting batching mid-batch...");
             }
 
             &BatchState::InBatch(ref cur_id) => {

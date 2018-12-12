@@ -6,7 +6,6 @@ use ffi_support::{
     call_with_result, define_box_destructor, define_string_destructor, rust_str_from_c,
     rust_string_from_c, ExternError,
 };
-use log::*;
 use logins_sql::{Login, PasswordEngine, Result};
 use std::os::raw::c_char;
 
@@ -17,7 +16,7 @@ fn logging_init() {
             android_logger::Filter::default().with_min_level(log::Level::Trace),
             Some("liblogins_ffi"),
         );
-        debug!("Android logging should be hooked up!")
+        log::debug!("Android logging should be hooked up!")
     }
 }
 
@@ -28,7 +27,7 @@ pub unsafe extern "C" fn sync15_passwords_state_new(
     error: &mut ExternError,
 ) -> *mut PasswordEngine {
     logging_init();
-    trace!("sync15_passwords_state_new");
+    log::trace!("sync15_passwords_state_new");
     call_with_result(error, || {
         let path = rust_str_from_c(db_path);
         let key = rust_str_from_c(encryption_key);
@@ -50,7 +49,7 @@ pub unsafe extern "C" fn sync15_passwords_sync(
     tokenserver_url: *const c_char,
     error: &mut ExternError,
 ) {
-    trace!("sync15_passwords_sync");
+    log::trace!("sync15_passwords_sync");
     call_with_result(error, || -> Result<()> {
         state.sync(
             &sync15_adapter::Sync15StorageClientInit {
@@ -69,7 +68,7 @@ pub unsafe extern "C" fn sync15_passwords_touch(
     id: *const c_char,
     error: &mut ExternError,
 ) {
-    trace!("sync15_passwords_touch");
+    log::trace!("sync15_passwords_touch");
     call_with_result(error, || state.touch(rust_str_from_c(id)))
 }
 
@@ -79,19 +78,19 @@ pub unsafe extern "C" fn sync15_passwords_delete(
     id: *const c_char,
     error: &mut ExternError,
 ) -> u8 {
-    trace!("sync15_passwords_delete");
+    log::trace!("sync15_passwords_delete");
     call_with_result(error, || state.delete(rust_str_from_c(id)))
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn sync15_passwords_wipe(state: &PasswordEngine, error: &mut ExternError) {
-    trace!("sync15_passwords_wipe");
+    log::trace!("sync15_passwords_wipe");
     call_with_result(error, || state.wipe())
 }
 
 #[no_mangle]
 pub extern "C" fn sync15_passwords_reset(state: &PasswordEngine, error: &mut ExternError) {
-    trace!("sync15_passwords_reset");
+    log::trace!("sync15_passwords_reset");
     call_with_result(error, || state.reset())
 }
 
@@ -100,7 +99,7 @@ pub extern "C" fn sync15_passwords_get_all(
     state: &PasswordEngine,
     error: &mut ExternError,
 ) -> *mut c_char {
-    trace!("sync15_passwords_get_all");
+    log::trace!("sync15_passwords_get_all");
     call_with_result(error, || -> Result<String> {
         let all_passwords = state.list()?;
         let result = serde_json::to_string(&all_passwords)?;
@@ -114,7 +113,7 @@ pub unsafe extern "C" fn sync15_passwords_get_by_id(
     id: *const c_char,
     error: &mut ExternError,
 ) -> *mut c_char {
-    trace!("sync15_passwords_get_by_id");
+    log::trace!("sync15_passwords_get_by_id");
     call_with_result(error, || state.get(rust_str_from_c(id)))
 }
 
@@ -124,7 +123,7 @@ pub unsafe extern "C" fn sync15_passwords_add(
     record_json: *const c_char,
     error: &mut ExternError,
 ) -> *mut c_char {
-    trace!("sync15_passwords_add");
+    log::trace!("sync15_passwords_add");
     call_with_result(error, || {
         let mut parsed: serde_json::Value = serde_json::from_str(rust_str_from_c(record_json))?;
         if parsed.get("id").is_none() {
@@ -142,7 +141,7 @@ pub unsafe extern "C" fn sync15_passwords_update(
     record_json: *const c_char,
     error: &mut ExternError,
 ) {
-    trace!("sync15_passwords_update");
+    log::trace!("sync15_passwords_update");
     call_with_result(error, || {
         let parsed: Login = serde_json::from_str(rust_str_from_c(record_json))?;
         state.update(parsed)

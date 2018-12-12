@@ -6,7 +6,6 @@ use crate::error;
 use crate::key_bundle::KeyBundle;
 use crate::util::ServerTimestamp;
 use lazy_static::lazy_static;
-use log::*;
 use serde::de::{Deserialize, DeserializeOwned};
 use serde::ser::Serialize;
 use serde_derive::*;
@@ -261,10 +260,11 @@ impl Payload {
         // This is a little dubious, but it seems like if we have a e.g. `sortindex` field on the payload
         // it's going to be a bug if we use it instead of the "real" sort index.
         if self.data.contains_key(name) {
-            warn!(
+            log::warn!(
                 "Payload for record {} already contains 'automatic' field \"{}\"? \
                  Overwriting with 'real' value",
-                self.id, name
+                self.id,
+                name
             );
         }
 
@@ -283,9 +283,10 @@ impl Payload {
         match serde_json::from_value(v) {
             Ok(v) => Some(v),
             Err(e) => {
-                error!(
+                log::error!(
                     "Automatic field {} exists on payload, but cannot be deserialized: {}",
-                    name, e
+                    name,
+                    e
                 );
                 None
             }

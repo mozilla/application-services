@@ -7,7 +7,6 @@ use crate::{
     http_client::{browser_id::rsa::RSABrowserIDKeyPair, *},
     util::{now, Xorable},
 };
-use log::*;
 use serde_derive::*;
 
 pub struct LoginStateMachine<'a> {
@@ -34,34 +33,34 @@ impl<'a> LoginStateMachine<'a> {
     }
 
     fn advance_one(&self, from: LoginState) -> LoginState {
-        info!("advancing from state {:?}", from);
+        log::info!("advancing from state {:?}", from);
         match from {
             LoginState::Married(state) => {
                 let now = now();
-                debug!("Checking key pair and certificate freshness.");
+                log::debug!("Checking key pair and certificate freshness.");
                 if now > state.token_keys_and_key_pair.key_pair_expires_at {
-                    info!("Key pair has expired. Transitioning to CohabitingBeforeKeyPair.");
+                    log::info!("Key pair has expired. Transitioning to CohabitingBeforeKeyPair.");
                     LoginState::CohabitingBeforeKeyPair(
                         state.token_keys_and_key_pair.token_and_keys,
                     )
                 } else if now > state.certificate_expires_at {
-                    info!("Certificate has expired. Transitioning to CohabitingAfterKeyPair.");
+                    log::info!("Certificate has expired. Transitioning to CohabitingAfterKeyPair.");
                     LoginState::CohabitingAfterKeyPair(state.token_keys_and_key_pair)
                 } else {
-                    info!("Key pair and certificate are fresh; staying Married.");
+                    log::info!("Key pair and certificate are fresh; staying Married.");
                     LoginState::Married(state) // same
                 }
             }
             LoginState::CohabitingBeforeKeyPair(state) => {
-                debug!("Generating key pair.");
+                log::debug!("Generating key pair.");
                 let key_pair = match Client::key_pair(2048) {
                     Ok(key_pair) => key_pair,
                     Err(_) => {
-                        error!("Failed to generate key pair! Transitioning to Separated.");
+                        log::error!("Failed to generate key pair! Transitioning to Separated.");
                         return LoginState::Separated(state.base);
                     }
                 };
-                info!("Key pair generated! Transitioning to CohabitingAfterKeyPairState.");
+                log::info!("Key pair generated! Transitioning to CohabitingAfterKeyPairState.");
                 let new_state = CohabitingAfterKeyPairState {
                     token_and_keys: state,
                     key_pair,
@@ -70,13 +69,13 @@ impl<'a> LoginStateMachine<'a> {
                 LoginState::CohabitingAfterKeyPair(new_state)
             }
             LoginState::CohabitingAfterKeyPair(state) => {
-                debug!("Signing public key.");
+                log::debug!("Signing public key.");
                 let resp = self
                     .client
                     .sign(&state.token_and_keys.session_token, &state.key_pair);
                 match resp {
                     Ok(resp) => {
-                        info!("Signed public key! Transitioning to Married.");
+                        log::info!("Signed public key! Transitioning to Married.");
                         let new_state = MarriedState {
                             token_keys_and_key_pair: state,
                             certificate: resp.certificate,
@@ -86,10 +85,10 @@ impl<'a> LoginStateMachine<'a> {
                     }
                     Err(e) => {
                         if let ErrorKind::RemoteError { .. } = e.kind() {
-                            error!("Server error: {:?}. Transitioning to Separated.", e);
+                            log::error!("Server error: {:?}. Transitioning to Separated.", e);
                             LoginState::Separated(state.token_and_keys.base)
                         } else {
-                            error!(
+                            log::error!(
                                 "Unknown error: ({:?}). Assuming transient, not transitioning.",
                                 e
                             );
@@ -114,18 +113,18 @@ impl<'a> LoginStateMachine<'a> {
         same: F,
         state: ReadyForKeysState,
     ) -> LoginState {
-        debug!("Fetching keys.");
+        log::debug!("Fetching keys.");
         let resp = self.client.keys(&state.key_fetch_token);
         match resp {
             Ok(resp) => {
                 let kb = match resp.wrap_kb.xored_with(&state.unwrap_kb) {
                     Ok(kb) => kb,
                     Err(_) => {
-                        error!("Failed to unwrap keys response!  Transitioning to Separated.");
+                        log::error!("Failed to unwrap keys response!  Transitioning to Separated.");
                         return same(state);
                     }
                 };
-                info!("Unwrapped keys response.  Transition to CohabitingBeforeKeyPair.");
+                log::info!("Unwrapped keys response.  Transition to CohabitingBeforeKeyPair.");
                 let sync_key = Client::derive_sync_key(&kb);
                 let xcs = Client::compute_client_state(&kb);
                 LoginState::CohabitingBeforeKeyPair(TokenAndKeysState {
@@ -137,15 +136,15 @@ impl<'a> LoginStateMachine<'a> {
             }
             Err(e) => match e.kind() {
                 ErrorKind::RemoteError { errno: 104, .. } => {
-                    warn!("Account not yet verified, not transitioning.");
+                    log::warn!("Account not yet verified, not transitioning.");
                     same(state)
                 }
                 ErrorKind::RemoteError { .. } => {
-                    error!("Server error: {:?}. Transitioning to Separated.", e);
+                    log::error!("Server error: {:?}. Transitioning to Separated.", e);
                     LoginState::Separated(state.base)
                 }
                 _ => {
-                    error!(
+                    log::error!(
                         "Unknown error: ({:?}). Assuming transient, not transitioning.",
                         e
                     );

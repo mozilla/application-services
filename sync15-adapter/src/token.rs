@@ -5,7 +5,6 @@
 use crate::error::{self, ErrorKind, Result};
 use crate::util::ServerTimestamp;
 use hyper::header::AUTHORIZATION;
-use log::*;
 use reqwest::{Client, Request, Url};
 use serde_derive::*;
 use std::borrow::{Borrow, Cow};
@@ -81,9 +80,9 @@ impl TokenFetcher for TokenServerFetcher {
             .send()?;
 
         if !resp.status().is_success() {
-            warn!("Non-success status when fetching token: {}", resp.status());
+            log::warn!("Non-success status when fetching token: {}", resp.status());
             // TODO: the body should be JSON and contain a status parameter we might need?
-            debug!(
+            log::debug!(
                 "  Response body {}",
                 resp.text().unwrap_or_else(|_| "???".into())
             );
@@ -265,9 +264,10 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
                         if prev == tc.token.api_endpoint {
                             TokenState::Token(tc)
                         } else {
-                            warn!(
+                            log::warn!(
                                 "api_endpoint changed from {} to {}",
-                                prev, tc.token.api_endpoint
+                                prev,
+                                tc.token.api_endpoint
                             );
                             TokenState::NodeReassigned
                         }
@@ -311,7 +311,7 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
             }
             TokenState::Backoff(ref until, ref existing_endpoint) => {
                 if let Ok(remaining) = until.duration_since(self.fetcher.now()) {
-                    debug!("enforcing existing backoff - {:?} remains", remaining);
+                    log::debug!("enforcing existing backoff - {:?} remains", remaining);
                     None
                 } else {
                     // backoff period is over

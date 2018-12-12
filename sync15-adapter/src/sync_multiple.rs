@@ -10,7 +10,6 @@ use crate::error::Error;
 use crate::key_bundle::KeyBundle;
 use crate::state::{GlobalState, SetupStateMachine};
 use crate::sync::{self, Store};
-use log::*;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::result;
@@ -61,7 +60,7 @@ pub fn sync_multiple(
                 _ => {
                     // Don't log the error since it might contain sensitive
                     // info like keys (the JSON does, after all).
-                    error!("Failed to parse GlobalState from JSON! Falling back to default");
+                    log::error!("Failed to parse GlobalState from JSON! Falling back to default");
                     None
                 }
             }
@@ -72,7 +71,7 @@ pub fn sync_multiple(
     let mut global_state = match maybe_global {
         Some(g) => g,
         None => {
-            info!("First time through since unlock. Creating default global state.");
+            log::info!("First time through since unlock. Creating default global state.");
             last_client_info.replace(None);
             GlobalState::default()
         }
@@ -104,7 +103,7 @@ pub fn sync_multiple(
         // Scope borrow of `sync_info.client`
         let mut state_machine =
             SetupStateMachine::for_full_sync(&client_info.client, &root_sync_key);
-        info!("Advancing state machine to ready (full)");
+        log::info!("Advancing state machine to ready (full)");
         global_state = state_machine.to_ready(global_state)?;
     }
 
@@ -114,7 +113,7 @@ pub fn sync_multiple(
             .engines_that_need_local_reset()
             .contains(store.collection_name())
         {
-            info!(
+            log::info!(
                 "{} sync ID changed; engine needs local reset",
                 store.collection_name()
             );
@@ -125,20 +124,20 @@ pub fn sync_multiple(
     let mut failures: HashMap<String, Error> = HashMap::new();
     for store in stores {
         let name = store.collection_name();
-        info!("Syncing {} engine!", name);
+        log::info!("Syncing {} engine!", name);
 
         let result = sync::synchronize(&client_info.client, &global_state, *store, true);
 
         match result {
-            Ok(()) => info!("Sync of {} was successful!", name),
+            Ok(()) => log::info!("Sync of {} was successful!", name),
             Err(e) => {
-                warn!("Sync of {} failed! {:?}", name, e);
+                log::warn!("Sync of {} failed! {:?}", name, e);
                 failures.insert(name.into(), e.into());
             }
         }
     }
 
-    info!("Updating persisted global state");
+    log::info!("Updating persisted global state");
     persisted_global_state.replace(Some(global_state.to_persistable_string()));
     last_client_info.replace(Some(client_info));
 

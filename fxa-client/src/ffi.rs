@@ -19,7 +19,6 @@ use ffi_support::{
     destroy_c_string, implement_into_ffi_by_pointer, opt_rust_string_to_c, rust_string_to_c,
     ErrorCode, ExternError, IntoFfi,
 };
-use log::*;
 use std::os::raw::c_char;
 
 pub mod error_codes {
@@ -38,11 +37,11 @@ fn get_code(err: &Error) -> ErrorCode {
         ErrorKind::RemoteError { code: 401, .. }
         | ErrorKind::NotMarried
         | ErrorKind::NoCachedToken(_) => {
-            warn!("Authentication error: {:?}", err);
+            log::warn!("Authentication error: {:?}", err);
             ErrorCode::new(error_codes::AUTHENTICATION)
         }
         _ => {
-            warn!("Unexpected error: {:?}", err);
+            log::warn!("Unexpected error: {:?}", err);
             ErrorCode::new(error_codes::OTHER)
         }
     }

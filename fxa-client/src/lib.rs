@@ -5,7 +5,6 @@
 pub use crate::{config::Config, http_client::ProfileResponse as Profile};
 use crate::{errors::*, http_client::Client, scoped_keys::ScopedKeysFlow, util::now};
 use lazy_static::lazy_static;
-use log::*;
 use ring::{
     digest,
     rand::{SecureRandom, SystemRandom},
@@ -343,7 +342,7 @@ impl FirefoxAccount {
             }
             None => {
                 if oauth_flow.scoped_keys_flow.is_some() {
-                    error!("Expected to get keys back alongside the token but the server didn't send them.");
+                    log::error!("Expected to get keys back alongside the token but the server didn't send them.");
                     return Err(ErrorKind::TokenWithoutKeys.into());
                 }
             }
@@ -353,7 +352,7 @@ impl FirefoxAccount {
         // don't want to return an over-scoped access token.
         // Let's be good citizens and destroy this access token.
         if let Err(err) = client.destroy_oauth_token(&resp.access_token) {
-            warn!("Access token destruction failure: {:?}", err);
+            log::warn!("Access token destruction failure: {:?}", err);
         }
         let refresh_token = match resp.refresh_token {
             Some(ref refresh_token) => refresh_token.clone(),
@@ -363,7 +362,7 @@ impl FirefoxAccount {
         // we also destroy the existing refresh token.
         if let Some(ref old_refresh_token) = self.state.refresh_token {
             if let Err(err) = client.destroy_oauth_token(&old_refresh_token.token) {
-                warn!("Refresh token destruction failure: {:?}", err);
+                log::warn!("Refresh token destruction failure: {:?}", err);
             }
         }
         self.state.refresh_token = Some(RefreshToken {
@@ -434,7 +433,7 @@ impl FirefoxAccount {
             None => match self.profile_cache {
                 Some(ref cached_profile) => Ok(cached_profile.response.clone()),
                 None => {
-                    error!("Insane state! We got a 304 without having a cached response.");
+                    log::error!("Insane state! We got a 304 without having a cached response.");
                     Err(ErrorKind::UnrecoverableServerError.into())
                 }
             },
@@ -498,7 +497,7 @@ impl FirefoxAccount {
             let json = match self.to_json() {
                 Ok(json) => json,
                 Err(_) => {
-                    error!("Error with to_json in persist_callback");
+                    log::error!("Error with to_json in persist_callback");
                     return;
                 }
             };

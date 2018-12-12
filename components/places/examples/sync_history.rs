@@ -4,7 +4,6 @@
 
 use failure::Fail;
 use fxa_client::{AccessTokenInfo, Config, FirefoxAccount};
-use log::*;
 use places::history_sync::store::HistoryStore;
 use places::PlacesDb;
 use std::{fs, io::Read};
@@ -87,9 +86,10 @@ fn main() -> Result<()> {
         .expect("Encryption key is not optional");
 
     // Lets not log the encryption key, it's just not a good habit to be in.
-    debug!(
+    log::debug!(
         "Using credential file = {:?}, db = {:?}",
-        cred_file, db_path
+        cred_file,
+        db_path
     );
 
     // TODO: allow users to use stage/etc.
@@ -117,22 +117,22 @@ fn main() -> Result<()> {
     let store = HistoryStore::new(&db);
 
     if matches.is_present("wipe-remote") {
-        info!("Wiping remote");
+        log::info!("Wiping remote");
         let client = Sync15StorageClient::new(client_init.clone())?;
         client.wipe_all_remote()?;
     }
 
     if matches.is_present("reset") {
-        info!("Resetting");
+        log::info!("Resetting");
         store.reset()?;
     }
 
-    info!("Syncing!");
+    log::info!("Syncing!");
     if let Err(e) = store.sync(&client_init, &root_sync_key) {
-        warn!("Sync failed! {}", e);
-        warn!("BT: {:?}", e.backtrace());
+        log::warn!("Sync failed! {}", e);
+        log::warn!("BT: {:?}", e.backtrace());
     } else {
-        info!("Sync was successful!");
+        log::info!("Sync was successful!");
     }
     println!("Exiting (bye!)");
     Ok(())

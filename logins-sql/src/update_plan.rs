@@ -6,7 +6,6 @@ use crate::error::*;
 use crate::login::{LocalLogin, Login, MirrorLogin, SyncStatus};
 use crate::sync::ServerTimestamp;
 use crate::util;
-use log::*;
 use rusqlite::{types::ToSql, Connection};
 use std::time::SystemTime;
 
@@ -117,7 +116,7 @@ impl UpdatePlan {
         ";
         let mut stmt = conn.prepare_cached(sql)?;
         for (login, timestamp) in &self.mirror_updates {
-            trace!("Updating mirror {:?}", login.guid_str());
+            log::trace!("Updating mirror {:?}", login.guid_str());
             stmt.execute_named(&[
                 (":server_modified", timestamp as &ToSql),
                 (":http_realm", &login.http_realm as &ToSql),
@@ -182,7 +181,7 @@ impl UpdatePlan {
         let mut stmt = conn.prepare_cached(&sql)?;
 
         for (login, timestamp, is_overridden) in &self.mirror_inserts {
-            trace!("Inserting mirror {:?}", login.guid_str());
+            log::trace!("Inserting mirror {:?}", login.guid_str());
             stmt.execute_named(&[
                 (":is_overridden", is_overridden as &ToSql),
                 (":server_modified", timestamp as &ToSql),
@@ -229,7 +228,7 @@ impl UpdatePlan {
         // XXX OutgoingChangeset should no longer have timestamp.
         let local_ms: i64 = util::system_time_ms_i64(SystemTime::now());
         for l in &self.local_updates {
-            trace!("Updating local {:?}", l.guid_str());
+            log::trace!("Updating local {:?}", l.guid_str());
             stmt.execute_named(&[
                 (":local_modified", &local_ms as &ToSql),
                 (":http_realm", &l.login.http_realm as &ToSql),
@@ -252,13 +251,13 @@ impl UpdatePlan {
     }
 
     pub fn execute(&self, conn: &Connection) -> Result<()> {
-        debug!("UpdatePlan: deleting records...");
+        log::debug!("UpdatePlan: deleting records...");
         self.perform_deletes(conn)?;
-        debug!("UpdatePlan: Updating existing mirror records...");
+        log::debug!("UpdatePlan: Updating existing mirror records...");
         self.perform_mirror_updates(conn)?;
-        debug!("UpdatePlan: Inserting new mirror records...");
+        log::debug!("UpdatePlan: Inserting new mirror records...");
         self.perform_mirror_inserts(conn)?;
-        debug!("UpdatePlan: Updating reconciled local records...");
+        log::debug!("UpdatePlan: Updating reconciled local records...");
         self.perform_local_updates(conn)?;
         Ok(())
     }
