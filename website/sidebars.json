@@ -27,6 +27,7 @@
       "applications/welcome",
       "applications/signing-android-apps",
       "applications/android-components",
+      "applications/consuming-megazord-libraries",
       "applications/working-with-reference-browser"
     ]
   },

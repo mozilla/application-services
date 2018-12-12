@@ -49,6 +49,10 @@
         "title": "Signing Android Applications",
         "sidebar_label": "Signing Android Applications"
       },
+      "applications/consuming-megazord-libraries": {
+        "title": "Consuming megazord libraries on Android",
+        "sidebar_label": "Consuming megazord libraries"
+      },
       "applications/welcome": {
         "title": "Applications",
         "sidebar_label": "Intro"
