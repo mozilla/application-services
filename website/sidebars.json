@@ -9,7 +9,8 @@
       "accounts/welcome",
       "accounts/project-details",
       "accounts/dev-process",
-      "accounts/metrics"
+      "accounts/metrics",
+      "accounts/consuming-android-libraries"
     ],
     "Mobile SDKs": [
       "accounts/fxa-client-ios",

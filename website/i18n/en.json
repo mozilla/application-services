@@ -11,6 +11,8 @@
     "accounts/fxa-client-android": "Android SDK",
     "accounts/fxa-client-ios": "iOS SDK",
     "accounts/metrics": "Metrics for Reliers",
+    "applications/consuming-android-libraries": "Consuming Android libraries",
+    "Consuming Android libraries": "Consuming Android libraries",
     "Metrics for Reliers": "Metrics for Reliers",
     "accounts/project-details": "Project Details",
     "Project Details": "Project Details",
