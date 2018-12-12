@@ -8,5 +8,5 @@ authors = ["application-services <application-services@mozilla.com>"]
 crate-type = ["cdylib"]
 
 [dependencies]
-fxaclient_ffi = { path = "../../fxa-client/ffi" }
-loginsql_ffi = { path = "../../logins-sql/ffi" }
+fxaclient_ffi = { path = "../../components/fxa-client/ffi" }
+logins_ffi = { path = "../../components/logins/ffi" }

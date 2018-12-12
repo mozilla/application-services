@@ -13,7 +13,7 @@ use std::os::raw::c_char;
 use places::api::matcher::{search_frecent, SearchParams};
 
 // indirection to help `?` figure out the target error type
-fn parse_url(url: &str) -> sync15_adapter::Result<url::Url> {
+fn parse_url(url: &str) -> sync15::Result<url::Url> {
     Ok(url::Url::parse(url)?)
 }
 
@@ -143,12 +143,12 @@ pub unsafe extern "C" fn sync15_history_sync(
         // should own the store, but it's not part of the db.
         let store = HistoryStore::new(conn);
         store.sync(
-            &sync15_adapter::Sync15StorageClientInit {
+            &sync15::Sync15StorageClientInit {
                 key_id: rust_string_from_c(key_id),
                 access_token: rust_string_from_c(access_token),
                 tokenserver_url: parse_url(rust_str_from_c(tokenserver_url))?,
             },
-            &sync15_adapter::KeyBundle::from_ksync_base64(rust_str_from_c(sync_key))?,
+            &sync15::KeyBundle::from_ksync_base64(rust_str_from_c(sync_key))?,
         )
     })
 }

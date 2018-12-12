@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// XXXXXX - This has been cloned from logins-sql/src/schema.rs, on Thom's
+// XXXXXX - This has been cloned from logins/src/schema.rs, on Thom's
 // wip-sync-sql-store branch.
 // We should work out how to turn this into something that can use a shared
 // db.rs.
@@ -300,7 +300,7 @@ mod tests {
     use super::*;
     use crate::db::PlacesDb;
     use crate::types::SyncStatus;
-    use sync15_adapter::util::random_guid;
+    use sync15::util::random_guid;
     use url::Url;
 
     fn has_tombstone(conn: &PlacesDb, guid: &str) -> bool {

@@ -7,8 +7,8 @@ use fxa_client::{AccessTokenInfo, Config, FirefoxAccount};
 use places::history_sync::store::HistoryStore;
 use places::PlacesDb;
 use std::{fs, io::Read};
-use sync15_adapter::client::SetupStorageClient;
-use sync15_adapter::{KeyBundle, Store, Sync15StorageClient, Sync15StorageClientInit};
+use sync15::client::SetupStorageClient;
+use sync15::{KeyBundle, Store, Sync15StorageClient, Sync15StorageClientInit};
 
 const CLIENT_ID: &str = "";
 const REDIRECT_URI: &str = "";

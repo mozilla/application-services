@@ -16,7 +16,7 @@ use rusqlite::Connection;
 use sql_support::ConnExt;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
-use sync15_adapter::{IncomingChangeset, OutgoingChangeset, Payload};
+use sync15::{IncomingChangeset, OutgoingChangeset, Payload};
 use url::Url;
 
 // In desktop sync, bookmarks are clamped to Jan 23, 1993 (which is 727747200000)
@@ -299,8 +299,8 @@ mod tests {
     use serde_json::json;
     use sql_support::ConnExt;
     use std::time::Duration;
-    use sync15_adapter::util::random_guid;
-    use sync15_adapter::{IncomingChangeset, ServerTimestamp};
+    use sync15::util::random_guid;
+    use sync15::{IncomingChangeset, ServerTimestamp};
     use url::Url;
 
     fn get_existing_guid(conn: &PlacesDb, url: &Url) -> SyncGuid {
@@ -465,7 +465,7 @@ mod tests {
         let old_guid = get_existing_guid(&conn, &url);
 
         // try and add an incoming record with the same URL but different guid.
-        let new_guid = random_guid().expect("according to logins-sql, this is fine :)");
+        let new_guid = random_guid().expect("according to logins, this is fine :)");
         let visits = vec![HistoryRecordVisit {
             date: now.into(),
             transition: 1,

@@ -5,12 +5,12 @@ include ':fxa-client-library'
 include ':logins-library'
 include ':places-library'
 
-project(':fxa-client-library').projectDir = new File("fxa-client/sdks/android/library")
-project(':logins-library').projectDir = new File("logins-api/android/library")
-project(':places-library').projectDir = new File("components/places/android/library")
+project(':fxa-client-library').projectDir = new File("components/fxa-client/android")
+project(':logins-library').projectDir = new File("components/logins/android")
+project(':places-library').projectDir = new File("components/places/android")
 
 include ':composites-lockbox'
-project(':composites-lockbox').projectDir = new File("composites/lockbox/android/library")
+project(':composites-lockbox').projectDir = new File("composites/lockbox/android")
 
 include ':composites-reference-browser'
-project(':composites-reference-browser').projectDir = new File("composites/reference-browser/android/library")
+project(':composites-reference-browser').projectDir = new File("composites/reference-browser/android")
