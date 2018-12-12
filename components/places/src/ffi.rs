@@ -12,7 +12,6 @@ use crate::error::{Error, ErrorKind};
 use ffi_support::{
     implement_into_ffi_by_json, implement_into_ffi_by_pointer, ErrorCode, ExternError,
 };
-use log::*;
 
 pub mod error_codes {
     // Note: 0 (success) and -1 (panic) are reserved by ffi_support
@@ -36,11 +35,11 @@ pub mod error_codes {
 fn get_code(err: &Error) -> ErrorCode {
     match err.kind() {
         ErrorKind::InvalidPlaceInfo(info) => {
-            error!("Invalid place info: {}", info);
+            log::error!("Invalid place info: {}", info);
             ErrorCode::new(error_codes::INVALID_PLACE_INFO)
         }
         ErrorKind::UrlParseError(e) => {
-            error!("URL parse error: {}", e);
+            log::error!("URL parse error: {}", e);
             ErrorCode::new(error_codes::URL_PARSE_ERROR)
         }
         // Can't pattern match on `err` without adding a dep on the sqlite3-sys crate,
@@ -48,11 +47,11 @@ fn get_code(err: &Error) -> ErrorCode {
         ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, msg))
             if err.code == rusqlite::ErrorCode::DatabaseBusy =>
         {
-            error!("Database busy: {:?} {:?}", err, msg);
+            log::error!("Database busy: {:?} {:?}", err, msg);
             ErrorCode::new(error_codes::DATABASE_BUSY)
         }
         err => {
-            error!("Unexpected error: {:?}", err);
+            log::error!("Unexpected error: {:?}", err);
             ErrorCode::new(error_codes::UNEXPECTED)
         }
     }

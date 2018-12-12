@@ -12,7 +12,6 @@ use crate::frecency;
 use crate::hash;
 use crate::observation::VisitObservation;
 use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition};
-use log::*;
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use rusqlite::{Connection, Row};
@@ -539,7 +538,7 @@ pub mod history_sync {
             })?;
         for r in ts_rows {
             let guid = r?;
-            trace!("outgoing tombstone {:?}", &guid);
+            log::trace!("outgoing tombstone {:?}", &guid);
             result.insert(guid, OutgoingInfo::Tombstone);
         }
 
@@ -581,17 +580,17 @@ pub mod history_sync {
             let visits = visit_rows.collect::<RusqliteResult<Vec<_>>>()?;
             if result.contains_key(&page.guid) {
                 // should be impossible!
-                warn!("Found {:?} in both tombstones and live records", &page.guid);
+                log::warn!("Found {:?} in both tombstones and live records", &page.guid);
                 continue;
             }
             if visits.len() == 0 {
-                info!(
+                log::info!(
                     "Page {:?} is flagged to be uploaded, but has no visits - skipping",
                     &page.guid
                 );
                 continue;
             }
-            trace!("outgoing record {:?}", &page.guid);
+            log::trace!("outgoing record {:?}", &page.guid);
             ids_to_update.push(page.row_id);
             db.execute_named_cached(
                 insert_meta_sql,
@@ -645,7 +644,7 @@ pub mod history_sync {
         // we can't do chunking and building a literal string with the ids seems
         // wrong and likely to hit max sql length limits.
         // So we use a temp table.
-        trace!("Updating all synced rows");
+        log::trace!("Updating all synced rows");
         // XXX - is there a better way to express this SQL? Multi-selects
         // doesn't seem ideal...
         db.conn().execute_cached(
@@ -658,7 +657,7 @@ pub mod history_sync {
             &[],
         )?;
 
-        trace!("Updating all non-synced rows");
+        log::trace!("Updating all non-synced rows");
         db.execute_all(&[
             &format!(
                 "UPDATE moz_places
@@ -669,7 +668,7 @@ pub mod history_sync {
             "DELETE FROM temp_sync_updated_meta",
         ])?;
 
-        trace!("Removing local tombstones");
+        log::trace!("Removing local tombstones");
         db.conn()
             .execute_cached("DELETE from moz_places_tombstones", &[])?;
 

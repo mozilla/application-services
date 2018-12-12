@@ -8,7 +8,6 @@ use failure::Fail;
 
 use crate::sync::{KeyBundle, Sync15StorageClientInit};
 use fxa_client::{AccessTokenInfo, Config, FirefoxAccount};
-use log::*;
 use logins_sql::{Login, PasswordEngine};
 use prettytable::*;
 use std::collections::HashMap;
@@ -35,9 +34,10 @@ fn load_fxa_creds(path: &str) -> Result<FirefoxAccount> {
 
 fn load_or_create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
     load_fxa_creds(path).or_else(|e| {
-        info!(
+        log::info!(
             "Failed to load existing FxA credentials from {:?} (error: {}), launching OAuth flow",
-            path, e
+            path,
+            e
         );
         create_fxa_creds(path, cfg)
     })
@@ -48,7 +48,7 @@ fn create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
     let oauth_uri = acct.begin_oauth_flow(&[SYNC_SCOPE], true)?;
 
     if let Err(_) = webbrowser::open(&oauth_uri.as_ref()) {
-        warn!("Failed to open a web browser D:");
+        log::warn!("Failed to open a web browser D:");
         println!("Please visit this URL, sign in, and then copy-paste the final URL below.");
         println!("\n    {}\n", oauth_uri);
     } else {
@@ -123,7 +123,7 @@ fn read_login() -> Login {
     };
 
     if let Err(e) = record.check_valid() {
-        warn!("Warning: produced invalid record: {}", e);
+        log::warn!("Warning: produced invalid record: {}", e);
     }
     record
 }
@@ -181,7 +181,7 @@ fn update_login(record: &mut Login) {
     }
 
     if let Err(e) = record.check_valid() {
-        warn!("Warning: produced invalid record: {}", e);
+        log::warn!("Warning: produced invalid record: {}", e);
     }
 }
 
@@ -308,7 +308,7 @@ fn prompt_record_id(e: &PasswordEngine, action: &str) -> Result<Option<String>> 
         return Ok(None);
     };
     if input >= index_to_id.len() {
-        info!("No such index");
+        log::info!("No such index");
         return Ok(None);
     }
     Ok(Some(index_to_id[input].clone()))
@@ -365,9 +365,10 @@ fn main() -> Result<()> {
         .expect("Encryption key is not optional");
 
     // Lets not log the encryption key, it's just not a good habit to be in.
-    debug!(
+    log::debug!(
         "Using credential file = {:?}, db = {:?}",
-        cred_file, db_path
+        cred_file,
+        db_path
     );
 
     // TODO: allow users to use stage/etc.
@@ -380,7 +381,7 @@ fn main() -> Result<()> {
         Ok(t) => t,
         Err(_) => {
             // The cached credentials did not have appropriate scope, sign in again.
-            warn!("Credentials do not have appropriate scope, launching OAuth flow.");
+            log::warn!("Credentials do not have appropriate scope, launching OAuth flow.");
             acct = create_fxa_creds(cred_file, cfg.clone())?;
             acct.get_access_token(SYNC_SCOPE)?
         }
@@ -396,106 +397,106 @@ fn main() -> Result<()> {
 
     let engine = PasswordEngine::new(db_path, Some(encryption_key))?;
 
-    info!("Engine has {} passwords", engine.list()?.len());
+    log::info!("Engine has {} passwords", engine.list()?.len());
 
     if let Err(e) = show_all(&engine) {
-        warn!("Failed to show initial login data! {}", e);
+        log::warn!("Failed to show initial login data! {}", e);
     }
 
     loop {
         match prompt_chars("[A]dd, [D]elete, [U]pdate, [S]ync, [V]iew, [R]eset, [W]ipe, [T]ouch, E[x]ecute SQL Query, or [Q]uit").unwrap_or('?') {
             'A' | 'a' => {
-                info!("Adding new record");
+                log::info!("Adding new record");
                 let record = read_login();
                 if let Err(e) = engine.add(record) {
-                    warn!("Failed to create record! {}", e);
+                    log::warn!("Failed to create record! {}", e);
                 }
             }
             'D' | 'd' => {
-                info!("Deleting record");
+                log::info!("Deleting record");
                 match prompt_record_id(&engine, "delete") {
                     Ok(Some(id)) => {
                         if let Err(e) = engine.delete(&id) {
-                            warn!("Failed to delete record! {}", e);
+                            log::warn!("Failed to delete record! {}", e);
                         }
                     }
                     Err(e) => {
-                        warn!("Failed to get record ID! {}", e);
+                        log::warn!("Failed to get record ID! {}", e);
                     }
                     _ => {}
                 }
             }
             'U' | 'u' => {
-                info!("Updating record fields");
+                log::info!("Updating record fields");
                 match prompt_record_id(&engine, "update") {
                     Err(e) => {
-                        warn!("Failed to get record ID! {}", e);
+                        log::warn!("Failed to get record ID! {}", e);
                     }
                     Ok(Some(id)) => {
                         let mut login = match engine.get(&id) {
                             Ok(Some(login)) => login,
                             Ok(None) => {
-                                warn!("No such login!");
+                                log::warn!("No such login!");
                                 continue
                             }
                             Err(e) => {
-                                warn!("Failed to update record (get failed) {}", e);
+                                log::warn!("Failed to update record (get failed) {}", e);
                                 continue;
                             }
                         };
                         update_login(&mut login);
                         if let Err(e) = engine.update(login) {
-                            warn!("Failed to update record! {}", e);
+                            log::warn!("Failed to update record! {}", e);
                         }
                     }
                     _ => {}
                 }
             }
             'R' | 'r' => {
-                info!("Resetting client.");
+                log::info!("Resetting client.");
                 if let Err(e) = engine.db.reset() {
-                    warn!("Failed to reset! {}", e);
+                    log::warn!("Failed to reset! {}", e);
                 }
             }
             'W' | 'w' => {
-                info!("Wiping all data from client!");
+                log::info!("Wiping all data from client!");
                 if let Err(e) = engine.db.wipe() {
-                    warn!("Failed to wipe! {}", e);
+                    log::warn!("Failed to wipe! {}", e);
                 }
             }
             'S' | 's' => {
-                info!("Syncing!");
+                log::info!("Syncing!");
                 if let Err(e) = engine.sync(&client_init, &root_sync_key) {
-                    warn!("Sync failed! {}", e);
-                    warn!("BT: {:?}", e.backtrace());
+                    log::warn!("Sync failed! {}", e);
+                    log::warn!("BT: {:?}", e.backtrace());
                 } else {
-                    info!("Sync was successful!");
+                    log::info!("Sync was successful!");
                 }
             }
             'V' | 'v' => {
                 if let Err(e) = show_all(&engine) {
-                    warn!("Failed to dump passwords? This is probably bad! {}", e);
+                    log::warn!("Failed to dump passwords? This is probably bad! {}", e);
                 }
             }
             'T' | 't' => {
-                info!("Touching (bumping use count) for a record");
+                log::info!("Touching (bumping use count) for a record");
                 match prompt_record_id(&engine, "update") {
                     Err(e) => {
-                        warn!("Failed to get record ID! {}", e);
+                        log::warn!("Failed to get record ID! {}", e);
                     }
                     Ok(Some(id)) => {
                         if let Err(e) = engine.touch(&id) {
-                            warn!("Failed to touch record! {}", e);
+                            log::warn!("Failed to touch record! {}", e);
                         }
                     }
                     _ => {}
                 }
             }
             'x' | 'X' => {
-                info!("Running arbitrary SQL, there's no way this could go wrong!");
+                log::info!("Running arbitrary SQL, there's no way this could go wrong!");
                 if let Some(sql) = prompt_string("SQL (one line only, press enter when done):\n") {
                     if let Err(e) = show_sql(&engine, &sql) {
-                        warn!("Failed to run sql query: {}", e);
+                        log::warn!("Failed to run sql query: {}", e);
                     }
                 }
             }

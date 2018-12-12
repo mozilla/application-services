@@ -7,7 +7,6 @@ use crate::db::PlacesDb;
 use crate::error::*;
 use crate::observation::VisitObservation;
 use crate::types::*;
-use log::*;
 use url::Url;
 
 // This module can become, roughly: PlacesUtils.history()
@@ -182,7 +181,7 @@ pub fn visit_uri(
     // EMBED visits are session-persistent and should not go through the database.
     // They exist only to keep track of isVisited status during the session.
     if transition == VisitTransition::Embed {
-        warn!("Embed visit, but in-memory storage of these isn't done yet");
+        log::warn!("Embed visit, but in-memory storage of these isn't done yet");
         return Ok(());
     }
 

@@ -8,7 +8,6 @@ use crate::error::Error;
 use crate::request::CollectionRequest;
 use crate::state::GlobalState;
 use crate::util::ServerTimestamp;
-use log::*;
 
 /// Low-level store functionality. Stores that need custom reconciliation logic should use this.
 ///
@@ -47,13 +46,13 @@ pub fn synchronize(
     fully_atomic: bool,
 ) -> Result<(), Error> {
     let collection = store.collection_name();
-    info!("Syncing collection {}", collection);
+    log::info!("Syncing collection {}", collection);
     let collection_request = store.get_collection_request()?;
     let incoming_changes =
         IncomingChangeset::fetch(client, state, collection.into(), &collection_request)?;
     let last_changed_remote = incoming_changes.timestamp;
 
-    info!(
+    log::info!(
         "Downloaded {} remote changes",
         incoming_changes.changes.len()
     );
@@ -61,11 +60,11 @@ pub fn synchronize(
 
     outgoing.timestamp = last_changed_remote;
 
-    info!("Uploading {} outgoing changes", outgoing.changes.len());
+    log::info!("Uploading {} outgoing changes", outgoing.changes.len());
     let upload_info =
         CollectionUpdate::new_from_changeset(client, state, outgoing, fully_atomic)?.upload()?;
 
-    info!(
+    log::info!(
         "Upload success ({} records success, {} records failed)",
         upload_info.successful_ids.len(),
         upload_info.failed_ids.len()
@@ -73,6 +72,6 @@ pub fn synchronize(
 
     store.sync_finished(upload_info.modified_timestamp, &upload_info.successful_ids)?;
 
-    info!("Sync finished!");
+    log::info!("Sync finished!");
     Ok(())
 }

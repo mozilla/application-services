@@ -10,7 +10,6 @@
 use crate::db::PlacesDb;
 use crate::error::*;
 use lazy_static::lazy_static;
-use log::*;
 use sql_support::ConnExt;
 
 const VERSION: i64 = 2;
@@ -236,10 +235,11 @@ pub fn init(db: &PlacesDb) -> Result<()> {
         if user_version < VERSION {
             upgrade(db, user_version)?;
         } else {
-            warn!(
+            log::warn!(
                 "Loaded future schema version {} (we only understand version {}). \
                  Optimisitically ",
-                user_version, VERSION
+                user_version,
+                VERSION
             )
         }
     }
@@ -248,7 +248,7 @@ pub fn init(db: &PlacesDb) -> Result<()> {
 
 // https://github.com/mozilla-mobile/firefox-ios/blob/master/Storage/SQL/LoginsSchema.swift#L100
 fn upgrade(_db: &PlacesDb, from: i64) -> Result<()> {
-    debug!("Upgrading schema from {} to {}", from, VERSION);
+    log::debug!("Upgrading schema from {} to {}", from, VERSION);
     if from == VERSION {
         return Ok(());
     }
@@ -258,7 +258,7 @@ fn upgrade(_db: &PlacesDb, from: i64) -> Result<()> {
 }
 
 pub fn create(db: &PlacesDb) -> Result<()> {
-    debug!("Creating schema");
+    log::debug!("Creating schema");
     db.execute_all(&[
         CREATE_TABLE_PLACES_SQL,
         CREATE_TABLE_PLACES_TOMBSTONES_SQL,
@@ -283,7 +283,7 @@ pub fn create(db: &PlacesDb) -> Result<()> {
         &format!("PRAGMA user_version = {version}", version = VERSION),
     ])?;
 
-    debug!("Creating temp tables and triggers");
+    log::debug!("Creating temp tables and triggers");
     db.execute_all(&[
         CREATE_TRIGGER_AFTER_INSERT_ON_PLACES,
         &CREATE_TRIGGER_HISTORYVISITS_AFTERINSERT,

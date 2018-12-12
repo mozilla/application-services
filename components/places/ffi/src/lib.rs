@@ -6,7 +6,6 @@ use ffi_support::{
     call_with_result, define_box_destructor, define_string_destructor, rust_str_from_c,
     rust_string_from_c, ExternError,
 };
-use log::*;
 use places::history_sync::store::HistoryStore;
 use places::{storage, PlacesDb};
 use std::os::raw::c_char;
@@ -25,7 +24,7 @@ fn logging_init() {
             android_logger::Filter::default().with_min_level(log::Level::Trace),
             Some("libplaces_ffi"),
         );
-        debug!("Android logging should be hooked up!")
+        log::debug!("Android logging should be hooked up!")
     }
 }
 
@@ -40,7 +39,7 @@ pub unsafe extern "C" fn places_connection_new(
     encryption_key: *const c_char,
     error: &mut ExternError,
 ) -> *mut PlacesDb {
-    trace!("places_connection_new");
+    log::trace!("places_connection_new");
     logging_init();
     call_with_result(error, || {
         let path = ffi_support::rust_string_from_c(db_path);
@@ -57,7 +56,7 @@ pub unsafe extern "C" fn places_note_observation(
     json_observation: *const c_char,
     error: &mut ExternError,
 ) {
-    trace!("places_note_observation");
+    log::trace!("places_note_observation");
     call_with_result(error, || {
         let json = ffi_support::rust_str_from_c(json_observation);
         let visit: places::VisitObservation = serde_json::from_str(&json)?;
@@ -74,7 +73,7 @@ pub unsafe extern "C" fn places_query_autocomplete(
     limit: u32,
     error: &mut ExternError,
 ) -> *mut c_char {
-    trace!("places_query_autocomplete");
+    log::trace!("places_query_autocomplete");
     call_with_result(error, || {
         search_frecent(
             conn,
@@ -92,7 +91,7 @@ pub unsafe extern "C" fn places_get_visited(
     urls_json: *const c_char,
     error: &mut ExternError,
 ) -> *mut c_char {
-    trace!("places_get_visited");
+    log::trace!("places_get_visited");
     // This function has a dumb amount of overhead and copying...
     call_with_result(error, || -> places::Result<String> {
         let json = ffi_support::rust_str_from_c(urls_json);
@@ -116,7 +115,7 @@ pub extern "C" fn places_get_visited_urls_in_range(
     include_remote: u8, // JNA has issues with bools...
     error: &mut ExternError,
 ) -> *mut c_char {
-    trace!("places_get_visited_in_range");
+    log::trace!("places_get_visited_in_range");
     call_with_result(error, || -> places::Result<String> {
         let visited = storage::get_visited_urls(
             conn,
@@ -138,7 +137,7 @@ pub unsafe extern "C" fn sync15_history_sync(
     tokenserver_url: *const c_char,
     error: &mut ExternError,
 ) {
-    trace!("sync15_history_sync");
+    log::trace!("sync15_history_sync");
     call_with_result(error, || -> places::Result<()> {
         // XXX - this is wrong - we kinda want this to be long-lived - the "Db"
         // should own the store, but it's not part of the db.

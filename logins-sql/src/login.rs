@@ -5,7 +5,6 @@
 use crate::error::*;
 use crate::sync::{self, ServerTimestamp};
 use crate::util;
-use log::*;
 use rusqlite::Row;
 use serde_derive::*;
 use std::time::{self, SystemTime};
@@ -326,7 +325,7 @@ macro_rules! merge_field {
     ($merged:ident, $b:ident, $prefer_b:expr, $field:ident) => {
         if let Some($field) = $b.$field.take() {
             if $merged.$field.is_some() {
-                warn!("Collision merging login field {}", stringify!($field));
+                log::warn!("Collision merging login field {}", stringify!($field));
                 if $prefer_b {
                     $merged.$field = Some($field);
                 }

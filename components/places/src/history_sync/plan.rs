@@ -12,7 +12,6 @@ use crate::storage::history_sync::{
 };
 use crate::types::{SyncGuid, Timestamp, VisitTransition};
 use crate::valid_guid::is_valid_places_guid;
-use log::*;
 use rusqlite::Connection;
 use sql_support::ConnExt;
 use std::collections::HashSet;
@@ -184,7 +183,7 @@ pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<Outgo
             Err(e) => {
                 // We can't push IncomingPlan::Invalid into plans as we don't
                 // know the guid - just skip it.
-                warn!("Error deserializing incoming record: {}", e);
+                log::warn!("Error deserializing incoming record: {}", e);
                 continue;
             }
         };
@@ -205,19 +204,20 @@ pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<Outgo
     for (guid, plan) in plans {
         match &plan {
             IncomingPlan::Skip => {
-                trace!("incoming: skipping item {:?}", guid);
+                log::trace!("incoming: skipping item {:?}", guid);
             }
             IncomingPlan::Invalid(err) => {
-                warn!(
+                log::warn!(
                     "incoming: record {:?} skipped because it is invalid: {}",
-                    guid, err
+                    guid,
+                    err
                 );
             }
             IncomingPlan::Failed(err) => {
-                error!("incoming: record {:?} failed to apply: {}", guid, err);
+                log::error!("incoming: record {:?} failed to apply: {}", guid, err);
             }
             IncomingPlan::Delete => {
-                trace!("incoming: deleting {:?}", guid);
+                log::trace!("incoming: deleting {:?}", guid);
                 num_deleted += 1;
                 apply_synced_deletion(&conn, &guid)?;
             }
@@ -228,7 +228,7 @@ pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<Outgo
                 visits,
             } => {
                 num_applied += 1;
-                trace!(
+                log::trace!(
                     "incoming: will apply {:?}: url={:?}, title={:?}, to_add={:?}",
                     guid,
                     url,
@@ -249,7 +249,7 @@ pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<Outgo
             }
             IncomingPlan::Reconciled => {
                 num_reconciled += 1;
-                trace!("incoming: reconciled {:?}", guid);
+                log::trace!("incoming: reconciled {:?}", guid);
                 apply_synced_reconciliation(&conn, &guid)?;
             }
         };
@@ -263,14 +263,16 @@ pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<Outgo
             OutgoingInfo::Record(record) => Payload::from_record(record)?,
             OutgoingInfo::Tombstone => Payload::new_tombstone_with_ttl(guid.0.clone(), HISTORY_TTL),
         };
-        trace!("outgoing {:?}", payload);
+        log::trace!("outgoing {:?}", payload);
         outgoing.changes.push(payload);
     }
     tx.commit()?;
 
-    info!(
+    log::info!(
         "incoming: applied {}, deleted {}, reconciled {}",
-        num_applied, num_deleted, num_reconciled
+        num_applied,
+        num_deleted,
+        num_reconciled
     );
 
     Ok(outgoing)
@@ -279,7 +281,7 @@ pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<Outgo
 pub fn finish_plan(conn: &Connection) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     finish_outgoing(conn)?;
-    trace!("Committing final sync plan");
+    log::trace!("Committing final sync plan");
     tx.commit()?;
     Ok(())
 }

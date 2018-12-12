@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use log::*;
 use rusqlite::{
     self,
     types::{FromSql, ToSql},
@@ -165,7 +164,7 @@ impl<'conn> UncheckedTransaction<'conn> {
     /// Consumes and commits an unchecked transaction.
     pub fn commit(self) -> SqlResult<()> {
         self.conn.execute_batch("COMMIT")?;
-        trace!("Transaction commited after {:?}", self.started_at.elapsed());
+        log::trace!("Transaction commited after {:?}", self.started_at.elapsed());
         Ok(())
     }
 
@@ -199,7 +198,7 @@ impl<'conn> Deref for UncheckedTransaction<'conn> {
 impl<'conn> Drop for UncheckedTransaction<'conn> {
     fn drop(&mut self) {
         if let Err(e) = self.finish_() {
-            warn!("Error dropping an unchecked transaction: {}", e);
+            log::warn!("Error dropping an unchecked transaction: {}", e);
         }
     }
 }

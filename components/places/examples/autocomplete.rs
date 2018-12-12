@@ -4,7 +4,6 @@
 
 use clap::value_t;
 use failure::bail;
-use log::*;
 use places::{VisitObservation, VisitTransition};
 use serde_derive::*;
 use sql_support::ConnExt;
@@ -157,9 +156,10 @@ fn import_places(
         (ps, vs)
     };
 
-    info!(
+    log::info!(
         "Importing {} visits across {} places!",
-        place_count, visit_count
+        place_count,
+        visit_count
     );
     let mut stmt = old.prepare(
         "
@@ -231,7 +231,7 @@ fn import_places(
     println!("Finished processing records");
     println!("Committing....");
     tx.commit()?;
-    info!("Finished import!");
+    log::info!("Finished import!");
     Ok(())
 }
 
@@ -345,7 +345,7 @@ mod autocomplete {
                             }
                             Err(e) => {
                                 // TODO: this is likely not to go very well since we're in raw mode...
-                                error!("Got error doing autocomplete: {:?}", e);
+                                log::error!("Got error doing autocomplete: {:?}", e);
                                 panic!("Got error doing autocomplete: {:?}", e);
                                 // return Err(e.into());
                             }
@@ -808,14 +808,14 @@ fn main() -> Result<()> {
                 .unwrap_or(0.1),
         };
         let import_source = if import_places_arg == "auto" {
-            info!("Automatically locating largest places DB in your profile(s)");
+            log::info!("Automatically locating largest places DB in your profile(s)");
             let profile_info = if let Some(info) = find_places_db::get_largest_places_db()? {
                 info
             } else {
-                error!("Failed to locate your firefox profile!");
+                log::error!("Failed to locate your firefox profile!");
                 bail!("--import-places=auto specified, but couldn't find a `places.sqlite`");
             };
-            info!(
+            log::info!(
                 "Using a {} places.sqlite from profile '{}' (places path = {:?})",
                 profile_info.friendly_db_size(),
                 profile_info.profile_name,
@@ -848,17 +848,17 @@ fn main() -> Result<()> {
     }
 
     if let Some(observations_json) = matches.value_of("import_observations") {
-        info!("Importing observations from {}", observations_json);
+        log::info!("Importing observations from {}", observations_json);
         let observations: Vec<SerializedObservation> = read_json_file(observations_json)?;
         let num_observations = observations.len();
-        info!("Found {} observations", num_observations);
+        log::info!("Found {} observations", num_observations);
         let mut counter = 0;
         for obs in observations {
             let visit = obs.into_visit()?;
             places::apply_observation(&mut conn, visit)?;
             counter += 1;
             if (counter % 1000) == 0 {
-                trace!("Importing observations {} / {}", counter, num_observations);
+                log::trace!("Importing observations {} / {}", counter, num_observations);
             }
         }
     }

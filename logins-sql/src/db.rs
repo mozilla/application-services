@@ -11,7 +11,6 @@ use crate::sync::{
 use crate::update_plan::UpdatePlan;
 use crate::util;
 use lazy_static::lazy_static;
-use log::*;
 use rusqlite::{
     types::{FromSql, ToSql},
     Connection,
@@ -375,7 +374,7 @@ impl LoginDb {
             ],
         )?;
         if rows_changed == 0 {
-            error!(
+            log::error!(
                 "Record {:?} already exists (use `update` to update records, not add)",
                 login.id
             );
@@ -528,10 +527,10 @@ impl LoginDb {
             return Ok(());
         }
 
-        debug!("No overlay; cloning one for {:?}.", guid);
+        log::debug!("No overlay; cloning one for {:?}.", guid);
         let changed = self.clone_mirror_to_overlay(guid)?;
         if changed == 0 {
-            error!("Failed to create local overlay for GUID {:?}.", guid);
+            log::error!("Failed to create local overlay for GUID {:?}.", guid);
             throw!(ErrorKind::NoSuchRecord(guid.to_owned()));
         }
         Ok(())
@@ -542,7 +541,7 @@ impl LoginDb {
     }
 
     pub fn reset(&self) -> Result<()> {
-        info!("Executing reset on password store!");
+        log::info!("Executing reset on password store!");
         self.execute_all(&[
             &*CLONE_ENTIRE_MIRROR_SQL,
             "DELETE FROM loginsM",
@@ -554,7 +553,7 @@ impl LoginDb {
     }
 
     pub fn wipe(&self) -> Result<()> {
-        info!("Executing wipe on password store!");
+        log::info!("Executing wipe on password store!");
         let now_ms = util::system_time_ms_i64(SystemTime::now());
         self.execute(
             &format!(
@@ -601,37 +600,38 @@ impl LoginDb {
         let mut plan = UpdatePlan::default();
 
         for mut record in records {
-            debug!("Processing remote change {}", record.guid());
+            log::debug!("Processing remote change {}", record.guid());
             let upstream = if let Some(inbound) = record.inbound.0.take() {
                 inbound
             } else {
-                debug!("Processing inbound deletion (always prefer)");
+                log::debug!("Processing inbound deletion (always prefer)");
                 plan.plan_delete(record.guid.clone());
                 continue;
             };
             let upstream_time = record.inbound.1;
             match (record.mirror.take(), record.local.take()) {
                 (Some(mirror), Some(local)) => {
-                    debug!("  Conflict between remote and local, Resolving with 3WM");
+                    log::debug!("  Conflict between remote and local, Resolving with 3WM");
                     plan.plan_three_way_merge(local, mirror, upstream, upstream_time, server_now);
                 }
                 (Some(_mirror), None) => {
-                    debug!("  Forwarding mirror to remote");
+                    log::debug!("  Forwarding mirror to remote");
                     plan.plan_mirror_update(upstream, upstream_time);
                 }
                 (None, Some(local)) => {
-                    debug!("  Conflicting record without shared parent, using newer");
+                    log::debug!("  Conflicting record without shared parent, using newer");
                     plan.plan_two_way_merge(&local.login, (upstream, upstream_time));
                 }
                 (None, None) => {
                     if let Some(dupe) = self.find_dupe(&upstream)? {
-                        debug!(
+                        log::debug!(
                             "  Incoming record {} was is a dupe of local record {}",
-                            upstream.id, dupe.id
+                            upstream.id,
+                            dupe.id
                         );
                         plan.plan_two_way_merge(&dupe, (upstream, upstream_time));
                     } else {
-                        debug!("  No dupe found, inserting into mirror");
+                        log::debug!("  No dupe found, inserting into mirror");
                         plan.plan_mirror_insert(upstream, upstream_time, false);
                     }
                 }
@@ -696,7 +696,7 @@ impl LoginDb {
     }
 
     fn set_last_sync(&self, last_sync: ServerTimestamp) -> Result<()> {
-        debug!("Updating last sync to {}", last_sync);
+        log::debug!("Updating last sync to {}", last_sync);
         let last_sync_millis = last_sync.as_millis() as i64;
         self.put_meta(schema::LAST_SYNC_META_KEY, &last_sync_millis)
     }

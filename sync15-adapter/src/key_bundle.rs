@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::{ErrorKind, Result};
-use log::*;
 use openssl::hash::MessageDigest;
 use openssl::pkey::PKey;
 use openssl::sign::Signer;
@@ -21,11 +20,11 @@ impl KeyBundle {
     /// Panics (asserts) if they aren't both 32 bytes.
     pub fn new(enc: Vec<u8>, mac: Vec<u8>) -> Result<KeyBundle> {
         if enc.len() != 32 {
-            error!("Bad key length (enc_key): {} != 32", enc.len());
+            log::error!("Bad key length (enc_key): {} != 32", enc.len());
             return Err(ErrorKind::BadKeyLength("enc_key", enc.len(), 32).into());
         }
         if mac.len() != 32 {
-            error!("Bad key length (mac_key): {} != 32", mac.len());
+            log::error!("Bad key length (mac_key): {} != 32", mac.len());
             return Err(ErrorKind::BadKeyLength("mac_key", mac.len(), 32).into());
         }
         Ok(KeyBundle {
@@ -42,7 +41,7 @@ impl KeyBundle {
 
     pub fn from_ksync_bytes(ksync: &[u8]) -> Result<KeyBundle> {
         if ksync.len() != 64 {
-            error!("Bad key length (kSync): {} != 64", ksync.len());
+            log::error!("Bad key length (kSync): {} != 64", ksync.len());
             return Err(ErrorKind::BadKeyLength("kSync", ksync.len(), 64).into());
         }
         Ok(KeyBundle {
@@ -110,7 +109,7 @@ impl KeyBundle {
         // Note: openssl::memcmp::eq panics if the sizes aren't the same. Desktop returns that it
         // was a verification failure, so we will too.
         if expected_hmac.len() != 64 {
-            warn!("Garbage HMAC verification string: Wrong length");
+            log::warn!("Garbage HMAC verification string: Wrong length");
             return Ok(false);
         }
         // Decode the expected_hmac into bytes to avoid issues if a client happens to encode
@@ -119,7 +118,7 @@ impl KeyBundle {
         let mut decoded_hmac = [0u8; 32];
 
         if let Err(_) = base16::decode_slice(expected_hmac, &mut decoded_hmac) {
-            warn!("Garbage HMAC verification string: contained non base16 characters");
+            log::warn!("Garbage HMAC verification string: contained non base16 characters");
             return Ok(false);
         }
 
