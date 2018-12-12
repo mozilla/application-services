@@ -181,7 +181,7 @@ impl<'de> serde::Deserialize<'de> for VisitTransition {
 }
 
 /// Re SyncStatus - note that:
-/// * logins_sql has synced=0, changed=1, new=2
+/// * logins has synced=0, changed=1, new=2
 /// * desktop bookmarks has unknown=0, new=1, normal=2
 /// This is "places", so eventually bookmarks will have a status - should history
 /// and bookmarks share this enum?

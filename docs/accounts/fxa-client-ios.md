@@ -9,7 +9,7 @@ The **Firefox Accounts iOS SDK** provides a way for iOS applications to do the f
 * Get access to Firefox Sync keys to fetch the sync data.
 * Fetch user's profile to personalize the applications.
 
-Please see the [FxA iOS SDK documentation](https://github.com/mozilla/application-services/tree/master/fxa-client/sdks/swift/FxAClient)
+Please see the [FxA iOS SDK documentation](https://github.com/mozilla/application-services/tree/master/components/fxa-client/sdks/swift/FxAClient)
 to integrate this component into your application.
 
 ## Implementing the OAuth flow in iOS

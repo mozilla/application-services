@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// XXXXXX - This has been cloned from logins-sql/src/db.rs, on Thom's
+// XXXXXX - This has been cloned from logins/src/db.rs, on Thom's
 // wip-sync-sql-store branch, but with login specific code removed.
 // We should work out how to split this into a library we can reuse.
 
