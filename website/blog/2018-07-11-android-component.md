@@ -10,7 +10,7 @@ The initial version of the Firefox Accounts Android component has been released 
 <!--truncate-->
 
 
-This new component consumes the new [fxa-client](https://github.com/mozilla/application-services/tree/master/fxa-client), which allows us to write things once and later cross-compile the code to different mobile platforms. As part of developing this component we utilize the following technologies: Rust, Kotlin, JNA, JOSE and more.
+This new component consumes the new [fxa-client](https://github.com/mozilla/application-services/tree/master/components/fxa-client), which allows us to write things once and later cross-compile the code to different mobile platforms. As part of developing this component we utilize the following technologies: Rust, Kotlin, JNA, JOSE and more.
 
 Since the initial release the [team](https://github.com/mozilla-mobile/android-components/graphs/contributors) already made various improvements, such as making method calls asynchronous, improving error handling and slimming down the size of the library. The component is available as a “tech preview” and you can try it in a [sample Android app](https://github.com/mozilla-mobile/android-components/tree/master/samples/firefox-accounts).
 

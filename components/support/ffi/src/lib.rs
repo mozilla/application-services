@@ -19,11 +19,11 @@
 //!   wrapped by one that does. These have a `crate-type` in their Cargo.toml (see
 //!   https://doc.rust-lang.org/reference/linkage.html) of `lib`, and not `staticlib` or `cdylib`
 //!   (Note that `lib` is the default if `crate-type` is not specified). Examples include the
-//!   `fxa-client`, and `logins-sql` crates.
+//!   `fxa-client`, and `logins` crates.
 //!
 //! - **FFI Component**: A wrapper crate that takes a Rust component, and exposes an FFI from it.
 //!   These typically have `ffi` in the name, and have `crate-type = ["lib", "staticlib", "cdylib"]`
-//!   in their Cargo.toml. For example, the `fxa-client/ffi` and `logins-sql/ffi` crates (note:
+//!   in their Cargo.toml. For example, the `fxa-client/ffi` and `logins/ffi` crates (note:
 //!   paths are subject to change). When built, these produce a native library that is consumed by
 //!   the "FFI Consumer".
 //!

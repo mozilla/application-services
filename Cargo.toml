@@ -1,15 +1,14 @@
 [workspace]
 members = [
-    "fxa-client",
-    "fxa-client/ffi",
-    "sandvich/desktop",
-    "sync15-adapter",
-    "logins-sql",
-    "logins-sql/ffi",
+    "components/fxa-client",
+    "components/fxa-client/ffi",
+    "components/logins",
+    "components/logins/ffi",
     "components/places",
     "components/places/ffi",
     "components/support/sql",
     "components/support/ffi",
+    "components/sync15",
     "composites/lockbox",
     "composites/reference-browser",
 ]

@@ -47,7 +47,7 @@ pub struct HistorySyncRecord {
 }
 
 impl HistorySyncRecord {
-    pub fn from_payload(payload: sync15_adapter::Payload) -> Result<Self> {
+    pub fn from_payload(payload: sync15::Payload) -> Result<Self> {
         let guid = payload.id.clone();
         let record: Option<HistoryRecord> = if payload.is_tombstone() {
             None
