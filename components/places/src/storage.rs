@@ -320,32 +320,15 @@ pub fn url_to_guid(db: &impl ConnExt, url: &Url) -> Result<Option<SyncGuid>> {
 /// Internal function for deleting a place, creating a tombstone if necessary.
 /// Assumes a transaction is already set up by the caller.
 fn do_delete_place_by_guid(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
-    // sadly we need to do a read first - we only create tombstones for
-    // history with sync_status == SyncStatus::Normal
-    let sql = "SELECT id, sync_status FROM moz_places WHERE guid = :guid";
-    let result: Option<(RowId, SyncStatus)> = db.try_query_row(
-        sql,
-        &[(":guid", guid)],
-        // subtle: we explicitly need to specify rusqlite::Result or the compiler
-        // struggles to work out what error type to return from try_query_row.
-        |row| -> rusqlite::Result<_> {
-            Ok((
-                row.get_checked::<_, RowId>(0)?,
-                SyncStatus::from_u8(row.get_checked::<_, u8>(1)?),
-            ))
-        },
-        true,
-    )?;
-    let (id, status) = match result {
-        None => return Ok(()),
-        Some(tuple) => tuple,
-    };
-    if status == SyncStatus::Normal {
-        let ts_sql = "INSERT OR IGNORE INTO moz_places_tombstones (guid) VALUES (:guid)";
-        db.execute_named_cached(ts_sql, &[(":guid", guid)])?;
-    }
-    let delete_sql = "DELETE FROM moz_places WHERE id = :id";
-    db.execute_named_cached(delete_sql, &[(":id", &id)])?;
+    // We only create tombstones for history which exists and with sync_status
+    // == SyncStatus::Normal
+    let sql = "INSERT OR IGNORE INTO moz_places_tombstones (guid)
+               SELECT guid FROM moz_places
+               WHERE guid = :guid AND sync_status = :status";
+    db.execute_named_cached(sql, &[(":guid", guid), (":status", &SyncStatus::Normal)])?;
+    // and try the delete - it might not exist, but that's ok.
+    let delete_sql = "DELETE FROM moz_places WHERE guid = :guid";
+    db.execute_named_cached(delete_sql, &[(":guid", guid)])?;
     Ok(())
 }
 
