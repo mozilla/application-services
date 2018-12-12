@@ -4,45 +4,90 @@
     "next": "Next",
     "previous": "Previous",
     "tagline": "Build the next thing...",
-    "accounts/50000-most-common-passwords": "50,000 Most Common Passwords",
-    "accounts/dev-process": "Development Process",
-    "Development Process": "Development Process",
-    "accounts/end-to-end-encryption": "End-to-end encryption",
-    "accounts/fxa-client-android": "Android SDK",
-    "accounts/fxa-client-ios": "iOS SDK",
-    "accounts/metrics": "Metrics for Reliers",
-    "Metrics for Reliers": "Metrics for Reliers",
-    "accounts/project-details": "Project Details",
-    "Project Details": "Project Details",
-    "accounts/welcome": "About Firefox Accounts",
-    "Welcome": "Welcome",
-    "applications/signing-android-apps": "Signing Android Applications",
-    "Signing Android Applications": "Signing Android Applications",
-    "applications/welcome": "Applications",
-    "Intro": "Intro",
-    "doc1": "Docs",
-    "Docs": "Docs",
-    "sync/canned-bug-responses": "Canned Bug Responses",
-    "sync/extension-storage": "Extension Storage",
-    "sync/faq": "Frequently Asked Questions",
-    "FAQ": "FAQ",
-    "sync/file-desktop-bug": "Filing a Desktop bug",
-    "sync/redash": "Redash",
-    "sync/state-machines": "State Machines",
-    "sync/tps": "TPS",
-    "sync/welcome": "About Sync",
-    "Blog": "Blog",
-    "GitHub": "GitHub",
-    "Accounts": "Accounts",
-    "Sync": "Sync",
-    "Applications": "Applications",
-    "Firefox Accounts": "Firefox Accounts",
-    "Mobile SDKs": "Mobile SDKs",
-    "Other Features": "Other Features",
-    "Firefox Sync": "Firefox Sync",
-    "Testing": "Testing",
-    "Design Docs": "Design Docs",
-    "Team": "Team"
+    "docs": {
+      "accounts/50000-most-common-passwords": {
+        "title": "50,000 Most Common Passwords"
+      },
+      "accounts/dev-process": {
+        "title": "Development Process",
+        "sidebar_label": "Development Process"
+      },
+      "accounts/end-to-end-encryption": {
+        "title": "End-to-end encryption"
+      },
+      "accounts/fxa-client-android": {
+        "title": "Android SDK"
+      },
+      "accounts/fxa-client-ios": {
+        "title": "iOS SDK"
+      },
+      "accounts/metrics": {
+        "title": "Metrics for Reliers",
+        "sidebar_label": "Metrics for Reliers"
+      },
+      "accounts/project-details": {
+        "title": "Project Details",
+        "sidebar_label": "Project Details"
+      },
+      "accounts/welcome": {
+        "title": "About Firefox Accounts",
+        "sidebar_label": "Welcome"
+      },
+      "applications/signing-android-apps": {
+        "title": "Signing Android Applications",
+        "sidebar_label": "Signing Android Applications"
+      },
+      "applications/welcome": {
+        "title": "Applications",
+        "sidebar_label": "Intro"
+      },
+      "doc1": {
+        "title": "Docs",
+        "sidebar_label": "Docs"
+      },
+      "sync/canned-bug-responses": {
+        "title": "Canned Bug Responses"
+      },
+      "sync/extension-storage": {
+        "title": "Extension Storage"
+      },
+      "sync/faq": {
+        "title": "Frequently Asked Questions",
+        "sidebar_label": "FAQ"
+      },
+      "sync/file-desktop-bug": {
+        "title": "Filing a Desktop bug"
+      },
+      "sync/redash": {
+        "title": "Redash"
+      },
+      "sync/state-machines": {
+        "title": "State Machines"
+      },
+      "sync/tps": {
+        "title": "TPS"
+      },
+      "sync/welcome": {
+        "title": "About Sync",
+        "sidebar_label": "Welcome"
+      }
+    },
+    "links": {
+      "Blog": "Blog",
+      "GitHub": "GitHub"
+    },
+    "categories": {
+      "Accounts": "Accounts",
+      "Sync": "Sync",
+      "Applications": "Applications",
+      "Firefox Accounts": "Firefox Accounts",
+      "Mobile SDKs": "Mobile SDKs",
+      "Other Features": "Other Features",
+      "Firefox Sync": "Firefox Sync",
+      "Testing": "Testing",
+      "Design Docs": "Design Docs",
+      "Team": "Team"
+    }
   },
   "pages-strings": {
     "Help Translate|recruit community translators for your project": "Help Translate",
