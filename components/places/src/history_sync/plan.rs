@@ -293,8 +293,8 @@ mod tests {
     use crate::db::PlacesDb;
     use crate::history_sync::ServerVisitTimestamp;
     use crate::observation::VisitObservation;
-    use crate::storage::apply_observation;
     use crate::storage::history_sync::fetch_visits;
+    use crate::storage::{apply_observation, delete_place_by_guid, url_to_guid};
     use crate::types::{SyncStatus, Timestamp};
     use serde_json::json;
     use sql_support::ConnExt;
@@ -304,16 +304,9 @@ mod tests {
     use url::Url;
 
     fn get_existing_guid(conn: &PlacesDb, url: &Url) -> SyncGuid {
-        let guid_result: Result<Option<String>> = conn.try_query_row(
-            "SELECT guid from moz_places WHERE url = :url;",
-            &[(":url", &url.clone().into_string())],
-            |row| Ok(row.get::<_, String>(0).clone()),
-            true,
-        );
-        guid_result
+        url_to_guid(conn, url)
             .expect("should have worked")
             .expect("should have got a value")
-            .into()
     }
 
     fn get_tombstone_count(conn: &PlacesDb) -> u32 {
@@ -812,10 +805,7 @@ mod tests {
         assert_eq!(get_sync(&db, &url), (SyncStatus::Normal, 1));
 
         // Delete it.
-        db.execute_named_cached(
-            "DELETE FROM moz_places WHERE guid = :guid",
-            &[(":guid", &guid)],
-        )?;
+        delete_place_by_guid(&db, &guid)?;
 
         // should be a local tombstone.
         assert_eq!(get_tombstone_count(&db), 1);
