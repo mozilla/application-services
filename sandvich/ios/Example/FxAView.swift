@@ -64,13 +64,11 @@ class FxAView: UIViewController, WKNavigationDelegate {
             try! fxa!.registerPersistCallback(persistor) // After this, mutating changes will be persisted automatically.
             self.tryGetProfile()
         } else {
-            FxAConfig.custom(content_base: "https://sandvich-ios.dev.lcip.org") { result, error in
-                guard let config = result else { return } // The original implementation uses try! anyway so the error would have been swallowed
-                self.fxa = try! FirefoxAccount(config: config, clientId: "22d74070a481bc73", redirectUri: self.redirectUrl)
-                persistor.persist(json: (try! self.fxa?.toJSON())!)
-                try! self.fxa!.registerPersistCallback(persistor)
-                self.tryGetProfile()
-            }
+            let config = FxAConfig(contentUrl: "https://sandvich-ios.dev.lcip.org", clientId: "22d74070a481bc73", redirectUri: self.redirectUrl)
+            self.fxa = try! FirefoxAccount(config: config)
+            persistor.persist(json: (try! self.fxa?.toJSON())!)
+            try! self.fxa!.registerPersistCallback(persistor)
+            self.tryGetProfile()
         }
     }
 

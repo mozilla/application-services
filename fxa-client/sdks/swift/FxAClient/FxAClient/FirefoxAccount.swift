@@ -19,27 +19,27 @@ open class FxAConfig {
     let clientId: String
     let redirectUri: String
 
-    init(contentUrl: String, clientId: String, redirectUri: String) {
+    public init(contentUrl: String, clientId: String, redirectUri: String) {
         self.contentUrl = contentUrl
         self.clientId = clientId
         self.redirectUri = redirectUri
     }
 
-    init(withServer server: Server, clientId: String, redirectUri: String) {
+    public init(withServer server: Server, clientId: String, redirectUri: String) {
         self.contentUrl = server.rawValue
         self.clientId = clientId
         self.redirectUri = redirectUri
     }
 
-    static func release(clientId: String, redirectUri: String) -> FxAConfig {
+    public static func release(clientId: String, redirectUri: String) -> FxAConfig {
         return FxAConfig.init(withServer: FxAConfig.Server.Release, clientId: clientId, redirectUri: redirectUri)
     }
 
-    static func stable(clientId: String, redirectUri: String) -> FxAConfig {
+    public static func stable(clientId: String, redirectUri: String) -> FxAConfig {
         return FxAConfig.init(withServer: FxAConfig.Server.Stable, clientId: clientId, redirectUri: redirectUri)
     }
 
-    static func dev(clientId: String, redirectUri: String) -> FxAConfig {
+    public static func dev(clientId: String, redirectUri: String) -> FxAConfig {
         return FxAConfig.init(withServer: FxAConfig.Server.Dev, clientId: clientId, redirectUri: redirectUri)
     }
 }
