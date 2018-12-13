@@ -15,11 +15,19 @@
       "accounts/end-to-end-encryption": {
         "title": "End-to-end encryption"
       },
+      "accounts/faq": {
+        "title": "Frequently Asked Questions",
+        "sidebar_label": "Frequently Asked Questions"
+      },
       "accounts/fxa-client-android": {
         "title": "Android SDK"
       },
       "accounts/fxa-client-ios": {
         "title": "iOS SDK"
+      },
+      "accounts/local-development": {
+        "title": "Local Development",
+        "sidebar_label": "Local Development"
       },
       "accounts/metrics": {
         "title": "Metrics for Reliers",
@@ -33,6 +41,10 @@
         "title": "About Firefox Accounts",
         "sidebar_label": "Welcome"
       },
+      "applications/android-components": {
+        "title": "Building the Android Components",
+        "sidebar_label": "Building the Android Components"
+      },
       "applications/signing-android-apps": {
         "title": "Signing Android Applications",
         "sidebar_label": "Signing Android Applications"
@@ -40,6 +52,10 @@
       "applications/welcome": {
         "title": "Applications",
         "sidebar_label": "Intro"
+      },
+      "applications/working-with-reference-browser": {
+        "title": "Development with the Reference Browser",
+        "sidebar_label": "Development with the Reference Browser"
       },
       "doc1": {
         "title": "Docs",
