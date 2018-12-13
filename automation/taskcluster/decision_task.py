@@ -61,7 +61,9 @@ def android_libs():
     return (
         linux_build_task("Android libs (all architectures): build")
         .with_script("""
-            ./scripts/taskcluster-android.sh
+            pushd libs
+            ./build-all.sh android
+            popd
             tar -czf /build/repo/target.tar.gz libs/android
         """)
         .with_artifacts(
