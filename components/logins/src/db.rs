@@ -40,7 +40,19 @@ impl LoginDb {
             // "Raw Key Data" example. Note that this would be required to open
             // existing iOS sqlcipher databases).
             format!(
-                "PRAGMA key = '{}';",
+                "
+                PRAGMA key = '{}';
+
+                -- SQLcipher pre-4.0.0 compatibility. Using SHA1 still
+                -- is less than ideal, but should be fine. Real uses of
+                -- this (lockbox, etc) use a real random string for the
+                -- encryption key, so the reduced KDF iteration count
+                -- is fine.
+                PRAGMA cipher_page_size = 1024;
+                PRAGMA kdf_iter = 64000;
+                PRAGMA cipher_hmac_algorithm = HMAC_SHA1;
+                PRAGMA cipher_kdf_algorithm = PBKDF2_HMAC_SHA1;
+            ",
                 sql_support::escape_string_for_pragma(key)
             )
         } else {
