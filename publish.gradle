@@ -124,7 +124,7 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg,
                     // artifact javadocJar
 
                     pom {
-                        groupId = "${groupIdArg}-withoutLib"
+                        groupId = groupIdArg
                         artifactId = "${artifactIdArg}-withoutLib"
                         description = descriptionArg
                         version = rootProject.ext.library['version']
@@ -157,7 +157,7 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg,
                     artifact tasks['forUnitTestsJar']
 
                     pom {
-                        groupId = "${groupIdArg}-forUnitTests"
+                        groupId = groupIdArg
                         artifactId = "${artifactIdArg}-forUnitTests"
                         description = descriptionArg
                         version = rootProject.ext.library['version']
