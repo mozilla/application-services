@@ -2,7 +2,7 @@
 
 # This script downloads and builds the iOS openssl library.
 
-set -e
+set -euvx
 
 if [ "$#" -ne 4 ]
 then
@@ -27,28 +27,36 @@ OPENSSL_OUTPUT_PATH="/tmp/openssl-""$ARCH"_$$
 mkdir -p "$OPENSSL_OUTPUT_PATH"
 
 if [[ "${ARCH}" == "i386" || "${ARCH}" == "x86_64" ]]; then
-  PLATFORM="iPhoneSimulator"
+  OS_COMPILER="iPhoneSimulator"
+  if [[ "${ARCH}" == "x86_64" ]]; then
+    HOST="darwin64-x86_64-cc"
+  else
+    HOST="darwin-i386-cc"
+  fi
+elif [[ "${ARCH}" == "armv7" || "${ARCH}" == "arm64" ]]; then
+  OS_COMPILER="iPhoneOS"
+  if [[ "${ARCH}" == "arm64" ]]; then
+    HOST="ios64-cross"
+  else
+    HOST="ios-cross"
+  fi
 else
-  PLATFORM="iPhoneOS"
+  echo "Unsupported architecture"
+  exit 1
 fi
 
 DEVELOPER=$(xcode-select -print-path)
-export PLATFORM="$PLATFORM"
-export CROSS_TOP="${DEVELOPER}/Platforms/${PLATFORM}.platform/Developer"
-export CROSS_SDK="${PLATFORM}.sdk"
-export BUILD_TOOLS="${DEVELOPER}"
-export CC="${BUILD_TOOLS}/usr/bin/gcc -fembed-bitcode -arch ${ARCH}"
+export CROSS_TOP="${DEVELOPER}/Platforms/${OS_COMPILER}.platform/Developer"
+export CROSS_SDK="${OS_COMPILER}.sdk"
+export CROSS_COMPILE="${DEVELOPER}/Toolchains/XcodeDefault.xctoolchain/usr/bin/"
 
 make clean || true
-if [[ "${ARCH}" == "x86_64" ]]; then
-  ./Configure no-asm darwin64-x86_64-cc --openssldir="$OPENSSL_OUTPUT_PATH"
-else
-  ./Configure iphoneos-cross --openssldir="$OPENSSL_OUTPUT_PATH"
+./Configure $HOST "-arch $ARCH -fembed-bitcode" no-asm no-ssl3 no-comp no-hw no-engine no-async --prefix="$OPENSSL_OUTPUT_PATH" || exit 1
+if [[ "${OS_COMPILER}" == "iPhoneSimulator" ]]; then
+  sed -ie "s!^CFLAGS=!CFLAGS=-isysroot ${CROSS_TOP}/SDKs/${CROSS_SDK} -mios-version-min=${IOS_MIN_SDK_VERSION} !" "Makefile"
 fi
-
-sed -ie "s!^CFLAG=!CFLAG=-isysroot ${CROSS_TOP}/SDKs/${CROSS_SDK} -miphoneos-version-min=${IOS_MIN_SDK_VERSION} !" "Makefile"
-
-make -j6 && make install
+make -j6
+make install_sw
 mkdir -p "$DIST_DIR""/include/openssl"
 mkdir -p "$DIST_DIR""/lib"
 cp -p "$OPENSSL_OUTPUT_PATH"/lib/libssl.a "$DIST_DIR""/lib"

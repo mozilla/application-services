@@ -24,15 +24,11 @@ fi
 
 cd "${OPENSSL_DIR}"
 
-export TOOLCHAIN_BIN="$TOOLCHAIN_PATH""/bin/"
-export CC="$TOOLCHAIN_BIN""$TOOLCHAIN""-gcc"
-export CXX="$TOOLCHAIN_BIN""$TOOLCHAIN""-g++"
-export RANLIB="$TOOLCHAIN_BIN""$TOOLCHAIN""-ranlib"
-export LD="$TOOLCHAIN_BIN""$TOOLCHAIN""-ld"
-export AR="$TOOLCHAIN_BIN""$TOOLCHAIN""-ar"
 export CFLAGS="-D__ANDROID_API__=$ANDROID_NDK_API_VERSION"
+export ANDROID_NDK="$TOOLCHAIN_PATH"
+export PATH="$TOOLCHAIN_PATH/bin:$PATH"
 
-OPENSSL_OUTPUT_PATH="/tmp/openssl-""$TOOLCHAIN"_$$
+OPENSSL_OUTPUT_PATH="/tmp/openssl-$TOOLCHAIN"_$$
 mkdir -p "$OPENSSL_OUTPUT_PATH"
 
 if [ "$TOOLCHAIN" == "i686-linux-android" ]
@@ -40,17 +36,17 @@ then
   CONFIGURE_ARCH="android-x86"
 elif [ "$TOOLCHAIN" == "aarch64-linux-android" ]
 then
-  CONFIGURE_ARCH="android"
+  CONFIGURE_ARCH="android-arm64"
 elif [ "$TOOLCHAIN" == "arm-linux-androideabi" ]
 then
-  CONFIGURE_ARCH="android"
+  CONFIGURE_ARCH="android-arm"
 else
   echo "Unknown toolchain"
   exit 1
 fi
 
 make clean || true
-./Configure "$CONFIGURE_ARCH" shared --openssldir="$OPENSSL_OUTPUT_PATH"
+./Configure "$CONFIGURE_ARCH" shared --prefix="$OPENSSL_OUTPUT_PATH" || exit 1
 make -j6
 make install_sw
 mkdir -p "$DIST_DIR""/include/openssl"
