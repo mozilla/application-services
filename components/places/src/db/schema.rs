@@ -236,6 +236,13 @@ pub fn init(db: &PlacesDb) -> Result<()> {
             )
         }
     }
+    log::debug!("Creating temp tables and triggers");
+    db.execute_all(&[
+        CREATE_TRIGGER_AFTER_INSERT_ON_PLACES,
+        &CREATE_TRIGGER_HISTORYVISITS_AFTERINSERT,
+        &CREATE_TRIGGER_HISTORYVISITS_AFTERDELETE,
+        &CREATE_TRIGGER_MOZPLACES_AFTERINSERT_REMOVE_TOMBSTONES,
+    ])?;
     Ok(())
 }
 
@@ -274,14 +281,6 @@ pub fn create(db: &PlacesDb) -> Result<()> {
         CREATE_IDX_MOZ_HISTORYVISITS_ISLOCAL,
         CREATE_IDX_MOZ_BOOKMARKS_PLACELASTMODIFIED,
         &format!("PRAGMA user_version = {version}", version = VERSION),
-    ])?;
-
-    log::debug!("Creating temp tables and triggers");
-    db.execute_all(&[
-        CREATE_TRIGGER_AFTER_INSERT_ON_PLACES,
-        &CREATE_TRIGGER_HISTORYVISITS_AFTERINSERT,
-        &CREATE_TRIGGER_HISTORYVISITS_AFTERDELETE,
-        &CREATE_TRIGGER_MOZPLACES_AFTERINSERT_REMOVE_TOMBSTONES,
     ])?;
 
     Ok(())
