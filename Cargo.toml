@@ -9,8 +9,8 @@ members = [
     "components/support/sql",
     "components/support/ffi",
     "components/sync15",
-    "composites/lockbox",
-    "composites/reference-browser",
+    "megazords/lockbox",
+    "megazords/reference-browser",
 ]
 
 [profile.release]
