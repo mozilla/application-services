@@ -20,7 +20,7 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg,
     //
     // `variantWithoutLib` says to publish an AAR that doesn't have native Rust
     // libraries packed into it.  Such an AAR will be aggregated into another
-    // Maven publication that has a single composite Rust library that provides
+    // Maven publication that has a single megazord Rust library that provides
     // the native code functionality.
     if (jnaForTestConfiguration != null) {
         task extractJnaResources(type: Sync) {

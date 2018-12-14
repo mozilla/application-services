@@ -9,8 +9,8 @@ project(':fxa-client-library').projectDir = new File("components/fxa-client/andr
 project(':logins-library').projectDir = new File("components/logins/android")
 project(':places-library').projectDir = new File("components/places/android")
 
-include ':composites-lockbox'
-project(':composites-lockbox').projectDir = new File("composites/lockbox/android")
+include ':lockbox-megazord'
+project(':lockbox-megazord').projectDir = new File("megazords/lockbox/android")
 
-include ':composites-reference-browser'
-project(':composites-reference-browser').projectDir = new File("composites/reference-browser/android")
+include ':reference-browser-megazord'
+project(':reference-browser-megazord').projectDir = new File("megazords/reference-browser/android")
