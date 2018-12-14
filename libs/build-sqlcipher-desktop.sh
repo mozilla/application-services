@@ -158,7 +158,7 @@ popd
     --disable-tcl \
     CFLAGS="${SQLCIPHER_CFLAGS} -I${OPENSSL_DIR}/include -L${OPENSSL_DIR}/lib" \
     LDFLAGS="-L${OPENSSL_DIR}/lib" \
-    LIBS="-llibeay32 -lgdi32"
+    LIBS="-llibcrypto -lgdi32 -lws2_32"
 elif [ $(uname -s) == "Darwin" ]; then
   ../configure --prefix="$PWD/install-prefix" \
     --with-pic \
@@ -178,7 +178,7 @@ elif [ $(uname -s) == "Linux" ]; then
     --disable-tcl \
     CFLAGS="${SQLCIPHER_CFLAGS} -I${OPENSSL_DIR}/include -L${OPENSSL_DIR}/lib" \
     LDFLAGS="-L${OPENSSL_DIR}/lib" \
-    LIBS="-lcrypto -ldl -lm"
+    LIBS="-lcrypto -ldl -lm -lpthread"
 fi
 
 make -j6
