@@ -53,6 +53,7 @@ jobs:
     steps:
       - checkout
       - run: rustup component add rustfmt
+      - run: rustfmt --version
       - run: cargo fmt -- --check
   Rust tests - stable:
     docker:
