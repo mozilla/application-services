@@ -84,7 +84,7 @@ import com.sun.jna.Platform as DefaultPlatform
 // prerequisite libraries.
 //
 // Set this to `= null` in order to use libs from the source directory.
-ext.libsGitSha = '948cdd72ce2825909575c73c74177f76e66aafe6'
+ext.libsGitSha = '378c2052c0d04ec52d9de9ac949e568ba71c69a4'
 
 if (rootProject.ext.libsGitSha != null) {
     task downloadAndroidLibs(type: Download) {
