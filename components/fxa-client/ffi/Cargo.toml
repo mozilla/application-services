@@ -9,7 +9,7 @@ name = "fxaclient_ffi"
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
-ffi-support = { path = "../../support/ffi" }
+ffi-support = { path = "../../support/ffi", default-features = false, features = [] }
 
 [dependencies.fxa-client]
 path = "../"
