@@ -26,7 +26,13 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg,
         task extractJnaResources(type: Sync) {
             dependsOn jnaForTestConfiguration
 
-            from zipTree(jnaForTestConfiguration.singleFile)
+            from {
+                // Defer the resolution of the configuration.  This helps to
+                // avoid a nasty issue with the Android-Gradle plugin 3.2.1,
+                // like `Cannot change attributes of configuration
+                // ':PROJECT:kapt' after it has been resolved`.
+                zipTree(jnaForTestConfiguration.singleFile)
+            }
 
             into "${buildDir}/jnaResources/"
 
