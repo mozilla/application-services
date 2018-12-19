@@ -24,7 +24,6 @@ pub struct SearchParams {
 /// and bookmarks, synced tabs, search engine suggestions, and search keywords.
 pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<SearchResult>> {
     // TODO: Tokenize the query.
-    let mut matches = Vec::new();
 
     // Try to find the first heuristic result. Desktop tries extensions,
     // search engine aliases, origins, URLs, search engine domains, and
@@ -32,25 +31,47 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
     // and a search if all else fails. We only try origins and URLs for
     // heuristic matches, since that's all we support.
 
-    // Try to match on the origin, or the full URL.
-    let origin_or_url = OriginOrUrl::new(&params.search_string, conn);
-    let origin_or_url_matches = origin_or_url.search()?;
-    matches.extend(origin_or_url_matches);
-
-    // After the first result, try the queries for adaptive matches and
-    // suggestions for bookmarked URLs.
-    let adaptive = Adaptive::new(&params.search_string, conn, params.limit);
-    let adaptive_matches = adaptive.search()?;
-    matches.extend(adaptive_matches);
-
-    let suggestions = Suggestions::new(&params.search_string, conn, params.limit);
-    let suggestions_matches = suggestions.search()?;
-    matches.extend(suggestions_matches);
-
-    // TODO: If we don't have enough results, re-run `Adaptive` and
-    // `Suggestions`, this time with `MatchBehavior::Anywhere`.
+    let matches = match_with_limit(
+        &[
+            // Try to match on the origin, or the full URL.
+            &OriginOrUrl::new(&params.search_string, conn),
+            // After the first result, try the queries for adaptive matches and
+            // suggestions for bookmarked URLs.
+            &Adaptive::new(&params.search_string, conn),
+            &Suggestions::new(&params.search_string, conn),
+            // If we don't have enough results, query adaptive matches and
+            // suggestions again, matching anywhere instead of on boundaries.
+            &Adaptive::with_behavior(
+                &params.search_string,
+                conn,
+                MatchBehavior::Anywhere,
+                SearchBehavior::default(),
+            ),
+            &Suggestions::with_behavior(
+                &params.search_string,
+                conn,
+                MatchBehavior::Anywhere,
+                SearchBehavior::default(),
+            ),
+        ],
+        params.limit,
+    )?;
 
     Ok(matches)
+}
+
+fn match_with_limit(matchers: &[&dyn Matcher], max_results: u32) -> Result<(Vec<SearchResult>)> {
+    let mut results = Vec::new();
+    let mut rem_results = max_results;
+    for m in matchers {
+        if rem_results == 0 {
+            break;
+        }
+        let matches = m.search(rem_results)?;
+        results.extend(matches);
+        rem_results = rem_results.saturating_sub(results.len() as u32);
+    }
+    Ok(results)
 }
 
 /// Records an accepted autocomplete match, recording the query string,
@@ -112,7 +133,7 @@ fn looks_like_origin(string: &str) -> bool {
 
 /// The match reason specifies why an autocomplete search result matched a
 /// query. This can be used to filter and sort matches.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Eq, PartialEq)]
 pub enum MatchReason {
     Keyword,
     Origin,
@@ -123,7 +144,7 @@ pub enum MatchReason {
     Tags(String),
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Eq, PartialEq)]
 pub struct SearchResult {
     /// The search string for this match.
     pub search_string: String,
@@ -232,8 +253,8 @@ impl SearchResult {
 
     pub fn from_url_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
         let search_string = row.get_checked::<_, String>("searchString")?;
-        let url = row.get_checked::<_, String>("url")?;
-        let display_url = row.get_checked::<_, String>("displayURL")?;
+        let href = row.get_checked::<_, String>("url")?;
+        let stripped_url = row.get_checked::<_, String>("strippedURL")?;
         let frecency = row.get_checked::<_, i64>("frecency")?;
         let bookmarked = row.get_checked::<_, bool>("bookmarked")?;
 
@@ -242,7 +263,25 @@ impl SearchResult {
             reasons.push(MatchReason::Bookmark);
         }
 
-        let url = Url::parse(&url).expect("Invalid URL in Places");
+        let (url, display_url) = match href.find(&stripped_url) {
+            Some(stripped_url_index) => {
+                let stripped_prefix = &href[..stripped_url_index];
+                let title = match &href[stripped_url_index + stripped_url.len()..].find('/') {
+                    Some(next_slash_index) => {
+                        &href[stripped_url_index
+                            ..=stripped_url_index + stripped_url.len() + next_slash_index]
+                    }
+                    None => &href[stripped_url_index..],
+                };
+                let url = Url::parse(&[stripped_prefix, title].concat())
+                    .expect("Malformed suggested URL");
+                (url, title.into())
+            }
+            None => {
+                let url = Url::parse(&href).expect("Invalid URL in Places");
+                (url, stripped_url)
+            }
+        };
 
         Ok(Self {
             search_string,
@@ -255,6 +294,10 @@ impl SearchResult {
     }
 }
 
+trait Matcher {
+    fn search(&self, max_results: u32) -> Result<Vec<SearchResult>>;
+}
+
 struct OriginOrUrl<'query, 'conn> {
     query: &'query str,
     conn: &'conn PlacesDb,
@@ -264,8 +307,10 @@ impl<'query, 'conn> OriginOrUrl<'query, 'conn> {
     pub fn new(query: &'query str, conn: &'conn PlacesDb) -> OriginOrUrl<'query, 'conn> {
         OriginOrUrl { query, conn }
     }
+}
 
-    pub fn search(&self) -> Result<Vec<SearchResult>> {
+impl<'query, 'conn> Matcher for OriginOrUrl<'query, 'conn> {
+    fn search(&self, _: u32) -> Result<Vec<SearchResult>> {
         let mut results = Vec::new();
         if looks_like_origin(self.query) {
             let mut stmt = self.conn.db.prepare(
@@ -273,18 +318,23 @@ impl<'query, 'conn> OriginOrUrl<'query, 'conn> {
                 SELECT IFNULL(:prefix, prefix) || moz_origins.host || '/' AS url,
                        moz_origins.host || '/' AS displayURL,
                        frecency,
+                       bookmarked,
                        id,
                        :searchString AS searchString
                 FROM (
                   SELECT host,
-                         TOTAL(frecency) AS host_frecency
+                         TOTAL(frecency) AS host_frecency,
+                         (SELECT TOTAL(foreign_count) > 0 FROM moz_places
+                          WHERE moz_places.origin_id = moz_origins.id) AS bookmarked
                   FROM moz_origins
                   WHERE host BETWEEN :searchString AND :searchString || X'FFFF'
                   GROUP BY host
                   HAVING host_frecency >= :frecencyThreshold
                   UNION ALL
                   SELECT host,
-                         TOTAL(frecency) AS host_frecency
+                         TOTAL(frecency) AS host_frecency,
+                         (SELECT TOTAL(foreign_count) > 0 FROM moz_places
+                          WHERE moz_places.origin_id = moz_origins.id) AS bookmarked
                   FROM moz_origins
                   WHERE host BETWEEN 'www.' || :searchString AND 'www.' || :searchString || X'FFFF'
                   GROUP BY host
@@ -304,10 +354,10 @@ impl<'query, 'conn> OriginOrUrl<'query, 'conn> {
                 results.push(result?);
             }
         } else if self.query.contains(|c| c == '/' || c == ':' || c == '?') {
-            let (host, stripped_url) = split_after_host_and_port(self.query);
+            let (host, remainder) = split_after_host_and_port(self.query);
             let mut stmt = self.conn.db.prepare("
                 SELECT h.url as url,
-                       :strippedURL AS displayURL,
+                       :host || :remainder AS strippedURL,
                        h.frecency as frecency,
                        h.foreign_count > 0 AS bookmarked,
                        h.id as id,
@@ -317,10 +367,10 @@ impl<'query, 'conn> OriginOrUrl<'query, 'conn> {
                 WHERE o.rev_host = reverse_host(:host)
                       AND MAX(h.frecency, 0) >= :frecencyThreshold
                       AND h.hidden = 0
-                      AND strip_prefix_and_userinfo(h.url) BETWEEN :strippedURL AND :strippedURL || X'FFFF'
+                      AND strip_prefix_and_userinfo(h.url) BETWEEN strippedURL AND strippedURL || X'FFFF'
                 UNION ALL
                 SELECT h.url as url,
-                       :strippedURL AS displayURL,
+                       :host || :remainder AS strippedURL,
                        h.frecency as frecency,
                        h.foreign_count > 0 AS bookmarked,
                        h.id as id,
@@ -330,14 +380,14 @@ impl<'query, 'conn> OriginOrUrl<'query, 'conn> {
                 WHERE o.rev_host = reverse_host(:host) || 'www.'
                       AND MAX(h.frecency, 0) >= :frecencyThreshold
                       AND h.hidden = 0
-                      AND strip_prefix_and_userinfo(h.url) BETWEEN 'www.' || :strippedURL AND 'www.' || :strippedURL || X'FFFF'
+                      AND strip_prefix_and_userinfo(h.url) BETWEEN 'www.' || strippedURL AND 'www.' || strippedURL || X'FFFF'
                 ORDER BY h.frecency DESC, h.id DESC
                 LIMIT 1
             ")?;
             let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
                 (":searchString", &self.query),
-                (":strippedURL", &stripped_url),
                 (":host", &host),
+                (":remainder", &remainder),
                 (":frecencyThreshold", &-1i64),
             ];
             for result in stmt.query_and_then_named(params, SearchResult::from_url_row)? {
@@ -351,43 +401,37 @@ impl<'query, 'conn> OriginOrUrl<'query, 'conn> {
 struct Adaptive<'query, 'conn> {
     query: &'query str,
     conn: &'conn PlacesDb,
-    max_results: u32,
     match_behavior: MatchBehavior,
     search_behavior: SearchBehavior,
 }
 
 impl<'query, 'conn> Adaptive<'query, 'conn> {
-    pub fn new(
-        query: &'query str,
-        conn: &'conn PlacesDb,
-        max_results: u32,
-    ) -> Adaptive<'query, 'conn> {
+    pub fn new(query: &'query str, conn: &'conn PlacesDb) -> Adaptive<'query, 'conn> {
         Adaptive::with_behavior(
             query,
             conn,
-            max_results,
             MatchBehavior::BoundaryAnywhere,
-            SearchBehavior::any(),
+            SearchBehavior::default(),
         )
     }
 
     pub fn with_behavior(
         query: &'query str,
         conn: &'conn PlacesDb,
-        max_results: u32,
         match_behavior: MatchBehavior,
         search_behavior: SearchBehavior,
     ) -> Adaptive<'query, 'conn> {
         Adaptive {
             query,
             conn,
-            max_results,
             match_behavior,
             search_behavior,
         }
     }
+}
 
-    pub fn search(&self) -> Result<Vec<SearchResult>> {
+impl<'query, 'conn> Matcher for Adaptive<'query, 'conn> {
+    fn search(&self, max_results: u32) -> Result<Vec<SearchResult>> {
         let mut stmt = self.conn.db.prepare(
             "
             SELECT h.url as url,
@@ -426,7 +470,7 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
             (":searchString", &self.query),
             (":matchBehavior", &self.match_behavior),
             (":searchBehavior", &self.search_behavior),
-            (":maxResults", &self.max_results),
+            (":maxResults", &max_results),
         ];
         let mut results = Vec::new();
         for result in stmt.query_and_then_named(params, SearchResult::from_adaptive_row)? {
@@ -439,46 +483,42 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
 struct Suggestions<'query, 'conn> {
     query: &'query str,
     conn: &'conn PlacesDb,
-    max_results: u32,
     match_behavior: MatchBehavior,
     search_behavior: SearchBehavior,
 }
 
 impl<'query, 'conn> Suggestions<'query, 'conn> {
-    pub fn new(
-        query: &'query str,
-        conn: &'conn PlacesDb,
-        max_results: u32,
-    ) -> Suggestions<'query, 'conn> {
+    pub fn new(query: &'query str, conn: &'conn PlacesDb) -> Suggestions<'query, 'conn> {
         Suggestions::with_behavior(
             query,
             conn,
-            max_results,
             MatchBehavior::BoundaryAnywhere,
-            SearchBehavior::any(),
+            SearchBehavior::default(),
         )
     }
 
     pub fn with_behavior(
         query: &'query str,
         conn: &'conn PlacesDb,
-        max_results: u32,
         match_behavior: MatchBehavior,
         search_behavior: SearchBehavior,
     ) -> Suggestions<'query, 'conn> {
         Suggestions {
             query,
             conn,
-            max_results,
             match_behavior,
             search_behavior,
         }
     }
+}
 
-    pub fn search(&self) -> Result<Vec<SearchResult>> {
+impl<'query, 'conn> Matcher for Suggestions<'query, 'conn> {
+    fn search(&self, max_results: u32) -> Result<Vec<SearchResult>> {
         let mut stmt = self.conn.db.prepare(
             "
             SELECT h.url, h.title,
+                   EXISTS(SELECT 1 FROM moz_bookmarks
+                          WHERE fk = h.id) AS bookmarked,
                    (SELECT title FROM moz_bookmarks
                     WHERE fk = h.id AND
                           title NOT NULL
@@ -494,7 +534,7 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
               AND AUTOCOMPLETE_MATCH(:searchString, h.url,
                                      IFNULL(btitle, h.title), tags,
                                      visit_count, h.typed,
-                                     1, NULL,
+                                     bookmarked, NULL,
                                      :matchBehavior, :searchBehavior)
               AND (+h.visit_count_local > 0 OR +h.visit_count_remote > 0)
             ORDER BY h.frecency DESC, h.id DESC
@@ -505,7 +545,7 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
             (":searchString", &self.query),
             (":matchBehavior", &self.match_behavior),
             (":searchBehavior", &self.search_behavior),
-            (":maxResults", &self.max_results),
+            (":maxResults", &max_results),
         ];
         let mut results = Vec::new();
         for result in stmt.query_and_then_named(params, SearchResult::from_suggestion_row)? {
@@ -569,17 +609,40 @@ mod tests {
             },
         )
         .expect("Should search by origin");
-        println!("Matches by origin: {:?}", by_origin);
+        assert!(by_origin
+            .iter()
+            .any(|result| result.search_string == "example.com"
+                && result.title == "example.com/"
+                && result.url.as_str() == "http://example.com/"
+                && result.reasons == &[MatchReason::Origin]));
 
-        let by_url = search_frecent(
+        let by_url_without_path = search_frecent(
             &conn,
             SearchParams {
                 search_string: "http://example.com".into(),
                 limit: 10,
             },
         )
-        .expect("Should search by URL");
-        println!("Matches by URL: {:?}", by_url);
+        .expect("Should search by URL without path");
+        assert!(by_url_without_path
+            .iter()
+            .any(|result| result.title == "example.com/"
+                && result.url.as_str() == "http://example.com/"
+                && result.reasons == &[MatchReason::Url]));
+
+        let by_url_with_path = search_frecent(
+            &conn,
+            SearchParams {
+                search_string: "http://example.com/1".into(),
+                limit: 10,
+            },
+        )
+        .expect("Should search by URL with path");
+        assert!(by_url_with_path
+            .iter()
+            .any(|result| result.title == "example.com/123"
+                && result.url.as_str() == "http://example.com/123"
+                && result.reasons == &[MatchReason::Url]));
 
         accept_result(
             &conn,
@@ -593,6 +656,7 @@ mod tests {
             },
         )
         .expect("Should accept input history match");
+
         let by_adaptive = search_frecent(
             &conn,
             SearchParams {
@@ -601,6 +665,30 @@ mod tests {
             },
         )
         .expect("Should search by adaptive input history");
-        println!("Matches by adaptive input history: {:?}", by_adaptive);
+        assert!(by_adaptive
+            .iter()
+            .any(|result| result.search_string == "ample"
+                && result.url == url
+                && result.reasons == &[MatchReason::PreviousUse]));
+
+        let with_limit = search_frecent(
+            &conn,
+            SearchParams {
+                search_string: "example".into(),
+                limit: 1,
+            },
+        )
+        .expect("Should search until reaching limit");
+        assert_eq!(
+            with_limit,
+            vec![SearchResult {
+                search_string: "example".into(),
+                url: Url::parse("http://example.com/").unwrap(),
+                title: "example.com/".into(),
+                icon_url: None,
+                frecency: -1,
+                reasons: vec![MatchReason::Origin],
+            }]
+        );
     }
 }
