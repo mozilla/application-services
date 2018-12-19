@@ -48,6 +48,7 @@ pub fn sync_multiple(
     last_client_info: &Cell<Option<ClientInfo>>,
     storage_init: &Sync15StorageClientInit,
     root_sync_key: &KeyBundle,
+    telem_sync: &mut telemetry::Sync
 ) -> result::Result<HashMap<String, Error>, Error> {
     // Note: We explicitly swap a None back as the state, meaning if we
     // unexpectedly fail below, the next sync will redownload meta/global,
@@ -122,26 +123,24 @@ pub fn sync_multiple(
         }
     }
 
-    let mut sync_telem = telemetry::Sync::new();
     let mut failures: HashMap<String, Error> = HashMap::new();
     for store in stores {
         let name = store.collection_name();
         log::info!("Syncing {} engine!", name);
 
-        let result = sync::synchronize(&client_info.client, &global_state, *store, true);
+        let mut telem_engine = telemetry::Engine::new(name);
+        let result = sync::synchronize(&client_info.client, &global_state, *store, true, &mut telem_engine);
 
         match result {
-            Ok(engine_telem) => {
-                log::info!("Sync of {} was successful!", name);
-                sync_telem = sync_telem.engine(engine_telem);
-            },
+            Ok(()) => log::info!("Sync of {} was successful!", name),
             Err(e) => {
                 log::warn!("Sync of {} failed! {:?}", name, e);
                 let f = telemetry::sync_failure_from_error(&e);
-                sync_telem = sync_telem.engine(telemetry::Engine::new(name).failure(f));
                 failures.insert(name.into(), e.into());
+                telem_engine.failure(f);
             },
         }
+        telem_sync.engine(telem_engine);
     }
 
     log::info!("Updating persisted global state");

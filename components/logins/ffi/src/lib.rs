@@ -7,6 +7,7 @@ use ffi_support::{
     rust_string_from_c, ExternError,
 };
 use logins::{Login, PasswordEngine, Result};
+use sync15::telemetry;
 use std::os::raw::c_char;
 
 fn logging_init() {
@@ -51,14 +52,18 @@ pub unsafe extern "C" fn sync15_passwords_sync(
 ) {
     log::trace!("sync15_passwords_sync");
     call_with_result(error, || -> Result<()> {
-        state.sync(
+        let mut telem_sync = telemetry::Sync::new();
+        let result = state.sync(
             &sync15::Sync15StorageClientInit {
                 key_id: rust_string_from_c(key_id),
                 access_token: rust_string_from_c(access_token),
                 tokenserver_url: parse_url(rust_str_from_c(tokenserver_url))?,
             },
             &sync15::KeyBundle::from_ksync_base64(rust_str_from_c(sync_key))?,
-        )
+            &mut telem_sync,
+        );
+        telem_sync.finished(); // although we never pass the payload anywhere!
+        result
     })
 }
 

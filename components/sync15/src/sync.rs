@@ -46,9 +46,9 @@ pub fn synchronize(
     state: &GlobalState,
     store: &Store,
     fully_atomic: bool,
-) -> Result<telemetry::Engine, Error> {
+    telem_engine: &mut telemetry::Engine,
+) -> Result<(), Error> {
     let collection = store.collection_name();
-    let mut telem = telemetry::Engine::new(collection);
     log::info!("Syncing collection {}", collection);
     let collection_request = store.get_collection_request()?;
     let incoming_changes =
@@ -59,9 +59,9 @@ pub fn synchronize(
         "Downloaded {} remote changes",
         incoming_changes.changes.len()
     );
-    let mut incoming_telem = telemetry::EngineIncoming::new();
-    let mut outgoing= store.apply_incoming(incoming_changes, &mut incoming_telem)?;
-    telem = telem.incoming(incoming_telem);
+    let mut telem_incoming = telemetry::EngineIncoming::new();
+    let mut outgoing = store.apply_incoming(incoming_changes, &mut telem_incoming)?;
+    telem_engine.incoming(telem_incoming);
 
     outgoing.timestamp = last_changed_remote;
 
@@ -76,10 +76,13 @@ pub fn synchronize(
     );
     // ideally we'd report this per-batch, but for now, let's just report it
     // as a total.
-    telem = telem.outgoing(telemetry::EngineOutgoing::new().sent(upload_info.successful_ids.len() + upload_info.failed_ids.len()).failed(upload_info.failed_ids.len()));
+    let mut telem_outgoing = telemetry::EngineOutgoing::new();
+    telem_outgoing.sent(upload_info.successful_ids.len() + upload_info.failed_ids.len());
+    telem_outgoing.failed(upload_info.failed_ids.len());
+    telem_engine.outgoing(telem_outgoing);
 
     store.sync_finished(upload_info.modified_timestamp, &upload_info.successful_ids)?;
 
     log::info!("Sync finished!");
-    Ok(telem)
+    Ok(())
 }

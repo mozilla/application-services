@@ -7,7 +7,6 @@
 
 use std::collections::HashMap;
 use std::time;
-use std::mem;
 
 use num::Num;
 
@@ -34,41 +33,43 @@ fn assert_json<T: ?Sized>(v: &T, expected: serde_json::Value )
     assert_eq!(serde_json::to_value(&v).expect("should get a value"), expected);
 }
 
-// ????
+/// What we record for 'when' and 'took' in a telemetry record.
 #[derive(Debug, Serialize)]
-struct Clock {
+struct WhenTook {
     when: f64,
     #[serde(skip_serializing_if = "skip_if_zero")]
     took: u64,
 }
 
+/// What we track while recording 'when' and 'took. It serializes as a WhenTook,
+/// except when .finished() hasn't been called, in which case it panics.
 #[derive(Debug)]
-enum WhenTook {
+enum Stopwatch {
     Started(time::SystemTime, time::Instant),
-    Finished(Clock),
+    Finished(WhenTook),
 }
 
-impl WhenTook {
+impl Stopwatch {
     fn new() -> Self {
-        WhenTook::Started(time::SystemTime::now(), time::Instant::now())
+        Stopwatch::Started(time::SystemTime::now(), time::Instant::now())
     }
 
-    fn finished(self) -> Self {
+    fn finished(&self) -> Self {
         match cfg!(test) {
             false => self._finished(),
-            _ => WhenTook::Finished(Clock {when: 0.0, took: 0}),
+            _ => Stopwatch::Finished(WhenTook {when: 0.0, took: 0}),
         }
     }
 
-    fn _finished(self) -> Self {
+    fn _finished(&self) -> Self {
         match self {
-            WhenTook::Started(st, si) => {
+            Stopwatch::Started(st, si) => {
                 let std = st.duration_since(time::UNIX_EPOCH).unwrap_or(time::Duration::new(0, 0));
                 let when = std.as_secs() as f64; // we don't want sub-sec accuracy. Do we need to write a float?
 
                 let sid = si.elapsed();
                 let took = sid.as_secs() * 1000 + (sid.subsec_nanos() as u64) / 1_000_000;
-                WhenTook::Finished(Clock {when, took})
+                Stopwatch::Finished(WhenTook {when, took})
             },
             _ => {
                 panic!("can't finish twice");
@@ -78,14 +79,14 @@ impl WhenTook {
 
  }
 
- impl Serialize for WhenTook {
+ impl Serialize for Stopwatch {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where S: Serializer {
         match self {
-            WhenTook::Started(_,_) => {
+            Stopwatch::Started(_,_) => {
                 panic!("must be finished")
             },
-            WhenTook::Finished(c) => {
+            Stopwatch::Finished(c) => {
                 c.serialize(serializer)
             }
         }
@@ -93,35 +94,29 @@ impl WhenTook {
 }
 
 #[cfg(test)]
-mod whentook_tests {
+mod stopwatch_tests {
     use super::*;
 
+    // A wrapper struct because we flatten - this struct should serialize with
+    // 'when' and 'took' keys (but with no 'sw'.)
     #[derive(Debug, Serialize)]
     struct WT {
         #[serde(flatten)]
-        wt: WhenTook,
+        sw: Stopwatch,
     }
 
     #[should_panic]
     #[test]
     fn test_not_finished() {
-        let wt = WT {wt: WhenTook::new()};
+        let wt = WT {sw: Stopwatch::new()};
         serde_json::to_string(&wt).expect("a panic!");
     }
 
     #[test]
-    fn test_finished() {
-        let mut wt = WT {wt: WhenTook::new()};
-        wt.wt = wt.wt._finished();
-        let len = serde_json::to_string(&wt).expect("should get json").len();
-        assert!(len > 20); // should have both keys, sane values. regex check?
-    }
-
-    #[test]
     fn test() {
-        assert_json(&WT {wt: WhenTook::Finished(Clock {when: 1.0, took: 1})},
+        assert_json(&WT {sw: Stopwatch::Finished(WhenTook {when: 1.0, took: 1})},
                     json!({"when": 1.0, "took": 1}));
-        assert_json(&WT {wt: WhenTook::Finished(Clock {when: 1.0, took: 0})},
+        assert_json(&WT {sw: Stopwatch::Finished(WhenTook {when: 1.0, took: 0})},
                     json!({"when": 1.0}));
     }
 }
@@ -313,25 +308,20 @@ impl EngineIncoming {
         }
     }
 
-    // builder
-    pub fn applied(mut self, n: u32) -> Self {
-        self.applied = n;
-        self
+    pub fn applied(&mut self, n: u32) {
+        self.applied += n;
     }
 
-    pub fn failed(mut self, n: u32) -> Self {
-        self.failed = n;
-        self
+    pub fn failed(&mut self, n: u32) {
+        self.failed += n;
     }
 
-    pub fn new_failed(mut self, n: u32) -> Self {
-        self.new_failed = n;
-        self
+    pub fn new_failed(&mut self, n: u32) {
+        self.new_failed += n;
     }
 
-    pub fn reconciled(mut self, n: u32) -> Self {
-        self.reconciled = n;
-        self
+    pub fn reconciled(&mut self, n: u32) {
+        self.reconciled += n;
     }
 
 }
@@ -350,14 +340,12 @@ impl EngineOutgoing {
         EngineOutgoing {sent: 0, failed: 0}
     }
 
-    pub fn sent(mut self, n: usize) -> Self {
-        self.sent = n;
-        self
+    pub fn sent(&mut self, n: usize) {
+        self.sent += n;
     }
 
-    pub fn failed(mut self, n: usize) -> Self {
-        self.failed = n;
-        self
+    pub fn failed(&mut self, n: usize) {
+        self.failed += n;
     }
 }
 
@@ -367,7 +355,7 @@ pub struct Engine {
     name: String,
 
     #[serde(flatten)]
-    when_took: WhenTook,
+    when_took: Stopwatch,
 
     #[serde(skip_serializing_if = "EngineIncoming::is_empty")]
     incoming: Option<EngineIncoming>,
@@ -384,33 +372,29 @@ impl Engine {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
-            when_took: WhenTook::new(),
+            when_took: Stopwatch::new(),
             incoming: None,
             outgoing: Vec::new(),
             failure: None,
         }
     }
 
-    pub fn incoming(mut self, inc: EngineIncoming) -> Self {
+    pub fn incoming(&mut self, inc: EngineIncoming) {
         assert!(self.incoming.is_none());
         self.incoming = Some(inc);
-        self
     }
 
-    pub fn outgoing(mut self, out: EngineOutgoing) -> Self {
+    pub fn outgoing(&mut self, out: EngineOutgoing) {
         self.outgoing.push(out);
-        self
     }
 
-    pub fn failure(mut self, failure: SyncFailure) -> Self {
+    pub fn failure(&mut self, failure: SyncFailure) {
         assert!(self.failure.is_none());
         self.failure = Some(failure);
-        self
     }
 
-    pub fn finished(mut self) -> Self {
+    fn finished(&mut self) {
         self.when_took = self.when_took.finished();
-        self
     }
 }
 
@@ -420,35 +404,49 @@ mod engine_tests {
 
     #[test]
     fn test_engine() {
-        let e = Engine::new("test_engine").finished();
+        let mut e = Engine::new("test_engine");
+        e.finished();
         assert_json(&e,
                     json!({"name": "test_engine", "when": 0.0}));
     }
 
+    #[should_panic]
+    #[test]
+    fn test_engine_not_finished() {
+        let e = Engine::new("test_engine");
+        assert_json(&e, json!({}));
+    }
+
     #[test]
     fn test_incoming() {
-        let e = Engine::new("TestEngine");
-        let i = EngineIncoming::new().applied(1).failed(2);
-        let e = e.incoming(i).finished();
+        let mut i = EngineIncoming::new();
+        i.applied(1);
+        i.failed(2);
+        let mut e = Engine::new("TestEngine");
+        e.incoming(i);
+        e.finished();
         assert_json(&e,
                     json!({"name": "TestEngine", "when": 0.0, "incoming": {"applied": 1, "failed": 2}}));
     }
 
     #[test]
     fn test_outgoing() {
-        let e = Engine::new("TestEngine");
-        let o = EngineOutgoing::new();
-        let o = o.sent(2).failed(1);
-        let e = e.outgoing(o);
-        assert_json(&e.finished(),
+        let mut o = EngineOutgoing::new();
+        o.sent(2);
+        o.failed(1);
+        let mut e = Engine::new("TestEngine");
+        e.outgoing(o);
+        e.finished();
+        assert_json(&e,
                     json!({"name": "TestEngine", "when": 0.0, "outgoing": [{"sent": 2, "failed": 1}]}));
     }
 
     #[test]
     fn test_failure() {
-        let e = Engine::new("TestEngine");
-        let e = e.failure(SyncFailure::Http {code: 500});
-        assert_json(&e.finished(),
+        let mut e = Engine::new("TestEngine");
+        e.failure(SyncFailure::Http {code: 500});
+        e.finished();
+        assert_json(&e,
                     json!({"name": "TestEngine",
                            "when": 0.0,
                            "failureReason": {"name": "httperror", "code": 500}
@@ -458,11 +456,15 @@ mod engine_tests {
 
     #[test]
     fn test_raw() {
-        let e = Engine::new("TestEngine");
-        let e = e.incoming(EngineIncoming::new().applied(10));
-        let e = e.outgoing(EngineOutgoing::new().sent(1));
-        let e = e.failure(SyncFailure::Http {code: 500});
-        let e = e.finished();
+        let mut e = Engine::new("TestEngine");
+        let mut inc = EngineIncoming::new();
+        inc.applied(10);
+        e.incoming(inc);
+        let mut out = EngineOutgoing::new();
+        out.sent(1);
+        e.outgoing(out);
+        e.failure(SyncFailure::Http {code: 500});
+        e.finished();
 
         assert_eq!(e.outgoing.len(), 1);
         assert_eq!(e.incoming.as_ref().unwrap().applied, 10);
@@ -479,7 +481,7 @@ mod engine_tests {
 #[derive(Debug, Serialize)]
 pub struct Sync {
     #[serde(flatten)]
-    when_took: WhenTook,
+    when_took: Stopwatch,
 
     #[serde(skip_serializing_if = "Vec::is_empty")]
     engines: Vec<Engine>,
@@ -492,27 +494,27 @@ pub struct Sync {
 impl Sync {
     pub fn new() -> Self {
         Self {
-            when_took: WhenTook::new(),
+            when_took: Stopwatch::new(),
             engines: Vec::new(),
             failure: None,
         }
     }
 
-    pub fn engine(mut self, mut e: Engine) -> Self {
-        e.when_took = e.when_took.finished();
+    pub fn engine(&mut self, mut e: Engine) {
+        e.finished();
         self.engines.push(e);
-        self
     }
 
-    pub fn failure(mut self, failure: SyncFailure) -> Self {
+    pub fn failure(&mut self, failure: SyncFailure) {
         assert!(self.failure.is_none());
         self.failure = Some(failure);
-        self
     }
 
-    pub fn finished(mut self) -> Self {
+    // Note that unlike other 'finished' methods, this isn't private - someone
+    // needs to explicitly call this before handling the json payload to
+    // whatever ends up submitting it.
+    pub fn finished(&mut self) {
         self.when_took = self.when_took.finished();
-        self
     }
 }
 
@@ -522,12 +524,16 @@ mod sync_tests {
 
     #[test]
     fn test_accum() {
-        let s = Sync::new();
-        let e = Engine::new("test_engine").
-                    failure(SyncFailure::Http {code: 500}).
-                    incoming(EngineIncoming::new().applied(10)).
-                    finished();
-        let s = s.engine(e).finished();
+        let mut s = Sync::new();
+        let mut inc = EngineIncoming::new();
+        inc.applied(10);
+        let mut e = Engine::new("test_engine");
+        e.incoming(inc);
+        e.failure(SyncFailure::Http {code: 500});
+        e.finished();
+        s.engine(e);
+        s.finished();
+
         assert_json(&s, json!({
             "when": 0.0,
             "engines": [{
@@ -546,13 +552,25 @@ mod sync_tests {
 
     #[test]
     fn test_multi_engine() {
-        let s = Sync::new();
-        let s = s.engine(Engine::new("test_engine").incoming(EngineIncoming::new().applied(1)));
-        let e = Engine::new("test_engine_2").incoming(EngineIncoming::new().failed(1));
-        let e = e.outgoing(EngineOutgoing::new().sent(1)).finished();
-        let s = s.engine(e);
-        let s = s.failure(SyncFailure::Http {code: 500});
-        assert_json(&s.finished(), json!({
+        let mut inc_e1 = EngineIncoming::new();
+        inc_e1.applied(1);
+        let mut e1 = Engine::new("test_engine");
+        e1.incoming(inc_e1);
+
+        let mut inc_e2 = EngineIncoming::new();
+        inc_e2.failed(1);
+        let mut e2 = Engine::new("test_engine_2");
+        e2.incoming(inc_e2);
+        let mut out_e2 = EngineOutgoing::new();
+        out_e2.sent(1);
+        e2.outgoing(out_e2);
+
+        let mut s = Sync::new();
+        s.engine(e1);
+        s.engine(e2);
+        s.failure(SyncFailure::Http {code: 500});
+        s.finished();
+        assert_json(&s, json!({
             "when": 0.0,
             "engines": [{
                 "name": "test_engine",
@@ -577,6 +595,12 @@ mod sync_tests {
         }));
     }
 }
+
+/**************************************
+
+kill this - external component will manage!
+
+however, need to think through uid/deviceid management
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -630,14 +654,24 @@ mod test_payload {
     use super::*;
     #[test]
     fn test_payload() {
+        let mut inc = EngineIncoming::new();
+        inc.applied(1);
+        inc.failed(2);
+        let mut out = EngineOutgoing::new();
+        out.sent(2);
+        out.failed(1);
+
+        let mut e = Engine::new("test-engine");
+        e.incoming(inc);
+        e.outgoing(out);
+
+        let mut s = Sync::new();
+        s.engine(e);
+        s.finished();
+
         let mut p = Payload::new();
-        p.sync(Sync::new().
-                    engine(Engine::new("test-engine").
-                        incoming(EngineIncoming::new().applied(1).failed(2)).
-                        outgoing(EngineOutgoing::new().sent(2).failed(1)).
-                        finished()
-                    ).finished()
-                );
+        p.sync(s);
+
         assert_json(&p, json!({
             "version": 1,
             "uid": null,
@@ -756,10 +790,14 @@ mod tests {
     fn test_something() {
         let mut spb = Something::new(TestSubmitter::new());
 
-        let engine = Engine::new("test_engine").incoming(
-            EngineIncoming::new().applied(2).failed(1)
-        );
-        spb.sync(Sync::new().engine(engine));
+        let mut inc = EngineIncoming::new();
+        inc.applied(2);
+        inc.failed(1);
+        let mut engine = Engine::new("test_engine");
+        engine.incoming(inc);
+        let mut sync = Sync::new();
+        sync.engine(engine);
+        spb.sync(sync);
         assert_eq!(&spb.submitter.num_want, &1, "should have been asked");
         assert_eq!(&spb.submitter.num_take, &0, "should have declined");
     }
@@ -788,3 +826,5 @@ mod tests {
         assert_eq!(&spb.submitter.num_take, &1, "should have been force submitted");
     }
 }
+
+*/

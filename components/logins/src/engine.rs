@@ -4,7 +4,7 @@
 use crate::db::LoginDb;
 use crate::error::*;
 use crate::login::Login;
-use crate::sync::{sync_multiple, ClientInfo, KeyBundle, Sync15StorageClientInit};
+use crate::sync::{sync_multiple, ClientInfo, KeyBundle, Sync15StorageClientInit, telemetry};
 use std::cell::Cell;
 use std::path::Path;
 
@@ -79,6 +79,7 @@ impl PasswordEngine {
         &self,
         storage_init: &Sync15StorageClientInit,
         root_sync_key: &KeyBundle,
+        telem_sync: &mut telemetry::Sync,
     ) -> Result<()> {
         let global_state: Cell<Option<String>> = Cell::new(self.db.get_global_state()?);
         let result = sync_multiple(
@@ -87,6 +88,7 @@ impl PasswordEngine {
             &self.client_info,
             storage_init,
             root_sync_key,
+            telem_sync,
         );
         self.db.set_global_state(global_state.replace(None))?;
         let failures = result?;

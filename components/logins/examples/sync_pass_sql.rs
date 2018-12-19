@@ -6,10 +6,11 @@
 
 use failure::Fail;
 
-use crate::sync::{KeyBundle, Sync15StorageClientInit};
+use crate::sync::{KeyBundle, Sync15StorageClientInit, telemetry};
 use fxa_client::{AccessTokenInfo, Config, FirefoxAccount};
 use logins::{Login, PasswordEngine};
 use prettytable::*;
+use serde_json;
 use std::collections::HashMap;
 use std::{
     fs,
@@ -466,12 +467,15 @@ fn main() -> Result<()> {
             }
             'S' | 's' => {
                 log::info!("Syncing!");
-                if let Err(e) = engine.sync(&client_init, &root_sync_key) {
+                let mut telem_sync = telemetry::Sync::new();
+                if let Err(e) = engine.sync(&client_init, &root_sync_key, &mut telem_sync) {
                     log::warn!("Sync failed! {}", e);
                     log::warn!("BT: {:?}", e.backtrace());
                 } else {
                     log::info!("Sync was successful!");
                 }
+                telem_sync.finished();
+                log::info!("Sync telemetry: {}", serde_json::to_string(&telem_sync).unwrap());
             }
             'V' | 'v' => {
                 if let Err(e) = show_all(&engine) {

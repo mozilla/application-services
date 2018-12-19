@@ -6,7 +6,7 @@ use crate::error::*;
 use crate::login::{LocalLogin, Login, MirrorLogin, SyncLoginData, SyncStatus};
 use crate::schema;
 use crate::sync::{
-    self, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload, ServerTimestamp, Store,
+    self, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload, ServerTimestamp, Store, telemetry,
 };
 use crate::update_plan::UpdatePlan;
 use crate::util;
@@ -608,6 +608,7 @@ impl LoginDb {
         &self,
         records: Vec<SyncLoginData>,
         server_now: ServerTimestamp,
+        telem: &mut telemetry::EngineIncoming,
     ) -> Result<UpdatePlan> {
         let mut plan = UpdatePlan::default();
 
@@ -625,14 +626,17 @@ impl LoginDb {
                 (Some(mirror), Some(local)) => {
                     log::debug!("  Conflict between remote and local, Resolving with 3WM");
                     plan.plan_three_way_merge(local, mirror, upstream, upstream_time, server_now);
+                    telem.reconciled(1);
                 }
                 (Some(_mirror), None) => {
                     log::debug!("  Forwarding mirror to remote");
                     plan.plan_mirror_update(upstream, upstream_time);
+                    // xxx - what telem is this?
                 }
                 (None, Some(local)) => {
                     log::debug!("  Conflicting record without shared parent, using newer");
                     plan.plan_two_way_merge(&local.login, (upstream, upstream_time));
+                    telem.reconciled(1);
                 }
                 (None, None) => {
                     if let Some(dupe) = self.find_dupe(&upstream)? {
@@ -646,6 +650,7 @@ impl LoginDb {
                         log::debug!("  No dupe found, inserting into mirror");
                         plan.plan_mirror_insert(upstream, upstream_time, false);
                     }
+                    telem.applied(1);
                 }
             }
         }
@@ -683,9 +688,9 @@ impl LoginDb {
         Ok(outgoing)
     }
 
-    fn do_apply_incoming(&self, inbound: IncomingChangeset) -> Result<OutgoingChangeset> {
+    fn do_apply_incoming(&self, inbound: IncomingChangeset, telem: &mut telemetry::EngineIncoming) -> Result<OutgoingChangeset> {
         let data = self.fetch_login_data(&inbound.changes)?;
-        let plan = self.reconcile(data, inbound.timestamp)?;
+        let plan = self.reconcile(data, inbound.timestamp, telem)?;
         self.execute_plan(plan)?;
         Ok(self.fetch_outgoing(inbound.timestamp)?)
     }
@@ -740,8 +745,9 @@ impl Store for LoginDb {
     fn apply_incoming(
         &self,
         inbound: IncomingChangeset,
+        telem: &mut telemetry::EngineIncoming,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
-        Ok(self.do_apply_incoming(inbound)?)
+        Ok(self.do_apply_incoming(inbound, telem)?)
     }
 
     fn sync_finished(

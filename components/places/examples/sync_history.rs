@@ -8,7 +8,9 @@ use places::history_sync::store::HistoryStore;
 use places::PlacesDb;
 use std::{fs, io::Read};
 use sync15::client::SetupStorageClient;
-use sync15::{KeyBundle, Store, Sync15StorageClient, Sync15StorageClientInit};
+use sync15::{KeyBundle, Store, Sync15StorageClient, Sync15StorageClientInit, telemetry};
+use serde_json;
+
 
 const CLIENT_ID: &str = "";
 const REDIRECT_URI: &str = "";
@@ -128,12 +130,15 @@ fn main() -> Result<()> {
     }
 
     log::info!("Syncing!");
-    if let Err(e) = store.sync(&client_init, &root_sync_key) {
+    let mut telem_sync = telemetry::Sync::new();
+    if let Err(e) = store.sync(&client_init, &root_sync_key, &mut telem_sync) {
         log::warn!("Sync failed! {}", e);
         log::warn!("BT: {:?}", e.backtrace());
     } else {
         log::info!("Sync was successful!");
     }
+    telem_sync.finished();
+    println!("telemetry: {:?}", serde_json::to_string(&telem_sync).unwrap());
     println!("Exiting (bye!)");
     Ok(())
 }
