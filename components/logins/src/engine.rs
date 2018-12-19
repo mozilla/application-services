@@ -4,7 +4,7 @@
 use crate::db::LoginDb;
 use crate::error::*;
 use crate::login::Login;
-use crate::sync::{sync_multiple, ClientInfo, KeyBundle, Sync15StorageClientInit, telemetry};
+use crate::sync::{sync_multiple, telemetry, ClientInfo, KeyBundle, Sync15StorageClientInit};
 use std::cell::Cell;
 use std::path::Path;
 

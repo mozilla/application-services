@@ -6,7 +6,7 @@
 
 use failure::Fail;
 
-use crate::sync::{KeyBundle, Sync15StorageClientInit, telemetry};
+use crate::sync::{telemetry, KeyBundle, Sync15StorageClientInit};
 use fxa_client::{AccessTokenInfo, Config, FirefoxAccount};
 use logins::{Login, PasswordEngine};
 use prettytable::*;

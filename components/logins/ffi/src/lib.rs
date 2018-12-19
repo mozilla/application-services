@@ -7,8 +7,8 @@ use ffi_support::{
     rust_string_from_c, ExternError,
 };
 use logins::{Login, PasswordEngine, Result};
-use sync15::telemetry;
 use std::os::raw::c_char;
+use sync15::telemetry;
 
 fn logging_init() {
     #[cfg(target_os = "android")]

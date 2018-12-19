@@ -6,7 +6,8 @@ use crate::error::*;
 use crate::login::{LocalLogin, Login, MirrorLogin, SyncLoginData, SyncStatus};
 use crate::schema;
 use crate::sync::{
-    self, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload, ServerTimestamp, Store, telemetry,
+    self, telemetry, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload,
+    ServerTimestamp, Store,
 };
 use crate::update_plan::UpdatePlan;
 use crate::util;
@@ -688,7 +689,11 @@ impl LoginDb {
         Ok(outgoing)
     }
 
-    fn do_apply_incoming(&self, inbound: IncomingChangeset, telem: &mut telemetry::EngineIncoming) -> Result<OutgoingChangeset> {
+    fn do_apply_incoming(
+        &self,
+        inbound: IncomingChangeset,
+        telem: &mut telemetry::EngineIncoming,
+    ) -> Result<OutgoingChangeset> {
         let data = self.fetch_login_data(&inbound.changes)?;
         let plan = self.reconcile(data, inbound.timestamp, telem)?;
         self.execute_plan(plan)?;

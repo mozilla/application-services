@@ -7,8 +7,8 @@ use crate::client::Sync15StorageClient;
 use crate::error::Error;
 use crate::request::CollectionRequest;
 use crate::state::GlobalState;
-use crate::util::ServerTimestamp;
 use crate::telemetry;
+use crate::util::ServerTimestamp;
 
 /// Low-level store functionality. Stores that need custom reconciliation logic should use this.
 ///
@@ -21,7 +21,7 @@ pub trait Store {
         &self,
         inbound: IncomingChangeset,
         incoming_telem: &mut telemetry::EngineIncoming,
-    ) -> Result<(OutgoingChangeset), failure::Error>;
+    ) -> Result<OutgoingChangeset, failure::Error>;
 
     fn sync_finished(
         &self,

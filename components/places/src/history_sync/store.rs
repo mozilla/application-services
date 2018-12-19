@@ -11,11 +11,11 @@ use std::cell::Cell;
 use std::ops::Deref;
 use std::result;
 use sync15::request::CollectionRequest;
+use sync15::telemetry;
 use sync15::{
     sync_multiple, ClientInfo, IncomingChangeset, KeyBundle, OutgoingChangeset, ServerTimestamp,
     Store, Sync15StorageClientInit,
 };
-use sync15::telemetry;
 
 use super::plan::{apply_plan, finish_plan};
 use super::MAX_INCOMING_PLACES;
@@ -54,7 +54,11 @@ impl<'a> HistoryStore<'a> {
         )?)
     }
 
-    fn do_apply_incoming(&self, inbound: IncomingChangeset, incoming_telemetry: &mut telemetry::EngineIncoming) -> Result<OutgoingChangeset> {
+    fn do_apply_incoming(
+        &self,
+        inbound: IncomingChangeset,
+        incoming_telemetry: &mut telemetry::EngineIncoming,
+    ) -> Result<OutgoingChangeset> {
         let timestamp = inbound.timestamp;
         let outgoing = apply_plan(&self, inbound, incoming_telemetry)?;
         // write the timestamp now, so if we are interrupted creating outgoing

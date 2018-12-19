@@ -16,8 +16,8 @@ use rusqlite::Connection;
 use sql_support::ConnExt;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
-use sync15::{IncomingChangeset, OutgoingChangeset, Payload};
 use sync15::telemetry;
+use sync15::{IncomingChangeset, OutgoingChangeset, Payload};
 use url::Url;
 
 // In desktop sync, bookmarks are clamped to Jan 23, 1993 (which is 727747200000)
@@ -175,7 +175,11 @@ fn plan_incoming_record(
     }
 }
 
-pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset, incoming_telem: &mut telemetry::EngineIncoming) -> Result<OutgoingChangeset> {
+pub fn apply_plan(
+    conn: &Connection,
+    inbound: IncomingChangeset,
+    incoming_telem: &mut telemetry::EngineIncoming,
+) -> Result<OutgoingChangeset> {
     // for a first-cut, let's do this in the most naive way possible...
     let mut plans: Vec<(SyncGuid, IncomingPlan)> = Vec::with_capacity(inbound.changes.len());
     let mut num_failed = 0;

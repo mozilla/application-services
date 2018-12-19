@@ -11,8 +11,8 @@ use std::time;
 use num::Num;
 
 // We use serde to serialize to json (but we never need to deserialize)
-use serde_derive::*;
 use serde::ser::{Serialize, Serializer};
+use serde_derive::*;
 #[cfg(test)]
 use serde_json::{self, json};
 
@@ -28,9 +28,14 @@ fn skip_if_zero<T: Num + PartialEq>(v: &T) -> bool {
 // A test helper, used by the many test modules below. Is there a better way
 // to structure tests?
 #[cfg(test)]
-fn assert_json<T: ?Sized>(v: &T, expected: serde_json::Value )
-   where T: serde::Serialize {
-    assert_eq!(serde_json::to_value(&v).expect("should get a value"), expected);
+fn assert_json<T: ?Sized>(v: &T, expected: serde_json::Value)
+where
+    T: serde::Serialize,
+{
+    assert_eq!(
+        serde_json::to_value(&v).expect("should get a value"),
+        expected
+    );
 }
 
 /// What we record for 'when' and 'took' in a telemetry record.
@@ -57,38 +62,37 @@ impl Stopwatch {
     fn finished(&self) -> Self {
         match cfg!(test) {
             false => self._finished(),
-            _ => Stopwatch::Finished(WhenTook {when: 0.0, took: 0}),
+            _ => Stopwatch::Finished(WhenTook { when: 0.0, took: 0 }),
         }
     }
 
     fn _finished(&self) -> Self {
         match self {
             Stopwatch::Started(st, si) => {
-                let std = st.duration_since(time::UNIX_EPOCH).unwrap_or(time::Duration::new(0, 0));
+                let std = st
+                    .duration_since(time::UNIX_EPOCH)
+                    .unwrap_or(time::Duration::new(0, 0));
                 let when = std.as_secs() as f64; // we don't want sub-sec accuracy. Do we need to write a float?
 
                 let sid = si.elapsed();
                 let took = sid.as_secs() * 1000 + (sid.subsec_nanos() as u64) / 1_000_000;
-                Stopwatch::Finished(WhenTook {when, took})
-            },
+                Stopwatch::Finished(WhenTook { when, took })
+            }
             _ => {
                 panic!("can't finish twice");
             }
         }
     }
+}
 
- }
-
- impl Serialize for Stopwatch {
+impl Serialize for Stopwatch {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where S: Serializer {
+    where
+        S: Serializer,
+    {
         match self {
-            Stopwatch::Started(_,_) => {
-                panic!("must be finished")
-            },
-            Stopwatch::Finished(c) => {
-                c.serialize(serializer)
-            }
+            Stopwatch::Started(_, _) => panic!("must be finished"),
+            Stopwatch::Finished(c) => c.serialize(serializer),
         }
     }
 }
@@ -108,16 +112,26 @@ mod stopwatch_tests {
     #[should_panic]
     #[test]
     fn test_not_finished() {
-        let wt = WT {sw: Stopwatch::new()};
+        let wt = WT {
+            sw: Stopwatch::new(),
+        };
         serde_json::to_string(&wt).expect("a panic!");
     }
 
     #[test]
     fn test() {
-        assert_json(&WT {sw: Stopwatch::Finished(WhenTook {when: 1.0, took: 1})},
-                    json!({"when": 1.0, "took": 1}));
-        assert_json(&WT {sw: Stopwatch::Finished(WhenTook {when: 1.0, took: 0})},
-                    json!({"when": 1.0}));
+        assert_json(
+            &WT {
+                sw: Stopwatch::Finished(WhenTook { when: 1.0, took: 1 }),
+            },
+            json!({"when": 1.0, "took": 1}),
+        );
+        assert_json(
+            &WT {
+                sw: Stopwatch::Finished(WhenTook { when: 1.0, took: 0 }),
+            },
+            json!({"when": 1.0}),
+        );
     }
 }
 
@@ -139,15 +153,19 @@ pub struct Event {
 
     // we expect the keys to be literals but values are real strings.
     #[serde(skip_serializing_if = "Option::is_none")]
-    extra: Option<HashMap<&'static str, String>>
+    extra: Option<HashMap<&'static str, String>>,
 }
 
 impl Event {
-    pub fn new(object: &'static str,
-               method: &'static str) -> Self {
+    pub fn new(object: &'static str, method: &'static str) -> Self {
         assert!(object.len() <= 20);
         assert!(method.len() <= 20);
-        Self {object, method, value: None, extra: None}
+        Self {
+            object,
+            method,
+            value: None,
+            extra: None,
+        }
     }
 
     pub fn value(mut self, v: &'static str) -> Self {
@@ -192,28 +210,30 @@ mod test_events {
         Event::new("O", "M").extra("k", l.to_string());
     }
 
-
     #[test]
     #[should_panic]
     fn test_too_many_extras() {
         let l = "abcdefghijk";
         let mut e = Event::new("Object", "Method");
         for i in 0..l.len() {
-            e = e.extra(&l[i..i+1], "v".to_string());
+            e = e.extra(&l[i..i + 1], "v".to_string());
         }
     }
 
     #[test]
     fn test_json() {
-        assert_json(&Event::new("Object", "Method").value("Value"),
-                    json!({"object": "Object", "method": "Method", "value": "Value"}));
+        assert_json(
+            &Event::new("Object", "Method").value("Value"),
+            json!({"object": "Object", "method": "Method", "value": "Value"}),
+        );
 
-        assert_json(&Event::new("Object", "Method").extra("one", "one".to_string()),
-                    json!({"object": "Object",
-                           "method": "Method",
-                           "extra": {"one": "one"}
-                          })
-                    )
+        assert_json(
+            &Event::new("Object", "Method").extra("one", "one".to_string()),
+            json!({"object": "Object",
+             "method": "Method",
+             "extra": {"one": "one"}
+            }),
+        )
     }
 }
 
@@ -228,25 +248,26 @@ pub enum SyncFailure {
     Shutdown,
 
     #[serde(rename = "othererror")]
-    Other {error: String},
+    Other { error: String },
 
     #[serde(rename = "unexpectederror")]
-    Unexpected {error: String},
+    Unexpected { error: String },
 
     #[serde(rename = "autherror")]
-    Auth {from: String},
+    Auth { from: String },
 
     #[serde(rename = "httperror")]
-    Http {code: u32},
+    Http { code: u32 },
 
     #[serde(rename = "nserror")]
-    Nserror {code: i32}, // probably doesn't really make sense in rust, but here we are...
+    Nserror { code: i32 }, // probably doesn't really make sense in rust, but here we are...
 }
 
 pub fn sync_failure_from_error(e: &Error) -> SyncFailure {
-    SyncFailure::Unexpected {error: e.to_string()}
+    SyncFailure::Unexpected {
+        error: e.to_string(),
+    }
 }
-
 
 #[cfg(test)]
 mod test {
@@ -254,23 +275,38 @@ mod test {
 
     #[test]
     fn reprs() {
-        assert_json(&SyncFailure::Shutdown,
-                    json!({"name": "shutdownerror"}));
+        assert_json(&SyncFailure::Shutdown, json!({"name": "shutdownerror"}));
 
-        assert_json(&SyncFailure::Other {error: "dunno".to_string()},
-                    json!({"name": "othererror", "error": "dunno"}));
+        assert_json(
+            &SyncFailure::Other {
+                error: "dunno".to_string(),
+            },
+            json!({"name": "othererror", "error": "dunno"}),
+        );
 
-        assert_json(&SyncFailure::Unexpected {error: "dunno".to_string()},
-                    json!({"name": "unexpectederror", "error": "dunno"}));
+        assert_json(
+            &SyncFailure::Unexpected {
+                error: "dunno".to_string(),
+            },
+            json!({"name": "unexpectederror", "error": "dunno"}),
+        );
 
-        assert_json(&SyncFailure::Auth {from: "FxA".to_string()},
-                    json!({"name": "autherror", "from": "FxA"}));
+        assert_json(
+            &SyncFailure::Auth {
+                from: "FxA".to_string(),
+            },
+            json!({"name": "autherror", "from": "FxA"}),
+        );
 
-        assert_json(&SyncFailure::Http {code: 500},
-                    json!({"name": "httperror", "code": 500}));
+        assert_json(
+            &SyncFailure::Http { code: 500 },
+            json!({"name": "httperror", "code": 500}),
+        );
 
-        assert_json(&SyncFailure::Nserror {code: -1},
-                    json!({"name": "nserror", "code": -1}));
+        assert_json(
+            &SyncFailure::Nserror { code: -1 },
+            json!({"name": "nserror", "code": -1}),
+        );
     }
 }
 
@@ -296,15 +332,18 @@ pub struct EngineIncoming {
 
 impl EngineIncoming {
     pub fn new() -> Self {
-        Self {applied: 0, failed: 0, new_failed: 0, reconciled: 0}
+        Self {
+            applied: 0,
+            failed: 0,
+            new_failed: 0,
+            reconciled: 0,
+        }
     }
 
     fn is_empty(inc: &Option<Self>) -> bool {
         match inc {
-            Some(a) => {
-                a.applied == 0 && a.failed == 0 && a.new_failed == 0 && a.reconciled == 0
-            },
-            None => true
+            Some(a) => a.applied == 0 && a.failed == 0 && a.new_failed == 0 && a.reconciled == 0,
+            None => true,
         }
     }
 
@@ -323,7 +362,6 @@ impl EngineIncoming {
     pub fn reconciled(&mut self, n: u32) {
         self.reconciled += n;
     }
-
 }
 
 #[derive(Debug, Serialize)]
@@ -337,7 +375,7 @@ pub struct EngineOutgoing {
 
 impl EngineOutgoing {
     pub fn new() -> Self {
-        EngineOutgoing {sent: 0, failed: 0}
+        EngineOutgoing { sent: 0, failed: 0 }
     }
 
     pub fn sent(&mut self, n: usize) {
@@ -406,8 +444,7 @@ mod engine_tests {
     fn test_engine() {
         let mut e = Engine::new("test_engine");
         e.finished();
-        assert_json(&e,
-                    json!({"name": "test_engine", "when": 0.0}));
+        assert_json(&e, json!({"name": "test_engine", "when": 0.0}));
     }
 
     #[should_panic]
@@ -425,8 +462,10 @@ mod engine_tests {
         let mut e = Engine::new("TestEngine");
         e.incoming(i);
         e.finished();
-        assert_json(&e,
-                    json!({"name": "TestEngine", "when": 0.0, "incoming": {"applied": 1, "failed": 2}}));
+        assert_json(
+            &e,
+            json!({"name": "TestEngine", "when": 0.0, "incoming": {"applied": 1, "failed": 2}}),
+        );
     }
 
     #[test]
@@ -437,21 +476,24 @@ mod engine_tests {
         let mut e = Engine::new("TestEngine");
         e.outgoing(o);
         e.finished();
-        assert_json(&e,
-                    json!({"name": "TestEngine", "when": 0.0, "outgoing": [{"sent": 2, "failed": 1}]}));
+        assert_json(
+            &e,
+            json!({"name": "TestEngine", "when": 0.0, "outgoing": [{"sent": 2, "failed": 1}]}),
+        );
     }
 
     #[test]
     fn test_failure() {
         let mut e = Engine::new("TestEngine");
-        e.failure(SyncFailure::Http {code: 500});
+        e.failure(SyncFailure::Http { code: 500 });
         e.finished();
-        assert_json(&e,
-                    json!({"name": "TestEngine",
-                           "when": 0.0,
-                           "failureReason": {"name": "httperror", "code": 500}
-                          })
-                    );
+        assert_json(
+            &e,
+            json!({"name": "TestEngine",
+             "when": 0.0,
+             "failureReason": {"name": "httperror", "code": 500}
+            }),
+        );
     }
 
     #[test]
@@ -463,7 +505,7 @@ mod engine_tests {
         let mut out = EngineOutgoing::new();
         out.sent(1);
         e.outgoing(out);
-        e.failure(SyncFailure::Http {code: 500});
+        e.failure(SyncFailure::Http { code: 500 });
         e.finished();
 
         assert_eq!(e.outgoing.len(), 1);
@@ -529,25 +571,28 @@ mod sync_tests {
         inc.applied(10);
         let mut e = Engine::new("test_engine");
         e.incoming(inc);
-        e.failure(SyncFailure::Http {code: 500});
+        e.failure(SyncFailure::Http { code: 500 });
         e.finished();
         s.engine(e);
         s.finished();
 
-        assert_json(&s, json!({
-            "when": 0.0,
-            "engines": [{
-                "name":"test_engine",
-                "when":0.0,
-                "incoming": {
-                    "applied": 10
-                },
-                "failureReason": {
-                    "name": "httperror",
-                    "code": 500
-                }
-            }]
-        }));
+        assert_json(
+            &s,
+            json!({
+                "when": 0.0,
+                "engines": [{
+                    "name":"test_engine",
+                    "when":0.0,
+                    "incoming": {
+                        "applied": 10
+                    },
+                    "failureReason": {
+                        "name": "httperror",
+                        "code": 500
+                    }
+                }]
+            }),
+        );
     }
 
     #[test]
@@ -568,31 +613,34 @@ mod sync_tests {
         let mut s = Sync::new();
         s.engine(e1);
         s.engine(e2);
-        s.failure(SyncFailure::Http {code: 500});
+        s.failure(SyncFailure::Http { code: 500 });
         s.finished();
-        assert_json(&s, json!({
-            "when": 0.0,
-            "engines": [{
-                "name": "test_engine",
+        assert_json(
+            &s,
+            json!({
                 "when": 0.0,
-                "incoming": {
-                    "applied": 1
+                "engines": [{
+                    "name": "test_engine",
+                    "when": 0.0,
+                    "incoming": {
+                        "applied": 1
+                    }
+                },{
+                    "name": "test_engine_2",
+                    "when": 0.0,
+                    "incoming": {
+                        "failed": 1
+                    },
+                    "outgoing": [{
+                        "sent": 1
+                    }]
+                }],
+                "failureReason": {
+                    "name": "httperror",
+                    "code": 500
                 }
-            },{
-                "name": "test_engine_2",
-                "when": 0.0,
-                "incoming": {
-                    "failed": 1
-                },
-                "outgoing": [{
-                    "sent": 1
-                }]
-            }],
-            "failureReason": {
-                "name": "httperror",
-                "code": 500
-            }
-        }));
+            }),
+        );
     }
 }
 
