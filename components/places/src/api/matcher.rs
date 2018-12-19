@@ -24,7 +24,6 @@ pub struct SearchParams {
 /// and bookmarks, synced tabs, search engine suggestions, and search keywords.
 pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<SearchResult>> {
     // TODO: Tokenize the query.
-    let mut matches = Vec::new();
 
     // Try to find the first heuristic result. Desktop tries extensions,
     // search engine aliases, origins, URLs, search engine domains, and
@@ -32,25 +31,33 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
     // and a search if all else fails. We only try origins and URLs for
     // heuristic matches, since that's all we support.
 
-    // Try to match on the origin, or the full URL.
-    let origin_or_url = OriginOrUrl::new(&params.search_string, conn);
-    let origin_or_url_matches = origin_or_url.search()?;
-    matches.extend(origin_or_url_matches);
-
-    // After the first result, try the queries for adaptive matches and
-    // suggestions for bookmarked URLs.
-    let adaptive = Adaptive::new(&params.search_string, conn, params.limit);
-    let adaptive_matches = adaptive.search()?;
-    matches.extend(adaptive_matches);
-
-    let suggestions = Suggestions::new(&params.search_string, conn, params.limit);
-    let suggestions_matches = suggestions.search()?;
-    matches.extend(suggestions_matches);
-
-    // TODO: If we don't have enough results, re-run `Adaptive` and
-    // `Suggestions`, this time with `MatchBehavior::Anywhere`.
+    let matches = match_with_limit(
+        &[
+            // Try to match on the origin, or the full URL.
+            &OriginOrUrl::new(&params.search_string, conn),
+            // After the first result, try the queries for adaptive matches and
+            // suggestions for bookmarked URLs.
+            &Adaptive::new(&params.search_string, conn),
+            &Suggestions::new(&params.search_string, conn),
+        ],
+        params.limit,
+    )?;
 
     Ok(matches)
+}
+
+fn match_with_limit(matchers: &[&dyn Matcher], max_results: u32) -> Result<(Vec<SearchResult>)> {
+    let mut results = Vec::new();
+    let mut rem_results = max_results;
+    for m in matchers {
+        if rem_results == 0 {
+            break;
+        }
+        let matches = m.search(rem_results)?;
+        results.extend(matches);
+        rem_results = rem_results.saturating_sub(results.len() as u32);
+    }
+    Ok(results)
 }
 
 /// Records an accepted autocomplete match, recording the query string,
@@ -255,6 +262,10 @@ impl SearchResult {
     }
 }
 
+trait Matcher {
+    fn search(&self, max_results: u32) -> Result<Vec<SearchResult>>;
+}
+
 struct OriginOrUrl<'query, 'conn> {
     query: &'query str,
     conn: &'conn PlacesDb,
@@ -264,8 +275,10 @@ impl<'query, 'conn> OriginOrUrl<'query, 'conn> {
     pub fn new(query: &'query str, conn: &'conn PlacesDb) -> OriginOrUrl<'query, 'conn> {
         OriginOrUrl { query, conn }
     }
+}
 
-    pub fn search(&self) -> Result<Vec<SearchResult>> {
+impl<'query, 'conn> Matcher for OriginOrUrl<'query, 'conn> {
+    fn search(&self, _: u32) -> Result<Vec<SearchResult>> {
         let mut results = Vec::new();
         if looks_like_origin(self.query) {
             let mut stmt = self.conn.db.prepare(
@@ -351,21 +364,15 @@ impl<'query, 'conn> OriginOrUrl<'query, 'conn> {
 struct Adaptive<'query, 'conn> {
     query: &'query str,
     conn: &'conn PlacesDb,
-    max_results: u32,
     match_behavior: MatchBehavior,
     search_behavior: SearchBehavior,
 }
 
 impl<'query, 'conn> Adaptive<'query, 'conn> {
-    pub fn new(
-        query: &'query str,
-        conn: &'conn PlacesDb,
-        max_results: u32,
-    ) -> Adaptive<'query, 'conn> {
+    pub fn new(query: &'query str, conn: &'conn PlacesDb) -> Adaptive<'query, 'conn> {
         Adaptive::with_behavior(
             query,
             conn,
-            max_results,
             MatchBehavior::BoundaryAnywhere,
             SearchBehavior::any(),
         )
@@ -374,20 +381,20 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
     pub fn with_behavior(
         query: &'query str,
         conn: &'conn PlacesDb,
-        max_results: u32,
         match_behavior: MatchBehavior,
         search_behavior: SearchBehavior,
     ) -> Adaptive<'query, 'conn> {
         Adaptive {
             query,
             conn,
-            max_results,
             match_behavior,
             search_behavior,
         }
     }
+}
 
-    pub fn search(&self) -> Result<Vec<SearchResult>> {
+impl<'query, 'conn> Matcher for Adaptive<'query, 'conn> {
+    fn search(&self, max_results: u32) -> Result<Vec<SearchResult>> {
         let mut stmt = self.conn.db.prepare(
             "
             SELECT h.url as url,
@@ -426,7 +433,7 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
             (":searchString", &self.query),
             (":matchBehavior", &self.match_behavior),
             (":searchBehavior", &self.search_behavior),
-            (":maxResults", &self.max_results),
+            (":maxResults", &max_results),
         ];
         let mut results = Vec::new();
         for result in stmt.query_and_then_named(params, SearchResult::from_adaptive_row)? {
@@ -439,21 +446,15 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
 struct Suggestions<'query, 'conn> {
     query: &'query str,
     conn: &'conn PlacesDb,
-    max_results: u32,
     match_behavior: MatchBehavior,
     search_behavior: SearchBehavior,
 }
 
 impl<'query, 'conn> Suggestions<'query, 'conn> {
-    pub fn new(
-        query: &'query str,
-        conn: &'conn PlacesDb,
-        max_results: u32,
-    ) -> Suggestions<'query, 'conn> {
+    pub fn new(query: &'query str, conn: &'conn PlacesDb) -> Suggestions<'query, 'conn> {
         Suggestions::with_behavior(
             query,
             conn,
-            max_results,
             MatchBehavior::BoundaryAnywhere,
             SearchBehavior::any(),
         )
@@ -462,20 +463,20 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
     pub fn with_behavior(
         query: &'query str,
         conn: &'conn PlacesDb,
-        max_results: u32,
         match_behavior: MatchBehavior,
         search_behavior: SearchBehavior,
     ) -> Suggestions<'query, 'conn> {
         Suggestions {
             query,
             conn,
-            max_results,
             match_behavior,
             search_behavior,
         }
     }
+}
 
-    pub fn search(&self) -> Result<Vec<SearchResult>> {
+impl<'query, 'conn> Matcher for Suggestions<'query, 'conn> {
+    fn search(&self, max_results: u32) -> Result<Vec<SearchResult>> {
         let mut stmt = self.conn.db.prepare(
             "
             SELECT h.url, h.title,
@@ -505,7 +506,7 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
             (":searchString", &self.query),
             (":matchBehavior", &self.match_behavior),
             (":searchBehavior", &self.search_behavior),
-            (":maxResults", &self.max_results),
+            (":maxResults", &max_results),
         ];
         let mut results = Vec::new();
         for result in stmt.query_and_then_named(params, SearchResult::from_suggestion_row)? {
