@@ -467,7 +467,7 @@ fn main() -> Result<()> {
             }
             'S' | 's' => {
                 log::info!("Syncing!");
-                let mut telem_sync = telemetry::Sync::new();
+                let mut telem_sync = telemetry::SyncTelemetry::new();
                 if let Err(e) = engine.sync(&client_init, &root_sync_key, &mut telem_sync) {
                     log::warn!("Sync failed! {}", e);
                     log::warn!("BT: {:?}", e.backtrace());
@@ -475,7 +475,7 @@ fn main() -> Result<()> {
                     log::info!("Sync was successful!");
                 }
                 telem_sync.finished();
-                log::info!("Sync telemetry: {}", serde_json::to_string(&telem_sync).unwrap());
+                log::info!("Sync telemetry: {}", serde_json::to_string_pretty(&telem_sync).unwrap());
             }
             'V' | 'v' => {
                 if let Err(e) = show_all(&engine) {

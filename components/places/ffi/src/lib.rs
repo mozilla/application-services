@@ -144,7 +144,7 @@ pub unsafe extern "C" fn sync15_history_sync(
         // XXX - this is wrong - we kinda want this to be long-lived - the "Db"
         // should own the store, but it's not part of the db.
         let store = HistoryStore::new(conn);
-        let mut telem_sync = telemetry::Sync::new();
+        let mut telem_sync = telemetry::SyncTelemetry::new();
         let result = store.sync(
             &sync15::Sync15StorageClientInit {
                 key_id: rust_string_from_c(key_id),

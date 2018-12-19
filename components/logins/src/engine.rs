@@ -79,7 +79,7 @@ impl PasswordEngine {
         &self,
         storage_init: &Sync15StorageClientInit,
         root_sync_key: &KeyBundle,
-        telem_sync: &mut telemetry::Sync,
+        telem_sync: &mut telemetry::SyncTelemetry,
     ) -> Result<()> {
         let global_state: Cell<Option<String>> = Cell::new(self.db.get_global_state()?);
         let result = sync_multiple(

@@ -632,7 +632,7 @@ impl LoginDb {
                 (Some(_mirror), None) => {
                     log::debug!("  Forwarding mirror to remote");
                     plan.plan_mirror_update(upstream, upstream_time);
-                    // xxx - what telem is this?
+                    telem.applied(1);
                 }
                 (None, Some(local)) => {
                     log::debug!("  Conflicting record without shared parent, using newer");

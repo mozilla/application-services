@@ -129,7 +129,7 @@ fn main() -> Result<()> {
     }
 
     log::info!("Syncing!");
-    let mut telem_sync = telemetry::Sync::new();
+    let mut telem_sync = telemetry::SyncTelemetry::new();
     if let Err(e) = store.sync(&client_init, &root_sync_key, &mut telem_sync) {
         log::warn!("Sync failed! {}", e);
         log::warn!("BT: {:?}", e.backtrace());

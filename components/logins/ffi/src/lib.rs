@@ -52,7 +52,7 @@ pub unsafe extern "C" fn sync15_passwords_sync(
 ) {
     log::trace!("sync15_passwords_sync");
     call_with_result(error, || -> Result<()> {
-        let mut telem_sync = telemetry::Sync::new();
+        let mut telem_sync = telemetry::SyncTelemetry::new();
         let result = state.sync(
             &sync15::Sync15StorageClientInit {
                 key_id: rust_string_from_c(key_id),

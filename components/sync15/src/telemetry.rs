@@ -8,10 +8,8 @@
 use std::collections::HashMap;
 use std::time;
 
-use num::Num;
-
 // We use serde to serialize to json (but we never need to deserialize)
-use serde::ser::{Serialize, Serializer};
+use serde::ser::{self, Serialize, Serializer};
 use serde_derive::*;
 #[cfg(test)]
 use serde_json::{self, json};
@@ -19,14 +17,11 @@ use serde_json::{self, json};
 use crate::error::Error;
 
 // For skip_serializing_if
-// I'm surprised I can't use Num::is_zero directly, although Option::is_none works.
-// (Num's just a trait, Option is an enum, but surely there's *some* way?)
-fn skip_if_zero<T: Num + PartialEq>(v: &T) -> bool {
-    return v.is_zero();
+fn skip_if_default<T: PartialEq + Default>(v: &T) -> bool {
+    *v == T::default()
 }
 
-// A test helper, used by the many test modules below. Is there a better way
-// to structure tests?
+// A test helper, used by the many test modules below.
 #[cfg(test)]
 fn assert_json<T: ?Sized>(v: &T, expected: serde_json::Value)
 where
@@ -42,7 +37,7 @@ where
 #[derive(Debug, Serialize)]
 struct WhenTook {
     when: f64,
-    #[serde(skip_serializing_if = "skip_if_zero")]
+    #[serde(skip_serializing_if = "skip_if_default")]
     took: u64,
 }
 
@@ -59,19 +54,19 @@ impl Stopwatch {
         Stopwatch::Started(time::SystemTime::now(), time::Instant::now())
     }
 
+    // For tests we don't want real timestamps because we test against literals.
+    #[cfg(test)]
     fn finished(&self) -> Self {
-        match cfg!(test) {
-            false => self._finished(),
-            _ => Stopwatch::Finished(WhenTook { when: 0.0, took: 0 }),
-        }
+        Stopwatch::Finished(WhenTook { when: 0.0, took: 0 })
     }
 
-    fn _finished(&self) -> Self {
+    #[cfg(not(test))]
+    fn finished(&self) -> Self {
         match self {
             Stopwatch::Started(st, si) => {
                 let std = st
                     .duration_since(time::UNIX_EPOCH)
-                    .unwrap_or(time::Duration::new(0, 0));
+                    .unwrap_or_default();
                 let when = std.as_secs() as f64; // we don't want sub-sec accuracy. Do we need to write a float?
 
                 let sid = si.elapsed();
@@ -79,7 +74,7 @@ impl Stopwatch {
                 Stopwatch::Finished(WhenTook { when, took })
             }
             _ => {
-                panic!("can't finish twice");
+                unreachable!("can't finish twice");
             }
         }
     }
@@ -91,7 +86,7 @@ impl Serialize for Stopwatch {
         S: Serializer,
     {
         match self {
-            Stopwatch::Started(_, _) => panic!("must be finished"),
+            Stopwatch::Started(_, _) => Err(ser::Error::custom("StopWatch has not been finished")),
             Stopwatch::Finished(c) => c.serialize(serializer),
         }
     }
@@ -109,13 +104,12 @@ mod stopwatch_tests {
         sw: Stopwatch,
     }
 
-    #[should_panic]
     #[test]
     fn test_not_finished() {
         let wt = WT {
             sw: Stopwatch::new(),
         };
-        serde_json::to_string(&wt).expect("a panic!");
+        serde_json::to_string(&wt).expect_err("unfinished stopwatch should fail");
     }
 
     #[test]
@@ -135,11 +129,8 @@ mod stopwatch_tests {
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////
-//
-// A generic "Event" - suitable for all kinds of pings!
-// (although currently we only support the sync ping...)
-//
+/// A generic "Event" - suitable for all kinds of pings (although this module
+/// only cares about the sync ping)
 #[derive(Debug, Serialize)]
 pub struct Event {
     // We use static str references as we expect values to be literals.
@@ -237,10 +228,7 @@ mod test_events {
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////
-//
-// A Sync failure.
-//
+/// A Sync failure.
 #[derive(Debug, Serialize)]
 #[serde(tag = "name")]
 pub enum SyncFailure {
@@ -258,9 +246,6 @@ pub enum SyncFailure {
 
     #[serde(rename = "httperror")]
     Http { code: u32 },
-
-    #[serde(rename = "nserror")]
-    Nserror { code: i32 }, // probably doesn't really make sense in rust, but here we are...
 }
 
 pub fn sync_failure_from_error(e: &Error) -> SyncFailure {
@@ -302,44 +287,32 @@ mod test {
             &SyncFailure::Http { code: 500 },
             json!({"name": "httperror", "code": 500}),
         );
-
-        assert_json(
-            &SyncFailure::Nserror { code: -1 },
-            json!({"name": "nserror", "code": -1}),
-        );
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////
-//
-// Incoming and Outgoing records for an engine's sync
-//
-#[derive(Debug, Serialize)]
+/// Incoming record for an engine's sync
+#[derive(Debug, Default, Serialize)]
 pub struct EngineIncoming {
-    #[serde(skip_serializing_if = "skip_if_zero")]
+    #[serde(skip_serializing_if = "skip_if_default")]
     applied: u32,
 
-    #[serde(skip_serializing_if = "skip_if_zero")]
+    #[serde(skip_serializing_if = "skip_if_default")]
     failed: u32,
 
     #[serde(rename = "newFailed")]
-    #[serde(skip_serializing_if = "skip_if_zero")]
+    #[serde(skip_serializing_if = "skip_if_default")]
     new_failed: u32,
 
-    #[serde(skip_serializing_if = "skip_if_zero")]
+    #[serde(skip_serializing_if = "skip_if_default")]
     reconciled: u32,
 }
 
 impl EngineIncoming {
     pub fn new() -> Self {
-        Self {
-            applied: 0,
-            failed: 0,
-            new_failed: 0,
-            reconciled: 0,
-        }
+        Self { ..Default::default() }
     }
 
+    // A helper used via skip_serializing_if
     fn is_empty(inc: &Option<Self>) -> bool {
         match inc {
             Some(a) => a.applied == 0 && a.failed == 0 && a.new_failed == 0 && a.reconciled == 0,
@@ -347,47 +320,54 @@ impl EngineIncoming {
         }
     }
 
+    #[inline]
     pub fn applied(&mut self, n: u32) {
         self.applied += n;
     }
 
+    #[inline]
     pub fn failed(&mut self, n: u32) {
         self.failed += n;
     }
 
+    #[inline]
     pub fn new_failed(&mut self, n: u32) {
         self.new_failed += n;
     }
 
+    #[inline]
     pub fn reconciled(&mut self, n: u32) {
         self.reconciled += n;
     }
 }
 
-#[derive(Debug, Serialize)]
+/// Outgoing record for an engine's sync
+#[derive(Debug, Default, Serialize)]
 pub struct EngineOutgoing {
-    #[serde(skip_serializing_if = "skip_if_zero")]
+    #[serde(skip_serializing_if = "skip_if_default")]
     sent: usize,
 
-    #[serde(skip_serializing_if = "skip_if_zero")]
+    #[serde(skip_serializing_if = "skip_if_default")]
     failed: usize,
 }
 
 impl EngineOutgoing {
     pub fn new() -> Self {
-        EngineOutgoing { sent: 0, failed: 0 }
+        EngineOutgoing { ..Default::default() }
     }
 
+    #[inline]
     pub fn sent(&mut self, n: usize) {
         self.sent += n;
     }
 
+    #[inline]
     pub fn failed(&mut self, n: usize) {
         self.failed += n;
     }
 }
 
-// One engine's sync.
+/// One engine's sync.
 #[derive(Debug, Serialize)]
 pub struct Engine {
     name: String,
@@ -427,8 +407,14 @@ impl Engine {
     }
 
     pub fn failure(&mut self, failure: SyncFailure) {
-        assert!(self.failure.is_none());
-        self.failure = Some(failure);
+        // Currently we take the first error, under the assumption that the
+        // first is the most important and all others stem from that.
+        if self.failure.is_none() {
+            self.failure = Some(failure);
+        } else {
+            log::warn!("engine already has recorded a failure of {:?} - ignoring {:?}",
+                       &self.failure, &failure);
+        }
     }
 
     fn finished(&mut self) {
@@ -447,11 +433,10 @@ mod engine_tests {
         assert_json(&e, json!({"name": "test_engine", "when": 0.0}));
     }
 
-    #[should_panic]
     #[test]
     fn test_engine_not_finished() {
         let e = Engine::new("test_engine");
-        assert_json(&e, json!({}));
+        serde_json::to_value(&e).expect_err("unfinished stopwatch should fail");
     }
 
     #[test]
@@ -516,12 +501,9 @@ mod engine_tests {
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////
-//
-// A single sync. May have many engines, may have its own failure.
-//
+/// A single sync. May have many engines, may have its own failure.
 #[derive(Debug, Serialize)]
-pub struct Sync {
+pub struct SyncTelemetry {
     #[serde(flatten)]
     when_took: Stopwatch,
 
@@ -533,7 +515,7 @@ pub struct Sync {
     failure: Option<SyncFailure>,
 }
 
-impl Sync {
+impl SyncTelemetry {
     pub fn new() -> Self {
         Self {
             when_took: Stopwatch::new(),
@@ -566,7 +548,7 @@ mod sync_tests {
 
     #[test]
     fn test_accum() {
-        let mut s = Sync::new();
+        let mut s = SyncTelemetry::new();
         let mut inc = EngineIncoming::new();
         inc.applied(10);
         let mut e = Engine::new("test_engine");
@@ -610,7 +592,7 @@ mod sync_tests {
         out_e2.sent(1);
         e2.outgoing(out_e2);
 
-        let mut s = Sync::new();
+        let mut s = SyncTelemetry::new();
         s.engine(e1);
         s.engine(e2);
         s.failure(SyncFailure::Http { code: 500 });

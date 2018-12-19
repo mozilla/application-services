@@ -48,7 +48,7 @@ pub fn sync_multiple(
     last_client_info: &Cell<Option<ClientInfo>>,
     storage_init: &Sync15StorageClientInit,
     root_sync_key: &KeyBundle,
-    telem_sync: &mut telemetry::Sync,
+    telem_sync: &mut telemetry::SyncTelemetry,
 ) -> result::Result<HashMap<String, Error>, Error> {
     // Note: We explicitly swap a None back as the state, meaning if we
     // unexpectedly fail below, the next sync will redownload meta/global,
