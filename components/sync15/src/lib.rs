@@ -16,6 +16,7 @@ pub mod sync;
 pub mod sync_multiple;
 pub mod token;
 pub mod util;
+pub mod telemetry;
 
 // Re-export some of the types callers are likely to want for convenience.
 pub use crate::bso_record::{BsoRecord, CleartextBso, EncryptedBso, Payload};
