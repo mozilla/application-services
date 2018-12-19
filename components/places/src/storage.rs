@@ -563,10 +563,10 @@ pub mod history_sync {
 
         // We want to limit to 5000 places - tombstones are arguably the
         // most important, so we fetch these first.
-        let ts_rows = tombstones_stmt
-            .query_map_named(&[(":max_places", &(max_places as u32))], |row| {
-                SyncGuid(row.get::<_, String>("guid"))
-            })?;
+        let ts_rows = tombstones_stmt.query_and_then_named(
+            &[(":max_places", &(max_places as u32))],
+            |row| -> rusqlite::Result<_> { Ok(SyncGuid(row.get_checked::<_, String>("guid")?)) },
+        )?;
         for r in ts_rows {
             let guid = r?;
             log::trace!("outgoing tombstone {:?}", &guid);
@@ -598,14 +598,16 @@ pub mod history_sync {
         let mut ids_to_update = Vec::new();
         for t in rows {
             let page = t?;
-            let visit_rows = visits.query_map_named(
+            let visit_rows = visits.query_and_then_named(
                 &[
                     (":max_visits", &(max_visits as u32)),
                     (":place_id", &page.row_id),
                 ],
-                |row| HistoryRecordVisit {
-                    date: row.get::<_, Timestamp>("date").into(),
-                    transition: row.get::<_, u8>("transition"),
+                |row| {
+                    Ok(HistoryRecordVisit {
+                        date: row.get_checked::<_, Timestamp>("date")?.into(),
+                        transition: row.get_checked::<_, u8>("transition")?,
+                    })
                 },
             )?;
             let visits = visit_rows.collect::<RusqliteResult<Vec<_>>>()?;
@@ -749,7 +751,9 @@ pub fn get_visited(db: &PlacesDb, urls: &[Url]) -> Result<Vec<bool>> {
                 values_with_idx
             );
             let mut stmt = db.prepare(&sql)?;
-            for idx_r in stmt.query_map(chunk, |row| row.get::<_, i64>(0) as usize)? {
+            for idx_r in stmt.query_and_then(chunk, |row| -> rusqlite::Result<_> {
+                Ok(row.get_checked::<_, i64>(0)? as usize)
+            })? {
                 let idx = idx_r?;
                 result[idx] = true;
             }
@@ -785,8 +789,8 @@ pub fn get_visited_urls(
         and_is_local = if include_remote { "" } else { "AND is_local" }
     ))?;
 
-    let iter = stmt.query_map_named(&[(":start", &start), (":end", &end)], |row| {
-        row.get::<_, String>(0)
+    let iter = stmt.query_and_then_named(&[(":start", &start), (":end", &end)], |row| {
+        Ok(row.get_checked::<_, String>(0)?)
     })?;
 
     Ok(iter.collect::<RusqliteResult<Vec<_>>>()?)
@@ -946,7 +950,7 @@ mod tests {
         let result: Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_places_tombstones;",
             &[],
-            |row| Ok(row.get::<_, u32>(0).clone()),
+            |row| Ok(row.get_checked::<_, u32>(0)?.clone()),
             true,
         );
         result

@@ -298,7 +298,7 @@ mod tests {
             "SELECT COUNT(*) from moz_places_tombstones
                      WHERE guid = :guid",
             &[(":guid", &guid)],
-            |row| Ok(row.get::<_, u32>(0)),
+            |row| Ok(row.get_checked::<_, u32>(0)?),
             true,
         );
         count.unwrap().unwrap() == 1

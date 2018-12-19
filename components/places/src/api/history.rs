@@ -60,9 +60,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_insert() {
-        let mut c = PlacesDb::open_in_memory(None).expect("should get a connection");
-        let url = Url::parse("http://example.com").expect("it's a valid url");
+    fn test_insert() -> Result<()> {
+        let mut c = PlacesDb::open_in_memory(None)?;
+        let url = Url::parse("http://example.com")?;
         let date = Timestamp::now();
         let visits = vec![AddableVisit {
             date,
@@ -76,7 +76,7 @@ mod tests {
             visits,
         };
 
-        insert(&mut c, a).expect("should insert");
+        insert(&mut c, a)?;
 
         // For now, a raw read of the DB.
         let sql = "SELECT p.id, p.url, p.title,
@@ -90,15 +90,16 @@ mod tests {
                     FROM moz_places p, moz_historyvisits v
                     WHERE v.place_id = p.id";
 
-        let mut stmt = c.db.prepare(sql).expect("valid sql");
-        let mut rows = stmt.query(&[]).expect("should execute");
+        let mut stmt = c.db.prepare(sql)?;
+        let mut rows = stmt.query(&[])?;
         let result = rows.next().expect("should get a row");
         let row = result.expect("expect anything");
 
-        assert_eq!(row.get::<_, String>("url"), "http://example.com/"); // hrmph - note trailing slash
-        assert_eq!(row.get::<_, Timestamp>("visit_date"), date);
-        assert_ne!(row.get::<_, i32>("frecency"), 0);
+        assert_eq!(row.get_checked::<_, String>("url")?, "http://example.com/"); // hrmph - note trailing slash
+        assert_eq!(row.get_checked::<_, Timestamp>("visit_date")?, date);
+        assert_ne!(row.get_checked::<_, i32>("frecency")?, 0);
         // XXX - check more.
+        Ok(())
     }
 }
 
