@@ -64,9 +64,7 @@ impl Stopwatch {
     fn finished(&self) -> Self {
         match self {
             Stopwatch::Started(st, si) => {
-                let std = st
-                    .duration_since(time::UNIX_EPOCH)
-                    .unwrap_or_default();
+                let std = st.duration_since(time::UNIX_EPOCH).unwrap_or_default();
                 let when = std.as_secs() as f64; // we don't want sub-sec accuracy. Do we need to write a float?
 
                 let sid = si.elapsed();
@@ -309,7 +307,9 @@ pub struct EngineIncoming {
 
 impl EngineIncoming {
     pub fn new() -> Self {
-        Self { ..Default::default() }
+        Self {
+            ..Default::default()
+        }
     }
 
     // A helper used via skip_serializing_if
@@ -353,7 +353,9 @@ pub struct EngineOutgoing {
 
 impl EngineOutgoing {
     pub fn new() -> Self {
-        EngineOutgoing { ..Default::default() }
+        EngineOutgoing {
+            ..Default::default()
+        }
     }
 
     #[inline]
@@ -412,8 +414,11 @@ impl Engine {
         if self.failure.is_none() {
             self.failure = Some(failure);
         } else {
-            log::warn!("engine already has recorded a failure of {:?} - ignoring {:?}",
-                       &self.failure, &failure);
+            log::warn!(
+                "engine already has recorded a failure of {:?} - ignoring {:?}",
+                &self.failure,
+                &failure
+            );
         }
     }
 
