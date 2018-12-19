@@ -17,6 +17,7 @@ use sql_support::ConnExt;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
 use sync15::{IncomingChangeset, OutgoingChangeset, Payload};
+use sync15::telemetry;
 use url::Url;
 
 // In desktop sync, bookmarks are clamped to Jan 23, 1993 (which is 727747200000)
@@ -174,9 +175,10 @@ fn plan_incoming_record(
     }
 }
 
-pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<OutgoingChangeset> {
+pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset, incoming_telem: &mut telemetry::EngineIncoming) -> Result<OutgoingChangeset> {
     // for a first-cut, let's do this in the most naive way possible...
     let mut plans: Vec<(SyncGuid, IncomingPlan)> = Vec::with_capacity(inbound.changes.len());
+    let mut num_failed = 0;
     for incoming in inbound.changes {
         let item = match HistorySyncRecord::from_payload(incoming.0) {
             Ok(item) => item,
@@ -184,6 +186,7 @@ pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<Outgo
                 // We can't push IncomingPlan::Invalid into plans as we don't
                 // know the guid - just skip it.
                 log::warn!("Error deserializing incoming record: {}", e);
+                num_failed += 1;
                 continue;
             }
         };
@@ -274,6 +277,8 @@ pub fn apply_plan(conn: &Connection, inbound: IncomingChangeset) -> Result<Outgo
         num_deleted,
         num_reconciled
     );
+
+    incoming_telem.applied(num_applied + num_deleted).failed(num_failed).reconciled(num_reconciled);
 
     Ok(outgoing)
 }

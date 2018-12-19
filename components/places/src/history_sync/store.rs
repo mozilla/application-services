@@ -15,6 +15,7 @@ use sync15::{
     sync_multiple, ClientInfo, IncomingChangeset, KeyBundle, OutgoingChangeset, ServerTimestamp,
     Store, Sync15StorageClientInit,
 };
+use sync15::telemetry;
 
 use super::plan::{apply_plan, finish_plan};
 use super::MAX_INCOMING_PLACES;
@@ -53,9 +54,9 @@ impl<'a> HistoryStore<'a> {
         )?)
     }
 
-    fn do_apply_incoming(&self, inbound: IncomingChangeset) -> Result<OutgoingChangeset> {
+    fn do_apply_incoming(&self, inbound: IncomingChangeset, incoming_telemetry: &mut telemetry::EngineIncoming) -> Result<OutgoingChangeset> {
         let timestamp = inbound.timestamp;
-        let outgoing = apply_plan(&self, inbound)?;
+        let outgoing = apply_plan(&self, inbound, incoming_telemetry)?;
         // write the timestamp now, so if we are interrupted creating outgoing
         // changesets we don't need to re-reconcile what we just did.
         self.put_meta(LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
@@ -148,8 +149,9 @@ impl<'a> Store for HistoryStore<'a> {
     fn apply_incoming(
         &self,
         inbound: IncomingChangeset,
+        incoming_telemetry: &mut telemetry::EngineIncoming,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
-        Ok(self.do_apply_incoming(inbound)?)
+        Ok(self.do_apply_incoming(inbound, incoming_telemetry)?)
     }
 
     fn sync_finished(

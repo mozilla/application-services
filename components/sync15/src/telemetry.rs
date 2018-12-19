@@ -17,6 +17,8 @@ use serde::ser::{Serialize, Serializer};
 #[cfg(test)]
 use serde_json::{self, json};
 
+use crate::error::Error;
+
 // For skip_serializing_if
 // I'm surprised I can't use Num::is_zero directly, although Option::is_none works.
 // (Num's just a trait, Option is an enum, but surely there's *some* way?)
@@ -246,6 +248,10 @@ pub enum SyncFailure {
     Nserror {code: i32}, // probably doesn't really make sense in rust, but here we are...
 }
 
+pub fn sync_failure_from_error(e: &Error) -> SyncFailure {
+    SyncFailure::Unexpected {error: e.to_string()}
+}
+
 
 #[cfg(test)]
 mod test {
@@ -294,7 +300,7 @@ pub struct EngineIncoming {
 }
 
 impl EngineIncoming {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {applied: 0, failed: 0, new_failed: 0, reconciled: 0}
     }
 
@@ -333,10 +339,10 @@ impl EngineIncoming {
 #[derive(Debug, Serialize)]
 pub struct EngineOutgoing {
     #[serde(skip_serializing_if = "skip_if_zero")]
-    sent: u32,
+    sent: usize,
 
     #[serde(skip_serializing_if = "skip_if_zero")]
-    failed: u32,
+    failed: usize,
 }
 
 impl EngineOutgoing {
@@ -344,12 +350,12 @@ impl EngineOutgoing {
         EngineOutgoing {sent: 0, failed: 0}
     }
 
-    pub fn sent(mut self, n: u32) -> Self {
+    pub fn sent(mut self, n: usize) -> Self {
         self.sent = n;
         self
     }
 
-    pub fn failed(mut self, n: u32) -> Self {
+    pub fn failed(mut self, n: usize) -> Self {
         self.failed = n;
         self
     }
@@ -357,7 +363,7 @@ impl EngineOutgoing {
 
 // One engine's sync.
 #[derive(Debug, Serialize)]
-struct Engine {
+pub struct Engine {
     name: String,
 
     #[serde(flatten)]
@@ -375,7 +381,7 @@ struct Engine {
 }
 
 impl Engine {
-    fn new(name: &str) -> Self {
+    pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
             when_took: WhenTook::new(),
@@ -471,7 +477,7 @@ mod engine_tests {
 // A single sync. May have many engines, may have its own failure.
 //
 #[derive(Debug, Serialize)]
-struct Sync {
+pub struct Sync {
     #[serde(flatten)]
     when_took: WhenTook,
 
@@ -484,7 +490,7 @@ struct Sync {
 }
 
 impl Sync {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             when_took: WhenTook::new(),
             engines: Vec::new(),

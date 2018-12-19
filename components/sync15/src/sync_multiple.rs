@@ -10,6 +10,7 @@ use crate::error::Error;
 use crate::key_bundle::KeyBundle;
 use crate::state::{GlobalState, SetupStateMachine};
 use crate::sync::{self, Store};
+use crate::telemetry;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::result;
@@ -121,6 +122,7 @@ pub fn sync_multiple(
         }
     }
 
+    let mut sync_telem = telemetry::Sync::new();
     let mut failures: HashMap<String, Error> = HashMap::new();
     for store in stores {
         let name = store.collection_name();
@@ -129,11 +131,16 @@ pub fn sync_multiple(
         let result = sync::synchronize(&client_info.client, &global_state, *store, true);
 
         match result {
-            Ok(()) => log::info!("Sync of {} was successful!", name),
+            Ok(engine_telem) => {
+                log::info!("Sync of {} was successful!", name);
+                sync_telem = sync_telem.engine(engine_telem);
+            },
             Err(e) => {
                 log::warn!("Sync of {} failed! {:?}", name, e);
+                let f = telemetry::sync_failure_from_error(&e);
+                sync_telem = sync_telem.engine(telemetry::Engine::new(name).failure(f));
                 failures.insert(name.into(), e.into());
-            }
+            },
         }
     }
 

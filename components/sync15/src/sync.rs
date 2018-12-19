@@ -8,6 +8,7 @@ use crate::error::Error;
 use crate::request::CollectionRequest;
 use crate::state::GlobalState;
 use crate::util::ServerTimestamp;
+use crate::telemetry;
 
 /// Low-level store functionality. Stores that need custom reconciliation logic should use this.
 ///
@@ -19,7 +20,8 @@ pub trait Store {
     fn apply_incoming(
         &self,
         inbound: IncomingChangeset,
-    ) -> Result<OutgoingChangeset, failure::Error>;
+        incoming_telem: &mut telemetry::EngineIncoming,
+    ) -> Result<(OutgoingChangeset), failure::Error>;
 
     fn sync_finished(
         &self,
@@ -44,8 +46,9 @@ pub fn synchronize(
     state: &GlobalState,
     store: &Store,
     fully_atomic: bool,
-) -> Result<(), Error> {
+) -> Result<telemetry::Engine, Error> {
     let collection = store.collection_name();
+    let mut telem = telemetry::Engine::new(collection);
     log::info!("Syncing collection {}", collection);
     let collection_request = store.get_collection_request()?;
     let incoming_changes =
@@ -56,7 +59,9 @@ pub fn synchronize(
         "Downloaded {} remote changes",
         incoming_changes.changes.len()
     );
-    let mut outgoing = store.apply_incoming(incoming_changes)?;
+    let mut incoming_telem = telemetry::EngineIncoming::new();
+    let mut outgoing= store.apply_incoming(incoming_changes, &mut incoming_telem)?;
+    telem = telem.incoming(incoming_telem);
 
     outgoing.timestamp = last_changed_remote;
 
@@ -69,9 +74,12 @@ pub fn synchronize(
         upload_info.successful_ids.len(),
         upload_info.failed_ids.len()
     );
+    // ideally we'd report this per-batch, but for now, let's just report it
+    // as a total.
+    telem = telem.outgoing(telemetry::EngineOutgoing::new().sent(upload_info.successful_ids.len() + upload_info.failed_ids.len()).failed(upload_info.failed_ids.len()));
 
     store.sync_finished(upload_info.modified_timestamp, &upload_info.successful_ids)?;
 
     log::info!("Sync finished!");
-    Ok(())
+    Ok(telem)
 }
