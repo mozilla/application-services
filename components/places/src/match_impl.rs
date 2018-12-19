@@ -95,7 +95,10 @@ bitflags! {
 impl Default for SearchBehavior {
     // See `defaultBehavior` in Desktop's `UrlbarPrefs.jsm`.
     fn default() -> SearchBehavior {
-        SearchBehavior::HISTORY | SearchBehavior::BOOKMARK | SearchBehavior::OPENPAGE | SearchBehavior::SEARCHES
+        SearchBehavior::HISTORY
+            | SearchBehavior::BOOKMARK
+            | SearchBehavior::OPENPAGE
+            | SearchBehavior::SEARCHES
     }
 }
 

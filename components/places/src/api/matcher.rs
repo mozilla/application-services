@@ -39,11 +39,20 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
             // suggestions for bookmarked URLs.
             &Adaptive::new(&params.search_string, conn),
             &Suggestions::new(&params.search_string, conn),
-
             // If we don't have enough results, query adaptive matches and
             // suggestions again, matching anywhere instead of on boundaries.
-            &Adaptive::with_behavior(&params.search_string, conn, MatchBehavior::Anywhere, SearchBehavior::default()),
-            &Suggestions::with_behavior(&params.search_string, conn, MatchBehavior::Anywhere, SearchBehavior::default()),
+            &Adaptive::with_behavior(
+                &params.search_string,
+                conn,
+                MatchBehavior::Anywhere,
+                SearchBehavior::default(),
+            ),
+            &Suggestions::with_behavior(
+                &params.search_string,
+                conn,
+                MatchBehavior::Anywhere,
+                SearchBehavior::default(),
+            ),
         ],
         params.limit,
     )?;
@@ -124,7 +133,7 @@ fn looks_like_origin(string: &str) -> bool {
 
 /// The match reason specifies why an autocomplete search result matched a
 /// query. This can be used to filter and sort matches.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Eq, PartialEq)]
 pub enum MatchReason {
     Keyword,
     Origin,
@@ -135,7 +144,7 @@ pub enum MatchReason {
     Tags(String),
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Eq, PartialEq)]
 pub struct SearchResult {
     /// The search string for this match.
     pub search_string: String,
@@ -259,15 +268,15 @@ impl SearchResult {
                 let stripped_prefix = &href[..stripped_url_index];
                 let title = match &href[stripped_url_index + stripped_url.len()..].find('/') {
                     Some(next_slash_index) => {
-                        &href[stripped_url_index..=stripped_url_index + stripped_url.len() + next_slash_index]
-                    },
-                    None => {
-                        &href[stripped_url_index..]
-                    },
+                        &href[stripped_url_index
+                            ..=stripped_url_index + stripped_url.len() + next_slash_index]
+                    }
+                    None => &href[stripped_url_index..],
                 };
-                let url = Url::parse(&[stripped_prefix, title].concat()).expect("Malformed suggested URL");
+                let url = Url::parse(&[stripped_prefix, title].concat())
+                    .expect("Malformed suggested URL");
                 (url, title.into())
-            },
+            }
             None => {
                 let url = Url::parse(&href).expect("Invalid URL in Places");
                 (url, stripped_url)
@@ -600,17 +609,40 @@ mod tests {
             },
         )
         .expect("Should search by origin");
-        println!("Matches by origin: {:?}", by_origin);
+        assert!(by_origin
+            .iter()
+            .any(|result| result.search_string == "example.com"
+                && result.title == "example.com/"
+                && result.url.as_str() == "http://example.com/"
+                && result.reasons == &[MatchReason::Origin]));
 
-        let by_url = search_frecent(
+        let by_url_without_path = search_frecent(
             &conn,
             SearchParams {
                 search_string: "http://example.com".into(),
                 limit: 10,
             },
         )
-        .expect("Should search by URL");
-        println!("Matches by URL: {:?}", by_url);
+        .expect("Should search by URL without path");
+        assert!(by_url_without_path
+            .iter()
+            .any(|result| result.title == "example.com/"
+                && result.url.as_str() == "http://example.com/"
+                && result.reasons == &[MatchReason::Url]));
+
+        let by_url_with_path = search_frecent(
+            &conn,
+            SearchParams {
+                search_string: "http://example.com/1".into(),
+                limit: 10,
+            },
+        )
+        .expect("Should search by URL with path");
+        assert!(by_url_with_path
+            .iter()
+            .any(|result| result.title == "example.com/123"
+                && result.url.as_str() == "http://example.com/123"
+                && result.reasons == &[MatchReason::Url]));
 
         accept_result(
             &conn,
@@ -624,6 +656,7 @@ mod tests {
             },
         )
         .expect("Should accept input history match");
+
         let by_adaptive = search_frecent(
             &conn,
             SearchParams {
@@ -632,6 +665,30 @@ mod tests {
             },
         )
         .expect("Should search by adaptive input history");
-        println!("Matches by adaptive input history: {:?}", by_adaptive);
+        assert!(by_adaptive
+            .iter()
+            .any(|result| result.search_string == "ample"
+                && result.url == url
+                && result.reasons == &[MatchReason::PreviousUse]));
+
+        let with_limit = search_frecent(
+            &conn,
+            SearchParams {
+                search_string: "example".into(),
+                limit: 1,
+            },
+        )
+        .expect("Should search until reaching limit");
+        assert_eq!(
+            with_limit,
+            vec![SearchResult {
+                search_string: "example".into(),
+                url: Url::parse("http://example.com/").unwrap(),
+                title: "example.com/".into(),
+                icon_url: None,
+                frecency: -1,
+                reasons: vec![MatchReason::Origin],
+            }]
+        );
     }
 }
