@@ -49,7 +49,7 @@ abstract class LoginsStorageTest {
             callback()
             fail("Expected exception!")
         } catch (e: Throwable) {
-            assert(klass.isInstance(e))
+            assert(klass.isInstance(e), { "Expected ${klass} but got exception of type ${e.javaClass}" })
         }
     }
 
@@ -241,6 +241,21 @@ abstract class LoginsStorageTest {
                 username = "DummyUsername"))
 
         assertEquals("123412341234", specificID)
+
+        finishAndClose(test)
+    }
+
+    @Test
+    fun testUnlockAfterError() {
+        val test = getTestStore()
+
+        expectException(LoginsStorageException::class.java) {
+            test.reset();
+        }
+
+        test.unlock(encryptionKey)
+
+        test.reset();
 
         finishAndClose(test)
     }
