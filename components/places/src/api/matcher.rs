@@ -39,6 +39,11 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
             // suggestions for bookmarked URLs.
             &Adaptive::new(&params.search_string, conn),
             &Suggestions::new(&params.search_string, conn),
+
+            // If we don't have enough results, query adaptive matches and
+            // suggestions again, matching anywhere instead of on boundaries.
+            &Adaptive::with_behavior(&params.search_string, conn, MatchBehavior::Anywhere, SearchBehavior::default()),
+            &Suggestions::with_behavior(&params.search_string, conn, MatchBehavior::Anywhere, SearchBehavior::default()),
         ],
         params.limit,
     )?;
@@ -239,8 +244,8 @@ impl SearchResult {
 
     pub fn from_url_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
         let search_string = row.get_checked::<_, String>("searchString")?;
-        let url = row.get_checked::<_, String>("url")?;
-        let display_url = row.get_checked::<_, String>("displayURL")?;
+        let href = row.get_checked::<_, String>("url")?;
+        let stripped_url = row.get_checked::<_, String>("strippedURL")?;
         let frecency = row.get_checked::<_, i64>("frecency")?;
         let bookmarked = row.get_checked::<_, bool>("bookmarked")?;
 
@@ -249,7 +254,25 @@ impl SearchResult {
             reasons.push(MatchReason::Bookmark);
         }
 
-        let url = Url::parse(&url).expect("Invalid URL in Places");
+        let (url, display_url) = match href.find(&stripped_url) {
+            Some(stripped_url_index) => {
+                let stripped_prefix = &href[..stripped_url_index];
+                let title = match &href[stripped_url_index + stripped_url.len()..].find('/') {
+                    Some(next_slash_index) => {
+                        &href[stripped_url_index..=stripped_url_index + stripped_url.len() + next_slash_index]
+                    },
+                    None => {
+                        &href[stripped_url_index..]
+                    },
+                };
+                let url = Url::parse(&[stripped_prefix, title].concat()).expect("Malformed suggested URL");
+                (url, title.into())
+            },
+            None => {
+                let url = Url::parse(&href).expect("Invalid URL in Places");
+                (url, stripped_url)
+            }
+        };
 
         Ok(Self {
             search_string,
@@ -286,18 +309,23 @@ impl<'query, 'conn> Matcher for OriginOrUrl<'query, 'conn> {
                 SELECT IFNULL(:prefix, prefix) || moz_origins.host || '/' AS url,
                        moz_origins.host || '/' AS displayURL,
                        frecency,
+                       bookmarked,
                        id,
                        :searchString AS searchString
                 FROM (
                   SELECT host,
-                         TOTAL(frecency) AS host_frecency
+                         TOTAL(frecency) AS host_frecency,
+                         (SELECT TOTAL(foreign_count) > 0 FROM moz_places
+                          WHERE moz_places.origin_id = moz_origins.id) AS bookmarked
                   FROM moz_origins
                   WHERE host BETWEEN :searchString AND :searchString || X'FFFF'
                   GROUP BY host
                   HAVING host_frecency >= :frecencyThreshold
                   UNION ALL
                   SELECT host,
-                         TOTAL(frecency) AS host_frecency
+                         TOTAL(frecency) AS host_frecency,
+                         (SELECT TOTAL(foreign_count) > 0 FROM moz_places
+                          WHERE moz_places.origin_id = moz_origins.id) AS bookmarked
                   FROM moz_origins
                   WHERE host BETWEEN 'www.' || :searchString AND 'www.' || :searchString || X'FFFF'
                   GROUP BY host
@@ -317,10 +345,10 @@ impl<'query, 'conn> Matcher for OriginOrUrl<'query, 'conn> {
                 results.push(result?);
             }
         } else if self.query.contains(|c| c == '/' || c == ':' || c == '?') {
-            let (host, stripped_url) = split_after_host_and_port(self.query);
+            let (host, remainder) = split_after_host_and_port(self.query);
             let mut stmt = self.conn.db.prepare("
                 SELECT h.url as url,
-                       :strippedURL AS displayURL,
+                       :host || :remainder AS strippedURL,
                        h.frecency as frecency,
                        h.foreign_count > 0 AS bookmarked,
                        h.id as id,
@@ -330,10 +358,10 @@ impl<'query, 'conn> Matcher for OriginOrUrl<'query, 'conn> {
                 WHERE o.rev_host = reverse_host(:host)
                       AND MAX(h.frecency, 0) >= :frecencyThreshold
                       AND h.hidden = 0
-                      AND strip_prefix_and_userinfo(h.url) BETWEEN :strippedURL AND :strippedURL || X'FFFF'
+                      AND strip_prefix_and_userinfo(h.url) BETWEEN strippedURL AND strippedURL || X'FFFF'
                 UNION ALL
                 SELECT h.url as url,
-                       :strippedURL AS displayURL,
+                       :host || :remainder AS strippedURL,
                        h.frecency as frecency,
                        h.foreign_count > 0 AS bookmarked,
                        h.id as id,
@@ -343,14 +371,14 @@ impl<'query, 'conn> Matcher for OriginOrUrl<'query, 'conn> {
                 WHERE o.rev_host = reverse_host(:host) || 'www.'
                       AND MAX(h.frecency, 0) >= :frecencyThreshold
                       AND h.hidden = 0
-                      AND strip_prefix_and_userinfo(h.url) BETWEEN 'www.' || :strippedURL AND 'www.' || :strippedURL || X'FFFF'
+                      AND strip_prefix_and_userinfo(h.url) BETWEEN 'www.' || strippedURL AND 'www.' || strippedURL || X'FFFF'
                 ORDER BY h.frecency DESC, h.id DESC
                 LIMIT 1
             ")?;
             let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
                 (":searchString", &self.query),
-                (":strippedURL", &stripped_url),
                 (":host", &host),
+                (":remainder", &remainder),
                 (":frecencyThreshold", &-1i64),
             ];
             for result in stmt.query_and_then_named(params, SearchResult::from_url_row)? {
@@ -374,7 +402,7 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
             query,
             conn,
             MatchBehavior::BoundaryAnywhere,
-            SearchBehavior::any(),
+            SearchBehavior::default(),
         )
     }
 
@@ -456,7 +484,7 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
             query,
             conn,
             MatchBehavior::BoundaryAnywhere,
-            SearchBehavior::any(),
+            SearchBehavior::default(),
         )
     }
 
@@ -480,6 +508,8 @@ impl<'query, 'conn> Matcher for Suggestions<'query, 'conn> {
         let mut stmt = self.conn.db.prepare(
             "
             SELECT h.url, h.title,
+                   EXISTS(SELECT 1 FROM moz_bookmarks
+                          WHERE fk = h.id) AS bookmarked,
                    (SELECT title FROM moz_bookmarks
                     WHERE fk = h.id AND
                           title NOT NULL
@@ -495,7 +525,7 @@ impl<'query, 'conn> Matcher for Suggestions<'query, 'conn> {
               AND AUTOCOMPLETE_MATCH(:searchString, h.url,
                                      IFNULL(btitle, h.title), tags,
                                      visit_count, h.typed,
-                                     1, NULL,
+                                     bookmarked, NULL,
                                      :matchBehavior, :searchBehavior)
               AND (+h.visit_count_local > 0 OR +h.visit_count_remote > 0)
             ORDER BY h.frecency DESC, h.id DESC

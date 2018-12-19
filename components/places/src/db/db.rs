@@ -133,8 +133,8 @@ fn define_functions(c: &Connection) -> Result<()> {
     })?;
     c.create_scalar_function("strip_prefix_and_userinfo", 1, true, move |ctx| {
         let href = ctx.get::<String>(0)?;
-        let (_, remainder) = split_after_host_and_port(&href);
-        Ok(remainder.to_owned())
+        let (host_and_port, remainder) = split_after_host_and_port(&href);
+        Ok([host_and_port, remainder].concat())
     })?;
     c.create_scalar_function("reverse_host", 1, true, move |ctx| {
         let mut host = ctx.get::<String>(0)?;
