@@ -13,6 +13,7 @@ use crate::storage::history_sync::{
 use crate::types::{SyncGuid, Timestamp, VisitTransition};
 use crate::valid_guid::is_valid_places_guid;
 use rusqlite::Connection;
+use serde_json;
 use sql_support::ConnExt;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -178,11 +179,10 @@ fn plan_incoming_record(
 pub fn apply_plan(
     conn: &Connection,
     inbound: IncomingChangeset,
-    incoming_telem: &mut telemetry::EngineIncoming,
+    telem: &mut telemetry::EngineIncoming,
 ) -> Result<OutgoingChangeset> {
     // for a first-cut, let's do this in the most naive way possible...
     let mut plans: Vec<(SyncGuid, IncomingPlan)> = Vec::with_capacity(inbound.changes.len());
-    let mut num_failed = 0;
     for incoming in inbound.changes {
         let item = match HistorySyncRecord::from_payload(incoming.0) {
             Ok(item) => item,
@@ -190,7 +190,7 @@ pub fn apply_plan(
                 // We can't push IncomingPlan::Invalid into plans as we don't
                 // know the guid - just skip it.
                 log::warn!("Error deserializing incoming record: {}", e);
-                num_failed += 1;
+                telem.failed(1);
                 continue;
             }
         };
@@ -203,15 +203,13 @@ pub fn apply_plan(
     }
 
     let tx = conn.unchecked_transaction()?;
-    let mut num_applied = 0;
-    let mut num_deleted = 0;
-    let mut num_reconciled = 0;
 
     let mut outgoing = OutgoingChangeset::new("history".into(), inbound.timestamp);
     for (guid, plan) in plans {
         match &plan {
             IncomingPlan::Skip => {
                 log::trace!("incoming: skipping item {:?}", guid);
+                // XXX - should we `telem.reconciled(1);` here?
             }
             IncomingPlan::Invalid(err) => {
                 log::warn!(
@@ -219,14 +217,16 @@ pub fn apply_plan(
                     guid,
                     err
                 );
+                telem.failed(1);
             }
             IncomingPlan::Failed(err) => {
                 log::error!("incoming: record {:?} failed to apply: {}", guid, err);
+                telem.failed(1);
             }
             IncomingPlan::Delete => {
                 log::trace!("incoming: deleting {:?}", guid);
-                num_deleted += 1;
                 apply_synced_deletion(&conn, &guid)?;
+                telem.applied(1);
             }
             IncomingPlan::Apply {
                 old_guid,
@@ -234,7 +234,6 @@ pub fn apply_plan(
                 new_title,
                 visits,
             } => {
-                num_applied += 1;
                 log::trace!(
                     "incoming: will apply {:?}: url={:?}, title={:?}, to_add={:?}",
                     guid,
@@ -243,6 +242,7 @@ pub fn apply_plan(
                     visits
                 );
                 apply_synced_visits(&conn, &guid, &old_guid, &url, new_title, visits)?;
+                telem.applied(1);
                 // For now, we *do not* upload a tombstone for the item. See
                 // https://github.com/mozilla/application-services/issues/414
                 // for the discussion.
@@ -255,7 +255,7 @@ pub fn apply_plan(
                 */
             }
             IncomingPlan::Reconciled => {
-                num_reconciled += 1;
+                telem.reconciled(1);
                 log::trace!("incoming: reconciled {:?}", guid);
                 apply_synced_reconciliation(&conn, &guid)?;
             }
@@ -275,17 +275,7 @@ pub fn apply_plan(
     }
     tx.commit()?;
 
-    log::info!(
-        "incoming: applied {}, deleted {}, reconciled {}",
-        num_applied,
-        num_deleted,
-        num_reconciled
-    );
-
-    incoming_telem.applied(num_applied + num_deleted);
-    incoming_telem.failed(num_failed);
-    incoming_telem.reconciled(num_reconciled);
-
+    log::info!("incoming: {}", serde_json::to_string(&telem).unwrap());
     Ok(outgoing)
 }
 
