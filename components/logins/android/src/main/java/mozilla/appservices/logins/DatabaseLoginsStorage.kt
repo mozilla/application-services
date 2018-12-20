@@ -97,6 +97,13 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     }
 
     @Throws(LoginsStorageException::class)
+    override fun wipeLocal() {
+        rustCallWithLock { raw, error ->
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_wipe_local(raw, error)
+        }
+    }
+
+    @Throws(LoginsStorageException::class)
     override fun delete(id: String): Boolean {
         return rustCallWithLock { raw, error ->
             val deleted = PasswordSyncAdapter.INSTANCE.sync15_passwords_delete(raw, id, error)
