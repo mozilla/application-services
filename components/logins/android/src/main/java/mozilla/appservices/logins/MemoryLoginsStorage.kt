@@ -14,6 +14,7 @@ private enum class LoginsStorageState {
 }
 
 class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseable, LoginsStorage {
+
     private var state: LoginsStorageState = LoginsStorageState.Locked;
 
     init {
@@ -25,11 +26,13 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
     }
 
     @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun close() {
         state = LoginsStorageState.Closed
     }
 
     @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun lock() {
         checkNotClosed()
         if (state == LoginsStorageState.Locked) {
@@ -39,6 +42,7 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
     }
 
     @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun unlock(encryptionKey: String) {
         checkNotClosed()
         if (state == LoginsStorageState.Unlocked) {
@@ -54,24 +58,43 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
     }
 
     @Synchronized
+    @Throws(LoginsStorageException::class)
+    override fun ensureUnlocked(encryptionKey: String) {
+        if (isLocked()) {
+            this.unlock(encryptionKey)
+        }
+    }
+
+    @Synchronized
+    override fun ensureLocked() {
+        if (!isLocked()) {
+            this.lock()
+        }
+    }
+
+    @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun sync(syncInfo: SyncUnlockInfo) {
         checkUnlocked()
         Log.w("MemoryLoginsStorage", "Not syncing because this implementation can not sync")
     }
 
     @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun reset() {
         checkUnlocked()
         Log.w("MemoryLoginsStorage", "Reset is a noop becasue this implementation can not sync")
     }
 
     @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun wipe() {
         checkUnlocked()
         list = ArrayList()
     }
 
     @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun delete(id: String): Boolean {
         checkUnlocked()
         val oldLen = list.size
@@ -80,12 +103,14 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
     }
 
     @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun get(id: String): ServerPassword? {
         checkUnlocked()
         return list.find { it.id == id }
     }
 
     @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun touch(id: String) {
         checkUnlocked()
         val sp = list.find { it.id == id }
@@ -102,6 +127,7 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
     }
 
     @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun add(login: ServerPassword): String {
         checkUnlocked()
         val toInsert = if (login.id.isEmpty()) {
@@ -130,6 +156,7 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
     }
 
     @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun update(login: ServerPassword) {
         checkUnlocked()
         val current = list.find { it.id == login.id }
@@ -153,6 +180,7 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
     }
 
     @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun list(): List<ServerPassword> {
         checkUnlocked()
         // Return a copy so that mutations aren't visible (AIUI using `val` consistently in

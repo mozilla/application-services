@@ -39,7 +39,7 @@ abstract class LoginsStorageTest {
     }
 
     private fun finishAndClose(store: LoginsStorage) {
-        store.lock()
+        store.ensureLocked()
         assertEquals(store.isLocked(), true)
         store.close()
     }
@@ -72,6 +72,25 @@ abstract class LoginsStorageTest {
         assertNotNull(test.get("aaaaaaaaaaaa"))
         // "bbbbbbbbbbbb" has a single use (from insertion)
         assertEquals(1, test.get("bbbbbbbbbbbb")!!.timesUsed)
+        finishAndClose(test)
+    }
+
+
+    @Test
+    fun testEnsureLockUnlock() {
+        val test = getTestStore()
+        assertEquals(test.isLocked(), true)
+
+        test.ensureUnlocked(encryptionKey)
+        assertEquals(test.isLocked(), false)
+        test.ensureUnlocked(encryptionKey)
+        assertEquals(test.isLocked(), false)
+
+        test.ensureLocked()
+        assertEquals(test.isLocked(), true)
+        test.ensureLocked()
+        assertEquals(test.isLocked(), true)
+
         finishAndClose(test)
     }
 
