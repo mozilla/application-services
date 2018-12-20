@@ -41,7 +41,21 @@ In `reference-browser/settings.gradle`:
 includeBuild('../android-components') {
     dependencySubstitution {
         // As required.
+        substitute module('org.mozilla.components:browser-storage-sync') with project(':browser-storage-sync')
         substitute module('org.mozilla.components:service-firefox-accounts') with project(':service-firefox-accounts')
+        substitute module('org.mozilla.components:service-sync-logins) with project(':service-sync-logins)
+    }
+}
+
+// Gradle handles transitive dependencies just fine, but Android Studio doesn't seem to always do
+// the right thing.  Duplicate the transitive dependencies from `android-components/settings.gradle`
+// here as well.
+includeBuild('../application-services') {
+    dependencySubstitution {
+        // As required.
+        substitute module('org.mozilla.fxaclient:fxaclient') with project(':fxa-client-library')
+        substitute module('org.mozilla.sync15:logins') with project(':logins-library')
+        substitute module('org.mozilla.places:places') with project(':places-library')
     }
 }
 ```
@@ -55,4 +69,5 @@ In practice that means _you should always be targeting something that produces a
 ## Notes
 
 1. Transitive substitutions (as shown above) work but require newer Gradle versions (4.10+).
-1. Android Studio happily imports substitutions (and transitive substitutions).  However, the project list gets very large.
+1. Android Studio happily imports substitutions, but it doesn't appear to always do the right thing with transitive substitutions.  Best to keep substitutions in the final project (i.e., in `reference-browser/settings.gradle`) or to duplicate them in all transitive links.
+1. Be aware that the project list can get very large!  At this time, there's no way to filter the project list.
