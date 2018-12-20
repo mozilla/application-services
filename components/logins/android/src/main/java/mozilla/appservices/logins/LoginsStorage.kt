@@ -62,20 +62,29 @@ interface LoginsStorage : AutoCloseable {
     fun sync(syncInfo: SyncUnlockInfo)
 
     /**
-     * Delete all locally stored login sync metadata.
+     * Delete all locally stored login sync metadata (last sync timestamps, etc).
      *
      * @throws [LoginsStorageException] On unexpected errors (IO failure, rust panics, etc)
      */
     @Throws(LoginsStorageException::class)
+    @Deprecated("Most uses should be replaced with wipe or wipeLocal instead")
     fun reset()
 
     /**
-     * Delete all locally stored login data.
+     * Delete all login records. These deletions will be synced to the server on the next call to sync.
      *
      * @throws [LoginsStorageException] On unexpected errors (IO failure, rust panics, etc)
      */
     @Throws(LoginsStorageException::class)
     fun wipe()
+
+    /**
+     * Clear out all local state, bringing us back to the state before the first sync.
+     *
+     * @throws [LoginsStorageException] On unexpected errors (IO failure, rust panics, etc)
+     */
+    @Throws(LoginsStorageException::class)
+    fun wipeLocal()
 
     /**
      * Deletes the password with the given ID.

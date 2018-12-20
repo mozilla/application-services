@@ -604,6 +604,16 @@ impl LoginDb {
         Ok(())
     }
 
+    pub fn wipe_local(&self) -> Result<()> {
+        log::info!("Executing wipe_local on password store!");
+        self.execute_all(&[
+            "DELETE FROM loginsL",
+            "DELETE FROM loginsM",
+            "DELETE FROM loginsSyncMeta",
+        ])?;
+        Ok(())
+    }
+
     fn reconcile(
         &self,
         records: Vec<SyncLoginData>,

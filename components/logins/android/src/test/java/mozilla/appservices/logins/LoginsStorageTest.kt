@@ -64,7 +64,10 @@ abstract class LoginsStorageTest {
         expectException(LoginsStorageException::class.java) { test.touch("bbbbbbbbbbbb") }
         expectException(LoginsStorageException::class.java) { test.wipe() }
         expectException(LoginsStorageException::class.java) { test.sync(SyncUnlockInfo("", "", "", "")) }
-        expectException(LoginsStorageException::class.java) { test.reset() }
+        expectException(LoginsStorageException::class.java) {
+            @Suppress("DEPRECATION")
+            test.reset()
+        }
 
         test.unlock(encryptionKey)
         assertEquals(test.isLocked(), false)
@@ -137,6 +140,22 @@ abstract class LoginsStorageTest {
         assertEquals(2, test.list().size)
 
         test.wipe()
+        assertEquals(0, test.list().size)
+
+        assertNull(test.get("aaaaaaaaaaaa"))
+        assertNull(test.get("bbbbbbbbbbbb"))
+
+        finishAndClose(test)
+    }
+
+
+    @Test
+    fun testWipeLocal() {
+        val test = getTestStore()
+        test.unlock(encryptionKey)
+        assertEquals(2, test.list().size)
+
+        test.wipeLocal()
         assertEquals(0, test.list().size)
 
         assertNull(test.get("aaaaaaaaaaaa"))
@@ -265,6 +284,7 @@ abstract class LoginsStorageTest {
     }
 
     @Test
+    @Suppress("DEPRECATION")
     fun testUnlockAfterError() {
         val test = getTestStore()
 

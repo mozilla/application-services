@@ -95,6 +95,14 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
 
     @Synchronized
     @Throws(LoginsStorageException::class)
+    override fun wipeLocal() {
+        checkUnlocked()
+        // No remote state.
+        list = ArrayList()
+    }
+
+    @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun delete(id: String): Boolean {
         checkUnlocked()
         val oldLen = list.size

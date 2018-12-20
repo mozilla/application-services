@@ -89,6 +89,15 @@ pub unsafe extern "C" fn sync15_passwords_wipe(state: &PasswordEngine, error: &m
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn sync15_passwords_wipe_local(
+    state: &PasswordEngine,
+    error: &mut ExternError,
+) {
+    log::trace!("sync15_passwords_wipe_local");
+    call_with_result(error, || state.wipe_local())
+}
+
+#[no_mangle]
 pub extern "C" fn sync15_passwords_reset(state: &PasswordEngine, error: &mut ExternError) {
     log::trace!("sync15_passwords_reset");
     call_with_result(error, || state.reset())
