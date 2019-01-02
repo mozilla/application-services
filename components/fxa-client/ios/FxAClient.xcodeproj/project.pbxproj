@@ -18,7 +18,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		CE7B4B8A20A36B0500FC4422 /* libfxaclient_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfxaclient_ffi.a; path = ../../../target/universal/release/libfxaclient_ffi.a; sourceTree = "<group>"; };
+		CE7B4B8A20A36B0500FC4422 /* libfxaclient_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfxaclient_ffi.a; path = ../../../target/universal/debug/libfxaclient_ffi.a; sourceTree = "<group>"; };
 		CE9D202020914D0D00F1C8FA /* FxAClient.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FxAClient.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE9D202320914D0D00F1C8FA /* FxAClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FxAClient.h; sourceTree = "<group>"; };
 		CE9D202420914D0D00F1C8FA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -191,11 +191,11 @@
 			inputPaths = (
 			);
 			outputPaths = (
-				../../../target/universal/release/libfxaclient_ffi.a,
+				../../../target/universal/debug/libfxaclient_ffi.a,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# build fxa-client lipoed library\ncd \"$SRCROOT\"/../ffi\nenv -i PATH=\"$PATH\" \\\n\"$HOME\"/.cargo/bin/cargo lipo --release\n";
+			shellScript = "# build fxa-client lipoed library\nexport PATH=\"$HOME/.cargo/bin:$PATH\"\ncargo lipo --xcode-integ --package fxaclient_ffi --manifest-path ../Cargo.toml\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -361,7 +361,7 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/../../../target/universal/release/",
+					"$(PROJECT_DIR)/../../../target/universal/debug/",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.FxAClient;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
