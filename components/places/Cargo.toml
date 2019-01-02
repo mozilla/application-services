@@ -3,6 +3,7 @@ name = "places"
 edition = "2018"
 version = "0.1.0"
 authors = []
+build = "../../build.rs"
 
 [features]
 ffi = ["ffi-support"]

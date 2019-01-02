@@ -3,6 +3,7 @@ name = "places-ffi"
 edition = "2018"
 version = "0.1.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
+build = "../../../build.rs"
 
 [lib]
 name = "places_ffi"
