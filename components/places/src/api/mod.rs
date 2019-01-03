@@ -10,6 +10,6 @@ use crate::observation::VisitObservation;
 use crate::storage;
 
 pub fn apply_observation(conn: &mut PlacesDb, visit_obs: VisitObservation) -> Result<()> {
-    storage::apply_observation(conn, visit_obs)?;
+    storage::history::apply_observation(conn, visit_obs)?;
     Ok(())
 }

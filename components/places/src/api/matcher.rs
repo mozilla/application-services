@@ -559,7 +559,7 @@ impl<'query, 'conn> Matcher for Suggestions<'query, 'conn> {
 mod tests {
     use super::*;
     use crate::observation::VisitObservation;
-    use crate::storage::apply_observation;
+    use crate::storage::history::apply_observation;
     use crate::types::{Timestamp, VisitTransition};
 
     #[test]

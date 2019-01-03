@@ -22,5 +22,6 @@ pub use crate::api::apply_observation;
 pub use crate::db::PlacesDb;
 pub use crate::error::*;
 pub use crate::observation::VisitObservation;
-pub use crate::storage::{PageInfo, RowId};
+pub use crate::storage::PageInfo;
+pub use crate::storage::RowId;
 pub use crate::types::*;

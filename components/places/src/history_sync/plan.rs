@@ -6,7 +6,7 @@ use super::record::{HistoryRecord, HistoryRecordVisit, HistorySyncRecord};
 use super::{HISTORY_TTL, MAX_OUTGOING_PLACES, MAX_VISITS};
 use crate::api::history::can_add_url;
 use crate::error::*;
-use crate::storage::history_sync::{
+use crate::storage::history::history_sync::{
     apply_synced_deletion, apply_synced_reconciliation, apply_synced_visits, fetch_outgoing,
     fetch_visits, finish_outgoing, FetchedVisit, FetchedVisitPage, OutgoingInfo,
 };
@@ -276,8 +276,8 @@ mod tests {
     use crate::db::PlacesDb;
     use crate::history_sync::ServerVisitTimestamp;
     use crate::observation::VisitObservation;
-    use crate::storage::history_sync::fetch_visits;
-    use crate::storage::{apply_observation, delete_place_by_guid, url_to_guid};
+    use crate::storage::history::history_sync::fetch_visits;
+    use crate::storage::history::{apply_observation, delete_place_by_guid, url_to_guid};
     use crate::types::{SyncStatus, Timestamp};
     use serde_json::json;
     use sql_support::ConnExt;
