@@ -31,6 +31,18 @@ interface LoginsStorage : AutoCloseable {
     fun unlock(encryptionKey: String)
 
     /**
+     * Unlock (open) the database, using a byte string as the key.
+     * This is equivalent to calling unlock() after hex-encoding the bytes (lower
+     * case hexadecimal characters are used).
+     *
+     * @throws [MismatchedLockException] if the database is already unlocked
+     * @throws [InvalidKeyException] if the encryption key is wrong, or the db is corrupt
+     * @throws [LoginsStorageException] if there was some other error opening the database
+     */
+    @Throws(LoginsStorageException::class)
+    fun unlock(encryptionKey: ByteArray)
+
+    /**
      * Returns true if the database is locked, false otherwise.
      */
     fun isLocked(): Boolean
@@ -44,6 +56,16 @@ interface LoginsStorage : AutoCloseable {
      */
     @Throws(LoginsStorageException::class)
     fun ensureUnlocked(encryptionKey: String)
+
+    /**
+     * Equivalent to `unlock(encryptionKey)`, but does not throw in the case
+     * that the database is already unlocked.
+     *
+     * @throws [InvalidKeyException] if the encryption key is wrong, or the db is corrupt
+     * @throws [LoginsStorageException] if there was some other error opening the database
+     */
+    @Throws(LoginsStorageException::class)
+    fun ensureUnlocked(encryptionKey: ByteArray)
 
     /**
      * Equivalent to `lock()`, but does not throw in the case that
