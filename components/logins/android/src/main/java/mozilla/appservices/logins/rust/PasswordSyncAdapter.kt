@@ -43,6 +43,13 @@ internal interface PasswordSyncAdapter : Library {
             error: RustError.ByReference
     ): RawLoginSyncState?
 
+    fun sync15_passwords_state_new_with_hex_key(
+            db_path: String,
+            encryption_key_bytes: ByteArray,
+            encryption_key_len: Int,
+            error: RustError.ByReference
+    ): RawLoginSyncState?
+
     fun sync15_passwords_state_destroy(p: RawLoginSyncState)
 
     // Important: strings returned from rust as *char must be Pointers on this end, returning a

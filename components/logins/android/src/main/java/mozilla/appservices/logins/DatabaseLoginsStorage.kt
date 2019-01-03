@@ -55,7 +55,30 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
 
     @Synchronized
     @Throws(LoginsStorageException::class)
+    override fun unlock(encryptionKey: ByteArray) {
+        return rustCall {
+            if (!isLocked()) {
+                throw MismatchedLockException("Unlock called when we are already unlocked");
+            }
+            raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new_with_hex_key(
+                    dbPath,
+                    encryptionKey,
+                    encryptionKey.size,
+                    it))
+        }
+    }
+
+    @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun ensureUnlocked(encryptionKey: String) {
+        if (isLocked()) {
+            this.unlock(encryptionKey)
+        }
+    }
+
+    @Synchronized
+    @Throws(LoginsStorageException::class)
+    override fun ensureUnlocked(encryptionKey: ByteArray) {
         if (isLocked()) {
             this.unlock(encryptionKey)
         }

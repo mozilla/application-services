@@ -28,6 +28,11 @@ Sync15PasswordEngineRaw* sync15_passwords_state_new(char const* _Nonnull db_path
                                                     char const* _Nonnull encryption_key,
                                                     Sync15PasswordsError* _Nonnull error_out);
 
+Sync15PasswordEngineRaw* sync15_passwords_state_new_with_hex_key(char const* _Nonnull db_path,
+                                                                 uint8_t const* encryption_key_bytes,
+                                                                 uint32_t encryption_key_len,
+                                                                 Sync15PasswordsError* _Nonnull error_out);
+
 void sync15_passwords_state_destroy(Sync15PasswordEngineRaw* _Nonnull engine);
 
 
