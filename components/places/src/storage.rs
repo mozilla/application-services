@@ -433,23 +433,34 @@ pub mod history_sync {
     /// validated, deduped, etc - it's just the storage we do here.
     pub fn apply_synced_visits(
         db: &Connection,
-        new_guid: &SyncGuid,
-        existing_guid: &Option<SyncGuid>,
+        incoming_guid: &SyncGuid,
         url: &Url,
         title: &Option<String>,
         visits: &[HistoryRecordVisit],
     ) -> Result<()> {
+        let mut counter_incr = 0;
         let page_info = match fetch_page_info(db, &url)? {
-            Some(info) => {
-                assert!(
-                    existing_guid.is_none() || info.page.guid == *existing_guid.as_ref().unwrap()
-                );
+            Some(mut info) => {
+                // If the existing record has not yet been synced, then we will
+                // change the GUID to the incoming one. If it has been synced
+                // we keep the existing guid, but still apply the visits.
+                // See doc/history_duping.rst for more details.
+                if &info.page.guid != incoming_guid {
+                    if info.page.sync_status == SyncStatus::New {
+                        db.execute_named_cached(
+                            "UPDATE moz_places SET guid = :new_guid WHERE id = :row_id",
+                            &[(":new_guid", incoming_guid), (":row_id", &info.page.row_id)],
+                        )?;
+                        info.page.guid = incoming_guid.clone();
+                    }
+                    // Even if we didn't take the new guid, we are going to
+                    // take the new visits - so we want the change counter to
+                    // reflect there are changes.
+                    counter_incr = 1;
+                }
                 info.page
             }
-            None => {
-                assert!(existing_guid.is_none());
-                new_page_info(db, &url, Some(new_guid.clone()))?
-            }
+            None => new_page_info(db, &url, Some(incoming_guid.clone()))?,
         };
         for visit in visits {
             let transition = VisitTransition::from_primitive(visit.transition)
@@ -476,26 +487,20 @@ pub mod history_sync {
         db.execute_named_cached(
             "UPDATE moz_places
              SET title = :title,
-                 sync_status = :status
+                 sync_status = :status,
+                 sync_change_counter = :sync_change_counter
              WHERE id == :row_id",
             &[
                 (":title", new_title),
                 (":row_id", &page_info.row_id),
                 (":status", &SyncStatus::Normal),
+                (
+                    ":sync_change_counter",
+                    &(page_info.sync_change_counter + counter_incr),
+                ),
             ],
         )?;
 
-        // and finally update the guid if necessary.
-        // XXX - we should consider doing this as part of the update above, but
-        // it complicates the code and should be rare.
-        if let Some(ref existing_guid) = existing_guid {
-            if existing_guid != new_guid {
-                db.execute_named_cached(
-                    "UPDATE moz_places SET guid = :new_guid WHERE guid == :old_guid",
-                    &[(":new_guid", new_guid), (":old_guid", existing_guid)],
-                )?;
-            }
-        }
         Ok(())
     }
 
