@@ -14,7 +14,7 @@ use crate::observation::VisitObservation;
 use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition};
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
-use rusqlite::{Connection, Row};
+use rusqlite::{Connection, Row, NO_PARAMS};
 use serde_derive::*;
 use sql_support::{self, ConnExt};
 use std::fmt;
@@ -590,7 +590,7 @@ pub mod history_sync {
             "CREATE TEMP TABLE IF NOT EXISTS temp_sync_updated_meta
                     (id INTEGER PRIMARY KEY,
                      change_delta INTEGER NOT NULL)",
-            &[],
+            NO_PARAMS,
         )?;
 
         let insert_meta_sql = "
@@ -692,7 +692,7 @@ pub mod history_sync {
                 (SELECT change_delta FROM temp_sync_updated_meta m WHERE moz_places.id = m.id)
             WHERE id IN (SELECT id FROM temp_sync_updated_meta)
             ",
-            &[],
+            NO_PARAMS,
         )?;
 
         log::trace!("Updating all non-synced rows");
@@ -708,7 +708,7 @@ pub mod history_sync {
 
         log::trace!("Removing local tombstones");
         db.conn()
-            .execute_cached("DELETE from moz_places_tombstones", &[])?;
+            .execute_cached("DELETE from moz_places_tombstones", NO_PARAMS)?;
 
         Ok(())
     }
@@ -722,7 +722,7 @@ pub mod history_sync {
                     sync_status = {}",
                 (SyncStatus::New as u8)
             ),
-            &[],
+            NO_PARAMS,
         )?;
         Ok(())
     }
@@ -1252,7 +1252,7 @@ mod tests {
                 "UPDATE moz_places set sync_status = {}",
                 (SyncStatus::Normal as u8)
             ),
-            &[],
+            NO_PARAMS,
         )?;
         pi = fetch_page_info(&conn, &pi.url)?
             .expect("page should exist")
@@ -1323,7 +1323,7 @@ mod tests {
                 "UPDATE moz_places set sync_status = {}",
                 (SyncStatus::Normal as u8)
             ),
-            &[],
+            NO_PARAMS,
         )?;
 
         apply_synced_deletion(&conn, &pi.guid)?;
