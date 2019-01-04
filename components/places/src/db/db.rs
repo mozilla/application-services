@@ -209,6 +209,7 @@ fn define_functions(c: &Connection) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rusqlite::NO_PARAMS;
 
     #[test]
     fn test_open() {
@@ -220,7 +221,7 @@ mod tests {
         let conn = PlacesDb::open_in_memory(None).expect("no memory db");
         let rev_host: String = conn
             .db
-            .query_row("SELECT reverse_host('www.mozilla.org')", &[], |row| {
+            .query_row("SELECT reverse_host('www.mozilla.org')", NO_PARAMS, |row| {
                 row.get(0)
             })
             .unwrap();
@@ -228,7 +229,7 @@ mod tests {
 
         let rev_host: String = conn
             .db
-            .query_row("SELECT reverse_host('')", &[], |row| row.get(0))
+            .query_row("SELECT reverse_host('')", NO_PARAMS, |row| row.get(0))
             .unwrap();
         assert_eq!(rev_host, ".");
     }

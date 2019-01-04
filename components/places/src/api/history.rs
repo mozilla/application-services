@@ -8,7 +8,6 @@ use crate::error::*;
 use crate::observation::VisitObservation;
 use crate::types::*;
 use url::Url;
-
 // This module can become, roughly: PlacesUtils.history()
 
 pub fn can_add_url(_url: &Url) -> Result<bool> {
@@ -58,6 +57,7 @@ pub fn insert(conn: &mut PlacesDb, place: AddablePlaceInfo) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rusqlite::NO_PARAMS;
 
     #[test]
     fn test_insert() {
@@ -91,7 +91,7 @@ mod tests {
                     WHERE v.place_id = p.id";
 
         let mut stmt = c.db.prepare(sql).expect("valid sql");
-        let mut rows = stmt.query(&[]).expect("should execute");
+        let mut rows = stmt.query(NO_PARAMS).expect("should execute");
         let result = rows.next().expect("should get a row");
         let row = result.expect("expect anything");
 

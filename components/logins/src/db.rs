@@ -13,7 +13,7 @@ use crate::util;
 use lazy_static::lazy_static;
 use rusqlite::{
     types::{FromSql, ToSql},
-    Connection,
+    Connection, NO_PARAMS,
 };
 use sql_support::{self, ConnExt};
 use std::collections::HashSet;
@@ -269,7 +269,7 @@ impl LoginDb {
 
     pub fn get_all(&self) -> Result<Vec<Login>> {
         let mut stmt = self.db.prepare_cached(&GET_ALL_SQL)?;
-        let rows = stmt.query_and_then(&[], Login::from_row)?;
+        let rows = stmt.query_and_then(NO_PARAMS, Login::from_row)?;
         rows.collect::<Result<_>>()
     }
 
@@ -572,7 +572,7 @@ impl LoginDb {
                 "DELETE FROM loginsL WHERE sync_status = {new}",
                 new = SyncStatus::New as u8
             ),
-            &[],
+            NO_PARAMS,
         )?;
         self.execute_named(
             &format!(
@@ -590,7 +590,7 @@ impl LoginDb {
             &[(":now_ms", &now_ms as &ToSql)],
         )?;
 
-        self.execute("UPDATE loginsM SET is_overridden = 1", &[])?;
+        self.execute("UPDATE loginsM SET is_overridden = 1", NO_PARAMS)?;
 
         self.execute_named(
             &format!("
@@ -680,7 +680,7 @@ impl LoginDb {
             WHERE sync_status IS NOT {synced}",
             synced = SyncStatus::Synced as u8
         ))?;
-        let rows = stmt.query_and_then(&[], |row| {
+        let rows = stmt.query_and_then(NO_PARAMS, |row| {
             Ok(if row.get_checked::<_, bool>("is_deleted")? {
                 Payload::new_tombstone(row.get_checked::<_, String>("guid")?)
             } else {
