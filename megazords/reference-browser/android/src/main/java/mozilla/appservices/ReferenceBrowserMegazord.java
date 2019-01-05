@@ -9,5 +9,6 @@ public class ReferenceBrowserMegazord {
         System.setProperty("mozilla.appservices.fxaclient_ffi_lib_name", "reference_browser");
         System.setProperty("mozilla.appservices.logins_ffi_lib_name", "reference_browser");
         System.setProperty("mozilla.appservices.places_ffi_lib_name", "reference_browser");
+        System.setProperty("mozilla.appservices.ac_rust_log_lib_name", "reference_browser");
     }
 }

@@ -84,6 +84,7 @@ dependencies {
     api project(path: ':fxa-client-library', configuration: 'withoutLib')
     api project(path: ':logins-library', configuration: 'withoutLib')
     api project(path: ':places-library', configuration: 'withoutLib')
+    api project(path: ':ac-log-library', configuration: 'withoutLib')
 
     jnaForTest 'net.java.dev.jna:jna:4.5.2@jar'
 }

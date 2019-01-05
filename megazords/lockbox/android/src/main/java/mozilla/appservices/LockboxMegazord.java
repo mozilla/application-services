@@ -8,5 +8,6 @@ public class LockboxMegazord {
     public static void init() {
         System.setProperty("mozilla.appservices.fxaclient_ffi_lib_name", "lockbox");
         System.setProperty("mozilla.appservices.logins_ffi_lib_name", "lockbox");
+        System.setProperty("mozilla.appservices.ac_rust_log_lib_name", "lockbox");
     }
 }

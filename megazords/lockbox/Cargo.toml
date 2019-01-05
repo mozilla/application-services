@@ -10,3 +10,4 @@ crate-type = ["cdylib"]
 [dependencies]
 fxaclient_ffi = { path = "../../components/fxa-client/ffi" }
 logins_ffi = { path = "../../components/logins/ffi" }
+ac_log = { path = "../../components/ac_log" }
