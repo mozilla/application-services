@@ -20,7 +20,7 @@ commands:
           key: libs-cache-v2-{{ arch }}-{{ checksum "libs/build-all.sh" }}-{{ checksum "libs/build-openssl-desktop.sh" }}-{{ checksum "libs/build-sqlcipher-desktop.sh" }}
           paths:
             - libs/desktop
-  rust-tests:
+  test-setup:
     parameters:
       rust-version:
         type: string
@@ -34,6 +34,14 @@ commands:
             rustup install <<parameters.rust-version>>
             rustup default <<parameters.rust-version>>
             rustc --version
+  rust-tests:
+    parameters:
+      rust-version:
+        type: string
+        default: "stable"
+    steps:
+      - test-setup:
+          rust-version: <<parameters.rust-version>>
       # Test with 1. only default features on, 2. all features on, 3. no features on.
       # This is not perfect (really we want the cartesian product), but is good enough in practice.
       - run:
@@ -45,6 +53,17 @@ commands:
       - run:
           name: Test (no default features)
           command: cargo test --all --no-default-features --verbose
+  sync-tests:
+    steps:
+      - test-setup
+      - run:
+          name: Install Node.js
+          command: |
+            curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+      - run:
+          name: Sync Integration Test Suite
+          command: cargo run -p sync-test
 
 jobs:
   Check Rust formatting:
@@ -72,6 +91,11 @@ jobs:
     steps:
       - rust-tests:
           rust-version: "nightly"
+  Sync integration tests:
+    docker:
+      - image: circleci/rust:latest-browsers
+    steps:
+      - sync-tests
 
 workflows:
   version: 2
@@ -83,3 +107,4 @@ workflows:
       - Rust tests - stable
       - Rust tests - beta
       - Rust tests - nightly
+      - Sync integration tests
