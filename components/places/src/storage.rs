@@ -248,9 +248,7 @@ pub fn update_frecency(db: &Connection, id: RowId, redirect_boost: Option<bool>)
 fn new_page_info(db: &impl ConnExt, url: &Url, new_guid: Option<SyncGuid>) -> Result<PageInfo> {
     let guid = match new_guid {
         Some(guid) => guid,
-        None => sync15::util::random_guid()
-            .expect("according to logins, this is fine :)")
-            .into(),
+        None => SyncGuid::new(),
     };
     let sql = "INSERT INTO moz_places (guid, url, url_hash)
                VALUES (:guid, :url, hash(:url))";
