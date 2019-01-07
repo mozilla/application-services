@@ -289,15 +289,14 @@ pub fn create(db: &PlacesDb) -> Result<()> {
 mod tests {
     use super::*;
     use crate::db::PlacesDb;
-    use crate::types::SyncStatus;
-    use sync15::util::random_guid;
+    use crate::types::{SyncGuid, SyncStatus};
     use url::Url;
 
-    fn has_tombstone(conn: &PlacesDb, guid: &str) -> bool {
+    fn has_tombstone(conn: &PlacesDb, guid: &SyncGuid) -> bool {
         let count: Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_places_tombstones
                      WHERE guid = :guid",
-            &[(":guid", &guid)],
+            &[(":guid", guid)],
             |row| Ok(row.get_checked::<_, u32>(0)?),
             true,
         );
@@ -307,7 +306,7 @@ mod tests {
     #[test]
     fn test_places_no_tombstone() {
         let conn = PlacesDb::open_in_memory(None).expect("no memory db");
-        let guid = random_guid().expect("should get a guid");
+        let guid = SyncGuid::new();
 
         conn.execute_named_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES (:guid, :url, hash(:url))",
@@ -337,7 +336,7 @@ mod tests {
     #[test]
     fn test_places_tombstone_removal() {
         let conn = PlacesDb::open_in_memory(None).expect("no memory db");
-        let guid = random_guid().expect("should get a guid");
+        let guid = SyncGuid::new();
 
         conn.execute_named_cached(
             "INSERT INTO moz_places_tombstones VALUES (:guid)",

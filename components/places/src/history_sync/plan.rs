@@ -282,7 +282,6 @@ mod tests {
     use serde_json::json;
     use sql_support::ConnExt;
     use std::time::Duration;
-    use sync15::util::random_guid;
     use sync15::{IncomingChangeset, ServerTimestamp};
     use url::Url;
 
@@ -441,9 +440,8 @@ mod tests {
         assert_eq!(get_sync(&conn, &url), (SyncStatus::New, 1));
 
         // try and add an incoming record with the same URL but different guid.
-        let new_guid = random_guid().expect("according to logins, this is fine :)");
         let record = HistoryRecord {
-            id: new_guid.into(),
+            id: SyncGuid::new(),
             title: "title".into(),
             hist_uri: "https://example.com".into(),
             sortindex: 0,
@@ -467,10 +465,10 @@ mod tests {
         // This is testing the case when there are no local visits to that URL.
         let _ = env_logger::try_init();
         let db = PlacesDb::open_in_memory(None)?;
-        let guid1 = random_guid().expect("should be able to get a guid");
+        let guid1 = SyncGuid::new();
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
 
-        let guid2 = random_guid().expect("should be able to get a guid");
+        let guid2 = SyncGuid::new();
         let ts2: Timestamp = SystemTime::now().into();
         let url = Url::parse("https://example.com")?;
 
@@ -502,15 +500,11 @@ mod tests {
             1,
             "should have guid1 as outgoing with both visits."
         );
-        assert_eq!(outgoing.changes[0].id, guid1);
+        assert_eq!(outgoing.changes[0].id, guid1.0);
 
         // should have 1 URL with both visits locally.
         let (page, visits) = fetch_visits(&db, &url, 3)?.expect("page exists");
-        assert_eq!(
-            page.guid,
-            SyncGuid(guid1),
-            "page should have the expected guid"
-        );
+        assert_eq!(page.guid, guid1, "page should have the expected guid");
         assert_eq!(visits.len(), 2, "page should have 2 visits");
 
         Ok(())
@@ -526,10 +520,10 @@ mod tests {
         let _ = env_logger::try_init();
         let mut db = PlacesDb::open_in_memory(None)?;
 
-        let guid1 = random_guid().expect("should be able to get a guid");
+        let guid1 = SyncGuid::new();
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
 
-        let guid2 = random_guid().expect("should be able to get a guid");
+        let guid2 = SyncGuid::new();
         let ts2: Timestamp = SystemTime::now().into();
         let url = Url::parse("https://example.com")?;
 
@@ -563,11 +557,11 @@ mod tests {
 
         let outgoing = apply_plan(&db, incoming)?;
         assert_eq!(outgoing.changes.len(), 1, "should have guid1 as outgoing");
-        assert_eq!(outgoing.changes[0].id, guid1);
+        assert_eq!(outgoing.changes[0].id, guid1.0);
 
         // should have 1 URL with all visits locally, but with the first incoming guid.
         let (page, visits) = fetch_visits(&db, &url, 3)?.expect("page exists");
-        assert_eq!(page.guid, SyncGuid(guid1), "should have the expected guid");
+        assert_eq!(page.guid, guid1, "should have the expected guid");
         assert_eq!(visits.len(), 3, "should have all visits");
 
         Ok(())
@@ -583,10 +577,10 @@ mod tests {
         let _ = env_logger::try_init();
         let mut db = PlacesDb::open_in_memory(None)?;
 
-        let guid1 = random_guid().expect("should be able to get a guid");
+        let guid1 = SyncGuid::new();
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
 
-        let guid2 = random_guid().expect("should be able to get a guid");
+        let guid2 = SyncGuid::new();
         let ts2: Timestamp = SystemTime::now().into();
         let url = Url::parse("https://example.com")?;
 
@@ -627,7 +621,7 @@ mod tests {
 
         // should have 1 URL with all visits locally, but with the first incoming guid.
         let (page, visits) = fetch_visits(&db, &url, 3)?.expect("page exists");
-        assert_eq!(page.guid, SyncGuid(guid1), "should have the expected guid");
+        assert_eq!(page.guid, guid1, "should have the expected guid");
         assert_eq!(visits.len(), 3, "should have all visits");
 
         Ok(())
