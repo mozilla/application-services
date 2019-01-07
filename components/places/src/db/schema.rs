@@ -9,10 +9,12 @@
 
 use crate::db::PlacesDb;
 use crate::error::*;
+use crate::storage::bookmarks::create_bookmark_roots;
 use lazy_static::lazy_static;
 use sql_support::ConnExt;
+use rusqlite::NO_PARAMS;
 
-const VERSION: i64 = 2;
+const VERSION: i64 = 3;
 
 const CREATE_TABLE_PLACES_SQL: &str =
     "CREATE TABLE IF NOT EXISTS moz_places (
@@ -74,20 +76,28 @@ const CREATE_TABLE_INPUTHISTORY_SQL: &str = "CREATE TABLE moz_inputhistory (
 // XXX - TODO - moz_annos
 // XXX - TODO - moz_anno_attributes
 // XXX - TODO - moz_items_annos
-// XXX - TODO - moz_bookmarks
-// XXX - TODO - moz_bookmarks_deleted
 
-// TODO: This isn't the complete `moz_bookmarks` definition, just enough to
-// test autocomplete.
 const CREATE_TABLE_BOOKMARKS_SQL: &str = "CREATE TABLE moz_bookmarks (
         id INTEGER PRIMARY KEY,
-        fk INTEGER,
-        title TEXT,
+        fk INTEGER DEFAULT NULL, -- place_id
+        type INTEGER NOT NULL,
+        parent INTEGER NOT NULL,
+        position INTEGER NOT NULL,
+        title TEXT, -- a'la bug 1356159, NULL is special here - it means 'not edited'
+        dateAdded INTEGER NOT NULL DEFAULT 0,
         lastModified INTEGER NOT NULL DEFAULT 0,
+        guid TEXT NOT NULL UNIQUE,
+
+        syncStatus INTEGER NOT NULL DEFAULT 0,
+        syncChangeCounter INTEGER NOT NULL DEFAULT 1,
 
         FOREIGN KEY(fk) REFERENCES moz_places(id) ON DELETE RESTRICT
     )";
 
+const CREATE_TABLE_BOOKMARKS_DELETED_SQL: &str = "CREATE TABLE moz_bookmarks_deleted (
+        guid TEXT PRIMARY KEY,
+        dateRemoved INTEGER NOT NULL
+    )";
 // Note: desktop has/had a 'keywords' table, but we intentionally do not.
 
 const CREATE_TABLE_ORIGINS_SQL: &str = "CREATE TABLE moz_origins (
@@ -264,6 +274,7 @@ pub fn create(db: &PlacesDb) -> Result<()> {
         CREATE_TABLE_HISTORYVISITS_SQL,
         CREATE_TABLE_INPUTHISTORY_SQL,
         CREATE_TABLE_BOOKMARKS_SQL,
+        CREATE_TABLE_BOOKMARKS_DELETED_SQL,
         CREATE_TABLE_ORIGINS_SQL,
         CREATE_TABLE_META_SQL,
         CREATE_IDX_MOZ_PLACES_URL_HASH,
@@ -279,8 +290,9 @@ pub fn create(db: &PlacesDb) -> Result<()> {
         CREATE_IDX_MOZ_HISTORYVISITS_VISITDATE,
         CREATE_IDX_MOZ_HISTORYVISITS_ISLOCAL,
         CREATE_IDX_MOZ_BOOKMARKS_PLACELASTMODIFIED,
-        &format!("PRAGMA user_version = {version}", version = VERSION),
     ])?;
+    create_bookmark_roots(&db.conn())?;
+    db.execute(&format!("PRAGMA user_version = {version}", version = VERSION), NO_PARAMS)?;
 
     Ok(())
 }

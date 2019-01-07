@@ -6,6 +6,7 @@
 // API and the database.
 
 pub mod history;
+pub mod bookmarks;
 
 use crate::error::Result;
 use crate::types::{SyncGuid, SyncStatus, Timestamp};

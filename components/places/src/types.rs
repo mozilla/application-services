@@ -185,6 +185,36 @@ impl<'de> serde::Deserialize<'de> for VisitTransition {
     }
 }
 
+/// Bookmark types.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[repr(u8)]
+pub enum BookmarkType {
+    Bookmark = 1, // TYPE_BOOKMARK
+    Folder = 2, // TYPE_FOLDER
+    Separator = 3, // TYPE_SEPARATOR;
+    // On desktop, TYPE_DYNAMIC_CONTAINER = 4 but is deprecated - so please
+    // avoid using this value in the future.
+}
+
+impl BookmarkType {
+    #[inline]
+    pub fn from_u8(v: u8) -> Option<Self> {
+        match v {
+            1 => Some(BookmarkType::Bookmark),
+            2 => Some(BookmarkType::Folder),
+            3 => Some(BookmarkType::Separator),
+            _ => None,
+        }
+    }
+}
+
+impl ToSql for BookmarkType {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
+        Ok(ToSqlOutput::from(*self as u8))
+    }
+}
+
+
 /// Re SyncStatus - note that:
 /// * logins has synced=0, changed=1, new=2
 /// * desktop bookmarks has unknown=0, new=1, normal=2
