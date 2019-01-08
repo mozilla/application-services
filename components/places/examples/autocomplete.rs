@@ -128,7 +128,7 @@ impl LegacyPlace {
                 .with_at(places::Timestamp((v.date / 1000) as u64))
                 .with_title(self.title.clone())
                 .with_is_remote(rand::random::<f64>() < options.remote_probability);
-            places::storage::apply_observation_direct(conn, obs)?;
+            places::storage::history::apply_observation_direct(conn, obs)?;
         }
         Ok(())
     }

@@ -102,7 +102,7 @@ pub unsafe extern "C" fn places_get_visited(
             .collect::<Result<Vec<_>, _>>()?;
         // We need to call `to_string` manually because primitives (e.g. bool) don't implement
         // `ffi_support::IntoFfiJsonTag` (Not clear if they should, needs more thought).
-        let visited = storage::get_visited(conn, &urls)?;
+        let visited = storage::history::get_visited(conn, &urls)?;
         Ok(serde_json::to_string(&visited)?)
     })
 }
@@ -117,7 +117,7 @@ pub extern "C" fn places_get_visited_urls_in_range(
 ) -> *mut c_char {
     log::trace!("places_get_visited_in_range");
     call_with_result(error, || -> places::Result<String> {
-        let visited = storage::get_visited_urls(
+        let visited = storage::history::get_visited_urls(
             conn,
             // Probably should allow into()...
             places::Timestamp(start.max(0) as u64),

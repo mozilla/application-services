@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::storage::history_sync::reset_storage;
+use crate::storage::history::history_sync::reset_storage;
 use rusqlite::types::{FromSql, ToSql};
 use rusqlite::Connection;
 use sql_support::ConnExt;
