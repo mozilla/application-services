@@ -108,7 +108,7 @@ impl<'a> HistoryStore<'a> {
         &self,
         storage_init: &Sync15StorageClientInit,
         root_sync_key: &KeyBundle,
-        telem_sync: &mut telemetry::SyncTelemetry,
+        sync_ping: &mut telemetry::SyncTelemetryPing,
     ) -> Result<()> {
         let global_state: Cell<Option<String>> = Cell::new(self.get_global_state()?);
         let result = sync_multiple(
@@ -117,7 +117,7 @@ impl<'a> HistoryStore<'a> {
             &self.client_info,
             storage_init,
             root_sync_key,
-            telem_sync,
+            sync_ping,
         );
         self.set_global_state(global_state.replace(None))?;
         let failures = result?;

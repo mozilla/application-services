@@ -630,3 +630,86 @@ mod sync_tests {
         );
     }
 }
+
+/// The Sync ping payload
+/// May have many syncs, may have many events. However, due to the architecture
+/// of apps which use these components, this payload is almost certainly not
+/// suitable for submitting directly. For example, we will always return a
+/// payload with exactly 1 sync, and it will not know certain other fields
+/// in the payload, such as the FxA device ID. The intention is that comsumers
+/// of this will use this to create a "real" payload - eg, accumulating
+/// until some threshold number of syncs is reached, and contributing
+/// additional data which only the consumer knows.
+#[derive(Debug, Serialize)]
+pub struct SyncTelemetryPing {
+    version: u32,
+
+    uid: Option<String>,
+
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    events: Vec<Event>,
+
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    syncs: Vec<SyncTelemetry>,
+}
+
+impl SyncTelemetryPing {
+    pub fn new() -> Self {
+        Self {
+            version: 1,
+            uid: None,
+            events: Vec::new(),
+            syncs: Vec::new(),
+        }
+    }
+
+    pub fn uid(&mut self, uid: String) {
+        if let Some(ref existing) = self.uid {
+            if *existing != uid {
+                log::warn!("existing uid ${} being replaced by {}", existing, uid);
+            }
+        }
+        self.uid = Some(uid);
+    }
+
+    pub fn sync(&mut self, mut s: SyncTelemetry) {
+        s.finished();
+        self.syncs.push(s);
+    }
+
+    pub fn event(&mut self, e: Event) {
+        self.events.push(e);
+    }
+}
+
+#[cfg(test)]
+mod ping_tests {
+    use super::*;
+    #[test]
+    fn test_ping() {
+        let engine = Engine::new("test");
+        let mut s = SyncTelemetry::new();
+        s.engine(engine);
+        let mut p = SyncTelemetryPing::new();
+        p.uid("user-id".into());
+        p.sync(s);
+        let event = Event::new("foo", "bar");
+        p.event(event);
+        assert_json(
+            &p,
+            json!({
+                "events": [{
+                    "method": "bar", "object": "foo"
+                }],
+                "syncs": [{
+                    "engines": [{
+                        "name": "test", "when": 0.0
+                    }],
+                    "when": 0.0
+                }],
+                "uid": "user-id",
+                "version": 1
+            }),
+        );
+    }
+}

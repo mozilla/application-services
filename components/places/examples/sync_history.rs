@@ -129,17 +129,16 @@ fn main() -> Result<()> {
     }
 
     log::info!("Syncing!");
-    let mut telem_sync = telemetry::SyncTelemetry::new();
-    if let Err(e) = store.sync(&client_init, &root_sync_key, &mut telem_sync) {
+    let mut sync_ping = telemetry::SyncTelemetryPing::new();
+    if let Err(e) = store.sync(&client_init, &root_sync_key, &mut sync_ping) {
         log::warn!("Sync failed! {}", e);
         log::warn!("BT: {:?}", e.backtrace());
     } else {
         log::info!("Sync was successful!");
     }
-    telem_sync.finished();
     println!(
-        "telemetry: {:?}",
-        serde_json::to_string(&telem_sync).unwrap()
+        "Sync telemetry: {}",
+        serde_json::to_string_pretty(&sync_ping).unwrap()
     );
     println!("Exiting (bye!)");
     Ok(())
