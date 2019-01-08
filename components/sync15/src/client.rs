@@ -267,6 +267,10 @@ impl Sync15StorageClient {
 
         Ok(())
     }
+
+    pub fn hashed_uid(&self) -> error::Result<String> {
+        self.tsc.hashed_uid(&self.http_client)
+    }
 }
 
 pub struct PostWrapper<'a> {

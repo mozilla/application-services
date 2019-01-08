@@ -7,6 +7,7 @@ use crate::client::Sync15StorageClient;
 use crate::error::Error;
 use crate::request::CollectionRequest;
 use crate::state::GlobalState;
+use crate::telemetry;
 use crate::util::ServerTimestamp;
 
 /// Low-level store functionality. Stores that need custom reconciliation logic should use this.
@@ -19,6 +20,7 @@ pub trait Store {
     fn apply_incoming(
         &self,
         inbound: IncomingChangeset,
+        incoming_telem: &mut telemetry::EngineIncoming,
     ) -> Result<OutgoingChangeset, failure::Error>;
 
     fn sync_finished(
@@ -44,6 +46,7 @@ pub fn synchronize(
     state: &GlobalState,
     store: &Store,
     fully_atomic: bool,
+    telem_engine: &mut telemetry::Engine,
 ) -> Result<(), Error> {
     let collection = store.collection_name();
     log::info!("Syncing collection {}", collection);
@@ -56,7 +59,9 @@ pub fn synchronize(
         "Downloaded {} remote changes",
         incoming_changes.changes.len()
     );
-    let mut outgoing = store.apply_incoming(incoming_changes)?;
+    let mut telem_incoming = telemetry::EngineIncoming::new();
+    let mut outgoing = store.apply_incoming(incoming_changes, &mut telem_incoming)?;
+    telem_engine.incoming(telem_incoming);
 
     outgoing.timestamp = last_changed_remote;
 
@@ -69,6 +74,12 @@ pub fn synchronize(
         upload_info.successful_ids.len(),
         upload_info.failed_ids.len()
     );
+    // ideally we'd report this per-batch, but for now, let's just report it
+    // as a total.
+    let mut telem_outgoing = telemetry::EngineOutgoing::new();
+    telem_outgoing.sent(upload_info.successful_ids.len() + upload_info.failed_ids.len());
+    telem_outgoing.failed(upload_info.failed_ids.len());
+    telem_engine.outgoing(telem_outgoing);
 
     store.sync_finished(upload_info.modified_timestamp, &upload_info.successful_ids)?;
 

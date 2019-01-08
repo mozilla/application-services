@@ -365,6 +365,10 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
         }
     }
 
+    fn hashed_uid(&self, http_client: &Client) -> Result<String> {
+        self.with_token(http_client, |ctx| Ok(ctx.token.hashed_fxa_uid.clone()))
+    }
+
     fn authorization(&self, http_client: &Client, req: &Request) -> Result<String> {
         self.with_token(http_client, |ctx| ctx.authorization(req))
     }
@@ -389,6 +393,10 @@ impl TokenProvider {
         Self {
             imp: TokenProviderImpl::new(fetcher),
         }
+    }
+
+    pub fn hashed_uid(&self, http_client: &Client) -> Result<String> {
+        self.imp.hashed_uid(http_client)
     }
 
     pub fn authorization(&self, http_client: &Client, req: &Request) -> Result<String> {

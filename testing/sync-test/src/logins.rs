@@ -4,6 +4,7 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 use crate::auth::TestClient;
 use crate::testing::TestGroup;
 use logins::{Login, PasswordEngine, Result as LoginResult};
+use sync15::telemetry;
 
 // helpers...
 
@@ -76,7 +77,9 @@ pub fn touch_login(e: &PasswordEngine, id: &str, times: usize) -> LoginResult<Lo
 
 pub fn sync_logins(client: &mut TestClient) -> Result<(), failure::Error> {
     let (init, key) = client.data_for_sync()?;
-    client.logins_engine.sync(&init, &key)?;
+    client
+        .logins_engine
+        .sync(&init, &key, &mut telemetry::SyncTelemetryPing::new())?;
     Ok(())
 }
 
