@@ -18,10 +18,10 @@ lazy_static = "1.1.0"
 url = "1.7.1"
 failure = "0.1.3"
 sql-support = { path = "../support/sql" }
-ffi-support = { path = "../support/ffi", optional = true, default-features = false, features = [] }
+ffi-support = { path = "../support/ffi", optional = true }
 
 [dependencies.rusqlite]
-version = "0.14.0"
+version = "0.16.0"
 features = ["sqlcipher", "limits"]
 
 [dev-dependencies]

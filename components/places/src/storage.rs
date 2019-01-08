@@ -14,7 +14,7 @@ use crate::observation::VisitObservation;
 use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition};
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
-use rusqlite::{Connection, Row};
+use rusqlite::{Connection, Row, NO_PARAMS};
 use serde_derive::*;
 use sql_support::{self, ConnExt};
 use std::fmt;
@@ -248,9 +248,7 @@ pub fn update_frecency(db: &Connection, id: RowId, redirect_boost: Option<bool>)
 fn new_page_info(db: &impl ConnExt, url: &Url, new_guid: Option<SyncGuid>) -> Result<PageInfo> {
     let guid = match new_guid {
         Some(guid) => guid,
-        None => sync15::util::random_guid()
-            .expect("according to logins, this is fine :)")
-            .into(),
+        None => SyncGuid::new(),
     };
     let sql = "INSERT INTO moz_places (guid, url, url_hash)
                VALUES (:guid, :url, hash(:url))";
@@ -433,23 +431,34 @@ pub mod history_sync {
     /// validated, deduped, etc - it's just the storage we do here.
     pub fn apply_synced_visits(
         db: &Connection,
-        new_guid: &SyncGuid,
-        existing_guid: &Option<SyncGuid>,
+        incoming_guid: &SyncGuid,
         url: &Url,
         title: &Option<String>,
         visits: &[HistoryRecordVisit],
     ) -> Result<()> {
+        let mut counter_incr = 0;
         let page_info = match fetch_page_info(db, &url)? {
-            Some(info) => {
-                assert!(
-                    existing_guid.is_none() || info.page.guid == *existing_guid.as_ref().unwrap()
-                );
+            Some(mut info) => {
+                // If the existing record has not yet been synced, then we will
+                // change the GUID to the incoming one. If it has been synced
+                // we keep the existing guid, but still apply the visits.
+                // See doc/history_duping.rst for more details.
+                if &info.page.guid != incoming_guid {
+                    if info.page.sync_status == SyncStatus::New {
+                        db.execute_named_cached(
+                            "UPDATE moz_places SET guid = :new_guid WHERE id = :row_id",
+                            &[(":new_guid", incoming_guid), (":row_id", &info.page.row_id)],
+                        )?;
+                        info.page.guid = incoming_guid.clone();
+                    }
+                    // Even if we didn't take the new guid, we are going to
+                    // take the new visits - so we want the change counter to
+                    // reflect there are changes.
+                    counter_incr = 1;
+                }
                 info.page
             }
-            None => {
-                assert!(existing_guid.is_none());
-                new_page_info(db, &url, Some(new_guid.clone()))?
-            }
+            None => new_page_info(db, &url, Some(incoming_guid.clone()))?,
         };
         for visit in visits {
             let transition = VisitTransition::from_primitive(visit.transition)
@@ -476,26 +485,20 @@ pub mod history_sync {
         db.execute_named_cached(
             "UPDATE moz_places
              SET title = :title,
-                 sync_status = :status
+                 sync_status = :status,
+                 sync_change_counter = :sync_change_counter
              WHERE id == :row_id",
             &[
                 (":title", new_title),
                 (":row_id", &page_info.row_id),
                 (":status", &SyncStatus::Normal),
+                (
+                    ":sync_change_counter",
+                    &(page_info.sync_change_counter + counter_incr),
+                ),
             ],
         )?;
 
-        // and finally update the guid if necessary.
-        // XXX - we should consider doing this as part of the update above, but
-        // it complicates the code and should be rare.
-        if let Some(ref existing_guid) = existing_guid {
-            if existing_guid != new_guid {
-                db.execute_named_cached(
-                    "UPDATE moz_places SET guid = :new_guid WHERE guid == :old_guid",
-                    &[(":new_guid", new_guid), (":old_guid", existing_guid)],
-                )?;
-            }
-        }
         Ok(())
     }
 
@@ -563,10 +566,10 @@ pub mod history_sync {
 
         // We want to limit to 5000 places - tombstones are arguably the
         // most important, so we fetch these first.
-        let ts_rows = tombstones_stmt
-            .query_map_named(&[(":max_places", &(max_places as u32))], |row| {
-                SyncGuid(row.get::<_, String>("guid"))
-            })?;
+        let ts_rows = tombstones_stmt.query_and_then_named(
+            &[(":max_places", &(max_places as u32))],
+            |row| -> rusqlite::Result<_> { Ok(SyncGuid(row.get_checked::<_, String>("guid")?)) },
+        )?;
         for r in ts_rows {
             let guid = r?;
             log::trace!("outgoing tombstone {:?}", &guid);
@@ -585,7 +588,7 @@ pub mod history_sync {
             "CREATE TEMP TABLE IF NOT EXISTS temp_sync_updated_meta
                     (id INTEGER PRIMARY KEY,
                      change_delta INTEGER NOT NULL)",
-            &[],
+            NO_PARAMS,
         )?;
 
         let insert_meta_sql = "
@@ -598,14 +601,16 @@ pub mod history_sync {
         let mut ids_to_update = Vec::new();
         for t in rows {
             let page = t?;
-            let visit_rows = visits.query_map_named(
+            let visit_rows = visits.query_and_then_named(
                 &[
                     (":max_visits", &(max_visits as u32)),
                     (":place_id", &page.row_id),
                 ],
-                |row| HistoryRecordVisit {
-                    date: row.get::<_, Timestamp>("date").into(),
-                    transition: row.get::<_, u8>("transition"),
+                |row| {
+                    Ok(HistoryRecordVisit {
+                        date: row.get_checked::<_, Timestamp>("date")?.into(),
+                        transition: row.get_checked::<_, u8>("transition")?,
+                    })
                 },
             )?;
             let visits = visit_rows.collect::<RusqliteResult<Vec<_>>>()?;
@@ -685,7 +690,7 @@ pub mod history_sync {
                 (SELECT change_delta FROM temp_sync_updated_meta m WHERE moz_places.id = m.id)
             WHERE id IN (SELECT id FROM temp_sync_updated_meta)
             ",
-            &[],
+            NO_PARAMS,
         )?;
 
         log::trace!("Updating all non-synced rows");
@@ -701,7 +706,7 @@ pub mod history_sync {
 
         log::trace!("Removing local tombstones");
         db.conn()
-            .execute_cached("DELETE from moz_places_tombstones", &[])?;
+            .execute_cached("DELETE from moz_places_tombstones", NO_PARAMS)?;
 
         Ok(())
     }
@@ -715,7 +720,7 @@ pub mod history_sync {
                     sync_status = {}",
                 (SyncStatus::New as u8)
             ),
-            &[],
+            NO_PARAMS,
         )?;
         Ok(())
     }
@@ -749,7 +754,9 @@ pub fn get_visited(db: &PlacesDb, urls: &[Url]) -> Result<Vec<bool>> {
                 values_with_idx
             );
             let mut stmt = db.prepare(&sql)?;
-            for idx_r in stmt.query_map(chunk, |row| row.get::<_, i64>(0) as usize)? {
+            for idx_r in stmt.query_and_then(chunk, |row| -> rusqlite::Result<_> {
+                Ok(row.get_checked::<_, i64>(0)? as usize)
+            })? {
                 let idx = idx_r?;
                 result[idx] = true;
             }
@@ -785,8 +792,8 @@ pub fn get_visited_urls(
         and_is_local = if include_remote { "" } else { "AND is_local" }
     ))?;
 
-    let iter = stmt.query_map_named(&[(":start", &start), (":end", &end)], |row| {
-        row.get::<_, String>(0)
+    let iter = stmt.query_and_then_named(&[(":start", &start), (":end", &end)], |row| {
+        Ok(row.get_checked::<_, String>(0)?)
     })?;
 
     Ok(iter.collect::<RusqliteResult<Vec<_>>>()?)
@@ -946,7 +953,7 @@ mod tests {
         let result: Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_places_tombstones;",
             &[],
-            |row| Ok(row.get::<_, u32>(0).clone()),
+            |row| Ok(row.get_checked::<_, u32>(0)?.clone()),
             true,
         );
         result
@@ -1243,7 +1250,7 @@ mod tests {
                 "UPDATE moz_places set sync_status = {}",
                 (SyncStatus::Normal as u8)
             ),
-            &[],
+            NO_PARAMS,
         )?;
         pi = fetch_page_info(&conn, &pi.url)?
             .expect("page should exist")
@@ -1314,7 +1321,7 @@ mod tests {
                 "UPDATE moz_places set sync_status = {}",
                 (SyncStatus::Normal as u8)
             ),
-            &[],
+            NO_PARAMS,
         )?;
 
         apply_synced_deletion(&conn, &pi.guid)?;

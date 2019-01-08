@@ -28,6 +28,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     }
 
     @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun lock() {
         if (isLocked()) {
             throw MismatchedLockException("Lock called when we are already locked")
@@ -39,6 +40,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     }
 
     @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun unlock(encryptionKey: String) {
         return rustCall {
             if (!isLocked()) {
@@ -51,6 +53,22 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
         }
     }
 
+    @Synchronized
+    @Throws(LoginsStorageException::class)
+    override fun ensureUnlocked(encryptionKey: String) {
+        if (isLocked()) {
+            this.unlock(encryptionKey)
+        }
+    }
+
+    @Synchronized
+    override fun ensureLocked() {
+        if (!isLocked()) {
+            this.lock()
+        }
+    }
+
+    @Throws(LoginsStorageException::class)
     override fun sync(syncInfo: SyncUnlockInfo) {
         rustCallWithLock { raw, error ->
             PasswordSyncAdapter.INSTANCE.sync15_passwords_sync(
@@ -64,18 +82,28 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
         }
     }
 
+    @Throws(LoginsStorageException::class)
     override fun reset() {
         rustCallWithLock { raw, error ->
             PasswordSyncAdapter.INSTANCE.sync15_passwords_reset(raw, error)
         }
     }
 
+    @Throws(LoginsStorageException::class)
     override fun wipe() {
         rustCallWithLock { raw, error ->
             PasswordSyncAdapter.INSTANCE.sync15_passwords_wipe(raw, error)
         }
     }
 
+    @Throws(LoginsStorageException::class)
+    override fun wipeLocal() {
+        rustCallWithLock { raw, error ->
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_wipe_local(raw, error)
+        }
+    }
+
+    @Throws(LoginsStorageException::class)
     override fun delete(id: String): Boolean {
         return rustCallWithLock { raw, error ->
             val deleted = PasswordSyncAdapter.INSTANCE.sync15_passwords_delete(raw, id, error)
@@ -83,6 +111,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
         }
     }
 
+    @Throws(LoginsStorageException::class)
     override fun get(id: String): ServerPassword? {
         val json = nullableRustCallWithLock { raw, error ->
             checkUnlocked()
@@ -91,12 +120,14 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
         return json?.let { ServerPassword.fromJSON(it) }
     }
 
+    @Throws(LoginsStorageException::class)
     override fun touch(id: String) {
         rustCallWithLock { raw, error ->
             PasswordSyncAdapter.INSTANCE.sync15_passwords_touch(raw, id, error)
         }
     }
 
+    @Throws(LoginsStorageException::class)
     override fun list(): List<ServerPassword> {
         val json = rustCallWithLock { raw, error ->
             PasswordSyncAdapter.INSTANCE.sync15_passwords_get_all(raw, error)
@@ -104,6 +135,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
         return ServerPassword.fromJSONArray(json)
     }
 
+    @Throws(LoginsStorageException::class)
     override fun add(login: ServerPassword): String {
         val s = login.toJSON().toString()
         return rustCallWithLock { raw, error ->
@@ -111,6 +143,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
         }.getAndConsumeRustString()
     }
 
+    @Throws(LoginsStorageException::class)
     override fun update(login: ServerPassword) {
         val s = login.toJSON().toString()
         return rustCallWithLock { raw, error ->
@@ -119,6 +152,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     }
 
     @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun close() {
         val raw = this.raw.getAndSet(null)
         if (raw != null) {

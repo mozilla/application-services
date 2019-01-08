@@ -2,8 +2,8 @@
 
 set -euvx
 
-OPENSSL_VERSION="1.0.2p"
-OPENSSL_SHA256="50a98e07b1a89eb8f6a99477f262df71c6fa7bef77df4dc83025a2845c827d00"
+OPENSSL_VERSION="1.1.1a"
+OPENSSL_SHA256="fc20130f8b7cbd2fb918b2f14e2f429e109c31ddd0fb38fc5d71d9ffed3f9f41"
 
 SQLCIPHER_VERSION="4.0.0"
 SQLCIPHER_SHA256="c8f5fc6d800aae6107bf23900144804db5510c2676c93fbb269e4a0700837d68"
@@ -53,8 +53,7 @@ SQLCIPHER_SRC_PATH=$(abspath "sqlcipher-${SQLCIPHER_VERSION}")
 
 if [ "$PLATFORM" == "ios" ]
 then
-  # TODO: "$SQLCIPHER_SRC_PATH"
-  ./build-all-ios.sh "$OPENSSL_SRC_PATH"
+  ./build-all-ios.sh "$OPENSSL_SRC_PATH" "$SQLCIPHER_SRC_PATH"
 elif [ "$PLATFORM" == "android" ]
 then
   ./build-all-android.sh "$OPENSSL_SRC_PATH" "$SQLCIPHER_SRC_PATH"

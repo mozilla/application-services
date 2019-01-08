@@ -63,32 +63,31 @@ if [[ "$CROSS_COMPILE_TARGET" =~ "darwin" ]]; then
 
   LD_LIBRARY_PATH=/tmp/clang/lib ./Configure darwin64-x86_64-cc \
     no-asm shared \
-    --with-fipsdir=/tmp \
     -march=x86-64 \
     '-B /tmp/cctools/bin' \
     '-target x86_64-apple-darwin11' \
     '-isysroot /tmp/MacOSX10.11.sdk' \
     '-Wl,-syslibroot,/tmp/MacOSX10.11.sdk' \
     '-Wl,-dead_strip' \
-    --openssldir="$OPENSSL_OUTPUT_PATH"
+    --prefix="$OPENSSL_OUTPUT_PATH"
 
   sed -i.orig 's/-arch x86_64//' Makefile
 
   # See https://searchfox.org/mozilla-central/rev/8848b9741fc4ee4e9bc3ae83ea0fc048da39979f/build/macosx/cross-mozconfig.common#12-13.
-  export LD_LIBRARY_PATH=/tmp/clang/lib 
+  export LD_LIBRARY_PATH=/tmp/clang/lib
 elif [[ "$CROSS_COMPILE_TARGET" =~ "win32-x86-64" ]]; then
     # Force 64 bits on Windows..
     ./Configure --cross-compile-prefix=x86_64-w64-mingw32- mingw64 \
       shared \
-      --openssldir="$OPENSSL_OUTPUT_PATH"
+      --prefix="$OPENSSL_OUTPUT_PATH"
 elif [ $(uname -s) == "Darwin" ]; then
     # Force 64 bits on macOS.
     ./Configure darwin64-x86_64-cc \
       shared \
-      --openssldir="$OPENSSL_OUTPUT_PATH"
+      --prefix="$OPENSSL_OUTPUT_PATH"
 elif [ $(uname -s) == "Linux" ]; then
     ./config shared \
-      --openssldir="$OPENSSL_OUTPUT_PATH"
+      --prefix="$OPENSSL_OUTPUT_PATH"
 fi
 
 make clean || true
@@ -104,8 +103,8 @@ rm -rf "$OPENSSL_OUTPUT_PATH"
 
 if [[ "$CROSS_COMPILE_TARGET" =~ "win32-x86-64" ]]; then
   # See https://www.wagner.pp.ru/~vitus/articles/openssl-mingw.html.
-  mv "$OPENSSL_DIR/lib/libssl.a" "$OPENSSL_DIR/lib/ssleay32.lib"
-  mv "$OPENSSL_DIR/lib/libcrypto.a" "$OPENSSL_DIR/lib/libeay32.lib"
+  mv "$OPENSSL_DIR/lib/libssl.a" "$OPENSSL_DIR/lib/libssl.lib"
+  mv "$OPENSSL_DIR/lib/libcrypto.a" "$OPENSSL_DIR/lib/libcrypto.lib"
 fi
 
 popd

@@ -54,6 +54,11 @@ impl PasswordEngine {
         Ok(())
     }
 
+    pub fn wipe_local(&self) -> Result<()> {
+        self.db.wipe_local()?;
+        Ok(())
+    }
+
     pub fn reset(&self) -> Result<()> {
         self.db.reset()?;
         Ok(())

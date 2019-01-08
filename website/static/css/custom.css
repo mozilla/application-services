@@ -122,6 +122,10 @@ footer.nav-footer h5 {
   font-weight: bold;
 }
 
+footer.nav-footer a {
+  text-align: left;
+}
+
 footer .copyright {
   padding: 40px 0 10px 0;
 }

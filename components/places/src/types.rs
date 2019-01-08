@@ -12,6 +12,11 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub struct SyncGuid(pub String);
 
+impl SyncGuid {
+    pub fn new() -> Self {
+        SyncGuid(sync15::util::random_guid().unwrap())
+    }
+}
 impl AsRef<str> for SyncGuid {
     fn as_ref(&self) -> &str {
         self.0.as_ref()

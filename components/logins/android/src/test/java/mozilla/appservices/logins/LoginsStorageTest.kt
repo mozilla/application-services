@@ -39,7 +39,7 @@ abstract class LoginsStorageTest {
     }
 
     private fun finishAndClose(store: LoginsStorage) {
-        store.lock()
+        store.ensureLocked()
         assertEquals(store.isLocked(), true)
         store.close()
     }
@@ -49,7 +49,7 @@ abstract class LoginsStorageTest {
             callback()
             fail("Expected exception!")
         } catch (e: Throwable) {
-            assert(klass.isInstance(e))
+            assert(klass.isInstance(e), { "Expected ${klass} but got exception of type ${e.javaClass}" })
         }
     }
 
@@ -64,7 +64,10 @@ abstract class LoginsStorageTest {
         expectException(LoginsStorageException::class.java) { test.touch("bbbbbbbbbbbb") }
         expectException(LoginsStorageException::class.java) { test.wipe() }
         expectException(LoginsStorageException::class.java) { test.sync(SyncUnlockInfo("", "", "", "")) }
-        expectException(LoginsStorageException::class.java) { test.reset() }
+        expectException(LoginsStorageException::class.java) {
+            @Suppress("DEPRECATION")
+            test.reset()
+        }
 
         test.unlock(encryptionKey)
         assertEquals(test.isLocked(), false)
@@ -72,6 +75,25 @@ abstract class LoginsStorageTest {
         assertNotNull(test.get("aaaaaaaaaaaa"))
         // "bbbbbbbbbbbb" has a single use (from insertion)
         assertEquals(1, test.get("bbbbbbbbbbbb")!!.timesUsed)
+        finishAndClose(test)
+    }
+
+
+    @Test
+    fun testEnsureLockUnlock() {
+        val test = getTestStore()
+        assertEquals(test.isLocked(), true)
+
+        test.ensureUnlocked(encryptionKey)
+        assertEquals(test.isLocked(), false)
+        test.ensureUnlocked(encryptionKey)
+        assertEquals(test.isLocked(), false)
+
+        test.ensureLocked()
+        assertEquals(test.isLocked(), true)
+        test.ensureLocked()
+        assertEquals(test.isLocked(), true)
+
         finishAndClose(test)
     }
 
@@ -118,6 +140,22 @@ abstract class LoginsStorageTest {
         assertEquals(2, test.list().size)
 
         test.wipe()
+        assertEquals(0, test.list().size)
+
+        assertNull(test.get("aaaaaaaaaaaa"))
+        assertNull(test.get("bbbbbbbbbbbb"))
+
+        finishAndClose(test)
+    }
+
+
+    @Test
+    fun testWipeLocal() {
+        val test = getTestStore()
+        test.unlock(encryptionKey)
+        assertEquals(2, test.list().size)
+
+        test.wipeLocal()
         assertEquals(0, test.list().size)
 
         assertNull(test.get("aaaaaaaaaaaa"))
@@ -241,6 +279,22 @@ abstract class LoginsStorageTest {
                 username = "DummyUsername"))
 
         assertEquals("123412341234", specificID)
+
+        finishAndClose(test)
+    }
+
+    @Test
+    @Suppress("DEPRECATION")
+    fun testUnlockAfterError() {
+        val test = getTestStore()
+
+        expectException(LoginsStorageException::class.java) {
+            test.reset();
+        }
+
+        test.unlock(encryptionKey)
+
+        test.reset();
 
         finishAndClose(test)
     }

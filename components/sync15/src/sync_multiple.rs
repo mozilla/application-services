@@ -25,6 +25,15 @@ pub struct ClientInfo {
     client: Sync15StorageClient,
 }
 
+impl ClientInfo {
+    /// Get the `Sync15StorageClient`. Only visible for testing.
+    // NOTE: no thought has been put into why this is private, I just didn't
+    // want to make it pub just for the test code.
+    pub fn test_only_get_client(&self) -> &Sync15StorageClient {
+        &self.client
+    }
+}
+
 /// Sync multiple stores
 /// * `stores` - The stores to sync
 /// * `persisted_global_state` - The global state to use, or None if never

@@ -11,6 +11,7 @@ use fxa_client::{AccessTokenInfo, Config, FirefoxAccount};
 use logins::{Login, PasswordEngine};
 use prettytable::*;
 use serde_json;
+use rusqlite::NO_PARAMS;
 use std::collections::HashMap;
 use std::{
     fs,
@@ -225,7 +226,7 @@ fn show_sql(e: &PasswordEngine, sql: &str) -> Result<()> {
             .collect(),
     ));
 
-    let rows = stmt.query_map(&[], |row| {
+    let rows = stmt.query_map(NO_PARAMS, |row| {
         (0..len)
             .into_iter()
             .map(|idx| match row.get::<_, Value>(idx) {

@@ -5,6 +5,7 @@
 use clap::value_t;
 use failure::bail;
 use places::{VisitObservation, VisitTransition};
+use rusqlite::NO_PARAMS;
 use serde_derive::*;
 use sql_support::ConnExt;
 use std::io::prelude::*;
@@ -145,13 +146,13 @@ fn import_places(
 
     let (place_count, visit_count) = {
         let mut stmt = old.prepare("SELECT count(*) FROM moz_places").unwrap();
-        let mut rows = stmt.query(&[]).unwrap();
+        let mut rows = stmt.query(NO_PARAMS).unwrap();
         let ps: i64 = rows.next().unwrap()?.get(0);
 
         let mut stmt = old
             .prepare("SELECT count(*) FROM moz_historyvisits")
             .unwrap();
-        let mut rows = stmt.query(&[]).unwrap();
+        let mut rows = stmt.query(NO_PARAMS).unwrap();
         let vs: i64 = rows.next().unwrap()?.get(0);
         (ps, vs)
     };
@@ -188,7 +189,7 @@ fn import_places(
     ",
     )?;
 
-    let mut rows = stmt.query(&[])?;
+    let mut rows = stmt.query(NO_PARAMS)?;
     let mut current_place = LegacyPlace {
         id: -1,
         ..LegacyPlace::default()

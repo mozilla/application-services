@@ -5,7 +5,7 @@
 use rusqlite::{
     self,
     types::{FromSql, ToSql},
-    Connection, Result as SqlResult, Row, Savepoint, Transaction, TransactionBehavior,
+    Connection, Result as SqlResult, Row, Savepoint, Transaction, TransactionBehavior, NO_PARAMS,
 };
 use std::ops::Deref;
 use std::time::Instant;
@@ -31,14 +31,18 @@ pub trait ConnExt {
     fn execute_all(&self, stmts: &[&str]) -> SqlResult<()> {
         let conn = self.conn();
         for sql in stmts {
-            conn.execute(sql, &[])?;
+            conn.execute(sql, NO_PARAMS)?;
         }
         Ok(())
     }
 
     /// Equivalent to `Connection::execute_named` but caches the statement so that subsequent
-    /// calls to `execute_cached` will have imprroved performance.
-    fn execute_cached(&self, sql: &str, params: &[&dyn ToSql]) -> SqlResult<usize> {
+    /// calls to `execute_cached` will have improved performance.
+    fn execute_cached<P>(&self, sql: &str, params: P) -> SqlResult<usize>
+    where
+        P: IntoIterator,
+        P::Item: ToSql,
+    {
         let mut stmt = self.conn().prepare_cached(sql)?;
         stmt.execute(params)
     }
@@ -54,7 +58,7 @@ pub trait ConnExt {
     fn query_one<T: FromSql>(&self, sql: &str) -> SqlResult<T> {
         let res: T = self
             .conn()
-            .query_row_and_then(sql, &[], |row| row.get_checked(0))?;
+            .query_row_and_then(sql, NO_PARAMS, |row| row.get_checked(0))?;
         Ok(res)
     }
 

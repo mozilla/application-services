@@ -55,12 +55,8 @@ pub enum IncomingPlan {
     Failed(Error),
     /// We should locally delete this.
     Delete,
-    /// We should apply this. If old_guid is Some, then it is the existing,
-    /// local guid which is different from the incoming guid, so we need to
-    /// change the existing item to the incoming one and upload a tombstone for
-    /// old_guid.
+    /// We should apply this.
     Apply {
-        old_guid: Option<SyncGuid>,
         url: Url,
         new_title: Option<String>,
         visits: Vec<HistoryRecordVisit>,
@@ -110,22 +106,21 @@ fn plan_incoming_record(
             Some((p, v)) => (Some(p), v),
         };
 
-    let mut old_guid: Option<SyncGuid> = None;
+    let guid_changed = match existing_page {
+        Some(p) => p.guid != record.id,
+        None => false,
+    };
+
     let mut cur_visit_map: HashSet<(VisitTransition, Timestamp)> =
         HashSet::with_capacity(existing_visits.len());
-    if let Some(p) = &existing_page {
-        if p.guid != record.id {
-            old_guid = Some(p.guid.clone());
-        }
-        for visit in &existing_visits {
-            // it should be impossible for us to have invalid visits locally, but...
-            let transition = match visit.visit_type {
-                Some(t) => t,
-                None => continue,
-            };
-            let date_use = clamp_visit_date(visit.visit_date.into());
-            cur_visit_map.insert((transition, date_use));
-        }
+    for visit in &existing_visits {
+        // it should be impossible for us to have invalid visits locally, but...
+        let transition = match visit.visit_type {
+            Some(t) => t,
+            None => continue,
+        };
+        let date_use = clamp_visit_date(visit.visit_date.into());
+        cur_visit_map.insert((transition, date_use));
     }
     // If we already have MAX_RECORDS visits, then we will ignore incoming
     // visits older than that, to avoid adding dupes of earlier visits.
@@ -139,7 +134,7 @@ fn plan_incoming_record(
         UNIX_EPOCH
     };
 
-    // work out which of the incoming records we should apply.
+    // work out which of the incoming visits we should apply.
     let mut to_apply = Vec::with_capacity(record.visits.len());
     for incoming_visit in record.visits {
         let transition = match VisitTransition::from_primitive(incoming_visit.transition) {
@@ -160,13 +155,12 @@ fn plan_incoming_record(
             cur_visit_map.insert(key);
         }
     }
-    if to_apply.len() != 0 || old_guid.is_some() {
-        // Now we need to check the other attributes.
-        // Check if we should update title? For now, assume yes. It appears
-        // as though desktop always updates it.
+    // Now we need to check the other attributes.
+    // Check if we should update title? For now, assume yes. It appears
+    // as though desktop always updates it.
+    if guid_changed || to_apply.len() != 0 {
         let new_title = Some(record.title);
         IncomingPlan::Apply {
-            old_guid,
             url: url.clone(),
             new_title,
             visits: to_apply,
@@ -229,7 +223,6 @@ pub fn apply_plan(
                 telem.applied(1);
             }
             IncomingPlan::Apply {
-                old_guid,
                 url,
                 new_title,
                 visits,
@@ -241,18 +234,8 @@ pub fn apply_plan(
                     new_title,
                     visits
                 );
-                apply_synced_visits(&conn, &guid, &old_guid, &url, new_title, visits)?;
+                apply_synced_visits(&conn, &guid, &url, new_title, visits)?;
                 telem.applied(1);
-                // For now, we *do not* upload a tombstone for the item. See
-                // https://github.com/mozilla/application-services/issues/414
-                // for the discussion.
-                // (Note also that no tests needed to be changed when commenting
-                // this out, which is another indication it needs thought and tests!)
-                /*
-                if let Some(ref old_guid) = old_guid {
-                    outgoing.changes.push(Payload::new_tombstone(old_guid.0.clone()));
-                }
-                */
             }
             IncomingPlan::Reconciled => {
                 telem.reconciled(1);
@@ -300,7 +283,6 @@ mod tests {
     use serde_json::json;
     use sql_support::ConnExt;
     use std::time::Duration;
-    use sync15::util::random_guid;
     use sync15::{IncomingChangeset, ServerTimestamp};
     use url::Url;
 
@@ -314,7 +296,7 @@ mod tests {
         let result: Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_places_tombstones;",
             &[],
-            |row| Ok(row.get::<_, u32>(0).clone()),
+            |row| Ok(row.get_checked::<_, u32>(0)?.clone()),
             true,
         );
         result
@@ -331,8 +313,8 @@ mod tests {
             &[(":url", &url.clone().into_string())],
             |row| {
                 Ok((
-                    SyncStatus::from_u8(row.get::<_, u8>(0)),
-                    row.get::<_, u32>(1),
+                    SyncStatus::from_u8(row.get_checked::<_, u8>(0)?),
+                    row.get_checked::<_, u32>(1)?,
                 ))
             },
             true,
@@ -401,14 +383,14 @@ mod tests {
         };
 
         assert!(match plan_incoming_record(&conn, record, 10) {
-            IncomingPlan::Apply { old_guid: None, .. } => true,
+            IncomingPlan::Apply { .. } => true,
             _ => false,
         });
         Ok(())
     }
 
     #[test]
-    fn test_dupe_visit_same_guid() -> Result<()> {
+    fn test_plan_dupe_visit_same_guid() -> Result<()> {
         let _ = env_logger::try_init();
         let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
         let now = SystemTime::now();
@@ -445,7 +427,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dupe_visit_different_guid() {
+    fn test_plan_dupe_visit_different_guid_no_visits() {
         let _ = env_logger::try_init();
         let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
         let now = SystemTime::now();
@@ -456,34 +438,194 @@ mod tests {
             .with_at(Some(now.into()));
         apply_observation(&mut conn, obs).expect("should apply");
 
-        let old_guid = get_existing_guid(&conn, &url);
+        assert_eq!(get_sync(&conn, &url), (SyncStatus::New, 1));
 
         // try and add an incoming record with the same URL but different guid.
-        let new_guid = random_guid().expect("according to logins, this is fine :)");
-        let visits = vec![HistoryRecordVisit {
-            date: now.into(),
-            transition: 1,
-        }];
         let record = HistoryRecord {
-            id: new_guid.into(),
+            id: SyncGuid::new(),
             title: "title".into(),
             hist_uri: "https://example.com".into(),
             sortindex: 0,
             ttl: 100,
-            visits,
+            visits: vec![],
         };
         // Even though there are no visits we should record that it will be
         // applied with the guid change.
         assert!(match plan_incoming_record(&conn, record, 10) {
-            IncomingPlan::Apply {
-                old_guid: Some(got_old_guid),
-                ..
-            } => {
-                assert_eq!(got_old_guid, old_guid);
-                true
-            }
+            IncomingPlan::Apply { .. } => true,
             _ => false,
         });
+    }
+
+    // These "dupe" tests all do the full application of the plan and checks
+    // the end state of the db.
+    #[test]
+    fn test_apply_dupe_no_local_visits() -> Result<()> {
+        // There's a chance the server ends up with different records but
+        // which reference the same URL.
+        // This is testing the case when there are no local visits to that URL.
+        let _ = env_logger::try_init();
+        let db = PlacesDb::open_in_memory(None)?;
+        let guid1 = SyncGuid::new();
+        let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
+
+        let guid2 = SyncGuid::new();
+        let ts2: Timestamp = SystemTime::now().into();
+        let url = Url::parse("https://example.com")?;
+
+        // 2 incoming records with the same URL.
+        let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
+        let payload = Payload::from_json(json!({
+            "id": guid1,
+            "title": "title",
+            "histUri": url.as_str(),
+            "sortindex": 0,
+            "ttl": 100,
+            "visits": [ {"date": ServerVisitTimestamp::from(ts1), "type": 1}]
+        }))?;
+        incoming.changes.push((payload, ServerTimestamp(0f64)));
+
+        let payload2 = Payload::from_json(json!({
+            "id": guid2,
+            "title": "title",
+            "histUri": url.as_str(),
+            "sortindex": 0,
+            "ttl": 100,
+            "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
+        }))?;
+        incoming.changes.push((payload2, ServerTimestamp(0f64)));
+
+        let outgoing = apply_plan(&db, incoming, &mut telemetry::EngineIncoming::new())?;
+        assert_eq!(
+            outgoing.changes.len(),
+            1,
+            "should have guid1 as outgoing with both visits."
+        );
+        assert_eq!(outgoing.changes[0].id, guid1.0);
+
+        // should have 1 URL with both visits locally.
+        let (page, visits) = fetch_visits(&db, &url, 3)?.expect("page exists");
+        assert_eq!(page.guid, guid1, "page should have the expected guid");
+        assert_eq!(visits.len(), 2, "page should have 2 visits");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_apply_dupe_local_unsynced_visits() -> Result<()> {
+        // There's a chance the server ends up with different records but
+        // which reference the same URL.
+        // This is testing the case when there are a local visits to that URL,
+        // but they are yet to be synced - the local guid should change and
+        // all visits should be applied.
+        let _ = env_logger::try_init();
+        let mut db = PlacesDb::open_in_memory(None)?;
+
+        let guid1 = SyncGuid::new();
+        let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
+
+        let guid2 = SyncGuid::new();
+        let ts2: Timestamp = SystemTime::now().into();
+        let url = Url::parse("https://example.com")?;
+
+        let ts_local: Timestamp = (SystemTime::now() - Duration::new(10, 0)).into();
+        let obs = VisitObservation::new(url.clone())
+            .with_visit_type(VisitTransition::Link)
+            .with_at(Some(ts_local.into()));
+        apply_observation(&mut db, obs)?;
+
+        // 2 incoming records with the same URL.
+        let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
+        let payload = Payload::from_json(json!({
+            "id": guid1,
+            "title": "title",
+            "histUri": url.as_str(),
+            "sortindex": 0,
+            "ttl": 100,
+            "visits": [ {"date": ServerVisitTimestamp::from(ts1), "type": 1}]
+        }))?;
+        incoming.changes.push((payload, ServerTimestamp(0f64)));
+
+        let payload2 = Payload::from_json(json!({
+            "id": guid2,
+            "title": "title",
+            "histUri": url.as_str(),
+            "sortindex": 0,
+            "ttl": 100,
+            "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
+        }))?;
+        incoming.changes.push((payload2, ServerTimestamp(0f64)));
+
+        let outgoing = apply_plan(&db, incoming, &mut telemetry::EngineIncoming::new())?;
+        assert_eq!(outgoing.changes.len(), 1, "should have guid1 as outgoing");
+        assert_eq!(outgoing.changes[0].id, guid1.0);
+
+        // should have 1 URL with all visits locally, but with the first incoming guid.
+        let (page, visits) = fetch_visits(&db, &url, 3)?.expect("page exists");
+        assert_eq!(page.guid, guid1, "should have the expected guid");
+        assert_eq!(visits.len(), 3, "should have all visits");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_apply_dupe_local_synced_visits() -> Result<()> {
+        // There's a chance the server ends up with different records but
+        // which reference the same URL.
+        // This is testing the case when there are a local visits to that URL,
+        // and they have been synced - the existing guid should not change,
+        // although all visits should still be applied.
+        let _ = env_logger::try_init();
+        let mut db = PlacesDb::open_in_memory(None)?;
+
+        let guid1 = SyncGuid::new();
+        let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
+
+        let guid2 = SyncGuid::new();
+        let ts2: Timestamp = SystemTime::now().into();
+        let url = Url::parse("https://example.com")?;
+
+        let ts_local: Timestamp = (SystemTime::now() - Duration::new(10, 0)).into();
+        let obs = VisitObservation::new(url.clone())
+            .with_visit_type(VisitTransition::Link)
+            .with_at(Some(ts_local.into()));
+        apply_observation(&mut db, obs)?;
+
+        // 2 incoming records with the same URL.
+        let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
+        let payload = Payload::from_json(json!({
+            "id": guid1,
+            "title": "title",
+            "histUri": url.as_str(),
+            "sortindex": 0,
+            "ttl": 100,
+            "visits": [ {"date": ServerVisitTimestamp::from(ts1), "type": 1}]
+        }))?;
+        incoming.changes.push((payload, ServerTimestamp(0f64)));
+
+        let payload2 = Payload::from_json(json!({
+            "id": guid2,
+            "title": "title",
+            "histUri": url.as_str(),
+            "sortindex": 0,
+            "ttl": 100,
+            "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
+        }))?;
+        incoming.changes.push((payload2, ServerTimestamp(0f64)));
+
+        let outgoing = apply_plan(&db, incoming, &mut telemetry::EngineIncoming::new())?;
+        assert_eq!(
+            outgoing.changes.len(),
+            1,
+            "should have guid1 as outgoing with both visits."
+        );
+
+        // should have 1 URL with all visits locally, but with the first incoming guid.
+        let (page, visits) = fetch_visits(&db, &url, 3)?.expect("page exists");
+        assert_eq!(page.guid, guid1, "should have the expected guid");
+        assert_eq!(visits.len(), 3, "should have all visits");
+
+        Ok(())
     }
 
     #[test]
