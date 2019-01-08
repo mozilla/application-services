@@ -92,7 +92,7 @@ pub enum BookmarkPosition {
 }
 
 /// Structures which can be used to insert a bookmark, folder or separator.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InsertableBookmarkItem {
     pub parent_guid: SyncGuid,
     pub position: BookmarkPosition,
@@ -103,6 +103,7 @@ pub struct InsertableBookmarkItem {
     pub title: Option<String>,
 }
 
+#[derive(Debug, Clone)]
 pub struct InsertableBookmarkSeparator {
     pub parent_guid: SyncGuid,
     pub position: BookmarkPosition,
@@ -111,6 +112,7 @@ pub struct InsertableBookmarkSeparator {
     pub guid: Option<SyncGuid>,
 }
 
+#[derive(Debug, Clone)]
 pub struct InsertableBookmarkFolder {
     pub parent_guid: SyncGuid,
     pub position: BookmarkPosition,
@@ -121,6 +123,7 @@ pub struct InsertableBookmarkFolder {
 }
 
 // The type used to insert the actual item.
+#[derive(Debug, Clone)]
 pub enum InsertableBookmark {
     BookmarkType(InsertableBookmarkItem),
     BookmarkSeparator(InsertableBookmarkSeparator),
@@ -274,6 +277,7 @@ pub enum BookmarkTreeNode {
 
 fn add_subtree_infos(db: &impl ConnExt, parent: &SyncGuid, tree: &BookmarkTreeFolder, insert_infos: &mut Vec<InsertableBookmark>) -> Result<()> {
     // TODO: track last modified?
+    insert_infos.reserve(tree.children.len());
     for child in &tree.children {
         let insertable = match child {
             BookmarkTreeNode::BookmarkType(b) => {
