@@ -10,8 +10,8 @@ use crate::sync::{telemetry, KeyBundle, Sync15StorageClientInit};
 use fxa_client::{AccessTokenInfo, Config, FirefoxAccount};
 use logins::{Login, PasswordEngine};
 use prettytable::*;
-use serde_json;
 use rusqlite::NO_PARAMS;
+use serde_json;
 use std::collections::HashMap;
 use std::{
     fs,

@@ -77,7 +77,9 @@ pub fn touch_login(e: &PasswordEngine, id: &str, times: usize) -> LoginResult<Lo
 
 pub fn sync_logins(client: &mut TestClient) -> Result<(), failure::Error> {
     let (init, key) = client.data_for_sync()?;
-    client.logins_engine.sync(&init, &key, &mut telemetry::SyncTelemetry::new())?;
+    client
+        .logins_engine
+        .sync(&init, &key, &mut telemetry::SyncTelemetry::new())?;
     Ok(())
 }
 
