@@ -11,6 +11,7 @@ members = [
     "components/sync15",
     "megazords/lockbox",
     "megazords/reference-browser",
+    "testing/sync-test",
 ]
 
 [profile.release]
