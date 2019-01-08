@@ -631,16 +631,19 @@ mod sync_tests {
     }
 }
 
-/// The Sync ping payload
+/// The Sync ping payload, as documented at
+/// https://firefox-source-docs.mozilla.org/toolkit/components/telemetry/telemetry/data/sync-ping.html.
 /// May have many syncs, may have many events. However, due to the architecture
 /// of apps which use these components, this payload is almost certainly not
 /// suitable for submitting directly. For example, we will always return a
 /// payload with exactly 1 sync, and it will not know certain other fields
-/// in the payload, such as the FxA device ID. The intention is that comsumers
-/// of this will use this to create a "real" payload - eg, accumulating
+/// in the payload, such as the *hashed* FxA device ID (see
+/// https://searchfox.org/mozilla-central/rev/c3ebaf6de2d481c262c04bb9657eaf76bf47e2ac/services/sync/modules/browserid_identity.js#185
+/// for an example of how the device ID is constructed). The intention is that
+/// consumers of this will use this to create a "real" payload - eg, accumulating
 /// until some threshold number of syncs is reached, and contributing
 /// additional data which only the consumer knows.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Default)]
 pub struct SyncTelemetryPing {
     version: u32,
 
@@ -657,9 +660,7 @@ impl SyncTelemetryPing {
     pub fn new() -> Self {
         Self {
             version: 1,
-            uid: None,
-            events: Vec::new(),
-            syncs: Vec::new(),
+            ..Default::default()
         }
     }
 
