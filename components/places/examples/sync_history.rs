@@ -6,9 +6,10 @@ use failure::Fail;
 use fxa_client::{AccessTokenInfo, Config, FirefoxAccount};
 use places::history_sync::store::HistoryStore;
 use places::PlacesDb;
+use serde_json;
 use std::{fs, io::Read};
 use sync15::client::SetupStorageClient;
-use sync15::{KeyBundle, Store, Sync15StorageClient, Sync15StorageClientInit};
+use sync15::{telemetry, KeyBundle, Store, Sync15StorageClient, Sync15StorageClientInit};
 
 const CLIENT_ID: &str = "";
 const REDIRECT_URI: &str = "";
@@ -128,12 +129,17 @@ fn main() -> Result<()> {
     }
 
     log::info!("Syncing!");
-    if let Err(e) = store.sync(&client_init, &root_sync_key) {
+    let mut sync_ping = telemetry::SyncTelemetryPing::new();
+    if let Err(e) = store.sync(&client_init, &root_sync_key, &mut sync_ping) {
         log::warn!("Sync failed! {}", e);
         log::warn!("BT: {:?}", e.backtrace());
     } else {
         log::info!("Sync was successful!");
     }
+    println!(
+        "Sync telemetry: {}",
+        serde_json::to_string_pretty(&sync_ping).unwrap()
+    );
     println!("Exiting (bye!)");
     Ok(())
 }

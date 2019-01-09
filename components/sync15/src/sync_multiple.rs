@@ -10,6 +10,7 @@ use crate::error::Error;
 use crate::key_bundle::KeyBundle;
 use crate::state::{GlobalState, SetupStateMachine};
 use crate::sync::{self, Store};
+use crate::telemetry;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::result;
@@ -56,6 +57,7 @@ pub fn sync_multiple(
     last_client_info: &Cell<Option<ClientInfo>>,
     storage_init: &Sync15StorageClientInit,
     root_sync_key: &KeyBundle,
+    sync_ping: &mut telemetry::SyncTelemetryPing,
 ) -> result::Result<HashMap<String, Error>, Error> {
     // Note: We explicitly swap a None back as the state, meaning if we
     // unexpectedly fail below, the next sync will redownload meta/global,
@@ -114,6 +116,7 @@ pub fn sync_multiple(
             SetupStateMachine::for_full_sync(&client_info.client, &root_sync_key);
         log::info!("Advancing state machine to ready (full)");
         global_state = state_machine.to_ready(global_state)?;
+        sync_ping.uid(client_info.client.hashed_uid()?);
     }
 
     // Reset our local state if necessary.
@@ -130,22 +133,34 @@ pub fn sync_multiple(
         }
     }
 
+    let mut telem_sync = telemetry::SyncTelemetry::new();
     let mut failures: HashMap<String, Error> = HashMap::new();
     for store in stores {
         let name = store.collection_name();
         log::info!("Syncing {} engine!", name);
 
-        let result = sync::synchronize(&client_info.client, &global_state, *store, true);
+        let mut telem_engine = telemetry::Engine::new(name);
+        let result = sync::synchronize(
+            &client_info.client,
+            &global_state,
+            *store,
+            true,
+            &mut telem_engine,
+        );
 
         match result {
             Ok(()) => log::info!("Sync of {} was successful!", name),
             Err(e) => {
                 log::warn!("Sync of {} failed! {:?}", name, e);
+                let f = telemetry::sync_failure_from_error(&e);
                 failures.insert(name.into(), e.into());
+                telem_engine.failure(f);
             }
         }
+        telem_sync.engine(telem_engine);
     }
 
+    sync_ping.sync(telem_sync);
     log::info!("Updating persisted global state");
     persisted_global_state.replace(Some(global_state.to_persistable_string()));
     last_client_info.replace(Some(client_info));

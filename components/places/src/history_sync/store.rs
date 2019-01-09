@@ -11,6 +11,7 @@ use std::cell::Cell;
 use std::ops::Deref;
 use std::result;
 use sync15::request::CollectionRequest;
+use sync15::telemetry;
 use sync15::{
     sync_multiple, ClientInfo, IncomingChangeset, KeyBundle, OutgoingChangeset, ServerTimestamp,
     Store, Sync15StorageClientInit,
@@ -53,9 +54,13 @@ impl<'a> HistoryStore<'a> {
         )?)
     }
 
-    fn do_apply_incoming(&self, inbound: IncomingChangeset) -> Result<OutgoingChangeset> {
+    fn do_apply_incoming(
+        &self,
+        inbound: IncomingChangeset,
+        incoming_telemetry: &mut telemetry::EngineIncoming,
+    ) -> Result<OutgoingChangeset> {
         let timestamp = inbound.timestamp;
-        let outgoing = apply_plan(&self, inbound)?;
+        let outgoing = apply_plan(&self, inbound, incoming_telemetry)?;
         // write the timestamp now, so if we are interrupted creating outgoing
         // changesets we don't need to re-reconcile what we just did.
         self.put_meta(LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
@@ -103,6 +108,7 @@ impl<'a> HistoryStore<'a> {
         &self,
         storage_init: &Sync15StorageClientInit,
         root_sync_key: &KeyBundle,
+        sync_ping: &mut telemetry::SyncTelemetryPing,
     ) -> Result<()> {
         let global_state: Cell<Option<String>> = Cell::new(self.get_global_state()?);
         let result = sync_multiple(
@@ -111,6 +117,7 @@ impl<'a> HistoryStore<'a> {
             &self.client_info,
             storage_init,
             root_sync_key,
+            sync_ping,
         );
         self.set_global_state(global_state.replace(None))?;
         let failures = result?;
@@ -148,8 +155,9 @@ impl<'a> Store for HistoryStore<'a> {
     fn apply_incoming(
         &self,
         inbound: IncomingChangeset,
+        incoming_telemetry: &mut telemetry::EngineIncoming,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
-        Ok(self.do_apply_incoming(inbound)?)
+        Ok(self.do_apply_incoming(inbound, incoming_telemetry)?)
     }
 
     fn sync_finished(

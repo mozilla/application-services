@@ -14,6 +14,7 @@ pub mod request;
 pub mod state;
 pub mod sync;
 pub mod sync_multiple;
+pub mod telemetry;
 pub mod token;
 pub mod util;
 
