@@ -13,8 +13,8 @@ use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use rusqlite::Row;
 use serde_derive::*;
-use std::fmt;
 use sql_support::{self, ConnExt};
+use std::fmt;
 use url::Url;
 
 // Typesafe way to manage RowIds. Does it make sense? A better way?
