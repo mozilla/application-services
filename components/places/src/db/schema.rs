@@ -179,6 +179,40 @@ lazy_static! {
         END", excluded = EXCLUDED_VISIT_TYPES);
 }
 
+const CREATE_TRIGGER_BOOKMARKS_FOREIGNCOUNT_AFTERDELETE: &str = "
+    CREATE TEMP TRIGGER moz_bookmarks_foreign_count_afterdelete_trigger
+    AFTER DELETE ON moz_bookmarks FOR EACH ROW
+    BEGIN
+        UPDATE moz_places
+        SET foreign_count = foreign_count - 1
+        WHERE id = OLD.fk;
+    END";
+
+const CREATE_TRIGGER_BOOKMARKS_FOREIGNCOUNT_AFTERINSERT_TRIGGER: &str = "
+    CREATE TEMP TRIGGER moz_bookmarks_foreign_count_afterinsert_trigger
+    AFTER INSERT ON moz_bookmarks FOR EACH ROW
+    BEGIN
+-- hrm        SELECT store_last_inserted_id('moz_bookmarks', NEW.id);
+-- hrm        SELECT note_sync_change() WHERE NEW.syncChangeCounter > 0;
+        UPDATE moz_places
+        SET foreign_count = foreign_count + 1
+        WHERE id = NEW.fk;
+    END";
+
+const CREATE_TRIGGER_BOOKMARKS_FOREIGNCOUNT_AFTERUPDATE_TRIGGER: &str = "
+    CREATE TEMP TRIGGER moz_bookmarks_foreign_count_afterupdate_trigger
+    AFTER UPDATE OF fk, syncChangeCounter ON moz_bookmarks FOR EACH ROW
+    BEGIN
+-- hrm      SELECT note_sync_change()
+-- hrm      WHERE NEW.syncChangeCounter <> OLD.syncChangeCounter;
+        UPDATE moz_places
+            SET foreign_count = foreign_count + 1
+            WHERE OLD.fk <> NEW.fk AND id = NEW.fk;
+        UPDATE moz_places
+            SET foreign_count = foreign_count - 1
+            WHERE OLD.fk <> NEW.fk AND id = OLD.fk;
+    END";
+
 // XXX - TODO - lots of desktop temp tables - but it's not clear they make sense here yet?
 
 // XXX - TODO - lots of favicon related tables - but it's not clear they make sense here yet?
@@ -257,6 +291,9 @@ pub fn init(db: &PlacesDb) -> Result<()> {
         &CREATE_TRIGGER_HISTORYVISITS_AFTERINSERT,
         &CREATE_TRIGGER_HISTORYVISITS_AFTERDELETE,
         CREATE_TRIGGER_MOZPLACES_AFTERINSERT_REMOVE_TOMBSTONES,
+        CREATE_TRIGGER_BOOKMARKS_FOREIGNCOUNT_AFTERDELETE,
+        CREATE_TRIGGER_BOOKMARKS_FOREIGNCOUNT_AFTERINSERT_TRIGGER,
+        CREATE_TRIGGER_BOOKMARKS_FOREIGNCOUNT_AFTERUPDATE_TRIGGER,
     ])?;
     Ok(())
 }
@@ -462,4 +499,74 @@ mod tests {
         assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
     }
 
+    fn get_foreign_count(conn: &PlacesDb, guid: &SyncGuid) -> u32 {
+        let count: Result<Option<u32>> = conn.try_query_row(
+            "SELECT foreign_count from moz_places
+                     WHERE guid = :guid",
+            &[(":guid", guid)],
+            |row| Ok(row.get_checked::<_, u32>(0)?),
+            true,
+        );
+        count.unwrap().unwrap()
+    }
+
+    #[test]
+    fn test_bookmark_foreign_count_triggers() {
+        // create the place.
+        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let guid1 = SyncGuid::new();
+        let url1 = Url::parse("http://example.com")
+            .expect("valid url")
+            .into_string();
+        let guid2 = SyncGuid::new();
+        let url2 = Url::parse("http://example2.com")
+            .expect("valid url")
+            .into_string();
+
+        conn.execute_named_cached(
+            "INSERT INTO moz_places (guid, url, url_hash) VALUES (:guid, :url, hash(:url))",
+            &[(":guid", &guid1), (":url", &url1)],
+        )
+        .expect("should work");
+        let place_id1 = conn.last_insert_rowid();
+
+        conn.execute_named_cached(
+            "INSERT INTO moz_places (guid, url, url_hash) VALUES (:guid, :url, hash(:url))",
+            &[(":guid", &guid2), (":url", &url2)],
+        )
+        .expect("should work");
+        let place_id2 = conn.last_insert_rowid();
+
+        assert_eq!(get_foreign_count(&conn, &guid1), 0);
+        assert_eq!(get_foreign_count(&conn, &guid2), 0);
+
+        // create a bookmark pointing at it.
+        conn.execute_named_cached(
+            "INSERT INTO moz_bookmarks
+                (fk, type, parent, position, dateAdded, lastModified, guid)
+            VALUES
+                (:place_id, 1, 0, 0, 1, 1, 'fake_guid___')",
+            &[(":place_id", &place_id1)],
+        )
+        .expect("should work");
+        assert_eq!(get_foreign_count(&conn, &guid1), 1);
+        assert_eq!(get_foreign_count(&conn, &guid2), 0);
+
+        // change the bookmark to point at a different place.
+        conn.execute_named_cached(
+            "UPDATE moz_bookmarks SET fk = :new_place WHERE guid = 'fake_guid___';",
+            &[(":new_place", &place_id2)],
+        )
+        .expect("should work");
+        assert_eq!(get_foreign_count(&conn, &guid1), 0);
+        assert_eq!(get_foreign_count(&conn, &guid2), 1);
+
+        conn.execute(
+            "DELETE FROM moz_bookmarks WHERE guid = 'fake_guid___';",
+            NO_PARAMS,
+        )
+        .expect("should work");
+        assert_eq!(get_foreign_count(&conn, &guid1), 0);
+        assert_eq!(get_foreign_count(&conn, &guid2), 0);
+    }
 }
