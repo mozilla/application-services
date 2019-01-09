@@ -11,8 +11,8 @@ use crate::db::PlacesDb;
 use crate::error::*;
 use crate::storage::bookmarks::create_bookmark_roots;
 use lazy_static::lazy_static;
-use sql_support::ConnExt;
 use rusqlite::NO_PARAMS;
+use sql_support::ConnExt;
 
 const VERSION: i64 = 3;
 
@@ -77,22 +77,28 @@ const CREATE_TABLE_INPUTHISTORY_SQL: &str = "CREATE TABLE moz_inputhistory (
 // XXX - TODO - moz_anno_attributes
 // XXX - TODO - moz_items_annos
 
-const CREATE_TABLE_BOOKMARKS_SQL: &str = "CREATE TABLE moz_bookmarks (
+const CREATE_TABLE_BOOKMARKS_SQL: &str = r#"CREATE TABLE moz_bookmarks (
         id INTEGER PRIMARY KEY,
         fk INTEGER DEFAULT NULL, -- place_id
-        type INTEGER NOT NULL,
-        parent INTEGER NOT NULL,
-        position INTEGER NOT NULL,
+        type INTEGER NOT NULL CHECK(type BETWEEN 1 AND 3),
+        parent INTEGER,
+        position INTEGER NOT NULL CHECK(position >= 0),
         title TEXT, -- a'la bug 1356159, NULL is special here - it means 'not edited'
         dateAdded INTEGER NOT NULL DEFAULT 0,
         lastModified INTEGER NOT NULL DEFAULT 0,
-        guid TEXT NOT NULL UNIQUE,
+        guid TEXT NOT NULL UNIQUE CHECK(length(guid) == 12),
 
-        syncStatus INTEGER NOT NULL DEFAULT 0,
+        syncStatus INTEGER NOT NULL DEFAULT 0 CHECK(type BETWEEN 0 AND 2),
         syncChangeCounter INTEGER NOT NULL DEFAULT 1,
 
+        -- bookmarks must have a fk to a URL, other types must not.
+        CHECK((type == 1 AND fk IS NOT NULL) OR (type > 1 AND fk IS NULL))
+        -- only the root is allowed to have a non-null parent
+        CHECK(guid == "root________" OR parent IS NOT NULL)
+
         FOREIGN KEY(fk) REFERENCES moz_places(id) ON DELETE RESTRICT
-    )";
+        FOREIGN KEY(parent) REFERENCES moz_bookmarks(id) ON DELETE CASCADE
+    )"#;
 
 const CREATE_TABLE_BOOKMARKS_DELETED_SQL: &str = "CREATE TABLE moz_bookmarks_deleted (
         guid TEXT PRIMARY KEY,
@@ -292,7 +298,10 @@ pub fn create(db: &PlacesDb) -> Result<()> {
         CREATE_IDX_MOZ_BOOKMARKS_PLACELASTMODIFIED,
     ])?;
     create_bookmark_roots(&db.conn())?;
-    db.execute(&format!("PRAGMA user_version = {version}", version = VERSION), NO_PARAMS)?;
+    db.execute(
+        &format!("PRAGMA user_version = {version}", version = VERSION),
+        NO_PARAMS,
+    )?;
 
     Ok(())
 }
@@ -374,4 +383,83 @@ mod tests {
         .expect("should work");
         assert!(!has_tombstone(&conn, &guid));
     }
+
+    #[test]
+    fn test_bookmark_check_constraints() {
+        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+
+        // Invalid value for "type"
+        let e = conn
+            .execute_cached(
+                "INSERT INTO moz_bookmarks
+                (fk, type, parent, position, dateAdded, lastModified, guid)
+            VALUES
+                (NULL, 4, 0, 0, 1, 1, 'fake_guid___')",
+                NO_PARAMS,
+            )
+            .expect_err("should fail");
+        // it's a shame the message doesn't indicate what check failed :(
+        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+
+        // type==BOOKMARK but null fk
+        let e = conn
+            .execute_cached(
+                "INSERT INTO moz_bookmarks
+                    (fk, type, parent, position, dateAdded, lastModified, guid)
+                 VALUES
+                    (NULL, 1, 0, 0, 1, 1, 'fake_guid___')",
+                NO_PARAMS,
+            )
+            .expect_err("should fail");
+        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+
+        // type!=BOOKMARK and non-null fk
+        let e = conn
+            .execute_cached(
+                "INSERT INTO moz_bookmarks
+                    (fk, type, parent, position, dateAdded, lastModified, guid)
+                 VALUES
+                    (1, 2, 0, 0, 1, 1, 'fake_guid___')",
+                NO_PARAMS,
+            )
+            .expect_err("should fail");
+        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+
+        // null parent for item other than the root
+        let e = conn
+            .execute_cached(
+                "INSERT INTO moz_bookmarks
+                    (fk, type, parent, position, dateAdded, lastModified, guid)
+                 VALUES
+                    (NULL, 2, NULL, 0, 1, 1, 'fake_guid___')",
+                NO_PARAMS,
+            )
+            .expect_err("should fail");
+        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+
+        // Invalid length guid
+        let e = conn
+            .execute_cached(
+                "INSERT INTO moz_bookmarks
+                    (fk, type, parent, position, dateAdded, lastModified, guid)
+                 VALUES
+                    (NULL, 2, 0, 0, 1, 1, 'fake_guid')",
+                NO_PARAMS,
+            )
+            .expect_err("should fail");
+        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+
+        // negative position
+        let e = conn
+            .execute_cached(
+                "INSERT INTO moz_bookmarks
+                    (fk, type, parent, position, dateAdded, lastModified, guid)
+                 VALUES
+                    (NULL, 2, 0, -1, 1, 1, 'fake_guid___')",
+                NO_PARAMS,
+            )
+            .expect_err("should fail");
+        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
+    }
+
 }

@@ -190,10 +190,10 @@ impl<'de> serde::Deserialize<'de> for VisitTransition {
 #[repr(u8)]
 pub enum BookmarkType {
     Bookmark = 1, // TYPE_BOOKMARK
-    Folder = 2, // TYPE_FOLDER
+    Folder = 2,   // TYPE_FOLDER
     Separator = 3, // TYPE_SEPARATOR;
-    // On desktop, TYPE_DYNAMIC_CONTAINER = 4 but is deprecated - so please
-    // avoid using this value in the future.
+                  // On desktop, TYPE_DYNAMIC_CONTAINER = 4 but is deprecated - so please
+                  // avoid using this value in the future.
 }
 
 impl BookmarkType {
@@ -213,7 +213,6 @@ impl ToSql for BookmarkType {
         Ok(ToSqlOutput::from(*self as u8))
     }
 }
-
 
 /// Re SyncStatus - note that:
 /// * logins has synced=0, changed=1, new=2
