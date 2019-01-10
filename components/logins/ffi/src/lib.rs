@@ -36,6 +36,43 @@ pub unsafe extern "C" fn sync15_passwords_state_new(
     })
 }
 
+unsafe fn bytes_to_key_string(key_bytes: *const u8, len: usize) -> Option<String> {
+    if len == 0 {
+        log::info!("Opening/Creating unencrypted database!");
+        return None;
+    } else {
+        assert!(
+            !key_bytes.is_null(),
+            "Null pointer provided with nonzero length"
+        );
+    }
+    let byte_slice = std::slice::from_raw_parts(key_bytes, len);
+    Some(base16::encode_lower(byte_slice))
+}
+
+/// Same as sync15_passwords_state_new, but automatically hex-encodes the string.
+///
+/// If a key_len of 0 is provided, then the database will not be encrypted.
+///
+/// Note: lowercase hex characters are used (e.g. it encodes using the character set 0-9a-f and NOT 0-9A-F).
+#[no_mangle]
+pub unsafe extern "C" fn sync15_passwords_state_new_with_hex_key(
+    db_path: *const c_char,
+    encryption_key: *const u8,
+    encryption_key_len: u32,
+    error: &mut ExternError,
+) -> *mut PasswordEngine {
+    logging_init();
+    log::trace!("sync15_passwords_state_new_with_hex_key");
+    call_with_result(error, || {
+        let path = rust_str_from_c(db_path);
+        let key = bytes_to_key_string(encryption_key, encryption_key_len as usize);
+        // We have a Option<String>, but need an Option<&str>...
+        let opt_key_ref = key.as_ref().map(|s| s.as_str());
+        PasswordEngine::new(path, opt_key_ref)
+    })
+}
+
 // indirection to help `?` figure out the target error type
 fn parse_url(url: &str) -> sync15::Result<url::Url> {
     Ok(url::Url::parse(url)?)

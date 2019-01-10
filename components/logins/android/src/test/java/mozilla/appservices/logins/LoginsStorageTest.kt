@@ -38,7 +38,7 @@ abstract class LoginsStorageTest {
         return store
     }
 
-    private fun finishAndClose(store: LoginsStorage) {
+    protected fun finishAndClose(store: LoginsStorage) {
         store.ensureLocked()
         assertEquals(store.isLocked(), true)
         store.close()

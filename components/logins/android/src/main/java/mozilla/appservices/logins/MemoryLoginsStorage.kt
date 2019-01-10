@@ -51,6 +51,12 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
         state = LoginsStorageState.Unlocked
     }
 
+    @Synchronized
+    @Throws(LoginsStorageException::class)
+    override fun unlock(encryptionKey: ByteArray) {
+        // Currently we never check the key for the in-memory version, so this is fine.
+        unlock("")
+    }
 
     @Synchronized
     override fun isLocked(): Boolean {
@@ -60,6 +66,14 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
     @Synchronized
     @Throws(LoginsStorageException::class)
     override fun ensureUnlocked(encryptionKey: String) {
+        if (isLocked()) {
+            this.unlock(encryptionKey)
+        }
+    }
+
+    @Synchronized
+    @Throws(LoginsStorageException::class)
+    override fun ensureUnlocked(encryptionKey: ByteArray) {
         if (isLocked()) {
             this.unlock(encryptionKey)
         }
