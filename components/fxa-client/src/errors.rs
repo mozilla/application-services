@@ -174,6 +174,9 @@ macro_rules! impl_from_error {
         impl From<$type> for ErrorKind {
             #[inline]
             fn from(e: $type) -> ErrorKind {
+                // We lose some information when boxing the wrapped errors, so
+                // log them here before that happens.
+                log::error!("FxA error `{}`: {:?}", stringify!($type), e);
                 ErrorKind::$variant(e)
             }
         }

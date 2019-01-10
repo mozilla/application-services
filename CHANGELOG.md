@@ -2,6 +2,14 @@
 
 **TODO: remove before tagging/publishing a release**
 
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.1...master)
+
+## Firefox Accounts
+
+### What's New
+
+- The fxa-client android library will now write logs to logcat. ([#533](https://github.com/mozilla/application-services/pull/533))
+
 # 0.13.1 (_2019-01-10_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.0...v0.13.1)
