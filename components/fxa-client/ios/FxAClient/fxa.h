@@ -24,6 +24,7 @@ enum {
     NoError = 0,
     Other = 1,
     AuthenticationError = 2,
+    NetworkError = 3,
 };
 
 /*
