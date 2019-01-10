@@ -10,6 +10,7 @@ use rusqlite::types::ToSql;
 use rusqlite::{Connection, Row};
 use sql_support::{self, ConnExt};
 use std::cmp::{max, min};
+use std::iter::Peekable;
 use url::Url;
 
 /// Special GUIDs associated with bookmark roots.
@@ -258,6 +259,7 @@ pub fn insert_bookmark(db: &impl ConnExt, bm: InsertableBookmarkItem) -> Result<
 /// Support for inserting and fetching a tree. Same limitations as desktop.
 /// Note that the guids are optional when inserting a tree. They will always
 /// have values when fetching it.
+#[derive(Debug)]
 pub struct BookmarkNode {
     pub guid: Option<SyncGuid>,
     pub date_added: Option<Timestamp>,
@@ -266,12 +268,14 @@ pub struct BookmarkNode {
     pub url: Url,
 }
 
+#[derive(Debug)]
 pub struct SeparatorNode {
     pub guid: Option<SyncGuid>,
     pub date_added: Option<Timestamp>,
     pub last_modified: Option<Timestamp>,
 }
 
+#[derive(Debug)]
 pub struct FolderNode {
     pub guid: Option<SyncGuid>,
     pub date_added: Option<Timestamp>,
@@ -280,6 +284,7 @@ pub struct FolderNode {
     pub children: Vec<BookmarkTreeNode>,
 }
 
+#[derive(Debug)]
 pub enum BookmarkTreeNode {
     Bookmark(BookmarkNode),
     Separator(SeparatorNode),
@@ -348,9 +353,9 @@ struct FetchedTreeRow {
     guid: SyncGuid,
     parent: RowId,
     parent_guid: SyncGuid,
-    node_type: u32,
+    node_type: BookmarkType,
     position: u32,
-    title: String,
+    title: Option<String>,
     date_added: Timestamp,
     last_modified: Timestamp,
     url: Option<String>,
@@ -358,23 +363,105 @@ struct FetchedTreeRow {
 
 impl FetchedTreeRow {
     pub fn from_row(row: &Row) -> Result<Self> {
+        let url = row.get_checked::<_, Option<String>>("url")?;
         Ok(Self {
             level: row.get_checked("level")?,
             id: row.get_checked::<_, RowId>("id")?,
             guid: SyncGuid(row.get_checked::<_, String>("guid")?),
             parent: row.get_checked::<_, RowId>("parent")?,
             parent_guid: SyncGuid(row.get_checked::<_, String>("parentGuid")?),
-            node_type: row.get_checked("type")?,
+            node_type: match BookmarkType::from_u8(row.get_checked::<_, u8>("type")?) {
+                Some(t) => t,
+                None => match url {
+                    Some(_) => BookmarkType::Bookmark,
+                    _ => BookmarkType::Folder,
+                },
+            },
             position: row.get_checked("position")?,
-            title: row.get_checked("title")?,
+            title: row.get_checked::<_, Option<String>>("title")?,
             date_added: row.get_checked("dateAdded")?,
             last_modified: row.get_checked("lastModified")?,
-            url: row.get_checked::<_, Option<String>>("url")?,
+            url,
         })
     }
 }
 
-pub fn fetch_tree(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<()> {
+/// A recursive function that processes a number of rows in an iterator.
+/// The first row from the iterator must be that of a folder. Subsequent
+/// rows are consumed while they have a level greater than the level of
+/// the folder itself.
+fn process_folder_rows<'a, I>(rows: &mut Peekable<I>) -> FolderNode
+where
+    I: Iterator<Item = FetchedTreeRow>,
+{
+    // Our query guarantees that we always visit parents ahead of their
+    // children. This function is only called for folders.
+    let folder_row = rows
+        .next()
+        .expect("should never be called with exhausted iter");
+    let mut result = FolderNode {
+        guid: Some(folder_row.guid.clone()),
+        date_added: Some(folder_row.date_added),
+        last_modified: Some(folder_row.last_modified),
+        title: folder_row.title.clone(),
+        children: Vec::new(),
+    };
+    let folder_level = folder_row.level;
+    loop {
+        let next_level = match rows.peek() {
+            None => return result,
+            Some(next_row) => next_row.level,
+        };
+
+        if next_level <= folder_level {
+            // next item is a sibling of our result folder, so we are done.
+            return result;
+        }
+
+        let row = match rows.next() {
+            Some(row) => row,
+            // None should be impossible as we already peeked at it!
+            None => return result, // iterator is exhaused.
+        };
+        let node = match row.node_type {
+            BookmarkType::Folder => Some(BookmarkTreeNode::Folder(process_folder_rows(rows))),
+            BookmarkType::Bookmark => match &row.url {
+                Some(url_str) => match Url::parse(&url_str) {
+                    Ok(url) => Some(BookmarkTreeNode::Bookmark(BookmarkNode {
+                        guid: Some(row.guid.clone()),
+                        date_added: Some(row.date_added),
+                        last_modified: Some(row.last_modified),
+                        title: row.title.clone(),
+                        url,
+                    })),
+                    Err(e) => {
+                        log::warn!(
+                            "ignoring malformed bookmark - invalid URL {}: {:?}",
+                            url_str,
+                            e
+                        );
+                        None
+                    }
+                },
+                None => {
+                    log::warn!("ignoring malformed bookmark {:?}- no URL", row);
+                    None
+                }
+            },
+            BookmarkType::Separator => Some(BookmarkTreeNode::Separator(SeparatorNode {
+                guid: Some(row.guid.clone()),
+                date_added: Some(row.date_added),
+                last_modified: Some(row.last_modified),
+            })),
+        };
+        if let Some(node) = node {
+            result.children.push(node);
+        }
+    }
+    //unreachable!();
+}
+
+pub fn fetch_tree(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<Option<FolderNode>> {
     let sql = r#"
         WITH RECURSIVE
         descendants(fk, level, type, id, guid, parent, parentGuid, position,
@@ -417,13 +504,17 @@ pub fn fetch_tree(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<()> {
 
     let results =
         stmt.query_and_then_named(&[(":item_guid", item_guid)], FetchedTreeRow::from_row)?;
-    // XXX - turn this back into a FolderNode
-    // Our query guarantees that we always visit parents ahead of their
-    // children.
+    // markh can't work out how to do this directly with an AndThenRows - so
+    // we slurp the rows into a Vec and iterate over that.
+    let mut rows = Vec::new();
     for result in results {
-        println!("result {:?}", result);
+        rows.push(result?);
     }
-    Ok(())
+    let mut peekable_row_iter = rows.into_iter().peekable();
+    Ok(match peekable_row_iter.peek() {
+        Some(_) => Some(process_folder_rows(&mut peekable_row_iter)),
+        None => None,
+    })
 }
 
 /// A "raw" bookmark - a representation of the row and some summary fields.
@@ -586,7 +677,8 @@ mod tests {
         insert_tree(&conn, &BookmarkRootGuid::Unfiled.into(), &tree)?;
 
         // re-fetch it.
-        fetch_tree(&conn, &BookmarkRootGuid::Unfiled.into())?;
+        let t = fetch_tree(&conn, &BookmarkRootGuid::Unfiled.into())?;
+        println!("fetched {:?}", t);
 
         // let rb = get_raw_bookmark(&conn, &guid)?.expect("should get the bookmark");
         Ok(())
