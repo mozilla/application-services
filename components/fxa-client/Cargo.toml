@@ -14,7 +14,7 @@ lazy_static = "1.0.0"
 log = "0.4"
 openssl = { version = "0.10.12", optional = true }
 regex = "1.0.0"
-reqwest = "=0.9.5"
+reqwest = "0.9.7"
 ring = "0.13.5"
 serde = { version = "1.0.79", features = ["rc"] }
 serde_derive = "1.0.79"
