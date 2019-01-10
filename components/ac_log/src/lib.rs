@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+//! XXX THIS IS STALE NOW FIXME BEFORE LANDING
+//!
 //! This crate allows users from the other side of the FFI to hook into Rust's
 //! `log` crate, which is used by us and several of our dependencies. The
 //! primary use case is providing logs to Android in a way that is more flexible
@@ -42,13 +44,14 @@
 //! `log`'s design, and not of anything fundamental about code calling between
 //! Rust and the JVM in this manner.
 
-use crossbeam_channel::Sender;
 use std::{
     ffi::CString,
     os::raw::c_char,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
+        Mutex,
+        mpsc::{SyncSender, sync_channel},
     },
     thread,
 };
@@ -63,6 +66,8 @@ pub enum LogLevel {
     WARN = 5,
     ERROR = 6,
 }
+
+
 
 impl From<log::Level> for LogLevel {
     fn from(l: log::Level) -> Self {
@@ -114,85 +119,90 @@ impl<'a, 'b> From<&'b log::Record<'a>> for LogRecord {
 /// - Log level (an i32).
 /// - Tag: a (nullable) nul terminated c string. Caller must not free this string!
 /// - Message: a (non-nullable) nul terminated c string. Caller must not free this string!
-pub type LogCallback = extern "C" fn(LogLevel, *const c_char, *const c_char);
+///
+/// and returns 0 if we should close the thread, and 1 otherwise. This is done because
+/// attempting to call `close` from within the log callback will deadlock.
+pub type LogCallback = extern "C" fn(LogLevel, *const c_char, *const c_char) -> u8;
+
+enum LogMessage {
+    Stop,
+    Record(LogRecord),
+}
 
 pub struct LogAdapterState {
     // Thread handle for the BG thread. We can't drop this without problems so weu32
     // prefix with _ to shut rust up about it being unused.
     handle: Option<std::thread::JoinHandle<()>>,
-    stopped: Arc<AtomicBool>,
-    done_sender: Sender<()>,
+    stopped: Arc<Mutex<bool>>,
+    sender: SyncSender<LogMessage>,
 }
 
 pub struct LogSink {
-    stopped: Arc<AtomicBool>,
-    sender: Sender<LogRecord>,
+    sender: SyncSender<LogMessage>,
+    // Used locally for preventing unnecessary work after the `sender`
+    // is closed. Not shared. Not required for correctness.
+    disabled: AtomicBool,
 }
 
 impl log::Log for LogSink {
     fn enabled(&self, _metadata: &log::Metadata) -> bool {
         // Really this could just be Acquire but whatever
-        !self.stopped.load(Ordering::SeqCst)
+        !self.disabled.load(Ordering::SeqCst)
     }
 
     fn flush(&self) {}
     fn log(&self, record: &log::Record) {
         // Important: we check stopped before writing, which means
         // it must be set before
-        if self.stopped.load(Ordering::SeqCst) {
+        if self.disabled.load(Ordering::SeqCst) {
             // Note: `enabled` is not automatically called.
             return;
         }
-        // In practice this should never fail, we always set `stopped` before
-        // closing the channel. That said, in the future it wouldn't be
-        // unreasonable to swallow this error.
-        self.sender.send(record.into()).unwrap();
+        // Either the queue is full, or the receiver is closed.
+        // In either case, we want to stop all logging immediately.
+        if self.sender.try_send(LogMessage::Record(record.into())).is_err() {
+            self.disabled.store(true, Ordering::SeqCst);
+        }
     }
 }
 
 impl LogAdapterState {
     pub fn init(callback: LogCallback) -> Self {
-        let stopped = Arc::new(AtomicBool::new(false));
-        let (record_sender, record_recv) = crossbeam_channel::unbounded();
-        // We use a channel to notify the `drain` thread that we changed done,
-        // so that we can close it in a timely fashion.
-        let (done_sender, done_recv) = crossbeam_channel::bounded(1);
+        // This uses a mutex (instead of an atomic bool) to avoid a race condition
+        // where `stopped` gets set by another thread between when we read it and
+        // when we call the callback. This way, they'll block.
+        let stopped = Arc::new(Mutex::new(false));
+        let (message_sender, message_recv) = sync_channel(4096);
         let handle = {
             let stopped = stopped.clone();
             thread::spawn(move || {
-                loop {
-                    crossbeam_channel::select! {
-                        recv(record_recv) -> record => {
-                            if stopped.load(Ordering::SeqCst) {
-                                return;
-                            }
-                            if let Ok(LogRecord { level, tag, message }) = record {
-                                let tag_ptr = tag.as_ref()
-                                    .map(|s| s.as_ptr())
-                                    .unwrap_or_else(std::ptr::null);
-                                let msg_ptr = message.as_ptr();
-                                callback(level, tag_ptr, msg_ptr);
-                            } else {
-                                // Channel closed.
-                                stopped.store(true, Ordering::SeqCst);
-                                return;
-                            }
-                        },
-                        recv(done_recv) -> _ => {
-                            return;
-                        }
-                    };
+                // We stop if we see `Err` (which means the channel got closed,
+                // which probably can't happen since the sender owned by the
+                // logger will never get dropped), or if we get `LogMessage::Stop`,
+                // which means we should stop processing.
+                while let Ok(LogMessage::Record(record)) = message_recv.recv() {
+                    let LogRecord { tag, level, message } = record;
+                    let tag_ptr = tag.as_ref()
+                        .map(|s| s.as_ptr())
+                        .unwrap_or_else(std::ptr::null);
+                    let msg_ptr = message.as_ptr();
 
-                    // Could be Acquire
-                    if stopped.load(Ordering::SeqCst) {
+                    let mut stop_guard = stopped.lock().unwrap();
+                    if *stop_guard {
+                        return;
+                    }
+                    let keep_going = callback(level, tag_ptr, msg_ptr);
+                    if keep_going == 0 {
+                        *stop_guard = true;
                         return;
                     }
                 }
             })
         };
+
         let sink = LogSink {
-            sender: record_sender,
-            stopped: stopped.clone(),
+            sender: message_sender.clone(),
+            disabled: AtomicBool::new(false),
         };
 
         log::set_max_level(log::LevelFilter::Info);
@@ -201,17 +211,29 @@ impl LogAdapterState {
         Self {
             handle: Some(handle),
             stopped,
-            done_sender,
+            sender: message_sender,
         }
     }
-
-    pub fn stop(&mut self) {}
 }
 
 impl Drop for LogAdapterState {
     fn drop(&mut self) {
-        self.stopped.store(true, Ordering::SeqCst);
-        self.done_sender.send(()).unwrap();
+        {
+            // It would be nice to write a log that says something like
+            // "if we deadlock here it's because you tried to close the
+            // log adapter from within the log callback", but, well, we
+            // can't exactly log anything from here (and even if we could,
+            // they'd never see it if they hit that situation)
+            let mut stop_guard = self.stopped.lock().unwrap();
+            *stop_guard = true;
+            // We can ignore a failure here because it means either
+            // - The recv is dropped, in which case we don't need to send anything
+            // - The recv is completely full, in which case it will see the flag we
+            //   wrote into `stop_guard` soon enough anyway.
+            let _ = self.sender.try_send(LogMessage::Stop);
+        }
+        // Wait for the calling thread to stop. This should be relatively
+        // quickly unless something terrible has happened.
         // TODO: can we safely return from this (I suspect the answer is no, and
         // we have to panic and abort higher up...)
         if let Some(h) = self.handle.take() {

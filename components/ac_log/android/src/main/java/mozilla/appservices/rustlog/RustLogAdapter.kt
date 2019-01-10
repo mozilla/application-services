@@ -6,7 +6,7 @@ package mozilla.appservices.rustlog
 
 import com.sun.jna.Pointer
 
-typealias OnLog = (Int, String?, String) -> Unit;
+typealias OnLog = (Int, String?, String) -> Boolean;
 class RustLogAdapter private constructor(
     // IMPORTANT: This must not be GCed while the adapter is alive!
         @Suppress("Unused")
@@ -158,18 +158,20 @@ enum class LogLevelFilter(internal val value: Int) {
 
 
 internal class RawLogCallbackImpl(private val onLog: OnLog) : RawLogCallback {
-    override fun invoke(level: Int, tag: Pointer?, message: Pointer) {
+    override fun invoke(level: Int, tag: Pointer?, message: Pointer): Byte {
         // We can't safely throw here!
         try {
             val tagStr = tag?.getString(0, "utf8")
             val msgStr = message.getString(0, "utf8")
-            onLog(level, tagStr, msgStr)
+            val result = onLog(level, tagStr, msgStr)
+            return if (result) { 1 } else { 0 }
         } catch(e: Throwable) {
             try {
                 println("Exception when logging: $e")
             } catch (e: Throwable) {
                 // :(
             }
+            return 0
         }
     }
 }

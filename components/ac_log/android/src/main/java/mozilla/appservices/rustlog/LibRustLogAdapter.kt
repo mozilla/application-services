@@ -56,7 +56,7 @@ internal interface LibRustLogAdapter : Library {
 }
 
 interface RawLogCallback : Callback {
-    fun invoke(level: Int, tag: Pointer?, message: Pointer);
+    fun invoke(level: Int, tag: Pointer?, message: Pointer): Byte;
 }
 
 class RawLogAdapter : PointerType()

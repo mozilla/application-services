@@ -38,6 +38,7 @@ class LogTest {
             val info = "Rust log from $threadId | Level: $level | tag: $tagStr | message: $msgStr"
             println(info)
             logs += info
+            true
         }
 
         // We log an informational message after initializing (but it's processed asynchronously).
@@ -54,6 +55,7 @@ class LogTest {
 
         val didEnable = RustLogAdapter.tryEnable { _, _, _ ->
             wasCalled = true
+            true
         }
 
         assert(!didEnable);
@@ -90,12 +92,14 @@ class LogTest {
 
         val didEnable2 = RustLogAdapter.tryEnable { _, _, _ ->
             wasCalled = true
+            true
         }
         assert(!didEnable2)
 
         try {
             RustLogAdapter.enable { _, _, _ ->
                 wasCalled = true
+                true
             }
             Assert.fail("enable should throw")
         } catch (e: LogAdapterCannotEnable) {
@@ -105,6 +109,7 @@ class LogTest {
         // calls didn't secretly work.
         writeTestLog("Test6")
         assert(!wasCalled)
+        // XXX FIXME work out how we can test returning false!
     }
 }
 
