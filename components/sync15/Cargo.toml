@@ -10,7 +10,7 @@ serde = "1.0.79"
 serde_derive = "1.0.79"
 serde_json = "1.0.28"
 url = "1.7.1"
-reqwest = "0.9.1"
+reqwest = "=0.9.5"
 openssl = "0.10.12"
 hawk = { git = "https://github.com/eoger/rust-hawk", branch = "use-openssl" }
 hyper = "0.12.10"
