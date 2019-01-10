@@ -85,12 +85,6 @@ jobs:
     steps:
       - rust-tests:
           rust-version: "beta"
-  Rust tests - nightly:
-    docker:
-      - image: circleci/rust:latest
-    steps:
-      - rust-tests:
-          rust-version: "nightly"
   Sync integration tests:
     docker:
       - image: circleci/rust:latest-browsers
@@ -106,5 +100,4 @@ workflows:
     jobs:
       - Rust tests - stable
       - Rust tests - beta
-      - Rust tests - nightly
       - Sync integration tests
