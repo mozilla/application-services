@@ -10,6 +10,7 @@ crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
 ffi-support = { path = "../../support/ffi" }
+log = "0.4.6"
 
 [dependencies.fxa-client]
 path = "../"
@@ -17,3 +18,6 @@ features = ["ffi"]
 
 [features]
 browserid = ["fxa-client/browserid"]
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.7.0"
