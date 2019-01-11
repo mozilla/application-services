@@ -1,6 +1,6 @@
 # Unreleased Changes
 
-**TODO: remove before tagging/publishing a release**
+**See [the release process docs](docs/release-process.md) for the steps to take when cutting a new release.**
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.2...master)
 
