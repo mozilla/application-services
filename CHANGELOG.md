@@ -1,5 +1,7 @@
 # Unreleased Changes
 
+- The fxa-client Android and iOS librairies will throw a differentiated exception for general network errors. ([#535](https://github.com/mozilla/application-services/pull/535))
+
 **TODO: remove before tagging/publishing a release**
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.1...master)
