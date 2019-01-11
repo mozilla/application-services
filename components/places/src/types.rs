@@ -4,6 +4,7 @@
 
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
+use serde::ser::{Serialize, Serializer};
 use serde_derive::*;
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -211,6 +212,15 @@ impl BookmarkType {
 impl ToSql for BookmarkType {
     fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
         Ok(ToSqlOutput::from(*self as u8))
+    }
+}
+
+impl Serialize for BookmarkType {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_u8(*self as u8)
     }
 }
 

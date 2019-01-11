@@ -8,6 +8,13 @@ use crate::error::*;
 use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
 use rusqlite::types::ToSql;
 use rusqlite::{Connection, Row};
+use serde::{
+    de::{Deserialize, Deserializer},
+    ser::{Serialize, SerializeStruct, Serializer},
+};
+use serde_derive::*;
+#[cfg(test)]
+use serde_json::{self, json};
 use sql_support::{self, ConnExt};
 use std::cmp::{max, min};
 use std::iter::Peekable;
@@ -292,6 +299,22 @@ fn do_insert_bookmark(db: &impl ConnExt, bm: InsertableBookmarkItem) -> Result<S
 /// Support for inserting and fetching a tree. Same limitations as desktop.
 /// Note that the guids are optional when inserting a tree. They will always
 /// have values when fetching it.
+
+// For testing purposes we implement PartialEq, such that optional fields are
+// ignored in the comparison. This allows tests to construct a tree with
+// missing fields and still be able to compare an exported tree (with all
+// fields) against the initial one.
+macro_rules! cmp_option {
+    ($s: ident, $o: ident, $name:ident) => {
+        match (&$s.$name, &$o.$name) {
+            (None, None) => true,
+            (None, Some(_)) => true,
+            (Some(_), None) => true,
+            (s, o) => s == o,
+        }
+    };
+}
+
 #[derive(Debug)]
 pub struct BookmarkNode {
     pub guid: Option<SyncGuid>,
@@ -301,11 +324,31 @@ pub struct BookmarkNode {
     pub url: Url,
 }
 
+// #[test] - XXX - we only need these for tests and it would be preferable
+// to not expose otherise - but this gets `error: only functions may be used as tests`
+impl PartialEq for BookmarkNode {
+    fn eq(&self, other: &BookmarkNode) -> bool {
+        cmp_option!(self, other, guid)
+            && cmp_option!(self, other, date_added)
+            && cmp_option!(self, other, last_modified)
+            && cmp_option!(self, other, title)
+            && self.url == other.url
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct SeparatorNode {
     pub guid: Option<SyncGuid>,
     pub date_added: Option<Timestamp>,
     pub last_modified: Option<Timestamp>,
+}
+
+impl PartialEq for SeparatorNode {
+    fn eq(&self, other: &SeparatorNode) -> bool {
+        cmp_option!(self, other, guid)
+            && cmp_option!(self, other, date_added)
+            && cmp_option!(self, other, last_modified)
+    }
 }
 
 #[derive(Debug, Default)]
@@ -317,11 +360,157 @@ pub struct FolderNode {
     pub children: Vec<BookmarkTreeNode>,
 }
 
-#[derive(Debug)]
+impl PartialEq for FolderNode {
+    fn eq(&self, other: &FolderNode) -> bool {
+        cmp_option!(self, other, guid)
+            && cmp_option!(self, other, date_added)
+            && cmp_option!(self, other, last_modified)
+            && cmp_option!(self, other, title)
+            && self.children == other.children
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum BookmarkTreeNode {
     Bookmark(BookmarkNode),
     Separator(SeparatorNode),
     Folder(FolderNode),
+}
+
+// Serde makes it tricky to serialize what we need here - a 'type' from the
+// enum and then a flattened variant struct. So we gotta do it manually.
+impl Serialize for BookmarkTreeNode {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("BookmarkTreeNode", 2)?;
+        match self {
+            BookmarkTreeNode::Bookmark(b) => {
+                state.serialize_field("type", &BookmarkType::Bookmark)?;
+                state.serialize_field("guid", &b.guid)?;
+                state.serialize_field("date_added", &b.date_added)?;
+                state.serialize_field("last_modified", &b.last_modified)?;
+                state.serialize_field("title", &b.title)?;
+                state.serialize_field("url", &b.url.to_string())?;
+            }
+            BookmarkTreeNode::Separator(s) => {
+                state.serialize_field("type", &BookmarkType::Separator)?;
+                state.serialize_field("guid", &s.guid)?;
+                state.serialize_field("date_added", &s.date_added)?;
+                state.serialize_field("last_modified", &s.last_modified)?;
+            }
+            BookmarkTreeNode::Folder(f) => {
+                state.serialize_field("type", &BookmarkType::Folder)?;
+                state.serialize_field("guid", &f.guid)?;
+                state.serialize_field("date_added", &f.date_added)?;
+                state.serialize_field("last_modified", &f.last_modified)?;
+                state.serialize_field("title", &f.title)?;
+                state.serialize_field("children", &f.children)?;
+            }
+        };
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for BookmarkTreeNode {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // *sob* - a union of fields we post-process.
+        #[derive(Debug, Default, Deserialize)]
+        #[serde(default)]
+        struct Mapping {
+            #[serde(rename = "type")]
+            bookmark_type: u8,
+            guid: Option<SyncGuid>,
+            date_added: Option<Timestamp>,
+            last_modified: Option<Timestamp>,
+            title: Option<String>,
+            #[serde(with = "url_serde")]
+            url: Option<Url>,
+            children: Vec<BookmarkTreeNode>,
+        }
+        let m = Mapping::deserialize(deserializer)?;
+
+        // this patten has been copy-pasta'd too often...
+        let bookmark_type = match BookmarkType::from_u8(m.bookmark_type) {
+            Some(t) => t,
+            None => match m.url {
+                Some(_) => BookmarkType::Bookmark,
+                _ => BookmarkType::Folder,
+            },
+        };
+
+        Ok(match bookmark_type {
+            BookmarkType::Bookmark => {
+                BookmarkTreeNode::Bookmark(BookmarkNode {
+                    guid: m.guid,
+                    date_added: m.date_added,
+                    last_modified: m.last_modified,
+                    title: m.title,
+                    // XXX - need to handle None and invalid URLs
+                    url: m.url.unwrap(),
+                })
+            }
+            BookmarkType::Separator => BookmarkTreeNode::Separator(SeparatorNode {
+                guid: m.guid,
+                date_added: m.date_added,
+                last_modified: m.last_modified,
+            }),
+            BookmarkType::Folder => BookmarkTreeNode::Folder(FolderNode {
+                guid: m.guid,
+                date_added: m.date_added,
+                last_modified: m.last_modified,
+                title: m.title,
+                children: m.children,
+            }),
+        })
+    }
+}
+
+#[cfg(test)]
+mod test_serialize {
+    use super::*;
+
+    #[test]
+    fn test_tree_serialize() -> Result<()> {
+        let guid = SyncGuid::new();
+        let tree = BookmarkTreeNode::Folder(FolderNode {
+            guid: Some(guid.clone()),
+            date_added: None,
+            last_modified: None,
+            title: None,
+            children: vec![BookmarkTreeNode::Bookmark(BookmarkNode {
+                guid: None,
+                date_added: None,
+                last_modified: None,
+                title: Some("the bookmark".into()),
+                url: Url::parse("https://www.example.com")?,
+            })],
+        });
+        // round-trip the tree via serde.
+        let json = serde_json::to_string_pretty(&tree)?;
+        let deser: BookmarkTreeNode = serde_json::from_str(&json)?;
+        assert_eq!(tree, deser);
+        // and check against the simplest json repr of the tree, which checks
+        // our PartialEq implementation.
+        let jtree = json!({
+            "type": 2,
+            "guid": &guid,
+            "children" : [
+                {
+                    "type": 1,
+                    "title": "the bookmark",
+                    "url": "https://www.example.com/"
+                }
+            ]
+        });
+        let deser_tree: BookmarkTreeNode = serde_json::from_value(jtree).expect("should deser");
+        assert_eq!(tree, deser_tree);
+        Ok(())
+    }
 }
 
 fn add_subtree_infos(
@@ -766,10 +955,28 @@ mod tests {
         insert_tree(&conn, &tree)?;
 
         // re-fetch it.
-        let t = fetch_tree(&conn, &BookmarkRootGuid::Unfiled.into())?;
-        println!("fetched {:?}", t);
+        let fetched = fetch_tree(&conn, &BookmarkRootGuid::Unfiled.into())?.unwrap();
 
-        // let rb = get_raw_bookmark(&conn, &guid)?.expect("should get the bookmark");
+        let expected = json!({
+            "guid": &BookmarkRootGuid::Unfiled.as_guid(),
+            "children": [
+                {
+                    "title": "the bookmark",
+                    "url": "https://www.example.com/"
+                },
+                {
+                    "title": "A folder",
+                    "children": [
+                        {
+                            "title": "bookmark in A folder",
+                            "url": "https://www.example2.com/"
+                        }
+                    ]
+                }
+            ]
+        });
+        let deser_tree: BookmarkTreeNode = serde_json::from_value(expected)?;
+        assert_eq!(fetched, deser_tree);
         Ok(())
     }
 }

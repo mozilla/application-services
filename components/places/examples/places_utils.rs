@@ -3,14 +3,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use places::storage::bookmarks::{
-    insert_tree, BookmarkNode, BookmarkRootGuid, BookmarkTreeNode, FolderNode, SeparatorNode,
+    fetch_tree, insert_tree, BookmarkNode, BookmarkRootGuid, BookmarkTreeNode, FolderNode,
+    SeparatorNode,
 };
 use places::types::{BookmarkType, SyncGuid, Timestamp};
 use places::PlacesDb;
 
 use serde_derive::*;
+use sql_support::ConnExt;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, BufWriter};
 use url::Url;
 
 type Result<T> = std::result::Result<T, failure::Error>;
@@ -88,22 +90,7 @@ fn convert_node(dm: DesktopMapping) -> Option<BookmarkTreeNode> {
     })
 }
 
-fn run_import(db: &PlacesDb, matches: &clap::ArgMatches) -> Result<()> {
-    let filename = matches.value_of("input-file").unwrap();
-    println!("import from {}", filename);
-
-    let file = File::open(filename)?;
-    let reader = BufReader::new(file);
-    let m: DesktopMapping = serde_json::from_reader(reader)?;
-    // convert mapping into our tree.
-    let root = match convert_node(m) {
-        Some(node) => node,
-        None => {
-            println!("Failed to read a tree from this file");
-            return Ok(());
-        }
-    };
-
+fn do_import(db: &PlacesDb, root: BookmarkTreeNode) -> Result<()> {
     // We need to import each of the sub-trees individually.
     // Later we will want to get smarter around guids - currently we will
     // fail to do this twice due to guid dupes - but that's OK for now.
@@ -138,6 +125,47 @@ fn run_import(db: &PlacesDb, matches: &clap::ArgMatches) -> Result<()> {
     Ok(())
 }
 
+fn run_desktop_import(db: &PlacesDb, matches: &clap::ArgMatches) -> Result<()> {
+    let filename = matches.value_of("input-file").unwrap();
+    println!("import from {}", filename);
+
+    let file = File::open(filename)?;
+    let reader = BufReader::new(file);
+    let m: DesktopMapping = serde_json::from_reader(reader)?;
+    // convert mapping into our tree.
+    let root = match convert_node(m) {
+        Some(node) => node,
+        None => {
+            println!("Failed to read a tree from this file");
+            return Ok(());
+        }
+    };
+    do_import(db, root)
+}
+
+fn run_native_import(db: &PlacesDb, matches: &clap::ArgMatches) -> Result<()> {
+    let filename = matches.value_of("input-file").unwrap();
+    println!("import from {}", filename);
+
+    let file = File::open(filename)?;
+    let reader = BufReader::new(file);
+
+    let root: BookmarkTreeNode = serde_json::from_reader(reader)?;
+    do_import(db, root)
+}
+
+fn run_native_export(db: &PlacesDb, matches: &clap::ArgMatches) -> Result<()> {
+    let filename = matches.value_of("output-file").unwrap();
+    println!("export to {}", filename);
+
+    let file = File::create(filename)?;
+    let writer = BufWriter::new(file);
+
+    let tree = fetch_tree(db.conn(), &BookmarkRootGuid::Root.into())?.unwrap();
+    serde_json::to_writer_pretty(writer, &tree)?;
+    Ok(())
+}
+
 fn main() -> Result<()> {
     init_logging();
 
@@ -160,6 +188,30 @@ fn main() -> Result<()> {
                 .help("Database encryption key."),
         )
         .subcommand(
+            clap::SubCommand::with_name("export-bookmarks")
+                .about("Exports bookmarks (but not in a way Desktop can import it!)")
+                .arg(
+                    clap::Arg::with_name("output-file")
+                        .short("o")
+                        .value_name("FILE")
+                        .takes_value(true)
+                        .help("The name of the json file to export to from")
+                        .required(true),
+                ),
+        )
+        .subcommand(
+            clap::SubCommand::with_name("import-bookmarks")
+                .about("Import bookmarks from a 'native' export (ie, as exported by this utility)")
+                .arg(
+                    clap::Arg::with_name("input-file")
+                        .short("i")
+                        .value_name("FILE")
+                        .takes_value(true)
+                        .help("The name of the json file to import from")
+                        .required(true),
+                ),
+        )
+        .subcommand(
             clap::SubCommand::with_name("import-desktop-bookmarks")
                 .about("Imports bookmarks from a desktop export")
                 .arg(
@@ -179,7 +231,9 @@ fn main() -> Result<()> {
     let db = PlacesDb::open(db_path, matches.value_of("encryption_key"))?;
 
     match matches.subcommand() {
-        ("import-desktop-bookmarks", Some(m)) => run_import(&db, m),
+        ("export-bookmarks", Some(m)) => run_native_export(&db, m),
+        ("import-bookmarks", Some(m)) => run_native_import(&db, m),
+        ("import-desktop-bookmarks", Some(m)) => run_desktop_import(&db, m),
         _ => Ok(()),
     }
 }
