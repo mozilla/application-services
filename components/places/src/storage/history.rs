@@ -529,7 +529,7 @@ pub mod history_sync {
         // we can't do chunking and building a literal string with the ids seems
         // wrong and likely to hit max sql length limits.
         // So we use a temp table.
-        log::trace!("Updating all synced rows");
+        log::debug!("Updating all synced rows");
         // XXX - is there a better way to express this SQL? Multi-selects
         // doesn't seem ideal...
         db.conn().execute_cached(
@@ -542,7 +542,7 @@ pub mod history_sync {
             NO_PARAMS,
         )?;
 
-        log::trace!("Updating all non-synced rows");
+        log::debug!("Updating all non-synced rows");
         db.execute_all(&[
             &format!(
                 "UPDATE moz_places
@@ -553,7 +553,7 @@ pub mod history_sync {
             "DELETE FROM temp_sync_updated_meta",
         ])?;
 
-        log::trace!("Removing local tombstones");
+        log::debug!("Removing local tombstones");
         db.conn()
             .execute_cached("DELETE from moz_places_tombstones", NO_PARAMS)?;
 
