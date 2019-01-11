@@ -43,7 +43,7 @@ includeBuild('../android-components') {
         // As required.
         substitute module('org.mozilla.components:browser-storage-sync') with project(':browser-storage-sync')
         substitute module('org.mozilla.components:service-firefox-accounts') with project(':service-firefox-accounts')
-        substitute module('org.mozilla.components:service-sync-logins) with project(':service-sync-logins)
+        substitute module('org.mozilla.components:service-sync-logins') with project(':service-sync-logins')
     }
 }
 
