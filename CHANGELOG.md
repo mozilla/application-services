@@ -2,6 +2,30 @@
 
 **TODO: remove before tagging/publishing a release**
 
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.1...master)
+
+## Firefox Accounts
+
+### What's New
+
+- The fxa-client android library will now write logs to logcat. ([#533](https://github.com/mozilla/application-services/pull/533))
+
+# 0.13.1 (_2019-01-10_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.0...v0.13.1)
+
+Note: This is a patch release that works around a bug introduced by a dependency. No functionality has been changed.
+
+## General
+
+### What's New
+
+N/A
+
+### What's Fixed
+
+- Network requests on Android. Due to a [bug in `reqwest`](https://github.com/seanmonstar/reqwest/issues/427), it's version has been pinned until we can resolve this issue. ([#530](https://github.com/mozilla/application-services/pull/530))
+
 # 0.13.0 (_2019-01-09_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.12.1...v0.13.0)

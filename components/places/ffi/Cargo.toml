@@ -26,4 +26,4 @@ path = ".."
 features = ["ffi"]
 
 [target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.6.0"
+android_logger = "0.7.0"

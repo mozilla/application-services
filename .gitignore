@@ -1,6 +1,5 @@
 website/build
 target
-Cargo.lock
 credentials.json
 *-engine.json
 .cargo
