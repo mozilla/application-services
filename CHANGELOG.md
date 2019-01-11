@@ -2,7 +2,17 @@
 
 **TODO: remove before tagging/publishing a release**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.2...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.3...master)
+
+# 0.13.3 (_2019-01-11_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.2...v0.13.3)
+
+## Places
+
+### What's Fixed
+
+- Places will no longer log PII. ([#540](https://github.com/mozilla/application-services/pull/540))
 
 # 0.13.2 (_2019-01-11_)
 
