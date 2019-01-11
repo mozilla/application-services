@@ -168,7 +168,7 @@ impl<'conn> UncheckedTransaction<'conn> {
     /// Consumes and commits an unchecked transaction.
     pub fn commit(self) -> SqlResult<()> {
         self.conn.execute_batch("COMMIT")?;
-        log::trace!("Transaction commited after {:?}", self.started_at.elapsed());
+        log::debug!("Transaction commited after {:?}", self.started_at.elapsed());
         Ok(())
     }
 
