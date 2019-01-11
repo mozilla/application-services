@@ -88,7 +88,7 @@ const CREATE_TABLE_BOOKMARKS_SQL: &str = r#"CREATE TABLE moz_bookmarks (
         lastModified INTEGER NOT NULL DEFAULT 0,
         guid TEXT NOT NULL UNIQUE CHECK(length(guid) == 12),
 
-        syncStatus INTEGER NOT NULL DEFAULT 0 CHECK(type BETWEEN 0 AND 2),
+        syncStatus INTEGER NOT NULL DEFAULT 0 CHECK(syncStatus BETWEEN 0 AND 2),
         syncChangeCounter INTEGER NOT NULL DEFAULT 1,
 
         -- bookmarks must have a fk to a URL, other types must not.
