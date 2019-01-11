@@ -1,16 +1,19 @@
 # Unreleased Changes
 
-- The fxa-client Android and iOS librairies will throw a differentiated exception for general network errors. ([#535](https://github.com/mozilla/application-services/pull/535))
-
 **TODO: remove before tagging/publishing a release**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.1...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.2...master)
+
+# 0.13.2 (_2019-01-11_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.1...v0.13.2)
 
 ## Firefox Accounts
 
 ### What's New
 
 - The fxa-client android library will now write logs to logcat. ([#533](https://github.com/mozilla/application-services/pull/533))
+- The fxa-client Android and iOS librairies will throw a differentiated exception for general network errors. ([#535](https://github.com/mozilla/application-services/pull/535))
 
 # 0.13.1 (_2019-01-10_)
 
