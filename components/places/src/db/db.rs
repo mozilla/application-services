@@ -68,6 +68,9 @@ impl PlacesDb {
             -- UnifiedComplete). Note that SQLite uses a negative value for this pragma to indicate
             -- that it's in units of KiB.
             PRAGMA cache_size = -6144;
+
+            -- We want foreign-key support.
+            PRAGMA foreign_keys = ON;
         ",
             encryption_pragmas,
         );

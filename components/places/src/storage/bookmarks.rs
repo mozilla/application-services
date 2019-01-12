@@ -80,15 +80,20 @@ fn create_root(
     position: u32,
     when: &Timestamp,
 ) -> Result<()> {
-    let sql = "
+    // desktop's sql seems to assume the root gets a rowid of zero, whereas
+    // we see 1 here. Regardless, the sql below uses the guid.
+    let sql = format!(
+        "
         INSERT INTO moz_bookmarks
             (type, position, title, dateAdded, lastModified, guid, parent,
              syncChangeCounter, syncStatus)
         VALUES
             (:item_type, :item_position, :item_title, :date_added, :last_modified, :guid,
-             IFNULL((SELECT id FROM moz_bookmarks WHERE parent = 0), 0),
+             (SELECT id FROM moz_bookmarks WHERE guid = {:?}),
              1, :sync_status)
-    ";
+        ",
+        BookmarkRootGuid::Root.as_guid().0
+    );
     let params: Vec<(&str, &ToSql)> = vec![
         (":item_type", &BookmarkType::Folder),
         (":item_position", &position),
@@ -98,7 +103,7 @@ fn create_root(
         (":guid", guid),
         (":sync_status", &SyncStatus::New),
     ];
-    db.execute_named_cached(sql, &params)?;
+    db.execute_named_cached(&sql, &params)?;
     Ok(())
 }
 
@@ -587,9 +592,9 @@ struct FetchedTreeRow {
     level: u32,
     id: RowId,
     guid: SyncGuid,
-    parent: RowId,
-    // parent_guid is an Option<> only to handle the root - we would assert
-    // for all other items if it was actually used :)
+    // parent and parent_guid are Option<> only to handle the root - we would
+    // assert but they aren't currently used.
+    parent: Option<RowId>,
     parent_guid: Option<SyncGuid>,
     node_type: BookmarkType,
     position: u32,
@@ -606,7 +611,7 @@ impl FetchedTreeRow {
             level: row.get_checked("level")?,
             id: row.get_checked::<_, RowId>("id")?,
             guid: SyncGuid(row.get_checked::<_, String>("guid")?),
-            parent: row.get_checked::<_, RowId>("parent")?,
+            parent: row.get_checked::<_, Option<RowId>>("parent")?,
             parent_guid: match row.get_checked::<_, Option<String>>("parentGuid")? {
                 Some(g) => Some(SyncGuid(g)),
                 None => None,
@@ -785,7 +790,7 @@ struct RawBookmark {
     sync_status: SyncStatus,
     sync_change_counter: u32,
     child_count: u32,
-    grandparent_id: RowId,
+    grandparent_id: Option<RowId>,
 }
 
 impl RawBookmark {

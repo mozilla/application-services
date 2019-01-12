@@ -499,6 +499,12 @@ mod tests {
         assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
     }
 
+    fn select_simple_int(conn: &PlacesDb, stmt: &str) -> u32 {
+        let count: Result<Option<u32>> =
+            conn.try_query_row(stmt, &[], |row| Ok(row.get_checked::<_, u32>(0)?), false);
+        count.unwrap().unwrap()
+    }
+
     fn get_foreign_count(conn: &PlacesDb, guid: &SyncGuid) -> u32 {
         let count: Result<Option<u32>> = conn.try_query_row(
             "SELECT foreign_count from moz_places
@@ -545,7 +551,7 @@ mod tests {
             "INSERT INTO moz_bookmarks
                 (fk, type, parent, position, dateAdded, lastModified, guid)
             VALUES
-                (:place_id, 1, 0, 0, 1, 1, 'fake_guid___')",
+                (:place_id, 1, 1, 0, 1, 1, 'fake_guid___')",
             &[(":place_id", &place_id1)],
         )
         .expect("should work");
@@ -569,4 +575,103 @@ mod tests {
         assert_eq!(get_foreign_count(&conn, &guid1), 0);
         assert_eq!(get_foreign_count(&conn, &guid2), 0);
     }
+
+    #[test]
+    fn test_bookmark_delete_restrict() {
+        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        conn.execute_all(&[
+            "INSERT INTO moz_places
+                (guid, url, url_hash)
+             VALUES
+                ('place_guid__', 'http://example.com/', hash('http://example.com/'))",
+            "INSERT INTO moz_bookmarks
+                (type, parent, position, dateAdded, lastModified, guid, fk)
+            VALUES
+                (1, 1, 0, 1, 1, 'fake_guid___', last_insert_rowid())",
+        ])
+        .expect("should be able to do the inserts");
+
+        // Should be impossible to delete the place.
+        conn.execute(
+            "DELETE FROM moz_places WHERE guid = 'place_guid__';",
+            NO_PARAMS,
+        )
+        .expect_err("should fail");
+
+        // delete the bookmark.
+        conn.execute(
+            "DELETE FROM moz_bookmarks WHERE guid = 'fake_guid___';",
+            NO_PARAMS,
+        )
+        .expect("should be able to delete the bookmark");
+
+        // now we should be able to delete the place.
+        conn.execute(
+            "DELETE FROM moz_places WHERE guid = 'place_guid__';",
+            NO_PARAMS,
+        )
+        .expect("should now be able to delete the place");
+    }
+
+    #[test]
+    fn test_bookmark_auto_deletes() {
+        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+
+        conn.execute_all(&[
+            // A folder to hold a bookmark.
+            "INSERT INTO moz_bookmarks
+                (type, parent, position, dateAdded, lastModified, guid)
+            VALUES
+                (3, 1, 0, 1, 1, 'folder_guid_')",
+            // A place for the bookmark.
+            "INSERT INTO moz_places
+                (guid, url, url_hash)
+            VALUES ('place_guid__', 'http://example.com/', hash('http://example.com/'))",
+            // The bookmark.
+            "INSERT INTO moz_bookmarks
+                (fk, type, parent, position, dateAdded, lastModified, guid)
+            VALUES
+                --fk,                  type
+                (last_insert_rowid(), 1,
+                -- parent
+                 (SELECT id FROM moz_bookmarks WHERE guid = 'folder_guid_'),
+                -- positon, dateAdded, lastModified, guid
+                   0,       1,         1,           'bookmarkguid')",
+        ])
+        .expect("inserts should work");
+
+        // Delete the folder - the bookmark should cascade delete.
+        conn.execute(
+            "DELETE FROM moz_bookmarks WHERE guid = 'folder_guid_';",
+            NO_PARAMS,
+        )
+        .expect("should work");
+
+        // folder should be gone.
+        assert_eq!(
+            select_simple_int(
+                &conn,
+                "SELECT count(*) FROM moz_bookmarks WHERE guid = 'folder_guid_'"
+            ),
+            0
+        );
+        // bookmark should be gone.
+        assert_eq!(
+            select_simple_int(
+                &conn,
+                "SELECT count(*) FROM moz_bookmarks WHERE guid = 'bookmarkguid';"
+            ),
+            0
+        );
+
+        // Place should remain.
+        assert_eq!(
+            select_simple_int(
+                &conn,
+                "SELECT COUNT(*) from moz_places WHERE guid = 'place_guid__';"
+            ),
+            1
+        );
+    }
+
 }
