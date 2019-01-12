@@ -4,24 +4,19 @@
 package mozilla.appservices.rustlog
 
 import junit.framework.Assert
-import org.junit.AfterClass
-import org.junit.BeforeClass
-import org.junit.rules.TemporaryFolder
-import org.junit.Rule
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 import org.junit.Test
 import org.junit.Assert.*
-import java.lang.RuntimeException
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
 class LogTest {
 
     fun writeTestLog(m: String) {
-        LibRustLogAdapter.INSTANCE.ac_log_adapter_test__log_msg(m)
+        LibRustLogAdapter.ac_log_adapter_test__log_msg(m)
         Thread.sleep(100) // Wait for it to arrive...
     }
     // This test is big and monolithic, mostly because we can't re-enable the log system
