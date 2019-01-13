@@ -301,6 +301,47 @@ fn do_insert_bookmark(db: &impl ConnExt, bm: InsertableBookmarkItem) -> Result<S
     Ok(guid)
 }
 
+/// Delete the specified bookmark.
+pub fn delete_bookmark(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
+    let tx = db.unchecked_transaction()?;
+    let result = do_delete_bookmark(db, guid);
+    match result {
+        Ok(_) => tx.commit()?,
+        Err(_) => tx.rollback()?,
+    }
+    result
+}
+
+fn do_delete_bookmark(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
+    // Can't delete a root.
+    if BookmarkRootGuid::from_guid(guid).is_some() {
+        return Err(InvalidPlaceInfo::InvalidGuid.into());
+    }
+    let record = match get_raw_bookmark(db, guid)? {
+        Some(r) => r,
+        None => {
+            log::debug!("Can't delete bookmark '{:?}' as it doesn't exist", guid);
+            return Ok(()); // not sure if we should error here?
+        }
+    };
+    // must reorder existing children.
+    db.execute_named_cached(
+        "UPDATE moz_bookmarks SET position = position - 1
+         WHERE parent = :parent
+         AND position >= :position",
+        &[
+            (":parent", &record.parent_id),
+            (":position", &record.position),
+        ],
+    )?;
+    // and delete - children are recursively deleted.
+    db.execute_named_cached(
+        "DELETE from moz_bookmarks WHERE id = :id",
+        &[(":id", &record.row_id)],
+    )?;
+    Ok(())
+}
+
 /// Support for inserting and fetching a tree. Same limitations as desktop.
 /// Note that the guids are optional when inserting a tree. They will always
 /// have values when fetching it.
@@ -885,6 +926,80 @@ mod tests {
         assert_eq!(rb.sync_status, SyncStatus::New);
         assert_eq!(rb.sync_change_counter, 1);
         assert_eq!(rb.child_count, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_delete() -> Result<()> {
+        let _ = env_logger::try_init();
+        let conn = PlacesDb::open_in_memory(None)?;
+
+        let guid1 = SyncGuid::new();
+        let guid2 = SyncGuid::new();
+        let guid2_1 = SyncGuid::new();
+        let guid3 = SyncGuid::new();
+
+        let jtree = json!({
+            "guid": &BookmarkRootGuid::Unfiled.as_guid(),
+            "children": [
+                {
+                    "guid": &guid1,
+                    "title": "the bookmark",
+                    "url": "https://www.example.com/"
+                },
+                {
+                    "guid": &guid2,
+                    "title": "A folder",
+                    "children": [
+                        {
+                            "guid": &guid2_1,
+                            "title": "bookmark in A folder",
+                            "url": "https://www.example2.com/"
+                        }
+                    ]
+                },
+                {
+                    "guid": &guid3,
+                    "title": "the last bookmark",
+                    "url": "https://www.example3.com/"
+                },
+            ]
+        });
+
+        let tree: BookmarkTreeNode = serde_json::from_value(jtree)?;
+        let folder_node = match tree {
+            BookmarkTreeNode::Folder(folder_node) => folder_node,
+            _ => panic!("must be a folder"),
+        };
+
+        insert_tree(&conn, &folder_node)?;
+
+        // Make sure the positions are correct now.
+        assert_eq!(get_raw_bookmark(&conn, &guid1)?.unwrap().position, 0);
+        assert_eq!(get_raw_bookmark(&conn, &guid2)?.unwrap().position, 1);
+        assert_eq!(get_raw_bookmark(&conn, &guid3)?.unwrap().position, 2);
+
+        // Delete the middle folder.
+        delete_bookmark(&conn, &guid2)?;
+        // Should no longer exist.
+        assert!(get_raw_bookmark(&conn, &guid2)?.is_none());
+        // Neither should the child.
+        assert!(get_raw_bookmark(&conn, &guid2_1)?.is_none());
+        // Positions of the remaining should be correct.
+        assert_eq!(get_raw_bookmark(&conn, &guid1)?.unwrap().position, 0);
+        assert_eq!(get_raw_bookmark(&conn, &guid3)?.unwrap().position, 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_delete_roots() -> Result<()> {
+        let _ = env_logger::try_init();
+        let conn = PlacesDb::open_in_memory(None)?;
+
+        delete_bookmark(&conn, &BookmarkRootGuid::Root.into()).expect_err("can't delete root");
+        delete_bookmark(&conn, &BookmarkRootGuid::Unfiled.into())
+            .expect_err("can't delete any root");
         Ok(())
     }
 
