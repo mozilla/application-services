@@ -3,6 +3,7 @@
 
 package mozilla.appservices.rustlog
 
+import org.junit.Assert
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -10,6 +11,7 @@ import org.robolectric.annotation.Config
 import org.junit.Test
 import org.junit.Assert.*
 import java.lang.RuntimeException
+import java.util.*
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
@@ -26,9 +28,10 @@ class LogTest {
     fun testLogging() {
         val logs: MutableList<String> = mutableListOf()
         val threadIds = mutableSetOf<Long>()
-
+        val threads = WeakHashMap<Thread, Long>();
         fun handler(level: Int, tag: String?, msg: String) {
             val threadId = Thread.currentThread().id
+            threads.set(Thread.currentThread(), threadId);
             threadIds.add(threadId)
             val info = "Rust log from $threadId | Level: $level | tag: $tag| message: $msg"
             println(info)
@@ -52,7 +55,8 @@ class LogTest {
         // Check that trying to enable again throws
         try {
             RustLogAdapter.enable { _, _, _ -> true }
-        } catch (e: LogAdapterCannotEnable) {}
+        } catch (e: LogAdapterCannotEnable) {
+        }
 
         var wasCalled = false;
 
@@ -66,6 +70,14 @@ class LogTest {
 
         assertEquals(logs.size, 3)
         assert(!wasCalled)
+
+
+        for (i in 0..15) {
+            Thread.sleep(10)
+            System.gc()
+        }
+        // Make sure GC can't collect our background thread (we're still using it)
+        assertEquals(threads.size, 1)
 
         // Adjust the max level so that the test log (which is logged at info level)
         // will not be present.
@@ -148,6 +160,13 @@ class LogTest {
 
         // Clean up
         RustLogAdapter.disable()
+
+        // Make sure the GC can now collect the background threads.
+        for (i in 0..15) {
+            Thread.sleep(10)
+            System.gc()
+        }
+        assertEquals(threads.size, 0)
     }
 
 }
