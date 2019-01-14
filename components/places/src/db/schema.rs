@@ -213,6 +213,38 @@ const CREATE_TRIGGER_BOOKMARKS_FOREIGNCOUNT_AFTERUPDATE_TRIGGER: &str = "
             WHERE OLD.fk <> NEW.fk AND id = OLD.fk;
     END";
 
+// Unlike history, we manage bookmark tombstones via triggers. We do this
+// because we rely on foreign-keys to auto-remove children of a deleted folder.
+const CREATE_TRIGGER_BOOKMARKS_CREATE_TOMBSTONE: &str = "
+    CREATE TEMP TRIGGER moz_create_bookmarks_deleted_trigger
+    AFTER DELETE ON moz_bookmarks
+    FOR EACH ROW WHEN OLD.syncStatus = 2 -- SyncStatus::Normal
+    BEGIN
+        INSERT into moz_bookmarks_deleted VALUES (OLD.guid, now());
+    END";
+
+// And a trigger to ensure adding a previously deleted bookmark with the same
+// guid doesn't leave an entry in both tables.
+const CREATE_TRIGGER_BOOKMARKS_REMOVE_TOMBSTONE_INSERT: &str = "
+    CREATE TEMP TRIGGER moz_remove_bookmarks_deleted_insert_trigger
+    AFTER INSERT ON moz_bookmarks
+    FOR EACH ROW
+    BEGIN
+        DELETE from moz_bookmarks_deleted WHERE guid = NEW.guid;
+    END";
+
+// and also for updating the guid.
+const CREATE_TRIGGER_BOOKMARKS_REMOVE_TOMBSTONE_UPDATE: &str = "
+    CREATE TEMP TRIGGER moz_remove_bookmarks_deleted_update_trigger
+    AFTER UPDATE ON moz_bookmarks
+    FOR EACH ROW WHEN OLD.guid != NEW.guid
+    BEGIN
+        DELETE from moz_bookmarks_deleted WHERE guid = NEW.guid;
+    END";
+// XXX - we should possibly insert a bookmark for OLD.guid here, although
+// that's not necessary unless we expose a way to change a bookmarks guid, and
+// that seems unlikely - only sync will do that.
+
 // XXX - TODO - lots of desktop temp tables - but it's not clear they make sense here yet?
 
 // XXX - TODO - lots of favicon related tables - but it's not clear they make sense here yet?
@@ -294,6 +326,9 @@ pub fn init(db: &PlacesDb) -> Result<()> {
         CREATE_TRIGGER_BOOKMARKS_FOREIGNCOUNT_AFTERDELETE,
         CREATE_TRIGGER_BOOKMARKS_FOREIGNCOUNT_AFTERINSERT_TRIGGER,
         CREATE_TRIGGER_BOOKMARKS_FOREIGNCOUNT_AFTERUPDATE_TRIGGER,
+        CREATE_TRIGGER_BOOKMARKS_CREATE_TOMBSTONE,
+        CREATE_TRIGGER_BOOKMARKS_REMOVE_TOMBSTONE_UPDATE,
+        CREATE_TRIGGER_BOOKMARKS_REMOVE_TOMBSTONE_INSERT,
     ])?;
     Ok(())
 }
@@ -674,4 +709,120 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_bookmark_tombstone_auto_created() {
+        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        conn.execute(
+            &format!(
+                "INSERT INTO moz_bookmarks
+                        (syncStatus, type, parent, position, dateAdded, lastModified, guid)
+                     VALUES
+                        ({}, 3, 1, 0, 1, 1, 'bookmarkguid')",
+                SyncStatus::Normal as u8
+            ),
+            NO_PARAMS,
+        )
+        .expect("should insert regular bookmark folder");
+        conn.execute(
+            "DELETE FROM moz_bookmarks WHERE guid = 'bookmarkguid'",
+            NO_PARAMS,
+        )
+        .expect("should delete");
+        // should have a tombstone.
+        assert_eq!(
+            select_simple_int(&conn, "SELECT COUNT(*) from moz_bookmarks_deleted"),
+            1
+        );
+        conn.execute("DELETE from moz_bookmarks_deleted", NO_PARAMS)
+            .expect("should delete");
+        conn.execute(
+            &format!(
+                "INSERT INTO moz_bookmarks
+                        (syncStatus, type, parent, position, dateAdded, lastModified, guid)
+                     VALUES
+                        ({}, 3, 1, 0, 1, 1, 'bookmarkguid')",
+                SyncStatus::New as u8
+            ),
+            NO_PARAMS,
+        )
+        .expect("should insert regular bookmark folder");;
+        conn.execute(
+            "DELETE FROM moz_bookmarks WHERE guid = 'bookmarkguid'",
+            NO_PARAMS,
+        )
+        .expect("should delete");
+        // should not have a tombstone as syncStatus is new.
+        assert_eq!(
+            select_simple_int(&conn, "SELECT COUNT(*) from moz_bookmarks_deleted"),
+            0
+        );
+    }
+
+    #[test]
+    fn test_bookmark_tombstone_auto_deletes() {
+        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        conn.execute(
+            "INSERT into moz_bookmarks_deleted VALUES ('bookmarkguid', 1)",
+            NO_PARAMS,
+        )
+        .expect("should insert tombstone");
+        assert_eq!(
+            select_simple_int(&conn, "SELECT COUNT(*) from moz_bookmarks_deleted"),
+            1
+        );
+        // create a bookmark with the same guid.
+        conn.execute(
+            "INSERT INTO moz_bookmarks
+                        (type, parent, position, dateAdded, lastModified, guid)
+                     VALUES
+                        (3, 1, 0, 1, 1, 'bookmarkguid')",
+            NO_PARAMS,
+        )
+        .expect("should insert regular bookmark folder");;
+        // tombstone should have vanished.
+        assert_eq!(
+            select_simple_int(&conn, "SELECT COUNT(*) from moz_bookmarks_deleted"),
+            0
+        );
+    }
+
+    #[test]
+    fn test_bookmark_tombstone_auto_deletes_on_update() {
+        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+
+        // check updates do the right thing.
+        conn.execute(
+            "INSERT into moz_bookmarks_deleted VALUES ('bookmarkguid', 1)",
+            NO_PARAMS,
+        )
+        .expect("should insert tombstone");
+
+        // create a bookmark with a different guid.
+        conn.execute(
+            "INSERT INTO moz_bookmarks
+                        (type, parent, position, dateAdded, lastModified, guid)
+                     VALUES
+                        (3, 1, 0, 1, 1, 'fake_guid___')",
+            NO_PARAMS,
+        )
+        .expect("should insert regular bookmark folder");;
+        // tombstone should remain.
+        assert_eq!(
+            select_simple_int(&conn, "SELECT COUNT(*) from moz_bookmarks_deleted"),
+            1
+        );
+        // update guid.
+        conn.execute(
+            "UPDATE moz_bookmarks SET guid = 'bookmarkguid'
+             WHERE guid = 'fake_guid___'",
+            NO_PARAMS,
+        )
+        .expect("update should work");
+
+        // tombstone should vanish.
+        assert_eq!(
+            select_simple_int(&conn, "SELECT COUNT(*) from moz_bookmarks_deleted"),
+            0
+        );
+    }
 }

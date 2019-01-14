@@ -9,6 +9,7 @@
 use super::schema;
 use crate::error::*;
 use crate::hash;
+use crate::types::Timestamp;
 use rusqlite::{self, Connection};
 use sql_support::{self, ConnExt};
 use std::ops::Deref;
@@ -205,6 +206,7 @@ fn define_functions(c: &Connection) -> Result<()> {
             }
         } as i64)
     })?;
+    c.create_scalar_function("now", 0, false, move |_ctx| Ok(Timestamp::now()))?;
     Ok(())
 }
 
