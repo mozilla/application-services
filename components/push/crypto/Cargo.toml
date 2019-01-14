@@ -1,0 +1,19 @@
+[package]
+name = "crypto"
+version = "0.1.0"
+authors = ["jrconlin <me+crypt@jrconlin.com>"]
+edition = "2018"
+
+[dependencies]
+ece = {git="https://github.com/jrconlin/rust-ece", branch="feat/aesgcm"}
+failure = "0.1.5"
+failure_derive = "0.1.5"
+base64 = "0.10"
+openssl = "0.10"
+lazy_static = "1.2"
+hkdf = "0.7"
+sha2 = "0.8"
+
+[features]
+# default = ["openssl"]
+# openssl = ["ece-crypto-openssl"]
