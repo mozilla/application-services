@@ -3,13 +3,13 @@
 
 package mozilla.appservices.rustlog
 
-import junit.framework.Assert
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 import org.junit.Test
 import org.junit.Assert.*
+import java.lang.RuntimeException
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
@@ -19,33 +19,39 @@ class LogTest {
         LibRustLogAdapter.ac_log_adapter_test__log_msg(m)
         Thread.sleep(100) // Wait for it to arrive...
     }
-    // This test is big and monolithic, mostly because we can't re-enable the log system
-    // after shutting it down. Ugh.
+
+    // This should be split up now that we can re-enable after disabling
+    // (note that it will still need to run sequentially!)
     @Test
     fun testLogging() {
         val logs: MutableList<String> = mutableListOf()
 
-        assert(!RustLogAdapter.isEnabled)
-        assert(RustLogAdapter.canEnable)
-
-        RustLogAdapter.enable { level, tagStr, msgStr ->
+        fun handler(level: Int, tag: String?, msg: String) {
             val threadId = Thread.currentThread().id
-            val info = "Rust log from $threadId | Level: $level | tag: $tagStr | message: $msgStr"
+            val info = "Rust log from $threadId | Level: $level | tag: $tag| message: $msg"
             println(info)
             logs += info
+        }
+
+        assert(!RustLogAdapter.isEnabled)
+
+        RustLogAdapter.enable { level, tagStr, msgStr ->
+            handler(level, tagStr, msgStr)
             true
         }
 
         // We log an informational message after initializing (but it's processed asynchronously).
         Thread.sleep(100)
         assertEquals(logs.size, 1)
-
         writeTestLog("Test1")
-
         assertEquals(logs.size, 2)
-
         assert(RustLogAdapter.isEnabled)
-        assert(!RustLogAdapter.canEnable)
+
+        // Check that trying to enable again throws
+        try {
+            RustLogAdapter.enable { _, _, _ -> true }
+        } catch (e: LogAdapterCannotEnable) {}
+
         var wasCalled = false;
 
         val didEnable = RustLogAdapter.tryEnable { _, _, _ ->
@@ -77,7 +83,6 @@ class LogTest {
 
         RustLogAdapter.disable()
         assert(!RustLogAdapter.isEnabled)
-        assert(!RustLogAdapter.canEnable)
 
         // Shouldn't do anything, we disabled the log.
         writeTestLog("Test5")
@@ -85,26 +90,55 @@ class LogTest {
         assertEquals(logs.size, 4)
         assert(!wasCalled)
 
-        val didEnable2 = RustLogAdapter.tryEnable { _, _, _ ->
+        val didEnable2 = RustLogAdapter.tryEnable { level, tagStr, msgStr ->
+            val threadId = Thread.currentThread().id
+            val info = "Rust log from $threadId | Level: $level | tag: $tagStr | message: $msgStr"
+            println(info)
+            logs += info
             wasCalled = true
             true
         }
-        assert(!didEnable2)
+        Thread.sleep(100)
+        assert(didEnable2)
+        assertEquals(logs.size, 5)
 
-        try {
-            RustLogAdapter.enable { _, _, _ ->
-                wasCalled = true
-                true
-            }
-            Assert.fail("enable should throw")
-        } catch (e: LogAdapterCannotEnable) {
-        }
-
-        // One last time to make sure that those enable/tryEnable
-        // calls didn't secretly work.
         writeTestLog("Test6")
-        assert(!wasCalled)
-        // XXX FIXME work out how we can test returning false!
+        assert(wasCalled)
+        assertEquals(logs.size, 6)
+        RustLogAdapter.disable()
+
+        // Check behavior of 'disable by returning false'
+        RustLogAdapter.enable { level, tagStr, msgStr ->
+            handler(level, tagStr, msgStr)
+            // Stop after we log twice
+            logs.size < 8
+        }
+        Thread.sleep(100)
+        // Initial log emitted when we set the adapter.
+        assertEquals(logs.size, 7)
+        writeTestLog("Test7")
+        assertEquals(logs.size, 8)
+        assert(!RustLogAdapter.isEnabled)
+
+        // Check behavior of 'disable by throw'
+        RustLogAdapter.enable { level, tagStr, msgStr ->
+            handler(level, tagStr, msgStr)
+            if (logs.size >= 10) {
+                throw RuntimeException("Throw an exception to stop logging");
+            }
+            true
+        }
+        Thread.sleep(100)
+        // Initial log emitted when we set the adapter.
+        assertEquals(logs.size, 9)
+
+        writeTestLog("Test8")
+        assertEquals(logs.size, 10)
+        assert(!RustLogAdapter.isEnabled)
+
+        // Clean up
+        RustLogAdapter.disable()
     }
+
 }
 

@@ -5,6 +5,7 @@
 package mozilla.appservices.rustlog
 
 import com.sun.jna.Pointer
+import java.util.concurrent.atomic.AtomicBoolean
 
 typealias OnLog = (Int, String?, String) -> Boolean;
 class RustLogAdapter private constructor(
@@ -17,39 +18,36 @@ class RustLogAdapter private constructor(
         @Volatile
         private var instance: RustLogAdapter? = null
 
-        @Volatile
-        private var everEnabled: Boolean = false
-
         /**
          * true if the log is enabled.
          */
-        val isEnabled get() = instance != null
+        val isEnabled get() = getEnabled()
 
-        /**
-         * True if the log can be enabled.
-         *
-         * Note that this isn't the same as `!isEnabled`, as the log
-         * cannot be re-enabled after it is disabled.
-         */
-        val canEnable get() = !everEnabled
+        // Used to signal from the log callback that we should disable
+        // the adapter because the callback returned false. Note that
+        // Rust handles this too.
+        internal val disabledRemotely = AtomicBoolean(false)
+
+        @Synchronized
+        private fun getEnabled(): Boolean {
+            if (instance == null) {
+                return false
+            }
+            if (disabledRemotely.getAndSet(false)) {
+                this.disable()
+            }
+            return instance != null
+        }
 
         /**
          * Enable the logger and use the provided logging callback.
          *
-         * Note that the logger can only be enabled once.
+         * @throws [LogAdapterCannotEnable] if it is already enabled.
          */
         @Synchronized
         fun enable(onLog: OnLog) {
-            val wasEnabled = everEnabled
-            everEnabled = true
-            if (wasEnabled) {
-                // This is mostly for debugging. It really shouldn't happen at runtime.
-                val message = if (isEnabled) {
-                    "Adapter is already enabled"
-                } else {
-                    "Adapter has previously been disabled"
-                }
-                throw LogAdapterCannotEnable(message)
+            if (isEnabled) {
+                throw LogAdapterCannotEnable("Adapter is already enabled")
             }
             val callbackImpl = RawLogCallbackImpl(onLog)
             // Hopefully there is no way to half-initialize the logger such that where the callback
@@ -69,7 +67,7 @@ class RustLogAdapter private constructor(
          */
         @Synchronized
         fun tryEnable(onLog: OnLog): Boolean {
-            if (!canEnable) {
+            if (isEnabled) {
                 return false
             }
             enable(onLog)
@@ -78,8 +76,6 @@ class RustLogAdapter private constructor(
 
         /**
          * Disable the logger, allowing the logging callback to be garbage collected.
-         *
-         * Note that the logger can only be enabled once.
          */
         @Synchronized
         fun disable() {
@@ -90,6 +86,7 @@ class RustLogAdapter private constructor(
             // it can be GCed (while letting the RawLogCallbackImpl which actually is
             // called by Rust live on).
             instance = null
+            disabledRemotely.set(false)
         }
 
         @Synchronized
@@ -124,13 +121,7 @@ class RustLogAdapter private constructor(
 sealed class LogAdapterError(msg: String) : Exception(msg)
 
 /**
- * Error indicating that the log adapter cannot be enabled.
- *
- * The log adapter may only be enabled once, and once it is disabled,
- * it may never be enabled again.
- *
- * This is, admittedly, inconvenient, and future versions of library may work
- * around this limitation in Rust's default log system.
+ * Error indicating that the log adapter cannot be enabled because it is already enabled.
  */
 class LogAdapterCannotEnable(msg: String) : LogAdapterError("Log adapter may not be enabled: $msg")
 
@@ -160,18 +151,23 @@ enum class LogLevelFilter(internal val value: Int) {
 internal class RawLogCallbackImpl(private val onLog: OnLog) : LibRustLogAdapter.RawLogCallback {
     override fun invoke(level: Int, tag: Pointer?, message: Pointer): Byte {
         // We can't safely throw here!
-        try {
+        val result = try {
             val tagStr = tag?.getString(0, "utf8")
             val msgStr = message.getString(0, "utf8")
-            val result = onLog(level, tagStr, msgStr)
-            return if (result) { 1 } else { 0 }
+            onLog(level, tagStr, msgStr)
         } catch(e: Throwable) {
             try {
                 println("Exception when logging: $e")
             } catch (e: Throwable) {
                 // :(
             }
-            return 0
+            false
+        }
+        return if (result) {
+            1
+        } else {
+            RustLogAdapter.disabledRemotely.set(true)
+            0
         }
     }
 }

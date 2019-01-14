@@ -49,12 +49,13 @@ use std::{
     os::raw::c_char,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
-        Mutex,
-        mpsc::{SyncSender, sync_channel},
+        mpsc::{sync_channel, SyncSender},
+        Arc, Mutex,
     },
     thread,
 };
+
+mod settable_log;
 
 #[derive(Clone, Copy)]
 #[repr(i32)]
@@ -66,8 +67,6 @@ pub enum LogLevel {
     WARN = 5,
     ERROR = 6,
 }
-
-
 
 impl From<log::Level> for LogLevel {
     fn from(l: log::Level) -> Self {
@@ -160,7 +159,11 @@ impl log::Log for LogSink {
         }
         // Either the queue is full, or the receiver is closed.
         // In either case, we want to stop all logging immediately.
-        if self.sender.try_send(LogMessage::Record(record.into())).is_err() {
+        if self
+            .sender
+            .try_send(LogMessage::Record(record.into()))
+            .is_err()
+        {
             self.disabled.store(true, Ordering::SeqCst);
         }
     }
@@ -181,8 +184,13 @@ impl LogAdapterState {
                 // logger will never get dropped), or if we get `LogMessage::Stop`,
                 // which means we should stop processing.
                 while let Ok(LogMessage::Record(record)) = message_recv.recv() {
-                    let LogRecord { tag, level, message } = record;
-                    let tag_ptr = tag.as_ref()
+                    let LogRecord {
+                        tag,
+                        level,
+                        message,
+                    } = record;
+                    let tag_ptr = tag
+                        .as_ref()
                         .map(|s| s.as_ptr())
                         .unwrap_or_else(std::ptr::null);
                     let msg_ptr = message.as_ptr();
@@ -205,8 +213,8 @@ impl LogAdapterState {
             disabled: AtomicBool::new(false),
         };
 
-        log::set_max_level(log::LevelFilter::Info);
-        log::set_boxed_logger(Box::new(sink)).unwrap();
+        settable_log::set_logger(Box::new(sink));
+        log::set_max_level(log::LevelFilter::Debug);
         log::info!("ac_log adapter initialized!");
         Self {
             handle: Some(handle),
@@ -284,6 +292,7 @@ pub unsafe extern "C" fn ac_log_adapter_destroy(to_destroy: *mut LogAdapterState
     ffi_support::abort_on_panic::call_with_output(|| {
         log::set_max_level(log::LevelFilter::Off);
         drop(Box::from_raw(to_destroy));
+        settable_log::unset_logger();
     })
 }
 
