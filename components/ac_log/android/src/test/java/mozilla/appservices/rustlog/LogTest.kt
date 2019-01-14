@@ -25,9 +25,11 @@ class LogTest {
     @Test
     fun testLogging() {
         val logs: MutableList<String> = mutableListOf()
+        val threadIds = mutableSetOf<Long>()
 
         fun handler(level: Int, tag: String?, msg: String) {
             val threadId = Thread.currentThread().id
+            threadIds.add(threadId)
             val info = "Rust log from $threadId | Level: $level | tag: $tag| message: $msg"
             println(info)
             logs += info
@@ -79,7 +81,8 @@ class LogTest {
         writeTestLog("Test4")
 
         assertEquals(logs.size, 4)
-
+        // All the previous calls should have been run on the same background thread
+        assertEquals(threadIds.size, 1)
 
         RustLogAdapter.disable()
         assert(!RustLogAdapter.isEnabled)
@@ -91,10 +94,7 @@ class LogTest {
         assert(!wasCalled)
 
         val didEnable2 = RustLogAdapter.tryEnable { level, tagStr, msgStr ->
-            val threadId = Thread.currentThread().id
-            val info = "Rust log from $threadId | Level: $level | tag: $tagStr | message: $msgStr"
-            println(info)
-            logs += info
+            handler(level, tagStr, msgStr)
             wasCalled = true
             true
         }
@@ -105,6 +105,10 @@ class LogTest {
         writeTestLog("Test6")
         assert(wasCalled)
         assertEquals(logs.size, 6)
+
+        // We called `enable` again, so we expect to have used another thread
+        assertEquals(threadIds.size, 2)
+
         RustLogAdapter.disable()
 
         // Check behavior of 'disable by returning false'
@@ -119,6 +123,9 @@ class LogTest {
         writeTestLog("Test7")
         assertEquals(logs.size, 8)
         assert(!RustLogAdapter.isEnabled)
+
+        // new log callback, new thread.
+        assertEquals(threadIds.size, 3)
 
         // Check behavior of 'disable by throw'
         RustLogAdapter.enable { level, tagStr, msgStr ->
@@ -135,6 +142,9 @@ class LogTest {
         writeTestLog("Test8")
         assertEquals(logs.size, 10)
         assert(!RustLogAdapter.isEnabled)
+
+        // new log callback, new thread.
+        assertEquals(threadIds.size, 4)
 
         // Clean up
         RustLogAdapter.disable()

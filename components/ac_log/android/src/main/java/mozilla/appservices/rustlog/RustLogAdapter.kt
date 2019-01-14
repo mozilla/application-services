@@ -4,6 +4,8 @@
 
 package mozilla.appservices.rustlog
 
+import com.sun.jna.CallbackThreadInitializer
+import com.sun.jna.Native
 import com.sun.jna.Pointer
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -49,7 +51,10 @@ class RustLogAdapter private constructor(
             if (isEnabled) {
                 throw LogAdapterCannotEnable("Adapter is already enabled")
             }
+            // Tell JNA to reuse the callback thread.
+            val initializer = CallbackThreadInitializer(true, false)
             val callbackImpl = RawLogCallbackImpl(onLog)
+            Native.setCallbackThreadInitializer(callbackImpl, initializer)
             // Hopefully there is no way to half-initialize the logger such that where the callback
             // could still get called despite an error/null being returned? If there is, we need to
             // make callbackImpl isn't GCed here, or very bad things will happen. (Should the logger
