@@ -577,18 +577,16 @@ pub mod history_sync {
 
 pub fn get_visited(db: &PlacesDb, urls: &[Url]) -> Result<Vec<bool>> {
     let mut result = vec![false; urls.len()];
-    // Note: this Vec is avoidable in the next rusqlite.
-    let url_strs: Vec<&str> = urls.iter().map(|v| v.as_ref()).collect();
     sql_support::each_chunk_mapped(
-        &url_strs,
-        |url| url as &dyn ToSql,
+        &urls,
+        |url| url.as_str(),
         |chunk, offset| -> Result<()> {
             let values_with_idx = sql_support::repeat_display(chunk.len(), ",", |i, f| {
                 write!(
                     f,
                     "({},{},?)",
                     i + offset,
-                    hash::hash_url(url_strs[i + offset])
+                    hash::hash_url(urls[i + offset].as_str())
                 )
             });
             let sql = format!(
