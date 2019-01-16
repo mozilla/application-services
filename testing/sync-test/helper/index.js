@@ -44,10 +44,10 @@ async function oauthCommand(emailAddr, password, fxaAuthUrl, oauthFlowUrl) {
         // Default is 100 which makes this whole process much slower
         // than it needs to be.
         typeInterval: 10,
-        // Wait for 10 seconds for a selector we're `wait`ing on to appear. We want
+        // Wait for 25 seconds for a selector we're `wait`ing on to appear. We want
         // this to be fairly forgiving since it includes page transitions, redirects,
         // us waiting for the confirmation push message, etc.
-        waitTimeout: 10000,
+        waitTimeout: 25000,
     });
 
     logInfo("Launching headless browser to perform the oauth flow (this can be slow...)");
