@@ -4,6 +4,12 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.3...master)
 
+## Places
+
+### What's Fixed
+
+- PlacesConnection.getVisited will now return that invalid URLs have not been visited, instead of throwing. ([#552](https://github.com/mozilla/application-services/issues/552))
+
 # 0.13.3 (_2019-01-11_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.2...v0.13.3)

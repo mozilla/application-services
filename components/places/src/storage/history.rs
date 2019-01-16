@@ -575,29 +575,43 @@ pub mod history_sync {
     }
 } // end of sync module.
 
-pub fn get_visited(db: &PlacesDb, urls: &[Url]) -> Result<Vec<bool>> {
-    let mut result = vec![false; urls.len()];
+pub fn get_visited<I>(db: &PlacesDb, urls: I) -> Result<Vec<bool>>
+where
+    I: IntoIterator<Item = Url>,
+    I::IntoIter: ExactSizeIterator,
+{
+    let iter = urls.into_iter();
+    let mut result = vec![false; iter.len()];
+    let url_idxs = iter.enumerate().collect::<Vec<_>>();
+    get_visited_into(db, &url_idxs, &mut result)?;
+    Ok(result)
+}
+
+/// Low level api used to implement both get_visited and the FFI get_visited call.
+/// Takes a slice where we should output the results, as well as a slice of
+/// index/url pairs.
+///
+/// This is done so that the FFI can more easily support returning
+/// false when asked if it's visited an invalid URL.
+pub fn get_visited_into(
+    db: &PlacesDb,
+    urls_idxs: &[(usize, Url)],
+    result: &mut [bool],
+) -> Result<()> {
     sql_support::each_chunk_mapped(
-        &urls,
-        |url| url.as_str(),
+        &urls_idxs,
+        |(_, url)| url.as_str(),
         |chunk, offset| -> Result<()> {
             let values_with_idx = sql_support::repeat_display(chunk.len(), ",", |i, f| {
-                write!(
-                    f,
-                    "({},{},?)",
-                    i + offset,
-                    hash::hash_url(urls[i + offset].as_str())
-                )
+                let (idx, url) = &urls_idxs[i + offset];
+                write!(f, "({},{},?)", *idx, hash::hash_url(url.as_str()))
             });
             let sql = format!(
-                "
-            WITH to_fetch(fetch_url_index, url_hash, url) AS (VALUES {})
-            SELECT fetch_url_index
-            FROM moz_places h
-            JOIN to_fetch f
-            ON h.url_hash = f.url_hash
-              AND h.url = f.url
-        ",
+                "WITH to_fetch(fetch_url_index, url_hash, url) AS (VALUES {})
+                 SELECT fetch_url_index
+                 FROM moz_places h
+                 JOIN to_fetch f ON h.url_hash = f.url_hash
+                   AND h.url = f.url",
                 values_with_idx
             );
             let mut stmt = db.prepare(&sql)?;
@@ -610,7 +624,7 @@ pub fn get_visited(db: &PlacesDb, urls: &[Url]) -> Result<Vec<bool>> {
             Ok(())
         },
     )?;
-    Ok(result)
+    Ok(())
 }
 
 /// Get the set of urls that were visited between `start` and `end`. Only considers local visits
@@ -903,13 +917,23 @@ mod tests {
         let _ = env_logger::try_init();
         let mut conn = PlacesDb::open_in_memory(None)?;
 
+        let unicode_in_path = "http://www.example.com/tëst😀abc";
+        let escaped_unicode_in_path = "http://www.example.com/t%C3%ABst%F0%9F%98%80abc";
+
+        let unicode_in_domain = "http://www.exämple😀123.com";
+        let escaped_unicode_in_domain = "http://www.xn--exmple123-w2a24222l.com";
+
         let to_add = [
-            "https://www.example.com/1",
-            "https://www.example.com/12",
-            "https://www.example.com/123",
-            "https://www.example.com/1234",
-            "https://www.mozilla.com",
-            "https://www.firefox.com",
+            "https://www.example.com/1".to_string(),
+            "https://www.example.com/12".to_string(),
+            "https://www.example.com/123".to_string(),
+            "https://www.example.com/1234".to_string(),
+            "https://www.mozilla.com".to_string(),
+            "https://www.firefox.com".to_string(),
+            unicode_in_path.to_string() + "/1",
+            escaped_unicode_in_path.to_string() + "/2",
+            unicode_in_domain.to_string() + "/1",
+            escaped_unicode_in_domain.to_string() + "/2",
         ];
 
         for item in &to_add {
@@ -921,26 +945,37 @@ mod tests {
         }
 
         let to_search = [
-            ("https://www.example.com", false),
-            ("https://www.example.com/1", true),
-            ("https://www.example.com/12", true),
-            ("https://www.example.com/123", true),
-            ("https://www.example.com/1234", true),
-            ("https://www.example.com/12345", false),
-            ("https://www.mozilla.com", true),
-            ("https://www.firefox.com", true),
-            ("https://www.mozilla.org", false),
+            ("https://www.example.com".to_string(), false),
+            ("https://www.example.com/1".to_string(), true),
+            ("https://www.example.com/12".to_string(), true),
+            ("https://www.example.com/123".to_string(), true),
+            ("https://www.example.com/1234".to_string(), true),
+            ("https://www.example.com/12345".to_string(), false),
+            ("https://www.mozilla.com".to_string(), true),
+            ("https://www.firefox.com".to_string(), true),
+            ("https://www.mozilla.org".to_string(), false),
             // dupes should still work!
-            ("https://www.example.com/1234", true),
-            ("https://www.example.com/12345", false),
+            ("https://www.example.com/1234".to_string(), true),
+            ("https://www.example.com/12345".to_string(), false),
+            // The unicode URLs should work when escaped the way we
+            // encountered them
+            (unicode_in_path.to_string() + "/1", true),
+            (escaped_unicode_in_path.to_string() + "/2", true),
+            (unicode_in_domain.to_string() + "/1", true),
+            (escaped_unicode_in_domain.to_string() + "/2", true),
+            // But also the other way.
+            (unicode_in_path.to_string() + "/2", true),
+            (escaped_unicode_in_path.to_string() + "/1", true),
+            (unicode_in_domain.to_string() + "/2", true),
+            (escaped_unicode_in_domain.to_string() + "/1", true),
         ];
 
         let urls = to_search
             .iter()
-            .map(|(url, _expect)| Url::parse(url).unwrap())
+            .map(|(url, _expect)| Url::parse(&url).unwrap())
             .collect::<Vec<_>>();
 
-        let visited = get_visited(&conn, &urls).unwrap();
+        let visited = get_visited(&conn, urls).unwrap();
 
         assert_eq!(visited.len(), to_search.len());
 
@@ -956,6 +991,59 @@ mod tests {
             );
         }
         Ok(())
+    }
+
+    #[test]
+    fn test_get_visited_into() {
+        let _ = env_logger::try_init();
+        let mut conn = PlacesDb::open_in_memory(None).unwrap();
+
+        let to_add = [
+            Url::parse("https://www.example.com/1").unwrap(),
+            Url::parse("https://www.example.com/12").unwrap(),
+            Url::parse("https://www.example.com/123").unwrap(),
+        ];
+
+        for item in &to_add {
+            apply_observation(
+                &mut conn,
+                VisitObservation::new(item.clone()).with_visit_type(VisitTransition::Link),
+            )
+            .unwrap();
+        }
+
+        let mut results = [false; 10];
+
+        let get_visited_request = [
+            // 0 blank
+            (2, to_add[1].clone()),
+            (1, to_add[0].clone()),
+            // 3 blank
+            (4, to_add[2].clone()),
+            // 5 blank
+            // Note: url for 6 is not visited.
+            (6, Url::parse("https://www.example.com/1234").unwrap()),
+            // 7 blank
+            // Note: dupe is allowed
+            (8, to_add[1].clone()),
+            // 9 is blank
+        ];
+
+        get_visited_into(&conn, &get_visited_request, &mut results).unwrap();
+        let expect = [
+            false, // 0
+            true,  // 1
+            true,  // 2
+            false, // 3
+            true,  // 4
+            false, // 5
+            false, // 6
+            false, // 7
+            true,  // 8
+            false, // 9
+        ];
+
+        assert_eq!(expect, results);
     }
 
     #[test]

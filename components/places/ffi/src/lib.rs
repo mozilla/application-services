@@ -90,22 +90,33 @@ pub unsafe extern "C" fn places_query_autocomplete(
 #[no_mangle]
 pub unsafe extern "C" fn places_get_visited(
     conn: &PlacesDb,
-    urls_json: *const c_char,
+    urls: *const *const c_char,
+    urls_len: i32,
+    byte_buffer: *mut bool,
+    byte_buffer_len: i32,
     error: &mut ExternError,
-) -> *mut c_char {
+) {
     log::debug!("places_get_visited");
     // This function has a dumb amount of overhead and copying...
-    call_with_result(error, || -> places::Result<String> {
-        let json = ffi_support::rust_str_from_c(urls_json);
-        let url_strings: Vec<String> = serde_json::from_str(json)?;
-        let urls = url_strings
-            .into_iter()
-            .map(|url| url::Url::parse(&url))
-            .collect::<Result<Vec<_>, _>>()?;
-        // We need to call `to_string` manually because primitives (e.g. bool) don't implement
-        // `ffi_support::IntoFfiJsonTag` (Not clear if they should, needs more thought).
-        let visited = storage::history::get_visited(conn, &urls)?;
-        Ok(serde_json::to_string(&visited)?)
+    call_with_result(error, || -> places::Result<()> {
+        assert!(
+            urls_len >= 0,
+            "Negative array length provided to places_get_visited {}",
+            urls_len
+        );
+        assert_eq!(byte_buffer_len, urls_len);
+        let url_ptrs = std::slice::from_raw_parts(urls, urls_len as usize);
+        let output = std::slice::from_raw_parts_mut(byte_buffer, byte_buffer_len as usize);
+        let urls = url_ptrs
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, &p)| {
+                let s = ffi_support::rust_str_from_c(p);
+                url::Url::parse(s).ok().map(|url| (idx, url))
+            })
+            .collect::<Vec<_>>();
+        storage::history::get_visited_into(conn, &urls, output)?;
+        Ok(())
     })
 }
 

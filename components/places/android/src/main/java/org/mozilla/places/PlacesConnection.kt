@@ -4,11 +4,15 @@
 
 package org.mozilla.places
 
+import com.sun.jna.Native
 import com.sun.jna.Pointer
+import com.sun.jna.StringArray
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.File
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 /**
  * An implementation of a [PlacesAPI] backed by a Rust Places library.
@@ -67,18 +71,29 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
     }
 
     override fun getVisited(urls: List<String>): List<Boolean> {
-        val urlsToJson = JSONArray()
-        for (url in urls) {
-            urlsToJson.put(url)
+        // Note urlStrings has a potential footgun in that StringArray has a `size()` method
+        // which returns the size *in bytes*. Hence us using urls.size (which is an element count)
+        // for the actual number of urls!
+        val urlStrings = StringArray(urls.toTypedArray(), "utf8")
+        val byteBuffer = ByteBuffer.allocateDirect(urls.size)
+        byteBuffer.order(ByteOrder.nativeOrder())
+        rustCall { error ->
+            val bufferPtr = Native.getDirectBufferPointer(byteBuffer)
+            LibPlacesFFI.INSTANCE.places_get_visited(
+                    this.db!!,
+                    urlStrings, urls.size,
+                    bufferPtr, urls.size,
+                    error
+            )
         }
-        val urlStr = urlsToJson.toString()
-        val visitedStr = rustCallForString { error ->
-            LibPlacesFFI.INSTANCE.places_get_visited(this.db!!, urlStr, error)
-        }
-        val visited = JSONArray(visitedStr)
-        val result = mutableListOf<Boolean>()
-        for (index in 0 until visited.length()) {
-            result.add(visited.getBoolean(index))
+        val result = ArrayList<Boolean>(urls.size)
+        for (index in 0 until urls.size) {
+            val wasVisited = byteBuffer.get(index)
+            if (wasVisited != 0.toByte() && wasVisited != 1.toByte()) {
+                throw java.lang.RuntimeException(
+                        "Places bug! Memory corruption possible! Report me!")
+            }
+            result.add(wasVisited == 1.toByte())
         }
         return result
     }
