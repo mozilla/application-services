@@ -15,7 +15,7 @@ import com.sun.jna.PointerType;
 class LibRustLogAdapter {
 
     static {
-        Native.register(jnaLibraryName());
+        Native.register(LibRustLogAdapter.class, jnaLibraryName());
     }
 
     private static String jnaLibraryName() {
