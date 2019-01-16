@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! XXX THIS IS STALE NOW FIXME BEFORE LANDING
-//!
 //! This crate allows users from the other side of the FFI to hook into Rust's
 //! `log` crate, which is used by us and several of our dependencies. The
 //! primary use case is providing logs to Android in a way that is more flexible
@@ -13,36 +11,33 @@
 //! Even worse, Rust logs can be emitted by any thread, regardless of whether or
 //! not they have an associated JVM thread. JNA's Callback class helps us here,
 //! by providing a way for mapping native threads to JVM threads. Unfortunately,
-//! naive usage of this class will produce a large number of threads, and
-//! exhaust available memory (in theory this might be able to be prevented by
-//! using CallbackThreadInitializer, however I wasn't ever able to get that to
-//! work).
+//! naive usage of this class in a multithreaded context will be very suboptimal
+//! in terms of memory and thread usage.
 //!
 //! To avoid this, we only call into the JVM from a single thread, which we
-//! launch when initializing the logger. Conceptually, this thread just polls a
-//! channel listening for log messages. In practice, there are a few
-//! complications:
+//! launch when initializing the logger. This thread just polls a channel
+//! listening for log messages, where a log message is an enum (`LogMessage`)
+//! that either tells it to log an item, or to stop logging all together.
 //!
 //! 1. We cannot guarantee the the callback from android lives past when the
 //!    android code tells us to stop logging, so in order to be memory safe, we
 //!    need to stop logging immediately when this happens. We do this using an
 //!    `Arc<AtomicBool>`, used to indicate that we should stop logging.
+//!
 //! 2. There's no safe way to terminate a thread in Rust (for good reason), so
 //!    the background thread must close willingly. To make sure this happens
 //!    promptly (e.g. to avoid a case where we're blocked until some thread
-//!    somewhere else happens to log something), we use a separate channel that
-//!    only exists to indicate that the `Arc<AtomicBool>` has changed value.
+//!    somewhere else happens to log something), we need to add something onto
+//!    the log channel, hence the existence of `LogMessage::Stop`.
 //!
-//! (For future work it might be worth investigate if we can avoid the channel
-//! in `2.` by just closing (e.g. dropping) the log message channel's Sender and
-//! handling the Err in the background thread. This seems like it would work,
-//! but it's possible there are subtle issues).
+//!    It's important to note that because of point 1, the polling thread may
+//!    have to stop prior to getting `LogMessage::Stop`. We do not want to wait
+//!    for it to process whatever log messages were sent prior to being told
+//!    to stop.
 //!
 //! Finally, it's worth noting that the log crate is rather inflexable, in that
-//! it does not allow users to change loggers after the first initialization.
-//! This inflexibility has leaked into this API, but it's a consequence of
-//! `log`'s design, and not of anything fundamental about code calling between
-//! Rust and the JVM in this manner.
+//! it does not allow users to change loggers after the first initialization. We
+//! work around this using our `settable_log` module.
 
 use std::{
     ffi::CString,
