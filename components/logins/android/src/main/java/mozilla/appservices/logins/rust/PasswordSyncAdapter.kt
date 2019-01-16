@@ -26,7 +26,12 @@ internal interface PasswordSyncAdapter : Library {
         }()
 
         internal var INSTANCE: PasswordSyncAdapter = try {
-            Native.loadLibrary(JNA_LIBRARY_NAME, PasswordSyncAdapter::class.java) as PasswordSyncAdapter
+            val lib = Native.loadLibrary(JNA_LIBRARY_NAME, PasswordSyncAdapter::class.java) as PasswordSyncAdapter
+            if (JNA_LIBRARY_NAME == "logins_ffi") {
+                // Enable logcat logging if we aren't in a megazord.
+                lib.sync15_passwords_enable_logcat_logging()
+            }
+            lib
         } catch (e: UnsatisfiedLinkError) {
             Proxy.newProxyInstance(
                     PasswordSyncAdapter::class.java.classLoader,
@@ -36,6 +41,8 @@ internal interface PasswordSyncAdapter : Library {
             } as PasswordSyncAdapter
         }
     }
+
+    fun sync15_passwords_enable_logcat_logging()
 
     fun sync15_passwords_state_new(
             mentat_db_path: String,

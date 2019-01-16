@@ -29,6 +29,10 @@ internal interface FxaClient : Library {
         init {
             try {
                 INSTANCE = Native.loadLibrary(JNA_LIBRARY_NAME, FxaClient::class.java) as FxaClient
+                if (JNA_LIBRARY_NAME == "fxaclient_ffi") {
+                    // Enable logcat logging if we aren't in a megazord.
+                    INSTANCE.fxa_enable_logcat_logging()
+                }
             } catch (e: UnsatisfiedLinkError) {
                 // We want to be able load this class in environments that don't have FxA native
                 // libs available (for unit testing purposes). This also has the advantage of
@@ -41,6 +45,8 @@ internal interface FxaClient : Library {
             }
         }
     }
+
+    fun fxa_enable_logcat_logging()
 
     fun fxa_new(
         contentUrl: String,

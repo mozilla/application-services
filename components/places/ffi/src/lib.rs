@@ -19,19 +19,19 @@ fn parse_url(url: &str) -> sync15::Result<url::Url> {
     Ok(url::Url::parse(url)?)
 }
 
-fn logging_init() {
+#[no_mangle]
+pub extern "C" fn places_enable_logcat_logging() {
     #[cfg(target_os = "android")]
     {
-        android_logger::init_once(
-            android_logger::Filter::default().with_min_level(log::Level::Debug),
-            Some("libplaces_ffi"),
-        );
-        log::debug!("Android logging should be hooked up!")
+        let _ = std::panic::catch_unwind(|| {
+            android_logger::init_once(
+                android_logger::Filter::default().with_min_level(log::Level::Debug),
+                Some("libplaces_ffi"),
+            );
+            log::debug!("Android logging should be hooked up!")
+        });
     }
 }
-
-// XXX I'm completely punting on error handling until we have time to refactor. I'd rather not
-// add more ffi error copypasta in the meantime.
 
 lazy_static::lazy_static! {
     static ref CONNECTIONS: ConcurrentHandleMap<PlacesDb> = ConcurrentHandleMap::new();
@@ -46,7 +46,6 @@ pub unsafe extern "C" fn places_connection_new(
     error: &mut ExternError,
 ) -> u64 {
     log::debug!("places_connection_new");
-    logging_init();
     CONNECTIONS.insert_with_result(error, || {
         let path = ffi_support::rust_string_from_c(db_path);
         let key = ffi_support::opt_rust_string_from_c(encryption_key);

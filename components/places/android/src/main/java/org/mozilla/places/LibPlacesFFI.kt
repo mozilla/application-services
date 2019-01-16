@@ -25,7 +25,12 @@ internal interface LibPlacesFFI : Library {
         }()
 
         internal var INSTANCE: LibPlacesFFI = try {
-            Native.loadLibrary(JNA_LIBRARY_NAME, LibPlacesFFI::class.java) as LibPlacesFFI
+            val lib = Native.loadLibrary(JNA_LIBRARY_NAME, LibPlacesFFI::class.java) as LibPlacesFFI
+            if (JNA_LIBRARY_NAME == "places_ffi") {
+                // Enable logcat logging if we aren't in a megazord.
+                lib.places_enable_logcat_logging()
+            }
+            lib
         } catch (e: UnsatisfiedLinkError) {
             Proxy.newProxyInstance(
                 LibPlacesFFI::class.java.classLoader,
@@ -35,6 +40,8 @@ internal interface LibPlacesFFI : Library {
             } as LibPlacesFFI
         }
     }
+
+    fun places_enable_logcat_logging()
 
     // Important: strings returned from rust as *mut char must be Pointers on this end, returning a
     // String will work but either force us to leak them, or cause us to corrupt the heap (when we
