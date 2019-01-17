@@ -61,6 +61,8 @@ impl PlacesDb {
             -- files in memory, since on Android there's no tmp partition. See
             -- https://github.com/mozilla/mentat/issues/505. Ideally we'd only
             -- do this on Android, and/or allow caller to configure it.
+            -- (although see also bug 1313021, where Firefox enabled it for both
+            -- Android and 64bit desktop builds)
             PRAGMA temp_store = 2;
 
             -- 6MiB, same as the value used for `promiseLargeCacheDBConnection` in PlacesUtils,
@@ -68,6 +70,9 @@ impl PlacesDb {
             -- UnifiedComplete). Note that SQLite uses a negative value for this pragma to indicate
             -- that it's in units of KiB.
             PRAGMA cache_size = -6144;
+
+            -- we unconditionally want write-ahead-logging mode
+            PRAGMA journal_mode=WAL;
         ",
             encryption_pragmas,
         );
