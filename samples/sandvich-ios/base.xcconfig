@@ -1,0 +1,9 @@
+#include "../../xcconfig/common.xcconfig"
+
+INFOPLIST_FILE = Example/Info.plist
+PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.Example
+PRODUCT_NAME = Example
+
+FRAMEWORK_SEARCH_PATHS = "$(PROJECT_DIR)/Carthage/Build/iOS"
+
+LIBRARY_SEARCH_PATHS = "../../../target/universal/release" "../../../libs/ios/universal/sqlcipher/lib"

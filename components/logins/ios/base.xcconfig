@@ -1,0 +1,4 @@
+#include "../../../xcconfig/common.xcconfig"
+
+INFOPLIST_FILE = Logins/Info.plist
+LIBRARY_SEARCH_PATHS = "../../../target/universal/$(buildvariant)" "../../../libs/ios/universal/sqlcipher/lib"
