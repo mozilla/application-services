@@ -2,9 +2,9 @@
 
 set -euvx
 
-IOS_MIN_SDK_VERSION="9.0"
+IOS_MIN_SDK_VERSION="11.0"
 # Our short-names for the architectures.
-TARGET_ARCHS=("i386" "x86_64" "armv7" "arm64")
+TARGET_ARCHS=("x86_64" "arm64")
 
 if [ "$#" -ne 2 ]
 then
