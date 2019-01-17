@@ -32,19 +32,18 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
     // heuristic matches, since that's all we support.
 
     let matches = match_with_limit(
+        conn,
         &[
             // Try to match on the origin, or the full URL.
-            &OriginOrUrl::new(&params.search_string, conn),
+            &OriginOrUrl::new(&params.search_string),
             // query adaptive matches and suggestions, matching Anywhere.
             &Adaptive::with_behavior(
                 &params.search_string,
-                conn,
                 MatchBehavior::Anywhere,
                 SearchBehavior::default(),
             ),
             &Suggestions::with_behavior(
                 &params.search_string,
-                conn,
                 MatchBehavior::Anywhere,
                 SearchBehavior::default(),
             ),
@@ -56,9 +55,11 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
 }
 
 pub fn match_url(conn: &PlacesDb, query: impl AsRef<str>) -> Result<Option<String>> {
-    let matcher = OriginOrUrl::new(query.as_ref(), conn);
+    let scope = conn.begin_interrupt_scope();
+    let matcher = OriginOrUrl::new(query.as_ref());
     // Note: The matcher ignores the limit argument (it's a trait method)
-    let results = matcher.search(1)?;
+    let results = matcher.search(conn, 1)?;
+    scope.err_if_interrupted()?;
     // Doing it like this lets us move the result, avoiding a copy (which almost
     // certainly doesn't matter but whatever)
     if let Some(res) = results.into_iter().next() {
@@ -68,14 +69,20 @@ pub fn match_url(conn: &PlacesDb, query: impl AsRef<str>) -> Result<Option<Strin
     }
 }
 
-fn match_with_limit(matchers: &[&dyn Matcher], max_results: u32) -> Result<(Vec<SearchResult>)> {
+fn match_with_limit(
+    conn: &PlacesDb,
+    matchers: &[&dyn Matcher],
+    max_results: u32,
+) -> Result<(Vec<SearchResult>)> {
     let mut results = Vec::new();
     let mut rem_results = max_results;
+    let scope = conn.begin_interrupt_scope();
     for m in matchers {
         if rem_results == 0 {
             break;
         }
-        let matches = m.search(rem_results)?;
+        scope.err_if_interrupted()?;
+        let matches = m.search(conn, rem_results)?;
         results.extend(matches);
         rem_results = rem_results.saturating_sub(results.len() as u32);
     }
@@ -298,17 +305,16 @@ impl SearchResult {
 }
 
 trait Matcher {
-    fn search(&self, max_results: u32) -> Result<Vec<SearchResult>>;
+    fn search(&self, conn: &PlacesDb, max_results: u32) -> Result<Vec<SearchResult>>;
 }
 
-struct OriginOrUrl<'query, 'conn> {
+struct OriginOrUrl<'query> {
     query: &'query str,
-    conn: &'conn PlacesDb,
 }
 
-impl<'query, 'conn> OriginOrUrl<'query, 'conn> {
-    pub fn new(query: &'query str, conn: &'conn PlacesDb) -> OriginOrUrl<'query, 'conn> {
-        OriginOrUrl { query, conn }
+impl<'query> OriginOrUrl<'query> {
+    pub fn new(query: &'query str) -> OriginOrUrl<'query> {
+        OriginOrUrl { query }
     }
 }
 
@@ -372,10 +378,10 @@ const ORIGIN_SQL: &'static str = "
     LIMIT 1
 ";
 
-impl<'query, 'conn> Matcher for OriginOrUrl<'query, 'conn> {
-    fn search(&self, _: u32) -> Result<Vec<SearchResult>> {
+impl<'query> Matcher for OriginOrUrl<'query> {
+    fn search(&self, conn: &PlacesDb, _: u32) -> Result<Vec<SearchResult>> {
         Ok(if looks_like_origin(self.query) {
-            self.conn.query_rows_and_then_named_cached(
+            conn.query_rows_and_then_named_cached(
                 ORIGIN_SQL,
                 &[
                     (":prefix", &rusqlite::types::Null),
@@ -388,7 +394,7 @@ impl<'query, 'conn> Matcher for OriginOrUrl<'query, 'conn> {
             let (host, remainder) = split_after_host_and_port(self.query);
             let punycode_host = idna::domain_to_ascii(host).ok();
             let host_str = punycode_host.as_ref().map(|s| s.as_str()).unwrap_or(host);
-            self.conn.query_rows_and_then_named_cached(
+            conn.query_rows_and_then_named_cached(
                 URL_SQL,
                 &[
                     (":searchString", &self.query),
@@ -404,32 +410,29 @@ impl<'query, 'conn> Matcher for OriginOrUrl<'query, 'conn> {
     }
 }
 
-struct Adaptive<'query, 'conn> {
+struct Adaptive<'query> {
     query: &'query str,
-    conn: &'conn PlacesDb,
     match_behavior: MatchBehavior,
     search_behavior: SearchBehavior,
 }
 
-impl<'query, 'conn> Adaptive<'query, 'conn> {
+impl<'query> Adaptive<'query> {
     pub fn with_behavior(
         query: &'query str,
-        conn: &'conn PlacesDb,
         match_behavior: MatchBehavior,
         search_behavior: SearchBehavior,
-    ) -> Adaptive<'query, 'conn> {
+    ) -> Adaptive<'query> {
         Adaptive {
             query,
-            conn,
             match_behavior,
             search_behavior,
         }
     }
 }
 
-impl<'query, 'conn> Matcher for Adaptive<'query, 'conn> {
-    fn search(&self, max_results: u32) -> Result<Vec<SearchResult>> {
-        Ok(self.conn.query_rows_and_then_named_cached(
+impl<'query> Matcher for Adaptive<'query> {
+    fn search(&self, conn: &PlacesDb, max_results: u32) -> Result<Vec<SearchResult>> {
+        Ok(conn.query_rows_and_then_named_cached(
             "
             SELECT h.url as url,
                    h.title as title,
@@ -472,32 +475,29 @@ impl<'query, 'conn> Matcher for Adaptive<'query, 'conn> {
     }
 }
 
-struct Suggestions<'query, 'conn> {
+struct Suggestions<'query> {
     query: &'query str,
-    conn: &'conn PlacesDb,
     match_behavior: MatchBehavior,
     search_behavior: SearchBehavior,
 }
 
-impl<'query, 'conn> Suggestions<'query, 'conn> {
+impl<'query> Suggestions<'query> {
     pub fn with_behavior(
         query: &'query str,
-        conn: &'conn PlacesDb,
         match_behavior: MatchBehavior,
         search_behavior: SearchBehavior,
-    ) -> Suggestions<'query, 'conn> {
+    ) -> Suggestions<'query> {
         Suggestions {
             query,
-            conn,
             match_behavior,
             search_behavior,
         }
     }
 }
 
-impl<'query, 'conn> Matcher for Suggestions<'query, 'conn> {
-    fn search(&self, max_results: u32) -> Result<Vec<SearchResult>> {
-        Ok(self.conn.query_rows_and_then_named_cached(
+impl<'query> Matcher for Suggestions<'query> {
+    fn search(&self, conn: &PlacesDb, max_results: u32) -> Result<Vec<SearchResult>> {
+        Ok(conn.query_rows_and_then_named_cached(
             "
             SELECT h.url, h.title,
                    EXISTS(SELECT 1 FROM moz_bookmarks

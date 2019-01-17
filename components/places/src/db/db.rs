@@ -6,6 +6,7 @@
 // wip-sync-sql-store branch, but with login specific code removed.
 // We should work out how to split this into a library we can reuse.
 
+use super::interrupt::{InterruptScope, PlacesInterruptHandle};
 use super::schema;
 use crate::error::*;
 use rusqlite::Connection;
@@ -13,10 +14,13 @@ use sql_support::{self, ConnExt};
 use std::ops::Deref;
 use std::path::Path;
 
+use std::sync::{atomic::AtomicUsize, Arc};
+
 pub const MAX_VARIABLE_NUMBER: usize = 999;
 
 pub struct PlacesDb {
     pub db: Connection,
+    interrupt_counter: Arc<AtomicUsize>,
 }
 
 impl PlacesDb {
@@ -80,7 +84,10 @@ impl PlacesDb {
 
         db.execute_batch(&initial_pragmas)?;
         define_functions(&db)?;
-        let res = Self { db };
+        let res = Self {
+            db,
+            interrupt_counter: Arc::new(AtomicUsize::new(0)),
+        };
         // Even though we're the owner of the db, we need it to be an unchecked tx
         // since we want to pass &PlacesDb and not &Connection to schema::init.
         let tx = res.unchecked_transaction()?;
@@ -102,6 +109,18 @@ impl PlacesDb {
             Connection::open_in_memory()?,
             encryption_key,
         )?)
+    }
+
+    pub fn new_interrupt_handle(&self) -> PlacesInterruptHandle {
+        PlacesInterruptHandle {
+            db_handle: self.db.get_interrupt_handle(),
+            interrupt_counter: self.interrupt_counter.clone(),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn begin_interrupt_scope(&self) -> InterruptScope {
+        InterruptScope::new(self.interrupt_counter.clone())
     }
 }
 

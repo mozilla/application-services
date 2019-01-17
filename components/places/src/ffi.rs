@@ -7,8 +7,11 @@
 // This module implement the traits that make the FFI code easier to manage.
 
 use crate::api::matcher::SearchResult;
+use crate::db::PlacesInterruptHandle;
 use crate::error::{Error, ErrorKind};
-use ffi_support::{implement_into_ffi_by_json, ErrorCode, ExternError};
+use ffi_support::{
+    implement_into_ffi_by_json, implement_into_ffi_by_pointer, ErrorCode, ExternError,
+};
 
 pub mod error_codes {
     // Note: 0 (success) and -1 (panic) are reserved by ffi_support
@@ -27,6 +30,9 @@ pub mod error_codes {
     /// The requested operation failed because the database was busy
     /// performing operations on a separate connection to the same DB.
     pub const DATABASE_BUSY: i32 = 4;
+
+    /// The requested operation failed because it was interrupted
+    pub const DATABASE_INTERRUPTED: i32 = 5;
 }
 
 fn get_code(err: &Error) -> ErrorCode {
@@ -47,6 +53,18 @@ fn get_code(err: &Error) -> ErrorCode {
             log::error!("Database busy: {:?} {:?}", err, msg);
             ErrorCode::new(error_codes::DATABASE_BUSY)
         }
+        ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, _))
+            if err.code == rusqlite::ErrorCode::OperationInterrupted =>
+        {
+            log::info!("Operation interrupted");
+            ErrorCode::new(error_codes::DATABASE_INTERRUPTED)
+        }
+        ErrorKind::InterruptedError => {
+            // Can't unify with the above ... :(
+            log::info!("Operation interrupted");
+            ErrorCode::new(error_codes::DATABASE_INTERRUPTED)
+        }
+
         err => {
             log::error!("Unexpected error: {:?}", err);
             ErrorCode::new(error_codes::UNEXPECTED)
@@ -61,3 +79,4 @@ impl From<Error> for ExternError {
 }
 
 implement_into_ffi_by_json!(SearchResult);
+implement_into_ffi_by_pointer!(PlacesInterruptHandle);
