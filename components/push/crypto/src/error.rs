@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 use std::fmt;
 use std::result;
 
@@ -51,15 +55,18 @@ impl From<Context<ErrorKind>> for Error {
 impl From<openssl::error::ErrorStack> for Error {
     #[inline]
     fn from(inner: openssl::error::ErrorStack) -> Error {
-        Error(Box::new(Context::new(ErrorKind::OpenSSLError)))
+        Error(Box::new(Context::new(ErrorKind::OpenSSLError(format!(
+            "{:?}",
+            inner
+        )))))
     }
 }
 
 #[derive(Debug, Fail)]
 pub enum ErrorKind {
-    #[fail(display = "General Error")]
-    GeneralError,
+    #[fail(display = "General Error: {:?}", _0)]
+    GeneralError(String),
 
-    #[fail(display = "OpenSSL Error")]
-    OpenSSLError,
+    #[fail(display = "OpenSSL Error: {:?}", _0)]
+    OpenSSLError(String),
 }

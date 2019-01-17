@@ -6,3 +6,8 @@ edition = "2018"
 
 [dependencies]
 crypto = {path = "../crypto"}
+failure = "0.1.5"
+failure_derive = "0.1.5"
+openssl = "0.10"
+lazy_static = "1.2"
+sql-support = {path = "../../support/sql"}

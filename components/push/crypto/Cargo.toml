@@ -5,7 +5,7 @@ authors = ["jrconlin <me+crypt@jrconlin.com>"]
 edition = "2018"
 
 [dependencies]
-ece = {git="https://github.com/jrconlin/rust-ece", branch="feat/aesgcm"}
+ece = "0.1"
 failure = "0.1.5"
 failure_derive = "0.1.5"
 base64 = "0.10"

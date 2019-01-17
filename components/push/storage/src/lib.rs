@@ -1,4 +1,8 @@
-/* Handle Push data storage
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Handle Push data storage
  */
 extern crate crypto;
 
@@ -29,10 +33,7 @@ pub struct PushRecord {
     pub last_push: u64,
 
     // Private EC Prime256v1 key info. (Public key can be derived from this)
-    pub private_key: Vec<u8>,
-
-    // Push Server auth_secret
-    pub auth_secret: String,
+    pub key: Vec<u8>,
 
     // Is this as priviledged system record
     pub system_record: bool,
@@ -111,13 +112,13 @@ impl Store {
 impl Storage for Store {
     fn create_record(
         &self,
-        uaid: &str,
+        _uaid: &str,
         chid: &str,
         origin_attributes: HashMap<String, String>,
         endpoint: &str,
         server_auth: &str,
         private_key: &Key,
-        system_record: bool,
+        _system_record: bool,
     ) -> PushRecord {
         // TODO: fill this out properly
         PushRecord {
@@ -126,8 +127,7 @@ impl Storage for Store {
             origin_attributes: origin_attributes.clone(),
             push_count: 0,
             last_push: 0,
-            private_key: private_key.serialize().unwrap(),
-            auth_secret: server_auth.to_string(),
+            key: private_key.serialize().unwrap(),
             system_record: false,
             app_server_key: None,
             recent_message_ids: Vec::new(),
@@ -138,20 +138,20 @@ impl Storage for Store {
         }
     }
 
-    fn get_record(&self, uaid: &str, chid: &str) -> Option<PushRecord> {
+    fn get_record(&self, _uaid: &str, _chid: &str) -> Option<PushRecord> {
         None
     }
 
     fn put_record(
         &self,
-        uaid: &str,
-        chid: &str,
-        record: &PushRecord,
+        _uaid: &str,
+        _chid: &str,
+        _record: &PushRecord,
     ) -> Result<bool, StorageError> {
         Ok(false)
     }
 
-    fn purge(&self, uaid: &str, chid: Option<&str>) -> Result<bool, StorageError> {
+    fn purge(&self, _uaid: &str, _chid: Option<&str>) -> Result<bool, StorageError> {
         Ok(false)
     }
 
