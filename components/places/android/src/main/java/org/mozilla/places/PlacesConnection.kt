@@ -14,6 +14,7 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * An implementation of a [PlacesAPI] backed by a Rust Places library.
@@ -24,6 +25,7 @@ import java.util.concurrent.atomic.AtomicLong
  */
 class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI, AutoCloseable {
     private var handle: AtomicLong = AtomicLong(0)
+    private var interruptHandle: InterruptHandle
 
     init {
         try {
@@ -46,6 +48,16 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
                 LibPlacesFFI.INSTANCE.places_connection_new(path, encryption_key, error)
             })
         }
+        try {
+            interruptHandle = InterruptHandle(rustCall { err ->
+                LibPlacesFFI.INSTANCE.places_new_interrupt_handle(this.handle.get(), err)
+            }!!)
+        } catch (e: Throwable) {
+            rustCall { error ->
+                LibPlacesFFI.INSTANCE.places_connection_destroy(this.handle.getAndSet(0), error)
+            }
+            throw e
+        }
     }
 
     @Synchronized
@@ -56,6 +68,7 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
                 LibPlacesFFI.INSTANCE.places_connection_destroy(handle, error)
             }
         }
+        interruptHandle.close()
     }
 
     override fun noteObservation(data: VisitObservation) {
@@ -138,6 +151,10 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
                     error
             )
         }
+    }
+
+    override fun interrupt() {
+        this.interruptHandle.interrupt()
     }
 
     private inline fun <U> rustCall(callback: (RustError.ByReference) -> U): U {
@@ -233,13 +250,44 @@ interface PlacesAPI {
      *
      */
     fun sync(syncInfo: SyncAuthInfo)
+
+    /**
+     * Interrupt ongoing operations running on a separate thread.
+     */
+    fun interrupt()
 }
+
+internal class InterruptHandle internal constructor(raw: RawPlacesInterruptHandle): AutoCloseable {
+    // We synchronize all accesses, so this probably doesn't need AtomicReference.
+    private val handle: AtomicReference<RawPlacesInterruptHandle?> = AtomicReference(raw)
+
+    @Synchronized
+    override fun close() {
+        val toFree = handle.getAndSet(null)
+        if (toFree != null) {
+            LibPlacesFFI.INSTANCE.places_interrupt_handle_destroy(toFree)
+        }
+    }
+
+    @Synchronized
+    fun interrupt() {
+        handle.get()?.let {
+            val e = RustError.ByReference()
+            LibPlacesFFI.INSTANCE.places_interrupt(it, e)
+            if (e.isFailure()) {
+                throw e.intoException()
+            }
+        }
+    }
+}
+
 
 open class PlacesException(msg: String): Exception(msg)
 open class InternalPanic(msg: String): PlacesException(msg)
 open class UrlParseFailed(msg: String): PlacesException(msg)
 open class InvalidPlaceInfo(msg: String): PlacesException(msg)
 open class PlacesConnectionBusy(msg: String): PlacesException(msg)
+open class OperationInterrupted(msg: String): PlacesException(msg)
 
 @SuppressWarnings("MagicNumber")
 enum class VisitType(val type: Int) {
