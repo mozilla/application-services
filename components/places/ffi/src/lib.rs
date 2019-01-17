@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use ffi_support::{
-    call_with_result, define_box_destructor, define_string_destructor, rust_str_from_c,
-    rust_string_from_c, ExternError,
+    define_handle_map_deleter, define_string_destructor, rust_str_from_c, rust_string_from_c,
+    ConcurrentHandleMap, ExternError,
 };
 use places::history_sync::store::HistoryStore;
 use places::{storage, PlacesDb};
@@ -33,6 +33,10 @@ fn logging_init() {
 // XXX I'm completely punting on error handling until we have time to refactor. I'd rather not
 // add more ffi error copypasta in the meantime.
 
+lazy_static::lazy_static! {
+    static ref CONNECTIONS: ConcurrentHandleMap<PlacesDb> = ConcurrentHandleMap::new();
+}
+
 /// Instantiate a places connection. Returned connection must be freed with
 /// `places_connection_destroy`. Returns null and logs on errors (for now).
 #[no_mangle]
@@ -40,10 +44,10 @@ pub unsafe extern "C" fn places_connection_new(
     db_path: *const c_char,
     encryption_key: *const c_char,
     error: &mut ExternError,
-) -> *mut PlacesDb {
+) -> u64 {
     log::debug!("places_connection_new");
     logging_init();
-    call_with_result(error, || {
+    CONNECTIONS.insert_with_result(error, || {
         let path = ffi_support::rust_string_from_c(db_path);
         let key = ffi_support::opt_rust_string_from_c(encryption_key);
         PlacesDb::open(path, key.as_ref().map(|v| v.as_str()))
@@ -54,12 +58,12 @@ pub unsafe extern "C" fn places_connection_new(
 /// Errors are logged.
 #[no_mangle]
 pub unsafe extern "C" fn places_note_observation(
-    conn: &mut PlacesDb,
+    handle: u64,
     json_observation: *const c_char,
     error: &mut ExternError,
 ) {
     log::debug!("places_note_observation");
-    call_with_result(error, || {
+    CONNECTIONS.call_with_result_mut(error, handle, |conn| {
         let json = ffi_support::rust_str_from_c(json_observation);
         let visit: places::VisitObservation = serde_json::from_str(&json)?;
         places::api::apply_observation(conn, visit)
@@ -70,13 +74,13 @@ pub unsafe extern "C" fn places_note_observation(
 /// using `places_destroy_string`. Returns null and logs on errors (for now).
 #[no_mangle]
 pub unsafe extern "C" fn places_query_autocomplete(
-    conn: &PlacesDb,
+    handle: u64,
     search: *const c_char,
     limit: u32,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("places_query_autocomplete");
-    call_with_result(error, || {
+    CONNECTIONS.call_with_result(error, handle, |conn| {
         search_frecent(
             conn,
             SearchParams {
@@ -89,7 +93,7 @@ pub unsafe extern "C" fn places_query_autocomplete(
 
 #[no_mangle]
 pub unsafe extern "C" fn places_get_visited(
-    conn: &PlacesDb,
+    handle: u64,
     urls: *const *const c_char,
     urls_len: i32,
     byte_buffer: *mut bool,
@@ -98,7 +102,7 @@ pub unsafe extern "C" fn places_get_visited(
 ) {
     log::debug!("places_get_visited");
     // This function has a dumb amount of overhead and copying...
-    call_with_result(error, || -> places::Result<()> {
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<()> {
         assert!(
             urls_len >= 0,
             "Negative array length provided to places_get_visited {}",
@@ -122,14 +126,14 @@ pub unsafe extern "C" fn places_get_visited(
 
 #[no_mangle]
 pub extern "C" fn places_get_visited_urls_in_range(
-    conn: &PlacesDb,
+    handle: u64,
     start: i64,
     end: i64,
     include_remote: u8, // JNA has issues with bools...
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("places_get_visited_in_range");
-    call_with_result(error, || -> places::Result<String> {
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let visited = storage::history::get_visited_urls(
             conn,
             // Probably should allow into()...
@@ -143,7 +147,7 @@ pub extern "C" fn places_get_visited_urls_in_range(
 
 #[no_mangle]
 pub unsafe extern "C" fn sync15_history_sync(
-    conn: &PlacesDb,
+    handle: u64,
     key_id: *const c_char,
     access_token: *const c_char,
     sync_key: *const c_char,
@@ -151,7 +155,7 @@ pub unsafe extern "C" fn sync15_history_sync(
     error: &mut ExternError,
 ) {
     log::debug!("sync15_history_sync");
-    call_with_result(error, || -> places::Result<()> {
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         // XXX - this is wrong - we kinda want this to be long-lived - the "Db"
         // should own the store, but it's not part of the db.
         let store = HistoryStore::new(conn);
@@ -170,4 +174,4 @@ pub unsafe extern "C" fn sync15_history_sync(
 }
 
 define_string_destructor!(places_destroy_string);
-define_box_destructor!(PlacesDb, places_connection_destroy);
+define_handle_map_deleter!(CONNECTIONS, places_connection_destroy);

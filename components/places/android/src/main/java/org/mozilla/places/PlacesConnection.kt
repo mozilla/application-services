@@ -13,6 +13,7 @@ import org.json.JSONObject
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * An implementation of a [PlacesAPI] backed by a Rust Places library.
@@ -22,13 +23,13 @@ import java.nio.ByteOrder
  *  database. If omitted, data will be stored in plaintext.
  */
 class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI, AutoCloseable {
-    private var db: RawPlacesConnection?
+    private var handle: AtomicLong = AtomicLong(0)
 
     init {
         try {
-            db = rustCall { error ->
+            handle.set(rustCall { error ->
                 LibPlacesFFI.INSTANCE.places_connection_new(path, encryption_key, error)
-            }
+            })
         } catch (e: InternalPanic) {
 
             // Places Rust library does not yet support schema migrations; as a very temporary quick
@@ -41,31 +42,32 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
 
             File(path).delete()
 
-            db = rustCall { error ->
+            handle.set(rustCall { error ->
                 LibPlacesFFI.INSTANCE.places_connection_new(path, encryption_key, error)
-            }
+            })
         }
     }
 
     @Synchronized
     override fun close() {
-        val db = this.db
-        this.db = null
-        if (db != null) {
-            LibPlacesFFI.INSTANCE.places_connection_destroy(db)
+        val handle = this.handle.getAndSet(0L)
+        if (handle != 0L) {
+            rustCall { error ->
+                LibPlacesFFI.INSTANCE.places_connection_destroy(handle, error)
+            }
         }
     }
 
     override fun noteObservation(data: VisitObservation) {
         val json = data.toJSON().toString()
         rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_note_observation(this.db!!, json, error)
+            LibPlacesFFI.INSTANCE.places_note_observation(this.handle.get(), json, error)
         }
     }
 
     override fun queryAutocomplete(query: String, limit: Int): List<SearchResult> {
         val json = rustCallForString { error ->
-            LibPlacesFFI.INSTANCE.places_query_autocomplete(this.db!!, query, limit, error)
+            LibPlacesFFI.INSTANCE.places_query_autocomplete(this.handle.get(), query, limit, error)
         }
         return SearchResult.fromJSONArray(json)
     }
@@ -80,7 +82,7 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
         rustCall { error ->
             val bufferPtr = Native.getDirectBufferPointer(byteBuffer)
             LibPlacesFFI.INSTANCE.places_get_visited(
-                    this.db!!,
+                    this.handle.get(),
                     urlStrings, urls.size,
                     bufferPtr, urls.size,
                     error
@@ -102,7 +104,7 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
         val urlsJson = rustCallForString { error ->
             val incRemoteArg: Byte = if (includeRemote) { 1 } else { 0 }
             LibPlacesFFI.INSTANCE.places_get_visited_urls_in_range(
-                    this.db!!, start, end, incRemoteArg, error)
+                    this.handle.get(), start, end, incRemoteArg, error)
         }
         val arr = JSONArray(urlsJson)
         val result = mutableListOf<String>();
@@ -115,7 +117,7 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
     override fun sync(syncInfo: SyncAuthInfo) {
         rustCall { error ->
             LibPlacesFFI.INSTANCE.sync15_history_sync(
-                    this.db!!,
+                    this.handle.get(),
                     syncInfo.kid,
                     syncInfo.fxaAccessToken,
                     syncInfo.syncKey,
