@@ -1,6 +1,7 @@
 /* Any copyright is dedicated to the Public Domain.
 http://creativecommons.org/publicdomain/zero/1.0/ */
 
+use crate::Opts;
 use fxa_client::{self, Config as FxaConfig, FirefoxAccount};
 use logins::PasswordEngine;
 use std::collections::HashMap;
@@ -98,6 +99,7 @@ pub struct TestAccount {
     pub email: String,
     pub pass: String,
     pub cfg: FxaConfig,
+    pub no_delete: bool,
 }
 
 impl TestAccount {
@@ -105,22 +107,35 @@ impl TestAccount {
         email: String,
         pass: String,
         cfg: FxaConfig,
+        no_delete: bool,
     ) -> Result<Arc<TestAccount>, failure::Error> {
         log::info!("Creating temporary fx account");
         // `create` doesn't return anything we care about.
         let auth_url = cfg.auth_url()?;
         run_helper_command("create", &[&email, &pass, auth_url.as_str()])?;
-        Ok(Arc::new(TestAccount { email, pass, cfg }))
+        Ok(Arc::new(TestAccount {
+            email,
+            pass,
+            cfg,
+            no_delete,
+        }))
     }
 
-    pub fn new_random() -> Result<Arc<TestAccount>, failure::Error> {
+    pub fn new_random(opts: &Opts) -> Result<Arc<TestAccount>, failure::Error> {
         use rand::{self, prelude::*};
         let mut rng = thread_rng();
-        let name = format!(
-            "rust-login-sql-test--{}",
-            rng.sample_iter(&rand::distributions::Alphanumeric)
-                .take(5)
-                .collect::<String>()
+        let name = opts.force_username.clone().unwrap_or_else(|| {
+            format!(
+                "rust-login-sql-test--{}",
+                rng.sample_iter(&rand::distributions::Alphanumeric)
+                    .take(5)
+                    .collect::<String>()
+            )
+        });
+        // We should probably check this some other time, but whatever.
+        assert!(
+            !name.contains('@'),
+            "--force-username passed an illegal username"
         );
         // Just use the username for the password in case we need to clean these
         // up easily later because of some issue.
@@ -129,13 +144,18 @@ impl TestAccount {
         Self::new(
             email,
             password,
-            FxaConfig::stable_dev(CLIENT_ID, REDIRECT_URI),
+            opts.fxa_stack.to_config(CLIENT_ID, REDIRECT_URI),
+            opts.no_delete_account,
         )
     }
 }
 
 impl Drop for TestAccount {
     fn drop(&mut self) {
+        if self.no_delete {
+            log::info!("Cleanup was explicitly disabled, not deleting account");
+            return;
+        }
         log::info!("Cleaning up temporary firefox account");
         let auth_url = self.cfg.auth_url().unwrap(); // We already parsed this once.
         if let Err(e) = run_helper_command("destroy", &[&self.email, &self.pass, auth_url.as_str()])
@@ -252,4 +272,103 @@ pub fn cleanup_server(clients: Vec<&mut TestClient>) -> Result<(), failure::Erro
         }
     }
     failure::bail!("None of the clients managed to wipe the server!");
+}
+
+pub struct TestUser {
+    pub account: Arc<TestAccount>,
+    pub clients: Vec<TestClient>,
+}
+
+impl TestUser {
+    fn new_random(opts: &Opts, client_count: usize) -> Result<Self, failure::Error> {
+        log::info!("Creating test account with {} clients", client_count);
+
+        let account = TestAccount::new_random(&opts)?;
+        let mut clients = Vec::with_capacity(client_count);
+
+        for c in 0..client_count {
+            log::info!("Creating test client {}", c);
+            clients.push(TestClient::new(account.clone())?);
+        }
+        Ok(Self { account, clients })
+    }
+
+    pub fn new(opts: &Opts, client_count: usize) -> Result<TestUser, failure::Error> {
+        if opts.oauth_retries > 0 && opts.no_delete_account {
+            failure::bail!(
+                "Illegal option combination: oauth-retries is nonzero \
+                 and no-delete-account is specified."
+            );
+        }
+        if opts.helper_debug {
+            std::env::set_var("DEBUG", "nightmare");
+            std::env::set_var("HELPER_SHOW_BROWSER", "1");
+        }
+        for attempt in 0..=opts.oauth_retries {
+            log::info!("Creating test user (attempt {})", attempt);
+            match TestUser::new_random(opts, client_count) {
+                Ok(user) => {
+                    log::info!("Created test user (attempt {})", attempt);
+                    return Ok(user);
+                }
+                Err(e) => {
+                    if attempt == opts.oauth_retries {
+                        log::error!("Failed to create test user (attempt {}): {:?}", attempt, e);
+                        return Err(e);
+                    }
+                    log::warn!("Failed to create test user (attempt {}): {}", attempt, e);
+                    if opts.oauth_delay_time > 0 {
+                        let delay = opts.oauth_delay_time + attempt * opts.oauth_retry_backoff;
+                        log::info!(
+                            "Retrying after {} ms (attempt {} => {})",
+                            delay,
+                            attempt,
+                            attempt + 1
+                        );
+                        std::thread::sleep(std::time::Duration::from_millis(delay as u64));
+                    }
+                }
+            }
+        }
+        // Above loop always either hits the `return Err(e)` or `return Ok(user);` cases
+        unreachable!();
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum FxaConfigUrl {
+    StableDev,
+    Stage,
+    Release,
+    Custom(url::Url),
+}
+
+impl FxaConfigUrl {
+    pub fn to_config(&self, client_id: &str, redirect: &str) -> FxaConfig {
+        match self {
+            FxaConfigUrl::StableDev => FxaConfig::stable_dev(client_id, redirect),
+            FxaConfigUrl::Stage => FxaConfig::stage_dev(client_id, redirect),
+            FxaConfigUrl::Release => FxaConfig::release(client_id, redirect),
+            FxaConfigUrl::Custom(url) => FxaConfig::new(url.as_str(), client_id, redirect),
+        }
+    }
+}
+
+// Required for arg parsing
+impl std::str::FromStr for FxaConfigUrl {
+    type Err = failure::Error;
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Ok(match s {
+            "release" => FxaConfigUrl::Release,
+            "stage" => FxaConfigUrl::Stage,
+            "stable-dev" => FxaConfigUrl::StableDev,
+            s if s.contains(':') => FxaConfigUrl::Custom(url::Url::parse(s)?),
+            _ => {
+                failure::bail!(
+                    "Illegal fxa-stack option '{}', not a url nor a known alias",
+                    s
+                );
+            }
+        })
+    }
 }
