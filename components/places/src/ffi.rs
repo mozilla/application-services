@@ -7,11 +7,8 @@
 // This module implement the traits that make the FFI code easier to manage.
 
 use crate::api::matcher::SearchResult;
-use crate::db::PlacesDb;
 use crate::error::{Error, ErrorKind};
-use ffi_support::{
-    implement_into_ffi_by_json, implement_into_ffi_by_pointer, ErrorCode, ExternError,
-};
+use ffi_support::{implement_into_ffi_by_json, ErrorCode, ExternError};
 
 pub mod error_codes {
     // Note: 0 (success) and -1 (panic) are reserved by ffi_support
@@ -63,5 +60,4 @@ impl From<Error> for ExternError {
     }
 }
 
-implement_into_ffi_by_pointer!(PlacesDb);
 implement_into_ffi_by_json!(SearchResult);

@@ -1053,6 +1053,7 @@ version = "0.1.0"
 dependencies = [
  "android_logger 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ffi-support 0.1.4",
+ "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "places 0.1.0",
  "rusqlite 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
