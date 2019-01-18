@@ -6,10 +6,8 @@
 
 // This module implement the traits that make the FFI code easier to manage.
 
-use crate::{Error, ErrorKind, Login, PasswordEngine};
-use ffi_support::{
-    implement_into_ffi_by_json, implement_into_ffi_by_pointer, ErrorCode, ExternError,
-};
+use crate::{Error, ErrorKind, Login};
+use ffi_support::{implement_into_ffi_by_json, ErrorCode, ExternError};
 use sync15::ErrorKind as Sync15ErrorKind;
 
 pub mod error_codes {
@@ -85,5 +83,4 @@ impl From<Error> for ExternError {
     }
 }
 
-implement_into_ffi_by_pointer!(PasswordEngine);
 implement_into_ffi_by_json!(Login);

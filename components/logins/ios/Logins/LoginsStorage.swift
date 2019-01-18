@@ -24,7 +24,7 @@ open class SyncUnlockInfo {
 let queue = DispatchQueue(label: "org.mozilla.sync15.logins")
 
 open class LoginsStorage {
-    var raw: OpaquePointer? = nil
+    private var raw: UInt64 = 0
     let dbPath: String
     
     public init(databasePath: String) {
@@ -32,27 +32,44 @@ open class LoginsStorage {
     }
     
     deinit {
-        queue.sync(execute: {
-            doDestroy()
-        })
+        self.close()
     }
     
     private func doDestroy() {
-        if let raw = self.raw {
-            self.raw = nil
-            sync15_passwords_state_destroy(raw)
+        let raw = self.raw
+        self.raw = 0
+        if raw != 0 {
+            // Is this the right thing to do? We should only hit an error here
+            // for panics and handle misuse, both inidicate bugs in our code
+            // (the first in the rust code, the 2nd in this swift wrapper).
+            try! LoginsStoreError.unwrap({ err in
+                sync15_passwords_state_destroy(raw, err)
+            })
         }
     }
 
+    /// Manually close the database (this is automatically called from deinit(), so
+    /// manually calling it is usually unnecessary).
     open func close() {
-        self.doDestroy()
+        queue.sync(execute: {
+            self.doDestroy()
+        })
     }
 
     /// Test if the database is locked.
     open func isLocked() -> Bool {
         return queue.sync(execute: {
-            return self.raw == nil
+            return self.raw == 0
         })
+    }
+    
+    // helper to reduce boilerplate, we don't use queue.sync
+    // since we expect the caller to do so.
+    private func getUnlocked() throws -> UInt64 {
+        if self.raw == 0 {
+            throw LockError.mismatched
+        }
+        return self.raw
     }
 
     /// Unlock the database.
@@ -63,7 +80,7 @@ open class LoginsStorage {
     /// to a database, (may also throw `LoginStoreError.Unspecified` or `.Panic`).
     open func unlock(withEncryptionKey key: String) throws {
         try queue.sync(execute: {
-            if self.raw != nil {
+            if self.raw != 0 {
                 throw LockError.mismatched
             }
             self.raw = try LoginsStoreError.unwrap({ err in
@@ -77,7 +94,7 @@ open class LoginsStorage {
     /// Throws `LockError.mismatched` if the database is already locked.
     open func lock() throws {
         try queue.sync(execute: {
-            if self.raw == nil {
+            if self.raw == 0 {
                 throw LockError.mismatched
             }
             self.doDestroy()
@@ -87,9 +104,7 @@ open class LoginsStorage {
     /// Synchronize with the server.
     open func sync(unlockInfo: SyncUnlockInfo) throws {
         try queue.sync(execute: {
-            guard let engine = self.raw else {
-                throw LockError.locked
-            }
+            let engine = try self.getUnlocked()
             try LoginsStoreError.unwrap({ err in
                 sync15_passwords_sync(engine, unlockInfo.kid, unlockInfo.fxaAccessToken, unlockInfo.syncKey, unlockInfo.tokenserverURL, err)
             })
@@ -100,9 +115,7 @@ open class LoginsStorage {
     /// there's ever a reason for users to call this
     open func reset() throws {
         try queue.sync(execute: {
-            guard let engine = self.raw else {
-                throw LockError.locked
-            }
+            let engine = try self.getUnlocked()
             try LoginsStoreError.unwrap({ err in
                 sync15_passwords_reset(engine, err)
             })
@@ -112,9 +125,7 @@ open class LoginsStorage {
     /// Delete all locally stored login data.
     open func wipe() throws {
         try queue.sync(execute: {
-            guard let engine = self.raw else {
-                throw LockError.locked
-            }
+            let engine = try self.getUnlocked()
             try LoginsStoreError.unwrap({ err in
                 sync15_passwords_wipe(engine, err)
             })
@@ -124,9 +135,7 @@ open class LoginsStorage {
     /// Delete the record with the given ID. Returns false if no such record existed.
     open func delete(id: String) throws -> Bool {
         return try queue.sync(execute: {
-            guard let engine = self.raw else {
-                throw LockError.locked
-            }
+            let engine = try self.getUnlocked()
             let boolAsU8 = try LoginsStoreError.unwrap({ err in
                 sync15_passwords_delete(engine, id, err)
             })
@@ -139,9 +148,7 @@ open class LoginsStorage {
     /// Throws `LoginStoreError.NoSuchRecord` if there was no such record.
     open func touch(id: String) throws {
         try queue.sync(execute: {
-            guard let engine = self.raw else {
-                throw LockError.locked
-            }
+            let engine = try self.getUnlocked()
             try LoginsStoreError.unwrap({ err in
                 sync15_passwords_touch(engine, id, err)
             })
@@ -155,9 +162,7 @@ open class LoginsStorage {
     open func add(login: LoginRecord) throws -> String {
         let json = try login.toJSON()
         return try queue.sync(execute: {
-            guard let engine = self.raw else {
-                throw LockError.locked
-            }
+            let engine = try self.getUnlocked()
             let ptr = try LoginsStoreError.unwrap({ err in
                 sync15_passwords_add(engine, json, err)
             })
@@ -170,9 +175,7 @@ open class LoginsStorage {
     open func update(login: LoginRecord) throws {
         let json = try login.toJSON()
         return try queue.sync(execute: {
-            guard let engine = self.raw else {
-                throw LockError.locked
-            }
+            let engine = try self.getUnlocked()
             return try LoginsStoreError.unwrap({ err in
                 sync15_passwords_update(engine, json, err)
             })
@@ -182,9 +185,7 @@ open class LoginsStorage {
     /// Get the record with the given id. Returns nil if there is no such record.
     open func get(id: String) throws -> LoginRecord? {
         return try queue.sync(execute: {
-            guard let engine = self.raw else {
-                throw LockError.locked
-            }
+            let engine = try self.getUnlocked()
             let ptr = try LoginsStoreError.tryUnwrap({ err in
                 sync15_passwords_get_by_id(engine, id, err)
             })
@@ -200,9 +201,7 @@ open class LoginsStorage {
     /// Get the entire list of records.
     open func list() throws -> [LoginRecord] {
         return try queue.sync(execute: {
-            guard let engine = self.raw else {
-                throw LockError.locked
-            }
+            let engine = try self.getUnlocked()
             let rustStr = try LoginsStoreError.unwrap({ err in
                 sync15_passwords_get_all(engine, err)
             })
