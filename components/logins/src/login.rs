@@ -3,11 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::sync::{self, ServerTimestamp};
 use crate::util;
 use rusqlite::Row;
 use serde_derive::*;
 use std::time::{self, SystemTime};
+use sync15::ServerTimestamp;
 
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -248,7 +248,7 @@ impl SyncLoginData {
     }
 
     #[inline]
-    pub fn from_payload(payload: sync::Payload, ts: ServerTimestamp) -> Result<Self> {
+    pub fn from_payload(payload: sync15::Payload, ts: ServerTimestamp) -> Result<Self> {
         let guid = payload.id.clone();
         let login: Option<Login> = if payload.is_tombstone() {
             None

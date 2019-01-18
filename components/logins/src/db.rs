@@ -5,10 +5,6 @@
 use crate::error::*;
 use crate::login::{LocalLogin, Login, MirrorLogin, SyncLoginData, SyncStatus};
 use crate::schema;
-use crate::sync::{
-    self, telemetry, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload,
-    ServerTimestamp, Store,
-};
 use crate::update_plan::UpdatePlan;
 use crate::util;
 use lazy_static::lazy_static;
@@ -22,6 +18,10 @@ use std::ops::Deref;
 use std::path::Path;
 use std::result;
 use std::time::SystemTime;
+use sync15::{
+    telemetry, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload, ServerTimestamp,
+    Store,
+};
 
 pub struct LoginDb {
     pub db: Connection,
@@ -156,7 +156,7 @@ impl LoginDb {
     // want to insert stuff while we're doing this so ugh.
     fn fetch_login_data(
         &self,
-        records: &[(sync::Payload, ServerTimestamp)],
+        records: &[(sync15::Payload, ServerTimestamp)],
     ) -> Result<Vec<SyncLoginData>> {
         let mut sync_data = Vec::with_capacity(records.len());
         {
@@ -316,7 +316,7 @@ impl LoginDb {
             // unnecessary, so we likely could fall back to something less
             // fallible eventually, but it's unlikely very much else will work
             // if this fails, so it doesn't matter much.
-            login.id = sync::util::random_guid()
+            login.id = sync15::util::random_guid()
                 .expect("Failed to generate failed to generate random bytes for GUID");
         }
 

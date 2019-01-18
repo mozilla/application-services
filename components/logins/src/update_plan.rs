@@ -4,10 +4,10 @@
 
 use crate::error::*;
 use crate::login::{LocalLogin, Login, MirrorLogin, SyncStatus};
-use crate::sync::ServerTimestamp;
 use crate::util;
 use rusqlite::{types::ToSql, Connection};
 use std::time::SystemTime;
+use sync15::ServerTimestamp;
 
 #[derive(Default, Debug, Clone)]
 pub(crate) struct UpdatePlan {
