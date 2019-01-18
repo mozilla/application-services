@@ -4,6 +4,16 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.3...master)
 
+## General
+
+### What's New
+
+- In most cases, opaque integer handles are now used to pass data over the FFI ([#567](https://github.com/mozilla/application-services/issues/567)). This should be more robust, and allow detection of many types of errors that would previously cause silent memory corruption.
+
+  This should be mostly transparent, but is a semi-breaking semantic change in the case that something throws an exception indicating that the rust code paniced (which should only occur due to bugs anyway). If this occurs, all subsequent operations on that object (except `close`/`lock`) will cause errors. It is "poisoned", in Rust terminology. (In the future, this may be handled automatically)
+
+  This may seem inconvenient, but it should be an improvement over the previous version, where we instead would simply carry on despite potentially having corrupted internal state.
+
 ## Places
 
 ### What's Fixed
