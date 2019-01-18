@@ -130,6 +130,8 @@ def android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs
         .with_curl_artifact_script(desktop_win32_x86_64_libs_task, "target.tar.gz")
         .with_script("tar -xzf target.tar.gz")
         .with_script("""
+            yes | sdkmanager --update
+            yes | sdkmanager --licenses
             ./gradlew --no-daemon clean
             ./gradlew --no-daemon :fxa-client-library:testDebug :logins-library:testDebug :places-library:testDebug
             ./gradlew --no-daemon :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
@@ -151,6 +153,8 @@ def android_arm32_release(android_libs_task, desktop_linux_libs_task, desktop_ma
         .with_curl_artifact_script(desktop_win32_x86_64_libs_task, "target.tar.gz")
         .with_script("tar -xzf target.tar.gz")
         .with_script("""
+            yes | sdkmanager --update
+            yes | sdkmanager --licenses
             ./gradlew --no-daemon clean
             ./gradlew --no-daemon :fxa-client-library:testDebug :logins-library:testDebug :places-library:testDebug
             ./gradlew --no-daemon :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
