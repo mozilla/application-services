@@ -42,15 +42,20 @@ impl PlacesDb {
         // which the SQLcipher docs themselves say is too small and should be changed.
         let encryption_pragmas = if let Some(key) = encryption_key {
             format!(
-                "
-                PRAGMA key = '{key}';
-                PRAGMA cipher_page_size = {page_size};
-            ",
+                "PRAGMA key = '{key}';
+                 PRAGMA cipher_page_size = {page_size};",
                 key = sql_support::escape_string_for_pragma(key),
                 page_size = PAGE_SIZE,
             )
         } else {
-            format!("PRAGMA page_size = {};", PAGE_SIZE)
+            format!(
+                "PRAGMA page_size = {};
+                 -- Disable calling mlock/munlock for every malloc/free.
+                 -- In practice this results in a massive speedup, especially
+                 -- for insert-heavy workloads.
+                 PRAGMA cipher_memory_security = false;",
+                PAGE_SIZE
+            )
         };
 
         let initial_pragmas = format!(
