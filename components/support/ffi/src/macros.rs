@@ -143,7 +143,6 @@ macro_rules! define_box_destructor {
     };
 }
 
-
 /// Define a (public) destructor for a type that lives inside a lazy_static
 /// [`ConcurrentHandleMap`].
 ///
