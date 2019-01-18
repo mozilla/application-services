@@ -14,10 +14,9 @@
 
 #![cfg(feature = "ffi")]
 
-use crate::{AccessTokenInfo, Error, ErrorKind, FirefoxAccount, Profile, SyncKeys};
+use crate::{AccessTokenInfo, Error, ErrorKind, Profile, SyncKeys};
 use ffi_support::{
-    destroy_c_string, implement_into_ffi_by_pointer, opt_rust_string_to_c, rust_string_to_c,
-    ErrorCode, ExternError, IntoFfi,
+    destroy_c_string, opt_rust_string_to_c, rust_string_to_c, ErrorCode, ExternError, IntoFfi,
 };
 use std::os::raw::c_char;
 
@@ -173,6 +172,3 @@ macro_rules! implement_into_ffi_converting {
 implement_into_ffi_converting!(SyncKeys, SyncKeysC);
 implement_into_ffi_converting!(AccessTokenInfo, AccessTokenInfoC);
 implement_into_ffi_converting!(Profile, ProfileC);
-
-// More normal opaque tyeps
-implement_into_ffi_by_pointer!(FirefoxAccount);

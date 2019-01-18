@@ -48,7 +48,7 @@ public protocol PersistCallback {
     func persist(json: String)
 }
 
-open class FirefoxAccount: RustOpaquePointer {
+open class FirefoxAccount: RustHandle {
     fileprivate static var persistCallback: PersistCallback?
 
     #if BROWSERID_FEATURES
@@ -59,10 +59,10 @@ open class FirefoxAccount: RustOpaquePointer {
     /// should not be re-used.
     open class func from(config: FxAConfig, webChannelResponse: String) throws -> FirefoxAccount {
         return try queue.sync(execute: {
-            let pointer = try FxAError.unwrap({err in
+            let handle = try FxAError.unwrap({err in
                 fxa_from_credentials(config.contentUrl, config.clientId, config.redirectUri, webChannelResponse, err)
             })
-            return FirefoxAccount(raw: pointer)
+            return FirefoxAccount(raw: handle)
         })
     }
     #endif
@@ -70,8 +70,8 @@ open class FirefoxAccount: RustOpaquePointer {
     /// Restore a previous instance of `FirefoxAccount` from a serialized state (obtained with `toJSON(...)`).
     open class func fromJSON(state: String) throws -> FirefoxAccount {
         return try queue.sync(execute: {
-            let pointer = try FxAError.unwrap({ err in fxa_from_json(state, err) })
-            return FirefoxAccount(raw: pointer)
+            let handle = try FxAError.unwrap({ err in fxa_from_json(state, err) })
+            return FirefoxAccount(raw: handle)
         })
     }
 
@@ -88,9 +88,14 @@ open class FirefoxAccount: RustOpaquePointer {
         self.init(raw: pointer)
     }
 
-    override func cleanup(pointer: OpaquePointer) {
+    override func cleanup(pointer: UInt64) {
         queue.sync(execute: {
-            fxa_free(pointer)
+            try! FxAError.unwrap({err in
+                // Is this the right thing to do? We should only hit an error here
+                // for panics and handle misuse, both inidicate bugs in our code
+                // (the first in the rust code, the 2nd in this swift wrapper).
+                fxa_free(pointer, err)
+            })
         })
     }
 
