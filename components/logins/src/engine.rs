@@ -231,3 +231,9 @@ mod test {
         assert_eq!(b_after_update.times_used, 2);
     }
 }
+
+#[test]
+fn test_send() {
+    fn ensure_send<T: Send>() {}
+    ensure_send::<PasswordEngine>();
+}

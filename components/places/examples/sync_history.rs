@@ -8,8 +8,9 @@ use places::history_sync::store::HistoryStore;
 use places::PlacesDb;
 use serde_json;
 use std::{fs, io::Read};
-use sync15::client::SetupStorageClient;
-use sync15::{telemetry, KeyBundle, Store, Sync15StorageClient, Sync15StorageClientInit};
+use sync15::{
+    telemetry, KeyBundle, SetupStorageClient, Store, Sync15StorageClient, Sync15StorageClientInit,
+};
 
 const CLIENT_ID: &str = "";
 const REDIRECT_URI: &str = "";
