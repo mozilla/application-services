@@ -6,36 +6,36 @@ package mozilla.appservices.logins
 
 import com.sun.jna.Pointer
 import mozilla.appservices.logins.rust.PasswordSyncAdapter
-import mozilla.appservices.logins.rust.RawLoginSyncState
 import mozilla.appservices.logins.rust.RustError
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * LoginsStorage implementation backed by a database.
  */
 class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsStorage {
-
-    private var raw: AtomicReference<RawLoginSyncState?> = AtomicReference(null)
+    private var raw: AtomicLong = AtomicLong(0)
 
     override fun isLocked(): Boolean {
-        return raw.get() == null
+        return raw.get() == 0L
     }
 
-    private fun checkUnlocked() {
-        if (isLocked()) {
+    private fun checkUnlocked(): Long {
+        val handle = raw.get()
+        if (handle == 0L) {
             throw LoginsStorageException("Using DatabaseLoginsStorage without unlocking first");
         }
+        return handle
     }
 
     @Synchronized
     @Throws(LoginsStorageException::class)
     override fun lock() {
-        if (isLocked()) {
+        val raw = this.raw.getAndSet(0)
+        if (raw == 0L) {
             throw MismatchedLockException("Lock called when we are already locked")
         }
-        val raw = this.raw.getAndSet(null)
-        if (raw != null) {
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_state_destroy(raw)
+        rustCall { error ->
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_state_destroy(raw, error)
         }
     }
 
@@ -137,7 +137,6 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     @Throws(LoginsStorageException::class)
     override fun get(id: String): ServerPassword? {
         val json = nullableRustCallWithLock { raw, error ->
-            checkUnlocked()
             PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_id(raw, id, error)
         }?.getAndConsumeRustString()
         return json?.let { ServerPassword.fromJSON(it) }
@@ -177,9 +176,11 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     @Synchronized
     @Throws(LoginsStorageException::class)
     override fun close() {
-        val raw = this.raw.getAndSet(null)
-        if (raw != null) {
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_state_destroy(raw)
+        val handle = this.raw.getAndSet(0)
+        if (handle != 0L) {
+            rustCall { err ->
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_state_destroy(handle, err)
+            }
         }
     }
 
@@ -204,15 +205,14 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
         return nullableRustCall(callback)!!
     }
 
-    private inline fun <U> nullableRustCallWithLock(callback: (RawLoginSyncState, RustError.ByReference) -> U?): U? {
+    private inline fun <U> nullableRustCallWithLock(callback: (Long, RustError.ByReference) -> U?): U? {
         return synchronized(this) {
-            checkUnlocked()
-            val raw = this.raw.get()!!
-            nullableRustCall { callback(raw, it) }
+            val handle = checkUnlocked()
+            nullableRustCall { callback(handle, it) }
         }
     }
 
-    private inline fun <U> rustCallWithLock(callback: (RawLoginSyncState, RustError.ByReference) -> U?): U {
+    private inline fun <U> rustCallWithLock(callback: (Long, RustError.ByReference) -> U?): U {
         return nullableRustCallWithLock(callback)!!
     }
 }

@@ -19,62 +19,60 @@ typedef enum Sync15PasswordsErrorCode {
 
 typedef struct Sync15PasswordsError {
     Sync15PasswordsErrorCode code;
-    char* _Nullable message;
+    char *_Nullable message;
 } Sync15PasswordsError;
 
-typedef struct Sync15PasswordEngineRaw Sync15PasswordEngineRaw;
+typedef uint64_t Sync15PasswordEngineHandle;
 
-Sync15PasswordEngineRaw* sync15_passwords_state_new(char const* _Nonnull db_path,
-                                                    char const* _Nonnull encryption_key,
-                                                    Sync15PasswordsError* _Nonnull error_out);
+Sync15PasswordEngineHandle sync15_passwords_state_new(char const *_Nonnull db_path,
+                                                      char const *_Nonnull encryption_key,
+                                                      Sync15PasswordsError *_Nonnull error_out);
 
-Sync15PasswordEngineRaw* sync15_passwords_state_new_with_hex_key(char const* _Nonnull db_path,
-                                                                 uint8_t const* encryption_key_bytes,
-                                                                 uint32_t encryption_key_len,
-                                                                 Sync15PasswordsError* _Nonnull error_out);
+Sync15PasswordEngineHandle sync15_passwords_state_new_with_hex_key(char const *_Nonnull db_path,
+                                                                   uint8_t const *encryption_key_bytes,
+                                                                   uint32_t encryption_key_len,
+                                                                   Sync15PasswordsError *_Nonnull error_out);
 
-void sync15_passwords_state_destroy(Sync15PasswordEngineRaw* _Nonnull engine);
+void sync15_passwords_state_destroy(Sync15PasswordEngineHandle handle, Sync15PasswordsError *_Nonnull error_out);
 
-
-char* sync15_passwords_get_by_id(Sync15PasswordEngineRaw* _Nonnull engine,
-                                 char const* _Nonnull id,
+char *sync15_passwords_get_by_id(Sync15PasswordEngineHandle handle,
+                                 char const *_Nonnull id,
                                  Sync15PasswordsError *_Nonnull error_out);
 
-char* sync15_passwords_get_by_id(Sync15PasswordEngineRaw* _Nonnull engine,
-                                 char const* _Nonnull id,
+char *sync15_passwords_get_by_id(Sync15PasswordEngineHandle handle,
+                                 char const *_Nonnull id,
                                  Sync15PasswordsError *_Nonnull error_out);
 
-char* sync15_passwords_get_all(Sync15PasswordEngineRaw* _Nonnull engine,
+char *sync15_passwords_get_all(Sync15PasswordEngineHandle handle,
                                Sync15PasswordsError *_Nonnull error_out);
 
-
-void sync15_passwords_sync(Sync15PasswordEngineRaw* _Nonnull engine,
-                           char const* _Nonnull key_id,
-                           char const* _Nonnull access_token,
-                           char const* _Nonnull sync_key,
-                           char const* _Nonnull token_server_url,
+void sync15_passwords_sync(Sync15PasswordEngineHandle handle,
+                           char const *_Nonnull key_id,
+                           char const *_Nonnull access_token,
+                           char const *_Nonnull sync_key,
+                           char const *_Nonnull token_server_url,
                            Sync15PasswordsError *_Nonnull error);
 
-void sync15_passwords_wipe(Sync15PasswordEngineRaw* _Nonnull engine,
+void sync15_passwords_wipe(Sync15PasswordEngineHandle handle,
                            Sync15PasswordsError *_Nonnull error);
 
-void sync15_passwords_reset(Sync15PasswordEngineRaw* _Nonnull engine,
+void sync15_passwords_reset(Sync15PasswordEngineHandle handle,
                             Sync15PasswordsError *_Nonnull error);
 
-void sync15_passwords_touch(Sync15PasswordEngineRaw* _Nonnull engine,
-                            char const* _Nonnull id,
+void sync15_passwords_touch(Sync15PasswordEngineHandle handle,
+                            char const *_Nonnull id,
                             Sync15PasswordsError *_Nonnull error);
 
-uint8_t sync15_passwords_delete(Sync15PasswordEngineRaw* _Nonnull engine,
-                                char const* _Nonnull id,
+uint8_t sync15_passwords_delete(Sync15PasswordEngineHandle handle,
+                                char const *_Nonnull id,
                                 Sync15PasswordsError *_Nonnull error);
 
-char* sync15_passwords_add(Sync15PasswordEngineRaw* _Nonnull engine,
-                           char const* _Nonnull json,
+char *sync15_passwords_add(Sync15PasswordEngineHandle handle,
+                           char const *_Nonnull json,
                            Sync15PasswordsError *_Nonnull error);
 
-void sync15_passwords_update(Sync15PasswordEngineRaw* _Nonnull engine,
-                             char const* _Nonnull json,
+void sync15_passwords_update(Sync15PasswordEngineHandle handle,
+                             char const *_Nonnull json,
                              Sync15PasswordsError *_Nonnull error);
 
-char* sync15_passwords_destroy_string(char const* _Nonnull str);
+char *sync15_passwords_destroy_string(char const *_Nonnull str);
