@@ -11,10 +11,15 @@ use std::os::raw::c_char;
 /// This is typically going to be used from the "Rust component", and not the "FFI component" (see
 /// the top level crate documentation for more information), however you will still need to
 /// implement a destructor in the FFI component using [`define_box_destructor!`].
+///
+/// In general, is only safe to do for `send` types (even this is dodgy, but it's often necessary
+/// to keep the locking on the other side of the FFI, so Sync is too harsh), so we enforce this in
+/// this macro. (You're still free to implement this manually, if this restriction is too harsh
+/// for your use case and you're certain you know what you're doing).
 #[macro_export]
 macro_rules! implement_into_ffi_by_pointer {
     ($($T:ty),* $(,)*) => {$(
-        unsafe impl $crate::IntoFfi for $T {
+        unsafe impl $crate::IntoFfi for $T where $T: Send {
             type Value = *mut $T;
 
             #[inline]
