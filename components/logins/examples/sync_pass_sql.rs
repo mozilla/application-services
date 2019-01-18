@@ -6,7 +6,6 @@
 
 use failure::Fail;
 
-use crate::sync::{telemetry, KeyBundle, Sync15StorageClientInit};
 use fxa_client::{AccessTokenInfo, Config, FirefoxAccount};
 use logins::{Login, PasswordEngine};
 use prettytable::*;
@@ -17,7 +16,7 @@ use std::{
     fs,
     io::{self, Read, Write},
 };
-use sync15 as sync;
+use sync15::{telemetry, KeyBundle, Sync15StorageClientInit};
 
 const CLIENT_ID: &str = "98adfa37698f255b";
 const REDIRECT_URI: &str = "https://lockbox.firefox.com/fxa/ios-redirect.html";
@@ -113,7 +112,7 @@ fn read_login() -> Login {
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
     let record = Login {
-        id: sync::util::random_guid().unwrap().into(),
+        id: sync15::util::random_guid().unwrap().into(),
         username,
         password,
         username_field,
