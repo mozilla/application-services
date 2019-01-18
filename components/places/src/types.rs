@@ -14,7 +14,7 @@ pub struct SyncGuid(pub String);
 
 impl SyncGuid {
     pub fn new() -> Self {
-        SyncGuid(sync15::util::random_guid().unwrap())
+        SyncGuid(sync15::random_guid().unwrap())
     }
 }
 impl AsRef<str> for SyncGuid {

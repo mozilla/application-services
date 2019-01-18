@@ -316,7 +316,7 @@ impl LoginDb {
             // unnecessary, so we likely could fall back to something less
             // fallible eventually, but it's unlikely very much else will work
             // if this fails, so it doesn't matter much.
-            login.id = sync15::util::random_guid()
+            login.id = sync15::random_guid()
                 .expect("Failed to generate failed to generate random bytes for GUID");
         }
 

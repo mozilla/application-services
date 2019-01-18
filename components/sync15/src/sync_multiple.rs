@@ -19,16 +19,14 @@ use std::result;
 /// we discover the client_init has changed, in which case we re-create one.
 #[derive(Debug)]
 pub struct ClientInfo {
-    // the client_init used to create the client.
+    // the client_init used to create `client`.
     client_init: Sync15StorageClientInit,
-    // the client we will reuse if possible.
+    // the client (our tokenserver state machine state, and our http library's state)
     client: Sync15StorageClient,
 }
 
 impl ClientInfo {
     /// Get the `Sync15StorageClient`. Only visible for testing.
-    // NOTE: no thought has been put into why this is private, I just didn't
-    // want to make it pub just for the test code.
     pub fn test_only_get_client(&self) -> &Sync15StorageClient {
         &self.client
     }

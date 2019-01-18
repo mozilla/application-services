@@ -236,7 +236,7 @@ impl TestClient {
     }
 
     pub fn fully_wipe_server(&mut self) -> Result<bool, failure::Error> {
-        use sync15::client::SetupStorageClient;
+        use sync15::SetupStorageClient;
         // XXX cludgey to use logins_engine here...
         let info = self.logins_engine.client_info.replace(None);
         let res = match &info {
