@@ -7,15 +7,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ac_log"
-version = "0.1.0"
-dependencies = [
- "ffi-support 0.1.4",
- "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "adler32"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -692,9 +683,9 @@ dependencies = [
 name = "lockbox"
 version = "0.1.0"
 dependencies = [
- "ac_log 0.1.0",
  "fxaclient_ffi 0.1.0",
  "logins_ffi 0.1.0",
+ "rc_log_ffi 0.1.0",
 ]
 
 [[package]]
@@ -1202,6 +1193,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rc_log_ffi"
+version = "0.1.0"
+dependencies = [
+ "ffi-support 0.1.4",
+ "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "rdrand"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1237,10 +1237,10 @@ dependencies = [
 name = "reference-browser"
 version = "0.1.0"
 dependencies = [
- "ac_log 0.1.0",
  "fxaclient_ffi 0.1.0",
  "logins_ffi 0.1.0",
  "places-ffi 0.1.0",
+ "rc_log_ffi 0.1.0",
 ]
 
 [[package]]

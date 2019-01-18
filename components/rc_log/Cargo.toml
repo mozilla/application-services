@@ -1,11 +1,11 @@
 [package]
-name = "ac_log"
+name = "rc_log_ffi"
 version = "0.1.0"
 edition = "2018"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 
 [lib]
-name = "ac_rust_log"
+name = "rc_log_ffi"
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
