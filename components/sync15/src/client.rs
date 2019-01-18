@@ -7,7 +7,7 @@ use crate::error::{self, ErrorKind};
 use crate::record_types::MetaGlobalRecord;
 use crate::request::{
     BatchPoster, CollectionRequest, InfoCollections, InfoConfiguration, PostQueue, PostResponse,
-    PostResponseHandler, X_IF_UNMODIFIED_SINCE, X_WEAVE_TIMESTAMP,
+    PostResponseHandler, X_IF_UNMODIFIED_SINCE,
 };
 use crate::token;
 use crate::util::ServerTimestamp;
@@ -16,8 +16,6 @@ use reqwest::{
     header::{self, HeaderValue, ACCEPT, AUTHORIZATION},
     Client, Request, Response, Url,
 };
-use std::cell::Cell;
-use std::str::FromStr;
 use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -43,8 +41,6 @@ pub trait SetupStorageClient {
 #[derive(Debug)]
 pub struct Sync15StorageClient {
     http_client: Client,
-    // We update this when we make requests
-    timestamp: Cell<ServerTimestamp>,
     tsc: token::TokenProvider,
 }
 
@@ -106,17 +102,10 @@ impl Sync15StorageClient {
             init_params.access_token,
             init_params.key_id,
         );
-        let timestamp = ServerTimestamp(0f64);
         Ok(Sync15StorageClient {
             http_client: client,
-            timestamp: Cell::new(timestamp),
             tsc,
         })
-    }
-
-    #[inline]
-    pub fn last_server_time(&self) -> ServerTimestamp {
-        return self.timestamp.get();
     }
 
     pub fn get_encrypted_records(
@@ -169,8 +158,6 @@ impl Sync15StorageClient {
         let resp = self.http_client.execute(req)?;
         log::trace!("response: {}", resp.status());
 
-        self.update_timestamp(resp.headers());
-
         if require_success && !resp.status().is_success() {
             log::warn!(
                 "HTTP error {} ({}) during storage request to {}",
@@ -207,19 +194,6 @@ impl Sync15StorageClient {
         let mut resp = self.relative_storage_request(Method::GET, path)?;
         let result: T = resp.json()?;
         Ok(result)
-    }
-
-    fn update_timestamp(&self, hm: &header::HeaderMap) {
-        if let Some(ts) = hm
-            .get(X_WEAVE_TIMESTAMP)
-            .and_then(|v| v.to_str().ok())
-            .and_then(|s| ServerTimestamp::from_str(s).ok())
-        {
-            self.timestamp.set(ts);
-        } else {
-            // Should we complain more here?
-            log::warn!("No X-Weave-Timestamp from storage server!");
-        }
     }
 
     pub fn new_post_queue<'a, F: PostResponseHandler>(
@@ -308,5 +282,16 @@ impl<'a> BatchPoster for PostWrapper<'a> {
         *req.body_mut() = Some(Vec::from(bytes).into());
         let mut resp = self.client.exec_request(req, false)?;
         Ok(PostResponse::from_response(&mut resp)?)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_send() {
+        fn ensure_send<T: Send>() {}
+        // Compile will fail if not send.
+        ensure_send::<Sync15StorageClient>();
     }
 }
