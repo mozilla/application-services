@@ -8,6 +8,8 @@
 
 ### What's New
 
+- A new component was added for customizing how our rust logging is handled. It allows android code to get a callback whenever a log is emitted from Rust (Note: a helper that hooks this directly into the android-components Log system is [forthcoming](https://github.com/mozilla-mobile/android-components/pull/1765)). ([#472](https://github.com/mozilla/application-services/pull/472))
+
 - In most cases, opaque integer handles are now used to pass data over the FFI ([#567](https://github.com/mozilla/application-services/issues/567)). This should be more robust, and allow detection of many types of errors that would previously cause silent memory corruption.
 
   This should be mostly transparent, but is a semi-breaking semantic change in the case that something throws an exception indicating that the rust code paniced (which should only occur due to bugs anyway). If this occurs, all subsequent operations on that object (except `close`/`lock`) will cause errors. It is "poisoned", in Rust terminology. (In the future, this may be handled automatically)
@@ -20,6 +22,7 @@
 
 - PlacesConnection.getVisited will now return that invalid URLs have not been visited, instead of throwing. ([#552](https://github.com/mozilla/application-services/issues/552))
 - PlacesConnection.noteObservation will correctly identify url parse failures as such. ([#571](https://github.com/mozilla/application-services/issues/571))
+
 
 # 0.13.3 (_2019-01-11_)
 
