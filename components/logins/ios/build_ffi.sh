@@ -1,4 +1,4 @@
-SRCROOT="."
+SRCROOT=`pwd`
 pushd "$SRCROOT"/../../../libs
 env -i PATH="$PATH" HOME="$HOME" ./build-all.sh ios
 popd
