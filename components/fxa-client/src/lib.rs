@@ -329,7 +329,7 @@ impl FirefoxAccount {
                         return Err(ErrorKind::IllegalState(
                             "Got a JWE with have no JWK.".to_string(),
                         )
-                        .into())
+                        .into());
                     }
                 };
                 let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe)?;

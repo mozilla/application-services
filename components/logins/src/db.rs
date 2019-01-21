@@ -172,7 +172,7 @@ impl LoginDb {
 
         sql_support::each_chunk_mapped(
             &records,
-            |r| &r.0.id as &ToSql,
+            |r| r.0.id.as_str(),
             |chunk, offset| -> Result<()> {
                 // pairs the bound parameter for the guid with an integer index.
                 let values_with_idx = sql_support::repeat_display(chunk.len(), ",", |i, f| {

@@ -1,14 +1,35 @@
 # Unreleased Changes
 
-**TODO: remove before tagging/publishing a release**
+**See [the release process docs](docs/release-process.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.1...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.3...master)
+
+## Places
+
+### What's Fixed
+
+- PlacesConnection.getVisited will now return that invalid URLs have not been visited, instead of throwing. ([#552](https://github.com/mozilla/application-services/issues/552))
+
+# 0.13.3 (_2019-01-11_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.2...v0.13.3)
+
+## Places
+
+### What's Fixed
+
+- Places will no longer log PII. ([#540](https://github.com/mozilla/application-services/pull/540))
+
+# 0.13.2 (_2019-01-11_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.1...v0.13.2)
 
 ## Firefox Accounts
 
 ### What's New
 
 - The fxa-client android library will now write logs to logcat. ([#533](https://github.com/mozilla/application-services/pull/533))
+- The fxa-client Android and iOS librairies will throw a differentiated exception for general network errors. ([#535](https://github.com/mozilla/application-services/pull/535))
 
 # 0.13.1 (_2019-01-10_)
 

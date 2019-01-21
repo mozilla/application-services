@@ -9,6 +9,7 @@ import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
+import com.sun.jna.StringArray
 import java.lang.reflect.Proxy
 
 internal interface LibPlacesFFI : Library {
@@ -46,7 +47,6 @@ internal interface LibPlacesFFI : Library {
             out_err: RustError.ByReference
     ): RawPlacesConnection?
 
-    /** Returns JSON string, which you need to free with places_destroy_string */
     fun places_note_observation(
             conn: RawPlacesConnection,
             json_observation_data: String,
@@ -61,11 +61,17 @@ internal interface LibPlacesFFI : Library {
             out_err: RustError.ByReference
     ): Pointer?
 
+    /** Note: urls_len and buffer_len must be the same length. The argument is somewhat redundant, but
+     * is provided for a slight additional amount of sanity checking. These lengths are the number
+     * of elements present (and not e.g. the number of bytes allocated). */
     fun places_get_visited(
             conn: RawPlacesConnection,
-            urls_json: String,
+            urls: StringArray,
+            urls_len: Int,
+            buffer: Pointer,
+            buf_len: Int,
             out_err: RustError.ByReference
-    ): Pointer?
+    )
 
     fun places_get_visited_urls_in_range(
             conn: RawPlacesConnection,

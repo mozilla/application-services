@@ -63,7 +63,7 @@ commands:
             sudo apt-get install -y nodejs
       - run:
           name: Sync Integration Test Suite
-          command: cargo run -p sync-test
+          command: cargo run -p sync-test -- --oauth-retries 5
 
 jobs:
   Check Rust formatting:

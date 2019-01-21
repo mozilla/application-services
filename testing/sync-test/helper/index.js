@@ -14,7 +14,8 @@ const crypto = require("crypto");
 const Nightmare = require("nightmare");
 require("isomorphic-fetch");
 
-const HEADLESS = true;
+// It's cludgey to pass this like this, but simpler than parsing arguments
+const HEADLESS = process.env.HELPER_SHOW_BROWSER != "1";
 // Used to opt out of FxA authentication A/B tests, see
 // https://github.com/mozilla/fxa-content-server/blob/e882f50/tests/tools/firefox_profile_creator.js#L5
 const USERAGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:40.0) Gecko/20100101 Firefox/40.0 FxATester/1.0";
@@ -44,10 +45,10 @@ async function oauthCommand(emailAddr, password, fxaAuthUrl, oauthFlowUrl) {
         // Default is 100 which makes this whole process much slower
         // than it needs to be.
         typeInterval: 10,
-        // Wait for 10 seconds for a selector we're `wait`ing on to appear. We want
+        // Wait for 25 seconds for a selector we're `wait`ing on to appear. We want
         // this to be fairly forgiving since it includes page transitions, redirects,
         // us waiting for the confirmation push message, etc.
-        waitTimeout: 10000,
+        waitTimeout: 25000,
     });
 
     logInfo("Launching headless browser to perform the oauth flow (this can be slow...)");

@@ -82,7 +82,7 @@ impl TokenFetcher for TokenServerFetcher {
         if !resp.status().is_success() {
             log::warn!("Non-success status when fetching token: {}", resp.status());
             // TODO: the body should be JSON and contain a status parameter we might need?
-            log::debug!(
+            log::trace!(
                 "  Response body {}",
                 resp.text().unwrap_or_else(|_| "???".into())
             );

@@ -23,7 +23,7 @@ fn logging_init() {
     #[cfg(target_os = "android")]
     {
         android_logger::init_once(
-            android_logger::Filter::default().with_min_level(log::Level::Trace),
+            android_logger::Filter::default().with_min_level(log::Level::Debug),
             Some("libplaces_ffi"),
         );
         log::debug!("Android logging should be hooked up!")
@@ -41,7 +41,7 @@ pub unsafe extern "C" fn places_connection_new(
     encryption_key: *const c_char,
     error: &mut ExternError,
 ) -> *mut PlacesDb {
-    log::trace!("places_connection_new");
+    log::debug!("places_connection_new");
     logging_init();
     call_with_result(error, || {
         let path = ffi_support::rust_string_from_c(db_path);
@@ -58,7 +58,7 @@ pub unsafe extern "C" fn places_note_observation(
     json_observation: *const c_char,
     error: &mut ExternError,
 ) {
-    log::trace!("places_note_observation");
+    log::debug!("places_note_observation");
     call_with_result(error, || {
         let json = ffi_support::rust_str_from_c(json_observation);
         let visit: places::VisitObservation = serde_json::from_str(&json)?;
@@ -75,7 +75,7 @@ pub unsafe extern "C" fn places_query_autocomplete(
     limit: u32,
     error: &mut ExternError,
 ) -> *mut c_char {
-    log::trace!("places_query_autocomplete");
+    log::debug!("places_query_autocomplete");
     call_with_result(error, || {
         search_frecent(
             conn,
@@ -90,22 +90,33 @@ pub unsafe extern "C" fn places_query_autocomplete(
 #[no_mangle]
 pub unsafe extern "C" fn places_get_visited(
     conn: &PlacesDb,
-    urls_json: *const c_char,
+    urls: *const *const c_char,
+    urls_len: i32,
+    byte_buffer: *mut bool,
+    byte_buffer_len: i32,
     error: &mut ExternError,
-) -> *mut c_char {
-    log::trace!("places_get_visited");
+) {
+    log::debug!("places_get_visited");
     // This function has a dumb amount of overhead and copying...
-    call_with_result(error, || -> places::Result<String> {
-        let json = ffi_support::rust_str_from_c(urls_json);
-        let url_strings: Vec<String> = serde_json::from_str(json)?;
-        let urls = url_strings
-            .into_iter()
-            .map(|url| url::Url::parse(&url))
-            .collect::<Result<Vec<_>, _>>()?;
-        // We need to call `to_string` manually because primitives (e.g. bool) don't implement
-        // `ffi_support::IntoFfiJsonTag` (Not clear if they should, needs more thought).
-        let visited = storage::history::get_visited(conn, &urls)?;
-        Ok(serde_json::to_string(&visited)?)
+    call_with_result(error, || -> places::Result<()> {
+        assert!(
+            urls_len >= 0,
+            "Negative array length provided to places_get_visited {}",
+            urls_len
+        );
+        assert_eq!(byte_buffer_len, urls_len);
+        let url_ptrs = std::slice::from_raw_parts(urls, urls_len as usize);
+        let output = std::slice::from_raw_parts_mut(byte_buffer, byte_buffer_len as usize);
+        let urls = url_ptrs
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, &p)| {
+                let s = ffi_support::rust_str_from_c(p);
+                url::Url::parse(s).ok().map(|url| (idx, url))
+            })
+            .collect::<Vec<_>>();
+        storage::history::get_visited_into(conn, &urls, output)?;
+        Ok(())
     })
 }
 
@@ -117,7 +128,7 @@ pub extern "C" fn places_get_visited_urls_in_range(
     include_remote: u8, // JNA has issues with bools...
     error: &mut ExternError,
 ) -> *mut c_char {
-    log::trace!("places_get_visited_in_range");
+    log::debug!("places_get_visited_in_range");
     call_with_result(error, || -> places::Result<String> {
         let visited = storage::history::get_visited_urls(
             conn,
@@ -139,7 +150,7 @@ pub unsafe extern "C" fn sync15_history_sync(
     tokenserver_url: *const c_char,
     error: &mut ExternError,
 ) {
-    log::trace!("sync15_history_sync");
+    log::debug!("sync15_history_sync");
     call_with_result(error, || -> places::Result<()> {
         // XXX - this is wrong - we kinda want this to be long-lived - the "Db"
         // should own the store, but it's not part of the db.

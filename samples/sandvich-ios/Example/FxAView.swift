@@ -8,9 +8,16 @@ import FxAClient
 
 let stateKey = "fxaState"
 
+// NOTE: This is the client ID for "Android Components Reference Browser".
+// This is wrong, but it works for now :-/
+private let ClientID = "3c49430b43dfba77"
+
+private let RedirectURL = "https://accounts.firefox.com/oauth/success/\(ClientID)"
+
+private let ProfileScope = "https://identity.mozilla.com/apps/oldsync"
+
 class FxAView: UIViewController, WKNavigationDelegate {
     private var webView: WKWebView
-    var redirectUrl: String
     var fxa: FirefoxAccount?
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
@@ -19,7 +26,6 @@ class FxAView: UIViewController, WKNavigationDelegate {
 
     init(webView: WKWebView = WKWebView()) {
         self.webView = webView
-        self.redirectUrl = "https://mozilla-lockbox.github.io/fxa/ios-redirect.html"
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -27,7 +33,7 @@ class FxAView: UIViewController, WKNavigationDelegate {
         if let fxa = self.fxa {
             fxa.getProfile() { result, error in
                 if let error = error as? FxAError, case FxAError.Unauthorized = error {
-                    fxa.beginOAuthFlow(scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"], wantsKeys: true) { result, error in
+                    fxa.beginOAuthFlow(scopes: ["profile", ProfileScope], wantsKeys: true) { result, error in
                         guard let authUrl = result else { return }
                         DispatchQueue.main.async {
                             self.webView.load(URLRequest(url: authUrl))
@@ -64,7 +70,7 @@ class FxAView: UIViewController, WKNavigationDelegate {
             try! fxa!.registerPersistCallback(persistor) // After this, mutating changes will be persisted automatically.
             self.tryGetProfile()
         } else {
-            let config = FxAConfig(contentUrl: "https://sandvich-ios.dev.lcip.org", clientId: "22d74070a481bc73", redirectUri: self.redirectUrl)
+            let config = FxAConfig.release(clientId: ClientID, redirectUri: RedirectURL)
             self.fxa = try! FirefoxAccount(config: config)
             persistor.persist(json: (try! self.fxa?.toJSON())!)
             try! self.fxa!.registerPersistCallback(persistor)
@@ -76,7 +82,7 @@ class FxAView: UIViewController, WKNavigationDelegate {
     func webViewRequest(decidePolicyFor navigationAction: WKNavigationAction,
                         decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         if let navigationURL = navigationAction.request.url {
-            let expectedRedirectURL = URL(string: redirectUrl)!
+            let expectedRedirectURL = URL(string: RedirectURL)!
             if navigationURL.scheme == expectedRedirectURL.scheme && navigationURL.host == expectedRedirectURL.host && navigationURL.path == expectedRedirectURL.path,
                 let components = URLComponents(url: navigationURL, resolvingAgainstBaseURL: true) {
                 matchingRedirectURLReceived(components: components)
@@ -92,7 +98,7 @@ class FxAView: UIViewController, WKNavigationDelegate {
         var dic = [String: String]()
         components.queryItems?.forEach { dic[$0.name] = $0.value }
         self.fxa!.completeOAuthFlow(code: dic["code"]!, state: dic["state"]!) { result, error in
-            self.fxa!.getAccessToken(scope: "https://identity.mozilla.com/apps/oldsync") { result, error in
+            self.fxa!.getAccessToken(scope: ProfileScope) { result, error in
                 guard let tokenInfo = result else { return }
                 print("access_token: " + tokenInfo.token)
                 if let key = tokenInfo.key {

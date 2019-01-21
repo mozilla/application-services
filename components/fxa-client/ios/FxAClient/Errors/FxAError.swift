@@ -6,6 +6,7 @@ import Foundation
 
 public enum FxAError: Error {
     case Unauthorized(message: String)
+    case Network(message: String)
     case Unspecified(message: String)
     case Panic(message: String)
 
@@ -17,6 +18,8 @@ public enum FxAError: Error {
         switch Int(fxaError.code) {
         case NoError:
             return nil
+        case NetworkError:
+            return .Network(message: String(freeingFxaString: message!))
         case AuthenticationError:
             return .Unauthorized(message: String(freeingFxaString: message!))
         case Other:

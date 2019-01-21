@@ -30,6 +30,9 @@ pub mod error_codes {
     /// Used for `ErrorKind::NotMarried`, `ErrorKind::NoCachedTokens`, and `ErrorKind::RemoteError`'s
     /// where `code == 401`.
     pub const AUTHENTICATION: i32 = 2;
+
+    /// Code for network errors.
+    pub const NETWORK: i32 = 3;
 }
 
 fn get_code(err: &Error) -> ErrorCode {
@@ -39,6 +42,10 @@ fn get_code(err: &Error) -> ErrorCode {
         | ErrorKind::NoCachedToken(_) => {
             log::warn!("Authentication error: {:?}", err);
             ErrorCode::new(error_codes::AUTHENTICATION)
+        }
+        ErrorKind::RequestError(_) => {
+            log::warn!("Network error: {:?}", err);
+            ErrorCode::new(error_codes::NETWORK)
         }
         _ => {
             log::warn!("Unexpected error: {:?}", err);
