@@ -6,4 +6,3 @@ PRODUCT_NAME = Example
 
 FRAMEWORK_SEARCH_PATHS = "$(PROJECT_DIR)/Carthage/Build/iOS"
 
-LIBRARY_SEARCH_PATHS = "../../../target/universal/release" "../../../libs/ios/universal/sqlcipher/lib"
