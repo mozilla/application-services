@@ -233,6 +233,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = EBA8770721F5FB9A004F63F0 /* debug.xcconfig */;
 			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.Logins;
 			};
 			name = Debug;
 		};
@@ -240,6 +241,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = EBA8770821F5FB9A004F63F0 /* release.xcconfig */;
 			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.Logins;
 			};
 			name = Release;
 		};
