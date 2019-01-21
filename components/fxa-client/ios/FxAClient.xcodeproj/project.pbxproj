@@ -207,7 +207,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# build fxa-client lipoed library\nexport PATH=\"$HOME/.cargo/bin:$PATH\"\ncargo lipo --xcode-integ --package fxaclient_ffi --manifest-path ../Cargo.toml\n";
+			shellScript = "sh ./build_ffi.sh";
 		};
 /* End PBXShellScriptBuildPhase section */
 
