@@ -19,6 +19,7 @@
 ### What's Fixed
 
 - PlacesConnection.getVisited will now return that invalid URLs have not been visited, instead of throwing. ([#552](https://github.com/mozilla/application-services/issues/552))
+- PlacesConnection.noteObservation will correctly identify url parse failures as such. ([#571](https://github.com/mozilla/application-services/issues/571))
 
 # 0.13.3 (_2019-01-11_)
 

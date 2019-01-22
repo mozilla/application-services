@@ -21,8 +21,10 @@ use url::Url;
 /// no observation.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VisitObservation {
-    #[serde(with = "url_serde")]
-    pub url: Url,
+    /// Ideally, we'd use url::Url here with `serde_url`, but we really would
+    /// like to expose these errors over the FFI as UrlParseErrors and not json
+    /// errors, and we also would like to do so without parsing strings.
+    pub url: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
@@ -48,10 +50,10 @@ pub struct VisitObservation {
     #[serde(default)]
     pub at: Option<Timestamp>,
 
-    #[serde(with = "url_serde")]
+    /// Semantically also a url::Url, See the comment about the `url` property.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    pub referrer: Option<Url>,
+    pub referrer: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
@@ -61,7 +63,7 @@ pub struct VisitObservation {
 impl VisitObservation {
     pub fn new(url: Url) -> Self {
         VisitObservation {
-            url,
+            url: url.into_string(),
             title: None,
             visit_type: None,
             is_error: None,
@@ -112,7 +114,7 @@ impl VisitObservation {
     }
 
     pub fn with_referrer(mut self, v: impl Into<Option<Url>>) -> Self {
-        self.referrer = v.into();
+        self.referrer = v.into().map(|v| v.into_string());
         self
     }
 
