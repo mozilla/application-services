@@ -58,7 +58,7 @@ cargo {
     // Where Cargo writes its outputs.
     targetDirectory = '../../../target'
 
-    libname = 'ac_rust_log'
+    libname = 'rc_log_ffi'
 
     // The Cargo targets to invoke.  The mapping from short name to target
     // triple is defined by the `rust-android-gradle` plugin.
