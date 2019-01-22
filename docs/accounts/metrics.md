@@ -9,24 +9,26 @@ sidebar_label: Metrics for Reliers
 
 **This file is WIP**. In the future it will be a combined resource detailing data collection, metrics definitions, pipeline information, etc. For now it mainly documents metrics parameters (e.g. utm_*) that reliers pass to Firefox Accounts servers.
 
-## How Your Choice of Integration Method Affects Our Metrics
-
 You should start at [this page](https://mozilla.github.io/application-services/docs/accounts/welcome.html) for more general information on how to integrate with Firefox Accounts.
 
-As of July 2018, reliers must self-host the first step in the FxA authentication flow (e.g. the form capturing the user's email) or send users to a FxA hosted form at https://accounts.firefox.com/. Pages that host an iFrame containing an FxA hosted form are no longer an option moving forward due to performance and security precautions.
+## Self-Hosted Email Forms and Metrics Tracking (AKA the "FxA email-first flow")
 
-A recent example of a self-hosted form can be viewed at [about:welcome](about:welcome). The form that captures the user's email address is hosted by the activity stream team, which hands off the input to Firefox Accounts servers in order to (among other things) determine if there is already an account associated with the provided email address.
+As of July 2018, reliers must do either one of the following when integrating with Firefox Accounts:
+1. Self-host the first step in the FxA authentication flow themselves (e.g. the form capturing the user's email)
+2. Send users to a FxA-hosted form at https://accounts.firefox.com/.
 
-**When self-hosting your own form, we ask that you do the following so that we can properly track top-of-funnel metrics** (such as volume of form views) associated with the page that hosts your FxA entrypoint:
+This means that pages that host an iFrame containing an FxA hosted form are **no longer an option** moving forward due to performance and security precautions.
 
-1. When the page that hosts your FxA entrypoint loads, have it make an XHR call to `https://accounts.firefox.com/metrics-flow`. The domain name of the request should match the FxA page that is being redirected to (e.g. https://accounts.firefox.com). You can use `fetch` to get this info.
+In the case when the email entry form is self hosted, **we ask that you do the following so that we can properly track top-of-funnel metrics** (such as volume of email form views) associated with the page that hosts your FxA form:
+
+1. When the page that hosts your FxA form loads, have it make an XHR call to `https://accounts.firefox.com/metrics-flow`. The domain name of the request should match the FxA page that is being redirected to (e.g. https://accounts.firefox.com). You can use `fetch` to get this info.
 2. Include the following query parameters in the above request (see chart below for descriptions):
   * `entrypoint`
   * `utm_source`
   * `utm_campaign`
   * `form_type`
   * An example: `https://accounts.firefox.com/metrics-flow?entrypoint=my_page&utm_source=my_referrer&utm_campaign=my_campaign&form_type=email`
-3. The response to metrics-flow will be a JSON object that contains the fields `flowId` and `flowBeginTime`. These values will need to be propagated to FxA as query parameters, which can be done using hidden form fields with the names `flow_id` and `flow_begin_time`. You can see an example of how the activity-stream team did this by looking [here](https://hg.mozilla.org/releases/mozilla-beta/diff/5d6261b568c6/browser/extensions/activity-stream/content-src/components/StartupOverlay/StartupOverlay.jsx#l1.22) (link will have to be updated).
+3. The response to metrics-flow will be a JSON object that contains the fields `flowId` and `flowBeginTime`. These values will need to be propagated to FxA as query parameters, which can be done using hidden form fields with the names `flow_id` and `flow_begin_time`. You can see an example of how the [about:welcome](about:welcome) page does this by looking [here](https://github.com/mozilla/activity-stream/blob/06aeeb331e9dd497e4d115d0e6cba51b9b25b36c/content-src/asrouter/templates/StartupOverlay/StartupOverlay.jsx#L30).
 
 By following these instructions you provide both of our teams with data needed to monitor the health of your page.
 
