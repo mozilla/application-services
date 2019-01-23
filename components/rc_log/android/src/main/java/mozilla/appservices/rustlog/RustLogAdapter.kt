@@ -52,7 +52,13 @@ class RustLogAdapter private constructor(
                 throw LogAdapterCannotEnable("Adapter is already enabled")
             }
             // Tell JNA to reuse the callback thread.
-            val initializer = CallbackThreadInitializer(true, false)
+            val initializer = CallbackThreadInitializer(
+                    // Don't block JVM shutdown waiting for this thread to exit.
+                    /* daemon */ true,
+                    // Don't detach the JVM from this thread after invoking the callback.
+                    /* detach */ false,
+                    /* name */ "RustLogThread"
+            )
             val callbackImpl = RawLogCallbackImpl(onLog)
             Native.setCallbackThreadInitializer(callbackImpl, initializer)
             // Hopefully there is no way to half-initialize the logger such that where the callback
