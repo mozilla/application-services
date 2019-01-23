@@ -10,6 +10,16 @@
 
 - Autocomplete will no longer return an error when asked to match a unicode string. ([#298](https://github.com/mozilla/application-services/issues/298))
 
+## FxA
+
+### What's New
+
+- It is now possible to know whether a profile avatar has been set by the user. ([#579](https://github.com/mozilla/application-services/pull/579))
+
+### Breaking Changes
+
+- The `avatar` accessor from the `Profile` class in the Swift framework now returns an optional `Avatar` struct instead of a `String`. ([#579](https://github.com/mozilla/application-services/pull/579))
+
 # 0.14.0 (_2019-01-23_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.3...v0.14.0)
