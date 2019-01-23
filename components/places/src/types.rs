@@ -45,6 +45,13 @@ impl FromSql for SyncGuid {
     }
 }
 
+impl fmt::Display for SyncGuid {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 // Typesafe way to manage timestamps.
 // We should probably work out how to share this too?
 #[derive(

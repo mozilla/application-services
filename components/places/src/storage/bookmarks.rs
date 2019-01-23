@@ -156,32 +156,32 @@ pub struct InsertableFolder {
 
 // The type used to insert the actual item.
 #[derive(Debug, Clone)]
-pub enum InsertableBookmarkItem {
+pub enum InsertableItem {
     Bookmark(InsertableBookmark),
     Separator(InsertableSeparator),
     Folder(InsertableFolder),
 }
 
 // We allow all "common" fields from the sub-types to be getters on the
-// InsertableBookmarkItem type.
+// InsertableItem type.
 macro_rules! impl_common_bookmark_getter {
     ($getter_name:ident, $T:ty) => {
         fn $getter_name(&self) -> &$T {
             match self {
-                InsertableBookmarkItem::Bookmark(b) => &b.$getter_name,
-                InsertableBookmarkItem::Separator(s) => &s.$getter_name,
-                InsertableBookmarkItem::Folder(f) => &f.$getter_name,
+                InsertableItem::Bookmark(b) => &b.$getter_name,
+                InsertableItem::Separator(s) => &s.$getter_name,
+                InsertableItem::Folder(f) => &f.$getter_name,
             }
         }
     };
 }
 
-impl InsertableBookmarkItem {
+impl InsertableItem {
     fn bookmark_type(&self) -> BookmarkType {
         match self {
-            InsertableBookmarkItem::Bookmark(_) => BookmarkType::Bookmark,
-            InsertableBookmarkItem::Separator(_) => BookmarkType::Separator,
-            InsertableBookmarkItem::Folder(_) => BookmarkType::Folder,
+            InsertableItem::Bookmark(_) => BookmarkType::Bookmark,
+            InsertableItem::Separator(_) => BookmarkType::Separator,
+            InsertableItem::Folder(_) => BookmarkType::Folder,
         }
     }
     impl_common_bookmark_getter!(parent_guid, SyncGuid);
@@ -191,9 +191,9 @@ impl InsertableBookmarkItem {
     impl_common_bookmark_getter!(guid, Option<SyncGuid>);
 }
 
-pub fn insert_bookmark(db: &impl ConnExt, bm: InsertableBookmarkItem) -> Result<SyncGuid> {
+pub fn insert_bookmark(db: &impl ConnExt, bm: &InsertableItem) -> Result<SyncGuid> {
     let tx = db.unchecked_transaction()?;
-    let result = do_insert_bookmark(db, bm);
+    let result = insert_bookmark_in_tx(db, bm);
     match result {
         Ok(_) => tx.commit()?,
         Err(_) => tx.rollback()?,
@@ -201,23 +201,20 @@ pub fn insert_bookmark(db: &impl ConnExt, bm: InsertableBookmarkItem) -> Result<
     result
 }
 
-fn do_insert_bookmark(db: &impl ConnExt, bm: InsertableBookmarkItem) -> Result<SyncGuid> {
+fn insert_bookmark_in_tx(db: &impl ConnExt, bm: &InsertableItem) -> Result<SyncGuid> {
     // find the row ID of the parent.
     if BookmarkRootGuid::from_guid(&bm.parent_guid()) == Some(BookmarkRootGuid::Root) {
         return Err(InvalidPlaceInfo::InvalidGuid.into());
     }
-    let parent = match get_raw_bookmark(db, &bm.parent_guid())? {
+    let parent_guid = bm.parent_guid();
+    let parent = match get_raw_bookmark(db, parent_guid)? {
         Some(p) => p,
         None => {
-            log::warn!(
-                "Can't insert item with parent '{:?}' as the parent doesn't exist",
-                bm.parent_guid()
-            );
-            return Err(InvalidPlaceInfo::InvalidParent.into());
+            return Err(InvalidPlaceInfo::InvalidParent(parent_guid.to_string()).into());
         }
     };
     if parent.bookmark_type != BookmarkType::Folder {
-        return Err(InvalidPlaceInfo::InvalidParent.into());
+        return Err(InvalidPlaceInfo::InvalidParent(parent_guid.to_string()).into());
     }
     // Do the "position" dance.
     let position: u32 = match *bm.position() {
@@ -238,7 +235,7 @@ fn do_insert_bookmark(db: &impl ConnExt, bm: InsertableBookmarkItem) -> Result<S
     // markh isn't clear how we could perform the insert) - it probably doesn't
     // matter in practice though...
     let fk = match bm {
-        InsertableBookmarkItem::Bookmark(ref bm) => {
+        InsertableItem::Bookmark(ref bm) => {
             let page_info = match fetch_page_info(db, &bm.url)? {
                 Some(info) => info.page,
                 None => new_page_info(db, &bm.url, None)?,
@@ -263,7 +260,7 @@ fn do_insert_bookmark(db: &impl ConnExt, bm: InsertableBookmarkItem) -> Result<S
 
     let bookmark_type = bm.bookmark_type();
     let params: Vec<(&str, &ToSql)> = match bm {
-        InsertableBookmarkItem::Bookmark(ref b) => vec![
+        InsertableItem::Bookmark(ref b) => vec![
             (":fk", &fk),
             (":type", &bookmark_type),
             (":parent", &parent.row_id),
@@ -275,7 +272,7 @@ fn do_insert_bookmark(db: &impl ConnExt, bm: InsertableBookmarkItem) -> Result<S
             (":syncStatus", &SyncStatus::New),
             (":syncChangeCounter", &1),
         ],
-        InsertableBookmarkItem::Separator(ref _s) => vec![
+        InsertableItem::Separator(ref _s) => vec![
             (":type", &bookmark_type),
             (":parent", &parent.row_id),
             (":position", &position),
@@ -285,7 +282,7 @@ fn do_insert_bookmark(db: &impl ConnExt, bm: InsertableBookmarkItem) -> Result<S
             (":syncStatus", &SyncStatus::New),
             (":syncChangeCounter", &1),
         ],
-        InsertableBookmarkItem::Folder(ref f) => vec![
+        InsertableItem::Folder(ref f) => vec![
             (":type", &bookmark_type),
             (":parent", &parent.row_id),
             (":title", &f.title),
@@ -301,10 +298,11 @@ fn do_insert_bookmark(db: &impl ConnExt, bm: InsertableBookmarkItem) -> Result<S
     Ok(guid)
 }
 
-/// Delete the specified bookmark.
-pub fn delete_bookmark(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
+/// Delete the specified bookmark. Returns true if a bookmark with the guid
+/// existed and was deleted, false otherwise.
+pub fn delete_bookmark(db: &impl ConnExt, guid: &SyncGuid) -> Result<bool> {
     let tx = db.unchecked_transaction()?;
-    let result = do_delete_bookmark(db, guid);
+    let result = delete_bookmark_in_tx(db, guid);
     match result {
         Ok(_) => tx.commit()?,
         Err(_) => tx.rollback()?,
@@ -312,7 +310,7 @@ pub fn delete_bookmark(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
     result
 }
 
-fn do_delete_bookmark(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
+fn delete_bookmark_in_tx(db: &impl ConnExt, guid: &SyncGuid) -> Result<bool> {
     // Can't delete a root.
     if BookmarkRootGuid::from_guid(guid).is_some() {
         return Err(InvalidPlaceInfo::InvalidGuid.into());
@@ -321,7 +319,7 @@ fn do_delete_bookmark(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
         Some(r) => r,
         None => {
             log::debug!("Can't delete bookmark '{:?}' as it doesn't exist", guid);
-            return Ok(()); // not sure if we should error here?
+            return Ok(false);
         }
     };
     // must reorder existing children.
@@ -339,7 +337,7 @@ fn do_delete_bookmark(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
         "DELETE from moz_bookmarks WHERE id = :id",
         &[(":id", &record.row_id)],
     )?;
-    Ok(())
+    Ok(true)
 }
 
 /// Support for inserting and fetching a tree. Same limitations as desktop.
@@ -348,8 +346,9 @@ fn do_delete_bookmark(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
 
 // For testing purposes we implement PartialEq, such that optional fields are
 // ignored in the comparison. This allows tests to construct a tree with
-// missing fields and still be able to compare an exported tree (with all
-// fields) against the initial one.
+// missing fields and be able to compare against a tree with all fields (such
+// as one exported from the DB)
+#[cfg(test)]
 macro_rules! cmp_option {
     ($s: ident, $o: ident, $name:ident) => {
         match (&$s.$name, &$o.$name) {
@@ -370,8 +369,7 @@ pub struct BookmarkNode {
     pub url: Url,
 }
 
-// #[test] - XXX - we only need these for tests and it would be preferable
-// to not expose otherise - but this gets `error: only functions may be used as tests`
+#[cfg(test)]
 impl PartialEq for BookmarkNode {
     fn eq(&self, other: &BookmarkNode) -> bool {
         cmp_option!(self, other, guid)
@@ -389,6 +387,7 @@ pub struct SeparatorNode {
     pub last_modified: Option<Timestamp>,
 }
 
+#[cfg(test)]
 impl PartialEq for SeparatorNode {
     fn eq(&self, other: &SeparatorNode) -> bool {
         cmp_option!(self, other, guid)
@@ -406,6 +405,7 @@ pub struct FolderNode {
     pub children: Vec<BookmarkTreeNode>,
 }
 
+#[cfg(test)]
 impl PartialEq for FolderNode {
     fn eq(&self, other: &FolderNode) -> bool {
         cmp_option!(self, other, guid)
@@ -416,7 +416,8 @@ impl PartialEq for FolderNode {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum BookmarkTreeNode {
     Bookmark(BookmarkNode),
     Separator(SeparatorNode),
@@ -560,11 +561,10 @@ mod test_serialize {
 }
 
 fn add_subtree_infos(
-    db: &impl ConnExt,
     parent: &SyncGuid,
     tree: &FolderNode,
-    insert_infos: &mut Vec<InsertableBookmarkItem>,
-) -> Result<()> {
+    insert_infos: &mut Vec<InsertableItem>,
+) {
     // TODO: track last modified? Like desktop, we should probably have
     // the default values passed in so the entire tree has consistent
     // timestamps.
@@ -573,7 +573,7 @@ fn add_subtree_infos(
     for child in &tree.children {
         match child {
             BookmarkTreeNode::Bookmark(b) => {
-                insert_infos.push(InsertableBookmarkItem::Bookmark(InsertableBookmark {
+                insert_infos.push(InsertableItem::Bookmark(InsertableBookmark {
                     parent_guid: parent.clone(),
                     position: BookmarkPosition::Append,
                     date_added: b.date_added.or(default_when),
@@ -584,7 +584,7 @@ fn add_subtree_infos(
                 }))
             }
             BookmarkTreeNode::Separator(s) => {
-                insert_infos.push(InsertableBookmarkItem::Separator(InsertableSeparator {
+                insert_infos.push(InsertableItem::Separator(InsertableSeparator {
                     parent_guid: parent.clone(),
                     position: BookmarkPosition::Append,
                     date_added: s.date_added.or(default_when),
@@ -595,7 +595,7 @@ fn add_subtree_infos(
             BookmarkTreeNode::Folder(f) => {
                 let my_guid = f.guid.clone().unwrap_or_else(|| SyncGuid::new());
                 // must add the folder before we recurse into children.
-                insert_infos.push(InsertableBookmarkItem::Folder(InsertableFolder {
+                insert_infos.push(InsertableItem::Folder(InsertableFolder {
                     parent_guid: parent.clone(),
                     position: BookmarkPosition::Append,
                     date_added: f.date_added.or(default_when),
@@ -603,26 +603,25 @@ fn add_subtree_infos(
                     guid: Some(my_guid.clone()),
                     title: f.title.clone(),
                 }));
-                add_subtree_infos(db, &my_guid, &f, insert_infos)?;
+                add_subtree_infos(&my_guid, &f, insert_infos);
             }
         };
     }
-    Ok(())
 }
 
 pub fn insert_tree(db: &impl ConnExt, tree: &FolderNode) -> Result<()> {
     let parent_guid = match &tree.guid {
         Some(guid) => guid,
-        None => return Err(InvalidPlaceInfo::InvalidParent.into()),
+        None => return Err(InvalidPlaceInfo::InvalidParent("<no guid>".into()).into()),
     };
 
-    let mut insert_infos: Vec<InsertableBookmarkItem> = Vec::new();
-    add_subtree_infos(db, &parent_guid, tree, &mut insert_infos)?;
+    let mut insert_infos: Vec<InsertableItem> = Vec::new();
+    add_subtree_infos(&parent_guid, tree, &mut insert_infos);
     log::info!("insert_tree inserting {} records", insert_infos.len());
     let tx = db.unchecked_transaction()?;
 
     for insertable in insert_infos {
-        do_insert_bookmark(db, insertable)?;
+        insert_bookmark_in_tx(db, &insertable)?;
     }
     tx.commit()?;
     Ok(())
@@ -743,7 +742,7 @@ where
                         date_added: Some(row.date_added),
                         last_modified: Some(row.last_modified),
                     })),
-                    BookmarkType::Folder => panic!("impossible - we already peeked and checked"),
+                    BookmarkType::Folder => unreachable!("impossible - we already peeked and checked"),
                 }
             }
         };
@@ -903,8 +902,8 @@ mod tests {
         let conn = PlacesDb::open_in_memory(None)?;
         let url = Url::parse("https://www.example.com")?;
 
-        let bm = InsertableBookmarkItem::Bookmark(InsertableBookmark {
-            parent_guid: BookmarkRootGuid::Unfiled.as_guid(),
+        let bm = InsertableItem::Bookmark(InsertableBookmark {
+            parent_guid: BookmarkRootGuid::Unfiled.into(),
             position: BookmarkPosition::Append,
             date_added: None,
             last_modified: None,
@@ -912,7 +911,7 @@ mod tests {
             url: url.clone(),
             title: Some("the title".into()),
         });
-        let guid = insert_bookmark(&conn, bm)?;
+        let guid = insert_bookmark(&conn, &bm)?;
 
         // re-fetch it.
         let rb = get_raw_bookmark(&conn, &guid)?.expect("should get the bookmark");
@@ -1009,8 +1008,8 @@ mod tests {
         let conn = PlacesDb::open_in_memory(None)?;
         let url = Url::parse("https://www.example.com")?;
 
-        let bm = InsertableBookmarkItem::Bookmark(InsertableBookmark {
-            parent_guid: BookmarkRootGuid::Unfiled.as_guid(),
+        let bm = InsertableItem::Bookmark(InsertableBookmark {
+            parent_guid: BookmarkRootGuid::Unfiled.into(),
             position: BookmarkPosition::Specific(100),
             date_added: None,
             last_modified: None,
@@ -1018,7 +1017,7 @@ mod tests {
             url: url.clone(),
             title: Some("the title".into()),
         });
-        let guid = insert_bookmark(&conn, bm)?;
+        let guid = insert_bookmark(&conn, &bm)?;
 
         // re-fetch it.
         let rb = get_raw_bookmark(&conn, &guid)?.expect("should get the bookmark");
@@ -1038,7 +1037,7 @@ mod tests {
             BookmarkTreeNode::Folder(ref f) => f,
             _ => panic!("tree root must be a folder"),
         };
-        assert_eq!(f.guid, Some(BookmarkRootGuid::Root.as_guid()));
+        assert_eq!(f.guid, Some(BookmarkRootGuid::Root.into()));
         assert_eq!(f.children.len(), 4);
         Ok(())
     }

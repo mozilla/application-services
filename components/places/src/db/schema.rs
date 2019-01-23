@@ -103,7 +103,7 @@ const CREATE_TABLE_BOOKMARKS_SQL: &str = r#"CREATE TABLE moz_bookmarks (
 const CREATE_TABLE_BOOKMARKS_DELETED_SQL: &str = "CREATE TABLE moz_bookmarks_deleted (
         guid TEXT PRIMARY KEY,
         dateRemoved INTEGER NOT NULL
-    )";
+    ) WITHOUT ROWID";
 // Note: desktop has/had a 'keywords' table, but we intentionally do not.
 
 const CREATE_TABLE_ORIGINS_SQL: &str = "CREATE TABLE moz_origins (
@@ -188,23 +188,23 @@ const CREATE_TRIGGER_BOOKMARKS_FOREIGNCOUNT_AFTERDELETE: &str = "
         WHERE id = OLD.fk;
     END";
 
-const CREATE_TRIGGER_BOOKMARKS_FOREIGNCOUNT_AFTERINSERT_TRIGGER: &str = "
-    CREATE TEMP TRIGGER moz_bookmarks_foreign_count_afterinsert_trigger
+// Note that the desktop versions of the triggers below call a note_sync_change()
+// function in some/all cases, which we will probably end up needing when we
+// come to sync.
+const CREATE_TRIGGER_BOOKMARKS_AFTERINSERT_TRIGGER: &str = "
+    CREATE TEMP TRIGGER moz_bookmarks_afterinsert_trigger
     AFTER INSERT ON moz_bookmarks FOR EACH ROW
     BEGIN
--- hrm        SELECT store_last_inserted_id('moz_bookmarks', NEW.id);
--- hrm        SELECT note_sync_change() WHERE NEW.syncChangeCounter > 0;
         UPDATE moz_places
-        SET foreign_count = foreign_count + 1
-        WHERE id = NEW.fk;
+            SET foreign_count = foreign_count + 1
+            WHERE id = NEW.fk;
+        DELETE from moz_bookmarks_deleted WHERE guid = NEW.guid;
     END";
 
 const CREATE_TRIGGER_BOOKMARKS_FOREIGNCOUNT_AFTERUPDATE_TRIGGER: &str = "
     CREATE TEMP TRIGGER moz_bookmarks_foreign_count_afterupdate_trigger
     AFTER UPDATE OF fk, syncChangeCounter ON moz_bookmarks FOR EACH ROW
     BEGIN
--- hrm      SELECT note_sync_change()
--- hrm      WHERE NEW.syncChangeCounter <> OLD.syncChangeCounter;
         UPDATE moz_places
             SET foreign_count = foreign_count + 1
             WHERE OLD.fk <> NEW.fk AND id = NEW.fk;
@@ -223,27 +223,16 @@ const CREATE_TRIGGER_BOOKMARKS_CREATE_TOMBSTONE: &str = "
         INSERT into moz_bookmarks_deleted VALUES (OLD.guid, now());
     END";
 
-// And a trigger to ensure adding a previously deleted bookmark with the same
-// guid doesn't leave an entry in both tables.
-const CREATE_TRIGGER_BOOKMARKS_REMOVE_TOMBSTONE_INSERT: &str = "
-    CREATE TEMP TRIGGER moz_remove_bookmarks_deleted_insert_trigger
-    AFTER INSERT ON moz_bookmarks
-    FOR EACH ROW
-    BEGIN
-        DELETE from moz_bookmarks_deleted WHERE guid = NEW.guid;
-    END";
-
-// and also for updating the guid.
+// Updating the guid is only allowed by Sync, and it will use a connection
+// without some of these triggers - so for now we prevent changing the guid
+// of an existing item.
 const CREATE_TRIGGER_BOOKMARKS_REMOVE_TOMBSTONE_UPDATE: &str = "
     CREATE TEMP TRIGGER moz_remove_bookmarks_deleted_update_trigger
     AFTER UPDATE ON moz_bookmarks
     FOR EACH ROW WHEN OLD.guid != NEW.guid
     BEGIN
-        DELETE from moz_bookmarks_deleted WHERE guid = NEW.guid;
+        SELECT RAISE(FAIL, 'guids are immutable');
     END";
-// XXX - we should possibly insert a bookmark for OLD.guid here, although
-// that's not necessary unless we expose a way to change a bookmarks guid, and
-// that seems unlikely - only sync will do that.
 
 // XXX - TODO - lots of desktop temp tables - but it's not clear they make sense here yet?
 
@@ -323,12 +312,11 @@ pub fn init(db: &PlacesDb) -> Result<()> {
         &CREATE_TRIGGER_HISTORYVISITS_AFTERINSERT,
         &CREATE_TRIGGER_HISTORYVISITS_AFTERDELETE,
         CREATE_TRIGGER_MOZPLACES_AFTERINSERT_REMOVE_TOMBSTONES,
+        CREATE_TRIGGER_BOOKMARKS_AFTERINSERT_TRIGGER,
         CREATE_TRIGGER_BOOKMARKS_FOREIGNCOUNT_AFTERDELETE,
-        CREATE_TRIGGER_BOOKMARKS_FOREIGNCOUNT_AFTERINSERT_TRIGGER,
         CREATE_TRIGGER_BOOKMARKS_FOREIGNCOUNT_AFTERUPDATE_TRIGGER,
         CREATE_TRIGGER_BOOKMARKS_CREATE_TOMBSTONE,
         CREATE_TRIGGER_BOOKMARKS_REMOVE_TOMBSTONE_UPDATE,
-        CREATE_TRIGGER_BOOKMARKS_REMOVE_TOMBSTONE_INSERT,
     ])?;
     Ok(())
 }
@@ -811,18 +799,12 @@ mod tests {
             select_simple_int(&conn, "SELECT COUNT(*) from moz_bookmarks_deleted"),
             1
         );
-        // update guid.
+        // update guid - should fail as we have a trigger with RAISEs.
         conn.execute(
             "UPDATE moz_bookmarks SET guid = 'bookmarkguid'
              WHERE guid = 'fake_guid___'",
             NO_PARAMS,
         )
-        .expect("update should work");
-
-        // tombstone should vanish.
-        assert_eq!(
-            select_simple_int(&conn, "SELECT COUNT(*) from moz_bookmarks_deleted"),
-            0
-        );
+        .expect_err("changing the guid should fail");
     }
 }

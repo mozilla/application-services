@@ -27,7 +27,7 @@ fn init_logging() {
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 #[allow(non_snake_case)]
-struct DesktopMapping {
+struct DesktopItem {
     typeCode: u8,
     guid: Option<SyncGuid>,
     dateAdded: Option<u64>,
@@ -35,17 +35,10 @@ struct DesktopMapping {
     title: Option<String>,
     #[serde(with = "url_serde")]
     uri: Option<Url>,
-    children: Vec<DesktopMapping>,
+    children: Vec<DesktopItem>,
 }
 
-fn convert_timestamp(t: Option<u64>) -> Option<Timestamp> {
-    match t {
-        None => None,
-        Some(v) => Some(Timestamp(v / 1000)),
-    }
-}
-
-fn convert_node(dm: DesktopMapping) -> Option<BookmarkTreeNode> {
+fn convert_node(dm: DesktopItem) -> Option<BookmarkTreeNode> {
     // this patten has been copy-pasta'd too often...
     let bookmark_type = match BookmarkType::from_u8(dm.typeCode) {
         Some(t) => t,
@@ -65,21 +58,21 @@ fn convert_node(dm: DesktopMapping) -> Option<BookmarkTreeNode> {
             };
             BookmarkTreeNode::Bookmark(BookmarkNode {
                 guid: dm.guid,
-                date_added: convert_timestamp(dm.dateAdded),
-                last_modified: convert_timestamp(dm.lastModified),
+                date_added: dm.dateAdded.map(|v| Timestamp(v / 1000)),
+                last_modified: dm.lastModified.map(|v| Timestamp(v / 1000)),
                 title: dm.title,
                 url,
             })
         }
         BookmarkType::Separator => BookmarkTreeNode::Separator(SeparatorNode {
             guid: dm.guid,
-            date_added: convert_timestamp(dm.dateAdded),
-            last_modified: convert_timestamp(dm.lastModified),
+            date_added: dm.dateAdded.map(|v| Timestamp(v / 1000)),
+            last_modified: dm.lastModified.map(|v| Timestamp(v / 1000)),
         }),
         BookmarkType::Folder => BookmarkTreeNode::Folder(FolderNode {
             guid: dm.guid,
-            date_added: convert_timestamp(dm.dateAdded),
-            last_modified: convert_timestamp(dm.lastModified),
+            date_added: dm.dateAdded.map(|v| Timestamp(v / 1000)),
+            last_modified: dm.lastModified.map(|v| Timestamp(v / 1000)),
             title: dm.title,
             children: dm
                 .children
@@ -131,7 +124,7 @@ fn run_desktop_import(db: &PlacesDb, matches: &clap::ArgMatches) -> Result<()> {
 
     let file = File::open(filename)?;
     let reader = BufReader::new(file);
-    let m: DesktopMapping = serde_json::from_reader(reader)?;
+    let m: DesktopItem = serde_json::from_reader(reader)?;
     // convert mapping into our tree.
     let root = match convert_node(m) {
         Some(node) => node,
