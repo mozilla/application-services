@@ -18,7 +18,7 @@ import java.util.*
 class LogTest {
 
     fun writeTestLog(m: String) {
-        LibRustLogAdapter.ac_log_adapter_test__log_msg(m)
+        LibRustLogAdapter.rc_log_adapter_test__log_msg(m)
         Thread.sleep(100) // Wait for it to arrive...
     }
 

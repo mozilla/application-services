@@ -66,7 +66,7 @@ class RustLogAdapter private constructor(
             // make callbackImpl isn't GCed here, or very bad things will happen. (Should the logger
             // init code abort on panic?)
             val adapter = rustCall { err ->
-                LibRustLogAdapter.ac_log_adapter_create(callbackImpl, err)
+                LibRustLogAdapter.rc_log_adapter_create(callbackImpl, err)
             }
             // For example, it would be *extremely bad* if somehow adapter were actually null here.
             instance = RustLogAdapter(callbackImpl, adapter!!)
@@ -91,7 +91,7 @@ class RustLogAdapter private constructor(
         @Synchronized
         fun disable() {
             val state = instance ?: return
-            LibRustLogAdapter.ac_log_adapter_destroy(state.adapter)
+            LibRustLogAdapter.rc_log_adapter_destroy(state.adapter)
             // XXX Letting that callback get GCed still makes me extremely uneasy...
             // Maybe we should just null out the callback provided by the user so that
             // it can be GCed (while letting the RawLogCallbackImpl which actually is
@@ -104,7 +104,7 @@ class RustLogAdapter private constructor(
         fun setMaxLevel(level: LogLevelFilter) {
             if (isEnabled) {
                 rustCall { e ->
-                    LibRustLogAdapter.ac_log_adapter_set_max_level(
+                    LibRustLogAdapter.rc_log_adapter_set_max_level(
                             instance!!.adapter,
                             level.value,
                             e
@@ -187,6 +187,6 @@ internal fun Pointer.getAndConsumeRustString(): String {
     try {
         return this.getString(0, "utf8")
     } finally {
-        LibRustLogAdapter.ac_log_adapter_destroy_string(this)
+        LibRustLogAdapter.rc_log_adapter_destroy_string(this)
     }
 }
