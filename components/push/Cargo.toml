@@ -1,0 +1,8 @@
+# [package]
+# name = "push"
+# edition = "2018"
+# version = "0.1.0"
+# authors = []
+
+[workspace]
+members = ["communications", "crypto", "delivery_mgr", "notifier", "storage", "subscriber"]
