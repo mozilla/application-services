@@ -26,14 +26,16 @@ open class AppServicesExtension(project: Project) {
                 DefaultModuleIdentifier.newId("org.mozilla.appservices", "lockbox-megazord"),
                 setOf(
                         DefaultModuleIdentifier.newId("org.mozilla.fxaclient", "fxaclient"),
-                        DefaultModuleIdentifier.newId("org.mozilla.sync15", "logins")
+                        DefaultModuleIdentifier.newId("org.mozilla.sync15", "logins"),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog")
                 )))
         megazords.add(MegazordDefinition("reference-browser",
                 DefaultModuleIdentifier.newId("org.mozilla.appservices", "reference-browser-megazord"),
                 setOf(
                         DefaultModuleIdentifier.newId("org.mozilla.fxaclient", "fxaclient"),
                         DefaultModuleIdentifier.newId("org.mozilla.sync15", "logins"),
-                        DefaultModuleIdentifier.newId("org.mozilla.places", "places")
+                        DefaultModuleIdentifier.newId("org.mozilla.places", "places"),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog")
                 )))
     }
 
