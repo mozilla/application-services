@@ -39,9 +39,9 @@ fn main() -> Result<()> {
             clap::Arg::with_name("database_path")
                 .short("d")
                 .long("database")
-                .value_name("LOGINS_DATABASE")
+                .value_name("PLACES_DATABASE")
                 .takes_value(true)
-                .help("Path to the logins database (default: \"./places.db\")"),
+                .help("Path to the places database (default: \"./places.db\")"),
         )
         .arg(
             clap::Arg::with_name("encryption_key")
