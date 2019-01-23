@@ -125,6 +125,7 @@ pub struct ProfileC {
     uid: *mut c_char,
     email: *mut c_char,
     avatar: *mut c_char,
+    avatar_default: u8, // JNA dislikes booleans.
     display_name: *mut c_char,
 }
 
@@ -145,6 +146,7 @@ impl From<Profile> for ProfileC {
             uid: rust_string_to_c(profile.uid),
             email: rust_string_to_c(profile.email),
             avatar: rust_string_to_c(profile.avatar),
+            avatar_default: profile.avatar_default as u8,
             display_name: opt_rust_string_to_c(profile.display_name),
         }
     }
