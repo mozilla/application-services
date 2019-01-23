@@ -287,6 +287,11 @@ open class AccessTokenInfo: RustStructPointer<AccessTokenInfoC> {
     }
 }
 
+public struct Avatar {
+    let url: String
+    let isDefault: Bool
+}
+
 open class Profile: RustStructPointer<ProfileC> {
     open var uid: String {
         get {
@@ -300,9 +305,12 @@ open class Profile: RustStructPointer<ProfileC> {
         }
     }
 
-    open var avatar: String {
+    open var avatar: Avatar? {
         get {
-            return String(cString: raw.pointee.avatar)
+            guard let pointer = raw.pointee.avatar else {
+                return nil
+            }
+            return Avatar(url: String(cString: pointer), isDefault: raw.pointee.avatar_default == 0x01)
         }
     }
 

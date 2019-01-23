@@ -50,7 +50,8 @@ typedef struct SyncKeysC {
 typedef struct ProfileC {
     const char *const _Nonnull uid;
     const char *const _Nonnull email;
-    const char *const _Nonnull avatar;
+    const char *const _Nullable avatar;
+    const uint8_t avatar_default;
     const char *const _Nullable display_name;
 } ProfileC;
 
