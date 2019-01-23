@@ -33,8 +33,6 @@ fn init_logging() {
 }
 
 fn main() -> Result<()> {
-    init_logging();
-
     let matches = clap::App::new("sync_history")
         .about("History syncing tool")
         .arg(
@@ -43,7 +41,7 @@ fn main() -> Result<()> {
                 .long("database")
                 .value_name("LOGINS_DATABASE")
                 .takes_value(true)
-                .help("Path to the logins database (default: \"./logins.db\")"),
+                .help("Path to the logins database (default: \"./places.db\")"),
         )
         .arg(
             clap::Arg::with_name("encryption_key")
@@ -51,8 +49,7 @@ fn main() -> Result<()> {
                 .long("key")
                 .value_name("ENCRYPTION_KEY")
                 .takes_value(true)
-                .help("Database encryption key.")
-                .required(true),
+                .help("Database encryption key."),
         )
         .arg(
             clap::Arg::with_name("credential_file")
@@ -63,6 +60,14 @@ fn main() -> Result<()> {
                 .help(
                     "Path to store our cached fxa credentials (defaults to \"./credentials.json\"",
                 ),
+        )
+        .arg(
+            clap::Arg::with_name("no_logging")
+                .short("n")
+                .long("no-logging")
+                .value_name("SKIP_LOGGING")
+                .takes_value(false)
+                .help("Disables all logging, which may be useful when evaluating perf"),
         )
         .arg(
             clap::Arg::with_name("reset")
@@ -78,14 +83,16 @@ fn main() -> Result<()> {
         )
         .get_matches();
 
+    if !matches.is_present("no_logging") {
+        init_logging();
+    }
+
     let cred_file = matches
         .value_of("credential_file")
         .unwrap_or("./credentials.json");
-    let db_path = matches.value_of("database_path").unwrap_or("./logins.db");
+    let db_path = matches.value_of("database_path").unwrap_or("./places.db");
     // This should already be checked by `clap`, IIUC
-    let encryption_key = matches
-        .value_of("encryption_key")
-        .expect("Encryption key is not optional");
+    let encryption_key = matches.value_of("encryption_key");
 
     // Lets not log the encryption key, it's just not a good habit to be in.
     log::debug!(
@@ -115,7 +122,7 @@ fn main() -> Result<()> {
     };
     let root_sync_key = KeyBundle::from_ksync_bytes(&key.key_bytes()?)?;
 
-    let db = PlacesDb::open(db_path, Some(encryption_key))?;
+    let db = PlacesDb::open(db_path, encryption_key)?;
     let store = HistoryStore::new(&db);
 
     if matches.is_present("wipe-remote") {
