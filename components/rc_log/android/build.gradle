@@ -134,7 +134,7 @@ afterEvaluate {
 
 apply from: "$rootDir/publish.gradle"
 ext.configurePublish(
-        'mozilla.appservices.rustlog',
+        'org.mozilla.appservices',
         'rustlog',
         'Android hook into the log crate',
         /* jnaForTestConfiguration= */ configurations.jnaForTest,

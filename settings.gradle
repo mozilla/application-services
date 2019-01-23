@@ -4,12 +4,12 @@ enableFeaturePreview('STABLE_PUBLISHING')
 include ':fxa-client-library'
 include ':logins-library'
 include ':places-library'
-include ':rc-log-library'
+include ':rustlog-library'
 
 project(':fxa-client-library').projectDir = new File("components/fxa-client/android")
 project(':logins-library').projectDir = new File("components/logins/android")
 project(':places-library').projectDir = new File("components/places/android")
-project(':rc-log-library').projectDir = new File("components/rc_log/android")
+project(':rustlog-library').projectDir = new File("components/rc_log/android")
 
 include ':lockbox-megazord'
 project(':lockbox-megazord').projectDir = new File("megazords/lockbox/android")
