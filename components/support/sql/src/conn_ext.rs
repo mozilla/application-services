@@ -8,7 +8,7 @@ use rusqlite::{
     Connection, Result as SqlResult, Row, Savepoint, Transaction, TransactionBehavior, NO_PARAMS,
 };
 use std::ops::Deref;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::maybe_cached::MaybeCached;
 
@@ -110,6 +110,10 @@ pub trait ConnExt {
     fn unchecked_transaction(&self) -> SqlResult<UncheckedTransaction> {
         UncheckedTransaction::new(self.conn(), TransactionBehavior::Deferred)
     }
+
+    fn perf_transaction(&self, commit_after: Duration) -> SqlResult<TransactionForPerf> {
+        TransactionForPerf::new(self.conn(), TransactionBehavior::Deferred, commit_after)
+    }
 }
 
 impl ConnExt for Connection {
@@ -208,6 +212,75 @@ impl<'conn> Drop for UncheckedTransaction<'conn> {
 }
 
 impl<'conn> ConnExt for UncheckedTransaction<'conn> {
+    #[inline]
+    fn conn(&self) -> &Connection {
+        &*self
+    }
+}
+
+/// This transaction is suitable for when a transaction is being used only
+/// for performance when updating a larger number of rows (ie, when the
+/// transaction is not necessary for data integrity). You can specify a
+/// duration for the maximum amount of time the transaction should be held.
+/// You should regularly call .maybe_commit() as part of your processing, and
+/// if the current transaction has been open for greater than the specified
+/// duration the transaction will be committed and another one started.
+/// You should always call .commit() at the end. Note that if you call
+/// .rollback() at the end, only the current transaction will be rolled back.
+pub struct TransactionForPerf<'conn> {
+    tx: UncheckedTransaction<'conn>,
+    behavior: TransactionBehavior,
+    commit_after: Duration,
+}
+
+impl<'conn> TransactionForPerf<'conn> {
+    /// Begin a new transaction which may be split into multiple transactions
+    /// for performance reasons. Cannot be nested, but this is not
+    /// enforced; use a rusqlite `savepoint` for nested transactions.
+    pub fn new(
+        conn: &'conn Connection,
+        behavior: TransactionBehavior,
+        commit_after: Duration,
+    ) -> SqlResult<Self> {
+        Ok(Self {
+            tx: UncheckedTransaction::new(conn, behavior)?,
+            behavior,
+            commit_after,
+        })
+    }
+
+    /// Checks to see if we have held a transaction for longer than the
+    /// requested time, and if so, commits the current transaction and opens
+    /// another.
+    pub fn maybe_commit(&mut self) -> SqlResult<()> {
+        if self.tx.started_at.elapsed() >= self.commit_after {
+            self.tx.conn.execute_batch("COMMIT")?;
+            log::debug!("Transaction commited after taking allocated time");
+            self.tx = UncheckedTransaction::new(self.tx.conn, self.behavior)?;
+        }
+        Ok(())
+    }
+
+    /// Consumes and commits an unchecked transaction.
+    pub fn commit(self) -> SqlResult<()> {
+        self.tx.commit()
+    }
+
+    /// Consumes and rolls back an unchecked transaction.
+    pub fn rollback(self) -> SqlResult<()> {
+        self.tx.rollback()
+    }
+}
+
+impl<'conn> Deref for TransactionForPerf<'conn> {
+    type Target = Connection;
+
+    fn deref(&self) -> &Connection {
+        self.tx.conn
+    }
+}
+
+impl<'conn> ConnExt for TransactionForPerf<'conn> {
     #[inline]
     fn conn(&self) -> &Connection {
         &*self
