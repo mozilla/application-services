@@ -779,6 +779,16 @@ version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "megazord_ios"
+version = "0.1.0"
+dependencies = [
+ "fxaclient_ffi 0.1.0",
+ "logins_ffi 0.1.0",
+ "places-ffi 0.1.0",
+ "rc_log_ffi 0.1.0",
+]
+
+[[package]]
 name = "memchr"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

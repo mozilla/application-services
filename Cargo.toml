@@ -12,6 +12,7 @@ members = [
     "components/rc_log",
     "megazords/lockbox",
     "megazords/reference-browser",
+    "megazords/ios/rust",
     "testing/sync-test",
 ]
 
