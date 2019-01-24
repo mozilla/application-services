@@ -112,7 +112,7 @@ pub fn split_after_host_and_port(href: &str) -> (&str, &str) {
     let (_, remainder) = split_after_prefix(href);
     let mut start = 0;
     let mut end = remainder.len();
-    for (index, c) in remainder.chars().enumerate() {
+    for (index, c) in remainder.char_indices() {
         if c == '/' || c == '?' || c == '#' {
             end = index;
             break;
@@ -125,10 +125,12 @@ pub fn split_after_host_and_port(href: &str) -> (&str, &str) {
 }
 
 fn looks_like_origin(string: &str) -> bool {
-    return !string.is_empty()
-        && !string
-            .chars()
-            .any(|c| c.is_whitespace() || c == '/' || c == '?' || c == '#');
+    // Skip nonascii characters, we'll either handle them in autocomplete_match or,
+    // a later part of the origins query.
+    !string.is_empty()
+        && !string.bytes().any(|c| {
+            !c.is_ascii() || c.is_ascii_whitespace() || c == b'/' || c == b'?' || c == b'#'
+        })
 }
 
 /// The match reason specifies why an autocomplete search result matched a
@@ -355,6 +357,9 @@ impl<'query, 'conn> Matcher for OriginOrUrl<'query, 'conn> {
             }
         } else if self.query.contains(|c| c == '/' || c == ':' || c == '?') {
             let (host, remainder) = split_after_host_and_port(self.query);
+            let punycode_host = idna::domain_to_ascii(host).ok();
+            let host_str = punycode_host.as_ref().map(|s| s.as_str()).unwrap_or(host);
+
             let mut stmt = self.conn.db.prepare("
                 SELECT h.url as url,
                        :host || :remainder AS strippedURL,
@@ -386,7 +391,7 @@ impl<'query, 'conn> Matcher for OriginOrUrl<'query, 'conn> {
             ")?;
             let params: &[(&str, &dyn rusqlite::types::ToSql)] = &[
                 (":searchString", &self.query),
-                (":host", &host),
+                (":host", &host_str),
                 (":remainder", &remainder),
                 (":frecencyThreshold", &-1i64),
             ];
@@ -691,4 +696,50 @@ mod tests {
             }]
         );
     }
+    #[test]
+    fn search_unicode() {
+        let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
+
+        let url = Url::parse("http://exämple.com/123").unwrap();
+        let visit = VisitObservation::new(url.clone())
+            .with_title("Example page 123".to_string())
+            .with_visit_type(VisitTransition::Typed)
+            .with_at(Timestamp::now());
+
+        apply_observation(&mut conn, visit).expect("Should apply visit");
+
+        let by_url_without_path = search_frecent(
+            &conn,
+            SearchParams {
+                search_string: "http://exämple.com".into(),
+                limit: 10,
+            },
+        )
+        .expect("Should search by URL without path");
+        assert!(by_url_without_path
+            .iter()
+            // Should we consider un-punycoding the title? (firefox desktop doesn't...)
+            .any(|result| result.title == "xn--exmple-cua.com/"
+                && result.url.as_str() == "http://xn--exmple-cua.com/"
+                && result.reasons == &[MatchReason::Url]));
+
+        let by_url_with_path = search_frecent(
+            &conn,
+            SearchParams {
+                search_string: "http://exämple.com/1".into(),
+                limit: 10,
+            },
+        )
+        .expect("Should search by URL with path");
+        assert!(
+            by_url_with_path
+                .iter()
+                .any(|result| result.title == "xn--exmple-cua.com/123"
+                    && result.url.as_str() == "http://xn--exmple-cua.com/123"
+                    && result.reasons == &[MatchReason::Url]),
+            "{:?}",
+            by_url_with_path
+        );
+    }
+
 }

@@ -29,6 +29,10 @@ internal interface FxaClient : Library {
         init {
             try {
                 INSTANCE = Native.loadLibrary(JNA_LIBRARY_NAME, FxaClient::class.java) as FxaClient
+                if (JNA_LIBRARY_NAME == "fxaclient_ffi") {
+                    // Enable logcat logging if we aren't in a megazord.
+                    INSTANCE.fxa_enable_logcat_logging()
+                }
             } catch (e: UnsatisfiedLinkError) {
                 // We want to be able load this class in environments that don't have FxA native
                 // libs available (for unit testing purposes). This also has the advantage of
@@ -42,40 +46,42 @@ internal interface FxaClient : Library {
         }
     }
 
+    fun fxa_enable_logcat_logging()
+
     fun fxa_new(
         contentUrl: String,
         clientId: String,
         redirectUri: String,
         e: Error.ByReference
-    ): RawFxAccount?
+    ): FxaHandle
 
-    fun fxa_from_json(json: String, e: Error.ByReference): RawFxAccount?
-    fun fxa_to_json(fxa: RawFxAccount, e: Error.ByReference): Pointer?
+    fun fxa_from_json(json: String, e: Error.ByReference): FxaHandle
+    fun fxa_to_json(fxa: Long, e: Error.ByReference): Pointer?
 
     fun fxa_begin_oauth_flow(
-        fxa: RawFxAccount,
+        fxa: FxaHandle,
         scopes: String,
         wantsKeys: Boolean,
         e: Error.ByReference
     ): Pointer?
 
     fun fxa_begin_pairing_flow(
-        fxa: RawFxAccount,
+        fxa: FxaHandle,
         pairingUrl: String,
         scopes: String,
         e: Error.ByReference
     ): Pointer?
 
-    fun fxa_profile(fxa: RawFxAccount, ignoreCache: Boolean, e: Error.ByReference): Profile.Raw?
+    fun fxa_profile(fxa: FxaHandle, ignoreCache: Boolean, e: Error.ByReference): Profile.Raw?
 
-    fun fxa_get_token_server_endpoint_url(fxa: RawFxAccount, e: Error.ByReference): Pointer?
-    fun fxa_get_connection_success_url(fxa: RawFxAccount, e: Error.ByReference): Pointer?
+    fun fxa_get_token_server_endpoint_url(fxa: FxaHandle, e: Error.ByReference): Pointer?
+    fun fxa_get_connection_success_url(fxa: FxaHandle, e: Error.ByReference): Pointer?
 
-    fun fxa_complete_oauth_flow(fxa: RawFxAccount, code: String, state: String, e: Error.ByReference)
-    fun fxa_get_access_token(fxa: RawFxAccount, scope: String, e: Error.ByReference): AccessTokenInfo.Raw?
+    fun fxa_complete_oauth_flow(fxa: FxaHandle, code: String, state: String, e: Error.ByReference)
+    fun fxa_get_access_token(fxa: FxaHandle, scope: String, e: Error.ByReference): AccessTokenInfo.Raw?
 
     fun fxa_str_free(string: Pointer)
-    fun fxa_free(fxa: RawFxAccount)
+    fun fxa_free(fxa: FxaHandle, err: Error.ByReference)
 
     // In theory these would take `AccessTokenInfo.Raw.ByReference` (and etc), but
     // the rust functions that return these return `AccessTokenInfo.Raw` and not
@@ -85,5 +91,5 @@ internal interface FxaClient : Library {
 
     fun fxa_profile_free(ptr: Pointer)
 }
+internal typealias FxaHandle = Long
 
-class RawFxAccount : PointerType()

@@ -4,9 +4,9 @@
 use crate::db::LoginDb;
 use crate::error::*;
 use crate::login::Login;
-use crate::sync::{sync_multiple, telemetry, ClientInfo, KeyBundle, Sync15StorageClientInit};
 use std::cell::Cell;
 use std::path::Path;
+use sync15::{sync_multiple, telemetry, ClientInfo, KeyBundle, Sync15StorageClientInit};
 
 // This isn't really an engine in the firefox sync15 desktop sense -- it's
 // really a bundle of state that contains the sync storage client, the sync
@@ -230,4 +230,10 @@ mod test {
         // Should be two even though we updated twice
         assert_eq!(b_after_update.times_used, 2);
     }
+}
+
+#[test]
+fn test_send() {
+    fn ensure_send<T: Send>() {}
+    ensure_send::<PasswordEngine>();
 }

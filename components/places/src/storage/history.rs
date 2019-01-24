@@ -28,9 +28,10 @@ pub fn apply_observation_direct(
     db: &Connection,
     visit_ob: VisitObservation,
 ) -> Result<Option<RowId>> {
-    let mut page_info = match fetch_page_info(db, &visit_ob.url)? {
+    let url = Url::parse(&visit_ob.url)?;
+    let mut page_info = match fetch_page_info(db, &url)? {
         Some(info) => info.page,
-        None => new_page_info(db, &visit_ob.url, None)?,
+        None => new_page_info(db, &url, None)?,
     };
     let mut update_change_counter = false;
     let mut update_frec = false;

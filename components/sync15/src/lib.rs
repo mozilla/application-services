@@ -2,30 +2,29 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// TODO: Some of these don't need to be pub...
-pub mod bso_record;
-pub mod changeset;
-pub mod client;
-pub mod collection_keys;
-pub mod error;
-pub mod key_bundle;
-pub mod record_types;
-pub mod request;
-pub mod state;
-pub mod sync;
-pub mod sync_multiple;
+mod bso_record;
+mod changeset;
+mod client;
+mod collection_keys;
+mod error;
+mod key_bundle;
+mod record_types;
+mod request;
+mod state;
+mod sync;
+mod sync_multiple;
 pub mod telemetry;
-pub mod token;
-pub mod util;
+mod token;
+mod util;
 
 // Re-export some of the types callers are likely to want for convenience.
 pub use crate::bso_record::{BsoRecord, CleartextBso, EncryptedBso, Payload};
 pub use crate::changeset::{IncomingChangeset, OutgoingChangeset, RecordChangeset};
-pub use crate::client::{Sync15StorageClient, Sync15StorageClientInit};
+pub use crate::client::{SetupStorageClient, Sync15StorageClient, Sync15StorageClientInit};
 pub use crate::error::{Error, ErrorKind, Result};
 pub use crate::key_bundle::KeyBundle;
 pub use crate::request::CollectionRequest;
 pub use crate::state::{GlobalState, SetupStateMachine};
 pub use crate::sync::{synchronize, Store};
 pub use crate::sync_multiple::{sync_multiple, ClientInfo};
-pub use crate::util::{ServerTimestamp, SERVER_EPOCH};
+pub use crate::util::{random_guid, ServerTimestamp, SERVER_EPOCH};

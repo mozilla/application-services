@@ -7,42 +7,55 @@ package org.mozilla.fxaclient.internal
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
 import java.lang.RuntimeException
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Base class that wraps an non-optional [Pointer] representing a pointer to a Rust object.
+ * Base class that wraps a Long representing a handle to a Rust object.
  * This class implements [AutoCloseable] but does not provide an implementation, forcing all
  * subclasses to implement it.
  */
-abstract class RustObject<T: PointerType> internal constructor(pointer: T? = null) : AutoCloseable {
-    private var rawPointer: AtomicReference<T?> = AtomicReference(pointer)
+abstract class RustObject internal constructor(handle: Long = 0L) : AutoCloseable {
+    private var rawHandle: AtomicLong = AtomicLong(handle)
 
     val isConsumed: Boolean
-        get() = this.rawPointer.get() == null
+        get() = this.rawHandle.get() == 0L
 
     /**
-     * Gets the pointer, or throws [RustObjectConsumed] if it's already consumed.
+     * Gets the handle, or throws [RustObjectConsumed] if it's already consumed.
      *
      * Note that use of this should be synchronized, as it is in [RustObject.rustCall] or
      * [RustObject.nullableRustCall], to avoid use after free if `validPointer` is called on one
      * thread before something releases it on another.
      */
-    internal fun validPointer(): T {
-        return this.rawPointer.get() ?: throw RustObjectConsumed()
+    internal fun validHandle(): Long {
+        return this.rawHandle.get().let {
+            if (it != 0L) {
+                it
+            } else {
+                throw RustObjectConsumed()
+            }
+        }
     }
 
     /**
-     * Consumes the pointer, or throws [RustObjectConsumed] if it's already consumed.
+     * Consumes the handle, or throws [RustObjectConsumed] if it's already consumed.
      */
-    internal fun consumePointer(): T {
-        return this.consumePointerOrNull() ?: throw RustObjectConsumed()
+    internal fun consumeHandle(): Long {
+        return this.consumeHandleOrNull() ?: throw RustObjectConsumed()
     }
 
     /**
-     * Consumes the pointer, or returns null if it's already consumed.
+     * Consumes the handle, or returns null if it's already consumed.
      */
-    private fun consumePointerOrNull(): T? {
-        return this.rawPointer.getAndSet(null)
+    private fun consumeHandleOrNull(): Long? {
+        return this.rawHandle.getAndSet(0L).let {
+            if (it != 0L) {
+                it
+            } else {
+                null
+            }
+        }
     }
 
     /**
@@ -50,7 +63,7 @@ abstract class RustObject<T: PointerType> internal constructor(pointer: T? = nul
      *
      * Note: Synchronization is not required, as we perform it internally.
      */
-    protected abstract fun destroy(p: T)
+    protected abstract fun destroy(p: Long)
 
     /**
      * Release native resources owned by this RustObject.
@@ -63,7 +76,7 @@ abstract class RustObject<T: PointerType> internal constructor(pointer: T? = nul
         // Note: `close` is allowed even if we've consumed the pointer already.
         // Also note, AtomicReference doesn't free us from needing `Synchronized`, since
         // rust may be using it on another thread.
-        this.consumePointerOrNull()?.let { destroy(it) }
+        this.consumeHandleOrNull()?.let { destroy(it) }
     }
 
     /**

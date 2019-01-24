@@ -10,7 +10,8 @@ protocol Destroyable {
 }
 
 public typealias RustStructPointer<T> = RustPointer<UnsafeMutablePointer<T>>
-public typealias RustOpaquePointer = RustPointer<OpaquePointer>
+// Not really a pointer, but semantically similar...
+public typealias RustHandle = RustPointer<UInt64>
 public typealias MovableRustStructPointer<T> = MovableRustPointer<UnsafeMutablePointer<T>>
 public typealias MovableRustOpaquePointer = MovableRustPointer<OpaquePointer>
 

@@ -11,10 +11,15 @@ use std::os::raw::c_char;
 /// This is typically going to be used from the "Rust component", and not the "FFI component" (see
 /// the top level crate documentation for more information), however you will still need to
 /// implement a destructor in the FFI component using [`define_box_destructor!`].
+///
+/// In general, is only safe to do for `send` types (even this is dodgy, but it's often necessary
+/// to keep the locking on the other side of the FFI, so Sync is too harsh), so we enforce this in
+/// this macro. (You're still free to implement this manually, if this restriction is too harsh
+/// for your use case and you're certain you know what you're doing).
 #[macro_export]
 macro_rules! implement_into_ffi_by_pointer {
     ($($T:ty),* $(,)*) => {$(
-        unsafe impl $crate::IntoFfi for $T {
+        unsafe impl $crate::IntoFfi for $T where $T: Send {
             type Value = *mut $T;
 
             #[inline]
@@ -139,6 +144,42 @@ macro_rules! define_box_destructor {
             if !v.is_null() {
                 drop(::std::boxed::Box::from_raw(v))
             }
+        }
+    };
+}
+
+/// Define a (public) destructor for a type that lives inside a lazy_static
+/// [`ConcurrentHandleMap`].
+///
+/// Note that this is actually totally safe, unlike the other
+/// `define_blah_destructor` macros.
+///
+/// A critical difference, however, is that this dtor takes an `err` out
+/// parameter to indicate failure. This difference is why the name is different
+/// as well (deleter vs destructor).
+///
+/// ## Example
+///
+/// ```rust
+/// # use lazy_static::lazy_static;
+/// # use ffi_support::{ConcurrentHandleMap, define_handle_map_deleter};
+/// struct Thing(Vec<i32>);
+/// // Somewhere...
+/// lazy_static! {
+///     static ref THING_HANDLES: ConcurrentHandleMap<Thing> = ConcurrentHandleMap::new();
+/// }
+/// define_handle_map_deleter!(THING_HANDLES, mylib_destroy_thing);
+/// ```
+#[macro_export]
+macro_rules! define_handle_map_deleter {
+    ($HANDLE_MAP_NAME:ident, $destructor_name:ident) => {
+        #[no_mangle]
+        pub extern "C" fn $destructor_name(v: u64, err: &mut $crate::ExternError) {
+            $crate::call_with_result(err, || {
+                // Force type errors here.
+                let map: &ConcurrentHandleMap<_> = &*$HANDLE_MAP_NAME;
+                map.delete_u64(v)
+            })
         }
     };
 }

@@ -10,8 +10,8 @@ use sql_support::ConnExt;
 use std::cell::Cell;
 use std::ops::Deref;
 use std::result;
-use sync15::request::CollectionRequest;
 use sync15::telemetry;
+use sync15::CollectionRequest;
 use sync15::{
     sync_multiple, ClientInfo, IncomingChangeset, KeyBundle, OutgoingChangeset, ServerTimestamp,
     Store, Sync15StorageClientInit,

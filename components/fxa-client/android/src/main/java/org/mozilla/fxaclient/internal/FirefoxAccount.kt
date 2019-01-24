@@ -7,9 +7,9 @@ package org.mozilla.fxaclient.internal
 /**
  * FirefoxAccount represents the authentication state of a client.
  */
-class FirefoxAccount : RustObject<RawFxAccount> {
+class FirefoxAccount : RustObject {
 
-    internal constructor(rawPointer: RawFxAccount): super(rawPointer)
+    internal constructor(rawPointer: FxaHandle): super(rawPointer)
 
     /**
      * Create a FirefoxAccount using the given config.
@@ -21,9 +21,10 @@ class FirefoxAccount : RustObject<RawFxAccount> {
         FxaClient.INSTANCE.fxa_new(config.contentUrl, config.clientId, config.redirectUri, e)
     })
 
-    override fun destroy(p: RawFxAccount) {
-        // We're already synchronized by RustObject
-        FxaClient.INSTANCE.fxa_free(p)
+    override fun destroy(p: Long) {
+        unlockedRustCall { err ->
+            FxaClient.INSTANCE.fxa_free(p, err)
+        }
     }
 
     /**
@@ -38,7 +39,7 @@ class FirefoxAccount : RustObject<RawFxAccount> {
     fun beginOAuthFlow(scopes: Array<String>, wantsKeys: Boolean): String {
         val scope = scopes.joinToString(" ")
         return rustCall { e ->
-            FxaClient.INSTANCE.fxa_begin_oauth_flow(validPointer(), scope, wantsKeys, e)
+            FxaClient.INSTANCE.fxa_begin_oauth_flow(validHandle(), scope, wantsKeys, e)
         }.getAndConsumeString()
     }
 
@@ -50,7 +51,7 @@ class FirefoxAccount : RustObject<RawFxAccount> {
     fun beginPairingFlow(pairingUrl: String, scopes: Array<String>): String {
         val scope = scopes.joinToString(" ")
         return rustCall { e ->
-            FxaClient.INSTANCE.fxa_begin_pairing_flow(validPointer(), pairingUrl, scope, e)
+            FxaClient.INSTANCE.fxa_begin_pairing_flow(validHandle(), pairingUrl, scope, e)
         }.getAndConsumeString()
     }
 
@@ -67,7 +68,7 @@ class FirefoxAccount : RustObject<RawFxAccount> {
      */
     fun getProfile(ignoreCache: Boolean): Profile {
         return Profile(rustCall { e ->
-            FxaClient.INSTANCE.fxa_profile(validPointer(), ignoreCache, e)
+            FxaClient.INSTANCE.fxa_profile(validHandle(), ignoreCache, e)
         })
     }
 
@@ -92,7 +93,7 @@ class FirefoxAccount : RustObject<RawFxAccount> {
      */
     fun getTokenServerEndpointURL(): String {
         return rustCall { e ->
-            FxaClient.INSTANCE.fxa_get_token_server_endpoint_url(validPointer(), e)
+            FxaClient.INSTANCE.fxa_get_token_server_endpoint_url(validHandle(), e)
         }.getAndConsumeString()
     }
 
@@ -103,7 +104,7 @@ class FirefoxAccount : RustObject<RawFxAccount> {
      */
     fun getConnectionSuccessURL(): String {
         return rustCall { e ->
-            FxaClient.INSTANCE.fxa_get_connection_success_url(validPointer(), e)
+            FxaClient.INSTANCE.fxa_get_connection_success_url(validHandle(), e)
         }.getAndConsumeString()
     }
 
@@ -117,7 +118,7 @@ class FirefoxAccount : RustObject<RawFxAccount> {
      */
     fun completeOAuthFlow(code: String, state: String) {
         rustCall { e ->
-            FxaClient.INSTANCE.fxa_complete_oauth_flow(validPointer(), code, state, e)
+            FxaClient.INSTANCE.fxa_complete_oauth_flow(validHandle(), code, state, e)
         }
     }
 
@@ -133,9 +134,9 @@ class FirefoxAccount : RustObject<RawFxAccount> {
      * the desired scope.
      */
     fun getAccessToken(scope: String): AccessTokenInfo {
-        return rustCall { e ->
-            FxaClient.INSTANCE.fxa_get_access_token(validPointer(), scope, e)
-        }.let { AccessTokenInfo(it) }
+        return AccessTokenInfo(rustCall { e ->
+            FxaClient.INSTANCE.fxa_get_access_token(validHandle(), scope, e)
+        })
     }
 
     /**
@@ -149,7 +150,7 @@ class FirefoxAccount : RustObject<RawFxAccount> {
      */
     fun toJSONString(): String {
         return rustCall { e ->
-            FxaClient.INSTANCE.fxa_to_json(validPointer(), e)
+            FxaClient.INSTANCE.fxa_to_json(validHandle(), e)
         }.getAndConsumeString()
     }
 
