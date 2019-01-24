@@ -4,6 +4,12 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.14.0...master)
 
+## Places
+
+### What's Fixed
+
+- Autocomplete will no longer return an error when asked to match a unicode string. ([#298](https://github.com/mozilla/application-services/issues/298))
+
 # 0.14.0 (_2019-01-23_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.3...v0.14.0)
