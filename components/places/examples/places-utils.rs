@@ -13,6 +13,7 @@ use serde_derive::*;
 use sql_support::ConnExt;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
+use structopt::StructOpt;
 use url::Url;
 
 type Result<T> = std::result::Result<T, failure::Error>;
@@ -25,13 +26,12 @@ fn init_logging() {
 
 // A struct in the format of desktop with a union of all fields.
 #[derive(Debug, Default, Deserialize)]
-#[serde(default)]
-#[allow(non_snake_case)]
+#[serde(default, rename_all = "camelCase")]
 struct DesktopItem {
-    typeCode: u8,
+    type_code: u8,
     guid: Option<SyncGuid>,
-    dateAdded: Option<u64>,
-    lastModified: Option<u64>,
+    date_added: Option<u64>,
+    last_modified: Option<u64>,
     title: Option<String>,
     #[serde(with = "url_serde")]
     uri: Option<Url>,
@@ -40,7 +40,7 @@ struct DesktopItem {
 
 fn convert_node(dm: DesktopItem) -> Option<BookmarkTreeNode> {
     // this patten has been copy-pasta'd too often...
-    let bookmark_type = match BookmarkType::from_u8(dm.typeCode) {
+    let bookmark_type = match BookmarkType::from_u8(dm.type_code) {
         Some(t) => t,
         None => match dm.uri {
             Some(_) => BookmarkType::Bookmark,
@@ -58,21 +58,21 @@ fn convert_node(dm: DesktopItem) -> Option<BookmarkTreeNode> {
             };
             BookmarkTreeNode::Bookmark(BookmarkNode {
                 guid: dm.guid,
-                date_added: dm.dateAdded.map(|v| Timestamp(v / 1000)),
-                last_modified: dm.lastModified.map(|v| Timestamp(v / 1000)),
+                date_added: dm.date_added.map(|v| Timestamp(v / 1000)),
+                last_modified: dm.last_modified.map(|v| Timestamp(v / 1000)),
                 title: dm.title,
                 url,
             })
         }
         BookmarkType::Separator => BookmarkTreeNode::Separator(SeparatorNode {
             guid: dm.guid,
-            date_added: dm.dateAdded.map(|v| Timestamp(v / 1000)),
-            last_modified: dm.lastModified.map(|v| Timestamp(v / 1000)),
+            date_added: dm.date_added.map(|v| Timestamp(v / 1000)),
+            last_modified: dm.last_modified.map(|v| Timestamp(v / 1000)),
         }),
         BookmarkType::Folder => BookmarkTreeNode::Folder(FolderNode {
             guid: dm.guid,
-            date_added: dm.dateAdded.map(|v| Timestamp(v / 1000)),
-            last_modified: dm.lastModified.map(|v| Timestamp(v / 1000)),
+            date_added: dm.date_added.map(|v| Timestamp(v / 1000)),
+            last_modified: dm.last_modified.map(|v| Timestamp(v / 1000)),
             title: dm.title,
             children: dm
                 .children
@@ -118,8 +118,7 @@ fn do_import(db: &PlacesDb, root: BookmarkTreeNode) -> Result<()> {
     Ok(())
 }
 
-fn run_desktop_import(db: &PlacesDb, matches: &clap::ArgMatches) -> Result<()> {
-    let filename = matches.value_of("input-file").unwrap();
+fn run_desktop_import(db: &PlacesDb, filename: String) -> Result<()> {
     println!("import from {}", filename);
 
     let file = File::open(filename)?;
@@ -136,8 +135,7 @@ fn run_desktop_import(db: &PlacesDb, matches: &clap::ArgMatches) -> Result<()> {
     do_import(db, root)
 }
 
-fn run_native_import(db: &PlacesDb, matches: &clap::ArgMatches) -> Result<()> {
-    let filename = matches.value_of("input-file").unwrap();
+fn run_native_import(db: &PlacesDb, filename: String) -> Result<()> {
     println!("import from {}", filename);
 
     let file = File::open(filename)?;
@@ -147,8 +145,7 @@ fn run_native_import(db: &PlacesDb, matches: &clap::ArgMatches) -> Result<()> {
     do_import(db, root)
 }
 
-fn run_native_export(db: &PlacesDb, matches: &clap::ArgMatches) -> Result<()> {
-    let filename = matches.value_of("output-file").unwrap();
+fn run_native_export(db: &PlacesDb, filename: String) -> Result<()> {
     println!("export to {}", filename);
 
     let file = File::create(filename)?;
@@ -159,74 +156,67 @@ fn run_native_export(db: &PlacesDb, matches: &clap::ArgMatches) -> Result<()> {
     Ok(())
 }
 
+// Note: this uses doc comments to generate the help text.
+#[derive(Clone, Debug, StructOpt)]
+#[structopt(name = "places-utils", about = "Command-line utilities for places")]
+pub struct Opts {
+    #[structopt(
+        name = "database_path",
+        long,
+        short = "d",
+        default_value = "./new-places.db"
+    )]
+    /// Path to the database, which will be created if it doesn't exist.
+    pub database_path: String,
+
+    #[structopt(name = "encryption_key", long, short = "k")]
+    /// The database encryption key. If not specified the database will not
+    /// be encrypted.
+    pub encryption_key: Option<String>,
+
+    #[structopt(subcommand)]
+    cmd: Command,
+}
+
+#[derive(Clone, Debug, StructOpt)]
+enum Command {
+    #[structopt(name = "export-bookmarks")]
+    /// Exports bookmarks (but not in a way Desktop can import it!)
+    ExportBookmarks {
+        #[structopt(name = "output-file", long, short = "o")]
+        /// The name of the output file where the json will be written.
+        output_file: String,
+    },
+
+    #[structopt(name = "import-bookmarks")]
+    /// Import bookmarks from a 'native' export (ie, as exported by this utility)
+    ImportBookmarks {
+        #[structopt(name = "input-file", long, short = "i")]
+        /// The name of the file to read.
+        input_file: String,
+    },
+
+    #[structopt(name = "import-desktop-bookmarks")]
+    /// Import bookmarks from JSON file exported by desktop Firefox
+    ImportDesktopBookmarks {
+        #[structopt(name = "input-file", long, short = "i")]
+        /// Imports bookmarks from a desktop export
+        input_file: String,
+    },
+}
+
 fn main() -> Result<()> {
     init_logging();
 
-    let matches = clap::App::new("places_utils")
-        .about("Command-line utilities for places")
-        .arg(
-            clap::Arg::with_name("database_path")
-                .short("d")
-                .long("database")
-                .value_name("DATABASE")
-                .takes_value(true)
-                .help("Path to the database (default: \"./new-places.db\")"),
-        )
-        .arg(
-            clap::Arg::with_name("encryption_key")
-                .short("k")
-                .long("key")
-                .value_name("ENCRYPTION_KEY")
-                .takes_value(true)
-                .help("Database encryption key."),
-        )
-        .subcommand(
-            clap::SubCommand::with_name("export-bookmarks")
-                .about("Exports bookmarks (but not in a way Desktop can import it!)")
-                .arg(
-                    clap::Arg::with_name("output-file")
-                        .short("o")
-                        .value_name("FILE")
-                        .takes_value(true)
-                        .help("The name of the json file to export to from")
-                        .required(true),
-                ),
-        )
-        .subcommand(
-            clap::SubCommand::with_name("import-bookmarks")
-                .about("Import bookmarks from a 'native' export (ie, as exported by this utility)")
-                .arg(
-                    clap::Arg::with_name("input-file")
-                        .short("i")
-                        .value_name("FILE")
-                        .takes_value(true)
-                        .help("The name of the json file to import from")
-                        .required(true),
-                ),
-        )
-        .subcommand(
-            clap::SubCommand::with_name("import-desktop-bookmarks")
-                .about("Imports bookmarks from a desktop export")
-                .arg(
-                    clap::Arg::with_name("input-file")
-                        .short("i")
-                        .value_name("FILE")
-                        .takes_value(true)
-                        .help("The name of the json file to import from")
-                        .required(true),
-                ),
-        )
-        .get_matches();
+    let opts = Opts::from_args();
 
-    let db_path = matches
-        .value_of("database_path")
-        .unwrap_or("./new-places.db");
-    let db = PlacesDb::open(db_path, matches.value_of("encryption_key"))?;
+    let db_path = opts.database_path;
+    let encryption_key: Option<&str> = opts.encryption_key.as_ref().map(|s| &**s);
+    let db = PlacesDb::open(db_path, encryption_key)?;
 
-    match matches.subcommand() {
-        ("export-bookmarks", Some(m)) => run_native_export(&db, m),
-        ("import-bookmarks", Some(m)) => run_native_import(&db, m),
-        ("import-desktop-bookmarks", Some(m)) => run_desktop_import(&db, m),
-        _ => Ok(()),
+    match opts.cmd {
+        Command::ExportBookmarks { output_file } => run_native_export(&db, output_file),
+        Command::ImportBookmarks { input_file } => run_native_import(&db, input_file),
+        Command::ImportDesktopBookmarks { input_file } => run_desktop_import(&db, input_file),
     }
 }

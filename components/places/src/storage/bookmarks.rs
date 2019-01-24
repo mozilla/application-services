@@ -475,32 +475,41 @@ impl<'de> Deserialize<'de> for BookmarkTreeNode {
             date_added: Option<Timestamp>,
             last_modified: Option<Timestamp>,
             title: Option<String>,
-            #[serde(with = "url_serde")]
-            url: Option<Url>,
+            url: Option<String>,
             children: Vec<BookmarkTreeNode>,
         }
         let m = Mapping::deserialize(deserializer)?;
 
-        // this patten has been copy-pasta'd too often...
-        let bookmark_type = match BookmarkType::from_u8(m.bookmark_type) {
-            Some(t) => t,
-            None => match m.url {
-                Some(_) => BookmarkType::Bookmark,
-                _ => BookmarkType::Folder,
+        let url = match m.url {
+            Some(ref u) => match Url::parse(u) {
+                Err(e) => {
+                    log::warn!("ignoring invalid url {}: {:?}", u, e);
+                    None
+                }
+                Ok(parsed) => Some(parsed),
             },
+            None => None,
         };
 
-        Ok(match bookmark_type {
-            BookmarkType::Bookmark => {
-                BookmarkTreeNode::Bookmark(BookmarkNode {
-                    guid: m.guid,
-                    date_added: m.date_added,
-                    last_modified: m.last_modified,
-                    title: m.title,
-                    // XXX - need to handle None and invalid URLs
-                    url: m.url.unwrap(),
-                })
+        let bookmark_type = match BookmarkType::from_u8(m.bookmark_type) {
+            Some(BookmarkType::Bookmark) | None => {
+                // Even if the node says it is a bookmark it still must have a
+                // valid url.
+                match url {
+                    Some(_) => BookmarkType::Bookmark,
+                    None => BookmarkType::Folder,
+                }
             }
+            Some(t) => t,
+        };
+        Ok(match bookmark_type {
+            BookmarkType::Bookmark => BookmarkTreeNode::Bookmark(BookmarkNode {
+                guid: m.guid,
+                date_added: m.date_added,
+                last_modified: m.last_modified,
+                title: m.title,
+                url: url.unwrap(),
+            }),
             BookmarkType::Separator => BookmarkTreeNode::Separator(SeparatorNode {
                 guid: m.guid,
                 date_added: m.date_added,
@@ -558,13 +567,67 @@ mod test_serialize {
         assert_eq!(tree, deser_tree);
         Ok(())
     }
+
+    #[test]
+    fn test_tree_invalid() -> Result<()> {
+        let jtree = json!({
+            "type": 2,
+            "children" : [
+                {
+                    "type": 1,
+                    "title": "bookmark with invalid URL",
+                    "url": "invalid_url"
+                },
+                {
+                    "type": 1,
+                    "title": "bookmark with missing URL",
+                },
+                {
+                    "title": "bookmark with missing type, no URL",
+                },
+                {
+                    "title": "bookmark with missing type, valid URL",
+                    "url": "http://example.com"
+                },
+
+            ]
+        });
+        let deser_tree: BookmarkTreeNode = serde_json::from_value(jtree).expect("should deser");
+        let folder = match deser_tree {
+            BookmarkTreeNode::Folder(f) => f,
+            _ => panic!("must be a folder"),
+        };
+
+        let children = folder.children;
+        assert_eq!(children.len(), 4);
+
+        assert!(match &children[0] {
+            BookmarkTreeNode::Folder(f) => f.title == Some("bookmark with invalid URL".to_string()),
+            _ => false,
+        });
+        assert!(match &children[1] {
+            BookmarkTreeNode::Folder(f) => f.title == Some("bookmark with missing URL".to_string()),
+            _ => false,
+        });
+        assert!(match &children[2] {
+            BookmarkTreeNode::Folder(f) => {
+                f.title == Some("bookmark with missing type, no URL".to_string())
+            }
+            _ => false,
+        });
+        assert!(match &children[3] {
+            BookmarkTreeNode::Bookmark(b) => {
+                b.title == Some("bookmark with missing type, valid URL".to_string())
+            }
+            _ => false,
+        });
+
+        Ok(())
+    }
+
 }
 
-fn add_subtree_infos(
-    parent: &SyncGuid,
-    tree: &FolderNode,
-    insert_infos: &mut Vec<InsertableItem>,
-) {
+fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Vec<InsertableItem>) {
     // TODO: track last modified? Like desktop, we should probably have
     // the default values passed in so the entire tree has consistent
     // timestamps.
@@ -742,7 +805,9 @@ where
                         date_added: Some(row.date_added),
                         last_modified: Some(row.last_modified),
                     })),
-                    BookmarkType::Folder => unreachable!("impossible - we already peeked and checked"),
+                    BookmarkType::Folder => {
+                        unreachable!("impossible - we already peeked and checked")
+                    }
                 }
             }
         };
