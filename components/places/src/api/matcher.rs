@@ -372,7 +372,7 @@ const ORIGIN_SQL: &'static str = "
 impl<'query, 'conn> Matcher for OriginOrUrl<'query, 'conn> {
     fn search(&self, _: u32) -> Result<Vec<SearchResult>> {
         Ok(if looks_like_origin(self.query) {
-            self.conn.query_rows_and_then_named(
+            self.conn.query_rows_and_then_named_cached(
                 ORIGIN_SQL,
                 &[
                     (":prefix", &rusqlite::types::Null),
@@ -385,7 +385,7 @@ impl<'query, 'conn> Matcher for OriginOrUrl<'query, 'conn> {
             let (host, remainder) = split_after_host_and_port(self.query);
             let punycode_host = idna::domain_to_ascii(host).ok();
             let host_str = punycode_host.as_ref().map(|s| s.as_str()).unwrap_or(host);
-            self.conn.query_rows_and_then_named(
+            self.conn.query_rows_and_then_named_cached(
                 URL_SQL,
                 &[
                     (":searchString", &self.query),
@@ -435,7 +435,7 @@ impl<'query, 'conn> Adaptive<'query, 'conn> {
 
 impl<'query, 'conn> Matcher for Adaptive<'query, 'conn> {
     fn search(&self, max_results: u32) -> Result<Vec<SearchResult>> {
-        Ok(self.conn.query_rows_and_then_named(
+        Ok(self.conn.query_rows_and_then_named_cached(
             "
             SELECT h.url as url,
                    h.title as title,
@@ -512,7 +512,7 @@ impl<'query, 'conn> Suggestions<'query, 'conn> {
 
 impl<'query, 'conn> Matcher for Suggestions<'query, 'conn> {
     fn search(&self, max_results: u32) -> Result<Vec<SearchResult>> {
-        Ok(self.conn.query_rows_and_then_named(
+        Ok(self.conn.query_rows_and_then_named_cached(
             "
             SELECT h.url, h.title,
                    EXISTS(SELECT 1 FROM moz_bookmarks
