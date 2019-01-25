@@ -6,6 +6,7 @@ authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 
 [features]
 ffi = ["ffi-support"]
+log_query_plans = ["sql-support/log_query_plans"]
 default = []
 
 [dependencies]
