@@ -50,71 +50,72 @@ typedef struct SyncKeysC {
 typedef struct ProfileC {
     const char *const _Nonnull uid;
     const char *const _Nonnull email;
-    const char *const _Nonnull avatar;
+    const char *const _Nullable avatar;
+    const uint8_t avatar_default;
     const char *const _Nullable display_name;
 } ProfileC;
 
-typedef struct FirefoxAccount FirefoxAccount;
+typedef uint64_t FirefoxAccountHandle;
 
-char *_Nonnull fxa_begin_oauth_flow(FirefoxAccount *_Nonnull fxa,
+char *_Nonnull fxa_begin_oauth_flow(FirefoxAccountHandle handle,
                                     const char *_Nonnull scopes,
                                     bool wants_keys,
                                     FxAErrorC *_Nonnull out);
 
-void fxa_complete_oauth_flow(FirefoxAccount *_Nonnull fxa,
+void fxa_complete_oauth_flow(FirefoxAccountHandle handle,
                              const char *_Nonnull code,
                              const char *_Nonnull state,
                              FxAErrorC *_Nonnull out);
 
-AccessTokenInfoC *_Nullable fxa_get_access_token(FirefoxAccount *_Nonnull fxa,
+AccessTokenInfoC *_Nullable fxa_get_access_token(FirefoxAccountHandle handle,
                                                  const char *_Nonnull scope,
                                                  FxAErrorC *_Nonnull out);
 
-FirefoxAccount *_Nullable fxa_from_json(const char *_Nonnull json,
-                                        FxAErrorC *_Nonnull out);
-
-char *_Nullable fxa_to_json(FirefoxAccount *_Nonnull fxa,
-                            FxAErrorC *_Nonnull out);
-
-void fxa_register_persist_callback(FirefoxAccount *_Nonnull fxa,
-                                   void (*_Nonnull callback_fn)(const char* _Nonnull json),
+FirefoxAccountHandle fxa_from_json(const char *_Nonnull json,
                                    FxAErrorC *_Nonnull out);
 
-void fxa_unregister_persist_callback(FirefoxAccount *_Nonnull fxa,
+char *_Nullable fxa_to_json(FirefoxAccountHandle handle,
+                            FxAErrorC *_Nonnull out);
+
+void fxa_register_persist_callback(FirefoxAccountHandle handle,
+                                   void (*_Nonnull callback_fn)(const char *_Nonnull json),
+                                   FxAErrorC *_Nonnull out);
+
+void fxa_unregister_persist_callback(FirefoxAccountHandle handle,
                                      FxAErrorC *_Nonnull out);
 
-FirefoxAccount *_Nullable fxa_new(const char *_Nonnull content_base,
-                                  const char *_Nonnull client_id,
-                                  const char *_Nonnull redirect_uri,
-                                  FxAErrorC *_Nonnull out);
+FirefoxAccountHandle fxa_new(const char *_Nonnull content_base,
+                             const char *_Nonnull client_id,
+                             const char *_Nonnull redirect_uri,
+                             FxAErrorC *_Nonnull out);
 
-ProfileC *_Nullable fxa_profile(FirefoxAccount *_Nonnull fxa,
+ProfileC *_Nullable fxa_profile(FirefoxAccountHandle handle,
                                 bool ignore_cache,
                                 FxAErrorC *_Nonnull out);
 
-FirefoxAccount *_Nullable fxa_from_credentials(const char *_Nonnull content_base,
-                                               const char *_Nonnull client_id,
-                                               const char *_Nonnull redirect_uri,
-                                               const char *_Nonnull json,
-                                               FxAErrorC *_Nonnull out);
+FirefoxAccountHandle fxa_from_credentials(const char *_Nonnull content_base,
+                                          const char *_Nonnull client_id,
+                                          const char *_Nonnull redirect_uri,
+                                          const char *_Nonnull json,
+                                          FxAErrorC *_Nonnull out);
 
-char *_Nullable fxa_assertion_new(FirefoxAccount *_Nonnull fxa,
+char *_Nullable fxa_assertion_new(FirefoxAccountHandle handle,
                                   const char *_Nonnull audience,
                                   FxAErrorC *_Nonnull out);
 
-char *_Nullable fxa_get_token_server_endpoint_url(FirefoxAccount *_Nonnull fxa,
+char *_Nullable fxa_get_token_server_endpoint_url(FirefoxAccountHandle handle,
                                                   FxAErrorC *_Nonnull out);
 
-char *_Nullable fxa_get_connection_success_url(FirefoxAccount *_Nonnull fxa,
+char *_Nullable fxa_get_connection_success_url(FirefoxAccountHandle handle,
                                                FxAErrorC *_Nonnull out);
 
-SyncKeysC *_Nullable fxa_get_sync_keys(FirefoxAccount *_Nonnull fxa,
+SyncKeysC *_Nullable fxa_get_sync_keys(FirefoxAccountHandle handle,
                                        FxAErrorC *_Nonnull out);
 
-void fxa_str_free(char* _Nullable ptr);
-void fxa_free(FirefoxAccount* _Nullable ptr);
-void fxa_oauth_info_free(AccessTokenInfoC* _Nullable ptr);
-void fxa_profile_free(ProfileC* _Nullable ptr);
-void fxa_sync_keys_free(SyncKeysC* _Nullable ptr);
+void fxa_str_free(char *_Nullable ptr);
+void fxa_free(FirefoxAccountHandle h, FxAErrorC *_Nonnull out);
+void fxa_oauth_info_free(AccessTokenInfoC *_Nullable ptr);
+void fxa_profile_free(ProfileC *_Nullable ptr);
+void fxa_sync_keys_free(SyncKeysC *_Nullable ptr);
 
 #endif /* fxa_h */

@@ -3,21 +3,28 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use ffi_support::{
-    call_with_output, call_with_result, define_box_destructor, define_string_destructor,
-    rust_str_from_c, ExternError,
+    define_box_destructor, define_handle_map_deleter, define_string_destructor, rust_str_from_c,
+    ConcurrentHandleMap, ExternError,
 };
 use fxa_client::{ffi::*, FirefoxAccount, PersistCallback};
 use std::{ffi::CString, os::raw::c_char};
 
-fn logging_init() {
+#[no_mangle]
+pub extern "C" fn fxa_enable_logcat_logging() {
     #[cfg(target_os = "android")]
     {
-        android_logger::init_once(
-            android_logger::Filter::default().with_min_level(log::Level::Debug),
-            Some("libfxaclient_ffi"),
-        );
-        log::debug!("Android logging should be hooked up!")
+        let _ = std::panic::catch_unwind(|| {
+            android_logger::init_once(
+                android_logger::Filter::default().with_min_level(log::Level::Debug),
+                Some("libfxaclient_ffi"),
+            );
+            log::debug!("Android logging should be hooked up!")
+        });
     }
+}
+
+lazy_static::lazy_static! {
+    static ref ACCOUNTS: ConcurrentHandleMap<FirefoxAccount> = ConcurrentHandleMap::new();
 }
 
 /// Creates a [FirefoxAccount] from credentials obtained with the onepw FxA login flow.
@@ -37,11 +44,10 @@ pub unsafe extern "C" fn fxa_from_credentials(
     redirect_uri: *const c_char,
     json: *const c_char,
     err: &mut ExternError,
-) -> *mut FirefoxAccount {
+) -> u64 {
     use fxa_client::WebChannelResponse;
-    logging_init();
     log::debug!("fxa_from_credentials");
-    call_with_result(err, || {
+    ACCOUNTS.insert_with_result(err, || {
         let content_url = rust_str_from_c(content_url);
         let client_id = rust_str_from_c(client_id);
         let redirect_uri = rust_str_from_c(redirect_uri);
@@ -63,10 +69,9 @@ pub unsafe extern "C" fn fxa_new(
     client_id: *const c_char,
     redirect_uri: *const c_char,
     err: &mut ExternError,
-) -> *mut FirefoxAccount {
-    logging_init();
+) -> u64 {
     log::debug!("fxa_new");
-    call_with_output(err, || {
+    ACCOUNTS.insert_with_output(err, || {
         let content_url = rust_str_from_c(content_url);
         let client_id = rust_str_from_c(client_id);
         let redirect_uri = rust_str_from_c(redirect_uri);
@@ -81,13 +86,9 @@ pub unsafe extern "C" fn fxa_new(
 /// A destructor [fxa_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub unsafe extern "C" fn fxa_from_json(
-    json: *const c_char,
-    err: &mut ExternError,
-) -> *mut FirefoxAccount {
-    logging_init();
+pub unsafe extern "C" fn fxa_from_json(json: *const c_char, err: &mut ExternError) -> u64 {
     log::debug!("fxa_from_json");
-    call_with_result(err, || FirefoxAccount::from_json(rust_str_from_c(json)))
+    ACCOUNTS.insert_with_result(err, || FirefoxAccount::from_json(rust_str_from_c(json)))
 }
 
 /// Serializes the state of a [FirefoxAccount] instance. It can be restored later with [fxa_from_json].
@@ -100,21 +101,21 @@ pub unsafe extern "C" fn fxa_from_json(
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_to_json(fxa: &mut FirefoxAccount, error: &mut ExternError) -> *mut c_char {
+pub extern "C" fn fxa_to_json(handle: u64, error: &mut ExternError) -> *mut c_char {
     log::debug!("fxa_to_json");
-    call_with_result(error, || fxa.to_json())
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.to_json())
 }
 
 /// Registers a callback that gets called every time the FirefoxAccount internal state
 /// changed and therefore need to be persisted.
 #[no_mangle]
 pub unsafe extern "C" fn fxa_register_persist_callback(
-    fxa: &mut FirefoxAccount,
+    handle: u64,
     callback: extern "C" fn(json: *const c_char),
     error: &mut ExternError,
 ) {
     log::debug!("fxa_register_persist_callback");
-    call_with_output(error, || {
+    ACCOUNTS.call_with_output_mut(error, handle, |fxa| {
         fxa.register_persist_callback(PersistCallback::new(move |json| {
             // It's impossible for JSON to have embedded null bytes.
             let s = CString::new(json).unwrap();
@@ -125,12 +126,9 @@ pub unsafe extern "C" fn fxa_register_persist_callback(
 
 /// Unregisters a previous registered persist callback
 #[no_mangle]
-pub extern "C" fn fxa_unregister_persist_callback(
-    fxa: &mut FirefoxAccount,
-    error: &mut ExternError,
-) {
+pub extern "C" fn fxa_unregister_persist_callback(handle: u64, error: &mut ExternError) {
     log::debug!("fxa_unregister_persist_callback");
-    call_with_output(error, || {
+    ACCOUNTS.call_with_output_mut(error, handle, |fxa| {
         fxa.unregister_persist_callback();
     });
 }
@@ -146,12 +144,12 @@ pub extern "C" fn fxa_unregister_persist_callback(
 /// pointer type.
 #[no_mangle]
 pub extern "C" fn fxa_profile(
-    fxa: &mut FirefoxAccount,
+    handle: u64,
     ignore_cache: bool,
     error: &mut ExternError,
 ) -> *mut ProfileC {
     log::debug!("fxa_profile");
-    call_with_result(error, || fxa.get_profile(ignore_cache))
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.get_profile(ignore_cache))
 }
 
 /// Get the Sync token server endpoint URL.
@@ -162,11 +160,11 @@ pub extern "C" fn fxa_profile(
 /// pointer type.
 #[no_mangle]
 pub extern "C" fn fxa_get_token_server_endpoint_url(
-    fxa: &FirefoxAccount,
+    handle: u64,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("fxa_get_token_server_endpoint_url");
-    call_with_result(error, || {
+    ACCOUNTS.call_with_result(error, handle, |fxa| {
         fxa.get_token_server_endpoint_url().map(|u| u.to_string())
     })
 }
@@ -179,11 +177,11 @@ pub extern "C" fn fxa_get_token_server_endpoint_url(
 /// pointer type.
 #[no_mangle]
 pub extern "C" fn fxa_get_connection_success_url(
-    fxa: &FirefoxAccount,
+    handle: u64,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("fxa_get_connection_success_url");
-    call_with_result(error, || {
+    ACCOUNTS.call_with_result(error, handle, |fxa| {
         fxa.get_connection_success_url().map(|u| u.to_string())
     })
 }
@@ -198,12 +196,12 @@ pub extern "C" fn fxa_get_connection_success_url(
 #[cfg(feature = "browserid")]
 #[no_mangle]
 pub unsafe extern "C" fn fxa_assertion_new(
-    fxa: &mut FirefoxAccount,
+    handle: u64,
     audience: *const c_char,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("fxa_assertion_new");
-    call_with_result(error, || {
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let audience = rust_str_from_c(audience);
         fxa.generate_assertion(audience)
     })
@@ -218,12 +216,9 @@ pub unsafe extern "C" fn fxa_assertion_new(
 /// pointer type.
 #[cfg(feature = "browserid")]
 #[no_mangle]
-pub extern "C" fn fxa_get_sync_keys(
-    fxa: &mut FirefoxAccount,
-    error: &mut ExternError,
-) -> *mut SyncKeysC {
+pub extern "C" fn fxa_get_sync_keys(handle: u64, error: &mut ExternError) -> *mut SyncKeysC {
     log::debug!("fxa_get_sync_keys");
-    call_with_result(error, || fxa.get_sync_keys())
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.get_sync_keys())
 }
 
 /// Request a OAuth token by starting a new pairing flow, by calling the content server pairing endpoint.
@@ -238,13 +233,13 @@ pub extern "C" fn fxa_get_sync_keys(
 /// pointer type.
 #[no_mangle]
 pub unsafe extern "C" fn fxa_begin_pairing_flow(
-    fxa: &mut FirefoxAccount,
+    handle: u64,
     pairing_url: *const c_char,
     scope: *const c_char,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("fxa_begin_pairing_flow");
-    call_with_result(error, || {
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let pairing_url = rust_str_from_c(pairing_url);
         let scope = rust_str_from_c(scope);
         let scopes: Vec<&str> = scope.split(" ").collect();
@@ -268,13 +263,13 @@ pub unsafe extern "C" fn fxa_begin_pairing_flow(
 /// pointer type.
 #[no_mangle]
 pub unsafe extern "C" fn fxa_begin_oauth_flow(
-    fxa: &mut FirefoxAccount,
+    handle: u64,
     scope: *const c_char,
     wants_keys: bool,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("fxa_begin_oauth_flow");
-    call_with_result(error, || {
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let scope = rust_str_from_c(scope);
         let scopes: Vec<&str> = scope.split(" ").collect();
         fxa.begin_oauth_flow(&scopes, wants_keys)
@@ -289,13 +284,13 @@ pub unsafe extern "C" fn fxa_begin_oauth_flow(
 /// pointer type.
 #[no_mangle]
 pub unsafe extern "C" fn fxa_complete_oauth_flow(
-    fxa: &mut FirefoxAccount,
+    handle: u64,
     code: *const c_char,
     state: *const c_char,
     error: &mut ExternError,
 ) {
     log::debug!("fxa_complete_oauth_flow");
-    call_with_result(error, || {
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let code = rust_str_from_c(code);
         let state = rust_str_from_c(state);
         fxa.complete_oauth_flow(code, state)
@@ -315,12 +310,12 @@ pub unsafe extern "C" fn fxa_complete_oauth_flow(
 /// pointer type.
 #[no_mangle]
 pub unsafe extern "C" fn fxa_get_access_token(
-    fxa: &mut FirefoxAccount,
+    handle: u64,
     scope: *const c_char,
     error: &mut ExternError,
 ) -> *mut AccessTokenInfoC {
     log::debug!("fxa_get_access_token");
-    call_with_result(error, || {
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let scope = rust_str_from_c(scope);
         fxa.get_access_token(&scope)
     })
@@ -328,7 +323,7 @@ pub unsafe extern "C" fn fxa_get_access_token(
 
 define_string_destructor!(fxa_str_free);
 
-define_box_destructor!(FirefoxAccount, fxa_free);
+define_handle_map_deleter!(ACCOUNTS, fxa_free);
 define_box_destructor!(AccessTokenInfoC, fxa_oauth_info_free);
 define_box_destructor!(ProfileC, fxa_profile_free);
 define_box_destructor!(SyncKeysC, fxa_sync_keys_free);

@@ -63,7 +63,7 @@ impl SetupStorageClient for Sync15StorageClient {
         }?;
         // Note: meta/global is not encrypted!
         let meta_global: BsoRecord<MetaGlobalRecord> = resp.json()?;
-        log::info!("Meta global: {:?}", meta_global.payload);
+        log::trace!("Meta global: {:?}", meta_global.payload);
         Ok(meta_global)
     }
 

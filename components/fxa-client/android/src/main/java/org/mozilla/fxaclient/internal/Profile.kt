@@ -14,12 +14,14 @@ class Profile internal constructor(raw: Raw) {
     val uid: String?
     val email: String?
     val avatar: String?
+    val avatarDefault: Boolean
     val displayName: String?
 
     internal class Raw(p: Pointer) : Structure(p) {
         @JvmField var uid: Pointer? = null
         @JvmField var email: Pointer? = null
         @JvmField var avatar: Pointer? = null
+        @JvmField var avatarDefault: Byte = 0
         @JvmField var displayName: Pointer? = null
 
         init {
@@ -27,7 +29,7 @@ class Profile internal constructor(raw: Raw) {
         }
 
         override fun getFieldOrder(): List<String> {
-            return Arrays.asList("uid", "email", "avatar", "displayName")
+            return Arrays.asList("uid", "email", "avatar", "avatarDefault", "displayName")
         }
     }
 
@@ -36,6 +38,7 @@ class Profile internal constructor(raw: Raw) {
             this.uid = raw.uid?.getRustString()
             this.email = raw.email?.getRustString()
             this.avatar = raw.avatar?.getRustString()
+            this.avatarDefault = raw.avatarDefault == 1.toByte()
             this.displayName = raw.displayName?.getRustString()
         } finally {
             FxaClient.INSTANCE.fxa_profile_free(raw.pointer)

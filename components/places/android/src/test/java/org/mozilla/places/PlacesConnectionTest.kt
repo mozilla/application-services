@@ -106,6 +106,14 @@ class PlacesConnectionTest {
     }
 
 
+    @Test
+    fun testNoteObservationBadUrl() {
+        try {
+            db.noteObservation(VisitObservation(url = "http://www.[].com", visitType = VisitType.LINK))
+        } catch (e: PlacesException) {
+            assert(e is UrlParseFailed)
+        }
+    }
 
 }
 

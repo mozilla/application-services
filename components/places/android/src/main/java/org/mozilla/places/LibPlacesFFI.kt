@@ -25,7 +25,12 @@ internal interface LibPlacesFFI : Library {
         }()
 
         internal var INSTANCE: LibPlacesFFI = try {
-            Native.loadLibrary(JNA_LIBRARY_NAME, LibPlacesFFI::class.java) as LibPlacesFFI
+            val lib = Native.loadLibrary(JNA_LIBRARY_NAME, LibPlacesFFI::class.java) as LibPlacesFFI
+            if (JNA_LIBRARY_NAME == "places_ffi") {
+                // Enable logcat logging if we aren't in a megazord.
+                lib.places_enable_logcat_logging()
+            }
+            lib
         } catch (e: UnsatisfiedLinkError) {
             Proxy.newProxyInstance(
                 LibPlacesFFI::class.java.classLoader,
@@ -36,6 +41,8 @@ internal interface LibPlacesFFI : Library {
         }
     }
 
+    fun places_enable_logcat_logging()
+
     // Important: strings returned from rust as *mut char must be Pointers on this end, returning a
     // String will work but either force us to leak them, or cause us to corrupt the heap (when we
     // free them).
@@ -45,17 +52,17 @@ internal interface LibPlacesFFI : Library {
             db_path: String,
             encryption_key: String?,
             out_err: RustError.ByReference
-    ): RawPlacesConnection?
+    ): PlacesConnectionHandle
 
     fun places_note_observation(
-            conn: RawPlacesConnection,
+            handle: PlacesConnectionHandle,
             json_observation_data: String,
             out_err: RustError.ByReference
     )
 
     /** Returns JSON string, which you need to free with places_destroy_string */
     fun places_query_autocomplete(
-            conn: RawPlacesConnection,
+            handle: PlacesConnectionHandle,
             search: String,
             limit: Int,
             out_err: RustError.ByReference
@@ -65,7 +72,7 @@ internal interface LibPlacesFFI : Library {
      * is provided for a slight additional amount of sanity checking. These lengths are the number
      * of elements present (and not e.g. the number of bytes allocated). */
     fun places_get_visited(
-            conn: RawPlacesConnection,
+            handle: PlacesConnectionHandle,
             urls: StringArray,
             urls_len: Int,
             buffer: Pointer,
@@ -74,7 +81,7 @@ internal interface LibPlacesFFI : Library {
     )
 
     fun places_get_visited_urls_in_range(
-            conn: RawPlacesConnection,
+            handle: PlacesConnectionHandle,
             start: Long,
             end: Long,
             include_remote: Byte,
@@ -82,7 +89,7 @@ internal interface LibPlacesFFI : Library {
     ): Pointer?
 
     fun sync15_history_sync(
-            conn: RawPlacesConnection,
+            handle: PlacesConnectionHandle,
             key_id: String,
             access_token: String,
             sync_key: String,
@@ -94,7 +101,7 @@ internal interface LibPlacesFFI : Library {
     fun places_destroy_string(s: Pointer)
 
     /** Destroy connection created using `places_connection_new` */
-    fun places_connection_destroy(obj: RawPlacesConnection)
+    fun places_connection_destroy(handle: PlacesConnectionHandle, out_err: RustError.ByReference)
 }
 
-class RawPlacesConnection : PointerType()
+internal typealias PlacesConnectionHandle = Long;
