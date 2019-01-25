@@ -9,7 +9,9 @@
 use super::schema;
 use crate::error::*;
 use crate::hash;
-use rusqlite::{self, Connection};
+use rusqlite::{
+    functions::Context, types::ValueRef, Connection, Error as SqlError, Result as SqlResult,
+};
 use sql_support::{self, ConnExt};
 use std::ops::Deref;
 use std::path::Path;
@@ -129,24 +131,45 @@ impl Deref for PlacesDb {
         &self.db
     }
 }
+// Helpers for define_functions
+fn get_raw_str<'a>(ctx: &'a Context, fname: &'static str, idx: usize) -> SqlResult<&'a str> {
+    ctx.get_raw(idx).as_str().map_err(|e| {
+        SqlError::UserFunctionError(format!("Bad arg {} to '{}': {}", idx, fname, e).into())
+    })
+}
+
+fn get_raw_opt_str<'a>(
+    ctx: &'a Context,
+    fname: &'static str,
+    idx: usize,
+) -> SqlResult<Option<&'a str>> {
+    let raw = ctx.get_raw(idx);
+    if raw == ValueRef::Null {
+        return Ok(None);
+    }
+    Ok(Some(raw.as_str().map_err(|e| {
+        SqlError::UserFunctionError(format!("Bad arg {} to '{}': {}", idx, fname, e).into())
+    })?))
+}
 
 fn define_functions(c: &Connection) -> Result<()> {
     c.create_scalar_function("get_prefix", 1, true, move |ctx| {
-        let href = ctx.get::<String>(0)?;
+        let href = get_raw_str(ctx, "get_prefix", 0)?;
         let (prefix, _) = split_after_prefix(&href);
         Ok(prefix.to_owned())
     })?;
     c.create_scalar_function("get_host_and_port", 1, true, move |ctx| {
-        let href = ctx.get::<String>(0)?;
+        let href = get_raw_str(ctx, "get_host_and_port", 0)?;
         let (host_and_port, _) = split_after_host_and_port(&href);
         Ok(host_and_port.to_owned())
     })?;
     c.create_scalar_function("strip_prefix_and_userinfo", 1, true, move |ctx| {
-        let href = ctx.get::<String>(0)?;
+        let href = get_raw_str(ctx, "strip_prefix_and_userinfo", 0)?;
         let (host_and_port, remainder) = split_after_host_and_port(&href);
         Ok([host_and_port, remainder].concat())
     })?;
     c.create_scalar_function("reverse_host", 1, true, move |ctx| {
+        // We reuse this memory so no need for get_raw.
         let mut host = ctx.get::<String>(0)?;
         debug_assert!(host.is_ascii(), "Hosts must be Punycoded");
 
@@ -160,11 +183,10 @@ fn define_functions(c: &Connection) -> Result<()> {
         Ok(rev_host)
     })?;
     c.create_scalar_function("autocomplete_match", 10, true, move |ctx| {
-        // Eventually we'll be able to borrow out of `ctx`, and avoid many of these copies.
-        let search_string = ctx.get::<String>(0)?;
-        let url = ctx.get::<String>(1)?;
-        let title = ctx.get::<Option<String>>(2)?.unwrap_or_default();
-        let tags = ctx.get::<Option<String>>(3)?.unwrap_or_default();
+        let search_str = get_raw_str(ctx, "autocomplete_match", 0)?;
+        let url_str = get_raw_str(ctx, "autocomplete_match", 1)?;
+        let title_str = get_raw_opt_str(ctx, "autocomplete_match", 2)?.unwrap_or_default();
+        let tags = get_raw_opt_str(ctx, "autocomplete_match", 3)?.unwrap_or_default();
         let visit_count = ctx.get::<u32>(4)?;
         let typed = ctx.get::<bool>(5)?;
         let bookmarked = ctx.get::<bool>(6)?;
@@ -173,10 +195,10 @@ fn define_functions(c: &Connection) -> Result<()> {
         let search_behavior = ctx.get::<SearchBehavior>(9)?;
 
         let matcher = AutocompleteMatch {
-            search_str: &search_string,
-            url_str: &url,
-            title_str: &title,
-            tags: &tags,
+            search_str,
+            url_str,
+            title_str,
+            tags,
             visit_count,
             typed,
             bookmarked,
@@ -189,13 +211,13 @@ fn define_functions(c: &Connection) -> Result<()> {
     c.create_scalar_function("hash", -1, true, move |ctx| {
         Ok(match ctx.len() {
             1 => {
-                let value = ctx.get::<String>(0)?;
-                hash::hash_url(&value)
+                let value = get_raw_str(ctx, "hash", 0)?;
+                hash::hash_url(value)
             }
             2 => {
-                let value = ctx.get::<String>(0)?;
-                let mode = ctx.get::<String>(1)?;
-                match mode.as_str() {
+                let value = get_raw_str(ctx, "hash", 0)?;
+                let mode = get_raw_str(ctx, "hash", 1)?;
+                match mode {
                     "" => hash::hash_url(&value),
                     "prefix_lo" => hash::hash_url_prefix(&value, hash::PrefixMode::Lo),
                     "prefix_hi" => hash::hash_url_prefix(&value, hash::PrefixMode::Hi),
