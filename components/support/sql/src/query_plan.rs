@@ -6,9 +6,9 @@ use rusqlite::{types::ToSql, Connection, Result as SqlResult};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct QueryPlanStep {
-    pub select_id: i32,
-    pub order: i32,
-    pub from: i32,
+    pub node_id: i32,
+    pub parent_id: i32,
+    pub aux: i32,
     pub detail: String,
 }
 
@@ -26,9 +26,9 @@ impl QueryPlan {
         let plan = stmt
             .query_and_then_named(params, |row| -> SqlResult<_> {
                 Ok(QueryPlanStep {
-                    select_id: row.get_checked(0)?,
-                    order: row.get_checked(1)?,
-                    from: row.get_checked(2)?,
+                    node_id: row.get_checked(0)?,
+                    parent_id: row.get_checked(1)?,
+                    aux: row.get_checked(2)?,
                     detail: row.get_checked(3)?,
                 })
             })?
@@ -38,19 +38,56 @@ impl QueryPlan {
             plan,
         })
     }
+
+    pub fn print_pretty_tree(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        if self.plan.len() == 0 {
+            return writeln!(f, "<no query plan>");
+        }
+        writeln!(f, "QUERY PLAN")?;
+        let children = self
+            .plan
+            .iter()
+            .filter(|e| e.parent_id == 0)
+            .collect::<Vec<_>>();
+        for (i, child) in children.iter().enumerate() {
+            let last = i == children.len() - 1;
+            self.print_tree(f, child, "", last)?;
+        }
+        Ok(())
+    }
+
+    fn print_tree(
+        &self,
+        f: &mut std::fmt::Formatter,
+        entry: &QueryPlanStep,
+        prefix: &str,
+        last_child: bool,
+    ) -> std::fmt::Result {
+        let children = self
+            .plan
+            .iter()
+            .filter(|e| e.parent_id == entry.node_id)
+            .collect::<Vec<_>>();
+        let next_prefix = if last_child {
+            writeln!(f, "{}`--{}", prefix, entry.detail)?;
+            format!("{}   ", prefix)
+        } else {
+            writeln!(f, "{}|--{}", prefix, entry.detail)?;
+            format!("{}|  ", prefix)
+        };
+        for (i, child) in children.iter().enumerate() {
+            let last = i == children.len() - 1;
+            self.print_tree(f, child, &next_prefix, last)?;
+        }
+        Ok(())
+    }
 }
 
 impl std::fmt::Display for QueryPlan {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(f, "### QUERY PLAN")?;
         writeln!(f, "#### SQL:\n{}\n#### PLAN:", self.query)?;
-        for step in self.plan.iter() {
-            writeln!(
-                f,
-                "|{}|{}|{}|{}|",
-                step.select_id, step.order, step.from, step.detail
-            )?;
-        }
+        self.print_pretty_tree(f)?;
         writeln!(f, "### END QUERY PLAN")
     }
 }
