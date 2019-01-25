@@ -7,6 +7,7 @@ authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 [features]
 default = ["sqlcipher"]
 sqlcipher = ["rusqlite/sqlcipher"]
+log_query_plans = []
 
 [dependencies]
 log = "0.4"

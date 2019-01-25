@@ -258,22 +258,17 @@ pub mod history_sync {
             Some(pi) => pi,
         };
 
-        let mut stmt = db.prepare(
-            "
-          SELECT is_local, visit_type, visit_date
-          FROM moz_historyvisits
-          WHERE place_id = :place_id
-          LIMIT :limit",
+        let visits = db.query_rows_and_then_named(
+            "SELECT is_local, visit_type, visit_date
+            FROM moz_historyvisits
+            WHERE place_id = :place_id
+            LIMIT :limit",
+            &[
+                (":place_id", &page_info.row_id),
+                (":limit", &(limit as u32)),
+            ],
+            FetchedVisit::from_row,
         )?;
-        let visits = stmt
-            .query_and_then_named(
-                &[
-                    (":place_id", &page_info.row_id),
-                    (":limit", &(limit as u32)),
-                ],
-                FetchedVisit::from_row,
-            )?
-            .collect::<Result<Vec<_>>>()?;
         Ok(Some((page_info, visits)))
     }
 
@@ -386,7 +381,7 @@ pub mod history_sync {
     ) -> Result<HashMap<SyncGuid, OutgoingInfo>> {
         // Note that we want *all* "new" regardless of change counter,
         // so that we do the right thing after a "reset".
-        let mut stmt = db.conn().prepare(&format!(
+        let places_sql = format!(
             "
             SELECT guid, url, id, title, hidden, typed, frecency,
                 visit_count_local, visit_count_remote,
@@ -397,31 +392,30 @@ pub mod history_sync {
             ORDER BY frecency DESC
             LIMIT :max_places",
             (SyncStatus::Normal as u8)
-        ))?;
-        let mut visits = db.conn().prepare(
-            "
+        );
+        let visits_sql = "
             SELECT visit_date as date, visit_type as transition
             FROM moz_historyvisits
             WHERE place_id = :place_id
             ORDER BY visit_date DESC
-            LIMIT :max_visits",
-        )?;
+            LIMIT :max_visits";
         // tombstones
-        let mut tombstones_stmt = db.conn().prepare(
-            "
-            SELECT guid FROM moz_places_tombstones LIMIT :max_places",
-        )?;
+        let tombstones_sql = "SELECT guid FROM moz_places_tombstones LIMIT :max_places";
 
         let mut result: HashMap<SyncGuid, OutgoingInfo> = HashMap::new();
 
         // We want to limit to 5000 places - tombstones are arguably the
         // most important, so we fetch these first.
-        let ts_rows = tombstones_stmt.query_and_then_named(
+        let ts_rows = db.query_rows_and_then_named(
+            tombstones_sql,
             &[(":max_places", &(max_places as u32))],
             |row| -> rusqlite::Result<_> { Ok(SyncGuid(row.get_checked::<_, String>("guid")?)) },
         )?;
-        for r in ts_rows {
-            let guid = r?;
+        // It's unfortunatee that query_rows_and_then_named returns a Vec instead of an iterator
+        // (which would be very hard to do), but as long as we have it, we might as well make use
+        // of it...
+        result.reserve(ts_rows.len());
+        for guid in ts_rows {
             log::trace!("outgoing tombstone {:?}", &guid);
             result.insert(guid, OutgoingInfo::Tombstone);
         }
@@ -444,26 +438,26 @@ pub mod history_sync {
         let insert_meta_sql = "
             INSERT INTO temp_sync_updated_meta VALUES (:row_id, :change_delta)";
 
-        let rows = stmt.query_and_then_named(
+        let rows = db.query_rows_and_then_named(
+            &places_sql,
             &[(":max_places", &(max_places_left as u32))],
             PageInfo::from_row,
         )?;
-        let mut ids_to_update = Vec::new();
-        for t in rows {
-            let page = t?;
-            let visit_rows = visits.query_and_then_named(
+        let mut ids_to_update = Vec::with_capacity(rows.len());
+        for page in rows {
+            let visits = db.query_rows_and_then_named_cached(
+                visits_sql,
                 &[
                     (":max_visits", &(max_visits as u32)),
                     (":place_id", &page.row_id),
                 ],
-                |row| {
+                |row| -> RusqliteResult<_> {
                     Ok(HistoryRecordVisit {
                         date: row.get_checked::<_, Timestamp>("date")?.into(),
                         transition: row.get_checked::<_, u8>("transition")?,
                     })
                 },
             )?;
-            let visits = visit_rows.collect::<RusqliteResult<Vec<_>>>()?;
             if result.contains_key(&page.guid) {
                 // should be impossible!
                 log::warn!("Found {:?} in both tombstones and live records", &page.guid);
@@ -639,9 +633,8 @@ pub fn get_visited_urls(
     // TODO: if `end` is >= now then we can probably just look at last_visit_date_{local,remote},
     // and avoid touching `moz_historyvisits` at all. That said, this query is taken more or less
     // from what places does so it's probably fine.
-    let mut stmt = db.prepare(&format!(
-        "
-        SELECT h.url
+    let sql = format!(
+        "SELECT h.url
         FROM moz_places h
         WHERE EXISTS (
             SELECT 1 FROM moz_historyvisits v
@@ -649,16 +642,14 @@ pub fn get_visited_urls(
                 AND visit_date BETWEEN :start AND :end
                 {and_is_local}
             LIMIT 1
-        )
-    ",
+        )",
         and_is_local = if include_remote { "" } else { "AND is_local" }
-    ))?;
-
-    let iter = stmt.query_and_then_named(&[(":start", &start), (":end", &end)], |row| {
-        Ok(row.get_checked::<_, String>(0)?)
-    })?;
-
-    Ok(iter.collect::<RusqliteResult<Vec<_>>>()?)
+    );
+    Ok(db.query_rows_and_then_named_cached(
+        &sql,
+        &[(":start", &start), (":end", &end)],
+        |row| -> RusqliteResult<_> { Ok(row.get_checked::<_, String>(0)?) },
+    )?)
 }
 
 // Mini experiment with an "Origin" object that knows how to rev_host() itself,
