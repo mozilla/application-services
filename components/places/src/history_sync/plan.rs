@@ -198,7 +198,7 @@ pub fn apply_plan(
 
     // this 1000 duration should probably be a constant somewhere - it doesn't
     // seem likely that different call-sites would use different values.
-    let mut tx = conn.perf_transaction(Duration::from_millis(1000))?;
+    let mut tx = conn.time_chunked_transaction(Duration::from_millis(1000))?;
 
     let mut outgoing = OutgoingChangeset::new("history".into(), inbound.timestamp);
     for (guid, plan) in plans {
@@ -248,10 +248,10 @@ pub fn apply_plan(
         };
     }
     tx.commit()?;
-    // It might make sense for fetch_outgoing to manage its own perf_transaction
-    // - even though doesn't seem a large bottleneck at this time, the
-    // transaction really is used only for performance, so it's certainly a
-    // candidate.
+    // It might make sense for fetch_outgoing to manage its own
+    // time_chunked_transaction - even though doesn't seem a large bottleneck
+    // at this time, the fact we hold a single transaction for the entire call
+    // really is used only for performance, so it's certainly a candidate.
     let tx = conn.unchecked_transaction()?;
     let mut out_infos = fetch_outgoing(conn, MAX_OUTGOING_PLACES, MAX_VISITS)?;
 
