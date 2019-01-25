@@ -94,11 +94,12 @@ pub fn accept_result(conn: &PlacesDb, result: &SearchResult) -> Result<()> {
 }
 
 pub fn split_after_prefix(href: &str) -> (&str, &str) {
-    match href.find(':') {
+    match memchr::memchr(b':', href.as_bytes()) {
         None => ("", href),
         Some(index) => {
+            let hb = href.as_bytes();
             let mut end = index + 1;
-            if href.len() >= end + 2 && &href[end..end + 2] == "//" {
+            if hb.len() >= end + 2 && hb[end] == b'/' && hb[end + 1] == b'/' {
                 end += 2;
             }
             (&href[0..end], &href[end..])
@@ -108,18 +109,12 @@ pub fn split_after_prefix(href: &str) -> (&str, &str) {
 
 pub fn split_after_host_and_port(href: &str) -> (&str, &str) {
     let (_, remainder) = split_after_prefix(href);
-    let mut start = 0;
-    let mut end = remainder.len();
-    for (index, c) in remainder.char_indices() {
-        if c == '/' || c == '?' || c == '#' {
-            end = index;
-            break;
-        }
-        if c == '@' {
-            start = index + 1;
-        }
-    }
-    (&remainder[start..end], &remainder[end..])
+    let start = memchr::memchr(b'@', remainder.as_bytes())
+        .map(|i| i + 1)
+        .unwrap_or(0);
+    let remainder = &remainder[start..];
+    let end = memchr::memchr3(b'/', b'?', b'#', remainder.as_bytes()).unwrap_or(remainder.len());
+    remainder.split_at(end)
 }
 
 fn looks_like_origin(string: &str) -> bool {
