@@ -4,6 +4,13 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.14.0...master)
 
+## General
+
+### What's New
+
+- A new megazord was added, named `fenix-megazord`. It contains the components for FxA and Places (and logging). ([#585](https://github.com/mozilla/application-services/issues/585))
+    - Note: To use this, you must be on version 0.3.1 of the gradle plugin.
+
 ## Logins
 
 ### What's Fixed
