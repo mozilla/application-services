@@ -77,8 +77,8 @@ impl<'a> Client<'a> {
     pub fn login(&self, email: &str, auth_pwd: &str, get_keys: bool) -> Result<LoginResponse> {
         let url = self.config.auth_url_path("v1/account/login")?;
         let parameters = json!({
-          "email": email,
-          "authPW": auth_pwd
+            "email": email,
+            "authPW": auth_pwd
         });
         let client = ReqwestClient::new();
         let request = client
@@ -190,10 +190,10 @@ impl<'a> Client<'a> {
         let certificate = self.sign(session_token, &key_pair)?.certificate;
         let assertion = jwt_utils::create_assertion(&key_pair, &certificate, &audience)?;
         let parameters = json!({
-          "assertion": assertion,
-          "client_id": self.config.client_id,
-          "response_type": "token",
-          "scope": scopes.join(" ")
+            "assertion": assertion,
+            "client_id": self.config.client_id,
+            "response_type": "token",
+            "scope": scopes.join(" ")
         });
         let key = Self::derive_key_from_session_token(session_token)?;
         let url = self.config.authorization_endpoint()?;
@@ -260,8 +260,8 @@ impl<'a> Client<'a> {
     pub fn sign(&self, session_token: &[u8], key_pair: &BrowserIDKeyPair) -> Result<SignResponse> {
         let public_key_json = key_pair.to_json(false)?;
         let parameters = json!({
-          "publicKey": public_key_json,
-          "duration": SIGN_DURATION_MS
+            "publicKey": public_key_json,
+            "duration": SIGN_DURATION_MS
         });
         let key = Self::derive_key_from_session_token(session_token)?;
         let url = self.config.auth_url_path("v1/certificate/sign")?;
