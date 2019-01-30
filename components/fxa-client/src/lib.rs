@@ -34,6 +34,7 @@ mod http_client;
 #[cfg(feature = "browserid")]
 mod login_sm;
 mod scoped_keys;
+pub mod scopes;
 mod state_persistence;
 mod util;
 
@@ -410,7 +411,7 @@ impl FirefoxAccount {
     }
 
     pub fn get_profile(&mut self, ignore_cache: bool) -> Result<Profile> {
-        let profile_access_token = self.get_access_token("profile")?.token;
+        let profile_access_token = self.get_access_token(scopes::PROFILE)?.token;
         let mut etag = None;
         if let Some(ref cached_profile) = self.profile_cache {
             if !ignore_cache && now() < cached_profile.cached_at + PROFILE_FRESHNESS_THRESHOLD {
