@@ -329,8 +329,8 @@ impl FirefoxAccount {
                 let scoped_keys_flow = match oauth_flow.scoped_keys_flow {
                     Some(flow) => flow,
                     None => {
-                        return Err(ErrorKind::IllegalState(
-                            "Got a JWE with have no JWK.".to_string(),
+                        return Err(ErrorKind::UnrecoverableServerError(
+                            "Got a JWE without sending a JWK.",
                         )
                         .into());
                     }
@@ -429,10 +429,10 @@ impl FirefoxAccount {
             }
             None => match self.profile_cache {
                 Some(ref cached_profile) => Ok(cached_profile.response.clone()),
-                None => {
-                    log::error!("Insane state! We got a 304 without having a cached response.");
-                    Err(ErrorKind::UnrecoverableServerError.into())
-                }
+                None => Err(ErrorKind::UnrecoverableServerError(
+                    "Got a 304 without having sent an eTag.",
+                )
+                .into()),
             },
         }
     }
