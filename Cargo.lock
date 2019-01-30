@@ -368,6 +368,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fenix"
+version = "0.1.0"
+dependencies = [
+ "fxaclient_ffi 0.1.0",
+ "places-ffi 0.1.0",
+ "rc_log_ffi 0.1.0",
+]
+
+[[package]]
 name = "ffi-support"
 version = "0.1.5"
 dependencies = [

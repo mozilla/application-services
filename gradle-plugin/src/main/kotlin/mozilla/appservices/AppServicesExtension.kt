@@ -37,6 +37,13 @@ open class AppServicesExtension(project: Project) {
                         DefaultModuleIdentifier.newId("org.mozilla.places", "places"),
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog")
                 )))
+        megazords.add(MegazordDefinition("fenix",
+                DefaultModuleIdentifier.newId("org.mozilla.appservices", "fenix-megazord"),
+                setOf(
+                        DefaultModuleIdentifier.newId("org.mozilla.fxaclient", "fxaclient"),
+                        DefaultModuleIdentifier.newId("org.mozilla.places", "places"),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog")
+                )))
     }
 
     init {
