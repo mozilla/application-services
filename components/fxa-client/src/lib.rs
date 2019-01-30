@@ -3,12 +3,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub use crate::{config::Config, http_client::ProfileResponse as Profile};
-use crate::{errors::*, http_client::Client, scoped_keys::ScopedKeysFlow, util::now};
-use lazy_static::lazy_static;
-use ring::{
-    digest,
-    rand::{SecureRandom, SystemRandom},
+use crate::{
+    errors::*,
+    http_client::Client,
+    scoped_keys::ScopedKeysFlow,
+    util::{now, random_base64_url_string},
 };
+use lazy_static::lazy_static;
+use ring::{digest, rand::SystemRandom};
 use serde_derive::*;
 use std::{
     collections::{HashMap, HashSet},
@@ -282,8 +284,8 @@ impl FirefoxAccount {
     }
 
     fn oauth_flow(&mut self, mut url: Url, scopes: &[&str], wants_keys: bool) -> Result<String> {
-        let state = FirefoxAccount::random_base64_url_string(16)?;
-        let code_verifier = FirefoxAccount::random_base64_url_string(43)?;
+        let state = random_base64_url_string(&*RNG, 16)?;
+        let code_verifier = random_base64_url_string(&*RNG, 43)?;
         let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         url.query_pairs_mut()
@@ -372,12 +374,6 @@ impl FirefoxAccount {
         });
         self.maybe_call_persist_callback();
         Ok(())
-    }
-
-    fn random_base64_url_string(len: usize) -> Result<String> {
-        let mut out = vec![0u8; len];
-        RNG.fill(&mut out).map_err(|_| ErrorKind::RngFailure)?;
-        Ok(base64::encode_config(&out, base64::URL_SAFE_NO_PAD))
     }
 
     #[cfg(feature = "browserid")]
