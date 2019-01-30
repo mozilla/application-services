@@ -120,8 +120,8 @@ impl PersistCallback {
 }
 
 impl FirefoxAccount {
-    fn from_state(state: StateV2) -> FirefoxAccount {
-        FirefoxAccount {
+    fn from_state(state: StateV2) -> Self {
+        Self {
             state,
             access_token_cache: HashMap::new(),
             flow_store: HashMap::new(),
@@ -130,8 +130,8 @@ impl FirefoxAccount {
         }
     }
 
-    pub fn with_config(config: Config) -> FirefoxAccount {
-        FirefoxAccount::from_state(StateV2 {
+    pub fn with_config(config: Config) -> Self {
+        Self::from_state(StateV2 {
             config,
             #[cfg(feature = "browserid")]
             login_state: Unknown,
@@ -140,9 +140,9 @@ impl FirefoxAccount {
         })
     }
 
-    pub fn new(content_url: &str, client_id: &str, redirect_uri: &str) -> FirefoxAccount {
+    pub fn new(content_url: &str, client_id: &str, redirect_uri: &str) -> Self {
         let config = Config::new(content_url, client_id, redirect_uri);
-        FirefoxAccount::with_config(config)
+        Self::with_config(config)
     }
 
     // Initialize state from Firefox Accounts credentials obtained using the
@@ -153,7 +153,7 @@ impl FirefoxAccount {
         client_id: &str,
         redirect_uri: &str,
         credentials: WebChannelResponse,
-    ) -> Result<FirefoxAccount> {
+    ) -> Result<Self> {
         let config = Config::new(content_url, client_id, redirect_uri);
         let session_token = hex::decode(credentials.session_token)?;
         let key_fetch_token = hex::decode(credentials.key_fetch_token)?;
@@ -171,7 +171,7 @@ impl FirefoxAccount {
             EngagedBeforeVerified(login_state_data)
         };
 
-        Ok(FirefoxAccount::from_state(StateV2 {
+        Ok(Self::from_state(StateV2 {
             config,
             login_state,
             refresh_token: None,
@@ -179,9 +179,9 @@ impl FirefoxAccount {
         }))
     }
 
-    pub fn from_json(data: &str) -> Result<FirefoxAccount> {
+    pub fn from_json(data: &str) -> Result<Self> {
         let state = state_persistence::state_from_json(data)?;
-        Ok(FirefoxAccount::from_state(state))
+        Ok(Self::from_state(state))
     }
 
     pub fn to_json(&self) -> Result<String> {
@@ -223,7 +223,7 @@ impl FirefoxAccount {
             None => {
                 #[cfg(feature = "browserid")]
                 {
-                    match FirefoxAccount::session_token_from_state(&self.state.login_state) {
+                    match Self::session_token_from_state(&self.state.login_state) {
                         Some(session_token) => {
                             client.oauth_token_with_session_token(session_token, &[scope])?
                         }

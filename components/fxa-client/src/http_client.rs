@@ -59,8 +59,8 @@ impl<'a> Client<'a> {
     #[cfg(feature = "browserid")]
     pub fn derive_sync_key(kb: &[u8]) -> Vec<u8> {
         let salt = [0u8; 0];
-        let context_info = Client::kw("oldsync");
-        Client::derive_hkdf_sha256_key(&kb, &salt, &context_info, KEY_LENGTH * 2)
+        let context_info = Self::kw("oldsync");
+        Self::derive_hkdf_sha256_key(&kb, &salt, &context_info, KEY_LENGTH * 2)
     }
 
     #[cfg(feature = "browserid")]
@@ -86,7 +86,7 @@ impl<'a> Client<'a> {
             .query(&[("keys", get_keys)])
             .body(parameters.to_string())
             .build()?;
-        Client::make_request(request)?.json().map_err(|e| e.into())
+        Self::make_request(request)?.json().map_err(|e| e.into())
     }
 
     #[cfg(feature = "browserid")]
@@ -94,14 +94,14 @@ impl<'a> Client<'a> {
         let url = self.config.auth_url_path("v1/account/status")?;
         let client = ReqwestClient::new();
         let request = client.get(url).query(&[("uid", uid)]).build()?;
-        Client::make_request(request)?.json().map_err(|e| e.into())
+        Self::make_request(request)?.json().map_err(|e| e.into())
     }
 
     #[cfg(feature = "browserid")]
     pub fn keys(&self, key_fetch_token: &[u8]) -> Result<KeysResponse> {
         let url = self.config.auth_url_path("v1/account/keys")?;
-        let context_info = Client::kw("keyFetchToken");
-        let key = Client::derive_hkdf_sha256_key(
+        let context_info = Self::kw("keyFetchToken");
+        let key = Self::derive_hkdf_sha256_key(
             &key_fetch_token,
             &HKDF_SALT,
             &context_info,
@@ -109,7 +109,7 @@ impl<'a> Client<'a> {
         );
         let key_request_key = &key[(KEY_LENGTH * 2)..(KEY_LENGTH * 3)];
         let request = HAWKRequestBuilder::new(Method::GET, url, &key).build()?;
-        let json: serde_json::Value = Client::make_request(request)?.json()?;
+        let json: serde_json::Value = Self::make_request(request)?.json()?;
         let bundle = match json["bundle"].as_str() {
             Some(bundle) => bundle,
             None => panic!("Invalid JSON"),
@@ -120,8 +120,8 @@ impl<'a> Client<'a> {
         }
         let ciphertext = &data[0..(KEY_LENGTH * 2)];
         let mac_code = &data[(KEY_LENGTH * 2)..(KEY_LENGTH * 3)];
-        let context_info = Client::kw("account/keys");
-        let bytes = Client::derive_hkdf_sha256_key(
+        let context_info = Self::kw("account/keys");
+        let bytes = Self::derive_hkdf_sha256_key(
             key_request_key,
             &HKDF_SALT,
             &context_info,
@@ -144,9 +144,9 @@ impl<'a> Client<'a> {
         session_token: &[u8],
     ) -> Result<RecoveryEmailStatusResponse> {
         let url = self.config.auth_url_path("v1/recovery_email/status")?;
-        let key = Client::derive_key_from_session_token(session_token)?;
+        let key = Self::derive_key_from_session_token(session_token)?;
         let request = HAWKRequestBuilder::new(Method::GET, url, &key).build()?;
-        Client::make_request(request)?.json().map_err(|e| e.into())
+        Self::make_request(request)?.json().map_err(|e| e.into())
     }
 
     pub fn profile(
@@ -164,7 +164,7 @@ impl<'a> Client<'a> {
             builder = builder.header(header::IF_NONE_MATCH, format!("\"{}\"", etag));
         }
         let request = builder.build()?;
-        let mut resp = Client::make_request(request)?;
+        let mut resp = Self::make_request(request)?;
         if resp.status() == StatusCode::NOT_MODIFIED {
             return Ok(None);
         }
@@ -186,7 +186,7 @@ impl<'a> Client<'a> {
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse> {
         let audience = self.get_oauth_audience()?;
-        let key_pair = Client::key_pair(1024)?;
+        let key_pair = Self::key_pair(1024)?;
         let certificate = self.sign(session_token, &key_pair)?.certificate;
         let assertion = jwt_utils::create_assertion(&key_pair, &certificate, &audience)?;
         let parameters = json!({
@@ -195,12 +195,12 @@ impl<'a> Client<'a> {
           "response_type": "token",
           "scope": scopes.join(" ")
         });
-        let key = Client::derive_key_from_session_token(session_token)?;
+        let key = Self::derive_key_from_session_token(session_token)?;
         let url = self.config.authorization_endpoint()?;
         let request = HAWKRequestBuilder::new(Method::POST, url, &key)
             .body(parameters)
             .build()?;
-        Client::make_request(request)?.json().map_err(|e| e.into())
+        Self::make_request(request)?.json().map_err(|e| e.into())
     }
 
     pub fn oauth_token_with_code(
@@ -238,7 +238,7 @@ impl<'a> Client<'a> {
             .header(header::CONTENT_TYPE, "application/json")
             .body(body.to_string())
             .build()?;
-        Client::make_request(request)?.json().map_err(|e| e.into())
+        Self::make_request(request)?.json().map_err(|e| e.into())
     }
 
     pub fn destroy_oauth_token(&self, token: &str) -> Result<()> {
@@ -252,7 +252,7 @@ impl<'a> Client<'a> {
             .header(header::CONTENT_TYPE, "application/json")
             .body(body.to_string())
             .build()?;
-        Client::make_request(request)?;
+        Self::make_request(request)?;
         Ok(())
     }
 
@@ -263,12 +263,12 @@ impl<'a> Client<'a> {
           "publicKey": public_key_json,
           "duration": SIGN_DURATION_MS
         });
-        let key = Client::derive_key_from_session_token(session_token)?;
+        let key = Self::derive_key_from_session_token(session_token)?;
         let url = self.config.auth_url_path("v1/certificate/sign")?;
         let request = HAWKRequestBuilder::new(Method::POST, url, &key)
             .body(parameters)
             .build()?;
-        Client::make_request(request)?.json().map_err(|e| e.into())
+        Self::make_request(request)?.json().map_err(|e| e.into())
     }
 
     #[cfg(feature = "browserid")]
@@ -285,8 +285,8 @@ impl<'a> Client<'a> {
 
     #[cfg(feature = "browserid")]
     fn derive_key_from_session_token(session_token: &[u8]) -> Result<Vec<u8>> {
-        let context_info = Client::kw("sessionToken");
-        Ok(Client::derive_hkdf_sha256_key(
+        let context_info = Self::kw("sessionToken");
+        Ok(Self::derive_hkdf_sha256_key(
             session_token,
             &HKDF_SALT,
             &context_info,
