@@ -12,7 +12,8 @@ pub mod ffi;
 pub mod frecency;
 pub mod hash;
 pub mod history_sync;
-mod match_impl;
+// match_impl is pub mostly for benchmarks (which have to run as a separate pseudo-crate).
+pub mod match_impl;
 pub mod observation;
 pub mod storage;
 mod util;
