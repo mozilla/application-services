@@ -129,3 +129,15 @@ footer.nav-footer a {
 footer .copyright {
   padding: 40px 0 10px 0;
 }
+
+dl dt {
+  display: inline-block;
+  margin: 6px 0;
+  background: rgba(66, 76, 85, 0.1);
+  border-top: solid 3px rgb(66, 76, 85);
+  padding: 6px;
+}
+
+dl dd {
+  margin: 0 0 12px 24px;
+}

@@ -53,7 +53,8 @@ const siteConfig = {
   // You may provide arbitrary config keys to be used as needed by your template.
   repoUrl: 'https://github.com/mozilla/application-services',
   /* On page navigation for the current documentation page */
-  // onPageNav: 'separate',
+  onPageNav: 'separate',
+  wrapPagesHTML: true,
 };
 
 module.exports = siteConfig;
