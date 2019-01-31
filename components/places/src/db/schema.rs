@@ -12,7 +12,7 @@ use crate::error::*;
 use lazy_static::lazy_static;
 use sql_support::ConnExt;
 
-const VERSION: i64 = 2;
+const VERSION: i64 = 3;
 
 const CREATE_TABLE_PLACES_SQL: &str =
     "CREATE TABLE IF NOT EXISTS moz_places (
@@ -178,7 +178,7 @@ const CREATE_TABLE_META_SQL: &str = "CREATE TABLE moz_meta (
 // See https://searchfox.org/mozilla-central/source/toolkit/components/places/nsPlacesIndexes.h
 const CREATE_IDX_MOZ_PLACES_URL_HASH: &str = "CREATE INDEX url_hashindex ON moz_places(url_hash)";
 
-// const CREATE_IDX_MOZ_PLACES_REVHOST: &str = "CREATE INDEX hostindex ON moz_places(rev_host)";
+const CREATE_IDX_MOZ_ORIGINS_REVHOST: &str = "CREATE INDEX hostindex ON moz_origins(rev_host)";
 
 const CREATE_IDX_MOZ_PLACES_VISITCOUNT_LOCAL: &str =
     "CREATE INDEX visitcountlocal ON moz_places(visit_count_local)";
@@ -278,6 +278,7 @@ pub fn create(db: &PlacesDb) -> Result<()> {
         CREATE_IDX_MOZ_HISTORYVISITS_FROMVISIT,
         CREATE_IDX_MOZ_HISTORYVISITS_VISITDATE,
         CREATE_IDX_MOZ_HISTORYVISITS_ISLOCAL,
+        CREATE_IDX_MOZ_ORIGINS_REVHOST,
         CREATE_IDX_MOZ_BOOKMARKS_PLACELASTMODIFIED,
         &format!("PRAGMA user_version = {version}", version = VERSION),
     ])?;
