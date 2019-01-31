@@ -369,7 +369,7 @@ dependencies = [
 
 [[package]]
 name = "ffi-support"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "backtrace 0.3.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -443,7 +443,7 @@ dependencies = [
  "base64 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "ffi-support 0.1.4",
+ "ffi-support 0.1.5",
  "hawk 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -465,7 +465,7 @@ name = "fxaclient_ffi"
 version = "0.1.0"
 dependencies = [
  "android_logger 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "ffi-support 0.1.4",
+ "ffi-support 0.1.5",
  "fxa-client 0.1.0",
  "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -704,7 +704,7 @@ dependencies = [
  "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.5.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "ffi-support 0.1.4",
+ "ffi-support 0.1.5",
  "fxa-client 0.1.0",
  "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -726,7 +726,7 @@ version = "0.1.0"
 dependencies = [
  "android_logger 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "base16 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "ffi-support 0.1.4",
+ "ffi-support 0.1.5",
  "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "logins 0.1.0",
@@ -989,7 +989,7 @@ dependencies = [
  "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.5.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "ffi-support 0.1.4",
+ "ffi-support 0.1.5",
  "find-places-db 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "fxa-client 0.1.0",
  "idna 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1017,7 +1017,7 @@ name = "places-ffi"
 version = "0.1.0"
 dependencies = [
  "android_logger 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "ffi-support 0.1.4",
+ "ffi-support 0.1.5",
  "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "places 0.1.0",
@@ -1197,7 +1197,7 @@ dependencies = [
 name = "rc_log_ffi"
 version = "0.1.0"
 dependencies = [
- "ffi-support 0.1.4",
+ "ffi-support 0.1.5",
  "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
