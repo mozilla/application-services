@@ -188,6 +188,147 @@ pub fn delete_place_by_guid(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
     result
 }
 
+/// Delete all visits in a date range.
+pub fn delete_visits_since(db: &impl ConnExt, since: Timestamp) -> Result<()> {
+    let tx = db.unchecked_transaction()?;
+    delete_visits_since_in_tx(db, since)?;
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn delete_visits_since_in_tx(db: &impl ConnExt, since: Timestamp) -> Result<()> {
+    // Like desktop's removeVisitsByFilter, we query the visit and place ids
+    // affected, then delete all visits, then delete all place ids in the set
+    // which are orphans after the delete.
+    let sql = "SELECT id, place_id FROM moz_historyvisits WHERE visit_date >= :since";
+    let visits =
+        db.query_rows_and_then_named(sql, &[(":since", &since)], |row| -> rusqlite::Result<_> {
+            Ok((
+                row.get_checked::<_, RowId>(0)?,
+                row.get_checked::<_, RowId>(1)?,
+            ))
+        })?;
+
+    sql_support::each_chunk_mapped(
+        &visits,
+        |(visit_id, _)| visit_id,
+        |chunk, _| -> Result<()> {
+            db.conn().execute(
+                &format!(
+                    "DELETE from moz_historyvisits WHERE id IN ({})",
+                    sql_support::repeat_sql_vars(chunk.len()),
+                ),
+                chunk,
+            )?;
+            Ok(())
+        },
+    )?;
+
+    // Find out which pages have been possibly orphaned and clean them up.
+    sql_support::each_chunk_mapped(
+        &visits,
+        |(_, place_id)| place_id.0,
+        |chunk, _| -> Result<()> {
+            let query = format!(
+                "SELECT id, -- url, url_hash, guid
+                    (foreign_count != 0) AS has_foreign,
+                    ((last_visit_date_local + last_visit_date_remote) != 0) as has_visits
+                FROM moz_places
+                WHERE id IN ({})",
+                sql_support::repeat_sql_vars(chunk.len()),
+            );
+
+            let mut stmt = db.conn().prepare(&query)?;
+            let page_results = stmt.query_and_then(chunk, PageToClean::from_row)?;
+            let pages: Vec<PageToClean> = page_results.collect::<Result<_>>()?;
+            cleanup_pages(db, &pages)
+        },
+    )?;
+
+    Ok(())
+}
+
+#[derive(Debug)]
+struct PageToClean {
+    id: RowId,
+    has_foreign: bool,
+    has_visits: bool,
+}
+
+impl PageToClean {
+    pub fn from_row(row: &Row) -> Result<Self> {
+        Ok(Self {
+            id: row.get_checked("id")?,
+            has_foreign: row.get_checked("has_foreign")?,
+            has_visits: row.get_checked("has_visits")?,
+        })
+    }
+}
+
+/// Clean up pages whose history has been modified, by either
+/// removing them entirely (if they are marked for removal,
+/// typically because all visits have been removed and there
+/// are no more foreign keys such as bookmarks) or updating
+/// their frecency.
+fn cleanup_pages(db: &impl ConnExt, pages: &[PageToClean]) -> Result<()> {
+    // desktop does this frecency work using a function in a single sql
+    // statement - we should see if we can do that too.
+    let frec_ids = pages
+        .iter()
+        .filter(|&p| p.has_foreign || p.has_visits)
+        .map(|p| p.id);
+
+    for id in frec_ids {
+        update_frecency(db.conn(), id, None)?;
+    }
+
+    // Like desktop, we do "AND foreign_count = 0 AND last_visit_date ISNULL"
+    // to creating orphans in case of async race conditions - in Desktop's
+    // case, it reads the pages before starting a write transaction, so that
+    // probably is possible. We don't currently do that, but might later, so
+    // we do it anyway.
+    let remove_ids: Vec<RowId> = pages
+        .iter()
+        .filter(|p| !p.has_foreign && !p.has_visits)
+        .map(|p| p.id)
+        .collect();
+    sql_support::each_chunk(&remove_ids, |chunk, _| -> Result<()> {
+        // tombstones first.
+        db.conn().execute(
+            &format!(
+                "
+                INSERT OR IGNORE INTO moz_places_tombstones (guid)
+                SELECT guid FROM moz_places
+                WHERE id in ({ids}) AND sync_status = {status}
+                AND foreign_count = 0
+                AND last_visit_date_local = 0
+                AND last_visit_date_remote = 0",
+                ids = sql_support::repeat_sql_vars(chunk.len()),
+                status = SyncStatus::Normal as u8,
+            ),
+            chunk,
+        )?;
+        db.conn().execute(
+            &format!(
+                "
+                DELETE FROM moz_places
+                WHERE id IN ({ids})
+                AND foreign_count = 0
+                AND last_visit_date_local = 0
+                AND last_visit_date_remote = 0",
+                ids = sql_support::repeat_sql_vars(chunk.len())
+            ),
+            chunk,
+        )?;
+        Ok(())
+    })?;
+
+    // desktop now updates moz_updateoriginsdelete_temp, icons, annos, etc
+    // some of which might end up making sense for us too.
+    // XXX - moz_updateoriginsdelete_temp is part of https://github.com/mozilla/application-services/pull/429
+    Ok(())
+}
+
 // Support for Sync - in its own module to try and keep a delineation
 pub mod history_sync {
     use super::*;
@@ -652,49 +793,12 @@ pub fn get_visited_urls(
     )?)
 }
 
-// Mini experiment with an "Origin" object that knows how to rev_host() itself,
-// that I don't want to throw away yet :) I'm really not sure exactly how
-// moz_origins fits in TBH :/
 #[cfg(test)]
 mod tests {
     use super::history_sync::*;
     use super::*;
     use crate::history_sync::record::HistoryRecord;
     use std::time::{Duration, SystemTime};
-
-    struct Origin {
-        prefix: String,
-        host: String,
-        frecency: i64,
-    }
-    impl Origin {
-        pub fn rev_host(&self) -> String {
-            // Note: this is consistent with how places handles hosts, and our `reverse_host`
-            // function. We explictly don't want to use unicode_segmentation because it's not
-            // stable across unicode versions, and valid hosts are expected to be strings.
-            // (The `url` crate will punycode them for us).
-            String::from_utf8(
-                self.host
-                    .bytes()
-                    .rev()
-                    .map(|b| b.to_ascii_lowercase())
-                    .collect::<Vec<_>>(),
-            )
-            .unwrap() // TODO: We should return a Result, or punycode on construction if needed.
-        }
-    }
-
-    #[test]
-    fn test_reverse() {
-        let o = Origin {
-            prefix: "http".to_string(),
-            host: "foo.com".to_string(),
-            frecency: 0,
-        };
-        assert_eq!(o.prefix, "http");
-        assert_eq!(o.frecency, 0);
-        assert_eq!(o.rev_host(), "moc.oof");
-    }
 
     #[test]
     fn test_get_visited_urls() {
@@ -1036,6 +1140,97 @@ mod tests {
         ];
 
         assert_eq!(expect, results);
+    }
+
+    #[test]
+    fn test_delete_visited() {
+        let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let late: Timestamp = SystemTime::now().into();
+        let early: Timestamp = (SystemTime::now() - Duration::from_secs(30)).into();
+        let url1 = Url::parse("https://www.example.com/1").unwrap();
+        let url2 = Url::parse("https://www.example.com/2").unwrap();
+        let url3 = Url::parse("https://www.example.com/3").unwrap();
+        let url4 = Url::parse("https://www.example.com/4").unwrap();
+        // (url, when)
+        let to_add = [
+            // 2 visits to "https://www.example.com/1", one early, one late.
+            (&url1, early),
+            (&url1, late),
+            // One to url2, only late.
+            (&url2, late),
+            // One to url2, only early.
+            (&url3, early),
+            // One to url4, only late - this will have SyncStatus::Normal
+            (&url4, late),
+        ];
+
+        for &(url, when) in &to_add {
+            apply_observation(
+                &mut conn,
+                VisitObservation::new(url.clone())
+                    .with_at(when)
+                    .with_visit_type(VisitTransition::Link),
+            )
+            .expect("Should apply visit");
+        }
+        // Check we added what we think we did.
+        let pi = fetch_page_info(&conn, &url1)
+            .expect("should work")
+            .expect("should get the page");
+        assert_eq!(pi.page.visit_count_local, 2);
+
+        let pi2 = fetch_page_info(&conn, &url2)
+            .expect("should work")
+            .expect("should get the page");
+        assert_eq!(pi2.page.visit_count_local, 1);
+
+        let pi3 = fetch_page_info(&conn, &url3)
+            .expect("should work")
+            .expect("should get the page");
+        assert_eq!(pi3.page.visit_count_local, 1);
+
+        let pi4 = fetch_page_info(&conn, &url4)
+            .expect("should work")
+            .expect("should get the page");
+        assert_eq!(pi4.page.visit_count_local, 1);
+
+        conn.execute_cached(
+            &format!(
+                "UPDATE moz_places set sync_status = {}
+                 WHERE url = 'https://www.example.com/4'",
+                (SyncStatus::Normal as u8)
+            ),
+            NO_PARAMS,
+        )
+        .expect("should work");
+
+        // Delete some.
+        delete_visits_since(&conn, late).expect("should work");
+        // should have removed one of the visits to /1
+        let pi = fetch_page_info(&conn, &url1)
+            .expect("should work")
+            .expect("should get the page");
+        assert_eq!(pi.page.visit_count_local, 1);
+
+        // should have removed all the visits to /2
+        assert!(fetch_page_info(&conn, &url2)
+            .expect("should work")
+            .is_none());
+
+        // Should still have the 1 visit to /3
+        let pi3 = fetch_page_info(&conn, &url3)
+            .expect("should work")
+            .expect("should get the page");
+        assert_eq!(pi3.page.visit_count_local, 1);
+
+        // should have removed all the visits to /4
+        assert!(fetch_page_info(&conn, &url4)
+            .expect("should work")
+            .is_none());
+        // should be a tombstone for url4 and no others.
+        assert_eq!(get_tombstone_count(&conn), 1);
+        // XXX - test frecency?
+        // XXX - origins?
     }
 
     #[test]
