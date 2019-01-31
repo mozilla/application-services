@@ -35,12 +35,7 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
         &[
             // Try to match on the origin, or the full URL.
             &OriginOrUrl::new(&params.search_string, conn),
-            // After the first result, try the queries for adaptive matches and
-            // suggestions for bookmarked URLs.
-            &Adaptive::new(&params.search_string, conn),
-            &Suggestions::new(&params.search_string, conn),
-            // If we don't have enough results, query adaptive matches and
-            // suggestions again, matching anywhere instead of on boundaries.
+            // query adaptive matches and suggestions, matching Anywhere.
             &Adaptive::with_behavior(
                 &params.search_string,
                 conn,
@@ -404,15 +399,6 @@ struct Adaptive<'query, 'conn> {
 }
 
 impl<'query, 'conn> Adaptive<'query, 'conn> {
-    pub fn new(query: &'query str, conn: &'conn PlacesDb) -> Adaptive<'query, 'conn> {
-        Adaptive::with_behavior(
-            query,
-            conn,
-            MatchBehavior::BoundaryAnywhere,
-            SearchBehavior::default(),
-        )
-    }
-
     pub fn with_behavior(
         query: &'query str,
         conn: &'conn PlacesDb,
@@ -481,15 +467,6 @@ struct Suggestions<'query, 'conn> {
 }
 
 impl<'query, 'conn> Suggestions<'query, 'conn> {
-    pub fn new(query: &'query str, conn: &'conn PlacesDb) -> Suggestions<'query, 'conn> {
-        Suggestions::with_behavior(
-            query,
-            conn,
-            MatchBehavior::BoundaryAnywhere,
-            SearchBehavior::default(),
-        )
-    }
-
     pub fn with_behavior(
         query: &'query str,
         conn: &'conn PlacesDb,
