@@ -16,7 +16,19 @@
 		D5C6DB0020DDBA7C009ACDD2 /* String+Free.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5C6DAFF20DDBA7C009ACDD2 /* String+Free.swift */; };
 		D819A4A821B861D6004EE6F3 /* liblogins_ffi.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4A721B861D6004EE6F3 /* liblogins_ffi.a */; };
 		D819A4AF21B87468004EE6F3 /* libsqlcipher.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4AE21B87467004EE6F3 /* libsqlcipher.a */; };
+		EB348E432204EA0C00788CD3 /* LoginsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB348E422204EA0C00788CD3 /* LoginsTests.swift */; };
+		EB348E452204EA0C00788CD3 /* Logins.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE9D202020914D0D00F1C8FA /* Logins.framework */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		EB348E462204EA0C00788CD3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CE9D201720914D0D00F1C8FA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CE9D201F20914D0D00F1C8FA;
+			remoteInfo = Logins;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		CDB5AAEC21535E7F00B66D7E /* LoginRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginRecord.swift; sourceTree = "<group>"; };
@@ -30,6 +42,9 @@
 		D5C6DAFF20DDBA7C009ACDD2 /* String+Free.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Free.swift"; sourceTree = "<group>"; };
 		D819A4A721B861D6004EE6F3 /* liblogins_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = liblogins_ffi.a; path = ../../../target/universal/release/liblogins_ffi.a; sourceTree = "<group>"; };
 		D819A4AE21B87467004EE6F3 /* libsqlcipher.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsqlcipher.a; path = ../../../libs/ios/universal/sqlcipher/lib/libsqlcipher.a; sourceTree = "<group>"; };
+		EB348E402204EA0C00788CD3 /* LoginsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LoginsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB348E422204EA0C00788CD3 /* LoginsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginsTests.swift; sourceTree = "<group>"; };
+		EB348E442204EA0C00788CD3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		EBA8770621F5FB9A004F63F0 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
 		EBA8770721F5FB9A004F63F0 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
 		EBA8770821F5FB9A004F63F0 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
@@ -45,6 +60,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EB348E3D2204EA0C00788CD3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB348E452204EA0C00788CD3 /* Logins.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -55,6 +78,7 @@
 				EBA8770721F5FB9A004F63F0 /* debug.xcconfig */,
 				EBA8770821F5FB9A004F63F0 /* release.xcconfig */,
 				CE9D202220914D0D00F1C8FA /* Logins */,
+				EB348E412204EA0C00788CD3 /* LoginsTests */,
 				CE9D202120914D0D00F1C8FA /* Products */,
 				CE9D203720914D4800F1C8FA /* Frameworks */,
 			);
@@ -64,6 +88,7 @@
 			isa = PBXGroup;
 			children = (
 				CE9D202020914D0D00F1C8FA /* Logins.framework */,
+				EB348E402204EA0C00788CD3 /* LoginsTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -108,6 +133,15 @@
 			path = Errors;
 			sourceTree = "<group>";
 		};
+		EB348E412204EA0C00788CD3 /* LoginsTests */ = {
+			isa = PBXGroup;
+			children = (
+				EB348E422204EA0C00788CD3 /* LoginsTests.swift */,
+				EB348E442204EA0C00788CD3 /* Info.plist */,
+			);
+			path = LoginsTests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -142,18 +176,40 @@
 			productReference = CE9D202020914D0D00F1C8FA /* Logins.framework */;
 			productType = "com.apple.product-type.framework";
 		};
+		EB348E3F2204EA0C00788CD3 /* LoginsTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB348E4A2204EA0C00788CD3 /* Build configuration list for PBXNativeTarget "LoginsTests" */;
+			buildPhases = (
+				EB348E3C2204EA0C00788CD3 /* Sources */,
+				EB348E3D2204EA0C00788CD3 /* Frameworks */,
+				EB348E3E2204EA0C00788CD3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EB348E472204EA0C00788CD3 /* PBXTargetDependency */,
+			);
+			name = LoginsTests;
+			productName = LoginsTests;
+			productReference = EB348E402204EA0C00788CD3 /* LoginsTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		CE9D201720914D0D00F1C8FA /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastSwiftUpdateCheck = 1020;
 				LastUpgradeCheck = 1010;
 				ORGANIZATIONNAME = Mozilla;
 				TargetAttributes = {
 					CE9D201F20914D0D00F1C8FA = {
 						CreatedOnToolsVersion = 9.3;
 						LastSwiftMigration = 0930;
+					};
+					EB348E3F2204EA0C00788CD3 = {
+						CreatedOnToolsVersion = 10.2;
 					};
 				};
 			};
@@ -170,12 +226,20 @@
 			projectRoot = "";
 			targets = (
 				CE9D201F20914D0D00F1C8FA /* Logins */,
+				EB348E3F2204EA0C00788CD3 /* LoginsTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		CE9D201E20914D0D00F1C8FA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB348E3E2204EA0C00788CD3 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -214,7 +278,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EB348E3C2204EA0C00788CD3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB348E432204EA0C00788CD3 /* LoginsTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		EB348E472204EA0C00788CD3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CE9D201F20914D0D00F1C8FA /* Logins */;
+			targetProxy = EB348E462204EA0C00788CD3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		CE9D202620914D0D00F1C8FA /* Debug */ = {
@@ -245,6 +325,36 @@
 			};
 			name = Release;
 		};
+		EB348E482204EA0C00788CD3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EBA8770721F5FB9A004F63F0 /* debug.xcconfig */;
+			buildSettings = {
+				INFOPLIST_FILE = LoginsTests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = mozilla.org.LoginsTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		EB348E492204EA0C00788CD3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EBA8770821F5FB9A004F63F0 /* release.xcconfig */;
+			buildSettings = {
+				INFOPLIST_FILE = LoginsTests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = mozilla.org.LoginsTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -262,6 +372,15 @@
 			buildConfigurations = (
 				CE9D202920914D0D00F1C8FA /* Debug */,
 				CE9D202A20914D0D00F1C8FA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB348E4A2204EA0C00788CD3 /* Build configuration list for PBXNativeTarget "LoginsTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB348E482204EA0C00788CD3 /* Debug */,
+				EB348E492204EA0C00788CD3 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
