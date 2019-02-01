@@ -1,6 +1,6 @@
 # Unreleased Changes
 
-**See [the release process docs](docs/release-process.md) for the steps to take when cutting a new release.**
+**See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.15.0...master)
 

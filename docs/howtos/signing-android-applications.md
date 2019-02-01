@@ -1,9 +1,3 @@
----
-id: signing-android-apps
-title: Signing Android Applications
-sidebar_label: Signing Android Applications
----
-
 > Android requires that all APKs be digitally signed with a certificate before they can be installed.
 [~ developer.android.com/studio/publish/app-signing](https://developer.android.com/studio/publish/app-signing)
 
