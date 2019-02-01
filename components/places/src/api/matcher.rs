@@ -55,6 +55,19 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
     Ok(matches)
 }
 
+pub fn match_url(conn: &PlacesDb, query: impl AsRef<str>) -> Result<Option<String>> {
+    let matcher = OriginOrUrl::new(query.as_ref(), conn);
+    // Note: The matcher ignores the limit argument (it's a trait method)
+    let results = matcher.search(1)?;
+    // Doing it like this lets us move the result, avoiding a copy (which almost
+    // certainly doesn't matter but whatever)
+    if let Some(res) = results.into_iter().next() {
+        Ok(Some(res.url.into_string()))
+    } else {
+        Ok(None)
+    }
+}
+
 fn match_with_limit(matchers: &[&dyn Matcher], max_results: u32) -> Result<(Vec<SearchResult>)> {
     let mut results = Vec::new();
     let mut rem_results = max_results;

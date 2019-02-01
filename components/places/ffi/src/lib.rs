@@ -12,7 +12,7 @@ use sync15::telemetry;
 
 use std::os::raw::c_char;
 
-use places::api::matcher::{search_frecent, SearchParams};
+use places::api::matcher::{match_url, search_frecent, SearchParams};
 
 // indirection to help `?` figure out the target error type
 fn parse_url(url: &str) -> sync15::Result<url::Url> {
@@ -87,6 +87,20 @@ pub unsafe extern "C" fn places_query_autocomplete(
                 limit,
             },
         )
+    })
+}
+
+/// Execute a query, returning a URL string or null. Returned string must be freed
+/// using `places_destroy_string`. Returns null if no match is found.
+#[no_mangle]
+pub unsafe extern "C" fn places_match_url(
+    handle: u64,
+    search: *const c_char,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("places_match_url");
+    CONNECTIONS.call_with_result(error, handle, |conn| {
+        match_url(conn, ffi_support::rust_string_from_c(search))
     })
 }
 
