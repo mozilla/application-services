@@ -8,15 +8,11 @@
 
 use super::schema;
 use crate::error::*;
-use crate::hash;
 use crate::types::Timestamp;
-use rusqlite::{self, Connection};
-use sql_support::{self, ConnExt};
+use rusqlite::Connection;
+use sql_support::ConnExt;
 use std::ops::Deref;
 use std::path::Path;
-
-use crate::api::matcher::{split_after_host_and_port, split_after_prefix};
-use crate::match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
 
 pub const MAX_VARIABLE_NUMBER: usize = 999;
 
@@ -88,8 +84,12 @@ impl PlacesDb {
 
         db.execute_batch(&initial_pragmas)?;
         define_functions(&db)?;
-        let mut res = Self { db };
-        schema::init(&mut res)?;
+        let res = Self { db };
+        // Even though we're the owner of the db, we need it to be an unchecked tx
+        // since we want to pass &PlacesDb and not &Connection to schema::init.
+        let tx = res.unchecked_transaction()?;
+        schema::init(&res)?;
+        tx.commit()?;
 
         Ok(res)
     }
@@ -135,71 +135,64 @@ impl Deref for PlacesDb {
 }
 
 fn define_functions(c: &Connection) -> Result<()> {
-    c.create_scalar_function("get_prefix", 1, true, move |ctx| {
-        let href = ctx.get::<String>(0)?;
-        let (prefix, _) = split_after_prefix(&href);
-        Ok(prefix.to_owned())
-    })?;
-    c.create_scalar_function("get_host_and_port", 1, true, move |ctx| {
-        let href = ctx.get::<String>(0)?;
-        let (host_and_port, _) = split_after_host_and_port(&href);
-        Ok(host_and_port.to_owned())
-    })?;
-    c.create_scalar_function("strip_prefix_and_userinfo", 1, true, move |ctx| {
-        let href = ctx.get::<String>(0)?;
-        let (host_and_port, remainder) = split_after_host_and_port(&href);
-        Ok([host_and_port, remainder].concat())
-    })?;
-    c.create_scalar_function("reverse_host", 1, true, move |ctx| {
-        let mut host = ctx.get::<String>(0)?;
-        debug_assert!(host.is_ascii(), "Hosts must be Punycoded");
+    c.create_scalar_function("get_prefix", 1, true, sql_fns::get_prefix)?;
+    c.create_scalar_function("get_host_and_port", 1, true, sql_fns::get_host_and_port)?;
+    c.create_scalar_function(
+        "strip_prefix_and_userinfo",
+        1,
+        true,
+        sql_fns::strip_prefix_and_userinfo,
+    )?;
+    c.create_scalar_function("reverse_host", 1, true, sql_fns::reverse_host)?;
+    c.create_scalar_function("autocomplete_match", 10, true, sql_fns::autocomplete_match)?;
+    c.create_scalar_function("hash", -1, true, sql_fns::hash)?;
+    c.create_scalar_function("now", 0, false, move |_ctx| Ok(Timestamp::now()))?;
+    Ok(())
+}
 
-        host.make_ascii_lowercase();
-        let mut rev_host_bytes = host.into_bytes();
-        rev_host_bytes.reverse();
-        rev_host_bytes.push(b'.');
+mod sql_fns {
+    use crate::api::matcher::{split_after_host_and_port, split_after_prefix};
+    use crate::hash;
+    use crate::match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
+    use rusqlite::{functions::Context, types::ValueRef, Error, Result};
 
-        let rev_host = String::from_utf8(rev_host_bytes)
-            .map_err(|err| rusqlite::Error::UserFunctionError(err.into()))?;
-        Ok(rev_host)
-    })?;
-    c.create_scalar_function("autocomplete_match", 10, true, move |ctx| {
-        // Eventually we'll be able to borrow out of `ctx`, and avoid many of these copies.
-        let search_string = ctx.get::<String>(0)?;
-        let url = ctx.get::<String>(1)?;
-        let title = ctx.get::<Option<String>>(2)?.unwrap_or_default();
-        let tags = ctx.get::<Option<String>>(3)?.unwrap_or_default();
-        let visit_count = ctx.get::<u32>(4)?;
-        let typed = ctx.get::<bool>(5)?;
-        let bookmarked = ctx.get::<bool>(6)?;
-        let open_page_count = ctx.get::<Option<u32>>(7)?.unwrap_or(0);
-        let match_behavior = ctx.get::<MatchBehavior>(8)?;
-        let search_behavior = ctx.get::<SearchBehavior>(9)?;
+    // Helpers for define_functions
+    fn get_raw_str<'a>(ctx: &'a Context, fname: &'static str, idx: usize) -> Result<&'a str> {
+        ctx.get_raw(idx).as_str().map_err(|e| {
+            Error::UserFunctionError(format!("Bad arg {} to '{}': {}", idx, fname, e).into())
+        })
+    }
 
-        let matcher = AutocompleteMatch {
-            search_str: &search_string,
-            url_str: &url,
-            title_str: &title,
-            tags: &tags,
-            visit_count,
-            typed,
-            bookmarked,
-            open_page_count,
-            match_behavior,
-            search_behavior,
-        };
-        Ok(matcher.invoke())
-    })?;
-    c.create_scalar_function("hash", -1, true, move |ctx| {
+    fn get_raw_opt_str<'a>(
+        ctx: &'a Context,
+        fname: &'static str,
+        idx: usize,
+    ) -> Result<Option<&'a str>> {
+        let raw = ctx.get_raw(idx);
+        if raw == ValueRef::Null {
+            return Ok(None);
+        }
+        Ok(Some(raw.as_str().map_err(|e| {
+            Error::UserFunctionError(format!("Bad arg {} to '{}': {}", idx, fname, e).into())
+        })?))
+    }
+
+    // Note: The compiler can't meaningfully inline these, but if we don't put
+    // #[inline(never)] on them they get "inlined" into a temporary Box<FnMut>,
+    // which doesn't have a name (and itself doesn't get inlined). Adding
+    // #[inline(never)] ensures they show up in profiles.
+
+    #[inline(never)]
+    pub fn hash(ctx: &Context) -> rusqlite::Result<i64> {
         Ok(match ctx.len() {
             1 => {
-                let value = ctx.get::<String>(0)?;
-                hash::hash_url(&value)
+                let value = get_raw_str(ctx, "hash", 0)?;
+                hash::hash_url(value)
             }
             2 => {
-                let value = ctx.get::<String>(0)?;
-                let mode = ctx.get::<String>(1)?;
-                match mode.as_str() {
+                let value = get_raw_str(ctx, "hash", 0)?;
+                let mode = get_raw_str(ctx, "hash", 1)?;
+                match mode {
                     "" => hash::hash_url(&value),
                     "prefix_lo" => hash::hash_url_prefix(&value, hash::PrefixMode::Lo),
                     "prefix_hi" => hash::hash_url_prefix(&value, hash::PrefixMode::Hi),
@@ -211,13 +204,81 @@ fn define_functions(c: &Connection) -> Result<()> {
                 }
             }
             n => {
-                return Err(rusqlite::Error::UserFunctionError(format!(
-                    "`hash` expects 1 or 2 arguments, got {}.", n).into()));
+                return Err(rusqlite::Error::UserFunctionError(
+                    format!("`hash` expects 1 or 2 arguments, got {}.", n).into(),
+                ));
             }
         } as i64)
-    })?;
-    c.create_scalar_function("now", 0, false, move |_ctx| Ok(Timestamp::now()))?;
-    Ok(())
+    }
+
+    #[inline(never)]
+    pub fn autocomplete_match(ctx: &Context) -> Result<bool> {
+        let search_str = get_raw_str(ctx, "autocomplete_match", 0)?;
+        let url_str = get_raw_str(ctx, "autocomplete_match", 1)?;
+        let title_str = get_raw_opt_str(ctx, "autocomplete_match", 2)?.unwrap_or_default();
+        let tags = get_raw_opt_str(ctx, "autocomplete_match", 3)?.unwrap_or_default();
+        let visit_count = ctx.get::<u32>(4)?;
+        let typed = ctx.get::<bool>(5)?;
+        let bookmarked = ctx.get::<bool>(6)?;
+        let open_page_count = ctx.get::<Option<u32>>(7)?.unwrap_or(0);
+        let match_behavior = ctx.get::<MatchBehavior>(8)?;
+        let search_behavior = ctx.get::<SearchBehavior>(9)?;
+
+        let matcher = AutocompleteMatch {
+            search_str,
+            url_str,
+            title_str,
+            tags,
+            visit_count,
+            typed,
+            bookmarked,
+            open_page_count,
+            match_behavior,
+            search_behavior,
+        };
+        Ok(matcher.invoke())
+    }
+
+    #[inline(never)]
+    pub fn reverse_host(ctx: &Context) -> Result<String> {
+        // We reuse this memory so no need for get_raw.
+        let mut host = ctx.get::<String>(0)?;
+        debug_assert!(host.is_ascii(), "Hosts must be Punycoded");
+
+        host.make_ascii_lowercase();
+        let mut rev_host_bytes = host.into_bytes();
+        rev_host_bytes.reverse();
+        rev_host_bytes.push(b'.');
+
+        let rev_host = String::from_utf8(rev_host_bytes).map_err(|_err| {
+            rusqlite::Error::UserFunctionError("non-punycode host provided to reverse_host!".into())
+        })?;
+        Ok(rev_host)
+    }
+
+    #[inline(never)]
+    pub fn get_prefix(ctx: &Context) -> Result<String> {
+        let href = get_raw_str(ctx, "get_prefix", 0)?;
+        let (prefix, _) = split_after_prefix(&href);
+        Ok(prefix.to_owned())
+    }
+
+    #[inline(never)]
+    pub fn get_host_and_port(ctx: &Context) -> Result<String> {
+        let href = get_raw_str(ctx, "get_host_and_port", 0)?;
+        let (host_and_port, _) = split_after_host_and_port(&href);
+        Ok(host_and_port.to_owned())
+    }
+
+    #[inline(never)]
+    pub fn strip_prefix_and_userinfo(ctx: &Context) -> Result<String> {
+        let href = get_raw_str(ctx, "strip_prefix_and_userinfo", 0)?;
+        let (host_and_port, remainder) = split_after_host_and_port(&href);
+        let mut res = String::with_capacity(host_and_port.len() + remainder.len() + 1);
+        res += host_and_port;
+        res += remainder;
+        Ok(res)
+    }
 }
 
 // Sanity check that we can create a database.

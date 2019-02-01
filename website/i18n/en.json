@@ -65,6 +65,22 @@
         "title": "Docs",
         "sidebar_label": "Docs"
       },
+      "push/design": {
+        "title": "Design, API's, Error Codes"
+      },
+      "push/development": {
+        "title": "Development Process"
+      },
+      "push/history": {
+        "title": "History"
+      },
+      "push/welcome": {
+        "title": "Push",
+        "sidebar_label": "Welcome"
+      },
+      "release-process": {
+        "title": "release-process"
+      },
       "sync/canned-bug-responses": {
         "title": "Canned Bug Responses"
       },
@@ -100,6 +116,7 @@
       "Accounts": "Accounts",
       "Sync": "Sync",
       "Applications": "Applications",
+      "Push": "Push",
       "Firefox Accounts": "Firefox Accounts",
       "Mobile SDKs": "Mobile SDKs",
       "Other Features": "Other Features",

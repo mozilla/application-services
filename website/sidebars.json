@@ -2,7 +2,8 @@
   "docs": {
     "Accounts": ["accounts/welcome"],
     "Sync": ["sync/welcome"],
-    "Applications": ["applications/welcome"]
+    "Applications": ["applications/welcome"],
+    "Push": ["push/welcome"]
   },
   "accounts": {
     "Firefox Accounts": [
@@ -47,6 +48,14 @@
     "Team": [
       "sync/canned-bug-responses",
       "sync/redash"
+    ]
+  },
+  "push": {
+    "Push": [
+      "push/welcome",
+      "push/development",
+      "push/design",
+      "push/history"
     ]
   }
 }

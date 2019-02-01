@@ -35,12 +35,7 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
         &[
             // Try to match on the origin, or the full URL.
             &OriginOrUrl::new(&params.search_string, conn),
-            // After the first result, try the queries for adaptive matches and
-            // suggestions for bookmarked URLs.
-            &Adaptive::new(&params.search_string, conn),
-            &Suggestions::new(&params.search_string, conn),
-            // If we don't have enough results, query adaptive matches and
-            // suggestions again, matching anywhere instead of on boundaries.
+            // query adaptive matches and suggestions, matching Anywhere.
             &Adaptive::with_behavior(
                 &params.search_string,
                 conn,
@@ -58,6 +53,19 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
     )?;
 
     Ok(matches)
+}
+
+pub fn match_url(conn: &PlacesDb, query: impl AsRef<str>) -> Result<Option<String>> {
+    let matcher = OriginOrUrl::new(query.as_ref(), conn);
+    // Note: The matcher ignores the limit argument (it's a trait method)
+    let results = matcher.search(1)?;
+    // Doing it like this lets us move the result, avoiding a copy (which almost
+    // certainly doesn't matter but whatever)
+    if let Some(res) = results.into_iter().next() {
+        Ok(Some(res.url.into_string()))
+    } else {
+        Ok(None)
+    }
 }
 
 fn match_with_limit(matchers: &[&dyn Matcher], max_results: u32) -> Result<(Vec<SearchResult>)> {
@@ -94,11 +102,12 @@ pub fn accept_result(conn: &PlacesDb, result: &SearchResult) -> Result<()> {
 }
 
 pub fn split_after_prefix(href: &str) -> (&str, &str) {
-    match href.find(':') {
+    match memchr::memchr(b':', href.as_bytes()) {
         None => ("", href),
         Some(index) => {
+            let hb = href.as_bytes();
             let mut end = index + 1;
-            if href.len() >= end + 2 && &href[end..end + 2] == "//" {
+            if hb.len() >= end + 2 && hb[end] == b'/' && hb[end + 1] == b'/' {
                 end += 2;
             }
             (&href[0..end], &href[end..])
@@ -108,18 +117,12 @@ pub fn split_after_prefix(href: &str) -> (&str, &str) {
 
 pub fn split_after_host_and_port(href: &str) -> (&str, &str) {
     let (_, remainder) = split_after_prefix(href);
-    let mut start = 0;
-    let mut end = remainder.len();
-    for (index, c) in remainder.char_indices() {
-        if c == '/' || c == '?' || c == '#' {
-            end = index;
-            break;
-        }
-        if c == '@' {
-            start = index + 1;
-        }
-    }
-    (&remainder[start..end], &remainder[end..])
+    let start = memchr::memchr(b'@', remainder.as_bytes())
+        .map(|i| i + 1)
+        .unwrap_or(0);
+    let remainder = &remainder[start..];
+    let end = memchr::memchr3(b'/', b'?', b'#', remainder.as_bytes()).unwrap_or(remainder.len());
+    remainder.split_at(end)
 }
 
 fn looks_like_origin(string: &str) -> bool {
@@ -409,15 +412,6 @@ struct Adaptive<'query, 'conn> {
 }
 
 impl<'query, 'conn> Adaptive<'query, 'conn> {
-    pub fn new(query: &'query str, conn: &'conn PlacesDb) -> Adaptive<'query, 'conn> {
-        Adaptive::with_behavior(
-            query,
-            conn,
-            MatchBehavior::BoundaryAnywhere,
-            SearchBehavior::default(),
-        )
-    }
-
     pub fn with_behavior(
         query: &'query str,
         conn: &'conn PlacesDb,
@@ -486,15 +480,6 @@ struct Suggestions<'query, 'conn> {
 }
 
 impl<'query, 'conn> Suggestions<'query, 'conn> {
-    pub fn new(query: &'query str, conn: &'conn PlacesDb) -> Suggestions<'query, 'conn> {
-        Suggestions::with_behavior(
-            query,
-            conn,
-            MatchBehavior::BoundaryAnywhere,
-            SearchBehavior::default(),
-        )
-    }
-
     pub fn with_behavior(
         query: &'query str,
         conn: &'conn PlacesDb,

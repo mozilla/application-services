@@ -249,7 +249,7 @@ const CREATE_TABLE_META_SQL: &str = "CREATE TABLE moz_meta (
 // See https://searchfox.org/mozilla-central/source/toolkit/components/places/nsPlacesIndexes.h
 const CREATE_IDX_MOZ_PLACES_URL_HASH: &str = "CREATE INDEX url_hashindex ON moz_places(url_hash)";
 
-// const CREATE_IDX_MOZ_PLACES_REVHOST: &str = "CREATE INDEX hostindex ON moz_places(rev_host)";
+const CREATE_IDX_MOZ_ORIGINS_REVHOST: &str = "CREATE INDEX hostindex ON moz_origins(rev_host)";
 
 const CREATE_IDX_MOZ_PLACES_VISITCOUNT_LOCAL: &str =
     "CREATE INDEX visitcountlocal ON moz_places(visit_count_local)";
@@ -290,8 +290,12 @@ const CREATE_IDX_MOZ_BOOKMARKS_PLACELASTMODIFIED: &str =
 // pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM: &'static str = "origin_frecency_sum";
 // pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM_OF_SQUARES: &'static str = "origin_frecency_sum_of_squares";
 
+fn get_current_schema_version(db: &PlacesDb) -> Result<i64> {
+    Ok(db.query_one::<i64>("PRAGMA user_version")?)
+}
+
 pub fn init(db: &PlacesDb) -> Result<()> {
-    let user_version = db.query_one::<i64>("PRAGMA user_version")?;
+    let user_version = get_current_schema_version(db)?;
     if user_version == 0 {
         create(db)?;
     } else if user_version != VERSION {
@@ -321,10 +325,44 @@ pub fn init(db: &PlacesDb) -> Result<()> {
     Ok(())
 }
 
-// https://github.com/mozilla-mobile/firefox-ios/blob/master/Storage/SQL/LoginsSchema.swift#L100
-fn upgrade(_db: &PlacesDb, from: i64) -> Result<()> {
+/// Helper for upgrade. Intended use:
+///
+/// ```rust,ignore
+/// migration(db, 2, 3, &[stuff, to, migrate, version2, to, version3])?;
+/// migration(db, 3, 4, &[stuff, to, migrate, version3, to, version4])?;
+/// migration(db, 4, 5, &[stuff, to, migrate, version4, to, version5])?;
+/// assert_eq!(get_current_schema_version(), 5);
+/// ```
+
+fn migration(db: &PlacesDb, from: i64, to: i64, stmts: &[&str]) -> Result<()> {
+    use sql_support::ConnExt;
+    // In the future maybe we want to avoid calling this
+    let cur_version = get_current_schema_version(db)?;
+    if cur_version == from {
+        log::debug!("Upgrading schema from {} to {}", cur_version, to);
+        db.execute_all(stmts)?;
+        db.execute_batch(&format!("PRAGMA user_version = {};", to))?;
+    } else {
+        log::debug!(
+            "Not executing places migration of v{} -> v{} on v{}",
+            from,
+            to,
+            cur_version
+        );
+    }
+    Ok(())
+}
+
+fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
     log::debug!("Upgrading schema from {} to {}", from, VERSION);
     if from == VERSION {
+        return Ok(());
+    }
+
+    migration(db, 2, 3, &[CREATE_IDX_MOZ_ORIGINS_REVHOST])?;
+    // Add more migrations here...
+
+    if get_current_schema_version(db)? == VERSION {
         return Ok(());
     }
     // FIXME https://github.com/mozilla/application-services/issues/438
@@ -355,6 +393,7 @@ pub fn create(db: &PlacesDb) -> Result<()> {
         CREATE_IDX_MOZ_HISTORYVISITS_FROMVISIT,
         CREATE_IDX_MOZ_HISTORYVISITS_VISITDATE,
         CREATE_IDX_MOZ_HISTORYVISITS_ISLOCAL,
+        CREATE_IDX_MOZ_ORIGINS_REVHOST,
         CREATE_IDX_MOZ_BOOKMARKS_PLACELASTMODIFIED,
     ])?;
     create_bookmark_roots(&db.conn())?;

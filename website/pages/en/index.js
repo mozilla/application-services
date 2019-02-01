@@ -114,7 +114,7 @@ const Features = props => (
       {
         imageAlign: 'top',
         title: 'Push',
-        imageLink: `https://mozilla-push-service.readthedocs.io/en/latest/`,
+        imageLink: `${siteConfig.baseUrl}docs/push/welcome.html`,
         image: imgUrl('notification-16.svg'),
       },
     ]}
