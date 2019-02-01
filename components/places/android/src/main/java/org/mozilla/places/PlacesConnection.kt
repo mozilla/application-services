@@ -72,6 +72,19 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
         return SearchResult.fromJSONArray(json)
     }
 
+    override fun matchUrl(query: String): String? {
+        // Can't use rustCallForString if we return null on success. Possibly worth splitting
+        // into a rustCallForOptString or something, but I'll wait until we need it again.
+        val urlPtr = rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_match_url(this.handle.get(), query, error)
+        }
+        try {
+            return urlPtr?.getString(0, "utf-8")
+        } finally {
+            urlPtr?.let { LibPlacesFFI.INSTANCE.places_destroy_string(it) }
+        }
+    }
+
     override fun getVisited(urls: List<String>): List<Boolean> {
         // Note urlStrings has a potential footgun in that StringArray has a `size()` method
         // which returns the size *in bytes*. Hence us using urls.size (which is an element count)
@@ -180,6 +193,17 @@ interface PlacesAPI {
      * @return a list of [SearchResult] matching the [query], in arbitrary order.
      */
     fun queryAutocomplete(query: String, limit: Int): List<SearchResult>
+
+    /**
+     * See if a url that's sufficiently close to `search` exists in
+     * the database.
+     *
+     * @param query the search string
+     * @return If no url exists, returns null. If one exists, it returns the next
+     *         portion of it that definitely matches (where portion is defined
+     *         something like 'complete origin or path segment')
+     */
+    fun matchUrl(query: String): String?
 
     /**
      * Maps a list of page URLs to a list of booleans indicating if each URL was visited.

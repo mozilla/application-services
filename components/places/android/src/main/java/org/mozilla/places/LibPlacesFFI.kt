@@ -68,6 +68,13 @@ internal interface LibPlacesFFI : Library {
             out_err: RustError.ByReference
     ): Pointer?
 
+    /** Returns a URL, or null if no match was found. */
+    fun places_match_url(
+            handle: PlacesConnectionHandle,
+            search: String,
+            out_err: RustError.ByReference
+    ): Pointer?
+
     /** Note: urls_len and buffer_len must be the same length. The argument is somewhat redundant, but
      * is provided for a slight additional amount of sanity checking. These lengths are the number
      * of elements present (and not e.g. the number of bytes allocated). */
