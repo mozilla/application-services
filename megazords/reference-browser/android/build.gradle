@@ -108,7 +108,7 @@ apply from: "$rootDir/publish.gradle"
 ext.configurePublish(
         'org.mozilla.appservices',
         'reference-browser-megazord',
-        'Megazord of [fxaclient, logins, places]',
+        'Megazord of [fxaclient, logins, places, logging]',
         /* jnaForTestConfiguration= */ configurations.jnaForTest,
         /* variantWithoutLib= */ null,
 )
