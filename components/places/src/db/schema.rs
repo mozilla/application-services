@@ -14,7 +14,7 @@ use lazy_static::lazy_static;
 use rusqlite::NO_PARAMS;
 use sql_support::ConnExt;
 
-const VERSION: i64 = 3;
+const VERSION: i64 = 4;
 
 const CREATE_TABLE_PLACES_SQL: &str =
     "CREATE TABLE IF NOT EXISTS moz_places (
@@ -80,15 +80,15 @@ const CREATE_TABLE_INPUTHISTORY_SQL: &str = "CREATE TABLE moz_inputhistory (
 const CREATE_TABLE_BOOKMARKS_SQL: &str = r#"CREATE TABLE moz_bookmarks (
         id INTEGER PRIMARY KEY,
         fk INTEGER DEFAULT NULL, -- place_id
-        type INTEGER NOT NULL CHECK(type BETWEEN 1 AND 3),
+        type INTEGER NOT NULL,
         parent INTEGER,
-        position INTEGER NOT NULL CHECK(position >= 0),
+        position INTEGER NOT NULL,
         title TEXT, -- a'la bug 1356159, NULL is special here - it means 'not edited'
         dateAdded INTEGER NOT NULL DEFAULT 0,
         lastModified INTEGER NOT NULL DEFAULT 0,
         guid TEXT NOT NULL UNIQUE CHECK(length(guid) == 12),
 
-        syncStatus INTEGER NOT NULL DEFAULT 0 CHECK(syncStatus BETWEEN 0 AND 2),
+        syncStatus INTEGER NOT NULL DEFAULT 0,
         syncChangeCounter INTEGER NOT NULL DEFAULT 1,
 
         -- bookmarks must have a fk to a URL, other types must not.
@@ -328,13 +328,19 @@ pub fn init(db: &PlacesDb) -> Result<()> {
 /// Helper for upgrade. Intended use:
 ///
 /// ```rust,ignore
-/// migration(db, 2, 3, &[stuff, to, migrate, version2, to, version3])?;
-/// migration(db, 3, 4, &[stuff, to, migrate, version3, to, version4])?;
-/// migration(db, 4, 5, &[stuff, to, migrate, version4, to, version5])?;
+/// migration(db, 2, 3, &[stuff, to, migrate, version2, to, version3], || Ok(()))?;
+/// migration(db, 3, 4, &[stuff, to, migrate, version3, to, version4], || Ok(()))?;
+/// migration(db, 4, 5, &[stuff, to, migrate, version4, to, version5], || Ok(()))?;
 /// assert_eq!(get_current_schema_version(), 5);
 /// ```
-
-fn migration(db: &PlacesDb, from: i64, to: i64, stmts: &[&str]) -> Result<()> {
+///
+/// The callback parameter is if any extra logic is needed for the migration
+/// (for example, creating bookmark roots). In an ideal world, this would be an
+/// Option, but sadly, that can't typecheck.
+fn migration<F>(db: &PlacesDb, from: i64, to: i64, stmts: &[&str], extra_logic: F) -> Result<()>
+where
+    F: FnOnce() -> Result<()>,
+{
     use sql_support::ConnExt;
     // In the future maybe we want to avoid calling this
     let cur_version = get_current_schema_version(db)?;
@@ -342,6 +348,7 @@ fn migration(db: &PlacesDb, from: i64, to: i64, stmts: &[&str]) -> Result<()> {
         log::debug!("Upgrading schema from {} to {}", cur_version, to);
         db.execute_all(stmts)?;
         db.execute_batch(&format!("PRAGMA user_version = {};", to))?;
+        extra_logic()?;
     } else {
         log::debug!(
             "Not executing places migration of v{} -> v{} on v{}",
@@ -359,7 +366,20 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
         return Ok(());
     }
 
-    migration(db, 2, 3, &[CREATE_IDX_MOZ_ORIGINS_REVHOST])?;
+    migration(db, 2, 3, &[CREATE_IDX_MOZ_ORIGINS_REVHOST], || Ok(()))?;
+    migration(
+        db,
+        3,
+        4,
+        &[
+            // Previous versions had an incomplete version of moz_bookmarks.
+            "DROP TABLE BOOKMARKS",
+            CREATE_TABLE_BOOKMARKS_SQL,
+            CREATE_TABLE_BOOKMARKS_DELETED_SQL,
+            CREATE_IDX_MOZ_BOOKMARKS_PLACELASTMODIFIED,
+        ],
+        || create_bookmark_roots(&db.conn()),
+    )?;
     // Add more migrations here...
 
     if get_current_schema_version(db)? == VERSION {
@@ -487,19 +507,6 @@ mod tests {
     fn test_bookmark_check_constraints() {
         let conn = PlacesDb::open_in_memory(None).expect("no memory db");
 
-        // Invalid value for "type"
-        let e = conn
-            .execute_cached(
-                "INSERT INTO moz_bookmarks
-                (fk, type, parent, position, dateAdded, lastModified, guid)
-            VALUES
-                (NULL, 4, 0, 0, 1, 1, 'fake_guid___')",
-                NO_PARAMS,
-            )
-            .expect_err("should fail");
-        // it's a shame the message doesn't indicate what check failed :(
-        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
-
         // type==BOOKMARK but null fk
         let e = conn
             .execute_cached(
@@ -543,18 +550,6 @@ mod tests {
                     (fk, type, parent, position, dateAdded, lastModified, guid)
                  VALUES
                     (NULL, 2, 0, 0, 1, 1, 'fake_guid')",
-                NO_PARAMS,
-            )
-            .expect_err("should fail");
-        assert_eq!(e.to_string(), "CHECK constraint failed: moz_bookmarks");
-
-        // negative position
-        let e = conn
-            .execute_cached(
-                "INSERT INTO moz_bookmarks
-                    (fk, type, parent, position, dateAdded, lastModified, guid)
-                 VALUES
-                    (NULL, 2, 0, -1, 1, 1, 'fake_guid___')",
                 NO_PARAMS,
             )
             .expect_err("should fail");
