@@ -55,5 +55,5 @@ name = "match_impl"
 harness = false
 
 [[bench]]
-name = "search_frecent"
+name = "search"
 harness = false
