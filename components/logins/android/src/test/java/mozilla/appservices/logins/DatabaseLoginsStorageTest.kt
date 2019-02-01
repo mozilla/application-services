@@ -71,5 +71,23 @@ class DatabaseLoginsStorageTest: LoginsStorageTest() {
 
         finishAndClose(store)
     }
+
+    @Test
+    fun testSyncException() {
+        val test = getTestStore()
+        test.ensureUnlocked(encryptionKey)
+        // Make sure we throw the right exception for invalid info.
+        expectException(SyncAuthInvalidException::class.java) {
+            // Provide a real URL for the tokenserver, or we give back an unexpected error about it being an invalid URL
+            test.sync(SyncUnlockInfo(
+                    kid = "",
+                    fxaAccessToken = "",
+                    syncKey = "",
+                    tokenserverURL = "https://asdf.com"
+            ))
+        }
+
+        finishAndClose(test)
+    }
 }
 

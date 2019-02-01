@@ -245,7 +245,7 @@ impl ErrorCode {
     /// that's what you want), or -1 (reserved for panics, but you can use `ErrorCode::PANIC` if
     /// that's what you want).
     pub fn new(code: i32) -> Self {
-        assert!(code > ErrorCode::PANIC.0 && code != ErrorCode::PANIC.0 && code != ErrorCode::SUCCESS.0,
+        assert!(code > ErrorCode::INVALID_HANDLE.0 && code != ErrorCode::PANIC.0 && code != ErrorCode::SUCCESS.0,
             "Error: The ErrorCodes `{success}`, `{panic}`, and all error codes less than or equal \
             to `{reserved}` are reserved (got {code}). You may use the associated constants on this \
             type (`ErrorCode::PANIC`, etc) if you'd like instances of those error codes.",
@@ -297,6 +297,12 @@ mod test {
     fn test_code_new_reserved_unknown() {
         // Everything below -1000 should be reserved.
         ErrorCode::new(-1043);
+    }
+
+    #[test]
+    fn test_code_new_allowed() {
+        // Should not panic
+        ErrorCode::new(-2);
     }
 
     #[test]

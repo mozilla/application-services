@@ -41,6 +41,8 @@ structopt = "0.2.14"
 tempfile = "3.0.4"
 rand = "0.5.5"
 fxa-client = { path = "../fxa-client" }
+criterion = "0.2.9"
+tempdir = "0.3.7"
 
 
 # While we don't have a replacement for termion on Windows yet (and thus
@@ -48,3 +50,11 @@ fxa-client = { path = "../fxa-client" }
 # such that "cargo test" etc shows errors in our code rather than in termion.
 [target.'cfg(not(windows))'.dev-dependencies]
 termion = "1.5.1"
+
+[[bench]]
+name = "match_impl"
+harness = false
+
+[[bench]]
+name = "search"
+harness = false

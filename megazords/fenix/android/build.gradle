@@ -60,7 +60,7 @@ cargo {
     // Where Cargo writes its outputs.
     targetDirectory = '../../../target'
 
-    libname = 'reference_browser'
+    libname = 'fenix'
 
     // The Cargo targets to invoke.  The mapping from short name to target
     // triple is defined by the `rust-android-gradle` plugin.
@@ -82,7 +82,6 @@ cargo {
 
 dependencies {
     api project(path: ':fxa-client-library', configuration: 'withoutLib')
-    api project(path: ':logins-library', configuration: 'withoutLib')
     api project(path: ':places-library', configuration: 'withoutLib')
     api project(path: ':rustlog-library', configuration: 'withoutLib')
 
@@ -107,8 +106,8 @@ afterEvaluate {
 apply from: "$rootDir/publish.gradle"
 ext.configurePublish(
         'org.mozilla.appservices',
-        'reference-browser-megazord',
-        'Megazord of [fxaclient, logins, places, logging]',
+        'fenix-megazord',
+        'Megazord of [fxaclient, places]',
         /* jnaForTestConfiguration= */ configurations.jnaForTest,
         /* variantWithoutLib= */ null,
 )

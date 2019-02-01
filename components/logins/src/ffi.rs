@@ -43,7 +43,7 @@ fn get_code(err: &Error) -> ErrorCode {
         ErrorKind::SyncAdapterError(e) => {
             log::error!("Sync error {:?}", e);
             match e.kind() {
-                Sync15ErrorKind::TokenserverHttpError(401) => {
+                Sync15ErrorKind::TokenserverHttpError(401) | Sync15ErrorKind::BadKeyLength(..) => {
                     ErrorCode::new(error_codes::AUTH_INVALID)
                 }
                 Sync15ErrorKind::RequestError(_) => ErrorCode::new(error_codes::NETWORK),

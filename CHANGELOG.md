@@ -2,7 +2,32 @@
 
 **See [the release process docs](docs/release-process.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.14.0...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.15.0...master)
+
+## Places
+
+### What's New
+
+- New method on PlacesConnection (breaking change for classes implementing PlacesAPI): `fun interrupt()`. Cancels any calls to `queryAutocomplete` or `matchUrl` that are running on other threads. Those threads will throw an `OperationInterrupted` exception. ([#597](https://github.com/mozilla/application-services/pull/597))
+    - Using `interrupt()` during the execution of other methods may work, but will have mixed results (it will work if we're currently executing a SQL query, and not if we're running rust code). This limitation may be lifted in the future.
+
+# 0.15.0 (_2019-02-01_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.14.0...v0.15.0)
+
+## General
+
+### What's New
+
+- A new megazord was added, named `fenix-megazord`. It contains the components for FxA and Places (and logging). ([#585](https://github.com/mozilla/application-services/issues/585))
+    - Note: To use this, you must be on version 0.3.1 of the gradle plugin.
+
+## Logins
+
+### What's Fixed
+
+- Fix an issue where unexpected errors would become panics. ([#593](https://github.com/mozilla/application-services/pull/593))
+- Fix an issue where syncing with invalid credentials would be reported as the wrong kind of error (and cause a panic because of the previous issue). ([#593](https://github.com/mozilla/application-services/pull/593))
 
 ## Places
 

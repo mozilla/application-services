@@ -1,0 +1,13 @@
+[package]
+name = "fenix"
+edition = "2018"
+version = "0.1.0"
+authors = ["application-services <application-services@mozilla.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+fxaclient_ffi = { path = "../../components/fxa-client/ffi" }
+places-ffi = { path = "../../components/places/ffi" }
+rc_log_ffi = { path = "../../components/rc_log" }
