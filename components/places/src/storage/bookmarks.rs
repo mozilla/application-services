@@ -349,15 +349,13 @@ fn delete_bookmark_in_tx(db: &impl ConnExt, guid: &SyncGuid) -> Result<bool> {
 // missing fields and be able to compare against a tree with all fields (such
 // as one exported from the DB)
 #[cfg(test)]
-macro_rules! cmp_option {
-    ($s: ident, $o: ident, $name:ident) => {
-        match (&$s.$name, &$o.$name) {
-            (None, None) => true,
-            (None, Some(_)) => true,
-            (Some(_), None) => true,
-            (s, o) => s == o,
-        }
-    };
+fn cmp_options<T: PartialEq>(s: &Option<T>, o: &Option<T>) -> bool {
+    match (s, o) {
+        (None, None) => true,
+        (None, Some(_)) => true,
+        (Some(_), None) => true,
+        (s, o) => s == o,
+    }
 }
 
 #[derive(Debug)]
@@ -372,10 +370,10 @@ pub struct BookmarkNode {
 #[cfg(test)]
 impl PartialEq for BookmarkNode {
     fn eq(&self, other: &BookmarkNode) -> bool {
-        cmp_option!(self, other, guid)
-            && cmp_option!(self, other, date_added)
-            && cmp_option!(self, other, last_modified)
-            && cmp_option!(self, other, title)
+        cmp_options(&self.guid, &other.guid)
+            && cmp_options(&self.date_added, &other.date_added)
+            && cmp_options(&self.last_modified, &other.last_modified)
+            && cmp_options(&self.title, &other.title)
             && self.url == other.url
     }
 }
@@ -390,9 +388,9 @@ pub struct SeparatorNode {
 #[cfg(test)]
 impl PartialEq for SeparatorNode {
     fn eq(&self, other: &SeparatorNode) -> bool {
-        cmp_option!(self, other, guid)
-            && cmp_option!(self, other, date_added)
-            && cmp_option!(self, other, last_modified)
+        cmp_options(&self.guid, &other.guid)
+            && cmp_options(&self.date_added, &other.date_added)
+            && cmp_options(&self.last_modified, &other.last_modified)
     }
 }
 
@@ -408,10 +406,10 @@ pub struct FolderNode {
 #[cfg(test)]
 impl PartialEq for FolderNode {
     fn eq(&self, other: &FolderNode) -> bool {
-        cmp_option!(self, other, guid)
-            && cmp_option!(self, other, date_added)
-            && cmp_option!(self, other, last_modified)
-            && cmp_option!(self, other, title)
+        cmp_options(&self.guid, &other.guid)
+            && cmp_options(&self.date_added, &other.date_added)
+            && cmp_options(&self.last_modified, &other.last_modified)
+            && cmp_options(&self.title, &other.title)
             && self.children == other.children
     }
 }
