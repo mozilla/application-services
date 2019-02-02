@@ -174,6 +174,31 @@ pub extern "C" fn places_get_visited_urls_in_range(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn places_delete_place(
+    handle: u64,
+    url: *const c_char,
+    error: &mut ExternError,
+) {
+    log::debug!("places_delete_place");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let url = parse_url(rust_str_from_c(url))?;
+        if let Some(guid) = storage::history::url_to_guid(conn, &url)? {
+            storage::history::delete_place_by_guid(conn, &guid)?;
+        }
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn places_delete_visits_since(handle: u64, since: i64, error: &mut ExternError) {
+    log::debug!("places_delete_visits_since");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        storage::history::delete_visits_since(conn, places::Timestamp(since.max(0) as u64))?;
+        Ok(())
+    })
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn sync15_history_sync(
     handle: u64,
     key_id: *const c_char,

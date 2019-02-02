@@ -95,6 +95,7 @@ internal interface LibPlacesFFI : Library {
             out_err: RustError.ByReference
     ): Pointer?
 
+
     fun places_new_interrupt_handle(
             conn: PlacesConnectionHandle,
             out_err: RustError.ByReference
@@ -102,6 +103,18 @@ internal interface LibPlacesFFI : Library {
 
     fun places_interrupt(
             conn: RawPlacesInterruptHandle,
+            out_err: RustError.ByReference
+    )
+
+    fun places_delete_place(
+            handle: PlacesConnectionHandle,
+            url: String,
+            out_err: RustError.ByReference
+    )
+
+    fun places_delete_visits_since(
+            handle: PlacesConnectionHandle,
+            since: Long,
             out_err: RustError.ByReference
     )
 
