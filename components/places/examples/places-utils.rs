@@ -39,14 +39,8 @@ struct DesktopItem {
 }
 
 fn convert_node(dm: DesktopItem) -> Option<BookmarkTreeNode> {
-    // this patten has been copy-pasta'd too often...
-    let bookmark_type = match BookmarkType::from_u8(dm.type_code) {
-        Some(t) => t,
-        None => match dm.uri {
-            Some(_) => BookmarkType::Bookmark,
-            _ => BookmarkType::Folder,
-        },
-    };
+    let bookmark_type = BookmarkType::from_u8_with_valid_url(dm.type_code, || dm.uri.is_some());
+
     Some(match bookmark_type {
         BookmarkType::Bookmark => {
             let url = match dm.uri {
@@ -56,20 +50,22 @@ fn convert_node(dm: DesktopItem) -> Option<BookmarkTreeNode> {
                     return None;
                 }
             };
-            BookmarkTreeNode::Bookmark(BookmarkNode {
+            BookmarkNode {
                 guid: dm.guid,
                 date_added: dm.date_added.map(|v| Timestamp(v / 1000)),
                 last_modified: dm.last_modified.map(|v| Timestamp(v / 1000)),
                 title: dm.title,
                 url,
-            })
+            }
+            .into()
         }
-        BookmarkType::Separator => BookmarkTreeNode::Separator(SeparatorNode {
+        BookmarkType::Separator => SeparatorNode {
             guid: dm.guid,
             date_added: dm.date_added.map(|v| Timestamp(v / 1000)),
             last_modified: dm.last_modified.map(|v| Timestamp(v / 1000)),
-        }),
-        BookmarkType::Folder => BookmarkTreeNode::Folder(FolderNode {
+        }
+        .into(),
+        BookmarkType::Folder => FolderNode {
             guid: dm.guid,
             date_added: dm.date_added.map(|v| Timestamp(v / 1000)),
             last_modified: dm.last_modified.map(|v| Timestamp(v / 1000)),
@@ -79,7 +75,8 @@ fn convert_node(dm: DesktopItem) -> Option<BookmarkTreeNode> {
                 .into_iter()
                 .filter_map(|c| convert_node(c))
                 .collect(),
-        }),
+        }
+        .into(),
     })
 }
 

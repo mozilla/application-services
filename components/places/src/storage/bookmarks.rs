@@ -80,8 +80,6 @@ fn create_root(
     position: u32,
     when: &Timestamp,
 ) -> Result<()> {
-    // desktop's sql seems to assume the root gets a rowid of zero, whereas
-    // we see 1 here. Regardless, the sql below uses the guid.
     let sql = format!(
         "
         INSERT INTO moz_bookmarks
@@ -135,6 +133,12 @@ pub struct InsertableBookmark {
     pub title: Option<String>,
 }
 
+impl Into<InsertableItem> for InsertableBookmark {
+    fn into(self) -> InsertableItem {
+        InsertableItem::Bookmark(self)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct InsertableSeparator {
     pub parent_guid: SyncGuid,
@@ -142,6 +146,12 @@ pub struct InsertableSeparator {
     pub date_added: Option<Timestamp>,
     pub last_modified: Option<Timestamp>,
     pub guid: Option<SyncGuid>,
+}
+
+impl Into<InsertableItem> for InsertableSeparator {
+    fn into(self) -> InsertableItem {
+        InsertableItem::Separator(self)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -152,6 +162,12 @@ pub struct InsertableFolder {
     pub last_modified: Option<Timestamp>,
     pub guid: Option<SyncGuid>,
     pub title: Option<String>,
+}
+
+impl Into<InsertableItem> for InsertableFolder {
+    fn into(self) -> InsertableItem {
+        InsertableItem::Folder(self)
+    }
 }
 
 // The type used to insert the actual item.
@@ -207,12 +223,8 @@ fn insert_bookmark_in_tx(db: &impl ConnExt, bm: &InsertableItem) -> Result<SyncG
         return Err(InvalidPlaceInfo::InvalidGuid.into());
     }
     let parent_guid = bm.parent_guid();
-    let parent = match get_raw_bookmark(db, parent_guid)? {
-        Some(p) => p,
-        None => {
-            return Err(InvalidPlaceInfo::InvalidParent(parent_guid.to_string()).into());
-        }
-    };
+    let parent = get_raw_bookmark(db, parent_guid)?
+        .ok_or_else(|| InvalidPlaceInfo::InvalidParent(parent_guid.to_string()))?;
     if parent.bookmark_type != BookmarkType::Folder {
         return Err(InvalidPlaceInfo::InvalidParent(parent_guid.to_string()).into());
     }
@@ -367,6 +379,12 @@ pub struct BookmarkNode {
     pub url: Url,
 }
 
+impl Into<BookmarkTreeNode> for BookmarkNode {
+    fn into(self) -> BookmarkTreeNode {
+        BookmarkTreeNode::Bookmark(self)
+    }
+}
+
 #[cfg(test)]
 impl PartialEq for BookmarkNode {
     fn eq(&self, other: &BookmarkNode) -> bool {
@@ -385,6 +403,12 @@ pub struct SeparatorNode {
     pub last_modified: Option<Timestamp>,
 }
 
+impl Into<BookmarkTreeNode> for SeparatorNode {
+    fn into(self) -> BookmarkTreeNode {
+        BookmarkTreeNode::Separator(self)
+    }
+}
+
 #[cfg(test)]
 impl PartialEq for SeparatorNode {
     fn eq(&self, other: &SeparatorNode) -> bool {
@@ -401,6 +425,12 @@ pub struct FolderNode {
     pub last_modified: Option<Timestamp>,
     pub title: Option<String>,
     pub children: Vec<BookmarkTreeNode>,
+}
+
+impl Into<BookmarkTreeNode> for FolderNode {
+    fn into(self) -> BookmarkTreeNode {
+        BookmarkTreeNode::Folder(self)
+    }
 }
 
 #[cfg(test)]
@@ -489,37 +519,30 @@ impl<'de> Deserialize<'de> for BookmarkTreeNode {
             None => None,
         };
 
-        let bookmark_type = match BookmarkType::from_u8(m.bookmark_type) {
-            Some(BookmarkType::Bookmark) | None => {
-                // Even if the node says it is a bookmark it still must have a
-                // valid url.
-                match url {
-                    Some(_) => BookmarkType::Bookmark,
-                    None => BookmarkType::Folder,
-                }
-            }
-            Some(t) => t,
-        };
+        let bookmark_type = BookmarkType::from_u8_with_valid_url(m.bookmark_type, || url.is_some());
         Ok(match bookmark_type {
-            BookmarkType::Bookmark => BookmarkTreeNode::Bookmark(BookmarkNode {
+            BookmarkType::Bookmark => BookmarkNode {
                 guid: m.guid,
                 date_added: m.date_added,
                 last_modified: m.last_modified,
                 title: m.title,
                 url: url.unwrap(),
-            }),
-            BookmarkType::Separator => BookmarkTreeNode::Separator(SeparatorNode {
+            }
+            .into(),
+            BookmarkType::Separator => SeparatorNode {
                 guid: m.guid,
                 date_added: m.date_added,
                 last_modified: m.last_modified,
-            }),
-            BookmarkType::Folder => BookmarkTreeNode::Folder(FolderNode {
+            }
+            .into(),
+            BookmarkType::Folder => FolderNode {
                 guid: m.guid,
                 date_added: m.date_added,
                 last_modified: m.last_modified,
                 title: m.title,
                 children: m.children,
-            }),
+            }
+            .into(),
         })
     }
 }
@@ -633,8 +656,8 @@ fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Ve
     insert_infos.reserve(tree.children.len());
     for child in &tree.children {
         match child {
-            BookmarkTreeNode::Bookmark(b) => {
-                insert_infos.push(InsertableItem::Bookmark(InsertableBookmark {
+            BookmarkTreeNode::Bookmark(b) => insert_infos.push(
+                InsertableBookmark {
                     parent_guid: parent.clone(),
                     position: BookmarkPosition::Append,
                     date_added: b.date_added.or(default_when),
@@ -642,28 +665,33 @@ fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Ve
                     guid: b.guid.clone(),
                     url: b.url.clone(),
                     title: b.title.clone(),
-                }))
-            }
-            BookmarkTreeNode::Separator(s) => {
-                insert_infos.push(InsertableItem::Separator(InsertableSeparator {
+                }
+                .into(),
+            ),
+            BookmarkTreeNode::Separator(s) => insert_infos.push(
+                InsertableSeparator {
                     parent_guid: parent.clone(),
                     position: BookmarkPosition::Append,
                     date_added: s.date_added.or(default_when),
                     last_modified: s.last_modified.or(default_when),
                     guid: s.guid.clone(),
-                }))
-            }
+                }
+                .into(),
+            ),
             BookmarkTreeNode::Folder(f) => {
                 let my_guid = f.guid.clone().unwrap_or_else(|| SyncGuid::new());
                 // must add the folder before we recurse into children.
-                insert_infos.push(InsertableItem::Folder(InsertableFolder {
-                    parent_guid: parent.clone(),
-                    position: BookmarkPosition::Append,
-                    date_added: f.date_added.or(default_when),
-                    last_modified: f.last_modified.or(default_when),
-                    guid: Some(my_guid.clone()),
-                    title: f.title.clone(),
-                }));
+                insert_infos.push(
+                    InsertableFolder {
+                        parent_guid: parent.clone(),
+                        position: BookmarkPosition::Append,
+                        date_added: f.date_added.or(default_when),
+                        last_modified: f.last_modified.or(default_when),
+                        guid: Some(my_guid.clone()),
+                        title: f.title.clone(),
+                    }
+                    .into(),
+                );
                 add_subtree_infos(&my_guid, &f, insert_infos);
             }
         };
@@ -713,17 +741,13 @@ impl FetchedTreeRow {
             id: row.get_checked::<_, RowId>("id")?,
             guid: SyncGuid(row.get_checked::<_, String>("guid")?),
             parent: row.get_checked::<_, Option<RowId>>("parent")?,
-            parent_guid: match row.get_checked::<_, Option<String>>("parentGuid")? {
-                Some(g) => Some(SyncGuid(g)),
-                None => None,
-            },
-            node_type: match BookmarkType::from_u8(row.get_checked::<_, u8>("type")?) {
-                Some(t) => t,
-                None => match url {
-                    Some(_) => BookmarkType::Bookmark,
-                    _ => BookmarkType::Folder,
-                },
-            },
+            parent_guid: row
+                .get_checked::<_, Option<String>>("parentGuid")?
+                .map(SyncGuid),
+            node_type: BookmarkType::from_u8_with_valid_url(
+                row.get_checked::<_, u8>("type")?,
+                || url.is_some(),
+            ),
             position: row.get_checked("position")?,
             title: row.get_checked::<_, Option<String>>("title")?,
             date_added: row.get_checked("dateAdded")?,
@@ -902,16 +926,10 @@ impl RawBookmark {
         Ok(Self {
             row_id: row.get_checked("_id")?,
             place_id,
-            bookmark_type: match BookmarkType::from_u8(row.get_checked::<_, u8>("type")?) {
-                Some(t) => t,
-                None => {
-                    if place_id.is_some() {
-                        BookmarkType::Bookmark
-                    } else {
-                        BookmarkType::Folder
-                    }
-                }
-            },
+            bookmark_type: BookmarkType::from_u8_with_valid_url(
+                row.get_checked::<_, u8>("type")?,
+                || place_id.is_some(),
+            ),
             parent_id: row.get_checked("_parentId")?,
             parent_guid: row.get_checked("parentGuid")?,
             position: row.get_checked("position")?,
@@ -1113,24 +1131,37 @@ mod tests {
         let tree = FolderNode {
             guid: Some(BookmarkRootGuid::Unfiled.into()),
             children: vec![
-                BookmarkTreeNode::Bookmark(BookmarkNode {
+                BookmarkNode {
                     guid: None,
                     date_added: None,
                     last_modified: None,
                     title: Some("the bookmark".into()),
                     url: Url::parse("https://www.example.com")?,
-                }),
-                BookmarkTreeNode::Folder(FolderNode {
+                }.into(),
+                FolderNode {
                     title: Some("A folder".into()),
-                    children: vec![BookmarkTreeNode::Bookmark(BookmarkNode {
+                    children: vec![BookmarkNode {
                         guid: None,
                         date_added: None,
                         last_modified: None,
-                        title: Some("bookmark in A folder".into()),
+                        title: Some("bookmark 1 in A folder".into()),
                         url: Url::parse("https://www.example2.com")?,
-                    })],
+                    }.into(), BookmarkNode {
+                        guid: None,
+                        date_added: None,
+                        last_modified: None,
+                        title: Some("bookmark 2 in A folder".into()),
+                        url: Url::parse("https://www.example3.com")?,
+                    }.into()],
                     ..Default::default()
-                }),
+                }.into(),
+                BookmarkNode {
+                    guid: None,
+                    date_added: None,
+                    last_modified: None,
+                    title: Some("another bookmark".into()),
+                    url: Url::parse("https://www.example4.com")?,
+                }.into(),
             ],
             ..Default::default()
         };
@@ -1150,10 +1181,18 @@ mod tests {
                     "title": "A folder",
                     "children": [
                         {
-                            "title": "bookmark in A folder",
+                            "title": "bookmark 1 in A folder",
                             "url": "https://www.example2.com/"
+                        },
+                        {
+                            "title": "bookmark 2 in A folder",
+                            "url": "https://www.example3.com/"
                         }
-                    ]
+                    ],
+                },
+                {
+                    "title": "another bookmark",
+                    "url": "https://www.example4.com/",
                 }
             ]
         });

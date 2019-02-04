@@ -214,6 +214,21 @@ impl BookmarkType {
             _ => None,
         }
     }
+
+    pub fn from_u8_with_valid_url<F: Fn() -> bool>(v: u8, has_valid_url: F) -> Self {
+        match BookmarkType::from_u8(v) {
+            Some(BookmarkType::Bookmark) | None => {
+                if has_valid_url() {
+                    // Even if the node says it is a bookmark it still must have a
+                    // valid url.
+                    BookmarkType::Bookmark
+                } else {
+                    BookmarkType::Folder
+                }
+            }
+            Some(t) => t,
+        }
+    }
 }
 
 impl ToSql for BookmarkType {
