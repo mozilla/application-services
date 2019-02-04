@@ -17,7 +17,7 @@ use serde_derive::*;
 use serde_json::{self, json};
 use sql_support::{self, ConnExt};
 use std::cmp::{max, min};
-use std::iter::Peekable;
+use std::collections::HashMap;
 use url::Url;
 
 /// Special GUIDs associated with bookmark roots.
@@ -757,87 +757,18 @@ impl FetchedTreeRow {
     }
 }
 
-/// A recursive function that processes a number of rows in an iterator.
-/// The first row from the iterator must be that of a folder. Subsequent
-/// rows are consumed while they have a level greater than the level of
-/// the folder itself.
-fn process_folder_rows<'a, I>(rows: &mut Peekable<I>) -> FolderNode
-where
-    I: Iterator<Item = FetchedTreeRow>,
-{
-    // Our query guarantees that we always visit parents ahead of their
-    // children. This function is only called for folders.
-    let folder_row = rows
-        .next()
-        .expect("should never be called with exhausted iter");
-    let mut result = FolderNode {
-        guid: Some(folder_row.guid.clone()),
-        date_added: Some(folder_row.date_added),
-        last_modified: Some(folder_row.last_modified),
-        title: folder_row.title.clone(),
-        children: Vec::new(),
-    };
-    let folder_level = folder_row.level;
-    loop {
-        let (next_level, next_type) = match rows.peek() {
-            None => return result,
-            Some(next_row) => (next_row.level, next_row.node_type),
-        };
-
-        if next_level <= folder_level {
-            // next item is a sibling of our result folder, so we are done.
-            return result;
-        }
-
-        let node = match next_type {
-            BookmarkType::Folder => Some(BookmarkTreeNode::Folder(process_folder_rows(rows))),
-            _ => {
-                // not a folder, so we must consume the row.
-                let row = match rows.next() {
-                    Some(row) => row,
-                    // None should be impossible as we already peeked at it!
-                    None => return result, // iterator is exhaused.
-                };
-                match row.node_type {
-                    BookmarkType::Bookmark => match &row.url {
-                        Some(url_str) => match Url::parse(&url_str) {
-                            Ok(url) => Some(BookmarkTreeNode::Bookmark(BookmarkNode {
-                                guid: Some(row.guid.clone()),
-                                date_added: Some(row.date_added),
-                                last_modified: Some(row.last_modified),
-                                title: row.title.clone(),
-                                url,
-                            })),
-                            Err(e) => {
-                                log::warn!(
-                                    "ignoring malformed bookmark - invalid URL {}: {:?}",
-                                    url_str,
-                                    e
-                                );
-                                None
-                            }
-                        },
-                        None => {
-                            log::warn!("ignoring malformed bookmark {:?}- no URL", row);
-                            None
-                        }
-                    },
-                    BookmarkType::Separator => Some(BookmarkTreeNode::Separator(SeparatorNode {
-                        guid: Some(row.guid.clone()),
-                        date_added: Some(row.date_added),
-                        last_modified: Some(row.last_modified),
-                    })),
-                    BookmarkType::Folder => {
-                        unreachable!("impossible - we already peeked and checked")
-                    }
-                }
+fn inflate(
+    parent: &mut BookmarkTreeNode,
+    pseudo_tree: &mut HashMap<Option<SyncGuid>, Vec<BookmarkTreeNode>>,
+) {
+    if let BookmarkTreeNode::Folder(parent) = parent {
+        if let Some(children) = pseudo_tree.remove(&parent.guid) {
+            parent.children = children;
+            for mut child in &mut parent.children {
+                inflate(&mut child, pseudo_tree);
             }
-        };
-        if let Some(node) = node {
-            result.children.push(node);
         }
     }
-    //unreachable!();
 }
 
 /// Fetch the tree starting at the specified folder guid.
@@ -883,21 +814,79 @@ pub fn fetch_tree(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<Option<Book
 
     let mut stmt = db.conn().prepare(sql)?;
 
-    let results =
+    let mut results =
         stmt.query_and_then_named(&[(":item_guid", item_guid)], FetchedTreeRow::from_row)?;
-    // markh can't work out how to do this directly with an AndThenRows - so
-    // we slurp the rows into a Vec and iterate over that.
-    let mut rows = Vec::new();
+
+    // The first row in the result set is always the root of our tree.
+    let mut root = match results.next() {
+        Some(result) => {
+            let row = result?;
+            FolderNode {
+                guid: Some(row.guid.clone()),
+                date_added: Some(row.date_added),
+                last_modified: Some(row.last_modified),
+                title: row.title.clone(),
+                children: Vec::new(),
+            }
+            .into()
+        }
+        None => return Ok(None),
+    };
+
+    // For all remaining rows, build a pseudo-tree that maps parent GUIDs to
+    // ordered children. We need this intermediate step because SQLite returns
+    // results in level order, so we'll see a node's siblings and cousins (same
+    // level, but different parents) before any of their descendants.
+    let mut pseudo_tree: HashMap<Option<SyncGuid>, Vec<BookmarkTreeNode>> = HashMap::new();
     for result in results {
-        rows.push(result?);
+        let row = result?;
+        let node = match row.node_type {
+            BookmarkType::Bookmark => match &row.url {
+                Some(url_str) => match Url::parse(&url_str) {
+                    Ok(url) => BookmarkNode {
+                        guid: Some(row.guid.clone()),
+                        date_added: Some(row.date_added),
+                        last_modified: Some(row.last_modified),
+                        title: row.title.clone(),
+                        url,
+                    }
+                    .into(),
+                    Err(e) => {
+                        log::warn!(
+                            "ignoring malformed bookmark - invalid URL {}: {:?}",
+                            url_str,
+                            e
+                        );
+                        continue;
+                    }
+                },
+                None => {
+                    log::warn!("ignoring malformed bookmark {:?}- no URL", row);
+                    continue;
+                }
+            },
+            BookmarkType::Separator => SeparatorNode {
+                guid: Some(row.guid.clone()),
+                date_added: Some(row.date_added),
+                last_modified: Some(row.last_modified),
+            }
+            .into(),
+            BookmarkType::Folder => FolderNode {
+                guid: Some(row.guid.clone()),
+                date_added: Some(row.date_added),
+                last_modified: Some(row.last_modified),
+                title: row.title.clone(),
+                children: Vec::new(),
+            }
+            .into(),
+        };
+        let children = pseudo_tree.entry(row.parent_guid.clone()).or_default();
+        children.push(node);
     }
-    let mut peekable_row_iter = rows.into_iter().peekable();
-    Ok(match peekable_row_iter.peek() {
-        Some(_) => Some(BookmarkTreeNode::Folder(process_folder_rows(
-            &mut peekable_row_iter,
-        ))),
-        None => None,
-    })
+
+    // Finally, inflate our tree.
+    inflate(&mut root, &mut pseudo_tree);
+    Ok(Some(root))
 }
 
 /// A "raw" bookmark - a representation of the row and some summary fields.
@@ -1137,31 +1126,39 @@ mod tests {
                     last_modified: None,
                     title: Some("the bookmark".into()),
                     url: Url::parse("https://www.example.com")?,
-                }.into(),
+                }
+                .into(),
                 FolderNode {
                     title: Some("A folder".into()),
-                    children: vec![BookmarkNode {
-                        guid: None,
-                        date_added: None,
-                        last_modified: None,
-                        title: Some("bookmark 1 in A folder".into()),
-                        url: Url::parse("https://www.example2.com")?,
-                    }.into(), BookmarkNode {
-                        guid: None,
-                        date_added: None,
-                        last_modified: None,
-                        title: Some("bookmark 2 in A folder".into()),
-                        url: Url::parse("https://www.example3.com")?,
-                    }.into()],
+                    children: vec![
+                        BookmarkNode {
+                            guid: None,
+                            date_added: None,
+                            last_modified: None,
+                            title: Some("bookmark 1 in A folder".into()),
+                            url: Url::parse("https://www.example2.com")?,
+                        }
+                        .into(),
+                        BookmarkNode {
+                            guid: None,
+                            date_added: None,
+                            last_modified: None,
+                            title: Some("bookmark 2 in A folder".into()),
+                            url: Url::parse("https://www.example3.com")?,
+                        }
+                        .into(),
+                    ],
                     ..Default::default()
-                }.into(),
+                }
+                .into(),
                 BookmarkNode {
                     guid: None,
                     date_added: None,
                     last_modified: None,
                     title: Some("another bookmark".into()),
                     url: Url::parse("https://www.example4.com")?,
-                }.into(),
+                }
+                .into(),
             ],
             ..Default::default()
         };
