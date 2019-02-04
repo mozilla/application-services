@@ -288,8 +288,8 @@ open class AccessTokenInfo: RustStructPointer<AccessTokenInfoC> {
 }
 
 public struct Avatar {
-    let url: String
-    let isDefault: Bool
+    public let url: String
+    public let isDefault: Bool
 }
 
 open class Profile: RustStructPointer<ProfileC> {
