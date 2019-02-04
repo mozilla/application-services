@@ -16,6 +16,13 @@
     - `fun deleteVisitsSince(since: Long)`: Deletes all visits between the given unix timestamp (in milliseconds) and the present ([#591](https://github.com/mozilla/application-services/pull/591)).
         - Note that these deletions are synced!
 
+## FxA
+
+### What's Fixed
+
+- iOS Framework: Members of Avatar struct are now public. ([#615](https://github.com/mozilla/application-services/pull/615))
+
+
 # 0.15.0 (_2019-02-01_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.14.0...v0.15.0)
