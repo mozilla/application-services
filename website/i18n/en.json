@@ -41,14 +41,6 @@
         "title": "About Firefox Accounts",
         "sidebar_label": "Welcome"
       },
-      "applications/android-components": {
-        "title": "Building the Android Components",
-        "sidebar_label": "Building the Android Components"
-      },
-      "applications/signing-android-apps": {
-        "title": "Signing Android Applications",
-        "sidebar_label": "Signing Android Applications"
-      },
       "applications/consuming-megazord-libraries": {
         "title": "Consuming megazord libraries on Android",
         "sidebar_label": "Consuming megazord libraries"
@@ -56,14 +48,6 @@
       "applications/welcome": {
         "title": "Applications",
         "sidebar_label": "Intro"
-      },
-      "applications/working-with-reference-browser": {
-        "title": "Development with the Reference Browser",
-        "sidebar_label": "Development with the Reference Browser"
-      },
-      "doc1": {
-        "title": "Docs",
-        "sidebar_label": "Docs"
       },
       "push/design": {
         "title": "Design, API's, Error Codes"
@@ -77,9 +61,6 @@
       "push/welcome": {
         "title": "Push",
         "sidebar_label": "Welcome"
-      },
-      "release-process": {
-        "title": "release-process"
       },
       "sync/canned-bug-responses": {
         "title": "Canned Bug Responses"

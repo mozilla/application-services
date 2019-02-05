@@ -13,6 +13,7 @@ const siteConfig = {
   url: 'https://mozilla.github.io' /* your website url */,
   baseUrl: '/application-services/' /* base url for your project */,
   projectName: 'application-services',
+  customDocsPath: 'docs/product-portal',
   headerLinks: [
     {blog: true, label: 'Blog'},
     {
