@@ -73,6 +73,41 @@ macro_rules! implement_into_ffi_by_json {
     )*}
 }
 
+/// Implements [`IntoFfi`] for the provided types (more than one may be passed in) implementing
+/// `prost::Message` (protobuf auto-generated type) by converting to the type to a [`ByteBuffer`].
+/// This [`ByteBuffer`] should later be passed by value.
+///
+/// Note: Each type passed in must implement or derive `prost::Message`.
+#[cfg(feature = "prost_support")]
+#[macro_export]
+macro_rules! implement_into_ffi_protobuf {
+    ($($FFIType:ty),* $(,)*) => {$(
+        unsafe impl IntoFfi for $FFIType where $FFIType: prost::Message {
+            type Value = $crate::ByteBuffer;
+
+            fn ffi_default() -> Self::Value {
+                Default::default()
+            }
+
+            fn into_ffi_value(self) -> Self::Value {
+                $crate::convert_protobuf_to_byte_buffer(&self)
+            }
+        }
+    )*}
+}
+
+// Needs to be pub so the macro can call it, but that's all.
+#[cfg(feature = "prost_support")]
+#[doc(hidden)]
+#[inline]
+pub fn convert_protobuf_to_byte_buffer<T: prost::Message>(value: &T) -> crate::ByteBuffer {
+    let mut bytes = Vec::new();
+    bytes.reserve(value.encoded_len());
+    // Unwrap is safe, since we have reserved sufficient capacity in the vector.
+    value.encode(&mut bytes).unwrap();
+    bytes.into()
+}
+
 /// For a number of reasons (name collisions are a big one, but, it also wouldn't work on all
 /// platforms), we cannot export `extern "C"` functions from this library. However, it's pretty
 /// common to want to free strings allocated by rust, so many libraries will need this, so we
@@ -144,6 +179,36 @@ macro_rules! define_box_destructor {
             if !v.is_null() {
                 drop(::std::boxed::Box::from_raw(v))
             }
+        }
+    };
+}
+
+/// Define a (public) destructor for the ByteBuffer type.
+///
+/// ## Caveats
+///
+/// If you're using multiple separately compiled rust libraries in your application, it's critical
+/// that you are careful to only ever free `ByteBuffer` instances allocated by a Rust library using
+/// the same rust library. Passing them to a different Rust library's string destructor will cause
+/// you to corrupt multiple heaps.
+/// One common ByteBuffer destructor is defined per Rust library.
+///
+/// Also, to avoid name collisions, it is strongly recommended that you provide an name for this
+/// function unique to your library. (This is true for all functions you expose).
+///
+/// ## Example
+///
+/// ```rust
+/// # use ffi_support::define_bytebuffer_destructor;
+/// define_bytebuffer_destructor!(mylib_destroy_bytebuffer);
+/// ```
+
+#[macro_export]
+macro_rules! define_bytebuffer_destructor {
+    ($destructor_name:ident) => {
+        #[no_mangle]
+        pub extern "C" fn $destructor_name(v: $crate::ByteBuffer) {
+            drop(v);
         }
     };
 }

@@ -4,12 +4,9 @@
 
 package org.mozilla.fxaclient.internal
 
-import com.sun.jna.Pointer
-import com.sun.jna.Structure
+import ffi_types.FfiTypes.Profile as RawProfile
 
-import java.util.Arrays
-
-class Profile internal constructor(raw: Raw) {
+class Profile internal constructor(byteBuffer: ByteBuffer.ByValue) {
 
     val uid: String?
     val email: String?
@@ -17,31 +14,22 @@ class Profile internal constructor(raw: Raw) {
     val avatarDefault: Boolean
     val displayName: String?
 
-    internal class Raw(p: Pointer) : Structure(p) {
-        @JvmField var uid: Pointer? = null
-        @JvmField var email: Pointer? = null
-        @JvmField var avatar: Pointer? = null
-        @JvmField var avatarDefault: Byte = 0
-        @JvmField var displayName: Pointer? = null
-
-        init {
-            read()
-        }
-
-        override fun getFieldOrder(): List<String> {
-            return Arrays.asList("uid", "email", "avatar", "avatarDefault", "displayName")
-        }
-    }
-
     init {
         try {
-            this.uid = raw.uid?.getRustString()
-            this.email = raw.email?.getRustString()
-            this.avatar = raw.avatar?.getRustString()
-            this.avatarDefault = raw.avatarDefault == 1.toByte()
-            this.displayName = raw.displayName?.getRustString()
+            val raw = byteBuffer.asCodedInputStream()?.let {
+                RawProfile.parseFrom(it)
+            } ?: run {
+                // TODO: should throw somehow?
+                RawProfile.getDefaultInstance()
+            }
+
+            this.uid = if (raw.hasUid()) raw.uid else null
+            this.email = if (raw.hasEmail()) raw.email else null
+            this.avatar = if (raw.hasAvatar()) raw.avatar else null
+            this.avatarDefault = raw.avatarDefault
+            this.displayName = if (raw.hasDisplayName()) raw.displayName else null
         } finally {
-            FxaClient.INSTANCE.fxa_profile_free(raw.pointer)
+            FxaClient.INSTANCE.fxa_bytebuffer_free(byteBuffer)
         }
     }
 }
