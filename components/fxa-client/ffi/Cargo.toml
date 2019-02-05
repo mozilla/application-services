@@ -9,7 +9,7 @@ name = "fxaclient_ffi"
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
-ffi-support = { path = "../../support/ffi" }
+ffi-support = { path = "../../support/ffi", features = ["prost_support"] }
 log = "0.4.6"
 lazy_static = "1.2.0"
 

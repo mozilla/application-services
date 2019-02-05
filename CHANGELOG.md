@@ -4,6 +4,19 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.16.1...master)
 
+## FxA
+
+### What's New
+
+- We are now using [Protocol Buffers](https://developers.google.com/protocol-buffers/) to pass the Profile data across the FFI boundaries, both on Android and iOS. On Android there should be no breaking changes.
+
+### Breaking changes
+
+- iOS: You now have to include the `SwiftProtobuf` framework in your projects for FxAClient to work (otherwise you'll get a runtime error when fetching the user profile). It is built into `Carthage/Build/iOS` just like `FxAClient.framework`.
+- iOS: In order to build FxAClient from source, you need [swift-protobuf](https://github.com/apple/swift-protobuf) installed. Simply run `brew install swift-protobuf` if you have Homebrew.
+- iOS: You need to run `carthage bootstrap` at the root of the repository at least once before building the FxAClient project: this will build the `SwiftProtobuf.framework` file needed by the project.
+- iOS: the `Profile` class now inherits from `RustProtobuf`. Nothing should change in practice for you.
+
 # 0.16.1 (_2019-02-08_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.16.0...v0.16.1)

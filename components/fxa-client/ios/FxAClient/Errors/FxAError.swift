@@ -34,16 +34,12 @@ public enum FxAError: Error {
     @discardableResult
     public static func unwrap<T>(_ callback: (UnsafeMutablePointer<FxAErrorC>) throws -> T?) throws -> T {
         var err = FxAErrorC(code: Int32(NoError), message: nil)
-        guard let result = try callback(&err) else {
-            if let fxaErr = FxAError.fromConsuming(err) {
-                throw fxaErr
-            }
-            throw ResultError.empty
-        }
-        // result might not be nil (e.g. it could be 0), while still indicating failure. Ultimately,
-        // `err` is the source of truth here.
+        let returnedVal = try callback(&err)
         if let fxaErr = FxAError.fromConsuming(err) {
             throw fxaErr
+        }
+        guard let result = returnedVal else {
+            throw ResultError.empty
         }
         return result
     }
@@ -51,17 +47,10 @@ public enum FxAError: Error {
     @discardableResult
     public static func tryUnwrap<T>(_ callback: (UnsafeMutablePointer<FxAErrorC>) throws -> T?) throws -> T? {
         var err = FxAErrorC(code: Int32(NoError), message: nil)
-        guard let result = try callback(&err) else {
-            if let fxaErr = FxAError.fromConsuming(err) {
-                throw fxaErr
-            }
-            return nil
-        }
-        // result might not be nil (e.g. it could be 0), while still indicating failure. Ultimately,
-        // `err` is the source of truth here.
+        let returnedVal = try callback(&err)
         if let fxaErr = FxAError.fromConsuming(err) {
             throw fxaErr
         }
-        return result
+        return returnedVal
     }
 }

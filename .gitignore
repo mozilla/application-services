@@ -17,3 +17,10 @@ captures
 
 # iOS stuff.
 xcuserdata
+
+# Protobuf Swift
+*.pb.swift
+
+# Carthage built artifacts
+Cartfile.resolved
+Carthage
