@@ -4,13 +4,6 @@
 
 import Foundation
 
-enum PointerError: Error {
-    case pointerConsumed
-}
-
-enum ResultError: Error {
-    case empty
-}
 
 enum LockError: Error {
     /// Indicates that lock/unlock pairs were mismatched
