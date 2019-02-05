@@ -1,4 +1,6 @@
 #include "../../xcconfig/common.xcconfig"
 
 INFOPLIST_FILE = config/Info.plist
+HEADER_SEARCH_PATHS = "../../components/fxa-client/ios/FxAClient"
 LIBRARY_SEARCH_PATHS = "../../target/universal/release" "../../libs/ios/universal/sqlcipher/lib"
+CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES
