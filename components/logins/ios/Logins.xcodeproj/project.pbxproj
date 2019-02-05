@@ -313,7 +313,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = EBA8770721F5FB9A004F63F0 /* debug.xcconfig */;
 			buildSettings = {
-				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.Logins;
 			};
 			name = Debug;
@@ -322,7 +321,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = EBA8770821F5FB9A004F63F0 /* release.xcconfig */;
 			buildSettings = {
-				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.Logins;
 			};
 			name = Release;
