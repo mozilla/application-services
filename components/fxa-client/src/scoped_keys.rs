@@ -25,18 +25,18 @@ impl ScopedKeysFlow {
     }
 
     pub fn generate_keys_jwk(&self) -> Result<String> {
-        let mut pub_key = vec![0u8; self.private_key.public_key_len()];
-        &self
+        let pub_key = &self
             .private_key
-            .compute_public_key(&mut pub_key)
+            .compute_public_key()
             .map_err(|_| ErrorKind::PublicKeyComputationFailed)?;
+        let pub_key_bytes = pub_key.as_ref();
         // Uncompressed form (see SECG SEC1 section 2.3.3).
         // First byte is 4, then 32 bytes for x, and 32 bytes for y.
-        assert_eq!(pub_key.len(), 1 + 32 + 32);
-        assert_eq!(pub_key[0], 0x04);
-        let x = Vec::from(&pub_key[1..33]);
+        assert_eq!(pub_key_bytes.len(), 1 + 32 + 32);
+        assert_eq!(pub_key_bytes[0], 0x04);
+        let x = Vec::from(&pub_key_bytes[1..33]);
         let x = base64::encode_config(&x, base64::URL_SAFE_NO_PAD);
-        let y = Vec::from(&pub_key[33..]);
+        let y = Vec::from(&pub_key_bytes[33..]);
         let y = base64::encode_config(&y, base64::URL_SAFE_NO_PAD);
         Ok(json!({
             "crv": "P-256",
@@ -107,9 +107,11 @@ impl ScopedKeysFlow {
             .map_err(|_| ErrorKind::KeyImportFailed)?;
         let mut in_out = ciphertext.to_vec();
         in_out.append(&mut auth_tag.to_vec());
-        let plaintext =
-            aead::open_in_place(&opening_key, &iv, segments[0].as_bytes(), 0, &mut in_out)
-                .map_err(|_| ErrorKind::AEADOpenFailure)?;
+        // We have already asserted that iv is 12 bytes long.
+        let nonce = aead::Nonce::try_assume_unique_for_key(&iv).expect("iv was not 12 bytes long.");
+        let aad = aead::Aad::from(segments[0].as_bytes());
+        let plaintext = aead::open_in_place(&opening_key, nonce, aad, 0, &mut in_out)
+            .map_err(|_| ErrorKind::AEADOpenFailure)?;
         String::from_utf8(plaintext.to_vec()).map_err(|e| e.into())
     }
 }
