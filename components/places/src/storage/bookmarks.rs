@@ -508,16 +508,20 @@ impl<'de> Deserialize<'de> for BookmarkTreeNode {
         }
         let m = Mapping::deserialize(deserializer)?;
 
-        let url = match m.url {
-            Some(ref u) => match Url::parse(u) {
-                Err(e) => {
-                    log::warn!("ignoring invalid url {}: {:?}", u, e);
-                    None
-                }
-                Ok(parsed) => Some(parsed),
-            },
-            None => None,
-        };
+        let url = m.url.as_ref().and_then(|u| match Url::parse(u) {
+            Err(e) => {
+                log::warn!(
+                    "ignoring invalid url for {}: {:?}",
+                    m.guid
+                        .as_ref()
+                        .map(|guid| guid.as_ref())
+                        .unwrap_or("<no guid>"),
+                    e
+                );
+                None
+            }
+            Ok(parsed) => Some(parsed),
+        });
 
         let bookmark_type = BookmarkType::from_u8_with_valid_url(m.bookmark_type, || url.is_some());
         Ok(match bookmark_type {
@@ -857,15 +861,15 @@ pub fn fetch_tree(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<Option<Book
                     .into(),
                     Err(e) => {
                         log::warn!(
-                            "ignoring malformed bookmark - invalid URL {}: {:?}",
-                            url_str,
+                            "ignoring malformed bookmark {} - invalid URL: {:?}",
+                            row.guid,
                             e
                         );
                         continue;
                     }
                 },
                 None => {
-                    log::warn!("ignoring malformed bookmark {:?}- no URL", row);
+                    log::warn!("ignoring malformed bookmark {} - no URL", row.guid);
                     continue;
                 }
             },
