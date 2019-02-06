@@ -759,10 +759,14 @@ impl FetchedTreeRow {
 
 fn inflate(
     parent: &mut BookmarkTreeNode,
-    pseudo_tree: &mut HashMap<Option<SyncGuid>, Vec<BookmarkTreeNode>>,
+    pseudo_tree: &mut HashMap<SyncGuid, Vec<BookmarkTreeNode>>,
 ) {
     if let BookmarkTreeNode::Folder(parent) = parent {
-        if let Some(children) = pseudo_tree.remove(&parent.guid) {
+        if let Some(children) = parent
+            .guid
+            .as_ref()
+            .and_then(|guid| pseudo_tree.remove(guid))
+        {
             parent.children = children;
             for mut child in &mut parent.children {
                 inflate(&mut child, pseudo_tree);
@@ -837,7 +841,7 @@ pub fn fetch_tree(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<Option<Book
     // ordered children. We need this intermediate step because SQLite returns
     // results in level order, so we'll see a node's siblings and cousins (same
     // level, but different parents) before any of their descendants.
-    let mut pseudo_tree: HashMap<Option<SyncGuid>, Vec<BookmarkTreeNode>> = HashMap::new();
+    let mut pseudo_tree: HashMap<SyncGuid, Vec<BookmarkTreeNode>> = HashMap::new();
     for result in results {
         let row = result?;
         let node = match row.node_type {
@@ -880,8 +884,10 @@ pub fn fetch_tree(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<Option<Book
             }
             .into(),
         };
-        let children = pseudo_tree.entry(row.parent_guid.clone()).or_default();
-        children.push(node);
+        if let Some(parent_guid) = row.parent_guid.as_ref().cloned() {
+            let children = pseudo_tree.entry(parent_guid).or_default();
+            children.push(node);
+        }
     }
 
     // Finally, inflate our tree.
