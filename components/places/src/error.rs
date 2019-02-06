@@ -110,4 +110,6 @@ pub enum InvalidPlaceInfo {
     NoUrl,
     #[fail(display = "Invalid guid")]
     InvalidGuid,
+    #[fail(display = "Invalid parent: {}", _0)]
+    InvalidParent(String),
 }

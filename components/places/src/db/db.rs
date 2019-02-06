@@ -10,7 +10,7 @@ use super::interrupt::{InterruptScope, PlacesInterruptHandle};
 use super::schema;
 use crate::error::*;
 use rusqlite::Connection;
-use sql_support::{self, ConnExt};
+use sql_support::ConnExt;
 use std::ops::Deref;
 use std::path::Path;
 
@@ -75,6 +75,9 @@ impl PlacesDb {
             -- UnifiedComplete). Note that SQLite uses a negative value for this pragma to indicate
             -- that it's in units of KiB.
             PRAGMA cache_size = -6144;
+
+            -- We want foreign-key support.
+            PRAGMA foreign_keys = ON;
 
             -- we unconditionally want write-ahead-logging mode
             PRAGMA journal_mode=WAL;
@@ -161,6 +164,7 @@ fn define_functions(c: &Connection) -> Result<()> {
     c.create_scalar_function("reverse_host", 1, true, sql_fns::reverse_host)?;
     c.create_scalar_function("autocomplete_match", 10, true, sql_fns::autocomplete_match)?;
     c.create_scalar_function("hash", -1, true, sql_fns::hash)?;
+    c.create_scalar_function("now", 0, false, sql_fns::now)?;
     Ok(())
 }
 
@@ -168,6 +172,7 @@ mod sql_fns {
     use crate::api::matcher::{split_after_host_and_port, split_after_prefix};
     use crate::hash;
     use crate::match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
+    use crate::types::Timestamp;
     use rusqlite::{functions::Context, types::ValueRef, Error, Result};
 
     // Helpers for define_functions
@@ -292,6 +297,11 @@ mod sql_fns {
         res += host_and_port;
         res += remainder;
         Ok(res)
+    }
+
+    #[inline(never)]
+    pub fn now(_ctx: &Context) -> Result<Timestamp> {
+        Ok(Timestamp::now())
     }
 }
 
