@@ -18,6 +18,8 @@
 		D819A4AF21B87468004EE6F3 /* libsqlcipher.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4AE21B87467004EE6F3 /* libsqlcipher.a */; };
 		EB348E432204EA0C00788CD3 /* LoginsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB348E422204EA0C00788CD3 /* LoginsTests.swift */; };
 		EB348E452204EA0C00788CD3 /* Logins.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE9D202020914D0D00F1C8FA /* Logins.framework */; };
+		EBE26B47220B4CE400D1D99A /* CommonErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE26B46220B4CE400D1D99A /* CommonErrors.swift */; };
+		EBE26B4D220B4DF100D1D99A /* SerialQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE26B4C220B4DF100D1D99A /* SerialQueue.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -48,7 +50,8 @@
 		EBA8770621F5FB9A004F63F0 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
 		EBA8770721F5FB9A004F63F0 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
 		EBA8770821F5FB9A004F63F0 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
-		EBE26B3D220B3A1600D1D99A /* SerialQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SerialQueue.swift; sourceTree = "<group>"; };
+		EBE26B46220B4CE400D1D99A /* CommonErrors.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = CommonErrors.swift; path = ../../../../support/ios/CommonErrors.swift; sourceTree = "<group>"; };
+		EBE26B4C220B4DF100D1D99A /* SerialQueue.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SerialQueue.swift; path = ../../../support/ios/SerialQueue.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -104,7 +107,7 @@
 				CE9D202420914D0D00F1C8FA /* Info.plist */,
 				CE9D202B20914D2600F1C8FA /* LoginsStorage.swift */,
 				CDB5AAEC21535E7F00B66D7E /* LoginRecord.swift */,
-				EBE26B3D220B3A1600D1D99A /* SerialQueue.swift */,
+				EBE26B4C220B4DF100D1D99A /* SerialQueue.swift */,
 			);
 			path = Logins;
 			sourceTree = "<group>";
@@ -129,6 +132,7 @@
 		CECB395120B5B77E00DB3ED4 /* Errors */ = {
 			isa = PBXGroup;
 			children = (
+				EBE26B46220B4CE400D1D99A /* CommonErrors.swift */,
 				CECB395220B5B77E00DB3ED4 /* LockError.swift */,
 				CEE1087520C5ADF9007048AC /* LoginStoreError.swift */,
 			);
@@ -275,8 +279,10 @@
 				CECB395420B5B92500DB3ED4 /* LockError.swift in Sources */,
 				D5C6DB0020DDBA7C009ACDD2 /* String+Free_Logins.swift in Sources */,
 				CE9D203120914D2600F1C8FA /* LoginsStorage.swift in Sources */,
+				EBE26B47220B4CE400D1D99A /* CommonErrors.swift in Sources */,
 				CDB5AAED21535E7F00B66D7E /* LoginRecord.swift in Sources */,
 				CEE1087620C5ADF9007048AC /* LoginStoreError.swift in Sources */,
+				EBE26B4D220B4DF100D1D99A /* SerialQueue.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
