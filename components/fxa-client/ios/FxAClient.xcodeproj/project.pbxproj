@@ -18,6 +18,7 @@
 		EBA8770C21F5FD5D004F63F0 /* base.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = EBA8770921F5FD5D004F63F0 /* base.xcconfig */; };
 		EBA8770D21F5FD5D004F63F0 /* debug.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = EBA8770A21F5FD5D004F63F0 /* debug.xcconfig */; };
 		EBA8770E21F5FD5D004F63F0 /* release.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = EBA8770B21F5FD5D004F63F0 /* release.xcconfig */; };
+		EBE26B3C220B399D00D1D99A /* SerialQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE26B3B220B399D00D1D99A /* SerialQueue.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +35,7 @@
 		EBA8770921F5FD5D004F63F0 /* base.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
 		EBA8770A21F5FD5D004F63F0 /* debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
 		EBA8770B21F5FD5D004F63F0 /* release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		EBE26B3B220B399D00D1D99A /* SerialQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SerialQueue.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -78,6 +80,7 @@
 				CE9D202420914D0D00F1C8FA /* Info.plist */,
 				CE9D202B20914D2600F1C8FA /* FirefoxAccount.swift */,
 				CE9D202F20914D2600F1C8FA /* fxa.h */,
+				EBE26B3B220B399D00D1D99A /* SerialQueue.swift */,
 			);
 			path = FxAClient;
 			sourceTree = "<group>";
@@ -217,6 +220,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CECB395D20B5BE0200DB3ED4 /* RustPointer.swift in Sources */,
+				EBE26B3C220B399D00D1D99A /* SerialQueue.swift in Sources */,
 				C852EEF1220A315200A6E79A /* String+Free_FxAClient.swift in Sources */,
 				CECB395420B5B92500DB3ED4 /* Errors.swift in Sources */,
 				CE9D203120914D2600F1C8FA /* FirefoxAccount.swift in Sources */,

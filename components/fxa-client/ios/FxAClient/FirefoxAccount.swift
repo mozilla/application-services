@@ -5,9 +5,6 @@
 import Foundation
 import UIKit
 
-// We use a serial queue to protect access to the rust object.
-let queue = DispatchQueue(label: "com.fxaclient")
-
 open class FxAConfig {
     public enum Server: String {
         case Release = "https://accounts.firefox.com"

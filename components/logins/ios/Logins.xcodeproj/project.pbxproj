@@ -16,6 +16,7 @@
 		D5C6DB0020DDBA7C009ACDD2 /* String+Free.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5C6DAFF20DDBA7C009ACDD2 /* String+Free.swift */; };
 		D819A4A821B861D6004EE6F3 /* liblogins_ffi.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4A721B861D6004EE6F3 /* liblogins_ffi.a */; };
 		D819A4AF21B87468004EE6F3 /* libsqlcipher.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4AE21B87467004EE6F3 /* libsqlcipher.a */; };
+		EBE26B3E220B3A1600D1D99A /* SerialQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE26B3D220B3A1600D1D99A /* SerialQueue.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +34,7 @@
 		EBA8770621F5FB9A004F63F0 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
 		EBA8770721F5FB9A004F63F0 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
 		EBA8770821F5FB9A004F63F0 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		EBE26B3D220B3A1600D1D99A /* SerialQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SerialQueue.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -78,6 +80,7 @@
 				CE9D202420914D0D00F1C8FA /* Info.plist */,
 				CE9D202B20914D2600F1C8FA /* LoginsStorage.swift */,
 				CDB5AAEC21535E7F00B66D7E /* LoginRecord.swift */,
+				EBE26B3D220B3A1600D1D99A /* SerialQueue.swift */,
 			);
 			path = Logins;
 			sourceTree = "<group>";
@@ -207,6 +210,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CECB395420B5B92500DB3ED4 /* Errors.swift in Sources */,
+				EBE26B3E220B3A1600D1D99A /* SerialQueue.swift in Sources */,
 				D5C6DB0020DDBA7C009ACDD2 /* String+Free.swift in Sources */,
 				CE9D203120914D2600F1C8FA /* LoginsStorage.swift in Sources */,
 				CDB5AAED21535E7F00B66D7E /* LoginRecord.swift in Sources */,

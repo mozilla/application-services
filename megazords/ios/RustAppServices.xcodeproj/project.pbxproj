@@ -22,6 +22,7 @@
 		C852EEEC220A2A2B00A6E79A /* Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EEE4220A2A2B00A6E79A /* Errors.swift */; };
 		C852EEEF220A2E9400A6E79A /* libmegazord_ios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */; };
 		C852EEF3220A3C6800A6E79A /* RustAppServices.h in Headers */ = {isa = PBXBuildFile; fileRef = C852EEF2220A3C6800A6E79A /* RustAppServices.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EBE26B40220B3A5B00D1D99A /* SerialQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE26B3F220B3A5B00D1D99A /* SerialQueue.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -45,6 +46,7 @@
 		EBA8770621F5FB9A004F63F0 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
 		EBA8770721F5FB9A004F63F0 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
 		EBA8770821F5FB9A004F63F0 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		EBE26B3F220B3A5B00D1D99A /* SerialQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SerialQueue.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -142,6 +144,7 @@
 		CE9D201620914D0D00F1C8FA = {
 			isa = PBXGroup;
 			children = (
+				EBE26B3F220B3A5B00D1D99A /* SerialQueue.swift */,
 				C852EEF2220A3C6800A6E79A /* RustAppServices.h */,
 				C852EEB2220A285B00A6E79A /* config */,
 				C852EEDA220A2A2B00A6E79A /* FxAClient */,
@@ -270,6 +273,7 @@
 				C852EEE8220A2A2B00A6E79A /* String+Free_FxAClient.swift in Sources */,
 				C852EEEB220A2A2B00A6E79A /* FxAError.swift in Sources */,
 				C852EED7220A29FE00A6E79A /* LoginStoreError.swift in Sources */,
+				EBE26B40220B3A5B00D1D99A /* SerialQueue.swift in Sources */,
 				C852EEE6220A2A2B00A6E79A /* RustPointer.swift in Sources */,
 				C852EED8220A29FE00A6E79A /* LockError.swift in Sources */,
 				C852EED5220A29FE00A6E79A /* LoginRecord.swift in Sources */,
