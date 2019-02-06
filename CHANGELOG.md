@@ -2,11 +2,23 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.15.0...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.16.0...master)
+
+
+# 0.16.0 (_2019-02-06_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.15.0...v0.16.0)
+
+## General
+
+### What's New
+
+- iOS builds now target v11.0. ([#614](https://github.com/mozilla/application-services/pull/614))
+- Preparatory infrastructure for megazording iOS builds has landed.([#625](https://github.com/mozilla/application-services/pull/625))
 
 ## Places
 
-### What's New
+### Breaking Changes
 
 - Several new methods on PlacesConnection (Breaking changes for classes implementing PlacesAPI):
     -  `fun interrupt()`. Cancels any calls to `queryAutocomplete` or `matchUrl` that are running on other threads. Those threads will throw an `OperationInterrupted` exception. ([#597](https://github.com/mozilla/application-services/pull/597))
@@ -15,6 +27,10 @@
         - Note that these deletions are synced!
     - `fun deleteVisitsSince(since: Long)`: Deletes all visits between the given unix timestamp (in milliseconds) and the present ([#591](https://github.com/mozilla/application-services/pull/591)).
         - Note that these deletions are synced!
+
+### What's New
+
+- Initial support for storing bookmarks has been added, but is not yet exposed over the FFI. ([#525](https://github.com/mozilla/application-services/pull/525))
 
 ## FxA
 
