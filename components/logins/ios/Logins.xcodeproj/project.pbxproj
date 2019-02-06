@@ -11,13 +11,15 @@
 		CDFA91EE2153568E0074CABF /* RustPasswordAPI.h in Headers */ = {isa = PBXBuildFile; fileRef = CDFA91ED2153568E0074CABF /* RustPasswordAPI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CE9D202520914D0D00F1C8FA /* Logins.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9D202320914D0D00F1C8FA /* Logins.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CE9D203120914D2600F1C8FA /* LoginsStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9D202B20914D2600F1C8FA /* LoginsStorage.swift */; };
-		CECB395420B5B92500DB3ED4 /* Errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = CECB395220B5B77E00DB3ED4 /* Errors.swift */; };
+		CECB395420B5B92500DB3ED4 /* LockError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CECB395220B5B77E00DB3ED4 /* LockError.swift */; };
 		CEE1087620C5ADF9007048AC /* LoginStoreError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEE1087520C5ADF9007048AC /* LoginStoreError.swift */; };
-		D5C6DB0020DDBA7C009ACDD2 /* String+Free.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5C6DAFF20DDBA7C009ACDD2 /* String+Free.swift */; };
+		D5C6DB0020DDBA7C009ACDD2 /* String+Free_Logins.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5C6DAFF20DDBA7C009ACDD2 /* String+Free_Logins.swift */; };
 		D819A4A821B861D6004EE6F3 /* liblogins_ffi.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4A721B861D6004EE6F3 /* liblogins_ffi.a */; };
 		D819A4AF21B87468004EE6F3 /* libsqlcipher.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4AE21B87467004EE6F3 /* libsqlcipher.a */; };
 		EB348E432204EA0C00788CD3 /* LoginsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB348E422204EA0C00788CD3 /* LoginsTests.swift */; };
 		EB348E452204EA0C00788CD3 /* Logins.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE9D202020914D0D00F1C8FA /* Logins.framework */; };
+		EBE26B47220B4CE400D1D99A /* CommonErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE26B46220B4CE400D1D99A /* CommonErrors.swift */; };
+		EBE26B4D220B4DF100D1D99A /* SerialQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE26B4C220B4DF100D1D99A /* SerialQueue.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -37,9 +39,9 @@
 		CE9D202320914D0D00F1C8FA /* Logins.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Logins.h; sourceTree = "<group>"; };
 		CE9D202420914D0D00F1C8FA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		CE9D202B20914D2600F1C8FA /* LoginsStorage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LoginsStorage.swift; sourceTree = "<group>"; };
-		CECB395220B5B77E00DB3ED4 /* Errors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Errors.swift; sourceTree = "<group>"; };
+		CECB395220B5B77E00DB3ED4 /* LockError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockError.swift; sourceTree = "<group>"; };
 		CEE1087520C5ADF9007048AC /* LoginStoreError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginStoreError.swift; sourceTree = "<group>"; };
-		D5C6DAFF20DDBA7C009ACDD2 /* String+Free.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Free.swift"; sourceTree = "<group>"; };
+		D5C6DAFF20DDBA7C009ACDD2 /* String+Free_Logins.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Free_Logins.swift"; sourceTree = "<group>"; };
 		D819A4A721B861D6004EE6F3 /* liblogins_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = liblogins_ffi.a; path = ../../../target/universal/release/liblogins_ffi.a; sourceTree = "<group>"; };
 		D819A4AE21B87467004EE6F3 /* libsqlcipher.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsqlcipher.a; path = ../../../libs/ios/universal/sqlcipher/lib/libsqlcipher.a; sourceTree = "<group>"; };
 		EB348E402204EA0C00788CD3 /* LoginsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LoginsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -48,6 +50,8 @@
 		EBA8770621F5FB9A004F63F0 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
 		EBA8770721F5FB9A004F63F0 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
 		EBA8770821F5FB9A004F63F0 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		EBE26B46220B4CE400D1D99A /* CommonErrors.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = CommonErrors.swift; path = ../../../../support/ios/CommonErrors.swift; sourceTree = "<group>"; };
+		EBE26B4C220B4DF100D1D99A /* SerialQueue.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SerialQueue.swift; path = ../../../support/ios/SerialQueue.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -103,6 +107,7 @@
 				CE9D202420914D0D00F1C8FA /* Info.plist */,
 				CE9D202B20914D2600F1C8FA /* LoginsStorage.swift */,
 				CDB5AAEC21535E7F00B66D7E /* LoginRecord.swift */,
+				EBE26B4C220B4DF100D1D99A /* SerialQueue.swift */,
 			);
 			path = Logins;
 			sourceTree = "<group>";
@@ -119,7 +124,7 @@
 		CECB394F20B5B77E00DB3ED4 /* Extensions */ = {
 			isa = PBXGroup;
 			children = (
-				D5C6DAFF20DDBA7C009ACDD2 /* String+Free.swift */,
+				D5C6DAFF20DDBA7C009ACDD2 /* String+Free_Logins.swift */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -127,7 +132,8 @@
 		CECB395120B5B77E00DB3ED4 /* Errors */ = {
 			isa = PBXGroup;
 			children = (
-				CECB395220B5B77E00DB3ED4 /* Errors.swift */,
+				EBE26B46220B4CE400D1D99A /* CommonErrors.swift */,
+				CECB395220B5B77E00DB3ED4 /* LockError.swift */,
 				CEE1087520C5ADF9007048AC /* LoginStoreError.swift */,
 			);
 			path = Errors;
@@ -270,11 +276,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CECB395420B5B92500DB3ED4 /* Errors.swift in Sources */,
-				D5C6DB0020DDBA7C009ACDD2 /* String+Free.swift in Sources */,
+				CECB395420B5B92500DB3ED4 /* LockError.swift in Sources */,
+				D5C6DB0020DDBA7C009ACDD2 /* String+Free_Logins.swift in Sources */,
 				CE9D203120914D2600F1C8FA /* LoginsStorage.swift in Sources */,
+				EBE26B47220B4CE400D1D99A /* CommonErrors.swift in Sources */,
 				CDB5AAED21535E7F00B66D7E /* LoginRecord.swift in Sources */,
 				CEE1087620C5ADF9007048AC /* LoginStoreError.swift in Sources */,
+				EBE26B4D220B4DF100D1D99A /* SerialQueue.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
