@@ -19,7 +19,7 @@ use std::fmt;
 use url::Url;
 
 // Typesafe way to manage RowIds. Does it make sense? A better way?
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Deserialize, Serialize, Default)]
 pub struct RowId(pub i64);
 
 impl From<RowId> for i64 {
