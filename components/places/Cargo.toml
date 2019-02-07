@@ -6,6 +6,7 @@ authors = []
 
 [features]
 ffi = ["ffi-support"]
+log_query_plans = ["sql-support/log_query_plans"]
 default = []
 
 [dependencies]
@@ -25,6 +26,7 @@ url_serde = "0.2.0"
 ffi-support = { path = "../support/ffi", optional = true }
 bitflags = "1.0.4"
 idna = "0.1.5"
+memchr = "2.1.3"
 
 [dependencies.rusqlite]
 version = "0.16.0"
@@ -35,9 +37,12 @@ more-asserts = "0.2.1"
 env_logger = "0.5.13"
 find-places-db = "0.1.0"
 clap = "2.32.0"
+structopt = "0.2.14"
 tempfile = "3.0.4"
 rand = "0.5.5"
 fxa-client = { path = "../fxa-client" }
+criterion = "0.2.9"
+tempdir = "0.3.7"
 
 
 # While we don't have a replacement for termion on Windows yet (and thus
@@ -45,3 +50,11 @@ fxa-client = { path = "../fxa-client" }
 # such that "cargo test" etc shows errors in our code rather than in termion.
 [target.'cfg(not(windows))'.dev-dependencies]
 termion = "1.5.1"
+
+[[bench]]
+name = "match_impl"
+harness = false
+
+[[bench]]
+name = "search"
+harness = false

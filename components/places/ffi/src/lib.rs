@@ -3,16 +3,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use ffi_support::{
-    define_handle_map_deleter, define_string_destructor, rust_str_from_c, rust_string_from_c,
-    ConcurrentHandleMap, ExternError,
+    define_box_destructor, define_handle_map_deleter, define_string_destructor, rust_str_from_c,
+    rust_string_from_c, ConcurrentHandleMap, ExternError,
 };
 use places::history_sync::store::HistoryStore;
-use places::{storage, PlacesDb};
+use places::{db::PlacesInterruptHandle, storage, PlacesDb};
 use sync15::telemetry;
 
 use std::os::raw::c_char;
 
-use places::api::matcher::{search_frecent, SearchParams};
+use places::api::matcher::{match_url, search_frecent, SearchParams};
 
 // indirection to help `?` figure out the target error type
 fn parse_url(url: &str) -> sync15::Result<url::Url> {
@@ -53,6 +53,21 @@ pub unsafe extern "C" fn places_connection_new(
     })
 }
 
+/// Get the interrupt handle for a connection. Must be destroyed with
+/// `places_interrupt_handle_destroy`.
+#[no_mangle]
+pub extern "C" fn places_new_interrupt_handle(
+    handle: u64,
+    error: &mut ExternError,
+) -> *mut PlacesInterruptHandle {
+    CONNECTIONS.call_with_output(error, handle, |conn| conn.new_interrupt_handle())
+}
+
+#[no_mangle]
+pub extern "C" fn places_interrupt(handle: &PlacesInterruptHandle, error: &mut ExternError) {
+    ffi_support::call_with_output(error, || handle.interrupt())
+}
+
 /// Add an observation to the database. The observation is a VisitObservation represented as JSON.
 /// Errors are logged.
 #[no_mangle]
@@ -87,6 +102,20 @@ pub unsafe extern "C" fn places_query_autocomplete(
                 limit,
             },
         )
+    })
+}
+
+/// Execute a query, returning a URL string or null. Returned string must be freed
+/// using `places_destroy_string`. Returns null if no match is found.
+#[no_mangle]
+pub unsafe extern "C" fn places_match_url(
+    handle: u64,
+    search: *const c_char,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("places_match_url");
+    CONNECTIONS.call_with_result(error, handle, |conn| {
+        match_url(conn, ffi_support::rust_string_from_c(search))
     })
 }
 
@@ -145,6 +174,31 @@ pub extern "C" fn places_get_visited_urls_in_range(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn places_delete_place(
+    handle: u64,
+    url: *const c_char,
+    error: &mut ExternError,
+) {
+    log::debug!("places_delete_place");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let url = parse_url(rust_str_from_c(url))?;
+        if let Some(guid) = storage::history::url_to_guid(conn, &url)? {
+            storage::history::delete_place_by_guid(conn, &guid)?;
+        }
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn places_delete_visits_since(handle: u64, since: i64, error: &mut ExternError) {
+    log::debug!("places_delete_visits_since");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        storage::history::delete_visits_since(conn, places::Timestamp(since.max(0) as u64))?;
+        Ok(())
+    })
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn sync15_history_sync(
     handle: u64,
     key_id: *const c_char,
@@ -174,3 +228,4 @@ pub unsafe extern "C" fn sync15_history_sync(
 
 define_string_destructor!(places_destroy_string);
 define_handle_map_deleter!(CONNECTIONS, places_connection_destroy);
+define_box_destructor!(PlacesInterruptHandle, places_interrupt_handle_destroy);

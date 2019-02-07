@@ -1,9 +1,3 @@
----
-id: android-components
-title: Building the Android Components
-sidebar_label: Building the Android Components
----
-
 ## Doing a local build of the Android Components:
 
 This document describes how to make local builds of the Android components in

@@ -5,9 +5,6 @@
 import Foundation
 import UIKit
 
-// We use a serial queue to protect access to the rust object.
-let queue = DispatchQueue(label: "com.fxaclient")
-
 open class FxAConfig {
     public enum Server: String {
         case Release = "https://accounts.firefox.com"
@@ -288,8 +285,8 @@ open class AccessTokenInfo: RustStructPointer<AccessTokenInfoC> {
 }
 
 public struct Avatar {
-    let url: String
-    let isDefault: Bool
+    public let url: String
+    public let isDefault: Bool
 }
 
 open class Profile: RustStructPointer<ProfileC> {

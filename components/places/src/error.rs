@@ -71,6 +71,11 @@ pub enum ErrorKind {
 
     #[fail(display = "Error parsing URL: {}", _0)]
     UrlParseError(#[fail(cause)] url::ParseError),
+
+    // Maybe we should try to fabricate a rusqlite::Error that looks like the
+    // interrupted error?
+    #[fail(display = "Operation interrupted")]
+    InterruptedError,
 }
 
 macro_rules! impl_from_error {
@@ -105,4 +110,6 @@ pub enum InvalidPlaceInfo {
     NoUrl,
     #[fail(display = "Invalid guid")]
     InvalidGuid,
+    #[fail(display = "Invalid parent: {}", _0)]
+    InvalidParent(String),
 }

@@ -1,8 +1,4 @@
----
-id: working-with-reference-browser
-title: Development with the Reference Browser
-sidebar_label: Development with the Reference Browser
----
+# Development with the Reference Browser
 
 ## Working on unreleased application services code in android components or reference browser
 

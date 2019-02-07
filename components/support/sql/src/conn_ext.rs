@@ -12,6 +12,8 @@ use std::time::{Duration, Instant};
 
 use crate::maybe_cached::MaybeCached;
 
+pub struct Conn(rusqlite::Connection);
+
 /// This trait exists so that we can use these helpers on `rusqlite::{Transaction, Connection}`.
 /// Note that you must import ConnExt in order to call these methods on anything.
 pub trait ConnExt {
@@ -50,12 +52,14 @@ pub trait ConnExt {
     /// Equivalent to `Connection::execute_named` but caches the statement so that subsequent
     /// calls to `execute_named_cached` will have imprroved performance.
     fn execute_named_cached(&self, sql: &str, params: &[(&str, &dyn ToSql)]) -> SqlResult<usize> {
+        crate::maybe_log_plan(self.conn(), sql, params);
         let mut stmt = self.conn().prepare_cached(sql)?;
         stmt.execute_named(params)
     }
 
     /// Execute a query that returns a single result column, and return that result.
     fn query_one<T: FromSql>(&self, sql: &str) -> SqlResult<T> {
+        crate::maybe_log_plan(self.conn(), sql, &[]);
         let res: T = self
             .conn()
             .query_row_and_then(sql, NO_PARAMS, |row| row.get_checked(0))?;
@@ -76,9 +80,45 @@ pub trait ConnExt {
         E: From<rusqlite::Error>,
         F: FnOnce(&Row) -> Result<T, E>,
     {
+        crate::maybe_log_plan(self.conn(), sql, params);
         Ok(self
             .try_query_row(sql, params, mapper, cache)?
             .ok_or(rusqlite::Error::QueryReturnedNoRows)?)
+    }
+
+    /// Helper for when you'd like to get a Vec<T> of all the rows returned by a
+    /// query that takes named arguments. See also
+    /// `query_rows_and_then_named_cached`.
+    fn query_rows_and_then_named<T, E, F>(
+        &self,
+        sql: &str,
+        params: &[(&str, &dyn ToSql)],
+        mapper: F,
+    ) -> Result<Vec<T>, E>
+    where
+        Self: Sized,
+        E: From<rusqlite::Error>,
+        F: FnMut(&Row) -> Result<T, E>,
+    {
+        crate::maybe_log_plan(self.conn(), sql, params);
+        query_rows_and_then_named(self.conn(), sql, params, mapper, false)
+    }
+
+    /// Helper for when you'd like to get a Vec<T> of all the rows returned by a
+    /// query that takes named arguments.
+    fn query_rows_and_then_named_cached<T, E, F>(
+        &self,
+        sql: &str,
+        params: &[(&str, &dyn ToSql)],
+        mapper: F,
+    ) -> Result<Vec<T>, E>
+    where
+        Self: Sized,
+        E: From<rusqlite::Error>,
+        F: FnMut(&Row) -> Result<T, E>,
+    {
+        crate::maybe_log_plan(self.conn(), sql, params);
+        query_rows_and_then_named(self.conn(), sql, params, mapper, true)
     }
 
     // This should probably have a longer name...
@@ -95,6 +135,7 @@ pub trait ConnExt {
         E: From<rusqlite::Error>,
         F: FnOnce(&Row) -> Result<T, E>,
     {
+        crate::maybe_log_plan(self.conn(), sql, params);
         let conn = self.conn();
         let mut stmt = MaybeCached::prepare(conn, sql, cache)?;
         let mut rows = stmt.query_named(params)?;
@@ -324,4 +365,23 @@ impl<'conn> ConnExt for TimeChunkedTransaction<'conn> {
     fn conn(&self) -> &Connection {
         &*self
     }
+}
+
+fn query_rows_and_then_named<T, E, F>(
+    conn: &Connection,
+    sql: &str,
+    params: &[(&str, &dyn ToSql)],
+    mapper: F,
+    cache: bool,
+) -> Result<Vec<T>, E>
+where
+    E: From<rusqlite::Error>,
+    F: FnMut(&Row) -> Result<T, E>,
+{
+    let mut stmt = conn.prepare_maybe_cached(sql, cache)?;
+    let mut res = vec![];
+    for item in stmt.query_and_then_named(params, mapper)? {
+        res.push(item?);
+    }
+    Ok(res)
 }

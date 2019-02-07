@@ -4,6 +4,7 @@
 
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
+use serde::ser::{Serialize, Serializer};
 use serde_derive::*;
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -41,6 +42,13 @@ impl ToSql for SyncGuid {
 impl FromSql for SyncGuid {
     fn column_result(value: ValueRef) -> FromSqlResult<Self> {
         value.as_str().map(|v| SyncGuid(v.to_string()))
+    }
+}
+
+impl fmt::Display for SyncGuid {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -182,6 +190,59 @@ impl serde::Serialize for VisitTransition {
 impl<'de> serde::Deserialize<'de> for VisitTransition {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         deserializer.deserialize_u64(VisitTransitionSerdeVisitor)
+    }
+}
+
+/// Bookmark types.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[repr(u8)]
+pub enum BookmarkType {
+    Bookmark = 1, // TYPE_BOOKMARK
+    Folder = 2,   // TYPE_FOLDER
+    Separator = 3, // TYPE_SEPARATOR;
+                  // On desktop, TYPE_DYNAMIC_CONTAINER = 4 but is deprecated - so please
+                  // avoid using this value in the future.
+}
+
+impl BookmarkType {
+    #[inline]
+    pub fn from_u8(v: u8) -> Option<Self> {
+        match v {
+            1 => Some(BookmarkType::Bookmark),
+            2 => Some(BookmarkType::Folder),
+            3 => Some(BookmarkType::Separator),
+            _ => None,
+        }
+    }
+
+    pub fn from_u8_with_valid_url<F: Fn() -> bool>(v: u8, has_valid_url: F) -> Self {
+        match BookmarkType::from_u8(v) {
+            Some(BookmarkType::Bookmark) | None => {
+                if has_valid_url() {
+                    // Even if the node says it is a bookmark it still must have a
+                    // valid url.
+                    BookmarkType::Bookmark
+                } else {
+                    BookmarkType::Folder
+                }
+            }
+            Some(t) => t,
+        }
+    }
+}
+
+impl ToSql for BookmarkType {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
+        Ok(ToSqlOutput::from(*self as u8))
+    }
+}
+
+impl Serialize for BookmarkType {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_u8(*self as u8)
     }
 }
 

@@ -3,12 +3,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub use crate::{config::Config, http_client::ProfileResponse as Profile};
-use crate::{errors::*, http_client::Client, scoped_keys::ScopedKeysFlow, util::now};
-use lazy_static::lazy_static;
-use ring::{
-    digest,
-    rand::{SecureRandom, SystemRandom},
+use crate::{
+    errors::*,
+    http_client::Client,
+    scoped_keys::ScopedKeysFlow,
+    util::{now, random_base64_url_string},
 };
+use lazy_static::lazy_static;
+use ring::{digest, rand::SystemRandom};
 use serde_derive::*;
 use std::{
     collections::{HashMap, HashSet},
@@ -34,6 +36,7 @@ mod http_client;
 #[cfg(feature = "browserid")]
 mod login_sm;
 mod scoped_keys;
+pub mod scopes;
 mod state_persistence;
 mod util;
 
@@ -117,8 +120,8 @@ impl PersistCallback {
 }
 
 impl FirefoxAccount {
-    fn from_state(state: StateV2) -> FirefoxAccount {
-        FirefoxAccount {
+    fn from_state(state: StateV2) -> Self {
+        Self {
             state,
             access_token_cache: HashMap::new(),
             flow_store: HashMap::new(),
@@ -127,8 +130,8 @@ impl FirefoxAccount {
         }
     }
 
-    pub fn with_config(config: Config) -> FirefoxAccount {
-        FirefoxAccount::from_state(StateV2 {
+    pub fn with_config(config: Config) -> Self {
+        Self::from_state(StateV2 {
             config,
             #[cfg(feature = "browserid")]
             login_state: Unknown,
@@ -137,9 +140,9 @@ impl FirefoxAccount {
         })
     }
 
-    pub fn new(content_url: &str, client_id: &str, redirect_uri: &str) -> FirefoxAccount {
+    pub fn new(content_url: &str, client_id: &str, redirect_uri: &str) -> Self {
         let config = Config::new(content_url, client_id, redirect_uri);
-        FirefoxAccount::with_config(config)
+        Self::with_config(config)
     }
 
     // Initialize state from Firefox Accounts credentials obtained using the
@@ -150,7 +153,7 @@ impl FirefoxAccount {
         client_id: &str,
         redirect_uri: &str,
         credentials: WebChannelResponse,
-    ) -> Result<FirefoxAccount> {
+    ) -> Result<Self> {
         let config = Config::new(content_url, client_id, redirect_uri);
         let session_token = hex::decode(credentials.session_token)?;
         let key_fetch_token = hex::decode(credentials.key_fetch_token)?;
@@ -168,7 +171,7 @@ impl FirefoxAccount {
             EngagedBeforeVerified(login_state_data)
         };
 
-        Ok(FirefoxAccount::from_state(StateV2 {
+        Ok(Self::from_state(StateV2 {
             config,
             login_state,
             refresh_token: None,
@@ -176,9 +179,9 @@ impl FirefoxAccount {
         }))
     }
 
-    pub fn from_json(data: &str) -> Result<FirefoxAccount> {
+    pub fn from_json(data: &str) -> Result<Self> {
         let state = state_persistence::state_from_json(data)?;
-        Ok(FirefoxAccount::from_state(state))
+        Ok(Self::from_state(state))
     }
 
     pub fn to_json(&self) -> Result<String> {
@@ -220,7 +223,7 @@ impl FirefoxAccount {
             None => {
                 #[cfg(feature = "browserid")]
                 {
-                    match FirefoxAccount::session_token_from_state(&self.state.login_state) {
+                    match Self::session_token_from_state(&self.state.login_state) {
                         Some(session_token) => {
                             client.oauth_token_with_session_token(session_token, &[scope])?
                         }
@@ -281,8 +284,8 @@ impl FirefoxAccount {
     }
 
     fn oauth_flow(&mut self, mut url: Url, scopes: &[&str], wants_keys: bool) -> Result<String> {
-        let state = FirefoxAccount::random_base64_url_string(16)?;
-        let code_verifier = FirefoxAccount::random_base64_url_string(43)?;
+        let state = random_base64_url_string(&*RNG, 16)?;
+        let code_verifier = random_base64_url_string(&*RNG, 43)?;
         let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         url.query_pairs_mut()
@@ -326,8 +329,8 @@ impl FirefoxAccount {
                 let scoped_keys_flow = match oauth_flow.scoped_keys_flow {
                     Some(flow) => flow,
                     None => {
-                        return Err(ErrorKind::IllegalState(
-                            "Got a JWE with have no JWK.".to_string(),
+                        return Err(ErrorKind::UnrecoverableServerError(
+                            "Got a JWE without sending a JWK.",
                         )
                         .into());
                     }
@@ -373,12 +376,6 @@ impl FirefoxAccount {
         Ok(())
     }
 
-    fn random_base64_url_string(len: usize) -> Result<String> {
-        let mut out = vec![0u8; len];
-        RNG.fill(&mut out).map_err(|_| ErrorKind::RngFailure)?;
-        Ok(base64::encode_config(&out, base64::URL_SAFE_NO_PAD))
-    }
-
     #[cfg(feature = "browserid")]
     fn session_token_from_state(state: &LoginState) -> Option<&[u8]> {
         match state {
@@ -410,7 +407,7 @@ impl FirefoxAccount {
     }
 
     pub fn get_profile(&mut self, ignore_cache: bool) -> Result<Profile> {
-        let profile_access_token = self.get_access_token("profile")?.token;
+        let profile_access_token = self.get_access_token(scopes::PROFILE)?.token;
         let mut etag = None;
         if let Some(ref cached_profile) = self.profile_cache {
             if !ignore_cache && now() < cached_profile.cached_at + PROFILE_FRESHNESS_THRESHOLD {
@@ -432,10 +429,10 @@ impl FirefoxAccount {
             }
             None => match self.profile_cache {
                 Some(ref cached_profile) => Ok(cached_profile.response.clone()),
-                None => {
-                    log::error!("Insane state! We got a 304 without having a cached response.");
-                    Err(ErrorKind::UnrecoverableServerError.into())
-                }
+                None => Err(ErrorKind::UnrecoverableServerError(
+                    "Got a 304 without having sent an eTag.",
+                )
+                .into()),
             },
         }
     }

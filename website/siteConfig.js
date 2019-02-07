@@ -13,6 +13,7 @@ const siteConfig = {
   url: 'https://mozilla.github.io' /* your website url */,
   baseUrl: '/application-services/' /* base url for your project */,
   projectName: 'application-services',
+  customDocsPath: 'docs/product-portal',
   headerLinks: [
     {blog: true, label: 'Blog'},
     {
@@ -53,7 +54,8 @@ const siteConfig = {
   // You may provide arbitrary config keys to be used as needed by your template.
   repoUrl: 'https://github.com/mozilla/application-services',
   /* On page navigation for the current documentation page */
-  // onPageNav: 'separate',
+  onPageNav: 'separate',
+  wrapPagesHTML: true,
 };
 
 module.exports = siteConfig;

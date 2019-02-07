@@ -20,9 +20,6 @@ open class SyncUnlockInfo {
     }
 }
 
-// We use a serial queue to protect access to the rust object.
-let queue = DispatchQueue(label: "org.mozilla.sync15.logins")
-
 open class LoginsStorage {
     private var raw: UInt64 = 0
     let dbPath: String

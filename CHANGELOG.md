@@ -1,14 +1,73 @@
 # Unreleased Changes
 
-**See [the release process docs](docs/release-process.md) for the steps to take when cutting a new release.**
+**See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.14.0...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.16.0...master)
+
+
+# 0.16.0 (_2019-02-06_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.15.0...v0.16.0)
+
+## General
+
+### What's New
+
+- iOS builds now target v11.0. ([#614](https://github.com/mozilla/application-services/pull/614))
+- Preparatory infrastructure for megazording iOS builds has landed.([#625](https://github.com/mozilla/application-services/pull/625))
 
 ## Places
+
+### Breaking Changes
+
+- Several new methods on PlacesConnection (Breaking changes for classes implementing PlacesAPI):
+    -  `fun interrupt()`. Cancels any calls to `queryAutocomplete` or `matchUrl` that are running on other threads. Those threads will throw an `OperationInterrupted` exception. ([#597](https://github.com/mozilla/application-services/pull/597))
+        - Note: Using `interrupt()` during the execution of other methods may work, but will have mixed results (it will work if we're currently executing a SQL query, and not if we're running rust code). This limitation may be lifted in the future.
+    - `fun deletePlace(url: String)`: Deletes all visits associated with the provided URL ([#591](https://github.com/mozilla/application-services/pull/591))
+        - Note that these deletions are synced!
+    - `fun deleteVisitsSince(since: Long)`: Deletes all visits between the given unix timestamp (in milliseconds) and the present ([#591](https://github.com/mozilla/application-services/pull/591)).
+        - Note that these deletions are synced!
+
+### What's New
+
+- Initial support for storing bookmarks has been added, but is not yet exposed over the FFI. ([#525](https://github.com/mozilla/application-services/pull/525))
+
+## FxA
+
+### What's Fixed
+
+- iOS Framework: Members of Avatar struct are now public. ([#615](https://github.com/mozilla/application-services/pull/615))
+
+
+# 0.15.0 (_2019-02-01_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.14.0...v0.15.0)
+
+## General
+
+### What's New
+
+- A new megazord was added, named `fenix-megazord`. It contains the components for FxA and Places (and logging). ([#585](https://github.com/mozilla/application-services/issues/585))
+    - Note: To use this, you must be on version 0.3.1 of the gradle plugin.
+
+## Logins
+
+### What's Fixed
+
+- Fix an issue where unexpected errors would become panics. ([#593](https://github.com/mozilla/application-services/pull/593))
+- Fix an issue where syncing with invalid credentials would be reported as the wrong kind of error (and cause a panic because of the previous issue). ([#593](https://github.com/mozilla/application-services/pull/593))
+
+## Places
+
+### What's New
+
+- New method on PlacesConnection (breaking change for classes implementing PlacesAPI): `fun matchUrl(query: String): String?`. This is similar to `queryAutocomplete`, but only searches for URL and Origin matches, and only returns (a portion of) the matching url (if found), or null (if not). ([#595](https://github.com/mozilla/application-services/pull/595))
 
 ### What's Fixed
 
 - Autocomplete will no longer return an error when asked to match a unicode string. ([#298](https://github.com/mozilla/application-services/issues/298))
+
+- Autocomplete is now much faster for non-matching queries and queries that look like URLs. ([#589](https://github.com/mozilla/application-services/issues/589))
 
 ## FxA
 

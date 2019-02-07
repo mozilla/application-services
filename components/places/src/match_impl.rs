@@ -372,6 +372,12 @@ impl<'search, 'url, 'title, 'tags> AutocompleteMatch<'search, 'url, 'title, 'tag
                 s = &s[6..];
             }
         }
+        // Bail out early if we don't need to percent decode. It's a
+        // little weird that it's measurably faster to check this
+        // separately, but whatever.
+        if memchr::memchr(b'%', s.as_bytes()).is_none() {
+            return Cow::Borrowed(s);
+        }
         // TODO: would be nice to decode punycode here too, but for now
         // this is probably fine.
         match percent_encoding::percent_decode(s.as_bytes()).decode_utf8() {

@@ -247,14 +247,15 @@ where
 #[cfg(not(windows))]
 mod autocomplete {
     use super::*;
+    use places::api::matcher::{search_frecent, SearchParams, SearchResult};
+    use places::{ErrorKind, PlacesInterruptHandle};
+    use rusqlite::{Error as RusqlError, ErrorCode};
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         mpsc, Arc,
     };
     use std::thread;
     use std::time::{Duration, Instant};
-
-    use places::api::matcher::{search_frecent, SearchParams, SearchResult};
 
     #[derive(Debug, Clone)]
     struct ConnectionArgs {
@@ -304,6 +305,7 @@ mod autocomplete {
         // Thread handle for the BG thread. We can't drop this without problems so we
         // prefix with _ to shut rust up about it being unused.
         _handle: thread::JoinHandle<Result<()>>,
+        interrupt_handle: PlacesInterruptHandle,
     }
 
     impl BackgroundAutocomplete {
@@ -315,14 +317,12 @@ mod autocomplete {
 
             let last_id = Arc::new(AtomicUsize::new(0usize));
 
+            let conn = conn_args.connect()?;
+            let interrupt_handle = conn.new_interrupt_handle();
             let handle = {
                 let last_id = last_id.clone();
-                let conn_args = conn_args.clone();
                 thread::spawn(move || {
                     // Note: unwraps/panics here won't bring down the main thread.
-                    let conn = conn_args
-                        .connect()
-                        .expect("Failed to open connection on BG thread");
                     for AutocompleteRequest { id, search } in recv_query.iter() {
                         // Check if this query is worth processing. Note that we check that the id
                         // isn't known to be stale. The id can be ahead of `last_id`, since
@@ -345,10 +345,21 @@ mod autocomplete {
                                     .unwrap(); // This failing means the main thread has died (most likely)
                             }
                             Err(e) => {
-                                // TODO: this is likely not to go very well since we're in raw mode...
-                                log::error!("Got error doing autocomplete: {:?}", e);
-                                panic!("Got error doing autocomplete: {:?}", e);
-                                // return Err(e.into());
+                                match e.kind() {
+                                    ErrorKind::InterruptedError => {
+                                        // Ignore.
+                                    }
+                                    ErrorKind::SqlError(RusqlError::SqliteFailure(err, _))
+                                        if err.code == ErrorCode::OperationInterrupted =>
+                                    {
+                                        // Ignore.
+                                    }
+                                    _ => {
+                                        // TODO: this is likely not to go very well since we're in raw mode...
+                                        log::error!("Got error doing autocomplete: {:?}", e);
+                                        panic!("Got error doing autocomplete: {:?}", e);
+                                    }
+                                }
                             }
                         }
                     }
@@ -360,12 +371,14 @@ mod autocomplete {
                 last_id,
                 send_query,
                 recv_results,
+                interrupt_handle,
                 // conn_args,
                 _handle: handle,
             })
         }
 
         pub fn query(&mut self, search: SearchParams) -> Result<()> {
+            self.interrupt_handle.interrupt();
             // Cludgey but whatever.
             let id = self.last_id.load(Ordering::SeqCst) + 1;
             let request = AutocompleteRequest { id, search };

@@ -5,6 +5,7 @@
 // A "storage" module - this module is intended to be the layer between the
 // API and the database.
 
+pub mod bookmarks;
 pub mod history;
 
 use crate::error::Result;

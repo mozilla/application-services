@@ -114,6 +114,57 @@ class PlacesConnectionTest {
             assert(e is UrlParseFailed)
         }
     }
+    // Basically equivalent to test_get_visited in rust, but exercises the FFI,
+    // as well as the handling of invalid urls.
+    @Test
+    fun testMatchUrl() {
+
+        val toAdd = listOf(
+                // add twice to ensure its frecency is higher
+                "https://www.example.com/123",
+                "https://www.example.com/123",
+                "https://www.example.com/12345",
+                "https://www.mozilla.com/foo/bar/baz",
+                "https://www.mozilla.com/foo/bar/baz",
+                "https://mozilla.com/a1/b2/c3",
+                "https://news.ycombinator.com/"
+        )
+
+
+        for (url in toAdd) {
+            db.noteObservation(VisitObservation(url = url, visitType = VisitType.LINK))
+        }
+        // Should use the origin search
+        assertEquals("https://www.example.com/", db.matchUrl("example.com"))
+        assertEquals("https://www.example.com/", db.matchUrl("www.example.com"))
+        assertEquals("https://www.example.com/", db.matchUrl("https://www.example.com"))
+
+        // Not an origin.
+        assertEquals("https://www.example.com/123", db.matchUrl("example.com/"))
+        assertEquals("https://www.example.com/123", db.matchUrl("www.example.com/"))
+        assertEquals("https://www.example.com/123", db.matchUrl("https://www.example.com/"))
+
+        assertEquals("https://www.example.com/123", db.matchUrl("example.com/1"))
+        assertEquals("https://www.example.com/123", db.matchUrl("www.example.com/1"))
+        assertEquals("https://www.example.com/123", db.matchUrl("https://www.example.com/1"))
+
+        assertEquals("https://www.example.com/12345", db.matchUrl("example.com/1234"))
+        assertEquals("https://www.example.com/12345", db.matchUrl("www.example.com/1234"))
+        assertEquals("https://www.example.com/12345", db.matchUrl("https://www.example.com/1234"))
+
+        assertEquals("https://www.mozilla.com/foo/", db.matchUrl("mozilla.com/"))
+        assertEquals("https://www.mozilla.com/foo/", db.matchUrl("mozilla.com/foo"))
+        assertEquals("https://www.mozilla.com/foo/bar/", db.matchUrl("mozilla.com/foo/"))
+        assertEquals("https://www.mozilla.com/foo/bar/", db.matchUrl("mozilla.com/foo/bar"))
+        assertEquals("https://www.mozilla.com/foo/bar/baz", db.matchUrl("mozilla.com/foo/bar/"))
+        assertEquals("https://www.mozilla.com/foo/bar/baz", db.matchUrl("mozilla.com/foo/bar/baz"))
+        // Make sure the www/non-www doesn't confuse it
+        assertEquals("https://mozilla.com/a1/b2/", db.matchUrl("mozilla.com/a1/"))
+
+        // Actual visit had no www
+        assertEquals(null, db.matchUrl("www.mozilla.com/a1"))
+        assertEquals("https://news.ycombinator.com/", db.matchUrl("news"))
+    }
 
 }
 

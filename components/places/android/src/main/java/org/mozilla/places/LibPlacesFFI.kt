@@ -68,6 +68,13 @@ internal interface LibPlacesFFI : Library {
             out_err: RustError.ByReference
     ): Pointer?
 
+    /** Returns a URL, or null if no match was found. */
+    fun places_match_url(
+            handle: PlacesConnectionHandle,
+            search: String,
+            out_err: RustError.ByReference
+    ): Pointer?
+
     /** Note: urls_len and buffer_len must be the same length. The argument is somewhat redundant, but
      * is provided for a slight additional amount of sanity checking. These lengths are the number
      * of elements present (and not e.g. the number of bytes allocated). */
@@ -88,6 +95,29 @@ internal interface LibPlacesFFI : Library {
             out_err: RustError.ByReference
     ): Pointer?
 
+
+    fun places_new_interrupt_handle(
+            conn: PlacesConnectionHandle,
+            out_err: RustError.ByReference
+    ): RawPlacesInterruptHandle?
+
+    fun places_interrupt(
+            conn: RawPlacesInterruptHandle,
+            out_err: RustError.ByReference
+    )
+
+    fun places_delete_place(
+            handle: PlacesConnectionHandle,
+            url: String,
+            out_err: RustError.ByReference
+    )
+
+    fun places_delete_visits_since(
+            handle: PlacesConnectionHandle,
+            since: Long,
+            out_err: RustError.ByReference
+    )
+
     fun sync15_history_sync(
             handle: PlacesConnectionHandle,
             key_id: String,
@@ -101,7 +131,15 @@ internal interface LibPlacesFFI : Library {
     fun places_destroy_string(s: Pointer)
 
     /** Destroy connection created using `places_connection_new` */
+
     fun places_connection_destroy(handle: PlacesConnectionHandle, out_err: RustError.ByReference)
+    /** Destroy handle created using `places_new_interrupt_handle` */
+    fun places_interrupt_handle_destroy(obj: RawPlacesInterruptHandle)
 }
 
 internal typealias PlacesConnectionHandle = Long;
+
+// This doesn't use a handle to avoid unnecessary locking and
+// because the type is panic safe, sync, and send.
+class RawPlacesInterruptHandle : PointerType()
+

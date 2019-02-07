@@ -16,3 +16,6 @@ project(':lockbox-megazord').projectDir = new File("megazords/lockbox/android")
 
 include ':reference-browser-megazord'
 project(':reference-browser-megazord').projectDir = new File("megazords/reference-browser/android")
+
+include ':fenix-megazord'
+project(':fenix-megazord').projectDir = new File("megazords/fenix/android")

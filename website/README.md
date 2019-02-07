@@ -1,4 +1,8 @@
-## Website
+## Application Services Product Portal Website
+
+This directory contains the source and tooling for building
+the [Application Services Product Portal](https://mozilla.github.io/application-services/) website.
+It pulls content from markdown docs in the [../docs/product-portal/](../docs/product-portal) directory.
 
 ### Running locally
 
