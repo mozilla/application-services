@@ -126,6 +126,13 @@ internal interface LibPlacesFFI : Library {
             out_err: RustError.ByReference
     )
 
+    fun places_get_visit_infos(
+            handle: PlacesConnectionHandle,
+            startDate: Long,
+            endDate: Long,
+            error: RustError.ByReference
+    ): Pointer?
+
     fun sync15_history_sync(
             handle: PlacesConnectionHandle,
             key_id: String,
