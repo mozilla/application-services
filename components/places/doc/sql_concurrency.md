@@ -1,7 +1,5 @@
 # How we manage transactions (aka, how we avoid `SQLITE_BUSY`)
 
-[Let's bash this document into shape in this PR]
-
 We use sqlite in `wal` mode. Thus we never expect readers to block or have any locking considerations. Multiple writers will always cause contention, possibly resulting in `SQLITE_BUSY`, and need to be managed.
 
 Note that multiple writers will only cause `SQLITE_BUSY` after some timeout period has expired. Each writer will block for this timeout period in the hope that the other writer completes and it can begin. The current default is 5 seconds.
@@ -22,7 +20,7 @@ This leaves us with a dilemma:
 
 * If we allowed multiple writer threads, we would use a transaction-per-record for sync, meaning both threads would almost certainly complete in their timeout budget - although the sync would take many many minutes to complete.
 
-So how about a compromise: we use 2 writer threads, but:
+So we've come up with a compromise: we use 2 writer threads, but:
 
 * One is dedicated to the small and fast writes (eg, a visit, creation of a bookmark, etc).
 
