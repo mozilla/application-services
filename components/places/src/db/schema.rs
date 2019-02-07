@@ -14,7 +14,7 @@ use lazy_static::lazy_static;
 use rusqlite::NO_PARAMS;
 use sql_support::ConnExt;
 
-const VERSION: i64 = 4;
+const VERSION: i64 = 5;
 
 const CREATE_TABLE_PLACES_SQL: &str =
     "CREATE TABLE IF NOT EXISTS moz_places (
@@ -62,6 +62,13 @@ const CREATE_TABLE_HISTORYVISITS_SQL: &str =
 
         FOREIGN KEY(place_id) REFERENCES moz_places(id) ON DELETE CASCADE,
         FOREIGN KEY(from_visit) REFERENCES moz_historyvisits(id)
+    )";
+
+const CREATE_TABLE_HISTORYVISIT_TOMBSTONES_SQL: &str = "CREATE TABLE moz_historyvisit_tombstones (
+        place_id INTEGER NOT NULL,
+        visit_date INTEGER NOT NULL,
+        FOREIGN KEY(place_id) REFERENCES moz_places(id) ON DELETE CASCADE,
+        PRIMARY KEY(place_id, visit_date)
     )";
 
 const CREATE_TABLE_INPUTHISTORY_SQL: &str = "CREATE TABLE moz_inputhistory (
@@ -341,6 +348,10 @@ fn migration<F>(db: &PlacesDb, from: i64, to: i64, stmts: &[&str], extra_logic: 
 where
     F: FnOnce() -> Result<()>,
 {
+    assert!(
+        to <= VERSION,
+        "Bug: Added migration without updating VERSION"
+    );
     use sql_support::ConnExt;
     // In the future maybe we want to avoid calling this
     let cur_version = get_current_schema_version(db)?;
@@ -380,6 +391,13 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
         ],
         || create_bookmark_roots(&db.conn()),
     )?;
+    migration(
+        db,
+        4,
+        5,
+        &[CREATE_TABLE_HISTORYVISIT_TOMBSTONES_SQL],
+        || Ok(()),
+    )?;
     // Add more migrations here...
 
     if get_current_schema_version(db)? == VERSION {
@@ -415,6 +433,7 @@ pub fn create(db: &PlacesDb) -> Result<()> {
         CREATE_IDX_MOZ_HISTORYVISITS_ISLOCAL,
         CREATE_IDX_MOZ_ORIGINS_REVHOST,
         CREATE_IDX_MOZ_BOOKMARKS_PLACELASTMODIFIED,
+        CREATE_TABLE_HISTORYVISIT_TOMBSTONES_SQL,
     ])?;
     create_bookmark_roots(&db.conn())?;
     db.execute(
