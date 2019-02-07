@@ -18,7 +18,36 @@ git clone https://github.com/mozilla-mobile/android-components
 git clone https://github.com/mozilla-mobile/reference-browser
 ```
 
+## Cargo build targets
+By default when building Android Components using gradle, the gradle-cargo plugin will compile application-services for every
+possible platform, which might end up in failures. You can customize which targets are built in `application-services/local.properties` ([more information](https://github.com/ncalexan/rust-android-gradle/blob/master/README.md#specifying-local-targets)):
+```
+# Only one `rust.targets` assignment can be done, hence the commented lines.
+# For physical devices:
+# rust.targets=arm
+
+# For unit tests:
+# rust.targets=darwin # Or linux-*, windows-* (* = x86/x64)
+
+# For emulator only:
+rust.targets=x86
+```
+
 ## Substituting projects
+
+### Using local.properties
+
+In `android-components/local.properties`:
+```groovy
+substitutions.application-services.dir=../application-services
+```
+
+In `reference-browser/local.properties`:
+```groovy
+substitutions.application-services.dir=../application-services
+```
+
+### Using settings.gradle
 
 In `android-components/settings.gradle`:
 ```groovy
