@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::{fetch_page_info, new_page_info, PageInfo, RowId};
+use super::{fetch_page_info, new_page_info, HistoryVisitInfo, PageInfo, RowId};
 use crate::db::PlacesDb;
 use crate::error::Result;
 use crate::frecency;
@@ -896,6 +896,23 @@ pub fn get_visited_urls(
         &sql,
         &[(":start", &start), (":end", &end)],
         |row| -> RusqliteResult<_> { Ok(row.get_checked::<_, String>(0)?) },
+    )?)
+}
+
+pub fn get_visit_infos(
+    db: &PlacesDb,
+    start: Timestamp,
+    end: Timestamp,
+) -> Result<Vec<HistoryVisitInfo>> {
+    Ok(db.query_rows_and_then_named_cached(
+        "SELECT h.url, h.title, v.visit_date, v.visit_type
+         FROM moz_places h
+         JOIN moz_historyvisits v
+           ON h.id = v.place_id
+         WHERE v.visit_date BETWEEN :start AND :end
+         ORDER BY v.visit_date",
+        &[(":start", &start), (":end", &end)],
+        HistoryVisitInfo::from_row,
     )?)
 }
 

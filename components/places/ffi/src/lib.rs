@@ -226,6 +226,23 @@ pub unsafe extern "C" fn places_delete_visit(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn places_get_visit_infos(
+    handle: u64,
+    start_date: i64,
+    end_date: i64,
+    error: &mut ExternError,
+) -> *const c_char {
+    log::debug!("places_get_visit_infos");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        Ok(storage::history::get_visit_infos(
+            conn,
+            places::Timestamp(start_date.max(0) as u64),
+            places::Timestamp(end_date.max(0) as u64),
+        )?)
+    })
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn sync15_history_sync(
     handle: u64,
     key_id: *const c_char,
