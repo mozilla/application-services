@@ -147,10 +147,21 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
         }
     }
 
-    override fun deleteVisitsSince(since: Long) {
+    override fun deleteVisit(url: String, visitTimestamp: Long) {
         rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_delete_visits_since(
-                    this.handle.get(), since, error)
+            LibPlacesFFI.INSTANCE.places_delete_visit(
+                    this.handle.get(), url, visitTimestamp, error)
+        }
+    }
+
+    override fun deleteVisitsSince(since: Long) {
+        deleteVisitsBetween(since, Long.MAX_VALUE)
+    }
+
+    override fun deleteVisitsBetween(startTime: Long, endTime: Long) {
+        rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_delete_visits_between(
+                    this.handle.get(), startTime, endTime, error)
         }
     }
 
@@ -279,6 +290,31 @@ interface PlacesAPI {
      * @param start time for the deletion, unix timestamp in milliseconds.
      */
     fun deleteVisitsSince(since: Long)
+
+    /**
+     * Equivalent to deleteVisitsSince, but takes an `endTime` as well.
+     *
+     * Timestamps are in milliseconds since the unix epoch.
+     *
+     * See documentation for deleteVisitsSince for caveats.
+     *
+     * @param startTime Inclusive beginning of the time range to delete.
+     * @param endTime Inclusive end of the time range to delete.
+     */
+    fun deleteVisitsBetween(startTime: Long, endTime: Long)
+
+    /**
+     * Delete the single visit that occurred at the provided timestamp.
+     *
+     * Note that this will not delete the visit on another device, unless this is the last
+     * remaining visit of that URL that this device is aware of.
+     *
+     * However, it should prevent this visit from being inserted again.
+     *
+     * @param url The URL of the place to delete.
+     * @param visitTimestamp The timestamp of the visit to delete, in MS since the unix epoch
+     */
+    fun deleteVisit(url: String, visitTimestamp: Long)
 
     /**
      * Syncs the history store.
