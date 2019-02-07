@@ -41,6 +41,18 @@
 
 - iOS: Some errors that were being accidentally swallowed should now be properly reported. ([#640](https://github.com/mozilla/application-services/issues/640))
 
+## Places
+
+### Breaking Changes
+
+- New methods on PlacesConnection (Breaking changes for classes implementing PlacesAPI):
+    - `fun deleteVisit(url: String, timestamp: Long)`: If a visit exists at the specified timestamp for the specified URL, delete it. This change will be synced if it is the last remaining visit (standard caveat for partial visit deletion). ([#621](https://github.com/mozilla/application-services/issues/621))
+    - `fun deleteVisitsBetween(start: Long, end: Long)`: Similar to `deleteVisitsSince(start)`, but takes an end date. ([#621](https://github.com/mozilla/application-services/issues/621))
+
+### What's fixed
+
+- Locally deleted visits deleted using `deleteVisitsSince` should not be resurrected on future syncs. ([#621](https://github.com/mozilla/application-services/issues/621))
+
 # 0.16.0 (_2019-02-06_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.15.0...v0.16.0)
