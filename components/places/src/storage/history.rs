@@ -196,9 +196,9 @@ pub fn delete_place_by_guid(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
 }
 
 /// Delete all visits in a date range.
-pub fn delete_visits_since(db: &impl ConnExt, since: Timestamp) -> Result<()> {
+pub fn delete_visits_between(db: &impl ConnExt, start: Timestamp, end: Timestamp) -> Result<()> {
     let tx = db.unchecked_transaction()?;
-    delete_visits_since_in_tx(db, since)?;
+    delete_visits_between_in_tx(db, start, end)?;
     tx.commit()?;
     Ok(())
 }
@@ -265,19 +265,31 @@ fn delete_place_visit_at_time_in_tx(
     Ok(())
 }
 
-pub fn delete_visits_since_in_tx(db: &impl ConnExt, since: Timestamp) -> Result<()> {
+pub fn delete_visits_between_in_tx(
+    db: &impl ConnExt,
+    start: Timestamp,
+    end: Timestamp,
+) -> Result<()> {
     // Like desktop's removeVisitsByFilter, we query the visit and place ids
     // affected, then delete all visits, then delete all place ids in the set
     // which are orphans after the delete.
-    let sql = "SELECT id, place_id, visit_date FROM moz_historyvisits WHERE visit_date >= :since";
-    let visits =
-        db.query_rows_and_then_named(sql, &[(":since", &since)], |row| -> rusqlite::Result<_> {
+    let sql = "
+        SELECT id, place_id, visit_date
+        FROM moz_historyvisits
+        WHERE visit_date
+        BETWEEN :start AND :end
+    ";
+    let visits = db.query_rows_and_then_named(
+        sql,
+        &[(":start", &start), (":end", &end)],
+        |row| -> rusqlite::Result<_> {
             Ok((
                 row.get_checked::<_, RowId>(0)?,
                 row.get_checked::<_, RowId>(1)?,
                 row.get_checked::<_, Timestamp>(2)?,
             ))
-        })?;
+        },
+    )?;
 
     sql_support::each_chunk_mapped(
         &visits,
@@ -1300,7 +1312,7 @@ mod tests {
         .expect("should work");
 
         // Delete some.
-        delete_visits_since(&conn, late).expect("should work");
+        delete_visits_between(&conn, late, Timestamp::now()).expect("should work");
         // should have removed one of the visits to /1
         let pi = fetch_page_info(&conn, &url1)
             .expect("should work")
@@ -1593,7 +1605,7 @@ mod tests {
         }
         delete_place_visit_at_time(&conn, &urls[0], dates[1]).unwrap();
         // Delete the most recent visit.
-        delete_visits_since(&conn, Timestamp(now.0 - 4000)).unwrap();
+        delete_visits_between(&conn, Timestamp(now.0 - 4000), Timestamp::now()).unwrap();
 
         let (info0, visits0) = fetch_visits(&conn, &urls[0], 100).unwrap().unwrap();
         assert_eq!(
