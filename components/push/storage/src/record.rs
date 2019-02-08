@@ -1,10 +1,8 @@
 use rusqlite::Row;
 
-use crate::{
-    error::{Error, Result},
-    types::Timestamp,
-};
+use crate::types::Timestamp;
 use crypto::Key;
+use push_errors::{Error, Result};
 
 pub type ChannelID = String;
 

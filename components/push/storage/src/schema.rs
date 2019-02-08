@@ -1,7 +1,7 @@
 use rusqlite::Connection;
 use sql_support::ConnExt;
 
-use crate::error::Result;
+use push_errors::Result;
 
 const VERSION: i64 = 1;
 
