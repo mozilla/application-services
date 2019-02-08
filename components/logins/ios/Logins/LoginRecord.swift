@@ -121,18 +121,18 @@ open class LoginRecord {
             password: dict["password"] as? String ?? "",
             hostname: dict["hostname"] as? String ?? "",
 
-            username: dict["username"] as? String ?? "",
+            username: dict["username"] as? String,
 
-            formSubmitURL: dict["formSubmitURL"] as? String ?? "",
-            httpRealm: dict["httpRealm"] as? String ?? "",
+            formSubmitURL: dict["formSubmitURL"] as? String,
+            httpRealm: dict["httpRealm"] as? String,
 
             timesUsed: (dict["timesUsed"] as? Int) ?? 0,
             timeLastUsed: (dict["timeLastUsed"] as? Int64) ?? 0,
             timeCreated: (dict["timeCreated"] as? Int64) ?? 0,
             timePasswordChanged: (dict["timePasswordChanged"] as? Int64) ?? 0,
 
-            usernameField: dict["usernameField"] as? String ?? "",
-            passwordField: dict["passwordField"] as? String ?? ""
+            usernameField: dict["usernameField"] as? String,
+            passwordField: dict["passwordField"] as? String
         )
     }
 
