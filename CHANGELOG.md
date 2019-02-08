@@ -2,7 +2,11 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.16.0...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.16.1...master)
+
+# 0.16.1 (_2019-02-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.16.0...v0.16.1)
 
 ## Logins
 
@@ -16,6 +20,7 @@
 ### Breaking changes
 
 - iOS: Code that expects empty strings (and not nil) for optional strings should be updated to check for nil instead. ([#623](https://github.com/mozilla/application-services/issues/623))
+    - Note that this went out in a non-major release, as it doesn't cause compilation failure, and manually reading all our dependents determined that nobody was relying on this behavior.
 
 ## FxA
 
