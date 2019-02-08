@@ -540,29 +540,60 @@ pub mod history_sync {
             }
             None => new_page_info(db, &url, Some(incoming_guid.clone()))?,
         };
-        let visit_tombstones: HashSet<Timestamp> = db.query_rows_into_cached(
-            "SELECT visit_date
-             FROM moz_historyvisit_tombstones
-             WHERE place_id = :place_id",
-            &[(":place_id", &page_info.row_id)],
-            |row| row.get_checked::<_, Timestamp>(0),
-        )?;
 
-        for visit in visits {
-            // Don't insert visits that have been locally deleted.
-            if visit_tombstones.contains(&Timestamp::from(visit.date)) {
-                continue;
-            }
-            let transition = VisitTransition::from_primitive(visit.transition)
-                .expect("these should already be validated");
-            add_visit(
-                db,
-                &page_info.row_id,
-                &None,
-                &visit.date.into(),
-                &transition,
-                &false,
+        if visits.len() > 0 {
+            // Skip visits that are in tombstones, or that happen at the same time
+            // as visit that's already present. The 2nd lets us avoid inserting
+            // visits that we sent up to the server in the first place.
+            //
+            // It does cause us to ignore visits that legitimately happen
+            // at the same time, but that's probably fine and not worth
+            // worrying about.
+            let mut visits_to_skip: HashSet<Timestamp> = db.query_rows_into(
+                &format!(
+                    "SELECT t.visit_date AS visit_date
+                     FROM moz_historyvisit_tombstones t
+                     WHERE t.place_id = {place}
+                       AND t.visit_date IN ({dates})
+                     UNION ALL
+                     SELECT v.visit_date AS visit_date
+                     FROM moz_historyvisits v
+                     WHERE v.place_id = {place}
+                       AND v.visit_date IN ({dates})",
+                    place = page_info.row_id,
+                    dates = sql_support::repeat_display(visits.len(), ",", |i, f| write!(
+                        f,
+                        "{}",
+                        Timestamp::from(visits[i].date).0
+                    )),
+                ),
+                &[],
+                |row| row.get_checked::<_, Timestamp>(0),
             )?;
+
+            visits_to_skip.reserve(visits.len());
+
+            for visit in visits {
+                let timestamp = Timestamp::from(visit.date);
+                // Don't insert visits that have been locally deleted.
+                if visits_to_skip.contains(&timestamp) {
+                    continue;
+                }
+                let transition = VisitTransition::from_primitive(visit.transition)
+                    .expect("these should already be validated");
+                add_visit(
+                    db,
+                    &page_info.row_id,
+                    &None,
+                    &timestamp,
+                    &transition,
+                    &false,
+                )?;
+                // Make sure that even if a history entry weirdly has the same visit
+                // twice, we don't insert it twice. (This avoids us needing to
+                // recompute visits_to_skip in each step of the iteration)
+                visits_to_skip.insert(timestamp);
+            }
         }
         // XXX - we really need a better story for frecency-boost than
         // Option<bool> - None vs Some(false) is confusing. We should use an enum.
@@ -1666,7 +1697,7 @@ mod tests {
             &info0.url,
             &Some(info0.title.clone()),
             // Ignore dates[0] since we know it's present.
-            &dates[1..]
+            &dates
                 .iter()
                 .map(|&d| HistoryRecordVisit {
                     date: d.into(),
