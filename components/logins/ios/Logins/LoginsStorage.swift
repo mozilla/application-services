@@ -23,15 +23,15 @@ open class SyncUnlockInfo {
 open class LoginsStorage {
     private var raw: UInt64 = 0
     let dbPath: String
-    
+
     public init(databasePath: String) {
         self.dbPath = databasePath
     }
-    
+
     deinit {
         self.close()
     }
-    
+
     private func doDestroy() {
         let raw = self.raw
         self.raw = 0
@@ -59,7 +59,7 @@ open class LoginsStorage {
             return self.raw == 0
         })
     }
-    
+
     // helper to reduce boilerplate, we don't use queue.sync
     // since we expect the caller to do so.
     private func getUnlocked() throws -> UInt64 {
@@ -97,7 +97,7 @@ open class LoginsStorage {
             self.doDestroy()
         })
     }
-    
+
     /// Synchronize with the server.
     open func sync(unlockInfo: SyncUnlockInfo) throws {
         try queue.sync(execute: {
@@ -128,7 +128,7 @@ open class LoginsStorage {
             })
         })
     }
-    
+
     /// Delete the record with the given ID. Returns false if no such record existed.
     open func delete(id: String) throws -> Bool {
         return try queue.sync(execute: {
@@ -139,7 +139,7 @@ open class LoginsStorage {
             return boolAsU8 != 0
         })
     }
-    
+
     /// Bump the usage count for the record with the given id.
     ///
     /// Throws `LoginStoreError.NoSuchRecord` if there was no such record.
@@ -166,7 +166,7 @@ open class LoginsStorage {
             return String(freeingRustString: ptr)
         })
     }
-    
+
     /// Update `login` in the database. If `login.id` does not refer to a known
     /// login, then this throws `LoginStoreError.NoSuchRecord`.
     open func update(login: LoginRecord) throws {
@@ -193,8 +193,7 @@ open class LoginsStorage {
             return try LoginRecord(fromJSONString: jsonStr)
         })
     }
-    
-    
+
     /// Get the entire list of records.
     open func list() throws -> [LoginRecord] {
         return try queue.sync(execute: {
