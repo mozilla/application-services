@@ -47,7 +47,7 @@ public enum LoginsStoreError: Error {
     // function
     static func fromConsuming(_ rustError: Sync15PasswordsError) -> LoginsStoreError? {
         let message = rustError.message
-        
+
         switch rustError.code {
         case Sync15Passwords_NoError:
             return nil
@@ -75,7 +75,7 @@ public enum LoginsStoreError: Error {
 
         case Sync15Passwords_NetworkError:
             return .Network(message: String(freeingRustString: message!))
-                
+
         default:
             return .Unspecified(message: String(freeingRustString: message!))
         }
