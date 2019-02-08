@@ -1,0 +1,13 @@
+[package]
+name = "cli-support"
+edition = "2018"
+version = "0.1.0"
+authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>", "Mark Hammond <mhammond@mozilla.com>"]
+
+[dependencies]
+failure = "0.1.3"
+fxa-client = { path = "../../fxa-client" }
+log = "0.4.6"
+sync15 = { path = "../../sync15" }
+url = "1.7.1"
+webbrowser = "0.3.1"

@@ -2,29 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use failure::Fail;
-use fxa_client::{AccessTokenInfo, Config, FirefoxAccount};
 use places::history_sync::store::HistoryStore;
 use places::PlacesDb;
 use serde_json;
-use std::{fs, io::Read};
-use sync15::{
-    telemetry, KeyBundle, SetupStorageClient, Store, Sync15StorageClient, Sync15StorageClientInit,
-};
-
-const CLIENT_ID: &str = "";
-const REDIRECT_URI: &str = "";
-const SYNC_SCOPE: &str = "https://identity.mozilla.com/apps/oldsync";
+use sync15::{telemetry, SetupStorageClient, Store, Sync15StorageClient};
 
 // I'm completely punting on good error handling here.
 type Result<T> = std::result::Result<T, failure::Error>;
-
-fn load_fxa_creds(path: &str) -> Result<FirefoxAccount> {
-    let mut file = fs::File::open(path)?;
-    let mut s = String::new();
-    file.read_to_string(&mut s)?;
-    Ok(FirefoxAccount::from_json(&s)?)
-}
 
 fn init_logging() {
     // Explicitly ignore some rather noisy crates. Turn on trace for everyone else.
@@ -102,32 +88,14 @@ fn main() -> Result<()> {
     );
 
     // TODO: allow users to use stage/etc.
-    let cfg = Config::release(CLIENT_ID, REDIRECT_URI);
-    let tokenserver_url = cfg.token_server_endpoint_url()?;
-
-    // TODO: we should probably set a persist callback on acct?
-    let mut acct = load_fxa_creds(cred_file)?;
-    let token_info: AccessTokenInfo = match acct.get_access_token(SYNC_SCOPE) {
-        Ok(t) => t,
-        Err(_) => {
-            panic!("No creds - run some other tool to set them up.");
-        }
-    };
-    let key = token_info.key.unwrap();
-
-    let client_init = Sync15StorageClientInit {
-        key_id: key.kid.clone(),
-        access_token: token_info.token.clone(),
-        tokenserver_url,
-    };
-    let root_sync_key = KeyBundle::from_ksync_bytes(&key.key_bytes()?)?;
+    let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file)?;
 
     let db = PlacesDb::open(db_path, encryption_key)?;
     let store = HistoryStore::new(&db);
 
     if matches.is_present("wipe-remote") {
         log::info!("Wiping remote");
-        let client = Sync15StorageClient::new(client_init.clone())?;
+        let client = Sync15StorageClient::new(cli_fxa.client_init.clone())?;
         client.wipe_all_remote()?;
     }
 
@@ -138,7 +106,7 @@ fn main() -> Result<()> {
 
     log::info!("Syncing!");
     let mut sync_ping = telemetry::SyncTelemetryPing::new();
-    if let Err(e) = store.sync(&client_init, &root_sync_key, &mut sync_ping) {
+    if let Err(e) = store.sync(&cli_fxa.client_init, &cli_fxa.root_sync_key, &mut sync_ping) {
         log::warn!("Sync failed! {}", e);
         log::warn!("BT: {:?}", e.backtrace());
     } else {
