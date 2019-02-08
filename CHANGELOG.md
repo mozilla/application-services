@@ -16,6 +16,12 @@
 
 - iOS: Code that expects empty strings (and not nil) for optional strings should be updated to check for nil instead. ([#623](https://github.com/mozilla/application-services/issues/623))
 
+## FxA
+
+### What's Fixed
+
+- iOS: Some errors that were being accidentally swallowed should now be properly reported. ([#640](https://github.com/mozilla/application-services/issues/640))
+
 # 0.16.0 (_2019-02-06_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.15.0...v0.16.0)

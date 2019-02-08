@@ -90,6 +90,11 @@ public enum LoginsStoreError: Error {
             }
             throw ResultError.empty
         }
+        // result might not be nil (e.g. it could be 0), while still indicating failure. Ultimately,
+        // `err` is the source of truth here.
+        if let loginErr = LoginsStoreError.fromConsuming(err) {
+            throw loginErr
+        }
         return result
     }
 
@@ -101,6 +106,11 @@ public enum LoginsStoreError: Error {
                 throw loginErr
             }
             return nil
+        }
+        // result might not be nil (e.g. it could be 0), while still indicating failure. Ultimately,
+        // `err` is the source of truth here.
+        if let loginErr = LoginsStoreError.fromConsuming(err) {
+            throw loginErr
         }
         return result
     }

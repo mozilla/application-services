@@ -40,6 +40,11 @@ public enum FxAError: Error {
             }
             throw ResultError.empty
         }
+        // result might not be nil (e.g. it could be 0), while still indicating failure. Ultimately,
+        // `err` is the source of truth here.
+        if let fxaErr = FxAError.fromConsuming(err) {
+            throw fxaErr
+        }
         return result
     }
 
@@ -51,6 +56,11 @@ public enum FxAError: Error {
                 throw fxaErr
             }
             return nil
+        }
+        // result might not be nil (e.g. it could be 0), while still indicating failure. Ultimately,
+        // `err` is the source of truth here.
+        if let fxaErr = FxAError.fromConsuming(err) {
+            throw fxaErr
         }
         return result
     }
