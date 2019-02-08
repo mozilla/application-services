@@ -4,6 +4,7 @@
 
 // We don't want 'db.rs' as a sub-module. We could move the contents here? Or something else?
 pub mod db;
-pub use crate::db::db::PlacesDb;
-
+mod interrupt;
 mod schema;
+pub use self::interrupt::PlacesInterruptHandle;
+pub use crate::db::db::PlacesDb;

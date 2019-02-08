@@ -10,6 +10,7 @@ members = [
     "components/support/ffi",
     "components/sync15",
     "components/rc_log",
+    "megazords/fenix",
     "megazords/lockbox",
     "megazords/reference-browser",
     "testing/sync-test",

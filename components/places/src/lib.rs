@@ -12,14 +12,15 @@ pub mod ffi;
 pub mod frecency;
 pub mod hash;
 pub mod history_sync;
-mod match_impl;
+// match_impl is pub mostly for benchmarks (which have to run as a separate pseudo-crate).
+pub mod match_impl;
 pub mod observation;
 pub mod storage;
 mod util;
 mod valid_guid;
 
 pub use crate::api::apply_observation;
-pub use crate::db::PlacesDb;
+pub use crate::db::{PlacesDb, PlacesInterruptHandle};
 pub use crate::error::*;
 pub use crate::observation::VisitObservation;
 pub use crate::storage::PageInfo;

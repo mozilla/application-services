@@ -14,6 +14,7 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * An implementation of a [PlacesAPI] backed by a Rust Places library.
@@ -24,6 +25,7 @@ import java.util.concurrent.atomic.AtomicLong
  */
 class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI, AutoCloseable {
     private var handle: AtomicLong = AtomicLong(0)
+    private var interruptHandle: InterruptHandle
 
     init {
         try {
@@ -46,6 +48,16 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
                 LibPlacesFFI.INSTANCE.places_connection_new(path, encryption_key, error)
             })
         }
+        try {
+            interruptHandle = InterruptHandle(rustCall { err ->
+                LibPlacesFFI.INSTANCE.places_new_interrupt_handle(this.handle.get(), err)
+            }!!)
+        } catch (e: Throwable) {
+            rustCall { error ->
+                LibPlacesFFI.INSTANCE.places_connection_destroy(this.handle.getAndSet(0), error)
+            }
+            throw e
+        }
     }
 
     @Synchronized
@@ -56,6 +68,7 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
                 LibPlacesFFI.INSTANCE.places_connection_destroy(handle, error)
             }
         }
+        interruptHandle.close()
     }
 
     override fun noteObservation(data: VisitObservation) {
@@ -127,6 +140,20 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
         return result
     }
 
+    override fun deletePlace(url: String) {
+        rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_delete_place(
+                    this.handle.get(), url, error)
+        }
+    }
+
+    override fun deleteVisitsSince(since: Long) {
+        rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_delete_visits_since(
+                    this.handle.get(), since, error)
+        }
+    }
+
     override fun sync(syncInfo: SyncAuthInfo) {
         rustCall { error ->
             LibPlacesFFI.INSTANCE.sync15_history_sync(
@@ -138,6 +165,10 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
                     error
             )
         }
+    }
+
+    override fun interrupt() {
+        this.interruptHandle.interrupt()
     }
 
     private inline fun <U> rustCall(callback: (RustError.ByReference) -> U): U {
@@ -224,6 +255,32 @@ interface PlacesAPI {
     fun getVisitedUrlsInRange(start: Long, end: Long = Long.MAX_VALUE, includeRemote: Boolean = true): List<String>
 
     /**
+     * Deletes all information about the given URL. If the place has previously
+     * been synced, a tombstone will be written to the sync server, meaning
+     * the place should be deleted on all synced devices.
+     *
+     * The exception to this is if the place is duplicated on the sync server
+     * (duplicate server-side places are a form of corruption), in which case
+     * only the place whose GUID corresponds to the local GUID will be
+     * deleted. This is (hopefully) rare, and sadly there is not much we can
+     * do about it. It indicates a client-side bug that occurred at some
+     * point in the past.
+     *
+     * @param url the url to be removed.
+     */
+    fun deletePlace(url: String)
+
+    /**
+     * Deletes all visits which occurred since the specified time. If the
+     * deletion removes the last visit for a place, the place itself will also
+     * be removed (and if the place has been synced, the deletion of the
+     * place will also be synced)
+     *
+     * @param start time for the deletion, unix timestamp in milliseconds.
+     */
+    fun deleteVisitsSince(since: Long)
+
+    /**
      * Syncs the history store.
      *
      * Note that this function blocks until the sync is complete, which may
@@ -233,13 +290,44 @@ interface PlacesAPI {
      *
      */
     fun sync(syncInfo: SyncAuthInfo)
+
+    /**
+     * Interrupt ongoing operations running on a separate thread.
+     */
+    fun interrupt()
 }
+
+internal class InterruptHandle internal constructor(raw: RawPlacesInterruptHandle): AutoCloseable {
+    // We synchronize all accesses, so this probably doesn't need AtomicReference.
+    private val handle: AtomicReference<RawPlacesInterruptHandle?> = AtomicReference(raw)
+
+    @Synchronized
+    override fun close() {
+        val toFree = handle.getAndSet(null)
+        if (toFree != null) {
+            LibPlacesFFI.INSTANCE.places_interrupt_handle_destroy(toFree)
+        }
+    }
+
+    @Synchronized
+    fun interrupt() {
+        handle.get()?.let {
+            val e = RustError.ByReference()
+            LibPlacesFFI.INSTANCE.places_interrupt(it, e)
+            if (e.isFailure()) {
+                throw e.intoException()
+            }
+        }
+    }
+}
+
 
 open class PlacesException(msg: String): Exception(msg)
 open class InternalPanic(msg: String): PlacesException(msg)
 open class UrlParseFailed(msg: String): PlacesException(msg)
 open class InvalidPlaceInfo(msg: String): PlacesException(msg)
 open class PlacesConnectionBusy(msg: String): PlacesException(msg)
+open class OperationInterrupted(msg: String): PlacesException(msg)
 
 @SuppressWarnings("MagicNumber")
 enum class VisitType(val type: Int) {

@@ -10,9 +10,9 @@ abstract class LoginsStorageTest {
 
     abstract fun createTestStore(): LoginsStorage
 
-    private val encryptionKey = "testEncryptionKey"
+    protected val encryptionKey = "testEncryptionKey"
 
-    private fun getTestStore(): LoginsStorage {
+    protected fun getTestStore(): LoginsStorage {
         val store = createTestStore()
 
         store.unlock(encryptionKey)
@@ -44,12 +44,12 @@ abstract class LoginsStorageTest {
         store.close()
     }
 
-    private inline fun <T: Any?, reified E: Throwable> expectException(klass: Class<E>, callback: () -> T) {
+    protected inline fun <T: Any?, reified E: Throwable> expectException(klass: Class<E>, callback: () -> T) {
         try {
             callback()
             fail("Expected exception!")
         } catch (e: Throwable) {
-            assert(klass.isInstance(e), { "Expected ${klass} but got exception of type ${e.javaClass}" })
+            assert(klass.isInstance(e), { "Expected ${klass} but got exception of type ${e.javaClass}: ${e}" })
         }
     }
 

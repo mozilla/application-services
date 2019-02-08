@@ -6,17 +6,21 @@
 // wip-sync-sql-store branch, but with login specific code removed.
 // We should work out how to split this into a library we can reuse.
 
+use super::interrupt::{InterruptScope, PlacesInterruptHandle};
 use super::schema;
 use crate::error::*;
 use rusqlite::Connection;
-use sql_support::{self, ConnExt};
+use sql_support::ConnExt;
 use std::ops::Deref;
 use std::path::Path;
+
+use std::sync::{atomic::AtomicUsize, Arc};
 
 pub const MAX_VARIABLE_NUMBER: usize = 999;
 
 pub struct PlacesDb {
     pub db: Connection,
+    interrupt_counter: Arc<AtomicUsize>,
 }
 
 impl PlacesDb {
@@ -72,6 +76,9 @@ impl PlacesDb {
             -- that it's in units of KiB.
             PRAGMA cache_size = -6144;
 
+            -- We want foreign-key support.
+            PRAGMA foreign_keys = ON;
+
             -- we unconditionally want write-ahead-logging mode
             PRAGMA journal_mode=WAL;
         ",
@@ -80,7 +87,10 @@ impl PlacesDb {
 
         db.execute_batch(&initial_pragmas)?;
         define_functions(&db)?;
-        let res = Self { db };
+        let res = Self {
+            db,
+            interrupt_counter: Arc::new(AtomicUsize::new(0)),
+        };
         // Even though we're the owner of the db, we need it to be an unchecked tx
         // since we want to pass &PlacesDb and not &Connection to schema::init.
         let tx = res.unchecked_transaction()?;
@@ -102,6 +112,18 @@ impl PlacesDb {
             Connection::open_in_memory()?,
             encryption_key,
         )?)
+    }
+
+    pub fn new_interrupt_handle(&self) -> PlacesInterruptHandle {
+        PlacesInterruptHandle {
+            db_handle: self.db.get_interrupt_handle(),
+            interrupt_counter: self.interrupt_counter.clone(),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn begin_interrupt_scope(&self) -> InterruptScope {
+        InterruptScope::new(self.interrupt_counter.clone())
     }
 }
 
@@ -142,6 +164,7 @@ fn define_functions(c: &Connection) -> Result<()> {
     c.create_scalar_function("reverse_host", 1, true, sql_fns::reverse_host)?;
     c.create_scalar_function("autocomplete_match", 10, true, sql_fns::autocomplete_match)?;
     c.create_scalar_function("hash", -1, true, sql_fns::hash)?;
+    c.create_scalar_function("now", 0, false, sql_fns::now)?;
     Ok(())
 }
 
@@ -149,6 +172,7 @@ mod sql_fns {
     use crate::api::matcher::{split_after_host_and_port, split_after_prefix};
     use crate::hash;
     use crate::match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
+    use crate::types::Timestamp;
     use rusqlite::{functions::Context, types::ValueRef, Error, Result};
 
     // Helpers for define_functions
@@ -273,6 +297,11 @@ mod sql_fns {
         res += host_and_port;
         res += remainder;
         Ok(res)
+    }
+
+    #[inline(never)]
+    pub fn now(_ctx: &Context) -> Result<Timestamp> {
+        Ok(Timestamp::now())
     }
 }
 

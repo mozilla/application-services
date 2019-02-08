@@ -64,6 +64,12 @@ commands:
       - run:
           name: Sync Integration Test Suite
           command: cargo run -p sync-test -- --oauth-retries 5
+  bench-all:
+    steps:
+      - test-setup
+      - run:
+          name: Build and Run Benchmarks
+          command: cargo bench --all
 
 jobs:
   Check Rust formatting:
@@ -90,6 +96,11 @@ jobs:
       - image: circleci/rust:latest-browsers
     steps:
       - sync-tests
+  Rust benchmarks:
+    docker:
+      - image: circleci/rust:latest
+    steps:
+      - bench-all
 
 workflows:
   version: 2
@@ -100,4 +111,5 @@ workflows:
     jobs:
       - Rust tests - stable
       - Rust tests - beta
+      - Rust benchmarks
       - Sync integration tests

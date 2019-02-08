@@ -107,7 +107,7 @@ apply from: "$rootDir/publish.gradle"
 ext.configurePublish(
         'org.mozilla.appservices',
         'lockbox-megazord',
-        'Megazord of [fxaclient, logins]',
+        'Megazord of [fxaclient, logins, logging]',
         /* jnaForTestConfiguration= */ configurations.jnaForTest,
         /* variantWithoutLib= */ null,
 )

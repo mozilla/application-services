@@ -396,7 +396,13 @@ mod tests {
     fn quick_strech_pwd(email: &str, pwd: &str) -> Vec<u8> {
         let salt = Client::kwe("quickStretch", email);
         let mut out = [0u8; 32];
-        pbkdf2::derive(&digest::SHA256, 1000, &salt, pwd.as_bytes(), &mut out);
+        pbkdf2::derive(
+            &digest::SHA256,
+            std::num::NonZeroU32::new(1000).unwrap(),
+            &salt,
+            pwd.as_bytes(),
+            &mut out,
+        );
         out.to_vec()
     }
 

@@ -16,7 +16,7 @@ use rusqlite::Connection;
 use serde_json;
 use sql_support::ConnExt;
 use std::collections::HashSet;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sync15::telemetry;
 use sync15::{IncomingChangeset, OutgoingChangeset, Payload};
 use url::Url;
@@ -196,10 +196,13 @@ pub fn apply_plan(
         plans.push((guid, plan));
     }
 
-    let tx = conn.unchecked_transaction()?;
+    // this 1000 duration should probably be a constant somewhere - it doesn't
+    // seem likely that different call-sites would use different values.
+    let mut tx = conn.time_chunked_transaction(Duration::from_millis(1000))?;
 
     let mut outgoing = OutgoingChangeset::new("history".into(), inbound.timestamp);
     for (guid, plan) in plans {
+        tx.maybe_commit()?;
         match &plan {
             IncomingPlan::Skip => {
                 log::trace!("incoming: skipping item {:?}", guid);
@@ -244,8 +247,12 @@ pub fn apply_plan(
             }
         };
     }
-    // XXX - we could probably commit the transaction here and start a new
-    // one? OTOH, we might look at killing all transactions here?
+    tx.commit()?;
+    // It might make sense for fetch_outgoing to manage its own
+    // time_chunked_transaction - even though doesn't seem a large bottleneck
+    // at this time, the fact we hold a single transaction for the entire call
+    // really is used only for performance, so it's certainly a candidate.
+    let tx = conn.unchecked_transaction()?;
     let mut out_infos = fetch_outgoing(conn, MAX_OUTGOING_PLACES, MAX_VISITS)?;
 
     for (guid, out_record) in out_infos.drain() {

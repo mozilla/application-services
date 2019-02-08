@@ -51,6 +51,7 @@ open class RustError : Structure() {
             2 -> return InvalidPlaceInfo(message)
             3 -> return UrlParseFailed(message)
             4 -> return PlacesConnectionBusy(message)
+            5 -> return OperationInterrupted(message)
             -1 -> return InternalPanic(message)
             // Note: `1` is used as a generic catch all, but we
             // might as well handle the others the same way.

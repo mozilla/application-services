@@ -3,8 +3,11 @@ use std::{ops::Deref, path::Path};
 use rusqlite::{types::ToSql, Connection, NO_PARAMS};
 use sql_support::ConnExt;
 
-use crate::{record::PushRecord, schema};
-use push_errors::{Error, Result};
+use crate::{
+    error::{Error, Result},
+    record::PushRecord,
+    schema,
+};
 
 // TODO: Add broadcasts storage
 
@@ -163,8 +166,7 @@ impl Storage for PushDb {
 #[cfg(test)]
 mod test {
     use super::PushDb;
-    use crate::{db::Storage, record::PushRecord};
-    use push_errors::Result;
+    use crate::{db::Storage, error::Result, record::PushRecord};
     use crypto::{Crypto, Cryptography};
 
     fn prec() -> PushRecord {
@@ -186,9 +188,7 @@ mod test {
         let chid = &rec.channel_id;
 
         assert!(db.get_record("", chid)?.is_none());
-        let v = format!("{:?}", db.put_record("", &rec));
-        println!("{}", v);
-        //assert!(db.put_record("", &rec)?);
+        assert!(db.put_record("", &rec)?);
         assert!(db.get_record("", chid)?.is_some());
         assert_eq!(db.get_record("", chid)?, Some(rec.clone()));
 
