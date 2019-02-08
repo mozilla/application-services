@@ -75,7 +75,9 @@ impl LoginDb {
         db.execute_batch(&initial_pragmas)?;
 
         let mut logins = Self { db };
-        schema::init(&mut logins)?;
+        let tx = logins.db.transaction()?;
+        schema::init(&tx)?;
+        tx.commit()?;
         Ok(logins)
     }
 

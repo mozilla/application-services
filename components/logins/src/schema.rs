@@ -88,9 +88,9 @@
 //!    JSON.
 //!
 
-use crate::db;
 use crate::error::*;
 use lazy_static::lazy_static;
+use rusqlite::Connection;
 use sql_support::ConnExt;
 
 /// Note that firefox-ios is currently on version 3. Version 4 is this version,
@@ -208,7 +208,7 @@ const UPDATE_MIRROR_TIMESTAMPS_TO_MILLIS_SQL: &'static str = "
 pub(crate) static LAST_SYNC_META_KEY: &'static str = "last_sync_time";
 pub(crate) static GLOBAL_STATE_META_KEY: &'static str = "global_state";
 
-pub(crate) fn init(db: &db::LoginDb) -> Result<()> {
+pub(crate) fn init(db: &Connection) -> Result<()> {
     let user_version = db.query_one::<i64>("PRAGMA user_version")?;
     if user_version == 0 {
         // This logic is largely taken from firefox-ios. AFAICT at some point
@@ -250,7 +250,7 @@ pub(crate) fn init(db: &db::LoginDb) -> Result<()> {
 }
 
 // https://github.com/mozilla-mobile/firefox-ios/blob/master/Storage/SQL/LoginsSchema.swift#L100
-fn upgrade(db: &db::LoginDb, from: i64) -> Result<()> {
+fn upgrade(db: &Connection, from: i64) -> Result<()> {
     log::debug!("Upgrading schema from {} to {}", from, VERSION);
     if from == VERSION {
         return Ok(());
@@ -281,7 +281,7 @@ fn upgrade(db: &db::LoginDb, from: i64) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn create(db: &db::LoginDb) -> Result<()> {
+pub(crate) fn create(db: &Connection) -> Result<()> {
     log::debug!("Creating schema");
     db.execute_all(&[
         &*CREATE_LOCAL_TABLE_SQL,
@@ -294,7 +294,7 @@ pub(crate) fn create(db: &db::LoginDb) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn drop(db: &db::LoginDb) -> Result<()> {
+pub(crate) fn drop(db: &Connection) -> Result<()> {
     log::debug!("Dropping schema");
     db.execute_all(&[
         "DROP TABLE IF EXISTS loginsM",
