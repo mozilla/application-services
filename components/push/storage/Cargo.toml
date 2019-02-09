@@ -10,6 +10,7 @@ lazy_static = "1.2"
 log = "0.4"
 failure = "0.1.5"
 failure_derive = "0.1.5"
+hex="0.3"
 openssl = "0.10"
 rusqlite = "0.16.0"
 serde = { version = "1.0.85", features = ["derive"] }

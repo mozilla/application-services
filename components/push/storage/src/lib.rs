@@ -5,6 +5,8 @@
  * Handle Push data storage
  */
 extern crate crypto;
+#[cfg(test)]
+extern crate hex;
 
 mod db;
 mod error;

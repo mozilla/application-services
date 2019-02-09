@@ -10,11 +10,11 @@ extern crate storage;
 
 use std::collections::HashMap;
 
-use communications::{Connect, Connection, ConnectionError};
+use communications::{ConnectHttp, Connection};
 use crypto::{Crypto, Cryptography, Key};
 use storage::{ChannelID, Storage, Store};
 
-pub struct SubscriptionError;
+use push_errors::{self as error, ErrorKind::SubscriptionError};
 
 pub struct SubscriptionKeys {
     pub auth: Vec<u8>,
@@ -60,7 +60,7 @@ impl Subscriber for Subscription {
         registration_key: Option<&str>,
         priviledged: bool,
     ) -> Result<Subscription, SubscriptionError> {
-        if let Ok(con) = Connect::connect::<Connect>(None) {
+        if let Ok(con) = ConnectHttp::connect::<ConnectHttp>(None) {
             let uaid = con.uaid();
             let chid = storage.generate_channel_id();
             if let Ok(endpoint_data) = con.subscribe(&chid, app_server_key, registration_key) {

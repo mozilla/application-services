@@ -1,0 +1,11 @@
+[package]
+name = "push-errors"
+version = "0.1.0"
+authors = ["jrconlin <me+crypt@jrconlin.com>"]
+edition = "2018"
+
+[dependencies]
+failure = "0.1.5"
+failure_derive = "0.1.5"
+openssl = "0.10"
+rusqlite = "0.16.0"
