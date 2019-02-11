@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{
-    errors::*, http_client::Client, scoped_keys::ScopedKeysFlow, util, FirefoxAccount, RNG,
-};
+use crate::{errors::*, scoped_keys::ScopedKeysFlow, util, FirefoxAccount, RNG};
 use ring::digest;
 use serde_derive::*;
 use std::{
@@ -28,19 +26,24 @@ impl FirefoxAccount {
                 return Ok(oauth_info.clone());
             }
         }
-        let client = Client::new(&self.state.config);
         let resp = match self.state.refresh_token {
             Some(ref refresh_token) => match refresh_token.scopes.contains(scope) {
-                true => client.oauth_token_with_refresh_token(&refresh_token.token, &[scope])?,
+                true => self.client.oauth_token_with_refresh_token(
+                    &self.state.config,
+                    &refresh_token.token,
+                    &[scope],
+                )?,
                 false => return Err(ErrorKind::NoCachedToken(scope.to_string()).into()),
             },
             None => {
                 #[cfg(feature = "browserid")]
                 {
                     match Self::session_token_from_state(&self.state.login_state) {
-                        Some(session_token) => {
-                            client.oauth_token_with_session_token(session_token, &[scope])?
-                        }
+                        Some(session_token) => self.client.oauth_token_with_session_token(
+                            &self.state.config,
+                            session_token,
+                            &[scope],
+                        )?,
                         None => return Err(ErrorKind::NoCachedToken(scope.to_string()).into()),
                     }
                 }
@@ -135,8 +138,11 @@ impl FirefoxAccount {
             Some(oauth_flow) => oauth_flow,
             None => return Err(ErrorKind::UnknownOAuthState.into()),
         };
-        let client = Client::new(&self.state.config);
-        let resp = client.oauth_token_with_code(&code, &oauth_flow.code_verifier)?;
+        let resp = self.client.oauth_token_with_code(
+            &self.state.config,
+            &code,
+            &oauth_flow.code_verifier,
+        )?;
         // This assumes that if the server returns keys_jwe, the jwk argument is Some.
         match resp.keys_jwe {
             Some(ref jwe) => {
@@ -164,11 +170,13 @@ impl FirefoxAccount {
                 }
             }
         };
-        let client = Client::new(&self.state.config);
         // We are only interested in the refresh token at this time because we
         // don't want to return an over-scoped access token.
         // Let's be good citizens and destroy this access token.
-        if let Err(err) = client.destroy_oauth_token(&resp.access_token) {
+        if let Err(err) = self
+            .client
+            .destroy_oauth_token(&self.state.config, &resp.access_token)
+        {
             log::warn!("Access token destruction failure: {:?}", err);
         }
         let refresh_token = match resp.refresh_token {
@@ -178,7 +186,10 @@ impl FirefoxAccount {
         // In order to keep 1 and only 1 refresh token alive per client instance,
         // we also destroy the existing refresh token.
         if let Some(ref old_refresh_token) = self.state.refresh_token {
-            if let Err(err) = client.destroy_oauth_token(&old_refresh_token.token) {
+            if let Err(err) = self
+                .client
+                .destroy_oauth_token(&self.state.config, &old_refresh_token.token)
+            {
                 log::warn!("Refresh token destruction failure: {:?}", err);
             }
         }
