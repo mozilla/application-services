@@ -28,13 +28,109 @@ const KEY_LENGTH: usize = 32;
 #[cfg(feature = "browserid")]
 const SIGN_DURATION_MS: u64 = 24 * 60 * 60 * 1000;
 
-pub struct Client<'a> {
-    config: &'a Config,
+pub trait FxAClient {
+    fn oauth_token_with_code(
+        &self,
+        config: &Config,
+        code: &str,
+        code_verifier: &str,
+    ) -> Result<OAuthTokenResponse>;
+    fn oauth_token_with_refresh_token(
+        &self,
+        config: &Config,
+        refresh_token: &str,
+        scopes: &[&str],
+    ) -> Result<OAuthTokenResponse>;
+    fn destroy_oauth_token(&self, config: &Config, token: &str) -> Result<()>;
+    fn profile(
+        &self,
+        config: &Config,
+        profile_access_token: &str,
+        etag: Option<String>,
+    ) -> Result<Option<ResponseAndETag<ProfileResponse>>>;
 }
 
-impl<'a> Client<'a> {
-    pub fn new(config: &'a Config) -> Client<'a> {
-        Client { config }
+pub struct Client;
+impl FxAClient for Client {
+    fn profile(
+        &self,
+        config: &Config,
+        profile_access_token: &str,
+        etag: Option<String>,
+    ) -> Result<Option<ResponseAndETag<ProfileResponse>>> {
+        let url = config.userinfo_endpoint()?;
+        let client = ReqwestClient::new();
+        let mut builder = client.request(Method::GET, url).header(
+            header::AUTHORIZATION,
+            format!("Bearer {}", profile_access_token),
+        );
+        if let Some(etag) = etag {
+            builder = builder.header(header::IF_NONE_MATCH, format!("\"{}\"", etag));
+        }
+        let request = builder.build()?;
+        let mut resp = Self::make_request(request)?;
+        if resp.status() == StatusCode::NOT_MODIFIED {
+            return Ok(None);
+        }
+        let etag = resp
+            .headers()
+            .get(header::ETAG)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_owned());
+        Ok(Some(ResponseAndETag {
+            etag,
+            response: resp.json()?,
+        }))
+    }
+
+    fn oauth_token_with_code(
+        &self,
+        config: &Config,
+        code: &str,
+        code_verifier: &str,
+    ) -> Result<OAuthTokenResponse> {
+        let body = json!({
+            "code": code,
+            "client_id": config.client_id,
+            "code_verifier": code_verifier
+        });
+        self.make_oauth_token_request(config, body)
+    }
+
+    fn oauth_token_with_refresh_token(
+        &self,
+        config: &Config,
+        refresh_token: &str,
+        scopes: &[&str],
+    ) -> Result<OAuthTokenResponse> {
+        let body = json!({
+            "grant_type": "refresh_token",
+            "client_id": config.client_id,
+            "refresh_token": refresh_token,
+            "scope": scopes.join(" ")
+        });
+        self.make_oauth_token_request(config, body)
+    }
+
+    fn destroy_oauth_token(&self, config: &Config, token: &str) -> Result<()> {
+        let body = json!({
+            "token": token,
+        });
+        let url = config.oauth_url_path("v1/destroy")?;
+        let client = ReqwestClient::new();
+        let request = client
+            .request(Method::POST, url)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(body.to_string())
+            .build()?;
+        Self::make_request(request)?;
+        Ok(())
+    }
+}
+
+impl Client {
+    pub fn new() -> Self {
+        Self {}
     }
 
     #[cfg(feature = "browserid")]
@@ -149,41 +245,11 @@ impl<'a> Client<'a> {
         Self::make_request(request)?.json().map_err(|e| e.into())
     }
 
-    pub fn profile(
-        &self,
-        profile_access_token: &str,
-        etag: Option<String>,
-    ) -> Result<Option<ResponseAndETag<ProfileResponse>>> {
-        let url = self.config.userinfo_endpoint()?;
-        let client = ReqwestClient::new();
-        let mut builder = client.request(Method::GET, url).header(
-            header::AUTHORIZATION,
-            format!("Bearer {}", profile_access_token),
-        );
-        if let Some(etag) = etag {
-            builder = builder.header(header::IF_NONE_MATCH, format!("\"{}\"", etag));
-        }
-        let request = builder.build()?;
-        let mut resp = Self::make_request(request)?;
-        if resp.status() == StatusCode::NOT_MODIFIED {
-            return Ok(None);
-        }
-        let etag = resp
-            .headers()
-            .get(header::ETAG)
-            .and_then(|v| v.to_str().ok())
-            .map(|s| s.to_owned());
-        Ok(Some(ResponseAndETag {
-            etag,
-            response: resp.json()?,
-        }))
-    }
-
     #[cfg(feature = "browserid")]
     pub fn oauth_token_with_session_token(
         &self,
-        session_token: &[u8],
-        scopes: &[&str],
+        config: &Config,
+        body: serde_json::Value,
     ) -> Result<OAuthTokenResponse> {
         let audience = self.get_oauth_audience()?;
         let key_pair = Self::key_pair(1024)?;
@@ -201,59 +267,6 @@ impl<'a> Client<'a> {
             .body(parameters)
             .build()?;
         Self::make_request(request)?.json().map_err(|e| e.into())
-    }
-
-    pub fn oauth_token_with_code(
-        &self,
-        code: &str,
-        code_verifier: &str,
-    ) -> Result<OAuthTokenResponse> {
-        let body = json!({
-            "code": code,
-            "client_id": self.config.client_id,
-            "code_verifier": code_verifier
-        });
-        self.make_oauth_token_request(body)
-    }
-
-    pub fn oauth_token_with_refresh_token(
-        &self,
-        refresh_token: &str,
-        scopes: &[&str],
-    ) -> Result<OAuthTokenResponse> {
-        let body = json!({
-            "grant_type": "refresh_token",
-            "client_id": self.config.client_id,
-            "refresh_token": refresh_token,
-            "scope": scopes.join(" ")
-        });
-        self.make_oauth_token_request(body)
-    }
-
-    fn make_oauth_token_request(&self, body: serde_json::Value) -> Result<OAuthTokenResponse> {
-        let url = self.config.token_endpoint()?;
-        let client = ReqwestClient::new();
-        let request = client
-            .request(Method::POST, url)
-            .header(header::CONTENT_TYPE, "application/json")
-            .body(body.to_string())
-            .build()?;
-        Self::make_request(request)?.json().map_err(|e| e.into())
-    }
-
-    pub fn destroy_oauth_token(&self, token: &str) -> Result<()> {
-        let body = json!({
-            "token": token,
-        });
-        let url = self.config.oauth_url_path("v1/destroy")?;
-        let client = ReqwestClient::new();
-        let request = client
-            .request(Method::POST, url)
-            .header(header::CONTENT_TYPE, "application/json")
-            .body(body.to_string())
-            .build()?;
-        Self::make_request(request)?;
-        Ok(())
     }
 
     #[cfg(feature = "browserid")]
@@ -300,6 +313,17 @@ impl<'a> Client<'a> {
         let mut out = vec![0u8; len];
         hkdf::extract_and_expand(&salt, ikm, info, &mut out);
         out.to_vec()
+    }
+
+    fn make_oauth_token_request(&self, body: serde_json::Value) -> Result<OAuthTokenResponse> {
+        let url = self.config.token_endpoint()?;
+        let client = ReqwestClient::new();
+        let request = client
+            .request(Method::POST, url)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(body.to_string())
+            .build()?;
+        Self::make_request(request)?.json().map_err(|e| e.into())
     }
 
     fn make_request(request: Request) -> Result<Response> {

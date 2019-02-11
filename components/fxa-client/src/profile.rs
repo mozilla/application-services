@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub use crate::http_client::ProfileResponse as Profile;
-use crate::{errors::*, http_client::Client, scopes, util, CachedResponse, FirefoxAccount};
+use crate::{errors::*, scopes, util, CachedResponse, FirefoxAccount};
 
 // A cached profile response is considered fresh for `PROFILE_FRESHNESS_THRESHOLD` ms.
 const PROFILE_FRESHNESS_THRESHOLD: u64 = 120000; // 2 minutes
@@ -19,8 +19,10 @@ impl FirefoxAccount {
             }
             etag = Some(cached_profile.etag.clone());
         }
-        let client = Client::new(&self.state.config);
-        match client.profile(&profile_access_token, etag)? {
+        match self
+            .client
+            .profile(&self.state.config, &profile_access_token, etag)?
+        {
             Some(response_and_etag) => {
                 if let Some(etag) = response_and_etag.etag {
                     self.profile_cache = Some(CachedResponse {

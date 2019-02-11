@@ -14,7 +14,7 @@ use crate::{
 use lazy_static::lazy_static;
 use ring::rand::SystemRandom;
 use serde_derive::*;
-use std::{collections::HashMap, panic::RefUnwindSafe};
+use std::{collections::HashMap, panic::RefUnwindSafe, sync::Arc};
 use url::Url;
 
 #[cfg(feature = "browserid")]
@@ -42,7 +42,13 @@ lazy_static! {
     static ref RNG: SystemRandom = SystemRandom::new();
 }
 
+#[cfg(feature = "browserid")]
+type FxAClient = http_client::browser_id::FxABrowserIDClient + Sync + Send;
+#[cfg(not(feature = "browserid"))]
+type FxAClient = http_client::FxAClient + Sync + Send;
+
 pub struct FirefoxAccount {
+    client: Arc<FxAClient>,
     state: StateV2,
     access_token_cache: HashMap<String, AccessTokenInfo>,
     flow_store: HashMap<String, OAuthFlow>,
@@ -66,6 +72,7 @@ pub(crate) struct StateV2 {
 impl FirefoxAccount {
     fn from_state(state: StateV2) -> Self {
         Self {
+            client: Arc::new(http_client::Client::new()),
             state,
             access_token_cache: HashMap::new(),
             flow_store: HashMap::new(),
@@ -87,6 +94,11 @@ impl FirefoxAccount {
     pub fn new(content_url: &str, client_id: &str, redirect_uri: &str) -> Self {
         let config = Config::new(content_url, client_id, redirect_uri);
         Self::with_config(config)
+    }
+
+    #[cfg(test)]
+    pub fn set_client(&mut self, client: Arc<FxAClient>) {
+        self.client = client;
     }
 
     pub fn from_json(data: &str) -> Result<Self> {
