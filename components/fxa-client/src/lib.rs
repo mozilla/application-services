@@ -2,6 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#[cfg(feature = "browserid")]
+pub use crate::browser_id::{SyncKeys, WebChannelResponse};
+#[cfg(feature = "browserid")]
+use crate::login_sm::LoginState;
 pub use crate::{config::Config, http_client::ProfileResponse as Profile, oauth::AccessTokenInfo};
 use crate::{
     errors::*,
@@ -13,15 +17,9 @@ use ring::rand::SystemRandom;
 use serde_derive::*;
 use std::{collections::HashMap, panic::RefUnwindSafe};
 use url::Url;
-#[cfg(feature = "browserid")]
-use {
-    crate::{
-        http_client::browser_id::jwt_utils,
-        login_sm::{LoginState::*, *},
-    },
-    std::mem,
-};
 
+#[cfg(feature = "browserid")]
+mod browser_id;
 mod config;
 pub mod errors;
 #[cfg(feature = "ffi")]
@@ -55,27 +53,6 @@ pub(crate) struct StateV2 {
     scoped_keys: HashMap<String, ScopedKey>,
 }
 
-#[cfg(feature = "browserid")]
-#[derive(Deserialize)]
-pub struct WebChannelResponse {
-    uid: String,
-    email: String,
-    verified: bool,
-    #[serde(rename = "sessionToken")]
-    session_token: String,
-    #[serde(rename = "keyFetchToken")]
-    key_fetch_token: String,
-    #[serde(rename = "unwrapBKey")]
-    unwrap_kb: String,
-}
-
-#[cfg(feature = "browserid")]
-impl WebChannelResponse {
-    pub fn from_json(json: &str) -> Result<WebChannelResponse> {
-        serde_json::from_str(json).map_err(|e| e.into())
-    }
-}
-
 struct CachedResponse<T> {
     response: T,
     cached_at: u64,
@@ -89,8 +66,6 @@ pub struct FirefoxAccount {
     persist_callback: Option<PersistCallback>,
     profile_cache: Option<CachedResponse<Profile>>,
 }
-
-pub struct SyncKeys(pub String, pub String);
 
 pub struct PersistCallback {
     callback_fn: Box<Fn(&str) + Send + RefUnwindSafe>,
@@ -126,7 +101,7 @@ impl FirefoxAccount {
         Self::from_state(StateV2 {
             config,
             #[cfg(feature = "browserid")]
-            login_state: Unknown,
+            login_state: LoginState::Unknown,
             refresh_token: None,
             scoped_keys: HashMap::new(),
         })
@@ -137,40 +112,6 @@ impl FirefoxAccount {
         Self::with_config(config)
     }
 
-    // Initialize state from Firefox Accounts credentials obtained using the
-    // web flow.
-    #[cfg(feature = "browserid")]
-    pub fn from_credentials(
-        content_url: &str,
-        client_id: &str,
-        redirect_uri: &str,
-        credentials: WebChannelResponse,
-    ) -> Result<Self> {
-        let config = Config::new(content_url, client_id, redirect_uri);
-        let session_token = hex::decode(credentials.session_token)?;
-        let key_fetch_token = hex::decode(credentials.key_fetch_token)?;
-        let unwrap_kb = hex::decode(credentials.unwrap_kb)?;
-        let login_state_data = ReadyForKeysState::new(
-            credentials.uid,
-            credentials.email,
-            session_token,
-            key_fetch_token,
-            unwrap_kb,
-        );
-        let login_state = if credentials.verified {
-            EngagedAfterVerified(login_state_data)
-        } else {
-            EngagedBeforeVerified(login_state_data)
-        };
-
-        Ok(Self::from_state(StateV2 {
-            config,
-            login_state,
-            refresh_token: None,
-            scoped_keys: HashMap::new(),
-        }))
-    }
-
     pub fn from_json(data: &str) -> Result<Self> {
         let state = state_persistence::state_from_json(data)?;
         Ok(Self::from_state(state))
@@ -178,53 +119,6 @@ impl FirefoxAccount {
 
     pub fn to_json(&self) -> Result<String> {
         state_persistence::state_to_json(&self.state)
-    }
-
-    #[cfg(feature = "browserid")]
-    fn to_married(&mut self) -> Option<&MarriedState> {
-        self.advance();
-        match self.state.login_state {
-            Married(ref married) => Some(married),
-            _ => None,
-        }
-    }
-
-    #[cfg(feature = "browserid")]
-    pub fn advance(&mut self) {
-        let client = Client::new(&self.state.config);
-        let state_machine = LoginStateMachine::new(client);
-        let state = mem::replace(&mut self.state.login_state, Unknown);
-        self.state.login_state = state_machine.advance(state);
-    }
-
-    #[cfg(feature = "browserid")]
-    fn session_token_from_state(state: &LoginState) -> Option<&[u8]> {
-        match state {
-            &Separated(_) | Unknown => None,
-            // Despite all these states implementing the same trait we can't treat
-            // them in a single arm, so this will do for now :/
-            &EngagedBeforeVerified(ref state) | &EngagedAfterVerified(ref state) => {
-                Some(state.session_token())
-            }
-            &CohabitingBeforeKeyPair(ref state) => Some(state.session_token()),
-            &CohabitingAfterKeyPair(ref state) => Some(state.session_token()),
-            &Married(ref state) => Some(state.session_token()),
-        }
-    }
-
-    #[cfg(feature = "browserid")]
-    pub fn generate_assertion(&mut self, audience: &str) -> Result<String> {
-        let married = match self.to_married() {
-            Some(married) => married,
-            None => return Err(ErrorKind::NotMarried.into()),
-        };
-        let key_pair = married.key_pair();
-        let certificate = married.certificate();
-        Ok(jwt_utils::create_assertion(
-            key_pair,
-            &certificate,
-            audience,
-        )?)
     }
 
     pub fn get_profile(&mut self, ignore_cache: bool) -> Result<Profile> {
@@ -257,16 +151,6 @@ impl FirefoxAccount {
                 .into()),
             },
         }
-    }
-
-    #[cfg(feature = "browserid")]
-    pub fn get_sync_keys(&mut self) -> Result<SyncKeys> {
-        let married = match self.to_married() {
-            Some(married) => married,
-            None => return Err(ErrorKind::NotMarried.into()),
-        };
-        let sync_key = hex::encode(married.sync_key());
-        Ok(SyncKeys(sync_key, married.xcs().to_string()))
     }
 
     pub fn get_token_server_endpoint_url(&self) -> Result<Url> {
@@ -302,13 +186,6 @@ impl FirefoxAccount {
             };
             cb.call(&json);
         }
-    }
-
-    #[cfg(feature = "browserid")]
-    pub fn sign_out(mut self) {
-        let client = Client::new(&self.state.config);
-        client.sign_out();
-        self.state.login_state = self.state.login_state.to_separated();
     }
 }
 

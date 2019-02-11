@@ -14,7 +14,9 @@
 
 #![cfg(feature = "ffi")]
 
-use crate::{AccessTokenInfo, Error, ErrorKind, Profile, SyncKeys};
+#[cfg(feature = "browserid")]
+use crate::SyncKeys;
+use crate::{AccessTokenInfo, Error, ErrorKind, Profile};
 use ffi_support::{
     destroy_c_string, opt_rust_string_to_c, rust_string_to_c, ErrorCode, ExternError, IntoFfi,
 };
@@ -66,12 +68,14 @@ impl From<Error> for ExternError {
 // safety problems from safe rust code), but they're depended upon by the FFI, and cannot be
 // changed.
 
+#[cfg(feature = "browserid")]
 #[repr(C)]
 pub struct SyncKeysC {
     sync_key: *mut c_char,
     xcs: *mut c_char,
 }
 
+#[cfg(feature = "browserid")]
 impl Drop for SyncKeysC {
     fn drop(&mut self) {
         unsafe {
@@ -81,6 +85,7 @@ impl Drop for SyncKeysC {
     }
 }
 
+#[cfg(feature = "browserid")]
 impl From<SyncKeys> for SyncKeysC {
     fn from(sync_keys: SyncKeys) -> Self {
         SyncKeysC {
@@ -171,6 +176,7 @@ macro_rules! implement_into_ffi_converting {
     };
 }
 
+#[cfg(feature = "browserid")]
 implement_into_ffi_converting!(SyncKeys, SyncKeysC);
 implement_into_ffi_converting!(AccessTokenInfo, AccessTokenInfoC);
 implement_into_ffi_converting!(Profile, ProfileC);
