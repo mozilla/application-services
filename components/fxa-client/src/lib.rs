@@ -461,26 +461,6 @@ impl FirefoxAccount {
         Ok(url)
     }
 
-    pub fn handle_push_message(&self) {
-        panic!("Not implemented yet!")
-    }
-
-    pub fn register_device(&self) {
-        panic!("Not implemented yet!")
-    }
-
-    pub fn get_devices_list(&self) {
-        panic!("Not implemented yet!")
-    }
-
-    pub fn send_message(&self) {
-        panic!("Not implemented yet!")
-    }
-
-    pub fn retrieve_messages(&self) {
-        panic!("Not implemented yet!")
-    }
-
     pub fn register_persist_callback(&mut self, persist_callback: PersistCallback) {
         self.persist_callback = Some(persist_callback);
     }
