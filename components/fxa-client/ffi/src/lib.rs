@@ -326,4 +326,5 @@ define_string_destructor!(fxa_str_free);
 define_handle_map_deleter!(ACCOUNTS, fxa_free);
 define_box_destructor!(AccessTokenInfoC, fxa_oauth_info_free);
 define_box_destructor!(ProfileC, fxa_profile_free);
+#[cfg(feature = "browserid")]
 define_box_destructor!(SyncKeysC, fxa_sync_keys_free);
