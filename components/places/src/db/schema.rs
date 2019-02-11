@@ -373,7 +373,7 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
         4,
         &[
             // Previous versions had an incomplete version of moz_bookmarks.
-            "DROP TABLE BOOKMARKS",
+            "DROP TABLE moz_bookmarks",
             CREATE_TABLE_BOOKMARKS_SQL,
             CREATE_TABLE_BOOKMARKS_DELETED_SQL,
             CREATE_IDX_MOZ_BOOKMARKS_PLACELASTMODIFIED,
