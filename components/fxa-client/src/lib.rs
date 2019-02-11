@@ -6,10 +6,9 @@
 pub use crate::browser_id::{SyncKeys, WebChannelResponse};
 #[cfg(feature = "browserid")]
 use crate::login_sm::LoginState;
-pub use crate::{config::Config, http_client::ProfileResponse as Profile, oauth::AccessTokenInfo};
+pub use crate::{config::Config, oauth::AccessTokenInfo, profile::Profile};
 use crate::{
     errors::*,
-    http_client::Client,
     oauth::{OAuthFlow, RefreshToken, ScopedKey},
 };
 use lazy_static::lazy_static;
@@ -28,16 +27,22 @@ mod http_client;
 #[cfg(feature = "browserid")]
 mod login_sm;
 mod oauth;
+mod profile;
 mod scoped_keys;
 pub mod scopes;
 mod state_persistence;
 mod util;
 
-// A cached profile response is considered fresh for `PROFILE_FRESHNESS_THRESHOLD` ms.
-const PROFILE_FRESHNESS_THRESHOLD: u64 = 120000; // 2 minutes
-
 lazy_static! {
     static ref RNG: SystemRandom = SystemRandom::new();
+}
+
+pub struct FirefoxAccount {
+    state: StateV2,
+    access_token_cache: HashMap<String, AccessTokenInfo>,
+    flow_store: HashMap<String, OAuthFlow>,
+    persist_callback: Option<PersistCallback>,
+    profile_cache: Option<CachedResponse<Profile>>,
 }
 
 // If this structure is modified, please
@@ -51,39 +56,6 @@ pub(crate) struct StateV2 {
     login_state: LoginState,
     refresh_token: Option<RefreshToken>,
     scoped_keys: HashMap<String, ScopedKey>,
-}
-
-struct CachedResponse<T> {
-    response: T,
-    cached_at: u64,
-    etag: String,
-}
-
-pub struct FirefoxAccount {
-    state: StateV2,
-    access_token_cache: HashMap<String, AccessTokenInfo>,
-    flow_store: HashMap<String, OAuthFlow>,
-    persist_callback: Option<PersistCallback>,
-    profile_cache: Option<CachedResponse<Profile>>,
-}
-
-pub struct PersistCallback {
-    callback_fn: Box<Fn(&str) + Send + RefUnwindSafe>,
-}
-
-impl PersistCallback {
-    pub fn new<F>(callback_fn: F) -> PersistCallback
-    where
-        F: Fn(&str) + 'static + Send + RefUnwindSafe,
-    {
-        PersistCallback {
-            callback_fn: Box::new(callback_fn),
-        }
-    }
-
-    pub fn call(&self, json: &str) {
-        (*self.callback_fn)(json);
-    }
 }
 
 impl FirefoxAccount {
@@ -121,38 +93,6 @@ impl FirefoxAccount {
         state_persistence::state_to_json(&self.state)
     }
 
-    pub fn get_profile(&mut self, ignore_cache: bool) -> Result<Profile> {
-        let profile_access_token = self.get_access_token(scopes::PROFILE)?.token;
-        let mut etag = None;
-        if let Some(ref cached_profile) = self.profile_cache {
-            if !ignore_cache && util::now() < cached_profile.cached_at + PROFILE_FRESHNESS_THRESHOLD
-            {
-                return Ok(cached_profile.response.clone());
-            }
-            etag = Some(cached_profile.etag.clone());
-        }
-        let client = Client::new(&self.state.config);
-        match client.profile(&profile_access_token, etag)? {
-            Some(response_and_etag) => {
-                if let Some(etag) = response_and_etag.etag {
-                    self.profile_cache = Some(CachedResponse {
-                        response: response_and_etag.response.clone(),
-                        cached_at: util::now(),
-                        etag,
-                    });
-                }
-                Ok(response_and_etag.response)
-            }
-            None => match self.profile_cache {
-                Some(ref cached_profile) => Ok(cached_profile.response.clone()),
-                None => Err(ErrorKind::UnrecoverableServerError(
-                    "Got a 304 without having sent an eTag.",
-                )
-                .into()),
-            },
-        }
-    }
-
     pub fn get_token_server_endpoint_url(&self) -> Result<Url> {
         self.state.config.token_server_endpoint_url()
     }
@@ -187,6 +127,31 @@ impl FirefoxAccount {
             cb.call(&json);
         }
     }
+}
+
+pub struct PersistCallback {
+    callback_fn: Box<Fn(&str) + Send + RefUnwindSafe>,
+}
+
+impl PersistCallback {
+    pub fn new<F>(callback_fn: F) -> PersistCallback
+    where
+        F: Fn(&str) + 'static + Send + RefUnwindSafe,
+    {
+        PersistCallback {
+            callback_fn: Box::new(callback_fn),
+        }
+    }
+
+    pub fn call(&self, json: &str) {
+        (*self.callback_fn)(json);
+    }
+}
+
+pub(crate) struct CachedResponse<T> {
+    response: T,
+    cached_at: u64,
+    etag: String,
 }
 
 #[cfg(test)]
