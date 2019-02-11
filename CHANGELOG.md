@@ -50,6 +50,13 @@
 
 - iOS networking should use the reqwest backend, instead of failing ([#1032](https://github.com/mozilla/application-services/pull/1032))
 
+## FxA
+
+### What's new
+
+- Android only: Added device registration and Firefox Send Tab capability support. Your app can opt into this by calling the `FirefoxAccount.initializeDevice` method. ([#676](https://github.com/mozilla/application-services/pull/676))
+
+
 # v0.26.0 (_2018-04-17_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.25.2...v0.26.0)

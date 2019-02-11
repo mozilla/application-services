@@ -1,3 +1,4 @@
+@file:Suppress("MaxLineLength")
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -11,7 +12,7 @@ import com.sun.jna.Pointer
 import java.lang.reflect.Proxy
 import mozilla.appservices.support.RustBuffer
 
-@Suppress("FunctionNaming", "FunctionParameterNaming", "TooGenericExceptionThrown")
+@Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
 internal interface LibFxAFFI : Library {
     companion object {
         private val JNA_LIBRARY_NAME = {
@@ -75,6 +76,29 @@ internal interface LibFxAFFI : Library {
 
     fun fxa_complete_oauth_flow(fxa: FxaHandle, code: String, state: String, e: RustError.ByReference)
     fun fxa_get_access_token(fxa: FxaHandle, scope: String, e: RustError.ByReference): RustBuffer.ByValue
+
+    fun fxa_set_push_subscription(
+        fxa: FxaHandle,
+        endpoint: String,
+        publicKey: String,
+        authKey: String,
+        e: RustError.ByReference
+    )
+    fun fxa_set_device_name(fxa: FxaHandle, displayName: String, e: RustError.ByReference)
+    fun fxa_get_devices(fxa: FxaHandle, e: RustError.ByReference): RustBuffer.ByValue
+    fun fxa_poll_device_commands(fxa: FxaHandle, e: RustError.ByReference): RustBuffer.ByValue
+    fun fxa_handle_push_message(fxa: FxaHandle, jsonPayload: String, e: RustError.ByReference): RustBuffer.ByValue
+
+    fun fxa_initialize_device(
+        fxa: FxaHandle,
+        name: String,
+        type: Int,
+        capabilities_data: Pointer,
+        capabilities_len: Int,
+        e: RustError.ByReference
+    )
+    fun fxa_ensure_capabilities(fxa: FxaHandle, e: RustError.ByReference)
+    fun fxa_send_tab(fxa: FxaHandle, targetDeviceId: String, title: String, url: String, e: RustError.ByReference)
 
     fun fxa_str_free(string: Pointer)
     fun fxa_bytebuffer_free(buffer: RustBuffer.ByValue)

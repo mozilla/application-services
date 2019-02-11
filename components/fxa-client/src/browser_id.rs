@@ -9,7 +9,7 @@ use crate::{
     Config, FirefoxAccount, StateV2,
 };
 use serde_derive::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 impl FirefoxAccount {
     // Initialize state from Firefox Accounts credentials obtained using the
@@ -42,6 +42,9 @@ impl FirefoxAccount {
             login_state,
             refresh_token: None,
             scoped_keys: HashMap::new(),
+            last_handled_command: None,
+            commands_data: HashMap::new(),
+            device_capabilities: HashSet::new(),
         }))
     }
 

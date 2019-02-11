@@ -2,12 +2,37 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::errors::*;
+use crate::{errors::*, FirefoxAccount};
 use byteorder::{BigEndian, ByteOrder};
 use rc_crypto::digest;
 use ring::{aead, agreement, agreement::EphemeralPrivateKey, rand::SecureRandom};
+use serde_derive::*;
 use serde_json::{self, json};
 use untrusted::Input;
+
+impl FirefoxAccount {
+    pub(crate) fn get_scoped_key(&self, scope: &str) -> Result<&ScopedKey> {
+        self.state
+            .scoped_keys
+            .get(scope)
+            .ok_or_else(|| ErrorKind::NoScopedKey(scope.to_string()).into())
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ScopedKey {
+    pub kty: String,
+    pub scope: String,
+    /// URL Safe Base 64 encoded key.
+    pub k: String,
+    pub kid: String,
+}
+
+impl ScopedKey {
+    pub fn key_bytes(&self) -> Result<Vec<u8>> {
+        Ok(base64::decode_config(&self.k, base64::URL_SAFE_NO_PAD)?)
+    }
+}
 
 pub struct ScopedKeysFlow {
     private_key: EphemeralPrivateKey,

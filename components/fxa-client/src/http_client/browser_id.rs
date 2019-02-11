@@ -114,7 +114,7 @@ impl FxABrowserIDClient for http_client::Client {
         let xor_key = &bytes[KEY_LENGTH..(KEY_LENGTH * 3)];
 
         let v_key = hmac::VerificationKey::new(&digest::SHA256, hmac_key);
-        hmac::verify(&v_key, ciphertext, mac_code).map_err(|_| ErrorKind::HmacVerifyFail)?;
+        hmac::verify(&v_key, ciphertext, mac_code).map_err(|_| ErrorKind::HmacMismatch)?;
 
         let xored_bytes = ciphertext.xored_with(xor_key)?;
         let wrap_kb = xored_bytes[KEY_LENGTH..(KEY_LENGTH * 2)].to_vec();
