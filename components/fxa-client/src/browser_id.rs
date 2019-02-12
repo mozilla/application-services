@@ -4,7 +4,7 @@
 
 use crate::{
     errors::*,
-    http_client::{browser_id::jwt_utils, Client},
+    http_client::browser_id::jwt_utils,
     login_sm::{LoginState, LoginStateMachine, MarriedState, ReadyForKeysState, SessionTokenState},
     Config, FirefoxAccount, StateV2,
 };
@@ -54,8 +54,7 @@ impl FirefoxAccount {
     }
 
     pub fn advance(&mut self) {
-        let client = Client::new(&self.state.config);
-        let state_machine = LoginStateMachine::new(client);
+        let state_machine = LoginStateMachine::new(&self.state.config, self.client.clone());
         let state = std::mem::replace(&mut self.state.login_state, LoginState::Unknown);
         self.state.login_state = state_machine.advance(state);
     }
@@ -97,8 +96,7 @@ impl FirefoxAccount {
     }
 
     pub fn sign_out(mut self) {
-        let client = Client::new(&self.state.config);
-        client.sign_out();
+        self.client.sign_out();
         self.state.login_state = self.state.login_state.to_separated();
     }
 }

@@ -4,18 +4,24 @@
 
 use crate::{
     errors::*,
-    http_client::{browser_id::rsa::RSABrowserIDKeyPair, *},
+    http_client::{self, browser_id::rsa::RSABrowserIDKeyPair, *},
     util::{now, Xorable},
+    Config,
 };
 use serde_derive::*;
+use std::sync::Arc;
 
 pub struct LoginStateMachine<'a> {
-    client: Client<'a>,
+    config: &'a Config,
+    client: Arc<http_client::browser_id::FxABrowserIDClient>,
 }
 
 impl<'a> LoginStateMachine<'a> {
-    pub fn new(client: Client<'a>) -> LoginStateMachine {
-        LoginStateMachine { client }
+    pub fn new(
+        config: &'a Config,
+        client: Arc<http_client::browser_id::FxABrowserIDClient>,
+    ) -> LoginStateMachine {
+        LoginStateMachine { config, client }
     }
 
     pub fn advance(&self, from: LoginState) -> LoginState {
@@ -53,7 +59,7 @@ impl<'a> LoginStateMachine<'a> {
             }
             LoginState::CohabitingBeforeKeyPair(state) => {
                 log::debug!("Generating key pair.");
-                let key_pair = match Client::key_pair(2048) {
+                let key_pair = match browser_id::key_pair(2048) {
                     Ok(key_pair) => key_pair,
                     Err(_) => {
                         log::error!("Failed to generate key pair! Transitioning to Separated.");
@@ -70,9 +76,11 @@ impl<'a> LoginStateMachine<'a> {
             }
             LoginState::CohabitingAfterKeyPair(state) => {
                 log::debug!("Signing public key.");
-                let resp = self
-                    .client
-                    .sign(&state.token_and_keys.session_token, &state.key_pair);
+                let resp = self.client.sign(
+                    &self.config,
+                    &state.token_and_keys.session_token,
+                    &state.key_pair,
+                );
                 match resp {
                     Ok(resp) => {
                         log::info!("Signed public key! Transitioning to Married.");
@@ -114,7 +122,7 @@ impl<'a> LoginStateMachine<'a> {
         state: ReadyForKeysState,
     ) -> LoginState {
         log::debug!("Fetching keys.");
-        let resp = self.client.keys(&state.key_fetch_token);
+        let resp = self.client.keys(&self.config, &state.key_fetch_token);
         match resp {
             Ok(resp) => {
                 let kb = match resp.wrap_kb.xored_with(&state.unwrap_kb) {
@@ -125,8 +133,8 @@ impl<'a> LoginStateMachine<'a> {
                     }
                 };
                 log::info!("Unwrapped keys response.  Transition to CohabitingBeforeKeyPair.");
-                let sync_key = Client::derive_sync_key(&kb);
-                let xcs = Client::compute_client_state(&kb);
+                let sync_key = browser_id::derive_sync_key(&kb);
+                let xcs = browser_id::compute_client_state(&kb);
                 LoginState::CohabitingBeforeKeyPair(TokenAndKeysState {
                     base: state.base,
                     session_token: state.session_token.to_vec(),
