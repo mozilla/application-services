@@ -327,6 +327,7 @@ open class Profile: RustStructPointer<ProfileC> {
     }
 }
 
+#if BROWSERID_FEATURES
 open class SyncKeys: RustStructPointer<SyncKeysC> {
     open var syncKey: String {
         get {
@@ -346,4 +347,5 @@ open class SyncKeys: RustStructPointer<SyncKeysC> {
         }
     }
 }
+#endif
 
