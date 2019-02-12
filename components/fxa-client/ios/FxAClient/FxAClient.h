@@ -10,4 +10,4 @@ FOUNDATION_EXPORT double FxAClientVersionNumber;
 //! Project version string for FxAClient.
 FOUNDATION_EXPORT const unsigned char FxAClientVersionString[];
 
-#import <FxAClient/fxa.h>
+#import "fxa.h"
