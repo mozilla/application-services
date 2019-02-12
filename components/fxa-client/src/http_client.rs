@@ -153,6 +153,7 @@ impl Client {
     }
 }
 
+#[derive(Clone)]
 pub struct ResponseAndETag<T> {
     pub response: T,
     pub etag: Option<String>,
