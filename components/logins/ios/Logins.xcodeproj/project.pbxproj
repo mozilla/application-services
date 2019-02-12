@@ -259,7 +259,6 @@
 			inputPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/../../../target/universal/release/liblogins_ffi.a",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;

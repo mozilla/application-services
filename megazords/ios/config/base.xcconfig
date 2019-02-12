@@ -3,4 +3,4 @@
 INFOPLIST_FILE = config/Info.plist
 HEADER_SEARCH_PATHS = "../../components/fxa-client/ios/FxAClient"  "../../components/logins/ios/Logins"
 LIBRARY_SEARCH_PATHS = "../../target/universal/release" "../../libs/ios/universal/sqlcipher/lib"
-SWIFT_OBJC_BRIDGING_HEADER = RustAppServices.h
+SWIFT_OBJC_BRIDGING_HEADER = MozillaAppServices.h

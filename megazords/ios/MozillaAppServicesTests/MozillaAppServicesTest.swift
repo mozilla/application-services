@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 import XCTest
 
-@testable import RustAppServices
+@testable import MozillaAppServices
 
 class LoginsTests: XCTestCase {
     func getTestStorage() -> LoginsStorage {
