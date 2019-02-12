@@ -10,4 +10,4 @@ FOUNDATION_EXPORT double LoginsVersionNumber;
 //! Project version string for Logins.
 FOUNDATION_EXPORT const unsigned char LoginsVersionString[];
 
-#import "RustPasswordAPI.h"
+#import <Logins/RustPasswordAPI.h>
