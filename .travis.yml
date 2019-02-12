@@ -1,12 +1,11 @@
 env:
   global:
-    - FRAMEWORK_NAME=ApplicationServices.framework.zip
+    - FRAMEWORK_NAME=MozillaAppServices-frameworks.zip
 before_deploy:
   - rustup target add aarch64-apple-ios armv7-apple-ios i386-apple-ios x86_64-apple-ios
   - cargo install cargo-lipo
   - brew update && (brew outdated carthage || brew upgrade carthage)
-  - carthage build --no-skip-current --verbose
-  - carthage archive --output $FRAMEWORK_NAME
+  - sh build-carthage.sh $(FRAMEWORK_NAME)
   - rm -rf Carthage
 
 jobs:

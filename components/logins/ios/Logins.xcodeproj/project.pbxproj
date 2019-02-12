@@ -8,8 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		CDB5AAED21535E7F00B66D7E /* LoginRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDB5AAEC21535E7F00B66D7E /* LoginRecord.swift */; };
-		CDFA91EE2153568E0074CABF /* RustPasswordAPI.h in Headers */ = {isa = PBXBuildFile; fileRef = CDFA91ED2153568E0074CABF /* RustPasswordAPI.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		CE9D202520914D0D00F1C8FA /* Logins.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9D202320914D0D00F1C8FA /* Logins.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CE9D203120914D2600F1C8FA /* LoginsStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9D202B20914D2600F1C8FA /* LoginsStorage.swift */; };
 		CECB395420B5B92500DB3ED4 /* LockError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CECB395220B5B77E00DB3ED4 /* LockError.swift */; };
 		CEE1087620C5ADF9007048AC /* LoginStoreError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEE1087520C5ADF9007048AC /* LoginStoreError.swift */; };
@@ -155,8 +153,6 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CE9D202520914D0D00F1C8FA /* Logins.h in Headers */,
-				CDFA91EE2153568E0074CABF /* RustPasswordAPI.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -263,7 +259,6 @@
 			inputPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/../../../target/universal/release/liblogins_ffi.a",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
