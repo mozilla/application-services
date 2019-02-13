@@ -1,25 +1,49 @@
 version: 2.1
 
 commands:
-  build-libs:
+  install-rust:
     steps:
+      - run:
+          name: Install Rust
+          command: |
+            curl https://sh.rustup.rs -sSf | sh -s -- -y
+            echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> $BASH_ENV
+  setup-rust-toolchain:
+    parameters:
+      rust-version:
+        type: string
+        default: "stable"
+    steps:
+      - run:
+          name: Setup Rust toolchain
+          command: |
+            rustup install <<parameters.rust-version>>
+            rustup default <<parameters.rust-version>>
+            rustc --version
+  build-libs:
+    parameters:
+      platform:
+        type: string
+    steps:
+      - run: echo "$(git rev-parse HEAD:libs)" >| libs_sha
       - restore_cache:
           name: Restore libs cache
           keys:
-            - libs-cache-v2-{{ arch }}-{{ checksum "libs/build-all.sh" }}-{{ checksum "libs/build-openssl-desktop.sh" }}-{{ checksum "libs/build-sqlcipher-desktop.sh" }}
+            - libs-cache-{{ arch }}-{{ checksum "libs_sha" }}
       - run:
           name: Build libs
           command: |
-            sudo apt-get install tcl
-            pushd libs && ./build-all.sh desktop && popd
-            echo 'export OPENSSL_DIR=$(pwd)/libs/desktop/linux-x86-64/openssl' >> $BASH_ENV
-            echo 'export SQLCIPHER_LIB_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/lib' >> $BASH_ENV
-            echo 'export SQLCIPHER_INCLUDE_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/include' >> $BASH_ENV
+            pushd libs && ./build-all.sh <<parameters.platform>> && popd
       - save_cache:
           name: Save libs cache
-          key: libs-cache-v2-{{ arch }}-{{ checksum "libs/build-all.sh" }}-{{ checksum "libs/build-openssl-desktop.sh" }}-{{ checksum "libs/build-sqlcipher-desktop.sh" }}
+          key: libs-cache-{{ arch }}-{{ checksum "libs_sha" }}
           paths:
-            - libs/desktop
+            - libs/<<parameters.platform>>
+  build-desktop-libs:
+    steps:
+      - run: sudo apt-get install tcl
+      - build-libs:
+          platform: desktop
   test-setup:
     parameters:
       rust-version:
@@ -27,13 +51,13 @@ commands:
         default: "stable"
     steps:
       - checkout
-      - build-libs
-      - run:
-          name: Rust setup
-          command: |
-            rustup install <<parameters.rust-version>>
-            rustup default <<parameters.rust-version>>
-            rustc --version
+      - build-desktop-libs
+      - setup-rust-toolchain:
+          rust-version: <<parameters.rust-version>>
+      - run: |
+          echo 'export OPENSSL_DIR=$(pwd)/libs/desktop/linux-x86-64/openssl' >> $BASH_ENV
+          echo 'export SQLCIPHER_LIB_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/lib' >> $BASH_ENV
+          echo 'export SQLCIPHER_INCLUDE_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/include' >> $BASH_ENV
   rust-tests:
     parameters:
       rust-version:
@@ -104,6 +128,52 @@ jobs:
       - image: circleci/rust:latest
     steps:
       - bench-all
+  Build Carthage archive:
+    macos:
+      xcode: "10.1.0"
+    steps:
+      - install-rust
+      - setup-rust-toolchain
+      - checkout
+      - restore_cache:
+          key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+      - build-libs:
+          platform: ios
+      - run:
+          name: Build Carthage archive
+          command: |
+            rustup target add aarch64-apple-ios armv7-apple-ios i386-apple-ios x86_64-apple-ios
+            cargo install cargo-lipo
+            brew update && (brew outdated carthage || brew upgrade carthage)
+            brew install swift-protobuf
+            carthage bootstrap --platform iOS --verbose
+            carthage build --platform iOS --no-skip-current --verbose
+            carthage archive --output ApplicationServices.framework.zip
+            rm -rf Carthage
+      - save_cache:
+          key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+          paths:
+            - "./target"
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ApplicationServices.framework.zip
+  Release Carthage archive:
+    macos:
+      xcode: "10.1.0"
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Release Carthage archive on GitHub
+          command: |
+            # We should probably use ghr instead.
+            export TRAVIS_REPO_SLUG=mozilla/application-services # Pretty ironic but dpl reads that...
+            sudo chown -R `whoami` /Library/Ruby/Gems
+            gem install --user-install dpl
+            PATH=$HOME/.gem/ruby/2.3.0/bin:$PATH
+            dpl --provider=releases --api-key=${GITHUB_TOKEN} --file=ApplicationServices.framework.zip --overwrite --skip-cleanup=true
 
 workflows:
   version: 2
@@ -116,3 +186,17 @@ workflows:
       - Rust tests - beta
       - Rust benchmarks
       - Sync integration tests
+  carthage-framework:
+    jobs:
+      - Build Carthage archive:
+          filters:  # required since `Release` has tag filters AND requires `Build`
+            tags:
+              only: /.*/
+      - Release Carthage archive:
+          requires:
+            - Build Carthage archive
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
