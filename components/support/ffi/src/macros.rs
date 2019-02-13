@@ -80,32 +80,59 @@ macro_rules! implement_into_ffi_by_json {
 /// Note: Each type passed in must implement or derive `prost::Message`.
 #[cfg(feature = "prost_support")]
 #[macro_export]
-macro_rules! implement_into_ffi_protobuf {
+macro_rules! implement_into_ffi_by_protobuf {
     ($($FFIType:ty),* $(,)*) => {$(
-        unsafe impl IntoFfi for $FFIType where $FFIType: prost::Message {
+        unsafe impl $crate::IntoFfi for $FFIType where $FFIType: prost::Message {
             type Value = $crate::ByteBuffer;
-
+            #[inline]
             fn ffi_default() -> Self::Value {
                 Default::default()
             }
 
+            #[inline]
             fn into_ffi_value(self) -> Self::Value {
-                $crate::convert_protobuf_to_byte_buffer(&self)
+                use prost::Message;
+                let mut bytes = Vec::with_capacity(self.encoded_len());
+                // Unwrap is safe, since we have reserved sufficient capacity in
+                // the vector.
+                self.encode(&mut bytes).unwrap();
+                bytes.into()
             }
         }
     )*}
 }
 
-// Needs to be pub so the macro can call it, but that's all.
-#[cfg(feature = "prost_support")]
-#[doc(hidden)]
-#[inline]
-pub fn convert_protobuf_to_byte_buffer<T: prost::Message>(value: &T) -> crate::ByteBuffer {
-    let mut bytes = Vec::new();
-    bytes.reserve(value.encoded_len());
-    // Unwrap is safe, since we have reserved sufficient capacity in the vector.
-    value.encode(&mut bytes).unwrap();
-    bytes.into()
+/// Implement IntoFfi for a type by converting through another type.
+///
+/// The argument `$MidTy` argument must implement `From<$SrcTy>` and
+/// [`InfoFfi`].
+///
+/// This is provided (even though it's trivial) because it is always safe (well,
+/// so long as `$MidTy`'s [`IntoFfi`] implementation is correct), but would
+/// otherwise require use of `unsafe` to implement.
+#[macro_export]
+macro_rules! implement_into_ffi_by_delegation {
+    ($SrcTy:ty, $MidTy:ty) => {
+        unsafe impl $crate::IntoFfi for $SrcTy
+        where
+            $MidTy: From<$SrcTy> + $crate::IntoFfi,
+        {
+            // The <$MidTy as SomeTrait>::method is required even when it would
+            // be ambiguous due to some obscure details of macro syntax.
+            type Value = <$MidTy as $crate::IntoFfi>::Value;
+
+            #[inline]
+            fn ffi_default() -> Self::Value {
+                <$MidTy as $crate::IntoFfi>::ffi_default()
+            }
+
+            #[inline]
+            fn into_ffi_value(self) -> Self::Value {
+                use $crate::IntoFfi;
+                <$MidTy as From<$SrcTy>>::from(self).into_ffi_value()
+            }
+        }
+    };
 }
 
 /// For a number of reasons (name collisions are a big one, but, it also wouldn't work on all

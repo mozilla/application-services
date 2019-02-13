@@ -18,8 +18,8 @@
 use crate::SyncKeys;
 use crate::{ffi_types, AccessTokenInfo, Error, ErrorKind, Profile};
 use ffi_support::{
-    destroy_c_string, implement_into_ffi_protobuf, opt_rust_string_to_c, rust_string_to_c,
-    ErrorCode, ExternError, IntoFfi,
+    destroy_c_string, implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf,
+    opt_rust_string_to_c, rust_string_to_c, ErrorCode, ExternError, IntoFfi,
 };
 use std::os::raw::c_char;
 
@@ -160,4 +160,5 @@ macro_rules! implement_into_ffi_converting {
 #[cfg(feature = "browserid")]
 implement_into_ffi_converting!(SyncKeys, SyncKeysC);
 implement_into_ffi_converting!(AccessTokenInfo, AccessTokenInfoC);
-implement_into_ffi_protobuf!(ffi_types::Profile);
+implement_into_ffi_by_protobuf!(ffi_types::Profile);
+implement_into_ffi_by_delegation!(Profile, ffi_types::Profile);

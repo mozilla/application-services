@@ -6,7 +6,7 @@ use ffi_support::{
     define_box_destructor, define_bytebuffer_destructor, define_handle_map_deleter,
     define_string_destructor, rust_str_from_c, ByteBuffer, ConcurrentHandleMap, ExternError,
 };
-use fxa_client::{ffi::*, ffi_types, FirefoxAccount, PersistCallback};
+use fxa_client::{ffi::*, FirefoxAccount, PersistCallback};
 use std::{ffi::CString, os::raw::c_char};
 
 #[no_mangle]
@@ -149,10 +149,7 @@ pub extern "C" fn fxa_profile(
     error: &mut ExternError,
 ) -> ByteBuffer {
     log::debug!("fxa_profile");
-    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
-        fxa.get_profile(ignore_cache)
-            .map(|p| Into::<ffi_types::Profile>::into(p))
-    })
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.get_profile(ignore_cache))
 }
 
 /// Get the Sync token server endpoint URL.
