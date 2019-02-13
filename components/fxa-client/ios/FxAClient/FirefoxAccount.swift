@@ -45,6 +45,8 @@ public protocol PersistCallback {
     func persist(json: String)
 }
 
+fileprivate let queue = DispatchQueue(label: "com.mozilla.firefox-account")
+
 open class FirefoxAccount: RustHandle {
     fileprivate static var persistCallback: PersistCallback?
 

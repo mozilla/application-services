@@ -1,0 +1,494 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 51;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		C852EE9E220A283200A6E79A /* libsqlcipher.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C852EE9D220A283200A6E79A /* libsqlcipher.a */; };
+		C852EED3220A29FE00A6E79A /* String+Free_Logins.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EECA220A29FE00A6E79A /* String+Free_Logins.swift */; };
+		C852EED5220A29FE00A6E79A /* LoginRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EECC220A29FE00A6E79A /* LoginRecord.swift */; };
+		C852EED6220A29FE00A6E79A /* LoginsStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EECD220A29FE00A6E79A /* LoginsStorage.swift */; };
+		C852EED7220A29FE00A6E79A /* LoginStoreError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EECF220A29FE00A6E79A /* LoginStoreError.swift */; };
+		C852EED8220A29FE00A6E79A /* LockError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EED0220A29FE00A6E79A /* LockError.swift */; };
+		C852EEE6220A2A2B00A6E79A /* RustPointer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EEDC220A2A2B00A6E79A /* RustPointer.swift */; };
+		C852EEE7220A2A2B00A6E79A /* FirefoxAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EEDD220A2A2B00A6E79A /* FirefoxAccount.swift */; };
+		C852EEE8220A2A2B00A6E79A /* String+Free_FxAClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EEDF220A2A2B00A6E79A /* String+Free_FxAClient.swift */; };
+		C852EEEB220A2A2B00A6E79A /* FxAError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EEE3220A2A2B00A6E79A /* FxAError.swift */; };
+		C852EEEF220A2E9400A6E79A /* libmegazord_ios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */; };
+		EB7DE84D2214D30B00E7CF17 /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */; };
+		EB7DE84F2214D39600E7CF17 /* RustProtobuf.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB7DE84E2214D39600E7CF17 /* RustProtobuf.swift */; };
+		EB879D64221231F400753DC9 /* CommonErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB879D4D221231F400753DC9 /* CommonErrors.swift */; };
+		EB879D7F221234EB00753DC9 /* MozillaAppServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE9D202020914D0D00F1C8FA /* MozillaAppServices.framework */; };
+		EB879D8B22123FD900753DC9 /* MozillaAppServicesTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB879D8A22123FD900753DC9 /* MozillaAppServicesTest.swift */; };
+		EBB0D55E2214D10A00C8B2F9 /* ffi_types.proto in Sources */ = {isa = PBXBuildFile; fileRef = EBB0D55D2214D10900C8B2F9 /* ffi_types.proto */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildRule section */
+		EB7DE84A2214D28C00E7CF17 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			filePatterns = "*.proto";
+			fileType = pattern.proxy;
+			isEditable = 1;
+			outputFiles = (
+				"$(DERIVED_FILE_DIR)/$(INPUT_FILE_BASE).pb.swift",
+			);
+			script = "protoc --proto_path=$INPUT_FILE_DIR --swift_out=$DERIVED_FILE_DIR $INPUT_FILE_PATH\n";
+		};
+/* End PBXBuildRule section */
+
+/* Begin PBXContainerItemProxy section */
+		EB879D80221234EB00753DC9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CE9D201720914D0D00F1C8FA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CE9D201F20914D0D00F1C8FA;
+			remoteInfo = MozillaAppServices;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		C852EE9A220A26E600A6E79A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C852EE9D220A283200A6E79A /* libsqlcipher.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsqlcipher.a; path = ../../libs/ios/universal/sqlcipher/lib/libsqlcipher.a; sourceTree = "<group>"; };
+		C852EEC8220A29FE00A6E79A /* RustPasswordAPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustPasswordAPI.h; sourceTree = "<group>"; };
+		C852EECA220A29FE00A6E79A /* String+Free_Logins.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "String+Free_Logins.swift"; sourceTree = "<group>"; };
+		C852EECC220A29FE00A6E79A /* LoginRecord.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LoginRecord.swift; sourceTree = "<group>"; };
+		C852EECD220A29FE00A6E79A /* LoginsStorage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LoginsStorage.swift; sourceTree = "<group>"; };
+		C852EECF220A29FE00A6E79A /* LoginStoreError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LoginStoreError.swift; sourceTree = "<group>"; };
+		C852EED0220A29FE00A6E79A /* LockError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LockError.swift; sourceTree = "<group>"; };
+		C852EEDC220A2A2B00A6E79A /* RustPointer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RustPointer.swift; sourceTree = "<group>"; };
+		C852EEDD220A2A2B00A6E79A /* FirefoxAccount.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FirefoxAccount.swift; sourceTree = "<group>"; };
+		C852EEDF220A2A2B00A6E79A /* String+Free_FxAClient.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "String+Free_FxAClient.swift"; sourceTree = "<group>"; };
+		C852EEE0220A2A2B00A6E79A /* fxa.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fxa.h; sourceTree = "<group>"; };
+		C852EEE3220A2A2B00A6E79A /* FxAError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FxAError.swift; sourceTree = "<group>"; };
+		C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmegazord_ios.a; path = ../../target/universal/release/libmegazord_ios.a; sourceTree = "<group>"; };
+		C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MozillaAppServices.h; sourceTree = "<group>"; };
+		CE9D202020914D0D00F1C8FA /* MozillaAppServices.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = MozillaAppServices.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftProtobuf.framework; path = ../../Carthage/Build/iOS/SwiftProtobuf.framework; sourceTree = "<group>"; };
+		EB7DE84E2214D39600E7CF17 /* RustProtobuf.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RustProtobuf.swift; sourceTree = "<group>"; };
+		EB879D4D221231F400753DC9 /* CommonErrors.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CommonErrors.swift; sourceTree = "<group>"; };
+		EB879D7A221234EB00753DC9 /* MozillaAppServicesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MozillaAppServicesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB879D7E221234EB00753DC9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		EB879D8A22123FD900753DC9 /* MozillaAppServicesTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MozillaAppServicesTest.swift; sourceTree = "<group>"; };
+		EBA8770621F5FB9A004F63F0 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		EBA8770721F5FB9A004F63F0 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		EBA8770821F5FB9A004F63F0 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		EBB0D55D2214D10900C8B2F9 /* ffi_types.proto */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.protobuf; name = ffi_types.proto; path = ../../src/ffi_types.proto; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		CE9D201C20914D0D00F1C8FA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C852EEEF220A2E9400A6E79A /* libmegazord_ios.a in Frameworks */,
+				EB7DE84D2214D30B00E7CF17 /* SwiftProtobuf.framework in Frameworks */,
+				C852EE9E220A283200A6E79A /* libsqlcipher.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB879D77221234EB00753DC9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB879D7F221234EB00753DC9 /* MozillaAppServices.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		C852EEB2220A285B00A6E79A /* config */ = {
+			isa = PBXGroup;
+			children = (
+				C852EE9A220A26E600A6E79A /* Info.plist */,
+				EBA8770621F5FB9A004F63F0 /* base.xcconfig */,
+				EBA8770721F5FB9A004F63F0 /* debug.xcconfig */,
+				EBA8770821F5FB9A004F63F0 /* release.xcconfig */,
+			);
+			path = config;
+			sourceTree = "<group>";
+		};
+		C852EEC7220A29FE00A6E79A /* Logins */ = {
+			isa = PBXGroup;
+			children = (
+				C852EEC8220A29FE00A6E79A /* RustPasswordAPI.h */,
+				C852EEC9220A29FE00A6E79A /* Extensions */,
+				C852EECC220A29FE00A6E79A /* LoginRecord.swift */,
+				C852EECD220A29FE00A6E79A /* LoginsStorage.swift */,
+				C852EECE220A29FE00A6E79A /* Errors */,
+			);
+			name = Logins;
+			path = ../../components/logins/ios/Logins;
+			sourceTree = "<group>";
+		};
+		C852EEC9220A29FE00A6E79A /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				C852EECA220A29FE00A6E79A /* String+Free_Logins.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		C852EECE220A29FE00A6E79A /* Errors */ = {
+			isa = PBXGroup;
+			children = (
+				C852EECF220A29FE00A6E79A /* LoginStoreError.swift */,
+				C852EED0220A29FE00A6E79A /* LockError.swift */,
+			);
+			path = Errors;
+			sourceTree = "<group>";
+		};
+		C852EEDA220A2A2B00A6E79A /* FxAClient */ = {
+			isa = PBXGroup;
+			children = (
+				EBB0D55D2214D10900C8B2F9 /* ffi_types.proto */,
+				C852EEDB220A2A2B00A6E79A /* Rust */,
+				C852EEDD220A2A2B00A6E79A /* FirefoxAccount.swift */,
+				C852EEDE220A2A2B00A6E79A /* Extensions */,
+				C852EEE0220A2A2B00A6E79A /* fxa.h */,
+				C852EEE2220A2A2B00A6E79A /* Errors */,
+			);
+			name = FxAClient;
+			path = "../../components/fxa-client/ios/FxAClient";
+			sourceTree = "<group>";
+		};
+		C852EEDB220A2A2B00A6E79A /* Rust */ = {
+			isa = PBXGroup;
+			children = (
+				EB7DE84E2214D39600E7CF17 /* RustProtobuf.swift */,
+				C852EEDC220A2A2B00A6E79A /* RustPointer.swift */,
+			);
+			path = Rust;
+			sourceTree = "<group>";
+		};
+		C852EEDE220A2A2B00A6E79A /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				C852EEDF220A2A2B00A6E79A /* String+Free_FxAClient.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		C852EEE2220A2A2B00A6E79A /* Errors */ = {
+			isa = PBXGroup;
+			children = (
+				C852EEE3220A2A2B00A6E79A /* FxAError.swift */,
+			);
+			path = Errors;
+			sourceTree = "<group>";
+		};
+		CE9D201620914D0D00F1C8FA = {
+			isa = PBXGroup;
+			children = (
+				C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */,
+				C852EEB2220A285B00A6E79A /* config */,
+				EB879D4B221231F400753DC9 /* support */,
+				C852EEDA220A2A2B00A6E79A /* FxAClient */,
+				C852EEC7220A29FE00A6E79A /* Logins */,
+				EB879D7B221234EB00753DC9 /* MozillaAppServicesTests */,
+				CE9D202120914D0D00F1C8FA /* Products */,
+				CE9D203720914D4800F1C8FA /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		CE9D202120914D0D00F1C8FA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				CE9D202020914D0D00F1C8FA /* MozillaAppServices.framework */,
+				EB879D7A221234EB00753DC9 /* MozillaAppServicesTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CE9D203720914D4800F1C8FA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */,
+				C852EE9D220A283200A6E79A /* libsqlcipher.a */,
+				C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		EB879D4B221231F400753DC9 /* support */ = {
+			isa = PBXGroup;
+			children = (
+				EB879D4C221231F400753DC9 /* ios */,
+			);
+			name = support;
+			path = ../../components/support;
+			sourceTree = "<group>";
+		};
+		EB879D4C221231F400753DC9 /* ios */ = {
+			isa = PBXGroup;
+			children = (
+				EB879D4D221231F400753DC9 /* CommonErrors.swift */,
+			);
+			path = ios;
+			sourceTree = "<group>";
+		};
+		EB879D7B221234EB00753DC9 /* MozillaAppServicesTests */ = {
+			isa = PBXGroup;
+			children = (
+				EB879D7E221234EB00753DC9 /* Info.plist */,
+				EB879D8A22123FD900753DC9 /* MozillaAppServicesTest.swift */,
+			);
+			path = MozillaAppServicesTests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		CE9D201D20914D0D00F1C8FA /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		CE9D201F20914D0D00F1C8FA /* MozillaAppServices */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CE9D202820914D0D00F1C8FA /* Build configuration list for PBXNativeTarget "MozillaAppServices" */;
+			buildPhases = (
+				CEEA12EF20AA1D630018998A /* ShellScript */,
+				CE9D201B20914D0D00F1C8FA /* Sources */,
+				CE9D201C20914D0D00F1C8FA /* Frameworks */,
+				CE9D201D20914D0D00F1C8FA /* Headers */,
+				CE9D201E20914D0D00F1C8FA /* Resources */,
+			);
+			buildRules = (
+				EB7DE84A2214D28C00E7CF17 /* PBXBuildRule */,
+			);
+			dependencies = (
+			);
+			name = MozillaAppServices;
+			productName = Logins;
+			productReference = CE9D202020914D0D00F1C8FA /* MozillaAppServices.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		EB879D79221234EB00753DC9 /* MozillaAppServicesTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB879D84221234EB00753DC9 /* Build configuration list for PBXNativeTarget "MozillaAppServicesTests" */;
+			buildPhases = (
+				EB879D76221234EB00753DC9 /* Sources */,
+				EB879D77221234EB00753DC9 /* Frameworks */,
+				EB879D78221234EB00753DC9 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EB879D81221234EB00753DC9 /* PBXTargetDependency */,
+			);
+			name = MozillaAppServicesTests;
+			productName = MozillaAppServicesTests;
+			productReference = EB879D7A221234EB00753DC9 /* MozillaAppServicesTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CE9D201720914D0D00F1C8FA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1010;
+				LastUpgradeCheck = 1010;
+				ORGANIZATIONNAME = Mozilla;
+				TargetAttributes = {
+					CE9D201F20914D0D00F1C8FA = {
+						CreatedOnToolsVersion = 9.3;
+						LastSwiftMigration = 0930;
+					};
+					EB879D79221234EB00753DC9 = {
+						CreatedOnToolsVersion = 10.1;
+					};
+				};
+			};
+			buildConfigurationList = CE9D201A20914D0D00F1C8FA /* Build configuration list for PBXProject "MozillaAppServices" */;
+			compatibilityVersion = "Xcode 10.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = CE9D201620914D0D00F1C8FA;
+			productRefGroup = CE9D202120914D0D00F1C8FA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CE9D201F20914D0D00F1C8FA /* MozillaAppServices */,
+				EB879D79221234EB00753DC9 /* MozillaAppServicesTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		CE9D201E20914D0D00F1C8FA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB879D78221234EB00753DC9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		CEEA12EF20AA1D630018998A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "sh ./build_megazord.sh\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CE9D201B20914D0D00F1C8FA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C852EEE8220A2A2B00A6E79A /* String+Free_FxAClient.swift in Sources */,
+				C852EEEB220A2A2B00A6E79A /* FxAError.swift in Sources */,
+				C852EED7220A29FE00A6E79A /* LoginStoreError.swift in Sources */,
+				EBB0D55E2214D10A00C8B2F9 /* ffi_types.proto in Sources */,
+				EB7DE84F2214D39600E7CF17 /* RustProtobuf.swift in Sources */,
+				EB879D64221231F400753DC9 /* CommonErrors.swift in Sources */,
+				C852EEE6220A2A2B00A6E79A /* RustPointer.swift in Sources */,
+				C852EED8220A29FE00A6E79A /* LockError.swift in Sources */,
+				C852EED5220A29FE00A6E79A /* LoginRecord.swift in Sources */,
+				C852EEE7220A2A2B00A6E79A /* FirefoxAccount.swift in Sources */,
+				C852EED6220A29FE00A6E79A /* LoginsStorage.swift in Sources */,
+				C852EED3220A29FE00A6E79A /* String+Free_Logins.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB879D76221234EB00753DC9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB879D8B22123FD900753DC9 /* MozillaAppServicesTest.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		EB879D81221234EB00753DC9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CE9D201F20914D0D00F1C8FA /* MozillaAppServices */;
+			targetProxy = EB879D80221234EB00753DC9 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		CE9D202620914D0D00F1C8FA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EBA8770721F5FB9A004F63F0 /* debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		CE9D202720914D0D00F1C8FA /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EBA8770821F5FB9A004F63F0 /* release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		CE9D202920914D0D00F1C8FA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				MACH_O_TYPE = staticlib;
+				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.MozillaAppServices;
+			};
+			name = Debug;
+		};
+		CE9D202A20914D0D00F1C8FA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				MACH_O_TYPE = staticlib;
+				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.MozillaAppServices;
+			};
+			name = Release;
+		};
+		EB879D82221234EB00753DC9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = MozillaAppServicesTests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = mozilla.org.MozillaAppServicesTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		EB879D83221234EB00753DC9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = MozillaAppServicesTests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = mozilla.org.MozillaAppServicesTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		CE9D201A20914D0D00F1C8FA /* Build configuration list for PBXProject "MozillaAppServices" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CE9D202620914D0D00F1C8FA /* Debug */,
+				CE9D202720914D0D00F1C8FA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CE9D202820914D0D00F1C8FA /* Build configuration list for PBXNativeTarget "MozillaAppServices" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CE9D202920914D0D00F1C8FA /* Debug */,
+				CE9D202A20914D0D00F1C8FA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB879D84221234EB00753DC9 /* Build configuration list for PBXNativeTarget "MozillaAppServicesTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB879D82221234EB00753DC9 /* Debug */,
+				EB879D83221234EB00753DC9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = CE9D201720914D0D00F1C8FA /* Project object */;
+}

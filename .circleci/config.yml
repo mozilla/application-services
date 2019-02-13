@@ -146,10 +146,7 @@ jobs:
             cargo install cargo-lipo
             brew update && (brew outdated carthage || brew upgrade carthage)
             brew install swift-protobuf
-            carthage bootstrap --platform iOS --verbose
-            carthage build --platform iOS --no-skip-current --verbose
-            carthage archive --output ApplicationServices.framework.zip
-            rm -rf Carthage
+            sh build-carthage.sh MozillaAppServices-frameworks.zip
       - save_cache:
           key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
           paths:
@@ -157,7 +154,7 @@ jobs:
       - persist_to_workspace:
           root: .
           paths:
-            - ApplicationServices.framework.zip
+            - MozillaAppServices-frameworks.zip
   Release Carthage archive:
     macos:
       xcode: "10.1.0"
@@ -173,7 +170,7 @@ jobs:
             sudo chown -R `whoami` /Library/Ruby/Gems
             gem install --user-install dpl
             PATH=$HOME/.gem/ruby/2.3.0/bin:$PATH
-            dpl --provider=releases --api-key=${GITHUB_TOKEN} --file=ApplicationServices.framework.zip --overwrite --skip-cleanup=true
+            dpl --provider=releases --api-key=${GITHUB_TOKEN} --file=MozillaAppServices-frameworks.zip --overwrite --skip-cleanup=true
 
 workflows:
   version: 2
