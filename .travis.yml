@@ -6,7 +6,7 @@ before_deploy:
   - cargo install cargo-lipo
   - brew update && (brew outdated carthage || brew upgrade carthage)
   - brew install swift-protobuf
-  - carthage bootstrap
+  - carthage bootstrap --platform iOS --verbose
   - carthage build --no-skip-current --verbose
   - carthage archive --output $FRAMEWORK_NAME
   - rm -rf Carthage
