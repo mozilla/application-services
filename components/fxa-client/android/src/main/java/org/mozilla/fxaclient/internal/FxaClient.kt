@@ -10,6 +10,7 @@ import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
 import java.lang.reflect.Proxy
+import mozilla.appservices.support.ByteBuffer
 
 @Suppress("FunctionNaming", "TooManyFunctions", "TooGenericExceptionThrown")
 internal interface FxaClient : Library {

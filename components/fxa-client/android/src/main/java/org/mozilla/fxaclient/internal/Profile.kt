@@ -4,6 +4,7 @@
 
 package org.mozilla.fxaclient.internal
 
+import mozilla.appservices.support.ByteBuffer
 import org.mozilla.fxaclient.internal.MsgTypes.Profile as RawProfile
 
 class Profile internal constructor(byteBuffer: ByteBuffer.ByValue) {
