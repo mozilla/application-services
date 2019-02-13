@@ -16,7 +16,7 @@
 
 #[cfg(feature = "browserid")]
 use crate::SyncKeys;
-use crate::{ffi_types, AccessTokenInfo, Error, ErrorKind, Profile};
+use crate::{msg_types, AccessTokenInfo, Error, ErrorKind, Profile};
 use ffi_support::{
     destroy_c_string, implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf,
     opt_rust_string_to_c, rust_string_to_c, ErrorCode, ExternError, IntoFfi,
@@ -126,9 +126,9 @@ impl From<AccessTokenInfo> for AccessTokenInfoC {
     }
 }
 
-impl From<Profile> for ffi_types::Profile {
+impl From<Profile> for msg_types::Profile {
     fn from(p: Profile) -> Self {
-        ffi_types::Profile {
+        msg_types::Profile {
             avatar: Some(p.avatar),
             avatar_default: Some(p.avatar_default),
             display_name: p.display_name,
@@ -160,5 +160,5 @@ macro_rules! implement_into_ffi_converting {
 #[cfg(feature = "browserid")]
 implement_into_ffi_converting!(SyncKeys, SyncKeysC);
 implement_into_ffi_converting!(AccessTokenInfo, AccessTokenInfoC);
-implement_into_ffi_by_protobuf!(ffi_types::Profile);
-implement_into_ffi_by_delegation!(Profile, ffi_types::Profile);
+implement_into_ffi_by_protobuf!(msg_types::Profile);
+implement_into_ffi_by_delegation!(Profile, msg_types::Profile);

@@ -291,7 +291,7 @@ public struct Avatar {
     public let isDefault: Bool
 }
 
-open class Profile: RustProtobuf<FfiTypes_Profile> {
+open class Profile: RustProtobuf<MsgTypes_Profile> {
     open var uid: String {
         get {
             return raw.uid

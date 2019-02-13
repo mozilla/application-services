@@ -4,7 +4,7 @@
 
 package org.mozilla.fxaclient.internal
 
-import ffi_types.FfiTypes.Profile as RawProfile
+import org.mozilla.fxaclient.internal.MsgTypes.Profile as RawProfile
 
 class Profile internal constructor(byteBuffer: ByteBuffer.ByValue) {
 
