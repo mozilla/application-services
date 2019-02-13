@@ -24,7 +24,7 @@ serde_derive = "1.0.79"
 serde_json = "1.0.28"
 untrusted = "0.6.2"
 url = "1.7.1"
-ffi-support = { path = "../support/ffi", optional = true }
+ffi-support = { path = "../support/ffi", features = ["prost_support"], optional = true }
 
 [dev-dependencies]
 text_io = "0.1.7"
