@@ -332,7 +332,6 @@
 			inputPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/../../../target/universal/release/libmegazord_ios.a",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
