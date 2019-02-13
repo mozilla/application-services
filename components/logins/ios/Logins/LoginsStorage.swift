@@ -20,6 +20,8 @@ open class SyncUnlockInfo {
     }
 }
 
+fileprivate let queue = DispatchQueue(label: "com.mozilla.logins-storage")
+
 open class LoginsStorage {
     private var raw: UInt64 = 0
     let dbPath: String

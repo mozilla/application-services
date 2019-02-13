@@ -4,10 +4,9 @@
 
 #import <UIKit/UIKit.h>
 
-//! Project version number for FxAClient.
-FOUNDATION_EXPORT double FxAClientVersionNumber;
+FOUNDATION_EXPORT double MegazordClientVersionNumber;
+FOUNDATION_EXPORT const unsigned char MegazordClientVersionString[];
 
-//! Project version string for FxAClient.
-FOUNDATION_EXPORT const unsigned char FxAClientVersionString[];
+#import <fxa.h>
+#import <RustPasswordAPI.h>
 
-#import "fxa.h"
