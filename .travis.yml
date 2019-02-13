@@ -7,7 +7,7 @@ before_deploy:
   - brew update && (brew outdated carthage || brew upgrade carthage)
   - brew install swift-protobuf
   - carthage bootstrap --platform iOS --verbose
-  - carthage build --no-skip-current --verbose
+  - carthage build --platform iOS --no-skip-current --verbose
   - carthage archive --output $FRAMEWORK_NAME
   - rm -rf Carthage
 
