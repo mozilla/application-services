@@ -1,6 +1,9 @@
 syntax = "proto2";
 
-package ffi_types;
+package msg_types;
+
+option java_package = "org.mozilla.fxaclient.internal";
+option java_outer_classname = "MsgTypes";
 
 message Profile {
     optional string uid = 1;

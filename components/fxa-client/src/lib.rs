@@ -23,10 +23,10 @@ mod config;
 pub mod errors;
 #[cfg(feature = "ffi")]
 pub mod ffi;
-// Include the `ffi_types` module, which is generated from ffi_types.proto.
-pub mod ffi_types {
+// Include the `msg_types` module, which is generated from msg_types.proto.
+pub mod msg_types {
     use prost_derive::Message; // https://github.com/danburkert/prost/issues/140
-    include!(concat!(env!("OUT_DIR"), "/ffi_types.rs"));
+    include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
 }
 mod http_client;
 #[cfg(feature = "browserid")]
