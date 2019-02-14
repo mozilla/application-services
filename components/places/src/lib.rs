@@ -19,6 +19,11 @@ pub mod storage;
 mod util;
 mod valid_guid;
 
+pub mod msg_types {
+    use prost_derive::Message;
+    include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
+}
+
 pub use crate::api::apply_observation;
 pub use crate::db::{PlacesDb, PlacesInterruptHandle};
 pub use crate::error::*;

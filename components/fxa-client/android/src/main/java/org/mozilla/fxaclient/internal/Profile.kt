@@ -4,10 +4,10 @@
 
 package org.mozilla.fxaclient.internal
 
-import mozilla.appservices.support.ByteBuffer
+import mozilla.appservices.support.RustBuffer
 import org.mozilla.fxaclient.internal.MsgTypes.Profile as RawProfile
 
-class Profile internal constructor(byteBuffer: ByteBuffer.ByValue) {
+class Profile internal constructor(byteBuffer: RustBuffer.ByValue) {
 
     val uid: String?
     val email: String?

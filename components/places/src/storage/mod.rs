@@ -9,6 +9,7 @@ pub mod bookmarks;
 pub mod history;
 
 use crate::error::Result;
+use crate::msg_types::HistoryVisitInfo;
 use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition};
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
@@ -164,25 +165,19 @@ fn new_page_info(db: &impl ConnExt, url: &Url, new_guid: Option<SyncGuid>) -> Re
     })
 }
 
-#[derive(Debug, Clone, PartialEq, serde_derive::Serialize)]
-pub struct HistoryVisitInfo {
-    pub url: String,
-    pub title: Option<String>,
-    pub visit_date: Timestamp,
-    pub visit_type: VisitTransition,
-}
-
 impl HistoryVisitInfo {
-    pub fn from_row(row: &rusqlite::Row) -> Result<Self> {
+    pub(crate) fn from_row(row: &rusqlite::Row) -> Result<Self> {
+        let visit_type = VisitTransition::from_primitive(row.get_checked::<_, u8>("visit_type")?)
+            // Do we have an existing error we use for this? For now they
+            // probably don't care too much about VisitTransition, so this
+            // is fine.
+            .unwrap_or(VisitTransition::Link);
+        let visit_date: Timestamp = row.get_checked("visit_date")?;
         Ok(Self {
             url: row.get_checked("url")?,
             title: row.get_checked("title")?,
-            visit_date: row.get_checked("visit_date")?,
-            visit_type: VisitTransition::from_primitive(row.get_checked::<_, u8>("visit_type")?)
-                // Do we have an existing error we use for this? For now they
-                // probably don't care too much about VisitTransition, so this
-                // is fine.
-                .unwrap_or(VisitTransition::Link),
+            timestamp: visit_date.0 as i64,
+            visit_type: visit_type as i32,
         })
     }
 }

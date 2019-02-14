@@ -141,11 +141,16 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
     }
 
     override fun getVisitInfos(start: Long, end: Long): List<VisitInfo> {
-        val infoJson = rustCallForString { error ->
+        val infoBuffer = rustCall { error ->
             LibPlacesFFI.INSTANCE.places_get_visit_infos(
                     this.handle.get(), start, end, error)
         }
-        return VisitInfo.fromJSONArray(infoJson)
+        try {
+            val infos = MsgTypes.HistoryVisitInfos.parseFrom(infoBuffer.asCodedInputStream()!!)
+            return VisitInfo.fromMessage(infos)
+        } finally {
+            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(infoBuffer)
+        }
     }
 
     override fun deletePlace(url: String) {
@@ -554,23 +559,13 @@ data class VisitInfo(
         val visitType: VisitType
 ) {
     companion object {
-        fun fromJSON(jsonObject: JSONObject): VisitInfo {
-            return VisitInfo(
-                    url = jsonObject.getString("url"),
-                    title = stringOrNull(jsonObject, "title"),
-                    visitTime = jsonObject.getLong("visit_date"),
-                    visitType = intToVisitType.get(jsonObject.getInt("visit_type"))!!
-            )
-        }
-
-        fun fromJSONArray(jsonArrayText: String): List<VisitInfo> {
-            val array = JSONArray(jsonArrayText)
-            val result: ArrayList<VisitInfo> = ArrayList(array.length())
-            for (index in 0 until array.length()) {
-                result.add(fromJSON(array.getJSONObject(index)))
+        internal fun fromMessage(msg: MsgTypes.HistoryVisitInfos): List<VisitInfo> {
+            return msg.infosList.map {
+                VisitInfo(url = it.url,
+                          title = it.title,
+                          visitTime = it.timestamp,
+                          visitType = intToVisitType[it.visitType]!!)
             }
-            return result
         }
-
     }
 }
