@@ -219,6 +219,8 @@ pub fn wipe_local(db: &impl ConnExt) -> Result<()> {
     let tx = db.unchecked_transaction()?;
     wipe_local_in_tx(db)?;
     tx.commit()?;
+    // Note: SQLite cannot VACUUM within a transaction.
+    db.conn().execute("VACUUM", NO_PARAMS)?;
     Ok(())
 }
 
