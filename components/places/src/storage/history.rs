@@ -210,6 +210,44 @@ pub fn delete_place_visit_at_time(db: &impl ConnExt, place: &Url, visit: Timesta
     Ok(())
 }
 
+pub fn wipe_local(db: &impl ConnExt) -> Result<()> {
+    let tx = db.unchecked_transaction()?;
+    wipe_local_in_tx(db)?;
+    tx.commit()?;
+    Ok(())
+}
+
+fn wipe_local_in_tx(db: &impl ConnExt) -> Result<()> {
+    use crate::frecency::DEFAULT_FRECENCY_SETTINGS;
+    db.execute_all(&[
+        "DELETE FROM moz_places
+         WHERE foreign_count == 0",
+        "DELETE FROM moz_historyvisits",
+        "DELETE FROM moz_places_tombstones",
+        "DELETE FROM moz_inputhistory",
+        "DELETE FROM moz_historyvisit_tombstones",
+        "DELETE FROM moz_origins
+         WHERE id NOT IN (SELECT origin_id FROM moz_places)",
+        &format!(
+            "UPDATE moz_places SET
+                frecency = {unvisited_bookmark_frec},
+                sync_change_counter = 0",
+            unvisited_bookmark_frec = DEFAULT_FRECENCY_SETTINGS.unvisited_bookmark_bonus
+        ),
+    ])?;
+
+    let need_frecency_update =
+        db.query_rows_and_then_named("SELECT id FROM moz_places", &[], |r| {
+            r.get_checked::<_, RowId>(0)
+        })?;
+    // Update the frecency for any remaining items, which basically means just
+    // for the bookmarks.
+    for row_id in need_frecency_update {
+        update_frecency(db.conn(), row_id, None)?;
+    }
+    Ok(())
+}
+
 fn delete_place_visit_at_time_in_tx(
     db: &impl ConnExt,
     url: &str,
@@ -1733,5 +1771,129 @@ mod tests {
         assert!(fetch_visits(&conn, &urls[0], 100).unwrap().is_none());
 
         assert_tombstones(&conn, &[(info1.row_id, dates[2])]);
+    }
+
+    #[test]
+    fn test_wipe_local() {
+        use crate::frecency::DEFAULT_FRECENCY_SETTINGS;
+        use crate::storage::bookmarks::{
+            self, BookmarkPosition, BookmarkRootGuid, InsertableBookmark, InsertableItem,
+        };
+        use url::Url;
+        let _ = env_logger::try_init();
+        let mut conn = PlacesDb::open_in_memory(None).unwrap();
+        let ts = Timestamp::now().0 - 5_000_000;
+        // Add a number of visits across a handful of origins.
+        for o in 0..10 {
+            for i in 0..100 {
+                for t in 0..3 {
+                    get_custom_observed_page(
+                        &mut conn,
+                        &format!("http://www.example{}.com/{}", o, i),
+                        |obs| obs.with_at(Timestamp(ts + t * 1000 + i * 10_000 + o * 100_000)),
+                    )
+                    .unwrap();
+                }
+            }
+        }
+        // Add some bookmarks.
+        let b0 = (
+            SyncGuid("aaaaaaaaaaaa".into()),
+            Url::parse("http://www.example3.com/5").unwrap(),
+        );
+        let b1 = (
+            SyncGuid("bbbbbbbbbbbb".into()),
+            Url::parse("http://www.example6.com/10").unwrap(),
+        );
+        let b2 = (
+            SyncGuid("cccccccccccc".into()),
+            Url::parse("http://www.example9.com/4").unwrap(),
+        );
+        for (guid, url) in &[&b0, &b1, &b2] {
+            bookmarks::insert_bookmark(
+                &conn,
+                &InsertableItem::Bookmark(InsertableBookmark {
+                    parent_guid: BookmarkRootGuid::Unfiled.into(),
+                    position: BookmarkPosition::Append,
+                    date_added: None,
+                    last_modified: None,
+                    guid: Some(guid.clone()),
+                    url: url.clone(),
+                    title: None,
+                }),
+            )
+            .unwrap();
+        }
+
+        // Make sure tombstone insertions stick.
+        conn.execute_all(&[
+            &format!(
+                "UPDATE moz_places set sync_status = {}",
+                (SyncStatus::Normal as u8)
+            ),
+            &format!(
+                "UPDATE moz_bookmarks set syncStatus = {}",
+                (SyncStatus::Normal as u8)
+            ),
+        ])
+        .unwrap();
+
+        // Ensure some various tombstones exist
+        delete_place_by_guid(
+            &conn,
+            &url_to_guid(&conn, &Url::parse("http://www.example8.com/5").unwrap())
+                .unwrap()
+                .unwrap(),
+        )
+        .unwrap();
+
+        delete_place_visit_at_time(
+            &conn,
+            &Url::parse("http://www.example10.com/5").unwrap(),
+            Timestamp(ts + 5 * 10_000 + 10 * 100_000),
+        )
+        .unwrap();
+
+        assert!(bookmarks::delete_bookmark(&conn, &b0.0).unwrap());
+
+        wipe_local(&conn).unwrap();
+
+        let places = conn
+            .query_rows_and_then_named(
+                "SELECT * FROM moz_places ORDER BY url ASC",
+                &[],
+                PageInfo::from_row,
+            )
+            .unwrap();
+        assert_eq!(places.len(), 2);
+        assert_eq!(places[0].url, b1.1);
+        assert_eq!(places[1].url, b2.1);
+        for p in &places {
+            assert_eq!(
+                p.frecency,
+                DEFAULT_FRECENCY_SETTINGS.unvisited_bookmark_bonus
+            );
+            assert_eq!(p.visit_count_local, 0);
+            assert_eq!(p.visit_count_remote, 0);
+            assert_eq!(p.last_visit_date_local, Timestamp(0));
+            assert_eq!(p.last_visit_date_remote, Timestamp(0));
+        }
+
+        let counts_sql = [
+            (0i64, "SELECT COUNT(*) FROM moz_historyvisits"),
+            (2, "SELECT COUNT(*) FROM moz_origins"),
+            (7, "SELECT COUNT(*) FROM moz_bookmarks"), // the two we added + 5 roots
+            (1, "SELECT COUNT(*) FROM moz_bookmarks_deleted"),
+            (0, "SELECT COUNT(*) FROM moz_historyvisit_tombstones"),
+            (0, "SELECT COUNT(*) FROM moz_places_tombstones"),
+        ];
+        for (want, query) in &counts_sql {
+            assert_eq!(
+                *want,
+                conn.query_one::<i64>(query).unwrap(),
+                "Unexpected value for {}",
+                query
+            );
+        }
     }
 }
