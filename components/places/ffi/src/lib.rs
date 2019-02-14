@@ -232,6 +232,12 @@ pub unsafe extern "C" fn places_wipe_local(handle: u64, error: &mut ExternError)
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn places_run_maintenance(handle: u64, error: &mut ExternError) {
+    log::debug!("places_run_maintenance");
+    CONNECTIONS.call_with_result(error, handle, |conn| storage::run_maintenance(conn))
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn places_get_visit_infos(
     handle: u64,
     start_date: i64,

@@ -172,9 +172,16 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
                     this.handle.get(), startTime, endTime, error)
         }
     }
+
     override fun wipeLocal() {
         rustCall { error ->
             LibPlacesFFI.INSTANCE.places_wipe_local(this.handle.get(), error)
+        }
+    }
+
+    override fun runMaintenance() {
+        rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_run_maintenance(this.handle.get(), error)
         }
     }
 
@@ -275,6 +282,22 @@ interface PlacesAPI {
      * pending upload on the next sync are discarded and will be lost.
      */
     fun wipeLocal()
+
+    /**
+     * Run periodic database maintenance. This might include, but is not limited
+     * to:
+     *
+     * - `VACUUM`ing.
+     * - Requesting that the indices in our tables be optimized.
+     * - Expiring irrelevant history visits.
+     * - Periodic repair or deletion of corrupted records.
+     * - etc.
+     *
+     * It should be called at least once a day, but this is merely a
+     * recommendation and nothing too dire should happen if it is not
+     * called.
+     */
+    fun runMaintenance()
 
     /**
      * Returns a list of visited URLs for a given time range.
