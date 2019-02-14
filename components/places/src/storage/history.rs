@@ -9,12 +9,21 @@ use crate::frecency;
 use crate::hash;
 use crate::msg_types::{HistoryVisitInfo, HistoryVisitInfos};
 use crate::observation::VisitObservation;
+use crate::storage::{get_meta, put_meta};
 use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition};
 use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
 use rusqlite::{Connection, Row, NO_PARAMS};
 use sql_support::{self, ConnExt};
 use url::Url;
+
+/// When `delete_everything` is called (to perform a permanent local deletion), in
+/// addition to performing the deletion as requested, we make a note of the time
+/// when it occurred, and refuse to sync incoming visits from before this time.
+///
+/// This allows us to avoid these visits trickling back in as other devices
+/// add visits to them remotely.
+static DELETION_HIGH_WATER_MARK_META_KEY: &'static str = "history_deleted_hwm";
 
 /// Returns the RowId of a new visit in moz_historyvisits, or None if no new visit was added.
 pub fn apply_observation(db: &mut PlacesDb, visit_ob: VisitObservation) -> Result<Option<RowId>> {
@@ -218,14 +227,11 @@ pub fn prune_destructively(db: &impl ConnExt) -> Result<()> {
 
 pub fn wipe_local(db: &impl ConnExt) -> Result<()> {
     let tx = db.unchecked_transaction()?;
-    wipe_local_in_tx(db)?;
-    tx.commit()?;
-    // Note: SQLite cannot VACUUM within a transaction.
-    db.conn().execute("VACUUM", NO_PARAMS)?;
+    wipe_local_in_tx(db, tx)?;
     Ok(())
 }
 
-fn wipe_local_in_tx(db: &impl ConnExt) -> Result<()> {
+fn wipe_local_in_tx(db: &impl ConnExt, tx: sql_support::UncheckedTransaction) -> Result<()> {
     use crate::frecency::DEFAULT_FRECENCY_SETTINGS;
     db.execute_all(&[
         "DELETE FROM moz_places
@@ -253,6 +259,31 @@ fn wipe_local_in_tx(db: &impl ConnExt) -> Result<()> {
     for row_id in need_frecency_update {
         update_frecency(db.conn(), row_id, None)?;
     }
+    tx.commit()?;
+    // Note: SQLite cannot VACUUM within a transaction.
+    db.conn().execute("VACUUM", NO_PARAMS)?;
+    Ok(())
+}
+
+pub fn delete_everything(db: &PlacesDb) -> Result<()> {
+    let tx = db.unchecked_transaction()?;
+
+    // Remote visits could have a higher date than `now` if our clock is weird.
+    let most_recent_known_visit_time = db
+        .try_query_one::<Timestamp>("SELECT MAX(visit_date) FROM moz_historyvisits", &[], false)?
+        .unwrap_or_default();
+
+    // Check the old value (if any) for the same reason
+    let previous_mark =
+        get_meta::<Timestamp>(db, DELETION_HIGH_WATER_MARK_META_KEY)?.unwrap_or_default();
+
+    let new_mark = Timestamp::now()
+        .max(previous_mark)
+        .max(most_recent_known_visit_time);
+
+    put_meta(db, DELETION_HIGH_WATER_MARK_META_KEY, &new_mark)?;
+
+    wipe_local_in_tx(db, tx)?;
     Ok(())
 }
 
@@ -562,6 +593,18 @@ pub mod history_sync {
         title: &Option<String>,
         visits: &[HistoryRecordVisit],
     ) -> Result<()> {
+        // At some point we may have done a local wipe of all visits. We skip applying
+        // incoming visits that could have been part of that deletion, to avoid them
+        // trickling back in.
+        let visit_ignored_mark =
+            get_meta::<Timestamp>(db, DELETION_HIGH_WATER_MARK_META_KEY)?.unwrap_or_default();
+
+        let visits = visits
+            .iter()
+            .cloned()
+            .filter(|v| Timestamp::from(v.date) > visit_ignored_mark)
+            .collect::<Vec<_>>();
+
         let mut counter_incr = 0;
         let page_info = match fetch_page_info(db, &url)? {
             Some(mut info) => {
@@ -584,7 +627,14 @@ pub mod history_sync {
                 }
                 info.page
             }
-            None => new_page_info(db, &url, Some(incoming_guid.clone()))?,
+            None => {
+                // Before we insert a new page_info, make sure we actually will
+                // have any visits to add.
+                if visits.len() == 0 {
+                    return Ok(());
+                }
+                new_page_info(db, &url, Some(incoming_guid.clone()))?
+            }
         };
 
         if visits.len() > 0 {
@@ -1905,4 +1955,101 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_delete_everything() {
+        use url::Url;
+        let _ = env_logger::try_init();
+        let mut conn = PlacesDb::open_in_memory(None).unwrap();
+        let start = Timestamp::now();
+
+        let urls = &[
+            Url::parse("http://example.com/1").unwrap(),
+            Url::parse("http://example.com/2").unwrap(),
+        ];
+
+        let dates = &[
+            Timestamp(start.0 - 10000),
+            Timestamp(start.0 - 5000),
+            Timestamp(start.0),
+        ];
+
+        for url in urls {
+            for &date in dates {
+                get_custom_observed_page(&mut conn, url.as_str(), |o| o.with_at(date)).unwrap();
+            }
+        }
+
+        delete_everything(&conn).unwrap();
+
+        std::thread::sleep(std::time::Duration::from_millis(50));
+
+        assert_eq!(
+            0,
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_places")
+                .unwrap(),
+        );
+
+        assert_eq!(
+            0,
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_historyvisits")
+                .unwrap(),
+        );
+
+        apply_synced_visits(
+            &conn,
+            &SyncGuid::new(),
+            &url::Url::parse("http://www.example.com/123").unwrap(),
+            &None,
+            &[
+                HistoryRecordVisit {
+                    // This should make it in
+                    date: Timestamp::now().into(),
+                    transition: VisitTransition::Link as u8,
+                },
+                HistoryRecordVisit {
+                    // This should not.
+                    date: start.into(),
+                    transition: VisitTransition::Link as u8,
+                },
+            ],
+        )
+        .unwrap();
+        assert_eq!(
+            1,
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_places")
+                .unwrap(),
+        );
+        // Only one visit should be applied.
+        assert_eq!(
+            1,
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_historyvisits")
+                .unwrap(),
+        );
+
+        // Check that we don't insert a place if all visits are too old.
+        apply_synced_visits(
+            &conn,
+            &SyncGuid::new(),
+            &url::Url::parse("http://www.example.com/1234").unwrap(),
+            &None,
+            &[HistoryRecordVisit {
+                date: start.into(),
+                transition: VisitTransition::Link as u8,
+            }],
+        )
+        .unwrap();
+        // unchanged.
+        assert_eq!(
+            1,
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_places")
+                .unwrap(),
+        );
+        assert_eq!(
+            1,
+            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_historyvisits")
+                .unwrap(),
+        );
+    }
+
 }
