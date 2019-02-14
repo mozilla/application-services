@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
+use places::history_sync::store::HistoryStore;
 use places::storage::bookmarks::{
     fetch_tree, insert_tree, BookmarkNode, BookmarkRootGuid, BookmarkTreeNode, FolderNode,
     SeparatorNode,
@@ -15,6 +17,8 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
 use url::Url;
+use sync15::{telemetry, Store};
+use failure::Fail;
 
 type Result<T> = std::result::Result<T, failure::Error>;
 
@@ -153,6 +157,40 @@ fn run_native_export(db: &PlacesDb, filename: String) -> Result<()> {
     Ok(())
 }
 
+fn sync(db: &PlacesDb, engine_names: Vec<String>, cred_file: String, wipe: bool, reset: bool) -> Result<()> {
+    let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
+
+    // We will want this as a Vec<sync15::Store> eventually...
+    let stores = if engine_names.len() == 0 {
+        vec![HistoryStore::new(db)]
+    } else {
+        assert!(engine_names.len() == 1 && engine_names[0] == "history");
+        vec![HistoryStore::new(db)]
+    };
+    let mut sync_ping = telemetry::SyncTelemetryPing::new();
+    for store in stores {
+        if wipe {
+            store.wipe()?;
+        }
+        if reset {
+            store.reset()?;
+        }
+
+        log::info!("Syncing {}", store.collection_name());
+        if let Err(e) = store.sync(&cli_fxa.client_init.clone(), &cli_fxa.root_sync_key, &mut sync_ping) {
+            log::warn!("Sync failed! {}", e);
+            log::warn!("BT: {:?}", e.backtrace());
+        } else {
+            log::info!("Sync was successful!");
+        }
+    }
+    println!(
+        "Sync telemetry: {}",
+        serde_json::to_string_pretty(&sync_ping).unwrap()
+    );
+    Ok(())
+}
+
 // Note: this uses doc comments to generate the help text.
 #[derive(Clone, Debug, StructOpt)]
 #[structopt(name = "places-utils", about = "Command-line utilities for places")]
@@ -161,7 +199,7 @@ pub struct Opts {
         name = "database_path",
         long,
         short = "d",
-        default_value = "./new-places.db"
+        default_value = "./places.db"
     )]
     /// Path to the database, which will be created if it doesn't exist.
     pub database_path: String,
@@ -171,12 +209,37 @@ pub struct Opts {
     /// be encrypted.
     pub encryption_key: Option<String>,
 
+    /// Leaves all logging disabled, which may be useful when evaluating perf
+    #[structopt(name = "no-logging", long)]
+    pub no_logging: bool,
+
     #[structopt(subcommand)]
     cmd: Command,
 }
 
 #[derive(Clone, Debug, StructOpt)]
 enum Command {
+    #[structopt(name = "sync")]
+    /// Syncs all or some engines.
+    Sync {
+        #[structopt(name = "engines", long)]
+        /// The names of the engines to sync. If not specified, all engines
+        /// will be synced.
+        engines: Vec<String>,
+
+        /// Path to store our cached fxa credentials.
+        #[structopt(name = "credentials", long, default_value = "./credentials.json")]
+        credential_file: String,
+
+        /// Wipe the server store before syncing.
+        #[structopt(name = "wipe-remote", long)]
+        wipe: bool,
+
+        /// Reset the store before syncing
+        #[structopt(name = "reset", long)]
+        reset: bool,
+    },
+
     #[structopt(name = "export-bookmarks")]
     /// Exports bookmarks (but not in a way Desktop can import it!)
     ExportBookmarks {
@@ -200,18 +263,21 @@ enum Command {
         /// Imports bookmarks from a desktop export
         input_file: String,
     },
+
 }
 
 fn main() -> Result<()> {
-    init_logging();
-
     let opts = Opts::from_args();
+    if !opts.no_logging {
+        init_logging();
+    }
 
     let db_path = opts.database_path;
     let encryption_key: Option<&str> = opts.encryption_key.as_ref().map(|s| &**s);
     let db = PlacesDb::open(db_path, encryption_key)?;
 
     match opts.cmd {
+        Command::Sync{ engines, credential_file, wipe, reset } => sync(&db, engines, credential_file, wipe, reset),
         Command::ExportBookmarks { output_file } => run_native_export(&db, output_file),
         Command::ImportBookmarks { input_file } => run_native_import(&db, input_file),
         Command::ImportDesktopBookmarks { input_file } => run_desktop_import(&db, input_file),

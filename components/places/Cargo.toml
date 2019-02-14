@@ -43,6 +43,7 @@ rand = "0.5.5"
 fxa-client = { path = "../fxa-client" }
 criterion = "0.2.9"
 tempdir = "0.3.7"
+cli-support = { path = "../support/cli" }
 
 
 # While we don't have a replacement for termion on Windows yet (and thus
