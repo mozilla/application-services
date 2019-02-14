@@ -226,6 +226,12 @@ pub unsafe extern "C" fn places_delete_visit(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn places_wipe_local(handle: u64, error: &mut ExternError) {
+    log::debug!("places_wipe_local");
+    CONNECTIONS.call_with_result(error, handle, |conn| storage::history::wipe_local(conn))
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn places_get_visit_infos(
     handle: u64,
     start_date: i64,
