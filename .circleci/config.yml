@@ -168,7 +168,7 @@ jobs:
           name: Release Carthage archive on GitHub
           command: |
             sudo gem install dpl
-            dpl --provider=releases --api-key=${GITHUB_TOKEN} --file=ApplicationServices.framework.zip --overwrite
+            sudo dpl --provider=releases --api-key=${GITHUB_TOKEN} --file=ApplicationServices.framework.zip --overwrite
 
 workflows:
   version: 2
