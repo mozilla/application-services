@@ -186,3 +186,8 @@ impl HistoryVisitInfo {
         })
     }
 }
+
+pub fn run_maintenance(conn: &impl ConnExt) -> Result<()> {
+    conn.execute_all(&["VACUUM", "PRAGMA optimize"])?;
+    Ok(())
+}
