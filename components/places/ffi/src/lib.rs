@@ -3,8 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use ffi_support::{
-    define_box_destructor, define_handle_map_deleter, define_string_destructor, rust_str_from_c,
-    rust_string_from_c, ConcurrentHandleMap, ExternError,
+    define_box_destructor, define_bytebuffer_destructor, define_handle_map_deleter,
+    define_string_destructor, rust_str_from_c, rust_string_from_c, ByteBuffer, ConcurrentHandleMap,
+    ExternError,
 };
 use places::history_sync::store::HistoryStore;
 use places::{db::PlacesInterruptHandle, storage, PlacesDb};
@@ -251,7 +252,7 @@ pub unsafe extern "C" fn places_get_visit_infos(
     start_date: i64,
     end_date: i64,
     error: &mut ExternError,
-) -> *const c_char {
+) -> ByteBuffer {
     log::debug!("places_get_visit_infos");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         Ok(storage::history::get_visit_infos(
@@ -291,5 +292,6 @@ pub unsafe extern "C" fn sync15_history_sync(
 }
 
 define_string_destructor!(places_destroy_string);
+define_bytebuffer_destructor!(places_destroy_bytebuffer);
 define_handle_map_deleter!(CONNECTIONS, places_connection_destroy);
 define_box_destructor!(PlacesInterruptHandle, places_interrupt_handle_destroy);

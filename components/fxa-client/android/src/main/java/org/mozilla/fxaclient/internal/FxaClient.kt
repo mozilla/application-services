@@ -10,7 +10,7 @@ import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
 import java.lang.reflect.Proxy
-import mozilla.appservices.support.ByteBuffer
+import mozilla.appservices.support.RustBuffer
 
 @Suppress("FunctionNaming", "TooManyFunctions", "TooGenericExceptionThrown")
 internal interface FxaClient : Library {
@@ -73,7 +73,7 @@ internal interface FxaClient : Library {
         e: Error.ByReference
     ): Pointer?
 
-    fun fxa_profile(fxa: FxaHandle, ignoreCache: Boolean, e: Error.ByReference): ByteBuffer.ByValue
+    fun fxa_profile(fxa: FxaHandle, ignoreCache: Boolean, e: Error.ByReference): RustBuffer.ByValue
 
     fun fxa_get_token_server_endpoint_url(fxa: FxaHandle, e: Error.ByReference): Pointer?
     fun fxa_get_connection_success_url(fxa: FxaHandle, e: Error.ByReference): Pointer?
@@ -90,7 +90,7 @@ internal interface FxaClient : Library {
     // when using Structure.
     fun fxa_oauth_info_free(ptr: Pointer)
 
-    fun fxa_bytebuffer_free(buffer: ByteBuffer.ByValue)
+    fun fxa_bytebuffer_free(buffer: RustBuffer.ByValue)
 }
 internal typealias FxaHandle = Long
 

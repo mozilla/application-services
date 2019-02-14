@@ -160,5 +160,6 @@ macro_rules! implement_into_ffi_converting {
 #[cfg(feature = "browserid")]
 implement_into_ffi_converting!(SyncKeys, SyncKeysC);
 implement_into_ffi_converting!(AccessTokenInfo, AccessTokenInfoC);
+
 implement_into_ffi_by_protobuf!(msg_types::Profile);
 implement_into_ffi_by_delegation!(Profile, msg_types::Profile);
