@@ -7,6 +7,7 @@ use rusqlite::{
     types::{FromSql, ToSql},
     Connection, Result as SqlResult, Row, Savepoint, Transaction, TransactionBehavior, NO_PARAMS,
 };
+use std::iter::FromIterator;
 use std::ops::Deref;
 use std::time::{Duration, Instant};
 
@@ -116,6 +117,55 @@ pub trait ConnExt {
         Self: Sized,
         E: From<rusqlite::Error>,
         F: FnMut(&Row) -> Result<T, E>,
+    {
+        crate::maybe_log_plan(self.conn(), sql, params);
+        query_rows_and_then_named(self.conn(), sql, params, mapper, false)
+    }
+
+    /// Like `query_rows_and_then_named`, but works if you want a non-Vec as a result.
+    /// # Example:
+    /// ```rust,no_run
+    /// # use std::collections::HashSet;
+    /// # use sql_support::ConnExt;
+    /// # use rusqlite::Connection;
+    /// fn get_visit_tombstones(conn: &Connection, id: i64) -> rusqlite::Result<HashSet<i64>> {
+    ///     Ok(conn.query_rows_into(
+    ///         "SELECT visit_date FROM moz_historyvisit_tombstones
+    ///          WHERE place_id = :place_id",
+    ///         &[(":place_id", &id)],
+    ///         |row| row.get_checked::<_, i64>(0))?)
+    /// }
+    /// ```
+    /// Note if the type isn't inferred, you'll have to do something gross like
+    /// `conn.query_rows_into::<HashSet<_>, _, _, _>(...)`.
+    fn query_rows_into<Coll, T, E, F>(
+        &self,
+        sql: &str,
+        params: &[(&str, &dyn ToSql)],
+        mapper: F,
+    ) -> Result<Coll, E>
+    where
+        Self: Sized,
+        E: From<rusqlite::Error>,
+        F: FnMut(&Row) -> Result<T, E>,
+        Coll: FromIterator<T>,
+    {
+        crate::maybe_log_plan(self.conn(), sql, params);
+        query_rows_and_then_named(self.conn(), sql, params, mapper, false)
+    }
+
+    /// Same as `query_rows_into`, but caches the stmt if possible.
+    fn query_rows_into_cached<Coll, T, E, F>(
+        &self,
+        sql: &str,
+        params: &[(&str, &dyn ToSql)],
+        mapper: F,
+    ) -> Result<Coll, E>
+    where
+        Self: Sized,
+        E: From<rusqlite::Error>,
+        F: FnMut(&Row) -> Result<T, E>,
+        Coll: FromIterator<T>,
     {
         crate::maybe_log_plan(self.conn(), sql, params);
         query_rows_and_then_named(self.conn(), sql, params, mapper, true)
@@ -367,21 +417,19 @@ impl<'conn> ConnExt for TimeChunkedTransaction<'conn> {
     }
 }
 
-fn query_rows_and_then_named<T, E, F>(
+fn query_rows_and_then_named<Coll, T, E, F>(
     conn: &Connection,
     sql: &str,
     params: &[(&str, &dyn ToSql)],
     mapper: F,
     cache: bool,
-) -> Result<Vec<T>, E>
+) -> Result<Coll, E>
 where
     E: From<rusqlite::Error>,
     F: FnMut(&Row) -> Result<T, E>,
+    Coll: FromIterator<T>,
 {
     let mut stmt = conn.prepare_maybe_cached(sql, cache)?;
-    let mut res = vec![];
-    for item in stmt.query_and_then_named(params, mapper)? {
-        res.push(item?);
-    }
-    Ok(res)
+    let iter = stmt.query_and_then_named(params, mapper)?;
+    Ok(iter.collect::<Result<Coll, E>>()?)
 }

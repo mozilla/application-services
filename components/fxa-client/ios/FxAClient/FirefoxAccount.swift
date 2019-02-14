@@ -289,44 +289,34 @@ public struct Avatar {
     public let isDefault: Bool
 }
 
-open class Profile: RustStructPointer<ProfileC> {
+open class Profile: RustProtobuf<FfiTypes_Profile> {
     open var uid: String {
         get {
-            return String(cString: raw.pointee.uid)
+            return raw.uid
         }
     }
 
     open var email: String {
         get {
-            return String(cString: raw.pointee.email)
+            return raw.email
         }
     }
 
     open var avatar: Avatar? {
         get {
-            guard let pointer = raw.pointee.avatar else {
+            if !raw.hasAvatar {
                 return nil
             }
-            return Avatar(url: String(cString: pointer), isDefault: raw.pointee.avatar_default == 0x01)
+            return Avatar(url: raw.avatar, isDefault: raw.avatarDefault)
         }
     }
 
     open var displayName: String? {
-        get {
-            guard let pointer = raw.pointee.display_name else {
-                return nil
-            }
-            return String(cString: pointer)
-        }
-    }
-
-    override func cleanup(pointer: UnsafeMutablePointer<ProfileC>) {
-        queue.sync {
-            fxa_profile_free(raw)
-        }
+        return raw.hasDisplayName ? raw.displayName : nil
     }
 }
 
+#if BROWSERID_FEATURES
 open class SyncKeys: RustStructPointer<SyncKeysC> {
     open var syncKey: String {
         get {
@@ -346,4 +336,4 @@ open class SyncKeys: RustStructPointer<SyncKeysC> {
         }
     }
 }
-
+#endif

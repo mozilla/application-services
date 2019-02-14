@@ -169,6 +169,12 @@ pub trait Cryptography {
 
 pub struct Crypto;
 
+pub fn get_bytes(size: usize) -> error::Result<Vec<u8>> {
+    let mut bytes = vec![0u8; size];
+    rand_bytes(bytes.as_mut_slice())?;
+    Ok(bytes)
+}
+
 impl Cryptography for Crypto {
     /// Generate a new cryptographic Key
     fn generate_key() -> error::Result<Key> {
@@ -182,8 +188,7 @@ impl Cryptography for Crypto {
                 .into());
             }
         };
-        let mut auth = vec![0u8; SER_AUTH_LENGTH];
-        rand_bytes(auth.as_mut_slice())?;
+        let auth = get_bytes(SER_AUTH_LENGTH)?;
         let pubkey = match key.pub_as_raw() {
             Ok(v) => v,
             Err(e) => {

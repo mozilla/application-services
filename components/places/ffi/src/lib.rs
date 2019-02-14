@@ -190,11 +190,55 @@ pub unsafe extern "C" fn places_delete_place(
 }
 
 #[no_mangle]
-pub extern "C" fn places_delete_visits_since(handle: u64, since: i64, error: &mut ExternError) {
-    log::debug!("places_delete_visits_since");
+pub extern "C" fn places_delete_visits_between(
+    handle: u64,
+    start: i64,
+    end: i64,
+    error: &mut ExternError,
+) {
+    log::debug!("places_delete_visits_between");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        storage::history::delete_visits_since(conn, places::Timestamp(since.max(0) as u64))?;
+        storage::history::delete_visits_between(
+            conn,
+            places::Timestamp(start.max(0) as u64),
+            places::Timestamp(end.max(0) as u64),
+        )?;
         Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn places_delete_visit(
+    handle: u64,
+    url: *const c_char,
+    timestamp: i64,
+    error: &mut ExternError,
+) {
+    log::debug!("places_delete_visit");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        storage::history::delete_place_visit_at_time(
+            conn,
+            &parse_url(rust_str_from_c(url))?,
+            places::Timestamp(timestamp.max(0) as u64),
+        )?;
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn places_get_visit_infos(
+    handle: u64,
+    start_date: i64,
+    end_date: i64,
+    error: &mut ExternError,
+) -> *const c_char {
+    log::debug!("places_get_visit_infos");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        Ok(storage::history::get_visit_infos(
+            conn,
+            places::Timestamp(start_date.max(0) as u64),
+            places::Timestamp(end_date.max(0) as u64),
+        )?)
     })
 }
 

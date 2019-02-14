@@ -35,6 +35,14 @@ typedef struct FxAErrorC {
     char *_Nullable message;
 } FxAErrorC;
 
+/*
+ A mapping of the ByteBuffer repr(C) Rust struct, from components/support/ffi/src/lib.rs.
+ */
+typedef struct ByteBuffer {
+    int64_t len;
+    uint8_t *_Nullable data;
+} ByteBuffer;
+
 typedef struct AccessTokenInfoC {
     const char *const _Nonnull scope;
     const char *const _Nonnull token;
@@ -89,9 +97,9 @@ FirefoxAccountHandle fxa_new(const char *_Nonnull content_base,
                              const char *_Nonnull redirect_uri,
                              FxAErrorC *_Nonnull out);
 
-ProfileC *_Nullable fxa_profile(FirefoxAccountHandle handle,
-                                bool ignore_cache,
-                                FxAErrorC *_Nonnull out);
+ByteBuffer fxa_profile(FirefoxAccountHandle handle,
+                       bool ignore_cache,
+                       FxAErrorC *_Nonnull out);
 
 FirefoxAccountHandle fxa_from_credentials(const char *_Nonnull content_base,
                                           const char *_Nonnull client_id,
@@ -115,7 +123,7 @@ SyncKeysC *_Nullable fxa_get_sync_keys(FirefoxAccountHandle handle,
 void fxa_str_free(char *_Nullable ptr);
 void fxa_free(FirefoxAccountHandle h, FxAErrorC *_Nonnull out);
 void fxa_oauth_info_free(AccessTokenInfoC *_Nullable ptr);
-void fxa_profile_free(ProfileC *_Nullable ptr);
+void fxa_bytebuffer_free(ByteBuffer buffer);
 void fxa_sync_keys_free(SyncKeysC *_Nullable ptr);
 
 #endif /* fxa_h */

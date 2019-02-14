@@ -2,8 +2,62 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.16.0...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.16.1...master)
 
+## FxA
+
+### What's New
+
+- We are now using [Protocol Buffers](https://developers.google.com/protocol-buffers/) to pass the Profile data across the FFI boundaries, both on Android and iOS. On Android there should be no breaking changes.
+
+### Breaking changes
+
+- iOS: You now have to include the `SwiftProtobuf` framework in your projects for FxAClient to work (otherwise you'll get a runtime error when fetching the user profile). It is built into `Carthage/Build/iOS` just like `FxAClient.framework`.
+- iOS: In order to build FxAClient from source, you need [swift-protobuf](https://github.com/apple/swift-protobuf) installed. Simply run `brew install swift-protobuf` if you have Homebrew.
+- iOS: You need to run `carthage bootstrap` at the root of the repository at least once before building the FxAClient project: this will build the `SwiftProtobuf.framework` file needed by the project.
+- iOS: the `Profile` class now inherits from `RustProtobuf`. Nothing should change in practice for you.
+
+## Places
+
+### What's New
+
+- New methods on PlacesConnection (Breaking changes for classes implementing PlacesAPI):
+    - `fun deleteVisit(url: String, timestamp: Long)`: If a visit exists at the specified timestamp for the specified URL, delete it. This change will be synced if it is the last remaining visit (standard caveat for partial visit deletion). ([#621](https://github.com/mozilla/application-services/issues/621))
+    - `fun deleteVisitsBetween(start: Long, end: Long)`: Similar to `deleteVisitsSince(start)`, but takes an end date. ([#621](https://github.com/mozilla/application-services/issues/621))
+    - `fun getVisitInfos(start: Long, end: Long = Long.MAX_VALUE): List<VisitInfo>`: Returns a more detailed set of information about the visits that occured. ([#619](https://github.com/mozilla/application-services/issues/619))
+        - `VisitInfo` is a new data class that contains a visit's url, title, timestamp, and type.
+
+### Breaking Changes
+
+- The new `PlacesConnection` methods listed in the "What's New" all need to be implemented (or stubbed) by any class that implements `PlacesAPI`. (multiple bugs, see "What's New" for specifics).
+
+### What's fixed
+
+- Locally deleted visits deleted using `deleteVisitsSince` should not be resurrected on future syncs. ([#621](https://github.com/mozilla/application-services/issues/621))
+
+# 0.16.1 (_2019-02-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.16.0...v0.16.1)
+
+## Logins
+
+### What's Fixed
+
+- iOS `LoginRecord`s will no longer use empty strings for `httpRealm` and `formSubmitUrl` in cases where they claim to use nil. ([#623](https://github.com/mozilla/application-services/issues/623))
+    - More broadly, all optional strings in LoginRecords were were being represented as empty strings (instead of nil) unintentionally. This is fixed.
+- iOS: Errors that were being accidentally swallowed should now be properly reported. ([#640](https://github.com/mozilla/application-services/issues/640))
+- Schema initialization/upgrade now happen in a transaction. This should avoid corruption if some unexpected error occurs during the first unlock() call. ([#642](https://github.com/mozilla/application-services/issues/642))
+
+### Breaking changes
+
+- iOS: Code that expects empty strings (and not nil) for optional strings should be updated to check for nil instead. ([#623](https://github.com/mozilla/application-services/issues/623))
+    - Note that this went out in a non-major release, as it doesn't cause compilation failure, and manually reading all our dependents determined that nobody was relying on this behavior.
+
+## FxA
+
+### What's Fixed
+
+- iOS: Some errors that were being accidentally swallowed should now be properly reported. ([#640](https://github.com/mozilla/application-services/issues/640))
 
 # 0.16.0 (_2019-02-06_)
 

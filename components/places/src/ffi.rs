@@ -9,6 +9,7 @@
 use crate::api::matcher::SearchResult;
 use crate::db::PlacesInterruptHandle;
 use crate::error::{Error, ErrorKind};
+use crate::storage::HistoryVisitInfo;
 use ffi_support::{
     implement_into_ffi_by_json, implement_into_ffi_by_pointer, ErrorCode, ExternError,
 };
@@ -79,4 +80,5 @@ impl From<Error> for ExternError {
 }
 
 implement_into_ffi_by_json!(SearchResult);
+implement_into_ffi_by_json!(HistoryVisitInfo);
 implement_into_ffi_by_pointer!(PlacesInterruptHandle);

@@ -47,7 +47,7 @@ public enum LoginsStoreError: Error {
     // function
     static func fromConsuming(_ rustError: Sync15PasswordsError) -> LoginsStoreError? {
         let message = rustError.message
-        
+
         switch rustError.code {
         case Sync15Passwords_NoError:
             return nil
@@ -75,7 +75,7 @@ public enum LoginsStoreError: Error {
 
         case Sync15Passwords_NetworkError:
             return .Network(message: String(freeingRustString: message!))
-                
+
         default:
             return .Unspecified(message: String(freeingRustString: message!))
         }
@@ -90,6 +90,11 @@ public enum LoginsStoreError: Error {
             }
             throw ResultError.empty
         }
+        // result might not be nil (e.g. it could be 0), while still indicating failure. Ultimately,
+        // `err` is the source of truth here.
+        if let loginErr = LoginsStoreError.fromConsuming(err) {
+            throw loginErr
+        }
         return result
     }
 
@@ -101,6 +106,11 @@ public enum LoginsStoreError: Error {
                 throw loginErr
             }
             return nil
+        }
+        // result might not be nil (e.g. it could be 0), while still indicating failure. Ultimately,
+        // `err` is the source of truth here.
+        if let loginErr = LoginsStoreError.fromConsuming(err) {
+            throw loginErr
         }
         return result
     }

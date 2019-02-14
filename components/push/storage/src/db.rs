@@ -19,6 +19,10 @@ pub trait Storage {
     fn delete_record(&self, uaid: &str, chid: &str) -> Result<bool>;
 
     fn delete_all_records(&self, uaid: &str) -> Result<()>;
+
+    fn get_channel_list(&self, uaid: &str) -> Result<Option<Vec<String>>>;
+
+    fn update_endpoint(&self, channel_id: &str, endpoint: &str) -> Result<bool>;
 }
 
 pub struct PushDb {
@@ -132,6 +136,31 @@ impl Storage for PushDb {
         self.execute("DELETE FROM push_record", NO_PARAMS)?;
         Ok(())
     }
+
+    fn get_channel_list(&self, _uaid: &str) -> Result<Option<Vec<String>>> {
+        let mut results = Vec::new();
+        let mut stmt = self.conn().prepare("SELECT channel_id FROM push_record")?;
+        let mut rows = stmt.query(NO_PARAMS)?;
+        while let Some(row) = rows.next() {
+            results.push(row?.get(0));
+        }
+        if results.len() == 0 {
+            Ok(None)
+        } else {
+            Ok(Some(results))
+        }
+    }
+
+    fn update_endpoint(&self, channel_id: &str, endpoint: &str) -> Result<bool> {
+        let affected_rows = self.execute_named(
+            "UPDATE push_record set endpoint = :endpoint WHERE channel_id = :channel_id",
+            &[
+                (":endpoint", &endpoint.to_owned()),
+                (":channel_id", &channel_id.to_owned()),
+            ],
+        )?;
+        Ok(affected_rows == 1)
+    }
 }
 
 #[cfg(test)]
@@ -159,7 +188,6 @@ mod test {
         let chid = &rec.channel_id;
 
         assert!(db.get_record("", chid)?.is_none());
-
         assert!(db.put_record("", &rec)?);
         assert!(db.get_record("", chid)?.is_some());
         assert_eq!(db.get_record("", chid)?, Some(rec.clone()));

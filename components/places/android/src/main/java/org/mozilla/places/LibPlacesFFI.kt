@@ -112,11 +112,26 @@ internal interface LibPlacesFFI : Library {
             out_err: RustError.ByReference
     )
 
-    fun places_delete_visits_since(
+    fun places_delete_visits_between(
             handle: PlacesConnectionHandle,
-            since: Long,
+            start: Long,
+            end: Long,
             out_err: RustError.ByReference
     )
+
+    fun places_delete_visit(
+            handle: PlacesConnectionHandle,
+            visit_url: String,
+            visit_timestamp: Long,
+            out_err: RustError.ByReference
+    )
+
+    fun places_get_visit_infos(
+            handle: PlacesConnectionHandle,
+            startDate: Long,
+            endDate: Long,
+            error: RustError.ByReference
+    ): Pointer?
 
     fun sync15_history_sync(
             handle: PlacesConnectionHandle,

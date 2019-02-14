@@ -75,7 +75,9 @@ impl LoginDb {
         db.execute_batch(&initial_pragmas)?;
 
         let mut logins = Self { db };
-        schema::init(&mut logins)?;
+        let tx = logins.db.transaction()?;
+        schema::init(&tx)?;
+        tx.commit()?;
         Ok(logins)
     }
 
@@ -679,19 +681,22 @@ impl LoginDb {
     }
 
     pub fn fetch_outgoing(&self, st: ServerTimestamp) -> Result<OutgoingChangeset> {
+        // Taken from iOS. Arbitrarially large, so that clients that want to
+        // process deletions first can; for us it doesn't matter.
+        const TOMBSTONE_SORTINDEX: i32 = 5_000_000;
+        const DEFAULT_SORTINDEX: i32 = 1;
         let mut outgoing = OutgoingChangeset::new("passwords".into(), st);
         let mut stmt = self.db.prepare_cached(&format!(
-            "
-            SELECT * FROM loginsL
-            WHERE sync_status IS NOT {synced}",
+            "SELECT * FROM loginsL WHERE sync_status IS NOT {synced}",
             synced = SyncStatus::Synced as u8
         ))?;
         let rows = stmt.query_and_then(NO_PARAMS, |row| {
             Ok(if row.get_checked::<_, bool>("is_deleted")? {
                 Payload::new_tombstone(row.get_checked::<_, String>("guid")?)
+                    .with_sortindex(TOMBSTONE_SORTINDEX)
             } else {
                 let login = Login::from_row(row)?;
-                Payload::from_record(login)?
+                Payload::from_record(login)?.with_sortindex(DEFAULT_SORTINDEX)
             })
         })?;
         outgoing.changes = rows.collect::<Result<_>>()?;

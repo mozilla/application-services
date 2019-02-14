@@ -140,6 +140,14 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
         return result
     }
 
+    override fun getVisitInfos(start: Long, end: Long): List<VisitInfo> {
+        val infoJson = rustCallForString { error ->
+            LibPlacesFFI.INSTANCE.places_get_visit_infos(
+                    this.handle.get(), start, end, error)
+        }
+        return VisitInfo.fromJSONArray(infoJson)
+    }
+
     override fun deletePlace(url: String) {
         rustCall { error ->
             LibPlacesFFI.INSTANCE.places_delete_place(
@@ -147,10 +155,21 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
         }
     }
 
-    override fun deleteVisitsSince(since: Long) {
+    override fun deleteVisit(url: String, visitTimestamp: Long) {
         rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_delete_visits_since(
-                    this.handle.get(), since, error)
+            LibPlacesFFI.INSTANCE.places_delete_visit(
+                    this.handle.get(), url, visitTimestamp, error)
+        }
+    }
+
+    override fun deleteVisitsSince(since: Long) {
+        deleteVisitsBetween(since, Long.MAX_VALUE)
+    }
+
+    override fun deleteVisitsBetween(startTime: Long, endTime: Long) {
+        rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_delete_visits_between(
+                    this.handle.get(), startTime, endTime, error)
         }
     }
 
@@ -281,6 +300,40 @@ interface PlacesAPI {
     fun deleteVisitsSince(since: Long)
 
     /**
+     * Equivalent to deleteVisitsSince, but takes an `endTime` as well.
+     *
+     * Timestamps are in milliseconds since the unix epoch.
+     *
+     * See documentation for deleteVisitsSince for caveats.
+     *
+     * @param startTime Inclusive beginning of the time range to delete.
+     * @param endTime Inclusive end of the time range to delete.
+     */
+    fun deleteVisitsBetween(startTime: Long, endTime: Long)
+
+    /**
+     * Delete the single visit that occurred at the provided timestamp.
+     *
+     * Note that this will not delete the visit on another device, unless this is the last
+     * remaining visit of that URL that this device is aware of.
+     *
+     * However, it should prevent this visit from being inserted again.
+     *
+     * @param url The URL of the place to delete.
+     * @param visitTimestamp The timestamp of the visit to delete, in MS since the unix epoch
+     */
+    fun deleteVisit(url: String, visitTimestamp: Long)
+
+    /**
+     * Get detailed information about all visits that occurred in the
+     * given time range.
+     *
+     * @param start The (inclusive) start time to bound the query.
+     * @param end The (inclusive) end time to bound the query.
+     */
+    fun getVisitInfos(start: Long, end: Long = Long.MAX_VALUE): List<VisitInfo>
+
+    /**
      * Syncs the history store.
      *
      * Note that this function blocks until the sync is complete, which may
@@ -349,6 +402,8 @@ enum class VisitType(val type: Int) {
     RELOAD(9)
 }
 
+private val intToVisitType: Map<Int, VisitType> = VisitType.values().associateBy(VisitType::type)
+
 /**
  * Encapsulates either information about a visit to a page, or meta information about the page,
  * or both. Use [VisitType.UPDATE_PLACE] to differentiate an update from a visit.
@@ -383,6 +438,14 @@ data class VisitObservation(
     }
 }
 
+private fun stringOrNull(jsonObject: JSONObject, key: String): String? {
+    return try {
+        jsonObject.getString(key)
+    } catch (e: JSONException) {
+        null
+    }
+
+}
 data class SearchResult(
     val searchString: String,
     val url: String,
@@ -393,20 +456,12 @@ data class SearchResult(
 ) {
     companion object {
         fun fromJSON(jsonObject: JSONObject): SearchResult {
-            fun stringOrNull(key: String): String? {
-                return try {
-                    jsonObject.getString(key)
-                } catch (e: JSONException) {
-                    null
-                }
-            }
-
             return SearchResult(
                 searchString = jsonObject.getString("search_string"),
                 url = jsonObject.getString("url"),
                 title = jsonObject.getString("title"),
                 frecency = jsonObject.getLong("frecency"),
-                iconUrl = stringOrNull("icon_url")
+                iconUrl = stringOrNull(jsonObject, "icon_url")
             )
         }
 
@@ -418,5 +473,51 @@ data class SearchResult(
             }
             return result
         }
+    }
+}
+
+/**
+ * Information about a history visit. Returned by `PlacesAPI.getVisitInfos`.
+ */
+data class VisitInfo(
+        /**
+         * The URL of the page that was visited.
+         */
+        val url: String,
+
+        /**
+         * The title of the page that was visited, if known.
+         */
+        val title: String?,
+
+        /**
+         * The time the page was visited in integer milliseconds since the unix epoch.
+         */
+        val visitTime: Long,
+
+        /**
+         * What the transition type of the visit is.
+         */
+        val visitType: VisitType
+) {
+    companion object {
+        fun fromJSON(jsonObject: JSONObject): VisitInfo {
+            return VisitInfo(
+                    url = jsonObject.getString("url"),
+                    title = stringOrNull(jsonObject, "title"),
+                    visitTime = jsonObject.getLong("visit_date"),
+                    visitType = intToVisitType.get(jsonObject.getInt("visit_type"))!!
+            )
+        }
+
+        fun fromJSONArray(jsonArrayText: String): List<VisitInfo> {
+            val array = JSONArray(jsonArrayText)
+            val result: ArrayList<VisitInfo> = ArrayList(array.length())
+            for (index in 0 until array.length()) {
+                result.add(fromJSON(array.getJSONObject(index)))
+            }
+            return result
+        }
+
     }
 }
