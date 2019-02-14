@@ -26,6 +26,33 @@
     - `fun deleteVisitsBetween(start: Long, end: Long)`: Similar to `deleteVisitsSince(start)`, but takes an end date. ([#621](https://github.com/mozilla/application-services/issues/621))
     - `fun getVisitInfos(start: Long, end: Long = Long.MAX_VALUE): List<VisitInfo>`: Returns a more detailed set of information about the visits that occured. ([#619](https://github.com/mozilla/application-services/issues/619))
         - `VisitInfo` is a new data class that contains a visit's url, title, timestamp, and type.
+    - `fun wipeLocal()`: Deletes all history entries without recording any sync information. ([#611](https://github.com/mozilla/application-services/issues/611))
+
+    - `fun runMaintenance()`: Perform automatic maintenance. ([#611](https://github.com/mozilla/application-services/issues/611))
+
+        This should be called at least once per day, however that is a
+        recommendation and not a requirement, and nothing dire happens if it is
+        not called.
+
+        The maintenance it may perform potentially includes, but is not limited to:
+
+        - Running `VACUUM`.
+        - Requesting that SQLite optimize our indices.
+        - Expiring old visits.
+        - Deleting or fixing corrupt or invalid rows.
+        - Etc.
+
+        However not all of these are currently implemented.
+
+    - `fun pruneDestructively()`: Aggressively prune history visits. ([#611](https://github.com/mozilla/application-services/issues/611))
+
+        These deletions are not intended to be synced, however due to the way
+        history sync works, this can still cause data loss.
+
+        As a result, this should only be called if a low disk space notification
+        is received from the OS, and things like the network cache have already
+        been cleared.
+
 
 ### Breaking Changes
 
