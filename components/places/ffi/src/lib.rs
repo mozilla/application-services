@@ -238,6 +238,14 @@ pub unsafe extern "C" fn places_run_maintenance(handle: u64, error: &mut ExternE
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn places_prune_destructively(handle: u64, error: &mut ExternError) {
+    log::debug!("places_prune_destructively");
+    CONNECTIONS.call_with_result(error, handle, |conn| {
+        storage::history::prune_destructively(conn)
+    })
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn places_get_visit_infos(
     handle: u64,
     start_date: i64,
