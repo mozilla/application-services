@@ -7,4 +7,4 @@ pub mod db;
 mod interrupt;
 mod schema;
 pub use self::interrupt::PlacesInterruptHandle;
-pub use crate::db::db::PlacesDb;
+pub use crate::db::db::{ConnectionType, PlacesAPI, PlacesDb};

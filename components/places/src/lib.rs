@@ -20,7 +20,7 @@ mod util;
 mod valid_guid;
 
 pub use crate::api::apply_observation;
-pub use crate::db::{PlacesDb, PlacesInterruptHandle};
+pub use crate::db::{ConnectionType, PlacesAPI, PlacesDb, PlacesInterruptHandle};
 pub use crate::error::*;
 pub use crate::observation::VisitObservation;
 pub use crate::storage::PageInfo;

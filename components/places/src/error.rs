@@ -72,6 +72,9 @@ pub enum ErrorKind {
     #[fail(display = "Error parsing URL: {}", _0)]
     UrlParseError(#[fail(cause)] url::ParseError),
 
+    #[fail(display = "A connection of this type is already open")]
+    ConnectionAlreadyOpen,
+
     // Maybe we should try to fabricate a rusqlite::Error that looks like the
     // interrupted error?
     #[fail(display = "Operation interrupted")]

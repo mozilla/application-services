@@ -7,7 +7,7 @@ use places::storage::bookmarks::{
     SeparatorNode,
 };
 use places::types::{BookmarkType, SyncGuid, Timestamp};
-use places::PlacesDb;
+use places::{ConnectionType, PlacesAPI, PlacesDb};
 
 use serde_derive::*;
 use sql_support::ConnExt;
@@ -209,7 +209,8 @@ fn main() -> Result<()> {
 
     let db_path = opts.database_path;
     let encryption_key: Option<&str> = opts.encryption_key.as_ref().map(|s| &**s);
-    let db = PlacesDb::open(db_path, encryption_key)?;
+    let api = PlacesAPI::new(&db_path, encryption_key)?;
+    let db = api.open_connection(ConnectionType::ReadWrite)?;
 
     match opts.cmd {
         Command::ExportBookmarks { output_file } => run_native_export(&db, output_file),

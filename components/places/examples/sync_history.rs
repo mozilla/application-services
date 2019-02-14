@@ -5,7 +5,7 @@
 use failure::Fail;
 use fxa_client::{AccessTokenInfo, Config, FirefoxAccount};
 use places::history_sync::store::HistoryStore;
-use places::PlacesDb;
+use places::{ConnectionType, PlacesAPI};
 use serde_json;
 use std::{fs, io::Read};
 use sync15::{
@@ -122,7 +122,8 @@ fn main() -> Result<()> {
     };
     let root_sync_key = KeyBundle::from_ksync_bytes(&key.key_bytes()?)?;
 
-    let db = PlacesDb::open(db_path, encryption_key)?;
+    let api = PlacesAPI::new(db_path, encryption_key)?;
+    let db = api.open_connection(ConnectionType::Sync)?;
     let store = HistoryStore::new(&db);
 
     if matches.is_present("wipe-remote") {
