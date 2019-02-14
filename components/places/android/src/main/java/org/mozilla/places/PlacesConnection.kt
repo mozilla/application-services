@@ -185,6 +185,12 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
         }
     }
 
+    override fun pruneDestructively() {
+        rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_prune_destructively(this.handle.get(), error)
+        }
+    }
+
     override fun sync(syncInfo: SyncAuthInfo) {
         rustCall { error ->
             LibPlacesFFI.INSTANCE.sync15_history_sync(
@@ -298,6 +304,17 @@ interface PlacesAPI {
      * called.
      */
     fun runMaintenance()
+
+    /**
+     * Aggressively prune history visits. These deletions are not intended
+     * to be synced, however due to the way history sync works, this can
+     * still cause data loss.
+     *
+     * As a result, this should only be called if a low disk space
+     * notification is received from the OS, and things like the network
+     * cache have already been cleared.
+     */
+    fun pruneDestructively()
 
     /**
      * Returns a list of visited URLs for a given time range.

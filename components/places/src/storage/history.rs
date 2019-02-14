@@ -210,6 +210,11 @@ pub fn delete_place_visit_at_time(db: &impl ConnExt, place: &Url, visit: Timesta
     Ok(())
 }
 
+pub fn prune_destructively(db: &impl ConnExt) -> Result<()> {
+    // For now, just fall back to wipe_local until we decide how this should work.
+    wipe_local(db)
+}
+
 pub fn wipe_local(db: &impl ConnExt) -> Result<()> {
     let tx = db.unchecked_transaction()?;
     wipe_local_in_tx(db)?;
