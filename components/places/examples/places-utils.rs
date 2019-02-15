@@ -11,14 +11,14 @@ use places::storage::bookmarks::{
 use places::types::{BookmarkType, SyncGuid, Timestamp};
 use places::PlacesDb;
 
+use failure::Fail;
 use serde_derive::*;
 use sql_support::ConnExt;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
-use url::Url;
 use sync15::{telemetry, Store};
-use failure::Fail;
+use url::Url;
 
 type Result<T> = std::result::Result<T, failure::Error>;
 
@@ -157,7 +157,13 @@ fn run_native_export(db: &PlacesDb, filename: String) -> Result<()> {
     Ok(())
 }
 
-fn sync(db: &PlacesDb, engine_names: Vec<String>, cred_file: String, wipe: bool, reset: bool) -> Result<()> {
+fn sync(
+    db: &PlacesDb,
+    engine_names: Vec<String>,
+    cred_file: String,
+    wipe: bool,
+    reset: bool,
+) -> Result<()> {
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
 
     // We will want this as a Vec<sync15::Store> eventually...
@@ -177,7 +183,11 @@ fn sync(db: &PlacesDb, engine_names: Vec<String>, cred_file: String, wipe: bool,
         }
 
         log::info!("Syncing {}", store.collection_name());
-        if let Err(e) = store.sync(&cli_fxa.client_init.clone(), &cli_fxa.root_sync_key, &mut sync_ping) {
+        if let Err(e) = store.sync(
+            &cli_fxa.client_init.clone(),
+            &cli_fxa.root_sync_key,
+            &mut sync_ping,
+        ) {
             log::warn!("Sync failed! {}", e);
             log::warn!("BT: {:?}", e.backtrace());
         } else {
@@ -263,7 +273,6 @@ enum Command {
         /// Imports bookmarks from a desktop export
         input_file: String,
     },
-
 }
 
 fn main() -> Result<()> {
@@ -277,7 +286,12 @@ fn main() -> Result<()> {
     let db = PlacesDb::open(db_path, encryption_key)?;
 
     match opts.cmd {
-        Command::Sync{ engines, credential_file, wipe, reset } => sync(&db, engines, credential_file, wipe, reset),
+        Command::Sync {
+            engines,
+            credential_file,
+            wipe,
+            reset,
+        } => sync(&db, engines, credential_file, wipe, reset),
         Command::ExportBookmarks { output_file } => run_native_export(&db, output_file),
         Command::ImportBookmarks { input_file } => run_native_import(&db, input_file),
         Command::ImportDesktopBookmarks { input_file } => run_desktop_import(&db, input_file),
