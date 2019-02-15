@@ -151,10 +151,11 @@ jobs:
           key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
           paths:
             - "./target"
+      - store_artifacts:
+          path: MozillaAppServices-frameworks.zip
       - persist_to_workspace:
           root: .
-          paths:
-            - MozillaAppServices-frameworks.zip
+          paths: MozillaAppServices-frameworks.zip
   Release Carthage archive:
     macos:
       xcode: "10.1.0"
