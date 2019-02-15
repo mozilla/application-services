@@ -191,6 +191,12 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
         }
     }
 
+    override fun deleteEverything() {
+        rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_delete_everything(this.handle.get(), error)
+        }
+    }
+
     override fun sync(syncInfo: SyncAuthInfo) {
         rustCall { error ->
             LibPlacesFFI.INSTANCE.sync15_history_sync(
@@ -315,6 +321,21 @@ interface PlacesAPI {
      * cache have already been cleared.
      */
     fun pruneDestructively()
+
+    /**
+     * Delete everything locally.
+     *
+     * This will not delete visits from remote devices, however it will
+     * prevent them from trickling in over time when future syncs occur.
+     *
+     * The difference between this and wipeLocal is that wipeLocal does
+     * not prevent the deleted visits from returning. For wipeLocal,
+     * the visits will return on the next full sync (which may be
+     * arbitrarially far in the future), wheras items which were
+     * deleted by deleteEverything (or potentially could have been)
+     * should not return.
+     */
+    fun deleteEverything()
 
     /**
      * Returns a list of visited URLs for a given time range.

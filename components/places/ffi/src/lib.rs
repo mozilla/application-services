@@ -246,6 +246,14 @@ pub unsafe extern "C" fn places_prune_destructively(handle: u64, error: &mut Ext
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn places_delete_everything(handle: u64, error: &mut ExternError) {
+    log::debug!("places_delete_everything");
+    CONNECTIONS.call_with_result(error, handle, |conn| {
+        storage::history::delete_everything(conn)
+    })
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn places_get_visit_infos(
     handle: u64,
     start_date: i64,
