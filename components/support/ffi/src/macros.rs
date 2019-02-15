@@ -229,13 +229,12 @@ macro_rules! define_box_destructor {
 /// # use ffi_support::define_bytebuffer_destructor;
 /// define_bytebuffer_destructor!(mylib_destroy_bytebuffer);
 /// ```
-
 #[macro_export]
 macro_rules! define_bytebuffer_destructor {
     ($destructor_name:ident) => {
         #[no_mangle]
         pub extern "C" fn $destructor_name(v: $crate::ByteBuffer) {
-            drop(v);
+            v.destroy()
         }
     };
 }

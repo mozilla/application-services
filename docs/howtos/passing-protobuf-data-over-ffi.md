@@ -166,13 +166,7 @@ follow the examples of the other steps it takes.
         implementation 'com.google.protobuf:protobuf-lite:3.0.0'
         implementation project(':as-support-library')
         ```
-
-2. Add a new file, ByteBuffer.kt:
-
-    In the future we will share this class (for once we actually could!) however,
-    at the moment we cannot, and so you must copy/paste it.
-
-3. In the file where the foreign functions are defined, make sure that the
+2. In the file where the foreign functions are defined, make sure that the
    function returning this type returns a `RustBuffer.ByValue` (`RustBuffer` is
    in `mozilla.appservices.support`).
 
@@ -182,7 +176,7 @@ follow the examples of the other steps it takes.
    fun mylib_destroy_bytebuffer(v: RustBuffer.ByValue)
    ```
 
-4. Usage code then looks as follows:
+3. Usage code then looks as follows:
     ```kotlin
         val rustBuffer = rustCall { error ->
             MyLibFFI.INSTANCE.call_thing_returning_rustbuffer(...)
