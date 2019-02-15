@@ -50,7 +50,7 @@ The code for these components is organized as follows:
   for easy consumption by applications.
 
 For more details on how the client libraries are built and published, please see
-the [Guide to Building a Rust Component](docs/howto/building-a-rust-component.md).
+the [Guide to Building a Rust Component](docs/howtos/building-a-rust-component.md).
 
 This repository also hosts the [website source](website) for the [Application
 Services Product Portal](https://mozilla.github.io/application-services/), which
