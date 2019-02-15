@@ -9,6 +9,7 @@
 ### What's New
 
 - We are now using [Protocol Buffers](https://developers.google.com/protocol-buffers/) to pass the Profile data across the FFI boundaries, both on Android and iOS. On Android there should be no breaking changes.
+- Kotlin: `Profile` is now a [Data Class](https://kotlinlang.org/docs/reference/data-classes.html).
 
 ### Breaking changes
 

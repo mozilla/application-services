@@ -4,33 +4,21 @@
 
 package org.mozilla.fxaclient.internal
 
-import mozilla.appservices.support.RustBuffer
-import org.mozilla.fxaclient.internal.MsgTypes.Profile as RawProfile
-
-class Profile internal constructor(byteBuffer: RustBuffer.ByValue) {
-
-    val uid: String?
-    val email: String?
-    val avatar: String?
-    val avatarDefault: Boolean
+data class Profile(
+    val uid: String?,
+    val email: String?,
+    val avatar: String?,
+    val avatarDefault: Boolean,
     val displayName: String?
-
-    init {
-        try {
-            val raw = byteBuffer.asCodedInputStream()?.let {
-                RawProfile.parseFrom(it)
-            } ?: run {
-                // TODO: should throw somehow?
-                RawProfile.getDefaultInstance()
-            }
-
-            this.uid = if (raw.hasUid()) raw.uid else null
-            this.email = if (raw.hasEmail()) raw.email else null
-            this.avatar = if (raw.hasAvatar()) raw.avatar else null
-            this.avatarDefault = raw.avatarDefault
-            this.displayName = if (raw.hasDisplayName()) raw.displayName else null
-        } finally {
-            FxaClient.INSTANCE.fxa_bytebuffer_free(byteBuffer)
+) {
+    companion object {
+        internal fun fromMessage(msg: MsgTypes.Profile): Profile {
+            return Profile(uid = if (msg.hasUid()) msg.uid else null,
+                           email = if (msg.hasEmail()) msg.email else null,
+                           avatar = if (msg.hasAvatar()) msg.avatar else null,
+                           avatarDefault = msg.avatarDefault,
+                           displayName = if (msg.hasDisplayName()) msg.displayName else null
+            )
         }
     }
 }
