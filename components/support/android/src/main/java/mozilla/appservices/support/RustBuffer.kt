@@ -23,9 +23,9 @@ import java.util.Arrays
  * # Caveats:
  *
  * 1. It is for receiving data *FROM* Rust, and not the other direction.
- *    Rust code assumes that it owns `RustBuffer`s, and will release
- *    their memory when it `Drop`s them. (RustBuffer doesn't expose
- *    a way to inspect its contents from Rust anyway).
+ *    RustBuffer doesn't expose a way to inspect its contents from Rust.
+ *    See `docs/howtos/passing-protobuf-data-over-ffi.md` for how to do
+ *    this instead.
  *
  * 2. A `RustBuffer` passed into kotlin code must be freed by kotlin
  *    code *after* the protobuf message is completely deserialized.

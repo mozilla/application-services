@@ -354,12 +354,16 @@ fn init_backtraces_once() {}
 ///
 /// Note that the order of the fields is `len` (an i64) then `data` (a `*mut u8`), getting
 /// this wrong on the other side of the FFI will cause memory corruption and crashes.
-/// `i64` is used for the length instead of `u64` and `usize` because JNA has intero
+/// `i64` is used for the length instead of `u64` and `usize` because JNA has interop
 /// issues with both these types.
 ///
-/// You should probably not use this type to pass data into Rust unless the ByteBuffer
-/// was allocated by Rust code: ByteBuffer assumes it owns the underlying data,
-/// and will Drop it.
+/// ByteBuffer does not implement Drop. This is intentional. Memory passed into it will
+/// be leaked if it is not explicitly destroyed by calling [`ByteBuffer::destroy`]. This
+/// is because in the future, we may allow it's use for passing data into Rust code.
+/// ByteBuffer assuming ownership of the data would make this a problem.
+///
+/// Note that alling `destroy` manually is not typically needed or recommended,
+/// and instead you should use [`define_bytebuffer_destructor!`].
 ///
 /// ## Layout/fields
 ///
@@ -384,9 +388,9 @@ fn init_backtraces_once() {}
 /// `data` is a pointer to an array of `len` bytes. Not that data can be a null pointer and therefore
 /// should be checked.
 ///
-/// The bytes array is allocated on the heap and must be freed on it as well. Critically, if there are multiple rust
-/// packages using being used in the same application, it *must be freed on the same heap that
-/// allocated it*, or you will corrupt both heaps.
+/// The bytes array is allocated on the heap and must be freed on it as well. Critically, if there
+/// are multiple rust packages using being used in the same application, it *must be freed on the
+/// same heap that allocated it*, or you will corrupt both heaps.
 ///
 /// Typically, this object is managed on the other side of the FFI (on the "FFI consumer"), which
 /// means you must expose a function to release the resources of `data` which can be done easily
@@ -405,9 +409,10 @@ impl From<Vec<u8>> for ByteBuffer {
 }
 
 impl ByteBuffer {
-    /// Creates a `ByteBuffer` instance from a `Vec` instance, the contents of the vector will be
-    /// forgotten by Rust's ownership system.
-    /// `drop` must be called later to reclaim this memory or it will be leaked.
+    /// Creates a `ByteBuffer` instance from a `Vec` instance.
+    ///
+    /// The contents of the vector will not be dropped. Instead, `destroy` must
+    /// be called later to reclaim this memory or it will be leaked.
     ///
     /// ## Caveats
     ///
@@ -427,11 +432,23 @@ impl ByteBuffer {
             len: len as i64,
         }
     }
-}
 
-impl Drop for ByteBuffer {
+    /// Reclaim memory stored in this ByteBuffer.
+    ///
+    /// You typically should not call this manually, and instead expose a
+    /// function that does so via [`define_bytebuffer_destructor!`].
+    ///
+    /// ## Caveats
+    ///
+    /// This is safe so long as the buffer is empty, or the data was allocated
+    /// by Rust code, e.g. this is a ByteBuffer created by
+    /// `ByteBuffer::from_vec` or `Default::default`.
+    ///
+    /// If the ByteBuffer were passed into Rust (which you shouldn't do, since
+    /// theres no way to see the data in Rust currently), then calling `destroy`
+    /// is fundamentally broken.
     #[inline]
-    fn drop(&mut self) {
+    pub fn destroy(self) {
         if !self.data.is_null() {
             unsafe {
                 drop(Vec::from_raw_parts(
@@ -449,7 +466,7 @@ impl Default for ByteBuffer {
     fn default() -> Self {
         Self {
             len: 0 as i64,
-            data: ::std::ptr::null_mut(),
+            data: std::ptr::null_mut(),
         }
     }
 }
