@@ -686,6 +686,8 @@ unsafe impl IntoFfi for Handle {
 /// define_handle_map_deleter!(ITEMS, mylib_destroy_thing);
 /// ```
 pub struct ConcurrentHandleMap<T> {
+    /// The underlying map. Public so that more advanced use-cases
+    /// may use it as they please.
     pub map: RwLock<HandleMap<Mutex<T>>>,
 }
 
