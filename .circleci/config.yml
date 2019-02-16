@@ -25,17 +25,17 @@ commands:
       platform:
         type: string
     steps:
-      - run: echo "$(git rev-parse HEAD:libs)" >| libs_sha
+      - run:
+          name: Compute libs/ checksum
+          command: echo "$(git rev-parse HEAD:libs)" >| libs_sha
       - restore_cache:
-          name: Restore libs cache
-          keys:
-            - libs-cache-{{ arch }}-{{ checksum "libs_sha" }}
+          name: Restore libs/ cache
+          key: libs-cache-{{ arch }}-{{ checksum "libs_sha" }}
       - run:
           name: Build libs
-          command: |
-            pushd libs && ./build-all.sh <<parameters.platform>> && popd
+          command: pushd libs && ./build-all.sh <<parameters.platform>> && popd
       - save_cache:
-          name: Save libs cache
+          name: Save libs/ cache
           key: libs-cache-{{ arch }}-{{ checksum "libs_sha" }}
           paths:
             - libs/<<parameters.platform>>
@@ -136,25 +136,46 @@ jobs:
       - setup-rust-toolchain
       - checkout
       - restore_cache:
-          key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+          name: Restore Rust cache
+          keys:
+            - rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - rust-cache-{{ arch }}
       - build-libs:
           platform: ios
       - run:
           name: Build Carthage archive
           command: |
             rustup target add aarch64-apple-ios armv7-apple-ios i386-apple-ios x86_64-apple-ios
-            cargo install cargo-lipo
-            brew update && (brew outdated carthage || brew upgrade carthage)
+            cargo lipo --help &>/dev/null || cargo install cargo-lipo
+            brew update
+            brew outdated carthage || brew upgrade carthage
             brew install swift-protobuf
             sh build-carthage.sh MozillaAppServices-frameworks.zip
       - save_cache:
+          name: Save Rust cache
           key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
           paths:
             - "./target"
+      - run:
+          name: "Create Carthage bin-only project specification"
+          command: |
+            ZIP_URL=https://circleci.com/api/v1.1/project/github/mozilla/application-services/$CIRCLE_BUILD_NUM/artifacts/0/dist/MozillaAppServices-frameworks.zip
+            echo "{\"0.0.1\":\"$ZIP_URL\"}" > mozilla.app-services.json
+      - store_artifacts:
+          path: MozillaAppServices-frameworks.zip
+          destination: dist/MozillaAppServices-frameworks.zip
+      - store_artifacts:
+          path: mozilla.app-services.json
+          destination: dist/mozilla.app-services.json
+      - run:
+          name: "Carthage binary snapshot URL"
+          command: |
+            JSON_URL=https://circleci.com/api/v1.1/project/github/mozilla/application-services/$CIRCLE_BUILD_NUM/artifacts/0/dist/mozilla.app-services.json
+            echo "Add the following line to your Cartfile:"
+            echo "binary \"$JSON_URL\" ~> 0.0.1-snapshot # mozilla/application-services@$CIRCLE_SHA1"
       - persist_to_workspace:
           root: .
-          paths:
-            - MozillaAppServices-frameworks.zip
+          paths: MozillaAppServices-frameworks.zip
   Release Carthage archive:
     macos:
       xcode: "10.1.0"
