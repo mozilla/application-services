@@ -26,10 +26,22 @@
   "applications": {
     "Applications": [
       "applications/welcome",
-      "applications/signing-android-apps",
-      "applications/android-components",
-      "applications/consuming-megazord-libraries",
-      "applications/working-with-reference-browser"
+      "applications/concepts",
+      {
+        "type": "subcategory",
+        "label": "Buiding for Android",
+        "ids": [
+          "applications/android/overview",
+          "applications/android/consuming-megazord-libraries"
+        ]
+      },
+      {
+        "type": "subcategory",
+        "label": "Buiding for iOS",
+        "ids": [
+          "applications/ios/overview"
+        ]
+      }
     ]
   },
   "sync": {

@@ -41,12 +41,27 @@
         "title": "About Firefox Accounts",
         "sidebar_label": "Welcome"
       },
-      "applications/consuming-megazord-libraries": {
+      "applications/android/consuming-megazord-libraries": {
         "title": "Consuming megazord libraries on Android",
-        "sidebar_label": "Consuming megazord libraries"
+        "sidebar_label": "Consuming megazord libraries on Android"
+      },
+      "applications/android/overview": {
+        "title": "Building with application-services components on Android",
+        "sidebar_label": "Overview"
+      },
+      "applications/concepts": {
+        "title": "Core Concepts",
+        "sidebar_label": "Core Concepts"
+      },
+      "applications/consuming-megazord-libraries": {
+        "title": "Consuming megazord libraries on Android"
+      },
+      "applications/ios/overview": {
+        "title": "Building with application-services components on iOS",
+        "sidebar_label": "Overview"
       },
       "applications/welcome": {
-        "title": "Applications",
+        "title": "Using the application-services client components",
         "sidebar_label": "Intro"
       },
       "push/design": {
