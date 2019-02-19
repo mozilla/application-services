@@ -392,8 +392,17 @@ impl<'query> Matcher for OriginOrUrl<'query> {
             )?
         } else if self.query.contains(|c| c == '/' || c == ':' || c == '?') {
             let (host, remainder) = split_after_host_and_port(self.query);
-            let punycode_host = idna::domain_to_ascii(host).ok();
-            let host_str = punycode_host.as_ref().map(|s| s.as_str()).unwrap_or(host);
+            // This can fail if the "host" has some characters that are not
+            // currently allowed in URLs (even when punycoded). If that happens,
+            // then the query we'll use here can't return any results (and
+            // indeed, `reverse_host` will get mad at us since it's an invalid
+            // host), so we just return an empty results set.
+            let punycode_host = idna::domain_to_ascii(host);
+            let host_str = if let Ok(host) = &punycode_host {
+                host.as_str()
+            } else {
+                return Ok(vec![]);
+            };
             conn.query_rows_and_then_named_cached(
                 URL_SQL,
                 &[
@@ -713,6 +722,20 @@ mod tests {
             "{:?}",
             by_url_with_path
         );
-    }
 
+        // The "ball of yarn" emoji is not currently accepted as valid
+        // in URLs, but we should just return an empty result set.
+        let ball_of_yarn_about_blank = "about:blank🧶";
+        let empty = match_url(&conn, ball_of_yarn_about_blank).unwrap();
+        assert!(empty.is_none());
+        // Just run this to make sure the unwrap doesn't panic us
+        search_frecent(
+            &conn,
+            SearchParams {
+                search_string: ball_of_yarn_about_blank.into(),
+                limit: 10,
+            },
+        )
+        .unwrap();
+    }
 }
