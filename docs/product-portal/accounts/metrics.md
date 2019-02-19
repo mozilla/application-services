@@ -45,6 +45,7 @@ By following these instructions you provide both of our teams with data needed t
 |`utm_content`|Used to track the name of an A-B test|`my-experiment`|<!--begin-validation-utm_content-->^[\w\/.%-]+$<!--end-validation-utm_content-->|TBD|
 |`utm_term`|Used to track the cohort or variation in an A-B test|`my-experiment-var-a`|<!--begin-validation-utm_term-->^[\w\/.%-]+$<!--end-validation-utm_term-->|TBD|
 |`utm_medium`|What type of link was used to direct to the page, if it came through a marketing campaign|`email`, `cpc`|<!--begin-validation-utm_medium-->^[\w\/.%-]+$<!--end-validation-utm_medium-->|TBD|
+|`context`|Not relevant to metrics, but this is **required** to be set to one of `fx_desktop_v3`, `fx_fennec_v1` or `fx_ios_v1` if `service=sync`. Please use the value that reflects the most likely operating system of the user.|`fx_desktop_v3`, `fx_fennec_v1`, `fx_ios_v1`|<!--begin-validation-context-->^[0-9a-z_-]+$<!--end-validation-context-->/|NA|
 
 **Note these may not be all the parameters you need to pass for your integration to work!** A more exhaustive but [less detailed list can be found here.](https://github.com/mozilla/fxa-content-server/blob/549fc459b851088ea910da182e17e748fa157f26/docs/query-params.md#context) What is documented above are only the parameters that are relevant for metrics analysis in (e.g.) amplitude.
 
