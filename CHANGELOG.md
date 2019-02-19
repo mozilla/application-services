@@ -2,7 +2,11 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.16.1...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.17.0...master)
+
+# 0.17.0 (_2019-02-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.16.1...v0.17.0)
 
 ## FxA
 
