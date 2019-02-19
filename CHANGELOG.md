@@ -82,6 +82,8 @@
 ### What's fixed
 
 - Locally deleted visits deleted using `deleteVisitsSince` should not be resurrected on future syncs. ([#621](https://github.com/mozilla/application-services/issues/621))
+- Places now properly updates frecency for origins, and generally supports
+  origins in a way more in line with how they're implemented on desktop. ([#429](https://github.com/mozilla/application-services/pull/429))
 
 # 0.16.1 (_2019-02-08_)
 
