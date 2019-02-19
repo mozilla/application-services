@@ -9,7 +9,7 @@ use crate::frecency;
 use crate::hash;
 use crate::msg_types::{HistoryVisitInfo, HistoryVisitInfos};
 use crate::observation::VisitObservation;
-use crate::storage::{get_meta, put_meta};
+use crate::storage::{delete_pending_temp_tables, get_meta, put_meta};
 use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition};
 use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
@@ -194,6 +194,7 @@ fn do_delete_place_by_guid(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
     // and try the delete - it might not exist, but that's ok.
     let delete_sql = "DELETE FROM moz_places WHERE guid = :guid";
     db.execute_named_cached(delete_sql, &[(":guid", guid)])?;
+    delete_pending_temp_tables(db.conn())?;
     Ok(())
 }
 
@@ -259,6 +260,7 @@ fn wipe_local_in_tx(db: &impl ConnExt, tx: sql_support::UncheckedTransaction) ->
     for row_id in need_frecency_update {
         update_frecency(db.conn(), row_id, None)?;
     }
+    delete_pending_temp_tables(&tx)?;
     tx.commit()?;
     // Note: SQLite cannot VACUUM within a transaction.
     db.conn().execute("VACUUM", NO_PARAMS)?;
@@ -339,6 +341,7 @@ fn delete_place_visit_at_time_in_tx(
     )?;
 
     cleanup_pages(db, &[to_clean])?;
+    delete_pending_temp_tables(db.conn())?;
     Ok(())
 }
 
@@ -415,7 +418,7 @@ pub fn delete_visits_between_in_tx(
             cleanup_pages(db, &pages)
         },
     )?;
-
+    delete_pending_temp_tables(db.conn())?;
     Ok(())
 }
 
@@ -582,6 +585,12 @@ pub mod history_sync {
             FetchedVisit::from_row,
         )?;
         Ok(Some((page_info, visits)))
+    }
+
+    /// Called when incoming changes are finished, but before we commit the
+    /// transaction prior to fetching outgoing ones.
+    pub fn finish_incoming(db: &Connection) -> Result<()> {
+        delete_pending_temp_tables(db)
     }
 
     /// Apply history visit from sync. This assumes they have all been

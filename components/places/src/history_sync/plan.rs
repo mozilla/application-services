@@ -8,7 +8,7 @@ use crate::api::history::can_add_url;
 use crate::error::*;
 use crate::storage::history::history_sync::{
     apply_synced_deletion, apply_synced_reconciliation, apply_synced_visits, fetch_outgoing,
-    fetch_visits, finish_outgoing, FetchedVisit, FetchedVisitPage, OutgoingInfo,
+    fetch_visits, finish_incoming, finish_outgoing, FetchedVisit, FetchedVisitPage, OutgoingInfo,
 };
 use crate::types::{SyncGuid, Timestamp, VisitTransition};
 use crate::valid_guid::is_valid_places_guid;
@@ -247,6 +247,7 @@ pub fn apply_plan(
             }
         };
     }
+    finish_incoming(&conn)?;
     tx.commit()?;
     // It might make sense for fetch_outgoing to manage its own
     // time_chunked_transaction - even though doesn't seem a large bottleneck

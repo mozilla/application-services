@@ -203,3 +203,13 @@ pub(crate) fn get_meta<T: FromSql>(db: &Connection, key: &str) -> Result<Option<
     )?;
     Ok(res)
 }
+
+/// Delete all items in the temp tables we use for staging changes.
+pub(crate) fn delete_pending_temp_tables(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "DELETE FROM moz_updateoriginsupdate_temp;
+         DELETE FROM moz_updateoriginsdelete_temp;
+         DELETE FROM moz_updateoriginsinsert_temp;",
+    )?;
+    Ok(())
+}

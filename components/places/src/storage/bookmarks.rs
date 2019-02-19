@@ -210,6 +210,7 @@ impl InsertableItem {
 pub fn insert_bookmark(db: &impl ConnExt, bm: &InsertableItem) -> Result<SyncGuid> {
     let tx = db.unchecked_transaction()?;
     let result = insert_bookmark_in_tx(db, bm);
+    super::delete_pending_temp_tables(db.conn())?;
     match result {
         Ok(_) => tx.commit()?,
         Err(_) => tx.rollback()?,
@@ -349,6 +350,7 @@ fn delete_bookmark_in_tx(db: &impl ConnExt, guid: &SyncGuid) -> Result<bool> {
         "DELETE from moz_bookmarks WHERE id = :id",
         &[(":id", &record.row_id)],
     )?;
+    super::delete_pending_temp_tables(db.conn())?;
     Ok(true)
 }
 
@@ -716,6 +718,7 @@ pub fn insert_tree(db: &impl ConnExt, tree: &FolderNode) -> Result<()> {
     for insertable in insert_infos {
         insert_bookmark_in_tx(db, &insertable)?;
     }
+    super::delete_pending_temp_tables(db.conn())?;
     tx.commit()?;
     Ok(())
 }
