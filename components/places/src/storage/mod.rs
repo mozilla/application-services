@@ -9,7 +9,8 @@ pub mod bookmarks;
 pub mod history;
 
 use crate::error::Result;
-use crate::types::{SyncGuid, SyncStatus, Timestamp};
+use crate::msg_types::HistoryVisitInfo;
+use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition};
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use rusqlite::Row;
@@ -19,7 +20,7 @@ use std::fmt;
 use url::Url;
 
 // Typesafe way to manage RowIds. Does it make sense? A better way?
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Deserialize, Serialize, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Deserialize, Serialize, Default)]
 pub struct RowId(pub i64);
 
 impl From<RowId> for i64 {
@@ -162,4 +163,26 @@ fn new_page_info(db: &impl ConnExt, url: &Url, new_guid: Option<SyncGuid>) -> Re
         sync_status: SyncStatus::New,
         sync_change_counter: 0,
     })
+}
+
+impl HistoryVisitInfo {
+    pub(crate) fn from_row(row: &rusqlite::Row) -> Result<Self> {
+        let visit_type = VisitTransition::from_primitive(row.get_checked::<_, u8>("visit_type")?)
+            // Do we have an existing error we use for this? For now they
+            // probably don't care too much about VisitTransition, so this
+            // is fine.
+            .unwrap_or(VisitTransition::Link);
+        let visit_date: Timestamp = row.get_checked("visit_date")?;
+        Ok(Self {
+            url: row.get_checked("url")?,
+            title: row.get_checked("title")?,
+            timestamp: visit_date.0 as i64,
+            visit_type: visit_type as i32,
+        })
+    }
+}
+
+pub fn run_maintenance(conn: &impl ConnExt) -> Result<()> {
+    conn.execute_all(&["VACUUM", "PRAGMA optimize"])?;
+    Ok(())
 }

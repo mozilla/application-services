@@ -67,9 +67,15 @@ class FirefoxAccount : RustObject {
      * The caller should then start the OAuth Flow again with the "profile" scope.
      */
     fun getProfile(ignoreCache: Boolean): Profile {
-        return Profile(rustCall { e ->
+        val profileBuffer = rustCall { e ->
             FxaClient.INSTANCE.fxa_profile(validHandle(), ignoreCache, e)
-        })
+        }
+        try {
+            val p = MsgTypes.Profile.parseFrom(profileBuffer.asCodedInputStream()!!)
+            return Profile.fromMessage(p)
+        } finally {
+            FxaClient.INSTANCE.fxa_bytebuffer_free(profileBuffer)
+        }
     }
 
     /**

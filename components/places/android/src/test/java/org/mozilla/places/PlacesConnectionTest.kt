@@ -166,5 +166,19 @@ class PlacesConnectionTest {
         assertEquals("https://news.ycombinator.com/", db.matchUrl("news"))
     }
 
+    // Basically equivalent to test_get_visited in rust, but exercises the FFI,
+    // as well as the handling of invalid urls.
+    @Test
+    fun testGetVisitInfos() {
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.LINK, at = 100000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2", visitType = VisitType.LINK, at = 150000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/3", visitType = VisitType.LINK, at = 200000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/4", visitType = VisitType.LINK, at = 250000))
+        val infos = db.getVisitInfos(125000, 225000)
+        assert(infos.size == 2)
+        assert(infos[0].url == "https://www.example.com/2")
+        assert(infos[1].url == "https://www.example.com/3")
+    }
+
 }
 

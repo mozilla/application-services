@@ -2,3 +2,4 @@
 
 INFOPLIST_FILE = Logins/Info.plist
 LIBRARY_SEARCH_PATHS = "../../../target/universal/release" "../../../libs/ios/universal/sqlcipher/lib"
+SWIFT_OBJC_BRIDGING_HEADER = Logins/Logins.h

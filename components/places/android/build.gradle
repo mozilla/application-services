@@ -2,6 +2,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
+apply plugin: 'com.google.protobuf'
 
 android {
     compileSdkVersion 27
@@ -27,6 +28,12 @@ android {
 
     sourceSets {
         test.resources.srcDirs += "$buildDir/rustJniLibs/desktop"
+
+        main {
+            proto {
+                srcDir '../src'
+            }
+        }
     }
 
     // Help folks debugging by including symbols in our native libraries.  Yes, this makes the
@@ -95,11 +102,34 @@ configurations {
     jnaForTest
 }
 
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:3.0.0'
+    }
+    plugins {
+        javalite {
+            artifact = 'com.google.protobuf:protoc-gen-javalite:3.0.0'
+        }
+    }
+    generateProtoTasks {
+        all().each { task ->
+            task.builtins {
+                remove java
+            }
+            task.plugins {
+                javalite { }
+            }
+        }
+    }
+}
 dependencies {
     jnaForTest 'net.java.dev.jna:jna:4.5.2@jar'
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation 'net.java.dev.jna:jna:4.5.2@aar'
+
+    implementation 'com.google.protobuf:protobuf-lite:3.0.0'
+    implementation project(':as-support-library')
 
     // For reasons unknown, resolving the jnaForTest configuration directly
     // trips a nasty issue with the Android-Gradle plugin 3.2.1, like `Cannot

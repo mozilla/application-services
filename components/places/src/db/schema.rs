@@ -10,255 +10,13 @@
 use crate::db::{ConnectionType, PlacesDb};
 use crate::error::*;
 use crate::storage::bookmarks::create_bookmark_roots;
-use lazy_static::lazy_static;
 use rusqlite::NO_PARAMS;
 use sql_support::ConnExt;
 
-const VERSION: i64 = 4;
+const VERSION: i64 = 5;
 
-// XXX - TODO - moz_annos
-// XXX - TODO - moz_anno_attributes
-// XXX - TODO - moz_items_annos
-
-const CREATE_TABLES_SQL: &str = r#"
-    CREATE TABLE IF NOT EXISTS moz_places (
-        id INTEGER PRIMARY KEY,
-        url LONGVARCHAR NOT NULL,
-        title LONGVARCHAR,
-        -- note - desktop has rev_host here - that's now in moz_origin.
-        visit_count_local INTEGER NOT NULL DEFAULT 0,
-        visit_count_remote INTEGER NOT NULL DEFAULT 0,
-        hidden INTEGER DEFAULT 0 NOT NULL,
-        typed INTEGER DEFAULT 0 NOT NULL, -- XXX - is 'typed' ok? Note also we want this as a *count*, not a bool.
-        frecency INTEGER DEFAULT -1 NOT NULL,
-        -- XXX - splitting last visit into local and remote correct?
-        last_visit_date_local INTEGER NOT NULL DEFAULT 0,
-        last_visit_date_remote INTEGER NOT NULL DEFAULT 0,
-        guid TEXT NOT NULL UNIQUE,
-        foreign_count INTEGER DEFAULT 0 NOT NULL,
-        url_hash INTEGER DEFAULT 0 NOT NULL,
-        description TEXT, -- XXXX - title above?
-        preview_image_url TEXT,
-        -- origin_id would ideally be NOT NULL, but we use a trigger to keep
-        -- it up to date, so do perform the initial insert with a null.
-        origin_id INTEGER,
-        -- a couple of sync-related fields.
-        sync_status TINYINT NOT NULL DEFAULT 1, -- 1 is SyncStatus::New
-        sync_change_counter INTEGER NOT NULL DEFAULT 0, -- adding visits will increment this
-
-        FOREIGN KEY(origin_id) REFERENCES moz_origins(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS moz_places_tombstones (
-        guid TEXT PRIMARY KEY
-    ) WITHOUT ROWID;
-
-    CREATE TABLE IF NOT EXISTS moz_historyvisits (
-        id INTEGER PRIMARY KEY,
-        is_local INTEGER NOT NULL, -- XXX - not in desktop - will always be true for visits added locally, always false visits added by sync.
-        from_visit INTEGER, -- XXX - self-reference?
-        place_id INTEGER NOT NULL,
-        visit_date INTEGER NOT NULL,
-        visit_type INTEGER NOT NULL,
-        -- session INTEGER, -- XXX - what is 'session'? Appears unused.
-
-        FOREIGN KEY(place_id) REFERENCES moz_places(id) ON DELETE CASCADE,
-        FOREIGN KEY(from_visit) REFERENCES moz_historyvisits(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS moz_inputhistory (
-        place_id INTEGER NOT NULL,
-        input LONGVARCHAR NOT NULL,
-        use_count INTEGER,
-
-        PRIMARY KEY (place_id, input),
-        FOREIGN KEY(place_id) REFERENCES moz_places(id) ON DELETE CASCADE
-    );
-
-
-    CREATE TABLE IF NOT EXISTS moz_bookmarks (
-        id INTEGER PRIMARY KEY,
-        fk INTEGER DEFAULT NULL, -- place_id
-        type INTEGER NOT NULL,
-        parent INTEGER,
-        position INTEGER NOT NULL,
-        title TEXT, -- a'la bug 1356159, NULL is special here - it means 'not edited'
-        dateAdded INTEGER NOT NULL DEFAULT 0,
-        lastModified INTEGER NOT NULL DEFAULT 0,
-        guid TEXT NOT NULL UNIQUE CHECK(length(guid) == 12),
-
-        syncStatus INTEGER NOT NULL DEFAULT 0,
-        syncChangeCounter INTEGER NOT NULL DEFAULT 1,
-
-        -- bookmarks must have a fk to a URL, other types must not.
-        CHECK((type == 1 AND fk IS NOT NULL) OR (type > 1 AND fk IS NULL))
-        -- only the root is allowed to have a non-null parent
-        CHECK(guid == "root________" OR parent IS NOT NULL)
-
-        FOREIGN KEY(fk) REFERENCES moz_places(id) ON DELETE RESTRICT
-        FOREIGN KEY(parent) REFERENCES moz_bookmarks(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS moz_bookmarks_deleted (
-        guid TEXT PRIMARY KEY,
-        dateRemoved INTEGER NOT NULL
-    ) WITHOUT ROWID;
-
-    -- Note: desktop has/had a 'keywords' table, but we intentionally do not.
-
-    CREATE TABLE IF NOT EXISTS moz_origins (
-        id INTEGER PRIMARY KEY,
-        prefix TEXT NOT NULL,
-        host TEXT NOT NULL,
-        rev_host TEXT NOT NULL,
-        frecency INTEGER NOT NULL, -- XXX - why not default of -1 like in moz_places?
-        UNIQUE (prefix, host)
-    );
-
-    -- This table holds key-value metadata for Places and its consumers. Sync stores
-    -- the sync IDs for the bookmarks and history collections in this table, and the
-    -- last sync time for history.
-    CREATE TABLE IF NOT EXISTS moz_meta (
-        key TEXT PRIMARY KEY,
-        value NOT NULL
-    ) WITHOUT ROWID;
-
-    -- See https://searchfox.org/mozilla-central/source/toolkit/components/places/nsPlacesIndexes.h
-    CREATE INDEX IF NOT EXISTS hostindex ON moz_origins(rev_host);
-
-    CREATE INDEX IF NOT EXISTS url_hashindex ON moz_places(url_hash);
-    CREATE INDEX IF NOT EXISTS visitcountlocal ON moz_places(visit_count_local);
-    CREATE INDEX IF NOT EXISTS visitcountremote ON moz_places(visit_count_remote);
-    CREATE INDEX IF NOT EXISTS frecencyindex ON moz_places(frecency);
-    CREATE INDEX IF NOT EXISTS lastvisitdatelocalindex ON moz_places(last_visit_date_local);
-    CREATE INDEX IF NOT EXISTS lastvisitdateremoteindex ON moz_places(last_visit_date_remote);
-    CREATE UNIQUE INDEX IF NOT EXISTS guid_uniqueindex ON moz_places(guid);
-    CREATE INDEX IF NOT EXISTS originidindex ON moz_places(origin_id);
-
-    CREATE INDEX IF NOT EXISTS placedateindex ON moz_historyvisits(place_id, visit_date);
-    CREATE INDEX IF NOT EXISTS fromindex ON moz_historyvisits(from_visit);
-    CREATE INDEX IF NOT EXISTS dateindex ON moz_historyvisits(visit_date);
-    CREATE INDEX IF NOT EXISTS islocalindex ON moz_historyvisits(is_local);
-
-    CREATE INDEX IF NOT EXISTS itemlastmodifiedindex ON moz_bookmarks(fk, lastModified);
-"#;
-
-const EXCLUDED_VISIT_TYPES: &str = "0, 4, 7, 8, 9"; // stolen from desktop
-
-lazy_static! {
-    static ref CREATE_TRIGGERS_SQL: String = format!(r#"
-        CREATE TEMP TRIGGER moz_places_afterinsert_trigger
-        AFTER INSERT ON moz_places FOR EACH ROW
-        BEGIN
-            INSERT OR IGNORE INTO moz_origins(prefix, host, rev_host, frecency)
-            VALUES(get_prefix(NEW.url), get_host_and_port(NEW.url), reverse_host(get_host_and_port(NEW.url)), NEW.frecency);
-
-            -- This is temporary.
-            UPDATE moz_places SET
-              origin_id = (SELECT id FROM moz_origins
-                           WHERE prefix = get_prefix(NEW.url) AND
-                                 host = get_host_and_port(NEW.url) AND
-                                 rev_host = reverse_host(get_host_and_port(NEW.url)))
-            WHERE id = NEW.id;
-        END;
-
-
-        -- Note that while we create tombstones manually, we rely on this trigger to
-        -- delete any which might exist when a new record is written to moz_places.
-
-        CREATE TEMP TRIGGER moz_places_afterinsert_trigger_tombstone
-        AFTER INSERT ON moz_places
-        FOR EACH ROW
-        BEGIN
-            DELETE FROM moz_places_tombstones WHERE guid = NEW.guid;
-        END;
-
-        -- Triggers which update visit_count and last_visit_date based on historyvisits
-        -- table changes.
-
-        CREATE TEMP TRIGGER moz_historyvisits_afterinsert_trigger
-        AFTER INSERT ON moz_historyvisits FOR EACH ROW
-        BEGIN
-            UPDATE moz_places SET
-                visit_count_remote = visit_count_remote + (NEW.visit_type NOT IN ({excluded}) AND NOT(NEW.is_local)),
-                visit_count_local =  visit_count_local + (NEW.visit_type NOT IN ({excluded}) AND NEW.is_local),
-                last_visit_date_local = MAX(last_visit_date_local,
-                                            CASE WHEN NEW.is_local THEN NEW.visit_date ELSE 0 END),
-                last_visit_date_remote = MAX(last_visit_date_remote,
-                                             CASE WHEN NEW.is_local THEN 0 ELSE NEW.visit_date END)
-            WHERE id = NEW.place_id;
-        END;
-
-        CREATE TEMP TRIGGER moz_historyvisits_afterdelete_trigger
-        AFTER DELETE ON moz_historyvisits FOR EACH ROW
-        BEGIN
-            UPDATE moz_places SET
-                visit_count_local = visit_count_local - (OLD.visit_type NOT IN ({excluded}) AND OLD.is_local),
-                visit_count_remote = visit_count_remote - (OLD.visit_type NOT IN ({excluded}) AND NOT(OLD.is_local)),
-                last_visit_date_local = IFNULL((SELECT visit_date FROM moz_historyvisits
-                                                WHERE place_id = OLD.place_id AND is_local
-                                                ORDER BY visit_date DESC LIMIT 1), 0),
-                last_visit_date_remote = IFNULL((SELECT visit_date FROM moz_historyvisits
-                                                 WHERE place_id = OLD.place_id AND NOT(is_local)
-                                                 ORDER BY visit_date DESC LIMIT 1), 0)
-            WHERE id = OLD.place_id;
-        END;
-
-        CREATE TEMP TRIGGER moz_bookmarks_foreign_count_afterdelete_trigger
-        AFTER DELETE ON moz_bookmarks FOR EACH ROW
-        BEGIN
-            UPDATE moz_places
-            SET foreign_count = foreign_count - 1
-            WHERE id = OLD.fk;
-        END;
-
-        -- Note that the desktop versions of the triggers below call a note_sync_change()
-        -- function in some/all cases, which we will probably end up needing when we
-        -- come to sync.
-        CREATE TEMP TRIGGER moz_bookmarks_afterinsert_trigger
-        AFTER INSERT ON moz_bookmarks FOR EACH ROW
-        BEGIN
-            UPDATE moz_places
-                SET foreign_count = foreign_count + 1
-                WHERE id = NEW.fk;
-            DELETE from moz_bookmarks_deleted WHERE guid = NEW.guid;
-        END;
-
-        CREATE TEMP TRIGGER moz_bookmarks_foreign_count_afterupdate_trigger
-        AFTER UPDATE OF fk, syncChangeCounter ON moz_bookmarks FOR EACH ROW
-        BEGIN
-            UPDATE moz_places
-                SET foreign_count = foreign_count + 1
-                WHERE OLD.fk <> NEW.fk AND id = NEW.fk;
-            UPDATE moz_places
-                SET foreign_count = foreign_count - 1
-                WHERE OLD.fk <> NEW.fk AND id = OLD.fk;
-        END;
-
-        -- Unlike history, we manage bookmark tombstones via triggers. We do this
-        -- because we rely on foreign-keys to auto-remove children of a deleted folder.
-        CREATE TEMP TRIGGER moz_create_bookmarks_deleted_trigger
-        AFTER DELETE ON moz_bookmarks
-        FOR EACH ROW WHEN OLD.syncStatus = 2 -- SyncStatus::Normal
-        BEGIN
-            INSERT into moz_bookmarks_deleted VALUES (OLD.guid, now());
-        END;
-
-        -- Updating the guid is only allowed by Sync, and it will use a connection
-        -- without some of these triggers - so for now we prevent changing the guid
-        -- of an existing item.
-        CREATE TEMP TRIGGER moz_remove_bookmarks_deleted_update_trigger
-        AFTER UPDATE ON moz_bookmarks
-        FOR EACH ROW WHEN OLD.guid != NEW.guid
-        BEGIN
-            SELECT RAISE(FAIL, 'guids are immutable');
-        END;
-        "#, excluded = EXCLUDED_VISIT_TYPES);
-}
-
-// XXX - TODO - lots of desktop temp tables - but it's not clear they make sense here yet?
-
-// XXX - TODO - lots of favicon related tables - but it's not clear they make sense here yet?
+const CREATE_SCHEMA_SQL: &str = include_str!("../../sql/create_schema.sql");
+const CREATE_TRIGGERS_SQL: &str = include_str!("../../sql/create_triggers.sql");
 
 // Keys in the moz_meta table.
 // pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_COUNT: &'static str = "origin_frecency_count";
@@ -289,7 +47,7 @@ pub fn init(db: &PlacesDb) -> Result<()> {
     // (Note that later we expect some triggers specific to sync)
     if db.conn_type == ConnectionType::ReadWrite {
         log::debug!("Creating temp tables and triggers");
-        db.execute_batch(&CREATE_TRIGGERS_SQL)?;
+        db.execute_batch(CREATE_TRIGGERS_SQL)?;
     }
     Ok(())
 }
@@ -310,7 +68,10 @@ fn migration<F>(db: &PlacesDb, from: i64, to: i64, stmts: &[&str], extra_logic: 
 where
     F: FnOnce() -> Result<()>,
 {
-    use sql_support::ConnExt;
+    assert!(
+        to <= VERSION,
+        "Bug: Added migration without updating VERSION"
+    );
     // In the future maybe we want to avoid calling this
     let cur_version = get_current_schema_version(db)?;
     if cur_version == from {
@@ -337,18 +98,19 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
         return Ok(());
     }
 
-    migration(db, 2, 3, &[CREATE_TABLES_SQL], || Ok(()))?;
+    migration(db, 2, 3, &[CREATE_SCHEMA_SQL], || Ok(()))?;
     migration(
         db,
         3,
         4,
         &[
             // Previous versions had an incomplete version of moz_bookmarks.
-            "DROP TABLE BOOKMARKS",
-            CREATE_TABLES_SQL,
+            "DROP TABLE moz_bookmarks",
+            CREATE_SCHEMA_SQL,
         ],
         || create_bookmark_roots(&db.conn()),
     )?;
+    migration(db, 4, 5, &[CREATE_SCHEMA_SQL], || Ok(()))?;
     // Add more migrations here...
 
     if get_current_schema_version(db)? == VERSION {
@@ -361,7 +123,7 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
 
 pub fn create(db: &PlacesDb) -> Result<()> {
     log::debug!("Creating schema");
-    db.execute_batch(CREATE_TABLES_SQL)?;
+    db.execute_batch(CREATE_SCHEMA_SQL)?;
     create_bookmark_roots(&db.conn())?;
     db.execute(
         &format!("PRAGMA user_version = {version}", version = VERSION),
@@ -377,6 +139,13 @@ mod tests {
     use crate::db::PlacesDb;
     use crate::types::{SyncGuid, SyncStatus};
     use url::Url;
+
+    #[test]
+    fn test_create_schema_twice() {
+        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        conn.execute_batch(CREATE_SCHEMA_SQL)
+            .expect("should allow running twice");
+    }
 
     fn has_tombstone(conn: &PlacesDb, guid: &SyncGuid) -> bool {
         let count: Result<Option<u32>> = conn.try_query_row(

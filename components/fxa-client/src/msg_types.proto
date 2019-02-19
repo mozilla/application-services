@@ -1,0 +1,14 @@
+syntax = "proto2";
+
+package msg_types;
+
+option java_package = "org.mozilla.fxaclient.internal";
+option java_outer_classname = "MsgTypes";
+
+message Profile {
+    optional string uid = 1;
+    optional string email = 2;
+    optional string avatar = 3;
+    optional bool avatar_default = 4;
+    optional string display_name = 5;
+}

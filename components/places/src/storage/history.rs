@@ -7,6 +7,7 @@ use crate::db::PlacesDb;
 use crate::error::Result;
 use crate::frecency;
 use crate::hash;
+use crate::msg_types::{HistoryVisitInfo, HistoryVisitInfos};
 use crate::observation::VisitObservation;
 use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition};
 use rusqlite::types::ToSql;
@@ -148,6 +149,13 @@ fn add_visit(
         ],
     )?;
     let rid = db.conn().last_insert_rowid();
+    // Delete any tombstone that exists.
+    db.execute_named_cached(
+        "DELETE FROM moz_historyvisit_tombstones
+         WHERE place_id = :place_id
+           AND visit_date = :visit_date",
+        &[(":place_id", page_id), (":visit_date", visit_date)],
+    )?;
     Ok(RowId(rid))
 }
 
@@ -189,29 +197,149 @@ pub fn delete_place_by_guid(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
 }
 
 /// Delete all visits in a date range.
-pub fn delete_visits_since(db: &impl ConnExt, since: Timestamp) -> Result<()> {
+pub fn delete_visits_between(db: &impl ConnExt, start: Timestamp, end: Timestamp) -> Result<()> {
     let tx = db.unchecked_transaction()?;
-    delete_visits_since_in_tx(db, since)?;
+    delete_visits_between_in_tx(db, start, end)?;
     tx.commit()?;
     Ok(())
 }
 
-pub fn delete_visits_since_in_tx(db: &impl ConnExt, since: Timestamp) -> Result<()> {
+pub fn delete_place_visit_at_time(db: &impl ConnExt, place: &Url, visit: Timestamp) -> Result<()> {
+    let tx = db.unchecked_transaction()?;
+    delete_place_visit_at_time_in_tx(db, place.as_str(), visit)?;
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn prune_destructively(db: &impl ConnExt) -> Result<()> {
+    // For now, just fall back to wipe_local until we decide how this should work.
+    wipe_local(db)
+}
+
+pub fn wipe_local(db: &impl ConnExt) -> Result<()> {
+    let tx = db.unchecked_transaction()?;
+    wipe_local_in_tx(db)?;
+    tx.commit()?;
+    // Note: SQLite cannot VACUUM within a transaction.
+    db.conn().execute("VACUUM", NO_PARAMS)?;
+    Ok(())
+}
+
+fn wipe_local_in_tx(db: &impl ConnExt) -> Result<()> {
+    use crate::frecency::DEFAULT_FRECENCY_SETTINGS;
+    db.execute_all(&[
+        "DELETE FROM moz_places
+         WHERE foreign_count == 0",
+        "DELETE FROM moz_historyvisits",
+        "DELETE FROM moz_places_tombstones",
+        "DELETE FROM moz_inputhistory",
+        "DELETE FROM moz_historyvisit_tombstones",
+        "DELETE FROM moz_origins
+         WHERE id NOT IN (SELECT origin_id FROM moz_places)",
+        &format!(
+            "UPDATE moz_places SET
+                frecency = {unvisited_bookmark_frec},
+                sync_change_counter = 0",
+            unvisited_bookmark_frec = DEFAULT_FRECENCY_SETTINGS.unvisited_bookmark_bonus
+        ),
+    ])?;
+
+    let need_frecency_update =
+        db.query_rows_and_then_named("SELECT id FROM moz_places", &[], |r| {
+            r.get_checked::<_, RowId>(0)
+        })?;
+    // Update the frecency for any remaining items, which basically means just
+    // for the bookmarks.
+    for row_id in need_frecency_update {
+        update_frecency(db.conn(), row_id, None)?;
+    }
+    Ok(())
+}
+
+fn delete_place_visit_at_time_in_tx(
+    db: &impl ConnExt,
+    url: &str,
+    visit_date: Timestamp,
+) -> Result<()> {
+    let place = db.conn().try_query_row(
+        "SELECT h.id
+         FROM moz_places h
+         JOIN moz_historyvisits v
+           ON v.place_id = h.id
+         WHERE v.visit_date = :visit_date
+           AND h.url_hash = hash(:url)
+           AND h.url = :url
+         LIMIT 1",
+        &[(":url", &url), (":visit_date", &visit_date)],
+        |row| row.get_checked::<_, RowId>(0),
+        true,
+    )?;
+
+    let place_id = if let Some(id) = place {
+        id
+    } else {
+        // No such visit, nothing to do.
+        return Ok(());
+    };
+
+    db.conn().execute_named_cached(
+        "INSERT OR IGNORE INTO moz_historyvisit_tombstones(place_id, visit_date)
+         VALUES(:place_id, :visit_date)",
+        &[(":place_id", &place_id), (":visit_date", &visit_date)],
+    )?;
+
+    db.conn().execute_named_cached(
+        "DELETE FROM moz_historyvisits
+         WHERE visit_date = :visit_date
+           AND place_id = :place_id",
+        &[(":place_id", &place_id), (":visit_date", &visit_date)],
+    )?;
+
+    let to_clean = db.conn().query_row_and_then_named(
+        "SELECT
+            id,
+            (foreign_count != 0) AS has_foreign,
+            ((last_visit_date_local + last_visit_date_remote) != 0) as has_visits
+        FROM moz_places
+        WHERE id = :id",
+        &[(":id", &place_id)],
+        PageToClean::from_row,
+        true,
+    )?;
+
+    cleanup_pages(db, &[to_clean])?;
+    Ok(())
+}
+
+pub fn delete_visits_between_in_tx(
+    db: &impl ConnExt,
+    start: Timestamp,
+    end: Timestamp,
+) -> Result<()> {
     // Like desktop's removeVisitsByFilter, we query the visit and place ids
     // affected, then delete all visits, then delete all place ids in the set
     // which are orphans after the delete.
-    let sql = "SELECT id, place_id FROM moz_historyvisits WHERE visit_date >= :since";
-    let visits =
-        db.query_rows_and_then_named(sql, &[(":since", &since)], |row| -> rusqlite::Result<_> {
+    let sql = "
+        SELECT id, place_id, visit_date
+        FROM moz_historyvisits
+        WHERE visit_date
+        BETWEEN :start AND :end
+    ";
+    let visits = db.query_rows_and_then_named(
+        sql,
+        &[(":start", &start), (":end", &end)],
+        |row| -> rusqlite::Result<_> {
             Ok((
                 row.get_checked::<_, RowId>(0)?,
                 row.get_checked::<_, RowId>(1)?,
+                row.get_checked::<_, Timestamp>(2)?,
             ))
-        })?;
+        },
+    )?;
 
     sql_support::each_chunk_mapped(
         &visits,
-        |(visit_id, _)| visit_id,
+        |(visit_id, _, _)| visit_id,
         |chunk, _| -> Result<()> {
             db.conn().execute(
                 &format!(
@@ -224,10 +352,22 @@ pub fn delete_visits_since_in_tx(db: &impl ConnExt, since: Timestamp) -> Result<
         },
     )?;
 
+    // Insert tombstones for the deleted visits.
+    if visits.len() > 0 {
+        let sql = format!(
+            "INSERT OR IGNORE INTO moz_historyvisit_tombstones(place_id, visit_date) VALUES {}",
+            sql_support::repeat_display(visits.len(), ",", |i, f| {
+                let (_, place_id, visit_date) = visits[i];
+                write!(f, "({},{})", place_id.0, visit_date.0)
+            })
+        );
+        db.conn().execute(&sql, NO_PARAMS)?;
+    }
+
     // Find out which pages have been possibly orphaned and clean them up.
     sql_support::each_chunk_mapped(
         &visits,
-        |(_, place_id)| place_id.0,
+        |(_, place_id, _)| place_id.0,
         |chunk, _| -> Result<()> {
             let query = format!(
                 "SELECT id, -- url, url_hash, guid
@@ -334,9 +474,9 @@ pub mod history_sync {
     use super::*;
     use crate::history_sync::record::{HistoryRecord, HistoryRecordVisit};
     use crate::history_sync::HISTORY_TTL;
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct FetchedVisit {
         pub is_local: bool,
         pub visit_date: Timestamp,
@@ -446,17 +586,60 @@ pub mod history_sync {
             }
             None => new_page_info(db, &url, Some(incoming_guid.clone()))?,
         };
-        for visit in visits {
-            let transition = VisitTransition::from_primitive(visit.transition)
-                .expect("these should already be validated");
-            add_visit(
-                db,
-                &page_info.row_id,
-                &None,
-                &visit.date.into(),
-                &transition,
-                &false,
+
+        if visits.len() > 0 {
+            // Skip visits that are in tombstones, or that happen at the same time
+            // as visit that's already present. The 2nd lets us avoid inserting
+            // visits that we sent up to the server in the first place.
+            //
+            // It does cause us to ignore visits that legitimately happen
+            // at the same time, but that's probably fine and not worth
+            // worrying about.
+            let mut visits_to_skip: HashSet<Timestamp> = db.query_rows_into(
+                &format!(
+                    "SELECT t.visit_date AS visit_date
+                     FROM moz_historyvisit_tombstones t
+                     WHERE t.place_id = {place}
+                       AND t.visit_date IN ({dates})
+                     UNION ALL
+                     SELECT v.visit_date AS visit_date
+                     FROM moz_historyvisits v
+                     WHERE v.place_id = {place}
+                       AND v.visit_date IN ({dates})",
+                    place = page_info.row_id,
+                    dates = sql_support::repeat_display(visits.len(), ",", |i, f| write!(
+                        f,
+                        "{}",
+                        Timestamp::from(visits[i].date).0
+                    )),
+                ),
+                &[],
+                |row| row.get_checked::<_, Timestamp>(0),
             )?;
+
+            visits_to_skip.reserve(visits.len());
+
+            for visit in visits {
+                let timestamp = Timestamp::from(visit.date);
+                // Don't insert visits that have been locally deleted.
+                if visits_to_skip.contains(&timestamp) {
+                    continue;
+                }
+                let transition = VisitTransition::from_primitive(visit.transition)
+                    .expect("these should already be validated");
+                add_visit(
+                    db,
+                    &page_info.row_id,
+                    &None,
+                    &timestamp,
+                    &transition,
+                    &false,
+                )?;
+                // Make sure that even if a history entry weirdly has the same visit
+                // twice, we don't insert it twice. (This avoids us needing to
+                // recompute visits_to_skip in each step of the iteration)
+                visits_to_skip.insert(timestamp);
+            }
         }
         // XXX - we really need a better story for frecency-boost than
         // Option<bool> - None vs Some(false) is confusing. We should use an enum.
@@ -793,11 +976,30 @@ pub fn get_visited_urls(
     )?)
 }
 
+pub fn get_visit_infos(
+    db: &PlacesDb,
+    start: Timestamp,
+    end: Timestamp,
+) -> Result<HistoryVisitInfos> {
+    let infos = db.query_rows_and_then_named_cached(
+        "SELECT h.url, h.title, v.visit_date, v.visit_type
+         FROM moz_places h
+         JOIN moz_historyvisits v
+           ON h.id = v.place_id
+         WHERE v.visit_date BETWEEN :start AND :end
+         ORDER BY v.visit_date",
+        &[(":start", &start), (":end", &end)],
+        HistoryVisitInfo::from_row,
+    )?;
+    Ok(HistoryVisitInfos { infos })
+}
+
 #[cfg(test)]
 mod tests {
     use super::history_sync::*;
     use super::*;
-    use crate::history_sync::record::HistoryRecord;
+    use crate::history_sync::record::{HistoryRecord, HistoryRecordVisit};
+    use crate::types::Timestamp;
     use std::time::{Duration, SystemTime};
 
     #[test]
@@ -1205,7 +1407,7 @@ mod tests {
         .expect("should work");
 
         // Delete some.
-        delete_visits_since(&conn, late).expect("should work");
+        delete_visits_between(&conn, late, Timestamp::now()).expect("should work");
         // should have removed one of the visits to /1
         let pi = fetch_page_info(&conn, &url1)
             .expect("should work")
@@ -1453,5 +1655,254 @@ mod tests {
         );
         assert_eq!(get_tombstone_count(&conn), 0, "should be no tombstones");
         Ok(())
+    }
+
+    fn assert_tombstones(c: &Connection, expected: &[(RowId, Timestamp)]) {
+        let mut expected: Vec<(RowId, Timestamp)> = expected.into();
+        expected.sort();
+        let mut tombstones = c
+            .query_rows_and_then_named(
+                "SELECT place_id, visit_date FROM moz_historyvisit_tombstones",
+                &[],
+                |row| -> Result<_> {
+                    Ok((
+                        row.get_checked::<_, RowId>(0)?,
+                        row.get_checked::<_, Timestamp>(1)?,
+                    ))
+                },
+            )
+            .unwrap();
+        tombstones.sort();
+        assert_eq!(expected, tombstones);
+    }
+
+    #[test]
+    fn test_visit_tombstones() {
+        use url::Url;
+        let _ = env_logger::try_init();
+        let mut conn = PlacesDb::open_in_memory(None).unwrap();
+        let now = Timestamp::now();
+
+        let urls = &[
+            Url::parse("http://example.com/1").unwrap(),
+            Url::parse("http://example.com/2").unwrap(),
+        ];
+
+        let dates = &[
+            Timestamp(now.0 - 10000),
+            Timestamp(now.0 - 5000),
+            Timestamp(now.0),
+        ];
+        for url in urls {
+            for &date in dates {
+                get_custom_observed_page(&mut conn, url.as_str(), |o| o.with_at(date)).unwrap();
+            }
+        }
+        delete_place_visit_at_time(&conn, &urls[0], dates[1]).unwrap();
+        // Delete the most recent visit.
+        delete_visits_between(&conn, Timestamp(now.0 - 4000), Timestamp::now()).unwrap();
+
+        let (info0, visits0) = fetch_visits(&conn, &urls[0], 100).unwrap().unwrap();
+        assert_eq!(
+            visits0,
+            &[FetchedVisit {
+                is_local: true,
+                visit_date: dates[0],
+                visit_type: Some(VisitTransition::Link)
+            },]
+        );
+
+        assert!(
+            visits0.iter().find(|v| v.visit_date == dates[1]).is_none(),
+            "Shouldn't have deleted visit"
+        );
+
+        let (info1, mut visits1) = fetch_visits(&conn, &urls[1], 100).unwrap().unwrap();
+        visits1.sort_by_key(|v| v.visit_date);
+        // Shouldn't have most recent visit, but should still have the dates[1]
+        // visit, which should be uneffected.
+        assert_eq!(
+            visits1,
+            &[
+                FetchedVisit {
+                    is_local: true,
+                    visit_date: dates[0],
+                    visit_type: Some(VisitTransition::Link)
+                },
+                FetchedVisit {
+                    is_local: true,
+                    visit_date: dates[1],
+                    visit_type: Some(VisitTransition::Link)
+                },
+            ]
+        );
+
+        // Make sure syncing doesn't resurrect them.
+        apply_synced_visits(
+            &conn,
+            &info0.guid,
+            &info0.url,
+            &Some(info0.title.clone()),
+            // Ignore dates[0] since we know it's present.
+            &dates
+                .iter()
+                .map(|&d| HistoryRecordVisit {
+                    date: d.into(),
+                    transition: VisitTransition::Link as u8,
+                })
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+
+        let (info0, visits0) = fetch_visits(&conn, &urls[0], 100).unwrap().unwrap();
+        assert_eq!(
+            visits0,
+            &[FetchedVisit {
+                is_local: true,
+                visit_date: dates[0],
+                visit_type: Some(VisitTransition::Link)
+            }]
+        );
+
+        assert_tombstones(
+            &conn,
+            &[
+                (info0.row_id, dates[1]),
+                (info0.row_id, dates[2]),
+                (info1.row_id, dates[2]),
+            ],
+        );
+
+        // Delete the last visit from info0. This should delete the page entirely,
+        // as well as it's tomebstones.
+        delete_place_visit_at_time(&conn, &urls[0], dates[0]).unwrap();
+
+        assert!(fetch_visits(&conn, &urls[0], 100).unwrap().is_none());
+
+        assert_tombstones(&conn, &[(info1.row_id, dates[2])]);
+    }
+
+    #[test]
+    fn test_wipe_local() {
+        use crate::frecency::DEFAULT_FRECENCY_SETTINGS;
+        use crate::storage::bookmarks::{
+            self, BookmarkPosition, BookmarkRootGuid, InsertableBookmark, InsertableItem,
+        };
+        use url::Url;
+        let _ = env_logger::try_init();
+        let mut conn = PlacesDb::open_in_memory(None).unwrap();
+        let ts = Timestamp::now().0 - 5_000_000;
+        // Add a number of visits across a handful of origins.
+        for o in 0..10 {
+            for i in 0..100 {
+                for t in 0..3 {
+                    get_custom_observed_page(
+                        &mut conn,
+                        &format!("http://www.example{}.com/{}", o, i),
+                        |obs| obs.with_at(Timestamp(ts + t * 1000 + i * 10_000 + o * 100_000)),
+                    )
+                    .unwrap();
+                }
+            }
+        }
+        // Add some bookmarks.
+        let b0 = (
+            SyncGuid("aaaaaaaaaaaa".into()),
+            Url::parse("http://www.example3.com/5").unwrap(),
+        );
+        let b1 = (
+            SyncGuid("bbbbbbbbbbbb".into()),
+            Url::parse("http://www.example6.com/10").unwrap(),
+        );
+        let b2 = (
+            SyncGuid("cccccccccccc".into()),
+            Url::parse("http://www.example9.com/4").unwrap(),
+        );
+        for (guid, url) in &[&b0, &b1, &b2] {
+            bookmarks::insert_bookmark(
+                &conn,
+                &InsertableItem::Bookmark(InsertableBookmark {
+                    parent_guid: BookmarkRootGuid::Unfiled.into(),
+                    position: BookmarkPosition::Append,
+                    date_added: None,
+                    last_modified: None,
+                    guid: Some(guid.clone()),
+                    url: url.clone(),
+                    title: None,
+                }),
+            )
+            .unwrap();
+        }
+
+        // Make sure tombstone insertions stick.
+        conn.execute_all(&[
+            &format!(
+                "UPDATE moz_places set sync_status = {}",
+                (SyncStatus::Normal as u8)
+            ),
+            &format!(
+                "UPDATE moz_bookmarks set syncStatus = {}",
+                (SyncStatus::Normal as u8)
+            ),
+        ])
+        .unwrap();
+
+        // Ensure some various tombstones exist
+        delete_place_by_guid(
+            &conn,
+            &url_to_guid(&conn, &Url::parse("http://www.example8.com/5").unwrap())
+                .unwrap()
+                .unwrap(),
+        )
+        .unwrap();
+
+        delete_place_visit_at_time(
+            &conn,
+            &Url::parse("http://www.example10.com/5").unwrap(),
+            Timestamp(ts + 5 * 10_000 + 10 * 100_000),
+        )
+        .unwrap();
+
+        assert!(bookmarks::delete_bookmark(&conn, &b0.0).unwrap());
+
+        wipe_local(&conn).unwrap();
+
+        let places = conn
+            .query_rows_and_then_named(
+                "SELECT * FROM moz_places ORDER BY url ASC",
+                &[],
+                PageInfo::from_row,
+            )
+            .unwrap();
+        assert_eq!(places.len(), 2);
+        assert_eq!(places[0].url, b1.1);
+        assert_eq!(places[1].url, b2.1);
+        for p in &places {
+            assert_eq!(
+                p.frecency,
+                DEFAULT_FRECENCY_SETTINGS.unvisited_bookmark_bonus
+            );
+            assert_eq!(p.visit_count_local, 0);
+            assert_eq!(p.visit_count_remote, 0);
+            assert_eq!(p.last_visit_date_local, Timestamp(0));
+            assert_eq!(p.last_visit_date_remote, Timestamp(0));
+        }
+
+        let counts_sql = [
+            (0i64, "SELECT COUNT(*) FROM moz_historyvisits"),
+            (2, "SELECT COUNT(*) FROM moz_origins"),
+            (7, "SELECT COUNT(*) FROM moz_bookmarks"), // the two we added + 5 roots
+            (1, "SELECT COUNT(*) FROM moz_bookmarks_deleted"),
+            (0, "SELECT COUNT(*) FROM moz_historyvisit_tombstones"),
+            (0, "SELECT COUNT(*) FROM moz_places_tombstones"),
+        ];
+        for (want, query) in &counts_sql {
+            assert_eq!(
+                *want,
+                conn.query_one::<i64>(query).unwrap(),
+                "Unexpected value for {}",
+                query
+            );
+        }
     }
 }

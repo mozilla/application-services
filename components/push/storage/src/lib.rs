@@ -4,10 +4,8 @@
  *
  * Handle Push data storage
  */
-extern crate crypto;
 
 mod db;
-mod error;
 mod record;
 mod schema;
 mod types;

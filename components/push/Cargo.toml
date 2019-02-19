@@ -5,4 +5,5 @@
 # authors = []
 
 [workspace]
-members = ["communications", "crypto", "delivery_mgr", "notifier", "storage", "subscriber"]
+members = ["communications", "crypto", "storage",  "error", "config"]
+# extra members = ["delivery_mgr", "notifier", "subscriber",]

@@ -1,0 +1,7 @@
+[package]
+name = "config"
+version = "0.1.0"
+authors = ["jrconlin <me+crypt@jrconlin.com>"]
+edition = "2018"
+
+[dependencies]

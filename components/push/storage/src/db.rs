@@ -1,10 +1,11 @@
 use std::{ops::Deref, path::Path};
 
-use rusqlite::{types::ToSql, Connection, NO_PARAMS};
+use rusqlite::{types::ToSql, Connection};
 use sql_support::ConnExt;
 
+use push_errors::Result;
+
 use crate::{
-    error::{Error, Result},
     record::PushRecord,
     schema,
 };
@@ -14,11 +15,15 @@ use crate::{
 pub trait Storage {
     fn get_record(&self, uaid: &str, chid: &str) -> Result<Option<PushRecord>>;
 
-    fn put_record(&self, uaid: &str, record: &PushRecord) -> Result<bool>;
+    fn put_record(&self, record: &PushRecord) -> Result<bool>;
 
     fn delete_record(&self, uaid: &str, chid: &str) -> Result<bool>;
 
     fn delete_all_records(&self, uaid: &str) -> Result<()>;
+
+    fn get_channel_list(&self, uaid: &str) -> Result<Vec<String>>;
+
+    fn update_endpoint(&self, uaid: &str, channel_id: &str, endpoint: &str) -> Result<bool>;
 }
 
 pub struct PushDb {
@@ -32,11 +37,11 @@ impl PushDb {
         Ok(Self { db })
     }
 
-    pub fn open(path: impl AsRef<Path>) -> Result<impl Storage> {
+    pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         Ok(Self::with_connection(Connection::open(path)?)?)
     }
 
-    fn open_in_memory() -> Result<impl Storage> {
+    pub fn open_in_memory() -> Result<Self> {
         let conn = Connection::open_in_memory()?;
         Ok(Self::with_connection(conn)?)
     }
@@ -56,39 +61,33 @@ impl ConnExt for PushDb {
 }
 
 impl Storage for PushDb {
-    fn get_record(&self, _uaid: &str, chid: &str) -> Result<Option<PushRecord>> {
+    fn get_record(&self, uaid: &str, chid: &str) -> Result<Option<PushRecord>> {
         let query = format!(
             "SELECT {common_cols}
-             FROM push_record WHERE channel_id = :chid",
+             FROM push_record WHERE uaid = :uaid AND channel_id = :chid",
             common_cols = schema::COMMON_COLS,
         );
         Ok(self.try_query_row(
             &query,
-            &[(":chid", &chid as &ToSql)],
+            &[(":uaid", &uaid as &ToSql),
+              (":chid", &chid as &ToSql)],
             PushRecord::from_row,
             false,
         )?)
     }
 
-    fn put_record(&self, _uaid: &str, record: &PushRecord) -> Result<bool> {
+    fn put_record(&self, record: &PushRecord) -> Result<bool> {
         let query = format!(
             "INSERT INTO push_record
                  ({common_cols})
              VALUES
-                 (:channel_id, :endpoint, :scope, :origin_attributes, :key, :system_record,
-                  :recent_message_ids, :push_count, :last_push, :ctime, :quota, :app_server_key,
-                  :native_id)
-             ON CONFLICT(channel_id) DO UPDATE SET
+                 (:uaid, :channel_id, :endpoint, :scope, :key, :ctime, :app_server_key, :native_id)
+             ON CONFLICT(uaid, channel_id) DO UPDATE SET
+                 uaid = :uaid,
                  endpoint = :endpoint,
                  scope = :scope,
-                 origin_attributes = :origin_attributes,
                  key = :key,
-                 system_record = :system_record,
-                 recent_message_ids = :recent_message_ids,
-                 push_count = :push_count,
-                 last_push = :last_push,
                  ctime = :ctime,
-                 quota = :quota,
                  app_server_key = :app_server_key,
                  native_id = :native_id",
             common_cols = schema::COMMON_COLS,
@@ -96,22 +95,12 @@ impl Storage for PushDb {
         let affected_rows = self.execute_named(
             &query,
             &[
+                (":uaid", &record.uaid),
                 (":channel_id", &record.channel_id),
                 (":endpoint", &record.endpoint),
                 (":scope", &record.scope),
-                (":origin_attributes", &record.origin_attributes),
                 (":key", &record.key),
-                (":system_record", &record.system_record),
-                (
-                    ":recent_message_ids",
-                    &serde_json::to_string(&record.recent_message_ids).map_err(|e| {
-                        Error::internal(&format!("Serializing recent_message_ids: {}", e))
-                    })?,
-                ),
-                (":push_count", &record.push_count),
-                (":last_push", &record.last_push),
                 (":ctime", &record.ctime),
-                (":quota", &record.quota),
                 (":app_server_key", &record.app_server_key),
                 (":native_id", &record.native_id),
             ],
@@ -119,36 +108,60 @@ impl Storage for PushDb {
         Ok(affected_rows == 1)
     }
 
-    fn delete_record(&self, _uaid: &str, chid: &str) -> Result<bool> {
+    fn delete_record(&self, uaid: &str, chid: &str) -> Result<bool> {
         let affected_rows = self.execute_named(
             "DELETE FROM push_record
-             WHERE channel_id = :chid",
-            &[(":chid", &chid as &ToSql)],
+             WHERE uaid = :uaid AND channel_id = :chid",
+            &[(":uaid", &uaid as &ToSql),
+              (":chid", &chid as &ToSql)],
         )?;
         Ok(affected_rows == 1)
     }
 
-    fn delete_all_records(&self, _uaid: &str) -> Result<()> {
-        self.execute("DELETE FROM push_record", NO_PARAMS)?;
+    fn delete_all_records(&self, uaid: &str) -> Result<()> {
+        self.execute_named("DELETE FROM push_record WHERE uaid = :uaid", &[(":uaid", &uaid as &ToSql)])?;
         Ok(())
+    }
+
+    fn get_channel_list(&self, uaid: &str) -> Result<Vec<String>> {
+        self.query_rows_and_then_named(
+            "SELECT channel_id FROM push_record WHERE uaid = :uaid",
+            &[(":uaid", &uaid as &ToSql)],
+            |row| -> Result<String> { Ok(row.get_checked(0)?) }
+        )
+    }
+
+    fn update_endpoint(&self, uaid: &str, channel_id: &str, endpoint: &str) -> Result<bool> {
+        let affected_rows = self.execute_named(
+            "UPDATE push_record set endpoint = :endpoint
+             WHERE uaid = :uaid AND channel_id = :channel_id",
+            &[
+                (":endpoint", &endpoint.to_owned()),
+                (":uaid", &uaid.to_owned()),
+                (":channel_id", &channel_id.to_owned()),
+            ],
+        )?;
+        Ok(affected_rows == 1)
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::PushDb;
-    use crate::{db::Storage, error::Result, record::PushRecord};
     use crypto::{Crypto, Cryptography};
+    use push_errors::Result;
+
+    use super::PushDb;
+    use crate::{db::Storage, record::PushRecord};
+
+    const DUMMY_UAID: &'static str = "abad1dea00000000aabbccdd00000000";
 
     fn prec() -> PushRecord {
         PushRecord::new(
-            "",
+            DUMMY_UAID,
             "deadbeef00000000decafbad00000000",
             "https://example.com/update",
             "https://example.com/1",
-            "appId=1",
             Crypto::generate_key().expect("Couldn't generate_key"),
-            false,
         )
     }
 
@@ -158,16 +171,15 @@ mod test {
         let rec = prec();
         let chid = &rec.channel_id;
 
-        assert!(db.get_record("", chid)?.is_none());
-
-        assert!(db.put_record("", &rec)?);
-        assert!(db.get_record("", chid)?.is_some());
-        assert_eq!(db.get_record("", chid)?, Some(rec.clone()));
+        assert!(db.get_record(DUMMY_UAID, chid)?.is_none());
+        assert!(db.put_record(&rec)?);
+        assert!(db.get_record(DUMMY_UAID, chid)?.is_some());
+        assert_eq!(db.get_record(DUMMY_UAID, chid)?, Some(rec.clone()));
 
         let mut rec2 = rec.clone();
-        rec2.increment()?;
-        assert!(db.put_record("", &rec2)?);
-        let result = db.get_record("", chid)?.unwrap();
+        rec2.endpoint = "https://example.com/update2".to_owned();
+        assert!(db.put_record(&rec2)?);
+        let result = db.get_record(DUMMY_UAID, chid)?.unwrap();
         assert_ne!(result, rec);
         assert_eq!(result, rec2);
         Ok(())
@@ -179,10 +191,10 @@ mod test {
         let rec = prec();
         let chid = &rec.channel_id;
 
-        assert!(db.put_record("", &rec)?);
-        assert!(db.get_record("", chid)?.is_some());
-        assert!(db.delete_record("", chid)?);
-        assert!(db.get_record("", chid)?.is_none());
+        assert!(db.put_record(&rec)?);
+        assert!(db.get_record(DUMMY_UAID, chid)?.is_some());
+        assert!(db.delete_record(DUMMY_UAID, chid)?);
+        assert!(db.get_record(DUMMY_UAID, chid)?.is_none());
         Ok(())
     }
 
@@ -194,12 +206,12 @@ mod test {
         rec2.channel_id = "deadbeef00000002".to_owned();
         rec2.endpoint = "https://example.com/update2".to_owned();
 
-        assert!(db.put_record("", &rec)?);
-        assert!(db.put_record("", &rec2)?);
-        assert!(db.get_record("", &rec.channel_id)?.is_some());
-        db.delete_all_records("")?;
-        assert!(db.get_record("", &rec.channel_id)?.is_none());
-        assert!(db.get_record("", &rec2.channel_id)?.is_none());
+        assert!(db.put_record(&rec)?);
+        assert!(db.put_record(&rec2)?);
+        assert!(db.get_record(DUMMY_UAID, &rec.channel_id)?.is_some());
+        db.delete_all_records(DUMMY_UAID)?;
+        assert!(db.get_record(DUMMY_UAID, &rec.channel_id)?.is_none());
+        assert!(db.get_record(DUMMY_UAID, &rec2.channel_id)?.is_none());
         Ok(())
     }
 }

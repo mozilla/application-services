@@ -203,6 +203,12 @@ impl Payload {
     }
 
     #[inline]
+    pub fn with_sortindex(mut self, index: i32) -> Payload {
+        self.data.insert("sortindex".into(), index.into());
+        self
+    }
+
+    #[inline]
     pub fn id(&self) -> &str {
         &self.id[..]
     }

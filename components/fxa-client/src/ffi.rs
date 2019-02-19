@@ -14,9 +14,12 @@
 
 #![cfg(feature = "ffi")]
 
-use crate::{AccessTokenInfo, Error, ErrorKind, Profile, SyncKeys};
+#[cfg(feature = "browserid")]
+use crate::SyncKeys;
+use crate::{msg_types, AccessTokenInfo, Error, ErrorKind, Profile};
 use ffi_support::{
-    destroy_c_string, opt_rust_string_to_c, rust_string_to_c, ErrorCode, ExternError, IntoFfi,
+    destroy_c_string, implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf,
+    opt_rust_string_to_c, rust_string_to_c, ErrorCode, ExternError, IntoFfi,
 };
 use std::os::raw::c_char;
 
@@ -66,12 +69,14 @@ impl From<Error> for ExternError {
 // safety problems from safe rust code), but they're depended upon by the FFI, and cannot be
 // changed.
 
+#[cfg(feature = "browserid")]
 #[repr(C)]
 pub struct SyncKeysC {
     sync_key: *mut c_char,
     xcs: *mut c_char,
 }
 
+#[cfg(feature = "browserid")]
 impl Drop for SyncKeysC {
     fn drop(&mut self) {
         unsafe {
@@ -81,6 +86,7 @@ impl Drop for SyncKeysC {
     }
 }
 
+#[cfg(feature = "browserid")]
 impl From<SyncKeys> for SyncKeysC {
     fn from(sync_keys: SyncKeys) -> Self {
         SyncKeysC {
@@ -120,34 +126,14 @@ impl From<AccessTokenInfo> for AccessTokenInfoC {
     }
 }
 
-#[repr(C)]
-pub struct ProfileC {
-    uid: *mut c_char,
-    email: *mut c_char,
-    avatar: *mut c_char,
-    avatar_default: u8, // JNA dislikes booleans.
-    display_name: *mut c_char,
-}
-
-impl Drop for ProfileC {
-    fn drop(&mut self) {
-        unsafe {
-            destroy_c_string(self.uid);
-            destroy_c_string(self.email);
-            destroy_c_string(self.avatar);
-            destroy_c_string(self.display_name);
-        }
-    }
-}
-
-impl From<Profile> for ProfileC {
-    fn from(profile: Profile) -> Self {
-        ProfileC {
-            uid: rust_string_to_c(profile.uid),
-            email: rust_string_to_c(profile.email),
-            avatar: rust_string_to_c(profile.avatar),
-            avatar_default: profile.avatar_default as u8,
-            display_name: opt_rust_string_to_c(profile.display_name),
+impl From<Profile> for msg_types::Profile {
+    fn from(p: Profile) -> Self {
+        msg_types::Profile {
+            avatar: Some(p.avatar),
+            avatar_default: Some(p.avatar_default),
+            display_name: p.display_name,
+            email: Some(p.email),
+            uid: Some(p.uid),
         }
     }
 }
@@ -171,6 +157,9 @@ macro_rules! implement_into_ffi_converting {
     };
 }
 
+#[cfg(feature = "browserid")]
 implement_into_ffi_converting!(SyncKeys, SyncKeysC);
 implement_into_ffi_converting!(AccessTokenInfo, AccessTokenInfoC);
-implement_into_ffi_converting!(Profile, ProfileC);
+
+implement_into_ffi_by_protobuf!(msg_types::Profile);
+implement_into_ffi_by_delegation!(Profile, msg_types::Profile);

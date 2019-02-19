@@ -11,6 +11,7 @@ import com.sun.jna.Pointer
 import com.sun.jna.PointerType
 import com.sun.jna.StringArray
 import java.lang.reflect.Proxy
+import mozilla.appservices.support.RustBuffer
 
 internal interface LibPlacesFFI : Library {
     companion object {
@@ -112,11 +113,41 @@ internal interface LibPlacesFFI : Library {
             out_err: RustError.ByReference
     )
 
-    fun places_delete_visits_since(
+    fun places_delete_visits_between(
             handle: PlacesConnectionHandle,
-            since: Long,
+            start: Long,
+            end: Long,
             out_err: RustError.ByReference
     )
+
+    fun places_delete_visit(
+            handle: PlacesConnectionHandle,
+            visit_url: String,
+            visit_timestamp: Long,
+            out_err: RustError.ByReference
+    )
+
+    fun places_wipe_local(
+            handle: PlacesConnectionHandle,
+            out_err: RustError.ByReference
+    )
+
+    fun places_run_maintenance(
+            handle: PlacesConnectionHandle,
+            out_err: RustError.ByReference
+    )
+
+    fun places_prune_destructively(
+            handle: PlacesConnectionHandle,
+            out_err: RustError.ByReference
+    )
+
+    fun places_get_visit_infos(
+            handle: PlacesConnectionHandle,
+            startDate: Long,
+            endDate: Long,
+            error: RustError.ByReference
+    ): RustBuffer.ByValue
 
     fun sync15_history_sync(
             handle: PlacesConnectionHandle,
@@ -135,6 +166,8 @@ internal interface LibPlacesFFI : Library {
     fun places_connection_destroy(handle: PlacesConnectionHandle, out_err: RustError.ByReference)
     /** Destroy handle created using `places_new_interrupt_handle` */
     fun places_interrupt_handle_destroy(obj: RawPlacesInterruptHandle)
+
+    fun places_destroy_bytebuffer(bb: RustBuffer.ByValue)
 }
 
 internal typealias PlacesConnectionHandle = Long;

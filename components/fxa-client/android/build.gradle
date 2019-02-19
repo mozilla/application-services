@@ -2,6 +2,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
+apply plugin: 'com.google.protobuf'
 
 android {
     compileSdkVersion 27
@@ -30,6 +31,14 @@ android {
     // of stripping native binaries, but for now let's provide symbols and see how consumers react.
     packagingOptions {
         doNotStrip "**/*.so"
+    }
+
+    sourceSets {
+        main {
+            proto {
+                srcDir '../src'
+            }
+        }
     }
 }
 
@@ -71,9 +80,32 @@ cargo {
     exec = rootProject.ext.cargoExec
 }
 
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:3.0.0'
+    }
+    plugins {
+        javalite {
+            artifact = 'com.google.protobuf:protoc-gen-javalite:3.0.0'
+        }
+    }
+    generateProtoTasks {
+        all().each { task ->
+            task.builtins {
+                remove java
+            }
+            task.plugins {
+                javalite { }
+            }
+        }
+    }
+}
+
 dependencies {
     implementation 'net.java.dev.jna:jna:4.5.2@aar'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation 'com.google.protobuf:protobuf-lite:3.0.0'
+    implementation project(':as-support-library')
 }
 
 afterEvaluate {

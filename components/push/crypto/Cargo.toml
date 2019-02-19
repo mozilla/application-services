@@ -14,6 +14,8 @@ lazy_static = "1.2"
 hkdf = "0.7"
 sha2 = "0.8"
 
+push-errors = {path = "../error"}
+
 [features]
 # default = ["openssl"]
 # openssl = ["ece-crypto-openssl"]

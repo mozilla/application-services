@@ -33,6 +33,7 @@ impl RSABrowserIDKeyPair {
         RSABrowserIDKeyPair::from_rsa(rsa)
     }
 
+    #[allow(dead_code)]
     pub fn from_exponents_base10(n: &str, e: &str, d: &str) -> Result<RSABrowserIDKeyPair> {
         let n = BigNum::from_dec_str(n)?;
         let e = BigNum::from_dec_str(e)?;

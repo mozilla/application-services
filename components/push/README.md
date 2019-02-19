@@ -20,3 +20,9 @@ Note: we've been encouraged to model after the "places" component.
 this means defining the final Push API elements as kotlin in the
 android directory ffi descriptions. Since this could cause compile
 failures, it's currently not checked in.
+
+## System Dependencies:
+
+ * Sqlite > 3.24
+ * SqlCipher > 3.4
+

@@ -4,44 +4,21 @@
 
 package org.mozilla.fxaclient.internal
 
-import com.sun.jna.Pointer
-import com.sun.jna.Structure
-
-import java.util.Arrays
-
-class Profile internal constructor(raw: Raw) {
-
-    val uid: String?
-    val email: String?
-    val avatar: String?
-    val avatarDefault: Boolean
+data class Profile(
+    val uid: String?,
+    val email: String?,
+    val avatar: String?,
+    val avatarDefault: Boolean,
     val displayName: String?
-
-    internal class Raw(p: Pointer) : Structure(p) {
-        @JvmField var uid: Pointer? = null
-        @JvmField var email: Pointer? = null
-        @JvmField var avatar: Pointer? = null
-        @JvmField var avatarDefault: Byte = 0
-        @JvmField var displayName: Pointer? = null
-
-        init {
-            read()
-        }
-
-        override fun getFieldOrder(): List<String> {
-            return Arrays.asList("uid", "email", "avatar", "avatarDefault", "displayName")
-        }
-    }
-
-    init {
-        try {
-            this.uid = raw.uid?.getRustString()
-            this.email = raw.email?.getRustString()
-            this.avatar = raw.avatar?.getRustString()
-            this.avatarDefault = raw.avatarDefault == 1.toByte()
-            this.displayName = raw.displayName?.getRustString()
-        } finally {
-            FxaClient.INSTANCE.fxa_profile_free(raw.pointer)
+) {
+    companion object {
+        internal fun fromMessage(msg: MsgTypes.Profile): Profile {
+            return Profile(uid = if (msg.hasUid()) msg.uid else null,
+                           email = if (msg.hasEmail()) msg.email else null,
+                           avatar = if (msg.hasAvatar()) msg.avatar else null,
+                           avatarDefault = msg.avatarDefault,
+                           displayName = if (msg.hasDisplayName()) msg.displayName else null
+            )
         }
     }
 }

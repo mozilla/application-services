@@ -88,7 +88,8 @@ pub struct HandleMap<T> {
 
 #[derive(Debug, Clone)]
 struct Entry<T> {
-    // initially 1, incremented on insertion and removal.
+    // initially 1, incremented on insertion and removal. Thus,
+    // if version is even, state should always be EntryState::Active.
     version: u16,
     state: EntryState<T>,
 }
@@ -159,6 +160,11 @@ const MIN_CAPACITY: usize = 4;
 /// An error representing the ways a `Handle` may be invalid.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Fail)]
 pub enum HandleError {
+    /// Identical to invalid handle, but has a slightly more helpful
+    /// message for the most common case 0.
+    #[fail(display = "Tried to use a null handle (this object has probably been closed)")]
+    NullHandle,
+
     /// Returned from [`Handle::from_u64`] if [`Handle::is_valid`] fails.
     #[fail(display = "u64 could not encode a valid Handle")]
     InvalidHandle,
@@ -412,32 +418,62 @@ impl<T> HandleMap<T> {
             );
             return Err(HandleError::StaleVersion);
         }
+        // At this point, we know the handle version matches the entry version,
+        // but if someone created a specially invalid handle, they could have
+        // its version match the version they expect an unoccupied index to
+        // have.
+        //
+        // We don't use any unsafe, so the worse thing that can happen here is
+        // that we get confused and panic, but still that's not great, so we
+        // check for this explicitly.
+        //
+        // Note that `active` versions are always even, as they start at 1, and
+        // are incremented on both insertion and deletion.
+        //
+        // Anyway, this is just for sanity checking, we already check this in
+        // practice when we convert `u64`s into `Handle`s, which is the only
+        // way we ever use these in the real world.
+        if (h.version % 2) != 0 {
+            log::info!(
+                "HandleMap given handle with matching but illegal version: {:?}",
+                h,
+            );
+            return Err(HandleError::StaleVersion);
+        }
         Ok(index)
     }
 
     /// Delete an item from the HandleMap.
     pub fn delete(&mut self, h: Handle) -> Result<(), HandleError> {
+        self.remove(h).map(drop)
+    }
+
+    /// Remove an item from the HandleMap, returning the old value.
+    pub fn remove(&mut self, h: Handle) -> Result<T, HandleError> {
         let index = self.check_handle(h)?;
-        {
+        let prev = {
             // Scoped mutable borrow of entry.
             let entry = &mut self.entries[index];
-
-            // This should never happen, but if it somehow does happen, we can still
-            // continue relatively sanely. We'd rather not `assert!()` because if
-            // we're in a `ConcurrentHandleMap` we'll poison the whole thing forever.
-            debug_assert!(
-                entry.state.is_occupied(),
-                "Bug: handle references unoccupied entry"
-            );
-
             entry.version += 1;
             let index = h.index;
-            entry.state = EntryState::InFreeList(self.first_free);
+            let last_state =
+                std::mem::replace(&mut entry.state, EntryState::InFreeList(self.first_free));
             self.num_entries -= 1;
             self.first_free = index;
-        }
+
+            if let EntryState::Active(value) = last_state {
+                value
+            } else {
+                // This indicates either a bug in HandleMap or memory
+                // corruption. Abandon all hope.
+                unreachable!(
+                    "Handle {:?} passed validation but references unoccupied entry",
+                    h
+                );
+            }
+        };
         self.debug_check_valid();
-        Ok(())
+        Ok(prev)
     }
 
     /// Get a reference to the item referenced by the handle, or return a
@@ -546,7 +582,11 @@ impl Handle {
     pub fn from_u64(v: u64) -> Result<Self, HandleError> {
         if !Handle::is_valid(v) {
             log::warn!("Illegal handle! {:x}", v);
-            Err(HandleError::InvalidHandle)
+            if v == 0 {
+                Err(HandleError::NullHandle)
+            } else {
+                Err(HandleError::InvalidHandle)
+            }
         } else {
             let map_id = (v >> 32) as u16;
             let index = (v >> 16) as u16;
@@ -646,6 +686,8 @@ unsafe impl IntoFfi for Handle {
 /// define_handle_map_deleter!(ITEMS, mylib_destroy_thing);
 /// ```
 pub struct ConcurrentHandleMap<T> {
+    /// The underlying map. Public so that more advanced use-cases
+    /// may use it as they please.
     pub map: RwLock<HandleMap<Mutex<T>>>,
 }
 
@@ -692,6 +734,29 @@ impl<T> ConcurrentHandleMap<T> {
     /// in one place.
     pub fn delete_u64(&self, h: u64) -> Result<(), HandleError> {
         self.delete(Handle::from_u64(h)?)
+    }
+
+    /// Remove an item from the map, returning either the item,
+    /// or None if its guard mutex got poisoned at some point.
+    ///
+    /// # Locking
+    ///
+    /// Note that this requires taking the map's write lock, and so it will
+    /// block until all other threads have finished any read/write operations.
+    pub fn remove(&self, h: Handle) -> Result<Option<T>, HandleError> {
+        let mut map = self.map.write().unwrap();
+        let mutex = map.remove(h)?;
+        Ok(mutex.into_inner().ok())
+    }
+
+    /// Convenient wrapper for `remove` which takes a `u64` that it will
+    /// convert to a handle.
+    ///
+    /// The main benefit (besides convenience) of this over the version
+    /// that takes a [`Handle`] is that it allows handling handle-related errors
+    /// in one place.
+    pub fn remove_u64(&self, h: u64) -> Result<Option<T>, HandleError> {
+        self.remove(Handle::from_u64(h)?)
     }
 
     /// Call `callback` with a non-mutable reference to the item from the map,
@@ -946,7 +1011,7 @@ mod test {
 
     #[test]
     fn test_invalid_handle() {
-        assert_eq!(Handle::from_u64(0), Err(HandleError::InvalidHandle));
+        assert_eq!(Handle::from_u64(0), Err(HandleError::NullHandle));
         // Valid except `version` is odd
         assert_eq!(
             Handle::from_u64(((HANDLE_MAGIC as u64) << 48) | 0x1234_0012_0001),
@@ -1021,7 +1086,7 @@ mod test {
         }
         for (i, &h) in handles.iter().enumerate() {
             assert_eq!(map.get(h).unwrap(), &Foobar(i));
-            map.delete(h).unwrap();
+            assert_eq!(map.remove(h).unwrap(), Foobar(i));
         }
         let mut handles2 = vec![];
         for i in 1000..2000 {

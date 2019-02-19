@@ -4,104 +4,18 @@
 
 #![recursion_limit = "4096"]
 
+use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
+use cli_support::prompt::{prompt_string, prompt_usize};
 use failure::Fail;
 
-use fxa_client::{AccessTokenInfo, Config, FirefoxAccount};
 use logins::{Login, PasswordEngine};
 use prettytable::*;
 use rusqlite::NO_PARAMS;
 use serde_json;
-use std::collections::HashMap;
-use std::{
-    fs,
-    io::{self, Read, Write},
-};
-use sync15::{telemetry, KeyBundle, Sync15StorageClientInit};
-
-const CLIENT_ID: &str = "98adfa37698f255b";
-const REDIRECT_URI: &str = "https://lockbox.firefox.com/fxa/ios-redirect.html";
-
-const SYNC_SCOPE: &str = "https://identity.mozilla.com/apps/oldsync";
+use sync15::telemetry;
 
 // I'm completely punting on good error handling here.
 type Result<T> = std::result::Result<T, failure::Error>;
-
-fn load_fxa_creds(path: &str) -> Result<FirefoxAccount> {
-    let mut file = fs::File::open(path)?;
-    let mut s = String::new();
-    file.read_to_string(&mut s)?;
-    Ok(FirefoxAccount::from_json(&s)?)
-}
-
-fn load_or_create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
-    load_fxa_creds(path).or_else(|e| {
-        log::info!(
-            "Failed to load existing FxA credentials from {:?} (error: {}), launching OAuth flow",
-            path,
-            e
-        );
-        create_fxa_creds(path, cfg)
-    })
-}
-
-fn create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
-    let mut acct = FirefoxAccount::with_config(cfg);
-    let oauth_uri = acct.begin_oauth_flow(&[SYNC_SCOPE], true)?;
-
-    if let Err(_) = webbrowser::open(&oauth_uri.as_ref()) {
-        log::warn!("Failed to open a web browser D:");
-        println!("Please visit this URL, sign in, and then copy-paste the final URL below.");
-        println!("\n    {}\n", oauth_uri);
-    } else {
-        println!("Please paste the final URL below:\n");
-    }
-
-    let final_url = url::Url::parse(&prompt_string("Final URL").unwrap_or(String::new()))?;
-    let query_params = final_url
-        .query_pairs()
-        .into_owned()
-        .collect::<HashMap<String, String>>();
-
-    acct.complete_oauth_flow(&query_params["code"], &query_params["state"])?;
-    let mut file = fs::File::create(path)?;
-    write!(file, "{}", acct.to_json()?)?;
-    file.flush()?;
-    Ok(acct)
-}
-
-fn prompt_string<S: AsRef<str>>(prompt: S) -> Option<String> {
-    print!("{}: ", prompt.as_ref());
-    let _ = io::stdout().flush(); // Don't care if flush fails really.
-    let mut s = String::new();
-    io::stdin()
-        .read_line(&mut s)
-        .expect("Failed to read line...");
-    if let Some('\n') = s.chars().next_back() {
-        s.pop();
-    }
-    if let Some('\r') = s.chars().next_back() {
-        s.pop();
-    }
-    if s.len() == 0 {
-        None
-    } else {
-        Some(s)
-    }
-}
-
-fn prompt_usize<S: AsRef<str>>(prompt: S) -> Option<usize> {
-    if let Some(s) = prompt_string(prompt) {
-        match s.parse::<usize>() {
-            Ok(n) => Some(n),
-            Err(_) => {
-                println!("Couldn't parse!");
-                None
-            }
-        }
-    } else {
-        None
-    }
-}
 
 fn read_login() -> Login {
     let username = prompt_string("username").unwrap_or_default();
@@ -373,28 +287,7 @@ fn main() -> Result<()> {
     );
 
     // TODO: allow users to use stage/etc.
-    let cfg = Config::release(CLIENT_ID, REDIRECT_URI);
-    let tokenserver_url = cfg.token_server_endpoint_url()?;
-
-    // TODO: we should probably set a persist callback on acct?
-    let mut acct = load_or_create_fxa_creds(cred_file, cfg.clone())?;
-    let token_info: AccessTokenInfo = match acct.get_access_token(SYNC_SCOPE) {
-        Ok(t) => t,
-        Err(_) => {
-            // The cached credentials did not have appropriate scope, sign in again.
-            log::warn!("Credentials do not have appropriate scope, launching OAuth flow.");
-            acct = create_fxa_creds(cred_file, cfg.clone())?;
-            acct.get_access_token(SYNC_SCOPE)?
-        }
-    };
-    let key = token_info.key.unwrap();
-
-    let client_init = Sync15StorageClientInit {
-        key_id: key.kid.clone(),
-        access_token: token_info.token.clone(),
-        tokenserver_url,
-    };
-    let root_sync_key = KeyBundle::from_ksync_bytes(&key.key_bytes()?)?;
+    let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file)?;
 
     let engine = PasswordEngine::new(db_path, Some(encryption_key))?;
 
@@ -468,7 +361,7 @@ fn main() -> Result<()> {
             'S' | 's' => {
                 log::info!("Syncing!");
                 let mut sync_ping = telemetry::SyncTelemetryPing::new();
-                if let Err(e) = engine.sync(&client_init, &root_sync_key, &mut sync_ping) {
+                if let Err(e) = engine.sync(&cli_fxa.client_init, &cli_fxa.root_sync_key, &mut sync_ping) {
                     log::warn!("Sync failed! {}", e);
                     log::warn!("BT: {:?}", e.backtrace());
                 } else {

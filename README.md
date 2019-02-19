@@ -9,8 +9,11 @@ This repository hosts the code and docs needed to integrate with the products of
 team.
 
 If you're interested in getting involved in the development of those products
-then you're in the right place! If that's not why you're here then you might
-enjoy:
+then you're in the right place! Please review the more detailed guide on
+[how to contribute](docs/contributing.md) to this project as well as
+the [Community Participation Guidelines](https://www.mozilla.org/en-US/about/governance/policies/participation/).
+
+If that's not why you're here, then instead you might enjoy:
 
 * The [Application Services Product
   Portal](https://mozilla.github.io/application-services/), if you're looking to
@@ -50,7 +53,7 @@ The code for these components is organized as follows:
   for easy consumption by applications.
 
 For more details on how the client libraries are built and published, please see
-the [Guide to Building a Rust Component](docs/howto/building-a-rust-component.md).
+the [Guide to Building a Rust Component](docs/howtos/building-a-rust-component.md).
 
 This repository also hosts the [website source](website) for the [Application
 Services Product Portal](https://mozilla.github.io/application-services/), which

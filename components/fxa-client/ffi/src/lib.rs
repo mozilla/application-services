@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use ffi_support::{
-    define_box_destructor, define_handle_map_deleter, define_string_destructor, rust_str_from_c,
-    ConcurrentHandleMap, ExternError,
+    define_box_destructor, define_bytebuffer_destructor, define_handle_map_deleter,
+    define_string_destructor, rust_str_from_c, ByteBuffer, ConcurrentHandleMap, ExternError,
 };
 use fxa_client::{ffi::*, FirefoxAccount, PersistCallback};
 use std::{ffi::CString, os::raw::c_char};
@@ -147,7 +147,7 @@ pub extern "C" fn fxa_profile(
     handle: u64,
     ignore_cache: bool,
     error: &mut ExternError,
-) -> *mut ProfileC {
+) -> ByteBuffer {
     log::debug!("fxa_profile");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.get_profile(ignore_cache))
 }
@@ -325,5 +325,6 @@ define_string_destructor!(fxa_str_free);
 
 define_handle_map_deleter!(ACCOUNTS, fxa_free);
 define_box_destructor!(AccessTokenInfoC, fxa_oauth_info_free);
-define_box_destructor!(ProfileC, fxa_profile_free);
+#[cfg(feature = "browserid")]
 define_box_destructor!(SyncKeysC, fxa_sync_keys_free);
+define_bytebuffer_destructor!(fxa_bytebuffer_free);

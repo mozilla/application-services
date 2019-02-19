@@ -6,6 +6,7 @@ members = [
     "components/logins/ffi",
     "components/places",
     "components/places/ffi",
+    "components/support/cli",
     "components/support/sql",
     "components/support/ffi",
     "components/sync15",
@@ -13,6 +14,7 @@ members = [
     "megazords/fenix",
     "megazords/lockbox",
     "megazords/reference-browser",
+    "megazords/ios/rust",
     "testing/sync-test",
 ]
 
