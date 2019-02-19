@@ -11,7 +11,16 @@ The package is published as a release on github: https://github.com/mozilla/appl
 - Add the dependency line to the Cartfile, for instance: `github "mozilla/application-services" ~> "v0.16.1"` 
 - `carthage` will download MozillaAppServices.frameworks.zip, and add all the available frameworks to the 'Carthage/' dir.
 - Choose which framework to link against for your project (in the *Link Binary with Libraries* step in your Xcode target).
-- Add additional dependencies, see below.
+- Add additional dependencies, see [below](#additional-dependencies).
+
+### Adding a carthage provided framework to Xcode
+- In general, to do this, add *XXX.framework* from *Carthage/Build/iOS* to *Link binary with Libraries* for the Xcode target, and also to the *Copy Carthage Dependencies* step
+
+### Using a Circle-CI built framework
+
+Rather than using a tagged release version, one can grab the build from Circle-CI, like so:
+
+`binary "https://circleci.com/api/v1.1/project/github/mozilla/application-services/2862/artifacts/0/dist/mozilla.app-services.json" ~> 0.0.1-snapshot`
 
 ## Additional dependencies
 
@@ -19,8 +28,8 @@ The project has additional 3rd-party dependencies that a client must link agains
 
 ### Protobuf
 
-- Add to the Cartfile: `github "apple/swift-protobuf" ~> 1.0`
-- add *SwiftProtoBuf.framework* to  *Link binary with Libraries* for the Xcode target.
+- *SwiftProtoBuf.framework* should be automatically downloaded by carthage while pulling in the application-services dependency.
+- [Add that framework to Xcode.](#adding-a-carthage-provided-framework-to-xcode)
 
 
 
