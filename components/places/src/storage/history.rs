@@ -39,6 +39,10 @@ pub fn apply_observation_direct(
     visit_ob: VisitObservation,
 ) -> Result<Option<RowId>> {
     let url = Url::parse(&visit_ob.url)?;
+    // Don't insert urls larger than our length max.
+    if url.as_str().len() > super::URL_LENGTH_MAX {
+        return Ok(None);
+    }
     let mut page_info = match fetch_page_info(db, &url)? {
         Some(info) => info.page,
         None => new_page_info(db, &url, None)?,
@@ -48,7 +52,7 @@ pub fn apply_observation_direct(
     let mut updates: Vec<(&str, &str, &ToSql)> = Vec::new();
 
     if let Some(ref title) = visit_ob.title {
-        page_info.title = title.clone();
+        page_info.title = crate::util::slice_up_to(title, super::TITLE_LENGTH_MAX).into();
         updates.push(("title", ":title", &page_info.title));
         update_change_counter = true;
     }
@@ -2061,4 +2065,47 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_long_strings() {
+        let _ = env_logger::try_init();
+        let mut conn = PlacesDb::open_in_memory(None).unwrap();
+        let mut url = "http://www.example.com".to_string();
+        while url.len() < crate::storage::URL_LENGTH_MAX {
+            url += "/garbage";
+        }
+        let maybe_row = apply_observation(
+            &mut conn,
+            VisitObservation::new(Url::parse(&url).unwrap())
+                .with_visit_type(VisitTransition::Link)
+                .with_at(Timestamp::now()),
+        )
+        .unwrap();
+        assert!(maybe_row.is_none(), "Shouldn't insert overlong URL");
+        let mut title = "example 1 2 3".to_string();
+        // Make sure whatever we use here surpasses the length.
+        while title.len() < crate::storage::TITLE_LENGTH_MAX + 10 {
+            title += " test test";
+        }
+        let maybe_row = apply_observation(
+            &mut conn,
+            VisitObservation::new(Url::parse("http://www.example.com/123").unwrap())
+                .with_title(title.clone())
+                .with_visit_type(VisitTransition::Link)
+                .with_at(Timestamp::now()),
+        )
+        .unwrap();
+
+        assert!(maybe_row.is_some());
+        let db_title: String = conn
+            .query_row_and_then_named(
+                "SELECT title FROM moz_places WHERE id = :id",
+                &[(":id", &maybe_row.unwrap())],
+                |row| row.get_checked(0),
+                false,
+            )
+            .unwrap();
+        // Ensure what we get back sta
+        assert_eq!(db_title.len(), crate::storage::TITLE_LENGTH_MAX);
+        assert!(title.starts_with(&db_title));
+    }
 }
