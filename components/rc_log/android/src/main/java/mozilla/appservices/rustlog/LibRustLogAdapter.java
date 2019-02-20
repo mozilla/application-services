@@ -28,26 +28,25 @@ class LibRustLogAdapter {
         }
     }
 
-    static native RawLogAdapter ac_log_adapter_create(
+    static native RawLogAdapter rc_log_adapter_create(
             RawLogCallback callback,
             RustError.ByReference out_err
     );
 
-    static native RawLogAdapter ac_log_adapter_set_max_level(
-            RawLogAdapter adapter,
+    static native void rc_log_adapter_set_max_level(
             int level,
             RustError.ByReference out_err
     );
 
-    static native RawLogAdapter ac_log_adapter_destroy(
+    static native void rc_log_adapter_destroy(
             RawLogAdapter adapter
     );
 
-    static native RawLogAdapter ac_log_adapter_destroy_string(
+    static native void rc_log_adapter_destroy_string(
             Pointer stringPtr
     );
 
-    static native RawLogAdapter ac_log_adapter_test__log_msg(
+    static native void rc_log_adapter_test__log_msg(
             String string
     );
 
