@@ -133,9 +133,9 @@ pub struct InsertableBookmark {
     pub title: Option<String>,
 }
 
-impl Into<InsertableItem> for InsertableBookmark {
-    fn into(self) -> InsertableItem {
-        InsertableItem::Bookmark(self)
+impl From<InsertableBookmark> for InsertableItem {
+    fn from(bmk: InsertableBookmark) -> Self {
+        InsertableItem::Bookmark(bmk)
     }
 }
 
@@ -148,9 +148,9 @@ pub struct InsertableSeparator {
     pub guid: Option<SyncGuid>,
 }
 
-impl Into<InsertableItem> for InsertableSeparator {
-    fn into(self) -> InsertableItem {
-        InsertableItem::Separator(self)
+impl From<InsertableSeparator> for InsertableItem {
+    fn from(sep: InsertableSeparator) -> Self {
+        InsertableItem::Separator(sep)
     }
 }
 
@@ -164,9 +164,9 @@ pub struct InsertableFolder {
     pub title: Option<String>,
 }
 
-impl Into<InsertableItem> for InsertableFolder {
-    fn into(self) -> InsertableItem {
-        InsertableItem::Folder(self)
+impl From<InsertableFolder> for InsertableItem {
+    fn from(folder: InsertableFolder) -> Self {
+        InsertableItem::Folder(folder)
     }
 }
 
@@ -381,9 +381,9 @@ pub struct BookmarkNode {
     pub url: Url,
 }
 
-impl Into<BookmarkTreeNode> for BookmarkNode {
-    fn into(self) -> BookmarkTreeNode {
-        BookmarkTreeNode::Bookmark(self)
+impl From<BookmarkNode> for BookmarkTreeNode {
+    fn from(node: BookmarkNode) -> Self {
+        BookmarkTreeNode::Bookmark(node)
     }
 }
 
@@ -405,9 +405,9 @@ pub struct SeparatorNode {
     pub last_modified: Option<Timestamp>,
 }
 
-impl Into<BookmarkTreeNode> for SeparatorNode {
-    fn into(self) -> BookmarkTreeNode {
-        BookmarkTreeNode::Separator(self)
+impl From<SeparatorNode> for BookmarkTreeNode {
+    fn from(node: SeparatorNode) -> Self {
+        BookmarkTreeNode::Separator(node)
     }
 }
 
@@ -429,9 +429,9 @@ pub struct FolderNode {
     pub children: Vec<BookmarkTreeNode>,
 }
 
-impl Into<BookmarkTreeNode> for FolderNode {
-    fn into(self) -> BookmarkTreeNode {
-        BookmarkTreeNode::Folder(self)
+impl From<FolderNode> for BookmarkTreeNode {
+    fn from(node: FolderNode) -> Self {
+        BookmarkTreeNode::Folder(node)
     }
 }
 
