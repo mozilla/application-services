@@ -112,4 +112,9 @@ pub enum InvalidPlaceInfo {
     InvalidGuid,
     #[fail(display = "Invalid parent: {}", _0)]
     InvalidParent(String),
+
+    // Only returned when attempting to insert a bookmark --
+    // for history we just ignore it.
+    #[fail(display = "URL too long")]
+    UrlTooLong,
 }

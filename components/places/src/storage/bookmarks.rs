@@ -218,6 +218,12 @@ pub fn insert_bookmark(db: &impl ConnExt, bm: &InsertableItem) -> Result<SyncGui
     result
 }
 
+fn maybe_truncate_title(t: &Option<String>) -> Option<&str> {
+    use super::TITLE_LENGTH_MAX;
+    use crate::util::slice_up_to;
+    t.as_ref().map(|title| slice_up_to(title, TITLE_LENGTH_MAX))
+}
+
 fn insert_bookmark_in_tx(db: &impl ConnExt, bm: &InsertableItem) -> Result<SyncGuid> {
     // find the row ID of the parent.
     if BookmarkRootGuid::from_guid(&bm.parent_guid()) == Some(BookmarkRootGuid::Root) {
@@ -272,42 +278,58 @@ fn insert_bookmark_in_tx(db: &impl ConnExt, bm: &InsertableItem) -> Result<SyncG
     );
 
     let bookmark_type = bm.bookmark_type();
-    let params: Vec<(&str, &ToSql)> = match bm {
-        InsertableItem::Bookmark(ref b) => vec![
-            (":fk", &fk),
-            (":type", &bookmark_type),
-            (":parent", &parent.row_id),
-            (":position", &position),
-            (":title", &b.title),
-            (":dateAdded", &date_added),
-            (":lastModified", &last_modified),
-            (":guid", &guid),
-            (":syncStatus", &SyncStatus::New),
-            (":syncChangeCounter", &1),
-        ],
-        InsertableItem::Separator(ref _s) => vec![
-            (":type", &bookmark_type),
-            (":parent", &parent.row_id),
-            (":position", &position),
-            (":dateAdded", &date_added),
-            (":lastModified", &last_modified),
-            (":guid", &guid),
-            (":syncStatus", &SyncStatus::New),
-            (":syncChangeCounter", &1),
-        ],
-        InsertableItem::Folder(ref f) => vec![
-            (":type", &bookmark_type),
-            (":parent", &parent.row_id),
-            (":title", &f.title),
-            (":position", &position),
-            (":dateAdded", &date_added),
-            (":lastModified", &last_modified),
-            (":guid", &guid),
-            (":syncStatus", &SyncStatus::New),
-            (":syncChangeCounter", &1),
-        ],
+    match bm {
+        InsertableItem::Bookmark(ref b) => {
+            let title = maybe_truncate_title(&b.title);
+            db.execute_named_cached(
+                sql,
+                &[
+                    (":fk", &fk),
+                    (":type", &bookmark_type),
+                    (":parent", &parent.row_id),
+                    (":position", &position),
+                    (":title", &title),
+                    (":dateAdded", &date_added),
+                    (":lastModified", &last_modified),
+                    (":guid", &guid),
+                    (":syncStatus", &SyncStatus::New),
+                    (":syncChangeCounter", &1),
+                ],
+            )?;
+        }
+        InsertableItem::Separator(ref _s) => {
+            db.execute_named_cached(
+                sql,
+                &[
+                    (":type", &bookmark_type),
+                    (":parent", &parent.row_id),
+                    (":position", &position),
+                    (":dateAdded", &date_added),
+                    (":lastModified", &last_modified),
+                    (":guid", &guid),
+                    (":syncStatus", &SyncStatus::New),
+                    (":syncChangeCounter", &1),
+                ],
+            )?;
+        }
+        InsertableItem::Folder(ref f) => {
+            let title = maybe_truncate_title(&f.title);
+            db.execute_named_cached(
+                sql,
+                &[
+                    (":type", &bookmark_type),
+                    (":parent", &parent.row_id),
+                    (":title", &title),
+                    (":position", &position),
+                    (":dateAdded", &date_added),
+                    (":lastModified", &last_modified),
+                    (":guid", &guid),
+                    (":syncStatus", &SyncStatus::New),
+                    (":syncChangeCounter", &1),
+                ],
+            )?;
+        }
     };
-    db.execute_named_cached(sql, &params)?;
     Ok(guid)
 }
 
