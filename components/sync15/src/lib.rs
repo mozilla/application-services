@@ -18,7 +18,7 @@ mod token;
 mod util;
 
 // Re-export some of the types callers are likely to want for convenience.
-pub use crate::bso_record::{BsoRecord, CleartextBso, EncryptedBso, Payload};
+pub use crate::bso_record::{BsoRecord, CleartextBso, EncryptedBso, EncryptedPayload, Payload};
 pub use crate::changeset::{IncomingChangeset, OutgoingChangeset, RecordChangeset};
 pub use crate::client::{SetupStorageClient, Sync15StorageClient, Sync15StorageClientInit};
 pub use crate::error::{Error, ErrorKind, Result};
