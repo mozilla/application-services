@@ -365,19 +365,42 @@ impl EncryptedPayload {
     pub fn serialized_len(&self) -> usize {
         (*EMPTY_ENCRYPTED_PAYLOAD_SIZE) + self.ciphertext.len() + self.hmac.len() + self.iv.len()
     }
+
+    pub fn decrypt_and_parse_payload<T>(&self, key: &KeyBundle) -> error::Result<T>
+    where
+        for<'a> T: Deserialize<'a>,
+    {
+        if !key.verify_hmac_string(&self.hmac, &self.ciphertext)? {
+            return Err(error::ErrorKind::HmacMismatch.into());
+        }
+
+        let iv = base64::decode(&self.iv)?;
+        let ciphertext = base64::decode(&self.ciphertext)?;
+        let cleartext = key.decrypt(&ciphertext, &iv)?;
+
+        Ok(serde_json::from_str(&cleartext)?)
+    }
+
+    pub fn from_cleartext_payload<T: Serialize>(
+        key: &KeyBundle,
+        cleartext_payload: &T,
+    ) -> error::Result<Self> {
+        let cleartext = serde_json::to_string(cleartext_payload)?;
+        let (enc_bytes, iv) = key.encrypt_bytes_rand_iv(&cleartext.as_bytes())?;
+        let iv_base64 = base64::encode(&iv);
+        let enc_base64 = base64::encode(&enc_bytes);
+        let hmac = key.hmac_string(enc_base64.as_bytes())?;
+        Ok(EncryptedPayload {
+            iv: iv_base64,
+            hmac,
+            ciphertext: enc_base64,
+        })
+    }
 }
 
 impl EncryptedBso {
     pub fn decrypt(self, key: &KeyBundle) -> error::Result<CleartextBso> {
-        if !key.verify_hmac_string(&self.payload.hmac, &self.payload.ciphertext)? {
-            return Err(error::ErrorKind::HmacMismatch.into());
-        }
-
-        let iv = base64::decode(&self.payload.iv)?;
-        let ciphertext = base64::decode(&self.payload.ciphertext)?;
-        let cleartext = key.decrypt(&ciphertext, &iv)?;
-
-        let mut new_payload: Payload = serde_json::from_str(&cleartext)?;
+        let mut new_payload: Payload = self.payload.decrypt_and_parse_payload(key)?;
         // This is a slightly dodgy place to do this, but whatever.
         new_payload.add_auto_field("sortindex", self.sortindex);
         new_payload.add_auto_field("ttl", self.ttl);
@@ -396,17 +419,8 @@ impl EncryptedBso {
 
 impl CleartextBso {
     pub fn encrypt(self, key: &KeyBundle) -> error::Result<EncryptedBso> {
-        let cleartext = serde_json::to_string(&self.payload)?;
-        let (enc_bytes, iv) = key.encrypt_bytes_rand_iv(&cleartext.as_bytes())?;
-        let iv_base64 = base64::encode(&iv);
-        let enc_base64 = base64::encode(&enc_bytes);
-        let hmac = key.hmac_string(enc_base64.as_bytes())?;
-        let result = self.with_payload(EncryptedPayload {
-            iv: iv_base64,
-            hmac,
-            ciphertext: enc_base64,
-        });
-        Ok(result)
+        let encrypted_payload = EncryptedPayload::from_cleartext_payload(key, &self.payload)?;
+        Ok(self.with_payload(encrypted_payload))
     }
 
     pub fn into_record<T>(self) -> error::Result<BsoRecord<T>>
