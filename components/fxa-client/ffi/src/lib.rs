@@ -6,8 +6,8 @@ use ffi_support::{
     define_box_destructor, define_bytebuffer_destructor, define_handle_map_deleter,
     define_string_destructor, rust_str_from_c, ByteBuffer, ConcurrentHandleMap, ExternError,
 };
-use fxa_client::{ffi::*, FirefoxAccount, PersistCallback};
-use std::{ffi::CString, os::raw::c_char};
+use fxa_client::{ffi::*, FirefoxAccount};
+use std::os::raw::c_char;
 
 #[no_mangle]
 pub extern "C" fn fxa_enable_logcat_logging() {
@@ -94,7 +94,7 @@ pub unsafe extern "C" fn fxa_from_json(json: *const c_char, err: &mut ExternErro
 /// Serializes the state of a [FirefoxAccount] instance. It can be restored later with [fxa_from_json].
 ///
 /// It is the responsability of the caller to persist that serialized state regularly (after operations that mutate [FirefoxAccount])
-/// in a **secure** location or to use [fxa_register_persist_callback].
+/// in a **secure** location.
 ///
 /// # Safety
 ///
@@ -104,33 +104,6 @@ pub unsafe extern "C" fn fxa_from_json(json: *const c_char, err: &mut ExternErro
 pub extern "C" fn fxa_to_json(handle: u64, error: &mut ExternError) -> *mut c_char {
     log::debug!("fxa_to_json");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.to_json())
-}
-
-/// Registers a callback that gets called every time the FirefoxAccount internal state
-/// changed and therefore need to be persisted.
-#[no_mangle]
-pub unsafe extern "C" fn fxa_register_persist_callback(
-    handle: u64,
-    callback: extern "C" fn(json: *const c_char),
-    error: &mut ExternError,
-) {
-    log::debug!("fxa_register_persist_callback");
-    ACCOUNTS.call_with_output_mut(error, handle, |fxa| {
-        fxa.register_persist_callback(PersistCallback::new(move |json| {
-            // It's impossible for JSON to have embedded null bytes.
-            let s = CString::new(json).unwrap();
-            callback(s.as_ptr());
-        }));
-    });
-}
-
-/// Unregisters a previous registered persist callback
-#[no_mangle]
-pub extern "C" fn fxa_unregister_persist_callback(handle: u64, error: &mut ExternError) {
-    log::debug!("fxa_unregister_persist_callback");
-    ACCOUNTS.call_with_output_mut(error, handle, |fxa| {
-        fxa.unregister_persist_callback();
-    });
 }
 
 /// Fetches the profile associated with a Firefox Account.

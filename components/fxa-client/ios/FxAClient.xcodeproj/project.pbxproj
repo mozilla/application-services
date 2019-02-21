@@ -11,7 +11,7 @@
 		CE3E9D3520A36B63001B4B14 /* libfxaclient_ffi.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CE7B4B8A20A36B0500FC4422 /* libfxaclient_ffi.a */; };
 		CE9D202520914D0D00F1C8FA /* FxAClient.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9D202320914D0D00F1C8FA /* FxAClient.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CE9D203120914D2600F1C8FA /* FirefoxAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9D202B20914D2600F1C8FA /* FirefoxAccount.swift */; };
-		CE9D203520914D2600F1C8FA /* fxa.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9D202F20914D2600F1C8FA /* fxa.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CE9D203520914D2600F1C8FA /* RustFxAFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9D202F20914D2600F1C8FA /* RustFxAFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CE5A6AEF220E2FD300B7F1BC /* RustProtobuf.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE5A6AEE220E2FD300B7F1BC /* RustProtobuf.swift */; };
 		CEBACFC4220E22C80078D41C /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CEBACFC3220E22C80078D41C /* SwiftProtobuf.framework */; };
 		CECB395D20B5BE0200DB3ED4 /* RustPointer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CECB395B20B5BE0200DB3ED4 /* RustPointer.swift */; };
@@ -42,7 +42,7 @@
 		CE9D202320914D0D00F1C8FA /* FxAClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FxAClient.h; sourceTree = "<group>"; };
 		CE9D202420914D0D00F1C8FA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		CE9D202B20914D2600F1C8FA /* FirefoxAccount.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FirefoxAccount.swift; sourceTree = "<group>"; };
-		CE9D202F20914D2600F1C8FA /* fxa.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fxa.h; sourceTree = "<group>"; };
+		CE9D202F20914D2600F1C8FA /* RustFxAFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustFxAFFI.h; sourceTree = "<group>"; };
 		CEBACFC3220E22C80078D41C /* SwiftProtobuf.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftProtobuf.framework; path = ../../../Carthage/Build/iOS/SwiftProtobuf.framework; sourceTree = "<group>"; };
 		CECB395B20B5BE0200DB3ED4 /* RustPointer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RustPointer.swift; sourceTree = "<group>"; };
 		CEE1087520C5ADF9007048AC /* FxAError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxAError.swift; sourceTree = "<group>"; };
@@ -96,7 +96,7 @@
 				CE9D202320914D0D00F1C8FA /* FxAClient.h */,
 				CE9D202420914D0D00F1C8FA /* Info.plist */,
 				CE9D202B20914D2600F1C8FA /* FirefoxAccount.swift */,
-				CE9D202F20914D2600F1C8FA /* fxa.h */,
+				CE9D202F20914D2600F1C8FA /* RustFxAFFI.h */,
 			);
 			path = FxAClient;
 			sourceTree = "<group>";

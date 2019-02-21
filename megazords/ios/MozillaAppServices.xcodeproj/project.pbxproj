@@ -65,7 +65,7 @@
 		C852EEDC220A2A2B00A6E79A /* RustPointer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RustPointer.swift; sourceTree = "<group>"; };
 		C852EEDD220A2A2B00A6E79A /* FirefoxAccount.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FirefoxAccount.swift; sourceTree = "<group>"; };
 		C852EEDF220A2A2B00A6E79A /* String+Free_FxAClient.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "String+Free_FxAClient.swift"; sourceTree = "<group>"; };
-		C852EEE0220A2A2B00A6E79A /* fxa.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fxa.h; sourceTree = "<group>"; };
+		C852EEE0220A2A2B00A6E79A /* RustFxAFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustFxAFFI.h; sourceTree = "<group>"; };
 		C852EEE3220A2A2B00A6E79A /* FxAError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FxAError.swift; sourceTree = "<group>"; };
 		C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmegazord_ios.a; path = ../../target/universal/release/libmegazord_ios.a; sourceTree = "<group>"; };
 		C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MozillaAppServices.h; sourceTree = "<group>"; };
@@ -155,7 +155,7 @@
 				C852EEDB220A2A2B00A6E79A /* Rust */,
 				C852EEDD220A2A2B00A6E79A /* FirefoxAccount.swift */,
 				C852EEDE220A2A2B00A6E79A /* Extensions */,
-				C852EEE0220A2A2B00A6E79A /* fxa.h */,
+				C852EEE0220A2A2B00A6E79A /* RustFxAFFI.h */,
 				C852EEE2220A2A2B00A6E79A /* Errors */,
 			);
 			name = FxAClient;

@@ -77,13 +77,6 @@ FirefoxAccountHandle fxa_from_json(const char *_Nonnull json,
 char *_Nullable fxa_to_json(FirefoxAccountHandle handle,
                             FxAErrorC *_Nonnull out);
 
-void fxa_register_persist_callback(FirefoxAccountHandle handle,
-                                   void (*_Nonnull callback_fn)(const char *_Nonnull json),
-                                   FxAErrorC *_Nonnull out);
-
-void fxa_unregister_persist_callback(FirefoxAccountHandle handle,
-                                     FxAErrorC *_Nonnull out);
-
 FirefoxAccountHandle fxa_new(const char *_Nonnull content_base,
                              const char *_Nonnull client_id,
                              const char *_Nonnull redirect_uri,

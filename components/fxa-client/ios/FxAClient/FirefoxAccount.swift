@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
+import os.log
 import UIKit
 
 open class FxAConfig {
@@ -48,7 +49,25 @@ public protocol PersistCallback {
 fileprivate let queue = DispatchQueue(label: "com.mozilla.firefox-account")
 
 open class FirefoxAccount: RustHandle {
-    fileprivate static var persistCallback: PersistCallback?
+    fileprivate var persistCallback: PersistCallback?
+
+    func tryPersistState() {
+        queue.async {
+            guard let cb = self.persistCallback else {
+                return
+            }
+            do {
+                let json = try self.toJSONInternal()
+                DispatchQueue.global(qos: .background).async {
+                    cb.persist(json: json)
+                }
+            } catch {
+                // Ignore the error because the prior operation might have worked,
+                // but still log it.
+                os_log("FirefoxAccount internal state serialization failed.")
+            }
+        }
+    }
 
     #if BROWSERID_FEATURES
     /// Creates a `FirefoxAccount` instance from credentials obtained with the onepw FxA login flow.
@@ -102,28 +121,26 @@ open class FirefoxAccount: RustHandle {
     /// It is the responsability of the caller to persist that serialized state regularly (after operations that mutate `FirefoxAccount`) in a **secure** location.
     open func toJSON() throws -> String {
         return try queue.sync(execute: {
-            return String(freeingFxaString: try FxAError.unwrap({err in
-                fxa_to_json(self.raw, err)
-            }))
+            return try self.toJSONInternal()
         })
     }
 
-    /// Registers a persistance callback. The callback will get called everytime
+    fileprivate func toJSONInternal() throws -> String {
+        return String(freeingFxaString: try FxAError.unwrap({err in
+            fxa_to_json(self.raw, err)
+        }))
+    }
+
+    /// Registers a persistance callback. The callback will get called every time
     /// the `FirefoxAccount` state needs to be saved. The callback must
     /// persist the passed string in a secure location (like the keychain).
-    public func registerPersistCallback(_ cb: PersistCallback) throws {
-        FirefoxAccount.persistCallback = cb
-        try FxAError.unwrap({err in
-            fxa_register_persist_callback(self.raw, persistCallbackFunction, err)
-        })
+    public func registerPersistCallback(_ cb: PersistCallback) {
+        self.persistCallback = cb
     }
 
     /// Unregisters a persistance callback.
-    public func unregisterPersistCallback() throws {
-        FirefoxAccount.persistCallback = nil
-        try FxAError.unwrap({err in
-            fxa_unregister_persist_callback(self.raw, err)
-        })
+    public func unregisterPersistCallback() {
+        self.persistCallback = nil
     }
 
     /// Gets the logged-in user profile.
@@ -203,6 +220,7 @@ open class FirefoxAccount: RustHandle {
                     fxa_complete_oauth_flow(self.raw, code, state, err)
                 })
                 DispatchQueue.main.async { completionHandler((), nil) }
+                self.tryPersistState()
             } catch {
                 DispatchQueue.main.async { completionHandler((), error) }
             }
@@ -236,19 +254,6 @@ open class FirefoxAccount: RustHandle {
         })
     }
     #endif
-}
-
-/**
- This function needs to be static as callbacks passed into Rust from Swift cannot contain state. Therefore the observers are static, as is
- the function that we pass into Rust to receive the callback.
- */
-private func persistCallbackFunction(json: UnsafePointer<CChar>) {
-    let json = String(cString: json)
-    if let cb = FirefoxAccount.persistCallback {
-        DispatchQueue.global(qos: .background).async {
-            cb.persist(json: json)
-        }
-    }
 }
 
 open class AccessTokenInfo: RustStructPointer<AccessTokenInfoC> {

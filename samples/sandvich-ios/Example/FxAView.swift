@@ -67,13 +67,13 @@ class FxAView: UIViewController, WKNavigationDelegate {
         if let state_json = UserDefaults.standard.string(forKey: stateKey) {
             self.fxa = try! FirefoxAccount.fromJSON(state: state_json)
             persistor.persist(json: (try! fxa?.toJSON())!) // Persist the FxA state right after its creation in case something goes wrong.
-            try! fxa!.registerPersistCallback(persistor) // After this, mutating changes will be persisted automatically.
+            fxa!.registerPersistCallback(persistor) // After this, mutating changes will be persisted automatically.
             self.tryGetProfile()
         } else {
             let config = FxAConfig.release(clientId: ClientID, redirectUri: RedirectURL)
             self.fxa = try! FirefoxAccount(config: config)
             persistor.persist(json: (try! self.fxa?.toJSON())!)
-            try! self.fxa!.registerPersistCallback(persistor)
+            self.fxa!.registerPersistCallback(persistor)
             self.tryGetProfile()
         }
     }

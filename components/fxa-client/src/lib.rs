@@ -14,7 +14,7 @@ use crate::{
 use lazy_static::lazy_static;
 use ring::rand::SystemRandom;
 use serde_derive::*;
-use std::{collections::HashMap, panic::RefUnwindSafe, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 use url::Url;
 
 #[cfg(feature = "browserid")]
@@ -52,7 +52,6 @@ pub struct FirefoxAccount {
     state: StateV2,
     access_token_cache: HashMap<String, AccessTokenInfo>,
     flow_store: HashMap<String, OAuthFlow>,
-    persist_callback: Option<PersistCallback>,
     profile_cache: Option<CachedResponse<Profile>>,
 }
 
@@ -76,11 +75,13 @@ impl FirefoxAccount {
             state,
             access_token_cache: HashMap::new(),
             flow_store: HashMap::new(),
-            persist_callback: None,
             profile_cache: None,
         }
     }
 
+    /// Create a new `FirefoxAccount` instance using a `Config`.
+    ///
+    /// **💾 This method alters the persisted account state.**
     pub fn with_config(config: Config) -> Self {
         Self::from_state(StateV2 {
             config,
@@ -91,29 +92,45 @@ impl FirefoxAccount {
         })
     }
 
+    /// Create a new `FirefoxAccount` instance.
+    ///
+    /// * `content_url` - The Firefox Account content server URL.
+    /// * `client_id` - The OAuth `client_id`.
+    /// * `redirect_uri` - The OAuth `redirect_uri`.
+    ///
+    /// **💾 This method alters the persisted account state.**
     pub fn new(content_url: &str, client_id: &str, redirect_uri: &str) -> Self {
         let config = Config::new(content_url, client_id, redirect_uri);
         Self::with_config(config)
     }
 
     #[cfg(test)]
-    pub fn set_client(&mut self, client: Arc<FxAClient>) {
+    pub(crate) fn set_client(&mut self, client: Arc<FxAClient>) {
         self.client = client;
     }
 
+    /// Restore a `FirefoxAccount` instance from an serialized state
+    /// created using `to_json`.
     pub fn from_json(data: &str) -> Result<Self> {
         let state = state_persistence::state_from_json(data)?;
         Ok(Self::from_state(state))
     }
 
+    /// Serialize a `FirefoxAccount` instance internal state
+    /// to be restored later using `from_json`.
     pub fn to_json(&self) -> Result<String> {
         state_persistence::state_to_json(&self.state)
     }
 
+    /// Get the Sync Token Server endpoint URL.
     pub fn get_token_server_endpoint_url(&self) -> Result<Url> {
         self.state.config.token_server_endpoint_url()
     }
 
+    /// Get the "connection succeeded" page URL.
+    /// It is typically used to redirect the user after
+    /// having intercepted the OAuth login-flow state/code
+    /// redirection.
     pub fn get_connection_success_url(&self) -> Result<Url> {
         let mut url = self
             .state
@@ -122,46 +139,6 @@ impl FirefoxAccount {
         url.query_pairs_mut()
             .append_pair("showSuccessMessage", "true");
         Ok(url)
-    }
-
-    pub fn register_persist_callback(&mut self, persist_callback: PersistCallback) {
-        self.persist_callback = Some(persist_callback);
-    }
-
-    pub fn unregister_persist_callback(&mut self) {
-        self.persist_callback = None;
-    }
-
-    fn maybe_call_persist_callback(&self) {
-        if let Some(ref cb) = self.persist_callback {
-            let json = match self.to_json() {
-                Ok(json) => json,
-                Err(_) => {
-                    log::error!("Error with to_json in persist_callback");
-                    return;
-                }
-            };
-            cb.call(&json);
-        }
-    }
-}
-
-pub struct PersistCallback {
-    callback_fn: Box<Fn(&str) + Send + RefUnwindSafe>,
-}
-
-impl PersistCallback {
-    pub fn new<F>(callback_fn: F) -> PersistCallback
-    where
-        F: Fn(&str) + 'static + Send + RefUnwindSafe,
-    {
-        PersistCallback {
-            callback_fn: Box::new(callback_fn),
-        }
-    }
-
-    pub fn call(&self, json: &str) {
-        (*self.callback_fn)(json);
     }
 }
 
