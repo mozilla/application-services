@@ -4,6 +4,7 @@
 
 pub mod history;
 pub mod matcher;
+pub mod placesapi;
 use crate::db::PlacesDb;
 use crate::error::Result;
 use crate::observation::VisitObservation;

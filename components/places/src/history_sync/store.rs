@@ -23,18 +23,16 @@ use super::MAX_INCOMING_PLACES;
 static LAST_SYNC_META_KEY: &'static str = "history_last_sync_time";
 static GLOBAL_STATE_META_KEY: &'static str = "history_global_state";
 
-// Lifetime here seems wrong
+// A HistoryStore is short-lived and constructed each sync by something which
+// owns the connection and ClientInfo.
 pub struct HistoryStore<'a> {
     pub db: &'a Connection,
-    pub client_info: Cell<Option<ClientInfo>>,
+    pub client_info: &'a Cell<Option<ClientInfo>>,
 }
 
 impl<'a> HistoryStore<'a> {
-    pub fn new(db: &'a Connection) -> Self {
-        Self {
-            db,
-            client_info: Cell::new(None),
-        }
+    pub fn new(db: &'a Connection, client_info: &'a Cell<Option<ClientInfo>>) -> Self {
+        Self { db, client_info }
     }
 
     fn put_meta(&self, key: &str, value: &ToSql) -> Result<()> {

@@ -9,11 +9,12 @@ use places::storage::bookmarks::{
     SeparatorNode,
 };
 use places::types::{BookmarkType, SyncGuid, Timestamp};
-use places::{ConnectionType, PlacesAPI, PlacesDb};
+use places::{ConnectionType, PlacesApi, PlacesDb};
 
 use failure::Fail;
 use serde_derive::*;
 use sql_support::ConnExt;
+use std::cell::Cell;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
@@ -166,12 +167,14 @@ fn sync(
 ) -> Result<()> {
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
 
-    // We will want this as a Vec<sync15::Store> eventually...
+    // markh got a bit ahead of himself here :)
+    // This should move to using PlacesApi.
+    let client_info = Cell::new(None);
     let stores = if engine_names.len() == 0 {
-        vec![HistoryStore::new(db)]
+        vec![HistoryStore::new(db, &client_info)]
     } else {
         assert!(engine_names.len() == 1 && engine_names[0] == "history");
-        vec![HistoryStore::new(db)]
+        vec![HistoryStore::new(db, &client_info)]
     };
     let mut sync_ping = telemetry::SyncTelemetryPing::new();
     for store in stores {
@@ -283,7 +286,7 @@ fn main() -> Result<()> {
 
     let db_path = opts.database_path;
     let encryption_key: Option<&str> = opts.encryption_key.as_ref().map(|s| &**s);
-    let api = PlacesAPI::new(&db_path, encryption_key)?;
+    let api = PlacesApi::new(&db_path, encryption_key)?;
     let db = api.open_connection(ConnectionType::ReadWrite)?;
 
     match opts.cmd {

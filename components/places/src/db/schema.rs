@@ -7,7 +7,8 @@
 // We should work out how to turn this into something that can use a shared
 // db.rs.
 
-use crate::db::{ConnectionType, PlacesDb};
+use crate::api::placesapi::ConnectionType;
+use crate::db::PlacesDb;
 use crate::error::*;
 use crate::storage::bookmarks::create_bookmark_roots;
 use rusqlite::NO_PARAMS;

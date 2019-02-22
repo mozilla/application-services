@@ -269,7 +269,7 @@ mod autocomplete {
                 Some(k) => Some(k.as_str()),
                 _ => None,
             };
-            let api = places::PlacesAPI::new(self.path.to_str().unwrap(), key)?;
+            let api = places::PlacesApi::new(self.path.to_str().unwrap(), key)?;
             Ok(api.open_connection(places::ConnectionType::ReadOnly)?)
         }
     }
@@ -814,7 +814,7 @@ fn main() -> Result<()> {
         .unwrap_or("./new-places.db");
     let encryption_key = matches.value_of("encryption_key");
 
-    let api = places::PlacesAPI::new(&db_path, encryption_key)?;
+    let api = places::PlacesApi::new(&db_path, encryption_key)?;
     let mut conn = api.open_connection(places::ConnectionType::ReadWrite)?;
 
     if let Some(import_places_arg) = matches.value_of("import_places") {

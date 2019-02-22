@@ -75,6 +75,12 @@ pub enum ErrorKind {
     #[fail(display = "A connection of this type is already open")]
     ConnectionAlreadyOpen,
 
+    #[fail(display = "An invalid connection type was specified")]
+    InvalidConnectionType,
+
+    #[fail(display = "IO error: {}", _0)]
+    IOError(#[fail(cause)] std::io::Error),
+
     // Maybe we should try to fabricate a rusqlite::Error that looks like the
     // interrupted error?
     #[fail(display = "Operation interrupted")]
@@ -104,7 +110,8 @@ impl_from_error! {
     (JsonError, serde_json::Error),
     (UrlParseError, url::ParseError),
     (SqlError, rusqlite::Error),
-    (InvalidPlaceInfo, InvalidPlaceInfo)
+    (InvalidPlaceInfo, InvalidPlaceInfo),
+    (IOError, std::io::Error)
 }
 
 #[derive(Debug, Fail)]
