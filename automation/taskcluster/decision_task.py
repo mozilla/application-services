@@ -7,6 +7,22 @@
 import os.path
 from decisionlib import *
 
+GRADLE_LIBRARIES = [
+    ':fxa-client-library',
+    ':logins-library',
+    ':places-library',
+    ':rustlog-library',
+    ':as-support-library',
+]
+
+GRADLE_MEGAZORDS = [
+    ':lockbox-megazord',
+    ':reference-browser-megazord',
+    ':fenix-megazord',
+]
+
+TEST_TASKS = " ".join([lib + ":testDebug" for lib in GRADLE_LIBRARIES])
+ASSEMBLE_TASKS = " ".join([lib + ":assembleRelease" for lib in GRADLE_LIBRARIES + GRADLE_MEGAZORDS])
 
 def main(task_for, mock=False):
     if task_for == "github-pull-request":
@@ -133,10 +149,10 @@ def android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs
             yes | sdkmanager --update
             yes | sdkmanager --licenses
             ./gradlew --no-daemon clean
-            ./gradlew --no-daemon :fxa-client-library:testDebug :logins-library:testDebug :places-library:testDebug
-            ./gradlew --no-daemon :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
+            ./gradlew --no-daemon %s
+            ./gradlew --no-daemon %s
             ./gradlew --no-daemon publish :zipMavenArtifacts
-        """)
+        """ % (TEST_TASKS, ASSEMBLE_TASKS))
         .with_artifacts("/build/repo/build/target.maven.zip")
         .create()
     )
@@ -156,12 +172,12 @@ def android_arm32_release(android_libs_task, desktop_linux_libs_task, desktop_ma
             yes | sdkmanager --update
             yes | sdkmanager --licenses
             ./gradlew --no-daemon clean
-            ./gradlew --no-daemon :fxa-client-library:testDebug :logins-library:testDebug :places-library:testDebug
-            ./gradlew --no-daemon :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
+            ./gradlew --no-daemon %s
+            ./gradlew --no-daemon %s
             ./gradlew --no-daemon publish :zipMavenArtifacts
             python automation/taskcluster/release/fetch-bintray-api-key.py
             ./gradlew bintrayUpload --debug -PvcsTag="${GIT_SHA}"
-        """)
+        """ % (TEST_TASKS, ASSEMBLE_TASKS))
         .with_artifacts("/build/repo/build/target.maven.zip")
         .with_scopes("secrets:get:project/application-services/publish")
         .with_features("taskclusterProxy")

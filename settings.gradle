@@ -1,6 +1,9 @@
 // See https://docs.gradle.org/current/userguide/publishing_maven.html#publishing_maven:deferred_configuration.
 enableFeaturePreview('STABLE_PUBLISHING')
 
+// Important: If you add new libraries or megazords here,
+// update the lists in automation/taskcluster/decision_task.py
+
 include ':fxa-client-library'
 include ':logins-library'
 include ':places-library'
