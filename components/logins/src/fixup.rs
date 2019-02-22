@@ -3,10 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::db::LoginDb;
+use crate::error::Result;
 use crate::login::Login;
 use crate::util;
 use url::{Origin, Url};
-use crate::error::Result;
 
 pub fn has_bad_character(field: &str) -> bool {
     memchr::memchr3(b'\r', b'\n', b'\0', field.as_bytes()).is_some()
@@ -146,7 +146,10 @@ pub fn maybe_fixup_logins(db: &LoginDb) -> Result<()> {
     // If we've ever done the fixup, don't bother doing it again. Eventually
     // we might want to change that, but for now it should just be a 'run once'
     // thing
-    if db.get_meta::<i64>(crate::schema::LAST_FIXUP_TIME_META_KEY)?.is_some() {
+    if db
+        .get_meta::<i64>(crate::schema::LAST_FIXUP_TIME_META_KEY)?
+        .is_some()
+    {
         return Ok(());
     }
     log::info!("Running login fixup");
@@ -177,11 +180,14 @@ pub fn maybe_fixup_logins(db: &LoginDb) -> Result<()> {
     Ok(())
 }
 
-
 // `allow_non_origin` indicates if we're willing to take a non-origin if its a valid url but
 // that the URL spec has defined as having an opaque origin (includes all schemes
 // other than `"ftp" | "gopher" | "http" | "https" | "ws" | "wss"`)
-pub fn try_fixup_origin_string(url_str: &str, allow_non_origin: bool, allow_empty_string: bool) -> Option<String> {
+pub fn try_fixup_origin_string(
+    url_str: &str,
+    allow_non_origin: bool,
+    allow_empty_string: bool,
+) -> Option<String> {
     let url_str = url_str
         .trim()
         .replace(|c| c == '\0' || c == '\r' || c == '\n', "");
@@ -226,11 +232,119 @@ pub fn fixup_record_for_database(login: &mut Login) {
         login.hostname = hostname;
     }
 
-    let maybe_url = login.form_submit_url.as_ref().map(|url| {
-        try_fixup_origin_string(url, true, true)
-    });
+    let maybe_url = login
+        .form_submit_url
+        .as_ref()
+        .map(|url| try_fixup_origin_string(url, true, true));
 
     if let Some(Some(fixed_up_url)) = maybe_url {
         login.form_submit_url = Some(fixed_up_url);
+    }
+}
+#[cfg(test)]
+mod test {
+    use super::*;
+    fn login<'a>(
+        hostname: &str,
+        user: &str,
+        pass: &str,
+        form_submit_url: impl Into<Option<&'a str>>,
+        http_realm: impl Into<Option<&'a str>>,
+    ) -> Login {
+        Login {
+            id: "".into(),
+            hostname: hostname.into(),
+            username: user.into(),
+            password: pass.into(),
+            form_submit_url: form_submit_url.into().map(|s| s.into()),
+            http_realm: http_realm.into().map(|s| s.into()),
+            username_field: "".into(),
+            password_field: "".into(),
+            time_created: 0,
+            time_password_changed: 0,
+            time_last_used: 0,
+            times_used: 0,
+        }
+    }
+    fn login_with_fields<'a>(
+        hostname: &str,
+        user: &str,
+        pass: &str,
+        form_submit_url: impl Into<Option<&'a str>>,
+        http_realm: impl Into<Option<&'a str>>,
+        user_field: &str,
+        pass_field: &str,
+    ) -> Login {
+        let mut l = login(hostname, user, pass, form_submit_url, http_realm);
+        l.username_field = user_field.into();
+        l.password_field = pass_field.into();
+        l
+    }
+
+    fn check_fixed(l0: Login, l1: Login) {
+        assert_eq!(fix_login(&l0), l1)
+    }
+    #[test]
+    #[rustfmt::skip]
+    // This is a lot harder to read what each thing is testing when things get split out a lot
+    fn test_fix_login() {
+        check_fixed(
+            login("garbage hostname", "username", "password", "", None),
+            login("garbage hostname", "username", "password", "", None)
+        );
+
+        check_fixed(
+            login("http://www.example.com", "username\0", "password\0", "", None),
+            login("http://www.example.com", "username", "password", "", None)
+        );
+
+        check_fixed(
+            login("http://www.example\n.com", "username", "password", "", None),
+            login("http://www.example.com", "username", "password", "", None)
+        );
+
+        check_fixed(
+            login("http://www.example.com/path", "username", "password", "", None),
+            login("http://www.example.com", "username", "password", "", None)
+        );
+
+        check_fixed(
+            login("http://www.example.com/path", "username", "password", "garbage form submit url", None),
+            login("http://www.example.com", "username", "password", "http://www.example.com", None)
+        );
+
+        check_fixed(
+            login("http://www.example.com/path", "username", "password", "http://user:stuff@www.notexample.com:8080/path", None),
+            login("http://www.example.com", "username", "password", "http://www.notexample.com:8080", None)
+        );
+
+        check_fixed(
+            login("http://www.example.com", "user\0name", "pass\0word", "", None),
+            login("http://www.example.com", "username", "password", "", None)
+        );
+
+        check_fixed(
+            login("http://www.example.com", "username", "password", None, None),
+            login("http://www.example.com", "username", "password", "", None)
+        );
+
+        check_fixed(
+            login("http://www.example.com", "username", "password", None, "invalid\nrealm"),
+            login("http://www.example.com", "username", "password", None, "invalid realm")
+        );
+        check_fixed(
+            login("http://www.example.com", "username", "password", None, "invalid\nrealm"),
+            login("http://www.example.com", "username", "password", None, "invalid realm")
+        );
+
+        check_fixed(
+            login_with_fields("http://www.example.com", "username", "password", "", None, "gar\0\nbage", "pass-field"),
+            login_with_fields("http://www.example.com", "username", "password", "", None, "", "pass-field")
+        );
+
+        check_fixed(
+            login_with_fields("http://www.example.com", "username", "password", "", None, "user-field", "gar\0\nbage"),
+            login_with_fields("http://www.example.com", "username", "password", "", None, "user-field", "")
+        );
     }
 }
