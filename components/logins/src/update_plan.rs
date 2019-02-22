@@ -5,7 +5,7 @@
 use crate::error::*;
 use crate::login::{LocalLogin, Login, MirrorLogin, SyncStatus};
 use crate::util;
-use rusqlite::{types::ToSql, Connection};
+use rusqlite::Connection;
 use std::time::SystemTime;
 use sync15::ServerTimestamp;
 
@@ -118,22 +118,19 @@ impl UpdatePlan {
         for (login, timestamp) in &self.mirror_updates {
             log::trace!("Updating mirror {:?}", login.guid_str());
             stmt.execute_named(&[
-                (":server_modified", timestamp as &ToSql),
-                (":http_realm", &login.http_realm as &ToSql),
-                (":form_submit_url", &login.form_submit_url as &ToSql),
-                (":username_field", &login.username_field as &ToSql),
-                (":password_field", &login.password_field as &ToSql),
-                (":password", &login.password as &ToSql),
-                (":hostname", &login.hostname as &ToSql),
-                (":username", &login.username as &ToSql),
-                (":times_used", &login.times_used as &ToSql),
-                (":time_last_used", &login.time_last_used as &ToSql),
-                (
-                    ":time_password_changed",
-                    &login.time_password_changed as &ToSql,
-                ),
-                (":time_created", &login.time_created as &ToSql),
-                (":guid", &login.guid_str() as &ToSql),
+                (":server_modified", timestamp),
+                (":http_realm", &login.http_realm),
+                (":form_submit_url", &login.form_submit_url),
+                (":username_field", &login.username_field),
+                (":password_field", &login.password_field),
+                (":password", &login.password),
+                (":hostname", &login.hostname),
+                (":username", &login.username),
+                (":times_used", &login.times_used),
+                (":time_last_used", &login.time_last_used),
+                (":time_password_changed", &login.time_password_changed),
+                (":time_created", &login.time_created),
+                (":guid", &login.guid_str()),
             ])?;
         }
         Ok(())
@@ -183,23 +180,20 @@ impl UpdatePlan {
         for (login, timestamp, is_overridden) in &self.mirror_inserts {
             log::trace!("Inserting mirror {:?}", login.guid_str());
             stmt.execute_named(&[
-                (":is_overridden", is_overridden as &ToSql),
-                (":server_modified", timestamp as &ToSql),
-                (":http_realm", &login.http_realm as &ToSql),
-                (":form_submit_url", &login.form_submit_url as &ToSql),
-                (":username_field", &login.username_field as &ToSql),
-                (":password_field", &login.password_field as &ToSql),
-                (":password", &login.password as &ToSql),
-                (":hostname", &login.hostname as &ToSql),
-                (":username", &login.username as &ToSql),
-                (":times_used", &login.times_used as &ToSql),
-                (":time_last_used", &login.time_last_used as &ToSql),
-                (
-                    ":time_password_changed",
-                    &login.time_password_changed as &ToSql,
-                ),
-                (":time_created", &login.time_created as &ToSql),
-                (":guid", &login.guid_str() as &ToSql),
+                (":is_overridden", is_overridden),
+                (":server_modified", timestamp),
+                (":http_realm", &login.http_realm),
+                (":form_submit_url", &login.form_submit_url),
+                (":username_field", &login.username_field),
+                (":password_field", &login.password_field),
+                (":password", &login.password),
+                (":hostname", &login.hostname),
+                (":username", &login.username),
+                (":times_used", &login.times_used),
+                (":time_last_used", &login.time_last_used),
+                (":time_password_changed", &login.time_password_changed),
+                (":time_created", &login.time_created),
+                (":guid", &login.guid_str()),
             ])?;
         }
         Ok(())
@@ -207,9 +201,8 @@ impl UpdatePlan {
 
     fn perform_local_updates(&self, conn: &Connection) -> Result<()> {
         let sql = format!(
-            "
-            UPDATE loginsL
-            SET local_modified      = :local_modified,
+            "UPDATE loginsL SET
+                local_modified      = :local_modified,
                 httpRealm           = :http_realm,
                 formSubmitURL       = :form_submit_url,
                 usernameField       = :username_field,
@@ -230,21 +223,18 @@ impl UpdatePlan {
         for l in &self.local_updates {
             log::trace!("Updating local {:?}", l.guid_str());
             stmt.execute_named(&[
-                (":local_modified", &local_ms as &ToSql),
-                (":http_realm", &l.login.http_realm as &ToSql),
-                (":form_submit_url", &l.login.form_submit_url as &ToSql),
-                (":username_field", &l.login.username_field as &ToSql),
-                (":password_field", &l.login.password_field as &ToSql),
-                (":password", &l.login.password as &ToSql),
-                (":hostname", &l.login.hostname as &ToSql),
-                (":username", &l.login.username as &ToSql),
-                (":time_last_used", &l.login.time_last_used as &ToSql),
-                (
-                    ":time_password_changed",
-                    &l.login.time_password_changed as &ToSql,
-                ),
-                (":times_used", &l.login.times_used as &ToSql),
-                (":guid", &l.guid_str() as &ToSql),
+                (":local_modified", &local_ms),
+                (":http_realm", &l.login.http_realm),
+                (":form_submit_url", &l.login.form_submit_url),
+                (":username_field", &l.login.username_field),
+                (":password_field", &l.login.password_field),
+                (":password", &l.login.password),
+                (":hostname", &l.login.hostname),
+                (":username", &l.login.username),
+                (":time_last_used", &l.login.time_last_used),
+                (":time_password_changed", &l.login.time_password_changed),
+                (":times_used", &l.login.times_used),
+                (":guid", &l.guid_str()),
             ])?;
         }
         Ok(())
