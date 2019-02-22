@@ -136,7 +136,7 @@ mod test {
         let a = Login {
             id: "aaaaaaaaaaaa".into(),
             hostname: "https://www.example.com".into(),
-            form_submit_url: Some("https://www.example.com/login".into()),
+            form_submit_url: Some("https://login.example.com".into()),
             username: "coolperson21".into(),
             password: "p4ssw0rd".into(),
             username_field: "user_input".into(),

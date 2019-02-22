@@ -220,3 +220,17 @@ pub fn try_fixup_origin_string(url_str: &str, allow_non_origin: bool, allow_empt
         tuple_origin => Some(tuple_origin.ascii_serialization()),
     }
 }
+
+pub fn fixup_record_for_database(login: &mut Login) {
+    if let Some(hostname) = try_fixup_origin_string(&login.hostname, true, false) {
+        login.hostname = hostname;
+    }
+
+    let maybe_url = login.form_submit_url.as_ref().map(|url| {
+        try_fixup_origin_string(url, true, true)
+    });
+
+    if let Some(Some(fixed_up_url)) = maybe_url {
+        login.form_submit_url = Some(fixed_up_url);
+    }
+}

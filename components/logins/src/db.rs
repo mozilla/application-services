@@ -306,6 +306,7 @@ impl LoginDb {
             login.id = sync15::random_guid()
                 .expect("Failed to generate failed to generate random bytes for GUID");
         }
+        crate::fixup::fixup_record_for_database(&mut login);
 
         // Fill in default metadata.
         // TODO: allow this to be provided for testing?
@@ -379,13 +380,15 @@ impl LoginDb {
         Ok(login)
     }
 
-    pub fn update(&self, login: Login) -> Result<()> {
+    pub fn update(&self, mut login: Login) -> Result<()> {
         login.check_valid()?;
         // Note: These fail with DuplicateGuid if the record doesn't exist.
         self.ensure_local_overlay_exists(login.guid_str())?;
         self.mark_mirror_overridden(login.guid_str())?;
 
         let now_ms = util::system_time_ms_i64(SystemTime::now());
+
+        crate::fixup::fixup_record_for_database(&mut login);
 
         let sql = format!(
             "UPDATE loginsL SET
