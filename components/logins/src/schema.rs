@@ -207,6 +207,7 @@ const UPDATE_MIRROR_TIMESTAMPS_TO_MILLIS_SQL: &'static str = "
 
 pub(crate) static LAST_SYNC_META_KEY: &'static str = "last_sync_time";
 pub(crate) static GLOBAL_STATE_META_KEY: &'static str = "global_state";
+pub(crate) static LAST_FIXUP_TIME_META_KEY: &'static str = "last_fixup_time";
 
 pub(crate) fn init(db: &Connection) -> Result<()> {
     let user_version = db.query_one::<i64>("PRAGMA user_version")?;

@@ -70,6 +70,7 @@ impl LoginDb {
         let tx = logins.db.transaction()?;
         schema::init(&tx)?;
         tx.commit()?;
+        crate::fixup::maybe_fixup_logins(&logins)?;
         Ok(logins)
     }
 
@@ -233,15 +234,15 @@ impl LoginDb {
     // It would be nice if this were a batch-ish api (e.g. takes a slice of records and finds dupes
     // for each one if they exist)... I can't think of how to write that query, though.
     fn find_dupe(&self, l: &Login) -> Result<Option<Login>> {
-        let form_submit_host_port = l
+        let form_submit_value = l
             .form_submit_url
             .as_ref()
-            .and_then(|s| util::url_host_port(&s));
+            .map(|s| form_submit_url_dedupe_key(&s));
         let args = &[
             (":hostname", &l.hostname as &dyn ToSql),
             (":http_realm", &l.http_realm),
             (":username", &l.username),
-            (":form_submit", &form_submit_host_port),
+            (":form_submit", &form_submit_value),
         ];
         let mut query = format!(
             "SELECT {common}
@@ -251,9 +252,9 @@ impl LoginDb {
                AND username IS :username",
             common = schema::COMMON_COLS,
         );
-        if form_submit_host_port.is_some() {
+        if form_submit_value.is_some() {
             // Stolen from iOS
-            query += " AND (formSubmitURL = '' OR (instr(formSubmitURL, :form_submit) > 0))";
+            query += " AND (formSubmitURL = '' OR formSubmitURL IS :form_submit)";
         } else {
             query += " AND formSubmitURL IS :form_submit"
         }
@@ -686,7 +687,7 @@ impl LoginDb {
         Ok(self.fetch_outgoing(inbound.timestamp)?)
     }
 
-    fn put_meta(&self, key: &str, value: &dyn ToSql) -> Result<()> {
+    pub(crate) fn put_meta(&self, key: &str, value: &dyn ToSql) -> Result<()> {
         self.execute_named_cached(
             "REPLACE INTO loginsSyncMeta (key, value) VALUES (:key, :value)",
             &[(":key", &key), (":value", value)],
@@ -694,7 +695,7 @@ impl LoginDb {
         Ok(())
     }
 
-    fn get_meta<T: FromSql>(&self, key: &str) -> Result<Option<T>> {
+    pub(crate) fn get_meta<T: FromSql>(&self, key: &str) -> Result<Option<T>> {
         Ok(self.try_query_one(
             "SELECT value FROM loginsSyncMeta WHERE key = :key",
             &[(":key", &key)],
@@ -767,6 +768,21 @@ impl Store for LoginDb {
     fn wipe(&self) -> result::Result<(), failure::Error> {
         LoginDb::wipe(self)?;
         Ok(())
+    }
+}
+
+fn form_submit_url_dedupe_key(url_str: &str) -> String {
+    // force normalization.
+    let url = if let Ok(url) = url::Url::parse(url_str) {
+        url
+    } else {
+        return url_str.into();
+    };
+    let (prefix, hostport) = crate::util::prefix_hostport(url.as_str());
+    if hostport.len() != 0 {
+        prefix.to_string() + hostport
+    } else {
+        url_str.into()
     }
 }
 

@@ -15,10 +15,12 @@ pub struct Login {
     // TODO: consider `#[serde(rename = "id")] pub guid: String` to avoid confusion
     pub id: String,
 
+    /// Note: Despite it's name, this is an origin and not a hostname.
     pub hostname: String,
 
-    // rename_all = "camelCase" by default will do formSubmitUrl, but we can just
-    // override this one field.
+    /// Note: Despite it's name, this is an origin and not a URL.
+    ///
+    /// (It may also be the empty string)
     #[serde(rename = "formSubmitURL")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub form_submit_url: Option<String>,

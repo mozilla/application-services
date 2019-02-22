@@ -5,16 +5,38 @@
 use crate::error::*;
 use rusqlite::Row;
 use std::time;
-use url::Url;
 
-pub fn url_host_port(url_str: &str) -> Option<String> {
-    let url = Url::parse(url_str).ok()?;
-    let host = url.host_str()?;
-    Some(if let Some(p) = url.port() {
-        format!("{}:{}", host, p)
-    } else {
-        host.to_string()
-    })
+// from places
+fn split_after_prefix(href: &str) -> (&str, &str) {
+    match memchr::memchr(b':', href.as_bytes()) {
+        None => ("", href),
+        Some(index) => {
+            let hb = href.as_bytes();
+            let mut end = index + 1;
+            if hb.len() >= end + 2 && hb[end] == b'/' && hb[end + 1] == b'/' {
+                end += 2;
+            }
+            href.split_at(end)
+        }
+    }
+}
+
+/// Returns:
+///
+/// - the prefix (scheme, colon, and '//' if present)
+/// - host:port
+///
+/// e.g. removes path, query, fragment, and userinfo.
+pub fn prefix_hostport(href: &str) -> (&str, &str) {
+    let (prefix, remainder) = split_after_prefix(href);
+
+    let start = memchr::memchr(b'@', remainder.as_bytes())
+        .map(|i| i + 1)
+        .unwrap_or(0);
+
+    let remainder = &remainder[start..];
+    let end = memchr::memchr3(b'/', b'?', b'#', remainder.as_bytes()).unwrap_or(remainder.len());
+    (prefix, &remainder[..end])
 }
 
 pub fn system_time_millis_from_row(row: &Row, col_name: &str) -> Result<time::SystemTime> {

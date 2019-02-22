@@ -8,6 +8,7 @@ mod login;
 
 mod db;
 mod engine;
+mod fixup;
 pub mod schema;
 mod update_plan;
 mod util;
