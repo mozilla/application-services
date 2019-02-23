@@ -28,7 +28,7 @@ class PlacesConnectionTest {
     @Before
     fun initAPI() {
         api = PlacesApi(path = dbFolder.newFile().absolutePath)
-        db = api.open_writer()
+        db = api.openWriter()
     }
 
     @After

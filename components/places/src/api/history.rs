@@ -57,7 +57,7 @@ pub fn insert(conn: &mut PlacesDb, place: AddablePlaceInfo) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::placesapi::test::new_mem_connection;
+    use crate::api::places_api::test::new_mem_connection;
     use rusqlite::NO_PARAMS;
 
     #[test]

@@ -999,7 +999,7 @@ fn get_raw_bookmark(db: &impl ConnExt, guid: &SyncGuid) -> Result<Option<RawBook
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::placesapi::test::new_mem_connection;
+    use crate::api::places_api::test::new_mem_connection;
 
     #[test]
     fn test_insert() -> Result<()> {

@@ -545,7 +545,7 @@ impl<'query> Matcher for Suggestions<'query> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::placesapi::test::new_mem_connection;
+    use crate::api::places_api::test::new_mem_connection;
     use crate::observation::VisitObservation;
     use crate::storage::history::apply_observation;
     use crate::types::{Timestamp, VisitTransition};

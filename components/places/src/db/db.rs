@@ -4,7 +4,7 @@
 
 use super::interrupt::{InterruptScope, PlacesInterruptHandle};
 use super::schema;
-use crate::api::placesapi::ConnectionType;
+use crate::api::places_api::ConnectionType;
 use crate::error::*;
 use rusqlite::Connection;
 use sql_support::ConnExt;
@@ -118,7 +118,7 @@ impl PlacesDb {
 
     #[cfg(test)]
     // Useful for some tests (although most tests should use helper functions
-    // in api::placesapi::test)
+    // in api::places_api::test)
     pub fn open_in_memory(encryption_key: Option<&str>) -> Result<Self> {
         Ok(Self::with_connection(
             Connection::open_in_memory()?,

@@ -38,18 +38,18 @@ class PlacesApi(path: String, encryption_key: String? = null) : PlacesApiInterfa
         private const val READ_WRITE: Int = 2
     }
 
-    override fun open_reader(): ReadablePlacesConnection {
-        val conn_handle = rustCall { error ->
+    override fun openReader(): ReadablePlacesConnection {
+        val connHandle = rustCall { error ->
             LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_ONLY, error)
         }
-        return ReadablePlacesConnection(conn_handle);
+        return ReadablePlacesConnection(connHandle);
     }
 
-    override fun open_writer(): WritablePlacesConnection {
-        val conn_handle = rustCall { error ->
+    override fun openWriter(): WritablePlacesConnection {
+        val connHandle = rustCall { error ->
             LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_WRITE, error)
         }
-        return WritablePlacesConnection(conn_handle);
+        return WritablePlacesConnection(connHandle);
     }
 
     @Synchronized
@@ -91,15 +91,15 @@ class PlacesApi(path: String, encryption_key: String? = null) : PlacesApiInterfa
 
 // Is it possible/advisable to take a PlacesApi reference here, so that we
 // could call close_connection() on the API?
-open class PlacesConnection internal constructor(conn_handle: Long) : PlacesConnectionInterface, AutoCloseable {
+open class PlacesConnection internal constructor(connHandle: Long) : PlacesConnectionInterface, AutoCloseable {
     protected var handle: AtomicLong = AtomicLong(0)
     protected var interruptHandle: InterruptHandle
 
     init {
-        handle.set(conn_handle)
+        handle.set(connHandle)
         try {
             interruptHandle = InterruptHandle(rustCall { err ->
-                LibPlacesFFI.INSTANCE.places_new_interrupt_handle(conn_handle, err)
+                LibPlacesFFI.INSTANCE.places_new_interrupt_handle(connHandle, err)
             }!!)
         } catch (e: Throwable) {
             rustCall { error ->
@@ -152,7 +152,7 @@ open class PlacesConnection internal constructor(conn_handle: Long) : PlacesConn
  * An implementation of a [ReadablePlacesConnection], used for read-only
  * access to places APIs.
  */
-open class ReadablePlacesConnection internal constructor(conn_handle: Long): PlacesConnection(conn_handle), ReadablePlacesConnectionInterface {
+open class ReadablePlacesConnection internal constructor(connHandle: Long): PlacesConnection(connHandle), ReadablePlacesConnectionInterface {
 
     override fun queryAutocomplete(query: String, limit: Int): List<SearchResult> {
         val json = rustCallForString { error ->
@@ -234,7 +234,7 @@ open class ReadablePlacesConnection internal constructor(conn_handle: Long): Pla
  * An implementation of a [WritablePlacesConnection], use for read or write
  * access to the Places APIs.
  */
-class WritablePlacesConnection internal constructor(conn_handle: Long) : ReadablePlacesConnection(conn_handle), WritablePlacesConnectionInterface {
+class WritablePlacesConnection internal constructor(connHandle: Long) : ReadablePlacesConnection(connHandle), WritablePlacesConnectionInterface {
     override fun noteObservation(data: VisitObservation) {
         val json = data.toJSON().toString()
         rustCall { error ->
@@ -311,9 +311,9 @@ class SyncAuthInfo (
  * functionality.
  */
 interface PlacesApiInterface {
-    fun open_reader(): ReadablePlacesConnectionInterface
+    fun openReader(): ReadablePlacesConnectionInterface
 
-    fun open_writer(): WritablePlacesConnectionInterface
+    fun openWriter(): WritablePlacesConnectionInterface
 
     /**
      * Syncs the places stores.
