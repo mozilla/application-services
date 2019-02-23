@@ -55,14 +55,6 @@ typedef struct SyncKeysC {
     const char *const _Nonnull xcs;
 } SyncKeysC;
 
-typedef struct ProfileC {
-    const char *const _Nonnull uid;
-    const char *const _Nonnull email;
-    const char *const _Nullable avatar;
-    const uint8_t avatar_default;
-    const char *const _Nullable display_name;
-} ProfileC;
-
 typedef uint64_t FirefoxAccountHandle;
 
 char *_Nonnull fxa_begin_oauth_flow(FirefoxAccountHandle handle,

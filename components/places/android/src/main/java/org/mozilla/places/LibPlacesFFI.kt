@@ -149,6 +149,11 @@ internal interface LibPlacesFFI : Library {
             out_err: RustError.ByReference
     )
 
+    fun places_delete_everything(
+            handle: PlacesConnectionHandle,
+            out_err: RustError.ByReference
+    )
+
     fun places_get_visit_infos(
             handle: PlacesConnectionHandle,
             startDate: Long,

@@ -110,5 +110,141 @@ BEGIN
     SELECT RAISE(FAIL, 'guids are immutable');
 END;
 
--- XXX - TODO - lots of desktop temp tables - but it's not clear they make sense here yet?
--- XXX - TODO - lots of favicon related tables - but it's not clear they make sense here yet?
+
+-- The next several triggers are a workaround for the lack of FOR EACH STATEMENT
+-- in Sqlite, (see bug 871908).
+--
+-- While doing inserts or deletes into moz_places, we accumulate the affected
+-- origins into a temp table. Afterwards, we delete everything from the temp
+-- table, causing the AFTER DELETE trigger to fire for it, which will then
+-- update moz_origins and the origin frecency stats. As a consequence, we also
+-- do this for updates to moz_places.frecency in order to make sure that changes
+-- to origins are serialized.
+--
+-- Note this way we lose atomicity, crashing between the 2 queries may break the
+-- tables' coherency. So it's better to run those DELETE queries in a single
+-- transaction. Regardless, this is still better than hanging the browser for
+-- several minutes on a fast machine.
+
+-- Note: unlike the version of this trigger in desktop places, we don't bother with calling
+-- store_last_inserted_id. Bug comments indicate that's only really needed because the hybrid
+-- sync/async connection places prevents `last_insert_rowid` from working. This shouldn't be an
+-- issue for us, and it's unclear how we'd implement `store_last_inserted_id` it while supporting
+-- multiple connections to separate databases open simultaneously, which we'd like for testing
+-- purposes. (To be clear, it's certainly possible to implement it if it turns out we need it, it
+-- would just be very tricky).
+
+CREATE TEMP TRIGGER moz_places_afterinsert_trigger_origins
+AFTER INSERT ON moz_places FOR EACH ROW
+BEGIN
+    INSERT OR IGNORE INTO moz_updateoriginsinsert_temp (place_id, prefix, host, rev_host, frecency)
+    VALUES (
+        NEW.id,
+        get_prefix(NEW.url),
+        get_host_and_port(NEW.url),
+        reverse_host(get_host_and_port(NEW.url)),
+        NEW.frecency
+    );
+END;
+
+-- This trigger corresponds to the previous trigger
+-- (moz_places_afterinsert_trigger).  It runs on deletes on
+-- moz_updateoriginsinsert_temp -- logically, after inserts on moz_places.
+CREATE TEMP TRIGGER moz_updateoriginsinsert_afterdelete_trigger
+AFTER DELETE ON moz_updateoriginsinsert_temp FOR EACH ROW
+BEGIN
+    -- Deduct the origin's current contribution to frecency stats
+    {decrease_frecency_stats};
+
+    INSERT INTO moz_origins (prefix, host, rev_host, frecency)
+    VALUES (
+        OLD.prefix,
+        OLD.host,
+        OLD.rev_host,
+        MAX(OLD.frecency, 0)
+    )
+    ON CONFLICT(prefix, host) DO UPDATE
+        SET frecency = frecency + OLD.frecency
+        WHERE OLD.frecency > 0;
+
+    -- Add the origin's new contribution to frecency stats
+    {increase_frecency_stats};
+
+    UPDATE moz_places SET origin_id = (
+        SELECT id FROM moz_origins
+        WHERE prefix = OLD.prefix
+          AND host = OLD.host
+    )
+    WHERE id = OLD.place_id;
+END;
+
+-- When a row is deleted from places, we insert info about the frecency
+-- delta into moz_updateoriginsdelete_tmp
+CREATE TEMP TRIGGER moz_places_afterdelete_trigger_origins
+AFTER DELETE ON moz_places
+FOR EACH ROW
+BEGIN
+    INSERT INTO moz_updateoriginsdelete_temp (prefix, host, frecency_delta)
+    VALUES (
+        get_prefix(OLD.url),
+        get_host_and_port(OLD.url),
+        -MAX(OLD.frecency, 0)
+    )
+    ON CONFLICT(prefix, host) DO UPDATE
+    SET frecency_delta = frecency_delta - OLD.frecency
+    WHERE OLD.frecency > 0;
+END;
+
+-- This trigger corresponds to the previous trigger
+-- (moz_places_afterdelete_trigger_origins).  It runs on deletes on
+-- moz_updateoriginsdelete_temp -- logically, after deletes on moz_places.
+CREATE TEMP TRIGGER moz_updateoriginsdelete_afterdelete_trigger
+AFTER DELETE ON moz_updateoriginsdelete_temp FOR EACH ROW
+BEGIN
+    -- Deduct the origin's current contribution to frecency stats
+    {decrease_frecency_stats};
+    UPDATE moz_origins SET frecency = frecency + OLD.frecency_delta
+    WHERE prefix = OLD.prefix AND host = OLD.host;
+
+    DELETE FROM moz_origins
+    WHERE prefix = OLD.prefix
+        AND host = OLD.host
+        AND NOT EXISTS (
+            SELECT id FROM moz_places
+            WHERE origin_id = moz_origins.id
+            LIMIT 1
+        );
+    -- Add the origin's new contribution to frecency stats
+    {increase_frecency_stats};
+END;
+
+-- Note: desktop places also has a notion of "frecency decay", and it only runs this
+-- `WHEN NOT is_frecency_decaying()`.
+CREATE TEMP TRIGGER moz_places_afterupdate_frecency_trigger
+AFTER UPDATE OF frecency ON moz_places FOR EACH ROW
+BEGIN
+    INSERT INTO moz_updateoriginsupdate_temp (prefix, host, frecency_delta)
+    VALUES (
+        get_prefix(NEW.url),
+        get_host_and_port(NEW.url),
+        MAX(NEW.frecency, 0) - MAX(OLD.frecency, 0)
+    )
+    ON CONFLICT(prefix, host) DO UPDATE
+    SET frecency_delta = frecency_delta + EXCLUDED.frecency_delta;
+END;
+
+-- This trigger corresponds to the previous trigger
+-- (moz_places_afterupdate_frecency_trigger).  It runs on deletes on
+-- moz_updateoriginsupdate_temp -- logically, after updates to places frecency.
+CREATE TEMP TRIGGER moz_updateoriginsupdate_afterdelete_trigger
+AFTER DELETE ON moz_updateoriginsupdate_temp FOR EACH ROW
+BEGIN
+    -- Deduct the origin's current contribution to frecency stats
+    {decrease_frecency_stats};
+    UPDATE moz_origins
+    SET frecency = frecency + OLD.frecency_delta
+    WHERE prefix = OLD.prefix
+      AND host = OLD.host;
+    -- Add the origin's new contribution to frecency stats
+    {increase_frecency_stats};
+END;

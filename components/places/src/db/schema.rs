@@ -17,12 +17,51 @@ use sql_support::ConnExt;
 const VERSION: i64 = 5;
 
 const CREATE_SCHEMA_SQL: &str = include_str!("../../sql/create_schema.sql");
-const CREATE_TRIGGERS_SQL: &str = include_str!("../../sql/create_triggers.sql");
+const CREATE_TEMP_TABLES_SQL: &str = include_str!("../../sql/create_temp_tables.sql");
+
+lazy_static::lazy_static! {
+    static ref CREATE_TRIGGERS_SQL: String = {
+        format!(
+            include_str!("../../sql/create_triggers.sql"),
+            increase_frecency_stats = update_origin_frecency_stats("+"),
+            decrease_frecency_stats = update_origin_frecency_stats("-"),
+        )
+    };
+}
 
 // Keys in the moz_meta table.
-// pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_COUNT: &'static str = "origin_frecency_count";
-// pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM: &'static str = "origin_frecency_sum";
-// pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM_OF_SQUARES: &'static str = "origin_frecency_sum_of_squares";
+pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_COUNT: &'static str = "origin_frecency_count";
+pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM: &'static str = "origin_frecency_sum";
+pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM_OF_SQUARES: &'static str =
+    "origin_frecency_sum_of_squares";
+
+fn update_origin_frecency_stats(op: &str) -> String {
+    format!(
+        "
+        INSERT OR REPLACE INTO moz_meta(key, value)
+        SELECT
+            '{frecency_count}',
+            IFNULL((SELECT value FROM moz_meta WHERE key = '{frecency_count}'), 0)
+                {op} CAST (frecency > 0 AS INT)
+        FROM moz_origins WHERE prefix = OLD.prefix AND host = OLD.host
+        UNION
+        SELECT
+            '{frecency_sum}',
+            IFNULL((SELECT value FROM moz_meta WHERE key = '{frecency_sum}'), 0)
+                {op} MAX(frecency, 0)
+        FROM moz_origins WHERE prefix = OLD.prefix AND host = OLD.host
+        UNION
+        SELECT
+            '{frecency_sum_of_squares}',
+            IFNULL((SELECT value FROM moz_meta WHERE key = '{frecency_sum_of_squares}'), 0)
+                {op} (MAX(frecency, 0) * MAX(frecency, 0))
+        FROM moz_origins WHERE prefix = OLD.prefix AND host = OLD.host",
+        op = op,
+        frecency_count = MOZ_META_KEY_ORIGIN_FRECENCY_COUNT,
+        frecency_sum = MOZ_META_KEY_ORIGIN_FRECENCY_SUM,
+        frecency_sum_of_squares = MOZ_META_KEY_ORIGIN_FRECENCY_SUM_OF_SQUARES,
+    )
+}
 
 fn get_current_schema_version(db: &PlacesDb) -> Result<i64> {
     Ok(db.query_one::<i64>("PRAGMA user_version")?)
@@ -48,7 +87,8 @@ pub fn init(db: &PlacesDb) -> Result<()> {
     // (Note that later we expect some triggers specific to sync)
     if db.conn_type == ConnectionType::ReadWrite {
         log::debug!("Creating temp tables and triggers");
-        db.execute_batch(CREATE_TRIGGERS_SQL)?;
+        db.execute_batch(CREATE_TEMP_TABLES_SQL)?;
+        db.execute_batch(&CREATE_TRIGGERS_SQL)?;
     }
     Ok(())
 }

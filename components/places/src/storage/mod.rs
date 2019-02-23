@@ -8,16 +8,21 @@
 pub mod bookmarks;
 pub mod history;
 
-use crate::error::Result;
+use crate::error::{ErrorKind, InvalidPlaceInfo, Result};
 use crate::msg_types::HistoryVisitInfo;
 use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition};
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
-use rusqlite::Row;
+use rusqlite::{Connection, Row};
 use serde_derive::*;
 use sql_support::{self, ConnExt};
 use std::fmt;
 use url::Url;
+
+/// From https://searchfox.org/mozilla-central/rev/93905b660f/toolkit/components/places/PlacesUtils.jsm#189
+pub const URL_LENGTH_MAX: usize = 65536;
+pub const TITLE_LENGTH_MAX: usize = 4096;
+// pub const DESCRIPTION_LENGTH_MAX: usize = 256;
 
 // Typesafe way to manage RowIds. Does it make sense? A better way?
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Deserialize, Serialize, Default)]
@@ -142,12 +147,14 @@ fn new_page_info(db: &impl ConnExt, url: &Url, new_guid: Option<SyncGuid>) -> Re
         Some(guid) => guid,
         None => SyncGuid::new(),
     };
+    let url_str = url.as_str();
+    if url_str.len() > URL_LENGTH_MAX {
+        // Generally callers check this first (bookmarks don't, history does).
+        return Err(ErrorKind::InvalidPlaceInfo(InvalidPlaceInfo::UrlTooLong).into());
+    }
     let sql = "INSERT INTO moz_places (guid, url, url_hash)
                VALUES (:guid, :url, hash(:url))";
-    db.execute_named_cached(
-        sql,
-        &[(":guid", &guid), (":url", &url.clone().into_string())],
-    )?;
+    db.execute_named_cached(sql, &[(":guid", &guid), (":url", &url_str)])?;
     Ok(PageInfo {
         url: url.clone(),
         guid,
@@ -184,5 +191,32 @@ impl HistoryVisitInfo {
 
 pub fn run_maintenance(conn: &impl ConnExt) -> Result<()> {
     conn.execute_all(&["VACUUM", "PRAGMA optimize"])?;
+    Ok(())
+}
+
+pub(crate) fn put_meta(db: &Connection, key: &str, value: &ToSql) -> Result<()> {
+    db.execute_named_cached(
+        "REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
+        &[(":key", &key), (":value", value)],
+    )?;
+    Ok(())
+}
+
+pub(crate) fn get_meta<T: FromSql>(db: &Connection, key: &str) -> Result<Option<T>> {
+    let res = db.try_query_one(
+        "SELECT value FROM moz_meta WHERE key = :key",
+        &[(":key", &key)],
+        true,
+    )?;
+    Ok(res)
+}
+
+/// Delete all items in the temp tables we use for staging changes.
+pub(crate) fn delete_pending_temp_tables(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "DELETE FROM moz_updateoriginsupdate_temp;
+         DELETE FROM moz_updateoriginsdelete_temp;
+         DELETE FROM moz_updateoriginsinsert_temp;",
+    )?;
     Ok(())
 }

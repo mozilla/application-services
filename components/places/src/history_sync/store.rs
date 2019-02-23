@@ -36,20 +36,11 @@ impl<'a> HistoryStore<'a> {
     }
 
     fn put_meta(&self, key: &str, value: &ToSql) -> Result<()> {
-        self.execute_named_cached(
-            "REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
-            &[(":key", &key as &ToSql), (":value", value)],
-        )?;
-        Ok(())
+        crate::storage::put_meta(self.db, key, value)
     }
 
     fn get_meta<T: FromSql>(&self, key: &str) -> Result<Option<T>> {
-        Ok(self.try_query_row(
-            "SELECT value FROM moz_meta WHERE key = :key",
-            &[(":key", &key as &ToSql)],
-            |row| Ok::<_, Error>(row.get_checked(0)?),
-            true,
-        )?)
+        crate::storage::get_meta(self.db, key)
     }
 
     fn do_apply_incoming(

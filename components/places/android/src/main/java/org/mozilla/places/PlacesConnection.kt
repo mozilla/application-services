@@ -284,6 +284,13 @@ class WritablePlacesConnection internal constructor(conn_handle: Long) : Readabl
             LibPlacesFFI.INSTANCE.places_prune_destructively(this.handle.get(), error)
         }
     }
+
+    override fun deleteEverything() {
+        rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_delete_everything(this.handle.get(), error)
+        }
+    }
+
 }
 
 /**
@@ -416,6 +423,31 @@ interface WritablePlacesConnectionInterface {
      * cache have already been cleared.
      */
     fun pruneDestructively()
+
+    /**
+     * Delete everything locally.
+     *
+     * This will not delete visits from remote devices, however it will
+     * prevent them from trickling in over time when future syncs occur.
+     *
+     * The difference between this and wipeLocal is that wipeLocal does
+     * not prevent the deleted visits from returning. For wipeLocal,
+     * the visits will return on the next full sync (which may be
+     * arbitrarially far in the future), wheras items which were
+     * deleted by deleteEverything (or potentially could have been)
+     * should not return.
+     */
+    fun deleteEverything()
+
+    /**
+     * Returns a list of visited URLs for a given time range.
+     *
+     * @param start beginning of the range, unix timestamp in milliseconds.
+     * @param end end of the range, unix timestamp in milliseconds.
+     * @param includeRemote boolean flag indicating whether or not to include remote visits. A visit
+     *  is (roughly) considered remote if it didn't originate on the current device.
+     */
+    fun getVisitedUrlsInRange(start: Long, end: Long = Long.MAX_VALUE, includeRemote: Boolean = true): List<String>
 
     /**
      * Deletes all information about the given URL. If the place has previously

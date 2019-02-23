@@ -133,9 +133,9 @@ pub struct InsertableBookmark {
     pub title: Option<String>,
 }
 
-impl Into<InsertableItem> for InsertableBookmark {
-    fn into(self) -> InsertableItem {
-        InsertableItem::Bookmark(self)
+impl From<InsertableBookmark> for InsertableItem {
+    fn from(bmk: InsertableBookmark) -> Self {
+        InsertableItem::Bookmark(bmk)
     }
 }
 
@@ -148,9 +148,9 @@ pub struct InsertableSeparator {
     pub guid: Option<SyncGuid>,
 }
 
-impl Into<InsertableItem> for InsertableSeparator {
-    fn into(self) -> InsertableItem {
-        InsertableItem::Separator(self)
+impl From<InsertableSeparator> for InsertableItem {
+    fn from(sep: InsertableSeparator) -> Self {
+        InsertableItem::Separator(sep)
     }
 }
 
@@ -164,9 +164,9 @@ pub struct InsertableFolder {
     pub title: Option<String>,
 }
 
-impl Into<InsertableItem> for InsertableFolder {
-    fn into(self) -> InsertableItem {
-        InsertableItem::Folder(self)
+impl From<InsertableFolder> for InsertableItem {
+    fn from(folder: InsertableFolder) -> Self {
+        InsertableItem::Folder(folder)
     }
 }
 
@@ -210,11 +210,18 @@ impl InsertableItem {
 pub fn insert_bookmark(db: &impl ConnExt, bm: &InsertableItem) -> Result<SyncGuid> {
     let tx = db.unchecked_transaction()?;
     let result = insert_bookmark_in_tx(db, bm);
+    super::delete_pending_temp_tables(db.conn())?;
     match result {
         Ok(_) => tx.commit()?,
         Err(_) => tx.rollback()?,
     }
     result
+}
+
+fn maybe_truncate_title(t: &Option<String>) -> Option<&str> {
+    use super::TITLE_LENGTH_MAX;
+    use crate::util::slice_up_to;
+    t.as_ref().map(|title| slice_up_to(title, TITLE_LENGTH_MAX))
 }
 
 fn insert_bookmark_in_tx(db: &impl ConnExt, bm: &InsertableItem) -> Result<SyncGuid> {
@@ -271,42 +278,58 @@ fn insert_bookmark_in_tx(db: &impl ConnExt, bm: &InsertableItem) -> Result<SyncG
     );
 
     let bookmark_type = bm.bookmark_type();
-    let params: Vec<(&str, &ToSql)> = match bm {
-        InsertableItem::Bookmark(ref b) => vec![
-            (":fk", &fk),
-            (":type", &bookmark_type),
-            (":parent", &parent.row_id),
-            (":position", &position),
-            (":title", &b.title),
-            (":dateAdded", &date_added),
-            (":lastModified", &last_modified),
-            (":guid", &guid),
-            (":syncStatus", &SyncStatus::New),
-            (":syncChangeCounter", &1),
-        ],
-        InsertableItem::Separator(ref _s) => vec![
-            (":type", &bookmark_type),
-            (":parent", &parent.row_id),
-            (":position", &position),
-            (":dateAdded", &date_added),
-            (":lastModified", &last_modified),
-            (":guid", &guid),
-            (":syncStatus", &SyncStatus::New),
-            (":syncChangeCounter", &1),
-        ],
-        InsertableItem::Folder(ref f) => vec![
-            (":type", &bookmark_type),
-            (":parent", &parent.row_id),
-            (":title", &f.title),
-            (":position", &position),
-            (":dateAdded", &date_added),
-            (":lastModified", &last_modified),
-            (":guid", &guid),
-            (":syncStatus", &SyncStatus::New),
-            (":syncChangeCounter", &1),
-        ],
+    match bm {
+        InsertableItem::Bookmark(ref b) => {
+            let title = maybe_truncate_title(&b.title);
+            db.execute_named_cached(
+                sql,
+                &[
+                    (":fk", &fk),
+                    (":type", &bookmark_type),
+                    (":parent", &parent.row_id),
+                    (":position", &position),
+                    (":title", &title),
+                    (":dateAdded", &date_added),
+                    (":lastModified", &last_modified),
+                    (":guid", &guid),
+                    (":syncStatus", &SyncStatus::New),
+                    (":syncChangeCounter", &1),
+                ],
+            )?;
+        }
+        InsertableItem::Separator(ref _s) => {
+            db.execute_named_cached(
+                sql,
+                &[
+                    (":type", &bookmark_type),
+                    (":parent", &parent.row_id),
+                    (":position", &position),
+                    (":dateAdded", &date_added),
+                    (":lastModified", &last_modified),
+                    (":guid", &guid),
+                    (":syncStatus", &SyncStatus::New),
+                    (":syncChangeCounter", &1),
+                ],
+            )?;
+        }
+        InsertableItem::Folder(ref f) => {
+            let title = maybe_truncate_title(&f.title);
+            db.execute_named_cached(
+                sql,
+                &[
+                    (":type", &bookmark_type),
+                    (":parent", &parent.row_id),
+                    (":title", &title),
+                    (":position", &position),
+                    (":dateAdded", &date_added),
+                    (":lastModified", &last_modified),
+                    (":guid", &guid),
+                    (":syncStatus", &SyncStatus::New),
+                    (":syncChangeCounter", &1),
+                ],
+            )?;
+        }
     };
-    db.execute_named_cached(sql, &params)?;
     Ok(guid)
 }
 
@@ -349,6 +372,7 @@ fn delete_bookmark_in_tx(db: &impl ConnExt, guid: &SyncGuid) -> Result<bool> {
         "DELETE from moz_bookmarks WHERE id = :id",
         &[(":id", &record.row_id)],
     )?;
+    super::delete_pending_temp_tables(db.conn())?;
     Ok(true)
 }
 
@@ -379,9 +403,9 @@ pub struct BookmarkNode {
     pub url: Url,
 }
 
-impl Into<BookmarkTreeNode> for BookmarkNode {
-    fn into(self) -> BookmarkTreeNode {
-        BookmarkTreeNode::Bookmark(self)
+impl From<BookmarkNode> for BookmarkTreeNode {
+    fn from(node: BookmarkNode) -> Self {
+        BookmarkTreeNode::Bookmark(node)
     }
 }
 
@@ -403,9 +427,9 @@ pub struct SeparatorNode {
     pub last_modified: Option<Timestamp>,
 }
 
-impl Into<BookmarkTreeNode> for SeparatorNode {
-    fn into(self) -> BookmarkTreeNode {
-        BookmarkTreeNode::Separator(self)
+impl From<SeparatorNode> for BookmarkTreeNode {
+    fn from(node: SeparatorNode) -> Self {
+        BookmarkTreeNode::Separator(node)
     }
 }
 
@@ -427,9 +451,9 @@ pub struct FolderNode {
     pub children: Vec<BookmarkTreeNode>,
 }
 
-impl Into<BookmarkTreeNode> for FolderNode {
-    fn into(self) -> BookmarkTreeNode {
-        BookmarkTreeNode::Folder(self)
+impl From<FolderNode> for BookmarkTreeNode {
+    fn from(node: FolderNode) -> Self {
+        BookmarkTreeNode::Folder(node)
     }
 }
 
@@ -716,6 +740,7 @@ pub fn insert_tree(db: &impl ConnExt, tree: &FolderNode) -> Result<()> {
     for insertable in insert_infos {
         insert_bookmark_in_tx(db, &insertable)?;
     }
+    super::delete_pending_temp_tables(db.conn())?;
     tx.commit()?;
     Ok(())
 }

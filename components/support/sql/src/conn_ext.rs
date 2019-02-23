@@ -67,6 +67,29 @@ pub trait ConnExt {
         Ok(res)
     }
 
+    /// Execute a query that returns 0 or 1 result columns, returning None
+    /// if there were no rows, or if the only result was NULL.
+    fn try_query_one<T: FromSql>(
+        &self,
+        sql: &str,
+        params: &[(&str, &ToSql)],
+        cache: bool,
+    ) -> SqlResult<Option<T>>
+    where
+        Self: Sized,
+    {
+        crate::maybe_log_plan(self.conn(), sql, params);
+        use rusqlite::OptionalExtension;
+        // The outer option is if we got rows, the inner option is
+        // if the first row was null.
+        let res: Option<Option<T>> = self
+            .conn()
+            .query_row_and_then_named(sql, params, |row| row.get_checked(0), cache)
+            .optional()?;
+        // go from Option<Option<T>> to Option<T>
+        Ok(res.unwrap_or_default())
+    }
+
     /// Equivalent to `rusqlite::Connection::query_row_and_then` but allows use
     /// of named parameters, and allows passing a flag to indicate that it's cached.
     fn query_row_and_then_named<T, E, F>(
