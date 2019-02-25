@@ -8,7 +8,7 @@ import android.util.Log
 import com.sun.jna.Pointer
 import mozilla.appservices.fxaclient.rust.FxaHandle
 import mozilla.appservices.fxaclient.rust.FxaClient
-import mozilla.appservices.fxaclient.rust.Error
+import mozilla.appservices.fxaclient.rust.RustError
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -228,21 +228,21 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
         }
     }
 
-    private inline fun <U> nullableRustCallWithLock(callback: (Error.ByReference) -> U?): U? {
+    private inline fun <U> nullableRustCallWithLock(callback: (RustError.ByReference) -> U?): U? {
         return synchronized(this) {
             nullableRustCall { callback(it) }
         }
     }
 
-    private inline fun <U> rustCallWithLock(callback: (Error.ByReference) -> U?): U {
+    private inline fun <U> rustCallWithLock(callback: (RustError.ByReference) -> U?): U {
         return nullableRustCallWithLock(callback)!!
     }
 }
 
 // In practice we usually need to be synchronized to call this safely, so it doesn't
 // synchronize itself
-private inline fun <U> nullableRustCall(callback: (Error.ByReference) -> U?): U? {
-    val e = Error.ByReference()
+private inline fun <U> nullableRustCall(callback: (RustError.ByReference) -> U?): U? {
+    val e = RustError.ByReference()
     try {
         val ret = callback(e)
         if (e.isFailure()) {
@@ -256,7 +256,7 @@ private inline fun <U> nullableRustCall(callback: (Error.ByReference) -> U?): U?
     }
 }
 
-private inline fun <U> rustCall(callback: (Error.ByReference) -> U?): U {
+private inline fun <U> rustCall(callback: (RustError.ByReference) -> U?): U {
     return nullableRustCall(callback)!!
 }
 

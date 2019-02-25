@@ -11,9 +11,9 @@ import mozilla.appservices.fxaclient.FxaException.*
 import mozilla.appservices.fxaclient.getAndConsumeRustString
 import java.util.Arrays
 
-internal open class Error : Structure() {
+internal open class RustError : Structure() {
 
-    class ByReference : Error(), Structure.ByReference
+    class ByReference : RustError(), Structure.ByReference
 
     @JvmField var code: Int = 0
     @JvmField var message: Pointer? = null
