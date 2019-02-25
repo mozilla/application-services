@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CE1ADA9522249F1600E89714 /* Data+RustBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1ADA9422249F1600E89714 /* Data+RustBuffer.swift */; };
 		CE2F4D42220E0014001ECF92 /* msg_types.proto in Sources */ = {isa = PBXBuildFile; fileRef = CE2F4D41220E0014001ECF92 /* msg_types.proto */; };
 		CE3E9D3520A36B63001B4B14 /* libfxaclient_ffi.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CE7B4B8A20A36B0500FC4422 /* libfxaclient_ffi.a */; };
 		CE9D202520914D0D00F1C8FA /* FxAClient.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9D202320914D0D00F1C8FA /* FxAClient.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -33,6 +34,7 @@
 /* End PBXBuildRule section */
 
 /* Begin PBXFileReference section */
+		CE1ADA9422249F1600E89714 /* Data+RustBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+RustBuffer.swift"; sourceTree = "<group>"; };
 		CE2F4D41220E0014001ECF92 /* msg_types.proto */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.protobuf; name = msg_types.proto; path = ../src/msg_types.proto; sourceTree = "<group>"; };
 		CE7B4B8A20A36B0500FC4422 /* libfxaclient_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfxaclient_ffi.a; path = ../../../target/universal/debug/libfxaclient_ffi.a; sourceTree = "<group>"; };
 		CE9D202020914D0D00F1C8FA /* FxAClient.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FxAClient.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -108,6 +110,7 @@
 		CECB394F20B5B77E00DB3ED4 /* Extensions */ = {
 			isa = PBXGroup;
 			children = (
+				CE1ADA9422249F1600E89714 /* Data+RustBuffer.swift */,
 				EBE26B41220B3DF700D1D99A /* String+Free_FxAClient.swift */,
 			);
 			path = Extensions;
@@ -219,6 +222,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CE2F4D42220E0014001ECF92 /* msg_types.proto in Sources */,
+				CE1ADA9522249F1600E89714 /* Data+RustBuffer.swift in Sources */,
 				EBE26B42220B3DF700D1D99A /* String+Free_FxAClient.swift in Sources */,
 				EBE26B49220B4D0200D1D99A /* CommonErrors.swift in Sources */,
 				CE9D203120914D2600F1C8FA /* FirefoxAccount.swift in Sources */,

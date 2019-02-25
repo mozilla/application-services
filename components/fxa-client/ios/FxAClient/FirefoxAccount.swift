@@ -279,9 +279,3 @@ public struct Profile {
         self.displayName = msg.hasDisplayName ? msg.displayName : nil
     }
 }
-
-extension Data {
-    init(rustBuffer: RustBuffer) {
-        self.init(bytes: rustBuffer.data!, count: Int(rustBuffer.len))
-    }
-}
