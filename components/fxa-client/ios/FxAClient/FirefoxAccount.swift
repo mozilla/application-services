@@ -62,7 +62,7 @@ open class FirefoxAccount {
     /// should not be re-used.
     public convenience init(config: FxAConfig) throws {
         let pointer = try queue.sync(execute: {
-            return try FxAError.unwrap({err in
+            return try FirefoxAccountError.unwrap({err in
                 fxa_new(config.contentUrl, config.clientId, config.redirectUri, err)
             })
         })
@@ -72,7 +72,7 @@ open class FirefoxAccount {
     /// Restore a previous instance of `FirefoxAccount` from a serialized state (obtained with `toJSON(...)`).
     open class func fromJSON(state: String) throws -> FirefoxAccount {
         return try queue.sync(execute: {
-            let handle = try FxAError.unwrap({ err in fxa_from_json(state, err) })
+            let handle = try FirefoxAccountError.unwrap({ err in fxa_from_json(state, err) })
             return FirefoxAccount(raw: handle)
         })
     }
@@ -80,7 +80,7 @@ open class FirefoxAccount {
     deinit {
         if self.raw != 0 {
             queue.sync(execute: {
-                try! FxAError.unwrap({err in
+                try! FirefoxAccountError.unwrap({err in
                     // Is `try!` the right thing to do? We should only hit an error here
                     // for panics and handle misuse, both inidicate bugs in our code
                     // (the first in the rust code, the 2nd in this swift wrapper).
@@ -99,7 +99,7 @@ open class FirefoxAccount {
     }
 
     private func toJSONInternal() throws -> String {
-        return String(freeingFxaString: try FxAError.unwrap({err in
+        return String(freeingFxaString: try FirefoxAccountError.unwrap({err in
             fxa_to_json(self.raw, err)
         }))
     }
@@ -135,13 +135,13 @@ open class FirefoxAccount {
     }
 
     /// Gets the logged-in user profile.
-    /// Throws `FxAError.Unauthorized` if we couldn't find any suitable access token
+    /// Throws `FirefoxAccountError.Unauthorized` if we couldn't find any suitable access token
     /// to make that call. The caller should then start the OAuth Flow again with
     /// the "profile" scope.
     open func getProfile(completionHandler: @escaping (Profile?, Error?) -> Void) {
         queue.async {
             do {
-                let profileBuffer = try FxAError.unwrap({err in
+                let profileBuffer = try FirefoxAccountError.unwrap({err in
                     fxa_profile(self.raw, false, err)
                 })
                 let msg = try! MsgTypes_Profile(serializedData: Data(rustBuffer: profileBuffer))
@@ -156,7 +156,7 @@ open class FirefoxAccount {
 
     open func getTokenServerEndpointURL() throws -> URL {
         return try queue.sync(execute: {
-            return URL(string: String(freeingFxaString: try FxAError.unwrap({err in
+            return URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap({err in
                 fxa_get_token_server_endpoint_url(self.raw, err)
             })))!
         })
@@ -164,7 +164,7 @@ open class FirefoxAccount {
 
     open func getConnectionSuccessURL() throws -> URL {
         return try queue.sync(execute: {
-            return URL(string: String(freeingFxaString: try FxAError.unwrap({err in
+            return URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap({err in
                 fxa_get_connection_success_url(self.raw, err)
             })))!
         })
@@ -183,7 +183,7 @@ open class FirefoxAccount {
         queue.async {
             do {
                 let scope = scopes.joined(separator: " ")
-                let url = URL(string: String(freeingFxaString: try FxAError.unwrap({err in
+                let url = URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap({err in
                     fxa_begin_oauth_flow(self.raw, scope, wantsKeys, err)
                 })))!
                 DispatchQueue.main.async { completionHandler(url, nil) }
@@ -200,7 +200,7 @@ open class FirefoxAccount {
     open func completeOAuthFlow(code: String, state: String, completionHandler: @escaping (Void, Error?) -> Void) {
         queue.async {
             do {
-                try FxAError.unwrap({err in
+                try FirefoxAccountError.unwrap({err in
                     fxa_complete_oauth_flow(self.raw, code, state, err)
                 })
                 DispatchQueue.main.async { completionHandler((), nil) }
@@ -213,13 +213,13 @@ open class FirefoxAccount {
 
     /// Try to get an OAuth access token.
     ///
-    /// Throws `FxAError.Unauthorized` if we couldn't provide an access token
+    /// Throws `FirefoxAccountError.Unauthorized` if we couldn't provide an access token
     /// for this scope. The caller should then start the OAuth Flow again with
     /// the desired scope.
     open func getAccessToken(scope: String, completionHandler: @escaping (AccessTokenInfo?, Error?) -> Void) {
         queue.async {
             do {
-                let infoBuffer = try FxAError.unwrap({err in
+                let infoBuffer = try FirefoxAccountError.unwrap({err in
                     fxa_get_access_token(self.raw, scope, err)
                 })
                 let msg = try! MsgTypes_AccessTokenInfo(serializedData: Data(rustBuffer: infoBuffer))
