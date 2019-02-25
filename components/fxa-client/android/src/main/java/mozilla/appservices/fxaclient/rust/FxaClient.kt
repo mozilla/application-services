@@ -54,36 +54,36 @@ internal interface FxaClient : Library {
         contentUrl: String,
         clientId: String,
         redirectUri: String,
-        e: Error.ByReference
+        e: RustError.ByReference
     ): FxaHandle
 
-    fun fxa_from_json(json: String, e: Error.ByReference): FxaHandle
-    fun fxa_to_json(fxa: Long, e: Error.ByReference): Pointer?
+    fun fxa_from_json(json: String, e: RustError.ByReference): FxaHandle
+    fun fxa_to_json(fxa: Long, e: RustError.ByReference): Pointer?
 
     fun fxa_begin_oauth_flow(
         fxa: FxaHandle,
         scopes: String,
         wantsKeys: Boolean,
-        e: Error.ByReference
+        e: RustError.ByReference
     ): Pointer?
 
     fun fxa_begin_pairing_flow(
         fxa: FxaHandle,
         pairingUrl: String,
         scopes: String,
-        e: Error.ByReference
+        e: RustError.ByReference
     ): Pointer?
 
-    fun fxa_profile(fxa: FxaHandle, ignoreCache: Boolean, e: Error.ByReference): RustBuffer.ByValue
+    fun fxa_profile(fxa: FxaHandle, ignoreCache: Boolean, e: RustError.ByReference): RustBuffer.ByValue
 
-    fun fxa_get_token_server_endpoint_url(fxa: FxaHandle, e: Error.ByReference): Pointer?
-    fun fxa_get_connection_success_url(fxa: FxaHandle, e: Error.ByReference): Pointer?
+    fun fxa_get_token_server_endpoint_url(fxa: FxaHandle, e: RustError.ByReference): Pointer?
+    fun fxa_get_connection_success_url(fxa: FxaHandle, e: RustError.ByReference): Pointer?
 
-    fun fxa_complete_oauth_flow(fxa: FxaHandle, code: String, state: String, e: Error.ByReference)
-    fun fxa_get_access_token(fxa: FxaHandle, scope: String, e: Error.ByReference): AccessTokenInfo.Raw?
+    fun fxa_complete_oauth_flow(fxa: FxaHandle, code: String, state: String, e: RustError.ByReference)
+    fun fxa_get_access_token(fxa: FxaHandle, scope: String, e: RustError.ByReference): AccessTokenInfo.Raw?
 
     fun fxa_str_free(string: Pointer)
-    fun fxa_free(fxa: FxaHandle, err: Error.ByReference)
+    fun fxa_free(fxa: FxaHandle, err: RustError.ByReference)
 
     // In theory these would take `AccessTokenInfo.Raw.ByReference` (and etc), but
     // the rust functions that return these return `AccessTokenInfo.Raw` and not
