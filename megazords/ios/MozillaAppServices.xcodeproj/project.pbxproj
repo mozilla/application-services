@@ -22,7 +22,6 @@
 		CDC21B14221DCE3700AA71E5 /* RustLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDC21B12221DCE3700AA71E5 /* RustLog.swift */; };
 		CDC21B15221DCE3700AA71E5 /* RustLogFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = CDC21B13221DCE3700AA71E5 /* RustLogFFI.h */; };
 		EB7DE84D2214D30B00E7CF17 /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */; };
-		EB7DE84F2214D39600E7CF17 /* RustProtobuf.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB7DE84E2214D39600E7CF17 /* RustProtobuf.swift */; };
 		EB879D64221231F400753DC9 /* CommonErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB879D4D221231F400753DC9 /* CommonErrors.swift */; };
 		EB879D7F221234EB00753DC9 /* MozillaAppServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE9D202020914D0D00F1C8FA /* MozillaAppServices.framework */; };
 		EB879D8B22123FD900753DC9 /* MozillaAppServicesTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB879D8A22123FD900753DC9 /* MozillaAppServicesTest.swift */; };
@@ -74,7 +73,6 @@
 		CDC21B13221DCE3700AA71E5 /* RustLogFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustLogFFI.h; sourceTree = "<group>"; };
 		CE9D202020914D0D00F1C8FA /* MozillaAppServices.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = MozillaAppServices.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftProtobuf.framework; path = ../../Carthage/Build/iOS/SwiftProtobuf.framework; sourceTree = "<group>"; };
-		EB7DE84E2214D39600E7CF17 /* RustProtobuf.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RustProtobuf.swift; sourceTree = "<group>"; };
 		EB879D4D221231F400753DC9 /* CommonErrors.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CommonErrors.swift; sourceTree = "<group>"; };
 		EB879D7A221234EB00753DC9 /* MozillaAppServicesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MozillaAppServicesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB879D7E221234EB00753DC9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -165,7 +163,6 @@
 		C852EEDB220A2A2B00A6E79A /* Rust */ = {
 			isa = PBXGroup;
 			children = (
-				EB7DE84E2214D39600E7CF17 /* RustProtobuf.swift */,
 				C852EEDC220A2A2B00A6E79A /* RustPointer.swift */,
 			);
 			path = Rust;
@@ -388,7 +385,6 @@
 				C852EEEB220A2A2B00A6E79A /* FxAError.swift in Sources */,
 				C852EED7220A29FE00A6E79A /* LoginStoreError.swift in Sources */,
 				EBB0D55E2214D10A00C8B2F9 /* msg_types.proto in Sources */,
-				EB7DE84F2214D39600E7CF17 /* RustProtobuf.swift in Sources */,
 				EB879D64221231F400753DC9 /* CommonErrors.swift in Sources */,
 				C852EEE6220A2A2B00A6E79A /* RustPointer.swift in Sources */,
 				C852EED8220A29FE00A6E79A /* LockError.swift in Sources */,

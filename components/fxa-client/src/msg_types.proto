@@ -12,3 +12,17 @@ message Profile {
     optional bool avatar_default = 4;
     optional string display_name = 5;
 }
+
+message AccessTokenInfo {
+    required string scope = 1;
+    required string token = 2;
+    optional ScopedKey key = 3;
+    required uint64 expires_at = 4;
+}
+
+message ScopedKey {
+    required string kty = 1;
+    required string scope = 2;
+    required string k = 3;
+    required string kid = 4;
+}

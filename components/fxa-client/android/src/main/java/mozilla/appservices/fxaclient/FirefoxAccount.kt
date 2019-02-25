@@ -198,9 +198,15 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * the desired scope.
      */
     fun getAccessToken(scope: String): AccessTokenInfo {
-        return AccessTokenInfo(rustCallWithLock { e ->
+        val buffer = rustCallWithLock { e ->
             LibFxAFFI.INSTANCE.fxa_get_access_token(this.handle.get(), scope, e)
-        })
+        }
+        try {
+            val msg = MsgTypes.AccessTokenInfo.parseFrom(buffer.asCodedInputStream()!!)
+            return AccessTokenInfo.fromMessage(msg)
+        } finally {
+            LibFxAFFI.INSTANCE.fxa_bytebuffer_free(buffer)
+        }
     }
 
     /**
