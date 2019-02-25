@@ -128,7 +128,7 @@ jobs:
       - image: circleci/rust:latest
     steps:
       - bench-all
-  Build Carthage archive:
+  Carthage build:
     macos:
       xcode: "10.1.0"
     steps:
@@ -176,7 +176,7 @@ jobs:
       - persist_to_workspace:
           root: .
           paths: MozillaAppServices-frameworks.zip
-  Release Carthage archive:
+  Carthage release:
     macos:
       xcode: "10.1.0"
     steps:
@@ -206,13 +206,13 @@ workflows:
       - Sync integration tests
   carthage-framework:
     jobs:
-      - Build Carthage archive:
+      - Carthage build:
           filters:  # required since `Release` has tag filters AND requires `Build`
             tags:
               only: /.*/
-      - Release Carthage archive:
+      - Carthage release:
           requires:
-            - Build Carthage archive
+            - Carthage build
           filters:
             branches:
               ignore: /.*/
