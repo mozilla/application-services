@@ -6,6 +6,9 @@ package org.mozilla.fxaclient.internal
 
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
+import org.mozilla.fxaclient.internal.FxaException
+import org.mozilla.fxaclient.internal.FxaException.*
+import org.mozilla.fxaclient.internal.getAndConsumeRustString
 import java.util.Arrays
 
 internal open class Error : Structure() {
@@ -20,24 +23,63 @@ internal open class Error : Structure() {
     }
 
     /**
-     * Does this represent failure?
+     * Does this represent success?
      */
-    fun isFailure(): Boolean {
-        return this.code != 0
+    fun isSuccess(): Boolean {
+        return code == 0;
     }
 
     /**
-     * Get and consume the error message, or null if there is none,
+     * Does this represent failure?
      */
-    fun consumeMessage(): String? {
-        val p = this.message
-        this.message = null
-        return p?.getAndConsumeString()
+    fun isFailure(): Boolean {
+        return code != 0;
     }
 
-    /** Be sure to call this when the error is definitely no longer in use. */
+    fun intoException(): FxaException {
+        if (!isFailure()) {
+            // It's probably a bad idea to throw here! We're probably leaking something if this is
+            // ever hit! (But we shouldn't ever hit it?)
+            throw RuntimeException("[Bug] intoException called on non-failure!");
+        }
+        val message = this.consumeErrorMessage();
+        when (code) {
+            3 -> return Network(message)
+            2 -> return Unauthorized(message)
+            -1 -> return Panic(message)
+            // Note: `1` is used as a generic catch all, but we
+            // might as well handle the others the same way.
+            else -> return Unspecified(message)
+        }
+    }
+
+    /**
+     * Get and consume the error message, or null if there is none.
+     */
+    @Synchronized
+    fun consumeErrorMessage(): String {
+        val result = this.getMessage()
+        if (this.message != null) {
+            FxaClient.INSTANCE.fxa_str_free(this.message!!);
+            this.message = null
+        }
+        if (result == null) {
+            throw NullPointerException("consumeErrorMessage called with null message!");
+        }
+        return result
+    }
+
+    @Synchronized
     fun ensureConsumed() {
-        this.consumeMessage()
+        this.message?.getAndConsumeRustString()
+        this.message = null
+    }
+
+    /**
+     * Get the error message or null if there is none.
+     */
+    fun getMessage(): String? {
+        return this.message?.getString(0, "utf8")
     }
 
     override fun getFieldOrder(): List<String> {

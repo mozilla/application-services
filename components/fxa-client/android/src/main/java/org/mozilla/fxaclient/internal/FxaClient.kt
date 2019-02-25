@@ -8,7 +8,6 @@ import android.util.Log
 import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
-import com.sun.jna.PointerType
 import java.lang.reflect.Proxy
 import mozilla.appservices.support.RustBuffer
 
@@ -18,7 +17,7 @@ internal interface FxaClient : Library {
         private val JNA_LIBRARY_NAME = {
             val libname = System.getProperty("mozilla.appservices.fxaclient_ffi_lib_name")
             if (libname != null) {
-                Log.i("AppServices", "Using fxaclient_ffi_lib_name: " + libname);
+                Log.i("AppServices", "Using fxaclient_ffi_lib_name: " + libname)
                 libname
             } else {
                 "fxaclient_ffi"
@@ -41,7 +40,7 @@ internal interface FxaClient : Library {
                 INSTANCE = Proxy.newProxyInstance(
                         FxaClient::class.java.classLoader,
                         arrayOf(FxaClient::class.java)) { _, _, _ ->
-                    throw RuntimeException("Firefox Account functionality not available", e)
+                    throw FxaException("Firefox Account functionality not available")
                 } as FxaClient
             }
         }
