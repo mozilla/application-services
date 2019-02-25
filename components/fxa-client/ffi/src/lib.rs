@@ -2,11 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#[cfg(feature = "browserid")]
+use ffi_support::define_box_destructor;
 use ffi_support::{
-    define_box_destructor, define_bytebuffer_destructor, define_handle_map_deleter,
-    define_string_destructor, rust_str_from_c, ByteBuffer, ConcurrentHandleMap, ExternError,
+    define_bytebuffer_destructor, define_handle_map_deleter, define_string_destructor,
+    rust_str_from_c, ByteBuffer, ConcurrentHandleMap, ExternError,
 };
-use fxa_client::{ffi::*, FirefoxAccount};
+#[cfg(feature = "browserid")]
+use fxa_client::ffi::SyncKeysC;
+use fxa_client::FirefoxAccount;
 use std::os::raw::c_char;
 
 #[no_mangle]
@@ -113,7 +117,7 @@ pub extern "C" fn fxa_to_json(handle: u64, error: &mut ExternError) -> *mut c_ch
 ///
 /// # Safety
 ///
-/// A destructor [fxa_profile_free] is provided for releasing the memory for this
+/// A destructor [fxa_bytebuffer_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
 pub extern "C" fn fxa_profile(
@@ -250,11 +254,6 @@ pub unsafe extern "C" fn fxa_begin_oauth_flow(
 }
 
 /// Finish an OAuth flow initiated by [fxa_begin_oauth_flow].
-///
-/// # Safety
-///
-/// A destructor [fxa_oauth_info_free] is provided for releasing the memory for this
-/// pointer type.
 #[no_mangle]
 pub unsafe extern "C" fn fxa_complete_oauth_flow(
     handle: u64,
@@ -279,14 +278,14 @@ pub unsafe extern "C" fn fxa_complete_oauth_flow(
 ///
 /// # Safety
 ///
-/// A destructor [fxa_oauth_info_free] is provided for releasing the memory for this
+/// A destructor [fxa_bytebuffer_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
 pub unsafe extern "C" fn fxa_get_access_token(
     handle: u64,
     scope: *const c_char,
     error: &mut ExternError,
-) -> *mut AccessTokenInfoC {
+) -> ByteBuffer {
     log::debug!("fxa_get_access_token");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let scope = rust_str_from_c(scope);
@@ -297,7 +296,6 @@ pub unsafe extern "C" fn fxa_get_access_token(
 define_string_destructor!(fxa_str_free);
 
 define_handle_map_deleter!(ACCOUNTS, fxa_free);
-define_box_destructor!(AccessTokenInfoC, fxa_oauth_info_free);
 #[cfg(feature = "browserid")]
 define_box_destructor!(SyncKeysC, fxa_sync_keys_free);
 define_bytebuffer_destructor!(fxa_bytebuffer_free);

@@ -10,7 +10,6 @@ import com.sun.jna.Native
 import com.sun.jna.Pointer
 import java.lang.reflect.Proxy
 import mozilla.appservices.support.RustBuffer
-import mozilla.appservices.fxaclient.AccessTokenInfo
 import mozilla.appservices.fxaclient.FxaException
 
 @Suppress("FunctionNaming", "TooManyFunctions", "TooGenericExceptionThrown")
@@ -80,18 +79,11 @@ internal interface LibFxAFFI : Library {
     fun fxa_get_connection_success_url(fxa: FxaHandle, e: RustError.ByReference): Pointer?
 
     fun fxa_complete_oauth_flow(fxa: FxaHandle, code: String, state: String, e: RustError.ByReference)
-    fun fxa_get_access_token(fxa: FxaHandle, scope: String, e: RustError.ByReference): AccessTokenInfo.Raw?
+    fun fxa_get_access_token(fxa: FxaHandle, scope: String, e: RustError.ByReference): RustBuffer.ByValue
 
     fun fxa_str_free(string: Pointer)
-    fun fxa_free(fxa: FxaHandle, err: RustError.ByReference)
-
-    // In theory these would take `AccessTokenInfo.Raw.ByReference` (and etc), but
-    // the rust functions that return these return `AccessTokenInfo.Raw` and not
-    // the ByReference subtypes. So I'm not sure there's a way to do this
-    // when using Structure.
-    fun fxa_oauth_info_free(ptr: Pointer)
-
     fun fxa_bytebuffer_free(buffer: RustBuffer.ByValue)
+    fun fxa_free(fxa: FxaHandle, err: RustError.ByReference)
 }
 internal typealias FxaHandle = Long
 

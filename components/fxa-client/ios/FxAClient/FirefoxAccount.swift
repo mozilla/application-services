@@ -150,9 +150,12 @@ open class FirefoxAccount: RustHandle {
     open func getProfile(completionHandler: @escaping (Profile?, Error?) -> Void) {
         queue.async {
             do {
-                let profile = Profile(raw: try FxAError.unwrap({err in
+                let profileBuffer = try FxAError.unwrap({err in
                     fxa_profile(self.raw, false, err)
-                }))
+                })
+                let msg = try! MsgTypes_Profile(serializedData: Data(rustBuffer: profileBuffer))
+                fxa_bytebuffer_free(profileBuffer)
+                let profile = Profile(msg: msg)
                 DispatchQueue.main.async { completionHandler(profile, nil) }
             } catch {
                 DispatchQueue.main.async { completionHandler(nil, error) }
@@ -235,9 +238,12 @@ open class FirefoxAccount: RustHandle {
     open func getAccessToken(scope: String, completionHandler: @escaping (AccessTokenInfo?, Error?) -> Void) {
         queue.async {
             do {
-                let tokenInfo = AccessTokenInfo(raw: try FxAError.unwrap({err in
+                let infoBuffer = try FxAError.unwrap({err in
                     fxa_get_access_token(self.raw, scope, err)
-                }))
+                })
+                let msg = try! MsgTypes_AccessTokenInfo(serializedData: Data(rustBuffer: infoBuffer))
+                fxa_bytebuffer_free(infoBuffer)
+                let tokenInfo = AccessTokenInfo(msg: msg)
                 DispatchQueue.main.async { completionHandler(tokenInfo, nil) }
             } catch {
                 DispatchQueue.main.async { completionHandler(nil, error) }
@@ -256,38 +262,31 @@ open class FirefoxAccount: RustHandle {
     #endif
 }
 
-open class AccessTokenInfo: RustStructPointer<AccessTokenInfoC> {
-    open var scope: String {
-        get {
-            return String(cString: raw.pointee.scope)
-        }
-    }
+public struct ScopedKey {
+    public let kty: String
+    public let scope: String
+    public let k: String
+    public let kid: String
 
-    open var token: String {
-        get {
-            return String(cString: raw.pointee.token)
-        }
+    internal init(msg: MsgTypes_ScopedKey) {
+        self.kty = msg.kty
+        self.scope = msg.scope
+        self.k = msg.k
+        self.kid = msg.kid
     }
+}
 
-    open var key: String? {
-        get {
-            guard let pointer = raw.pointee.key else {
-                return nil
-            }
-            return String(cString: pointer)
-        }
-    }
+public struct AccessTokenInfo {
+    public let scope: String
+    public let token: String
+    public let key: ScopedKey?
+    public let expiresAt: Date
 
-    open var expiresAt: Date {
-        get {
-            return Date.init(timeIntervalSince1970: Double(raw.pointee.expires_at))
-        }
-    }
-
-    override func cleanup(pointer: UnsafeMutablePointer<AccessTokenInfoC>) {
-        queue.sync {
-            fxa_oauth_info_free(self.raw)
-        }
+    internal init(msg: MsgTypes_AccessTokenInfo) {
+        self.scope = msg.scope
+        self.token = msg.token
+        self.key = msg.hasKey ? ScopedKey(msg: msg.key) : nil
+        self.expiresAt = Date.init(timeIntervalSince1970: Double(msg.expiresAt))
     }
 }
 
@@ -296,30 +295,17 @@ public struct Avatar {
     public let isDefault: Bool
 }
 
-open class Profile: RustProtobuf<MsgTypes_Profile> {
-    open var uid: String {
-        get {
-            return raw.uid
-        }
-    }
+public struct Profile {
+    public let uid: String
+    public let email: String
+    public let avatar: Avatar?
+    public let displayName: String?
 
-    open var email: String {
-        get {
-            return raw.email
-        }
-    }
-
-    open var avatar: Avatar? {
-        get {
-            if !raw.hasAvatar {
-                return nil
-            }
-            return Avatar(url: raw.avatar, isDefault: raw.avatarDefault)
-        }
-    }
-
-    open var displayName: String? {
-        return raw.hasDisplayName ? raw.displayName : nil
+    internal init(msg: MsgTypes_Profile) {
+        self.uid = msg.uid
+        self.email = msg.email
+        self.avatar = msg.hasAvatar ? Avatar(url: msg.avatar, isDefault: msg.avatarDefault) : nil
+        self.displayName = msg.hasDisplayName ? msg.displayName : nil
     }
 }
 
@@ -344,3 +330,9 @@ open class SyncKeys: RustStructPointer<SyncKeysC> {
     }
 }
 #endif
+
+extension Data {
+    init(rustBuffer: RustBuffer) {
+        self.init(bytes: rustBuffer.data!, count: Int(rustBuffer.len))
+    }
+}

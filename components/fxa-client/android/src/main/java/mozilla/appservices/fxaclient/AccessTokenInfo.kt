@@ -4,41 +4,38 @@
 
 package mozilla.appservices.fxaclient
 
-import com.sun.jna.Pointer
-import com.sun.jna.Structure
-import mozilla.appservices.fxaclient.rust.LibFxAFFI
-import java.util.*
-
-class AccessTokenInfo internal constructor(raw: Raw) {
-
-    val scope: String
-    val token: String
-    val key: String?
+data class AccessTokenInfo(
+    val scope: String,
+    val token: String,
+    val key: ScopedKey?,
     val expiresAt: Long
-
-    class Raw(p: Pointer) : Structure(p) {
-        @JvmField var scope: Pointer? = null
-        @JvmField var token: Pointer? = null
-        @JvmField var key: Pointer? = null
-        @JvmField var expiresAt: Long = 0 // In seconds.
-
-        init {
-            read()
-        }
-
-        override fun getFieldOrder(): List<String> {
-            return Arrays.asList("scope", "token", "key", "expiresAt")
+) {
+    companion object {
+        internal fun fromMessage(msg: MsgTypes.AccessTokenInfo): AccessTokenInfo {
+            return AccessTokenInfo(
+                    scope = msg.scope,
+                    token = msg.token,
+                    key = if (msg.hasKey()) ScopedKey.fromMessage(msg.key) else null,
+                    expiresAt = msg.expiresAt
+            )
         }
     }
+}
 
-    init {
-        try {
-            this.scope = raw.scope?.getRustString()!! // This field is always present.
-            this.token = raw.token?.getRustString()!! // Ditto.
-            this.key = raw.key?.getRustString()
-            this.expiresAt = raw.expiresAt
-        } finally {
-            LibFxAFFI.INSTANCE.fxa_oauth_info_free(raw.pointer)
+data class ScopedKey(
+    val kty: String,
+    val scope: String,
+    val k: String,
+    val kid: String
+) {
+    companion object {
+        internal fun fromMessage(msg: MsgTypes.ScopedKey): ScopedKey {
+            return ScopedKey(
+                    kty = msg.kty,
+                    scope = msg.scope,
+                    k = msg.k,
+                    kid = msg.kid
+            )
         }
     }
 }
