@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.fxaclient.internal
+package mozilla.appservices.fxaclient
 
 open class FxaException(message: String) : Exception(message) {
     class Unspecified(msg: String) : FxaException(msg)

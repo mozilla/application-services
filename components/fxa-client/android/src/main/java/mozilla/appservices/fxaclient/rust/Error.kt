@@ -2,13 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.fxaclient.internal
+package mozilla.appservices.fxaclient.rust
 
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
-import org.mozilla.fxaclient.internal.FxaException
-import org.mozilla.fxaclient.internal.FxaException.*
-import org.mozilla.fxaclient.internal.getAndConsumeRustString
+import mozilla.appservices.fxaclient.FxaException
+import mozilla.appservices.fxaclient.FxaException.*
+import mozilla.appservices.fxaclient.getAndConsumeRustString
 import java.util.Arrays
 
 internal open class Error : Structure() {

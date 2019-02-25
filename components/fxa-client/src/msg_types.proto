@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package msg_types;
 
-option java_package = "org.mozilla.fxaclient.internal";
+option java_package = "mozilla.appservices.fxaclient";
 option java_outer_classname = "MsgTypes";
 
 message Profile {

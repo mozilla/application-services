@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.fxaclient.internal
+package mozilla.appservices.fxaclient.rust
 
 import android.util.Log
 import com.sun.jna.Library
@@ -10,6 +10,8 @@ import com.sun.jna.Native
 import com.sun.jna.Pointer
 import java.lang.reflect.Proxy
 import mozilla.appservices.support.RustBuffer
+import mozilla.appservices.fxaclient.AccessTokenInfo
+import mozilla.appservices.fxaclient.FxaException
 
 @Suppress("FunctionNaming", "TooManyFunctions", "TooGenericExceptionThrown")
 internal interface FxaClient : Library {
