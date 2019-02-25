@@ -14,7 +14,7 @@ import mozilla.appservices.fxaclient.AccessTokenInfo
 import mozilla.appservices.fxaclient.FxaException
 
 @Suppress("FunctionNaming", "TooManyFunctions", "TooGenericExceptionThrown")
-internal interface FxaClient : Library {
+internal interface LibFxAFFI : Library {
     companion object {
         private val JNA_LIBRARY_NAME = {
             val libname = System.getProperty("mozilla.appservices.fxaclient_ffi_lib_name")
@@ -26,11 +26,11 @@ internal interface FxaClient : Library {
             }
         }()
 
-        internal var INSTANCE: FxaClient
+        internal var INSTANCE: LibFxAFFI
 
         init {
             try {
-                INSTANCE = Native.loadLibrary(JNA_LIBRARY_NAME, FxaClient::class.java) as FxaClient
+                INSTANCE = Native.loadLibrary(JNA_LIBRARY_NAME, LibFxAFFI::class.java) as LibFxAFFI
                 if (JNA_LIBRARY_NAME == "fxaclient_ffi") {
                     // Enable logcat logging if we aren't in a megazord.
                     INSTANCE.fxa_enable_logcat_logging()
@@ -40,10 +40,10 @@ internal interface FxaClient : Library {
                 // libs available (for unit testing purposes). This also has the advantage of
                 // not stopping the whole world in case of missing native FxA libs.
                 INSTANCE = Proxy.newProxyInstance(
-                        FxaClient::class.java.classLoader,
-                        arrayOf(FxaClient::class.java)) { _, _, _ ->
+                        LibFxAFFI::class.java.classLoader,
+                        arrayOf(LibFxAFFI::class.java)) { _, _, _ ->
                     throw FxaException("Firefox Account functionality not available")
-                } as FxaClient
+                } as LibFxAFFI
             }
         }
     }

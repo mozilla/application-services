@@ -6,7 +6,7 @@ package mozilla.appservices.fxaclient
 
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
-import mozilla.appservices.fxaclient.rust.FxaClient
+import mozilla.appservices.fxaclient.rust.LibFxAFFI
 import java.util.*
 
 class AccessTokenInfo internal constructor(raw: Raw) {
@@ -38,7 +38,7 @@ class AccessTokenInfo internal constructor(raw: Raw) {
             this.key = raw.key?.getRustString()
             this.expiresAt = raw.expiresAt
         } finally {
-            FxaClient.INSTANCE.fxa_oauth_info_free(raw.pointer)
+            LibFxAFFI.INSTANCE.fxa_oauth_info_free(raw.pointer)
         }
     }
 }
