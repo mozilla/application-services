@@ -40,7 +40,9 @@ channel on slack.
 
 ### How should I name the resulting package?
 
-Great question! We should write or link to an answer here.
+Published packages should be named `org.mozilla.appservices.$NAME` where `$NAME`
+is the name of your component, such as `logins`.  The Java namespace in which
+your package defines its classes etc should be `mozilla.appservices.$NAME.*`.
 
 ### How do I publish the resulting package?
 
