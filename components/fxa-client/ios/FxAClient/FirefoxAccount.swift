@@ -46,35 +46,14 @@ public protocol PersistCallback {
     func persist(json: String)
 }
 
-fileprivate let queue = DispatchQueue(label: "com.mozilla.firefox-account")
+private let queue = DispatchQueue(label: "com.mozilla.firefox-account")
 
-open class FirefoxAccount: RustHandle {
-    fileprivate var persistCallback: PersistCallback?
+open class FirefoxAccount {
+    private let raw: UInt64
+    private var persistCallback: PersistCallback?
 
-    func tryPersistState() {
-        queue.async {
-            guard let cb = self.persistCallback else {
-                return
-            }
-            do {
-                let json = try self.toJSONInternal()
-                DispatchQueue.global(qos: .background).async {
-                    cb.persist(json: json)
-                }
-            } catch {
-                // Ignore the error because the prior operation might have worked,
-                // but still log it.
-                os_log("FirefoxAccount internal state serialization failed.")
-            }
-        }
-    }
-
-    /// Restore a previous instance of `FirefoxAccount` from a serialized state (obtained with `toJSON(...)`).
-    open class func fromJSON(state: String) throws -> FirefoxAccount {
-        return try queue.sync(execute: {
-            let handle = try FxAError.unwrap({ err in fxa_from_json(state, err) })
-            return FirefoxAccount(raw: handle)
-        })
+    private init(raw: UInt64) {
+        self.raw = raw
     }
 
     /// Create a `FirefoxAccount` from scratch. This is suitable for callers using the
@@ -90,15 +69,25 @@ open class FirefoxAccount: RustHandle {
         self.init(raw: pointer)
     }
 
-    override func cleanup(pointer: UInt64) {
-        queue.sync(execute: {
-            try! FxAError.unwrap({err in
-                // Is this the right thing to do? We should only hit an error here
-                // for panics and handle misuse, both inidicate bugs in our code
-                // (the first in the rust code, the 2nd in this swift wrapper).
-                fxa_free(pointer, err)
-            })
+    /// Restore a previous instance of `FirefoxAccount` from a serialized state (obtained with `toJSON(...)`).
+    open class func fromJSON(state: String) throws -> FirefoxAccount {
+        return try queue.sync(execute: {
+            let handle = try FxAError.unwrap({ err in fxa_from_json(state, err) })
+            return FirefoxAccount(raw: handle)
         })
+    }
+
+    deinit {
+        if self.raw != 0 {
+            queue.sync(execute: {
+                try! FxAError.unwrap({err in
+                    // Is `try!` the right thing to do? We should only hit an error here
+                    // for panics and handle misuse, both inidicate bugs in our code
+                    // (the first in the rust code, the 2nd in this swift wrapper).
+                    fxa_free(self.raw, err)
+                })
+            })
+        }
     }
 
     /// Serializes the state of a `FirefoxAccount` instance. It can be restored later with `fromJSON(...)`.
@@ -109,7 +98,7 @@ open class FirefoxAccount: RustHandle {
         })
     }
 
-    fileprivate func toJSONInternal() throws -> String {
+    private func toJSONInternal() throws -> String {
         return String(freeingFxaString: try FxAError.unwrap({err in
             fxa_to_json(self.raw, err)
         }))
@@ -125,6 +114,24 @@ open class FirefoxAccount: RustHandle {
     /// Unregisters a persistance callback.
     public func unregisterPersistCallback() {
         self.persistCallback = nil
+    }
+
+    private func tryPersistState() {
+        queue.async {
+            guard let cb = self.persistCallback else {
+                return
+            }
+            do {
+                let json = try self.toJSONInternal()
+                DispatchQueue.global(qos: .background).async {
+                    cb.persist(json: json)
+                }
+            } catch {
+                // Ignore the error because the prior operation might have worked,
+                // but still log it.
+                os_log("FirefoxAccount internal state serialization failed.")
+            }
+        }
     }
 
     /// Gets the logged-in user profile.

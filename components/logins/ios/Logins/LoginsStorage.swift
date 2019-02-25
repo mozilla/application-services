@@ -38,7 +38,7 @@ open class LoginsStorage {
         let raw = self.raw
         self.raw = 0
         if raw != 0 {
-            // Is this the right thing to do? We should only hit an error here
+            // Is `try!` the right thing to do? We should only hit an error here
             // for panics and handle misuse, both inidicate bugs in our code
             // (the first in the rust code, the 2nd in this swift wrapper).
             try! LoginsStoreError.unwrap({ err in
