@@ -4,14 +4,16 @@
 
 package org.mozilla.fxaclient.internal
 
+import android.util.Log
 import com.sun.jna.Pointer
 import java.util.concurrent.atomic.AtomicLong
 
 /**
  * FirefoxAccount represents the authentication state of a client.
  */
-class FirefoxAccount(handle: FxaHandle) : AutoCloseable {
+class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : AutoCloseable {
     private var handle: AtomicLong = AtomicLong(handle)
+    private var persistCallback: PersistCallback? = persistCallback
 
     /**
      * Create a FirefoxAccount using the given config.
@@ -21,7 +23,10 @@ class FirefoxAccount(handle: FxaHandle) : AutoCloseable {
     constructor(config: Config, persistCallback: PersistCallback? = null)
     : this(rustCall { e ->
         FxaClient.INSTANCE.fxa_new(config.contentUrl, config.clientId, config.redirectUri, e)
-    })
+    }, persistCallback) {
+        // Persist the newly created instance state.
+        this.tryPersistState()
+    }
 
     companion object {
         /**
@@ -32,13 +37,49 @@ class FirefoxAccount(handle: FxaHandle) : AutoCloseable {
          *
          * @return [FirefoxAccount] representing the authentication state
          */
-        fun fromJSONString(json: String): FirefoxAccount {
+        fun fromJSONString(json: String, persistCallback: PersistCallback? = null): FirefoxAccount {
             return FirefoxAccount(rustCall { e ->
                 FxaClient.INSTANCE.fxa_from_json(json, e)
-            })
+            }, persistCallback)
         }
     }
 
+    interface PersistCallback {
+        fun persist(data: String)
+    }
+
+    /**
+     * Registers a PersistCallback that will be called every time the
+     * FirefoxAccount internal state has mutated.
+     * The FirefoxAccount instance can be later restored using the
+     * `fromJSONString` class method.
+     * It is the responsibility of the consumer to ensure the persisted data
+     * is saved in a secure location, as it can contain Sync Keys and
+     * OAuth tokens.
+     */
+    fun registerPersistCallback(persistCallback: PersistCallback) {
+        this.persistCallback = persistCallback
+    }
+
+    /**
+     * Unregisters any previously registered PersistCallback.
+     */
+    fun unregisterPersistCallback() {
+        this.persistCallback = null
+    }
+
+    private fun tryPersistState() {
+        this.persistCallback?.let {
+            val json: String
+            try {
+                json = this.toJSONString()
+            } catch (e: FxaException) {
+                Log.e("FirefoxAccount", "Error serializing the FirefoxAccount state.")
+                return
+            }
+            it.persist(json)
+        }
+    }
 
     /**
      * Constructs a URL used to begin the OAuth flow for the requested scopes and keys.
@@ -80,6 +121,7 @@ class FirefoxAccount(handle: FxaHandle) : AutoCloseable {
         rustCallWithLock { e ->
             FxaClient.INSTANCE.fxa_complete_oauth_flow(this.handle.get(), code, state, e)
         }
+        this.tryPersistState()
     }
 
     /**
