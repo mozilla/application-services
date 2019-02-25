@@ -4,28 +4,41 @@
 
 package org.mozilla.fxaclient.internal
 
+import com.sun.jna.Pointer
+import java.util.concurrent.atomic.AtomicLong
+
 /**
  * FirefoxAccount represents the authentication state of a client.
  */
-class FirefoxAccount : RustObject {
-
-    internal constructor(rawPointer: FxaHandle): super(rawPointer)
+class FirefoxAccount(handle: FxaHandle) : AutoCloseable {
+    private var handle: AtomicLong = AtomicLong(handle)
 
     /**
      * Create a FirefoxAccount using the given config.
      *
      * This does not make network requests, and can be used on the main thread.
      */
-    constructor(config: Config)
-    : this(unlockedRustCall { e ->
+    constructor(config: Config, persistCallback: PersistCallback? = null)
+    : this(rustCall { e ->
         FxaClient.INSTANCE.fxa_new(config.contentUrl, config.clientId, config.redirectUri, e)
     })
 
-    override fun destroy(p: Long) {
-        unlockedRustCall { err ->
-            FxaClient.INSTANCE.fxa_free(p, err)
+    companion object {
+        /**
+         * Restores the account's authentication state from a JSON string produced by
+         * [FirefoxAccount.toJSONString].
+         *
+         * This does not make network requests, and can be used on the main thread.
+         *
+         * @return [FirefoxAccount] representing the authentication state
+         */
+        fun fromJSONString(json: String): FirefoxAccount {
+            return FirefoxAccount(rustCall { e ->
+                FxaClient.INSTANCE.fxa_from_json(json, e)
+            })
         }
     }
+
 
     /**
      * Constructs a URL used to begin the OAuth flow for the requested scopes and keys.
@@ -38,9 +51,9 @@ class FirefoxAccount : RustObject {
      */
     fun beginOAuthFlow(scopes: Array<String>, wantsKeys: Boolean): String {
         val scope = scopes.joinToString(" ")
-        return rustCall { e ->
-            FxaClient.INSTANCE.fxa_begin_oauth_flow(validHandle(), scope, wantsKeys, e)
-        }.getAndConsumeString()
+        return rustCallWithLock { e ->
+            FxaClient.INSTANCE.fxa_begin_oauth_flow(this.handle.get(), scope, wantsKeys, e)
+        }.getAndConsumeRustString()
     }
 
     /**
@@ -50,9 +63,23 @@ class FirefoxAccount : RustObject {
      */
     fun beginPairingFlow(pairingUrl: String, scopes: Array<String>): String {
         val scope = scopes.joinToString(" ")
-        return rustCall { e ->
-            FxaClient.INSTANCE.fxa_begin_pairing_flow(validHandle(), pairingUrl, scope, e)
-        }.getAndConsumeString()
+        return rustCallWithLock { e ->
+            FxaClient.INSTANCE.fxa_begin_pairing_flow(this.handle.get(), pairingUrl, scope, e)
+        }.getAndConsumeRustString()
+    }
+
+    /**
+     * Authenticates the current account using the code and state parameters fetched from the
+     * redirect URL reached after completing the sign in flow triggered by [beginOAuthFlow].
+     *
+     * Modifies the FirefoxAccount state.
+     *
+     * This performs network requests, and should not be used on the main thread.
+     */
+    fun completeOAuthFlow(code: String, state: String) {
+        rustCallWithLock { e ->
+            FxaClient.INSTANCE.fxa_complete_oauth_flow(this.handle.get(), code, state, e)
+        }
     }
 
     /**
@@ -67,8 +94,8 @@ class FirefoxAccount : RustObject {
      * The caller should then start the OAuth Flow again with the "profile" scope.
      */
     fun getProfile(ignoreCache: Boolean): Profile {
-        val profileBuffer = rustCall { e ->
-            FxaClient.INSTANCE.fxa_profile(validHandle(), ignoreCache, e)
+        val profileBuffer = rustCallWithLock { e ->
+            FxaClient.INSTANCE.fxa_profile(this.handle.get(), ignoreCache, e)
         }
         try {
             val p = MsgTypes.Profile.parseFrom(profileBuffer.asCodedInputStream()!!)
@@ -98,9 +125,9 @@ class FirefoxAccount : RustObject {
      * This does not make network requests, and can be used on the main thread.
      */
     fun getTokenServerEndpointURL(): String {
-        return rustCall { e ->
-            FxaClient.INSTANCE.fxa_get_token_server_endpoint_url(validHandle(), e)
-        }.getAndConsumeString()
+        return rustCallWithLock { e ->
+            FxaClient.INSTANCE.fxa_get_token_server_endpoint_url(this.handle.get(), e)
+        }.getAndConsumeRustString()
     }
 
     /**
@@ -109,23 +136,9 @@ class FirefoxAccount : RustObject {
      * This does not make network requests, and can be used on the main thread.
      */
     fun getConnectionSuccessURL(): String {
-        return rustCall { e ->
-            FxaClient.INSTANCE.fxa_get_connection_success_url(validHandle(), e)
-        }.getAndConsumeString()
-    }
-
-    /**
-     * Authenticates the current account using the code and state parameters fetched from the
-     * redirect URL reached after completing the sign in flow triggered by [beginOAuthFlow].
-     *
-     * Modifies the FirefoxAccount state.
-     *
-     * This performs network requests, and should not be used on the main thread.
-     */
-    fun completeOAuthFlow(code: String, state: String) {
-        rustCall { e ->
-            FxaClient.INSTANCE.fxa_complete_oauth_flow(validHandle(), code, state, e)
-        }
+        return rustCallWithLock { e ->
+            FxaClient.INSTANCE.fxa_get_connection_success_url(this.handle.get(), e)
+        }.getAndConsumeRustString()
     }
 
     /**
@@ -140,8 +153,8 @@ class FirefoxAccount : RustObject {
      * the desired scope.
      */
     fun getAccessToken(scope: String): AccessTokenInfo {
-        return AccessTokenInfo(rustCall { e ->
-            FxaClient.INSTANCE.fxa_get_access_token(validHandle(), scope, e)
+        return AccessTokenInfo(rustCallWithLock { e ->
+            FxaClient.INSTANCE.fxa_get_access_token(this.handle.get(), scope, e)
         })
     }
 
@@ -155,25 +168,71 @@ class FirefoxAccount : RustObject {
      * @return String containing the authentication details in JSON format
      */
     fun toJSONString(): String {
-        return rustCall { e ->
-            FxaClient.INSTANCE.fxa_to_json(validHandle(), e)
-        }.getAndConsumeString()
+        return rustCallWithLock { e ->
+            FxaClient.INSTANCE.fxa_to_json(this.handle.get(), e)
+        }.getAndConsumeRustString()
     }
 
-    companion object {
-
-        /**
-         * Restores the account's authentication state from a JSON string produced by
-         * [FirefoxAccount.toJSONString].
-         *
-         * This does not make network requests, and can be used on the main thread.
-         *
-         * @return [FirefoxAccount] representing the authentication state
-         */
-        fun fromJSONString(json: String): FirefoxAccount {
-            return FirefoxAccount(unlockedRustCall { e ->
-                FxaClient.INSTANCE.fxa_from_json(json, e)
-            })
+    @Synchronized
+    override fun close() {
+        val handle = this.handle.getAndSet(0)
+        if (handle != 0L) {
+            rustCall { err ->
+                FxaClient.INSTANCE.fxa_free(handle, err)
+            }
         }
     }
+
+    private inline fun <U> nullableRustCallWithLock(callback: (Error.ByReference) -> U?): U? {
+        return synchronized(this) {
+            nullableRustCall { callback(it) }
+        }
+    }
+
+    private inline fun <U> rustCallWithLock(callback: (Error.ByReference) -> U?): U {
+        return nullableRustCallWithLock(callback)!!
+    }
+}
+
+// In practice we usually need to be synchronized to call this safely, so it doesn't
+// synchronize itself
+private inline fun <U> nullableRustCall(callback: (Error.ByReference) -> U?): U? {
+    val e = Error.ByReference()
+    try {
+        val ret = callback(e)
+        if (e.isFailure()) {
+            throw e.intoException()
+        }
+        return ret
+    } finally {
+        // This only matters if `callback` throws (or does a non-local return, which
+        // we currently don't do)
+        e.ensureConsumed()
+    }
+}
+
+private inline fun <U> rustCall(callback: (Error.ByReference) -> U?): U {
+    return nullableRustCall(callback)!!
+}
+
+/**
+ * Helper to read a null terminated String out of the Pointer and free it.
+ *
+ * Important: Do not use this pointer after this! For anything!
+ */
+internal fun Pointer.getAndConsumeRustString(): String {
+    try {
+        return this.getRustString()
+    } finally {
+        FxaClient.INSTANCE.fxa_str_free(this)
+    }
+}
+
+/**
+ * Helper to read a null terminated string out of the pointer.
+ *
+ * Important: doesn't free the pointer, use [getAndConsumeRustString] for that!
+ */
+internal fun Pointer.getRustString(): String {
+    return this.getString(0, "utf8")
 }
