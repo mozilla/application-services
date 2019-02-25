@@ -97,7 +97,7 @@ use std::ptr;
 ///
 /// ### Conversion to another type (which is returned over the FFI)
 ///
-/// In the FxA FFI, we have a `SyncKeys` type, which is converted to a different type before
+/// In the FxA FFI, we used to have a `SyncKeys` type, which was converted to a different type before
 /// returning over the FFI. (The real FxA FFI is a little different, and more complex, but this is
 /// relatively close, and more widely recommendable than the one the FxA FFI uses):
 ///

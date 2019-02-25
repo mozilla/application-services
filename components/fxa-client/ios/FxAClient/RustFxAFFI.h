@@ -43,11 +43,6 @@ typedef struct RustBuffer {
     uint8_t *_Nullable data;
 } RustBuffer;
 
-typedef struct SyncKeysC {
-    const char *const _Nonnull sync_key;
-    const char *const _Nonnull xcs;
-} SyncKeysC;
-
 typedef uint64_t FirefoxAccountHandle;
 
 char *_Nonnull fxa_begin_oauth_flow(FirefoxAccountHandle handle,
@@ -79,28 +74,14 @@ RustBuffer fxa_profile(FirefoxAccountHandle handle,
                        bool ignore_cache,
                        FxAErrorC *_Nonnull out);
 
-FirefoxAccountHandle fxa_from_credentials(const char *_Nonnull content_base,
-                                          const char *_Nonnull client_id,
-                                          const char *_Nonnull redirect_uri,
-                                          const char *_Nonnull json,
-                                          FxAErrorC *_Nonnull out);
-
-char *_Nullable fxa_assertion_new(FirefoxAccountHandle handle,
-                                  const char *_Nonnull audience,
-                                  FxAErrorC *_Nonnull out);
-
 char *_Nullable fxa_get_token_server_endpoint_url(FirefoxAccountHandle handle,
                                                   FxAErrorC *_Nonnull out);
 
 char *_Nullable fxa_get_connection_success_url(FirefoxAccountHandle handle,
                                                FxAErrorC *_Nonnull out);
 
-SyncKeysC *_Nullable fxa_get_sync_keys(FirefoxAccountHandle handle,
-                                       FxAErrorC *_Nonnull out);
-
 void fxa_str_free(char *_Nullable ptr);
 void fxa_free(FirefoxAccountHandle h, FxAErrorC *_Nonnull out);
 void fxa_bytebuffer_free(RustBuffer buffer);
-void fxa_sync_keys_free(SyncKeysC *_Nullable ptr);
 
 #endif /* fxa_h */

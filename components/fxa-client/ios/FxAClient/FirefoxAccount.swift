@@ -69,22 +69,6 @@ open class FirefoxAccount: RustHandle {
         }
     }
 
-    #if BROWSERID_FEATURES
-    /// Creates a `FirefoxAccount` instance from credentials obtained with the onepw FxA login flow.
-    /// This is typically used by the legacy Sync clients: new clients mainly use OAuth flows and
-    /// therefore should use `init`.
-    /// Please note that the `FxAConfig` provided will be consumed and therefore
-    /// should not be re-used.
-    open class func from(config: FxAConfig, webChannelResponse: String) throws -> FirefoxAccount {
-        return try queue.sync(execute: {
-            let handle = try FxAError.unwrap({err in
-                fxa_from_credentials(config.contentUrl, config.clientId, config.redirectUri, webChannelResponse, err)
-            })
-            return FirefoxAccount(raw: handle)
-        })
-    }
-    #endif
-
     /// Restore a previous instance of `FirefoxAccount` from a serialized state (obtained with `toJSON(...)`).
     open class func fromJSON(state: String) throws -> FirefoxAccount {
         return try queue.sync(execute: {
@@ -163,16 +147,6 @@ open class FirefoxAccount: RustHandle {
         }
     }
 
-    #if BROWSERID_FEATURES
-    public func getSyncKeys() throws -> SyncKeys {
-        return try queue.sync(execute: {
-            return SyncKeys(raw: try FxAError.unwrap({err in
-                fxa_get_sync_keys(self.raw, err)
-            }))
-        })
-    }
-    #endif
-
     open func getTokenServerEndpointURL() throws -> URL {
         return try queue.sync(execute: {
             return URL(string: String(freeingFxaString: try FxAError.unwrap({err in
@@ -250,16 +224,6 @@ open class FirefoxAccount: RustHandle {
             }
         }
     }
-
-    #if BROWSERID_FEATURES
-    public func generateAssertion(audience: String) throws -> String {
-        return try queue.sync(execute: {
-            return String(freeingFxaString: try FxAError.unwrap({err in
-                fxa_assertion_new(raw, audience, err)
-            }))
-        })
-    }
-    #endif
 }
 
 public struct ScopedKey {
@@ -308,28 +272,6 @@ public struct Profile {
         self.displayName = msg.hasDisplayName ? msg.displayName : nil
     }
 }
-
-#if BROWSERID_FEATURES
-open class SyncKeys: RustStructPointer<SyncKeysC> {
-    open var syncKey: String {
-        get {
-            return String(cString: raw.pointee.sync_key)
-        }
-    }
-
-    open var xcs: String {
-        get {
-            return String(cString: raw.pointee.xcs)
-        }
-    }
-
-    override func cleanup(pointer: UnsafeMutablePointer<SyncKeysC>) {
-        queue.sync {
-            fxa_sync_keys_free(raw)
-        }
-    }
-}
-#endif
 
 extension Data {
     init(rustBuffer: RustBuffer) {
