@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef fxa_h
-#define fxa_h
-
+#pragma once
 #include <stdint.h>
 #include <Foundation/NSObjCRuntime.h>
 
@@ -19,69 +17,67 @@
 /*
   Error codes reported by the fxa-client library, from fxa-client/src/ffi.rs
  */
-enum {
-    InternalPanic = -1,
-    NoError = 0,
-    Other = 1,
-    AuthenticationError = 2,
-    NetworkError = 3,
-};
+typedef enum FxAErrorCode {
+    FxA_InternalPanic = -1,
+    FxA_NoError = 0,
+    FxA_Other = 1,
+    FxA_AuthenticationError = 2,
+    FxA_NetworkError = 3,
+} FxAErrorCode;
 
 /*
  A mapping of the ExternError repr(C) Rust struct, from components/support/ffi/src/error.rs.
  */
-typedef struct FxAErrorC {
-    int32_t code;
+typedef struct FxAError {
+    FxAErrorCode code;
     char *_Nullable message;
-} FxAErrorC;
+} FxAError;
 
 /*
  A mapping of the ByteBuffer repr(C) Rust struct, from components/support/ffi/src/lib.rs.
  */
-typedef struct RustBuffer {
+typedef struct FxARustBuffer {
     int64_t len;
     uint8_t *_Nullable data;
-} RustBuffer;
+} FxARustBuffer;
 
 typedef uint64_t FirefoxAccountHandle;
 
 char *_Nonnull fxa_begin_oauth_flow(FirefoxAccountHandle handle,
                                     const char *_Nonnull scopes,
                                     bool wants_keys,
-                                    FxAErrorC *_Nonnull out);
+                                    FxAError *_Nonnull out);
 
 void fxa_complete_oauth_flow(FirefoxAccountHandle handle,
                              const char *_Nonnull code,
                              const char *_Nonnull state,
-                             FxAErrorC *_Nonnull out);
+                             FxAError *_Nonnull out);
 
-RustBuffer fxa_get_access_token(FirefoxAccountHandle handle,
-                                const char *_Nonnull scope,
-                                FxAErrorC *_Nonnull out);
+FxARustBuffer fxa_get_access_token(FirefoxAccountHandle handle,
+                                   const char *_Nonnull scope,
+                                   FxAError *_Nonnull out);
 
 FirefoxAccountHandle fxa_from_json(const char *_Nonnull json,
-                                   FxAErrorC *_Nonnull out);
+                                   FxAError *_Nonnull out);
 
 char *_Nullable fxa_to_json(FirefoxAccountHandle handle,
-                            FxAErrorC *_Nonnull out);
+                            FxAError *_Nonnull out);
 
 FirefoxAccountHandle fxa_new(const char *_Nonnull content_base,
                              const char *_Nonnull client_id,
                              const char *_Nonnull redirect_uri,
-                             FxAErrorC *_Nonnull out);
+                             FxAError *_Nonnull out);
 
-RustBuffer fxa_profile(FirefoxAccountHandle handle,
-                       bool ignore_cache,
-                       FxAErrorC *_Nonnull out);
+FxARustBuffer fxa_profile(FirefoxAccountHandle handle,
+                          bool ignore_cache,
+                          FxAError *_Nonnull out);
 
 char *_Nullable fxa_get_token_server_endpoint_url(FirefoxAccountHandle handle,
-                                                  FxAErrorC *_Nonnull out);
+                                                  FxAError *_Nonnull out);
 
 char *_Nullable fxa_get_connection_success_url(FirefoxAccountHandle handle,
-                                               FxAErrorC *_Nonnull out);
+                                               FxAError *_Nonnull out);
 
 void fxa_str_free(char *_Nullable ptr);
-void fxa_free(FirefoxAccountHandle h, FxAErrorC *_Nonnull out);
-void fxa_bytebuffer_free(RustBuffer buffer);
-
-#endif /* fxa_h */
+void fxa_free(FirefoxAccountHandle h, FxAError *_Nonnull out);
+void fxa_bytebuffer_free(FxARustBuffer buffer);

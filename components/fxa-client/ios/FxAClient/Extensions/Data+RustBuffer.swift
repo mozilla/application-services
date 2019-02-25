@@ -5,7 +5,7 @@
 import Foundation
 
 extension Data {
-    init(rustBuffer: RustBuffer) {
+    init(rustBuffer: FxARustBuffer) {
         self.init(bytes: rustBuffer.data!, count: Int(rustBuffer.len))
     }
 }
