@@ -2,10 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.fxaclient.internal
+package mozilla.appservices.fxaclient
 
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
+import mozilla.appservices.fxaclient.rust.FxaClient
 import java.util.*
 
 class AccessTokenInfo internal constructor(raw: Raw) {
