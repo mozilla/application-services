@@ -60,7 +60,7 @@ internal open class RustError : Structure() {
     fun consumeErrorMessage(): String {
         val result = this.getMessage()
         if (this.message != null) {
-            FxaClient.INSTANCE.fxa_str_free(this.message!!);
+            LibFxAFFI.INSTANCE.fxa_str_free(this.message!!);
             this.message = null
         }
         if (result == null) {

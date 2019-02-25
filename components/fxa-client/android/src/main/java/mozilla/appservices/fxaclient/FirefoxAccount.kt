@@ -7,7 +7,7 @@ package mozilla.appservices.fxaclient
 import android.util.Log
 import com.sun.jna.Pointer
 import mozilla.appservices.fxaclient.rust.FxaHandle
-import mozilla.appservices.fxaclient.rust.FxaClient
+import mozilla.appservices.fxaclient.rust.LibFxAFFI
 import mozilla.appservices.fxaclient.rust.RustError
 import java.util.concurrent.atomic.AtomicLong
 
@@ -25,7 +25,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      */
     constructor(config: Config, persistCallback: PersistCallback? = null)
     : this(rustCall { e ->
-        FxaClient.INSTANCE.fxa_new(config.contentUrl, config.clientId, config.redirectUri, e)
+        LibFxAFFI.INSTANCE.fxa_new(config.contentUrl, config.clientId, config.redirectUri, e)
     }, persistCallback) {
         // Persist the newly created instance state.
         this.tryPersistState()
@@ -42,7 +42,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
          */
         fun fromJSONString(json: String, persistCallback: PersistCallback? = null): FirefoxAccount {
             return FirefoxAccount(rustCall { e ->
-                FxaClient.INSTANCE.fxa_from_json(json, e)
+                LibFxAFFI.INSTANCE.fxa_from_json(json, e)
             }, persistCallback)
         }
     }
@@ -96,7 +96,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     fun beginOAuthFlow(scopes: Array<String>, wantsKeys: Boolean): String {
         val scope = scopes.joinToString(" ")
         return rustCallWithLock { e ->
-            FxaClient.INSTANCE.fxa_begin_oauth_flow(this.handle.get(), scope, wantsKeys, e)
+            LibFxAFFI.INSTANCE.fxa_begin_oauth_flow(this.handle.get(), scope, wantsKeys, e)
         }.getAndConsumeRustString()
     }
 
@@ -108,7 +108,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     fun beginPairingFlow(pairingUrl: String, scopes: Array<String>): String {
         val scope = scopes.joinToString(" ")
         return rustCallWithLock { e ->
-            FxaClient.INSTANCE.fxa_begin_pairing_flow(this.handle.get(), pairingUrl, scope, e)
+            LibFxAFFI.INSTANCE.fxa_begin_pairing_flow(this.handle.get(), pairingUrl, scope, e)
         }.getAndConsumeRustString()
     }
 
@@ -122,7 +122,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      */
     fun completeOAuthFlow(code: String, state: String) {
         rustCallWithLock { e ->
-            FxaClient.INSTANCE.fxa_complete_oauth_flow(this.handle.get(), code, state, e)
+            LibFxAFFI.INSTANCE.fxa_complete_oauth_flow(this.handle.get(), code, state, e)
         }
         this.tryPersistState()
     }
@@ -140,13 +140,13 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      */
     fun getProfile(ignoreCache: Boolean): Profile {
         val profileBuffer = rustCallWithLock { e ->
-            FxaClient.INSTANCE.fxa_profile(this.handle.get(), ignoreCache, e)
+            LibFxAFFI.INSTANCE.fxa_profile(this.handle.get(), ignoreCache, e)
         }
         try {
             val p = MsgTypes.Profile.parseFrom(profileBuffer.asCodedInputStream()!!)
             return Profile.fromMessage(p)
         } finally {
-            FxaClient.INSTANCE.fxa_bytebuffer_free(profileBuffer)
+            LibFxAFFI.INSTANCE.fxa_bytebuffer_free(profileBuffer)
         }
     }
 
@@ -171,7 +171,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      */
     fun getTokenServerEndpointURL(): String {
         return rustCallWithLock { e ->
-            FxaClient.INSTANCE.fxa_get_token_server_endpoint_url(this.handle.get(), e)
+            LibFxAFFI.INSTANCE.fxa_get_token_server_endpoint_url(this.handle.get(), e)
         }.getAndConsumeRustString()
     }
 
@@ -182,7 +182,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      */
     fun getConnectionSuccessURL(): String {
         return rustCallWithLock { e ->
-            FxaClient.INSTANCE.fxa_get_connection_success_url(this.handle.get(), e)
+            LibFxAFFI.INSTANCE.fxa_get_connection_success_url(this.handle.get(), e)
         }.getAndConsumeRustString()
     }
 
@@ -199,7 +199,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      */
     fun getAccessToken(scope: String): AccessTokenInfo {
         return AccessTokenInfo(rustCallWithLock { e ->
-            FxaClient.INSTANCE.fxa_get_access_token(this.handle.get(), scope, e)
+            LibFxAFFI.INSTANCE.fxa_get_access_token(this.handle.get(), scope, e)
         })
     }
 
@@ -214,7 +214,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      */
     fun toJSONString(): String {
         return rustCallWithLock { e ->
-            FxaClient.INSTANCE.fxa_to_json(this.handle.get(), e)
+            LibFxAFFI.INSTANCE.fxa_to_json(this.handle.get(), e)
         }.getAndConsumeRustString()
     }
 
@@ -223,7 +223,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
         val handle = this.handle.getAndSet(0)
         if (handle != 0L) {
             rustCall { err ->
-                FxaClient.INSTANCE.fxa_free(handle, err)
+                LibFxAFFI.INSTANCE.fxa_free(handle, err)
             }
         }
     }
@@ -269,7 +269,7 @@ internal fun Pointer.getAndConsumeRustString(): String {
     try {
         return this.getRustString()
     } finally {
-        FxaClient.INSTANCE.fxa_str_free(this)
+        LibFxAFFI.INSTANCE.fxa_str_free(this)
     }
 }
 
