@@ -19,7 +19,7 @@ may need to repeat some steps (eg, rust updates should be done periodically)
 
 At the end of this process you should have the following environment variables set up.
 
-- `NDK_HOME`
+- `ANDROID_NDK_ROOT`
 - `ANDROID_NDK_TOOLCHAIN_DIR`
 - `ANDROID_NDK_API_VERSION`
 - `ANDROID_HOME`
@@ -32,7 +32,7 @@ a rc file or similar so they persist between reboots etc.
    (yes, this sucks, but newer versions don't understand the `--deprecated-headers`
    argument required to build OpenSSL against a v21 toolchain).
     - Extract it, put it somewhere (`$HOME/.android-ndk-r15c` is a reasonable
-      choice, but it doesn't matter), and set `NDK_HOME` to this location.
+      choice, but it doesn't matter), and set `ANDROID_NDK_ROOT` to this location.
 
 2. Install `rustup` from https://rustup.rs:
     - If you already have it, run `rustup update`
@@ -46,7 +46,7 @@ a rc file or similar so they persist between reboots etc.
         - `mkdir -p ~/.ndk-standalone-toolchains`
         - `export ANDROID_NDK_TOOLCHAIN_DIR=$HOME/.ndk-standalone-toolchains`
     - `cd path/to/application-services/libs`
-    - `./setup_toolchains_local.sh $NDK_HOME`
+    - `./setup_toolchains_local.sh $ANDROID_NDK_ROOT`
         - Say yes if/when prompted.
         - When this is done, it should have set `$ANDROID_NDK_API_VERSION` (to 21),
           but you should add this to an rcfile as above.
