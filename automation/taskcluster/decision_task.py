@@ -212,6 +212,9 @@ def linux_build_task(name):
             test -d $ANDROID_NDK_TOOLCHAIN_DIR/x86-$ANDROID_NDK_API_VERSION   || $ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py --arch="x86"   --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/x86-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
         """)
         .with_repo()
+        .with_script("""
+            ./libs/verify-android-environment.sh
+        """)
     )
 
 def linux_target_macos_build_task(name):
