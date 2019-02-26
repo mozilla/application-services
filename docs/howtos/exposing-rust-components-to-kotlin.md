@@ -121,4 +121,26 @@ own experience. It’s vastly simpler and less painful this way.
 
 ### Why are we using JNA rather than JNI, and what tradeoffs does that involve?
 
-Great question! We should write or link to an answer here.
+We get a couple things from using JNA that we wouldn't with JNI.
+
+1. We are able to write a *single* FFI crate. If we used JNI we'd need to write
+   one FFI that android calls, and one that iOS calls.
+
+2. JNA provides a mapping of threads to callbacks for us, making callbacks over
+   the FFI possible. That said, in practice this is still error prone, and easy
+   to misuse/cause memory safety bugs, but it's required for cases like logging,
+   among others, and so it is a nontrivial piece of complexity we'd have to
+   reimplement.
+
+However, it comes with the following downsides:
+
+1. JNA has bugs. In particular, its not safe to use bools with them, it thinks
+   they are 32 bits, when on most platforms (every platform Rust supports) they
+   are 8 bits. They've been unwilling to fix the issue due to it breaking
+   backwards compatibility (which is... somewhat fair, there is a lot of C89
+   code out there that uses `bool` as a typedef for a 32-bit `int`).
+2. JNA makes it really easy to do the wrong thing and have it work but corrupt
+   memory. Several of the caveats around this are documented in the
+   [`ffi_support` docs](https://docs.rs/ffi-support/*/ffi_support/), but a
+   major one is when to use `Pointer` vs `String` (getting this wrong will
+   often work, but may corrupt memory).
