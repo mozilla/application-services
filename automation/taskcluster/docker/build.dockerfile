@@ -85,12 +85,12 @@ RUN curl -L https://dl.google.com/android/repository/sdk-tools-linux-${ANDROID_S
 # build OpenSSL.
 ENV ANDROID_NDK_VERSION "r15c"
 
-ENV ANDROID_NDK_HOME /build/android-ndk
+ENV ANDROID_NDK_ROOT /build/android-ndk
 
 RUN curl -L https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux-x86_64.zip > ndk.zip \
 	&& unzip -q ndk.zip -d /build \
 	&& rm ndk.zip \
-  && mv /build/android-ndk-${ANDROID_NDK_VERSION} ${ANDROID_NDK_HOME}
+  && mv /build/android-ndk-${ANDROID_NDK_VERSION} ${ANDROID_NDK_ROOT}
 
 ENV ANDROID_NDK_TOOLCHAIN_DIR /root/.android-ndk-r15c-toolchain
 ENV ANDROID_NDK_API_VERSION 21
