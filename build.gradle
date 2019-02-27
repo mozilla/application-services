@@ -4,7 +4,7 @@ buildscript {
     ext.kotlin_version = '1.3.10'
 
     ext.library = [
-        version: '0.17.0'
+        version: '0.18.0'
     ]
 
     ext.build = [
@@ -86,7 +86,7 @@ import com.sun.jna.Platform as DefaultPlatform
 // prerequisite libraries.
 //
 // Set this to `= null` in order to use libs from the source directory.
-ext.libsGitSha = '3c98949838e2df00517a0f60df82a73d4f3d7660'
+ext.libsGitSha = '7b51e97854ab7d802552bf4835d9e2610b02fa0e'
 
 if (rootProject.ext.libsGitSha != null) {
     task downloadAndroidLibs(type: Download) {
