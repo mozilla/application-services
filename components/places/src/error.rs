@@ -79,7 +79,7 @@ pub enum ErrorKind {
     InvalidConnectionType,
 
     #[fail(display = "IO error: {}", _0)]
-    IOError(#[fail(cause)] std::io::Error),
+    IoError(#[fail(cause)] std::io::Error),
 
     // Maybe we should try to fabricate a rusqlite::Error that looks like the
     // interrupted error?
@@ -111,7 +111,7 @@ impl_from_error! {
     (UrlParseError, url::ParseError),
     (SqlError, rusqlite::Error),
     (InvalidPlaceInfo, InvalidPlaceInfo),
-    (IOError, std::io::Error)
+    (IoError, std::io::Error)
 }
 
 #[derive(Debug, Fail)]
