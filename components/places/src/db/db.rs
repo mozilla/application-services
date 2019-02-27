@@ -18,8 +18,9 @@ pub const MAX_VARIABLE_NUMBER: usize = 999;
 #[derive(Debug)]
 pub struct PlacesDb {
     pub db: Connection,
-    pub conn_type: ConnectionType,
+    conn_type: ConnectionType,
     interrupt_counter: Arc<AtomicUsize>,
+    api_id: usize,
 }
 
 impl PlacesDb {
@@ -27,6 +28,7 @@ impl PlacesDb {
         db: Connection,
         encryption_key: Option<&str>,
         conn_type: ConnectionType,
+        api_id: usize,
     ) -> Result<Self> {
         const PAGE_SIZE: u32 = 32768;
 
@@ -93,6 +95,8 @@ impl PlacesDb {
         let res = Self {
             db,
             conn_type,
+            // The API sets this explicitly.
+            api_id,
             interrupt_counter: Arc::new(AtomicUsize::new(0)),
         };
         // Even though we're the owner of the db, we need it to be an unchecked tx
@@ -108,11 +112,13 @@ impl PlacesDb {
         path: impl AsRef<Path>,
         encryption_key: Option<&str>,
         conn_type: ConnectionType,
+        api_id: usize,
     ) -> Result<Self> {
         Ok(Self::with_connection(
             Connection::open_with_flags(path, conn_type.rusqlite_flags())?,
             encryption_key,
             conn_type,
+            api_id,
         )?)
     }
 
@@ -124,6 +130,7 @@ impl PlacesDb {
             Connection::open_in_memory()?,
             encryption_key,
             ConnectionType::ReadWrite,
+            0,
         )?)
     }
 
@@ -137,6 +144,16 @@ impl PlacesDb {
     #[inline]
     pub(crate) fn begin_interrupt_scope(&self) -> InterruptScope {
         InterruptScope::new(self.interrupt_counter.clone())
+    }
+
+    #[inline]
+    pub fn conn_type(&self) -> ConnectionType {
+        self.conn_type
+    }
+
+    #[inline]
+    pub fn api_id(&self) -> usize {
+        self.api_id
     }
 }
 

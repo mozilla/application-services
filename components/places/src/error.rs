@@ -85,6 +85,10 @@ pub enum ErrorKind {
     // interrupted error?
     #[fail(display = "Operation interrupted")]
     InterruptedError,
+    // Maybe we should try to fabricate a rusqlite::Error that looks like the
+    // interrupted error?
+    #[fail(display = "Tried to close connection on wrong PlacesApi instance")]
+    WrongApiForClose,
 }
 
 macro_rules! impl_from_error {

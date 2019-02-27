@@ -11,8 +11,10 @@ use std::cell::Cell;
 use std::collections::HashMap;
 use std::mem;
 use std::path::PathBuf;
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc, Mutex,
+};
 use sync15::{telemetry, ClientInfo};
 
 #[repr(u8)]
@@ -54,6 +56,8 @@ lazy_static! {
     static ref APIS: Mutex<HashMap<PathBuf, Arc<PlacesApi>>> = Mutex::new(HashMap::new());
 }
 
+static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
 struct SyncState {
     conn: PlacesDb,
     client_info: Cell<Option<ClientInfo>>,
@@ -70,6 +74,7 @@ pub struct PlacesApi {
     write_connection: Mutex<Option<PlacesDb>>,
 
     sync_state: Mutex<Option<SyncState>>,
+    id: usize,
 }
 
 impl PlacesApi {
@@ -90,18 +95,20 @@ impl PlacesApi {
     fn new_or_existing(db_name: PathBuf, encryption_key: Option<&str>) -> Result<Arc<Self>> {
         // XXX - we should check encryption_key via the HashMap here too.
         let mut guard = APIS.lock().unwrap();
+        let id = ID_COUNTER.fetch_add(1, Ordering::SeqCst);
         match guard.get(&db_name) {
             Some(existing) => Ok(existing.clone()),
             None => {
                 // We always create a new read-write connection for an initial open so
                 // we can create the schema and/or do version upgrades.
                 let connection =
-                    PlacesDb::open(&db_name, encryption_key, ConnectionType::ReadWrite)?;
+                    PlacesDb::open(&db_name, encryption_key, ConnectionType::ReadWrite, id)?;
                 let new = PlacesApi {
                     db_name: db_name.clone(),
                     encryption_key: encryption_key.map(|x| x.to_string()),
                     write_connection: Mutex::new(Some(connection)),
                     sync_state: Mutex::new(None),
+                    id,
                 };
                 let arc = Arc::new(new);
                 (*guard).insert(db_name, arc.clone());
@@ -116,7 +123,7 @@ impl PlacesApi {
         match conn_type {
             ConnectionType::ReadOnly => {
                 // make a new one - we can have as many of these as we want.
-                PlacesDb::open(self.db_name.clone(), ec, ConnectionType::ReadOnly)
+                PlacesDb::open(self.db_name.clone(), ec, ConnectionType::ReadOnly, self.id)
             }
             ConnectionType::ReadWrite => {
                 // We only allow one of these.
@@ -128,7 +135,7 @@ impl PlacesApi {
             }
             ConnectionType::Sync => {
                 // ideally we'd enforce this in the same way as write_connection
-                PlacesDb::open(self.db_name.clone(), ec, ConnectionType::Sync)
+                PlacesDb::open(self.db_name.clone(), ec, ConnectionType::Sync, self.id)
             }
         }
     }
@@ -136,7 +143,10 @@ impl PlacesApi {
     /// Close a connection to the database. If the connection is the write
     /// connection, you can re-fetch it using open_connection.
     pub fn close_connection(&self, connection: PlacesDb) -> Result<()> {
-        if connection.conn_type == ConnectionType::ReadWrite {
+        if connection.api_id() != self.id {
+            return Err(ErrorKind::WrongApiForClose.into());
+        }
+        if connection.conn_type() == ConnectionType::ReadWrite {
             // We only allow one of these.
             let mut guard = self.write_connection.lock().unwrap();
             assert!((*guard).is_none());

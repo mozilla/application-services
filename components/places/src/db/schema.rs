@@ -85,7 +85,7 @@ pub fn init(db: &PlacesDb) -> Result<()> {
     }
     // We only want temp tables and triggers on ReadWrite connections.
     // (Note that later we expect some triggers specific to sync)
-    if db.conn_type == ConnectionType::ReadWrite {
+    if db.conn_type() == ConnectionType::ReadWrite {
         log::debug!("Creating temp tables and triggers");
         db.execute_batch(CREATE_TEMP_TABLES_SQL)?;
         db.execute_batch(&CREATE_TRIGGERS_SQL)?;
