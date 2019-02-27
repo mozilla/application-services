@@ -185,9 +185,7 @@ pub mod test {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     // A helper for our tests to get their own memory Api.
-    lazy_static! {
-        static ref ATOMIC_COUNTER: AtomicUsize = AtomicUsize::new(0);
-    }
+    static ATOMIC_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
     pub fn new_mem_api() -> Arc<PlacesApi> {
         let counter = ATOMIC_COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -262,5 +260,39 @@ mod tests {
             .query_one::<i64>("SELECT test_value FROM test_table")
             .expect("should get value");
         assert_eq!(val, 999);
+    }
+
+    #[test]
+    fn test_wrong_writer_close() {
+        let api = new_mem_api();
+        // Grab this so `api` doesn't think it still has a writer.
+        let _writer = api
+            .open_connection(ConnectionType::ReadWrite)
+            .expect("should get writer");
+
+        let fake_api = new_mem_api();
+        let fake_writer = fake_api
+            .open_connection(ConnectionType::ReadWrite)
+            .expect("should get writer 2");
+
+        // No PartialEq on ErrorKind, so we abuse match.
+        match api.close_connection(fake_writer).unwrap_err().kind() {
+            &ErrorKind::WrongApiForClose => {}
+            e => panic!("Expected error WrongApiForClose, got {:?}", e),
+        }
+    }
+
+    #[test]
+    fn test_valid_writer_close() {
+        let api = new_mem_api();
+        let writer = api
+            .open_connection(ConnectionType::ReadWrite)
+            .expect("should get writer");
+
+        api.close_connection(writer)
+            .expect("Should allow closing own connection");
+
+        // Make sure we can open it again.
+        assert!(api.open_connection(ConnectionType::ReadWrite).is_ok());
     }
 }
