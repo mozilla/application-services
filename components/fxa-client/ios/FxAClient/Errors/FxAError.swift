@@ -4,7 +4,7 @@
 
 import Foundation
 
-public enum FxAError: Error {
+public enum FirefoxAccountError: Error {
     case Unauthorized(message: String)
     case Network(message: String)
     case Unspecified(message: String)
@@ -13,18 +13,18 @@ public enum FxAError: Error {
     // The name is attempting to indicate that we free fxaError.message if it
     // existed, and that it's a very bad idea to touch it after you call this
     // function
-    static func fromConsuming(_ fxaError: FxAErrorC) -> FxAError? {
-        let message = fxaError.message
-        switch Int(fxaError.code) {
-        case NoError:
+    static func fromConsuming(_ rustError: FxAError) -> FirefoxAccountError? {
+        let message = rustError.message
+        switch rustError.code {
+        case FxA_NoError:
             return nil
-        case NetworkError:
+        case FxA_NetworkError:
             return .Network(message: String(freeingFxaString: message!))
-        case AuthenticationError:
+        case FxA_AuthenticationError:
             return .Unauthorized(message: String(freeingFxaString: message!))
-        case Other:
+        case FxA_Other:
             return .Unspecified(message: String(freeingFxaString: message!))
-        case InternalPanic:
+        case FxA_InternalPanic:
             return .Panic(message: String(freeingFxaString: message!))
         default:
             return .Unspecified(message: String(freeingFxaString: message!))
@@ -32,10 +32,10 @@ public enum FxAError: Error {
     }
 
     @discardableResult
-    public static func unwrap<T>(_ callback: (UnsafeMutablePointer<FxAErrorC>) throws -> T?) throws -> T {
-        var err = FxAErrorC(code: Int32(NoError), message: nil)
+    public static func unwrap<T>(_ callback: (UnsafeMutablePointer<FxAError>) throws -> T?) throws -> T {
+        var err = FxAError(code: FxA_NoError, message: nil)
         let returnedVal = try callback(&err)
-        if let fxaErr = FxAError.fromConsuming(err) {
+        if let fxaErr = FirefoxAccountError.fromConsuming(err) {
             throw fxaErr
         }
         guard let result = returnedVal else {
@@ -45,10 +45,10 @@ public enum FxAError: Error {
     }
 
     @discardableResult
-    public static func tryUnwrap<T>(_ callback: (UnsafeMutablePointer<FxAErrorC>) throws -> T?) throws -> T? {
-        var err = FxAErrorC(code: Int32(NoError), message: nil)
+    public static func tryUnwrap<T>(_ callback: (UnsafeMutablePointer<FxAError>) throws -> T?) throws -> T? {
+        var err = FxAError(code: FxA_NoError, message: nil)
         let returnedVal = try callback(&err)
-        if let fxaErr = FxAError.fromConsuming(err) {
+        if let fxaErr = FirefoxAccountError.fromConsuming(err) {
             throw fxaErr
         }
         return returnedVal

@@ -9,12 +9,13 @@ TARGET_ARCHS=("x86" "arm64" "arm")
 RUST_TARGETS=("i686-linux-android" "armv7-linux-androideabi" "aarch64-linux-android")
 CLANG_BINS=("i686-linux-android-clang" "arm-linux-androideabi-clang" "aarch64-linux-android-clang")
 
-if [ "$#" -ne 1 ]; then
+ANDROID_NDK_ROOT="${1:-$ANDROID_NDK_ROOT}"
+
+if [ -z "$ANDROID_NDK_ROOT" ]; then
     echo "Usage:"
-    echo "./setup_toolchains_local.sh <ANDROID_NDK_HOME>"
+    echo "./setup_toolchains_local.sh <ANDROID_NDK_ROOT>"
     exit 1
 fi
-ANDROID_NDK_HOME=$1
 
 source "$(dirname "$0")/android_defaults.sh"
 mkdir -p $ANDROID_NDK_TOOLCHAIN_DIR
@@ -27,7 +28,7 @@ echo ""
 for ARCH in "${TARGET_ARCHS[@]}"; do
   if [ ! -d "$ANDROID_NDK_TOOLCHAIN_DIR/$ARCH-$ANDROID_NDK_API_VERSION" ]; then
     echo "Installing $ARCH toolchain..."
-    python "$ANDROID_NDK_HOME/build/tools/make_standalone_toolchain.py" --arch="$ARCH" --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/$ARCH-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
+    python "$ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py" --arch="$ARCH" --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/$ARCH-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
   else
     echo "$ARCH toolchain already exists. Skipping installation."
   fi

@@ -4,6 +4,12 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.17.0...master)
 
+## FxA
+
+### Breaking Changes
+
+- Swift: `FxAError` has been renamed to `FirefoxAccountError` ([#713](https://github.com/mozilla/application-services/pull/713))
+
 ## Places
 
 ### What's Fixed

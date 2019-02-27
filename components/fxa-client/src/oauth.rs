@@ -17,6 +17,12 @@ use url::Url;
 const OAUTH_MIN_TIME_LEFT: u64 = 60;
 
 impl FirefoxAccount {
+    /// Fetch a short-lived access token using the saved refresh token.
+    /// If there is no refresh token held or if it is not authorized for some of the requested
+    /// scopes, this method will error-out and a login flow will need to be initiated
+    /// using `begin_oauth_flow`.
+    ///
+    /// * `scopes` - Space-separated list of requested scopes.
     pub fn get_access_token(&mut self, scope: &str) -> Result<AccessTokenInfo> {
         if scope.contains(" ") {
             return Err(ErrorKind::MultipleScopesRequested.into());
@@ -68,6 +74,11 @@ impl FirefoxAccount {
         Ok(token_info)
     }
 
+    /// Initiate a pairing flow and return a URL that should be navigated to.
+    ///
+    /// * `pairing_url` - A pairing URL obtained by scanning a QR code produced by
+    /// the pairing authority.
+    /// * `scopes` - Space-separated list of requested scopes by the pairing supplicant.
     pub fn begin_pairing_flow(&mut self, pairing_url: &str, scopes: &[&str]) -> Result<String> {
         let mut url = self.state.config.content_url_path("/pair/supp")?;
         let pairing_url = Url::parse(pairing_url)?;
@@ -78,6 +89,10 @@ impl FirefoxAccount {
         self.oauth_flow(url, scopes, true)
     }
 
+    /// Initiate an OAuth login flow and return a URL that should be navigated to.
+    ///
+    /// * `scopes` - Space-separated list of requested scopes.
+    /// * `wants_keys` - Retrieve scoped keys associated with scopes supporting it.
     pub fn begin_oauth_flow(&mut self, scopes: &[&str], wants_keys: bool) -> Result<String> {
         let mut url = self.state.config.authorization_endpoint()?;
         url.query_pairs_mut()
@@ -133,6 +148,11 @@ impl FirefoxAccount {
         Ok(url.to_string())
     }
 
+    /// Complete an OAuth flow initiated in `begin_oauth_flow` or `begin_pairing_flow`.
+    /// The `code` and `state` parameters can be obtained by parsing out the
+    /// redirect URL after a successful login.
+    ///
+    /// **💾 This method alters the persisted account state.**
     pub fn complete_oauth_flow(&mut self, code: &str, state: &str) -> Result<()> {
         let oauth_flow = match self.flow_store.remove(state) {
             Some(oauth_flow) => oauth_flow,
@@ -197,7 +217,6 @@ impl FirefoxAccount {
             token: refresh_token,
             scopes: HashSet::from_iter(resp.scope.split(' ').map(|s| s.to_string())),
         });
-        self.maybe_call_persist_callback();
         Ok(())
     }
 }

@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
+import os.log
 import UIKit
 
 open class FxAConfig {
@@ -45,33 +46,14 @@ public protocol PersistCallback {
     func persist(json: String)
 }
 
-fileprivate let queue = DispatchQueue(label: "com.mozilla.firefox-account")
+private let queue = DispatchQueue(label: "com.mozilla.firefox-account")
 
-open class FirefoxAccount: RustHandle {
-    fileprivate static var persistCallback: PersistCallback?
+open class FirefoxAccount {
+    private let raw: UInt64
+    private var persistCallback: PersistCallback?
 
-    #if BROWSERID_FEATURES
-    /// Creates a `FirefoxAccount` instance from credentials obtained with the onepw FxA login flow.
-    /// This is typically used by the legacy Sync clients: new clients mainly use OAuth flows and
-    /// therefore should use `init`.
-    /// Please note that the `FxAConfig` provided will be consumed and therefore
-    /// should not be re-used.
-    open class func from(config: FxAConfig, webChannelResponse: String) throws -> FirefoxAccount {
-        return try queue.sync(execute: {
-            let handle = try FxAError.unwrap({err in
-                fxa_from_credentials(config.contentUrl, config.clientId, config.redirectUri, webChannelResponse, err)
-            })
-            return FirefoxAccount(raw: handle)
-        })
-    }
-    #endif
-
-    /// Restore a previous instance of `FirefoxAccount` from a serialized state (obtained with `toJSON(...)`).
-    open class func fromJSON(state: String) throws -> FirefoxAccount {
-        return try queue.sync(execute: {
-            let handle = try FxAError.unwrap({ err in fxa_from_json(state, err) })
-            return FirefoxAccount(raw: handle)
-        })
+    private init(raw: UInt64) {
+        self.raw = raw
     }
 
     /// Create a `FirefoxAccount` from scratch. This is suitable for callers using the
@@ -80,62 +62,91 @@ open class FirefoxAccount: RustHandle {
     /// should not be re-used.
     public convenience init(config: FxAConfig) throws {
         let pointer = try queue.sync(execute: {
-            return try FxAError.unwrap({err in
+            return try FirefoxAccountError.unwrap({err in
                 fxa_new(config.contentUrl, config.clientId, config.redirectUri, err)
             })
         })
         self.init(raw: pointer)
     }
 
-    override func cleanup(pointer: UInt64) {
-        queue.sync(execute: {
-            try! FxAError.unwrap({err in
-                // Is this the right thing to do? We should only hit an error here
-                // for panics and handle misuse, both inidicate bugs in our code
-                // (the first in the rust code, the 2nd in this swift wrapper).
-                fxa_free(pointer, err)
-            })
+    /// Restore a previous instance of `FirefoxAccount` from a serialized state (obtained with `toJSON(...)`).
+    open class func fromJSON(state: String) throws -> FirefoxAccount {
+        return try queue.sync(execute: {
+            let handle = try FirefoxAccountError.unwrap({ err in fxa_from_json(state, err) })
+            return FirefoxAccount(raw: handle)
         })
+    }
+
+    deinit {
+        if self.raw != 0 {
+            queue.sync(execute: {
+                try! FirefoxAccountError.unwrap({err in
+                    // Is `try!` the right thing to do? We should only hit an error here
+                    // for panics and handle misuse, both inidicate bugs in our code
+                    // (the first in the rust code, the 2nd in this swift wrapper).
+                    fxa_free(self.raw, err)
+                })
+            })
+        }
     }
 
     /// Serializes the state of a `FirefoxAccount` instance. It can be restored later with `fromJSON(...)`.
     /// It is the responsability of the caller to persist that serialized state regularly (after operations that mutate `FirefoxAccount`) in a **secure** location.
     open func toJSON() throws -> String {
         return try queue.sync(execute: {
-            return String(freeingFxaString: try FxAError.unwrap({err in
-                fxa_to_json(self.raw, err)
-            }))
+            return try self.toJSONInternal()
         })
     }
 
-    /// Registers a persistance callback. The callback will get called everytime
+    private func toJSONInternal() throws -> String {
+        return String(freeingFxaString: try FirefoxAccountError.unwrap({err in
+            fxa_to_json(self.raw, err)
+        }))
+    }
+
+    /// Registers a persistance callback. The callback will get called every time
     /// the `FirefoxAccount` state needs to be saved. The callback must
     /// persist the passed string in a secure location (like the keychain).
-    public func registerPersistCallback(_ cb: PersistCallback) throws {
-        FirefoxAccount.persistCallback = cb
-        try FxAError.unwrap({err in
-            fxa_register_persist_callback(self.raw, persistCallbackFunction, err)
-        })
+    public func registerPersistCallback(_ cb: PersistCallback) {
+        self.persistCallback = cb
     }
 
     /// Unregisters a persistance callback.
-    public func unregisterPersistCallback() throws {
-        FirefoxAccount.persistCallback = nil
-        try FxAError.unwrap({err in
-            fxa_unregister_persist_callback(self.raw, err)
-        })
+    public func unregisterPersistCallback() {
+        self.persistCallback = nil
+    }
+
+    private func tryPersistState() {
+        queue.async {
+            guard let cb = self.persistCallback else {
+                return
+            }
+            do {
+                let json = try self.toJSONInternal()
+                DispatchQueue.global(qos: .background).async {
+                    cb.persist(json: json)
+                }
+            } catch {
+                // Ignore the error because the prior operation might have worked,
+                // but still log it.
+                os_log("FirefoxAccount internal state serialization failed.")
+            }
+        }
     }
 
     /// Gets the logged-in user profile.
-    /// Throws `FxAError.Unauthorized` if we couldn't find any suitable access token
+    /// Throws `FirefoxAccountError.Unauthorized` if we couldn't find any suitable access token
     /// to make that call. The caller should then start the OAuth Flow again with
     /// the "profile" scope.
     open func getProfile(completionHandler: @escaping (Profile?, Error?) -> Void) {
         queue.async {
             do {
-                let profile = Profile(raw: try FxAError.unwrap({err in
+                let profileBuffer = try FirefoxAccountError.unwrap({err in
                     fxa_profile(self.raw, false, err)
-                }))
+                })
+                let msg = try! MsgTypes_Profile(serializedData: Data(rustBuffer: profileBuffer))
+                fxa_bytebuffer_free(profileBuffer)
+                let profile = Profile(msg: msg)
                 DispatchQueue.main.async { completionHandler(profile, nil) }
             } catch {
                 DispatchQueue.main.async { completionHandler(nil, error) }
@@ -143,19 +154,9 @@ open class FirefoxAccount: RustHandle {
         }
     }
 
-    #if BROWSERID_FEATURES
-    public func getSyncKeys() throws -> SyncKeys {
-        return try queue.sync(execute: {
-            return SyncKeys(raw: try FxAError.unwrap({err in
-                fxa_get_sync_keys(self.raw, err)
-            }))
-        })
-    }
-    #endif
-
     open func getTokenServerEndpointURL() throws -> URL {
         return try queue.sync(execute: {
-            return URL(string: String(freeingFxaString: try FxAError.unwrap({err in
+            return URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap({err in
                 fxa_get_token_server_endpoint_url(self.raw, err)
             })))!
         })
@@ -163,7 +164,7 @@ open class FirefoxAccount: RustHandle {
 
     open func getConnectionSuccessURL() throws -> URL {
         return try queue.sync(execute: {
-            return URL(string: String(freeingFxaString: try FxAError.unwrap({err in
+            return URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap({err in
                 fxa_get_connection_success_url(self.raw, err)
             })))!
         })
@@ -182,7 +183,7 @@ open class FirefoxAccount: RustHandle {
         queue.async {
             do {
                 let scope = scopes.joined(separator: " ")
-                let url = URL(string: String(freeingFxaString: try FxAError.unwrap({err in
+                let url = URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap({err in
                     fxa_begin_oauth_flow(self.raw, scope, wantsKeys, err)
                 })))!
                 DispatchQueue.main.async { completionHandler(url, nil) }
@@ -199,10 +200,11 @@ open class FirefoxAccount: RustHandle {
     open func completeOAuthFlow(code: String, state: String, completionHandler: @escaping (Void, Error?) -> Void) {
         queue.async {
             do {
-                try FxAError.unwrap({err in
+                try FirefoxAccountError.unwrap({err in
                     fxa_complete_oauth_flow(self.raw, code, state, err)
                 })
                 DispatchQueue.main.async { completionHandler((), nil) }
+                self.tryPersistState()
             } catch {
                 DispatchQueue.main.async { completionHandler((), error) }
             }
@@ -211,78 +213,51 @@ open class FirefoxAccount: RustHandle {
 
     /// Try to get an OAuth access token.
     ///
-    /// Throws `FxAError.Unauthorized` if we couldn't provide an access token
+    /// Throws `FirefoxAccountError.Unauthorized` if we couldn't provide an access token
     /// for this scope. The caller should then start the OAuth Flow again with
     /// the desired scope.
     open func getAccessToken(scope: String, completionHandler: @escaping (AccessTokenInfo?, Error?) -> Void) {
         queue.async {
             do {
-                let tokenInfo = AccessTokenInfo(raw: try FxAError.unwrap({err in
+                let infoBuffer = try FirefoxAccountError.unwrap({err in
                     fxa_get_access_token(self.raw, scope, err)
-                }))
+                })
+                let msg = try! MsgTypes_AccessTokenInfo(serializedData: Data(rustBuffer: infoBuffer))
+                fxa_bytebuffer_free(infoBuffer)
+                let tokenInfo = AccessTokenInfo(msg: msg)
                 DispatchQueue.main.async { completionHandler(tokenInfo, nil) }
             } catch {
                 DispatchQueue.main.async { completionHandler(nil, error) }
             }
         }
     }
-
-    #if BROWSERID_FEATURES
-    public func generateAssertion(audience: String) throws -> String {
-        return try queue.sync(execute: {
-            return String(freeingFxaString: try FxAError.unwrap({err in
-                fxa_assertion_new(raw, audience, err)
-            }))
-        })
-    }
-    #endif
 }
 
-/**
- This function needs to be static as callbacks passed into Rust from Swift cannot contain state. Therefore the observers are static, as is
- the function that we pass into Rust to receive the callback.
- */
-private func persistCallbackFunction(json: UnsafePointer<CChar>) {
-    let json = String(cString: json)
-    if let cb = FirefoxAccount.persistCallback {
-        DispatchQueue.global(qos: .background).async {
-            cb.persist(json: json)
-        }
+public struct ScopedKey {
+    public let kty: String
+    public let scope: String
+    public let k: String
+    public let kid: String
+
+    internal init(msg: MsgTypes_ScopedKey) {
+        self.kty = msg.kty
+        self.scope = msg.scope
+        self.k = msg.k
+        self.kid = msg.kid
     }
 }
 
-open class AccessTokenInfo: RustStructPointer<AccessTokenInfoC> {
-    open var scope: String {
-        get {
-            return String(cString: raw.pointee.scope)
-        }
-    }
+public struct AccessTokenInfo {
+    public let scope: String
+    public let token: String
+    public let key: ScopedKey?
+    public let expiresAt: Date
 
-    open var token: String {
-        get {
-            return String(cString: raw.pointee.token)
-        }
-    }
-
-    open var key: String? {
-        get {
-            guard let pointer = raw.pointee.key else {
-                return nil
-            }
-            return String(cString: pointer)
-        }
-    }
-
-    open var expiresAt: Date {
-        get {
-            return Date.init(timeIntervalSince1970: Double(raw.pointee.expires_at))
-        }
-    }
-
-    override func cleanup(pointer: UnsafeMutablePointer<AccessTokenInfoC>) {
-        queue.sync {
-            fxa_oauth_info_free(self.raw)
-        }
+    internal init(msg: MsgTypes_AccessTokenInfo) {
+        self.scope = msg.scope
+        self.token = msg.token
+        self.key = msg.hasKey ? ScopedKey(msg: msg.key) : nil
+        self.expiresAt = Date.init(timeIntervalSince1970: Double(msg.expiresAt))
     }
 }
 
@@ -291,51 +266,16 @@ public struct Avatar {
     public let isDefault: Bool
 }
 
-open class Profile: RustProtobuf<MsgTypes_Profile> {
-    open var uid: String {
-        get {
-            return raw.uid
-        }
-    }
+public struct Profile {
+    public let uid: String
+    public let email: String
+    public let avatar: Avatar?
+    public let displayName: String?
 
-    open var email: String {
-        get {
-            return raw.email
-        }
-    }
-
-    open var avatar: Avatar? {
-        get {
-            if !raw.hasAvatar {
-                return nil
-            }
-            return Avatar(url: raw.avatar, isDefault: raw.avatarDefault)
-        }
-    }
-
-    open var displayName: String? {
-        return raw.hasDisplayName ? raw.displayName : nil
+    internal init(msg: MsgTypes_Profile) {
+        self.uid = msg.uid
+        self.email = msg.email
+        self.avatar = msg.hasAvatar ? Avatar(url: msg.avatar, isDefault: msg.avatarDefault) : nil
+        self.displayName = msg.hasDisplayName ? msg.displayName : nil
     }
 }
-
-#if BROWSERID_FEATURES
-open class SyncKeys: RustStructPointer<SyncKeysC> {
-    open var syncKey: String {
-        get {
-            return String(cString: raw.pointee.sync_key)
-        }
-    }
-
-    open var xcs: String {
-        get {
-            return String(cString: raw.pointee.xcs)
-        }
-    }
-
-    override func cleanup(pointer: UnsafeMutablePointer<SyncKeysC>) {
-        queue.sync {
-            fxa_sync_keys_free(raw)
-        }
-    }
-}
-#endif
