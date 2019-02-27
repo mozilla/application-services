@@ -10,11 +10,11 @@ import com.sun.jna.StringArray
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
-import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
+import java.lang.ref.WeakReference
 
 /**
  * An implementation of a [PlacesApi] backed by a Rust Places library.
@@ -25,11 +25,15 @@ import java.util.concurrent.atomic.AtomicReference
  */
 class PlacesApi(path: String, encryption_key: String? = null) : PlacesApiInterface, AutoCloseable {
     private var handle: AtomicLong = AtomicLong(0)
+    private var writeConn: WritablePlacesConnection
 
     init {
         handle.set(rustCall { error ->
             LibPlacesFFI.INSTANCE.places_api_new(path, encryption_key, error)
         })
+        writeConn = WritablePlacesConnection(rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_WRITE, error)
+        }, this)
     }
 
     companion object {
@@ -46,16 +50,27 @@ class PlacesApi(path: String, encryption_key: String? = null) : PlacesApiInterfa
     }
 
     override fun openWriter(): WritablePlacesConnection {
-        val connHandle = rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_WRITE, error)
-        }
-        return WritablePlacesConnection(connHandle);
+        return writeConn
     }
 
     @Synchronized
     override fun close() {
+        // Take the write connection's handle and clear it's reference to us,
+        // so that we
+        val writeHandle = this.writeConn.takeHandle()
+        this.writeConn.apiRef.clear()
         val handle = this.handle.getAndSet(0L)
         if (handle != 0L) {
+            //
+            if (writeHandle != 0L) {
+                try {
+                    rustCall { err ->
+                        LibPlacesFFI.INSTANCE.places_api_return_write_conn(handle, writeHandle, err)
+                    }
+                } catch (e: PlacesException) {
+                    // Ignore it.
+                }
+            }
             rustCall { error ->
                 LibPlacesFFI.INSTANCE.places_api_destroy(handle, error)
             }
@@ -110,7 +125,7 @@ open class PlacesConnection internal constructor(connHandle: Long) : PlacesConne
     }
 
     @Synchronized
-    override fun close() {
+    protected fun destroy() {
         val handle = this.handle.getAndSet(0L)
         if (handle != 0L) {
             rustCall { error ->
@@ -118,6 +133,11 @@ open class PlacesConnection internal constructor(connHandle: Long) : PlacesConne
             }
         }
         interruptHandle.close()
+    }
+
+    @Synchronized
+    override fun close() {
+        destroy()
     }
 
     override fun interrupt() {
@@ -234,7 +254,9 @@ open class ReadablePlacesConnection internal constructor(connHandle: Long): Plac
  * An implementation of a [WritablePlacesConnection], use for read or write
  * access to the Places APIs.
  */
-class WritablePlacesConnection internal constructor(connHandle: Long) : ReadablePlacesConnection(connHandle), WritablePlacesConnectionInterface {
+class WritablePlacesConnection internal constructor(connHandle: Long, api: PlacesApi) : ReadablePlacesConnection(connHandle), WritablePlacesConnectionInterface {
+    // The reference to our PlacesAPI. Mostly used to know how to handle getting closed.
+    val apiRef = WeakReference(api)
     override fun noteObservation(data: VisitObservation) {
         val json = data.toJSON().toString()
         rustCall { error ->
@@ -291,6 +313,23 @@ class WritablePlacesConnection internal constructor(connHandle: Long) : Readable
         }
     }
 
+    @Synchronized
+    override fun close() {
+        // If our API is still around, do nothing.
+        if (apiRef.get() == null) {
+            // Otherwise, it must have gotten GCed without calling close() :(
+            // So we go through the non-writer connection destructor.
+            destroy()
+        }
+    }
+
+    @Synchronized
+    internal fun takeHandle(): PlacesConnectionHandle {
+        val handle = this.handle.getAndSet(0L)
+        interruptHandle.close()
+        return handle
+    }
+
 }
 
 /**
@@ -311,8 +350,17 @@ class SyncAuthInfo (
  * functionality.
  */
 interface PlacesApiInterface {
+    /**
+     * Open a reader connection.
+     */
     fun openReader(): ReadablePlacesConnectionInterface
 
+    /**
+     * Open a writer connection.
+     *
+     * Note that this is not guaranteed to return a unique connection instance,
+     * and subsequent calls to openWriter may return the same connection
+     */
     fun openWriter(): WritablePlacesConnectionInterface
 
     /**
@@ -333,7 +381,7 @@ interface PlacesConnectionInterface {
     fun interrupt()
 }
 
-interface ReadablePlacesConnectionInterface {
+interface ReadablePlacesConnectionInterface: PlacesConnectionInterface {
     /**
      * A way to search the internal database tailored for autocompletion purposes.
      *
@@ -382,7 +430,7 @@ interface ReadablePlacesConnectionInterface {
     fun getVisitInfos(start: Long, end: Long = Long.MAX_VALUE): List<VisitInfo>
 }
 
-interface WritablePlacesConnectionInterface {
+interface WritablePlacesConnectionInterface: ReadablePlacesConnectionInterface {
     /**
      * Record a visit to a URL, or update meta information about page URL. See [VisitObservation].
      */
@@ -438,16 +486,6 @@ interface WritablePlacesConnectionInterface {
      * should not return.
      */
     fun deleteEverything()
-
-    /**
-     * Returns a list of visited URLs for a given time range.
-     *
-     * @param start beginning of the range, unix timestamp in milliseconds.
-     * @param end end of the range, unix timestamp in milliseconds.
-     * @param includeRemote boolean flag indicating whether or not to include remote visits. A visit
-     *  is (roughly) considered remote if it didn't originate on the current device.
-     */
-    fun getVisitedUrlsInRange(start: Long, end: Long = Long.MAX_VALUE, includeRemote: Boolean = true): List<String>
 
     /**
      * Deletes all information about the given URL. If the place has previously
