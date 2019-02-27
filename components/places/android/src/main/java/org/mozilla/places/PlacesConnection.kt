@@ -28,10 +28,10 @@ class PlacesApi(path: String, encryption_key: String? = null) : PlacesApiInterfa
     private var writeConn: WritablePlacesConnection
 
     init {
-        handle.set(rustCall { error ->
+        handle.set(rustCall(this) { error ->
             LibPlacesFFI.INSTANCE.places_api_new(path, encryption_key, error)
         })
-        writeConn = WritablePlacesConnection(rustCall { error ->
+        writeConn = WritablePlacesConnection(rustCall(this) { error ->
             LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_WRITE, error)
         }, this)
     }
@@ -43,7 +43,7 @@ class PlacesApi(path: String, encryption_key: String? = null) : PlacesApiInterfa
     }
 
     override fun openReader(): ReadablePlacesConnection {
-        val connHandle = rustCall { error ->
+        val connHandle = rustCall(this) { error ->
             LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_ONLY, error)
         }
         return ReadablePlacesConnection(connHandle);
@@ -64,21 +64,21 @@ class PlacesApi(path: String, encryption_key: String? = null) : PlacesApiInterfa
             //
             if (writeHandle != 0L) {
                 try {
-                    rustCall { err ->
+                    rustCall(this) { err ->
                         LibPlacesFFI.INSTANCE.places_api_return_write_conn(handle, writeHandle, err)
                     }
                 } catch (e: PlacesException) {
                     // Ignore it.
                 }
             }
-            rustCall { error ->
+            rustCall(this) { error ->
                 LibPlacesFFI.INSTANCE.places_api_destroy(handle, error)
             }
         }
     }
 
     override fun sync(syncInfo: SyncAuthInfo) {
-        rustCall { error ->
+        rustCall(this) { error ->
             LibPlacesFFI.INSTANCE.sync15_history_sync(
                     this.handle.get(),
                     syncInfo.kid,
@@ -89,20 +89,20 @@ class PlacesApi(path: String, encryption_key: String? = null) : PlacesApiInterfa
             )
         }
     }
+}
 
-    // It's a pity this is duplicated. Can we make it a function?
-    private inline fun <U> rustCall(callback: (RustError.ByReference) -> U): U {
-        synchronized(this) {
-            val e = RustError.ByReference()
-            val ret: U = callback(e)
-            if (e.isFailure()) {
-                throw e.intoException()
-            } else {
-                return ret
-            }
+internal inline fun <U> rustCall(syncOn: Any, callback: (RustError.ByReference) -> U): U {
+    synchronized(syncOn) {
+        val e = RustError.ByReference()
+        val ret: U = callback(e)
+        if (e.isFailure()) {
+            throw e.intoException()
+        } else {
+            return ret
         }
     }
 }
+
 
 // Is it possible/advisable to take a PlacesApi reference here, so that we
 // could call close_connection() on the API?
@@ -144,16 +144,8 @@ open class PlacesConnection internal constructor(connHandle: Long) : PlacesConne
         this.interruptHandle.interrupt()
     }
 
-    protected inline fun <U> rustCall(callback: (RustError.ByReference) -> U): U {
-        synchronized(this) {
-            val e = RustError.ByReference()
-            val ret: U = callback(e)
-            if (e.isFailure()) {
-                throw e.intoException()
-            } else {
-                return ret
-            }
-        }
+    internal inline fun <U> rustCall(callback: (RustError.ByReference) -> U): U {
+        return rustCall(this, callback)
     }
 
     internal inline fun rustCallForString(callback: (RustError.ByReference) -> Pointer?): String {
