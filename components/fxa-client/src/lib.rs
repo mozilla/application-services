@@ -33,6 +33,7 @@ mod config;
 pub mod device;
 pub mod error;
 pub mod ffi;
+mod migrator;
 // Include the `msg_types` module, which is generated from msg_types.proto.
 pub mod msg_types {
     include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
@@ -82,6 +83,7 @@ pub(crate) struct StateV2 {
     commands_data: HashMap<String, String>,
     #[serde(default)] // Same
     device_capabilities: HashSet<DeviceCapability>,
+    session_token: Option<String>, // Hex-formatted string.
 }
 
 impl FirefoxAccount {
@@ -108,6 +110,7 @@ impl FirefoxAccount {
             last_handled_command: None,
             commands_data: HashMap::new(),
             device_capabilities: HashSet::new(),
+            session_token: None,
         })
     }
 

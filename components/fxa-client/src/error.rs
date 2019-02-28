@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use failure::Fail;
-#[cfg(feature = "browserid")]
 use failure::SyncFailure;
 use std::string;
 
@@ -143,7 +142,6 @@ pub enum ErrorKind {
     #[fail(display = "Sync15 error: {}", _0)]
     SyncError(#[fail(cause)] sync15::Error),
 
-    #[cfg(feature = "browserid")]
     #[fail(display = "HAWK error: {}", _0)]
     HawkError(#[fail(cause)] SyncFailure<hawk::Error>),
 
@@ -175,14 +173,12 @@ error_support::define_error_conversions! {
 
 // These can got away when we update to the next version of Hawk,
 // in https://github.com/mozilla/application-services/pull/1050
-#[cfg(feature = "browserid")]
 impl From<hawk::Error> for ErrorKind {
     #[inline]
     fn from(e: hawk::Error) -> ErrorKind {
         ErrorKind::HawkError(SyncFailure::new(e))
     }
 }
-#[cfg(feature = "browserid")]
 impl From<hawk::Error> for Error {
     #[inline]
     fn from(e: hawk::Error) -> Error {
