@@ -74,6 +74,8 @@ internal interface LibFxAFFI : Library {
     fun fxa_complete_oauth_flow(fxa: FxaHandle, code: String, state: String, e: RustError.ByReference)
     fun fxa_get_access_token(fxa: FxaHandle, scope: String, e: RustError.ByReference): RustBuffer.ByValue
 
+    fun fxa_migrate_from_session_token(fxa: FxaHandle, sessionToken: String, kSync: String, kXCS: String, e: RustError.ByReference)
+
     fun fxa_str_free(string: Pointer)
     fun fxa_bytebuffer_free(buffer: RustBuffer.ByValue)
     fun fxa_free(fxa: FxaHandle, err: RustError.ByReference)

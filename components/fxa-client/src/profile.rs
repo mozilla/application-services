@@ -56,7 +56,7 @@ impl FirefoxAccount {
 mod tests {
     use super::*;
     use crate::{http_client::*, oauth::AccessTokenInfo, Config};
-    use std::sync::Arc;
+    use std::{collections::HashMap, sync::Arc};
 
     struct FakeClient {
         pub is_success: bool, // Can't clone Result<T, error>.
@@ -87,7 +87,23 @@ mod tests {
         ) -> Result<OAuthTokenResponse> {
             unimplemented!()
         }
+        fn refresh_token_with_session_token(
+            &self,
+            _: &Config,
+            _: &[u8],
+            _: &[&str],
+        ) -> Result<OAuthTokenResponse> {
+            unimplemented!()
+        }
         fn destroy_oauth_token(&self, _config: &Config, _token: &str) -> Result<()> {
+            unimplemented!()
+        }
+        fn scoped_key_data(
+            &self,
+            _: &Config,
+            _: &[u8],
+            _: &str,
+        ) -> Result<HashMap<String, ScopedKeyDataResponse>> {
             unimplemented!()
         }
         fn profile(

@@ -2,27 +2,36 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::errors::*;
+#[cfg(feature = "browserid")]
 use crate::{
-    errors::*,
     http_client::{self, OAuthTokenResponse},
     util::Xorable,
     Config,
 };
 use hawk_request::HawkRequestBuilder;
+use reqwest::{Client as ReqwestClient, Method, Url};
 use ring::{digest, hkdf, hmac};
+#[cfg(feature = "browserid")]
 use rsa::RSABrowserIDKeyPair;
+#[cfg(feature = "browserid")]
 use serde_derive::*;
+#[cfg(feature = "browserid")]
 use serde_json::json;
 use url::Url;
 use viaduct::{Method, Request};
-mod hawk_request;
+pub(crate) mod hawk_request;
+#[cfg(feature = "browserid")]
 pub(crate) mod jwt_utils;
+#[cfg(feature = "browserid")]
 pub(crate) mod rsa;
 
 const HKDF_SALT: [u8; 32] = [0b0; 32];
 const KEY_LENGTH: usize = 32;
+#[cfg(feature = "browserid")]
 const SIGN_DURATION_MS: u64 = 24 * 60 * 60 * 1000;
 
+#[cfg(feature = "browserid")]
 pub trait BrowserIDKeyPair {
     fn get_algo(&self) -> String;
     fn sign(&self, message: &[u8]) -> Result<Vec<u8>>;
@@ -30,6 +39,7 @@ pub trait BrowserIDKeyPair {
     fn to_json(&self, include_private: bool) -> Result<serde_json::Value>;
 }
 
+#[cfg(feature = "browserid")]
 pub trait FxABrowserIDClient: http_client::FxAClient {
     fn sign_out(&self);
     fn login(
@@ -60,6 +70,7 @@ pub trait FxABrowserIDClient: http_client::FxAClient {
     ) -> Result<SignResponse>;
 }
 
+#[cfg(feature = "browserid")]
 impl FxABrowserIDClient for http_client::Client {
     fn sign_out(&self) {
         panic!("Not implemented yet!");
@@ -176,12 +187,30 @@ impl FxABrowserIDClient for http_client::Client {
     }
 }
 
+pub(crate) fn derive_key_from_session_token(session_token: &[u8]) -> Result<Vec<u8>> {
+    let context_info = kw("sessionToken");
+    Ok(derive_hkdf_sha256_key(
+        session_token,
+        &HKDF_SALT,
+        &context_info,
+        KEY_LENGTH * 2,
+    ))
+}
+
 fn kw(name: &str) -> Vec<u8> {
     format!("identity.mozilla.com/picl/v1/{}", name)
         .as_bytes()
         .to_vec()
 }
 
+fn derive_hkdf_sha256_key(ikm: &[u8], salt: &[u8], info: &[u8], len: usize) -> Vec<u8> {
+    let salt = hmac::SigningKey::new(&digest::SHA256, salt);
+    let mut out = vec![0u8; len];
+    hkdf::extract_and_expand(&salt, ikm, info, &mut out);
+    out.to_vec()
+}
+
+#[cfg(feature = "browserid")]
 #[allow(dead_code)]
 fn kwe(name: &str, email: &str) -> Vec<u8> {
     format!("identity.mozilla.com/picl/v1/{}:{}", name, email)
@@ -189,20 +218,24 @@ fn kwe(name: &str, email: &str) -> Vec<u8> {
         .to_vec()
 }
 
+#[cfg(feature = "browserid")]
 pub fn key_pair(len: u32) -> Result<RSABrowserIDKeyPair> {
     RSABrowserIDKeyPair::generate_random(len)
 }
 
-pub fn derive_sync_key(kb: &[u8]) -> Vec<u8> {
+#[cfg(feature = "browserid")]
+pub(crate) fn derive_sync_key(kb: &[u8]) -> Vec<u8> {
     let salt = [0u8; 0];
     let context_info = kw("oldsync");
     derive_hkdf_sha256_key(&kb, &salt, &context_info, KEY_LENGTH * 2)
 }
 
-pub fn compute_client_state(kb: &[u8]) -> String {
+#[cfg(feature = "browserid")]
+pub(crate) fn compute_client_state(kb: &[u8]) -> String {
     hex::encode(digest::digest(&digest::SHA256, &kb).as_ref()[0..16].to_vec())
 }
 
+#[cfg(feature = "browserid")]
 fn get_oauth_audience(oauth_url: &Url) -> Result<String> {
     let host = oauth_url
         .host_str()
@@ -213,23 +246,7 @@ fn get_oauth_audience(oauth_url: &Url) -> Result<String> {
     }
 }
 
-fn derive_key_from_session_token(session_token: &[u8]) -> Result<Vec<u8>> {
-    let context_info = kw("sessionToken");
-    Ok(derive_hkdf_sha256_key(
-        session_token,
-        &HKDF_SALT,
-        &context_info,
-        KEY_LENGTH * 2,
-    ))
-}
-
-fn derive_hkdf_sha256_key(ikm: &[u8], salt: &[u8], info: &[u8], len: usize) -> Vec<u8> {
-    let salt = hmac::SigningKey::new(&digest::SHA256, salt);
-    let mut out = vec![0u8; len];
-    hkdf::extract_and_expand(&salt, ikm, info, &mut out);
-    out.to_vec()
-}
-
+#[cfg(feature = "browserid")]
 #[derive(Deserialize)]
 pub struct LoginResponse {
     pub uid: String,
@@ -238,29 +255,34 @@ pub struct LoginResponse {
     pub verified: bool,
 }
 
+#[cfg(feature = "browserid")]
 #[derive(Deserialize)]
 pub struct RecoveryEmailStatusResponse {
     pub email: String,
     pub verified: bool,
 }
 
+#[cfg(feature = "browserid")]
 #[derive(Deserialize)]
 pub struct AccountStatusResponse {
     pub exists: bool,
 }
 
+#[cfg(feature = "browserid")]
 #[derive(Deserialize)]
 pub struct SignResponse {
     #[serde(rename = "cert")]
     pub certificate: String,
 }
 
+#[cfg(feature = "browserid")]
 #[derive(Deserialize)]
 pub struct KeysResponse {
     // ka: Vec<u8>,
     pub wrap_kb: Vec<u8>,
 }
 
+#[cfg(feature = "browserid")]
 #[cfg(test)]
 mod tests {
     use super::*;

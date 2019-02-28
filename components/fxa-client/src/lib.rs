@@ -25,6 +25,7 @@ mod browser_id;
 mod config;
 pub mod errors;
 pub mod ffi;
+mod migrator;
 // Include the `msg_types` module, which is generated from msg_types.proto.
 pub mod msg_types {
     include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
@@ -67,6 +68,7 @@ pub(crate) struct StateV2 {
     login_state: LoginState,
     refresh_token: Option<RefreshToken>,
     scoped_keys: HashMap<String, ScopedKey>,
+    session_token: Option<String>, // Hex-formatted string.
 }
 
 impl FirefoxAccount {
@@ -90,6 +92,7 @@ impl FirefoxAccount {
             login_state: LoginState::Unknown,
             refresh_token: None,
             scoped_keys: HashMap::new(),
+            session_token: None,
         })
     }
 

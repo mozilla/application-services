@@ -2,7 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{errors::*, scoped_keys::ScopedKeysFlow, util, FirefoxAccount, RNG};
+use crate::{
+    errors::*, http_client::OAuthTokenResponse, scoped_keys::ScopedKeysFlow, util, FirefoxAccount,
+    RNG,
+};
 use rc_crypto::digest;
 use serde_derive::*;
 use std::{
@@ -165,10 +168,18 @@ impl FirefoxAccount {
             &code,
             &oauth_flow.code_verifier,
         )?;
+        self.handle_oauth_response(resp, oauth_flow.scoped_keys_flow)
+    }
+
+    pub(crate) fn handle_oauth_response(
+        &mut self,
+        resp: OAuthTokenResponse,
+        scoped_keys_flow: Option<ScopedKeysFlow>,
+    ) -> Result<()> {
         // This assumes that if the server returns keys_jwe, the jwk argument is Some.
         match resp.keys_jwe {
             Some(ref jwe) => {
-                let scoped_keys_flow = match oauth_flow.scoped_keys_flow {
+                let scoped_keys_flow = match scoped_keys_flow {
                     Some(flow) => flow,
                     None => {
                         return Err(ErrorKind::UnrecoverableServerError(
@@ -186,7 +197,7 @@ impl FirefoxAccount {
                 }
             }
             None => {
-                if oauth_flow.scoped_keys_flow.is_some() {
+                if scoped_keys_flow.is_some() {
                     log::error!("Expected to get keys back alongside the token but the server didn't send them.");
                     return Err(ErrorKind::TokenWithoutKeys.into());
                 }

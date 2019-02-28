@@ -2,9 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#[cfg(feature = "browserid")]
-use failure::SyncFailure;
-use failure::{Backtrace, Context, Fail};
+use failure::{Backtrace, Context, Fail, SyncFailure};
 use std::{boxed::Box, fmt, result, string};
 
 pub type Result<T> = result::Result<T, Error>;
@@ -164,7 +162,6 @@ pub enum ErrorKind {
     #[fail(display = "Unexpected HTTP status: {}", _0)]
     UnexpectedStatus(#[fail(cause)] viaduct::UnexpectedStatus),
 
-    #[cfg(feature = "browserid")]
     #[fail(display = "HAWK error: {}", _0)]
     HawkError(#[fail(cause)] SyncFailure<hawk::Error>),
 }
@@ -209,14 +206,12 @@ impl_from_error! {
 // ::hawk::Error uses error_chain, and so it's not trivially compatible with failure.
 // We have to box it inside a SyncError (which allows errors to be accessed from multiple
 // threads at the same time, which failure requires for some reason...).
-#[cfg(feature = "browserid")]
 impl From<hawk::Error> for ErrorKind {
     #[inline]
     fn from(e: hawk::Error) -> ErrorKind {
         ErrorKind::HawkError(SyncFailure::new(e))
     }
 }
-#[cfg(feature = "browserid")]
 impl From<hawk::Error> for Error {
     #[inline]
     fn from(e: hawk::Error) -> Error {

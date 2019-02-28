@@ -3,11 +3,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{config::Config, errors::*};
+use browser_id::{derive_key_from_session_token, hawk_request::HAWKRequestBuilder};
+use reqwest::{self, header, Client as ReqwestClient, Method, Request, Response, StatusCode};
 use serde_derive::*;
 use serde_json::json;
 use viaduct::{header_names, status_codes, Request, Response};
+use std::collections::HashMap;
 
-#[cfg(feature = "browserid")]
 pub(crate) mod browser_id;
 
 pub trait FxAClient {
@@ -23,6 +25,12 @@ pub trait FxAClient {
         refresh_token: &str,
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse>;
+    fn refresh_token_with_session_token(
+        &self,
+        config: &Config,
+        session_token: &[u8],
+        scopes: &[&str],
+    ) -> Result<OAuthTokenResponse>;
     fn destroy_oauth_token(&self, config: &Config, token: &str) -> Result<()>;
     fn profile(
         &self,
@@ -30,6 +38,12 @@ pub trait FxAClient {
         profile_access_token: &str,
         etag: Option<String>,
     ) -> Result<Option<ResponseAndETag<ProfileResponse>>>;
+    fn scoped_key_data(
+        &self,
+        config: &Config,
+        session_token: &[u8],
+        scope: &str,
+    ) -> Result<HashMap<String, ScopedKeyDataResponse>>;
 }
 
 pub struct Client;
@@ -91,6 +105,26 @@ impl FxAClient for Client {
         self.make_oauth_token_request(config, body)
     }
 
+    fn refresh_token_with_session_token(
+        &self,
+        config: &Config,
+        session_token: &[u8],
+        scopes: &[&str],
+    ) -> Result<OAuthTokenResponse> {
+        let url = config.auth_url_path("v1/oauth/authorization")?;
+        let key = derive_key_from_session_token(session_token)?;
+        let body = json!({
+            "client_id": config.client_id,
+            "scope": scopes.join(" "),
+            "response_type": "token",
+            "access_type": "offline",
+        });
+        let request = HAWKRequestBuilder::new(Method::POST, url, &key)
+            .body(body)
+            .build()?;
+        Ok(Self::make_request(request)?.json()?)
+    }
+
     fn destroy_oauth_token(&self, config: &Config, token: &str) -> Result<()> {
         let body = json!({
             "token": token,
@@ -98,6 +132,24 @@ impl FxAClient for Client {
         let url = config.oauth_url_path("v1/destroy")?;
         Self::make_request(Request::post(url).json(&body))?;
         Ok(())
+    }
+
+    fn scoped_key_data(
+        &self,
+        config: &Config,
+        session_token: &[u8],
+        scope: &str,
+    ) -> Result<HashMap<String, ScopedKeyDataResponse>> {
+        let body = json!({
+            "client_id": config.client_id,
+            "scope": scope,
+        });
+        let url = config.auth_url_path("v1/account/scoped-key-data")?;
+        let key = derive_key_from_session_token(session_token)?;
+        let request = HAWKRequestBuilder::new(Method::POST, url, &key)
+            .body(body)
+            .build()?;
+        Self::make_request(request)?.json().map_err(|e| e.into())
     }
 }
 
@@ -166,4 +218,13 @@ pub struct ProfileResponse {
     pub amr_values: Vec<String>,
     #[serde(rename = "twoFactorAuthentication")]
     pub two_factor_authentication: bool,
+}
+
+#[derive(Deserialize)]
+pub struct ScopedKeyDataResponse {
+    pub identifier: String,
+    #[serde(rename = "keyRotationSecret")]
+    pub key_rotation_secret: String,
+    #[serde(rename = "keyRotationTimestamp")]
+    pub key_rotation_timestamp: u64,
 }

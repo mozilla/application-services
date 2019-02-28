@@ -84,6 +84,7 @@ impl From<StateV1> for Result<StateV2> {
             login_state: super::login_sm::LoginState::Unknown,
             refresh_token,
             scoped_keys: all_scoped_keys,
+            session_token: None,
         })
     }
 }

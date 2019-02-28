@@ -211,6 +211,20 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     }
 
     /**
+     * Migrate from a logged-in Firefox Account.
+     *
+     * Modifies the FirefoxAccount state.
+     *
+     * This performs network requests, and should not be used on the main thread.
+     */
+    fun migrateFromSessionToken(sessionToken: String, kSync: String, kXCS: String) {
+        rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS, e)
+        }
+        this.tryPersistState()
+    }
+
+    /**
      * Saves the current account's authentication state as a JSON string, for persistence in
      * the Android KeyStore/shared preferences. The authentication state can be restored using
      * [FirefoxAccount.fromJSONString].
