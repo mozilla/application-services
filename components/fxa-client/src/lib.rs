@@ -23,6 +23,7 @@ mod config;
 pub mod errors;
 #[cfg(feature = "ffi")]
 pub mod ffi;
+mod migrator;
 // Include the `msg_types` module, which is generated from msg_types.proto.
 pub mod msg_types {
     use prost_derive::Message; // https://github.com/danburkert/prost/issues/140
@@ -66,6 +67,7 @@ pub(crate) struct StateV2 {
     login_state: LoginState,
     refresh_token: Option<RefreshToken>,
     scoped_keys: HashMap<String, ScopedKey>,
+    session_token: Option<String>, // Hex-formatted string.
 }
 
 impl FirefoxAccount {
@@ -89,6 +91,7 @@ impl FirefoxAccount {
             login_state: LoginState::Unknown,
             refresh_token: None,
             scoped_keys: HashMap::new(),
+            session_token: None,
         })
     }
 

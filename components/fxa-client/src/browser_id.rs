@@ -42,6 +42,7 @@ impl FirefoxAccount {
             login_state,
             refresh_token: None,
             scoped_keys: HashMap::new(),
+            session_token: None,
         }))
     }
 
