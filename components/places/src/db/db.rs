@@ -99,11 +99,18 @@ impl PlacesDb {
             api_id,
             interrupt_counter: Arc::new(AtomicUsize::new(0)),
         };
-        // Even though we're the owner of the db, we need it to be an unchecked tx
-        // since we want to pass &PlacesDb and not &Connection to schema::init.
-        let tx = res.unchecked_transaction()?;
-        schema::init(&res)?;
-        tx.commit()?;
+        match res.conn_type() {
+            // For read-only connections, we can avoid opening a transaction,
+            // since we know we won't be migrating or initializing anything.
+            ConnectionType::ReadOnly => {}
+            _ => {
+                // Even though we're the owner of the db, we need it to be an unchecked tx
+                // since we want to pass &PlacesDb and not &Connection to schema::init.
+                let tx = res.unchecked_transaction()?;
+                schema::init(&res)?;
+                tx.commit()?;
+            }
+        }
 
         Ok(res)
     }

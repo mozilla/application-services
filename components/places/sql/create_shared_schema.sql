@@ -143,3 +143,51 @@ CREATE TABLE IF NOT EXISTS moz_meta (
     key TEXT PRIMARY KEY,
     value NOT NULL
 ) WITHOUT ROWID;
+
+-- This table holds synced items, including tombstones. It's unused if Sync
+-- isn't configured. At the end of a sync, this table's contents should
+-- conceptually match `moz_bookmarks`.
+CREATE TABLE IF NOT EXISTS moz_bookmarks_synced(
+    id INTEGER PRIMARY KEY,
+    -- We intentionally don't validate GUIDs, as we allow and fix up invalid
+    -- ones.
+    guid TEXT UNIQUE NOT NULL,
+    /* The `parentid` from the record. */
+    parentGuid TEXT,
+    /* The server modified time, in milliseconds. */
+    serverModified INTEGER NOT NULL DEFAULT 0,
+    needsMerge BOOLEAN NOT NULL DEFAULT 0,
+    validity INTEGER NOT NULL DEFAULT 1, -- SyncValidity::Valid
+    isDeleted BOOLEAN NOT NULL DEFAULT 0,
+    kind INTEGER NOT NULL DEFAULT -1,
+    /* The creation date, in milliseconds. */
+    dateAdded INTEGER NOT NULL DEFAULT 0,
+    title TEXT,
+    placeId INTEGER REFERENCES moz_places(id)
+                    ON DELETE SET NULL,
+    keyword TEXT,
+    description TEXT,
+    loadInSidebar BOOLEAN,
+    smartBookmarkName TEXT,
+    feedURL TEXT,
+    siteURL TEXT
+);
+
+-- This table holds parent-child relationships and positions for synced items,
+-- from each folder's `children`. Unlike `moz_bookmarks`, this is stored
+-- separately because we might see an incoming folder before its children. This
+-- also lets us catch disagreements between a folder's `children` and its
+-- childrens' `parentid`.
+CREATE TABLE IF NOT EXISTS moz_bookmarks_synced_structure(
+    guid TEXT NOT NULL PRIMARY KEY,
+    parentGuid TEXT NOT NULL REFERENCES items(guid)
+                             ON DELETE CASCADE,
+    position INTEGER NOT NULL
+) WITHOUT ROWID;
+
+-- This table holds tags for synced items.
+CREATE TABLE IF NOT EXISTS moz_bookmarks_synced_tags(
+    itemId INTEGER NOT NULL REFERENCES items(id)
+                            ON DELETE CASCADE,
+    tag TEXT NOT NULL
+);

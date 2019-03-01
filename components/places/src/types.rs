@@ -285,6 +285,71 @@ impl ToSql for SyncStatus {
     }
 }
 
+/// Synced item kinds. These are stored in `moz_bookmarks_synced.kind` and match
+/// the definitions in `mozISyncedBookmarksMerger`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[repr(u8)]
+pub enum SyncedBookmarkKind {
+    Bookmark = 1,  // KIND_BOOKMARK
+    Query = 2,     // KIND_QUERY
+    Folder = 3,    // KIND_FOLDER
+    Livemark = 4,  // KIND_LIVEMARK
+    Separator = 5, // KIND_SEPARATOR
+}
+
+impl SyncedBookmarkKind {
+    #[inline]
+    pub fn from_u8(v: u8) -> Option<Self> {
+        match v {
+            1 => Some(SyncedBookmarkKind::Bookmark),
+            2 => Some(SyncedBookmarkKind::Query),
+            3 => Some(SyncedBookmarkKind::Folder),
+            4 => Some(SyncedBookmarkKind::Livemark),
+            5 => Some(SyncedBookmarkKind::Separator),
+            _ => None,
+        }
+    }
+}
+
+/// TODO: `impl From<SyncedBookmarkKind> for dogear::Kind`.
+
+impl ToSql for SyncedBookmarkKind {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
+        Ok(ToSqlOutput::from(*self as u8))
+    }
+}
+
+/// Synced item validity states. These are stored in
+/// `moz_bookmarks_synced.validity`, and match the definitions in
+/// `mozISyncedBookmarksMerger`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[repr(u8)]
+pub enum SyncedBookmarkValidity {
+    Valid = 1,    // VALIDITY_VALID
+    Reupload = 2, // VALIDITY_REUPLOAD
+    Replace = 3,  // VALIDITY_REPLACE
+}
+
+impl SyncedBookmarkValidity {
+    #[inline]
+    pub fn from_u8(v: u8) -> Option<Self> {
+        match v {
+            1 => Some(SyncedBookmarkValidity::Valid),
+            2 => Some(SyncedBookmarkValidity::Reupload),
+            3 => Some(SyncedBookmarkValidity::Replace),
+            _ => None,
+        }
+    }
+}
+
+// TODO: `impl From<SyncedBookmarkValidity> for dogear::Validity`.
+
+impl ToSql for SyncedBookmarkValidity {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
+        Ok(ToSqlOutput::from(*self as u8))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

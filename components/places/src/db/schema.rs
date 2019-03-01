@@ -16,13 +16,22 @@ use sql_support::ConnExt;
 
 const VERSION: i64 = 5;
 
-const CREATE_SCHEMA_SQL: &str = include_str!("../../sql/create_schema.sql");
-const CREATE_TEMP_TABLES_SQL: &str = include_str!("../../sql/create_temp_tables.sql");
+// Shared schema and temp tables for the read-write and Sync connections.
+const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
+const CREATE_SHARED_TEMP_TABLES_SQL: &str = include_str!("../../sql/create_shared_temp_tables.sql");
+
+// Sync-specific temp tables and triggers.
+const CREATE_SYNC_TEMP_TABLES_SQL: &str = include_str!("../../sql/create_sync_temp_tables.sql");
+const CREATE_SYNC_TRIGGERS_SQL: &str = include_str!("../../sql/create_sync_triggers.sql");
+
+// Triggers for the main read-write connection only.
+const CREATE_MAIN_TRIGGERS_SQL: &str = include_str!("../../sql/create_main_triggers.sql");
 
 lazy_static::lazy_static! {
-    static ref CREATE_TRIGGERS_SQL: String = {
+    // Triggers for the read-write and Sync connections.
+    static ref CREATE_SHARED_TRIGGERS_SQL: String = {
         format!(
-            include_str!("../../sql/create_triggers.sql"),
+            include_str!("../../sql/create_shared_triggers.sql"),
             increase_frecency_stats = update_origin_frecency_stats("+"),
             decrease_frecency_stats = update_origin_frecency_stats("-"),
         )
@@ -80,17 +89,50 @@ pub fn init(db: &PlacesDb) -> Result<()> {
                  Optimisitically ",
                 user_version,
                 VERSION
-            )
+            );
+            // Downgrade the schema version, so that anything added with our
+            // schema is migrated forward when the newer library reads our
+            // database.
+            db.execute_batch(&format!("PRAGMA user_version = {};", VERSION))?;
         }
     }
+    match db.conn_type() {
+        // Read-only connections don't need temp tables or triggers, as they
+        // can't write anything.
+        ConnectionType::ReadOnly => {}
+
+        // The main read-write connection needs shared and main-specific
+        // temp tables and triggers (for example, for writing tombstones).
+        ConnectionType::ReadWrite => {
+            db.execute_batch(CREATE_SHARED_TEMP_TABLES_SQL)?;
+            db.execute_batch(&CREATE_SHARED_TRIGGERS_SQL)?;
+            db.execute_batch(CREATE_MAIN_TRIGGERS_SQL)?;
+        }
+
+        // The Sync connection needs shared and its own temp tables and
+        // triggers, for merging. It also bypasses some of the main
+        // triggers, so that we don't write tombstones for synced deletions.
+        ConnectionType::Sync => {
+            db.execute_batch(CREATE_SHARED_TEMP_TABLES_SQL)?;
+            db.execute_batch(&CREATE_SHARED_TRIGGERS_SQL)?;
+            db.execute_batch(CREATE_SYNC_TEMP_TABLES_SQL)?;
+            db.execute_batch(CREATE_SYNC_TRIGGERS_SQL)?;
+            create_synced_bookmark_roots(db)?;
+        }
+    }
+
     // We only want temp tables and triggers on ReadWrite connections.
     // (Note that later we expect some triggers specific to sync)
     if db.conn_type() == ConnectionType::ReadWrite {
         log::debug!("Creating temp tables and triggers");
-        db.execute_batch(CREATE_TEMP_TABLES_SQL)?;
-        db.execute_batch(&CREATE_TRIGGERS_SQL)?;
     }
     Ok(())
+}
+
+/// Sets up the syncable roots. All items in `moz_bookmarks_synced` descend
+/// from these roots.
+fn create_synced_bookmark_roots(db: &PlacesDb) -> Result<()> {
+    unimplemented!("TODO: Insert synced bookmark roots");
 }
 
 /// Helper for upgrade. Intended use:
@@ -139,7 +181,7 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
         return Ok(());
     }
 
-    migration(db, 2, 3, &[CREATE_SCHEMA_SQL], || Ok(()))?;
+    migration(db, 2, 3, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?;
     migration(
         db,
         3,
@@ -147,11 +189,11 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
         &[
             // Previous versions had an incomplete version of moz_bookmarks.
             "DROP TABLE moz_bookmarks",
-            CREATE_SCHEMA_SQL,
+            CREATE_SHARED_SCHEMA_SQL,
         ],
         || create_bookmark_roots(&db.conn()),
     )?;
-    migration(db, 4, 5, &[CREATE_SCHEMA_SQL], || Ok(()))?;
+    migration(db, 4, 5, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?;
     // Add more migrations here...
 
     if get_current_schema_version(db)? == VERSION {
@@ -164,7 +206,7 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
 
 pub fn create(db: &PlacesDb) -> Result<()> {
     log::debug!("Creating schema");
-    db.execute_batch(CREATE_SCHEMA_SQL)?;
+    db.execute_batch(CREATE_SHARED_SCHEMA_SQL)?;
     create_bookmark_roots(&db.conn())?;
     db.execute(
         &format!("PRAGMA user_version = {version}", version = VERSION),
@@ -184,7 +226,7 @@ mod tests {
     #[test]
     fn test_create_schema_twice() {
         let conn = PlacesDb::open_in_memory(None).expect("no memory db");
-        conn.execute_batch(CREATE_SCHEMA_SQL)
+        conn.execute_batch(CREATE_SHARED_SCHEMA_SQL)
             .expect("should allow running twice");
     }
 
