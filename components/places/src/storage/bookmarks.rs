@@ -21,6 +21,8 @@ use std::cmp::{max, min};
 use std::collections::HashMap;
 use url::Url;
 
+mod conversions;
+
 /// Special GUIDs associated with bookmark roots.
 /// It's guaranteed that the roots will always have these guids.
 #[derive(Debug, PartialEq)]
@@ -790,6 +792,38 @@ pub enum BookmarkTreeNode {
     Bookmark(BookmarkNode),
     Separator(SeparatorNode),
     Folder(FolderNode),
+}
+
+impl BookmarkTreeNode {
+    pub fn node_type(&self) -> BookmarkType {
+        match self {
+            BookmarkTreeNode::Bookmark(_) => BookmarkType::Bookmark,
+            BookmarkTreeNode::Folder(_) => BookmarkType::Folder,
+            BookmarkTreeNode::Separator(_) => BookmarkType::Separator,
+        }
+    }
+
+    pub fn guid(&self) -> &SyncGuid {
+        let guid = match self {
+            BookmarkTreeNode::Bookmark(b) => b.guid.as_ref(),
+            BookmarkTreeNode::Folder(f) => f.guid.as_ref(),
+            BookmarkTreeNode::Separator(s) => s.guid.as_ref(),
+        };
+        // Can this happen? Why is this an Option?
+        guid.expect("Missing guid?")
+    }
+
+    pub fn created_modified(&self) -> (Timestamp, Timestamp) {
+        let (created, modified) = match self {
+            BookmarkTreeNode::Bookmark(b) => (b.date_added, b.last_modified),
+            BookmarkTreeNode::Folder(f) => (f.date_added, f.last_modified),
+            BookmarkTreeNode::Separator(s) => (s.date_added, s.last_modified),
+        };
+        (
+            created.unwrap_or_else(Timestamp::now),
+            modified.unwrap_or_else(Timestamp::now),
+        )
+    }
 }
 
 // Serde makes it tricky to serialize what we need here - a 'type' from the

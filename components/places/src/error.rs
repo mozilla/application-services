@@ -98,6 +98,13 @@ pub enum ErrorKind {
     // we'll likely return an IoError.
     #[fail(display = "Illegal database path: {:?}", _0)]
     IllegalDatabasePath(std::path::PathBuf),
+
+    // This (and BadBookmarkUpdate) generally indicate an error on the part of the user of the API.
+    #[fail(display = "Cannot insert bookmark: {}", _0)]
+    BadBookmarkInsertion(String),
+
+    #[fail(display = "Cannot update bookmark: {}", _0)]
+    BadBookmarkUpdate(String),
 }
 
 macro_rules! impl_from_error {
