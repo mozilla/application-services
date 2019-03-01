@@ -200,6 +200,7 @@ pub struct OAuthTokenResponse {
     pub keys_jwe: Option<String>,
     pub refresh_token: Option<String>,
     pub expires_in: u64,
+    #[serde(default)] // TODO: workaround OAuth server bug.
     pub scope: String,
     pub access_token: String,
 }
