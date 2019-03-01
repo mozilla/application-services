@@ -69,10 +69,7 @@ struct SyncState {
 pub struct PlacesApi {
     db_name: PathBuf,
     encryption_key: Option<String>,
-    // XXX - this should probably be a Cell instead of a mutex as we will
-    // rely on external synchronization.
     write_connection: Mutex<Option<PlacesDb>>,
-
     sync_state: Mutex<Option<SyncState>>,
     id: usize,
 }
@@ -93,7 +90,11 @@ impl PlacesApi {
     }
 
     fn new_or_existing(db_name: PathBuf, encryption_key: Option<&str>) -> Result<Arc<Self>> {
-        // XXX - we should check encryption_key via the HashMap here too.
+        // XXX - we should check encryption_key via the HashMap here too. Also, we'd
+        // rather not keep the key in memory forever, and instead it would be better to
+        // require it in open_connection.
+        // (Or maybe given these issues (and the surprising performance hit), we shouldn't
+        // support encrypted places databases...)
         let mut guard = APIS.lock().unwrap();
         let id = ID_COUNTER.fetch_add(1, Ordering::SeqCst);
         match guard.get(&db_name) {

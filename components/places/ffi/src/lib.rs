@@ -329,8 +329,6 @@ pub unsafe extern "C" fn sync15_history_sync(
     log::debug!("sync15_history_sync");
     APIS.call_with_result(error, handle, |api| -> places::Result<_> {
         // Note that api.sync returns a SyncPing which we drop on the floor.
-        // XXX - we should consider exposing it over the FFI while making the
-        // change to PlacesApi.
         api.sync(
             &sync15::Sync15StorageClientInit {
                 key_id: rust_string_from_c(key_id),

@@ -49,19 +49,17 @@ class PlacesApi(path: String, encryption_key: String? = null) : PlacesApiInterfa
         return ReadablePlacesConnection(connHandle);
     }
 
-    override fun openWriter(): WritablePlacesConnection {
+    override fun getWriter(): WritablePlacesConnection {
         return writeConn
     }
 
     @Synchronized
     override fun close() {
-        // Take the write connection's handle and clear it's reference to us,
-        // so that we
+        // Take the write connection's handle and clear it's reference to us.
         val writeHandle = this.writeConn.takeHandle()
         this.writeConn.apiRef.clear()
         val handle = this.handle.getAndSet(0L)
         if (handle != 0L) {
-            //
             if (writeHandle != 0L) {
                 try {
                     rustCall(this) { err ->
@@ -103,9 +101,6 @@ internal inline fun <U> rustCall(syncOn: Any, callback: (RustError.ByReference) 
     }
 }
 
-
-// Is it possible/advisable to take a PlacesApi reference here, so that we
-// could call close_connection() on the API?
 open class PlacesConnection internal constructor(connHandle: Long) : PlacesConnectionInterface, AutoCloseable {
     protected var handle: AtomicLong = AtomicLong(0)
     protected var interruptHandle: InterruptHandle
@@ -351,9 +346,9 @@ interface PlacesApiInterface {
      * Open a writer connection.
      *
      * Note that this is not guaranteed to return a unique connection instance,
-     * and subsequent calls to openWriter may return the same connection
+     * and subsequent calls to getWriter may return the same connection
      */
-    fun openWriter(): WritablePlacesConnectionInterface
+    fun getWriter(): WritablePlacesConnectionInterface
 
     /**
      * Syncs the places stores.
