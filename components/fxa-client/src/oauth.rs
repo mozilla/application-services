@@ -36,14 +36,16 @@ impl FirefoxAccount {
             }
         }
         let resp = match self.state.refresh_token {
-            Some(ref refresh_token) => match refresh_token.scopes.contains(scope) {
-                true => self.client.oauth_token_with_refresh_token(
+            // TODO: FOR THE SAKE OF THE PR AND AS A ONE-TIME DEAL FOR VLAD,
+            // I REMOVED THE SCOPE CHECK.
+            Some(ref refresh_token) => //match refresh_token.scopes.contains(scope) {
+                /*true =>*/ self.client.oauth_token_with_refresh_token(
                     &self.state.config,
                     &refresh_token.token,
                     &[scope],
                 )?,
-                false => return Err(ErrorKind::NoCachedToken(scope.to_string()).into()),
-            },
+                //false => return Err(ErrorKind::NoCachedToken(scope.to_string()).into()),
+            //},
             None => {
                 #[cfg(feature = "browserid")]
                 {
