@@ -89,6 +89,12 @@ pub enum ErrorKind {
     // interrupted error?
     #[fail(display = "Tried to close connection on wrong PlacesApi instance")]
     WrongApiForClose,
+
+    #[fail(display = "Incoming bookmark missing type")]
+    MissingBookmarkKind,
+
+    #[fail(display = "Incoming bookmark has unsupported type {}", _0)]
+    UnsupportedBookmarkKind(String),
 }
 
 macro_rules! impl_from_error {

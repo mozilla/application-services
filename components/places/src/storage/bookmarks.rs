@@ -218,7 +218,7 @@ pub fn insert_bookmark(db: &impl ConnExt, bm: &InsertableItem) -> Result<SyncGui
     result
 }
 
-fn maybe_truncate_title(t: &Option<String>) -> Option<&str> {
+pub fn maybe_truncate_title(t: &Option<String>) -> Option<&str> {
     use super::TITLE_LENGTH_MAX;
     use crate::util::slice_up_to;
     t.as_ref().map(|title| slice_up_to(title, TITLE_LENGTH_MAX))

@@ -202,6 +202,7 @@ fn define_functions(c: &Connection) -> Result<()> {
     c.create_scalar_function("autocomplete_match", 10, true, sql_fns::autocomplete_match)?;
     c.create_scalar_function("hash", -1, true, sql_fns::hash)?;
     c.create_scalar_function("now", 0, false, sql_fns::now)?;
+    c.create_scalar_function("generate_guid", 0, false, sql_fns::generate_guid)?;
     Ok(())
 }
 
@@ -209,7 +210,7 @@ mod sql_fns {
     use crate::api::matcher::{split_after_host_and_port, split_after_prefix};
     use crate::hash;
     use crate::match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
-    use crate::types::Timestamp;
+    use crate::types::{SyncGuid, Timestamp};
     use rusqlite::{functions::Context, types::ValueRef, Error, Result};
 
     // Helpers for define_functions
@@ -339,6 +340,11 @@ mod sql_fns {
     #[inline(never)]
     pub fn now(_ctx: &Context) -> Result<Timestamp> {
         Ok(Timestamp::now())
+    }
+
+    #[inline(never)]
+    pub fn generate_guid(_ctx: &Context) -> Result<SyncGuid> {
+        Ok(SyncGuid::new())
     }
 }
 
