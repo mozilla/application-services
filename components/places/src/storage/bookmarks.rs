@@ -243,7 +243,7 @@ fn insert_bookmark_in_tx(db: &impl ConnExt, bm: &InsertableItem) -> Result<SyncG
             db.execute_named_cached(
                 "UPDATE moz_bookmarks SET position = position + 1
                  WHERE parent = :parent
-                 AND position >= :position",
+                    AND position >= :position",
                 &[(":parent", &parent.parent_id), (":position", &actual)],
             )?;
             actual
@@ -361,7 +361,7 @@ fn delete_bookmark_in_tx(db: &impl ConnExt, guid: &SyncGuid) -> Result<bool> {
     db.execute_named_cached(
         "UPDATE moz_bookmarks SET position = position - 1
          WHERE parent = :parent
-         AND position >= :position",
+            AND position >= :position",
         &[
             (":parent", &record.parent_id),
             (":position", &record.position),
