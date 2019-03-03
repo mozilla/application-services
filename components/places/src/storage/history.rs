@@ -129,7 +129,7 @@ pub fn update_frecency(db: &Connection, id: RowId, redirect_boost: Option<bool>)
     db.execute_named(
         "
         UPDATE moz_places
-        SET frecency = :frecency
+            SET frecency = :frecency
         WHERE id = :page_id",
         &[(":frecency", &score), (":page_id", &id.0)],
     )?;
@@ -239,8 +239,7 @@ pub fn wipe_local(db: &impl ConnExt) -> Result<()> {
 fn wipe_local_in_tx(db: &impl ConnExt, tx: sql_support::UncheckedTransaction) -> Result<()> {
     use crate::frecency::DEFAULT_FRECENCY_SETTINGS;
     db.execute_all(&[
-        "DELETE FROM moz_places
-         WHERE foreign_count == 0",
+        "DELETE FROM moz_places WHERE foreign_count == 0",
         "DELETE FROM moz_historyvisits",
         "DELETE FROM moz_places_tombstones",
         "DELETE FROM moz_inputhistory",
@@ -361,7 +360,7 @@ pub fn delete_visits_between_in_tx(
         SELECT id, place_id, visit_date
         FROM moz_historyvisits
         WHERE visit_date
-        BETWEEN :start AND :end
+            BETWEEN :start AND :end
     ";
     let visits = db.query_rows_and_then_named(
         sql,
@@ -478,9 +477,9 @@ fn cleanup_pages(db: &impl ConnExt, pages: &[PageToClean]) -> Result<()> {
                 INSERT OR IGNORE INTO moz_places_tombstones (guid)
                 SELECT guid FROM moz_places
                 WHERE id in ({ids}) AND sync_status = {status}
-                AND foreign_count = 0
-                AND last_visit_date_local = 0
-                AND last_visit_date_remote = 0",
+                    AND foreign_count = 0
+                    AND last_visit_date_local = 0
+                    AND last_visit_date_remote = 0",
                 ids = sql_support::repeat_sql_vars(chunk.len()),
                 status = SyncStatus::Normal as u8,
             ),
@@ -491,9 +490,9 @@ fn cleanup_pages(db: &impl ConnExt, pages: &[PageToClean]) -> Result<()> {
                 "
                 DELETE FROM moz_places
                 WHERE id IN ({ids})
-                AND foreign_count = 0
-                AND last_visit_date_local = 0
-                AND last_visit_date_remote = 0",
+                    AND foreign_count = 0
+                    AND last_visit_date_local = 0
+                    AND last_visit_date_remote = 0",
                 ids = sql_support::repeat_sql_vars(chunk.len())
             ),
             chunk,
@@ -737,8 +736,8 @@ pub mod history_sync {
     pub fn apply_synced_reconciliation(db: &Connection, guid: &SyncGuid) -> Result<()> {
         db.execute_named_cached(
             "UPDATE moz_places
-             SET sync_status = :status,
-                 sync_change_counter = 0
+                SET sync_status = :status,
+                    sync_change_counter = 0
              WHERE guid == :guid",
             &[(":guid", guid), (":status", &SyncStatus::Normal)],
         )?;
@@ -917,7 +916,7 @@ pub mod history_sync {
         db.conn().execute_cached(
             "
             UPDATE moz_places
-            SET sync_change_counter = sync_change_counter -
+                SET sync_change_counter = sync_change_counter -
                 (SELECT change_delta FROM temp_sync_updated_meta m WHERE moz_places.id = m.id)
             WHERE id IN (SELECT id FROM temp_sync_updated_meta)
             ",
@@ -928,8 +927,8 @@ pub mod history_sync {
         db.execute_all(&[
             &format!(
                 "UPDATE moz_places
-                                   SET sync_change_counter = 0, sync_status = {}
-                                   WHERE id NOT IN (SELECT id from temp_sync_updated_meta)",
+                    SET sync_change_counter = 0, sync_status = {}
+                WHERE id NOT IN (SELECT id from temp_sync_updated_meta)",
                 (SyncStatus::Normal as u8)
             ),
             "DELETE FROM temp_sync_updated_meta",
@@ -947,7 +946,7 @@ pub mod history_sync {
             &format!(
                 "
                 UPDATE moz_places
-                SET sync_change_counter = 0,
+                    SET sync_change_counter = 0,
                     sync_status = {}",
                 (SyncStatus::New as u8)
             ),
@@ -1534,10 +1533,10 @@ mod tests {
         let mut pi2 = get_observed_page(&mut conn, "http://example.com/2")?;
         conn.execute_named_cached(
             "UPDATE moz_places
-                                   SET sync_status = :status,
-                                       sync_change_counter = 0,
-                                       frecency = 50
-                                   WHERE id = :id",
+                SET sync_status = :status,
+                sync_change_counter = 0,
+                frecency = 50
+            WHERE id = :id",
             &[(":status", &(SyncStatus::New as u8)), (":id", &pi2.row_id)],
         )?;
 
@@ -1546,10 +1545,10 @@ mod tests {
         let mut pi3 = get_observed_page(&mut conn, "http://example.com/3")?;
         conn.execute_named_cached(
             "UPDATE moz_places
-                                   SET sync_status = :status,
-                                       sync_change_counter = 1,
-                                       frecency = 10
-                                   WHERE id = :id",
+                SET sync_status = :status,
+                sync_change_counter = 1,
+                frecency = 10
+            WHERE id = :id",
             &[(":status", &(SyncStatus::New as u8)), (":id", &pi3.row_id)],
         )?;
 
@@ -1615,7 +1614,7 @@ mod tests {
         db.execute_named_cached(
             &format!(
                 "UPDATE moz_places
-                 SET sync_status = {}
+                    SET sync_status = {}
                  WHERE guid = :guid",
                 (SyncStatus::Normal as u8)
             ),

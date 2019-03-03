@@ -182,34 +182,34 @@ impl LoginDb {
                 });
                 let query = format!(
                     "
-                WITH to_fetch(guid_idx, fetch_guid) AS (VALUES {vals})
-                SELECT
-                    {common_cols},
-                    is_overridden,
-                    server_modified,
-                    NULL as local_modified,
-                    NULL as is_deleted,
-                    NULL as sync_status,
-                    1 as is_mirror,
-                    to_fetch.guid_idx as guid_idx
-                FROM loginsM
-                JOIN to_fetch
-                  ON loginsM.guid = to_fetch.fetch_guid
+                    WITH to_fetch(guid_idx, fetch_guid) AS (VALUES {vals})
+                    SELECT
+                        {common_cols},
+                        is_overridden,
+                        server_modified,
+                        NULL as local_modified,
+                        NULL as is_deleted,
+                        NULL as sync_status,
+                        1 as is_mirror,
+                        to_fetch.guid_idx as guid_idx
+                    FROM loginsM
+                    JOIN to_fetch
+                        ON loginsM.guid = to_fetch.fetch_guid
 
-                UNION ALL
+                    UNION ALL
 
-                SELECT
-                    {common_cols},
-                    NULL as is_overridden,
-                    NULL as server_modified,
-                    local_modified,
-                    is_deleted,
-                    sync_status,
-                    0 as is_mirror,
-                    to_fetch.guid_idx as guid_idx
-                FROM loginsL
-                JOIN to_fetch
-                  ON loginsL.guid = to_fetch.fetch_guid",
+                    SELECT
+                        {common_cols},
+                        NULL as is_overridden,
+                        NULL as server_modified,
+                        local_modified,
+                        is_deleted,
+                        sync_status,
+                        0 as is_mirror,
+                        to_fetch.guid_idx as guid_idx
+                    FROM loginsL
+                    JOIN to_fetch
+                        ON loginsL.guid = to_fetch.fetch_guid",
                     // give each VALUES item 2 entries, an index and the parameter.
                     vals = values_with_idx,
                     common_cols = schema::COMMON_COLS,
@@ -294,11 +294,11 @@ impl LoginDb {
         self.execute_named_cached(
             "
             UPDATE loginsL
-               SET timeLastUsed = :now_millis,
-                   timesUsed = timesUsed + 1,
-                   local_modified = :now_millis
-               WHERE guid = :guid
-                 AND is_deleted = 0",
+            SET timeLastUsed = :now_millis,
+                timesUsed = timesUsed + 1,
+                local_modified = :now_millis
+            WHERE guid = :guid
+                AND is_deleted = 0",
             &[(":now_millis", &now_ms as &ToSql), (":guid", &id as &ToSql)],
         )?;
         Ok(())
@@ -473,9 +473,9 @@ impl LoginDb {
         self.execute_named(
             &format!(
                 "
-            DELETE FROM loginsL
-            WHERE guid = :guid
-              AND sync_status = {status_new}",
+                DELETE FROM loginsL
+                WHERE guid = :guid
+                    AND sync_status = {status_new}",
                 status_new = SyncStatus::New as u8
             ),
             &[(":guid", &id as &ToSql)],
@@ -485,14 +485,14 @@ impl LoginDb {
         self.execute_named(
             &format!(
                 "
-            UPDATE loginsL
-            SET local_modified = :now_ms,
-                sync_status = {status_changed},
-                is_deleted = 1,
-                password = '',
-                hostname = '',
-                username = ''
-            WHERE guid = :guid",
+                UPDATE loginsL
+                SET local_modified = :now_ms,
+                    sync_status = {status_changed},
+                    is_deleted = 1,
+                    password = '',
+                    hostname = '',
+                    username = ''
+                WHERE guid = :guid",
                 status_changed = SyncStatus::Changed as u8
             ),
             &[(":now_ms", &now_ms as &ToSql), (":guid", &id as &ToSql)],
@@ -525,7 +525,7 @@ impl LoginDb {
             UPDATE loginsM SET
             is_overridden = 1
             WHERE guid = :guid
-        ",
+            ",
             &[(":guid", &guid as &ToSql)],
         )?;
         Ok(())
@@ -825,7 +825,7 @@ lazy_static! {
         ORDER BY hostname ASC
 
         LIMIT 1
-    ",
+        ",
         common_cols = schema::COMMON_COLS,
     );
     static ref CLONE_ENTIRE_MIRROR_SQL: String = format!(
