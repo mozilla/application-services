@@ -121,6 +121,45 @@ pub enum BookmarkPosition {
     Append,
 }
 
+/// Helpers to deal with managing the position correctly.
+
+/// Updates the position of existing items so that the insertion of a child in
+/// the position specified leaves all siblings with the correct position.
+/// Returns the index the item should be inserted at.
+fn resolve_pos_for_insert(
+    db: &impl ConnExt,
+    pos: &BookmarkPosition,
+    parent_id: RowId,
+    cur_child_count: u32,
+) -> Result<u32> {
+    Ok(match pos {
+        BookmarkPosition::Specific(specified) => {
+            let actual = min(*specified, cur_child_count);
+            // must reorder existing children.
+            db.execute_named_cached(
+                "UPDATE moz_bookmarks SET position = position + 1
+                 WHERE parent = :parent_id
+                 AND position >= :position",
+                &[(":parent_id", &parent_id), (":position", &actual)],
+            )?;
+            actual
+        }
+        BookmarkPosition::Append => cur_child_count,
+    })
+}
+
+/// Updates the position of existing items so that the deletion of a child
+/// from the position specified leaves all siblings with the correct position.
+fn update_pos_for_deletion(db: &impl ConnExt, pos: u32, parent_id: RowId) -> Result<()> {
+    db.execute_named_cached(
+        "UPDATE moz_bookmarks SET position = position - 1
+         WHERE parent = :parent
+         AND position >= :position",
+        &[(":parent", &parent_id), (":position", &pos)],
+    )?;
+    Ok(())
+}
+
 /// Structures which can be used to insert a bookmark, folder or separator.
 #[derive(Debug, Clone)]
 pub struct InsertableBookmark {
@@ -236,20 +275,8 @@ fn insert_bookmark_in_tx(db: &impl ConnExt, bm: &InsertableItem) -> Result<SyncG
         return Err(InvalidPlaceInfo::InvalidParent(parent_guid.to_string()).into());
     }
     // Do the "position" dance.
-    let position: u32 = match *bm.position() {
-        BookmarkPosition::Specific(specified) => {
-            let actual = min(specified, parent.child_count);
-            // must reorder existing children.
-            db.execute_named_cached(
-                "UPDATE moz_bookmarks SET position = position + 1
-                 WHERE parent = :parent
-                 AND position >= :position",
-                &[(":parent", &parent.parent_id), (":position", &actual)],
-            )?;
-            actual
-        }
-        BookmarkPosition::Append => parent.child_count,
-    };
+    let position = resolve_pos_for_insert(db, bm.position(), parent.row_id, parent.child_count)?;
+
     // Note that we could probably do this 'fk' work as a sub-query (although
     // markh isn't clear how we could perform the insert) - it probably doesn't
     // matter in practice though...
@@ -358,15 +385,7 @@ fn delete_bookmark_in_tx(db: &impl ConnExt, guid: &SyncGuid) -> Result<bool> {
         }
     };
     // must reorder existing children.
-    db.execute_named_cached(
-        "UPDATE moz_bookmarks SET position = position - 1
-         WHERE parent = :parent
-         AND position >= :position",
-        &[
-            (":parent", &record.parent_id),
-            (":position", &record.position),
-        ],
-    )?;
+    update_pos_for_deletion(db, record.position, record.parent_id)?;
     // and delete - children are recursively deleted.
     db.execute_named_cached(
         "DELETE from moz_bookmarks WHERE id = :id",
@@ -374,6 +393,259 @@ fn delete_bookmark_in_tx(db: &impl ConnExt, guid: &SyncGuid) -> Result<bool> {
     )?;
     super::delete_pending_temp_tables(db.conn())?;
     Ok(true)
+}
+
+/// Support for modifying bookmarks, including changing the location in
+/// the tree.
+
+/// Used instead of Option<String> for updating the title, so we can
+/// differentiate between "no change", "set to null" and "set to a value"
+/// Could trivially use <T>, but title is the only use-case for now, so it's
+/// a little clearer to leave it specific.
+#[derive(Debug, Clone)]
+pub enum UpdateTitle {
+    None,         // no change.
+    Null,         // change the existing value to null.
+    Some(String), // change the existing value to this
+}
+
+impl Default for UpdateTitle {
+    fn default() -> Self {
+        UpdateTitle::None
+    }
+}
+
+// Used to specify how the location of the item in the tree should be updated.
+#[derive(Debug, Clone)]
+pub enum UpdateTreeLocation {
+    None,                               // no change
+    Position(BookmarkPosition),         // new position in the same folder.
+    Parent(SyncGuid, BookmarkPosition), // new parent
+}
+
+impl Default for UpdateTreeLocation {
+    fn default() -> Self {
+        UpdateTreeLocation::None
+    }
+}
+
+/// Structures which can be used to update a bookmark, folder or separator.
+/// Almost all fields are Option<>-like, with None meaning "do not change".
+/// Many fields which can't be changed by our public API are omitted (eg,
+/// guid, date_added, last_modified, etc)
+#[derive(Debug, Clone, Default)]
+pub struct UpdatableBookmark {
+    pub location: UpdateTreeLocation,
+    pub url: Option<Url>,
+    pub title: UpdateTitle,
+}
+
+impl From<UpdatableBookmark> for UpdatableItem {
+    fn from(bmk: UpdatableBookmark) -> Self {
+        UpdatableItem::Bookmark(bmk)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UpdatableSeparator {
+    pub location: UpdateTreeLocation,
+}
+
+impl From<UpdatableSeparator> for UpdatableItem {
+    fn from(sep: UpdatableSeparator) -> Self {
+        UpdatableItem::Separator(sep)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct UpdatableFolder {
+    pub location: UpdateTreeLocation,
+    // There's no good reason to differentiate `null` from `""` in a folder,
+    // but for consistency we allow it.
+    pub title: UpdateTitle,
+}
+
+impl From<UpdatableFolder> for UpdatableItem {
+    fn from(folder: UpdatableFolder) -> Self {
+        UpdatableItem::Folder(folder)
+    }
+}
+
+// The type used to update the actual item.
+#[derive(Debug, Clone)]
+pub enum UpdatableItem {
+    Bookmark(UpdatableBookmark),
+    Separator(UpdatableSeparator),
+    Folder(UpdatableFolder),
+}
+
+impl UpdatableItem {
+    fn bookmark_type(&self) -> BookmarkType {
+        match self {
+            UpdatableItem::Bookmark(_) => BookmarkType::Bookmark,
+            UpdatableItem::Separator(_) => BookmarkType::Separator,
+            UpdatableItem::Folder(_) => BookmarkType::Folder,
+        }
+    }
+
+    pub fn location(&self) -> &UpdateTreeLocation {
+        match self {
+            UpdatableItem::Bookmark(b) => &b.location,
+            UpdatableItem::Separator(s) => &s.location,
+            UpdatableItem::Folder(f) => &f.location,
+        }
+    }
+}
+
+pub fn update_bookmark(db: &impl ConnExt, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
+    let tx = db.unchecked_transaction()?;
+    let result = update_bookmark_in_tx(db, guid, item);
+    match result {
+        Ok(_) => tx.commit()?,
+        Err(_) => tx.rollback()?,
+    }
+    result
+}
+
+fn update_bookmark_in_tx(db: &impl ConnExt, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
+    let existing =
+        get_raw_bookmark(db, guid)?.ok_or_else(|| InvalidPlaceInfo::NoItem(guid.to_string()))?;
+    if existing.bookmark_type != item.bookmark_type() {
+        return Err(InvalidPlaceInfo::InvalidBookmarkType.into());
+    }
+
+    let update_old_parent_status;
+    let update_new_parent_status;
+    // to make our life easier we update every field, using existing when
+    // no value is specified.
+    let parent_id;
+    let position;
+    match item.location() {
+        UpdateTreeLocation::None => {
+            parent_id = existing.parent_id;
+            position = existing.position;
+            update_old_parent_status = false;
+            update_new_parent_status = false;
+        }
+        UpdateTreeLocation::Position(pos) => {
+            parent_id = existing.parent_id;
+            update_old_parent_status = true;
+            update_new_parent_status = false;
+            // Not clear that InvalidParent is the correct error here - probably
+            // should be a "stuff is corrupt" error? Or maybe we should fix it
+            // here by reparenting to unfiled?
+            let parent = get_raw_bookmark(db, &existing.parent_guid)?
+                .ok_or_else(|| InvalidPlaceInfo::InvalidParent(existing.parent_guid.to_string()))?;
+            update_pos_for_deletion(db, existing.position, parent.row_id)?;
+            // We just removed a child, so actual child count is now parent.child_count - 1
+            position = resolve_pos_for_insert(db, pos, parent.row_id, parent.child_count - 1)?;
+        }
+        UpdateTreeLocation::Parent(new_parent_guid, pos) => {
+            if BookmarkRootGuid::from_guid(&new_parent_guid) == Some(BookmarkRootGuid::Root) {
+                return Err(InvalidPlaceInfo::InvalidGuid.into());
+            }
+            let new_parent = get_raw_bookmark(db, &new_parent_guid)?
+                .ok_or_else(|| InvalidPlaceInfo::InvalidParent(new_parent_guid.to_string()))?;
+            if new_parent.bookmark_type != BookmarkType::Folder {
+                return Err(InvalidPlaceInfo::InvalidParent(new_parent_guid.to_string()).into());
+            }
+            parent_id = new_parent.row_id;
+            update_old_parent_status = true;
+            update_new_parent_status = true;
+            // This position change is more complicated across parents.
+            // As above, this failure really means "stuff is corrupt" and we
+            // could consider fixing the tree instead of throwing?
+            let existing_parent = get_raw_bookmark(db, &existing.parent_guid)?
+                .ok_or_else(|| InvalidPlaceInfo::InvalidParent(existing.parent_guid.to_string()))?;
+            update_pos_for_deletion(db, existing.position, existing_parent.row_id)?;
+            position = resolve_pos_for_insert(db, pos, new_parent.row_id, new_parent.child_count)?;
+        }
+    };
+    let place_id = match item {
+        UpdatableItem::Bookmark(b) => match &b.url {
+            None => existing.place_id,
+            Some(url) => {
+                let page_info = match fetch_page_info(db, &url)? {
+                    Some(info) => info.page,
+                    None => new_page_info(db, &url, None)?,
+                };
+                Some(page_info.row_id)
+            }
+        },
+        _ => {
+            // Updating a non-bookmark item, so the existing item must not
+            // have a place_id
+            assert_eq!(existing.place_id, None);
+            None
+        }
+    };
+    let update_title = match item {
+        UpdatableItem::Bookmark(b) => &b.title,
+        UpdatableItem::Folder(f) => &f.title,
+        UpdatableItem::Separator(_) => &UpdateTitle::None,
+    };
+    let title: Option<String> = match update_title {
+        UpdateTitle::None => existing.title,
+        UpdateTitle::Null => None,
+        UpdateTitle::Some(t) => Some(t.clone()),
+    };
+
+    let now = Timestamp::now();
+
+    // The change counter for this item is only updated if the item has
+    // been synced.
+    let sync_change_counter = if existing.sync_status == SyncStatus::Normal {
+        existing.sync_change_counter + 1
+    } else {
+        existing.sync_change_counter
+    };
+
+    let sql = "
+        UPDATE moz_bookmarks SET
+            fk = :fk,
+            parent = :parent,
+            position = :position,
+            title = :title,
+            lastModified = :now,
+            syncChangeCounter = :sync_change_counter
+        WHERE id = :id";
+
+    db.execute_named_cached(
+        sql,
+        &[
+            (":fk", &place_id),
+            (":parent", &parent_id),
+            (":position", &position),
+            (":title", &title),
+            (":now", &now),
+            (":sync_change_counter", &sync_change_counter),
+            (":id", &existing.row_id),
+        ],
+    )?;
+
+    let sql_counter = "
+        UPDATE moz_bookmarks SET syncChangeCounter = syncChangeCounter + 1
+        WHERE id = :parent_id AND syncStatus = :status_normal";
+
+    if update_old_parent_status {
+        db.execute_named_cached(
+            sql_counter,
+            &[
+                (":parent_id", &existing.parent_id),
+                (":status_normal", &(SyncStatus::Normal as u8)),
+            ],
+        )?;
+    }
+    if update_new_parent_status {
+        db.execute_named_cached(
+            sql_counter,
+            &[
+                (":parent_id", &parent_id),
+                (":status_normal", &(SyncStatus::Normal as u8)),
+            ],
+        )?;
+    }
+    Ok(())
 }
 
 /// Support for inserting and fetching a tree. Same limitations as desktop.
@@ -1000,6 +1272,53 @@ fn get_raw_bookmark(db: &impl ConnExt, guid: &SyncGuid) -> Result<Option<RawBook
 mod tests {
     use super::*;
     use crate::db::PlacesDb;
+    use serde_json::Value;
+
+    fn insert_json_tree(conn: &PlacesDb, jtree: Value) {
+        let tree: BookmarkTreeNode = serde_json::from_value(jtree).expect("should be valid");
+        let folder_node = match tree {
+            BookmarkTreeNode::Folder(folder_node) => folder_node,
+            _ => panic!("must be a folder"),
+        };
+        insert_tree(conn, &folder_node).expect("should insert");
+    }
+
+    fn assert_json_tree(conn: &PlacesDb, folder: &SyncGuid, expected: Value) {
+        let fetched = fetch_tree(conn, folder).expect("should work").unwrap();
+        let deser_tree: BookmarkTreeNode = serde_json::from_value(expected).unwrap();
+        assert_eq!(fetched, deser_tree);
+    }
+
+    fn get_pos(conn: &PlacesDb, guid: &SyncGuid) -> u32 {
+        get_raw_bookmark(conn, guid)
+            .expect("should work")
+            .unwrap()
+            .position
+    }
+
+    // check the positions for children in a folder are "correct" in that
+    // the first child has a value of zero, etc - ie, this will fail if there
+    // are holes or duplicates in the position values.
+    fn check_positions(conn: &PlacesDb, folder: &SyncGuid) {
+        let sql = "
+            SELECT position FROM moz_bookmarks
+            WHERE parent = (SELECT id from moz_bookmarks WHERE guid = :folder_guid)
+            ORDER BY position
+        ";
+
+        let mut stmt = conn.prepare(sql).expect("sql is ok");
+        let positions: Vec<usize> = stmt
+            .query_and_then_named(&[(":folder_guid", folder)], |row| -> rusqlite::Result<_> {
+                Ok(row.get_checked::<_, u32>(0)?)
+            })
+            .expect("should work")
+            .map(|v| v.unwrap() as usize)
+            .collect();
+
+        // checking things this way gives nice output when it fails.
+        let expected: Vec<usize> = (0..positions.len()).collect();
+        assert_eq!(positions, expected);
+    }
 
     #[test]
     fn test_insert() -> Result<()> {
@@ -1070,18 +1389,12 @@ mod tests {
             ]
         });
 
-        let tree: BookmarkTreeNode = serde_json::from_value(jtree)?;
-        let folder_node = match tree {
-            BookmarkTreeNode::Folder(folder_node) => folder_node,
-            _ => panic!("must be a folder"),
-        };
-
-        insert_tree(&conn, &folder_node)?;
+        insert_json_tree(&conn, jtree);
 
         // Make sure the positions are correct now.
-        assert_eq!(get_raw_bookmark(&conn, &guid1)?.unwrap().position, 0);
-        assert_eq!(get_raw_bookmark(&conn, &guid2)?.unwrap().position, 1);
-        assert_eq!(get_raw_bookmark(&conn, &guid3)?.unwrap().position, 2);
+        assert_eq!(get_pos(&conn, &guid1), 0);
+        assert_eq!(get_pos(&conn, &guid2), 1);
+        assert_eq!(get_pos(&conn, &guid3), 2);
 
         // Delete the middle folder.
         delete_bookmark(&conn, &guid2)?;
@@ -1090,8 +1403,8 @@ mod tests {
         // Neither should the child.
         assert!(get_raw_bookmark(&conn, &guid2_1)?.is_none());
         // Positions of the remaining should be correct.
-        assert_eq!(get_raw_bookmark(&conn, &guid1)?.unwrap().position, 0);
-        assert_eq!(get_raw_bookmark(&conn, &guid3)?.unwrap().position, 1);
+        assert_eq!(get_pos(&conn, &guid1), 0);
+        assert_eq!(get_pos(&conn, &guid3), 1);
 
         Ok(())
     }
@@ -1128,6 +1441,320 @@ mod tests {
         let rb = get_raw_bookmark(&conn, &guid)?.expect("should get the bookmark");
 
         assert_eq!(rb.position, 0, "large value should have been ignored");
+        Ok(())
+    }
+
+    #[test]
+    fn test_update_move_same_parent() -> Result<()> {
+        let _ = env_logger::try_init();
+        let conn = PlacesDb::open_in_memory(None)?;
+        let unfiled = &BookmarkRootGuid::Unfiled.as_guid();
+
+        // A helper to make the moves below more concise.
+        let do_move = |guid: &str, pos: BookmarkPosition| {
+            update_bookmark(
+                &conn,
+                &guid.into(),
+                &UpdatableBookmark {
+                    location: UpdateTreeLocation::Position(pos),
+                    ..Default::default()
+                }
+                .into(),
+            )
+            .expect("update should work");
+        };
+
+        // A helper to make the checks below more concise.
+        let check_tree = |children: Value| {
+            assert_json_tree(
+                &conn,
+                unfiled,
+                json!({
+                    "guid": unfiled,
+                    "children": children
+                }),
+            );
+            check_positions(&conn, unfiled);
+        };
+
+        insert_json_tree(
+            &conn,
+            json!({
+                "guid": unfiled,
+                "children": [
+                    {
+                        "guid": "bookmark1___",
+                        "url": "https://www.example1.com/"
+                    },
+                    {
+                        "guid": "bookmark2___",
+                        "url": "https://www.example2.com/"
+                    },
+                    {
+                        "guid": "bookmark3___",
+                        "url": "https://www.example3.com/"
+                    },
+
+                ]
+            }),
+        );
+
+        // Move a bookmark to the end.
+        do_move("bookmark2___", BookmarkPosition::Append);
+        check_tree(json!([
+            {"url": "https://www.example1.com/"},
+            {"url": "https://www.example3.com/"},
+            {"url": "https://www.example2.com/"},
+        ]));
+
+        // Move a bookmark to its existing position
+        do_move("bookmark3___", BookmarkPosition::Specific(1));
+        check_tree(json!([
+            {"url": "https://www.example1.com/"},
+            {"url": "https://www.example3.com/"},
+            {"url": "https://www.example2.com/"},
+        ]));
+
+        // Move a bookmark back 1 position.
+        do_move("bookmark2___", BookmarkPosition::Specific(1));
+        check_tree(json!([
+            {"url": "https://www.example1.com/"},
+            {"url": "https://www.example2.com/"},
+            {"url": "https://www.example3.com/"},
+        ]));
+
+        // Move a bookmark forward 1 position.
+        do_move("bookmark2___", BookmarkPosition::Specific(2));
+        check_tree(json!([
+            {"url": "https://www.example1.com/"},
+            {"url": "https://www.example3.com/"},
+            {"url": "https://www.example2.com/"},
+        ]));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_update() -> Result<()> {
+        let _ = env_logger::try_init();
+        let conn = PlacesDb::open_in_memory(None)?;
+        let unfiled = &BookmarkRootGuid::Unfiled.as_guid();
+
+        insert_json_tree(
+            &conn,
+            json!({
+                "guid": unfiled,
+                "children": [
+                    {
+                        "guid": "bookmark1___",
+                        "title": "the bookmark",
+                        "url": "https://www.example.com/"
+                    },
+                    {
+                        "guid": "bookmark2___",
+                        "title": "another bookmark",
+                        "url": "https://www.example2.com/"
+                    },
+                    {
+                        "guid": "folder1_____",
+                        "title": "A folder",
+                        "children": [
+                            {
+                                "guid": "bookmark3___",
+                                "title": "bookmark in A folder",
+                                "url": "https://www.example3.com/"
+                            },
+                            {
+                                "guid": "bookmark4___",
+                                "title": "next bookmark in A folder",
+                                "url": "https://www.example4.com/"
+                            },
+                            {
+                                "guid": "bookmark5___",
+                                "title": "next next bookmark in A folder",
+                                "url": "https://www.example5.com/"
+                            }
+                        ]
+                    },
+                    {
+                        "guid": "bookmark6___",
+                        "title": "yet another bookmark",
+                        "url": "https://www.example6.com/"
+                    },
+
+                ]
+            }),
+        );
+
+        update_bookmark(
+            &conn,
+            &"folder1_____".into(),
+            &UpdatableFolder {
+                title: UpdateTitle::Some("new name".to_string()),
+                ..Default::default()
+            }
+            .into(),
+        )?;
+        update_bookmark(
+            &conn,
+            &"bookmark1___".into(),
+            &UpdatableBookmark {
+                url: Some(Url::parse("https://www.example3.com/")?),
+                title: UpdateTitle::Null,
+                ..Default::default()
+            }
+            .into(),
+        )?;
+
+        // A move in the same folder.
+        update_bookmark(
+            &conn,
+            &"bookmark6___".into(),
+            &UpdatableBookmark {
+                location: UpdateTreeLocation::Position(BookmarkPosition::Specific(2)),
+                ..Default::default()
+            }
+            .into(),
+        )?;
+
+        // A move across folders.
+        update_bookmark(
+            &conn,
+            &"bookmark2___".into(),
+            &UpdatableBookmark {
+                location: UpdateTreeLocation::Parent(
+                    "folder1_____".into(),
+                    BookmarkPosition::Specific(1),
+                ),
+                ..Default::default()
+            }
+            .into(),
+        )?;
+
+        assert_json_tree(
+            &conn,
+            unfiled,
+            json!({
+                "guid": unfiled,
+                "children": [
+                    {
+                        // We updated the url and title of this.
+                        "guid": "bookmark1___",
+                        "title": null,
+                        "url": "https://www.example3.com/"
+                    },
+                        // We moved bookmark6 to position=2 (ie, 3rd) of the same
+                        // parent, but then moved the existing 2nd item to the
+                        // folder, so this ends up second.
+                    {
+                        "guid": "bookmark6___",
+                        "url": "https://www.example6.com/"
+                    },
+                    {
+                        // We changed the name of the folder.
+                        "guid": "folder1_____",
+                        "title": "new name",
+                        "children": [
+                            {
+                                "guid": "bookmark3___",
+                                "url": "https://www.example3.com/"
+                            },
+                            {
+                                // This was moved from the parent to position 1
+                                "guid": "bookmark2___",
+                                "url": "https://www.example2.com/"
+                            },
+                            {
+                                "guid": "bookmark4___",
+                                "url": "https://www.example4.com/"
+                            },
+                            {
+                                "guid": "bookmark5___",
+                                "url": "https://www.example5.com/"
+                            }
+                        ]
+                    },
+
+                ]
+            }),
+        );
+
+        // explicitly check positions to ensure no holes or dupes.
+        check_positions(&conn, unfiled);
+        check_positions(&conn, &"folder1_____".into());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_update_errors() -> Result<()> {
+        let _ = env_logger::try_init();
+        let conn = PlacesDb::open_in_memory(None)?;
+
+        insert_json_tree(
+            &conn,
+            json!({
+                "guid": &BookmarkRootGuid::Unfiled.as_guid(),
+                "children": [
+                    {
+                        "guid": "bookmark1___",
+                        "title": "the bookmark",
+                        "url": "https://www.example.com/"
+                    },
+                    {
+                        "guid": "folder1_____",
+                        "title": "A folder",
+                        "children": [
+                            {
+                                "guid": "bookmark2___",
+                                "title": "bookmark in A folder",
+                                "url": "https://www.example2.com/"
+                            },
+                        ]
+                    },
+                ]
+            }),
+        );
+        // Update an item that doesn't exist.
+        update_bookmark(
+            &conn,
+            &"bookmark9___".into(),
+            &UpdatableBookmark {
+                ..Default::default()
+            }
+            .into(),
+        )
+        .expect_err("should fail to update an item that doesn't exist");
+
+        // A move across to a non-folder
+        update_bookmark(
+            &conn,
+            &"bookmark1___".into(),
+            &UpdatableBookmark {
+                location: UpdateTreeLocation::Parent(
+                    "bookmark2___".into(),
+                    BookmarkPosition::Specific(1),
+                ),
+                ..Default::default()
+            }
+            .into(),
+        )
+        .expect_err("can't move to a bookmark");
+
+        // A move to the root
+        update_bookmark(
+            &conn,
+            &"bookmark1___".into(),
+            &UpdatableBookmark {
+                location: UpdateTreeLocation::Parent(
+                    BookmarkRootGuid::Root.as_guid(),
+                    BookmarkPosition::Specific(1),
+                ),
+                ..Default::default()
+            }
+            .into(),
+        )
+        .expect_err("can't move to the root");
         Ok(())
     }
 

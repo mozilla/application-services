@@ -113,6 +113,12 @@ pub enum InvalidPlaceInfo {
     #[fail(display = "Invalid parent: {}", _0)]
     InvalidParent(String),
 
+    #[fail(display = "No such item: {}", _0)]
+    NoItem(String),
+
+    #[fail(display = "Invalid bookmark type specified")]
+    InvalidBookmarkType,
+
     // Only returned when attempting to insert a bookmark --
     // for history we just ignore it.
     #[fail(display = "URL too long")]
