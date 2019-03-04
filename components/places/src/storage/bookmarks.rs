@@ -6,6 +6,7 @@ use super::RowId;
 use super::{fetch_page_info, new_page_info};
 use crate::db::PlacesDb;
 use crate::error::*;
+use crate::msg_types::BookmarkNode as ProtoBookmark;
 use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
 use rusqlite::types::ToSql;
 use rusqlite::{Connection, Row};
@@ -1274,6 +1275,50 @@ pub fn fetch_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<Bookmark
     // Finally, inflate our tree.
     inflate(&mut root, &mut pseudo_tree);
     Ok(Some(root))
+}
+
+/// This is similar to fetch_tree, but does not recursively fetch children of folders. It also produces
+/// the protobuf message type directly, rather than add a special variant of this bookmark type just for
+/// this function.
+pub fn fetch_bookmark(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<Option<ProtoBookmark>> {
+    // get_raw_bookmark doesn't work for the bookmark root, so we just return None explicitly
+    // (rather than erroring). This isn't ideal, but there's no point to fetching the "true"
+    // bookmark root without fetching it's children too, so whatever.
+    if PartialEq::eq(item_guid, &BookmarkRootGuid::Root) {
+        return Ok(None);
+    }
+
+    let rb = if let Some(raw) = get_raw_bookmark(db, item_guid)? {
+        raw
+    } else {
+        return Ok(None);
+    };
+
+    // If we're a folder that has children, fetch child guids.
+    let child_guids = if rb.bookmark_type == BookmarkType::Folder && rb.child_count != 0 {
+        db.query_rows_into(
+            "SELECT guid FROM moz_bookmarks WHERE parent = :parent",
+            &[(":parent", &rb.row_id)],
+            |row| row.get_checked(0),
+        )?
+    } else {
+        vec![]
+    };
+
+    let result = ProtoBookmark {
+        node_type: rb.bookmark_type as i32,
+        guid: Some(rb.guid.0),
+        parent_guid: Some(rb.parent_guid.0),
+        position: Some(rb.position),
+        date_added: Some(rb.date_added.0 as i64),
+        last_modified: Some(rb.date_modified.0 as i64),
+        url: rb.url.map(|u| u.into_string()),
+        title: rb.title,
+        child_guids,
+        child_nodes: vec![],
+    };
+
+    Ok(Some(result))
 }
 
 /// A "raw" bookmark - a representation of the row and some summary fields.
