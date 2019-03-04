@@ -9,6 +9,8 @@ use ffi_support::{
 use places::error::*;
 use places::{db::PlacesInterruptHandle, storage, ConnectionType, PlacesApi, PlacesDb};
 
+use places::storage::bookmarks::{self, BookmarkRootGuid};
+use places::types::SyncGuid;
 use std::os::raw::c_char;
 use std::sync::Arc;
 
@@ -332,6 +334,97 @@ pub extern "C" fn sync15_history_sync(
             &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
         )?;
         Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn bookmarks_get_tree(
+    handle: u64,
+    optional_root_id: *const c_char,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("bookmarks_get_tree");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let root_id = ffi_support::opt_rust_string_from_c(optional_root_id)
+            .map(SyncGuid)
+            // Default to returning the full tree, if no root was provided.
+            .unwrap_or_else(|| BookmarkRootGuid::Root.into());
+        Ok(bookmarks::fetch_proto_tree(conn, &root_id)?)
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn bookmarks_get_by_guid(
+    handle: u64,
+    guid: *const c_char,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("bookmarks_get_by_guid");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let guid = SyncGuid(ffi_support::rust_string_from_c(guid));
+        Ok(bookmarks::fetch_bookmark(conn, &guid)?)
+    })
+}
+
+unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
+    assert!(len >= 0, "Bad buffer len: {}", len);
+    if len == 0 {
+        // This will still fail, but as a bad protobuf format.
+        &[]
+    } else {
+        assert!(!data.is_null(), "Unexpected null data pointer");
+        std::slice::from_raw_parts(data, len as usize)
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn bookmarks_insert(
+    handle: u64,
+    data: *const u8,
+    len: i32,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("bookmarks_insert");
+    use places::msg_types::BookmarkNode;
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let buffer = get_buffer(data, len);
+        let bookmark: BookmarkNode = prost::Message::decode(buffer)?;
+        let insertable = bookmark.into_insertable()?;
+        let guid = bookmarks::insert_bookmark(conn, &insertable)?;
+        Ok(guid.0)
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn bookmarks_update(
+    handle: u64,
+    data: *const u8,
+    len: i32,
+    error: &mut ExternError,
+) {
+    log::debug!("bookmarks_update");
+    use places::msg_types::BookmarkNode;
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let buffer = get_buffer(data, len);
+        let bookmark: BookmarkNode = prost::Message::decode(buffer)?;
+        let (guid, update_info) = bookmark.into_updatable()?;
+        let guid = bookmarks::update_bookmark(conn, &guid, &update_info)?;
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn bookmarks_delete(
+    handle: u64,
+    id: *const c_char,
+    error: &mut ExternError,
+) -> u8 {
+    log::debug!("bookmarks_delete");
+    use places::msg_types::BookmarkNode;
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let guid = SyncGuid(ffi_support::rust_string_from_c(id));
+        let did_delete = bookmarks::delete_bookmark(conn, &guid)?;
+        Ok(did_delete)
     })
 }
 

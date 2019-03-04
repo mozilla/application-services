@@ -105,6 +105,9 @@ pub enum ErrorKind {
 
     #[fail(display = "Cannot update bookmark: {}", _0)]
     BadBookmarkUpdate(String),
+
+    #[fail(display = "Protobuf decode error: {}", _0)]
+    ProtobufDecodeError(#[fail(cause)] prost::DecodeError),
 }
 
 macro_rules! impl_from_error {
@@ -132,7 +135,8 @@ impl_from_error! {
     (SqlError, rusqlite::Error),
     (InvalidPlaceInfo, InvalidPlaceInfo),
     (Corruption, Corruption),
-    (IoError, std::io::Error)
+    (IoError, std::io::Error),
+    (ProtobufDecodeError, prost::DecodeError)
 }
 
 #[derive(Debug, Fail)]
