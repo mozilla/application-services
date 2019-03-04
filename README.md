@@ -32,7 +32,7 @@ writen in Rust, wrapped with native language bindings for different platforms.
 The end result is an application that can be assembled from re-usable components
 that are largely shared across platforms, like this:
 
-<img src="https://www.lucidchart.com/publicSegments/view/99d1529a-585a-4f43-bfe8-26ba82f3db51/image.png" width="500" />
+[![component diagram](https://docs.google.com/drawings/d/e/2PACX-1vTPOIIBsqvkWfecYOziEnv-hrkB9QbpZwcHyeyUB-p3-eP1w9L87vwnJMiGt-eO5r-K-XcHPl_YwjvU/pub?w=727&h=546)](https://docs.google.com/drawings/d/1WRv2AaOsutNdL8_E5UDsYg1sC6FKRJ9P0bBSoI7E19s/)
 
 The code for these components is organized as follows:
 
