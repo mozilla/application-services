@@ -1284,7 +1284,7 @@ pub fn fetch_bookmark(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<Option<
     // get_raw_bookmark doesn't work for the bookmark root, so we just return None explicitly
     // (rather than erroring). This isn't ideal, but there's no point to fetching the "true"
     // bookmark root without fetching it's children too, so whatever.
-    if PartialEq::eq(item_guid, &BookmarkRootGuid::Root) {
+    if item_guid == &BookmarkRootGuid::Root {
         return Ok(None);
     }
 
@@ -1319,6 +1319,48 @@ pub fn fetch_bookmark(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<Option<
     };
 
     Ok(Some(result))
+}
+
+/// Call fetch_tree, convert the result to a ProtoBookmark, and ensure the
+/// requested item's position and parent info are provided as well. This is
+/// the function called by the FFI when requesting the tree.
+pub fn fetch_proto_tree(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<Option<ProtoBookmark>> {
+    let _tx = db.unchecked_transaction()?;
+    let tree = if let Some(tree) = fetch_tree(db, item_guid)? {
+        tree
+    } else {
+        return Ok(None);
+    };
+
+    // `position` and `parent_guid` will be handled for the children of
+    // `item_guid` by `ProtoBookmark::from` automatically, however we
+    // still need to fill in it's own `parent_guid` and `position`.
+    let mut proto = ProtoBookmark::from(tree);
+
+    if item_guid != &BookmarkRootGuid::Root {
+        let sql = "
+            SELECT
+                b.position AS position,
+                p.guid AS parent_guid
+            FROM moz_bookmarks b
+            LEFT JOIN moz_bookmarks p ON p.id = b.parent
+            WHERE b.guid = :guid
+        ";
+        let (parent_guid, position) = db.query_row_and_then_named(
+            sql,
+            &[(":guid", &item_guid)],
+            |row| -> Result<_> {
+                Ok((
+                    row.get_checked::<_, String>(0)?,
+                    row.get_checked::<_, u32>(1)?,
+                ))
+            },
+            true,
+        )?;
+        proto.parent_guid = Some(parent_guid);
+        proto.position = Some(position);
+    }
+    Ok(Some(proto))
 }
 
 /// A "raw" bookmark - a representation of the row and some summary fields.

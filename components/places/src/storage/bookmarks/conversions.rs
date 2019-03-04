@@ -29,6 +29,7 @@ impl From<BookmarkTreeNode> for msg_types::BookmarkNode {
             child_guids: vec![],
             child_nodes: vec![],
         };
+
         // Not the most idiomatic, but avoids a lot of duplication.
         match n {
             BookmarkTreeNode::Bookmark(b) => {
@@ -40,11 +41,17 @@ impl From<BookmarkTreeNode> for msg_types::BookmarkNode {
             }
             BookmarkTreeNode::Folder(f) => {
                 result.title = f.title;
-                result.child_guids = f.children.iter().map(|g| g.guid().to_string()).collect();
+                let own_guid = &result.guid;
                 result.child_nodes = f
                     .children
                     .into_iter()
-                    .map(msg_types::BookmarkNode::from)
+                    .enumerate()
+                    .map(|(i, bn)| {
+                        let mut child = msg_types::BookmarkNode::from(bn);
+                        child.parent_guid = own_guid.clone();
+                        child.position = Some(i as u32);
+                        child
+                    })
                     .collect();
             }
         }
