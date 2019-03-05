@@ -999,12 +999,12 @@ fn get_raw_bookmark(db: &impl ConnExt, guid: &SyncGuid) -> Result<Option<RawBook
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::PlacesDb;
+    use crate::api::places_api::test::new_mem_connection;
 
     #[test]
     fn test_insert() -> Result<()> {
         let _ = env_logger::try_init();
-        let conn = PlacesDb::open_in_memory(None)?;
+        let conn = new_mem_connection();
         let url = Url::parse("https://www.example.com")?;
 
         let bm = InsertableItem::Bookmark(InsertableBookmark {
@@ -1036,7 +1036,7 @@ mod tests {
     #[test]
     fn test_delete() -> Result<()> {
         let _ = env_logger::try_init();
-        let conn = PlacesDb::open_in_memory(None)?;
+        let conn = new_mem_connection();
 
         let guid1 = SyncGuid::new();
         let guid2 = SyncGuid::new();
@@ -1099,7 +1099,7 @@ mod tests {
     #[test]
     fn test_delete_roots() -> Result<()> {
         let _ = env_logger::try_init();
-        let conn = PlacesDb::open_in_memory(None)?;
+        let conn = new_mem_connection();
 
         delete_bookmark(&conn, &BookmarkRootGuid::Root.into()).expect_err("can't delete root");
         delete_bookmark(&conn, &BookmarkRootGuid::Unfiled.into())
@@ -1110,7 +1110,7 @@ mod tests {
     #[test]
     fn test_insert_pos_too_large() -> Result<()> {
         let _ = env_logger::try_init();
-        let conn = PlacesDb::open_in_memory(None)?;
+        let conn = new_mem_connection();
         let url = Url::parse("https://www.example.com")?;
 
         let bm = InsertableItem::Bookmark(InsertableBookmark {
@@ -1134,7 +1134,7 @@ mod tests {
     #[test]
     fn test_fetch_root() -> Result<()> {
         let _ = env_logger::try_init();
-        let conn = PlacesDb::open_in_memory(None)?;
+        let conn = new_mem_connection();
 
         // Fetch the root
         let t = fetch_tree(&conn, &BookmarkRootGuid::Root.into())?.unwrap();
@@ -1150,7 +1150,7 @@ mod tests {
     #[test]
     fn test_insert_tree() -> Result<()> {
         let _ = env_logger::try_init();
-        let conn = PlacesDb::open_in_memory(None)?;
+        let conn = new_mem_connection();
 
         let tree = FolderNode {
             guid: Some(BookmarkRootGuid::Unfiled.into()),

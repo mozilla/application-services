@@ -22,16 +22,19 @@ class PlacesConnectionTest {
     @JvmField
     val dbFolder = TemporaryFolder()
 
-    lateinit var db: PlacesConnection
+    lateinit var api: PlacesApi
+    lateinit var db: WritablePlacesConnection
 
     @Before
-    fun initDB() {
-        db = PlacesConnection(path = dbFolder.newFile().absolutePath)
+    fun initAPI() {
+        api = PlacesApi(path = dbFolder.newFile().absolutePath)
+        db = api.openWriter()
     }
 
     @After
-    fun closeDB() {
+    fun closeAPI() {
         db.close()
+        api.close()
     }
 
     // Basically equivalent to test_get_visited in rust, but exercises the FFI,

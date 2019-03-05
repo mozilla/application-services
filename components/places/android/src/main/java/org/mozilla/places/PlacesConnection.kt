@@ -10,47 +10,109 @@ import com.sun.jna.StringArray
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
-import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
+import java.lang.ref.WeakReference
 
 /**
- * An implementation of a [PlacesAPI] backed by a Rust Places library.
+ * An implementation of a [PlacesApiInterface] backed by a Rust Places library.
+ *
+ * This type, as well as all connection types, are thread safe (they perform locking internally
+ * where necessary).
  *
  * @param path an absolute path to a file that will be used for the internal database.
  * @param encryption_key an optional key used for encrypting/decrypting data stored in the internal
  *  database. If omitted, data will be stored in plaintext.
  */
-class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI, AutoCloseable {
+class PlacesApi(path: String, encryption_key: String? = null) : PlacesApiInterface, AutoCloseable {
     private var handle: AtomicLong = AtomicLong(0)
-    private var interruptHandle: InterruptHandle
+    private var writeConn: WritablePlacesConnection
 
     init {
-        try {
-            handle.set(rustCall { error ->
-                LibPlacesFFI.INSTANCE.places_connection_new(path, encryption_key, error)
-            })
-        } catch (e: InternalPanic) {
+        handle.set(rustCall(this) { error ->
+            LibPlacesFFI.INSTANCE.places_api_new(path, encryption_key, error)
+        })
+        writeConn = WritablePlacesConnection(rustCall(this) { error ->
+            LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_WRITE, error)
+        }, this)
+    }
 
-            // Places Rust library does not yet support schema migrations; as a very temporary quick
-            // fix to avoid crashes of our upstream consumers, let's delete the database file
-            // entirely and try again.
-            // FIXME https://github.com/mozilla/application-services/issues/438
-            if (e.message != "sorry, no upgrades yet - delete your db!") {
-                throw e
-            }
+    companion object {
+        // These numbers come from `places::db::ConnectionType`
+        private const val READ_ONLY: Int = 1
+        private const val READ_WRITE: Int = 2
+    }
 
-            File(path).delete()
-
-            handle.set(rustCall { error ->
-                LibPlacesFFI.INSTANCE.places_connection_new(path, encryption_key, error)
-            })
+    override fun openReader(): ReadablePlacesConnection {
+        val connHandle = rustCall(this) { error ->
+            LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_ONLY, error)
         }
+        return ReadablePlacesConnection(connHandle);
+    }
+
+    override fun getWriter(): WritablePlacesConnection {
+        return writeConn
+    }
+
+    @Synchronized
+    override fun close() {
+        // Take the write connection's handle and clear it's reference to us.
+        val writeHandle = this.writeConn.takeHandle()
+        this.writeConn.apiRef.clear()
+        val handle = this.handle.getAndSet(0L)
+        if (handle != 0L) {
+            if (writeHandle != 0L) {
+                try {
+                    rustCall(this) { err ->
+                        LibPlacesFFI.INSTANCE.places_api_return_write_conn(handle, writeHandle, err)
+                    }
+                } catch (e: PlacesException) {
+                    // Ignore it.
+                }
+            }
+            rustCall(this) { error ->
+                LibPlacesFFI.INSTANCE.places_api_destroy(handle, error)
+            }
+        }
+    }
+
+    override fun sync(syncInfo: SyncAuthInfo) {
+        rustCall(this) { error ->
+            LibPlacesFFI.INSTANCE.sync15_history_sync(
+                    this.handle.get(),
+                    syncInfo.kid,
+                    syncInfo.fxaAccessToken,
+                    syncInfo.syncKey,
+                    syncInfo.tokenserverURL,
+                    error
+            )
+        }
+    }
+}
+
+internal inline fun <U> rustCall(syncOn: Any, callback: (RustError.ByReference) -> U): U {
+    synchronized(syncOn) {
+        val e = RustError.ByReference()
+        val ret: U = callback(e)
+        if (e.isFailure()) {
+            throw e.intoException()
+        } else {
+            return ret
+        }
+    }
+}
+
+open class PlacesConnection internal constructor(connHandle: Long) : PlacesConnectionInterface, AutoCloseable {
+    protected var handle: AtomicLong = AtomicLong(0)
+    protected var interruptHandle: InterruptHandle
+
+    init {
+        handle.set(connHandle)
         try {
             interruptHandle = InterruptHandle(rustCall { err ->
-                LibPlacesFFI.INSTANCE.places_new_interrupt_handle(this.handle.get(), err)
+                LibPlacesFFI.INSTANCE.places_new_interrupt_handle(connHandle, err)
             }!!)
         } catch (e: Throwable) {
             rustCall { error ->
@@ -61,7 +123,7 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
     }
 
     @Synchronized
-    override fun close() {
+    protected fun destroy() {
         val handle = this.handle.getAndSet(0L)
         if (handle != 0L) {
             rustCall { error ->
@@ -71,12 +133,38 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
         interruptHandle.close()
     }
 
-    override fun noteObservation(data: VisitObservation) {
-        val json = data.toJSON().toString()
-        rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_note_observation(this.handle.get(), json, error)
+    @Synchronized
+    override fun close() {
+        destroy()
+    }
+
+    override fun interrupt() {
+        this.interruptHandle.interrupt()
+    }
+
+    internal inline fun <U> rustCall(callback: (RustError.ByReference) -> U): U {
+        return rustCall(this, callback)
+    }
+
+    internal inline fun rustCallForString(callback: (RustError.ByReference) -> Pointer?): String {
+        val cstring = rustCall(callback)
+                ?: throw RuntimeException("Bug: Don't use this function when you can return" +
+                        " null on success.")
+        try {
+            return cstring.getString(0, "utf8")
+        } finally {
+            LibPlacesFFI.INSTANCE.places_destroy_string(cstring)
         }
     }
+}
+
+/**
+ * An implementation of a [ReadablePlacesConnection], used for read-only
+ * access to places APIs.
+ *
+ * This class is thread safe.
+ */
+open class ReadablePlacesConnection internal constructor(connHandle: Long): PlacesConnection(connHandle), ReadablePlacesConnectionInterface {
 
     override fun queryAutocomplete(query: String, limit: Int): List<SearchResult> {
         val json = rustCallForString { error ->
@@ -152,6 +240,23 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
             LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(infoBuffer)
         }
     }
+}
+
+/**
+ * An implementation of a [WritablePlacesConnection], use for read or write
+ * access to the Places APIs.
+ *
+ * This class is thread safe.
+ */
+class WritablePlacesConnection internal constructor(connHandle: Long, api: PlacesApi) : ReadablePlacesConnection(connHandle), WritablePlacesConnectionInterface {
+    // The reference to our PlacesAPI. Mostly used to know how to handle getting closed.
+    val apiRef = WeakReference(api)
+    override fun noteObservation(data: VisitObservation) {
+        val json = data.toJSON().toString()
+        rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_note_observation(this.handle.get(), json, error)
+        }
+    }
 
     override fun deletePlace(url: String) {
         rustCall { error ->
@@ -202,45 +307,23 @@ class PlacesConnection(path: String, encryption_key: String? = null) : PlacesAPI
         }
     }
 
-    override fun sync(syncInfo: SyncAuthInfo) {
-        rustCall { error ->
-            LibPlacesFFI.INSTANCE.sync15_history_sync(
-                    this.handle.get(),
-                    syncInfo.kid,
-                    syncInfo.fxaAccessToken,
-                    syncInfo.syncKey,
-                    syncInfo.tokenserverURL,
-                    error
-            )
+    @Synchronized
+    override fun close() {
+        // If our API is still around, do nothing.
+        if (apiRef.get() == null) {
+            // Otherwise, it must have gotten GCed without calling close() :(
+            // So we go through the non-writer connection destructor.
+            destroy()
         }
     }
 
-    override fun interrupt() {
-        this.interruptHandle.interrupt()
+    @Synchronized
+    internal fun takeHandle(): PlacesConnectionHandle {
+        val handle = this.handle.getAndSet(0L)
+        interruptHandle.close()
+        return handle
     }
 
-    private inline fun <U> rustCall(callback: (RustError.ByReference) -> U): U {
-        synchronized(this) {
-            val e = RustError.ByReference()
-            val ret: U = callback(e)
-            if (e.isFailure()) {
-                throw e.intoException()
-            } else {
-                return ret
-            }
-        }
-    }
-
-    private inline fun rustCallForString(callback: (RustError.ByReference) -> Pointer?): String {
-        val cstring = rustCall(callback)
-                ?: throw RuntimeException("Bug: Don't use this function when you can return" +
-                        " null on success.")
-        try {
-            return cstring.getString(0, "utf8")
-        } finally {
-            LibPlacesFFI.INSTANCE.places_destroy_string(cstring)
-        }
-    }
 }
 
 /**
@@ -256,14 +339,43 @@ class SyncAuthInfo (
 )
 
 /**
- * An API for interacting with Places.
+ * An API for interacting with Places. This is the top-level entry-point, and
+ * exposes functions which return lower-level objects with the core
+ * functionality.
  */
-interface PlacesAPI {
+interface PlacesApiInterface {
     /**
-     * Record a visit to a URL, or update meta information about page URL. See [VisitObservation].
+     * Open a reader connection.
      */
-    fun noteObservation(data: VisitObservation)
+    fun openReader(): ReadablePlacesConnectionInterface
 
+    /**
+     * Open a writer connection.
+     *
+     * Note that this is not guaranteed to return a unique connection instance,
+     * and subsequent calls to getWriter may return the same connection
+     */
+    fun getWriter(): WritablePlacesConnectionInterface
+
+    /**
+     * Syncs the places stores.
+     *
+     * Note that this function blocks until the sync is complete, which may
+     * take some time due to the network etc. Because only 1 thread can be
+     * using a PlacesAPI at a time, it is recommended, but not enforced, that
+     * you have all connections you intend using open before calling this.
+     */
+    fun sync(syncInfo: SyncAuthInfo)
+}
+
+interface PlacesConnectionInterface {
+    /**
+     * Interrupt ongoing operations running on a separate thread.
+     */
+    fun interrupt()
+}
+
+interface ReadablePlacesConnectionInterface: PlacesConnectionInterface {
     /**
      * A way to search the internal database tailored for autocompletion purposes.
      *
@@ -291,6 +403,33 @@ interface PlacesAPI {
      * corresponding page URI from [urls].
      */
     fun getVisited(urls: List<String>): List<Boolean>
+
+    /**
+     * Returns a list of visited URLs for a given time range.
+     *
+     * @param start beginning of the range, unix timestamp in milliseconds.
+     * @param end end of the range, unix timestamp in milliseconds.
+     * @param includeRemote boolean flag indicating whether or not to include remote visits. A visit
+     *  is (roughly) considered remote if it didn't originate on the current device.
+     */
+    fun getVisitedUrlsInRange(start: Long, end: Long = Long.MAX_VALUE, includeRemote: Boolean = true): List<String>
+
+    /**
+     * Get detailed information about all visits that occurred in the
+     * given time range.
+     *
+     * @param start The (inclusive) start time to bound the query.
+     * @param end The (inclusive) end time to bound the query.
+     */
+    fun getVisitInfos(start: Long, end: Long = Long.MAX_VALUE): List<VisitInfo>
+}
+
+interface WritablePlacesConnectionInterface: ReadablePlacesConnectionInterface {
+    /**
+     * Record a visit to a URL, or update meta information about page URL. See [VisitObservation].
+     */
+    fun noteObservation(data: VisitObservation)
+
 
     /**
      * Deletes all history visits, without recording tombstones.
@@ -343,16 +482,6 @@ interface PlacesAPI {
     fun deleteEverything()
 
     /**
-     * Returns a list of visited URLs for a given time range.
-     *
-     * @param start beginning of the range, unix timestamp in milliseconds.
-     * @param end end of the range, unix timestamp in milliseconds.
-     * @param includeRemote boolean flag indicating whether or not to include remote visits. A visit
-     *  is (roughly) considered remote if it didn't originate on the current device.
-     */
-    fun getVisitedUrlsInRange(start: Long, end: Long = Long.MAX_VALUE, includeRemote: Boolean = true): List<String>
-
-    /**
      * Deletes all information about the given URL. If the place has previously
      * been synced, a tombstone will be written to the sync server, meaning
      * the place should be deleted on all synced devices.
@@ -402,34 +531,9 @@ interface PlacesAPI {
      * @param visitTimestamp The timestamp of the visit to delete, in MS since the unix epoch
      */
     fun deleteVisit(url: String, visitTimestamp: Long)
-
-    /**
-     * Get detailed information about all visits that occurred in the
-     * given time range.
-     *
-     * @param start The (inclusive) start time to bound the query.
-     * @param end The (inclusive) end time to bound the query.
-     */
-    fun getVisitInfos(start: Long, end: Long = Long.MAX_VALUE): List<VisitInfo>
-
-    /**
-     * Syncs the history store.
-     *
-     * Note that this function blocks until the sync is complete, which may
-     * take some time due to the network etc. Because only 1 thread can be
-     * using a PlacesAPI at a time, it is recommended, but not enforced, that
-     * you use a separate PlacesAPI instance purely for syncing.
-     *
-     */
-    fun sync(syncInfo: SyncAuthInfo)
-
-    /**
-     * Interrupt ongoing operations running on a separate thread.
-     */
-    fun interrupt()
 }
 
-internal class InterruptHandle internal constructor(raw: RawPlacesInterruptHandle): AutoCloseable {
+class InterruptHandle internal constructor(raw: RawPlacesInterruptHandle): AutoCloseable {
     // We synchronize all accesses, so this probably doesn't need AtomicReference.
     private val handle: AtomicReference<RawPlacesInterruptHandle?> = AtomicReference(raw)
 

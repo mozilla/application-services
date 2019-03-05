@@ -4,6 +4,40 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.18.0...master)
 
+## Places
+
+## What's New
+
+- A massive rewrite of the Kotlin API has been completed. This distinguishes
+  reader and writer connections. A brief description of the new types follows.
+  Note that all the types have corresponding interfaces that allow for them to
+  be mocked during testing as needed. ([#718](https://github.com/mozilla/application-services/pull/718))
+    - `PlacesApi`: This is similar to a connection pool, it exists to give out
+      reader and writer connections via the functions `openReader` and
+      `getWriter`. The naming distinction is due to there only being a single
+      writer connection (which is actually opened when the `PlacesApi` is
+      created). This class generally should be a singleton.
+        - In addition to `openReader` and `getWriter`, this also includes the
+        `sync()` method, as that requires a special type of connection.
+    - `ReadablePlacesConnection`: This is a read-only connection to the places
+      database, implements all the methods of the API that do not require write
+      access.
+        - Specifically, `getVisited`, `matchUrl`, `queryAutocomplete`, `interrupt`,
+          `getVisitedUrlsInRange`, and `getVisitInfos` all exist on this object.
+    - `WritablePlacesConnection`: This is a read-write connection, and as such,
+      contains not only the all reader methods mentioned above, but also the
+      methods requiring write access, such as:
+        - `noteObservation`, `wipeLocal`, `runMaintenance`, `pruneDestructively`,
+          `deleteEverything`, `deletePlace`, `deleteVisitsSince`, `deleteVisitsBetween`,
+          and `deleteVisit`.
+    - Note that the semantics of the various methods have not been changed, only
+      their location.
+
+## Breaking Changes
+
+- Almost the entire API has been rewritten. See "What's New" for
+  details. ([#718](https://github.com/mozilla/application-services/pull/718))
+
 # 0.18.0 (_2019-02-27_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.17.0...v0.18.0)

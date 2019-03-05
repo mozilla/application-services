@@ -2,12 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// XXXXXX - This has been cloned from logins/src/db.rs, on Thom's
-// wip-sync-sql-store branch, but with login specific code removed.
-// We should work out how to split this into a library we can reuse.
-
 use super::interrupt::{InterruptScope, PlacesInterruptHandle};
 use super::schema;
+use crate::api::places_api::ConnectionType;
 use crate::error::*;
 use rusqlite::Connection;
 use sql_support::ConnExt;
@@ -18,13 +15,21 @@ use std::sync::{atomic::AtomicUsize, Arc};
 
 pub const MAX_VARIABLE_NUMBER: usize = 999;
 
+#[derive(Debug)]
 pub struct PlacesDb {
     pub db: Connection,
+    conn_type: ConnectionType,
     interrupt_counter: Arc<AtomicUsize>,
+    api_id: usize,
 }
 
 impl PlacesDb {
-    pub fn with_connection(db: Connection, encryption_key: Option<&str>) -> Result<Self> {
+    pub fn with_connection(
+        db: Connection,
+        encryption_key: Option<&str>,
+        conn_type: ConnectionType,
+        api_id: usize,
+    ) -> Result<Self> {
         const PAGE_SIZE: u32 = 32768;
 
         // `encryption_pragmas` is both for `PRAGMA key` and for `PRAGMA page_size` / `PRAGMA
@@ -89,6 +94,9 @@ impl PlacesDb {
         define_functions(&db)?;
         let res = Self {
             db,
+            conn_type,
+            // The API sets this explicitly.
+            api_id,
             interrupt_counter: Arc::new(AtomicUsize::new(0)),
         };
         // Even though we're the owner of the db, we need it to be an unchecked tx
@@ -100,17 +108,29 @@ impl PlacesDb {
         Ok(res)
     }
 
-    pub fn open(path: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Self> {
+    pub fn open(
+        path: impl AsRef<Path>,
+        encryption_key: Option<&str>,
+        conn_type: ConnectionType,
+        api_id: usize,
+    ) -> Result<Self> {
         Ok(Self::with_connection(
-            Connection::open(path)?,
+            Connection::open_with_flags(path, conn_type.rusqlite_flags())?,
             encryption_key,
+            conn_type,
+            api_id,
         )?)
     }
 
+    #[cfg(test)]
+    // Useful for some tests (although most tests should use helper functions
+    // in api::places_api::test)
     pub fn open_in_memory(encryption_key: Option<&str>) -> Result<Self> {
         Ok(Self::with_connection(
             Connection::open_in_memory()?,
             encryption_key,
+            ConnectionType::ReadWrite,
+            0,
         )?)
     }
 
@@ -124,6 +144,16 @@ impl PlacesDb {
     #[inline]
     pub(crate) fn begin_interrupt_scope(&self) -> InterruptScope {
         InterruptScope::new(self.interrupt_counter.clone())
+    }
+
+    #[inline]
+    pub fn conn_type(&self) -> ConnectionType {
+        self.conn_type
+    }
+
+    #[inline]
+    pub fn api_id(&self) -> usize {
+        self.api_id
     }
 }
 
@@ -305,12 +335,12 @@ mod sql_fns {
     }
 }
 
-// Sanity check that we can create a database.
 #[cfg(test)]
 mod tests {
     use super::*;
     use rusqlite::NO_PARAMS;
 
+    // Sanity check that we can create a database.
     #[test]
     fn test_open() {
         PlacesDb::open_in_memory(None).expect("no memory db");

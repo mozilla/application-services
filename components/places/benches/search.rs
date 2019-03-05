@@ -1,6 +1,9 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use places::api::matcher::{match_url, search_frecent, SearchParams};
+use places::api::{
+    matcher::{match_url, search_frecent, SearchParams},
+    places_api::ConnectionType,
+};
 use places::PlacesDb;
 use std::rc::Rc;
 use tempdir::TempDir;
@@ -42,7 +45,7 @@ impl TestDb {
     pub fn new() -> Rc<Self> {
         let dir = TempDir::new("placesbench").unwrap();
         let file = dir.path().join("places.sqlite");
-        let mut db = PlacesDb::open(&file, None).unwrap();
+        let mut db = PlacesDb::open(&file, None, ConnectionType::ReadWrite, 0).unwrap();
         println!("Populating test database...");
         init_db(&mut db).unwrap();
         println!("Done populating test db");

@@ -72,10 +72,23 @@ pub enum ErrorKind {
     #[fail(display = "Error parsing URL: {}", _0)]
     UrlParseError(#[fail(cause)] url::ParseError),
 
+    #[fail(display = "A connection of this type is already open")]
+    ConnectionAlreadyOpen,
+
+    #[fail(display = "An invalid connection type was specified")]
+    InvalidConnectionType,
+
+    #[fail(display = "IO error: {}", _0)]
+    IoError(#[fail(cause)] std::io::Error),
+
     // Maybe we should try to fabricate a rusqlite::Error that looks like the
     // interrupted error?
     #[fail(display = "Operation interrupted")]
     InterruptedError,
+    // Maybe we should try to fabricate a rusqlite::Error that looks like the
+    // interrupted error?
+    #[fail(display = "Tried to close connection on wrong PlacesApi instance")]
+    WrongApiForClose,
 }
 
 macro_rules! impl_from_error {
@@ -101,7 +114,8 @@ impl_from_error! {
     (JsonError, serde_json::Error),
     (UrlParseError, url::ParseError),
     (SqlError, rusqlite::Error),
-    (InvalidPlaceInfo, InvalidPlaceInfo)
+    (InvalidPlaceInfo, InvalidPlaceInfo),
+    (IoError, std::io::Error)
 }
 
 #[derive(Debug, Fail)]

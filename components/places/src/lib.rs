@@ -25,6 +25,10 @@ pub mod msg_types {
 }
 
 pub use crate::api::apply_observation;
+#[cfg(test)]
+pub use crate::api::places_api::test;
+pub use crate::api::places_api::{ConnectionType, PlacesApi};
+
 pub use crate::db::{PlacesDb, PlacesInterruptHandle};
 pub use crate::error::*;
 pub use crate::observation::VisitObservation;
