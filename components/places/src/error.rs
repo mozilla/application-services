@@ -60,6 +60,9 @@ pub enum ErrorKind {
     #[fail(display = "Invalid place info: {}", _0)]
     InvalidPlaceInfo(InvalidPlaceInfo),
 
+    #[fail(display = "The store is corrupt: {}", _0)]
+    Corruption(Corruption),
+
     #[fail(display = "Error synchronizing: {}", _0)]
     SyncAdapterError(#[fail(cause)] sync15::Error),
 
@@ -115,6 +118,7 @@ impl_from_error! {
     (UrlParseError, url::ParseError),
     (SqlError, rusqlite::Error),
     (InvalidPlaceInfo, InvalidPlaceInfo),
+    (Corruption, Corruption),
     (IoError, std::io::Error)
 }
 
@@ -127,8 +131,30 @@ pub enum InvalidPlaceInfo {
     #[fail(display = "Invalid parent: {}", _0)]
     InvalidParent(String),
 
+    #[fail(display = "No such item: {}", _0)]
+    NoItem(String),
+
+    #[fail(
+        display = "Can't update a bookmark of type {} with one of type {}",
+        _0, _1
+    )]
+    MismatchedBookmarkType(u8, u8),
+
     // Only returned when attempting to insert a bookmark --
     // for history we just ignore it.
     #[fail(display = "URL too long")]
     UrlTooLong,
+}
+
+// Error types used when we can't continue due to corruption.
+// Note that this is currently only for "logical" corruption. Should we
+// consider mapping sqlite error codes which mean a lower-level of corruption
+// into an enum value here?
+#[derive(Debug, Fail)]
+pub enum Corruption {
+    #[fail(
+        display = "Bookmark '{}' has a parent of '{}' which does not exist",
+        _0, _1
+    )]
+    NoParent(String, String),
 }
