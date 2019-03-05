@@ -635,7 +635,7 @@ fn update_bookmark_in_tx(db: &impl ConnExt, guid: &SyncGuid, item: &UpdatableIte
             (":fk", &place_id),
             (":parent", &parent_id),
             (":position", &position),
-            (":title", &title),
+            (":title", &maybe_truncate_title(&title)),
             (":now", &now),
             (":change_incr", &(change_incr as u32)),
             (":id", &existing.row_id),
