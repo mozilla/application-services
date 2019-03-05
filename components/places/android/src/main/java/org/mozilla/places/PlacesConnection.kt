@@ -17,7 +17,10 @@ import java.util.concurrent.atomic.AtomicReference
 import java.lang.ref.WeakReference
 
 /**
- * An implementation of a [PlacesApi] backed by a Rust Places library.
+ * An implementation of a [PlacesApiInterface] backed by a Rust Places library.
+ *
+ * This type, as well as all connection types, are thread safe (they perform locking internally
+ * where necessary).
  *
  * @param path an absolute path to a file that will be used for the internal database.
  * @param encryption_key an optional key used for encrypting/decrypting data stored in the internal
@@ -158,6 +161,8 @@ open class PlacesConnection internal constructor(connHandle: Long) : PlacesConne
 /**
  * An implementation of a [ReadablePlacesConnection], used for read-only
  * access to places APIs.
+ *
+ * This class is thread safe.
  */
 open class ReadablePlacesConnection internal constructor(connHandle: Long): PlacesConnection(connHandle), ReadablePlacesConnectionInterface {
 
@@ -240,6 +245,8 @@ open class ReadablePlacesConnection internal constructor(connHandle: Long): Plac
 /**
  * An implementation of a [WritablePlacesConnection], use for read or write
  * access to the Places APIs.
+ *
+ * This class is thread safe.
  */
 class WritablePlacesConnection internal constructor(connHandle: Long, api: PlacesApi) : ReadablePlacesConnection(connHandle), WritablePlacesConnectionInterface {
     // The reference to our PlacesAPI. Mostly used to know how to handle getting closed.
