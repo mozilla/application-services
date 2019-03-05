@@ -7,7 +7,6 @@
 import os.path
 from decisionlib import *
 
-
 def main(task_for, mock=False):
     if task_for == "github-pull-request":
         # Pull request.
@@ -133,8 +132,8 @@ def android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs
             yes | sdkmanager --update
             yes | sdkmanager --licenses
             ./gradlew --no-daemon clean
-            ./gradlew --no-daemon :fxa-client-library:testDebug :logins-library:testDebug :places-library:testDebug
-            ./gradlew --no-daemon :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
+            ./gradlew --no-daemon testDebug
+            ./gradlew --no-daemon assembleRelease
             ./gradlew --no-daemon publish :zipMavenArtifacts
         """)
         .with_artifacts("/build/repo/build/target.maven.zip")
@@ -156,8 +155,8 @@ def android_arm32_release(android_libs_task, desktop_linux_libs_task, desktop_ma
             yes | sdkmanager --update
             yes | sdkmanager --licenses
             ./gradlew --no-daemon clean
-            ./gradlew --no-daemon :fxa-client-library:testDebug :logins-library:testDebug :places-library:testDebug
-            ./gradlew --no-daemon :fxa-client-library:assembleRelease :logins-library:assembleRelease :places-library:assembleRelease
+            ./gradlew --no-daemon testDebug
+            ./gradlew --no-daemon assembleRelease
             ./gradlew --no-daemon publish :zipMavenArtifacts
             python automation/taskcluster/release/fetch-bintray-api-key.py
             ./gradlew bintrayUpload --debug -PvcsTag="${GIT_SHA}"

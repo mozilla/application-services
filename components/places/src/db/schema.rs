@@ -7,6 +7,7 @@
 // We should work out how to turn this into something that can use a shared
 // db.rs.
 
+use crate::api::places_api::ConnectionType;
 use crate::db::PlacesDb;
 use crate::error::*;
 use crate::storage::bookmarks::create_bookmark_roots;
@@ -82,11 +83,13 @@ pub fn init(db: &PlacesDb) -> Result<()> {
             )
         }
     }
-    // Note that later we will not create these on the connection used for
-    // sync, nor on read-only connections.
-    log::debug!("Creating temp tables and triggers");
-    db.execute_batch(CREATE_TEMP_TABLES_SQL)?;
-    db.execute_batch(&CREATE_TRIGGERS_SQL)?;
+    // We only want temp tables and triggers on ReadWrite connections.
+    // (Note that later we expect some triggers specific to sync)
+    if db.conn_type() == ConnectionType::ReadWrite {
+        log::debug!("Creating temp tables and triggers");
+        db.execute_batch(CREATE_TEMP_TABLES_SQL)?;
+        db.execute_batch(&CREATE_TRIGGERS_SQL)?;
+    }
     Ok(())
 }
 

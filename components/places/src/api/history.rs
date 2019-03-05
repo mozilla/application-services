@@ -57,11 +57,12 @@ pub fn insert(conn: &mut PlacesDb, place: AddablePlaceInfo) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::places_api::test::new_mem_connection;
     use rusqlite::NO_PARAMS;
 
     #[test]
     fn test_insert() {
-        let mut c = PlacesDb::open_in_memory(None).expect("should get a connection");
+        let mut c = new_mem_connection();
         let url = Url::parse("http://example.com").expect("it's a valid url");
         let date = Timestamp::now();
         let visits = vec![AddableVisit {

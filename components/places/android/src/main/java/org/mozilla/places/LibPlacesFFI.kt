@@ -48,10 +48,17 @@ internal interface LibPlacesFFI : Library {
     // String will work but either force us to leak them, or cause us to corrupt the heap (when we
     // free them).
 
-    /** Create a new places connection */
-    fun places_connection_new(
+    /** Create a new places api */
+    fun places_api_new(
             db_path: String,
             encryption_key: String?,
+            out_err: RustError.ByReference
+    ): PlacesApiHandle
+
+    /** Create a new places connection */
+    fun places_connection_new(
+            handle: PlacesApiHandle,
+            conn_type: Int,
             out_err: RustError.ByReference
     ): PlacesConnectionHandle
 
@@ -166,9 +173,16 @@ internal interface LibPlacesFFI : Library {
     /** Destroy strings returned from libplaces_ffi calls. */
     fun places_destroy_string(s: Pointer)
 
-    /** Destroy connection created using `places_connection_new` */
+    fun places_api_return_write_conn(apiHandle: PlacesApiHandle,
+                                     writeHandle: PlacesConnectionHandle,
+                                     err: RustError.ByReference)
 
+    /** Destroy connection created using `places_connection_new` */
     fun places_connection_destroy(handle: PlacesConnectionHandle, out_err: RustError.ByReference)
+
+    /** Destroy api created using `places_api_new` */
+    fun places_api_destroy(handle: PlacesApiHandle, out_err: RustError.ByReference)
+
     /** Destroy handle created using `places_new_interrupt_handle` */
     fun places_interrupt_handle_destroy(obj: RawPlacesInterruptHandle)
 
@@ -176,6 +190,7 @@ internal interface LibPlacesFFI : Library {
 }
 
 internal typealias PlacesConnectionHandle = Long;
+internal typealias PlacesApiHandle = Long;
 
 // This doesn't use a handle to avoid unnecessary locking and
 // because the type is panic safe, sync, and send.

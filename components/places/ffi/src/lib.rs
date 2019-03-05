@@ -7,11 +7,11 @@ use ffi_support::{
     define_string_destructor, rust_str_from_c, rust_string_from_c, ByteBuffer, ConcurrentHandleMap,
     ExternError,
 };
-use places::history_sync::store::HistoryStore;
-use places::{db::PlacesInterruptHandle, storage, PlacesDb};
-use sync15::telemetry;
+use places::error::*;
+use places::{db::PlacesInterruptHandle, storage, ConnectionType, PlacesApi, PlacesDb};
 
 use std::os::raw::c_char;
+use std::sync::Arc;
 
 use places::api::matcher::{match_url, search_frecent, SearchParams};
 
@@ -35,22 +35,68 @@ pub extern "C" fn places_enable_logcat_logging() {
 }
 
 lazy_static::lazy_static! {
+    static ref APIS: ConcurrentHandleMap<Arc<PlacesApi>> = ConcurrentHandleMap::new();
     static ref CONNECTIONS: ConcurrentHandleMap<PlacesDb> = ConcurrentHandleMap::new();
 }
 
-/// Instantiate a places connection. Returned connection must be freed with
-/// `places_connection_destroy`. Returns null and logs on errors (for now).
+/// Instantiate a places API. Returned api must be freed with
+/// `places_api_destroy`. Returns null and logs on errors (for now).
 #[no_mangle]
-pub unsafe extern "C" fn places_connection_new(
+pub unsafe extern "C" fn places_api_new(
     db_path: *const c_char,
     encryption_key: *const c_char,
     error: &mut ExternError,
 ) -> u64 {
-    log::debug!("places_connection_new");
-    CONNECTIONS.insert_with_result(error, || {
+    log::debug!("places_api_new");
+    APIS.insert_with_result(error, || {
         let path = ffi_support::rust_string_from_c(db_path);
         let key = ffi_support::opt_rust_string_from_c(encryption_key);
-        PlacesDb::open(path, key.as_ref().map(|v| v.as_str()))
+        PlacesApi::new(path, key.as_ref().map(|v| v.as_str()))
+    })
+}
+
+/// Instantiate a places connection. Returned connection must be freed with
+/// `places_connection_destroy`, although it should be noted that this will
+/// not destroy, or even close, connections already obtained from this
+/// object. Returns null and logs on errors (for now).
+#[no_mangle]
+pub unsafe extern "C" fn places_connection_new(
+    handle: u64,
+    conn_type_val: u8,
+    error: &mut ExternError,
+) -> u64 {
+    log::debug!("places_connection_new");
+    APIS.call_with_result(error, handle, |api| -> places::Result<_> {
+        let conn_type = match ConnectionType::from_primitive(conn_type_val) {
+            // You can't open a sync connection using this method.
+            None | Some(ConnectionType::Sync) => {
+                return Err(ErrorKind::InvalidConnectionType.into());
+            }
+            Some(val) => val,
+        };
+        Ok(CONNECTIONS.insert(api.open_connection(conn_type)?))
+    })
+}
+
+// Best effort, ignores failure.
+#[no_mangle]
+pub extern "C" fn places_api_return_write_conn(
+    api_handle: u64,
+    write_handle: u64,
+    error: &mut ExternError,
+) {
+    log::debug!("places_api_return_write_conn");
+    APIS.call_with_result(error, api_handle, |api| -> places::Result<_> {
+        let write_conn = if let Ok(Some(conn)) = CONNECTIONS.remove_u64(write_handle) {
+            conn
+        } else {
+            log::warn!("Can't return connection to PlacesApi because it does not exist");
+            return Ok(());
+        };
+        if let Err(e) = api.close_connection(write_conn) {
+            log::warn!("Failed to close connection: {}", e);
+        }
+        Ok(())
     })
 }
 
@@ -281,25 +327,23 @@ pub unsafe extern "C" fn sync15_history_sync(
     error: &mut ExternError,
 ) {
     log::debug!("sync15_history_sync");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        // XXX - this is wrong - we kinda want this to be long-lived - the "Db"
-        // should own the store, but it's not part of the db.
-        let store = HistoryStore::new(conn);
-        let mut sync_ping = telemetry::SyncTelemetryPing::new();
-        let result = store.sync(
+    APIS.call_with_result(error, handle, |api| -> places::Result<_> {
+        // Note that api.sync returns a SyncPing which we drop on the floor.
+        api.sync(
             &sync15::Sync15StorageClientInit {
                 key_id: rust_string_from_c(key_id),
                 access_token: rust_string_from_c(access_token),
                 tokenserver_url: parse_url(rust_str_from_c(tokenserver_url))?,
             },
             &sync15::KeyBundle::from_ksync_base64(rust_str_from_c(sync_key))?,
-            &mut sync_ping,
-        );
-        result
+        )?;
+        Ok(())
     })
 }
 
 define_string_destructor!(places_destroy_string);
 define_bytebuffer_destructor!(places_destroy_bytebuffer);
+define_handle_map_deleter!(APIS, places_api_destroy);
+
 define_handle_map_deleter!(CONNECTIONS, places_connection_destroy);
 define_box_destructor!(PlacesInterruptHandle, places_interrupt_handle_destroy);

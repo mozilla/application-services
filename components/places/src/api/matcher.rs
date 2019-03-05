@@ -545,6 +545,7 @@ impl<'query> Matcher for Suggestions<'query> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::places_api::test::new_mem_connection;
     use crate::observation::VisitObservation;
     use crate::storage::history::apply_observation;
     use crate::types::{Timestamp, VisitTransition};
@@ -578,7 +579,7 @@ mod tests {
 
     #[test]
     fn search() {
-        let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let mut conn = new_mem_connection();
 
         let url = Url::parse("http://example.com/123").unwrap();
         let visit = VisitObservation::new(url.clone())
@@ -680,7 +681,7 @@ mod tests {
     }
     #[test]
     fn search_unicode() {
-        let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let mut conn = new_mem_connection();
 
         let url = Url::parse("http://exämple.com/123").unwrap();
         let visit = VisitObservation::new(url.clone())
