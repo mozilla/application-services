@@ -8,6 +8,12 @@ use std::result;
 use rusqlite;
 
 use failure::{Backtrace, Context, Fail};
+use ffi_support;
+use lazy_static;
+
+lazy_static::lazy_static! {
+    pub static ref ERROR_CODE: ffi_support::ErrorCode = ffi_support::ErrorCode::new(-8675309);
+}
 
 pub type Result<T> = result::Result<T, Error>;
 
@@ -68,6 +74,12 @@ impl From<openssl::error::ErrorStack> for Error {
     }
 }
 
+impl From<Error> for ffi_support::ExternError {
+    fn from(e: Error) -> ffi_support::ExternError {
+        ffi_support::ExternError::new_error(e.kind().error_code(), format!("{:?}", e))
+    }
+}
+
 macro_rules! impl_from_error {
     ($(($variant:ident, $type:ty)),+) => ($(
         impl From<$type> for ErrorKind {
@@ -92,24 +104,65 @@ impl_from_error! {
 
 #[derive(Debug, Fail)]
 pub enum ErrorKind {
+    /// An unspecified general error has occured
     #[fail(display = "General Error: {:?}", _0)]
     GeneralError(String),
 
+    /// An unspecifed Internal processing error has occurred
     #[fail(display = "Internal Error: {:?}", _0)]
     InternalError(String),
 
+    /// An unknown OpenSSL Cryptography error
     #[fail(display = "OpenSSL Error: {:?}", _0)]
     OpenSSLError(String),
 
+    /// A Client communication error
     #[fail(display = "Communication Error: {:?}", _0)]
     CommunicationError(String),
 
+    /// An error returned from the registration Server
+    #[fail(display = "Communication Server Error: {:?}", _0)]
+    CommunicationServerError(String),
+
+    /// Channel is already registered, generate new channelID
     #[fail(display = "Channel already registered.")]
     AlreadyRegisteredError,
 
+    /// An error with Storage
     #[fail(display = "Storage Error: {:?}", _0)]
     StorageError(String),
 
+    /// A failure to encode data to/from storage.
     #[fail(display = "Error executing SQL: {}", _0)]
     StorageSqlError(#[fail(cause)] rusqlite::Error),
+
+    #[fail(display = "Missing Registration Token")]
+    MissingRegistrationTokenError,
+
+    #[fail(display = "Transcoding Error: {}", _0)]
+    TranscodingError(String),
+
+    #[fail(display = "Encryption Error: {}", _0)]
+    EncryptionError(String),
+}
+
+// Note, be sure to duplicate errors in the Kotlin side
+// see RustError.kt
+impl ErrorKind {
+    pub fn error_code(&self) -> ffi_support::ErrorCode {
+        let code = match self {
+            ErrorKind::GeneralError(_) => 22,
+            ErrorKind::InternalError(_) => 23,
+            ErrorKind::OpenSSLError(_) => 24,
+            ErrorKind::CommunicationError(_) => 25,
+            ErrorKind::CommunicationServerError(_) => 26,
+            ErrorKind::AlreadyRegisteredError => 27,
+            ErrorKind::StorageError(_) => 28,
+            ErrorKind::StorageSqlError(_) => 29,
+            ErrorKind::MissingRegistrationTokenError => 30,
+            ErrorKind::TranscodingError(_) => 31,
+            ErrorKind::EncryptionError(_) => 32,
+        };
+        ffi_support::ErrorCode::new(code)
+    }
 }

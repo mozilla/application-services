@@ -1,14 +1,11 @@
 use std::{ops::Deref, path::Path};
 
-use rusqlite::{types::ToSql, Connection};
+use rusqlite::Connection;
 use sql_support::ConnExt;
 
 use push_errors::Result;
 
-use crate::{
-    record::PushRecord,
-    schema,
-};
+use crate::{record::PushRecord, schema};
 
 // TODO: Add broadcasts storage
 
@@ -24,6 +21,8 @@ pub trait Storage {
     fn get_channel_list(&self, uaid: &str) -> Result<Vec<String>>;
 
     fn update_endpoint(&self, uaid: &str, channel_id: &str, endpoint: &str) -> Result<bool>;
+
+    fn update_native_id(&self, uaid: &str, native_id: &str) -> Result<bool>;
 }
 
 pub struct PushDb {
@@ -69,8 +68,7 @@ impl Storage for PushDb {
         );
         Ok(self.try_query_row(
             &query,
-            &[(":uaid", &uaid as &ToSql),
-              (":chid", &chid as &ToSql)],
+            &[(":uaid", &uaid), (":chid", &chid)],
             PushRecord::from_row,
             false,
         )?)
@@ -112,22 +110,24 @@ impl Storage for PushDb {
         let affected_rows = self.execute_named(
             "DELETE FROM push_record
              WHERE uaid = :uaid AND channel_id = :chid",
-            &[(":uaid", &uaid as &ToSql),
-              (":chid", &chid as &ToSql)],
+            &[(":uaid", &uaid), (":chid", &chid)],
         )?;
         Ok(affected_rows == 1)
     }
 
     fn delete_all_records(&self, uaid: &str) -> Result<()> {
-        self.execute_named("DELETE FROM push_record WHERE uaid = :uaid", &[(":uaid", &uaid as &ToSql)])?;
+        self.execute_named(
+            "DELETE FROM push_record WHERE uaid = :uaid",
+            &[(":uaid", &uaid)],
+        )?;
         Ok(())
     }
 
     fn get_channel_list(&self, uaid: &str) -> Result<Vec<String>> {
         self.query_rows_and_then_named(
             "SELECT channel_id FROM push_record WHERE uaid = :uaid",
-            &[(":uaid", &uaid as &ToSql)],
-            |row| -> Result<String> { Ok(row.get_checked(0)?) }
+            &[(":uaid", &uaid)],
+            |row| -> Result<String> { Ok(row.get_checked(0)?) },
         )
     }
 
@@ -136,10 +136,18 @@ impl Storage for PushDb {
             "UPDATE push_record set endpoint = :endpoint
              WHERE uaid = :uaid AND channel_id = :channel_id",
             &[
-                (":endpoint", &endpoint.to_owned()),
-                (":uaid", &uaid.to_owned()),
-                (":channel_id", &channel_id.to_owned()),
+                (":endpoint", &endpoint),
+                (":uaid", &uaid),
+                (":channel_id", &channel_id),
             ],
+        )?;
+        Ok(affected_rows == 1)
+    }
+
+    fn update_native_id(&self, uaid: &str, native_id: &str) -> Result<bool> {
+        let affected_rows = self.execute_named(
+            "UPDATE push_record set native_id = :native_id WHERE uaid = :uaid",
+            &[(":native_id", &native_id), (":uaid", &uaid)],
         )?;
         Ok(affected_rows == 1)
     }

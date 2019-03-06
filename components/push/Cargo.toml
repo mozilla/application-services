@@ -1,9 +1,20 @@
-# [package]
-# name = "push"
-# edition = "2018"
-# version = "0.1.0"
-# authors = []
+[package]
+name = "push"
+edition = "2018"
+version = "0.1.0"
+authors = ["jrconlin <me+crypt@jrconlin.com>", "Phil Jenvey <pjenvey@underboss.org>"]
 
-[workspace]
-members = ["communications", "crypto", "storage",  "error", "config"]
+[dependencies]
+communications={path="communications"}
+crypto={path="crypto"}
+storage={path="storage"}
+subscriber={path="subscriber"}
+push-errors={path="error"}
+config={path="config"}
+
+push-ffi={path="ffi"}
+
+
+#[workspace]
+#members = ["communications", "crypto", "storage",  "error", "config", "ffi"]
 # extra members = ["delivery_mgr", "notifier", "subscriber",]

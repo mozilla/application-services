@@ -84,6 +84,7 @@ dependencies {
     api project(path: ':fxa-client-library', configuration: 'withoutLib')
     api project(path: ':logins-library', configuration: 'withoutLib')
     api project(path: ':places-library', configuration: 'withoutLib')
+    api project(path: ':push-library', configuration: 'withoutLib')
     api project(path: ':rustlog-library', configuration: 'withoutLib')
 
     jnaForTest 'net.java.dev.jna:jna:4.5.2@jar'
@@ -108,7 +109,7 @@ apply from: "$rootDir/publish.gradle"
 ext.configurePublish(
         'org.mozilla.appservices',
         'reference-browser-megazord',
-        'Megazord of [fxaclient, logins, places, logging]',
+        'Megazord of [fxaclient, logins, places, push, logging]',
         /* jnaForTestConfiguration= */ configurations.jnaForTest,
         /* variantWithoutLib= */ null,
 )

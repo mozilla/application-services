@@ -66,6 +66,7 @@ cargo {
         'arm',
         'arm64',
         'x86',
+        'linux-x86-64',
     ]
 
     // Perform release builds (which should have debug info, due to
@@ -94,10 +95,8 @@ configurations {
 
 dependencies {
     jnaForTest 'net.java.dev.jna:jna:4.5.2@jar'
-
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation 'net.java.dev.jna:jna:4.5.2@aar'
-
     // For reasons unknown, resolving the jnaForTest configuration directly
     // trips a nasty issue with the Android-Gradle plugin 3.2.1, like `Cannot
     // change attributes of configuration ':PROJECT:kapt' after it has been
@@ -109,9 +108,9 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     testImplementation 'org.robolectric:robolectric:3.8'
     testImplementation 'org.mockito:mockito-core:2.21.0'
-
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+    implementation project(':as-support-library')
 }
 
 afterEvaluate {
@@ -133,7 +132,7 @@ afterEvaluate {
 
 apply from: "$rootDir/publish.gradle"
 ext.configurePublish(
-        'org.mozilla.push',
+        'org.mozilla.appservices',
         'push',
         'Low level WebPush handler implementation.',
         /* jnaForTestConfiguration= */ configurations.jnaForTest,
