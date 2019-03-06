@@ -408,7 +408,7 @@ pub unsafe extern "C" fn bookmarks_update(
         let buffer = get_buffer(data, len);
         let bookmark: BookmarkNode = prost::Message::decode(buffer)?;
         let (guid, update_info) = bookmark.into_updatable()?;
-        let guid = bookmarks::update_bookmark(conn, &guid, &update_info)?;
+        bookmarks::update_bookmark(conn, &guid, &update_info)?;
         Ok(())
     })
 }
@@ -420,7 +420,6 @@ pub unsafe extern "C" fn bookmarks_delete(
     error: &mut ExternError,
 ) -> u8 {
     log::debug!("bookmarks_delete");
-    use places::msg_types::BookmarkNode;
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let guid = SyncGuid(ffi_support::rust_string_from_c(id));
         let did_delete = bookmarks::delete_bookmark(conn, &guid)?;

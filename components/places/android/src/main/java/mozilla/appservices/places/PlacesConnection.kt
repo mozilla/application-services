@@ -7,6 +7,7 @@ package mozilla.appservices.places
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.StringArray
+import mozilla.appservices.support.toNioDirectBuffer
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -164,8 +165,11 @@ open class PlacesConnection internal constructor(connHandle: Long) : Interruptib
  *
  * This class is thread safe.
  */
-open class PlacesReaderConnection internal constructor(connHandle: Long): PlacesConnection(connHandle), ReadableHistoryConnection {
-
+open class PlacesReaderConnection internal constructor(connHandle: Long) :
+        PlacesConnection(connHandle),
+        ReadableHistoryConnection,
+        ReadableBookmarksConnection
+{
     override fun queryAutocomplete(query: String, limit: Int): List<SearchResult> {
         val json = rustCallForString { error ->
             LibPlacesFFI.INSTANCE.places_query_autocomplete(this.handle.get(), query, limit, error)
@@ -240,6 +244,32 @@ open class PlacesReaderConnection internal constructor(connHandle: Long): Places
             LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(infoBuffer)
         }
     }
+
+    override fun getBookmark(guid: String): BookmarkTreeNode? {
+        val rustBuf = rustCall { err ->
+            LibPlacesFFI.INSTANCE.bookmarks_get_by_guid(this.handle.get(), guid, err)
+        }
+
+        try {
+            val message = MsgTypes.BookmarkNode.parseFrom(rustBuf.asCodedInputStream()!!)
+            return unpackProtobuf(message, false)
+        } finally {
+            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
+        }
+    }
+
+    override fun getTree(rootGUID: String): BookmarkTreeNode? {
+        val rustBuf = rustCall { err ->
+            LibPlacesFFI.INSTANCE.bookmarks_get_tree(this.handle.get(), rootGUID, err)
+        }
+
+        try {
+            val message = MsgTypes.BookmarkNode.parseFrom(rustBuf.asCodedInputStream()!!)
+            return unpackProtobuf(message, true)
+        } finally {
+            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
+        }
+    }
 }
 
 /**
@@ -248,7 +278,11 @@ open class PlacesReaderConnection internal constructor(connHandle: Long): Places
  *
  * This class is thread safe.
  */
-class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesApi) : PlacesReaderConnection(connHandle), WritableHistoryConnection {
+class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesApi) :
+        PlacesReaderConnection(connHandle),
+        WritableHistoryConnection,
+        WritableBookmarksConnection
+{
     // The reference to our PlacesAPI. Mostly used to know how to handle getting closed.
     val apiRef = WeakReference(api)
     override fun noteObservation(data: VisitObservation) {
@@ -304,6 +338,58 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
     override fun deleteEverything() {
         rustCall { error ->
             LibPlacesFFI.INSTANCE.places_delete_everything(this.handle.get(), error)
+        }
+    }
+
+    override fun deleteBookmark(guid: String): Boolean {
+        val existedByte = rustCall { error ->
+            LibPlacesFFI.INSTANCE.bookmarks_delete(this.handle.get(), guid, error)
+        }
+        return existedByte.toInt() != 0
+    }
+
+    // Does the shared insert work, takes the position just because
+    // its a little tedious to type out setting it
+    private fun doInsert(builder: MsgTypes.BookmarkNode.Builder, position: Int?): String {
+        position?.let { builder.setPosition(position) }
+        val buf = builder.build()
+        val (nioBuf, len) = buf.toNioDirectBuffer()
+        return rustCallForString { err ->
+            val ptr = Native.getDirectBufferPointer(nioBuf)
+            LibPlacesFFI.INSTANCE.bookmarks_insert(this.handle.get(), ptr, len, err)
+        }
+    }
+
+    override fun createFolder(parentGUID: String, title: String, position: Int?): String {
+        val builder = MsgTypes.BookmarkNode.newBuilder()
+                .setNodeType(BookmarkType.Folder.value)
+                .setParentGuid(parentGUID)
+                .setTitle(title)
+        return this.doInsert(builder, position)
+    }
+
+    override fun createSeparator(parentGUID: String, position: Int?): String {
+        val builder = MsgTypes.BookmarkNode.newBuilder()
+                .setNodeType(BookmarkType.Separator.value)
+                .setParentGuid(parentGUID)
+        return this.doInsert(builder, position)
+    }
+
+    override fun createBookmarkItem(parentGUID: String, url: String, title: String?, position: Int?): String {
+        val builder = MsgTypes.BookmarkNode.newBuilder()
+                .setNodeType(BookmarkType.Separator.value)
+                .setParentGuid(parentGUID)
+                .setUrl(url)
+        title?.let { builder.setTitle(it) }
+        return this.doInsert(builder, position)
+    }
+
+    override fun updateBookmark(guid: String, info: BookmarkUpdateInfo) {
+        val buf = info.toProtobuf(guid)
+        val (nioBuf, len) = buf.toNioDirectBuffer()
+        rustCall { err ->
+            val ptr = Native.getDirectBufferPointer(nioBuf)
+            LibPlacesFFI.INSTANCE.bookmarks_update(this.handle.get(), ptr, len, err)
         }
     }
 
