@@ -34,6 +34,9 @@ pub mod error_codes {
 
     /// The requested operation failed because it was interrupted
     pub const DATABASE_INTERRUPTED: i32 = 5;
+
+    /// The requested operation failed because the store is corrupt
+    pub const DATABASE_CORRUPT: i32 = 6;
 }
 
 fn get_code(err: &Error) -> ErrorCode {
@@ -64,6 +67,10 @@ fn get_code(err: &Error) -> ErrorCode {
             // Can't unify with the above ... :(
             log::info!("Operation interrupted");
             ErrorCode::new(error_codes::DATABASE_INTERRUPTED)
+        }
+        ErrorKind::Corruption(e) => {
+            log::info!("The store is corrupt: {}", e);
+            ErrorCode::new(error_codes::DATABASE_CORRUPT)
         }
 
         err => {

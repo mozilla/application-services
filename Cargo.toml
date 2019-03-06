@@ -5,6 +5,7 @@ members = [
     "components/logins",
     "components/logins/ffi",
     "components/places",
+    "components/push",
     "components/places/ffi",
     "components/support/cli",
     "components/support/sql",

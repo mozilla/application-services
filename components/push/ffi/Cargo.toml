@@ -1,0 +1,36 @@
+[package]
+name = "push-ffi"
+edition = "2018"
+version = "0.1.0"
+authors = ["jrconlin <me+crypt@jrconlin.com>", "Phil Jenvey <pjenvey@underboss.org>"]
+
+[lib]
+name = "push_ffi"
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+serde_json = "1.0.28"
+log = "0.4"
+url = "1.7.1"
+ffi-support = { path = "../../support/ffi" }
+lazy_static = "1.2.0"
+base64 = "0.10"
+
+config = { path = "../config" }
+crypto = { path = "../crypto" }
+push-errors = {path = "../error" }
+subscriber ={ path = "../subscriber" }
+storage = { path = "../storage" }
+communications = { path = "../communications" }
+
+
+[dependencies.rusqlite]
+version = "0.16.0"
+features = ["sqlcipher", "limits", "functions"]
+
+[dependencies.sync15]
+path = "../../sync15"
+
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.7.0"

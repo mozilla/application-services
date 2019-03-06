@@ -38,13 +38,7 @@ pub struct PushRecord {
 impl PushRecord {
     /// Create a Push Record from the Subscription info: endpoint, encryption
     /// keys, etc.
-    pub fn new(
-        uaid: &str,
-        chid: &str,
-        endpoint: &str,
-        scope: &str,
-        key: Key,
-    ) -> Self {
+    pub fn new(uaid: &str, chid: &str, endpoint: &str, scope: &str, key: Key) -> Self {
         // XXX: unwrap
         Self {
             uaid: uaid.to_owned(),

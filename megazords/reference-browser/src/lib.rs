@@ -5,4 +5,5 @@
 pub extern crate fxaclient_ffi;
 pub extern crate logins_ffi;
 pub extern crate places_ffi;
+pub extern crate push_ffi;
 pub extern crate rc_log_ffi;

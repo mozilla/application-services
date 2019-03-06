@@ -9,6 +9,7 @@
  * module compiles openssl, however, so might be enough to tie into that.
  */
 use base64;
+use log::{debug, error};
 use std::clone;
 use std::cmp;
 use std::fmt;
@@ -17,10 +18,13 @@ use ece::{
     Aes128GcmEceWebPushImpl, AesGcmEceWebPushImpl, AesGcmEncryptedBlock, LocalKeyPair,
     LocalKeyPairImpl,
 };
+use openssl::ec::EcKey;
 use openssl::rand::rand_bytes;
-mod error;
 
-const SER_AUTH_LENGTH: usize = 16;
+use push_errors as error;
+
+pub const SER_AUTH_LENGTH: usize = 16;
+pub type Decrypted = Vec<u8>;
 
 /* build the key off of the OpenSSL key implementation.
  * Much of this is taken from rust_ece/crypto/openssl/lib.rs
@@ -95,7 +99,7 @@ impl Key {
     /// Recover a byte array into a Key structure.
     pub fn deserialize(raw: Vec<u8>) -> error::Result<Key> {
         if raw[0] != 1 {
-            return Err(error::ErrorKind::GeneralError(
+            return Err(error::ErrorKind::EncryptionError(
                 "Unknown Key Serialization version".to_owned(),
             )
             .into());
@@ -115,7 +119,7 @@ impl Key {
         let private = match LocalKeyPairImpl::new(&raw[start..end]) {
             Ok(p) => p,
             Err(e) => {
-                return Err(error::ErrorKind::GeneralError(format!(
+                return Err(error::ErrorKind::EncryptionError(format!(
                     "Could not reinstate key {:?}",
                     e
                 ))
@@ -125,7 +129,7 @@ impl Key {
         let pubkey = match private.pub_as_raw() {
             Ok(v) => v,
             Err(e) => {
-                return Err(error::ErrorKind::GeneralError(format!(
+                return Err(error::ErrorKind::EncryptionError(format!(
                     "Could not dump public key: {:?}",
                     e
                 ))
@@ -144,15 +148,18 @@ pub trait Cryptography {
     /// generate a new local EC p256 key
     fn generate_key() -> error::Result<Key>;
 
+    /// create a test key for testing
+    fn test_key(priv_key: &str, pub_key: &str, auth: &str) -> Key;
+
     /// General decrypt function. Calls to decrypt_aesgcm or decrypt_aes128gcm as needed.
     // (sigh, can't use notifier::Notification because of circular dependencies.)
     fn decrypt(
         key: &Key,
-        body: Vec<u8>,
+        body: &str,
         encoding: &str,
-        salt: Option<Vec<u8>>,
-        dh: Option<Vec<u8>>,
-    ) -> error::Result<Vec<u8>>;
+        salt: Option<&str>,
+        dh: Option<&str>,
+    ) -> error::Result<Decrypted>;
     // IIUC: objects created on one side of FFI can't be freed on the other side, so we have to use references (or clone)
 
     /// Decrypt the obsolete "aesgcm" format (which is still used by a number of providers)
@@ -161,10 +168,10 @@ pub trait Cryptography {
         content: &[u8],
         salt: Option<Vec<u8>>,
         crypto_key: Option<Vec<u8>>,
-    ) -> error::Result<Vec<u8>>;
+    ) -> error::Result<Decrypted>;
 
     /// Decrypt the RFC 8188 format.
-    fn decrypt_aes128gcm(key: &Key, content: &[u8]) -> error::Result<Vec<u8>>;
+    fn decrypt_aes128gcm(key: &Key, content: &[u8]) -> error::Result<Decrypted>;
 }
 
 pub struct Crypto;
@@ -175,13 +182,40 @@ pub fn get_bytes(size: usize) -> error::Result<Vec<u8>> {
     Ok(bytes)
 }
 
+/// Extract the sub-value from the header.
+/// Sub values have the form of `label=value`. Due to a bug in some push providers, treat ',' and ';' as
+/// equivalent.
+/// @param string: the string to search,
+fn extract_value(string: Option<&str>, target: &str) -> Option<Vec<u8>> {
+    if let Some(val) = string {
+        if !val.contains(&format!("{}=", target)) {
+            debug!("No sub-value found for {}", target);
+            return None;
+        }
+        let items: Vec<&str> = val.split(|c| c == ',' || c == ';').collect();
+        for item in items {
+            let kv: Vec<&str> = item.split('=').collect();
+            if kv[0] == target {
+                return match base64::decode_config(kv[1], base64::URL_SAFE_NO_PAD) {
+                    Ok(v) => Some(v),
+                    Err(e) => {
+                        error!("base64 failed for target:{}; {:?}", target, e);
+                        None
+                    }
+                };
+            }
+        }
+    }
+    return None;
+}
+
 impl Cryptography for Crypto {
     /// Generate a new cryptographic Key
     fn generate_key() -> error::Result<Key> {
         let key = match LocalKeyPairImpl::generate_random() {
             Ok(k) => k,
             Err(e) => {
-                return Err(error::ErrorKind::GeneralError(format!(
+                return Err(error::ErrorKind::EncryptionError(format!(
                     "Could not generate key: {:?}",
                     e
                 ))
@@ -189,10 +223,10 @@ impl Cryptography for Crypto {
             }
         };
         let auth = get_bytes(SER_AUTH_LENGTH)?;
-        let pubkey = match key.pub_as_raw() {
+        let public = match key.pub_as_raw() {
             Ok(v) => v,
             Err(e) => {
-                return Err(error::ErrorKind::GeneralError(format!(
+                return Err(error::ErrorKind::EncryptionError(format!(
                     "Could not dump public key: {:?}",
                     e
                 ))
@@ -201,23 +235,47 @@ impl Cryptography for Crypto {
         };
         Ok(Key {
             private: key,
-            public: pubkey,
+            public,
             auth,
         })
+    }
+
+    // generate unit test key
+    fn test_key(priv_key: &str, pub_key: &str, auth: &str) -> Key {
+        let private = EcKey::private_key_from_der(
+            &base64::decode_config(priv_key, base64::URL_SAFE_NO_PAD).unwrap(),
+        )
+        .unwrap();
+        let public = base64::decode_config(pub_key, base64::URL_SAFE_NO_PAD).unwrap();
+        let auth = base64::decode_config(auth, base64::URL_SAFE_NO_PAD).unwrap();
+
+        Key {
+            private: private.into(),
+            public,
+            auth,
+        }
     }
 
     /// Decrypt the incoming webpush message based on the content-encoding
     fn decrypt(
         key: &Key,
-        body: Vec<u8>,
+        body: &str,
         encoding: &str,
-        salt: Option<Vec<u8>>,
-        dh: Option<Vec<u8>>,
-    ) -> error::Result<Vec<u8>> {
+        salt: Option<&str>,
+        dh: Option<&str>,
+    ) -> error::Result<Decrypted> {
         // convert the private key into something useful.
+        let d_salt = extract_value(salt, "salt");
+        let d_dh = extract_value(dh, "dh");
+        /*
+        let d_salt = salt.map(|v| { base64::decode_config(v, base64::URL_SAFE_NO_PAD).unwrap()});
+        let d_dh = dh.map(|v| { base64::decode_config(v, base64::URL_SAFE_NO_PAD).unwrap()});
+        */
+        let d_body = base64::decode_config(body, base64::URL_SAFE_NO_PAD).unwrap();
+
         match encoding.to_lowercase().as_str() {
-            "aesgcm" => Self::decrypt_aesgcm(&key, &body, salt, dh),
-            "aes128gcm" => Self::decrypt_aes128gcm(&key, &body),
+            "aesgcm" => Self::decrypt_aesgcm(&key, &d_body, d_salt, d_dh),
+            "aes128gcm" => Self::decrypt_aes128gcm(&key, &d_body),
             _ => Err(error::ErrorKind::GeneralError("Unknown Content Encoding".to_string()).into()),
         }
     }
@@ -228,21 +286,25 @@ impl Cryptography for Crypto {
         content: &[u8],
         salt: Option<Vec<u8>>,
         crypto_key: Option<Vec<u8>>,
-    ) -> error::Result<Vec<u8>> {
+    ) -> error::Result<Decrypted> {
         let dh = match crypto_key {
             Some(v) => v,
             None => {
-                return Err(error::ErrorKind::GeneralError("Missing public key".to_string()).into());
+                return Err(
+                    error::ErrorKind::EncryptionError("Missing public key".to_string()).into(),
+                );
             }
         };
         let salt = match salt {
             Some(v) => v,
-            None => return Err(error::ErrorKind::GeneralError("Missing salt".to_string()).into()),
+            None => {
+                return Err(error::ErrorKind::EncryptionError("Missing salt".to_string()).into());
+            }
         };
         let block = match AesGcmEncryptedBlock::new(&dh, &salt, 4096, content.to_vec()) {
             Ok(b) => b,
             Err(e) => {
-                return Err(error::ErrorKind::GeneralError(format!(
+                return Err(error::ErrorKind::EncryptionError(format!(
                     "Could not create block: {}",
                     e
                 ))
@@ -266,19 +328,16 @@ impl Cryptography for Crypto {
 #[cfg(test)]
 mod crypto_tests {
     use super::*;
-    use openssl::ec::EcKey;
-
-    use base64;
 
     use error;
 
     const PLAINTEXT:&str = "Amidst the mists and coldest frosts I thrust my fists against the\nposts and still demand to see the ghosts.\n\n";
 
     fn decrypter(
-        ciphertext: Vec<u8>,
+        ciphertext: &str,
         encoding: &str,
-        salt: Option<Vec<u8>>,
-        dh: Option<Vec<u8>>,
+        salt: Option<&str>,
+        dh: Option<&str>,
     ) -> error::Result<Vec<u8>> {
         // The following come from internal storage;
         // More than likely, this will be stored either as an encoded or raw DER.
@@ -288,12 +347,6 @@ mod crypto_tests {
         // This would be the public key sent to the subscription service.
         let pub_key_raw = "BBcJdfs1GtMyymFTtty6lIGWRFXrEtJP40Df0gOvRDR4D8CKVgqE6vlYR7tCYksIRdKD1MxDPhQVmKLnzuife50";
 
-        // create the private key we need.
-        let private = EcKey::private_key_from_der(
-            &base64::decode_config(priv_key_der_raw, base64::URL_SAFE_NO_PAD).unwrap(),
-        )
-        .unwrap();
-        let auth = base64::decode_config(auth_raw, base64::URL_SAFE_NO_PAD).unwrap();
         /*
         // The externally generated data was created using pywebpush.
         // To generate a private key:
@@ -306,45 +359,31 @@ mod crypto_tests {
         let public_key = private_key.public_key().to_bytes(&group, PointConversionForm::UNCOMPRESSED, &mut context).unwrap();
         println!("PUB: {:?}", base64::encode_config(&public_key, base64::URL_SAFE_NO_PAD));
         */
-        let key = Key {
-            private: private.into(),
-            public: base64::decode_config(pub_key_raw, base64::URL_SAFE_NO_PAD).unwrap(),
-            auth,
-        };
-
+        let key = Crypto::test_key(priv_key_der_raw, pub_key_raw, auth_raw);
         Crypto::decrypt(&key, ciphertext, encoding, salt, dh)
     }
 
     #[test]
     fn test_decrypt_aesgcm() {
         // The following comes from the delivered message body
-        let ciphertext = base64::decode_config(
-            "BNKu5uTFhjyS-06eECU9-6O61int3Rr7ARbm-xPhFuyDO5sfxVs-HywGaVonvzkarvfvXE9IRT_YNA81Og2uSqDasdMuwqm1zd0O3f7049IkQep3RJ2pEZTy5DqvI7kwMLDLzea9nroq3EMH5hYhvQtQgtKXeWieEL_3yVDQVg",
-            base64::URL_SAFE_NO_PAD).unwrap();
+        let ciphertext = "BNKu5uTFhjyS-06eECU9-6O61int3Rr7ARbm-xPhFuyDO5sfxVs-HywGaVonvzkarvfvXE9IRT_YNA81Og2uSqDasdMuwqm1zd0O3f7049IkQep3RJ2pEZTy5DqvI7kwMLDLzea9nroq3EMH5hYhvQtQgtKXeWieEL_3yVDQVg";
         // and now from the header values
-        let dh = base64::decode_config(
-            "BMOebOMWSRisAhWpRK9ZPszJC8BL9MiWvLZBoBU6pG6Kh6vUFSW4BHFMh0b83xCg3_7IgfQZXwmVuyu27vwiv5c",
-            base64::URL_SAFE_NO_PAD).unwrap();
-        let salt =
-            base64::decode_config("tSf2qu43C9BD0zkvRW5eUg", base64::URL_SAFE_NO_PAD).unwrap();
+        let dh = "keyid=foo;dh=BMOebOMWSRisAhWpRK9ZPszJC8BL9MiWvLZBoBU6pG6Kh6vUFSW4BHFMh0b83xCg3_7IgfQZXwmVuyu27vwiv5c,otherval=abcde";
+        let salt = "salt=tSf2qu43C9BD0zkvRW5eUg";
 
         // and this is what it should be.
 
         let decrypted = decrypter(ciphertext, "aesgcm", Some(salt), Some(dh)).unwrap();
 
         // println!("decrypted: {:?}\n plaintext:{:?} ", String::from_utf8(decrypted).unwrap(), plaintext);
-        assert!(String::from_utf8(decrypted).unwrap() == PLAINTEXT.to_string());
+        assert_eq!(String::from_utf8(decrypted).unwrap(), PLAINTEXT.to_string());
     }
 
     #[test]
     fn test_fail_decrypt_aesgcm() {
-        let ciphertext = base64::decode_config(
-            "BNKu5uTFhjyS-06eECU9-6O61int3Rr7ARbm-xPhFuyDO5sfxVs-HywGaVonvzkarvfvXE9IRT_YNA81Og2uSqDasdMuwqm1zd0O3f7049IkQep3RJ2pEZTy5DqvI7kwMLDLzea9nroq3EMH5hYhvQtQgtKXeWieEL_3yVDQVg",
-            base64::URL_SAFE_NO_PAD).unwrap();
-        let dh = base64::decode_config(
-            "BMOebOMWSRisAhWpRK9ZPszJC8BL9MiWvLZBoBU6pG6Kh6vUFSW4BHFMh0b83xCg3_7IgfQZXwmVuyu27vwiv5c",
-            base64::URL_SAFE_NO_PAD).unwrap();
-        let salt = base64::decode_config("SomeInvalidSaltValue", base64::URL_SAFE_NO_PAD).unwrap();
+        let ciphertext = "BNKu5uTFhjyS-06eECU9-6O61int3Rr7ARbm-xPhFuyDO5sfxVs-HywGaVonvzkarvfvXE9IRT_YNA81Og2uSqDasdMuwqm1zd0O3f7049IkQep3RJ2pEZTy5DqvI7kwMLDLzea9nroq3EMH5hYhvQtQgtKXeWieEL_3yVDQVg";
+        let dh = "dh=BMOebOMWSRisAhWpRK9ZPszJC8BL9MiWvLZBoBU6pG6Kh6vUFSW4BHFMh0b83xCg3_7IgfQZXwmVuyu27vwiv5c";
+        let salt = "salt=SomeInvalidSaltValue";
 
         decrypter(ciphertext, "aesgcm", Some(salt), Some(dh))
             .expect_err("Failed to abort, bad salt");
@@ -352,13 +391,10 @@ mod crypto_tests {
 
     #[test]
     fn test_decrypt_aes128gcm() {
-        let ciphertext = base64::decode_config(
-            "Ek7iQgliMqS9kjFoiVOqRgAAEABBBFirfBtF6XTeHVPABFDveb1iu7uO1XVA_MYJeAo-4ih8WYUsXSTIYmkKMv5_UB3tZuQI7BQ2EVpYYQfvOCrWZVMRL8fJCuB5wVXcoRoTaFJwTlJ5hnw6IMSiaMqGVlc8drX7Hzy-ugzzAKRhGPV2x-gdsp58DZh9Ww5vHpHyT1xwVkXzx3KTyeBZu4gl_zR0Q00li17g0xGsE6Dg3xlkKEmaalgyUyObl6_a8RA6Ko1Rc6RhAy2jdyY1LQbBUnA",
-            base64::URL_SAFE_NO_PAD).unwrap();
+        let ciphertext = "Ek7iQgliMqS9kjFoiVOqRgAAEABBBFirfBtF6XTeHVPABFDveb1iu7uO1XVA_MYJeAo-4ih8WYUsXSTIYmkKMv5_UB3tZuQI7BQ2EVpYYQfvOCrWZVMRL8fJCuB5wVXcoRoTaFJwTlJ5hnw6IMSiaMqGVlc8drX7Hzy-ugzzAKRhGPV2x-gdsp58DZh9Ww5vHpHyT1xwVkXzx3KTyeBZu4gl_zR0Q00li17g0xGsE6Dg3xlkKEmaalgyUyObl6_a8RA6Ko1Rc6RhAy2jdyY1LQbBUnA";
 
         let decrypted = decrypter(ciphertext, "aes128gcm", None, None).unwrap();
-
-        assert!(String::from_utf8(decrypted).unwrap() == PLAINTEXT.to_string());
+        assert_eq!(String::from_utf8(decrypted).unwrap(), PLAINTEXT.to_string());
     }
 
     #[test]

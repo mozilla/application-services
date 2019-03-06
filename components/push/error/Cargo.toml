@@ -9,3 +9,5 @@ failure = "0.1.5"
 failure_derive = "0.1.5"
 openssl = "0.10"
 rusqlite = "0.16.0"
+lazy_static ="1.2"
+ffi-support = {path = "../../support/ffi"}

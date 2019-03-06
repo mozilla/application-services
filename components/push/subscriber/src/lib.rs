@@ -10,93 +10,159 @@ extern crate storage;
 
 use std::collections::HashMap;
 
-use communications::{ConnectHttp, Connection};
+use communications::{connect, ConnectHttp, Connection, RegisterResponse};
+use config::PushConfiguration;
 use crypto::{Crypto, Cryptography, Key};
-use storage::{ChannelID, Storage, Store};
+use storage::{Storage, Store};
 
-use push_errors::{self as error, ErrorKind::SubscriptionError};
+use push_errors::{self as error, ErrorKind, Result};
 
-pub struct SubscriptionKeys {
-    pub auth: Vec<u8>,
-    pub p256dh: Vec<u8>,
+pub struct PushManager {
+    config: PushConfiguration,
+    pub conn: ConnectHttp,
+    pub store: Store,
 }
 
-// Subscription structure
-pub struct Subscription {
-    pub channelid: ChannelID,
-    pub endpoint: String,
-    pub keys: SubscriptionKeys,
-}
+impl PushManager {
+    pub fn new(config: PushConfiguration) -> Result<Self> {
+        let store = if let Some(ref path) = config.database_path {
+            Store::open(path)?
+        } else {
+            Store::open_in_memory()?
+        };
+        Ok(PushManager {
+            config: config.clone(),
+            conn: connect(config)?,
+            store,
+        })
+    }
 
-pub trait Subscriber {
-    // get a new subscription (including keys, endpoint, etc.)
-    // note if this is a "priviledged" system call that does not require additional decryption
-    fn get_subscription<S: Storage>(
-        storage: S,
-        origin_attributes: HashMap<String, String>, // Does this include the origin proper?
-        app_server_key: Option<&str>,               // Passed to server.
-        registration_key: Option<&str>,             // Local OS push registration ID
-        priviledged: bool,                          // Is this a system call / skip encryption?
-    ) -> Result<Subscription, SubscriptionError>;
+    // XXX: make these trait methods
+    // XXX: should be called subscribe?
+    pub fn subscribe(&mut self, channel_id: &str, scope: &str) -> Result<(RegisterResponse, Key)> {
+        //let key = self.config.vapid_key;
+        let reg_token = self.config.registration_id.clone().unwrap();
+        let subscription_key: Key;
+        let info = self.conn.subscribe(channel_id)?;
+        if &self.config.sender_id == "test" {
+            subscription_key = Crypto::test_key(
+                "MHcCAQEEIKiZMcVhlVccuwSr62jWN4YPBrPmPKotJUWl1id0d2ifoAoGCCqGSM49AwEHoUQDQgAEFwl1-zUa0zLKYVO23LqUgZZEVesS0k_jQN_SA69ENHgPwIpWCoTq-VhHu0JiSwhF0oPUzEM-FBWYoufO6J97nQ",
+                "BBcJdfs1GtMyymFTtty6lIGWRFXrEtJP40Df0gOvRDR4D8CKVgqE6vlYR7tCYksIRdKD1MxDPhQVmKLnzuife50",
+                "LsuUOBKVQRY6-l7_Ajo-Ag"
+            )
+        } else {
+            subscription_key = Crypto::generate_key().unwrap();
+        }
+        // store the channelid => auth + subscription_key
+        let mut record = storage::PushRecord::new(
+            &info.uaid,
+            &channel_id,
+            &info.endpoint,
+            scope,
+            subscription_key.clone(),
+        );
+        record.app_server_key = self.config.vapid_key.clone();
+        record.native_id = Some(reg_token);
+        self.store.put_record(&record)?;
+        // TODO: just return Record
+        Ok((info, subscription_key))
+    }
 
-    // Update an existing subscription (change bridge endpoint)
-    fn update_subscription<S: Storage>(
-        storage: S,
-        chid: ChannelID,
-        bridge_id: Option<String>,
-    ) -> Result<Subscription, SubscriptionError>;
+    // XXX: maybe -> Result<()> instead
+    // XXX: maybe handle channel_id None case separately?
+    pub fn unsubscribe(&self, channel_id: Option<&str>) -> Result<bool> {
+        let result = self.conn.unsubscribe(channel_id)?;
+        self.store
+            .delete_record(self.conn.uaid.as_ref().unwrap(), channel_id.unwrap())?;
+        Ok(result)
+    }
 
-    // remove a subscription
-    fn del_subscription<S: Storage>(store: S, chid: ChannelID) -> Result<bool, SubscriptionError>;
+    pub fn update(&mut self, new_token: &str) -> error::Result<bool> {
+        let result = self.conn.update(&new_token)?;
+        self.store
+            .update_native_id(self.conn.uaid.as_ref().unwrap(), new_token)?;
+        Ok(result)
+    }
 
-    // to_json -> impl Into::<String> for Subscriber...
-}
+    pub fn verify_connection(&self) -> error::Result<bool> {
+        let channels = self
+            .store
+            .get_channel_list(self.conn.uaid.as_ref().unwrap())?;
+        self.conn.verify_connection(&channels)
+    }
 
-impl Subscriber for Subscription {
-    fn get_subscription<S: Storage>(
-        storage: S,
-        origin_attributes: HashMap<String, String>,
-        app_server_key: Option<&str>,
-        registration_key: Option<&str>,
-        priviledged: bool,
-    ) -> Result<Subscription, SubscriptionError> {
-        if let Ok(con) = ConnectHttp::connect::<ConnectHttp>(None) {
-            let uaid = con.uaid();
-            let chid = storage.generate_channel_id();
-            if let Ok(endpoint_data) = con.subscribe(&chid, app_server_key, registration_key) {
-                let private_key = Crypto::generate_key().unwrap();
-                storage.create_record(
-                    &uaid,
-                    &chid,
-                    origin_attributes,
-                    &endpoint_data.endpoint,
-                    &con.auth,
-                    &private_key,
-                    priviledged,
-                );
-                return Ok(Subscription {
-                    channelid: chid,
-                    endpoint: endpoint_data.endpoint.clone(),
-                    keys: SubscriptionKeys {
-                        p256dh: private_key.public.clone(),
-                        auth: private_key.auth.clone(),
-                    },
-                });
+    pub fn decrypt(
+        &self,
+        uaid: &str,
+        chid: &str,
+        body: &str,
+        encoding: &str,
+        dh: Option<&str>,
+        salt: Option<&str>,
+    ) -> Result<String> {
+        match self.store.get_record(&uaid, chid) {
+            Err(e) => Err(ErrorKind::StorageError(format!("{:?}", e)).into()),
+            Ok(v) => {
+                if let Some(val) = v {
+                    let key = Key::deserialize(val.key)?;
+                    return match Crypto::decrypt(&key, body, encoding, salt, dh) {
+                        Err(e) => Err(ErrorKind::EncryptionError(format!("{:?}", e)).into()),
+                        Ok(v) => serde_json::to_string(&v)
+                            .map_err(|e| ErrorKind::TranscodingError(format!("{:?}", e)).into()),
+                    };
+                };
+                Err(ErrorKind::StorageError(format!(
+                    "No record for uaid:chid {:?}:{:?}",
+                    self.conn.uaid, chid
+                ))
+                .into())
             }
         }
-        Err(SubscriptionError)
     }
 
-    fn update_subscription<S: Storage>(
-        storage: S,
-        chid: ChannelID,
-        bridge_id: Option<String>,
-    ) -> Result<Subscription, SubscriptionError> {
-        Err(SubscriptionError)
+    /// Fetch new endpoints for a list of channels.
+    pub fn regenerate_endpoints(&mut self) -> error::Result<HashMap<String, String>> {
+        let uaid = self.conn.uaid.clone().unwrap();
+        let channels = self.store.get_channel_list(&uaid)?;
+        let mut results: HashMap<String, String> = HashMap::new();
+        if &self.config.sender_id == "test" {
+            results.insert(
+                "deadbeef00000000decafbad00000000".to_owned(),
+                "http://push.example.com/test/obscure".to_owned(),
+            );
+            return Ok(results);
+        }
+        for channel in channels {
+            let info = self.conn.subscribe(&channel)?;
+            self.store
+                .update_endpoint(&uaid, &channel, &info.endpoint)?;
+            results.insert(channel.clone(), info.endpoint);
+        }
+        Ok(results)
     }
+}
 
-    // remove a subscription
-    fn del_subscription<S: Storage>(store: S, chid: ChannelID) -> Result<bool, SubscriptionError> {
-        Ok(false)
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    //use serde_json::json;
+
+    // use crypto::{get_bytes, Key};
+
+    /*
+    const DUMMY_CHID: &'static str = "deadbeef00000000decafbad00000000";
+    const DUMMY_UAID: &'static str = "abad1dea00000000aabbccdd00000000";
+    // Local test SENDER_ID
+    const SENDER_ID: &'static str = "308358850242";
+    const SECRET: &'static str = "SuP3rS1kRet";
+    */
+
+    #[test]
+    fn basic() -> Result<()> {
+        let _pm = PushManager::new(Default::default())?;
+        //pm.subscribe(DUMMY_CHID, "http://example.com/test-scope")?;
+        //pm.unsubscribe(Some(DUMMY_CHID))?;
+        Ok(())
     }
 }
