@@ -193,7 +193,7 @@ def linux_build_task(name):
         })
         .with_index_and_artifacts_expire_in(build_artifacts_expire_in)
         .with_artifacts("/build/sccache.log")
-        .with_max_run_time_minutes(60)
+        .with_max_run_time_minutes(120)
         .with_dockerfile(dockerfile_path("build"))
         .with_env(**build_env, **linux_build_env)
         .with_script("""
