@@ -8,6 +8,7 @@ public class FenixMegazord {
     public static void init() {
         System.setProperty("mozilla.appservices.fxaclient_ffi_lib_name", "fenix");
         System.setProperty("mozilla.appservices.places_ffi_lib_name", "fenix");
+        System.setProperty("mozilla.appservices.push_ffi_lib_name", "fenix");
         System.setProperty("mozilla.appservices.rc_log_ffi_lib_name", "fenix");
     }
 }

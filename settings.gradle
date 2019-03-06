@@ -6,12 +6,14 @@ include ':logins-library'
 include ':places-library'
 include ':rustlog-library'
 include ':as-support-library'
+include ':push-library'
 
 project(':fxa-client-library').projectDir = new File("components/fxa-client/android")
 project(':logins-library').projectDir = new File("components/logins/android")
 project(':places-library').projectDir = new File("components/places/android")
 project(':rustlog-library').projectDir = new File("components/rc_log/android")
 project(':as-support-library').projectDir = new File("components/support/android")
+project(':push-library').projectDir = new File("components/push/android")
 
 include ':lockbox-megazord'
 project(':lockbox-megazord').projectDir = new File("megazords/lockbox/android")
