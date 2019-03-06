@@ -36,7 +36,10 @@ export CFLAGS="-D__ANDROID_API__=$ANDROID_NDK_API_VERSION"
 SQLCIPHER_OUTPUT_PATH="/tmp/sqlcipher-""$TOOLCHAIN"_$$
 mkdir -p "$SQLCIPHER_OUTPUT_PATH"
 
-if [ "$TOOLCHAIN" == "i686-linux-android" ]
+if [ "$TOOLCHAIN" == "x86_64-linux-android" ]
+then
+  HOST="x86_64-linux"
+elif [ "$TOOLCHAIN" == "i686-linux-android" ]
 then
   HOST="i686-linux"
 elif [ "$TOOLCHAIN" == "aarch64-linux-android" ]

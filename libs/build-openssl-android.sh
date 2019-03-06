@@ -31,7 +31,10 @@ export PATH="$TOOLCHAIN_PATH/bin:$PATH"
 OPENSSL_OUTPUT_PATH="/tmp/openssl-$TOOLCHAIN"_$$
 mkdir -p "$OPENSSL_OUTPUT_PATH"
 
-if [ "$TOOLCHAIN" == "i686-linux-android" ]
+if [ "$TOOLCHAIN" == "x86_64-linux-android" ]
+then
+  CONFIGURE_ARCH="android64-x86_64"
+elif [ "$TOOLCHAIN" == "i686-linux-android" ]
 then
   CONFIGURE_ARCH="android-x86"
 elif [ "$TOOLCHAIN" == "aarch64-linux-android" ]
