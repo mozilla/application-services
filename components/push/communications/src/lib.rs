@@ -99,10 +99,10 @@ pub fn connect(options: PushConfiguration) -> error::Result<ConnectHttp> {
         );
     };
     if options.socket_protocol.is_some() {
-        return Err(error::ErrorKind::GeneralError("Unsupported".to_owned()).into());
+        return Err(error::ErrorKind::CommunicationError("Unsupported".to_owned()).into());
     };
     if options.bridge_type.is_some() && options.registration_id.is_none() {
-        return Err(error::ErrorKind::GeneralError(
+        return Err(error::ErrorKind::CommunicationError(
             "Missing Registration ID, please register with OS first".to_owned(),
         )
         .into());
