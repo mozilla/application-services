@@ -11,5 +11,5 @@ This directory builds `openssl` for iOS, Android and desktop platforms.
 
 ### Supported Arch
 
-* Android: `TARGET_ARCHS=("x86" "arm64" "arm")`
+* Android: `TARGET_ARCHS=("x86" "x86_64" "arm64" "arm")`
 * iOS: `TARGET_ARCHS=("x86_64" "arm64")`

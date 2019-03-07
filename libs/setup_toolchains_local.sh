@@ -5,9 +5,9 @@
 set -eu
 
 # Keep these 3 in sync.
-TARGET_ARCHS=("x86" "arm64" "arm")
-RUST_TARGETS=("i686-linux-android" "armv7-linux-androideabi" "aarch64-linux-android")
-CLANG_BINS=("i686-linux-android-clang" "arm-linux-androideabi-clang" "aarch64-linux-android-clang")
+TARGET_ARCHS=("x86_64" "x86" "arm64" "arm")
+RUST_TARGETS=("x86_64-linux-android" "i686-linux-android" "armv7-linux-androideabi" "aarch64-linux-android")
+CLANG_BINS=("x86_64-linux-android-clang" "i686-linux-android-clang" "arm-linux-androideabi-clang" "aarch64-linux-android-clang")
 
 ANDROID_NDK_ROOT="${1:-$ANDROID_NDK_ROOT}"
 

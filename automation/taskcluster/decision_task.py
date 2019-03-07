@@ -15,7 +15,7 @@ def main(task_for, mock=False):
         desktop_macos_libs_task = desktop_macos_libs()
         desktop_win32_x86_64_libs_task = desktop_win32_x86_64_libs()
 
-        android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task)
+        android_multiarch(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task)
 
     elif task_for == "github-push":
         # Push to master or a tag.
@@ -26,10 +26,10 @@ def main(task_for, mock=False):
 
         if CONFIG.git_ref.startswith('refs/tags/'):
             # A release.
-            android_arm32_release(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task)
+            android_multiarch_release(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task)
         else:
             # A regular push to master.
-            android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task)
+            android_multiarch(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task)
 
     else:  # pragma: no cover
         raise ValueError("Unrecognized $TASK_FOR value: %r", task_for)
@@ -117,7 +117,7 @@ def desktop_win32_x86_64_libs():
         .find_or_create("build.libs.desktop.win32-x86-64." + CONFIG.git_sha_for_directory("libs"))
     )
 
-def android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task):
+def android_multiarch(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task):
     return (
         linux_target_macos_build_task("Android (all architectures): build and test")
         .with_curl_artifact_script(android_libs_task, "target.tar.gz")
@@ -140,7 +140,7 @@ def android_arm32(android_libs_task, desktop_linux_libs_task, desktop_macos_libs
         .create()
     )
 
-def android_arm32_release(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task):
+def android_multiarch_release(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task):
     return (
         linux_target_macos_build_task("Android (all architectures): build and test and release")
         .with_curl_artifact_script(android_libs_task, "target.tar.gz")
@@ -193,7 +193,7 @@ def linux_build_task(name):
         })
         .with_index_and_artifacts_expire_in(build_artifacts_expire_in)
         .with_artifacts("/build/sccache.log")
-        .with_max_run_time_minutes(60)
+        .with_max_run_time_minutes(120)
         .with_dockerfile(dockerfile_path("build"))
         .with_env(**build_env, **linux_build_env)
         .with_script("""
@@ -201,14 +201,16 @@ def linux_build_task(name):
             rustup default 1.33.0
             # rustup target add x86_64-unknown-linux-gnu # See https://github.com/rust-lang-nursery/rustup.rs/issues/1533.
 
+            rustup target add x86_64-linux-android
             rustup target add i686-linux-android
             rustup target add armv7-linux-androideabi
             rustup target add aarch64-linux-android
         """)
         .with_script("""
-            test -d $ANDROID_NDK_TOOLCHAIN_DIR/arm-$ANDROID_NDK_API_VERSION   || $ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py --arch="arm"   --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/arm-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
-            test -d $ANDROID_NDK_TOOLCHAIN_DIR/arm64-$ANDROID_NDK_API_VERSION || $ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py --arch="arm64" --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/arm64-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
-            test -d $ANDROID_NDK_TOOLCHAIN_DIR/x86-$ANDROID_NDK_API_VERSION   || $ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py --arch="x86"   --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/x86-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
+            test -d $ANDROID_NDK_TOOLCHAIN_DIR/arm-$ANDROID_NDK_API_VERSION    || $ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py --arch="arm"   --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/arm-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
+            test -d $ANDROID_NDK_TOOLCHAIN_DIR/arm64-$ANDROID_NDK_API_VERSION  || $ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py --arch="arm64" --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/arm64-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
+            test -d $ANDROID_NDK_TOOLCHAIN_DIR/x86-$ANDROID_NDK_API_VERSION    || $ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py --arch="x86"   --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/x86-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
+            test -d $ANDROID_NDK_TOOLCHAIN_DIR/x86_64-$ANDROID_NDK_API_VERSION || $ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py --arch="x86_64"   --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/x86_64-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
         """)
         .with_repo()
         .with_script("""

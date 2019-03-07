@@ -36,7 +36,7 @@ a rc file or similar so they persist between reboots etc.
 
 2. Install `rustup` from https://rustup.rs:
     - If you already have it, run `rustup update`
-    - Run `rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android`
+    - Run `rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android`
     - Run `rustup toolchain add beta` (TODO: this no longer appears necessary).
 
 3. Ensure your clone of `mozilla/application-services` is up to date.
@@ -64,11 +64,11 @@ a rc file or similar so they persist between reboots etc.
 7. Build openssl and sqlcipher
     - `cd path/to/application-services/libs` (Same dir you were just in for step 4)
     - `./build-all.sh android` (Go make some coffee or something, this will take
-       some time as it has to compile sqlcipher and openssl for x86, arm, and arm64).
+       some time as it has to compile sqlcipher and openssl for x86, x86_64, arm, and arm64).
     - Note that if something goes wrong here
         - Check all environment variables mentions above are set and correct.
         - The following directories should exist, and point to standalone NDK
-          toolchains `$ANDROID_NDK_TOOLCHAIN_DIR/{x86,arm,arm64}-$ANDROID_NDK_API_VERSION`.
+          toolchains `$ANDROID_NDK_TOOLCHAIN_DIR/{x86,x86_64,arm,arm64}-$ANDROID_NDK_API_VERSION`.
 
 ## Building
 
@@ -115,6 +115,7 @@ with sub-directories for each Android architecture. For example, after executing
 you will find:
 
     target/aarch64-linux-android/release/libplaces_ffi.so
+    target/x86_64-linux-android/release/libplaces_ffi.so
     target/i686-linux-android/release/libplaces_ffi.so
     target/armv7-linux-androideabi/release/libplaces_ffi.so
 

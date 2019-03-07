@@ -6,12 +6,12 @@ abspath () { case "$1" in /*)printf "%s\\n" "$1";; *)printf "%s\\n" "$PWD/$1";; 
 export -f abspath
 
 # Our short-names for the architectures.
-TARGET_ARCHS=("x86" "arm64" "arm")
+TARGET_ARCHS=("x86_64" "x86" "arm64" "arm")
 # The directories required for the Android-Gradle plugin and APK
 # layout, like `jniLibs/x86` or `lib/x86` respectively.
-TARGET_ARCHS_DISTS=("x86" "arm64-v8a" "armeabi-v7a")
+TARGET_ARCHS_DISTS=("x86_64" "x86" "arm64-v8a" "armeabi-v7a")
 # The corresponding Rust target names.
-TARGET_ARCHS_TOOLCHAINS=("i686-linux-android" "aarch64-linux-android" "arm-linux-androideabi")
+TARGET_ARCHS_TOOLCHAINS=("x86_64-linux-android" "i686-linux-android" "aarch64-linux-android" "arm-linux-androideabi")
 
 # End of configuration.
 
