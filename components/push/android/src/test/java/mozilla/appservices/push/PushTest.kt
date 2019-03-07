@@ -175,4 +175,13 @@ class PushTest {
         assertEquals("Check changed endpoint", "http://push.example.com/test/obscure", vv)
     }
 
+    @Test
+    fun testDispatchForChid() {
+        val manager = getPushManager()
+
+        val subscriptionInfo = manager.subscribe(testChannelid, "foo")
+        val dispatch = manager.dispatch_for_chid(testChannelid);
+        assertEquals("uaid", "abad1d3a00000000aabbccdd00000000", dispatch.uaid)
+        assertEquals("scope", "foo", dispatch.scope)
+    }
 }

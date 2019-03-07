@@ -121,6 +121,14 @@ class PushManager(
             return retarray
         }
 
+    override fun dispatch_for_chid(channelID: String): DispatchInfo {
+        val json = rustCallForString { error ->
+            LibPushFFI.INSTANCE.push_dispatch_for_chid(
+                this.handle.get(), channelID, error)
+        }
+        return DispatchInfo.fromString(json)
+    }
+
     private inline fun <U> rustCall(callback: (RustError.ByReference) -> U): U {
         synchronized(this) {
             val e = RustError.ByReference()
@@ -202,6 +210,21 @@ class SubscriptionInfo constructor (
     }
  }
 
+class DispatchInfo constructor (
+        val uaid: String,
+        val scope: String)
+{
+    companion object {
+        internal fun fromString(msg: String) : DispatchInfo {
+            val obj = JSONObject(msg)
+            return DispatchInfo(
+                uaid = obj.getString("uaid"),
+               scope = obj.getString("scope")
+           )
+        }
+    }
+}
+
 /**
  * An API for interacting with Push.
  */
@@ -272,5 +295,7 @@ interface PushAPI {
                 encoding: String,
                 salt: String,
                 dh: String): ByteArray
+
+    fun dispatch_for_chid(channelID: String): DispatchInfo
 
 }

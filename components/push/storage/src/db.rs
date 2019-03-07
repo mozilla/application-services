@@ -12,6 +12,8 @@ use crate::{record::PushRecord, schema};
 pub trait Storage {
     fn get_record(&self, uaid: &str, chid: &str) -> Result<Option<PushRecord>>;
 
+    fn get_record_by_chid(&self, chid: &str) -> Result<Option<PushRecord>>;
+
     fn put_record(&self, record: &PushRecord) -> Result<bool>;
 
     fn delete_record(&self, uaid: &str, chid: &str) -> Result<bool>;
@@ -72,6 +74,15 @@ impl Storage for PushDb {
             PushRecord::from_row,
             false,
         )?)
+    }
+
+    fn get_record_by_chid(&self, chid: &str) -> Result<Option<PushRecord>> {
+        let query = format!(
+            "SELECT {common_cols}
+             FROM push_record WHERE channel_id = :chid",
+            common_cols = schema::COMMON_COLS,
+        );
+        Ok(self.try_query_row(&query, &[(":chid", &chid)], PushRecord::from_row, false)?)
     }
 
     fn put_record(&self, record: &PushRecord) -> Result<bool> {

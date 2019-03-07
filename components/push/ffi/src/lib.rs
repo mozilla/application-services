@@ -182,6 +182,28 @@ pub unsafe extern "C" fn push_decrypt(
 }
 // TODO: modify these to be relevant.
 
+#[no_mangle]
+pub unsafe extern "C" fn push_dispatch_for_chid(
+    handle: u64,
+    chid: *const c_char,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("push_dispatch_for_chid");
+    MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<String> {
+        let chid = ffi_support::rust_str_from_c(chid);
+        if let Some(record) = mgr.get_record_by_chid(chid)? {
+            let dispatch = json!({
+                "uaid": record.uaid,
+                "scope": record.scope,
+            });
+            Ok(dispatch.to_string())
+        } else {
+            // TODO: either Error or return Option
+            Ok(String::from(""))
+        }
+    })
+}
+
 define_string_destructor!(push_destroy_string);
 define_bytebuffer_destructor!(push_destroy_buffer);
 define_handle_map_deleter!(MANAGER, push_connection_destroy);
