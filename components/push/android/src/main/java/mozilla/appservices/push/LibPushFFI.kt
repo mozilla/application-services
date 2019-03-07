@@ -88,6 +88,12 @@ internal interface LibPushFFI : Library {
         out_err: RustError.ByReference
     ): Pointer?
 
+    fun push_dispatch_for_chid(
+        mgr: PushManagerHandle,
+        channelID: String,
+        out_err: RustError.ByReference
+    ): Pointer?
+
     /** Destroy strings returned from libpush_ffi calls. */
     fun push_destroy_string(s: Pointer)
 

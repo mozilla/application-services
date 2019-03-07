@@ -140,6 +140,10 @@ impl PushManager {
         }
         Ok(results)
     }
+
+    pub fn get_record_by_chid(&self, chid: &str) -> error::Result<Option<storage::PushRecord>> {
+        self.store.get_record_by_chid(chid)
+    }
 }
 
 #[cfg(test)]
