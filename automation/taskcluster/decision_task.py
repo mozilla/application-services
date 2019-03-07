@@ -144,10 +144,12 @@ def android_multiarch_release():
         android_task("Android (all architectures): build and test and release")
         .with_script(TEST_AND_ASSEMBLE_SCRIPT)
         .with_script("""
+            ./automation/upload_android_symbols.sh
             python automation/taskcluster/release/fetch-bintray-api-key.py
             ./gradlew bintrayUpload --debug -PvcsTag="${GIT_SHA}"
         """)
         .with_artifacts("/build/repo/build/target.maven.zip")
+        .with_scopes("secrets:get:project/application-services/symbols-token")
         .with_scopes("secrets:get:project/application-services/publish")
         .with_features("taskclusterProxy")
         .create()

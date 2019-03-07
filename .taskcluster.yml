@@ -174,6 +174,8 @@ tasks:
                     # So that we can publish to nalexander@'s personal bintray
                     # at https://bintray.com/ncalexander/application-services.
                     - "secrets:get:project/application-services/publish"
+                    # So that we can upload symbols to Socorro
+                    - "secrets:get:project/application-services/symbols-token"
                     #- project:mobile:android-components:releng:beetmover:action:push-to-maven
                     #- project:mobile:android-components:releng:beetmover:bucket:${beetmover_bucket}
                     #- queue:create-task:${tasks_priority}:scriptworker-prov-v1/${beetmover_worker_type}
