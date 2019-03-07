@@ -150,7 +150,7 @@ jobs:
             brew update
             brew outdated carthage || brew upgrade carthage
             brew install swift-protobuf
-            sh build-carthage.sh MozillaAppServices-frameworks.zip
+            sh build-carthage.sh MozillaAppServices.framework.zip
       - save_cache:
           name: Save Rust cache
           key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -159,11 +159,11 @@ jobs:
       - run:
           name: "Create Carthage bin-only project specification"
           command: |
-            ZIP_URL=https://circleci.com/api/v1.1/project/github/mozilla/application-services/$CIRCLE_BUILD_NUM/artifacts/0/dist/MozillaAppServices-frameworks.zip
+            ZIP_URL=https://circleci.com/api/v1.1/project/github/mozilla/application-services/$CIRCLE_BUILD_NUM/artifacts/0/dist/MozillaAppServices.framework.zip
             echo "{\"0.0.1\":\"$ZIP_URL\"}" > mozilla.app-services.json
       - store_artifacts:
-          path: MozillaAppServices-frameworks.zip
-          destination: dist/MozillaAppServices-frameworks.zip
+          path: MozillaAppServices.framework.zip
+          destination: dist/MozillaAppServices.framework.zip
       - store_artifacts:
           path: mozilla.app-services.json
           destination: dist/mozilla.app-services.json
@@ -175,7 +175,7 @@ jobs:
             echo "binary \"$JSON_URL\" ~> 0.0.1-snapshot # mozilla/application-services@$CIRCLE_SHA1"
       - persist_to_workspace:
           root: .
-          paths: MozillaAppServices-frameworks.zip
+          paths: MozillaAppServices.framework.zip
   Carthage release:
     macos:
       xcode: "10.1.0"
@@ -191,7 +191,7 @@ jobs:
             sudo chown -R `whoami` /Library/Ruby/Gems
             gem install --user-install dpl
             PATH=$HOME/.gem/ruby/2.3.0/bin:$PATH
-            dpl --provider=releases --api-key=${GITHUB_TOKEN} --file=MozillaAppServices-frameworks.zip --overwrite --skip-cleanup=true
+            dpl --provider=releases --api-key=${GITHUB_TOKEN} --file=MozillaAppServices.framework.zip --overwrite --skip-cleanup=true
 
 workflows:
   version: 2
