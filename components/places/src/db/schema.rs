@@ -8,6 +8,7 @@
 // db.rs.
 
 use crate::api::places_api::ConnectionType;
+use crate::bookmark_sync::create_synced_bookmark_roots;
 use crate::db::PlacesDb;
 use crate::error::*;
 use crate::storage::bookmarks::create_bookmark_roots;
@@ -127,12 +128,6 @@ pub fn init(db: &PlacesDb) -> Result<()> {
         log::debug!("Creating temp tables and triggers");
     }
     Ok(())
-}
-
-/// Sets up the syncable roots. All items in `moz_bookmarks_synced` descend
-/// from these roots.
-fn create_synced_bookmark_roots(db: &PlacesDb) -> Result<()> {
-    unimplemented!("TODO: Insert synced bookmark roots");
 }
 
 /// Helper for upgrade. Intended use:

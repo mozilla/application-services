@@ -163,4 +163,6 @@ pub enum Corruption {
         _0, _1
     )]
     NoParent(String, String),
+    #[fail(display = "The local roots are invalid")]
+    InvalidLocalRoots,
 }

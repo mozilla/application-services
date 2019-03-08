@@ -180,14 +180,14 @@ CREATE TABLE IF NOT EXISTS moz_bookmarks_synced(
 -- childrens' `parentid`.
 CREATE TABLE IF NOT EXISTS moz_bookmarks_synced_structure(
     guid TEXT NOT NULL PRIMARY KEY,
-    parentGuid TEXT NOT NULL REFERENCES items(guid)
+    parentGuid TEXT NOT NULL REFERENCES moz_bookmarks_synced(guid)
                              ON DELETE CASCADE,
     position INTEGER NOT NULL
 ) WITHOUT ROWID;
 
 -- This table holds tags for synced items.
 CREATE TABLE IF NOT EXISTS moz_bookmarks_synced_tags(
-    itemId INTEGER NOT NULL REFERENCES items(id)
+    itemId INTEGER NOT NULL REFERENCES moz_bookmarks_synced(id)
                             ON DELETE CASCADE,
     tag TEXT NOT NULL
 );

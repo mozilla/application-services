@@ -63,6 +63,14 @@ impl Timestamp {
     pub fn now() -> Self {
         SystemTime::now().into()
     }
+
+    /// Returns None if `other` is later than `self` (Duration may not represent
+    /// negative timespans in rust).
+    #[inline]
+    pub fn duration_since(self, other: Timestamp) -> Option<Duration> {
+        // just do this via SystemTime.
+        SystemTime::from(self).duration_since(other.into()).ok()
+    }
 }
 
 impl From<Timestamp> for u64 {

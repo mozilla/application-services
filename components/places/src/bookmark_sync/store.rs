@@ -45,7 +45,10 @@ impl<'a> BookmarksStore<'a> {
     ) -> Result<()> {
         let (url, validity) = match self.maybe_store_url(b.url.as_ref()) {
             Ok(url) => (Some(url.into_string()), SyncedBookmarkValidity::Valid),
-            Err(_) => (None, SyncedBookmarkValidity::Replace),
+            Err(e) => {
+                log::warn!("Incoming bookmark has an invalid URL: {:?}", e);
+                (None, SyncedBookmarkValidity::Replace)
+            }
         };
         let needs_merge = staging == Staging::Incoming;
         self.db.execute_named_cached(
@@ -53,9 +56,14 @@ impl<'a> BookmarksStore<'a> {
                                                  dateAdded, title, keyword, validity, placeId)
                VALUES(:guid, :parentGuid, :serverModified, :needsMerge, :kind,
                       :dateAdded, NULLIF(:title, ""), :keyword, :validity,
-                      (SELECT id FROM moz_places
-                       WHERE hash = hash(:url) AND
-                             url = :url)"#,
+                      -- XXX - when url is null we still fail below when we call hash()???
+                      CASE WHEN :url ISNULL
+                      THEN NULL
+                      ELSE (SELECT id FROM moz_places
+                            WHERE url_hash = hash(:url) AND
+                            url = :url)
+                      END
+                      )"#,
             &[
                 (":guid", &b.guid.as_ref()),
                 (":parentGuid", &b.parent_guid.as_ref()),
@@ -117,7 +125,7 @@ impl<'a> BookmarksStore<'a> {
             }
             self.db.execute_named_cached(
                 "INSERT OR IGNORE INTO moz_places(guid, url, url_hash)
-                 VALUES(IFNULL((SELECT guid FROM urls
+                 VALUES(IFNULL((SELECT guid FROM moz_places
                                 WHERE url_hash = hash(:url) AND
                                       url = :url),
                         generate_guid()), :url, hash(:url))",
@@ -127,6 +135,22 @@ impl<'a> BookmarksStore<'a> {
         } else {
             Err(ErrorKind::InvalidPlaceInfo(InvalidPlaceInfo::NoUrl).into())
         }
+    }
+
+    pub fn apply_payload(
+        &self,
+        timestamp: ServerTimestamp,
+        payload: sync15::Payload,
+    ) -> Result<()> {
+        let item = BookmarkItemRecord::from_payload(payload)?;
+        match item {
+            BookmarkItemRecord::Bookmark(b) => {
+                self.store_bookmark(Staging::Incoming, timestamp, b)?
+            }
+            BookmarkItemRecord::Folder(f) => self.store_folder(Staging::Incoming, timestamp, f)?,
+            _ => unimplemented!("TODO: Store other types"),
+        }
+        Ok(())
     }
 }
 
@@ -147,16 +171,7 @@ impl<'a> Store for BookmarksStore<'a> {
             .db
             .time_chunked_transaction(Duration::from_millis(1000))?;
         for incoming in inbound.changes {
-            let item = BookmarkItemRecord::from_payload(incoming.0)?;
-            match item {
-                BookmarkItemRecord::Bookmark(b) => {
-                    self.store_bookmark(Staging::Incoming, timestamp, b)?
-                }
-                BookmarkItemRecord::Folder(f) => {
-                    self.store_folder(Staging::Incoming, timestamp, f)?
-                }
-                _ => unimplemented!("TODO: Store other types"),
-            }
+            self.apply_payload(timestamp, incoming.0)?;
             tx.maybe_commit()?;
         }
         tx.commit()?;

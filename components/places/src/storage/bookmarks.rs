@@ -52,6 +52,15 @@ impl BookmarkRootGuid {
             _ => None,
         }
     }
+
+    pub fn user_roots() -> Vec<BookmarkRootGuid> {
+        vec![
+            BookmarkRootGuid::Menu,
+            BookmarkRootGuid::Toolbar,
+            BookmarkRootGuid::Unfiled,
+            BookmarkRootGuid::Mobile,
+        ]
+    }
 }
 
 impl From<BookmarkRootGuid> for SyncGuid {
