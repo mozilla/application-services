@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::error::{self, ErrorKind};
+use dogear;
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use serde::ser::{Serialize, Serializer};
@@ -30,6 +32,12 @@ where
 {
     fn from(x: T) -> SyncGuid {
         SyncGuid(x.into())
+    }
+}
+
+impl From<SyncGuid> for dogear::Guid {
+    fn from(guid: SyncGuid) -> dogear::Guid {
+        guid.as_ref().into()
     }
 }
 
@@ -70,6 +78,10 @@ impl Timestamp {
     pub fn duration_since(self, other: Timestamp) -> Option<Duration> {
         // just do this via SystemTime.
         SystemTime::from(self).duration_since(other.into()).ok()
+    }
+
+    pub fn as_millis(&self) -> u64 {
+        self.0
     }
 }
 
@@ -307,19 +319,29 @@ pub enum SyncedBookmarkKind {
 
 impl SyncedBookmarkKind {
     #[inline]
-    pub fn from_u8(v: u8) -> Option<Self> {
+    pub fn from_u8(v: u8) -> error::Result<Self> {
         match v {
-            1 => Some(SyncedBookmarkKind::Bookmark),
-            2 => Some(SyncedBookmarkKind::Query),
-            3 => Some(SyncedBookmarkKind::Folder),
-            4 => Some(SyncedBookmarkKind::Livemark),
-            5 => Some(SyncedBookmarkKind::Separator),
-            _ => None,
+            1 => Ok(SyncedBookmarkKind::Bookmark),
+            2 => Ok(SyncedBookmarkKind::Query),
+            3 => Ok(SyncedBookmarkKind::Folder),
+            4 => Ok(SyncedBookmarkKind::Livemark),
+            5 => Ok(SyncedBookmarkKind::Separator),
+            _ => Err(ErrorKind::UnsupportedSyncedBookmarkKind(v).into()),
         }
     }
 }
 
-/// TODO: `impl From<SyncedBookmarkKind> for dogear::Kind`.
+impl From<SyncedBookmarkKind> for dogear::Kind {
+    fn from(kind: SyncedBookmarkKind) -> dogear::Kind {
+        match kind {
+            SyncedBookmarkKind::Bookmark => dogear::Kind::Bookmark,
+            SyncedBookmarkKind::Query => dogear::Kind::Query,
+            SyncedBookmarkKind::Folder => dogear::Kind::Folder,
+            SyncedBookmarkKind::Livemark => dogear::Kind::Livemark,
+            SyncedBookmarkKind::Separator => dogear::Kind::Separator,
+        }
+    }
+}
 
 impl ToSql for SyncedBookmarkKind {
     fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
@@ -340,17 +362,25 @@ pub enum SyncedBookmarkValidity {
 
 impl SyncedBookmarkValidity {
     #[inline]
-    pub fn from_u8(v: u8) -> Option<Self> {
+    pub fn from_u8(v: u8) -> error::Result<Self> {
         match v {
-            1 => Some(SyncedBookmarkValidity::Valid),
-            2 => Some(SyncedBookmarkValidity::Reupload),
-            3 => Some(SyncedBookmarkValidity::Replace),
-            _ => None,
+            1 => Ok(SyncedBookmarkValidity::Valid),
+            2 => Ok(SyncedBookmarkValidity::Reupload),
+            3 => Ok(SyncedBookmarkValidity::Replace),
+            _ => Err(ErrorKind::UnsupportedSyncedBookmarkValidity(v).into()),
         }
     }
 }
 
-// TODO: `impl From<SyncedBookmarkValidity> for dogear::Validity`.
+impl From<SyncedBookmarkValidity> for dogear::Validity {
+    fn from(validity: SyncedBookmarkValidity) -> dogear::Validity {
+        match validity {
+            SyncedBookmarkValidity::Valid => dogear::Validity::Valid,
+            SyncedBookmarkValidity::Reupload => dogear::Validity::Reupload,
+            SyncedBookmarkValidity::Replace => dogear::Validity::Replace,
+        }
+    }
+}
 
 impl ToSql for SyncedBookmarkValidity {
     fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {

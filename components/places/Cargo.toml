@@ -30,6 +30,7 @@ memchr = "2.1.3"
 prost = "0.4.0"
 prost-derive = "0.4.0"
 bytes = "0.4.11"
+dogear = "0.2.1"
 
 [dependencies.rusqlite]
 version = "0.16.0"

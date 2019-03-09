@@ -4,6 +4,7 @@
 
 // XXX - more copy-pasta from logins.
 
+use dogear;
 use failure::{Backtrace, Context, Fail};
 use std::boxed::Box;
 use std::{self, fmt};
@@ -66,6 +67,9 @@ pub enum ErrorKind {
     #[fail(display = "Error synchronizing: {}", _0)]
     SyncAdapterError(#[fail(cause)] sync15::Error),
 
+    #[fail(display = "Error merging: {}", _0)]
+    MergeError(#[fail(cause)] dogear::Error),
+
     #[fail(display = "Error parsing JSON data: {}", _0)]
     JsonError(#[fail(cause)] serde_json::Error),
 
@@ -97,7 +101,13 @@ pub enum ErrorKind {
     MissingBookmarkKind,
 
     #[fail(display = "Incoming bookmark has unsupported type {}", _0)]
-    UnsupportedBookmarkKind(String),
+    UnsupportedIncomingBookmarkType(String),
+
+    #[fail(display = "Synced bookmark has unsupported kind {}", _0)]
+    UnsupportedSyncedBookmarkKind(u8),
+
+    #[fail(display = "Synced bookmark has unsupported validity {}", _0)]
+    UnsupportedSyncedBookmarkValidity(u8),
 }
 
 macro_rules! impl_from_error {
@@ -125,7 +135,8 @@ impl_from_error! {
     (SqlError, rusqlite::Error),
     (InvalidPlaceInfo, InvalidPlaceInfo),
     (Corruption, Corruption),
-    (IoError, std::io::Error)
+    (IoError, std::io::Error),
+    (MergeError, dogear::Error)
 }
 
 #[derive(Debug, Fail)]
