@@ -399,6 +399,13 @@ fn insert_bookmark_in_tx(db: &impl ConnExt, bm: &InsertableItem) -> Result<SyncG
             )?;
         }
     };
+
+    // Bump the parent's change counter.
+    let sql_counter = "
+        UPDATE moz_bookmarks SET syncChangeCounter = syncChangeCounter + 1
+        WHERE id = :parent_id";
+    db.execute_named_cached(sql_counter, &[(":parent_id", &parent.row_id)])?;
+
     Ok(guid)
 }
 
@@ -1395,6 +1402,9 @@ mod tests {
         let conn = new_mem_connection();
         let url = Url::parse("https://www.example.com")?;
 
+        conn.execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
+            .expect("should work");
+
         let bm = InsertableItem::Bookmark(InsertableBookmark {
             parent_guid: BookmarkRootGuid::Unfiled.into(),
             position: BookmarkPosition::Append,
@@ -1418,6 +1428,11 @@ mod tests {
         assert_eq!(rb.sync_status, SyncStatus::New);
         assert_eq!(rb.sync_change_counter, 1);
         assert_eq!(rb.child_count, 0);
+
+        let unfiled = get_raw_bookmark(&conn, &BookmarkRootGuid::Unfiled.as_guid())?
+            .expect("should get unfiled");
+        assert_eq!(unfiled.sync_change_counter, 1);
+
         Ok(())
     }
 
