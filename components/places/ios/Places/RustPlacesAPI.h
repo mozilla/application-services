@@ -127,13 +127,17 @@ void sync15_history_sync(PlacesConnectionHandle handle,
                          char const *_Nonnull tokenserver_url,
                          PlacesError *_Nonnull out_err);
 
-void bookmarks_get_by_guid(PlacesConnectionHandle handle,
-                           char const *_Nonnull guid,
-                           PlacesError *_Nonnull out_err);
+PlacesRustBuffer bookmarks_get_by_guid(PlacesConnectionHandle handle,
+                                       char const *_Nonnull guid,
+                                       PlacesError *_Nonnull out_err);
 
-void bookmarks_get_tree(PlacesConnectionHandle handle,
-                        char const *_Nullable root_guid,
-                        PlacesError *_Nonnull out_err);
+PlacesRustBuffer bookmarks_get_by_guid(PlacesConnectionHandle handle,
+                                       char const *_Nonnull guid,
+                                       PlacesError *_Nonnull out_err);
+
+PlacesRustBuffer bookmarks_get_tree(PlacesConnectionHandle handle,
+                                    char const *_Nullable root_guid,
+                                    PlacesError *_Nonnull out_err);
 
 char *_Nullable bookmarks_insert(PlacesConnectionHandle handle,
                                  uint8_t *data,

@@ -89,3 +89,4 @@ implement_into_ffi_by_json!(SearchResult);
 implement_into_ffi_by_pointer!(PlacesInterruptHandle);
 implement_into_ffi_by_protobuf!(msg_types::HistoryVisitInfos);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNode);
+implement_into_ffi_by_protobuf!(msg_types::BookmarkNodeList);

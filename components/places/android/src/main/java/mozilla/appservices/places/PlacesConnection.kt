@@ -270,6 +270,19 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
             LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
         }
     }
+
+    override fun getBookmarksWithUrl(url: String): List<BookmarkTreeNode> {
+        val rustBuf = rustCall { err ->
+            LibPlacesFFI.INSTANCE.bookmarks_get_all_with_url(this.handle.get(), url, err)
+        }
+
+        try {
+            val message = MsgTypes.BookmarkNodeList.parseFrom(rustBuf.asCodedInputStream()!!)
+            return unpackProtobufList(message)
+        } finally {
+            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
+        }
+    }
 }
 
 /**

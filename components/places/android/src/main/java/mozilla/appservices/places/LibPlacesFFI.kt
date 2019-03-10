@@ -170,6 +170,10 @@ internal interface LibPlacesFFI : Library {
             out_err: RustError.ByReference
     )
 
+    fun bookmarks_get_all_with_url(handle: PlacesConnectionHandle,
+                                   url: String,
+                                   error: RustError.ByReference): RustBuffer.ByValue
+
     fun bookmarks_get_tree(handle: PlacesConnectionHandle,
                            optRootId: String?,
                            error: RustError.ByReference): RustBuffer.ByValue

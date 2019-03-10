@@ -427,6 +427,21 @@ pub unsafe extern "C" fn bookmarks_delete(
     })
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn bookmarks_get_all_with_url(
+    handle: u64,
+    url: *const c_char,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("bookmarks_get_all_with_url");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        Ok(bookmarks::fetch_bookmarks_by_url(
+            conn,
+            &parse_url(rust_str_from_c(url))?,
+        )?)
+    })
+}
+
 define_string_destructor!(places_destroy_string);
 define_bytebuffer_destructor!(places_destroy_bytebuffer);
 define_handle_map_deleter!(APIS, places_api_destroy);

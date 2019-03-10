@@ -181,6 +181,19 @@ interface ReadableBookmarksConnection : InterruptibleConnection {
      *         guid didn't refer to a known bookmark item.
      */
     fun getBookmark(guid: String): BookmarkTreeNode?
+
+    /**
+     * Returns the list of bookmarks with the provided URL.
+     *
+     * Note that if the URL is not percent-encoded/punycoded, that will be performed
+     * internally, and so the returned bookmarks may not have an identical URL to
+     * the one passed in (however, it will be the same according to the
+     * [URL standard](https://url.spec.whatwg.org/)).
+     *
+     * @param url The url to search for.
+     * @return A list of bookmarks that have the requested URL.
+     */
+    fun getBookmarksWithUrl(url: String): List<BookmarkTreeNode>
 }
 
 /**
@@ -384,5 +397,9 @@ internal fun unpackProtobuf(msg: MsgTypes.BookmarkNode, shouldHaveChildNodes: Bo
             throw RuntimeException("Rust passed in an illegal bookmark type $type")
         }
     }
+}
+
+internal fun unpackProtobufList(msg: MsgTypes.BookmarkNodeList): List<BookmarkTreeNode> {
+    return msg.nodesList.map { unpackProtobuf(it, false) }
 }
 

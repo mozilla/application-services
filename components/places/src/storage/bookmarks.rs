@@ -6,7 +6,7 @@ use super::RowId;
 use super::{fetch_page_info, new_page_info};
 use crate::db::PlacesDb;
 use crate::error::*;
-use crate::msg_types::BookmarkNode as ProtoBookmark;
+use crate::msg_types::{BookmarkNode as ProtoBookmark, BookmarkNodeList as ProtoNodeList};
 use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
 use rusqlite::types::ToSql;
 use rusqlite::{Connection, Row};
@@ -1313,6 +1313,32 @@ pub fn fetch_proto_tree(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<Optio
     Ok(Some(proto))
 }
 
+pub fn fetch_bookmarks_by_url(db: &impl ConnExt, url: &Url) -> Result<ProtoNodeList> {
+    let nodes = get_raw_bookmarks_for_url(db, url)?
+        .into_iter()
+        .map(|rb| {
+            // Cause tests to fail, but we'd rather not panic here
+            // for real.
+            debug_assert_eq!(rb.child_count, 0);
+            debug_assert_eq!(rb.bookmark_type, BookmarkType::Bookmark);
+            debug_assert!(rb.url.is_some());
+            ProtoBookmark {
+                node_type: rb.bookmark_type as i32,
+                guid: Some(rb.guid.0),
+                parent_guid: Some(rb.parent_guid.0),
+                position: Some(rb.position),
+                date_added: Some(rb.date_added.0 as i64),
+                last_modified: Some(rb.date_modified.0 as i64),
+                url: rb.url.map(|u| u.into_string()),
+                title: rb.title,
+                child_guids: vec![],
+                child_nodes: vec![],
+            }
+        })
+        .collect();
+    Ok(ProtoNodeList { nodes })
+}
+
 /// A "raw" bookmark - a representation of the row and some summary fields.
 #[derive(Debug)]
 struct RawBookmark {
@@ -1364,27 +1390,51 @@ impl RawBookmark {
     }
 }
 
+/// sql is based on fetchBookmark() in Desktop's Bookmarks.jsm, with 'fk' added
+/// and title's NULLIF handling.
+const RAW_BOOKMARK_SQL: &'static str = "
+    SELECT
+        b.guid,
+        p.guid AS parentGuid,
+        b.position,
+        b.dateAdded,
+        b.lastModified,
+        b.type,
+        -- Note we return null for titles with an empty string.
+        NULLIF(b.title, '') AS title,
+        h.url AS url,
+        b.id AS _id,
+        b.parent AS _parentId,
+        (SELECT count(*) FROM moz_bookmarks WHERE parent = b.id) AS _childCount,
+        p.parent AS _grandParentId,
+        b.syncStatus AS _syncStatus,
+        -- the columns below don't appear in the desktop query
+        b.fk,
+        b.syncChangeCounter
+    FROM moz_bookmarks b
+    LEFT JOIN moz_bookmarks p ON p.id = b.parent
+    LEFT JOIN moz_places h ON h.id = b.fk
+";
+
 fn get_raw_bookmark(db: &PlacesDb, guid: &SyncGuid) -> Result<Option<RawBookmark>> {
     // sql is based on fetchBookmark() in Desktop's Bookmarks.jsm, with 'fk' added
     // and title's NULLIF handling.
     Ok(db.try_query_row(
-        "
-        SELECT b.guid, p.guid AS parentGuid, b.position,
-               b.dateAdded, b.lastModified, b.type,
-               -- Note we return null for titles with an empty string.
-               NULLIF(b.title, '') AS title,
-               h.url AS url, b.id AS _id, b.parent AS _parentId,
-               (SELECT count(*) FROM moz_bookmarks WHERE parent = b.id) AS _childCount,
-               p.parent AS _grandParentId, b.syncStatus AS _syncStatus,
-               -- the columns below don't appear in the desktop query
-               b.fk, b.syncChangeCounter
-       FROM moz_bookmarks b
-       LEFT JOIN moz_bookmarks p ON p.id = b.parent
-       LEFT JOIN moz_places h ON h.id = b.fk
-       WHERE b.guid = :guid",
+        &format!("{} WHERE b.guid = :guid", RAW_BOOKMARK_SQL),
         &[(":guid", guid)],
         RawBookmark::from_row,
         true,
+    )?)
+}
+
+fn get_raw_bookmarks_for_url(db: &PlacesDb, url: &Url) -> Result<Vec<RawBookmark>> {
+    Ok(db.query_rows_into_cached(
+        &format!(
+            "{} WHERE h.url_hash = hash(:url) AND h.url = :url",
+            RAW_BOOKMARK_SQL
+        ),
+        &[(":url", &url.as_str())],
+        RawBookmark::from_row,
     )?)
 }
 

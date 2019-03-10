@@ -142,3 +142,10 @@ message BookmarkNode {
      */
     repeated BookmarkNode child_nodes = 10;
 }
+
+/** An array of bookmark nodes, since we can't represent that directly */
+message BookmarkNodeList {
+    repeated BookmarkNode nodes = 1;
+}
+
+
