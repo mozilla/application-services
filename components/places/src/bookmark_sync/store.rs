@@ -325,7 +325,17 @@ impl<'a> dogear::Store<Error> for BookmarksStore<'a> {
         deletions: Vec<Deletion>,
     ) -> Result<()> {
         let tx = self.db.unchecked_transaction()?;
-        let result = self.update_local_items(descendants, deletions);
+        let result = self
+            .update_local_items(descendants, deletions)
+            .and_then(|_| self.stage_local_items_to_upload())
+            .and_then(|_| {
+                self.db.execute_batch(
+                    "
+                    DELETE FROM mergedTree;
+                    DELETE FROM idsToWeaklyUpload;",
+                )?;
+                Ok(())
+            });
         match result {
             Ok(_) => tx.commit()?,
             Err(_) => tx.rollback()?,
@@ -593,6 +603,73 @@ impl<'a> BookmarksStore<'a> {
         self.db.execute_batch("DELETE FROM itemsToRemove")?;
 
         self.db.execute_batch("DELETE FROM relatedIdsToReupload")?;
+
+        Ok(())
+    }
+
+    /// Stores a snapshot of all locally changed items in a temporary table for
+    /// upload. This is called from within the merge transaction, to ensure that
+    /// changes made during the sync don't cause us to upload inconsistent
+    /// records.
+    ///
+    /// Conceptually, `itemsToUpload` is a transient "view" of locally changed
+    /// items. The local change counter is the persistent record of items that
+    /// we need to upload, so, if upload is interrupted or fails, we'll stage
+    /// the items again on the next sync.
+    fn stage_local_items_to_upload(&self) -> Result<()> {
+        // Stage remotely changed items with older local creation dates. These are
+        // tracked "weakly": if the upload is interrupted or fails, we won't
+        // reupload the record on the next sync.
+        self.db.execute_batch(
+            r#"
+            INSERT OR IGNORE INTO idsToWeaklyUpload(id)
+            SELECT b.id FROM moz_bookmarks b
+            JOIN mergedTree r ON r.mergedGuid = b.guid
+            JOIN moz_bookmarks_synced v ON v.guid = r.remoteGuid
+            WHERE r.useRemote AND
+                  /* "b.dateAdded" is in microseconds; "v.dateAdded" is in
+                     milliseconds. */
+                  b.dateAdded < v.dateAdded"#,
+        )?;
+
+        // Stage remaining locally changed items for upload.
+        self.db.execute_batch(&format!(
+            "
+            WITH RECURSIVE
+            {local_items_fragment}
+            INSERT INTO itemsToUpload(id, guid, syncChangeCounter, parentGuid,
+                                      parentTitle, dateAdded, type, title, placeId,
+                                      isQuery, url, keyword, position, tagFolderName)
+            SELECT s.id, s.guid, s.syncChangeCounter, s.parentGuid, s.parentTitle,
+                   s.dateAdded, s.type, s.title, s.placeId,
+                   IFNULL(substr(h.url, 1, 6) = 'place:', 0) AS isQuery,
+                   h.url,
+                   NULL AS keyword,
+                   s.position,
+                   NULL AS tagFolderName
+            FROM localItems s
+            LEFT JOIN moz_places h ON h.id = s.placeId
+            LEFT JOIN idsToWeaklyUpload w ON w.id = s.id
+            WHERE s.syncChangeCounter >= 1 OR
+                  w.id NOT NULL",
+            local_items_fragment = *LOCAL_ITEMS_SQL_FRAGMENT,
+        ))?;
+
+        // Record the child GUIDs of locally changed folders, which we use to
+        // populate the `children` array in the record.
+        self.db.execute_batch(
+            "
+            INSERT INTO structureToUpload(guid, parentId, position)
+            SELECT b.guid, b.parent, b.position FROM moz_bookmarks b
+            JOIN itemsToUpload o ON o.id = b.parent",
+        )?;
+
+        // Finally, stage tombstones for deleted items.
+        self.db.execute_batch(
+            "
+            INSERT OR IGNORE INTO itemsToUpload(guid, syncChangeCounter, isDeleted)
+            SELECT guid, 1, 1 FROM moz_bookmarks_deleted",
+        )?;
 
         Ok(())
     }
