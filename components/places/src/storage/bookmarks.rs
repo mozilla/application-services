@@ -22,60 +22,10 @@ use std::cmp::{max, min};
 use std::collections::HashMap;
 use url::Url;
 
+pub use root_guid::BookmarkRootGuid;
+
 mod conversions;
-
-/// Special GUIDs associated with bookmark roots.
-/// It's guaranteed that the roots will always have these guids.
-#[derive(Debug, PartialEq)]
-pub enum BookmarkRootGuid {
-    Root,
-    Menu,
-    Toolbar,
-    Unfiled,
-    Mobile,
-}
-
-impl BookmarkRootGuid {
-    pub fn as_guid(&self) -> SyncGuid {
-        match self {
-            &BookmarkRootGuid::Root => SyncGuid("root________".into()),
-            &BookmarkRootGuid::Menu => SyncGuid("menu________".into()),
-            &BookmarkRootGuid::Toolbar => SyncGuid("toolbar_____".into()),
-            &BookmarkRootGuid::Unfiled => SyncGuid("unfiled_____".into()),
-            &BookmarkRootGuid::Mobile => SyncGuid("mobile______".into()),
-        }
-    }
-
-    pub fn from_guid(guid: &SyncGuid) -> Option<Self> {
-        match guid.as_ref() {
-            "root________" => Some(BookmarkRootGuid::Root),
-            "menu________" => Some(BookmarkRootGuid::Menu),
-            "toolbar_____" => Some(BookmarkRootGuid::Toolbar),
-            "unfiled_____" => Some(BookmarkRootGuid::Unfiled),
-            "mobile______" => Some(BookmarkRootGuid::Mobile),
-            _ => None,
-        }
-    }
-}
-
-impl From<BookmarkRootGuid> for SyncGuid {
-    fn from(item: BookmarkRootGuid) -> SyncGuid {
-        item.as_guid()
-    }
-}
-
-// Allow comparisons between BookmarkRootGuid and SyncGuids
-impl PartialEq<BookmarkRootGuid> for SyncGuid {
-    fn eq(&self, other: &BookmarkRootGuid) -> bool {
-        *self == other.as_guid()
-    }
-}
-
-impl PartialEq<SyncGuid> for BookmarkRootGuid {
-    fn eq(&self, other: &SyncGuid) -> bool {
-        self.as_guid() == *other
-    }
-}
+mod root_guid;
 
 fn create_root(
     db: &Connection,
@@ -302,7 +252,7 @@ fn maybe_truncate_title(t: &Option<String>) -> Option<&str> {
 
 fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid> {
     // find the row ID of the parent.
-    if BookmarkRootGuid::from_guid(&bm.parent_guid()) == Some(BookmarkRootGuid::Root) {
+    if bm.parent_guid() == BookmarkRootGuid::Root {
         return Err(InvalidPlaceInfo::InvalidGuid.into());
     }
     let parent_guid = bm.parent_guid();
@@ -418,7 +368,7 @@ pub fn delete_bookmark(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
 
 fn delete_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
     // Can't delete a root.
-    if BookmarkRootGuid::from_guid(guid).is_some() {
+    if guid.is_root() {
         return Err(InvalidPlaceInfo::InvalidGuid.into());
     }
     let record = match get_raw_bookmark(db, guid)? {
@@ -566,7 +516,7 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
             position = update_pos_for_move(db, &pos, &existing, &parent)?;
         }
         UpdateTreeLocation::Parent(new_parent_guid, pos) => {
-            if BookmarkRootGuid::from_guid(&new_parent_guid) == Some(BookmarkRootGuid::Root) {
+            if new_parent_guid == BookmarkRootGuid::Root {
                 return Err(InvalidPlaceInfo::InvalidGuid.into());
             }
             let new_parent = get_raw_bookmark(db, &new_parent_guid)?
@@ -1533,7 +1483,7 @@ mod tests {
 
         assert!(rb.place_id.is_some());
         assert_eq!(rb.bookmark_type, BookmarkType::Bookmark);
-        assert_eq!(rb.parent_guid, BookmarkRootGuid::Unfiled.as_guid());
+        assert_eq!(rb.parent_guid, BookmarkRootGuid::Unfiled);
         assert_eq!(rb.position, 0);
         assert_eq!(rb.title, Some("the title".into()));
         assert_eq!(rb.url, Some(url));
