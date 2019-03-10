@@ -17,6 +17,8 @@ pub mod history_sync;
 pub mod match_impl;
 pub mod observation;
 pub mod storage;
+#[cfg(test)]
+mod tests;
 mod util;
 mod valid_guid;
 
