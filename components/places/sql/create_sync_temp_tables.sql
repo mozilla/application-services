@@ -36,7 +36,7 @@ CREATE TEMP TABLE itemsToRemove(
 CREATE TEMP VIEW itemsToMerge(localId, localGuid, remoteId, remoteGuid,
                               mergedGuid, useRemote, shouldUpload, newLevel,
                               newType,
-                              newDateAddedMicroseconds,
+                              newDateAdded,
                               newTitle, oldPlaceId, newPlaceId,
                               newKeyword) AS
 SELECT b.id, b.guid, v.id, v.guid,
@@ -53,17 +53,13 @@ SELECT b.id, b.guid, v.id, v.guid,
              END),
        /* Take the older creation date. "b.dateAdded" is in microseconds;
           "v.dateAdded" is in milliseconds. */
-       (CASE WHEN b.dateAdded / 1000 < v.dateAdded THEN b.dateAdded
-             ELSE v.dateAdded * 1000 END),
-       v.title, h.id, (SELECT n.id FROM moz_places n
-                       WHERE n.url_hash = u.hash AND
-                             n.url = u.url),
+       (CASE WHEN b.dateAdded < v.dateAdded THEN b.dateAdded
+             ELSE v.dateAdded END),
+       v.title, b.fk, v.placeId,
        v.keyword
 FROM mergedTree r
 LEFT JOIN moz_bookmarks_synced v ON v.guid = r.remoteGuid
 LEFT JOIN moz_bookmarks b ON b.guid = r.localGuid
-LEFT JOIN moz_places h ON h.id = b.fk
-LEFT JOIN urls u ON u.id = v.urlId
 WHERE r.mergedGuid <> "root________";
 
 -- A view of the structure states for all items in the merged tree.

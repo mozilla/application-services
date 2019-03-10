@@ -44,7 +44,7 @@ pub fn default_max_variable_number() -> usize {
 /// converted to something that does.
 pub fn each_chunk<'a, T, E, F>(items: &'a [T], do_chunk: F) -> Result<(), E>
 where
-    T: ToSql + 'a,
+    T: 'a,
     F: FnMut(&'a [T], usize) -> Result<(), E>,
 {
     each_sized_chunk(items, default_max_variable_number(), do_chunk)
@@ -71,13 +71,13 @@ where
 // this with each_sized_chunk_mapped with a lot of type system trickery,
 // but one of the benefits to each_chunk over the mapped versions is
 // that the declaration is simpler.
-fn each_sized_chunk<'a, T, E, F>(
+pub fn each_sized_chunk<'a, T, E, F>(
     items: &'a [T],
     chunk_size: usize,
     mut do_chunk: F,
 ) -> Result<(), E>
 where
-    T: ToSql + 'a,
+    T: 'a,
     F: FnMut(&'a [T], usize) -> Result<(), E>,
 {
     if items.is_empty() {
@@ -98,7 +98,7 @@ where
 /// Note: `mapped` basically just refers to the translating of `T` to some `U` where `U: ToSql`
 /// using the `to_sql` function. This is useful for e.g. inserting the IDs of a large list
 /// of records.
-fn each_sized_chunk_mapped<'a, T, U, E, Mapper, DoChunk>(
+pub fn each_sized_chunk_mapped<'a, T, U, E, Mapper, DoChunk>(
     items: &'a [T],
     chunk_size: usize,
     to_sql: Mapper,

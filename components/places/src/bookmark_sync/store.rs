@@ -8,11 +8,15 @@ use crate::storage::{
     bookmarks::{maybe_truncate_title, BookmarkRootGuid},
     get_meta, put_meta, URL_LENGTH_MAX,
 };
-use crate::types::{BookmarkType, SyncGuid, SyncedBookmarkKind, SyncedBookmarkValidity, Timestamp};
-use dogear::{self, Content, Deletion, IntoTree, Item, LogLevel, MergedDescendant, Tree};
+use crate::types::{
+    BookmarkType, SyncGuid, SyncStatus, SyncedBookmarkKind, SyncedBookmarkValidity, Timestamp,
+};
+use dogear::{
+    self, Content, Deletion, IntoTree, Item, LogLevel, MergedDescendant, Tree, UploadReason,
+};
 use lazy_static::lazy_static;
 use rusqlite::{Connection, NO_PARAMS};
-use sql_support::ConnExt;
+use sql_support::{self, ConnExt};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::fmt::Arguments;
@@ -158,7 +162,50 @@ impl<'a> dogear::Store<Error> for BookmarksStore<'a> {
     /// haven't been synced. We'll try to dedupe them to changed remote items
     /// with similar contents and different GUIDs.
     fn fetch_new_local_contents(&self) -> Result<HashMap<dogear::Guid, Content>> {
-        unimplemented!("TODO: Fetch new local contents for deduping");
+        let mut contents = HashMap::new();
+
+        let sql = format!(
+            r#"
+            SELECT b.guid, b.type, IFNULL(b.title, "") AS title, h.url,
+                   b.position
+            FROM moz_bookmarks b
+            JOIN moz_bookmarks p ON p.id = b.parent
+            LEFT JOIN moz_places h ON h.id = b.fk
+            LEFT JOIN moz_bookmarks_synced v ON v.guid = b.guid
+            WHERE v.guid IS NULL AND
+                  p.guid <> '{root_guid}' AND
+                  b.syncStatus <> {sync_status}"#,
+            root_guid = BookmarkRootGuid::Root.as_guid().as_ref(),
+            sync_status = SyncStatus::Normal as u8
+        );
+        let mut stmt = self.db.prepare(&sql)?;
+        let mut results = stmt.query(NO_PARAMS)?;
+        while let Some(result) = results.next() {
+            let row = result?;
+            let typ = match BookmarkType::from_u8(row.get_checked("type")?) {
+                Some(t) => t,
+                None => continue,
+            };
+            let content = match typ {
+                BookmarkType::Bookmark => {
+                    let title = row.get_checked("title")?;
+                    let url_href = row.get_checked("url")?;
+                    Content::Bookmark { title, url_href }
+                }
+                BookmarkType::Folder => {
+                    let title = row.get_checked("title")?;
+                    Content::Folder { title }
+                }
+                BookmarkType::Separator => {
+                    let position = row.get_checked("position")?;
+                    Content::Separator { position }
+                }
+            };
+            let guid = row.get_checked::<_, SyncGuid>("guid")?;
+            contents.insert(guid.into(), content);
+        }
+
+        Ok(contents)
     }
 
     /// Builds a fully rooted tree from all synced items and tombstones.
@@ -229,7 +276,47 @@ impl<'a> dogear::Store<Error> for BookmarksStore<'a> {
     /// Fetches content info for all synced items that changed since the last
     /// sync and don't exist locally.
     fn fetch_new_remote_contents(&self) -> Result<HashMap<dogear::Guid, Content>> {
-        unimplemented!("TODO: Fetch new remote contents for deduping");
+        let mut contents = HashMap::new();
+
+        let sql = format!(
+            r#"
+            SELECT v.guid, v.kind, IFNULL(v.title, "") AS title, h.url,
+                   s.position
+            FROM moz_bookmarks_synced v
+            JOIN moz_bookmarks_synced_structure s ON s.guid = v.guid
+            LEFT JOIN moz_places h ON h.id = v.placeId
+            LEFT JOIN moz_bookmarks b ON b.guid = v.guid
+            WHERE NOT v.isDeleted AND
+                  v.needsMerge AND
+                  b.guid IS NULL AND
+                  s.parentGuid <> '{root_guid}'"#,
+            root_guid = BookmarkRootGuid::Root.as_guid().as_ref()
+        );
+        let mut stmt = self.db.prepare(&sql)?;
+        let mut results = stmt.query(NO_PARAMS)?;
+        while let Some(result) = results.next() {
+            let row = result?;
+            let content = match SyncedBookmarkKind::from_u8(row.get_checked("kind")?)? {
+                SyncedBookmarkKind::Bookmark | SyncedBookmarkKind::Query => {
+                    let title = row.get_checked("title")?;
+                    let url_href = row.get_checked("url")?;
+                    Content::Bookmark { title, url_href }
+                }
+                SyncedBookmarkKind::Folder => {
+                    let title = row.get_checked("title")?;
+                    Content::Folder { title }
+                }
+                SyncedBookmarkKind::Separator => {
+                    let position = row.get_checked("position")?;
+                    Content::Separator { position }
+                }
+                _ => continue,
+            };
+            let guid = row.get_checked::<_, SyncGuid>("guid")?;
+            contents.insert(guid.into(), content);
+        }
+
+        Ok(contents)
     }
 
     fn apply<'t>(
@@ -237,7 +324,13 @@ impl<'a> dogear::Store<Error> for BookmarksStore<'a> {
         descendants: Vec<MergedDescendant<'t>>,
         deletions: Vec<Deletion>,
     ) -> Result<()> {
-        unimplemented!("TODO: Stage and apply merged tree using triggers");
+        let tx = self.db.unchecked_transaction()?;
+        let result = self.update_local_items(descendants, deletions);
+        match result {
+            Ok(_) => tx.commit()?,
+            Err(_) => tx.rollback()?,
+        }
+        result
     }
 }
 
@@ -416,6 +509,93 @@ impl<'a> BookmarksStore<'a> {
             )?
             .unwrap_or(false))
     }
+
+    /// Builds a temporary table with the merge states of all nodes in the merged
+    /// tree, then updates the local tree to match the merged tree.
+    ///
+    /// Conceptually, we examine the merge state of each item, and either leave the
+    /// item unchanged, upload the local side, apply the remote side, or apply and
+    /// then reupload the remote side with a new structure.
+    fn update_local_items<'t>(
+        &self,
+        descendants: Vec<MergedDescendant<'t>>,
+        deletions: Vec<Deletion>,
+    ) -> Result<()> {
+        // First, insert rows for all merged descendants.
+        sql_support::each_sized_chunk(
+            &descendants,
+            sql_support::default_max_variable_number() / 4,
+            |chunk, _| -> Result<()> {
+                // We can't avoid allocating here, since we're binding four
+                // parameters per descendant. Rust's `SliceConcatExt::concat`
+                // is semantically equivalent, but requires a second allocation,
+                // which we _can_ avoid.
+                let mut params = Vec::with_capacity(chunk.len() * 4);
+                for d in chunk.iter() {
+                    params.push(
+                        d.merged_node
+                            .merge_state
+                            .local_node()
+                            .map(|node| node.guid.as_str()),
+                    );
+                    params.push(
+                        d.merged_node
+                            .merge_state
+                            .remote_node()
+                            .map(|node| node.guid.as_str()),
+                    );
+                    params.push(Some(d.merged_node.guid.as_str()));
+                    params.push(Some(d.merged_parent_node.guid.as_str()));
+                }
+                self.db.execute(&format!(
+                    "
+                    INSERT INTO mergedTree(localGuid, remoteGuid, mergedGuid, mergedParentGuid, level,
+                                           position, useRemote, shouldUpload)
+                    VALUES {}",
+                    sql_support::repeat_display(chunk.len(), ",", |index, f| {
+                        let d = &chunk[index];
+                        write!(f, "(?, ?, ?, ?, {}, {}, {}, {})",
+                            d.level, d.position, d.merged_node.merge_state.should_apply(),
+                            d.merged_node.merge_state.upload_reason() != UploadReason::None)
+                    })
+                ), &params)?;
+                Ok(())
+            },
+        )?;
+
+        // Next, insert rows for deletions. Unlike Desktop, there's no
+        // `noteItemRemoved` trigger on `itemsToRemove`, since we don't support
+        // observer notifications.
+        sql_support::each_chunk(&deletions, |chunk, _| -> Result<()> {
+            self.db.execute(
+                &format!(
+                    "
+                    INSERT INTO itemsToRemove(guid, localLevel, shouldUploadTombstone)
+                    VALUES {}",
+                    sql_support::repeat_display(chunk.len(), ",", |index, f| {
+                        let d = &chunk[index];
+                        write!(f, "(?, {}, {})", d.local_level, d.should_upload_tombstone)
+                    })
+                ),
+                chunk.iter().map(|d| d.guid.as_str()),
+            )?;
+            Ok(())
+        })?;
+
+        // "Deleting" from `itemsToMerge` fires the `insertNewLocalItems` and
+        // `updateExistingLocalItems` triggers.
+        self.db.execute_batch("DELETE FROM itemsToMerge")?;
+
+        // "Deleting" from `structureToMerge` fires the `updateLocalStructure`
+        // trigger.
+        self.db.execute_batch("DELETE FROM structureToMerge")?;
+
+        self.db.execute_batch("DELETE FROM itemsToRemove")?;
+
+        self.db.execute_batch("DELETE FROM relatedIdsToReupload")?;
+
+        Ok(())
+    }
 }
 
 impl<'a> Store for BookmarksStore<'a> {
@@ -487,21 +667,14 @@ mod tests {
     use super::*;
     use crate::api::places_api::{test::new_mem_api, ConnectionType};
     use crate::bookmark_sync::store::BookmarksStore;
-    use crate::storage::bookmarks::{insert_tree, BookmarkTreeNode};
+    use crate::tests::{
+        assert_json_tree as assert_local_json_tree, insert_json_tree as insert_local_json_tree,
+    };
     use dogear::{Store, Validity};
-    use serde_json::{json, Value};
+    use serde_json::json;
 
     use std::cell::Cell;
     use sync15::Payload;
-
-    fn insert_local_json_tree(conn: &impl ConnExt, jtree: Value) {
-        let tree: BookmarkTreeNode = serde_json::from_value(jtree).expect("should be valid");
-        let folder_node = match tree {
-            BookmarkTreeNode::Folder(folder_node) => folder_node,
-            _ => panic!("must be a folder"),
-        };
-        insert_tree(conn, &folder_node).expect("should insert");
-    }
 
     #[test]
     fn test_fetch_remote_tree() -> Result<()> {
@@ -655,6 +828,116 @@ mod tests {
 
         // We should have changes.
         assert_eq!(store.has_changes().unwrap(), true);
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge() -> Result<()> {
+        let api = new_mem_api();
+        let conn = api.open_connection(ConnectionType::Sync)?;
+
+        conn.execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
+            .expect("should work");
+
+        insert_local_json_tree(
+            &conn,
+            json!({
+                "guid": &BookmarkRootGuid::Unfiled.as_guid(),
+                "children": [
+                    {
+                        "guid": "bookmarkAAAA",
+                        "title": "A",
+                        "url": "http://example.com/a",
+                    },
+                    {
+                        "guid": "bookmarkBBBB",
+                        "title": "B",
+                        "url": "http://example.com/b",
+                    },
+                ]
+            }),
+        );
+
+        let records = vec![
+            json!({
+                "id": "bookmarkCCCC",
+                "type": "bookmark",
+                "parentid": BookmarkRootGuid::Menu.as_guid(),
+                "parentName": "menu",
+                "dateAdded": 1552183116885u64,
+                "title": "C",
+                "bmkUri": "http://example.com/c",
+                "tags": [],
+            }),
+            json!({
+                "id": BookmarkRootGuid::Menu.as_guid(),
+                "type": "folder",
+                "parentid": BookmarkRootGuid::Root.as_guid(),
+                "parentName": "",
+                "dateAdded": 0,
+                "title": "menu",
+                "children": ["bookmarkCCCC"],
+            }),
+        ];
+
+        let mut store = BookmarksStore {
+            db: &conn,
+            client_info: &Cell::new(None),
+            local_time: Timestamp::now(),
+            remote_time: ServerTimestamp(0.0),
+        };
+
+        for record in records {
+            let payload = Payload::from_json(record).unwrap();
+            store.apply_payload(ServerTimestamp(0.0), payload)?;
+        }
+
+        store.merge()?;
+
+        assert_local_json_tree(
+            &conn,
+            &BookmarkRootGuid::Root.as_guid(),
+            json!({
+                "guid": &BookmarkRootGuid::Root.as_guid(),
+                "children": [
+                    {
+                        "guid": &BookmarkRootGuid::Menu.as_guid(),
+                        "children": [
+                            {
+                                "guid": "bookmarkCCCC",
+                                "title": "C",
+                                "url": "http://example.com/c",
+                                "date_added": Timestamp(1552183116885),
+                            },
+                        ],
+                    },
+                    {
+                        "guid": &BookmarkRootGuid::Toolbar.as_guid(),
+                        "children": [],
+                    },
+                    {
+                        "guid": &BookmarkRootGuid::Unfiled.as_guid(),
+                        "children": [
+                            {
+                                "guid": "bookmarkAAAA",
+                                "title": "A",
+                                "url": "http://example.com/a",
+                            },
+                            {
+                                "guid": "bookmarkBBBB",
+                                "title": "B",
+                                "url": "http://example.com/b",
+                            },
+                        ],
+                    },
+                    {
+                        "guid": &BookmarkRootGuid::Mobile.as_guid(),
+                        "children": [],
+                    },
+                ],
+            }),
+        );
+
         Ok(())
     }
 }
