@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CD07594C2235A20E0018A071 /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CD07594B2235A20E0018A071 /* SwiftProtobuf.framework */; };
+		CD07594E2235A3880018A071 /* msg_types.proto in Sources */ = {isa = PBXBuildFile; fileRef = CD07594D2235A3880018A071 /* msg_types.proto */; };
 		CDB5AAED21535E7F00B66D7E /* LoginRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDB5AAEC21535E7F00B66D7E /* LoginRecord.swift */; };
 		CE9D203120914D2600F1C8FA /* LoginsStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9D202B20914D2600F1C8FA /* LoginsStorage.swift */; };
 		CECB395420B5B92500DB3ED4 /* LockError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CECB395220B5B77E00DB3ED4 /* LockError.swift */; };
@@ -19,6 +21,20 @@
 		EBE26B47220B4CE400D1D99A /* CommonErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE26B46220B4CE400D1D99A /* CommonErrors.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXBuildRule section */
+		CD07594F2235A3EB0018A071 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			filePatterns = "*.proto";
+			fileType = pattern.proxy;
+			isEditable = 1;
+			outputFiles = (
+				"$(DERIVED_FILE_DIR)/$(INPUT_FILE_BASE).pb.swift",
+			);
+			script = "protoc --proto_path=$INPUT_FILE_DIR --swift_out=$DERIVED_FILE_DIR $INPUT_FILE_PATH\n";
+		};
+/* End PBXBuildRule section */
+
 /* Begin PBXContainerItemProxy section */
 		EB348E462204EA0C00788CD3 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -30,7 +46,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		CD9E35562234F6A200C999A0 /* Logins copy-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Logins copy-Info.plist"; path = "/Users/thom/application-services/components/places/ios/Logins copy-Info.plist"; sourceTree = "<absolute>"; };
+		CD07594B2235A20E0018A071 /* SwiftProtobuf.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftProtobuf.framework; path = ../../../Carthage/Build/iOS/SwiftProtobuf.framework; sourceTree = "<group>"; };
+		CD07594D2235A3880018A071 /* msg_types.proto */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.protobuf; name = msg_types.proto; path = ../../src/msg_types.proto; sourceTree = "<group>"; };
 		CDB5AAEC21535E7F00B66D7E /* LoginRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginRecord.swift; sourceTree = "<group>"; };
 		CDFA91ED2153568E0074CABF /* RustPlacesAPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustPlacesAPI.h; sourceTree = "<group>"; };
 		CE9D202020914D0D00F1C8FA /* Places.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Places.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -56,6 +73,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CD07594C2235A20E0018A071 /* SwiftProtobuf.framework in Frameworks */,
 				D819A4AF21B87468004EE6F3 /* libsqlcipher.a in Frameworks */,
 				D819A4A821B861D6004EE6F3 /* libplaces_ffi.a in Frameworks */,
 			);
@@ -82,7 +100,6 @@
 				EB348E412204EA0C00788CD3 /* PlacesTests */,
 				CE9D202120914D0D00F1C8FA /* Products */,
 				CE9D203720914D4800F1C8FA /* Frameworks */,
-				CD9E35562234F6A200C999A0 /* Logins copy-Info.plist */,
 			);
 			sourceTree = "<group>";
 		};
@@ -98,6 +115,7 @@
 		CE9D202220914D0D00F1C8FA /* Places */ = {
 			isa = PBXGroup;
 			children = (
+				CD07594D2235A3880018A071 /* msg_types.proto */,
 				CECB395120B5B77E00DB3ED4 /* Errors */,
 				CECB394F20B5B77E00DB3ED4 /* Extensions */,
 				CE9D202320914D0D00F1C8FA /* Places.h */,
@@ -112,6 +130,7 @@
 		CE9D203720914D4800F1C8FA /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				CD07594B2235A20E0018A071 /* SwiftProtobuf.framework */,
 				D819A4AE21B87467004EE6F3 /* libsqlcipher.a */,
 				D819A4A721B861D6004EE6F3 /* libplaces_ffi.a */,
 			);
@@ -169,6 +188,7 @@
 				CE9D201E20914D0D00F1C8FA /* Resources */,
 			);
 			buildRules = (
+				CD07594F2235A3EB0018A071 /* PBXBuildRule */,
 			);
 			dependencies = (
 			);
@@ -271,6 +291,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CECB395420B5B92500DB3ED4 /* LockError.swift in Sources */,
+				CD07594E2235A3880018A071 /* msg_types.proto in Sources */,
 				D5C6DB0020DDBA7C009ACDD2 /* String+Free_Logins.swift in Sources */,
 				CE9D203120914D2600F1C8FA /* LoginsStorage.swift in Sources */,
 				EBE26B47220B4CE400D1D99A /* CommonErrors.swift in Sources */,
