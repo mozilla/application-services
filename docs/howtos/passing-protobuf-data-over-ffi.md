@@ -19,21 +19,13 @@ follow the examples of the other steps it takes.
     [build-dependencies]
     prost-build = "check what version our other crates are using"
     ```
-4. In the same directory as your main crate's Cargo.toml, add a `build.rs` file.
-   Paste the following into it:
-    ```rust
-    /* This Source Code Form is subject to the terms of the Mozilla Public
-     * License, v. 2.0. If a copy of the MPL was not distributed with this
-     * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+4. Create a new file named `mylib_msg_types.proto` (well, prefix it with the
+   actual name of your lib) in your main crate's src folder. This is what is
+   referenced in that bit you pasted above, so if you want or need to change its
+   name, you must do so consistently.
 
-    fn main() {
-        prost_build::compile_protos(&["src/msg_types.proto"], &["src/"]).unwrap();
-    }
-    ```
-
-5. Create a new file named `msg_types.proto` in your main crate's src folder.
-   This is what is referenced in that bit you pasted above, so if you want or
-   need to change its name, you must do so consistently.
+   Due to annoying details of how the iOS megazord works, the name of the .proto
+   file must be unique.
 
     1. This file should start with
     ```
@@ -46,6 +38,18 @@ follow the examples of the other steps it takes.
 
     2. Fill in your definitions in the rest of the file. See
        https://developers.google.com/protocol-buffers/docs/proto for examples.
+
+5. In the same directory as your main crate's Cargo.toml, add a `build.rs` file.
+   Paste the following into it:
+    ```rust
+    /* This Source Code Form is subject to the terms of the Mozilla Public
+     * License, v. 2.0. If a copy of the MPL was not distributed with this
+     * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+    fn main() {
+        prost_build::compile_protos(&["src/mylib_msg_types.proto"], &["src/"]).unwrap();
+    }
+    ```
 
 6. Into your main crate's lib.rs file, add something equivalent to the following:
     ```rust
@@ -308,7 +312,7 @@ a bad first step! Also, ask in #rust-components on slack.
 
 ### I'd like to expose a function returning a `Vec<T>`.
 
-If T is a type from msg_types.proto, then this is fairly easy:
+If T is a type from your mylib_msg_types.proto, then this is fairly easy:
 
 Don't, instead add a new msg_type that contains a repeated T field, and make
 that rust function return that.
@@ -317,10 +321,10 @@ Then, make so long as the new msg_type has `implement_into_ffi_by_protobuf!` and
 
 ---
 
-Unfortunately, if T is merely *convertable* to something from msg_types.proto,
+Unfortunately, if T is merely *convertable* to something from mylib_msg_types.proto,
 this adds a bunch of boilerplate.
 
-Say we have the following msg_types.proto:
+Say we have the following mylib_msg_types.proto:
 
 ```proto
 message HistoryVisitInfo {

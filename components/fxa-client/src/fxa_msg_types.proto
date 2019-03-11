@@ -1,5 +1,7 @@
 syntax = "proto2";
 
+// Note: this file name must be unique due to how the iOS megazord works :(
+
 package msg_types;
 
 option java_package = "mozilla.appservices.fxaclient";
