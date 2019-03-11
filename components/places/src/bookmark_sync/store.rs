@@ -2,7 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::record::{BookmarkItemRecord, BookmarkRecord, FolderRecord};
+use super::record::{
+    BookmarkItemRecord, BookmarkRecord, FolderRecord, QueryRecord, SeparatorRecord,
+};
 use crate::error::*;
 use crate::storage::{
     bookmarks::{maybe_truncate_title, BookmarkRootGuid},
@@ -22,9 +24,10 @@ use std::collections::HashMap;
 use std::fmt::Arguments;
 use std::result;
 use std::time::Duration;
-use sync15::telemetry;
-use sync15::CollectionRequest;
-use sync15::{ClientInfo, IncomingChangeset, OutgoingChangeset, ServerTimestamp, Store};
+use sync15::{
+    telemetry, ClientInfo, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload,
+    ServerTimestamp, Store,
+};
 use url::Url;
 
 static LAST_SYNC_META_KEY: &'static str = "bookmarks_last_sync_time";
@@ -673,6 +676,114 @@ impl<'a> BookmarksStore<'a> {
 
         Ok(())
     }
+
+    /// Inflates Sync records for all staged outgoing items.
+    fn fetch_outgoing_records(&self, timestamp: ServerTimestamp) -> Result<OutgoingChangeset> {
+        let mut outgoing = OutgoingChangeset::new(self.collection_name().into(), timestamp);
+        let mut child_guids_by_local_parent_id: HashMap<i64, Vec<SyncGuid>> = HashMap::new();
+
+        let mut stmt = self.db.prepare(
+            "SELECT parentId, guid FROM structureToUpload
+             ORDER BY parentId, position",
+        )?;
+        let mut results = stmt.query(NO_PARAMS)?;
+        while let Some(result) = results.next() {
+            let row = result?;
+            let local_parent_id = row.get_checked::<_, i64>("parentId")?;
+            let child_guid = row.get_checked::<_, SyncGuid>("guid")?;
+            let child_guids = child_guids_by_local_parent_id
+                .entry(local_parent_id)
+                .or_default();
+            child_guids.push(child_guid);
+        }
+
+        let mut stmt = self.db.prepare(
+            r#"SELECT id, syncChangeCounter, guid, isDeleted, type, isQuery,
+                      tagFolderName, keyword, url, IFNULL(title, "") AS title,
+                      position, parentGuid,
+                      IFNULL(parentTitle, "") AS parentTitle, dateAdded
+               FROM itemsToUpload"#,
+        )?;
+        let mut results = stmt.query(NO_PARAMS)?;
+        while let Some(result) = results.next() {
+            let row = result?;
+            let guid = row.get_checked::<_, SyncGuid>("guid")?;
+            let is_deleted = row.get_checked::<_, bool>("isDeleted")?;
+            if is_deleted {
+                outgoing.changes.push(Payload::new_tombstone(guid.0));
+                continue;
+            }
+            let parent_guid = row.get_checked::<_, SyncGuid>("parentGuid")?;
+            let parent_title = row.get_checked::<_, String>("parentTitle")?;
+            let date_added = row.get_checked::<_, i64>("dateAdded")?;
+            let record: BookmarkItemRecord =
+                match BookmarkType::from_u8(row.get_checked("type")?).unwrap() {
+                    BookmarkType::Bookmark => {
+                        let is_query = row.get_checked::<_, bool>("isQuery")?;
+                        let title = row.get_checked::<_, String>("title")?;
+                        let url = row.get_checked::<_, String>("url")?;
+                        if is_query {
+                            QueryRecord {
+                                guid,
+                                parent_guid: Some(parent_guid),
+                                has_dupe: true,
+                                parent_title: Some(parent_title),
+                                date_added: Some(date_added),
+                                title: Some(title),
+                                url: Some(url),
+                                tag_folder_name: None,
+                            }
+                            .into()
+                        } else {
+                            BookmarkRecord {
+                                guid,
+                                parent_guid: Some(parent_guid),
+                                has_dupe: true,
+                                parent_title: Some(parent_title),
+                                date_added: Some(date_added),
+                                title: Some(title),
+                                url: Some(url),
+                                keyword: None,
+                                tags: Vec::new(),
+                            }
+                            .into()
+                        }
+                    }
+                    BookmarkType::Folder => {
+                        let title = row.get_checked::<_, String>("title")?;
+                        let local_id = row.get_checked::<_, i64>("id")?;
+                        let children = child_guids_by_local_parent_id
+                            .remove(&local_id)
+                            .unwrap_or_default();
+                        FolderRecord {
+                            guid,
+                            parent_guid: Some(parent_guid),
+                            has_dupe: true,
+                            parent_title: Some(parent_title),
+                            date_added: Some(date_added),
+                            title: Some(title),
+                            children,
+                        }
+                        .into()
+                    }
+                    BookmarkType::Separator => {
+                        let position = row.get_checked::<_, i64>("position")?;
+                        SeparatorRecord {
+                            guid,
+                            parent_guid: Some(parent_guid),
+                            has_dupe: true,
+                            parent_title: Some(parent_title),
+                            date_added: Some(date_added),
+                            position: Some(position),
+                        }
+                        .into()
+                    }
+                };
+            outgoing.changes.push(Payload::from_record(record)?);
+        }
+
+        Ok(outgoing)
+    }
 }
 
 impl<'a> Store for BookmarksStore<'a> {
@@ -707,8 +818,7 @@ impl<'a> Store for BookmarksStore<'a> {
         // Merge and stage outgoing items.
         self.merge_with_driver(&Driver)?;
 
-        let mut outgoing = OutgoingChangeset::new(self.collection_name().into(), inbound.timestamp);
-        // TODO: Fetch staged items from `itemsToUpload`.
+        let outgoing = self.fetch_outgoing_records(inbound.timestamp)?;
         Ok(outgoing)
     }
 
@@ -747,8 +857,9 @@ mod tests {
     use crate::tests::{
         assert_json_tree as assert_local_json_tree, insert_json_tree as insert_local_json_tree,
     };
-    use dogear::{Store, Validity};
+    use dogear::{Store as DogearStore, Validity};
     use serde_json::json;
+    use sync15::Store as SyncStore;
 
     use std::cell::Cell;
     use sync15::Payload;
@@ -909,7 +1020,7 @@ mod tests {
     }
 
     #[test]
-    fn test_merge() -> Result<()> {
+    fn test_apply() -> Result<()> {
         let api = new_mem_api();
         let conn = api.open_connection(ConnectionType::Sync)?;
 
@@ -964,12 +1075,25 @@ mod tests {
             remote_time: ServerTimestamp(0.0),
         };
 
+        let mut incoming =
+            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
         for record in records {
             let payload = Payload::from_json(record).unwrap();
-            store.apply_payload(ServerTimestamp(0.0), payload)?;
+            incoming.changes.push((payload, ServerTimestamp(0.0)));
         }
 
-        store.merge()?;
+        let mut outgoing = store
+            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new())
+            .expect("Should apply incoming and stage outgoing records");
+        outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
+        assert_eq!(
+            outgoing.changes.iter().map(|p| &p.id).collect::<Vec<_>>(),
+            vec![
+                "bookmarkAAAA",
+                "bookmarkBBBB",
+                &BookmarkRootGuid::Unfiled.as_guid().as_ref()
+            ]
+        );
 
         assert_local_json_tree(
             &conn,
