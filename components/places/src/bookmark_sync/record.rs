@@ -4,7 +4,7 @@
 
 use crate::error::*;
 use crate::types::SyncGuid;
-use serde::{Deserialize, Deserializer};
+use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 use serde_derive::*;
 
 /// All possible fields that can appear in a bookmark record.
@@ -18,7 +18,8 @@ struct RawBookmarkItem {
     #[serde(rename = "parentid")]
     parent_guid: Option<SyncGuid>,
     has_dupe: Option<bool>,
-    parent_name: Option<String>,
+    #[serde(rename = "parentName")]
+    parent_title: Option<String>,
     date_added: Option<i64>,
 
     // For bookmarks, queries, folders, and livemarks.
@@ -33,7 +34,8 @@ struct RawBookmarkItem {
     tags: Option<Vec<String>>,
 
     // For queries only.
-    folder_name: Option<String>,
+    #[serde(rename = "folderName")]
+    tag_folder_name: Option<String>,
 
     // For folders only.
     children: Option<Vec<SyncGuid>>,
@@ -56,7 +58,7 @@ pub struct BookmarkRecord {
     pub guid: SyncGuid,
     pub parent_guid: Option<SyncGuid>,
     pub has_dupe: bool,
-    pub parent_name: Option<String>,
+    pub parent_title: Option<String>,
     pub date_added: Option<i64>,
     pub title: Option<String>,
     pub url: Option<String>,
@@ -75,11 +77,11 @@ pub struct QueryRecord {
     pub guid: SyncGuid,
     pub parent_guid: Option<SyncGuid>,
     pub has_dupe: bool,
-    pub parent_name: Option<String>,
+    pub parent_title: Option<String>,
     pub date_added: Option<i64>,
     pub title: Option<String>,
     pub url: Option<String>,
-    pub folder_name: Option<String>,
+    pub tag_folder_name: Option<String>,
 }
 
 impl From<QueryRecord> for BookmarkItemRecord {
@@ -93,7 +95,7 @@ pub struct FolderRecord {
     pub guid: SyncGuid,
     pub parent_guid: Option<SyncGuid>,
     pub has_dupe: bool,
-    pub parent_name: Option<String>,
+    pub parent_title: Option<String>,
     pub date_added: Option<i64>,
     pub title: Option<String>,
     pub children: Vec<SyncGuid>,
@@ -110,7 +112,7 @@ pub struct LivemarkRecord {
     pub guid: SyncGuid,
     pub parent_guid: Option<SyncGuid>,
     pub has_dupe: bool,
-    pub parent_name: Option<String>,
+    pub parent_title: Option<String>,
     pub date_added: Option<i64>,
     pub title: Option<String>,
     pub feed_url: Option<String>,
@@ -128,7 +130,7 @@ pub struct SeparatorRecord {
     pub guid: SyncGuid,
     pub parent_guid: Option<SyncGuid>,
     pub has_dupe: bool,
-    pub parent_name: Option<String>,
+    pub parent_title: Option<String>,
     pub date_added: Option<i64>,
     // Not used on newer clients, but can be used to detect parent-child
     // position disagreements. Older clients use this for deduping.
@@ -163,6 +165,53 @@ impl BookmarkItemRecord {
     }
 }
 
+impl Serialize for BookmarkItemRecord {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("BookmarkItemRecord", 2)?;
+        match self {
+            BookmarkItemRecord::Tombstone(guid) => {
+                state.serialize_field("id", guid)?;
+                state.serialize_field("deleted", &true)?;
+            }
+            BookmarkItemRecord::Bookmark(b) => {
+                state.serialize_field("id", &b.guid)?;
+                state.serialize_field("type", "bookmark")?;
+                state.serialize_field("parentid", &b.parent_guid)?;
+                state.serialize_field("hasDupe", &b.has_dupe)?;
+                state.serialize_field("parentName", &b.parent_title)?;
+                state.serialize_field("dateAdded", &b.date_added)?;
+                state.serialize_field("title", &b.title)?;
+                state.serialize_field("bmkUri", &b.url)?;
+                state.serialize_field("keyword", &b.keyword)?;
+                state.serialize_field("tags", &b.tags)?;
+            }
+            BookmarkItemRecord::Query(q) => {
+                unimplemented!("TODO: Serialize queries");
+            }
+            BookmarkItemRecord::Folder(f) => {
+                state.serialize_field("id", &f.guid)?;
+                state.serialize_field("type", "folder")?;
+                state.serialize_field("parentid", &f.parent_guid)?;
+                state.serialize_field("hasDupe", &f.has_dupe)?;
+                state.serialize_field("parentName", &f.parent_title)?;
+                state.serialize_field("dateAdded", &f.date_added)?;
+                state.serialize_field("title", &f.title)?;
+                state.serialize_field("children", &f.children)?;
+            }
+            BookmarkItemRecord::Livemark(l) => {
+                unimplemented!("TODO: Serialize livemarks");
+            }
+            BookmarkItemRecord::Separator(s) => {
+                unimplemented!("TODO: Serialize separators");
+            }
+        }
+        state.end()
+    }
+}
+
 impl<'de> Deserialize<'de> for BookmarkItemRecord {
     fn deserialize<D>(d: D) -> std::result::Result<Self, D::Error>
     where
@@ -177,7 +226,7 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
                     guid: raw.guid,
                     parent_guid: raw.parent_guid,
                     has_dupe: raw.has_dupe.unwrap_or(false),
-                    parent_name: raw.parent_name,
+                    parent_title: raw.parent_title,
                     date_added: raw.date_added,
                     title: raw.title,
                     url: raw.url,
@@ -191,11 +240,11 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
                     guid: raw.guid,
                     parent_guid: raw.parent_guid,
                     has_dupe: raw.has_dupe.unwrap_or(false),
-                    parent_name: raw.parent_name,
+                    parent_title: raw.parent_title,
                     date_added: raw.date_added,
                     title: raw.title,
                     url: raw.url,
-                    folder_name: raw.folder_name,
+                    tag_folder_name: raw.tag_folder_name,
                 }
                 .into());
             }
@@ -204,7 +253,7 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
                     guid: raw.guid,
                     parent_guid: raw.parent_guid,
                     has_dupe: raw.has_dupe.unwrap_or(false),
-                    parent_name: raw.parent_name,
+                    parent_title: raw.parent_title,
                     date_added: raw.date_added,
                     title: raw.title,
                     children: raw.children.unwrap_or_default(),
@@ -216,7 +265,7 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
                     guid: raw.guid,
                     parent_guid: raw.parent_guid,
                     has_dupe: raw.has_dupe.unwrap_or(false),
-                    parent_name: raw.parent_name,
+                    parent_title: raw.parent_title,
                     date_added: raw.date_added,
                     title: raw.title,
                     feed_url: raw.feed_url,
@@ -229,7 +278,7 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
                     guid: raw.guid,
                     parent_guid: raw.parent_guid,
                     has_dupe: raw.has_dupe.unwrap_or(false),
-                    parent_name: raw.parent_name,
+                    parent_title: raw.parent_title,
                     date_added: raw.date_added,
                     position: raw.position,
                 }
