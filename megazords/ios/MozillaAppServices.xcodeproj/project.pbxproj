@@ -18,6 +18,13 @@
 		C852EEEB220A2A2B00A6E79A /* FxAError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EEE3220A2A2B00A6E79A /* FxAError.swift */; };
 		C852EEEF220A2E9400A6E79A /* libmegazord_ios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */; };
 		CD4CFDD3221DFA5100EB3B33 /* LogTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD4CFDD2221DFA5100EB3B33 /* LogTest.swift */; };
+		CD85A45422361E890099BFA9 /* Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD85A44922361E880099BFA9 /* Places.swift */; };
+		CD85A45522361E890099BFA9 /* RustPlacesAPI.h in Headers */ = {isa = PBXBuildFile; fileRef = CD85A44A22361E880099BFA9 /* RustPlacesAPI.h */; };
+		CD85A45722361E890099BFA9 /* String+Free_Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD85A44D22361E880099BFA9 /* String+Free_Places.swift */; };
+		CD85A45822361E890099BFA9 /* Data+PlacesRustBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD85A44E22361E880099BFA9 /* Data+PlacesRustBuffer.swift */; };
+		CD85A45922361E890099BFA9 /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD85A44F22361E880099BFA9 /* Bookmark.swift */; };
+		CD85A45A22361E890099BFA9 /* PlacesError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD85A45122361E880099BFA9 /* PlacesError.swift */; };
+		CD85A45E22361ED00099BFA9 /* msg_types.proto in Sources */ = {isa = PBXBuildFile; fileRef = CD85A45D22361ED00099BFA9 /* msg_types.proto */; };
 		CDC21B14221DCE3700AA71E5 /* RustLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDC21B12221DCE3700AA71E5 /* RustLog.swift */; };
 		CDC21B15221DCE3700AA71E5 /* RustLogFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = CDC21B13221DCE3700AA71E5 /* RustLogFFI.h */; };
 		CE1ADA9722249FDA00E89714 /* Data+RustBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1ADA9622249FDA00E89714 /* Data+RustBuffer.swift */; };
@@ -68,6 +75,13 @@
 		C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmegazord_ios.a; path = ../../target/universal/release/libmegazord_ios.a; sourceTree = "<group>"; };
 		C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MozillaAppServices.h; sourceTree = "<group>"; };
 		CD4CFDD2221DFA5100EB3B33 /* LogTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogTest.swift; sourceTree = "<group>"; };
+		CD85A44922361E880099BFA9 /* Places.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Places.swift; sourceTree = "<group>"; };
+		CD85A44A22361E880099BFA9 /* RustPlacesAPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustPlacesAPI.h; sourceTree = "<group>"; };
+		CD85A44D22361E880099BFA9 /* String+Free_Places.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "String+Free_Places.swift"; sourceTree = "<group>"; };
+		CD85A44E22361E880099BFA9 /* Data+PlacesRustBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Data+PlacesRustBuffer.swift"; sourceTree = "<group>"; };
+		CD85A44F22361E880099BFA9 /* Bookmark.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Bookmark.swift; sourceTree = "<group>"; };
+		CD85A45122361E880099BFA9 /* PlacesError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PlacesError.swift; sourceTree = "<group>"; };
+		CD85A45D22361ED00099BFA9 /* msg_types.proto */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.protobuf; name = msg_types.proto; path = ../../src/msg_types.proto; sourceTree = "<group>"; };
 		CDC21B12221DCE3700AA71E5 /* RustLog.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RustLog.swift; sourceTree = "<group>"; };
 		CDC21B13221DCE3700AA71E5 /* RustLogFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustLogFFI.h; sourceTree = "<group>"; };
 		CE1ADA9622249FDA00E89714 /* Data+RustBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Data+RustBuffer.swift"; sourceTree = "<group>"; };
@@ -176,6 +190,37 @@
 			path = Errors;
 			sourceTree = "<group>";
 		};
+		CD85A44822361E880099BFA9 /* Places */ = {
+			isa = PBXGroup;
+			children = (
+				CD85A45D22361ED00099BFA9 /* msg_types.proto */,
+				CD85A44922361E880099BFA9 /* Places.swift */,
+				CD85A44A22361E880099BFA9 /* RustPlacesAPI.h */,
+				CD85A44C22361E880099BFA9 /* Extensions */,
+				CD85A44F22361E880099BFA9 /* Bookmark.swift */,
+				CD85A45022361E880099BFA9 /* Errors */,
+			);
+			name = Places;
+			path = ../../components/places/ios/Places;
+			sourceTree = "<group>";
+		};
+		CD85A44C22361E880099BFA9 /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				CD85A44D22361E880099BFA9 /* String+Free_Places.swift */,
+				CD85A44E22361E880099BFA9 /* Data+PlacesRustBuffer.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		CD85A45022361E880099BFA9 /* Errors */ = {
+			isa = PBXGroup;
+			children = (
+				CD85A45122361E880099BFA9 /* PlacesError.swift */,
+			);
+			path = Errors;
+			sourceTree = "<group>";
+		};
 		CDC21B11221DCE3700AA71E5 /* RustLog */ = {
 			isa = PBXGroup;
 			children = (
@@ -188,6 +233,7 @@
 		CE9D201620914D0D00F1C8FA = {
 			isa = PBXGroup;
 			children = (
+				CD85A44822361E880099BFA9 /* Places */,
 				CDC21B11221DCE3700AA71E5 /* RustLog */,
 				C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */,
 				C852EEB2220A285B00A6E79A /* config */,
@@ -254,6 +300,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CDC21B15221DCE3700AA71E5 /* RustLogFFI.h in Headers */,
+				CD85A45522361E890099BFA9 /* RustPlacesAPI.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -377,14 +424,20 @@
 				C852EEE8220A2A2B00A6E79A /* String+Free_FxAClient.swift in Sources */,
 				C852EEEB220A2A2B00A6E79A /* FxAError.swift in Sources */,
 				C852EED7220A29FE00A6E79A /* LoginStoreError.swift in Sources */,
+				CD85A45A22361E890099BFA9 /* PlacesError.swift in Sources */,
+				CD85A45422361E890099BFA9 /* Places.swift in Sources */,
 				EBB0D55E2214D10A00C8B2F9 /* msg_types.proto in Sources */,
+				CD85A45E22361ED00099BFA9 /* msg_types.proto in Sources */,
 				EB879D64221231F400753DC9 /* CommonErrors.swift in Sources */,
 				C852EED8220A29FE00A6E79A /* LockError.swift in Sources */,
+				CD85A45722361E890099BFA9 /* String+Free_Places.swift in Sources */,
 				C852EED5220A29FE00A6E79A /* LoginRecord.swift in Sources */,
 				C852EEE7220A2A2B00A6E79A /* FirefoxAccount.swift in Sources */,
+				CD85A45822361E890099BFA9 /* Data+PlacesRustBuffer.swift in Sources */,
 				CDC21B14221DCE3700AA71E5 /* RustLog.swift in Sources */,
 				C852EED6220A29FE00A6E79A /* LoginsStorage.swift in Sources */,
 				C852EED3220A29FE00A6E79A /* String+Free_Logins.swift in Sources */,
+				CD85A45922361E890099BFA9 /* Bookmark.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

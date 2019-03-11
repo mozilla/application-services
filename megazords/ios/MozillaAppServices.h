@@ -10,3 +10,4 @@ FOUNDATION_EXPORT const unsigned char MegazordClientVersionString[];
 #import <RustFxAFFI.h>
 #import <RustPasswordAPI.h>
 #import <RustLogFFI.h>
+#import <RustPlacesAPI.h>
