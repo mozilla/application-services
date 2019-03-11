@@ -193,8 +193,12 @@ follow the examples of the other steps it takes.
 
 ## Swift
 
-1. You need to install carthage and swift-protobuf via homebrew. e.g.
-  `brew install carthage swift-protobuf` should do the trick.
+1. You need to install `carthage` and `swift-protobuf`, as well as `protobuf`
+   (if you don't have it already). The following should do the trick if you
+   use homebrew:
+   ```
+   brew install carthage swift-protobuf protobuf
+   ```
 
 2. Run `carthage bootstrap` from the root of this repository. This will produce a
   (gitignored) Carthage directory in this repository.
@@ -202,24 +206,30 @@ follow the examples of the other steps it takes.
 3. In Xcode, you need to add `Carthage/Build/iOS/SwiftProtobuf.framework`
   to your target's "Linked frameworks and libraries" list.
     - You'll need to click "Add Other" for choosing a path to be available.
-    - This was hard for me to find, so see[this screenshot](./img/swift-protobuf-framework.png)
+    - This was hard for me to find, so see [this screenshot](./img/swift-protobuf-framework.png)
       if you are having trouble locating it.
 
-4. Add your msg_types.proto file to the xcode project.
+4. Add `FRAMEWORK_SEARCH_PATHS = "../../../Carthage/Build/iOS"` (Note: you may need a different number of `..`s) to the `base.xcconfig`
+
+5. Add your msg_types.proto file to the xcode project.
     - Do not check "copy items as needed".
 
-5. Under "Build Rules", add a new build rule
+6. Under "Build Rules", add a new build rule:
+
     - Choose "Source files with names matching:" and enter `*.proto`
+
     - Choose "Using custom script" and paste the following into the textarea.
         ```
         protoc --proto_path=$INPUT_FILE_DIR --swift_out=$DERIVED_FILE_DIR $INPUT_FILE_PATH
         ```
-    - For "Output Files", add `$(DERIVED_FILE_DIR)/$(INPUT_FILE_BASE).pb.swift`
+    - Under "Output Files", add `$(DERIVED_FILE_DIR)/$(INPUT_FILE_BASE).pb.swift`
       (with no compiler flags).
 
     This should look like [this screenshot](./img/swift-protobuf-build-rule.png)
+    (which should also help indicate where to find the build rules page) after
+    you finish.
 
-6. 
+7. 
 
 # Using protobuf to pass data *into* Rust code
 

@@ -19,10 +19,10 @@ typedef enum PlacesErrorCode {
     Places_Corrupt = 6,
 } PlacesErrorCode;
 
-typedef struct PlacesError {
+typedef struct PlacesRustError {
     PlacesErrorCode code;
     char *_Nullable message;
-} PlacesError;
+} PlacesRustError;
 
 typedef struct PlacesRustBuffer {
     int64_t len;
@@ -46,26 +46,25 @@ enum {
 
 PlacesApiHandle places_api_new(const char *_Nonnull db_path,
                                const char *_Nullable encryption_key,
-                               PlacesError *_Nonnull out_err);
+                               PlacesRustError *_Nonnull out_err);
 
 
 PlacesConnectionHandle places_connection_new(PlacesApiHandle handle,
                                              int32_t type,
-                                             PlacesError *_Nonnull out_err);
+                                             PlacesRustError *_Nonnull out_err);
 
-// History only, not called yet
 void places_note_observation(PlacesConnectionHandle handle,
                              const char *_Nonnull observation_json,
-                             PlacesError *_Nonnull out_err);
+                             PlacesRustError *_Nonnull out_err);
 
 char *_Nullable places_query_autocomplete(PlacesConnectionHandle handle,
                                           const char *_Nonnull search,
                                           int32_t limit,
-                                          PlacesError *_Nonnull out_err);
+                                          PlacesRustError *_Nonnull out_err);
 
 char *_Nullable places_match_url(PlacesConnectionHandle handle,
                                  const char *_Nonnull search,
-                                 PlacesError *_Nonnull out_err);
+                                 PlacesRustError *_Nonnull out_err);
 
 
 // XXX we should move this to protobufs rather than port it to swift.
@@ -74,89 +73,87 @@ char *_Nullable places_match_url(PlacesConnectionHandle handle,
 //                                    int32_t urls_len,
 //                                    uint8_t *_Nonnull results,
 //                                    int32_t results_len,
-//                                    PlacesError *_Nonnull out_err);
-
+//                                    PlacesRustError *_Nonnull out_err);
 
 char *_Nullable places_get_visited_urls_in_range(PlacesConnectionHandle handle,
                                                  int64_t start,
                                                  int64_t end,
                                                  uint8_t include_remote,
-                                                 PlacesError *_Nonnull out_err);
+                                                 PlacesRustError *_Nonnull out_err);
 
 RawPlacesInterruptHandle *_Nullable places_new_interrupt_handle(PlacesConnectionHandle handle,
-                                                                PlacesError *_Nonnull out_err);
+                                                                PlacesRustError *_Nonnull out_err);
 
 void places_interrupt(RawPlacesInterruptHandle *_Nonnull interrupt,
-                      PlacesError *_Nonnull out_err);
+                      PlacesRustError *_Nonnull out_err);
 
 void places_delete_place(PlacesConnectionHandle handle,
                          const char *_Nonnull place_url,
-                         PlacesError *_Nonnull out_err);
+                         PlacesRustError *_Nonnull out_err);
 
 void places_delete_visit(PlacesConnectionHandle handle,
                          const char *_Nonnull place_url,
                          int64_t visit_timestamp,
-                         PlacesError *_Nonnull out_err);
+                         PlacesRustError *_Nonnull out_err);
 
 void places_delete_visits_between(PlacesConnectionHandle handle,
                                   int64_t start,
                                   int64_t end,
-                                  PlacesError *_Nonnull out_err);
+                                  PlacesRustError *_Nonnull out_err);
 
 void places_wipe_local(PlacesConnectionHandle handle,
-                       PlacesError *_Nonnull out_err);
+                       PlacesRustError *_Nonnull out_err);
 
 void places_run_maintenance(PlacesConnectionHandle handle,
-                            PlacesError *_Nonnull out_err);
+                            PlacesRustError *_Nonnull out_err);
 
 void places_prune_destructively(PlacesConnectionHandle handle,
-                                PlacesError *_Nonnull out_err);
+                                PlacesRustError *_Nonnull out_err);
 
 void places_delete_everything(PlacesConnectionHandle handle,
-                              PlacesError *_Nonnull out_err);
+                              PlacesRustError *_Nonnull out_err);
 
 PlacesRustBuffer places_get_visit_infos(PlacesConnectionHandle handle,
                                         int64_t start_date,
                                         int64_t end_date,
-                                        PlacesError *_Nonnull out_err);
+                                        PlacesRustError *_Nonnull out_err);
 
 void sync15_history_sync(PlacesConnectionHandle handle,
                          char const *_Nonnull key_id,
                          char const *_Nonnull access_token,
                          char const *_Nonnull sync_key,
                          char const *_Nonnull tokenserver_url,
-                         PlacesError *_Nonnull out_err);
+                         PlacesRustError *_Nonnull out_err);
 
 PlacesRustBuffer bookmarks_get_by_guid(PlacesConnectionHandle handle,
                                        char const *_Nonnull guid,
-                                       PlacesError *_Nonnull out_err);
+                                       PlacesRustError *_Nonnull out_err);
 
 PlacesRustBuffer bookmarks_get_by_guid(PlacesConnectionHandle handle,
                                        char const *_Nonnull guid,
-                                       PlacesError *_Nonnull out_err);
+                                       PlacesRustError *_Nonnull out_err);
 
 PlacesRustBuffer bookmarks_get_tree(PlacesConnectionHandle handle,
                                     char const *_Nullable root_guid,
-                                    PlacesError *_Nonnull out_err);
+                                    PlacesRustError *_Nonnull out_err);
 
 char *_Nullable bookmarks_insert(PlacesConnectionHandle handle,
-                                 uint8_t *data,
+                                 uint8_t *_Nonnull data,
                                  int32_t len,
-                                 PlacesError *_Nonnull out_err);
+                                 PlacesRustError *_Nonnull out_err);
 
 void bookmarks_update(PlacesConnectionHandle handle,
-                      uint8_t *data,
+                      uint8_t *_Nonnull data,
                       int32_t len,
-                      PlacesError *_Nonnull out_err);
+                      PlacesRustError *_Nonnull out_err);
 
 uint8_t bookmarks_delete(PlacesConnectionHandle handle,
                          char const *_Nonnull guid_to_delete,
-                         PlacesError *_Nonnull out_err);
-
+                         PlacesRustError *_Nonnull out_err);
 
 void places_api_return_write_conn(PlacesApiHandle api,
                                   PlacesConnectionHandle conn,
-                                  PlacesError *_Nonnull out_err);
+                                  PlacesRustError *_Nonnull out_err);
 
 void places_destroy_bytebuffer(PlacesRustBuffer bb);
 
@@ -165,7 +162,7 @@ void places_destroy_string(char const *_Nonnull s);
 void places_interrupt_handle_destroy(RawPlacesInterruptHandle *_Nonnull handle);
 
 void places_connection_destroy(PlacesConnectionHandle conn,
-                               PlacesError *_Nonnull out_err);
+                               PlacesRustError *_Nonnull out_err);
 
 void places_api_destroy(PlacesApiHandle api,
-                        PlacesError *_Nonnull out_err);
+                        PlacesRustError *_Nonnull out_err);

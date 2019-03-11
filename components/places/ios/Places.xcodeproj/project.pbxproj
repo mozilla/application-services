@@ -9,11 +9,10 @@
 /* Begin PBXBuildFile section */
 		CD07594C2235A20E0018A071 /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CD07594B2235A20E0018A071 /* SwiftProtobuf.framework */; };
 		CD07594E2235A3880018A071 /* msg_types.proto in Sources */ = {isa = PBXBuildFile; fileRef = CD07594D2235A3880018A071 /* msg_types.proto */; };
-		CDB5AAED21535E7F00B66D7E /* LoginRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDB5AAEC21535E7F00B66D7E /* LoginRecord.swift */; };
-		CE9D203120914D2600F1C8FA /* LoginsStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9D202B20914D2600F1C8FA /* LoginsStorage.swift */; };
-		CECB395420B5B92500DB3ED4 /* LockError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CECB395220B5B77E00DB3ED4 /* LockError.swift */; };
-		CEE1087620C5ADF9007048AC /* LoginStoreError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEE1087520C5ADF9007048AC /* LoginStoreError.swift */; };
-		D5C6DB0020DDBA7C009ACDD2 /* String+Free_Logins.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5C6DAFF20DDBA7C009ACDD2 /* String+Free_Logins.swift */; };
+		CDADF0162235CFF700AA3E5C /* String+Free_Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDADF0152235CFF700AA3E5C /* String+Free_Places.swift */; };
+		CDADF0182235D33900AA3E5C /* Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDADF0172235D33900AA3E5C /* Places.swift */; };
+		CDADF01A2235D35B00AA3E5C /* Data+PlacesRustBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDADF0192235D35B00AA3E5C /* Data+PlacesRustBuffer.swift */; };
+		CEE1087620C5ADF9007048AC /* PlacesError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEE1087520C5ADF9007048AC /* PlacesError.swift */; };
 		D819A4A821B861D6004EE6F3 /* libplaces_ffi.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4A721B861D6004EE6F3 /* libplaces_ffi.a */; };
 		D819A4AF21B87468004EE6F3 /* libsqlcipher.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4AE21B87467004EE6F3 /* libsqlcipher.a */; };
 		EB348E432204EA0C00788CD3 /* PlacesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB348E422204EA0C00788CD3 /* PlacesTests.swift */; };
@@ -48,15 +47,14 @@
 /* Begin PBXFileReference section */
 		CD07594B2235A20E0018A071 /* SwiftProtobuf.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftProtobuf.framework; path = ../../../Carthage/Build/iOS/SwiftProtobuf.framework; sourceTree = "<group>"; };
 		CD07594D2235A3880018A071 /* msg_types.proto */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.protobuf; name = msg_types.proto; path = ../../src/msg_types.proto; sourceTree = "<group>"; };
-		CDB5AAEC21535E7F00B66D7E /* LoginRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginRecord.swift; sourceTree = "<group>"; };
+		CDADF0152235CFF700AA3E5C /* String+Free_Places.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Free_Places.swift"; sourceTree = "<group>"; };
+		CDADF0172235D33900AA3E5C /* Places.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Places.swift; sourceTree = "<group>"; };
+		CDADF0192235D35B00AA3E5C /* Data+PlacesRustBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+PlacesRustBuffer.swift"; sourceTree = "<group>"; };
 		CDFA91ED2153568E0074CABF /* RustPlacesAPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustPlacesAPI.h; sourceTree = "<group>"; };
 		CE9D202020914D0D00F1C8FA /* Places.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Places.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE9D202320914D0D00F1C8FA /* Places.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Places.h; sourceTree = "<group>"; };
 		CE9D202420914D0D00F1C8FA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		CE9D202B20914D2600F1C8FA /* LoginsStorage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LoginsStorage.swift; sourceTree = "<group>"; };
-		CECB395220B5B77E00DB3ED4 /* LockError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockError.swift; sourceTree = "<group>"; };
-		CEE1087520C5ADF9007048AC /* LoginStoreError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginStoreError.swift; sourceTree = "<group>"; };
-		D5C6DAFF20DDBA7C009ACDD2 /* String+Free_Logins.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Free_Logins.swift"; sourceTree = "<group>"; };
+		CEE1087520C5ADF9007048AC /* PlacesError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacesError.swift; sourceTree = "<group>"; };
 		D819A4A721B861D6004EE6F3 /* libplaces_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libplaces_ffi.a; path = ../../../target/universal/release/libplaces_ffi.a; sourceTree = "<group>"; };
 		D819A4AE21B87467004EE6F3 /* libsqlcipher.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsqlcipher.a; path = ../../../libs/ios/universal/sqlcipher/lib/libsqlcipher.a; sourceTree = "<group>"; };
 		EB348E402204EA0C00788CD3 /* PlacesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PlacesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -121,8 +119,7 @@
 				CE9D202320914D0D00F1C8FA /* Places.h */,
 				CDFA91ED2153568E0074CABF /* RustPlacesAPI.h */,
 				CE9D202420914D0D00F1C8FA /* Info.plist */,
-				CE9D202B20914D2600F1C8FA /* LoginsStorage.swift */,
-				CDB5AAEC21535E7F00B66D7E /* LoginRecord.swift */,
+				CDADF0172235D33900AA3E5C /* Places.swift */,
 			);
 			path = Places;
 			sourceTree = "<group>";
@@ -140,7 +137,8 @@
 		CECB394F20B5B77E00DB3ED4 /* Extensions */ = {
 			isa = PBXGroup;
 			children = (
-				D5C6DAFF20DDBA7C009ACDD2 /* String+Free_Logins.swift */,
+				CDADF0152235CFF700AA3E5C /* String+Free_Places.swift */,
+				CDADF0192235D35B00AA3E5C /* Data+PlacesRustBuffer.swift */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -149,8 +147,7 @@
 			isa = PBXGroup;
 			children = (
 				EBE26B46220B4CE400D1D99A /* CommonErrors.swift */,
-				CECB395220B5B77E00DB3ED4 /* LockError.swift */,
-				CEE1087520C5ADF9007048AC /* LoginStoreError.swift */,
+				CEE1087520C5ADF9007048AC /* PlacesError.swift */,
 			);
 			path = Errors;
 			sourceTree = "<group>";
@@ -290,13 +287,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CECB395420B5B92500DB3ED4 /* LockError.swift in Sources */,
 				CD07594E2235A3880018A071 /* msg_types.proto in Sources */,
-				D5C6DB0020DDBA7C009ACDD2 /* String+Free_Logins.swift in Sources */,
-				CE9D203120914D2600F1C8FA /* LoginsStorage.swift in Sources */,
 				EBE26B47220B4CE400D1D99A /* CommonErrors.swift in Sources */,
-				CDB5AAED21535E7F00B66D7E /* LoginRecord.swift in Sources */,
-				CEE1087620C5ADF9007048AC /* LoginStoreError.swift in Sources */,
+				CDADF0162235CFF700AA3E5C /* String+Free_Places.swift in Sources */,
+				CDADF0182235D33900AA3E5C /* Places.swift in Sources */,
+				CEE1087620C5ADF9007048AC /* PlacesError.swift in Sources */,
+				CDADF01A2235D35B00AA3E5C /* Data+PlacesRustBuffer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

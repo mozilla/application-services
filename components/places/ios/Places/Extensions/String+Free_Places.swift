@@ -4,9 +4,9 @@
 
 import Foundation
 
-// extension String {
-//     public init(freeingRustString rustString: UnsafeMutablePointer<CChar>) {
-//         defer { sync15_passwords_destroy_string(rustString) }
-//         self.init(cString: rustString)
-//     }
-// }
+extension String {
+    public init(freeingPlacesString rustString: UnsafeMutablePointer<CChar>) {
+        defer { places_destroy_string(rustString) }
+        self.init(cString: rustString)
+    }
+}
