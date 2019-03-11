@@ -233,43 +233,75 @@ follow the examples of the other steps it takes.
     (which should also help indicate where to find the build rules page) after
     you finish.
 
-7. 
+7. Add a declaration for the rust buffer type to your .h file:
+
+    Note that the name must be unique, hence the `MyLib` prefix (use your actual
+    lib name, and not MyLib, of course).
+
+    ```c
+    typedef struct MyLibRustBuffer {
+        int64_t len;
+        uint8_t *_Nullable data;
+    } MyLibRustBuffer;
+
+    // Note: this must be the same name you called
+    // `ffi_support::define_bytebuffer_destructor!` with in
+    // Rust setup step 8.
+    void mylib_destroy_bytebuffer(MyLibRustBuffer bb);
+    ```
+
+    Then, your functions that return `ffi_support::ByteBuffers` in rust should
+    return `MyLibRustBuffer` in the version exposed by the header, for example (from places)
+
+    ```c
+    PlacesRustBuffer bookmarks_get_by_guid(PlacesConnectionHandle handle,
+                                           char const *_Nonnull guid,
+                                           PlacesRustError *_Nonnull out_err);
+    ```
+
+8. Add the following somewhere in your swift code: (TODO: Eventually we should
+   figure out a way to share this)
+
+    ```swift
+    extension Data {
+        init(mylibRustBuffer: MyLibRustBuffer) {
+            self.init(bytes: mylibRustBuffer.data!, count: Int(mylibRustBuffer.len))
+        }
+    }
+    ```
+
+9. Usage code then looks something like:
+
+    ```swift
+    let buffer = try MylibError.unwrap { error in
+        mylib_function_returning_buffer(self.handle, error)
+    }
+    // Note: if conceptually your function returns Option<ByteBuffer>
+    // from rust, you should do the following here:
+    //
+    // if buffer.data == nil {
+    //    return nil
+    // }
+
+    defer { mylib_destroy_bytebuffer(buffer) }
+    let msg = try! MsgTypes_MyMessageType(serializedData: Data(mylibRustBuffer: buffer))
+    // use msg...
+    ```
+
+Note: If Xcode has trouble locating the types generated from the .proto file,
+even though the build works, restarting Xcode may fix the issue.
 
 # Using protobuf to pass data *into* Rust code
 
-## Kotlin/Android
 
 Don't pass `ffi_support::ByteBuffer`/`RustBuffer` into rust.
 It is a type for going in the other direction.
 
-Instead, you should pass the data and length separately. There are two ways of
-doing this for android. You can use either a `Array<Byte>` or a `Pointer`,
-which you can get from a "direct" `java.nio.ByteBuffer`. We recommend the
-latter, as it avoids an additional copy, which can be done as follows (using
-the `toNioDirectBuffer` our kotlin support library provides):
+Instead, you should pass the data and length separately.
 
-In Kotlin:
+The Rust side of this looks something like this:
 
-```kotlin
-// In the com.sun.jna.Library
-fun rust_fun_taking_protobuf(data: Pointer, len: Int, out: RustError.ByReference)
-
-// In some your wrapper (note: `toNioDirectBuffer` is defined by our
-// support library)
-val (len, nioBuf) = theProtobufType.toNioDirectBuffer()
-rustCall { err ->
-    val ptr = Native.getDirectBufferPointer(nioBuf)
-    MyLib.INSTANCE.rust_fun_taking_protobuf(ptr, len, err)
-}
-```
-
-Note that the `toNioDirectBuffer` helper can't return the Pointer directly, as
-it is only valid until the NIO buffer is garbage collected, and if the pointer
-were returned it would not be reachable.
-
-In Rust:
 ```rust
-
 #[no_mangle]
 pub unsafe extern "C" fn rust_fun_taking_protobuf(
     data *const u8,
@@ -295,11 +327,64 @@ pub unsafe extern "C" fn rust_fun_taking_protobuf(
 }
 ```
 
+## Kotlin/Android
+
+There are two ways of passing the data/length pairs on android. You can use
+either a `Array<Byte>` or a `Pointer`, which you can get from a "direct"
+`java.nio.ByteBuffer`. We recommend the latter, as it avoids an additional copy,
+which can be done as follows (using the `toNioDirectBuffer` our kotlin support
+library provides):
+
+In Kotlin:
+
+```kotlin
+// In the com.sun.jna.Library
+fun rust_fun_taking_protobuf(data: Pointer, len: Int, out: RustError.ByReference)
+
+// In some your wrapper (note: `toNioDirectBuffer` is defined by our
+// support library)
+val (len, nioBuf) = theProtobufType.toNioDirectBuffer()
+rustCall { err ->
+    val ptr = Native.getDirectBufferPointer(nioBuf)
+    MyLib.INSTANCE.rust_fun_taking_protobuf(ptr, len, err)
+}
+```
+
+Note that the `toNioDirectBuffer` helper can't return the Pointer directly, as
+it is only valid until the NIO buffer is garbage collected, and if the pointer
+were returned it would not be reachable.
+
 ## Swift
 
-Someone should document me! Until then, taking a look at the changes that were
-made for FxA in https://github.com/mozilla/application-services/pull/626 is not
-a bad first step! Also, ask in #rust-components on slack.
+1. Make sure you've done the first 6 steps (up until you need to modify .h
+   files) of the swift setup for returning protobuf data.
+
+2. The function taking the protobuf should look like this in the header file:
+
+    ```c
+    void rust_fun_taking_protobuf(uint8_t const *_Nonnull data,
+                                  int32_t len,
+                                  MylibRustError *_Nonnull out_err);
+    ```
+
+3. Then, the usage code from Swift would look like:
+
+    ```swift
+    var msg = MsgTypes_MyThing()
+    // populate `msg` with whatever you need to send...
+
+    // Note: the `try!` here only fails if you failed to
+    // populate a required field.
+
+    let data = try! msg.serializedData()
+    let size = Int32(data.count)
+
+    try data.withUnsafeBytes { (bytes: UnsafePointer<UInt8>) in
+        try MyLibError.unwrap { error in
+            rust_fun_taking_protobuf(bytes, size, error)
+        }
+    }
+    ```
 
 # FAQ
 
