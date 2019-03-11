@@ -161,7 +161,7 @@ public class PlacesReadConn {
      *            or null if the provided guid didn't refer to a known
      *            bookmark item.
      */
-    func getTree(rootGUID: String = BookmarkRoots.RootGUID) throws -> BookmarkNode? {
+    func getBookmarksTree(rootGUID: String = BookmarkRoots.RootGUID) throws -> BookmarkNode? {
         return try queue.sync {
             try self.checkApi()
             let buffer = try PlacesError.unwrap { error in
@@ -181,7 +181,7 @@ public class PlacesReadConn {
     /**
      * Returns the information about the bookmark with the provided id.
      *
-     * This differs from `getTree` in that it does not populate the `children` list
+     * This differs from `getBookmarksTree` in that it does not populate the `children` list
      * if `guid` refers to a folder (However, it's `childGUIDs` list will be
      * populated).
      *
@@ -218,7 +218,7 @@ public class PlacesReadConn {
      *
      * - Returns: A list of bookmarks that have the requested URL.
      */
-    func getBookmarksWithUrl(url: String) throws -> [BookmarkNode] {
+    func getBookmarksWithURL(url: String) throws -> [BookmarkNode] {
         return try queue.sync {
             try self.checkApi()
             let buffer = try PlacesError.unwrap { error in

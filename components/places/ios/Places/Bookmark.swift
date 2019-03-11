@@ -41,10 +41,10 @@ public enum BookmarkNodeType: Int32 {
 
 
 /**
- * A base class containing the set of fields common to all nodes
+ * A base class (err, struct) containing the set of fields common to all nodes
  * in the bookmark tree.
  */
-public class BookmarkNode {
+public struct BookmarkNode {
     /**
      * The type of this bookmark.
      */
@@ -61,24 +61,24 @@ public class BookmarkNode {
      *
      * May not be a local timestamp.
      */
-    public let dateAdded: Int64
+    public var dateAdded: Int64
 
     /**
      * Last modification time, in milliseconds since the unix epoch.
      *
      * May not be a local timestamp.
      */
-    public let lastModified: Int64
+    public var lastModified: Int64
 
     /**
      * The guid of this record's parent, or null if the record is the bookmark root.
      */
-    public let parentGUID: String?
+    public var parentGUID: String?
 
     /**
      * The (0-based) position of this record within it's parent.
      */
-    public let position: UInt32
+    public var position: UInt32
 
     fileprivate init(type: BookmarkNodeType, guid: String, dateAdded: Int64, lastModified: Int64, parentGUID: String?, position: UInt32) {
         self.type = type
@@ -105,7 +105,7 @@ public class BookmarkNode {
  * It's type is always `BookmarkNodeType.separator`, and it has no fields
  * besides those defined by `BookmarkNode`.
  */
-public class BookmarkSeparator : BookmarkNode {
+public struct BookmarkSeparator : BookmarkNode {
     public init(guid: String, dateAdded: Int64, lastModified: Int64, parentGUID: String?, position: UInt32) {
         super.init(
             type: .separator,
@@ -124,17 +124,17 @@ public class BookmarkSeparator : BookmarkNode {
  * It's type is always `BookmarkNodeType.bookmark`,  and in addition to the
  * fields provided by `BookmarkNode`, it has a `title` and a `url`.
  */
-public class BookmarkItem : BookmarkNode {
+public struct BookmarkItem : BookmarkNode {
 
     /**
      * The URL of this bookmark.
      */
-    public let url: String
+    public var url: String
 
     /**
      * The title of the bookmark, if it has one.
      */
-    public let title: String?
+    public var title: String?
 
     public init(guid: String, dateAdded: Int64, lastModified: Int64, parentGUID: String?, position: UInt32, url: String, title: String?) {
         self.url = url
@@ -157,22 +157,22 @@ public class BookmarkItem : BookmarkNode {
  * fields provided by `BookmarkNode`, it has a `title`, a list of `childGUIDs`,
  * and possibly a list of `children`.
  */
-public class BookmarkFolder : BookmarkNode {
+public struct BookmarkFolder : BookmarkNode {
     /**
      * The title of this bookmark folder, if it has one.
      */
-    public let title: String?
+    public var title: String?
 
     /**
      * The GUIDs of this folder's list of children.
      */
-    public let childGUIDs: [String]
+    public var childGUIDs: [String]
 
     /**
-     * If this node was returned from the `PlacesReadConn.getTree` function,
+     * If this node was returned from the `PlacesReadConn.getBookmarksTree` function,
      * then this should have the list of children, otherwise it will be nil.
      */
-    public let children: [BookmarkNode]?
+    public var children: [BookmarkNode]?
 
     public init(guid: String, dateAdded: Int64, lastModified: Int64, parentGUID: String?, position: UInt32, title: String?, childGUIDs: [String], children: [BookmarkNode]?) {
         self.title = title
