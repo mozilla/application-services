@@ -209,10 +209,10 @@ public class PlacesReadConn {
     /**
      * Returns the list of bookmarks with the provided URL.
      *
-     * Note that if the URL is not percent-encoded/punycoded, that will be performed
-     * internally, and so the returned bookmarks may not have an identical URL to
-     * the one passed in (however, it will be the same according to the
-     * [URL standard](https://url.spec.whatwg.org/)).
+     * - Note: If the URL is not percent-encoded/punycoded, that will be performed
+     *         internally, and so the returned bookmarks may not have an identical
+     *         URL to the one passed in, however, it will be the same according to
+     *         https://url.spec.whatwg.org
      *
      * - Parameter url: The url to search for.
      *

@@ -90,22 +90,12 @@ public class BookmarkNode {
     }
 
     /**
-     * Returns true if this record may be edited. This is true if this record is
-     * not a bookmark root.
+     * Returns true if this record is a bookmark root.
+     *
+     * - Note: This is determined entirely by inspecting the GUID.
      */
-    public var canEdit: Bool {
-        // TODO: we can do some editing operations on non Root roots.
-        // E.g, we can't move them, but we could change their title or
-        // something.
-        return !BookmarkRoots.All.contains(self.guid)
-    }
-
-    /**
-     * Returns true if this record may be deleted. This is true if this records
-     * GUID is not a bookmark root.
-     */
-    public var canDelete: Bool {
-        return self.canEdit
+    public var isRoot: Bool {
+        return BookmarkRoots.All.contains(self.guid)
     }
 }
 
