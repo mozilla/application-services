@@ -10,30 +10,30 @@ public enum PlacesError: Error {
 
     /// This indicates an attempt to use a connection after the PlacesApi
     /// it came from is destroyed. This indicates a usage error of this library.
-    case ConnUseAfterApiClosed
+    case connUseAfterApiClosed
 
     /// This is a catch-all error code used for errors not yet exposed to consumers,
     /// typically since it doesn't seem like there's a sane way for them to be handled.
-    case Unexpected(message: String)
+    case unexpected(message: String)
 
     /// The rust code implementing logins storage paniced. This always indicates a bug.
-    case Panic(message: String)
+    case panic(message: String)
 
     /// The place we were given is invalid.
-    case InvalidPlace(message: String)
+    case invalidPlace(message: String)
 
     /// We failed to parse the provided URL.
-    case UrlParseError(message: String)
+    case urlParseError(message: String)
 
     /// The requested operation failed because the database was busy
     /// performing operations on a separate connection to the same DB.
-    case DatabaseBusy(message: String)
+    case databaseBusy(message: String)
 
     /// The requested operation failed because it was interrupted
-    case DatabaseInterrupted(message: String)
+    case databaseInterrupted(message: String)
 
     /// The requested operation failed because the store is corrupt
-    case DatabaseCorrupt(message: String)
+    case databaseCorrupt(message: String)
 
     // The name is attempting to indicate that we free rustError.message if it
     // existed, and that it's a very bad idea to touch it after you call this
@@ -46,28 +46,28 @@ public enum PlacesError: Error {
             return nil
 
         case Places_Panic:
-            return .Panic(message: String(freeingPlacesString: message!))
+            return .panic(message: String(freeingPlacesString: message!))
 
         case Places_UnexpectedError:
-            return .Unexpected(message: String(freeingPlacesString: message!))
+            return .unexpected(message: String(freeingPlacesString: message!))
 
         case Places_InvalidPlaceInfo:
-            return .InvalidPlace(message: String(freeingPlacesString: message!))
+            return .invalidPlace(message: String(freeingPlacesString: message!))
 
         case Places_UrlParseError:
-            return .UrlParseError(message: String(freeingPlacesString: message!))
+            return .urlParseError(message: String(freeingPlacesString: message!))
 
         case Places_DatabaseBusy:
-            return .DatabaseBusy(message: String(freeingPlacesString: message!))
+            return .databaseBusy(message: String(freeingPlacesString: message!))
 
         case Places_DatabaseInterrupted:
-            return .DatabaseInterrupted(message: String(freeingPlacesString: message!))
+            return .databaseInterrupted(message: String(freeingPlacesString: message!))
 
         case Places_Corrupt:
-            return .DatabaseCorrupt(message: String(freeingPlacesString: message!))
+            return .databaseCorrupt(message: String(freeingPlacesString: message!))
 
         default:
-            return .Unexpected(message: String(freeingPlacesString: message!))
+            return .unexpected(message: String(freeingPlacesString: message!))
         }
     }
 

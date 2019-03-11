@@ -8,10 +8,11 @@
 
 /* Begin PBXBuildFile section */
 		CD07594C2235A20E0018A071 /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CD07594B2235A20E0018A071 /* SwiftProtobuf.framework */; };
-		CD07594E2235A3880018A071 /* msg_types.proto in Sources */ = {isa = PBXBuildFile; fileRef = CD07594D2235A3880018A071 /* msg_types.proto */; };
 		CDADF0162235CFF700AA3E5C /* String+Free_Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDADF0152235CFF700AA3E5C /* String+Free_Places.swift */; };
 		CDADF0182235D33900AA3E5C /* Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDADF0172235D33900AA3E5C /* Places.swift */; };
 		CDADF01A2235D35B00AA3E5C /* Data+PlacesRustBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDADF0192235D35B00AA3E5C /* Data+PlacesRustBuffer.swift */; };
+		CDADF01C2235E4FE00AA3E5C /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDADF01B2235E4FE00AA3E5C /* Bookmark.swift */; };
+		CDADF01E2235FAF600AA3E5C /* msg_types.proto in Sources */ = {isa = PBXBuildFile; fileRef = CDADF01D2235FAF600AA3E5C /* msg_types.proto */; };
 		CEE1087620C5ADF9007048AC /* PlacesError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEE1087520C5ADF9007048AC /* PlacesError.swift */; };
 		D819A4A821B861D6004EE6F3 /* libplaces_ffi.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4A721B861D6004EE6F3 /* libplaces_ffi.a */; };
 		D819A4AF21B87468004EE6F3 /* libsqlcipher.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4AE21B87467004EE6F3 /* libsqlcipher.a */; };
@@ -46,10 +47,11 @@
 
 /* Begin PBXFileReference section */
 		CD07594B2235A20E0018A071 /* SwiftProtobuf.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftProtobuf.framework; path = ../../../Carthage/Build/iOS/SwiftProtobuf.framework; sourceTree = "<group>"; };
-		CD07594D2235A3880018A071 /* msg_types.proto */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.protobuf; name = msg_types.proto; path = ../../src/msg_types.proto; sourceTree = "<group>"; };
 		CDADF0152235CFF700AA3E5C /* String+Free_Places.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Free_Places.swift"; sourceTree = "<group>"; };
 		CDADF0172235D33900AA3E5C /* Places.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Places.swift; sourceTree = "<group>"; };
 		CDADF0192235D35B00AA3E5C /* Data+PlacesRustBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+PlacesRustBuffer.swift"; sourceTree = "<group>"; };
+		CDADF01B2235E4FE00AA3E5C /* Bookmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bookmark.swift; sourceTree = "<group>"; };
+		CDADF01D2235FAF600AA3E5C /* msg_types.proto */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.protobuf; name = msg_types.proto; path = ../src/msg_types.proto; sourceTree = "<group>"; };
 		CDFA91ED2153568E0074CABF /* RustPlacesAPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustPlacesAPI.h; sourceTree = "<group>"; };
 		CE9D202020914D0D00F1C8FA /* Places.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Places.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE9D202320914D0D00F1C8FA /* Places.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Places.h; sourceTree = "<group>"; };
@@ -91,6 +93,7 @@
 		CE9D201620914D0D00F1C8FA = {
 			isa = PBXGroup;
 			children = (
+				CDADF01D2235FAF600AA3E5C /* msg_types.proto */,
 				EBA8770621F5FB9A004F63F0 /* base.xcconfig */,
 				EBA8770721F5FB9A004F63F0 /* debug.xcconfig */,
 				EBA8770821F5FB9A004F63F0 /* release.xcconfig */,
@@ -113,13 +116,13 @@
 		CE9D202220914D0D00F1C8FA /* Places */ = {
 			isa = PBXGroup;
 			children = (
-				CD07594D2235A3880018A071 /* msg_types.proto */,
 				CECB395120B5B77E00DB3ED4 /* Errors */,
 				CECB394F20B5B77E00DB3ED4 /* Extensions */,
 				CE9D202320914D0D00F1C8FA /* Places.h */,
 				CDFA91ED2153568E0074CABF /* RustPlacesAPI.h */,
 				CE9D202420914D0D00F1C8FA /* Info.plist */,
 				CDADF0172235D33900AA3E5C /* Places.swift */,
+				CDADF01B2235E4FE00AA3E5C /* Bookmark.swift */,
 			);
 			path = Places;
 			sourceTree = "<group>";
@@ -287,11 +290,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CD07594E2235A3880018A071 /* msg_types.proto in Sources */,
+				CDADF01E2235FAF600AA3E5C /* msg_types.proto in Sources */,
 				EBE26B47220B4CE400D1D99A /* CommonErrors.swift in Sources */,
 				CDADF0162235CFF700AA3E5C /* String+Free_Places.swift in Sources */,
 				CDADF0182235D33900AA3E5C /* Places.swift in Sources */,
 				CEE1087620C5ADF9007048AC /* PlacesError.swift in Sources */,
+				CDADF01C2235E4FE00AA3E5C /* Bookmark.swift in Sources */,
 				CDADF01A2235D35B00AA3E5C /* Data+PlacesRustBuffer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

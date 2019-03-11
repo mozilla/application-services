@@ -53,6 +53,8 @@ PlacesConnectionHandle places_connection_new(PlacesApiHandle handle,
                                              int32_t type,
                                              PlacesRustError *_Nonnull out_err);
 
+// MARK: History APIs
+
 void places_note_observation(PlacesConnectionHandle handle,
                              const char *_Nonnull observation_json,
                              PlacesRustError *_Nonnull out_err);
@@ -125,31 +127,35 @@ void sync15_history_sync(PlacesConnectionHandle handle,
                          char const *_Nonnull tokenserver_url,
                          PlacesRustError *_Nonnull out_err);
 
-PlacesRustBuffer bookmarks_get_by_guid(PlacesConnectionHandle handle,
-                                       char const *_Nonnull guid,
-                                       PlacesRustError *_Nonnull out_err);
+// MARK: Bookmarks APIs
 
 PlacesRustBuffer bookmarks_get_by_guid(PlacesConnectionHandle handle,
                                        char const *_Nonnull guid,
                                        PlacesRustError *_Nonnull out_err);
+
+PlacesRustBuffer bookmarks_get_all_with_url(PlacesConnectionHandle handle,
+                                            char const *_Nonnull url,
+                                            PlacesRustError *_Nonnull out_err);
 
 PlacesRustBuffer bookmarks_get_tree(PlacesConnectionHandle handle,
                                     char const *_Nullable root_guid,
                                     PlacesRustError *_Nonnull out_err);
 
 char *_Nullable bookmarks_insert(PlacesConnectionHandle handle,
-                                 uint8_t *_Nonnull data,
+                                 uint8_t const *_Nonnull data,
                                  int32_t len,
                                  PlacesRustError *_Nonnull out_err);
 
 void bookmarks_update(PlacesConnectionHandle handle,
-                      uint8_t *_Nonnull data,
+                      uint8_t const *_Nonnull data,
                       int32_t len,
                       PlacesRustError *_Nonnull out_err);
 
 uint8_t bookmarks_delete(PlacesConnectionHandle handle,
                          char const *_Nonnull guid_to_delete,
                          PlacesRustError *_Nonnull out_err);
+
+// MARK: memory/lifecycle management
 
 void places_api_return_write_conn(PlacesApiHandle api,
                                   PlacesConnectionHandle conn,
