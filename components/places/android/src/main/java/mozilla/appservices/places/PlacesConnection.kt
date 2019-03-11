@@ -249,10 +249,10 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         val rustBuf = rustCall { err ->
             LibPlacesFFI.INSTANCE.bookmarks_get_by_guid(this.handle.get(), guid, err)
         }
-
         try {
-            val message = MsgTypes.BookmarkNode.parseFrom(rustBuf.asCodedInputStream()!!)
-            return unpackProtobuf(message, false)
+            return rustBuf.asCodedInputStream()?.let { stream ->
+                unpackProtobuf(MsgTypes.BookmarkNode.parseFrom(stream), false)
+            }
         } finally {
             LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
         }
@@ -262,10 +262,10 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         val rustBuf = rustCall { err ->
             LibPlacesFFI.INSTANCE.bookmarks_get_tree(this.handle.get(), rootGUID, err)
         }
-
         try {
-            val message = MsgTypes.BookmarkNode.parseFrom(rustBuf.asCodedInputStream()!!)
-            return unpackProtobuf(message, true)
+            return rustBuf.asCodedInputStream()?.let { stream ->
+                unpackProtobuf(MsgTypes.BookmarkNode.parseFrom(stream), true)
+            }
         } finally {
             LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
         }

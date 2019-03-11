@@ -216,7 +216,7 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * Create a bookmark folder, returning it's guid.
      *
      * @param parentGUID The GUID of the (soon to be) parent of this bookmark.
-     * @param title The GUID of the bookmark to delete
+     * @param title The title of the folder.
      * @param position The index where to insert the record inside
      *                 it's parent. If not provided, this item will
      *                 be appended.
