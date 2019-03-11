@@ -407,8 +407,7 @@ pub unsafe extern "C" fn bookmarks_update(
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let buffer = get_buffer(data, len);
         let bookmark: BookmarkNode = prost::Message::decode(buffer)?;
-        let (guid, update_info) = bookmark.into_updatable()?;
-        bookmarks::update_bookmark(conn, &guid, &update_info)?;
+        bookmarks::update_bookmark_from_message(conn, bookmark)?;
         Ok(())
     })
 }

@@ -106,14 +106,14 @@ impl<'a> PartialEq<&'a SyncGuid> for BookmarkRootGuid {
 }
 
 // And between BookmarkRootGuid and &str
-impl PartialEq<BookmarkRootGuid> for str {
+impl<'a> PartialEq<BookmarkRootGuid> for &'a str {
     fn eq(&self, other: &BookmarkRootGuid) -> bool {
-        self == other.as_str()
+        *self == other.as_str()
     }
 }
 
-impl PartialEq<str> for BookmarkRootGuid {
-    fn eq(&self, other: &str) -> bool {
-        self.as_str() == other
+impl<'a> PartialEq<&'a str> for BookmarkRootGuid {
+    fn eq(&self, other: &&'a str) -> bool {
+        self.as_str() == *other
     }
 }

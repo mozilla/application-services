@@ -274,15 +274,6 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
  */
 data class BookmarkUpdateInfo(
         /**
-         * The type of the bookmark you wish to update.
-         *
-         * Note: it is an error to attempt to change the type of a bookmark.
-         */
-        // XXX this isn't great, it's annoying that you'd need to know what the type of a
-        // bookmark is in order to e.g. move it.
-        val type: BookmarkType,
-
-        /**
          * If the record should be moved to another folder, the guid
          * of the folder it should be moved to. Interacts with
          * `position`, see it's documentation for details.
@@ -320,7 +311,6 @@ data class BookmarkUpdateInfo(
 
     internal fun toProtobuf(guid: String): MsgTypes.BookmarkNode {
         val builder = MsgTypes.BookmarkNode.newBuilder()
-        builder.setNodeType(this.type.value)
         builder.setGuid(guid)
         this.position?.let { builder.setPosition(it) }
         this.parentGUID?.let { builder.setParentGuid(it) }

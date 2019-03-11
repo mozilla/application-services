@@ -4,6 +4,8 @@
 
 // XXX - more copy-pasta from logins.
 
+use crate::storage::bookmarks::BookmarkRootGuid;
+use crate::types::BookmarkType;
 use failure::{Backtrace, Context, Fail};
 use std::boxed::Box;
 use std::{self, fmt};
@@ -99,13 +101,6 @@ pub enum ErrorKind {
     #[fail(display = "Illegal database path: {:?}", _0)]
     IllegalDatabasePath(std::path::PathBuf),
 
-    // This (and BadBookmarkUpdate) generally indicate an error on the part of the user of the API.
-    #[fail(display = "Cannot insert bookmark: {}", _0)]
-    BadBookmarkInsertion(String),
-
-    #[fail(display = "Cannot update bookmark: {}", _0)]
-    BadBookmarkUpdate(String),
-
     #[fail(display = "Protobuf decode error: {}", _0)]
     ProtobufDecodeError(#[fail(cause)] prost::DecodeError),
 }
@@ -172,6 +167,14 @@ pub enum InvalidPlaceInfo {
     // Like Urls, a tag is considered private info, so the value isn't in the error.
     #[fail(display = "The tag value is invalid")]
     InvalidTag,
+    #[fail(
+        display = "Cannot change the '{}' property of a bookmark of type {:?}",
+        _0, _1
+    )]
+    IllegalChange(&'static str, BookmarkType),
+
+    #[fail(display = "Cannot update the bookmark root {:?}", _0)]
+    CannotUpdateRoot(BookmarkRootGuid),
 }
 
 // Error types used when we can't continue due to corruption.

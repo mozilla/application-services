@@ -472,13 +472,28 @@ impl UpdatableItem {
     }
 }
 
+pub fn update_bookmark_from_message(db: &PlacesDb, msg: ProtoBookmark) -> Result<()> {
+    let info = conversions::BookmarkUpdateInfo::from(msg);
+
+    let tx = db.unchecked_transaction()?;
+    let node_type: BookmarkType = db.query_row_and_then_named(
+        "SELECT type FROM moz_bookmarks WHERE guid = :guid",
+        &[(":guid", &info.guid)],
+        |r| r.get_checked(0),
+        true,
+    )?;
+    let (guid, updatable) = info.into_updatable(node_type)?;
+
+    update_bookmark_in_tx(db, &guid, &updatable)?;
+    tx.commit()?;
+    Ok(())
+}
+
 pub fn update_bookmark(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
     let tx = db.unchecked_transaction()?;
     let result = update_bookmark_in_tx(db, guid, item);
-    match result {
-        Ok(_) => tx.commit()?,
-        Err(_) => tx.rollback()?,
-    }
+    // Note: `tx` automatically rolls back on drop if we don't commit
+    tx.commit()?;
     result
 }
 
@@ -1256,7 +1271,7 @@ pub fn fetch_bookmark(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<Option<
     };
 
     let result = ProtoBookmark {
-        node_type: rb.bookmark_type as i32,
+        node_type: Some(rb.bookmark_type as i32),
         guid: Some(rb.guid.0),
         parent_guid: Some(rb.parent_guid.0),
         position: Some(rb.position),
@@ -1323,7 +1338,7 @@ pub fn fetch_bookmarks_by_url(db: &impl ConnExt, url: &Url) -> Result<ProtoNodeL
             debug_assert_eq!(rb.bookmark_type, BookmarkType::Bookmark);
             debug_assert!(rb.url.is_some());
             ProtoBookmark {
-                node_type: rb.bookmark_type as i32,
+                node_type: Some(rb.bookmark_type as i32),
                 guid: Some(rb.guid.0),
                 parent_guid: Some(rb.parent_guid.0),
                 position: Some(rb.position),
@@ -1338,7 +1353,6 @@ pub fn fetch_bookmarks_by_url(db: &impl ConnExt, url: &Url) -> Result<ProtoNodeL
         .collect();
     Ok(ProtoNodeList { nodes })
 }
-
 /// A "raw" bookmark - a representation of the row and some summary fields.
 #[derive(Debug)]
 struct RawBookmark {

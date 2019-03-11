@@ -103,8 +103,6 @@ public class PlacesApi {
             self.writeConn
         }
     }
-    
-
 }
 
 /**
@@ -333,10 +331,6 @@ public class PlacesWriteConn : PlacesReadConn {
      * - Parameters:
      *     - guid: Guid of the bookmark to update
      *
-     *     - type: The type of the bookmark you wish to update.
-     *             Note that it is an error to attempt to change the type
-     *             of a bookmark.
-     *
      *     - parentGUID: If the record should be moved to another folder, the guid
      *                   of the folder it should be moved to. Interacts with
      *                   `position`, see the note below for details.
@@ -365,7 +359,6 @@ public class PlacesWriteConn : PlacesReadConn {
      *       treated as a move the end of that folder.
      */
     func updateBookmark(guid: String,
-                        type: BookmarkNodeType,
                         parentGUID: String? = nil,
                         position: UInt32? = nil,
                         title: String? = nil,
@@ -374,7 +367,6 @@ public class PlacesWriteConn : PlacesReadConn {
         try queue.sync {
             try self.checkApi()
             var msg = MsgTypes_BookmarkNode()
-            msg.nodeType = type.rawValue
             msg.guid = guid
             if let parent = parentGUID {
                 msg.parentGuid = parent

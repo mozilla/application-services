@@ -8,7 +8,7 @@ use super::{
     UpdatableSeparator, UpdateTreeLocation,
 };
 
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{InvalidPlaceInfo, Result};
 use crate::msg_types;
 use crate::types::{BookmarkType, SyncGuid};
 use url::Url;
@@ -18,7 +18,7 @@ impl From<BookmarkTreeNode> for msg_types::BookmarkNode {
     fn from(n: BookmarkTreeNode) -> Self {
         let (date_added, last_modified) = n.created_modified();
         let mut result = Self {
-            node_type: n.node_type() as u8 as i32,
+            node_type: Some(n.node_type() as i32),
             guid: Some(n.guid().to_string()),
             date_added: Some(date_added.0 as i64),
             last_modified: Some(last_modified.0 as i64),
@@ -59,62 +59,24 @@ impl From<BookmarkTreeNode> for msg_types::BookmarkNode {
     }
 }
 
-fn bad_insertion(reason: impl Into<String>) -> Error {
-    Error::from(ErrorKind::BadBookmarkInsertion(reason.into()))
-}
-
-fn bad_update(reason: impl Into<String>) -> Error {
-    Error::from(ErrorKind::BadBookmarkUpdate(reason.into()))
-}
-
-macro_rules! insertion_check {
-    ($cnd:expr, $($fmt_args:tt)*) => {
-        if !$cnd {
-            return Err(bad_insertion(format!($($fmt_args)*)));
-        }
-    };
-}
-
-macro_rules! update_check {
-    ($cnd:expr, $($fmt_args:tt)*) => {
-        if !$cnd {
-            return Err(bad_update(format!($($fmt_args)*)));
-        }
-    };
-}
-
 impl msg_types::BookmarkNode {
-    /// Get the BookmarkType, panicking if it's invalid (because it really never should be unless
-    /// we have a bug somewhere).
-    pub(crate) fn node_type(&self) -> BookmarkType {
+    /// Get the BookmarkType, panicking if it's invalid (because it really never
+    /// should be unless we have a bug somewhere).
+    pub(crate) fn get_node_type(&self) -> BookmarkType {
+        let value = self.node_type.unwrap();
         // Check that the cast wouldn't truncate first.
         assert!(
-            self.node_type >= 0 && self.node_type <= std::u8::MAX as i32,
+            value >= 0 && value <= std::u8::MAX as i32,
             "wildly illegal node_type: {}",
-            self.node_type
+            value
         );
 
-        BookmarkType::from_u8(self.node_type as u8).expect("Invalid node_type")
+        BookmarkType::from_u8(value as u8).expect("Invalid node_type")
     }
 
     /// Convert the protobuf bookmark into information for insertion.
     pub fn into_insertable(self) -> Result<InsertableItem> {
-        let ty = self.node_type();
-
-        insertion_check!(
-            self.guid.is_none(),
-            "Guid may not be provided when creating a bookmark"
-        );
-
-        insertion_check!(
-            self.last_modified.is_none() && self.date_added.is_none(),
-            "Neither date_added nor last_modified may be provided when creating a bookmark"
-        );
-
-        insertion_check!(
-            self.child_nodes.is_empty() && self.child_guids.is_empty(),
-            "Children may not be provided when creating a folder"
-        );
+        let ty = self.get_node_type();
 
         let parent_guid = self
             .parent_guid
@@ -130,11 +92,7 @@ impl msg_types::BookmarkNode {
                 parent_guid,
                 position,
                 title: self.title,
-                url: Url::parse(
-                    &self
-                        .url
-                        .ok_or_else(|| bad_insertion("No URL provided for bookmark insertion"))?,
-                )?,
+                url: Url::parse(&self.url.ok_or(InvalidPlaceInfo::NoUrl)?)?,
                 guid: None,
                 date_added: None,
                 last_modified: None,
@@ -156,23 +114,48 @@ impl msg_types::BookmarkNode {
             }),
         })
     }
+}
 
-    /// Convert the protobuf bookmark into information for updating.
-    pub fn into_updatable(self) -> Result<(SyncGuid, UpdatableItem)> {
-        let ty = self.node_type();
-        let guid = self
-            .guid
-            .ok_or_else(|| bad_update("Guid must be provided when updating a bookmark"))?;
+/// We don't require bookmark type for updates on the other side of the FFI,
+/// since the type is immutable, and iOS wants to be able to move bookmarks by
+/// GUID. We also don't/can't enforce as much in the Kotlin/Swift type system
+/// as we can/do in Rust.
+///
+/// This is a type that represents the data we get from the FFI, which we then
+/// turn into a `UpdatableItem` that we can actually use (we do this by
+/// reading the type out of the DB, but we can do that transactionally, so it's
+/// not a problem).
+///
+/// It's basically an intermediate between the protobuf message format and
+/// `UpdatableItem`, used to avoid needing to pass in the `type` to update, and
+/// to give us a place to check things that we can't enforce in Swift/Kotlin's
+/// type system, but that we do in Rust's.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct BookmarkUpdateInfo {
+    pub guid: SyncGuid,
+    pub title: Option<String>,
+    pub url: Option<String>,
+    pub parent_guid: Option<SyncGuid>,
+    pub position: Option<u32>,
+}
 
-        update_check!(
-            self.last_modified.is_none() && self.date_added.is_none(),
-            "Neither date_added nor last_modified may be provided when updating a bookmark"
-        );
+impl BookmarkUpdateInfo {
+    /// Convert the `BookmarkUpdateInfo` into information for updating, (now that
+    /// we know it's node type).
+    pub fn into_updatable(self, ty: BookmarkType) -> Result<(SyncGuid, UpdatableItem)> {
+        // Check the things that otherwise would be enforced by the type system.
 
-        update_check!(
-            self.child_nodes.is_empty() && self.child_guids.is_empty(),
-            "Children may not be provided when updating a folder"
-        );
+        if self.title.is_some() && ty == BookmarkType::Separator {
+            return Err(InvalidPlaceInfo::IllegalChange("title", ty).into());
+        }
+
+        if self.url.is_some() && ty != BookmarkType::Bookmark {
+            return Err(InvalidPlaceInfo::IllegalChange("url", ty).into());
+        }
+
+        if let Some(root) = BookmarkRootGuid::from_guid(&self.guid) {
+            return Err(InvalidPlaceInfo::CannotUpdateRoot(root).into());
+        }
 
         let location = match (self.parent_guid, self.position) {
             (None, None) => UpdateTreeLocation::None,
@@ -196,6 +179,20 @@ impl msg_types::BookmarkNode {
             }),
         };
 
-        Ok((SyncGuid::from(guid), updatable))
+        Ok((self.guid, updatable))
+    }
+}
+
+impl From<msg_types::BookmarkNode> for BookmarkUpdateInfo {
+    fn from(n: msg_types::BookmarkNode) -> Self {
+        Self {
+            // This is a bug in our code on the other side of the FFI,
+            // so expect should be fine.
+            guid: SyncGuid(n.guid.expect("Missing guid")),
+            title: n.title,
+            url: n.url,
+            parent_guid: n.parent_guid.map(SyncGuid),
+            position: n.position,
+        }
     }
 }

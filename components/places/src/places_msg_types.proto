@@ -44,8 +44,12 @@ message BookmarkNode {
      *
      * Note: this is `node_type` and not `type` because `type` is reserved
      * in Rust.
+     *
+     * - Always returned on reads.
+     * - Required for inserts.
+     * - Not provided for updates.
      */
-    required int32 node_type = 1;
+    optional int32 node_type = 1;
 
     /**
      * The bookmarks guid.
