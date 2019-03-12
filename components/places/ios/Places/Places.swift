@@ -121,7 +121,7 @@ public class PlacesReadConnection {
     // Note: caller synchronizes!
     fileprivate func checkApi() throws {
         if api == nil {
-            throw PlacesError.connUseAfterApiClosed
+            throw PlacesError.connUseAfterAPIClosed
         }
     }
 

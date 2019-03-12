@@ -10,7 +10,7 @@ public enum PlacesError: Error {
 
     /// This indicates an attempt to use a connection after the PlacesAPI
     /// it came from is destroyed. This indicates a usage error of this library.
-    case connUseAfterApiClosed
+    case connUseAfterAPIClosed
 
     /// This is a catch-all error code used for errors not yet exposed to consumers,
     /// typically since it doesn't seem like there's a sane way for them to be handled.
