@@ -101,7 +101,7 @@ impl<'a> dogear::Store<Error> for BookmarksStore<'a> {
             FROM localItems s
             ORDER BY s.level, s.parentId, s.position"#,
             local_items_fragment = *LOCAL_ITEMS_SQL_FRAGMENT,
-            kind = type_to_kind("s.type", "s.placeId"),
+            kind = type_to_kind("s.type", UrlOrPlaceId::PlaceId("s.placeId")),
         );
         let mut stmt = self.db.prepare(&sql)?;
         let mut results = stmt.query(NO_PARAMS)?;
@@ -612,7 +612,7 @@ impl<'a> BookmarksStore<'a> {
             WHERE s.syncChangeCounter >= 1 OR
                   w.id NOT NULL",
             local_items_fragment = *LOCAL_ITEMS_SQL_FRAGMENT,
-            kind = type_to_kind("s.type", "h.id"),
+            kind = type_to_kind("s.type", UrlOrPlaceId::Url("h.url")),
         ))?;
 
         // Record the child GUIDs of locally changed folders, which we use to
@@ -841,16 +841,16 @@ impl<'a> Store for BookmarksStore<'a> {
     }
 }
 
-fn type_to_kind<'a>(typ: &'a str, place_id: &'a str) -> TypeToKind<'a> {
-    TypeToKind { typ, place_id }
+fn type_to_kind<'a>(typ: &'a str, url: UrlOrPlaceId<'a>) -> TypeToKind<'a> {
+    TypeToKind { typ, url }
 }
 
 /// A helper that interpolates a SQL expression for converting Places item types
-/// to Sync record kinds. `typ` is the name of the `moz_bookmarks.type` column.
-/// `place_id` is the name of the `moz_bookmarks.fk` column.
+/// to Sync record kinds. `typ` is the name of the bookmark type column in the
+/// projection.
 struct TypeToKind<'a> {
     typ: &'a str,
-    place_id: &'a str,
+    url: UrlOrPlaceId<'a>,
 }
 
 impl<'a> fmt::Display for TypeToKind<'a> {
@@ -858,23 +858,43 @@ impl<'a> fmt::Display for TypeToKind<'a> {
         write!(
             f,
             r#"(CASE {typ}
-            WHEN {bookmark_type} THEN (
-             CASE SUBSTR((SELECT h.url FROM moz_places h
-                          WHERE h.id = {place_id}), 1, 6)
-             /* Queries are bookmarks with a "place:" URL scheme. */
-             WHEN 'place:' THEN {query_kind}
-             ELSE {bookmark_kind} END)
-           WHEN {folder_type} THEN {folder_kind}
-           ELSE {separator_kind} END)"#,
+                WHEN {bookmark_type} THEN (
+                    CASE substr({url}, 1, 6)
+                    /* Queries are bookmarks with a "place:" URL scheme. */
+                    WHEN 'place:' THEN {query_kind}
+                    ELSE {bookmark_kind}
+                    END
+                )
+                WHEN {folder_type} THEN {folder_kind}
+                ELSE {separator_kind}
+                END)"#,
             typ = self.typ,
             bookmark_type = BookmarkType::Bookmark as u8,
-            place_id = self.place_id,
+            url = self.url,
             bookmark_kind = SyncedBookmarkKind::Bookmark as u8,
             folder_type = BookmarkType::Folder as u8,
             folder_kind = SyncedBookmarkKind::Folder as u8,
             separator_kind = SyncedBookmarkKind::Separator as u8,
             query_kind = SyncedBookmarkKind::Query as u8
         )
+    }
+}
+
+/// A helper that interpolates a SQL expression for a Place URL. This avoids a
+/// subquery if the URL is already available in the projection.
+enum UrlOrPlaceId<'a> {
+    Url(&'a str),
+    PlaceId(&'a str),
+}
+
+impl<'a> fmt::Display for UrlOrPlaceId<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            UrlOrPlaceId::Url(s) => write!(f, "{}", s),
+            UrlOrPlaceId::PlaceId(s) => {
+                write!(f, "(SELECT h.url FROM moz_places h WHERE h.id = {})", s)
+            }
+        }
     }
 }
 
