@@ -13,11 +13,16 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 // XXX - copied from logins - surprised it's not in `sync`
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
-pub struct SyncGuid(pub String);
+pub struct SyncGuid(String);
 
 impl SyncGuid {
     pub fn new() -> Self {
         SyncGuid(sync15::random_guid().unwrap())
+    }
+
+    #[inline]
+    pub fn into_string(self) -> String {
+        self.0
     }
 }
 impl AsRef<str> for SyncGuid {

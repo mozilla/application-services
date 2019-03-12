@@ -546,7 +546,7 @@ pub mod history_sync {
         pub fn from_row(row: &Row) -> Result<Self> {
             Ok(Self {
                 url: Url::parse(&row.get_checked::<_, String>("url")?)?,
-                guid: SyncGuid(row.get_checked::<_, String>("guid")?),
+                guid: row.get_checked::<_, String>("guid")?.into(),
                 row_id: row.get_checked("id")?,
                 title: row
                     .get_checked::<_, Option<String>>("title")?
@@ -795,7 +795,9 @@ pub mod history_sync {
         let ts_rows = db.query_rows_and_then_named(
             tombstones_sql,
             &[(":max_places", &(max_places as u32))],
-            |row| -> rusqlite::Result<_> { Ok(SyncGuid(row.get_checked::<_, String>("guid")?)) },
+            |row| -> rusqlite::Result<SyncGuid> {
+                Ok(row.get_checked::<_, String>("guid")?.into())
+            },
         )?;
         // It's unfortunatee that query_rows_and_then_named returns a Vec instead of an iterator
         // (which would be very hard to do), but as long as we have it, we might as well make use
@@ -1869,15 +1871,15 @@ mod tests {
         }
         // Add some bookmarks.
         let b0 = (
-            SyncGuid("aaaaaaaaaaaa".into()),
+            SyncGuid::from("aaaaaaaaaaaa"),
             Url::parse("http://www.example3.com/5").unwrap(),
         );
         let b1 = (
-            SyncGuid("bbbbbbbbbbbb".into()),
+            SyncGuid::from("bbbbbbbbbbbb"),
             Url::parse("http://www.example6.com/10").unwrap(),
         );
         let b2 = (
-            SyncGuid("cccccccccccc".into()),
+            SyncGuid::from("cccccccccccc"),
             Url::parse("http://www.example9.com/4").unwrap(),
         );
         for (guid, url) in &[&b0, &b1, &b2] {

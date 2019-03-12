@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::record::{
-    BookmarkItemRecord, BookmarkRecord, FolderRecord, QueryRecord, SeparatorRecord,
+    guid_to_id, BookmarkItemRecord, BookmarkRecord, FolderRecord, QueryRecord, SeparatorRecord,
 };
 use crate::error::*;
 use crate::storage::{
@@ -649,7 +649,9 @@ impl<'a> BookmarksStore<'a> {
             let guid = row.get_checked::<_, SyncGuid>("guid")?;
             let is_deleted = row.get_checked::<_, bool>("isDeleted")?;
             if is_deleted {
-                outgoing.changes.push(Payload::new_tombstone(guid.0));
+                outgoing
+                    .changes
+                    .push(Payload::new_tombstone(guid_to_id(&guid).into()));
                 continue;
             }
             let parent_guid = row.get_checked::<_, SyncGuid>("parentGuid")?;
@@ -1129,11 +1131,7 @@ mod tests {
         outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
         assert_eq!(
             outgoing.changes.iter().map(|p| &p.id).collect::<Vec<_>>(),
-            vec![
-                "bookmarkAAAA",
-                "bookmarkBBBB",
-                &BookmarkRootGuid::Unfiled.as_guid().as_ref()
-            ]
+            vec!["bookmarkAAAA", "bookmarkBBBB", "unfiled",]
         );
 
         assert_local_json_tree(
@@ -1198,7 +1196,7 @@ mod tests {
                 &[
                     "bookmarkAAAA".into(),
                     "bookmarkBBBB".into(),
-                    (BookmarkRootGuid::Unfiled.as_guid().as_ref()).into(),
+                    "unfiled".into(),
                 ],
             )
             .expect("Should push synced changes back to the store");

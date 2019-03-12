@@ -34,11 +34,21 @@ pub enum BookmarkRootGuid {
 impl BookmarkRootGuid {
     pub fn as_guid(&self) -> SyncGuid {
         match self {
-            &BookmarkRootGuid::Root => SyncGuid("root________".into()),
-            &BookmarkRootGuid::Menu => SyncGuid("menu________".into()),
-            &BookmarkRootGuid::Toolbar => SyncGuid("toolbar_____".into()),
-            &BookmarkRootGuid::Unfiled => SyncGuid("unfiled_____".into()),
-            &BookmarkRootGuid::Mobile => SyncGuid("mobile______".into()),
+            &BookmarkRootGuid::Root => "root________".into(),
+            &BookmarkRootGuid::Menu => "menu________".into(),
+            &BookmarkRootGuid::Toolbar => "toolbar_____".into(),
+            &BookmarkRootGuid::Unfiled => "unfiled_____".into(),
+            &BookmarkRootGuid::Mobile => "mobile______".into(),
+        }
+    }
+
+    pub fn as_sync_record_id(&self) -> &'static str {
+        match self {
+            BookmarkRootGuid::Root => "places",
+            BookmarkRootGuid::Menu => "menu",
+            BookmarkRootGuid::Toolbar => "toolbar",
+            BookmarkRootGuid::Unfiled => "unfiled",
+            BookmarkRootGuid::Mobile => "mobile",
         }
     }
 
@@ -51,6 +61,17 @@ impl BookmarkRootGuid {
             "mobile______" => Some(BookmarkRootGuid::Mobile),
             _ => None,
         }
+    }
+
+    pub fn from_sync_record_id(id: &str) -> Option<Self> {
+        Some(match id {
+            "places" => BookmarkRootGuid::Root,
+            "menu" => BookmarkRootGuid::Menu,
+            "toolbar" => BookmarkRootGuid::Toolbar,
+            "unfiled" => BookmarkRootGuid::Unfiled,
+            "mobile" => BookmarkRootGuid::Mobile,
+            _ => return None,
+        })
     }
 
     pub fn user_roots() -> Vec<BookmarkRootGuid> {
@@ -99,7 +120,7 @@ fn create_root(
              (SELECT id FROM moz_bookmarks WHERE guid = {:?}),
              1, :sync_status)
         ",
-        BookmarkRootGuid::Root.as_guid().0
+        BookmarkRootGuid::Root.as_guid().as_ref()
     );
     let params: Vec<(&str, &ToSql)> = vec![
         (":item_type", &BookmarkType::Folder),
@@ -1096,11 +1117,11 @@ impl FetchedTreeRow {
         Ok(Self {
             level: row.get_checked("level")?,
             id: row.get_checked::<_, RowId>("id")?,
-            guid: SyncGuid(row.get_checked::<_, String>("guid")?),
+            guid: row.get_checked::<_, String>("guid")?.into(),
             parent: row.get_checked::<_, Option<RowId>>("parent")?,
             parent_guid: row
                 .get_checked::<_, Option<String>>("parentGuid")?
-                .map(SyncGuid),
+                .map(SyncGuid::from),
             node_type: BookmarkType::from_u8_with_valid_url(
                 row.get_checked::<_, u8>("type")?,
                 || url.is_some(),
@@ -1292,7 +1313,7 @@ impl RawBookmark {
             },
             date_added: row.get_checked("dateAdded")?,
             date_modified: row.get_checked("lastModified")?,
-            guid: SyncGuid(row.get_checked::<_, String>("guid")?),
+            guid: row.get_checked::<_, String>("guid")?.into(),
             sync_status: SyncStatus::from_u8(row.get_checked::<_, u8>("_syncStatus")?),
             sync_change_counter: row
                 .get_checked::<_, Option<u32>>("syncChangeCounter")?

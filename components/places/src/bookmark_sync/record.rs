@@ -2,21 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::*;
-use crate::types::SyncGuid;
+use crate::{error::*, storage::bookmarks::BookmarkRootGuid, types::SyncGuid};
 use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 use serde_derive::*;
 
 /// All possible fields that can appear in a bookmark record.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct RawBookmarkItem {
-    #[serde(rename = "id")]
-    guid: SyncGuid,
+struct RawBookmarkItemRecord {
+    id: String,
     #[serde(rename = "type")]
     kind: String,
     #[serde(rename = "parentid")]
-    parent_guid: Option<SyncGuid>,
+    parent_id: Option<String>,
     has_dupe: Option<bool>,
     #[serde(rename = "parentName")]
     parent_title: Option<String>,
@@ -173,11 +171,11 @@ impl Serialize for BookmarkItemRecord {
         let mut state = serializer.serialize_struct("BookmarkItemRecord", 2)?;
         match self {
             BookmarkItemRecord::Tombstone(guid) => {
-                state.serialize_field("id", guid)?;
+                state.serialize_field("id", guid_to_id(&guid))?;
                 state.serialize_field("deleted", &true)?;
             }
             BookmarkItemRecord::Bookmark(b) => {
-                state.serialize_field("id", &b.guid)?;
+                state.serialize_field("id", guid_to_id(&b.guid))?;
                 state.serialize_field("type", "bookmark")?;
                 state.serialize_field("parentid", &b.parent_guid)?;
                 state.serialize_field("hasDupe", &b.has_dupe)?;
@@ -192,7 +190,7 @@ impl Serialize for BookmarkItemRecord {
                 unimplemented!("TODO: Serialize queries");
             }
             BookmarkItemRecord::Folder(f) => {
-                state.serialize_field("id", &f.guid)?;
+                state.serialize_field("id", guid_to_id(&f.guid))?;
                 state.serialize_field("type", "folder")?;
                 state.serialize_field("parentid", &f.parent_guid)?;
                 state.serialize_field("hasDupe", &f.has_dupe)?;
@@ -219,12 +217,12 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
     {
         // Boilerplate to translate a synced bookmark record into a typed
         // record.
-        let raw = RawBookmarkItem::deserialize(d)?;
+        let raw = RawBookmarkItemRecord::deserialize(d)?;
         match raw.kind.as_str() {
             "bookmark" => {
                 return Ok(BookmarkRecord {
-                    guid: raw.guid,
-                    parent_guid: raw.parent_guid,
+                    guid: id_to_guid(raw.id),
+                    parent_guid: raw.parent_id.map(id_to_guid),
                     has_dupe: raw.has_dupe.unwrap_or(false),
                     parent_title: raw.parent_title,
                     date_added: raw.date_added,
@@ -237,8 +235,8 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
             }
             "query" => {
                 return Ok(QueryRecord {
-                    guid: raw.guid,
-                    parent_guid: raw.parent_guid,
+                    guid: id_to_guid(raw.id),
+                    parent_guid: raw.parent_id.map(id_to_guid),
                     has_dupe: raw.has_dupe.unwrap_or(false),
                     parent_title: raw.parent_title,
                     date_added: raw.date_added,
@@ -250,8 +248,8 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
             }
             "folder" => {
                 return Ok(FolderRecord {
-                    guid: raw.guid,
-                    parent_guid: raw.parent_guid,
+                    guid: id_to_guid(raw.id),
+                    parent_guid: raw.parent_id.map(id_to_guid),
                     has_dupe: raw.has_dupe.unwrap_or(false),
                     parent_title: raw.parent_title,
                     date_added: raw.date_added,
@@ -262,8 +260,8 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
             }
             "livemark" => {
                 return Ok(LivemarkRecord {
-                    guid: raw.guid,
-                    parent_guid: raw.parent_guid,
+                    guid: id_to_guid(raw.id),
+                    parent_guid: raw.parent_id.map(id_to_guid),
                     has_dupe: raw.has_dupe.unwrap_or(false),
                     parent_title: raw.parent_title,
                     date_added: raw.date_added,
@@ -275,8 +273,8 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
             }
             "separator" => {
                 return Ok(SeparatorRecord {
-                    guid: raw.guid,
-                    parent_guid: raw.parent_guid,
+                    guid: id_to_guid(raw.id),
+                    parent_guid: raw.parent_id.map(id_to_guid),
                     has_dupe: raw.has_dupe.unwrap_or(false),
                     parent_title: raw.parent_title,
                     date_added: raw.date_added,
@@ -290,4 +288,21 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
         // fail the sync.
         panic!("Unsupported bookmark type {}", raw.kind);
     }
+}
+
+/// Converts a Sync bookmark record ID to a Places GUID. Sync record IDs are
+/// identical to Places GUIDs for all items except roots.
+#[inline]
+pub fn id_to_guid(id: String) -> SyncGuid {
+    BookmarkRootGuid::from_sync_record_id(&id)
+        .map(|g| g.as_guid())
+        .unwrap_or_else(|| id.into())
+}
+
+/// Converts a Places GUID to a a Sync bookmark record ID.
+#[inline]
+pub fn guid_to_id(guid: &SyncGuid) -> &str {
+    BookmarkRootGuid::from_guid(guid)
+        .map(|g| g.as_sync_record_id())
+        .unwrap_or_else(|| guid.as_ref())
 }
