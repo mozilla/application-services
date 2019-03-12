@@ -301,6 +301,9 @@ impl<'a> dogear::Store<Error> for BookmarksStore<'a> {
         descendants: Vec<MergedDescendant<'t>>,
         deletions: Vec<Deletion>,
     ) -> Result<()> {
+        if !self.has_changes()? {
+            return Ok(());
+        }
         let tx = self.db.unchecked_transaction()?;
         let result = self
             .update_local_items(descendants, deletions)
@@ -763,6 +766,14 @@ impl<'a> BookmarksStore<'a> {
             )?;
             Ok(())
         })?;
+
+        // Fast-forward the last sync time, so that we don't download the
+        // records we just uploaded on the next sync.
+        put_meta(
+            self.db,
+            LAST_SYNC_META_KEY,
+            &(uploaded_at.as_millis() as i64),
+        )?;
 
         // Clean up.
         self.db.execute_batch("DELETE FROM itemsToUpload")?;
