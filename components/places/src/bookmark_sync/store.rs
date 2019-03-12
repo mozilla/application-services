@@ -21,7 +21,7 @@ use rusqlite::{Connection, NO_PARAMS};
 use sql_support::{self, ConnExt};
 use std::cell::Cell;
 use std::collections::HashMap;
-use std::fmt::Arguments;
+use std::fmt;
 use std::result;
 use std::time::Duration;
 use sync15::{
@@ -94,7 +94,7 @@ impl dogear::Driver for Driver {
         LogLevel::Silent
     }
 
-    fn log(&self, _level: LogLevel, _args: Arguments) {}
+    fn log(&self, _level: LogLevel, _args: fmt::Arguments) {}
 }
 
 impl<'a> dogear::Store<Error> for BookmarksStore<'a> {
@@ -107,27 +107,12 @@ impl<'a> dogear::Store<Error> for BookmarksStore<'a> {
             r#"
             WITH RECURSIVE
             {local_items_fragment}
-            SELECT s.id, s.guid, s.parentGuid,
-                   /* Map Places item types to Sync record kinds. */
-                   (CASE s.type
-                      WHEN {bookmark_type} THEN (
-                        CASE SUBSTR((SELECT h.url FROM moz_places h
-                                     WHERE h.id = s.placeId), 1, 6)
-                        /* Queries are bookmarks with a "place:" URL scheme. */
-                        WHEN 'place:' THEN {query_kind}
-                        ELSE {bookmark_kind} END)
-                      WHEN {folder_type} THEN {folder_kind}
-                      ELSE {separator_kind} END) AS kind,
+            SELECT s.id, s.guid, s.parentGuid, {kind} AS kind,
                    s.lastModified / 1000 AS localModified, s.syncChangeCounter
             FROM localItems s
             ORDER BY s.level, s.parentId, s.position"#,
             local_items_fragment = *LOCAL_ITEMS_SQL_FRAGMENT,
-            bookmark_type = BookmarkType::Bookmark as u8,
-            bookmark_kind = SyncedBookmarkKind::Bookmark as u8,
-            folder_type = BookmarkType::Folder as u8,
-            folder_kind = SyncedBookmarkKind::Folder as u8,
-            separator_kind = SyncedBookmarkKind::Separator as u8,
-            query_kind = SyncedBookmarkKind::Query as u8
+            kind = type_to_kind("s.type", "s.placeId"),
         );
         let mut stmt = self.db.prepare(&sql)?;
         let mut results = stmt.query(NO_PARAMS)?;
@@ -846,6 +831,43 @@ impl<'a> Store for BookmarksStore<'a> {
     fn wipe(&self) -> result::Result<(), failure::Error> {
         log::warn!("not implemented");
         Ok(())
+    }
+}
+
+fn type_to_kind<'a>(typ: &'a str, place_id: &'a str) -> TypeToKind<'a> {
+    TypeToKind { typ, place_id }
+}
+
+/// A helper that interpolates a SQL expression for converting Places item types
+/// to Sync record kinds. `typ` is the name of the `moz_bookmarks.type` column.
+/// `place_id` is the name of the `moz_bookmarks.fk` column.
+struct TypeToKind<'a> {
+    typ: &'a str,
+    place_id: &'a str,
+}
+
+impl<'a> fmt::Display for TypeToKind<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            r#"(CASE {typ}
+            WHEN {bookmark_type} THEN (
+             CASE SUBSTR((SELECT h.url FROM moz_places h
+                          WHERE h.id = {place_id}), 1, 6)
+             /* Queries are bookmarks with a "place:" URL scheme. */
+             WHEN 'place:' THEN {query_kind}
+             ELSE {bookmark_kind} END)
+           WHEN {folder_type} THEN {folder_kind}
+           ELSE {separator_kind} END)"#,
+            typ = self.typ,
+            bookmark_type = BookmarkType::Bookmark as u8,
+            place_id = self.place_id,
+            bookmark_kind = SyncedBookmarkKind::Bookmark as u8,
+            folder_type = BookmarkType::Folder as u8,
+            folder_kind = SyncedBookmarkKind::Folder as u8,
+            separator_kind = SyncedBookmarkKind::Separator as u8,
+            query_kind = SyncedBookmarkKind::Query as u8
+        )
     }
 }
 
