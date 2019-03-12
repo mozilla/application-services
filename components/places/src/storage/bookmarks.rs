@@ -1254,22 +1254,22 @@ pub fn fetch_tree(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<Option<Book
 
 /// A "raw" bookmark - a representation of the row and some summary fields.
 #[derive(Debug)]
-struct RawBookmark {
-    place_id: Option<RowId>,
-    row_id: RowId,
-    bookmark_type: BookmarkType,
-    parent_id: RowId,
-    parent_guid: SyncGuid,
-    position: u32,
-    title: Option<String>,
-    url: Option<Url>,
-    date_added: Timestamp,
-    date_modified: Timestamp,
-    guid: SyncGuid,
-    sync_status: SyncStatus,
-    sync_change_counter: u32,
-    child_count: u32,
-    grandparent_id: Option<RowId>,
+pub(crate) struct RawBookmark {
+    pub place_id: Option<RowId>,
+    pub row_id: RowId,
+    pub bookmark_type: BookmarkType,
+    pub parent_id: RowId,
+    pub parent_guid: SyncGuid,
+    pub position: u32,
+    pub title: Option<String>,
+    pub url: Option<Url>,
+    pub date_added: Timestamp,
+    pub date_modified: Timestamp,
+    pub guid: SyncGuid,
+    pub sync_status: SyncStatus,
+    pub sync_change_counter: u32,
+    pub child_count: u32,
+    pub grandparent_id: Option<RowId>,
 }
 
 impl RawBookmark {
@@ -1303,7 +1303,7 @@ impl RawBookmark {
     }
 }
 
-fn get_raw_bookmark(db: &impl ConnExt, guid: &SyncGuid) -> Result<Option<RawBookmark>> {
+pub(crate) fn get_raw_bookmark(db: &impl ConnExt, guid: &SyncGuid) -> Result<Option<RawBookmark>> {
     // sql is based on fetchBookmark() in Desktop's Bookmarks.jsm, with 'fk' added
     // and title's NULLIF handling.
     Ok(db.try_query_row(

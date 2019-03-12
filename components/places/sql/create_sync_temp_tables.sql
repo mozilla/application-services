@@ -101,6 +101,7 @@ CREATE TEMP TABLE itemsToUpload(
   id INTEGER PRIMARY KEY,
   guid TEXT UNIQUE NOT NULL,
   syncChangeCounter INTEGER NOT NULL,
+  uploadedAt INTEGER NOT NULL DEFAULT -1,
   isDeleted BOOLEAN NOT NULL DEFAULT 0,
   parentGuid TEXT,
   parentTitle TEXT,

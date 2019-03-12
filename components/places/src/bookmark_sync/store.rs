@@ -769,6 +769,33 @@ impl<'a> BookmarksStore<'a> {
 
         Ok(outgoing)
     }
+
+    /// Decrements the change counter, updates the sync status, and cleans up
+    /// tombstones for successfully synced items. Sync calls this method at the
+    /// end of each bookmark sync.
+    fn push_synced_items(&self, uploaded_at: ServerTimestamp, guids: &[String]) -> Result<()> {
+        // Flag all successfully synced records as uploaded. This updates their
+        // local change counters, and writes them back to the synced bookmarks
+        // table.
+        sql_support::each_chunk(&guids, |chunk, _| -> Result<()> {
+            self.db.execute(
+                &format!(
+                    "UPDATE itemsToUpload SET
+                       uploadedAt = {uploaded_at}
+                     WHERE guid IN ({values})",
+                    uploaded_at = uploaded_at.as_millis(),
+                    values = sql_support::repeat_sql_values(chunk.len())
+                ),
+                chunk,
+            )?;
+            Ok(())
+        })?;
+
+        // Clean up.
+        self.db.execute_batch("DELETE FROM itemsToUpload")?;
+
+        Ok(())
+    }
 }
 
 impl<'a> Store for BookmarksStore<'a> {
@@ -812,7 +839,14 @@ impl<'a> Store for BookmarksStore<'a> {
         new_timestamp: ServerTimestamp,
         records_synced: &[String],
     ) -> result::Result<(), failure::Error> {
-        unimplemented!("TODO: Write sync records back to the mirror and update sync statuses");
+        let tx = self.db.unchecked_transaction()?;
+        let result = self.push_synced_items(new_timestamp, records_synced);
+        match result {
+            Ok(_) => tx.commit()?,
+            Err(_) => tx.rollback()?,
+        }
+        result?;
+        Ok(())
     }
 
     fn get_collection_request(&self) -> result::Result<CollectionRequest, failure::Error> {
@@ -876,6 +910,7 @@ mod tests {
     use super::*;
     use crate::api::places_api::{test::new_mem_api, ConnectionType};
     use crate::bookmark_sync::store::BookmarksStore;
+    use crate::storage::bookmarks::get_raw_bookmark;
     use crate::tests::{
         assert_json_tree as assert_local_json_tree, insert_json_tree as insert_local_json_tree,
     };
@@ -1160,6 +1195,38 @@ mod tests {
                 ],
             }),
         );
+
+        // We haven't finished the sync yet, so all local change counts for
+        // items to upload should still be > 0.
+        let guid_for_a: SyncGuid = "bookmarkAAAA".into();
+        let info_for_a = get_raw_bookmark(&conn, &guid_for_a)
+            .expect("Should fetch info for A")
+            .unwrap();
+        assert_eq!(info_for_a.sync_change_counter, 1);
+        let info_for_unfiled = get_raw_bookmark(&conn, &BookmarkRootGuid::Unfiled.as_guid())
+            .expect("Should fetch info for unfiled")
+            .unwrap();
+        assert_eq!(info_for_a.sync_change_counter, 1);
+
+        store
+            .sync_finished(
+                ServerTimestamp(0.0),
+                &[
+                    "bookmarkAAAA".into(),
+                    "bookmarkBBBB".into(),
+                    (BookmarkRootGuid::Unfiled.as_guid().as_ref()).into(),
+                ],
+            )
+            .expect("Should push synced changes back to the store");
+
+        let info_for_a = get_raw_bookmark(&conn, &guid_for_a)
+            .expect("Should fetch info for A")
+            .unwrap();
+        assert_eq!(info_for_a.sync_change_counter, 0);
+        let info_for_unfiled = get_raw_bookmark(&conn, &BookmarkRootGuid::Unfiled.as_guid())
+            .expect("Should fetch info for unfiled")
+            .unwrap();
+        assert_eq!(info_for_a.sync_change_counter, 0);
 
         Ok(())
     }

@@ -4,6 +4,39 @@
 
 -- This file defines triggers for the Sync connection.
 
+--- Pushes uploaded changes back to the local and remote trees. This is more
+--- or less equivalent to Desktop's `PlacesSyncUtils.bookmarks.pushChanges`.
+CREATE TEMP TRIGGER pushUploadedChanges
+AFTER UPDATE OF uploadedAt ON itemsToUpload WHEN NEW.uploadedAt > -1
+BEGIN
+  -- Reduce the change counter and update the sync status for uploaded items.
+  -- If the item was uploaded during the sync, its change counter will still
+  -- be > 0 for the next sync.
+  UPDATE moz_bookmarks SET
+    syncChangeCounter = max(syncChangeCounter - NEW.syncChangeCounter, 0),
+    syncStatus = 2 -- SyncStatus::Normal
+  WHERE id = NEW.id;
+
+  -- Remove uploaded tombstones.
+  DELETE FROM moz_bookmarks_deleted
+  WHERE guid = NEW.guid;
+
+  -- Write the uploaded item back to the synced bookmarks table, to match
+  -- what's on the server now.
+  REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge,
+                                    validity, isDeleted, kind, dateAdded, title,
+                                    placeId, keyword)
+  VALUES(NEW.guid, NEW.parentGuid, NEW.uploadedAt, 0,
+         1, -- SyncedBookmarkValidity::Valid
+         NEW.isDeleted, NEW.kind, NEW.dateAdded, NEW.title,
+         NEW.placeId, NEW.keyword);
+
+  REPLACE INTO moz_bookmarks_synced_structure(guid, parentGuid, position)
+  SELECT guid, NEW.guid, position
+  FROM structureToUpload
+  WHERE parentId = NEW.id;
+END;
+
 -- Removes items that are deleted on one or both sides from local items,
 -- and inserts new tombstones for non-syncable items to delete remotely.
 CREATE TEMP TRIGGER removeLocalItems
