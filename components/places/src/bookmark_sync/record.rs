@@ -186,7 +186,15 @@ impl Serialize for BookmarkItemRecord {
                 state.serialize_field("tags", &b.tags)?;
             }
             BookmarkItemRecord::Query(q) => {
-                unimplemented!("TODO: Serialize queries");
+                state.serialize_field("id", guid_to_id(&q.guid))?;
+                state.serialize_field("type", "query")?;
+                state.serialize_field("parentid", &q.parent_guid)?;
+                state.serialize_field("hasDupe", &q.has_dupe)?;
+                state.serialize_field("parentName", &q.parent_title)?;
+                state.serialize_field("dateAdded", &q.date_added)?;
+                state.serialize_field("title", &q.title)?;
+                state.serialize_field("bmkUri", &q.url)?;
+                state.serialize_field("folderName", &q.tag_folder_name)?;
             }
             BookmarkItemRecord::Folder(f) => {
                 state.serialize_field("id", guid_to_id(&f.guid))?;
@@ -199,10 +207,24 @@ impl Serialize for BookmarkItemRecord {
                 state.serialize_field("children", &f.children)?;
             }
             BookmarkItemRecord::Livemark(l) => {
-                unimplemented!("TODO: Serialize livemarks");
+                state.serialize_field("id", guid_to_id(&l.guid))?;
+                state.serialize_field("type", "livemark")?;
+                state.serialize_field("parentid", &l.parent_guid)?;
+                state.serialize_field("hasDupe", &l.has_dupe)?;
+                state.serialize_field("parentName", &l.parent_title)?;
+                state.serialize_field("dateAdded", &l.date_added)?;
+                state.serialize_field("title", &l.title)?;
+                state.serialize_field("feedUri", &l.feed_url)?;
+                state.serialize_field("siteUri", &l.site_url)?;
             }
             BookmarkItemRecord::Separator(s) => {
-                unimplemented!("TODO: Serialize separators");
+                state.serialize_field("id", guid_to_id(&s.guid))?;
+                state.serialize_field("type", "separator")?;
+                state.serialize_field("parentid", &s.parent_guid)?;
+                state.serialize_field("hasDupe", &s.has_dupe)?;
+                state.serialize_field("parentName", &s.parent_title)?;
+                state.serialize_field("dateAdded", &s.date_added)?;
+                state.serialize_field("pos", &s.position)?;
             }
         }
         state.end()
