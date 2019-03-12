@@ -8,7 +8,7 @@ import os.log
 /// Indicates an error occurred while calling into the places storage layer
 public enum PlacesError: Error {
 
-    /// This indicates an attempt to use a connection after the PlacesApi
+    /// This indicates an attempt to use a connection after the PlacesAPI
     /// it came from is destroyed. This indicates a usage error of this library.
     case connUseAfterApiClosed
 
@@ -72,7 +72,7 @@ public enum PlacesError: Error {
     }
 
     @discardableResult
-    public static func tryUnwrap<T>(_ callback: (UnsafeMutablePointer<PlacesRustError>) throws -> T?) throws -> T? {
+    static func tryUnwrap<T>(_ callback: (UnsafeMutablePointer<PlacesRustError>) throws -> T?) throws -> T? {
         var err = PlacesRustError(code: Places_NoError, message: nil)
         let returnedVal = try callback(&err)
         if let placesErr = PlacesError.fromConsuming(err) {
@@ -85,7 +85,7 @@ public enum PlacesError: Error {
     }
 
     @discardableResult
-    public static func unwrap<T>(_ callback: (UnsafeMutablePointer<PlacesRustError>) throws -> T?) throws -> T {
+    static func unwrap<T>(_ callback: (UnsafeMutablePointer<PlacesRustError>) throws -> T?) throws -> T {
         guard let result = try PlacesError.tryUnwrap(callback) else {
             throw ResultError.empty
         }
@@ -95,7 +95,7 @@ public enum PlacesError: Error {
     // Same as `tryUnwrap`, but instead of erroring, just logs. Useful for cases like destructors where we
     // cannot throw.
     @discardableResult
-    public static func unwrapOrLog<T>(_ callback: (UnsafeMutablePointer<PlacesRustError>) throws -> T?) -> T? {
+    static func unwrapOrLog<T>(_ callback: (UnsafeMutablePointer<PlacesRustError>) throws -> T?) -> T? {
         do {
             let result = try PlacesError.tryUnwrap(callback)
             return result

@@ -5,8 +5,8 @@
 import Foundation
 import os.log
 
-internal typealias ApiHandle = UInt64
-internal typealias ConnHandle = UInt64
+internal typealias APIHandle = UInt64
+internal typealias ConnectionHandle = UInt64
 
 /**
  * This is something like a places connection manager. It primarially exists to
@@ -15,13 +15,13 @@ internal typealias ConnHandle = UInt64
  * If it helps, you can think of this as something like a connection pool
  * (although it does not actually perform any pooling).
  */
-public class PlacesApi {
-    private let handle: ApiHandle
-    private let writeConn: PlacesWriteConn
+public class PlacesAPI {
+    private let handle: APIHandle
+    private let writeConn: PlacesWriteConnection
     fileprivate let queue = DispatchQueue(label: "com.mozilla.places.api")
 
     /**
-     * Initialize a PlacesApi
+     * Initialize a PlacesAPI
      *
      * - Parameter path: an absolute path to a file that will be used for the internal database.
      *
@@ -40,7 +40,7 @@ public class PlacesApi {
             let writeHandle = try PlacesError.unwrap { error in
                 places_connection_new(handle, Int32(PlacesConn_ReadWrite), error)
             }
-            self.writeConn = PlacesWriteConn(handle: writeHandle)
+            self.writeConn = PlacesWriteConnection(handle: writeHandle)
             self.writeConn.api = self
         } catch let e {
             // We failed to open the write connection, even though the
@@ -82,12 +82,12 @@ public class PlacesApi {
      *
      * - Throws: `PlacesError` if a connection could not be opened.
      */
-    func openReader() throws -> PlacesReadConn {
+    func openReader() throws -> PlacesReadConnection {
         return try queue.sync {
             let h = try PlacesError.unwrap { error in
                 places_connection_new(handle, Int32(PlacesConn_ReadOnly), error)
             }
-            return PlacesReadConn(handle: h, api: self)
+            return PlacesReadConnection(handle: h, api: self)
         }
     }
 
@@ -98,7 +98,7 @@ public class PlacesApi {
      *         and it's opened when the database is constructed,
      *         so this function does not throw
      */
-    func getWriter() -> PlacesWriteConn {
+    func getWriter() -> PlacesWriteConnection {
         return queue.sync {
             self.writeConn
         }
@@ -108,12 +108,12 @@ public class PlacesApi {
 /**
  * A read-only connection to the places database.
  */
-public class PlacesReadConn {
+public class PlacesReadConnection {
     fileprivate let queue = DispatchQueue(label: "com.mozilla.places.conn")
-    fileprivate var handle: ConnHandle;
-    fileprivate weak var api: PlacesApi?
+    fileprivate var handle: ConnectionHandle;
+    fileprivate weak var api: PlacesAPI?
 
-    fileprivate init(handle: ConnHandle, api: PlacesApi? = nil) {
+    fileprivate init(handle: ConnectionHandle, api: PlacesAPI? = nil) {
         self.handle = handle
         self.api = api
     }
@@ -126,7 +126,7 @@ public class PlacesReadConn {
     }
 
     // Note: caller synchronizes!
-    fileprivate func takeHandle() -> ConnHandle {
+    fileprivate func takeHandle() -> ConnectionHandle {
         let handle = self.handle
         self.handle = 0
         return handle
@@ -234,7 +234,7 @@ public class PlacesReadConn {
 /**
  * A read-write connection to the places database.
  */
-public class PlacesWriteConn : PlacesReadConn {
+public class PlacesWriteConnection : PlacesReadConnection {
 
     /**
      * Delete the bookmark with the provided GUID.
@@ -358,11 +358,11 @@ public class PlacesWriteConn : PlacesReadConn {
      *     - If `position` is not provided (and `parentGUID` is) then it's
      *       treated as a move the end of that folder.
      */
-    func updateBookmark(guid: String,
-                        parentGUID: String? = nil,
-                        position: UInt32? = nil,
-                        title: String? = nil,
-                        url: String? = nil) throws
+    func updateBookmarkNode(guid: String,
+                            parentGUID: String? = nil,
+                            position: UInt32? = nil,
+                            title: String? = nil,
+                            url: String? = nil) throws
     {
         try queue.sync {
             try self.checkApi()

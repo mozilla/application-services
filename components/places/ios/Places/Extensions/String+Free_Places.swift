@@ -5,7 +5,7 @@
 import Foundation
 
 extension String {
-    public init(freeingPlacesString rustString: UnsafeMutablePointer<CChar>) {
+    init(freeingPlacesString rustString: UnsafeMutablePointer<CChar>) {
         defer { places_destroy_string(rustString) }
         self.init(cString: rustString)
     }

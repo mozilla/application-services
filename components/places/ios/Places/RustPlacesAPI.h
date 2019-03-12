@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 
-typedef uint64_t PlacesApiHandle;
+typedef uint64_t PlacesAPIHandle;
 typedef uint64_t PlacesConnectionHandle;
 
 typedef enum PlacesErrorCode {
@@ -29,9 +29,6 @@ typedef struct PlacesRustBuffer {
     uint8_t *_Nullable data;
 } PlacesRustBuffer;
 
-typedef uint64_t PlacesApiHandle;
-typedef uint64_t PlacesConnectionHandle;
-
 typedef struct RawPlacesInterruptHandle RawPlacesInterruptHandle;
 
 // Not a named enum because we need int32_t ABI in `places_connection_new`,
@@ -44,12 +41,12 @@ enum {
     // PlacesConn_Sync = 3,
 };
 
-PlacesApiHandle places_api_new(const char *_Nonnull db_path,
+PlacesAPIHandle places_api_new(const char *_Nonnull db_path,
                                const char *_Nullable encryption_key,
                                PlacesRustError *_Nonnull out_err);
 
 
-PlacesConnectionHandle places_connection_new(PlacesApiHandle handle,
+PlacesConnectionHandle places_connection_new(PlacesAPIHandle handle,
                                              int32_t type,
                                              PlacesRustError *_Nonnull out_err);
 
@@ -157,7 +154,7 @@ uint8_t bookmarks_delete(PlacesConnectionHandle handle,
 
 // MARK: memory/lifecycle management
 
-void places_api_return_write_conn(PlacesApiHandle api,
+void places_api_return_write_conn(PlacesAPIHandle api,
                                   PlacesConnectionHandle conn,
                                   PlacesRustError *_Nonnull out_err);
 
@@ -170,5 +167,5 @@ void places_interrupt_handle_destroy(RawPlacesInterruptHandle *_Nonnull handle);
 void places_connection_destroy(PlacesConnectionHandle conn,
                                PlacesRustError *_Nonnull out_err);
 
-void places_api_destroy(PlacesApiHandle api,
+void places_api_destroy(PlacesAPIHandle api,
                         PlacesRustError *_Nonnull out_err);
