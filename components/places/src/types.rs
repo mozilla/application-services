@@ -6,8 +6,7 @@ use crate::error::{self, ErrorKind};
 use dogear;
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
-use serde::ser::{Serialize, Serializer};
-use serde_derive::*;
+use serde::{Deserialize, Serialize, Serializer};
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 

@@ -8,11 +8,7 @@ use crate::error::*;
 use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
 use rusqlite::types::ToSql;
 use rusqlite::{Connection, Row};
-use serde::{
-    de::{Deserialize, Deserializer},
-    ser::{Serialize, SerializeStruct, Serializer},
-};
-use serde_derive::*;
+use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(test)]
 use serde_json::{self, json};
 use sql_support::{self, ConnExt};

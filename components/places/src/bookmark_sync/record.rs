@@ -4,7 +4,6 @@
 
 use crate::{error::*, storage::bookmarks::BookmarkRootGuid, types::SyncGuid};
 use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
-use serde_derive::*;
 
 /// All possible fields that can appear in a bookmark record.
 #[derive(Debug, Deserialize)]

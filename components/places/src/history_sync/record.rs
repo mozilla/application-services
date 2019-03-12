@@ -5,7 +5,7 @@
 use super::ServerVisitTimestamp;
 use crate::error::*;
 use crate::types::SyncGuid;
-use serde_derive::*;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]

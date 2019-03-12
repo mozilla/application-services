@@ -14,7 +14,7 @@ use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition};
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use rusqlite::{Connection, Row};
-use serde_derive::*;
+use serde::{Deserialize, Serialize};
 use sql_support::{self, ConnExt};
 use std::fmt;
 use url::Url;

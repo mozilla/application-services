@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::types::*;
-use serde_derive::*;
+use serde::{Deserialize, Serialize};
 use url::Url;
 
 /// An "observation" based model for updating history.
