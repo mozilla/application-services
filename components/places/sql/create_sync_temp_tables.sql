@@ -105,10 +105,9 @@ CREATE TEMP TABLE itemsToUpload(
   parentGuid TEXT,
   parentTitle TEXT,
   dateAdded INTEGER, /* In milliseconds. */
-  type INTEGER,
+  kind INTEGER,
   title TEXT,
   placeId INTEGER,
-  isQuery BOOLEAN NOT NULL DEFAULT 0,
   url TEXT,
   tagFolderName TEXT,
   keyword TEXT,

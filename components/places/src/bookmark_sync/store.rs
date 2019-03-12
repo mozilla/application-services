@@ -626,14 +626,12 @@ impl<'a> BookmarksStore<'a> {
             WITH RECURSIVE
             {local_items_fragment}
             INSERT INTO itemsToUpload(id, guid, syncChangeCounter, parentGuid,
-                                      parentTitle, dateAdded, type, title, placeId,
-                                      isQuery, url, keyword, position, tagFolderName)
-            SELECT s.id, s.guid, s.syncChangeCounter, s.parentGuid, s.parentTitle,
-                   s.dateAdded, s.type, s.title, s.placeId,
-                   IFNULL(substr(h.url, 1, 6) = 'place:', 0) AS isQuery,
-                   h.url,
-                   NULL AS keyword,
-                   s.position,
+                                      parentTitle, dateAdded, title, placeId,
+                                      kind, url, keyword, position,
+                                      tagFolderName)
+            SELECT s.id, s.guid, s.syncChangeCounter, s.parentGuid,
+                   s.parentTitle, s.dateAdded, s.title, s.placeId,
+                   {kind}, h.url, NULL AS keyword, s.position,
                    NULL AS tagFolderName
             FROM localItems s
             LEFT JOIN moz_places h ON h.id = s.placeId
@@ -641,6 +639,7 @@ impl<'a> BookmarksStore<'a> {
             WHERE s.syncChangeCounter >= 1 OR
                   w.id NOT NULL",
             local_items_fragment = *LOCAL_ITEMS_SQL_FRAGMENT,
+            kind = type_to_kind("s.type", "h.id"),
         ))?;
 
         // Record the child GUIDs of locally changed folders, which we use to
@@ -683,7 +682,7 @@ impl<'a> BookmarksStore<'a> {
         }
 
         let mut stmt = self.db.prepare(
-            r#"SELECT id, syncChangeCounter, guid, isDeleted, type, isQuery,
+            r#"SELECT id, syncChangeCounter, guid, isDeleted, kind,
                       tagFolderName, keyword, url, IFNULL(title, "") AS title,
                       position, parentGuid,
                       IFNULL(parentTitle, "") AS parentTitle, dateAdded
@@ -702,39 +701,39 @@ impl<'a> BookmarksStore<'a> {
             let parent_title = row.get_checked::<_, String>("parentTitle")?;
             let date_added = row.get_checked::<_, i64>("dateAdded")?;
             let record: BookmarkItemRecord =
-                match BookmarkType::from_u8(row.get_checked("type")?).unwrap() {
-                    BookmarkType::Bookmark => {
-                        let is_query = row.get_checked::<_, bool>("isQuery")?;
+                match SyncedBookmarkKind::from_u8(row.get_checked("kind")?)? {
+                    SyncedBookmarkKind::Bookmark => {
                         let title = row.get_checked::<_, String>("title")?;
                         let url = row.get_checked::<_, String>("url")?;
-                        if is_query {
-                            QueryRecord {
-                                guid,
-                                parent_guid: Some(parent_guid),
-                                has_dupe: true,
-                                parent_title: Some(parent_title),
-                                date_added: Some(date_added),
-                                title: Some(title),
-                                url: Some(url),
-                                tag_folder_name: None,
-                            }
-                            .into()
-                        } else {
-                            BookmarkRecord {
-                                guid,
-                                parent_guid: Some(parent_guid),
-                                has_dupe: true,
-                                parent_title: Some(parent_title),
-                                date_added: Some(date_added),
-                                title: Some(title),
-                                url: Some(url),
-                                keyword: None,
-                                tags: Vec::new(),
-                            }
-                            .into()
+                        BookmarkRecord {
+                            guid,
+                            parent_guid: Some(parent_guid),
+                            has_dupe: true,
+                            parent_title: Some(parent_title),
+                            date_added: Some(date_added),
+                            title: Some(title),
+                            url: Some(url),
+                            keyword: None,
+                            tags: Vec::new(),
                         }
+                        .into()
                     }
-                    BookmarkType::Folder => {
+                    SyncedBookmarkKind::Query => {
+                        let title = row.get_checked::<_, String>("title")?;
+                        let url = row.get_checked::<_, String>("url")?;
+                        QueryRecord {
+                            guid,
+                            parent_guid: Some(parent_guid),
+                            has_dupe: true,
+                            parent_title: Some(parent_title),
+                            date_added: Some(date_added),
+                            title: Some(title),
+                            url: Some(url),
+                            tag_folder_name: None,
+                        }
+                        .into()
+                    }
+                    SyncedBookmarkKind::Folder => {
                         let title = row.get_checked::<_, String>("title")?;
                         let local_id = row.get_checked::<_, i64>("id")?;
                         let children = child_guids_by_local_parent_id
@@ -751,7 +750,8 @@ impl<'a> BookmarksStore<'a> {
                         }
                         .into()
                     }
-                    BookmarkType::Separator => {
+                    SyncedBookmarkKind::Livemark => continue,
+                    SyncedBookmarkKind::Separator => {
                         let position = row.get_checked::<_, i64>("position")?;
                         SeparatorRecord {
                             guid,
