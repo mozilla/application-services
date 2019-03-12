@@ -65,7 +65,7 @@ tasks:
 
   - $if: 'tasks_for == "github-push"'
     then:
-      $if: 'event.ref[:10] == "refs/tags/" || event.ref[:10] == "refs/heads/master"'
+      $if: 'event.ref[:10] == "refs/tags/" || event.ref == "refs/heads/master"'
       then:
         taskGroupId: {$eval: as_slugid("decision_task")}
         taskId: {$eval: as_slugid("decision_task")}
