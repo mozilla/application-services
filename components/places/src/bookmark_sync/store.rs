@@ -802,6 +802,7 @@ impl<'a> Store for BookmarksStore<'a> {
             .time_chunked_transaction(Duration::from_millis(1000))?;
         for incoming in inbound.changes {
             self.apply_payload(timestamp, incoming.0)?;
+            incoming_telemetry.applied(1);
             tx.maybe_commit()?;
         }
         tx.commit()?;
