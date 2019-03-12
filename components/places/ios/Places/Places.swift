@@ -151,19 +151,32 @@ public class PlacesReadConnection {
      * recursively (specifically, any `BookmarkFolder`s in the returned value
      * will have their `children` list populated, and not just `childGUIDs`.
      *
+     * However, if `recursive: false` is passed, only a single level of child
+     * nodes are returned for folders.
+     *
      * - Parameter rootGUID: the GUID where to start the tree. Defaults to
      *                       `BookmarkRoot.RootGUID`, e.g. fetching the
      *                       entire bookmarks tree.
      *
-     * - Returns: The fully populated bookmarks tree starting from `rootGUID`,
-     *            or null if the provided guid didn't refer to a known
-     *            bookmark item.
+     * - Parameter recursive: Whether or not to return more than a single
+     *                        level of children for folders. If false, then
+     *                        any folders which are children of the requested
+     *                        node will *only* have their `childGUIDs`
+     *                        populated, and *not* their `children`. Defaults to
+     *                        true.
+     *
+     * - Returns: The bookmarks tree starting from `rootGUID`, or null if the
+     *            provided guid didn't refer to a known bookmark item.
      */
-    func getBookmarksTree(rootGUID: String = BookmarkRoots.RootGUID) throws -> BookmarkNode? {
+    func getBookmarksTree(rootGUID: String = BookmarkRoots.RootGUID, recursive: Bool = true) throws -> BookmarkNode? {
         return try queue.sync {
             try self.checkApi()
-            let buffer = try PlacesError.unwrap { error in
-                bookmarks_get_tree(self.handle, rootGUID, error)
+            let buffer = try PlacesError.unwrap { (error: UnsafeMutablePointer<PlacesRustError>) -> PlacesRustBuffer in
+                if recursive {
+                    return bookmarks_get_tree(self.handle, rootGUID, error)
+                } else {
+                    return bookmarks_get_by_guid(self.handle, rootGUID, 1, error)
+                }
             }
             if buffer.data == nil {
                 return nil
@@ -172,7 +185,7 @@ public class PlacesReadConnection {
             // This should never fail, since we encoded it on the other side with Rust,
             // should we use `try! instead?
             let msg = try MsgTypes_BookmarkNode(serializedData: Data(placesRustBuffer: buffer))
-            return unpackProtobuf(msg: msg, expectChildren: true)
+            return unpackProtobuf(msg: msg)
         }
     }
 
@@ -192,7 +205,7 @@ public class PlacesReadConnection {
         return try queue.sync {
             try self.checkApi()
             let buffer = try PlacesError.unwrap { error in
-                bookmarks_get_by_guid(self.handle, guid, error)
+                bookmarks_get_by_guid(self.handle, guid, 0, error)
             }
             if buffer.data == nil {
                 return nil
@@ -200,7 +213,7 @@ public class PlacesReadConnection {
             defer { places_destroy_bytebuffer(buffer) }
             // Should this be `try!`?
             let msg = try MsgTypes_BookmarkNode(serializedData: Data(placesRustBuffer: buffer))
-            return unpackProtobuf(msg: msg, expectChildren: false)
+            return unpackProtobuf(msg: msg)
         }
     }
 

@@ -28,6 +28,7 @@ impl From<BookmarkTreeNode> for msg_types::BookmarkNode {
             position: None,
             child_guids: vec![],
             child_nodes: vec![],
+            have_child_nodes: Some(false),
         };
 
         // Not the most idiomatic, but avoids a lot of duplication.
@@ -53,6 +54,7 @@ impl From<BookmarkTreeNode> for msg_types::BookmarkNode {
                         child
                     })
                     .collect();
+                result.have_child_nodes = Some(true);
             }
         }
         result

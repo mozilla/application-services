@@ -128,6 +128,7 @@ void sync15_history_sync(PlacesConnectionHandle handle,
 
 PlacesRustBuffer bookmarks_get_by_guid(PlacesConnectionHandle handle,
                                        char const *_Nonnull guid,
+                                       uint8_t getDirectChildren,
                                        PlacesRustError *_Nonnull out_err);
 
 PlacesRustBuffer bookmarks_get_all_with_url(PlacesConnectionHandle handle,

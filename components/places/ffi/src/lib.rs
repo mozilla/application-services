@@ -357,12 +357,17 @@ pub unsafe extern "C" fn bookmarks_get_tree(
 pub unsafe extern "C" fn bookmarks_get_by_guid(
     handle: u64,
     guid: *const c_char,
+    get_direct_children: u8,
     error: &mut ExternError,
 ) -> ByteBuffer {
     log::debug!("bookmarks_get_by_guid");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let guid = SyncGuid(ffi_support::rust_string_from_c(guid));
-        Ok(bookmarks::fetch_bookmark(conn, &guid)?)
+        Ok(bookmarks::fetch_bookmark(
+            conn,
+            &guid,
+            get_direct_children != 0,
+        )?)
     })
 }
 

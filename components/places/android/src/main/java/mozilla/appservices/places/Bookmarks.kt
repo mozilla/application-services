@@ -129,8 +129,8 @@ open class BookmarkFolder(
         val childGUIDs: List<String>,
 
         /**
-         * If this node was returned the [ReadableBookmarksConnection.getTree] method,
-         * then this should have the list of children.
+         * If this node was returned the [ReadableBookmarksConnection.getBookmarksTree]
+         * method, then this should have the list of children.
          */
         val children: List<BookmarkTreeNode>?
 
@@ -160,20 +160,31 @@ open class BookmarkSeparator(
 interface ReadableBookmarksConnection : InterruptibleConnection {
     /**
      * Returns the bookmark subtree rooted at `rootGUID`. This differs from
-     * `getBookmark` in that it populates folder children recursively (specifically,
-     * any [BookmarkFolder]s in the returned value will have their `children` list
-     * populated, and not just `childGUIDs`.
+     * `getBookmark` in that it populates folder children.
+     *
+     * Specifically, any [BookmarkFolder]s in the returned value will have their
+     * `children` list populated, and not just `childGUIDs` (Note: if
+     * `recursive = false` is passed, then this is only performed for direct
+     * children, and not for grandchildren).
      *
      * @param rootGUID the GUID where to start the tree. Defaults to `BookmarkRoot.Root`'s id,
-     *               e.g. fetching the entire bookmarks tree.
-     * @return The fully populated bookmarks tree, or null if the provided
+     *                 e.g. fetching the entire bookmarks tree.
+     *
+     * @param recursive Whether or not to return more than a single
+     *                  level of children for folders. If false, then
+     *                  any folders which are children of the requested
+     *                  node will *only* have their `childGUIDs`
+     *                  populated, and *not* their `children`. Defaults to
+     *                  true.
+     *
+     * @return The bookmarks tree starting at `rootGUID`, or null if the provided
      *         id didn't refer to a known bookmark item.
      */
-    fun getTree(rootGUID: String = BookmarkRoot.Root.id): BookmarkTreeNode?
+    fun getBookmarksTree(rootGUID: String = BookmarkRoot.Root.id, recursive: Boolean = true): BookmarkTreeNode?
 
     /**
      * Returns the information about the bookmark with the provided id. This differs from
-     * `getTree` in that it does not populate the `children` list if `guid` refers
+     * `getBookmarksTree` in that it does not populate the `children` list if `guid` refers
      * to a folder (only it's `childGUIDs` list).
      *
      * @param guid the guid of the bookmark to fetch.
@@ -327,7 +338,7 @@ data class BookmarkUpdateInfo(
  * in what we.
  * expect as a boolean flag (shouldHaveChildNodes).
  */
-internal fun unpackProtobuf(msg: MsgTypes.BookmarkNode, shouldHaveChildNodes: Boolean): BookmarkTreeNode {
+internal fun unpackProtobuf(msg: MsgTypes.BookmarkNode): BookmarkTreeNode {
     val guid = msg.guid
     val parentGUID = msg.parentGuid
     val position = msg.position
@@ -335,6 +346,7 @@ internal fun unpackProtobuf(msg: MsgTypes.BookmarkNode, shouldHaveChildNodes: Bo
     val lastModified = msg.lastModified
     val type = msg.nodeType
     val title = if (msg.hasTitle()) { msg.title } else { null }
+    val shouldHaveChildNodes = if (msg.hasHaveChildNodes()) { msg.haveChildNodes } else { false }
     when (type) {
 
         BookmarkType.Bookmark.value -> {
@@ -361,7 +373,7 @@ internal fun unpackProtobuf(msg: MsgTypes.BookmarkNode, shouldHaveChildNodes: Bo
 
         BookmarkType.Folder.value -> {
             val childNodes: List<BookmarkTreeNode> = msg.childNodesList.map {
-                child -> unpackProtobuf(child, shouldHaveChildNodes)
+                child -> unpackProtobuf(child)
             }
             var childGuids = msg.childGuidsList
 
@@ -390,6 +402,6 @@ internal fun unpackProtobuf(msg: MsgTypes.BookmarkNode, shouldHaveChildNodes: Bo
 }
 
 internal fun unpackProtobufList(msg: MsgTypes.BookmarkNodeList): List<BookmarkTreeNode> {
-    return msg.nodesList.map { unpackProtobuf(it, false) }
+    return msg.nodesList.map { unpackProtobuf(it) }
 }
 

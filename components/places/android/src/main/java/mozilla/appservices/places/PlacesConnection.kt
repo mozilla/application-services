@@ -247,24 +247,28 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
 
     override fun getBookmark(guid: String): BookmarkTreeNode? {
         val rustBuf = rustCall { err ->
-            LibPlacesFFI.INSTANCE.bookmarks_get_by_guid(this.handle.get(), guid, err)
+            LibPlacesFFI.INSTANCE.bookmarks_get_by_guid(this.handle.get(), guid, 0.toByte(), err)
         }
         try {
             return rustBuf.asCodedInputStream()?.let { stream ->
-                unpackProtobuf(MsgTypes.BookmarkNode.parseFrom(stream), false)
+                unpackProtobuf(MsgTypes.BookmarkNode.parseFrom(stream))
             }
         } finally {
             LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
         }
     }
 
-    override fun getTree(rootGUID: String): BookmarkTreeNode? {
+    override fun getBookmarksTree(rootGUID: String, recursive: Boolean): BookmarkTreeNode? {
         val rustBuf = rustCall { err ->
-            LibPlacesFFI.INSTANCE.bookmarks_get_tree(this.handle.get(), rootGUID, err)
+            if (recursive) {
+                LibPlacesFFI.INSTANCE.bookmarks_get_tree(this.handle.get(), rootGUID, err)
+            } else {
+                LibPlacesFFI.INSTANCE.bookmarks_get_by_guid(this.handle.get(), rootGUID, 1.toByte(), err)
+            }
         }
         try {
             return rustBuf.asCodedInputStream()?.let { stream ->
-                unpackProtobuf(MsgTypes.BookmarkNode.parseFrom(stream), true)
+                unpackProtobuf(MsgTypes.BookmarkNode.parseFrom(stream))
             }
         } finally {
             LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)

@@ -180,6 +180,7 @@ internal interface LibPlacesFFI : Library {
 
     fun bookmarks_get_by_guid(handle: PlacesConnectionHandle,
                               optRootId: String?,
+                              getDirectChildren: Byte,
                               error: RustError.ByReference): RustBuffer.ByValue
 
     // Returns newly inserted guid

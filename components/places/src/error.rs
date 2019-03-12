@@ -188,4 +188,17 @@ pub enum Corruption {
         _0, _1
     )]
     NoParent(String, String),
+
+    // Note: This doesn't really make sense given how our schema works, and in
+    // practice should never happen. (And with more work we could ensure this
+    // doesn't happen by changing our queries and how our code is structured).
+    //
+    // That said, without that work, the alternative to this is either an
+    // `unwrap()` or shoehorning it into another error type, so for now it's
+    // fine.
+    #[fail(
+        display = "Bookmark '{}' should be a child of '{}', but is not",
+        parent, child
+    )]
+    MissingChild { parent: String, child: String },
 }

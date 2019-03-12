@@ -147,6 +147,18 @@ message BookmarkNode {
      * For performance reasons, this only is provided if it's requested.
      */
     repeated BookmarkNode child_nodes = 10;
+
+    /**
+     * Returned by reads, and used to distinguish between the cases of
+     * "empty child_nodes because the API doesn't return children" and
+     * "empty child_nodes because this folder has no children (but
+     * we'd populate them if it had them)".
+     *
+     * Only required because you can't have `optional repeated`.
+     *
+     * Leaving this out is equivalent to false.
+     */
+    optional bool have_child_nodes = 11;
 }
 
 /** An array of bookmark nodes, since we can't represent that directly */

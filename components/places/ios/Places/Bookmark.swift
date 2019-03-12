@@ -169,8 +169,12 @@ public class BookmarkFolder : BookmarkNode {
     public let childGUIDs: [String]
 
     /**
-     * If this node was returned from the `PlacesReadConn.getBookmarksTree` function,
+     * If this node was returned from the `PlacesReadConnection.getBookmarksTree` function,
      * then this should have the list of children, otherwise it will be nil.
+     *
+     * Note that if `recursive = false` is passed to the `getBookmarksTree` function, and
+     * this is a child (or grandchild, etc) of the directly returned node, then `children`
+     * will *not* be present (as that is the point of `recursive = false`).
      */
     public let children: [BookmarkNode]?
 
@@ -191,7 +195,7 @@ public class BookmarkFolder : BookmarkNode {
 
 // We pass in whether or not we expect children, because we don't have a way
 // of distinguishing 'empty folder' from 'this API does not return children'.
-internal func unpackProtobuf(msg: MsgTypes_BookmarkNode, expectChildren: Bool) -> BookmarkNode {
+internal func unpackProtobuf(msg: MsgTypes_BookmarkNode) -> BookmarkNode {
     // Should never fail unless BookmarkNodeType in this file and
     // BookmarkType in rust get out of sync
     let type = BookmarkNodeType(rawValue: msg.nodeType)!
@@ -223,7 +227,7 @@ internal func unpackProtobuf(msg: MsgTypes_BookmarkNode, expectChildren: Bool) -
         )
     case .folder:
         let childNodes = msg.childNodes.map { child in
-            unpackProtobuf(msg: child, expectChildren: expectChildren)
+            unpackProtobuf(msg: child)
         }
         var childGUIDs = msg.childGuids
         // We don't bother sending both the guids and the child nodes over
@@ -231,6 +235,7 @@ internal func unpackProtobuf(msg: MsgTypes_BookmarkNode, expectChildren: Bool) -
         if childGUIDs.isEmpty && !childNodes.isEmpty {
             childGUIDs = childNodes.map { node in node.guid }
         }
+        let childrenExpected = msg.hasHaveChildNodes ? msg.haveChildNodes : false
         return BookmarkFolder(
             guid: guid,
             dateAdded: dateAdded,
@@ -239,11 +244,11 @@ internal func unpackProtobuf(msg: MsgTypes_BookmarkNode, expectChildren: Bool) -
             position: position,
             title: title,
             childGUIDs: childGUIDs,
-            children: expectChildren ? childNodes : nil
+            children: childrenExpected ? childNodes : nil
         )
     }
 }
 
 internal func unpackProtobufList(msg: MsgTypes_BookmarkNodeList) -> [BookmarkNode] {
-    return msg.nodes.map { node in unpackProtobuf(msg: node, expectChildren: false) }
+    return msg.nodes.map { node in unpackProtobuf(msg: node) }
 }
