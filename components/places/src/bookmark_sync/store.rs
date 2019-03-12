@@ -72,17 +72,6 @@ pub struct BookmarksStore<'a> {
     remote_time: ServerTimestamp,
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-enum Staging {
-    /// Incoming records set `needsMerge = true` in `moz_bookmarks_synced`,
-    /// indicating the item has changes that we should merge and apply.
-    Incoming,
-
-    /// Outgoing records set `needsMerge = false` in `moz_bookmarks_synced`,
-    /// indicating they've been uploaded and need to be written back.
-    Outgoing,
-}
-
 struct Driver;
 
 impl dogear::Driver for Driver {
@@ -333,12 +322,7 @@ impl<'a> dogear::Store<Error> for BookmarksStore<'a> {
 }
 
 impl<'a> BookmarksStore<'a> {
-    fn store_bookmark(
-        &self,
-        staging: Staging,
-        modified: ServerTimestamp,
-        b: BookmarkRecord,
-    ) -> Result<()> {
+    fn store_incoming_bookmark(&self, modified: ServerTimestamp, b: BookmarkRecord) -> Result<()> {
         let (url, validity) = match self.maybe_store_url(b.url.as_ref()) {
             Ok(url) => (Some(url.into_string()), SyncedBookmarkValidity::Valid),
             Err(e) => {
@@ -346,11 +330,10 @@ impl<'a> BookmarksStore<'a> {
                 (None, SyncedBookmarkValidity::Replace)
             }
         };
-        let needs_merge = staging == Staging::Incoming;
         self.db.execute_named_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
                                                  dateAdded, title, keyword, validity, placeId)
-               VALUES(:guid, :parentGuid, :serverModified, :needsMerge, :kind,
+               VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
                       :dateAdded, NULLIF(:title, ""), :keyword, :validity,
                       -- XXX - when url is null we still fail below when we call hash()???
                       CASE WHEN :url ISNULL
@@ -364,7 +347,6 @@ impl<'a> BookmarksStore<'a> {
                 (":guid", &b.guid.as_ref()),
                 (":parentGuid", &b.parent_guid.as_ref()),
                 (":serverModified", &(modified.as_millis() as i64)),
-                (":needsMerge", &needs_merge),
                 (":kind", &SyncedBookmarkKind::Bookmark),
                 (":dateAdded", &b.date_added),
                 (":title", &maybe_truncate_title(&b.title)),
@@ -376,23 +358,16 @@ impl<'a> BookmarksStore<'a> {
         Ok(())
     }
 
-    fn store_folder(
-        &self,
-        staging: Staging,
-        modified: ServerTimestamp,
-        b: FolderRecord,
-    ) -> Result<()> {
-        let needs_merge = staging == Staging::Incoming;
+    fn store_incoming_folder(&self, modified: ServerTimestamp, b: FolderRecord) -> Result<()> {
         self.db.execute_named_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
                                                  dateAdded, title, validity)
-               VALUES(:guid, :parentGuid, :serverModified, :needsMerge, :kind,
+               VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
                       :dateAdded, NULLIF(:title, ""), :validity)"#,
             &[
                 (":guid", &b.guid.as_ref()),
                 (":parentGuid", &b.parent_guid.as_ref()),
                 (":serverModified", &(modified.as_millis() as i64)),
-                (":needsMerge", &needs_merge),
                 (":kind", &SyncedBookmarkKind::Folder),
                 (":dateAdded", &b.date_added),
                 (":title", &maybe_truncate_title(&b.title)),
@@ -440,10 +415,8 @@ impl<'a> BookmarksStore<'a> {
     ) -> Result<()> {
         let item = BookmarkItemRecord::from_payload(payload)?;
         match item {
-            BookmarkItemRecord::Bookmark(b) => {
-                self.store_bookmark(Staging::Incoming, timestamp, b)?
-            }
-            BookmarkItemRecord::Folder(f) => self.store_folder(Staging::Incoming, timestamp, f)?,
+            BookmarkItemRecord::Bookmark(b) => self.store_incoming_bookmark(timestamp, b)?,
+            BookmarkItemRecord::Folder(f) => self.store_incoming_folder(timestamp, f)?,
             _ => unimplemented!("TODO: Store other types"),
         }
         Ok(())
@@ -774,9 +747,9 @@ impl<'a> BookmarksStore<'a> {
     /// tombstones for successfully synced items. Sync calls this method at the
     /// end of each bookmark sync.
     fn push_synced_items(&self, uploaded_at: ServerTimestamp, guids: &[String]) -> Result<()> {
-        // Flag all successfully synced records as uploaded. This updates their
-        // local change counters, and writes them back to the synced bookmarks
-        // table.
+        // Flag all successfully synced records as uploaded. This `UPDATE` fires
+        // the `pushUploadedChanges` trigger, which updates local change
+        // counters and writes the items back to the synced bookmarks table.
         sql_support::each_chunk(&guids, |chunk, _| -> Result<()> {
             self.db.execute(
                 &format!(
