@@ -463,27 +463,6 @@ impl<'a> BookmarksStore<'a> {
             .unwrap_or(false))
     }
 
-    /// If the local roots aren't valid the merger will have a bad time.
-    fn valid_local_roots(&self) -> Result<bool> {
-        let sql = "
-            SELECT EXISTS(SELECT 1 FROM moz_bookmarks
-                    WHERE guid = '{root_guid}' AND
-                          parent = NULL) AND
-             (SELECT COUNT(*) FROM moz_bookmarks b
-              JOIN moz_bookmarks p ON p.id = b.parent
-              WHERE b.guid IN {local_roots} AND
-                    p.guid = '{root_guid}') = {num_user_roots} AS areValid";
-        Ok(self
-            .db
-            .try_query_row(
-                &sql,
-                &[],
-                |row| -> rusqlite::Result<_> { Ok(row.get_checked::<_, bool>(0)?) },
-                false,
-            )?
-            .unwrap_or(false))
-    }
-
     /// Builds a temporary table with the merge states of all nodes in the merged
     /// tree, then updates the local tree to match the merged tree.
     ///
