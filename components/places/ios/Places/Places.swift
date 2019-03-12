@@ -259,6 +259,7 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *
      * - Returns: Whether or not the bookmark existed.
      */
+    @discardableResult
     func deleteBookmark(guid: String) throws -> Bool {
         return try queue.sync {
             try self.checkApi()
@@ -282,6 +283,7 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *
      * - Returns: The GUID of the newly inserted bookmark folder.
      */
+    @discardableResult
     func createFolder(parentGUID: String, title: String, position: UInt32? = nil) throws -> String {
         return try queue.sync {
             try self.checkApi()
@@ -303,6 +305,7 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *
      * - Returns: The GUID of the newly inserted bookmark separator.
      */
+    @discardableResult
     func createSeparator(parentGUID: String, position: UInt32? = nil) throws -> String {
         return try queue.sync {
             try self.checkApi()
@@ -326,6 +329,7 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *
      * - Returns: The GUID of the newly inserted bookmark item.
      */
+    @discardableResult
     func createBookmark(parentGUID: String, url: String, title: String?, position: UInt32? = nil) throws -> String {
         return try queue.sync {
             try self.checkApi()
