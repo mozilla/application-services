@@ -233,7 +233,20 @@ follow the examples of the other steps it takes.
     (which should also help indicate where to find the build rules page) after
     you finish.
 
-7. Add a declaration for the rust buffer type to your .h file:
+7. If you have a test target for your framework (and you should, but not all of
+   our iOS code does), you need to do the following as well:
+
+    1. In the test target's Build phases, add SwiftProtobuf.framework to the
+       "Link Binary with Libraries" phase (As in step 3, you need to "Add
+       Other", and choose
+       `<repo-root>/Carthage/Build/iOS/SwiftProtobuf.framework`).
+    2. Add a new "Copy Files" build phase to the test target. Select the
+       SwiftProtobuf.framework, and set the destination to Frameworks.
+
+    See [this screenshot](./img/swift-protobuf-test-setup.png) for what it should look
+    like when done.
+
+8. Add a declaration for the rust buffer type to your .h file:
 
     Note that the name must be unique, hence the `MyLib` prefix (use your actual
     lib name, and not MyLib, of course).
@@ -259,7 +272,7 @@ follow the examples of the other steps it takes.
                                            PlacesRustError *_Nonnull out_err);
     ```
 
-8. Add the following somewhere in your swift code: (TODO: Eventually we should
+9. Add the following somewhere in your swift code: (TODO: Eventually we should
    figure out a way to share this)
 
     ```swift
@@ -270,7 +283,7 @@ follow the examples of the other steps it takes.
     }
     ```
 
-9. Usage code then looks something like:
+10. Usage code then looks something like:
 
     ```swift
     let buffer = try MylibError.unwrap { error in
@@ -356,7 +369,7 @@ were returned it would not be reachable.
 
 ## Swift
 
-1. Make sure you've done the first 6 steps (up until you need to modify .h
+1. Make sure you've done the first 7 steps (up until you need to modify .h
    files) of the swift setup for returning protobuf data.
 
 2. The function taking the protobuf should look like this in the header file:
