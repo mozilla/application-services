@@ -1323,6 +1323,7 @@ mod tests {
     use super::*;
     use crate::api::places_api::test::new_mem_connection;
     use crate::db::PlacesDb;
+    use pretty_assertions::assert_eq;
     use rusqlite::NO_PARAMS;
     use serde_json::Value;
     use std::collections::HashSet;
