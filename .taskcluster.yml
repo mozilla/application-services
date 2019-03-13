@@ -80,7 +80,7 @@ tasks:
             # So that we can re-use Gradle/Cargo/sccache bits between tasks.
             - "docker-worker:cache:application-services-*"
             # So that we can fetch the macOS SDK from internal tooltool.
-            - "docker-worker:relengapi-proxy:tooltool.download.internal"
+            - project:releng:services/tooltool/api/download/internal
           routes:
             - statuses  # Automatically added by taskcluster-github. It must be explicit because of Chain of Trust
           metadata:
