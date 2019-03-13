@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{error::*, storage::bookmarks::BookmarkRootGuid, types::SyncGuid};
-use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 
 /// All possible fields that can appear in a bookmark record.
 #[derive(Debug, Deserialize)]
@@ -305,9 +305,9 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
             }
             _ => {}
         }
-        // TODO: We don't know how to round-trip other kinds. For now, just
-        // fail the sync.
-        panic!("Unsupported bookmark type {}", raw.kind);
+        // TODO: We don't know how to round-trip other kinds.
+        // For now, just fail to deserialize.
+        Err(de::Error::unknown_variant(raw.kind.as_str(), &["bookmark", "query", "folder", "livemark", "separator"]))
     }
 }
 
@@ -326,4 +326,19 @@ pub fn guid_to_id(guid: &SyncGuid) -> &str {
     BookmarkRootGuid::from_guid(guid)
         .map(|g| g.as_sync_record_id())
         .unwrap_or_else(|| guid.as_ref())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{Error, json};
+
+    #[test]
+    fn test_invalid_record_type() {
+        let r: std::result::Result<BookmarkItemRecord, Error> = serde_json::from_value(json!({"id": "whatever", "type" : "unknown-type"}));
+        let e = r.unwrap_err();
+        assert!(e.is_data());
+        // I guess is good enough to check we are hitting what we expect.
+        assert!(e.to_string().contains("unknown-type"));
+    }
 }
