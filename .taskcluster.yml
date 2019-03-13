@@ -209,7 +209,7 @@ tasks:
                               - >-
                                 git init repo &&
                                 cd repo &&
-                                git fetch --depth 1 ${clone_url} ${head_branch} &&
+                                git fetch ${clone_url} --tags &&
                                 git reset --hard ${head_rev} &&
                                 python3 automation/taskcluster/decision_task.py release --version "${tag}"
                                 ${command_staging_flag}
