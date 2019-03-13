@@ -22,6 +22,7 @@ use url::Url;
 /// From https://searchfox.org/mozilla-central/rev/93905b660f/toolkit/components/places/PlacesUtils.jsm#189
 pub const URL_LENGTH_MAX: usize = 65536;
 pub const TITLE_LENGTH_MAX: usize = 4096;
+pub const TAG_LENGTH_MAX: usize = 100;
 // pub const DESCRIPTION_LENGTH_MAX: usize = 256;
 
 // Typesafe way to manage RowIds. Does it make sense? A better way?

@@ -10,6 +10,7 @@ use crate::{
     storage::bookmarks::{fetch_tree, insert_tree, BookmarkTreeNode},
     types::SyncGuid,
 };
+use pretty_assertions::assert_eq;
 
 pub fn insert_json_tree(conn: &PlacesDb, jtree: Value) {
     let tree: BookmarkTreeNode = serde_json::from_value(jtree).expect("should be valid");

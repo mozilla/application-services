@@ -8,7 +8,7 @@ use super::record::{
 use crate::error::*;
 use crate::storage::{
     bookmarks::{maybe_truncate_title, BookmarkRootGuid},
-    get_meta, put_meta, URL_LENGTH_MAX,
+    get_meta, put_meta, TAG_LENGTH_MAX, URL_LENGTH_MAX,
 };
 use crate::types::{
     BookmarkType, SyncGuid, SyncStatus, SyncedBookmarkKind, SyncedBookmarkValidity, Timestamp,
@@ -31,6 +31,10 @@ use sync15::{
 use url::Url;
 
 static LAST_SYNC_META_KEY: &'static str = "bookmarks_last_sync_time";
+
+// From Desktop's Ci.nsINavHistoryQueryOptions, but we define it as a str
+// as that's how we use it here.
+const RESULTS_AS_TAG_CONTENTS: &str = "7";
 
 lazy_static! {
     static ref LOCAL_ROOTS_AS_SQL_SET: String = {
@@ -63,6 +67,21 @@ lazy_static! {
             tags_guid = "_tags_" // XXX - need tags!
         )
     };
+}
+
+fn validate_tag(tag: &Option<String>) -> Option<&str> {
+    match tag {
+        None => None,
+        Some(t) => {
+            // // Drop empty and oversized tags.
+            let t = t.trim();
+            if t.len() == 0 || t.len() > TAG_LENGTH_MAX {
+                None
+            } else {
+                Some(t)
+            }
+        }
+    }
 }
 
 pub struct BookmarksStore<'a> {
@@ -326,7 +345,7 @@ impl<'a> dogear::Store<Error> for BookmarksStore<'a> {
 
 impl<'a> BookmarksStore<'a> {
     fn store_incoming_bookmark(&self, modified: ServerTimestamp, b: BookmarkRecord) -> Result<()> {
-        let (url, validity) = match self.maybe_store_url(b.url.as_ref()) {
+        let (url, validity) = match self.maybe_store_href(b.url.as_ref()) {
             Ok(url) => (Some(url.into_string()), SyncedBookmarkValidity::Valid),
             Err(e) => {
                 log::warn!("Incoming bookmark has an invalid URL: {:?}", e);
@@ -364,9 +383,9 @@ impl<'a> BookmarksStore<'a> {
     fn store_incoming_folder(&self, modified: ServerTimestamp, b: FolderRecord) -> Result<()> {
         self.db.execute_named_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
-                                                 dateAdded, title, validity)
+                                                 dateAdded, title)
                VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
-                      :dateAdded, NULLIF(:title, ""), :validity)"#,
+                      :dateAdded, NULLIF(:title, ""))"#,
             &[
                 (":guid", &b.guid.as_ref()),
                 (":parentGuid", &b.parent_guid.as_ref()),
@@ -374,7 +393,6 @@ impl<'a> BookmarksStore<'a> {
                 (":kind", &SyncedBookmarkKind::Folder),
                 (":dateAdded", &b.date_added),
                 (":title", &maybe_truncate_title(&b.title)),
-                (":validity", &SyncedBookmarkValidity::Valid),
             ],
         )?;
         for (position, child_guid) in b.children.iter().enumerate() {
@@ -391,9 +409,117 @@ impl<'a> BookmarksStore<'a> {
         Ok(())
     }
 
-    fn maybe_store_url(&self, url: Option<&String>) -> Result<Url> {
+    fn store_incoming_tombstone(&self, modified: ServerTimestamp, guid: &SyncGuid) -> Result<()> {
+        self.db.execute_named_cached(
+            r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge,
+                                                 dateAdded)
+               VALUES(:guid, NULL, :serverModified, 1, 0)"#,
+            &[
+                (":guid", guid),
+                (":serverModified", &(modified.as_millis() as i64)),
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn determine_query_url_and_validity(
+        &self,
+        q: &QueryRecord,
+        url: Url,
+    ) -> Result<(Option<Url>, SyncedBookmarkValidity)> {
+        // wow - this  is complex, but markh is struggling to see how to
+        // improve it
+        let (maybe_url, validity) = {
+            // If the URL has `type={RESULTS_AS_TAG_CONTENTS}` then we
+            // rewrite the URL as `place:tag=...`
+            if url
+                .query_pairs()
+                .any(|(k, v)| k == "type" && v == RESULTS_AS_TAG_CONTENTS)
+            {
+                if let Some(tag) = validate_tag(&q.tag_folder_name) {
+                    (
+                        Some(Url::parse(&format!("place:tag={}", tag))?),
+                        SyncedBookmarkValidity::Reupload,
+                    )
+                } else {
+                    (None, SyncedBookmarkValidity::Replace)
+                }
+            } else {
+                // If we have `folder=...` the folder value is a row_id
+                // from desktop, so useless to us - so we append `&excludeItems=1`
+                // if it isn't already there.
+                if url.query_pairs().any(|(k, _)| k == "folder") {
+                    if url
+                        .query_pairs()
+                        .any(|(k, v)| k == "excludeItems" && v == "1")
+                    {
+                        (Some(url), SyncedBookmarkValidity::Valid)
+                    } else {
+                        let mut new_url = url.clone();
+                        new_url
+                            .query_pairs_mut()
+                            .append_pair("excludeItems", "1")
+                            .finish();
+                        (Some(new_url), SyncedBookmarkValidity::Reupload)
+                    }
+                } else {
+                    // it appears to be fine!
+                    (Some(url), SyncedBookmarkValidity::Valid)
+                }
+            }
+        };
+        Ok(match self.maybe_store_url(maybe_url) {
+            Ok(url) => (Some(url), validity),
+            Err(e) => {
+                log::warn!("query {} has invalid URL '{:?}'", q.guid, q.url);
+                (None, SyncedBookmarkValidity::Replace)
+            }
+        })
+    }
+
+    fn store_incoming_query(&self, modified: ServerTimestamp, q: QueryRecord) -> Result<()> {
+        let (url, validity) = match q.url.as_ref().and_then(|href| Url::parse(href).ok()) {
+            Some(url) => self.determine_query_url_and_validity(&q, url)?,
+            None => {
+                log::warn!("query {} has invalid URL '{:?}'", q.guid, q.url);
+                (None, SyncedBookmarkValidity::Replace)
+            }
+        };
+
+        self.db.execute_named_cached(
+            r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
+                                                 dateAdded, title, validity, placeId)
+               VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
+                      :dateAdded, NULLIF(:title, ""), :validity,
+                      (SELECT id FROM moz_places
+                            WHERE url_hash = hash(:url) AND
+                            url = :url
+                      )
+                     )"#,
+            &[
+                (":guid", &q.guid.as_ref()),
+                (":parentGuid", &q.parent_guid.as_ref()),
+                (":serverModified", &(modified.as_millis() as i64)),
+                (":kind", &SyncedBookmarkKind::Bookmark),
+                (":dateAdded", &q.date_added),
+                (":title", &maybe_truncate_title(&q.title)),
+                (":validity", &validity),
+                (":url", &url.map(|u| u.into_string()))
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn maybe_store_href(&self, href: Option<&String>) -> Result<Url> {
+        if let Some(href) = href {
+            self.maybe_store_url(Some(Url::parse(href)?))
+        } else {
+            self.maybe_store_url(None)
+        }
+    }
+
+    fn maybe_store_url(&self, url: Option<Url>) -> Result<Url> {
         if let Some(url) = url {
-            let url = Url::parse(url)?;
             if url.as_str().len() > URL_LENGTH_MAX {
                 return Err(ErrorKind::InvalidPlaceInfo(InvalidPlaceInfo::UrlTooLong).into());
             }
@@ -418,7 +544,11 @@ impl<'a> BookmarksStore<'a> {
     ) -> Result<()> {
         let item = BookmarkItemRecord::from_payload(payload)?;
         match item {
+            BookmarkItemRecord::Tombstone(guid) => {
+                self.store_incoming_tombstone(timestamp, &guid)?
+            }
             BookmarkItemRecord::Bookmark(b) => self.store_incoming_bookmark(timestamp, b)?,
+            BookmarkItemRecord::Query(q) => self.store_incoming_query(timestamp, q)?,
             BookmarkItemRecord::Folder(f) => self.store_incoming_folder(timestamp, f)?,
             _ => unimplemented!("TODO: Store other types"),
         }
@@ -901,11 +1031,118 @@ mod tests {
         assert_json_tree as assert_local_json_tree, insert_json_tree as insert_local_json_tree,
     };
     use dogear::{Store as DogearStore, Validity};
-    use serde_json::json;
+    use pretty_assertions::assert_eq;
+    use serde_json::{json, Value};
     use sync15::Store as SyncStore;
 
     use std::cell::Cell;
     use sync15::Payload;
+
+    fn assert_incoming_creates_local_tree(
+        records_json: Value,
+        local_folder: &SyncGuid,
+        local_tree: Value,
+    ) {
+        let api = new_mem_api();
+        let conn = api
+            .open_connection(ConnectionType::Sync)
+            .expect("should get a connection");
+
+        // suck records into the store.
+        let store = BookmarksStore {
+            db: &conn,
+            client_info: &Cell::new(None),
+            local_time: Timestamp::now(),
+            remote_time: ServerTimestamp(0.0),
+        };
+
+        let mut incoming =
+            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
+
+        match records_json {
+            Value::Array(records) => {
+                for record in records {
+                    let payload = Payload::from_json(record).unwrap();
+                    incoming.changes.push((payload, ServerTimestamp(0.0)));
+                }
+            }
+            Value::Object(_) => {
+                let payload = Payload::from_json(records_json).unwrap();
+                incoming.changes.push((payload, ServerTimestamp(0.0)));
+            }
+            _ => panic!("unexpected json value"),
+        }
+
+        store
+            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new())
+            .expect("Should apply incoming and stage outgoing records");
+
+        assert_local_json_tree(&conn, local_folder, local_tree);
+    }
+
+    #[test]
+    fn test_apply_query() {
+        // XXX - this test should really just be examining the moz_bookmarks_synced
+        // table so we can check validity etc. ie, this should be more a "unit test"
+        // rather than a "functional test"
+
+        // A valid query (which actually looks just like a bookmark, but that's ok)
+        assert_incoming_creates_local_tree(
+            json!({
+                "id": "query1______",
+                "type": "query",
+                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "parentName": "Unfiled Bookmarks",
+                "dateAdded": 1381542355843u64,
+                "title": "Some query",
+                "bmkUri": "https://example.com",
+            }),
+            &BookmarkRootGuid::Unfiled.as_guid(),
+            json!({"children" : [{"guid": "query1______", "url": "https://example.com/"}]}),
+        );
+
+        // A query with an old "type=" param and a valid folderName
+        assert_incoming_creates_local_tree(
+            json!({
+                "id": "query1______",
+                "type": "query",
+                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "bmkUri": "place:something?type=7",
+                "folderName": "a-folder-name",
+            }),
+            &BookmarkRootGuid::Unfiled.as_guid(),
+            json!({"children" : [{"guid": "query1______", "url": "place:tag=a-folder-name"}]}),
+        );
+
+        // A query with an old "folder="
+        assert_incoming_creates_local_tree(
+            json!({
+                "id": "query1______",
+                "type": "query",
+                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "bmkUri": "place:something?folder=123",
+                "folderName": "a-folder-name",
+            }),
+            &BookmarkRootGuid::Unfiled.as_guid(),
+            json!({"children" : [{"guid": "query1______", "url": "place:something?folder=123&excludeItems=1"}]}),
+        );
+
+        // A query with an old "folder=" but with `excludeItems` already appended.
+        assert_incoming_creates_local_tree(
+            json!({
+                "id": "query1______",
+                "type": "query",
+                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "bmkUri": "place:something?folder=123&excludeItems=1",
+                "folderName": "a-folder-name",
+            }),
+            &BookmarkRootGuid::Unfiled.as_guid(),
+            json!({"children" : [{"guid": "query1______", "url": "place:something?folder=123&excludeItems=1"}]}),
+        );
+
+        // XXX - if we tested against moz_bookmarks_synced we could have
+        // more meaningful tests for missing and invalid URLs.
+    }
 
     #[test]
     fn test_fetch_remote_tree() -> Result<()> {

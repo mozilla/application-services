@@ -355,7 +355,13 @@ impl ToSql for SyncedBookmarkKind {
 
 /// Synced item validity states. These are stored in
 /// `moz_bookmarks_synced.validity`, and match the definitions in
-/// `mozISyncedBookmarksMerger`.
+/// `mozISyncedBookmarksMerger`. In short:
+/// * `Valid` means the record is valid and should be merged as usual.
+/// * `Reupload` means a remote item can be fixed up and applied,
+///    and should be reuploaded.
+/// * `Replace` means a remote item isn't valid at all, and should either be
+///    replaced with a valid local copy, or deleted if a valid local copy
+///    doesn't exist.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(u8)]
 pub enum SyncedBookmarkValidity {
