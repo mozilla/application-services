@@ -307,7 +307,10 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
         }
         // TODO: We don't know how to round-trip other kinds.
         // For now, just fail to deserialize.
-        Err(de::Error::unknown_variant(raw.kind.as_str(), &["bookmark", "query", "folder", "livemark", "separator"]))
+        Err(de::Error::unknown_variant(
+            raw.kind.as_str(),
+            &["bookmark", "query", "folder", "livemark", "separator"],
+        ))
     }
 }
 
@@ -331,11 +334,12 @@ pub fn guid_to_id(guid: &SyncGuid) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::{Error, json};
+    use serde_json::{json, Error};
 
     #[test]
     fn test_invalid_record_type() {
-        let r: std::result::Result<BookmarkItemRecord, Error> = serde_json::from_value(json!({"id": "whatever", "type" : "unknown-type"}));
+        let r: std::result::Result<BookmarkItemRecord, Error> =
+            serde_json::from_value(json!({"id": "whatever", "type" : "unknown-type"}));
         let e = r.unwrap_err();
         assert!(e.is_data());
         // I guess is good enough to check we are hitting what we expect.
