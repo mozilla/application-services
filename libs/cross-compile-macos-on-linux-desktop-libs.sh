@@ -8,10 +8,10 @@ set -euvx
 
 pushd /tmp
 
-curl --location --retry 10 --retry-delay 10 -o tooltool.py https://raw.githubusercontent.com/mozilla/build-tooltool/1c6943c019fd378a337423a85c26932084edf771/tooltool.py
+curl --location --retry 10 --retry-delay 10 -o tooltool.py https://raw.githubusercontent.com/mozilla/build-tooltool/36511dae0ead6848017e2d569b1f6f1b36984d40/tooltool.py
 chmod +x tooltool.py
 
-curl --location --retry 10 --retry-delay 10 -o cross-clang.manifest https://hg.mozilla.org/mozilla-central/raw-file/f7a97b344fa59bd3b01ea81ebd5b150aa63bfb12/browser/config/tooltool-manifests/macosx64/cross-clang.manifest
+curl --location --retry 10 --retry-delay 10 -o cross-clang.manifest https://hg.mozilla.org/mozilla-central/raw-file/588208caeaf863f2207792eeb1bd97e6c8fceed4/browser/config/tooltool-manifests/macosx64/cross-clang.manifest
 
 python tooltool.py --manifest=cross-clang.manifest --url=http://taskcluster/tooltool.mozilla-releng.net/ fetch
 

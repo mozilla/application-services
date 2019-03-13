@@ -121,7 +121,6 @@ tasks:
             - $if: 'tasks_for == "github-pull-request" && event["action"] in ["opened", "reopened", "edited", "synchronize"]'
               then:
                 $let:
-                  pull_request_title: ${event.pull_request.title}
                   pull_request_number: ${event.pull_request.number}
                   pull_request_url: ${event.pull_request.html_url}
                 in:
