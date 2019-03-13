@@ -207,7 +207,7 @@ def linux_build_task(name):
 def linux_target_macos_build_task(name):
     return (
         linux_build_task(name)
-        .with_scopes('docker-worker:relengapi-proxy:tooltool.download.internal')
+        .with_scopes('project:releng:services/tooltool/api/download/internal')
         .with_features('relengAPIProxy')
         .with_script("""
             rustup target add x86_64-apple-darwin
