@@ -245,18 +245,22 @@ mod sql_fns {
                 get_raw_opt_str(ctx, "hash", 0)?.map(|value| hash::hash_url(value) as i64)
             }
             2 => {
-                let value = get_raw_str(ctx, "hash", 0)?;
+                let value = get_raw_opt_str(ctx, "hash", 0)?;
                 let mode = get_raw_str(ctx, "hash", 1)?;
-                Some(match mode {
-                    "" => hash::hash_url(&value),
-                    "prefix_lo" => hash::hash_url_prefix(&value, hash::PrefixMode::Lo),
-                    "prefix_hi" => hash::hash_url_prefix(&value, hash::PrefixMode::Hi),
-                    arg => {
-                        return Err(rusqlite::Error::UserFunctionError(format!(
-                            "`hash` second argument must be either '', 'prefix_lo', or 'prefix_hi', got {:?}.",
-                            arg).into()));
-                    }
-                } as i64)
+                if let Some(value) = value {
+                    Some(match mode {
+                        "" => hash::hash_url(&value),
+                        "prefix_lo" => hash::hash_url_prefix(&value, hash::PrefixMode::Lo),
+                        "prefix_hi" => hash::hash_url_prefix(&value, hash::PrefixMode::Hi),
+                        arg => {
+                            return Err(rusqlite::Error::UserFunctionError(format!(
+                                "`hash` second argument must be either '', 'prefix_lo', or 'prefix_hi', got {:?}.",
+                                arg).into()));
+                        }
+                    } as i64)
+                } else {
+                    None
+                }
             }
             n => {
                 return Err(rusqlite::Error::UserFunctionError(
