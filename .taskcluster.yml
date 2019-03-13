@@ -134,7 +134,7 @@ tasks:
                       metadata:
                         name: 'Application Services - Decision task (Pull Request #${pull_request_number})'
                         description: 'Building and testing Application Services - triggered by [#${pull_request_number}](${pull_request_url})'
-            - $if: 'tasks_for == "github-push" && head_branch[:10] != "refs/tags/"'
+            - $if: 'tasks_for == "github-push" && head_branch == "refs/heads/master"'
               then:
                 $mergeDeep:
                   - {$eval: 'default_task_definition'}
