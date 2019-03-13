@@ -103,6 +103,12 @@ pub enum ErrorKind {
 
     #[fail(display = "Protobuf decode error: {}", _0)]
     ProtobufDecodeError(#[fail(cause)] prost::DecodeError),
+
+    // This will happen if you provide something absurd like
+    // "/" or "" as your database path. For more subtley broken paths,
+    // we'll likely return an IoError.
+    #[fail(display = "Illegal database path: {:?}", _0)]
+    IllegalDatabasePath(std::path::PathBuf),
 }
 
 macro_rules! impl_from_error {
