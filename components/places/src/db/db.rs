@@ -242,10 +242,7 @@ mod sql_fns {
                 // null when the input is NULL. We return NULL instead of zero
                 // because the hash columns are NOT NULL, so attempting to
                 // actually use the null should fail.
-                match get_raw_opt_str(ctx, "hash", 0)? {
-                    Some(value) => Some(hash::hash_url(value) as i64),
-                    None => None,
-                }
+                get_raw_opt_str(ctx, "hash", 0)?.map(|value| hash::hash_url(value) as i64)
             }
             2 => {
                 let value = get_raw_str(ctx, "hash", 0)?;
