@@ -232,16 +232,25 @@ mod sql_fns {
     // #[inline(never)] ensures they show up in profiles.
 
     #[inline(never)]
-    pub fn hash(ctx: &Context) -> rusqlite::Result<i64> {
+    pub fn hash(ctx: &Context) -> rusqlite::Result<Option<i64>> {
         Ok(match ctx.len() {
             1 => {
-                let value = get_raw_str(ctx, "hash", 0)?;
-                hash::hash_url(value)
+                // This is a deterministic function, which means sqlite
+                // does certain optimizations which means hash() may be called
+                // with a null value even though the query prevents the null
+                // value from actually being used. As a special case, we return
+                // null when the input is NULL. We return NULL instead of zero
+                // because the hash columns are NOT NULL, so attempting to
+                // actually use the null should fail.
+                match get_raw_opt_str(ctx, "hash", 0)? {
+                    Some(value) => Some(hash::hash_url(value) as i64),
+                    None => None,
+                }
             }
             2 => {
                 let value = get_raw_str(ctx, "hash", 0)?;
                 let mode = get_raw_str(ctx, "hash", 1)?;
-                match mode {
+                Some(match mode {
                     "" => hash::hash_url(&value),
                     "prefix_lo" => hash::hash_url_prefix(&value, hash::PrefixMode::Lo),
                     "prefix_hi" => hash::hash_url_prefix(&value, hash::PrefixMode::Hi),
@@ -250,14 +259,14 @@ mod sql_fns {
                             "`hash` second argument must be either '', 'prefix_lo', or 'prefix_hi', got {:?}.",
                             arg).into()));
                     }
-                }
+                } as i64)
             }
             n => {
                 return Err(rusqlite::Error::UserFunctionError(
                     format!("`hash` expects 1 or 2 arguments, got {}.", n).into(),
                 ));
             }
-        } as i64)
+        })
     }
 
     #[inline(never)]
