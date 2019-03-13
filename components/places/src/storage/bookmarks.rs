@@ -1286,7 +1286,10 @@ fn fetch_bookmark_in_tx(
     let (child_guids, child_nodes) =
         if rb.bookmark_type == BookmarkType::Folder && rb.child_count != 0 {
             let child_guids: Vec<String> = db.query_rows_into(
-                "SELECT guid FROM moz_bookmarks WHERE parent = :parent",
+                "SELECT guid
+                 FROM moz_bookmarks
+                 WHERE parent = :parent
+                 ORDER BY position ASC",
                 &[(":parent", &rb.row_id)],
                 |row| row.get_checked(0),
             )?;
@@ -1357,8 +1360,8 @@ pub fn fetch_proto_tree(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<Optio
     if item_guid != &BookmarkRootGuid::Root {
         let sql = "
             SELECT
-                b.position AS position,
-                p.guid AS parent_guid
+                p.guid AS parent_guid,
+                b.position AS position
             FROM moz_bookmarks b
             LEFT JOIN moz_bookmarks p ON p.id = b.parent
             WHERE b.guid = :guid

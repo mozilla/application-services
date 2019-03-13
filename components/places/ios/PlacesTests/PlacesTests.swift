@@ -113,6 +113,7 @@ func counter() -> Int {
     counterValue += 1
     return counterValue
 }
+
 @discardableResult
 func insertTree(_ db: PlacesWriteConnection, parent: String, tree: [String: Any]) -> String {
     let root = try! db.createFolder(parentGUID: parent, title: (tree["title"] as? String) ?? "folder \(counter())")
@@ -139,12 +140,12 @@ let DummyTree0: [String: Any] = [
     "children": [
         [
             "type": "bookmark",
-            "url": "http://www.github.com",
+            "url": "http://www.github.com/",
             "title": "github"
         ],
         [
             "type": "separator",
-        ],
+            ],
         [
             "type": "folder",
             "title": "cool folder",
@@ -152,7 +153,7 @@ let DummyTree0: [String: Any] = [
                 [
                     "type": "bookmark",
                     "title": "example0",
-                    "url": "https://www.example0.com"
+                    "url": "https://www.example0.com/"
                 ],
                 [
                     "type": "folder",
@@ -162,7 +163,7 @@ let DummyTree0: [String: Any] = [
                 [
                     "type": "bookmark",
                     "title": "example1",
-                    "url": "https://www.example1.com"
+                    "url": "https://www.example1.com/"
                 ],
             ]
         ],
@@ -224,33 +225,35 @@ class PlacesTests: XCTestCase {
         // Check recursive: false
         let noGrandkids = try! db.getBookmarksTree(rootGUID: BookmarkRoots.MenuFolderGUID, recursive: false)! as! BookmarkFolder
 
+        let expectedChildGuids =  ((got as! BookmarkFolder).children![0] as! BookmarkFolder).childGUIDs;
+
         checkTree(noGrandkids, [
-            "guid": BookmarkRoots.MobileFolderGUID,
+            "guid": BookmarkRoots.MenuFolderGUID,
             "type": "folder",
             "children": [
                 [
                     "type": "folder",
                     "title": "my favorite bookmarks",
-                    "childGUIDs": noGrandkids.childGUIDs
+                    "childGUIDs": expectedChildGuids
                 ]
             ]
         ], checkChildren: .onlyGUIDsInChildren)
     }
 
-//
-//    func testGetBookmark() {
-//        let db = api.getWriter()
-//
-//        let newFolderGUID = insertTree(db, parent: BookmarkRoots.MenuFolderGUID, tree: DummyTree0)
-//        let sepGUID = try! db.createSeparator(parentGUID: BookmarkRoots.MenuFolderGUID)
-//
-//        checkTree(try! db.getBookmark(guid: BookmarkRoots.MenuFolderGUID, [
-//            "guid": BookmarkRoots.MenuFolderGUID,
-//            "type": "folder",
-//            "childGUIDs": [newFolderGUID, sepGUID]
-//        ], checkChildren: .onlyGUIDs)
-//
-//
-//    }
+
+    func testGetBookmark() {
+        let db = api.getWriter()
+
+        let newFolderGUID = insertTree(db, parent: BookmarkRoots.MenuFolderGUID, tree: DummyTree0)
+        let sepGUID = try! db.createSeparator(parentGUID: BookmarkRoots.MenuFolderGUID)
+
+        checkTree(try! db.getBookmark(guid: BookmarkRoots.MenuFolderGUID)!, [
+            "guid": BookmarkRoots.MenuFolderGUID,
+            "type": "folder",
+            "childGUIDs": [newFolderGUID, sepGUID]
+        ], checkChildren: .onlyGUIDs)
+
+
+    }
 
 }
