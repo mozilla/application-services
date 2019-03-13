@@ -2,6 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::error::{ErrorKind, Result};
+use std::path::{Path, PathBuf};
+
 /// Equivalent to `&s[..max_len.min(s.len())]`, but handles the case where
 /// `s.is_char_boundary(max_len)` is false (which would otherwise panic).
 pub fn slice_up_to(s: &str, max_len: usize) -> &str {
@@ -13,6 +16,57 @@ pub fn slice_up_to(s: &str, max_len: usize) -> &str {
         idx -= 1;
     }
     &s[..idx]
+}
+
+/// `Path` is basically just a `str` with no validation, and so in practice it
+/// could contain a file URL. Rusqlite takes advantage of this a bit, and says
+/// `AsRef<Path>` but really means "anything sqlite can take as an argument".
+///
+/// Swift loves using file urls (the only support it has for file manipulation
+/// is through file urls), so it's handy to support them if possible.
+fn unurl_path(p: impl AsRef<Path>) -> PathBuf {
+    p.as_ref()
+        .to_str()
+        .and_then(|s| url::Url::parse(s).ok())
+        .and_then(|u| {
+            if u.scheme() == "file" {
+                u.to_file_path().ok()
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| p.as_ref().to_owned())
+}
+
+/// As best as possible, convert `p` into an absolute path, resolving
+/// all symlinks along the way.
+///
+/// If `p` is a file url, it's converted to a path before this.
+pub fn normalize_path(p: impl AsRef<Path>) -> Result<PathBuf> {
+    let path = unurl_path(p);
+    if let Ok(canonical) = path.canonicalize() {
+        return Ok(canonical);
+    }
+    // It probably doesn't exist yet. This is an error, although it seems to
+    // work on some systems.
+    //
+    // We resolve this by trying to canonicalize the parent directory, and
+    // appending the requested file name onto that. If we can't canonicalize
+    // the parent, we return an error.
+    //
+    // Also, we return errors if the path ends in "..", if there is no
+    // parent directory, etc.
+    let file_name = path
+        .file_name()
+        .ok_or_else(|| ErrorKind::IllegalDatabasePath(path.clone()))?;
+
+    let parent = path
+        .parent()
+        .ok_or_else(|| ErrorKind::IllegalDatabasePath(path.clone()))?;
+
+    let mut canonical = parent.canonicalize()?;
+    canonical.push(file_name);
+    Ok(canonical)
 }
 
 #[cfg(test)]
@@ -30,5 +84,14 @@ mod test {
         assert_eq!(slice_up_to(s, 6), "abcd");
         assert_eq!(slice_up_to(s, 7), "abcd");
         assert_eq!(slice_up_to(s, 8), s);
+    }
+    #[test]
+    fn test_unurl_path() {
+        assert_eq!(
+            unurl_path("file:///foo%20bar/baz").to_string_lossy(),
+            "/foo bar/baz"
+        );
+        assert_eq!(unurl_path("/foo bar/baz").to_string_lossy(), "/foo bar/baz");
+        assert_eq!(unurl_path("../baz").to_string_lossy(), "../baz");
     }
 }
