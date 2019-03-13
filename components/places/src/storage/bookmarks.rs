@@ -1350,6 +1350,7 @@ mod tests {
     use crate::api::places_api::test::new_mem_connection;
     use crate::db::PlacesDb;
     use crate::tests::{assert_json_tree, insert_json_tree};
+    use pretty_assertions::assert_eq;
     use rusqlite::NO_PARAMS;
     use serde_json::Value;
     use std::collections::HashSet;

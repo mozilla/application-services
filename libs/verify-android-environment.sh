@@ -3,7 +3,7 @@
 # This file should be used via `./libs/verify-android-environment.sh`.
 
 NDK_VERSION=15
-RUST_TARGETS=("aarch64-linux-android" "armv7-linux-androideabi" "i686-linux-android")
+RUST_TARGETS=("aarch64-linux-android" "armv7-linux-androideabi" "i686-linux-android" "x86_64-linux-android")
 
 if [ ! -f "$(pwd)/libs/build-all.sh" ]; then
   echo "ERROR: verify-android-environment.sh should be run from the root directory of the repo"

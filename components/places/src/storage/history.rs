@@ -1064,6 +1064,7 @@ mod tests {
     use super::*;
     use crate::history_sync::record::{HistoryRecord, HistoryRecordVisit};
     use crate::types::Timestamp;
+    use pretty_assertions::assert_eq;
     use std::time::{Duration, SystemTime};
 
     #[test]

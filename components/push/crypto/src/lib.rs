@@ -276,7 +276,9 @@ impl Cryptography for Crypto {
         match encoding.to_lowercase().as_str() {
             "aesgcm" => Self::decrypt_aesgcm(&key, &d_body, d_salt, d_dh),
             "aes128gcm" => Self::decrypt_aes128gcm(&key, &d_body),
-            _ => Err(error::ErrorKind::GeneralError("Unknown Content Encoding".to_string()).into()),
+            _ => Err(
+                error::ErrorKind::EncryptionError("Unknown Content Encoding".to_string()).into(),
+            ),
         }
     }
 

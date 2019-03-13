@@ -2,123 +2,236 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-
 version: 1
 policy:
   # https://docs.taskcluster.net/docs/reference/integrations/taskcluster-github/docs/taskcluster-yml-v1#pull-requests
-  pullRequests: collaborators
-
+  pullRequests: public
 tasks:
-  - $if: 'tasks_for == "github-pull-request"'
-    then:
-      $if: 'event.action in ["opened", "reopened", "synchronize"]'
-      then:
-        taskGroupId: {$eval: as_slugid("decision_task")}
-        taskId: {$eval: as_slugid("decision_task")}
-        provisionerId: aws-provisioner-v1
-        workerType: application-services-r
-        created: {$fromNow: ''}
-        deadline: {$fromNow: '1 day'}
-        metadata:
-          name: "Application Services: GitHub decision task"
-          description: ""
-          owner: &task_owner ${event.pull_request.head.user.login}@users.noreply.github.com
-          source: &task_source ${event.pull_request.head.repo.url}
-        scopes:
-          - "queue:scheduler-id:taskcluster-github"
-          # So that we can use our own "application-services-r" worker-type.
-          - "queue:create-task:highest:aws-provisioner-v1/application-services-r"
+  $let:
+    decision_task_id: {$eval: as_slugid("decision_task")}
+    expires_in: {$fromNow: '1 year'}
+    user: ${event.sender.login}
 
-          # So that we can cache task outputs for re-use.
-          - "queue:route:index.project.application-services.*"
+    # We define the following variable at the very top, because they are used in the
+    # default definition
+    head_branch:
+      $if: 'tasks_for == "github-pull-request"'
+      then: ${event.pull_request.head.ref}
+      else:
+        $if: 'tasks_for == "github-push"'
+        then: ${event.ref}
+        else: ${event.release.target_commitish}
 
-          # So that we can re-use Gradle/Cargo/sccache bits between tasks.
-          - "docker-worker:cache:application-services-*"
+    head_rev:
+      $if: 'tasks_for == "github-pull-request"'
+      then: ${event.pull_request.head.sha}
+      else:
+        $if: 'tasks_for == "github-push"'
+        then: ${event.after}
+        else: ${event.release.tag_name}
 
-          # So that we can fetch the macOS SDK from internal tooltool.
-          - "docker-worker:relengapi-proxy:tooltool.download.internal"
+    repository:
+      $if: 'tasks_for == "github-pull-request"'
+      then: ${event.pull_request.head.repo.html_url}
+      else: ${event.repository.html_url}
 
-        payload:
-          maxRunTime: {$eval: '20 * 60'}
-          # https://github.com/servo/taskcluster-bootstrap-docker-images#decision-task
-          image: "servobrowser/taskcluster-bootstrap:decision-task@sha256:28045b7ec0485ef363f8cb14f194008b47e9ede99f2ea40a1e945e921fce976e"
-          features:
-            taskclusterProxy: true
-          env:
-            GIT_URL: ${event.pull_request.head.repo.clone_url}
-            GIT_REF: ${event.pull_request.head.ref}
-            GIT_SHA: ${event.pull_request.head.sha}
-            TASK_FOR: ${tasks_for}
-            TASK_OWNER: *task_owner
-            TASK_SOURCE: *task_source
-          command:
-            - /bin/bash
-            - '--login'
-            - '-e'
-            - '-c'
-            - >-
-              git init repo &&
-              cd repo &&
-              git fetch --depth 1 "$GIT_URL" "$GIT_REF" &&
-              git reset --hard "$GIT_SHA" &&
-              python3 automation/taskcluster/decision_task.py
+    clone_url:
+      $if: 'tasks_for == "github-pull-request"'
+      then: ${event.pull_request.head.repo.clone_url}
+      else: ${event.repository.clone_url}
 
-  - $if: 'tasks_for == "github-push"'
-    then:
-      $if: 'event.ref[:10] == "refs/tags/" || event.ref[:10] == "refs/heads/master"'
-      then:
-        taskGroupId: {$eval: as_slugid("decision_task")}
-        taskId: {$eval: as_slugid("decision_task")}
-        provisionerId: aws-provisioner-v1
-        workerType: application-services-r
-        created: {$fromNow: ''}
-        deadline: {$fromNow: '1 day'}
-        metadata:
-          name: "Application Services: GitHub decision task"
-          description: ""
-          owner: &task_owner ${event.pusher.name}@users.noreply.github.com
-          source: &task_source ${event.compare}
-        scopes:
-          - "queue:scheduler-id:taskcluster-github"
-          # So that we can use our own "application-services-r" worker-type.
-          - "queue:create-task:highest:aws-provisioner-v1/application-services-r"
+    scheduler_id:
+      $if: 'tasks_for == "cron"'
+      then: application-services-nightly-sched  # TODO: This scheduler doesn't exist, ask releng to create it.
+      else: taskcluster-github
 
-          # So that we can cache task outputs for re-use.
-          - "queue:route:index.project.application-services.*"
+    is_repo_trusted:
+      # Pull requests on main repository can't be trusted because anybody can open a PR on it, without a review
+      $if: 'tasks_for in ["github-push", "github-release", "cron"] && event.repository.html_url == "https://github.com/mozilla/application-services"'
+      then: true
+      else: false
+  in:
+    $let:
+      decision_worker_type: application-services-r
+      build_worker_type: application-services-r
 
-          # So that we can re-use Gradle/Cargo/sccache bits between tasks.
-          - "docker-worker:cache:application-services-*"
+      # TODO: revisit once bug 1533314 is done to possibly infer better priorities
+      tasks_priority: highest
+    in:
+      $let:
+        default_task_definition:
+          taskId: ${decision_task_id}
+          taskGroupId: ${decision_task_id}  # Must be explicit because of Chain of Trust
+          schedulerId: ${scheduler_id}
+          created: {$fromNow: ''}
+          deadline: {$fromNow: '4 hours'}
+          expires: ${expires_in}
+          provisionerId: aws-provisioner-v1
+          workerType: ${decision_worker_type}
+          priority: ${tasks_priority}
+          requires: all-completed   # Must be explicit because of Chain of Trust
+          retries: 5
+          scopes:
+            - queue:create-task:${tasks_priority}:aws-provisioner-v1/${build_worker_type}
+            - queue:route:statuses
+            - queue:scheduler-id:${scheduler_id}
+            # So that we can cache task outputs for re-use.
+            - "queue:route:index.project.application-services.*"
+            # So that we can re-use Gradle/Cargo/sccache bits between tasks.
+            - "docker-worker:cache:application-services-*"
+            # So that we can fetch the macOS SDK from internal tooltool.
+            - "docker-worker:relengapi-proxy:tooltool.download.internal"
+          routes:
+            - statuses  # Automatically added by taskcluster-github. It must be explicit because of Chain of Trust
+          metadata:
+            owner: &task_owner ${user}@users.noreply.github.com
+            source: &task_source ${repository}/raw/${head_rev}/.taskcluster.yml
+          payload:
+            maxRunTime: {$eval: '20 * 60'}
+            # https://github.com/servo/taskcluster-bootstrap-docker-images#decision-task
+            image: "servobrowser/taskcluster-bootstrap:decision-task@sha256:28045b7ec0485ef363f8cb14f194008b47e9ede99f2ea40a1e945e921fce976e"
+            command:
+              - /bin/bash
+              - --login
+              - -cx
+              # The rest of the command must be defined below
+            env:
+              GIT_URL: ${clone_url}
+              GIT_REF: ${head_branch}
+              GIT_SHA: ${head_rev}
+              TASK_FOR: ${tasks_for}
+              TASK_OWNER: *task_owner
+              TASK_SOURCE: *task_source
+            features:
+              taskclusterProxy: true
+      in:
+        $if: 'tasks_for in ["github-pull-request", "github-push"]'
+        then:
+          $let:
+            pr_or_push_parameters:
+              payload:
+                command:
+                  - >-
+                    git init repo &&
+                    cd repo &&
+                    git fetch --depth 1 ${clone_url} ${head_branch} &&
+                    git reset --hard ${head_rev} &&
+                    python3 automation/taskcluster/decision_task.py pr-or-push
+          in:
+            - $if: 'tasks_for == "github-pull-request" && event["action"] in ["opened", "reopened", "edited", "synchronize"]'
+              then:
+                $let:
+                  pull_request_title: ${event.pull_request.title}
+                  pull_request_number: ${event.pull_request.number}
+                  pull_request_url: ${event.pull_request.html_url}
+                in:
+                  $mergeDeep:
+                    - {$eval: 'default_task_definition'}
+                    - {$eval: 'pr_or_push_parameters'}
+                    - metadata:
+                        name: 'Application Services - Decision task (Pull Request #${pull_request_number})'
+                        description: 'Building and testing Application Services - triggered by [#${pull_request_number}](${pull_request_url})'
+            - $if: 'tasks_for == "github-push" && head_branch == "refs/heads/master"'
+              then:
+                $mergeDeep:
+                  - {$eval: 'default_task_definition'}
+                  - {$eval: 'pr_or_push_parameters'}
+                  - metadata:
+                      name: Application Services - Decision task
+                      description: Schedules the build and test tasks for Application Services.
+        else:
+          $if: 'tasks_for in ["github-release", "cron"]'
+          then:
+            $let:
+              command_staging_flag:
+                $if: 'is_repo_trusted'
+                then: ''
+                else: '--staging'
 
-          # So that we can fetch the macOS SDK from internal tooltool.
-          - "docker-worker:relengapi-proxy:tooltool.download.internal"
+              # TODO: the beetmover commented lines here and bellow will get un-commented in
+              # https://github.com/mozilla/application-services/pull/744
+              # beetmover_worker_type:
+              #   $if: 'is_repo_trusted'
+              #   then: mobile-beetmover-v1
+              #   else: mobile-beetmover-dev
 
-          # So that we can publish to nalexander@'s personal bintray
-          # at https://bintray.com/ncalexander/application-services.
-          - "secrets:get:project/application-services/publish"
+              # beetmover_bucket:
+              #   $if: 'tasks_for == "github-release"'
+              #   then:
+              #     $if: 'is_repo_trusted'
+              #     then: maven-production
+              #     else: maven-staging
+              #   else:
+              #     $if: 'is_repo_trusted'
+              #     then: maven-snapshot-production
+              #     else: maven-snapshot-staging
 
-        payload:
-          maxRunTime: {$eval: '20 * 60'}
-          # https://github.com/servo/taskcluster-bootstrap-docker-images#decision-task
-          image: "servobrowser/taskcluster-bootstrap:decision-task@sha256:28045b7ec0485ef363f8cb14f194008b47e9ede99f2ea40a1e945e921fce976e"
-          features:
-            taskclusterProxy: true
-
-          env:
-            GIT_URL: ${event.repository.clone_url}
-            GIT_REF: ${event.ref}
-            GIT_SHA: ${event.after}
-            TASK_FOR: ${tasks_for}
-            TASK_OWNER: *task_owner
-            TASK_SOURCE: *task_source
-
-          command:
-            - /bin/bash
-            - '--login'
-            - '-e'
-            - '-c'
-            - >-
-              git init repo &&
-              cd repo &&
-              git fetch --depth 1 "$GIT_URL" "$GIT_REF" &&
-              git reset --hard "$GIT_SHA" &&
-              python3 automation/taskcluster/decision_task.py
+            in:
+              $let:
+                nightly_or_release_definition:
+                  scopes:
+                    # So that we can publish to nalexander@'s personal bintray
+                    # at https://bintray.com/ncalexander/application-services.
+                    - "secrets:get:project/application-services/publish"
+                    #- project:mobile:android-components:releng:beetmover:action:push-to-maven
+                    #- project:mobile:android-components:releng:beetmover:bucket:${beetmover_bucket}
+                    #- queue:create-task:${tasks_priority}:scriptworker-prov-v1/${beetmover_worker_type}
+                  # payload:
+                  #   env:
+                  #     MOBILE_TRIGGERED_BY: ${user}
+                  #     BEETMOVER_WORKER_TYPE: ${beetmover_worker_type}
+                    # features:
+                      # chainOfTrust: true
+                    # artifacts:
+                    #   public/task-graph.json:
+                    #     type: file
+                    #     path: /build/android-components/task-graph.json
+                    #     expires: ${expires_in}
+                    #   public/actions.json:
+                    #     type: file
+                    #     path: /build/android-components/actions.json
+                    #     expires: ${expires_in}
+                    #   public/parameters.yml:
+                    #     type: file
+                    #     path: /build/android-components/parameters.yml
+                    #     expires: ${expires_in}
+              in:
+                - $if: 'tasks_for == "github-release"'
+                  then:
+                    $let:
+                      tag: ${event.release.tag_name}
+                    in:
+                      $mergeDeep:
+                        - {$eval: 'default_task_definition'}
+                        - {$eval: 'nightly_or_release_definition'}
+                        - payload:
+                            command:
+                              - >-
+                                git init repo &&
+                                cd repo &&
+                                git fetch ${clone_url} --tags &&
+                                git reset --hard ${head_rev} &&
+                                python3 automation/taskcluster/decision_task.py release --version "${tag}"
+                                ${command_staging_flag}
+                          metadata:
+                            name: Application Services - Decision task (${tag})
+                            description: Build and publish release versions.
+                - $if: 'tasks_for == "cron"'
+                  then:
+                    $mergeDeep:
+                      - {$eval: 'default_task_definition'}
+                      - {$eval: 'nightly_or_release_definition'}
+                      - payload:
+                          command:
+                            - >-
+                              git init repo &&
+                              cd repo &&
+                              git fetch --depth 1 ${clone_url} ${head_branch} &&
+                              git reset --hard ${head_rev} &&
+                              python3 automation/taskcluster/decision_task.py release --snapshot
+                              ${command_staging_flag}
+                        extra:
+                          cron: {$json: {$eval: 'cron'}}
+                        metadata:
+                          name: Application Services - Decision task for Snapshot release
+                          description: Schedules the snapshot release of Application Services.
