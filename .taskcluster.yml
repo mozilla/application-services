@@ -128,10 +128,7 @@ tasks:
                   $mergeDeep:
                     - {$eval: 'default_task_definition'}
                     - {$eval: 'pr_or_push_parameters'}
-                    - payload:
-                        env:
-                          GITHUB_PULL_TITLE: ${pull_request_title}
-                      metadata:
+                    -  metadata:
                         name: 'Application Services - Decision task (Pull Request #${pull_request_number})'
                         description: 'Building and testing Application Services - triggered by [#${pull_request_number}](${pull_request_url})'
             - $if: 'tasks_for == "github-push" && head_branch == "refs/heads/master"'
