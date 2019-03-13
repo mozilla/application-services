@@ -128,7 +128,7 @@ tasks:
                   $mergeDeep:
                     - {$eval: 'default_task_definition'}
                     - {$eval: 'pr_or_push_parameters'}
-                    -  metadata:
+                    - metadata:
                         name: 'Application Services - Decision task (Pull Request #${pull_request_number})'
                         description: 'Building and testing Application Services - triggered by [#${pull_request_number}](${pull_request_url})'
             - $if: 'tasks_for == "github-push" && head_branch == "refs/heads/master"'
@@ -148,6 +148,8 @@ tasks:
                 then: ''
                 else: '--staging'
 
+              # TODO: the beetmover commented lines here and bellow will get un-commented in
+              # https://github.com/mozilla/application-services/pull/744
               # beetmover_worker_type:
               #   $if: 'is_repo_trusted'
               #   then: mobile-beetmover-v1
