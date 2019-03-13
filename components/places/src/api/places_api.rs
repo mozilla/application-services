@@ -5,12 +5,13 @@
 use crate::db::db::PlacesDb;
 use crate::error::*;
 use crate::history_sync::store::HistoryStore;
+use crate::util::normalize_path;
 use lazy_static::lazy_static;
 use rusqlite::OpenFlags;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::mem;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Mutex,
@@ -73,11 +74,10 @@ pub struct PlacesApi {
     sync_state: Mutex<Option<SyncState>>,
     id: usize,
 }
-
 impl PlacesApi {
     /// Create a new, or fetch an already open, PlacesApi backed by a file on disk.
-    pub fn new(db_name: impl Into<PathBuf>, encryption_key: Option<&str>) -> Result<Arc<Self>> {
-        let db_name = db_name.into().canonicalize()?;
+    pub fn new(db_name: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Arc<Self>> {
+        let db_name = normalize_path(db_name)?;
         Self::new_or_existing(db_name, encryption_key)
     }
 

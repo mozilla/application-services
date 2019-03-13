@@ -92,6 +92,12 @@ pub enum ErrorKind {
     // interrupted error?
     #[fail(display = "Tried to close connection on wrong PlacesApi instance")]
     WrongApiForClose,
+
+    // This will happen if you provide something absurd like
+    // "/" or "" as your database path. For more subtley broken paths,
+    // we'll likely return an IoError.
+    #[fail(display = "Illegal database path: {:?}", _0)]
+    IllegalDatabasePath(std::path::PathBuf),
 }
 
 macro_rules! impl_from_error {
