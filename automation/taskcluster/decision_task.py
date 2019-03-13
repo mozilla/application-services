@@ -8,29 +8,15 @@ import os.path
 from decisionlib import *
 
 def main(task_for, mock=False):
-    if task_for == "github-pull-request":
-        # Pull request.
-        android_libs_task = android_libs()
-        desktop_linux_libs_task = desktop_linux_libs()
-        desktop_macos_libs_task = desktop_macos_libs()
-        desktop_win32_x86_64_libs_task = desktop_win32_x86_64_libs()
+    android_libs_task = android_libs()
+    desktop_linux_libs_task = desktop_linux_libs()
+    desktop_macos_libs_task = desktop_macos_libs()
+    desktop_win32_x86_64_libs_task = desktop_win32_x86_64_libs()
 
+    if (task_for == "github-pull-request") or (task_for == "github-push"):
         android_multiarch(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task)
-
-    elif task_for == "github-push":
-        # Push to master or a tag.
-        android_libs_task = android_libs()
-        desktop_linux_libs_task = desktop_linux_libs()
-        desktop_macos_libs_task = desktop_macos_libs()
-        desktop_win32_x86_64_libs_task = desktop_win32_x86_64_libs()
-
-        if CONFIG.git_ref.startswith('refs/tags/'):
-            # A release.
-            android_multiarch_release(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task)
-        else:
-            # A regular push to master.
-            android_multiarch(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task)
-
+    elif task_for == "github-release":
+        android_multiarch_release(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task)
     else:  # pragma: no cover
         raise ValueError("Unrecognized $TASK_FOR value: %r", task_for)
 
