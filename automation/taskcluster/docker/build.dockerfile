@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-FROM ubuntu:bionic-20181018
+FROM ubuntu:bionic-20190307
 
 MAINTAINER Nick Alexander "nalexander@mozilla.com"
 
@@ -98,8 +98,8 @@ ENV ANDROID_NDK_API_VERSION 21
 # Rust (cribbed from https://github.com/rust-lang-nursery/docker-rust/blob/ced83778ec6fea7f63091a484946f95eac0ee611/1.27.1/stretch/Dockerfile)
 
 RUN set -eux; \
-    rustArch='x86_64-unknown-linux-gnu'; rustupSha256='0077ff9c19f722e2be202698c037413099e1188c0c233c12a2297bf18e9ff6e7'; \
-    url="https://static.rust-lang.org/rustup/archive/1.14.0/${rustArch}/rustup-init"; \
+    rustArch='x86_64-unknown-linux-gnu'; rustupSha256='ce09d3de51432b34a8ff73c7aaa1edb64871b2541d2eb474441cedb8bf14c5fa'; \
+    url="https://static.rust-lang.org/rustup/archive/1.17.0/${rustArch}/rustup-init"; \
     wget "$url"; \
     echo "${rustupSha256} *rustup-init" | sha256sum -c -; \
     chmod +x rustup-init; \
@@ -110,6 +110,6 @@ ENV PATH=/root/.cargo/bin:$PATH
 
 RUN \
     curl --silent --show-error --fail --location --retry 5 --retry-delay 10 \
-        https://github.com/mozilla/sccache/releases/download/0.2.7/sccache-0.2.7-x86_64-unknown-linux-musl.tar.gz \
+        https://github.com/mozilla/sccache/releases/download/0.2.8/sccache-0.2.8-x86_64-unknown-linux-musl.tar.gz \
         | tar -xz --strip-components=1 -C /usr/local/bin/ \
-            sccache-0.2.7-x86_64-unknown-linux-musl/sccache
+            sccache-0.2.8-x86_64-unknown-linux-musl/sccache

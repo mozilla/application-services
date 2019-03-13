@@ -8,15 +8,12 @@ import os.path
 from decisionlib import *
 
 def main(task_for, mock=False):
-    android_libs_task = android_libs()
-    desktop_linux_libs_task = desktop_linux_libs()
-    desktop_macos_libs_task = desktop_macos_libs()
-    desktop_win32_x86_64_libs_task = desktop_win32_x86_64_libs()
-
-    if (task_for == "github-pull-request") or (task_for == "github-push"):
-        android_multiarch(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task)
+    if task_for == "github-pull-request":
+        android_linux_x86_64()
+    elif task_for == "github-push":
+        android_multiarch()
     elif task_for == "github-release":
-        android_multiarch_release(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task)
+        android_multiarch_release()
     else:  # pragma: no cover
         raise ValueError("Unrecognized $TASK_FOR value: %r", task_for)
 
@@ -41,6 +38,10 @@ linux_build_env = {
     "RUST_LOG": "sccache=info",
 }
 
+# Calls "$PLATFORM_libs" functions and returns
+# their tasks IDs.
+def libs_for(*platforms):
+    return map(lambda p: globals()[p + "_libs"](), platforms)
 
 def android_libs():
     return (
@@ -103,47 +104,46 @@ def desktop_win32_x86_64_libs():
         .find_or_create("build.libs.desktop.win32-x86-64." + CONFIG.git_sha_for_directory("libs"))
     )
 
-def android_multiarch(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task):
+TEST_AND_ASSEMBLE_SCRIPT = """
+    yes | sdkmanager --update
+    yes | sdkmanager --licenses
+    ./gradlew --no-daemon clean
+    ./gradlew --no-daemon testDebug
+    ./gradlew --no-daemon assembleRelease
+    ./gradlew --no-daemon publish :zipMavenArtifacts
+"""
+
+def android_task(task_name):
+    libs_tasks = libs_for("android", "desktop_linux", "desktop_macos", "desktop_win32_x86_64")
+    task = linux_target_macos_build_task(task_name)
+    for lib_task in libs_tasks:
+        task.with_curl_artifact_script(lib_task, "target.tar.gz")
+        task.with_script("tar -xzf target.tar.gz")
+    return task
+
+def android_linux_x86_64():
     return (
-        linux_target_macos_build_task("Android (all architectures): build and test")
-        .with_curl_artifact_script(android_libs_task, "target.tar.gz")
-        .with_script("tar -xzf target.tar.gz")
-        .with_curl_artifact_script(desktop_linux_libs_task, "target.tar.gz")
-        .with_script("tar -xzf target.tar.gz")
-        .with_curl_artifact_script(desktop_macos_libs_task, "target.tar.gz")
-        .with_script("tar -xzf target.tar.gz")
-        .with_curl_artifact_script(desktop_win32_x86_64_libs_task, "target.tar.gz")
-        .with_script("tar -xzf target.tar.gz")
+        android_task("Android (linux-x86-64): build and test")
         .with_script("""
-            yes | sdkmanager --update
-            yes | sdkmanager --licenses
-            ./gradlew --no-daemon clean
-            ./gradlew --no-daemon testDebug
-            ./gradlew --no-daemon assembleRelease
-            ./gradlew --no-daemon publish :zipMavenArtifacts
+            echo "rust.targets=linux-x86-64" > local.properties
         """)
+        .with_script(TEST_AND_ASSEMBLE_SCRIPT)
+        .create()
+    )
+
+def android_multiarch():
+    return (
+        android_task("Android (all architectures): build and test")
+        .with_script(TEST_AND_ASSEMBLE_SCRIPT)
         .with_artifacts("/build/repo/build/target.maven.zip")
         .create()
     )
 
-def android_multiarch_release(android_libs_task, desktop_linux_libs_task, desktop_macos_libs_task, desktop_win32_x86_64_libs_task):
+def android_multiarch_release():
     return (
-        linux_target_macos_build_task("Android (all architectures): build and test and release")
-        .with_curl_artifact_script(android_libs_task, "target.tar.gz")
-        .with_script("tar -xzf target.tar.gz")
-        .with_curl_artifact_script(desktop_linux_libs_task, "target.tar.gz")
-        .with_script("tar -xzf target.tar.gz")
-        .with_curl_artifact_script(desktop_macos_libs_task, "target.tar.gz")
-        .with_script("tar -xzf target.tar.gz")
-        .with_curl_artifact_script(desktop_win32_x86_64_libs_task, "target.tar.gz")
-        .with_script("tar -xzf target.tar.gz")
+        android_task("Android (all architectures): build and test and release")
+        .with_script(TEST_AND_ASSEMBLE_SCRIPT)
         .with_script("""
-            yes | sdkmanager --update
-            yes | sdkmanager --licenses
-            ./gradlew --no-daemon clean
-            ./gradlew --no-daemon testDebug
-            ./gradlew --no-daemon assembleRelease
-            ./gradlew --no-daemon publish :zipMavenArtifacts
             python automation/taskcluster/release/fetch-bintray-api-key.py
             ./gradlew bintrayUpload --debug -PvcsTag="${GIT_SHA}"
         """)
@@ -151,8 +151,6 @@ def android_multiarch_release(android_libs_task, desktop_linux_libs_task, deskto
         .with_scopes("secrets:get:project/application-services/publish")
         .with_features("taskclusterProxy")
         .create()
-        # Eventually we can index these releases, if we choose to.
-        # .find_or_create("build.android_release." + CONFIG.git_sha)
     )
 
 
@@ -238,7 +236,7 @@ def linux_target_macos_build_task(name):
         """)
     )
 
-CONFIG.task_name_template = "Application Services: %s"
+CONFIG.task_name_template = "Application Services - %s"
 CONFIG.index_prefix = "project.application-services.application-services"
 CONFIG.docker_image_build_worker_type = "application-services-r"
 CONFIG.docker_images_expire_in = build_dependencies_artifacts_expire_in
