@@ -178,7 +178,7 @@ class PlacesTests: XCTestCase {
         // This method is called before the invocation of each test method in the class.
         let url = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("testdb-\(UUID().uuidString).db")
-        self.api = try! PlacesAPI(path: url.absoluteString)
+        self.api = try! PlacesAPI(path: url.path)
     }
 
     override func tearDown() {

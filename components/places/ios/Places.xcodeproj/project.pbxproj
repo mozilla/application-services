@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		CD07594C2235A20E0018A071 /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CD07594B2235A20E0018A071 /* SwiftProtobuf.framework */; };
+		CD440A3D22387FE0003F004B /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CD07594B2235A20E0018A071 /* SwiftProtobuf.framework */; };
+		CD440A412238833A003F004B /* SwiftProtobuf.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = CD07594B2235A20E0018A071 /* SwiftProtobuf.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CDADF0162235CFF700AA3E5C /* String+Free_Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDADF0152235CFF700AA3E5C /* String+Free_Places.swift */; };
 		CDADF0182235D33900AA3E5C /* Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDADF0172235D33900AA3E5C /* Places.swift */; };
 		CDADF01A2235D35B00AA3E5C /* Data+PlacesRustBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDADF0192235D35B00AA3E5C /* Data+PlacesRustBuffer.swift */; };
@@ -44,6 +46,19 @@
 			remoteInfo = Logins;
 		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		CD440A402238832F003F004B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				CD440A412238833A003F004B /* SwiftProtobuf.framework in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		CD07594B2235A20E0018A071 /* SwiftProtobuf.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftProtobuf.framework; path = ../../../Carthage/Build/iOS/SwiftProtobuf.framework; sourceTree = "<group>"; };
@@ -83,6 +98,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CD440A3D22387FE0003F004B /* SwiftProtobuf.framework in Frameworks */,
 				EB348E452204EA0C00788CD3 /* Places.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -204,6 +220,7 @@
 				EB348E3C2204EA0C00788CD3 /* Sources */,
 				EB348E3D2204EA0C00788CD3 /* Frameworks */,
 				EB348E3E2204EA0C00788CD3 /* Resources */,
+				CD440A402238832F003F004B /* CopyFiles */,
 			);
 			buildRules = (
 			);
