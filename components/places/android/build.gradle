@@ -167,7 +167,7 @@ afterEvaluate {
 
 apply from: "$rootDir/publish.gradle"
 ext.configurePublish(
-        'org.mozilla.places',
+        'org.mozilla.appservices',
         'places',
         'Low level places storage implementation.',
         /* jnaForTestConfiguration= */ configurations.jnaForTest,
