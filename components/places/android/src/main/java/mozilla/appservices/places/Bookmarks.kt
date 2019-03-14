@@ -232,7 +232,7 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * @param guid The GUID of the bookmark to delete
      * @return Whether or not the bookmark existed.
      */
-    fun deleteBookmark(guid: String): Boolean
+    fun deleteBookmarkNode(guid: String): Boolean
 
     /**
      * Create a bookmark folder, returning it's guid.

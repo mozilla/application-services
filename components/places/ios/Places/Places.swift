@@ -281,7 +281,7 @@ public class PlacesWriteConnection : PlacesReadConnection {
      * - Returns: Whether or not the bookmark existed.
      */
     @discardableResult
-    func deleteBookmark(guid: String) throws -> Bool {
+    func deleteBookmarkNode(guid: String) throws -> Bool {
         return try queue.sync {
             try self.checkApi()
             let resByte = try PlacesError.unwrap { error in
