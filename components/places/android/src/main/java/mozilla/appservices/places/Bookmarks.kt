@@ -39,42 +39,42 @@ enum class BookmarkType(val value: Int) {
  * An interface defining the set of fields common to all nodes
  * in the bookmark tree.
  */
-interface BookmarkTreeNode {
+sealed class BookmarkTreeNode {
     /**
      * The type of this bookmark.
      */
-    val type: BookmarkType
+    abstract val type: BookmarkType
 
     /**
      * The guid of this record. Bookmark guids are always 12 characters in the url-safe
      * base64 character set.
      */
-    val guid: String
+    abstract val guid: String
 
     /**
      * Creation time, in milliseconds since the unix epoch.
      *
      * May not be a local timestamp.
      */
-    val dateAdded: Long
+    abstract val dateAdded: Long
 
     /**
      * Last modification time, in milliseconds since the unix epoch.
      *
      * May not be a local timestamp.
      */
-    val lastModified: Long
+    abstract val lastModified: Long
 
     /**
      * The guid of this record's parent. It should only be null for
      * [BookmarkRoot.Root].
      */
-    val parentGUID: String?
+    abstract val parentGUID: String?
 
     /**
      * The (0-based) position of this record within it's parent.
      */
-    val position: Int
+    abstract val position: Int
 }
 
 /**
@@ -84,7 +84,7 @@ interface BookmarkTreeNode {
  * in addition to the fields defined by [BookmarkTreeNode].
  */
 
-open class BookmarkItem(
+data class BookmarkItem(
         override val guid: String,
         override val dateAdded: Long,
         override val lastModified: Long,
@@ -100,7 +100,7 @@ open class BookmarkItem(
          * The title of the bookmark, if any was provided.
          */
         val title: String?
-) : BookmarkTreeNode {
+) : BookmarkTreeNode() {
     override val type get() = BookmarkType.Bookmark
 }
 
@@ -111,7 +111,7 @@ open class BookmarkItem(
  * a list of `childGUIDs`, and possibly a list of `children` in
  * addition to those defined by [BookmarkTreeNode].
  */
-open class BookmarkFolder(
+data class BookmarkFolder(
         override val guid: String,
         override val dateAdded: Long,
         override val lastModified: Long,
@@ -134,7 +134,7 @@ open class BookmarkFolder(
          */
         val children: List<BookmarkTreeNode>?
 
-) : BookmarkTreeNode {
+) : BookmarkTreeNode() {
     override val type get() = BookmarkType.Folder
 }
 
@@ -144,13 +144,13 @@ open class BookmarkFolder(
  * It's type is always [BookmarkType.Separator], and it has no fields
  * besides those defined by [BookmarkTreeNode].
  */
-open class BookmarkSeparator(
+data class BookmarkSeparator(
         override val guid: String,
         override val dateAdded: Long,
         override val lastModified: Long,
         override val parentGUID: String?,
         override val position: Int
-) : BookmarkTreeNode {
+) : BookmarkTreeNode() {
     override val type get() = BookmarkType.Separator
 }
 
