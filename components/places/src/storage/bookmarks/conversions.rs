@@ -198,3 +198,9 @@ impl From<msg_types::BookmarkNode> for BookmarkUpdateInfo {
         }
     }
 }
+
+impl From<Vec<msg_types::BookmarkNode>> for msg_types::BookmarkNodeList {
+    fn from(nodes: Vec<msg_types::BookmarkNode>) -> Self {
+        Self { nodes }
+    }
+}

@@ -6,7 +6,6 @@ use super::RowId;
 use super::{fetch_page_info, new_page_info};
 use crate::db::PlacesDb;
 use crate::error::*;
-use crate::msg_types::{BookmarkNode as ProtoBookmark, BookmarkNodeList as ProtoNodeList};
 use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
 use rusqlite::types::ToSql;
 use rusqlite::{Connection, Row};
@@ -25,6 +24,7 @@ use url::Url;
 pub use root_guid::BookmarkRootGuid;
 
 mod conversions;
+pub mod external;
 mod root_guid;
 
 fn create_root(
@@ -471,24 +471,6 @@ impl UpdatableItem {
         }
     }
 }
-
-pub fn update_bookmark_from_message(db: &PlacesDb, msg: ProtoBookmark) -> Result<()> {
-    let info = conversions::BookmarkUpdateInfo::from(msg);
-
-    let tx = db.unchecked_transaction()?;
-    let node_type: BookmarkType = db.query_row_and_then_named(
-        "SELECT type FROM moz_bookmarks WHERE guid = :guid",
-        &[(":guid", &info.guid)],
-        |r| r.get_checked(0),
-        true,
-    )?;
-    let (guid, updatable) = info.into_updatable(node_type)?;
-
-    update_bookmark_in_tx(db, &guid, &updatable)?;
-    tx.commit()?;
-    Ok(())
-}
-
 pub fn update_bookmark(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
     let tx = db.unchecked_transaction()?;
     let result = update_bookmark_in_tx(db, guid, item);
@@ -1242,173 +1224,6 @@ pub fn fetch_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<Bookmark
     Ok(Some(root))
 }
 
-/// This is similar to fetch_tree, but does not recursively fetch children of
-/// folders.
-///
-/// If `get_direct_children` is true, it will return 1 level of folder children,
-/// otherwise it returns just their guids.
-///
-/// It also produces the protobuf message type directly, rather than
-/// add a special variant of this bookmark type just for this function.
-pub fn fetch_bookmark(
-    db: &impl ConnExt,
-    item_guid: &SyncGuid,
-    get_direct_children: bool,
-) -> Result<Option<ProtoBookmark>> {
-    let _tx = db.unchecked_transaction()?;
-    let bookmark = fetch_bookmark_in_tx(db, item_guid, get_direct_children)?;
-    // Note: We let _tx drop (which means it does a rollback) since it doesn't
-    // matter, we just are using a transaction to ensure things don't change out
-    // from under us, since this executes more than one query.
-    Ok(bookmark)
-}
-
-// Implementation of fetch_bookmark
-fn fetch_bookmark_in_tx(
-    db: &impl ConnExt,
-    item_guid: &SyncGuid,
-    get_direct_children: bool,
-) -> Result<Option<ProtoBookmark>> {
-    // get_raw_bookmark doesn't work for the bookmark root, so we just return None explicitly
-    // (rather than erroring). This isn't ideal, but there's no point to fetching the "true"
-    // bookmark root without fetching it's children too, so whatever.
-    if item_guid == &BookmarkRootGuid::Root {
-        return Ok(None);
-    }
-
-    let rb = if let Some(raw) = get_raw_bookmark(db, item_guid)? {
-        raw
-    } else {
-        return Ok(None);
-    };
-
-    // If we're a folder that has children, fetch child guids or children depending.
-    let (child_guids, child_nodes) =
-        if rb.bookmark_type == BookmarkType::Folder && rb.child_count != 0 {
-            let child_guids: Vec<String> = db.query_rows_into(
-                "SELECT guid
-                 FROM moz_bookmarks
-                 WHERE parent = :parent
-                 ORDER BY position ASC",
-                &[(":parent", &rb.row_id)],
-                |row| row.get_checked(0),
-            )?;
-            if get_direct_children {
-                let children: Vec<_> = child_guids
-                    .into_iter()
-                    .map(|guid_string| {
-                        let child_guid = SyncGuid(guid_string);
-                        if let Some(bmk) = fetch_bookmark_in_tx(db, &child_guid, false)? {
-                            Ok(bmk)
-                        } else {
-                            // Not ideal (since this shouldn't be possible, we're in
-                            // a transaciton, and just fetched these guids), but
-                            // restructuring our queries so that this is impossible
-                            // is tricky, and it seems better to have an error
-                            // that's never actually used than to unwrap()
-                            Err(Error::from(Corruption::MissingChild {
-                                parent: item_guid.0.clone(),
-                                child: child_guid.0,
-                            }))
-                        }
-                    })
-                    .collect::<Result<_>>()?;
-                // Note: even though we have the child guids, we don't return them
-                // because we don't want to send both over the FFI, and the child nodes
-                // should have enough information.
-                (vec![], children)
-            } else {
-                (child_guids, vec![])
-            }
-        } else {
-            (vec![], vec![])
-        };
-
-    let result = ProtoBookmark {
-        node_type: Some(rb.bookmark_type as i32),
-        guid: Some(rb.guid.0),
-        parent_guid: Some(rb.parent_guid.0),
-        position: Some(rb.position),
-        date_added: Some(rb.date_added.0 as i64),
-        last_modified: Some(rb.date_modified.0 as i64),
-        url: rb.url.map(|u| u.into_string()),
-        title: rb.title,
-        child_guids,
-        child_nodes,
-        have_child_nodes: Some(rb.bookmark_type == BookmarkType::Folder && get_direct_children),
-    };
-
-    Ok(Some(result))
-}
-
-/// Call fetch_tree, convert the result to a ProtoBookmark, and ensure the
-/// requested item's position and parent info are provided as well. This is
-/// the function called by the FFI when requesting the tree.
-pub fn fetch_proto_tree(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<Option<ProtoBookmark>> {
-    let _tx = db.unchecked_transaction()?;
-    let tree = if let Some(tree) = fetch_tree(db, item_guid)? {
-        tree
-    } else {
-        return Ok(None);
-    };
-
-    // `position` and `parent_guid` will be handled for the children of
-    // `item_guid` by `ProtoBookmark::from` automatically, however we
-    // still need to fill in it's own `parent_guid` and `position`.
-    let mut proto = ProtoBookmark::from(tree);
-
-    if item_guid != &BookmarkRootGuid::Root {
-        let sql = "
-            SELECT
-                p.guid AS parent_guid,
-                b.position AS position
-            FROM moz_bookmarks b
-            LEFT JOIN moz_bookmarks p ON p.id = b.parent
-            WHERE b.guid = :guid
-        ";
-        let (parent_guid, position) = db.query_row_and_then_named(
-            sql,
-            &[(":guid", &item_guid)],
-            |row| -> Result<_> {
-                Ok((
-                    row.get_checked::<_, String>(0)?,
-                    row.get_checked::<_, u32>(1)?,
-                ))
-            },
-            true,
-        )?;
-        proto.parent_guid = Some(parent_guid);
-        proto.position = Some(position);
-    }
-    Ok(Some(proto))
-}
-
-pub fn fetch_bookmarks_by_url(db: &impl ConnExt, url: &Url) -> Result<ProtoNodeList> {
-    let nodes = get_raw_bookmarks_for_url(db, url)?
-        .into_iter()
-        .map(|rb| {
-            // Cause tests to fail, but we'd rather not panic here
-            // for real.
-            debug_assert_eq!(rb.child_count, 0);
-            debug_assert_eq!(rb.bookmark_type, BookmarkType::Bookmark);
-            debug_assert!(rb.url.is_some());
-            ProtoBookmark {
-                node_type: Some(rb.bookmark_type as i32),
-                guid: Some(rb.guid.0),
-                parent_guid: Some(rb.parent_guid.0),
-                position: Some(rb.position),
-                date_added: Some(rb.date_added.0 as i64),
-                last_modified: Some(rb.date_modified.0 as i64),
-                url: rb.url.map(|u| u.into_string()),
-                title: rb.title,
-                child_guids: vec![],
-                child_nodes: vec![],
-                have_child_nodes: None,
-            }
-        })
-        .collect();
-    Ok(ProtoNodeList { nodes })
-}
 /// A "raw" bookmark - a representation of the row and some summary fields.
 #[derive(Debug)]
 struct RawBookmark {

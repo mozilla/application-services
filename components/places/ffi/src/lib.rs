@@ -349,7 +349,7 @@ pub unsafe extern "C" fn bookmarks_get_tree(
             .map(SyncGuid)
             // Default to returning the full tree, if no root was provided.
             .unwrap_or_else(|| BookmarkRootGuid::Root.into());
-        Ok(bookmarks::fetch_proto_tree(conn, &root_id)?)
+        Ok(bookmarks::external::fetch_proto_tree(conn, &root_id)?)
     })
 }
 
@@ -363,7 +363,7 @@ pub unsafe extern "C" fn bookmarks_get_by_guid(
     log::debug!("bookmarks_get_by_guid");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let guid = SyncGuid(ffi_support::rust_string_from_c(guid));
-        Ok(bookmarks::fetch_bookmark(
+        Ok(bookmarks::external::fetch_bookmark(
             conn,
             &guid,
             get_direct_children != 0,
@@ -412,7 +412,7 @@ pub unsafe extern "C" fn bookmarks_update(
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let buffer = get_buffer(data, len);
         let bookmark: BookmarkNode = prost::Message::decode(buffer)?;
-        bookmarks::update_bookmark_from_message(conn, bookmark)?;
+        bookmarks::external::update_bookmark_from_message(conn, bookmark)?;
         Ok(())
     })
 }
@@ -439,7 +439,7 @@ pub unsafe extern "C" fn bookmarks_get_all_with_url(
 ) -> ByteBuffer {
     log::debug!("bookmarks_get_all_with_url");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        Ok(bookmarks::fetch_bookmarks_by_url(
+        Ok(bookmarks::external::fetch_bookmarks_by_url(
             conn,
             &parse_url(rust_str_from_c(url))?,
         )?)
