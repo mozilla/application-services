@@ -13,7 +13,7 @@ chmod +x tooltool.py
 
 curl --location --retry 10 --retry-delay 10 -o cross-clang.manifest https://hg.mozilla.org/mozilla-central/raw-file/f7a97b344fa59bd3b01ea81ebd5b150aa63bfb12/browser/config/tooltool-manifests/macosx64/cross-clang.manifest
 
-python tooltool.py --manifest=cross-clang.manifest --url=http://relengapi/tooltool/ fetch
+python tooltool.py --manifest=cross-clang.manifest --url=http://taskcluster/tooltool.mozilla-releng.net/ fetch
 
 # curl --location --retry 10 --retry-delay 10 -o cctools.tar.xz https://index.taskcluster.net/v1/task/gecko.cache.level-3.toolchains.v2.linux64-cctools-port.latest/artifacts/public/build/cctools.tar.xz
 curl --location --retry 10 --retry-delay 10 -o cctools.tar.xz https://queue.taskcluster.net/v1/task/T-2QILzUSN-fEkRUH9bYvg/artifacts/public%2Fbuild%2Fcctools.tar.xz
