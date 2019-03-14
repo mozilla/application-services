@@ -23,7 +23,7 @@ class PlacesConnectionTest {
     val dbFolder = TemporaryFolder()
 
     lateinit var api: PlacesApi
-    lateinit var db: WritablePlacesConnection
+    lateinit var db: PlacesWriterConnection
 
     @Before
     fun initAPI() {

@@ -4,6 +4,19 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.19.0...master)
 
+## Places
+
+### Breaking Changes
+
+- Several classes and interfaces have been renamed after feedback from consumers
+  to avoid `Interface` in the name, and better reflect what they provide.
+    - `PlacesApiInterface` => `PlacesManager`
+    - `PlacesConnectionInterface` => `InterruptibleConnection`
+    - `ReadablePlacesConnectionInterface` => `ReadableHistoryConnection`
+    - `WritablePlacesConnectionInterface` => `WritableHistoryConnection`
+    - `ReadablePlacesConnection` => `PlacesReaderConnection`
+    - `WritablePlacesConnection` => `PlacesWriterConnection`
+
 # 0.19.0 (_2019-03-13_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.18.0...v0.19.0)
