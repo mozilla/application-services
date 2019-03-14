@@ -73,7 +73,7 @@ fn validate_tag(tag: &Option<String>) -> Option<&str> {
     match tag {
         None => None,
         Some(t) => {
-            // // Drop empty and oversized tags.
+            // Drop empty and oversized tags.
             let t = t.trim();
             if t.len() == 0 || t.len() > TAG_LENGTH_MAX {
                 None
@@ -412,8 +412,8 @@ impl<'a> BookmarksStore<'a> {
     fn store_incoming_tombstone(&self, modified: ServerTimestamp, guid: &SyncGuid) -> Result<()> {
         self.db.execute_named_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge,
-                                                 dateAdded)
-               VALUES(:guid, NULL, :serverModified, 1, 0)"#,
+                                                 dateAdded, isDeleted)
+               VALUES(:guid, NULL, :serverModified, 1, 0, 1)"#,
             &[
                 (":guid", guid),
                 (":serverModified", &(modified.as_millis() as i64)),
@@ -432,8 +432,12 @@ impl<'a> BookmarksStore<'a> {
         let (maybe_url, validity) = {
             // If the URL has `type={RESULTS_AS_TAG_CONTENTS}` then we
             // rewrite the URL as `place:tag=...`
-            if url
-                .query_pairs()
+            // Sadly we can't use `url.query_pairs()` here as the format of
+            // the url is, eg, `place:type=7` - ie, the "params" are actually
+            // the path portion of the URL.
+            let parse = url::form_urlencoded::parse(&url.path().as_bytes());
+            if parse
+                .clone()
                 .any(|(k, v)| k == "type" && v == RESULTS_AS_TAG_CONTENTS)
             {
                 if let Some(tag) = validate_tag(&q.tag_folder_name) {
@@ -448,19 +452,20 @@ impl<'a> BookmarksStore<'a> {
                 // If we have `folder=...` the folder value is a row_id
                 // from desktop, so useless to us - so we append `&excludeItems=1`
                 // if it isn't already there.
-                if url.query_pairs().any(|(k, _)| k == "folder") {
-                    if url
-                        .query_pairs()
-                        .any(|(k, v)| k == "excludeItems" && v == "1")
-                    {
+                if parse.clone().any(|(k, _)| k == "folder") {
+                    if parse.clone().any(|(k, v)| k == "excludeItems" && v == "1") {
                         (Some(url), SyncedBookmarkValidity::Valid)
                     } else {
-                        let mut new_url = url.clone();
-                        new_url
-                            .query_pairs_mut()
+                        // need to add excludeItems, and I guess we should do
+                        // it properly without resorting to string manipulation...
+                        let tail = url::form_urlencoded::Serializer::new(String::new())
+                            .extend_pairs(parse.clone())
                             .append_pair("excludeItems", "1")
                             .finish();
-                        (Some(new_url), SyncedBookmarkValidity::Reupload)
+                        (
+                            Some(Url::parse(&format!("place:{}", tail))?),
+                            SyncedBookmarkValidity::Reupload,
+                        )
                     }
                 } else {
                     // it appears to be fine!
@@ -1099,6 +1104,19 @@ mod tests {
     }
 
     #[test]
+    fn test_apply_tombstone() {
+        assert_incoming_creates_mirror_item(
+            json!({
+                "id": "deadbeef____",
+                "deleted": true
+            }),
+            &MirrorBookmarkItem::new()
+                .validity(SyncedBookmarkValidity::Valid)
+                .is_deleted(true),
+        );
+    }
+
+    #[test]
     fn test_apply_query() {
         // First check that various inputs result in the expected records in
         // the mirror table.
@@ -1112,14 +1130,14 @@ mod tests {
                 "parentName": "Unfiled Bookmarks",
                 "dateAdded": 1381542355843u64,
                 "title": "Some query",
-                "bmkUri": "http://example.com",
+                "bmkUri": "place:tag=foo",
             }),
             &MirrorBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
                 .kind(SyncedBookmarkKind::Query)
                 .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
                 .title(Some("Some query"))
-                .url(Some("http://example.com")),
+                .url(Some("place:tag=foo")),
         );
 
         // A query with an old "type=" param and a valid folderName. Should
@@ -1129,7 +1147,7 @@ mod tests {
                 "id": "query1______",
                 "type": "query",
                 "parentid": BookmarkRootGuid::Unfiled.as_guid(),
-                "bmkUri": "place:something?type=7",
+                "bmkUri": "place:type=7",
                 "folderName": "a-folder-name",
             }),
             &MirrorBookmarkItem::new()
@@ -1139,13 +1157,13 @@ mod tests {
         );
 
         // A query with an old "type=" param and an invalid folderName. Should
-        // get Replace with an empty URL
+        // get replaced with an empty URL
         assert_incoming_creates_mirror_item(
             json!({
                 "id": "query1______",
                 "type": "query",
                 "parentid": BookmarkRootGuid::Unfiled.as_guid(),
-                "bmkUri": "place:something?type=7",
+                "bmkUri": "place:type=7",
                 "folderName": "",
             }),
             &MirrorBookmarkItem::new()
@@ -1161,12 +1179,12 @@ mod tests {
                 "id": "query1______",
                 "type": "query",
                 "parentid": BookmarkRootGuid::Unfiled.as_guid(),
-                "bmkUri": "place:something?folder=123",
+                "bmkUri": "place:folder=123",
             }),
             &MirrorBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Reupload)
                 .kind(SyncedBookmarkKind::Query)
-                .url(Some("place:something?folder=123&excludeItems=1")),
+                .url(Some("place:folder=123&excludeItems=1")),
         );
 
         // A query with an old "folder=" and already with  excludeItems -
@@ -1176,12 +1194,12 @@ mod tests {
                 "id": "query1______",
                 "type": "query",
                 "parentid": BookmarkRootGuid::Unfiled.as_guid(),
-                "bmkUri": "place:something?folder=123&excludeItems=1",
+                "bmkUri": "place:folder=123&excludeItems=1",
             }),
             &MirrorBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
                 .kind(SyncedBookmarkKind::Query)
-                .url(Some("place:something?folder=123&excludeItems=1")),
+                .url(Some("place:folder=123&excludeItems=1")),
         );
 
         // A query with a URL that can't be parsed.
@@ -1217,20 +1235,20 @@ mod tests {
         // to the mirror with kind=Bookmark, then it *does* get applied.
         // XXX - todo - add some more query variations here.
         /*
-                assert_incoming_creates_local_tree(
-                    json!([{
-                        // A valid query (which actually looks just like a bookmark, but that's ok)
-                        "id": "query1______",
-                        "type": "query",
-                        "parentid": BookmarkRootGuid::Unfiled.as_guid(),
-                        "parentName": "Unfiled Bookmarks",
-                        "dateAdded": 1381542355843u64,
-                        "title": "Some query",
-                        "bmkUri": "place:something",
-                    }]),
-                    &BookmarkRootGuid::Unfiled.as_guid(),
-                    json!({"children" : [{"guid": "query1______", "url": "place:something"}]}),
-                );
+            assert_incoming_creates_local_tree(
+                json!([{
+                    // A valid query (which actually looks just like a bookmark, but that's ok)
+                    "id": "query1______",
+                    "type": "query",
+                    "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                    "parentName": "Unfiled Bookmarks",
+                    "dateAdded": 1381542355843u64,
+                    "title": "Some query",
+                    "bmkUri": "place:tag=foo",
+                }]),
+                &BookmarkRootGuid::Unfiled.as_guid(),
+                json!({"children" : [{"guid": "query1______", "url": "place:tag=foo"}]}),
+            );
         */
     }
 

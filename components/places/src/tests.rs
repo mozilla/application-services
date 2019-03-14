@@ -116,7 +116,7 @@ pub struct MirrorBookmarkItem {
     pub needs_merge: MirrorBookmarkValue<bool>,
     pub validity: MirrorBookmarkValue<SyncedBookmarkValidity>,
     pub is_deleted: MirrorBookmarkValue<bool>,
-    pub kind: MirrorBookmarkValue<SyncedBookmarkKind>,
+    pub kind: MirrorBookmarkValue<Option<SyncedBookmarkKind>>,
     pub date_added: MirrorBookmarkValue<Timestamp>,
     pub title: MirrorBookmarkValue<Option<String>>,
     pub place_id: MirrorBookmarkValue<Option<RowId>>,
@@ -181,7 +181,13 @@ impl MirrorBookmarkItem {
     impl_builder_simple!(needs_merge, bool);
     impl_builder_simple!(validity, SyncedBookmarkValidity);
     impl_builder_simple!(is_deleted, bool);
-    impl_builder_simple!(kind, SyncedBookmarkKind);
+
+    // kind is a bit special because tombstones don't have one.
+    pub fn kind<'a>(&'a mut self, kind: SyncedBookmarkKind) -> &'a mut MirrorBookmarkItem {
+        self.kind = MirrorBookmarkValue::Specified(Some(kind));
+        self
+    }
+
     impl_builder_simple!(date_added, Timestamp);
     impl_builder_opt_string!(title);
 
@@ -229,7 +235,8 @@ impl MirrorBookmarkItem {
             ),
             is_deleted: MirrorBookmarkValue::Specified(row.get_checked("isDeleted")?),
             kind: MirrorBookmarkValue::Specified(
-                SyncedBookmarkKind::from_u8(row.get_checked("kind")?).expect("a valid kind"),
+                // tombstones have a kind of -1, so get it from the db as i8
+                SyncedBookmarkKind::from_u8(row.get_checked::<_, i8>("kind")? as u8).ok(),
             ),
             date_added: MirrorBookmarkValue::Specified(row.get_checked("dateAdded")?),
             title: MirrorBookmarkValue::Specified(row.get_checked("title")?),
