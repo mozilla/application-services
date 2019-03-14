@@ -168,7 +168,7 @@ afterEvaluate {
 
 apply from: "$rootDir/publish.gradle"
 ext.configurePublish(
-        'org.mozilla.fxaclient',
+        'org.mozilla.appservices',
         'fxaclient',
         'Firefox Accounts client.',
         /* jnaForTestConfiguration= */ configurations.jnaForTest,

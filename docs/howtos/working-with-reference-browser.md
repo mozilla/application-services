@@ -54,9 +54,9 @@ In `android-components/settings.gradle`:
 includeBuild('../application-services') {
     dependencySubstitution {
         // As required.
-        substitute module('org.mozilla.fxaclient:fxaclient') with project(':fxa-client-library')
-        substitute module('org.mozilla.sync15:logins') with project(':logins-library')
-        substitute module('org.mozilla.places:places') with project(':places-library')
+        substitute module('org.mozilla.appservices:fxaclient') with project(':fxa-client-library')
+        substitute module('org.mozilla.appservices:logins') with project(':logins-library')
+        substitute module('org.mozilla.appservices:places') with project(':places-library')
     }
 }
 ```
@@ -78,9 +78,9 @@ includeBuild('../android-components') {
 includeBuild('../application-services') {
     dependencySubstitution {
         // As required.
-        substitute module('org.mozilla.fxaclient:fxaclient') with project(':fxa-client-library')
-        substitute module('org.mozilla.sync15:logins') with project(':logins-library')
-        substitute module('org.mozilla.places:places') with project(':places-library')
+        substitute module('org.mozilla.appservices:fxaclient') with project(':fxa-client-library')
+        substitute module('org.mozilla.appservices:logins') with project(':logins-library')
+        substitute module('org.mozilla.appservices:places') with project(':places-library')
     }
 }
 ```

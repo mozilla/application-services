@@ -79,8 +79,8 @@ appservices {
     megazords {
         lockbox {
             moduleIdentifier 'org.mozilla.appservices:lockbox-megazord'
-            component 'org.mozilla.fxaclient:fxaclient'
-            component 'org.mozilla.sync15', 'logins'
+            component 'org.mozilla.appservices', 'fxaclient'
+            component 'org.mozilla.appservices', 'logins'
         }
     }
 }
@@ -95,8 +95,8 @@ appservices {
         "reference-browser" {
             moduleIdentifier 'org.mozilla.appservices:reference-browser-megazord'
             components.clear()
-            component 'org.mozilla.fxaclient:fxaclient'
-            component 'org.mozilla.sync15:logins'
+            component 'org.mozilla.appservices', 'fxaclient'
+            component 'org.mozilla.appservices', 'logins'
         }
     }
 }
@@ -139,7 +139,7 @@ The megazord Maven publication is a shell Android ARchive (AAR) that contains a 
 depends on special `-withoutLibs` versions of the component modules.  For example, we have:
 
 ```
-org.mozilla.sync15/logins.aar
+org.mozilla.appservices/logins.aar
 - classes.jar
 - libs/liblogins_ffi.so
 ```
@@ -147,7 +147,7 @@ org.mozilla.sync15/logins.aar
 and a `-withoutLibs` version, like:
 
 ```
-org.mozilla.sync15-withoutLibs/logins-withoutLibs.aar
+org.mozilla.appservices/logins-withoutLibs.aar
 - classes.jar
 ```
 
@@ -159,7 +159,7 @@ org.mozilla.appservices/lockbox-megazord.aar
 ```
 
 The `org.mozilla.appservices:lockbox-megazord` Maven publication then depends on
-`org.mozilla.sync15-withoutLibs:logins-withoutLibs` so that the JVM code (`classes.jar`) is used but
+`org.mozilla.appservices:logins-withoutLibs` so that the JVM code (`classes.jar`) is used but
 the component module native library (`libs/liblogins_ffi.so`) is not.
 
 ### Pseudo-code details
@@ -211,7 +211,7 @@ additional dependencies added, like:
 ```groovy
 // Pseudo-code!
 dependencies {
-    configuration.name 'org.mozilla.places:places-forUnitTests:...'
+    configuration.name 'org.mozilla.appservices:places-forUnitTests:...'
 }
 ```
 

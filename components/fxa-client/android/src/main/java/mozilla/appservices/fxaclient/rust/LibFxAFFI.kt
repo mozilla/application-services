@@ -25,25 +25,20 @@ internal interface LibFxAFFI : Library {
             }
         }()
 
-        internal var INSTANCE: LibFxAFFI
-
-        init {
-            try {
-                INSTANCE = Native.loadLibrary(JNA_LIBRARY_NAME, LibFxAFFI::class.java) as LibFxAFFI
-                if (JNA_LIBRARY_NAME == "fxaclient_ffi") {
-                    // Enable logcat logging if we aren't in a megazord.
-                    INSTANCE.fxa_enable_logcat_logging()
-                }
-            } catch (e: UnsatisfiedLinkError) {
-                // We want to be able load this class in environments that don't have FxA native
-                // libs available (for unit testing purposes). This also has the advantage of
-                // not stopping the whole world in case of missing native FxA libs.
-                INSTANCE = Proxy.newProxyInstance(
-                        LibFxAFFI::class.java.classLoader,
-                        arrayOf(LibFxAFFI::class.java)) { _, _, _ ->
-                    throw FxaException("Firefox Account functionality not available")
-                } as LibFxAFFI
+        internal var INSTANCE: LibFxAFFI = try {
+            val lib = Native.loadLibrary(JNA_LIBRARY_NAME, LibFxAFFI::class.java) as LibFxAFFI
+            if (JNA_LIBRARY_NAME == "fxaclient_ffi") {
+                // Enable logcat logging if we aren't in a megazord.
+                lib.fxa_enable_logcat_logging()
             }
+            lib
+        } catch (e: UnsatisfiedLinkError) {
+            Proxy.newProxyInstance(
+                    LibFxAFFI::class.java.classLoader,
+                    arrayOf(LibFxAFFI::class.java))
+            { _, _, _ ->
+                throw RuntimeException("Firefox Account functionality not available", e)
+            } as LibFxAFFI
         }
     }
 
