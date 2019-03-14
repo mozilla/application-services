@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::record::{
-    guid_to_id, BookmarkItemRecord, BookmarkRecord, FolderRecord, QueryRecord, SeparatorRecord,
+    guid_to_id, BookmarkItemRecord, BookmarkRecord, FolderRecord, QueryRecord, SeparatorRecord, LivemarkRecord
 };
 use crate::error::*;
 use crate::storage::{
@@ -515,6 +515,76 @@ impl<'a> BookmarksStore<'a> {
         Ok(())
     }
 
+    fn store_incoming_livemark(&self, modified: ServerTimestamp, l: LivemarkRecord) -> Result<()> {
+        // livemarks don't store a reference to the place, so we validate it manually.
+        fn validate_href(h: Option<String>, guid: &SyncGuid, what: &str) -> Option<String> {
+            match h {
+                Some(h) => match Url::parse(&h) {
+                    Ok(url) => {
+                        let s = url.to_string();
+                        if s.len() > URL_LENGTH_MAX {
+                            log::warn!("Livemark {} has a {} URL which is too long", &guid, what);
+                            None
+                        } else {
+                            Some(s)
+                        }
+                    },
+                    Err(e) => {
+                        log::warn!("Livemark {} has an invalid {} URL '{}'", &guid, what, h);
+                        None
+                    }
+                },
+                None => {
+                    log::warn!("Livemark {} has no {} URL", &guid, what);
+                    None
+                }
+            }
+        }
+        let feed_url = validate_href(l.feed_url, &l.guid, "feed");
+        let site_url = validate_href(l.site_url, &l.guid, "site");
+        let validity = if feed_url.is_some() {
+            SyncedBookmarkValidity::Valid
+        } else {
+            SyncedBookmarkValidity::Replace
+
+        };
+        self.db.execute_named_cached(
+            r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
+                                                 dateAdded, title, feedURL, siteURL, validity)
+               VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
+                      :dateAdded, :title, :feedUrl, :siteUrl, :validity)"#,
+            &[
+                (":guid", &l.guid.as_ref()),
+                (":parentGuid", &l.parent_guid.as_ref()),
+                (":serverModified", &(modified.as_millis() as i64)),
+                (":kind", &SyncedBookmarkKind::Livemark),
+                (":dateAdded", &l.date_added),
+                (":title", &l.title),
+                (":feedUrl", &feed_url),
+                (":siteUrl", &site_url),
+                (":validity", &validity),
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn store_incoming_sep(&self, modified: ServerTimestamp, s: SeparatorRecord) -> Result<()> {
+        self.db.execute_named_cached(
+            r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
+                                                 dateAdded)
+               VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
+                      :dateAdded)"#,
+            &[
+                (":guid", &s.guid.as_ref()),
+                (":parentGuid", &s.parent_guid.as_ref()),
+                (":serverModified", &(modified.as_millis() as i64)),
+                (":kind", &SyncedBookmarkKind::Separator),
+                (":dateAdded", &s.date_added),
+            ],
+        )?;
+        Ok(())
+    }
+
     fn maybe_store_href(&self, href: Option<&String>) -> Result<Url> {
         if let Some(href) = href {
             self.maybe_store_url(Some(Url::parse(href)?))
@@ -555,7 +625,8 @@ impl<'a> BookmarksStore<'a> {
             BookmarkItemRecord::Bookmark(b) => self.store_incoming_bookmark(timestamp, b)?,
             BookmarkItemRecord::Query(q) => self.store_incoming_query(timestamp, q)?,
             BookmarkItemRecord::Folder(f) => self.store_incoming_folder(timestamp, f)?,
-            _ => unimplemented!("TODO: Store other types"),
+            BookmarkItemRecord::Livemark(l) => self.store_incoming_livemark(timestamp, l)?,
+            BookmarkItemRecord::Separator(s) => self.store_incoming_sep(timestamp, s)?,
         }
         Ok(())
     }
@@ -1250,6 +1321,77 @@ mod tests {
                 json!({"children" : [{"guid": "query1______", "url": "place:tag=foo"}]}),
             );
         */
+    }
+
+    #[test]
+    fn test_apply_sep() {
+        // Separators don't have much variation.
+        assert_incoming_creates_mirror_item(
+            json!({
+                "id": "sep1________",
+                "type": "separator",
+                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "parentName": "Unfiled Bookmarks",
+            }),
+            &MirrorBookmarkItem::new()
+                .validity(SyncedBookmarkValidity::Valid)
+                .kind(SyncedBookmarkKind::Separator)
+                .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid())),
+        );
+    }
+
+    #[test]
+    fn test_apply_livemark() {
+        // A livemark with missing URLs
+        assert_incoming_creates_mirror_item(
+            json!({
+                "id": "livemark1___",
+                "type": "livemark",
+                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "parentName": "Unfiled Bookmarks",
+            }),
+            &MirrorBookmarkItem::new()
+                .validity(SyncedBookmarkValidity::Replace)
+                .kind(SyncedBookmarkKind::Livemark)
+                .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
+                .feed_url(None)
+                .site_url(None),
+        );
+        // Valid feed_url but invalid site_url is considered "valid", but the
+        // invalid URL is dropped.
+        assert_incoming_creates_mirror_item(
+            json!({
+                "id": "livemark1___",
+                "type": "livemark",
+                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "parentName": "Unfiled Bookmarks",
+                "feedUri": "http://example.com",
+                "siteUri": "foo"
+            }),
+            &MirrorBookmarkItem::new()
+                .validity(SyncedBookmarkValidity::Valid)
+                .kind(SyncedBookmarkKind::Livemark)
+                .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
+                .feed_url(Some("http://example.com/"))
+                .site_url(None),
+        );
+        // Everything valid
+        assert_incoming_creates_mirror_item(
+            json!({
+                "id": "livemark1___",
+                "type": "livemark",
+                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "parentName": "Unfiled Bookmarks",
+                "feedUri": "http://example.com",
+                "siteUri": "http://example.com/something"
+            }),
+            &MirrorBookmarkItem::new()
+                .validity(SyncedBookmarkValidity::Valid)
+                .kind(SyncedBookmarkKind::Livemark)
+                .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
+                .feed_url(Some("http://example.com/"))
+                .site_url(Some("http://example.com/something")),
+        );
     }
 
     #[test]
