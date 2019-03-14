@@ -80,13 +80,12 @@ task clean(type: Delete) {
 // { ... }`, to avoid issues with importing.
 import com.sun.jna.Platform as DefaultPlatform
 
-// This is the output `git rev-parse HEAD:libs`.  We could discover this automatically, but
-// let's keep things simple and bump this manually for a while.  If and when we grow SNAPSHOT
-// support on maven.mozilla.org, we can invest in a better approach for versioning these
-// prerequisite libraries.
-//
-// Set this to `= null` in order to use libs from the source directory.
-ext.libsGitSha = '5963858cbc4a55b295dd69efd97bc043259241c5'
+
+// If this is `null`, we use libs from the source directory.
+// Check if there are any changes to `libs` since `master`, and if not,
+// use the sha to download the artifacts from taskcluster.
+ext.libsGitSha = 'git diff --name-only master -- :/libs'.execute().text.allWhitespace ?
+                 'git rev-parse HEAD:libs'.execute().text.trim() : null
 
 if (rootProject.ext.libsGitSha != null) {
     task downloadAndroidLibs(type: Download) {
