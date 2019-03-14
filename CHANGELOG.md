@@ -2,11 +2,75 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.18.0...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.20.0...master)
+
+# v0.20.0 (_2019-03-14_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.19.0...v0.20.0)
+
+## General
+
+- The previous release had an issue with the megazords, and so another
+  release was needed. This is version 0.4.2 of the megazord plugin.
+  ([#775](https://github.com/mozilla/application-services/pull/775))
+
+### Breaking Changes
+
+- All package names have been normalized. The gradle packages should all be
+  `org.mozilla.appservices:component`, and the java namespaces should be
+  `mozilla.appservices.component`. ([#776](https://github.com/mozilla/application-services/pull/776))
+
+## Logins
+
+### Breaking Changes
+
+- The gradle package for logins has been changed from
+  `'org.mozilla.sync15:logins'` to `org.mozilla.appservices:logins`.
+  ([#776](https://github.com/mozilla/application-services/pull/776))
 
 ## Places
 
-## What's New
+### Breaking Changes
+
+- Several classes and interfaces have been renamed after feedback from consumers
+  to avoid `Interface` in the name, and better reflect what they provide.
+    - `PlacesApiInterface` => `PlacesManager`
+    - `PlacesConnectionInterface` => `InterruptibleConnection`
+    - `ReadablePlacesConnectionInterface` => `ReadableHistoryConnection`
+    - `WritablePlacesConnectionInterface` => `WritableHistoryConnection`
+    - `ReadablePlacesConnection` => `PlacesReaderConnection`
+    - `WritablePlacesConnection` => `PlacesWriterConnection`
+
+- The java namespace used in places has changed from `org.mozilla.places` to
+  `mozilla.appservices.places`
+  ([#776](https://github.com/mozilla/application-services/pull/776))
+
+- The gradle package for places has been changed from
+  `'org.mozilla.places:places'` to `org.mozilla.appservices:places`.
+  ([#776](https://github.com/mozilla/application-services/pull/776))
+
+## FxA
+
+### Breaking Changes
+
+- The gradle package for fxa-client has been changed from
+  `'org.mozilla.fxaclient:fxaclient'` to `org.mozilla.appservices:fxaclient`.
+  ([#776](https://github.com/mozilla/application-services/pull/776))
+
+# 0.19.0 (_2019-03-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.18.0...v0.19.0)
+
+## General
+
+### What's New
+
+- Initial support for the new Push component landed, however it's not yet ready
+  for widespread use ([#683](https://github.com/mozilla/application-services/pull/683))
+
+## Places
+
+### What's New
 
 - A massive rewrite of the Kotlin API has been completed. This distinguishes
   reader and writer connections. A brief description of the new types follows.
@@ -33,7 +97,7 @@
     - Note that the semantics of the various methods have not been changed, only
       their location.
 
-## Breaking Changes
+### Breaking Changes
 
 - Almost the entire API has been rewritten. See "What's New" for
   details. ([#718](https://github.com/mozilla/application-services/pull/718))

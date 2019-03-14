@@ -108,6 +108,12 @@ pub enum ErrorKind {
 
     #[fail(display = "Synced bookmark has unsupported validity {}", _0)]
     UnsupportedSyncedBookmarkValidity(u8),
+
+    // This will happen if you provide something absurd like
+    // "/" or "" as your database path. For more subtley broken paths,
+    // we'll likely return an IoError.
+    #[fail(display = "Illegal database path: {:?}", _0)]
+    IllegalDatabasePath(std::path::PathBuf),
 }
 
 macro_rules! impl_from_error {

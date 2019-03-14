@@ -121,12 +121,6 @@ pub fn init(db: &PlacesDb) -> Result<()> {
             create_synced_bookmark_roots(db)?;
         }
     }
-
-    // We only want temp tables and triggers on ReadWrite connections.
-    // (Note that later we expect some triggers specific to sync)
-    if db.conn_type() == ConnectionType::ReadWrite {
-        log::debug!("Creating temp tables and triggers");
-    }
     Ok(())
 }
 

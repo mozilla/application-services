@@ -97,7 +97,7 @@ class AppServicesExtensionTests extends Specification {
                 // already a published 0.12.2.  What this ensures is that the megazord version
                 // chosen agrees with the underlying library versions, and isn't just the latest
                 // version.
-                implementation 'org.mozilla.places:places:0.12.1'
+                implementation 'org.mozilla.appservices:places:0.12.1'
             }
 
             appservices {
@@ -119,15 +119,15 @@ class AppServicesExtensionTests extends Specification {
 
         then:
         sections.find { it.contains('debugCompileClasspath') }.contains('org.mozilla.appservices:reference-browser-megazord:0.12.1@aar')
-        !sections.find { it.contains('debugCompileClasspath') }.contains('org.mozilla.fxaclient:fxaclient:')
-        !sections.find { it.contains('debugCompileClasspath') }.contains('org.mozilla.places:places:')
-        !sections.find { it.contains('debugCompileClasspath') }.contains('org.mozilla.sync15:logins:')
+        !sections.find { it.contains('debugCompileClasspath') }.contains('org.mozilla.appservices:fxaclient:')
+        !sections.find { it.contains('debugCompileClasspath') }.contains('org.mozilla.appservices:places:')
+        !sections.find { it.contains('debugCompileClasspath') }.contains('org.mozilla.appservices:logins:')
         sections.find { it.contains('debugRuntimeClasspath') }.contains('org.mozilla.appservices:reference-browser-megazord:0.12.1@aar')
         sections.find { it.contains('debugUnitTestCompileClasspath') }.contains('org.mozilla.appservices:reference-browser-megazord:0.12.1@aar')
         sections.find { it.contains('debugUnitTestCompileClasspath') }.contains('org.mozilla.appservices:reference-browser-megazord-forUnitTests:0.12.1@jar')
-        !sections.find { it.contains('debugUnitTestCompileClasspath') }.contains('org.mozilla.fxaclient:fxaclient:')
-        !sections.find { it.contains('debugUnitTestCompileClasspath') }.contains('org.mozilla.places:places:')
-        !sections.find { it.contains('debugUnitTestCompileClasspath') }.contains('org.mozilla.sync15:logins:')
+        !sections.find { it.contains('debugUnitTestCompileClasspath') }.contains('org.mozilla.appservices:fxaclient:')
+        !sections.find { it.contains('debugUnitTestCompileClasspath') }.contains('org.mozilla.appservices:places:')
+        !sections.find { it.contains('debugUnitTestCompileClasspath') }.contains('org.mozilla.appservices:logins:')
         sections.find { it.contains('debugUnitTestRuntimeClasspath') }.contains('org.mozilla.appservices:reference-browser-megazord:0.12.1@aar')
         sections.find { it.contains('debugUnitTestRuntimeClasspath') }.contains('org.mozilla.appservices:reference-browser-megazord-forUnitTests:0.12.1@jar')
     }
@@ -143,7 +143,7 @@ class AppServicesExtensionTests extends Specification {
                 // already a published 0.12.2.  What this ensures is that the megazord version
                 // chosen agrees with the underlying library versions, and isn't just the latest
                 // version.
-                implementation 'org.mozilla.places:places:0.12.1'
+                implementation 'org.mozilla.appservices:places:0.12.1'
             }
 
             appservices {
@@ -165,15 +165,15 @@ class AppServicesExtensionTests extends Specification {
 
         then:
         sections.find { it.contains('debugCompileClasspath') }.contains('org.mozilla.appservices:reference-browser-megazord:0.12.1@aar')
-        !sections.find { it.contains('debugCompileClasspath') }.contains('org.mozilla.fxaclient:fxaclient:')
-        !sections.find { it.contains('debugCompileClasspath') }.contains('org.mozilla.places:places:')
-        !sections.find { it.contains('debugCompileClasspath') }.contains('org.mozilla.sync15:logins:')
+        !sections.find { it.contains('debugCompileClasspath') }.contains('org.mozilla.appservices:fxaclient:')
+        !sections.find { it.contains('debugCompileClasspath') }.contains('org.mozilla.appservices:places:')
+        !sections.find { it.contains('debugCompileClasspath') }.contains('org.mozilla.appservices:logins:')
         sections.find { it.contains('debugRuntimeClasspath') }.contains('org.mozilla.appservices:reference-browser-megazord:0.12.1@aar')
         sections.find { it.contains('debugUnitTestCompileClasspath') }.contains('org.mozilla.appservices:reference-browser-megazord:0.12.1@aar')
         sections.find { it.contains('debugUnitTestCompileClasspath') }.contains('org.mozilla.appservices:reference-browser-megazord-forUnitTests:0.12.1@jar')
-        !sections.find { it.contains('debugUnitTestCompileClasspath') }.contains('org.mozilla.fxaclient:fxaclient:')
-        !sections.find { it.contains('debugUnitTestCompileClasspath') }.contains('org.mozilla.places:places:')
-        !sections.find { it.contains('debugUnitTestCompileClasspath') }.contains('org.mozilla.sync15:logins:')
+        !sections.find { it.contains('debugUnitTestCompileClasspath') }.contains('org.mozilla.appservices:fxaclient:')
+        !sections.find { it.contains('debugUnitTestCompileClasspath') }.contains('org.mozilla.appservices:places:')
+        !sections.find { it.contains('debugUnitTestCompileClasspath') }.contains('org.mozilla.appservices:logins:')
         sections.find { it.contains('debugUnitTestRuntimeClasspath') }.contains('org.mozilla.appservices:reference-browser-megazord:0.12.1@aar')
         sections.find { it.contains('debugUnitTestRuntimeClasspath') }.contains('org.mozilla.appservices:reference-browser-megazord-forUnitTests:0.12.1@jar')
     }

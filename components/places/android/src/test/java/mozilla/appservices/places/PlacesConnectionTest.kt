@@ -1,7 +1,7 @@
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
-package org.mozilla.places
+package mozilla.appservices.places
 
 
 import org.junit.After
@@ -23,7 +23,7 @@ class PlacesConnectionTest {
     val dbFolder = TemporaryFolder()
 
     lateinit var api: PlacesApi
-    lateinit var db: WritablePlacesConnection
+    lateinit var db: PlacesWriterConnection
 
     @Before
     fun initAPI() {

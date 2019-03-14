@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package org.mozilla.places
+package mozilla.appservices.places
 
 import com.sun.jna.Native
 import com.sun.jna.Pointer
@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicReference
 import java.lang.ref.WeakReference
 
 /**
- * An implementation of a [PlacesApiInterface] backed by a Rust Places library.
+ * An implementation of a [PlacesManager] backed by a Rust Places library.
  *
  * This type, as well as all connection types, are thread safe (they perform locking internally
  * where necessary).
@@ -26,15 +26,15 @@ import java.lang.ref.WeakReference
  * @param encryption_key an optional key used for encrypting/decrypting data stored in the internal
  *  database. If omitted, data will be stored in plaintext.
  */
-class PlacesApi(path: String, encryption_key: String? = null) : PlacesApiInterface, AutoCloseable {
+class PlacesApi(path: String, encryption_key: String? = null) : PlacesManager, AutoCloseable {
     private var handle: AtomicLong = AtomicLong(0)
-    private var writeConn: WritablePlacesConnection
+    private var writeConn: PlacesWriterConnection
 
     init {
         handle.set(rustCall(this) { error ->
             LibPlacesFFI.INSTANCE.places_api_new(path, encryption_key, error)
         })
-        writeConn = WritablePlacesConnection(rustCall(this) { error ->
+        writeConn = PlacesWriterConnection(rustCall(this) { error ->
             LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_WRITE, error)
         }, this)
     }
@@ -45,14 +45,14 @@ class PlacesApi(path: String, encryption_key: String? = null) : PlacesApiInterfa
         private const val READ_WRITE: Int = 2
     }
 
-    override fun openReader(): ReadablePlacesConnection {
+    override fun openReader(): PlacesReaderConnection {
         val connHandle = rustCall(this) { error ->
             LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_ONLY, error)
         }
-        return ReadablePlacesConnection(connHandle);
+        return PlacesReaderConnection(connHandle);
     }
 
-    override fun getWriter(): WritablePlacesConnection {
+    override fun getWriter(): PlacesWriterConnection {
         return writeConn
     }
 
@@ -104,7 +104,7 @@ internal inline fun <U> rustCall(syncOn: Any, callback: (RustError.ByReference) 
     }
 }
 
-open class PlacesConnection internal constructor(connHandle: Long) : PlacesConnectionInterface, AutoCloseable {
+open class PlacesConnection internal constructor(connHandle: Long) : InterruptibleConnection, AutoCloseable {
     protected var handle: AtomicLong = AtomicLong(0)
     protected var interruptHandle: InterruptHandle
 
@@ -159,12 +159,12 @@ open class PlacesConnection internal constructor(connHandle: Long) : PlacesConne
 }
 
 /**
- * An implementation of a [ReadablePlacesConnection], used for read-only
+ * An implementation of a [ReadableHistoryConnection], used for read-only
  * access to places APIs.
  *
  * This class is thread safe.
  */
-open class ReadablePlacesConnection internal constructor(connHandle: Long): PlacesConnection(connHandle), ReadablePlacesConnectionInterface {
+open class PlacesReaderConnection internal constructor(connHandle: Long): PlacesConnection(connHandle), ReadableHistoryConnection {
 
     override fun queryAutocomplete(query: String, limit: Int): List<SearchResult> {
         val json = rustCallForString { error ->
@@ -243,12 +243,12 @@ open class ReadablePlacesConnection internal constructor(connHandle: Long): Plac
 }
 
 /**
- * An implementation of a [WritablePlacesConnection], use for read or write
+ * An implementation of a [WritableHistoryConnection], use for read or write
  * access to the Places APIs.
  *
  * This class is thread safe.
  */
-class WritablePlacesConnection internal constructor(connHandle: Long, api: PlacesApi) : ReadablePlacesConnection(connHandle), WritablePlacesConnectionInterface {
+class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesApi) : PlacesReaderConnection(connHandle), WritableHistoryConnection {
     // The reference to our PlacesAPI. Mostly used to know how to handle getting closed.
     val apiRef = WeakReference(api)
     override fun noteObservation(data: VisitObservation) {
@@ -343,11 +343,11 @@ class SyncAuthInfo (
  * exposes functions which return lower-level objects with the core
  * functionality.
  */
-interface PlacesApiInterface {
+interface PlacesManager {
     /**
      * Open a reader connection.
      */
-    fun openReader(): ReadablePlacesConnectionInterface
+    fun openReader(): ReadableHistoryConnection
 
     /**
      * Open a writer connection.
@@ -355,7 +355,7 @@ interface PlacesApiInterface {
      * Note that this is not guaranteed to return a unique connection instance,
      * and subsequent calls to getWriter may return the same connection
      */
-    fun getWriter(): WritablePlacesConnectionInterface
+    fun getWriter(): WritableHistoryConnection
 
     /**
      * Syncs the places stores.
@@ -368,14 +368,14 @@ interface PlacesApiInterface {
     fun sync(syncInfo: SyncAuthInfo)
 }
 
-interface PlacesConnectionInterface {
+interface InterruptibleConnection: AutoCloseable {
     /**
      * Interrupt ongoing operations running on a separate thread.
      */
     fun interrupt()
 }
 
-interface ReadablePlacesConnectionInterface: PlacesConnectionInterface {
+interface ReadableHistoryConnection: InterruptibleConnection {
     /**
      * A way to search the internal database tailored for autocompletion purposes.
      *
@@ -424,7 +424,7 @@ interface ReadablePlacesConnectionInterface: PlacesConnectionInterface {
     fun getVisitInfos(start: Long, end: Long = Long.MAX_VALUE): List<VisitInfo>
 }
 
-interface WritablePlacesConnectionInterface: ReadablePlacesConnectionInterface {
+interface WritableHistoryConnection: ReadableHistoryConnection {
     /**
      * Record a visit to a URL, or update meta information about page URL. See [VisitObservation].
      */

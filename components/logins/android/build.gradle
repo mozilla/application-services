@@ -135,7 +135,7 @@ afterEvaluate {
 
 apply from: "$rootDir/publish.gradle"
 ext.configurePublish(
-        'org.mozilla.sync15',
+        'org.mozilla.appservices',
         'logins',
         'Sync 1.5 logins implementation.',
         /* jnaForTestConfiguration= */ configurations.jnaForTest,

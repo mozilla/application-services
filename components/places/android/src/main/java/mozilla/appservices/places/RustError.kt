@@ -6,16 +6,13 @@
  * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
  * CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License. */
-package org.mozilla.places
+package mozilla.appservices.places
 
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
 import java.util.Arrays
 
-/**
- * This should be considered private, but it needs to be public for JNA.
- */
-open class RustError : Structure() {
+internal open class RustError : Structure() {
 
     class ByReference : RustError(), Structure.ByReference
 

@@ -25,25 +25,25 @@ open class AppServicesExtension(project: Project) {
         megazords.add(MegazordDefinition("lockbox",
                 DefaultModuleIdentifier.newId("org.mozilla.appservices", "lockbox-megazord"),
                 setOf(
-                        DefaultModuleIdentifier.newId("org.mozilla.fxaclient", "fxaclient"),
-                        DefaultModuleIdentifier.newId("org.mozilla.sync15", "logins"),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "fxaclient"),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "logins"),
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog")
                 )))
         megazords.add(MegazordDefinition("reference-browser",
                 DefaultModuleIdentifier.newId("org.mozilla.appservices", "reference-browser-megazord"),
                 setOf(
-                        DefaultModuleIdentifier.newId("org.mozilla.fxaclient", "fxaclient"),
-                        DefaultModuleIdentifier.newId("org.mozilla.sync15", "logins"),
-                        DefaultModuleIdentifier.newId("org.mozilla.places", "places"),
-                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "push),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "fxaclient"),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "logins"),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "places"),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "push"),
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog")
                 )))
         megazords.add(MegazordDefinition("fenix",
                 DefaultModuleIdentifier.newId("org.mozilla.appservices", "fenix-megazord"),
                 setOf(
-                        DefaultModuleIdentifier.newId("org.mozilla.fxaclient", "fxaclient"),
-                        DefaultModuleIdentifier.newId("org.mozilla.places", "places"),
-                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "push),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "fxaclient"),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "places"),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "push"),
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog")
                 )))
     }

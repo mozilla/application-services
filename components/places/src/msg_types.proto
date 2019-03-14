@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package msg_types;
 
-option java_package = "org.mozilla.places";
+option java_package = "mozilla.appservices.places";
 option java_outer_classname = "MsgTypes";
 
 message HistoryVisitInfo {
