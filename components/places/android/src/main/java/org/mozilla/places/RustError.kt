@@ -12,10 +12,7 @@ import com.sun.jna.Pointer
 import com.sun.jna.Structure
 import java.util.Arrays
 
-/**
- * This should be considered private, but it needs to be public for JNA.
- */
-open class RustError : Structure() {
+internal open class RustError : Structure() {
 
     class ByReference : RustError(), Structure.ByReference
 
