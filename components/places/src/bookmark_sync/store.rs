@@ -1197,7 +1197,7 @@ mod tests {
             json!({
                 "id": "query1______",
                 "type": "query",
-                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "parentid": "unfiled",
                 "parentName": "Unfiled Bookmarks",
                 "dateAdded": 1381542355843u64,
                 "title": "Some query",
@@ -1217,7 +1217,7 @@ mod tests {
             json!({
                 "id": "query1______",
                 "type": "query",
-                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "parentid": "unfiled",
                 "bmkUri": "place:type=7",
                 "folderName": "a-folder-name",
             }),
@@ -1233,7 +1233,7 @@ mod tests {
             json!({
                 "id": "query1______",
                 "type": "query",
-                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "parentid": "unfiled",
                 "bmkUri": "place:type=7",
                 "folderName": "",
             }),
@@ -1249,7 +1249,7 @@ mod tests {
             json!({
                 "id": "query1______",
                 "type": "query",
-                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "parentid": "unfiled",
                 "bmkUri": "place:folder=123",
             }),
             &MirrorBookmarkItem::new()
@@ -1264,7 +1264,7 @@ mod tests {
             json!({
                 "id": "query1______",
                 "type": "query",
-                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "parentid": "unfiled",
                 "bmkUri": "place:folder=123&excludeItems=1",
             }),
             &MirrorBookmarkItem::new()
@@ -1278,7 +1278,7 @@ mod tests {
             json!({
                 "id": "query1______",
                 "type": "query",
-                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "parentid": "unfiled",
                 "bmkUri": "foo",
             }),
             &MirrorBookmarkItem::new()
@@ -1292,7 +1292,7 @@ mod tests {
             json!({
                 "id": "query1______",
                 "type": "query",
-                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "parentid": "unfiled",
             }),
             &MirrorBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Replace)
@@ -1311,7 +1311,7 @@ mod tests {
                     // A valid query (which actually looks just like a bookmark, but that's ok)
                     "id": "query1______",
                     "type": "query",
-                    "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                    "parentid": "unfiled",
                     "parentName": "Unfiled Bookmarks",
                     "dateAdded": 1381542355843u64,
                     "title": "Some query",
@@ -1330,7 +1330,7 @@ mod tests {
             json!({
                 "id": "sep1________",
                 "type": "separator",
-                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "parentid": "unfiled",
                 "parentName": "Unfiled Bookmarks",
             }),
             &MirrorBookmarkItem::new()
@@ -1347,7 +1347,7 @@ mod tests {
             json!({
                 "id": "livemark1___",
                 "type": "livemark",
-                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "parentid": "unfiled",
                 "parentName": "Unfiled Bookmarks",
             }),
             &MirrorBookmarkItem::new()
@@ -1363,7 +1363,7 @@ mod tests {
             json!({
                 "id": "livemark1___",
                 "type": "livemark",
-                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "parentid": "unfiled",
                 "parentName": "Unfiled Bookmarks",
                 "feedUri": "http://example.com",
                 "siteUri": "foo"
@@ -1380,7 +1380,7 @@ mod tests {
             json!({
                 "id": "livemark1___",
                 "type": "livemark",
-                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "parentid": "unfiled",
                 "parentName": "Unfiled Bookmarks",
                 "feedUri": "http://example.com",
                 "siteUri": "http://example.com/something"
