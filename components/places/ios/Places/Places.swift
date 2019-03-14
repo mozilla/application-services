@@ -40,7 +40,7 @@ public class PlacesAPI {
             let writeHandle = try PlacesError.unwrap { error in
                 places_connection_new(handle, Int32(PlacesConn_ReadWrite), error)
             }
-            self.writeConn = PlacesWriteConnection(handle: writeHandle)
+            self.writeConn = try PlacesWriteConnection(handle: writeHandle)
             self.writeConn.api = self
         } catch let e {
             // We failed to open the write connection, even though the
@@ -87,7 +87,7 @@ public class PlacesAPI {
             let h = try PlacesError.unwrap { error in
                 places_connection_new(handle, Int32(PlacesConn_ReadOnly), error)
             }
-            return PlacesReadConnection(handle: h, api: self)
+            return try PlacesReadConnection(handle: h, api: self)
         }
     }
 
@@ -112,10 +112,14 @@ public class PlacesReadConnection {
     fileprivate let queue = DispatchQueue(label: "com.mozilla.places.conn")
     fileprivate var handle: ConnectionHandle;
     fileprivate weak var api: PlacesAPI?
+    fileprivate let interruptHandle: InterruptHandle
 
-    fileprivate init(handle: ConnectionHandle, api: PlacesAPI? = nil) {
+    fileprivate init(handle: ConnectionHandle, api: PlacesAPI? = nil) throws {
         self.handle = handle
         self.api = api
+        self.interruptHandle = InterruptHandle(ptr: try PlacesError.unwrap { error in
+            places_new_interrupt_handle(handle, error)
+        })
     }
 
     // Note: caller synchronizes!
@@ -263,6 +267,18 @@ public class PlacesReadConnection {
         }
     }
 
+    /**
+     * Attempt to interrupt a long-running operation which may be
+     * happening concurrently. If the operation is interrupted,
+     * it will fail.
+     *
+     * - Note: Not all operations can be interrupted, and no guarantee is
+     *         made that a concurrent interrupt call will be respected
+     *         (as we may miss it).
+     */
+    func interrupt() {
+        interruptHandle.interrupt()
+    }
 }
 
 /**
@@ -451,6 +467,24 @@ public class PlacesWriteConnection : PlacesReadConnection {
             msg.position = pos
         }
         return msg
+    }
+}
+
+// Wrapper around rust interrupt handle.
+fileprivate class InterruptHandle {
+    let ptr: OpaquePointer
+    init(ptr: OpaquePointer) {
+        self.ptr = ptr
+    }
+
+    deinit {
+        places_interrupt_handle_destroy(self.ptr)
+    }
+
+    func interrupt() {
+        PlacesError.unwrapOrLog { error in
+            places_interrupt(self.ptr, error)
+        }
     }
 }
 
