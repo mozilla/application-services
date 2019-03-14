@@ -275,14 +275,27 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         }
     }
 
-    override fun getBookmarksWithUrl(url: String): List<BookmarkTreeNode> {
+    override fun getBookmarksWithURL(url: String): List<BookmarkItem> {
         val rustBuf = rustCall { err ->
             LibPlacesFFI.INSTANCE.bookmarks_get_all_with_url(this.handle.get(), url, err)
         }
 
         try {
             val message = MsgTypes.BookmarkNodeList.parseFrom(rustBuf.asCodedInputStream()!!)
-            return unpackProtobufList(message)
+            return unpackProtobufItemList(message)
+        } finally {
+            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
+        }
+    }
+
+    override fun searchBookmarks(query: String, limit: Int): List<BookmarkItem> {
+        val rustBuf = rustCall { err ->
+            LibPlacesFFI.INSTANCE.bookmarks_search(this.handle.get(), query, limit, err)
+        }
+
+        try {
+            val message = MsgTypes.BookmarkNodeList.parseFrom(rustBuf.asCodedInputStream()!!)
+            return unpackProtobufItemList(message)
         } finally {
             LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
         }

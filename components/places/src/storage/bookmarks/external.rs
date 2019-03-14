@@ -200,3 +200,64 @@ pub fn fetch_proto_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<Pr
     }
     Ok(Some(proto))
 }
+
+pub fn search_bookmarks(db: &impl ConnExt, search: &str, limit: u32) -> Result<ProtoNodeList> {
+    let nodes: Vec<_> = db.query_rows_into_cached(
+        &SEARCH_QUERY,
+        &[(":search", &search), (":limit", &limit)],
+        |row| -> Result<_> {
+            Ok(ProtoBookmark {
+                node_type: Some(BookmarkType::Bookmark as i32),
+                guid: Some(row.get_checked("guid")?),
+                parent_guid: Some(row.get_checked("parentGuid")?),
+                position: Some(row.get_checked("position")?),
+                date_added: Some(row.get_checked("dateAdded")?),
+                last_modified: Some(row.get_checked("lastModified")?),
+                title: row.get_checked("title")?,
+                url: Some(row.get_checked("url")?),
+                child_guids: vec![],
+                child_nodes: vec![],
+                have_child_nodes: None,
+            })
+        },
+    )?;
+    Ok(nodes.into())
+}
+
+lazy_static::lazy_static! {
+    pub static ref SEARCH_QUERY: String = format!(
+        "SELECT
+            b.guid,
+            p.guid AS parentGuid,
+            b.position,
+            b.dateAdded,
+            b.lastModified,
+            -- Note we return null for titles with an empty string.
+            NULLIF(b.title, '') AS title,
+            h.url AS url
+        FROM moz_bookmarks b
+        JOIN moz_bookmarks p ON p.id = b.parent
+        JOIN moz_places h ON h.id = b.fk
+        WHERE b.type = {bookmark_type}
+            AND AUTOCOMPLETE_MATCH(
+                :search, h.url, IFNULL(title, h.title),
+                NULL, -- tags
+                -- We could pass the versions of these from history in,
+                -- but they're just used to figure out whether or not
+                -- the query fits the given behavior, and we know
+                -- we're only passing in and looking for bookmarks,
+                -- so using the args from history would be pointless
+                -- and would make things slower.
+                0, -- visit_count
+                0, -- typed
+                1, -- bookmarked
+                NULL, -- open page count
+                {match_bhvr},
+                {search_bhvr}
+            )
+        LIMIT :limit",
+        bookmark_type = BookmarkType::Bookmark as u8,
+        match_bhvr = crate::match_impl::MatchBehavior::Anywhere as u32,
+        search_bhvr = crate::match_impl::SearchBehavior::BOOKMARK.bits(),
+    );
+}

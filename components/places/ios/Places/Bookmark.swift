@@ -249,6 +249,16 @@ internal func unpackProtobuf(msg: MsgTypes_BookmarkNode) -> BookmarkNode {
     }
 }
 
-internal func unpackProtobufList(msg: MsgTypes_BookmarkNodeList) -> [BookmarkNode] {
-    return msg.nodes.map { node in unpackProtobuf(msg: node) }
+internal func unpackProtobufItemList(msg: MsgTypes_BookmarkNodeList) -> [BookmarkItem] {
+    return msg.nodes.map { node in
+        BookmarkItem(
+            guid: node.guid,
+            dateAdded: node.dateAdded,
+            lastModified: node.lastModified,
+            parentGUID: node.parentGuid,
+            position: node.position,
+            url: node.url,
+            title: node.hasTitle ? node.title : nil
+        )
+    }
 }

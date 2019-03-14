@@ -183,6 +183,12 @@ internal interface LibPlacesFFI : Library {
                               getDirectChildren: Byte,
                               error: RustError.ByReference): RustBuffer.ByValue
 
+    fun bookmarks_search(handle: PlacesConnectionHandle,
+                         search: String,
+                         limit: Int,
+                         error: RustError.ByReference): RustBuffer.ByValue
+
+
     // Returns newly inserted guid
     fun bookmarks_insert(handle: PlacesConnectionHandle,
                          data: Pointer,

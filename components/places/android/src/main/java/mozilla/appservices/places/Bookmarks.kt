@@ -204,7 +204,20 @@ interface ReadableBookmarksConnection : InterruptibleConnection {
      * @param url The url to search for.
      * @return A list of bookmarks that have the requested URL.
      */
-    fun getBookmarksWithUrl(url: String): List<BookmarkTreeNode>
+    fun getBookmarksWithURL(url: String): List<BookmarkItem>
+
+    /**
+     * Returns the list of bookmarks that match the provided search string.
+     *
+     * The order of the results is unspecified.
+     *
+     * @param query The search query
+     * @param limit The maximum number of items to return.
+     * @return A list of bookmarks where either the URL or the title
+     *         contain a word (e.g. space separated item) from the
+     *         query.
+     */
+    fun searchBookmarks(query: String, limit: Int): List<BookmarkItem>
 }
 
 /**
@@ -401,7 +414,9 @@ internal fun unpackProtobuf(msg: MsgTypes.BookmarkNode): BookmarkTreeNode {
     }
 }
 
-internal fun unpackProtobufList(msg: MsgTypes.BookmarkNodeList): List<BookmarkTreeNode> {
-    return msg.nodesList.map { unpackProtobuf(it) }
+// Unpack results from getBookmarksWithURL and searchBookmarks. Both of these can only return
+// BookmarkItems, so we just do the cast inside the mapper.
+internal fun unpackProtobufItemList(msg: MsgTypes.BookmarkNodeList): List<BookmarkItem> {
+    return msg.nodesList.map { unpackProtobuf(it) as BookmarkItem }
 }
 

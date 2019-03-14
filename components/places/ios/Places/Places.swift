@@ -229,7 +229,7 @@ public class PlacesReadConnection {
      *
      * - Returns: A list of bookmarks that have the requested URL.
      */
-    func getBookmarksWithURL(url: String) throws -> [BookmarkNode] {
+    func getBookmarksWithURL(url: String) throws -> [BookmarkItem] {
         return try queue.sync {
             try self.checkApi()
             let buffer = try PlacesError.unwrap { error in
@@ -238,7 +238,31 @@ public class PlacesReadConnection {
             defer { places_destroy_bytebuffer(buffer) }
             // Should this be `try!`?
             let msg = try MsgTypes_BookmarkNodeList(serializedData: Data(placesRustBuffer: buffer))
-            return unpackProtobufList(msg: msg)
+            return unpackProtobufItemList(msg: msg)
+        }
+    }
+
+    /**
+     * Returns the list of bookmarks that match the provided search string.
+     *
+     * The order of the results is unspecified.
+     *
+     * - Parameter query: The search query
+     * - Parameter limit: The maximum number of items to return.
+     * - Returns: A list of bookmarks where either the URL or the title
+     *            contain a word (e.g. space separated item) from the
+     *            query.
+     */
+    func searchBookmarks(query: String, limit: UInt) throws -> [BookmarkItem] {
+        return try queue.sync {
+            try self.checkApi()
+            let buffer = try PlacesError.unwrap { error in
+                bookmarks_search(self.handle, query, Int32(limit), error)
+            }
+            defer { places_destroy_bytebuffer(buffer) }
+            // Should this be `try!`?
+            let msg = try MsgTypes_BookmarkNodeList(serializedData: Data(placesRustBuffer: buffer))
+            return unpackProtobufItemList(msg: msg)
         }
     }
 
