@@ -154,21 +154,18 @@ public class PlacesReadConnection {
      * However, if `recursive: false` is passed, only a single level of child
      * nodes are returned for folders.
      *
-     * - Parameter rootGUID: the GUID where to start the tree. Defaults to
-     *                       `BookmarkRoot.RootGUID`, e.g. fetching the
-     *                       entire bookmarks tree.
+     * - Parameter rootGUID: the GUID where to start the tree.
      *
      * - Parameter recursive: Whether or not to return more than a single
      *                        level of children for folders. If false, then
      *                        any folders which are children of the requested
      *                        node will *only* have their `childGUIDs`
-     *                        populated, and *not* their `children`. Defaults to
-     *                        true.
+     *                        populated, and *not* their `children`.
      *
      * - Returns: The bookmarks tree starting from `rootGUID`, or null if the
      *            provided guid didn't refer to a known bookmark item.
      */
-    func getBookmarksTree(rootGUID: String = BookmarkRoots.RootGUID, recursive: Bool = true) throws -> BookmarkNode? {
+    func getBookmarksTree(rootGUID: String, recursive: Bool) throws -> BookmarkNode? {
         return try queue.sync {
             try self.checkApi()
             let buffer = try PlacesError.unwrap { (error: UnsafeMutablePointer<PlacesRustError>) -> PlacesRustBuffer in

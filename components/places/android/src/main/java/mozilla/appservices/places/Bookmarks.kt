@@ -167,20 +167,18 @@ interface ReadableBookmarksConnection : InterruptibleConnection {
      * `recursive = false` is passed, then this is only performed for direct
      * children, and not for grandchildren).
      *
-     * @param rootGUID the GUID where to start the tree. Defaults to `BookmarkRoot.Root`'s id,
-     *                 e.g. fetching the entire bookmarks tree.
+     * @param rootGUID the GUID where to start the tree.
      *
      * @param recursive Whether or not to return more than a single
      *                  level of children for folders. If false, then
      *                  any folders which are children of the requested
      *                  node will *only* have their `childGUIDs`
-     *                  populated, and *not* their `children`. Defaults to
-     *                  true.
+     *                  populated, and *not* their `children`.
      *
      * @return The bookmarks tree starting at `rootGUID`, or null if the provided
      *         id didn't refer to a known bookmark item.
      */
-    fun getBookmarksTree(rootGUID: String = BookmarkRoot.Root.id, recursive: Boolean = true): BookmarkTreeNode?
+    fun getBookmarksTree(rootGUID: String, recursive: Boolean): BookmarkTreeNode?
 
     /**
      * Returns the information about the bookmark with the provided id. This differs from

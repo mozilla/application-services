@@ -189,7 +189,7 @@ class PlacesTests: XCTestCase {
     func testGetTree() {
         let db = api.getWriter()
 
-        checkTree(try! db.getBookmarksTree()!, [
+        checkTree(try! db.getBookmarksTree(rootGUID: BookmarkRoots.RootGUID, recursive: true)!, [
             "guid": BookmarkRoots.RootGUID,
             "title": "root",
             "children": [
@@ -214,7 +214,7 @@ class PlacesTests: XCTestCase {
 
         insertTree(db, parent: BookmarkRoots.MenuFolderGUID, tree: DummyTree0)
 
-        let got = try! db.getBookmarksTree(rootGUID: BookmarkRoots.MenuFolderGUID)!
+        let got = try! db.getBookmarksTree(rootGUID: BookmarkRoots.MenuFolderGUID, recursive: true)!
 
         checkTree(got, [
             "guid": BookmarkRoots.MenuFolderGUID,
