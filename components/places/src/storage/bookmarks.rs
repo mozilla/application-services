@@ -1145,6 +1145,8 @@ pub fn fetch_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<Bookmark
         LEFT JOIN moz_places h ON h.id = d.fk
         ORDER BY d.level, d.parent, d.position"#;
 
+    let scope = db.begin_interrupt_scope();
+
     let mut stmt = db.conn().prepare(sql)?;
 
     let mut results =
@@ -1166,6 +1168,7 @@ pub fn fetch_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<Bookmark
         None => return Ok(None),
     };
 
+    scope.err_if_interrupted()?;
     // For all remaining rows, build a pseudo-tree that maps parent GUIDs to
     // ordered children. We need this intermediate step because SQLite returns
     // results in level order, so we'll see a node's siblings and cousins (same
@@ -1173,6 +1176,7 @@ pub fn fetch_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<Bookmark
     let mut pseudo_tree: HashMap<SyncGuid, Vec<BookmarkTreeNode>> = HashMap::new();
     for result in results {
         let row = result?;
+        scope.err_if_interrupted()?;
         let node = match row.node_type {
             BookmarkType::Bookmark => match &row.url {
                 Some(url_str) => match Url::parse(&url_str) {

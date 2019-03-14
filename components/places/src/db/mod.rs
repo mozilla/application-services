@@ -6,5 +6,6 @@
 pub mod db;
 mod interrupt;
 mod schema;
+pub(crate) use self::interrupt::InterruptScope;
 pub use self::interrupt::PlacesInterruptHandle;
 pub use crate::db::db::PlacesDb;

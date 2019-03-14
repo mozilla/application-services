@@ -57,7 +57,8 @@ pub fn fetch_bookmark(
     get_direct_children: bool,
 ) -> Result<Option<ProtoBookmark>> {
     let _tx = db.unchecked_transaction()?;
-    let bookmark = fetch_bookmark_in_tx(db, item_guid, get_direct_children)?;
+    let scope = db.begin_interrupt_scope();
+    let bookmark = fetch_bookmark_in_tx(db, item_guid, get_direct_children, &scope)?;
     // Note: We let _tx drop (which means it does a rollback) since it doesn't
     // matter, we just are using a transaction to ensure things don't change out
     // from under us, since this executes more than one query.
@@ -69,6 +70,7 @@ fn fetch_bookmark_in_tx(
     db: &PlacesDb,
     item_guid: &SyncGuid,
     get_direct_children: bool,
+    scope: &crate::db::InterruptScope,
 ) -> Result<Option<ProtoBookmark>> {
     // get_raw_bookmark doesn't work for the bookmark root, so we just return None explicitly
     // (rather than erroring). This isn't ideal, but there's no point to fetching the "true"
@@ -82,7 +84,7 @@ fn fetch_bookmark_in_tx(
     } else {
         return Ok(None);
     };
-
+    scope.err_if_interrupted()?;
     // If we're a folder that has children, fetch child guids or children depending.
     let (child_guids, child_nodes) =
         if rb.bookmark_type == BookmarkType::Folder && rb.child_count != 0 {
@@ -94,12 +96,13 @@ fn fetch_bookmark_in_tx(
                 &[(":parent", &rb.row_id)],
                 |row| row.get_checked(0),
             )?;
+            scope.err_if_interrupted()?;
             if get_direct_children {
                 let children: Vec<_> = child_guids
                     .into_iter()
                     .map(|guid_string| {
                         let child_guid = SyncGuid(guid_string);
-                        if let Some(bmk) = fetch_bookmark_in_tx(db, &child_guid, false)? {
+                        if let Some(bmk) = fetch_bookmark_in_tx(db, &child_guid, false, scope)? {
                             Ok(bmk)
                         } else {
                             // Not ideal (since this shouldn't be possible, we're in
@@ -201,11 +204,13 @@ pub fn fetch_proto_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<Pr
     Ok(Some(proto))
 }
 
-pub fn search_bookmarks(db: &impl ConnExt, search: &str, limit: u32) -> Result<ProtoNodeList> {
+pub fn search_bookmarks(db: &PlacesDb, search: &str, limit: u32) -> Result<ProtoNodeList> {
+    let scope = db.begin_interrupt_scope();
     let nodes: Vec<_> = db.query_rows_into_cached(
         &SEARCH_QUERY,
         &[(":search", &search), (":limit", &limit)],
         |row| -> Result<_> {
+            scope.err_if_interrupted()?;
             Ok(ProtoBookmark {
                 node_type: Some(BookmarkType::Bookmark as i32),
                 guid: Some(row.get_checked("guid")?),
