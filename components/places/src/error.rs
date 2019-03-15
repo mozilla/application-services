@@ -150,6 +150,9 @@ pub enum InvalidPlaceInfo {
     // for history we just ignore it.
     #[fail(display = "URL too long")]
     UrlTooLong,
+
+    #[fail(display = "The tag value is invalid: {}", _0)]
+    InvalidTag(String),
 }
 
 // Error types used when we can't continue due to corruption.

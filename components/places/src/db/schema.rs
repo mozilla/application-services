@@ -14,7 +14,7 @@ use crate::storage::bookmarks::create_bookmark_roots;
 use rusqlite::NO_PARAMS;
 use sql_support::ConnExt;
 
-const VERSION: i64 = 5;
+const VERSION: i64 = 6;
 
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
 const CREATE_SHARED_TEMP_TABLES_SQL: &str = include_str!("../../sql/create_shared_temp_tables.sql");
@@ -173,7 +173,8 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
         || create_bookmark_roots(&db.conn()),
     )?;
     migration(db, 4, 5, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?;
-    // Add more migrations here...
+    migration(db, 5, 6, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?; // new tags tables.
+                                                                  // Add more migrations here...
 
     if get_current_schema_version(db)? == VERSION {
         return Ok(());

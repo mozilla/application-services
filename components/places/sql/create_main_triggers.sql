@@ -22,3 +22,42 @@ FOR EACH ROW WHEN OLD.guid != NEW.guid
 BEGIN
     SELECT RAISE(FAIL, 'guids are immutable');
 END;
+
+-- Tags
+CREATE TEMP TRIGGER moz_tags_relations_afterinsert_trigger
+AFTER INSERT ON moz_tags_relation
+BEGIN
+  UPDATE moz_tags SET
+    lastModified = now()
+  WHERE id = NEW.tag_id;
+
+  UPDATE moz_bookmarks SET
+    syncChangeCounter = syncChangeCounter + 1
+  WHERE fk = NEW.place_id;
+
+END;
+
+
+CREATE TEMP TRIGGER moz_tags_relations_afterupdate_trigger
+AFTER UPDATE ON moz_tags_relation
+BEGIN
+  UPDATE moz_tags SET
+    lastModified = now()
+  WHERE id = NEW.tag_id;
+
+  UPDATE moz_bookmarks SET
+    syncChangeCounter = syncChangeCounter + 1
+  WHERE fk IN (OLD.place_id, NEW.place_id);
+END;
+
+CREATE TEMP TRIGGER moz_tags_relations_afterdelete_trigger
+AFTER DELETE ON moz_tags_relation
+BEGIN
+  UPDATE moz_tags SET
+    lastModified = now()
+  WHERE id = OLD.tag_id;
+
+  UPDATE moz_bookmarks SET
+    syncChangeCounter = syncChangeCounter + 1
+  WHERE fk = OLD.place_id;
+END;
