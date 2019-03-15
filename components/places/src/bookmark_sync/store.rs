@@ -1045,7 +1045,6 @@ mod tests {
                 "dateAdded": 1381542355843u64,
                 "title": "Unfiled",
                 "children": ["bookmark1___"],
-
             }]),
             &BookmarkRootGuid::Unfiled.as_guid(),
             json!({"children" : [{"guid": "bookmark1___", "url": "http://example.com"}]}),
@@ -1054,28 +1053,28 @@ mod tests {
 
     #[test]
     fn test_apply_query() {
-
-        // And finally, a more "functional" test - that our queries end up
-        // correctly in the local tree.
-        // XXX - this test fails for reasons I don't understand. If we write
-        // to the mirror with kind=Bookmark, then it *does* get applied.
-        // XXX - todo - add some more query variations here.
-        /*
-            assert_incoming_creates_local_tree(
-                json!([{
-                    // A valid query (which actually looks just like a bookmark, but that's ok)
-                    "id": "query1______",
-                    "type": "query",
-                    "parentid": "unfiled",
-                    "parentName": "Unfiled Bookmarks",
-                    "dateAdded": 1381542355843u64,
-                    "title": "Some query",
-                    "bmkUri": "place:tag=foo",
-                }]),
-                &BookmarkRootGuid::Unfiled.as_guid(),
-                json!({"children" : [{"guid": "query1______", "url": "place:tag=foo"}]}),
-            );
-        */
+        // should we add some more query variations here?
+        assert_incoming_creates_local_tree(
+            json!([{
+                "id": "query1______",
+                "type": "query",
+                "parentid": "unfiled",
+                "parentName": "Unfiled Bookmarks",
+                "dateAdded": 1381542355843u64,
+                "title": "Some query",
+                "bmkUri": "place:tag=foo",
+            },
+            {
+                "id": "unfiled",
+                "type": "folder",
+                "parentid": "root",
+                "dateAdded": 1381542355843u64,
+                "title": "Unfiled",
+                "children": ["query1______"],
+            }]),
+            &BookmarkRootGuid::Unfiled.as_guid(),
+            json!({"children" : [{"guid": "query1______", "url": "place:tag=foo"}]}),
+        );
     }
 
     #[test]
