@@ -70,9 +70,7 @@ cargo {
         'linux-x86-64',
     ]
 
-    // Perform release builds (which should have debug info, due to
-    // `debug = true` in Cargo.toml).
-    profile = "release"
+    profile = rootProject.ext.nonMegazordProfile
 
     exec = rootProject.ext.cargoExec
 }

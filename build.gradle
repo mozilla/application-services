@@ -160,6 +160,29 @@ if (rootProject.ext.libsGitSha != null) {
     }
 }
 
+Properties localProperties = null;
+if (file('local.properties').canRead()) {
+    localProperties = new Properties();
+    localProperties.load(file('local.properties').newDataInputStream())
+    logger.lifecycle('Local configuration: loaded local.properties')
+}
+
+// For non-megazord builds, don't do a release build unless we explicitly want
+// it (e.g. in CI, or if specified in local.properties). This avoids some cases
+// where two builds of some crates are required when they wouldn't otherwise be,
+// as well as improving build times for local development.
+ext.nonMegazordProfile = "debug"
+
+if (System.getenv("CI")) {
+    ext.nonMegazordProfile = "release"
+} else if (localProperties != null) {
+    String localNonMegazordProfile = localProperties.getProperty(
+        "application-services.nonmegazord-profile");
+    if (localNonMegazordProfile != null) {
+        ext.nonMegazordProfile = localNonMegazordProfile;
+    }
+}
+
 // Configure some environment variables, per toolchain, that will apply during
 // the Cargo build.  We assume that the `libs/` directory has been populated
 // before invoking Gradle (or Cargo).
