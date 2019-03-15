@@ -121,8 +121,8 @@ class GitHubRepoInfo:
     """
     def __init__(self, path):
         self.path = path
-        if 'GIT_URL' in os.environ:
-            remote_url = os.environ['GIT_URL']
+        if 'APPSERVICES_HEAD_REPOSITORY' in os.environ:
+            remote_url = os.environ['APPSERVICES_HEAD_REPOSITORY']
         else:
             remote_url = read_output('git', '-C', path, 'remote', 'get-url', 'origin')
         match = githubRegex.match(remote_url)

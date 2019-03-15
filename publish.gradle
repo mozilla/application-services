@@ -208,51 +208,6 @@ ext.configurePublish = { jnaForTestConfiguration = null,
         }
     }
 
-    apply plugin: 'com.jfrog.bintray'
-
-    // It feels like this shouldn't be necessary, but without it an
-    // "unspecified" creeps into bintray URLs -- just like
-    // https://github.com/bintray/gradle-bintray-plugin/issues/244, but not
-    // fixed by gradle-bintray-plugin:1.8.4.
-    version = rootProject.ext.library.version
-
-    Properties localProperties = null;
-    if (project.rootProject.file('local.properties').canRead()) {
-        localProperties = new Properties()
-        localProperties.load(project.rootProject.file('local.properties').newDataInputStream())
-    }
-
-    def thePublications = ['aar']
-    if (variantWithoutLib != null) {
-        thePublications << 'aarWithoutLib'
-    }
-    if (jnaForTestConfiguration != null) {
-        thePublications << 'forUnitTestsJar'
-    }
-
-    bintray {
-        user = localProperties != null ? localProperties.getProperty("bintray.user") : ""
-        key = localProperties != null ? localProperties.getProperty("bintray.apikey") : ""
-
-        publications = thePublications
-
-        pkg {
-            repo = libRepositoryName
-            name = libProjectName
-            // Packages are uploaded with bintray username ncalexander but end
-            // up at https://bintray.com/mozilla-appservices.
-            userOrg = 'mozilla-appservices'
-            websiteUrl = libUrl
-            vcsUrl = libVcsUrl
-            if (project.ext.has('vcsTag')) {
-                vcsTag = project.ext.vcsTag
-            }
-            licenses = [libLicense]
-            publish = false
-            publicDownloadNumbers = true
-        }
-    }
-
     task zipMavenArtifacts
 
     publishing.publications.withType(MavenPublication).each {publication ->

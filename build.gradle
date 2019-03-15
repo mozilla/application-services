@@ -23,7 +23,6 @@ buildscript {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
 
         // Publish.
-        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.4'
         classpath 'digital.wup:android-maven-publish:3.6.2'
 
         classpath 'gradle.plugin.org.mozilla.rust-android-gradle:plugin:0.8.1'
@@ -75,8 +74,11 @@ import com.sun.jna.Platform as DefaultPlatform
 ext.libsGitSha = "git --git-dir=${rootProject.rootDir}/.git diff --name-only master -- :/libs".execute().text.allWhitespace ?
                  "git --git-dir=${rootProject.rootDir}/.git rev-parse HEAD:libs".execute().text.trim() : null
 
+// Use in-tree libs from the source directory in CI or if the git SHA is unset; otherwise use
+// downloaded libs.
+def useDownloadedLibs = !System.getenv('CI') && ext.libsGitSha != null
 
-if (rootProject.ext.libsGitSha != null) {
+if (useDownloadedLibs) {
     task downloadAndroidLibs(type: Download) {
         src "https://index.taskcluster.net/v1/task/project.application-services.application-services.build.libs.android.${rootProject.ext.libsGitSha}/artifacts/public/target.tar.gz"
         dest new File(buildDir, "libs.android.${rootProject.ext.libsGitSha}.tar.gz")
@@ -205,9 +207,7 @@ switch (DefaultPlatform.RESOURCE_PREFIX) {
         break
 }
 
-// Use in-tree libs from the source directory in CI or if the git SHA is unset; otherwise use
-// downloaded libs.
-def libsRootDir = (System.getenv('CI') || ext.libsGitSha == null) ? rootProject.rootDir : rootProject.buildDir
+def libsRootDir = useDownloadedLibs ? rootProject.buildDir : rootProject.rootDir
 
 subprojects {
     apply plugin: 'digital.wup.android-maven-publish'

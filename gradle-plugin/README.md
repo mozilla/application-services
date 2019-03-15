@@ -176,25 +176,6 @@ configuration.resolutionStrategy.dependencySubstitution.all { dependency ->
 }
 ```
 
-## Application Services Maven repository details
-
-The megazord libraries and dependencies aren't yet published to maven.mozilla.org (see
-[issue #252](https://github.com/mozilla/application-services/issues/252)) and for technical reasons
-they aren't yet mirrored to jcenter either (see
-[this bintray plugin issue](https://github.com/bintray/gradle-bintray-plugin/issues/130)).
-
-That means we need a [non-standard Maven repository](https://bintray.com/mozilla-appservices/application-services):
-```groovy
-repositories {
-    maven {
-        name 'appservices'
-        url 'https://dl.bintray.com/mozilla-appservices/application-services'
-    }
-}
-```
-
-The Gradle plugin adds such needed repositories automatically.
-
 ## Unit testing Rust native code
 
 The Application Services Maven publications contain Rust native code targeting Android devices.  To
