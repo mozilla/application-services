@@ -263,7 +263,7 @@ fn next_codepoint_lower(s: &str) -> (char, usize) {
 
 // Port of places `findInString`.
 pub fn find_in_string(token: &str, src: &str, only_boundary: bool) -> bool {
-    // Place's verison has this restriction too
+    // Place's version has this restriction too
     assert!(!token.is_empty(), "Don't search for an empty string");
     if src.len() < token.len() {
         return false;

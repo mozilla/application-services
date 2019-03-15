@@ -518,6 +518,7 @@ class DockerWorkerTask(Task):
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # We use this specific version because our decision task also runs on this one.
         self.docker_image = "ubuntu:bionic-20180821"
         self.max_run_time_minutes = 30
         self.scripts = []
