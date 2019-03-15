@@ -364,7 +364,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "sh ./build_megazord.sh\n";
+			shellScript = "bash $PWD/../../build-scripts/xc-universal-binary.sh libmegazord_ios.a megazord_ios $PWD/../.. $buildvariant\n\n\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

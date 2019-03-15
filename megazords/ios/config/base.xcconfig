@@ -2,6 +2,6 @@
 
 INFOPLIST_FILE = config/Info.plist
 HEADER_SEARCH_PATHS = "../../components/fxa-client/ios/FxAClient"  "../../components/logins/ios/Logins" "./RustLog"
-LIBRARY_SEARCH_PATHS = "../../target/universal/release" "../../libs/ios/universal/sqlcipher/lib"
+LIBRARY_SEARCH_PATHS = "../../target/universal/$(buildvariant)" "../../libs/ios/universal/sqlcipher/lib"
 FRAMEWORK_SEARCH_PATHS = "../../Carthage/Build/iOS"
 SWIFT_OBJC_BRIDGING_HEADER = MozillaAppServices.h
