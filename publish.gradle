@@ -5,6 +5,7 @@
 def libLicense = properties.libLicense
 def libLicenseUrl = properties.libLicenseUrl
 def libRepositoryName = properties.libRepositoryName
+def libProjectName = properties.libProjectName
 def libUrl = properties.libUrl
 def libVcsUrl = properties.libVcsUrl
 
@@ -227,8 +228,7 @@ ext.configurePublish = { groupIdArg, artifactIdArg, descriptionArg,
 
         pkg {
             repo = libRepositoryName
-            name = artifactIdArg
-            desc = descriptionArg
+            name = libProjectName
             websiteUrl = libUrl
             vcsUrl = libVcsUrl
             if (project.ext.has('vcsTag')) {
