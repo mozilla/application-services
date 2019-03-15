@@ -4,7 +4,7 @@ apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 import com.sun.jna.Platform
 
 android {
-    compileSdkVersion 27
+    compileSdkVersion rootProject.ext.build.compileSdkVersion
 
     defaultConfig {
         minSdkVersion rootProject.ext.build['minSdkVersion']
@@ -105,10 +105,10 @@ afterEvaluate {
 }
 
 apply from: "$rootDir/publish.gradle"
+// If using jnaForTestConfiguration or variantWithoutLib,
+// please also update the corresponding .buildconfig-android.yml
+// `publishedArtifacts` property.
 ext.configurePublish(
-        'org.mozilla.appservices',
-        'lockbox-megazord',
-        'Megazord of [fxaclient, logins, logging]',
         /* jnaForTestConfiguration= */ configurations.jnaForTest,
         /* variantWithoutLib= */ null,
 )

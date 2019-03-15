@@ -5,18 +5,22 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os.path
+from build_config import module_definitions, appservices_version
 from decisionlib import *
 
-def main(task_for, mock=False):
+def main(task_for):
     if task_for == "github-pull-request":
         android_linux_x86_64()
     elif task_for == "github-push":
         android_multiarch()
     elif task_for == "github-release":
         android_multiarch_release()
-    else:  # pragma: no cover
+    else:
         raise ValueError("Unrecognized $TASK_FOR value: %r", task_for)
 
+    full_task_graph = build_full_task_graph()
+    populate_chain_of_trust_task_graph(full_task_graph)
+    populate_chain_of_trust_required_but_unused_files()
 
 build_artifacts_expire_in = "1 month"
 build_dependencies_artifacts_expire_in = "3 month"
@@ -41,7 +45,7 @@ linux_build_env = {
 # Calls "$PLATFORM_libs" functions and returns
 # their tasks IDs.
 def libs_for(*platforms):
-    return map(lambda p: globals()[p + "_libs"](), platforms)
+    return list(map(lambda p: globals()[p + "_libs"](), platforms))
 
 def android_libs():
     return (
@@ -75,7 +79,7 @@ def desktop_linux_libs():
 
 def desktop_macos_libs():
     return (
-        linux_target_macos_build_task("Desktop libs (macOS): build")
+        linux_cross_compile_build_task("Desktop libs (macOS): build")
         .with_script("""
             pushd libs
             ./build-all.sh darwin
@@ -104,57 +108,97 @@ def desktop_win32_x86_64_libs():
         .find_or_create("build.libs.desktop.win32-x86-64." + CONFIG.git_sha_for_directory("libs"))
     )
 
-TEST_AND_ASSEMBLE_SCRIPT = """
-    yes | sdkmanager --update
-    yes | sdkmanager --licenses
-    ./gradlew --no-daemon clean
-    ./gradlew --no-daemon testDebug
-    ./gradlew --no-daemon assembleRelease
-    ./gradlew --no-daemon publish :zipMavenArtifacts
-"""
-
-def android_task(task_name):
-    libs_tasks = libs_for("android", "desktop_linux", "desktop_macos", "desktop_win32_x86_64")
-    task = linux_target_macos_build_task(task_name)
-    for lib_task in libs_tasks:
-        task.with_curl_artifact_script(lib_task, "target.tar.gz")
+def android_task(task_name, libs_tasks):
+    task = linux_cross_compile_build_task(task_name)
+    for libs_task in libs_tasks:
+        task.with_curl_artifact_script(libs_task, "target.tar.gz")
         task.with_script("tar -xzf target.tar.gz")
     return task
 
 def android_linux_x86_64():
+    libs_tasks = libs_for("android", "desktop_linux", "desktop_macos", "desktop_win32_x86_64")
     return (
-        android_task("Android (linux-x86-64): build and test")
+        android_task("Build and test (Android - linux-x86-64)", libs_tasks)
         .with_script("""
             echo "rust.targets=linux-x86-64" > local.properties
         """)
-        .with_script(TEST_AND_ASSEMBLE_SCRIPT)
+        .with_script("""
+            yes | sdkmanager --update
+            yes | sdkmanager --licenses
+            ./gradlew --no-daemon clean
+            ./gradlew --no-daemon testDebug
+        """)
         .create()
     )
+
+def gradle_module_task_name(module, gradle_task_name):
+    return ":%s:%s" % (module, gradle_task_name)
+
+def gradle_module_task(libs_tasks, module_info, is_release):
+    module = module_info['name']
+    if is_release:
+        task_title = "{} - Build, test and upload to bintray".format(module)
+    else:
+        task_title = "{} - Build and test".format(module)
+    task = (
+        android_task(task_title, libs_tasks)
+        .with_script("""
+            yes | sdkmanager --update
+            yes | sdkmanager --licenses
+            ./gradlew --no-daemon clean
+            python automation/taskcluster/release/fetch-bintray-api-key.py
+        """)
+        .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "testDebug")))
+        .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "assembleRelease")))
+        .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "publish")))
+        .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "zipMavenArtifacts")))
+    )
+    for artifact_info in module_info['artifacts']:
+        task.with_artifacts(artifact_info['artifact'])
+    if is_release:
+        if module_info['uploadSymbols']:
+            task.with_scopes("secrets:get:project/application-services/symbols-token")
+            task.with_script("./automation/upload_android_symbols.sh {}".format(module_info['path']))
+        task.with_scopes("secrets:get:project/application-services/publish")
+        task.with_script('./gradlew --no-daemon {} --debug -PvcsTag="$GIT_SHA"'.format(gradle_module_task_name(module, "bintrayUpload")))
+    return task.create()
+
+def build_gradle_modules_tasks(is_release):
+    libs_tasks = libs_for("android", "desktop_linux", "desktop_macos", "desktop_win32_x86_64")
+    module_build_tasks = {}
+    for module_info in module_definitions():
+        module_build_tasks[module_info['name']] = gradle_module_task(libs_tasks, module_info, is_release)
+    return module_build_tasks
 
 def android_multiarch():
-    return (
-        android_task("Android (all architectures): build and test")
-        .with_script(TEST_AND_ASSEMBLE_SCRIPT)
-        .with_artifacts("/build/repo/build/target.maven.zip")
-        .create()
-    )
+    build_gradle_modules_tasks(False)
 
 def android_multiarch_release():
+    module_build_tasks = build_gradle_modules_tasks(True)
     return (
-        android_task("Android (all architectures): build and test and release")
-        .with_script(TEST_AND_ASSEMBLE_SCRIPT)
+        linux_build_task("All modules - Publish via bintray")
+        .with_dependencies(*module_build_tasks.values())
+        # Our -unpublished- artifacts were uploaded in build_gradle_modules_tasks(),
+        # however there is not way to just trigger a bintray publish from gradle without
+        # uploading anything, so we do it manually using curl :(
+        # We COULD publish each artifact individually, however that would mean if
+        # a build task fails we end up with a partial release.
+        # Since we manipulate secrets, we also disable bash debug mode.
         .with_script("""
-            ./automation/upload_android_symbols.sh
             python automation/taskcluster/release/fetch-bintray-api-key.py
-            ./gradlew bintrayUpload --debug -PvcsTag="${GIT_SHA}"
-        """)
-        .with_artifacts("/build/repo/build/target.maven.zip")
-        .with_scopes("secrets:get:project/application-services/symbols-token")
+            set +x
+            BINTRAY_USER=$(grep 'bintray.user=' local.properties | cut -d'=' -f2)
+            BINTRAY_APIKEY=$(grep 'bintray.apikey=' local.properties | cut -d'=' -f2)
+            PUBLISH_URL=https://api.bintray.com/content/ncalexander/application-services/org.mozilla.appservices/{}/publish
+            echo "Publishing on $PUBLISH_URL"
+            curl -X POST -u $BINTRAY_USER:$BINTRAY_APIKEY $PUBLISH_URL
+            echo "Success!"
+            set -x
+        """.format(appservices_version()))
         .with_scopes("secrets:get:project/application-services/publish")
-        .with_features("taskclusterProxy")
+        .with_features('taskclusterProxy') # So we can fetch the bintray secret.
         .create()
     )
-
 
 def dockerfile_path(name):
     return os.path.join(os.path.dirname(__file__), "docker", name + ".dockerfile")
@@ -215,11 +259,11 @@ def linux_build_task(name):
         """)
     )
 
-def linux_target_macos_build_task(name):
+def linux_cross_compile_build_task(name):
     return (
         linux_build_task(name)
         .with_scopes('project:releng:services/tooltool/api/download/internal')
-        .with_features('taskclusterProxy')
+        .with_features('taskclusterProxy') # So we can fetch from tooltool.
         .with_script("""
             rustup target add x86_64-apple-darwin
 

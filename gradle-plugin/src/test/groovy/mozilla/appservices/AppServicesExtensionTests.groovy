@@ -50,7 +50,7 @@ class AppServicesExtensionTests extends Specification {
                 apply plugin: 'com.android.library'
 
                 android {
-                    compileSdkVersion 27
+                    compileSdkVersion rootProject.ext.build.compileSdkVersion
 
                     defaultConfig {
                         minSdkVersion 21
@@ -71,7 +71,7 @@ class AppServicesExtensionTests extends Specification {
                 apply plugin: 'com.android.application'
 
                 android {
-                    compileSdkVersion 27
+                    compileSdkVersion rootProject.ext.build.compileSdkVersion
 
                     defaultConfig {
                         minSdkVersion 21

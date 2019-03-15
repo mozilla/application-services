@@ -22,7 +22,7 @@ These are the steps needed to cut a new release.
     5. Make sure the changelog follows the format of the other changelog entries. If you have access, [this document](https://docs.google.com/document/d/1oxdGm7OQcsy78NzXjMQKTbfzn21tl9Nopmvo8NCMWmU) is fairly comprehensive. For a concrete example, at the time of this writing, see the [0.13.0](https://github.com/mozilla/application-services/blob/master/CHANGELOG.md#0130-2019-01-09) release notes.
         - Note that we try to provide PR or issue numbers (and links) for each change. Please add these if they are missing.
 
-2. Bump the version number in the top-level [build.gradle](https://github.com/mozilla/application-services/blob/master/build.gradle) file. Be sure you're following semver, and if in doubt, ask.
+2. Bump `libraryVersion` in the top-level [.buildconfig-android.yml](https://github.com/mozilla/application-services/blob/master/.buildconfig-android.yml) file. Be sure you're following semver, and if in doubt, ask.
 3. Land the commits that perform the steps above. This takes a PR, typically.
 4. Cut the actual release.
     1. Click "Releases", and then "Draft a New Release" in the github UI.

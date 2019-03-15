@@ -5,7 +5,7 @@ apply plugin: 'kotlin-android-extensions'
 apply plugin: 'com.google.protobuf'
 
 android {
-    compileSdkVersion 27
+    compileSdkVersion rootProject.ext.build.compileSdkVersion
 
     defaultConfig {
         minSdkVersion rootProject.ext.build['minSdkVersion']
@@ -155,10 +155,10 @@ afterEvaluate {
 }
 
 apply from: "$rootDir/publish.gradle"
+// If using jnaForTestConfiguration or variantWithoutLib,
+// please also update the corresponding .buildconfig-android.yml
+// `publishedArtifacts` property.
 ext.configurePublish(
-        'org.mozilla.appservices',
-        'fxaclient',
-        'Firefox Accounts client.',
         /* jnaForTestConfiguration= */ configurations.jnaForTest,
         /* variantWithoutLib= */ 'androidWithoutLib',
 )
