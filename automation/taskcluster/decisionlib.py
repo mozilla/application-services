@@ -601,7 +601,6 @@ class DockerWorkerTask(Task):
         return self \
         .with_env(**git_env()) \
         .with_early_script("""
-            git init repo
             cd repo
             git fetch --quiet --tags "$GIT_URL" "$GIT_REF"
             git reset --hard "$GIT_SHA"
