@@ -27,7 +27,7 @@ import taskcluster
 # Public API
 __all__ = [
     "CONFIG", "SHARED",
-    "Task", "DockerWorkerTask",
+    "Task", "DockerWorkerTask", "BeetmoverTask",
     "build_full_task_graph", "populate_chain_of_trust_required_but_unused_files",
     "populate_chain_of_trust_task_graph",
 ]
@@ -256,6 +256,32 @@ class Task:
         SHARED.found_or_created_indexed_tasks[index_path] = task_id
         return task_id
 
+class BeetmoverTask(Task):
+    def __init__(self, name):
+        super().__init__(name)
+        self.provisioner_id = "scriptworker-prov-v1"
+        self.artifact_id = None
+        self.app_name = None
+        self.app_version = None
+        self.upstream_artifacts = []
+
+    with_app_name = chaining(setattr, "app_name")
+    with_app_version = chaining(setattr, "app_version")
+    with_artifact_id = chaining(setattr, "artifact_id")
+    with_upstream_artifact = chaining(append_to_attr, "upstream_artifacts")
+
+    def build_worker_payload(self):
+        return {
+            "features": "chainOfTrust",
+            "maxRunTime": 10 * 60,
+            "releaseProperties": {
+                "appName": self.app_name,
+            },
+            "upstreamArtifacts": self.upstream_artifacts,
+            "version": self.app_version,
+            "artifact_id": self.artifact_id,
+        }
+
 class DockerWorkerTask(Task):
     """
     Task definition for a worker type that runs the `generic-worker` implementation.
@@ -298,6 +324,8 @@ class DockerWorkerTask(Task):
                 deindent("\n".join(self.scripts))
             ],
         }
+        if len(self.artifacts) > 0 and "chainOfTrust" not in self.features:
+            self.features["chainOfTrust"] = True
         return dict_update_if_truthy(
             worker_payload,
             env=self.env,
@@ -393,7 +421,7 @@ class DockerWorkerTask(Task):
                 "servobrowser/taskcluster-bootstrap:image-builder@sha256:" \
                 "0a7d012ce444d62ffb9e7f06f0c52fedc24b68c2060711b313263367f7272d9d"
             )
-            .find_or_create("docker-image." + digest)
+            .find_or_create("appservices-docker-image." + digest)
         )
 
         return self \

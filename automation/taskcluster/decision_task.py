@@ -59,7 +59,7 @@ def android_libs():
         .with_artifacts(
             "/build/repo/target.tar.gz",
         )
-        .find_or_create("build.libs.android." + CONFIG.git_sha_for_directory("libs"))
+        .find_or_create("build-libs.android." + CONFIG.git_sha_for_directory("libs"))
     )
 
 def desktop_linux_libs():
@@ -74,7 +74,7 @@ def desktop_linux_libs():
         .with_artifacts(
             "/build/repo/target.tar.gz",
         )
-        .find_or_create("build.libs.desktop.linux." + CONFIG.git_sha_for_directory("libs"))
+        .find_or_create("build-libs.desktop.linux." + CONFIG.git_sha_for_directory("libs"))
     )
 
 def desktop_macos_libs():
@@ -89,7 +89,7 @@ def desktop_macos_libs():
         .with_artifacts(
             "/build/repo/target.tar.gz",
         )
-        .find_or_create("build.libs.desktop.macos." + CONFIG.git_sha_for_directory("libs"))
+        .find_or_create("build-libs.desktop.macos." + CONFIG.git_sha_for_directory("libs"))
     )
 
 def desktop_win32_x86_64_libs():
@@ -105,7 +105,7 @@ def desktop_win32_x86_64_libs():
         .with_artifacts(
             "/build/repo/target.tar.gz",
         )
-        .find_or_create("build.libs.desktop.win32-x86-64." + CONFIG.git_sha_for_directory("libs"))
+        .find_or_create("build-libs.desktop.win32-x86-64." + CONFIG.git_sha_for_directory("libs"))
     )
 
 def android_task(task_name, libs_tasks):
@@ -136,12 +136,8 @@ def gradle_module_task_name(module, gradle_task_name):
 
 def gradle_module_task(libs_tasks, module_info, is_release):
     module = module_info['name']
-    if is_release:
-        task_title = "{} - Build, test and upload to bintray".format(module)
-    else:
-        task_title = "{} - Build and test".format(module)
     task = (
-        android_task(task_title, libs_tasks)
+        android_task("{} - Build and test".format(module), libs_tasks)
         .with_script("""
             yes | sdkmanager --update
             yes | sdkmanager --licenses
@@ -154,13 +150,9 @@ def gradle_module_task(libs_tasks, module_info, is_release):
     )
     for artifact_info in module_info['artifacts']:
         task.with_artifacts(artifact_info['artifact'])
-    if is_release:
-        if module_info['uploadSymbols']:
-            task.with_scopes("secrets:get:project/application-services/symbols-token")
-            task.with_script("./automation/upload_android_symbols.sh {}".format(module_info['path']))
-        task.with_scopes("secrets:get:project/application-services/publish")
-        task.with_script("python automation/taskcluster/release/fetch-bintray-api-key.py")
-        task.with_script('./gradlew --no-daemon {} --debug -PvcsTag="$GIT_SHA"'.format(gradle_module_task_name(module, "bintrayUpload")))
+    if is_release and module_info['uploadSymbols']:
+        task.with_scopes("secrets:get:project/application-services/symbols-token")
+        task.with_script("./automation/upload_android_symbols.sh {}".format(module_info['path']))
     return task.create()
 
 def build_gradle_modules_tasks(is_release):
@@ -175,30 +167,39 @@ def android_multiarch():
 
 def android_multiarch_release():
     module_build_tasks = build_gradle_modules_tasks(True)
-    return (
-        linux_build_task("All modules - Publish via bintray")
-        .with_dependencies(*module_build_tasks.values())
-        # Our -unpublished- artifacts were uploaded in build_gradle_modules_tasks(),
-        # however there is not way to just trigger a bintray publish from gradle without
-        # uploading anything, so we do it manually using curl :(
-        # We COULD publish each artifact individually, however that would mean if
-        # a build task fails we end up with a partial release.
-        # Since we manipulate secrets, we also disable bash debug mode.
-        .with_script("""
-            python automation/taskcluster/release/fetch-bintray-api-key.py
-            set +x
-            BINTRAY_USER=$(grep 'bintray.user=' local.properties | cut -d'=' -f2)
-            BINTRAY_APIKEY=$(grep 'bintray.apikey=' local.properties | cut -d'=' -f2)
-            PUBLISH_URL=https://api.bintray.com/content/ncalexander/application-services/org.mozilla.appservices/{}/publish
-            echo "Publishing on $PUBLISH_URL"
-            curl -X POST -u $BINTRAY_USER:$BINTRAY_APIKEY $PUBLISH_URL
-            echo "Success!"
-            set -x
-        """.format(appservices_version()))
-        .with_scopes("secrets:get:project/application-services/publish")
-        .with_features('taskclusterProxy') # So we can fetch the bintray secret.
-        .create()
-    )
+
+    version = appservices_version()
+    worker_type = os.environ['BEETMOVER_WORKER_TYPE']
+    bucket_name = os.environ['BEETMOVER_BUCKET']
+    bucket_public_url = os.environ['BEETMOVER_BUCKET_PUBLIC_URL']
+
+    for module_info in module_definitions():
+        module = module_info['name']
+        build_task = module_build_tasks[module]
+        for artifact_info in module_info['artifacts']:
+            artifact_name = artifact_info['name']
+            artifact = artifact_info['path']
+            (
+                BeetmoverTask("Publish Android module: {} via beetmover".format(artifact_name))
+                .with_description("Publish release module {} to {}".format(artifact_name, bucket_public_url))
+                .with_worker_type(worker_type)
+                # We want to make sure ALL builds succeeded before doing a release.
+                .with_dependencies(*module_build_tasks.values())
+                .with_upstream_artifact({
+                    "paths": [artifact],
+                    "taskId": build_task,
+                    "taskType": "build",
+                    "zipExtract": True,
+                })
+                .with_app_name("appservices")
+                .with_artifact_id(artifact_name)
+                .with_app_version(version)
+                .with_scopes(
+                    "project:mozilla:application-services:releng:beetmover:bucket:{}".format(bucket_name),
+                    "project:mozilla:application-services:releng:beetmover:action:push-to-maven"
+                )
+                .create()
+            )
 
 def dockerfile_path(name):
     return os.path.join(os.path.dirname(__file__), "docker", name + ".dockerfile")

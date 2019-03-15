@@ -132,12 +132,26 @@ tasks:
                 description: Schedules the build and test tasks for Application Services.
         "tasks_for == 'github-release'":
           $let:
+            #TODO: mobile-beetmover-v1
+            beetmover_worker_type: mobile-beetmover-dev
+            #TODO: maven-production
+            beetmover_bucket: maven-staging
+            #TODO: https://maven.mozilla.org/
+            beetmover_bucket_public_url: https://maven-default.stage.mozaws.net/
             tag: ${event.release.tag_name}
             release_task_definition:
+              payload:
+                env:
+                  BEETMOVER_WORKER_TYPE: ${beetmover_worker_type}
+                  BEETMOVER_BUCKET: ${beetmover_bucket}
+                  BEETMOVER_BUCKET_PUBLIC_URL: ${beetmover_bucket_public_url}
+                features:
+                  chainOfTrust: true
               scopes:
-                # So that we can publish to nalexander@'s personal bintray
-                # at https://bintray.com/ncalexander/application-services.
-                - "secrets:get:project/application-services/publish"
+                # So that we can publish on Maven using beetmover
+                - project:mozilla:application-services:releng:beetmover:action:push-to-maven
+                - project:mozilla:application-services:releng:beetmover:bucket:${beetmover_bucket}
+                - queue:create-task:${tasks_priority}:scriptworker-prov-v1/${beetmover_worker_type}
                 # So that we can upload symbols to Socorro
                 - "secrets:get:project/application-services/symbols-token"
           in:
