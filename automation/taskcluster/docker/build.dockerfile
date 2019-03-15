@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # We use this specific version because our decision task also runs on this one.
+# We also use that same version in decisionlib.py
 FROM ubuntu:bionic-20180821
 
 MAINTAINER Nick Alexander "nalexander@mozilla.com"
