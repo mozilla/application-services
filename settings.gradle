@@ -1,25 +1,52 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+import org.yaml.snakeyaml.Yaml
+buildscript {
+    dependencies {
+        classpath 'org.yaml:snakeyaml:1.23'
+    }
+    repositories {
+        jcenter()
+    }
+}
+
 // See https://docs.gradle.org/current/userguide/publishing_maven.html#publishing_maven:deferred_configuration.
 enableFeaturePreview('STABLE_PUBLISHING')
 
-include ':fxa-client-library'
-include ':logins-library'
-include ':places-library'
-include ':rustlog-library'
-include ':as-support-library'
-include ':push-library'
+def setupProject(name, projectProps) {
+    def path = projectProps.path
+    def description = projectProps.description
+    def artifactId = projectProps.artifactId
 
-project(':fxa-client-library').projectDir = new File("components/fxa-client/android")
-project(':logins-library').projectDir = new File("components/logins/android")
-project(':places-library').projectDir = new File("components/places/android")
-project(':rustlog-library').projectDir = new File("components/rc_log/android")
-project(':as-support-library').projectDir = new File("components/support/android")
-project(':push-library').projectDir = new File("components/push/android")
+    settings.include(":$name")
 
-include ':lockbox-megazord'
-project(':lockbox-megazord').projectDir = new File("megazords/lockbox/android")
+    project(":$name").projectDir = new File(rootDir, path)
 
-include ':reference-browser-megazord'
-project(':reference-browser-megazord').projectDir = new File("megazords/reference-browser/android")
+    // project(...) gives us a skeleton project that we can't set ext.* on
+    gradle.beforeProject { project ->
+        // However, the "afterProject" listener iterates over every project and gives us the actual project
+        // So, once we filter for the project we care about, we can set whatever we want
+        if (project.name == name) {
+            project.ext.description = description
+            project.ext.artifactId = artifactId
+        }
+    }
+}
 
-include ':fenix-megazord'
-project(':fenix-megazord').projectDir = new File("megazords/fenix/android")
+def yaml = new Yaml()
+def buildconfig = yaml.load(new File(rootDir, '.buildconfig-android.yml').newInputStream())
+buildconfig.projects.each { project ->
+    setupProject(project.key, project.value)
+}
+
+gradle.projectsLoaded { ->
+    // Wait until root project is "loaded" before we set "config"
+    // Note that since this is set on "rootProject.ext", it will be "in scope" during the evaluation of all projects'
+    // gradle files. This means that they can just access "config.<value>", and it'll function properly
+    gradle.rootProject.ext.library = [
+        version: buildconfig.libraryVersion,
+        groupId: buildconfig.groupId,
+    ]
+}
