@@ -2,7 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-FROM ubuntu:bionic-20190307
+# We use this specific version because our decision task also runs on this one.
+FROM ubuntu:bionic-20180821
 
 MAINTAINER Nick Alexander "nalexander@mozilla.com"
 
