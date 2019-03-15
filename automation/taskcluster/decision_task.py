@@ -181,8 +181,8 @@ def linux_build_task(name):
         .with_dockerfile(dockerfile_path("build"))
         .with_env(**build_env, **linux_build_env)
         .with_script("""
-            rustup toolchain install 1.33.0
-            rustup default 1.33.0
+            rustup toolchain install stable
+            rustup default stable
             # rustup target add x86_64-unknown-linux-gnu # See https://github.com/rust-lang-nursery/rustup.rs/issues/1533.
 
             rustup target add x86_64-linux-android
