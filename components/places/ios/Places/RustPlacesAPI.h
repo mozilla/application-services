@@ -12,11 +12,16 @@ typedef enum PlacesErrorCode {
     Places_Panic = -1,
     Places_NoError = 0,
     Places_UnexpectedError = 1,
-    Places_InvalidPlaceInfo = 2,
-    Places_UrlParseError = 3,
-    Places_DatabaseBusy = 4,
-    Places_DatabaseInterrupted = 5,
-    Places_Corrupt = 6,
+    Places_UrlParseError = 2,
+    Places_DatabaseBusy = 3,
+    Places_DatabaseInterrupted = 4,
+    Places_Corrupt = 5,
+
+    Places_InvalidPlace_InvalidParent = 64 + 0,
+    Places_InvalidPlace_NoSuchItem = 64 + 1,
+    Places_InvalidPlace_UrlTooLong = 64 + 2,
+    Places_InvalidPlace_IllegalChange = 64 + 3,
+    Places_InvalidPlace_CannotUpdateRoot = 64 + 4,
 } PlacesErrorCode;
 
 typedef struct PlacesRustError {

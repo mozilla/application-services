@@ -178,7 +178,9 @@ impl msg_types::BookmarkNode {
                 parent_guid,
                 position,
                 title: self.title,
-                url: Url::parse(&self.url.ok_or(InvalidPlaceInfo::NoUrl)?)?,
+                // This will fail if Url is empty, but with a url parse error,
+                // which is what we want.
+                url: Url::parse(&self.url.unwrap_or_default())?,
                 guid: None,
                 date_added: None,
                 last_modified: None,

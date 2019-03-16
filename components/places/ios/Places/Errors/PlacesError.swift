@@ -35,6 +35,28 @@ public enum PlacesError: Error {
     /// The requested operation failed because the store is corrupt
     case databaseCorrupt(message: String)
 
+    /// Thrown on insertions and updates that specify a parent which
+    /// is not a folder
+    case invalidParent(message: String)
+
+    /// Thrown on insertions and updates that specify a GUID which
+    /// does not exist.
+    case noSuchItem(message: String)
+
+    /// Thrown on insertions and updates that attempt to insert or
+    /// update a bookmark URL beyond the maximum length of
+    /// 65536 bytes.
+    case urlTooLong(message: String)
+
+    /// Thrown when attempting to update a bookmark in an illegal way,
+    /// for example, trying to set the URL of a folder, the title of
+    /// a separator, etc.
+    case illegalChange(message: String)
+
+    /// Thrown when attempting to update or delete a root, or
+    /// insert a new item as a child of root________.
+    case cannotUpdateRoot(message: String)
+
     // The name is attempting to indicate that we free rustError.message if it
     // existed, and that it's a very bad idea to touch it after you call this
     // function
@@ -51,9 +73,6 @@ public enum PlacesError: Error {
         case Places_UnexpectedError:
             return .unexpected(message: String(freeingPlacesString: message!))
 
-        case Places_InvalidPlaceInfo:
-            return .invalidPlace(message: String(freeingPlacesString: message!))
-
         case Places_UrlParseError:
             return .urlParseError(message: String(freeingPlacesString: message!))
 
@@ -62,6 +81,21 @@ public enum PlacesError: Error {
 
         case Places_DatabaseInterrupted:
             return .databaseInterrupted(message: String(freeingPlacesString: message!))
+
+        case Places_InvalidPlace_InvalidParent:
+            return .invalidParent(message: String(freeingPlacesString: message!))
+
+        case Places_InvalidPlace_NoSuchItem:
+            return .noSuchItem(message: String(freeingPlacesString: message!))
+
+        case Places_InvalidPlace_UrlTooLong:
+            return .urlTooLong(message: String(freeingPlacesString: message!))
+
+        case Places_InvalidPlace_IllegalChange:
+            return .illegalChange(message: String(freeingPlacesString: message!))
+
+        case Places_InvalidPlace_CannotUpdateRoot:
+            return .cannotUpdateRoot(message: String(freeingPlacesString: message!))
 
         case Places_Corrupt:
             return .databaseCorrupt(message: String(freeingPlacesString: message!))

@@ -169,14 +169,15 @@ interface ReadableBookmarksConnection : InterruptibleConnection {
      *
      * @param rootGUID the GUID where to start the tree.
      *
-     * @param recursive Whether or not to return more than a single
-     *                  level of children for folders. If false, then
-     *                  any folders which are children of the requested
-     *                  node will *only* have their `childGUIDs`
-     *                  populated, and *not* their `children`.
+     * @param recursive Whether or not to return more than a single level of children for folders.
+     * If false, then any folders which are children of the requested node will *only* have their
+     * `childGUIDs` populated, and *not* their `children`.
      *
      * @return The bookmarks tree starting at `rootGUID`, or null if the provided
-     *         id didn't refer to a known bookmark item.
+     * id didn't refer to a known bookmark item.
+     *
+     * @throws OperationInterrupted if this database implements [InterruptibleConnection] and
+     * has its `interrupt()` method called on another thread.
      */
     fun getBookmarksTree(rootGUID: String, recursive: Boolean): BookmarkTreeNode?
 
@@ -188,6 +189,9 @@ interface ReadableBookmarksConnection : InterruptibleConnection {
      * @param guid the guid of the bookmark to fetch.
      * @return The bookmark node, or null if the provided
      *         guid didn't refer to a known bookmark item.
+     *
+     * @throws OperationInterrupted if this database implements [InterruptibleConnection] and
+     * has its `interrupt()` method called on another thread.
      */
     fun getBookmark(guid: String): BookmarkTreeNode?
 
@@ -201,6 +205,9 @@ interface ReadableBookmarksConnection : InterruptibleConnection {
      *
      * @param url The url to search for.
      * @return A list of bookmarks that have the requested URL.
+     *
+     * @throws OperationInterrupted if this database implements [InterruptibleConnection] and
+     * has its `interrupt()` method called on another thread.
      */
     fun getBookmarksWithURL(url: String): List<BookmarkItem>
 
@@ -211,9 +218,11 @@ interface ReadableBookmarksConnection : InterruptibleConnection {
      *
      * @param query The search query
      * @param limit The maximum number of items to return.
-     * @return A list of bookmarks where either the URL or the title
-     *         contain a word (e.g. space separated item) from the
-     *         query.
+     * @return A list of bookmarks where either the URL or the title contain a word
+     * (e.g. space separated item) from the query.
+     *
+     * @throws OperationInterrupted if this database implements [InterruptibleConnection] and
+     * has its `interrupt()` method called on another thread.
      */
     fun searchBookmarks(query: String, limit: Int): List<BookmarkItem>
 }
@@ -231,6 +240,8 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      *
      * @param guid The GUID of the bookmark to delete
      * @return Whether or not the bookmark existed.
+     *
+     * @throws CannotUpdateRoot If `guid` refers to a bookmark root.
      */
     fun deleteBookmarkNode(guid: String): Boolean
 
@@ -239,10 +250,15 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      *
      * @param parentGUID The GUID of the (soon to be) parent of this bookmark.
      * @param title The title of the folder.
-     * @param position The index where to insert the record inside
-     *                 it's parent. If not provided, this item will
-     *                 be appended.
+     * @param position The index where to insert the record inside it's parent.
+     * If not provided, this item will be appended. If the position is outside
+     * the range of positions currently occupied by children in this folder,
+     * it is first constrained to be within that range.
      * @return The GUID of the newly inserted bookmark folder.
+     *
+     * @throws CannotUpdateRoot If `parentGUID` is the [BookmarkRoot.Root] (e.g. "root________")
+     * @throws UnknownBookmarkItem If `parentGUID` does not to a known bookmark.
+     * @throws InvalidParent If `parentGUID` does not refer to a folder node.
      */
     fun createFolder(
             parentGUID: String,
@@ -254,10 +270,15 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * Create a bookmark separator, returning it's guid.
      *
      * @param parentGUID The GUID of the (soon to be) parent of this bookmark.
-     * @param position The index where to insert the record inside
-     *                 it's parent. If not provided, this item will
-     *                 be appended.
+     * @param position The index where to insert the record inside it's parent.
+     * If not provided, this item will be appended. If the position is outside
+     * the range of positions currently occupied by children in this folder,
+     * it is first constrained to be within that range.
      * @return The GUID of the newly inserted bookmark separator.
+     *
+     * @throws CannotUpdateRoot If `parentGUID` is the [BookmarkRoot.Root] (e.g. "root________")
+     * @throws UnknownBookmarkItem If `parentGUID` does not to a known bookmark.
+     * @throws InvalidParent If `parentGUID` does not refer to a folder node.
      */
     fun createSeparator(
             parentGUID: String,
@@ -270,10 +291,17 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * @param parentGUID The GUID of the (soon to be) parent of this bookmark.
      * @param url The URL to bookmark
      * @param title The title of the new bookmark, if any.
-     * @param position The index where to insert the record inside
-     *                 it's parent. If not provided, this item will
-     *                 be appended.
+     * @param position The index where to insert the record inside it's parent.
+     * If not provided, this item will be appended. If the position is outside
+     * the range of positions currently occupied by children in this folder,
+     * it is first constrained to be within that range.
      * @return The GUID of the newly inserted bookmark item.
+     *
+     * @throws CannotUpdateRoot If `parentGUID` is the [BookmarkRoot.Root] (e.g. "root________")
+     * @throws UnknownBookmarkItem If `parentGUID` does not to a known bookmark.
+     * @throws InvalidParent If `parentGUID` does not refer to a folder node.
+     * @throws UrlParseFailed If `url` does not refer to a valid URL.
+     * @throws UrlTooLong if `url` exceeds the maximum length of 65536 bytes (when encoded)
      */
     fun createBookmarkItem(
             parentGUID: String,
@@ -287,6 +315,15 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      *
      * @param guid Guid of the bookmark to update
      * @param info The changes to make to the listed bookmark.
+     *
+     * @throws InvalidBookmarkUpdate If the change requested is impossible given the
+     * type of the item in the DB. For example, on attempts to update the title of a separator.
+     * @throws CannotUpdateRoot If `guid` is a bookmark root, or `info.parentGUID`
+     * is provided, and is [BookmarkRoot.Root] (e.g. "root________")
+     * @throws UnknownBookmarkItem If `guid` or `info.parentGUID` (if specified) does not to
+     * a known bookmark.
+     * @throws InvalidParent If `info.parentGUID` is specified, but does not refer to a
+     * folder node.
      */
     fun updateBookmark(guid: String, info: BookmarkUpdateInfo)
 }
@@ -304,7 +341,7 @@ data class BookmarkUpdateInfo(
 
         /**
          * If the record should be moved, the 0-based index where it
-         * should be moved to. Interacts with `parentGUID` as follows:,
+         * should be moved to. Interacts with `parentGUID` as follows:
          *
          * - If `parentGUID` is not provided and `position` is, we treat this
          *   a move within the same folder.
@@ -315,6 +352,10 @@ data class BookmarkUpdateInfo(
          *
          * - If `position` is not provided (and `parentGUID` is) then it's
          *   treated as a move the end of that folder.
+         *
+         * If position is provided and is outside the range of positions currently
+         * occupied by children in this folder, it is first constrained to
+         * be within that range.
          */
         val position: Int? = null,
 
@@ -341,6 +382,54 @@ data class BookmarkUpdateInfo(
         return builder.build()
     }
 }
+
+/**
+ * Error indicating bookmarks corruption. If this occurs, we
+ * would appreciate reports.
+ *
+ * Eventually it should be fixed up, when detected as part of
+ * `runMaintenance`.
+ */
+open class BookmarksCorruption(msg: String): PlacesException(msg)
+
+/**
+ * Thrown when attempting to insert a URL greater than 65536 bytes
+ * (after punycoding and percent encoding).
+ *
+ * Attempting to truncate the URL is difficult and subtle, and
+ * is guaranteed to result in a URL different from the one the
+ * user attempted to bookmark, and so an error is thrown instead.
+ */
+open class UrlTooLong(msg: String): PlacesException(msg)
+
+/**
+ * Thrown when attempting to update a bookmark item in an illegal
+ * way. For example, attempting to change the URL of a bookmark
+ * folder, or update the title of a separator, etc.
+ */
+open class InvalidBookmarkUpdate(msg: String): PlacesException(msg)
+
+/**
+ * Thrown when providing a guid to a create or update function
+ * which does not refer to a known bookmark.
+ */
+open class UnknownBookmarkItem(msg: String): PlacesException(msg)
+
+/**
+ * Thrown when:
+ *
+ * - Attempting to insert a child under BookmarkRoot.Root,
+ * - Attempting to update any of the bookmark roots.
+ * - Attempting to delete any of the bookmark roots.
+ */
+open class CannotUpdateRoot(msg: String): PlacesException(msg)
+
+/**
+ * Thrown when providing a guid referring to a non-folder as the
+ * parentGUID parameter to a create or update
+ */
+open class InvalidParent(msg: String): PlacesException(msg)
+
 
 /**
  * Turn the protobuf rust passes us into a BookmarkTreeNode.

@@ -6,7 +6,7 @@
 
 use crate::api::matcher::SearchResult;
 use crate::db::PlacesInterruptHandle;
-use crate::error::{Error, ErrorKind};
+use crate::error::{Error, ErrorKind, InvalidPlaceInfo};
 use crate::msg_types;
 use ffi_support::{
     implement_into_ffi_by_delegation, implement_into_ffi_by_json, implement_into_ffi_by_pointer,
@@ -20,29 +20,64 @@ pub mod error_codes {
     /// by the application.
     pub const UNEXPECTED: i32 = 1;
 
-    /// The PlaceInfo we were given is invalid. (TODO: do we want to expose this as multiple
-    /// error codes?)
-    pub const INVALID_PLACE_INFO: i32 = 2;
-
     /// A URL was provided that we failed to parse
-    pub const URL_PARSE_ERROR: i32 = 3;
+    pub const URL_PARSE_ERROR: i32 = 2;
 
     /// The requested operation failed because the database was busy
     /// performing operations on a separate connection to the same DB.
-    pub const DATABASE_BUSY: i32 = 4;
+    pub const DATABASE_BUSY: i32 = 3;
 
     /// The requested operation failed because it was interrupted
-    pub const DATABASE_INTERRUPTED: i32 = 5;
+    pub const DATABASE_INTERRUPTED: i32 = 4;
 
     /// The requested operation failed because the store is corrupt
-    pub const DATABASE_CORRUPT: i32 = 6;
+    pub const DATABASE_CORRUPT: i32 = 5;
+
+    // Skip a bunch of spaces to make it clear these are part of a group,
+    // even as more and more errors get added. We're only exposing the
+    // InvalidPlaceInfo items that can actually be triggered, the others
+    // (if they happen accidentally) will come through as unexpected.
+
+    /// `InvalidParent`: Attempt to add a child to a non-folder.
+    pub const INVALID_PLACE_INFO_INVALID_PARENT: i32 = 64 + 0;
+
+    /// `NoItem`: The GUID provided does not exist.
+    pub const INVALID_PLACE_INFO_NO_ITEM: i32 = 64 + 1;
+
+    /// `UrlTooLong`: The provided URL cannot be inserted, as it is over the
+    /// maximum URL length.
+    pub const INVALID_PLACE_INFO_URL_TOO_LONG: i32 = 64 + 2;
+
+    /// `IllegalChange`: Attempt to change a property on a bookmark node that
+    /// cannot have that property. E.g. trying to edit the URL of a folder,
+    /// title of a separator, etc.
+    pub const INVALID_PLACE_INFO_ILLEGAL_CHANGE: i32 = 64 + 3;
+
+    /// `CannotUpdateRoot`: Attempt to modify a root in a way that is illegal, e.g. adding a child
+    /// to root________, updating properties of a root, deleting a root, etc.
+    pub const INVALID_PLACE_INFO_CANNOT_UPDATE_ROOT: i32 = 64 + 4;
+
 }
 
 fn get_code(err: &Error) -> ErrorCode {
     match err.kind() {
         ErrorKind::InvalidPlaceInfo(info) => {
             log::error!("Invalid place info: {}", info);
-            ErrorCode::new(error_codes::INVALID_PLACE_INFO)
+            let code = match &info {
+                InvalidPlaceInfo::InvalidParent(..) => {
+                    error_codes::INVALID_PLACE_INFO_INVALID_PARENT
+                }
+                InvalidPlaceInfo::NoItem(..) => error_codes::INVALID_PLACE_INFO_NO_ITEM,
+                InvalidPlaceInfo::UrlTooLong => error_codes::INVALID_PLACE_INFO_INVALID_PARENT,
+                InvalidPlaceInfo::IllegalChange(..) => {
+                    error_codes::INVALID_PLACE_INFO_ILLEGAL_CHANGE
+                }
+                InvalidPlaceInfo::CannotUpdateRoot(..) => {
+                    error_codes::INVALID_PLACE_INFO_CANNOT_UPDATE_ROOT
+                }
+                _ => error_codes::UNEXPECTED,
+            };
+            ErrorCode::new(code)
         }
         ErrorKind::UrlParseError(e) => {
             log::error!("URL parse error: {}", e);

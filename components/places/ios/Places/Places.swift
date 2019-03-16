@@ -168,6 +168,20 @@ public class PlacesReadConnection {
      *
      * - Returns: The bookmarks tree starting from `rootGUID`, or null if the
      *            provided guid didn't refer to a known bookmark item.
+     * - Throws:
+     *     - `PlacesError.databaseCorrupt`: If corruption is encountered when fetching
+     *                                      the tree
+     *     - `PlacesError.databaseInterrupted`: If a call is made to `interrupt()` on this
+     *                                          object from another thread.
+     *     - `PlacesError.connUseAfterAPIClosed`: If the PlacesAPI that returned this connection
+     *                                            object has been closed. This indicates API
+     *                                            misuse.
+     *     - `PlacesError.databaseBusy`: If this query times out with a SQLITE_BUSY error.
+     *     - `PlacesError.unexpected`: When an error that has not specifically been exposed
+     *                                 to Swift is encountered (for example IO errors from
+     *                                 the database code, etc).
+     *     - `PlacesError.panic`: If the rust code panics while completing this
+     *                            operation. (If this occurs, please let us know).
      */
     func getBookmarksTree(rootGUID: String, recursive: Bool) throws -> BookmarkNode? {
         return try queue.sync {
@@ -201,6 +215,18 @@ public class PlacesReadConnection {
      *
      * - Returns: The bookmark node, or null if the provided guid didn't refer to a
      *            known bookmark item.
+     * - Throws:
+     *     - `PlacesError.databaseInterrupted`: If a call is made to `interrupt()` on this
+     *                                          object from another thread.
+     *     - `PlacesError.connUseAfterAPIClosed`: If the PlacesAPI that returned this connection
+     *                                            object has been closed. This indicates API
+     *                                            misuse.
+     *     - `PlacesError.databaseBusy`: If this query times out with a SQLITE_BUSY error.
+     *     - `PlacesError.unexpected`: When an error that has not specifically been exposed
+     *                                 to Swift is encountered (for example IO errors from
+     *                                 the database code, etc).
+     *     - `PlacesError.panic`: If the rust code panics while completing this
+     *                            operation. (If this occurs, please let us know).
      */
     func getBookmark(guid: String) throws -> BookmarkNode? {
         return try queue.sync {
@@ -229,6 +255,19 @@ public class PlacesReadConnection {
      * - Parameter url: The url to search for.
      *
      * - Returns: A list of bookmarks that have the requested URL.
+     *
+     * - Throws:
+     *     - `PlacesError.databaseInterrupted`: If a call is made to `interrupt()` on this
+     *                                          object from another thread.
+     *     - `PlacesError.connUseAfterAPIClosed`: If the PlacesAPI that returned this connection
+     *                                            object has been closed. This indicates API
+     *                                            misuse.
+     *     - `PlacesError.databaseBusy`: If this query times out with a SQLITE_BUSY error.
+     *     - `PlacesError.unexpected`: When an error that has not specifically been exposed
+     *                                 to Swift is encountered (for example IO errors from
+     *                                 the database code, etc).
+     *     - `PlacesError.panic`: If the rust code panics while completing this
+     *                            operation. (If this occurs, please let us know).
      */
     func getBookmarksWithURL(url: String) throws -> [BookmarkItem] {
         return try queue.sync {
@@ -253,6 +292,18 @@ public class PlacesReadConnection {
      * - Returns: A list of bookmarks where either the URL or the title
      *            contain a word (e.g. space separated item) from the
      *            query.
+     * - Throws:
+     *     - `PlacesError.databaseInterrupted`: If a call is made to `interrupt()` on this
+     *                                          object from another thread.
+     *     - `PlacesError.connUseAfterAPIClosed`: If the PlacesAPI that returned this connection
+     *                                            object has been closed. This indicates API
+     *                                            misuse.
+     *     - `PlacesError.databaseBusy`: If this query times out with a SQLITE_BUSY error.
+     *     - `PlacesError.unexpected`: When an error that has not specifically been exposed
+     *                                 to Swift is encountered (for example IO errors from
+     *                                 the database code, etc).
+     *     - `PlacesError.panic`: If the rust code panics while completing this
+     *                            operation. (If this occurs, please let us know).
      */
     func searchBookmarks(query: String, limit: UInt) throws -> [BookmarkItem] {
         return try queue.sync {
@@ -295,6 +346,17 @@ public class PlacesWriteConnection : PlacesReadConnection {
      * - Parameter guid: The GUID of the bookmark to delete
      *
      * - Returns: Whether or not the bookmark existed.
+     *
+     * - Throws:
+     *     - `PlacesError.cannotUpdateRoot`: if `guid` is one of the bookmark roots.
+     *     - `PlacesError.connUseAfterAPIClosed`: if the PlacesAPI that returned this connection
+     *                                            object has been closed. This indicates API
+     *                                            misuse.
+     *     - `PlacesError.unexpected`: When an error that has not specifically been exposed
+     *                                 to Swift is encountered (for example IO errors from
+     *                                 the database code, etc).
+     *     - `PlacesError.panic`: If the rust code panics while completing this
+     *                            operation. (If this occurs, please let us know).
      */
     @discardableResult
     func deleteBookmarkNode(guid: String) throws -> Bool {
@@ -319,6 +381,20 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *                       be appended.
      *
      * - Returns: The GUID of the newly inserted bookmark folder.
+     *
+     * - Throws:
+     *     - `PlacesError.cannotUpdateRoot`: If `parentGUID` is `BookmarkRoots.RootGUID`.
+     *     - `PlacesError.noSuchItem`: If `parentGUID` does not refer to a known bookmark.
+     *     - `PlacesError.invalidParent`: If `parentGUID` refers to a bookmark which is
+     *                                    not a folder.
+     *     - `PlacesError.connUseAfterAPIClosed`: if the PlacesAPI that returned this connection
+     *                                            object has been closed. This indicates API
+     *                                            misuse.
+     *     - `PlacesError.unexpected`: When an error that has not specifically been exposed
+     *                                 to Swift is encountered (for example IO errors from
+     *                                 the database code, etc).
+     *     - `PlacesError.panic`: If the rust code panics while completing this
+     *                            operation. (If this occurs, please let us know).
      */
     @discardableResult
     func createFolder(parentGUID: String, title: String, position: UInt32? = nil) throws -> String {
@@ -330,7 +406,6 @@ public class PlacesWriteConnection : PlacesReadConnection {
         }
     }
 
-
     /**
      * Create a bookmark separator, returning it's guid.
      *
@@ -341,6 +416,19 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *                       be appended.
      *
      * - Returns: The GUID of the newly inserted bookmark separator.
+     * - Throws:
+     *     - `PlacesError.cannotUpdateRoot`: If `parentGUID` is `BookmarkRoots.RootGUID`.
+     *     - `PlacesError.noSuchItem`: If `parentGUID` does not refer to a known bookmark.
+     *     - `PlacesError.invalidParent`: If `parentGUID` refers to a bookmark which is
+     *                                    not a folder.
+     *     - `PlacesError.connUseAfterAPIClosed`: if the PlacesAPI that returned this connection
+     *                                            object has been closed. This indicates API
+     *                                            misuse.
+     *     - `PlacesError.unexpected`: When an error that has not specifically been exposed
+     *                                 to Swift is encountered (for example IO errors from
+     *                                 the database code, etc).
+     *     - `PlacesError.panic`: If the rust code panics while completing this
+     *                            operation. (If this occurs, please let us know).
      */
     @discardableResult
     func createSeparator(parentGUID: String, position: UInt32? = nil) throws -> String {
@@ -365,6 +453,23 @@ public class PlacesWriteConnection : PlacesReadConnection {
      * - Parameter title: The title of the new bookmark, if any.
      *
      * - Returns: The GUID of the newly inserted bookmark item.
+     *
+     * - Throws:
+     *     - `PlacesError.urlParseError`: If `url` is not a valid URL.
+     *     - `PlacesError.urlTooLong`: If `url` is more than 65536 bytes after
+     *                                 punycoding and hex encoding.
+     *     - `PlacesError.cannotUpdateRoot`: If `parentGUID` is `BookmarkRoots.RootGUID`.
+     *     - `PlacesError.noSuchItem`: If `parentGUID` does not refer to a known bookmark.
+     *     - `PlacesError.invalidParent`: If `parentGUID` refers to a bookmark which is
+     *                                    not a folder.
+     *     - `PlacesError.connUseAfterAPIClosed`: if the PlacesAPI that returned this connection
+     *                                            object has been closed. This indicates API
+     *                                            misuse.
+     *     - `PlacesError.unexpected`: When an error that has not specifically been exposed
+     *                                 to Swift is encountered (for example IO errors from
+     *                                 the database code, etc).
+     *     - `PlacesError.panic`: If the rust code panics while completing this
+     *                            operation. (If this occurs, please let us know).
      */
     @discardableResult
     func createBookmark(parentGUID: String, url: String, title: String?, position: UInt32? = nil) throws -> String {
@@ -411,6 +516,24 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *
      *     - If `position` is not provided (and `parentGUID` is) then it's
      *       treated as a move the end of that folder.
+     * - Throws:
+     *     - `PlacesError.illegalChange`: If the change requested is impossible given the
+     *                                    type of the item in the DB. For example, on
+     *                                    attempts to update the title of a separator.
+     *     - `PlacesError.cannotUpdateRoot`: If `guid` is a member of `BookmarkRoots.All`, or
+     *                                       `parentGUID` is is `BookmarkRoots.RootGUID`.
+     *     - `PlacesError.noSuchItem`: If `guid` or `parentGUID` (if specified) do not refer
+     *                                 to known bookmarks.
+     *     - `PlacesError.invalidParent`: If `parentGUID` is specified and refers to a bookmark
+     *                                    which is not a folder.
+     *     - `PlacesError.connUseAfterAPIClosed`: if the PlacesAPI that returned this connection
+     *                                            object has been closed. This indicates API
+     *                                            misuse.
+     *     - `PlacesError.unexpected`: When an error that has not specifically been exposed
+     *                                 to Swift is encountered (for example IO errors from
+     *                                 the database code, etc).
+     *     - `PlacesError.panic`: If the rust code panics while completing this
+     *                            operation. (If this occurs, please let us know).
      */
     func updateBookmarkNode(guid: String,
                             parentGUID: String? = nil,

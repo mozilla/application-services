@@ -255,11 +255,11 @@ fn maybe_truncate_title(t: &Option<String>) -> Option<&str> {
 fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid> {
     // find the row ID of the parent.
     if bm.parent_guid() == BookmarkRootGuid::Root {
-        return Err(InvalidPlaceInfo::InvalidGuid.into());
+        return Err(InvalidPlaceInfo::CannotUpdateRoot(BookmarkRootGuid::Root).into());
     }
     let parent_guid = bm.parent_guid();
     let parent = get_raw_bookmark(db, parent_guid)?
-        .ok_or_else(|| InvalidPlaceInfo::InvalidParent(parent_guid.to_string()))?;
+        .ok_or_else(|| InvalidPlaceInfo::NoItem(parent_guid.to_string()))?;
     if parent.bookmark_type != BookmarkType::Folder {
         return Err(InvalidPlaceInfo::InvalidParent(parent_guid.to_string()).into());
     }
@@ -534,10 +534,10 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
         }
         UpdateTreeLocation::Parent(new_parent_guid, pos) => {
             if new_parent_guid == BookmarkRootGuid::Root {
-                return Err(InvalidPlaceInfo::InvalidGuid.into());
+                return Err(InvalidPlaceInfo::CannotUpdateRoot(BookmarkRootGuid::Root).into());
             }
             let new_parent = get_raw_bookmark(db, &new_parent_guid)?
-                .ok_or_else(|| InvalidPlaceInfo::InvalidParent(new_parent_guid.to_string()))?;
+                .ok_or_else(|| InvalidPlaceInfo::NoItem(new_parent_guid.to_string()))?;
             if new_parent.bookmark_type != BookmarkType::Folder {
                 return Err(InvalidPlaceInfo::InvalidParent(new_parent_guid.to_string()).into());
             }
