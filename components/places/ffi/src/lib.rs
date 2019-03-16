@@ -7,10 +7,10 @@ use ffi_support::{
     define_string_destructor, ByteBuffer, ConcurrentHandleMap, ExternError, FfiStr,
 };
 use places::error::*;
-use places::{db::PlacesInterruptHandle, storage, ConnectionType, PlacesApi, PlacesDb};
-
+use places::msg_types::BookmarkNodeList;
 use places::storage::bookmarks::{self, BookmarkRootGuid};
 use places::types::SyncGuid;
+use places::{db::PlacesInterruptHandle, storage, ConnectionType, PlacesApi, PlacesDb};
 use std::os::raw::c_char;
 use std::sync::Arc;
 
@@ -349,7 +349,7 @@ pub unsafe extern "C" fn bookmarks_get_tree(
             .map(SyncGuid)
             // Default to returning the full tree, if no root was provided.
             .unwrap_or_else(|| BookmarkRootGuid::Root.into());
-        Ok(bookmarks::external::fetch_proto_tree(conn, &root_id)?)
+        Ok(bookmarks::public::fetch_public_tree(conn, &root_id)?)
     })
 }
 
@@ -363,7 +363,7 @@ pub unsafe extern "C" fn bookmarks_get_by_guid(
     log::debug!("bookmarks_get_by_guid");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let guid = SyncGuid(ffi_support::rust_string_from_c(guid));
-        Ok(bookmarks::external::fetch_bookmark(
+        Ok(bookmarks::public::fetch_bookmark(
             conn,
             &guid,
             get_direct_children != 0,
@@ -412,7 +412,7 @@ pub unsafe extern "C" fn bookmarks_update(
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let buffer = get_buffer(data, len);
         let bookmark: BookmarkNode = prost::Message::decode(buffer)?;
-        bookmarks::external::update_bookmark_from_message(conn, bookmark)?;
+        bookmarks::public::update_bookmark_from_message(conn, bookmark)?;
         Ok(())
     })
 }
@@ -439,10 +439,9 @@ pub unsafe extern "C" fn bookmarks_get_all_with_url(
 ) -> ByteBuffer {
     log::debug!("bookmarks_get_all_with_url");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        Ok(bookmarks::external::fetch_bookmarks_by_url(
-            conn,
-            &parse_url(rust_str_from_c(url))?,
-        )?)
+        Ok(BookmarkNodeList::from(
+            bookmarks::public::fetch_bookmarks_by_url(conn, &parse_url(rust_str_from_c(url))?)?,
+        ))
     })
 }
 
@@ -455,11 +454,11 @@ pub unsafe extern "C" fn bookmarks_search(
 ) -> ByteBuffer {
     log::debug!("bookmarks_get_all_with_url");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        Ok(bookmarks::external::search_bookmarks(
+        Ok(BookmarkNodeList::from(bookmarks::public::search_bookmarks(
             conn,
             rust_str_from_c(query),
             limit as u32,
-        )?)
+        )?))
     })
 }
 

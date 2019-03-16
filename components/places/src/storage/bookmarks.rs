@@ -21,10 +21,11 @@ use std::cmp::{max, min};
 use std::collections::HashMap;
 use url::Url;
 
+pub use public::PublicNode;
 pub use root_guid::BookmarkRootGuid;
 
 mod conversions;
-pub mod external;
+pub mod public;
 mod root_guid;
 
 fn create_root(
@@ -122,8 +123,9 @@ fn update_pos_for_move(
     bm: &RawBookmark,
     parent: &RawBookmark,
 ) -> Result<u32> {
-    assert_eq!(bm.parent_id, parent.row_id);
-    // Note the additional -1's below are to account for the item already being in the folder.
+    assert_eq!(bm.parent_id.unwrap(), parent.row_id);
+    // Note the additional -1's below are to account for the item already being
+    // in the folder.
     let new_index = match pos {
         BookmarkPosition::Specific(specified) => min(*specified, parent.child_count - 1),
         BookmarkPosition::Append => parent.child_count - 1,
@@ -368,8 +370,8 @@ pub fn delete_bookmark(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
 
 fn delete_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
     // Can't delete a root.
-    if guid.is_root() {
-        return Err(InvalidPlaceInfo::InvalidGuid.into());
+    if let Some(root) = guid.as_root() {
+        return Err(InvalidPlaceInfo::CannotUpdateRoot(root).into());
     }
     let record = match get_raw_bookmark(db, guid)? {
         Some(r) => r,
@@ -378,8 +380,14 @@ fn delete_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
             return Ok(false);
         }
     };
+    // There's an argument to be made here that we should still honor the
+    // deletion in the case of this corruption, since it would be fixed by
+    // performing the deletion, and the user wants it gone...
+    let record_parent_id = record
+        .parent_id
+        .ok_or_else(|| Corruption::NonRootWithoutParent(guid.to_string()))?;
     // must reorder existing children.
-    update_pos_for_deletion(db, record.position, record.parent_id)?;
+    update_pos_for_deletion(db, record.position, record_parent_id)?;
     // and delete - children are recursively deleted.
     db.execute_named_cached(
         "DELETE from moz_bookmarks WHERE id = :id",
@@ -480,8 +488,20 @@ pub fn update_bookmark(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> 
 }
 
 fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
+    if guid.is_root() {
+        return Err(InvalidPlaceInfo::CannotUpdateRoot(BookmarkRootGuid::Root).into());
+    }
     let existing = get_raw_bookmark(db, guid)?
         .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(guid.to_string()))?;
+    let existing_parent_guid = existing
+        .parent_guid
+        .as_ref()
+        .ok_or_else(|| Corruption::NonRootWithoutParent(guid.to_string()))?;
+
+    let existing_parent_id = existing
+        .parent_id
+        .ok_or_else(|| Corruption::NoParent(guid.to_string(), existing_parent_guid.to_string()))?;
+
     if existing.bookmark_type != item.bookmark_type() {
         return Err(InvalidPlaceInfo::MismatchedBookmarkType(
             existing.bookmark_type as u8,
@@ -498,17 +518,17 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
     let position;
     match item.location() {
         UpdateTreeLocation::None => {
-            parent_id = existing.parent_id;
+            parent_id = existing_parent_id;
             position = existing.position;
             update_old_parent_status = false;
             update_new_parent_status = false;
         }
         UpdateTreeLocation::Position(pos) => {
-            parent_id = existing.parent_id;
+            parent_id = existing_parent_id;
             update_old_parent_status = true;
             update_new_parent_status = false;
-            let parent = get_raw_bookmark(db, &existing.parent_guid)?.ok_or_else(|| {
-                Corruption::NoParent(guid.to_string(), existing.parent_guid.to_string())
+            let parent = get_raw_bookmark(db, existing_parent_guid)?.ok_or_else(|| {
+                Corruption::NoParent(guid.to_string(), existing_parent_guid.to_string())
             })?;
             position = update_pos_for_move(db, &pos, &existing, &parent)?;
         }
@@ -524,10 +544,9 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
             parent_id = new_parent.row_id;
             update_old_parent_status = true;
             update_new_parent_status = true;
-            let existing_parent =
-                get_raw_bookmark(db, &existing.parent_guid)?.ok_or_else(|| {
-                    Corruption::NoParent(guid.to_string(), existing.parent_guid.to_string())
-                })?;
+            let existing_parent = get_raw_bookmark(db, existing_parent_guid)?.ok_or_else(|| {
+                Corruption::NoParent(guid.to_string(), existing_parent_guid.to_string())
+            })?;
             update_pos_for_deletion(db, existing.position, existing_parent.row_id)?;
             position = resolve_pos_for_insert(db, &pos, &new_parent)?;
         }
@@ -607,9 +626,9 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
     // The lastModified of the existing parent ancestors (which may still be
     // the current parent) is always updated, even if the change counter for it
     // isn't.
-    set_ancestors_last_modified(db, &existing.parent_id, &now)?;
+    set_ancestors_last_modified(db, &existing_parent_id, &now)?;
     if update_old_parent_status {
-        db.execute_named_cached(sql_counter, &[(":parent_id", &existing.parent_id)])?;
+        db.execute_named_cached(sql_counter, &[(":parent_id", &existing_parent_id)])?;
     }
     if update_new_parent_status {
         set_ancestors_last_modified(db, &parent_id, &now)?;
@@ -1234,8 +1253,8 @@ struct RawBookmark {
     place_id: Option<RowId>,
     row_id: RowId,
     bookmark_type: BookmarkType,
-    parent_id: RowId,
-    parent_guid: SyncGuid,
+    parent_id: Option<RowId>,
+    parent_guid: Option<SyncGuid>,
     position: u32,
     title: Option<String>,
     url: Option<Url>,
@@ -1323,6 +1342,16 @@ fn get_raw_bookmarks_for_url(db: &PlacesDb, url: &Url) -> Result<Vec<RawBookmark
             RAW_BOOKMARK_SQL
         ),
         &[(":url", &url.as_str())],
+        RawBookmark::from_row,
+    )?)
+}
+fn get_raw_bookmarks_with_parent(db: &impl ConnExt, parent: RowId) -> Result<Vec<RawBookmark>> {
+    Ok(db.query_rows_into_cached(
+        &format!(
+            "{} WHERE b.parent = :parent ORDER BY b.position ASC",
+            RAW_BOOKMARK_SQL
+        ),
+        &[(":parent", &parent)],
         RawBookmark::from_row,
     )?)
 }
@@ -1422,7 +1451,7 @@ mod tests {
 
         assert!(rb.place_id.is_some());
         assert_eq!(rb.bookmark_type, BookmarkType::Bookmark);
-        assert_eq!(rb.parent_guid, BookmarkRootGuid::Unfiled);
+        assert_eq!(rb.parent_guid.unwrap(), BookmarkRootGuid::Unfiled);
         assert_eq!(rb.position, 0);
         assert_eq!(rb.title, Some("the title".into()));
         assert_eq!(rb.url, Some(url));

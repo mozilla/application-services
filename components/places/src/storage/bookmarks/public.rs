@@ -2,21 +2,58 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! This file is for functions that return protobuf generated structs directly,
-//! for FFI purposes.
-//!
-//! Some of these should possibly turn into functions that return a rust type,
-//! which we should then convert, but currently none of the rust types is a good
-//! match for what we send over the FFI (and the protobuf message is, of course,
-//! since it's actually the thing we expose).
-//!
-//! It doesn't seem valuable to create a type that exists just to hide the use of
-//! types from `msg_types`, so we just do this.
-
 use super::*;
-use crate::msg_types::{BookmarkNode as ProtoBookmark, BookmarkNodeList as ProtoNodeList};
+use crate::msg_types::BookmarkNode as ProtoBookmark;
 
-pub fn fetch_bookmarks_by_url(db: &PlacesDb, url: &Url) -> Result<ProtoNodeList> {
+/// This type basically exists to become a msg_types::BookmarkNode, but is
+/// slightly less of a pain to deal with in rust.
+#[derive(Debug, Clone)]
+pub struct PublicNode {
+    pub node_type: BookmarkType,
+    pub guid: SyncGuid,
+    pub parent_guid: Option<SyncGuid>,
+    // Always 0 if parent_guid is None
+    pub position: u32,
+    pub date_added: Timestamp,
+    pub last_modified: Timestamp,
+    pub url: Option<Url>,
+    pub title: Option<String>,
+    pub child_guids: Option<Vec<SyncGuid>>,
+    pub child_nodes: Option<Vec<PublicNode>>,
+}
+
+impl Default for PublicNode {
+    fn default() -> Self {
+        Self {
+            // Note: we mainly want `Default::default()` for filling in the
+            // missing part of struct decls.
+            node_type: BookmarkType::Separator,
+            guid: SyncGuid(String::default()),
+            parent_guid: None,
+            position: 0,
+            date_added: Timestamp(0),
+            last_modified: Timestamp(0),
+            url: None,
+            title: None,
+            child_guids: None,
+            child_nodes: None,
+        }
+    }
+}
+
+impl PartialEq for PublicNode {
+    fn eq(&self, other: &PublicNode) -> bool {
+        // Compare everything except date_added and last_modified.
+        self.node_type == other.node_type
+            && self.guid == other.guid
+            && self.parent_guid == other.parent_guid
+            && self.url == other.url
+            && self.child_guids == other.child_guids
+            && self.child_nodes == other.child_nodes
+    }
+}
+
+pub fn fetch_bookmarks_by_url(db: &PlacesDb, url: &Url) -> Result<Vec<PublicNode>> {
     let nodes = get_raw_bookmarks_for_url(db, url)?
         .into_iter()
         .map(|rb| {
@@ -24,19 +61,18 @@ pub fn fetch_bookmarks_by_url(db: &PlacesDb, url: &Url) -> Result<ProtoNodeList>
             // for real.
             debug_assert_eq!(rb.child_count, 0);
             debug_assert_eq!(rb.bookmark_type, BookmarkType::Bookmark);
-            debug_assert!(rb.url.is_some());
-            ProtoBookmark {
-                node_type: Some(rb.bookmark_type as i32),
-                guid: Some(rb.guid.0),
-                parent_guid: Some(rb.parent_guid.0),
-                position: Some(rb.position),
-                date_added: Some(rb.date_added.0 as i64),
-                last_modified: Some(rb.date_modified.0 as i64),
-                url: rb.url.map(|u| u.into_string()),
+            debug_assert_eq!(rb.url.as_ref(), Some(url));
+            PublicNode {
+                node_type: rb.bookmark_type,
+                guid: rb.guid,
+                parent_guid: rb.parent_guid,
+                position: rb.position,
+                date_added: rb.date_added,
+                last_modified: rb.date_modified,
+                url: rb.url,
                 title: rb.title,
-                child_guids: vec![],
-                child_nodes: vec![],
-                have_child_nodes: None,
+                child_guids: None,
+                child_nodes: None,
             }
         })
         .collect::<Vec<_>>();
@@ -55,7 +91,7 @@ pub fn fetch_bookmark(
     db: &PlacesDb,
     item_guid: &SyncGuid,
     get_direct_children: bool,
-) -> Result<Option<ProtoBookmark>> {
+) -> Result<Option<PublicNode>> {
     let _tx = db.unchecked_transaction()?;
     let scope = db.begin_interrupt_scope();
     let bookmark = fetch_bookmark_in_tx(db, item_guid, get_direct_children, &scope)?;
@@ -65,84 +101,83 @@ pub fn fetch_bookmark(
     Ok(bookmark)
 }
 
+fn get_child_guids(db: &PlacesDb, parent: RowId) -> Result<Vec<SyncGuid>> {
+    Ok(db.query_rows_into(
+        "SELECT guid FROM moz_bookmarks
+         WHERE parent = :parent
+         ORDER BY position ASC",
+        &[(":parent", &parent)],
+        |row| row.get_checked(0),
+    )?)
+}
+
+fn fetch_bookmark_child_info(
+    db: &PlacesDb,
+    parent: &RawBookmark,
+    get_direct_children: bool,
+    scope: &crate::db::InterruptScope,
+) -> Result<(Option<Vec<SyncGuid>>, Option<Vec<PublicNode>>)> {
+    if parent.bookmark_type != BookmarkType::Folder {
+        return Ok((None, None));
+    }
+    // If we already know that we have no children, don't
+    // bother querying for them.
+    if parent.child_count == 0 {
+        return Ok(if get_direct_children {
+            (None, Some(vec![]))
+        } else {
+            (Some(vec![]), None)
+        });
+    }
+    if !get_direct_children {
+        // Just get the guids.
+        return Ok((Some(get_child_guids(db, parent.row_id)?), None));
+    }
+    // Fetch children. the future this should probably be done by allowing a
+    // depth parameter to be passed into fetch_tree.
+    let child_nodes = get_raw_bookmarks_with_parent(db, parent.row_id)?
+        .into_iter()
+        .map(|kid| {
+            let child_guids = if kid.bookmark_type == BookmarkType::Folder {
+                if kid.child_count == 0 {
+                    Some(vec![])
+                } else {
+                    Some(get_child_guids(db, kid.row_id)?)
+                }
+            } else {
+                None
+            };
+            scope.err_if_interrupted()?;
+            Ok(PublicNode::from(kid).with_children(child_guids, None))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok((None, Some(child_nodes)))
+}
+
 // Implementation of fetch_bookmark
 fn fetch_bookmark_in_tx(
     db: &PlacesDb,
     item_guid: &SyncGuid,
     get_direct_children: bool,
     scope: &crate::db::InterruptScope,
-) -> Result<Option<ProtoBookmark>> {
+) -> Result<Option<PublicNode>> {
     // get_raw_bookmark doesn't work for the bookmark root, so we just return None explicitly
     // (rather than erroring). This isn't ideal, but there's no point to fetching the "true"
     // bookmark root without fetching it's children too, so whatever.
-    if item_guid == &BookmarkRootGuid::Root {
-        return Ok(None);
-    }
-
     let rb = if let Some(raw) = get_raw_bookmark(db, item_guid)? {
         raw
     } else {
         return Ok(None);
     };
+
     scope.err_if_interrupted()?;
-    // If we're a folder that has children, fetch child guids or children depending.
+    // If we're a folder that has children, fetch child guids or children.
     let (child_guids, child_nodes) =
-        if rb.bookmark_type == BookmarkType::Folder && rb.child_count != 0 {
-            let child_guids: Vec<String> = db.query_rows_into(
-                "SELECT guid
-                 FROM moz_bookmarks
-                 WHERE parent = :parent
-                 ORDER BY position ASC",
-                &[(":parent", &rb.row_id)],
-                |row| row.get_checked(0),
-            )?;
-            scope.err_if_interrupted()?;
-            if get_direct_children {
-                let children: Vec<_> = child_guids
-                    .into_iter()
-                    .map(|guid_string| {
-                        let child_guid = SyncGuid(guid_string);
-                        if let Some(bmk) = fetch_bookmark_in_tx(db, &child_guid, false, scope)? {
-                            Ok(bmk)
-                        } else {
-                            // Not ideal (since this shouldn't be possible, we're in
-                            // a transaciton, and just fetched these guids), but
-                            // restructuring our queries so that this is impossible
-                            // is tricky, and it seems better to have an error
-                            // that's never actually used than to unwrap()
-                            Err(Error::from(Corruption::MissingChild {
-                                parent: item_guid.0.clone(),
-                                child: child_guid.0,
-                            }))
-                        }
-                    })
-                    .collect::<Result<_>>()?;
-                // Note: even though we have the child guids, we don't return them
-                // because we don't want to send both over the FFI, and the child nodes
-                // should have enough information.
-                (vec![], children)
-            } else {
-                (child_guids, vec![])
-            }
-        } else {
-            (vec![], vec![])
-        };
+        fetch_bookmark_child_info(db, &rb, get_direct_children, scope)?;
 
-    let result = ProtoBookmark {
-        node_type: Some(rb.bookmark_type as i32),
-        guid: Some(rb.guid.0),
-        parent_guid: Some(rb.parent_guid.0),
-        position: Some(rb.position),
-        date_added: Some(rb.date_added.0 as i64),
-        last_modified: Some(rb.date_modified.0 as i64),
-        url: rb.url.map(|u| u.into_string()),
-        title: rb.title,
-        child_guids,
-        child_nodes,
-        have_child_nodes: Some(rb.bookmark_type == BookmarkType::Folder && get_direct_children),
-    };
-
-    Ok(Some(result))
+    Ok(Some(
+        PublicNode::from(rb).with_children(child_guids, child_nodes),
+    ))
 }
 
 pub fn update_bookmark_from_message(db: &PlacesDb, msg: ProtoBookmark) -> Result<()> {
@@ -163,9 +198,9 @@ pub fn update_bookmark_from_message(db: &PlacesDb, msg: ProtoBookmark) -> Result
 }
 
 /// Call fetch_tree, convert the result to a ProtoBookmark, and ensure the
-/// requested item's position and parent info are provided as well. This is
-/// the function called by the FFI when requesting the tree.
-pub fn fetch_proto_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<ProtoBookmark>> {
+/// requested item's position and parent info are provided as well. This is the
+/// function called by the FFI when requesting the tree.
+pub fn fetch_public_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<PublicNode>> {
     let _tx = db.unchecked_transaction()?;
     let tree = if let Some(tree) = fetch_tree(db, item_guid)? {
         tree
@@ -174,9 +209,9 @@ pub fn fetch_proto_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<Pr
     };
 
     // `position` and `parent_guid` will be handled for the children of
-    // `item_guid` by `ProtoBookmark::from` automatically, however we
+    // `item_guid` by `PublicNode::from` automatically, however we
     // still need to fill in it's own `parent_guid` and `position`.
-    let mut proto = ProtoBookmark::from(tree);
+    let mut proto = PublicNode::from(tree);
 
     if item_guid != &BookmarkRootGuid::Root {
         let sql = "
@@ -192,41 +227,42 @@ pub fn fetch_proto_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<Pr
             &[(":guid", &item_guid)],
             |row| -> Result<_> {
                 Ok((
-                    row.get_checked::<_, String>(0)?,
+                    row.get_checked::<_, Option<SyncGuid>>(0)?,
                     row.get_checked::<_, u32>(1)?,
                 ))
             },
             true,
         )?;
-        proto.parent_guid = Some(parent_guid);
-        proto.position = Some(position);
+        proto.parent_guid = parent_guid;
+        proto.position = position;
     }
     Ok(Some(proto))
 }
 
-pub fn search_bookmarks(db: &PlacesDb, search: &str, limit: u32) -> Result<ProtoNodeList> {
+pub fn search_bookmarks(db: &PlacesDb, search: &str, limit: u32) -> Result<Vec<PublicNode>> {
     let scope = db.begin_interrupt_scope();
-    let nodes: Vec<_> = db.query_rows_into_cached(
+    Ok(db.query_rows_into_cached(
         &SEARCH_QUERY,
         &[(":search", &search), (":limit", &limit)],
         |row| -> Result<_> {
             scope.err_if_interrupted()?;
-            Ok(ProtoBookmark {
-                node_type: Some(BookmarkType::Bookmark as i32),
-                guid: Some(row.get_checked("guid")?),
-                parent_guid: Some(row.get_checked("parentGuid")?),
-                position: Some(row.get_checked("position")?),
-                date_added: Some(row.get_checked("dateAdded")?),
-                last_modified: Some(row.get_checked("lastModified")?),
+            Ok(PublicNode {
+                node_type: BookmarkType::Bookmark,
+                guid: row.get_checked("guid")?,
+                parent_guid: row.get_checked("parentGuid")?,
+                position: row.get_checked("position")?,
+                date_added: row.get_checked("dateAdded")?,
+                last_modified: row.get_checked("lastModified")?,
                 title: row.get_checked("title")?,
-                url: Some(row.get_checked("url")?),
-                child_guids: vec![],
-                child_nodes: vec![],
-                have_child_nodes: None,
+                url: row
+                    .get_checked::<_, Option<String>>("url")?
+                    .map(|href| url::Url::parse(&href))
+                    .transpose()?,
+                child_guids: None,
+                child_nodes: None,
             })
         },
-    )?;
-    Ok(nodes.into())
+    )?)
 }
 
 lazy_static::lazy_static! {

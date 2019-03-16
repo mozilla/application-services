@@ -9,8 +9,8 @@ use crate::db::PlacesInterruptHandle;
 use crate::error::{Error, ErrorKind};
 use crate::msg_types;
 use ffi_support::{
-    implement_into_ffi_by_json, implement_into_ffi_by_pointer, implement_into_ffi_by_protobuf,
-    ErrorCode, ExternError,
+    implement_into_ffi_by_delegation, implement_into_ffi_by_json, implement_into_ffi_by_pointer,
+    implement_into_ffi_by_protobuf, ErrorCode, ExternError,
 };
 
 pub mod error_codes {
@@ -90,3 +90,7 @@ implement_into_ffi_by_pointer!(PlacesInterruptHandle);
 implement_into_ffi_by_protobuf!(msg_types::HistoryVisitInfos);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNode);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNodeList);
+implement_into_ffi_by_delegation!(
+    crate::storage::bookmarks::PublicNode,
+    msg_types::BookmarkNode
+);

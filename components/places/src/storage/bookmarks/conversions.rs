@@ -4,8 +4,8 @@
 
 use super::{
     BookmarkPosition, BookmarkRootGuid, BookmarkTreeNode, InsertableBookmark, InsertableFolder,
-    InsertableItem, InsertableSeparator, UpdatableBookmark, UpdatableFolder, UpdatableItem,
-    UpdatableSeparator, UpdateTreeLocation,
+    InsertableItem, InsertableSeparator, PublicNode, RawBookmark, UpdatableBookmark,
+    UpdatableFolder, UpdatableItem, UpdatableSeparator, UpdateTreeLocation,
 };
 
 use crate::error::{InvalidPlaceInfo, Result};
@@ -13,29 +13,25 @@ use crate::msg_types;
 use crate::types::{BookmarkType, SyncGuid};
 use url::Url;
 
-// This is used when returning the tree over the FFI.
-impl From<BookmarkTreeNode> for msg_types::BookmarkNode {
+impl From<BookmarkTreeNode> for PublicNode {
+    // TODO: Eventually this should either be a function that takes an
+    // InterruptScope, or we should have another version that does.
+    // For now it is likely fine.
     fn from(n: BookmarkTreeNode) -> Self {
         let (date_added, last_modified) = n.created_modified();
         let mut result = Self {
-            node_type: Some(n.node_type() as i32),
-            guid: Some(n.guid().to_string()),
-            date_added: Some(date_added.0 as i64),
-            last_modified: Some(last_modified.0 as i64),
-            title: None,
-            url: None,
-            parent_guid: None,
-            position: None,
-            child_guids: vec![],
-            child_nodes: vec![],
-            have_child_nodes: Some(false),
+            node_type: n.node_type(),
+            guid: n.guid().clone(),
+            date_added,
+            last_modified,
+            ..Default::default()
         };
 
         // Not the most idiomatic, but avoids a lot of duplication.
         match n {
             BookmarkTreeNode::Bookmark(b) => {
                 result.title = b.title;
-                result.url = Some(b.url.into_string());
+                result.url = Some(b.url);
             }
             BookmarkTreeNode::Separator(_) => {
                 // No separator-specific properties.
@@ -43,21 +39,109 @@ impl From<BookmarkTreeNode> for msg_types::BookmarkNode {
             BookmarkTreeNode::Folder(f) => {
                 result.title = f.title;
                 let own_guid = &result.guid;
-                result.child_nodes = f
-                    .children
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, bn)| {
-                        let mut child = msg_types::BookmarkNode::from(bn);
-                        child.parent_guid = own_guid.clone();
-                        child.position = Some(i as u32);
-                        child
-                    })
-                    .collect();
-                result.have_child_nodes = Some(true);
+                result.child_nodes = Some(
+                    f.children
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, bn)| {
+                            let mut child = PublicNode::from(bn);
+                            child.parent_guid = Some(own_guid.clone());
+                            child.position = i as u32;
+                            child
+                        })
+                        .collect(),
+                );
             }
         }
         result
+    }
+}
+
+impl From<PublicNode> for msg_types::BookmarkNode {
+    fn from(n: PublicNode) -> Self {
+        let have_child_nodes = if n.node_type == BookmarkType::Folder {
+            Some(n.child_nodes.is_some())
+        } else {
+            None
+        };
+        Self {
+            node_type: Some(n.node_type as i32),
+            guid: Some(n.guid.0),
+            date_added: Some(n.date_added.0 as i64),
+            last_modified: Some(n.last_modified.0 as i64),
+            title: n.title,
+            url: n.url.map(|u| u.into_string()),
+            parent_guid: n.parent_guid.map(|g| g.0),
+            position: Some(n.position),
+            child_guids: n.child_guids.map_or(vec![], |child_guids| {
+                child_guids
+                    .into_iter()
+                    .map(|m| m.0)
+                    .collect::<Vec<String>>()
+            }),
+            child_nodes: n.child_nodes.map_or(vec![], |nodes| {
+                nodes
+                    .into_iter()
+                    .map(msg_types::BookmarkNode::from)
+                    .collect()
+            }),
+            have_child_nodes,
+        }
+    }
+}
+
+// Note: this conversion is incomplete if rb is a folder!
+impl From<RawBookmark> for PublicNode {
+    fn from(rb: RawBookmark) -> Self {
+        Self {
+            node_type: rb.bookmark_type,
+            guid: rb.guid,
+            parent_guid: rb.parent_guid,
+            position: rb.position,
+            date_added: rb.date_added,
+            last_modified: rb.date_modified,
+            url: rb.url,
+            title: rb.title,
+            child_guids: None,
+            child_nodes: None,
+        }
+    }
+}
+
+impl PublicNode {
+    pub(crate) fn with_children(
+        mut self,
+        guids: Option<Vec<SyncGuid>>,
+        nodes: Option<Vec<PublicNode>>,
+    ) -> Self {
+        if guids.is_some() || nodes.is_some() {
+            debug_assert_eq!(
+                self.node_type,
+                BookmarkType::Folder,
+                "Trying to set children on non-folder"
+            );
+            debug_assert!(
+                guids.is_some() || nodes.is_some(),
+                "Only one of guids or nodes should be provided for folders"
+            );
+        } else {
+            debug_assert_ne!(
+                self.node_type,
+                BookmarkType::Folder,
+                "Should provide children or guids to folder!"
+            );
+        }
+        self.child_nodes = nodes;
+        self.child_guids = guids;
+        self
+    }
+}
+
+impl From<Vec<PublicNode>> for msg_types::BookmarkNodeList {
+    fn from(ns: Vec<PublicNode>) -> Self {
+        Self {
+            nodes: ns.into_iter().map(msg_types::BookmarkNode::from).collect(),
+        }
     }
 }
 
@@ -153,10 +237,6 @@ impl BookmarkUpdateInfo {
 
         if self.url.is_some() && ty != BookmarkType::Bookmark {
             return Err(InvalidPlaceInfo::IllegalChange("url", ty).into());
-        }
-
-        if let Some(root) = BookmarkRootGuid::from_guid(&self.guid) {
-            return Err(InvalidPlaceInfo::CannotUpdateRoot(root).into());
         }
 
         let location = match (self.parent_guid, self.position) {

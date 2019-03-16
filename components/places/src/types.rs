@@ -19,6 +19,10 @@ impl SyncGuid {
         SyncGuid(sync15::random_guid().unwrap())
     }
 
+    pub fn as_root(&self) -> Option<BookmarkRootGuid> {
+        BookmarkRootGuid::from_str(&self.0)
+    }
+
     pub fn is_root(&self) -> bool {
         BookmarkRootGuid::from_str(&self.0).is_some()
     }
