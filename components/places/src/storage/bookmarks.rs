@@ -1366,7 +1366,7 @@ mod tests {
     use serde_json::Value;
     use std::collections::HashSet;
 
-    fn insert_json_tree(conn: &PlacesDb, jtree: Value) {
+    pub(super) fn insert_json_tree(conn: &PlacesDb, jtree: Value) {
         let tree: BookmarkTreeNode = serde_json::from_value(jtree).expect("should be valid");
         let folder_node = match tree {
             BookmarkTreeNode::Folder(folder_node) => folder_node,

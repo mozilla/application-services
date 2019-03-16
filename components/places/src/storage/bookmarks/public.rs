@@ -281,7 +281,7 @@ lazy_static::lazy_static! {
         JOIN moz_places h ON h.id = b.fk
         WHERE b.type = {bookmark_type}
             AND AUTOCOMPLETE_MATCH(
-                :search, h.url, IFNULL(title, h.title),
+                :search, h.url, IFNULL(b.title, h.title),
                 NULL, -- tags
                 -- We could pass the versions of these from history in,
                 -- but they're just used to figure out whether or not
@@ -301,4 +301,172 @@ lazy_static::lazy_static! {
         match_bhvr = crate::match_impl::MatchBehavior::Anywhere as u32,
         search_bhvr = crate::match_impl::SearchBehavior::BOOKMARK.bits(),
     );
+}
+#[cfg(test)]
+mod test {
+    use super::super::tests::insert_json_tree;
+    use super::*;
+    use crate::api::places_api::test::new_mem_connection;
+    use serde_json::json;
+    #[test]
+    fn test_get_by_url() -> Result<()> {
+        let conn = new_mem_connection();
+        let _ = env_logger::try_init();
+        insert_json_tree(
+            &conn,
+            json!({
+                "guid": String::from(BookmarkRootGuid::Unfiled.as_str()),
+                "children": [
+                    {
+                        "guid": "bookmark1___",
+                        "url": "https://www.example1.com/",
+                        "title": "no 1",
+                    },
+                    {
+                        "guid": "bookmark2___",
+                        "url": "https://www.example2.com/a/b/c/d?q=v#abcde",
+                        "title": "yes 1",
+                    },
+                    {
+                        "guid": "bookmark3___",
+                        "url": "https://www.example2.com/a/b/c/d",
+                        "title": "no 2",
+                    },
+                    {
+                        "guid": "bookmark4___",
+                        "url": "https://www.example2.com/a/b/c/d?q=v#abcde",
+                        "title": "yes 2",
+                    },
+                ]
+            }),
+        );
+        let url = url::Url::parse("https://www.example2.com/a/b/c/d?q=v#abcde")?;
+        let mut bmks = fetch_bookmarks_by_url(&conn, &url)?;
+        bmks.sort_by_key(|b| b.guid.0.clone());
+        assert_eq!(bmks.len(), 2);
+        assert_eq!(
+            bmks[0],
+            PublicNode {
+                node_type: BookmarkType::Bookmark,
+                guid: "bookmark2___".into(),
+                title: Some("yes 1".into()),
+                url: Some(url.clone()),
+                parent_guid: Some(BookmarkRootGuid::Unfiled.into()),
+                position: 1,
+                child_guids: None,
+                child_nodes: None,
+                // Ignored by our PartialEq
+                date_added: Timestamp(0),
+                last_modified: Timestamp(0),
+            }
+        );
+        assert_eq!(
+            bmks[1],
+            PublicNode {
+                node_type: BookmarkType::Bookmark,
+                guid: "bookmark4___".into(),
+                title: Some("yes 2".into()),
+                url: Some(url.clone()),
+                parent_guid: Some(BookmarkRootGuid::Unfiled.into()),
+                position: 3,
+                child_guids: None,
+                child_nodes: None,
+                // Ignored by our PartialEq
+                date_added: Timestamp(0),
+                last_modified: Timestamp(0),
+            }
+        );
+
+        Ok(())
+    }
+    #[test]
+    fn test_search() -> Result<()> {
+        let conn = new_mem_connection();
+        let _ = env_logger::try_init();
+        insert_json_tree(
+            &conn,
+            json!({
+                "guid": String::from(BookmarkRootGuid::Unfiled.as_str()),
+                "children": [
+                    {
+                        "guid": "bookmark1___",
+                        "url": "https://www.example1.com/",
+                        "title": "",
+                    },
+                    {
+                        "guid": "bookmark2___",
+                        "url": "https://www.example2.com/a/b/c/d?q=v#example",
+                        "title": "",
+                    },
+                    {
+                        "guid": "bookmark3___",
+                        "url": "https://www.example2.com/a/b/c/d",
+                        "title": "",
+                    },
+                    {
+                        "guid": "bookmark4___",
+                        "url": "https://www.doesnt_match.com/a/b/c/d",
+                        "title": "",
+                    },
+                    {
+                        "guid": "bookmark5___",
+                        "url": "https://www.example2.com/a/b/",
+                        "title": "a b c d",
+                    },
+                    {
+                        "guid": "bookmark6___",
+                        "url": "https://www.example2.com/a/b/c/d",
+                        "title": "foo bar baz",
+                    },
+                    {
+                        "guid": "bookmark7___",
+                        "url": "https://www.1234.com/a/b/c/d",
+                        "title": "my example bookmark",
+                    },
+                ]
+            }),
+        );
+        let mut bmks = search_bookmarks(&conn, "ample", 10)?;
+        bmks.sort_by_key(|b| b.guid.0.clone());
+        assert_eq!(bmks.len(), 6);
+        let expect = [
+            ("bookmark1___", "https://www.example1.com/", "", 0),
+            (
+                "bookmark2___",
+                "https://www.example2.com/a/b/c/d?q=v#example",
+                "",
+                1,
+            ),
+            ("bookmark3___", "https://www.example2.com/a/b/c/d", "", 2),
+            (
+                "bookmark5___",
+                "https://www.example2.com/a/b/",
+                "a b c d",
+                4,
+            ),
+            (
+                "bookmark6___",
+                "https://www.example2.com/a/b/c/d",
+                "foo bar baz",
+                5,
+            ),
+            (
+                "bookmark7___",
+                "https://www.1234.com/a/b/c/d",
+                "my example bookmark",
+                6,
+            ),
+        ];
+        for (got, want) in bmks.iter().zip(expect.iter()) {
+            assert_eq!(&got.guid.0, want.0);
+            assert_eq!(got.url.as_ref().unwrap(), &url::Url::parse(want.1).unwrap());
+            assert_eq!(got.title.as_ref().unwrap_or(&String::new()), want.2);
+            assert_eq!(got.position, want.3);
+            assert_eq!(got.parent_guid.as_ref().unwrap(), BookmarkRootGuid::Unfiled);
+            assert_eq!(got.node_type, BookmarkType::Bookmark);
+            assert!(got.child_guids.is_none());
+            assert!(got.child_nodes.is_none());
+        }
+        Ok(())
+    }
 }
