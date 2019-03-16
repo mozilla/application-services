@@ -163,7 +163,7 @@ fn fetch_bookmark_in_tx(
 ) -> Result<Option<PublicNode>> {
     // get_raw_bookmark doesn't work for the bookmark root, so we just return None explicitly
     // (rather than erroring). This isn't ideal, but there's no point to fetching the "true"
-    // bookmark root without fetching it's children too, so whatever.
+    // bookmark root without fetching its children too, so whatever.
     let rb = if let Some(raw) = get_raw_bookmark(db, item_guid)? {
         raw
     } else {

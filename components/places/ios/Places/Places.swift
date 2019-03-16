@@ -208,7 +208,7 @@ public class PlacesReadConnection {
      * Returns the information about the bookmark with the provided id.
      *
      * This differs from `getBookmarksTree` in that it does not populate the `children` list
-     * if `guid` refers to a folder (However, it's `childGUIDs` list will be
+     * if `guid` refers to a folder (However, its `childGUIDs` list will be
      * populated).
      *
      * - Parameter guid: the guid of the bookmark to fetch.
@@ -370,14 +370,14 @@ public class PlacesWriteConnection : PlacesReadConnection {
     }
 
     /**
-     * Create a bookmark folder, returning it's guid.
+     * Create a bookmark folder, returning its guid.
      *
      * - Parameter parentGUID: The GUID of the (soon to be) parent of this bookmark.
      *
      * - Parameter title: The title of the folder.
      *
      * - Parameter position: The index where to insert the record inside
-     *                       it's parent. If not provided, this item will
+     *                       its parent. If not provided, this item will
      *                       be appended.
      *
      * - Returns: The GUID of the newly inserted bookmark folder.
@@ -407,12 +407,12 @@ public class PlacesWriteConnection : PlacesReadConnection {
     }
 
     /**
-     * Create a bookmark separator, returning it's guid.
+     * Create a bookmark separator, returning its guid.
      *
      * - Parameter parentGUID: The GUID of the (soon to be) parent of this bookmark.
      *
      * - Parameter position: The index where to insert the record inside
-     *                       it's parent. If not provided, this item will
+     *                       its parent. If not provided, this item will
      *                       be appended.
      *
      * - Returns: The GUID of the newly inserted bookmark separator.
@@ -440,12 +440,12 @@ public class PlacesWriteConnection : PlacesReadConnection {
     }
 
     /**
-     * Create a bookmark item, returning it's guid.
+     * Create a bookmark item, returning its guid.
      *
      * - Parameter parentGUID: The GUID of the (soon to be) parent of this bookmark.
      *
      * - Parameter position: The index where to insert the record inside
-     *                       it's parent. If not provided, this item will
+     *                       its parent. If not provided, this item will
      *                       be appended.
      *
      * - Parameter url: The URL to bookmark
@@ -499,9 +499,9 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *                 below for details
      *
      *     - title: If the record is a `BookmarkNodeType.bookmark` or a `BookmarkNodeType.folder`,
-     *              and it's title should be changed, then the new value of the title.
+     *              and its title should be changed, then the new value of the title.
      *
-     *     - url: If the record is a `BookmarkNodeType.bookmark` node, and it's `url`
+     *     - url: If the record is a `BookmarkNodeType.bookmark` node, and its `url`
      *            should be changed, then the new value for the url.
      *
      * - Note: The `parentGUID` and `position` parameters interact with eachother
@@ -514,7 +514,7 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *       a move to / within that folder, and we insert at the requested
      *       position.
      *
-     *     - If `position` is not provided (and `parentGUID` is) then it's
+     *     - If `position` is not provided (and `parentGUID` is) then its
      *       treated as a move the end of that folder.
      * - Throws:
      *     - `PlacesError.illegalChange`: If the change requested is impossible given the

@@ -59,7 +59,7 @@ class PlacesApi(path: String, encryption_key: String? = null) : PlacesManager, A
 
     @Synchronized
     override fun close() {
-        // Take the write connection's handle and clear it's reference to us.
+        // Take the write connection's handle and clear its reference to us.
         val writeHandle = this.writeConn.takeHandle()
         this.writeConn.apiRef.clear()
         val handle = this.handle.getAndSet(0L)

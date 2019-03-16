@@ -72,7 +72,7 @@ sealed class BookmarkTreeNode {
     abstract val parentGUID: String?
 
     /**
-     * The (0-based) position of this record within it's parent.
+     * The (0-based) position of this record within its parent.
      */
     abstract val position: Int
 }
@@ -80,7 +80,7 @@ sealed class BookmarkTreeNode {
 /**
  * A bookmark tree node that actually represents a bookmark.
  *
- * It's type is always [BookmarkType.Bookmark], and it has a `title `and `url`
+ * Its type is always [BookmarkType.Bookmark], and it has a `title `and `url`
  * in addition to the fields defined by [BookmarkTreeNode].
  */
 
@@ -107,7 +107,7 @@ data class BookmarkItem(
 /**
  * A bookmark which is a folder.
  *
- * It's type is always [BookmarkType.Folder], and it has a `title`,
+ * Its type is always [BookmarkType.Folder], and it has a `title`,
  * a list of `childGUIDs`, and possibly a list of `children` in
  * addition to those defined by [BookmarkTreeNode].
  */
@@ -141,7 +141,7 @@ data class BookmarkFolder(
 /**
  * A bookmark which is a separator.
  *
- * It's type is always [BookmarkType.Separator], and it has no fields
+ * Its type is always [BookmarkType.Separator], and it has no fields
  * besides those defined by [BookmarkTreeNode].
  */
 data class BookmarkSeparator(
@@ -184,7 +184,7 @@ interface ReadableBookmarksConnection : InterruptibleConnection {
     /**
      * Returns the information about the bookmark with the provided id. This differs from
      * `getBookmarksTree` in that it does not populate the `children` list if `guid` refers
-     * to a folder (only it's `childGUIDs` list).
+     * to a folder (only its `childGUIDs` list).
      *
      * @param guid the guid of the bookmark to fetch.
      * @return The bookmark node, or null if the provided
@@ -246,11 +246,11 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
     fun deleteBookmarkNode(guid: String): Boolean
 
     /**
-     * Create a bookmark folder, returning it's guid.
+     * Create a bookmark folder, returning its guid.
      *
      * @param parentGUID The GUID of the (soon to be) parent of this bookmark.
      * @param title The title of the folder.
-     * @param position The index where to insert the record inside it's parent.
+     * @param position The index where to insert the record inside its parent.
      * If not provided, this item will be appended. If the position is outside
      * the range of positions currently occupied by children in this folder,
      * it is first constrained to be within that range.
@@ -267,10 +267,10 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
     ): String
 
     /**
-     * Create a bookmark separator, returning it's guid.
+     * Create a bookmark separator, returning its guid.
      *
      * @param parentGUID The GUID of the (soon to be) parent of this bookmark.
-     * @param position The index where to insert the record inside it's parent.
+     * @param position The index where to insert the record inside its parent.
      * If not provided, this item will be appended. If the position is outside
      * the range of positions currently occupied by children in this folder,
      * it is first constrained to be within that range.
@@ -286,12 +286,12 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
     ): String
 
     /**
-     * Create a bookmark item, returning it's guid.
+     * Create a bookmark item, returning its guid.
      *
      * @param parentGUID The GUID of the (soon to be) parent of this bookmark.
      * @param url The URL to bookmark
      * @param title The title of the new bookmark, if any.
-     * @param position The index where to insert the record inside it's parent.
+     * @param position The index where to insert the record inside its parent.
      * If not provided, this item will be appended. If the position is outside
      * the range of positions currently occupied by children in this folder,
      * it is first constrained to be within that range.
@@ -335,7 +335,7 @@ data class BookmarkUpdateInfo(
         /**
          * If the record should be moved to another folder, the guid
          * of the folder it should be moved to. Interacts with
-         * `position`, see it's documentation for details.
+         * `position`, see its documentation for details.
          */
         val parentGUID: String? = null,
 
@@ -350,7 +350,7 @@ data class BookmarkUpdateInfo(
          *   a move to / within that folder, and we insert at the requested
          *   position.
          *
-         * - If `position` is not provided (and `parentGUID` is) then it's
+         * - If `position` is not provided (and `parentGUID` is) then its
          *   treated as a move the end of that folder.
          *
          * If position is provided and is outside the range of positions currently
