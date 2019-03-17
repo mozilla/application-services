@@ -35,6 +35,12 @@ BEGIN
     syncChangeCounter = syncChangeCounter + 1
   WHERE fk = NEW.place_id;
 
+  -- Tagging a URL increased the foreign count so that it will not be
+  -- expired or otherwise automatically removed.
+  UPDATE moz_places SET
+    foreign_count = foreign_count + 1
+  WHERE id = NEW.place_id;
+
 END;
 
 
@@ -48,6 +54,14 @@ BEGIN
   UPDATE moz_bookmarks SET
     syncChangeCounter = syncChangeCounter + 1
   WHERE fk IN (OLD.place_id, NEW.place_id);
+
+  UPDATE moz_places SET
+    foreign_count = foreign_count + 1
+  WHERE id = NEW.place_id;
+
+  UPDATE moz_places SET
+    foreign_count = foreign_count - 1
+  WHERE id = OLD.place_id;
 END;
 
 CREATE TEMP TRIGGER moz_tags_relations_afterdelete_trigger
@@ -60,4 +74,8 @@ BEGIN
   UPDATE moz_bookmarks SET
     syncChangeCounter = syncChangeCounter + 1
   WHERE fk = OLD.place_id;
+
+  UPDATE moz_places SET
+    foreign_count = foreign_count - 1
+  WHERE id = OLD.place_id;
 END;

@@ -1126,6 +1126,8 @@ fn inflate(
 /// Fetch the tree starting at the specified folder guid.
 /// Returns a BookmarkTreeNode::Folder(_)
 pub fn fetch_tree(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<Option<BookmarkTreeNode>> {
+    // XXX - this needs additional work for tags - unlike desktop, there's no
+    // "tags" folder, but instead a couple of tables to join on.
     let sql = r#"
         WITH RECURSIVE
         descendants(fk, level, type, id, guid, parent, parentGuid, position,

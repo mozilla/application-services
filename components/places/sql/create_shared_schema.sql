@@ -145,13 +145,13 @@ CREATE TABLE IF NOT EXISTS moz_meta (
 ) WITHOUT ROWID;
 
 -- Support for tags.
-CREATE TABLE moz_tags(
+CREATE TABLE IF NOT EXISTS moz_tags(
   id INTEGER PRIMARY KEY,
   tag TEXT UNIQUE NOT NULL,
   lastModified INTEGER NOT NULL
 );
 
-CREATE TABLE moz_tags_relation(
+CREATE TABLE IF NOT EXISTS moz_tags_relation(
   tag_id INTEGER NOT NULL REFERENCES moz_tags(id) ON DELETE CASCADE,
   place_id INTEGER NOT NULL REFERENCES moz_places(id) ON DELETE CASCADE,
   PRIMARY KEY(tag_id, place_id)

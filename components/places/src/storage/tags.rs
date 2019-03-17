@@ -8,19 +8,34 @@ use rusqlite::Connection;
 use sql_support::ConnExt;
 use url::Url;
 
-pub fn validate_tag(t: String) -> Result<String> {
+/// Checks the validity of the specified tag. On success, the result is the
+/// string value which should be used for the tag, or failure indicates why
+/// the tag is not valid.
+pub fn validate_tag(t: &str) -> Result<&str> {
     // Drop empty and oversized tags.
-    let t = t.trim().to_string();
-    if t.len() == 0 || t.len() > TAG_LENGTH_MAX {
-        Err(InvalidPlaceInfo::InvalidTag(t).into())
+    let t = t.trim();
+    if t.len() == 0 || t.len() > TAG_LENGTH_MAX || t.find(|c: char| c.is_whitespace()).is_some() {
+        Err(InvalidPlaceInfo::InvalidTag(t.to_string()).into())
     } else {
         Ok(t)
     }
 }
 
-/// TODO: docstrings for all public functions.
+/// Tags the specified URL.
+///
+/// # Arguments
+///
+/// * `conn` - A database connection on which to operate.
+///
+/// * `url` - The URL to tag.
+///
+/// * `tag` - The tag to add for the URL.
+///
+/// # Returns
+///
+/// There is no success return value.
 pub fn tag_url(conn: &Connection, url: &Url, tag: String) -> Result<()> {
-    let tag = validate_tag(tag)?;
+    let tag = validate_tag(&tag)?;
     let tx = conn.unchecked_transaction()?;
 
     // This function will not create a new place.
@@ -46,10 +61,22 @@ pub fn tag_url(conn: &Connection, url: &Url, tag: String) -> Result<()> {
     Ok(())
 }
 
+/// Remove the specified tag from the specified URL.
+///
+/// # Arguments
+///
+/// * `conn` - A database connection on which to operate.
+///
+/// * `url` - The URL from which the tag should be removed.
+///
+/// * `tag` - The tag to remove from the URL.
+///
+/// # Returns
+///
+/// There is no success return value - the operation is ignored if the URL
+/// does not have the tag.
 pub fn untag_url(conn: &Connection, url: &Url, tag: String) -> Result<()> {
-    let tag = validate_tag(tag)?;
-    let tx = conn.unchecked_transaction()?;
-
+    let tag = validate_tag(&tag)?;
     conn.execute_named_cached(
         "DELETE FROM moz_tags_relation
          WHERE tag_id = (SELECT id FROM moz_tags
@@ -59,13 +86,21 @@ pub fn untag_url(conn: &Connection, url: &Url, tag: String) -> Result<()> {
                          AND url = :url)",
         &[(":tag", &tag), (":url", &url.as_str())],
     )?;
-    // hrmph - do we actually need a transaction here?
-    tx.commit()?;
     Ok(())
 }
 
+/// Remove all tags from the specified URL.
+///
+/// # Arguments
+///
+/// * `conn` - A database connection on which to operate.
+///
+/// * `url` - The URL for which all tags should be removed.
+///
+/// # Returns
+///
+/// There is no success return value.
 pub fn remove_all_tags_from_url(conn: &Connection, url: &Url) -> Result<()> {
-    let tx = conn.unchecked_transaction()?;
     conn.execute_named_cached(
         "DELETE FROM moz_tags_relation
          WHERE
@@ -74,31 +109,50 @@ pub fn remove_all_tags_from_url(conn: &Connection, url: &Url) -> Result<()> {
                      AND url = :url)",
         &[(":url", &url.as_str())],
     )?;
-    // hrmph - do we actually need a transaction here?
-    tx.commit()?;
     Ok(())
 }
 
+/// Remove the specified tag from all URLs.
+///
+/// # Arguments
+///
+/// * `conn` - A database connection on which to operate.
+///
+/// * `tag` - The tag to remove.
+///
+/// # Returns
+///
+/// There is no success return value.
 pub fn remove_tag(conn: &Connection, tag: String) -> Result<()> {
-    let tx = conn.unchecked_transaction()?;
     conn.execute_named_cached(
         "DELETE FROM moz_tags
          WHERE tag = :tag",
         &[(":tag", &tag)],
     )?;
-    // hrmph - do we actually need a transaction here?
-    tx.commit()?;
     Ok(())
 }
 
+/// Retrieves a list of URLs which have the specified tag.
+///
+/// # Arguments
+///
+/// * `conn` - A database connection on which to operate.
+///
+/// * `tag` - The tag to query.
+///
+/// # Returns
+///
+/// * A Vec<Url> with all URLs which have the tag, ordered by the frecency of
+/// the URLs.
 pub fn get_urls_with_tag(conn: &Connection, tag: String) -> Result<Vec<Url>> {
-    let tag = validate_tag(tag)?;
+    let tag = validate_tag(&tag)?;
 
     let mut stmt = conn.prepare(
         "SELECT p.url FROM moz_places p
          JOIN moz_tags_relation r ON r.place_id = p.id
          JOIN moz_tags t ON t.id = r.tag_id
-         WHERE t.tag = :tag",
+         WHERE t.tag = :tag
+         ORDER BY p.frecency",
     )?;
 
     let rows =
@@ -110,13 +164,26 @@ pub fn get_urls_with_tag(conn: &Connection, tag: String) -> Result<Vec<Url>> {
     Ok(urls)
 }
 
+/// Retrieves a list of tags for the specified URL.
+///
+/// # Arguments
+///
+/// * `conn` - A database connection on which to operate.
+///
+/// * `url` - The URL to query.
+///
+/// # Returns
+///
+/// * A Vec<String> with all tags for the URL, sorted by the last modified
+///   date of the tag (latest to oldest)
 pub fn get_tags_for_url(conn: &Connection, url: &Url) -> Result<Vec<String>> {
     let mut stmt = conn.prepare(
         "SELECT t.tag
          FROM moz_tags t
          JOIN moz_tags_relation r ON r.tag_id = t.id
          JOIN moz_places h ON h.id = r.place_id
-         WHERE url_hash = hash(:url) AND url = :url",
+         WHERE url_hash = hash(:url) AND url = :url
+         ORDER BY t.lastModified DESC",
     )?;
     let rows = stmt.query_and_then_named(&[(":url", &url.as_str())], |row| {
         row.get_checked::<_, String>("tag")
@@ -148,6 +215,27 @@ mod tests {
         assert_eq!(with_tag, expected);
     }
 
+    fn get_foreign_count(conn: &Connection, url: &Url) -> i32 {
+        let count: Result<Option<i32>> = conn.try_query_row(
+            "SELECT foreign_count
+             FROM moz_places
+             WHERE url = :url",
+            &[(":url", &url.as_str())],
+            |row| Ok(row.get_checked::<_, i32>(0)?),
+            false,
+        );
+        count.expect("should work").expect("should get a value")
+    }
+
+    #[test]
+    fn test_validate_tag() {
+        assert_eq!(validate_tag("foo").expect("should work"), "foo");
+        assert_eq!(validate_tag(" foo ").expect("should work"), "foo");
+        assert!(validate_tag("").is_err());
+        assert!(validate_tag("foo bar").is_err());
+        assert!(validate_tag(&"f".repeat(101)).is_err());
+    }
+
     #[test]
     fn test_tags() {
         let conn = new_mem_connection();
@@ -158,11 +246,17 @@ mod tests {
         new_page_info(&conn, &url2, None).expect("should create the page");
         check_tags_for_url(&conn, &url1, vec![]);
         check_tags_for_url(&conn, &url2, vec![]);
+        assert_eq!(get_foreign_count(&conn, &url1), 0);
+        assert_eq!(get_foreign_count(&conn, &url2), 0);
 
         tag_url(&conn, &url1, "common".to_string()).expect("should work");
+        assert_eq!(get_foreign_count(&conn, &url1), 1);
         tag_url(&conn, &url1, "tag-1".to_string()).expect("should work");
+        assert_eq!(get_foreign_count(&conn, &url1), 2);
         tag_url(&conn, &url2, "common".to_string()).expect("should work");
+        assert_eq!(get_foreign_count(&conn, &url2), 1);
         tag_url(&conn, &url2, "tag-2".to_string()).expect("should work");
+        assert_eq!(get_foreign_count(&conn, &url2), 2);
 
         check_tags_for_url(
             &conn,
@@ -180,17 +274,21 @@ mod tests {
         check_urls_with_tag(&conn, "tag-2", vec![url2.clone()]);
 
         untag_url(&conn, &url1, "common".to_string()).expect("should work");
+        assert_eq!(get_foreign_count(&conn, &url1), 1);
 
         check_urls_with_tag(&conn, "common", vec![url2.clone()]);
 
         remove_tag(&conn, "common".to_string()).expect("should work");
         check_urls_with_tag(&conn, "common", vec![]);
+        assert_eq!(get_foreign_count(&conn, &url2), 1);
 
         remove_tag(&conn, "tag-1".to_string()).expect("should work");
         check_urls_with_tag(&conn, "tag-1", vec![]);
+        assert_eq!(get_foreign_count(&conn, &url1), 0);
 
         remove_tag(&conn, "tag-2".to_string()).expect("should work");
         check_urls_with_tag(&conn, "tag-2", vec![]);
+        assert_eq!(get_foreign_count(&conn, &url2), 0);
 
         // should be no tags rows left.
         let count: Result<Option<u32>> = conn.try_query_row(
@@ -216,6 +314,4 @@ mod tests {
             .expect("should work")
             .expect("should exist");
     }
-
-    // TODO - invalid tags and other error conditions.
 }
