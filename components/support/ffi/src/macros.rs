@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::string::rust_string_to_c;
-use std::os::raw::c_char;
-
 /// Implements [`IntoFfi`] for the provided types (more than one may be passed in) by allocating
 /// `$T` on the heap as an opaque pointer.
 ///
@@ -35,29 +32,38 @@ macro_rules! implement_into_ffi_by_pointer {
     )*}
 }
 
-/// Implements [`IntoFfi`] for the provided types (more than one may be passed in) by converting to
-/// the type to a JSON string. This macro also allows you to return `Vec<T>` for the types, also by
-/// serialization to JSON (by way of [`IntoFfiJsonTag`]).
+/// Implements [`IntoFfi`] for the provided types (more than one may be passed
+/// in) by converting to the type to a JSON string.
 ///
-/// This is typically going to be used from the "Rust component", and not the "FFI component" (see
-/// the top level crate documentation for more information).
+/// Additionally, most of the time we recomment using this crate's protobuf
+/// support, instead of JSON.
+///
+/// This is typically going to be used from the "Rust component", and not the
+/// "FFI component" (see the top level crate documentation for more
+/// information).
 ///
 /// Note: Each type passed in must implement or derive `serde::Serialize`.
 ///
+/// Note: for this to works, the crate it's called in must depend on `serde` and
+/// `serde_json`.
+///
 /// ## Panics
 ///
-/// The [`IntoFfi`] implementation this macro generates may panic in the following cases:
+/// The [`IntoFfi`] implementation this macro generates may panic in the
+/// following cases:
 ///
-/// - You've passed a type that contains a Map that has non-string keys (which can't be represented
-///   in JSON).
+/// - You've passed a type that contains a Map that has non-string keys (which
+///   can't be represented in JSON).
 ///
-/// - You've passed a type which has a custom serializer, and the custom serializer failed.
+/// - You've passed a type which has a custom serializer, and the custom
+///   serializer failed.
 ///
-/// These cases are both rare enough that this still seems fine for the majority of uses.
+/// These cases are both rare enough that this still seems fine for the majority
+/// of uses.
 #[macro_export]
 macro_rules! implement_into_ffi_by_json {
     ($($T:ty),* $(,)*) => {$(
-        unsafe impl $crate::IntoFfi for $T {
+        unsafe impl $crate::IntoFfi for $T where $T: serde::Serialize {
             type Value = *mut ::std::os::raw::c_char;
             #[inline]
             fn ffi_default() -> *mut ::std::os::raw::c_char {
@@ -65,7 +71,15 @@ macro_rules! implement_into_ffi_by_json {
             }
             #[inline]
             fn into_ffi_value(self) -> *mut ::std::os::raw::c_char {
-                $crate::convert_to_json_string(&self)
+                // This panic is inside our catch_panic, so it should be fine.
+                // We've also documented the case where the IntoFfi impl that
+                // calls this panics, and it's rare enough that it shouldn't
+                // matter that if it happens we return an ExternError
+                // representing a panic instead of one of some other type
+                // (especially given that the application isn't likely to be
+                // able to meaningfully handle JSON serialization failure).
+                let as_string = serde_json::to_string(&self).unwrap();
+                $crate::rust_string_to_c(as_string)
             }
         }
     )*}
@@ -75,8 +89,9 @@ macro_rules! implement_into_ffi_by_json {
 /// `prost::Message` (protobuf auto-generated type) by converting to the type to a [`ByteBuffer`].
 /// This [`ByteBuffer`] should later be passed by value.
 ///
+/// Note: for this to works, the crate it's called in must depend on `prost`.
+///
 /// Note: Each type passed in must implement or derive `prost::Message`.
-#[cfg(feature = "prost_support")]
 #[macro_export]
 macro_rules! implement_into_ffi_by_protobuf {
     ($($FFIType:ty),* $(,)*) => {$(
@@ -271,16 +286,4 @@ macro_rules! define_handle_map_deleter {
             })
         }
     };
-}
-
-// Needs to be pub so the macro can call it, but that's all.
-#[doc(hidden)]
-pub fn convert_to_json_string<T: serde::Serialize>(value: &T) -> *mut c_char {
-    // This panic is inside our catch_panic, so it should be fine. We've also documented the case
-    // where the IntoFfi impl that calls this panics, and it's rare enough that it shouldn't matter
-    // that if it happens we return an ExternError representing a panic instead of one of some other
-    // type (especially given that the application isn't likely to be able to meaningfully handle
-    // JSON serialization failure).
-    let as_string = serde_json::to_string(&value).unwrap();
-    rust_string_to_c(as_string)
 }

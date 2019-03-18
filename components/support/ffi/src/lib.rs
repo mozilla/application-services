@@ -98,6 +98,7 @@ mod error;
 mod ffistr;
 pub mod handle_map;
 mod into_ffi;
+#[macro_use]
 mod macros;
 mod string;
 
