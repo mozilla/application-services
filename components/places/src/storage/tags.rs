@@ -15,7 +15,7 @@ pub fn validate_tag(t: &str) -> Result<&str> {
     // Drop empty and oversized tags.
     let t = t.trim();
     if t.len() == 0 || t.len() > TAG_LENGTH_MAX || t.find(|c: char| c.is_whitespace()).is_some() {
-        Err(InvalidPlaceInfo::InvalidTag(t.to_string()).into())
+        Err(InvalidPlaceInfo::InvalidTag.into())
     } else {
         Ok(t)
     }
@@ -34,7 +34,7 @@ pub fn validate_tag(t: &str) -> Result<&str> {
 /// # Returns
 ///
 /// There is no success return value.
-pub fn tag_url(db: &PlacesDb, url: &Url, tag: String) -> Result<()> {
+pub fn tag_url(db: &PlacesDb, url: &Url, tag: &str) -> Result<()> {
     let tag = validate_tag(&tag)?;
     let tx = db.unchecked_transaction()?;
 
@@ -43,7 +43,7 @@ pub fn tag_url(db: &PlacesDb, url: &Url, tag: String) -> Result<()> {
     // going to reference it and (b) to avoid a sub-query.
     let place_id = match fetch_page_info(db, url)? {
         Some(info) => info.page.row_id,
-        None => return Err(InvalidPlaceInfo::NoItem(url.to_string()).into()),
+        None => return Err(InvalidPlaceInfo::NoSuchUrl.into()),
     };
 
     db.execute_named_cached(
@@ -75,7 +75,7 @@ pub fn tag_url(db: &PlacesDb, url: &Url, tag: String) -> Result<()> {
 ///
 /// There is no success return value - the operation is ignored if the URL
 /// does not have the tag.
-pub fn untag_url(db: &PlacesDb, url: &Url, tag: String) -> Result<()> {
+pub fn untag_url(db: &PlacesDb, url: &Url, tag: &str) -> Result<()> {
     let tag = validate_tag(&tag)?;
     db.execute_named_cached(
         "DELETE FROM moz_tags_relation
@@ -123,7 +123,7 @@ pub fn remove_all_tags_from_url(db: &PlacesDb, url: &Url) -> Result<()> {
 /// # Returns
 ///
 /// There is no success return value.
-pub fn remove_tag(db: &PlacesDb, tag: String) -> Result<()> {
+pub fn remove_tag(db: &PlacesDb, tag: &str) -> Result<()> {
     db.execute_named_cached(
         "DELETE FROM moz_tags
          WHERE tag = :tag",
@@ -144,7 +144,7 @@ pub fn remove_tag(db: &PlacesDb, tag: String) -> Result<()> {
 ///
 /// * A Vec<Url> with all URLs which have the tag, ordered by the frecency of
 /// the URLs.
-pub fn get_urls_with_tag(db: &PlacesDb, tag: String) -> Result<Vec<Url>> {
+pub fn get_urls_with_tag(db: &PlacesDb, tag: &str) -> Result<Vec<Url>> {
     let tag = validate_tag(&tag)?;
 
     let mut stmt = db.prepare(
@@ -209,7 +209,7 @@ mod tests {
     }
 
     fn check_urls_with_tag(db: &PlacesDb, tag: &str, mut expected: Vec<Url>) {
-        let mut with_tag = get_urls_with_tag(db, tag.to_string()).expect("should work");
+        let mut with_tag = get_urls_with_tag(db, tag).expect("should work");
         with_tag.sort();
         expected.sort();
         assert_eq!(with_tag, expected);
@@ -249,13 +249,13 @@ mod tests {
         assert_eq!(get_foreign_count(&conn, &url1), 0);
         assert_eq!(get_foreign_count(&conn, &url2), 0);
 
-        tag_url(&conn, &url1, "common".to_string()).expect("should work");
+        tag_url(&conn, &url1, "common").expect("should work");
         assert_eq!(get_foreign_count(&conn, &url1), 1);
-        tag_url(&conn, &url1, "tag-1".to_string()).expect("should work");
+        tag_url(&conn, &url1, "tag-1").expect("should work");
         assert_eq!(get_foreign_count(&conn, &url1), 2);
-        tag_url(&conn, &url2, "common".to_string()).expect("should work");
+        tag_url(&conn, &url2, "common").expect("should work");
         assert_eq!(get_foreign_count(&conn, &url2), 1);
-        tag_url(&conn, &url2, "tag-2".to_string()).expect("should work");
+        tag_url(&conn, &url2, "tag-2").expect("should work");
         assert_eq!(get_foreign_count(&conn, &url2), 2);
 
         check_tags_for_url(
@@ -273,20 +273,20 @@ mod tests {
         check_urls_with_tag(&conn, "tag-1", vec![url1.clone()]);
         check_urls_with_tag(&conn, "tag-2", vec![url2.clone()]);
 
-        untag_url(&conn, &url1, "common".to_string()).expect("should work");
+        untag_url(&conn, &url1, "common").expect("should work");
         assert_eq!(get_foreign_count(&conn, &url1), 1);
 
         check_urls_with_tag(&conn, "common", vec![url2.clone()]);
 
-        remove_tag(&conn, "common".to_string()).expect("should work");
+        remove_tag(&conn, "common").expect("should work");
         check_urls_with_tag(&conn, "common", vec![]);
         assert_eq!(get_foreign_count(&conn, &url2), 1);
 
-        remove_tag(&conn, "tag-1".to_string()).expect("should work");
+        remove_tag(&conn, "tag-1").expect("should work");
         check_urls_with_tag(&conn, "tag-1", vec![]);
         assert_eq!(get_foreign_count(&conn, &url1), 0);
 
-        remove_tag(&conn, "tag-2".to_string()).expect("should work");
+        remove_tag(&conn, "tag-2").expect("should work");
         check_urls_with_tag(&conn, "tag-2", vec![]);
         assert_eq!(get_foreign_count(&conn, &url2), 0);
 

@@ -530,8 +530,8 @@ pub fn update_bookmark(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> 
 }
 
 fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
-    let existing =
-        get_raw_bookmark(db, guid)?.ok_or_else(|| InvalidPlaceInfo::NoItem(guid.to_string()))?;
+    let existing = get_raw_bookmark(db, guid)?
+        .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(guid.to_string()))?;
     if existing.bookmark_type != item.bookmark_type() {
         return Err(InvalidPlaceInfo::MismatchedBookmarkType(
             existing.bookmark_type as u8,
