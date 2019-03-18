@@ -4,7 +4,7 @@
 
 use ffi_support::{
     define_bytebuffer_destructor, define_handle_map_deleter, define_string_destructor,
-    ConcurrentHandleMap, ExternError,
+    ConcurrentHandleMap, ExternError, FfiStr,
 };
 use std::os::raw::c_char;
 // use sync15::telemetry;
@@ -38,13 +38,13 @@ lazy_static::lazy_static! {
 /// Instantiate a Http connection. Returned connection must be freed with
 /// `push_connection_destroy`. Returns null and logs on errors (for now).
 #[no_mangle]
-pub unsafe extern "C" fn push_connection_new(
-    server_host: *const c_char,
-    socket_protocol: *const c_char,
-    bridge_type: *const c_char,
-    registration_id: *const c_char,
-    sender_id: *const c_char,
-    database_path: *const c_char,
+pub extern "C" fn push_connection_new(
+    server_host: FfiStr<'_>,
+    socket_protocol: FfiStr<'_>,
+    bridge_type: FfiStr<'_>,
+    registration_id: FfiStr<'_>,
+    sender_id: FfiStr<'_>,
+    database_path: FfiStr<'_>,
     error: &mut ExternError,
 ) -> u64 {
     MANAGER.insert_with_result(error, || {
@@ -58,12 +58,12 @@ pub unsafe extern "C" fn push_connection_new(
         );
         // return this as a reference to the map since that map contains the actual handles that rust uses.
         // see ffi layer for details.
-        let host = ffi_support::rust_string_from_c(server_host);
-        let protocol = ffi_support::opt_rust_string_from_c(socket_protocol);
-        let reg_id = ffi_support::opt_rust_string_from_c(registration_id);
-        let bridge = ffi_support::opt_rust_string_from_c(bridge_type);
-        let sender = ffi_support::rust_string_from_c(sender_id);
-        let db_path = ffi_support::opt_rust_string_from_c(database_path);
+        let host = server_host.into_string();
+        let protocol = socket_protocol.into_opt_string();
+        let reg_id = registration_id.into_opt_string();
+        let bridge = bridge_type.into_opt_string();
+        let sender = sender_id.into_string();
+        let db_path = database_path.into_opt_string();
         let config = PushConfiguration {
             server_host: host,
             http_protocol: protocol,
@@ -80,16 +80,16 @@ pub unsafe extern "C" fn push_connection_new(
 // Add a subscription
 /// Errors are logged.
 #[no_mangle]
-pub unsafe extern "C" fn push_subscribe(
+pub extern "C" fn push_subscribe(
     handle: u64,
-    channel_id: *const c_char,
-    scope: *const c_char,
+    channel_id: FfiStr<'_>,
+    scope: FfiStr<'_>,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("push_get_subscription");
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<String> {
-        let channel = ffi_support::rust_str_from_c(channel_id);
-        let scope_s = ffi_support::rust_str_from_c(scope);
+        let channel = channel_id.as_str();
+        let scope_s = scope.as_str();
         // Don't auto add the subscription to the db.
         // (endpoint updates also call subscribe and should be lighter weight)
         let (info, subscription_key) = mgr.subscribe(channel, scope_s)?;
@@ -109,28 +109,24 @@ pub unsafe extern "C" fn push_subscribe(
 
 // Unsubscribe a channel
 #[no_mangle]
-pub unsafe extern "C" fn push_unsubscribe(
+pub extern "C" fn push_unsubscribe(
     handle: u64,
-    channel_id: *const c_char,
+    channel_id: FfiStr<'_>,
     error: &mut ExternError,
 ) -> u8 {
     log::debug!("push_unsubscribe");
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<bool> {
-        let channel = ffi_support::opt_rust_str_from_c(channel_id);
+        let channel = channel_id.as_opt_str();
         mgr.unsubscribe(channel)
     })
 }
 
 // Update the OS token
 #[no_mangle]
-pub unsafe extern "C" fn push_update(
-    handle: u64,
-    new_token: *const c_char,
-    error: &mut ExternError,
-) -> u8 {
+pub extern "C" fn push_update(handle: u64, new_token: FfiStr<'_>, error: &mut ExternError) -> u8 {
     log::debug!("push_update");
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<_> {
-        let token = ffi_support::rust_str_from_c(new_token);
+        let token = new_token.as_str();
         mgr.update(&token)
     })
 }
@@ -139,10 +135,7 @@ pub unsafe extern "C" fn push_update(
 // Returns a JSON containing the new channelids => endpoints
 // NOTE: AC should notify processes associated with channelIDs of new endpoint
 #[no_mangle]
-pub unsafe extern "C" fn push_verify_connection(
-    handle: u64,
-    error: &mut ExternError,
-) -> *mut c_char {
+pub extern "C" fn push_verify_connection(handle: u64, error: &mut ExternError) -> *mut c_char {
     log::debug!("push_verify");
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<_> {
         if let Ok(r) = mgr.verify_connection() {
@@ -160,22 +153,22 @@ pub unsafe extern "C" fn push_verify_connection(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn push_decrypt(
+pub extern "C" fn push_decrypt(
     handle: u64,
-    chid: *const c_char,
-    body: *const c_char,
-    encoding: *const c_char,
-    salt: *const c_char,
-    dh: *const c_char,
+    chid: FfiStr<'_>,
+    body: FfiStr<'_>,
+    encoding: FfiStr<'_>,
+    salt: FfiStr<'_>,
+    dh: FfiStr<'_>,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("push_decrypt");
     MANAGER.call_with_result_mut(error, handle, |mgr| {
-        let r_chid = ffi_support::rust_str_from_c(chid);
-        let r_body = ffi_support::rust_str_from_c(body);
-        let r_encoding = ffi_support::rust_str_from_c(encoding);
-        let r_salt: Option<&str> = ffi_support::opt_rust_str_from_c(salt);
-        let r_dh: Option<&str> = ffi_support::opt_rust_str_from_c(dh);
+        let r_chid = chid.as_str();
+        let r_body = body.as_str();
+        let r_encoding = encoding.as_str();
+        let r_salt: Option<&str> = salt.as_opt_str();
+        let r_dh: Option<&str> = dh.as_opt_str();
         let uaid = mgr.conn.uaid.clone().unwrap();
         mgr.decrypt(&uaid, r_chid, r_body, r_encoding, r_dh, r_salt)
     })
@@ -183,14 +176,14 @@ pub unsafe extern "C" fn push_decrypt(
 // TODO: modify these to be relevant.
 
 #[no_mangle]
-pub unsafe extern "C" fn push_dispatch_for_chid(
+pub extern "C" fn push_dispatch_for_chid(
     handle: u64,
-    chid: *const c_char,
+    chid: FfiStr<'_>,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("push_dispatch_for_chid");
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<String> {
-        let chid = ffi_support::rust_str_from_c(chid);
+        let chid = chid.as_str();
         if let Some(record) = mgr.get_record_by_chid(chid)? {
             let dispatch = json!({
                 "uaid": record.uaid,
