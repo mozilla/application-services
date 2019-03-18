@@ -76,7 +76,7 @@ sealed class BookmarkTreeNode {
 }
 
 /**
- * A bookmark tree node that actually represents a bookmark.
+ * A bookmark tree node that represents a bookmarked URL.
  *
  * Its type is always [BookmarkType.Bookmark], and it has a `title `and `url`
  * in addition to the fields defined by [BookmarkTreeNode].
