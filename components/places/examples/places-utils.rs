@@ -13,7 +13,6 @@ use places::{ConnectionType, PlacesApi, PlacesDb};
 
 use failure::Fail;
 use serde_derive::*;
-use sql_support::ConnExt;
 use std::cell::Cell;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -153,7 +152,7 @@ fn run_native_export(db: &PlacesDb, filename: String) -> Result<()> {
     let file = File::create(filename)?;
     let writer = BufWriter::new(file);
 
-    let tree = fetch_tree(db.conn(), &BookmarkRootGuid::Root.into())?.unwrap();
+    let tree = fetch_tree(db, &BookmarkRootGuid::Root.into())?.unwrap();
     serde_json::to_writer_pretty(writer, &tree)?;
     Ok(())
 }

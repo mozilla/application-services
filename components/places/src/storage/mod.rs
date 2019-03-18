@@ -8,12 +8,13 @@
 pub mod bookmarks;
 pub mod history;
 
+use crate::db::PlacesDb;
 use crate::error::{ErrorKind, InvalidPlaceInfo, Result};
 use crate::msg_types::HistoryVisitInfo;
 use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition};
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
-use rusqlite::{Connection, Row};
+use rusqlite::Row;
 use serde_derive::*;
 use sql_support::{self, ConnExt};
 use std::fmt;
@@ -122,7 +123,7 @@ impl FetchedPageInfo {
 }
 
 // History::FetchPageInfo
-fn fetch_page_info(db: &impl ConnExt, url: &Url) -> Result<Option<FetchedPageInfo>> {
+fn fetch_page_info(db: &PlacesDb, url: &Url) -> Result<Option<FetchedPageInfo>> {
     let sql = "
       SELECT guid, url, id, title, hidden, typed, frecency,
              visit_count_local, visit_count_remote,
@@ -142,7 +143,7 @@ fn fetch_page_info(db: &impl ConnExt, url: &Url) -> Result<Option<FetchedPageInf
     )?)
 }
 
-fn new_page_info(db: &impl ConnExt, url: &Url, new_guid: Option<SyncGuid>) -> Result<PageInfo> {
+fn new_page_info(db: &PlacesDb, url: &Url, new_guid: Option<SyncGuid>) -> Result<PageInfo> {
     let guid = match new_guid {
         Some(guid) => guid,
         None => SyncGuid::new(),
@@ -189,12 +190,12 @@ impl HistoryVisitInfo {
     }
 }
 
-pub fn run_maintenance(conn: &impl ConnExt) -> Result<()> {
+pub fn run_maintenance(conn: &PlacesDb) -> Result<()> {
     conn.execute_all(&["VACUUM", "PRAGMA optimize"])?;
     Ok(())
 }
 
-pub(crate) fn put_meta(db: &Connection, key: &str, value: &ToSql) -> Result<()> {
+pub(crate) fn put_meta(db: &PlacesDb, key: &str, value: &ToSql) -> Result<()> {
     db.execute_named_cached(
         "REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
         &[(":key", &key), (":value", value)],
@@ -202,7 +203,7 @@ pub(crate) fn put_meta(db: &Connection, key: &str, value: &ToSql) -> Result<()> 
     Ok(())
 }
 
-pub(crate) fn get_meta<T: FromSql>(db: &Connection, key: &str) -> Result<Option<T>> {
+pub(crate) fn get_meta<T: FromSql>(db: &PlacesDb, key: &str) -> Result<Option<T>> {
     let res = db.try_query_one(
         "SELECT value FROM moz_meta WHERE key = :key",
         &[(":key", &key)],
@@ -212,7 +213,7 @@ pub(crate) fn get_meta<T: FromSql>(db: &Connection, key: &str) -> Result<Option<
 }
 
 /// Delete all items in the temp tables we use for staging changes.
-pub(crate) fn delete_pending_temp_tables(conn: &Connection) -> Result<()> {
+pub(crate) fn delete_pending_temp_tables(conn: &PlacesDb) -> Result<()> {
     conn.execute_batch(
         "DELETE FROM moz_updateoriginsupdate_temp;
          DELETE FROM moz_updateoriginsdelete_temp;

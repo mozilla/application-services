@@ -2,11 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::api::places_api::ConnectionType;
+use crate::db::PlacesDb;
 use crate::error::*;
 use crate::storage::history::history_sync::reset_storage;
 use rusqlite::types::{FromSql, ToSql};
 use rusqlite::Connection;
-use sql_support::ConnExt;
 use std::cell::Cell;
 use std::ops::Deref;
 use std::result;
@@ -26,12 +27,13 @@ static GLOBAL_STATE_META_KEY: &'static str = "history_global_state";
 // A HistoryStore is short-lived and constructed each sync by something which
 // owns the connection and ClientInfo.
 pub struct HistoryStore<'a> {
-    pub db: &'a Connection,
+    pub db: &'a PlacesDb,
     pub client_info: &'a Cell<Option<ClientInfo>>,
 }
 
 impl<'a> HistoryStore<'a> {
-    pub fn new(db: &'a Connection, client_info: &'a Cell<Option<ClientInfo>>) -> Self {
+    pub fn new(db: &'a PlacesDb, client_info: &'a Cell<Option<ClientInfo>>) -> Self {
+        assert_eq!(db.conn_type(), ConnectionType::Sync);
         Self { db, client_info }
     }
 
@@ -49,7 +51,7 @@ impl<'a> HistoryStore<'a> {
         incoming_telemetry: &mut telemetry::EngineIncoming,
     ) -> Result<OutgoingChangeset> {
         let timestamp = inbound.timestamp;
-        let outgoing = apply_plan(&self, inbound, incoming_telemetry)?;
+        let outgoing = apply_plan(&self.db, inbound, incoming_telemetry)?;
         // write the timestamp now, so if we are interrupted creating outgoing
         // changesets we don't need to re-reconcile what we just did.
         self.put_meta(LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
@@ -118,13 +120,6 @@ impl<'a> HistoryStore<'a> {
             assert_eq!(name, "history");
             Err(err.into())
         }
-    }
-}
-
-impl<'a> ConnExt for HistoryStore<'a> {
-    #[inline]
-    fn conn(&self) -> &Connection {
-        &self.db
     }
 }
 
