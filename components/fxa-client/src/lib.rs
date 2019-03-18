@@ -21,7 +21,6 @@ use url::Url;
 mod browser_id;
 mod config;
 pub mod errors;
-#[cfg(feature = "ffi")]
 pub mod ffi;
 // Include the `msg_types` module, which is generated from msg_types.proto.
 pub mod msg_types {

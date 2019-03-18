@@ -4,7 +4,7 @@ buildscript {
     ext.kotlin_version = '1.3.10'
 
     ext.library = [
-        version: '0.19.0'
+        version: '0.20.2'
     ]
 
     ext.build = [
@@ -80,13 +80,15 @@ task clean(type: Delete) {
 // { ... }`, to avoid issues with importing.
 import com.sun.jna.Platform as DefaultPlatform
 
-// This is the output `git rev-parse HEAD:libs`.  We could discover this automatically, but
-// let's keep things simple and bump this manually for a while.  If and when we grow SNAPSHOT
-// support on maven.mozilla.org, we can invest in a better approach for versioning these
-// prerequisite libraries.
+// If this is `null`, we use libs from the source directory.
+// Check if there are any changes to `libs` since `master`, and if not,
+// use the sha to download the artifacts from taskcluster.
 //
-// Set this to `= null` in order to use libs from the source directory.
-ext.libsGitSha = '5963858cbc4a55b295dd69efd97bc043259241c5'
+// Note we pass the path to the git-dir so that this still works when
+// used as a dependency substitution from e.g. android-components.
+ext.libsGitSha = "git --git-dir=${rootProject.rootDir}/.git diff --name-only master -- :/libs".execute().text.allWhitespace ?
+                 "git --git-dir=${rootProject.rootDir}/.git rev-parse HEAD:libs".execute().text.trim() : null
+
 
 if (rootProject.ext.libsGitSha != null) {
     task downloadAndroidLibs(type: Download) {
@@ -161,6 +163,40 @@ if (rootProject.ext.libsGitSha != null) {
     }
 }
 
+Properties localProperties = null;
+if (file('local.properties').canRead()) {
+    localProperties = new Properties();
+    localProperties.load(file('local.properties').newDataInputStream())
+    logger.lifecycle('Local configuration: loaded local.properties')
+}
+
+// For non-megazord builds, don't do a release build unless we explicitly want
+// it (e.g. in CI, or if specified in local.properties). This avoids some cases
+// where two builds of some crates are required when they wouldn't otherwise be,
+// as well as improving build times for local development.
+ext.nonMegazordProfile = "debug"
+
+if (System.getenv("CI")) {
+    ext.nonMegazordProfile = "release"
+} else if (localProperties != null) {
+    String localNonMegazordProfile = localProperties.getProperty(
+        "application-services.nonmegazord-profile");
+    if (localNonMegazordProfile != null) {
+        ext.nonMegazordProfile = localNonMegazordProfile;
+    }
+}
+
+// The Cargo targets to invoke.  The mapping from short name to target
+// triple is defined by the `rust-android-gradle` plugin.
+ext.rustTargets = [
+    'linux-x86-64',
+    'darwin',
+    'win32-x86-64-gnu',
+    'arm',
+    'arm64',
+    'x86_64',
+    'x86',
+]
 // Configure some environment variables, per toolchain, that will apply during
 // the Cargo build.  We assume that the `libs/` directory has been populated
 // before invoking Gradle (or Cargo).

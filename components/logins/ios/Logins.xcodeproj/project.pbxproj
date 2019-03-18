@@ -259,7 +259,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "sh ./build_ffi.sh\n";
+			shellScript = "bash $PWD/../../../build-scripts/xc-universal-binary.sh liblogins_ffi.a logins_ffi $PWD/../../.. $buildvariant\n\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

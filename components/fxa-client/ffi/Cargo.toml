@@ -9,13 +9,12 @@ name = "fxaclient_ffi"
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
-ffi-support = { path = "../../support/ffi", features = ["prost_support"] }
+ffi-support = { path = "../../support/ffi" }
 log = "0.4.6"
 lazy_static = "1.2.0"
 
 [dependencies.fxa-client]
 path = "../"
-features = ["ffi"]
 
 [features]
 browserid = ["fxa-client/browserid"]

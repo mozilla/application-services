@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{fetch_page_info, TAG_LENGTH_MAX};
+use crate::db::PlacesDb;
 use crate::error::{InvalidPlaceInfo, Result};
-use rusqlite::Connection;
 use sql_support::ConnExt;
 use url::Url;
 
@@ -34,25 +34,25 @@ pub fn validate_tag(t: &str) -> Result<&str> {
 /// # Returns
 ///
 /// There is no success return value.
-pub fn tag_url(conn: &Connection, url: &Url, tag: String) -> Result<()> {
+pub fn tag_url(db: &PlacesDb, url: &Url, tag: String) -> Result<()> {
     let tag = validate_tag(&tag)?;
-    let tx = conn.unchecked_transaction()?;
+    let tx = db.unchecked_transaction()?;
 
     // This function will not create a new place.
     // Fetch the place id, so we (a) avoid creating a new tag when we aren't
     // going to reference it and (b) to avoid a sub-query.
-    let place_id = match fetch_page_info(conn, url)? {
+    let place_id = match fetch_page_info(db, url)? {
         Some(info) => info.page.row_id,
         None => return Err(InvalidPlaceInfo::NoItem(url.to_string()).into()),
     };
 
-    conn.execute_named_cached(
+    db.execute_named_cached(
         "INSERT OR IGNORE INTO moz_tags(tag, lastModified)
          VALUES(:tag, now())",
         &[(":tag", &tag)],
     )?;
 
-    conn.execute_named_cached(
+    db.execute_named_cached(
         "INSERT OR IGNORE INTO moz_tags_relation(tag_id, place_id)
          VALUES((SELECT id FROM moz_tags WHERE tag = :tag), :place_id)",
         &[(":tag", &tag), (":place_id", &place_id)],
@@ -75,9 +75,9 @@ pub fn tag_url(conn: &Connection, url: &Url, tag: String) -> Result<()> {
 ///
 /// There is no success return value - the operation is ignored if the URL
 /// does not have the tag.
-pub fn untag_url(conn: &Connection, url: &Url, tag: String) -> Result<()> {
+pub fn untag_url(db: &PlacesDb, url: &Url, tag: String) -> Result<()> {
     let tag = validate_tag(&tag)?;
-    conn.execute_named_cached(
+    db.execute_named_cached(
         "DELETE FROM moz_tags_relation
          WHERE tag_id = (SELECT id FROM moz_tags
                          WHERE tag = :tag)
@@ -100,8 +100,8 @@ pub fn untag_url(conn: &Connection, url: &Url, tag: String) -> Result<()> {
 /// # Returns
 ///
 /// There is no success return value.
-pub fn remove_all_tags_from_url(conn: &Connection, url: &Url) -> Result<()> {
-    conn.execute_named_cached(
+pub fn remove_all_tags_from_url(db: &PlacesDb, url: &Url) -> Result<()> {
+    db.execute_named_cached(
         "DELETE FROM moz_tags_relation
          WHERE
          place_id = (SELECT id FROM moz_places
@@ -123,8 +123,8 @@ pub fn remove_all_tags_from_url(conn: &Connection, url: &Url) -> Result<()> {
 /// # Returns
 ///
 /// There is no success return value.
-pub fn remove_tag(conn: &Connection, tag: String) -> Result<()> {
-    conn.execute_named_cached(
+pub fn remove_tag(db: &PlacesDb, tag: String) -> Result<()> {
+    db.execute_named_cached(
         "DELETE FROM moz_tags
          WHERE tag = :tag",
         &[(":tag", &tag)],
@@ -144,10 +144,10 @@ pub fn remove_tag(conn: &Connection, tag: String) -> Result<()> {
 ///
 /// * A Vec<Url> with all URLs which have the tag, ordered by the frecency of
 /// the URLs.
-pub fn get_urls_with_tag(conn: &Connection, tag: String) -> Result<Vec<Url>> {
+pub fn get_urls_with_tag(db: &PlacesDb, tag: String) -> Result<Vec<Url>> {
     let tag = validate_tag(&tag)?;
 
-    let mut stmt = conn.prepare(
+    let mut stmt = db.prepare(
         "SELECT p.url FROM moz_places p
          JOIN moz_tags_relation r ON r.place_id = p.id
          JOIN moz_tags t ON t.id = r.tag_id
@@ -176,8 +176,8 @@ pub fn get_urls_with_tag(conn: &Connection, tag: String) -> Result<Vec<Url>> {
 ///
 /// * A Vec<String> with all tags for the URL, sorted by the last modified
 ///   date of the tag (latest to oldest)
-pub fn get_tags_for_url(conn: &Connection, url: &Url) -> Result<Vec<String>> {
-    let mut stmt = conn.prepare(
+pub fn get_tags_for_url(db: &PlacesDb, url: &Url) -> Result<Vec<String>> {
+    let mut stmt = db.prepare(
         "SELECT t.tag
          FROM moz_tags t
          JOIN moz_tags_relation r ON r.tag_id = t.id
@@ -201,22 +201,22 @@ mod tests {
     use crate::api::places_api::test::new_mem_connection;
     use crate::storage::new_page_info;
 
-    fn check_tags_for_url(conn: &Connection, url: &Url, mut expected: Vec<String>) {
-        let mut tags = get_tags_for_url(&conn, &url).expect("should work");
+    fn check_tags_for_url(db: &PlacesDb, url: &Url, mut expected: Vec<String>) {
+        let mut tags = get_tags_for_url(&db, &url).expect("should work");
         tags.sort();
         expected.sort();
         assert_eq!(tags, expected);
     }
 
-    fn check_urls_with_tag(conn: &Connection, tag: &str, mut expected: Vec<Url>) {
-        let mut with_tag = get_urls_with_tag(conn, tag.to_string()).expect("should work");
+    fn check_urls_with_tag(db: &PlacesDb, tag: &str, mut expected: Vec<Url>) {
+        let mut with_tag = get_urls_with_tag(db, tag.to_string()).expect("should work");
         with_tag.sort();
         expected.sort();
         assert_eq!(with_tag, expected);
     }
 
-    fn get_foreign_count(conn: &Connection, url: &Url) -> i32 {
-        let count: Result<Option<i32>> = conn.try_query_row(
+    fn get_foreign_count(db: &PlacesDb, url: &Url) -> i32 {
+        let count: Result<Option<i32>> = db.try_query_row(
             "SELECT foreign_count
              FROM moz_places
              WHERE url = :url",

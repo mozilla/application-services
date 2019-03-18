@@ -5,6 +5,7 @@
 use super::record::{HistoryRecord, HistoryRecordVisit, HistorySyncRecord};
 use super::{HISTORY_TTL, MAX_OUTGOING_PLACES, MAX_VISITS};
 use crate::api::history::can_add_url;
+use crate::db::PlacesDb;
 use crate::error::*;
 use crate::storage::history::history_sync::{
     apply_synced_deletion, apply_synced_reconciliation, apply_synced_visits, fetch_outgoing,
@@ -12,7 +13,6 @@ use crate::storage::history::history_sync::{
 };
 use crate::types::{SyncGuid, Timestamp, VisitTransition};
 use crate::valid_guid::is_valid_places_guid;
-use rusqlite::Connection;
 use serde_json;
 use sql_support::ConnExt;
 use std::collections::HashSet;
@@ -67,11 +67,7 @@ pub enum IncomingPlan {
     Reconciled,
 }
 
-fn plan_incoming_record(
-    conn: &Connection,
-    record: HistoryRecord,
-    max_visits: usize,
-) -> IncomingPlan {
+fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usize) -> IncomingPlan {
     let url = match Url::parse(&record.hist_uri) {
         Ok(u) => u,
         Err(e) => return IncomingPlan::Invalid(e.into()),
@@ -171,7 +167,7 @@ fn plan_incoming_record(
 }
 
 pub fn apply_plan(
-    conn: &Connection,
+    db: &PlacesDb,
     inbound: IncomingChangeset,
     telem: &mut telemetry::EngineIncoming,
 ) -> Result<OutgoingChangeset> {
@@ -189,7 +185,7 @@ pub fn apply_plan(
             }
         };
         let plan = match item.record {
-            Some(record) => plan_incoming_record(conn, record, MAX_VISITS),
+            Some(record) => plan_incoming_record(db, record, MAX_VISITS),
             None => IncomingPlan::Delete,
         };
         let guid = item.guid.clone();
@@ -198,7 +194,7 @@ pub fn apply_plan(
 
     // this 1000 duration should probably be a constant somewhere - it doesn't
     // seem likely that different call-sites would use different values.
-    let mut tx = conn.time_chunked_transaction(Duration::from_millis(1000))?;
+    let mut tx = db.time_chunked_transaction(Duration::from_millis(1000))?;
 
     let mut outgoing = OutgoingChangeset::new("history".into(), inbound.timestamp);
     for (guid, plan) in plans {
@@ -222,7 +218,7 @@ pub fn apply_plan(
             }
             IncomingPlan::Delete => {
                 log::trace!("incoming: deleting {:?}", guid);
-                apply_synced_deletion(&conn, &guid)?;
+                apply_synced_deletion(&db, &guid)?;
                 telem.applied(1);
             }
             IncomingPlan::Apply {
@@ -237,24 +233,24 @@ pub fn apply_plan(
                     new_title,
                     visits
                 );
-                apply_synced_visits(&conn, &guid, &url, new_title, visits)?;
+                apply_synced_visits(&db, &guid, &url, new_title, visits)?;
                 telem.applied(1);
             }
             IncomingPlan::Reconciled => {
                 telem.reconciled(1);
                 log::trace!("incoming: reconciled {:?}", guid);
-                apply_synced_reconciliation(&conn, &guid)?;
+                apply_synced_reconciliation(&db, &guid)?;
             }
         };
     }
-    finish_incoming(&conn)?;
+    finish_incoming(&db)?;
     tx.commit()?;
     // It might make sense for fetch_outgoing to manage its own
     // time_chunked_transaction - even though doesn't seem a large bottleneck
     // at this time, the fact we hold a single transaction for the entire call
     // really is used only for performance, so it's certainly a candidate.
-    let tx = conn.unchecked_transaction()?;
-    let mut out_infos = fetch_outgoing(conn, MAX_OUTGOING_PLACES, MAX_VISITS)?;
+    let tx = db.unchecked_transaction()?;
+    let mut out_infos = fetch_outgoing(db, MAX_OUTGOING_PLACES, MAX_VISITS)?;
 
     for (guid, out_record) in out_infos.drain() {
         let payload = match out_record {
@@ -270,9 +266,9 @@ pub fn apply_plan(
     Ok(outgoing)
 }
 
-pub fn finish_plan(conn: &Connection) -> Result<()> {
-    let tx = conn.unchecked_transaction()?;
-    finish_outgoing(conn)?;
+pub fn finish_plan(db: &PlacesDb) -> Result<()> {
+    let tx = db.unchecked_transaction()?;
+    finish_outgoing(db)?;
     log::trace!("Committing final sync plan");
     tx.commit()?;
     Ok(())

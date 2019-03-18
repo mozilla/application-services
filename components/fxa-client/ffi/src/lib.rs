@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use ffi_support::{
-    define_bytebuffer_destructor, define_handle_map_deleter, define_string_destructor,
-    rust_str_from_c, ByteBuffer, ConcurrentHandleMap, ExternError,
+    define_bytebuffer_destructor, define_handle_map_deleter, define_string_destructor, ByteBuffer,
+    ConcurrentHandleMap, ExternError, FfiStr,
 };
 use fxa_client::FirefoxAccount;
 use std::os::raw::c_char;
@@ -34,17 +34,17 @@ lazy_static::lazy_static! {
 /// A destructor [fxa_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub unsafe extern "C" fn fxa_new(
-    content_url: *const c_char,
-    client_id: *const c_char,
-    redirect_uri: *const c_char,
+pub extern "C" fn fxa_new(
+    content_url: FfiStr<'_>,
+    client_id: FfiStr<'_>,
+    redirect_uri: FfiStr<'_>,
     err: &mut ExternError,
 ) -> u64 {
     log::debug!("fxa_new");
     ACCOUNTS.insert_with_output(err, || {
-        let content_url = rust_str_from_c(content_url);
-        let client_id = rust_str_from_c(client_id);
-        let redirect_uri = rust_str_from_c(redirect_uri);
+        let content_url = content_url.as_str();
+        let client_id = client_id.as_str();
+        let redirect_uri = redirect_uri.as_str();
         FirefoxAccount::new(content_url, client_id, redirect_uri)
     })
 }
@@ -56,9 +56,9 @@ pub unsafe extern "C" fn fxa_new(
 /// A destructor [fxa_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub unsafe extern "C" fn fxa_from_json(json: *const c_char, err: &mut ExternError) -> u64 {
+pub extern "C" fn fxa_from_json(json: FfiStr<'_>, err: &mut ExternError) -> u64 {
     log::debug!("fxa_from_json");
-    ACCOUNTS.insert_with_result(err, || FirefoxAccount::from_json(rust_str_from_c(json)))
+    ACCOUNTS.insert_with_result(err, || FirefoxAccount::from_json(json.as_str()))
 }
 
 /// Serializes the state of a [FirefoxAccount] instance. It can be restored later with [fxa_from_json].
@@ -140,16 +140,16 @@ pub extern "C" fn fxa_get_connection_success_url(
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub unsafe extern "C" fn fxa_begin_pairing_flow(
+pub extern "C" fn fxa_begin_pairing_flow(
     handle: u64,
-    pairing_url: *const c_char,
-    scope: *const c_char,
+    pairing_url: FfiStr<'_>,
+    scope: FfiStr<'_>,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("fxa_begin_pairing_flow");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
-        let pairing_url = rust_str_from_c(pairing_url);
-        let scope = rust_str_from_c(scope);
+        let pairing_url = pairing_url.as_str();
+        let scope = scope.as_str();
         let scopes: Vec<&str> = scope.split(" ").collect();
         fxa.begin_pairing_flow(&pairing_url, &scopes)
     })
@@ -170,15 +170,15 @@ pub unsafe extern "C" fn fxa_begin_pairing_flow(
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub unsafe extern "C" fn fxa_begin_oauth_flow(
+pub extern "C" fn fxa_begin_oauth_flow(
     handle: u64,
-    scope: *const c_char,
+    scope: FfiStr<'_>,
     wants_keys: bool,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("fxa_begin_oauth_flow");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
-        let scope = rust_str_from_c(scope);
+        let scope = scope.as_str();
         let scopes: Vec<&str> = scope.split(" ").collect();
         fxa.begin_oauth_flow(&scopes, wants_keys)
     })
@@ -186,16 +186,16 @@ pub unsafe extern "C" fn fxa_begin_oauth_flow(
 
 /// Finish an OAuth flow initiated by [fxa_begin_oauth_flow].
 #[no_mangle]
-pub unsafe extern "C" fn fxa_complete_oauth_flow(
+pub extern "C" fn fxa_complete_oauth_flow(
     handle: u64,
-    code: *const c_char,
-    state: *const c_char,
+    code: FfiStr<'_>,
+    state: FfiStr<'_>,
     error: &mut ExternError,
 ) {
     log::debug!("fxa_complete_oauth_flow");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
-        let code = rust_str_from_c(code);
-        let state = rust_str_from_c(state);
+        let code = code.as_str();
+        let state = state.as_str();
         fxa.complete_oauth_flow(code, state)
     });
 }
@@ -212,15 +212,15 @@ pub unsafe extern "C" fn fxa_complete_oauth_flow(
 /// A destructor [fxa_bytebuffer_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub unsafe extern "C" fn fxa_get_access_token(
+pub extern "C" fn fxa_get_access_token(
     handle: u64,
-    scope: *const c_char,
+    scope: FfiStr<'_>,
     error: &mut ExternError,
 ) -> ByteBuffer {
     log::debug!("fxa_get_access_token");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
-        let scope = rust_str_from_c(scope);
-        fxa.get_access_token(&scope)
+        let scope = scope.as_str();
+        fxa.get_access_token(scope)
     })
 }
 

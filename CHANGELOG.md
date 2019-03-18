@@ -2,7 +2,23 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.20.0...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.20.2...master)
+
+# v0.20.2 (_2019-03-15_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.20.1...v0.20.2)
+
+- An automation problem with the previous release, forcing a version bump. No functional changes.
+- Local development: non-megazord builds are now `debug` be default, improving local build times
+and working around subtle build issues.
+- Override this via a flag in `local.properties`: `application-services.nonmegazord-profile=release`
+
+# v0.20.1 (_2019-03-15_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.20.0...v0.20.1)
+
+- A error in the build.gradle file caused the v0.20.0 release to fail, this
+  release should not be meaningfully different from it.
 
 # v0.20.0 (_2019-03-14_)
 
