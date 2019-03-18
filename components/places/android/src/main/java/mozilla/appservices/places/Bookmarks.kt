@@ -11,7 +11,7 @@ import java.lang.RuntimeException
  * Enumeration of the ids of the roots of the bookmarks tree.
  *
  * There are 5 "roots" in the bookmark tree. The actual root
- * (which have no parent), and it's 4 children (which have the
+ * (which has no parent), and it's 4 children (which have the
  * actual root as their parent).
  *
  * You cannot delete or move any of these items.
@@ -60,8 +60,6 @@ sealed class BookmarkTreeNode {
 
     /**
      * Last modification time, in milliseconds since the unix epoch.
-     *
-     * May not be a local timestamp.
      */
     abstract val lastModified: Long
 
@@ -313,7 +311,7 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
     /**
      * Update a bookmark to the provided info.
      *
-     * @param guid Guid of the bookmark to update
+     * @param guid GUID of the bookmark to update
      * @param info The changes to make to the listed bookmark.
      *
      * @throws InvalidBookmarkUpdate If the change requested is impossible given the

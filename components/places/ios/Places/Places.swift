@@ -9,7 +9,7 @@ internal typealias APIHandle = UInt64
 internal typealias ConnectionHandle = UInt64
 
 /**
- * This is something like a places connection manager. It primarially exists to
+ * This is something like a places connection manager. It primarialy exists to
  * ensure that only a single write connection is active at once.
  *
  * If it helps, you can think of this as something like a connection pool

@@ -74,8 +74,6 @@ message BookmarkNode {
     /**
      * Last modification time, in milliseconds since the unix epoch.
      *
-     * May not be a local timestamp.
-     *
      * - Always returned on reads.
      * - Ignored for insertion and update.
      */

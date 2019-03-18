@@ -65,8 +65,6 @@ public class BookmarkNode {
 
     /**
      * Last modification time, in milliseconds since the unix epoch.
-     *
-     * May not be a local timestamp.
      */
     public let lastModified: Int64
 

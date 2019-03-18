@@ -16,7 +16,7 @@ public enum PlacesError: Error {
     /// typically since it doesn't seem like there's a sane way for them to be handled.
     case unexpected(message: String)
 
-    /// The rust code implementing logins storage paniced. This always indicates a bug.
+    /// The rust code implementing places storage paniced. This always indicates a bug.
     case panic(message: String)
 
     /// The place we were given is invalid.
