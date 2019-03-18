@@ -338,6 +338,39 @@ public class PlacesReadConnection {
 public class PlacesWriteConnection : PlacesReadConnection {
 
     /**
+     * Run periodic database maintenance. This might include, but is
+     * not limited to:
+     *
+     * - `VACUUM`ing.
+     * - Requesting that the indices in our tables be optimized.
+     * - Periodic repair or deletion of corrupted records.
+     * - etc.
+     *
+     * It should be called at least once a day, but this is merely a
+     * recommendation and nothing too dire should happen if it is not
+     * called.
+     *
+     * - Throws:
+     *     - `PlacesError.connUseAfterAPIClosed`: if the PlacesAPI that returned this connection
+     *                                            object has been closed. This indicates API
+     *                                            misuse.
+     *     - `PlacesError.unexpected`: When an error that has not specifically been exposed
+     *                                 to Swift is encountered (for example IO errors from
+     *                                 the database code, etc).
+     *     - `PlacesError.panic`: If the rust code panics while completing this
+     *                            operation. (If this occurs, please let us know).
+     *
+     */
+    func runMaintenance() throws {
+        return try queue.sync {
+            try self.checkApi()
+            try PlacesError.unwrap { error in
+                places_run_maintenance(self.handle, error)
+            }
+        }
+    }
+
+    /**
      * Delete the bookmark with the provided GUID.
      *
      * If the requested bookmark is a folder, all children of
