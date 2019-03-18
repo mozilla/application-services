@@ -1,10 +1,10 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-
 use places::api::{
     matcher::{match_url, search_frecent, SearchParams},
     places_api::ConnectionType,
 };
 use places::PlacesDb;
+use sql_support::ConnExt;
 use std::rc::Rc;
 use tempdir::TempDir;
 
@@ -17,7 +17,7 @@ struct DummyHistoryEntry {
 fn init_db(db: &mut PlacesDb) -> places::Result<()> {
     let dummy_data = include_str!("../fixtures/dummy_urls.json");
     let entries: Vec<DummyHistoryEntry> = serde_json::from_str(dummy_data)?;
-    let tx = db.db.transaction()?;
+    let tx = db.unchecked_transaction()?;
     let day_ms = 24 * 60 * 60 * 1000;
     let now: places::Timestamp = std::time::SystemTime::now().into();
     for entry in entries {
@@ -28,7 +28,7 @@ fn init_db(db: &mut PlacesDb) -> places::Result<()> {
                 .with_is_remote(i < 10)
                 .with_visit_type(places::VisitTransition::Link)
                 .with_at(places::Timestamp(now.0 - day_ms * (1 + i)));
-            places::storage::history::apply_observation_direct(&tx, obs)?;
+            places::storage::history::apply_observation_direct(&db, obs)?;
         }
     }
     tx.commit()?;
