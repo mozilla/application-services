@@ -133,6 +133,7 @@ pub struct ExternError {
 }
 
 impl std::panic::UnwindSafe for ExternError {}
+impl std::panic::RefUnwindSafe for ExternError {}
 
 /// This is sound so long as our fields are private.
 unsafe impl Send for ExternError {}

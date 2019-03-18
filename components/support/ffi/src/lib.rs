@@ -128,11 +128,6 @@ pub use crate::handle_map::{ConcurrentHandleMap, Handle, HandleError, HandleMap}
 ///
 /// A few points about the following example:
 ///
-/// - This function *must* be unsafe, as it reads from a raw pointer. If you made it safe, then safe
-///   Rust could cause memory safety violations, which would be very bad! (However, FFI functions
-///   that don't read from raw pointers don't need to be marked `unsafe`! Sadly, most of ours need
-///   to take strings, and so we're out of luck...)
-///
 /// - We need to mark it as `#[no_mangle] pub extern "C"`.
 ///
 /// - We prefix it with a unique name for the library (e.g. `mylib_`). Foreign functions are not
@@ -174,42 +169,9 @@ pub use crate::handle_map::{ConcurrentHandleMap, Handle, HandleError, HandleMap}
 ///     })
 /// }
 /// ```
-///
-/// ## Unwind (panic) Safety
-///
-/// Internally, this function wraps it's argument in a
-/// [`AssertUnwindSafe`](std::panic::AssertUnwindSafe). That means it doesn't attempt to force you
-/// to mark things as [`UnwindSafe`](std::panic::UnwindSafe). Effectively, we're saying that every
-/// caller to this function is automatically panic safe, which is a lie. This is not ideal, but it's
-/// unclear what the right call here would be.
-///
-/// To be clear, making the wrong choice here has no bearing on memory safety, unless there are
-/// exisiting memory safety holes in the code. That means by using `AssertUnwindSafe`, we end up in
-/// a position closer to the position we'd be in if we were working in a language with exceptions,
-/// which typically provides little-to-no assistance in terms of program correctness in the case of
-/// something `throw`ing.
-///
-/// Anyway, if we *were* to require `F: UnwindSafe`, the implementer of the FFI component would need
-/// to use `AssertUnwindSafe` on every FFI binding that wraps a method that needs to call something
-/// on a `&mut T` (note that this is *not* true for `*mut T`, which we want to discourage). The use
-/// of this seems likely to be frequent enough in this FFI that I have an extremely hard time
-/// believing it would be used with consideration, so while the strategy of "assume everything is
-/// panic-safe" is clearly not great, it seems likely to be what happens anyway.
-///
-/// There are, of course, other options:
-///
-/// 1. Abort on panic (e.g. only expose the implementations in `abort_on_panic`), which is bad
-///    for obvious reasons, and seems even worse given our position as libraries.
-/// 2. Poison on panic (as [`std::sync::Mutex`] does, for example). This is a valid option, but
-///    seems wrong for all cases.
-/// 3. Re-initialize on panic (e.g. reopen the DB connection).
-///
-/// 2 and 3 are promising, and allowing users of `ffi-support` to make these choices with a low
-/// amount of boilerplate is something we'd like to investigate in the future, but currently this
-/// is where we've landed.
 pub fn call_with_result<R, E, F>(out_error: &mut ExternError, callback: F) -> R::Value
 where
-    F: FnOnce() -> Result<R, E>,
+    F: panic::UnwindSafe + FnOnce() -> Result<R, E>,
     // It would be nice to only require std::fmt::Debug if the `log_backtraces`
     // feature is on, but there's not really a way to do that in stable rust (at least
     // not in a way that wouldn't add more work for consumers of this lib).
@@ -233,7 +195,7 @@ where
 /// the crate top-level docs for more info.
 pub fn call_with_output<R, F>(out_error: &mut ExternError, callback: F) -> R::Value
 where
-    F: FnOnce() -> R,
+    F: panic::UnwindSafe + FnOnce() -> R,
     R: IntoFfi,
 {
     // We need something that's `Into<ExternError>`, even though we never return it, so just use
@@ -247,23 +209,18 @@ fn call_with_result_impl<R, E, F>(
     abort_on_panic: bool,
 ) -> R::Value
 where
-    F: FnOnce() -> Result<R, E>,
+    F: panic::UnwindSafe + FnOnce() -> Result<R, E>,
     E: Into<ExternError> + std::fmt::Debug,
     R: IntoFfi,
 {
     *out_error = ExternError::success();
-    // It's not ideal to handle unwind safety this way, however I'm not sure we can reasonably
-    // expect the FFI code to think about this in a meaningful way. That said, you cannot cause
-    // memory safety violations by breaking unwind safety (note that this function is not `unsafe`),
-    // short of bugs in unsafe code elsewhere, so this isn't the *worst* thing we could be doing.
-    let res: thread::Result<(ExternError, R::Value)> =
-        panic::catch_unwind(panic::AssertUnwindSafe(|| {
-            init_backtraces_once();
-            match callback() {
-                Ok(v) => (ExternError::default(), v.into_ffi_value()),
-                Err(e) => (e.into(), R::ffi_default()),
-            }
-        }));
+    let res: thread::Result<(ExternError, R::Value)> = panic::catch_unwind(|| {
+        init_backtraces_once();
+        match callback() {
+            Ok(v) => (ExternError::default(), v.into_ffi_value()),
+            Err(e) => (e.into(), R::ffi_default()),
+        }
+    });
     match res {
         Ok((err, o)) => {
             *out_error = err;
@@ -284,6 +241,7 @@ where
 /// that aborts, instead of unwinding, on panic.
 pub mod abort_on_panic {
     use super::*;
+    use std::panic::AssertUnwindSafe;
 
     /// Same as the root `call_with_result`, but aborts on panic instead of unwinding. See the
     /// `call_with_result` documentation for more.
@@ -293,7 +251,7 @@ pub mod abort_on_panic {
         E: Into<ExternError> + std::fmt::Debug,
         R: IntoFfi,
     {
-        super::call_with_result_impl(out_error, callback, true)
+        super::call_with_result_impl(out_error, AssertUnwindSafe(callback), true)
     }
 
     /// Same as the root `call_with_output`, but aborts on panic instead of unwinding. As a result,
@@ -307,7 +265,7 @@ pub mod abort_on_panic {
         let mut dummy = ExternError::success();
         super::call_with_result_impl(
             &mut dummy,
-            || -> Result<_, ExternError> { Ok(callback()) },
+            AssertUnwindSafe(|| -> Result<_, ExternError> { Ok(callback()) }),
             true,
         )
     }
