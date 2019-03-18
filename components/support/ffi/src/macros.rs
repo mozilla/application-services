@@ -68,8 +68,6 @@ macro_rules! implement_into_ffi_by_json {
                 $crate::convert_to_json_string(&self)
             }
         }
-
-        impl $crate::IntoFfiJsonTag for $T {}
     )*}
 }
 
