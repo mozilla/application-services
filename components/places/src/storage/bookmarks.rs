@@ -4,6 +4,7 @@
 
 use super::RowId;
 use super::{fetch_page_info, new_page_info};
+use crate::db::PlacesDb;
 use crate::error::*;
 use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
 use rusqlite::types::ToSql;
@@ -127,7 +128,7 @@ pub enum BookmarkPosition {
 /// the position specified leaves all siblings with the correct position.
 /// Returns the index the item should be inserted at.
 fn resolve_pos_for_insert(
-    db: &impl ConnExt,
+    db: &PlacesDb,
     pos: &BookmarkPosition,
     parent: &RawBookmark,
 ) -> Result<u32> {
@@ -149,7 +150,7 @@ fn resolve_pos_for_insert(
 
 /// Updates the position of existing items so that the deletion of a child
 /// from the position specified leaves all siblings with the correct position.
-fn update_pos_for_deletion(db: &impl ConnExt, pos: u32, parent_id: RowId) -> Result<()> {
+fn update_pos_for_deletion(db: &PlacesDb, pos: u32, parent_id: RowId) -> Result<()> {
     db.execute_named_cached(
         "UPDATE moz_bookmarks SET position = position - 1
          WHERE parent = :parent
@@ -163,7 +164,7 @@ fn update_pos_for_deletion(db: &impl ConnExt, pos: u32, parent_id: RowId) -> Res
 /// same folder.
 /// Returns what the position should be updated to.
 fn update_pos_for_move(
-    db: &impl ConnExt,
+    db: &PlacesDb,
     pos: &BookmarkPosition,
     bm: &RawBookmark,
     parent: &RawBookmark,
@@ -279,10 +280,10 @@ impl InsertableItem {
     impl_common_bookmark_getter!(guid, Option<SyncGuid>);
 }
 
-pub fn insert_bookmark(db: &impl ConnExt, bm: &InsertableItem) -> Result<SyncGuid> {
+pub fn insert_bookmark(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid> {
     let tx = db.unchecked_transaction()?;
     let result = insert_bookmark_in_tx(db, bm);
-    super::delete_pending_temp_tables(db.conn())?;
+    super::delete_pending_temp_tables(db)?;
     match result {
         Ok(_) => tx.commit()?,
         Err(_) => tx.rollback()?,
@@ -296,7 +297,7 @@ fn maybe_truncate_title(t: &Option<String>) -> Option<&str> {
     t.as_ref().map(|title| slice_up_to(title, TITLE_LENGTH_MAX))
 }
 
-fn insert_bookmark_in_tx(db: &impl ConnExt, bm: &InsertableItem) -> Result<SyncGuid> {
+fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid> {
     // find the row ID of the parent.
     if BookmarkRootGuid::from_guid(&bm.parent_guid()) == Some(BookmarkRootGuid::Root) {
         return Err(InvalidPlaceInfo::InvalidGuid.into());
@@ -402,7 +403,7 @@ fn insert_bookmark_in_tx(db: &impl ConnExt, bm: &InsertableItem) -> Result<SyncG
 
 /// Delete the specified bookmark. Returns true if a bookmark with the guid
 /// existed and was deleted, false otherwise.
-pub fn delete_bookmark(db: &impl ConnExt, guid: &SyncGuid) -> Result<bool> {
+pub fn delete_bookmark(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
     let tx = db.unchecked_transaction()?;
     let result = delete_bookmark_in_tx(db, guid);
     match result {
@@ -412,7 +413,7 @@ pub fn delete_bookmark(db: &impl ConnExt, guid: &SyncGuid) -> Result<bool> {
     result
 }
 
-fn delete_bookmark_in_tx(db: &impl ConnExt, guid: &SyncGuid) -> Result<bool> {
+fn delete_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
     // Can't delete a root.
     if BookmarkRootGuid::from_guid(guid).is_some() {
         return Err(InvalidPlaceInfo::InvalidGuid.into());
@@ -431,7 +432,7 @@ fn delete_bookmark_in_tx(db: &impl ConnExt, guid: &SyncGuid) -> Result<bool> {
         "DELETE from moz_bookmarks WHERE id = :id",
         &[(":id", &record.row_id)],
     )?;
-    super::delete_pending_temp_tables(db.conn())?;
+    super::delete_pending_temp_tables(db)?;
     Ok(true)
 }
 
@@ -518,7 +519,7 @@ impl UpdatableItem {
     }
 }
 
-pub fn update_bookmark(db: &impl ConnExt, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
+pub fn update_bookmark(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
     let tx = db.unchecked_transaction()?;
     let result = update_bookmark_in_tx(db, guid, item);
     match result {
@@ -528,7 +529,7 @@ pub fn update_bookmark(db: &impl ConnExt, guid: &SyncGuid, item: &UpdatableItem)
     result
 }
 
-fn update_bookmark_in_tx(db: &impl ConnExt, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
+fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
     let existing =
         get_raw_bookmark(db, guid)?.ok_or_else(|| InvalidPlaceInfo::NoItem(guid.to_string()))?;
     if existing.bookmark_type != item.bookmark_type() {
@@ -667,11 +668,7 @@ fn update_bookmark_in_tx(db: &impl ConnExt, guid: &SyncGuid, item: &UpdatableIte
     Ok(())
 }
 
-fn set_ancestors_last_modified(
-    db: &impl ConnExt,
-    parent_id: &RowId,
-    time: &Timestamp,
-) -> Result<()> {
+fn set_ancestors_last_modified(db: &PlacesDb, parent_id: &RowId, time: &Timestamp) -> Result<()> {
     let sql = "
         WITH RECURSIVE
         ancestors(aid) AS (
@@ -1045,7 +1042,7 @@ fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Ve
     }
 }
 
-pub fn insert_tree(db: &impl ConnExt, tree: &FolderNode) -> Result<()> {
+pub fn insert_tree(db: &PlacesDb, tree: &FolderNode) -> Result<()> {
     let parent_guid = match &tree.guid {
         Some(guid) => guid,
         None => return Err(InvalidPlaceInfo::InvalidParent("<no guid>".into()).into()),
@@ -1059,7 +1056,7 @@ pub fn insert_tree(db: &impl ConnExt, tree: &FolderNode) -> Result<()> {
     for insertable in insert_infos {
         insert_bookmark_in_tx(db, &insertable)?;
     }
-    super::delete_pending_temp_tables(db.conn())?;
+    super::delete_pending_temp_tables(db)?;
     tx.commit()?;
     Ok(())
 }
@@ -1125,7 +1122,7 @@ fn inflate(
 
 /// Fetch the tree starting at the specified folder guid.
 /// Returns a BookmarkTreeNode::Folder(_)
-pub fn fetch_tree(db: &impl ConnExt, item_guid: &SyncGuid) -> Result<Option<BookmarkTreeNode>> {
+pub fn fetch_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<BookmarkTreeNode>> {
     let sql = r#"
         WITH RECURSIVE
         descendants(fk, level, type, id, guid, parent, parentGuid, position,
@@ -1294,7 +1291,7 @@ impl RawBookmark {
     }
 }
 
-fn get_raw_bookmark(db: &impl ConnExt, guid: &SyncGuid) -> Result<Option<RawBookmark>> {
+fn get_raw_bookmark(db: &PlacesDb, guid: &SyncGuid) -> Result<Option<RawBookmark>> {
     // sql is based on fetchBookmark() in Desktop's Bookmarks.jsm, with 'fk' added
     // and title's NULLIF handling.
     Ok(db.try_query_row(

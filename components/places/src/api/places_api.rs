@@ -173,7 +173,7 @@ impl PlacesApi {
             });
         }
         let sync_state = guard.as_ref().unwrap();
-        let store = HistoryStore::new(&sync_state.conn.db, &sync_state.client_info);
+        let store = HistoryStore::new(&sync_state.conn, &sync_state.client_info);
         let mut sync_ping = telemetry::SyncTelemetryPing::new();
         store.sync(&client_init, &key_bundle, &mut sync_ping)?;
         Ok(sync_ping)
