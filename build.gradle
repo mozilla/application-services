@@ -80,12 +80,15 @@ task clean(type: Delete) {
 // { ... }`, to avoid issues with importing.
 import com.sun.jna.Platform as DefaultPlatform
 
-
 // If this is `null`, we use libs from the source directory.
 // Check if there are any changes to `libs` since `master`, and if not,
 // use the sha to download the artifacts from taskcluster.
-ext.libsGitSha = 'git diff --name-only master -- :/libs'.execute().text.allWhitespace ?
-                 'git rev-parse HEAD:libs'.execute().text.trim() : null
+//
+// Note we pass the path to the git-dir so that this still works when
+// used as a dependency substitution from e.g. android-components.
+ext.libsGitSha = "git --git-dir=${rootProject.rootDir}/.git diff --name-only master -- :/libs".execute().text.allWhitespace ?
+                 "git --git-dir=${rootProject.rootDir}/.git rev-parse HEAD:libs".execute().text.trim() : null
+
 
 if (rootProject.ext.libsGitSha != null) {
     task downloadAndroidLibs(type: Download) {
