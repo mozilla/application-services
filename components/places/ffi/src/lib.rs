@@ -140,14 +140,15 @@ pub extern "C" fn places_query_autocomplete(
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("places_query_autocomplete");
-    CONNECTIONS.call_with_result(error, handle, |conn| {
-        search_frecent(
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let res = search_frecent(
             conn,
             SearchParams {
                 search_string: search.into_string(),
                 limit,
             },
-        )
+        )?;
+        Ok(serde_json::to_string(&res)?)
     })
 }
 
