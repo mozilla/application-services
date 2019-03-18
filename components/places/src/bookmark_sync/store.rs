@@ -6,6 +6,7 @@ use super::incoming::IncomingApplicator;
 use super::record::{
     guid_to_id, BookmarkItemRecord, BookmarkRecord, FolderRecord, QueryRecord, SeparatorRecord,
 };
+use crate::db::PlacesDb;
 use crate::error::*;
 use crate::storage::{bookmarks::BookmarkRootGuid, get_meta, put_meta};
 use crate::types::{
@@ -15,7 +16,7 @@ use dogear::{
     self, Content, Deletion, IntoTree, Item, LogLevel, MergedDescendant, Tree, UploadReason,
 };
 use lazy_static::lazy_static;
-use rusqlite::{Connection, NO_PARAMS};
+use rusqlite::NO_PARAMS;
 use sql_support::{self, ConnExt};
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -62,7 +63,7 @@ lazy_static! {
 }
 
 pub struct BookmarksStore<'a> {
-    pub db: &'a Connection,
+    pub db: &'a PlacesDb,
     pub client_info: &'a Cell<Option<ClientInfo>>,
     local_time: Timestamp,
     remote_time: ServerTimestamp,

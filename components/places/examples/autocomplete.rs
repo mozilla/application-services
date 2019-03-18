@@ -4,7 +4,7 @@
 
 use clap::value_t;
 use failure::bail;
-use places::{VisitObservation, VisitTransition};
+use places::{PlacesDb, VisitObservation, VisitTransition};
 use rusqlite::NO_PARAMS;
 use serde_derive::*;
 use sql_support::ConnExt;
@@ -118,7 +118,7 @@ impl LegacyPlace {
             }],
         }
     }
-    pub fn insert(self, conn: &rusqlite::Connection, options: &ImportPlacesOptions) -> Result<()> {
+    pub fn insert(self, db: &PlacesDb, options: &ImportPlacesOptions) -> Result<()> {
         let url = Url::parse(&self.url)?;
         for v in self.visits {
             let obs = VisitObservation::new(url.clone())
@@ -128,7 +128,7 @@ impl LegacyPlace {
                 .with_at(places::Timestamp((v.date / 1000) as u64))
                 .with_title(self.title.clone())
                 .with_is_remote(rand::random::<f64>() < options.remote_probability);
-            places::storage::history::apply_observation_direct(conn, obs)?;
+            places::storage::history::apply_observation_direct(db, obs)?;
         }
         Ok(())
     }
@@ -196,7 +196,7 @@ fn import_places(
     };
     let mut place_counter = 0;
 
-    let tx = new.db.transaction()?;
+    let tx = new.unchecked_transaction()?;
 
     print!(
         "Processing {} / {} places (approx.)",
@@ -222,12 +222,12 @@ fn import_places(
         );
         let _ = std::io::stdout().flush();
         if current_place.id != -1 {
-            current_place.insert(tx.conn(), &options)?;
+            current_place.insert(new, &options)?;
         }
         current_place = LegacyPlace::from_row(&row);
     }
     if current_place.id != -1 {
-        current_place.insert(tx.conn(), &options)?;
+        current_place.insert(new, &options)?;
     }
     println!("Finished processing records");
     println!("Committing....");

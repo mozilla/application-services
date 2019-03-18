@@ -13,7 +13,7 @@ use crate::storage::{delete_pending_temp_tables, get_meta, put_meta};
 use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition};
 use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
-use rusqlite::{Connection, Row, NO_PARAMS};
+use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt};
 use url::Url;
 
@@ -26,16 +26,16 @@ use url::Url;
 static DELETION_HIGH_WATER_MARK_META_KEY: &'static str = "history_deleted_hwm";
 
 /// Returns the RowId of a new visit in moz_historyvisits, or None if no new visit was added.
-pub fn apply_observation(db: &mut PlacesDb, visit_ob: VisitObservation) -> Result<Option<RowId>> {
-    let tx = db.db.transaction()?;
-    let result = apply_observation_direct(tx.conn(), visit_ob)?;
+pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<Option<RowId>> {
+    let tx = db.unchecked_transaction()?;
+    let result = apply_observation_direct(db, visit_ob)?;
     tx.commit()?;
     Ok(result)
 }
 
 /// Returns the RowId of a new visit in moz_historyvisits, or None if no new visit was added.
 pub fn apply_observation_direct(
-    db: &Connection,
+    db: &PlacesDb,
     visit_ob: VisitObservation,
 ) -> Result<Option<RowId>> {
     let url = Url::parse(&visit_ob.url)?;
@@ -118,7 +118,7 @@ pub fn apply_observation_direct(
     Ok(visit_row_id)
 }
 
-pub fn update_frecency(db: &Connection, id: RowId, redirect_boost: Option<bool>) -> Result<()> {
+pub fn update_frecency(db: &PlacesDb, id: RowId, redirect_boost: Option<bool>) -> Result<()> {
     let score = frecency::calculate_frecency(
         db.conn(),
         &frecency::DEFAULT_FRECENCY_SETTINGS,
@@ -141,7 +141,7 @@ pub fn update_frecency(db: &Connection, id: RowId, redirect_boost: Option<bool>)
 // page info - if you are calling this, you will also need to update the
 // parent page with an updated change counter etc.
 fn add_visit(
-    db: &impl ConnExt,
+    db: &PlacesDb,
     page_id: &RowId,
     from_visit: &Option<RowId>,
     visit_date: &Timestamp,
@@ -173,7 +173,7 @@ fn add_visit(
 }
 
 /// Returns the GUID for the specified Url, or None if it doesn't exist.
-pub fn url_to_guid(db: &impl ConnExt, url: &Url) -> Result<Option<SyncGuid>> {
+pub fn url_to_guid(db: &PlacesDb, url: &Url) -> Result<Option<SyncGuid>> {
     let sql = "SELECT guid FROM moz_places WHERE url_hash = hash(:url) AND url = :url";
     let result: Option<(SyncGuid)> = db.try_query_row(
         sql,
@@ -188,7 +188,7 @@ pub fn url_to_guid(db: &impl ConnExt, url: &Url) -> Result<Option<SyncGuid>> {
 
 /// Internal function for deleting a place, creating a tombstone if necessary.
 /// Assumes a transaction is already set up by the caller.
-fn do_delete_place_by_guid(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
+fn do_delete_place_by_guid(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
     // We only create tombstones for history which exists and with sync_status
     // == SyncStatus::Normal
     let sql = "INSERT OR IGNORE INTO moz_places_tombstones (guid)
@@ -198,12 +198,12 @@ fn do_delete_place_by_guid(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
     // and try the delete - it might not exist, but that's ok.
     let delete_sql = "DELETE FROM moz_places WHERE guid = :guid";
     db.execute_named_cached(delete_sql, &[(":guid", guid)])?;
-    delete_pending_temp_tables(db.conn())?;
+    delete_pending_temp_tables(db)?;
     Ok(())
 }
 
 /// Delete a place given its guid, creating a tombstone if necessary.
-pub fn delete_place_by_guid(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
+pub fn delete_place_by_guid(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
     let tx = db.unchecked_transaction()?;
     let result = do_delete_place_by_guid(db, guid);
     tx.commit()?;
@@ -211,32 +211,32 @@ pub fn delete_place_by_guid(db: &impl ConnExt, guid: &SyncGuid) -> Result<()> {
 }
 
 /// Delete all visits in a date range.
-pub fn delete_visits_between(db: &impl ConnExt, start: Timestamp, end: Timestamp) -> Result<()> {
+pub fn delete_visits_between(db: &PlacesDb, start: Timestamp, end: Timestamp) -> Result<()> {
     let tx = db.unchecked_transaction()?;
     delete_visits_between_in_tx(db, start, end)?;
     tx.commit()?;
     Ok(())
 }
 
-pub fn delete_place_visit_at_time(db: &impl ConnExt, place: &Url, visit: Timestamp) -> Result<()> {
+pub fn delete_place_visit_at_time(db: &PlacesDb, place: &Url, visit: Timestamp) -> Result<()> {
     let tx = db.unchecked_transaction()?;
     delete_place_visit_at_time_in_tx(db, place.as_str(), visit)?;
     tx.commit()?;
     Ok(())
 }
 
-pub fn prune_destructively(db: &impl ConnExt) -> Result<()> {
+pub fn prune_destructively(db: &PlacesDb) -> Result<()> {
     // For now, just fall back to wipe_local until we decide how this should work.
     wipe_local(db)
 }
 
-pub fn wipe_local(db: &impl ConnExt) -> Result<()> {
+pub fn wipe_local(db: &PlacesDb) -> Result<()> {
     let tx = db.unchecked_transaction()?;
     wipe_local_in_tx(db, tx)?;
     Ok(())
 }
 
-fn wipe_local_in_tx(db: &impl ConnExt, tx: sql_support::UncheckedTransaction) -> Result<()> {
+fn wipe_local_in_tx(db: &PlacesDb, tx: sql_support::UncheckedTransaction) -> Result<()> {
     use crate::frecency::DEFAULT_FRECENCY_SETTINGS;
     db.execute_all(&[
         "DELETE FROM moz_places WHERE foreign_count == 0",
@@ -261,9 +261,9 @@ fn wipe_local_in_tx(db: &impl ConnExt, tx: sql_support::UncheckedTransaction) ->
     // Update the frecency for any remaining items, which basically means just
     // for the bookmarks.
     for row_id in need_frecency_update {
-        update_frecency(db.conn(), row_id, None)?;
+        update_frecency(db, row_id, None)?;
     }
-    delete_pending_temp_tables(&tx)?;
+    delete_pending_temp_tables(db)?;
     tx.commit()?;
     // Note: SQLite cannot VACUUM within a transaction.
     db.conn().execute("VACUUM", NO_PARAMS)?;
@@ -292,11 +292,7 @@ pub fn delete_everything(db: &PlacesDb) -> Result<()> {
     Ok(())
 }
 
-fn delete_place_visit_at_time_in_tx(
-    db: &impl ConnExt,
-    url: &str,
-    visit_date: Timestamp,
-) -> Result<()> {
+fn delete_place_visit_at_time_in_tx(db: &PlacesDb, url: &str, visit_date: Timestamp) -> Result<()> {
     let place = db.conn().try_query_row(
         "SELECT h.id
          FROM moz_places h
@@ -344,15 +340,11 @@ fn delete_place_visit_at_time_in_tx(
     )?;
 
     cleanup_pages(db, &[to_clean])?;
-    delete_pending_temp_tables(db.conn())?;
+    delete_pending_temp_tables(db)?;
     Ok(())
 }
 
-pub fn delete_visits_between_in_tx(
-    db: &impl ConnExt,
-    start: Timestamp,
-    end: Timestamp,
-) -> Result<()> {
+pub fn delete_visits_between_in_tx(db: &PlacesDb, start: Timestamp, end: Timestamp) -> Result<()> {
     // Like desktop's removeVisitsByFilter, we query the visit and place ids
     // affected, then delete all visits, then delete all place ids in the set
     // which are orphans after the delete.
@@ -421,7 +413,7 @@ pub fn delete_visits_between_in_tx(
             cleanup_pages(db, &pages)
         },
     )?;
-    delete_pending_temp_tables(db.conn())?;
+    delete_pending_temp_tables(db)?;
     Ok(())
 }
 
@@ -447,7 +439,7 @@ impl PageToClean {
 /// typically because all visits have been removed and there
 /// are no more foreign keys such as bookmarks) or updating
 /// their frecency.
-fn cleanup_pages(db: &impl ConnExt, pages: &[PageToClean]) -> Result<()> {
+fn cleanup_pages(db: &PlacesDb, pages: &[PageToClean]) -> Result<()> {
     // desktop does this frecency work using a function in a single sql
     // statement - we should see if we can do that too.
     let frec_ids = pages
@@ -456,7 +448,7 @@ fn cleanup_pages(db: &impl ConnExt, pages: &[PageToClean]) -> Result<()> {
         .map(|p| p.id);
 
     for id in frec_ids {
-        update_frecency(db.conn(), id, None)?;
+        update_frecency(db, id, None)?;
     }
 
     // Like desktop, we do "AND foreign_count = 0 AND last_visit_date ISNULL"
@@ -556,7 +548,7 @@ pub mod history_sync {
     }
 
     pub fn fetch_visits(
-        db: &Connection,
+        db: &PlacesDb,
         url: &Url,
         limit: usize,
     ) -> Result<Option<(FetchedVisitPage, Vec<FetchedVisit>)>> {
@@ -592,14 +584,14 @@ pub mod history_sync {
 
     /// Called when incoming changes are finished, but before we commit the
     /// transaction prior to fetching outgoing ones.
-    pub fn finish_incoming(db: &Connection) -> Result<()> {
+    pub fn finish_incoming(db: &PlacesDb) -> Result<()> {
         delete_pending_temp_tables(db)
     }
 
     /// Apply history visit from sync. This assumes they have all been
     /// validated, deduped, etc - it's just the storage we do here.
     pub fn apply_synced_visits(
-        db: &Connection,
+        db: &PlacesDb,
         incoming_guid: &SyncGuid,
         url: &Url,
         title: &Option<String>,
@@ -733,7 +725,7 @@ pub mod history_sync {
         Ok(())
     }
 
-    pub fn apply_synced_reconciliation(db: &Connection, guid: &SyncGuid) -> Result<()> {
+    pub fn apply_synced_reconciliation(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
         db.execute_named_cached(
             "UPDATE moz_places
                 SET sync_status = :status,
@@ -744,7 +736,7 @@ pub mod history_sync {
         Ok(())
     }
 
-    pub fn apply_synced_deletion(db: &Connection, guid: &SyncGuid) -> Result<()> {
+    pub fn apply_synced_deletion(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
         // Note that we don't use delete_place_by_guid because we do not want
         // a local tombstone for this item.
         db.execute_named_cached(
@@ -761,7 +753,7 @@ pub mod history_sync {
     }
 
     pub fn fetch_outgoing(
-        db: &Connection,
+        db: &PlacesDb,
         max_places: usize,
         max_visits: usize,
     ) -> Result<HashMap<SyncGuid, OutgoingInfo>> {
@@ -901,7 +893,7 @@ pub mod history_sync {
         Ok(result)
     }
 
-    pub fn finish_outgoing(db: &Connection) -> Result<()> {
+    pub fn finish_outgoing(db: &PlacesDb) -> Result<()> {
         // So all items *other* than those above must be set to "not dirty"
         // (ie, status=SyncStatus::Normal, change_counter=0). Otherwise every
         // subsequent sync will continue to add more and more local pages
@@ -943,7 +935,7 @@ pub mod history_sync {
         Ok(())
     }
 
-    pub fn reset_storage(db: &Connection) -> Result<()> {
+    pub fn reset_storage(db: &PlacesDb) -> Result<()> {
         db.conn().execute_cached(
             &format!(
                 "
@@ -1164,7 +1156,7 @@ mod tests {
         let u = Url::parse(url)?;
         let obs = VisitObservation::new(u.clone()).with_visit_type(VisitTransition::Link);
         apply_observation(conn, custom(obs))?;
-        Ok(fetch_page_info(conn.conn(), &u)?
+        Ok(fetch_page_info(conn, &u)?
             .expect("should have the page")
             .page)
     }
@@ -1722,7 +1714,7 @@ mod tests {
         Ok(())
     }
 
-    fn assert_tombstones(c: &Connection, expected: &[(RowId, Timestamp)]) {
+    fn assert_tombstones(c: &PlacesDb, expected: &[(RowId, Timestamp)]) {
         let mut expected: Vec<(RowId, Timestamp)> = expected.into();
         expected.sort();
         let mut tombstones = c

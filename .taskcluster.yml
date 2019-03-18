@@ -5,7 +5,9 @@
 version: 1
 policy:
   # https://docs.taskcluster.net/docs/reference/integrations/taskcluster-github/docs/taskcluster-yml-v1#pull-requests
-  pullRequests: public
+  # It is not quite clear if allowing anybody to trigger a TC task presents a security risk,
+  # but in doubt let's just restrict it.
+  pullRequests: collaborators
 tasks:
   $let:
     decision_task_id: {$eval: as_slugid("decision_task")}
@@ -121,7 +123,6 @@ tasks:
             - $if: 'tasks_for == "github-pull-request" && event["action"] in ["opened", "reopened", "edited", "synchronize"]'
               then:
                 $let:
-                  pull_request_title: ${event.pull_request.title}
                   pull_request_number: ${event.pull_request.number}
                   pull_request_url: ${event.pull_request.html_url}
                 in:
