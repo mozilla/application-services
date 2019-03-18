@@ -183,6 +183,17 @@ if (System.getenv("CI")) {
     }
 }
 
+// The Cargo targets to invoke.  The mapping from short name to target
+// triple is defined by the `rust-android-gradle` plugin.
+ext.rustTargets = [
+    'linux-x86-64',
+    'darwin',
+    'win32-x86-64-gnu',
+    'arm',
+    'arm64',
+    'x86_64',
+    'x86',
+]
 // Configure some environment variables, per toolchain, that will apply during
 // the Cargo build.  We assume that the `libs/` directory has been populated
 // before invoking Gradle (or Cargo).
