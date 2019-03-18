@@ -4,7 +4,7 @@ buildscript {
     ext.kotlin_version = '1.3.10'
 
     ext.library = [
-        version: '0.20.1'
+        version: '0.20.2'
     ]
 
     ext.build = [
@@ -80,12 +80,15 @@ task clean(type: Delete) {
 // { ... }`, to avoid issues with importing.
 import com.sun.jna.Platform as DefaultPlatform
 
-
 // If this is `null`, we use libs from the source directory.
 // Check if there are any changes to `libs` since `master`, and if not,
 // use the sha to download the artifacts from taskcluster.
-ext.libsGitSha = 'git diff --name-only master -- :/libs'.execute().text.allWhitespace ?
-                 'git rev-parse HEAD:libs'.execute().text.trim() : null
+//
+// Note we pass the path to the git-dir so that this still works when
+// used as a dependency substitution from e.g. android-components.
+ext.libsGitSha = "git --git-dir=${rootProject.rootDir}/.git diff --name-only master -- :/libs".execute().text.allWhitespace ?
+                 "git --git-dir=${rootProject.rootDir}/.git rev-parse HEAD:libs".execute().text.trim() : null
+
 
 if (rootProject.ext.libsGitSha != null) {
     task downloadAndroidLibs(type: Download) {
@@ -183,6 +186,17 @@ if (System.getenv("CI")) {
     }
 }
 
+// The Cargo targets to invoke.  The mapping from short name to target
+// triple is defined by the `rust-android-gradle` plugin.
+ext.rustTargets = [
+    'linux-x86-64',
+    'darwin',
+    'win32-x86-64-gnu',
+    'arm',
+    'arm64',
+    'x86_64',
+    'x86',
+]
 // Configure some environment variables, per toolchain, that will apply during
 // the Cargo build.  We assume that the `libs/` directory has been populated
 // before invoking Gradle (or Cargo).

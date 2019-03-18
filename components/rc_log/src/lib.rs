@@ -19,7 +19,6 @@
 #![cfg_attr(test, allow(dead_code))]
 
 use std::ffi::CString;
-use std::os::raw::c_char;
 
 // Import this in tests (even on non-android builds / cases where the
 // force_android feature is not enabled) so we can check that it compiles
@@ -115,9 +114,9 @@ pub unsafe extern "C" fn rc_log_adapter_destroy(to_destroy: *mut imp::LogAdapter
 
 // Used just to allow tests to produce logs.
 #[no_mangle]
-pub unsafe extern "C" fn rc_log_adapter_test__log_msg(msg: *const c_char) {
+pub extern "C" fn rc_log_adapter_test__log_msg(msg: ffi_support::FfiStr<'_>) {
     ffi_support::abort_on_panic::call_with_output(|| {
-        log::info!("testing: {}", ffi_support::rust_str_from_c(msg));
+        log::info!("testing: {}", msg.as_str());
     });
 }
 

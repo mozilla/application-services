@@ -53,6 +53,7 @@ RUN apt-get update -qq \
                           make \
                           tclsh \
                           patch \
+                          file \
     && apt-get clean
 
 RUN pip install --upgrade pip

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::string::{destroy_c_string, rust_str_from_c, rust_string_to_c};
+use crate::string::{destroy_c_string, rust_string_to_c};
 use std::os::raw::c_char;
 use std::{self, ptr};
 
@@ -133,6 +133,7 @@ pub struct ExternError {
 }
 
 impl std::panic::UnwindSafe for ExternError {}
+impl std::panic::RefUnwindSafe for ExternError {}
 
 /// This is sound so long as our fields are private.
 unsafe impl Send for ExternError {}
@@ -170,17 +171,6 @@ impl ExternError {
     #[inline]
     pub fn get_raw_message(&self) -> *const c_char {
         self.message as *const _
-    }
-
-    /// Get the `message` property as something usable from rust. Unsafe because it reads from a raw
-    /// pointer.
-    #[inline]
-    pub unsafe fn get_message(&self) -> Option<&str> {
-        if self.message.is_null() {
-            None
-        } else {
-            Some(rust_str_from_c(self.message))
-        }
     }
 
     /// Manually release the memory behind this string. You probably don't want to call this.

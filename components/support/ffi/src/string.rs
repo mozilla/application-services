@@ -2,7 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::ffi::{CStr, CString};
+use crate::FfiStr;
+use std::ffi::CString;
 use std::os::raw::c_char;
 use std::ptr;
 
@@ -89,8 +90,9 @@ pub unsafe fn destroy_c_string(cstring: *mut c_char) {
 /// Note: This means it's forbidden to call this outside of a `call_with_result` (or something else
 /// that uses [`std::panic::catch_unwind`]), as it is UB to panic across the FFI boundary.
 #[inline]
+#[deprecated(since = "0.3.0", note = "Please use FfiStr::as_str instead")]
 pub unsafe fn rust_str_from_c<'a>(c_string: *const c_char) -> &'a str {
-    opt_rust_str_from_c(c_string).expect("Null string passed to `rust_str_from_c`")
+    FfiStr::from_raw(c_string).as_str()
 }
 
 /// Same as `rust_string_from_c`, but returns None if `c_string` is null instead of asserting.
@@ -103,23 +105,9 @@ pub unsafe fn rust_str_from_c<'a>(c_string: *const c_char) -> &'a str {
 /// actually true. If it's not, we'll read arbitrary memory from the heap until we see a '\0', which
 /// can result in a enormous number of problems.
 #[inline]
+#[deprecated(since = "0.3.0", note = "Please use FfiStr::as_opt_str instead")]
 pub unsafe fn opt_rust_str_from_c<'a>(c_string: *const c_char) -> Option<&'a str> {
-    if !c_string.is_null() {
-        match CStr::from_ptr(c_string).to_str() {
-            Ok(s) => Some(s),
-            Err(e) => {
-                // Currently I think this is impossible, so I'd like to know if it can happen
-                // (Java/Swift shouldn't pass us invalid UTF-8... right?).
-                log::error!(
-                    "[Bug] Invalid UTF-8 was passed to rust! Report this! {:?}",
-                    e
-                );
-                Some("")
-            }
-        }
-    } else {
-        None
-    }
+    FfiStr::from_raw(c_string).as_opt_str()
 }
 
 /// Convert a null-terminated C into an owned rust string, replacing invalid UTF-8 with the
@@ -141,8 +129,9 @@ pub unsafe fn opt_rust_str_from_c<'a>(c_string: *const c_char) -> Option<&'a str
 /// Note: This means it's forbidden to call this outside of a `call_with_result` (or something else
 /// that uses `std::panic::catch_unwind`), as it is UB to panic across the FFI boundary.
 #[inline]
+#[deprecated(since = "0.3.0", note = "Please use FfiStr::into_string instead")]
 pub unsafe fn rust_string_from_c(c_string: *const c_char) -> String {
-    opt_rust_string_from_c(c_string).expect("Null string passed to `rust_string_from_c`")
+    FfiStr::from_raw(c_string).into_string()
 }
 
 /// Same as `rust_string_from_c`, but returns None if `c_string` is null instead of asserting.
@@ -155,10 +144,7 @@ pub unsafe fn rust_string_from_c(c_string: *const c_char) -> String {
 /// actually true. If it's not, we'll read arbitrary memory from the heap until we see a '\0', which
 /// can result in a enormous number of problems.
 #[inline]
+#[deprecated(since = "0.3.0", note = "Please use FfiStr::into_opt_string instead")]
 pub unsafe fn opt_rust_string_from_c(c_string: *const c_char) -> Option<String> {
-    if !c_string.is_null() {
-        Some(CStr::from_ptr(c_string).to_string_lossy().to_string())
-    } else {
-        None
-    }
+    FfiStr::from_raw(c_string).into_opt_string()
 }

@@ -3,10 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use ffi_support::ConcurrentHandleMap;
-use ffi_support::{
-    define_handle_map_deleter, define_string_destructor, rust_str_from_c, rust_string_from_c,
-    ExternError,
-};
+use ffi_support::{define_handle_map_deleter, define_string_destructor, ExternError, FfiStr};
 use logins::{Login, PasswordEngine, Result};
 use std::os::raw::c_char;
 use sync15::telemetry;
@@ -41,15 +38,15 @@ pub extern "C" fn sync15_passwords_enable_logcat_logging() {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_state_new(
-    db_path: *const c_char,
-    encryption_key: *const c_char,
+pub extern "C" fn sync15_passwords_state_new(
+    db_path: FfiStr<'_>,
+    encryption_key: FfiStr<'_>,
     error: &mut ExternError,
 ) -> u64 {
     log::debug!("sync15_passwords_state_new");
     ENGINES.insert_with_result(error, || {
-        let path = rust_str_from_c(db_path);
-        let key = rust_str_from_c(encryption_key);
+        let path = db_path.as_str();
+        let key = encryption_key.as_str();
         PasswordEngine::new(path, Some(key))
     })
 }
@@ -75,7 +72,7 @@ unsafe fn bytes_to_key_string(key_bytes: *const u8, len: usize) -> Option<String
 /// Note: lowercase hex characters are used (e.g. it encodes using the character set 0-9a-f and NOT 0-9A-F).
 #[no_mangle]
 pub unsafe extern "C" fn sync15_passwords_state_new_with_hex_key(
-    db_path: *const c_char,
+    db_path: FfiStr<'_>,
     encryption_key: *const u8,
     encryption_key_len: u32,
     error: &mut ExternError,
@@ -83,7 +80,7 @@ pub unsafe extern "C" fn sync15_passwords_state_new_with_hex_key(
     logging_init();
     log::debug!("sync15_passwords_state_new_with_hex_key");
     ENGINES.insert_with_result(error, || {
-        let path = rust_str_from_c(db_path);
+        let path = db_path.as_str();
         let key = bytes_to_key_string(encryption_key, encryption_key_len as usize);
         // We have a Option<String>, but need an Option<&str>...
         let opt_key_ref = key.as_ref().map(|s| s.as_str());
@@ -97,12 +94,12 @@ fn parse_url(url: &str) -> sync15::Result<url::Url> {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_sync(
+pub extern "C" fn sync15_passwords_sync(
     handle: u64,
-    key_id: *const c_char,
-    access_token: *const c_char,
-    sync_key: *const c_char,
-    tokenserver_url: *const c_char,
+    key_id: FfiStr<'_>,
+    access_token: FfiStr<'_>,
+    sync_key: FfiStr<'_>,
+    tokenserver_url: FfiStr<'_>,
     error: &mut ExternError,
 ) {
     log::debug!("sync15_passwords_sync");
@@ -110,11 +107,11 @@ pub unsafe extern "C" fn sync15_passwords_sync(
         let mut sync_ping = telemetry::SyncTelemetryPing::new();
         let result = state.sync(
             &sync15::Sync15StorageClientInit {
-                key_id: rust_string_from_c(key_id),
-                access_token: rust_string_from_c(access_token),
-                tokenserver_url: parse_url(rust_str_from_c(tokenserver_url))?,
+                key_id: key_id.into_string(),
+                access_token: access_token.into_string(),
+                tokenserver_url: parse_url(tokenserver_url.as_str())?,
             },
-            &sync15::KeyBundle::from_ksync_base64(rust_str_from_c(sync_key))?,
+            &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
             &mut sync_ping,
         );
         result
@@ -122,33 +119,29 @@ pub unsafe extern "C" fn sync15_passwords_sync(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_touch(
-    handle: u64,
-    id: *const c_char,
-    error: &mut ExternError,
-) {
+pub extern "C" fn sync15_passwords_touch(handle: u64, id: FfiStr<'_>, error: &mut ExternError) {
     log::debug!("sync15_passwords_touch");
-    ENGINES.call_with_result(error, handle, |state| state.touch(rust_str_from_c(id)))
+    ENGINES.call_with_result(error, handle, |state| state.touch(id.as_str()))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_delete(
+pub extern "C" fn sync15_passwords_delete(
     handle: u64,
-    id: *const c_char,
+    id: FfiStr<'_>,
     error: &mut ExternError,
 ) -> u8 {
     log::debug!("sync15_passwords_delete");
-    ENGINES.call_with_result(error, handle, |state| state.delete(rust_str_from_c(id)))
+    ENGINES.call_with_result(error, handle, |state| state.delete(id.as_str()))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_wipe(handle: u64, error: &mut ExternError) {
+pub extern "C" fn sync15_passwords_wipe(handle: u64, error: &mut ExternError) {
     log::debug!("sync15_passwords_wipe");
     ENGINES.call_with_result(error, handle, |state| state.wipe())
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_wipe_local(handle: u64, error: &mut ExternError) {
+pub extern "C" fn sync15_passwords_wipe_local(handle: u64, error: &mut ExternError) {
     log::debug!("sync15_passwords_wipe_local");
     ENGINES.call_with_result(error, handle, |state| state.wipe_local())
 }
@@ -170,24 +163,24 @@ pub extern "C" fn sync15_passwords_get_all(handle: u64, error: &mut ExternError)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_get_by_id(
+pub extern "C" fn sync15_passwords_get_by_id(
     handle: u64,
-    id: *const c_char,
+    id: FfiStr<'_>,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("sync15_passwords_get_by_id");
-    ENGINES.call_with_result(error, handle, |state| state.get(rust_str_from_c(id)))
+    ENGINES.call_with_result(error, handle, |state| state.get(id.as_str()))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_add(
+pub extern "C" fn sync15_passwords_add(
     handle: u64,
-    record_json: *const c_char,
+    record_json: FfiStr<'_>,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("sync15_passwords_add");
     ENGINES.call_with_result(error, handle, |state| {
-        let mut parsed: serde_json::Value = serde_json::from_str(rust_str_from_c(record_json))?;
+        let mut parsed: serde_json::Value = serde_json::from_str(record_json.as_str())?;
         if parsed.get("id").is_none() {
             // Note: we replace this with a real guid in `db.rs`.
             parsed["id"] = serde_json::Value::String(String::default());
@@ -198,14 +191,14 @@ pub unsafe extern "C" fn sync15_passwords_add(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sync15_passwords_update(
+pub extern "C" fn sync15_passwords_update(
     handle: u64,
-    record_json: *const c_char,
+    record_json: FfiStr<'_>,
     error: &mut ExternError,
 ) {
     log::debug!("sync15_passwords_update");
     ENGINES.call_with_result(error, handle, |state| {
-        let parsed: Login = serde_json::from_str(rust_str_from_c(record_json))?;
+        let parsed: Login = serde_json::from_str(record_json.as_str())?;
         state.update(parsed)
     });
 }

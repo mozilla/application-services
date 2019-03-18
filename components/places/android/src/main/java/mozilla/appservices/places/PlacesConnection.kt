@@ -350,10 +350,9 @@ interface PlacesManager {
     fun openReader(): ReadableHistoryConnection
 
     /**
-     * Open a writer connection.
+     * Get a reference to the writer connection.
      *
-     * Note that this is not guaranteed to return a unique connection instance,
-     * and subsequent calls to getWriter may return the same connection
+     * This should always return the same object.
      */
     fun getWriter(): WritableHistoryConnection
 

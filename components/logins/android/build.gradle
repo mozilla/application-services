@@ -60,17 +60,7 @@ cargo {
 
     libname = 'logins_ffi'
 
-    // The Cargo targets to invoke.  The mapping from short name to target
-    // triple is defined by the `rust-android-gradle` plugin.
-    targets = [
-        'linux-x86-64',
-        'darwin',
-        'win32-x86-64-gnu',
-        'arm',
-        'arm64',
-        'x86_64',
-        'x86',
-    ]
+    targets = rootProject.ext.rustTargets
 
     profile = rootProject.ext.nonMegazordProfile
 
