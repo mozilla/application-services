@@ -469,4 +469,114 @@ mod test {
         }
         Ok(())
     }
+    #[test]
+    fn test_fetch_bookmark() -> Result<()> {
+        let conn = new_mem_connection();
+        let _ = env_logger::try_init();
+
+        insert_json_tree(
+            &conn,
+            json!({
+                "guid": BookmarkRootGuid::Mobile.as_guid(),
+                "children": [
+                    {
+                        "guid": "bookmark1___",
+                        "url": "https://www.example1.com/"
+                    },
+                    {
+                        "guid": "bookmark2___",
+                        "url": "https://www.example2.com/"
+                    },
+                ]
+            }),
+        );
+
+        let root = fetch_bookmark(&conn, BookmarkRootGuid::Root.guid(), false)?.unwrap();
+
+        assert!(root.child_guids.is_some());
+        assert!(root.child_nodes.is_none());
+        assert_eq!(root.child_guids.unwrap().len(), 4);
+
+        let root = fetch_bookmark(&conn, BookmarkRootGuid::Root.guid(), true)?.unwrap();
+
+        assert!(root.child_guids.is_none());
+        assert!(root.child_nodes.is_some());
+        let root_children = root.child_nodes.unwrap();
+        assert_eq!(root_children.len(), 4);
+        for child in root_children {
+            assert!(child.child_guids.is_some());
+            assert!(child.child_nodes.is_none());
+            if child.guid == BookmarkRootGuid::Mobile {
+                assert_eq!(
+                    child.child_guids.unwrap(),
+                    &[
+                        SyncGuid("bookmark1___".into()),
+                        SyncGuid("bookmark2___".into())
+                    ]
+                );
+            } else {
+                assert_eq!(child.child_guids.unwrap().len(), 0);
+            }
+        }
+
+        let unfiled = fetch_bookmark(&conn, BookmarkRootGuid::Unfiled.guid(), false)?.unwrap();
+        assert!(unfiled.child_guids.is_some());
+        assert!(unfiled.child_nodes.is_none());
+        assert_eq!(unfiled.child_guids.unwrap().len(), 0);
+
+        let unfiled = fetch_bookmark(&conn, BookmarkRootGuid::Unfiled.guid(), true)?.unwrap();
+        assert!(unfiled.child_guids.is_none());
+        assert!(unfiled.child_nodes.is_some());
+        assert_eq!(unfiled.child_nodes.unwrap().len(), 0);
+        Ok(())
+    }
+    #[test]
+    fn test_fetch_tree() -> Result<()> {
+        let conn = new_mem_connection();
+        let _ = env_logger::try_init();
+
+        insert_json_tree(
+            &conn,
+            json!({
+                "guid": BookmarkRootGuid::Mobile.as_guid(),
+                "children": [
+                    {
+                        "guid": "bookmark1___",
+                        "url": "https://www.example1.com/"
+                    },
+                    {
+                        "guid": "bookmark2___",
+                        "url": "https://www.example2.com/"
+                    },
+                ]
+            }),
+        );
+
+        let root = fetch_public_tree(&conn, BookmarkRootGuid::Root.guid())?.unwrap();
+        assert!(root.parent_guid.is_none());
+        assert_eq!(root.position, 0);
+
+        assert!(root.child_guids.is_none());
+        let children = root.child_nodes.as_ref().unwrap();
+        let mut mobile_pos = None;
+        for (i, c) in children.iter().enumerate() {
+            assert_eq!(i as u32, c.position);
+            assert_eq!(c.parent_guid.as_ref().unwrap(), &root.guid);
+            assert!(c.child_guids.is_none());
+            if c.guid == BookmarkRootGuid::Mobile {
+                mobile_pos = Some(c.position);
+            }
+            for (i2, c2) in c.child_nodes.as_ref().unwrap().iter().enumerate() {
+                assert_eq!(i2 as u32, c2.position);
+                assert_eq!(c2.parent_guid.as_ref().unwrap(), &c.guid);
+            }
+        }
+        // parent_guid/position for the directly returned node is filled in separately,
+        // so make sure it works for non-root nodes too.
+        let mobile = fetch_public_tree(&conn, BookmarkRootGuid::Mobile.guid())?.unwrap();
+        assert_eq!(mobile.parent_guid.unwrap(), BookmarkRootGuid::Root);
+        assert_eq!(mobile.position, mobile_pos.unwrap());
+
+        Ok(())
+    }
 }
