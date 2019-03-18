@@ -130,11 +130,14 @@ public class BookmarkItem : BookmarkNode {
     public let url: String
 
     /**
-     * The title of the bookmark, if it has one.
+     * The title of the bookmark.
+     *
+     * Note that the bookmark storage layer treats NULL and the
+     * empty string as equivalent in titles.
      */
-    public let title: String?
+    public let title: String
 
-    public init(guid: String, dateAdded: Int64, lastModified: Int64, parentGUID: String?, position: UInt32, url: String, title: String?) {
+    public init(guid: String, dateAdded: Int64, lastModified: Int64, parentGUID: String?, position: UInt32, url: String, title: String) {
         self.url = url
         self.title = title
         super.init(
@@ -157,9 +160,12 @@ public class BookmarkItem : BookmarkNode {
  */
 public class BookmarkFolder : BookmarkNode {
     /**
-     * The title of this bookmark folder, if it has one.
+     * The title of this bookmark folder.
+     *
+     * Note that the bookmark storage layer treats NULL and the
+     * empty string as equivalent in titles.
      */
-    public let title: String?
+    public let title: String
 
     /**
      * The GUIDs of this folder's list of children.
@@ -176,7 +182,7 @@ public class BookmarkFolder : BookmarkNode {
      */
     public let children: [BookmarkNode]?
 
-    public init(guid: String, dateAdded: Int64, lastModified: Int64, parentGUID: String?, position: UInt32, title: String?, childGUIDs: [String], children: [BookmarkNode]?) {
+    public init(guid: String, dateAdded: Int64, lastModified: Int64, parentGUID: String?, position: UInt32, title: String, childGUIDs: [String], children: [BookmarkNode]?) {
         self.title = title
         self.childGUIDs = childGUIDs
         self.children = children
@@ -203,7 +209,7 @@ internal func unpackProtobuf(msg: MsgTypes_BookmarkNode) -> BookmarkNode {
     let dateAdded = msg.dateAdded
     let lastModified = msg.lastModified
 
-    let title = msg.hasTitle ? msg.title : nil
+    let title = msg.hasTitle ? msg.title : ""
     switch type {
     case .bookmark:
         return BookmarkItem(
@@ -256,7 +262,7 @@ internal func unpackProtobufItemList(msg: MsgTypes_BookmarkNodeList) -> [Bookmar
             parentGUID: node.parentGuid,
             position: node.position,
             url: node.url,
-            title: node.hasTitle ? node.title : nil
+            title: node.hasTitle ? node.title : ""
         )
     }
 }

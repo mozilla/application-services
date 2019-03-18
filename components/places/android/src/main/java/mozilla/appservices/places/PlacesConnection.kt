@@ -405,12 +405,12 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         return this.doInsert(builder, position)
     }
 
-    override fun createBookmarkItem(parentGUID: String, url: String, title: String?, position: Int?): String {
+    override fun createBookmarkItem(parentGUID: String, url: String, title: String, position: Int?): String {
         val builder = MsgTypes.BookmarkNode.newBuilder()
                 .setNodeType(BookmarkType.Separator.value)
                 .setParentGuid(parentGUID)
                 .setUrl(url)
-        title?.let { builder.setTitle(it) }
+                .setTitle(title)
         return this.doInsert(builder, position)
     }
 

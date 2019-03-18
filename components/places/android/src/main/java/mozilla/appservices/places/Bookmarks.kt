@@ -95,9 +95,12 @@ data class BookmarkItem(
         val url: String,
 
         /**
-         * The title of the bookmark, if any was provided.
+         * The title of the bookmark.
+         *
+         * Note that the bookmark storage layer treats NULL and the
+         * empty string as equivalent in titles.
          */
-        val title: String?
+        val title: String
 ) : BookmarkTreeNode() {
     override val type get() = BookmarkType.Bookmark
 }
@@ -118,8 +121,11 @@ data class BookmarkFolder(
 
         /**
          * The title of this bookmark folder, if any was provided.
+         *
+         * Note that the bookmark storage layer treats NULL and the
+         * empty string as equivalent in titles.
          */
-        val title: String?,
+        val title: String,
 
         /**
          * The GUIDs of this folder's list of children.
@@ -288,7 +294,7 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      *
      * @param parentGUID The GUID of the (soon to be) parent of this bookmark.
      * @param url The URL to bookmark
-     * @param title The title of the new bookmark, if any.
+     * @param title The title of the new bookmark.
      * @param position The index where to insert the record inside its parent.
      * If not provided, this item will be appended. If the position is outside
      * the range of positions currently occupied by children in this folder,
@@ -304,7 +310,7 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
     fun createBookmarkItem(
             parentGUID: String,
             url: String,
-            title: String?,
+            title: String,
             position: Int? = null
     ): String
 
@@ -443,7 +449,7 @@ internal fun unpackProtobuf(msg: MsgTypes.BookmarkNode): BookmarkTreeNode {
     val dateAdded = msg.dateAdded
     val lastModified = msg.lastModified
     val type = msg.nodeType
-    val title = if (msg.hasTitle()) { msg.title } else { null }
+    val title = if (msg.hasTitle()) { msg.title } else { "" }
     val shouldHaveChildNodes = if (msg.hasHaveChildNodes()) { msg.haveChildNodes } else { false }
     when (type) {
 
