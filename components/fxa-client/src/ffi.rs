@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#![cfg(feature = "ffi")]
-
 //! This module implement the traits and some types that make the FFI code easier to manage.
 //!
 //! Note that the FxA FFI is older than the other FFIs in application-services, and has (direct,
