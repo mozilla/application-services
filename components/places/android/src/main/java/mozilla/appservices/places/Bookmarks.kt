@@ -188,7 +188,7 @@ interface ReadableBookmarksConnection : InterruptibleConnection {
     /**
      * Returns the information about the bookmark with the provided id. This differs from
      * `getBookmarksTree` in that it does not populate the `children` list if `guid` refers
-     * to a folder (only its `childGUIDs` list).
+     * to a folder (However, its `childGUIDs` list will be populated).
      *
      * @param guid the guid of the bookmark to fetch.
      * @return The bookmark node, or null if the provided
