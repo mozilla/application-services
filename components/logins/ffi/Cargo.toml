@@ -21,7 +21,6 @@ features = ["sqlcipher"]
 
 [dependencies.logins]
 path = ".."
-features = ["ffi"]
 
 [dependencies.sync15]
 path = "../../sync15"

@@ -15,7 +15,6 @@ lazy_static = "1.2.0"
 
 [dependencies.fxa-client]
 path = "../"
-features = ["ffi"]
 
 [features]
 browserid = ["fxa-client/browserid"]
