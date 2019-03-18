@@ -81,8 +81,8 @@ good support for calling over the FFI), but it's our lowest common denominator.
 
 These we pass as nul-terminated UTF-8 C-strings.
 
-Specifically, `*mut c_char` or `*const c_char`, depending on whether or not it's
-a return value, or input, respectively.
+For return values, used `*mut c_char`, and for input, use
+[`ffi_support::FfiStr`](https://docs.rs/ffi-support/*/ffi_support/struct.FfiStr.html)
 
 1. If the string is returned from Rust to Kotlin/Swift, you need to expose a
    string destructor from your ffi crate. See
@@ -103,10 +103,10 @@ a return value, or input, respectively.
     to the destructor, it will allocate a temporary buffer, pass it to Rust, which
     we'll free, corrupting both heaps 💥. Oops!
 
-2. If the string is passed into Rust from Kotlin/Swift, it should work
-   more-or-less automatically. The Rust code should convert it using one of the
-   functions from ffi_support, such as `rust_string_from_c`, `rust_str_from_c`,
-   `opt_rust_string_from_c`, `opt_rust_str_from_c`, etc.
+2. If the string is passed into Rust from Kotlin/Swift, the rust code should
+   declare the parameter as a [`FfiStr<'_>`](https://docs.rs/ffi-support/*/ffi_support/struct.FfiStr.html).
+   and things should then work more or less automatically. The `FfiStr` has methods
+   for extracting it's data as `&str`, `Option<&str>`, `String`, and `Option<String>`.
 
 It's also completely fine to use Protobufs or JSON for this case!
 

@@ -60,9 +60,10 @@
 //! Inside the Rust component, you will implement:
 //!
 //! 1. [`IntoFfi`] for all types defined in that crate that you want to return
-//!    over the FFI. For most common cases, the [`implement_into_ffi_by_pointer!`] and
-//!    [`implement_into_ffi_by_json!`] macros will do the job here, however you can see that trait's
-//!    documentation for discussion and examples of implementing it manually.
+//!    over the FFI. For most common cases, the [`implement_into_ffi_by_json!`] and
+//!    [`implement_into_ffi_by_protobuf!`] macros will do the job here, however you
+//!    can see that trait's documentation for discussion and examples of
+//!    implementing it manually.
 //!
 //! 2. Conversion to [`ExternError`] for the error type(s) exposed by that
 //!    rust component, that is, `impl From<MyError> for ExternError`.
@@ -87,20 +88,21 @@
 //!    also use the versions of these functions in the [`abort_on_panic`] module, which
 //!    do as their name suggest.
 //!
-//! Additionally, c strings that are passed in as arguments may be converted to rust strings using
-//! helpers such as [`rust_str_from_c`], [`opt_rust_str_from_c`], [`rust_string_from_c`],
-//! [`opt_rust_string_from_c`], etc.
+//! Additionally, c strings that are passed in as arguments may be represented using [`FfiStr`],
+//! which contains several helpful inherent methods for extracting their data.
 //!
 
 use std::{panic, thread};
 
 mod error;
+mod ffistr;
 pub mod handle_map;
 mod into_ffi;
 mod macros;
 mod string;
 
 pub use crate::error::*;
+pub use crate::ffistr::FfiStr;
 pub use crate::into_ffi::*;
 pub use crate::macros::*;
 pub use crate::string::*;
@@ -137,7 +139,7 @@ pub use crate::handle_map::{ConcurrentHandleMap, Handle, HandleError, HandleMap}
 ///   including memory safety issues in some cases.
 ///
 /// ```rust,no_run
-/// # use ffi_support::{ExternError, ErrorCode};
+/// # use ffi_support::{ExternError, ErrorCode, FfiStr};
 /// # use std::os::raw::c_char;
 ///
 /// # #[derive(Debug)]
@@ -149,11 +151,9 @@ pub use crate::handle_map::{ConcurrentHandleMap, Handle, HandleError, HandleMap}
 /// # }
 ///
 /// #[no_mangle]
-/// pub unsafe extern "C" fn mylib_print_string(
-///     // Strings come in as a null terminated C string. This is certainly not ideal but it simplifies
-///     // the "FFI consumer" code, which is trickier code to get right, as it typically has poor
-///     // support for interacting with native libraries.
-///     thing_to_print: *const c_char,
+/// pub extern "C" fn mylib_print_string(
+///     // Strings come in as an `FfiStr`, which is a wrapper around a null terminated C string.
+///     thing_to_print: FfiStr<'_>,
 ///     // Note that taking `&mut T` and `&T` is both allowed and encouraged, so long as `T: Sized`,
 ///     // (e.g. it can't be a trait object, `&[T]`, a `&str`, etc). Also note that `Option<&T>` and
 ///     // `Option<&mut T>` are also allowed, if you expect the caller to sometimes pass in null, but
@@ -163,7 +163,7 @@ pub use crate::handle_map::{ConcurrentHandleMap, Handle, HandleError, HandleMap}
 ///     // You should try to to do as little as possible outside the call_with_result,
 ///     // to avoid a case where a panic occurs.
 ///     ffi_support::call_with_result(error, || {
-///         let s = ffi_support::rust_str_from_c(thing_to_print);
+///         let s = thing_to_print.as_str();
 ///         if s.len() == 0 {
 ///             // This is a silly example!
 ///             return Err(BadEmptyString);
