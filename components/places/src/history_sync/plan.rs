@@ -255,9 +255,7 @@ pub fn apply_plan(
     for (guid, out_record) in out_infos.drain() {
         let payload = match out_record {
             OutgoingInfo::Record(record) => Payload::from_record(record)?,
-            OutgoingInfo::Tombstone => {
-                Payload::new_tombstone_with_ttl(guid.into_string(), HISTORY_TTL)
-            }
+            OutgoingInfo::Tombstone => Payload::new_tombstone_with_ttl(guid.0.clone(), HISTORY_TTL),
         };
         log::trace!("outgoing {:?}", payload);
         outgoing.changes.push(payload);

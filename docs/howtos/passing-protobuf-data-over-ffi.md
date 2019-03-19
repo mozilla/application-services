@@ -19,21 +19,13 @@ follow the examples of the other steps it takes.
     [build-dependencies]
     prost-build = "check what version our other crates are using"
     ```
-4. In the same directory as your main crate's Cargo.toml, add a `build.rs` file.
-   Paste the following into it:
-    ```rust
-    /* This Source Code Form is subject to the terms of the Mozilla Public
-     * License, v. 2.0. If a copy of the MPL was not distributed with this
-     * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+4. Create a new file named `mylib_msg_types.proto` (well, prefix it with the
+   actual name of your lib) in your main crate's src folder. This is what is
+   referenced in that bit you pasted above, so if you want or need to change its
+   name, you must do so consistently.
 
-    fn main() {
-        prost_build::compile_protos(&["src/msg_types.proto"], &["src/"]).unwrap();
-    }
-    ```
-
-5. Create a new file named `msg_types.proto` in your main crate's src folder.
-   This is what is referenced in that bit you pasted above, so if you want or
-   need to change its name, you must do so consistently.
+   Due to annoying details of how the iOS megazord works, the name of the .proto
+   file must be unique.
 
     1. This file should start with
     ```
@@ -46,6 +38,18 @@ follow the examples of the other steps it takes.
 
     2. Fill in your definitions in the rest of the file. See
        https://developers.google.com/protocol-buffers/docs/proto for examples.
+
+5. In the same directory as your main crate's Cargo.toml, add a `build.rs` file.
+   Paste the following into it:
+    ```rust
+    /* This Source Code Form is subject to the terms of the Mozilla Public
+     * License, v. 2.0. If a copy of the MPL was not distributed with this
+     * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+    fn main() {
+        prost_build::compile_protos(&["src/mylib_msg_types.proto"], &["src/"]).unwrap();
+    }
+    ```
 
 6. Into your main crate's lib.rs file, add something equivalent to the following:
     ```rust
@@ -193,45 +197,124 @@ follow the examples of the other steps it takes.
 
 ## Swift
 
-Someone should document me! Until then, taking a look at the changes that were
-made for FxA in https://github.com/mozilla/application-services/pull/626 is not
-a bad first step! Also, ask in #rust-components on slack.
+1. You need to install `carthage` and `swift-protobuf`, as well as `protobuf`
+   (if you don't have it already). The following should do the trick if you
+   use homebrew:
+   ```
+   brew install carthage swift-protobuf protobuf
+   ```
+
+2. Run `carthage bootstrap` from the root of this repository. This will produce a
+  (gitignored) Carthage directory in this repository.
+
+3. In Xcode, you need to add `Carthage/Build/iOS/SwiftProtobuf.framework`
+  to your target's "Linked frameworks and libraries" list.
+    - You'll need to click "Add Other" for choosing a path to be available.
+    - This was hard for me to find, so see [this screenshot](./img/swift-protobuf-framework.png)
+      if you are having trouble locating it.
+
+4. Add `FRAMEWORK_SEARCH_PATHS = "../../../Carthage/Build/iOS"` (Note: you may need a different number of `..`s) to the `base.xcconfig`
+
+5. Add your msg_types.proto file to the xcode project.
+    - Do not check "copy items as needed".
+
+6. Under "Build Rules", add a new build rule:
+
+    - Choose "Source files with names matching:" and enter `*.proto`
+
+    - Choose "Using custom script" and paste the following into the textarea.
+        ```
+        protoc --proto_path=$INPUT_FILE_DIR --swift_out=$DERIVED_FILE_DIR $INPUT_FILE_PATH
+        ```
+    - Under "Output Files", add `$(DERIVED_FILE_DIR)/$(INPUT_FILE_BASE).pb.swift`
+      (with no compiler flags).
+
+    This should look like [this screenshot](./img/swift-protobuf-build-rule.png)
+    (which should also help indicate where to find the build rules page) after
+    you finish.
+
+7. If you have a test target for your framework (and you should, but not all of
+   our iOS code does), you need to do the following as well:
+
+    1. In the test target's Build phases, add SwiftProtobuf.framework to the
+       "Link Binary with Libraries" phase (As in step 3, you need to "Add
+       Other", and choose
+       `<repo-root>/Carthage/Build/iOS/SwiftProtobuf.framework`).
+    2. Add a new "Copy Files" build phase to the test target. Select the
+       SwiftProtobuf.framework, and set the destination to Frameworks.
+
+    See [this screenshot](./img/swift-protobuf-test-setup.png) for what it should look
+    like when done.
+
+8. Add a declaration for the rust buffer type to your .h file:
+
+    Note that the name must be unique, hence the `MyLib` prefix (use your actual
+    lib name, and not MyLib, of course).
+
+    ```c
+    typedef struct MyLibRustBuffer {
+        int64_t len;
+        uint8_t *_Nullable data;
+    } MyLibRustBuffer;
+
+    // Note: this must be the same name you called
+    // `ffi_support::define_bytebuffer_destructor!` with in
+    // Rust setup step 8.
+    void mylib_destroy_bytebuffer(MyLibRustBuffer bb);
+    ```
+
+    Then, your functions that return `ffi_support::ByteBuffers` in rust should
+    return `MyLibRustBuffer` in the version exposed by the header, for example (from places)
+
+    ```c
+    PlacesRustBuffer bookmarks_get_by_guid(PlacesConnectionHandle handle,
+                                           char const *_Nonnull guid,
+                                           PlacesRustError *_Nonnull out_err);
+    ```
+
+9. Add the following somewhere in your swift code: (TODO: Eventually we should
+   figure out a way to share this)
+
+    ```swift
+    extension Data {
+        init(mylibRustBuffer: MyLibRustBuffer) {
+            self.init(bytes: mylibRustBuffer.data!, count: Int(mylibRustBuffer.len))
+        }
+    }
+    ```
+
+10. Usage code then looks something like:
+
+    ```swift
+    let buffer = try MylibError.unwrap { error in
+        mylib_function_returning_buffer(self.handle, error)
+    }
+    // Note: if conceptually your function returns Option<ByteBuffer>
+    // from rust, you should do the following here:
+    //
+    // if buffer.data == nil {
+    //    return nil
+    // }
+
+    defer { mylib_destroy_bytebuffer(buffer) }
+    let msg = try! MsgTypes_MyMessageType(serializedData: Data(mylibRustBuffer: buffer))
+    // use msg...
+    ```
+
+Note: If Xcode has trouble locating the types generated from the .proto file,
+even though the build works, restarting Xcode may fix the issue.
 
 # Using protobuf to pass data *into* Rust code
 
-## Kotlin/Android
 
 Don't pass `ffi_support::ByteBuffer`/`RustBuffer` into rust.
 It is a type for going in the other direction.
 
-Instead, you should pass the data and length separately. There are two ways of
-doing this for android. You can use either a `Array<Byte>` or a `Pointer`,
-which you can get from a "direct" `java.nio.ByteBuffer`. We recommend the
-latter, as it avoids an additional copy, which can be done as follows (using
-the `toNioDirectBuffer` our kotlin support library provides):
+Instead, you should pass the data and length separately.
 
-In Kotlin:
+The Rust side of this looks something like this:
 
-```kotlin
-// In the com.sun.jna.Library
-fun rust_fun_taking_protobuf(data: Pointer, len: Int, out: RustError.ByReference)
-
-// In some your wrapper (note: `toNioDirectBuffer` is defined by our
-// support library)
-val (len, nioBuf) = theProtobufType.toNioDirectBuffer()
-rustCall { err ->
-    val ptr = Native.getDirectBufferPointer(nioBuf)
-    MyLib.INSTANCE.rust_fun_taking_protobuf(ptr, len, err)
-}
-```
-
-Note that the `toNioDirectBuffer` helper can't return the Pointer directly, as
-it is only valid until the NIO buffer is garbage collected, and if the pointer
-were returned it would not be reachable.
-
-In Rust:
 ```rust
-
 #[no_mangle]
 pub unsafe extern "C" fn rust_fun_taking_protobuf(
     data *const u8,
@@ -257,11 +340,64 @@ pub unsafe extern "C" fn rust_fun_taking_protobuf(
 }
 ```
 
+## Kotlin/Android
+
+There are two ways of passing the data/length pairs on android. You can use
+either a `Array<Byte>` or a `Pointer`, which you can get from a "direct"
+`java.nio.ByteBuffer`. We recommend the latter, as it avoids an additional copy,
+which can be done as follows (using the `toNioDirectBuffer` our kotlin support
+library provides):
+
+In Kotlin:
+
+```kotlin
+// In the com.sun.jna.Library
+fun rust_fun_taking_protobuf(data: Pointer, len: Int, out: RustError.ByReference)
+
+// In some your wrapper (note: `toNioDirectBuffer` is defined by our
+// support library)
+val (len, nioBuf) = theProtobufType.toNioDirectBuffer()
+rustCall { err ->
+    val ptr = Native.getDirectBufferPointer(nioBuf)
+    MyLib.INSTANCE.rust_fun_taking_protobuf(ptr, len, err)
+}
+```
+
+Note that the `toNioDirectBuffer` helper can't return the Pointer directly, as
+it is only valid until the NIO buffer is garbage collected, and if the pointer
+were returned it would not be reachable.
+
 ## Swift
 
-Someone should document me! Until then, taking a look at the changes that were
-made for FxA in https://github.com/mozilla/application-services/pull/626 is not
-a bad first step! Also, ask in #rust-components on slack.
+1. Make sure you've done the first 7 steps (up until you need to modify .h
+   files) of the swift setup for returning protobuf data.
+
+2. The function taking the protobuf should look like this in the header file:
+
+    ```c
+    void rust_fun_taking_protobuf(uint8_t const *_Nonnull data,
+                                  int32_t len,
+                                  MylibRustError *_Nonnull out_err);
+    ```
+
+3. Then, the usage code from Swift would look like:
+
+    ```swift
+    var msg = MsgTypes_MyThing()
+    // populate `msg` with whatever you need to send...
+
+    // Note: the `try!` here only fails if you failed to
+    // populate a required field.
+
+    let data = try! msg.serializedData()
+    let size = Int32(data.count)
+
+    try data.withUnsafeBytes { (bytes: UnsafePointer<UInt8>) in
+        try MyLibError.unwrap { error in
+            rust_fun_taking_protobuf(bytes, size, error)
+        }
+    }
+    ```
 
 # FAQ
 
@@ -274,7 +410,7 @@ a bad first step! Also, ask in #rust-components on slack.
 
 ### I'd like to expose a function returning a `Vec<T>`.
 
-If T is a type from msg_types.proto, then this is fairly easy:
+If T is a type from your mylib_msg_types.proto, then this is fairly easy:
 
 Don't, instead add a new msg_type that contains a repeated T field, and make
 that rust function return that.
@@ -283,10 +419,10 @@ Then, make so long as the new msg_type has `implement_into_ffi_by_protobuf!` and
 
 ---
 
-Unfortunately, if T is merely *convertable* to something from msg_types.proto,
+Unfortunately, if T is merely *convertable* to something from mylib_msg_types.proto,
 this adds a bunch of boilerplate.
 
-Say we have the following msg_types.proto:
+Say we have the following mylib_msg_types.proto:
 
 ```proto
 message HistoryVisitInfo {

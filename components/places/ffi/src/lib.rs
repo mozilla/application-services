@@ -7,8 +7,10 @@ use ffi_support::{
     define_string_destructor, ByteBuffer, ConcurrentHandleMap, ExternError, FfiStr,
 };
 use places::error::*;
+use places::msg_types::BookmarkNodeList;
+use places::storage::bookmarks;
+use places::types::SyncGuid;
 use places::{db::PlacesInterruptHandle, storage, ConnectionType, PlacesApi, PlacesDb};
-
 use std::os::raw::c_char;
 use std::sync::Arc;
 
@@ -332,6 +334,122 @@ pub extern "C" fn sync15_history_sync(
             &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
         )?;
         Ok(())
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn bookmarks_get_tree(
+    handle: u64,
+    guid: FfiStr<'_>,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("bookmarks_get_tree");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let root_id = SyncGuid(guid.into());
+        Ok(bookmarks::public_node::fetch_public_tree(conn, &root_id)?)
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn bookmarks_get_by_guid(
+    handle: u64,
+    guid: FfiStr<'_>,
+    get_direct_children: u8,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("bookmarks_get_by_guid");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let guid = SyncGuid(guid.into());
+        Ok(bookmarks::public_node::fetch_bookmark(
+            conn,
+            &guid,
+            get_direct_children != 0,
+        )?)
+    })
+}
+
+unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
+    assert!(len >= 0, "Bad buffer len: {}", len);
+    if len == 0 {
+        // This will still fail, but as a bad protobuf format.
+        &[]
+    } else {
+        assert!(!data.is_null(), "Unexpected null data pointer");
+        std::slice::from_raw_parts(data, len as usize)
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn bookmarks_insert(
+    handle: u64,
+    data: *const u8,
+    len: i32,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("bookmarks_insert");
+    use places::msg_types::BookmarkNode;
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let buffer = get_buffer(data, len);
+        let bookmark: BookmarkNode = prost::Message::decode(buffer)?;
+        let insertable = bookmark.into_insertable()?;
+        let guid = bookmarks::insert_bookmark(conn, &insertable)?;
+        Ok(guid.0)
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn bookmarks_update(
+    handle: u64,
+    data: *const u8,
+    len: i32,
+    error: &mut ExternError,
+) {
+    log::debug!("bookmarks_update");
+    use places::msg_types::BookmarkNode;
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let buffer = get_buffer(data, len);
+        let bookmark: BookmarkNode = prost::Message::decode(buffer)?;
+        bookmarks::public_node::update_bookmark_from_message(conn, bookmark)?;
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn bookmarks_delete(handle: u64, id: FfiStr<'_>, error: &mut ExternError) -> u8 {
+    log::debug!("bookmarks_delete");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let guid = SyncGuid(id.into_string());
+        let did_delete = bookmarks::delete_bookmark(conn, &guid)?;
+        Ok(did_delete)
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn bookmarks_get_all_with_url(
+    handle: u64,
+    url: FfiStr<'_>,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("bookmarks_get_all_with_url");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        Ok(BookmarkNodeList::from(
+            bookmarks::public_node::fetch_bookmarks_by_url(conn, &parse_url(url.as_str())?)?,
+        ))
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn bookmarks_search(
+    handle: u64,
+    query: FfiStr<'_>,
+    limit: i32,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("bookmarks_get_all_with_url");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        Ok(BookmarkNodeList::from(
+            bookmarks::public_node::search_bookmarks(conn, query.as_str(), limit as u32)?,
+        ))
     })
 }
 

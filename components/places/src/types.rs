@@ -3,8 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::{self, ErrorKind};
+use crate::storage::bookmarks::BookmarkRootGuid;
 use dogear;
-use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
+use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use serde::{Deserialize, Serialize, Serializer};
 use std::fmt;
@@ -12,18 +13,22 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 // XXX - copied from logins - surprised it's not in `sync`
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
-pub struct SyncGuid(String);
+pub struct SyncGuid(pub String);
 
 impl SyncGuid {
     pub fn new() -> Self {
         SyncGuid(sync15::random_guid().unwrap())
     }
 
-    #[inline]
-    pub fn into_string(self) -> String {
-        self.0
+    pub fn as_root(&self) -> Option<BookmarkRootGuid> {
+        BookmarkRootGuid::from_str(&self.0)
+    }
+
+    pub fn is_root(&self) -> bool {
+        BookmarkRootGuid::from_str(&self.0).is_some()
     }
 }
+
 impl AsRef<str> for SyncGuid {
     fn as_ref(&self) -> &str {
         self.0.as_ref()
@@ -226,6 +231,16 @@ pub enum BookmarkType {
     Separator = 3, // TYPE_SEPARATOR;
                   // On desktop, TYPE_DYNAMIC_CONTAINER = 4 but is deprecated - so please
                   // avoid using this value in the future.
+}
+
+impl FromSql for BookmarkType {
+    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
+        let v = value.as_i64()?;
+        if v < 0 || v > (u8::max_value() as i64) {
+            return Err(FromSqlError::OutOfRange(v));
+        }
+        BookmarkType::from_u8(v as u8).ok_or_else(|| FromSqlError::OutOfRange(v))
+    }
 }
 
 impl BookmarkType {

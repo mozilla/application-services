@@ -170,6 +170,41 @@ internal interface LibPlacesFFI : Library {
             out_err: RustError.ByReference
     )
 
+    fun bookmarks_get_all_with_url(handle: PlacesConnectionHandle,
+                                   url: String,
+                                   error: RustError.ByReference): RustBuffer.ByValue
+
+    fun bookmarks_get_tree(handle: PlacesConnectionHandle,
+                           optRootId: String?,
+                           error: RustError.ByReference): RustBuffer.ByValue
+
+    fun bookmarks_get_by_guid(handle: PlacesConnectionHandle,
+                              optRootId: String?,
+                              getDirectChildren: Byte,
+                              error: RustError.ByReference): RustBuffer.ByValue
+
+    fun bookmarks_search(handle: PlacesConnectionHandle,
+                         search: String,
+                         limit: Int,
+                         error: RustError.ByReference): RustBuffer.ByValue
+
+
+    // Returns newly inserted guid
+    fun bookmarks_insert(handle: PlacesConnectionHandle,
+                         data: Pointer,
+                         len: Int,
+                         error: RustError.ByReference): Pointer?
+
+    fun bookmarks_update(handle: PlacesConnectionHandle,
+                         data: Pointer,
+                         len: Int,
+                         error: RustError.ByReference)
+
+    // Returns 1 if the item existed and was deleted.
+    fun bookmarks_delete(handle: PlacesConnectionHandle,
+                         id: String,
+                         error: RustError.ByReference): Byte
+
     /** Destroy strings returned from libplaces_ffi calls. */
     fun places_destroy_string(s: Pointer)
 

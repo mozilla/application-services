@@ -90,6 +90,14 @@ sudo docker exec -it auth-server sh -c 'ps aux' # finds the PID
 sudo docker exec -it auth-server sh -c 'cat /proc/8/environ | xargs -0 -n 1' # outputs args
 ```
 
+Using `strace` to debug issues:
+
+```
+sudo strace -f -s 256 -tt -p 19023
+```
+
+where `19023` is the pid of the node process running under docker. `strace` captures and records all system calls.
+
 
 ### MySQL SSH Access
 
