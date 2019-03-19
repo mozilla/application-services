@@ -114,7 +114,17 @@ afterEvaluate {
             productFlavor += "${it.name.capitalize()}"
         }
         def buildType = "${variant.buildType.name.capitalize()}"
-        tasks["generate${productFlavor}${buildType}Assets"].dependsOn(tasks["cargoBuild"])
+        // The "CI" check is a terrible hack:
+        // In our decision task we execute `testDebug` then `assembleRelease`.
+        // The rust-android-gradle plugin relies on cargo to not re-build already
+        // built rust artifacts, however because of different feature sets, these
+        // two tasks will end up re-compiling the rust crates two times.
+        // Since the Rust crates will be created during `testDebug` (which depends on
+        // ...UnitTestJavaRes), we remove the `cargoBuild` dependency in `...Assets`
+        // (which `assembleRelease` depends on).
+        if (variant.buildType.name != 'withoutLib' && !System.getenv("CI")) {
+            tasks["generate${productFlavor}${buildType}Assets"].dependsOn(tasks["cargoBuild"])
+        }
 
         // For unit tests.
         tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["cargoBuild"])
