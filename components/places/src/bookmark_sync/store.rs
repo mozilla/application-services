@@ -17,6 +17,7 @@ use dogear::{
     self, Content, Deletion, IntoTree, Item, LogLevel, MergedDescendant, Tree, UploadReason,
 };
 use lazy_static::lazy_static;
+use log::{Level, LevelFilter};
 use rusqlite::NO_PARAMS;
 use sql_support::{self, ConnExt};
 use std::cell::Cell;
@@ -485,12 +486,71 @@ impl<'a> Store for BookmarksStore<'a> {
     }
 
     fn reset(&self) -> result::Result<(), failure::Error> {
-        unimplemented!("TODO: Wipe staged items and reset sync statuses");
+        let tx = self.db.unchecked_transaction()?;
+        self.db.conn().execute_cached(
+            &format!(
+                "
+                DELETE from moz_bookmarks_synced;
+
+                UPDATE moz_bookmarks
+                    SET sync_change_counter = 0,
+                    sync_status = {}",
+                (SyncStatus::New as u8)
+            ),
+            NO_PARAMS,
+        )?;
+        put_meta(self.db, LAST_SYNC_META_KEY, &0)?;
+        tx.commit()?;
+        Ok(())
     }
 
+    // There's a bit of confusion around 'wipe' in this trait.
+    // Logins has `wipe` and `wipe_local`, where the former just wipes the
+    // mirror. There's no `wipe_server` (which in theory can be generically
+    // implemented for any engine.
     fn wipe(&self) -> result::Result<(), failure::Error> {
         log::warn!("not implemented");
         Ok(())
+
+        /* A wipe_local for bookmarks could probably look something like:
+            let tx = self.db.unchecked_transaction()?;
+            self.db.conn().execute_cached(
+                "
+                DELETE from moz_bookmarks;
+                DELETE from moz_bookmarks_deleted;
+                DELETE from moz_bookmarks_synced;",
+                NO_PARAMS,
+            )?;
+            create_bookmark_roots(self.db)?;
+            create_synced_bookmark_roots(self.db)?;
+            tx.commit()?;
+            Ok(())
+        */
+    }
+}
+
+// We should consider if we can merge log's levels with dogear's.
+fn level_filter_to_dogear_level(level: LevelFilter) -> LogLevel {
+    match level {
+        LevelFilter::Off => LogLevel::Silent,
+        LevelFilter::Error => LogLevel::Error,
+        LevelFilter::Warn => LogLevel::Warn,
+        LevelFilter::Info => LogLevel::Debug, // ???
+        LevelFilter::Debug => LogLevel::Debug,
+        LevelFilter::Trace => LogLevel::Trace,
+    }
+}
+
+fn dogear_level_to_level(level: LogLevel) -> Level {
+    match level {
+        LogLevel::Error => Level::Error,
+        LogLevel::Warn => Level::Warn,
+        LogLevel::Debug => Level::Info,
+        LogLevel::Trace => Level::Trace,
+        LogLevel::All => Level::Trace, // ??
+        // It doesn't really matter what we map Silent to as we will not be
+        // called in that case.
+        LogLevel::Silent => Level::Error,
     }
 }
 
@@ -502,10 +562,12 @@ impl dogear::Driver for Driver {
     }
 
     fn log_level(&self) -> LogLevel {
-        LogLevel::Silent
+        level_filter_to_dogear_level(log::max_level())
     }
 
-    fn log(&self, _level: LogLevel, _args: fmt::Arguments) {}
+    fn log(&self, level: LogLevel, args: fmt::Arguments) {
+        log::log!(dogear_level_to_level(level), "{}", args);
+    }
 }
 
 // The "merger", which is just a thin wrapper for dogear.
@@ -846,7 +908,6 @@ mod tests {
     use dogear::{Store as DogearStore, Validity};
     use pretty_assertions::assert_eq;
     use serde_json::{json, Value};
-    use sync15::Store as SyncStore;
 
     use std::cell::Cell;
     use sync15::Payload;
