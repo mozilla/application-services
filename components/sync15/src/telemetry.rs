@@ -211,7 +211,7 @@ mod test_events {
         let l = "abcdefghijk";
         let mut e = Event::new("Object", "Method");
         for i in 0..l.len() {
-            e = e.extra(&l[i..i + 1], "v".to_string());
+            e = e.extra(&l[i..=i], "v".to_string());
         }
     }
 

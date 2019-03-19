@@ -74,11 +74,7 @@ fn convert_node(dm: DesktopItem) -> Option<BookmarkTreeNode> {
             date_added: dm.date_added.map(|v| Timestamp(v / 1000)),
             last_modified: dm.last_modified.map(|v| Timestamp(v / 1000)),
             title: dm.title,
-            children: dm
-                .children
-                .into_iter()
-                .filter_map(|c| convert_node(c))
-                .collect(),
+            children: dm.children.into_iter().filter_map(convert_node).collect(),
         }
         .into(),
     })

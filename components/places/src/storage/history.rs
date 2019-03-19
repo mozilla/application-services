@@ -1054,26 +1054,26 @@ mod tests {
     fn test_get_visited_urls() {
         use std::collections::HashSet;
         use std::time::SystemTime;
-        let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
         let now: Timestamp = SystemTime::now().into();
         let now_u64 = now.0;
         // (url, when, is_remote, (expected_always, expected_only_local)
         let to_add = [
             (
                 "https://www.example.com/1",
-                now_u64 - 200100,
+                now_u64 - 200_100,
                 false,
                 (false, false),
             ),
             (
                 "https://www.example.com/12",
-                now_u64 - 200000,
+                now_u64 - 200_000,
                 false,
                 (true, true),
             ),
             (
                 "https://www.example.com/123",
-                now_u64 - 10000,
+                now_u64 - 10_000,
                 true,
                 (true, false),
             ),
@@ -1093,7 +1093,7 @@ mod tests {
 
         for &(url, when, remote, _) in &to_add {
             apply_observation(
-                &mut conn,
+                &conn,
                 VisitObservation::new(Url::parse(url).unwrap())
                     .with_at(Timestamp(when))
                     .with_is_remote(remote)
@@ -1104,7 +1104,7 @@ mod tests {
 
         let visited_all = get_visited_urls(
             &conn,
-            Timestamp(now_u64 - 200000),
+            Timestamp(now_u64 - 200_000),
             Timestamp(now_u64 - 1000),
             true,
         )
@@ -1114,7 +1114,7 @@ mod tests {
 
         let visited_local = get_visited_urls(
             &conn,
-            Timestamp(now_u64 - 200000),
+            Timestamp(now_u64 - 200_000),
             Timestamp(now_u64 - 1000),
             false,
         )
@@ -1160,26 +1160,25 @@ mod tests {
         let result: Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_places_tombstones;",
             &[],
-            |row| Ok(row.get_checked::<_, u32>(0)?.clone()),
+            |row| Ok(row.get_checked::<_, u32>(0)?),
             true,
         );
         result
             .expect("should have worked")
             .expect("should have got a value")
-            .into()
     }
 
     #[test]
     fn test_visit_counts() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None)?;
+        let conn = PlacesDb::open_in_memory(None)?;
         let url = Url::parse("https://www.example.com").expect("it's a valid url");
         let early_time = SystemTime::now() - Duration::new(60, 0);
         let late_time = SystemTime::now();
 
         // add 2 local visits - add latest first
         let rid1 = apply_observation(
-            &mut conn,
+            &conn,
             VisitObservation::new(url.clone())
                 .with_visit_type(VisitTransition::Link)
                 .with_at(Some(late_time.into())),
@@ -1187,7 +1186,7 @@ mod tests {
         .expect("should get a rowid");
 
         let rid2 = apply_observation(
-            &mut conn,
+            &conn,
             VisitObservation::new(url.clone())
                 .with_visit_type(VisitTransition::Link)
                 .with_at(Some(early_time.into())),
@@ -1202,7 +1201,7 @@ mod tests {
 
         // 2 remote visits, earliest first.
         let rid3 = apply_observation(
-            &mut conn,
+            &conn,
             VisitObservation::new(url.clone())
                 .with_visit_type(VisitTransition::Link)
                 .with_at(Some(early_time.into()))
@@ -1211,7 +1210,7 @@ mod tests {
         .expect("should get a rowid");
 
         let rid4 = apply_observation(
-            &mut conn,
+            &conn,
             VisitObservation::new(url.clone())
                 .with_visit_type(VisitTransition::Link)
                 .with_at(Some(late_time.into()))
@@ -1252,16 +1251,16 @@ mod tests {
         // visits, but for now we don't - check the values are sane though.
         pi = fetch_page_info(&conn, &url)?.expect("should have the page");
         assert_eq!(pi.page.visit_count_local, 0);
-        assert_eq!(pi.page.last_visit_date_local, Timestamp(0).into());
+        assert_eq!(pi.page.last_visit_date_local, Timestamp(0));
         assert_eq!(pi.page.visit_count_remote, 0);
-        assert_eq!(pi.page.last_visit_date_remote, Timestamp(0).into());
+        assert_eq!(pi.page.last_visit_date_remote, Timestamp(0));
         Ok(())
     }
 
     #[test]
     fn test_get_visited() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None)?;
+        let conn = PlacesDb::open_in_memory(None)?;
 
         let unicode_in_path = "http://www.example.com/tëst😀abc";
         let escaped_unicode_in_path = "http://www.example.com/t%C3%ABst%F0%9F%98%80abc";
@@ -1284,7 +1283,7 @@ mod tests {
 
         for item in &to_add {
             apply_observation(
-                &mut conn,
+                &conn,
                 VisitObservation::new(Url::parse(item).unwrap())
                     .with_visit_type(VisitTransition::Link),
             )?;
@@ -1342,7 +1341,7 @@ mod tests {
     #[test]
     fn test_get_visited_into() {
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None).unwrap();
+        let conn = PlacesDb::open_in_memory(None).unwrap();
 
         let to_add = [
             Url::parse("https://www.example.com/1").unwrap(),
@@ -1352,7 +1351,7 @@ mod tests {
 
         for item in &to_add {
             apply_observation(
-                &mut conn,
+                &conn,
                 VisitObservation::new(item.clone()).with_visit_type(VisitTransition::Link),
             )
             .unwrap();
@@ -1394,7 +1393,7 @@ mod tests {
 
     #[test]
     fn test_delete_visited() {
-        let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
         let late: Timestamp = SystemTime::now().into();
         let early: Timestamp = (SystemTime::now() - Duration::from_secs(30)).into();
         let url1 = Url::parse("https://www.example.com/1").unwrap();
@@ -1416,7 +1415,7 @@ mod tests {
 
         for &(url, when) in &to_add {
             apply_observation(
-                &mut conn,
+                &conn,
                 VisitObservation::new(url.clone())
                     .with_at(when)
                     .with_visit_type(VisitTransition::Link),
@@ -1490,7 +1489,7 @@ mod tests {
         let mut pi = get_observed_page(&mut conn, "http://example.com")?;
         // A new observation with just a title (ie, no visit) should update it.
         apply_observation(
-            &mut conn,
+            &conn,
             VisitObservation::new(pi.url.clone()).with_title(Some("new title".into())),
         )?;
         pi = fetch_page_info(&conn, &pi.url)?
@@ -1577,12 +1576,12 @@ mod tests {
     #[test]
     fn test_tombstones() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut db = PlacesDb::open_in_memory(None)?;
+        let db = PlacesDb::open_in_memory(None)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)
             .with_at(Some(SystemTime::now().into()));
-        apply_observation(&mut db, obs)?;
+        apply_observation(&db, obs)?;
         let guid = url_to_guid(&db, &url)?.expect("should exist");
 
         delete_place_by_guid(&db, &guid)?;
@@ -1593,7 +1592,7 @@ mod tests {
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)
             .with_at(Some(SystemTime::now().into()));
-        apply_observation(&mut db, obs)?;
+        apply_observation(&db, obs)?;
         let new_guid = url_to_guid(&db, &url)?.expect("should exist");
 
         // Set the status to normal
@@ -2053,13 +2052,13 @@ mod tests {
     #[test]
     fn test_long_strings() {
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None).unwrap();
+        let conn = PlacesDb::open_in_memory(None).unwrap();
         let mut url = "http://www.example.com".to_string();
         while url.len() < crate::storage::URL_LENGTH_MAX {
             url += "/garbage";
         }
         let maybe_row = apply_observation(
-            &mut conn,
+            &conn,
             VisitObservation::new(Url::parse(&url).unwrap())
                 .with_visit_type(VisitTransition::Link)
                 .with_at(Timestamp::now()),
@@ -2072,7 +2071,7 @@ mod tests {
             title += " test test";
         }
         let maybe_row = apply_observation(
-            &mut conn,
+            &conn,
             VisitObservation::new(Url::parse("http://www.example.com/123").unwrap())
                 .with_title(title.clone())
                 .with_visit_type(VisitTransition::Link)

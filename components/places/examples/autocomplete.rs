@@ -423,10 +423,9 @@ mod autocomplete {
 
         // Combine ranges that overlap.
         let mut coalesced = vec![ranges[0]];
-        for i in 1..ranges.len() {
+        for curr in ranges.iter().skip(1) {
             // we know `coalesced` is never empty
             let prev = *coalesced.last().unwrap();
-            let curr = ranges[i];
             if curr.0 < prev.1 {
                 // Found an overlap. Update prev, but don't add cur.
                 if curr.1 > prev.0 {
@@ -435,7 +434,7 @@ mod autocomplete {
             // else `prev` already encompasses `curr` entirely... (IIRC
             // this is possible in weird cases).
             } else {
-                coalesced.push(curr);
+                coalesced.push(*curr);
             }
         }
 
@@ -568,14 +567,14 @@ mod autocomplete {
                     Key::Ctrl('n') | Key::Down => {
                         if let Some(res) = &results {
                             if pos + 1 < res.results.len() {
-                                pos = pos + 1;
+                                pos += 1;
                                 repaint_results = true;
                             }
                         }
                     }
                     Key::Ctrl('p') | Key::Up => {
                         if results.is_some() && pos > 0 {
-                            pos = pos - 1;
+                            pos -= 1;
                             repaint_results = true;
                         }
                     }
@@ -686,7 +685,7 @@ mod autocomplete {
                             results.search.limit,
                             results.search.search_string,
                             results.took.as_secs() * 1_000_000
-                                + (results.took.subsec_nanos() as u64 / 1000)
+                                + (u64::from(results.took.subsec_nanos()) / 1000)
                         )?;
                         let (_, term_h) = termion::terminal_size()?;
                         write!(stdout, "{}", Goto(1, 4))?;
@@ -867,11 +866,9 @@ fn main() -> Result<()> {
         let observations: Vec<SerializedObservation> = read_json_file(observations_json)?;
         let num_observations = observations.len();
         log::info!("Found {} observations", num_observations);
-        let mut counter = 0;
-        for obs in observations {
+        for (counter, obs) in observations.into_iter().enumerate() {
             let visit = obs.into_visit()?;
             places::apply_observation(&mut conn, visit)?;
-            counter += 1;
             if (counter % 1000) == 0 {
                 log::trace!("Importing observations {} / {}", counter, num_observations);
             }

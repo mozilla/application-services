@@ -17,7 +17,8 @@ pub fn create_assertion(
     let since_epoch = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Something is very wrong.");
-    let issued_at = since_epoch.as_secs() * 1000 + since_epoch.subsec_nanos() as u64 / 1_000_000;
+    let issued_at =
+        since_epoch.as_secs() * 1000 + u64::from(since_epoch.subsec_nanos()) / 1_000_000;
     let expires_at = issued_at + DEFAULT_ASSERTION_DURATION;
     let issuer = DEFAULT_ASSERTION_ISSUER;
     create_assertion_full(
@@ -142,7 +143,7 @@ mod tests {
     }
 
     fn decode(token: &str, key_pair: &BrowserIDKeyPair) -> Result<String> {
-        let segments: Vec<&str> = token.split(".").collect();
+        let segments: Vec<&str> = token.split('.').collect();
         let message = format!("{}.{}", &segments[0], &segments[1]);
         let message_bytes = message.as_bytes();
         let signature = base64::decode_config(&segments[2], base64::URL_SAFE_NO_PAD)?;
@@ -187,7 +188,7 @@ mod tests {
 
         let issuer = "127.0.0.1";
         let audience = "http://localhost:8080";
-        let iat: u64 = 1352995809210;
+        let iat: u64 = 1_352_995_809_210;
         let dur: u64 = 60 * 60 * 1000;
         let exp: u64 = iat + dur;
 

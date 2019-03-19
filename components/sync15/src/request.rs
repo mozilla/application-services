@@ -983,7 +983,7 @@ mod test {
             max_record_payload_bytes: 1000,
             ..InfoConfiguration::default()
         };
-        let time = 11111111.0;
+        let time = 11_111_111.0;
         let (mut pq, tester) = pq_test_setup(
             cfg,
             time,
@@ -1012,7 +1012,7 @@ mod test {
             max_request_bytes: 250,
             ..InfoConfiguration::default()
         };
-        let time = 11111111.0;
+        let time = 11_111_111.0;
         let (mut pq, tester) = pq_test_setup(
             cfg,
             time,
@@ -1061,7 +1061,7 @@ mod test {
             max_request_bytes: 350,
             ..InfoConfiguration::default()
         };
-        let time = 11111111.0;
+        let time = 11_111_111.0;
         let (mut pq, tester) = pq_test_setup(
             cfg,
             time,
@@ -1095,7 +1095,7 @@ mod test {
     #[test]
     fn test_pq_single_batch() {
         let cfg = InfoConfiguration::default();
-        let time = 11111111.0;
+        let time = 11_111_111.0;
         let (mut pq, tester) = pq_test_setup(
             cfg,
             time,
@@ -1133,7 +1133,7 @@ mod test {
             max_post_bytes: 200,
             ..InfoConfiguration::default()
         };
-        let time = 11111111.0;
+        let time = 11_111_111.0;
         let (mut pq, tester) = pq_test_setup(
             cfg,
             time,
@@ -1182,7 +1182,7 @@ mod test {
             max_post_records: 3,
             ..InfoConfiguration::default()
         };
-        let time = 11111111.0;
+        let time = 11_111_111.0;
         let (mut pq, tester) = pq_test_setup(
             cfg,
             time,
@@ -1241,13 +1241,14 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::cyclomatic_complexity)]
     fn test_pq_multi_post_multi_batch_records() {
         let cfg = InfoConfiguration {
             max_post_records: 3,
             max_total_records: 5,
             ..InfoConfiguration::default()
         };
-        let time = 11111111.0;
+        let time = 11_111_111.0;
         let (mut pq, tester) = pq_test_setup(
             cfg,
             time,
@@ -1323,14 +1324,28 @@ mod test {
         );
     }
 
+    macro_rules! assert_feq {
+        ($a:expr, $b:expr) => {
+            let a = $a;
+            let b = $b;
+            assert!(
+                (a - b).abs() < std::f64::EPSILON,
+                "assert_feq failure: {} != {}",
+                a,
+                b
+            )
+        };
+    }
+
     #[test]
+    #[allow(clippy::cyclomatic_complexity)]
     fn test_pq_multi_post_multi_batch_bytes() {
         let cfg = InfoConfiguration {
             max_post_bytes: 300,
             max_total_bytes: 500,
             ..InfoConfiguration::default()
         };
-        let time = 11111111.0;
+        let time = 11_111_111.0;
         let (mut pq, tester) = pq_test_setup(
             cfg,
             time,
@@ -1345,22 +1360,22 @@ mod test {
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
-        assert_eq!(pq.last_modified.0, time);
+        assert_feq!(pq.last_modified.0, time);
         // POST
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
         // POST + COMMIT
         pq.enqueue(&make_record(100)).unwrap();
-        assert_eq!(pq.last_modified.0, time + 100.0);
+        assert_feq!(pq.last_modified.0, time + 100.0);
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
 
         // POST
         pq.enqueue(&make_record(100)).unwrap();
-        assert_eq!(pq.last_modified.0, time + 100.0);
+        assert_feq!(pq.last_modified.0, time + 100.0);
         pq.flush(true).unwrap(); // COMMIT
 
-        assert_eq!(pq.last_modified.0, time + 200.0);
+        assert_feq!(pq.last_modified.0, time + 200.0);
 
         let t = tester.borrow();
         assert!(t.cur_batch.is_none());

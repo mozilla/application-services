@@ -277,7 +277,7 @@ impl MarriedState {
 }
 
 impl LoginState {
-    pub fn to_separated(self) -> Self {
+    pub fn into_separated(self) -> Self {
         use self::LoginState::*;
         match self {
             Married(state) => Separated(state.token_keys_and_key_pair.token_and_keys.base),
