@@ -4,6 +4,8 @@
 
 // XXX - more copy-pasta from logins.
 
+use crate::storage::bookmarks::BookmarkRootGuid;
+use crate::types::BookmarkType;
 use failure::{Backtrace, Context, Fail};
 use std::boxed::Box;
 use std::{self, fmt};
@@ -98,6 +100,9 @@ pub enum ErrorKind {
     // we'll likely return an IoError.
     #[fail(display = "Illegal database path: {:?}", _0)]
     IllegalDatabasePath(std::path::PathBuf),
+
+    #[fail(display = "Protobuf decode error: {}", _0)]
+    ProtobufDecodeError(#[fail(cause)] prost::DecodeError),
 }
 
 macro_rules! impl_from_error {
@@ -125,7 +130,8 @@ impl_from_error! {
     (SqlError, rusqlite::Error),
     (InvalidPlaceInfo, InvalidPlaceInfo),
     (Corruption, Corruption),
-    (IoError, std::io::Error)
+    (IoError, std::io::Error),
+    (ProtobufDecodeError, prost::DecodeError)
 }
 
 #[derive(Debug, Fail)]
@@ -161,6 +167,14 @@ pub enum InvalidPlaceInfo {
     // Like Urls, a tag is considered private info, so the value isn't in the error.
     #[fail(display = "The tag value is invalid")]
     InvalidTag,
+    #[fail(
+        display = "Cannot change the '{}' property of a bookmark of type {:?}",
+        _0, _1
+    )]
+    IllegalChange(&'static str, BookmarkType),
+
+    #[fail(display = "Cannot update the bookmark root {:?}", _0)]
+    CannotUpdateRoot(BookmarkRootGuid),
 }
 
 // Error types used when we can't continue due to corruption.
@@ -174,4 +188,10 @@ pub enum Corruption {
         _0, _1
     )]
     NoParent(String, String),
+
+    #[fail(
+        display = "Bookmark '{}' has no parent but is not the bookmarks root",
+        _0
+    )]
+    NonRootWithoutParent(String),
 }

@@ -21,58 +21,12 @@ use std::cmp::{max, min};
 use std::collections::HashMap;
 use url::Url;
 
-/// Special GUIDs associated with bookmark roots.
-/// It's guaranteed that the roots will always have these guids.
-#[derive(Debug, PartialEq)]
-pub enum BookmarkRootGuid {
-    Root,
-    Menu,
-    Toolbar,
-    Unfiled,
-    Mobile,
-}
+pub use public_node::PublicNode;
+pub use root_guid::BookmarkRootGuid;
 
-impl BookmarkRootGuid {
-    pub fn as_guid(&self) -> SyncGuid {
-        match self {
-            &BookmarkRootGuid::Root => SyncGuid("root________".into()),
-            &BookmarkRootGuid::Menu => SyncGuid("menu________".into()),
-            &BookmarkRootGuid::Toolbar => SyncGuid("toolbar_____".into()),
-            &BookmarkRootGuid::Unfiled => SyncGuid("unfiled_____".into()),
-            &BookmarkRootGuid::Mobile => SyncGuid("mobile______".into()),
-        }
-    }
-
-    pub fn from_guid(guid: &SyncGuid) -> Option<Self> {
-        match guid.as_ref() {
-            "root________" => Some(BookmarkRootGuid::Root),
-            "menu________" => Some(BookmarkRootGuid::Menu),
-            "toolbar_____" => Some(BookmarkRootGuid::Toolbar),
-            "unfiled_____" => Some(BookmarkRootGuid::Unfiled),
-            "mobile______" => Some(BookmarkRootGuid::Mobile),
-            _ => None,
-        }
-    }
-}
-
-impl From<BookmarkRootGuid> for SyncGuid {
-    fn from(item: BookmarkRootGuid) -> SyncGuid {
-        item.as_guid()
-    }
-}
-
-// Allow comparisons between BookmarkRootGuid and SyncGuids
-impl PartialEq<BookmarkRootGuid> for SyncGuid {
-    fn eq(&self, other: &BookmarkRootGuid) -> bool {
-        *self == other.as_guid()
-    }
-}
-
-impl PartialEq<SyncGuid> for BookmarkRootGuid {
-    fn eq(&self, other: &SyncGuid) -> bool {
-        self.as_guid() == *other
-    }
-}
+mod conversions;
+pub mod public_node;
+mod root_guid;
 
 fn create_root(
     db: &Connection,
@@ -169,8 +123,9 @@ fn update_pos_for_move(
     bm: &RawBookmark,
     parent: &RawBookmark,
 ) -> Result<u32> {
-    assert_eq!(bm.parent_id, parent.row_id);
-    // Note the additional -1's below are to account for the item already being in the folder.
+    assert_eq!(bm.parent_id.unwrap(), parent.row_id);
+    // Note the additional -1's below are to account for the item already being
+    // in the folder.
     let new_index = match pos {
         BookmarkPosition::Specific(specified) => min(*specified, parent.child_count - 1),
         BookmarkPosition::Append => parent.child_count - 1,
@@ -299,12 +254,12 @@ fn maybe_truncate_title(t: &Option<String>) -> Option<&str> {
 
 fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid> {
     // find the row ID of the parent.
-    if BookmarkRootGuid::from_guid(&bm.parent_guid()) == Some(BookmarkRootGuid::Root) {
-        return Err(InvalidPlaceInfo::InvalidGuid.into());
+    if bm.parent_guid() == BookmarkRootGuid::Root {
+        return Err(InvalidPlaceInfo::CannotUpdateRoot(BookmarkRootGuid::Root).into());
     }
     let parent_guid = bm.parent_guid();
     let parent = get_raw_bookmark(db, parent_guid)?
-        .ok_or_else(|| InvalidPlaceInfo::InvalidParent(parent_guid.to_string()))?;
+        .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(parent_guid.to_string()))?;
     if parent.bookmark_type != BookmarkType::Folder {
         return Err(InvalidPlaceInfo::InvalidParent(parent_guid.to_string()).into());
     }
@@ -415,8 +370,8 @@ pub fn delete_bookmark(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
 
 fn delete_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
     // Can't delete a root.
-    if BookmarkRootGuid::from_guid(guid).is_some() {
-        return Err(InvalidPlaceInfo::InvalidGuid.into());
+    if let Some(root) = guid.as_root() {
+        return Err(InvalidPlaceInfo::CannotUpdateRoot(root).into());
     }
     let record = match get_raw_bookmark(db, guid)? {
         Some(r) => r,
@@ -425,8 +380,14 @@ fn delete_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
             return Ok(false);
         }
     };
+    // There's an argument to be made here that we should still honor the
+    // deletion in the case of this corruption, since it would be fixed by
+    // performing the deletion, and the user wants it gone...
+    let record_parent_id = record
+        .parent_id
+        .ok_or_else(|| Corruption::NonRootWithoutParent(guid.to_string()))?;
     // must reorder existing children.
-    update_pos_for_deletion(db, record.position, record.parent_id)?;
+    update_pos_for_deletion(db, record.position, record_parent_id)?;
     // and delete - children are recursively deleted.
     db.execute_named_cached(
         "DELETE from moz_bookmarks WHERE id = :id",
@@ -518,20 +479,29 @@ impl UpdatableItem {
         }
     }
 }
-
 pub fn update_bookmark(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
     let tx = db.unchecked_transaction()?;
     let result = update_bookmark_in_tx(db, guid, item);
-    match result {
-        Ok(_) => tx.commit()?,
-        Err(_) => tx.rollback()?,
-    }
+    // Note: `tx` automatically rolls back on drop if we don't commit
+    tx.commit()?;
     result
 }
 
 fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
+    if guid.is_root() {
+        return Err(InvalidPlaceInfo::CannotUpdateRoot(BookmarkRootGuid::Root).into());
+    }
     let existing = get_raw_bookmark(db, guid)?
         .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(guid.to_string()))?;
+    let existing_parent_guid = existing
+        .parent_guid
+        .as_ref()
+        .ok_or_else(|| Corruption::NonRootWithoutParent(guid.to_string()))?;
+
+    let existing_parent_id = existing
+        .parent_id
+        .ok_or_else(|| Corruption::NoParent(guid.to_string(), existing_parent_guid.to_string()))?;
+
     if existing.bookmark_type != item.bookmark_type() {
         return Err(InvalidPlaceInfo::MismatchedBookmarkType(
             existing.bookmark_type as u8,
@@ -548,36 +518,35 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
     let position;
     match item.location() {
         UpdateTreeLocation::None => {
-            parent_id = existing.parent_id;
+            parent_id = existing_parent_id;
             position = existing.position;
             update_old_parent_status = false;
             update_new_parent_status = false;
         }
         UpdateTreeLocation::Position(pos) => {
-            parent_id = existing.parent_id;
+            parent_id = existing_parent_id;
             update_old_parent_status = true;
             update_new_parent_status = false;
-            let parent = get_raw_bookmark(db, &existing.parent_guid)?.ok_or_else(|| {
-                Corruption::NoParent(guid.to_string(), existing.parent_guid.to_string())
+            let parent = get_raw_bookmark(db, existing_parent_guid)?.ok_or_else(|| {
+                Corruption::NoParent(guid.to_string(), existing_parent_guid.to_string())
             })?;
             position = update_pos_for_move(db, &pos, &existing, &parent)?;
         }
         UpdateTreeLocation::Parent(new_parent_guid, pos) => {
-            if BookmarkRootGuid::from_guid(&new_parent_guid) == Some(BookmarkRootGuid::Root) {
-                return Err(InvalidPlaceInfo::InvalidGuid.into());
+            if new_parent_guid == BookmarkRootGuid::Root {
+                return Err(InvalidPlaceInfo::CannotUpdateRoot(BookmarkRootGuid::Root).into());
             }
             let new_parent = get_raw_bookmark(db, &new_parent_guid)?
-                .ok_or_else(|| InvalidPlaceInfo::InvalidParent(new_parent_guid.to_string()))?;
+                .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(new_parent_guid.to_string()))?;
             if new_parent.bookmark_type != BookmarkType::Folder {
                 return Err(InvalidPlaceInfo::InvalidParent(new_parent_guid.to_string()).into());
             }
             parent_id = new_parent.row_id;
             update_old_parent_status = true;
             update_new_parent_status = true;
-            let existing_parent =
-                get_raw_bookmark(db, &existing.parent_guid)?.ok_or_else(|| {
-                    Corruption::NoParent(guid.to_string(), existing.parent_guid.to_string())
-                })?;
+            let existing_parent = get_raw_bookmark(db, existing_parent_guid)?.ok_or_else(|| {
+                Corruption::NoParent(guid.to_string(), existing_parent_guid.to_string())
+            })?;
             update_pos_for_deletion(db, existing.position, existing_parent.row_id)?;
             position = resolve_pos_for_insert(db, &pos, &new_parent)?;
         }
@@ -657,9 +626,9 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
     // The lastModified of the existing parent ancestors (which may still be
     // the current parent) is always updated, even if the change counter for it
     // isn't.
-    set_ancestors_last_modified(db, &existing.parent_id, &now)?;
+    set_ancestors_last_modified(db, &existing_parent_id, &now)?;
     if update_old_parent_status {
-        db.execute_named_cached(sql_counter, &[(":parent_id", &existing.parent_id)])?;
+        db.execute_named_cached(sql_counter, &[(":parent_id", &existing_parent_id)])?;
     }
     if update_new_parent_status {
         set_ancestors_last_modified(db, &parent_id, &now)?;
@@ -790,6 +759,38 @@ pub enum BookmarkTreeNode {
     Bookmark(BookmarkNode),
     Separator(SeparatorNode),
     Folder(FolderNode),
+}
+
+impl BookmarkTreeNode {
+    pub fn node_type(&self) -> BookmarkType {
+        match self {
+            BookmarkTreeNode::Bookmark(_) => BookmarkType::Bookmark,
+            BookmarkTreeNode::Folder(_) => BookmarkType::Folder,
+            BookmarkTreeNode::Separator(_) => BookmarkType::Separator,
+        }
+    }
+
+    pub fn guid(&self) -> &SyncGuid {
+        let guid = match self {
+            BookmarkTreeNode::Bookmark(b) => b.guid.as_ref(),
+            BookmarkTreeNode::Folder(f) => f.guid.as_ref(),
+            BookmarkTreeNode::Separator(s) => s.guid.as_ref(),
+        };
+        // Can this happen? Why is this an Option?
+        guid.expect("Missing guid?")
+    }
+
+    pub fn created_modified(&self) -> (Timestamp, Timestamp) {
+        let (created, modified) = match self {
+            BookmarkTreeNode::Bookmark(b) => (b.date_added, b.last_modified),
+            BookmarkTreeNode::Folder(f) => (f.date_added, f.last_modified),
+            BookmarkTreeNode::Separator(s) => (s.date_added, s.last_modified),
+        };
+        (
+            created.unwrap_or_else(Timestamp::now),
+            modified.unwrap_or_else(Timestamp::now),
+        )
+    }
 }
 
 // Serde makes it tricky to serialize what we need here - a 'type' from the
@@ -1163,6 +1164,8 @@ pub fn fetch_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<Bookmark
         LEFT JOIN moz_places h ON h.id = d.fk
         ORDER BY d.level, d.parent, d.position"#;
 
+    let scope = db.begin_interrupt_scope();
+
     let mut stmt = db.conn().prepare(sql)?;
 
     let mut results =
@@ -1184,6 +1187,7 @@ pub fn fetch_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<Bookmark
         None => return Ok(None),
     };
 
+    scope.err_if_interrupted()?;
     // For all remaining rows, build a pseudo-tree that maps parent GUIDs to
     // ordered children. We need this intermediate step because SQLite returns
     // results in level order, so we'll see a node's siblings and cousins (same
@@ -1191,6 +1195,7 @@ pub fn fetch_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<Bookmark
     let mut pseudo_tree: HashMap<SyncGuid, Vec<BookmarkTreeNode>> = HashMap::new();
     for result in results {
         let row = result?;
+        scope.err_if_interrupted()?;
         let node = match row.node_type {
             BookmarkType::Bookmark => match &row.url {
                 Some(url_str) => match Url::parse(&url_str) {
@@ -1248,8 +1253,8 @@ struct RawBookmark {
     place_id: Option<RowId>,
     row_id: RowId,
     bookmark_type: BookmarkType,
-    parent_id: RowId,
-    parent_guid: SyncGuid,
+    parent_id: Option<RowId>,
+    parent_guid: Option<SyncGuid>,
     position: u32,
     title: Option<String>,
     url: Option<Url>,
@@ -1293,27 +1298,61 @@ impl RawBookmark {
     }
 }
 
+/// sql is based on fetchBookmark() in Desktop's Bookmarks.jsm, with 'fk' added
+/// and title's NULLIF handling.
+const RAW_BOOKMARK_SQL: &'static str = "
+    SELECT
+        b.guid,
+        p.guid AS parentGuid,
+        b.position,
+        b.dateAdded,
+        b.lastModified,
+        b.type,
+        -- Note we return null for titles with an empty string.
+        NULLIF(b.title, '') AS title,
+        h.url AS url,
+        b.id AS _id,
+        b.parent AS _parentId,
+        (SELECT count(*) FROM moz_bookmarks WHERE parent = b.id) AS _childCount,
+        p.parent AS _grandParentId,
+        b.syncStatus AS _syncStatus,
+        -- the columns below don't appear in the desktop query
+        b.fk,
+        b.syncChangeCounter
+    FROM moz_bookmarks b
+    LEFT JOIN moz_bookmarks p ON p.id = b.parent
+    LEFT JOIN moz_places h ON h.id = b.fk
+";
+
 fn get_raw_bookmark(db: &PlacesDb, guid: &SyncGuid) -> Result<Option<RawBookmark>> {
     // sql is based on fetchBookmark() in Desktop's Bookmarks.jsm, with 'fk' added
     // and title's NULLIF handling.
     Ok(db.try_query_row(
-        "
-        SELECT b.guid, p.guid AS parentGuid, b.position,
-               b.dateAdded, b.lastModified, b.type,
-               -- Note we return null for titles with an empty string.
-               NULLIF(b.title, '') AS title,
-               h.url AS url, b.id AS _id, b.parent AS _parentId,
-               (SELECT count(*) FROM moz_bookmarks WHERE parent = b.id) AS _childCount,
-               p.parent AS _grandParentId, b.syncStatus AS _syncStatus,
-               -- the columns below don't appear in the desktop query
-               b.fk, b.syncChangeCounter
-       FROM moz_bookmarks b
-       LEFT JOIN moz_bookmarks p ON p.id = b.parent
-       LEFT JOIN moz_places h ON h.id = b.fk
-       WHERE b.guid = :guid",
+        &format!("{} WHERE b.guid = :guid", RAW_BOOKMARK_SQL),
         &[(":guid", guid)],
         RawBookmark::from_row,
         true,
+    )?)
+}
+
+fn get_raw_bookmarks_for_url(db: &PlacesDb, url: &Url) -> Result<Vec<RawBookmark>> {
+    Ok(db.query_rows_into_cached(
+        &format!(
+            "{} WHERE h.url_hash = hash(:url) AND h.url = :url",
+            RAW_BOOKMARK_SQL
+        ),
+        &[(":url", &url.as_str())],
+        RawBookmark::from_row,
+    )?)
+}
+fn get_raw_bookmarks_with_parent(db: &impl ConnExt, parent: RowId) -> Result<Vec<RawBookmark>> {
+    Ok(db.query_rows_into_cached(
+        &format!(
+            "{} WHERE b.parent = :parent ORDER BY b.position ASC",
+            RAW_BOOKMARK_SQL
+        ),
+        &[(":parent", &parent)],
+        RawBookmark::from_row,
     )?)
 }
 
@@ -1327,7 +1366,7 @@ mod tests {
     use serde_json::Value;
     use std::collections::HashSet;
 
-    fn insert_json_tree(conn: &PlacesDb, jtree: Value) {
+    pub(super) fn insert_json_tree(conn: &PlacesDb, jtree: Value) {
         let tree: BookmarkTreeNode = serde_json::from_value(jtree).expect("should be valid");
         let folder_node = match tree {
             BookmarkTreeNode::Folder(folder_node) => folder_node,
@@ -1412,7 +1451,7 @@ mod tests {
 
         assert!(rb.place_id.is_some());
         assert_eq!(rb.bookmark_type, BookmarkType::Bookmark);
-        assert_eq!(rb.parent_guid, BookmarkRootGuid::Unfiled.as_guid());
+        assert_eq!(rb.parent_guid.unwrap(), BookmarkRootGuid::Unfiled);
         assert_eq!(rb.position, 0);
         assert_eq!(rb.title, Some("the title".into()));
         assert_eq!(rb.url, Some(url));

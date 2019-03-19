@@ -4,10 +4,10 @@
 
 #import <UIKit/UIKit.h>
 
-FOUNDATION_EXPORT double MegazordClientVersionNumber;
-FOUNDATION_EXPORT const unsigned char MegazordClientVersionString[];
+//! Project version number for Places.
+FOUNDATION_EXPORT double PlacesVersionNumber;
 
-#import <RustFxAFFI.h>
-#import <RustPasswordAPI.h>
-#import <RustLogFFI.h>
-#import <RustPlacesAPI.h>
+//! Project version string for Places.
+FOUNDATION_EXPORT const unsigned char PlacesVersionString[];
+
+#import "RustPlacesAPI.h"

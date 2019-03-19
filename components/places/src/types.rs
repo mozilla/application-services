@@ -2,7 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
+use crate::storage::bookmarks::BookmarkRootGuid;
+use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use serde::ser::{Serialize, Serializer};
 use serde_derive::*;
@@ -17,7 +18,16 @@ impl SyncGuid {
     pub fn new() -> Self {
         SyncGuid(sync15::random_guid().unwrap())
     }
+
+    pub fn as_root(&self) -> Option<BookmarkRootGuid> {
+        BookmarkRootGuid::from_str(&self.0)
+    }
+
+    pub fn is_root(&self) -> bool {
+        BookmarkRootGuid::from_str(&self.0).is_some()
+    }
 }
+
 impl AsRef<str> for SyncGuid {
     fn as_ref(&self) -> &str {
         self.0.as_ref()
@@ -202,6 +212,16 @@ pub enum BookmarkType {
     Separator = 3, // TYPE_SEPARATOR;
                   // On desktop, TYPE_DYNAMIC_CONTAINER = 4 but is deprecated - so please
                   // avoid using this value in the future.
+}
+
+impl FromSql for BookmarkType {
+    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
+        let v = value.as_i64()?;
+        if v < 0 || v > (u8::max_value() as i64) {
+            return Err(FromSqlError::OutOfRange(v));
+        }
+        BookmarkType::from_u8(v as u8).ok_or_else(|| FromSqlError::OutOfRange(v))
+    }
 }
 
 impl BookmarkType {

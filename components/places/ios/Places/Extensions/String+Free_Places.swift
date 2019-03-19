@@ -2,6 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-fn main() {
-    prost_build::compile_protos(&["src/fxa_msg_types.proto"], &["src/"]).unwrap();
+import Foundation
+
+extension String {
+    init(freeingPlacesString rustString: UnsafeMutablePointer<CChar>) {
+        defer { places_destroy_string(rustString) }
+        self.init(cString: rustString)
+    }
 }

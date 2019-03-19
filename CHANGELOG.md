@@ -4,6 +4,12 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.20.2...master)
 
+## Places
+
+- Places now is available on iOS, however support is limited to Bookmarks. ([#743](https://github.com/mozilla/application-services/pull/743))
+- Places now has bookmarks support enabled in the FFI. This addition is too large to include in the changelog, however both Swift and Kotlin APIs for this are fairly well documented. ([#743](https://github.com/mozilla/application-services/pull/743))
+
+
 # v0.20.2 (_2019-03-15_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.20.1...v0.20.2)
