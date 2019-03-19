@@ -21,11 +21,11 @@ use std::cmp::{max, min};
 use std::collections::HashMap;
 use url::Url;
 
-pub use public::PublicNode;
+pub use public_node::PublicNode;
 pub use root_guid::BookmarkRootGuid;
 
 mod conversions;
-pub mod public;
+pub mod public_node;
 mod root_guid;
 
 fn create_root(

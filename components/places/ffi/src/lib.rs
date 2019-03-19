@@ -346,7 +346,7 @@ pub extern "C" fn bookmarks_get_tree(
     log::debug!("bookmarks_get_tree");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let root_id = SyncGuid(guid.into());
-        Ok(bookmarks::public::fetch_public_tree(conn, &root_id)?)
+        Ok(bookmarks::public_node::fetch_public_tree(conn, &root_id)?)
     })
 }
 
@@ -360,7 +360,7 @@ pub extern "C" fn bookmarks_get_by_guid(
     log::debug!("bookmarks_get_by_guid");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let guid = SyncGuid(guid.into());
-        Ok(bookmarks::public::fetch_bookmark(
+        Ok(bookmarks::public_node::fetch_bookmark(
             conn,
             &guid,
             get_direct_children != 0,
@@ -409,7 +409,7 @@ pub unsafe extern "C" fn bookmarks_update(
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let buffer = get_buffer(data, len);
         let bookmark: BookmarkNode = prost::Message::decode(buffer)?;
-        bookmarks::public::update_bookmark_from_message(conn, bookmark)?;
+        bookmarks::public_node::update_bookmark_from_message(conn, bookmark)?;
         Ok(())
     })
 }
@@ -433,7 +433,7 @@ pub extern "C" fn bookmarks_get_all_with_url(
     log::debug!("bookmarks_get_all_with_url");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         Ok(BookmarkNodeList::from(
-            bookmarks::public::fetch_bookmarks_by_url(conn, &parse_url(url.as_str())?)?,
+            bookmarks::public_node::fetch_bookmarks_by_url(conn, &parse_url(url.as_str())?)?,
         ))
     })
 }
@@ -447,11 +447,9 @@ pub extern "C" fn bookmarks_search(
 ) -> ByteBuffer {
     log::debug!("bookmarks_get_all_with_url");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        Ok(BookmarkNodeList::from(bookmarks::public::search_bookmarks(
-            conn,
-            query.as_str(),
-            limit as u32,
-        )?))
+        Ok(BookmarkNodeList::from(
+            bookmarks::public_node::search_bookmarks(conn, query.as_str(), limit as u32)?,
+        ))
     })
 }
 
