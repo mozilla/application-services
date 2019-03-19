@@ -105,7 +105,7 @@ pub extern "C" fn sync15_passwords_sync(
     log::debug!("sync15_passwords_sync");
     ENGINES.call_with_result(error, handle, |state| -> Result<()> {
         let mut sync_ping = telemetry::SyncTelemetryPing::new();
-        let result = state.sync(
+        state.sync(
             &sync15::Sync15StorageClientInit {
                 key_id: key_id.into_string(),
                 access_token: access_token.into_string(),
@@ -113,8 +113,7 @@ pub extern "C" fn sync15_passwords_sync(
             },
             &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
             &mut sync_ping,
-        );
-        result
+        )
     })
 }
 

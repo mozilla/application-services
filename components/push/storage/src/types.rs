@@ -27,7 +27,7 @@ impl From<Timestamp> for u64 {
 impl From<SystemTime> for Timestamp {
     fn from(st: SystemTime) -> Self {
         let d = st.duration_since(UNIX_EPOCH).unwrap_or_default();
-        Timestamp((d.as_secs() as u64) * 1000 + ((d.subsec_nanos() as u64) / 1_000_000))
+        Timestamp((d.as_secs() as u64) * 1000 + (u64::from(d.subsec_nanos()) / 1_000_000))
     }
 }
 

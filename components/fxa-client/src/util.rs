@@ -11,7 +11,7 @@ pub fn now() -> u64 {
     let since_epoch = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Something is very wrong.");
-    since_epoch.as_secs() * 1000 + since_epoch.subsec_nanos() as u64 / 1_000_000
+    since_epoch.as_secs() * 1000 + u64::from(since_epoch.subsec_nanos()) / 1_000_000
 }
 
 pub fn now_secs() -> u64 {

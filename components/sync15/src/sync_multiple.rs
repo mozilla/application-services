@@ -113,7 +113,7 @@ pub fn sync_multiple(
         let mut state_machine =
             SetupStateMachine::for_full_sync(&client_info.client, &root_sync_key);
         log::info!("Advancing state machine to ready (full)");
-        global_state = state_machine.to_ready(global_state)?;
+        global_state = state_machine.run_to_ready(global_state)?;
         sync_ping.uid(client_info.client.hashed_uid()?);
     }
 
@@ -151,7 +151,7 @@ pub fn sync_multiple(
             Err(e) => {
                 log::warn!("Sync of {} failed! {:?}", name, e);
                 let f = telemetry::sync_failure_from_error(&e);
-                failures.insert(name.into(), e.into());
+                failures.insert(name.into(), e);
                 telem_engine.failure(f);
             }
         }

@@ -58,7 +58,7 @@ impl KeyBundle {
     pub fn from_base64(enc: &str, mac: &str) -> Result<KeyBundle> {
         let enc_bytes = base64::decode(&enc)?;
         let mac_bytes = base64::decode(&mac)?;
-        KeyBundle::new(enc_bytes.into(), mac_bytes.into())
+        KeyBundle::new(enc_bytes, mac_bytes)
     }
 
     #[inline]
@@ -117,7 +117,7 @@ impl KeyBundle {
         // robust and avoids an allocation.
         let mut decoded_hmac = [0u8; 32];
 
-        if let Err(_) = base16::decode_slice(expected_hmac, &mut decoded_hmac) {
+        if base16::decode_slice(expected_hmac, &mut decoded_hmac).is_err() {
             log::warn!("Garbage HMAC verification string: contained non base16 characters");
             return Ok(false);
         }
@@ -171,13 +171,12 @@ impl KeyBundle {
 mod test {
     use super::*;
 
-    static HMAC_B16: &'static str =
-        "b1e6c18ac30deb70236bc0d65a46f7a4dce3b8b0e02cf92182b914e3afa5eebc";
-    static IV_B64: &'static str = "GX8L37AAb2FZJMzIoXlX8w==";
-    static HMAC_KEY_B64: &'static str = "MMntEfutgLTc8FlTLQFms8/xMPmCldqPlq/QQXEjx70=";
-    static ENC_KEY_B64: &'static str = "9K/wLdXdw+nrTtXo4ZpECyHFNr4d7aYHqeg3KW9+m6Q=";
+    const HMAC_B16: &str = "b1e6c18ac30deb70236bc0d65a46f7a4dce3b8b0e02cf92182b914e3afa5eebc";
+    const IV_B64: &str = "GX8L37AAb2FZJMzIoXlX8w==";
+    const HMAC_KEY_B64: &str = "MMntEfutgLTc8FlTLQFms8/xMPmCldqPlq/QQXEjx70=";
+    const ENC_KEY_B64: &str = "9K/wLdXdw+nrTtXo4ZpECyHFNr4d7aYHqeg3KW9+m6Q=";
 
-    static CIPHERTEXT_B64_PIECES: &'static [&'static str] = &[
+    const CIPHERTEXT_B64_PIECES: &[&str] = &[
         "NMsdnRulLwQsVcwxKW9XwaUe7ouJk5Wn80QhbD80l0HEcZGCynh45qIbeYBik0lgcHbK",
         "mlIxTJNwU+OeqipN+/j7MqhjKOGIlvbpiPQQLC6/ffF2vbzL0nzMUuSyvaQzyGGkSYM2",
         "xUFt06aNivoQTvU2GgGmUK6MvadoY38hhW2LCMkoZcNfgCqJ26lO1O0sEO6zHsk3IVz6",
@@ -187,7 +186,7 @@ mod test {
         "jOoRSLx7GG86wT59QZw=",
     ];
 
-    static CLEARTEXT_B64_PIECES: &'static [&'static str] = &[
+    const CLEARTEXT_B64_PIECES: &[&str] = &[
         "eyJpZCI6IjVxUnNnWFdSSlpYciIsImhpc3RVcmkiOiJmaWxlOi8vL1VzZXJzL2phc29u",
         "L0xpYnJhcnkvQXBwbGljYXRpb24lMjBTdXBwb3J0L0ZpcmVmb3gvUHJvZmlsZXMva3Nn",
         "ZDd3cGsuTG9jYWxTeW5jU2VydmVyL3dlYXZlL2xvZ3MvIiwidGl0bGUiOiJJbmRleCBv",

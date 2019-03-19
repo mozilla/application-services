@@ -38,7 +38,7 @@ impl ConnectionType {
 }
 
 impl ConnectionType {
-    pub fn rusqlite_flags(&self) -> OpenFlags {
+    pub fn rusqlite_flags(self) -> OpenFlags {
         let common_flags = OpenFlags::SQLITE_OPEN_NO_MUTEX | OpenFlags::SQLITE_OPEN_URI;
         match self {
             ConnectionType::ReadOnly => common_flags | OpenFlags::SQLITE_OPEN_READ_ONLY,

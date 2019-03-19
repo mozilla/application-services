@@ -97,7 +97,7 @@ impl PasswordEngine {
         );
         self.db.set_global_state(global_state.replace(None))?;
         let failures = result?;
-        if failures.len() == 0 {
+        if failures.is_empty() {
             Ok(())
         } else {
             assert_eq!(failures.len(), 1);

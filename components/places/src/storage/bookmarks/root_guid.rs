@@ -61,15 +61,15 @@ impl BookmarkRootGuid {
         self.guid().clone()
     }
 
-    pub fn from_str(guid: &str) -> Option<Self> {
+    pub fn well_known(guid: &str) -> Option<Self> {
         GUIDS
             .iter()
-            .find(|(_, sync_guid)| &sync_guid.0 == guid)
+            .find(|(_, sync_guid)| sync_guid.0 == guid)
             .map(|(root, _)| *root)
     }
 
     pub fn from_guid(guid: &SyncGuid) -> Option<Self> {
-        Self::from_str(&guid.0)
+        Self::well_known(&guid.0)
     }
 }
 
@@ -82,26 +82,26 @@ impl From<BookmarkRootGuid> for SyncGuid {
 // Allow comparisons between BookmarkRootGuid and SyncGuids
 impl PartialEq<BookmarkRootGuid> for SyncGuid {
     fn eq(&self, other: &BookmarkRootGuid) -> bool {
-        &self.0 == other.as_str()
+        self.0 == other.as_str()
     }
 }
 
 impl PartialEq<SyncGuid> for BookmarkRootGuid {
     fn eq(&self, other: &SyncGuid) -> bool {
-        &other.0 == self.as_str()
+        other.0 == self.as_str()
     }
 }
 
 // Even if we have a reference to &SyncGuid
 impl<'a> PartialEq<BookmarkRootGuid> for &'a SyncGuid {
     fn eq(&self, other: &BookmarkRootGuid) -> bool {
-        &self.0 == other.as_str()
+        self.0 == other.as_str()
     }
 }
 
 impl<'a> PartialEq<&'a SyncGuid> for BookmarkRootGuid {
     fn eq(&self, other: &&'a SyncGuid) -> bool {
-        &other.0 == self.as_str()
+        other.0 == self.as_str()
     }
 }
 

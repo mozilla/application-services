@@ -23,7 +23,7 @@ use url::Url;
 ///
 /// This allows us to avoid these visits trickling back in as other devices
 /// add visits to them remotely.
-static DELETION_HIGH_WATER_MARK_META_KEY: &'static str = "history_deleted_hwm";
+static DELETION_HIGH_WATER_MARK_META_KEY: &str = "history_deleted_hwm";
 
 /// Returns the RowId of a new visit in moz_historyvisits, or None if no new visit was added.
 pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<Option<RowId>> {
@@ -69,9 +69,9 @@ pub fn apply_observation_direct(
                 updates.push(("typed", ":typed", &page_info.typed));
             }
 
-            let at = visit_ob.at.unwrap_or_else(|| Timestamp::now());
+            let at = visit_ob.at.unwrap_or_else(Timestamp::now);
             let is_remote = visit_ob.is_remote.unwrap_or(false);
-            let row_id = add_visit(db, &page_info.row_id, &None, &at, &visit_type, &!is_remote)?;
+            let row_id = add_visit(db, page_info.row_id, None, at, visit_type, !is_remote)?;
             // a new visit implies new frecency except in error cases.
             if !visit_ob.is_error.unwrap_or(false) {
                 update_frec = true;
@@ -91,7 +91,7 @@ pub fn apply_observation_direct(
         ));
     }
 
-    if updates.len() != 0 {
+    if !updates.is_empty() {
         let mut params: Vec<(&str, &ToSql)> = Vec::with_capacity(updates.len() + 1);
         let mut sets: Vec<String> = Vec::with_capacity(updates.len());
         for (col, name, val) in updates {
@@ -142,11 +142,11 @@ pub fn update_frecency(db: &PlacesDb, id: RowId, redirect_boost: Option<bool>) -
 // parent page with an updated change counter etc.
 fn add_visit(
     db: &PlacesDb,
-    page_id: &RowId,
-    from_visit: &Option<RowId>,
-    visit_date: &Timestamp,
-    visit_type: &VisitTransition,
-    is_local: &bool,
+    page_id: RowId,
+    from_visit: Option<RowId>,
+    visit_date: Timestamp,
+    visit_type: VisitTransition,
+    is_local: bool,
 ) -> Result<RowId> {
     let sql = "INSERT INTO moz_historyvisits
             (from_visit, place_id, visit_date, visit_type, is_local)
@@ -154,11 +154,11 @@ fn add_visit(
     db.execute_named_cached(
         sql,
         &[
-            (":from_visit", from_visit),
-            (":page_id", page_id),
-            (":visit_date", visit_date),
-            (":visit_type", visit_type),
-            (":is_local", is_local),
+            (":from_visit", &from_visit),
+            (":page_id", &page_id),
+            (":visit_date", &visit_date),
+            (":visit_type", &visit_type),
+            (":is_local", &is_local),
         ],
     )?;
     let rid = db.conn().last_insert_rowid();
@@ -167,7 +167,7 @@ fn add_visit(
         "DELETE FROM moz_historyvisit_tombstones
          WHERE place_id = :place_id
            AND visit_date = :visit_date",
-        &[(":place_id", page_id), (":visit_date", visit_date)],
+        &[(":place_id", &page_id), (":visit_date", &visit_date)],
     )?;
     Ok(RowId(rid))
 }
@@ -382,7 +382,7 @@ pub fn delete_visits_between_in_tx(db: &PlacesDb, start: Timestamp, end: Timesta
     )?;
 
     // Insert tombstones for the deleted visits.
-    if visits.len() > 0 {
+    if !visits.is_empty() {
         let sql = format!(
             "INSERT OR IGNORE INTO moz_historyvisit_tombstones(place_id, visit_date) VALUES {}",
             sql_support::repeat_display(visits.len(), ",", |i, f| {
@@ -634,14 +634,14 @@ pub mod history_sync {
             None => {
                 // Before we insert a new page_info, make sure we actually will
                 // have any visits to add.
-                if visits.len() == 0 {
+                if visits.is_empty() {
                     return Ok(());
                 }
                 new_page_info(db, &url, Some(incoming_guid.clone()))?
             }
         };
 
-        if visits.len() > 0 {
+        if !visits.is_empty() {
             // Skip visits that are in tombstones, or that happen at the same time
             // as visit that's already present. The 2nd lets us avoid inserting
             // visits that we sent up to the server in the first place.
@@ -681,14 +681,7 @@ pub mod history_sync {
                 }
                 let transition = VisitTransition::from_primitive(visit.transition)
                     .expect("these should already be validated");
-                add_visit(
-                    db,
-                    &page_info.row_id,
-                    &None,
-                    &timestamp,
-                    &transition,
-                    &false,
-                )?;
+                add_visit(db, page_info.row_id, None, timestamp, transition, false)?;
                 // Make sure that even if a history entry weirdly has the same visit
                 // twice, we don't insert it twice. (This avoids us needing to
                 // recompute visits_to_skip in each step of the iteration)
@@ -841,7 +834,7 @@ pub mod history_sync {
                 log::warn!("Found {:?} in both tombstones and live records", &page.guid);
                 continue;
             }
-            if visits.len() == 0 {
+            if visits.is_empty() {
                 log::info!(
                     "Page {:?} is flagged to be uploaded, but has no visits - skipping",
                     &page.guid

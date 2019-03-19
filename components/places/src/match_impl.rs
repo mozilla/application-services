@@ -59,7 +59,7 @@ impl ToSql for MatchBehavior {
 bitflags! {
     pub struct SearchBehavior: u32 {
         /// Search through history.
-        const HISTORY = 1 << 0;
+        const HISTORY = 1;
 
         /// Search through bookmarks.
         const BOOKMARK = 1 << 1;
@@ -257,7 +257,10 @@ fn next_codepoint_lower(s: &str) -> (char, usize) {
     // this should be more efficient than this implementation is)
     let mut indices = s.char_indices();
     let (_, next_char) = indices.next().unwrap();
-    let next_index = indices.next().map(|(index, _)| index).unwrap_or(s.len());
+    let next_index = indices
+        .next()
+        .map(|(index, _)| index)
+        .unwrap_or_else(|| s.len());
     (char_to_lower_single(next_char), next_index)
 }
 
@@ -300,7 +303,7 @@ pub fn find_in_string(token: &str, src: &str, only_boundary: bool) -> bool {
         }
         cur_offset += next_offset_in_cur;
     }
-    return false;
+    false
 }
 
 // Places splits on ascii whitespace, so we do too. str::split_ascii_whitespace is

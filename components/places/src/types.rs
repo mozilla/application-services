@@ -15,16 +15,17 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 pub struct SyncGuid(pub String);
 
 impl SyncGuid {
+    #[allow(clippy::new_without_default)] // This probably should not be called `new`...
     pub fn new() -> Self {
         SyncGuid(sync15::random_guid().unwrap())
     }
 
     pub fn as_root(&self) -> Option<BookmarkRootGuid> {
-        BookmarkRootGuid::from_str(&self.0)
+        BookmarkRootGuid::well_known(&self.0)
     }
 
     pub fn is_root(&self) -> bool {
-        BookmarkRootGuid::from_str(&self.0).is_some()
+        BookmarkRootGuid::well_known(&self.0).is_some()
     }
 }
 
@@ -86,7 +87,7 @@ impl From<SystemTime> for Timestamp {
     #[inline]
     fn from(st: SystemTime) -> Self {
         let d = st.duration_since(UNIX_EPOCH).unwrap(); // hrmph - unwrap doesn't seem ideal
-        Timestamp((d.as_secs() as u64) * 1000 + ((d.subsec_nanos() as u64) / 1_000_000))
+        Timestamp((d.as_secs() as u64) * 1000 + (u64::from(d.subsec_nanos()) / 1_000_000))
     }
 }
 
@@ -181,7 +182,7 @@ impl<'de> serde::de::Visitor<'de> for VisitTransitionSerdeVisitor {
 
     fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<VisitTransition, E> {
         use std::u8::MAX as U8_MAX;
-        if value > (U8_MAX as u64) {
+        if value > u64::from(U8_MAX) {
             // In practice this is *way* out of the valid range of VisitTransition, but
             // serde requires us to implement this as visit_u64 so...
             return Err(E::custom(format!("value out of u8 range: {}", value)));
@@ -217,7 +218,7 @@ pub enum BookmarkType {
 impl FromSql for BookmarkType {
     fn column_result(value: ValueRef) -> FromSqlResult<Self> {
         let v = value.as_i64()?;
-        if v < 0 || v > (u8::max_value() as i64) {
+        if v < 0 || v > i64::from(u8::max_value()) {
             return Err(FromSqlError::OutOfRange(v));
         }
         BookmarkType::from_u8(v as u8).ok_or_else(|| FromSqlError::OutOfRange(v))

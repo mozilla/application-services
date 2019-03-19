@@ -54,7 +54,7 @@ impl ToSql for RowId {
 
 impl FromSql for RowId {
     fn column_result(value: ValueRef) -> FromSqlResult<Self> {
-        value.as_i64().map(|v| RowId(v))
+        value.as_i64().map(RowId)
     }
 }
 

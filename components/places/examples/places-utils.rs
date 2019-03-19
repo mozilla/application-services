@@ -169,7 +169,7 @@ fn sync(
     // markh got a bit ahead of himself here :)
     // This should move to using PlacesApi.
     let client_info = Cell::new(None);
-    let stores = if engine_names.len() == 0 {
+    let stores = if engine_names.is_empty() {
         vec![HistoryStore::new(db, &client_info)]
     } else {
         assert!(engine_names.len() == 1 && engine_names[0] == "history");

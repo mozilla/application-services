@@ -71,6 +71,8 @@ impl Config {
         }
     }
 
+    // FIXME
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn init(
         content_url: String,
         auth_url: String,

@@ -103,7 +103,7 @@ pub extern "C" fn push_subscribe(
                                                 base64::URL_SAFE_NO_PAD)
             }
         });
-        return Ok(subscription_info.to_string());
+        Ok(subscription_info.to_string())
     })
 }
 
@@ -139,7 +139,7 @@ pub extern "C" fn push_verify_connection(handle: u64, error: &mut ExternError) -
     log::debug!("push_verify");
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<_> {
         if let Ok(r) = mgr.verify_connection() {
-            if r == false {
+            if !r {
                 if let Ok(new_endpoints) = mgr.regenerate_endpoints() {
                     // use a `match` here to resolve return of <_>
                     return serde_json::to_string(&new_endpoints).map_err(|e| {

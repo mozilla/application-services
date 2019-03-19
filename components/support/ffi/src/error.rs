@@ -256,7 +256,7 @@ impl ErrorCode {
 
     /// Returns whether or not this is a success code.
     #[inline]
-    pub fn is_success(&self) -> bool {
+    pub fn is_success(self) -> bool {
         self.code() == 0
     }
 }

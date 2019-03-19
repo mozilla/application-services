@@ -114,7 +114,7 @@ pub const VERSION: i64 = 4;
 /// (of `loginsM`) are stored as milliseconds as well both on firefox-ios and
 /// here (and so they do not need to be updated with the `timeLastUsed`/
 /// `timePasswordChanged`/`timeCreated` timestamps.
-pub const COMMON_COLS: &'static str = "
+pub const COMMON_COLS: &str = "
     guid,
     username,
     password,
@@ -129,7 +129,7 @@ pub const COMMON_COLS: &'static str = "
     timesUsed
 ";
 
-const COMMON_SQL: &'static str = "
+const COMMON_SQL: &str = "
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     hostname            TEXT NOT NULL,
     -- Exactly one of httpRealm or formSubmitURL should be set
@@ -172,41 +172,41 @@ lazy_static! {
         format!("PRAGMA user_version = {version}", version = VERSION);
 }
 
-const CREATE_META_TABLE_SQL: &'static str = "
+const CREATE_META_TABLE_SQL: &str = "
     CREATE TABLE IF NOT EXISTS loginsSyncMeta (
         key TEXT PRIMARY KEY,
         value NOT NULL
     )
 ";
 
-const CREATE_OVERRIDE_HOSTNAME_INDEX_SQL: &'static str = "
+const CREATE_OVERRIDE_HOSTNAME_INDEX_SQL: &str = "
     CREATE INDEX IF NOT EXISTS idx_loginsM_is_overridden_hostname
     ON loginsM (is_overridden, hostname)
 ";
 
-const CREATE_DELETED_HOSTNAME_INDEX_SQL: &'static str = "
+const CREATE_DELETED_HOSTNAME_INDEX_SQL: &str = "
     CREATE INDEX IF NOT EXISTS idx_loginsL_is_deleted_hostname
     ON loginsL (is_deleted, hostname)
 ";
 
 // As noted above, we use these when updating from schema v3 (firefox-ios's
 // last schema) to convert from microsecond timestamps to milliseconds.
-const UPDATE_LOCAL_TIMESTAMPS_TO_MILLIS_SQL: &'static str = "
+const UPDATE_LOCAL_TIMESTAMPS_TO_MILLIS_SQL: &str = "
     UPDATE loginsL
     SET timeCreated = timeCreated / 1000,
         timeLastUsed = timeLastUsed / 1000,
         timePasswordChanged = timePasswordChanged / 1000
 ";
 
-const UPDATE_MIRROR_TIMESTAMPS_TO_MILLIS_SQL: &'static str = "
+const UPDATE_MIRROR_TIMESTAMPS_TO_MILLIS_SQL: &str = "
     UPDATE loginsM
     SET timeCreated = timeCreated / 1000,
         timeLastUsed = timeLastUsed / 1000,
         timePasswordChanged = timePasswordChanged / 1000
 ";
 
-pub(crate) static LAST_SYNC_META_KEY: &'static str = "last_sync_time";
-pub(crate) static GLOBAL_STATE_META_KEY: &'static str = "global_state";
+pub(crate) static LAST_SYNC_META_KEY: &str = "last_sync_time";
+pub(crate) static GLOBAL_STATE_META_KEY: &str = "global_state";
 
 pub(crate) fn init(db: &Connection) -> Result<()> {
     let user_version = db.query_one::<i64>("PRAGMA user_version")?;

@@ -246,7 +246,7 @@ impl Connection for ConnectHttp {
             )
             .send()
         {
-            Ok(_) => return Ok(true),
+            Ok(_) => Ok(true),
             Err(e) => {
                 Err(CommunicationServerError(format!("Could not unsubscribe: {:?}", e)).into())
             }
@@ -412,11 +412,11 @@ mod test {
 
     // use crypto::{get_bytes, Key};
 
-    const DUMMY_CHID: &'static str = "deadbeef00000000decafbad00000000";
-    const DUMMY_UAID: &'static str = "abad1dea00000000aabbccdd00000000";
+    const DUMMY_CHID: &str = "deadbeef00000000decafbad00000000";
+    const DUMMY_UAID: &str = "abad1dea00000000aabbccdd00000000";
     // Local test SENDER_ID ("test*" reserved for Kotlin testing.)
-    const SENDER_ID: &'static str = "FakeSenderID";
-    const SECRET: &'static str = "SuP3rS1kRet";
+    const SENDER_ID: &str = "FakeSenderID";
+    const SECRET: &str = "SuP3rS1kRet";
 
     #[test]
     fn test_communications() {

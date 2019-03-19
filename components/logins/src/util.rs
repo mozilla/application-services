@@ -25,7 +25,7 @@ pub fn system_time_millis_from_row(row: &Row, col_name: &str) -> Result<time::Sy
 }
 
 pub fn duration_ms_i64(d: time::Duration) -> i64 {
-    (d.as_secs() as i64) * 1000 + ((d.subsec_nanos() as i64) / 1_000_000)
+    (d.as_secs() as i64) * 1000 + (i64::from(d.subsec_nanos()) / 1_000_000)
 }
 
 pub fn system_time_ms_i64(t: time::SystemTime) -> i64 {
