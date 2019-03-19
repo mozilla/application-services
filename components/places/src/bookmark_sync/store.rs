@@ -6,6 +6,7 @@ use super::incoming::IncomingApplicator;
 use super::record::{
     guid_to_id, BookmarkItemRecord, BookmarkRecord, FolderRecord, QueryRecord, SeparatorRecord,
 };
+use crate::api::places_api::ConnectionType;
 use crate::db::PlacesDb;
 use crate::error::*;
 use crate::storage::{bookmarks::BookmarkRootGuid, get_meta, put_meta};
@@ -65,263 +66,14 @@ lazy_static! {
 pub struct BookmarksStore<'a> {
     pub db: &'a PlacesDb,
     pub client_info: &'a Cell<Option<ClientInfo>>,
-    local_time: Timestamp,
-    remote_time: ServerTimestamp,
-}
-
-struct Driver;
-
-impl dogear::Driver for Driver {
-    fn generate_new_guid(&self, _invalid_guid: &dogear::Guid) -> dogear::Result<dogear::Guid> {
-        Ok(SyncGuid::new().into())
-    }
-
-    fn log_level(&self) -> LogLevel {
-        LogLevel::Silent
-    }
-
-    fn log(&self, _level: LogLevel, _args: fmt::Arguments) {}
-}
-
-impl<'a> dogear::Store<Error> for BookmarksStore<'a> {
-    /// Builds a fully rooted, consistent tree from all local items and
-    /// tombstones.
-    fn fetch_local_tree(&self) -> Result<Tree> {
-        let mut builder = Tree::with_root(Item::root());
-
-        let sql = format!(
-            r#"
-            WITH RECURSIVE
-            {local_items_fragment}
-            SELECT s.id, s.guid, s.parentGuid, {kind} AS kind,
-                   s.lastModified / 1000 AS localModified, s.syncChangeCounter
-            FROM localItems s
-            ORDER BY s.level, s.parentId, s.position"#,
-            local_items_fragment = *LOCAL_ITEMS_SQL_FRAGMENT,
-            kind = type_to_kind("s.type", UrlOrPlaceId::PlaceId("s.placeId")),
-        );
-        let mut stmt = self.db.prepare(&sql)?;
-        let mut results = stmt.query(NO_PARAMS)?;
-        while let Some(result) = results.next() {
-            let row = result?;
-            let guid = row.get_checked::<_, SyncGuid>("guid")?;
-            let kind = SyncedBookmarkKind::from_u8(row.get_checked("kind")?)?;
-            let mut item = Item::new(guid.into(), kind.into());
-            // Note that this doesn't account for local clock skew.
-            let age = row
-                .get_checked::<_, Timestamp>("localModified")
-                .unwrap_or_default()
-                .duration_since(self.local_time)
-                .unwrap_or_default();
-            item.age = age.as_secs() as i64 * 1000 + i64::from(age.subsec_millis());
-            item.needs_merge = row.get_checked::<_, u32>("syncChangeCounter")? > 0;
-            let parent_guid = row.get_checked::<_, SyncGuid>("parentGuid")?;
-            builder.item(item)?.by_structure(&parent_guid.into())?;
-        }
-
-        let mut tree = builder.into_tree()?;
-
-        // Note tombstones for locally deleted items.
-        let mut stmt = self.db.prepare("SELECT guid FROM moz_bookmarks_deleted")?;
-        let rows = stmt.query_and_then(NO_PARAMS, |row| row.get_checked::<_, SyncGuid>("guid"))?;
-        for row in rows {
-            let guid = row?;
-            tree.note_deleted(guid.into());
-        }
-
-        Ok(tree)
-    }
-
-    /// Fetches content info for all "new" and "unknown" local items that
-    /// haven't been synced. We'll try to dedupe them to changed remote items
-    /// with similar contents and different GUIDs.
-    fn fetch_new_local_contents(&self) -> Result<HashMap<dogear::Guid, Content>> {
-        let mut contents = HashMap::new();
-
-        let sql = format!(
-            r#"
-            SELECT b.guid, b.type, IFNULL(b.title, "") AS title, h.url,
-                   b.position
-            FROM moz_bookmarks b
-            JOIN moz_bookmarks p ON p.id = b.parent
-            LEFT JOIN moz_places h ON h.id = b.fk
-            LEFT JOIN moz_bookmarks_synced v ON v.guid = b.guid
-            WHERE v.guid IS NULL AND
-                  p.guid <> '{root_guid}' AND
-                  b.syncStatus <> {sync_status}"#,
-            root_guid = BookmarkRootGuid::Root.as_guid().as_ref(),
-            sync_status = SyncStatus::Normal as u8
-        );
-        let mut stmt = self.db.prepare(&sql)?;
-        let mut results = stmt.query(NO_PARAMS)?;
-        while let Some(result) = results.next() {
-            let row = result?;
-            let typ = match BookmarkType::from_u8(row.get_checked("type")?) {
-                Some(t) => t,
-                None => continue,
-            };
-            let content = match typ {
-                BookmarkType::Bookmark => {
-                    let title = row.get_checked("title")?;
-                    let url_href = row.get_checked("url")?;
-                    Content::Bookmark { title, url_href }
-                }
-                BookmarkType::Folder => {
-                    let title = row.get_checked("title")?;
-                    Content::Folder { title }
-                }
-                BookmarkType::Separator => {
-                    let position = row.get_checked("position")?;
-                    Content::Separator { position }
-                }
-            };
-            let guid = row.get_checked::<_, SyncGuid>("guid")?;
-            contents.insert(guid.into(), content);
-        }
-
-        Ok(contents)
-    }
-
-    /// Builds a fully rooted tree from all synced items and tombstones.
-    fn fetch_remote_tree(&self) -> Result<Tree> {
-        let mut builder = Tree::with_root(Item::root());
-
-        let sql = format!(
-            "
-            SELECT guid, parentGuid, serverModified, kind, needsMerge, validity
-            FROM moz_bookmarks_synced
-            WHERE NOT isDeleted AND
-                  guid <> '{root_guid}'",
-            root_guid = BookmarkRootGuid::Root.as_guid().as_ref()
-        );
-        let mut stmt = self.db.prepare(&sql)?;
-        let mut results = stmt.query(NO_PARAMS)?;
-        while let Some(result) = results.next() {
-            let row = result?;
-            let guid = row.get_checked::<_, SyncGuid>("guid")?;
-            let kind = SyncedBookmarkKind::from_u8(row.get_checked("kind")?)?;
-            let mut item = Item::new(guid.into(), kind.into());
-            let age = ServerTimestamp(row.get_checked::<_, f64>("serverModified").unwrap_or(0f64))
-                .duration_since(self.remote_time)
-                .unwrap_or_default();
-            item.age = age.as_secs() as i64 * 1000 + i64::from(age.subsec_millis());
-            item.needs_merge = row.get_checked("needsMerge")?;
-            item.validity = SyncedBookmarkValidity::from_u8(row.get_checked("validity")?)?.into();
-
-            let p = builder.item(item)?;
-            if let Some(parent_guid) = row.get_checked::<_, Option<SyncGuid>>("parentGuid")? {
-                p.by_parent_guid(parent_guid.into())?;
-            }
-        }
-
-        let sql = format!(
-            "
-            SELECT guid, parentGuid FROM moz_bookmarks_synced_structure
-            WHERE guid <> '{root_guid}'
-            ORDER BY parentGuid, position",
-            root_guid = BookmarkRootGuid::Root.as_guid().as_ref()
-        );
-        let mut stmt = self.db.prepare(&sql)?;
-        let mut results = stmt.query(NO_PARAMS)?;
-        while let Some(result) = results.next() {
-            let row = result?;
-            let guid = row.get_checked::<_, SyncGuid>("guid")?;
-            let parent_guid = row.get_checked::<_, SyncGuid>("parentGuid")?;
-            builder
-                .parent_for(&guid.into())
-                .by_children(&parent_guid.into())?;
-        }
-
-        let mut tree = builder.into_tree()?;
-
-        // Note tombstones for remotely deleted items.
-        let mut stmt = self
-            .db
-            .prepare("SELECT guid FROM moz_bookmarks_synced WHERE isDeleted AND needsMerge")?;
-        let rows = stmt.query_and_then(NO_PARAMS, |row| row.get_checked::<_, SyncGuid>("guid"))?;
-        for row in rows {
-            let guid = row?;
-            tree.note_deleted(guid.into());
-        }
-
-        Ok(tree)
-    }
-
-    /// Fetches content info for all synced items that changed since the last
-    /// sync and don't exist locally.
-    fn fetch_new_remote_contents(&self) -> Result<HashMap<dogear::Guid, Content>> {
-        let mut contents = HashMap::new();
-
-        let sql = format!(
-            r#"
-            SELECT v.guid, v.kind, IFNULL(v.title, "") AS title, h.url,
-                   s.position
-            FROM moz_bookmarks_synced v
-            JOIN moz_bookmarks_synced_structure s ON s.guid = v.guid
-            LEFT JOIN moz_places h ON h.id = v.placeId
-            LEFT JOIN moz_bookmarks b ON b.guid = v.guid
-            WHERE NOT v.isDeleted AND
-                  v.needsMerge AND
-                  b.guid IS NULL AND
-                  s.parentGuid <> '{root_guid}'"#,
-            root_guid = BookmarkRootGuid::Root.as_guid().as_ref()
-        );
-        let mut stmt = self.db.prepare(&sql)?;
-        let mut results = stmt.query(NO_PARAMS)?;
-        while let Some(result) = results.next() {
-            let row = result?;
-            let content = match SyncedBookmarkKind::from_u8(row.get_checked("kind")?)? {
-                SyncedBookmarkKind::Bookmark | SyncedBookmarkKind::Query => {
-                    let title = row.get_checked("title")?;
-                    let url_href = row.get_checked("url")?;
-                    Content::Bookmark { title, url_href }
-                }
-                SyncedBookmarkKind::Folder => {
-                    let title = row.get_checked("title")?;
-                    Content::Folder { title }
-                }
-                SyncedBookmarkKind::Separator => {
-                    let position = row.get_checked("position")?;
-                    Content::Separator { position }
-                }
-                _ => continue,
-            };
-            let guid = row.get_checked::<_, SyncGuid>("guid")?;
-            contents.insert(guid.into(), content);
-        }
-
-        Ok(contents)
-    }
-
-    fn apply<'t>(
-        &self,
-        descendants: Vec<MergedDescendant<'t>>,
-        deletions: Vec<Deletion>,
-    ) -> Result<()> {
-        if !self.has_changes()? {
-            return Ok(());
-        }
-        let tx = self.db.unchecked_transaction()?;
-        let result = self
-            .update_local_items(descendants, deletions)
-            .and_then(|_| self.stage_local_items_to_upload())
-            .and_then(|_| {
-                self.db.execute_batch(
-                    "
-                    DELETE FROM mergedTree;
-                    DELETE FROM idsToWeaklyUpload;",
-                )?;
-                Ok(())
-            });
-        match result {
-            Ok(_) => tx.commit()?,
-            Err(_) => tx.rollback()?,
-        }
-        result
-    }
 }
 
 impl<'a> BookmarksStore<'a> {
+    pub fn new(db: &'a PlacesDb, client_info: &'a Cell<Option<ClientInfo>>) -> Self {
+        assert_eq!(db.conn_type(), ConnectionType::Sync);
+        Self { db, client_info }
+    }
+
     fn stage_incoming(
         &self,
         inbound: IncomingChangeset,
@@ -692,8 +444,6 @@ impl<'a> Store for BookmarksStore<'a> {
         inbound: IncomingChangeset,
         incoming_telemetry: &mut telemetry::EngineIncoming,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
-        use dogear::Store;
-
         // Stage all incoming items.
         let timestamp = self.stage_incoming(inbound, incoming_telemetry)?;
 
@@ -703,7 +453,8 @@ impl<'a> Store for BookmarksStore<'a> {
         put_meta(self.db, LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
 
         // Merge and stage outgoing items.
-        self.merge_with_driver(&Driver)?;
+        let merger = Merger::new(&self, timestamp);
+        merger.merge()?;
 
         let outgoing = self.fetch_outgoing_records(timestamp)?;
         Ok(outgoing)
@@ -740,6 +491,288 @@ impl<'a> Store for BookmarksStore<'a> {
     fn wipe(&self) -> result::Result<(), failure::Error> {
         log::warn!("not implemented");
         Ok(())
+    }
+}
+
+struct Driver;
+
+impl dogear::Driver for Driver {
+    fn generate_new_guid(&self, _invalid_guid: &dogear::Guid) -> dogear::Result<dogear::Guid> {
+        Ok(SyncGuid::new().into())
+    }
+
+    fn log_level(&self) -> LogLevel {
+        LogLevel::Silent
+    }
+
+    fn log(&self, _level: LogLevel, _args: fmt::Arguments) {}
+}
+
+// The "merger", which is just a thin wrapper for dogear.
+struct Merger<'a> {
+    store: &'a BookmarksStore<'a>,
+    remote_time: ServerTimestamp,
+    local_time: Timestamp,
+}
+
+impl<'a> Merger<'a> {
+    fn new(store: &'a BookmarksStore, remote_time: ServerTimestamp) -> Self {
+        Self {
+            store,
+            remote_time,
+            local_time: Timestamp::now(),
+        }
+    }
+
+    fn merge(&self) -> Result<()> {
+        use dogear::Store;
+        // Merge and stage outgoing items via dogear.
+        self.merge_with_driver(&Driver)?;
+        // note we are dropping the result of type dogear::store::Stats here.
+        Ok(())
+    }
+}
+
+impl<'a> dogear::Store<Error> for Merger<'a> {
+    /// Builds a fully rooted, consistent tree from all local items and
+    /// tombstones.
+    fn fetch_local_tree(&self) -> Result<Tree> {
+        let mut builder = Tree::with_root(Item::root());
+
+        let sql = format!(
+            r#"
+            WITH RECURSIVE
+            {local_items_fragment}
+            SELECT s.id, s.guid, s.parentGuid, {kind} AS kind,
+                   s.lastModified / 1000 AS localModified, s.syncChangeCounter
+            FROM localItems s
+            ORDER BY s.level, s.parentId, s.position"#,
+            local_items_fragment = *LOCAL_ITEMS_SQL_FRAGMENT,
+            kind = type_to_kind("s.type", UrlOrPlaceId::PlaceId("s.placeId")),
+        );
+        let mut stmt = self.store.db.prepare(&sql)?;
+        let mut results = stmt.query(NO_PARAMS)?;
+        while let Some(result) = results.next() {
+            let row = result?;
+            let guid = row.get_checked::<_, SyncGuid>("guid")?;
+            let kind = SyncedBookmarkKind::from_u8(row.get_checked("kind")?)?;
+            let mut item = Item::new(guid.into(), kind.into());
+            // Note that this doesn't account for local clock skew.
+            let age = row
+                .get_checked::<_, Timestamp>("localModified")
+                .unwrap_or_default()
+                .duration_since(self.local_time)
+                .unwrap_or_default();
+            item.age = age.as_secs() as i64 * 1000 + i64::from(age.subsec_millis());
+            item.needs_merge = row.get_checked::<_, u32>("syncChangeCounter")? > 0;
+            let parent_guid = row.get_checked::<_, SyncGuid>("parentGuid")?;
+            builder.item(item)?.by_structure(&parent_guid.into())?;
+        }
+
+        let mut tree = builder.into_tree()?;
+
+        // Note tombstones for locally deleted items.
+        let mut stmt = self
+            .store
+            .db
+            .prepare("SELECT guid FROM moz_bookmarks_deleted")?;
+        let rows = stmt.query_and_then(NO_PARAMS, |row| row.get_checked::<_, SyncGuid>("guid"))?;
+        for row in rows {
+            let guid = row?;
+            tree.note_deleted(guid.into());
+        }
+
+        Ok(tree)
+    }
+
+    /// Fetches content info for all "new" and "unknown" local items that
+    /// haven't been synced. We'll try to dedupe them to changed remote items
+    /// with similar contents and different GUIDs.
+    fn fetch_new_local_contents(&self) -> Result<HashMap<dogear::Guid, Content>> {
+        let mut contents = HashMap::new();
+
+        let sql = format!(
+            r#"
+            SELECT b.guid, b.type, IFNULL(b.title, "") AS title, h.url,
+                   b.position
+            FROM moz_bookmarks b
+            JOIN moz_bookmarks p ON p.id = b.parent
+            LEFT JOIN moz_places h ON h.id = b.fk
+            LEFT JOIN moz_bookmarks_synced v ON v.guid = b.guid
+            WHERE v.guid IS NULL AND
+                  p.guid <> '{root_guid}' AND
+                  b.syncStatus <> {sync_status}"#,
+            root_guid = BookmarkRootGuid::Root.as_guid().as_ref(),
+            sync_status = SyncStatus::Normal as u8
+        );
+        let mut stmt = self.store.db.prepare(&sql)?;
+        let mut results = stmt.query(NO_PARAMS)?;
+        while let Some(result) = results.next() {
+            let row = result?;
+            let typ = match BookmarkType::from_u8(row.get_checked("type")?) {
+                Some(t) => t,
+                None => continue,
+            };
+            let content = match typ {
+                BookmarkType::Bookmark => {
+                    let title = row.get_checked("title")?;
+                    let url_href = row.get_checked("url")?;
+                    Content::Bookmark { title, url_href }
+                }
+                BookmarkType::Folder => {
+                    let title = row.get_checked("title")?;
+                    Content::Folder { title }
+                }
+                BookmarkType::Separator => {
+                    let position = row.get_checked("position")?;
+                    Content::Separator { position }
+                }
+            };
+            let guid = row.get_checked::<_, SyncGuid>("guid")?;
+            contents.insert(guid.into(), content);
+        }
+
+        Ok(contents)
+    }
+
+    /// Builds a fully rooted tree from all synced items and tombstones.
+    fn fetch_remote_tree(&self) -> Result<Tree> {
+        let mut builder = Tree::with_root(Item::root());
+
+        let sql = format!(
+            "
+            SELECT guid, parentGuid, serverModified, kind, needsMerge, validity
+            FROM moz_bookmarks_synced
+            WHERE NOT isDeleted AND
+                  guid <> '{root_guid}'",
+            root_guid = BookmarkRootGuid::Root.as_guid().as_ref()
+        );
+        let mut stmt = self.store.db.prepare(&sql)?;
+        let mut results = stmt.query(NO_PARAMS)?;
+        while let Some(result) = results.next() {
+            let row = result?;
+            let guid = row.get_checked::<_, SyncGuid>("guid")?;
+            let kind = SyncedBookmarkKind::from_u8(row.get_checked("kind")?)?;
+            let mut item = Item::new(guid.into(), kind.into());
+            let age = ServerTimestamp(row.get_checked::<_, f64>("serverModified").unwrap_or(0f64))
+                .duration_since(self.remote_time)
+                .unwrap_or_default();
+            item.age = age.as_secs() as i64 * 1000 + i64::from(age.subsec_millis());
+            item.needs_merge = row.get_checked("needsMerge")?;
+            item.validity = SyncedBookmarkValidity::from_u8(row.get_checked("validity")?)?.into();
+
+            let p = builder.item(item)?;
+            if let Some(parent_guid) = row.get_checked::<_, Option<SyncGuid>>("parentGuid")? {
+                p.by_parent_guid(parent_guid.into())?;
+            }
+        }
+
+        let sql = format!(
+            "
+            SELECT guid, parentGuid FROM moz_bookmarks_synced_structure
+            WHERE guid <> '{root_guid}'
+            ORDER BY parentGuid, position",
+            root_guid = BookmarkRootGuid::Root.as_guid().as_ref()
+        );
+        let mut stmt = self.store.db.prepare(&sql)?;
+        let mut results = stmt.query(NO_PARAMS)?;
+        while let Some(result) = results.next() {
+            let row = result?;
+            let guid = row.get_checked::<_, SyncGuid>("guid")?;
+            let parent_guid = row.get_checked::<_, SyncGuid>("parentGuid")?;
+            builder
+                .parent_for(&guid.into())
+                .by_children(&parent_guid.into())?;
+        }
+
+        let mut tree = builder.into_tree()?;
+
+        // Note tombstones for remotely deleted items.
+        let mut stmt = self
+            .store
+            .db
+            .prepare("SELECT guid FROM moz_bookmarks_synced WHERE isDeleted AND needsMerge")?;
+        let rows = stmt.query_and_then(NO_PARAMS, |row| row.get_checked::<_, SyncGuid>("guid"))?;
+        for row in rows {
+            let guid = row?;
+            tree.note_deleted(guid.into());
+        }
+
+        Ok(tree)
+    }
+
+    /// Fetches content info for all synced items that changed since the last
+    /// sync and don't exist locally.
+    fn fetch_new_remote_contents(&self) -> Result<HashMap<dogear::Guid, Content>> {
+        let mut contents = HashMap::new();
+
+        let sql = format!(
+            r#"
+            SELECT v.guid, v.kind, IFNULL(v.title, "") AS title, h.url,
+                   s.position
+            FROM moz_bookmarks_synced v
+            JOIN moz_bookmarks_synced_structure s ON s.guid = v.guid
+            LEFT JOIN moz_places h ON h.id = v.placeId
+            LEFT JOIN moz_bookmarks b ON b.guid = v.guid
+            WHERE NOT v.isDeleted AND
+                  v.needsMerge AND
+                  b.guid IS NULL AND
+                  s.parentGuid <> '{root_guid}'"#,
+            root_guid = BookmarkRootGuid::Root.as_guid().as_ref()
+        );
+        let mut stmt = self.store.db.prepare(&sql)?;
+        let mut results = stmt.query(NO_PARAMS)?;
+        while let Some(result) = results.next() {
+            let row = result?;
+            let content = match SyncedBookmarkKind::from_u8(row.get_checked("kind")?)? {
+                SyncedBookmarkKind::Bookmark | SyncedBookmarkKind::Query => {
+                    let title = row.get_checked("title")?;
+                    let url_href = row.get_checked("url")?;
+                    Content::Bookmark { title, url_href }
+                }
+                SyncedBookmarkKind::Folder => {
+                    let title = row.get_checked("title")?;
+                    Content::Folder { title }
+                }
+                SyncedBookmarkKind::Separator => {
+                    let position = row.get_checked("position")?;
+                    Content::Separator { position }
+                }
+                _ => continue,
+            };
+            let guid = row.get_checked::<_, SyncGuid>("guid")?;
+            contents.insert(guid.into(), content);
+        }
+
+        Ok(contents)
+    }
+
+    fn apply<'t>(
+        &self,
+        descendants: Vec<MergedDescendant<'t>>,
+        deletions: Vec<Deletion>,
+    ) -> Result<()> {
+        if !self.store.has_changes()? {
+            return Ok(());
+        }
+        let tx = self.store.db.unchecked_transaction()?;
+        let result = self
+            .store
+            .update_local_items(descendants, deletions)
+            .and_then(|_| self.store.stage_local_items_to_upload())
+            .and_then(|_| {
+                self.store.db.execute_batch(
+                    "
+                    DELETE FROM mergedTree;
+                    DELETE FROM idsToWeaklyUpload;",
+                )?;
+                Ok(())
+            });
+        match result {
+            Ok(_) => tx.commit()?,
+            Err(_) => tx.rollback()?,
+        }
+        result
     }
 }
 
@@ -825,12 +858,8 @@ mod tests {
             .expect("should get a connection");
 
         // suck records into the store.
-        let store = BookmarksStore {
-            db: &conn,
-            client_info: &Cell::new(None),
-            local_time: Timestamp::now(),
-            remote_time: ServerTimestamp(0.0),
-        };
+        let client_info = Cell::new(None);
+        let store = BookmarksStore::new(&conn, &client_info);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -894,12 +923,8 @@ mod tests {
         let conn = api.open_connection(ConnectionType::Sync)?;
 
         // suck records into the store.
-        let store = BookmarksStore {
-            db: &conn,
-            client_info: &Cell::new(None),
-            local_time: Timestamp::now(),
-            remote_time: ServerTimestamp(0.0),
-        };
+        let client_info = Cell::new(None);
+        let store = BookmarksStore::new(&conn, &client_info);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -913,7 +938,9 @@ mod tests {
             .stage_incoming(incoming, &mut telemetry::EngineIncoming::new())
             .expect("Should apply incoming and stage outgoing records");
 
-        let tree = store.fetch_remote_tree()?;
+        let merger = Merger::new(&store, ServerTimestamp(0.0));
+
+        let tree = merger.fetch_remote_tree()?;
 
         // should be each user root, plus the real root, plus the bookmark we added.
         assert_eq!(
@@ -979,13 +1006,11 @@ mod tests {
             }),
         );
 
-        let store = BookmarksStore {
-            db: &conn,
-            client_info: &Cell::new(None),
-            local_time: Timestamp::now(),
-            remote_time: ServerTimestamp(0.0),
-        };
-        let tree = store.fetch_local_tree()?;
+        let client_info = Cell::new(None);
+        let store = BookmarksStore::new(&conn, &client_info);
+        let merger = Merger::new(&store, ServerTimestamp(0.0));
+
+        let tree = merger.fetch_local_tree()?;
 
         // should be each user root, plus the real root, plus the bookmark we added.
         assert_eq!(
@@ -1127,12 +1152,8 @@ mod tests {
             }),
         ];
 
-        let store = BookmarksStore {
-            db: &conn,
-            client_info: &Cell::new(None),
-            local_time: Timestamp::now(),
-            remote_time: ServerTimestamp(0.0),
-        };
+        let client_info = Cell::new(None);
+        let store = BookmarksStore::new(&conn, &client_info);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
