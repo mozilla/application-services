@@ -71,36 +71,6 @@ impl BookmarkRootGuid {
     pub fn from_guid(guid: &SyncGuid) -> Option<Self> {
         Self::from_str(&guid.0)
     }
-
-    pub fn as_sync_record_id(&self) -> &'static str {
-        match self {
-            BookmarkRootGuid::Root => "places",
-            BookmarkRootGuid::Menu => "menu",
-            BookmarkRootGuid::Toolbar => "toolbar",
-            BookmarkRootGuid::Unfiled => "unfiled",
-            BookmarkRootGuid::Mobile => "mobile",
-        }
-    }
-
-    pub fn from_sync_record_id(id: &str) -> Option<Self> {
-        Some(match id {
-            "places" => BookmarkRootGuid::Root,
-            "menu" => BookmarkRootGuid::Menu,
-            "toolbar" => BookmarkRootGuid::Toolbar,
-            "unfiled" => BookmarkRootGuid::Unfiled,
-            "mobile" => BookmarkRootGuid::Mobile,
-            _ => return None,
-        })
-    }
-
-    pub fn user_roots() -> Vec<BookmarkRootGuid> {
-        vec![
-            BookmarkRootGuid::Menu,
-            BookmarkRootGuid::Toolbar,
-            BookmarkRootGuid::Unfiled,
-            BookmarkRootGuid::Mobile,
-        ]
-    }
 }
 
 impl From<BookmarkRootGuid> for SyncGuid {

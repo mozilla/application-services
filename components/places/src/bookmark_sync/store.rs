@@ -6,13 +6,12 @@ use super::incoming::IncomingApplicator;
 use super::record::{
     guid_to_id, BookmarkItemRecord, BookmarkRecord, FolderRecord, QueryRecord, SeparatorRecord,
 };
+use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::api::places_api::ConnectionType;
 use crate::db::PlacesDb;
 use crate::error::*;
 use crate::storage::{bookmarks::BookmarkRootGuid, get_meta, put_meta};
-use crate::types::{
-    BookmarkType, SyncGuid, SyncStatus, SyncedBookmarkKind, SyncedBookmarkValidity, Timestamp,
-};
+use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
 use dogear::{
     self, Content, Deletion, IntoTree, Item, LogLevel, MergedDescendant, Tree, UploadReason,
 };

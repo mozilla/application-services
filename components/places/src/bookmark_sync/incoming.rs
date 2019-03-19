@@ -5,9 +5,10 @@
 use super::record::{
     BookmarkItemRecord, BookmarkRecord, FolderRecord, LivemarkRecord, QueryRecord, SeparatorRecord,
 };
+use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::error::*;
 use crate::storage::{bookmarks::maybe_truncate_title, TAG_LENGTH_MAX, URL_LENGTH_MAX};
-use crate::types::{SyncGuid, SyncedBookmarkKind, SyncedBookmarkValidity};
+use crate::types::SyncGuid;
 use rusqlite::Connection;
 use sql_support::{self, ConnExt};
 use sync15::ServerTimestamp;
@@ -343,7 +344,7 @@ mod tests {
     use crate::db::PlacesDb;
     use crate::storage::bookmarks::BookmarkRootGuid;
 
-    use crate::tests::MirrorBookmarkItem;
+    use crate::bookmark_sync::tests::MirrorBookmarkItem;
     use pretty_assertions::assert_eq;
     use serde_json::{json, Value};
     use sync15::Payload;
