@@ -261,7 +261,7 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * @return The GUID of the newly inserted bookmark folder.
      *
      * @throws CannotUpdateRoot If `parentGUID` is the [BookmarkRoot.Root] (e.g. "root________")
-     * @throws UnknownBookmarkItem If `parentGUID` does not to a known bookmark.
+     * @throws UnknownBookmarkItem If `parentGUID` does not refer to to a known bookmark.
      * @throws InvalidParent If `parentGUID` does not refer to a folder node.
      */
     fun createFolder(
@@ -281,7 +281,7 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * @return The GUID of the newly inserted bookmark separator.
      *
      * @throws CannotUpdateRoot If `parentGUID` is the [BookmarkRoot.Root] (e.g. "root________")
-     * @throws UnknownBookmarkItem If `parentGUID` does not to a known bookmark.
+     * @throws UnknownBookmarkItem If `parentGUID` does not refer to to a known bookmark.
      * @throws InvalidParent If `parentGUID` does not refer to a folder node.
      */
     fun createSeparator(
@@ -302,7 +302,7 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * @return The GUID of the newly inserted bookmark item.
      *
      * @throws CannotUpdateRoot If `parentGUID` is the [BookmarkRoot.Root] (e.g. "root________")
-     * @throws UnknownBookmarkItem If `parentGUID` does not to a known bookmark.
+     * @throws UnknownBookmarkItem If `parentGUID` does not refer to to a known bookmark.
      * @throws InvalidParent If `parentGUID` does not refer to a folder node.
      * @throws UrlParseFailed If `url` does not refer to a valid URL.
      * @throws UrlTooLong if `url` exceeds the maximum length of 65536 bytes (when encoded)
@@ -324,7 +324,7 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * type of the item in the DB. For example, on attempts to update the title of a separator.
      * @throws CannotUpdateRoot If `guid` is a bookmark root, or `info.parentGUID`
      * is provided, and is [BookmarkRoot.Root] (e.g. "root________")
-     * @throws UnknownBookmarkItem If `guid` or `info.parentGUID` (if specified) does not to
+     * @throws UnknownBookmarkItem If `guid` or `info.parentGUID` (if specified) does not refer to
      * a known bookmark.
      * @throws InvalidParent If `info.parentGUID` is specified, but does not refer to a
      * folder node.
@@ -355,7 +355,7 @@ data class BookmarkUpdateInfo(
          *   position.
          *
          * - If `position` is not provided (and `parentGUID` is) then its
-         *   treated as a move the end of that folder.
+         *   treated as a move to the end of that folder.
          *
          * If position is provided and is outside the range of positions currently
          * occupied by children in this folder, it is first constrained to

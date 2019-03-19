@@ -26,10 +26,6 @@ impl SyncGuid {
     pub fn is_root(&self) -> bool {
         BookmarkRootGuid::from_str(&self.0).is_some()
     }
-
-    pub fn is_specific_root(&self, root: BookmarkRootGuid) -> bool {
-        self == root
-    }
 }
 
 impl AsRef<str> for SyncGuid {

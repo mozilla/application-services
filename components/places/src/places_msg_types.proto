@@ -107,7 +107,7 @@ message BookmarkNode {
      *       position.
      *
      *     - If `position` is not provided (and `parent_guid` is) then it's
-     *       treated as a move the end of that folder.
+     *       treated as a move to the end of that folder.
      */
     optional uint32 position = 6;
 

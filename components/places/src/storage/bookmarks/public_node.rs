@@ -161,9 +161,6 @@ fn fetch_bookmark_in_tx(
     get_direct_children: bool,
     scope: &crate::db::InterruptScope,
 ) -> Result<Option<PublicNode>> {
-    // get_raw_bookmark doesn't work for the bookmark root, so we just return None explicitly
-    // (rather than erroring). This isn't ideal, but there's no point to fetching the "true"
-    // bookmark root without fetching its children too, so whatever.
     let rb = if let Some(raw) = get_raw_bookmark(db, item_guid)? {
         raw
     } else {

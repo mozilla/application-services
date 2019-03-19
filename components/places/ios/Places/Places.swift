@@ -197,8 +197,7 @@ public class PlacesReadConnection {
                 return nil
             }
             defer { places_destroy_bytebuffer(buffer) }
-            // This should never fail, since we encoded it on the other side with Rust,
-            // should we use `try! instead?
+            // This should never fail, since we encoded it on the other side with Rust
             let msg = try MsgTypes_BookmarkNode(serializedData: Data(placesRustBuffer: buffer))
             return unpackProtobuf(msg: msg)
         }
@@ -238,7 +237,7 @@ public class PlacesReadConnection {
                 return nil
             }
             defer { places_destroy_bytebuffer(buffer) }
-            // Should this be `try!`?
+            // This could probably be try!
             let msg = try MsgTypes_BookmarkNode(serializedData: Data(placesRustBuffer: buffer))
             return unpackProtobuf(msg: msg)
         }
@@ -276,7 +275,7 @@ public class PlacesReadConnection {
                 bookmarks_get_all_with_url(self.handle, url, error)
             }
             defer { places_destroy_bytebuffer(buffer) }
-            // Should this be `try!`?
+            // This could probably be try!
             let msg = try MsgTypes_BookmarkNodeList(serializedData: Data(placesRustBuffer: buffer))
             return unpackProtobufItemList(msg: msg)
         }
@@ -312,7 +311,7 @@ public class PlacesReadConnection {
                 bookmarks_search(self.handle, query, Int32(limit), error)
             }
             defer { places_destroy_bytebuffer(buffer) }
-            // Should this be `try!`?
+            // This could probably be try!
             let msg = try MsgTypes_BookmarkNodeList(serializedData: Data(placesRustBuffer: buffer))
             return unpackProtobufItemList(msg: msg)
         }
@@ -548,7 +547,7 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *       position.
      *
      *     - If `position` is not provided (and `parentGUID` is) then its
-     *       treated as a move the end of that folder.
+     *       treated as a move to the end of that folder.
      * - Throws:
      *     - `PlacesError.illegalChange`: If the change requested is impossible given the
      *                                    type of the item in the DB. For example, on
