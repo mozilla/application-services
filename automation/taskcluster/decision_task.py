@@ -9,7 +9,8 @@ from decisionlib import *
 
 def main(task_for, mock=False):
     if task_for == "github-pull-request":
-        android_linux_x86_64()
+        #android_linux_x86_64() #TODO: remove me
+        android_multiarch()
     elif task_for == "github-push":
         android_multiarch()
     elif task_for == "github-release":
