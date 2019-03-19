@@ -45,7 +45,7 @@ fn create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
     let mut acct = FirefoxAccount::with_config(cfg);
     let oauth_uri = acct.begin_oauth_flow(&[SYNC_SCOPE], true)?;
 
-    if let Err(_) = webbrowser::open(&oauth_uri.as_ref()) {
+    if webbrowser::open(&oauth_uri.as_ref()).is_err() {
         log::warn!("Failed to open a web browser D:");
         println!("Please visit this URL, sign in, and then copy-paste the final URL below.");
         println!("\n    {}\n", oauth_uri);
@@ -53,7 +53,7 @@ fn create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
         println!("Please paste the final URL below:\n");
     }
 
-    let final_url = url::Url::parse(&prompt_string("Final URL").unwrap_or(String::new()))?;
+    let final_url = url::Url::parse(&prompt_string("Final URL").unwrap_or_default())?;
     let query_params = final_url
         .query_pairs()
         .into_owned()
@@ -81,8 +81,8 @@ pub fn get_cli_fxa(config: Config, cred_file: &str) -> Result<CliFxa> {
     // `scope` could be a param, but I can't see it changing.
     let token_info: AccessTokenInfo = match acct.get_access_token(SYNC_SCOPE) {
         Ok(t) => t,
-        Err(_) => {
-            panic!("No creds - run some other tool to set them up.");
+        Err(e) => {
+            panic!("No creds - run some other tool to set them up. {}", e);
         }
     };
     let key = token_info.key.unwrap();

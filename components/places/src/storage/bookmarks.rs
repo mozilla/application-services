@@ -33,7 +33,7 @@ fn create_root(
     title: &str,
     guid: &SyncGuid,
     position: u32,
-    when: &Timestamp,
+    when: Timestamp,
 ) -> Result<()> {
     let sql = format!(
         "
@@ -51,8 +51,8 @@ fn create_root(
         (":item_type", &BookmarkType::Folder),
         (":item_position", &position),
         (":item_title", &title),
-        (":date_added", when),
-        (":last_modified", when),
+        (":date_added", &when),
+        (":last_modified", &when),
         (":guid", guid),
         (":sync_status", &SyncStatus::New),
     ];
@@ -62,11 +62,11 @@ fn create_root(
 
 pub fn create_bookmark_roots(db: &Connection) -> Result<()> {
     let now = Timestamp::now();
-    create_root(db, "root", &BookmarkRootGuid::Root.into(), 0, &now)?;
-    create_root(db, "menu", &BookmarkRootGuid::Menu.into(), 0, &now)?;
-    create_root(db, "toolbar", &BookmarkRootGuid::Toolbar.into(), 1, &now)?;
-    create_root(db, "unfiled", &BookmarkRootGuid::Unfiled.into(), 2, &now)?;
-    create_root(db, "mobile", &BookmarkRootGuid::Mobile.into(), 3, &now)?;
+    create_root(db, "root", &BookmarkRootGuid::Root.into(), 0, now)?;
+    create_root(db, "menu", &BookmarkRootGuid::Menu.into(), 0, now)?;
+    create_root(db, "toolbar", &BookmarkRootGuid::Toolbar.into(), 1, now)?;
+    create_root(db, "unfiled", &BookmarkRootGuid::Unfiled.into(), 2, now)?;
+    create_root(db, "mobile", &BookmarkRootGuid::Mobile.into(), 3, now)?;
     Ok(())
 }
 
@@ -83,12 +83,12 @@ pub enum BookmarkPosition {
 /// Returns the index the item should be inserted at.
 fn resolve_pos_for_insert(
     db: &PlacesDb,
-    pos: &BookmarkPosition,
+    pos: BookmarkPosition,
     parent: &RawBookmark,
 ) -> Result<u32> {
     Ok(match pos {
         BookmarkPosition::Specific(specified) => {
-            let actual = min(*specified, parent.child_count);
+            let actual = min(specified, parent.child_count);
             // must reorder existing children.
             db.execute_named_cached(
                 "UPDATE moz_bookmarks SET position = position + 1
@@ -119,7 +119,7 @@ fn update_pos_for_deletion(db: &PlacesDb, pos: u32, parent_id: RowId) -> Result<
 /// Returns what the position should be updated to.
 fn update_pos_for_move(
     db: &PlacesDb,
-    pos: &BookmarkPosition,
+    pos: BookmarkPosition,
     bm: &RawBookmark,
     parent: &RawBookmark,
 ) -> Result<u32> {
@@ -127,7 +127,7 @@ fn update_pos_for_move(
     // Note the additional -1's below are to account for the item already being
     // in the folder.
     let new_index = match pos {
-        BookmarkPosition::Specific(specified) => min(*specified, parent.child_count - 1),
+        BookmarkPosition::Specific(specified) => min(specified, parent.child_count - 1),
         BookmarkPosition::Append => parent.child_count - 1,
     };
     db.execute_named_cached(
@@ -264,7 +264,7 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
         return Err(InvalidPlaceInfo::InvalidParent(parent_guid.to_string()).into());
     }
     // Do the "position" dance.
-    let position = resolve_pos_for_insert(db, &bm.position(), &parent)?;
+    let position = resolve_pos_for_insert(db, *bm.position(), &parent)?;
 
     // Note that we could probably do this 'fk' work as a sub-query (although
     // markh isn't clear how we could perform the insert) - it probably doesn't
@@ -285,11 +285,11 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
               (:fk, :type, :parent, :position, :title, :dateAdded, :lastModified,
                :guid, :syncStatus, :syncChangeCounter)";
 
-    let guid = bm.guid().clone().unwrap_or_else(|| SyncGuid::new());
-    let date_added = bm.date_added().unwrap_or_else(|| Timestamp::now());
+    let guid = bm.guid().clone().unwrap_or_else(SyncGuid::new);
+    let date_added = bm.date_added().unwrap_or_else(Timestamp::now);
     // last_modified can't be before date_added
     let last_modified = max(
-        bm.last_modified().unwrap_or_else(|| Timestamp::now()),
+        bm.last_modified().unwrap_or_else(Timestamp::now),
         date_added,
     );
 
@@ -530,7 +530,7 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
             let parent = get_raw_bookmark(db, existing_parent_guid)?.ok_or_else(|| {
                 Corruption::NoParent(guid.to_string(), existing_parent_guid.to_string())
             })?;
-            position = update_pos_for_move(db, &pos, &existing, &parent)?;
+            position = update_pos_for_move(db, *pos, &existing, &parent)?;
         }
         UpdateTreeLocation::Parent(new_parent_guid, pos) => {
             if new_parent_guid == BookmarkRootGuid::Root {
@@ -548,7 +548,7 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
                 Corruption::NoParent(guid.to_string(), existing_parent_guid.to_string())
             })?;
             update_pos_for_deletion(db, existing.position, existing_parent.row_id)?;
-            position = resolve_pos_for_insert(db, &pos, &new_parent)?;
+            position = resolve_pos_for_insert(db, *pos, &new_parent)?;
         }
     };
     let place_id = match item {
@@ -626,18 +626,18 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
     // The lastModified of the existing parent ancestors (which may still be
     // the current parent) is always updated, even if the change counter for it
     // isn't.
-    set_ancestors_last_modified(db, &existing_parent_id, &now)?;
+    set_ancestors_last_modified(db, existing_parent_id, now)?;
     if update_old_parent_status {
         db.execute_named_cached(sql_counter, &[(":parent_id", &existing_parent_id)])?;
     }
     if update_new_parent_status {
-        set_ancestors_last_modified(db, &parent_id, &now)?;
+        set_ancestors_last_modified(db, parent_id, now)?;
         db.execute_named_cached(sql_counter, &[(":parent_id", &parent_id)])?;
     }
     Ok(())
 }
 
-fn set_ancestors_last_modified(db: &PlacesDb, parent_id: &RowId, time: &Timestamp) -> Result<()> {
+fn set_ancestors_last_modified(db: &PlacesDb, parent_id: RowId, time: Timestamp) -> Result<()> {
     let sql = "
         WITH RECURSIVE
         ancestors(aid) AS (
@@ -653,7 +653,7 @@ fn set_ancestors_last_modified(db: &PlacesDb, parent_id: &RowId, time: &Timestam
     db.execute_named_cached(
         sql,
         &[
-            (":parent_id", parent_id),
+            (":parent_id", &parent_id),
             (":type", &(BookmarkType::Folder as u8)),
             (":time", &time),
         ],
@@ -1024,7 +1024,7 @@ fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Ve
                 .into(),
             ),
             BookmarkTreeNode::Folder(f) => {
-                let my_guid = f.guid.clone().unwrap_or_else(|| SyncGuid::new());
+                let my_guid = f.guid.clone().unwrap_or_else(SyncGuid::new);
                 // must add the folder before we recurse into children.
                 insert_infos.push(
                     InsertableFolder {
@@ -1300,7 +1300,7 @@ impl RawBookmark {
 
 /// sql is based on fetchBookmark() in Desktop's Bookmarks.jsm, with 'fk' added
 /// and title's NULLIF handling.
-const RAW_BOOKMARK_SQL: &'static str = "
+const RAW_BOOKMARK_SQL: &str = "
     SELECT
         b.guid,
         p.guid AS parentGuid,

@@ -137,7 +137,7 @@ impl Key {
             }
         };
         Ok(Key {
-            private: private,
+            private,
             public: pubkey,
             auth: auth.to_vec(),
         })
@@ -206,7 +206,7 @@ fn extract_value(string: Option<&str>, target: &str) -> Option<Vec<u8>> {
             }
         }
     }
-    return None;
+    None
 }
 
 impl Cryptography for Crypto {

@@ -29,9 +29,9 @@ impl fmt::Display for RequestOrder {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            &RequestOrder::Oldest => f.write_str("oldest"),
-            &RequestOrder::Newest => f.write_str("newest"),
-            &RequestOrder::Index => f.write_str("index"),
+            RequestOrder::Oldest => f.write_str("oldest"),
+            RequestOrder::Newest => f.write_str("newest"),
+            RequestOrder::Index => f.write_str("index"),
         }
     }
 }
@@ -126,10 +126,10 @@ impl CollectionRequest {
         if self.limit > 0 {
             pairs.append_pair("limit", &format!("{}", self.limit));
         }
-        if let &Some(ref ids) = &self.ids {
+        if let Some(ids) = &self.ids {
             pairs.append_pair("ids", &ids.join(","));
         }
-        if let &Some(ref batch) = &self.batch {
+        if let Some(batch) = &self.batch {
             pairs.append_pair("batch", &batch);
         }
         if self.commit {
@@ -192,7 +192,7 @@ impl LimitTracker {
     pub fn can_add_record(&self, payload_size: usize) -> bool {
         // Desktop does the cur_bytes check as exclusive, but we shouldn't see any servers that
         // don't have https://github.com/mozilla-services/server-syncstorage/issues/73
-        self.cur_records + 1 <= self.max_records && self.cur_bytes + payload_size <= self.max_bytes
+        self.cur_records < self.max_records && self.cur_bytes + payload_size <= self.max_bytes
     }
 
     pub fn can_never_add(&self, record_size: usize) -> bool {
@@ -392,7 +392,7 @@ impl PostResponseHandler for NormalResponseHandler {
                 .into());
             }
         }
-        if r.result.failed.len() > 0 && !self.allow_failed {
+        if !r.result.failed.is_empty() && !self.allow_failed {
             return Err(ErrorKind::RecordUploadFailed.into());
         }
         for id in r.result.success.iter() {
@@ -436,7 +436,7 @@ where
     #[inline]
     fn in_batch(&self) -> bool {
         match &self.batch {
-            &BatchState::Unsupported | &BatchState::NoBatch => false,
+            BatchState::Unsupported | BatchState::NoBatch => false,
             _ => true,
         }
     }
@@ -520,7 +520,7 @@ where
     }
 
     pub fn flush(&mut self, want_commit: bool) -> Result<()> {
-        if self.queued.len() == 0 {
+        if self.queued.is_empty() {
             assert!(
                 !self.in_batch(),
                 "Bug: Somehow we're in a batch but have no queued records"
@@ -532,11 +532,11 @@ where
         self.queued.push(b']');
         let batch_id = match &self.batch {
             // Not the first post and we know we have no batch semantics.
-            &BatchState::Unsupported => None,
+            BatchState::Unsupported => None,
             // First commit in possible batch
-            &BatchState::NoBatch => Some("true".into()),
+            BatchState::NoBatch => Some("true".into()),
             // In a batch and we have a batch id.
-            &BatchState::InBatch(ref s) => Some(s.clone()),
+            BatchState::InBatch(ref s) => Some(s.clone()),
         };
 
         log::info!(
@@ -545,7 +545,7 @@ where
             self.queued.len()
         );
 
-        let is_commit = want_commit && !batch_id.is_none();
+        let is_commit = want_commit && batch_id.is_some();
         // Weird syntax for calling a function object that is a property.
         let resp_or_error =
             self.poster
@@ -607,11 +607,11 @@ where
             .clone();
 
         match &self.batch {
-            &BatchState::Unsupported => {
+            BatchState::Unsupported => {
                 log::warn!("Server changed it's mind about supporting batching mid-batch...");
             }
 
-            &BatchState::InBatch(ref cur_id) => {
+            BatchState::InBatch(ref cur_id) => {
                 if cur_id != &batch_id {
                     return Err(ErrorKind::ServerBatchProblem(
                         "Invalid server response: 202 without a batch ID",

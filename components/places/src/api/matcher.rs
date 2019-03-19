@@ -128,7 +128,7 @@ pub fn split_after_host_and_port(href: &str) -> (&str, &str) {
         .map(|i| i + 1)
         .unwrap_or(0);
     let remainder = &remainder[start..];
-    let end = memchr::memchr3(b'/', b'?', b'#', remainder.as_bytes()).unwrap_or(remainder.len());
+    let end = memchr::memchr3(b'/', b'?', b'#', remainder.as_bytes()).unwrap_or_else(|| remainder.len());
     remainder.split_at(end)
 }
 
@@ -318,7 +318,7 @@ impl<'query> OriginOrUrl<'query> {
     }
 }
 
-const URL_SQL: &'static str = "
+const URL_SQL: &str = "
     SELECT h.url as url,
             :host || :remainder AS strippedURL,
             h.frecency as frecency,
@@ -347,7 +347,7 @@ const URL_SQL: &'static str = "
     ORDER BY h.frecency DESC, h.id DESC
     LIMIT 1
 ";
-const ORIGIN_SQL: &'static str = "
+const ORIGIN_SQL: &str = "
     SELECT IFNULL(:prefix, prefix) || moz_origins.host || '/' AS url,
             moz_origins.host || '/' AS displayURL,
             frecency,

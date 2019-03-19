@@ -12,7 +12,7 @@ type State = StateV2;
 
 pub(crate) fn state_from_json(data: &str) -> Result<State> {
     let stored_state: PersistedState = serde_json::from_str(data)?;
-    return upgrade_state(stored_state);
+    upgrade_state(stored_state)
 }
 
 pub(crate) fn state_to_json(state: &State) -> Result<String> {
@@ -29,10 +29,10 @@ enum PersistedState {
 }
 
 fn upgrade_state(in_state: PersistedState) -> Result<State> {
-    return match in_state {
+    match in_state {
         PersistedState::V1(state) => state.into(),
         PersistedState::V2(state) => Ok(state),
-    };
+    }
 }
 
 // Migrations

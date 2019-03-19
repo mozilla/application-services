@@ -16,7 +16,7 @@ pub fn prompt_string<S: AsRef<str>>(prompt: S) -> Option<String> {
     if let Some('\r') = s.chars().next_back() {
         s.pop();
     }
-    if s.len() == 0 {
+    if s.is_empty() {
         None
     } else {
         Some(s)

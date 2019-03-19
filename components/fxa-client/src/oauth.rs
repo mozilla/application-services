@@ -24,7 +24,7 @@ impl FirefoxAccount {
     ///
     /// * `scopes` - Space-separated list of requested scopes.
     pub fn get_access_token(&mut self, scope: &str) -> Result<AccessTokenInfo> {
-        if scope.contains(" ") {
+        if scope.contains(' ') {
             return Err(ErrorKind::MultipleScopesRequested.into());
         }
         if let Some(oauth_info) = self.access_token_cache.get(scope) {
@@ -33,14 +33,17 @@ impl FirefoxAccount {
             }
         }
         let resp = match self.state.refresh_token {
-            Some(ref refresh_token) => match refresh_token.scopes.contains(scope) {
-                true => self.client.oauth_token_with_refresh_token(
-                    &self.state.config,
-                    &refresh_token.token,
-                    &[scope],
-                )?,
-                false => return Err(ErrorKind::NoCachedToken(scope.to_string()).into()),
-            },
+            Some(ref refresh_token) => {
+                if refresh_token.scopes.contains(scope) {
+                    self.client.oauth_token_with_refresh_token(
+                        &self.state.config,
+                        &refresh_token.token,
+                        &[scope],
+                    )?
+                } else {
+                    return Err(ErrorKind::NoCachedToken(scope.to_string()).into());
+                }
+            }
             None => {
                 #[cfg(feature = "browserid")]
                 {
@@ -128,15 +131,14 @@ impl FirefoxAccount {
             .append_pair("code_challenge_method", "S256")
             .append_pair("code_challenge", &code_challenge)
             .append_pair("access_type", "offline");
-        let scoped_keys_flow = match wants_keys {
-            true => {
-                let flow = ScopedKeysFlow::with_random_key(&*RNG)?;
-                let jwk_json = flow.generate_keys_jwk()?;
-                let keys_jwk = base64::encode_config(&jwk_json, base64::URL_SAFE_NO_PAD);
-                url.query_pairs_mut().append_pair("keys_jwk", &keys_jwk);
-                Some(flow)
-            }
-            false => None,
+        let scoped_keys_flow = if wants_keys {
+            let flow = ScopedKeysFlow::with_random_key(&*RNG)?;
+            let jwk_json = flow.generate_keys_jwk()?;
+            let keys_jwk = base64::encode_config(&jwk_json, base64::URL_SAFE_NO_PAD);
+            url.query_pairs_mut().append_pair("keys_jwk", &keys_jwk);
+            Some(flow)
+        } else {
+            None
         };
         self.flow_store.insert(
             state.clone(), // Since state is supposed to be unique, we use it to key our flows.
@@ -379,9 +381,9 @@ mod tests {
 
     #[test]
     fn test_pairing_flow_url() {
-        static SCOPES: &'static [&'static str] = &["https://identity.mozilla.com/apps/oldsync"];
-        static PAIRING_URL: &'static str = "https://accounts.firefox.com/pair#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
-        static EXPECTED_URL: &'static str = "https://accounts.firefox.com/pair/supp?client_id=12345678&redirect_uri=https%3A%2F%2Ffoo.bar&scope=https%3A%2F%2Fidentity.mozilla.com%2Fapps%2Foldsync&state=SmbAA_9EA5v1R2bgIPeWWw&code_challenge_method=S256&code_challenge=ZgHLPPJ8XYbXpo7VIb7wFw0yXlTa6MUOVfGiADt0JSM&access_type=offline&keys_jwk=eyJjcnYiOiJQLTI1NiIsImt0eSI6IkVDIiwieCI6Ing5LUltQjJveDM0LTV6c1VmbW5sNEp0Ti14elV2eFZlZXJHTFRXRV9BT0kiLCJ5IjoiNXBKbTB3WGQ4YXdHcm0zREl4T1pWMl9qdl9tZEx1TWlMb1RkZ1RucWJDZyJ9#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
+        const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
+        const PAIRING_URL: &str = "https://accounts.firefox.com/pair#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
+        const EXPECTED_URL: &str = "https://accounts.firefox.com/pair/supp?client_id=12345678&redirect_uri=https%3A%2F%2Ffoo.bar&scope=https%3A%2F%2Fidentity.mozilla.com%2Fapps%2Foldsync&state=SmbAA_9EA5v1R2bgIPeWWw&code_challenge_method=S256&code_challenge=ZgHLPPJ8XYbXpo7VIb7wFw0yXlTa6MUOVfGiADt0JSM&access_type=offline&keys_jwk=eyJjcnYiOiJQLTI1NiIsImt0eSI6IkVDIiwieCI6Ing5LUltQjJveDM0LTV6c1VmbW5sNEp0Ti14elV2eFZlZXJHTFRXRV9BT0kiLCJ5IjoiNXBKbTB3WGQ4YXdHcm0zREl4T1pWMl9qdl9tZEx1TWlMb1RkZ1RucWJDZyJ9#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
 
         let mut fxa = FirefoxAccount::new(
             "https://accounts.firefox.com",

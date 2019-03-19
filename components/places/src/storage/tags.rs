@@ -14,7 +14,7 @@ use url::Url;
 pub fn validate_tag(t: &str) -> Result<&str> {
     // Drop empty and oversized tags.
     let t = t.trim();
-    if t.len() == 0 || t.len() > TAG_LENGTH_MAX || t.find(|c: char| c.is_whitespace()).is_some() {
+    if t.is_empty() || t.len() > TAG_LENGTH_MAX || t.find(|c: char| c.is_whitespace()).is_some() {
         Err(InvalidPlaceInfo::InvalidTag.into())
     } else {
         Ok(t)

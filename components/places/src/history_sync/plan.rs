@@ -27,7 +27,7 @@ use url::Url;
 // XXX - there's probably a case to be made for this being, say, 5 years ago -
 // then all requests earlier than that are collapsed into a single visit at
 // this timestamp.
-const EARLIEST_TIMESTAMP: Timestamp = Timestamp(727747200000);
+const EARLIEST_TIMESTAMP: Timestamp = Timestamp(727_747_200_000);
 
 /// Clamps a history visit date between the current date and the earliest
 /// sensible date.
@@ -39,7 +39,7 @@ fn clamp_visit_date(visit_date: Timestamp) -> Timestamp {
     if visit_date < EARLIEST_TIMESTAMP {
         return EARLIEST_TIMESTAMP;
     }
-    return visit_date;
+    visit_date
 }
 
 /// This is the action we will take *locally* for each incoming record.
@@ -83,12 +83,12 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
                 return IncomingPlan::Skip;
             }
         }
-        Err(e) => return IncomingPlan::Failed(e.into()),
+        Err(e) => return IncomingPlan::Failed(e),
     }
     // Let's get what we know about it, if anything - last 20, like desktop?
     let visit_tuple = match fetch_visits(conn, &url, max_visits) {
         Ok(v) => v,
-        Err(e) => return IncomingPlan::Failed(e.into()),
+        Err(e) => return IncomingPlan::Failed(e),
     };
 
     // This all seems more messy than it should be - struggling to find the
@@ -115,7 +115,7 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
             Some(t) => t,
             None => continue,
         };
-        let date_use = clamp_visit_date(visit.visit_date.into());
+        let date_use = clamp_visit_date(visit.visit_date);
         cur_visit_map.insert((transition, date_use));
     }
     // If we already have MAX_RECORDS visits, then we will ignore incoming
@@ -154,7 +154,7 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
     // Now we need to check the other attributes.
     // Check if we should update title? For now, assume yes. It appears
     // as though desktop always updates it.
-    if guid_changed || to_apply.len() != 0 {
+    if guid_changed || !to_apply.is_empty() {
         let new_title = Some(record.title);
         IncomingPlan::Apply {
             url: url.clone(),

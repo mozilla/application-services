@@ -40,7 +40,7 @@ impl QueryPlan {
     }
 
     pub fn print_pretty_tree(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        if self.plan.len() == 0 {
+        if self.plan.is_empty() {
             return writeln!(f, "<no query plan>");
         }
         writeln!(f, "QUERY PLAN")?;

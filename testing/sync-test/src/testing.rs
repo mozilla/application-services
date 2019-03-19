@@ -14,9 +14,6 @@ pub struct TestGroup {
 
 impl TestGroup {
     pub fn new(name: &'static str, tests: Vec<Test>) -> Self {
-        Self {
-            name,
-            tests: tests.into(),
-        }
+        Self { name, tests }
     }
 }

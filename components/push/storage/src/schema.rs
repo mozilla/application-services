@@ -5,9 +5,9 @@ use push_errors::Result;
 
 const VERSION: i64 = 1;
 
-const CREATE_TABLE_PUSH_SQL: &'static str = include_str!("schema.sql");
+const CREATE_TABLE_PUSH_SQL: &str = include_str!("schema.sql");
 
-pub const COMMON_COLS: &'static str = "
+pub const COMMON_COLS: &str = "
     uaid,
     channel_id,
     endpoint,

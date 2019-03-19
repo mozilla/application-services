@@ -150,7 +150,7 @@ pub extern "C" fn fxa_begin_pairing_flow(
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let pairing_url = pairing_url.as_str();
         let scope = scope.as_str();
-        let scopes: Vec<&str> = scope.split(" ").collect();
+        let scopes: Vec<&str> = scope.split(' ').collect();
         fxa.begin_pairing_flow(&pairing_url, &scopes)
     })
 }
@@ -179,7 +179,7 @@ pub extern "C" fn fxa_begin_oauth_flow(
     log::debug!("fxa_begin_oauth_flow");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let scope = scope.as_str();
-        let scopes: Vec<&str> = scope.split(" ").collect();
+        let scopes: Vec<&str> = scope.split(' ').collect();
         fxa.begin_oauth_flow(&scopes, wants_keys)
     })
 }

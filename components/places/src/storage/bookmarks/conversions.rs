@@ -152,7 +152,7 @@ impl msg_types::BookmarkNode {
         let value = self.node_type.unwrap();
         // Check that the cast wouldn't truncate first.
         assert!(
-            value >= 0 && value <= std::u8::MAX as i32,
+            value >= 0 && value <= i32::from(std::u8::MAX),
             "wildly illegal node_type: {}",
             value
         );
@@ -245,7 +245,7 @@ impl BookmarkUpdateInfo {
             (None, None) => UpdateTreeLocation::None,
             (None, Some(pos)) => UpdateTreeLocation::Position(BookmarkPosition::Specific(pos)),
             (Some(parent_guid), pos) => UpdateTreeLocation::Parent(
-                SyncGuid::from(parent_guid),
+                parent_guid,
                 pos.map_or(BookmarkPosition::Append, BookmarkPosition::Specific),
             ),
         };

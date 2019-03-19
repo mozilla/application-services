@@ -48,7 +48,7 @@ impl ScopedKeysFlow {
     }
 
     pub fn decrypt_keys_jwe(self, jwe: &str) -> Result<String> {
-        let segments: Vec<&str> = jwe.split(".").collect();
+        let segments: Vec<&str> = jwe.split('.').collect();
         let header = base64::decode_config(&segments[0], base64::URL_SAFE_NO_PAD)?;
         let protected_header: serde_json::Value = serde_json::from_slice(&header)?;
         assert_eq!(protected_header["epk"]["kty"], "EC");

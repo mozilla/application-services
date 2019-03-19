@@ -775,13 +775,14 @@ impl Store for LoginDb {
         new_timestamp: ServerTimestamp,
         records_synced: &[String],
     ) -> result::Result<(), failure::Error> {
-        Ok(self.mark_as_synchronized(
+        self.mark_as_synchronized(
             &records_synced
                 .iter()
                 .map(|r| r.as_str())
                 .collect::<Vec<_>>(),
             new_timestamp,
-        )?)
+        )?;
+        Ok(())
     }
 
     fn get_collection_request(&self) -> result::Result<CollectionRequest, failure::Error> {

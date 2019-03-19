@@ -335,9 +335,8 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
         // first get a mutable ref to our existing state, advance to the
         // state we will use, then re-stash that state for next time.
         let state: &mut TokenState = &mut self.current_state.borrow_mut();
-        match self.advance_state(request_client, state) {
-            Some(new_state) => *state = new_state,
-            None => (),
+        if let Some(new_state) = self.advance_state(request_client, state) {
+            *state = new_state;
         }
 
         // Now re-fetch the state we should use for this call - if it's
@@ -353,14 +352,14 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
             }
             TokenState::Failed(e, _) => {
                 // We swap the error out of the state enum and return it.
-                return Err(e.take().unwrap());
+                Err(e.take().unwrap())
             }
             TokenState::NodeReassigned => {
                 // this is unrecoverable.
-                return Err(ErrorKind::StorageResetError.into());
+                Err(ErrorKind::StorageResetError.into())
             }
             TokenState::Backoff(ref remaining, _) => {
-                return Err(ErrorKind::BackoffError(*remaining).into());
+                Err(ErrorKind::BackoffError(*remaining).into())
             }
         }
     }
