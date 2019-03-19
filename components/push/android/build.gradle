@@ -60,19 +60,9 @@ cargo {
 
     libname = 'push_ffi'
 
-    // The Cargo targets to invoke.  The mapping from short name to target
-    // triple is defined by the `rust-android-gradle` plugin.
-    targets = [
-        'arm',
-        'arm64',
-        'x86_64',
-        'x86',
-        'linux-x86-64',
-    ]
+    targets = rootProject.ext.rustTargets
 
-    // Perform release builds (which should have debug info, due to
-    // `debug = true` in Cargo.toml).
-    profile = "release"
+    profile = rootProject.ext.nonMegazordProfile
 
     exec = rootProject.ext.cargoExec
 }

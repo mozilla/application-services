@@ -144,6 +144,19 @@ CREATE TABLE IF NOT EXISTS moz_meta (
     value NOT NULL
 ) WITHOUT ROWID;
 
+-- Support for tags.
+CREATE TABLE IF NOT EXISTS moz_tags(
+    id INTEGER PRIMARY KEY,
+    tag TEXT UNIQUE NOT NULL,
+    lastModified INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS moz_tags_relation(
+    tag_id INTEGER NOT NULL REFERENCES moz_tags(id) ON DELETE CASCADE,
+    place_id INTEGER NOT NULL REFERENCES moz_places(id) ON DELETE CASCADE,
+    PRIMARY KEY(tag_id, place_id)
+) WITHOUT ROWID;
+
 -- This table holds synced items, including tombstones. It's unused if Sync
 -- isn't configured. At the end of a sync, this table's contents should
 -- conceptually match `moz_bookmarks`.

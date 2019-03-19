@@ -12,7 +12,6 @@ pub mod schema;
 mod update_plan;
 mod util;
 
-#[cfg(feature = "ffi")]
 mod ffi;
 
 pub use crate::engine::*;

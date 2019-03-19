@@ -154,8 +154,15 @@ pub enum InvalidPlaceInfo {
     #[fail(display = "Invalid parent: {}", _0)]
     InvalidParent(String),
 
+    // NoSuchGuid is used for guids, which aren't considered private information,
+    // so it's fine if this error, including the guid, is in the logs.
     #[fail(display = "No such item: {}", _0)]
-    NoItem(String),
+    NoSuchGuid(String),
+
+    // NoSuchUrl is used for URLs, which are private information, so the URL
+    // itself is not included in the error.
+    #[fail(display = "No such url")]
+    NoSuchUrl,
 
     #[fail(
         display = "Can't update a bookmark of type {} with one of type {}",
@@ -167,6 +174,10 @@ pub enum InvalidPlaceInfo {
     // for history we just ignore it.
     #[fail(display = "URL too long")]
     UrlTooLong,
+
+    // Like Urls, a tag is considered private info, so the value isn't in the error.
+    #[fail(display = "The tag value is invalid")]
+    InvalidTag,
 }
 
 // Error types used when we can't continue due to corruption.

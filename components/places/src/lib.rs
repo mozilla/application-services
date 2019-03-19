@@ -8,7 +8,6 @@ pub mod types;
 // Making these all pub for now while we flesh out the API.
 pub mod bookmark_sync;
 pub mod db;
-#[cfg(feature = "ffi")]
 pub mod ffi;
 pub mod frecency;
 pub mod hash;

@@ -44,11 +44,6 @@ use std::ptr;
 ///
 /// - `Option<T>` where `T` is `IntoFfi`, by returning `IntoFfi::ffi_default()` for `None`.
 ///
-/// - `Vec<T>` where `T` is `IntoFfi` and [`IntoFfiJsonTag`] (note: you get this
-///   automatically with [`implement_into_ffi_by_json!`]), allowing `Vec<T>` to be passed back as
-///   JSON if `T` could be.
-///     - In the future, we may do this for `serde_json::Value` and `HashMap<String, T>` as well.
-///
 /// None of these are directly helpful for user types though, so macros are provided for the
 /// following cases:
 ///
@@ -181,12 +176,6 @@ pub unsafe trait IntoFfi {
     fn into_ffi_value(self) -> Self::Value;
 }
 
-/// This is a marker trait that allows us to know when it's okay to implement [`IntoFfi`] for
-/// `Vec<T>` (and potentially things like `HashMap<String, T>` in the future) by serializing it to
-/// JSON. It's automatically implemented as part of [`implement_into_ffi_by_json!`], and you
-/// *probably* don't need to implement it manually.
-pub trait IntoFfiJsonTag: IntoFfi {}
-
 unsafe impl IntoFfi for String {
     type Value = *mut c_char;
 
@@ -219,28 +208,6 @@ unsafe impl<T: IntoFfi> IntoFfi for Option<T> {
         }
     }
 }
-
-// Implement `IntoFfi` for Vec<T> by serializing to JSON, where T implements IntoFfi by serializing
-// to JSON.
-unsafe impl<T: IntoFfi + IntoFfiJsonTag + serde::Serialize> IntoFfi for Vec<T> {
-    type Value = *mut c_char;
-
-    #[inline]
-    fn ffi_default() -> *mut c_char {
-        ptr::null_mut()
-    }
-
-    #[inline]
-    fn into_ffi_value(self) -> *mut c_char {
-        // See `implement_into_ffi_by_json!` for a discussion on this unwrap (it's rare, we call
-        // this function from catch_panic, and seems very unlikely to happen in practice).
-        let as_string = serde_json::to_string(&self).unwrap();
-        rust_string_to_c(as_string)
-    }
-}
-
-// I doubt anybody is going to return Vec<Vec<T>> through JSON, but there's no reason to prevent it.
-impl<T: IntoFfi + IntoFfiJsonTag + serde::Serialize> IntoFfiJsonTag for Vec<T> {}
 
 // We've had problems in the past returning booleans over the FFI (specifically to JNA), and so
 // we convert them to `u8`.

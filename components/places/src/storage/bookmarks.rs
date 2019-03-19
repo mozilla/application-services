@@ -556,8 +556,8 @@ pub fn update_bookmark(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> 
 }
 
 fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
-    let existing =
-        get_raw_bookmark(db, guid)?.ok_or_else(|| InvalidPlaceInfo::NoItem(guid.to_string()))?;
+    let existing = get_raw_bookmark(db, guid)?
+        .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(guid.to_string()))?;
     if existing.bookmark_type != item.bookmark_type() {
         return Err(InvalidPlaceInfo::MismatchedBookmarkType(
             existing.bookmark_type as u8,
@@ -1149,6 +1149,8 @@ fn inflate(
 /// Fetch the tree starting at the specified folder guid.
 /// Returns a BookmarkTreeNode::Folder(_)
 pub fn fetch_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<BookmarkTreeNode>> {
+    // XXX - this needs additional work for tags - unlike desktop, there's no
+    // "tags" folder, but instead a couple of tables to join on.
     let sql = r#"
         WITH RECURSIVE
         descendants(fk, level, type, id, guid, parent, parentGuid, position,

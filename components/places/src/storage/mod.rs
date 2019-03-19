@@ -7,6 +7,7 @@
 
 pub mod bookmarks;
 pub mod history;
+pub mod tags;
 
 use crate::db::PlacesDb;
 use crate::error::{ErrorKind, InvalidPlaceInfo, Result};

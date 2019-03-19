@@ -1,7 +1,7 @@
 [package]
 name = "ffi-support"
 edition = "2018"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 description = "A crate to help expose Rust functions over the FFI."
 repository = "https://github.com/mozilla/application-services"
@@ -16,11 +16,8 @@ travis-ci = { repository = "mozilla/application-services" }
 [features]
 default = []
 log_backtraces = ["backtrace"]
-prost_support = ["prost"]
 
 [dependencies]
-serde_json = "1.0.32"
-serde = "1.0.79"
 log = "0.4"
 lazy_static = "1.2.0"
 failure = "0.1.5"
@@ -29,10 +26,3 @@ failure_derive = "0.1.5"
 [dependencies.backtrace]
 optional = true
 version = "0.3.9"
-
-[dependencies.prost]
-optional = true
-version = "0.4"
-
-[package.metadata.docs.rs]
-features = ["prost_support"]

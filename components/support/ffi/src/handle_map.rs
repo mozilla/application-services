@@ -880,7 +880,7 @@ impl<T> ConcurrentHandleMap<T> {
         callback: F,
     ) -> R::Value
     where
-        F: FnOnce(&mut T) -> Result<R, E>,
+        F: std::panic::UnwindSafe + FnOnce(&mut T) -> Result<R, E>,
         ExternError: From<E>,
         R: IntoFfi,
     {
@@ -904,7 +904,7 @@ impl<T> ConcurrentHandleMap<T> {
         callback: F,
     ) -> R::Value
     where
-        F: FnOnce(&T) -> Result<R, E>,
+        F: std::panic::UnwindSafe + FnOnce(&T) -> Result<R, E>,
         ExternError: From<E>,
         R: IntoFfi,
     {
@@ -919,7 +919,7 @@ impl<T> ConcurrentHandleMap<T> {
         callback: F,
     ) -> R::Value
     where
-        F: FnOnce(&T) -> R,
+        F: std::panic::UnwindSafe + FnOnce(&T) -> R,
         R: IntoFfi,
     {
         self.call_with_result(out_error, h, |r| -> Result<_, HandleError> {
@@ -935,7 +935,7 @@ impl<T> ConcurrentHandleMap<T> {
         callback: F,
     ) -> R::Value
     where
-        F: FnOnce(&mut T) -> R,
+        F: std::panic::UnwindSafe + FnOnce(&mut T) -> R,
         R: IntoFfi,
     {
         self.call_with_result_mut(out_error, h, |r| -> Result<_, HandleError> {
@@ -948,7 +948,7 @@ impl<T> ConcurrentHandleMap<T> {
     /// `ExternError`).
     pub fn insert_with_result<E, F>(&self, out_error: &mut ExternError, constructor: F) -> u64
     where
-        F: FnOnce() -> Result<T, E>,
+        F: std::panic::UnwindSafe + FnOnce() -> Result<T, E>,
         ExternError: From<E>,
     {
         use crate::call_with_result;
@@ -969,7 +969,7 @@ impl<T> ConcurrentHandleMap<T> {
     /// clear that it contains a [`call_with_output`] internally.
     pub fn insert_with_output<F>(&self, out_error: &mut ExternError, constructor: F) -> u64
     where
-        F: FnOnce() -> T,
+        F: std::panic::UnwindSafe + FnOnce() -> T,
     {
         // The Err type isn't important here beyond being convertable to ExternError
         self.insert_with_result(out_error, || -> Result<_, HandleError> {
