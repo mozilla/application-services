@@ -67,7 +67,7 @@ fn get_code(err: &Error) -> ErrorCode {
                 InvalidPlaceInfo::InvalidParent(..) => {
                     error_codes::INVALID_PLACE_INFO_INVALID_PARENT
                 }
-                InvalidPlaceInfo::NoItem(..) => error_codes::INVALID_PLACE_INFO_NO_ITEM,
+                InvalidPlaceInfo::NoSuchGuid(..) => error_codes::INVALID_PLACE_INFO_NO_ITEM,
                 InvalidPlaceInfo::UrlTooLong => error_codes::INVALID_PLACE_INFO_INVALID_PARENT,
                 InvalidPlaceInfo::IllegalChange(..) => {
                     error_codes::INVALID_PLACE_INFO_ILLEGAL_CHANGE

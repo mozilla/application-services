@@ -259,7 +259,7 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
     }
     let parent_guid = bm.parent_guid();
     let parent = get_raw_bookmark(db, parent_guid)?
-        .ok_or_else(|| InvalidPlaceInfo::NoItem(parent_guid.to_string()))?;
+        .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(parent_guid.to_string()))?;
     if parent.bookmark_type != BookmarkType::Folder {
         return Err(InvalidPlaceInfo::InvalidParent(parent_guid.to_string()).into());
     }
@@ -537,7 +537,7 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
                 return Err(InvalidPlaceInfo::CannotUpdateRoot(BookmarkRootGuid::Root).into());
             }
             let new_parent = get_raw_bookmark(db, &new_parent_guid)?
-                .ok_or_else(|| InvalidPlaceInfo::NoItem(new_parent_guid.to_string()))?;
+                .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(new_parent_guid.to_string()))?;
             if new_parent.bookmark_type != BookmarkType::Folder {
                 return Err(InvalidPlaceInfo::InvalidParent(new_parent_guid.to_string()).into());
             }
