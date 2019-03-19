@@ -104,6 +104,14 @@ jobs:
       - run: rustup component add rustfmt
       - run: rustfmt --version
       - run: cargo fmt -- --check
+  Lint Rust with clippy:
+    docker:
+      - image: circleci/rust:latest
+    steps:
+      - checkout
+      - run: rustup component add clippy
+      - run: cargo clippy --version
+      - run: cargo clippy --all --all-targets --all-features -- -D warnings
   Rust tests - stable:
     docker:
       - image: circleci/rust:latest
@@ -198,6 +206,9 @@ workflows:
   check-formating:
     jobs:
       - Check Rust formatting
+  clippy:
+    jobs:
+      - Lint Rust with clippy
   run-tests:
     jobs:
       - Rust tests - stable
