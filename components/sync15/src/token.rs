@@ -469,7 +469,7 @@ mod tests {
             })
         };
 
-        let tsc = make_tsc(fetch, || SystemTime::now());
+        let tsc = make_tsc(fetch, SystemTime::now);
 
         let e = tsc.api_endpoint(&make_client()).expect("should work");
         assert_eq!(e, "api_endpoint".to_string());
@@ -487,7 +487,7 @@ mod tests {
         let fetch = || {
             counter.set(counter.get() + 1);
             let when = SystemTime::now() + Duration::from_millis(10000);
-            return Err(error::Error::from(ErrorKind::BackoffError(when)));
+            Err(error::Error::from(ErrorKind::BackoffError(when)))
         };
         let now: Cell<SystemTime> = Cell::new(SystemTime::now());
         let tsc = make_tsc(fetch, || now.get());

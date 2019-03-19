@@ -1920,7 +1920,6 @@ mod tests {
                 })
                 .expect("should work")
                 .map(|v| v.unwrap())
-                .into_iter()
                 .collect();
 
             assert_eq!(
@@ -1943,7 +1942,6 @@ mod tests {
                 })
                 .expect("should work")
                 .map(|v| v.unwrap())
-                .into_iter()
                 .collect();
 
             assert_eq!(

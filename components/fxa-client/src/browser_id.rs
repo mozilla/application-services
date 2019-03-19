@@ -45,7 +45,7 @@ impl FirefoxAccount {
         }))
     }
 
-    fn to_married(&mut self) -> Option<&MarriedState> {
+    fn advance_to_married(&mut self) -> Option<&MarriedState> {
         self.advance();
         match self.state.login_state {
             LoginState::Married(ref married) => Some(married),
@@ -73,7 +73,7 @@ impl FirefoxAccount {
     }
 
     pub fn generate_assertion(&mut self, audience: &str) -> Result<String> {
-        let married = match self.to_married() {
+        let married = match self.advance_to_married() {
             Some(married) => married,
             None => return Err(ErrorKind::NotMarried.into()),
         };
@@ -87,7 +87,7 @@ impl FirefoxAccount {
     }
 
     pub fn get_sync_keys(&mut self) -> Result<SyncKeys> {
-        let married = match self.to_married() {
+        let married = match self.advance_to_married() {
             Some(married) => married,
             None => return Err(ErrorKind::NotMarried.into()),
         };
@@ -97,7 +97,7 @@ impl FirefoxAccount {
 
     pub fn sign_out(mut self) {
         self.client.sign_out();
-        self.state.login_state = self.state.login_state.to_separated();
+        self.state.login_state = self.state.login_state.into_separated();
     }
 }
 

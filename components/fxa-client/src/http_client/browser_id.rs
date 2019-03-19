@@ -8,7 +8,7 @@ use crate::{
     util::Xorable,
     Config,
 };
-use hawk_request::HAWKRequestBuilder;
+use hawk_request::HawkRequestBuilder;
 use reqwest::{Client as ReqwestClient, Method, Url};
 use ring::{digest, hkdf, hmac};
 use rsa::RSABrowserIDKeyPair;
@@ -39,7 +39,7 @@ pub trait FxABrowserIDClient: http_client::FxAClient {
         auth_pwd: &str,
         get_keys: bool,
     ) -> Result<LoginResponse>;
-    fn account_status(&self, config: &Config, uid: &String) -> Result<AccountStatusResponse>;
+    fn account_status(&self, config: &Config, uid: &str) -> Result<AccountStatusResponse>;
     fn keys(&self, config: &Config, key_fetch_token: &[u8]) -> Result<KeysResponse>;
     fn recovery_email_status(
         &self,
@@ -85,7 +85,7 @@ impl FxABrowserIDClient for http_client::Client {
         Self::make_request(request)?.json().map_err(|e| e.into())
     }
 
-    fn account_status(&self, config: &Config, uid: &String) -> Result<AccountStatusResponse> {
+    fn account_status(&self, config: &Config, uid: &str) -> Result<AccountStatusResponse> {
         let url = config.auth_url_path("v1/account/status")?;
         let request = ReqwestClient::new()
             .get(url)
@@ -100,7 +100,7 @@ impl FxABrowserIDClient for http_client::Client {
         let key =
             derive_hkdf_sha256_key(&key_fetch_token, &HKDF_SALT, &context_info, KEY_LENGTH * 3);
         let key_request_key = &key[(KEY_LENGTH * 2)..(KEY_LENGTH * 3)];
-        let request = HAWKRequestBuilder::new(Method::GET, url, &key).build()?;
+        let request = HawkRequestBuilder::new(Method::GET, url, &key).build()?;
         let json: serde_json::Value = Self::make_request(request)?.json()?;
         let bundle = match json["bundle"].as_str() {
             Some(bundle) => bundle,
@@ -118,7 +118,7 @@ impl FxABrowserIDClient for http_client::Client {
         let hmac_key = &bytes[0..KEY_LENGTH];
         let xor_key = &bytes[KEY_LENGTH..(KEY_LENGTH * 3)];
 
-        let v_key = hmac::VerificationKey::new(&digest::SHA256, hmac_key.as_ref());
+        let v_key = hmac::VerificationKey::new(&digest::SHA256, hmac_key);
         hmac::verify(&v_key, ciphertext, mac_code).map_err(|_| ErrorKind::HmacVerifyFail)?;
 
         let xored_bytes = ciphertext.xored_with(xor_key)?;
@@ -133,7 +133,7 @@ impl FxABrowserIDClient for http_client::Client {
     ) -> Result<RecoveryEmailStatusResponse> {
         let url = config.auth_url_path("v1/recovery_email/status")?;
         let key = derive_key_from_session_token(session_token)?;
-        let request = HAWKRequestBuilder::new(Method::GET, url, &key).build()?;
+        let request = HawkRequestBuilder::new(Method::GET, url, &key).build()?;
         Self::make_request(request)?.json().map_err(|e| e.into())
     }
 
@@ -155,7 +155,7 @@ impl FxABrowserIDClient for http_client::Client {
         });
         let key = derive_key_from_session_token(session_token)?;
         let url = config.authorization_endpoint()?;
-        let request = HAWKRequestBuilder::new(Method::POST, url, &key)
+        let request = HawkRequestBuilder::new(Method::POST, url, &key)
             .body(parameters)
             .build()?;
         Self::make_request(request)?.json().map_err(|e| e.into())
@@ -174,7 +174,7 @@ impl FxABrowserIDClient for http_client::Client {
         });
         let key = derive_key_from_session_token(session_token)?;
         let url = config.auth_url_path("v1/certificate/sign")?;
-        let request = HAWKRequestBuilder::new(Method::POST, url, &key)
+        let request = HawkRequestBuilder::new(Method::POST, url, &key)
             .body(parameters)
             .build()?;
         Self::make_request(request)?.json().map_err(|e| e.into())

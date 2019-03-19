@@ -447,7 +447,7 @@ mod tests {
         let record: BsoRecord<EncryptedPayload> = serde_json::from_str(serialized).unwrap();
         assert_eq!(&record.id, "1234");
         assert_eq!(&record.collection, "passwords");
-        assert_eq!(record.modified.0, 12344321.0);
+        assert!((record.modified.0 - 1234_4321.0).abs() < std::f64::EPSILON);
         assert_eq!(record.sortindex, None);
         assert_eq!(&record.payload.iv, "aaaaa");
         assert_eq!(&record.payload.hmac, "bbbbb");

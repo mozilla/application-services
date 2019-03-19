@@ -104,6 +104,7 @@ impl FirefoxAccount {
     }
 
     #[cfg(test)]
+    #[allow(dead_code)] // FIXME
     pub(crate) fn set_client(&mut self, client: Arc<FxAClient>) {
         self.client = client;
     }

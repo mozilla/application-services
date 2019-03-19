@@ -93,7 +93,7 @@ mod tests {
             ("place", 0xf434),
         ];
         for &(prefix, top16bits) in test_values {
-            let expected_lo = (top16bits as u64) << 32;
+            let expected_lo = u64::from(top16bits) << 32;
             let expected_hi = expected_lo | 0xffff_ffffu64;
             assert_eq!(
                 hash_url_prefix(prefix, PrefixMode::Lo),
