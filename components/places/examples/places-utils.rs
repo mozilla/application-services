@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
-use places::bookmark_sync::store::BookmarksStore;
 use places::history_sync::store::HistoryStore;
 use places::storage::bookmarks::{
     fetch_tree, insert_tree, BookmarkNode, BookmarkRootGuid, BookmarkTreeNode, FolderNode,
@@ -14,12 +13,11 @@ use places::{ConnectionType, PlacesApi, PlacesDb};
 
 use failure::Fail;
 use serde_derive::*;
-use sql_support::ConnExt;
 use std::cell::Cell;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
-use sync15::{sync_multiple, telemetry, Store};
+use sync15::{telemetry, Store};
 use url::Url;
 
 type Result<T> = std::result::Result<T, failure::Error>;
@@ -160,79 +158,44 @@ fn run_native_export(db: &PlacesDb, filename: String) -> Result<()> {
 }
 
 fn sync(
-    api: &PlacesApi,
+    db: &PlacesDb,
     engine_names: Vec<String>,
     cred_file: String,
     wipe: bool,
     reset: bool,
 ) -> Result<()> {
-    let conn = api.open_connection(ConnectionType::Sync)?;
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
 
-    // rather than jump through too many trait hoops etc for exactly 2
-    // engines, we always create an engine, but just don't always sync them.
+    // markh got a bit ahead of himself here :)
+    // This should move to using PlacesApi.
     let client_info = Cell::new(None);
-    let bookmarks_store = BookmarksStore::new(&conn, &client_info);
-    let history_store = HistoryStore::new(&conn, &client_info);
-    let stores: Vec<&dyn Store> = if engine_names.len() == 0 {
-        vec![&history_store, &bookmarks_store]
+    let stores = if engine_names.len() == 0 {
+        vec![HistoryStore::new(db, &client_info)]
     } else {
         assert!(engine_names.len() == 1 && engine_names[0] == "history");
-        vec![&history_store]
+        vec![HistoryStore::new(db, &client_info)]
     };
-    for store in stores.iter() {
+    let mut sync_ping = telemetry::SyncTelemetryPing::new();
+    for store in stores {
         if wipe {
             store.wipe()?;
         }
         if reset {
             store.reset()?;
         }
-    }
 
-    // now the syncs.
-    // XXX - unfortunately, history stores global meta in a `history_global_state`,
-    // but that's a global that should be shared between history and bookmarks.
-    // We should consider changing that key name?
-    // Even more unfortunate, places::storage::get_meta is `pub(crate)`, so we
-    // can't use it here.
-    // Ultimately though, this really needs to be on PlacesApi.
-    use rusqlite::types::{FromSql, ToSql};
-    fn put_meta(db: &PlacesDb, key: &str, value: &ToSql) -> Result<()> {
-        db.execute_named_cached(
-            "REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
-            &[(":key", &key), (":value", value)],
-        )?;
-        Ok(())
+        log::info!("Syncing {}", store.collection_name());
+        if let Err(e) = store.sync(
+            &cli_fxa.client_init.clone(),
+            &cli_fxa.root_sync_key,
+            &mut sync_ping,
+        ) {
+            log::warn!("Sync failed! {}", e);
+            log::warn!("BT: {:?}", e.backtrace());
+        } else {
+            log::info!("Sync was successful!");
+        }
     }
-
-    fn get_meta<T: FromSql>(db: &PlacesDb, key: &str) -> Result<Option<T>> {
-        let res = db.try_query_one(
-            "SELECT value FROM moz_meta WHERE key = :key",
-            &[(":key", &key)],
-            true,
-        )?;
-        Ok(res)
-    }
-
-    let meta_key_name = "history_global_state";
-    let global_state: Cell<Option<String>> = Cell::new(get_meta(&conn, meta_key_name)?);
-    let client_info = Cell::new(None);
-    let mut sync_ping = telemetry::SyncTelemetryPing::new();
-
-    if let Err(e) = sync_multiple(
-        &stores,
-        &global_state,
-        &client_info,
-        &cli_fxa.client_init.clone(),
-        &cli_fxa.root_sync_key,
-        &mut sync_ping,
-    ) {
-        log::warn!("Sync failed! {}", e);
-        log::warn!("BT: {:?}", e.backtrace());
-    } else {
-        log::info!("Sync was successful!");
-    }
-    put_meta(&conn, meta_key_name, &global_state.replace(None))?;
     println!(
         "Sync telemetry: {}",
         serde_json::to_string_pretty(&sync_ping).unwrap()
@@ -331,7 +294,7 @@ fn main() -> Result<()> {
             credential_file,
             wipe,
             reset,
-        } => sync(&api, engines, credential_file, wipe, reset),
+        } => sync(&db, engines, credential_file, wipe, reset),
         Command::ExportBookmarks { output_file } => run_native_export(&db, output_file),
         Command::ImportBookmarks { input_file } => run_native_import(&db, input_file),
         Command::ImportDesktopBookmarks { input_file } => run_desktop_import(&db, input_file),

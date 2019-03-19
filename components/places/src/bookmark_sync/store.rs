@@ -485,46 +485,12 @@ impl<'a> Store for BookmarksStore<'a> {
     }
 
     fn reset(&self) -> result::Result<(), failure::Error> {
-        let tx = self.db.unchecked_transaction()?;
-        self.db.conn().execute_cached(
-            &format!(
-                "
-                DELETE from moz_bookmarks_synced;
-
-                UPDATE moz_bookmarks
-                    SET sync_change_counter = 0,
-                    sync_status = {}",
-                (SyncStatus::New as u8)
-            ),
-            NO_PARAMS,
-        )?;
-        self.put_meta(LAST_SYNC_META_KEY, &0)?;
-        tx.commit()?;
-        Ok(())
+        unimplemented!("TODO: Wipe staged items and reset sync statuses");
     }
 
-    // There's a bit of confusion around 'wipe' in this trait.
-    // Logins has `wipe` and `wipe_local`, where the former just wipes the
-    // mirror. There's no `wipe_server` (which in theory can be generically
-    // implemented for any engine.
     fn wipe(&self) -> result::Result<(), failure::Error> {
         log::warn!("not implemented");
         Ok(())
-
-        /* A wipe_local for bookmarks could probably look something like:
-            let tx = self.db.unchecked_transaction()?;
-            self.db.conn().execute_cached(
-                "
-                DELETE from moz_bookmarks;
-                DELETE from moz_bookmarks_deleted;
-                DELETE from moz_bookmarks_synced;",
-                NO_PARAMS,
-            )?;
-            create_bookmark_roots(self.db)?;
-            create_synced_bookmark_roots(self.db)?;
-            tx.commit()?;
-            Ok(())
-        */
     }
 }
 
@@ -880,6 +846,7 @@ mod tests {
     use dogear::{Store as DogearStore, Validity};
     use pretty_assertions::assert_eq;
     use serde_json::{json, Value};
+    use sync15::Store as SyncStore;
 
     use std::cell::Cell;
     use sync15::Payload;
