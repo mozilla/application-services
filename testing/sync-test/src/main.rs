@@ -1,6 +1,8 @@
 /* Any copyright is dedicated to the Public Domain.
 http://creativecommons.org/publicdomain/zero/1.0/ */
 
+#![allow(unknown_lints)]
+
 use structopt::StructOpt;
 
 mod auth;

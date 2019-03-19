@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #![deny(missing_docs)]
+#![allow(unknown_lints)]
 
 //! # FFI Support
 //!
