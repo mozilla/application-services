@@ -4,6 +4,7 @@
  *
  * Called from the Connection Manager.
  */
+#![allow(unknown_lints)]
 extern crate storage;
 
 pub struct NotifierError;

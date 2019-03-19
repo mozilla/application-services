@@ -5,6 +5,7 @@
  * Handle Push data storage
  */
 
+#![allow(unknown_lints)]
 mod db;
 mod record;
 mod schema;

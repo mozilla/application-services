@@ -1,3 +1,4 @@
+#![allow(unknown_lints)]
 pub use communications;
 pub use config;
 pub use crypto;

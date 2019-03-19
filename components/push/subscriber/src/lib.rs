@@ -2,6 +2,8 @@
  * "priviledged" system calls may require additional handling and should be flagged as such.
  */
 
+#![allow(unknown_lints)]
+
 extern crate serde_json;
 
 extern crate communications;

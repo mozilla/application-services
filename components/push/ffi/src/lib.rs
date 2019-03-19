@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#![allow(unknown_lints)]
+
 use ffi_support::{
     define_bytebuffer_destructor, define_handle_map_deleter, define_string_destructor,
     ConcurrentHandleMap, ExternError, FfiStr,
