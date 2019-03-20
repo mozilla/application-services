@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use super::create_synced_bookmark_roots;
 use super::incoming::IncomingApplicator;
 use super::record::{
     guid_to_id, id_to_guid, BookmarkItemRecord, BookmarkRecord, FolderRecord, QueryRecord,
@@ -482,18 +483,18 @@ impl<'a> Store for BookmarksStore<'a> {
 
     fn reset(&self) -> result::Result<(), failure::Error> {
         let tx = self.db.unchecked_transaction()?;
-        self.db.conn().execute_cached(
-            &format!(
-                "
-                DELETE from moz_bookmarks_synced;
+        self.db.execute_batch(&format!(
+            "
+                DELETE FROM moz_bookmarks_synced;
+
+                DELETE FROM moz_bookmarks_deleted;
 
                 UPDATE moz_bookmarks
-                    SET sync_change_counter = 0,
-                    sync_status = {}",
-                (SyncStatus::New as u8)
-            ),
-            NO_PARAMS,
-        )?;
+                    SET syncChangeCounter = 0,
+                    syncStatus = {}",
+            (SyncStatus::New as u8)
+        ))?;
+        create_synced_bookmark_roots(self.db)?;
         put_meta(self.db, LAST_SYNC_META_KEY, &0)?;
         tx.commit()?;
         Ok(())
