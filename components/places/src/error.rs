@@ -209,6 +209,9 @@ pub enum Corruption {
     #[fail(display = "The local roots are invalid")]
     InvalidLocalRoots,
 
+    #[fail(display = "The synced roots are invalid")]
+    InvalidSyncedRoots,
+
     #[fail(
         display = "Bookmark '{}' has no parent but is not the bookmarks root",
         _0
