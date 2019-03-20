@@ -1,8 +1,12 @@
 package mozilla.appservices.push
 
+import java.io.File
+import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.*
 import java.nio.charset.Charset
@@ -10,6 +14,17 @@ import java.nio.charset.Charset
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
 class PushTest {
+    @Rule
+    @JvmField
+    val tmpFolder = TemporaryFolder()
+
+    lateinit var dbFile: String
+
+    @Before
+    fun initDB() {
+        dbFile = tmpFolder.newFile().toString()
+    }
+
     protected val private_key_raw = "MHcCAQEEIKiZMcVhlVccuwSr62jWN4YPBrPmPKotJUWl1id0d2ifoAoGCCq" +
             "GSM49AwEHoUQDQgAEFwl1-zUa0zLKYVO23LqUgZZEVesS0k_jQN_SA69ENHgPwIpWCoTq-VhHu0JiSwhF0o" +
             "PUzEM-FBWYoufO6J97nQ"
@@ -58,7 +73,8 @@ class PushTest {
         return PushManager(
                 sender_id = mockSenderId,
                 bridge_type = BridgeTypes.TEST,
-                registration_id = "TestRegistrationId"
+                registration_id = "TestRegistrationId",
+                database_path = dbFile
         )
     }
 
@@ -67,9 +83,15 @@ class PushTest {
         The push component is designed to be as light weight as possible. The "Push Manager"
         handles subscription management and message decryption.
 
-        In general, usage would consist of calling
+        In general, usage would consist of calling:
 
-        val manager = getPushManager()
+        ```kotlin
+        val manager = PushManager(
+            sender_id = "SomeSenderIDValue",
+            bridge_type = BridgeTypes.FCM,
+            registration_id = systemProvidedRegistrationValue,
+            database_path = "/path/to/database.sql"
+        )
         val newEndpoints = manager.verifyConnection()
         if newEndpoints.length() > 0 {
             for (channelId in newEndpoints.keys()) {
@@ -102,6 +124,8 @@ class PushTest {
         manager.update(newSubscriptionID)
             // sets the new registration ID (sender ID) on the server. Returns a false if this
             // operation fails. A failure may prevent future messages from being received.
+
+      ```
     */
 
     @Test
