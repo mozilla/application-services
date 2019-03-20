@@ -2,7 +2,15 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.20.2...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.21.0...master)
+
+# v0.21.0 (_2019-03-20_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.20.2...v0.21.0)
+
+## General
+
+- Breakpad symbols should be available for android now ([#741](https://github.com/mozilla/application-services/pull/741))
 
 ## Places
 
