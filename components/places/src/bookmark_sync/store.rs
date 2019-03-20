@@ -87,7 +87,7 @@ impl<'a> BookmarksStore<'a> {
         let applicator = IncomingApplicator::new(&self.db);
 
         for incoming in inbound.changes {
-            applicator.apply_payload(incoming.0, timestamp)?;
+            applicator.apply_payload(incoming.0, incoming.1)?;
             incoming_telemetry.applied(1);
             tx.maybe_commit()?;
         }
@@ -605,7 +605,7 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
             WITH RECURSIVE
             {local_items_fragment}
             SELECT s.id, s.guid, s.parentGuid, {kind} AS kind,
-                   s.lastModified / 1000 AS localModified, s.syncChangeCounter
+                   s.lastModified as localModified, s.syncChangeCounter
             FROM localItems s
             ORDER BY s.level, s.parentId, s.position"#,
             local_items_fragment = *LOCAL_ITEMS_SQL_FRAGMENT,
@@ -619,10 +619,12 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
             let kind = SyncedBookmarkKind::from_u8(row.get_checked("kind")?)?;
             let mut item = Item::new(guid.into(), kind.into());
             // Note that this doesn't account for local clock skew.
-            let age = row
-                .get_checked::<_, Timestamp>("localModified")
-                .unwrap_or_default()
-                .duration_since(self.local_time)
+            let age = self
+                .local_time
+                .duration_since(
+                    row.get_checked::<_, Timestamp>("localModified")
+                        .unwrap_or_default(),
+                )
                 .unwrap_or_default();
             item.age = age.as_secs() as i64 * 1000 + i64::from(age.subsec_millis());
             item.needs_merge = row.get_checked::<_, u32>("syncChangeCounter")? > 0;
@@ -715,8 +717,14 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
             let guid = row.get_checked::<_, SyncGuid>("guid")?;
             let kind = SyncedBookmarkKind::from_u8(row.get_checked("kind")?)?;
             let mut item = Item::new(guid.into(), kind.into());
-            let age = ServerTimestamp(row.get_checked::<_, f64>("serverModified").unwrap_or(0f64))
-                .duration_since(self.remote_time)
+            // note that serverModified in this table is an int with ms, which isn't
+            // the format of a ServerTimestamp - so we convert it into a number
+            // of seconds before creating a ServerTimestamp and doing duration_since.
+            let age = self
+                .remote_time
+                .duration_since(ServerTimestamp(
+                    row.get_checked::<_, i64>("serverModified").unwrap_or(0) as f64 / 1000.0,
+                ))
                 .unwrap_or_default();
             item.age = age.as_secs() as i64 * 1000 + i64::from(age.subsec_millis());
             item.needs_merge = row.get_checked("needsMerge")?;

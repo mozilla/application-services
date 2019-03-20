@@ -167,7 +167,7 @@ CREATE TABLE IF NOT EXISTS moz_bookmarks_synced(
     guid TEXT UNIQUE NOT NULL,
     /* The `parentid` from the record. */
     parentGuid TEXT,
-    /* The server modified time, in milliseconds. */
+    /* The server modified time, in milliseconds (ie, this is *not* a ServerTimestamp). */
     serverModified INTEGER NOT NULL DEFAULT 0,
     needsMerge BOOLEAN NOT NULL DEFAULT 0,
     validity INTEGER NOT NULL DEFAULT 1, -- SyncValidity::Valid
