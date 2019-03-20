@@ -1243,13 +1243,15 @@ mod tests {
     #[test]
     fn test_apply() -> Result<()> {
         let api = new_mem_api();
-        let conn = api.open_connection(ConnectionType::Sync)?;
+        let writer = api.open_connection(ConnectionType::ReadWrite)?;
+        let syncer = api.open_connection(ConnectionType::Sync)?;
 
-        conn.execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
+        syncer
+            .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
             .expect("should work");
 
         insert_local_json_tree(
-            &conn,
+            &writer,
             json!({
                 "guid": &BookmarkRootGuid::Unfiled.as_guid(),
                 "children": [
@@ -1267,7 +1269,7 @@ mod tests {
             }),
         );
         tags::tag_url(
-            &conn,
+            &writer,
             &Url::parse("http://example.com/a").expect("Should parse URL for A"),
             "baz",
         )
@@ -1296,7 +1298,7 @@ mod tests {
         ];
 
         let client_info = Cell::new(None);
-        let store = BookmarksStore::new(&conn, &client_info);
+        let store = BookmarksStore::new(&syncer, &client_info);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -1326,7 +1328,7 @@ mod tests {
         );
 
         assert_local_json_tree(
-            &conn,
+            &writer,
             &BookmarkRootGuid::Root.as_guid(),
             json!({
                 "guid": &BookmarkRootGuid::Root.as_guid(),
@@ -1372,11 +1374,11 @@ mod tests {
         // We haven't finished the sync yet, so all local change counts for
         // items to upload should still be > 0.
         let guid_for_a: SyncGuid = "bookmarkAAAA".into();
-        let info_for_a = get_raw_bookmark(&conn, &guid_for_a)
+        let info_for_a = get_raw_bookmark(&writer, &guid_for_a)
             .expect("Should fetch info for A")
             .unwrap();
         assert_eq!(info_for_a.sync_change_counter, 1);
-        let info_for_unfiled = get_raw_bookmark(&conn, &BookmarkRootGuid::Unfiled.as_guid())
+        let info_for_unfiled = get_raw_bookmark(&writer, &BookmarkRootGuid::Unfiled.as_guid())
             .expect("Should fetch info for unfiled")
             .unwrap();
         assert_eq!(info_for_unfiled.sync_change_counter, 1);
@@ -1392,17 +1394,17 @@ mod tests {
             )
             .expect("Should push synced changes back to the store");
 
-        let info_for_a = get_raw_bookmark(&conn, &guid_for_a)
+        let info_for_a = get_raw_bookmark(&writer, &guid_for_a)
             .expect("Should fetch info for A")
             .unwrap();
         assert_eq!(info_for_a.sync_change_counter, 0);
-        let info_for_unfiled = get_raw_bookmark(&conn, &BookmarkRootGuid::Unfiled.as_guid())
+        let info_for_unfiled = get_raw_bookmark(&writer, &BookmarkRootGuid::Unfiled.as_guid())
             .expect("Should fetch info for unfiled")
             .unwrap();
         assert_eq!(info_for_unfiled.sync_change_counter, 0);
 
         let mut tags_for_c = tags::get_tags_for_url(
-            &conn,
+            &writer,
             &Url::parse("http://example.com/c").expect("Should parse URL for C"),
         )
         .expect("Should return tags for C");
