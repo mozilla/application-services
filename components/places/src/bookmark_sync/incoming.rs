@@ -7,7 +7,11 @@ use super::record::{
 };
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::error::*;
-use crate::storage::{bookmarks::maybe_truncate_title, TAG_LENGTH_MAX, URL_LENGTH_MAX};
+use crate::storage::{
+    bookmarks::maybe_truncate_title,
+    tags::{validate_tag, ValidatedTag},
+    URL_LENGTH_MAX,
+};
 use crate::types::SyncGuid;
 use rusqlite::Connection;
 use sql_support::{self, ConnExt};
@@ -17,21 +21,6 @@ use url::Url;
 // From Desktop's Ci.nsINavHistoryQueryOptions, but we define it as a str
 // as that's how we use it here.
 const RESULTS_AS_TAG_CONTENTS: &str = "7";
-
-fn validate_tag(tag: &Option<String>) -> Option<&str> {
-    match tag {
-        None => None,
-        Some(t) => {
-            // Drop empty and oversized tags.
-            let t = t.trim();
-            if t.len() == 0 || t.len() > TAG_LENGTH_MAX {
-                None
-            } else {
-                Some(t)
-            }
-        }
-    }
-}
 
 /// Manages the application of incoming records into the moz_bookmarks_synced
 /// and related tables.
@@ -159,11 +148,12 @@ impl<'a> IncomingApplicator<'a> {
                 .clone()
                 .any(|(k, v)| k == "type" && v == RESULTS_AS_TAG_CONTENTS)
             {
-                if let Some(tag) = validate_tag(&q.tag_folder_name) {
-                    (
-                        Some(Url::parse(&format!("place:tag={}", tag))?),
-                        SyncedBookmarkValidity::Reupload,
-                    )
+                if let Some(tag_folder_name) = &q.tag_folder_name {
+                    validate_tag(tag_folder_name)
+                        .ensure_valid()
+                        .and_then(|tag| Ok(Url::parse(&format!("place:tag={}", tag))?))
+                        .map(|url| (Some(url), SyncedBookmarkValidity::Reupload))
+                        .unwrap_or((None, SyncedBookmarkValidity::Replace))
                 } else {
                     (None, SyncedBookmarkValidity::Replace)
                 }
