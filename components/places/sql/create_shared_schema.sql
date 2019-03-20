@@ -199,8 +199,10 @@ CREATE TABLE IF NOT EXISTS moz_bookmarks_synced_structure(
 ) WITHOUT ROWID;
 
 -- This table holds tags for synced items.
-CREATE TABLE IF NOT EXISTS moz_bookmarks_synced_tags(
+CREATE TABLE IF NOT EXISTS moz_bookmarks_synced_tag_relation(
     itemId INTEGER NOT NULL REFERENCES moz_bookmarks_synced(id)
                             ON DELETE CASCADE,
-    tag TEXT NOT NULL
-);
+    tagId INTEGER NOT NULL REFERENCES moz_tags(id)
+                           ON DELETE CASCADE,
+    PRIMARY KEY(itemId, tagId)
+) WITHOUT ROWID;

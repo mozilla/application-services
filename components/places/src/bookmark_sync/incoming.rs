@@ -53,12 +53,25 @@ impl<'a> IncomingApplicator<'a> {
     }
 
     fn store_incoming_bookmark(&self, modified: ServerTimestamp, b: BookmarkRecord) -> Result<()> {
-        let (url, validity) = match self.maybe_store_href(b.url.as_ref()) {
-            Ok(url) => (Some(url.into_string()), SyncedBookmarkValidity::Valid),
+        let url = match self.maybe_store_href(b.url.as_ref()) {
+            Ok(url) => (Some(url.into_string())),
             Err(e) => {
                 log::warn!("Incoming bookmark has an invalid URL: {:?}", e);
-                (None, SyncedBookmarkValidity::Replace)
+                None
             }
+        };
+        let tags = b.tags.iter().map(|t| validate_tag(t));
+        let validity = if url.is_none() {
+            // The bookmark has an invalid URL, so we can't apply it.
+            SyncedBookmarkValidity::Replace
+        } else if tags.clone().all(|t| t.is_original()) {
+            // The bookmark has a valid URL and all original tags, so we can
+            // apply it as-is.
+            SyncedBookmarkValidity::Valid
+        } else {
+            // The bookmark has a valid URL, but invalid or normalized tags. We
+            // can apply it, but should also reupload it with the new tags.
+            SyncedBookmarkValidity::Reupload
         };
         self.db.execute_named_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
@@ -85,6 +98,29 @@ impl<'a> IncomingApplicator<'a> {
                 (":url", &url),
             ],
         )?;
+        for t in tags {
+            match t {
+                ValidatedTag::Invalid(ref t) => {
+                    log::trace!("Ignoring invalid tag on incoming bookmark: {:?}", t);
+                    continue;
+                }
+                ValidatedTag::Normalized(ref t) | ValidatedTag::Original(ref t) => {
+                    self.db.execute_named_cached(
+                        "INSERT OR IGNORE INTO moz_tags(tag, lastModified)
+                         VALUES(:tag, now())",
+                        &[(":tag", t)],
+                    )?;
+                    self.db.execute_named_cached(
+                        "INSERT INTO moz_bookmarks_synced_tag_relation(itemId, tagId)
+                         VALUES((SELECT id FROM moz_bookmarks_synced
+                                 WHERE guid = :guid),
+                                (SELECT id FROM moz_tags
+                                 WHERE tag = :tag))",
+                        &[(":guid", &b.guid.as_ref()), (":tag", t)],
+                    )?;
+                }
+            };
+        }
         Ok(())
     }
 
@@ -379,6 +415,29 @@ mod tests {
             .expect("should work")
             .expect("item should exist");
         assert_eq!(*expected, got);
+    }
+
+    #[test]
+    fn test_apply_bookmark() {
+        assert_incoming_creates_mirror_item(
+            json!({
+                "id": "bookmarkAAAA",
+                "type": "bookmark",
+                "parentid": "unfiled",
+                "parentName": "unfiled",
+                "dateAdded": 1381542355843u64,
+                "title": "A",
+                "bmkUri": "http://example.com/a",
+                "tags": ["foo", "bar"],
+            }),
+            &MirrorBookmarkItem::new()
+                .validity(SyncedBookmarkValidity::Valid)
+                .kind(SyncedBookmarkKind::Bookmark)
+                .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
+                .title(Some("A"))
+                .url(Some("http://example.com/a"))
+                .tags(vec!["foo".into(), "bar".into()]),
+        );
     }
 
     #[test]

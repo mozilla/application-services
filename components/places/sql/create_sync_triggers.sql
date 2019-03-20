@@ -122,6 +122,10 @@ END;
 CREATE TEMP TRIGGER updateLocalItems
 INSTEAD OF DELETE ON itemsToMerge WHEN OLD.useRemote
 BEGIN
+  /* Remove all existing tags. */
+  DELETE FROM moz_tags_relation
+  WHERE place_id IN (OLD.oldPlaceId, OLD.newPlaceId);
+
   /* Insert the new item, using the Places root as the placeholder parent,
      and -1 as the position. We'll update these later, in the
      "updateLocalStructure" trigger. */
@@ -153,6 +157,12 @@ BEGIN
 
   /* Trigger frecency updates for all affected origins. */
   DELETE FROM moz_updateoriginsupdate_temp;
+
+  /* Insert new tags for the new URL. */
+  INSERT INTO moz_tags_relation(tag_id, place_id)
+  SELECT tagId, OLD.newPlaceId
+  FROM moz_bookmarks_synced_tag_relation
+  WHERE itemId = OLD.remoteId;
 END;
 
 -- Updates all parents and positions to reflect the merged tree.

@@ -68,6 +68,7 @@ pub struct MirrorBookmarkItem {
     pub site_url: MirrorBookmarkValue<Option<String>>,
     // Note that url is *not* in the table, but a convenience for tests.
     pub url: MirrorBookmarkValue<Option<Url>>,
+    pub tags: MirrorBookmarkValue<Vec<String>>,
 }
 
 macro_rules! impl_builder_simple {
@@ -145,13 +146,22 @@ impl MirrorBookmarkItem {
     impl_builder_opt_string!(feed_url);
     impl_builder_opt_string!(site_url);
 
+    pub fn tags<'a>(&'a mut self, mut tags: Vec<String>) -> &'a mut MirrorBookmarkItem {
+        tags.sort();
+        self.tags = MirrorBookmarkValue::Specified(tags);
+        self
+    }
+
     // Get a record from the DB.
     pub fn get(conn: &PlacesDb, guid: &SyncGuid) -> Result<Option<Self>> {
         Ok(conn.try_query_row(
-            "SELECT b.*, p.url
+            "SELECT b.*, p.url, group_concat(t.tag) AS tags
                                FROM moz_bookmarks_synced b
                                LEFT JOIN moz_places p on b.placeId = p.id
-                               WHERE b.guid = :guid",
+                               LEFT JOIN moz_bookmarks_synced_tag_relation r ON r.itemId = b.id
+                               LEFT JOIN moz_tags t ON t.id = r.tagId
+                               WHERE b.guid = :guid
+                               GROUP BY b.id",
             &[(":guid", guid)],
             Self::from_row,
             true,
@@ -161,6 +171,15 @@ impl MirrorBookmarkItem {
     // Return a new MirrorBookmarkItem from a database row. All values will
     // be MirrorBookmarkValue::Specified.
     fn from_row(row: &Row) -> Result<Self> {
+        let mut tags = row
+            .get_checked::<_, Option<String>>("tags")?
+            .map(|tags| {
+                tags.split(',')
+                    .map(|t| t.to_owned())
+                    .collect::<Vec<String>>()
+            })
+            .unwrap_or_default();
+        tags.sort();
         Ok(Self {
             id: MirrorBookmarkValue::Specified(row.get_checked("id")?),
             guid: MirrorBookmarkValue::Specified(row.get_checked("guid")?),
@@ -193,6 +212,7 @@ impl MirrorBookmarkItem {
                 row.get_checked::<_, Option<String>>("url")?
                     .and_then(|s| Url::parse(&s).ok()),
             ),
+            tags: MirrorBookmarkValue::Specified(tags),
         })
     }
 }

@@ -277,6 +277,16 @@ impl<'a> BookmarksStore<'a> {
             JOIN itemsToUpload o ON o.id = b.parent",
         )?;
 
+        // Stage tags for outgoing bookmarks.
+        self.db.execute_batch(
+            "
+            INSERT INTO tagsToUpload(id, tag)
+            SELECT o.id, t.tag
+            FROM itemsToUpload o
+            JOIN moz_tags_relation r ON r.place_id = o.placeId
+            JOIN moz_tags t ON t.id = r.tag_id",
+        )?;
+
         // Finally, stage tombstones for deleted items.
         self.db.execute_batch(
             "
@@ -291,6 +301,7 @@ impl<'a> BookmarksStore<'a> {
     fn fetch_outgoing_records(&self, timestamp: ServerTimestamp) -> Result<OutgoingChangeset> {
         let mut outgoing = OutgoingChangeset::new(self.collection_name().into(), timestamp);
         let mut child_guids_by_local_parent_id: HashMap<i64, Vec<SyncGuid>> = HashMap::new();
+        let mut tags_by_local_id: HashMap<i64, Vec<String>> = HashMap::new();
 
         let mut stmt = self.db.prepare(
             "SELECT parentId, guid FROM structureToUpload
@@ -305,6 +316,16 @@ impl<'a> BookmarksStore<'a> {
                 .entry(local_parent_id)
                 .or_default();
             child_guids.push(child_guid);
+        }
+
+        let mut stmt = self.db.prepare("SELECT id, tag FROM tagsToUpload")?;
+        let mut results = stmt.query(NO_PARAMS)?;
+        while let Some(result) = results.next() {
+            let row = result?;
+            let local_id = row.get_checked::<_, i64>("id")?;
+            let tag = row.get_checked::<_, String>("tag")?;
+            let tags = tags_by_local_id.entry(local_id).or_default();
+            tags.push(tag);
         }
 
         let mut stmt = self.db.prepare(
@@ -331,6 +352,7 @@ impl<'a> BookmarksStore<'a> {
             let record: BookmarkItemRecord =
                 match SyncedBookmarkKind::from_u8(row.get_checked("kind")?)? {
                     SyncedBookmarkKind::Bookmark => {
+                        let local_id = row.get_checked::<_, i64>("id")?;
                         let title = row.get_checked::<_, String>("title")?;
                         let url = row.get_checked::<_, String>("url")?;
                         BookmarkRecord {
@@ -342,7 +364,7 @@ impl<'a> BookmarksStore<'a> {
                             title: Some(title),
                             url: Some(url),
                             keyword: None,
-                            tags: Vec::new(),
+                            tags: tags_by_local_id.remove(&local_id).unwrap_or_default(),
                         }
                         .into()
                     }
@@ -913,13 +935,14 @@ mod tests {
     use crate::api::places_api::{test::new_mem_api, ConnectionType};
     use crate::bookmark_sync::store::BookmarksStore;
     use crate::db::PlacesDb;
-    use crate::storage::bookmarks::get_raw_bookmark;
+    use crate::storage::{bookmarks::get_raw_bookmark, tags};
     use crate::tests::{
         assert_json_tree as assert_local_json_tree, insert_json_tree as insert_local_json_tree,
     };
     use dogear::{Store as DogearStore, Validity};
     use pretty_assertions::assert_eq;
     use serde_json::{json, Value};
+    use url::Url;
 
     use std::cell::Cell;
     use sync15::Payload;
@@ -1202,6 +1225,12 @@ mod tests {
                 ]
             }),
         );
+        tags::tag_url(
+            &conn,
+            &Url::parse("http://example.com/a").expect("Should parse URL for A"),
+            "baz",
+        )
+        .expect("Should tag A");
 
         let records = vec![
             json!({
@@ -1212,7 +1241,7 @@ mod tests {
                 "dateAdded": 1552183116885u64,
                 "title": "C",
                 "bmkUri": "http://example.com/c",
-                "tags": [],
+                "tags": ["foo", "bar"],
             }),
             json!({
                 "id": BookmarkRootGuid::Menu.as_guid(),
@@ -1242,6 +1271,17 @@ mod tests {
         assert_eq!(
             outgoing.changes.iter().map(|p| &p.id).collect::<Vec<_>>(),
             vec!["bookmarkAAAA", "bookmarkBBBB", "unfiled",]
+        );
+        let record_for_a = outgoing
+            .changes
+            .iter()
+            .find(|p| p.id == "bookmarkAAAA")
+            .expect("Should upload A");
+        assert_eq!(
+            record_for_a.data["tags"]
+                .as_array()
+                .expect("Should upload tags for A"),
+            &["baz"]
         );
 
         assert_local_json_tree(
@@ -1319,6 +1359,14 @@ mod tests {
             .expect("Should fetch info for unfiled")
             .unwrap();
         assert_eq!(info_for_unfiled.sync_change_counter, 0);
+
+        let mut tags_for_c = tags::get_tags_for_url(
+            &conn,
+            &Url::parse("http://example.com/c").expect("Should parse URL for C"),
+        )
+        .expect("Should return tags for C");
+        tags_for_c.sort();
+        assert_eq!(tags_for_c, &["bar", "foo"]);
 
         Ok(())
     }
