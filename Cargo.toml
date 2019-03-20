@@ -10,6 +10,7 @@ members = [
     "components/support/cli",
     "components/support/sql",
     "components/support/ffi",
+    "components/support/fetch",
     "components/sync15",
     "components/rc_log",
     "megazords/fenix",
