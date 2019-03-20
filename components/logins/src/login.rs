@@ -337,6 +337,7 @@ macro_rules! merge_field {
 }
 
 impl LoginDelta {
+    #[allow(clippy::cyclomatic_complexity)] // Looks like clippy considers this after macro-expansion...
     pub fn merge(self, mut b: LoginDelta, b_is_newer: bool) -> LoginDelta {
         let mut merged = self;
         merge_field!(merged, b, b_is_newer, hostname);

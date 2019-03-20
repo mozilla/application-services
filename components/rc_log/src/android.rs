@@ -129,6 +129,7 @@ impl log::Log for LogSink {
 }
 
 impl LogAdapterState {
+    #[allow(clippy::mutex_atomic)]
     pub fn init(callback: LogCallback) -> Self {
         // This uses a mutex (instead of an atomic bool) to avoid a race condition
         // where `stopped` gets set by another thread between when we read it and

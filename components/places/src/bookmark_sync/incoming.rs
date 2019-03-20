@@ -425,7 +425,7 @@ mod tests {
                 "type": "bookmark",
                 "parentid": "unfiled",
                 "parentName": "unfiled",
-                "dateAdded": 1381542355843u64,
+                "dateAdded": 1_381_542_355_843u64,
                 "title": "A",
                 "bmkUri": "http://example.com/a",
                 "tags": ["foo", "bar"],
@@ -449,7 +449,7 @@ mod tests {
             }),
             &MirrorBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
-                .is_deleted(true),
+                .deleted(true),
         );
     }
 
@@ -465,7 +465,7 @@ mod tests {
                 "type": "query",
                 "parentid": "unfiled",
                 "parentName": "Unfiled Bookmarks",
-                "dateAdded": 1381542355843u64,
+                "dateAdded": 1_381_542_355_843u64,
                 "title": "Some query",
                 "bmkUri": "place:tag=foo",
             }),
@@ -579,7 +579,7 @@ mod tests {
                     "type": "query",
                     "parentid": "unfiled",
                     "parentName": "Unfiled Bookmarks",
-                    "dateAdded": 1381542355843u64,
+                    "dateAdded": 1_381_542_355_843u64,
                     "title": "Some query",
                     "bmkUri": "place:tag=foo",
                 }]),

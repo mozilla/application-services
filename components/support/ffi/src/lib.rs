@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #![deny(missing_docs)]
+#![allow(unknown_lints)]
 
 //! # FFI Support
 //!
@@ -160,7 +161,7 @@ pub use crate::handle_map::{ConcurrentHandleMap, Handle, HandleError, HandleMap}
 ///     // to avoid a case where a panic occurs.
 ///     ffi_support::call_with_result(error, || {
 ///         let s = thing_to_print.as_str();
-///         if s.len() == 0 {
+///         if s.is_empty() {
 ///             // This is a silly example!
 ///             return Err(BadEmptyString);
 ///         }

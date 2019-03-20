@@ -2,6 +2,8 @@
  * "priviledged" system calls may require additional handling and should be flagged as such.
  */
 
+#![allow(unknown_lints)]
+
 extern crate serde_json;
 
 extern crate communications;
@@ -155,11 +157,11 @@ mod test {
     // use crypto::{get_bytes, Key};
 
     /*
-    const DUMMY_CHID: &'static str = "deadbeef00000000decafbad00000000";
-    const DUMMY_UAID: &'static str = "abad1dea00000000aabbccdd00000000";
+    const DUMMY_CHID: &str = "deadbeef00000000decafbad00000000";
+    const DUMMY_UAID: &str = "abad1dea00000000aabbccdd00000000";
     // Local test SENDER_ID
-    const SENDER_ID: &'static str = "308358850242";
-    const SECRET: &'static str = "SuP3rS1kRet";
+    const SENDER_ID: &str = "308358850242";
+    const SECRET: &str = "SuP3rS1kRet";
     */
 
     #[test]

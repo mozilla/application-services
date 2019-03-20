@@ -1,3 +1,5 @@
+#![allow(unknown_lints)]
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use places::match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
 

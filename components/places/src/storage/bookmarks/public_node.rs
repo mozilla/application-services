@@ -76,7 +76,7 @@ pub fn fetch_bookmarks_by_url(db: &PlacesDb, url: &Url) -> Result<Vec<PublicNode
             }
         })
         .collect::<Vec<_>>();
-    Ok(nodes.into())
+    Ok(nodes)
 }
 
 /// This is similar to fetch_tree, but does not recursively fetch children of
@@ -111,27 +111,43 @@ fn get_child_guids(db: &PlacesDb, parent: RowId) -> Result<Vec<SyncGuid>> {
     )?)
 }
 
+enum ChildInfo {
+    NoChildren,
+    Guids(Vec<SyncGuid>),
+    Nodes(Vec<PublicNode>),
+}
+
+impl ChildInfo {
+    fn guids_nodes(self) -> (Option<Vec<SyncGuid>>, Option<Vec<PublicNode>>) {
+        match self {
+            ChildInfo::NoChildren => (None, None),
+            ChildInfo::Guids(g) => (Some(g), None),
+            ChildInfo::Nodes(n) => (None, Some(n)),
+        }
+    }
+}
+
 fn fetch_bookmark_child_info(
     db: &PlacesDb,
     parent: &RawBookmark,
     get_direct_children: bool,
     scope: &crate::db::InterruptScope,
-) -> Result<(Option<Vec<SyncGuid>>, Option<Vec<PublicNode>>)> {
+) -> Result<ChildInfo> {
     if parent.bookmark_type != BookmarkType::Folder {
-        return Ok((None, None));
+        return Ok(ChildInfo::NoChildren);
     }
     // If we already know that we have no children, don't
     // bother querying for them.
     if parent.child_count == 0 {
         return Ok(if get_direct_children {
-            (None, Some(vec![]))
+            ChildInfo::Nodes(vec![])
         } else {
-            (Some(vec![]), None)
+            ChildInfo::Guids(vec![])
         });
     }
     if !get_direct_children {
         // Just get the guids.
-        return Ok((Some(get_child_guids(db, parent.row_id)?), None));
+        return Ok(ChildInfo::Guids(get_child_guids(db, parent.row_id)?));
     }
     // Fetch children. the future this should probably be done by allowing a
     // depth parameter to be passed into fetch_tree.
@@ -151,7 +167,7 @@ fn fetch_bookmark_child_info(
             Ok(PublicNode::from(kid).with_children(child_guids, None))
         })
         .collect::<Result<Vec<_>>>()?;
-    Ok((None, Some(child_nodes)))
+    Ok(ChildInfo::Nodes(child_nodes))
 }
 
 // Implementation of fetch_bookmark
@@ -170,7 +186,7 @@ fn fetch_bookmark_in_tx(
     scope.err_if_interrupted()?;
     // If we're a folder that has children, fetch child guids or children.
     let (child_guids, child_nodes) =
-        fetch_bookmark_child_info(db, &rb, get_direct_children, scope)?;
+        fetch_bookmark_child_info(db, &rb, get_direct_children, scope)?.guids_nodes();
 
     Ok(Some(
         PublicNode::from(rb).with_children(child_guids, child_nodes),
@@ -210,7 +226,7 @@ pub fn fetch_public_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<P
     // still need to fill in it's own `parent_guid` and `position`.
     let mut proto = PublicNode::from(tree);
 
-    if item_guid != &BookmarkRootGuid::Root {
+    if item_guid != BookmarkRootGuid::Root {
         let sql = "
             SELECT
                 p.guid AS parent_guid,

@@ -39,7 +39,7 @@ pub mod error_codes {
     // (if they happen accidentally) will come through as unexpected.
 
     /// `InvalidParent`: Attempt to add a child to a non-folder.
-    pub const INVALID_PLACE_INFO_INVALID_PARENT: i32 = 64 + 0;
+    pub const INVALID_PLACE_INFO_INVALID_PARENT: i32 = 64;
 
     /// `NoItem`: The GUID provided does not exist.
     pub const INVALID_PLACE_INFO_NO_ITEM: i32 = 64 + 1;

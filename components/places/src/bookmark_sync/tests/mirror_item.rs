@@ -55,7 +55,7 @@ pub struct MirrorBookmarkItem {
     pub server_modified: MirrorBookmarkValue<ServerTimestamp>,
     pub needs_merge: MirrorBookmarkValue<bool>,
     pub validity: MirrorBookmarkValue<SyncedBookmarkValidity>,
-    pub is_deleted: MirrorBookmarkValue<bool>,
+    pub deleted: MirrorBookmarkValue<bool>,
     pub kind: MirrorBookmarkValue<Option<SyncedBookmarkKind>>,
     pub date_added: MirrorBookmarkValue<Timestamp>,
     pub title: MirrorBookmarkValue<Option<String>>,
@@ -73,7 +73,7 @@ pub struct MirrorBookmarkItem {
 
 macro_rules! impl_builder_simple {
     ($builder_name:ident, $T:ty) => {
-        pub fn $builder_name<'a>(&'a mut self, val: $T) -> &'a mut MirrorBookmarkItem {
+        pub fn $builder_name(&mut self, val: $T) -> &mut MirrorBookmarkItem {
             self.$builder_name = MirrorBookmarkValue::Specified(val);
             self
         }
@@ -121,10 +121,10 @@ impl MirrorBookmarkItem {
     impl_builder_simple!(server_modified, ServerTimestamp);
     impl_builder_simple!(needs_merge, bool);
     impl_builder_simple!(validity, SyncedBookmarkValidity);
-    impl_builder_simple!(is_deleted, bool);
+    impl_builder_simple!(deleted, bool);
 
     // kind is a bit special because tombstones don't have one.
-    pub fn kind<'a>(&'a mut self, kind: SyncedBookmarkKind) -> &'a mut MirrorBookmarkItem {
+    pub fn kind(&mut self, kind: SyncedBookmarkKind) -> &mut MirrorBookmarkItem {
         self.kind = MirrorBookmarkValue::Specified(Some(kind));
         self
     }
@@ -192,7 +192,7 @@ impl MirrorBookmarkItem {
                 SyncedBookmarkValidity::from_u8(row.get_checked("validity")?)
                     .expect("a valid validity"),
             ),
-            is_deleted: MirrorBookmarkValue::Specified(row.get_checked("isDeleted")?),
+            deleted: MirrorBookmarkValue::Specified(row.get_checked("isDeleted")?),
             kind: MirrorBookmarkValue::Specified(
                 // tombstones have a kind of -1, so get it from the db as i8
                 SyncedBookmarkKind::from_u8(row.get_checked::<_, i8>("kind")? as u8).ok(),

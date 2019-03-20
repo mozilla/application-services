@@ -12,16 +12,16 @@ use url::Url;
 
 const KEY_LENGTH: usize = 32;
 
-pub struct HAWKRequestBuilder<'a> {
+pub struct HawkRequestBuilder<'a> {
     url: Url,
     method: Method,
     body: Option<String>,
-    hkdf_sha256_key: &'a Vec<u8>,
+    hkdf_sha256_key: &'a [u8],
 }
 
-impl<'a> HAWKRequestBuilder<'a> {
-    pub fn new(method: Method, url: Url, hkdf_sha256_key: &'a Vec<u8>) -> Self {
-        HAWKRequestBuilder {
+impl<'a> HawkRequestBuilder<'a> {
+    pub fn new(method: Method, url: Url, hkdf_sha256_key: &'a [u8]) -> Self {
+        HawkRequestBuilder {
             url,
             method,
             body: None,

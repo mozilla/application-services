@@ -175,8 +175,8 @@ fn engine_state_changes_from_new_global(
 
     // Reset engines with sync ID changes.
     for name in new_engine_names.intersection(&previous_engine_names) {
-        let previous_engine = previous_global.engines.get(*name).unwrap();
-        let new_engine = new_global.engines.get(*name).unwrap();
+        let previous_engine = &previous_global.engines[*name];
+        let new_engine = &new_global.engines[*name];
         if previous_engine.sync_id != new_engine.sync_id {
             changes.push(EngineStateChange::Reset(name.to_string()));
         }
@@ -523,7 +523,7 @@ impl<'client, 'keys> SetupStateMachine<'client, 'keys> {
     }
 
     /// Runs through the state machine to the ready state.
-    pub fn to_ready(&mut self, state: GlobalState) -> error::Result<GlobalState> {
+    pub fn run_to_ready(&mut self, state: GlobalState) -> error::Result<GlobalState> {
         let mut s = InitialWithLiveToken(state);
         loop {
             let label = &s.label();
@@ -737,7 +737,7 @@ mod tests {
                         },
                     )]
                     .into_iter()
-                    .map(|(key, value)| (key.to_owned(), value.into()))
+                    .map(|(key, value)| (key.to_owned(), value))
                     .collect(),
                     declined: vec![],
                 },
@@ -748,7 +748,7 @@ mod tests {
         let state = GlobalState::default();
         let mut state_machine = SetupStateMachine::for_full_sync(&client, &root_key);
         assert!(
-            state_machine.to_ready(state).is_ok(),
+            state_machine.run_to_ready(state).is_ok(),
             "Should drive state machine to ready"
         );
         assert_eq!(

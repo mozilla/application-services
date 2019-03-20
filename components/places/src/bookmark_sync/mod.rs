@@ -74,7 +74,7 @@ pub fn create_synced_bookmark_roots(db: &PlacesDb) -> Result<()> {
 }
 
 impl BookmarkRootGuid {
-    pub fn as_sync_record_id(&self) -> &'static str {
+    pub fn as_sync_record_id(self) -> &'static str {
         match self {
             BookmarkRootGuid::Root => "places",
             BookmarkRootGuid::Menu => "menu",

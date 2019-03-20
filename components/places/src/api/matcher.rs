@@ -128,7 +128,8 @@ pub fn split_after_host_and_port(href: &str) -> (&str, &str) {
         .map(|i| i + 1)
         .unwrap_or(0);
     let remainder = &remainder[start..];
-    let end = memchr::memchr3(b'/', b'?', b'#', remainder.as_bytes()).unwrap_or(remainder.len());
+    let end =
+        memchr::memchr3(b'/', b'?', b'#', remainder.as_bytes()).unwrap_or_else(|| remainder.len());
     remainder.split_at(end)
 }
 
@@ -318,7 +319,7 @@ impl<'query> OriginOrUrl<'query> {
     }
 }
 
-const URL_SQL: &'static str = "
+const URL_SQL: &str = "
     SELECT h.url as url,
             :host || :remainder AS strippedURL,
             h.frecency as frecency,
@@ -347,7 +348,7 @@ const URL_SQL: &'static str = "
     ORDER BY h.frecency DESC, h.id DESC
     LIMIT 1
 ";
-const ORIGIN_SQL: &'static str = "
+const ORIGIN_SQL: &str = "
     SELECT IFNULL(:prefix, prefix) || moz_origins.host || '/' AS url,
             moz_origins.host || '/' AS displayURL,
             frecency,
@@ -579,7 +580,7 @@ mod tests {
 
     #[test]
     fn search() {
-        let mut conn = new_mem_connection();
+        let conn = new_mem_connection();
 
         let url = Url::parse("http://example.com/123").unwrap();
         let visit = VisitObservation::new(url.clone())
@@ -587,7 +588,7 @@ mod tests {
             .with_visit_type(VisitTransition::Typed)
             .with_at(Timestamp::now());
 
-        apply_observation(&mut conn, visit).expect("Should apply visit");
+        apply_observation(&conn, visit).expect("Should apply visit");
 
         let by_origin = search_frecent(
             &conn,
@@ -602,7 +603,7 @@ mod tests {
             .any(|result| result.search_string == "example.com"
                 && result.title == "example.com/"
                 && result.url.as_str() == "http://example.com/"
-                && result.reasons == &[MatchReason::Origin]));
+                && result.reasons == [MatchReason::Origin]));
 
         let by_url_without_path = search_frecent(
             &conn,
@@ -616,7 +617,7 @@ mod tests {
             .iter()
             .any(|result| result.title == "example.com/"
                 && result.url.as_str() == "http://example.com/"
-                && result.reasons == &[MatchReason::Url]));
+                && result.reasons == [MatchReason::Url]));
 
         let by_url_with_path = search_frecent(
             &conn,
@@ -630,7 +631,7 @@ mod tests {
             .iter()
             .any(|result| result.title == "example.com/123"
                 && result.url.as_str() == "http://example.com/123"
-                && result.reasons == &[MatchReason::Url]));
+                && result.reasons == [MatchReason::Url]));
 
         accept_result(
             &conn,
@@ -657,7 +658,7 @@ mod tests {
             .iter()
             .any(|result| result.search_string == "ample"
                 && result.url == url
-                && result.reasons == &[MatchReason::PreviousUse]));
+                && result.reasons == [MatchReason::PreviousUse]));
 
         let with_limit = search_frecent(
             &conn,
@@ -681,7 +682,7 @@ mod tests {
     }
     #[test]
     fn search_unicode() {
-        let mut conn = new_mem_connection();
+        let conn = new_mem_connection();
 
         let url = Url::parse("http://exämple.com/123").unwrap();
         let visit = VisitObservation::new(url.clone())
@@ -689,7 +690,7 @@ mod tests {
             .with_visit_type(VisitTransition::Typed)
             .with_at(Timestamp::now());
 
-        apply_observation(&mut conn, visit).expect("Should apply visit");
+        apply_observation(&conn, visit).expect("Should apply visit");
 
         let by_url_without_path = search_frecent(
             &conn,
@@ -704,7 +705,7 @@ mod tests {
             // Should we consider un-punycoding the title? (firefox desktop doesn't...)
             .any(|result| result.title == "xn--exmple-cua.com/"
                 && result.url.as_str() == "http://xn--exmple-cua.com/"
-                && result.reasons == &[MatchReason::Url]));
+                && result.reasons == [MatchReason::Url]));
 
         let by_url_with_path = search_frecent(
             &conn,
@@ -719,7 +720,7 @@ mod tests {
                 .iter()
                 .any(|result| result.title == "xn--exmple-cua.com/123"
                     && result.url.as_str() == "http://xn--exmple-cua.com/123"
-                    && result.reasons == &[MatchReason::Url]),
+                    && result.reasons == [MatchReason::Url]),
             "{:?}",
             by_url_with_path
         );

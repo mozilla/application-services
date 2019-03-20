@@ -89,6 +89,7 @@ impl fmt::Debug for RSABrowserIDKeyPair {
 }
 
 impl Serialize for RSABrowserIDKeyPair {
+    #[allow(clippy::many_single_char_names)] // FIXME
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -201,7 +202,7 @@ impl<'de> Deserialize<'de> for RSABrowserIDKeyPair {
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 formatter.write_str("struct RSABrowserIDKeyPair")
             }
-
+            #[allow(clippy::many_single_char_names)] // FIXME
             fn visit_map<V>(self, mut map: V) -> std::result::Result<RSABrowserIDKeyPair, V::Error>
             where
                 V: MapAccess<'de>,
@@ -302,7 +303,7 @@ impl<'de> Deserialize<'de> for RSABrowserIDKeyPair {
             }
         }
 
-        const FIELDS: &'static [&'static str] = &["n", "e", "d", "p", "q", "dmp1", "dmq1", "iqmp"];
+        const FIELDS: &[&str] = &["n", "e", "d", "p", "q", "dmp1", "dmq1", "iqmp"];
         deserializer.deserialize_struct("RSABrowserIDKeyPair", FIELDS, RSABrowserIDKeyPairVisitor)
     }
 }

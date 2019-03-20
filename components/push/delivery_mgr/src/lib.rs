@@ -5,7 +5,7 @@
  * While this leans havily on data in Storage, the functions are separated out so that
  * Storage is only focused on actual data storage and retrieval.
  */
-
+#![allow(unknown_lints)]
 extern crate storage;
 
 use storage::Storage;

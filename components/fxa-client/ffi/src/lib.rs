@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#![allow(unknown_lints)]
+
 use ffi_support::{
     define_bytebuffer_destructor, define_handle_map_deleter, define_string_destructor, ByteBuffer,
     ConcurrentHandleMap, ExternError, FfiStr,
@@ -150,7 +152,7 @@ pub extern "C" fn fxa_begin_pairing_flow(
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let pairing_url = pairing_url.as_str();
         let scope = scope.as_str();
-        let scopes: Vec<&str> = scope.split(" ").collect();
+        let scopes: Vec<&str> = scope.split(' ').collect();
         fxa.begin_pairing_flow(&pairing_url, &scopes)
     })
 }
@@ -179,7 +181,7 @@ pub extern "C" fn fxa_begin_oauth_flow(
     log::debug!("fxa_begin_oauth_flow");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let scope = scope.as_str();
-        let scopes: Vec<&str> = scope.split(" ").collect();
+        let scopes: Vec<&str> = scope.split(' ').collect();
         fxa.begin_oauth_flow(&scopes, wants_keys)
     })
 }

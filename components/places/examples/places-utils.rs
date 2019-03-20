@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#![allow(unknown_lints)]
+
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use places::bookmark_sync::store::BookmarksStore;
 use places::history_sync::store::HistoryStore;
@@ -76,11 +78,7 @@ fn convert_node(dm: DesktopItem) -> Option<BookmarkTreeNode> {
             date_added: dm.date_added.map(|v| Timestamp(v / 1000)),
             last_modified: dm.last_modified.map(|v| Timestamp(v / 1000)),
             title: dm.title,
-            children: dm
-                .children
-                .into_iter()
-                .filter_map(|c| convert_node(c))
-                .collect(),
+            children: dm.children.into_iter().filter_map(convert_node).collect(),
         }
         .into(),
     })
@@ -161,7 +159,7 @@ fn run_native_export(db: &PlacesDb, filename: String) -> Result<()> {
 
 fn sync(
     api: &PlacesApi,
-    engine_names: Vec<String>,
+    mut engine_names: Vec<String>,
     cred_file: String,
     wipe: bool,
     reset: bool,
@@ -173,18 +171,26 @@ fn sync(
     // Note also that PlacesApi::sync() exists and ultimately we should
     // probably end up using that, but it's not yet ready to handle bookmarks.
     let client_info = Cell::new(None);
-    let bookmarks_store = BookmarksStore::new(&conn, &client_info);
-    let history_store = HistoryStore::new(&conn, &client_info);
-    let all_stores: Vec<Box<&dyn Store>> =
-        vec![Box::new(&bookmarks_store), Box::new(&history_store)];
-    let stores: Vec<Box<&dyn Store>> = all_stores
-        .into_iter()
-        .filter(|s| {
-            engine_names.len() == 0 || engine_names.contains(&s.collection_name().to_string())
-        })
-        .collect();
-
-    for store in stores.iter() {
+    let stores: Vec<Box<dyn Store>> = if engine_names.is_empty() {
+        vec![
+            Box::new(BookmarksStore::new(&conn, &client_info)),
+            Box::new(HistoryStore::new(&conn, &client_info)),
+        ]
+    } else {
+        engine_names.sort();
+        engine_names.dedup();
+        engine_names
+            .into_iter()
+            .map(|name| -> Box<dyn Store> {
+                match name.as_str() {
+                    "bookmarks" => Box::new(BookmarksStore::new(&conn, &client_info)),
+                    "history" => Box::new(HistoryStore::new(&conn, &client_info)),
+                    _ => unimplemented!("Can't sync unsupported engine {}", name),
+                }
+            })
+            .collect()
+    };
+    for store in &stores {
         if wipe {
             store.wipe()?;
         }
@@ -223,7 +229,7 @@ fn sync(
     let client_info = Cell::new(None);
     let mut sync_ping = telemetry::SyncTelemetryPing::new();
 
-    let stores_to_sync: Vec<&dyn Store> = stores.into_iter().map(|b| *b).collect();
+    let stores_to_sync: Vec<&dyn Store> = stores.iter().map(|b| b.as_ref()).collect();
     if let Err(e) = sync_multiple(
         &stores_to_sync,
         &global_state,

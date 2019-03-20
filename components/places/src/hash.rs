@@ -15,12 +15,12 @@ const MAX_BYTES_TO_HASH: usize = 1500;
 /// returned hash will be a 32 bit hash.
 pub fn hash_url(spec: &str) -> u64 {
     let max_len_to_hash = spec.len().min(MAX_BYTES_TO_HASH);
-    let str_hash = hash_string(&spec[..max_len_to_hash]) as u64;
+    let str_hash = u64::from(hash_string(&spec[..max_len_to_hash]));
     let str_head = &spec[..spec.len().min(50)];
     // We should be using memchr -- there's almost no chance we aren't
     // already pulling it in transitively and it's supposedly *way* faster.
     if let Some(pos) = str_head.as_bytes().iter().position(|&b| b == b':') {
-        let prefix_hash = (hash_string(&spec[..pos]) & 0x0000_ffff) as u64;
+        let prefix_hash = u64::from(hash_string(&spec[..pos]) & 0x0000_ffff);
         (prefix_hash << 32).wrapping_add(str_hash)
     } else {
         str_hash
@@ -47,8 +47,8 @@ pub fn hash_url_prefix(spec_prefix: &str, mode: PrefixMode) -> u64 {
     let to_hash = &spec_prefix[..spec_prefix.len().min(MAX_BYTES_TO_HASH)];
 
     // Keep 16 bits
-    let unshifted_hash = hash_string(to_hash) & 0x0000ffff;
-    let hash = (unshifted_hash as u64) << 32;
+    let unshifted_hash = hash_string(to_hash) & 0x0000_ffff;
+    let hash = u64::from(unshifted_hash) << 32;
     if mode == PrefixMode::Hi {
         hash.wrapping_add(0xffff_ffffu64)
     } else {
@@ -57,7 +57,7 @@ pub fn hash_url_prefix(spec_prefix: &str, mode: PrefixMode) -> u64 {
 }
 
 // mozilla::kGoldenRatioU32
-const GOLDEN_RATIO: u32 = 0x9E3779B9;
+const GOLDEN_RATIO: u32 = 0x9E37_79B9;
 
 // mozilla::AddU32ToHash
 #[inline]
@@ -71,7 +71,7 @@ pub fn hash_string(string: &str) -> u32 {
     string
         .as_bytes()
         .iter()
-        .fold(0u32, |hash, &cur| add_u32_to_hash(hash, cur as u32))
+        .fold(0u32, |hash, &cur| add_u32_to_hash(hash, u32::from(cur)))
 }
 
 #[cfg(test)]
@@ -93,7 +93,7 @@ mod tests {
             ("place", 0xf434),
         ];
         for &(prefix, top16bits) in test_values {
-            let expected_lo = (top16bits as u64) << 32;
+            let expected_lo = u64::from(top16bits) << 32;
             let expected_hi = expected_lo | 0xffff_ffffu64;
             assert_eq!(
                 hash_url_prefix(prefix, PrefixMode::Lo),

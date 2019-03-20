@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#![allow(unknown_lints)]
+
 use ffi_support::ConcurrentHandleMap;
 use ffi_support::{define_handle_map_deleter, define_string_destructor, ExternError, FfiStr};
 use logins::{Login, PasswordEngine, Result};
@@ -105,7 +107,7 @@ pub extern "C" fn sync15_passwords_sync(
     log::debug!("sync15_passwords_sync");
     ENGINES.call_with_result(error, handle, |state| -> Result<()> {
         let mut sync_ping = telemetry::SyncTelemetryPing::new();
-        let result = state.sync(
+        state.sync(
             &sync15::Sync15StorageClientInit {
                 key_id: key_id.into_string(),
                 access_token: access_token.into_string(),
@@ -113,8 +115,7 @@ pub extern "C" fn sync15_passwords_sync(
             },
             &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
             &mut sync_ping,
-        );
-        result
+        )
     })
 }
 

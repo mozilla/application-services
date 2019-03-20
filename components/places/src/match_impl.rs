@@ -59,7 +59,7 @@ impl ToSql for MatchBehavior {
 bitflags! {
     pub struct SearchBehavior: u32 {
         /// Search through history.
-        const HISTORY = 1 << 0;
+        const HISTORY = 1;
 
         /// Search through bookmarks.
         const BOOKMARK = 1 << 1;
@@ -257,7 +257,10 @@ fn next_codepoint_lower(s: &str) -> (char, usize) {
     // this should be more efficient than this implementation is)
     let mut indices = s.char_indices();
     let (_, next_char) = indices.next().unwrap();
-    let next_index = indices.next().map(|(index, _)| index).unwrap_or(s.len());
+    let next_index = indices
+        .next()
+        .map(|(index, _)| index)
+        .unwrap_or_else(|| s.len());
     (char_to_lower_single(next_char), next_index)
 }
 
@@ -300,7 +303,7 @@ pub fn find_in_string(token: &str, src: &str, only_boundary: bool) -> bool {
         }
         cur_offset += next_offset_in_cur;
     }
-    return false;
+    false
 }
 
 // Places splits on ascii whitespace, so we do too. str::split_ascii_whitespace is
@@ -476,40 +479,34 @@ mod test {
         //
         // It also checks that U+0130 is the only single codepoint that lower cases
         // to multiple characters.
-        for c in 128..0x110000 {
-            match char::from_u32(c) {
-                Some(ch) => {
-                    // Not quite the same (because codepoints aren't characters), but
-                    // should serve the same purpose.
-                    let mut li = ch.to_lowercase();
-                    let lc = li.next().unwrap();
-                    if c != 304 && c != 8490 {
-                        assert!(
-                            (lc as u32) >= 128,
-                            "Lower case of non-ascii '{}' ({}) was unexpectedly ascii",
-                            ch,
-                            c
-                        );
-                        // This one we added (it's an implicit assumption in the utilities the
-                        // places code uses).
-                        assert!(
-                            li.next().is_none(),
-                            "Lower case of '{}' ({}) produced multiple codepoints unexpectedly",
-                            ch,
-                            c
-                        );
-                    } else {
-                        assert!(
-                            (lc as u32) < 128,
-                            "Lower case of non-ascii '{}' ({}) was unexpectedly not ascii",
-                            ch,
-                            c
-                        );
-                    }
-                }
-                _ => {
-                    // We're being overly broad with what `c` iterates over to keep this fairly
-                    // simple.
+        for c in 128..0x11_0000 {
+            if let Some(ch) = char::from_u32(c) {
+                // Not quite the same (because codepoints aren't characters), but
+                // should serve the same purpose.
+                let mut li = ch.to_lowercase();
+                let lc = li.next().unwrap();
+                if c != 304 && c != 8490 {
+                    assert!(
+                        (lc as u32) >= 128,
+                        "Lower case of non-ascii '{}' ({}) was unexpectedly ascii",
+                        ch,
+                        c
+                    );
+                    // This one we added (it's an implicit assumption in the utilities the
+                    // places code uses).
+                    assert!(
+                        li.next().is_none(),
+                        "Lower case of '{}' ({}) produced multiple codepoints unexpectedly",
+                        ch,
+                        c
+                    );
+                } else {
+                    assert!(
+                        (lc as u32) < 128,
+                        "Lower case of non-ascii '{}' ({}) was unexpectedly not ascii",
+                        ch,
+                        c
+                    );
                 }
             }
         }
@@ -527,7 +524,7 @@ mod test {
             );
         }
 
-        for c in (b'a'..=b'z').into_iter().chain(b'A'..=b'Z') {
+        for c in (b'a'..=b'z').chain(b'A'..=b'Z') {
             assert_eq!(
                 dubious_to_ascii_lower(c),
                 c.to_ascii_lowercase(),

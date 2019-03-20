@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#![allow(unknown_lints)]
+
 #[cfg(feature = "browserid")]
 pub use crate::browser_id::{SyncKeys, WebChannelResponse};
 #[cfg(feature = "browserid")]
@@ -104,6 +106,7 @@ impl FirefoxAccount {
     }
 
     #[cfg(test)]
+    #[allow(dead_code)] // FIXME
     pub(crate) fn set_client(&mut self, client: Arc<FxAClient>) {
         self.client = client;
     }

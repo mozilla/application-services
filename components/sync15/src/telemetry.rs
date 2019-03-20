@@ -49,6 +49,12 @@ enum Stopwatch {
     Finished(WhenTook),
 }
 
+impl Default for Stopwatch {
+    fn default() -> Self {
+        Stopwatch::new()
+    }
+}
+
 impl Stopwatch {
     fn new() -> Self {
         Stopwatch::Started(time::SystemTime::now(), time::Instant::now())
@@ -68,7 +74,7 @@ impl Stopwatch {
                 let when = std.as_secs() as f64; // we don't want sub-sec accuracy. Do we need to write a float?
 
                 let sid = si.elapsed();
-                let took = sid.as_secs() * 1000 + (sid.subsec_nanos() as u64) / 1_000_000;
+                let took = sid.as_secs() * 1000 + (u64::from(sid.subsec_nanos()) / 1_000_000);
                 Stopwatch::Finished(WhenTook { when, took })
             }
             _ => {
@@ -205,7 +211,7 @@ mod test_events {
         let l = "abcdefghijk";
         let mut e = Event::new("Object", "Method");
         for i in 0..l.len() {
-            e = e.extra(&l[i..i + 1], "v".to_string());
+            e = e.extra(&l[i..=i], "v".to_string());
         }
     }
 
@@ -507,7 +513,7 @@ mod engine_tests {
 }
 
 /// A single sync. May have many engines, may have its own failure.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Default)]
 pub struct SyncTelemetry {
     #[serde(flatten)]
     when_took: Stopwatch,
@@ -522,11 +528,7 @@ pub struct SyncTelemetry {
 
 impl SyncTelemetry {
     pub fn new() -> Self {
-        Self {
-            when_took: Stopwatch::new(),
-            engines: Vec::new(),
-            failure: None,
-        }
+        Default::default()
     }
 
     pub fn engine(&mut self, mut e: Engine) {

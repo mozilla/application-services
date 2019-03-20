@@ -14,6 +14,7 @@
 //! it does not allow users to change loggers after the first initialization. We
 //! work around this using our `settable_log` module.
 
+#![allow(unknown_lints)]
 // We always include both modules when doing test builds, so for test builds,
 // allow dead code.
 #![cfg_attr(test, allow(dead_code))]

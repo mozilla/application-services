@@ -23,7 +23,7 @@ use url::Url;
 ///
 /// This allows us to avoid these visits trickling back in as other devices
 /// add visits to them remotely.
-static DELETION_HIGH_WATER_MARK_META_KEY: &'static str = "history_deleted_hwm";
+static DELETION_HIGH_WATER_MARK_META_KEY: &str = "history_deleted_hwm";
 
 /// Returns the RowId of a new visit in moz_historyvisits, or None if no new visit was added.
 pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<Option<RowId>> {
@@ -69,9 +69,9 @@ pub fn apply_observation_direct(
                 updates.push(("typed", ":typed", &page_info.typed));
             }
 
-            let at = visit_ob.at.unwrap_or_else(|| Timestamp::now());
+            let at = visit_ob.at.unwrap_or_else(Timestamp::now);
             let is_remote = visit_ob.is_remote.unwrap_or(false);
-            let row_id = add_visit(db, &page_info.row_id, &None, &at, &visit_type, &!is_remote)?;
+            let row_id = add_visit(db, page_info.row_id, None, at, visit_type, !is_remote)?;
             // a new visit implies new frecency except in error cases.
             if !visit_ob.is_error.unwrap_or(false) {
                 update_frec = true;
@@ -91,7 +91,7 @@ pub fn apply_observation_direct(
         ));
     }
 
-    if updates.len() != 0 {
+    if !updates.is_empty() {
         let mut params: Vec<(&str, &ToSql)> = Vec::with_capacity(updates.len() + 1);
         let mut sets: Vec<String> = Vec::with_capacity(updates.len());
         for (col, name, val) in updates {
@@ -142,11 +142,11 @@ pub fn update_frecency(db: &PlacesDb, id: RowId, redirect_boost: Option<bool>) -
 // parent page with an updated change counter etc.
 fn add_visit(
     db: &PlacesDb,
-    page_id: &RowId,
-    from_visit: &Option<RowId>,
-    visit_date: &Timestamp,
-    visit_type: &VisitTransition,
-    is_local: &bool,
+    page_id: RowId,
+    from_visit: Option<RowId>,
+    visit_date: Timestamp,
+    visit_type: VisitTransition,
+    is_local: bool,
 ) -> Result<RowId> {
     let sql = "INSERT INTO moz_historyvisits
             (from_visit, place_id, visit_date, visit_type, is_local)
@@ -154,11 +154,11 @@ fn add_visit(
     db.execute_named_cached(
         sql,
         &[
-            (":from_visit", from_visit),
-            (":page_id", page_id),
-            (":visit_date", visit_date),
-            (":visit_type", visit_type),
-            (":is_local", is_local),
+            (":from_visit", &from_visit),
+            (":page_id", &page_id),
+            (":visit_date", &visit_date),
+            (":visit_type", &visit_type),
+            (":is_local", &is_local),
         ],
     )?;
     let rid = db.conn().last_insert_rowid();
@@ -167,7 +167,7 @@ fn add_visit(
         "DELETE FROM moz_historyvisit_tombstones
          WHERE place_id = :place_id
            AND visit_date = :visit_date",
-        &[(":place_id", page_id), (":visit_date", visit_date)],
+        &[(":place_id", &page_id), (":visit_date", &visit_date)],
     )?;
     Ok(RowId(rid))
 }
@@ -382,7 +382,7 @@ pub fn delete_visits_between_in_tx(db: &PlacesDb, start: Timestamp, end: Timesta
     )?;
 
     // Insert tombstones for the deleted visits.
-    if visits.len() > 0 {
+    if !visits.is_empty() {
         let sql = format!(
             "INSERT OR IGNORE INTO moz_historyvisit_tombstones(place_id, visit_date) VALUES {}",
             sql_support::repeat_display(visits.len(), ",", |i, f| {
@@ -634,14 +634,14 @@ pub mod history_sync {
             None => {
                 // Before we insert a new page_info, make sure we actually will
                 // have any visits to add.
-                if visits.len() == 0 {
+                if visits.is_empty() {
                     return Ok(());
                 }
                 new_page_info(db, &url, Some(incoming_guid.clone()))?
             }
         };
 
-        if visits.len() > 0 {
+        if !visits.is_empty() {
             // Skip visits that are in tombstones, or that happen at the same time
             // as visit that's already present. The 2nd lets us avoid inserting
             // visits that we sent up to the server in the first place.
@@ -681,14 +681,7 @@ pub mod history_sync {
                 }
                 let transition = VisitTransition::from_primitive(visit.transition)
                     .expect("these should already be validated");
-                add_visit(
-                    db,
-                    &page_info.row_id,
-                    &None,
-                    &timestamp,
-                    &transition,
-                    &false,
-                )?;
+                add_visit(db, page_info.row_id, None, timestamp, transition, false)?;
                 // Make sure that even if a history entry weirdly has the same visit
                 // twice, we don't insert it twice. (This avoids us needing to
                 // recompute visits_to_skip in each step of the iteration)
@@ -843,7 +836,7 @@ pub mod history_sync {
                 log::warn!("Found {:?} in both tombstones and live records", &page.guid);
                 continue;
             }
-            if visits.len() == 0 {
+            if visits.is_empty() {
                 log::info!(
                     "Page {:?} is flagged to be uploaded, but has no visits - skipping",
                     &page.guid
@@ -1063,26 +1056,26 @@ mod tests {
     fn test_get_visited_urls() {
         use std::collections::HashSet;
         use std::time::SystemTime;
-        let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
         let now: Timestamp = SystemTime::now().into();
         let now_u64 = now.0;
         // (url, when, is_remote, (expected_always, expected_only_local)
         let to_add = [
             (
                 "https://www.example.com/1",
-                now_u64 - 200100,
+                now_u64 - 200_100,
                 false,
                 (false, false),
             ),
             (
                 "https://www.example.com/12",
-                now_u64 - 200000,
+                now_u64 - 200_000,
                 false,
                 (true, true),
             ),
             (
                 "https://www.example.com/123",
-                now_u64 - 10000,
+                now_u64 - 10_000,
                 true,
                 (true, false),
             ),
@@ -1102,7 +1095,7 @@ mod tests {
 
         for &(url, when, remote, _) in &to_add {
             apply_observation(
-                &mut conn,
+                &conn,
                 VisitObservation::new(Url::parse(url).unwrap())
                     .with_at(Timestamp(when))
                     .with_is_remote(remote)
@@ -1113,7 +1106,7 @@ mod tests {
 
         let visited_all = get_visited_urls(
             &conn,
-            Timestamp(now_u64 - 200000),
+            Timestamp(now_u64 - 200_000),
             Timestamp(now_u64 - 1000),
             true,
         )
@@ -1123,7 +1116,7 @@ mod tests {
 
         let visited_local = get_visited_urls(
             &conn,
-            Timestamp(now_u64 - 200000),
+            Timestamp(now_u64 - 200_000),
             Timestamp(now_u64 - 1000),
             false,
         )
@@ -1169,26 +1162,25 @@ mod tests {
         let result: Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_places_tombstones;",
             &[],
-            |row| Ok(row.get_checked::<_, u32>(0)?.clone()),
+            |row| Ok(row.get_checked::<_, u32>(0)?),
             true,
         );
         result
             .expect("should have worked")
             .expect("should have got a value")
-            .into()
     }
 
     #[test]
     fn test_visit_counts() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None)?;
+        let conn = PlacesDb::open_in_memory(None)?;
         let url = Url::parse("https://www.example.com").expect("it's a valid url");
         let early_time = SystemTime::now() - Duration::new(60, 0);
         let late_time = SystemTime::now();
 
         // add 2 local visits - add latest first
         let rid1 = apply_observation(
-            &mut conn,
+            &conn,
             VisitObservation::new(url.clone())
                 .with_visit_type(VisitTransition::Link)
                 .with_at(Some(late_time.into())),
@@ -1196,7 +1188,7 @@ mod tests {
         .expect("should get a rowid");
 
         let rid2 = apply_observation(
-            &mut conn,
+            &conn,
             VisitObservation::new(url.clone())
                 .with_visit_type(VisitTransition::Link)
                 .with_at(Some(early_time.into())),
@@ -1211,7 +1203,7 @@ mod tests {
 
         // 2 remote visits, earliest first.
         let rid3 = apply_observation(
-            &mut conn,
+            &conn,
             VisitObservation::new(url.clone())
                 .with_visit_type(VisitTransition::Link)
                 .with_at(Some(early_time.into()))
@@ -1220,7 +1212,7 @@ mod tests {
         .expect("should get a rowid");
 
         let rid4 = apply_observation(
-            &mut conn,
+            &conn,
             VisitObservation::new(url.clone())
                 .with_visit_type(VisitTransition::Link)
                 .with_at(Some(late_time.into()))
@@ -1261,16 +1253,16 @@ mod tests {
         // visits, but for now we don't - check the values are sane though.
         pi = fetch_page_info(&conn, &url)?.expect("should have the page");
         assert_eq!(pi.page.visit_count_local, 0);
-        assert_eq!(pi.page.last_visit_date_local, Timestamp(0).into());
+        assert_eq!(pi.page.last_visit_date_local, Timestamp(0));
         assert_eq!(pi.page.visit_count_remote, 0);
-        assert_eq!(pi.page.last_visit_date_remote, Timestamp(0).into());
+        assert_eq!(pi.page.last_visit_date_remote, Timestamp(0));
         Ok(())
     }
 
     #[test]
     fn test_get_visited() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None)?;
+        let conn = PlacesDb::open_in_memory(None)?;
 
         let unicode_in_path = "http://www.example.com/tëst😀abc";
         let escaped_unicode_in_path = "http://www.example.com/t%C3%ABst%F0%9F%98%80abc";
@@ -1293,7 +1285,7 @@ mod tests {
 
         for item in &to_add {
             apply_observation(
-                &mut conn,
+                &conn,
                 VisitObservation::new(Url::parse(item).unwrap())
                     .with_visit_type(VisitTransition::Link),
             )?;
@@ -1351,7 +1343,7 @@ mod tests {
     #[test]
     fn test_get_visited_into() {
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None).unwrap();
+        let conn = PlacesDb::open_in_memory(None).unwrap();
 
         let to_add = [
             Url::parse("https://www.example.com/1").unwrap(),
@@ -1361,7 +1353,7 @@ mod tests {
 
         for item in &to_add {
             apply_observation(
-                &mut conn,
+                &conn,
                 VisitObservation::new(item.clone()).with_visit_type(VisitTransition::Link),
             )
             .unwrap();
@@ -1403,7 +1395,7 @@ mod tests {
 
     #[test]
     fn test_delete_visited() {
-        let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
         let late: Timestamp = SystemTime::now().into();
         let early: Timestamp = (SystemTime::now() - Duration::from_secs(30)).into();
         let url1 = Url::parse("https://www.example.com/1").unwrap();
@@ -1425,7 +1417,7 @@ mod tests {
 
         for &(url, when) in &to_add {
             apply_observation(
-                &mut conn,
+                &conn,
                 VisitObservation::new(url.clone())
                     .with_at(when)
                     .with_visit_type(VisitTransition::Link),
@@ -1499,7 +1491,7 @@ mod tests {
         let mut pi = get_observed_page(&mut conn, "http://example.com")?;
         // A new observation with just a title (ie, no visit) should update it.
         apply_observation(
-            &mut conn,
+            &conn,
             VisitObservation::new(pi.url.clone()).with_title(Some("new title".into())),
         )?;
         pi = fetch_page_info(&conn, &pi.url)?
@@ -1586,12 +1578,12 @@ mod tests {
     #[test]
     fn test_tombstones() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut db = PlacesDb::open_in_memory(None)?;
+        let db = PlacesDb::open_in_memory(None)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)
             .with_at(Some(SystemTime::now().into()));
-        apply_observation(&mut db, obs)?;
+        apply_observation(&db, obs)?;
         let guid = url_to_guid(&db, &url)?.expect("should exist");
 
         delete_place_by_guid(&db, &guid)?;
@@ -1602,7 +1594,7 @@ mod tests {
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)
             .with_at(Some(SystemTime::now().into()));
-        apply_observation(&mut db, obs)?;
+        apply_observation(&db, obs)?;
         let new_guid = url_to_guid(&db, &url)?.expect("should exist");
 
         // Set the status to normal
@@ -2062,13 +2054,13 @@ mod tests {
     #[test]
     fn test_long_strings() {
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None).unwrap();
+        let conn = PlacesDb::open_in_memory(None).unwrap();
         let mut url = "http://www.example.com".to_string();
         while url.len() < crate::storage::URL_LENGTH_MAX {
             url += "/garbage";
         }
         let maybe_row = apply_observation(
-            &mut conn,
+            &conn,
             VisitObservation::new(Url::parse(&url).unwrap())
                 .with_visit_type(VisitTransition::Link)
                 .with_at(Timestamp::now()),
@@ -2081,7 +2073,7 @@ mod tests {
             title += " test test";
         }
         let maybe_row = apply_observation(
-            &mut conn,
+            &conn,
             VisitObservation::new(Url::parse("http://www.example.com/123").unwrap())
                 .with_title(title.clone())
                 .with_visit_type(VisitTransition::Link)

@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#![allow(unknown_lints)]
+
 use ffi_support::{
     define_bytebuffer_destructor, define_handle_map_deleter, define_string_destructor,
     ConcurrentHandleMap, ExternError, FfiStr,
@@ -103,7 +105,7 @@ pub extern "C" fn push_subscribe(
                                                 base64::URL_SAFE_NO_PAD)
             }
         });
-        return Ok(subscription_info.to_string());
+        Ok(subscription_info.to_string())
     })
 }
 
@@ -139,7 +141,7 @@ pub extern "C" fn push_verify_connection(handle: u64, error: &mut ExternError) -
     log::debug!("push_verify");
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<_> {
         if let Ok(r) = mgr.verify_connection() {
-            if r == false {
+            if !r {
                 if let Ok(new_endpoints) = mgr.regenerate_endpoints() {
                     // use a `match` here to resolve return of <_>
                     return serde_json::to_string(&new_endpoints).map_err(|e| {

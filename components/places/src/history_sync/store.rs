@@ -21,8 +21,8 @@ use sync15::{
 use super::plan::{apply_plan, finish_plan};
 use super::MAX_INCOMING_PLACES;
 
-static LAST_SYNC_META_KEY: &'static str = "history_last_sync_time";
-static GLOBAL_STATE_META_KEY: &'static str = "history_global_state";
+const LAST_SYNC_META_KEY: &str = "history_last_sync_time";
+const GLOBAL_STATE_META_KEY: &str = "history_global_state";
 
 // A HistoryStore is short-lived and constructed each sync by something which
 // owns the connection and ClientInfo.
@@ -112,7 +112,7 @@ impl<'a> HistoryStore<'a> {
         );
         self.set_global_state(global_state.replace(None))?;
         let failures = result?;
-        if failures.len() == 0 {
+        if failures.is_empty() {
             Ok(())
         } else {
             assert_eq!(failures.len(), 1);
@@ -149,7 +149,8 @@ impl<'a> Store for HistoryStore<'a> {
         new_timestamp: ServerTimestamp,
         records_synced: &[String],
     ) -> result::Result<(), failure::Error> {
-        Ok(self.do_sync_finished(new_timestamp, records_synced)?)
+        self.do_sync_finished(new_timestamp, records_synced)?;
+        Ok(())
     }
 
     fn get_collection_request(&self) -> result::Result<CollectionRequest, failure::Error> {

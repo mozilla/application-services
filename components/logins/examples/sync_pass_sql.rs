@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #![recursion_limit = "4096"]
+#![allow(unknown_lints)]
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_string, prompt_usize};
@@ -26,7 +27,7 @@ fn read_login() -> Login {
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
     let record = Login {
-        id: sync15::random_guid().unwrap().into(),
+        id: sync15::random_guid().unwrap(),
         username,
         password,
         username_field,
@@ -141,7 +142,6 @@ fn show_sql(e: &PasswordEngine, sql: &str) -> Result<()> {
 
     let rows = stmt.query_map(NO_PARAMS, |row| {
         (0..len)
-            .into_iter()
             .map(|idx| match row.get::<_, Value>(idx) {
                 Value::Null => Cell::new("null").style_spec("Fd"),
                 Value::Integer(i) => Cell::new(&i.to_string()).style_spec("Fb"),
@@ -235,6 +235,7 @@ fn init_logging() {
     env_logger::init_from_env(env_logger::Env::default().filter_or("RUST_LOG", spec));
 }
 
+#[allow(clippy::cyclomatic_complexity)] // FIXME
 fn main() -> Result<()> {
     init_logging();
     std::env::set_var("RUST_BACKTRACE", "1");

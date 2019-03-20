@@ -57,7 +57,7 @@ impl Deref for PushDb {
 
 impl ConnExt for PushDb {
     fn conn(&self) -> &Connection {
-        *&self
+        &self.db
     }
 }
 
@@ -172,7 +172,7 @@ mod test {
     use super::PushDb;
     use crate::{db::Storage, record::PushRecord};
 
-    const DUMMY_UAID: &'static str = "abad1dea00000000aabbccdd00000000";
+    const DUMMY_UAID: &str = "abad1dea00000000aabbccdd00000000";
 
     fn prec() -> PushRecord {
         PushRecord::new(

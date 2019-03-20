@@ -44,7 +44,7 @@ where
 ///            "(0,?),(1,?),(2,?)");
 /// ```
 #[inline]
-pub fn repeat_display<'a, F>(count: usize, sep: &'a str, fmt_one: F) -> RepeatDisplay<'a, F>
+pub fn repeat_display<F>(count: usize, sep: &str, fmt_one: F) -> RepeatDisplay<F>
 where
     F: Fn(usize, &mut fmt::Formatter) -> fmt::Result,
 {

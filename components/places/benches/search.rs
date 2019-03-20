@@ -1,3 +1,5 @@
+#![allow(unknown_lints)]
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use places::api::{
     matcher::{match_url, search_frecent, SearchParams},

@@ -27,7 +27,7 @@ use url::Url;
 // XXX - there's probably a case to be made for this being, say, 5 years ago -
 // then all requests earlier than that are collapsed into a single visit at
 // this timestamp.
-const EARLIEST_TIMESTAMP: Timestamp = Timestamp(727747200000);
+const EARLIEST_TIMESTAMP: Timestamp = Timestamp(727_747_200_000);
 
 /// Clamps a history visit date between the current date and the earliest
 /// sensible date.
@@ -39,7 +39,7 @@ fn clamp_visit_date(visit_date: Timestamp) -> Timestamp {
     if visit_date < EARLIEST_TIMESTAMP {
         return EARLIEST_TIMESTAMP;
     }
-    return visit_date;
+    visit_date
 }
 
 /// This is the action we will take *locally* for each incoming record.
@@ -83,12 +83,12 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
                 return IncomingPlan::Skip;
             }
         }
-        Err(e) => return IncomingPlan::Failed(e.into()),
+        Err(e) => return IncomingPlan::Failed(e),
     }
     // Let's get what we know about it, if anything - last 20, like desktop?
     let visit_tuple = match fetch_visits(conn, &url, max_visits) {
         Ok(v) => v,
-        Err(e) => return IncomingPlan::Failed(e.into()),
+        Err(e) => return IncomingPlan::Failed(e),
     };
 
     // This all seems more messy than it should be - struggling to find the
@@ -115,7 +115,7 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
             Some(t) => t,
             None => continue,
         };
-        let date_use = clamp_visit_date(visit.visit_date.into());
+        let date_use = clamp_visit_date(visit.visit_date);
         cur_visit_map.insert((transition, date_use));
     }
     // If we already have MAX_RECORDS visits, then we will ignore incoming
@@ -154,7 +154,7 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
     // Now we need to check the other attributes.
     // Check if we should update title? For now, assume yes. It appears
     // as though desktop always updates it.
-    if guid_changed || to_apply.len() != 0 {
+    if guid_changed || !to_apply.is_empty() {
         let new_title = Some(record.title);
         IncomingPlan::Apply {
             url: url.clone(),
@@ -300,13 +300,12 @@ mod tests {
         let result: Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_places_tombstones;",
             &[],
-            |row| Ok(row.get_checked::<_, u32>(0)?.clone()),
+            |row| Ok(row.get_checked::<_, u32>(0)?),
             true,
         );
         result
             .expect("should have worked")
             .expect("should have got a value")
-            .into()
     }
 
     fn get_sync(conn: &PlacesDb, url: &Url) -> (SyncStatus, u32) {
@@ -326,7 +325,6 @@ mod tests {
         guid_result
             .expect("should have worked")
             .expect("should have got values")
-            .into()
     }
 
     #[test]
@@ -396,14 +394,14 @@ mod tests {
     #[test]
     fn test_plan_dupe_visit_same_guid() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
         let now = SystemTime::now();
         let url = Url::parse("https://example.com").expect("is valid");
         // add it locally
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)
             .with_at(Some(now.into()));
-        apply_observation(&mut conn, obs).expect("should apply");
+        apply_observation(&conn, obs).expect("should apply");
         // should be New with a change counter.
         assert_eq!(get_sync(&conn, &url), (SyncStatus::New, 1));
 
@@ -433,14 +431,14 @@ mod tests {
     #[test]
     fn test_plan_dupe_visit_different_guid_no_visits() {
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
         let now = SystemTime::now();
         let url = Url::parse("https://example.com").expect("is valid");
         // add it locally
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)
             .with_at(Some(now.into()));
-        apply_observation(&mut conn, obs).expect("should apply");
+        apply_observation(&conn, obs).expect("should apply");
 
         assert_eq!(get_sync(&conn, &url), (SyncStatus::New, 1));
 
@@ -523,7 +521,7 @@ mod tests {
         // but they are yet to be synced - the local guid should change and
         // all visits should be applied.
         let _ = env_logger::try_init();
-        let mut db = PlacesDb::open_in_memory(None)?;
+        let db = PlacesDb::open_in_memory(None)?;
 
         let guid1 = SyncGuid::new();
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
@@ -535,8 +533,8 @@ mod tests {
         let ts_local: Timestamp = (SystemTime::now() - Duration::new(10, 0)).into();
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)
-            .with_at(Some(ts_local.into()));
-        apply_observation(&mut db, obs)?;
+            .with_at(Some(ts_local));
+        apply_observation(&db, obs)?;
 
         // 2 incoming records with the same URL.
         let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
@@ -580,7 +578,7 @@ mod tests {
         // and they have been synced - the existing guid should not change,
         // although all visits should still be applied.
         let _ = env_logger::try_init();
-        let mut db = PlacesDb::open_in_memory(None)?;
+        let db = PlacesDb::open_in_memory(None)?;
 
         let guid1 = SyncGuid::new();
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
@@ -592,8 +590,8 @@ mod tests {
         let ts_local: Timestamp = (SystemTime::now() - Duration::new(10, 0)).into();
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)
-            .with_at(Some(ts_local.into()));
-        apply_observation(&mut db, obs)?;
+            .with_at(Some(ts_local));
+        apply_observation(&db, obs)?;
 
         // 2 incoming records with the same URL.
         let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
@@ -641,7 +639,7 @@ mod tests {
             "histUri": "http://example.com",
             "sortindex": 0,
             "ttl": 100,
-            "visits": [ {"date": 15423493234840000000u64, "type": 1}]
+            "visits": [ {"date": 15_423_493_234_840_000_000u64, "type": 1}]
         });
         let mut result = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
         let payload = Payload::from_json(json).unwrap();
@@ -757,13 +755,13 @@ mod tests {
     #[test]
     fn test_apply_plan_outgoing_new() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut db = PlacesDb::open_in_memory(None)?;
+        let db = PlacesDb::open_in_memory(None)?;
         let url = Url::parse("https://example.com")?;
         let now = SystemTime::now();
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)
             .with_at(Some(now.into()));
-        apply_observation(&mut db, obs)?;
+        apply_observation(&db, obs)?;
 
         let incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
         let outgoing = apply_plan(&db, incoming, &mut telemetry::EngineIncoming::new())?;
@@ -775,7 +773,7 @@ mod tests {
     #[test]
     fn test_simple_visit_reconciliation() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut db = PlacesDb::open_in_memory(None)?;
+        let db = PlacesDb::open_in_memory(None)?;
         let ts: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
         let url = Url::parse("https://example.com")?;
 
@@ -783,7 +781,7 @@ mod tests {
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)
             .with_at(Some(ts));
-        apply_observation(&mut db, obs)?;
+        apply_observation(&db, obs)?;
         // Sync status should be "new" and have a change recorded.
         assert_eq!(get_sync(&db, &url), (SyncStatus::New, 1));
 
@@ -817,7 +815,7 @@ mod tests {
     #[test]
     fn test_simple_visit_incoming_and_outgoing() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut db = PlacesDb::open_in_memory(None)?;
+        let db = PlacesDb::open_in_memory(None)?;
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
         let ts2: Timestamp = SystemTime::now().into();
         let url = Url::parse("https://example.com")?;
@@ -826,7 +824,7 @@ mod tests {
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)
             .with_at(Some(ts1));
-        apply_observation(&mut db, obs)?;
+        apply_observation(&db, obs)?;
 
         let guid = get_existing_guid(&db, &url);
 
@@ -872,12 +870,12 @@ mod tests {
     #[test]
     fn test_incoming_tombstone_local_new() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut db = PlacesDb::open_in_memory(None)?;
+        let db = PlacesDb::open_in_memory(None)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)
             .with_at(Some(SystemTime::now().into()));
-        apply_observation(&mut db, obs)?;
+        apply_observation(&db, obs)?;
         assert_eq!(get_sync(&db, &url), (SyncStatus::New, 1));
 
         let guid = get_existing_guid(&db, &url);
@@ -901,12 +899,12 @@ mod tests {
     #[test]
     fn test_incoming_tombstone_local_normal() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut db = PlacesDb::open_in_memory(None)?;
+        let db = PlacesDb::open_in_memory(None)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)
             .with_at(Some(SystemTime::now().into()));
-        apply_observation(&mut db, obs)?;
+        apply_observation(&db, obs)?;
         let guid = get_existing_guid(&db, &url);
 
         // Set the status to normal
@@ -936,12 +934,12 @@ mod tests {
     #[test]
     fn test_outgoing_tombstone() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut db = PlacesDb::open_in_memory(None)?;
+        let db = PlacesDb::open_in_memory(None)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)
             .with_at(Some(SystemTime::now().into()));
-        apply_observation(&mut db, obs)?;
+        apply_observation(&db, obs)?;
         let guid = get_existing_guid(&db, &url);
 
         // Set the status to normal

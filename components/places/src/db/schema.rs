@@ -40,9 +40,9 @@ lazy_static::lazy_static! {
 }
 
 // Keys in the moz_meta table.
-pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_COUNT: &'static str = "origin_frecency_count";
-pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM: &'static str = "origin_frecency_sum";
-pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM_OF_SQUARES: &'static str =
+pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_COUNT: &str = "origin_frecency_count";
+pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM: &str = "origin_frecency_sum";
+pub(crate) static MOZ_META_KEY_ORIGIN_FRECENCY_SUM_OF_SQUARES: &str =
     "origin_frecency_sum_of_squares";
 
 fn update_origin_frecency_stats(op: &str) -> String {

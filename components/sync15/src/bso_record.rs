@@ -70,7 +70,7 @@ impl<T> BsoRecord<T> {
     pub fn new_record(id: String, coll: String, payload: T) -> BsoRecord<T> {
         BsoRecord {
             id,
-            collection: coll.into(),
+            collection: coll,
             ttl: None,
             sortindex: None,
             modified: ServerTimestamp::default(),
@@ -178,9 +178,9 @@ pub struct Payload {
     pub data: Map<String, JsonValue>,
 }
 
-// `#[serde(skip_if)]` only allows a function (not an expression).
-// Is there a builtin way to do this?
+// TODO: Move skip_if_default from places to something shared
 #[inline]
+#[allow(clippy::trivially_copy_pass_by_ref)]
 fn is_false(b: &bool) -> bool {
     !*b
 }
@@ -307,7 +307,7 @@ impl From<Payload> for JsonValue {
             id,
             deleted,
         } = cleartext;
-        data.insert("id".to_string(), JsonValue::String(id.into()));
+        data.insert("id".to_string(), JsonValue::String(id));
         if deleted {
             data.insert("deleted".to_string(), JsonValue::Bool(true));
         }
@@ -447,7 +447,7 @@ mod tests {
         let record: BsoRecord<EncryptedPayload> = serde_json::from_str(serialized).unwrap();
         assert_eq!(&record.id, "1234");
         assert_eq!(&record.collection, "passwords");
-        assert_eq!(record.modified.0, 12344321.0);
+        assert!((record.modified.0 - 1234_4321.0).abs() < std::f64::EPSILON);
         assert_eq!(record.sortindex, None);
         assert_eq!(&record.payload.iv, "aaaaa");
         assert_eq!(&record.payload.hmac, "bbbbb");

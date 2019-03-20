@@ -8,6 +8,7 @@
  * This uses prime256v1 EC encryption that should come from internal crypto calls. The "application-services"
  * module compiles openssl, however, so might be enough to tie into that.
  */
+#![allow(unknown_lints)]
 use base64;
 use log::{debug, error};
 use std::clone;
@@ -137,7 +138,7 @@ impl Key {
             }
         };
         Ok(Key {
-            private: private,
+            private,
             public: pubkey,
             auth: auth.to_vec(),
         })
@@ -206,7 +207,7 @@ fn extract_value(string: Option<&str>, target: &str) -> Option<Vec<u8>> {
             }
         }
     }
-    return None;
+    None
 }
 
 impl Cryptography for Crypto {
