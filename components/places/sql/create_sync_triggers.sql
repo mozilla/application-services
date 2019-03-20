@@ -15,7 +15,7 @@ BEGIN
   UPDATE moz_bookmarks SET
     syncChangeCounter = max(syncChangeCounter - NEW.syncChangeCounter, 0),
     syncStatus = 2 -- SyncStatus::Normal
-  WHERE id = NEW.id;
+  WHERE guid = NEW.guid;
 
   -- Remove uploaded tombstones.
   DELETE FROM moz_bookmarks_deleted
