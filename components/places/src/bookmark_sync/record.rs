@@ -176,7 +176,7 @@ impl Serialize for BookmarkItemRecord {
             BookmarkItemRecord::Bookmark(b) => {
                 state.serialize_field("id", guid_to_id(&b.guid))?;
                 state.serialize_field("type", "bookmark")?;
-                state.serialize_field("parentid", &b.parent_guid)?;
+                state.serialize_field("parentid", &b.parent_guid.as_ref().map(guid_to_id))?;
                 state.serialize_field("hasDupe", &b.has_dupe)?;
                 state.serialize_field("parentName", &b.parent_title)?;
                 state.serialize_field("dateAdded", &b.date_added)?;
@@ -188,7 +188,7 @@ impl Serialize for BookmarkItemRecord {
             BookmarkItemRecord::Query(q) => {
                 state.serialize_field("id", guid_to_id(&q.guid))?;
                 state.serialize_field("type", "query")?;
-                state.serialize_field("parentid", &q.parent_guid)?;
+                state.serialize_field("parentid", &q.parent_guid.as_ref().map(guid_to_id))?;
                 state.serialize_field("hasDupe", &q.has_dupe)?;
                 state.serialize_field("parentName", &q.parent_title)?;
                 state.serialize_field("dateAdded", &q.date_added)?;
@@ -199,7 +199,7 @@ impl Serialize for BookmarkItemRecord {
             BookmarkItemRecord::Folder(f) => {
                 state.serialize_field("id", guid_to_id(&f.guid))?;
                 state.serialize_field("type", "folder")?;
-                state.serialize_field("parentid", &f.parent_guid)?;
+                state.serialize_field("parentid", &f.parent_guid.as_ref().map(guid_to_id))?;
                 state.serialize_field("hasDupe", &f.has_dupe)?;
                 state.serialize_field("parentName", &f.parent_title)?;
                 state.serialize_field("dateAdded", &f.date_added)?;
@@ -209,7 +209,7 @@ impl Serialize for BookmarkItemRecord {
             BookmarkItemRecord::Livemark(l) => {
                 state.serialize_field("id", guid_to_id(&l.guid))?;
                 state.serialize_field("type", "livemark")?;
-                state.serialize_field("parentid", &l.parent_guid)?;
+                state.serialize_field("parentid", &l.parent_guid.as_ref().map(guid_to_id))?;
                 state.serialize_field("hasDupe", &l.has_dupe)?;
                 state.serialize_field("parentName", &l.parent_title)?;
                 state.serialize_field("dateAdded", &l.date_added)?;
@@ -220,7 +220,7 @@ impl Serialize for BookmarkItemRecord {
             BookmarkItemRecord::Separator(s) => {
                 state.serialize_field("id", guid_to_id(&s.guid))?;
                 state.serialize_field("type", "separator")?;
-                state.serialize_field("parentid", &s.parent_guid)?;
+                state.serialize_field("parentid", &s.parent_guid.as_ref().map(guid_to_id))?;
                 state.serialize_field("hasDupe", &s.has_dupe)?;
                 state.serialize_field("parentName", &s.parent_title)?;
                 state.serialize_field("dateAdded", &s.date_added)?;
