@@ -146,7 +146,6 @@ def gradle_module_task(libs_tasks, module_info, is_release):
             yes | sdkmanager --update
             yes | sdkmanager --licenses
             ./gradlew --no-daemon clean
-            python automation/taskcluster/release/fetch-bintray-api-key.py
         """)
         .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "testDebug")))
         .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "assembleRelease")))
@@ -160,6 +159,7 @@ def gradle_module_task(libs_tasks, module_info, is_release):
             task.with_scopes("secrets:get:project/application-services/symbols-token")
             task.with_script("./automation/upload_android_symbols.sh {}".format(module_info['path']))
         task.with_scopes("secrets:get:project/application-services/publish")
+        task.with_script("python automation/taskcluster/release/fetch-bintray-api-key.py")
         task.with_script('./gradlew --no-daemon {} --debug -PvcsTag="$GIT_SHA"'.format(gradle_module_task_name(module, "bintrayUpload")))
     return task.create()
 
