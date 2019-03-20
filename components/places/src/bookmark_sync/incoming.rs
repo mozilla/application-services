@@ -429,6 +429,7 @@ mod tests {
                 "title": "A",
                 "bmkUri": "http://example.com/a",
                 "tags": ["foo", "bar"],
+                "keyword": "baz",
             }),
             &MirrorBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
@@ -436,7 +437,8 @@ mod tests {
                 .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
                 .title(Some("A"))
                 .url(Some("http://example.com/a"))
-                .tags(vec!["foo".into(), "bar".into()]),
+                .tags(vec!["foo".into(), "bar".into()])
+                .keyword(Some("baz")),
         );
     }
 

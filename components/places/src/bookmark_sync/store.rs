@@ -224,9 +224,11 @@ impl<'a> BookmarksStore<'a> {
                                       tagFolderName)
             SELECT s.id, s.guid, s.syncChangeCounter, s.parentGuid,
                    s.parentTitle, s.dateAdded, s.title, s.placeId,
-                   {kind}, h.url, NULL AS keyword, s.position,
+                   {kind}, h.url, v.keyword, s.position,
                    NULL AS tagFolderName
             FROM localItems s
+            JOIN mergedTree r ON r.mergedGuid = s.guid
+            LEFT JOIN moz_bookmarks_synced v ON v.guid = r.remoteGuid
             LEFT JOIN moz_places h ON h.id = s.placeId
             LEFT JOIN idsToWeaklyUpload w ON w.id = s.id
             WHERE s.guid <> '{root_guid}' AND (
@@ -333,7 +335,7 @@ impl<'a> BookmarksStore<'a> {
                             date_added: Some(date_added),
                             title: Some(title),
                             url: Some(url),
-                            keyword: None,
+                            keyword: row.get_checked::<_, Option<String>>("keyword")?,
                             tags: tags_by_local_id.remove(&local_id).unwrap_or_default(),
                         }
                         .into()
@@ -971,7 +973,10 @@ mod tests {
     use crate::api::places_api::{test::new_mem_api, ConnectionType};
     use crate::bookmark_sync::store::BookmarksStore;
     use crate::db::PlacesDb;
-    use crate::storage::{bookmarks::get_raw_bookmark, tags};
+    use crate::storage::{
+        bookmarks::{get_raw_bookmark, update_bookmark, UpdatableBookmark},
+        tags,
+    };
     use crate::tests::{
         assert_json_tree as assert_local_json_tree, insert_json_tree as insert_local_json_tree,
     };
@@ -1403,6 +1408,81 @@ mod tests {
         .expect("Should return tags for C");
         tags_for_c.sort();
         assert_eq!(tags_for_c, &["bar", "foo"]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_keywords() -> Result<()> {
+        let api = new_mem_api();
+        let writer = api.open_connection(ConnectionType::ReadWrite)?;
+        let syncer = api.open_connection(ConnectionType::Sync)?;
+
+        let records = vec![
+            json!({
+                "id": BookmarkRootGuid::Toolbar.as_guid(),
+                "type": "folder",
+                "parentid": BookmarkRootGuid::Root.as_guid(),
+                "parentName": "",
+                "dateAdded": 0,
+                "title": "toolbar",
+                "children": ["bookmarkAAAA"],
+            }),
+            json!({
+                "id": "bookmarkAAAA",
+                "type": "bookmark",
+                "parentid": BookmarkRootGuid::Toolbar.as_guid(),
+                "parentName": "menu",
+                "dateAdded": 1_552_183_116_885u64,
+                "title": "A",
+                "bmkUri": "http://example.com/a",
+                "keyword": "a",
+            }),
+        ];
+
+        let client_info = Cell::new(None);
+        let store = BookmarksStore::new(&syncer, &client_info);
+
+        let mut incoming =
+            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
+        for record in records {
+            let payload = Payload::from_json(record).unwrap();
+            incoming.changes.push((payload, ServerTimestamp(0.0)));
+        }
+
+        let outgoing = store
+            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new())
+            .expect("Should apply incoming records");
+        let outgoing_ids = outgoing
+            .changes
+            .iter()
+            .map(|p| p.id.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(outgoing_ids, &["menu", "toolbar", "unfiled", "mobile"],);
+
+        store
+            .sync_finished(ServerTimestamp(0.0), &outgoing_ids)
+            .expect("Should push synced changes back to the store");
+
+        update_bookmark(
+            &writer,
+            &"bookmarkAAAA".into(),
+            &UpdatableBookmark {
+                title: Some("A (local)".into()),
+                ..UpdatableBookmark::default()
+            }
+            .into(),
+        )?;
+
+        let outgoing = store
+            .apply_incoming(
+                IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1.0)),
+                &mut telemetry::EngineIncoming::new(),
+            )
+            .expect("Should fetch outgoing records after making local changes");
+        assert_eq!(outgoing.changes.len(), 1);
+        assert_eq!(outgoing.changes[0].id, "bookmarkAAAA");
+        assert_eq!(outgoing.changes[0].data["keyword"], "a");
 
         Ok(())
     }
