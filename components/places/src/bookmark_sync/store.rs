@@ -4,7 +4,8 @@
 
 use super::incoming::IncomingApplicator;
 use super::record::{
-    guid_to_id, BookmarkItemRecord, BookmarkRecord, FolderRecord, QueryRecord, SeparatorRecord,
+    guid_to_id, id_to_guid, BookmarkItemRecord, BookmarkRecord, FolderRecord, QueryRecord,
+    SeparatorRecord,
 };
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::api::places_api::ConnectionType;
@@ -400,23 +401,27 @@ impl<'a> BookmarksStore<'a> {
     /// Decrements the change counter, updates the sync status, and cleans up
     /// tombstones for successfully synced items. Sync calls this method at the
     /// end of each bookmark sync.
-    fn push_synced_items(&self, uploaded_at: ServerTimestamp, guids: &[String]) -> Result<()> {
+    fn push_synced_items(&self, uploaded_at: ServerTimestamp, record_ids: &[String]) -> Result<()> {
         // Flag all successfully synced records as uploaded. This `UPDATE` fires
         // the `pushUploadedChanges` trigger, which updates local change
         // counters and writes the items back to the synced bookmarks table.
-        sql_support::each_chunk(&guids, |chunk, _| -> Result<()> {
-            self.db.execute(
-                &format!(
-                    "UPDATE itemsToUpload SET
+        sql_support::each_chunk_mapped(
+            &record_ids,
+            |id| id_to_guid(id.clone()),
+            |chunk, _| -> Result<()> {
+                self.db.execute(
+                    &format!(
+                        "UPDATE itemsToUpload SET
                        uploadedAt = {uploaded_at}
                      WHERE guid IN ({values})",
-                    uploaded_at = uploaded_at.as_millis(),
-                    values = sql_support::repeat_sql_values(chunk.len())
-                ),
-                chunk,
-            )?;
-            Ok(())
-        })?;
+                        uploaded_at = uploaded_at.as_millis(),
+                        values = sql_support::repeat_sql_values(chunk.len())
+                    ),
+                    chunk,
+                )?;
+                Ok(())
+            },
+        )?;
 
         // Fast-forward the last sync time, so that we don't download the
         // records we just uploaded on the next sync.
@@ -1313,9 +1318,7 @@ mod tests {
         let info_for_unfiled = get_raw_bookmark(&conn, &BookmarkRootGuid::Unfiled.as_guid())
             .expect("Should fetch info for unfiled")
             .unwrap();
-        // XXX - presumably this next line should use `info_for_unfiled`, but
-        // info_for_unfiled has a change counter of 1!
-        assert_eq!(info_for_a.sync_change_counter, 0);
+        assert_eq!(info_for_unfiled.sync_change_counter, 0);
 
         Ok(())
     }
