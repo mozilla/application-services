@@ -40,7 +40,7 @@ internal interface LibPushFFI : Library {
     // free them).
 
     /** Create a new push connection */
-    fun push_connection_new(
+    fun push_new_connection(
         server_host: String,
         socket_protocol: String?,
         bridge_type: String?,
@@ -50,7 +50,7 @@ internal interface LibPushFFI : Library {
         out_err: RustError.ByReference
     ): PushManagerHandle
 
-    /** Returns JSON string, which you need to free with push_destroy_string */
+    /** Returns JSON string, which you need to free with destroyString */
     fun push_subscribe(
         mgr: PushManagerHandle,
         channel_id: String,
@@ -65,7 +65,7 @@ internal interface LibPushFFI : Library {
         out_err: RustError.ByReference
     ): Byte
 
-    fun push_update(
+    fun push_update_registration_token(
         mgr: PushManagerHandle,
         new_token: String,
         out_err: RustError.ByReference
@@ -98,8 +98,8 @@ internal interface LibPushFFI : Library {
     /** Destroy a buffer value returned from the decrypt ffi call */
     fun push_destroy_buffer(s: RustBuffer.ByValue)
 
-    /** Destroy connection created using `push_connection_new` */
-    fun push_connection_destroy(obj: PushManagerHandle, out_err: RustError.ByReference)
+    /** Destroy connection created using `newConnection` */
+    fun push_destroy_connection(obj: PushManagerHandle, out_err: RustError.ByReference)
 }
 
 internal typealias PushManagerHandle = Long

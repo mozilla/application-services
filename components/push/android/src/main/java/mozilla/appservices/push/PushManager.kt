@@ -33,7 +33,7 @@ class PushManager(
     init {
         try {
             handle.set(rustCall { error ->
-                LibPushFFI.INSTANCE.push_connection_new(
+                LibPushFFI.INSTANCE.push_new_connection(
                     server_host,
                     socket_protocol,
                     bridge_type.toString(),
@@ -54,7 +54,7 @@ class PushManager(
         val handle = this.handle.getAndSet(0L)
         if (handle != 0L) {
             rustCall { error ->
-                LibPushFFI.INSTANCE.push_connection_destroy(handle, error)
+                LibPushFFI.INSTANCE.push_destroy_connection(handle, error)
             }
         }
     }
@@ -78,9 +78,9 @@ class PushManager(
         }.toInt() == 1
     }
 
-    override fun update(registrationToken: String): Boolean {
+    override fun updateRegistrationToken(registrationToken: String): Boolean {
         return rustCall { error ->
-            LibPushFFI.INSTANCE.push_update(
+            LibPushFFI.INSTANCE.push_update_registration_token(
                 this.handle.get(), registrationToken, error)
         }.toInt() == 1
     }
@@ -121,7 +121,7 @@ class PushManager(
         return retarray
     }
 
-    override fun dispatch_for_chid(channelID: String): DispatchInfo {
+    override fun dispatchForCHID(channelID: String): DispatchInfo {
         val json = rustCallForString { error ->
             LibPushFFI.INSTANCE.push_dispatch_for_chid(
                 this.handle.get(), channelID, error)
@@ -258,7 +258,7 @@ interface PushAPI {
      * @param registrationToken the new Native OS push registration ID.
      * @return bool
      */
-    fun update(registrationToken: String): Boolean
+    fun updateRegistrationToken(registrationToken: String): Boolean
 
     /**
      * Verifies the connection state. NOTE: If the internal check fails,
@@ -299,5 +299,5 @@ interface PushAPI {
         dh: String
     ): ByteArray
 
-    fun dispatch_for_chid(channelID: String): DispatchInfo
+    fun dispatchForCHID(channelID: String): DispatchInfo
 }

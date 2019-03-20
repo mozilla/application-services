@@ -38,9 +38,9 @@ lazy_static::lazy_static! {
 }
 
 /// Instantiate a Http connection. Returned connection must be freed with
-/// `push_connection_destroy`. Returns null and logs on errors (for now).
+/// `destroyConnection`. Returns null and logs on errors (for now).
 #[no_mangle]
-pub extern "C" fn push_connection_new(
+pub extern "C" fn push_new_connection(
     server_host: FfiStr<'_>,
     socket_protocol: FfiStr<'_>,
     bridge_type: FfiStr<'_>,
@@ -51,7 +51,7 @@ pub extern "C" fn push_connection_new(
 ) -> u64 {
     MANAGER.insert_with_result(error, || {
         log::debug!(
-            "push_connection_new {:?} {:?} -> {:?} {:?}=>{:?}",
+            "newConnection {:?} {:?} -> {:?} {:?}=>{:?}",
             socket_protocol,
             server_host,
             bridge_type,
@@ -116,7 +116,7 @@ pub extern "C" fn push_unsubscribe(
     channel_id: FfiStr<'_>,
     error: &mut ExternError,
 ) -> u8 {
-    log::debug!("push_unsubscribe");
+    log::debug!("unsubscribe");
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<bool> {
         let channel = channel_id.as_opt_str();
         mgr.unsubscribe(channel)
@@ -125,8 +125,12 @@ pub extern "C" fn push_unsubscribe(
 
 // Update the OS token
 #[no_mangle]
-pub extern "C" fn push_update(handle: u64, new_token: FfiStr<'_>, error: &mut ExternError) -> u8 {
-    log::debug!("push_update");
+pub extern "C" fn push_update_registration_token(
+    handle: u64,
+    new_token: FfiStr<'_>,
+    error: &mut ExternError,
+) -> u8 {
+    log::debug!("updateRegistrationToken");
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<_> {
         let token = new_token.as_str();
         mgr.update(&token)
@@ -164,7 +168,7 @@ pub extern "C" fn push_decrypt(
     dh: FfiStr<'_>,
     error: &mut ExternError,
 ) -> *mut c_char {
-    log::debug!("push_decrypt");
+    log::debug!("decrypt");
     MANAGER.call_with_result_mut(error, handle, |mgr| {
         let r_chid = chid.as_str();
         let r_body = body.as_str();
@@ -183,7 +187,7 @@ pub extern "C" fn push_dispatch_for_chid(
     chid: FfiStr<'_>,
     error: &mut ExternError,
 ) -> *mut c_char {
-    log::debug!("push_dispatch_for_chid");
+    log::debug!("dispatchForCHID");
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<String> {
         let chid = chid.as_str();
         if let Some(record) = mgr.get_record_by_chid(chid)? {
@@ -201,5 +205,5 @@ pub extern "C" fn push_dispatch_for_chid(
 
 define_string_destructor!(push_destroy_string);
 define_bytebuffer_destructor!(push_destroy_buffer);
-define_handle_map_deleter!(MANAGER, push_connection_destroy);
+define_handle_map_deleter!(MANAGER, push_destroy_connection);
 // define_box_destructor!(PlacesInterruptHandle, places_interrupt_handle_destroy);

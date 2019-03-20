@@ -184,7 +184,7 @@ class PushTest {
     @Test
     fun testUpdate() {
         val manager = getPushManager()
-        val result = manager.update("test-2")
+        val result = manager.updateRegistrationToken("test-2")
         // TODO: This changes the SenderID used by manager.conn, which is private.
         // probably should add a call to return that for test checks.
         assertEquals("SenderID update", true, result)
@@ -200,11 +200,11 @@ class PushTest {
     }
 
     @Test
-    fun testDispatchForChid() {
+    fun testDispatchForCHID() {
         val manager = getPushManager()
 
         val subscriptionInfo = manager.subscribe(testChannelid, "foo")
-        val dispatch = manager.dispatch_for_chid(testChannelid)
+        val dispatch = manager.dispatchForCHID(testChannelid)
         assertEquals("uaid", "abad1d3a00000000aabbccdd00000000", dispatch.uaid)
         assertEquals("scope", "foo", dispatch.scope)
     }
