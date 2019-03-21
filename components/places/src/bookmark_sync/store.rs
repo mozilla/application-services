@@ -588,8 +588,8 @@ impl<'a> Merger<'a> {
     fn merge(&self) -> Result<()> {
         use dogear::Store;
         // Merge and stage outgoing items via dogear.
-        self.merge_with_driver(&Driver)?;
-        // note we are dropping the result of type dogear::store::Stats here.
+        let stats = self.merge_with_driver(&Driver)?;
+        log::debug!("merge completed: {:?}", stats);
         Ok(())
     }
 
