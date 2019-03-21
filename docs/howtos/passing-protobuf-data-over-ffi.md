@@ -54,7 +54,6 @@ follow the examples of the other steps it takes.
 6. Into your main crate's lib.rs file, add something equivalent to the following:
     ```rust
     pub mod msg_types {
-        use prost_derive::Message;
         include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
     }
     ```
