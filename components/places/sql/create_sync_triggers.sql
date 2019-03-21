@@ -31,7 +31,7 @@ BEGIN
          NEW.isDeleted, NEW.kind, NEW.dateAdded, NEW.title,
          NEW.placeId, NEW.keyword);
 
-  REPLACE INTO moz_bookmarks_synced_structure(guid, parentGuid, position)
+  INSERT INTO moz_bookmarks_synced_structure(guid, parentGuid, position)
   SELECT guid, NEW.guid, position
   FROM structureToUpload
   WHERE parentId = NEW.id;
@@ -165,12 +165,7 @@ CREATE TEMP TRIGGER updateLocalStructure
 INSTEAD OF DELETE ON structureToMerge
 BEGIN
   UPDATE moz_bookmarks SET
-    parent = OLD.newParentId
-  WHERE id = OLD.localId AND
-        parent <> OLD.newParentId;
-
-  UPDATE moz_bookmarks SET
-    position = OLD.newPosition
-  WHERE id = OLD.localId AND
-        position <> OLD.newPosition;
+      parent = OLD.newParentId,
+      position = OLD.newPosition
+  WHERE id = OLD.localId;
 END;

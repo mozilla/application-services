@@ -120,7 +120,7 @@ impl<'a> BookmarksStore<'a> {
                 // We can't avoid allocating here, since we're binding four
                 // parameters per descendant. Rust's `SliceConcatExt::concat`
                 // is semantically equivalent, but requires a second allocation,
-                // which we _can_ avoid.
+                // which we _can_ avoid by writing this out.
                 let mut params = Vec::with_capacity(chunk.len() * 4);
                 for d in chunk.iter() {
                     params.push(
@@ -154,9 +154,7 @@ impl<'a> BookmarksStore<'a> {
             },
         )?;
 
-        // Next, insert rows for deletions. Unlike Desktop, there's no
-        // `noteItemRemoved` trigger on `itemsToRemove`, since we don't support
-        // observer notifications.
+        // Next, insert rows for deletions.
         sql_support::each_chunk(&deletions, |chunk, _| -> Result<()> {
             self.db.execute(
                 &format!(
@@ -173,14 +171,16 @@ impl<'a> BookmarksStore<'a> {
             Ok(())
         })?;
 
-        // "Deleting" from `itemsToMerge` fires the `insertNewLocalItems` and
-        // `updateExistingLocalItems` triggers.
+        // `itemsToMerge` is a view, so "deleting" from it fires the
+        // `insertNewLocalItems` and `updateExistingLocalItems`
+        // triggers instead.
         self.db.execute_batch("DELETE FROM itemsToMerge")?;
 
-        // "Deleting" from `structureToMerge` fires the `updateLocalStructure`
-        // trigger.
+        // `structureToMerge` is also a view, so "deleting" from it fires the
+        // `updateLocalStructure` trigger.
         self.db.execute_batch("DELETE FROM structureToMerge")?;
 
+        // Deleting from `itemsToRemove` fires the `removeLocalItems` trigger.
         self.db.execute_batch("DELETE FROM itemsToRemove")?;
 
         Ok(())
@@ -206,8 +206,6 @@ impl<'a> BookmarksStore<'a> {
             JOIN mergedTree r ON r.mergedGuid = b.guid
             JOIN moz_bookmarks_synced v ON v.guid = r.remoteGuid
             WHERE r.useRemote AND
-                  /* "b.dateAdded" is in microseconds; "v.dateAdded" is in
-                     milliseconds. */
                   b.dateAdded < v.dateAdded"#,
         )?;
 
@@ -218,19 +216,17 @@ impl<'a> BookmarksStore<'a> {
             {local_items_fragment}
             INSERT INTO itemsToUpload(id, guid, syncChangeCounter, parentGuid,
                                       parentTitle, dateAdded, title, placeId,
-                                      kind, url, keyword, position,
-                                      tagFolderName)
+                                      kind, url, keyword, position)
             SELECT s.id, s.guid, s.syncChangeCounter, s.parentGuid,
                    s.parentTitle, s.dateAdded, s.title, s.placeId,
-                   {kind}, h.url, v.keyword, s.position,
-                   NULL AS tagFolderName
+                   {kind}, h.url, v.keyword, s.position
             FROM localItems s
             JOIN mergedTree r ON r.mergedGuid = s.guid
             LEFT JOIN moz_bookmarks_synced v ON v.guid = r.remoteGuid
             LEFT JOIN moz_places h ON h.id = s.placeId
             LEFT JOIN idsToWeaklyUpload w ON w.id = s.id
             WHERE s.guid <> '{root_guid}' AND (
-                    s.syncChangeCounter >= 1 OR
+                    s.syncChangeCounter > 0 OR
                     w.id NOT NULL
                   )",
             local_items_fragment = LocalItemsFragment("localItems"),
@@ -299,9 +295,8 @@ impl<'a> BookmarksStore<'a> {
         }
 
         let mut stmt = self.db.prepare(
-            r#"SELECT id, syncChangeCounter, guid, isDeleted, kind,
-                      tagFolderName, keyword, url, IFNULL(title, "") AS title,
-                      position, parentGuid,
+            r#"SELECT id, syncChangeCounter, guid, isDeleted, kind, keyword,
+                      url, IFNULL(title, "") AS title, position, parentGuid,
                       IFNULL(parentTitle, "") AS parentTitle, dateAdded
                FROM itemsToUpload"#,
         )?;
@@ -328,7 +323,6 @@ impl<'a> BookmarksStore<'a> {
                         BookmarkRecord {
                             guid,
                             parent_guid: Some(parent_guid),
-                            has_dupe: true,
                             parent_title: Some(parent_title),
                             date_added: Some(date_added),
                             title: Some(title),
@@ -344,7 +338,6 @@ impl<'a> BookmarksStore<'a> {
                         QueryRecord {
                             guid,
                             parent_guid: Some(parent_guid),
-                            has_dupe: true,
                             parent_title: Some(parent_title),
                             date_added: Some(date_added),
                             title: Some(title),
@@ -362,7 +355,6 @@ impl<'a> BookmarksStore<'a> {
                         FolderRecord {
                             guid,
                             parent_guid: Some(parent_guid),
-                            has_dupe: true,
                             parent_title: Some(parent_title),
                             date_added: Some(date_added),
                             title: Some(title),
@@ -376,7 +368,6 @@ impl<'a> BookmarksStore<'a> {
                         SeparatorRecord {
                             guid,
                             parent_guid: Some(parent_guid),
-                            has_dupe: true,
                             parent_title: Some(parent_title),
                             date_added: Some(date_added),
                             position: Some(position),
@@ -463,12 +454,8 @@ impl<'a> Store for BookmarksStore<'a> {
         records_synced: &[String],
     ) -> result::Result<(), failure::Error> {
         let tx = self.db.unchecked_transaction()?;
-        let result = self.push_synced_items(new_timestamp, records_synced);
-        match result {
-            Ok(_) => tx.commit()?,
-            Err(_) => tx.rollback()?,
-        }
-        result?;
+        self.push_synced_items(new_timestamp, records_synced)?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -879,23 +866,15 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
             return Ok(());
         }
         let tx = self.store.db.unchecked_transaction()?;
-        let result = self
-            .store
-            .update_local_items(descendants, deletions)
-            .and_then(|_| self.store.stage_local_items_to_upload())
-            .and_then(|_| {
-                self.store.db.execute_batch(
-                    "
-                    DELETE FROM mergedTree;
-                    DELETE FROM idsToWeaklyUpload;",
-                )?;
-                Ok(())
-            });
-        match result {
-            Ok(_) => tx.commit()?,
-            Err(_) => tx.rollback()?,
-        }
-        result
+        self.store.update_local_items(descendants, deletions)?;
+        self.store.stage_local_items_to_upload()?;
+        self.store.db.execute_batch(
+            "
+            DELETE FROM mergedTree;
+            DELETE FROM idsToWeaklyUpload;",
+        )?;
+        tx.commit()?;
+        Ok(())
     }
 }
 

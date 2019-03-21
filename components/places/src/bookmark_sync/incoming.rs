@@ -141,7 +141,7 @@ impl<'a> IncomingApplicator<'a> {
         )?;
         for (position, child_guid) in b.children.iter().enumerate() {
             self.db.execute_named_cached(
-                "REPLACE INTO moz_bookmarks_synced_structure(guid, parentGuid, position)
+                "INSERT INTO moz_bookmarks_synced_structure(guid, parentGuid, position)
                  VALUES(:guid, :parentGuid, :position)",
                 &[
                     (":guid", &child_guid),

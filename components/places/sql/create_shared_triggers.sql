@@ -230,3 +230,31 @@ BEGIN
     -- Add the origin's new contribution to frecency stats
     {increase_frecency_stats};
 END;
+
+CREATE TEMP TRIGGER moz_bookmarks_synced_foreign_count_afterinsert_trigger
+AFTER INSERT ON moz_bookmarks_synced
+BEGIN
+    UPDATE moz_places SET
+        foreign_count = foreign_count + 1
+    WHERE id = NEW.placeId;
+END;
+
+CREATE TEMP TRIGGER moz_bookmarks_synced_foreign_count_afterupdate_trigger
+AFTER UPDATE OF placeId ON moz_bookmarks_synced
+BEGIN
+    UPDATE moz_places SET
+        foreign_count = foreign_count + 1
+    WHERE id = NEW.placeId;
+
+    UPDATE moz_places SET
+        foreign_count = foreign_count - 1
+    WHERE id = OLD.placeId;
+END;
+
+CREATE TEMP TRIGGER moz_bookmarks_synced_foreign_count_afterdelete_trigger
+AFTER DELETE ON moz_bookmarks_synced
+BEGIN
+    UPDATE moz_places SET
+        foreign_count = foreign_count - 1
+    WHERE id = OLD.placeId;
+END;

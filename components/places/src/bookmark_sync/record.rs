@@ -14,7 +14,6 @@ struct RawBookmarkItemRecord {
     kind: String,
     #[serde(rename = "parentid")]
     parent_id: Option<String>,
-    has_dupe: Option<bool>,
     #[serde(rename = "parentName")]
     parent_title: Option<String>,
     date_added: Option<i64>,
@@ -54,7 +53,6 @@ pub struct BookmarkRecord {
     // want. If the bookmark has an invalid GUID, we'll make a new one.
     pub guid: SyncGuid,
     pub parent_guid: Option<SyncGuid>,
-    pub has_dupe: bool,
     pub parent_title: Option<String>,
     pub date_added: Option<i64>,
     pub title: Option<String>,
@@ -73,7 +71,6 @@ impl From<BookmarkRecord> for BookmarkItemRecord {
 pub struct QueryRecord {
     pub guid: SyncGuid,
     pub parent_guid: Option<SyncGuid>,
-    pub has_dupe: bool,
     pub parent_title: Option<String>,
     pub date_added: Option<i64>,
     pub title: Option<String>,
@@ -91,7 +88,6 @@ impl From<QueryRecord> for BookmarkItemRecord {
 pub struct FolderRecord {
     pub guid: SyncGuid,
     pub parent_guid: Option<SyncGuid>,
-    pub has_dupe: bool,
     pub parent_title: Option<String>,
     pub date_added: Option<i64>,
     pub title: Option<String>,
@@ -108,7 +104,6 @@ impl From<FolderRecord> for BookmarkItemRecord {
 pub struct LivemarkRecord {
     pub guid: SyncGuid,
     pub parent_guid: Option<SyncGuid>,
-    pub has_dupe: bool,
     pub parent_title: Option<String>,
     pub date_added: Option<i64>,
     pub title: Option<String>,
@@ -126,7 +121,6 @@ impl From<LivemarkRecord> for BookmarkItemRecord {
 pub struct SeparatorRecord {
     pub guid: SyncGuid,
     pub parent_guid: Option<SyncGuid>,
-    pub has_dupe: bool,
     pub parent_title: Option<String>,
     pub date_added: Option<i64>,
     // Not used on newer clients, but can be used to detect parent-child
@@ -177,19 +171,25 @@ impl Serialize for BookmarkItemRecord {
                 state.serialize_field("id", guid_to_id(&b.guid))?;
                 state.serialize_field("type", "bookmark")?;
                 state.serialize_field("parentid", &b.parent_guid.as_ref().map(guid_to_id))?;
-                state.serialize_field("hasDupe", &b.has_dupe)?;
+                // `hasDupe` always defaults to `true`, to prevent older
+                // Desktops from applying their deduping logic (bug 1408551).
+                state.serialize_field("hasDupe", &true)?;
                 state.serialize_field("parentName", &b.parent_title)?;
                 state.serialize_field("dateAdded", &b.date_added)?;
                 state.serialize_field("title", &b.title)?;
                 state.serialize_field("bmkUri", &b.url)?;
-                state.serialize_field("keyword", &b.keyword)?;
-                state.serialize_field("tags", &b.tags)?;
+                if let Some(ref keyword) = &b.keyword {
+                    state.serialize_field("keyword", keyword)?;
+                }
+                if !b.tags.is_empty() {
+                    state.serialize_field("tags", &b.tags)?;
+                }
             }
             BookmarkItemRecord::Query(q) => {
                 state.serialize_field("id", guid_to_id(&q.guid))?;
                 state.serialize_field("type", "query")?;
                 state.serialize_field("parentid", &q.parent_guid.as_ref().map(guid_to_id))?;
-                state.serialize_field("hasDupe", &q.has_dupe)?;
+                state.serialize_field("hasDupe", &true)?;
                 state.serialize_field("parentName", &q.parent_title)?;
                 state.serialize_field("dateAdded", &q.date_added)?;
                 state.serialize_field("title", &q.title)?;
@@ -200,7 +200,7 @@ impl Serialize for BookmarkItemRecord {
                 state.serialize_field("id", guid_to_id(&f.guid))?;
                 state.serialize_field("type", "folder")?;
                 state.serialize_field("parentid", &f.parent_guid.as_ref().map(guid_to_id))?;
-                state.serialize_field("hasDupe", &f.has_dupe)?;
+                state.serialize_field("hasDupe", &true)?;
                 state.serialize_field("parentName", &f.parent_title)?;
                 state.serialize_field("dateAdded", &f.date_added)?;
                 state.serialize_field("title", &f.title)?;
@@ -210,7 +210,7 @@ impl Serialize for BookmarkItemRecord {
                 state.serialize_field("id", guid_to_id(&l.guid))?;
                 state.serialize_field("type", "livemark")?;
                 state.serialize_field("parentid", &l.parent_guid.as_ref().map(guid_to_id))?;
-                state.serialize_field("hasDupe", &l.has_dupe)?;
+                state.serialize_field("hasDupe", &true)?;
                 state.serialize_field("parentName", &l.parent_title)?;
                 state.serialize_field("dateAdded", &l.date_added)?;
                 state.serialize_field("title", &l.title)?;
@@ -221,7 +221,7 @@ impl Serialize for BookmarkItemRecord {
                 state.serialize_field("id", guid_to_id(&s.guid))?;
                 state.serialize_field("type", "separator")?;
                 state.serialize_field("parentid", &s.parent_guid.as_ref().map(guid_to_id))?;
-                state.serialize_field("hasDupe", &s.has_dupe)?;
+                state.serialize_field("hasDupe", &true)?;
                 state.serialize_field("parentName", &s.parent_title)?;
                 state.serialize_field("dateAdded", &s.date_added)?;
                 state.serialize_field("pos", &s.position)?;
@@ -244,7 +244,6 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
                 return Ok(BookmarkRecord {
                     guid: id_to_guid(raw.id),
                     parent_guid: raw.parent_id.map(id_to_guid),
-                    has_dupe: raw.has_dupe.unwrap_or(false),
                     parent_title: raw.parent_title,
                     date_added: raw.date_added,
                     title: raw.title,
@@ -258,7 +257,6 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
                 return Ok(QueryRecord {
                     guid: id_to_guid(raw.id),
                     parent_guid: raw.parent_id.map(id_to_guid),
-                    has_dupe: raw.has_dupe.unwrap_or(false),
                     parent_title: raw.parent_title,
                     date_added: raw.date_added,
                     title: raw.title,
@@ -271,7 +269,6 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
                 return Ok(FolderRecord {
                     guid: id_to_guid(raw.id),
                     parent_guid: raw.parent_id.map(id_to_guid),
-                    has_dupe: raw.has_dupe.unwrap_or(false),
                     parent_title: raw.parent_title,
                     date_added: raw.date_added,
                     title: raw.title,
@@ -283,7 +280,6 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
                 return Ok(LivemarkRecord {
                     guid: id_to_guid(raw.id),
                     parent_guid: raw.parent_id.map(id_to_guid),
-                    has_dupe: raw.has_dupe.unwrap_or(false),
                     parent_title: raw.parent_title,
                     date_added: raw.date_added,
                     title: raw.title,
@@ -296,7 +292,6 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
                 return Ok(SeparatorRecord {
                     guid: id_to_guid(raw.id),
                     parent_guid: raw.parent_id.map(id_to_guid),
-                    has_dupe: raw.has_dupe.unwrap_or(false),
                     parent_title: raw.parent_title,
                     date_added: raw.date_added,
                     position: raw.position,
@@ -305,8 +300,8 @@ impl<'de> Deserialize<'de> for BookmarkItemRecord {
             }
             _ => {}
         }
-        // TODO: We don't know how to round-trip other kinds.
-        // For now, just fail to deserialize.
+        // We can't meaningfully merge or round-trip item kinds that we don't
+        // support, so fail deserialization.
         Err(de::Error::unknown_variant(
             raw.kind.as_str(),
             &["bookmark", "query", "folder", "livemark", "separator"],
