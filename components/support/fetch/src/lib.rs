@@ -13,6 +13,7 @@ pub mod error;
 mod settings;
 pub use error::*;
 
+pub use backend::force_enable_ffi_backend;
 pub use headers::{consts as header_names, Header, HeaderName, Headers, InvalidHeaderName};
 
 /// HTTP Methods.
