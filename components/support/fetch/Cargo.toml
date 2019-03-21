@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 edition = "2018"
 
+[lib]
+name = "support_fetch"
+crate-type = ["lib", "staticlib", "cdylib"]
+
 [dependencies]
 failure = "0.1.5"
 failure_derive = "0.1.5"

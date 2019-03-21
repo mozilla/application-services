@@ -144,42 +144,31 @@ mod callback_holder {
         }
     }
 
-    /// Set the function pointer to the FetchCallback. Panics if the callback
-    /// has already been initialized.
-    pub(super) unsafe fn set_callback(h: *const FetchCallback) {
+    /// Set the function pointer to the FetchCallback. Returns false if we did nothing because the callback had already been initialized
+    pub(super) unsafe fn set_callback(h: *const FetchCallback) -> bool {
         let old_ptr = CALLBACK_PTR.compare_and_swap(0, h as usize, Ordering::SeqCst);
         if old_ptr != 0 {
             // This is an internal bug, the other side of the FFI should ensure it sets this only once.
-            panic!("Bug: Initialized CALLBACK_PTR multiple times");
+            log::error!("Bug: Initialized CALLBACK_PTR multiple times");
         }
+        old_ptr == 0
     }
 }
 
 /// Return a ByteBuffer of the requested size. This is used to store the
 /// response from the callback.
 #[no_mangle]
-pub extern "C" fn support_fetch_alloc_bytebuffer(
-    sz: i64,
-    error: &mut ffi_support::ExternError,
-) -> ByteBuffer {
-    ffi_support::call_with_output(error, || {
-        assert!(
-            sz > 0,
-            "Negative size passed to support_fetch_alloc_bytebuffer: {}",
-            sz
-        );
-        ByteBuffer::new_with_size(sz as usize)
-    })
+pub extern "C" fn support_fetch_alloc_bytebuffer(sz: i32) -> ByteBuffer {
+    let mut error = ffi_support::ExternError::default();
+    let buffer =
+        ffi_support::call_with_output(&mut error, || ByteBuffer::new_with_size(sz.max(0) as usize));
+    error.consume_and_log_if_error();
+    buffer
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn support_fetch_initialize(
-    callback: *const FetchCallback,
-    error: &mut ffi_support::ExternError,
-) {
-    ffi_support::call_with_output(error, || {
-        callback_holder::set_callback(callback);
-    })
+pub unsafe extern "C" fn support_fetch_initialize(callback: *const FetchCallback) -> u8 {
+    ffi_support::abort_on_panic::call_with_output(|| callback_holder::set_callback(callback))
 }
 
 ffi_support::define_bytebuffer_destructor!(support_fetch_destroy_bytebuffer);
