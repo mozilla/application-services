@@ -183,8 +183,6 @@ impl<'a> BookmarksStore<'a> {
 
         self.db.execute_batch("DELETE FROM itemsToRemove")?;
 
-        self.db.execute_batch("DELETE FROM relatedIdsToReupload")?;
-
         Ok(())
     }
 

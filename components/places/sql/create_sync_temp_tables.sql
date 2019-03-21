@@ -80,22 +80,6 @@ CREATE TEMP TABLE idsToWeaklyUpload(
   id INTEGER PRIMARY KEY
 );
 
--- Stores local IDs for items to reupload. Removing an
--- ID from this table bumps its local change counter, so, unlike weak uploads,
--- we *will* reupload the item on the next sync if the current sync fails.
--- This is used to ensure that all bookmarks with the same URL have the same keyword (bug 1328737).
-CREATE TEMP TABLE relatedIdsToReupload(
-  id INTEGER PRIMARY KEY
-);
-
-CREATE TEMP TRIGGER reuploadIds
-AFTER DELETE ON relatedIdsToReupload
-BEGIN
-  UPDATE moz_bookmarks SET
-    syncChangeCounter = syncChangeCounter + 1
-  WHERE id = OLD.id;
-END;
-
 -- Stores locally changed items staged for upload.
 CREATE TEMP TABLE itemsToUpload(
   id INTEGER PRIMARY KEY,
