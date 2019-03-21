@@ -1037,7 +1037,7 @@ mod tests {
             json!({
                 "id": "qqVTRWhLBOu3",
                 "type": "bookmark",
-                "parentid": BookmarkRootGuid::Unfiled.as_guid(),
+                "parentid": "unfiled",
                 "parentName": "Unfiled Bookmarks",
                 "dateAdded": 1_381_542_355_843u64,
                 "title": "The title",
@@ -1045,9 +1045,9 @@ mod tests {
                 "tags": [],
             }),
             json!({
-                "id": BookmarkRootGuid::Unfiled.as_guid(),
+                "id": "unfiled",
                 "type": "folder",
-                "parentid": BookmarkRootGuid::Root.as_guid(),
+                "parentid": "places",
                 "parentName": "",
                 "dateAdded": 0,
                 "title": "Unfiled Bookmarks",
@@ -1279,7 +1279,7 @@ mod tests {
             json!({
                 "id": "bookmarkCCCC",
                 "type": "bookmark",
-                "parentid": BookmarkRootGuid::Menu.as_guid(),
+                "parentid": "menu",
                 "parentName": "menu",
                 "dateAdded": 1_552_183_116_885u64,
                 "title": "C",
@@ -1287,9 +1287,9 @@ mod tests {
                 "tags": ["foo", "bar"],
             }),
             json!({
-                "id": BookmarkRootGuid::Menu.as_guid(),
+                "id": "menu",
                 "type": "folder",
-                "parentid": BookmarkRootGuid::Root.as_guid(),
+                "parentid": "places",
                 "parentName": "",
                 "dateAdded": 0,
                 "title": "menu",
@@ -1422,9 +1422,9 @@ mod tests {
 
         let records = vec![
             json!({
-                "id": BookmarkRootGuid::Toolbar.as_guid(),
+                "id": "toolbar",
                 "type": "folder",
-                "parentid": BookmarkRootGuid::Root.as_guid(),
+                "parentid": "places",
                 "parentName": "",
                 "dateAdded": 0,
                 "title": "toolbar",
@@ -1433,8 +1433,8 @@ mod tests {
             json!({
                 "id": "bookmarkAAAA",
                 "type": "bookmark",
-                "parentid": BookmarkRootGuid::Toolbar.as_guid(),
-                "parentName": "menu",
+                "parentid": "toolbar",
+                "parentName": "toolbar",
                 "dateAdded": 1_552_183_116_885u64,
                 "title": "A",
                 "bmkUri": "http://example.com/a",
@@ -1455,12 +1455,13 @@ mod tests {
         let outgoing = store
             .apply_incoming(incoming, &mut telemetry::EngineIncoming::new())
             .expect("Should apply incoming records");
-        let outgoing_ids = outgoing
+        let mut outgoing_ids = outgoing
             .changes
             .iter()
             .map(|p| p.id.clone())
             .collect::<Vec<_>>();
-        assert_eq!(outgoing_ids, &["menu", "toolbar", "unfiled", "mobile"],);
+        outgoing_ids.sort();
+        assert_eq!(outgoing_ids, &["menu", "mobile", "toolbar", "unfiled"],);
 
         store
             .sync_finished(ServerTimestamp(0.0), &outgoing_ids)
