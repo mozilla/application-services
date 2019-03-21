@@ -6,7 +6,7 @@ use crate::{config::Config, errors::*};
 // use reqwest::{self, header, Client as ReqwestClient, Method, Request, Response, StatusCode};
 use serde_derive::*;
 use serde_json::json;
-use support_fetch::{header_names, status_codes, Request, Response};
+use viaduct::{header_names, status_codes, Request, Response};
 
 #[cfg(feature = "browserid")]
 pub(crate) mod browser_id;

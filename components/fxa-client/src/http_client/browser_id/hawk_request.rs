@@ -4,14 +4,14 @@
 
 use crate::errors::*;
 use hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256};
-use support_fetch::{header_names, Method, Request};
 use url::Url;
+use viaduct::{header_names, Method, Request};
 
 const KEY_LENGTH: usize = 32;
 
 pub struct HawkRequestBuilder<'a> {
     url: Url,
-    method: support_fetch::Method,
+    method: viaduct::Method,
     body: Option<String>,
     hkdf_sha256_key: &'a [u8],
 }
@@ -53,7 +53,7 @@ impl<'a> HawkRequestBuilder<'a> {
         Ok(format!("Hawk {}", header))
     }
 
-    pub fn build(self) -> Result<support_fetch::Request> {
+    pub fn build(self) -> Result<viaduct::Request> {
         let hawk_header = self.make_hawk_header()?;
         let mut request =
             Request::new(self.method, self.url).header(header_names::AUTHORIZATION, hawk_header);

@@ -153,13 +153,13 @@ pub enum ErrorKind {
     UTF8DecodeError(#[fail(cause)] string::FromUtf8Error),
 
     #[fail(display = "Network error: {}", _0)]
-    RequestError(#[fail(cause)] support_fetch::Error),
+    RequestError(#[fail(cause)] viaduct::Error),
 
     #[fail(display = "Malformed URL error: {}", _0)]
     MalformedUrl(#[fail(cause)] url::ParseError),
 
     #[fail(display = "Unexpected HTTP status: {}", _0)]
-    UnexpectedStatus(#[fail(cause)] support_fetch::UnexpectedStatus),
+    UnexpectedStatus(#[fail(cause)] viaduct::UnexpectedStatus),
 
     #[cfg(feature = "browserid")]
     #[fail(display = "HAWK error: {}", _0)]
@@ -192,8 +192,8 @@ impl_from_error! {
     (Base64Decode, ::base64::DecodeError),
     (JsonError, ::serde_json::Error),
     (UTF8DecodeError, ::std::string::FromUtf8Error),
-    (RequestError, support_fetch::Error),
-    (UnexpectedStatus, support_fetch::UnexpectedStatus),
+    (RequestError, viaduct::Error),
+    (UnexpectedStatus, viaduct::UnexpectedStatus),
     (MalformedUrl, url::ParseError)
 }
 

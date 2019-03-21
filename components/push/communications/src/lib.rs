@@ -16,8 +16,8 @@ extern crate serde_json;
 
 use serde_json::Value;
 use std::collections::HashMap;
-use support_fetch::{header_names, status_codes, Request};
 use url::Url;
+use viaduct::{header_names, status_codes, Request};
 
 use config::PushConfiguration;
 use push_errors as error;

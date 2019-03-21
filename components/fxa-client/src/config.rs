@@ -5,8 +5,8 @@
 use crate::errors::*;
 use serde_derive::*;
 use std::{cell::RefCell, sync::Arc};
-use support_fetch::Request;
 use url::Url;
+use viaduct::Request;
 
 #[derive(Deserialize)]
 struct ClientConfigurationResponse {

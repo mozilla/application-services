@@ -9,8 +9,8 @@ use std::borrow::{Borrow, Cow};
 use std::cell::RefCell;
 use std::fmt;
 use std::time::{Duration, SystemTime};
-use support_fetch::{header_names, Request};
 use url::Url;
+use viaduct::{header_names, Request};
 
 const RETRY_AFTER_DEFAULT_MS: u64 = 10000;
 

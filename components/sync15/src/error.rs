@@ -138,10 +138,10 @@ pub enum ErrorKind {
     BadCleartextUtf8(#[fail(cause)] string::FromUtf8Error),
 
     #[fail(display = "Network error: {}", _0)]
-    RequestError(#[fail(cause)] support_fetch::Error),
+    RequestError(#[fail(cause)] viaduct::Error),
 
     #[fail(display = "Unexpected HTTP status: {}", _0)]
-    UnexpectedStatus(#[fail(cause)] support_fetch::UnexpectedStatus),
+    UnexpectedStatus(#[fail(cause)] viaduct::UnexpectedStatus),
 
     #[fail(display = "HAWK error: {}", _0)]
     HawkError(#[fail(cause)] SyncFailure<hawk::Error>),
@@ -173,8 +173,8 @@ impl_from_error! {
     (Base64Decode, ::base64::DecodeError),
     (JsonError, ::serde_json::Error),
     (BadCleartextUtf8, ::std::string::FromUtf8Error),
-    (RequestError, support_fetch::Error),
-    (UnexpectedStatus, support_fetch::UnexpectedStatus),
+    (RequestError, viaduct::Error),
+    (UnexpectedStatus, viaduct::UnexpectedStatus),
     (MalformedUrl, url::ParseError),
     // A bit dubious, since we only want this to happen inside `synchronize`
     (StoreError, ::failure::Error)

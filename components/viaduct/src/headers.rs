@@ -62,7 +62,7 @@ impl Headers {
     ///
     /// ## Example
     /// ```
-    /// # use support_fetch::Headers;
+    /// # use viaduct::Headers;
     /// let mut h = Headers::new();
     /// h.insert("My-Cool-Header", "example");
     /// assert_eq!(h.get("My-Cool-Header"), Some("example"));
@@ -70,9 +70,9 @@ impl Headers {
     /// // Note: names are sensitive
     /// assert_eq!(h.get("my-cool-header"), Some("example"));
     ///
-    /// // Also note, constants for headers are in `support_fetch::header_names`, and
+    /// // Also note, constants for headers are in `viaduct::header_names`, and
     /// // you can chain the result of this function.
-    /// h.insert(support_fetch::header_names::CONTENT_TYPE, "something...")
+    /// h.insert(viaduct::header_names::CONTENT_TYPE, "something...")
     ///  .insert("Something-Else", "etc");
     /// ```
     pub fn insert<N, V>(&mut self, name: N, value: V) -> &mut Self
@@ -148,7 +148,7 @@ impl Headers {
     ///
     /// ## Example
     /// ```
-    /// # use support_fetch::{Headers, header_names::CONTENT_TYPE};
+    /// # use viaduct::{Headers, header_names::CONTENT_TYPE};
     /// let mut h = Headers::new();
     /// h.insert(CONTENT_TYPE, "application/json");
     /// assert_eq!(h.get(CONTENT_TYPE), Some("application/json"));
@@ -174,7 +174,7 @@ impl Headers {
     /// the built-in `transpose()` method to convert between them.
     ///
     /// ```
-    /// # use support_fetch::Headers;
+    /// # use viaduct::Headers;
     /// let mut h = Headers::new();
     /// h.insert("Example", "1234").insert("Illegal", "abcd");
     /// let v: Option<Result<i64, _>> = h.get_as("Example");

@@ -122,7 +122,7 @@ pub fn send(request: crate::Request) -> Result<crate::Response, Error> {
 /// the FFI to allocate a ByteBuffer from us, but it works.
 ///
 /// The code on the other side of the FFI is responsible for freeing the ByteBuffer
-/// it's passed using `support_fetch_destroy_bytebuffer`.
+/// it's passed using `viaduct_destroy_bytebuffer`.
 type FetchCallback = unsafe extern "C" fn(ByteBuffer) -> ByteBuffer;
 
 /// Module that manages get/set of the global fetch callback pointer.
@@ -158,7 +158,7 @@ mod callback_holder {
 /// Return a ByteBuffer of the requested size. This is used to store the
 /// response from the callback.
 #[no_mangle]
-pub extern "C" fn support_fetch_alloc_bytebuffer(sz: i32) -> ByteBuffer {
+pub extern "C" fn viaduct_alloc_bytebuffer(sz: i32) -> ByteBuffer {
     let mut error = ffi_support::ExternError::default();
     let buffer =
         ffi_support::call_with_output(&mut error, || ByteBuffer::new_with_size(sz.max(0) as usize));
@@ -167,8 +167,8 @@ pub extern "C" fn support_fetch_alloc_bytebuffer(sz: i32) -> ByteBuffer {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn support_fetch_initialize(callback: *const FetchCallback) -> u8 {
+pub unsafe extern "C" fn viaduct_initialize(callback: *const FetchCallback) -> u8 {
     ffi_support::abort_on_panic::call_with_output(|| callback_holder::set_callback(callback))
 }
 
-ffi_support::define_bytebuffer_destructor!(support_fetch_destroy_bytebuffer);
+ffi_support::define_bytebuffer_destructor!(viaduct_destroy_bytebuffer);

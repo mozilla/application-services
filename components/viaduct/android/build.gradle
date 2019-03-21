@@ -57,15 +57,15 @@ afterEvaluate {
 
 cargo {
     // The directory of the Cargo.toml to build.
-    module = '../ffi'
+    module = '..'
 
     // The Android NDK API level to target.
     apiLevel = 21
 
     // Where Cargo writes its outputs.
-    targetDirectory = '../../../target'
+    targetDirectory = '../../target'
 
-    libname = 'support_fetch'
+    libname = 'viaduct'
 
     targets = rootProject.ext.rustTargets
 

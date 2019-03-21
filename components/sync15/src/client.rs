@@ -11,11 +11,11 @@ use crate::request::{
 };
 use crate::token;
 use crate::util::ServerTimestamp;
-use support_fetch::{
+use url::Url;
+use viaduct::{
     header_names::{self, AUTHORIZATION},
     Method, Request, Response,
 };
-use url::Url;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Sync15StorageClientInit {

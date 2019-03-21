@@ -1,11 +1,10 @@
 [package]
-name = "support_fetch"
+name = "viaduct"
 version = "0.1.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 edition = "2018"
 
 [lib]
-name = "support_fetch"
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
@@ -19,7 +18,7 @@ serde_json = "1.0"
 prost = "0.5.0"
 prost-derive = "0.5.0"
 bytes = "0.4.12"
-ffi-support = { path = "../ffi" }
+ffi-support = { path = "../support/ffi" }
 
 [target.'cfg(not(target_os="android"))'.dependencies]
 reqwest = "0.9.11"

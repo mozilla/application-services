@@ -106,7 +106,7 @@ impl Request {
     ///
     /// ## Example
     /// ```
-    /// # use support_fetch::{Request, header_names};
+    /// # use viaduct::{Request, header_names};
     /// # use url::Url;
     /// let some_url = url::Url::parse("https://www.example.com/xyz").unwrap();
     ///
@@ -134,7 +134,7 @@ impl Request {
     ///
     /// ## Example
     /// ```
-    /// # use support_fetch::{Request, header_names};
+    /// # use viaduct::{Request, header_names};
     /// # use url::Url;
     /// let some_url = url::Url::parse("https://www.example.com/xyz").unwrap();
     ///
@@ -163,7 +163,7 @@ impl Request {
     ///
     /// ## Example
     /// ```
-    /// # use support_fetch::{Request, header_names};
+    /// # use viaduct::{Request, header_names};
     /// # use url::Url;
     /// # let some_url = url::Url::parse("https://www.example.com").unwrap();
     /// Request::post(some_url)

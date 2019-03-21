@@ -11,39 +11,39 @@ import com.sun.jna.Native
 import java.lang.reflect.Proxy
 import mozilla.appservices.support.RustBuffer
 
-internal interface LibSupportFetchFFI : Library {
+internal interface LibViaduct : Library {
     companion object {
         private val JNA_LIBRARY_NAME = {
-            val libname = System.getProperty("mozilla.appservices.support_fetch_lib_name")
+            val libname = System.getProperty("mozilla.appservices.viaduct_lib_name")
             if (libname != null) {
-                Log.i("AppServices", "Using support_fetch_lib_name: " + libname);
+                Log.i("AppServices", "Using viaduct_lib_name: " + libname);
                 libname
             } else {
-                "support_fetch"
+                "viaduct"
             }
         }()
 
-        internal var INSTANCE: LibSupportFetchFFI = try {
-            val lib = Native.loadLibrary(JNA_LIBRARY_NAME, LibSupportFetchFFI::class.java) as LibSupportFetchFFI
-            if (JNA_LIBRARY_NAME == "support_fetch") {
+        internal var INSTANCE: LibViaduct = try {
+            val lib = Native.loadLibrary(JNA_LIBRARY_NAME, LibViaduct::class.java) as LibViaduct
+            if (JNA_LIBRARY_NAME == "viaduct") {
                 // TODO Enable logging if we aren't in a megazord.
             }
             lib
         } catch (e: UnsatisfiedLinkError) {
             Proxy.newProxyInstance(
-                    LibSupportFetchFFI::class.java.classLoader,
-                    arrayOf(LibSupportFetchFFI::class.java))
+                    LibViaduct::class.java.classLoader,
+                    arrayOf(LibViaduct::class.java))
             { _, _, _ ->
-                throw RuntimeException("LibSupportFetchFFI not available", e)
-            } as LibSupportFetchFFI
+                throw RuntimeException("LibViaduct not available", e)
+            } as LibViaduct
         }
     }
 
-    fun support_fetch_destroy_bytebuffer(b: RustBuffer.ByValue)
+    fun viaduct_destroy_bytebuffer(b: RustBuffer.ByValue)
     // Returns null buffer to indicate failure
-    fun support_fetch_alloc_bytebuffer(sz: Int): RustBuffer.ByValue
+    fun viaduct_alloc_bytebuffer(sz: Int): RustBuffer.ByValue
     // Returns 0 to indicate redundant init.
-    fun support_fetch_initialize(cb: RawFetchCallback): Byte
+    fun viaduct_initialize(cb: RawFetchCallback): Byte
 }
 
 internal interface RawFetchCallback : Callback {

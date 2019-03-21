@@ -10,8 +10,8 @@ use std::collections::HashMap;
 use std::default::Default;
 use std::fmt;
 use std::ops::Deref;
-use support_fetch::{header_names, status_codes, Response};
 use url::{form_urlencoded::Serializer, Url, UrlQuery};
+use viaduct::{header_names, status_codes, Response};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RequestOrder {

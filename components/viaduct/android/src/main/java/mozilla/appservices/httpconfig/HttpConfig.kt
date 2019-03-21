@@ -30,7 +30,7 @@ object RustHttpConfig {
             throw RuntimeException("Imp set without client?")
         }
         imp = CallbackImpl()
-        LibSupportFetchFFI.INSTANCE.support_fetch_initialize(imp!!)
+        LibViaduct.INSTANCE.viaduct_initialize(imp!!)
     }
 
     internal fun doFetch(b: RustBuffer.ByValue): RustBuffer.ByValue {
@@ -82,20 +82,20 @@ object RustHttpConfig {
             }
             val built = rb.build()
             val needed = built.serializedSize
-            val outputBuf = LibSupportFetchFFI.INSTANCE.support_fetch_alloc_bytebuffer(needed)
+            val outputBuf = LibViaduct.INSTANCE.viaduct_alloc_bytebuffer(needed)
             try {
                 // This is only null if we passed a negative number or something to
-                // support_fetch_alloc_bytebuffer.
+                // viaduct_alloc_bytebuffer.
                 val stream = outputBuf.asCodedOutputStream()!!
                 built.writeTo(stream)
                 return outputBuf
             } catch (e: Throwable) {
                 // Note: we want to clean this up only if we are not returning it to rust.
-                LibSupportFetchFFI.INSTANCE.support_fetch_destroy_bytebuffer(outputBuf)
+                LibViaduct.INSTANCE.viaduct_destroy_bytebuffer(outputBuf)
                 throw e
             }
         } finally {
-            LibSupportFetchFFI.INSTANCE.support_fetch_destroy_bytebuffer(b)
+            LibViaduct.INSTANCE.viaduct_destroy_bytebuffer(b)
         }
     }
 
