@@ -23,7 +23,8 @@ BEGIN
     SELECT RAISE(FAIL, 'guids are immutable');
 END;
 
--- Tags
+-- These triggers bump the Sync change counter for all affected bookmarks when
+-- a URL is tagged or untagged.
 CREATE TEMP TRIGGER moz_tags_relations_afterinsert_sync_trigger
 AFTER INSERT ON moz_tags_relation
 BEGIN
