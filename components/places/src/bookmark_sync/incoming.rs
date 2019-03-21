@@ -370,7 +370,7 @@ mod tests {
     use crate::db::PlacesDb;
     use crate::storage::bookmarks::BookmarkRootGuid;
 
-    use crate::bookmark_sync::tests::MirrorBookmarkItem;
+    use crate::bookmark_sync::tests::SyncedBookmarkItem;
     use pretty_assertions::assert_eq;
     use serde_json::{json, Value};
     use sync15::Payload;
@@ -405,13 +405,13 @@ mod tests {
         conn
     }
 
-    fn assert_incoming_creates_mirror_item(record_json: Value, expected: &MirrorBookmarkItem) {
+    fn assert_incoming_creates_mirror_item(record_json: Value, expected: &SyncedBookmarkItem) {
         let guid = record_json["id"]
             .as_str()
             .expect("id must be a string")
             .to_string();
         let conn = apply_incoming(record_json);
-        let got = MirrorBookmarkItem::get(&conn, &guid.into())
+        let got = SyncedBookmarkItem::get(&conn, &guid.into())
             .expect("should work")
             .expect("item should exist");
         assert_eq!(*expected, got);
@@ -431,7 +431,7 @@ mod tests {
                 "tags": ["foo", "bar"],
                 "keyword": "baz",
             }),
-            &MirrorBookmarkItem::new()
+            &SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
                 .kind(SyncedBookmarkKind::Bookmark)
                 .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
@@ -449,7 +449,7 @@ mod tests {
                 "id": "deadbeef____",
                 "deleted": true
             }),
-            &MirrorBookmarkItem::new()
+            &SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
                 .deleted(true),
         );
@@ -471,7 +471,7 @@ mod tests {
                 "title": "Some query",
                 "bmkUri": "place:tag=foo",
             }),
-            &MirrorBookmarkItem::new()
+            &SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
                 .kind(SyncedBookmarkKind::Query)
                 .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
@@ -489,7 +489,7 @@ mod tests {
                 "bmkUri": "place:type=7",
                 "folderName": "a-folder-name",
             }),
-            &MirrorBookmarkItem::new()
+            &SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Reupload)
                 .kind(SyncedBookmarkKind::Query)
                 .url(Some("place:tag=a-folder-name")),
@@ -505,7 +505,7 @@ mod tests {
                 "bmkUri": "place:type=7",
                 "folderName": "",
             }),
-            &MirrorBookmarkItem::new()
+            &SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Replace)
                 .kind(SyncedBookmarkKind::Query)
                 .url(None),
@@ -520,7 +520,7 @@ mod tests {
                 "parentid": "unfiled",
                 "bmkUri": "place:folder=123",
             }),
-            &MirrorBookmarkItem::new()
+            &SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Reupload)
                 .kind(SyncedBookmarkKind::Query)
                 .url(Some("place:folder=123&excludeItems=1")),
@@ -535,7 +535,7 @@ mod tests {
                 "parentid": "unfiled",
                 "bmkUri": "place:folder=123&excludeItems=1",
             }),
-            &MirrorBookmarkItem::new()
+            &SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
                 .kind(SyncedBookmarkKind::Query)
                 .url(Some("place:folder=123&excludeItems=1")),
@@ -549,7 +549,7 @@ mod tests {
                 "parentid": "unfiled",
                 "bmkUri": "foo",
             }),
-            &MirrorBookmarkItem::new()
+            &SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Replace)
                 .kind(SyncedBookmarkKind::Query)
                 .url(None),
@@ -562,7 +562,7 @@ mod tests {
                 "type": "query",
                 "parentid": "unfiled",
             }),
-            &MirrorBookmarkItem::new()
+            &SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Replace)
                 .kind(SyncedBookmarkKind::Query)
                 .url(None),
@@ -579,7 +579,7 @@ mod tests {
                 "parentid": "unfiled",
                 "parentName": "Unfiled Bookmarks",
             }),
-            &MirrorBookmarkItem::new()
+            &SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
                 .kind(SyncedBookmarkKind::Separator)
                 .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
@@ -597,7 +597,7 @@ mod tests {
                 "parentid": "unfiled",
                 "parentName": "Unfiled Bookmarks",
             }),
-            &MirrorBookmarkItem::new()
+            &SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Replace)
                 .kind(SyncedBookmarkKind::Livemark)
                 .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
@@ -616,7 +616,7 @@ mod tests {
                 "feedUri": "http://example.com",
                 "siteUri": "foo"
             }),
-            &MirrorBookmarkItem::new()
+            &SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
                 .kind(SyncedBookmarkKind::Livemark)
                 .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
@@ -634,7 +634,7 @@ mod tests {
                 "feedUri": "http://example.com",
                 "siteUri": "http://example.com/something"
             }),
-            &MirrorBookmarkItem::new()
+            &SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
                 .kind(SyncedBookmarkKind::Livemark)
                 .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
