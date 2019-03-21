@@ -10,7 +10,8 @@ from decisionlib import *
 
 def main(task_for):
     if task_for == "github-pull-request":
-        android_linux_x86_64()
+        # android_linux_x86_64()
+        android_multiarch()
     elif task_for == "github-push":
         android_multiarch()
     elif task_for == "github-release":
@@ -159,6 +160,9 @@ def gradle_module_task(libs_tasks, module_info, is_release):
     )
     for artifact_info in module_info['artifacts']:
         task.with_artifacts(artifact_info['artifact'])
+    if module_info['uploadSymbols']:
+        task.with_artifacts("/build/repo/crashreporter-symbols.zip")
+        task.with_script("./automation/upload_android_symbols.sh {}".format(module_info['path']))
     if is_release:
         if module_info['uploadSymbols']:
             task.with_scopes("secrets:get:project/application-services/symbols-token")

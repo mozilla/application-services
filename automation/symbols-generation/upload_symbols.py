@@ -74,7 +74,7 @@ def main():
 
     symbol_path=args[0]
     shutil.make_archive(symbol_path , "zip", symbol_path)
-    Upload_Symbols(symbol_path + ".zip")
+    # Upload_Symbols(symbol_path + ".zip")
 
 # run main if run directly
 if __name__ == "__main__":

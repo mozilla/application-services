@@ -108,6 +108,10 @@ impl Config {
         }
     }
 
+    pub fn make_it_crash() {
+        panic!("Trying out crashes")
+    }
+
     fn remote_config(&self) -> Result<Arc<RemoteConfig>> {
         if let Some(remote_config) = self.remote_config.borrow().clone() {
             return Ok(remote_config);

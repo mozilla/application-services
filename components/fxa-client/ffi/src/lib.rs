@@ -42,6 +42,8 @@ pub extern "C" fn fxa_new(
     redirect_uri: FfiStr<'_>,
     err: &mut ExternError,
 ) -> u64 {
+    log::debug!("make_it_crash");
+    FirefoxAccount::make_it_crash();
     log::debug!("fxa_new");
     ACCOUNTS.insert_with_output(err, || {
         let content_url = content_url.as_str();
