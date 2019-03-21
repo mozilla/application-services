@@ -16,6 +16,10 @@ pub use error::*;
 pub use backend::force_enable_ffi_backend;
 pub use headers::{consts as header_names, Header, HeaderName, Headers, InvalidHeaderName};
 
+pub(crate) mod msg_types {
+    include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
+}
+
 /// HTTP Methods.
 ///
 /// The supported methods are the limited to what's supported by android-components.

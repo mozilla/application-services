@@ -15,6 +15,9 @@ pub enum Error {
     #[fail(display = "Network error: {}", _0)]
     NetworkError(String),
 
+    #[fail(display = "The rust-components network backend must be initialized before use!")]
+    BackendNotInitialized,
+
     /// Note: we return this if the server returns a bad URL with
     /// it's response. This *probably* should never happen, but who knows.
     #[fail(display = "URL Parse Error: {}", _0)]

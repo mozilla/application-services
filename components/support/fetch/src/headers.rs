@@ -1,10 +1,10 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+pub use name::{HeaderName, InvalidHeaderName};
+use std::collections::HashMap;
 use std::iter::FromIterator;
 use std::str::FromStr;
-
-pub use name::{HeaderName, InvalidHeaderName};
 mod name;
 
 /// A single header. Typically you will not interact with this directly.
@@ -241,6 +241,16 @@ impl FromIterator<Header> for Headers {
         v.reverse();
         v.dedup_by(|a, b| a.name == b.name);
         Headers { headers: v }
+    }
+}
+
+#[allow(clippy::implicit_hasher)] // https://github.com/rust-lang/rust-clippy/issues/3899
+impl From<Headers> for HashMap<String, String> {
+    fn from(headers: Headers) -> HashMap<String, String> {
+        headers
+            .into_iter()
+            .map(|h| (String::from(h.name), h.value))
+            .collect()
     }
 }
 
