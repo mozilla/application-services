@@ -142,6 +142,10 @@ impl FirefoxAccount {
             .append_pair("showSuccessMessage", "true");
         Ok(url)
     }
+
+    pub fn make_it_crash() {
+        Config::make_it_crash()
+    }
 }
 
 pub(crate) struct CachedResponse<T> {
