@@ -158,22 +158,23 @@ CREATE TABLE IF NOT EXISTS moz_tags_relation(
 ) WITHOUT ROWID;
 
 -- This table holds synced items, including tombstones. It's unused if Sync
--- isn't configured. At the end of a sync, this table's contents should
--- conceptually match `moz_bookmarks`.
+-- isn't configured. At the end of a sync, this table's contents should match
+-- both what's on the server, and the local tree in `moz_bookmarks`.
 CREATE TABLE IF NOT EXISTS moz_bookmarks_synced(
     id INTEGER PRIMARY KEY,
     -- We intentionally don't validate GUIDs, as we allow and fix up invalid
     -- ones.
     guid TEXT UNIQUE NOT NULL,
-    /* The `parentid` from the record. */
+    -- The `parentid` from the record.
     parentGuid TEXT,
-    /* The server modified time, in milliseconds (ie, this is *not* a ServerTimestamp). */
+    -- The server modified time, in milliseconds. This is *not* a
+    -- ServerTimestamp, which is in fractional seconds.
     serverModified INTEGER NOT NULL DEFAULT 0,
     needsMerge BOOLEAN NOT NULL DEFAULT 0,
     validity INTEGER NOT NULL DEFAULT 1, -- SyncValidity::Valid
     isDeleted BOOLEAN NOT NULL DEFAULT 0,
     kind INTEGER NOT NULL DEFAULT -1,
-    /* The creation date, in milliseconds. */
+    -- The creation date, in milliseconds.
     dateAdded INTEGER NOT NULL DEFAULT 0,
     title TEXT,
     placeId INTEGER REFERENCES moz_places(id)

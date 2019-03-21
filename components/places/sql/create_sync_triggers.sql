@@ -13,8 +13,8 @@ BEGIN
   -- If the item was uploaded during the sync, its change counter will still
   -- be > 0 for the next sync.
   UPDATE moz_bookmarks SET
-    syncChangeCounter = max(syncChangeCounter - NEW.syncChangeCounter, 0),
-    syncStatus = 2 -- SyncStatus::Normal
+      syncChangeCounter = max(syncChangeCounter - NEW.syncChangeCounter, 0),
+      syncStatus = 2 -- SyncStatus::Normal
   WHERE guid = NEW.guid;
 
   -- Remove uploaded tombstones.
@@ -42,41 +42,39 @@ END;
 CREATE TEMP TRIGGER removeLocalItems
 AFTER DELETE ON itemsToRemove
 BEGIN
-  /* Flag URL frecency for recalculation. */
+  -- Flag URL frecency for recalculation.
   UPDATE moz_places SET
-    frecency = -frecency
+      frecency = -frecency
   WHERE id = (SELECT fk FROM moz_bookmarks
               WHERE guid = OLD.guid) AND
         frecency > 0;
 
-  /* Trigger frecency updates for all affected origins. */
+  -- Trigger frecency updates for all affected origins.
   DELETE FROM moz_updateoriginsupdate_temp;
 
-  /* Don't reupload tombstones for items that are already deleted on the
-     server. */
+  -- Don't reupload tombstones for items that are already deleted on the server.
   DELETE FROM moz_bookmarks_deleted
   WHERE NOT OLD.shouldUploadTombstone AND
         guid = OLD.guid;
 
-  /* Upload tombstones for non-syncable items. We can remove the
-     "shouldUploadTombstone" check and persist tombstones unconditionally
-     in bug 1343103. */
+  -- Upload tombstones for non-syncable items. `shouldUploadTombstone` can be
+  -- removed if we ever persist tombstones (bug 1343103).
   INSERT OR IGNORE INTO moz_bookmarks_deleted(guid, dateRemoved)
   SELECT OLD.guid, now()
   WHERE OLD.shouldUploadTombstone;
 
-  /* Remove the item from Places. */
+  -- Remove the item from Places.
   DELETE FROM moz_bookmarks
   WHERE guid = OLD.guid;
 
-  /* Flag applied deletions as merged. */
+  -- Flag applied deletions as merged.
   UPDATE moz_bookmarks_synced SET
-    needsMerge = 0
+      needsMerge = 0
   WHERE needsMerge AND
         guid = OLD.guid AND
-        /* Don't flag tombstones for items that don't exist in the local
-           tree. This can be removed once we persist tombstones in bug
-           1343103. */
+        -- Don't flag tombstones for items that don't exist in the local
+        -- tree. This check can be removed if we ever persist tombstones
+        -- (bug 1343103).
         (NOT isDeleted OR OLD.localLevel > -1);
 END;
 
@@ -95,26 +93,26 @@ CREATE TEMP TRIGGER updateGuidsAndSyncFlags
 INSTEAD OF DELETE ON itemsToMerge
 BEGIN
   UPDATE moz_bookmarks SET
-    /* We update GUIDs here, instead of in the "updateExistingLocalItems"
-       trigger, because deduped items where we're keeping the local value
-       state won't have "useRemote" set. */
-    guid = OLD.mergedGuid,
-    syncStatus = CASE WHEN OLD.useRemote
-                 THEN 2 -- SyncStatus::Normal
-                 ELSE syncStatus
-                 END,
-    /* Flag updated local items and new structure for upload. */
-    syncChangeCounter = OLD.shouldUpload,
-    lastModified = now()
+      -- We update GUIDs here, instead of in the `updateExistingLocalItems`
+      -- trigger, because deduped items with a local merge state won't have
+      -- `useRemote` set.
+      guid = OLD.mergedGuid,
+      syncStatus = CASE WHEN OLD.useRemote
+                   THEN 2 -- SyncStatus::Normal
+                   ELSE syncStatus
+                   END,
+      -- Flag items with local and new structure merge states for upload.
+      syncChangeCounter = OLD.shouldUpload,
+      lastModified = now()
   WHERE id = OLD.localId;
 
-  /* Drop local tombstones for revived remote items. */
+  -- Drop local tombstones for revived remote items.
   DELETE FROM moz_bookmarks_deleted
   WHERE guid IN (OLD.localGuid, OLD.remoteGuid);
 
-  /* Flag the remote item as merged. */
+  -- Flag the remote item as merged.
   UPDATE moz_bookmarks_synced SET
-    needsMerge = 0
+      needsMerge = 0
   WHERE needsMerge AND
         guid IN (OLD.remoteGuid, OLD.localGuid);
 END;
@@ -122,13 +120,13 @@ END;
 CREATE TEMP TRIGGER updateLocalItems
 INSTEAD OF DELETE ON itemsToMerge WHEN OLD.useRemote
 BEGIN
-  /* Remove all existing tags. */
+  -- Remove all existing tags.
   DELETE FROM moz_tags_relation
   WHERE place_id IN (OLD.oldPlaceId, OLD.newPlaceId);
 
-  /* Insert the new item, using the Places root as the placeholder parent,
-     and -1 as the position. We'll update these later, in the
-     "updateLocalStructure" trigger. */
+  -- Insert the new item, using the Places root as the placeholder parent, and
+  -- -1 as the position. We'll update these later, when we fire the
+  -- `updateLocalStructure` trigger.
   INSERT INTO moz_bookmarks(id, guid, parent, position, type, fk, title,
                             dateAdded, lastModified, syncStatus,
                             syncChangeCounter)
@@ -140,25 +138,22 @@ BEGIN
          2, -- SyncStatus::Normal
          OLD.shouldUpload)
   ON CONFLICT(guid) DO UPDATE SET
-    title = excluded.title,
-    dateAdded = excluded.dateAdded,
-    lastModified = excluded.lastModified,
-    /* It's important that we update the URL *after* removing old keywords
-       and *before* inserting new ones, so that the above DELETEs select
-       the correct affected items. */
-    fk = excluded.fk;
+      title = excluded.title,
+      dateAdded = excluded.dateAdded,
+      lastModified = excluded.lastModified,
+      fk = excluded.fk;
 
-  /* Recalculate frecency. */
+  -- Flag frecency for recalculation.
   UPDATE moz_places SET
-    frecency = -frecency
+      frecency = -frecency
   WHERE OLD.oldPlaceId <> OLD.newPlaceId AND
         id IN (OLD.oldPlaceId, OLD.newPlaceId) AND
         frecency > 0;
 
-  /* Trigger frecency updates for all affected origins. */
+  -- Trigger frecency updates for all affected origins.
   DELETE FROM moz_updateoriginsupdate_temp;
 
-  /* Insert new tags for the new URL. */
+  -- Insert new tags for the new URL.
   INSERT INTO moz_tags_relation(tag_id, place_id)
   SELECT tagId, OLD.newPlaceId
   FROM moz_bookmarks_synced_tag_relation

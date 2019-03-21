@@ -13,11 +13,11 @@ CREATE TEMP TABLE mergedTree(
     mergedParentGuid TEXT NOT NULL,
     level INTEGER NOT NULL,
     position INTEGER NOT NULL,
-    useRemote BOOLEAN NOT NULL, /* Take the remote state when merging? */
-    shouldUpload BOOLEAN NOT NULL, /* Flag the item for upload? */
-    /* The node should exist on at least one side. */
-    CHECK(NOT (localGuid IS NULL AND remoteGuid IS NULL))
-);
+    useRemote BOOLEAN NOT NULL, -- Take the remote state?
+    shouldUpload BOOLEAN NOT NULL, -- Flag the item for upload?
+    -- The node should exist on at least one side.
+    CHECK(localGuid NOT NULL OR remoteGuid NOT NULL)
+) WITHOUT ROWID;
 
 -- Stages all items to delete locally and remotely. Items to delete locally
 -- don't need tombstones: since we took the remote deletion, the tombstone
@@ -27,7 +27,7 @@ CREATE TEMP TABLE itemsToRemove(
     guid TEXT PRIMARY KEY,
     localLevel INTEGER NOT NULL,
     shouldUploadTombstone BOOLEAN NOT NULL
-);
+) WITHOUT ROWID;
 
 -- A view of all synced items. We use triggers on this view to update local
 -- items. Note that we can't just `REPLACE INTO moz_bookmarks`, because
@@ -51,8 +51,6 @@ SELECT b.id, b.guid, v.id, v.guid,
                   ) THEN 2 -- BookmarkType::Folder
              ELSE 3 -- BookmarkType::Separator
              END),
-       /* Take the older creation date. "b.dateAdded" is in microseconds;
-          "v.dateAdded" is in milliseconds. */
        (CASE WHEN b.dateAdded < v.dateAdded THEN b.dateAdded
              ELSE v.dateAdded END),
        v.title, b.fk, v.placeId,
@@ -77,38 +75,39 @@ WHERE "root________" NOT IN (r.mergedGuid, r.mergedParentGuid);
 -- in Places. These are "weak" because we won't try to reupload the item on
 -- the next sync if the upload is interrupted or fails.
 CREATE TEMP TABLE idsToWeaklyUpload(
-  id INTEGER PRIMARY KEY
+    id INTEGER PRIMARY KEY
 );
 
 -- Stores locally changed items staged for upload.
 CREATE TEMP TABLE itemsToUpload(
-  id INTEGER PRIMARY KEY,
-  guid TEXT UNIQUE NOT NULL,
-  syncChangeCounter INTEGER NOT NULL,
-  uploadedAt INTEGER NOT NULL DEFAULT -1,
-  isDeleted BOOLEAN NOT NULL DEFAULT 0,
-  parentGuid TEXT,
-  parentTitle TEXT,
-  dateAdded INTEGER, /* In milliseconds. */
-  kind INTEGER,
-  title TEXT,
-  placeId INTEGER,
-  url TEXT,
-  tagFolderName TEXT,
-  keyword TEXT,
-  position INTEGER
+    id INTEGER PRIMARY KEY,
+    guid TEXT UNIQUE NOT NULL,
+    syncChangeCounter INTEGER NOT NULL,
+    -- The server modified time for the uploaded record. This is *not* a
+    -- ServerTimestamp.
+    uploadedAt INTEGER NOT NULL DEFAULT -1,
+    isDeleted BOOLEAN NOT NULL DEFAULT 0,
+    parentGuid TEXT,
+    parentTitle TEXT,
+    dateAdded INTEGER, -- In milliseconds.
+    kind INTEGER,
+    title TEXT,
+    placeId INTEGER,
+    url TEXT,
+    keyword TEXT,
+    position INTEGER
 );
 
 CREATE TEMP TABLE structureToUpload(
-  guid TEXT PRIMARY KEY,
-  parentId INTEGER NOT NULL REFERENCES itemsToUpload(id)
-                            ON DELETE CASCADE,
-  position INTEGER NOT NULL
+    guid TEXT PRIMARY KEY,
+    parentId INTEGER NOT NULL REFERENCES itemsToUpload(id)
+                              ON DELETE CASCADE,
+    position INTEGER NOT NULL
 ) WITHOUT ROWID;
 
 CREATE TEMP TABLE tagsToUpload(
-  id INTEGER REFERENCES itemsToUpload(id)
-             ON DELETE CASCADE,
-  tag TEXT,
-  PRIMARY KEY(id, tag)
+    id INTEGER REFERENCES itemsToUpload(id)
+               ON DELETE CASCADE,
+    tag TEXT,
+    PRIMARY KEY(id, tag)
 ) WITHOUT ROWID;
