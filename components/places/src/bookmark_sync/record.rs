@@ -340,4 +340,57 @@ mod tests {
         // I guess is good enough to check we are hitting what we expect.
         assert!(e.to_string().contains("unknown-type"));
     }
+
+    #[test]
+    fn test_deserialize_rewrites_ids() {
+        let j = json!({"id": "unfiled", "parentid": "menu", "type": "bookmark"});
+        let r: BookmarkItemRecord = serde_json::from_value(j).expect("should deserialize");
+        match r {
+            BookmarkItemRecord::Bookmark(b) => {
+                assert_eq!(b.guid, BookmarkRootGuid::Unfiled);
+                assert_eq!(b.parent_guid, Some(BookmarkRootGuid::Menu.as_guid()));
+            }
+            _ => panic!("unexpected record type"),
+        };
+
+        let j = json!({"id": "unfiled", "parentid": "menu", "type": "query"});
+        let r: BookmarkItemRecord = serde_json::from_value(j).expect("should deserialize");
+        match r {
+            BookmarkItemRecord::Query(q) => {
+                assert_eq!(q.guid, BookmarkRootGuid::Unfiled);
+                assert_eq!(q.parent_guid, Some(BookmarkRootGuid::Menu.as_guid()));
+            }
+            _ => panic!("unexpected record type"),
+        };
+
+        let j = json!({"id": "unfiled", "parentid": "menu", "type": "folder"});
+        let r: BookmarkItemRecord = serde_json::from_value(j).expect("should deserialize");
+        match r {
+            BookmarkItemRecord::Folder(f) => {
+                assert_eq!(f.guid, BookmarkRootGuid::Unfiled);
+                assert_eq!(f.parent_guid, Some(BookmarkRootGuid::Menu.as_guid()));
+            }
+            _ => panic!("unexpected record type"),
+        };
+
+        let j = json!({"id": "unfiled", "parentid": "menu", "type": "livemark"});
+        let r: BookmarkItemRecord = serde_json::from_value(j).expect("should deserialize");
+        match r {
+            BookmarkItemRecord::Livemark(l) => {
+                assert_eq!(l.guid, BookmarkRootGuid::Unfiled);
+                assert_eq!(l.parent_guid, Some(BookmarkRootGuid::Menu.as_guid()));
+            }
+            _ => panic!("unexpected record type"),
+        };
+
+        let j = json!({"id": "unfiled", "parentid": "menu", "type": "separator"});
+        let r: BookmarkItemRecord = serde_json::from_value(j).expect("should deserialize");
+        match r {
+            BookmarkItemRecord::Separator(s) => {
+                assert_eq!(s.guid, BookmarkRootGuid::Unfiled);
+                assert_eq!(s.parent_guid, Some(BookmarkRootGuid::Menu.as_guid()));
+            }
+            _ => panic!("unexpected record type"),
+        };
+    }
 }

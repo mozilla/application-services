@@ -423,6 +423,44 @@ mod tests {
     }
 
     #[test]
+    fn test_bookmark_synced_foreign_count_triggers() {
+        // create the place.
+        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+
+        let url = Url::parse("http://example.com")
+            .expect("valid url")
+            .into_string();
+
+        conn.execute_named_cached(
+            "INSERT INTO moz_places (guid, url, url_hash) VALUES ('fake_guid___', :url, hash(:url))",
+            &[(":url", &url)],
+        )
+        .expect("should work");
+        let place_id = conn.last_insert_rowid();
+
+        assert_eq!(get_foreign_count(&conn, &"fake_guid___".into()), 0);
+
+        // create a bookmark pointing at it.
+        conn.execute_named_cached(
+            "INSERT INTO moz_bookmarks_synced
+                (placeId, guid)
+            VALUES
+                (:place_id, 'fake_guid___')",
+            &[(":place_id", &place_id)],
+        )
+        .expect("should work");
+        assert_eq!(get_foreign_count(&conn, &"fake_guid___".into()), 1);
+
+        // delete it.
+        conn.execute_named_cached(
+            "DELETE FROM moz_bookmarks_synced WHERE guid = 'fake_guid___';",
+            &[],
+        )
+        .expect("should work");
+        assert_eq!(get_foreign_count(&conn, &"fake_guid___".into()), 0);
+    }
+
+    #[test]
     fn test_bookmark_delete_restrict() {
         let conn = PlacesDb::open_in_memory(None).expect("no memory db");
         conn.execute_all(&[
