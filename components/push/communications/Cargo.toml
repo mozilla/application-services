@@ -3,6 +3,7 @@ name = "communications"
 version = "0.1.0"
 authors = ["jrconlin <me+crypt@jrconlin.com>", "Phil Jenvey <pjenvey@underboss.org>"]
 edition = "2018"
+license = "MPL-2.0"
 
 [dependencies]
 hex = "0.3"

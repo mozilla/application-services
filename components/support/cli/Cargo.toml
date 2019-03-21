@@ -3,6 +3,7 @@ name = "cli-support"
 edition = "2018"
 version = "0.1.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>", "Mark Hammond <mhammond@mozilla.com>"]
+license = "MPL-2.0"
 
 [dependencies]
 failure = "0.1.3"
