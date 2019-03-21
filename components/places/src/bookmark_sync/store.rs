@@ -483,6 +483,10 @@ impl<'a> Store for BookmarksStore<'a> {
             .newer_than(since))
     }
 
+    /// Removes all sync metadata, such that the next sync is treated as a
+    /// first sync. Unlike `wipe`, this keeps all local items, but clears
+    /// all synced items and pending tombstones. This also forgets the last
+    /// sync time.
     fn reset(&self) -> result::Result<(), failure::Error> {
         let tx = self.db.unchecked_transaction()?;
         self.db.execute_batch(&format!(
@@ -502,28 +506,40 @@ impl<'a> Store for BookmarksStore<'a> {
         Ok(())
     }
 
-    // There's a bit of confusion around 'wipe' in this trait.
-    // Logins has `wipe` and `wipe_local`, where the former just wipes the
-    // mirror. There's no `wipe_server` (which in theory can be generically
-    // implemented for any engine.
+    /// Erases all local items. Unlike `reset`, this keeps all synced items
+    /// until the next sync, when they will be replaced with tombstones. This
+    /// also preserves the last sync time.
+    ///
+    /// Conceptually, the next sync will merge an empty local tree, and a full
+    /// remote tree.
     fn wipe(&self) -> result::Result<(), failure::Error> {
-        log::warn!("not implemented");
-        Ok(())
+        let tx = self.db.unchecked_transaction()?;
+        let sql = format!(
+            "INSERT INTO moz_bookmarks_deleted(guid, dateRemoved)
+             SELECT guid, now()
+             FROM moz_bookmarks
+             WHERE guid NOT IN {roots} AND
+                   syncStatus = {sync_status};
 
-        /* A wipe_local for bookmarks could probably look something like:
-            let tx = self.db.unchecked_transaction()?;
-            self.db.conn().execute_cached(
-                "
-                DELETE from moz_bookmarks;
-                DELETE from moz_bookmarks_deleted;
-                DELETE from moz_bookmarks_synced;",
-                NO_PARAMS,
-            )?;
-            create_bookmark_roots(self.db)?;
-            create_synced_bookmark_roots(self.db)?;
-            tx.commit()?;
-            Ok(())
-        */
+             UPDATE moz_bookmarks SET
+               syncChangeCounter = syncChangeCounter + 1
+             WHERE guid IN {roots};
+
+             DELETE FROM moz_bookmarks
+             WHERE guid NOT IN {roots};",
+            roots = RootsFragment(&[
+                BookmarkRootGuid::Root,
+                BookmarkRootGuid::Menu,
+                BookmarkRootGuid::Mobile,
+                BookmarkRootGuid::Toolbar,
+                BookmarkRootGuid::Unfiled
+            ]),
+            sync_status = SyncStatus::Normal as u8
+        );
+        self.db.execute_batch(&sql)?;
+        create_synced_bookmark_roots(self.db)?;
+        tx.commit()?;
+        Ok(())
     }
 }
 
@@ -964,6 +980,23 @@ impl<'a> fmt::Display for UrlOrPlaceId<'a> {
                 write!(f, "(SELECT h.url FROM moz_places h WHERE h.id = {})", s)
             }
         }
+    }
+}
+
+/// A helper that interpolates a SQL expression containing the given bookmark
+/// root GUIDs.
+struct RootsFragment<'a>(&'a [BookmarkRootGuid]);
+
+impl<'a> fmt::Display for RootsFragment<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("(")?;
+        for (i, guid) in self.0.iter().enumerate() {
+            if i != 0 {
+                f.write_str(",")?;
+            }
+            write!(f, "'{}'", guid.as_str())?;
+        }
+        f.write_str(")")
     }
 }
 
@@ -1486,6 +1519,227 @@ mod tests {
         assert_eq!(outgoing.changes.len(), 1);
         assert_eq!(outgoing.changes[0].id, "bookmarkAAAA");
         assert_eq!(outgoing.changes[0].data["keyword"], "a");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_wipe() -> Result<()> {
+        let api = new_mem_api();
+        let writer = api.open_connection(ConnectionType::ReadWrite)?;
+        let syncer = api.open_connection(ConnectionType::Sync)?;
+
+        let records = vec![
+            json!({
+                "id": "toolbar",
+                "type": "folder",
+                "parentid": "places",
+                "parentName": "",
+                "dateAdded": 0,
+                "title": "toolbar",
+                "children": ["folderAAAAAA"],
+            }),
+            json!({
+                "id": "folderAAAAAA",
+                "type": "folder",
+                "parentid": "toolbar",
+                "parentName": "toolbar",
+                "dateAdded": 0,
+                "title": "A",
+                "children": ["bookmarkBBBB"],
+            }),
+            json!({
+                "id": "bookmarkBBBB",
+                "type": "bookmark",
+                "parentid": "folderAAAAAA",
+                "parentName": "A",
+                "dateAdded": 0,
+                "title": "A",
+                "bmkUri": "http://example.com/a",
+            }),
+            json!({
+                "id": "menu",
+                "type": "folder",
+                "parentid": "places",
+                "parentName": "",
+                "dateAdded": 0,
+                "title": "menu",
+                "children": ["folderCCCCCC"],
+            }),
+            json!({
+                "id": "folderCCCCCC",
+                "type": "folder",
+                "parentid": "menu",
+                "parentName": "menu",
+                "dateAdded": 0,
+                "title": "A",
+                "children": ["bookmarkDDDD", "folderEEEEEE"],
+            }),
+            json!({
+                "id": "bookmarkDDDD",
+                "type": "bookmark",
+                "parentid": "folderCCCCCC",
+                "parentName": "C",
+                "dateAdded": 0,
+                "title": "D",
+                "bmkUri": "http://example.com/d",
+            }),
+            json!({
+                "id": "folderEEEEEE",
+                "type": "folder",
+                "parentid": "folderCCCCCC",
+                "parentName": "C",
+                "dateAdded": 0,
+                "title": "E",
+                "children": ["bookmarkFFFF"],
+            }),
+            json!({
+                "id": "bookmarkFFFF",
+                "type": "bookmark",
+                "parentid": "folderEEEEEE",
+                "parentName": "E",
+                "dateAdded": 0,
+                "title": "F",
+                "bmkUri": "http://example.com/f",
+            }),
+        ];
+
+        let client_info = Cell::new(None);
+        let store = BookmarksStore::new(&syncer, &client_info);
+
+        let mut incoming =
+            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
+        for record in records {
+            let payload = Payload::from_json(record).unwrap();
+            incoming.changes.push((payload, ServerTimestamp(0.0)));
+        }
+
+        let outgoing = store
+            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new())
+            .expect("Should apply incoming records");
+        let mut outgoing_ids = outgoing
+            .changes
+            .iter()
+            .map(|p| p.id.clone())
+            .collect::<Vec<_>>();
+        outgoing_ids.sort();
+        assert_eq!(outgoing_ids, &["menu", "mobile", "toolbar", "unfiled"],);
+
+        store
+            .sync_finished(ServerTimestamp(0.0), &outgoing_ids)
+            .expect("Should push synced changes back to the store");
+
+        store.wipe().expect("Should wipe the store");
+
+        // Wiping the store should delete all items except for the roots.
+        assert_local_json_tree(
+            &writer,
+            &BookmarkRootGuid::Root.as_guid(),
+            json!({
+                "guid": &BookmarkRootGuid::Root.as_guid(),
+                "children": [
+                    {
+                        "guid": &BookmarkRootGuid::Menu.as_guid(),
+                        "children": [],
+                    },
+                    {
+                        "guid": &BookmarkRootGuid::Toolbar.as_guid(),
+                        "children": [],
+                    },
+                    {
+                        "guid": &BookmarkRootGuid::Unfiled.as_guid(),
+                        "children": [],
+                    },
+                    {
+                        "guid": &BookmarkRootGuid::Mobile.as_guid(),
+                        "children": [],
+                    },
+                ],
+            }),
+        );
+
+        // Now pretend that F changed remotely between the time we called `wipe`
+        // and the next sync.
+        let record_for_f = json!({
+            "id": "bookmarkFFFF",
+            "type": "bookmark",
+            "parentid": "folderEEEEEE",
+            "parentName": "E",
+            "dateAdded": 0,
+            "title": "F (remote)",
+            "bmkUri": "http://example.com/f-remote",
+        });
+
+        let mut incoming =
+            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1.0));
+        incoming.changes.push((
+            Payload::from_json(record_for_f).unwrap(),
+            ServerTimestamp(1.0),
+        ));
+
+        let outgoing = store
+            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new())
+            .expect("Should apply F and stage tombstones for A-E");
+        let (outgoing_tombstones, outgoing_records): (Vec<_>, Vec<_>) =
+            outgoing.changes.iter().partition(|record| record.deleted);
+        let mut outgoing_record_ids = outgoing_records
+            .into_iter()
+            .map(|p| p.id.clone())
+            .collect::<Vec<_>>();
+        outgoing_record_ids.sort();
+        assert_eq!(
+            outgoing_record_ids,
+            &["bookmarkFFFF", "menu", "mobile", "toolbar", "unfiled"],
+        );
+        let mut outgoing_tombstone_ids = outgoing_tombstones
+            .into_iter()
+            .map(|p| p.id.clone())
+            .collect::<Vec<_>>();
+        outgoing_tombstone_ids.sort();
+        assert_eq!(
+            outgoing_tombstone_ids,
+            &[
+                "bookmarkBBBB",
+                "bookmarkDDDD",
+                "folderAAAAAA",
+                "folderCCCCCC",
+                "folderEEEEEE"
+            ]
+        );
+
+        // F should move to the closest surviving ancestor, which, in this case,
+        // is the menu.
+        assert_local_json_tree(
+            &writer,
+            &BookmarkRootGuid::Root.as_guid(),
+            json!({
+                "guid": &BookmarkRootGuid::Root.as_guid(),
+                "children": [
+                    {
+                        "guid": &BookmarkRootGuid::Menu.as_guid(),
+                        "children": [
+                            {
+                                "guid": "bookmarkFFFF",
+                                "title": "F (remote)",
+                                "url": "http://example.com/f-remote",
+                            },
+                        ],
+                    },
+                    {
+                        "guid": &BookmarkRootGuid::Toolbar.as_guid(),
+                        "children": [],
+                    },
+                    {
+                        "guid": &BookmarkRootGuid::Unfiled.as_guid(),
+                        "children": [],
+                    },
+                    {
+                        "guid": &BookmarkRootGuid::Mobile.as_guid(),
+                        "children": [],
+                    },
+                ],
+            }),
+        );
 
         Ok(())
     }
