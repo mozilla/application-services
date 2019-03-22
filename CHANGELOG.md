@@ -16,6 +16,10 @@
 - `PushManager`'s `dispatch_for_chid` method has been renamed to `dispatchForChid`.
 - `PushManager` constructor arguments are now camelCased.
 
+## `org.mozilla.appservices` Gradle plugin
+
+- Artifacts are now to be published to the `mozilla-appservices` bintray organization.  This necessitates version 0.4.3 of the Gradle plugin.  ([#843](https://github.com/mozilla/application-services/issues/843))
+
 # v0.21.0 (_2019-03-20_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.20.2...v0.21.0)

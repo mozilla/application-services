@@ -129,7 +129,7 @@ open class AppServicesPlugin : Plugin<Project> {
             // https://maven.mozilla.org/maven2 in the future anyway... so it's probably not worth making this
             // configurable.  See https://github.com/mozilla/application-services/issues/252.
             val customName = "appservices"
-            val customURI = URI.create("https://dl.bintray.com/ncalexander/application-services")
+            val customURI = URI.create("https://dl.bintray.com/mozilla-appservices/application-services")
             // If there's already a Maven repo with the right URL, or even the right name, roll with it.
             // The name gives the opportunity to customize, if it helps in the wild.
             val existing = project.repositories.find {

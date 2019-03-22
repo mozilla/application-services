@@ -195,7 +195,7 @@ def android_multiarch_release():
             set +x
             BINTRAY_USER=$(grep 'bintray.user=' local.properties | cut -d'=' -f2)
             BINTRAY_APIKEY=$(grep 'bintray.apikey=' local.properties | cut -d'=' -f2)
-            PUBLISH_URL=https://api.bintray.com/content/ncalexander/application-services/org.mozilla.appservices/{}/publish
+            PUBLISH_URL=https://api.bintray.com/content/mozilla-appservices/application-services/org.mozilla.appservices/{}/publish
             echo "Publishing on $PUBLISH_URL"
             curl -X POST -u $BINTRAY_USER:$BINTRAY_APIKEY $PUBLISH_URL
             echo "Success!"
