@@ -234,6 +234,9 @@ ext.configurePublish = { jnaForTestConfiguration = null,
         pkg {
             repo = libRepositoryName
             name = libProjectName
+            // Packages are uploaded with bintray username ncalexander but end
+            // up at https://bintray.com/mozilla-appservices.
+            userOrg = 'mozilla-appservices'
             websiteUrl = libUrl
             vcsUrl = libVcsUrl
             if (project.ext.has('vcsTag')) {
