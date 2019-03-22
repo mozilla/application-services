@@ -12,6 +12,7 @@ import com.sun.jna.Pointer
 import com.sun.jna.Structure
 import java.util.Arrays
 
+@Suppress("MagicNumber")
 internal open class RustError : Structure() {
 
     class ByReference : RustError(), Structure.ByReference
@@ -27,23 +28,24 @@ internal open class RustError : Structure() {
      * Does this represent success?
      */
     fun isSuccess(): Boolean {
-        return code == 0;
+        return code == 0
     }
 
     /**
      * Does this represent failure?
      */
     fun isFailure(): Boolean {
-        return code != 0;
+        return code != 0
     }
 
+    @Suppress("ComplexMethod", "ReturnCount", "TooGenericExceptionThrown")
     fun intoException(): PlacesException {
         if (!isFailure()) {
             // It's probably a bad idea to throw here! We're probably leaking something if this is
             // ever hit! (But we shouldn't ever hit it?)
-            throw RuntimeException("[Bug] intoException called on non-failure!");
+            throw RuntimeException("[Bug] intoException called on non-failure!")
         }
-        val message = this.consumeErrorMessage();
+        val message = this.consumeErrorMessage()
         when (code) {
             2 -> return UrlParseFailed(message)
             3 -> return PlacesConnectionBusy(message)
@@ -69,11 +71,11 @@ internal open class RustError : Structure() {
     fun consumeErrorMessage(): String {
         val result = this.getMessage()
         if (this.message != null) {
-            LibPlacesFFI.INSTANCE.places_destroy_string(this.message!!);
+            LibPlacesFFI.INSTANCE.places_destroy_string(this.message!!)
             this.message = null
         }
         if (result == null) {
-            throw NullPointerException("consumeErrorMessage called with null message!");
+            throw NullPointerException("consumeErrorMessage called with null message!")
         }
         return result
     }

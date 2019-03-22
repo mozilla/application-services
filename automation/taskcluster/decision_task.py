@@ -115,7 +115,12 @@ def android_task(task_name, libs_tasks):
         task.with_script("tar -xzf target.tar.gz")
     return task
 
+def ktlint_detekt():
+    linux_build_task("detekt").with_script("./gradlew --no-daemon clean detekt").create()
+    linux_build_task("ktlint").with_script("./gradlew --no-daemon clean ktlint").create()
+
 def android_linux_x86_64():
+    ktlint_detekt()
     libs_tasks = libs_for("android", "desktop_linux", "desktop_macos", "desktop_win32_x86_64")
     return (
         android_task("Build and test (Android - linux-x86-64)", libs_tasks)
@@ -171,6 +176,7 @@ def build_gradle_modules_tasks(is_release):
     return module_build_tasks
 
 def android_multiarch():
+    ktlint_detekt()
     build_gradle_modules_tasks(False)
 
 def android_multiarch_release():

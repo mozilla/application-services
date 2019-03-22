@@ -14,7 +14,7 @@ import org.junit.Assert.fail
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
-class DatabaseLoginsStorageTest: LoginsStorageTest() {
+class DatabaseLoginsStorageTest : LoginsStorageTest() {
     @Rule
     @JvmField
     val dbFolder = TemporaryFolder()
@@ -90,4 +90,3 @@ class DatabaseLoginsStorageTest: LoginsStorageTest() {
         finishAndClose(test)
     }
 }
-

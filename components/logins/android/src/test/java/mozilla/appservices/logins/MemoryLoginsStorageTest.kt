@@ -9,11 +9,9 @@ import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
-class MemoryLoginsStorageTest: LoginsStorageTest() {
+class MemoryLoginsStorageTest : LoginsStorageTest() {
 
     override fun createTestStore(): LoginsStorage {
         return MemoryLoginsStorage(listOf())
     }
-
 }
-

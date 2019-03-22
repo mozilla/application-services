@@ -14,10 +14,10 @@ data class Profile(
     companion object {
         internal fun fromMessage(msg: MsgTypes.Profile): Profile {
             return Profile(uid = if (msg.hasUid()) msg.uid else null,
-                           email = if (msg.hasEmail()) msg.email else null,
-                           avatar = if (msg.hasAvatar()) msg.avatar else null,
-                           avatarDefault = msg.avatarDefault,
-                           displayName = if (msg.hasDisplayName()) msg.displayName else null
+                email = if (msg.hasEmail()) msg.email else null,
+                avatar = if (msg.hasAvatar()) msg.avatar else null,
+                avatarDefault = msg.avatarDefault,
+                displayName = if (msg.hasDisplayName()) msg.displayName else null
             )
         }
     }

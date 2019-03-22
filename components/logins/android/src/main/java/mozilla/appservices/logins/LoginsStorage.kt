@@ -4,13 +4,14 @@
 
 package mozilla.appservices.logins
 
-class SyncUnlockInfo (
-        val kid: String,
-        val fxaAccessToken: String,
-        val syncKey: String,
-        val tokenserverURL: String
+class SyncUnlockInfo(
+    val kid: String,
+    val fxaAccessToken: String,
+    val syncKey: String,
+    val tokenserverURL: String
 )
 
+@Suppress("TooManyFunctions")
 interface LoginsStorage : AutoCloseable {
     /**
      * Lock (close) the database.
