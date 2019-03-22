@@ -40,6 +40,10 @@ buildscript {
     }
 }
 
+plugins {
+    id("io.gitlab.arturbosch.detekt").version("1.0.0-RC14")
+}
+
 apply plugin: 'de.undercouch.download'
 
 allprojects {
@@ -206,4 +210,16 @@ ext.cargoExec = { spec, toolchain ->
     spec.environment("OPENSSL_DIR",           new File(libsRootDir, "libs/${toolchain.folder}/openssl").absolutePath)
     spec.environment("SQLCIPHER_LIB_DIR",     new File(libsRootDir, "libs/${toolchain.folder}/sqlcipher/lib").absolutePath)
     spec.environment("SQLCIPHER_INCLUDE_DIR", new File(libsRootDir, "libs/${toolchain.folder}/sqlcipher/include").absolutePath)
+}
+
+detekt {
+    // The version number is duplicated, please refer to plugins block for more details
+    toolVersion = "1.0.0-RC14"
+    input = files("${projectDir}/components", "${projectDir}/gradle-plugin")
+    filters = ".*test.*,.*/resources/.*,.*/tmp/.*,.*/build/.*"
+    config = files("${projectDir}/.detekt.yml")
+    failFast = false
+    reports {
+        xml.enabled = false
+    }
 }
