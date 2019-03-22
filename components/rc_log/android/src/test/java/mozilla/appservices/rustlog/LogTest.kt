@@ -3,15 +3,14 @@
 
 package mozilla.appservices.rustlog
 
-import org.junit.Assert
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 import org.junit.Test
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
 import java.lang.RuntimeException
-import java.util.*
+import java.util.WeakHashMap
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
@@ -28,10 +27,10 @@ class LogTest {
     fun testLogging() {
         val logs: MutableList<String> = mutableListOf()
         val threadIds = mutableSetOf<Long>()
-        val threads = WeakHashMap<Thread, Long>();
+        val threads = WeakHashMap<Thread, Long>()
         fun handler(level: Int, tag: String?, msg: String) {
             val threadId = Thread.currentThread().id
-            threads.set(Thread.currentThread(), threadId);
+            threads.set(Thread.currentThread(), threadId)
             threadIds.add(threadId)
             val info = "Rust log from $threadId | Level: $level | tag: $tag| message: $msg"
             println(info)
@@ -58,19 +57,18 @@ class LogTest {
         } catch (e: LogAdapterCannotEnable) {
         }
 
-        var wasCalled = false;
+        var wasCalled = false
 
         val didEnable = RustLogAdapter.tryEnable { _, _, _ ->
             wasCalled = true
             true
         }
 
-        assert(!didEnable);
+        assert(!didEnable)
         writeTestLog("Test2")
 
         assertEquals(logs.size, 3)
         assert(!wasCalled)
-
 
         for (i in 0..15) {
             Thread.sleep(10)
@@ -86,7 +84,6 @@ class LogTest {
         writeTestLog("Test3")
 
         assertEquals(logs.size, 3)
-
 
         // Make sure we can re-enable it
         RustLogAdapter.setMaxLevel(LogLevelFilter.INFO)
@@ -143,7 +140,7 @@ class LogTest {
         RustLogAdapter.enable { level, tagStr, msgStr ->
             handler(level, tagStr, msgStr)
             if (logs.size >= 10) {
-                throw RuntimeException("Throw an exception to stop logging");
+                throw RuntimeException("Throw an exception to stop logging")
             }
             true
         }
@@ -168,6 +165,4 @@ class LogTest {
         }
         assertEquals(threads.size, 0)
     }
-
 }
-

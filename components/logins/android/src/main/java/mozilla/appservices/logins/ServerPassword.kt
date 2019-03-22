@@ -5,21 +5,21 @@
 package mozilla.appservices.logins
 import org.json.JSONArray
 import org.json.JSONException
-import org.json.JSONObject;
+import org.json.JSONObject
 
 /**
  * Raw password data that is stored by the LoginsStorage implementation.
  */
-data class ServerPassword (
+data class ServerPassword(
 
-     /**
-      * The unique ID associated with this login.
-      *
-      * It is recommended that you not make assumptions about its format, but in practice it is
-      * typically (but not guaranteed to be) either 12 random Base64URL-safe characters or a
-      * UUID-v4 surrounded in curly-braces.
-      */
-    val id: String,
+    /**
+     * The unique ID associated with this login.
+     *
+     * It is recommended that you not make assumptions about its format, but in practice it is
+     * typically (but not guaranteed to be) either 12 random Base64URL-safe characters or a
+     * UUID-v4 surrounded in curly-braces.
+     */
+   val id: String,
 
     /**
      * The hostname this record corresponds to. It is an error to
@@ -130,19 +130,17 @@ data class ServerPassword (
             )
         }
 
-
         fun fromJSON(jsonText: String): ServerPassword {
             return fromJSON(JSONObject(jsonText))
         }
 
         fun fromJSONArray(jsonArrayText: String): List<ServerPassword> {
             val result: MutableList<ServerPassword> = mutableListOf()
-            val array = JSONArray(jsonArrayText);
+            val array = JSONArray(jsonArrayText)
             for (index in 0 until array.length()) {
                 result.add(fromJSON(array.getJSONObject(index)))
             }
             return result
         }
-
     }
 }

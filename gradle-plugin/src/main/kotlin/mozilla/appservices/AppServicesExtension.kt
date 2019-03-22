@@ -7,7 +7,6 @@ package mozilla.appservices
 import groovy.lang.Closure
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
-import org.gradle.api.internal.AbstractNamedDomainObjectContainer
 import org.gradle.api.internal.artifacts.DefaultModuleIdentifier
 import org.gradle.util.ConfigureUtil
 

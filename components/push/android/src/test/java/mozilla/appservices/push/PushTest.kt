@@ -1,6 +1,5 @@
 package mozilla.appservices.push
 
-import java.io.File
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -8,7 +7,7 @@ import org.robolectric.annotation.Config
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
 import java.nio.charset.Charset
 
 @RunWith(RobolectricTestRunner::class)
@@ -137,10 +136,10 @@ class PushTest {
         // These values should come from the delivered message content.
         val result = manager.decrypt(
                 channelID = testChannelid,
-                body=aesgcmBlock["body"].toString(),
-                encoding=aesgcmBlock["enc"].toString(),
-                salt=aesgcmBlock["salt"].toString(),
-                dh=aesgcmBlock["dh"].toString()
+                body = aesgcmBlock["body"].toString(),
+                encoding = aesgcmBlock["enc"].toString(),
+                salt = aesgcmBlock["salt"].toString(),
+                dh = aesgcmBlock["dh"].toString()
         )
         val sresult = result.toString(Charset.forName("UTF-8"))
         assertEquals("Result", plaintext, sresult)
@@ -153,10 +152,10 @@ class PushTest {
         manager.subscribe(testChannelid, "foo")
         val result = manager.decrypt(
                 channelID = testChannelid,
-                body=aes128gcmBlock["body"].toString(),
-                encoding=aes128gcmBlock["enc"].toString(),
-                salt=aes128gcmBlock["salt"].toString(),
-                dh=aes128gcmBlock["dh"].toString()
+                body = aes128gcmBlock["body"].toString(),
+                encoding = aes128gcmBlock["enc"].toString(),
+                salt = aes128gcmBlock["salt"].toString(),
+                dh = aes128gcmBlock["dh"].toString()
         )
         val sresult = result.toString(Charset.forName("UTF-8"))
         assertEquals("Result", plaintext, sresult)
@@ -174,7 +173,7 @@ class PushTest {
     }
 
     @Test
-    fun testUnsubscribe(){
+    fun testUnsubscribe() {
         val manager = getPushManager()
         manager.subscribe(testChannelid, "foo")
         val result = manager.unsubscribe(testChannelid)
@@ -182,7 +181,7 @@ class PushTest {
     }
 
     @Test
-    fun testUpdate(){
+    fun testUpdate() {
         val manager = getPushManager()
         val result = manager.update("test-2")
         // TODO: This changes the SenderID used by manager.conn, which is private.
@@ -191,7 +190,7 @@ class PushTest {
     }
 
     @Test
-    fun testVerifyConnection(){
+    fun testVerifyConnection() {
         val manager = getPushManager()
         manager.subscribe(testChannelid, "foo")
         val result = manager.verifyConnection()
@@ -204,7 +203,7 @@ class PushTest {
         val manager = getPushManager()
 
         val subscriptionInfo = manager.subscribe(testChannelid, "foo")
-        val dispatch = manager.dispatch_for_chid(testChannelid);
+        val dispatch = manager.dispatch_for_chid(testChannelid)
         assertEquals("uaid", "abad1d3a00000000aabbccdd00000000", dispatch.uaid)
         assertEquals("scope", "foo", dispatch.scope)
     }

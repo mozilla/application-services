@@ -50,7 +50,7 @@ class PlacesApi(path: String, encryption_key: String? = null) : PlacesManager, A
         val connHandle = rustCall(this) { error ->
             LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_ONLY, error)
         }
-        return PlacesReaderConnection(connHandle);
+        return PlacesReaderConnection(connHandle)
     }
 
     override fun getWriter(): PlacesWriterConnection {
@@ -168,8 +168,7 @@ open class PlacesConnection internal constructor(connHandle: Long) : Interruptib
 open class PlacesReaderConnection internal constructor(connHandle: Long) :
         PlacesConnection(connHandle),
         ReadableHistoryConnection,
-        ReadableBookmarksConnection
-{
+        ReadableBookmarksConnection {
     override fun queryAutocomplete(query: String, limit: Int): List<SearchResult> {
         val json = rustCallForString { error ->
             LibPlacesFFI.INSTANCE.places_query_autocomplete(this.handle.get(), query, limit, error)
@@ -225,7 +224,7 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
                     this.handle.get(), start, end, incRemoteArg, error)
         }
         val arr = JSONArray(urlsJson)
-        val result = mutableListOf<String>();
+        val result = mutableListOf<String>()
         for (idx in 0 until arr.length()) {
             result.add(arr.getString(idx))
         }
@@ -311,8 +310,7 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
 class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesApi) :
         PlacesReaderConnection(connHandle),
         WritableHistoryConnection,
-        WritableBookmarksConnection
-{
+        WritableBookmarksConnection {
     // The reference to our PlacesAPI. Mostly used to know how to handle getting closed.
     val apiRef = WeakReference(api)
     override fun noteObservation(data: VisitObservation) {
@@ -439,7 +437,6 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         interruptHandle.close()
         return handle
     }
-
 }
 
 /**
@@ -447,7 +444,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
  * Note that this has the same shape as `SyncUnlockInfo` from logins - we
  * probably want a way of sharing these.
  */
-class SyncAuthInfo (
+class SyncAuthInfo(
     val kid: String,
     val fxaAccessToken: String,
     val syncKey: String,
@@ -483,14 +480,14 @@ interface PlacesManager {
     fun sync(syncInfo: SyncAuthInfo)
 }
 
-interface InterruptibleConnection: AutoCloseable {
+interface InterruptibleConnection : AutoCloseable {
     /**
      * Interrupt ongoing operations running on a separate thread.
      */
     fun interrupt()
 }
 
-interface ReadableHistoryConnection: InterruptibleConnection {
+interface ReadableHistoryConnection : InterruptibleConnection {
     /**
      * A way to search the internal database tailored for autocompletion purposes.
      *
@@ -539,12 +536,11 @@ interface ReadableHistoryConnection: InterruptibleConnection {
     fun getVisitInfos(start: Long, end: Long = Long.MAX_VALUE): List<VisitInfo>
 }
 
-interface WritableHistoryConnection: ReadableHistoryConnection {
+interface WritableHistoryConnection : ReadableHistoryConnection {
     /**
      * Record a visit to a URL, or update meta information about page URL. See [VisitObservation].
      */
     fun noteObservation(data: VisitObservation)
-
 
     /**
      * Deletes all history visits, without recording tombstones.
@@ -648,7 +644,7 @@ interface WritableHistoryConnection: ReadableHistoryConnection {
     fun deleteVisit(url: String, visitTimestamp: Long)
 }
 
-class InterruptHandle internal constructor(raw: RawPlacesInterruptHandle): AutoCloseable {
+class InterruptHandle internal constructor(raw: RawPlacesInterruptHandle) : AutoCloseable {
     // We synchronize all accesses, so this probably doesn't need AtomicReference.
     private val handle: AtomicReference<RawPlacesInterruptHandle?> = AtomicReference(raw)
 
@@ -672,12 +668,11 @@ class InterruptHandle internal constructor(raw: RawPlacesInterruptHandle): AutoC
     }
 }
 
-
-open class PlacesException(msg: String): Exception(msg)
-open class InternalPanic(msg: String): PlacesException(msg)
-open class UrlParseFailed(msg: String): PlacesException(msg)
-open class PlacesConnectionBusy(msg: String): PlacesException(msg)
-open class OperationInterrupted(msg: String): PlacesException(msg)
+open class PlacesException(msg: String) : Exception(msg)
+open class InternalPanic(msg: String) : PlacesException(msg)
+open class UrlParseFailed(msg: String) : PlacesException(msg)
+open class PlacesConnectionBusy(msg: String) : PlacesException(msg)
+open class OperationInterrupted(msg: String) : PlacesException(msg)
 
 @SuppressWarnings("MagicNumber")
 enum class VisitType(val type: Int) {
@@ -741,7 +736,6 @@ private fun stringOrNull(jsonObject: JSONObject, key: String): String? {
     } catch (e: JSONException) {
         null
     }
-
 }
 data class SearchResult(
     val searchString: String,
@@ -777,33 +771,33 @@ data class SearchResult(
  * Information about a history visit. Returned by `PlacesAPI.getVisitInfos`.
  */
 data class VisitInfo(
-        /**
-         * The URL of the page that was visited.
-         */
-        val url: String,
+    /**
+     * The URL of the page that was visited.
+     */
+    val url: String,
 
-        /**
-         * The title of the page that was visited, if known.
-         */
-        val title: String?,
+    /**
+     * The title of the page that was visited, if known.
+     */
+    val title: String?,
 
-        /**
-         * The time the page was visited in integer milliseconds since the unix epoch.
-         */
-        val visitTime: Long,
+    /**
+     * The time the page was visited in integer milliseconds since the unix epoch.
+     */
+    val visitTime: Long,
 
-        /**
-         * What the transition type of the visit is.
-         */
-        val visitType: VisitType
+    /**
+     * What the transition type of the visit is.
+     */
+    val visitType: VisitType
 ) {
     companion object {
         internal fun fromMessage(msg: MsgTypes.HistoryVisitInfos): List<VisitInfo> {
             return msg.infosList.map {
                 VisitInfo(url = it.url,
-                          title = it.title,
-                          visitTime = it.timestamp,
-                          visitType = intToVisitType[it.visitType]!!)
+                    title = it.title,
+                    visitTime = it.timestamp,
+                    visitType = intToVisitType[it.visitType]!!)
             }
         }
     }

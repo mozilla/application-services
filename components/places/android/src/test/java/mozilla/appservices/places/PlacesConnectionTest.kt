@@ -3,7 +3,6 @@
 
 package mozilla.appservices.places
 
-
 import org.junit.After
 import org.junit.rules.TemporaryFolder
 import org.junit.Rule
@@ -11,9 +10,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.junit.Test
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
 import org.junit.Before
-
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
@@ -43,7 +41,7 @@ class PlacesConnectionTest {
     fun testGetVisited() {
 
         val unicodeInPath = "http://www.example.com/tëst😀abc"
-        val escapedUnicodeInPath = "http://www.example.com/t%C3%ABst%F0%9F%98%80abc";
+        val escapedUnicodeInPath = "http://www.example.com/t%C3%ABst%F0%9F%98%80abc"
 
         val unicodeInDomain = "http://www.exämple😀123.com"
         val escapedUnicodeInDomain = "http://www.xn--exmple123-w2a24222l.com"
@@ -108,7 +106,6 @@ class PlacesConnectionTest {
         }
     }
 
-
     @Test
     fun testNoteObservationBadUrl() {
         try {
@@ -132,7 +129,6 @@ class PlacesConnectionTest {
                 "https://mozilla.com/a1/b2/c3",
                 "https://news.ycombinator.com/"
         )
-
 
         for (url in toAdd) {
             db.noteObservation(VisitObservation(url = url, visitType = VisitType.LINK))
@@ -182,6 +178,4 @@ class PlacesConnectionTest {
         assert(infos[0].url == "https://www.example.com/2")
         assert(infos[1].url == "https://www.example.com/3")
     }
-
 }
-

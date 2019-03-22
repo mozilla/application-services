@@ -6,7 +6,6 @@ package mozilla.appservices.places
 
 import java.lang.RuntimeException
 
-
 /**
  * Enumeration of the ids of the roots of the bookmarks tree.
  *
@@ -83,24 +82,24 @@ sealed class BookmarkTreeNode {
  */
 
 data class BookmarkItem(
-        override val guid: String,
-        override val dateAdded: Long,
-        override val lastModified: Long,
-        override val parentGUID: String?,
-        override val position: Int,
+    override val guid: String,
+    override val dateAdded: Long,
+    override val lastModified: Long,
+    override val parentGUID: String?,
+    override val position: Int,
 
-        /**
-         * The URL of this bookmark.
-         */
-        val url: String,
+    /**
+     * The URL of this bookmark.
+     */
+    val url: String,
 
-        /**
-         * The title of the bookmark.
-         *
-         * Note that the bookmark storage layer treats NULL and the
-         * empty string as equivalent in titles.
-         */
-        val title: String
+    /**
+     * The title of the bookmark.
+     *
+     * Note that the bookmark storage layer treats NULL and the
+     * empty string as equivalent in titles.
+     */
+    val title: String
 ) : BookmarkTreeNode() {
     override val type get() = BookmarkType.Bookmark
 }
@@ -113,30 +112,30 @@ data class BookmarkItem(
  * addition to those defined by [BookmarkTreeNode].
  */
 data class BookmarkFolder(
-        override val guid: String,
-        override val dateAdded: Long,
-        override val lastModified: Long,
-        override val parentGUID: String?,
-        override val position: Int,
+    override val guid: String,
+    override val dateAdded: Long,
+    override val lastModified: Long,
+    override val parentGUID: String?,
+    override val position: Int,
 
-        /**
-         * The title of this bookmark folder, if any was provided.
-         *
-         * Note that the bookmark storage layer treats NULL and the
-         * empty string as equivalent in titles.
-         */
-        val title: String,
+    /**
+     * The title of this bookmark folder, if any was provided.
+     *
+     * Note that the bookmark storage layer treats NULL and the
+     * empty string as equivalent in titles.
+     */
+    val title: String,
 
-        /**
-         * The GUIDs of this folder's list of children.
-         */
-        val childGUIDs: List<String>,
+    /**
+     * The GUIDs of this folder's list of children.
+     */
+    val childGUIDs: List<String>,
 
-        /**
-         * If this node was returned the [ReadableBookmarksConnection.getBookmarksTree]
-         * method, then this should have the list of children.
-         */
-        val children: List<BookmarkTreeNode>?
+    /**
+     * If this node was returned the [ReadableBookmarksConnection.getBookmarksTree]
+     * method, then this should have the list of children.
+     */
+    val children: List<BookmarkTreeNode>?
 
 ) : BookmarkTreeNode() {
     override val type get() = BookmarkType.Folder
@@ -149,11 +148,11 @@ data class BookmarkFolder(
  * besides those defined by [BookmarkTreeNode].
  */
 data class BookmarkSeparator(
-        override val guid: String,
-        override val dateAdded: Long,
-        override val lastModified: Long,
-        override val parentGUID: String?,
-        override val position: Int
+    override val guid: String,
+    override val dateAdded: Long,
+    override val lastModified: Long,
+    override val parentGUID: String?,
+    override val position: Int
 ) : BookmarkTreeNode() {
     override val type get() = BookmarkType.Separator
 }
@@ -265,9 +264,9 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * @throws InvalidParent If `parentGUID` does not refer to a folder node.
      */
     fun createFolder(
-            parentGUID: String,
-            title: String,
-            position: Int? = null
+        parentGUID: String,
+        title: String,
+        position: Int? = null
     ): String
 
     /**
@@ -285,8 +284,8 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * @throws InvalidParent If `parentGUID` does not refer to a folder node.
      */
     fun createSeparator(
-            parentGUID: String,
-            position: Int? = null
+        parentGUID: String,
+        position: Int? = null
     ): String
 
     /**
@@ -308,10 +307,10 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * @throws UrlTooLong if `url` exceeds the maximum length of 65536 bytes (when encoded)
      */
     fun createBookmarkItem(
-            parentGUID: String,
-            url: String,
-            title: String,
-            position: Int? = null
+        parentGUID: String,
+        url: String,
+        title: String,
+        position: Int? = null
     ): String
 
     /**
@@ -336,44 +335,44 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
  * Information describing the changes to make in order to update a bookmark.
  */
 data class BookmarkUpdateInfo(
-        /**
-         * If the record should be moved to another folder, the guid
-         * of the folder it should be moved to. Interacts with
-         * `position`, see its documentation for details.
-         */
-        val parentGUID: String? = null,
+    /**
+     * If the record should be moved to another folder, the guid
+     * of the folder it should be moved to. Interacts with
+     * `position`, see its documentation for details.
+     */
+    val parentGUID: String? = null,
 
-        /**
-         * If the record should be moved, the 0-based index where it
-         * should be moved to. Interacts with `parentGUID` as follows:
-         *
-         * - If `parentGUID` is not provided and `position` is, we treat this
-         *   a move within the same folder.
-         *
-         * - If `parentGUID` and `position` are both provided, we treat this as
-         *   a move to / within that folder, and we insert at the requested
-         *   position.
-         *
-         * - If `position` is not provided (and `parentGUID` is) then its
-         *   treated as a move to the end of that folder.
-         *
-         * If position is provided and is outside the range of positions currently
-         * occupied by children in this folder, it is first constrained to
-         * be within that range.
-         */
-        val position: Int? = null,
+    /**
+     * If the record should be moved, the 0-based index where it
+     * should be moved to. Interacts with `parentGUID` as follows:
+     *
+     * - If `parentGUID` is not provided and `position` is, we treat this
+     *   a move within the same folder.
+     *
+     * - If `parentGUID` and `position` are both provided, we treat this as
+     *   a move to / within that folder, and we insert at the requested
+     *   position.
+     *
+     * - If `position` is not provided (and `parentGUID` is) then its
+     *   treated as a move to the end of that folder.
+     *
+     * If position is provided and is outside the range of positions currently
+     * occupied by children in this folder, it is first constrained to
+     * be within that range.
+     */
+    val position: Int? = null,
 
-        /**
-         * For nodes of type [BookmarkType.Bookmark] and [BookmarkType.Folder],
-         * a string specifying the new title of the bookmark node.
-         */
-        val title: String? = null,
+    /**
+     * For nodes of type [BookmarkType.Bookmark] and [BookmarkType.Folder],
+     * a string specifying the new title of the bookmark node.
+     */
+    val title: String? = null,
 
-        /**
-         * For nodes of type [BookmarkType.Bookmark], a string specifying
-         * the new url of the bookmark node.
-         */
-        val url: String? = null
+    /**
+     * For nodes of type [BookmarkType.Bookmark], a string specifying
+     * the new url of the bookmark node.
+     */
+    val url: String? = null
 ) {
 
     internal fun toProtobuf(guid: String): MsgTypes.BookmarkNode {
@@ -394,7 +393,7 @@ data class BookmarkUpdateInfo(
  * Eventually it should be fixed up, when detected as part of
  * `runMaintenance`.
  */
-open class BookmarksCorruption(msg: String): PlacesException(msg)
+open class BookmarksCorruption(msg: String) : PlacesException(msg)
 
 /**
  * Thrown when attempting to insert a URL greater than 65536 bytes
@@ -404,20 +403,20 @@ open class BookmarksCorruption(msg: String): PlacesException(msg)
  * is guaranteed to result in a URL different from the one the
  * user attempted to bookmark, and so an error is thrown instead.
  */
-open class UrlTooLong(msg: String): PlacesException(msg)
+open class UrlTooLong(msg: String) : PlacesException(msg)
 
 /**
  * Thrown when attempting to update a bookmark item in an illegal
  * way. For example, attempting to change the URL of a bookmark
  * folder, or update the title of a separator, etc.
  */
-open class InvalidBookmarkUpdate(msg: String): PlacesException(msg)
+open class InvalidBookmarkUpdate(msg: String) : PlacesException(msg)
 
 /**
  * Thrown when providing a guid to a create or update function
  * which does not refer to a known bookmark.
  */
-open class UnknownBookmarkItem(msg: String): PlacesException(msg)
+open class UnknownBookmarkItem(msg: String) : PlacesException(msg)
 
 /**
  * Thrown when:
@@ -426,14 +425,13 @@ open class UnknownBookmarkItem(msg: String): PlacesException(msg)
  * - Attempting to update any of the bookmark roots.
  * - Attempting to delete any of the bookmark roots.
  */
-open class CannotUpdateRoot(msg: String): PlacesException(msg)
+open class CannotUpdateRoot(msg: String) : PlacesException(msg)
 
 /**
  * Thrown when providing a guid referring to a non-folder as the
  * parentGUID parameter to a create or update
  */
-open class InvalidParent(msg: String): PlacesException(msg)
-
+open class InvalidParent(msg: String) : PlacesException(msg)
 
 /**
  * Turn the protobuf rust passes us into a BookmarkTreeNode.
@@ -510,4 +508,3 @@ internal fun unpackProtobuf(msg: MsgTypes.BookmarkNode): BookmarkTreeNode {
 internal fun unpackProtobufItemList(msg: MsgTypes.BookmarkNodeList): List<BookmarkItem> {
     return msg.nodesList.map { unpackProtobuf(it) as BookmarkItem }
 }
-

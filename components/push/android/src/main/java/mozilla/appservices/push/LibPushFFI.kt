@@ -8,7 +8,6 @@ import android.util.Log
 import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
-import com.sun.jna.PointerType
 import java.lang.reflect.Proxy
 
 import mozilla.appservices.support.RustBuffer
@@ -30,8 +29,7 @@ internal interface LibPushFFI : Library {
         } catch (e: UnsatisfiedLinkError) {
             Proxy.newProxyInstance(
                 LibPushFFI::class.java.classLoader,
-                arrayOf(LibPushFFI::class.java))
-            { _, _, _ ->
+                arrayOf(LibPushFFI::class.java)) { _, _, _ ->
                 throw RuntimeException("Push functionality not available", e)
             } as LibPushFFI
         }
@@ -43,39 +41,39 @@ internal interface LibPushFFI : Library {
 
     /** Create a new push connection */
     fun push_connection_new(
-            server_host: String,
-            socket_protocol: String?,
-            bridge_type: String?,
-            registration_id: String,
-            sender_id: String?,
-            database_path: String,
-            out_err: RustError.ByReference
+        server_host: String,
+        socket_protocol: String?,
+        bridge_type: String?,
+        registration_id: String,
+        sender_id: String?,
+        database_path: String,
+        out_err: RustError.ByReference
     ): PushManagerHandle
 
     /** Returns JSON string, which you need to free with push_destroy_string */
     fun push_subscribe(
-            mgr: PushManagerHandle,
-            channel_id: String,
-            scope: String,
-            out_err: RustError.ByReference
+        mgr: PushManagerHandle,
+        channel_id: String,
+        scope: String,
+        out_err: RustError.ByReference
     ): Pointer?
 
     /** Returns bool */
     fun push_unsubscribe(
-            mgr: PushManagerHandle,
-            channel_id: String,
-            out_err: RustError.ByReference
+        mgr: PushManagerHandle,
+        channel_id: String,
+        out_err: RustError.ByReference
     ): Byte
 
     fun push_update(
-            mgr: PushManagerHandle,
-            new_token: String,
-            out_err: RustError.ByReference
+        mgr: PushManagerHandle,
+        new_token: String,
+        out_err: RustError.ByReference
     ): Byte
 
     fun push_verify_connection(
-            mgr: PushManagerHandle,
-            out_err: RustError.ByReference
+        mgr: PushManagerHandle,
+        out_err: RustError.ByReference
     ): Pointer?
 
     fun push_decrypt(
@@ -102,7 +100,6 @@ internal interface LibPushFFI : Library {
 
     /** Destroy connection created using `push_connection_new` */
     fun push_connection_destroy(obj: PushManagerHandle, out_err: RustError.ByReference)
-
 }
 
 internal typealias PushManagerHandle = Long

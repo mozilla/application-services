@@ -9,12 +9,12 @@ import com.sun.jna.Native
 import com.sun.jna.Pointer
 import java.util.concurrent.atomic.AtomicBoolean
 
-typealias OnLog = (Int, String?, String) -> Boolean;
+typealias OnLog = (Int, String?, String) -> Boolean
 class RustLogAdapter private constructor(
     // IMPORTANT: This must not be GCed while the adapter is alive!
-        @Suppress("Unused")
-        private val callbackImpl: RawLogCallbackImpl,
-        private val adapter: LibRustLogAdapter.RawLogAdapter
+    @Suppress("Unused")
+    private val callbackImpl: RawLogCallbackImpl,
+    private val adapter: LibRustLogAdapter.RawLogAdapter
 ) {
     companion object {
         @Volatile
@@ -138,7 +138,7 @@ class LogAdapterCannotEnable(msg: String) : LogAdapterError("Log adapter may not
 /**
  * Thrown for unexpected log adapter errors (generally rust panics).
  */
-class LogAdapterUnexpectedError(msg: String): LogAdapterError("Unexpected log adapter error: $msg")
+class LogAdapterUnexpectedError(msg: String) : LogAdapterError("Unexpected log adapter error: $msg")
 
 // Note: keep values in sync with level_filter_from_i32 in rust.
 /** Level filters, for use with setMaxLevel. */
@@ -157,7 +157,6 @@ enum class LogLevelFilter(internal val value: Int) {
     TRACE(5),
 }
 
-
 internal class RawLogCallbackImpl(private val onLog: OnLog) : LibRustLogAdapter.RawLogCallback {
     override fun invoke(level: Int, tag: Pointer?, message: Pointer): Byte {
         // We can't safely throw here!
@@ -165,7 +164,7 @@ internal class RawLogCallbackImpl(private val onLog: OnLog) : LibRustLogAdapter.
             val tagStr = tag?.getString(0, "utf8")
             val msgStr = message.getString(0, "utf8")
             onLog(level, tagStr, msgStr)
-        } catch(e: Throwable) {
+        } catch (e: Throwable) {
             try {
                 println("Exception when logging: $e")
             } catch (e: Throwable) {

@@ -14,8 +14,8 @@ import org.gradle.api.internal.artifacts.DefaultModuleIdentifier
 data class MegazordDefinition(val name: String, val components: MutableSet<ModuleIdentifier>) {
     constructor(name: String) : this(name, mutableSetOf())
 
-    constructor(name: String, moduleIdentifier: ModuleIdentifier, components: Collection<ModuleIdentifier>?)
-            : this(name, components?.toMutableSet() ?: mutableSetOf()) {
+    constructor(name: String, moduleIdentifier: ModuleIdentifier, components: Collection<ModuleIdentifier>?) :
+            this(name, components?.toMutableSet() ?: mutableSetOf()) {
         this.moduleIdentifier = moduleIdentifier
     }
 
@@ -28,7 +28,7 @@ data class MegazordDefinition(val name: String, val components: MutableSet<Modul
     private fun newId(identifier: String): ModuleIdentifier {
         val parts = identifier.split(':')
         if (parts.size != 2) {
-            throw GradleException("megazord moduleIdentifier must have 2 colon-separated parts; got: '${identifier}' with ${parts.size} parts")
+            throw GradleException("megazord moduleIdentifier must have 2 colon-separated parts; got: '$identifier' with ${parts.size} parts")
         }
         return DefaultModuleIdentifier.newId(parts[0], parts[1])
     }

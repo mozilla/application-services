@@ -8,9 +8,7 @@ import android.util.Log
 import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
-import com.sun.jna.PointerType
 import java.lang.reflect.Proxy
-
 
 @Suppress("FunctionNaming", "TooManyFunctions", "TooGenericExceptionThrown")
 internal interface PasswordSyncAdapter : Library {
@@ -18,7 +16,7 @@ internal interface PasswordSyncAdapter : Library {
         private val JNA_LIBRARY_NAME = {
             val libname = System.getProperty("mozilla.appservices.logins_ffi_lib_name")
             if (libname != null) {
-                Log.i("AppServices", "Using logins_ffi_lib_name: " + libname);
+                Log.i("AppServices", "Using logins_ffi_lib_name: " + libname)
                 libname
             } else {
                 "logins_ffi"
@@ -35,8 +33,7 @@ internal interface PasswordSyncAdapter : Library {
         } catch (e: UnsatisfiedLinkError) {
             Proxy.newProxyInstance(
                     PasswordSyncAdapter::class.java.classLoader,
-                    arrayOf(PasswordSyncAdapter::class.java))
-            { _, _, _ ->
+                    arrayOf(PasswordSyncAdapter::class.java)) { _, _, _ ->
                 throw RuntimeException("Logins storage functionality not available (no native library)", e)
             } as PasswordSyncAdapter
         }
@@ -45,16 +42,16 @@ internal interface PasswordSyncAdapter : Library {
     fun sync15_passwords_enable_logcat_logging()
 
     fun sync15_passwords_state_new(
-            mentat_db_path: String,
-            encryption_key: String,
-            error: RustError.ByReference
+        mentat_db_path: String,
+        encryption_key: String,
+        error: RustError.ByReference
     ): LoginsDbHandle
 
     fun sync15_passwords_state_new_with_hex_key(
-            db_path: String,
-            encryption_key_bytes: ByteArray,
-            encryption_key_len: Int,
-            error: RustError.ByReference
+        db_path: String,
+        encryption_key_bytes: ByteArray,
+        encryption_key_len: Int,
+        error: RustError.ByReference
     ): LoginsDbHandle
 
     fun sync15_passwords_state_destroy(handle: LoginsDbHandle, error: RustError.ByReference)
@@ -69,12 +66,14 @@ internal interface PasswordSyncAdapter : Library {
     // return json array
     fun sync15_passwords_get_all(handle: LoginsDbHandle, error: RustError.ByReference): Pointer?
 
-    fun sync15_passwords_sync(handle: LoginsDbHandle,
-                              key_id: String,
-                              access_token: String,
-                              sync_key: String,
-                              token_server_url: String,
-                              error: RustError.ByReference)
+    fun sync15_passwords_sync(
+        handle: LoginsDbHandle,
+        key_id: String,
+        access_token: String,
+        sync_key: String,
+        token_server_url: String,
+        error: RustError.ByReference
+    )
 
     fun sync15_passwords_wipe(handle: LoginsDbHandle, error: RustError.ByReference)
     fun sync15_passwords_wipe_local(handle: LoginsDbHandle, error: RustError.ByReference)
@@ -91,4 +90,4 @@ internal interface PasswordSyncAdapter : Library {
     fun sync15_passwords_destroy_string(p: Pointer)
 }
 
-internal typealias LoginsDbHandle = Long;
+internal typealias LoginsDbHandle = Long

@@ -10,7 +10,6 @@ import com.sun.jna.Native
 import com.sun.jna.Pointer
 import java.lang.reflect.Proxy
 import mozilla.appservices.support.RustBuffer
-import mozilla.appservices.fxaclient.FxaException
 
 @Suppress("FunctionNaming", "TooManyFunctions", "TooGenericExceptionThrown")
 internal interface LibFxAFFI : Library {
@@ -35,8 +34,7 @@ internal interface LibFxAFFI : Library {
         } catch (e: UnsatisfiedLinkError) {
             Proxy.newProxyInstance(
                     LibFxAFFI::class.java.classLoader,
-                    arrayOf(LibFxAFFI::class.java))
-            { _, _, _ ->
+                    arrayOf(LibFxAFFI::class.java)) { _, _, _ ->
                 throw RuntimeException("Firefox Account functionality not available", e)
             } as LibFxAFFI
         }
@@ -81,4 +79,3 @@ internal interface LibFxAFFI : Library {
     fun fxa_free(fxa: FxaHandle, err: RustError.ByReference)
 }
 internal typealias FxaHandle = Long
-

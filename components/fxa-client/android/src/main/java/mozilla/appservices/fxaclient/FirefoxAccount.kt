@@ -23,8 +23,8 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      *
      * This does not make network requests, and can be used on the main thread.
      */
-    constructor(config: Config, persistCallback: PersistCallback? = null)
-    : this(rustCall { e ->
+    constructor(config: Config, persistCallback: PersistCallback? = null) :
+    this(rustCall { e ->
         LibFxAFFI.INSTANCE.fxa_new(config.contentUrl, config.clientId, config.redirectUri, e)
     }, persistCallback) {
         // Persist the newly created instance state.

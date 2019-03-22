@@ -11,7 +11,6 @@ import org.json.JSONArray
 
 import mozilla.appservices.support.RustBuffer
 
-
 /**
  * An implementation of a [PushAPI] backed by a Rust Push library.
  *
@@ -26,13 +25,14 @@ class PushManager(
     socket_protocol: String = "https",
     bridge_type: BridgeTypes,
     registration_id: String,
-    database_path: String = "push.sqlite") : PushAPI, AutoCloseable {
+    database_path: String = "push.sqlite"
+) : PushAPI, AutoCloseable {
 
     private var handle: AtomicLong = AtomicLong(0)
 
     init {
         try {
-	    handle.set(rustCall { error ->
+        handle.set(rustCall { error ->
                 LibPushFFI.INSTANCE.push_connection_new(
                         server_host,
                         socket_protocol,
@@ -54,7 +54,7 @@ class PushManager(
         val handle = this.handle.getAndSet(0L)
         if (handle != 0L) {
             rustCall { error ->
-		LibPushFFI.INSTANCE.push_connection_destroy(handle, error)
+        LibPushFFI.INSTANCE.push_connection_destroy(handle, error)
             }
         }
     }
@@ -85,7 +85,6 @@ class PushManager(
         }.toInt() == 1
     }
 
-
     override fun verifyConnection(): Map<String, String> {
         val newEndpoints: MutableMap<String, String> = linkedMapOf()
         val response = rustCallForString { error ->
@@ -106,16 +105,17 @@ class PushManager(
         body: String,
         encoding: String,
         salt: String,
-        dh: String): ByteArray {
-            val result = rustCallForString{ error ->
+        dh: String
+    ): ByteArray {
+            val result = rustCallForString { error ->
             LibPushFFI.INSTANCE.push_decrypt(
                 this.handle.get(), channelID, body, encoding, salt, dh, error
-            )}
+            ) }
             val jarray = JSONArray(result)
             val retarray = ByteArray(jarray.length())
             // `for` is inclusive.
-            val end = jarray.length()-1
-            for (i in 0 .. end) {
+            val end = jarray.length() - 1
+            for (i in 0..end) {
                 retarray[i] = jarray.getInt(i).toByte()
             }
             return retarray
@@ -185,19 +185,18 @@ enum class BridgeTypes {
  * probably want a way of sharing these.
  */
 
-class KeyInfo (
+class KeyInfo(
     var auth: String,
     var p256dh: String
 )
 
 class SubscriptionInfo constructor (
-        val endpoint:String,
-        val keys: KeyInfo)
-{
-
+    val endpoint: String,
+    val keys: KeyInfo
+) {
 
     companion object {
-        internal fun fromString(msg: String) : SubscriptionInfo {
+        internal fun fromString(msg: String): SubscriptionInfo {
             val obj = JSONObject(msg)
             val keyObj = obj.getJSONObject("keys")
             return SubscriptionInfo(
@@ -208,19 +207,19 @@ class SubscriptionInfo constructor (
             )
         }
     }
- }
+}
 
 class DispatchInfo constructor (
-        val uaid: String,
-        val scope: String)
-{
+    val uaid: String,
+    val scope: String
+) {
     companion object {
-        internal fun fromString(msg: String) : DispatchInfo {
+        internal fun fromString(msg: String): DispatchInfo {
             val obj = JSONObject(msg)
             return DispatchInfo(
                 uaid = obj.getString("uaid"),
-               scope = obj.getString("scope")
-           )
+                scope = obj.getString("scope")
+            )
         }
     }
 }
@@ -290,12 +289,12 @@ interface PushAPI {
      * @return Decrypted message body.
      */
     fun decrypt(
-                channelID: String,
-                body: String,
-                encoding: String,
-                salt: String,
-                dh: String): ByteArray
+        channelID: String,
+        body: String,
+        encoding: String,
+        salt: String,
+        dh: String
+    ): ByteArray
 
     fun dispatch_for_chid(channelID: String): DispatchInfo
-
 }

@@ -15,7 +15,7 @@ import java.nio.ByteOrder
  * to using an `Array<Byte>`
  */
 
-fun <T: MessageLite> T.toNioDirectBuffer(): Pair<ByteBuffer, Int> {
+fun <T : MessageLite> T.toNioDirectBuffer(): Pair<ByteBuffer, Int> {
     val len = this.serializedSize
     val nioBuf = ByteBuffer.allocateDirect(len)
     nioBuf.order(ByteOrder.nativeOrder())

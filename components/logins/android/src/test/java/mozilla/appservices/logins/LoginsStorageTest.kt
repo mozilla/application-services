@@ -4,7 +4,13 @@
 package mozilla.appservices.logins
 
 import org.junit.Test
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 
 abstract class LoginsStorageTest {
 
@@ -44,12 +50,12 @@ abstract class LoginsStorageTest {
         store.close()
     }
 
-    protected inline fun <T: Any?, reified E: Throwable> expectException(klass: Class<E>, callback: () -> T) {
+    protected inline fun <T : Any?, reified E : Throwable> expectException(klass: Class<E>, callback: () -> T) {
         try {
             callback()
             fail("Expected exception!")
         } catch (e: Throwable) {
-            assert(klass.isInstance(e), { "Expected ${klass} but got exception of type ${e.javaClass}: ${e}" })
+            assert(klass.isInstance(e), { "Expected $klass but got exception of type ${e.javaClass}: $e" })
         }
     }
 
@@ -77,7 +83,6 @@ abstract class LoginsStorageTest {
         assertEquals(1, test.get("bbbbbbbbbbbb")!!.timesUsed)
         finishAndClose(test)
     }
-
 
     @Test
     fun testEnsureLockUnlock() {
@@ -147,7 +152,6 @@ abstract class LoginsStorageTest {
 
         finishAndClose(test)
     }
-
 
     @Test
     fun testWipeLocal() {
@@ -254,7 +258,6 @@ abstract class LoginsStorageTest {
 
         test.update(toUpdate)
 
-
         val record = test.get(toUpdate.id)!!
         assertEquals(toUpdate.hostname, record.hostname)
         assertEquals(toUpdate.httpRealm, record.httpRealm)
@@ -289,12 +292,12 @@ abstract class LoginsStorageTest {
         val test = getTestStore()
 
         expectException(LoginsStorageException::class.java) {
-            test.reset();
+            test.reset()
         }
 
         test.unlock(encryptionKey)
 
-        test.reset();
+        test.reset()
 
         finishAndClose(test)
     }

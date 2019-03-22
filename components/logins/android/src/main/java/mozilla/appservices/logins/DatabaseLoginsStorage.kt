@@ -22,7 +22,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     private fun checkUnlocked(): Long {
         val handle = raw.get()
         if (handle == 0L) {
-            throw LoginsStorageException("Using DatabaseLoginsStorage without unlocking first");
+            throw LoginsStorageException("Using DatabaseLoginsStorage without unlocking first")
         }
         return handle
     }
@@ -44,7 +44,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     override fun unlock(encryptionKey: String) {
         return rustCall {
             if (!isLocked()) {
-                throw MismatchedLockException("Unlock called when we are already unlocked");
+                throw MismatchedLockException("Unlock called when we are already unlocked")
             }
             raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new(
                     dbPath,
@@ -58,7 +58,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     override fun unlock(encryptionKey: ByteArray) {
         return rustCall {
             if (!isLocked()) {
-                throw MismatchedLockException("Unlock called when we are already unlocked");
+                throw MismatchedLockException("Unlock called when we are already unlocked")
             }
             raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new_with_hex_key(
                     dbPath,
@@ -238,4 +238,3 @@ internal fun Pointer.getAndConsumeRustString(): String {
 internal fun Pointer.getRustString(): String {
     return this.getString(0, "utf8")
 }
-

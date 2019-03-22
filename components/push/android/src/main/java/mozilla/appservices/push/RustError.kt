@@ -13,19 +13,19 @@ import com.sun.jna.Structure
 import java.util.Arrays
 
 // Mirror the Rust errors from push/error/lib.rs
-open class PushError(msg: String): Exception(msg)
-open class InternalPanic(msg: String): PushError(msg)
-open class OpenSSLError(msg: String): PushError(msg)
-open class CommunicationError(msg: String): PushError(msg)
-open class CommunicationServerError(msg: String): PushError(msg)
-open class AlreadyRegisteredError: PushError(
+open class PushError(msg: String) : Exception(msg)
+open class InternalPanic(msg: String) : PushError(msg)
+open class OpenSSLError(msg: String) : PushError(msg)
+open class CommunicationError(msg: String) : PushError(msg)
+open class CommunicationServerError(msg: String) : PushError(msg)
+open class AlreadyRegisteredError : PushError(
         "This channelID is already registered.")
-open class StorageError(msg: String): PushError(msg)
-open class MissingRegistrationTokenError: PushError(
+open class StorageError(msg: String) : PushError(msg)
+open class MissingRegistrationTokenError : PushError(
         "Missing Registration Token. Please register with OS first.")
-open class StorageSqlError(msg: String): PushError(msg)
-open class TranscodingError(msg: String): PushError(msg)
-open class EncryptionError(msg: String): PushError(msg)
+open class StorageSqlError(msg: String) : PushError(msg)
+open class TranscodingError(msg: String) : PushError(msg)
+open class EncryptionError(msg: String) : PushError(msg)
 
 /**
  * This should be considered private, but it needs to be public for JNA.
@@ -61,10 +61,10 @@ open class RustError : Structure() {
             // ever hit! (But we shouldn't ever hit it?)
             throw RuntimeException("[Bug] intoException called on non-failure!")
         }
-        val message = this.consumeErrorMessage();
+        val message = this.consumeErrorMessage()
         when (code) {
             24 -> return OpenSSLError(message)
-            25-> return CommunicationError(message)
+            25 -> return CommunicationError(message)
             26 -> return CommunicationServerError(message)
             27 -> return AlreadyRegisteredError()
             28 -> return StorageError(message)
