@@ -142,6 +142,7 @@ class LogAdapterUnexpectedError(msg: String) : LogAdapterError("Unexpected log a
 
 // Note: keep values in sync with level_filter_from_i32 in rust.
 /** Level filters, for use with setMaxLevel. */
+@Suppress("MagicNumber")
 enum class LogLevelFilter(internal val value: Int) {
     /** Disable all logging */
     OFF(0),
@@ -158,6 +159,7 @@ enum class LogLevelFilter(internal val value: Int) {
 }
 
 internal class RawLogCallbackImpl(private val onLog: OnLog) : LibRustLogAdapter.RawLogCallback {
+    @Suppress("TooGenericExceptionCaught")
     override fun invoke(level: Int, tag: Pointer?, message: Pointer): Byte {
         // We can't safely throw here!
         val result = try {

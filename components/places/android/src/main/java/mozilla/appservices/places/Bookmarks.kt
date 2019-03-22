@@ -28,6 +28,7 @@ enum class BookmarkRoot(val id: String) {
  *
  * Must match BookmarkType in the Rust code.
  */
+@Suppress("MagicNumber")
 enum class BookmarkType(val value: Int) {
     Bookmark(1),
     Folder(2),
@@ -440,6 +441,7 @@ open class InvalidParent(msg: String) : PlacesException(msg)
  * in what we.
  * expect as a boolean flag (shouldHaveChildNodes).
  */
+@Suppress("ComplexMethod", "ReturnCount", "TooGenericExceptionThrown")
 internal fun unpackProtobuf(msg: MsgTypes.BookmarkNode): BookmarkTreeNode {
     val guid = msg.guid
     val parentGUID = msg.parentGuid

@@ -13,6 +13,7 @@ private enum class LoginsStorageState {
     Closed,
 }
 
+@Suppress("TooManyFunctions")
 class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseable, LoginsStorage {
 
     private var state: LoginsStorageState = LoginsStorageState.Locked
@@ -222,6 +223,7 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
         }
     }
 
+    @Suppress("ThrowsCount")
     private fun checkValid(login: ServerPassword) {
         if (login.hostname == "") {
             throw InvalidRecordException("Invalid login: Hostname is empty")

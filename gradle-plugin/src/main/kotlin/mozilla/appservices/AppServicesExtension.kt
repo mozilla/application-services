@@ -60,9 +60,12 @@ open class AppServicesExtension(project: Project) {
         return defaultConfig
     }
 
-    val buildTypes: NamedDomainObjectContainer<VariantConfiguration> = project.container(VariantConfiguration::class.java)
-    val productFlavors: NamedDomainObjectContainer<VariantConfiguration> = project.container(VariantConfiguration::class.java)
-    val variants: NamedDomainObjectContainer<VariantConfiguration> = project.container(VariantConfiguration::class.java)
+    val buildTypes: NamedDomainObjectContainer<VariantConfiguration> =
+        project.container(VariantConfiguration::class.java)
+    val productFlavors: NamedDomainObjectContainer<VariantConfiguration> =
+        project.container(VariantConfiguration::class.java)
+    val variants: NamedDomainObjectContainer<VariantConfiguration> =
+        project.container(VariantConfiguration::class.java)
 
     fun buildTypes(configureClosure: Closure<*>): NamedDomainObjectContainer<VariantConfiguration> {
         return buildTypes.configure(configureClosure)

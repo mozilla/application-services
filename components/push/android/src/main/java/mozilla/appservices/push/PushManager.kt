@@ -14,18 +14,18 @@ import mozilla.appservices.support.RustBuffer
 /**
  * An implementation of a [PushAPI] backed by a Rust Push library.
  *
- * @param server_host the host name for the service (e.g. "push.service.mozilla.org").
- * @param socket_protocol the optional socket protocol (default: "https")
- * @param bridge_type the optional bridge protocol (default: "fcm")
- * @param registration_id the native OS messaging registration id
+ * @param serverHost the host name for the service (e.g. "push.service.mozilla.org").
+ * @param socketProtocol the optional socket protocol (default: "https")
+ * @param bridgeType the optional bridge protocol (default: "fcm")
+ * @param registrationId the native OS messaging registration id
  */
 class PushManager(
-    sender_id: String,
-    server_host: String = "push.service.mozilla.com",
-    socket_protocol: String = "https",
-    bridge_type: BridgeTypes,
-    registration_id: String,
-    database_path: String = "push.sqlite"
+    senderId: String,
+    serverHost: String = "push.service.mozilla.com",
+    socketProtocol: String = "https",
+    bridgeType: BridgeTypes,
+    registrationId: String,
+    databasePath: String = "push.sqlite"
 ) : PushAPI, AutoCloseable {
 
     private var handle: AtomicLong = AtomicLong(0)
@@ -34,12 +34,12 @@ class PushManager(
         try {
         handle.set(rustCall { error ->
                 LibPushFFI.INSTANCE.push_connection_new(
-                        server_host,
-                        socket_protocol,
-                        bridge_type.toString(),
-                        registration_id,
-                        sender_id,
-                        database_path,
+                        serverHost,
+                        socketProtocol,
+                        bridgeType.toString(),
+                        registrationId,
+                        senderId,
+                        databasePath,
                         error)
             })
         } catch (e: InternalPanic) {
@@ -121,7 +121,7 @@ class PushManager(
             return retarray
         }
 
-    override fun dispatch_for_chid(channelID: String): DispatchInfo {
+    override fun dispatchForChid(channelID: String): DispatchInfo {
         val json = rustCallForString { error ->
             LibPushFFI.INSTANCE.push_dispatch_for_chid(
                 this.handle.get(), channelID, error)
@@ -141,6 +141,7 @@ class PushManager(
         }
     }
 
+    @Suppress("TooGenericExceptionThrown")
     private inline fun rustCallForString(callback: (RustError.ByReference) -> Pointer?): String {
         val cstring = rustCall(callback)
                 ?: throw RuntimeException("Bug: Don't use this function when you can return" +
@@ -152,6 +153,7 @@ class PushManager(
         }
     }
 
+    @Suppress("TooGenericExceptionThrown")
     private inline fun rustCallForBuffer(callback: (RustError.ByReference) -> RustBuffer.ByValue?): ByteArray {
         val cbuff = rustCall(callback)
                 ?: throw RuntimeException("Bug: Don't use this function when you can return" +
@@ -296,5 +298,5 @@ interface PushAPI {
         dh: String
     ): ByteArray
 
-    fun dispatch_for_chid(channelID: String): DispatchInfo
+    fun dispatchForChid(channelID: String): DispatchInfo
 }

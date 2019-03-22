@@ -1,3 +1,4 @@
+@file:Suppress("MaxLineLength")
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -12,6 +13,7 @@ import java.lang.reflect.Proxy
 
 import mozilla.appservices.support.RustBuffer
 
+@Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooManyFunctions", "TooGenericExceptionThrown")
 internal interface LibPushFFI : Library {
     companion object {
         private val JNA_LIBRARY_NAME = {

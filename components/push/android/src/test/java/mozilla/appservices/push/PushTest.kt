@@ -61,7 +61,7 @@ class PushTest {
 
     /* Due to the nature of webpush (the fact that it uses systems outside of our control) it may
     not be possible to do actual tests using the remote systems. Any test using the following "mock"
-    sender_id will trigger 'hard wired' returns. These will exercise the Kotlin calling code.
+    senderId will trigger 'hard wired' returns. These will exercise the Kotlin calling code.
     The Rust Cargo tests for the various push subcomponents do a more thorough test of the push
     code. I'd love to find a way to set a 'test' flag that rust can pick up, and be able to inline
     some of the mocking calls those use.
@@ -70,10 +70,10 @@ class PushTest {
 
     protected fun getPushManager(): PushManager {
         return PushManager(
-                sender_id = mockSenderId,
-                bridge_type = BridgeTypes.TEST,
-                registration_id = "TestRegistrationId",
-                database_path = dbFile
+                senderId = mockSenderId,
+                bridgeType = BridgeTypes.TEST,
+                registrationId = "TestRegistrationId",
+                databasePath = dbFile
         )
     }
 
@@ -86,10 +86,10 @@ class PushTest {
 
         ```kotlin
         val manager = PushManager(
-            sender_id = "SomeSenderIDValue",
-            bridge_type = BridgeTypes.FCM,
-            registration_id = systemProvidedRegistrationValue,
-            database_path = "/path/to/database.sql"
+            senderId = "SomeSenderIDValue",
+            bridgeType = BridgeTypes.FCM,
+            registrationId = systemProvidedRegistrationValue,
+            databasePath = "/path/to/database.sql"
         )
         val newEndpoints = manager.verifyConnection()
         if newEndpoints.length() > 0 {
@@ -203,7 +203,7 @@ class PushTest {
         val manager = getPushManager()
 
         val subscriptionInfo = manager.subscribe(testChannelid, "foo")
-        val dispatch = manager.dispatch_for_chid(testChannelid)
+        val dispatch = manager.dispatchForChid(testChannelid)
         assertEquals("uaid", "abad1d3a00000000aabbccdd00000000", dispatch.uaid)
         assertEquals("scope", "foo", dispatch.scope)
     }

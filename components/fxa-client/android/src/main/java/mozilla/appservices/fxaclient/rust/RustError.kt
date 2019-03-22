@@ -10,6 +10,7 @@ import mozilla.appservices.fxaclient.FxaException
 import mozilla.appservices.fxaclient.getAndConsumeRustString
 import java.util.Arrays
 
+@Suppress("MagicNumber")
 internal open class RustError : Structure() {
 
     class ByReference : RustError(), Structure.ByReference
@@ -35,6 +36,7 @@ internal open class RustError : Structure() {
         return code != 0
     }
 
+    @Suppress("ReturnCount", "TooGenericExceptionThrown")
     fun intoException(): FxaException {
         if (!isFailure()) {
             // It's probably a bad idea to throw here! We're probably leaking something if this is

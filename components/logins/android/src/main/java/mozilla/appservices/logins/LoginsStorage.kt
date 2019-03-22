@@ -11,6 +11,7 @@ class SyncUnlockInfo(
     val tokenserverURL: String
 )
 
+@Suppress("TooManyFunctions")
 interface LoginsStorage : AutoCloseable {
     /**
      * Lock (close) the database.

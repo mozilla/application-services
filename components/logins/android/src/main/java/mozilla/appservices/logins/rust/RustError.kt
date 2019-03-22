@@ -20,6 +20,7 @@ import java.util.Arrays
 /**
  * This should be considered private, but it needs to be public for JNA.
  */
+@Suppress("MagicNumber")
 open class RustError : Structure() {
 
     class ByReference : RustError(), Structure.ByReference
@@ -38,6 +39,7 @@ open class RustError : Structure() {
         return code != 0
     }
 
+    @Suppress("ReturnCount", "TooGenericExceptionThrown")
     fun intoException(): LoginsStorageException {
         if (!isFailure()) {
             // It's probably a bad idea to throw here! We're probably leaking something if this is

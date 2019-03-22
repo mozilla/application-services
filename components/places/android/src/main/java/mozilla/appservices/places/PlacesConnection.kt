@@ -24,16 +24,16 @@ import java.lang.ref.WeakReference
  * where necessary).
  *
  * @param path an absolute path to a file that will be used for the internal database.
- * @param encryption_key an optional key used for encrypting/decrypting data stored in the internal
+ * @param encryptionKey an optional key used for encrypting/decrypting data stored in the internal
  *  database. If omitted, data will be stored in plaintext.
  */
-class PlacesApi(path: String, encryption_key: String? = null) : PlacesManager, AutoCloseable {
+class PlacesApi(path: String, encryptionKey: String? = null) : PlacesManager, AutoCloseable {
     private var handle: AtomicLong = AtomicLong(0)
     private var writeConn: PlacesWriterConnection
 
     init {
         handle.set(rustCall(this) { error ->
-            LibPlacesFFI.INSTANCE.places_api_new(path, encryption_key, error)
+            LibPlacesFFI.INSTANCE.places_api_new(path, encryptionKey, error)
         })
         writeConn = PlacesWriterConnection(rustCall(this) { error ->
             LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_WRITE, error)
@@ -105,6 +105,7 @@ internal inline fun <U> rustCall(syncOn: Any, callback: (RustError.ByReference) 
     }
 }
 
+@Suppress("TooGenericExceptionCaught")
 open class PlacesConnection internal constructor(connHandle: Long) : InterruptibleConnection, AutoCloseable {
     protected var handle: AtomicLong = AtomicLong(0)
     protected var interruptHandle: InterruptHandle
@@ -147,6 +148,7 @@ open class PlacesConnection internal constructor(connHandle: Long) : Interruptib
         return rustCall(this, callback)
     }
 
+    @Suppress("TooGenericExceptionThrown")
     internal inline fun rustCallForString(callback: (RustError.ByReference) -> Pointer?): String {
         val cstring = rustCall(callback)
                 ?: throw RuntimeException("Bug: Don't use this function when you can return" +
@@ -307,6 +309,7 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
  *
  * This class is thread safe.
  */
+@Suppress("TooManyFunctions")
 class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesApi) :
         PlacesReaderConnection(connHandle),
         WritableHistoryConnection,
