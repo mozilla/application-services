@@ -73,6 +73,10 @@ impl PasswordEngine {
         self.db.add(login).map(|record| record.id)
     }
 
+    pub fn disable_mem_security(&self) -> Result<()> {
+        self.db.disable_mem_security()
+    }
+
     // This is basically exposed just for sync_pass_sql, but it doesn't seem
     // unreasonable.
     pub fn conn(&self) -> &rusqlite::Connection {
