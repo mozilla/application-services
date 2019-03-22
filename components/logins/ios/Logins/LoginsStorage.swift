@@ -121,6 +121,17 @@ open class LoginsStorage {
         })
     }
 
+    /// Disable memory security, which prevents keys from being swapped to disk.
+    /// This allows some esoteric attacks, but can have a performance benefit.
+    open func disableMemSecurity() throws {
+        try queue.sync(execute: {
+            let engine = try self.getUnlocked()
+            try LoginsStoreError.unwrap({ err in
+                sync15_passwords_disable_mem_security(engine, err)
+            })
+        })
+    }
+
     /// Delete all locally stored login data.
     open func wipe() throws {
         try queue.sync(execute: {

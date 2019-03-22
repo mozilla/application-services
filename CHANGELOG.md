@@ -4,6 +4,10 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.21.0...master)
 
+## Logins
+
+- Added a disableMemSecurity function to turn off some dubious behaviors of SQLcipher. ([#838](https://github.com/mozilla/application-services/pull/838))
+
 # v0.21.0 (_2019-03-20_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.20.2...v0.21.0)

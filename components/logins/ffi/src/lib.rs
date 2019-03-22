@@ -96,6 +96,14 @@ fn parse_url(url: &str) -> sync15::Result<url::Url> {
 }
 
 #[no_mangle]
+pub extern "C" fn sync15_passwords_disable_mem_security(handle: u64, error: &mut ExternError) {
+    log::debug!("sync15_passwords_disable_mem_security");
+    ENGINES.call_with_result(error, handle, |state| -> Result<()> {
+        state.disable_mem_security()
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn sync15_passwords_sync(
     handle: u64,
     key_id: FfiStr<'_>,
