@@ -50,7 +50,7 @@ pub extern "C" fn push_new_connection(
     error: &mut ExternError,
 ) -> u64 {
     MANAGER.insert_with_result(error, || {
-        log::debug!(
+        log::trace!(
             "newConnection {:?} {:?} -> {:?} {:?}=>{:?}",
             socket_protocol,
             server_host,
