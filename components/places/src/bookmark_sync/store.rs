@@ -68,26 +68,24 @@ impl<'a> BookmarksStore<'a> {
         // except the tombstones who don't correspond to any local bookmark because
         // we don't store them yet, hence never "merged" (see bug 1343103).
         let sql = format!(
-            "
-            SELECT
-              EXISTS (
-               SELECT 1
-               FROM moz_bookmarks_synced v
-               LEFT JOIN moz_bookmarks b ON v.guid = b.guid
-               WHERE v.needsMerge AND
-               (NOT v.isDeleted OR b.guid NOT NULL)
-              ) OR EXISTS (
-               WITH RECURSIVE
-               {}
-               SELECT 1
-               FROM localItems
-               WHERE syncChangeCounter > 0
-              ) OR EXISTS (
-               SELECT 1
-               FROM moz_bookmarks_deleted
-              )
-              AS hasChanges
-        ",
+            "SELECT
+                EXISTS (
+                    SELECT 1
+                    FROM moz_bookmarks_synced v
+                    LEFT JOIN moz_bookmarks b ON v.guid = b.guid
+                    WHERE v.needsMerge AND
+                    (NOT v.isDeleted OR b.guid NOT NULL)
+                ) OR EXISTS (
+                    WITH RECURSIVE
+                    {}
+                    SELECT 1
+                    FROM localItems
+                    WHERE syncChangeCounter > 0
+                ) OR EXISTS (
+                    SELECT 1
+                    FROM moz_bookmarks_deleted
+                )
+             AS hasChanges",
             LocalItemsFragment("localItems")
         );
         Ok(self
@@ -138,8 +136,7 @@ impl<'a> BookmarksStore<'a> {
                     params.push(Some(d.merged_node.guid.as_str()));
                     params.push(Some(d.merged_parent_node.guid.as_str()));
                 }
-                self.db.execute(&format!(
-                    "
+                self.db.execute(&format!("
                     INSERT INTO mergedTree(localGuid, remoteGuid, mergedGuid, mergedParentGuid, level,
                                            position, useRemote, shouldUpload)
                     VALUES {}",
@@ -158,9 +155,8 @@ impl<'a> BookmarksStore<'a> {
         sql_support::each_chunk(&deletions, |chunk, _| -> Result<()> {
             self.db.execute(
                 &format!(
-                    "
-                    INSERT INTO itemsToRemove(guid, localLevel, shouldUploadTombstone)
-                    VALUES {}",
+                    "INSERT INTO itemsToRemove(guid, localLevel, shouldUploadTombstone)
+                     VALUES {}",
                     sql_support::repeat_display(chunk.len(), ",", |index, f| {
                         let d = &chunk[index];
                         write!(f, "(?, {}, {})", d.local_level, d.should_upload_tombstone)
@@ -200,64 +196,57 @@ impl<'a> BookmarksStore<'a> {
         // tracked "weakly": if the upload is interrupted or fails, we won't
         // reupload the record on the next sync.
         self.db.execute_batch(
-            r#"
-            INSERT OR IGNORE INTO idsToWeaklyUpload(id)
-            SELECT b.id FROM moz_bookmarks b
-            JOIN mergedTree r ON r.mergedGuid = b.guid
-            JOIN moz_bookmarks_synced v ON v.guid = r.remoteGuid
-            WHERE r.useRemote AND
-                  b.dateAdded < v.dateAdded"#,
+            "INSERT OR IGNORE INTO idsToWeaklyUpload(id)
+             SELECT b.id FROM moz_bookmarks b
+             JOIN mergedTree r ON r.mergedGuid = b.guid
+             JOIN moz_bookmarks_synced v ON v.guid = r.remoteGuid
+             WHERE r.useRemote AND
+                  b.dateAdded < v.dateAdded",
         )?;
 
         // Stage remaining locally changed items for upload.
         self.db.execute_batch(&format!(
-            "
-            WITH RECURSIVE
-            {local_items_fragment}
-            INSERT INTO itemsToUpload(id, guid, syncChangeCounter, parentGuid,
-                                      parentTitle, dateAdded, title, placeId,
-                                      kind, url, keyword, position)
-            SELECT s.id, s.guid, s.syncChangeCounter, s.parentGuid,
-                   s.parentTitle, s.dateAdded, s.title, s.placeId,
-                   {kind}, h.url, v.keyword, s.position
-            FROM localItems s
-            JOIN mergedTree r ON r.mergedGuid = s.guid
-            LEFT JOIN moz_bookmarks_synced v ON v.guid = r.remoteGuid
-            LEFT JOIN moz_places h ON h.id = s.placeId
-            LEFT JOIN idsToWeaklyUpload w ON w.id = s.id
-            WHERE s.guid <> '{root_guid}' AND (
-                    s.syncChangeCounter > 0 OR
-                    w.id NOT NULL
-                  )",
+            "WITH RECURSIVE
+             {local_items_fragment}
+             INSERT INTO itemsToUpload(id, guid, syncChangeCounter, parentGuid,
+                                       parentTitle, dateAdded, title, placeId,
+                                       kind, url, keyword, position)
+             SELECT s.id, s.guid, s.syncChangeCounter, s.parentGuid,
+                    s.parentTitle, s.dateAdded, s.title, s.placeId,
+                    {kind}, h.url, v.keyword, s.position
+             FROM localItems s
+             JOIN mergedTree r ON r.mergedGuid = s.guid
+             LEFT JOIN moz_bookmarks_synced v ON v.guid = r.remoteGuid
+             LEFT JOIN moz_places h ON h.id = s.placeId
+             LEFT JOIN idsToWeaklyUpload w ON w.id = s.id
+             WHERE s.guid <> '{root_guid}' AND
+                   (s.syncChangeCounter > 0 OR w.id NOT NULL)",
             local_items_fragment = LocalItemsFragment("localItems"),
-            kind = type_to_kind("s.type", UrlOrPlaceId::Url("h.url")),
+            kind = type_to_kind("s.type", UrlOrPlaceIdFragment::Url("h.url")),
             root_guid = BookmarkRootGuid::Root.as_guid().as_ref(),
         ))?;
 
         // Record the child GUIDs of locally changed folders, which we use to
         // populate the `children` array in the record.
         self.db.execute_batch(
-            "
-            INSERT INTO structureToUpload(guid, parentId, position)
-            SELECT b.guid, b.parent, b.position FROM moz_bookmarks b
-            JOIN itemsToUpload o ON o.id = b.parent",
+            "INSERT INTO structureToUpload(guid, parentId, position)
+             SELECT b.guid, b.parent, b.position FROM moz_bookmarks b
+             JOIN itemsToUpload o ON o.id = b.parent",
         )?;
 
         // Stage tags for outgoing bookmarks.
         self.db.execute_batch(
-            "
-            INSERT INTO tagsToUpload(id, tag)
-            SELECT o.id, t.tag
-            FROM itemsToUpload o
-            JOIN moz_tags_relation r ON r.place_id = o.placeId
-            JOIN moz_tags t ON t.id = r.tag_id",
+            "INSERT INTO tagsToUpload(id, tag)
+             SELECT o.id, t.tag
+             FROM itemsToUpload o
+             JOIN moz_tags_relation r ON r.place_id = o.placeId
+             JOIN moz_tags t ON t.id = r.tag_id",
         )?;
 
         // Finally, stage tombstones for deleted items.
         self.db.execute_batch(
-            "
-            INSERT OR IGNORE INTO itemsToUpload(guid, syncChangeCounter, isDeleted)
-            SELECT guid, 1, 1 FROM moz_bookmarks_deleted",
+            "INSERT OR IGNORE INTO itemsToUpload(guid, syncChangeCounter, isDeleted)
+             SELECT guid, 1, 1 FROM moz_bookmarks_deleted",
         )?;
 
         Ok(())
@@ -395,8 +384,8 @@ impl<'a> BookmarksStore<'a> {
                 self.db.execute(
                     &format!(
                         "UPDATE itemsToUpload SET
-                       uploadedAt = {uploaded_at}
-                     WHERE guid IN ({values})",
+                         uploadedAt = {uploaded_at}
+                         WHERE guid IN ({values})",
                         uploaded_at = uploaded_at.as_millis(),
                         values = sql_support::repeat_sql_values(chunk.len())
                     ),
@@ -475,14 +464,13 @@ impl<'a> Store for BookmarksStore<'a> {
     fn reset(&self) -> result::Result<(), failure::Error> {
         let tx = self.db.unchecked_transaction()?;
         self.db.execute_batch(&format!(
-            "
-                DELETE FROM moz_bookmarks_synced;
+            "DELETE FROM moz_bookmarks_synced;
 
-                DELETE FROM moz_bookmarks_deleted;
+             DELETE FROM moz_bookmarks_deleted;
 
-                UPDATE moz_bookmarks
-                    SET syncChangeCounter = 0,
-                    syncStatus = {}",
+             UPDATE moz_bookmarks
+             SET syncChangeCounter = 0,
+                 syncStatus = {}",
             (SyncStatus::New as u8)
         ))?;
         create_synced_bookmark_roots(self.db)?;
@@ -601,10 +589,7 @@ impl<'a> Merger<'a> {
         // Note that this doesn't account for local clock skew.
         let age = self
             .local_time
-            .duration_since(
-                row.get_checked::<_, Timestamp>("localModified")
-                    .unwrap_or_default(),
-            )
+            .duration_since(row.get_checked::<_, Timestamp>("localModified")?)
             .unwrap_or_default();
         item.age = age.as_secs() as i64 * 1000 + i64::from(age.subsec_millis());
         item.needs_merge = row.get_checked::<_, u32>("syncChangeCounter")? > 0;
@@ -622,7 +607,7 @@ impl<'a> Merger<'a> {
         let age = self
             .remote_time
             .duration_since(ServerTimestamp(
-                row.get_checked::<_, i64>("serverModified").unwrap_or(0) as f64 / 1000.0,
+                row.get_checked::<_, f64>("serverModified")? / 1000.0,
             ))
             .unwrap_or_default();
         item.age = age.as_secs() as i64 * 1000 + i64::from(age.subsec_millis());
@@ -637,15 +622,14 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
     /// tombstones.
     fn fetch_local_tree(&self) -> Result<Tree> {
         let sql = format!(
-            "
-            WITH RECURSIVE
-            {local_items_fragment}
-            SELECT s.id, s.guid, s.parentGuid, {kind} AS kind,
-                   s.lastModified as localModified, s.syncChangeCounter
-            FROM localItems s
-            ORDER BY s.level, s.parentId, s.position",
+            "WITH RECURSIVE
+             {local_items_fragment}
+             SELECT s.id, s.guid, s.parentGuid, {kind} AS kind,
+                    s.lastModified as localModified, s.syncChangeCounter
+             FROM localItems s
+             ORDER BY s.level, s.parentId, s.position",
             local_items_fragment = LocalItemsFragment("localItems"),
-            kind = type_to_kind("s.type", UrlOrPlaceId::PlaceId("s.placeId")),
+            kind = type_to_kind("s.type", UrlOrPlaceIdFragment::PlaceId("s.placeId")),
         );
         let mut stmt = self.store.db.prepare(&sql)?;
         let mut results = stmt.query(NO_PARAMS)?;
@@ -689,16 +673,15 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
         let mut contents = HashMap::new();
 
         let sql = format!(
-            r#"
-            SELECT b.guid, b.type, IFNULL(b.title, "") AS title, h.url,
-                   b.position
-            FROM moz_bookmarks b
-            JOIN moz_bookmarks p ON p.id = b.parent
-            LEFT JOIN moz_places h ON h.id = b.fk
-            LEFT JOIN moz_bookmarks_synced v ON v.guid = b.guid
-            WHERE v.guid IS NULL AND
-                  p.guid <> '{root_guid}' AND
-                  b.syncStatus <> {sync_status}"#,
+            "SELECT b.guid, b.type, IFNULL(b.title, '') AS title, h.url,
+                    b.position
+             FROM moz_bookmarks b
+             JOIN moz_bookmarks p ON p.id = b.parent
+             LEFT JOIN moz_places h ON h.id = b.fk
+             LEFT JOIN moz_bookmarks_synced v ON v.guid = b.guid
+             WHERE v.guid IS NULL AND
+                   p.guid <> '{root_guid}' AND
+                   b.syncStatus <> {sync_status}",
             root_guid = BookmarkRootGuid::Root.as_guid().as_ref(),
             sync_status = SyncStatus::Normal as u8
         );
@@ -738,11 +721,10 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
         // we use three separate statements to fetch the root, its descendants,
         // and their structure.
         let sql = format!(
-            "
-            SELECT guid, parentGuid, serverModified, kind, needsMerge, validity
-            FROM moz_bookmarks_synced
-            WHERE NOT isDeleted AND
-                  guid = '{root_guid}'",
+            "SELECT guid, parentGuid, serverModified, kind, needsMerge, validity
+             FROM moz_bookmarks_synced
+             WHERE NOT isDeleted AND
+                   guid = '{root_guid}'",
             root_guid = BookmarkRootGuid::Root.as_guid().as_ref()
         );
         let mut builder = self
@@ -760,11 +742,10 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
             .ok_or_else(|| ErrorKind::Corruption(Corruption::InvalidSyncedRoots))?;
 
         let sql = format!(
-            "
-            SELECT guid, parentGuid, serverModified, kind, needsMerge, validity
-            FROM moz_bookmarks_synced
-            WHERE NOT isDeleted AND
-                  guid <> '{root_guid}'",
+            "SELECT guid, parentGuid, serverModified, kind, needsMerge, validity
+             FROM moz_bookmarks_synced
+             WHERE NOT isDeleted AND
+                   guid <> '{root_guid}'",
             root_guid = BookmarkRootGuid::Root.as_guid().as_ref()
         );
         let mut stmt = self.store.db.prepare(&sql)?;
@@ -778,10 +759,9 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
         }
 
         let sql = format!(
-            "
-            SELECT guid, parentGuid FROM moz_bookmarks_synced_structure
-            WHERE guid <> '{root_guid}'
-            ORDER BY parentGuid, position",
+            "SELECT guid, parentGuid FROM moz_bookmarks_synced_structure
+             WHERE guid <> '{root_guid}'
+             ORDER BY parentGuid, position",
             root_guid = BookmarkRootGuid::Root.as_guid().as_ref()
         );
         let mut stmt = self.store.db.prepare(&sql)?;
@@ -817,17 +797,16 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
         let mut contents = HashMap::new();
 
         let sql = format!(
-            r#"
-            SELECT v.guid, v.kind, IFNULL(v.title, "") AS title, h.url,
-                   s.position
-            FROM moz_bookmarks_synced v
-            JOIN moz_bookmarks_synced_structure s ON s.guid = v.guid
-            LEFT JOIN moz_places h ON h.id = v.placeId
-            LEFT JOIN moz_bookmarks b ON b.guid = v.guid
-            WHERE NOT v.isDeleted AND
-                  v.needsMerge AND
-                  b.guid IS NULL AND
-                  s.parentGuid <> '{root_guid}'"#,
+            "SELECT v.guid, v.kind, IFNULL(v.title, '') AS title, h.url,
+                    s.position
+             FROM moz_bookmarks_synced v
+             JOIN moz_bookmarks_synced_structure s ON s.guid = v.guid
+             LEFT JOIN moz_places h ON h.id = v.placeId
+             LEFT JOIN moz_bookmarks b ON b.guid = v.guid
+             WHERE NOT v.isDeleted AND
+                   v.needsMerge AND
+                   b.guid IS NULL AND
+                   s.parentGuid <> '{root_guid}'",
             root_guid = BookmarkRootGuid::Root.as_guid().as_ref()
         );
         let mut stmt = self.store.db.prepare(&sql)?;
@@ -869,9 +848,8 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
         self.store.update_local_items(descendants, deletions)?;
         self.store.stage_local_items_to_upload()?;
         self.store.db.execute_batch(
-            "
-            DELETE FROM mergedTree;
-            DELETE FROM idsToWeaklyUpload;",
+            "DELETE FROM mergedTree;
+             DELETE FROM idsToWeaklyUpload;",
         )?;
         tx.commit()?;
         Ok(())
@@ -903,33 +881,33 @@ impl<'a> fmt::Display for LocalItemsFragment<'a> {
     }
 }
 
-fn type_to_kind<'a>(typ: &'a str, url: UrlOrPlaceId<'a>) -> TypeToKind<'a> {
+fn type_to_kind(typ: &'static str, url: UrlOrPlaceIdFragment) -> TypeToKind {
     TypeToKind { typ, url }
 }
 
 /// A helper that interpolates a SQL expression for converting Places item types
 /// to Sync record kinds. `typ` is the name of the bookmark type column in the
 /// projection.
-struct TypeToKind<'a> {
-    typ: &'a str,
-    url: UrlOrPlaceId<'a>,
+struct TypeToKind {
+    typ: &'static str,
+    url: UrlOrPlaceIdFragment,
 }
 
-impl<'a> fmt::Display for TypeToKind<'a> {
+impl fmt::Display for TypeToKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            r#"(CASE {typ}
-                WHEN {bookmark_type} THEN (
-                    CASE substr({url}, 1, 6)
-                    /* Queries are bookmarks with a "place:" URL scheme. */
-                    WHEN 'place:' THEN {query_kind}
-                    ELSE {bookmark_kind}
-                    END
-                )
-                WHEN {folder_type} THEN {folder_kind}
-                ELSE {separator_kind}
-                END)"#,
+            "(CASE {typ}
+              WHEN {bookmark_type} THEN (
+                  CASE substr({url}, 1, 6)
+                  /* Queries are bookmarks with a 'place:' URL scheme. */
+                  WHEN 'place:' THEN {query_kind}
+                  ELSE {bookmark_kind}
+                  END
+              )
+              WHEN {folder_type} THEN {folder_kind}
+              ELSE {separator_kind}
+              END)",
             typ = self.typ,
             bookmark_type = BookmarkType::Bookmark as u8,
             url = self.url,
@@ -944,16 +922,16 @@ impl<'a> fmt::Display for TypeToKind<'a> {
 
 /// A helper that interpolates a SQL expression for a Place URL. This avoids a
 /// subquery if the URL is already available in the projection.
-enum UrlOrPlaceId<'a> {
-    Url(&'a str),
-    PlaceId(&'a str),
+enum UrlOrPlaceIdFragment {
+    Url(&'static str),
+    PlaceId(&'static str),
 }
 
-impl<'a> fmt::Display for UrlOrPlaceId<'a> {
+impl fmt::Display for UrlOrPlaceIdFragment {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            UrlOrPlaceId::Url(s) => write!(f, "{}", s),
-            UrlOrPlaceId::PlaceId(s) => {
+            UrlOrPlaceIdFragment::Url(s) => write!(f, "{}", s),
+            UrlOrPlaceIdFragment::PlaceId(s) => {
                 write!(f, "(SELECT h.url FROM moz_places h WHERE h.id = {})", s)
             }
         }

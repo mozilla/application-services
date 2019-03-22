@@ -78,7 +78,6 @@ impl<'a> IncomingApplicator<'a> {
                                                  dateAdded, title, keyword, validity, placeId)
                VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
                       :dateAdded, NULLIF(:title, ""), :keyword, :validity,
-                      -- XXX - when url is null we still fail below when we call hash()???
                       CASE WHEN :url ISNULL
                       THEN NULL
                       ELSE (SELECT id FROM moz_places
@@ -155,9 +154,9 @@ impl<'a> IncomingApplicator<'a> {
 
     fn store_incoming_tombstone(&self, modified: ServerTimestamp, guid: &SyncGuid) -> Result<()> {
         self.db.execute_named_cached(
-            r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge,
-                                                 dateAdded, isDeleted)
-               VALUES(:guid, NULL, :serverModified, 1, 0, 1)"#,
+            "REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge,
+                                               dateAdded, isDeleted)
+             VALUES(:guid, NULL, :serverModified, 1, 0, 1)",
             &[
                 (":guid", guid),
                 (":serverModified", &(modified.as_millis() as i64)),
@@ -299,10 +298,10 @@ impl<'a> IncomingApplicator<'a> {
             SyncedBookmarkValidity::Replace
         };
         self.db.execute_named_cached(
-            r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
-                                                 dateAdded, title, feedURL, siteURL, validity)
-               VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
-                      :dateAdded, :title, :feedUrl, :siteUrl, :validity)"#,
+            "REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
+                                               dateAdded, title, feedURL, siteURL, validity)
+             VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
+                    :dateAdded, :title, :feedUrl, :siteUrl, :validity)",
             &[
                 (":guid", &l.guid.as_ref()),
                 (":parentGuid", &l.parent_guid.as_ref()),
@@ -320,10 +319,10 @@ impl<'a> IncomingApplicator<'a> {
 
     fn store_incoming_sep(&self, modified: ServerTimestamp, s: SeparatorRecord) -> Result<()> {
         self.db.execute_named_cached(
-            r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
-                                                 dateAdded)
-               VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
-                      :dateAdded)"#,
+            "REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
+                                               dateAdded)
+             VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
+                    :dateAdded)",
             &[
                 (":guid", &s.guid.as_ref()),
                 (":parentGuid", &s.parent_guid.as_ref()),

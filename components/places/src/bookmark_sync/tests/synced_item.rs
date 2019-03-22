@@ -15,14 +15,14 @@ use sql_support::{self, ConnExt};
 use sync15::ServerTimestamp;
 use url::Url;
 
-// Our prod code never needs to read moz_bookmarks_synced, but our test code
-// does.
-// SyncedBookmarkValue is used in our struct so that we can do "smart"
-// comparisons - if an object created by tests has
-// SyncedBookmarkValue::Unspecified, we don't check the value against the
-// target of the comparison. We use this instead of Option<> so that we
-// can correctly check Option<> fields (ie, so that None isn't ambiguous
-// between "no value specified" and "value is exactly None"
+/// Our prod code never needs to read moz_bookmarks_synced, but our test code
+/// does.
+/// SyncedBookmarkValue is used in our struct so that we can do "smart"
+/// comparisons - if an object created by tests has
+/// SyncedBookmarkValue::Unspecified, we don't check the value against the
+/// target of the comparison. We use this instead of Option<> so that we
+/// can correctly check Option<> fields (ie, so that None isn't ambiguous
+/// between "no value specified" and "value is exactly None"
 #[derive(Debug)]
 pub enum SyncedBookmarkValue<T> {
     Unspecified,
