@@ -59,34 +59,41 @@ CFLAGS="\
   -mios-version-min=${IOS_MIN_SDK_VERSION} \
 "
 
-# Keep in sync with SQLCIPHER_CFLAGS in `build-sqlcipher-desktop.sh` for now (it probably makes
-# sense to try to avoid this duplication in the future).
-# TODO: We could probably prune some of these, and it would be nice to allow debug builds (which
-# should set `SQLITE_DEBUG` and `SQLITE_ENABLE_API_ARMOR` and not `NDEBUG`).
+# Match the SQLCIPHER_CFLAGS used in Firefox for iOS v15.x and earlier.
+# NOTE: iOS v15.x and earlier used -DSQLITE_THREADSAFE=2, but the
+# SQLCipher `configure` script seems to overwrite it to only be 0 or 1.
 SQLCIPHER_CFLAGS=" \
-  -DSQLITE_HAS_CODEC \
-  -DSQLITE_SOUNDEX \
-  -DHAVE_USLEEP=1 \
-  -DSQLITE_MAX_VARIABLE_NUMBER=99999 \
-  -DSQLITE_THREADSAFE=1 \
-  -DSQLITE_DEFAULT_JOURNAL_SIZE_LIMIT=1048576 \
   -DNDEBUG=1 \
-  -DSQLITE_ENABLE_MEMORY_MANAGEMENT=1 \
-  -DSQLITE_ENABLE_LOAD_EXTENSION \
-  -DSQLITE_ENABLE_COLUMN_METADATA \
-  -DSQLITE_ENABLE_UNLOCK_NOTIFY \
-  -DSQLITE_ENABLE_RTREE \
-  -DSQLITE_ENABLE_STAT3 \
-  -DSQLITE_ENABLE_STAT4 \
+  -DSQLITE_HAS_CODEC \
+  -DSQLITE_THREADSAFE=1 \
+  -DSQLITE_TEMP_STORE=2 \
+  -DSQLITE_MAX_VARIABLE_NUMBER=99999 \
   -DSQLITE_ENABLE_JSON1 \
+  -DSQLITE_ENABLE_FTS3 \
   -DSQLITE_ENABLE_FTS3_PARENTHESIS \
   -DSQLITE_ENABLE_FTS4 \
   -DSQLITE_ENABLE_FTS5 \
-  -DSQLITE_ENABLE_DBSTAT_VTAB \
-  -DSQLITE_SECURE_DELETE \
-  -DSQLITE_DEFAULT_PAGE_SIZE=32768 \
-  -DSQLITE_MAX_DEFAULT_PAGE_SIZE=32768 \
 "
+# These additional options are used on desktop, but are not currently
+# used on iOS until we can performance test them:
+#   -DSQLITE_SOUNDEX \
+#   -DHAVE_USLEEP=1 \
+#   -DSQLITE_ENABLE_MEMORY_MANAGEMENT=1 \
+#   -DSQLITE_ENABLE_LOAD_EXTENSION \
+#   -DSQLITE_ENABLE_COLUMN_METADATA \
+#   -DSQLITE_ENABLE_UNLOCK_NOTIFY \
+#   -DSQLITE_ENABLE_RTREE \
+#   -DSQLITE_ENABLE_STAT3 \
+#   -DSQLITE_ENABLE_STAT4 \
+#   -DSQLITE_ENABLE_DBSTAT_VTAB \
+#   -DSQLITE_DEFAULT_JOURNAL_SIZE_LIMIT=1048576 \
+#   -DSQLITE_DEFAULT_PAGE_SIZE=32768 \
+#   -DSQLITE_MAX_DEFAULT_PAGE_SIZE=32768 \
+
+# One additional option is used on desktop that has a known
+# performance penalty. However, it can be enabled per-connection
+# at runtime with `PRAGMA secure_delete`:
+#   -DSQLITE_SECURE_DELETE \
 
 ../configure \
   --with-pic \
