@@ -15,9 +15,8 @@ use crate::error::*;
 use crate::storage::{bookmarks::BookmarkRootGuid, get_meta, put_meta};
 use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
 use dogear::{
-    self, Content, Deletion, IntoTree, Item, LogLevel, MergedDescendant, Tree, UploadReason,
+    self, Content, Deletion, IntoTree, Item, MergedDescendant, MergedRoot, Tree, UploadReason,
 };
-use log::{Level, LevelFilter};
 use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt};
 use std::cell::Cell;
@@ -430,7 +429,7 @@ impl<'a> Store for BookmarksStore<'a> {
         put_meta(self.db, LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
 
         // Merge and stage outgoing items.
-        let merger = Merger::new(&self, timestamp);
+        let mut merger = Merger::new(&self, timestamp);
         merger.merge()?;
 
         let outgoing = self.fetch_outgoing_records(timestamp)?;
@@ -516,44 +515,11 @@ impl<'a> Store for BookmarksStore<'a> {
     }
 }
 
-// We should consider if we can merge log's levels with dogear's.
-fn level_filter_to_dogear_level(level: LevelFilter) -> LogLevel {
-    match level {
-        LevelFilter::Off => LogLevel::Silent,
-        LevelFilter::Error => LogLevel::Error,
-        LevelFilter::Warn => LogLevel::Warn,
-        LevelFilter::Info => LogLevel::Debug, // ???
-        LevelFilter::Debug => LogLevel::Debug,
-        LevelFilter::Trace => LogLevel::Trace,
-    }
-}
-
-fn dogear_level_to_level(level: LogLevel) -> Level {
-    match level {
-        LogLevel::Error => Level::Error,
-        LogLevel::Warn => Level::Warn,
-        LogLevel::Debug => Level::Info,
-        LogLevel::Trace => Level::Trace,
-        LogLevel::All => Level::Trace, // ??
-        // It doesn't really matter what we map Silent to as we will not be
-        // called in that case.
-        LogLevel::Silent => Level::Error,
-    }
-}
-
 struct Driver;
 
 impl dogear::Driver for Driver {
     fn generate_new_guid(&self, _invalid_guid: &dogear::Guid) -> dogear::Result<dogear::Guid> {
         Ok(SyncGuid::new().into())
-    }
-
-    fn log_level(&self) -> LogLevel {
-        level_filter_to_dogear_level(log::max_level())
-    }
-
-    fn log(&self, level: LogLevel, args: fmt::Arguments) {
-        log::log!(dogear_level_to_level(level), "{}", args);
     }
 }
 
@@ -573,15 +539,18 @@ impl<'a> Merger<'a> {
         }
     }
 
-    fn merge(&self) -> Result<()> {
+    fn merge(&mut self) -> Result<()> {
         use dogear::Store;
+        if !self.store.has_changes()? {
+            return Ok(());
+        }
         // Merge and stage outgoing items via dogear.
         let stats = self.merge_with_driver(&Driver)?;
         log::debug!("merge completed: {:?}", stats);
         Ok(())
     }
 
-    /// Creates a local tree item from a row in `localItems` or `localRoot`.
+    /// Creates a local tree item from a row in the `localItems` CTE.
     fn local_row_to_item(&self, row: &Row) -> Result<Item> {
         let guid = row.get_checked::<_, SyncGuid>("guid")?;
         let kind = SyncedBookmarkKind::from_u8(row.get_checked("kind")?)?;
@@ -721,7 +690,7 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
         // we use three separate statements to fetch the root, its descendants,
         // and their structure.
         let sql = format!(
-            "SELECT guid, parentGuid, serverModified, kind, needsMerge, validity
+            "SELECT guid, serverModified, kind, needsMerge, validity
              FROM moz_bookmarks_synced
              WHERE NOT isDeleted AND
                    guid = '{root_guid}'",
@@ -837,13 +806,13 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
     }
 
     fn apply<'t>(
-        &self,
-        descendants: Vec<MergedDescendant<'t>>,
-        deletions: Vec<Deletion>,
+        &mut self,
+        root: MergedRoot<'t>,
+        deletions: impl Iterator<Item = Deletion<'t>>,
     ) -> Result<()> {
-        if !self.store.has_changes()? {
-            return Ok(());
-        }
+        let descendants = root.descendants();
+        let deletions = deletions.collect::<Vec<_>>();
+
         let tx = self.store.db.unchecked_transaction()?;
         self.store.update_local_items(descendants, deletions)?;
         self.store.stage_local_items_to_upload()?;
