@@ -137,6 +137,20 @@ pub fn update_frecency(db: &PlacesDb, id: RowId, redirect_boost: Option<bool>) -
     Ok(())
 }
 
+/// Indicates if and when a URL's frecency was marked as stale.
+pub fn frecency_stale_at(db: &PlacesDb, url: &Url) -> Result<Option<Timestamp>> {
+    let result = db.try_query_row(
+        "SELECT stale_at FROM moz_places_stale_frecencies s
+         JOIN moz_places h ON h.id = s.place_id
+         WHERE h.url_hash = hash(:url) AND
+               h.url = :url",
+        &[(":url", &url.as_str())],
+        |row| -> rusqlite::Result<_> { Ok(row.get_checked::<_, Timestamp>(0)?) },
+        true,
+    )?;
+    Ok(result)
+}
+
 // Add a single visit - you must know the page rowid. Does not update the
 // page info - if you are calling this, you will also need to update the
 // parent page with an updated change counter etc.

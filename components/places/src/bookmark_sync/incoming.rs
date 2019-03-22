@@ -348,11 +348,12 @@ impl<'a> IncomingApplicator<'a> {
                 return Err(ErrorKind::InvalidPlaceInfo(InvalidPlaceInfo::UrlTooLong).into());
             }
             self.db.execute_named_cached(
-                "INSERT OR IGNORE INTO moz_places(guid, url, url_hash)
+                "INSERT OR IGNORE INTO moz_places(guid, url, url_hash, frecency)
                  VALUES(IFNULL((SELECT guid FROM moz_places
                                 WHERE url_hash = hash(:url) AND
                                       url = :url),
-                        generate_guid()), :url, hash(:url))",
+                        generate_guid()), :url, hash(:url),
+                        (CASE substr(:url, 1, 6) WHEN 'place:' THEN 0 ELSE -1 END))",
                 &[(":url", &url.as_str())],
             )?;
             Ok(url)

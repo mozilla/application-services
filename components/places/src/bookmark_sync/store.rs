@@ -958,11 +958,12 @@ impl<'a> fmt::Display for RootsFragment<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::places_api::{test::new_mem_api, ConnectionType};
+    use crate::api::places_api::{test::new_mem_api, ConnectionType, PlacesApi};
     use crate::bookmark_sync::store::BookmarksStore;
     use crate::db::PlacesDb;
     use crate::storage::{
         bookmarks::{get_raw_bookmark, update_bookmark, UpdatableBookmark},
+        history::frecency_stale_at,
         tags,
     };
     use crate::tests::{
@@ -976,12 +977,7 @@ mod tests {
     use std::cell::Cell;
     use sync15::Payload;
 
-    fn apply_incoming(records_json: Value) -> PlacesDb {
-        let api = new_mem_api();
-        let conn = api
-            .open_connection(ConnectionType::Sync)
-            .expect("should get a connection");
-
+    fn apply_incoming(conn: &PlacesDb, records_json: Value) {
         // suck records into the store.
         let client_info = Cell::new(None);
         let store = BookmarksStore::new(&conn, &client_info);
@@ -1006,16 +1002,21 @@ mod tests {
         store
             .apply_incoming(incoming, &mut telemetry::EngineIncoming::new())
             .expect("Should apply incoming and stage outgoing records");
-        conn
     }
 
     fn assert_incoming_creates_local_tree(
+        api: &PlacesApi,
         records_json: Value,
         local_folder: &SyncGuid,
         local_tree: Value,
     ) {
-        let conn = apply_incoming(records_json);
+        let conn = api
+            .open_connection(ConnectionType::Sync)
+            .expect("should get a sync connection");
+        apply_incoming(&conn, records_json);
         assert_local_json_tree(&conn, local_folder, local_tree);
+        api.close_connection(conn)
+            .expect("should close sync connection");
     }
 
     #[test]
@@ -1178,9 +1179,10 @@ mod tests {
 
     #[test]
     fn test_apply_bookmark() {
+        let api = new_mem_api();
         assert_incoming_creates_local_tree(
+            &api,
             json!([{
-                // A valid query (which actually looks just like a bookmark, but that's ok)
                 "id": "bookmark1___",
                 "type": "bookmark",
                 "parentid": "unfiled",
@@ -1200,12 +1202,74 @@ mod tests {
             &BookmarkRootGuid::Unfiled.as_guid(),
             json!({"children" : [{"guid": "bookmark1___", "url": "http://example.com"}]}),
         );
+        let reader = api
+            .open_connection(ConnectionType::ReadOnly)
+            .expect("Should open read-only connection");
+        assert!(
+            frecency_stale_at(&reader, &Url::parse("http://example.com").unwrap())
+                .expect("Should check stale frecency")
+                .is_some(),
+            "Should mark frecency for bookmark URL as stale"
+        );
+
+        let writer = api
+            .open_connection(ConnectionType::ReadWrite)
+            .expect("Should open read-write connection");
+        insert_local_json_tree(
+            &writer,
+            json!({
+                "guid": &BookmarkRootGuid::Menu.as_guid(),
+                "children": [
+                    {
+                        "guid": "bookmark2___",
+                        "title": "2",
+                        "url": "http://example.com/2",
+                    }
+                ],
+            }),
+        );
+        assert_incoming_creates_local_tree(
+            &api,
+            json!([{
+                "id": "menu",
+                "type": "folder",
+                "parentid": "places",
+                "parentName": "",
+                "dateAdded": 0,
+                "title": "menu",
+                "children": ["bookmark2___"],
+            }, {
+                "id": "bookmark2___",
+                "type": "bookmark",
+                "parentid": "menu",
+                "parentName": "menu",
+                "dateAdded": 1_381_542_355_843u64,
+                "title": "2",
+                "bmkUri": "http://example.com/2-remote",
+            }]),
+            &BookmarkRootGuid::Menu.as_guid(),
+            json!({"children" : [{"guid": "bookmark2___", "url": "http://example.com/2-remote"}]}),
+        );
+        assert!(
+            frecency_stale_at(&reader, &Url::parse("http://example.com/2").unwrap())
+                .expect("Should check stale frecency for old URL")
+                .is_some(),
+            "Should mark frecency for old URL as stale"
+        );
+        assert!(
+            frecency_stale_at(&reader, &Url::parse("http://example.com/2-remote").unwrap())
+                .expect("Should check stale frecency for new URL")
+                .is_some(),
+            "Should mark frecency for new URL as stale"
+        );
     }
 
     #[test]
     fn test_apply_query() {
         // should we add some more query variations here?
+        let api = new_mem_api();
         assert_incoming_creates_local_tree(
+            &api,
             json!([{
                 "id": "query1______",
                 "type": "query",
@@ -1225,6 +1289,15 @@ mod tests {
             }]),
             &BookmarkRootGuid::Unfiled.as_guid(),
             json!({"children" : [{"guid": "query1______", "url": "place:tag=foo"}]}),
+        );
+        let reader = api
+            .open_connection(ConnectionType::ReadOnly)
+            .expect("Should open read-only connection");
+        assert!(
+            frecency_stale_at(&reader, &Url::parse("place:tag=foo").unwrap())
+                .expect("Should check stale frecency")
+                .is_none(),
+            "Should not mark frecency for queries as stale"
         );
     }
 

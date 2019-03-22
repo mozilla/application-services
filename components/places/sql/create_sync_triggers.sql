@@ -42,15 +42,15 @@ END;
 CREATE TEMP TRIGGER removeLocalItems
 AFTER DELETE ON itemsToRemove
 BEGIN
-    -- Flag URL frecency for recalculation.
-    UPDATE moz_places SET
-        frecency = -frecency
-    WHERE id = (SELECT fk FROM moz_bookmarks
-                WHERE guid = OLD.guid) AND
-          frecency > 0;
-
-    -- Trigger frecency updates for all affected origins.
-    DELETE FROM moz_updateoriginsupdate_temp;
+    -- Note the URL for frecency recalculation.
+    INSERT INTO moz_places_stale_frecencies(place_id, stale_at)
+    SELECT h.id, now()
+    FROM moz_bookmarks b
+    JOIN moz_places h ON h.id = b.fk
+    WHERE b.guid = OLD.guid AND
+          h.frecency <> 0
+    ON CONFLICT(place_id) DO UPDATE SET
+        stale_at = excluded.stale_at;
 
     -- Don't reupload tombstones for items that are already deleted on the server.
     DELETE FROM moz_bookmarks_deleted
@@ -143,15 +143,14 @@ BEGIN
         lastModified = excluded.lastModified,
         fk = excluded.fk;
 
-    -- Flag frecency for recalculation.
-    UPDATE moz_places SET
-        frecency = -frecency
-    WHERE OLD.oldPlaceId <> OLD.newPlaceId AND
-          id IN (OLD.oldPlaceId, OLD.newPlaceId) AND
-          frecency > 0;
-
-    -- Trigger frecency updates for all affected origins.
-    DELETE FROM moz_updateoriginsupdate_temp;
+    -- Flag the frecency for recalculation.
+    INSERT INTO moz_places_stale_frecencies(place_id, stale_at)
+    SELECT id, now()
+    FROM moz_places
+    WHERE id IN (OLD.oldPlaceId, OLD.newPlaceId) AND
+          frecency <> 0
+    ON CONFLICT(place_id) DO UPDATE SET
+        stale_at = excluded.stale_at;
 
     -- Insert new tags for the new URL.
     INSERT INTO moz_tags_relation(tag_id, place_id)

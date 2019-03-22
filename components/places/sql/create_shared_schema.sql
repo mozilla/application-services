@@ -49,6 +49,16 @@ CREATE TABLE IF NOT EXISTS moz_places_tombstones (
 ) WITHOUT ROWID;
 
 
+-- This table stores Place IDs with stale frecencies, along with the time they
+-- were marked as stale. Maintenance and Sync periodically recalculate
+-- frecencies for Place IDs in this table.
+CREATE TABLE IF NOT EXISTS moz_places_stale_frecencies (
+    place_id INTEGER PRIMARY KEY NOT NULL REFERENCES moz_places(id)
+                                          ON DELETE CASCADE,
+    stale_at INTEGER NOT NULL -- In milliseconds.
+);
+
+
 CREATE TABLE IF NOT EXISTS moz_historyvisits (
     id INTEGER PRIMARY KEY,
     is_local INTEGER NOT NULL, -- XXX - not in desktop - will always be true for visits added locally, always false visits added by sync.
