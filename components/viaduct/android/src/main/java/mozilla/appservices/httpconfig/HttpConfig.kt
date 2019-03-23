@@ -10,6 +10,7 @@ import mozilla.components.concept.fetch.Client
 import mozilla.components.concept.fetch.MutableHeaders
 import mozilla.components.concept.fetch.Request
 import java.io.InputStream
+import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
@@ -134,8 +135,15 @@ internal fun convertMethod(m: MsgTypes.Request.Method): Request.Method {
 }
 
 internal class CallbackImpl : RawFetchCallback {
+    @Suppress("TooGenericExceptionCaught")
     override fun invoke(b: RustBuffer.ByValue): RustBuffer.ByValue {
-        return RustHttpConfig.doFetch(b)
+        try {
+            return RustHttpConfig.doFetch(b)
+        } catch (e: Throwable) {
+            // This is our last resort. It's bad news should we fail to
+            // return something from this function.
+            return RustBuffer.ByValue()
+        }
     }
 }
 
