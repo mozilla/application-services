@@ -372,12 +372,16 @@ impl<'a> BookmarksStore<'a> {
     /// Decrements the change counter, updates the sync status, and cleans up
     /// tombstones for successfully synced items. Sync calls this method at the
     /// end of each bookmark sync.
-    fn push_synced_items(&self, uploaded_at: ServerTimestamp, record_ids: &[String]) -> Result<()> {
+    fn push_synced_items(
+        &self,
+        uploaded_at: ServerTimestamp,
+        records_synced: Vec<String>,
+    ) -> Result<()> {
         // Flag all successfully synced records as uploaded. This `UPDATE` fires
         // the `pushUploadedChanges` trigger, which updates local change
         // counters and writes the items back to the synced bookmarks table.
         sql_support::each_chunk_mapped(
-            &record_ids,
+            &records_synced,
             |id| id_to_guid(id.clone()),
             |chunk, _| -> Result<()> {
                 self.db.execute(
@@ -439,7 +443,7 @@ impl<'a> Store for BookmarksStore<'a> {
     fn sync_finished(
         &self,
         new_timestamp: ServerTimestamp,
-        records_synced: &[String],
+        records_synced: Vec<String>,
     ) -> result::Result<(), failure::Error> {
         let tx = self.db.unchecked_transaction()?;
         self.push_synced_items(new_timestamp, records_synced)?;
@@ -1416,7 +1420,7 @@ mod tests {
         store
             .sync_finished(
                 ServerTimestamp(0.0),
-                &[
+                vec![
                     "bookmarkAAAA".into(),
                     "bookmarkBBBB".into(),
                     "unfiled".into(),
@@ -1494,7 +1498,7 @@ mod tests {
         assert_eq!(outgoing_ids, &["menu", "mobile", "toolbar", "unfiled"],);
 
         store
-            .sync_finished(ServerTimestamp(0.0), &outgoing_ids)
+            .sync_finished(ServerTimestamp(0.0), outgoing_ids)
             .expect("Should push synced changes back to the store");
 
         update_bookmark(
@@ -1623,7 +1627,7 @@ mod tests {
         assert_eq!(outgoing_ids, &["menu", "mobile", "toolbar", "unfiled"],);
 
         store
-            .sync_finished(ServerTimestamp(0.0), &outgoing_ids)
+            .sync_finished(ServerTimestamp(0.0), outgoing_ids)
             .expect("Should push synced changes back to the store");
 
         store.wipe().expect("Should wipe the store");
