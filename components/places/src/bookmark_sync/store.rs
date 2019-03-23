@@ -221,7 +221,7 @@ impl<'a> BookmarksStore<'a> {
              WHERE s.guid <> '{root_guid}' AND
                    (s.syncChangeCounter > 0 OR w.id NOT NULL)",
             local_items_fragment = LocalItemsFragment("localItems"),
-            kind = type_to_kind("s.type", UrlOrPlaceIdFragment::Url("h.url")),
+            kind = item_kind_fragment("s.type", UrlOrPlaceIdFragment::Url("h.url")),
             root_guid = BookmarkRootGuid::Root.as_guid().as_ref(),
         ))?;
 
@@ -602,7 +602,7 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
              FROM localItems s
              ORDER BY s.level, s.parentId, s.position",
             local_items_fragment = LocalItemsFragment("localItems"),
-            kind = type_to_kind("s.type", UrlOrPlaceIdFragment::PlaceId("s.placeId")),
+            kind = item_kind_fragment("s.type", UrlOrPlaceIdFragment::PlaceId("s.placeId")),
         );
         let mut stmt = self.store.db.prepare(&sql)?;
         let mut results = stmt.query(NO_PARAMS)?;
@@ -854,19 +854,26 @@ impl<'a> fmt::Display for LocalItemsFragment<'a> {
     }
 }
 
-fn type_to_kind(typ: &'static str, url: UrlOrPlaceIdFragment) -> TypeToKind {
-    TypeToKind { typ, url }
+fn item_kind_fragment(
+    type_column_name: &'static str,
+    url_or_place_id_fragment: UrlOrPlaceIdFragment,
+) -> ItemKindFragment {
+    ItemKindFragment {
+        type_column_name,
+        url_or_place_id_fragment,
+    }
 }
 
-/// A helper that interpolates a SQL expression for converting Places item types
-/// to Sync record kinds. `typ` is the name of the bookmark type column in the
-/// projection.
-struct TypeToKind {
-    typ: &'static str,
-    url: UrlOrPlaceIdFragment,
+/// A helper that interpolates a SQL expression for converting a local item
+/// type to a synced item kind.
+struct ItemKindFragment {
+    /// The name of the column containing the Places item type.
+    type_column_name: &'static str,
+    /// The column containing the item's URL or Place ID.
+    url_or_place_id_fragment: UrlOrPlaceIdFragment,
 }
 
-impl fmt::Display for TypeToKind {
+impl fmt::Display for ItemKindFragment {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -881,9 +888,9 @@ impl fmt::Display for TypeToKind {
               WHEN {folder_type} THEN {folder_kind}
               ELSE {separator_kind}
               END)",
-            typ = self.typ,
+            typ = self.type_column_name,
             bookmark_type = BookmarkType::Bookmark as u8,
-            url = self.url,
+            url = self.url_or_place_id_fragment,
             bookmark_kind = SyncedBookmarkKind::Bookmark as u8,
             folder_type = BookmarkType::Folder as u8,
             folder_kind = SyncedBookmarkKind::Folder as u8,
@@ -893,10 +900,15 @@ impl fmt::Display for TypeToKind {
     }
 }
 
-/// A helper that interpolates a SQL expression for a Place URL. This avoids a
-/// subquery if the URL is already available in the projection.
+/// A helper that interpolates a SQL expression for querying a local item's
+/// URL. Note that the `&'static str` for each variant specifies the _name of
+/// the column_ containing the URL or ID, not the URL or ID itself.
 enum UrlOrPlaceIdFragment {
+    /// The name of the column containing the URL. This avoids a subquery if
+    /// a column for the URL already exists in the query.
     Url(&'static str),
+    /// The name of the column containing the Place ID. This writes out a
+    /// subquery to look up the URL.
     PlaceId(&'static str),
 }
 
@@ -911,7 +923,7 @@ impl fmt::Display for UrlOrPlaceIdFragment {
     }
 }
 
-/// A helper that interpolates a SQL expression containing the given bookmark
+/// A helper that interpolates a SQL list containing the given bookmark
 /// root GUIDs.
 struct RootsFragment<'a>(&'a [BookmarkRootGuid]);
 
