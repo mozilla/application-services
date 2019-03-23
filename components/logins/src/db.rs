@@ -43,6 +43,7 @@ impl LoginDb {
             format!(
                 "
                 PRAGMA key = '{}';
+                PRAGMA secure_delete = true;
 
                 -- SQLcipher pre-4.0.0 compatibility. Using SHA1 still
                 -- is less than ideal, but should be fine. Real uses of
@@ -93,6 +94,12 @@ impl LoginDb {
             Connection::open_in_memory()?,
             encryption_key,
         )?)
+    }
+
+    pub fn disable_mem_security(&self) -> Result<()> {
+        self.conn()
+            .execute_batch("PRAGMA cipher_memory_security = false;")?;
+        Ok(())
     }
 }
 

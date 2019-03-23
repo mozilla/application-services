@@ -1,3 +1,4 @@
+@file:Suppress("MaxLineLength")
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -41,7 +42,7 @@ open class AppServicesPlugin : Plugin<Project> {
             }
 
             val substitution = "${megazord.moduleIdentifier.group}:${megazord.moduleIdentifier.name}:${requested.version}"
-            logger?.debug("substituting megazord module '${substitution}' for component module" +
+            logger?.debug("substituting megazord module '$substitution' for component module" +
                     " '${requested.group}:${requested.module}:${requested.version}'")
             dependency.useTarget(substitution)
         }
@@ -80,7 +81,7 @@ open class AppServicesPlugin : Plugin<Project> {
 
         val megazord = appServicesExtension.megazords.findByName(megazordName)
         if (megazord == null) {
-            throw GradleException("megazord named ${megazordName} not found configuring Android variant ${variant.name}")
+            throw GradleException("megazord named $megazordName not found configuring Android variant ${variant.name}")
         }
 
         listOf(variant.compileConfiguration, variant.runtimeConfiguration,
@@ -88,7 +89,7 @@ open class AppServicesPlugin : Plugin<Project> {
                 // crucial moment below they don't.  So we also megazord them.  We do this even when unit testing
                 // is not enabled since that should make it easier to reason about the substitutions.
                 variant.unitTestVariant.compileConfiguration, variant.unitTestVariant.runtimeConfiguration).forEach { configuration ->
-            logger.info("substituting megazord ${megazordName} for variant ${variant.name}")
+            logger.info("substituting megazord $megazordName for variant ${variant.name}")
             configuration.resolutionStrategy.dependencySubstitution.substituteMegazord(megazord, logger)
         }
 
@@ -106,14 +107,14 @@ open class AppServicesPlugin : Plugin<Project> {
                 if (resolvedMegazord == null) {
                     logger.error("megazord substitution requested for variant ${variant.name} but the megazord module" +
                             " '${megazord.moduleIdentifier.group}:${megazord.moduleIdentifier.name}' failed to resolve" +
-                            " as part of the unit test ${configuration}!")
+                            " as part of the unit test $configuration!")
                     throw GradleException("megazord substitution for variant ${variant.name} failed to resolve a megazord module")
                 }
 
                 val forUnitTests = megazord.moduleIdentifier.forUnitTests()
                 val dependency = "${forUnitTests.group}:${forUnitTests.name}:${resolvedMegazord.version}"
-                logger.info("substituted megazord ${megazordName} for unit test ${configuration};" +
-                        " adding forUnitTests dependency '${dependency}'")
+                logger.info("substituted megazord $megazordName for unit test $configuration;" +
+                        " adding forUnitTests dependency '$dependency'")
                 project.dependencies.add(configuration.name, dependency)
             }
         }
@@ -128,14 +129,14 @@ open class AppServicesPlugin : Plugin<Project> {
             // https://maven.mozilla.org/maven2 in the future anyway... so it's probably not worth making this
             // configurable.  See https://github.com/mozilla/application-services/issues/252.
             val customName = "appservices"
-            val customURI = URI.create("https://dl.bintray.com/ncalexander/application-services")
+            val customURI = URI.create("https://dl.bintray.com/mozilla-appservices/application-services")
             // If there's already a Maven repo with the right URL, or even the right name, roll with it.
             // The name gives the opportunity to customize, if it helps in the wild.
             val existing = project.repositories.find {
                 (it is MavenArtifactRepository) && (it.url == customURI || it.name == customName)
             }
             if (existing == null) {
-                logger.info("adding '${customName}' Maven repository with url '${customURI.toASCIIString()}'")
+                logger.info("adding '$customName' Maven repository with url '${customURI.toASCIIString()}'")
                 project.repositories.maven {
                     it.name = customName
                     it.url = customURI

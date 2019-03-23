@@ -183,12 +183,12 @@ The megazord libraries and dependencies aren't yet published to maven.mozilla.or
 they aren't yet mirrored to jcenter either (see
 [this bintray plugin issue](https://github.com/bintray/gradle-bintray-plugin/issues/130)).
 
-That means we need a [non-standard Maven repository](https://bintray.com/ncalexander/application-services):
+That means we need a [non-standard Maven repository](https://bintray.com/mozilla-appservices/application-services):
 ```groovy
 repositories {
     maven {
         name 'appservices'
-        url 'https://dl.bintray.com/ncalexander/application-services'
+        url 'https://dl.bintray.com/mozilla-appservices/application-services'
     }
 }
 ```

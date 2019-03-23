@@ -2,7 +2,27 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.21.0...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.0...master)
+
+# v0.22.0 (_2019-03-22_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.21.0...v0.22.0)
+
+## Logins
+
+- Added a disableMemSecurity function to turn off some dubious behaviors of SQLcipher. ([#838](https://github.com/mozilla/application-services/pull/838))
+- The iOS SQLCipher build configuration has been adjusted ([#837](https://github.com/mozilla/application-services/pull/837))
+
+## Push
+
+### Breaking changes
+
+- `PushManager`'s `dispatch_for_chid` method has been renamed to `dispatchForChid`.
+- `PushManager` constructor arguments are now camelCased.
+
+## `org.mozilla.appservices` Gradle plugin
+
+- Artifacts are now to be published to the `mozilla-appservices` bintray organization.  This necessitates version 0.4.3 of the Gradle plugin.  ([#843](https://github.com/mozilla/application-services/issues/843))
 
 # v0.21.0 (_2019-03-20_)
 

@@ -28,3 +28,5 @@ Carthage
 # Generated debug symbols
 crashreporter-symbols*
 automation/symbols-generation/bin/
+
+MozillaAppServices.framework.zip

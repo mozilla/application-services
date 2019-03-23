@@ -57,6 +57,9 @@ void sync15_passwords_sync(Sync15PasswordEngineHandle handle,
 void sync15_passwords_wipe(Sync15PasswordEngineHandle handle,
                            Sync15PasswordsError *_Nonnull error);
 
+void sync15_passwords_disable_mem_security(Sync15PasswordEngineHandle handle,
+                                           Sync15PasswordsError *_Nonnull error);
+
 void sync15_passwords_reset(Sync15PasswordEngineHandle handle,
                             Sync15PasswordsError *_Nonnull error);
 

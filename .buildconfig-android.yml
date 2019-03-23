@@ -1,4 +1,4 @@
-libraryVersion: 0.21.0
+libraryVersion: 0.22.0
 groupId: org.mozilla.appservices
 projects:
   fxa-client-library:
@@ -53,4 +53,4 @@ projects:
     path: megazords/fenix/android
     artifactId: fenix-megazord
     publishedArtifacts: [fenix-megazord, fenix-megazord-forUnitTests]
-    description: Megazord of [fxaclient, places, push].
+    description: Megazord of [fxaclient, places, push, logging].

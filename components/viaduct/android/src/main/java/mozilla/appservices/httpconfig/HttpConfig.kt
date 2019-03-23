@@ -10,9 +10,10 @@ import mozilla.components.concept.fetch.Client
 import mozilla.components.concept.fetch.MutableHeaders
 import mozilla.components.concept.fetch.Request
 import java.io.InputStream
-import java.lang.RuntimeException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+
+class HttpConfigException(msg: String) : Exception(msg)
 
 object RustHttpConfig {
     @Volatile
@@ -22,49 +23,53 @@ object RustHttpConfig {
     @Synchronized
     fun setClient(c: Client) {
         if (!client.compareAndSet(null, c)) {
-            throw RuntimeException("Already initialized Rust HTTP config!")
+            throw HttpConfigException("Already initialized Rust HTTP config!")
         }
         if (imp != null) {
             // This should never happen, but if it *did* happen, it's memory unsafe
             // for us to ever clear it, so we check anyway.
-            throw RuntimeException("Imp set without client?")
+            throw HttpConfigException("Imp set without client?")
         }
         imp = CallbackImpl()
         LibViaduct.INSTANCE.viaduct_initialize(imp!!)
     }
 
+    internal fun convertRequest(request: MsgTypes.Request): Request {
+        val headers = MutableHeaders()
+        for (h in request.headersMap) {
+            headers.append(h.key, h.value)
+        }
+        return Request(
+                url = request.url,
+                method = convertMethod(request.method),
+                headers = headers,
+                connectTimeout = Pair(request.connectTimeoutSecs.toLong(), TimeUnit.SECONDS),
+                readTimeout = Pair(request.readTimeoutSecs.toLong(), TimeUnit.SECONDS),
+                body = if (request.hasBody()) {
+                    Request.Body(ByteStringInputStream(request.body))
+                } else {
+                    null
+                },
+                redirect = if (request.followRedirects) {
+                    Request.Redirect.FOLLOW
+                } else {
+                    Request.Redirect.MANUAL
+                },
+                cookiePolicy = if (request.includeCookies) {
+                    Request.CookiePolicy.INCLUDE
+                } else {
+                    Request.CookiePolicy.OMIT
+                },
+                useCaches = request.useCaches
+        )
+    }
+
+    @Suppress("TooGenericExceptionCaught", "ReturnCount")
     internal fun doFetch(b: RustBuffer.ByValue): RustBuffer.ByValue {
         try {
             val request = MsgTypes.Request.parseFrom(b.asCodedInputStream())
-            val headers = MutableHeaders()
-            for (h in request.headersMap) {
-                headers.append(h.key, h.value)
-            }
-            val conceptReq = Request(
-                    url = request.url,
-                    method = convertMethod(request.method),
-                    headers = headers,
-                    connectTimeout = Pair(request.connectTimeoutSecs.toLong(), TimeUnit.SECONDS),
-                    readTimeout = Pair(request.readTimeoutSecs.toLong(), TimeUnit.SECONDS),
-                    body = if (request.hasBody()) {
-                        Request.Body(ByteStringInputStream(request.body))
-                    } else {
-                        null
-                    },
-                    redirect = if (request.followRedirects) {
-                        Request.Redirect.FOLLOW
-                    } else {
-                        Request.Redirect.MANUAL
-                    },
-                    cookiePolicy = if (request.includeCookies) {
-                        Request.CookiePolicy.INCLUDE
-                    } else {
-                        Request.CookiePolicy.OMIT
-                    },
-                    useCaches = request.useCaches
-            )
             val rb = try {
-                val resp = client.get()!!.fetch(conceptReq)
+                val resp = client.get()!!.fetch(convertRequest(request))
                 val rb = MsgTypes.Response.newBuilder()
                         .setUrl(resp.url)
                         .setStatus(resp.status)
@@ -76,7 +81,7 @@ object RustHttpConfig {
                     rb.putHeaders(h.name, h.value)
                 }
                 rb
-            } catch(e: Throwable) {
+            } catch (e: Throwable) {
                 MsgTypes.Response.newBuilder().setException(
                         MsgTypes.Response.ExceptionThrown.newBuilder()
                                 .setName(e.javaClass.canonicalName)
@@ -100,19 +105,18 @@ object RustHttpConfig {
             LibViaduct.INSTANCE.viaduct_destroy_bytebuffer(b)
         }
     }
-
 }
 
 internal fun convertMethod(m: MsgTypes.Request.Method): Request.Method {
-    when (m) {
-        MsgTypes.Request.Method.GET -> return Request.Method.GET
-        MsgTypes.Request.Method.POST -> return Request.Method.POST
-        MsgTypes.Request.Method.HEAD -> return Request.Method.HEAD
-        MsgTypes.Request.Method.OPTIONS -> return Request.Method.OPTIONS
-        MsgTypes.Request.Method.DELETE -> return Request.Method.DELETE
-        MsgTypes.Request.Method.PUT -> return Request.Method.PUT
-        MsgTypes.Request.Method.TRACE -> return Request.Method.TRACE
-        MsgTypes.Request.Method.CONNECT -> return Request.Method.CONNECT
+    return when (m) {
+        MsgTypes.Request.Method.GET -> Request.Method.GET
+        MsgTypes.Request.Method.POST -> Request.Method.POST
+        MsgTypes.Request.Method.HEAD -> Request.Method.HEAD
+        MsgTypes.Request.Method.OPTIONS -> Request.Method.OPTIONS
+        MsgTypes.Request.Method.DELETE -> Request.Method.DELETE
+        MsgTypes.Request.Method.PUT -> Request.Method.PUT
+        MsgTypes.Request.Method.TRACE -> Request.Method.TRACE
+        MsgTypes.Request.Method.CONNECT -> Request.Method.CONNECT
     }
 }
 
@@ -137,7 +141,8 @@ internal class ByteStringInputStream(private val s: ByteString) : InputStream() 
         pos += toSkip
         return toSkip.toLong()
     }
-
+    // Oh come on, these are hardly magic...
+    @Suppress("MagicNumber")
     override fun read(): Int {
         if (pos >= s.size()) {
             return -1
@@ -155,5 +160,4 @@ internal class ByteStringInputStream(private val s: ByteString) : InputStream() 
         s.copyTo(bytes, pos, off, toRead)
         return toRead
     }
-
 }

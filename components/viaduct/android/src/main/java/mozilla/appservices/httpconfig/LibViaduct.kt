@@ -11,12 +11,13 @@ import com.sun.jna.Native
 import java.lang.reflect.Proxy
 import mozilla.appservices.support.RustBuffer
 
+@Suppress("FunctionNaming", "TooGenericExceptionThrown")
 internal interface LibViaduct : Library {
     companion object {
         private val JNA_LIBRARY_NAME = {
             val libname = System.getProperty("mozilla.appservices.viaduct_lib_name")
             if (libname != null) {
-                Log.i("AppServices", "Using viaduct_lib_name: " + libname);
+                Log.i("AppServices", "Using viaduct_lib_name: " + libname)
                 libname
             } else {
                 "viaduct"
@@ -32,8 +33,7 @@ internal interface LibViaduct : Library {
         } catch (e: UnsatisfiedLinkError) {
             Proxy.newProxyInstance(
                     LibViaduct::class.java.classLoader,
-                    arrayOf(LibViaduct::class.java))
-            { _, _, _ ->
+                    arrayOf(LibViaduct::class.java)) { _, _, _ ->
                 throw RuntimeException("LibViaduct not available", e)
             } as LibViaduct
         }
@@ -49,5 +49,3 @@ internal interface LibViaduct : Library {
 internal interface RawFetchCallback : Callback {
     fun invoke(b: RustBuffer.ByValue): RustBuffer.ByValue
 }
-
-
