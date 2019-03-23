@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use url::Url;
 
 pub use public_node::PublicNode;
-pub use root_guid::BookmarkRootGuid;
+pub use root_guid::{BookmarkRootGuid, USER_CONTENT_ROOTS};
 
 mod conversions;
 pub mod public_node;

@@ -11,7 +11,7 @@ mod tests;
 
 use crate::db::PlacesDb;
 use crate::error::*;
-use crate::storage::bookmarks::BookmarkRootGuid;
+use crate::storage::bookmarks::{BookmarkRootGuid, USER_CONTENT_ROOTS};
 use crate::types::SyncGuid;
 use rusqlite::types::{ToSql, ToSqlOutput};
 use rusqlite::Result as RusqliteResult;
@@ -49,7 +49,7 @@ pub fn create_synced_bookmark_roots(db: &PlacesDb) -> Result<()> {
         &BookmarkRootGuid::Root.as_guid(),
         0,
     )?;
-    for (pos, user_root) in BookmarkRootGuid::user_roots().iter().enumerate() {
+    for (pos, user_root) in USER_CONTENT_ROOTS.iter().enumerate() {
         maybe_insert(
             db,
             &user_root.as_guid(),
@@ -58,38 +58,6 @@ pub fn create_synced_bookmark_roots(db: &PlacesDb) -> Result<()> {
         )?;
     }
     Ok(())
-}
-
-impl BookmarkRootGuid {
-    pub fn as_sync_record_id(self) -> &'static str {
-        match self {
-            BookmarkRootGuid::Root => "places",
-            BookmarkRootGuid::Menu => "menu",
-            BookmarkRootGuid::Toolbar => "toolbar",
-            BookmarkRootGuid::Unfiled => "unfiled",
-            BookmarkRootGuid::Mobile => "mobile",
-        }
-    }
-
-    pub fn from_sync_record_id(id: &str) -> Option<Self> {
-        Some(match id {
-            "places" => BookmarkRootGuid::Root,
-            "menu" => BookmarkRootGuid::Menu,
-            "toolbar" => BookmarkRootGuid::Toolbar,
-            "unfiled" => BookmarkRootGuid::Unfiled,
-            "mobile" => BookmarkRootGuid::Mobile,
-            _ => return None,
-        })
-    }
-
-    pub fn user_roots() -> Vec<BookmarkRootGuid> {
-        vec![
-            BookmarkRootGuid::Menu,
-            BookmarkRootGuid::Toolbar,
-            BookmarkRootGuid::Unfiled,
-            BookmarkRootGuid::Mobile,
-        ]
-    }
 }
 
 /// Synced item kinds. These are stored in `moz_bookmarks_synced.kind` and match

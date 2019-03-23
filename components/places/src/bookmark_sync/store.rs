@@ -952,7 +952,7 @@ mod tests {
     use crate::bookmark_sync::store::BookmarksStore;
     use crate::db::PlacesDb;
     use crate::storage::{
-        bookmarks::{get_raw_bookmark, update_bookmark, UpdatableBookmark},
+        bookmarks::{get_raw_bookmark, update_bookmark, UpdatableBookmark, USER_CONTENT_ROOTS},
         history::frecency_stale_at,
         tags,
     };
@@ -1059,10 +1059,7 @@ mod tests {
         let tree = merger.fetch_remote_tree()?;
 
         // should be each user root, plus the real root, plus the bookmark we added.
-        assert_eq!(
-            tree.guids().count(),
-            BookmarkRootGuid::user_roots().len() + 2
-        );
+        assert_eq!(tree.guids().count(), USER_CONTENT_ROOTS.len() + 2);
 
         let node = tree
             .node_for_guid(&"qqVTRWhLBOu3".into())
@@ -1129,10 +1126,7 @@ mod tests {
         let tree = merger.fetch_local_tree()?;
 
         // should be each user root, plus the real root, plus the bookmark we added.
-        assert_eq!(
-            tree.guids().count(),
-            BookmarkRootGuid::user_roots().len() + 2
-        );
+        assert_eq!(tree.guids().count(), USER_CONTENT_ROOTS.len() + 2);
 
         let node = tree
             .node_for_guid(&"bookmark1___".into())
