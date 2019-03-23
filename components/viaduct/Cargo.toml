@@ -7,6 +7,9 @@ edition = "2018"
 [lib]
 crate-type = ["lib", "staticlib", "cdylib"]
 
+[features]
+rust-http-stack = ["reqwest"]
+
 [dependencies]
 failure = "0.1.5"
 failure_derive = "0.1.5"
@@ -19,9 +22,7 @@ prost = "0.5.0"
 prost-derive = "0.5.0"
 bytes = "0.4.12"
 ffi-support = { path = "../support/ffi" }
-
-[target.'cfg(not(target_os="android"))'.dependencies]
-reqwest = "0.9.11"
+reqwest = { version = "0.9.11", optional = true }
 
 
 [build-dependencies]

@@ -44,6 +44,8 @@ internal interface LibViaduct : Library {
     fun viaduct_alloc_bytebuffer(sz: Int): RustBuffer.ByValue
     // Returns 0 to indicate redundant init.
     fun viaduct_initialize(cb: RawFetchCallback): Byte
+
+    fun viaduct_force_enable_ffi_backend(b: Byte)
 }
 
 internal interface RawFetchCallback : Callback {

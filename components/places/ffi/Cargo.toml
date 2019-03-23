@@ -8,6 +8,9 @@ authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 name = "places_ffi"
 crate-type = ["lib", "staticlib", "cdylib"]
 
+[features]
+rust-http-stack = ["viaduct/rust-http-stack"]
+
 [dependencies]
 serde_json = "1.0.28"
 log = "0.4"
@@ -16,6 +19,7 @@ ffi-support = { path = "../../support/ffi" }
 lazy_static = "1.2.0"
 prost = "0.5.0"
 bytes = "0.4.12"
+viaduct = { path = "../../viaduct" }
 
 [dependencies.rusqlite]
 version = "0.16.0"

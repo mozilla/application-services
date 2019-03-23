@@ -4,7 +4,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering, ATOMIC_BOOL_INIT};
 
-#[cfg(not(target_os = "android"))]
+#[cfg(feature = "rust-http-stack")]
 mod reqwest;
 
 mod ffi;
@@ -25,11 +25,11 @@ pub fn send(request: crate::Request) -> Result<crate::Response, crate::Error> {
     if ffi_is_forced() {
         return self::ffi::send(request);
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(feature = "rust-http-stack")]
     {
         self::reqwest::send(request)
     }
-    #[cfg(target_os = "android")]
+    #[cfg(not(feature = "rust-http-stack"))]
     {
         self::ffi::send(request)
     }

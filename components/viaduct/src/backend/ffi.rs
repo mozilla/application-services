@@ -182,4 +182,9 @@ pub unsafe extern "C" fn viaduct_initialize(callback: *const FetchCallback) -> u
     ffi_support::abort_on_panic::call_with_output(|| callback_holder::set_callback(callback))
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn viaduct_force_enable_ffi_backend(v: u8) {
+    ffi_support::abort_on_panic::call_with_output(|| super::force_enable_ffi_backend(v != 0));
+}
+
 ffi_support::define_bytebuffer_destructor!(viaduct_destroy_bytebuffer);
