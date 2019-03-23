@@ -11,27 +11,36 @@ import mozilla.components.concept.fetch.MutableHeaders
 import mozilla.components.concept.fetch.Request
 import java.io.InputStream
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
-class HttpConfigException(msg: String) : Exception(msg)
-
+/**
+ * Singleton allowing management of the HTTP backend
+ * used by Rust components.
+ */
 object RustHttpConfig {
+    // Protects imp/client
+    private var lock = ReentrantReadWriteLock()
+    @Volatile
+    private var client: Lazy<Client>? = null
+    // IMPORTANT: This must not ever get GCed!!
     @Volatile
     private var imp: CallbackImpl? = null
-    private var client: AtomicReference<Client?> = AtomicReference(null)
 
+    /**
+     * Set the HTTP client to be used by all Rust code.
+     * the `Lazy`'s value is not read until the first request is made.
+     */
     @Synchronized
-    fun setClient(c: Client) {
-        if (!client.compareAndSet(null, c)) {
-            throw HttpConfigException("Already initialized Rust HTTP config!")
+    fun setClient(c: Lazy<Client>) {
+        lock.write {
+            client = c
+            if (imp == null) {
+                imp = CallbackImpl()
+                LibViaduct.INSTANCE.viaduct_initialize(imp!!)
+            }
         }
-        if (imp != null) {
-            // This should never happen, but if it *did* happen, it's memory unsafe
-            // for us to ever clear it, so we check anyway.
-            throw HttpConfigException("Imp set without client?")
-        }
-        imp = CallbackImpl()
-        LibViaduct.INSTANCE.viaduct_initialize(imp!!)
     }
 
     internal fun convertRequest(request: MsgTypes.Request): Request {
@@ -66,43 +75,47 @@ object RustHttpConfig {
 
     @Suppress("TooGenericExceptionCaught", "ReturnCount")
     internal fun doFetch(b: RustBuffer.ByValue): RustBuffer.ByValue {
-        try {
-            val request = MsgTypes.Request.parseFrom(b.asCodedInputStream())
-            val rb = try {
-                val resp = client.get()!!.fetch(convertRequest(request))
-                val rb = MsgTypes.Response.newBuilder()
-                        .setUrl(resp.url)
-                        .setStatus(resp.status)
-                        .setBody(resp.body.useStream {
-                            ByteString.readFrom(it)
-                        })
-
-                for (h in resp.headers) {
-                    rb.putHeaders(h.name, h.value)
-                }
-                rb
-            } catch (e: Throwable) {
-                MsgTypes.Response.newBuilder().setException(
-                        MsgTypes.Response.ExceptionThrown.newBuilder()
-                                .setName(e.javaClass.canonicalName)
-                                .setMsg(e.message))
-            }
-            val built = rb.build()
-            val needed = built.serializedSize
-            val outputBuf = LibViaduct.INSTANCE.viaduct_alloc_bytebuffer(needed)
+        lock.read {
             try {
-                // This is only null if we passed a negative number or something to
-                // viaduct_alloc_bytebuffer.
-                val stream = outputBuf.asCodedOutputStream()!!
-                built.writeTo(stream)
-                return outputBuf
-            } catch (e: Throwable) {
-                // Note: we want to clean this up only if we are not returning it to rust.
-                LibViaduct.INSTANCE.viaduct_destroy_bytebuffer(outputBuf)
-                throw e
+                val request = MsgTypes.Request.parseFrom(b.asCodedInputStream())
+                val rb = try {
+                    // Note: `client!!` is fine here, since if client is null,
+                    // we wouldn't have yet initialized
+                    val resp = client!!.value.fetch(convertRequest(request))
+                    val rb = MsgTypes.Response.newBuilder()
+                            .setUrl(resp.url)
+                            .setStatus(resp.status)
+                            .setBody(resp.body.useStream {
+                                ByteString.readFrom(it)
+                            })
+
+                    for (h in resp.headers) {
+                        rb.putHeaders(h.name, h.value)
+                    }
+                    rb
+                } catch (e: Throwable) {
+                    MsgTypes.Response.newBuilder().setException(
+                            MsgTypes.Response.ExceptionThrown.newBuilder()
+                                    .setName(e.javaClass.canonicalName)
+                                    .setMsg(e.message))
+                }
+                val built = rb.build()
+                val needed = built.serializedSize
+                val outputBuf = LibViaduct.INSTANCE.viaduct_alloc_bytebuffer(needed)
+                try {
+                    // This is only null if we passed a negative number or something to
+                    // viaduct_alloc_bytebuffer.
+                    val stream = outputBuf.asCodedOutputStream()!!
+                    built.writeTo(stream)
+                    return outputBuf
+                } catch (e: Throwable) {
+                    // Note: we want to clean this up only if we are not returning it to rust.
+                    LibViaduct.INSTANCE.viaduct_destroy_bytebuffer(outputBuf)
+                    throw e
+                }
+            } finally {
+                LibViaduct.INSTANCE.viaduct_destroy_bytebuffer(b)
             }
-        } finally {
-            LibViaduct.INSTANCE.viaduct_destroy_bytebuffer(b)
         }
     }
 }
