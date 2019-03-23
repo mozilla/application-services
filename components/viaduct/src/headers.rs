@@ -143,6 +143,7 @@ impl Headers {
     /// ## Example
     /// ```
     /// # use viaduct::Headers;
+    /// # fn main() -> Result<(), viaduct::Error> {
     /// let mut h = Headers::new();
     /// h.insert("My-Cool-Header", "example")?;
     /// assert_eq!(h.get("My-Cool-Header"), Some("example"));
@@ -154,6 +155,8 @@ impl Headers {
     /// // you can chain the result of this function.
     /// h.insert(viaduct::header_names::CONTENT_TYPE, "something...")?
     ///  .insert("Something-Else", "etc")?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn insert<N, V>(&mut self, name: N, value: V) -> Result<&mut Self, crate::Error>
     where
@@ -234,10 +237,13 @@ impl Headers {
     /// ## Example
     /// ```
     /// # use viaduct::{Headers, header_names::CONTENT_TYPE};
+    /// # fn main() -> Result<(), viaduct::Error> {
     /// let mut h = Headers::new();
-    /// h.insert(CONTENT_TYPE, "application/json");
+    /// h.insert(CONTENT_TYPE, "application/json")?;
     /// assert_eq!(h.get(CONTENT_TYPE), Some("application/json"));
     /// assert_eq!(h.get("Something-Else"), None);
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn get<S>(&self, name: S) -> Option<&str>
     where
@@ -260,13 +266,16 @@ impl Headers {
     ///
     /// ```
     /// # use viaduct::Headers;
+    /// # fn main() -> Result<(), viaduct::Error> {
     /// let mut h = Headers::new();
-    /// h.insert("Example", "1234").insert("Illegal", "abcd");
+    /// h.insert("Example", "1234")?.insert("Illegal", "abcd")?;
     /// let v: Option<Result<i64, _>> = h.get_as("Example");
     /// assert_eq!(v, Some(Ok(1234)));
     /// assert_eq!(h.get_as::<i64, _>("Example"), Some(Ok(1234)));
     /// assert_eq!(h.get_as::<i64, _>("Illegal"), Some("abcd".parse::<i64>()));
     /// assert_eq!(h.get_as::<i64, _>("Something-Else"), None);
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn get_as<T, S>(&self, name: S) -> Option<Result<T, <T as FromStr>::Err>>
     where

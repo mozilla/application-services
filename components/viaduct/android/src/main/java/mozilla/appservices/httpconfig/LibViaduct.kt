@@ -28,6 +28,15 @@ internal interface LibViaduct : Library {
             val lib = Native.loadLibrary(JNA_LIBRARY_NAME, LibViaduct::class.java) as LibViaduct
             if (JNA_LIBRARY_NAME == "viaduct") {
                 // TODO Enable logging if we aren't in a megazord.
+            } else {
+                // We're in a megazord. If the build is properly configured,
+                // then this is effectively a no-op since . However, there are
+                // a lot of variables and things cargo doesn't exactly
+                // guarantee that we're relying on, so in the future it
+                // is possible that somehow a build ships that contains the
+                // rust backend by accident. Calling this means we'll still
+                // make our requests through OpenSSL.
+                viaduct_force_enable_ffi_backend(1)
             }
             lib
         } catch (e: UnsatisfiedLinkError) {

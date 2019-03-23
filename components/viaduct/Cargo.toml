@@ -8,6 +8,8 @@ edition = "2018"
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [features]
+# Unfortunate, but required to make our tests (which don't can't anything) work.
+default = ["rust-http-stack"]
 rust-http-stack = ["reqwest"]
 
 [dependencies]

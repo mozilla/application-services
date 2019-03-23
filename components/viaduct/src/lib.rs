@@ -168,11 +168,14 @@ impl Request {
     /// ```
     /// # use viaduct::{Request, header_names};
     /// # use url::Url;
+    /// # fn main() -> Result<(), viaduct::Error> {
     /// # let some_url = url::Url::parse("https://www.example.com").unwrap();
     /// Request::post(some_url)
     ///     .header(header_names::CONTENT_TYPE, "application/json")?
     ///     .header("My-Header", "Some special value")?;
     /// // ...
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn header<Name, Val>(mut self, name: Name, val: Val) -> Result<Self, crate::Error>
     where

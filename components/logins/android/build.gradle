@@ -65,10 +65,6 @@ cargo {
     profile = rootProject.ext.nonMegazordProfile
 
     exec = rootProject.ext.cargoExec
-
-    features {
-        defaultAnd("rust-http-stack")
-    }
 }
 
 configurations {
