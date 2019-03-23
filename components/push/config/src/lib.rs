@@ -26,9 +26,6 @@ pub struct PushConfiguration {
     // How often to ping server (1800s)
     pub ping_interval: u64,
 
-    // HTTP request timeout value (1s)
-    pub request_timeout: u64,
-
     // Sender/Application ID value
     pub sender_id: String,
 
@@ -48,7 +45,6 @@ impl Default for PushConfiguration {
             vapid_key: None,
             enabled: true,
             ping_interval: 1800,
-            request_timeout: 1,
             sender_id: String::from(""),
             database_path: None,
         }
