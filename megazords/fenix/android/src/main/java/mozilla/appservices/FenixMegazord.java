@@ -10,5 +10,6 @@ public class FenixMegazord {
         System.setProperty("mozilla.appservices.places_ffi_lib_name", "fenix");
         System.setProperty("mozilla.appservices.push_ffi_lib_name", "fenix");
         System.setProperty("mozilla.appservices.rc_log_ffi_lib_name", "fenix");
+        System.setProperty("mozilla.appservices.viaduct_lib_name", "fenix");
     }
 }

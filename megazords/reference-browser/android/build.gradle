@@ -87,6 +87,7 @@ dependencies {
     api project(path: ':places-library', configuration: 'withoutLib')
     api project(path: ':push-library', configuration: 'withoutLib')
     api project(path: ':rustlog-library', configuration: 'withoutLib')
+    api project(path: ':viaduct-library', configuration: 'withoutLib')
 
     jnaForTest 'net.java.dev.jna:jna:4.5.2@jar'
 }
