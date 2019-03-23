@@ -67,14 +67,14 @@ impl TokenFetcher for TokenServerFetcher {
             .header(
                 header_names::AUTHORIZATION,
                 format!("Bearer {}", self.access_token),
-            )
-            .header(header_names::X_KEY_ID, self.key_id.clone())
+            )?
+            .header(header_names::X_KEY_ID, self.key_id.clone())?
             .send()?;
 
         if !resp.is_success() {
             log::warn!("Non-success status when fetching token: {}", resp.status);
             // TODO: the body should be JSON and contain a status parameter we might need?
-            log::trace!("  Response body {}", resp.body_text);
+            log::trace!("  Response body {}", resp.text());
             // XXX - shouldn't we "chain" these errors - ie, a BackoffError could
             // have a TokenserverHttpError as its cause?
             if let Some(res) = resp.headers.get_as::<f64, _>(header_names::RETRY_AFTER) {

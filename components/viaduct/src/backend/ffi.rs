@@ -90,9 +90,20 @@ pub fn send(request: crate::Request) -> Result<crate::Response, Error> {
 
     let mut headers = crate::Headers::with_capacity(response.headers.len());
     for (name, val) in response.headers {
-        let hname = crate::HeaderName::new(name)
-            .map_err(|e| backend_error!("Response has illegal header name: {}", e))?;
-        headers.insert(hname, val);
+        let hname = match crate::HeaderName::new(name) {
+            Ok(name) => name,
+            Err(e) => {
+                // Ignore headers with invalid names, since nobody can look for them anyway.
+                log::warn!("Server sent back invalid header name: '{}'", e);
+                continue;
+            }
+        };
+        // Not using Header::new intentionally, since the error it returns is
+        // for request headers.
+        headers.insert_header(crate::Header {
+            name: hname,
+            value: val,
+        });
     }
 
     let url = url::Url::parse(
@@ -105,7 +116,7 @@ pub fn send(request: crate::Request) -> Result<crate::Response, Error> {
     Ok(crate::Response {
         url,
         request_method: method,
-        body_text: response.body.unwrap_or_default(),
+        body: response.body.unwrap_or_default(),
         status: status as u16,
         headers,
     })

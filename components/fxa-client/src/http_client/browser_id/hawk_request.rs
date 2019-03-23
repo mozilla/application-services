@@ -56,10 +56,10 @@ impl<'a> HawkRequestBuilder<'a> {
     pub fn build(self) -> Result<viaduct::Request> {
         let hawk_header = self.make_hawk_header()?;
         let mut request =
-            Request::new(self.method, self.url).header(header_names::AUTHORIZATION, hawk_header);
+            Request::new(self.method, self.url).header(header_names::AUTHORIZATION, hawk_header)?;
         if let Some(body) = self.body {
             request = request
-                .header(header_names::CONTENT_TYPE, "application/json")
+                .header(header_names::CONTENT_TYPE, "application/json")?
                 .body(body);
         }
         Ok(request)

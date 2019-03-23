@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::settings::GLOBAL_SETTINGS;
+use std::io::Read;
 
 // Note: we don't `use` things from reqwest or this crate because it
 // would be rather confusing given that we have the same name for
@@ -42,10 +43,8 @@ impl crate::Request {
         let mut result = reqwest::Request::new(method, self.url);
         for h in self.headers {
             use reqwest::header::{HeaderName, HeaderValue};
-            let value = HeaderValue::from_str(&h.value).map_err(|_| {
-                crate::Error::BackendError(format!("Invalid header value for header '{}'", h.name))
-            })?;
-            // Unwrap should be fine, we check this in our Headers type.
+            // Unwraps should be fine, we verify these in `Header`
+            let value = HeaderValue::from_str(&h.value).unwrap();
             result
                 .headers_mut()
                 .insert(HeaderName::from_bytes(h.name.as_bytes()).unwrap(), value);
@@ -64,25 +63,32 @@ pub fn send(request: crate::Request) -> Result<crate::Response, crate::Error> {
     })?;
     let status = resp.status().as_u16();
     let url = resp.url().clone();
-    let body_text = resp.text().map_err(|e| {
+    let mut body = Vec::with_capacity(resp.content_length().unwrap_or_default() as usize);
+    resp.read_to_end(&mut body).map_err(|e| {
         log::error!("Failed to get body from response: {:?}", e);
         crate::Error::NetworkError(e.to_string())
     })?;
     let mut headers = crate::Headers::with_capacity(resp.headers().len());
     for (k, v) in resp.headers() {
-        let val = std::str::from_utf8(v.as_bytes()).map_err(|_| {
-            log::error!("Server sent back non-utf8 value for header '{}'", k);
-            crate::Error::NetworkError(format!("Non UTF-8 data in header '{}'", k))
-        })?;
-        let hname = crate::HeaderName::new(k.as_str().to_owned()).map_err(|_| {
-            log::error!("Server sent back invalid header name: '{}'", k);
-            crate::Error::NetworkError(format!("Illegal header name '{}'", k))
-        })?;
-        headers.insert(hname, val);
+        let val = String::from_utf8_lossy(v.as_bytes()).to_string();
+        let hname = match crate::HeaderName::new(k.as_str().to_owned()) {
+            Ok(name) => name,
+            Err(e) => {
+                // Ignore headers with invalid names, since nobody can look for them anyway.
+                log::warn!("Server sent back invalid header name: '{}'", e);
+                continue;
+            }
+        };
+        // Not using Header::new intentionally, since the error it returns is
+        // for request headers.
+        headers.insert_header(crate::Header {
+            name: hname,
+            value: val,
+        });
     }
     Ok(crate::Response {
         request_method,
-        body_text,
+        body,
         url,
         status,
         headers,

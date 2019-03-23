@@ -113,13 +113,13 @@ impl Sync15StorageClient {
     #[inline]
     fn authorized(&self, req: Request) -> error::Result<Request> {
         let hawk_header_value = self.tsc.authorization(&req)?;
-        Ok(req.header(AUTHORIZATION, hawk_header_value))
+        Ok(req.header(AUTHORIZATION, hawk_header_value)?)
     }
 
     // TODO: probably want a builder-like API to do collection requests (e.g. something
     // that occupies roughly the same conceptual role as the Collection class in desktop)
     fn build_request(&self, method: Method, url: Url) -> error::Result<Request> {
-        self.authorized(Request::new(method, url).header(header_names::ACCEPT, "application/json"))
+        self.authorized(Request::new(method, url).header(header_names::ACCEPT, "application/json")?)
     }
 
     fn relative_storage_request<T>(
@@ -209,7 +209,7 @@ impl Sync15StorageClient {
         let mut req = self.build_request(Method::Put, url)?.json(body);
 
         if let Some(ts) = xius {
-            req = req.header(header_names::X_IF_UNMODIFIED_SINCE, format!("{}", ts));
+            req = req.header(header_names::X_IF_UNMODIFIED_SINCE, format!("{}", ts))?;
         }
 
         let _ = self.exec_request(req, true)?;
@@ -244,9 +244,9 @@ impl<'a> BatchPoster for PostWrapper<'a> {
         let req = self
             .client
             .build_request(Method::Post, url)?
-            .header(header_names::CONTENT_TYPE, "application/json")
-            .header(header_names::X_IF_UNMODIFIED_SINCE, format!("{}", xius))
-            .body(String::from_utf8(bytes).expect("Bug: BatchPoster produced invalid UTF-8!"));
+            .header(header_names::CONTENT_TYPE, "application/json")?
+            .header(header_names::X_IF_UNMODIFIED_SINCE, format!("{}", xius))?
+            .body(bytes);
         let resp = self.client.exec_request(req, false)?;
         Ok(PostResponse::from_response(&resp)?)
     }

@@ -6,8 +6,8 @@ use failure::Fail;
 
 #[derive(Debug, Fail)]
 pub enum Error {
-    #[fail(display = "Incomplete RequestBuilder: {}", _0)]
-    BuildError(&'static str),
+    #[fail(display = "Illegal characters in request header '{}'", _0)]
+    RequestHeaderError(crate::HeaderName),
 
     #[fail(display = "Backend error: {}", _0)]
     BackendError(String),

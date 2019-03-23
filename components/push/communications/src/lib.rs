@@ -230,7 +230,7 @@ impl Connection for ConnectHttp {
         }
         match Request::delete(Url::parse(&url)?)
             .header(header_names::AUTHORIZATION, self.auth.clone().unwrap())
-            .send()
+            .and_then(|r| r.send())
         {
             Ok(_) => Ok(true),
             Err(e) => {
@@ -267,7 +267,7 @@ impl Connection for ConnectHttp {
         match Request::put(Url::parse(&url)?)
             .json(&body)
             .header(header_names::AUTHORIZATION, self.auth.clone().unwrap())
-            .send()
+            .and_then(|r| r.send())
         {
             Ok(_) => Ok(true),
             Err(e) => {
@@ -303,7 +303,7 @@ impl Connection for ConnectHttp {
         );
         let request = match Request::get(Url::parse(&url)?)
             .header(header_names::AUTHORIZATION, self.auth.clone().unwrap())
-            .send()
+            .and_then(|r| r.send())
         {
             Ok(v) => v,
             Err(e) => {

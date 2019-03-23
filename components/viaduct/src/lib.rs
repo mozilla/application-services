@@ -63,7 +63,7 @@ pub struct Request {
     pub method: Method,
     pub url: Url,
     pub headers: Headers,
-    pub body: Option<String>,
+    pub body: Option<Vec<u8>>,
 }
 
 impl Request {
@@ -161,27 +161,30 @@ impl Request {
 
     /// Add the provided header to the list of headers to send with this request.
     ///
+    /// This returns `Err` if `val` contains characters that may not appear in
+    /// the body of a header.
+    ///
     /// ## Example
     /// ```
     /// # use viaduct::{Request, header_names};
     /// # use url::Url;
     /// # let some_url = url::Url::parse("https://www.example.com").unwrap();
     /// Request::post(some_url)
-    ///     .header(header_names::CONTENT_TYPE, "application/json")
-    ///     .header("My-Header", "Some special value");
+    ///     .header(header_names::CONTENT_TYPE, "application/json")?
+    ///     .header("My-Header", "Some special value")?;
     /// // ...
     /// ```
-    pub fn header<Name, Val>(mut self, name: Name, val: Val) -> Self
+    pub fn header<Name, Val>(mut self, name: Name, val: Val) -> Result<Self, crate::Error>
     where
         Name: Into<HeaderName> + PartialEq<HeaderName>,
-        Val: Into<String>,
+        Val: Into<String> + AsRef<str>,
     {
-        self.headers.insert(name, val);
-        self
+        self.headers.insert(name, val)?;
+        Ok(self)
     }
 
     /// Set this request's body.
-    pub fn body(mut self, body: impl Into<String>) -> Self {
+    pub fn body(mut self, body: impl Into<Vec<u8>>) -> Self {
         self.body = Some(body.into());
         self
     }
@@ -189,7 +192,7 @@ impl Request {
     /// Set body to the result of serializing `val`, and, unless it has already
     /// been set, set the Content-Type header to "application/json".
     ///
-    /// Note: This panics if serde_json::to_string fails. This can only happen
+    /// Note: This panics if serde_json::to_vec fails. This can only happen
     /// in a couple cases:
     ///
     /// 1. Trying to serialize a map with non-string keys.
@@ -200,11 +203,11 @@ impl Request {
     /// to fail with a JSON parse error (which we'd probably attribute to
     /// corrupt data on the server, or something).
     pub fn json<T: ?Sized + serde::Serialize>(mut self, val: &T) -> Self {
-        self.body = Some(
-            serde_json::to_string(val).expect("Rust component bug: serde_json::to_string failure"),
-        );
+        self.body =
+            Some(serde_json::to_vec(val).expect("Rust component bug: serde_json::to_vec failure"));
         self.headers
-            .insert_or_ignore(header_names::CONTENT_TYPE, "application/json");
+            .insert_if_missing(header_names::CONTENT_TYPE, "application/json")
+            .unwrap(); // We know this has to be valid.
         self
     }
 }
@@ -222,15 +225,22 @@ pub struct Response {
     pub headers: Headers,
     /// The body of the response. Note that responses with binary bodies are
     /// currently unsupported.
-    pub body_text: String,
+    pub body: Vec<u8>,
 }
 
 impl Response {
+    /// Parse the body as JSON.
     pub fn json<'a, T>(&'a self) -> Result<T, serde_json::Error>
     where
         T: serde::Deserialize<'a>,
     {
-        serde_json::from_str(&self.body_text)
+        serde_json::from_slice(&self.body)
+    }
+
+    /// Get the body as a string. Assumes UTF-8 encoding. Any non-utf8 bytes
+    /// are replaced with the replacement character.
+    pub fn text(&self) -> std::borrow::Cow<str> {
+        String::from_utf8_lossy(&self.body)
     }
 
     /// Returns true if the status code is in the interval `[200, 300)`.

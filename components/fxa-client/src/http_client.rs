@@ -45,9 +45,9 @@ impl FxAClient for Client {
         let mut request = Request::get(url).header(
             header_names::AUTHORIZATION,
             format!("Bearer {}", profile_access_token),
-        );
+        )?;
         if let Some(etag) = etag {
-            request = request.header(header_names::IF_NONE_MATCH, format!("\"{}\"", etag));
+            request = request.header(header_names::IF_NONE_MATCH, format!("\"{}\"", etag))?;
         }
         let resp = Self::make_request(request)?;
         if resp.status == status_codes::NOT_MODIFIED {

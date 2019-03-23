@@ -7,11 +7,87 @@ use std::iter::FromIterator;
 use std::str::FromStr;
 mod name;
 
-/// A single header. Typically you will not interact with this directly.
+/// A single header. Headers have a name (case insensitive) and a value. The
+/// character set for header and values are both restrictive.
+/// - Names must only contain a-zA-Z0-9 and and ('!' | '#' | '$' | '%' | '&' |
+///   '\'' | '*' | '+' | '-' | '.' | '^' | '_' | '`' | '|' | '~') characters
+///   (the field-name token production defined at
+///   https://tools.ietf.org/html/rfc7230#section-3.2).
+///   For request headers, we expect these to all be specified statically,
+///   and so we panic if you provide an invalid one. (For response headers, we
+///   ignore headers with invalid names, but emit a warning).
+///
+///   Header names are case insensitive, and we have several pre-defined ones in
+///   the [`header_names`] module.
+///
+/// - Values may only contain printable ascii characters, and may not contain
+///   \r or \n. Strictly speaking, HTTP is more flexible for header values,
+///   however we don't need to support binary header values, and so we do not.
+///
+/// Note that typically you should not interact with this directly, and instead
+/// use the methods on [`Request`] or [`Headers`] to manipulate these.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Hash, Eq, Ord)]
 pub struct Header {
-    pub name: HeaderName,
-    pub value: String,
+    pub(crate) name: HeaderName,
+    pub(crate) value: String,
+}
+
+// Trim `s` without copying if it can be avoided.
+fn trim_string<S: AsRef<str> + Into<String>>(s: S) -> String {
+    let sr = s.as_ref();
+    let trimmed = sr.trim();
+    if sr.len() != trimmed.len() {
+        trimmed.into()
+    } else {
+        s.into()
+    }
+}
+
+fn is_valid_header_value(value: &str) -> bool {
+    value.bytes().all(|b| (32 <= b && b < 127) || b == b'\t')
+}
+
+impl Header {
+    pub fn new<Name, Value>(name: Name, value: Value) -> Result<Self, crate::Error>
+    where
+        Name: Into<HeaderName>,
+        Value: AsRef<str> + Into<String>,
+    {
+        let name = name.into();
+        let value = trim_string(value);
+        if !is_valid_header_value(&value) {
+            return Err(crate::Error::RequestHeaderError(name));
+        }
+        Ok(Self { name, value })
+    }
+
+    #[inline]
+    pub fn name(&self) -> &HeaderName {
+        &self.name
+    }
+
+    #[inline]
+    pub fn value(&self) -> &str {
+        &self.value
+    }
+
+    #[inline]
+    fn set_value<V: AsRef<str>>(&mut self, s: V) -> Result<(), crate::Error> {
+        let value = s.as_ref();
+        if !is_valid_header_value(&value) {
+            Err(crate::Error::RequestHeaderError(self.name.clone()))
+        } else {
+            self.value.clear();
+            self.value.push_str(s.as_ref().trim());
+            Ok(())
+        }
+    }
+}
+
+impl std::fmt::Display for Header {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}: {}", self.name, self.value)
+    }
 }
 
 /// A list of headers.
@@ -60,11 +136,15 @@ impl Headers {
 
     /// Insert or update a new header.
     ///
+    /// This returns an error if you attempt to specify a header with an
+    /// invalid value (values must be printable ASCII and may not contain
+    /// \r or \n)
+    ///
     /// ## Example
     /// ```
     /// # use viaduct::Headers;
     /// let mut h = Headers::new();
-    /// h.insert("My-Cool-Header", "example");
+    /// h.insert("My-Cool-Header", "example")?;
     /// assert_eq!(h.get("My-Cool-Header"), Some("example"));
     ///
     /// // Note: names are sensitive
@@ -72,40 +152,34 @@ impl Headers {
     ///
     /// // Also note, constants for headers are in `viaduct::header_names`, and
     /// // you can chain the result of this function.
-    /// h.insert(viaduct::header_names::CONTENT_TYPE, "something...")
-    ///  .insert("Something-Else", "etc");
+    /// h.insert(viaduct::header_names::CONTENT_TYPE, "something...")?
+    ///  .insert("Something-Else", "etc")?;
     /// ```
-    pub fn insert<N, V>(&mut self, name: N, value: V) -> &mut Self
+    pub fn insert<N, V>(&mut self, name: N, value: V) -> Result<&mut Self, crate::Error>
     where
         N: Into<HeaderName> + PartialEq<HeaderName>,
-        V: Into<String>,
+        V: Into<String> + AsRef<str>,
     {
         if let Some(entry) = self.headers.iter_mut().find(|h| name == h.name) {
-            entry.value = value.into();
+            entry.set_value(value)?;
         } else {
-            self.headers.push(Header {
-                name: name.into(),
-                value: value.into(),
-            });
+            self.headers.push(Header::new(name, value)?);
         }
-        self
+        Ok(self)
     }
 
     /// Insert the provided header unless a header is already specified.
     /// Mostly used internally, e.g. to set "Content-Type: application/json"
     /// in `Request::json()` unless it has been set specifically.
-    pub fn insert_or_ignore<N, V>(&mut self, name: N, value: V) -> &mut Self
+    pub fn insert_if_missing<N, V>(&mut self, name: N, value: V) -> Result<&mut Self, crate::Error>
     where
         N: Into<HeaderName> + PartialEq<HeaderName>,
-        V: Into<String>,
+        V: Into<String> + AsRef<str>,
     {
         if !self.headers.iter_mut().any(|h| name == h.name) {
-            self.headers.push(Header {
-                name: name.into(),
-                value: value.into(),
-            });
+            self.headers.push(Header::new(name, value)?);
         }
-        self
+        Ok(self)
     }
 
     /// Insert or update a header directly. Typically you will want to use
@@ -131,6 +205,17 @@ impl Headers {
             self.insert_header(h);
         }
         self
+    }
+
+    /// Add all the headers in the provided iterator, unless any of them are Err.
+    pub fn try_extend<I, E>(&mut self, iter: I) -> Result<&mut Self, E>
+    where
+        I: IntoIterator<Item = Result<Header, E>>,
+    {
+        // Not the most efficient but avoids leaving us in an unspecified state
+        // if one returns Err.
+        self.extend(iter.into_iter().collect::<Result<Vec<_>, E>>()?);
+        Ok(self)
     }
 
     /// Get the header object with the requested name. Usually, you will

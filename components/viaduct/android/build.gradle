@@ -112,6 +112,8 @@ protobuf {
     }
 }
 dependencies {
+    api 'org.mozilla.components:concept-fetch:0.47.0'
+
     jnaForTest 'net.java.dev.jna:jna:4.5.2@jar'
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
