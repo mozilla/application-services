@@ -3,7 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::record::{
-    BookmarkItemRecord, BookmarkRecord, FolderRecord, LivemarkRecord, QueryRecord, SeparatorRecord,
+    BookmarkItemRecord, BookmarkRecord, BookmarkRecordId, FolderRecord, LivemarkRecord,
+    QueryRecord, SeparatorRecord,
 };
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::error::*;
@@ -38,16 +39,20 @@ impl<'a> IncomingApplicator<'a> {
         payload: sync15::Payload,
         timestamp: ServerTimestamp,
     ) -> Result<()> {
-        let item = BookmarkItemRecord::from_payload(payload)?;
-        match item {
-            BookmarkItemRecord::Tombstone(guid) => {
-                self.store_incoming_tombstone(timestamp, &guid)?
+        if payload.is_tombstone() {
+            self.store_incoming_tombstone(
+                timestamp,
+                BookmarkRecordId::from_payload_id(payload.id).as_guid(),
+            )?;
+        } else {
+            let item: BookmarkItemRecord = payload.into_record()?;
+            match item {
+                BookmarkItemRecord::Bookmark(b) => self.store_incoming_bookmark(timestamp, b)?,
+                BookmarkItemRecord::Query(q) => self.store_incoming_query(timestamp, q)?,
+                BookmarkItemRecord::Folder(f) => self.store_incoming_folder(timestamp, f)?,
+                BookmarkItemRecord::Livemark(l) => self.store_incoming_livemark(timestamp, l)?,
+                BookmarkItemRecord::Separator(s) => self.store_incoming_sep(timestamp, s)?,
             }
-            BookmarkItemRecord::Bookmark(b) => self.store_incoming_bookmark(timestamp, b)?,
-            BookmarkItemRecord::Query(q) => self.store_incoming_query(timestamp, q)?,
-            BookmarkItemRecord::Folder(f) => self.store_incoming_folder(timestamp, f)?,
-            BookmarkItemRecord::Livemark(l) => self.store_incoming_livemark(timestamp, l)?,
-            BookmarkItemRecord::Separator(s) => self.store_incoming_sep(timestamp, s)?,
         }
         Ok(())
     }
@@ -86,8 +91,8 @@ impl<'a> IncomingApplicator<'a> {
                       END
                       )"#,
             &[
-                (":guid", &b.guid.as_ref()),
-                (":parentGuid", &b.parent_guid.as_ref()),
+                (":guid", &b.record_id.as_guid().as_ref()),
+                (":parentGuid", &b.parent_record_id.as_ref().map(|id| id.as_guid())),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Bookmark),
                 (":dateAdded", &b.date_added),
@@ -115,7 +120,7 @@ impl<'a> IncomingApplicator<'a> {
                                  WHERE guid = :guid),
                                 (SELECT id FROM moz_tags
                                  WHERE tag = :tag))",
-                        &[(":guid", &b.guid.as_ref()), (":tag", t)],
+                        &[(":guid", &b.record_id.as_guid().as_ref()), (":tag", t)],
                     )?;
                 }
             };
@@ -123,28 +128,28 @@ impl<'a> IncomingApplicator<'a> {
         Ok(())
     }
 
-    fn store_incoming_folder(&self, modified: ServerTimestamp, b: FolderRecord) -> Result<()> {
+    fn store_incoming_folder(&self, modified: ServerTimestamp, f: FolderRecord) -> Result<()> {
         self.db.execute_named_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
                                                  dateAdded, title)
                VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
                       :dateAdded, NULLIF(:title, ""))"#,
             &[
-                (":guid", &b.guid.as_ref()),
-                (":parentGuid", &b.parent_guid.as_ref()),
+                (":guid", &f.record_id.as_guid().as_ref()),
+                (":parentGuid", &f.parent_record_id.as_ref().map(|id| id.as_guid())),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Folder),
-                (":dateAdded", &b.date_added),
-                (":title", &maybe_truncate_title(&b.title)),
+                (":dateAdded", &f.date_added),
+                (":title", &maybe_truncate_title(&f.title)),
             ],
         )?;
-        for (position, child_guid) in b.children.iter().enumerate() {
+        for (position, child_guid) in f.children.iter().enumerate() {
             self.db.execute_named_cached(
                 "INSERT INTO moz_bookmarks_synced_structure(guid, parentGuid, position)
                  VALUES(:guid, :parentGuid, :position)",
                 &[
-                    (":guid", &child_guid),
-                    (":parentGuid", &b.guid.as_ref()),
+                    (":guid", &child_guid.as_guid().as_ref()),
+                    (":parentGuid", &f.record_id.as_guid().as_ref()),
                     (":position", &(position as i64)),
                 ],
             )?;
@@ -220,7 +225,12 @@ impl<'a> IncomingApplicator<'a> {
         Ok(match self.maybe_store_url(maybe_url) {
             Ok(url) => (Some(url), validity),
             Err(e) => {
-                log::warn!("query {} has invalid URL '{:?}': {:?}", q.guid, q.url, e);
+                log::warn!(
+                    "query {} has invalid URL '{:?}': {:?}",
+                    q.record_id.as_guid(),
+                    q.url,
+                    e
+                );
                 (None, SyncedBookmarkValidity::Replace)
             }
         })
@@ -230,7 +240,11 @@ impl<'a> IncomingApplicator<'a> {
         let (url, validity) = match q.url.as_ref().and_then(|href| Url::parse(href).ok()) {
             Some(url) => self.determine_query_url_and_validity(&q, url)?,
             None => {
-                log::warn!("query {} has invalid URL '{:?}'", q.guid, q.url);
+                log::warn!(
+                    "query {} has invalid URL '{:?}'",
+                    q.record_id.as_guid(),
+                    q.url
+                );
                 (None, SyncedBookmarkValidity::Replace)
             }
         };
@@ -246,8 +260,8 @@ impl<'a> IncomingApplicator<'a> {
                       )
                      )"#,
             &[
-                (":guid", &q.guid.as_ref()),
-                (":parentGuid", &q.parent_guid.as_ref()),
+                (":guid", &q.record_id.as_guid().as_ref()),
+                (":parentGuid", &q.parent_record_id.as_ref().map(|id| id.as_guid())),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Query),
                 (":dateAdded", &q.date_added),
@@ -290,8 +304,8 @@ impl<'a> IncomingApplicator<'a> {
                 }
             }
         }
-        let feed_url = validate_href(l.feed_url, &l.guid, "feed");
-        let site_url = validate_href(l.site_url, &l.guid, "site");
+        let feed_url = validate_href(l.feed_url, &l.record_id.as_guid(), "feed");
+        let site_url = validate_href(l.site_url, &l.record_id.as_guid(), "site");
         let validity = if feed_url.is_some() {
             SyncedBookmarkValidity::Valid
         } else {
@@ -303,8 +317,11 @@ impl<'a> IncomingApplicator<'a> {
              VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
                     :dateAdded, :title, :feedUrl, :siteUrl, :validity)",
             &[
-                (":guid", &l.guid.as_ref()),
-                (":parentGuid", &l.parent_guid.as_ref()),
+                (":guid", &l.record_id.as_guid().as_ref()),
+                (
+                    ":parentGuid",
+                    &l.parent_record_id.as_ref().map(|id| id.as_guid()),
+                ),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Livemark),
                 (":dateAdded", &l.date_added),
@@ -324,8 +341,11 @@ impl<'a> IncomingApplicator<'a> {
              VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
                     :dateAdded)",
             &[
-                (":guid", &s.guid.as_ref()),
-                (":parentGuid", &s.parent_guid.as_ref()),
+                (":guid", &s.record_id.as_guid().as_ref()),
+                (
+                    ":parentGuid",
+                    &s.parent_record_id.as_ref().map(|id| id.as_guid()),
+                ),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Separator),
                 (":dateAdded", &s.date_added),

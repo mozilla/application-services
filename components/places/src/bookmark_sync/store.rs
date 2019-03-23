@@ -5,7 +5,7 @@
 use super::create_synced_bookmark_roots;
 use super::incoming::IncomingApplicator;
 use super::record::{
-    guid_to_id, id_to_guid, BookmarkItemRecord, BookmarkRecord, FolderRecord, QueryRecord,
+    BookmarkItemRecord, BookmarkRecord, BookmarkRecordId, FolderRecord, QueryRecord,
     SeparatorRecord,
 };
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
@@ -254,7 +254,8 @@ impl<'a> BookmarksStore<'a> {
     /// Inflates Sync records for all staged outgoing items.
     fn fetch_outgoing_records(&self, timestamp: ServerTimestamp) -> Result<OutgoingChangeset> {
         let mut outgoing = OutgoingChangeset::new(self.collection_name().into(), timestamp);
-        let mut child_guids_by_local_parent_id: HashMap<i64, Vec<SyncGuid>> = HashMap::new();
+        let mut child_record_ids_by_local_parent_id: HashMap<i64, Vec<BookmarkRecordId>> =
+            HashMap::new();
         let mut tags_by_local_id: HashMap<i64, Vec<String>> = HashMap::new();
 
         let mut stmt = self.db.prepare(
@@ -266,10 +267,10 @@ impl<'a> BookmarksStore<'a> {
             let row = result?;
             let local_parent_id = row.get_checked::<_, i64>("parentId")?;
             let child_guid = row.get_checked::<_, SyncGuid>("guid")?;
-            let child_guids = child_guids_by_local_parent_id
+            let child_record_ids = child_record_ids_by_local_parent_id
                 .entry(local_parent_id)
                 .or_default();
-            child_guids.push(child_guid);
+            child_record_ids.push(child_guid.into());
         }
 
         let mut stmt = self.db.prepare("SELECT id, tag FROM tagsToUpload")?;
@@ -294,9 +295,9 @@ impl<'a> BookmarksStore<'a> {
             let guid = row.get_checked::<_, SyncGuid>("guid")?;
             let is_deleted = row.get_checked::<_, bool>("isDeleted")?;
             if is_deleted {
-                outgoing
-                    .changes
-                    .push(Payload::new_tombstone(guid_to_id(&guid).into()));
+                outgoing.changes.push(Payload::new_tombstone(
+                    BookmarkRecordId::from(guid).into_payload_id(),
+                ));
                 continue;
             }
             let parent_guid = row.get_checked::<_, SyncGuid>("parentGuid")?;
@@ -309,10 +310,11 @@ impl<'a> BookmarksStore<'a> {
                         let title = row.get_checked::<_, String>("title")?;
                         let url = row.get_checked::<_, String>("url")?;
                         BookmarkRecord {
-                            guid,
-                            parent_guid: Some(parent_guid),
+                            record_id: guid.into(),
+                            parent_record_id: Some(parent_guid.into()),
                             parent_title: Some(parent_title),
                             date_added: Some(date_added),
+                            has_dupe: true,
                             title: Some(title),
                             url: Some(url),
                             keyword: row.get_checked::<_, Option<String>>("keyword")?,
@@ -324,10 +326,11 @@ impl<'a> BookmarksStore<'a> {
                         let title = row.get_checked::<_, String>("title")?;
                         let url = row.get_checked::<_, String>("url")?;
                         QueryRecord {
-                            guid,
-                            parent_guid: Some(parent_guid),
+                            record_id: guid.into(),
+                            parent_record_id: Some(parent_guid.into()),
                             parent_title: Some(parent_title),
                             date_added: Some(date_added),
+                            has_dupe: true,
                             title: Some(title),
                             url: Some(url),
                             tag_folder_name: None,
@@ -337,14 +340,15 @@ impl<'a> BookmarksStore<'a> {
                     SyncedBookmarkKind::Folder => {
                         let title = row.get_checked::<_, String>("title")?;
                         let local_id = row.get_checked::<_, i64>("id")?;
-                        let children = child_guids_by_local_parent_id
+                        let children = child_record_ids_by_local_parent_id
                             .remove(&local_id)
                             .unwrap_or_default();
                         FolderRecord {
-                            guid,
-                            parent_guid: Some(parent_guid),
+                            record_id: guid.into(),
+                            parent_record_id: Some(parent_guid.into()),
                             parent_title: Some(parent_title),
                             date_added: Some(date_added),
+                            has_dupe: true,
                             title: Some(title),
                             children,
                         }
@@ -354,10 +358,11 @@ impl<'a> BookmarksStore<'a> {
                     SyncedBookmarkKind::Separator => {
                         let position = row.get_checked::<_, i64>("position")?;
                         SeparatorRecord {
-                            guid,
-                            parent_guid: Some(parent_guid),
+                            record_id: guid.into(),
+                            parent_record_id: Some(parent_guid.into()),
                             parent_title: Some(parent_title),
                             date_added: Some(date_added),
+                            has_dupe: true,
                             position: Some(position),
                         }
                         .into()
@@ -380,23 +385,23 @@ impl<'a> BookmarksStore<'a> {
         // Flag all successfully synced records as uploaded. This `UPDATE` fires
         // the `pushUploadedChanges` trigger, which updates local change
         // counters and writes the items back to the synced bookmarks table.
-        sql_support::each_chunk_mapped(
-            &records_synced,
-            |id| id_to_guid(id.clone()),
-            |chunk, _| -> Result<()> {
-                self.db.execute(
-                    &format!(
-                        "UPDATE itemsToUpload SET
+        let guids = records_synced
+            .into_iter()
+            .map(|id| BookmarkRecordId::from_payload_id(id).into())
+            .collect::<Vec<SyncGuid>>();
+        sql_support::each_chunk(&guids, |chunk, _| -> Result<()> {
+            self.db.execute(
+                &format!(
+                    "UPDATE itemsToUpload SET
                          uploadedAt = {uploaded_at}
                          WHERE guid IN ({values})",
-                        uploaded_at = uploaded_at.as_millis(),
-                        values = sql_support::repeat_sql_values(chunk.len())
-                    ),
-                    chunk,
-                )?;
-                Ok(())
-            },
-        )?;
+                    uploaded_at = uploaded_at.as_millis(),
+                    values = sql_support::repeat_sql_values(chunk.len())
+                ),
+                chunk,
+            )?;
+            Ok(())
+        })?;
 
         // Fast-forward the last sync time, so that we don't download the
         // records we just uploaded on the next sync.

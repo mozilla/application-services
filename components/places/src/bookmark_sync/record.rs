@@ -2,62 +2,153 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{error::*, storage::bookmarks::BookmarkRootGuid, types::SyncGuid};
-use serde::{de, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt;
 
-/// All possible fields that can appear in a bookmark record.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct RawBookmarkItemRecord {
-    id: String,
-    #[serde(rename = "type")]
-    kind: String,
-    #[serde(rename = "parentid")]
-    parent_id: Option<String>,
-    #[serde(rename = "parentName")]
-    parent_title: Option<String>,
-    date_added: Option<i64>,
+use crate::{storage::bookmarks::BookmarkRootGuid, types::SyncGuid};
+use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
-    // For bookmarks, queries, folders, and livemarks.
-    title: Option<String>,
+/// A bookmark record ID. Bookmark record IDs are the same as Places GUIDs,
+/// except for the Places root, which is "places", and the four user content
+/// roots, which omit trailing underscores. This wrapper helpsavoid mix-ups like
+/// storing a record ID instead of a GUID, or uploading a GUID instead of a
+/// record ID.
+///
+/// Internally, we convert record IDs to GUIDs when applying incoming records,
+/// and only convert back to GUIDs once we're ready to upload.
+#[derive(Debug)]
+pub struct BookmarkRecordId(SyncGuid);
 
-    // For bookmarks and queries.
-    #[serde(rename = "bmkUri")]
-    url: Option<String>,
+impl BookmarkRecordId {
+    /// Creates a bookmark record ID from a Sync record payload ID.
+    pub fn from_payload_id(payload_id: String) -> BookmarkRecordId {
+        BookmarkRecordId(match payload_id.as_str() {
+            "places" => BookmarkRootGuid::Root.as_guid(),
+            "menu" => BookmarkRootGuid::Menu.as_guid(),
+            "toolbar" => BookmarkRootGuid::Toolbar.as_guid(),
+            "unfiled" => BookmarkRootGuid::Unfiled.as_guid(),
+            "mobile" => BookmarkRootGuid::Mobile.as_guid(),
+            _ => SyncGuid(payload_id),
+        })
+    }
 
-    // For bookmarks only.
-    keyword: Option<String>,
-    tags: Option<Vec<String>>,
+    /// Returns a reference to the record payload ID. This is the borrowed
+    /// version of `into_payload_id`, and used for serialization.
+    #[inline]
+    pub fn as_payload_id(&self) -> &str {
+        self.root_payload_id().unwrap_or_else(|| self.0.as_ref())
+    }
 
-    // For queries only.
-    #[serde(rename = "folderName")]
-    tag_folder_name: Option<String>,
+    /// Returns the record payload ID. This is the owned version of
+    /// `as_payload_id`, and exists to avoid copying strings when uploading
+    /// tombstones.
+    #[inline]
+    pub fn into_payload_id(self) -> String {
+        self.root_payload_id()
+            .map(|p| p.into())
+            .unwrap_or_else(|| (self.0).0)
+    }
 
-    // For folders only.
-    children: Option<Vec<SyncGuid>>,
+    /// Returns a reference to the GUID for this record ID.
+    #[inline]
+    pub fn as_guid(&self) -> &SyncGuid {
+        &self.0
+    }
 
-    // For livemarks only.
-    #[serde(rename = "feedUri")]
-    feed_url: Option<String>,
-    #[serde(rename = "siteUri")]
-    site_url: Option<String>,
-
-    // For separators only.
-    #[serde(rename = "pos")]
-    position: Option<i64>,
+    fn root_payload_id(&self) -> Option<&str> {
+        Some(match BookmarkRootGuid::from_guid(self.as_guid()) {
+            Some(BookmarkRootGuid::Root) => "places",
+            Some(BookmarkRootGuid::Menu) => "menu",
+            Some(BookmarkRootGuid::Toolbar) => "toolbar",
+            Some(BookmarkRootGuid::Unfiled) => "unfiled",
+            Some(BookmarkRootGuid::Mobile) => "mobile",
+            None => return None,
+        })
+    }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq)]
+/// Converts a Places GUID into a bookmark record ID.
+impl From<SyncGuid> for BookmarkRecordId {
+    #[inline]
+    fn from(guid: SyncGuid) -> BookmarkRecordId {
+        BookmarkRecordId(guid)
+    }
+}
+
+/// Converts a bookmark record ID into a Places GUID.
+impl From<BookmarkRecordId> for SyncGuid {
+    #[inline]
+    fn from(record_id: BookmarkRecordId) -> SyncGuid {
+        record_id.0
+    }
+}
+
+impl Serialize for BookmarkRecordId {
+    #[inline]
+    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_payload_id())
+    }
+}
+
+impl<'de> Deserialize<'de> for BookmarkRecordId {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        struct V;
+
+        impl<'de> Visitor<'de> for V {
+            type Value = BookmarkRecordId;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("a bookmark record ID")
+            }
+
+            fn visit_string<E: de::Error>(
+                self,
+                payload_id: String,
+            ) -> std::result::Result<BookmarkRecordId, E> {
+                Ok(BookmarkRecordId::from_payload_id(payload_id))
+            }
+
+            fn visit_str<E: de::Error>(
+                self,
+                payload_id: &str,
+            ) -> std::result::Result<BookmarkRecordId, E> {
+                Ok(BookmarkRecordId::from_payload_id(payload_id.into()))
+            }
+        }
+
+        deserializer.deserialize_str(V)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BookmarkRecord {
     // Note that `SyncGuid` does not check for validity, which is what we
     // want. If the bookmark has an invalid GUID, we'll make a new one.
-    pub guid: SyncGuid,
-    pub parent_guid: Option<SyncGuid>,
+    #[serde(rename = "id")]
+    pub record_id: BookmarkRecordId,
+
+    #[serde(rename = "parentid")]
+    pub parent_record_id: Option<BookmarkRecordId>,
+
+    #[serde(rename = "parentName", skip_serializing_if = "Option::is_none")]
     pub parent_title: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub date_added: Option<i64>,
+
+    #[serde(default)]
+    pub has_dupe: bool,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+
+    #[serde(rename = "bmkUri", skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub keyword: Option<String>,
+
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
 }
 
@@ -67,14 +158,31 @@ impl From<BookmarkRecord> for BookmarkItemRecord {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QueryRecord {
-    pub guid: SyncGuid,
-    pub parent_guid: Option<SyncGuid>,
+    #[serde(rename = "id")]
+    pub record_id: BookmarkRecordId,
+
+    #[serde(rename = "parentid")]
+    pub parent_record_id: Option<BookmarkRecordId>,
+
+    #[serde(rename = "parentName", skip_serializing_if = "Option::is_none")]
     pub parent_title: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub date_added: Option<i64>,
+
+    #[serde(default)]
+    pub has_dupe: bool,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+
+    #[serde(rename = "bmkUri", skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
+
+    #[serde(rename = "folderName", skip_serializing_if = "Option::is_none")]
     pub tag_folder_name: Option<String>,
 }
 
@@ -84,14 +192,29 @@ impl From<QueryRecord> for BookmarkItemRecord {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FolderRecord {
-    pub guid: SyncGuid,
-    pub parent_guid: Option<SyncGuid>,
+    #[serde(rename = "id")]
+    pub record_id: BookmarkRecordId,
+
+    #[serde(rename = "parentid")]
+    pub parent_record_id: Option<BookmarkRecordId>,
+
+    #[serde(rename = "parentName", skip_serializing_if = "Option::is_none")]
     pub parent_title: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub date_added: Option<i64>,
+
+    #[serde(default)]
+    pub has_dupe: bool,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
-    pub children: Vec<SyncGuid>,
+
+    #[serde(default)]
+    pub children: Vec<BookmarkRecordId>,
 }
 
 impl From<FolderRecord> for BookmarkItemRecord {
@@ -100,14 +223,31 @@ impl From<FolderRecord> for BookmarkItemRecord {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LivemarkRecord {
-    pub guid: SyncGuid,
-    pub parent_guid: Option<SyncGuid>,
+    #[serde(rename = "id")]
+    pub record_id: BookmarkRecordId,
+
+    #[serde(rename = "parentid")]
+    pub parent_record_id: Option<BookmarkRecordId>,
+
+    #[serde(rename = "parentName", skip_serializing_if = "Option::is_none")]
     pub parent_title: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub date_added: Option<i64>,
+
+    #[serde(default)]
+    pub has_dupe: bool,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+
+    #[serde(rename = "feedUri", skip_serializing_if = "Option::is_none")]
     pub feed_url: Option<String>,
+
+    #[serde(rename = "siteUri", skip_serializing_if = "Option::is_none")]
     pub site_url: Option<String>,
 }
 
@@ -117,14 +257,27 @@ impl From<LivemarkRecord> for BookmarkItemRecord {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SeparatorRecord {
-    pub guid: SyncGuid,
-    pub parent_guid: Option<SyncGuid>,
+    #[serde(rename = "id")]
+    pub record_id: BookmarkRecordId,
+
+    #[serde(rename = "parentid")]
+    pub parent_record_id: Option<BookmarkRecordId>,
+
+    #[serde(rename = "parentName", skip_serializing_if = "Option::is_none")]
     pub parent_title: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub date_added: Option<i64>,
+
+    #[serde(default)]
+    pub has_dupe: bool,
+
     // Not used on newer clients, but can be used to detect parent-child
     // position disagreements. Older clients use this for deduping.
+    #[serde(rename = "pos", skip_serializing_if = "Option::is_none")]
     pub position: Option<i64>,
 }
 
@@ -134,196 +287,18 @@ impl From<SeparatorRecord> for BookmarkItemRecord {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
 pub enum BookmarkItemRecord {
-    Tombstone(SyncGuid),
     Bookmark(BookmarkRecord),
+    #[serde(rename = "query")]
     Query(QueryRecord),
+    #[serde(rename = "folder")]
     Folder(FolderRecord),
+    #[serde(rename = "livemark")]
     Livemark(LivemarkRecord),
+    #[serde(rename = "separator")]
     Separator(SeparatorRecord),
-}
-
-impl BookmarkItemRecord {
-    pub fn from_payload(payload: sync15::Payload) -> Result<Self> {
-        let guid = payload.id.clone();
-        let record = if payload.is_tombstone() {
-            BookmarkItemRecord::Tombstone(guid.into())
-        } else {
-            payload.into_record()?
-        };
-        Ok(record)
-    }
-}
-
-impl Serialize for BookmarkItemRecord {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_struct("BookmarkItemRecord", 2)?;
-        match self {
-            BookmarkItemRecord::Tombstone(guid) => {
-                state.serialize_field("id", guid_to_id(&guid))?;
-                state.serialize_field("deleted", &true)?;
-            }
-            BookmarkItemRecord::Bookmark(b) => {
-                state.serialize_field("id", guid_to_id(&b.guid))?;
-                state.serialize_field("type", "bookmark")?;
-                state.serialize_field("parentid", &b.parent_guid.as_ref().map(guid_to_id))?;
-                // `hasDupe` always defaults to `true`, to prevent older
-                // Desktops from applying their deduping logic (bug 1408551).
-                state.serialize_field("hasDupe", &true)?;
-                state.serialize_field("parentName", &b.parent_title)?;
-                state.serialize_field("dateAdded", &b.date_added)?;
-                state.serialize_field("title", &b.title)?;
-                state.serialize_field("bmkUri", &b.url)?;
-                if let Some(ref keyword) = &b.keyword {
-                    state.serialize_field("keyword", keyword)?;
-                }
-                if !b.tags.is_empty() {
-                    state.serialize_field("tags", &b.tags)?;
-                }
-            }
-            BookmarkItemRecord::Query(q) => {
-                state.serialize_field("id", guid_to_id(&q.guid))?;
-                state.serialize_field("type", "query")?;
-                state.serialize_field("parentid", &q.parent_guid.as_ref().map(guid_to_id))?;
-                state.serialize_field("hasDupe", &true)?;
-                state.serialize_field("parentName", &q.parent_title)?;
-                state.serialize_field("dateAdded", &q.date_added)?;
-                state.serialize_field("title", &q.title)?;
-                state.serialize_field("bmkUri", &q.url)?;
-                state.serialize_field("folderName", &q.tag_folder_name)?;
-            }
-            BookmarkItemRecord::Folder(f) => {
-                state.serialize_field("id", guid_to_id(&f.guid))?;
-                state.serialize_field("type", "folder")?;
-                state.serialize_field("parentid", &f.parent_guid.as_ref().map(guid_to_id))?;
-                state.serialize_field("hasDupe", &true)?;
-                state.serialize_field("parentName", &f.parent_title)?;
-                state.serialize_field("dateAdded", &f.date_added)?;
-                state.serialize_field("title", &f.title)?;
-                state.serialize_field("children", &f.children)?;
-            }
-            BookmarkItemRecord::Livemark(l) => {
-                state.serialize_field("id", guid_to_id(&l.guid))?;
-                state.serialize_field("type", "livemark")?;
-                state.serialize_field("parentid", &l.parent_guid.as_ref().map(guid_to_id))?;
-                state.serialize_field("hasDupe", &true)?;
-                state.serialize_field("parentName", &l.parent_title)?;
-                state.serialize_field("dateAdded", &l.date_added)?;
-                state.serialize_field("title", &l.title)?;
-                state.serialize_field("feedUri", &l.feed_url)?;
-                state.serialize_field("siteUri", &l.site_url)?;
-            }
-            BookmarkItemRecord::Separator(s) => {
-                state.serialize_field("id", guid_to_id(&s.guid))?;
-                state.serialize_field("type", "separator")?;
-                state.serialize_field("parentid", &s.parent_guid.as_ref().map(guid_to_id))?;
-                state.serialize_field("hasDupe", &true)?;
-                state.serialize_field("parentName", &s.parent_title)?;
-                state.serialize_field("dateAdded", &s.date_added)?;
-                state.serialize_field("pos", &s.position)?;
-            }
-        }
-        state.end()
-    }
-}
-
-impl<'de> Deserialize<'de> for BookmarkItemRecord {
-    fn deserialize<D>(d: D) -> std::result::Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        // Boilerplate to translate a synced bookmark record into a typed
-        // record.
-        let raw = RawBookmarkItemRecord::deserialize(d)?;
-        match raw.kind.as_str() {
-            "bookmark" => {
-                return Ok(BookmarkRecord {
-                    guid: id_to_guid(raw.id),
-                    parent_guid: raw.parent_id.map(id_to_guid),
-                    parent_title: raw.parent_title,
-                    date_added: raw.date_added,
-                    title: raw.title,
-                    url: raw.url,
-                    keyword: raw.keyword,
-                    tags: raw.tags.unwrap_or_default(),
-                }
-                .into());
-            }
-            "query" => {
-                return Ok(QueryRecord {
-                    guid: id_to_guid(raw.id),
-                    parent_guid: raw.parent_id.map(id_to_guid),
-                    parent_title: raw.parent_title,
-                    date_added: raw.date_added,
-                    title: raw.title,
-                    url: raw.url,
-                    tag_folder_name: raw.tag_folder_name,
-                }
-                .into());
-            }
-            "folder" => {
-                return Ok(FolderRecord {
-                    guid: id_to_guid(raw.id),
-                    parent_guid: raw.parent_id.map(id_to_guid),
-                    parent_title: raw.parent_title,
-                    date_added: raw.date_added,
-                    title: raw.title,
-                    children: raw.children.unwrap_or_default(),
-                }
-                .into());
-            }
-            "livemark" => {
-                return Ok(LivemarkRecord {
-                    guid: id_to_guid(raw.id),
-                    parent_guid: raw.parent_id.map(id_to_guid),
-                    parent_title: raw.parent_title,
-                    date_added: raw.date_added,
-                    title: raw.title,
-                    feed_url: raw.feed_url,
-                    site_url: raw.site_url,
-                }
-                .into());
-            }
-            "separator" => {
-                return Ok(SeparatorRecord {
-                    guid: id_to_guid(raw.id),
-                    parent_guid: raw.parent_id.map(id_to_guid),
-                    parent_title: raw.parent_title,
-                    date_added: raw.date_added,
-                    position: raw.position,
-                }
-                .into());
-            }
-            _ => {}
-        }
-        // We can't meaningfully merge or round-trip item kinds that we don't
-        // support, so fail deserialization.
-        Err(de::Error::unknown_variant(
-            raw.kind.as_str(),
-            &["bookmark", "query", "folder", "livemark", "separator"],
-        ))
-    }
-}
-
-/// Converts a Sync bookmark record ID to a Places GUID. Sync record IDs are
-/// identical to Places GUIDs for all items except roots.
-#[inline]
-pub fn id_to_guid(id: String) -> SyncGuid {
-    BookmarkRootGuid::from_sync_record_id(&id)
-        .map(|g| g.as_guid())
-        .unwrap_or_else(|| id.into())
-}
-
-/// Converts a Places GUID to a a Sync bookmark record ID.
-#[inline]
-pub fn guid_to_id(guid: &SyncGuid) -> &str {
-    BookmarkRootGuid::from_guid(guid)
-        .map(|g| g.as_sync_record_id())
-        .unwrap_or_else(|| guid.as_ref())
 }
 
 #[cfg(test)]
@@ -342,55 +317,121 @@ mod tests {
     }
 
     #[test]
-    fn test_deserialize_rewrites_ids() {
+    fn test_id_rewriting() {
         let j = json!({"id": "unfiled", "parentid": "menu", "type": "bookmark"});
         let r: BookmarkItemRecord = serde_json::from_value(j).expect("should deserialize");
-        match r {
+        match &r {
             BookmarkItemRecord::Bookmark(b) => {
-                assert_eq!(b.guid, BookmarkRootGuid::Unfiled);
-                assert_eq!(b.parent_guid, Some(BookmarkRootGuid::Menu.as_guid()));
+                assert_eq!(b.record_id.as_guid(), BookmarkRootGuid::Unfiled);
+                assert_eq!(
+                    b.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
+                    Some(&BookmarkRootGuid::Menu.as_guid())
+                );
             }
             _ => panic!("unexpected record type"),
         };
+        let v = serde_json::to_value(r).expect("should serialize");
+        assert_eq!(
+            v,
+            json!({
+                "id": "unfiled",
+                "parentid": "menu",
+                "type": "bookmark",
+                "hasDupe": false,
+            })
+        );
 
         let j = json!({"id": "unfiled", "parentid": "menu", "type": "query"});
         let r: BookmarkItemRecord = serde_json::from_value(j).expect("should deserialize");
-        match r {
+        match &r {
             BookmarkItemRecord::Query(q) => {
-                assert_eq!(q.guid, BookmarkRootGuid::Unfiled);
-                assert_eq!(q.parent_guid, Some(BookmarkRootGuid::Menu.as_guid()));
+                assert_eq!(q.record_id.as_guid(), BookmarkRootGuid::Unfiled);
+                assert_eq!(
+                    q.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
+                    Some(&BookmarkRootGuid::Menu.as_guid())
+                );
             }
             _ => panic!("unexpected record type"),
         };
+        let v = serde_json::to_value(r).expect("should serialize");
+        assert_eq!(
+            v,
+            json!({
+                "id": "unfiled",
+                "parentid": "menu",
+                "type": "query",
+                "hasDupe": false,
+            })
+        );
 
         let j = json!({"id": "unfiled", "parentid": "menu", "type": "folder"});
         let r: BookmarkItemRecord = serde_json::from_value(j).expect("should deserialize");
-        match r {
+        match &r {
             BookmarkItemRecord::Folder(f) => {
-                assert_eq!(f.guid, BookmarkRootGuid::Unfiled);
-                assert_eq!(f.parent_guid, Some(BookmarkRootGuid::Menu.as_guid()));
+                assert_eq!(f.record_id.as_guid(), BookmarkRootGuid::Unfiled);
+                assert_eq!(
+                    f.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
+                    Some(&BookmarkRootGuid::Menu.as_guid())
+                );
             }
             _ => panic!("unexpected record type"),
         };
+        let v = serde_json::to_value(r).expect("should serialize");
+        assert_eq!(
+            v,
+            json!({
+                "id": "unfiled",
+                "parentid": "menu",
+                "type": "folder",
+                "hasDupe": false,
+                "children": [],
+            })
+        );
 
         let j = json!({"id": "unfiled", "parentid": "menu", "type": "livemark"});
         let r: BookmarkItemRecord = serde_json::from_value(j).expect("should deserialize");
-        match r {
+        match &r {
             BookmarkItemRecord::Livemark(l) => {
-                assert_eq!(l.guid, BookmarkRootGuid::Unfiled);
-                assert_eq!(l.parent_guid, Some(BookmarkRootGuid::Menu.as_guid()));
+                assert_eq!(l.record_id.as_guid(), BookmarkRootGuid::Unfiled);
+                assert_eq!(
+                    l.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
+                    Some(&BookmarkRootGuid::Menu.as_guid())
+                );
             }
             _ => panic!("unexpected record type"),
         };
+        let v = serde_json::to_value(r).expect("should serialize");
+        assert_eq!(
+            v,
+            json!({
+                "id": "unfiled",
+                "parentid": "menu",
+                "type": "livemark",
+                "hasDupe": false,
+            })
+        );
 
         let j = json!({"id": "unfiled", "parentid": "menu", "type": "separator"});
         let r: BookmarkItemRecord = serde_json::from_value(j).expect("should deserialize");
-        match r {
+        match &r {
             BookmarkItemRecord::Separator(s) => {
-                assert_eq!(s.guid, BookmarkRootGuid::Unfiled);
-                assert_eq!(s.parent_guid, Some(BookmarkRootGuid::Menu.as_guid()));
+                assert_eq!(s.record_id.as_guid(), BookmarkRootGuid::Unfiled);
+                assert_eq!(
+                    s.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
+                    Some(&BookmarkRootGuid::Menu.as_guid())
+                );
             }
             _ => panic!("unexpected record type"),
         };
+        let v = serde_json::to_value(r).expect("should serialize");
+        assert_eq!(
+            v,
+            json!({
+                "id": "unfiled",
+                "parentid": "menu",
+                "type": "separator",
+                "hasDupe": false,
+            })
+        );
     }
 }
