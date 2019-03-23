@@ -8,14 +8,18 @@ use crate::{storage::bookmarks::BookmarkRootGuid, types::SyncGuid};
 use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
 /// A bookmark record ID. Bookmark record IDs are the same as Places GUIDs,
-/// except for the Places root, which is "places", and the four user content
-/// roots, which omit trailing underscores. This wrapper helpsavoid mix-ups like
-/// storing a record ID instead of a GUID, or uploading a GUID instead of a
-/// record ID.
+/// except for:
+///
+/// 1. The Places root, which is "places". Note that the Places root is not
+///    synced, but is still referenced in the user content roots' `parentid`s.
+/// 2. The four user content roots, which omit trailing underscores.
+///
+/// This wrapper helps avoid mix-ups like storing a record ID instead of a GUID,
+/// or uploading a GUID instead of a record ID.
 ///
 /// Internally, we convert record IDs to GUIDs when applying incoming records,
-/// and only convert back to GUIDs once we're ready to upload.
-#[derive(Debug)]
+/// and only convert back to GUIDs during upload.
+#[derive(Clone, Debug, Hash, PartialEq)]
 pub struct BookmarkRecordId(SyncGuid);
 
 impl BookmarkRecordId {
@@ -100,26 +104,33 @@ impl<'de> Deserialize<'de> for BookmarkRecordId {
                 f.write_str("a bookmark record ID")
             }
 
+            #[inline]
             fn visit_string<E: de::Error>(
                 self,
                 payload_id: String,
             ) -> std::result::Result<BookmarkRecordId, E> {
+                // The JSON deserializer passes owned strings, so we can avoid
+                // cloning the payload ID in the common case...
                 Ok(BookmarkRecordId::from_payload_id(payload_id))
             }
 
+            #[inline]
             fn visit_str<E: de::Error>(
                 self,
                 payload_id: &str,
             ) -> std::result::Result<BookmarkRecordId, E> {
+                // ...However, the Serde docs say we must implement
+                // `visit_str` if we implement `visit_string`, so we also
+                // provide an implementation that clones the ID.
                 Ok(BookmarkRecordId::from_payload_id(payload_id.into()))
             }
         }
 
-        deserializer.deserialize_str(V)
+        deserializer.deserialize_string(V)
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BookmarkRecord {
     // Note that `SyncGuid` does not check for validity, which is what we
@@ -153,12 +164,13 @@ pub struct BookmarkRecord {
 }
 
 impl From<BookmarkRecord> for BookmarkItemRecord {
+    #[inline]
     fn from(b: BookmarkRecord) -> BookmarkItemRecord {
         BookmarkItemRecord::Bookmark(b)
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QueryRecord {
     #[serde(rename = "id")]
@@ -187,12 +199,13 @@ pub struct QueryRecord {
 }
 
 impl From<QueryRecord> for BookmarkItemRecord {
+    #[inline]
     fn from(q: QueryRecord) -> BookmarkItemRecord {
         BookmarkItemRecord::Query(q)
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FolderRecord {
     #[serde(rename = "id")]
@@ -218,12 +231,13 @@ pub struct FolderRecord {
 }
 
 impl From<FolderRecord> for BookmarkItemRecord {
+    #[inline]
     fn from(f: FolderRecord) -> BookmarkItemRecord {
         BookmarkItemRecord::Folder(f)
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LivemarkRecord {
     #[serde(rename = "id")]
@@ -252,12 +266,13 @@ pub struct LivemarkRecord {
 }
 
 impl From<LivemarkRecord> for BookmarkItemRecord {
+    #[inline]
     fn from(l: LivemarkRecord) -> BookmarkItemRecord {
         BookmarkItemRecord::Livemark(l)
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SeparatorRecord {
     #[serde(rename = "id")]
@@ -282,22 +297,19 @@ pub struct SeparatorRecord {
 }
 
 impl From<SeparatorRecord> for BookmarkItemRecord {
+    #[inline]
     fn from(s: SeparatorRecord) -> BookmarkItemRecord {
         BookmarkItemRecord::Separator(s)
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum BookmarkItemRecord {
     Bookmark(BookmarkRecord),
-    #[serde(rename = "query")]
     Query(QueryRecord),
-    #[serde(rename = "folder")]
     Folder(FolderRecord),
-    #[serde(rename = "livemark")]
     Livemark(LivemarkRecord),
-    #[serde(rename = "separator")]
     Separator(SeparatorRecord),
 }
 
