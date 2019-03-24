@@ -5,7 +5,11 @@
 use std::fmt;
 
 use crate::{storage::bookmarks::BookmarkRootGuid, types::SyncGuid};
-use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{
+    de::{Deserialize, Deserializer, Visitor},
+    ser::{Serialize, Serializer},
+};
+use serde_derive::*;
 
 /// A bookmark record ID. Bookmark record IDs are the same as Places GUIDs,
 /// except for:
@@ -105,7 +109,7 @@ impl<'de> Deserialize<'de> for BookmarkRecordId {
             }
 
             #[inline]
-            fn visit_string<E: de::Error>(
+            fn visit_string<E: serde::de::Error>(
                 self,
                 payload_id: String,
             ) -> std::result::Result<BookmarkRecordId, E> {
@@ -115,7 +119,7 @@ impl<'de> Deserialize<'de> for BookmarkRecordId {
             }
 
             #[inline]
-            fn visit_str<E: de::Error>(
+            fn visit_str<E: serde::de::Error>(
                 self,
                 payload_id: &str,
             ) -> std::result::Result<BookmarkRecordId, E> {

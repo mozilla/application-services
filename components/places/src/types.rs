@@ -6,7 +6,8 @@ use crate::storage::bookmarks::BookmarkRootGuid;
 use dogear;
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::ser::{Serialize, Serializer};
+use serde_derive::*;
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
