@@ -13,17 +13,16 @@ PROJECT_PATH=$1
 
 source "libs/android_defaults.sh"
 
-BREAKPAD_TOOLS="breakpad-tools-linux.zip"
-BREAKPAD_TOOLS_URL="https://s3.amazonaws.com/getsentry-builds/getsentry/breakpad-tools/$BREAKPAD_TOOLS"
-DUMP_SYMS_SHA256="4ce3d00251c4b213081399b7ee761830e1f285bff26dfd30a0c7ccbbb86e225b"
+DUMP_SYMS_URL="https://queue.taskcluster.net/v1/task/KSunmnE8SWycOTSW2mT_AA/runs/0/artifacts/public/dump_syms"
+DUMP_SYMS_SHA256="2176e51ed9da31966a716289f0bf46f59f60dea799cc8f85e086dd66d087b8d4"
 OUTPUT_FOLDER="crashreporter-symbols"
 DUMP_SYMS_DIR="automation/symbols-generation/bin"
 
 if [ ! -f "$DUMP_SYMS_DIR"/dump_syms ]; then
-  curl -L -O "$BREAKPAD_TOOLS_URL"
-  mkdir -p $DUMP_SYMS_DIR
-  unzip $BREAKPAD_TOOLS -d $DUMP_SYMS_DIR dump_syms
-  rm $BREAKPAD_TOOLS
+  mkdir -p "$DUMP_SYMS_DIR"
+  pushd "$DUMP_SYMS_DIR"
+  curl -L -O -s --retry 5 "$DUMP_SYMS_URL"
+  popd
   echo "${DUMP_SYMS_SHA256}  ${DUMP_SYMS_DIR}/dump_syms" | shasum -a 256 -c - || exit 2
 fi
 
