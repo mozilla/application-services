@@ -120,19 +120,12 @@ def ktlint_detekt():
     linux_build_task("ktlint").with_script("./gradlew --no-daemon clean ktlint").create()
 
 def android_linux_x86_64():
-    ktlint_detekt()
     libs_tasks = libs_for("android", "desktop_linux", "desktop_macos", "desktop_win32_x86_64")
     return (
-        android_task("Build and test (Android - linux-x86-64)", libs_tasks)
-        .with_script("""
-            echo "rust.targets=linux-x86-64" > local.properties
-        """)
-        .with_script("""
-            yes | sdkmanager --update
-            yes | sdkmanager --licenses
-            ./gradlew --no-daemon clean
-            ./gradlew --no-daemon testDebug
-        """)
+        android_task("Upload dump_syms to TC (till tooltool is fixed)", libs_tasks)
+        .with_artifacts(
+            "/build/repo/dump_syms",
+        )
         .create()
     )
 
