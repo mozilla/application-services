@@ -22,6 +22,7 @@ if [ ! -f "$DUMP_SYMS_DIR"/dump_syms ]; then
   mkdir -p "$DUMP_SYMS_DIR"
   pushd "$DUMP_SYMS_DIR"
   curl -L -O -s --retry 5 "$DUMP_SYMS_URL"
+  chmod +x dump_syms
   popd
   echo "${DUMP_SYMS_SHA256}  ${DUMP_SYMS_DIR}/dump_syms" | shasum -a 256 -c - || exit 2
 fi
