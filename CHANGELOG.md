@@ -4,6 +4,14 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.0...master)
 
+## Logins
+
+### What's New
+
+- iOS Logins storage now has `ensureLocked`, `ensureUnlocked`, and `wipeLocal`
+  methods, equivalent to those provided in the android API.
+  ([#854](https://github.com/mozilla/application-services/issues/854))
+
 # v0.22.0 (_2019-03-22_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.21.0...v0.22.0)
