@@ -5,6 +5,13 @@
 use crate::SyncGuid;
 use lazy_static::lazy_static;
 
+pub const USER_CONTENT_ROOTS: &[BookmarkRootGuid] = &[
+    BookmarkRootGuid::Menu,
+    BookmarkRootGuid::Toolbar,
+    BookmarkRootGuid::Unfiled,
+    BookmarkRootGuid::Mobile,
+];
+
 /// Special GUIDs associated with bookmark roots.
 /// It's guaranteed that the roots will always have these guids.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Hash)]

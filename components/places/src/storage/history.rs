@@ -137,6 +137,20 @@ pub fn update_frecency(db: &PlacesDb, id: RowId, redirect_boost: Option<bool>) -
     Ok(())
 }
 
+/// Indicates if and when a URL's frecency was marked as stale.
+pub fn frecency_stale_at(db: &PlacesDb, url: &Url) -> Result<Option<Timestamp>> {
+    let result = db.try_query_row(
+        "SELECT stale_at FROM moz_places_stale_frecencies s
+         JOIN moz_places h ON h.id = s.place_id
+         WHERE h.url_hash = hash(:url) AND
+               h.url = :url",
+        &[(":url", &url.as_str())],
+        |row| -> rusqlite::Result<_> { Ok(row.get_checked::<_, Timestamp>(0)?) },
+        true,
+    )?;
+    Ok(result)
+}
+
 // Add a single visit - you must know the page rowid. Does not update the
 // page info - if you are calling this, you will also need to update the
 // parent page with an updated change counter etc.
@@ -538,7 +552,7 @@ pub mod history_sync {
         pub fn from_row(row: &Row) -> Result<Self> {
             Ok(Self {
                 url: Url::parse(&row.get_checked::<_, String>("url")?)?,
-                guid: SyncGuid(row.get_checked::<_, String>("guid")?),
+                guid: row.get_checked::<_, String>("guid")?.into(),
                 row_id: row.get_checked("id")?,
                 title: row
                     .get_checked::<_, Option<String>>("title")?
@@ -780,7 +794,9 @@ pub mod history_sync {
         let ts_rows = db.query_rows_and_then_named(
             tombstones_sql,
             &[(":max_places", &(max_places as u32))],
-            |row| -> rusqlite::Result<_> { Ok(SyncGuid(row.get_checked::<_, String>("guid")?)) },
+            |row| -> rusqlite::Result<SyncGuid> {
+                Ok(row.get_checked::<_, String>("guid")?.into())
+            },
         )?;
         // It's unfortunatee that query_rows_and_then_named returns a Vec instead of an iterator
         // (which would be very hard to do), but as long as we have it, we might as well make use
@@ -1854,15 +1870,15 @@ mod tests {
         }
         // Add some bookmarks.
         let b0 = (
-            SyncGuid("aaaaaaaaaaaa".into()),
+            SyncGuid::from("aaaaaaaaaaaa"),
             Url::parse("http://www.example3.com/5").unwrap(),
         );
         let b1 = (
-            SyncGuid("bbbbbbbbbbbb".into()),
+            SyncGuid::from("bbbbbbbbbbbb"),
             Url::parse("http://www.example6.com/10").unwrap(),
         );
         let b2 = (
-            SyncGuid("cccccccccccc".into()),
+            SyncGuid::from("cccccccccccc"),
             Url::parse("http://www.example9.com/4").unwrap(),
         );
         for (guid, url) in &[&b0, &b1, &b2] {

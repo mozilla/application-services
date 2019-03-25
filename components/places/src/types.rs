@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::storage::bookmarks::BookmarkRootGuid;
+use dogear;
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use serde::ser::{Serialize, Serializer};
@@ -44,6 +45,12 @@ where
     }
 }
 
+impl From<SyncGuid> for dogear::Guid {
+    fn from(guid: SyncGuid) -> dogear::Guid {
+        guid.as_ref().into()
+    }
+}
+
 impl ToSql for SyncGuid {
     fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
         Ok(ToSqlOutput::from(self.0.clone())) // cloning seems wrong?
@@ -73,6 +80,18 @@ pub struct Timestamp(pub u64);
 impl Timestamp {
     pub fn now() -> Self {
         SystemTime::now().into()
+    }
+
+    /// Returns None if `other` is later than `self` (Duration may not represent
+    /// negative timespans in rust).
+    #[inline]
+    pub fn duration_since(self, other: Timestamp) -> Option<Duration> {
+        // just do this via SystemTime.
+        SystemTime::from(self).duration_since(other.into()).ok()
+    }
+
+    pub fn as_millis(self) -> u64 {
+        self.0
     }
 }
 

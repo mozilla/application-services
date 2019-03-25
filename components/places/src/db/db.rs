@@ -99,11 +99,18 @@ impl PlacesDb {
             api_id,
             interrupt_counter: Arc::new(AtomicUsize::new(0)),
         };
-        // Even though we're the owner of the db, we need it to be an unchecked tx
-        // since we want to pass &PlacesDb and not &Connection to schema::init.
-        let tx = res.unchecked_transaction()?;
-        schema::init(&res)?;
-        tx.commit()?;
+        match res.conn_type() {
+            // For read-only connections, we can avoid opening a transaction,
+            // since we know we won't be migrating or initializing anything.
+            ConnectionType::ReadOnly => {}
+            _ => {
+                // Even though we're the owner of the db, we need it to be an unchecked tx
+                // since we want to pass &PlacesDb and not &Connection to schema::init.
+                let tx = res.unchecked_transaction()?;
+                schema::init(&res)?;
+                tx.commit()?;
+            }
+        }
 
         Ok(res)
     }
@@ -195,6 +202,7 @@ fn define_functions(c: &Connection) -> Result<()> {
     c.create_scalar_function("autocomplete_match", 10, true, sql_fns::autocomplete_match)?;
     c.create_scalar_function("hash", -1, true, sql_fns::hash)?;
     c.create_scalar_function("now", 0, false, sql_fns::now)?;
+    c.create_scalar_function("generate_guid", 0, false, sql_fns::generate_guid)?;
     Ok(())
 }
 
@@ -202,7 +210,7 @@ mod sql_fns {
     use crate::api::matcher::{split_after_host_and_port, split_after_prefix};
     use crate::hash;
     use crate::match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
-    use crate::types::Timestamp;
+    use crate::types::{SyncGuid, Timestamp};
     use rusqlite::{functions::Context, types::ValueRef, Error, Result};
 
     // Helpers for define_functions
@@ -342,6 +350,11 @@ mod sql_fns {
     #[inline(never)]
     pub fn now(_ctx: &Context) -> Result<Timestamp> {
         Ok(Timestamp::now())
+    }
+
+    #[inline(never)]
+    pub fn generate_guid(_ctx: &Context) -> Result<SyncGuid> {
+        Ok(SyncGuid::new())
     }
 }
 

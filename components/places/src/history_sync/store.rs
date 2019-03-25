@@ -61,7 +61,7 @@ impl<'a> HistoryStore<'a> {
     fn do_sync_finished(
         &self,
         new_timestamp: ServerTimestamp,
-        records_synced: &[String],
+        records_synced: Vec<String>,
     ) -> Result<()> {
         log::info!(
             "sync completed after uploading {} records",
@@ -147,7 +147,7 @@ impl<'a> Store for HistoryStore<'a> {
     fn sync_finished(
         &self,
         new_timestamp: ServerTimestamp,
-        records_synced: &[String],
+        records_synced: Vec<String>,
     ) -> result::Result<(), failure::Error> {
         self.do_sync_finished(new_timestamp, records_synced)?;
         Ok(())

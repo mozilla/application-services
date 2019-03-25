@@ -49,6 +49,16 @@ CREATE TABLE IF NOT EXISTS moz_places_tombstones (
 ) WITHOUT ROWID;
 
 
+-- This table stores Place IDs with stale frecencies, along with the time they
+-- were marked as stale. Maintenance and Sync periodically recalculate
+-- frecencies for Place IDs in this table.
+CREATE TABLE IF NOT EXISTS moz_places_stale_frecencies (
+    place_id INTEGER PRIMARY KEY NOT NULL REFERENCES moz_places(id)
+                                          ON DELETE CASCADE,
+    stale_at INTEGER NOT NULL -- In milliseconds.
+);
+
+
 CREATE TABLE IF NOT EXISTS moz_historyvisits (
     id INTEGER PRIMARY KEY,
     is_local INTEGER NOT NULL, -- XXX - not in desktop - will always be true for visits added locally, always false visits added by sync.
@@ -155,4 +165,55 @@ CREATE TABLE IF NOT EXISTS moz_tags_relation(
     tag_id INTEGER NOT NULL REFERENCES moz_tags(id) ON DELETE CASCADE,
     place_id INTEGER NOT NULL REFERENCES moz_places(id) ON DELETE CASCADE,
     PRIMARY KEY(tag_id, place_id)
+) WITHOUT ROWID;
+
+-- This table holds synced items, including tombstones. It's unused if Sync
+-- isn't configured. At the end of a sync, this table's contents should match
+-- both what's on the server, and the local tree in `moz_bookmarks`.
+CREATE TABLE IF NOT EXISTS moz_bookmarks_synced(
+    id INTEGER PRIMARY KEY,
+    -- We intentionally don't validate GUIDs, as we allow and fix up invalid
+    -- ones.
+    guid TEXT UNIQUE NOT NULL,
+    -- The `parentid` from the record.
+    parentGuid TEXT,
+    -- The server modified time, in milliseconds. This is *not* a
+    -- ServerTimestamp, which is in fractional seconds.
+    serverModified INTEGER NOT NULL DEFAULT 0,
+    needsMerge BOOLEAN NOT NULL DEFAULT 0,
+    validity INTEGER NOT NULL DEFAULT 1, -- SyncValidity::Valid
+    isDeleted BOOLEAN NOT NULL DEFAULT 0,
+    kind INTEGER NOT NULL DEFAULT -1,
+    -- The creation date, in milliseconds.
+    dateAdded INTEGER NOT NULL DEFAULT 0,
+    title TEXT,
+    placeId INTEGER REFERENCES moz_places(id)
+                    ON DELETE SET NULL,
+    keyword TEXT,
+    description TEXT,
+    loadInSidebar BOOLEAN,
+    smartBookmarkName TEXT,
+    feedURL TEXT,
+    siteURL TEXT
+);
+
+-- This table holds parent-child relationships and positions for synced items,
+-- from each folder's `children`. Unlike `moz_bookmarks`, this is stored
+-- separately because we might see an incoming folder before its children. This
+-- also lets us catch disagreements between a folder's `children` and its
+-- childrens' `parentid`.
+CREATE TABLE IF NOT EXISTS moz_bookmarks_synced_structure(
+    guid TEXT NOT NULL PRIMARY KEY,
+    parentGuid TEXT NOT NULL REFERENCES moz_bookmarks_synced(guid)
+                             ON DELETE CASCADE,
+    position INTEGER NOT NULL
+) WITHOUT ROWID;
+
+-- This table holds tags for synced items.
+CREATE TABLE IF NOT EXISTS moz_bookmarks_synced_tag_relation(
+    itemId INTEGER NOT NULL REFERENCES moz_bookmarks_synced(id)
+                            ON DELETE CASCADE,
+    tagId INTEGER NOT NULL REFERENCES moz_tags(id)
+                           ON DELETE CASCADE,
+    PRIMARY KEY(itemId, tagId)
 ) WITHOUT ROWID;
