@@ -55,6 +55,7 @@ pub struct GlobalState {
     pub config: InfoConfiguration,
     pub collections: InfoCollections,
     pub global: Option<BsoRecord<MetaGlobalRecord>>,
+    #[serde(skip)]
     pub keys: Option<CollectionKeys>,
     pub engine_state_changes: Vec<EngineStateChange>,
 }
