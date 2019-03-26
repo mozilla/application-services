@@ -5,7 +5,7 @@ set -euvx
 if [ "$#" -ne 1 ]
 then
     echo "Usage:"
-    echo "./upload_android_symbols.sh <project path>"
+    echo "./automation/upload_android_symbols.sh <project path>"
     exit 1
 fi
 
@@ -13,17 +13,14 @@ PROJECT_PATH=$1
 
 source "libs/android_defaults.sh"
 
-DUMP_SYMS_URL="https://queue.taskcluster.net/v1/task/KSunmnE8SWycOTSW2mT_AA/runs/0/artifacts/public/dump_syms"
-DUMP_SYMS_SHA256="2176e51ed9da31966a716289f0bf46f59f60dea799cc8f85e086dd66d087b8d4"
 OUTPUT_FOLDER="crashreporter-symbols"
 DUMP_SYMS_DIR="automation/symbols-generation/bin"
 
-if [ ! -f "$DUMP_SYMS_DIR"/dump_syms ]; then
+if [ ! -f "$DUMP_SYMS_DIR/dump_syms" ]; then
+  tooltool.py --manifest=automation/symbols-generation/dump_syms.manifest --url=http://taskcluster/tooltool.mozilla-releng.net/ fetch
+  chmod +x dump_syms
   mkdir -p "$DUMP_SYMS_DIR"
-  pushd "$DUMP_SYMS_DIR"
-  curl -L -O -s --retry 5 "$DUMP_SYMS_URL"
-  popd
-  echo "${DUMP_SYMS_SHA256}  ${DUMP_SYMS_DIR}/dump_syms" | shasum -a 256 -c - || exit 2
+  mv dump_syms "$DUMP_SYMS_DIR"
 fi
 
 # Keep the 3 in sync.

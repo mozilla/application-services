@@ -118,4 +118,10 @@ RUN \
         | tar -xz --strip-components=1 -C /usr/local/bin/ \
             sccache-0.2.8-x86_64-unknown-linux-musl/sccache
 
+RUN \
+    curl --location --retry 10 --retry-delay 10 \
+         -o /usr/local/bin/tooltool.py \
+         https://raw.githubusercontent.com/mozilla/build-tooltool/36511dae0ead6848017e2d569b1f6f1b36984d40/tooltool.py && \
+         chmod +x /usr/local/bin/tooltool.py
+
 RUN git init repo
