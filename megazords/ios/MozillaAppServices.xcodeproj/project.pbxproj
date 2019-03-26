@@ -30,6 +30,15 @@
 		CDC0089F2236CAD100893800 /* places_msg_types.proto in Sources */ = {isa = PBXBuildFile; fileRef = CDC0089E2236CAD100893800 /* places_msg_types.proto */; };
 		CDC21B14221DCE3700AA71E5 /* RustLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDC21B12221DCE3700AA71E5 /* RustLog.swift */; };
 		CDC21B15221DCE3700AA71E5 /* RustLogFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = CDC21B13221DCE3700AA71E5 /* RustLogFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CE18A85122580A32002BB8A1 /* libfreebl3.dylib in Resources */ = {isa = PBXBuildFile; fileRef = CE18A84422580A1F002BB8A1 /* libfreebl3.dylib */; };
+		CE18A85222580A32002BB8A1 /* libnspr4.dylib in Resources */ = {isa = PBXBuildFile; fileRef = CE18A83F22580A1F002BB8A1 /* libnspr4.dylib */; };
+		CE18A85322580A32002BB8A1 /* libnss3.dylib in Resources */ = {isa = PBXBuildFile; fileRef = CE18A84522580A1F002BB8A1 /* libnss3.dylib */; };
+		CE18A85422580A32002BB8A1 /* libnssckbi.dylib in Resources */ = {isa = PBXBuildFile; fileRef = CE18A84722580A1F002BB8A1 /* libnssckbi.dylib */; };
+		CE18A85522580A32002BB8A1 /* libnssutil3.dylib in Resources */ = {isa = PBXBuildFile; fileRef = CE18A84122580A1F002BB8A1 /* libnssutil3.dylib */; };
+		CE18A85622580A32002BB8A1 /* libplc4.dylib in Resources */ = {isa = PBXBuildFile; fileRef = CE18A84322580A1F002BB8A1 /* libplc4.dylib */; };
+		CE18A85722580A32002BB8A1 /* libplds4.dylib in Resources */ = {isa = PBXBuildFile; fileRef = CE18A84022580A1F002BB8A1 /* libplds4.dylib */; };
+		CE18A85822580A32002BB8A1 /* libsmime3.dylib in Resources */ = {isa = PBXBuildFile; fileRef = CE18A84222580A1F002BB8A1 /* libsmime3.dylib */; };
+		CE18A85922580A32002BB8A1 /* libsoftokn3.dylib in Resources */ = {isa = PBXBuildFile; fileRef = CE18A84622580A1F002BB8A1 /* libsoftokn3.dylib */; };
 		CE1ADA9722249FDA00E89714 /* Data+RustBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1ADA9622249FDA00E89714 /* Data+RustBuffer.swift */; };
 		CE3A2F38225BDE5300EA569C /* PlacesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3A2F37225BDE5300EA569C /* PlacesTests.swift */; };
 		D05434A1225680D900FDE4EF /* MozillaAppServices.h in Headers */ = {isa = PBXBuildFile; fileRef = C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -104,6 +113,15 @@
 		CDC0089E2236CAD100893800 /* places_msg_types.proto */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.protobuf; name = places_msg_types.proto; path = ../../src/places_msg_types.proto; sourceTree = "<group>"; };
 		CDC21B12221DCE3700AA71E5 /* RustLog.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RustLog.swift; sourceTree = "<group>"; };
 		CDC21B13221DCE3700AA71E5 /* RustLogFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustLogFFI.h; sourceTree = "<group>"; };
+		CE18A83F22580A1F002BB8A1 /* libnspr4.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libnspr4.dylib; path = ../../libs/ios/universal/nss/lib/libnspr4.dylib; sourceTree = "<group>"; };
+		CE18A84022580A1F002BB8A1 /* libplds4.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libplds4.dylib; path = ../../libs/ios/universal/nss/lib/libplds4.dylib; sourceTree = "<group>"; };
+		CE18A84122580A1F002BB8A1 /* libnssutil3.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libnssutil3.dylib; path = ../../libs/ios/universal/nss/lib/libnssutil3.dylib; sourceTree = "<group>"; };
+		CE18A84222580A1F002BB8A1 /* libsmime3.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libsmime3.dylib; path = ../../libs/ios/universal/nss/lib/libsmime3.dylib; sourceTree = "<group>"; };
+		CE18A84322580A1F002BB8A1 /* libplc4.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libplc4.dylib; path = ../../libs/ios/universal/nss/lib/libplc4.dylib; sourceTree = "<group>"; };
+		CE18A84422580A1F002BB8A1 /* libfreebl3.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libfreebl3.dylib; path = ../../libs/ios/universal/nss/lib/libfreebl3.dylib; sourceTree = "<group>"; };
+		CE18A84522580A1F002BB8A1 /* libnss3.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libnss3.dylib; path = ../../libs/ios/universal/nss/lib/libnss3.dylib; sourceTree = "<group>"; };
+		CE18A84622580A1F002BB8A1 /* libsoftokn3.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libsoftokn3.dylib; path = ../../libs/ios/universal/nss/lib/libsoftokn3.dylib; sourceTree = "<group>"; };
+		CE18A84722580A1F002BB8A1 /* libnssckbi.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.bundle"; name = libnssckbi.dylib; path = ../../libs/ios/universal/nss/lib/libnssckbi.dylib; sourceTree = "<group>"; };
 		CE1ADA9622249FDA00E89714 /* Data+RustBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Data+RustBuffer.swift"; sourceTree = "<group>"; };
 		CE3A2F37225BDE5300EA569C /* PlacesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacesTests.swift; sourceTree = "<group>"; };
 		CE9D202020914D0D00F1C8FA /* MozillaAppServices.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = MozillaAppServices.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -279,6 +297,15 @@
 		CE9D203720914D4800F1C8FA /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				CE18A84422580A1F002BB8A1 /* libfreebl3.dylib */,
+				CE18A83F22580A1F002BB8A1 /* libnspr4.dylib */,
+				CE18A84522580A1F002BB8A1 /* libnss3.dylib */,
+				CE18A84722580A1F002BB8A1 /* libnssckbi.dylib */,
+				CE18A84122580A1F002BB8A1 /* libnssutil3.dylib */,
+				CE18A84322580A1F002BB8A1 /* libplc4.dylib */,
+				CE18A84022580A1F002BB8A1 /* libplds4.dylib */,
+				CE18A84222580A1F002BB8A1 /* libsmime3.dylib */,
+				CE18A84622580A1F002BB8A1 /* libsoftokn3.dylib */,
 				EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */,
 				C852EE9D220A283200A6E79A /* libsqlcipher.a */,
 				C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */,
@@ -336,11 +363,12 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = CE9D202820914D0D00F1C8FA /* Build configuration list for PBXNativeTarget "MozillaAppServices" */;
 			buildPhases = (
-				CEEA12EF20AA1D630018998A /* ShellScript */,
+				CEEA12EF20AA1D630018998A /* Run Script */,
 				CE9D201B20914D0D00F1C8FA /* Sources */,
 				CE9D201C20914D0D00F1C8FA /* Frameworks */,
 				CE9D201D20914D0D00F1C8FA /* Headers */,
 				CE9D201E20914D0D00F1C8FA /* Resources */,
+				CE18A85A225BB893002BB8A1 /* ShellScript */,
 			);
 			buildRules = (
 				EB7DE84A2214D28C00E7CF17 /* PBXBuildRule */,
@@ -413,6 +441,15 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CE18A85122580A32002BB8A1 /* libfreebl3.dylib in Resources */,
+				CE18A85222580A32002BB8A1 /* libnspr4.dylib in Resources */,
+				CE18A85322580A32002BB8A1 /* libnss3.dylib in Resources */,
+				CE18A85422580A32002BB8A1 /* libnssckbi.dylib in Resources */,
+				CE18A85522580A32002BB8A1 /* libnssutil3.dylib in Resources */,
+				CE18A85622580A32002BB8A1 /* libplc4.dylib in Resources */,
+				CE18A85722580A32002BB8A1 /* libplds4.dylib in Resources */,
+				CE18A85822580A32002BB8A1 /* libsmime3.dylib in Resources */,
+				CE18A85922580A32002BB8A1 /* libsoftokn3.dylib in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -426,13 +463,31 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		CEEA12EF20AA1D630018998A /* ShellScript */ = {
+		CE18A85A225BB893002BB8A1 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "bash $PWD/../../build-scripts/patch-libs-paths.sh\n";
+		};
+		CEEA12EF20AA1D630018998A /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
 			);
+			name = "Run Script";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;

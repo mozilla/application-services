@@ -25,14 +25,10 @@ SQLCIPHER_IOS="$SQLCIPHER_SRC_DIR/build-ios-""$ARCH"_$$
 mkdir -p "$SQLCIPHER_IOS"
 pushd "$SQLCIPHER_IOS"
 
-if [[ "${ARCH}" == "i386" || "${ARCH}" == "x86_64" ]]; then
+if [[ "$ARCH" == "x86_64" ]]; then
   OS_COMPILER="iPhoneSimulator"
-  if [[ "${ARCH}" == "x86_64" ]]; then
-    HOST="x86_64-apple-darwin"
-  else
-    HOST="x86-apple-darwin"
-  fi
-elif [[ "${ARCH}" == "armv7" || "${ARCH}" == "arm64" ]]; then
+  HOST="x86_64-apple-darwin"
+elif [[ "$ARCH" == "arm64" ]]; then
   OS_COMPILER="iPhoneOS"
   HOST="arm-apple-darwin"
 else
@@ -41,22 +37,22 @@ else
 fi
 
 DEVELOPER=$(xcode-select -print-path)
-export CROSS_TOP="${DEVELOPER}/Platforms/${OS_COMPILER}.platform/Developer"
-export CROSS_SDK="${OS_COMPILER}.sdk"
-TOOLCHAIN_BIN="${DEVELOPER}/Toolchains/XcodeDefault.xctoolchain/usr/bin"
-export CC="${TOOLCHAIN_BIN}/clang"
-export AR="${TOOLCHAIN_BIN}/ar"
-export RANLIB="${TOOLCHAIN_BIN}/ranlib"
-export STRIP="${TOOLCHAIN_BIN}/strip"
-export LIBTOOL="${TOOLCHAIN_BIN}/libtool"
-export NM="${TOOLCHAIN_BIN}/nm"
-export LD="${TOOLCHAIN_BIN}/ld"
+export CROSS_TOP="$DEVELOPER/Platforms/$OS_COMPILER.platform/Developer"
+export CROSS_SDK="$OS_COMPILER.sdk"
+TOOLCHAIN_BIN="$DEVELOPER/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+export CC="$TOOLCHAIN_BIN/clang"
+export AR="$TOOLCHAIN_BIN/ar"
+export RANLIB="$TOOLCHAIN_BIN/ranlib"
+export STRIP="$TOOLCHAIN_BIN/strip"
+export LIBTOOL="$TOOLCHAIN_BIN/libtool"
+export NM="$TOOLCHAIN_BIN/nm"
+export LD="$TOOLCHAIN_BIN/ld"
 
 CFLAGS="\
   -fembed-bitcode \
-  -arch ${ARCH} \
-  -isysroot ${CROSS_TOP}/SDKs/${CROSS_SDK} \
-  -mios-version-min=${IOS_MIN_SDK_VERSION} \
+  -arch $ARCH \
+  -isysroot $CROSS_TOP/SDKs/$CROSS_SDK \
+  -mios-version-min=$IOS_MIN_SDK_VERSION \
 "
 
 # Match the SQLCIPHER_CFLAGS used in Firefox for iOS v15.x and earlier.
@@ -104,7 +100,7 @@ SQLCIPHER_CFLAGS=" \
   --enable-tempstore=yes \
   --enable-threadsafe=yes \
   --disable-editline \
-  CFLAGS="${CFLAGS} ${SQLCIPHER_CFLAGS}" \
+  CFLAGS="$CFLAGS $SQLCIPHER_CFLAGS" \
   LDFLAGS="-framework Security -framework Foundation"
 
 # Make all fails because it tries to build the command line program.

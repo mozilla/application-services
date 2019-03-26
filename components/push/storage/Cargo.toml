@@ -6,7 +6,7 @@ edition = "2018"
 license = "MPL-2.0"
 
 [dependencies]
-crypto = { path = "../crypto" }
+push-crypto = { path = "../crypto" }
 lazy_static = "1.2"
 log = "0.4"
 failure = "0.1.5"

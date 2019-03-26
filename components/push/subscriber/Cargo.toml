@@ -14,5 +14,5 @@ serde_json = "1.0"
 communications = {path = "../communications"}
 storage = {path="../storage"}
 push-errors = {path="../error"}
-crypto = {path="../crypto"}
+push-crypto = {path="../crypto"}
 config = {path="../config"}

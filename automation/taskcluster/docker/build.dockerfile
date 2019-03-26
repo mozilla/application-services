@@ -54,6 +54,7 @@ RUN apt-get update -qq \
                           tclsh \
                           patch \
                           file \
+                          libnss3-dev \
     && apt-get clean
 
 RUN pip install --upgrade pip

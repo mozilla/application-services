@@ -409,7 +409,7 @@ mod test {
     use mockito::{mock, server_address};
     use serde_json::json;
 
-    // use crypto::{get_bytes, Key};
+    // use push_crypto::{get_bytes, Key};
 
     const DUMMY_CHID: &str = "deadbeef00000000decafbad00000000";
     const DUMMY_UAID: &str = "abad1dea00000000aabbccdd00000000";
@@ -447,7 +447,7 @@ mod test {
             .with_body(body)
             .create();
             let mut conn = connect(config.clone(), None, None).unwrap();
-            let channel_id = hex::encode(crypto::get_bytes(16).unwrap());
+            let channel_id = hex::encode(push_crypto::get_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id).unwrap();
             ap_mock.assert();
             assert_eq!(response.uaid, DUMMY_UAID);

@@ -46,6 +46,7 @@ for i in "${!LIBS_ARCHS[@]}"; do
     LIB_ARCH=${LIBS_ARCHS[$i]}
     env -i PATH="$PATH" \
         OPENSSL_STATIC=1 \
+        NSS_DIR=$LIBSDIR/ios/$LIB_ARCH/nss \
         OPENSSL_DIR=$LIBSDIR/ios/$LIB_ARCH/openssl \
         SQLCIPHER_LIB_DIR=$LIBSDIR/ios/$LIB_ARCH/sqlcipher/lib \
         SQLCIPHER_INCLUDE_DIR=$LIBSDIR/ios/$LIB_ARCH/sqlcipher/include \

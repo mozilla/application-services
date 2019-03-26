@@ -15,7 +15,7 @@ else
   export SQLCIPHER_LIB_DIR="$APPSERVICES_PLATFORM_DIR/sqlcipher/lib"
   export SQLCIPHER_INCLUDE_DIR="$APPSERVICES_PLATFORM_DIR/sqlcipher/include"
   export OPENSSL_DIR="$APPSERVICES_PLATFORM_DIR/openssl"
-  if [ ! -d "$SQLCIPHER_LIB_DIR" -o ! -d "$OPENSSL_DIR" ]; then
+  if [ ! -d "$SQLCIPHER_LIB_DIR" -o ! -d "$OPENSSL_DIR" -o ! -d "$APPSERVICES_PLATFORM_DIR/nss" ]; then
     pushd libs && ./build-all.sh desktop && popd
   fi;
 fi

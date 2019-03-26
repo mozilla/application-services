@@ -18,7 +18,7 @@ buildscript {
         }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.2.1'
+        classpath "com.android.tools.build:gradle:$properties.androidGradlePluginVersion"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
 
         // Publish.
@@ -72,6 +72,23 @@ subprojects {
                 name = "projectBuildDir"
                 url "file://${project.buildDir}/maven"
             }
+        }
+    }
+
+    apply plugin: NativeLibsPlugin
+    nativeLibs {
+        nss {
+            lib "libplc4.*"
+            lib "libplds4.*"
+            lib "libnspr4.*"
+            lib "*freebl3.*"
+            lib "*nss3.*"
+            lib "*nssckbi.*"
+            lib "*nssutil3.*"
+            lib "*softokn3.*"
+            lib "*smime3.*"
+            // We don't need SSL so we might as well save space.
+            // lib "libssl3.*"
         }
     }
 }
@@ -219,7 +236,7 @@ ext.cargoExec = { spec, toolchain ->
 detekt {
     // The version number is duplicated, please refer to plugins block for more details
     toolVersion = "1.0.0-RC14"
-    input = files("${projectDir}/components", "${projectDir}/gradle-plugin")
+    input = files("${projectDir}/components", "${projectDir}/gradle-plugin", "buildSrc")
     filters = ".*test.*,.*/resources/.*,.*/tmp/.*,.*/build/.*"
     config = files("${projectDir}/.detekt.yml")
     failFast = false
@@ -240,12 +257,12 @@ task ktlint(type: JavaExec, group: "verification") {
     description = "Check Kotlin code style."
     classpath = configurations.ktlint
     main = "com.github.shyiko.ktlint.Main"
-    args "${projectDir}/components/**/*.kt", "${projectDir}/gradle-plugin/**/*.kt", "!**/build", "buildSrc/**/*.kt"
+    args "${projectDir}/components/**/*.kt", "${projectDir}/gradle-plugin/**/*.kt", "buildSrc/**/*.kt", "!**/build"
 }
 
 task ktlintFormat(type: JavaExec, group: "formatting") {
     description = "Fix Kotlin code style deviations."
     classpath = configurations.ktlint
     main = "com.github.shyiko.ktlint.Main"
-    args "-F", "${projectDir}/components/**/*.kt", "${projectDir}/gradle-plugin/**/*.kt"
+    args "-F", "${projectDir}/components/**/*.kt", "${projectDir}/gradle-plugin/**/*.kt", "buildSrc/**/*.kt", "!**/build"
 }

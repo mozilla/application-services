@@ -196,7 +196,7 @@ impl Storage for PushDb {
 
 #[cfg(test)]
 mod test {
-    use crypto::{Crypto, Cryptography};
+    use push_crypto::{Crypto, Cryptography};
     use push_errors::Result;
 
     use super::PushDb;

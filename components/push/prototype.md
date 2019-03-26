@@ -49,7 +49,7 @@ Notifier.process_notification(notification: Notification) {
     // get the pushrecord from storage.
     if let Some(pr) = storage.get_record(uaid, notification.channel_id) {
         let content = if ! pr.system_record {
-            crypto::decrypt(notification);
+            push_crypto::decrypt(notification);
         } else {
             notification.body
         };

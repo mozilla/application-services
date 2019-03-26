@@ -16,30 +16,22 @@ DIST_DIR=$2
 ARCH=$3
 IOS_MIN_SDK_VERSION=$4
 
-if [ -d "$DIST_DIR" ]; then
-  echo "$DIST_DIR"" folder already exists. Skipping build."
+if [ -d "${DIST_DIR}" ]; then
+  echo "${DIST_DIR} folder already exists. Skipping build."
   exit 0
 fi
 
 cd "${OPENSSL_DIR}"
 
-OPENSSL_OUTPUT_PATH="/tmp/openssl-""$ARCH"_$$
-mkdir -p "$OPENSSL_OUTPUT_PATH"
+OPENSSL_OUTPUT_PATH="/tmp/openssl-${ARCH}_${$}"
+mkdir -p "${OPENSSL_OUTPUT_PATH}"
 
-if [[ "${ARCH}" == "i386" || "${ARCH}" == "x86_64" ]]; then
+if [[ "${ARCH}" == "x86_64" ]]; then
   OS_COMPILER="iPhoneSimulator"
-  if [[ "${ARCH}" == "x86_64" ]]; then
-    HOST="darwin64-x86_64-cc"
-  else
-    HOST="darwin-i386-cc"
-  fi
-elif [[ "${ARCH}" == "armv7" || "${ARCH}" == "arm64" ]]; then
+  HOST="darwin64-x86_64-cc"
+elif [[ "${ARCH}" == "arm64" ]]; then
   OS_COMPILER="iPhoneOS"
-  if [[ "${ARCH}" == "arm64" ]]; then
-    HOST="ios64-cross"
-  else
-    HOST="ios-cross"
-  fi
+  HOST="ios64-cross"
 else
   echo "Unsupported architecture"
   exit 1
@@ -57,9 +49,9 @@ if [[ "${OS_COMPILER}" == "iPhoneSimulator" ]]; then
 fi
 make -j6
 make install_sw
-mkdir -p "$DIST_DIR""/include/openssl"
-mkdir -p "$DIST_DIR""/lib"
-cp -p "$OPENSSL_OUTPUT_PATH"/lib/libssl.a "$DIST_DIR""/lib"
-cp -p "$OPENSSL_OUTPUT_PATH"/lib/libcrypto.a "$DIST_DIR""/lib"
-cp -L "$PWD"/include/openssl/*.h "${DIST_DIR}/include/openssl"
-rm -rf "$OPENSSL_OUTPUT_PATH"
+mkdir -p "${DIST_DIR}/include/openssl"
+mkdir -p "${DIST_DIR}/lib"
+cp -p "${OPENSSL_OUTPUT_PATH}"/lib/libssl.a "${DIST_DIR}/lib"
+cp -p "${OPENSSL_OUTPUT_PATH}"/lib/libcrypto.a "${DIST_DIR}/lib"
+cp -L "${PWD}"/include/openssl/*.h "${DIST_DIR}/include/openssl"
+rm -rf "${OPENSSL_OUTPUT_PATH}"

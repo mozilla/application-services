@@ -2,9 +2,6 @@
 
 set -euvx
 
-abspath () { case "$1" in /*)printf "%s\\n" "$1";; *)printf "%s\\n" "$PWD/$1";; esac; }
-export -f abspath
-
 # End of configuration.
 
 if [ "$#" -lt 1 -o "$#" -gt 2 ]

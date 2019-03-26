@@ -11,6 +11,7 @@ members = [
     "components/support/sql",
     "components/support/ffi",
     "components/support/force-viaduct-reqwest",
+    "components/support/rc_crypto",
     "components/viaduct",
     "components/sync15",
     "components/rc_log",
