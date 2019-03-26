@@ -27,7 +27,7 @@ url = "1.7.1"
 ffi-support = { path = "../support/ffi" }
 
 [dev-dependencies]
-text_io = "0.1.7"
+cli-support = { path = "../support/cli" }
 
 [build-dependencies]
 prost-build = "0.4"
