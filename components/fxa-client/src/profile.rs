@@ -142,6 +142,10 @@ mod tests {
         ) -> Result<UpdateDeviceResponse> {
             unimplemented!("Not implemented yet")
         }
+
+        fn destroy_device(&self, _: &Config, _: &str, _: &str) -> Result<()> {
+            unimplemented!("Not implemented yet")
+        }
     }
 
     #[test]

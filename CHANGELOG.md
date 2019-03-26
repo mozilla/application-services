@@ -4,6 +4,13 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.0...master)
 
+## FxA
+
+### What's New
+
+- Added `destroyDevice` support to existing Send Tab capabilities. ([#821](https://github.com/mozilla/application-services/pull/821))
+
+
 # v0.27.0 (_2019-04-22_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.2...v0.27.0)

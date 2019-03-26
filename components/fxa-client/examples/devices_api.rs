@@ -115,7 +115,7 @@ fn main() -> Result<(), failure::Error> {
     loop {
         println!("Main menu:");
         let mut main_menu = Select::new();
-        main_menu.items(&["Set Display Name", "Send a Tab", "Quit"]);
+        main_menu.items(&["Set Display Name", "Send a Tab", "Destroy Device", "Quit"]);
         main_menu.default(0);
         let main_menu_selection = main_menu.interact().unwrap();
 
@@ -148,7 +148,23 @@ fn main() -> Result<(), failure::Error> {
                     .unwrap();
                 println!("Tab sent!");
             }
-            2 => ::std::process::exit(0),
+            2 => {
+                let devices = acct.lock().unwrap().get_devices().unwrap();
+                let devices_names: Vec<String> =
+                    devices.iter().map(|i| i.display_name.clone()).collect();
+                let mut targets_menu = Select::new();
+                targets_menu.default(0);
+                let devices_names_refs: Vec<&str> =
+                    devices_names.iter().map(AsRef::as_ref).collect();
+                targets_menu.items(&devices_names_refs);
+                println!("Choose the device to destroy:");
+                let selection = targets_menu.interact().unwrap();
+                let target = &devices[selection];
+
+                acct.lock().unwrap().destroy_device(&target.id).unwrap();
+                println!("Should be gone!");
+            }
+            3 => ::std::process::exit(0),
             _ => panic!("Invalid choice!"),
         }
     }

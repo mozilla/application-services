@@ -53,6 +53,7 @@ pub trait FxAClient {
         refresh_token: &str,
         update: DeviceUpdateRequest<'_>,
     ) -> Result<UpdateDeviceResponse>;
+    fn destroy_device(&self, config: &Config, refresh_token: &str, id: &str) -> Result<()>;
 }
 
 pub struct Client;
@@ -179,6 +180,20 @@ impl FxAClient for Client {
             .header(header_names::CONTENT_TYPE, "application/json")?
             .body(serde_json::to_string(&update)?);
         Ok(Self::make_request(request)?.json()?)
+    }
+
+    fn destroy_device(&self, config: &Config, refresh_token: &str, id: &str) -> Result<()> {
+        let body = json!({
+            "id": id,
+        });
+        let url = config.auth_url_path("v1/account/device/destroy")?;
+        let request = Request::post(url)
+            .header(header_names::AUTHORIZATION, bearer_token(refresh_token))?
+            .header(header_names::CONTENT_TYPE, "application/json")?
+            .body(body.to_string());
+
+        Self::make_request(request)?;
+        Ok(())
     }
 }
 
