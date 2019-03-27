@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use url::Url;
 
 pub use public_node::PublicNode;
-pub use root_guid::BookmarkRootGuid;
+pub use root_guid::{BookmarkRootGuid, USER_CONTENT_ROOTS};
 
 mod conversions;
 pub mod public_node;
@@ -45,7 +45,7 @@ fn create_root(
              (SELECT id FROM moz_bookmarks WHERE guid = {:?}),
              1, :sync_status)
         ",
-        BookmarkRootGuid::Root.as_guid().0
+        BookmarkRootGuid::Root.as_guid().as_ref()
     );
     let params: Vec<(&str, &ToSql)> = vec![
         (":item_type", &BookmarkType::Folder),
@@ -246,7 +246,7 @@ pub fn insert_bookmark(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid> {
     result
 }
 
-fn maybe_truncate_title(t: &Option<String>) -> Option<&str> {
+pub fn maybe_truncate_title(t: &Option<String>) -> Option<&str> {
     use super::TITLE_LENGTH_MAX;
     use crate::util::slice_up_to;
     t.as_ref().map(|title| slice_up_to(title, TITLE_LENGTH_MAX))
@@ -1085,11 +1085,11 @@ impl FetchedTreeRow {
         Ok(Self {
             level: row.get_checked("level")?,
             id: row.get_checked::<_, RowId>("id")?,
-            guid: SyncGuid(row.get_checked::<_, String>("guid")?),
+            guid: row.get_checked::<_, String>("guid")?.into(),
             parent: row.get_checked::<_, Option<RowId>>("parent")?,
             parent_guid: row
                 .get_checked::<_, Option<String>>("parentGuid")?
-                .map(SyncGuid),
+                .map(SyncGuid::from),
             node_type: BookmarkType::from_u8_with_valid_url(
                 row.get_checked::<_, u8>("type")?,
                 || url.is_some(),
@@ -1249,22 +1249,22 @@ pub fn fetch_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<Bookmark
 
 /// A "raw" bookmark - a representation of the row and some summary fields.
 #[derive(Debug)]
-struct RawBookmark {
-    place_id: Option<RowId>,
-    row_id: RowId,
-    bookmark_type: BookmarkType,
-    parent_id: Option<RowId>,
-    parent_guid: Option<SyncGuid>,
-    position: u32,
-    title: Option<String>,
-    url: Option<Url>,
-    date_added: Timestamp,
-    date_modified: Timestamp,
-    guid: SyncGuid,
-    sync_status: SyncStatus,
-    sync_change_counter: u32,
-    child_count: u32,
-    grandparent_id: Option<RowId>,
+pub(crate) struct RawBookmark {
+    pub place_id: Option<RowId>,
+    pub row_id: RowId,
+    pub bookmark_type: BookmarkType,
+    pub parent_id: Option<RowId>,
+    pub parent_guid: Option<SyncGuid>,
+    pub position: u32,
+    pub title: Option<String>,
+    pub url: Option<Url>,
+    pub date_added: Timestamp,
+    pub date_modified: Timestamp,
+    pub guid: SyncGuid,
+    pub sync_status: SyncStatus,
+    pub sync_change_counter: u32,
+    pub child_count: u32,
+    pub grandparent_id: Option<RowId>,
 }
 
 impl RawBookmark {
@@ -1287,7 +1287,7 @@ impl RawBookmark {
             },
             date_added: row.get_checked("dateAdded")?,
             date_modified: row.get_checked("lastModified")?,
-            guid: SyncGuid(row.get_checked::<_, String>("guid")?),
+            guid: row.get_checked::<_, String>("guid")?.into(),
             sync_status: SyncStatus::from_u8(row.get_checked::<_, u8>("_syncStatus")?),
             sync_change_counter: row
                 .get_checked::<_, Option<u32>>("syncChangeCounter")?
@@ -1324,7 +1324,7 @@ const RAW_BOOKMARK_SQL: &str = "
     LEFT JOIN moz_places h ON h.id = b.fk
 ";
 
-fn get_raw_bookmark(db: &PlacesDb, guid: &SyncGuid) -> Result<Option<RawBookmark>> {
+pub(crate) fn get_raw_bookmark(db: &PlacesDb, guid: &SyncGuid) -> Result<Option<RawBookmark>> {
     // sql is based on fetchBookmark() in Desktop's Bookmarks.jsm, with 'fk' added
     // and title's NULLIF handling.
     Ok(db.try_query_row(
@@ -1361,69 +1361,17 @@ mod tests {
     use super::*;
     use crate::api::places_api::test::new_mem_connection;
     use crate::db::PlacesDb;
+    use crate::tests::{assert_json_tree, insert_json_tree};
     use pretty_assertions::assert_eq;
     use rusqlite::NO_PARAMS;
     use serde_json::Value;
     use std::collections::HashSet;
-
-    pub(super) fn insert_json_tree(conn: &PlacesDb, jtree: Value) {
-        let tree: BookmarkTreeNode = serde_json::from_value(jtree).expect("should be valid");
-        let folder_node = match tree {
-            BookmarkTreeNode::Folder(folder_node) => folder_node,
-            _ => panic!("must be a folder"),
-        };
-        insert_tree(conn, &folder_node).expect("should insert");
-    }
-
-    fn assert_json_tree(conn: &PlacesDb, folder: &SyncGuid, expected: Value) {
-        let fetched = fetch_tree(conn, folder).expect("should work").unwrap();
-        let deser_tree: BookmarkTreeNode = serde_json::from_value(expected).unwrap();
-        assert_eq!(fetched, deser_tree);
-        // and while checking the tree, check positions are correct.
-        check_positions(&conn);
-    }
 
     fn get_pos(conn: &PlacesDb, guid: &SyncGuid) -> u32 {
         get_raw_bookmark(conn, guid)
             .expect("should work")
             .unwrap()
             .position
-    }
-
-    // check the positions for children in a folder are "correct" in that
-    // the first child has a value of zero, etc - ie, this will fail if there
-    // are holes or duplicates in the position values.
-    // Clever implementation stolen from desktop.
-    fn check_positions(conn: &PlacesDb) {
-        // Use triangular numbers to detect skipped position, then
-        // a subquery to select enough fields to help diagnose when it fails.
-        let sql = "
-            WITH bad_parents(pid) as (
-                SELECT parent
-                FROM moz_bookmarks
-                GROUP BY parent
-                HAVING (SUM(DISTINCT position + 1) - (count(*) * (count(*) + 1) / 2)) <> 0
-            )
-            SELECT parent, guid, title, position FROM moz_bookmarks
-            WHERE parent in bad_parents
-            ORDER BY parent, position
-        ";
-
-        let mut stmt = conn.prepare(sql).expect("sql is ok");
-        let parents: Vec<_> = stmt
-            .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
-                Ok((
-                    row.get_checked::<_, i64>(0)?,
-                    row.get_checked::<_, String>(1)?,
-                    row.get_checked::<_, Option<String>>(2)?,
-                    row.get_checked::<_, u32>(3)?,
-                ))
-            })
-            .expect("should work")
-            .map(|v| v.unwrap())
-            .collect();
-
-        assert_eq!(parents, Vec::new());
     }
 
     #[test]

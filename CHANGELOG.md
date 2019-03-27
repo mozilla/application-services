@@ -2,7 +2,26 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.0...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.1...master)
+
+# v0.22.1 (_2019-03-27_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.0...v0.22.1)
+
+## Logins
+
+### What's New
+
+- iOS Logins storage now has `ensureLocked`, `ensureUnlocked`, and `wipeLocal`
+  methods, equivalent to those provided in the android API.
+  ([#854](https://github.com/mozilla/application-services/issues/854))
+
+## Places
+
+### What's Fixed
+
+- PlacesAPIs should now be closed when all references to them are no longer used.
+  ([#749](https://github.com/mozilla/application-services/issues/749))
 
 # v0.22.0 (_2019-03-22_)
 

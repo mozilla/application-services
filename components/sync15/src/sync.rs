@@ -26,7 +26,7 @@ pub trait Store {
     fn sync_finished(
         &self,
         new_timestamp: ServerTimestamp,
-        records_synced: &[String],
+        records_synced: Vec<String>,
     ) -> Result<(), failure::Error>;
 
     /// The store is responsible for building the collection request. Engines
@@ -81,7 +81,7 @@ pub fn synchronize(
     telem_outgoing.failed(upload_info.failed_ids.len());
     telem_engine.outgoing(telem_outgoing);
 
-    store.sync_finished(upload_info.modified_timestamp, &upload_info.successful_ids)?;
+    store.sync_finished(upload_info.modified_timestamp, upload_info.successful_ids)?;
 
     log::info!("Sync finished!");
     Ok(())

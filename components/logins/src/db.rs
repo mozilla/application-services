@@ -780,7 +780,7 @@ impl Store for LoginDb {
     fn sync_finished(
         &self,
         new_timestamp: ServerTimestamp,
-        records_synced: &[String],
+        records_synced: Vec<String>,
     ) -> result::Result<(), failure::Error> {
         self.mark_as_synchronized(
             &records_synced

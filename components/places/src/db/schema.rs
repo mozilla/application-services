@@ -8,16 +8,22 @@
 // db.rs.
 
 use crate::api::places_api::ConnectionType;
+use crate::bookmark_sync::create_synced_bookmark_roots;
 use crate::db::PlacesDb;
 use crate::error::*;
 use crate::storage::bookmarks::create_bookmark_roots;
 use rusqlite::NO_PARAMS;
 use sql_support::ConnExt;
 
-const VERSION: i64 = 6;
+const VERSION: i64 = 7;
 
+// Shared schema and temp tables for the read-write and Sync connections.
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
 const CREATE_SHARED_TEMP_TABLES_SQL: &str = include_str!("../../sql/create_shared_temp_tables.sql");
+
+// Sync-specific temp tables and triggers.
+const CREATE_SYNC_TEMP_TABLES_SQL: &str = include_str!("../../sql/create_sync_temp_tables.sql");
+const CREATE_SYNC_TRIGGERS_SQL: &str = include_str!("../../sql/create_sync_triggers.sql");
 
 // Triggers for the main read-write connection only.
 const CREATE_MAIN_TRIGGERS_SQL: &str = include_str!("../../sql/create_main_triggers.sql");
@@ -84,12 +90,12 @@ pub fn init(db: &PlacesDb) -> Result<()> {
                  Optimisitically ",
                 user_version,
                 VERSION
-            )
+            );
+            // Downgrade the schema version, so that anything added with our
+            // schema is migrated forward when the newer library reads our
+            // database.
+            db.execute_batch(&format!("PRAGMA user_version = {};", VERSION))?;
         }
-        // Downgrade the schema version, so that anything added with our
-        // schema is migrated forward when the newer library reads our
-        // database.
-        db.execute_batch(&format!("PRAGMA user_version = {};", VERSION))?;
     }
     match db.conn_type() {
         // Read-only connections don't need temp tables or triggers, as they
@@ -104,11 +110,15 @@ pub fn init(db: &PlacesDb) -> Result<()> {
             db.execute_batch(CREATE_MAIN_TRIGGERS_SQL)?;
         }
 
-        // The Sync connection bypasses some of the main
+        // The Sync connection needs shared and its own temp tables and
+        // triggers, for merging. It also bypasses some of the main
         // triggers, so that we don't write tombstones for synced deletions.
         ConnectionType::Sync => {
             db.execute_batch(CREATE_SHARED_TEMP_TABLES_SQL)?;
             db.execute_batch(&CREATE_SHARED_TRIGGERS_SQL)?;
+            db.execute_batch(CREATE_SYNC_TEMP_TABLES_SQL)?;
+            db.execute_batch(CREATE_SYNC_TRIGGERS_SQL)?;
+            create_synced_bookmark_roots(db)?;
         }
     }
     Ok(())
@@ -174,6 +184,7 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
     )?;
     migration(db, 4, 5, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?;
     migration(db, 5, 6, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?; // new tags tables.
+    migration(db, 6, 7, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?; // bookmark syncing.
                                                                   // Add more migrations here...
 
     if get_current_schema_version(db)? == VERSION {
@@ -409,6 +420,44 @@ mod tests {
         .expect("should work");
         assert_eq!(get_foreign_count(&conn, &guid1), 0);
         assert_eq!(get_foreign_count(&conn, &guid2), 0);
+    }
+
+    #[test]
+    fn test_bookmark_synced_foreign_count_triggers() {
+        // create the place.
+        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+
+        let url = Url::parse("http://example.com")
+            .expect("valid url")
+            .into_string();
+
+        conn.execute_named_cached(
+            "INSERT INTO moz_places (guid, url, url_hash) VALUES ('fake_guid___', :url, hash(:url))",
+            &[(":url", &url)],
+        )
+        .expect("should work");
+        let place_id = conn.last_insert_rowid();
+
+        assert_eq!(get_foreign_count(&conn, &"fake_guid___".into()), 0);
+
+        // create a bookmark pointing at it.
+        conn.execute_named_cached(
+            "INSERT INTO moz_bookmarks_synced
+                (placeId, guid)
+            VALUES
+                (:place_id, 'fake_guid___')",
+            &[(":place_id", &place_id)],
+        )
+        .expect("should work");
+        assert_eq!(get_foreign_count(&conn, &"fake_guid___".into()), 1);
+
+        // delete it.
+        conn.execute_named_cached(
+            "DELETE FROM moz_bookmarks_synced WHERE guid = 'fake_guid___';",
+            &[],
+        )
+        .expect("should work");
+        assert_eq!(get_foreign_count(&conn, &"fake_guid___".into()), 0);
     }
 
     #[test]

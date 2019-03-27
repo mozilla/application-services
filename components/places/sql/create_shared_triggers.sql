@@ -230,3 +230,79 @@ BEGIN
     -- Add the origin's new contribution to frecency stats
     {increase_frecency_stats};
 END;
+
+-- These triggers adjust the foreign count for synced bookmark URLs, so that
+-- they won't be expired or automatically removed.
+CREATE TEMP TRIGGER moz_bookmarks_synced_foreign_count_afterinsert_trigger
+AFTER INSERT ON moz_bookmarks_synced
+BEGIN
+    UPDATE moz_places SET
+        foreign_count = foreign_count + 1
+    WHERE id = NEW.placeId;
+END;
+
+CREATE TEMP TRIGGER moz_bookmarks_synced_foreign_count_afterupdate_trigger
+AFTER UPDATE OF placeId ON moz_bookmarks_synced
+BEGIN
+    UPDATE moz_places SET
+        foreign_count = foreign_count + 1
+    WHERE id = NEW.placeId;
+
+    UPDATE moz_places SET
+        foreign_count = foreign_count - 1
+    WHERE id = OLD.placeId;
+END;
+
+CREATE TEMP TRIGGER moz_bookmarks_synced_foreign_count_afterdelete_trigger
+AFTER DELETE ON moz_bookmarks_synced
+BEGIN
+    UPDATE moz_places SET
+        foreign_count = foreign_count - 1
+    WHERE id = OLD.placeId;
+END;
+
+-- These triggers adjust the foreign count for tagged URLs, and bump the
+-- tag's last modified time when a URL is tagged or untagged. These are
+-- split out from the main connection's tag triggers because we also want
+-- this behavior when applying synced tags.
+CREATE TEMP TRIGGER moz_tags_relations_afterinsert_trigger
+AFTER INSERT ON moz_tags_relation
+BEGIN
+    UPDATE moz_tags SET
+        lastModified = now()
+    WHERE id = NEW.tag_id;
+
+    -- Tagging a URL increased the foreign count so that it will not be
+    -- expired or otherwise automatically removed.
+    UPDATE moz_places SET
+        foreign_count = foreign_count + 1
+    WHERE id = NEW.place_id;
+END;
+
+CREATE TEMP TRIGGER moz_tags_relations_afterupdate_trigger
+AFTER UPDATE ON moz_tags_relation
+BEGIN
+    UPDATE moz_tags SET
+        lastModified = now()
+    WHERE id IN (OLD.tag_id, NEW.tag_id);
+
+    UPDATE moz_places SET
+        foreign_count = foreign_count + 1
+    WHERE id = NEW.place_id;
+
+    UPDATE moz_places SET
+        foreign_count = foreign_count - 1
+    WHERE id = OLD.place_id;
+END;
+
+CREATE TEMP TRIGGER moz_tags_relations_afterdelete_trigger
+AFTER DELETE ON moz_tags_relation
+BEGIN
+    UPDATE moz_tags SET
+        lastModified = now()
+    WHERE id = OLD.tag_id;
+
+    UPDATE moz_places SET
+        foreign_count = foreign_count - 1
+    WHERE id = OLD.place_id;
+END;
