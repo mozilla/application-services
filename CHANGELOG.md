@@ -2,7 +2,11 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.0...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.1...master)
+
+# v0.22.1 (_2019-03-27_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.0...v0.22.1)
 
 ## Logins
 
