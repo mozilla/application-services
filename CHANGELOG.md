@@ -4,6 +4,13 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.1...master)
 
+## Push
+
+### Breaking changes
+
+- the `PushManager` argument `socket_protocol` is now `http_protocol`
+  to correctly map its role. `socket_protocol` is reserved.
+
 # v0.22.1 (_2019-03-27_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.0...v0.22.1)

@@ -183,16 +183,20 @@ class PushTest {
     @Test
     fun testUpdate() {
         val manager = getPushManager()
+        // subscribe to at least one channel.
+        manager.subscribe(testChannelid, "foo")
         val result = manager.update("test-2")
-        // TODO: This changes the SenderID used by manager.conn, which is private.
-        // probably should add a call to return that for test checks.
         assertEquals("SenderID update", true, result)
     }
 
     @Test
     fun testVerifyConnection() {
         val manager = getPushManager()
+        // Client will call verifyConnection() on initial setup, before UAID set.
+        manager.verifyConnection()
+        // Register a subscription
         manager.subscribe(testChannelid, "foo")
+        // and call verifyConnection again to emulate a set value.
         val result = manager.verifyConnection()
         val vv = result[testChannelid].toString()
         assertEquals("Check changed endpoint", "http://push.example.com/test/obscure", vv)

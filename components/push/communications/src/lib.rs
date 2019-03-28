@@ -101,10 +101,10 @@ pub fn connect(options: PushConfiguration) -> error::Result<ConnectHttp> {
         );
     };
     if options.socket_protocol.is_some() {
-        return Err(error::ErrorKind::CommunicationError("Unsupported".to_owned()).into());
+        return Err(CommunicationError("Unsupported".to_owned()).into());
     };
     if options.bridge_type.is_some() && options.registration_id.is_none() {
-        return Err(error::ErrorKind::CommunicationError(
+        return Err(CommunicationError(
             "Missing Registration ID, please register with OS first".to_owned(),
         )
         .into());
@@ -314,9 +314,12 @@ impl Connection for ConnectHttp {
             return Err(CommunicationError("No UAID set".into()).into());
         }
         let options = self.options.clone();
+        if options.bridge_type.is_none() {
+            return Err(CommunicationError("No Bridge Type set".into()).into());
+        }
         let url = format!(
             "{}://{}/v1/{}/{}/registration/{}/",
-            &options.http_protocol.unwrap(),
+            &options.http_protocol.unwrap_or_else(|| "https".to_owned()),
             &options.server_host,
             &options.bridge_type.unwrap(),
             &options.sender_id,
@@ -385,14 +388,8 @@ impl Connection for ConnectHttp {
         if &self.options.sender_id == "test" {
             return Ok(false);
         }
-        let remote = match self.channel_list() {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(
-                    CommunicationError(format!("Could not fetch channel list: {:?}", e)).into(),
-                );
-            }
-        };
+        println!(":::Getting Channel List");
+        let remote = self.channel_list()?;
         //let channels = self.database.get_channel_list(&self.uaid.clone().unwrap())?;
         // verify both lists match. Either side could have lost it's mind.
         Ok(remote == channels.to_vec())
@@ -457,7 +454,7 @@ mod test {
             // make sure we have stored the secret.
             assert_eq!(conn.auth, Some(SECRET.to_owned()));
         }
-        // UNSUBSCRIPTION - Single channel
+        // UNSUBSCRIBE - Single channel
         {
             let ap_mock = mock(
                 "DELETE",
@@ -479,7 +476,7 @@ mod test {
             ap_mock.assert();
             assert!(response);
         }
-        // UNSUBSCRIPTION - All for UAID
+        // UNSUBSCRIBE - All for UAID
         {
             let ap_mock = mock(
                 "DELETE",
