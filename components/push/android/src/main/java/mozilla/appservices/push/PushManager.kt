@@ -15,14 +15,14 @@ import mozilla.appservices.support.RustBuffer
  * An implementation of a [PushAPI] backed by a Rust Push library.
  *
  * @param serverHost the host name for the service (e.g. "push.service.mozilla.org").
- * @param socketProtocol the optional socket protocol (default: "https")
+ * @param httpProtocol the optional socket protocol (default: "https")
  * @param bridgeType the optional bridge protocol (default: "fcm")
  * @param registrationId the native OS messaging registration id
  */
 class PushManager(
     senderId: String,
     serverHost: String = "push.service.mozilla.com",
-    socketProtocol: String = "https",
+    httpProtocol: String = "https",
     bridgeType: BridgeTypes,
     registrationId: String,
     databasePath: String = "push.sqlite"
@@ -35,7 +35,7 @@ class PushManager(
         handle.set(rustCall { error ->
                 LibPushFFI.INSTANCE.push_connection_new(
                         serverHost,
-                        socketProtocol,
+                        httpProtocol,
                         bridgeType.toString(),
                         registrationId,
                         senderId,
