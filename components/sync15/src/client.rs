@@ -109,7 +109,7 @@ impl SetupStorageClient for Sync15StorageClient {
     fn fetch_crypto_keys(&self) -> error::Result<TimestampedResponse<EncryptedBso>> {
         let mut keys_resp = self.relative_storage_request(Method::GET, "storage/crypto/keys")?;
         let record: EncryptedBso = keys_resp.json()?;
-        let last_modified = get_response_timestamp(&mut keys_resp)?;
+        let last_modified = get_response_timestamp(&keys_resp)?;
         Ok(TimestampedResponse {
             last_modified,
             record,
@@ -232,7 +232,7 @@ impl Sync15StorageClient {
     {
         let mut resp = self.relative_storage_request(Method::GET, path)?;
         let record: T = resp.json()?;
-        let last_modified = get_response_timestamp(&mut resp)?;
+        let last_modified = get_response_timestamp(&resp)?;
         Ok(TimestampedResponse {
             last_modified,
             record,
