@@ -16,8 +16,6 @@ use reqwest::{
     header::{self, HeaderValue, ACCEPT, AUTHORIZATION},
     Client, Request, Response, Url,
 };
-use serde::de::DeserializeOwned;
-use serde::ser::Serialize;
 use serde_derive::*;
 use std::str::FromStr;
 use std::time::Duration;
@@ -29,7 +27,7 @@ pub struct Sync15StorageClientInit {
     pub tokenserver_url: Url,
 }
 
-fn get_response_timestamp(resp: &mut Response) -> error::Result<ServerTimestamp> {
+fn get_response_timestamp(resp: &Response) -> error::Result<ServerTimestamp> {
     Ok(resp
         .headers()
         .get(X_LAST_MODIFIED)
@@ -42,9 +40,8 @@ fn get_response_timestamp(resp: &mut Response) -> error::Result<ServerTimestamp>
 /// we may want to update with an x-if-unmodified-since header to ensure we are
 /// overwriting what we think we are.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct TimestampedResponse<T: DeserializeOwned> {
+pub struct TimestampedResponse<T> {
     pub last_modified: ServerTimestamp,
-    #[serde(bound(serialize = "T: Serialize", deserialize = "T: DeserializeOwned"))]
     pub record: T,
 }
 
@@ -94,7 +91,7 @@ impl SetupStorageClient for Sync15StorageClient {
         let meta_global: MetaGlobalRecord = resp.json()?;
         log::trace!("Meta global: {:?}", meta_global);
 
-        let last_modified = get_response_timestamp(&mut resp)?;
+        let last_modified = get_response_timestamp(&resp)?;
         Ok(TimestampedResponse {
             last_modified,
             record: meta_global,
