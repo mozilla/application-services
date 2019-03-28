@@ -142,7 +142,7 @@ pub extern "C" fn push_verify_connection(handle: u64, error: &mut ExternError) -
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<_> {
         if !mgr.verify_connection()? {
             let new_endpoints = mgr.regenerate_endpoints()?;
-            if new_endpoints.is_empty() {
+            if !new_endpoints.is_empty() {
                 return serde_json::to_string(&new_endpoints).map_err(|e| {
                     push_errors::ErrorKind::TranscodingError(format!("{:?}", e)).into()
                 });
