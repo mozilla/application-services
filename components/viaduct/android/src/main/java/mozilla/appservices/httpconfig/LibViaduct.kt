@@ -35,7 +35,7 @@ internal interface LibViaduct : Library {
                 // guarantee that we're relying on, so in the future it
                 // is possible that somehow a build ships that contains the
                 // rust backend by accident. Calling this means we'll still
-                // make our requests through OpenSSL.
+                // make our requests through this adapter.
                 lib.viaduct_force_enable_ffi_backend(1)
             }
             lib

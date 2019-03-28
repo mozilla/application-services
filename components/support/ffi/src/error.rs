@@ -162,7 +162,8 @@ impl ExternError {
     }
 
     /// Helper for the case where we aren't exposing this back over the FFI and
-    /// we just want to warn if an error occurred, release the allocated memory.
+    /// we just want to warn if an error occurred and then release the allocated
+    /// memory.
     ///
     /// Typically, this is done if the error will still be detected and reported
     /// by other channels.

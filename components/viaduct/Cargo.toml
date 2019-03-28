@@ -5,10 +5,10 @@ authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 edition = "2018"
 
 [lib]
-crate-type = ["lib", "staticlib", "cdylib"]
+crate-type = ["lib", "cdylib"]
 
 [features]
-# Unfortunate, but required to make our tests (which don't can't anything) work.
+# Unfortunate, but required to make our tests work.
 default = ["rust-http-stack"]
 rust-http-stack = ["reqwest"]
 

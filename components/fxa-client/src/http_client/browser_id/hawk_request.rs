@@ -11,7 +11,7 @@ const KEY_LENGTH: usize = 32;
 
 pub struct HawkRequestBuilder<'a> {
     url: Url,
-    method: viaduct::Method,
+    method: Method,
     body: Option<String>,
     hkdf_sha256_key: &'a [u8],
 }
@@ -53,7 +53,7 @@ impl<'a> HawkRequestBuilder<'a> {
         Ok(format!("Hawk {}", header))
     }
 
-    pub fn build(self) -> Result<viaduct::Request> {
+    pub fn build(self) -> Result<Request> {
         let hawk_header = self.make_hawk_header()?;
         let mut request =
             Request::new(self.method, self.url).header(header_names::AUTHORIZATION, hawk_header)?;

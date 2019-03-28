@@ -24,7 +24,9 @@ object RustHttpConfig {
     private var lock = ReentrantReadWriteLock()
     @Volatile
     private var client: Lazy<Client>? = null
-    // IMPORTANT: This must not ever get GCed!!
+    // Important note to future maintainers: if you mess around with
+    // this code, you have to make sure `imp` can't get GCed. Extremely
+    // bad things will happen if it does!
     @Volatile
     private var imp: CallbackImpl? = null
 

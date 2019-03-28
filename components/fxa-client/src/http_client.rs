@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{config::Config, errors::*};
-// use reqwest::{self, header, Client as ReqwestClient, Method, Request, Response, StatusCode};
 use serde_derive::*;
 use serde_json::json;
 use viaduct::{header_names, status_codes, Request, Response};

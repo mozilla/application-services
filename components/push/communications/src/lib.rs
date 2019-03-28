@@ -162,7 +162,7 @@ impl Connection for ConnectHttp {
             });
         }
         let url = Url::parse(&url)?;
-        let request = match Request::post(url).json(&body).send() {
+        let requested = match Request::post(url).json(&body).send() {
             Ok(v) => v,
             Err(e) => {
                 return Err(
@@ -170,18 +170,18 @@ impl Connection for ConnectHttp {
                 );
             }
         };
-        if request.is_server_error() {
-            // dbg!(request);
+        if requested.is_server_error() {
+            // dbg!(requested);
             return Err(CommunicationServerError("General Server error".to_string()).into());
         }
-        if request.is_client_error() {
-            // dbg!(&request);
-            if request.status == status_codes::CONFLICT {
+        if requested.is_client_error() {
+            // dbg!(&requested);
+            if requested.status == status_codes::CONFLICT {
                 return Err(AlreadyRegisteredError.into());
             }
-            return Err(CommunicationError(format!("Unhandled client error {:?}", request)).into());
+            return Err(CommunicationError(format!("Unhandled client error {:?}", requested)).into());
         }
-        let response: Value = match request.json() {
+        let response: Value = match requested.json() {
             Ok(v) => v,
             Err(e) => {
                 return Err(
