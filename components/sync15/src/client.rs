@@ -2,12 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::bso_record::{BsoRecord, EncryptedBso};
+use crate::bso_record::EncryptedBso;
 use crate::error::{self, ErrorKind};
 use crate::record_types::MetaGlobalRecord;
 use crate::request::{
     BatchPoster, CollectionRequest, InfoCollections, InfoConfiguration, PostQueue, PostResponse,
-    PostResponseHandler, X_IF_UNMODIFIED_SINCE,
+    PostResponseHandler, X_IF_UNMODIFIED_SINCE, X_LAST_MODIFIED,
 };
 use crate::token;
 use crate::util::ServerTimestamp;
@@ -16,6 +16,10 @@ use reqwest::{
     header::{self, HeaderValue, ACCEPT, AUTHORIZATION},
     Client, Request, Response, Url,
 };
+use serde::de::DeserializeOwned;
+use serde::ser::Serialize;
+use serde_derive::*;
+use std::str::FromStr;
 use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -25,16 +29,39 @@ pub struct Sync15StorageClientInit {
     pub tokenserver_url: Url,
 }
 
+fn get_response_timestamp(resp: &mut Response) -> error::Result<ServerTimestamp> {
+    Ok(resp
+        .headers()
+        .get(X_LAST_MODIFIED)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| ServerTimestamp::from_str(s).ok())
+        .ok_or_else(|| ErrorKind::MissingServerTimestamp)?)
+}
+
+/// A TimestampedResponse is used as a wrapper for any non-collection response
+/// we may want to update with an x-if-unmodified-since header to ensure we are
+/// overwriting what we think we are.
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct TimestampedResponse<T: DeserializeOwned> {
+    pub last_modified: ServerTimestamp,
+    #[serde(bound(serialize = "T: Serialize", deserialize = "T: DeserializeOwned"))]
+    pub record: T,
+}
+
 /// A trait containing the methods required to run through the setup state
 /// machine. This is factored out into a separate trait to make mocking
 /// easier.
 pub trait SetupStorageClient {
     fn fetch_info_configuration(&self) -> error::Result<InfoConfiguration>;
-    fn fetch_info_collections(&self) -> error::Result<InfoCollections>;
-    fn fetch_meta_global(&self) -> error::Result<BsoRecord<MetaGlobalRecord>>;
-    fn put_meta_global(&self, global: &BsoRecord<MetaGlobalRecord>) -> error::Result<()>;
-    fn fetch_crypto_keys(&self) -> error::Result<EncryptedBso>;
-    fn put_crypto_keys(&self, keys: &EncryptedBso) -> error::Result<()>;
+    fn fetch_info_collections(&self) -> error::Result<TimestampedResponse<InfoCollections>>;
+    fn fetch_meta_global(&self) -> error::Result<TimestampedResponse<MetaGlobalRecord>>;
+    fn put_meta_global(
+        &self,
+        xius: ServerTimestamp,
+        global: &MetaGlobalRecord,
+    ) -> error::Result<()>;
+    fn fetch_crypto_keys(&self) -> error::Result<TimestampedResponse<EncryptedBso>>;
+    fn put_crypto_keys(&self, xius: ServerTimestamp, keys: &EncryptedBso) -> error::Result<()>;
     fn wipe_all_remote(&self) -> error::Result<()>;
 }
 
@@ -45,40 +72,55 @@ pub struct Sync15StorageClient {
 }
 
 impl SetupStorageClient for Sync15StorageClient {
+    // we never update info/configuration, so there's no need to wrap in a TimestampedResponse.
     fn fetch_info_configuration(&self) -> error::Result<InfoConfiguration> {
         let server_config = self.fetch_info::<InfoConfiguration>("info/configuration")?;
-        Ok(server_config)
+        Ok(server_config.record)
     }
 
-    fn fetch_info_collections(&self) -> error::Result<InfoCollections> {
+    // we do update info/collections, so it's wrapped in a TimestampedResponse.
+    fn fetch_info_collections(&self) -> error::Result<TimestampedResponse<InfoCollections>> {
         let collections = self.fetch_info::<InfoCollections>("info/collections")?;
         Ok(collections)
     }
 
-    fn fetch_meta_global(&self) -> error::Result<BsoRecord<MetaGlobalRecord>> {
+    fn fetch_meta_global(&self) -> error::Result<TimestampedResponse<MetaGlobalRecord>> {
         let mut resp = match self.relative_storage_request(Method::GET, "storage/meta/global") {
             Ok(r) => Ok(r),
             Err(ref e) if e.is_not_found() => Err(ErrorKind::NoMetaGlobal.into()),
             Err(e) => Err(e),
         }?;
         // Note: meta/global is not encrypted!
-        let meta_global: BsoRecord<MetaGlobalRecord> = resp.json()?;
-        log::trace!("Meta global: {:?}", meta_global.payload);
-        Ok(meta_global)
+        let meta_global: MetaGlobalRecord = resp.json()?;
+        log::trace!("Meta global: {:?}", meta_global);
+
+        let last_modified = get_response_timestamp(&mut resp)?;
+        Ok(TimestampedResponse {
+            last_modified,
+            record: meta_global,
+        })
     }
 
-    fn put_meta_global(&self, global: &BsoRecord<MetaGlobalRecord>) -> error::Result<()> {
-        self.put("storage/meta/global", None, global)
+    fn put_meta_global(
+        &self,
+        xius: ServerTimestamp,
+        global: &MetaGlobalRecord,
+    ) -> error::Result<()> {
+        self.put("storage/meta/global", xius, global)
     }
 
-    fn fetch_crypto_keys(&self) -> error::Result<EncryptedBso> {
+    fn fetch_crypto_keys(&self) -> error::Result<TimestampedResponse<EncryptedBso>> {
         let mut keys_resp = self.relative_storage_request(Method::GET, "storage/crypto/keys")?;
-        let keys: EncryptedBso = keys_resp.json()?;
-        Ok(keys)
+        let record: EncryptedBso = keys_resp.json()?;
+        let last_modified = get_response_timestamp(&mut keys_resp)?;
+        Ok(TimestampedResponse {
+            last_modified,
+            record,
+        })
     }
 
-    fn put_crypto_keys(&self, keys: &EncryptedBso) -> error::Result<()> {
-        self.put("storage/crypto/keys", None, keys)
+    fn put_crypto_keys(&self, xius: ServerTimestamp, keys: &EncryptedBso) -> error::Result<()> {
+        self.put("storage/crypto/keys", xius, keys)
     }
 
     fn wipe_all_remote(&self) -> error::Result<()> {
@@ -187,13 +229,17 @@ impl Sync15StorageClient {
         )
     }
 
-    fn fetch_info<T>(&self, path: &str) -> error::Result<T>
+    fn fetch_info<T>(&self, path: &str) -> error::Result<TimestampedResponse<T>>
     where
         for<'a> T: serde::de::Deserialize<'a>,
     {
         let mut resp = self.relative_storage_request(Method::GET, path)?;
-        let result: T = resp.json()?;
-        Ok(result)
+        let record: T = resp.json()?;
+        let last_modified = get_response_timestamp(&mut resp)?;
+        Ok(TimestampedResponse {
+            last_modified,
+            record,
+        })
     }
 
     pub fn new_post_queue<'a, F: PostResponseHandler>(
@@ -210,12 +256,7 @@ impl Sync15StorageClient {
         Ok(PostQueue::new(config, ts, pw, on_response))
     }
 
-    fn put<P, B>(
-        &self,
-        relative_path: P,
-        xius: Option<ServerTimestamp>,
-        body: &B,
-    ) -> error::Result<()>
+    fn put<P, B>(&self, relative_path: P, xius: ServerTimestamp, body: &B) -> error::Result<()>
     where
         P: AsRef<str>,
         B: serde::ser::Serialize,
@@ -230,12 +271,10 @@ impl Sync15StorageClient {
             header::CONTENT_TYPE,
             HeaderValue::from_static("application/json"),
         );
-        if let Some(ts) = xius {
-            req.headers_mut().insert(
-                X_IF_UNMODIFIED_SINCE,
-                HeaderValue::from_str(&format!("{}", ts))?,
-            );
-        }
+        req.headers_mut().insert(
+            X_IF_UNMODIFIED_SINCE,
+            HeaderValue::from_str(&format!("{}", xius))?,
+        );
         *req.body_mut() = Some(bytes.into());
         let _ = self.exec_request(req, true)?;
 

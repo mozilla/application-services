@@ -4,8 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::bso_record::BsoRecord;
-use crate::client::SetupStorageClient;
+use crate::client::{SetupStorageClient, TimestampedResponse};
 use crate::collection_keys::CollectionKeys;
 use crate::error::{self, ErrorKind};
 use crate::key_bundle::KeyBundle;
@@ -53,8 +52,8 @@ enum PersistedState {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct GlobalState {
     pub config: InfoConfiguration,
-    pub collections: InfoCollections,
-    pub global: Option<BsoRecord<MetaGlobalRecord>>,
+    pub collections: TimestampedResponse<InfoCollections>,
+    pub global: Option<TimestampedResponse<MetaGlobalRecord>>,
     pub keys: Option<CollectionKeys>,
     pub engine_state_changes: Vec<EngineStateChange>,
 }
@@ -81,7 +80,11 @@ impl GlobalState {
     }
 
     pub fn last_modified_or_zero(&self, coll: &str) -> ServerTimestamp {
-        self.collections.get(coll).cloned().unwrap_or(SERVER_EPOCH)
+        self.collections
+            .record
+            .get(coll)
+            .cloned()
+            .unwrap_or(SERVER_EPOCH)
     }
 
     /// Returns a set of all engine names that should be reset locally.
@@ -91,6 +94,7 @@ impl GlobalState {
             .as_ref()
             .map(|global| {
                 global
+                    .record
                     .engines
                     .keys()
                     .map(|key| key.to_string())
@@ -123,17 +127,19 @@ impl GlobalState {
 
 fn resolve_global(
     previous_state: GlobalState,
-    new_global: BsoRecord<MetaGlobalRecord>,
+    new_global: TimestampedResponse<MetaGlobalRecord>,
 ) -> GlobalState {
     let mut changes = previous_state.engine_state_changes;
     let (new_global, previous_keys) = match &previous_state.global {
         Some(previous_global) => {
-            if previous_global.sync_id != new_global.sync_id {
+            if previous_global.record.sync_id != new_global.record.sync_id {
                 changes.push(EngineStateChange::ResetAll);
                 (new_global, None)
             } else {
-                let mut new_changes =
-                    engine_state_changes_from_new_global(previous_global, &new_global);
+                let mut new_changes = engine_state_changes_from_new_global(
+                    &previous_global.record,
+                    &new_global.record,
+                );
                 changes.append(&mut new_changes);
                 (new_global, previous_state.keys)
             }
@@ -234,7 +240,7 @@ fn resolve_keys(previous_state: GlobalState, new_keys: CollectionKeys) -> Global
 /// Creates a fresh `meta/global` record, using the default engine selections,
 /// and declined engines from the previous record.
 fn new_global_from_previous(
-    previous_global: Option<BsoRecord<MetaGlobalRecord>>,
+    previous_global: Option<TimestampedResponse<MetaGlobalRecord>>,
 ) -> error::Result<MetaGlobalRecord> {
     let sync_id = random_guid()?;
     let mut engines: HashMap<String, _> = HashMap::new();
@@ -254,7 +260,7 @@ fn new_global_from_previous(
         engines,
         declined: previous_global
             .as_ref()
-            .map(|global| global.declined.clone())
+            .map(|global| global.record.declined.clone())
             .unwrap_or_else(|| {
                 DEFAULT_DECLINED
                     .iter()
@@ -387,8 +393,8 @@ impl<'client, 'keys> SetupStateMachine<'client, 'keys> {
             // if our locally cached `meta/global` is up-to-date.
             InitialWithLiveTokenAndInfo(state) => {
                 let action = {
-                    let local = state.global.as_ref().map(|global| &global.modified);
-                    let remote = state.collections.get("meta");
+                    let local = state.global.as_ref().map(|global| &global.last_modified);
+                    let remote = state.collections.record.get("meta");
                     FetchAction::from_modified(local, remote)
                 };
                 Ok(match action {
@@ -429,13 +435,13 @@ impl<'client, 'keys> SetupStateMachine<'client, 'keys> {
             ResolveMetaGlobal(state, new_global) => {
                 // If the server has a newer storage version, we can't
                 // sync until our client is updated.
-                if new_global.payload.storage_version > STORAGE_VERSION {
+                if new_global.record.storage_version > STORAGE_VERSION {
                     return Err(ErrorKind::ClientUpgradeRequired.into());
                 }
 
                 // If the server has an older storage version, wipe and
                 // reupload.
-                if new_global.payload.storage_version < STORAGE_VERSION {
+                if new_global.record.storage_version < STORAGE_VERSION {
                     return Ok(FreshStartRequired(state));
                 }
 
@@ -450,7 +456,7 @@ impl<'client, 'keys> SetupStateMachine<'client, 'keys> {
                 // locally, and update `m/g` to reflect that.
                 let action = {
                     let local = state.keys.as_ref().map(|keys| &keys.timestamp);
-                    let remote = state.collections.get("crypto");
+                    let remote = state.collections.record.get("crypto");
                     FetchAction::from_modified(local, remote)
                 };
                 Ok(match action {
@@ -473,9 +479,9 @@ impl<'client, 'keys> SetupStateMachine<'client, 'keys> {
 
             NeedsFreshCryptoKeys(state) => {
                 match self.client.fetch_crypto_keys() {
-                    Ok(encrypted_bso) => {
+                    Ok(tsr) => {
                         let new_keys =
-                            CollectionKeys::from_encrypted_bso(encrypted_bso, self.root_key)?;
+                            CollectionKeys::from_encrypted_bso(tsr.record, self.root_key)?;
                         let new_state = resolve_keys(state, new_keys);
                         Ok(Ready(new_state))
                     }
@@ -495,25 +501,23 @@ impl<'client, 'keys> SetupStateMachine<'client, 'keys> {
                 self.client.wipe_all_remote()?;
 
                 // Upload a fresh `meta/global`...
-                let new_global = BsoRecord::new_record(
-                    "global".into(),
-                    "meta".into(),
-                    new_global_from_previous(state.global)?,
-                );
-                self.client.put_meta_global(&new_global)?;
+                let new_global = new_global_from_previous(state.global)?;
+                self.client
+                    .put_meta_global(ServerTimestamp::default(), &new_global)?;
 
                 // ...And a fresh `crypto/keys`. Note that we'll update the
                 // global state when we go around the state machine again,
                 // not here.
                 let new_keys = CollectionKeys::new_random()?.to_encrypted_bso(&self.root_key)?;
-                self.client.put_crypto_keys(&new_keys)?;
+                self.client
+                    .put_crypto_keys(ServerTimestamp::default(), &new_keys)?;
 
                 // TODO(lina): Can we pass along server timestamps from the PUTs
                 // above, and avoid re-fetching the `m/g` and `c/k` we just
                 // uploaded?
                 Ok(InitialWithLiveTokenAndConfig(GlobalState {
                     config: state.config,
-                    collections: InfoCollections::default(),
+                    collections: TimestampedResponse::<InfoCollections>::default(),
                     global: None,
                     keys: None,
                     engine_state_changes: vec![EngineStateChange::ResetAll],
@@ -561,7 +565,7 @@ enum SetupState {
     InitialWithLiveTokenAndInfo(GlobalState),
     NeedsFreshMetaGlobal(GlobalState),
     HasMetaGlobal(GlobalState),
-    ResolveMetaGlobal(GlobalState, BsoRecord<MetaGlobalRecord>),
+    ResolveMetaGlobal(GlobalState, TimestampedResponse<MetaGlobalRecord>),
     NeedsFreshCryptoKeys(GlobalState),
     Ready(GlobalState),
     FreshStartRequired(GlobalState),
@@ -630,9 +634,9 @@ mod tests {
 
     struct InMemoryClient {
         info_configuration: error::Result<InfoConfiguration>,
-        info_collections: error::Result<InfoCollections>,
-        meta_global: error::Result<BsoRecord<MetaGlobalRecord>>,
-        crypto_keys: error::Result<BsoRecord<EncryptedPayload>>,
+        info_collections: error::Result<TimestampedResponse<InfoCollections>>,
+        meta_global: error::Result<TimestampedResponse<MetaGlobalRecord>>,
+        crypto_keys: error::Result<TimestampedResponse<BsoRecord<EncryptedPayload>>>,
     }
 
     impl SetupStorageClient for InMemoryClient {
@@ -647,7 +651,7 @@ mod tests {
             }
         }
 
-        fn fetch_info_collections(&self) -> error::Result<InfoCollections> {
+        fn fetch_info_collections(&self) -> error::Result<TimestampedResponse<InfoCollections>> {
             match &self.info_collections {
                 Ok(collections) => Ok(collections.clone()),
                 Err(_) => Err(ErrorKind::StorageHttpError {
@@ -658,7 +662,7 @@ mod tests {
             }
         }
 
-        fn fetch_meta_global(&self) -> error::Result<BsoRecord<MetaGlobalRecord>> {
+        fn fetch_meta_global(&self) -> error::Result<TimestampedResponse<MetaGlobalRecord>> {
             match &self.meta_global {
                 Ok(global) => Ok(global.clone()),
                 // TODO(lina): Special handling for 404s, we want to ensure we
@@ -671,7 +675,12 @@ mod tests {
             }
         }
 
-        fn put_meta_global(&self, _global: &BsoRecord<MetaGlobalRecord>) -> error::Result<()> {
+        fn put_meta_global(
+            &self,
+            xius: ServerTimestamp,
+            _global: &MetaGlobalRecord,
+        ) -> error::Result<()> {
+            assert_eq!(xius, ServerTimestamp(999.9));
             Err(ErrorKind::StorageHttpError {
                 code: 500,
                 route: "meta/global".to_string(),
@@ -679,7 +688,9 @@ mod tests {
             .into())
         }
 
-        fn fetch_crypto_keys(&self) -> error::Result<BsoRecord<EncryptedPayload>> {
+        fn fetch_crypto_keys(
+            &self,
+        ) -> error::Result<TimestampedResponse<BsoRecord<EncryptedPayload>>> {
             match &self.crypto_keys {
                 Ok(keys) => Ok(keys.clone()),
                 // TODO(lina): Same as above, for 404s.
@@ -691,7 +702,12 @@ mod tests {
             }
         }
 
-        fn put_crypto_keys(&self, _keys: &EncryptedBso) -> error::Result<()> {
+        fn put_crypto_keys(
+            &self,
+            xius: ServerTimestamp,
+            _keys: &EncryptedBso,
+        ) -> error::Result<()> {
+            assert_eq!(xius, ServerTimestamp(888.8));
             Err(ErrorKind::StorageHttpError {
                 code: 500,
                 route: "crypto/keys".to_string(),
@@ -714,19 +730,17 @@ mod tests {
         };
         let client = InMemoryClient {
             info_configuration: Ok(InfoConfiguration::default()),
-            info_collections: Ok(InfoCollections::new(
-                vec![("meta", 123.456), ("crypto", 145.0)]
-                    .into_iter()
-                    .map(|(key, value)| (key.to_owned(), value.into()))
-                    .collect(),
-            )),
-            meta_global: Ok(BsoRecord {
-                id: "global".into(),
-                modified: ServerTimestamp(999.0),
-                collection: "meta".into(),
-                sortindex: None,
-                ttl: None,
-                payload: MetaGlobalRecord {
+            info_collections: Ok(TimestampedResponse {
+                record: InfoCollections::new(
+                    vec![("meta", 123.456), ("crypto", 145.0)]
+                        .into_iter()
+                        .map(|(key, value)| (key.to_owned(), value.into()))
+                        .collect(),
+                ),
+                last_modified: ServerTimestamp::default(),
+            }),
+            meta_global: Ok(TimestampedResponse {
+                record: MetaGlobalRecord {
                     sync_id: "syncIDAAAAAA".to_owned(),
                     storage_version: 5usize,
                     engines: vec![(
@@ -741,8 +755,14 @@ mod tests {
                     .collect(),
                     declined: vec![],
                 },
+                last_modified: ServerTimestamp(999.0),
             }),
-            crypto_keys: keys.to_encrypted_bso(&root_key),
+            crypto_keys: Ok(TimestampedResponse {
+                record: keys
+                    .to_encrypted_bso(&root_key)
+                    .expect("should always work in this test"),
+                last_modified: ServerTimestamp(888.0),
+            }),
         };
 
         let state = GlobalState::default();
