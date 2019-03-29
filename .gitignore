@@ -22,7 +22,6 @@ xcuserdata
 *.pb.swift
 
 # Carthage built artifacts
-Cartfile.resolved
 Carthage
 
 # Generated debug symbols
