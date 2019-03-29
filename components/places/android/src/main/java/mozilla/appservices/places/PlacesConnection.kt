@@ -408,7 +408,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
 
     override fun createBookmarkItem(parentGUID: String, url: String, title: String, position: Int?): String {
         val builder = MsgTypes.BookmarkNode.newBuilder()
-                .setNodeType(BookmarkType.Separator.value)
+                .setNodeType(BookmarkType.Bookmark.value)
                 .setParentGuid(parentGUID)
                 .setUrl(url)
                 .setTitle(title)
