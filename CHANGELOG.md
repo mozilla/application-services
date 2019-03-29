@@ -4,6 +4,13 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.1...master)
 
+## Places
+
+### What's Fixed
+
+- createBookmarkItem on android will now create the correct type of bookmark.
+  ([#880](https://github.com/mozilla/application-services/issues/880))
+
 ## Push
 
 ### Breaking changes

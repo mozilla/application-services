@@ -178,4 +178,40 @@ class PlacesConnectionTest {
         assert(infos[0].url == "https://www.example.com/2")
         assert(infos[1].url == "https://www.example.com/3")
     }
+
+    @Test
+    fun testCreateBookmark() {
+        val itemGUID = db.createBookmarkItem(
+                parentGUID = BookmarkRoot.Unfiled.id,
+                url = "https://www.example.com/",
+                title = "example")
+
+        val sepGUID = db.createSeparator(
+                parentGUID = BookmarkRoot.Unfiled.id,
+                position = 0)
+
+        val folderGUID = db.createFolder(
+                parentGUID = BookmarkRoot.Unfiled.id,
+                title = "example folder")
+
+        val item = db.getBookmark(itemGUID)!! as BookmarkItem
+        val sep = db.getBookmark(sepGUID)!! as BookmarkSeparator
+        val folder = db.getBookmark(folderGUID)!! as BookmarkFolder
+
+        assertEquals(item.type, BookmarkType.Bookmark)
+        assertEquals(sep.type, BookmarkType.Separator)
+        assertEquals(folder.type, BookmarkType.Folder)
+
+        assertEquals(item.title, "example")
+        assertEquals(item.url, "https://www.example.com/")
+        assertEquals(item.position, 1)
+        assertEquals(item.parentGUID, BookmarkRoot.Unfiled.id)
+
+        assertEquals(sep.position, 0)
+        assertEquals(sep.parentGUID, BookmarkRoot.Unfiled.id)
+
+        assertEquals(folder.title, "example folder")
+        assertEquals(folder.position, 2)
+        assertEquals(folder.parentGUID, BookmarkRoot.Unfiled.id)
+    }
 }
