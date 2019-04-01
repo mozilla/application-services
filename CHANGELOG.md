@@ -4,6 +4,14 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.23.0...master)
 
+## Push
+
+### Breaking changes
+
+- `mozilla.appservices.push.BridgeTypes` is now
+  `mozilla.appservices.push.BridgeType`
+([#885](https://github.com/mozilla/application-services/issues/885))
+
 # v0.23.0 (_2018-03-29_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.1...v0.23.0)

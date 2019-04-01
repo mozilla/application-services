@@ -23,10 +23,10 @@ class PushManager(
     senderId: String,
     serverHost: String = "push.service.mozilla.com",
     httpProtocol: String = "https",
-    bridgeType: BridgeTypes,
+    bridgeType: BridgeType,
     registrationId: String,
     databasePath: String = "push.sqlite"
-) : PushAPI, AutoCloseable {
+) : PushAPI {
 
     private var handle: AtomicLong = AtomicLong(0)
 
@@ -175,7 +175,7 @@ class PushManager(
  * Please contact services back-end for any additional bridge protocols.
  */
 
-enum class BridgeTypes {
+enum class BridgeType {
     FCM, ADM, APNS, TEST;
 
     override fun toString() = name.toLowerCase()
@@ -228,24 +228,81 @@ class DispatchInfo constructor (
 
 /**
  * An API for interacting with Push.
+
+    Usage:
+
+    The push component is designed to be as light weight as possible. The "Push Manager"
+    handles subscription management and message decryption.
+
+    In general, usage would consist of calling:
+
+    ```kotlin
+    val manager = PushManager(
+        senderId = "SomeSenderIDValue",
+        bridgeType = BridgeType.FCM,
+        registrationId = systemProvidedRegistrationValue,
+        databasePath = "/path/to/database.sql"
+    )
+    val newEndpoints = manager.verifyConnection()
+    if newEndpoints.length() > 0 {
+        for (channelId in newEndpoints.keys()) {
+            // send the endpoint (newEndpoint[channelId]) to the process tied to channelId
+        }
+    }
+
+    // On new message:
+    // A new incoming message generally has the following format:
+    // {"chid": ChannelID, "body": Body, "con": Encoding, "enc": Salt, "crypto_key": DH}
+
+    val decryptedMessage = manager.decrypt(
+        channelID=message["chid"],
+        body=message["body"],
+        encoding=message["con"],
+        salt=message.getOrElse("enc", ""),
+        dh=message.getOrElse("crypto-key", "")
+    )
+
+    // On new subscription:
+    val subscriptionInfo = manager.subscribe(channelID, scope)
+
+    // channelID is a UUID4 value that can either be created before hand, or an empty string
+    //           can be passed in and one will be created for you.
+    // scope     is the site scope string. This will be used for rate limiting
+    //
+    // The subscription info matches what is usually passed on to
+    // the requesting application.
+    // This could be JSON encoded and returned.
+
+    // On deleting a subscription:
+    manger.unsubscribe(channelID)
+    // returns true/false on server unsubscribe request. A False may cause a
+    // verifyConnection() failure and new endpoints generation
+
+    // On a new native OS registration ID change:
+    manager.update(newSubscriptionID)
+    // sets the new registration ID (sender ID) on the server. Returns a false if this
+    // operation fails. A failure may prevent future messages from being received.
+
+```
  */
-interface PushAPI {
+interface PushAPI : java.lang.AutoCloseable {
     /**
      * Get the Subscription Info block
      *
-     * @param channelID Channel ID (UUID) for new subscription
-     * @return a Subscription Info structure
+     * @param channelID Channel ID (UUID4) for new subscription, either pre-generated or "" and one will be created.
+     * @param scope Site scope string.
+     * @return a SubscriptionInfo structure
      */
     fun subscribe(
-        channelID: String,
+        channelID: String = "",
         scope: String
     ): SubscriptionInfo
 
     /**
-     * Unsubscribe a given channelID
+     * Unsubscribe a given channelID, ending that subscription for the user.
      *
-     * @param channelID Channel ID (UUID) for subscription to remove.
-     * @return bool.
+     * @param channelID Channel ID (UUID) for subscription to remove
+     * @return bool
      */
     fun unsubscribe(channelID: String): Boolean
 
@@ -273,7 +330,7 @@ interface PushAPI {
      *
      * This accepts the content of a Push Message (from websocket or via Native Push systems).
      * for example:
-     * ```
+     * ```kotlin
      * val decryptedMessage = manager.decrypt(
      *  channelID=message["chid"],
      *  body=message["body"],
@@ -281,7 +338,7 @@ interface PushAPI {
      *  salt=message.getOrElse("enc", ""),
      *  dh=message.getOrElse("crypto-key", "")
      * )
-     *
+     * ```
      *
      * @param channelID: the ChannelID (included in the envelope of the message)
      * @param body: The encrypted body of the message
@@ -298,5 +355,10 @@ interface PushAPI {
         dh: String
     ): ByteArray
 
+    /** get the dispatch info for a given subscription channel
+     *
+     * @param channelID subscription channelID
+     * @return DispatchInfo containing the channelID and scope string.
+     */
     fun dispatchForChid(channelID: String): DispatchInfo
 }

@@ -71,7 +71,7 @@ class PushTest {
     protected fun getPushManager(): PushManager {
         return PushManager(
                 senderId = mockSenderId,
-                bridgeType = BridgeTypes.TEST,
+                bridgeType = BridgeType.TEST,
                 registrationId = "TestRegistrationId",
                 databasePath = dbFile
         )
@@ -87,7 +87,7 @@ class PushTest {
         ```kotlin
         val manager = PushManager(
             senderId = "SomeSenderIDValue",
-            bridgeType = BridgeTypes.FCM,
+            bridgeType = BridgeType.FCM,
             registrationId = systemProvidedRegistrationValue,
             databasePath = "/path/to/database.sql"
         )
