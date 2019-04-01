@@ -295,13 +295,13 @@ interface PushAPI : java.lang.AutoCloseable {
      */
     fun subscribe(
         channelID: String = "",
-        scope:
+        scope: String
     ): SubscriptionInfo
 
     /**
      * Unsubscribe a given channelID, ending that subscription for the user.
      *
-     * @param channelID Channel ID (UUID) for subscription to remove. Use "" to remove ALL subscriptions.
+     * @param channelID Channel ID (UUID) for subscription to remove
      * @return bool
      */
     fun unsubscribe(channelID: String): Boolean
