@@ -6,6 +6,10 @@
 
 ## Push
 
+### What's new
+
+- PushAPI now defines a number of default parameters for functions ([#868](https://github.com/mozilla/application-services/issues/868))
+
 ### Breaking changes
 
 - `mozilla.appservices.push.BridgeTypes` is now

@@ -211,4 +211,18 @@ class PushTest {
         assertEquals("uaid", "abad1d3a00000000aabbccdd00000000", dispatch.uaid)
         assertEquals("scope", "foo", dispatch.scope)
     }
+
+    @Test
+    fun testValidPath() {
+        try {
+            PushManager(
+                senderId = mockSenderId,
+                bridgeType = BridgeType.TEST,
+                registrationId = "TestRegistrationId",
+                databasePath = "/dev/false"
+            )
+        } catch (e: PushError) {
+            assert(e is StorageError)
+        }
+    }
 }
