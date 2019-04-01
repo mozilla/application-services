@@ -290,12 +290,12 @@ interface PushAPI : java.lang.AutoCloseable {
      * Get the Subscription Info block
      *
      * @param channelID Channel ID (UUID4) for new subscription, either pre-generated or "" and one will be created.
-     * @param scope Site scope string.
+     * @param scope Site scope string (defaults to "" for no site scope string).
      * @return a SubscriptionInfo structure
      */
     fun subscribe(
         channelID: String = "",
-        scope: String
+        scope: String = ""
     ): SubscriptionInfo
 
     /**
@@ -342,17 +342,17 @@ interface PushAPI : java.lang.AutoCloseable {
      *
      * @param channelID: the ChannelID (included in the envelope of the message)
      * @param body: The encrypted body of the message
-     * @param encoding: The Content Encoding "enc" field of the message
-     * @param salt: The "salt" field (if present in the raw message)
-     * @param dh: the "dh" field (if present in the raw message)
+     * @param encoding: The Content Encoding "enc" field of the message (defaults to "aes128gcm")
+     * @param salt: The "salt" field (if present in the raw message, defaults to "")
+     * @param dh: the "dh" field (if present in the raw message, defaults to "")
      * @return Decrypted message body.
      */
     fun decrypt(
         channelID: String,
         body: String,
-        encoding: String,
-        salt: String,
-        dh: String
+        encoding: String = "aes128gcm",
+        salt: String = "",
+        dh: String = ""
     ): ByteArray
 
     /** get the dispatch info for a given subscription channel
