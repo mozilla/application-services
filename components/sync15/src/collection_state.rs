@@ -65,11 +65,11 @@ impl<'state> LocalCollectionStateMachine<'state> {
                 if maybe_ssid.map(|id| id != store_sync_id).unwrap_or(true) {
                     return Ok(LocalCollectionState::StoreSyncIdChanged { global_sync_id });
                 }
-                return Ok(LocalCollectionState::Ready {
+                Ok(LocalCollectionState::Ready {
                     key: self.global_state.keys.default.clone(),
                     global_sync_id,
                     store_sync_id,
-                });
+                })
             }
 
             LocalCollectionState::Declined => unreachable!("can't advance from declined"),
