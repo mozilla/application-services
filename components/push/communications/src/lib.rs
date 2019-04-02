@@ -179,7 +179,9 @@ impl Connection for ConnectHttp {
             if requested.status == status_codes::CONFLICT {
                 return Err(AlreadyRegisteredError.into());
             }
-            return Err(CommunicationError(format!("Unhandled client error {:?}", requested)).into());
+            return Err(
+                CommunicationError(format!("Unhandled client error {:?}", requested)).into(),
+            );
         }
         let response: Value = match requested.json() {
             Ok(v) => v,
