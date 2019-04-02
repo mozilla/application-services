@@ -2,7 +2,37 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.1...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.23.0...master)
+
+## Push
+
+### What's new
+
+- PushAPI now defines a number of default parameters for functions ([#868](https://github.com/mozilla/application-services/issues/868))
+
+### Breaking changes
+
+- `mozilla.appservices.push.BridgeTypes` is now
+  `mozilla.appservices.push.BridgeType`
+([#885](https://github.com/mozilla/application-services/issues/885))
+
+# v0.23.0 (_2018-03-29_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.1...v0.23.0)
+
+## Places
+
+### What's Fixed
+
+- createBookmarkItem on android will now create the correct type of bookmark.
+  ([#880](https://github.com/mozilla/application-services/issues/880))
+
+## Push
+
+### Breaking changes
+
+- the `PushManager` argument `socket_protocol` is now `http_protocol`
+  to correctly map its role. `socket_protocol` is reserved.
 
 # v0.22.1 (_2019-03-27_)
 

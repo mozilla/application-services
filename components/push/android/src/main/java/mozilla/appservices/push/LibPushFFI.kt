@@ -44,7 +44,7 @@ internal interface LibPushFFI : Library {
     /** Create a new push connection */
     fun push_connection_new(
         server_host: String,
-        socket_protocol: String?,
+        http_protocol: String?,
         bridge_type: String?,
         registration_id: String,
         sender_id: String?,

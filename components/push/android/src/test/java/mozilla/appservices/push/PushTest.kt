@@ -71,7 +71,7 @@ class PushTest {
     protected fun getPushManager(): PushManager {
         return PushManager(
                 senderId = mockSenderId,
-                bridgeType = BridgeTypes.TEST,
+                bridgeType = BridgeType.TEST,
                 registrationId = "TestRegistrationId",
                 databasePath = dbFile
         )
@@ -87,7 +87,7 @@ class PushTest {
         ```kotlin
         val manager = PushManager(
             senderId = "SomeSenderIDValue",
-            bridgeType = BridgeTypes.FCM,
+            bridgeType = BridgeType.FCM,
             registrationId = systemProvidedRegistrationValue,
             databasePath = "/path/to/database.sql"
         )
@@ -183,16 +183,20 @@ class PushTest {
     @Test
     fun testUpdate() {
         val manager = getPushManager()
+        // subscribe to at least one channel.
+        manager.subscribe(testChannelid, "foo")
         val result = manager.update("test-2")
-        // TODO: This changes the SenderID used by manager.conn, which is private.
-        // probably should add a call to return that for test checks.
         assertEquals("SenderID update", true, result)
     }
 
     @Test
     fun testVerifyConnection() {
         val manager = getPushManager()
+        // Client will call verifyConnection() on initial setup, before UAID set.
+        manager.verifyConnection()
+        // Register a subscription
         manager.subscribe(testChannelid, "foo")
+        // and call verifyConnection again to emulate a set value.
         val result = manager.verifyConnection()
         val vv = result[testChannelid].toString()
         assertEquals("Check changed endpoint", "http://push.example.com/test/obscure", vv)
@@ -206,5 +210,19 @@ class PushTest {
         val dispatch = manager.dispatchForChid(testChannelid)
         assertEquals("uaid", "abad1d3a00000000aabbccdd00000000", dispatch.uaid)
         assertEquals("scope", "foo", dispatch.scope)
+    }
+
+    @Test
+    fun testValidPath() {
+        try {
+            PushManager(
+                senderId = mockSenderId,
+                bridgeType = BridgeType.TEST,
+                registrationId = "TestRegistrationId",
+                databasePath = "/dev/false"
+            )
+        } catch (e: PushError) {
+            assert(e is StorageError)
+        }
     }
 }

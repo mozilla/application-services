@@ -73,6 +73,9 @@ impl PushManager {
     // XXX: maybe -> Result<()> instead
     // XXX: maybe handle channel_id None case separately?
     pub fn unsubscribe(&self, channel_id: Option<&str>) -> Result<bool> {
+        if self.conn.uaid.is_none() {
+            return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
+        }
         let result = self.conn.unsubscribe(channel_id)?;
         self.store
             .delete_record(self.conn.uaid.as_ref().unwrap(), channel_id.unwrap())?;
@@ -80,6 +83,9 @@ impl PushManager {
     }
 
     pub fn update(&mut self, new_token: &str) -> error::Result<bool> {
+        if self.conn.uaid.is_none() {
+            return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
+        }
         let result = self.conn.update(&new_token)?;
         self.store
             .update_native_id(self.conn.uaid.as_ref().unwrap(), new_token)?;
@@ -87,6 +93,11 @@ impl PushManager {
     }
 
     pub fn verify_connection(&self) -> error::Result<bool> {
+        if self.conn.uaid.is_none() {
+            // Can't yet verify the channels, since no UAID has been set.
+            // so return true for now.
+            return Ok(true);
+        }
         let channels = self
             .store
             .get_channel_list(self.conn.uaid.as_ref().unwrap())?;
@@ -124,6 +135,9 @@ impl PushManager {
 
     /// Fetch new endpoints for a list of channels.
     pub fn regenerate_endpoints(&mut self) -> error::Result<HashMap<String, String>> {
+        if self.conn.uaid.is_none() {
+            return Err(ErrorKind::GeneralError("No subscriptions defined yet.".into()).into());
+        }
         let uaid = self.conn.uaid.clone().unwrap();
         let channels = self.store.get_channel_list(&uaid)?;
         let mut results: HashMap<String, String> = HashMap::new();

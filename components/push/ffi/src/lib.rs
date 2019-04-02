@@ -42,7 +42,7 @@ lazy_static::lazy_static! {
 #[no_mangle]
 pub extern "C" fn push_connection_new(
     server_host: FfiStr<'_>,
-    socket_protocol: FfiStr<'_>,
+    http_protocol: FfiStr<'_>,
     bridge_type: FfiStr<'_>,
     registration_id: FfiStr<'_>,
     sender_id: FfiStr<'_>,
@@ -52,7 +52,7 @@ pub extern "C" fn push_connection_new(
     MANAGER.insert_with_result(error, || {
         log::debug!(
             "push_connection_new {:?} {:?} -> {:?} {:?}=>{:?}",
-            socket_protocol,
+            http_protocol,
             server_host,
             bridge_type,
             sender_id,
@@ -61,7 +61,7 @@ pub extern "C" fn push_connection_new(
         // return this as a reference to the map since that map contains the actual handles that rust uses.
         // see ffi layer for details.
         let host = server_host.into_string();
-        let protocol = socket_protocol.into_opt_string();
+        let protocol = http_protocol.into_opt_string();
         let reg_id = registration_id.into_opt_string();
         let bridge = bridge_type.into_opt_string();
         let sender = sender_id.into_string();
@@ -140,14 +140,12 @@ pub extern "C" fn push_update(handle: u64, new_token: FfiStr<'_>, error: &mut Ex
 pub extern "C" fn push_verify_connection(handle: u64, error: &mut ExternError) -> *mut c_char {
     log::debug!("push_verify");
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<_> {
-        if let Ok(r) = mgr.verify_connection() {
-            if !r {
-                if let Ok(new_endpoints) = mgr.regenerate_endpoints() {
-                    // use a `match` here to resolve return of <_>
-                    return serde_json::to_string(&new_endpoints).map_err(|e| {
-                        push_errors::ErrorKind::TranscodingError(format!("{:?}", e)).into()
-                    });
-                }
+        if !mgr.verify_connection()? {
+            let new_endpoints = mgr.regenerate_endpoints()?;
+            if !new_endpoints.is_empty() {
+                return serde_json::to_string(&new_endpoints).map_err(|e| {
+                    push_errors::ErrorKind::TranscodingError(format!("{:?}", e)).into()
+                });
             }
         }
         Ok(String::from(""))
@@ -186,15 +184,15 @@ pub extern "C" fn push_dispatch_for_chid(
     log::debug!("push_dispatch_for_chid");
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<String> {
         let chid = chid.as_str();
-        if let Some(record) = mgr.get_record_by_chid(chid)? {
-            let dispatch = json!({
-                "uaid": record.uaid,
-                "scope": record.scope,
-            });
-            Ok(dispatch.to_string())
-        } else {
-            // TODO: either Error or return Option
-            Ok(String::from(""))
+        match mgr.get_record_by_chid(chid)? {
+            Some(record) => {
+                let dispatch = json!({
+                    "uaid": record.uaid,
+                    "scope": record.scope,
+                });
+                Ok(dispatch.to_string())
+            }
+            None => Ok(String::from("")),
         }
     })
 }
