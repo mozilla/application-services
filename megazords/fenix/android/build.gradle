@@ -86,7 +86,9 @@ dependencies {
     api project(path: ':places-library', configuration: 'withoutLib')
     api project(path: ':push-library', configuration: 'withoutLib')
     api project(path: ':rustlog-library', configuration: 'withoutLib')
-    api project(path: ':viaduct-library', configuration: 'withoutLib')
+    api "org.mozilla.components:concept-fetch:$android_components_version"
+    implementation project(path: ':viaduct-library', configuration: 'withoutLib')
+    compile project(path: ':viaduct-library')
 
     jnaForTest 'net.java.dev.jna:jna:4.5.2@jar'
 }

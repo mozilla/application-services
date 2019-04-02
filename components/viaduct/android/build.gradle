@@ -112,7 +112,7 @@ protobuf {
     }
 }
 dependencies {
-    api 'org.mozilla.components:concept-fetch:0.47.0'
+    api "org.mozilla.components:concept-fetch:$android_components_version"
 
     jnaForTest 'net.java.dev.jna:jna:4.5.2@jar'
 

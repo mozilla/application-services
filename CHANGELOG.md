@@ -4,6 +4,17 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.23.0...master)
 
+## Megazords
+
+## Breaking Changes
+
+- Megazord initialization has changed. Megazords' init() function now takes a
+  `Lazy<mozilla.components.concept.fetch.Client>` (from
+  [concept-fetch](https://github.com/mozilla-mobile/android-components/tree/master/components/concept/fetch/)),
+  which will be used to proxy all HTTP requests through. It will not be accessed
+  until a method is called on rust code which requires the network. This
+  functionality is not present in non-megazords. ([#835](https://github.com/mozilla/application-services/pull/835))
+
 ## Push
 
 ### What's new
