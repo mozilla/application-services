@@ -29,6 +29,10 @@ use sync15::{
     ServerTimestamp, Store,
 };
 static LAST_SYNC_META_KEY: &'static str = "bookmarks_last_sync_time";
+// Note that all engines in this crate should use a *different* meta key
+// for the global sync ID, because engines are reset individually.
+const GLOBAL_SYNCID_META_KEY: &str = "bookmarks_global_sync_id";
+const COLLECTION_SYNCID_META_KEY: &str = "bookmarks_sync_id";
 
 pub struct BookmarksStore<'a> {
     pub db: &'a PlacesDb,
@@ -465,11 +469,18 @@ impl<'a> Store for BookmarksStore<'a> {
             .newer_than(since))
     }
 
+    fn get_sync_ids(&self) -> result::Result<(Option<String>, Option<String>), failure::Error> {
+        Ok((
+            get_meta(self.db, GLOBAL_SYNCID_META_KEY)?,
+            get_meta(self.db, COLLECTION_SYNCID_META_KEY)?,
+        ))
+    }
+
     /// Removes all sync metadata, such that the next sync is treated as a
     /// first sync. Unlike `wipe`, this keeps all local items, but clears
     /// all synced items and pending tombstones. This also forgets the last
     /// sync time.
-    fn reset(&self) -> result::Result<(), failure::Error> {
+    fn reset(&self, gsid: &str, csid: &str) -> result::Result<(), failure::Error> {
         let tx = self.db.unchecked_transaction()?;
         self.db.execute_batch(&format!(
             "DELETE FROM moz_bookmarks_synced;
@@ -483,6 +494,8 @@ impl<'a> Store for BookmarksStore<'a> {
         ))?;
         create_synced_bookmark_roots(self.db)?;
         put_meta(self.db, LAST_SYNC_META_KEY, &0)?;
+        put_meta(self.db, GLOBAL_SYNCID_META_KEY, &gsid)?;
+        put_meta(self.db, COLLECTION_SYNCID_META_KEY, &csid)?;
         tx.commit()?;
         Ok(())
     }

@@ -59,8 +59,9 @@ impl PasswordEngine {
         Ok(())
     }
 
+    // do we really need this?
     pub fn reset(&self) -> Result<()> {
-        self.db.reset()?;
+        self.db.reset("", "")?;
         Ok(())
     }
 
@@ -90,16 +91,16 @@ impl PasswordEngine {
         root_sync_key: &KeyBundle,
         sync_ping: &mut telemetry::SyncTelemetryPing,
     ) -> Result<()> {
-        let global_state: Cell<Option<String>> = Cell::new(self.db.get_global_state()?);
+        // migrate our V1 state - this needn't live for long.
+        self.db.migrate_global_state()?;
         let result = sync_multiple(
             &[&self.db],
-            &global_state,
+            &Cell::new(None),
             &self.client_info,
             storage_init,
             root_sync_key,
             sync_ping,
         );
-        self.db.set_global_state(global_state.replace(None))?;
         let failures = result?;
         if failures.is_empty() {
             Ok(())

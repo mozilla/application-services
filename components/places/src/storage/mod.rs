@@ -214,6 +214,11 @@ pub(crate) fn get_meta<T: FromSql>(db: &PlacesDb, key: &str) -> Result<Option<T>
     Ok(res)
 }
 
+pub(crate) fn delete_meta(db: &PlacesDb, key: &str) -> Result<()> {
+    db.execute_named_cached("DELETE FROM moz_meta WHERE key = :key", &[(":key", &key)])?;
+    Ok(())
+}
+
 /// Delete all items in the temp tables we use for staging changes.
 pub(crate) fn delete_pending_temp_tables(conn: &PlacesDb) -> Result<()> {
     conn.execute_batch(

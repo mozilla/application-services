@@ -8,7 +8,7 @@
 use crate::client::{Sync15StorageClient, Sync15StorageClientInit};
 use crate::error::Error;
 use crate::key_bundle::KeyBundle;
-use crate::state::{GlobalState, SetupStateMachine};
+use crate::state::{ApplicationState, GlobalState, SetupStateMachine};
 use crate::sync::{self, Store};
 use crate::telemetry;
 use std::cell::Cell;
@@ -51,43 +51,14 @@ impl ClientInfo {
 /// succeeded.
 pub fn sync_multiple(
     stores: &[&dyn Store],
-    persisted_global_state: &Cell<Option<String>>,
+    maybe_global_state: &Cell<Option<GlobalState>>,
     last_client_info: &Cell<Option<ClientInfo>>,
     storage_init: &Sync15StorageClientInit,
     root_sync_key: &KeyBundle,
     sync_ping: &mut telemetry::SyncTelemetryPing,
 ) -> result::Result<HashMap<String, Error>, Error> {
-    // Note: We explicitly swap a None back as the state, meaning if we
-    // unexpectedly fail below, the next sync will redownload meta/global,
-    // crypto/keys, etc. without needing to. Apparently this is both okay
-    // and by design.
-    let persisted = persisted_global_state.replace(None);
-    let maybe_global = match persisted {
-        Some(persisted_string) => {
-            match serde_json::from_str::<GlobalState>(&persisted_string) {
-                Ok(state) => Some(state),
-                _ => {
-                    // Don't log the error since it might contain sensitive
-                    // info like keys (the JSON does, after all).
-                    log::error!("Failed to parse GlobalState from JSON! Falling back to default");
-                    None
-                }
-            }
-        }
-        None => None,
-    };
-
-    let mut global_state = match maybe_global {
-        Some(g) => g,
-        None => {
-            log::info!("First time through since unlock. Creating default global state.");
-            last_client_info.replace(None);
-            GlobalState::default()
-        }
-    };
-
-    // Ditto for the ClientInfo - if we fail below the cell will have None, so
-    // will be re-initialized on the next sync.
+    // We swap None for the ClientInfo, so if we fail below the cell will have
+    // None causing us to be re-initialized on the next sync.
     let client_info = match last_client_info.replace(None) {
         Some(client_info) => {
             if client_info.client_init != *storage_init {
@@ -108,28 +79,18 @@ pub fn sync_multiple(
 
     // Advance the state machine to the point where it can perform a full
     // sync. This may involve uploading meta/global, crypto/keys etc.
-    {
+    let global_state = {
         // Scope borrow of `sync_info.client`
-        let mut state_machine =
-            SetupStateMachine::for_full_sync(&client_info.client, &root_sync_key);
-        log::info!("Advancing state machine to ready (full)");
-        global_state = state_machine.run_to_ready(global_state)?;
-        sync_ping.uid(client_info.client.hashed_uid()?);
-    }
+        let existing = maybe_global_state.replace(None);
+        let app_state = ApplicationState::default(); // XXX - see comments for ApplicationState
 
-    // Reset our local state if necessary.
-    for store in stores {
-        if global_state
-            .engines_that_need_local_reset()
-            .contains(store.collection_name())
-        {
-            log::info!(
-                "{} sync ID changed; engine needs local reset",
-                store.collection_name()
-            );
-            store.reset()?;
-        }
-    }
+        let mut state_machine =
+            SetupStateMachine::for_full_sync(&client_info.client, &root_sync_key, &app_state);
+        log::info!("Advancing state machine to ready (full)");
+        let state = state_machine.run_to_ready(existing)?;
+        sync_ping.uid(client_info.client.hashed_uid()?);
+        state
+    };
 
     let mut telem_sync = telemetry::SyncTelemetry::new();
     let mut failures: HashMap<String, Error> = HashMap::new();
@@ -149,6 +110,10 @@ pub fn sync_multiple(
         match result {
             Ok(()) => log::info!("Sync of {} was successful!", name),
             Err(e) => {
+                // XXX - should we wipe the global state here? Ideally we'd
+                // be able to tell a "store error" vs a "state error".
+                // (OTOH, a "state error" for every engine probably doesn't
+                // really hurt, and we'll resolve it next time)
                 log::warn!("Sync of {} failed! {:?}", name, e);
                 let f = telemetry::sync_failure_from_error(&e);
                 failures.insert(name.into(), e);
@@ -160,7 +125,7 @@ pub fn sync_multiple(
 
     sync_ping.sync(telem_sync);
     log::info!("Updating persisted global state");
-    persisted_global_state.replace(Some(global_state.to_persistable_string()));
+    maybe_global_state.replace(Some(global_state));
     last_client_info.replace(Some(client_info));
 
     Ok(failures)

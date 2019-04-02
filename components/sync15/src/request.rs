@@ -23,7 +23,7 @@ pub enum RequestOrder {
 }
 
 pub const X_IF_UNMODIFIED_SINCE: &str = "X-If-Unmodified-Since";
-const X_LAST_MODIFIED: &str = "X-Last-Modified";
+pub const X_LAST_MODIFIED: &str = "X-Last-Modified";
 
 impl fmt::Display for RequestOrder {
     #[inline]

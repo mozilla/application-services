@@ -349,7 +349,7 @@ fn main() -> Result<()> {
             }
             'R' | 'r' => {
                 log::info!("Resetting client.");
-                if let Err(e) = engine.db.reset() {
+                if let Err(e) = engine.db.reset("", "") {
                     log::warn!("Failed to reset! {}", e);
                 }
             }

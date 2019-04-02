@@ -2,12 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::bso_record::{BsoRecord, EncryptedBso};
+use crate::bso_record::EncryptedBso;
 use crate::error::{self, ErrorKind};
 use crate::record_types::MetaGlobalRecord;
 use crate::request::{
     BatchPoster, CollectionRequest, InfoCollections, InfoConfiguration, PostQueue, PostResponse,
-    PostResponseHandler, X_IF_UNMODIFIED_SINCE,
+    PostResponseHandler, X_IF_UNMODIFIED_SINCE, X_LAST_MODIFIED,
 };
 use crate::token;
 use crate::util::ServerTimestamp;
@@ -16,7 +16,74 @@ use reqwest::{
     header::{self, HeaderValue, ACCEPT, AUTHORIZATION},
     Client, Request, Response, Url,
 };
+use std::str::FromStr;
 use std::time::Duration;
+
+/// A response from a GET request on a Sync15StorageClient, encapsulating all
+/// the variants users of this client needs to care about.
+#[derive(Debug, Clone)]
+pub enum Sync15ClientResponse<T> {
+    Success {
+        record: T,
+        last_modified: ServerTimestamp,
+        route: String,
+    },
+    // 404
+    NotFound {
+        route: String,
+    },
+    // 401
+    Unauthorized {
+        route: String,
+    },
+    // 5XX
+    ServerError {
+        route: String,
+        status: u16,
+    }, // TODO: info for "retry-after" and backoff handling etc here.
+    // Other HTTP responses.
+    RequestFailed {
+        route: String,
+        status: u16,
+    },
+}
+
+impl<T> Sync15ClientResponse<T> {
+    // XXX - consider making this just `to_error` so we can throw other
+    // types of errors (eg, a specific Unauthorized or Retry-After error - but
+    // for now it always returns a StorageHttpError.
+    pub fn to_storage_error(self) -> ErrorKind {
+        let (code, route): (u16, String) = match self {
+            Sync15ClientResponse::Success { route, .. } => {
+                // This should never happen as callers are expected to have
+                // already special-cased this response, so warn if it does.
+                // (or maybe we could panic?)
+                log::warn!("Converting success response into an error");
+                (200, route)
+            }
+            Sync15ClientResponse::NotFound { route, .. } => (404, route),
+            Sync15ClientResponse::Unauthorized { route, .. } => (401, route),
+            Sync15ClientResponse::ServerError { status, route } => (status, route),
+            Sync15ClientResponse::RequestFailed { status, route } => (status, route),
+        };
+        ErrorKind::StorageHttpError {
+            code,
+            route: route.clone(),
+        }
+    }
+
+    // XXX - this should go away - consumers should do the matching themself.
+    pub fn get_record(self) -> error::Result<(T, ServerTimestamp)> {
+        match self {
+            Sync15ClientResponse::Success {
+                record,
+                last_modified,
+                ..
+            } => Ok((record, last_modified)),
+            _ => Err(self.to_storage_error().into()),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Sync15StorageClientInit {
@@ -29,12 +96,19 @@ pub struct Sync15StorageClientInit {
 /// machine. This is factored out into a separate trait to make mocking
 /// easier.
 pub trait SetupStorageClient {
-    fn fetch_info_configuration(&self) -> error::Result<InfoConfiguration>;
-    fn fetch_info_collections(&self) -> error::Result<InfoCollections>;
-    fn fetch_meta_global(&self) -> error::Result<BsoRecord<MetaGlobalRecord>>;
-    fn put_meta_global(&self, global: &BsoRecord<MetaGlobalRecord>) -> error::Result<()>;
-    fn fetch_crypto_keys(&self) -> error::Result<EncryptedBso>;
-    fn put_crypto_keys(&self, keys: &EncryptedBso) -> error::Result<()>;
+    // Even though these are all identical except for the return type, we can't
+    // have generic params in a trait, so we list them out.
+    fn fetch_info_configuration(&self) -> error::Result<Sync15ClientResponse<InfoConfiguration>>;
+    fn fetch_info_collections(&self) -> error::Result<Sync15ClientResponse<InfoCollections>>;
+    fn fetch_meta_global(&self) -> error::Result<Sync15ClientResponse<MetaGlobalRecord>>;
+    fn fetch_crypto_keys(&self) -> error::Result<Sync15ClientResponse<EncryptedBso>>;
+
+    fn put_meta_global(
+        &self,
+        xius: ServerTimestamp,
+        global: &MetaGlobalRecord,
+    ) -> error::Result<()>;
+    fn put_crypto_keys(&self, xius: ServerTimestamp, keys: &EncryptedBso) -> error::Result<()>;
     fn wipe_all_remote(&self) -> error::Result<()>;
 }
 
@@ -45,40 +119,32 @@ pub struct Sync15StorageClient {
 }
 
 impl SetupStorageClient for Sync15StorageClient {
-    fn fetch_info_configuration(&self) -> error::Result<InfoConfiguration> {
-        let server_config = self.fetch_info::<InfoConfiguration>("info/configuration")?;
-        Ok(server_config)
+    fn fetch_info_configuration(&self) -> error::Result<Sync15ClientResponse<InfoConfiguration>> {
+        self.relative_storage_request(Method::GET, "info/configuration")
     }
 
-    fn fetch_info_collections(&self) -> error::Result<InfoCollections> {
-        let collections = self.fetch_info::<InfoCollections>("info/collections")?;
-        Ok(collections)
+    fn fetch_info_collections(&self) -> error::Result<Sync15ClientResponse<InfoCollections>> {
+        self.relative_storage_request(Method::GET, "info/collections")
     }
 
-    fn fetch_meta_global(&self) -> error::Result<BsoRecord<MetaGlobalRecord>> {
-        let mut resp = match self.relative_storage_request(Method::GET, "storage/meta/global") {
-            Ok(r) => Ok(r),
-            Err(ref e) if e.is_not_found() => Err(ErrorKind::NoMetaGlobal.into()),
-            Err(e) => Err(e),
-        }?;
-        // Note: meta/global is not encrypted!
-        let meta_global: BsoRecord<MetaGlobalRecord> = resp.json()?;
-        log::trace!("Meta global: {:?}", meta_global.payload);
-        Ok(meta_global)
+    fn fetch_meta_global(&self) -> error::Result<Sync15ClientResponse<MetaGlobalRecord>> {
+        self.relative_storage_request(Method::GET, "storage/meta/global")
     }
 
-    fn put_meta_global(&self, global: &BsoRecord<MetaGlobalRecord>) -> error::Result<()> {
-        self.put("storage/meta/global", None, global)
+    fn fetch_crypto_keys(&self) -> error::Result<Sync15ClientResponse<EncryptedBso>> {
+        self.relative_storage_request(Method::GET, "storage/crypto/keys")
     }
 
-    fn fetch_crypto_keys(&self) -> error::Result<EncryptedBso> {
-        let mut keys_resp = self.relative_storage_request(Method::GET, "storage/crypto/keys")?;
-        let keys: EncryptedBso = keys_resp.json()?;
-        Ok(keys)
+    fn put_meta_global(
+        &self,
+        xius: ServerTimestamp,
+        global: &MetaGlobalRecord,
+    ) -> error::Result<()> {
+        self.put("storage/meta/global", xius, global)
     }
 
-    fn put_crypto_keys(&self, keys: &EncryptedBso) -> error::Result<()> {
-        self.put("storage/crypto/keys", None, keys)
+    fn put_crypto_keys(&self, xius: ServerTimestamp, keys: &EncryptedBso) -> error::Result<()> {
+        self.put("storage/crypto/keys", xius, keys)
     }
 
     fn wipe_all_remote(&self) -> error::Result<()> {
@@ -111,9 +177,8 @@ impl Sync15StorageClient {
     pub fn get_encrypted_records(
         &self,
         collection_request: &CollectionRequest,
-    ) -> error::Result<Vec<EncryptedBso>> {
-        let mut resp = self.collection_request(Method::GET, collection_request)?;
-        Ok(resp.json()?)
+    ) -> error::Result<Sync15ClientResponse<Vec<EncryptedBso>>> {
+        self.collection_request(Method::GET, collection_request)
     }
 
     #[inline]
@@ -135,22 +200,53 @@ impl Sync15StorageClient {
         )
     }
 
-    fn relative_storage_request<T>(
+    fn relative_storage_request<P, T>(
         &self,
         method: Method,
-        relative_path: T,
-    ) -> error::Result<Response>
+        relative_path: P,
+    ) -> error::Result<Sync15ClientResponse<T>>
     where
-        T: AsRef<str>,
+        P: AsRef<str>,
+        for<'a> T: serde::de::Deserialize<'a>,
     {
         let s = self.tsc.api_endpoint(&self.http_client)? + "/";
         let url = Url::parse(&s)?.join(relative_path.as_ref())?;
-        Ok(self.make_storage_request(method, url)?)
+        Ok(self.make_storage_request::<T>(method, url)?)
     }
 
-    fn make_storage_request(&self, method: Method, url: Url) -> error::Result<Response> {
+    fn make_storage_request<T>(
+        &self,
+        method: Method,
+        url: Url,
+    ) -> error::Result<Sync15ClientResponse<T>>
+    where
+        for<'a> T: serde::de::Deserialize<'a>,
+    {
         // I'm shocked that method isn't Copy...
-        Ok(self.exec_request(self.build_request(method.clone(), url)?, true)?)
+        let mut resp = self.exec_request(self.build_request(method.clone(), url)?, false)?;
+        let route: String = resp.url().path().into();
+        Ok(if resp.status().is_success() {
+            let record: T = resp.json()?;
+            let last_modified = resp
+                .headers()
+                .get(X_LAST_MODIFIED)
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| ServerTimestamp::from_str(s).ok())
+                .ok_or_else(|| ErrorKind::MissingServerTimestamp)?;
+            Sync15ClientResponse::Success {
+                record,
+                last_modified,
+                route,
+            }
+        } else {
+            let status = resp.status().as_u16();
+            match status {
+                404 => Sync15ClientResponse::NotFound { route },
+                401 => Sync15ClientResponse::Unauthorized { route },
+                500...600 => Sync15ClientResponse::ServerError { route, status },
+                _ => Sync15ClientResponse::RequestFailed { route, status },
+            }
+        })
     }
 
     fn exec_request(&self, req: Request, require_success: bool) -> error::Result<Response> {
@@ -180,20 +276,18 @@ impl Sync15StorageClient {
         Ok(resp)
     }
 
-    fn collection_request(&self, method: Method, r: &CollectionRequest) -> error::Result<Response> {
+    fn collection_request<T>(
+        &self,
+        method: Method,
+        r: &CollectionRequest,
+    ) -> error::Result<Sync15ClientResponse<T>>
+    where
+        for<'a> T: serde::de::Deserialize<'a>,
+    {
         self.make_storage_request(
             method.clone(),
             r.build_url(Url::parse(&self.tsc.api_endpoint(&self.http_client)?)?)?,
         )
-    }
-
-    fn fetch_info<T>(&self, path: &str) -> error::Result<T>
-    where
-        for<'a> T: serde::de::Deserialize<'a>,
-    {
-        let mut resp = self.relative_storage_request(Method::GET, path)?;
-        let result: T = resp.json()?;
-        Ok(result)
     }
 
     pub fn new_post_queue<'a, F: PostResponseHandler>(
@@ -210,12 +304,7 @@ impl Sync15StorageClient {
         Ok(PostQueue::new(config, ts, pw, on_response))
     }
 
-    fn put<P, B>(
-        &self,
-        relative_path: P,
-        xius: Option<ServerTimestamp>,
-        body: &B,
-    ) -> error::Result<()>
+    fn put<P, B>(&self, relative_path: P, xius: ServerTimestamp, body: &B) -> error::Result<()>
     where
         P: AsRef<str>,
         B: serde::ser::Serialize,
@@ -230,12 +319,10 @@ impl Sync15StorageClient {
             header::CONTENT_TYPE,
             HeaderValue::from_static("application/json"),
         );
-        if let Some(ts) = xius {
-            req.headers_mut().insert(
-                X_IF_UNMODIFIED_SINCE,
-                HeaderValue::from_str(&format!("{}", ts))?,
-            );
-        }
+        req.headers_mut().insert(
+            X_IF_UNMODIFIED_SINCE,
+            HeaderValue::from_str(&format!("{}", xius))?,
+        );
         *req.body_mut() = Some(bytes.into());
         let _ = self.exec_request(req, true)?;
 

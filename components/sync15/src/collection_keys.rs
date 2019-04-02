@@ -7,10 +7,9 @@ use crate::error::Result;
 use crate::key_bundle::KeyBundle;
 use crate::record_types::CryptoKeysRecord;
 use crate::util::ServerTimestamp;
-use serde_derive::*;
 use std::collections::HashMap;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CollectionKeys {
     pub timestamp: ServerTimestamp,
     pub default: KeyBundle,

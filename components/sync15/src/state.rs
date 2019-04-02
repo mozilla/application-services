@@ -2,18 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use crate::bso_record::BsoRecord;
-use crate::client::SetupStorageClient;
+use crate::client::{SetupStorageClient, Sync15ClientResponse};
 use crate::collection_keys::CollectionKeys;
 use crate::error::{self, ErrorKind};
 use crate::key_bundle::KeyBundle;
 use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use crate::request::{InfoCollections, InfoConfiguration};
-use crate::util::{random_guid, ServerTimestamp, SERVER_EPOCH};
+use crate::util::{random_guid, ServerTimestamp};
 use lazy_static::lazy_static;
-use serde_derive::*;
 
 use self::SetupState::*;
 
@@ -41,200 +39,45 @@ lazy_static! {
     static ref DEFAULT_DECLINED: Vec<&'static str> = vec![];
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "schema_version")]
-enum PersistedState {
-    V1(GlobalState),
+/// XXX - this needs more thought, but this holds stuff the app knows about,
+/// or needs to know about, which either comes from meta/global, or is used
+/// to create a new meta/global.
+/// It can't be treated as "opaque" as apps will be exposing UI to change
+/// these items, and will want to know new values after a sync.
+/// However, very naive clients who don't expose a way to toggle them
+/// could treat them as opaque and could serialize them - but serialization
+/// support is not implemented here.
+
+/// One problem here is that the semantics aren't clear - there are 2
+/// competing requirements:
+/// 1) it is a placeholder for what the "declined engines" were on the last
+///    sync, and if meta/global doesn't exist, what we should put in it.
+/// 2) it is a way for apps to *change* what the value should be - ie, to
+///    decline or undecline and engine.
+/// So for now, it's really just a placeholder and a TODO item.
+#[derive(Debug, Default)]
+pub struct ApplicationState {
+    pub declined_engines: Vec<String>,
 }
 
 /// Holds global Sync state, including server upload limits, and the
 /// last-fetched collection modified times, `meta/global` record, and
-/// collection encryption keys.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+/// the default encryption key.
+#[derive(Debug, Clone)]
 pub struct GlobalState {
     pub config: InfoConfiguration,
     pub collections: InfoCollections,
-    pub global: Option<BsoRecord<MetaGlobalRecord>>,
-    pub keys: Option<CollectionKeys>,
-    pub engine_state_changes: Vec<EngineStateChange>,
-}
-
-impl GlobalState {
-    pub fn to_persistable_string(&self) -> String {
-        let state = PersistedState::V1(self.clone());
-        serde_json::to_string(&state)
-            .expect("Should only fail for recursive types (this is not recursive)")
-    }
-
-    pub fn from_persisted_string(data: &str) -> error::Result<Self> {
-        match serde_json::from_str(data)? {
-            PersistedState::V1(global_state) => Ok(global_state),
-        }
-    }
-
-    pub fn key_for_collection(&self, collection: &str) -> error::Result<&KeyBundle> {
-        Ok(self
-            .keys
-            .as_ref()
-            .ok_or_else(|| ErrorKind::NoCryptoKeys)?
-            .key_for_collection(collection))
-    }
-
-    pub fn last_modified_or_zero(&self, coll: &str) -> ServerTimestamp {
-        self.collections.get(coll).cloned().unwrap_or(SERVER_EPOCH)
-    }
-
-    /// Returns a set of all engine names that should be reset locally.
-    pub fn engines_that_need_local_reset(&self) -> HashSet<String> {
-        let all_engines = self
-            .global
-            .as_ref()
-            .map(|global| {
-                global
-                    .engines
-                    .keys()
-                    .map(|key| key.to_string())
-                    .collect::<HashSet<String>>()
-            })
-            .unwrap_or_default();
-        let mut engines_to_reset = HashSet::new();
-        for change in &self.engine_state_changes {
-            match change {
-                EngineStateChange::Reset(name) => {
-                    engines_to_reset.insert(name.to_string());
-                }
-                EngineStateChange::ResetAll => {
-                    engines_to_reset.reserve(all_engines.len());
-                    for name in all_engines.iter() {
-                        engines_to_reset.insert(name.to_string());
-                    }
-                }
-                EngineStateChange::ResetAllExcept(except) => {
-                    for name in all_engines.difference(except) {
-                        engines_to_reset.insert(name.to_string());
-                    }
-                }
-                _ => {}
-            }
-        }
-        engines_to_reset
-    }
-}
-
-fn resolve_global(
-    previous_state: GlobalState,
-    new_global: BsoRecord<MetaGlobalRecord>,
-) -> GlobalState {
-    let mut changes = previous_state.engine_state_changes;
-    let (new_global, previous_keys) = match &previous_state.global {
-        Some(previous_global) => {
-            if previous_global.sync_id != new_global.sync_id {
-                changes.push(EngineStateChange::ResetAll);
-                (new_global, None)
-            } else {
-                let mut new_changes =
-                    engine_state_changes_from_new_global(previous_global, &new_global);
-                changes.append(&mut new_changes);
-                (new_global, previous_state.keys)
-            }
-        }
-        None => {
-            changes.push(EngineStateChange::ResetAll);
-            (new_global, None)
-        }
-    };
-    GlobalState {
-        config: previous_state.config,
-        collections: previous_state.collections,
-        global: Some(new_global),
-        keys: previous_keys,
-        engine_state_changes: changes,
-    }
-}
-
-fn engine_state_changes_from_new_global(
-    previous_global: &MetaGlobalRecord,
-    new_global: &MetaGlobalRecord,
-) -> Vec<EngineStateChange> {
-    let mut changes = Vec::new();
-
-    let previous_engine_names = previous_global.engines.keys().collect::<HashSet<&String>>();
-    let new_engine_names = new_global.engines.keys().collect::<HashSet<&String>>();
-
-    // Disable any local engines that aren't mentioned
-    // in the new `meta/global`.
-    for name in previous_engine_names.difference(&new_engine_names) {
-        changes.push(EngineStateChange::Disable(name.to_string()));
-    }
-
-    // Enable any new engines that aren't mentioned in
-    // the locally cached `meta/global`.
-    for name in new_engine_names.difference(&previous_engine_names) {
-        changes.push(EngineStateChange::Enable(name.to_string()));
-    }
-
-    // Reset engines with sync ID changes.
-    for name in new_engine_names.intersection(&previous_engine_names) {
-        let previous_engine = &previous_global.engines[*name];
-        let new_engine = &new_global.engines[*name];
-        if previous_engine.sync_id != new_engine.sync_id {
-            changes.push(EngineStateChange::Reset(name.to_string()));
-        }
-    }
-
-    changes
-}
-
-fn resolve_keys(previous_state: GlobalState, new_keys: CollectionKeys) -> GlobalState {
-    let mut changes = previous_state.engine_state_changes;
-    match &previous_state.keys {
-        Some(previous_global) => {
-            if new_keys.default == previous_global.default {
-                // The default bundle is the same, so only reset
-                // engines with different collection-specific keys.
-                for (collection, key_bundle) in &previous_global.collections {
-                    if key_bundle != new_keys.key_for_collection(collection) {
-                        changes.push(EngineStateChange::Reset(collection.to_string()));
-                    }
-                }
-                for (collection, key_bundle) in &new_keys.collections {
-                    if key_bundle != previous_global.key_for_collection(collection) {
-                        changes.push(EngineStateChange::Reset(collection.to_string()));
-                    }
-                }
-            } else {
-                // The default bundle changed, so reset all engines
-                // except those with the same collection-specific
-                // keys.
-                let mut except = HashSet::new();
-                for (collection, key_bundle) in &previous_global.collections {
-                    if key_bundle == new_keys.key_for_collection(collection) {
-                        except.insert(collection.to_string());
-                    }
-                }
-                for (collection, key_bundle) in &new_keys.collections {
-                    if key_bundle != previous_global.key_for_collection(collection) {
-                        except.insert(collection.to_string());
-                    }
-                }
-                changes.push(EngineStateChange::ResetAllExcept(except));
-            }
-        }
-        None => changes.push(EngineStateChange::ResetAll),
-    }
-    GlobalState {
-        config: previous_state.config,
-        collections: previous_state.collections,
-        global: previous_state.global,
-        keys: Some(new_keys),
-        engine_state_changes: changes,
-    }
+    pub global: MetaGlobalRecord,
+    pub global_timestamp: ServerTimestamp,
+    pub keys: CollectionKeys,
 }
 
 /// Creates a fresh `meta/global` record, using the default engine selections,
 /// and declined engines from the previous record.
+// XXX - this is just (a) default engines and (b) declined. Only (b) needs to
+// be persisted, so we can move this directly into our `FreshStart`
 fn new_global_from_previous(
-    previous_global: Option<BsoRecord<MetaGlobalRecord>>,
+    previous_global: Option<MetaGlobalRecord>,
 ) -> error::Result<MetaGlobalRecord> {
     let sync_id = random_guid()?;
     let mut engines: HashMap<String, _> = HashMap::new();
@@ -264,34 +107,35 @@ fn new_global_from_previous(
     })
 }
 
-pub struct SetupStateMachine<'client, 'keys> {
+pub struct SetupStateMachine<'client, 'keys, 'appstate> {
     client: &'client SetupStorageClient,
     root_key: &'keys KeyBundle,
+    app_state: &'appstate ApplicationState,
     allowed_states: Vec<&'static str>,
     sequence: Vec<&'static str>,
 }
 
-impl<'client, 'keys> SetupStateMachine<'client, 'keys> {
+impl<'client, 'keys, 'appstate> SetupStateMachine<'client, 'keys, 'appstate> {
     /// Creates a state machine for a "classic" Sync 1.5 client that supports
     /// all states, including uploading a fresh `meta/global` and `crypto/keys`
     /// after a node reassignment.
     pub fn for_full_sync(
         client: &'client SetupStorageClient,
         root_key: &'keys KeyBundle,
-    ) -> SetupStateMachine<'client, 'keys> {
+        app_state: &'appstate ApplicationState,
+    ) -> SetupStateMachine<'client, 'keys, 'appstate> {
         SetupStateMachine::with_allowed_states(
             client,
             root_key,
+            app_state,
             vec![
-                "InitialWithLiveToken",
-                "InitialWithLiveTokenAndConfig",
-                "InitialWithLiveTokenAndInfo",
-                "NeedsFreshMetaGlobal",
-                "HasMetaGlobal",
-                "ResolveMetaGlobal",
-                "NeedsFreshCryptoKeys",
+                "Initial",
+                "InitialWithConfig",
+                "InitialWithInfo",
+                "InitialWithMetaGlobal",
                 "Ready",
                 "FreshStartRequired",
+                "WithPreviousState",
             ],
         )
     }
@@ -304,16 +148,19 @@ impl<'client, 'keys> SetupStateMachine<'client, 'keys> {
     pub fn for_fast_sync(
         client: &'client SetupStorageClient,
         root_key: &'keys KeyBundle,
-    ) -> SetupStateMachine<'client, 'keys> {
+        app_state: &'appstate ApplicationState,
+    ) -> SetupStateMachine<'client, 'keys, 'appstate> {
         SetupStateMachine::with_allowed_states(
             client,
             root_key,
+            app_state,
             vec![
-                "InitialWithLiveToken",
-                "InitialWithLiveTokenAndConfig",
-                "InitialWithLiveTokenAndInfo",
-                "HasMetaGlobal",
+                "Initial",
+                "InitialWithConfig",
+                "InitialWithInfo",
+                "InitialWithMetaGlobal",
                 "Ready",
+                "WithPreviousState",
             ],
         )
     }
@@ -324,31 +171,22 @@ impl<'client, 'keys> SetupStateMachine<'client, 'keys> {
     pub fn for_readonly_sync(
         client: &'client SetupStorageClient,
         root_key: &'keys KeyBundle,
-    ) -> SetupStateMachine<'client, 'keys> {
-        SetupStateMachine::with_allowed_states(
-            client,
-            root_key,
-            vec![
-                "InitialWithLiveToken",
-                "InitialWithLiveTokenAndConfig",
-                "InitialWithLiveTokenAndInfo",
-                "NeedsFreshMetaGlobal",
-                "HasMetaGlobal",
-                "ResolveMetaGlobal",
-                "NeedsFreshCryptoKeys",
-                "Ready",
-            ],
-        )
+        app_state: &'appstate ApplicationState,
+    ) -> SetupStateMachine<'client, 'keys, 'appstate> {
+        // currently identical to a "fast sync"
+        Self::for_fast_sync(client, root_key, app_state)
     }
 
     fn with_allowed_states(
         client: &'client SetupStorageClient,
         root_key: &'keys KeyBundle,
+        app_state: &'appstate ApplicationState,
         allowed_states: Vec<&'static str>,
-    ) -> SetupStateMachine<'client, 'keys> {
+    ) -> SetupStateMachine<'client, 'keys, 'appstate> {
         SetupStateMachine {
             client,
             root_key,
+            app_state,
             sequence: Vec::new(),
             allowed_states,
         }
@@ -358,196 +196,196 @@ impl<'client, 'keys> SetupStateMachine<'client, 'keys> {
         match from {
             // Fetch `info/configuration` with current server limits, and
             // `info/collections` with collection last modified times.
-            InitialWithLiveToken(state) => {
-                let config = self
-                    .client
-                    .fetch_info_configuration()
-                    .unwrap_or(state.config);
-                Ok(InitialWithLiveTokenAndConfig(GlobalState {
-                    config,
-                    collections: state.collections,
-                    global: state.global,
-                    keys: state.keys,
-                    engine_state_changes: Vec::new(),
-                }))
-            }
-
-            InitialWithLiveTokenAndConfig(state) => {
-                let collections = self.client.fetch_info_collections()?;
-                Ok(InitialWithLiveTokenAndInfo(GlobalState {
-                    config: state.config,
-                    collections,
-                    global: state.global,
-                    keys: state.keys,
-                    engine_state_changes: state.engine_state_changes,
-                }))
-            }
-
-            // Compare local and remote `meta/global` timestamps to determine
-            // if our locally cached `meta/global` is up-to-date.
-            InitialWithLiveTokenAndInfo(state) => {
-                let action = {
-                    let local = state.global.as_ref().map(|global| &global.modified);
-                    let remote = state.collections.get("meta");
-                    FetchAction::from_modified(local, remote)
+            Initial => {
+                let config = match self.client.fetch_info_configuration()? {
+                    Sync15ClientResponse::Success { record, .. } => record,
+                    Sync15ClientResponse::NotFound { .. } => InfoConfiguration::default(),
+                    other => return Err(other.to_storage_error().into()),
                 };
-                Ok(match action {
-                    // Hooray, we don't need to fetch `meta/global`. Skip to
-                    // the next state.
-                    FetchAction::Skip => HasMetaGlobal(state),
-                    // Our `meta/global` is out of date, or isn't cached
-                    // locally, so we need to fetch it from the server.
-                    FetchAction::Fetch => NeedsFreshMetaGlobal(state),
-                    // We have a `meta/global` record in our cache, but not on
-                    // the server. This likely means we're the first client to
-                    // sync after a node reassignment. Invalidate our cached
-                    // `meta/global` and `crypto/keys`, and try to fetch
-                    // `meta/global` from the server anyway. If another client
-                    // wins the race, we'll fetch its `meta/global`; if not,
-                    // we'll fail and upload our own.
-                    FetchAction::InvalidateThenUpload => NeedsFreshMetaGlobal(GlobalState {
-                        config: state.config,
-                        collections: state.collections,
-                        global: None,
-                        keys: None,
-                        engine_state_changes: state.engine_state_changes,
-                    }),
-                })
+                Ok(InitialWithConfig { config })
             }
 
-            // Fetch `meta/global` from the server.
-            NeedsFreshMetaGlobal(state) => match self.client.fetch_meta_global() {
-                Ok(new_global) => Ok(ResolveMetaGlobal(state, new_global)),
-                Err(err) => match err.kind() {
-                    ErrorKind::NoMetaGlobal { .. } => Ok(FreshStartRequired(state)),
-                    _ => Err(err),
-                },
+            // XXX - we could consider combining these Initial* states, because we don't
+            // attempt to support filling in "missing" global state - *any* 404 in them
+            // means `FreshStart`.
+            // IOW, in all cases, they either `Err()`, move to `FreshStartRequired`, or
+            // advance to a specific next state.
+            InitialWithConfig { config } => {
+                match self.client.fetch_info_collections()? {
+                    Sync15ClientResponse::Success {
+                        record: collections,
+                        ..
+                    } => Ok(InitialWithInfo {
+                        config,
+                        collections,
+                    }),
+                    // If the server doesn't have a `crypto/keys`, start over
+                    // and reupload our `meta/global` and `crypto/keys`.
+                    Sync15ClientResponse::NotFound { .. } => Ok(FreshStartRequired {
+                        config,
+                        old_global: None,
+                    }),
+                    other => Err(other.to_storage_error().into()),
+                }
+            }
+
+            InitialWithInfo {
+                config,
+                collections,
+            } => match self.client.fetch_meta_global()? {
+                Sync15ClientResponse::Success {
+                    record: global,
+                    last_modified: global_timestamp,
+                    ..
+                } => {
+                    // If the server has a newer storage version, we can't
+                    // sync until our client is updated.
+                    if global.storage_version > STORAGE_VERSION {
+                        return Err(ErrorKind::ClientUpgradeRequired.into());
+                    }
+
+                    // If the server has an older storage version, wipe and
+                    // reupload.
+                    if global.storage_version < STORAGE_VERSION {
+                        Ok(FreshStartRequired {
+                            config,
+                            old_global: Some(global),
+                        })
+                    } else {
+                        // TODO: Here would be a good place to check if we've enabled
+                        // or disabled any engines locally, and update `m/g` to reflect
+                        // that.
+                        Ok(InitialWithMetaGlobal {
+                            config,
+                            collections,
+                            global,
+                            global_timestamp,
+                        })
+                    }
+                }
+                Sync15ClientResponse::NotFound { .. } => Ok(FreshStartRequired {
+                    config,
+                    old_global: None,
+                }),
+                other => Err(other.to_storage_error().into()),
             },
 
-            // Reconcile the server's `meta/global` with our locally cached
-            // `meta/global`, if any.
-            ResolveMetaGlobal(state, new_global) => {
-                // If the server has a newer storage version, we can't
-                // sync until our client is updated.
-                if new_global.payload.storage_version > STORAGE_VERSION {
-                    return Err(ErrorKind::ClientUpgradeRequired.into());
-                }
-
-                // If the server has an older storage version, wipe and
-                // reupload.
-                if new_global.payload.storage_version < STORAGE_VERSION {
-                    return Ok(FreshStartRequired(state));
-                }
-
-                let new_state = resolve_global(state, new_global);
-                Ok(HasMetaGlobal(new_state))
-            }
-
-            // Check if our locally cached `crypto/keys` collection is
-            // up-to-date.
-            HasMetaGlobal(state) => {
-                // TODO(lina): Check if we've enabled or disabled any engines
-                // locally, and update `m/g` to reflect that.
-                let action = {
-                    let local = state.keys.as_ref().map(|keys| &keys.timestamp);
-                    let remote = state.collections.get("crypto");
-                    FetchAction::from_modified(local, remote)
-                };
-                Ok(match action {
-                    // If `crypto/keys` is up-to-date, we're ready to go!
-                    FetchAction::Skip => Ready(state),
-                    // We need to fetch and cache new keys.
-                    FetchAction::Fetch => NeedsFreshCryptoKeys(state),
-                    // We need to invalidate our locally cached `crypto/keys`,
-                    // then try to fetch new keys, and reupload if fetching
-                    // fails.
-                    FetchAction::InvalidateThenUpload => NeedsFreshCryptoKeys(GlobalState {
-                        config: state.config,
-                        collections: state.collections,
-                        global: state.global,
-                        keys: None,
-                        engine_state_changes: state.engine_state_changes,
-                    }),
-                })
-            }
-
-            NeedsFreshCryptoKeys(state) => {
-                match self.client.fetch_crypto_keys() {
-                    Ok(encrypted_bso) => {
-                        let new_keys =
-                            CollectionKeys::from_encrypted_bso(encrypted_bso, self.root_key)?;
-                        let new_state = resolve_keys(state, new_keys);
-                        Ok(Ready(new_state))
+            InitialWithMetaGlobal {
+                config,
+                collections,
+                global,
+                global_timestamp,
+            } => {
+                match self.client.fetch_crypto_keys()? {
+                    Sync15ClientResponse::Success { record, .. } => {
+                        let new_keys = CollectionKeys::from_encrypted_bso(record, self.root_key)?;
+                        // Note that collection/keys is itself a bso, so the
+                        // json body also carries the timestamp. If they aren't
+                        // identical something has screwed up. Sadly though
+                        // our tests get upset if we assert this.
+                        let state = GlobalState {
+                            config,
+                            collections,
+                            global,
+                            global_timestamp,
+                            keys: new_keys,
+                        };
+                        Ok(Ready { state })
                     }
-                    Err(err) => match err.kind() {
-                        // If the server doesn't have a `crypto/keys`, start over
-                        // and reupload our `meta/global` and `crypto/keys`.
-                        ErrorKind::NoCryptoKeys { .. } => Ok(FreshStartRequired(state)),
-                        _ => Err(err),
-                    },
+                    // If the server doesn't have a `crypto/keys`, start over
+                    // and reupload our `meta/global` and `crypto/keys`.
+                    Sync15ClientResponse::NotFound { .. } => Ok(FreshStartRequired {
+                        config,
+                        old_global: Some(global),
+                    }),
+                    other => Err(other.to_storage_error().into()),
                 }
             }
 
-            Ready(state) => Ok(Ready(state)),
+            // We've got old state that's likely to be OK.
+            // We keep things simple here - if there's evidence of a new/missing
+            // meta/global or new/missing keys we just restart from scratch.
+            WithPreviousState { old_state } => match self.client.fetch_info_collections()? {
+                Sync15ClientResponse::Success {
+                    record: collections,
+                    ..
+                } => Ok(
+                    if is_fresh(old_state.global_timestamp, &collections, "meta")
+                        && is_fresh(old_state.keys.timestamp, &collections, "crypto")
+                    {
+                        Ready {
+                            state: GlobalState {
+                                collections,
+                                ..old_state
+                            },
+                        }
+                    } else {
+                        InitialWithConfig {
+                            config: old_state.config,
+                        }
+                    },
+                ),
+                _ => Ok(InitialWithConfig {
+                    config: old_state.config,
+                }),
+            },
 
-            FreshStartRequired(state) => {
+            Ready { state } => Ok(Ready { state }),
+
+            FreshStartRequired { config, old_global } => {
                 // Wipe the server.
                 self.client.wipe_all_remote()?;
 
                 // Upload a fresh `meta/global`...
-                let new_global = BsoRecord::new_record(
-                    "global".into(),
-                    "meta".into(),
-                    new_global_from_previous(state.global)?,
-                );
-                self.client.put_meta_global(&new_global)?;
+                let new_global = new_global_from_previous(old_global)?;
+                self.client
+                    .put_meta_global(ServerTimestamp::default(), &new_global)?;
 
-                // ...And a fresh `crypto/keys`. Note that we'll update the
-                // global state when we go around the state machine again,
-                // not here.
+                // ...And a fresh `crypto/keys`.
                 let new_keys = CollectionKeys::new_random()?.to_encrypted_bso(&self.root_key)?;
-                self.client.put_crypto_keys(&new_keys)?;
+                self.client
+                    .put_crypto_keys(ServerTimestamp::default(), &new_keys)?;
 
                 // TODO(lina): Can we pass along server timestamps from the PUTs
                 // above, and avoid re-fetching the `m/g` and `c/k` we just
                 // uploaded?
-                Ok(InitialWithLiveTokenAndConfig(GlobalState {
-                    config: state.config,
-                    collections: InfoCollections::default(),
-                    global: None,
-                    keys: None,
-                    engine_state_changes: vec![EngineStateChange::ResetAll],
-                }))
+                // OTOH(mark): restarting the state machine keeps life simple and rare.
+                Ok(InitialWithConfig { config })
             }
         }
     }
 
     /// Runs through the state machine to the ready state.
-    pub fn run_to_ready(&mut self, state: GlobalState) -> error::Result<GlobalState> {
-        let mut s = InitialWithLiveToken(state);
+    pub fn run_to_ready(&mut self, state: Option<GlobalState>) -> error::Result<GlobalState> {
+        let mut s = match state {
+            Some(old_state) => WithPreviousState { old_state },
+            None => Initial,
+        };
         loop {
             let label = &s.label();
+            log::trace!("global state: {:?}", label);
             match s {
-                Ready(state) => {
+                Ready { state } => {
                     self.sequence.push(label);
                     return Ok(state);
                 }
                 // If we already started over once before, we're likely in a
-                // cycle, and should try again later. Like the iOS state
-                // machine, other cycles aren't a problem; we'll cycle through
-                // earlier states if we need to reupload `meta/global` or
-                // `crypto/keys`.
-                FreshStartRequired(_) if self.sequence.contains(&label) => {
-                    return Err(ErrorKind::SetupStateCycleError.into());
-                }
-                previous_s => {
-                    if !self.allowed_states.contains(&label) {
-                        return Err(ErrorKind::DisallowedStateError(&label).into());
+                // cycle, and should try again later. Intermediate states
+                // aren't a problem, just the initial ones.
+                FreshStartRequired { .. } | WithPreviousState { .. } | Initial => {
+                    if self.sequence.contains(&label) {
+                        // Is this really the correct error?
+                        return Err(ErrorKind::SetupRace.into());
                     }
-                    self.sequence.push(label);
-                    s = self.advance(previous_s)?;
                 }
-            }
+                _ => {
+                    if !self.allowed_states.contains(&label) {
+                        return Err(ErrorKind::SetupRequired.into());
+                    }
+                }
+            };
+            self.sequence.push(label);
+            s = self.advance(s)?;
         }
     }
 }
@@ -556,70 +394,53 @@ impl<'client, 'keys> SetupStateMachine<'client, 'keys> {
 /// TODO(lina): Add link once #56 is merged.
 #[derive(Debug)]
 enum SetupState {
-    InitialWithLiveToken(GlobalState),
-    InitialWithLiveTokenAndConfig(GlobalState),
-    InitialWithLiveTokenAndInfo(GlobalState),
-    NeedsFreshMetaGlobal(GlobalState),
-    HasMetaGlobal(GlobalState),
-    ResolveMetaGlobal(GlobalState, BsoRecord<MetaGlobalRecord>),
-    NeedsFreshCryptoKeys(GlobalState),
-    Ready(GlobalState),
-    FreshStartRequired(GlobalState),
+    // These "Initial" states are only ever used when starting from scratch.
+    Initial,
+    InitialWithConfig {
+        config: InfoConfiguration,
+    },
+    InitialWithInfo {
+        config: InfoConfiguration,
+        collections: InfoCollections,
+    },
+    InitialWithMetaGlobal {
+        config: InfoConfiguration,
+        collections: InfoCollections,
+        global: MetaGlobalRecord,
+        global_timestamp: ServerTimestamp,
+    },
+    WithPreviousState {
+        old_state: GlobalState,
+    },
+    Ready {
+        state: GlobalState,
+    },
+    FreshStartRequired {
+        config: InfoConfiguration,
+        old_global: Option<MetaGlobalRecord>,
+    },
 }
 
 impl SetupState {
     fn label(&self) -> &'static str {
         match self {
-            InitialWithLiveToken(_) => "InitialWithLiveToken",
-            InitialWithLiveTokenAndConfig(_) => "InitialWithLiveTokenAndConfig",
-            InitialWithLiveTokenAndInfo(_) => "InitialWithLiveTokenAndInfo",
-            NeedsFreshMetaGlobal(_) => "NeedsFreshMetaGlobal",
-            HasMetaGlobal(_) => "HasMetaGlobal",
-            ResolveMetaGlobal(_, _) => "ResolveMetaGlobal",
-            NeedsFreshCryptoKeys(_) => "NeedsFreshCryptoKeys",
-            Ready(_) => "Ready",
-            FreshStartRequired(_) => "FreshStartRequired",
+            Initial { .. } => "Initial",
+            InitialWithConfig { .. } => "InitialWithConfig",
+            InitialWithInfo { .. } => "InitialWithInfo",
+            InitialWithMetaGlobal { .. } => "InitialWithMetaGlobal",
+            Ready { .. } => "Ready",
+            WithPreviousState { .. } => "WithPreviousState",
+            FreshStartRequired { .. } => "FreshStartRequired",
         }
     }
 }
 
-/// Whether we should skip fetching `meta/global` or `crypto/keys` from the
-/// server because our locally cached copy is up-to-date, fetch a fresh copy
-/// from the server, or invalidate our locally cached state, then upload a
-/// fresh record.
-enum FetchAction {
-    Skip,
-    Fetch,
-    InvalidateThenUpload,
-}
-
-impl FetchAction {
-    fn from_modified(
-        local: Option<&ServerTimestamp>,
-        remote: Option<&ServerTimestamp>,
-    ) -> FetchAction {
-        match (local, remote) {
-            (Some(local), Some(remote)) => {
-                if *local >= *remote {
-                    FetchAction::Skip
-                } else {
-                    FetchAction::Fetch
-                }
-            }
-            (Some(_), None) => FetchAction::InvalidateThenUpload,
-            _ => FetchAction::Fetch,
-        }
+/// Whether we should skip fetching an item.
+fn is_fresh(local: ServerTimestamp, collections: &InfoCollections, key: &str) -> bool {
+    match collections.get(key) {
+        None => false, // no remote, must restart state machine.
+        Some(ts) => local >= *ts,
     }
-}
-
-/// Flags an engine for enablement or disablement.
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum EngineStateChange {
-    ResetAll,
-    ResetAllExcept(HashSet<String>),
-    Enable(String),
-    Disable(String),
-    Reset(String),
 }
 
 #[cfg(test)]
@@ -629,49 +450,53 @@ mod tests {
     use crate::bso_record::{BsoRecord, EncryptedBso, EncryptedPayload};
 
     struct InMemoryClient {
-        info_configuration: error::Result<InfoConfiguration>,
-        info_collections: error::Result<InfoCollections>,
-        meta_global: error::Result<BsoRecord<MetaGlobalRecord>>,
-        crypto_keys: error::Result<BsoRecord<EncryptedPayload>>,
+        info_configuration: error::Result<Sync15ClientResponse<InfoConfiguration>>,
+        info_collections: error::Result<Sync15ClientResponse<InfoCollections>>,
+        meta_global: error::Result<Sync15ClientResponse<MetaGlobalRecord>>,
+        crypto_keys: error::Result<Sync15ClientResponse<BsoRecord<EncryptedPayload>>>,
     }
 
     impl SetupStorageClient for InMemoryClient {
-        fn fetch_info_configuration(&self) -> error::Result<InfoConfiguration> {
+        fn fetch_info_configuration(
+            &self,
+        ) -> error::Result<Sync15ClientResponse<InfoConfiguration>> {
             match &self.info_configuration {
-                Ok(config) => Ok(config.clone()),
-                Err(_) => Err(ErrorKind::StorageHttpError {
-                    code: 500,
-                    route: "info/configuration".to_string(),
-                }
-                .into()),
+                Ok(client_response) => Ok(client_response.clone()),
+                Err(_) => Ok(Sync15ClientResponse::ServerError {
+                    status: 500,
+                    route: "test/path".into(),
+                }),
             }
         }
 
-        fn fetch_info_collections(&self) -> error::Result<InfoCollections> {
+        fn fetch_info_collections(&self) -> error::Result<Sync15ClientResponse<InfoCollections>> {
             match &self.info_collections {
                 Ok(collections) => Ok(collections.clone()),
-                Err(_) => Err(ErrorKind::StorageHttpError {
-                    code: 500,
-                    route: "info/collections".to_string(),
-                }
-                .into()),
+                Err(_) => Ok(Sync15ClientResponse::ServerError {
+                    status: 500,
+                    route: "test/path".into(),
+                }),
             }
         }
 
-        fn fetch_meta_global(&self) -> error::Result<BsoRecord<MetaGlobalRecord>> {
+        fn fetch_meta_global(&self) -> error::Result<Sync15ClientResponse<MetaGlobalRecord>> {
             match &self.meta_global {
                 Ok(global) => Ok(global.clone()),
                 // TODO(lina): Special handling for 404s, we want to ensure we
                 // handle missing keys and other server errors correctly.
-                Err(_) => Err(ErrorKind::StorageHttpError {
-                    code: 500,
-                    route: "meta/global".to_string(),
-                }
-                .into()),
+                Err(_) => Ok(Sync15ClientResponse::ServerError {
+                    status: 500,
+                    route: "test/path".into(),
+                }),
             }
         }
 
-        fn put_meta_global(&self, _global: &BsoRecord<MetaGlobalRecord>) -> error::Result<()> {
+        fn put_meta_global(
+            &self,
+            xius: ServerTimestamp,
+            _global: &MetaGlobalRecord,
+        ) -> error::Result<()> {
+            assert_eq!(xius, ServerTimestamp(999.9));
             Err(ErrorKind::StorageHttpError {
                 code: 500,
                 route: "meta/global".to_string(),
@@ -679,19 +504,23 @@ mod tests {
             .into())
         }
 
-        fn fetch_crypto_keys(&self) -> error::Result<BsoRecord<EncryptedPayload>> {
+        fn fetch_crypto_keys(&self) -> error::Result<Sync15ClientResponse<EncryptedBso>> {
             match &self.crypto_keys {
                 Ok(keys) => Ok(keys.clone()),
                 // TODO(lina): Same as above, for 404s.
-                Err(_) => Err(ErrorKind::StorageHttpError {
-                    code: 500,
-                    route: "crypto/keys".to_string(),
-                }
-                .into()),
+                Err(_) => Ok(Sync15ClientResponse::ServerError {
+                    status: 500,
+                    route: "test/path".into(),
+                }),
             }
         }
 
-        fn put_crypto_keys(&self, _keys: &EncryptedBso) -> error::Result<()> {
+        fn put_crypto_keys(
+            &self,
+            xius: ServerTimestamp,
+            _keys: &EncryptedBso,
+        ) -> error::Result<()> {
+            assert_eq!(xius, ServerTimestamp(888.8));
             Err(ErrorKind::StorageHttpError {
                 code: 500,
                 route: "crypto/keys".to_string(),
@@ -704,6 +533,18 @@ mod tests {
         }
     }
 
+    fn mocked_success_ts<T>(t: T, ts: f64) -> error::Result<Sync15ClientResponse<T>> {
+        Ok(Sync15ClientResponse::Success {
+            record: t,
+            last_modified: ServerTimestamp(ts),
+            route: "test/path".into(),
+        })
+    }
+
+    fn mocked_success<T>(t: T) -> error::Result<Sync15ClientResponse<T>> {
+        mocked_success_ts(t, 0.0)
+    }
+
     #[test]
     fn test_state_machine_ready_from_empty() {
         let root_key = KeyBundle::new_random().unwrap();
@@ -713,20 +554,15 @@ mod tests {
             collections: HashMap::new(),
         };
         let client = InMemoryClient {
-            info_configuration: Ok(InfoConfiguration::default()),
-            info_collections: Ok(InfoCollections::new(
+            info_configuration: mocked_success(InfoConfiguration::default()),
+            info_collections: mocked_success(InfoCollections::new(
                 vec![("meta", 123.456), ("crypto", 145.0)]
                     .into_iter()
                     .map(|(key, value)| (key.to_owned(), value.into()))
                     .collect(),
             )),
-            meta_global: Ok(BsoRecord {
-                id: "global".into(),
-                modified: ServerTimestamp(999.0),
-                collection: "meta".into(),
-                sortindex: None,
-                ttl: None,
-                payload: MetaGlobalRecord {
+            meta_global: mocked_success_ts(
+                MetaGlobalRecord {
                     sync_id: "syncIDAAAAAA".to_owned(),
                     storage_version: 5usize,
                     engines: vec![(
@@ -741,26 +577,28 @@ mod tests {
                     .collect(),
                     declined: vec![],
                 },
-            }),
-            crypto_keys: keys.to_encrypted_bso(&root_key),
+                999.0,
+            ),
+            crypto_keys: mocked_success_ts(
+                keys.to_encrypted_bso(&root_key)
+                    .expect("should always work in this test"),
+                888.0,
+            ),
         };
+        let app_state = ApplicationState::default();
 
-        let state = GlobalState::default();
-        let mut state_machine = SetupStateMachine::for_full_sync(&client, &root_key);
+        let mut state_machine = SetupStateMachine::for_full_sync(&client, &root_key, &app_state);
         assert!(
-            state_machine.run_to_ready(state).is_ok(),
+            state_machine.run_to_ready(None).is_ok(),
             "Should drive state machine to ready"
         );
         assert_eq!(
             state_machine.sequence,
             vec![
-                "InitialWithLiveToken",
-                "InitialWithLiveTokenAndConfig",
-                "InitialWithLiveTokenAndInfo",
-                "NeedsFreshMetaGlobal",
-                "ResolveMetaGlobal",
-                "HasMetaGlobal",
-                "NeedsFreshCryptoKeys",
+                "Initial",
+                "InitialWithConfig",
+                "InitialWithInfo",
+                "InitialWithMetaGlobal",
                 "Ready",
             ],
             "Should cycle through all states"

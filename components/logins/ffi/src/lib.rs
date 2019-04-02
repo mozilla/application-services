@@ -158,6 +158,7 @@ pub extern "C" fn sync15_passwords_wipe_local(handle: u64, error: &mut ExternErr
 #[no_mangle]
 pub extern "C" fn sync15_passwords_reset(handle: u64, error: &mut ExternError) {
     log::debug!("sync15_passwords_reset");
+    // XXX - does this really need to be exposed?
     ENGINES.call_with_result(error, handle, |state| state.reset())
 }
 

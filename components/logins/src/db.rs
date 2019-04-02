@@ -19,8 +19,8 @@ use std::path::Path;
 use std::result;
 use std::time::SystemTime;
 use sync15::{
-    telemetry, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload, ServerTimestamp,
-    Store,
+    extract_v1_sync_ids, telemetry, CollectionRequest, IncomingChangeset, OutgoingChangeset,
+    Payload, ServerTimestamp, Store,
 };
 
 pub struct LoginDb {
@@ -562,15 +562,18 @@ impl LoginDb {
         Ok(self.execute_named_cached(&*CLONE_SINGLE_MIRROR_SQL, &[(":guid", &guid as &ToSql)])?)
     }
 
-    pub fn reset(&self) -> Result<()> {
+    pub fn reset(&self, global_id: &str, engine_id: &str) -> Result<()> {
         log::info!("Executing reset on password store!");
+        let tx = self.db.unchecked_transaction()?;
         self.execute_all(&[
             &*CLONE_ENTIRE_MIRROR_SQL,
             "DELETE FROM loginsM",
             &format!("UPDATE loginsL SET sync_status = {}", SyncStatus::New as u8),
         ])?;
         self.set_last_sync(ServerTimestamp(0.0))?;
-        // TODO: Should we clear global_state?
+        self.put_meta(schema::GLOBAL_SYNCID_META_KEY, &global_id)?;
+        self.put_meta(schema::COLLECTION_SYNCID_META_KEY, &engine_id)?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -739,6 +742,14 @@ impl LoginDb {
         )?)
     }
 
+    fn delete_meta(&self, key: &str) -> Result<()> {
+        self.execute_named_cached(
+            "DELETE FROM loginsSyncMeta WHERE key = :key",
+            &[(":key", &key)],
+        )?;
+        Ok(())
+    }
+
     fn set_last_sync(&self, last_sync: ServerTimestamp) -> Result<()> {
         log::debug!("Updating last sync to {}", last_sync);
         let last_sync_millis = last_sync.as_millis() as i64;
@@ -751,16 +762,18 @@ impl LoginDb {
             .map(|millis| ServerTimestamp(millis as f64 / 1000.0)))
     }
 
-    pub fn set_global_state(&self, global_state: Option<String>) -> Result<()> {
-        let to_write = match global_state {
-            Some(ref s) => s,
-            None => "",
-        };
-        self.put_meta(schema::GLOBAL_STATE_META_KEY, &to_write)
-    }
-
-    pub fn get_global_state(&self) -> Result<Option<String>> {
-        self.get_meta::<String>(schema::GLOBAL_STATE_META_KEY)
+    /// A utility we can kill by the end of 2019 ;)
+    pub fn migrate_global_state(&self) -> Result<()> {
+        if let Some(old_state) = self.get_meta("global_state")? {
+            log::info!("there's old global state - migrating");
+            if let Some((gsid, csid)) = extract_v1_sync_ids(old_state, "passwords") {
+                self.put_meta(schema::GLOBAL_SYNCID_META_KEY, &gsid)?;
+                self.put_meta(schema::COLLECTION_SYNCID_META_KEY, &csid)?;
+                log::info!("migrated the sync IDs");
+            }
+            self.delete_meta("global_state")?;
+        }
+        Ok(())
     }
 }
 
@@ -797,8 +810,15 @@ impl Store for LoginDb {
         Ok(CollectionRequest::new("passwords").full().newer_than(since))
     }
 
-    fn reset(&self) -> result::Result<(), failure::Error> {
-        LoginDb::reset(self)?;
+    fn get_sync_ids(&self) -> result::Result<(Option<String>, Option<String>), failure::Error> {
+        Ok((
+            self.get_meta(schema::GLOBAL_SYNCID_META_KEY)?,
+            self.get_meta(schema::COLLECTION_SYNCID_META_KEY)?,
+        ))
+    }
+
+    fn reset(&self, global_id: &str, collection_id: &str) -> result::Result<(), failure::Error> {
+        LoginDb::reset(self, global_id, collection_id)?;
         Ok(())
     }
 

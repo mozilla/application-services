@@ -21,7 +21,7 @@ use std::cell::Cell;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
-use sync15::{sync_multiple, telemetry, Store};
+use sync15::{extract_v1_sync_ids, sync_multiple, telemetry, GlobalState, Store};
 use url::Url;
 
 type Result<T> = std::result::Result<T, failure::Error>;
@@ -195,7 +195,7 @@ fn sync(
             store.wipe()?;
         }
         if reset {
-            store.reset()?;
+            store.reset("", "")?;
         }
     }
 
@@ -224,8 +224,26 @@ fn sync(
         Ok(res)
     }
 
-    let meta_key_name = "history_global_state";
-    let global_state: Cell<Option<String>> = Cell::new(get_meta(&conn, meta_key_name)?);
+    fn delete_meta(db: &PlacesDb, key: &str) -> Result<()> {
+        db.execute_named_cached("DELETE FROM moz_meta WHERE key = :key", &[(":key", &key)])?;
+        Ok(())
+    }
+
+    // migrate state - no strictly necessary as we'd just get a 'reset' if we
+    // don't do it, but for demo purposes...
+    // Migrate history engine state (there's no old state for bookmarks)
+    if let Some(old_state) = get_meta(&conn, "history_global_state")? {
+        log::info!("there's old global state - migrating");
+        if let Some((gsid, csid)) = extract_v1_sync_ids(old_state, "history") {
+            put_meta(&conn, "global_sync_id", &gsid)?;
+            put_meta(&conn, "history_sync_id", &csid)?;
+            log::info!("migrated the sync IDs");
+        }
+        delete_meta(&conn, "history_global_state")?;
+    }
+    // XXX - store needs to read them!
+
+    let global_state: Cell<Option<GlobalState>> = Cell::new(None);
     let client_info = Cell::new(None);
     let mut sync_ping = telemetry::SyncTelemetryPing::new();
 
@@ -243,7 +261,6 @@ fn sync(
     } else {
         log::info!("Sync was successful!");
     }
-    put_meta(&conn, meta_key_name, &global_state.replace(None))?;
     println!(
         "Sync telemetry: {}",
         serde_json::to_string_pretty(&sync_ping).unwrap()
