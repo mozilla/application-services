@@ -1,5 +1,4 @@
-Rust Places
-===========
+# Places
 
 Places is a library for storing and syncing bookmarks and history. It exposes high-level APIs for common use cases, like recording history visits, autocompleting visited URLs, clearing and expiring history, and managing bookmarks. It also provides engines for syncing visited pages and bookmarks through Firefox Sync.
 
@@ -7,8 +6,7 @@ In the past, all Mozilla browsers handled history and bookmark storage different
 
 Places is based on the Firefox Desktop implementation, and uses a mostly backward-compatible storage schema. It can either be consumed directly, as in Firefox for iOS, or through a layer like [Mozilla Android Components](https://mozac.org/).
 
-Architecture
-============
+## Architecture
 
 `PlacesApi` is the entry point to Places. It's expected that your app or component will create one `PlacesApi` instance, and use it as a singleton. `PlacesApi` manages database connections and global Sync state. You can use `PlacesApi::open_connection` to open multiple read-only connections, or acquire the single read-write connection. Syncing for the first time also opens a special read-write connection for Sync, but this connection is not exposed to applications.
 
@@ -16,8 +14,7 @@ Architecture
 
 When you're done with a connection, make sure to close it using `PlacesApi::close_connection`.
 
-Connection lifecycle
-====================
+## Connection lifecycle
 
 Opening a read-write connection to an existing database runs migrations to bring the database up to date. The current schema and version are compiled in to the Rust Places library. Opening a database with a newer schema version is also supported, but the version will be rolled back to the current version. Opening a connection to a file that doesn't exist creates and initializes an empty database at that path.
 
@@ -29,79 +26,10 @@ WAL mode doesn't allow multiple writers. This means that, for example, adding a 
 
 Once you have a connection, you can fetch history pages and bookmarks from the database, and run autocomplete matches for typed URLs. If you have a read-write connection, you can also record new visits and organize bookmarks.
 
-API and storage layers
-======================
+## API and storage layers
 
 The Places library is split into three layers:
 
 * An API layer that expresses higher-level concepts, like recording a history visit, adding, removing, or fetching a bookmark, syncing, or autocompleting a URL in the address bar.
 * A storage layer that manages database connections and provides convenience methods for executing SQL statements.
 * A [foreign function interface](https://docs.rs/ffi-support) (FFI) that wraps API and storage calls for Swift and Kotlin consumers.
-
-History
-=======
-
-The history API provides methods for managing URLs, autocompleting address bar entries, and recording and clearing history visits.
-
-## Recording visits
-
-`history::apply_observation` records a visit observation for a URL. A visit observation notes the page title and URL, and whether the visit was from following a link, address bar entry, bookmark, or redirect.
-
-`history::update_frecency` recalculates frecency for a URL. Frecency is a score, based on the _fre_quency and _recency_ of visits, used to rank pages in autocomplete results. The frecency algorithm is an implementation detail, and subject to [change](https://github.com/mozilla/application-services/issues/610), so raw scores are not meaningful on their own.
-
-## Autocomplete matching
-
-`history_api::search_frecent` returns all matches by origin, URL fragment, past autocomplete input, title, and tags, ranked by frecency and relevance.
-
-`history_api::match_url` returns the highest-ranked autocomplete match for an origin or URL fragment.
-
-`history_api::accept_result` records an input that completed to the chosen URL. This is stored and used in `search_frecent` to return matches by past autocomplete input.
-
-## Clearing history
-
-`history::delete_place_by_guid` deletes a URL and all its visits, and writes a Sync tombstone if the URL was synced. Bookmarked URLs can't be deleted until the bookmark is either deleted, or changed to point to a different URL.
-
-`history::delete_visits_between` deletes visits to a URL in a time range. If all visits to the URL fall within the range, the URL is also removed and tombstoned, except if it's bookmarked.
-
-`history::delete_place_visit_at_time` deletes a visit to a URL at a specific time. If it's the last remaining visit, the URL is also removed and tombstoned, except if it's bookmarked.
-
-`history::prune_destructively` prunes old history visits, without writing tombstones or Sync metadata. It's recommended to call this as a last resort—for example, if the device is low on disk space. Old visits _may_ be resurrected through Sync; however, since we only sync a subset of history, and expire old synced history after 60 days, this may cause data loss.
-
-`history::wipe_local` erases all history, without writing tombstones or Sync metadata. This means that visits from other devices can reappear over time, and a full sync is likely to resurrect all cleared history. `wipe_local` is meant for cases like clearing local data when signing out of Sync.
-
-Bookmarks
-=========
-
-The bookmarks API provides methods for creating, organizing, and deleting bookmark items: bookmarks, folders, and separators.
-
-## Creating bookmarks
-
-`bookmarks::insert_bookmark` inserts a bookmark item.
-
-`bookmarks::insert_tree` inserts a complete bookmark tree.
-
-## Getting bookmarks
-
-`bookmarks::get_bookmark` fetches info for a bookmark item.
-
-## Organizing bookmarks
-
-`bookmarks::fetch_tree` fetches info for a bookmark folder and all its descendants, recursively.
-
-`bookmarks::update_bookmark` updates or moves a bookmark item.
-
-## Deleting bookmarks
-
-`bookmarks::delete_bookmark` deletes a bookmark item. Folders are deleted recursively.
-
-Sync
-====
-
-Rust Places integrates syncing into the data model.
-
-Each syncable data type provides a store that describes how to marshal and unmarshal Sync records. A store implements methods for staging incoming records, merging, and recording telemetry. Each data type handles application differently. For example, history sync builds a plan that writes URLs and visits directly into the live Places database, while bookmarks are first written into a separate table that's then merged in to the live table.
-
-Maintenance
-===========
-
-`storage::run_maintenance` vacuums and optimizes the database, and performs a consistency check. It can, but doesn't need to be, called about once a day.
