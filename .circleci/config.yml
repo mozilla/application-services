@@ -84,6 +84,19 @@ commands:
       - run:
           name: Test (no default features)
           command: cargo test --all --no-default-features --verbose
+  dependency-checks:
+    steps:
+      - checkout
+      - run:
+          name: Check for security vulnerabilities in dependencies
+          command: |
+            cargo install cargo-audit
+            cargo audit
+      - run:
+          name: Check licence compatibility of dependencies
+          command: |
+            cargo install cargo-license
+            bash ./automation/license-check.sh
   sync-tests:
     steps:
       - test-setup
@@ -119,6 +132,11 @@ jobs:
       - run: rustup component add clippy
       - run: cargo clippy --version
       - run: cargo clippy --all --all-targets --all-features -- -D warnings
+  Check Rust dependencies:
+    docker:
+      - image: circleci/rust:latest
+    steps:
+      - dependency-checks
   Rust tests - stable:
     docker:
       - image: circleci/rust:latest
@@ -215,6 +233,19 @@ workflows:
   clippy:
     jobs:
       - Lint Rust with clippy
+  check-dependencies:
+    jobs:
+      - Check Rust dependencies
+  check-dependencies-periodically:
+    jobs:
+      - Check Rust dependencies
+    triggers:
+      - schedule:
+          cron: "0 * * * *"
+          filters:
+            branches:
+              only:
+                - master
   run-tests:
     jobs:
       - Rust tests - stable
