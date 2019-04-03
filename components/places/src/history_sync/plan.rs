@@ -14,7 +14,6 @@ use crate::storage::history::history_sync::{
 use crate::types::{SyncGuid, Timestamp, VisitTransition};
 use crate::valid_guid::is_valid_places_guid;
 use serde_json;
-use sql_support::ConnExt;
 use std::collections::HashSet;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sync15::telemetry;

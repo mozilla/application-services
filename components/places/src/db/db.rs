@@ -11,7 +11,7 @@ use sql_support::ConnExt;
 use std::ops::Deref;
 use std::path::Path;
 
-use std::sync::{atomic::AtomicUsize, Arc};
+use std::sync::{atomic::AtomicUsize, Arc, Mutex};
 
 pub const MAX_VARIABLE_NUMBER: usize = 999;
 
@@ -21,6 +21,7 @@ pub struct PlacesDb {
     conn_type: ConnectionType,
     interrupt_counter: Arc<AtomicUsize>,
     api_id: usize,
+    pub(super) coop_tx_lock: Arc<Mutex<()>>,
 }
 
 impl PlacesDb {
@@ -29,6 +30,7 @@ impl PlacesDb {
         encryption_key: Option<&str>,
         conn_type: ConnectionType,
         api_id: usize,
+        coop_tx_lock: Arc<Mutex<()>>,
     ) -> Result<Self> {
         const PAGE_SIZE: u32 = 32768;
 
@@ -98,6 +100,7 @@ impl PlacesDb {
             // The API sets this explicitly.
             api_id,
             interrupt_counter: Arc::new(AtomicUsize::new(0)),
+            coop_tx_lock,
         };
         match res.conn_type() {
             // For read-only connections, we can avoid opening a transaction,
@@ -120,12 +123,14 @@ impl PlacesDb {
         encryption_key: Option<&str>,
         conn_type: ConnectionType,
         api_id: usize,
+        coop_tx_lock: Arc<Mutex<()>>,
     ) -> Result<Self> {
         Ok(Self::with_connection(
             Connection::open_with_flags(path, conn_type.rusqlite_flags())?,
             encryption_key,
             conn_type,
             api_id,
+            coop_tx_lock,
         )?)
     }
 
@@ -138,6 +143,7 @@ impl PlacesDb {
             encryption_key,
             ConnectionType::ReadWrite,
             0,
+            Arc::new(Mutex::new(())),
         )?)
     }
 

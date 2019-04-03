@@ -72,6 +72,7 @@ pub struct PlacesApi {
     encryption_key: Option<String>,
     write_connection: Mutex<Option<PlacesDb>>,
     sync_state: Mutex<Option<SyncState>>,
+    coop_tx_lock: Arc<Mutex<()>>,
     id: usize,
 }
 impl PlacesApi {
@@ -102,14 +103,21 @@ impl PlacesApi {
             None => {
                 // We always create a new read-write connection for an initial open so
                 // we can create the schema and/or do version upgrades.
-                let connection =
-                    PlacesDb::open(&db_name, encryption_key, ConnectionType::ReadWrite, id)?;
+                let coop_tx_lock = Arc::new(Mutex::new(()));
+                let connection = PlacesDb::open(
+                    &db_name,
+                    encryption_key,
+                    ConnectionType::ReadWrite,
+                    id,
+                    coop_tx_lock.clone(),
+                )?;
                 let new = PlacesApi {
                     db_name: db_name.clone(),
                     encryption_key: encryption_key.map(|x| x.to_string()),
                     write_connection: Mutex::new(Some(connection)),
                     sync_state: Mutex::new(None),
                     id,
+                    coop_tx_lock,
                 };
                 let arc = Arc::new(new);
                 (*guard).insert(db_name, Arc::downgrade(&arc));
@@ -124,7 +132,13 @@ impl PlacesApi {
         match conn_type {
             ConnectionType::ReadOnly => {
                 // make a new one - we can have as many of these as we want.
-                PlacesDb::open(self.db_name.clone(), ec, ConnectionType::ReadOnly, self.id)
+                PlacesDb::open(
+                    self.db_name.clone(),
+                    ec,
+                    ConnectionType::ReadOnly,
+                    self.id,
+                    self.coop_tx_lock.clone(),
+                )
             }
             ConnectionType::ReadWrite => {
                 // We only allow one of these.
@@ -136,7 +150,13 @@ impl PlacesApi {
             }
             ConnectionType::Sync => {
                 // ideally we'd enforce this in the same way as write_connection
-                PlacesDb::open(self.db_name.clone(), ec, ConnectionType::Sync, self.id)
+                PlacesDb::open(
+                    self.db_name.clone(),
+                    ec,
+                    ConnectionType::Sync,
+                    self.id,
+                    self.coop_tx_lock.clone(),
+                )
             }
         }
     }
