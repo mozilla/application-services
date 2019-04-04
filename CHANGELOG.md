@@ -4,6 +4,13 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.23.0...master)
 
+## General
+
+- Native code builds are now stripped by default, reducing size by almost an
+  order of magnitude. ([#913](https://github.com/mozilla/application-services/issues/913))
+    - This is done rather than relying on consumers to strip them, which proved
+      more difficult than anticipated.
+
 ## Push
 
 ### What's new
