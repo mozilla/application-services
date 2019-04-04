@@ -79,9 +79,22 @@ class PlacesApi(path: String, encryptionKey: String? = null) : PlacesManager, Au
         }
     }
 
-    override fun sync(syncInfo: SyncAuthInfo) {
+    override fun syncHistory(syncInfo: SyncAuthInfo) {
         rustCall(this) { error ->
             LibPlacesFFI.INSTANCE.sync15_history_sync(
+                    this.handle.get(),
+                    syncInfo.kid,
+                    syncInfo.fxaAccessToken,
+                    syncInfo.syncKey,
+                    syncInfo.tokenserverURL,
+                    error
+            )
+        }
+    }
+
+    override fun syncBookmarks(syncInfo: SyncAuthInfo) {
+        rustCall(this) { error ->
+            LibPlacesFFI.INSTANCE.sync15_bookmarks_sync(
                     this.handle.get(),
                     syncInfo.kid,
                     syncInfo.fxaAccessToken,
@@ -473,14 +486,24 @@ interface PlacesManager {
     fun getWriter(): WritableHistoryConnection
 
     /**
-     * Syncs the places stores.
+     * Syncs the places history store.
      *
      * Note that this function blocks until the sync is complete, which may
      * take some time due to the network etc. Because only 1 thread can be
      * using a PlacesAPI at a time, it is recommended, but not enforced, that
      * you have all connections you intend using open before calling this.
      */
-    fun sync(syncInfo: SyncAuthInfo)
+    fun syncHistory(syncInfo: SyncAuthInfo)
+
+    /**
+     * Syncs the places bookmarks store.
+     *
+     * Note that this function blocks until the sync is complete, which may
+     * take some time due to the network etc. Because only 1 thread can be
+     * using a PlacesAPI at a time, it is recommended, but not enforced, that
+     * you have all connections you intend using open before calling this.
+     */
+    fun syncBookmarks(syncInfo: SyncAuthInfo)
 }
 
 interface InterruptibleConnection : AutoCloseable {

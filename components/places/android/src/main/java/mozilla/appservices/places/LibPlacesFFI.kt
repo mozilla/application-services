@@ -170,6 +170,15 @@ internal interface LibPlacesFFI : Library {
         out_err: RustError.ByReference
     )
 
+    fun sync15_bookmarks_sync(
+        handle: PlacesConnectionHandle,
+        key_id: String,
+        access_token: String,
+        sync_key: String,
+        tokenserver_url: String,
+        out_err: RustError.ByReference
+    )
+
     fun bookmarks_get_all_with_url(
         handle: PlacesConnectionHandle,
         url: String,
