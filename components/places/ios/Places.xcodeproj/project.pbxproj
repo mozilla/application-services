@@ -16,6 +16,8 @@
 		CDADF01C2235E4FE00AA3E5C /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDADF01B2235E4FE00AA3E5C /* Bookmark.swift */; };
 		CDADF01E2235FAF600AA3E5C /* places_msg_types.proto in Sources */ = {isa = PBXBuildFile; fileRef = CDADF01D2235FAF600AA3E5C /* places_msg_types.proto */; };
 		CEE1087620C5ADF9007048AC /* PlacesError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEE1087520C5ADF9007048AC /* PlacesError.swift */; };
+		D05434AB2256921000FDE4EF /* Places.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9D202320914D0D00F1C8FA /* Places.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		D05434AC2256921700FDE4EF /* RustPlacesAPI.h in Headers */ = {isa = PBXBuildFile; fileRef = CDFA91ED2153568E0074CABF /* RustPlacesAPI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D819A4A821B861D6004EE6F3 /* libplaces_ffi.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4A721B861D6004EE6F3 /* libplaces_ffi.a */; };
 		D819A4AF21B87468004EE6F3 /* libsqlcipher.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4AE21B87467004EE6F3 /* libsqlcipher.a */; };
 		EB348E432204EA0C00788CD3 /* PlacesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB348E422204EA0C00788CD3 /* PlacesTests.swift */; };
@@ -187,6 +189,15 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D05434AB2256921000FDE4EF /* Places.h in Headers */,
+				D05434AC2256921700FDE4EF /* RustPlacesAPI.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D05434A62256832100FDE4EF /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -220,6 +231,7 @@
 				EB348E3C2204EA0C00788CD3 /* Sources */,
 				EB348E3D2204EA0C00788CD3 /* Frameworks */,
 				EB348E3E2204EA0C00788CD3 /* Resources */,
+				D05434A62256832100FDE4EF /* Headers */,
 				CD440A402238832F003F004B /* CopyFiles */,
 			);
 			buildRules = (

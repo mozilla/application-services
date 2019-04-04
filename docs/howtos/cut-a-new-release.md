@@ -31,6 +31,9 @@ These are the steps needed to cut a new release.
     4. Note that the release is not avaliable until the taskcluster build completes for that tag.
         - Finding out that this takes a little navigation in the github UI. It's available at `https://github.com/mozilla/application-services/commits/v<VERSION NUMBER>` in the build status info (the emoji) next to the last commit.
         - If the taskcluster tag and/or release tasks fail, ping someone in slack and we'll figure out what to do.
+    5. Until [automated publishing to maven](https://github.com/mozilla/application-services/issues/252)
+       is available, file a bug to request manual mirroring of the release artifacts from bintray to maven.
+       You can use [Bug 1540775](https://bugzilla.mozilla.org/show_bug.cgi?id=1540775) as a template.
 5. If you need to manually produce the iOS build for some reason (for example, if CircleCI cannot), someone with a mac needs to do the following steps:
     1. If necessary, set up for performing iOS builds:
         ```

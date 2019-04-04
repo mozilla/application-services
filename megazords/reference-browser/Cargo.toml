@@ -3,6 +3,7 @@ name = "reference-browser"
 edition = "2018"
 version = "0.1.0"
 authors = ["application-services <application-services@mozilla.com>"]
+license = "MPL-2.0"
 
 [lib]
 crate-type = ["cdylib"]

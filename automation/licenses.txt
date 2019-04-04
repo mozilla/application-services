@@ -1,0 +1,29 @@
+# This is a list of cargo license declarations which are acceptable in our dependencies.
+# Ref https://www.mozilla.org/en-US/MPL/license-policy/#Licenses_Compatible_with_the_MPL
+APSL-2.0/MIT
+Apache-2.0
+Apache-2.0 OR BSL-1.0
+Apache-2.0 OR MIT
+Apache-2.0/MIT
+BSD-2-Clause
+BSD-3-Clause
+BSD-3-Clause AND Zlib
+CC0-1.0
+ISC
+MIT
+MIT OR Apache-2.0
+MIT/Unlicense
+MPL-2.0
+Unlicense OR MIT
+
+# And this is a list of crate names which have unusual license declarations,
+# but which we've manually checked for compatibility.
+
+# Ring has complicated licensing, but it's all BSD-like.
+# https://github.com/briansmith/ring/blob/master/LICENSE
+=ring
+
+# fuchsia-cprng claims to be BSD-like but I couldn't actually
+# find the license file, I'm going from comments in the source.
+# https://fuchsia.googlesource.com/fuchsia/+/master/garnet/public/rust/fuchsia-cprng/src/lib.rs
+=fuchsia-cprng
