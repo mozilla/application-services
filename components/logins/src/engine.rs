@@ -59,9 +59,8 @@ impl PasswordEngine {
         Ok(())
     }
 
-    // do we really need this?
     pub fn reset(&self) -> Result<()> {
-        self.db.reset("", "")?;
+        self.db.reset(&None)?;
         Ok(())
     }
 

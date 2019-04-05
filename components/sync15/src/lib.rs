@@ -7,8 +7,8 @@
 mod bso_record;
 mod changeset;
 mod client;
+mod coll_state;
 mod collection_keys;
-mod collection_state;
 mod error;
 mod key_bundle;
 mod migrate_state;
@@ -25,7 +25,7 @@ mod util;
 pub use crate::bso_record::{BsoRecord, CleartextBso, EncryptedBso, EncryptedPayload, Payload};
 pub use crate::changeset::{IncomingChangeset, OutgoingChangeset, RecordChangeset};
 pub use crate::client::{SetupStorageClient, Sync15StorageClient, Sync15StorageClientInit};
-pub use crate::collection_state::CollectionState;
+pub use crate::coll_state::{CollState, CollSyncIds};
 pub use crate::error::{Error, ErrorKind, Result};
 pub use crate::key_bundle::KeyBundle;
 pub use crate::migrate_state::extract_v1_sync_ids;

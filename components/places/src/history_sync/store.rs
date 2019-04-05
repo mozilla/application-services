@@ -13,10 +13,10 @@ use std::cell::Cell;
 use std::ops::Deref;
 use std::result;
 use sync15::telemetry;
-use sync15::CollectionRequest;
 use sync15::{
-    extract_v1_sync_ids, sync_multiple, ClientInfo, IncomingChangeset, KeyBundle,
-    OutgoingChangeset, ServerTimestamp, Store, Sync15StorageClientInit,
+    extract_v1_sync_ids, sync_multiple, ClientInfo, CollSyncIds, CollectionRequest,
+    IncomingChangeset, KeyBundle, OutgoingChangeset, ServerTimestamp, Store,
+    Sync15StorageClientInit,
 };
 
 use super::plan::{apply_plan, finish_plan};
@@ -83,13 +83,21 @@ impl<'a> HistoryStore<'a> {
         Ok(())
     }
 
-    fn do_reset(&self, gsid: &str, csid: &str) -> Result<()> {
+    fn do_reset(&self, ids: &Option<CollSyncIds>) -> Result<()> {
         log::info!("Resetting history store");
         let tx = self.db.unchecked_transaction()?;
         reset_storage(self.db)?;
         self.put_meta(LAST_SYNC_META_KEY, &0)?;
-        self.put_meta(GLOBAL_SYNCID_META_KEY, &gsid)?;
-        self.put_meta(COLLECTION_SYNCID_META_KEY, &csid)?;
+        match ids {
+            None => {
+                self.delete_meta(GLOBAL_SYNCID_META_KEY)?;
+                self.delete_meta(COLLECTION_SYNCID_META_KEY)?;
+            }
+            Some(ids) => {
+                self.put_meta(GLOBAL_SYNCID_META_KEY, &ids.global)?;
+                self.put_meta(COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+            }
+        };
         tx.commit()?;
         Ok(())
     }
@@ -177,15 +185,14 @@ impl<'a> Store for HistoryStore<'a> {
             .limit(MAX_INCOMING_PLACES))
     }
 
-    fn get_sync_ids(&self) -> result::Result<(Option<String>, Option<String>), failure::Error> {
-        Ok((
-            self.get_meta(GLOBAL_SYNCID_META_KEY)?,
-            self.get_meta(COLLECTION_SYNCID_META_KEY)?,
-        ))
+    fn get_sync_ids(&self) -> result::Result<Option<CollSyncIds>, failure::Error> {
+        let global = self.get_meta(GLOBAL_SYNCID_META_KEY)?;
+        let coll = self.get_meta(COLLECTION_SYNCID_META_KEY)?;
+        Ok(global.and_then(|global| coll.and_then(|coll| Some(CollSyncIds { global, coll }))))
     }
 
-    fn reset(&self, gsid: &str, csid: &str) -> result::Result<(), failure::Error> {
-        self.do_reset(gsid, csid)?;
+    fn reset(&self, new_ids: &Option<CollSyncIds>) -> result::Result<(), failure::Error> {
+        self.do_reset(new_ids)?;
         Ok(())
     }
 

@@ -12,7 +12,7 @@ use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::api::places_api::ConnectionType;
 use crate::db::PlacesDb;
 use crate::error::*;
-use crate::storage::{bookmarks::BookmarkRootGuid, get_meta, put_meta};
+use crate::storage::{bookmarks::BookmarkRootGuid, delete_meta, get_meta, put_meta};
 use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
 use dogear::{
     self, Content, Deletion, IntoTree, Item, MergedDescendant, MergedRoot, Tree, UploadReason,
@@ -25,8 +25,8 @@ use std::fmt;
 use std::result;
 use std::time::Duration;
 use sync15::{
-    telemetry, ClientInfo, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload,
-    ServerTimestamp, Store,
+    telemetry, ClientInfo, CollSyncIds, CollectionRequest, IncomingChangeset, OutgoingChangeset,
+    Payload, ServerTimestamp, Store,
 };
 static LAST_SYNC_META_KEY: &'static str = "bookmarks_last_sync_time";
 // Note that all engines in this crate should use a *different* meta key
@@ -469,18 +469,17 @@ impl<'a> Store for BookmarksStore<'a> {
             .newer_than(since))
     }
 
-    fn get_sync_ids(&self) -> result::Result<(Option<String>, Option<String>), failure::Error> {
-        Ok((
-            get_meta(self.db, GLOBAL_SYNCID_META_KEY)?,
-            get_meta(self.db, COLLECTION_SYNCID_META_KEY)?,
-        ))
+    fn get_sync_ids(&self) -> result::Result<Option<CollSyncIds>, failure::Error> {
+        let global = get_meta(self.db, GLOBAL_SYNCID_META_KEY)?;
+        let coll = get_meta(self.db, COLLECTION_SYNCID_META_KEY)?;
+        Ok(global.and_then(|global| coll.and_then(|coll| Some(CollSyncIds { global, coll }))))
     }
 
     /// Removes all sync metadata, such that the next sync is treated as a
     /// first sync. Unlike `wipe`, this keeps all local items, but clears
     /// all synced items and pending tombstones. This also forgets the last
     /// sync time.
-    fn reset(&self, gsid: &str, csid: &str) -> result::Result<(), failure::Error> {
+    fn reset(&self, ids: &Option<CollSyncIds>) -> result::Result<(), failure::Error> {
         let tx = self.db.unchecked_transaction()?;
         self.db.execute_batch(&format!(
             "DELETE FROM moz_bookmarks_synced;
@@ -494,8 +493,16 @@ impl<'a> Store for BookmarksStore<'a> {
         ))?;
         create_synced_bookmark_roots(self.db)?;
         put_meta(self.db, LAST_SYNC_META_KEY, &0)?;
-        put_meta(self.db, GLOBAL_SYNCID_META_KEY, &gsid)?;
-        put_meta(self.db, COLLECTION_SYNCID_META_KEY, &csid)?;
+        match ids {
+            None => {
+                delete_meta(self.db, GLOBAL_SYNCID_META_KEY)?;
+                delete_meta(self.db, COLLECTION_SYNCID_META_KEY)?;
+            }
+            Some(ids) => {
+                put_meta(self.db, GLOBAL_SYNCID_META_KEY, &ids.global)?;
+                put_meta(self.db, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+            }
+        };
         tx.commit()?;
         Ok(())
     }

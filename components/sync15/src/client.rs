@@ -71,18 +71,6 @@ impl<T> Sync15ClientResponse<T> {
             route: route.clone(),
         }
     }
-
-    // XXX - this should go away - consumers should do the matching themself.
-    pub fn get_record(self) -> error::Result<(T, ServerTimestamp)> {
-        match self {
-            Sync15ClientResponse::Success {
-                record,
-                last_modified,
-                ..
-            } => Ok((record, last_modified)),
-            _ => Err(self.to_storage_error().into()),
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

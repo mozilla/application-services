@@ -107,23 +107,23 @@ fn new_global_from_previous(
     })
 }
 
-pub struct SetupStateMachine<'client, 'keys, 'appstate> {
-    client: &'client SetupStorageClient,
-    root_key: &'keys KeyBundle,
-    app_state: &'appstate ApplicationState,
+pub struct SetupStateMachine<'a> {
+    client: &'a SetupStorageClient,
+    root_key: &'a KeyBundle,
+    app_state: &'a ApplicationState,
     allowed_states: Vec<&'static str>,
     sequence: Vec<&'static str>,
 }
 
-impl<'client, 'keys, 'appstate> SetupStateMachine<'client, 'keys, 'appstate> {
+impl<'a> SetupStateMachine<'a> {
     /// Creates a state machine for a "classic" Sync 1.5 client that supports
     /// all states, including uploading a fresh `meta/global` and `crypto/keys`
     /// after a node reassignment.
     pub fn for_full_sync(
-        client: &'client SetupStorageClient,
-        root_key: &'keys KeyBundle,
-        app_state: &'appstate ApplicationState,
-    ) -> SetupStateMachine<'client, 'keys, 'appstate> {
+        client: &'a SetupStorageClient,
+        root_key: &'a KeyBundle,
+        app_state: &'a ApplicationState,
+    ) -> SetupStateMachine<'a> {
         SetupStateMachine::with_allowed_states(
             client,
             root_key,
@@ -146,10 +146,10 @@ impl<'client, 'keys, 'appstate> SetupStateMachine<'client, 'keys, 'appstate> {
     /// important to get to ready as quickly as possible, like syncing before
     /// sleep, or when conserving time or battery life.
     pub fn for_fast_sync(
-        client: &'client SetupStorageClient,
-        root_key: &'keys KeyBundle,
-        app_state: &'appstate ApplicationState,
-    ) -> SetupStateMachine<'client, 'keys, 'appstate> {
+        client: &'a SetupStorageClient,
+        root_key: &'a KeyBundle,
+        app_state: &'a ApplicationState,
+    ) -> SetupStateMachine<'a> {
         SetupStateMachine::with_allowed_states(
             client,
             root_key,
@@ -169,20 +169,20 @@ impl<'client, 'keys, 'appstate> SetupStateMachine<'client, 'keys, 'appstate> {
     /// upload `meta/global` or `crypto/keys`. Useful for clients that only
     /// sync specific collections, like Lockbox.
     pub fn for_readonly_sync(
-        client: &'client SetupStorageClient,
-        root_key: &'keys KeyBundle,
-        app_state: &'appstate ApplicationState,
-    ) -> SetupStateMachine<'client, 'keys, 'appstate> {
+        client: &'a SetupStorageClient,
+        root_key: &'a KeyBundle,
+        app_state: &'a ApplicationState,
+    ) -> SetupStateMachine<'a> {
         // currently identical to a "fast sync"
         Self::for_fast_sync(client, root_key, app_state)
     }
 
     fn with_allowed_states(
-        client: &'client SetupStorageClient,
-        root_key: &'keys KeyBundle,
-        app_state: &'appstate ApplicationState,
+        client: &'a SetupStorageClient,
+        root_key: &'a KeyBundle,
+        app_state: &'a ApplicationState,
         allowed_states: Vec<&'static str>,
-    ) -> SetupStateMachine<'client, 'keys, 'appstate> {
+    ) -> SetupStateMachine<'a> {
         SetupStateMachine {
             client,
             root_key,
@@ -437,10 +437,7 @@ impl SetupState {
 
 /// Whether we should skip fetching an item.
 fn is_fresh(local: ServerTimestamp, collections: &InfoCollections, key: &str) -> bool {
-    match collections.get(key) {
-        None => false, // no remote, must restart state machine.
-        Some(ts) => local >= *ts,
-    }
+    collections.get(key).map_or(false, |ts| local >= *ts)
 }
 
 #[cfg(test)]

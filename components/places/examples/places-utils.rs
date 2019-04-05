@@ -195,7 +195,7 @@ fn sync(
             store.wipe()?;
         }
         if reset {
-            store.reset("", "")?;
+            store.reset(&None)?;
         }
     }
 

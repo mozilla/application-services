@@ -19,8 +19,8 @@ use std::path::Path;
 use std::result;
 use std::time::SystemTime;
 use sync15::{
-    extract_v1_sync_ids, telemetry, CollectionRequest, IncomingChangeset, OutgoingChangeset,
-    Payload, ServerTimestamp, Store,
+    extract_v1_sync_ids, telemetry, CollSyncIds, CollectionRequest, IncomingChangeset,
+    OutgoingChangeset, Payload, ServerTimestamp, Store,
 };
 
 pub struct LoginDb {
@@ -562,7 +562,7 @@ impl LoginDb {
         Ok(self.execute_named_cached(&*CLONE_SINGLE_MIRROR_SQL, &[(":guid", &guid as &ToSql)])?)
     }
 
-    pub fn reset(&self, global_id: &str, engine_id: &str) -> Result<()> {
+    pub fn reset(&self, ids: &Option<CollSyncIds>) -> Result<()> {
         log::info!("Executing reset on password store!");
         let tx = self.db.unchecked_transaction()?;
         self.execute_all(&[
@@ -571,8 +571,16 @@ impl LoginDb {
             &format!("UPDATE loginsL SET sync_status = {}", SyncStatus::New as u8),
         ])?;
         self.set_last_sync(ServerTimestamp(0.0))?;
-        self.put_meta(schema::GLOBAL_SYNCID_META_KEY, &global_id)?;
-        self.put_meta(schema::COLLECTION_SYNCID_META_KEY, &engine_id)?;
+        match ids {
+            None => {
+                self.delete_meta(schema::GLOBAL_SYNCID_META_KEY)?;
+                self.delete_meta(schema::COLLECTION_SYNCID_META_KEY)?;
+            }
+            Some(ids) => {
+                self.put_meta(schema::GLOBAL_SYNCID_META_KEY, &ids.global)?;
+                self.put_meta(schema::COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+            }
+        };
         tx.commit()?;
         Ok(())
     }
@@ -810,15 +818,14 @@ impl Store for LoginDb {
         Ok(CollectionRequest::new("passwords").full().newer_than(since))
     }
 
-    fn get_sync_ids(&self) -> result::Result<(Option<String>, Option<String>), failure::Error> {
-        Ok((
-            self.get_meta(schema::GLOBAL_SYNCID_META_KEY)?,
-            self.get_meta(schema::COLLECTION_SYNCID_META_KEY)?,
-        ))
+    fn get_sync_ids(&self) -> result::Result<Option<CollSyncIds>, failure::Error> {
+        let global = self.get_meta(schema::GLOBAL_SYNCID_META_KEY)?;
+        let coll = self.get_meta(schema::COLLECTION_SYNCID_META_KEY)?;
+        Ok(global.and_then(|global| coll.and_then(|coll| Some(CollSyncIds { global, coll }))))
     }
 
-    fn reset(&self, global_id: &str, collection_id: &str) -> result::Result<(), failure::Error> {
-        LoginDb::reset(self, global_id, collection_id)?;
+    fn reset(&self, ids: &Option<CollSyncIds>) -> result::Result<(), failure::Error> {
+        LoginDb::reset(self, ids)?;
         Ok(())
     }
 

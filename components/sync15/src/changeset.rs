@@ -8,7 +8,7 @@ use crate::error::{self, ErrorKind, Result};
 use crate::key_bundle::KeyBundle;
 use crate::request::{CollectionRequest, NormalResponseHandler, UploadInfo};
 use crate::util::ServerTimestamp;
-use crate::CollectionState;
+use crate::CollState;
 
 #[derive(Debug, Clone)]
 pub struct RecordChangeset<Payload> {
@@ -51,7 +51,7 @@ impl OutgoingChangeset {
     pub fn post(
         self,
         client: &Sync15StorageClient,
-        state: &CollectionState,
+        state: &CollState,
         fully_atomic: bool,
     ) -> Result<UploadInfo> {
         Ok(CollectionUpdate::new_from_changeset(client, state, self, fully_atomic)?.upload()?)
@@ -61,7 +61,7 @@ impl OutgoingChangeset {
 impl IncomingChangeset {
     pub fn fetch(
         client: &Sync15StorageClient,
-        state: &mut CollectionState,
+        state: &mut CollState,
         collection: String,
         collection_request: &CollectionRequest,
     ) -> Result<IncomingChangeset> {
@@ -90,24 +90,24 @@ impl IncomingChangeset {
 }
 
 #[derive(Debug, Clone)]
-pub struct CollectionUpdate<'a, 'b> {
+pub struct CollectionUpdate<'a> {
     client: &'a Sync15StorageClient,
-    state: &'b CollectionState,
+    state: &'a CollState,
     collection: String,
     xius: ServerTimestamp,
     to_update: Vec<EncryptedBso>,
     fully_atomic: bool,
 }
 
-impl<'a, 'b> CollectionUpdate<'a, 'b> {
+impl<'a> CollectionUpdate<'a> {
     pub fn new(
         client: &'a Sync15StorageClient,
-        state: &'b CollectionState,
+        state: &'a CollState,
         collection: String,
         xius: ServerTimestamp,
         records: Vec<EncryptedBso>,
         fully_atomic: bool,
-    ) -> CollectionUpdate<'a, 'b> {
+    ) -> CollectionUpdate<'a> {
         CollectionUpdate {
             client,
             state,
@@ -120,10 +120,10 @@ impl<'a, 'b> CollectionUpdate<'a, 'b> {
 
     pub fn new_from_changeset(
         client: &'a Sync15StorageClient,
-        state: &'b CollectionState,
+        state: &'a CollState,
         changeset: OutgoingChangeset,
         fully_atomic: bool,
-    ) -> Result<CollectionUpdate<'a, 'b>> {
+    ) -> Result<CollectionUpdate<'a>> {
         let collection = changeset.collection.clone();
         let xius = changeset.timestamp;
         if xius < state.last_modified {

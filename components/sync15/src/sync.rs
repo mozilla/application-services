@@ -4,7 +4,7 @@
 
 use crate::changeset::{CollectionUpdate, IncomingChangeset, OutgoingChangeset};
 use crate::client::Sync15StorageClient;
-use crate::collection_state::LocalCollectionStateMachine;
+use crate::coll_state::{CollSyncIds, LocalCollStateMachine};
 use crate::error::Error;
 use crate::request::CollectionRequest;
 use crate::state::GlobalState;
@@ -39,12 +39,17 @@ pub trait Store {
 
     /// Get persisted sync IDs. If they don't match the global state we'll be
     /// `reset()` with the new IDs.
-    fn get_sync_ids(&self) -> Result<(Option<String>, Option<String>), failure::Error>;
+    fn get_sync_ids(&self) -> Result<(Option<CollSyncIds>), failure::Error>;
 
     /// Reset the store without wiping local data, ready for a "first sync".
-    /// The specified guids should be persisted as part of resetting the state
-    /// (ie, after this call succeeds, `get_sync_ids()` should return these values)
-    fn reset(&self, global_id: &str, engine_id: &str) -> Result<(), failure::Error>;
+    /// If called with Some(), then it means Sync is going to remain connected
+    /// so the specified guids should be persisted as part of resetting the state.
+    /// If called with None, it means Sync is being disconnected (although it
+    /// may be reconnected in the future), so these items should be deleted from
+    /// the store.
+    /// In both cases, after this call succeeds, `get_sync_ids()` should return
+    /// these values)
+    fn reset(&self, new_ids: &Option<CollSyncIds>) -> Result<(), failure::Error>;
 
     fn wipe(&self) -> Result<(), failure::Error>;
 }
@@ -60,8 +65,8 @@ pub fn synchronize(
     log::info!("Syncing collection {}", collection);
 
     // our global state machine is ready - get the collection machine going.
-    let mut collection_state = match LocalCollectionStateMachine::get_state(store, global_state)? {
-        Some(collection_state) => collection_state,
+    let mut coll_state = match LocalCollStateMachine::get_state(store, global_state)? {
+        Some(coll_state) => coll_state,
         None => {
             // XXX - this is either "error" or "declined".
             log::warn!(
@@ -75,11 +80,11 @@ pub fn synchronize(
     let collection_request = store.get_collection_request()?;
     let incoming_changes = IncomingChangeset::fetch(
         client,
-        &mut collection_state,
+        &mut coll_state,
         collection.into(),
         &collection_request,
     )?;
-    assert_eq!(incoming_changes.timestamp, collection_state.last_modified);
+    assert_eq!(incoming_changes.timestamp, coll_state.last_modified);
 
     log::info!(
         "Downloaded {} remote changes",
@@ -92,11 +97,11 @@ pub fn synchronize(
 
     // xxx - duplication below smells wrong
     outgoing.timestamp = new_timestamp;
-    collection_state.last_modified = new_timestamp;
+    coll_state.last_modified = new_timestamp;
 
     log::info!("Uploading {} outgoing changes", outgoing.changes.len());
     let upload_info =
-        CollectionUpdate::new_from_changeset(client, &collection_state, outgoing, fully_atomic)?
+        CollectionUpdate::new_from_changeset(client, &coll_state, outgoing, fully_atomic)?
             .upload()?;
 
     log::info!(
