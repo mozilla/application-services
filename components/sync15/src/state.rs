@@ -277,12 +277,16 @@ impl<'a> SetupStateMachine<'a> {
                 global_timestamp,
             } => {
                 match self.client.fetch_crypto_keys()? {
-                    Sync15ClientResponse::Success { record, .. } => {
-                        let new_keys = CollectionKeys::from_encrypted_bso(record, self.root_key)?;
+                    Sync15ClientResponse::Success {
+                        record,
+                        last_modified,
+                        ..
+                    } => {
                         // Note that collection/keys is itself a bso, so the
                         // json body also carries the timestamp. If they aren't
-                        // identical something has screwed up. Sadly though
-                        // our tests get upset if we assert this.
+                        // identical something has screwed up and we should die.
+                        assert_eq!(last_modified, record.modified);
+                        let new_keys = CollectionKeys::from_encrypted_bso(record, self.root_key)?;
                         let state = GlobalState {
                             config,
                             collections,
@@ -444,7 +448,8 @@ fn is_fresh(local: ServerTimestamp, collections: &InfoCollections, key: &str) ->
 mod tests {
     use super::*;
 
-    use crate::bso_record::{BsoRecord, EncryptedBso, EncryptedPayload};
+    use crate::bso_record::{BsoRecord, EncryptedBso, EncryptedPayload, Payload};
+    use crate::record_types::CryptoKeysRecord;
 
     struct InMemoryClient {
         info_configuration: error::Result<Sync15ClientResponse<InfoConfiguration>>,
@@ -542,6 +547,30 @@ mod tests {
         mocked_success_ts(t, 0.0)
     }
 
+    // for tests, we want a BSO with a specific timestamp, which we never
+    // need in non-test-code as the timestamp comes from the server.
+    impl CollectionKeys {
+        pub fn to_encrypted_bso_with_timestamp(
+            &self,
+            root_key: &KeyBundle,
+            modified: ServerTimestamp,
+        ) -> error::Result<EncryptedBso> {
+            let record = CryptoKeysRecord {
+                id: "keys".into(),
+                collection: "crypto".into(),
+                default: self.default.to_b64_array(),
+                collections: self
+                    .collections
+                    .iter()
+                    .map(|kv| (kv.0.clone(), kv.1.to_b64_array()))
+                    .collect(),
+            };
+            let mut bso = Payload::from_record(record)?.into_bso("crypto".into());
+            bso.modified = modified;
+            Ok(bso.encrypt(root_key)?)
+        }
+    }
+
     #[test]
     fn test_state_machine_ready_from_empty() {
         let root_key = KeyBundle::new_random().unwrap();
@@ -577,7 +606,7 @@ mod tests {
                 999.0,
             ),
             crypto_keys: mocked_success_ts(
-                keys.to_encrypted_bso(&root_key)
+                keys.to_encrypted_bso_with_timestamp(&root_key, 888.0.into())
                     .expect("should always work in this test"),
                 888.0,
             ),
