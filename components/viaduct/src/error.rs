@@ -19,7 +19,7 @@ pub enum Error {
     BackendNotInitialized,
 
     /// Note: we return this if the server returns a bad URL with
-    /// it's response. This *probably* should never happen, but who knows.
+    /// its response. This *probably* should never happen, but who knows.
     #[fail(display = "URL Parse Error: {}", _0)]
     UrlError(#[fail(cause)] url::ParseError),
 }

@@ -418,6 +418,8 @@ impl ByteBuffer {
         if self.data.is_null() {
             vec![]
         } else {
+            // This is correct because we convert to a Box<[u8]> first, which is
+            // a design constraint of RawVec.
             unsafe { Vec::from_raw_parts(self.data, self.len as usize, self.len as usize) }
         }
     }

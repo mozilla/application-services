@@ -136,7 +136,6 @@ impl Sync15StorageClient {
     }
 
     fn make_storage_request(&self, method: Method, url: Url) -> error::Result<Response> {
-        // I'm shocked that method isn't Copy...
         Ok(self.exec_request(self.build_request(method, url)?, true)?)
     }
 
