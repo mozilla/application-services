@@ -3,6 +3,7 @@ name = "fxa-client"
 edition = "2018"
 version = "0.1.0"
 authors = ["Edouard Oger <eoger@fastmail.com>"]
+license = "MPL-2.0"
 
 [dependencies]
 base64 = "0.9.3"

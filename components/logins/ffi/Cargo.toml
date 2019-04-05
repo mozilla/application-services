@@ -3,6 +3,7 @@ name = "logins_ffi"
 edition = "2018"
 version = "0.1.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
+license = "MPL-2.0"
 
 [lib]
 name = "logins_ffi"

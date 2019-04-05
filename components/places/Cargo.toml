@@ -2,7 +2,8 @@
 name = "places"
 edition = "2018"
 version = "0.1.0"
-authors = []
+authors = ["application-services@mozilla.com"]
+license = "MPL-2.0"
 
 [features]
 log_query_plans = ["sql-support/log_query_plans"]

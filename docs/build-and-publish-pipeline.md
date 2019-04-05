@@ -27,9 +27,11 @@ The key points:
     * [TaskCluster](../automation/taskcluster/README.md) is used to:
         * Build an Android binary release.
         * Upload Android library symbols to [Socorro](https://wiki.mozilla.org/Socorro).
-        * Publish it to the 'mozilla-appservices'organization on [bintray](https://bintray.com/),
+        * Publish it to the 'mozilla-appservices' organization on [bintray](https://bintray.com/),
           which mirrors it to [jcenter](https://bintray.com/bintray/jcenter).
            * (although this will soon change to publish to https://maven.mozilla.org).
+    * There is also a manual step where we mirror artifacts from bintray to maven.mozilla.org,
+      as a temporary measure until we can get automatic publishing set up correctly.
 
 For Android consumers these are the steps by which Application Services code becomes available,
 and the integrity-protection mechanisms that apply at each step:
@@ -56,7 +58,8 @@ and the integrity-protection mechanisms that apply at each step:
     * TODO: talk about how TC's "chain of trust" might be useful here.
 6. Bintray mirrors the built artifacts to [jcenter](https://bintray.com/bintray/jcenter).
     * TODO: as above, we're in the process of [moving this to maven.mozilla.org](https://github.com/mozilla/application-services/issues/252).
-6. Consumers fetch the published artifacts from bintray.
+7. On request, our operations team [manually mirrors artifacts to maven.mozilla.org](https://bugzilla.mozilla.org/show_bug.cgi?id=1540775).
+8. Consumers fetch the published artifacts from maven.mozilla.org.
 
 For iOS consumers the corresponding steps are:
 

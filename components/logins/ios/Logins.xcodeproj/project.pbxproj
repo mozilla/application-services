@@ -11,6 +11,8 @@
 		CE9D203120914D2600F1C8FA /* LoginsStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9D202B20914D2600F1C8FA /* LoginsStorage.swift */; };
 		CECB395420B5B92500DB3ED4 /* LockError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CECB395220B5B77E00DB3ED4 /* LockError.swift */; };
 		CEE1087620C5ADF9007048AC /* LoginStoreError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEE1087520C5ADF9007048AC /* LoginStoreError.swift */; };
+		D05434A4225682FA00FDE4EF /* Logins.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9D202320914D0D00F1C8FA /* Logins.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		D05434A5225682FD00FDE4EF /* RustPasswordAPI.h in Headers */ = {isa = PBXBuildFile; fileRef = CDFA91ED2153568E0074CABF /* RustPasswordAPI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D5C6DB0020DDBA7C009ACDD2 /* String+Free_Logins.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5C6DAFF20DDBA7C009ACDD2 /* String+Free_Logins.swift */; };
 		D819A4A821B861D6004EE6F3 /* liblogins_ffi.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4A721B861D6004EE6F3 /* liblogins_ffi.a */; };
 		D819A4AF21B87468004EE6F3 /* libsqlcipher.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D819A4AE21B87467004EE6F3 /* libsqlcipher.a */; };
@@ -150,6 +152,8 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D05434A4225682FA00FDE4EF /* Logins.h in Headers */,
+				D05434A5225682FD00FDE4EF /* RustPasswordAPI.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
