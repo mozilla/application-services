@@ -161,6 +161,29 @@ impl ExternError {
         }
     }
 
+    /// Helper for the case where we aren't exposing this back over the FFI and
+    /// we just want to warn if an error occurred and then release the allocated
+    /// memory.
+    ///
+    /// Typically, this is done if the error will still be detected and reported
+    /// by other channels.
+    ///
+    /// We assume we're not inside a catch_unwind, and so we wrap inside one
+    /// ourselves.
+    pub fn consume_and_log_if_error(self) {
+        if !self.code.is_success() {
+            // in practice this should never panic, but you never know...
+            crate::abort_on_panic::call_with_output(|| {
+                log::error!("Unhandled ExternError({:?}) {:?}", self.code, unsafe {
+                    crate::FfiStr::from_raw(self.message)
+                });
+                unsafe {
+                    self.manually_release();
+                }
+            })
+        }
+    }
+
     /// Get the `code` property.
     #[inline]
     pub fn get_code(&self) -> ErrorCode {

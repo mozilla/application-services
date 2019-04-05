@@ -9,12 +9,12 @@ use crate::{
     Config,
 };
 use hawk_request::HawkRequestBuilder;
-use reqwest::{Client as ReqwestClient, Method, Url};
 use ring::{digest, hkdf, hmac};
 use rsa::RSABrowserIDKeyPair;
 use serde_derive::*;
 use serde_json::json;
-
+use url::Url;
+use viaduct::{Method, Request};
 mod hawk_request;
 pub(crate) mod jwt_utils;
 pub(crate) mod rsa;
@@ -77,20 +77,15 @@ impl FxABrowserIDClient for http_client::Client {
             "email": email,
             "authPW": auth_pwd
         });
-        let request = ReqwestClient::new()
-            .request(Method::POST, url)
-            .query(&[("keys", get_keys)])
-            .body(parameters.to_string())
-            .build()?;
+        let request = Request::post(url)
+            .query(&[("keys", if get_keys { "true" } else { "false" })])
+            .json(&parameters);
         Self::make_request(request)?.json().map_err(|e| e.into())
     }
 
     fn account_status(&self, config: &Config, uid: &str) -> Result<AccountStatusResponse> {
         let url = config.auth_url_path("v1/account/status")?;
-        let request = ReqwestClient::new()
-            .get(url)
-            .query(&[("uid", uid)])
-            .build()?;
+        let request = Request::get(url).query(&[("uid", uid)]);
         Self::make_request(request)?.json().map_err(|e| e.into())
     }
 
@@ -100,7 +95,7 @@ impl FxABrowserIDClient for http_client::Client {
         let key =
             derive_hkdf_sha256_key(&key_fetch_token, &HKDF_SALT, &context_info, KEY_LENGTH * 3);
         let key_request_key = &key[(KEY_LENGTH * 2)..(KEY_LENGTH * 3)];
-        let request = HawkRequestBuilder::new(Method::GET, url, &key).build()?;
+        let request = HawkRequestBuilder::new(Method::Get, url, &key).build()?;
         let json: serde_json::Value = Self::make_request(request)?.json()?;
         let bundle = match json["bundle"].as_str() {
             Some(bundle) => bundle,
@@ -133,7 +128,7 @@ impl FxABrowserIDClient for http_client::Client {
     ) -> Result<RecoveryEmailStatusResponse> {
         let url = config.auth_url_path("v1/recovery_email/status")?;
         let key = derive_key_from_session_token(session_token)?;
-        let request = HawkRequestBuilder::new(Method::GET, url, &key).build()?;
+        let request = HawkRequestBuilder::new(Method::Get, url, &key).build()?;
         Self::make_request(request)?.json().map_err(|e| e.into())
     }
 
@@ -155,7 +150,7 @@ impl FxABrowserIDClient for http_client::Client {
         });
         let key = derive_key_from_session_token(session_token)?;
         let url = config.authorization_endpoint()?;
-        let request = HawkRequestBuilder::new(Method::POST, url, &key)
+        let request = HawkRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
         Self::make_request(request)?.json().map_err(|e| e.into())
@@ -174,7 +169,7 @@ impl FxABrowserIDClient for http_client::Client {
         });
         let key = derive_key_from_session_token(session_token)?;
         let url = config.auth_url_path("v1/certificate/sign")?;
-        let request = HawkRequestBuilder::new(Method::POST, url, &key)
+        let request = HawkRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
         Self::make_request(request)?.json().map_err(|e| e.into())

@@ -23,7 +23,7 @@ push-errors = {path = "../error" }
 subscriber ={ path = "../subscriber" }
 storage = { path = "../storage" }
 communications = { path = "../communications" }
-
+viaduct = { path = "../../viaduct" }
 
 [dependencies.rusqlite]
 version = "0.16.0"
@@ -31,6 +31,10 @@ features = ["sqlcipher", "limits", "functions"]
 
 [dependencies.sync15]
 path = "../../sync15"
+
+[features]
+rust-http-stack = ["viaduct/rust-http-stack"]
+
 
 
 [target.'cfg(target_os = "android")'.dependencies]

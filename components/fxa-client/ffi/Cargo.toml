@@ -13,12 +13,14 @@ crate-type = ["lib", "staticlib", "cdylib"]
 ffi-support = { path = "../../support/ffi" }
 log = "0.4.6"
 lazy_static = "1.2.0"
+viaduct = { path = "../../viaduct" }
 
 [dependencies.fxa-client]
 path = "../"
 
 [features]
 browserid = ["fxa-client/browserid"]
+rust-http-stack = ["viaduct/rust-http-stack"]
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.7.0"

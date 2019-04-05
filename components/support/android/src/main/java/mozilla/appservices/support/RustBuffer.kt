@@ -5,6 +5,7 @@
 package mozilla.appservices.support
 
 import com.google.protobuf.CodedInputStream
+import com.google.protobuf.CodedOutputStream
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
 import java.util.Arrays
@@ -55,6 +56,12 @@ open class RustBuffer : Structure() {
     fun asCodedInputStream(): CodedInputStream? {
         return this.data?.let {
             CodedInputStream.newInstance(it.getByteBuffer(0, this.len))
+        }
+    }
+
+    fun asCodedOutputStream(): CodedOutputStream? {
+        return this.data?.let {
+            CodedOutputStream.newInstance(it.getByteBuffer(0, this.len))
         }
     }
 
