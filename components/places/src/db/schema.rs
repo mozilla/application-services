@@ -8,14 +8,14 @@
 // db.rs.
 
 use crate::api::places_api::ConnectionType;
-use crate::bookmark_sync::create_synced_bookmark_roots;
+use crate::bookmark_sync::{self, create_synced_bookmark_roots};
 use crate::db::PlacesDb;
 use crate::error::*;
 use crate::storage::bookmarks::create_bookmark_roots;
 use rusqlite::NO_PARAMS;
 use sql_support::ConnExt;
 
-const VERSION: i64 = 7;
+const VERSION: i64 = 8;
 
 // Shared schema and temp tables for the read-write and Sync connections.
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
@@ -185,7 +185,24 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
     migration(db, 4, 5, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?;
     migration(db, 5, 6, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?; // new tags tables.
     migration(db, 6, 7, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?; // bookmark syncing.
-                                                                  // Add more migrations here...
+    migration(
+        db,
+        7,
+        8,
+        &[
+            // Changing `moz_bookmarks_synced_structure` to store multiple
+            // parents, so we need to re-download all synced bookmarks.
+            &format!(
+                "DELETE FROM moz_meta WHERE key = {}",
+                bookmark_sync::store::LAST_SYNC_META_KEY
+            ),
+            "DROP TABLE moz_bookmarks_synced",
+            "DROP TABLE moz_bookmarks_synced_structure",
+            CREATE_SHARED_SCHEMA_SQL,
+        ],
+        || Ok(()),
+    )?;
+    // Add more migrations here...
 
     if get_current_schema_version(db)? == VERSION {
         return Ok(());

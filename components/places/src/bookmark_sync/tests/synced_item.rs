@@ -69,6 +69,7 @@ pub struct SyncedBookmarkItem {
     // Note that url is *not* in the table, but a convenience for tests.
     pub url: SyncedBookmarkValue<Option<Url>>,
     pub tags: SyncedBookmarkValue<Vec<String>>,
+    pub children: SyncedBookmarkValue<Vec<SyncGuid>>,
 }
 
 macro_rules! impl_builder_simple {
@@ -152,16 +153,24 @@ impl SyncedBookmarkItem {
         self
     }
 
+    pub fn children(&mut self, children: Vec<SyncGuid>) -> &mut SyncedBookmarkItem {
+        self.children = SyncedBookmarkValue::Specified(children);
+        self
+    }
+
     // Get a record from the DB.
     pub fn get(conn: &PlacesDb, guid: &SyncGuid) -> Result<Option<Self>> {
         Ok(conn.try_query_row(
-            "SELECT b.*, p.url, group_concat(t.tag) AS tags
-                               FROM moz_bookmarks_synced b
-                               LEFT JOIN moz_places p on b.placeId = p.id
-                               LEFT JOIN moz_bookmarks_synced_tag_relation r ON r.itemId = b.id
-                               LEFT JOIN moz_tags t ON t.id = r.tagId
-                               WHERE b.guid = :guid
-                               GROUP BY b.id",
+            "SELECT b.*, p.url, group_concat(t.tag) AS tags,
+                    -- This creates a string like `1:bookmarkAAAA`.
+                    group_concat(s.position || ':' || s.guid) AS children
+             FROM moz_bookmarks_synced b
+             LEFT JOIN moz_places p on b.placeId = p.id
+             LEFT JOIN moz_bookmarks_synced_tag_relation r ON r.itemId = b.id
+             LEFT JOIN moz_tags t ON t.id = r.tagId
+             LEFT JOIN moz_bookmarks_synced_structure s ON s.parentGuid = b.guid
+             WHERE b.guid = :guid
+             GROUP BY b.id",
             &[(":guid", guid)],
             Self::from_row,
             true,
@@ -180,6 +189,29 @@ impl SyncedBookmarkItem {
             })
             .unwrap_or_default();
         tags.sort();
+        // SQLite's `group_concat` concatenates grouped rows in unspecified
+        // order, so we prepend the position to the GUID in the query above,
+        // then split and sort here. This trick is fairly inefficient, and
+        // shouldn't be used in production code; see `BookmarksStore::{
+        // stage_local_items_to_upload, fetch_outgoing_records}` for an example
+        // of the latter. But it does let us collect children in a single
+        // statement.
+        let mut children: Vec<(i64, SyncGuid)> = row
+            .get::<_, Option<String>>("children")?
+            .map(|children| {
+                children
+                    .split(',')
+                    .map(|t| {
+                        let parts = t.splitn(2, ':').collect::<Vec<_>>();
+                        (
+                            parts[0].parse::<i64>().unwrap(),
+                            SyncGuid(parts[1].to_owned()),
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        children.sort_by_key(|child| child.0);
         Ok(Self {
             id: SyncedBookmarkValue::Specified(row.get("id")?),
             guid: SyncedBookmarkValue::Specified(row.get("guid")?),
@@ -210,6 +242,9 @@ impl SyncedBookmarkItem {
                     .and_then(|s| Url::parse(&s).ok()),
             ),
             tags: SyncedBookmarkValue::Specified(tags),
+            children: SyncedBookmarkValue::Specified(
+                children.into_iter().map(|(_, guid)| guid).collect(),
+            ),
         })
     }
 }

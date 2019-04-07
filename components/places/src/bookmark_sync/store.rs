@@ -27,7 +27,7 @@ use sync15::{
     OutgoingChangeset, Payload, ServerTimestamp, Store, StoreSyncAssociation,
     Sync15StorageClientInit,
 };
-static LAST_SYNC_META_KEY: &'static str = "bookmarks_last_sync_time";
+pub const LAST_SYNC_META_KEY: &str = "bookmarks_last_sync_time";
 // Note that all engines in this crate should use a *different* meta key
 // for the global sync ID, because engines are reset individually.
 const GLOBAL_SYNCID_META_KEY: &str = "bookmarks_global_sync_id";
@@ -759,12 +759,14 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
                 false,
             )?
             .ok_or_else(|| ErrorKind::Corruption(Corruption::InvalidSyncedRoots))?;
+        builder.reparent_orphans_to(&dogear::UNFILED_GUID);
 
         let sql = format!(
             "SELECT guid, parentGuid, serverModified, kind, needsMerge, validity
              FROM moz_bookmarks_synced
              WHERE NOT isDeleted AND
-                   guid <> '{root_guid}'",
+                   guid <> '{root_guid}'
+             ORDER BY guid",
             root_guid = BookmarkRootGuid::Root.as_guid().as_ref()
         );
         let mut stmt = self.store.db.prepare(&sql)?;
