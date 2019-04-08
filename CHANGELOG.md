@@ -8,7 +8,11 @@
 
 ### What's Fixed
 
-- Megazords and requests should work again. 
+- Megazords and requests should work again.
+
+## iOS
+
+- The individual components projects have been removed, please use the MozillaAppServices framework from now on. ([#932](https://github.com/mozilla/application-services/pull/932))
 
 ## Push
 

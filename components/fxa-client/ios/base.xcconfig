@@ -1,7 +1,0 @@
-#include "../../../xcconfig/common.xcconfig"
-
-INFOPLIST_FILE = FxAClient/Info.plist
-LIBRARY_SEARCH_PATHS = "../../../target/universal/$(buildvariant)"
-FRAMEWORK_SEARCH_PATHS = "../../../Carthage/Build/iOS"
-CLANG_ENABLE_MODULES = YES
-ALWAYS_SEARCH_USER_PATHS = NO
