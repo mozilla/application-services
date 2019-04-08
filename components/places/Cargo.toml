@@ -27,8 +27,8 @@ ffi-support = { path = "../support/ffi" }
 bitflags = "1.0.4"
 idna = "0.1.5"
 memchr = "2.1.3"
-prost = "0.4.0"
-prost-derive = "0.4.0"
+prost = "0.5.0"
+prost-derive = "0.5.0"
 bytes = "0.4.11"
 dogear = "0.2.2"
 
@@ -51,7 +51,7 @@ cli-support = { path = "../support/cli" }
 pretty_assertions = "0.6.1"
 
 [build-dependencies]
-prost-build = "0.4.0"
+prost-build = "0.5.0"
 
 # While we don't have a replacement for termion on Windows yet (and thus
 # our example doesn't work on Windows), it does get further in the compilation

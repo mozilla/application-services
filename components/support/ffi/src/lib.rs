@@ -371,6 +371,22 @@ impl From<Vec<u8>> for ByteBuffer {
 }
 
 impl ByteBuffer {
+    /// Creates a `ByteBuffer` of the requested size, zero-filled.
+    ///
+    /// The contents of the vector will not be dropped. Instead, `destroy` must
+    /// be called later to reclaim this memory or it will be leaked.
+    ///
+    /// ## Caveats
+    ///
+    /// This will panic if the buffer length (`usize`) cannot fit into a `i64`.
+    #[inline]
+    pub fn new_with_size(size: usize) -> Self {
+        let mut buf = vec![];
+        buf.reserve_exact(size);
+        buf.resize(size, 0);
+        ByteBuffer::from_vec(buf)
+    }
+
     /// Creates a `ByteBuffer` instance from a `Vec` instance.
     ///
     /// The contents of the vector will not be dropped. Instead, `destroy` must
@@ -385,13 +401,26 @@ impl ByteBuffer {
         let data = buf.as_mut_ptr();
         let len = buf.len();
         assert!(
-            len == (len as i64) as usize,
+            len as i64 >= 0 && (len as u64) <= (i64::max_value() as u64),
             "buffer length cannot fit into a i64."
         );
         std::mem::forget(buf);
         Self {
             data,
             len: len as i64,
+        }
+    }
+
+    /// Convert this `ByteBuffer` into a Vec<u8>. This is the only way
+    /// to access the data from inside the buffer.
+    #[inline]
+    pub fn into_vec(self) -> Vec<u8> {
+        if self.data.is_null() {
+            vec![]
+        } else {
+            // This is correct because we convert to a Box<[u8]> first, which is
+            // a design constraint of RawVec.
+            unsafe { Vec::from_raw_parts(self.data, self.len as usize, self.len as usize) }
         }
     }
 
@@ -411,15 +440,7 @@ impl ByteBuffer {
     /// is fundamentally broken.
     #[inline]
     pub fn destroy(self) {
-        if !self.data.is_null() {
-            unsafe {
-                drop(Vec::from_raw_parts(
-                    self.data,
-                    self.len as usize,
-                    self.len as usize,
-                ));
-            }
-        }
+        drop(self.into_vec())
     }
 }
 

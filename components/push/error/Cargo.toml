@@ -12,3 +12,4 @@ openssl = "0.10"
 rusqlite = "0.16.0"
 lazy_static ="1.2"
 ffi-support = {path = "../../support/ffi"}
+url = "1.7.2"

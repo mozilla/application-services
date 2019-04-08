@@ -13,3 +13,4 @@ fxaclient_ffi = { path = "../../components/fxa-client/ffi" }
 places-ffi = { path = "../../components/places/ffi" }
 push-ffi = { path = "../../components/push/ffi" }
 rc_log_ffi = { path = "../../components/rc_log" }
+viaduct = { path = "../../components/viaduct", default-features = false }
