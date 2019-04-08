@@ -38,7 +38,6 @@ impl PushManager {
             conn: connect(config, uaid.clone(), store.get_meta("auth")?)?,
             store,
         };
-        log::debug!("UAID is {:?}", &uaid);
         Ok(pm)
     }
 

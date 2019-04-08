@@ -19,6 +19,6 @@ CREATE UNIQUE INDEX channel_id_idx ON push_record(channel_id);
 CREATE TABLE
 IF NOT EXISTS meta_data
 (
-    key                TEXT    NOT NULL UNIQUE PRIMARY KEY,
+    key                TEXT    PRIMARY KEY,
     value                      NOT NULL
 ) without ROWID;

@@ -179,13 +179,12 @@ impl Storage for PushDb {
     fn get_meta(&self, key: &str) -> Result<Option<String>> {
         // Get the most recent UAID (which should be the same value across all records,
         // but paranoia)
-        let query = "SELECT value FROM meta_data where key = :key limit 1";
-        let mut statement = self.prepare(query)?;
-        let mut rows = statement.query_named(&[(":key", &key)])?;
-        if let Some(row) = rows.next() {
-            return Ok(Some(row?.get_checked("value")?));
-        }
-        Ok(None)
+        self.try_query_one(
+            "SELECT value FROM meta_data where key = :key limit 1",
+            &[(":key", &key)],
+            true,
+        )
+        .map_err(|e| ErrorKind::StorageSqlError(e).into())
     }
 
     fn set_meta(&self, key: &str, value: &str) -> Result<()> {
