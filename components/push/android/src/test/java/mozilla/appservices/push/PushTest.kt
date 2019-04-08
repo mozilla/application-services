@@ -146,6 +146,24 @@ class PushTest {
     }
 
     @Test
+    fun testAesgcmDecryption_bad() {
+        val manager = getPushManager()
+        // call this to set the (hardcoded) test key and auth
+        manager.subscribe(testChannelid, "foo")
+
+        // These values should come from the delivered message content.
+        val result = manager.decrypt(
+            channelID = testChannelid,
+            body = aesgcmBlock["body"].toString(),
+            encoding = aesgcmBlock["enc"].toString(),
+            salt = aesgcmBlock["salt"].toString(),
+            dh = aesgcmBlock["dh"].toString()
+        )
+        val sresult = result.toString(Charset.forName("UTF-8"))
+        assertEquals("Result", plaintext, sresult)
+    }
+
+    @Test
     fun testAes128gcmDecryption() {
         val manager = getPushManager()
         // call this to set the (hardcoded) test key and auth

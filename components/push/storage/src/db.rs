@@ -25,6 +25,10 @@ pub trait Storage {
     fn update_endpoint(&self, uaid: &str, channel_id: &str, endpoint: &str) -> Result<bool>;
 
     fn update_native_id(&self, uaid: &str, native_id: &str) -> Result<bool>;
+
+    fn get_meta(&self, key: &str) -> Result<Option<String>>;
+
+    fn set_meta(&self, key: &str, value: &str) -> Result<()>;
 }
 
 pub struct PushDb {
@@ -171,6 +175,24 @@ impl Storage for PushDb {
         )?;
         Ok(affected_rows == 1)
     }
+
+    fn get_meta(&self, key: &str) -> Result<Option<String>> {
+        // Get the most recent UAID (which should be the same value across all records,
+        // but paranoia)
+        let query = "SELECT value FROM meta_data where key = :key limit 1";
+        let mut statement = self.prepare(query)?;
+        let mut rows = statement.query_named(&[(":key", &key)])?;
+        if let Some(row) = rows.next() {
+            return Ok(Some(row?.get_checked("value")?));
+        }
+        Ok(None)
+    }
+
+    fn set_meta(&self, key: &str, value: &str) -> Result<()> {
+        let query = "INSERT or REPLACE into meta_data (key, value) values (:k, :v)";
+        self.execute_named(query, &[(":k", &key), (":v", &value)])?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -239,7 +261,21 @@ mod test {
         assert!(db.get_record(DUMMY_UAID, &rec.channel_id)?.is_some());
         db.delete_all_records(DUMMY_UAID)?;
         assert!(db.get_record(DUMMY_UAID, &rec.channel_id)?.is_none());
-        assert!(db.get_record(DUMMY_UAID, &rec2.channel_id)?.is_none());
+        assert!(db.get_record(DUMMY_UAID, &rec.channel_id)?.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn meta() -> Result<()> {
+        use super::Storage;
+        let db = PushDb::open_in_memory()?;
+        let no_rec = db.get_meta("uaid")?;
+        assert_eq!(no_rec, None);
+        db.set_meta("uaid", DUMMY_UAID)?;
+        db.set_meta("fruit", "apple")?;
+        db.set_meta("fruit", "banana")?;
+        assert_eq!(db.get_meta("uaid")?, Some(DUMMY_UAID.to_owned()));
+        assert_eq!(db.get_meta("fruit")?, Some("banana".to_owned()));
         Ok(())
     }
 }

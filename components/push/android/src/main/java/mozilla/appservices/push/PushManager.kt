@@ -67,7 +67,6 @@ class PushManager(
             LibPushFFI.INSTANCE.push_subscribe(
                 this.handle.get(), channelID, scope, error)
         }
-
         return SubscriptionInfo.fromString(json)
     }
 
