@@ -53,6 +53,13 @@
   `mozilla.appservices.push.BridgeType`
 ([#885](https://github.com/mozilla/application-services/issues/885))
 
+## Places
+
+### What's Fixed
+
+- Swift PlacesAPI methods are not externally accessible
+  ([#928](https://github.com/mozilla/application-services/issues/928))
+
 # v0.23.0 (_2018-03-29_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.1...v0.23.0)
