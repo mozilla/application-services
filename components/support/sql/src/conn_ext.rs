@@ -9,7 +9,7 @@ use rusqlite::{
 };
 use std::iter::FromIterator;
 use std::ops::Deref;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use crate::maybe_cached::MaybeCached;
 
@@ -221,15 +221,9 @@ pub trait ConnExt {
         })
     }
 
-    // I think we should either remove this (which would mean copying it into logins)
-    // or otherwise make it difficult to accidentally use.
-    // One option is to simply move this to a new .rs file (say, conn_tx.rs)
-    // and just have a rule that you can't use that in places?
-    // Thoughts?
-
-    // fn unchecked_transaction(&self) -> SqlResult<UncheckedTransaction> {
-    //     UncheckedTransaction::new(self.conn(), TransactionBehavior::Deferred)
-    // }
+    fn unchecked_transaction(&self) -> SqlResult<UncheckedTransaction> {
+        UncheckedTransaction::new(self.conn(), TransactionBehavior::Deferred)
+    }
 }
 
 impl ConnExt for Connection {

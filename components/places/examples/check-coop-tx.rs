@@ -13,7 +13,6 @@ use std::fs::remove_file;
 use std::sync::mpsc::sync_channel;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
 
 type Result<T> = std::result::Result<T, failure::Error>;
 
@@ -58,7 +57,7 @@ fn main() -> Result<()> {
         .unwrap();
         // assert_eq!(rx.recv().unwrap(), 0);
         let mut t = db1
-            .time_chunked_transaction(Duration::from_millis(1000))
+            .time_chunked_transaction()
             .expect("should get the thread transaction");
         println!("inner has tx");
         tx.send(0).unwrap();
@@ -75,7 +74,7 @@ fn main() -> Result<()> {
     println!("inner thread has tx lock, so charging ahead...");
     for i in 100000..100020 {
         let tx = dbmain
-            .unchecked_transaction()
+            .coop_transaction()
             .expect("should get the main transaction");
         update(&dbmain, i).unwrap();
         tx.commit().expect("main thread should commit");

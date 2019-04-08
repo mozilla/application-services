@@ -7,8 +7,8 @@ use crate::error::*;
 use rusqlite::{Connection, TransactionBehavior};
 use sql_support::{ConnExt, UncheckedTransaction};
 use std::ops::Deref;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 /// This implements "cooperative transactions" for places. It relies on our
 /// decision to have exactly 1 general purpose "writer" connection and exactly
@@ -27,35 +27,39 @@ use std::time::Duration;
 /// it's waiting for a lock, the sync thread still manages to re-get the lock.
 /// In other words, the locks used by sqlite aren't "fair".
 ///
-/// So we mitigate this with a simple approach that works fine in these
-/// constraints.
+/// So we mitigate this with a simple approach that works fine within our
+/// "exactly 2 writers" constraints:
 /// * Each database connection shares a mutex.
 /// * Before starting a transaction, each connection locks the mutex.
 /// * It then starts an "exclusive" transaction - because sqlite now holds a
 ///   lock on our behalf, we release the lock on the mutex.
 ///
+/// In other words, the lock is held only while obtaining the DB lock, then
+/// immediately released.
+///
 /// The end result here is that if either connection is waiting for the
 /// database lock because the other already holds it, the waiting one is
 /// guaranteed to get the database lock next.
+///
+/// One additional wrinkle here is that even if there was exactly one writer,
+/// there's still a possibility of SQLITE_BUSY if the database is being
+/// checkpointed. So we handle that case and perform exactly 1 retry.
 impl PlacesDb {
-    pub fn time_chunked_transaction(
-        &self,
-        commit_after: Duration,
-    ) -> Result<TimeChunkedTransaction> {
+    pub fn time_chunked_transaction(&self) -> Result<TimeChunkedTransaction> {
+        // Note that we don't allow commit_after as a param because it
+        // is closely related to the timeouts configured on the database
+        // itself.
+        let commit_after = Duration::from_millis(1000);
         Ok(TimeChunkedTransaction::new(
             self.conn(),
-            TransactionBehavior::Exclusive,
             commit_after,
             &self.coop_tx_lock,
         )?)
     }
 
-    pub fn unchecked_transaction(&self) -> Result<UncheckedTransaction> {
+    pub fn coop_transaction(&self) -> Result<UncheckedTransaction> {
         let _lock = self.coop_tx_lock.lock().unwrap();
-        Ok(UncheckedTransaction::new(
-            self.conn(),
-            TransactionBehavior::Exclusive,
-        )?)
+        get_tx_with_retry_on_locked(self.conn())
     }
 }
 
@@ -67,10 +71,9 @@ impl PlacesDb {
 /// number of rows, but data integrity concerns could be addressed by using
 /// multiple, smaller transactions.
 ///
-/// You can specify a duration for the maximum amount of time the transaction
-/// should be held. You should regularly call .maybe_commit() as part of your
+/// You should regularly call .maybe_commit() as part of your
 /// processing, and if the current transaction has been open for greater than
-/// the specified duration the transaction will be committed and another one
+/// some duration the transaction will be committed and another one
 /// started. You should always call .commit() at the end. Note that there is
 /// no .rollback() method as it will be very difficult to work out what was
 /// previously commited and therefore what was rolled back - if you need to
@@ -80,13 +83,12 @@ impl PlacesDb {
 /// Note that this can still be used for transactions which ensure data
 /// integrity. For example, if you are processing a large group of items, and
 /// each individual item requires multiple updates, you will probably want to
-/// ensure you don't call .maybe_commit() after every item rather than after
+/// ensure you call .maybe_commit() after every item rather than after
 /// each individual database update.
 pub struct TimeChunkedTransaction<'conn> {
     tx: UncheckedTransaction<'conn>,
-    behavior: TransactionBehavior,
     commit_after: Duration,
-    coop: &'conn Arc<Mutex<()>>,
+    coop: &'conn Mutex<()>,
 }
 
 impl<'conn> TimeChunkedTransaction<'conn> {
@@ -96,14 +98,13 @@ impl<'conn> TimeChunkedTransaction<'conn> {
     /// for nested transactions.
     pub fn new(
         conn: &'conn Connection,
-        behavior: TransactionBehavior,
         commit_after: Duration,
-        coop: &'conn Arc<Mutex<()>>,
+        coop: &'conn Mutex<()>,
     ) -> Result<Self> {
-        //        let _ = coop.lock().unwrap();
+        let _lock = coop.lock().unwrap();
+        let tx = get_tx_with_retry_on_locked(conn)?;
         Ok(Self {
-            tx: UncheckedTransaction::new(conn, behavior)?,
-            behavior,
+            tx,
             commit_after,
             coop,
         })
@@ -131,8 +132,12 @@ impl<'conn> TimeChunkedTransaction<'conn> {
         self.tx.execute_batch("COMMIT")?;
         // acquire a lock on our cooperator - if our only other writer
         // thread holds a write lock we'll block until it is released.
+        // Note however that sqlite might still return a locked error if the
+        // database is being checkpointed - so we still perform exactly 1 retry,
+        // which we do while we have the lock, because we don't want our other
+        // write connection to win this race either.
         let _lock = self.coop.lock().unwrap();
-        self.tx = UncheckedTransaction::new(self.tx.conn, self.behavior)?;
+        self.tx = get_tx_with_retry_on_locked(self.tx.conn)?;
         Ok(())
     }
 
@@ -155,5 +160,40 @@ impl<'conn> ConnExt for TimeChunkedTransaction<'conn> {
     #[inline]
     fn conn(&self) -> &Connection {
         &*self
+    }
+}
+
+// A helper that attempts to get an Exclusive lock on the DB. If it fails with
+// a "busy" or "locked" error, it does exactly 1 retry.
+fn get_tx_with_retry_on_locked(conn: &Connection) -> Result<UncheckedTransaction> {
+    let behavior = TransactionBehavior::Exclusive;
+    match UncheckedTransaction::new(conn, behavior) {
+        Ok(tx) => Ok(tx),
+        Err(e) => match e {
+            rusqlite::Error::SqliteFailure(err, _) => {
+                if err.code == rusqlite::ErrorCode::DatabaseBusy
+                    || err.code == rusqlite::ErrorCode::DatabaseLocked
+                {
+                    // retry the lock - we assume that this lock request still blocks
+                    // for the default period, so we don't need to sleep
+                    // etc.
+                    let started_at = Instant::now();
+                    log::warn!("Attempting to get a read lock failed - doing one retry");
+                    match UncheckedTransaction::new(conn, behavior) {
+                        Ok(tx) => {
+                            log::info!("Retrying the lock worked after {:?}", started_at.elapsed());
+                            Ok(tx)
+                        }
+                        Err(e) => {
+                            log::warn!("Retrying the lock failed after {:?}", started_at.elapsed());
+                            Err(e.into())
+                        }
+                    }
+                } else {
+                    Err(e.into())
+                }
+            }
+            _ => Err(e.into()),
+        },
     }
 }

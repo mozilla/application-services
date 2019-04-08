@@ -27,7 +27,7 @@ static DELETION_HIGH_WATER_MARK_META_KEY: &str = "history_deleted_hwm";
 
 /// Returns the RowId of a new visit in moz_historyvisits, or None if no new visit was added.
 pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<Option<RowId>> {
-    let tx = db.unchecked_transaction()?;
+    let tx = db.coop_transaction()?;
     let result = apply_observation_direct(db, visit_ob)?;
     tx.commit()?;
     Ok(result)
@@ -218,7 +218,7 @@ fn do_delete_place_by_guid(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
 
 /// Delete a place given its guid, creating a tombstone if necessary.
 pub fn delete_place_by_guid(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
-    let tx = db.unchecked_transaction()?;
+    let tx = db.coop_transaction()?;
     let result = do_delete_place_by_guid(db, guid);
     tx.commit()?;
     result
@@ -226,14 +226,14 @@ pub fn delete_place_by_guid(db: &PlacesDb, guid: &SyncGuid) -> Result<()> {
 
 /// Delete all visits in a date range.
 pub fn delete_visits_between(db: &PlacesDb, start: Timestamp, end: Timestamp) -> Result<()> {
-    let tx = db.unchecked_transaction()?;
+    let tx = db.coop_transaction()?;
     delete_visits_between_in_tx(db, start, end)?;
     tx.commit()?;
     Ok(())
 }
 
 pub fn delete_place_visit_at_time(db: &PlacesDb, place: &Url, visit: Timestamp) -> Result<()> {
-    let tx = db.unchecked_transaction()?;
+    let tx = db.coop_transaction()?;
     delete_place_visit_at_time_in_tx(db, place.as_str(), visit)?;
     tx.commit()?;
     Ok(())
@@ -245,7 +245,7 @@ pub fn prune_destructively(db: &PlacesDb) -> Result<()> {
 }
 
 pub fn wipe_local(db: &PlacesDb) -> Result<()> {
-    let tx = db.unchecked_transaction()?;
+    let tx = db.coop_transaction()?;
     wipe_local_in_tx(db, tx)?;
     Ok(())
 }
@@ -285,7 +285,7 @@ fn wipe_local_in_tx(db: &PlacesDb, tx: sql_support::UncheckedTransaction) -> Res
 }
 
 pub fn delete_everything(db: &PlacesDb) -> Result<()> {
-    let tx = db.unchecked_transaction()?;
+    let tx = db.coop_transaction()?;
 
     // Remote visits could have a higher date than `now` if our clock is weird.
     let most_recent_known_visit_time = db

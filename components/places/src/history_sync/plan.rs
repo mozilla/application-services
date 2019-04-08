@@ -15,7 +15,7 @@ use crate::types::{SyncGuid, Timestamp, VisitTransition};
 use crate::valid_guid::is_valid_places_guid;
 use serde_json;
 use std::collections::HashSet;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 use sync15::telemetry;
 use sync15::{IncomingChangeset, OutgoingChangeset, Payload};
 use url::Url;
@@ -191,9 +191,7 @@ pub fn apply_plan(
         plans.push((guid, plan));
     }
 
-    // this 1000 duration should probably be a constant somewhere - it doesn't
-    // seem likely that different call-sites would use different values.
-    let mut tx = db.time_chunked_transaction(Duration::from_millis(1000))?;
+    let mut tx = db.time_chunked_transaction()?;
 
     let mut outgoing = OutgoingChangeset::new("history".into(), inbound.timestamp);
     for (guid, plan) in plans {
@@ -248,7 +246,7 @@ pub fn apply_plan(
     // time_chunked_transaction - even though doesn't seem a large bottleneck
     // at this time, the fact we hold a single transaction for the entire call
     // really is used only for performance, so it's certainly a candidate.
-    let tx = db.unchecked_transaction()?;
+    let tx = db.coop_transaction()?;
     let mut out_infos = fetch_outgoing(db, MAX_OUTGOING_PLACES, MAX_VISITS)?;
 
     for (guid, out_record) in out_infos.drain() {
@@ -266,7 +264,7 @@ pub fn apply_plan(
 }
 
 pub fn finish_plan(db: &PlacesDb) -> Result<()> {
-    let tx = db.unchecked_transaction()?;
+    let tx = db.coop_transaction()?;
     finish_outgoing(db)?;
     log::trace!("Committing final sync plan");
     tx.commit()?;
