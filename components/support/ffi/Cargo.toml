@@ -19,7 +19,7 @@ log_backtraces = ["backtrace"]
 
 [dependencies]
 log = "0.4"
-lazy_static = "1.2.0"
+lazy_static = "1.3.0"
 failure = "0.1.5"
 failure_derive = "0.1.5"
 
