@@ -49,7 +49,7 @@ for i in "${!LIBS_ARCHS[@]}"; do
         OPENSSL_DIR=$LIBSDIR/ios/$LIB_ARCH/openssl \
         SQLCIPHER_LIB_DIR=$LIBSDIR/ios/$LIB_ARCH/sqlcipher/lib \
         SQLCIPHER_INCLUDE_DIR=$LIBSDIR/ios/$LIB_ARCH/sqlcipher/include \
-    $HOME/.cargo/bin/cargo build -p $FFI_TARGET --lib $RELFLAG --target ${IOS_TRIPLES[$i]}
+    $HOME/.cargo/bin/cargo build --locked -p $FFI_TARGET --lib $RELFLAG --target ${IOS_TRIPLES[$i]}
 done
 
 UNIVERSAL_BINARY=$TARGETDIR/universal/$RELDIR/$STATIC_LIB_NAME

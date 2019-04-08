@@ -21,6 +21,11 @@ projects:
     artifactId: rustlog
     publishedArtifacts: [rustlog, rustlog-forUnitTests, rustlog-withoutLib]
     description: Android hook into the log crate.
+  viaduct-library:
+    path: components/viaduct/android
+    artifactId: httpconfig
+    publishedArtifacts: [httpconfig, httpconfig-forUnitTests, httpconfig-withoutLib]
+    description: Component allowing the configuration of Rust HTTP stack.
   as-support-library:
     path: components/support/android
     artifactId: support

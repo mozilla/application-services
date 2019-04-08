@@ -223,6 +223,18 @@ unsafe impl IntoFfi for bool {
     }
 }
 
+unsafe impl IntoFfi for crate::ByteBuffer {
+    type Value = crate::ByteBuffer;
+    #[inline]
+    fn ffi_default() -> Self::Value {
+        crate::ByteBuffer::default()
+    }
+    #[inline]
+    fn into_ffi_value(self) -> Self::Value {
+        self
+    }
+}
+
 // just cuts down on boilerplate. Not public.
 macro_rules! impl_into_ffi_for_primitive {
     ($($T:ty),+) => {$(

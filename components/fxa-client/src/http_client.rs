@@ -3,9 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{config::Config, errors::*};
-use reqwest::{self, header, Client as ReqwestClient, Method, Request, Response, StatusCode};
 use serde_derive::*;
 use serde_json::json;
+use viaduct::{header_names, status_codes, Request, Response};
 
 #[cfg(feature = "browserid")]
 pub(crate) mod browser_id;
@@ -41,24 +41,18 @@ impl FxAClient for Client {
         etag: Option<String>,
     ) -> Result<Option<ResponseAndETag<ProfileResponse>>> {
         let url = config.userinfo_endpoint()?;
-        let client = ReqwestClient::new();
-        let mut builder = client.request(Method::GET, url).header(
-            header::AUTHORIZATION,
+        let mut request = Request::get(url).header(
+            header_names::AUTHORIZATION,
             format!("Bearer {}", profile_access_token),
-        );
+        )?;
         if let Some(etag) = etag {
-            builder = builder.header(header::IF_NONE_MATCH, format!("\"{}\"", etag));
+            request = request.header(header_names::IF_NONE_MATCH, format!("\"{}\"", etag))?;
         }
-        let request = builder.build()?;
-        let mut resp = Self::make_request(request)?;
-        if resp.status() == StatusCode::NOT_MODIFIED {
+        let resp = Self::make_request(request)?;
+        if resp.status == status_codes::NOT_MODIFIED {
             return Ok(None);
         }
-        let etag = resp
-            .headers()
-            .get(header::ETAG)
-            .and_then(|v| v.to_str().ok())
-            .map(|s| s.to_owned());
+        let etag = resp.headers.get(header_names::ETAG).map(|s| s.to_owned());
         Ok(Some(ResponseAndETag {
             etag,
             response: resp.json()?,
@@ -99,13 +93,7 @@ impl FxAClient for Client {
             "token": token,
         });
         let url = config.oauth_url_path("v1/destroy")?;
-        let client = ReqwestClient::new();
-        let request = client
-            .request(Method::POST, url)
-            .header(header::CONTENT_TYPE, "application/json")
-            .body(body.to_string())
-            .build()?;
-        Self::make_request(request)?;
+        Self::make_request(Request::post(url).json(&body))?;
         Ok(())
     }
 }
@@ -120,24 +108,17 @@ impl Client {
         body: serde_json::Value,
     ) -> Result<OAuthTokenResponse> {
         let url = config.token_endpoint()?;
-        let client = ReqwestClient::new();
-        let request = client
-            .request(Method::POST, url)
-            .header(header::CONTENT_TYPE, "application/json")
-            .body(body.to_string())
-            .build()?;
-        Self::make_request(request)?.json().map_err(|e| e.into())
+        Self::make_request(Request::post(url).json(&body))?
+            .json()
+            .map_err(|e| e.into())
     }
 
     fn make_request(request: Request) -> Result<Response> {
-        let client = ReqwestClient::new();
-        let mut resp = client.execute(request)?;
-        let status = resp.status();
-
-        if status.is_success() || status == StatusCode::NOT_MODIFIED {
+        let resp = request.send()?;
+        if resp.is_success() || resp.status == status_codes::NOT_MODIFIED {
             Ok(resp)
         } else {
-            let json: std::result::Result<serde_json::Value, reqwest::Error> = resp.json();
+            let json: std::result::Result<serde_json::Value, _> = resp.json();
             match json {
                 Ok(json) => Err(ErrorKind::RemoteError {
                     code: json["code"].as_u64().unwrap_or(0),
@@ -147,7 +128,7 @@ impl Client {
                     info: json["info"].as_str().unwrap_or("").to_string(),
                 }
                 .into()),
-                Err(_) => Err(resp.error_for_status().unwrap_err().into()),
+                Err(_) => Err(resp.require_success().unwrap_err().into()),
             }
         }
     }

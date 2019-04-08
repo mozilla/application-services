@@ -153,16 +153,13 @@ pub enum ErrorKind {
     UTF8DecodeError(#[fail(cause)] string::FromUtf8Error),
 
     #[fail(display = "Network error: {}", _0)]
-    RequestError(#[fail(cause)] reqwest::Error),
+    RequestError(#[fail(cause)] viaduct::Error),
 
     #[fail(display = "Malformed URL error: {}", _0)]
-    MalformedUrl(#[fail(cause)] reqwest::UrlError),
+    MalformedUrl(#[fail(cause)] url::ParseError),
 
-    #[fail(display = "Header parsing error: {}", _0)]
-    HeaderParseError(#[fail(cause)] reqwest::header::ToStrError),
-
-    #[fail(display = "Malformed header error: {}", _0)]
-    MalformedHeader(#[fail(cause)] reqwest::header::InvalidHeaderValue),
+    #[fail(display = "Unexpected HTTP status: {}", _0)]
+    UnexpectedStatus(#[fail(cause)] viaduct::UnexpectedStatus),
 
     #[cfg(feature = "browserid")]
     #[fail(display = "HAWK error: {}", _0)]
@@ -195,10 +192,9 @@ impl_from_error! {
     (Base64Decode, ::base64::DecodeError),
     (JsonError, ::serde_json::Error),
     (UTF8DecodeError, ::std::string::FromUtf8Error),
-    (RequestError, ::reqwest::Error),
-    (MalformedUrl, ::reqwest::UrlError),
-    (HeaderParseError, ::reqwest::header::ToStrError),
-    (MalformedHeader, ::reqwest::header::InvalidHeaderValue)
+    (RequestError, viaduct::Error),
+    (UnexpectedStatus, viaduct::UnexpectedStatus),
+    (MalformedUrl, url::ParseError)
 }
 
 #[cfg(feature = "browserid")]

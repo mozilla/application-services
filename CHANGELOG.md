@@ -4,6 +4,43 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.23.0...master)
 
+## Megazords
+
+## Breaking Changes
+
+- Megazord initialization has changed. Megazords' init() function now takes a
+  `Lazy<mozilla.components.concept.fetch.Client>` (from
+  [concept-fetch](https://github.com/mozilla-mobile/android-components/tree/master/components/concept/fetch/)),
+  which will be used to proxy all HTTP requests through. It will not be accessed
+  until a method is called on rust code which requires the network. This
+  functionality is not present in non-megazords. ([#835](https://github.com/mozilla/application-services/pull/835))
+
+    An example of how to initialize this follows:
+
+    ```kotlin
+    val megazordClass = Class.forName("mozilla.appservices.MyCoolMegazord")
+    val megazordInitMethod = megazordClass.getDeclaredMethod("init")
+    val lazyClient: Lazy<Client> = lazy { components.core.client }
+    megazordInitMethod.invoke(megazordClass, lazyClient)
+    ```
+
+    Or (if you don't have GeckoView available, e.g. in the case of lockbox):
+
+    ```kotlin
+    val megazordClass = Class.forName("mozilla.appservices.MyCoolMegazord")
+    val megazordInitMethod = megazordClass.getDeclaredMethod("init")
+    // HttpURLConnectionClient is from mozilla.components.lib.fetch.httpurlconnection
+    val lazyClient: Lazy<Client> = lazy { HttpURLConnectionClient() }
+    megazordInitMethod.invoke(megazordClass, lazyClient)
+    ```
+
+## General
+
+- Native code builds are now stripped by default, reducing size by almost an
+  order of magnitude. ([#913](https://github.com/mozilla/application-services/issues/913))
+    - This is done rather than relying on consumers to strip them, which proved
+      more difficult than anticipated.
+
 ## Push
 
 ### What's new

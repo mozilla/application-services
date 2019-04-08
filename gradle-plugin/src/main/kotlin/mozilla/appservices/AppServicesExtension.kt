@@ -26,7 +26,8 @@ open class AppServicesExtension(project: Project) {
                 setOf(
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "fxaclient"),
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "logins"),
-                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog")
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog"),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "viaduct")
                 )))
         megazords.add(MegazordDefinition("reference-browser",
                 DefaultModuleIdentifier.newId("org.mozilla.appservices", "reference-browser-megazord"),
@@ -35,7 +36,8 @@ open class AppServicesExtension(project: Project) {
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "logins"),
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "places"),
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "push"),
-                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog")
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog"),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "viaduct")
                 )))
         megazords.add(MegazordDefinition("fenix",
                 DefaultModuleIdentifier.newId("org.mozilla.appservices", "fenix-megazord"),
@@ -43,7 +45,8 @@ open class AppServicesExtension(project: Project) {
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "fxaclient"),
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "places"),
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "push"),
-                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog")
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog"),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "viaduct")
                 )))
     }
 
