@@ -55,6 +55,7 @@ impl crate::Request {
 }
 
 pub fn send(request: crate::Request) -> Result<crate::Response, crate::Error> {
+    super::note_backend("reqwest (untrusted)");
     let request_method = request.method;
     let req = request.into_reqwest()?;
     let mut resp = CLIENT.execute(req).map_err(|e| {
