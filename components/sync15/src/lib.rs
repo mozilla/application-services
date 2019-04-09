@@ -28,7 +28,7 @@ pub use crate::client::{SetupStorageClient, Sync15StorageClient, Sync15StorageCl
 pub use crate::coll_state::{CollState, CollSyncIds};
 pub use crate::error::{Error, ErrorKind, Result};
 pub use crate::key_bundle::KeyBundle;
-pub use crate::migrate_state::extract_v1_sync_ids;
+pub use crate::migrate_state::extract_v1_state;
 pub use crate::request::CollectionRequest;
 pub use crate::state::{GlobalState, SetupStateMachine};
 pub use crate::sync::{synchronize, Store};

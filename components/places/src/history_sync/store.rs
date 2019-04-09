@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::api::places_api::ConnectionType;
+use crate::api::places_api::{ConnectionType, GLOBAL_STATE_META_KEY};
 use crate::db::PlacesDb;
 use crate::error::*;
 use crate::storage::history::history_sync::reset_storage;
@@ -14,9 +14,8 @@ use std::ops::Deref;
 use std::result;
 use sync15::telemetry;
 use sync15::{
-    extract_v1_sync_ids, sync_multiple, CollSyncIds, CollectionRequest, IncomingChangeset,
-    KeyBundle, MemoryCachedState, OutgoingChangeset, ServerTimestamp, Store,
-    Sync15StorageClientInit,
+    extract_v1_state, sync_multiple, CollSyncIds, CollectionRequest, IncomingChangeset, KeyBundle,
+    MemoryCachedState, OutgoingChangeset, ServerTimestamp, Store, Sync15StorageClientInit,
 };
 
 use super::plan::{apply_plan, finish_plan};
@@ -111,16 +110,31 @@ impl<'a> HistoryStore<'a> {
         Ok(())
     }
 
-    /// A utility we can kill by the end of 2019 ;)
-    fn migrate_v1_global_state(&self) -> Result<()> {
-        if let Some(old_state) = self.get_meta("history_global_state")? {
+    /// A utility we can kill by the end of 2019 ;) Or even mid-2019?
+    /// Note that this has no `self` - it just takes a connection. This is to
+    /// ease the migration process, because this needs to be executed before
+    /// bookmarks sync, otherwise the shared, persisted global state may be
+    /// written by bookmarks before we've had a chance to migrate `declined`
+    /// over.
+    pub fn migrate_v1_global_state(db: &PlacesDb) -> Result<()> {
+        if let Some(old_state) = crate::storage::get_meta(db, "history_global_state")? {
             log::info!("there's old global state - migrating");
-            if let Some((gsid, csid)) = extract_v1_sync_ids(old_state, "history") {
-                self.put_meta(GLOBAL_SYNCID_META_KEY, &gsid)?;
-                self.put_meta(COLLECTION_SYNCID_META_KEY, &csid)?;
+            let tx = db.unchecked_transaction()?;
+            let (new_sync_ids, new_global_state) = extract_v1_state(old_state, "history");
+            if let Some(sync_ids) = new_sync_ids {
+                crate::storage::put_meta(db, GLOBAL_SYNCID_META_KEY, &sync_ids.global)?;
+                crate::storage::put_meta(db, COLLECTION_SYNCID_META_KEY, &sync_ids.coll)?;
                 log::info!("migrated the sync IDs");
             }
-            self.delete_meta("history_global_state")?;
+            if let Some(new_global_state) = new_global_state {
+                // The global state is truly global, but both "history" and "places"
+                // are going to write it - which is why it's important this
+                // function is run before bookmarks is synced.
+                crate::storage::put_meta(db, GLOBAL_STATE_META_KEY, &new_global_state)?;
+                log::info!("migrated the global state");
+            }
+            crate::storage::delete_meta(db, "history_global_state")?;
+            tx.commit()?;
         }
         Ok(())
     }
@@ -132,7 +146,6 @@ impl<'a> HistoryStore<'a> {
         root_sync_key: &KeyBundle,
         sync_ping: &mut telemetry::SyncTelemetryPing,
     ) -> Result<()> {
-        self.migrate_v1_global_state()?;
         let mut persisted_global_state = self.global_state.borrow_mut();
         let mut mem_cached_state = self.mem_cached_state.borrow_mut();
 

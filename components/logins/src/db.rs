@@ -19,7 +19,7 @@ use std::path::Path;
 use std::result;
 use std::time::SystemTime;
 use sync15::{
-    extract_v1_sync_ids, telemetry, CollSyncIds, CollectionRequest, IncomingChangeset,
+    extract_v1_state, telemetry, CollSyncIds, CollectionRequest, IncomingChangeset,
     OutgoingChangeset, Payload, ServerTimestamp, Store,
 };
 
@@ -786,12 +786,19 @@ impl LoginDb {
     pub fn migrate_global_state(&self) -> Result<()> {
         if let Some(old_state) = self.get_meta("global_state")? {
             log::info!("there's old global state - migrating");
-            if let Some((gsid, csid)) = extract_v1_sync_ids(old_state, "passwords") {
-                self.put_meta(schema::GLOBAL_SYNCID_META_KEY, &gsid)?;
-                self.put_meta(schema::COLLECTION_SYNCID_META_KEY, &csid)?;
+            let tx = self.db.unchecked_transaction()?;
+            let (new_sync_ids, new_global_state) = extract_v1_state(old_state, "passwords");
+            if let Some(sync_ids) = new_sync_ids {
+                self.put_meta(schema::GLOBAL_SYNCID_META_KEY, &sync_ids.global)?;
+                self.put_meta(schema::COLLECTION_SYNCID_META_KEY, &sync_ids.coll)?;
                 log::info!("migrated the sync IDs");
             }
+            if let Some(new_global_state) = new_global_state {
+                self.set_global_state(&Some(new_global_state))?;
+                log::info!("migrated the global state");
+            }
             self.delete_meta("global_state")?;
+            tx.commit()?;
         }
         Ok(())
     }

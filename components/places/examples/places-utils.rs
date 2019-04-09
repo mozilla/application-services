@@ -16,12 +16,11 @@ use places::{ConnectionType, PlacesApi, PlacesDb};
 
 use failure::Fail;
 use serde_derive::*;
-use sql_support::ConnExt;
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
-use sync15::{extract_v1_sync_ids, sync_multiple, telemetry, MemoryCachedState, Store};
+use sync15::{sync_multiple, telemetry, MemoryCachedState, Store};
 use url::Url;
 
 type Result<T> = std::result::Result<T, failure::Error>;
@@ -207,47 +206,14 @@ fn sync(
     }
 
     // now the syncs.
-    // XXX - unfortunately, history stores global meta in a `history_global_state`,
-    // but that's a global that should be shared between history and bookmarks.
-    // We should consider changing that key name?
-    // Even more unfortunate, places::storage::get_meta is `pub(crate)`, so we
-    // can't use it here.
-    // Ultimately though, this really needs to be on PlacesApi.
-    use rusqlite::types::{FromSql, ToSql};
-    fn put_meta(db: &PlacesDb, key: &str, value: &ToSql) -> Result<()> {
-        db.execute_named_cached(
-            "REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
-            &[(":key", &key), (":value", value)],
-        )?;
-        Ok(())
-    }
+    // For now we never persist the global state, which means we may lose
+    // which engines are declined.
+    // That's OK for the short term, and ultimately, syncing functionality
+    // will be in places_api, which will give us this for free.
 
-    fn get_meta<T: FromSql>(db: &PlacesDb, key: &str) -> Result<Option<T>> {
-        let res = db.try_query_one(
-            "SELECT value FROM moz_meta WHERE key = :key",
-            &[(":key", &key)],
-            true,
-        )?;
-        Ok(res)
-    }
+    // Migrate state, which we must do before we sync *any* engine.
+    HistoryStore::migrate_v1_global_state(&conn)?;
 
-    fn delete_meta(db: &PlacesDb, key: &str) -> Result<()> {
-        db.execute_named_cached("DELETE FROM moz_meta WHERE key = :key", &[(":key", &key)])?;
-        Ok(())
-    }
-
-    // migrate state - no strictly necessary as we'd just get a 'reset' if we
-    // don't do it, but for demo purposes...
-    // Migrate history engine state (there's no old state for bookmarks)
-    if let Some(old_state) = get_meta(&conn, "history_global_state")? {
-        log::info!("there's old global state - migrating");
-        if let Some((gsid, csid)) = extract_v1_sync_ids(old_state, "history") {
-            put_meta(&conn, "global_sync_id", &gsid)?;
-            put_meta(&conn, "history_sync_id", &csid)?;
-            log::info!("migrated the sync IDs");
-        }
-        delete_meta(&conn, "history_global_state")?;
-    }
     let mut sync_ping = telemetry::SyncTelemetryPing::new();
 
     let stores_to_sync: Vec<&dyn Store> = stores.iter().map(|b| b.as_ref()).collect();

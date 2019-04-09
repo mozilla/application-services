@@ -21,7 +21,7 @@ use sync15::{telemetry, MemoryCachedState};
 
 // Not clear if this should be here, but this is the "global sync state"
 // which is persisted to disk and reused for all engines.
-const GLOBAL_STATE_META_KEY: &'static str = "global_sync_state_v2";
+pub const GLOBAL_STATE_META_KEY: &'static str = "global_sync_state_v2";
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -194,6 +194,10 @@ impl PlacesApi {
         }
 
         let sync_state = guard.as_ref().unwrap();
+        // Note that counter-intuitively, his must be called before we do a
+        // bookmark sync too, to ensure the shared global state is correct.
+        HistoryStore::migrate_v1_global_state(&sync_state.conn)?;
+
         let store = HistoryStore::new(
             &sync_state.conn,
             &sync_state.mem_cached_state,
