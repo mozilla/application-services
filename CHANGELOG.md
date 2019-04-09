@@ -8,7 +8,9 @@
 
 ### What's Fixed
 
-- Megazords and requests should work again.
+- Megazords and requests should work again. ([#946](https://github.com/mozilla/application-services/pull/946))
+- The vestigial `reqwest` backend is no longer compiled into the megazords ([#937](https://github.com/mozilla/application-services/pull/937)).
+    - Note that prior to this it was present, but unused.
 
 ## iOS
 
