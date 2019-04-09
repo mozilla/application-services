@@ -581,6 +581,7 @@ impl LoginDb {
                 self.put_meta(schema::COLLECTION_SYNCID_META_KEY, &ids.coll)?;
             }
         };
+        self.delete_meta(schema::GLOBAL_STATE_META_KEY)?;
         tx.commit()?;
         Ok(())
     }
@@ -770,8 +771,8 @@ impl LoginDb {
             .map(|millis| ServerTimestamp(millis as f64 / 1000.0)))
     }
 
-    pub fn set_global_state(&self, global_state: &Option<String>) -> Result<()> {
-        let to_write = match global_state {
+    pub fn set_global_state(&self, state: &Option<String>) -> Result<()> {
+        let to_write = match state {
             Some(ref s) => s,
             None => "",
         };

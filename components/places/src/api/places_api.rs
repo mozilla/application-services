@@ -67,7 +67,7 @@ static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 struct SyncState {
     conn: PlacesDb,
     mem_cached_state: RefCell<MemoryCachedState>,
-    global_state: RefCell<Option<String>>,
+    disk_cached_state: RefCell<Option<String>>,
 }
 
 /// The entry-point to the places API. This object gives access to database
@@ -162,14 +162,14 @@ impl PlacesApi {
         Ok(())
     }
 
-    fn get_global_persisted_state(&self) -> Result<Option<String>> {
+    fn get_disk_persisted_state(&self) -> Result<Option<String>> {
         let conn = self.open_connection(ConnectionType::Sync)?;
         Ok(get_meta::<String>(&conn, GLOBAL_STATE_META_KEY)?)
     }
 
-    fn set_global_persisted_state(&self, global_state: &Option<String>) -> Result<()> {
+    fn set_disk_persisted_state(&self, state: &Option<String>) -> Result<()> {
         let conn = self.open_connection(ConnectionType::Sync)?;
-        match global_state {
+        match state {
             Some(ref s) => put_meta(&conn, GLOBAL_STATE_META_KEY, s),
             None => delete_meta(&conn, GLOBAL_STATE_META_KEY),
         }
@@ -189,7 +189,7 @@ impl PlacesApi {
             *guard = Some(SyncState {
                 conn,
                 mem_cached_state: RefCell::new(MemoryCachedState::default()),
-                global_state: RefCell::new(self.get_global_persisted_state()?),
+                disk_cached_state: RefCell::new(self.get_disk_persisted_state()?),
             });
         }
 
@@ -201,13 +201,13 @@ impl PlacesApi {
         let store = HistoryStore::new(
             &sync_state.conn,
             &sync_state.mem_cached_state,
-            &sync_state.global_state,
+            &sync_state.disk_cached_state,
         );
         let mut sync_ping = telemetry::SyncTelemetryPing::new();
         let result = store.sync(&client_init, &key_bundle, &mut sync_ping);
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
-        self.set_global_persisted_state(&sync_state.global_state.borrow())?;
+        self.set_disk_persisted_state(&sync_state.disk_cached_state.borrow())?;
         result?;
 
         Ok(sync_ping)

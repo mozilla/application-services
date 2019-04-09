@@ -93,12 +93,12 @@ impl PasswordEngine {
         // migrate our V1 state - this needn't live for long.
         self.db.migrate_global_state()?;
 
-        let mut persisted_global_state = self.db.get_global_state()?;
+        let mut disk_cached_state = self.db.get_global_state()?;
         let mut mem_cached_state = self.mem_cached_state.borrow_mut();
 
         let result = sync_multiple(
             &[&self.db],
-            &mut persisted_global_state,
+            &mut disk_cached_state,
             &mut mem_cached_state,
             storage_init,
             root_sync_key,
@@ -106,7 +106,7 @@ impl PasswordEngine {
         );
         // We always update the state - sync_multiple does the right thing
         // if it needs to be dropped (ie, they will be None or contain Nones etc)
-        self.db.set_global_state(&persisted_global_state)?;
+        self.db.set_global_state(&disk_cached_state)?;
         let failures = result?;
         if failures.is_empty() {
             Ok(())

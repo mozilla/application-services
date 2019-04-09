@@ -37,20 +37,20 @@ const COLLECTION_SYNCID_META_KEY: &str = "bookmarks_sync_id";
 pub struct BookmarksStore<'a> {
     pub db: &'a PlacesDb,
     pub mem_cached_state: &'a RefCell<MemoryCachedState>,
-    pub global_state: &'a RefCell<Option<String>>,
+    pub disk_cached_state: &'a RefCell<Option<String>>,
 }
 
 impl<'a> BookmarksStore<'a> {
     pub fn new(
         db: &'a PlacesDb,
         mem_cached_state: &'a RefCell<MemoryCachedState>,
-        global_state: &'a RefCell<Option<String>>,
+        disk_cached_state: &'a RefCell<Option<String>>,
     ) -> Self {
         assert_eq!(db.conn_type(), ConnectionType::Sync);
         Self {
             db,
             mem_cached_state,
-            global_state,
+            disk_cached_state,
         }
     }
 
@@ -998,8 +998,8 @@ mod tests {
     fn apply_incoming(conn: &PlacesDb, records_json: Value) {
         // suck records into the store.
         let mem_cached_state = RefCell::new(MemoryCachedState::default());
-        let global_state = RefCell::new(None);
-        let store = BookmarksStore::new(&conn, &mem_cached_state, &global_state);
+        let disk_cached_state = RefCell::new(None);
+        let store = BookmarksStore::new(&conn, &mem_cached_state, &disk_cached_state);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
