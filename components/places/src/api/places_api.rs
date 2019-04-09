@@ -5,10 +5,11 @@
 use crate::db::db::PlacesDb;
 use crate::error::*;
 use crate::history_sync::store::HistoryStore;
+use crate::storage::{delete_meta, get_meta, put_meta};
 use crate::util::normalize_path;
 use lazy_static::lazy_static;
 use rusqlite::OpenFlags;
-use std::cell::Cell;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::mem;
 use std::path::{Path, PathBuf};
@@ -16,7 +17,11 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Mutex, Weak,
 };
-use sync15::{telemetry, ClientInfo};
+use sync15::{telemetry, MemoryCachedState};
+
+// Not clear if this should be here, but this is the "global sync state"
+// which is persisted to disk and reused for all engines.
+const GLOBAL_STATE_META_KEY: &'static str = "global_sync_state_v2";
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -61,7 +66,8 @@ static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 struct SyncState {
     conn: PlacesDb,
-    client_info: Cell<Option<ClientInfo>>,
+    mem_cached_state: RefCell<MemoryCachedState>,
+    global_state: RefCell<Option<String>>,
 }
 
 /// The entry-point to the places API. This object gives access to database
@@ -156,6 +162,19 @@ impl PlacesApi {
         Ok(())
     }
 
+    fn get_global_persisted_state(&self) -> Result<Option<String>> {
+        let conn = self.open_connection(ConnectionType::Sync)?;
+        Ok(get_meta::<String>(&conn, GLOBAL_STATE_META_KEY)?)
+    }
+
+    fn set_global_persisted_state(&self, global_state: &Option<String>) -> Result<()> {
+        let conn = self.open_connection(ConnectionType::Sync)?;
+        match global_state {
+            Some(ref s) => put_meta(&conn, GLOBAL_STATE_META_KEY, s),
+            None => delete_meta(&conn, GLOBAL_STATE_META_KEY),
+        }
+    }
+
     // TODO: We need a better result here so we can return telemetry.
     // We possibly want more than just a `SyncTelemetryPing` so we can
     // return additional "custom" telemetry if the app wants it.
@@ -169,13 +188,24 @@ impl PlacesApi {
             let conn = self.open_connection(ConnectionType::Sync)?;
             *guard = Some(SyncState {
                 conn,
-                client_info: Cell::new(None),
+                mem_cached_state: RefCell::new(MemoryCachedState::default()),
+                global_state: RefCell::new(self.get_global_persisted_state()?),
             });
         }
+
         let sync_state = guard.as_ref().unwrap();
-        let store = HistoryStore::new(&sync_state.conn, &sync_state.client_info);
+        let store = HistoryStore::new(
+            &sync_state.conn,
+            &sync_state.mem_cached_state,
+            &sync_state.global_state,
+        );
         let mut sync_ping = telemetry::SyncTelemetryPing::new();
-        store.sync(&client_init, &key_bundle, &mut sync_ping)?;
+        let result = store.sync(&client_init, &key_bundle, &mut sync_ping);
+        // even on failure we set the persisted state - sync itself takes care
+        // to ensure this has been None'd out if necessary.
+        self.set_global_persisted_state(&sync_state.global_state.borrow())?;
+        result?;
+
         Ok(sync_ping)
     }
 }

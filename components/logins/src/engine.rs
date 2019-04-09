@@ -4,16 +4,16 @@
 use crate::db::LoginDb;
 use crate::error::*;
 use crate::login::Login;
-use std::cell::Cell;
+use std::cell::RefCell;
 use std::path::Path;
-use sync15::{sync_multiple, telemetry, ClientInfo, KeyBundle, Sync15StorageClientInit};
+use sync15::{sync_multiple, telemetry, KeyBundle, MemoryCachedState, Sync15StorageClientInit};
 
 // This isn't really an engine in the firefox sync15 desktop sense -- it's
 // really a bundle of state that contains the sync storage client, the sync
 // state, and the login DB.
 pub struct PasswordEngine {
     pub db: LoginDb,
-    pub client_info: Cell<Option<ClientInfo>>,
+    pub mem_cached_state: RefCell<MemoryCachedState>,
 }
 
 impl PasswordEngine {
@@ -21,7 +21,7 @@ impl PasswordEngine {
         let db = LoginDb::open(path, encryption_key)?;
         Ok(Self {
             db,
-            client_info: Cell::new(None),
+            mem_cached_state: RefCell::new(MemoryCachedState::default()),
         })
     }
 
@@ -29,7 +29,7 @@ impl PasswordEngine {
         let db = LoginDb::open_in_memory(encryption_key)?;
         Ok(Self {
             db,
-            client_info: Cell::new(None),
+            mem_cached_state: RefCell::new(MemoryCachedState::default()),
         })
     }
 
@@ -92,14 +92,21 @@ impl PasswordEngine {
     ) -> Result<()> {
         // migrate our V1 state - this needn't live for long.
         self.db.migrate_global_state()?;
+
+        let mut persisted_global_state = self.db.get_global_state()?;
+        let mut mem_cached_state = self.mem_cached_state.borrow_mut();
+
         let result = sync_multiple(
             &[&self.db],
-            &Cell::new(None),
-            &self.client_info,
+            &mut persisted_global_state,
+            &mut mem_cached_state,
             storage_init,
             root_sync_key,
             sync_ping,
         );
+        // We always update the state - sync_multiple does the right thing
+        // if it needs to be dropped (ie, they will be None or contain Nones etc)
+        self.db.set_global_state(&persisted_global_state)?;
         let failures = result?;
         if failures.is_empty() {
             Ok(())

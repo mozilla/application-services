@@ -9,13 +9,13 @@ use crate::storage::history::history_sync::reset_storage;
 use rusqlite::types::{FromSql, ToSql};
 use rusqlite::Connection;
 use sql_support::ConnExt;
-use std::cell::Cell;
+use std::cell::RefCell;
 use std::ops::Deref;
 use std::result;
 use sync15::telemetry;
 use sync15::{
-    extract_v1_sync_ids, sync_multiple, ClientInfo, CollSyncIds, CollectionRequest,
-    IncomingChangeset, KeyBundle, OutgoingChangeset, ServerTimestamp, Store,
+    extract_v1_sync_ids, sync_multiple, CollSyncIds, CollectionRequest, IncomingChangeset,
+    KeyBundle, MemoryCachedState, OutgoingChangeset, ServerTimestamp, Store,
     Sync15StorageClientInit,
 };
 
@@ -32,13 +32,22 @@ const COLLECTION_SYNCID_META_KEY: &str = "history_sync_id";
 // owns the connection and ClientInfo.
 pub struct HistoryStore<'a> {
     pub db: &'a PlacesDb,
-    pub client_info: &'a Cell<Option<ClientInfo>>,
+    pub mem_cached_state: &'a RefCell<MemoryCachedState>,
+    pub global_state: &'a RefCell<Option<String>>,
 }
 
 impl<'a> HistoryStore<'a> {
-    pub fn new(db: &'a PlacesDb, client_info: &'a Cell<Option<ClientInfo>>) -> Self {
+    pub fn new(
+        db: &'a PlacesDb,
+        mem_cached_state: &'a RefCell<MemoryCachedState>,
+        global_state: &'a RefCell<Option<String>>,
+    ) -> Self {
         assert_eq!(db.conn_type(), ConnectionType::Sync);
-        Self { db, client_info }
+        Self {
+            db,
+            mem_cached_state,
+            global_state,
+        }
     }
 
     fn put_meta(&self, key: &str, value: &ToSql) -> Result<()> {
@@ -103,7 +112,7 @@ impl<'a> HistoryStore<'a> {
     }
 
     /// A utility we can kill by the end of 2019 ;)
-    fn migrate_global_state(&self) -> Result<()> {
+    fn migrate_v1_global_state(&self) -> Result<()> {
         if let Some(old_state) = self.get_meta("history_global_state")? {
             log::info!("there's old global state - migrating");
             if let Some((gsid, csid)) = extract_v1_sync_ids(old_state, "history") {
@@ -123,11 +132,14 @@ impl<'a> HistoryStore<'a> {
         root_sync_key: &KeyBundle,
         sync_ping: &mut telemetry::SyncTelemetryPing,
     ) -> Result<()> {
-        self.migrate_global_state()?;
+        self.migrate_v1_global_state()?;
+        let mut persisted_global_state = self.global_state.borrow_mut();
+        let mut mem_cached_state = self.mem_cached_state.borrow_mut();
+
         let result = sync_multiple(
             &[self],
-            &Cell::new(None),
-            &self.client_info,
+            &mut persisted_global_state,
+            &mut mem_cached_state,
             storage_init,
             root_sync_key,
             sync_ping,

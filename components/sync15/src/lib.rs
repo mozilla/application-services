@@ -32,5 +32,5 @@ pub use crate::migrate_state::extract_v1_sync_ids;
 pub use crate::request::CollectionRequest;
 pub use crate::state::{GlobalState, SetupStateMachine};
 pub use crate::sync::{synchronize, Store};
-pub use crate::sync_multiple::{sync_multiple, ClientInfo};
+pub use crate::sync_multiple::{sync_multiple, MemoryCachedState};
 pub use crate::util::{random_guid, ServerTimestamp, SERVER_EPOCH};

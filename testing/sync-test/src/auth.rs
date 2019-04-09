@@ -238,12 +238,21 @@ impl TestClient {
     pub fn fully_wipe_server(&mut self) -> Result<bool, failure::Error> {
         use sync15::SetupStorageClient;
         // XXX cludgey to use logins_engine here...
-        let info = self.logins_engine.client_info.replace(None);
-        let res = match &info {
-            Some(info) => info.test_only_get_client().wipe_all_remote().map(|_| true),
+        let res = match self
+            .logins_engine
+            .mem_cached_state
+            .borrow()
+            .test_only_get_client()
+        {
+            Some(client) => client.wipe_all_remote().map(|_| true),
             None => Ok(false),
         };
-        self.logins_engine.client_info.replace(info);
+        // let mem_state = self.logins_engine.mem_cached_state.replace(MemoryCachedState::default());
+        // let res = match &mem_state.last_client_info {
+        //     Some(info) => info.test_only_get_client().wipe_all_remote().map(|_| true),
+        //     None => Ok(false),
+        // };
+        // self.logins_engine.client_info.replace(mem_state);
         Ok(res?)
     }
 

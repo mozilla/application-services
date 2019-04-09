@@ -19,14 +19,14 @@ use dogear::{
 };
 use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt};
-use std::cell::Cell;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::result;
 use std::time::Duration;
 use sync15::{
-    telemetry, ClientInfo, CollSyncIds, CollectionRequest, IncomingChangeset, OutgoingChangeset,
-    Payload, ServerTimestamp, Store,
+    telemetry, CollSyncIds, CollectionRequest, IncomingChangeset, MemoryCachedState,
+    OutgoingChangeset, Payload, ServerTimestamp, Store,
 };
 static LAST_SYNC_META_KEY: &'static str = "bookmarks_last_sync_time";
 // Note that all engines in this crate should use a *different* meta key
@@ -36,13 +36,22 @@ const COLLECTION_SYNCID_META_KEY: &str = "bookmarks_sync_id";
 
 pub struct BookmarksStore<'a> {
     pub db: &'a PlacesDb,
-    pub client_info: &'a Cell<Option<ClientInfo>>,
+    pub mem_cached_state: &'a RefCell<MemoryCachedState>,
+    pub global_state: &'a RefCell<Option<String>>,
 }
 
 impl<'a> BookmarksStore<'a> {
-    pub fn new(db: &'a PlacesDb, client_info: &'a Cell<Option<ClientInfo>>) -> Self {
+    pub fn new(
+        db: &'a PlacesDb,
+        mem_cached_state: &'a RefCell<MemoryCachedState>,
+        global_state: &'a RefCell<Option<String>>,
+    ) -> Self {
         assert_eq!(db.conn_type(), ConnectionType::Sync);
-        Self { db, client_info }
+        Self {
+            db,
+            mem_cached_state,
+            global_state,
+        }
     }
 
     fn stage_incoming(
@@ -984,13 +993,13 @@ mod tests {
     use serde_json::{json, Value};
     use url::Url;
 
-    use std::cell::Cell;
     use sync15::Payload;
 
     fn apply_incoming(conn: &PlacesDb, records_json: Value) {
         // suck records into the store.
-        let client_info = Cell::new(None);
-        let store = BookmarksStore::new(&conn, &client_info);
+        let mem_cached_state = RefCell::new(MemoryCachedState::default());
+        let global_state = RefCell::new(None);
+        let store = BookmarksStore::new(&conn, &mem_cached_state, &global_state);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -1059,8 +1068,9 @@ mod tests {
         let conn = api.open_connection(ConnectionType::Sync)?;
 
         // suck records into the store.
-        let client_info = Cell::new(None);
-        let store = BookmarksStore::new(&conn, &client_info);
+        let mem_cached_state = RefCell::new(MemoryCachedState::default());
+        let global_state = RefCell::new(None);
+        let store = BookmarksStore::new(&conn, &mem_cached_state, &global_state);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -1139,8 +1149,9 @@ mod tests {
             }),
         );
 
-        let client_info = Cell::new(None);
-        let store = BookmarksStore::new(&conn, &client_info);
+        let mem_cached_state = RefCell::new(MemoryCachedState::default());
+        let global_state = RefCell::new(None);
+        let store = BookmarksStore::new(&conn, &mem_cached_state, &global_state);
         let merger = Merger::new(&store, ServerTimestamp(0.0));
 
         let tree = merger.fetch_local_tree()?;
@@ -1362,8 +1373,9 @@ mod tests {
             }),
         ];
 
-        let client_info = Cell::new(None);
-        let store = BookmarksStore::new(&syncer, &client_info);
+        let mem_cached_state = RefCell::new(MemoryCachedState::default());
+        let global_state = RefCell::new(None);
+        let store = BookmarksStore::new(&syncer, &mem_cached_state, &global_state);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -1507,8 +1519,9 @@ mod tests {
             }),
         ];
 
-        let client_info = Cell::new(None);
-        let store = BookmarksStore::new(&syncer, &client_info);
+        let mem_cached_state = RefCell::new(MemoryCachedState::default());
+        let global_state = RefCell::new(None);
+        let store = BookmarksStore::new(&syncer, &mem_cached_state, &global_state);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -1636,8 +1649,9 @@ mod tests {
             }),
         ];
 
-        let client_info = Cell::new(None);
-        let store = BookmarksStore::new(&syncer, &client_info);
+        let mem_cached_state = RefCell::new(MemoryCachedState::default());
+        let global_state = RefCell::new(None);
+        let store = BookmarksStore::new(&syncer, &mem_cached_state, &global_state);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));

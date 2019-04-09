@@ -770,6 +770,18 @@ impl LoginDb {
             .map(|millis| ServerTimestamp(millis as f64 / 1000.0)))
     }
 
+    pub fn set_global_state(&self, global_state: &Option<String>) -> Result<()> {
+        let to_write = match global_state {
+            Some(ref s) => s,
+            None => "",
+        };
+        self.put_meta(schema::GLOBAL_STATE_META_KEY, &to_write)
+    }
+
+    pub fn get_global_state(&self) -> Result<Option<String>> {
+        self.get_meta::<String>(schema::GLOBAL_STATE_META_KEY)
+    }
+
     /// A utility we can kill by the end of 2019 ;)
     pub fn migrate_global_state(&self) -> Result<()> {
         if let Some(old_state) = self.get_meta("global_state")? {

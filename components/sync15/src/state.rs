@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::collections::HashMap;
+use std::mem;
 
 use crate::client::{SetupStorageClient, Sync15ClientResponse};
 use crate::collection_keys::CollectionKeys;
@@ -12,6 +13,7 @@ use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use crate::request::{InfoCollections, InfoConfiguration};
 use crate::util::{random_guid, ServerTimestamp};
 use lazy_static::lazy_static;
+use serde_derive::*;
 
 use self::SetupState::*;
 
@@ -39,25 +41,33 @@ lazy_static! {
     static ref DEFAULT_DECLINED: Vec<&'static str> = vec![];
 }
 
-/// XXX - this needs more thought, but this holds stuff the app knows about,
-/// or needs to know about, which either comes from meta/global, or is used
-/// to create a new meta/global.
-/// It can't be treated as "opaque" as apps will be exposing UI to change
-/// these items, and will want to know new values after a sync.
-/// However, very naive clients who don't expose a way to toggle them
-/// could treat them as opaque and could serialize them - but serialization
-/// support is not implemented here.
+/// State that we require the app to persist to storage for us.
+/// It's a little unfortunate we need this, because it's only tracking
+/// "declined engines", and even then, only needed in practice when there's
+/// no meta/global so we need to create one. It's extra unfortunate because we
+/// want to move away from "globally declined" engines anyway, moving towards
+/// allowing engines to be enabled or disabled per client rather than globally.
+///
+/// Apps are expected to treat this as opaque, so we support serializing it.
+/// Note that this structure is *not* used to *change* the declined engines
+/// list - that will be done in the future, but the API exposed for that
+/// purpose will also take a mutable PersistedGlobalState.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "schema_version")]
+pub enum PersistedGlobalState {
+    /// V1 was when we persisted the entire GlobalState, keys and all!
 
-/// One problem here is that the semantics aren't clear - there are 2
-/// competing requirements:
-/// 1) it is a placeholder for what the "declined engines" were on the last
-///    sync, and if meta/global doesn't exist, what we should put in it.
-/// 2) it is a way for apps to *change* what the value should be - ie, to
-///    decline or undecline and engine.
-/// So for now, it's really just a placeholder and a TODO item.
-#[derive(Debug, Default)]
-pub struct ApplicationState {
-    pub declined_engines: Vec<String>,
+    /// V2 is just tracking the globally declined list.
+    /// None means "I've no idea" and theoretically should only happen on the
+    /// very first sync for an app.
+    V2 { declined: Option<Vec<String>> },
+}
+
+impl Default for PersistedGlobalState {
+    #[inline]
+    fn default() -> PersistedGlobalState {
+        PersistedGlobalState::V2 { declined: None }
+    }
 }
 
 /// Holds global Sync state, including server upload limits, and the
@@ -73,12 +83,8 @@ pub struct GlobalState {
 }
 
 /// Creates a fresh `meta/global` record, using the default engine selections,
-/// and declined engines from the previous record.
-// XXX - this is just (a) default engines and (b) declined. Only (b) needs to
-// be persisted, so we can move this directly into our `FreshStart`
-fn new_global_from_previous(
-    previous_global: Option<MetaGlobalRecord>,
-) -> error::Result<MetaGlobalRecord> {
+/// and declined engines from our PersistedGlobalState.
+fn new_global(pgs: &PersistedGlobalState) -> error::Result<MetaGlobalRecord> {
     let sync_id = random_guid()?;
     let mut engines: HashMap<String, _> = HashMap::new();
     for (name, version) in DEFAULT_ENGINES.iter() {
@@ -91,26 +97,32 @@ fn new_global_from_previous(
             },
         );
     }
+    // We only need our PersistedGlobalState to fill out a new meta/global - if
+    // we previously saw a meta/global then we would have updated it with what
+    // it was at the time.
+    let declined = match pgs {
+        PersistedGlobalState::V2 { declined: Some(d) } => d.clone(),
+        _ => {
+            log::warn!("New meta/global without local app state - the list of declined engines is being reset");
+            DEFAULT_DECLINED
+                .iter()
+                .map(|name| name.to_string())
+                .collect()
+        }
+    };
+
     Ok(MetaGlobalRecord {
         sync_id,
         storage_version: STORAGE_VERSION,
         engines,
-        declined: previous_global
-            .as_ref()
-            .map(|global| global.declined.clone())
-            .unwrap_or_else(|| {
-                DEFAULT_DECLINED
-                    .iter()
-                    .map(|name| name.to_string())
-                    .collect()
-            }),
+        declined,
     })
 }
 
 pub struct SetupStateMachine<'a> {
     client: &'a SetupStorageClient,
     root_key: &'a KeyBundle,
-    app_state: &'a ApplicationState,
+    pgs: &'a mut PersistedGlobalState,
     allowed_states: Vec<&'static str>,
     sequence: Vec<&'static str>,
 }
@@ -122,12 +134,12 @@ impl<'a> SetupStateMachine<'a> {
     pub fn for_full_sync(
         client: &'a SetupStorageClient,
         root_key: &'a KeyBundle,
-        app_state: &'a ApplicationState,
+        pgs: &'a mut PersistedGlobalState,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine::with_allowed_states(
             client,
             root_key,
-            app_state,
+            pgs,
             vec![
                 "Initial",
                 "InitialWithConfig",
@@ -148,12 +160,12 @@ impl<'a> SetupStateMachine<'a> {
     pub fn for_fast_sync(
         client: &'a SetupStorageClient,
         root_key: &'a KeyBundle,
-        app_state: &'a ApplicationState,
+        pgs: &'a mut PersistedGlobalState,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine::with_allowed_states(
             client,
             root_key,
-            app_state,
+            pgs,
             vec![
                 "Initial",
                 "InitialWithConfig",
@@ -171,28 +183,28 @@ impl<'a> SetupStateMachine<'a> {
     pub fn for_readonly_sync(
         client: &'a SetupStorageClient,
         root_key: &'a KeyBundle,
-        app_state: &'a ApplicationState,
+        pgs: &'a mut PersistedGlobalState,
     ) -> SetupStateMachine<'a> {
         // currently identical to a "fast sync"
-        Self::for_fast_sync(client, root_key, app_state)
+        Self::for_fast_sync(client, root_key, pgs)
     }
 
     fn with_allowed_states(
         client: &'a SetupStorageClient,
         root_key: &'a KeyBundle,
-        app_state: &'a ApplicationState,
+        pgs: &'a mut PersistedGlobalState,
         allowed_states: Vec<&'static str>,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine {
             client,
             root_key,
-            app_state,
+            pgs,
             sequence: Vec::new(),
             allowed_states,
         }
     }
 
-    fn advance(&self, from: SetupState) -> error::Result<SetupState> {
+    fn advance(&mut self, from: SetupState) -> error::Result<SetupState> {
         match from {
             // Fetch `info/configuration` with current server limits, and
             // `info/collections` with collection last modified times.
@@ -221,10 +233,7 @@ impl<'a> SetupStateMachine<'a> {
                     }),
                     // If the server doesn't have a `crypto/keys`, start over
                     // and reupload our `meta/global` and `crypto/keys`.
-                    Sync15ClientResponse::NotFound { .. } => Ok(FreshStartRequired {
-                        config,
-                        old_global: None,
-                    }),
+                    Sync15ClientResponse::NotFound { .. } => Ok(FreshStartRequired { config }),
                     other => Err(other.to_storage_error().into()),
                 }
             }
@@ -247,10 +256,7 @@ impl<'a> SetupStateMachine<'a> {
                     // If the server has an older storage version, wipe and
                     // reupload.
                     if global.storage_version < STORAGE_VERSION {
-                        Ok(FreshStartRequired {
-                            config,
-                            old_global: Some(global),
-                        })
+                        Ok(FreshStartRequired { config })
                     } else {
                         // TODO: Here would be a good place to check if we've enabled
                         // or disabled any engines locally, and update `m/g` to reflect
@@ -263,10 +269,7 @@ impl<'a> SetupStateMachine<'a> {
                         })
                     }
                 }
-                Sync15ClientResponse::NotFound { .. } => Ok(FreshStartRequired {
-                    config,
-                    old_global: None,
-                }),
+                Sync15ClientResponse::NotFound { .. } => Ok(FreshStartRequired { config }),
                 other => Err(other.to_storage_error().into()),
             },
 
@@ -276,6 +279,14 @@ impl<'a> SetupStateMachine<'a> {
                 global,
                 global_timestamp,
             } => {
+                // Update our PersistedGlobalState with the mega/global we just read.
+                mem::replace(
+                    self.pgs,
+                    PersistedGlobalState::V2 {
+                        declined: Some(global.declined.clone()),
+                    },
+                );
+                // Now try and get keys etc - if we fresh-start we'll re-use declined.
                 match self.client.fetch_crypto_keys()? {
                     Sync15ClientResponse::Success {
                         record,
@@ -298,10 +309,7 @@ impl<'a> SetupStateMachine<'a> {
                     }
                     // If the server doesn't have a `crypto/keys`, start over
                     // and reupload our `meta/global` and `crypto/keys`.
-                    Sync15ClientResponse::NotFound { .. } => Ok(FreshStartRequired {
-                        config,
-                        old_global: Some(global),
-                    }),
+                    Sync15ClientResponse::NotFound { .. } => Ok(FreshStartRequired { config }),
                     other => Err(other.to_storage_error().into()),
                 }
             }
@@ -336,12 +344,12 @@ impl<'a> SetupStateMachine<'a> {
 
             Ready { state } => Ok(Ready { state }),
 
-            FreshStartRequired { config, old_global } => {
+            FreshStartRequired { config } => {
                 // Wipe the server.
                 self.client.wipe_all_remote()?;
 
                 // Upload a fresh `meta/global`...
-                let new_global = new_global_from_previous(old_global)?;
+                let new_global = new_global(self.pgs)?;
                 self.client
                     .put_meta_global(ServerTimestamp::default(), &new_global)?;
 
@@ -421,7 +429,6 @@ enum SetupState {
     },
     FreshStartRequired {
         config: InfoConfiguration,
-        old_global: Option<MetaGlobalRecord>,
     },
 }
 
@@ -611,9 +618,9 @@ mod tests {
                 888.0,
             ),
         };
-        let app_state = ApplicationState::default();
+        let mut pgs = PersistedGlobalState::V2 { declined: None };
 
-        let mut state_machine = SetupStateMachine::for_full_sync(&client, &root_key, &app_state);
+        let mut state_machine = SetupStateMachine::for_full_sync(&client, &root_key, &mut pgs);
         assert!(
             state_machine.run_to_ready(None).is_ok(),
             "Should drive state machine to ready"
