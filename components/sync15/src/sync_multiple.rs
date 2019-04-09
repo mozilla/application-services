@@ -89,7 +89,7 @@ pub fn sync_multiple(
         }
     };
 
-    // We put None back into last_client_info now so if our sync fails we
+    // We put None back into last_client_info now so if we fail entirely,
     // reinitialize everything related to the client.
     let client_info = match mem::replace(&mut mem_cached_state.last_client_info, None) {
         Some(client_info) => {
@@ -145,10 +145,11 @@ pub fn sync_multiple(
         match result {
             Ok(()) => log::info!("Sync of {} was successful!", name),
             Err(e) => {
-                // XXX - should we wipe the global state here? Ideally we'd
-                // be able to tell a "store error" vs a "state error".
-                // (OTOH, a "state error" for every engine probably doesn't
-                // really hurt, and we'll resolve it next time)
+                // XXX - while we arrange to reset the global state machine
+                // here via, ideally we'd be more fine-grained
+                // about it - eg, a simple network error shouldn't cause this.
+                // However, the costs of restarting the state machine from
+                // scratch really isn't that bad for now.
                 log::warn!("Sync of {} failed! {:?}", name, e);
                 let f = telemetry::sync_failure_from_error(&e);
                 failures.insert(name.into(), e);
@@ -159,9 +160,11 @@ pub fn sync_multiple(
     }
 
     sync_ping.sync(telem_sync);
-    log::info!("Updating persisted global state");
-    mem_cached_state.last_client_info = Some(client_info);
-    mem_cached_state.last_global_state = Some(global_state);
+    if failures.len() != 0 {
+        log::info!("Updating persisted global state");
+        mem_cached_state.last_client_info = Some(client_info);
+        mem_cached_state.last_global_state = Some(global_state);
+    }
 
     Ok(failures)
 }

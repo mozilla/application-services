@@ -80,8 +80,9 @@ impl IncomingChangeset {
         for record in records {
             // if we see a HMAC error, we've made an explicit decision to
             // NOT handle it here, but restart the global state machine.
-            // TODO: However, it's not clear how that global state machine
-            // knows this.
+            // That should cause us to re-read crypto/keys and things should
+            // work (although if for some reason crypto/keys was updated but
+            // not all storage was wiped we are probably screwed.)
             let decrypted = record.decrypt(&state.key)?;
             result.changes.push(decrypted.into_timestamped_payload());
         }
