@@ -2,7 +2,124 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.21.0...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.24.0...master)
+
+# v0.24.0 (_2018-04-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.23.0...v0.24.0)
+
+## Megazords
+
+## Breaking Changes
+
+- Megazord initialization has changed. Megazords' init() function now takes a
+  `Lazy<mozilla.components.concept.fetch.Client>` (from
+  [concept-fetch](https://github.com/mozilla-mobile/android-components/tree/master/components/concept/fetch/)),
+  which will be used to proxy all HTTP requests through. It will not be accessed
+  until a method is called on rust code which requires the network. This
+  functionality is not present in non-megazords. ([#835](https://github.com/mozilla/application-services/pull/835))
+
+    An example of how to initialize this follows:
+
+    ```kotlin
+    val megazordClass = Class.forName("mozilla.appservices.MyCoolMegazord")
+    val megazordInitMethod = megazordClass.getDeclaredMethod("init")
+    val lazyClient: Lazy<Client> = lazy { components.core.client }
+    megazordInitMethod.invoke(megazordClass, lazyClient)
+    ```
+
+    Or (if you don't have GeckoView available, e.g. in the case of lockbox):
+
+    ```kotlin
+    val megazordClass = Class.forName("mozilla.appservices.MyCoolMegazord")
+    val megazordInitMethod = megazordClass.getDeclaredMethod("init")
+    // HttpURLConnectionClient is from mozilla.components.lib.fetch.httpurlconnection
+    val lazyClient: Lazy<Client> = lazy { HttpURLConnectionClient() }
+    megazordInitMethod.invoke(megazordClass, lazyClient)
+    ```
+
+## General
+
+- Native code builds are now stripped by default, reducing size by almost an
+  order of magnitude. ([#913](https://github.com/mozilla/application-services/issues/913))
+    - This is done rather than relying on consumers to strip them, which proved
+      more difficult than anticipated.
+
+## Push
+
+### What's new
+
+- PushAPI now defines a number of default parameters for functions ([#868](https://github.com/mozilla/application-services/issues/868))
+
+### Breaking changes
+
+- `mozilla.appservices.push.BridgeTypes` is now
+  `mozilla.appservices.push.BridgeType`
+([#885](https://github.com/mozilla/application-services/issues/885))
+
+## Places
+
+### What's Fixed
+
+- Swift PlacesAPI methods are not externally accessible
+  ([#928](https://github.com/mozilla/application-services/issues/928))
+
+# v0.23.0 (_2018-03-29_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.1...v0.23.0)
+
+## Places
+
+### What's Fixed
+
+- createBookmarkItem on android will now create the correct type of bookmark.
+  ([#880](https://github.com/mozilla/application-services/issues/880))
+
+## Push
+
+### Breaking changes
+
+- the `PushManager` argument `socket_protocol` is now `http_protocol`
+  to correctly map its role. `socket_protocol` is reserved.
+
+# v0.22.1 (_2019-03-27_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.0...v0.22.1)
+
+## Logins
+
+### What's New
+
+- iOS Logins storage now has `ensureLocked`, `ensureUnlocked`, and `wipeLocal`
+  methods, equivalent to those provided in the android API.
+  ([#854](https://github.com/mozilla/application-services/issues/854))
+
+## Places
+
+### What's Fixed
+
+- PlacesAPIs should now be closed when all references to them are no longer used.
+  ([#749](https://github.com/mozilla/application-services/issues/749))
+
+# v0.22.0 (_2019-03-22_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.21.0...v0.22.0)
+
+## Logins
+
+- Added a disableMemSecurity function to turn off some dubious behaviors of SQLcipher. ([#838](https://github.com/mozilla/application-services/pull/838))
+- The iOS SQLCipher build configuration has been adjusted ([#837](https://github.com/mozilla/application-services/pull/837))
+
+## Push
+
+### Breaking changes
+
+- `PushManager`'s `dispatch_for_chid` method has been renamed to `dispatchForChid`.
+- `PushManager` constructor arguments are now camelCased.
+
+## `org.mozilla.appservices` Gradle plugin
+
+- Artifacts are now to be published to the `mozilla-appservices` bintray organization.  This necessitates version 0.4.3 of the Gradle plugin.  ([#843](https://github.com/mozilla/application-services/issues/843))
 
 # v0.21.0 (_2019-03-20_)
 

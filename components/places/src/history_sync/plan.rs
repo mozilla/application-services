@@ -332,7 +332,7 @@ mod tests {
         let _ = env_logger::try_init();
         let conn = PlacesDb::open_in_memory(None)?;
         let record = HistoryRecord {
-            id: SyncGuid("foo".to_string()),
+            id: "foo".into(),
             title: "title".into(),
             hist_uri: "http://example.com".into(),
             sortindex: 0,
@@ -352,7 +352,7 @@ mod tests {
         let _ = env_logger::try_init();
         let conn = PlacesDb::open_in_memory(None)?;
         let record = HistoryRecord {
-            id: SyncGuid("aaaaaaaaaaaa".to_string()),
+            id: "aaaaaaaaaaaa".into(),
             title: "title".into(),
             hist_uri: "invalid".into(),
             sortindex: 0,
@@ -376,7 +376,7 @@ mod tests {
             transition: 1,
         }];
         let record = HistoryRecord {
-            id: SyncGuid("aaaaaaaaaaaa".to_string()),
+            id: "aaaaaaaaaaaa".into(),
             title: "title".into(),
             hist_uri: "https://example.com".into(),
             sortindex: 0,
@@ -503,7 +503,7 @@ mod tests {
             1,
             "should have guid1 as outgoing with both visits."
         );
-        assert_eq!(outgoing.changes[0].id, guid1.0);
+        assert_eq!(outgoing.changes[0].id, guid1.as_ref());
 
         // should have 1 URL with both visits locally.
         let (page, visits) = fetch_visits(&db, &url, 3)?.expect("page exists");
@@ -560,7 +560,7 @@ mod tests {
 
         let outgoing = apply_plan(&db, incoming, &mut telemetry::EngineIncoming::new())?;
         assert_eq!(outgoing.changes.len(), 1, "should have guid1 as outgoing");
-        assert_eq!(outgoing.changes[0].id, guid1.0);
+        assert_eq!(outgoing.changes[0].id, guid1.as_ref());
 
         // should have 1 URL with all visits locally, but with the first incoming guid.
         let (page, visits) = fetch_visits(&db, &url, 3)?.expect("page exists");
@@ -689,7 +689,7 @@ mod tests {
             transition: 99,
         }];
         let record = HistoryRecord {
-            id: SyncGuid("aaaaaaaaaaaa".to_string()),
+            id: "aaaaaaaaaaaa".into(),
             title: "title".into(),
             hist_uri: "http://example.com".into(),
             sortindex: 0,

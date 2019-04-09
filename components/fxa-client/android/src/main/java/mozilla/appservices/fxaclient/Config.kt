@@ -16,8 +16,8 @@ class Config constructor(val contentUrl: String, val clientId: String, val redir
         DEV("https://accounts.stage.mozaws.net")
     }
 
-    constructor(server: Server, clientId: String, redirectUri: String):
-    	this(server.contentUrl, clientId, redirectUri)
+    constructor(server: Server, clientId: String, redirectUri: String) :
+        this(server.contentUrl, clientId, redirectUri)
 
     companion object {
         /**

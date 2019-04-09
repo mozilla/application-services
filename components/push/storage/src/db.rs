@@ -3,7 +3,7 @@ use std::{ops::Deref, path::Path};
 use rusqlite::Connection;
 use sql_support::ConnExt;
 
-use push_errors::Result;
+use push_errors::{ErrorKind, Result};
 
 use crate::{record::PushRecord, schema};
 
@@ -39,7 +39,16 @@ impl PushDb {
     }
 
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
-        Ok(Self::with_connection(Connection::open(path)?)?)
+        // By default, file open errors are StorageSqlErrors and aren't super helpful.
+        // Instead, remap to StorageError and provide the path to the file that couldn't be opened.
+        Ok(Self::with_connection(Connection::open(&path).map_err(
+            |_| {
+                ErrorKind::StorageError(format!(
+                    "Could not open database file {:?}",
+                    &path.as_ref().as_os_str()
+                ))
+            },
+        )?)?)
     }
 
     pub fn open_in_memory() -> Result<Self> {

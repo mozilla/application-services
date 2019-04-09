@@ -3,6 +3,7 @@ name = "rc_log_ffi"
 version = "0.1.0"
 edition = "2018"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
+license = "MPL-2.0"
 
 [lib]
 name = "rc_log_ffi"
@@ -16,5 +17,5 @@ force_android = []
 [dependencies]
 log = "0.4.6"
 ffi-support = { path = "../support/ffi" }
-lazy_static = "1.2.0"
+lazy_static = "1.3.0"
 cfg-if = "0.1.6"

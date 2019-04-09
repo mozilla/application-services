@@ -79,7 +79,7 @@ impl PageInfo {
     pub fn from_row(row: &Row) -> Result<Self> {
         Ok(Self {
             url: Url::parse(&row.get_checked::<_, String>("url")?)?,
-            guid: SyncGuid(row.get_checked::<_, String>("guid")?),
+            guid: row.get_checked::<_, String>("guid")?.into(),
             row_id: row.get_checked("id")?,
             title: row
                 .get_checked::<_, Option<String>>("title")?

@@ -5,15 +5,13 @@
 use crate::bso_record::EncryptedBso;
 use crate::error::{self, ErrorKind, Result};
 use crate::util::ServerTimestamp;
-use hyper::StatusCode;
-use reqwest::Response;
 use serde_derive::*;
 use std::collections::HashMap;
 use std::default::Default;
 use std::fmt;
 use std::ops::Deref;
-use std::str::FromStr;
 use url::{form_urlencoded::Serializer, Url, UrlQuery};
+use viaduct::{header_names, status_codes, Response};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RequestOrder {
@@ -21,9 +19,6 @@ pub enum RequestOrder {
     Newest,
     Index,
 }
-
-pub const X_IF_UNMODIFIED_SINCE: &str = "X-If-Unmodified-Since";
-const X_LAST_MODIFIED: &str = "X-Last-Modified";
 
 impl fmt::Display for RequestOrder {
     #[inline]
@@ -293,22 +288,23 @@ pub struct UploadResult {
 // Easier to fake during tests
 #[derive(Debug, Clone)]
 pub struct PostResponse {
-    pub status: StatusCode,
+    pub status: u16,
     pub result: UploadResult, // This is lazy...
     pub last_modified: ServerTimestamp,
 }
 
 impl PostResponse {
-    pub fn from_response(r: &mut Response) -> Result<PostResponse> {
+    pub fn is_success(&self) -> bool {
+        status_codes::is_success_code(self.status)
+    }
+    pub fn from_response(r: &Response) -> Result<PostResponse> {
         let result: UploadResult = r.json()?;
         // TODO Can this happen in error cases?
         let last_modified = r
-            .headers()
-            .get(X_LAST_MODIFIED)
-            .and_then(|v| v.to_str().ok())
-            .and_then(|s| ServerTimestamp::from_str(s).ok())
+            .headers
+            .try_get::<ServerTimestamp, _>(header_names::X_LAST_MODIFIED)
             .ok_or_else(|| ErrorKind::MissingServerTimestamp)?;
-        let status = r.status();
+        let status = r.status;
         Ok(PostResponse {
             status,
             result,
@@ -342,7 +338,7 @@ pub trait BatchPoster {
     /// Important: Poster should not report non-success HTTP statuses as errors!!
     fn post<P, O>(
         &self,
-        body: &[u8],
+        body: Vec<u8>,
         xius: ServerTimestamp,
         batch: Option<String>,
         commit: bool,
@@ -380,13 +376,13 @@ impl NormalResponseHandler {
 
 impl PostResponseHandler for NormalResponseHandler {
     fn handle_response(&mut self, r: PostResponse, mid_batch: bool) -> error::Result<()> {
-        if !r.status.is_success() {
+        if !r.is_success() {
             log::warn!("Got failure status from server while posting: {}", r.status);
-            if r.status == StatusCode::PRECONDITION_FAILED {
+            if r.status == status_codes::PRECONDITION_FAILED {
                 return Err(ErrorKind::BatchInterrupted.into());
             } else {
                 return Err(ErrorKind::StorageHttpError {
-                    code: r.status.as_u16(),
+                    code: r.status,
                     route: "collection storage (TODO: record route somewhere)".into(),
                 }
                 .into());
@@ -547,9 +543,13 @@ where
 
         let is_commit = want_commit && batch_id.is_some();
         // Weird syntax for calling a function object that is a property.
-        let resp_or_error =
-            self.poster
-                .post(&self.queued, self.last_modified, batch_id, is_commit, self);
+        let resp_or_error = self.poster.post(
+            self.queued.clone(),
+            self.last_modified,
+            batch_id,
+            is_commit,
+            self,
+        );
 
         self.queued.truncate(0);
 
@@ -560,8 +560,8 @@ where
 
         let resp = resp_or_error?;
 
-        if !resp.status.is_success() {
-            let code = resp.status.as_u16();
+        if !resp.is_success() {
+            let code = resp.status;
             self.on_response.handle_response(resp, !want_commit)?;
             log::error!("Bug: expected OnResponse to have bailed out!");
             // Should we assert here instead?
@@ -583,7 +583,7 @@ where
             return Ok(());
         }
 
-        if resp.status != StatusCode::ACCEPTED {
+        if resp.status != status_codes::ACCEPTED {
             if self.in_batch() {
                 return Err(ErrorKind::ServerBatchProblem(
                     "Server responded non-202 success code while a batch was in progress",
@@ -872,13 +872,13 @@ mod test {
     impl BatchPoster for TestPosterRef {
         fn post<T, O>(
             &self,
-            body: &[u8],
+            body: Vec<u8>,
             xius: ServerTimestamp,
             batch: Option<String>,
             commit: bool,
             queue: &PostQueue<T, O>,
         ) -> Result<PostResponse> {
-            self.borrow_mut().do_post(body, xius, batch, commit, queue)
+            self.borrow_mut().do_post(&body, xius, batch, commit, queue)
         }
     }
 
@@ -900,11 +900,7 @@ mod test {
         (pq, tester)
     }
 
-    fn fake_response<'a, T: Into<Option<&'a str>>>(
-        status: StatusCode,
-        lm: f64,
-        batch: T,
-    ) -> PostResponse {
+    fn fake_response<'a, T: Into<Option<&'a str>>>(status: u16, lm: f64, batch: T) -> PostResponse {
         PostResponse {
             status,
             last_modified: ServerTimestamp(lm),
@@ -987,7 +983,7 @@ mod test {
         let (mut pq, tester) = pq_test_setup(
             cfg,
             time,
-            vec![fake_response(StatusCode::OK, time + 100.0, None)],
+            vec![fake_response(status_codes::OK, time + 100.0, None)],
         );
 
         pq.enqueue(&make_record(100)).unwrap();
@@ -1017,8 +1013,8 @@ mod test {
             cfg,
             time,
             vec![
-                fake_response(StatusCode::OK, time + 100.0, None),
-                fake_response(StatusCode::OK, time + 200.0, None),
+                fake_response(status_codes::OK, time + 100.0, None),
+                fake_response(status_codes::OK, time + 200.0, None),
             ],
         );
 
@@ -1066,8 +1062,8 @@ mod test {
             cfg,
             time,
             vec![
-                fake_response(StatusCode::OK, time + 100.0, None),
-                fake_response(StatusCode::OK, time + 200.0, None),
+                fake_response(status_codes::OK, time + 100.0, None),
+                fake_response(status_codes::OK, time + 200.0, None),
             ],
         );
 
@@ -1100,7 +1096,7 @@ mod test {
             cfg,
             time,
             vec![fake_response(
-                StatusCode::ACCEPTED,
+                status_codes::ACCEPTED,
                 time + 100.0,
                 Some("1234"),
             )],
@@ -1138,8 +1134,8 @@ mod test {
             cfg,
             time,
             vec![
-                fake_response(StatusCode::ACCEPTED, time, Some("1234")),
-                fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")),
+                fake_response(status_codes::ACCEPTED, time, Some("1234")),
+                fake_response(status_codes::ACCEPTED, time + 100.0, Some("1234")),
             ],
         );
 
@@ -1187,9 +1183,9 @@ mod test {
             cfg,
             time,
             vec![
-                fake_response(StatusCode::ACCEPTED, time, Some("1234")),
-                fake_response(StatusCode::ACCEPTED, time, Some("1234")),
-                fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")),
+                fake_response(status_codes::ACCEPTED, time, Some("1234")),
+                fake_response(status_codes::ACCEPTED, time, Some("1234")),
+                fake_response(status_codes::ACCEPTED, time + 100.0, Some("1234")),
             ],
         );
 
@@ -1253,10 +1249,10 @@ mod test {
             cfg,
             time,
             vec![
-                fake_response(StatusCode::ACCEPTED, time, Some("1234")),
-                fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")),
-                fake_response(StatusCode::ACCEPTED, time + 100.0, Some("abcd")),
-                fake_response(StatusCode::ACCEPTED, time + 200.0, Some("abcd")),
+                fake_response(status_codes::ACCEPTED, time, Some("1234")),
+                fake_response(status_codes::ACCEPTED, time + 100.0, Some("1234")),
+                fake_response(status_codes::ACCEPTED, time + 100.0, Some("abcd")),
+                fake_response(status_codes::ACCEPTED, time + 200.0, Some("abcd")),
             ],
         );
 
@@ -1350,10 +1346,10 @@ mod test {
             cfg,
             time,
             vec![
-                fake_response(StatusCode::ACCEPTED, time, Some("1234")),
-                fake_response(StatusCode::ACCEPTED, time + 100.0, Some("1234")), // should commit
-                fake_response(StatusCode::ACCEPTED, time + 100.0, Some("abcd")),
-                fake_response(StatusCode::ACCEPTED, time + 200.0, Some("abcd")), // should commit
+                fake_response(status_codes::ACCEPTED, time, Some("1234")),
+                fake_response(status_codes::ACCEPTED, time + 100.0, Some("1234")), // should commit
+                fake_response(status_codes::ACCEPTED, time + 100.0, Some("abcd")),
+                fake_response(status_codes::ACCEPTED, time + 200.0, Some("abcd")), // should commit
             ],
         );
 

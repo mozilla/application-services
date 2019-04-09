@@ -9,17 +9,15 @@
 #![allow(unknown_lints)]
 
 extern crate config;
-extern crate http;
-extern crate reqwest;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
 
-use reqwest::header;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::time::Duration;
+use url::Url;
+use viaduct::{header_names, status_codes, Request};
 
 use config::PushConfiguration;
 use push_errors as error;
@@ -85,7 +83,6 @@ pub trait Connection {
 /// Connect to the Autopush server via the HTTP interface
 pub struct ConnectHttp {
     pub options: PushConfiguration,
-    client: reqwest::Client,
     // pub database: Store,
     pub uaid: Option<String>,
     pub auth: Option<String>, // Server auth token
@@ -101,10 +98,10 @@ pub fn connect(options: PushConfiguration) -> error::Result<ConnectHttp> {
         );
     };
     if options.socket_protocol.is_some() {
-        return Err(error::ErrorKind::CommunicationError("Unsupported".to_owned()).into());
+        return Err(CommunicationError("Unsupported".to_owned()).into());
     };
     if options.bridge_type.is_some() && options.registration_id.is_none() {
-        return Err(error::ErrorKind::CommunicationError(
+        return Err(CommunicationError(
             "Missing Registration ID, please register with OS first".to_owned(),
         )
         .into());
@@ -117,15 +114,6 @@ pub fn connect(options: PushConfiguration) -> error::Result<ConnectHttp> {
     let connection = ConnectHttp {
         uaid: None,
         options: options.clone(),
-        client: match reqwest::Client::builder()
-            .timeout(Duration::from_secs(options.request_timeout))
-            .build()
-        {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(CommunicationError(format!("Could not build client: {:?}", e)).into());
-            }
-        },
         //        database,
         auth: None,
     };
@@ -173,7 +161,8 @@ impl Connection for ConnectHttp {
                 senderid: Some(self.options.sender_id.clone()),
             });
         }
-        let mut request = match self.client.post(&url).json(&body).send() {
+        let url = Url::parse(&url)?;
+        let requested = match Request::post(url).json(&body).send() {
             Ok(v) => v,
             Err(e) => {
                 return Err(
@@ -181,18 +170,20 @@ impl Connection for ConnectHttp {
                 );
             }
         };
-        if request.status().is_server_error() {
-            // dbg!(request);
+        if requested.is_server_error() {
+            // dbg!(requested);
             return Err(CommunicationServerError("General Server error".to_string()).into());
         }
-        if request.status().is_client_error() {
-            // dbg!(&request);
-            if request.status() == http::StatusCode::CONFLICT {
+        if requested.is_client_error() {
+            // dbg!(&requested);
+            if requested.status == status_codes::CONFLICT {
                 return Err(AlreadyRegisteredError.into());
             }
-            return Err(CommunicationError(format!("Unhandled client error {:?}", request)).into());
+            return Err(
+                CommunicationError(format!("Unhandled client error {:?}", requested)).into(),
+            );
         }
-        let response: Value = match request.json() {
+        let response: Value = match requested.json() {
             Ok(v) => v,
             Err(e) => {
                 return Err(
@@ -239,14 +230,9 @@ impl Connection for ConnectHttp {
         if &self.options.sender_id == "test" {
             return Ok(true);
         }
-        match self
-            .client
-            .delete(&url)
-            .header(
-                header::AUTHORIZATION,
-                header::HeaderValue::from_str(&self.auth.clone().unwrap()).unwrap(),
-            )
-            .send()
+        match Request::delete(Url::parse(&url)?)
+            .header(header_names::AUTHORIZATION, self.auth.clone().unwrap())
+            .and_then(|r| r.send())
         {
             Ok(_) => Ok(true),
             Err(e) => {
@@ -280,15 +266,10 @@ impl Connection for ConnectHttp {
         );
         let mut body = HashMap::new();
         body.insert("token", new_token);
-        match self
-            .client
-            .put(&url)
+        match Request::put(Url::parse(&url)?)
             .json(&body)
-            .header(
-                header::AUTHORIZATION,
-                header::HeaderValue::from_str(&self.auth.clone().unwrap()).unwrap(),
-            )
-            .send()
+            .header(header_names::AUTHORIZATION, self.auth.clone().unwrap())
+            .and_then(|r| r.send())
         {
             Ok(_) => Ok(true),
             Err(e) => {
@@ -314,22 +295,20 @@ impl Connection for ConnectHttp {
             return Err(CommunicationError("No UAID set".into()).into());
         }
         let options = self.options.clone();
+        if options.bridge_type.is_none() {
+            return Err(CommunicationError("No Bridge Type set".into()).into());
+        }
         let url = format!(
             "{}://{}/v1/{}/{}/registration/{}/",
-            &options.http_protocol.unwrap(),
+            &options.http_protocol.unwrap_or_else(|| "https".to_owned()),
             &options.server_host,
             &options.bridge_type.unwrap(),
             &options.sender_id,
             &self.uaid.clone().unwrap(),
         );
-        let mut request = match self
-            .client
-            .get(&url)
-            .header(
-                header::AUTHORIZATION,
-                header::HeaderValue::from_str(&self.auth.clone().unwrap()).unwrap(),
-            )
-            .send()
+        let request = match Request::get(Url::parse(&url)?)
+            .header(header_names::AUTHORIZATION, self.auth.clone().unwrap())
+            .and_then(|r| r.send())
         {
             Ok(v) => v,
             Err(e) => {
@@ -340,11 +319,11 @@ impl Connection for ConnectHttp {
                 .into());
             }
         };
-        if request.status().is_server_error() {
+        if request.is_server_error() {
             // dbg!(request);
             return Err(CommunicationServerError("Server error".to_string()).into());
         }
-        if request.status().is_client_error() {
+        if request.is_client_error() {
             // dbg!(&request);
             return Err(CommunicationError(format!("Unhandled client error {:?}", request)).into());
         }
@@ -385,14 +364,8 @@ impl Connection for ConnectHttp {
         if &self.options.sender_id == "test" {
             return Ok(false);
         }
-        let remote = match self.channel_list() {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(
-                    CommunicationError(format!("Could not fetch channel list: {:?}", e)).into(),
-                );
-            }
-        };
+        println!(":::Getting Channel List");
+        let remote = self.channel_list()?;
         //let channels = self.database.get_channel_list(&self.uaid.clone().unwrap())?;
         // verify both lists match. Either side could have lost it's mind.
         Ok(remote == channels.to_vec())
@@ -457,7 +430,7 @@ mod test {
             // make sure we have stored the secret.
             assert_eq!(conn.auth, Some(SECRET.to_owned()));
         }
-        // UNSUBSCRIPTION - Single channel
+        // UNSUBSCRIBE - Single channel
         {
             let ap_mock = mock(
                 "DELETE",
@@ -479,7 +452,7 @@ mod test {
             ap_mock.assert();
             assert!(response);
         }
-        // UNSUBSCRIPTION - All for UAID
+        // UNSUBSCRIBE - All for UAID
         {
             let ap_mock = mock(
                 "DELETE",

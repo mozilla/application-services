@@ -88,6 +88,16 @@ open class LoginsStorage {
         })
     }
 
+    /// equivalent to `unlock(withEncryptionKey:)`, but does not throw if the
+    /// database is already unlocked.
+    open func ensureUnlocked(withEncryptionKey key: String) throws {
+        try queue.sync(execute: {
+            self.raw = try LoginsStoreError.unwrap({ err in
+                sync15_passwords_state_new(self.dbPath, key, err)
+            })
+        })
+    }
+
     /// Lock the database.
     ///
     /// Throws `LockError.mismatched` if the database is already locked.
@@ -98,6 +108,13 @@ open class LoginsStorage {
             }
             self.doDestroy()
         })
+    }
+
+    /// Locks the database, but does not throw in the case that the database is
+    /// already locked. This is an alias for `close()`, provided for convenience
+    /// (and consistency with Android)
+    open func ensureLocked() {
+        close()
     }
 
     /// Synchronize with the server.
@@ -121,12 +138,32 @@ open class LoginsStorage {
         })
     }
 
+    /// Disable memory security, which prevents keys from being swapped to disk.
+    /// This allows some esoteric attacks, but can have a performance benefit.
+    open func disableMemSecurity() throws {
+        try queue.sync(execute: {
+            let engine = try self.getUnlocked()
+            try LoginsStoreError.unwrap({ err in
+                sync15_passwords_disable_mem_security(engine, err)
+            })
+        })
+    }
+
     /// Delete all locally stored login data.
     open func wipe() throws {
         try queue.sync(execute: {
             let engine = try self.getUnlocked()
             try LoginsStoreError.unwrap({ err in
                 sync15_passwords_wipe(engine, err)
+            })
+        })
+    }
+
+    open func wipeLocal() throws {
+        try queue.sync(execute: {
+            let engine = try self.getUnlocked()
+            try LoginsStoreError.unwrap({ err in
+                sync15_passwords_wipe_local(engine, err)
             })
         })
     }

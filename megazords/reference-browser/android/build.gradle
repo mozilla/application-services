@@ -25,12 +25,8 @@ android {
         test.resources.srcDirs += "$buildDir/rustJniLibs/desktop"
     }
 
-    // Help folks debugging by including symbols in our native libraries.  Yes, this makes the
-    // resulting AAR very large.  The Android ecosystem seems to be in flux around who is in charge
-    // of stripping native binaries, but for now let's provide symbols and see how consumers react.
-    packagingOptions {
-        doNotStrip "**/*.so"
-    }
+    // Uncomment to include debug symbols in native library builds.
+    // packagingOptions { doNotStrip "**/*.so" }
 }
 
 configurations {
@@ -87,6 +83,7 @@ dependencies {
     api project(path: ':places-library', configuration: 'withoutLib')
     api project(path: ':push-library', configuration: 'withoutLib')
     api project(path: ':rustlog-library', configuration: 'withoutLib')
+    api project(path: ':viaduct-library', configuration: 'withoutLib')
 
     jnaForTest 'net.java.dev.jna:jna:4.5.2@jar'
 }

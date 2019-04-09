@@ -3,6 +3,7 @@ name = "sync-test"
 version = "0.1.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 edition = "2018"
+license = "MPL-2.0"
 
 [dependencies]
 logins = { path = "../../components/logins" }
@@ -13,5 +14,5 @@ env_logger = "0.6.0"
 log = "0.4.6"
 failure = "0.1.3"
 rand = "0.6.1"
-lazy_static = "1.2.0"
+lazy_static = "1.3.0"
 structopt = "0.2.14"

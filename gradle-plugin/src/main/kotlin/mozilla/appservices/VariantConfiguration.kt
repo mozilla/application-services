@@ -4,14 +4,11 @@
 
 package mozilla.appservices
 
-import org.gradle.api.GradleException
-import org.gradle.api.artifacts.ModuleIdentifier
-import org.gradle.api.internal.artifacts.DefaultModuleIdentifier
-
 /**
  * Captures configuration for a particular Android variant.
  */
-data class VariantConfiguration(val name: String,
-                                var megazord: String? = null,
-                                var unitTestingEnabled: Boolean = true) {
-}
+data class VariantConfiguration(
+    val name: String,
+    var megazord: String? = null,
+    var unitTestingEnabled: Boolean = true
+)

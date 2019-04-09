@@ -11,35 +11,35 @@ import org.json.JSONArray
 
 import mozilla.appservices.support.RustBuffer
 
-
 /**
  * An implementation of a [PushAPI] backed by a Rust Push library.
  *
- * @param server_host the host name for the service (e.g. "push.service.mozilla.org").
- * @param socket_protocol the optional socket protocol (default: "https")
- * @param bridge_type the optional bridge protocol (default: "fcm")
- * @param registration_id the native OS messaging registration id
+ * @param serverHost the host name for the service (e.g. "push.service.mozilla.org").
+ * @param httpProtocol the optional socket protocol (default: "https")
+ * @param bridgeType the optional bridge protocol (default: "fcm")
+ * @param registrationId the native OS messaging registration id
  */
 class PushManager(
-    sender_id: String,
-    server_host: String = "push.service.mozilla.com",
-    socket_protocol: String = "https",
-    bridge_type: BridgeTypes,
-    registration_id: String,
-    database_path: String = "push.sqlite") : PushAPI, AutoCloseable {
+    senderId: String,
+    serverHost: String = "push.service.mozilla.com",
+    httpProtocol: String = "https",
+    bridgeType: BridgeType,
+    registrationId: String,
+    databasePath: String = "push.sqlite"
+) : PushAPI {
 
     private var handle: AtomicLong = AtomicLong(0)
 
     init {
         try {
-	    handle.set(rustCall { error ->
+        handle.set(rustCall { error ->
                 LibPushFFI.INSTANCE.push_connection_new(
-                        server_host,
-                        socket_protocol,
-                        bridge_type.toString(),
-                        registration_id,
-                        sender_id,
-                        database_path,
+                        serverHost,
+                        httpProtocol,
+                        bridgeType.toString(),
+                        registrationId,
+                        senderId,
+                        databasePath,
                         error)
             })
         } catch (e: InternalPanic) {
@@ -54,7 +54,7 @@ class PushManager(
         val handle = this.handle.getAndSet(0L)
         if (handle != 0L) {
             rustCall { error ->
-		LibPushFFI.INSTANCE.push_connection_destroy(handle, error)
+        LibPushFFI.INSTANCE.push_connection_destroy(handle, error)
             }
         }
     }
@@ -85,7 +85,6 @@ class PushManager(
         }.toInt() == 1
     }
 
-
     override fun verifyConnection(): Map<String, String> {
         val newEndpoints: MutableMap<String, String> = linkedMapOf()
         val response = rustCallForString { error ->
@@ -106,22 +105,23 @@ class PushManager(
         body: String,
         encoding: String,
         salt: String,
-        dh: String): ByteArray {
-            val result = rustCallForString{ error ->
+        dh: String
+    ): ByteArray {
+            val result = rustCallForString { error ->
             LibPushFFI.INSTANCE.push_decrypt(
                 this.handle.get(), channelID, body, encoding, salt, dh, error
-            )}
+            ) }
             val jarray = JSONArray(result)
             val retarray = ByteArray(jarray.length())
             // `for` is inclusive.
-            val end = jarray.length()-1
-            for (i in 0 .. end) {
+            val end = jarray.length() - 1
+            for (i in 0..end) {
                 retarray[i] = jarray.getInt(i).toByte()
             }
             return retarray
         }
 
-    override fun dispatch_for_chid(channelID: String): DispatchInfo {
+    override fun dispatchForChid(channelID: String): DispatchInfo {
         val json = rustCallForString { error ->
             LibPushFFI.INSTANCE.push_dispatch_for_chid(
                 this.handle.get(), channelID, error)
@@ -141,6 +141,7 @@ class PushManager(
         }
     }
 
+    @Suppress("TooGenericExceptionThrown")
     private inline fun rustCallForString(callback: (RustError.ByReference) -> Pointer?): String {
         val cstring = rustCall(callback)
                 ?: throw RuntimeException("Bug: Don't use this function when you can return" +
@@ -152,6 +153,7 @@ class PushManager(
         }
     }
 
+    @Suppress("TooGenericExceptionThrown")
     private inline fun rustCallForBuffer(callback: (RustError.ByReference) -> RustBuffer.ByValue?): ByteArray {
         val cbuff = rustCall(callback)
                 ?: throw RuntimeException("Bug: Don't use this function when you can return" +
@@ -173,7 +175,7 @@ class PushManager(
  * Please contact services back-end for any additional bridge protocols.
  */
 
-enum class BridgeTypes {
+enum class BridgeType {
     FCM, ADM, APNS, TEST;
 
     override fun toString() = name.toLowerCase()
@@ -185,19 +187,18 @@ enum class BridgeTypes {
  * probably want a way of sharing these.
  */
 
-class KeyInfo (
+class KeyInfo(
     var auth: String,
     var p256dh: String
 )
 
 class SubscriptionInfo constructor (
-        val endpoint:String,
-        val keys: KeyInfo)
-{
-
+    val endpoint: String,
+    val keys: KeyInfo
+) {
 
     companion object {
-        internal fun fromString(msg: String) : SubscriptionInfo {
+        internal fun fromString(msg: String): SubscriptionInfo {
             val obj = JSONObject(msg)
             val keyObj = obj.getJSONObject("keys")
             return SubscriptionInfo(
@@ -208,43 +209,100 @@ class SubscriptionInfo constructor (
             )
         }
     }
- }
+}
 
 class DispatchInfo constructor (
-        val uaid: String,
-        val scope: String)
-{
+    val uaid: String,
+    val scope: String
+) {
     companion object {
-        internal fun fromString(msg: String) : DispatchInfo {
+        internal fun fromString(msg: String): DispatchInfo {
             val obj = JSONObject(msg)
             return DispatchInfo(
                 uaid = obj.getString("uaid"),
-               scope = obj.getString("scope")
-           )
+                scope = obj.getString("scope")
+            )
         }
     }
 }
 
 /**
  * An API for interacting with Push.
+
+    Usage:
+
+    The push component is designed to be as light weight as possible. The "Push Manager"
+    handles subscription management and message decryption.
+
+    In general, usage would consist of calling:
+
+    ```kotlin
+    val manager = PushManager(
+        senderId = "SomeSenderIDValue",
+        bridgeType = BridgeType.FCM,
+        registrationId = systemProvidedRegistrationValue,
+        databasePath = "/path/to/database.sql"
+    )
+    val newEndpoints = manager.verifyConnection()
+    if newEndpoints.length() > 0 {
+        for (channelId in newEndpoints.keys()) {
+            // send the endpoint (newEndpoint[channelId]) to the process tied to channelId
+        }
+    }
+
+    // On new message:
+    // A new incoming message generally has the following format:
+    // {"chid": ChannelID, "body": Body, "con": Encoding, "enc": Salt, "crypto_key": DH}
+
+    val decryptedMessage = manager.decrypt(
+        channelID=message["chid"],
+        body=message["body"],
+        encoding=message["con"],
+        salt=message.getOrElse("enc", ""),
+        dh=message.getOrElse("crypto-key", "")
+    )
+
+    // On new subscription:
+    val subscriptionInfo = manager.subscribe(channelID, scope)
+
+    // channelID is a UUID4 value that can either be created before hand, or an empty string
+    //           can be passed in and one will be created for you.
+    // scope     is the site scope string. This will be used for rate limiting
+    //
+    // The subscription info matches what is usually passed on to
+    // the requesting application.
+    // This could be JSON encoded and returned.
+
+    // On deleting a subscription:
+    manger.unsubscribe(channelID)
+    // returns true/false on server unsubscribe request. A False may cause a
+    // verifyConnection() failure and new endpoints generation
+
+    // On a new native OS registration ID change:
+    manager.update(newSubscriptionID)
+    // sets the new registration ID (sender ID) on the server. Returns a false if this
+    // operation fails. A failure may prevent future messages from being received.
+
+```
  */
-interface PushAPI {
+interface PushAPI : java.lang.AutoCloseable {
     /**
      * Get the Subscription Info block
      *
-     * @param channelID Channel ID (UUID) for new subscription
-     * @return a Subscription Info structure
+     * @param channelID Channel ID (UUID4) for new subscription, either pre-generated or "" and one will be created.
+     * @param scope Site scope string (defaults to "" for no site scope string).
+     * @return a SubscriptionInfo structure
      */
     fun subscribe(
-        channelID: String,
-        scope: String
+        channelID: String = "",
+        scope: String = ""
     ): SubscriptionInfo
 
     /**
-     * Unsubscribe a given channelID
+     * Unsubscribe a given channelID, ending that subscription for the user.
      *
-     * @param channelID Channel ID (UUID) for subscription to remove.
-     * @return bool.
+     * @param channelID Channel ID (UUID) for subscription to remove
+     * @return bool
      */
     fun unsubscribe(channelID: String): Boolean
 
@@ -272,7 +330,7 @@ interface PushAPI {
      *
      * This accepts the content of a Push Message (from websocket or via Native Push systems).
      * for example:
-     * ```
+     * ```kotlin
      * val decryptedMessage = manager.decrypt(
      *  channelID=message["chid"],
      *  body=message["body"],
@@ -280,22 +338,27 @@ interface PushAPI {
      *  salt=message.getOrElse("enc", ""),
      *  dh=message.getOrElse("crypto-key", "")
      * )
-     *
+     * ```
      *
      * @param channelID: the ChannelID (included in the envelope of the message)
      * @param body: The encrypted body of the message
-     * @param encoding: The Content Encoding "enc" field of the message
-     * @param salt: The "salt" field (if present in the raw message)
-     * @param dh: the "dh" field (if present in the raw message)
+     * @param encoding: The Content Encoding "enc" field of the message (defaults to "aes128gcm")
+     * @param salt: The "salt" field (if present in the raw message, defaults to "")
+     * @param dh: the "dh" field (if present in the raw message, defaults to "")
      * @return Decrypted message body.
      */
     fun decrypt(
-                channelID: String,
-                body: String,
-                encoding: String,
-                salt: String,
-                dh: String): ByteArray
+        channelID: String,
+        body: String,
+        encoding: String = "aes128gcm",
+        salt: String = "",
+        dh: String = ""
+    ): ByteArray
 
-    fun dispatch_for_chid(channelID: String): DispatchInfo
-
+    /** get the dispatch info for a given subscription channel
+     *
+     * @param channelID subscription channelID
+     * @return DispatchInfo containing the channelID and scope string.
+     */
+    fun dispatchForChid(channelID: String): DispatchInfo
 }

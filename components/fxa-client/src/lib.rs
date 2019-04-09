@@ -26,7 +26,6 @@ pub mod errors;
 pub mod ffi;
 // Include the `msg_types` module, which is generated from msg_types.proto.
 pub mod msg_types {
-    use prost_derive::Message; // https://github.com/danburkert/prost/issues/140
     include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
 }
 mod http_client;

@@ -23,7 +23,7 @@ open class RustError : Structure() {
     }
 
     fun isFailure(): Boolean {
-        return code != 0;
+        return code != 0
     }
 
     /**
@@ -34,7 +34,7 @@ open class RustError : Structure() {
         val result = this.message?.getAndConsumeRustString()
         this.message = null
         if (result == null) {
-            throw NullPointerException("consumeErrorMessage called with null message!");
+            throw NullPointerException("consumeErrorMessage called with null message!")
         }
         return result
     }

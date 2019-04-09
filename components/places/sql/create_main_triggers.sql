@@ -23,59 +23,28 @@ BEGIN
     SELECT RAISE(FAIL, 'guids are immutable');
 END;
 
--- Tags
-CREATE TEMP TRIGGER moz_tags_relations_afterinsert_trigger
+-- These triggers bump the Sync change counter for all affected bookmarks when
+-- a URL is tagged or untagged.
+CREATE TEMP TRIGGER moz_tags_relations_afterinsert_sync_trigger
 AFTER INSERT ON moz_tags_relation
 BEGIN
-    UPDATE moz_tags SET
-        lastModified = now()
-    WHERE id = NEW.tag_id;
-
     UPDATE moz_bookmarks SET
         syncChangeCounter = syncChangeCounter + 1
     WHERE fk = NEW.place_id;
-
-    -- Tagging a URL increased the foreign count so that it will not be
-    -- expired or otherwise automatically removed.
-    UPDATE moz_places SET
-        foreign_count = foreign_count + 1
-    WHERE id = NEW.place_id;
-
 END;
 
-
-CREATE TEMP TRIGGER moz_tags_relations_afterupdate_trigger
+CREATE TEMP TRIGGER moz_tags_relations_afterupdate_sync_trigger
 AFTER UPDATE ON moz_tags_relation
 BEGIN
-    UPDATE moz_tags SET
-        lastModified = now()
-    WHERE id = NEW.tag_id;
-
     UPDATE moz_bookmarks SET
         syncChangeCounter = syncChangeCounter + 1
     WHERE fk IN (OLD.place_id, NEW.place_id);
-
-    UPDATE moz_places SET
-        foreign_count = foreign_count + 1
-    WHERE id = NEW.place_id;
-
-    UPDATE moz_places SET
-        foreign_count = foreign_count - 1
-    WHERE id = OLD.place_id;
 END;
 
-CREATE TEMP TRIGGER moz_tags_relations_afterdelete_trigger
+CREATE TEMP TRIGGER moz_tags_relations_afterdelete_sync_trigger
 AFTER DELETE ON moz_tags_relation
 BEGIN
-    UPDATE moz_tags SET
-        lastModified = now()
-    WHERE id = OLD.tag_id;
-
     UPDATE moz_bookmarks SET
         syncChangeCounter = syncChangeCounter + 1
     WHERE fk = OLD.place_id;
-
-    UPDATE moz_places SET
-        foreign_count = foreign_count - 1
-    WHERE id = OLD.place_id;
 END;

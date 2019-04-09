@@ -13,6 +13,8 @@
 		CE9D203120914D2600F1C8FA /* FirefoxAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9D202B20914D2600F1C8FA /* FirefoxAccount.swift */; };
 		CEBACFC4220E22C80078D41C /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CEBACFC3220E22C80078D41C /* SwiftProtobuf.framework */; };
 		CEE1087620C5ADF9007048AC /* FxAError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEE1087520C5ADF9007048AC /* FxAError.swift */; };
+		D05434A92256834A00FDE4EF /* FxAClient.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9D202320914D0D00F1C8FA /* FxAClient.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		D05434AA2256834C00FDE4EF /* RustFxAFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = CE9D202F20914D2600F1C8FA /* RustFxAFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		EBE26B42220B3DF700D1D99A /* String+Free_FxAClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE26B41220B3DF700D1D99A /* String+Free_FxAClient.swift */; };
 		EBE26B49220B4D0200D1D99A /* CommonErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE26B48220B4D0200D1D99A /* CommonErrors.swift */; };
 /* End PBXBuildFile section */
@@ -130,6 +132,8 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D05434A92256834A00FDE4EF /* FxAClient.h in Headers */,
+				D05434AA2256834C00FDE4EF /* RustFxAFFI.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

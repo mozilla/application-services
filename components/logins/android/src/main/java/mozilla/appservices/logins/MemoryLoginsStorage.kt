@@ -13,9 +13,10 @@ private enum class LoginsStorageState {
     Closed,
 }
 
+@Suppress("TooManyFunctions")
 class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseable, LoginsStorage {
 
-    private var state: LoginsStorageState = LoginsStorageState.Locked;
+    private var state: LoginsStorageState = LoginsStorageState.Locked
 
     init {
         // Check that the list we were given as input doesn't have any duplicated IDs.
@@ -212,16 +213,17 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
 
     private fun checkNotClosed() {
         if (state == LoginsStorageState.Closed) {
-            throw LoginsStorageException("Using MemoryLoginsStorage after close!");
+            throw LoginsStorageException("Using MemoryLoginsStorage after close!")
         }
     }
 
     private fun checkUnlocked() {
         if (state != LoginsStorageState.Unlocked) {
-            throw LoginsStorageException("Using MemoryLoginsStorage without unlocking first: $state");
+            throw LoginsStorageException("Using MemoryLoginsStorage without unlocking first: $state")
         }
     }
 
+    @Suppress("ThrowsCount")
     private fun checkValid(login: ServerPassword) {
         if (login.hostname == "") {
             throw InvalidRecordException("Invalid login: Hostname is empty")
@@ -238,5 +240,4 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
                     "Invalid login: Neither `formSubmitUrl` and `httpRealm` are present")
         }
     }
-
 }

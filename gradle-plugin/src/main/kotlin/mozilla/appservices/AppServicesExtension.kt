@@ -7,7 +7,6 @@ package mozilla.appservices
 import groovy.lang.Closure
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
-import org.gradle.api.internal.AbstractNamedDomainObjectContainer
 import org.gradle.api.internal.artifacts.DefaultModuleIdentifier
 import org.gradle.util.ConfigureUtil
 
@@ -27,7 +26,8 @@ open class AppServicesExtension(project: Project) {
                 setOf(
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "fxaclient"),
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "logins"),
-                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog")
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog"),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "viaduct")
                 )))
         megazords.add(MegazordDefinition("reference-browser",
                 DefaultModuleIdentifier.newId("org.mozilla.appservices", "reference-browser-megazord"),
@@ -36,7 +36,8 @@ open class AppServicesExtension(project: Project) {
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "logins"),
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "places"),
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "push"),
-                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog")
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog"),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "viaduct")
                 )))
         megazords.add(MegazordDefinition("fenix",
                 DefaultModuleIdentifier.newId("org.mozilla.appservices", "fenix-megazord"),
@@ -44,7 +45,8 @@ open class AppServicesExtension(project: Project) {
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "fxaclient"),
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "places"),
                         DefaultModuleIdentifier.newId("org.mozilla.appservices", "push"),
-                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog")
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "rustlog"),
+                        DefaultModuleIdentifier.newId("org.mozilla.appservices", "viaduct")
                 )))
     }
 
@@ -61,9 +63,12 @@ open class AppServicesExtension(project: Project) {
         return defaultConfig
     }
 
-    val buildTypes: NamedDomainObjectContainer<VariantConfiguration> = project.container(VariantConfiguration::class.java)
-    val productFlavors: NamedDomainObjectContainer<VariantConfiguration> = project.container(VariantConfiguration::class.java)
-    val variants: NamedDomainObjectContainer<VariantConfiguration> = project.container(VariantConfiguration::class.java)
+    val buildTypes: NamedDomainObjectContainer<VariantConfiguration> =
+        project.container(VariantConfiguration::class.java)
+    val productFlavors: NamedDomainObjectContainer<VariantConfiguration> =
+        project.container(VariantConfiguration::class.java)
+    val variants: NamedDomainObjectContainer<VariantConfiguration> =
+        project.container(VariantConfiguration::class.java)
 
     fun buildTypes(configureClosure: Closure<*>): NamedDomainObjectContainer<VariantConfiguration> {
         return buildTypes.configure(configureClosure)

@@ -6,7 +6,14 @@ commands:
       - run:
           name: Install Rust
           command: |
-            curl https://sh.rustup.rs -sSf | sh -s -- -y
+            RUSTUP_PLATFORM=x86_64-apple-darwin
+            RUSTUP_VERSION=1.17.0
+            RUSTUP_SHA256=f5da97b1854844fd7d61c52af8d78238c022fdc0ff0eeaf804baa0b9f7ff59d3
+            curl -O -s --retry 5 "https://static.rust-lang.org/rustup/archive/$RUSTUP_VERSION/$RUSTUP_PLATFORM/rustup-init"
+            echo "${RUSTUP_SHA256} *rustup-init" | shasum -a 256 -c -
+            chmod +x rustup-init
+            ./rustup-init -y --no-modify-path
+            rm rustup-init
             echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> $BASH_ENV
   setup-rust-toolchain:
     parameters:
@@ -77,6 +84,19 @@ commands:
       - run:
           name: Test (no default features)
           command: cargo test --all --no-default-features --verbose
+  dependency-checks:
+    steps:
+      - checkout
+      - run:
+          name: Check for security vulnerabilities in dependencies
+          command: |
+            cargo install cargo-audit
+            cargo audit
+      - run:
+          name: Check licence compatibility of dependencies
+          command: |
+            cargo install cargo-license
+            bash ./automation/license-check.sh
   sync-tests:
     steps:
       - test-setup
@@ -112,6 +132,11 @@ jobs:
       - run: rustup component add clippy
       - run: cargo clippy --version
       - run: cargo clippy --all --all-targets --all-features -- -D warnings
+  Check Rust dependencies:
+    docker:
+      - image: circleci/rust:latest
+    steps:
+      - dependency-checks
   Rust tests - stable:
     docker:
       - image: circleci/rust:latest
@@ -153,12 +178,11 @@ jobs:
       - run:
           name: Build Carthage archive
           command: |
-            rustup target add aarch64-apple-ios armv7-apple-ios i386-apple-ios x86_64-apple-ios
-            cargo lipo --help &>/dev/null || cargo install cargo-lipo
+            rustup target add aarch64-apple-ios x86_64-apple-ios
             brew update
             brew outdated carthage || brew upgrade carthage
             brew install swift-protobuf
-            sh build-carthage.sh MozillaAppServices.framework.zip
+            bash build-carthage.sh MozillaAppServices.framework.zip
       - save_cache:
           name: Save Rust cache
           key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
@@ -209,6 +233,19 @@ workflows:
   clippy:
     jobs:
       - Lint Rust with clippy
+  check-dependencies:
+    jobs:
+      - Check Rust dependencies
+  check-dependencies-periodically:
+    jobs:
+      - Check Rust dependencies
+    triggers:
+      - schedule:
+          cron: "0 * * * *"
+          filters:
+            branches:
+              only:
+                - master
   run-tests:
     jobs:
       - Rust tests - stable

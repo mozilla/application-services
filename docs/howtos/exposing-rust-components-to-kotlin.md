@@ -144,3 +144,24 @@ However, it comes with the following downsides:
    [`ffi_support` docs](https://docs.rs/ffi-support/*/ffi_support/), but a
    major one is when to use `Pointer` vs `String` (getting this wrong will
    often work, but may corrupt memory).
+
+### How do I debug Rust code with the step-debugger in Android Studio
+
+1. Uncomment the `packagingOptions { doNotStrip "**/*.so" }` line from the
+   build.gradle file of the component you want to debug.
+2. In the rust code, either:
+    1. Cause something to crash where you want the breakpoint. Note: Panics
+        don't work here, unfortunately. (I have not found a convenient way to
+        set a breakpoint to rust code, so
+        `unsafe { std::ptr::write_volatile(0 as *const _, 1u8) }` usually is
+        what I do).
+    2. If you manage to get an LLDB prompt, you can set a breakpoint using
+       `breakpoint set --name foo`, or `breakpoint set --file foo.rs --line 123`.
+       I don't know how to bring up this prompt reliably, so I often do step 1 to
+       get it to appear, delete the crashing code, and then set the
+       breakpoint using the CLI. This is admittedly suboptimal.
+3. Click the Debug button in Android Studio, to display the "Select Deployment
+   Target" window.
+4. Make sure the debugger selection is set to "Both". This tends to unset
+   itself, so make sure.
+5. Click "Run", and debug away.

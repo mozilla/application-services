@@ -2,6 +2,7 @@
 -- License, v. 2.0. If a copy of the MPL was not distributed with this
 -- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+-- This file defines temp tables shared between the main and Sync connections.
 
 -- This table is used, along with moz_places_afterinsert_trigger, to update
 -- origins after places removals. During an INSERT into moz_places, origins are
@@ -43,4 +44,3 @@ CREATE TEMP TABLE moz_updateoriginsupdate_temp (
     frecency_delta INTEGER NOT NULL,
     PRIMARY KEY (prefix, host)
 ) WITHOUT ROWID;
-

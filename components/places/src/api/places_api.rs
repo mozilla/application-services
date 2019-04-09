@@ -14,7 +14,7 @@ use std::mem;
 use std::path::{Path, PathBuf};
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
-    Arc, Mutex,
+    Arc, Mutex, Weak,
 };
 use sync15::{telemetry, ClientInfo};
 
@@ -54,7 +54,7 @@ impl ConnectionType {
 // XXX - probably need encryption key here too so we can do something sane
 // if we attempt to open the same file with different keys.
 lazy_static! {
-    static ref APIS: Mutex<HashMap<PathBuf, Arc<PlacesApi>>> = Mutex::new(HashMap::new());
+    static ref APIS: Mutex<HashMap<PathBuf, Weak<PlacesApi>>> = Mutex::new(HashMap::new());
 }
 
 static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -97,7 +97,7 @@ impl PlacesApi {
         // support encrypted places databases...)
         let mut guard = APIS.lock().unwrap();
         let id = ID_COUNTER.fetch_add(1, Ordering::SeqCst);
-        match guard.get(&db_name) {
+        match guard.get(&db_name).and_then(Weak::upgrade) {
             Some(existing) => Ok(existing.clone()),
             None => {
                 // We always create a new read-write connection for an initial open so
@@ -112,7 +112,7 @@ impl PlacesApi {
                     id,
                 };
                 let arc = Arc::new(new);
-                (*guard).insert(db_name, arc.clone());
+                (*guard).insert(db_name, Arc::downgrade(&arc));
                 Ok(arc)
             }
         }

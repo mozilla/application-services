@@ -3,6 +3,7 @@ name = "push-ffi"
 edition = "2018"
 version = "0.1.0"
 authors = ["jrconlin <me+crypt@jrconlin.com>", "Phil Jenvey <pjenvey@underboss.org>"]
+license = "MPL-2.0"
 
 [lib]
 name = "push_ffi"
@@ -13,7 +14,7 @@ serde_json = "1.0.28"
 log = "0.4"
 url = "1.7.1"
 ffi-support = { path = "../../support/ffi" }
-lazy_static = "1.2.0"
+lazy_static = "1.3.0"
 base64 = "0.10"
 
 config = { path = "../config" }
@@ -22,7 +23,7 @@ push-errors = {path = "../error" }
 subscriber ={ path = "../subscriber" }
 storage = { path = "../storage" }
 communications = { path = "../communications" }
-
+viaduct = { path = "../../viaduct" }
 
 [dependencies.rusqlite]
 version = "0.16.0"
@@ -30,6 +31,10 @@ features = ["sqlcipher", "limits", "functions"]
 
 [dependencies.sync15]
 path = "../../sync15"
+
+[features]
+rust-http-stack = ["viaduct/rust-http-stack"]
+
 
 
 [target.'cfg(target_os = "android")'.dependencies]

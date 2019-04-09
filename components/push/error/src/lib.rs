@@ -101,7 +101,8 @@ macro_rules! impl_from_error {
 }
 
 impl_from_error! {
-    (StorageSqlError, rusqlite::Error)
+    (StorageSqlError, rusqlite::Error),
+    (UrlParseError, url::ParseError)
 }
 
 #[derive(Debug, Fail)]
@@ -146,6 +147,10 @@ pub enum ErrorKind {
 
     #[fail(display = "Encryption Error: {}", _0)]
     EncryptionError(String),
+
+    /// A failure to parse a URL.
+    #[fail(display = "URL parse error: {:?}", _0)]
+    UrlParseError(#[fail(cause)] url::ParseError),
 }
 
 // Note, be sure to duplicate errors in the Kotlin side
@@ -164,6 +169,7 @@ impl ErrorKind {
             ErrorKind::MissingRegistrationTokenError => 30,
             ErrorKind::TranscodingError(_) => 31,
             ErrorKind::EncryptionError(_) => 32,
+            ErrorKind::UrlParseError(_) => 33,
         };
         ffi_support::ErrorCode::new(code)
     }

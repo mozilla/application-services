@@ -1,6 +1,5 @@
 package mozilla.appservices.push
 
-import java.io.File
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -8,7 +7,7 @@ import org.robolectric.annotation.Config
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
 import java.nio.charset.Charset
 
 @RunWith(RobolectricTestRunner::class)
@@ -62,7 +61,7 @@ class PushTest {
 
     /* Due to the nature of webpush (the fact that it uses systems outside of our control) it may
     not be possible to do actual tests using the remote systems. Any test using the following "mock"
-    sender_id will trigger 'hard wired' returns. These will exercise the Kotlin calling code.
+    senderId will trigger 'hard wired' returns. These will exercise the Kotlin calling code.
     The Rust Cargo tests for the various push subcomponents do a more thorough test of the push
     code. I'd love to find a way to set a 'test' flag that rust can pick up, and be able to inline
     some of the mocking calls those use.
@@ -71,10 +70,10 @@ class PushTest {
 
     protected fun getPushManager(): PushManager {
         return PushManager(
-                sender_id = mockSenderId,
-                bridge_type = BridgeTypes.TEST,
-                registration_id = "TestRegistrationId",
-                database_path = dbFile
+                senderId = mockSenderId,
+                bridgeType = BridgeType.TEST,
+                registrationId = "TestRegistrationId",
+                databasePath = dbFile
         )
     }
 
@@ -87,10 +86,10 @@ class PushTest {
 
         ```kotlin
         val manager = PushManager(
-            sender_id = "SomeSenderIDValue",
-            bridge_type = BridgeTypes.FCM,
-            registration_id = systemProvidedRegistrationValue,
-            database_path = "/path/to/database.sql"
+            senderId = "SomeSenderIDValue",
+            bridgeType = BridgeType.FCM,
+            registrationId = systemProvidedRegistrationValue,
+            databasePath = "/path/to/database.sql"
         )
         val newEndpoints = manager.verifyConnection()
         if newEndpoints.length() > 0 {
@@ -137,10 +136,10 @@ class PushTest {
         // These values should come from the delivered message content.
         val result = manager.decrypt(
                 channelID = testChannelid,
-                body=aesgcmBlock["body"].toString(),
-                encoding=aesgcmBlock["enc"].toString(),
-                salt=aesgcmBlock["salt"].toString(),
-                dh=aesgcmBlock["dh"].toString()
+                body = aesgcmBlock["body"].toString(),
+                encoding = aesgcmBlock["enc"].toString(),
+                salt = aesgcmBlock["salt"].toString(),
+                dh = aesgcmBlock["dh"].toString()
         )
         val sresult = result.toString(Charset.forName("UTF-8"))
         assertEquals("Result", plaintext, sresult)
@@ -153,10 +152,10 @@ class PushTest {
         manager.subscribe(testChannelid, "foo")
         val result = manager.decrypt(
                 channelID = testChannelid,
-                body=aes128gcmBlock["body"].toString(),
-                encoding=aes128gcmBlock["enc"].toString(),
-                salt=aes128gcmBlock["salt"].toString(),
-                dh=aes128gcmBlock["dh"].toString()
+                body = aes128gcmBlock["body"].toString(),
+                encoding = aes128gcmBlock["enc"].toString(),
+                salt = aes128gcmBlock["salt"].toString(),
+                dh = aes128gcmBlock["dh"].toString()
         )
         val sresult = result.toString(Charset.forName("UTF-8"))
         assertEquals("Result", plaintext, sresult)
@@ -174,7 +173,7 @@ class PushTest {
     }
 
     @Test
-    fun testUnsubscribe(){
+    fun testUnsubscribe() {
         val manager = getPushManager()
         manager.subscribe(testChannelid, "foo")
         val result = manager.unsubscribe(testChannelid)
@@ -182,18 +181,22 @@ class PushTest {
     }
 
     @Test
-    fun testUpdate(){
+    fun testUpdate() {
         val manager = getPushManager()
+        // subscribe to at least one channel.
+        manager.subscribe(testChannelid, "foo")
         val result = manager.update("test-2")
-        // TODO: This changes the SenderID used by manager.conn, which is private.
-        // probably should add a call to return that for test checks.
         assertEquals("SenderID update", true, result)
     }
 
     @Test
-    fun testVerifyConnection(){
+    fun testVerifyConnection() {
         val manager = getPushManager()
+        // Client will call verifyConnection() on initial setup, before UAID set.
+        manager.verifyConnection()
+        // Register a subscription
         manager.subscribe(testChannelid, "foo")
+        // and call verifyConnection again to emulate a set value.
         val result = manager.verifyConnection()
         val vv = result[testChannelid].toString()
         assertEquals("Check changed endpoint", "http://push.example.com/test/obscure", vv)
@@ -204,8 +207,22 @@ class PushTest {
         val manager = getPushManager()
 
         val subscriptionInfo = manager.subscribe(testChannelid, "foo")
-        val dispatch = manager.dispatch_for_chid(testChannelid);
+        val dispatch = manager.dispatchForChid(testChannelid)
         assertEquals("uaid", "abad1d3a00000000aabbccdd00000000", dispatch.uaid)
         assertEquals("scope", "foo", dispatch.scope)
+    }
+
+    @Test
+    fun testValidPath() {
+        try {
+            PushManager(
+                senderId = mockSenderId,
+                bridgeType = BridgeType.TEST,
+                registrationId = "TestRegistrationId",
+                databasePath = "/dev/false"
+            )
+        } catch (e: PushError) {
+            assert(e is StorageError)
+        }
     }
 }

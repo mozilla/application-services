@@ -82,7 +82,7 @@ public class PlacesAPI {
      *
      * - Throws: `PlacesError` if a connection could not be opened.
      */
-    func openReader() throws -> PlacesReadConnection {
+    open func openReader() throws -> PlacesReadConnection {
         return try queue.sync {
             let h = try PlacesError.unwrap { error in
                 places_connection_new(handle, Int32(PlacesConn_ReadOnly), error)
@@ -98,7 +98,7 @@ public class PlacesAPI {
      *         and it's opened when the database is constructed,
      *         so this function does not throw
      */
-    func getWriter() -> PlacesWriteConnection {
+    open func getWriter() -> PlacesWriteConnection {
         return queue.sync {
             self.writeConn
         }
@@ -183,7 +183,7 @@ public class PlacesReadConnection {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    func getBookmarksTree(rootGUID: String, recursive: Bool) throws -> BookmarkNode? {
+    open func getBookmarksTree(rootGUID: String, recursive: Bool) throws -> BookmarkNode? {
         return try queue.sync {
             try self.checkApi()
             let buffer = try PlacesError.unwrap { (error: UnsafeMutablePointer<PlacesRustError>) -> PlacesRustBuffer in
@@ -227,7 +227,7 @@ public class PlacesReadConnection {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    func getBookmark(guid: String) throws -> BookmarkNode? {
+    open func getBookmark(guid: String) throws -> BookmarkNode? {
         return try queue.sync {
             try self.checkApi()
             let buffer = try PlacesError.unwrap { error in
@@ -268,7 +268,7 @@ public class PlacesReadConnection {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    func getBookmarksWithURL(url: String) throws -> [BookmarkItem] {
+    open func getBookmarksWithURL(url: String) throws -> [BookmarkItem] {
         return try queue.sync {
             try self.checkApi()
             let buffer = try PlacesError.unwrap { error in
@@ -304,7 +304,7 @@ public class PlacesReadConnection {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    func searchBookmarks(query: String, limit: UInt) throws -> [BookmarkItem] {
+    open func searchBookmarks(query: String, limit: UInt) throws -> [BookmarkItem] {
         return try queue.sync {
             try self.checkApi()
             let buffer = try PlacesError.unwrap { error in
@@ -326,7 +326,7 @@ public class PlacesReadConnection {
      *         made that a concurrent interrupt call will be respected
      *         (as we may miss it).
      */
-    func interrupt() {
+    open func interrupt() {
         interruptHandle.interrupt()
     }
 }
@@ -360,7 +360,7 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *                            operation. (If this occurs, please let us know).
      *
      */
-    func runMaintenance() throws {
+    open func runMaintenance() throws {
         return try queue.sync {
             try self.checkApi()
             try PlacesError.unwrap { error in
@@ -391,7 +391,7 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *                            operation. (If this occurs, please let us know).
      */
     @discardableResult
-    func deleteBookmarkNode(guid: String) throws -> Bool {
+    open func deleteBookmarkNode(guid: String) throws -> Bool {
         return try queue.sync {
             try self.checkApi()
             let resByte = try PlacesError.unwrap { error in
@@ -429,7 +429,7 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *                            operation. (If this occurs, please let us know).
      */
     @discardableResult
-    func createFolder(parentGUID: String, title: String, position: UInt32? = nil) throws -> String {
+    open func createFolder(parentGUID: String, title: String, position: UInt32? = nil) throws -> String {
         return try queue.sync {
             try self.checkApi()
             var msg = insertionMsg(type: .folder, parentGUID: parentGUID, position: position)
@@ -463,7 +463,7 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *                            operation. (If this occurs, please let us know).
      */
     @discardableResult
-    func createSeparator(parentGUID: String, position: UInt32? = nil) throws -> String {
+    open func createSeparator(parentGUID: String, position: UInt32? = nil) throws -> String {
         return try queue.sync {
             try self.checkApi()
             let msg = insertionMsg(type: .separator, parentGUID: parentGUID, position: position)
@@ -504,7 +504,7 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *                            operation. (If this occurs, please let us know).
      */
     @discardableResult
-    func createBookmark(parentGUID: String, url: String, title: String?, position: UInt32? = nil) throws -> String {
+    open func createBookmark(parentGUID: String, url: String, title: String?, position: UInt32? = nil) throws -> String {
         return try queue.sync {
             try self.checkApi()
             var msg = insertionMsg(type: .bookmark, parentGUID: parentGUID, position: position)
@@ -567,7 +567,7 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    func updateBookmarkNode(guid: String,
+    open func updateBookmarkNode(guid: String,
                             parentGUID: String? = nil,
                             position: UInt32? = nil,
                             title: String? = nil,
@@ -642,4 +642,3 @@ fileprivate class InterruptHandle {
         }
     }
 }
-

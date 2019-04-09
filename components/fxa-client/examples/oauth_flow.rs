@@ -1,6 +1,6 @@
+use cli_support::prompt::prompt_string;
 use fxa_client::FirefoxAccount;
 use std::collections::HashMap;
-use text_io::*;
 use url::Url;
 
 const CONTENT_SERVER: &str = "http://127.0.0.1:3030";
@@ -13,8 +13,7 @@ fn main() {
     let url = fxa.begin_oauth_flow(&SCOPES, false).unwrap();
     println!("Open the following URL:");
     println!("{}", url);
-    println!("Obtained redirect URI:");
-    let redirect_uri: String = read!("{}\n");
+    let redirect_uri: String = prompt_string("Obtained redirect URI").unwrap();
     let redirect_uri = Url::parse(&redirect_uri).unwrap();
     let query_params: HashMap<_, _> = redirect_uri.query_pairs().into_owned().collect();
     let code = &query_params["code"];

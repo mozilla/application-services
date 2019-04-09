@@ -23,7 +23,7 @@ These are the steps needed to cut a new release.
         - Note that we try to provide PR or issue numbers (and links) for each change. Please add these if they are missing.
 
 2. Bump `libraryVersion` in the top-level [.buildconfig-android.yml](https://github.com/mozilla/application-services/blob/master/.buildconfig-android.yml) file. Be sure you're following semver, and if in doubt, ask.
-3. Land the commits that perform the steps above. This takes a PR, typically.
+3. Land the commits that perform the steps above. This takes a PR, typically, because of branch protection on master.
 4. Cut the actual release.
     1. Click "Releases", and then "Draft a New Release" in the github UI.
     2. Enter `v<myversion>` as the tag. In the example above it would be `v0.13.2`. It's important this is the same as the tags you put in the links in the changelog.
@@ -31,7 +31,20 @@ These are the steps needed to cut a new release.
     4. Note that the release is not avaliable until the taskcluster build completes for that tag.
         - Finding out that this takes a little navigation in the github UI. It's available at `https://github.com/mozilla/application-services/commits/v<VERSION NUMBER>` in the build status info (the emoji) next to the last commit.
         - If the taskcluster tag and/or release tasks fail, ping someone in slack and we'll figure out what to do.
-5. In order for consumers to have access, we need to update in [android-components](https://github.com/mozilla-mobile/android-components).
+    5. Until [automated publishing to maven](https://github.com/mozilla/application-services/issues/252)
+       is available, file a bug to request manual mirroring of the release artifacts from bintray to maven.
+       You can use [Bug 1540775](https://bugzilla.mozilla.org/show_bug.cgi?id=1540775) as a template.
+5. If you need to manually produce the iOS build for some reason (for example, if CircleCI cannot), someone with a mac needs to do the following steps:
+    1. If necessary, set up for performing iOS builds:
+        ```
+        $ rustup target add aarch64-apple-ios x86_64-apple-ios
+        $ brew outdated carthage || brew upgrade carthage
+        $ brew install swift-protobuf
+        $ carthage bootstrap
+        ```
+    2. Run `bash build-carthage.sh MozillaAppServices.framework.zip` in the root of the repository.
+    3. Upload the resulting `MozillaAppServices.framework.zip` as an attachment on the github release.
+6. In order for consumers to have access, we need to update in [android-components](https://github.com/mozilla-mobile/android-components).
     1. If the changes expose new functionality, or otherwise require changes to code or documentation in https://github.com/mozilla-mobile/android-components, perform those. This part is often done at the same time as the changes in application-services, to avoid being blocked on steps 3-4 of this document.
     2. Change the versions of our dependencies in [buildSrc/src/main/java/Dependencies.kt](https://github.com/mozilla-mobile/android-components/blob/master/buildSrc/src/main/java/Dependencies.kt).
     3. Note the relevant changes in their [docs/changelog.md](https://github.com/mozilla-mobile/android-components/blob/master/docs/changelog.md), and update the application-services version there as well in their list of dependency versions.

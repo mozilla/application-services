@@ -8,16 +8,50 @@ use crate::error::{InvalidPlaceInfo, Result};
 use sql_support::ConnExt;
 use url::Url;
 
-/// Checks the validity of the specified tag. On success, the result is the
-/// string value which should be used for the tag, or failure indicates why
-/// the tag is not valid.
-pub fn validate_tag(t: &str) -> Result<&str> {
+/// The validity of a tag.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ValidatedTag<'a> {
+    /// The tag is invalid.
+    Invalid(&'a str),
+
+    /// The tag is valid, but normalized to remove leading and trailing
+    /// whitespace.
+    Normalized(&'a str),
+
+    /// The original tag is valid.
+    Original(&'a str),
+}
+
+impl<'a> ValidatedTag<'a> {
+    /// Returns `true` if the original tag is valid; `false` if it's invalid or
+    /// normalized.
+    pub fn is_original(&self) -> bool {
+        match &self {
+            ValidatedTag::Original(_) => true,
+            _ => false,
+        }
+    }
+
+    /// Returns the tag string if the tag is valid or normalized, or an error
+    /// if the tag is invalid.
+    pub fn ensure_valid(&self) -> Result<&'a str> {
+        match self {
+            ValidatedTag::Invalid(_) => Err(InvalidPlaceInfo::InvalidTag.into()),
+            ValidatedTag::Normalized(t) | ValidatedTag::Original(t) => Ok(t),
+        }
+    }
+}
+
+/// Checks the validity of the specified tag.
+pub fn validate_tag(tag: &str) -> ValidatedTag {
     // Drop empty and oversized tags.
-    let t = t.trim();
+    let t = tag.trim();
     if t.is_empty() || t.len() > TAG_LENGTH_MAX || t.find(|c: char| c.is_whitespace()).is_some() {
-        Err(InvalidPlaceInfo::InvalidTag.into())
+        ValidatedTag::Invalid(tag)
+    } else if t.len() != tag.len() {
+        ValidatedTag::Normalized(t)
     } else {
-        Ok(t)
+        ValidatedTag::Original(t)
     }
 }
 
@@ -35,7 +69,7 @@ pub fn validate_tag(t: &str) -> Result<&str> {
 ///
 /// There is no success return value.
 pub fn tag_url(db: &PlacesDb, url: &Url, tag: &str) -> Result<()> {
-    let tag = validate_tag(&tag)?;
+    let tag = validate_tag(&tag).ensure_valid()?;
     let tx = db.unchecked_transaction()?;
 
     // This function will not create a new place.
@@ -76,7 +110,7 @@ pub fn tag_url(db: &PlacesDb, url: &Url, tag: &str) -> Result<()> {
 /// There is no success return value - the operation is ignored if the URL
 /// does not have the tag.
 pub fn untag_url(db: &PlacesDb, url: &Url, tag: &str) -> Result<()> {
-    let tag = validate_tag(&tag)?;
+    let tag = validate_tag(&tag).ensure_valid()?;
     db.execute_named_cached(
         "DELETE FROM moz_tags_relation
          WHERE tag_id = (SELECT id FROM moz_tags
@@ -145,7 +179,7 @@ pub fn remove_tag(db: &PlacesDb, tag: &str) -> Result<()> {
 /// * A Vec<Url> with all URLs which have the tag, ordered by the frecency of
 /// the URLs.
 pub fn get_urls_with_tag(db: &PlacesDb, tag: &str) -> Result<Vec<Url>> {
-    let tag = validate_tag(&tag)?;
+    let tag = validate_tag(&tag).ensure_valid()?;
 
     let mut stmt = db.prepare(
         "SELECT p.url FROM moz_places p
@@ -229,11 +263,23 @@ mod tests {
 
     #[test]
     fn test_validate_tag() {
-        assert_eq!(validate_tag("foo").expect("should work"), "foo");
-        assert_eq!(validate_tag(" foo ").expect("should work"), "foo");
-        assert!(validate_tag("").is_err());
-        assert!(validate_tag("foo bar").is_err());
-        assert!(validate_tag(&"f".repeat(101)).is_err());
+        let v = validate_tag("foo");
+        assert_eq!(v, ValidatedTag::Original("foo"));
+        assert!(v.is_original());
+        assert_eq!(v.ensure_valid().expect("should work"), "foo");
+
+        let v = validate_tag(" foo ");
+        assert_eq!(v, ValidatedTag::Normalized("foo"));
+        assert!(!v.is_original());
+        assert_eq!(v.ensure_valid().expect("should work"), "foo");
+
+        let v = validate_tag("");
+        assert_eq!(v, ValidatedTag::Invalid(""));
+        assert!(!v.is_original());
+        assert!(v.ensure_valid().is_err());
+
+        assert_eq!(validate_tag("foo bar"), ValidatedTag::Invalid("foo bar"));
+        assert!(validate_tag(&"f".repeat(101)).ensure_valid().is_err());
     }
 
     #[test]

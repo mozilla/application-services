@@ -6,6 +6,7 @@
 
 use crate::storage::bookmarks::BookmarkRootGuid;
 use crate::types::BookmarkType;
+use dogear;
 use failure::{Backtrace, Context, Fail};
 use std::boxed::Box;
 use std::{self, fmt};
@@ -68,6 +69,9 @@ pub enum ErrorKind {
     #[fail(display = "Error synchronizing: {}", _0)]
     SyncAdapterError(#[fail(cause)] sync15::Error),
 
+    #[fail(display = "Error merging: {}", _0)]
+    MergeError(#[fail(cause)] dogear::Error),
+
     #[fail(display = "Error parsing JSON data: {}", _0)]
     JsonError(#[fail(cause)] serde_json::Error),
 
@@ -94,6 +98,18 @@ pub enum ErrorKind {
     // interrupted error?
     #[fail(display = "Tried to close connection on wrong PlacesApi instance")]
     WrongApiForClose,
+
+    #[fail(display = "Incoming bookmark missing type")]
+    MissingBookmarkKind,
+
+    #[fail(display = "Incoming bookmark has unsupported type {}", _0)]
+    UnsupportedIncomingBookmarkType(String),
+
+    #[fail(display = "Synced bookmark has unsupported kind {}", _0)]
+    UnsupportedSyncedBookmarkKind(u8),
+
+    #[fail(display = "Synced bookmark has unsupported validity {}", _0)]
+    UnsupportedSyncedBookmarkValidity(u8),
 
     // This will happen if you provide something absurd like
     // "/" or "" as your database path. For more subtley broken paths,
@@ -131,6 +147,7 @@ impl_from_error! {
     (InvalidPlaceInfo, InvalidPlaceInfo),
     (Corruption, Corruption),
     (IoError, std::io::Error),
+    (MergeError, dogear::Error),
     (ProtobufDecodeError, prost::DecodeError)
 }
 
@@ -188,6 +205,12 @@ pub enum Corruption {
         _0, _1
     )]
     NoParent(String, String),
+
+    #[fail(display = "The local roots are invalid")]
+    InvalidLocalRoots,
+
+    #[fail(display = "The synced roots are invalid")]
+    InvalidSyncedRoots,
 
     #[fail(
         display = "Bookmark '{}' has no parent but is not the bookmarks root",

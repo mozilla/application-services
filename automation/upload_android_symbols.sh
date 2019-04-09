@@ -5,7 +5,7 @@ set -euvx
 if [ "$#" -ne 1 ]
 then
     echo "Usage:"
-    echo "./upload_android_symbols.sh <project path>"
+    echo "./automation/upload_android_symbols.sh <project path>"
     exit 1
 fi
 
@@ -13,18 +13,14 @@ PROJECT_PATH=$1
 
 source "libs/android_defaults.sh"
 
-BREAKPAD_TOOLS="breakpad-tools-linux.zip"
-BREAKPAD_TOOLS_URL="https://s3.amazonaws.com/getsentry-builds/getsentry/breakpad-tools/$BREAKPAD_TOOLS"
-DUMP_SYMS_SHA256="4ce3d00251c4b213081399b7ee761830e1f285bff26dfd30a0c7ccbbb86e225b"
 OUTPUT_FOLDER="crashreporter-symbols"
 DUMP_SYMS_DIR="automation/symbols-generation/bin"
 
-if [ ! -f "$DUMP_SYMS_DIR"/dump_syms ]; then
-  curl -L -O "$BREAKPAD_TOOLS_URL"
-  mkdir -p $DUMP_SYMS_DIR
-  unzip $BREAKPAD_TOOLS -d $DUMP_SYMS_DIR dump_syms
-  rm $BREAKPAD_TOOLS
-  echo "${DUMP_SYMS_SHA256}  ${DUMP_SYMS_DIR}/dump_syms" | shasum -a 256 -c - || exit 2
+if [ ! -f "$DUMP_SYMS_DIR/dump_syms" ]; then
+  tooltool.py --manifest=automation/symbols-generation/dump_syms.manifest --url=http://taskcluster/tooltool.mozilla-releng.net/ fetch
+  chmod +x dump_syms
+  mkdir -p "$DUMP_SYMS_DIR"
+  mv dump_syms "$DUMP_SYMS_DIR"
 fi
 
 # Keep the 3 in sync.

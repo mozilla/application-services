@@ -317,9 +317,9 @@ lazy_static::lazy_static! {
 }
 #[cfg(test)]
 mod test {
-    use super::super::tests::insert_json_tree;
     use super::*;
     use crate::api::places_api::test::new_mem_connection;
+    use crate::tests::insert_json_tree;
     use serde_json::json;
     #[test]
     fn test_get_by_url() -> Result<()> {

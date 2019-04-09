@@ -138,16 +138,16 @@ pub enum ErrorKind {
     BadCleartextUtf8(#[fail(cause)] string::FromUtf8Error),
 
     #[fail(display = "Network error: {}", _0)]
-    RequestError(#[fail(cause)] reqwest::Error),
+    RequestError(#[fail(cause)] viaduct::Error),
+
+    #[fail(display = "Unexpected HTTP status: {}", _0)]
+    UnexpectedStatus(#[fail(cause)] viaduct::UnexpectedStatus),
 
     #[fail(display = "HAWK error: {}", _0)]
     HawkError(#[fail(cause)] SyncFailure<hawk::Error>),
 
-    #[fail(display = "Malformed URL error: {}", _0)]
-    MalformedUrl(#[fail(cause)] reqwest::UrlError),
-
-    #[fail(display = "Malformed header error: {}", _0)]
-    MalformedHeader(#[fail(cause)] reqwest::header::InvalidHeaderValue),
+    #[fail(display = "URL parse error: {}", _0)]
+    MalformedUrl(#[fail(cause)] url::ParseError),
 }
 
 macro_rules! impl_from_error {
@@ -173,9 +173,9 @@ impl_from_error! {
     (Base64Decode, ::base64::DecodeError),
     (JsonError, ::serde_json::Error),
     (BadCleartextUtf8, ::std::string::FromUtf8Error),
-    (RequestError, ::reqwest::Error),
-    (MalformedUrl, ::reqwest::UrlError),
-    (MalformedHeader, ::reqwest::header::InvalidHeaderValue),
+    (RequestError, viaduct::Error),
+    (UnexpectedStatus, viaduct::UnexpectedStatus),
+    (MalformedUrl, url::ParseError),
     // A bit dubious, since we only want this to happen inside `synchronize`
     (StoreError, ::failure::Error)
 }

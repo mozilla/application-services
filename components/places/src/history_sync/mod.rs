@@ -39,7 +39,7 @@ impl From<Timestamp> for ServerVisitTimestamp {
 impl From<SystemTime> for ServerVisitTimestamp {
     #[inline]
     fn from(st: SystemTime) -> Self {
-        let d = st.duration_since(UNIX_EPOCH).unwrap(); // hrmph - unwrap doesn't seem ideal
+        let d = st.duration_since(UNIX_EPOCH).unwrap_or_default();
         ServerVisitTimestamp(
             (d.as_secs() as u64) * 1_000_000 + (u64::from(d.subsec_nanos()) / 1_000),
         )
