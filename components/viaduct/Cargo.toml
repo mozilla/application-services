@@ -9,9 +9,7 @@ license = "MPL-2.0"
 crate-type = ["lib", "cdylib"]
 
 [features]
-# Unfortunate, but required to make our tests work.
-default = ["rust-http-stack"]
-rust-http-stack = ["reqwest"]
+default = []
 
 [dependencies]
 failure = "0.1.5"

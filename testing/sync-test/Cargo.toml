@@ -6,9 +6,9 @@ edition = "2018"
 license = "MPL-2.0"
 
 [dependencies]
-logins = { path = "../../components/logins" }
-sync15 = { path = "../../components/sync15" }
-fxa-client = { path = "../../components/fxa-client" }
+logins = { path = "../../components/logins", features = ["reqwest"] }
+sync15 = { path = "../../components/sync15", features = ["reqwest"] }
+fxa-client = { path = "../../components/fxa-client", features = ["reqwest"] }
 url = "1.7.1"
 env_logger = "0.6.0"
 log = "0.4.6"
