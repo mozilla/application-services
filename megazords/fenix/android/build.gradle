@@ -1,5 +1,7 @@
 apply plugin: 'com.android.library'
 apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-android-extensions'
 
 import com.sun.jna.Platform
 
@@ -83,6 +85,9 @@ dependencies {
     api project(path: ':push-library', configuration: 'withoutLib')
     api project(path: ':rustlog-library', configuration: 'withoutLib')
     api project(path: ':viaduct-library', configuration: 'withoutLib')
+    compile project(path: ':viaduct-library')
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    api "org.mozilla.components:concept-fetch:$android_components_version"
 
     jnaForTest 'net.java.dev.jna:jna:4.5.2@jar'
 }
