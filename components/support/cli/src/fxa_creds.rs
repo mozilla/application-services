@@ -70,7 +70,7 @@ fn create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
 // better with clap, so we could automagically support various args (such as
 // the config to use or filenames to read), but this will do for now.
 pub fn get_default_fxa_config() -> Config {
-    Config::release(CLIENT_ID, REDIRECT_URI)
+    Config::stable_dev(CLIENT_ID, REDIRECT_URI)
 }
 
 pub fn get_cli_fxa(config: Config, cred_file: &str) -> Result<CliFxa> {
