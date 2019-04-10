@@ -61,7 +61,7 @@ fn main() -> Result<()> {
             .expect("should get the thread transaction");
         println!("inner has tx");
         tx.send(0).unwrap();
-        for i in 0..100000 {
+        for i in 0..100_000 {
             update(&db1, i).unwrap();
             t.maybe_commit().unwrap();
         }
@@ -72,7 +72,7 @@ fn main() -> Result<()> {
 
     let _ = rx.recv().unwrap();
     println!("inner thread has tx lock, so charging ahead...");
-    for i in 100000..100020 {
+    for i in 100_000..100_020 {
         let tx = dbmain
             .coop_transaction()
             .expect("should get the main transaction");

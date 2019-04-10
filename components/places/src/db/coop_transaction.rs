@@ -143,7 +143,8 @@ impl<'conn> TimeChunkedTransaction<'conn> {
 
     /// Consumes and commits a TimeChunkedTransaction transaction.
     pub fn commit(self) -> Result<()> {
-        Ok(self.tx.commit()?)
+        self.tx.commit()?;
+        Ok(())
     }
 }
 

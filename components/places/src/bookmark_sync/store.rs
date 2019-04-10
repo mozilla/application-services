@@ -105,7 +105,7 @@ impl<'a> BookmarksStore<'a> {
         &self,
         descendants: Vec<MergedDescendant<'t>>,
         deletions: Vec<Deletion>,
-        tx: &mut TimeChunkedTransaction,
+        _tx: &mut TimeChunkedTransaction,
     ) -> Result<()> {
         // First, insert rows for all merged descendants.
         sql_support::each_sized_chunk(
