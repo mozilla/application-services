@@ -144,7 +144,6 @@ impl<'a> BookmarksStore<'a> {
                             d.merged_node.merge_state.upload_reason() != UploadReason::None)
                     })
                 ), &params)?;
-                tx.maybe_commit()?;
                 Ok(())
             },
         )?;
@@ -162,7 +161,6 @@ impl<'a> BookmarksStore<'a> {
                 ),
                 chunk.iter().map(|d| d.guid.as_str()),
             )?;
-            tx.maybe_commit()?;
             Ok(())
         })?;
 
@@ -170,16 +168,13 @@ impl<'a> BookmarksStore<'a> {
         // `insertNewLocalItems` and `updateExistingLocalItems`
         // triggers instead.
         self.db.execute_batch("DELETE FROM itemsToMerge")?;
-        tx.maybe_commit()?;
 
         // `structureToMerge` is also a view, so "deleting" from it fires the
         // `updateLocalStructure` trigger.
         self.db.execute_batch("DELETE FROM structureToMerge")?;
-        tx.maybe_commit()?;
 
         // Deleting from `itemsToRemove` fires the `removeLocalItems` trigger.
         self.db.execute_batch("DELETE FROM itemsToRemove")?;
-        tx.maybe_commit()?;
 
         Ok(())
     }

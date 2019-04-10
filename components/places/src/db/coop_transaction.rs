@@ -31,7 +31,7 @@ use std::time::{Duration, Instant};
 /// "exactly 2 writers" constraints:
 /// * Each database connection shares a mutex.
 /// * Before starting a transaction, each connection locks the mutex.
-/// * It then starts an "exclusive" transaction - because sqlite now holds a
+/// * It then starts an "immediate" transaction - because sqlite now holds a
 ///   lock on our behalf, we release the lock on the mutex.
 ///
 /// In other words, the lock is held only while obtaining the DB lock, then
@@ -163,37 +163,28 @@ impl<'conn> ConnExt for TimeChunkedTransaction<'conn> {
     }
 }
 
-// A helper that attempts to get an Exclusive lock on the DB. If it fails with
+// A helper that attempts to get an Immediate lock on the DB. If it fails with
 // a "busy" or "locked" error, it does exactly 1 retry.
 fn get_tx_with_retry_on_locked(conn: &Connection) -> Result<UncheckedTransaction> {
-    let behavior = TransactionBehavior::Exclusive;
+    let behavior = TransactionBehavior::Immediate;
     match UncheckedTransaction::new(conn, behavior) {
         Ok(tx) => Ok(tx),
-        Err(e) => match e {
-            rusqlite::Error::SqliteFailure(err, _) => {
-                if err.code == rusqlite::ErrorCode::DatabaseBusy
-                    || err.code == rusqlite::ErrorCode::DatabaseLocked
-                {
-                    // retry the lock - we assume that this lock request still blocks
-                    // for the default period, so we don't need to sleep
-                    // etc.
-                    let started_at = Instant::now();
-                    log::warn!("Attempting to get a read lock failed - doing one retry");
-                    match UncheckedTransaction::new(conn, behavior) {
-                        Ok(tx) => {
-                            log::info!("Retrying the lock worked after {:?}", started_at.elapsed());
-                            Ok(tx)
-                        }
-                        Err(e) => {
-                            log::warn!("Retrying the lock failed after {:?}", started_at.elapsed());
-                            Err(e.into())
-                        }
-                    }
-                } else {
-                    Err(e.into())
-                }
-            }
-            _ => Err(e.into()),
-        },
+        Err(rusqlite::Error::SqliteFailure(err, _))
+            if err.code == rusqlite::ErrorCode::DatabaseBusy
+                || err.code == rusqlite::ErrorCode::DatabaseLocked =>
+        {
+            // retry the lock - we assume that this lock request still
+            // blocks for the default period, so we don't need to sleep
+            // etc.
+            let started_at = Instant::now();
+            log::warn!("Attempting to get a read lock failed - doing one retry");
+            let tx = UncheckedTransaction::new(conn, behavior).map_err(|err| {
+                log::warn!("Retrying the lock failed after {:?}", started_at.elapsed());
+                err
+            })?;
+            log::info!("Retrying the lock worked after {:?}", started_at.elapsed());
+            Ok(tx)
+        }
+        Err(e) => Err(e.into()),
     }
 }
