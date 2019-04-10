@@ -1,13 +1,57 @@
 # Logins
 
-Logins are consumed by Firefox browsers, and the standalone Lockbox app.
+The logins component manages saved usernames and passwords. It exposes APIs for creating and updating logins, and supports "unlocking" and "locking" a store by opening or closing its database connection. Internally, the component tracks metadata like the use count, last use date, and last change date. The SQL schema is based on the original [Firefox for iOS implementation](https://github.com/mozilla-mobile/firefox-ios/blob/faa6a2839abf4da2c54ff1b3291174b50b31ab2c/Storage/SQL/SQLiteLogins.swift).
 
-Login storage is based on the original [Firefox for iOS implementation](https://github.com/mozilla-mobile/firefox-ios/blob/faa6a2839abf4da2c54ff1b3291174b50b31ab2c/Storage/SQL/SQLiteLogins.swift).
+Logins used to be called "passwords", so you might still see references to the latter. The Sync server, for instance, stores login records in the "passwords" collection.
 
-## Architecture
+## Storage
 
 Logins can optionally use SQLCipher for persistence, allowing them to be encrypted on disk.
 
 ## Syncing and merging
 
 Login sync uses three-way merges to resolve conflicts.
+
+## Record format
+
+There are two kinds of saved logins: forms, and HTTP authentication credentials.
+
+Forms with username and password fields are the most common type. Here's an example of a form record:
+
+```json
+{
+  "hostname": "https://example.com",
+  "formSubmitURL": "https://example.com",
+  "httpRealm": null,
+  "username": "hi@example.com",
+  "password": "S3kr3tz",
+  "usernameField": "inputEmail",
+  "passwordField": "inputPassword",
+  "timeCreated": 1554854025151,
+  "timePasswordChanged": 1554854025151,
+}
+```
+
+* `hostname` is the _origin_ of the site: scheme, hostname, and port. (It's called the "hostname" for historical reasons, even though it includes the full origin).
+* `formSubmitURL` is the _origin_ of the `<form>` element's `action` attribute, or the origin of the site if the `<form>` for this login doesn't have an `action`.
+* `httpRealm` is always `null`.
+* `usernameField` and `passwordField` are the `name`s of the `<input>` fields containing the username and password.
+* `timeCreated` and `timePasswordChanged` are when the login was first saved, and when the password was last changed, respectively. Both are in milliseconds.
+
+HTTP authentication credentials aren't as common. These come from the "Authentication Required" dialog that Firefox shows when you connect to a site that sends `WWW-Authenticate` HTTP headers for basic or digest access authentication. Here's an example record:
+
+```json
+{
+  "hostname": "https://example.com",
+  "formSubmitURL": null,
+  "httpRealm": "What Firefox shows in 'The site says:'",
+  "username": "user",
+  "password": "S3kr3tz",
+  "usernameField": "",
+  "passwordField": "",
+  "timeCreated": 1554854025151,
+  "timePasswordChanged": 1554854025151,
+}
+```
+
+* Unlike in forms, `formSubmitURL` is always `null`, and `usernameField` and `passwordField` are always empty.

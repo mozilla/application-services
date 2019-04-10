@@ -4,4 +4,4 @@
 - Why do we use SQLite?
 - Considerations for SQLite tables and indexes.
 - Optimization tips.
-- Designing data for syncability.
+- Implementing your own syncable store.

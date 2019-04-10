@@ -1,0 +1,8 @@
+[book]
+title = "The Synconomicon"
+author = "Mozilla Application Services Team"
+description = "A deep dive into the internals of Sync."
+
+[build]
+build-dir = "book"
+create-missing = true
