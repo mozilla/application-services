@@ -377,7 +377,7 @@ pub mod consts {
         // non-standard, but it's convenient to have these.
         (RETRY_AFTER, "retry-after"),
         (X_IF_UNMODIFIED_SINCE, "x-if-unmodified-since"),
-        (X_KEY_ID, "x-key-id"),
+        (X_KEYID, "x-keyid"),
         (X_LAST_MODIFIED, "x-last-modified"),
         (X_TIMESTAMP, "x-timestamp"),
         (X_WEAVE_NEXT_OFFSET, "x-weave-next-offset"),

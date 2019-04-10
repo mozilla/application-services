@@ -1,6 +1,6 @@
 # Dependency Management Guidelines
 
-This repo uses a number of third-party rust crates, so we need to be mindful
+This repo uses third-party code from a variety of sources, so we need to be mindful
 of how these dependencies will affect our consumers.  Considerations include:
 
 * General code quality.
@@ -10,6 +10,8 @@ of how these dependencies will affect our consumers.  Considerations include:
 
 We're still evolving our policies in this area, but these are the
 guidelines we've developed so far.
+
+## Rust Code
 
 Unlike [Firefox](https://firefox-source-docs.mozilla.org/build/buildsystem/rust.html),
 we do not vendor third-party source code directly into the repo.  Instead we rely on
@@ -49,3 +51,13 @@ We try to balance this responsibility against the many benefits of using existin
 
 Updating to new versions of existing dependencies is a normal part of software development
 and is not accompanied by any partiulcar ceremony.
+
+## Kotlin Code
+
+We depend on a small number of third-party Kotlin projects but have not written any formal guidelines
+on how to manage them.  Please join the discussion in [this github issue](https://github.com/mozilla/application-services/issues/933).
+
+## Swift Code
+
+We depend on a small number of third-party Swift projects but have not written any formal guidelines
+on how to manage them.  Please join the discussion in [this github issue](https://github.com/mozilla/application-services/issues/934).

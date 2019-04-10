@@ -2,7 +2,11 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.23.0...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.24.0...master)
+
+# v0.24.0 (_2018-04-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.23.0...v0.24.0)
 
 ## Megazords
 
@@ -52,6 +56,13 @@
 - `mozilla.appservices.push.BridgeTypes` is now
   `mozilla.appservices.push.BridgeType`
 ([#885](https://github.com/mozilla/application-services/issues/885))
+
+## Places
+
+### What's Fixed
+
+- Swift PlacesAPI methods are not externally accessible
+  ([#928](https://github.com/mozilla/application-services/issues/928))
 
 # v0.23.0 (_2018-03-29_)
 
