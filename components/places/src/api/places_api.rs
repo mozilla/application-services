@@ -60,7 +60,6 @@ lazy_static! {
 static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 struct SyncState {
-    conn: PlacesDb,
     client_info: Cell<Option<ClientInfo>>,
 }
 
@@ -185,15 +184,14 @@ impl PlacesApi {
         key_bundle: &sync15::KeyBundle,
     ) -> Result<telemetry::SyncTelemetryPing> {
         let mut guard = self.sync_state.lock().unwrap();
+        let conn = self.open_connection(ConnectionType::Sync)?;
         if guard.is_none() {
-            let conn = self.open_connection(ConnectionType::Sync)?;
             *guard = Some(SyncState {
-                conn,
                 client_info: Cell::new(None),
             });
         }
         let sync_state = guard.as_ref().unwrap();
-        let store = HistoryStore::new(&sync_state.conn, &sync_state.client_info);
+        let store = HistoryStore::new(&conn, &sync_state.client_info);
         let mut sync_ping = telemetry::SyncTelemetryPing::new();
         store.sync(&client_init, &key_bundle, &mut sync_ping)?;
         Ok(sync_ping)
