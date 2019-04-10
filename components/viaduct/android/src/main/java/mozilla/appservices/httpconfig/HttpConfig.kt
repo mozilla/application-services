@@ -9,7 +9,6 @@ import mozilla.appservices.support.RustBuffer
 import mozilla.components.concept.fetch.Client
 import mozilla.components.concept.fetch.MutableHeaders
 import mozilla.components.concept.fetch.Request
-import java.io.InputStream
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
@@ -57,7 +56,7 @@ object RustHttpConfig {
                 connectTimeout = Pair(request.connectTimeoutSecs.toLong(), TimeUnit.SECONDS),
                 readTimeout = Pair(request.readTimeoutSecs.toLong(), TimeUnit.SECONDS),
                 body = if (request.hasBody()) {
-                    Request.Body(ByteStringInputStream(request.body))
+                    Request.Body(request.body.newInput())
                 } else {
                     null
                 },
@@ -145,41 +144,5 @@ internal class CallbackImpl : RawFetchCallback {
             // return something from this function.
             return RustBuffer.ByValue()
         }
-    }
-}
-
-// The protobuf `bytes` type comes over as a com.google.protobuf.ByteString.
-// There's no provided way to convert/wrap this to an InputStream, so we do
-// that manually to avoid extra copying.
-internal class ByteStringInputStream(private val s: ByteString) : InputStream() {
-    private var pos: Int = 0
-
-    override fun available(): Int {
-        return s.size() - pos
-    }
-
-    override fun skip(n: Long): Long {
-        val toSkip = Math.min((s.size() - pos).toLong(), Math.max(n, 0L)).toInt()
-        pos += toSkip
-        return toSkip.toLong()
-    }
-    // Oh come on, these are hardly magic...
-    @Suppress("MagicNumber")
-    override fun read(): Int {
-        if (pos >= s.size()) {
-            return -1
-        }
-        val result = s.byteAt(pos).toInt() and 0xff
-        pos += 1
-        return result
-    }
-
-    override fun read(bytes: ByteArray, off: Int, len: Int): Int {
-        if (pos >= s.size()) {
-            return -1
-        }
-        val toRead = Math.min(len, s.size() - pos)
-        s.copyTo(bytes, pos, off, toRead)
-        return toRead
     }
 }

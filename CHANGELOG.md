@@ -4,6 +4,12 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.24.0...master)
 
+## General
+
+### What's Fixed
+
+- Megazords and requests should work again. 
+
 ## Push
 
 ### What's fixed
@@ -29,7 +35,7 @@
 
     ```kotlin
     val megazordClass = Class.forName("mozilla.appservices.MyCoolMegazord")
-    val megazordInitMethod = megazordClass.getDeclaredMethod("init")
+    val megazordInitMethod = megazordClass.getDeclaredMethod("init", Lazy::class.java)
     val lazyClient: Lazy<Client> = lazy { components.core.client }
     megazordInitMethod.invoke(megazordClass, lazyClient)
     ```
@@ -38,7 +44,7 @@
 
     ```kotlin
     val megazordClass = Class.forName("mozilla.appservices.MyCoolMegazord")
-    val megazordInitMethod = megazordClass.getDeclaredMethod("init")
+    val megazordInitMethod = megazordClass.getDeclaredMethod("init", Lazy::class.java)
     // HttpURLConnectionClient is from mozilla.components.lib.fetch.httpurlconnection
     val lazyClient: Lazy<Client> = lazy { HttpURLConnectionClient() }
     megazordInitMethod.invoke(megazordClass, lazyClient)
