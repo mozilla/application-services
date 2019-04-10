@@ -68,7 +68,7 @@ impl TokenFetcher for TokenServerFetcher {
                 header_names::AUTHORIZATION,
                 format!("Bearer {}", self.access_token),
             )?
-            .header(header_names::X_KEY_ID, self.key_id.clone())?
+            .header(header_names::X_KEYID, self.key_id.clone())?
             .send()?;
 
         if !resp.is_success() {
