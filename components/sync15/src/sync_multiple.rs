@@ -34,16 +34,6 @@ pub struct MemoryCachedState {
     last_global_state: Option<GlobalState>,
 }
 
-impl MemoryCachedState {
-    /// Get the `Sync15StorageClient`. Ideally would only visible for testing
-    /// (ie, wrapped in `if[cfg(test)]`), but our integration tests use it,
-    /// which aren't strictly tests.
-    /// So we just make it obvious by the name.
-    pub fn test_only_get_client(&self) -> Option<&Sync15StorageClient> {
-        self.last_client_info.as_ref().map(|ci| &ci.client)
-    }
-}
-
 /// Sync multiple stores
 /// * `stores` - The stores to sync
 /// * `persisted_global_state` - The global state to use, or None if never
