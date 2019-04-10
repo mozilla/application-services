@@ -4,6 +4,12 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.24.0...master)
 
+## Push
+
+### What's fixed
+
+- PushAPI now stores some metadata information across restarts ([#905](https://github.com/mozilla/application-services/issues/905))
+
 # v0.24.0 (_2018-04-08_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.23.0...v0.24.0)

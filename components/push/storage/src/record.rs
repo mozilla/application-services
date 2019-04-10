@@ -8,6 +8,17 @@ use crate::types::Timestamp;
 pub type ChannelID = String;
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct MetaRecord {
+    /// Meta information are various push related values that need to persist across restarts.
+    /// e.g. "UAID", server "auth" token, etc. This table should not be exposed outside of
+    /// the push component.
+    // User Agent unique identifier
+    pub key: String,
+    // Server authorization token
+    pub val: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct PushRecord {
     // User Agent's unique identifier
     pub uaid: String,

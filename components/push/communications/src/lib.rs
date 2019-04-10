@@ -17,7 +17,7 @@ extern crate serde_json;
 use serde_json::Value;
 use std::collections::HashMap;
 use url::Url;
-use viaduct::{header_names, status_codes, Request};
+use viaduct::{header_names, status_codes, Headers, Request};
 
 use config::PushConfiguration;
 use push_errors as error;
@@ -89,7 +89,11 @@ pub struct ConnectHttp {
 }
 
 // Connect to the Autopush server
-pub fn connect(options: PushConfiguration) -> error::Result<ConnectHttp> {
+pub fn connect(
+    options: PushConfiguration,
+    uaid: Option<String>,
+    auth: Option<String>,
+) -> error::Result<ConnectHttp> {
     // find connection via options
 
     if options.socket_protocol.is_some() && options.http_protocol.is_some() {
@@ -112,10 +116,10 @@ pub fn connect(options: PushConfiguration) -> error::Result<ConnectHttp> {
         };
     */
     let connection = ConnectHttp {
-        uaid: None,
+        uaid,
         options: options.clone(),
         //        database,
-        auth: None,
+        auth,
     };
 
     Ok(connection)
@@ -132,13 +136,31 @@ impl Connection for ConnectHttp {
         }
         let options = self.options.clone();
         let bridge_type = &options.bridge_type.unwrap();
-        let url = format!(
+        let mut url = format!(
             "{}://{}/v1/{}/{}/registration",
             &options.http_protocol.unwrap(),
             &options.server_host,
             &bridge_type,
             &options.sender_id
         );
+        // Add the Authorization header if we have a prior subscription.
+        let mut auth_headers = Headers::new();
+        if let Some(uaid) = &self.uaid {
+            url.push('/');
+            url.push_str(&uaid);
+            url.push_str("/subscription");
+            if self.auth.is_none() {
+                return Err(error::ErrorKind::CommunicationError(
+                    "Missing auth secret for subscription".to_owned(),
+                )
+                .into());
+            }
+            auth_headers
+                .insert("Authorization", self.auth.clone().unwrap())
+                .map_err(|e| {
+                    error::ErrorKind::CommunicationError(format!("Header error: {:?}", e))
+                })?;
+        }
         let mut body = HashMap::new();
         body.insert("token", options.registration_id.unwrap());
         body.insert("channelID", channelid.to_owned());
@@ -162,7 +184,7 @@ impl Connection for ConnectHttp {
             });
         }
         let url = Url::parse(&url)?;
-        let requested = match Request::post(url).json(&body).send() {
+        let requested = match Request::post(url).headers(auth_headers).json(&body).send() {
             Ok(v) => v,
             Err(e) => {
                 return Err(
@@ -422,7 +444,7 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body(body)
             .create();
-            let mut conn = connect(config.clone()).unwrap();
+            let mut conn = connect(config.clone(), None, None).unwrap();
             let channel_id = hex::encode(crypto::get_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id).unwrap();
             ap_mock.assert();
@@ -445,9 +467,12 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body("{}")
             .create();
-            let mut conn = connect(config.clone()).unwrap();
-            conn.uaid = Some(DUMMY_UAID.to_owned());
-            conn.auth = Some(SECRET.to_owned());
+            let conn = connect(
+                config.clone(),
+                Some(DUMMY_UAID.to_owned()),
+                Some(SECRET.to_owned()),
+            )
+            .unwrap();
             let response = conn.unsubscribe(Some(DUMMY_CHID)).unwrap();
             ap_mock.assert();
             assert!(response);
@@ -463,9 +488,12 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body("{}")
             .create();
-            let mut conn = connect(config.clone()).unwrap();
-            conn.uaid = Some(DUMMY_UAID.to_owned());
-            conn.auth = Some(SECRET.to_owned());
+            let conn = connect(
+                config.clone(),
+                Some(DUMMY_UAID.to_owned()),
+                Some(SECRET.to_owned()),
+            )
+            .unwrap();
             //TODO: Add record to nuke.
             let response = conn.unsubscribe(None).unwrap();
             ap_mock.assert();
@@ -482,12 +510,19 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body("{}")
             .create();
-            let mut conn = connect(config.clone()).unwrap();
-            conn.uaid = Some(DUMMY_UAID.to_owned());
-            conn.auth = Some(SECRET.to_owned());
+            let mut conn = connect(
+                config.clone(),
+                Some(DUMMY_UAID.to_owned()),
+                Some(SECRET.to_owned()),
+            )
+            .unwrap();
+
             let response = conn.update("NewTokenValue").unwrap();
             ap_mock.assert();
-            assert!(conn.options.registration_id == Some("NewTokenValue".to_owned()));
+            assert_eq!(
+                conn.options.registration_id,
+                Some("NewTokenValue".to_owned())
+            );
             assert!(response);
         }
         // CHANNEL LIST
@@ -506,9 +541,12 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body(body_cl_success)
             .create();
-            let mut conn = connect(config.clone()).unwrap();
-            conn.uaid = Some(DUMMY_UAID.to_owned());
-            conn.auth = Some(SECRET.to_owned());
+            let conn = connect(
+                config.clone(),
+                Some(DUMMY_UAID.to_owned()),
+                Some(SECRET.to_owned()),
+            )
+            .unwrap();
             let response = conn.channel_list().unwrap();
             ap_mock.assert();
             assert!(response == [DUMMY_CHID.to_owned()]);
