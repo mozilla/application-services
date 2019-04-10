@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::record_types::MetaGlobalRecord;
 use crate::state::PersistedGlobalState;
 use crate::CollSyncIds;
 
@@ -35,21 +36,15 @@ pub fn extract_v1_state(
         Some(v) => v,
     };
     // payload is itself a string holding json - so re-parse.
-    let payload: serde_json::Value = match global["payload"]
+    let meta_global = match global["payload"]
         .as_str()
-        .and_then(|s| serde_json::from_str(s).ok())
+        .and_then(|s| serde_json::from_str::<MetaGlobalRecord>(s).ok())
     {
         Some(p) => p,
         None => return (None, None),
     };
-    let declined: Vec<String> = payload["declined"]
-        .as_array()
-        .unwrap_or(&empty)
-        .iter()
-        .filter_map(|name| name.as_str().map(|s| s.to_string()))
-        .collect();
     let pgs = PersistedGlobalState::V2 {
-        declined: Some(declined),
+        declined: Some(meta_global.declined),
     };
     let new_global_state = serde_json::to_string(&pgs).ok();
 
@@ -84,17 +79,12 @@ pub fn extract_v1_state(
     }
 
     // Try and find the sync guids in the global payload.
-    let gsid = payload["syncID"].as_str().map(|s| s.to_string());
-    let csid = payload["engines"]
-        .as_object()
-        .and_then(|e| e.get(collection))
-        .and_then(|e| e.get("syncID"))
-        .and_then(|s| s.as_str())
-        .map(|s| s.to_string());
-    match (gsid, csid) {
-        (Some(global), Some(coll)) => (Some(CollSyncIds { global, coll }), new_global_state),
-        _ => (None, None),
-    }
+    let gsid = meta_global.sync_id;
+    let ids = meta_global.engines.get(collection).map(|coll| CollSyncIds {
+        global: gsid.to_string(),
+        coll: coll.sync_id.to_string(),
+    });
+    (ids, new_global_state)
 }
 
 #[cfg(test)]
