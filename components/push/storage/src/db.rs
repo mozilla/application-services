@@ -189,7 +189,7 @@ impl Storage for PushDb {
 
     fn set_meta(&self, key: &str, value: &str) -> Result<()> {
         let query = "INSERT or REPLACE into meta_data (key, value) values (:k, :v)";
-        self.execute_named(query, &[(":k", &key), (":v", &value)])?;
+        self.execute_named_cached(query, &[(":k", &key), (":v", &value)])?;
         Ok(())
     }
 }

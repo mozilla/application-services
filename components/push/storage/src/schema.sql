@@ -9,12 +9,8 @@ IF NOT EXISTS push_record
     ctime              INTEGER  NOT NULL,
     app_server_key     TEXT,
     native_id          TEXT,
-    PRIMARY KEY
-(uaid, channel_id)
+    PRIMARY KEY (uaid, channel_id)
 );
-
-DROP INDEX IF EXISTS channel_id_idx;
-CREATE UNIQUE INDEX channel_id_idx ON push_record(channel_id);
 
 CREATE TABLE
 IF NOT EXISTS meta_data
