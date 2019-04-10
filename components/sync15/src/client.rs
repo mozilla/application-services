@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::bso_record::EncryptedBso;
+use crate::bso_record::{BsoRecord, EncryptedBso};
 use crate::error::{self, ErrorKind};
 use crate::record_types::MetaGlobalRecord;
 use crate::request::{
@@ -83,8 +83,6 @@ pub struct Sync15StorageClientInit {
 /// machine. This is factored out into a separate trait to make mocking
 /// easier.
 pub trait SetupStorageClient {
-    // Even though these are all identical except for the return type, we can't
-    // have generic params in a trait, so we list them out.
     fn fetch_info_configuration(&self) -> error::Result<Sync15ClientResponse<InfoConfiguration>>;
     fn fetch_info_collections(&self) -> error::Result<Sync15ClientResponse<InfoCollections>>;
     fn fetch_meta_global(&self) -> error::Result<Sync15ClientResponse<MetaGlobalRecord>>;
@@ -114,7 +112,30 @@ impl SetupStorageClient for Sync15StorageClient {
     }
 
     fn fetch_meta_global(&self) -> error::Result<Sync15ClientResponse<MetaGlobalRecord>> {
-        self.relative_storage_request(Method::Get, "storage/meta/global")
+        // meta/global is a Bso, so there's an extra dance to do.
+        let got: Sync15ClientResponse<BsoRecord<MetaGlobalRecord>> =
+            self.relative_storage_request(Method::Get, "storage/meta/global")?;
+        Ok(match got {
+            Sync15ClientResponse::Success {
+                record,
+                last_modified,
+                route,
+            } => Sync15ClientResponse::Success {
+                record: record.payload,
+                last_modified,
+                route,
+            },
+            Sync15ClientResponse::NotFound { route } => Sync15ClientResponse::NotFound { route },
+            Sync15ClientResponse::Unauthorized { route } => {
+                Sync15ClientResponse::Unauthorized { route }
+            }
+            Sync15ClientResponse::ServerError { route, status } => {
+                Sync15ClientResponse::ServerError { route, status }
+            }
+            Sync15ClientResponse::RequestFailed { route, status } => {
+                Sync15ClientResponse::RequestFailed { route, status }
+            }
+        })
     }
 
     fn fetch_crypto_keys(&self) -> error::Result<Sync15ClientResponse<EncryptedBso>> {
@@ -126,7 +147,8 @@ impl SetupStorageClient for Sync15StorageClient {
         xius: ServerTimestamp,
         global: &MetaGlobalRecord,
     ) -> error::Result<()> {
-        self.put("storage/meta/global", xius, global)
+        let bso = BsoRecord::new_record("global".into(), "meta".into(), global);
+        self.put("storage/meta/global", xius, &bso)
     }
 
     fn put_crypto_keys(&self, xius: ServerTimestamp, keys: &EncryptedBso) -> error::Result<()> {
