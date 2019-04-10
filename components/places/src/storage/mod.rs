@@ -199,7 +199,7 @@ pub fn run_maintenance(conn: &PlacesDb) -> Result<()> {
 
 pub(crate) fn put_meta(db: &PlacesDb, key: &str, value: &ToSql) -> Result<()> {
     db.execute_named_cached(
-        "REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
+        "INSERT OR REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
         &[(":key", &key), (":value", value)],
     )?;
     Ok(())
@@ -227,4 +227,32 @@ pub(crate) fn delete_pending_temp_tables(conn: &PlacesDb) -> Result<()> {
          DELETE FROM moz_updateoriginsinsert_temp;",
     )?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::places_api::test::new_mem_connection;
+
+    #[test]
+    fn test_meta() {
+        let conn = new_mem_connection();
+        let bar = "bar".to_string();
+        let baz = "baz".to_string();
+        assert!(get_meta::<String>(&conn, "foo")
+            .expect("should get")
+            .is_none());
+        put_meta(&conn, "foo", &bar).expect("should put");
+        assert_eq!(
+            get_meta(&conn, "foo").expect("should get new val"),
+            Some(bar)
+        );
+        put_meta(&conn, "foo", &baz).expect("should put an existing value");
+        assert_eq!(get_meta(&conn, "foo").expect("should get"), Some(baz));
+        delete_meta(&conn, "foo").expect("should delete");
+        assert!(get_meta::<String>(&conn, &"foo")
+            .expect("should get non-existing")
+            .is_none());
+        delete_meta(&conn, "foo").expect("delete non-existing should work");
+    }
 }
