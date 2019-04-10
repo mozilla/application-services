@@ -287,3 +287,29 @@ macro_rules! define_handle_map_deleter {
         }
     };
 }
+
+/// Force a compile error if the condition is not met. Requires a unique name
+/// for the assertion for... reasons. This is included mainly because it's a
+/// common desire for FFI code, but not for other sorts of code.
+///
+/// # Examples
+///
+/// Failing example:
+///
+/// ```compile_fail
+/// ffi_support::static_assert!(THIS_SHOULD_FAIL, false);
+/// ```
+///
+/// Passing example:
+///
+/// ```
+/// ffi_support::static_assert!(THIS_SHOULD_PASS, true);
+/// ```
+#[macro_export]
+macro_rules! static_assert {
+    ($ASSERT_NAME:ident, $test:expr) => {
+        #[allow(dead_code, nonstandard_style)]
+        const $ASSERT_NAME: [u8; 0 - (!$test as bool as usize)] =
+            [0u8; 0 - (!$test as bool as usize)];
+    };
+}

@@ -144,22 +144,36 @@ mod callback_holder {
     /// Note: We only assign to this once.
     static CALLBACK_PTR: AtomicUsize = AtomicUsize::new(0);
 
+    // Overly-paranoid sanity checking to ensure that these types are
+    // convertible between each-other. `transmute` actually should check this for
+    // us too, but this helps document the invariants we rely on in this code.
+
+    ffi_support::static_assert!(
+        STATIC_ASSERT_USIZE_EQ_FUNC_SIZE,
+        std::mem::size_of::<usize>() == std::mem::size_of::<FetchCallback>()
+    );
+
+    ffi_support::static_assert!(
+        STATIC_ASSERT_USIZE_EQ_OPT_FUNC_SIZE,
+        std::mem::size_of::<usize>() == std::mem::size_of::<Option<FetchCallback>>()
+    );
+
     /// Get the function pointer to the FetchCallback. Panics if the callback
     /// has not yet been initialized.
     pub(super) fn get_callback() -> Option<FetchCallback> {
-        let ptr = CALLBACK_PTR.load(Ordering::SeqCst) as *const FetchCallback;
-        if ptr.is_null() {
-            None
-        } else {
-            Some(unsafe { *ptr })
-        }
+        let ptr_value = CALLBACK_PTR.load(Ordering::SeqCst);
+        unsafe { std::mem::transmute::<usize, Option<FetchCallback>>(ptr_value) }
     }
 
     /// Set the function pointer to the FetchCallback. Returns false if we did nothing because the callback had already been initialized
-    pub(super) unsafe fn set_callback(h: *const FetchCallback) -> bool {
-        let old_ptr = CALLBACK_PTR.compare_and_swap(0, h as usize, Ordering::SeqCst);
+    pub(super) unsafe fn set_callback(h: FetchCallback) -> bool {
+        let as_usize = std::mem::transmute::<FetchCallback, usize>(h);
+        let old_ptr = CALLBACK_PTR.compare_and_swap(0, as_usize, Ordering::SeqCst);
         if old_ptr != 0 {
-            // This is an internal bug, the other side of the FFI should ensure it sets this only once.
+            // This is an internal bug, the other side of the FFI should ensure
+            // it sets this only once. Note that this is actually going to be
+            // before logging is initialized in practice, so there's not a lot
+            // we can actually do here.
             log::error!("Bug: Initialized CALLBACK_PTR multiple times");
         }
         old_ptr == 0
@@ -178,7 +192,7 @@ pub extern "C" fn viaduct_alloc_bytebuffer(sz: i32) -> ByteBuffer {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn viaduct_initialize(callback: *const FetchCallback) -> u8 {
+pub unsafe extern "C" fn viaduct_initialize(callback: FetchCallback) -> u8 {
     ffi_support::abort_on_panic::call_with_output(|| callback_holder::set_callback(callback))
 }
 
