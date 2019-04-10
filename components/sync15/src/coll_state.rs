@@ -62,9 +62,10 @@ impl<'state> LocalCollStateMachine<'state> {
                 }
                 match meta_global.engines.get(name) {
                     Some(engine_meta) => {
-                        if ids.map_or(false, |ids| {
+                        let ids_match = ids.map_or(false, |ids| {
                             ids.global == meta_global.sync_id && ids.coll == engine_meta.sync_id
-                        }) {
+                        });
+                        if ids_match {
                             Ok(LocalCollState::Ready {
                                 key: self.global_state.keys.default.clone(),
                             })

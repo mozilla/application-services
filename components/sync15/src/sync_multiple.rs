@@ -150,7 +150,7 @@ pub fn sync_multiple(
     }
 
     sync_ping.sync(telem_sync);
-    if failures.len() != 0 {
+    if !failures.is_empty() {
         log::info!("Updating persisted global state");
         mem_cached_state.last_client_info = Some(client_info);
         mem_cached_state.last_global_state = Some(global_state);

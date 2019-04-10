@@ -71,7 +71,7 @@ impl IncomingChangeset {
                 last_modified,
                 ..
             } => (record, last_modified),
-            other => return Err(other.to_storage_error().into()),
+            other => return Err(other.create_storage_error().into()),
         };
         // xxx - duplication below of `timestamp` smells wrong
         state.last_modified = timestamp;

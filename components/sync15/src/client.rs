@@ -48,10 +48,10 @@ pub enum Sync15ClientResponse<T> {
 }
 
 impl<T> Sync15ClientResponse<T> {
-    // XXX - consider making this just `to_error` so we can throw other
+    // XXX - consider making this just `create_error` so we can throw other
     // types of errors (eg, a specific Unauthorized or Retry-After error - but
     // for now it always returns a StorageHttpError.
-    pub fn to_storage_error(self) -> ErrorKind {
+    pub fn create_storage_error(self) -> ErrorKind {
         let (code, route): (u16, String) = match self {
             Sync15ClientResponse::Success { route, .. } => {
                 // This should never happen as callers are expected to have

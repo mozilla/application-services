@@ -21,7 +21,7 @@ use sync15::{telemetry, MemoryCachedState};
 
 // Not clear if this should be here, but this is the "global sync state"
 // which is persisted to disk and reused for all engines.
-pub const GLOBAL_STATE_META_KEY: &'static str = "global_sync_state_v2";
+pub const GLOBAL_STATE_META_KEY: &str = "global_sync_state_v2";
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq)]

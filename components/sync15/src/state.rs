@@ -212,7 +212,7 @@ impl<'a> SetupStateMachine<'a> {
                 let config = match self.client.fetch_info_configuration()? {
                     Sync15ClientResponse::Success { record, .. } => record,
                     Sync15ClientResponse::NotFound { .. } => InfoConfiguration::default(),
-                    other => return Err(other.to_storage_error().into()),
+                    other => return Err(other.create_storage_error().into()),
                 };
                 Ok(InitialWithConfig { config })
             }
@@ -234,7 +234,7 @@ impl<'a> SetupStateMachine<'a> {
                     // If the server doesn't have a `crypto/keys`, start over
                     // and reupload our `meta/global` and `crypto/keys`.
                     Sync15ClientResponse::NotFound { .. } => Ok(FreshStartRequired { config }),
-                    other => Err(other.to_storage_error().into()),
+                    other => Err(other.create_storage_error().into()),
                 }
             }
 
@@ -270,7 +270,7 @@ impl<'a> SetupStateMachine<'a> {
                     }
                 }
                 Sync15ClientResponse::NotFound { .. } => Ok(FreshStartRequired { config }),
-                other => Err(other.to_storage_error().into()),
+                other => Err(other.create_storage_error().into()),
             },
 
             InitialWithMetaGlobal {
@@ -310,7 +310,7 @@ impl<'a> SetupStateMachine<'a> {
                     // If the server doesn't have a `crypto/keys`, start over
                     // and reupload our `meta/global` and `crypto/keys`.
                     Sync15ClientResponse::NotFound { .. } => Ok(FreshStartRequired { config }),
-                    other => Err(other.to_storage_error().into()),
+                    other => Err(other.create_storage_error().into()),
                 }
             }
 
@@ -405,6 +405,7 @@ impl<'a> SetupStateMachine<'a> {
 /// States in the remote setup process.
 /// TODO(lina): Add link once #56 is merged.
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 enum SetupState {
     // These "Initial" states are only ever used when starting from scratch.
     Initial,
