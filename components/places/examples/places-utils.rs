@@ -20,7 +20,9 @@ use std::cell::RefCell;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
-use sync15::{sync_multiple, telemetry, MemoryCachedState, Store};
+use sync15::{
+    sync_multiple, telemetry, MemoryCachedState, SetupStorageClient, Store, Sync15StorageClient,
+};
 use url::Url;
 
 type Result<T> = std::result::Result<T, failure::Error>;
@@ -160,12 +162,16 @@ fn sync(
     api: &PlacesApi,
     mut engine_names: Vec<String>,
     cred_file: String,
+    wipe_all: bool,
     wipe: bool,
     reset: bool,
 ) -> Result<()> {
     let conn = api.open_connection(ConnectionType::Sync)?;
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
 
+    if wipe_all {
+        Sync15StorageClient::new(cli_fxa.client_init.clone())?.wipe_all_remote()?;
+    }
     // phew - working with traits is making markh's brain melt!
     // Note also that PlacesApi::sync() exists and ultimately we should
     // probably end up using that, but it's not yet ready to handle bookmarks.
@@ -277,7 +283,11 @@ enum Command {
         #[structopt(name = "credentials", long, default_value = "./credentials.json")]
         credential_file: String,
 
-        /// Wipe the server store before syncing.
+        /// Wipe ALL storage from the server before syncing.
+        #[structopt(name = "wipe-all-remote", long)]
+        wipe_all: bool,
+
+        /// Wipe the engine data from the server before syncing.
         #[structopt(name = "wipe-remote", long)]
         wipe: bool,
 
@@ -326,9 +336,10 @@ fn main() -> Result<()> {
         Command::Sync {
             engines,
             credential_file,
+            wipe_all,
             wipe,
             reset,
-        } => sync(&api, engines, credential_file, wipe, reset),
+        } => sync(&api, engines, credential_file, wipe_all, wipe, reset),
         Command::ExportBookmarks { output_file } => run_native_export(&db, output_file),
         Command::ImportBookmarks { input_file } => run_native_import(&db, input_file),
         Command::ImportDesktopBookmarks { input_file } => run_desktop_import(&db, input_file),
