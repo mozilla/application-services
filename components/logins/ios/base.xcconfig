@@ -1,6 +1,0 @@
-#include "../../../xcconfig/common.xcconfig"
-
-INFOPLIST_FILE = Logins/Info.plist
-LIBRARY_SEARCH_PATHS = "../../../target/universal/$(buildvariant)" "../../../libs/ios/universal/sqlcipher/lib"
-CLANG_ENABLE_MODULES = YES
-ALWAYS_SEARCH_USER_PATHS = NO
