@@ -164,7 +164,7 @@ fn sync(
     wipe: bool,
     reset: bool,
 ) -> Result<()> {
-    let conn = api.open_connection(ConnectionType::Sync)?;
+    let conn = api.open_sync_connection()?;
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
 
     // phew - working with traits is making markh's brain melt!

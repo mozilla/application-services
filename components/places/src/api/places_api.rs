@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc, Mutex, Weak,
 };
 use sync15::{telemetry, ClientInfo};
@@ -72,6 +72,7 @@ pub struct PlacesApi {
     write_connection: Mutex<Option<PlacesDb>>,
     sync_state: Mutex<Option<SyncState>>,
     coop_tx_lock: Arc<Mutex<()>>,
+    sync_conn_active: AtomicBool,
     id: usize,
 }
 impl PlacesApi {
@@ -115,6 +116,7 @@ impl PlacesApi {
                     encryption_key: encryption_key.map(|x| x.to_string()),
                     write_connection: Mutex::new(Some(connection)),
                     sync_state: Mutex::new(None),
+                    sync_conn_active: AtomicBool::new(false),
                     id,
                     coop_tx_lock,
                 };
@@ -148,15 +150,30 @@ impl PlacesApi {
                 }
             }
             ConnectionType::Sync => {
-                // ideally we'd enforce this in the same way as write_connection
-                PlacesDb::open(
-                    self.db_name.clone(),
-                    ec,
-                    ConnectionType::Sync,
-                    self.id,
-                    self.coop_tx_lock.clone(),
-                )
+                panic!("Use `open_sync_connection` to open a sync connection");
             }
+        }
+    }
+
+    pub fn open_sync_connection(&self) -> Result<SyncConn> {
+        let prev_value = self
+            .sync_conn_active
+            .compare_and_swap(false, true, Ordering::SeqCst);
+        if prev_value {
+            Err(ErrorKind::ConnectionAlreadyOpen.into())
+        } else {
+            let ec = self.encryption_key.as_ref().map(|x| x.as_str());
+            let db = PlacesDb::open(
+                self.db_name.clone(),
+                ec,
+                ConnectionType::Sync,
+                self.id,
+                self.coop_tx_lock.clone(),
+            )?;
+            Ok(SyncConn {
+                db,
+                flag: &self.sync_conn_active,
+            })
         }
     }
 
@@ -184,7 +201,7 @@ impl PlacesApi {
         key_bundle: &sync15::KeyBundle,
     ) -> Result<telemetry::SyncTelemetryPing> {
         let mut guard = self.sync_state.lock().unwrap();
-        let conn = self.open_connection(ConnectionType::Sync)?;
+        let conn = self.open_sync_connection()?;
         if guard.is_none() {
             *guard = Some(SyncState {
                 client_info: Cell::new(None),
@@ -195,6 +212,26 @@ impl PlacesApi {
         let mut sync_ping = telemetry::SyncTelemetryPing::new();
         store.sync(&client_init, &key_bundle, &mut sync_ping)?;
         Ok(sync_ping)
+    }
+}
+
+/// Wrapper around PlacesDb that automatically sets a flag (`sync_conn_active`)
+/// to false when finished
+pub struct SyncConn<'api> {
+    db: PlacesDb,
+    flag: &'api AtomicBool,
+}
+
+impl<'a> Drop for SyncConn<'a> {
+    fn drop(&mut self) {
+        self.flag.store(false, Ordering::SeqCst)
+    }
+}
+
+impl<'a> std::ops::Deref for SyncConn<'a> {
+    type Target = PlacesDb;
+    fn deref(&self) -> &PlacesDb {
+        &self.db
     }
 }
 
