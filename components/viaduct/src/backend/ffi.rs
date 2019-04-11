@@ -66,12 +66,12 @@ pub fn send(request: crate::Request) -> Result<crate::Response, Error> {
         let exn_name = exn
             .name
             .as_ref()
-            .map(|s| s.as_str())
+            .map(String::as_str)
             .unwrap_or("<unknown exception>");
         let exn_msg = exn
             .msg
             .as_ref()
-            .map(|s| s.as_str())
+            .map(String::as_str)
             .unwrap_or("<no message provided>");
         log::error!(
             // Well, we caught *something* java wanted to tell us about, anyway.

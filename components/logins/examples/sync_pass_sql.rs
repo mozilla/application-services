@@ -55,7 +55,7 @@ fn update_string(field_name: &str, field: &mut String, extra: &str) -> bool {
 }
 
 fn string_opt(o: &Option<String>) -> Option<&str> {
-    o.as_ref().map(|s| s.as_ref())
+    o.as_ref().map(AsRef::as_ref)
 }
 
 fn string_opt_or<'a>(o: &'a Option<String>, or: &'a str) -> &'a str {
@@ -130,7 +130,7 @@ fn show_sql(e: &PasswordEngine, sql: &str) -> Result<()> {
     let cols: Vec<String> = stmt
         .column_names()
         .into_iter()
-        .map(|x| x.to_owned())
+        .map(ToOwned::to_owned)
         .collect();
     let len = cols.len();
     let mut table = Table::new();

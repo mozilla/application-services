@@ -905,7 +905,7 @@ mod test {
             status,
             last_modified: ServerTimestamp(lm),
             result: UploadResult {
-                batch: batch.into().map(|x| x.into()),
+                batch: batch.into().map(Into::into),
                 failed: HashMap::new(),
                 success: vec![],
             },

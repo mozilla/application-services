@@ -3,6 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #![allow(unknown_lints)]
+// Let's allow these in the FFI code, since it's usually just a coincidence if
+// the closure is small.
+#![allow(clippy::redundant_closure)]
 
 use ffi_support::ConcurrentHandleMap;
 use ffi_support::{define_handle_map_deleter, define_string_destructor, ExternError, FfiStr};
@@ -85,7 +88,7 @@ pub unsafe extern "C" fn sync15_passwords_state_new_with_hex_key(
         let path = db_path.as_str();
         let key = bytes_to_key_string(encryption_key, encryption_key_len as usize);
         // We have a Option<String>, but need an Option<&str>...
-        let opt_key_ref = key.as_ref().map(|s| s.as_str());
+        let opt_key_ref = key.as_ref().map(String::as_str);
         PasswordEngine::new(path, opt_key_ref)
     })
 }

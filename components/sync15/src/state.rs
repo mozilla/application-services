@@ -93,7 +93,7 @@ impl GlobalState {
                 global
                     .engines
                     .keys()
-                    .map(|key| key.to_string())
+                    .map(ToString::to_string)
                     .collect::<HashSet<String>>()
             })
             .unwrap_or_default();
@@ -255,12 +255,7 @@ fn new_global_from_previous(
         declined: previous_global
             .as_ref()
             .map(|global| global.declined.clone())
-            .unwrap_or_else(|| {
-                DEFAULT_DECLINED
-                    .iter()
-                    .map(|name| name.to_string())
-                    .collect()
-            }),
+            .unwrap_or_else(|| DEFAULT_DECLINED.iter().map(ToString::to_string).collect()),
     })
 }
 

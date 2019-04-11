@@ -52,7 +52,7 @@ impl BookmarkRecordId {
     #[inline]
     pub fn into_payload_id(self) -> String {
         self.root_payload_id()
-            .map(|p| p.into())
+            .map(Into::into)
             .unwrap_or_else(|| (self.0).0)
     }
 

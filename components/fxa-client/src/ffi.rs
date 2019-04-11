@@ -61,7 +61,7 @@ impl From<AccessTokenInfo> for msg_types::AccessTokenInfo {
         msg_types::AccessTokenInfo {
             scope: a.scope,
             token: a.token,
-            key: a.key.map(|k| k.into()),
+            key: a.key.map(Into::into),
             expires_at: a.expires_at,
         }
     }

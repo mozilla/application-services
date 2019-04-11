@@ -52,7 +52,10 @@ impl FxAClient for Client {
         if resp.status == status_codes::NOT_MODIFIED {
             return Ok(None);
         }
-        let etag = resp.headers.get(header_names::ETAG).map(|s| s.to_owned());
+        let etag = resp
+            .headers
+            .get(header_names::ETAG)
+            .map(ToString::to_string);
         Ok(Some(ResponseAndETag {
             etag,
             response: resp.json()?,
@@ -110,7 +113,7 @@ impl Client {
         let url = config.token_endpoint()?;
         Self::make_request(Request::post(url).json(&body))?
             .json()
-            .map_err(|e| e.into())
+            .map_err(Into::into)
     }
 
     fn make_request(request: Request) -> Result<Response> {

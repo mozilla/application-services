@@ -60,13 +60,13 @@ impl From<VisitObservation> for SerializedObservation {
     fn from(visit: VisitObservation) -> Self {
         Self {
             url: visit.url.to_string(),
-            title: visit.title.clone(),
+            title: visit.title,
             visit_type: visit.visit_type.map(|vt| vt as u8),
-            at: visit.at.map(|at| at.into()),
+            at: visit.at.map(Into::into),
             error: visit.is_error.unwrap_or(false),
             is_redirect_source: visit.is_redirect_source.unwrap_or(false),
             remote: visit.is_remote.unwrap_or(false),
-            referrer: visit.referrer.map(|url| url.to_string()),
+            referrer: visit.referrer,
         }
     }
 }
@@ -507,7 +507,7 @@ mod autocomplete {
 
         let mut autocompleter = BackgroundAutocomplete::start(ConnectionArgs {
             path: db_path,
-            encryption_key: encryption_key.map(|s| s.to_owned()),
+            encryption_key: encryption_key.map(ToString::to_string),
         })?;
 
         let mut stdin = termion::async_stdin();

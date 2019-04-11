@@ -105,14 +105,14 @@ impl FirefoxAccount {
             Some(ref refresh_token) => {
                 // Union of the already held scopes and the one requested.
                 let mut all_scopes: Vec<String> = vec![];
-                all_scopes.extend(scopes.iter().map(|s| s.to_string()));
+                all_scopes.extend(scopes.iter().map(ToString::to_string));
                 let existing_scopes = refresh_token.scopes.clone();
                 all_scopes.extend(existing_scopes);
                 HashSet::<String>::from_iter(all_scopes)
                     .into_iter()
                     .collect()
             }
-            None => scopes.iter().map(|s| s.to_string()).collect(),
+            None => scopes.iter().map(ToString::to_string).collect(),
         };
         let scopes: Vec<&str> = scopes.iter().map(<_>::as_ref).collect();
         self.oauth_flow(url, &scopes, wants_keys)
@@ -217,7 +217,7 @@ impl FirefoxAccount {
         }
         self.state.refresh_token = Some(RefreshToken {
             token: refresh_token,
-            scopes: HashSet::from_iter(resp.scope.split(' ').map(|s| s.to_string())),
+            scopes: HashSet::from_iter(resp.scope.split(' ').map(ToString::to_string)),
         });
         Ok(())
     }

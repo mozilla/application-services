@@ -113,7 +113,7 @@ impl PlacesApi {
                 )?;
                 let new = PlacesApi {
                     db_name: db_name.clone(),
-                    encryption_key: encryption_key.map(|x| x.to_string()),
+                    encryption_key: encryption_key.map(ToString::to_string),
                     write_connection: Mutex::new(Some(connection)),
                     sync_state: Mutex::new(None),
                     sync_conn_active: AtomicBool::new(false),
@@ -129,7 +129,7 @@ impl PlacesApi {
 
     /// Open a connection to the database.
     pub fn open_connection(&self, conn_type: ConnectionType) -> Result<PlacesDb> {
-        let ec = self.encryption_key.as_ref().map(|x| x.as_str());
+        let ec = self.encryption_key.as_ref().map(String::as_str);
         match conn_type {
             ConnectionType::ReadOnly => {
                 // make a new one - we can have as many of these as we want.
@@ -162,7 +162,7 @@ impl PlacesApi {
         if prev_value {
             Err(ErrorKind::ConnectionAlreadyOpen.into())
         } else {
-            let ec = self.encryption_key.as_ref().map(|x| x.as_str());
+            let ec = self.encryption_key.as_ref().map(String::as_str);
             let db = PlacesDb::open(
                 self.db_name.clone(),
                 ec,

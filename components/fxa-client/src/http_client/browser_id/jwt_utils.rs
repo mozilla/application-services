@@ -152,7 +152,7 @@ mod tests {
             return Err(ErrorKind::JWTSignatureValidationFailed.into());
         }
         let payload = base64::decode_config(&segments[1], base64::URL_SAFE_NO_PAD)?;
-        String::from_utf8(payload).map_err(|e| e.into())
+        String::from_utf8(payload).map_err(Into::into)
     }
 
     // These tests are copied directly from Firefox for Android's TestJSONWebTokenUtils.

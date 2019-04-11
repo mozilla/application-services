@@ -51,13 +51,13 @@ impl BrowserIDKeyPair for RSABrowserIDKeyPair {
     fn sign(&self, message: &[u8]) -> Result<Vec<u8>> {
         let mut signer = Signer::new(MessageDigest::sha256(), &self.key)?;
         signer.update(message)?;
-        signer.sign_to_vec().map_err(|e| e.into())
+        signer.sign_to_vec().map_err(Into::into)
     }
 
     fn verify_message(&self, message: &[u8], signature: &[u8]) -> Result<bool> {
         let mut verifier = Verifier::new(MessageDigest::sha256(), &self.key)?;
         verifier.update(message)?;
-        verifier.verify(signature).map_err(|e| e.into())
+        verifier.verify(signature).map_err(Into::into)
     }
 
     fn to_json(&self, include_private: bool) -> Result<serde_json::Value> {

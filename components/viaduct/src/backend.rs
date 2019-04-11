@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::sync::atomic::{AtomicBool, Ordering, ATOMIC_BOOL_INIT};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[cfg(feature = "reqwest")]
 mod reqwest;
@@ -11,7 +11,7 @@ mod ffi;
 
 // We allow globally forcing us to use the FFI backend for better
 // testing, for example.
-static FFI_FORCED: AtomicBool = ATOMIC_BOOL_INIT;
+static FFI_FORCED: AtomicBool = AtomicBool::new(false);
 
 fn ffi_is_forced() -> bool {
     FFI_FORCED.load(Ordering::SeqCst)

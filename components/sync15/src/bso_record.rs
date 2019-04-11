@@ -427,7 +427,7 @@ impl CleartextBso {
     where
         for<'a> T: Deserialize<'a>,
     {
-        Ok(self.try_map_payload(|payload| payload.into_record())?)
+        Ok(self.try_map_payload(Payload::into_record)?)
     }
 }
 

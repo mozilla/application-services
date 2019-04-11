@@ -114,7 +114,7 @@ impl VisitObservation {
     }
 
     pub fn with_referrer(mut self, v: impl Into<Option<Url>>) -> Self {
-        self.referrer = v.into().map(|v| v.into_string());
+        self.referrer = v.into().map(Url::into_string);
         self
     }
 
