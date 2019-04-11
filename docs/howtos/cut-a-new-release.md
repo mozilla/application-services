@@ -34,6 +34,10 @@ These are the steps needed to cut a new release.
     5. Until [automated publishing to maven](https://github.com/mozilla/application-services/issues/252)
        is available, file a bug to request manual mirroring of the release artifacts from bintray to maven.
        You can use [Bug 1540775](https://bugzilla.mozilla.org/show_bug.cgi?id=1540775) as a template.
+        - The list of files to mirror can be obtained using the following command, where `$LIBRARY_VERSION` is the version declared in `.buildconfig-android.yml` (e.g. `"0.24.0"`):
+        
+          ```curl https://api.bintray.com/packages/mozilla-appservices/application-services/org.mozilla.appservices/versions/$LIBRARY_VERSION/files | jq --raw-output '.[].path | "https://dl.bintray.com/mozilla-appservices/application-services/\(.)"'```
+
 5. If you need to manually produce the iOS build for some reason (for example, if CircleCI cannot), someone with a mac needs to do the following steps:
     1. If necessary, set up for performing iOS builds:
         ```
