@@ -4,14 +4,14 @@
 
 set -euvx
 
-if [ "$#" -lt 1 -o "$#" -gt 2 ]
+if [ "${#}" -lt 1 -o "${#}" -gt 2 ]
 then
   echo "Usage:"
   echo "./build-nss-desktop.sh <NSS_SRC_PATH> [CROSS_COMPILE_TARGET]"
   exit 1
 fi
 
-NSS_SRC_PATH=$1
+NSS_SRC_PATH=${1}
 # Whether to cross compile from Linux to a different target.  Really
 # only intended for automation.
 CROSS_COMPILE_TARGET=${2-}
@@ -53,7 +53,7 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   # TODO cross compile ourselves, I lost my sanity over this and gave up.
   curl -L -O "https://s3-us-west-2.amazonaws.com/fxa-dev-bucket/nss/nss-dist.tar.bz2"
   SHA256="e744a4e0ea7daad75b28eef63d6ced0acd8a993a850998018916e0cad82dc382"
-  echo "$SHA256  nss-dist.tar.bz2" | shasum -a 256 -c - || exit 2
+  echo "${SHA256}  nss-dist.tar.bz2" | shasum -a 256 -c - || exit 2
   tar xvjf nss-dist.tar.bz2
   mkdir -p "${NSS_DIR}/include/nss"
   mkdir -p "${NSS_DIR}/lib"

@@ -4,19 +4,19 @@
 
 set -euvx
 
-if [ "$#" -ne 6 ]
+if [ "${#}" -ne 6 ]
 then
     echo "Usage:"
     echo "./build-nss-android.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <ARCH> <TOOLCHAIN_PATH> <TOOLCHAIN> <ANDROID_NDK_API_VERSION>"
     exit 1
 fi
 
-NSS_SRC_DIR=$1
-DIST_DIR=$2
-ARCH=$3
-TOOLCHAIN_PATH=$4
-TOOLCHAIN=$5
-ANDROID_NDK_API_VERSION=$6
+NSS_SRC_DIR=${1}
+DIST_DIR=${2}
+ARCH=${3}
+TOOLCHAIN_PATH=${4}
+TOOLCHAIN=${5}
+ANDROID_NDK_API_VERSION=${6}
 
 if [ -d "${DIST_DIR}" ]; then
   echo "${DIST_DIR}"" folder already exists. Skipping build."

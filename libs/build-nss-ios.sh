@@ -4,17 +4,17 @@
 
 set -euvx
 
-if [ "$#" -ne 4 ]
+if [ "${#}" -ne 4 ]
 then
     echo "Usage:"
     echo "./build-nss-ios.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <ARCH> <IOS_MIN_SDK_VERSION>"
     exit 1
 fi
 
-NSS_SRC_DIR=$1
-DIST_DIR=$2
-ARCH=$3
-IOS_MIN_SDK_VERSION=$4
+NSS_SRC_DIR=${1}
+DIST_DIR=${2}
+ARCH=${3}
+IOS_MIN_SDK_VERSION=${4}
 
 if [ -d "${DIST_DIR}" ]; then
   echo "${DIST_DIR}"" folder already exists. Skipping build."
@@ -33,10 +33,10 @@ else
 fi
 
 DEVELOPER=$(xcode-select -print-path)
-CROSS_TOP="$DEVELOPER/Platforms/$OS_COMPILER.platform/Developer"
-CROSS_SDK="$OS_COMPILER.sdk"
-TOOLCHAIN_BIN="$DEVELOPER/Toolchains/XcodeDefault.xctoolchain/usr/bin"
-ISYSROOT="$CROSS_TOP/SDKs/$CROSS_SDK"
+CROSS_TOP="${DEVELOPER}/Platforms/${OS_COMPILER}.platform/Developer"
+CROSS_SDK="${OS_COMPILER}.sdk"
+TOOLCHAIN_BIN="${DEVELOPER}/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+ISYSROOT="${CROSS_TOP}/SDKs/${CROSS_SDK}"
 CC="${TOOLCHAIN_BIN}/clang -arch ${ARCH} -isysroot ${ISYSROOT} -lc++ -mios-version-min=${IOS_MIN_SDK_VERSION}"
 CPU_ARCH="arm" # Static on purpose as NSS's Makefiles don't try to do anything funny when CPU_ARCH == "arm".
 
@@ -84,7 +84,7 @@ make \
   NSPR_INCLUDE_DIR="${NSPR_BUILD_DIR}/dist/include/nspr" \
   NSPR_LIB_DIR="${NSPR_BUILD_DIR}/dist/lib" \
   NSINSTALL="${NSPR_BUILD_DIR}/config/nsinstall" \
-  -C "$NSS_SRC_DIR/nss"
+  -C "${NSS_SRC_DIR}/nss"
 
 mkdir -p "${DIST_DIR}/include/nss"
 mkdir -p "${DIST_DIR}/lib"

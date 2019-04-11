@@ -5,14 +5,14 @@
 
 set -euvx
 
-if [ "$#" -ne 1 ]
+if [ "${#}" -ne 1 ]
 then
     echo "Usage:"
     echo "./patch-nss-src.sh <NSS_SRC_PATH>"
     exit 1
 fi
 
-NSS_SRC_PATH=$1
+NSS_SRC_PATH=${1}
 
 # Remove once NSS 3.44 is out (see bug 1540205 for context).
 echo '\
@@ -34,7 +34,7 @@ echo '\
 
  SECStatus
  ChaCha20Poly1305_Seal(const ChaCha20Poly1305Context *ctx, unsigned char *output,
-' | patch $NSS_SRC_PATH/nss/lib/freebl/chacha20poly1305.c
+' | patch ${NSS_SRC_PATH}/nss/lib/freebl/chacha20poly1305.c
 
 # TODO: file bug to get this upstream.
 echo '\
@@ -53,7 +53,7 @@ echo '\
  arm-linux*-android*|*-linuxandroid*)
      android_tool_prefix="arm-linux-androideabi"
      ;;
-' | patch $NSS_SRC_PATH/nspr/configure
+' | patch ${NSS_SRC_PATH}/nspr/configure
 
 # TODO: file bug to get this upstream.
 echo '\
@@ -70,7 +70,7 @@ echo '\
  ifdef USE_PTHREADS
  	DEFINES		+= -D_REENTRANT
  endif
-' | patch $NSS_SRC_PATH/nss/coreconf/Linux.mk
+' | patch ${NSS_SRC_PATH}/nss/coreconf/Linux.mk
 
 # TODO: file bug to get this upstream.
 # This param makes mingw32 gcc trip.
