@@ -28,6 +28,9 @@ commands:
             rustup default <<parameters.rust-version>>
             rustup update
             rustc --version
+  install-system-nss:
+    steps:
+      - run: sudo apt-get install libnss3-dev
   build-libs:
     parameters:
       platform:
@@ -59,6 +62,7 @@ commands:
         default: "stable"
     steps:
       - checkout
+      - install-system-nss
       - build-desktop-libs
       - setup-rust-toolchain:
           rust-version: <<parameters.rust-version>>
@@ -132,6 +136,7 @@ jobs:
     steps:
       - checkout
       - setup-rust-toolchain
+      - install-system-nss
       - run: rustup component add clippy
       - run: cargo clippy --version
       - run: cargo clippy --all --all-targets --all-features -- -D warnings

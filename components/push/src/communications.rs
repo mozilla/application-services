@@ -405,7 +405,7 @@ mod test {
     use mockito::{mock, server_address};
     use serde_json::json;
 
-    // use crypto::{get_bytes, Key};
+    // use push_crypto::{get_bytes, Key};
 
     const DUMMY_CHID: &str = "deadbeef00000000decafbad00000000";
     const DUMMY_UAID: &str = "abad1dea00000000aabbccdd00000000";

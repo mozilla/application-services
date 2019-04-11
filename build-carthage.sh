@@ -11,4 +11,4 @@ carthage build --no-skip-current --platform iOS --verbose
 
 # Exclude SwiftProtobuf.
 rm -rf Carthage/Build/iOS/SwiftProtobuf.framework*
-zip -r $FRAMEWORK_NAME Carthage/Build/iOS
+zip -r ${FRAMEWORK_NAME} Carthage/Build/iOS

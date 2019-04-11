@@ -177,7 +177,7 @@ mod test {
 
     //use serde_json::json;
 
-    // use crypto::{get_bytes, Key};
+    // use push_crypto::{get_bytes, Key};
 
     /*
     const DUMMY_CHID: &str = "deadbeef00000000decafbad00000000";

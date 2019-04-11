@@ -1,0 +1,14 @@
+[package]
+name = "rc_crypto"
+version = "0.1.0"
+authors = ["Edouard Oger <eoger@fastmail.com>"]
+edition = "2018"
+license = "MPL-2.0"
+
+[lib]
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+failure = "0.1.5"
+failure_derive = "0.1.5"
+nss_sys = { path = "nss_sys" }

@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{errors::*, scoped_keys::ScopedKeysFlow, util, FirefoxAccount, RNG};
-use ring::digest;
+use rc_crypto::digest;
 use serde_derive::*;
 use std::{
     collections::HashSet,
@@ -121,7 +121,7 @@ impl FirefoxAccount {
     fn oauth_flow(&mut self, mut url: Url, scopes: &[&str], wants_keys: bool) -> Result<String> {
         let state = util::random_base64_url_string(&*RNG, 16)?;
         let code_verifier = util::random_base64_url_string(&*RNG, 43)?;
-        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
+        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes())?;
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         url.query_pairs_mut()
             .append_pair("client_id", &self.state.config.client_id)
