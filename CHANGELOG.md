@@ -2,7 +2,11 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.24.0...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.25.0...master)
+
+# v0.25.0 (_2018-04-11_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.24.0...v0.25.0)
 
 ## General
 
