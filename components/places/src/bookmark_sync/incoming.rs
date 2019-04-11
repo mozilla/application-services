@@ -92,7 +92,7 @@ impl<'a> IncomingApplicator<'a> {
                       )"#,
             &[
                 (":guid", &b.record_id.as_guid().as_ref()),
-                (":parentGuid", &b.parent_record_id.as_ref().map(|id| id.as_guid())),
+                (":parentGuid", &b.parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Bookmark),
                 (":dateAdded", &b.date_added),
@@ -136,7 +136,7 @@ impl<'a> IncomingApplicator<'a> {
                       :dateAdded, NULLIF(:title, ""))"#,
             &[
                 (":guid", &f.record_id.as_guid().as_ref()),
-                (":parentGuid", &f.parent_record_id.as_ref().map(|id| id.as_guid())),
+                (":parentGuid", &f.parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Folder),
                 (":dateAdded", &f.date_added),
@@ -261,13 +261,13 @@ impl<'a> IncomingApplicator<'a> {
                      )"#,
             &[
                 (":guid", &q.record_id.as_guid().as_ref()),
-                (":parentGuid", &q.parent_record_id.as_ref().map(|id| id.as_guid())),
+                (":parentGuid", &q.parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Query),
                 (":dateAdded", &q.date_added),
                 (":title", &maybe_truncate_title(&q.title)),
                 (":validity", &validity),
-                (":url", &url.map(|u| u.into_string()))
+                (":url", &url.map(Url::into_string))
             ],
         )?;
         Ok(())
@@ -320,7 +320,7 @@ impl<'a> IncomingApplicator<'a> {
                 (":guid", &l.record_id.as_guid().as_ref()),
                 (
                     ":parentGuid",
-                    &l.parent_record_id.as_ref().map(|id| id.as_guid()),
+                    &l.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
                 ),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Livemark),
@@ -344,7 +344,7 @@ impl<'a> IncomingApplicator<'a> {
                 (":guid", &s.record_id.as_guid().as_ref()),
                 (
                     ":parentGuid",
-                    &s.parent_record_id.as_ref().map(|id| id.as_guid()),
+                    &s.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
                 ),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Separator),

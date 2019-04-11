@@ -853,10 +853,7 @@ impl<'de> Deserialize<'de> for BookmarkTreeNode {
             Err(e) => {
                 log::warn!(
                     "ignoring invalid url for {}: {:?}",
-                    m.guid
-                        .as_ref()
-                        .map(|guid| guid.as_ref())
-                        .unwrap_or("<no guid>"),
+                    m.guid.as_ref().map(AsRef::as_ref).unwrap_or("<no guid>"),
                     e
                 );
                 None
@@ -1867,12 +1864,12 @@ mod tests {
                     Ok(row.get_checked::<_, String>(0)?)
                 })
                 .expect("should work")
-                .map(|v| v.unwrap())
+                .map(std::result::Result::unwrap)
                 .collect();
 
             assert_eq!(
                 got_guids,
-                guids.into_iter().map(|v| v.to_string()).collect()
+                guids.into_iter().map(ToString::to_string).collect()
             );
             // reset them all back
             conn.execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
@@ -1889,12 +1886,12 @@ mod tests {
                     Ok(row.get_checked::<_, String>(0)?)
                 })
                 .expect("should work")
-                .map(|v| v.unwrap())
+                .map(std::result::Result::unwrap)
                 .collect();
 
             assert_eq!(
                 got_guids,
-                guids.into_iter().map(|v| v.to_string()).collect()
+                guids.into_iter().map(ToString::to_string).collect()
             );
             // reset them all back
             conn.execute("UPDATE moz_bookmarks SET lastModified = 123", NO_PARAMS)

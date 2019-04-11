@@ -214,18 +214,18 @@ impl Connection for ConnectHttp {
             }
         };
 
-        self.uaid = response["uaid"].as_str().map({ |s| s.to_owned() });
-        self.auth = response["secret"].as_str().map({ |s| s.to_owned() });
+        self.uaid = response["uaid"].as_str().map(ToString::to_string);
+        self.auth = response["secret"].as_str().map(ToString::to_string);
 
-        let channel_id = response["channelID"].as_str().map({ |s| s.to_owned() });
-        let endpoint = response["endpoint"].as_str().map({ |s| s.to_owned() });
+        let channel_id = response["channelID"].as_str().map(ToString::to_string);
+        let endpoint = response["endpoint"].as_str().map(ToString::to_string);
 
         Ok(RegisterResponse {
             uaid: self.uaid.clone().unwrap(),
             channelid: channel_id.unwrap(),
             secret: self.auth.clone(),
             endpoint: endpoint.unwrap(),
-            senderid: response["senderid"].as_str().map({ |s| s.to_owned() }),
+            senderid: response["senderid"].as_str().map(ToString::to_string),
         })
     }
 
@@ -254,7 +254,7 @@ impl Connection for ConnectHttp {
         }
         match Request::delete(Url::parse(&url)?)
             .header(header_names::AUTHORIZATION, self.auth.clone().unwrap())
-            .and_then(|r| r.send())
+            .and_then(Request::send)
         {
             Ok(_) => Ok(true),
             Err(e) => {
@@ -291,7 +291,7 @@ impl Connection for ConnectHttp {
         match Request::put(Url::parse(&url)?)
             .json(&body)
             .header(header_names::AUTHORIZATION, self.auth.clone().unwrap())
-            .and_then(|r| r.send())
+            .and_then(Request::send)
         {
             Ok(_) => Ok(true),
             Err(e) => {
@@ -330,7 +330,7 @@ impl Connection for ConnectHttp {
         );
         let request = match Request::get(Url::parse(&url)?)
             .header(header_names::AUTHORIZATION, self.auth.clone().unwrap())
-            .and_then(|r| r.send())
+            .and_then(Request::send)
         {
             Ok(v) => v,
             Err(e) => {
@@ -360,7 +360,9 @@ impl Connection for ConnectHttp {
             }
         };
         if payload.uaid != self.uaid.clone().unwrap() {
-            return Err(CommunicationServerError("Invalid Response from server".to_string()).into());
+            return Err(
+                CommunicationServerError("Invalid Response from server".to_string()).into(),
+            );
         }
         Ok(payload.channel_ids.clone())
     }

@@ -112,7 +112,7 @@ impl ScopedKeysFlow {
         let aad = aead::Aad::from(segments[0].as_bytes());
         let plaintext = aead::open_in_place(&opening_key, nonce, aad, 0, &mut in_out)
             .map_err(|_| ErrorKind::AEADOpenFailure)?;
-        String::from_utf8(plaintext.to_vec()).map_err(|e| e.into())
+        String::from_utf8(plaintext.to_vec()).map_err(Into::into)
     }
 }
 

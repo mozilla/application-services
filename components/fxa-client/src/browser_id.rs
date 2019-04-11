@@ -116,7 +116,7 @@ pub struct WebChannelResponse {
 
 impl WebChannelResponse {
     pub fn from_json(json: &str) -> Result<WebChannelResponse> {
-        serde_json::from_str(json).map_err(|e| e.into())
+        serde_json::from_str(json).map_err(Into::into)
     }
 }
 

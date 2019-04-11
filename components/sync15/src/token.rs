@@ -265,9 +265,9 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
             Err(e) => {
                 // Early to avoid nll issues...
                 if let ErrorKind::BackoffError(be) = e.kind() {
-                    return TokenState::Backoff(*be, previous_endpoint.map(|s| s.to_string()));
+                    return TokenState::Backoff(*be, previous_endpoint.map(ToString::to_string));
                 }
-                TokenState::Failed(Some(e), previous_endpoint.map(|s| s.to_string()))
+                TokenState::Failed(Some(e), previous_endpoint.map(ToString::to_string))
             }
         }
     }
@@ -280,7 +280,7 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
         match state {
             TokenState::NoToken => Some(self.fetch_token(None)),
             TokenState::Failed(_, existing_endpoint) => {
-                Some(self.fetch_token(existing_endpoint.as_ref().map(|e| e.as_str())))
+                Some(self.fetch_token(existing_endpoint.as_ref().map(String::as_str)))
             }
             TokenState::Token(existing_context) => {
                 if existing_context.is_valid(self.fetcher.now()) {
@@ -295,7 +295,7 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
                     None
                 } else {
                     // backoff period is over
-                    Some(self.fetch_token(existing_endpoint.as_ref().map(|e| e.as_str())))
+                    Some(self.fetch_token(existing_endpoint.as_ref().map(String::as_str)))
                 }
             }
             TokenState::NodeReassigned => {
