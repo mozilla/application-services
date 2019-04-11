@@ -1,13 +1,13 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/.
- *
- * Handles cryptographic functions.
- * Depending on platform, this may call various libraries or have other dependencies.
- *
- * This uses prime256v1 EC encryption that should come from internal crypto calls. The "application-services"
- * module compiles openssl, however, so might be enough to tie into that.
- */
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+//! Handles cryptographic functions.
+//!
+//! Depending on platform, this may call various libraries or have other dependencies.
+//!
+//! This uses prime256v1 EC encryption that should come from internal crypto calls. The "application-services"
+//! module compiles openssl, however, so might be enough to tie into that.
 
 use log::{debug, error};
 use std::clone;

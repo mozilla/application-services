@@ -1,10 +1,15 @@
-/* Server Communications.
- * Handles however communication to and from the remote Push Server should be done. For Desktop
- * this will be over Websocket. For mobile, it will probably be calls into the local operating
- * system and HTTPS to the web push server.
- *
- * In the future, it could be using gRPC and QUIC, or quantum relay.
- */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+//! Server Communications.
+//!
+//! Handles however communication to and from the remote Push Server should be done. For Desktop
+//! this will be over Websocket. For mobile, it will probably be calls into the local operating
+//! system and HTTPS to the web push server.
+//!
+//! In the future, it could be using gRPC and QUIC, or quantum relay.
+
 use serde_derive::*;
 use serde_json::Value;
 use std::collections::HashMap;

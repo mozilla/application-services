@@ -1,6 +1,10 @@
-/* Handle external Push Subscription Requests.
- * "priviledged" system calls may require additional handling and should be flagged as such.
- */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+//! Handle external Push Subscription Requests.
+//!
+//! "priviledged" system calls may require additional handling and should be flagged as such.
 
 use std::collections::HashMap;
 
