@@ -2,6 +2,42 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+//! This implements "cooperative transactions" for places. It relies on our
+//! decision to have exactly 1 general purpose "writer" connection and exactly
+//! one "sync writer" - ie, exactly 2 write connections.
+//!
+//! The idea is that anything that uses the sync connection should use
+//! `time_chunked_transaction`. Code using this should regularly call
+//! `maybe_commit()`, and every second, will commit the transaction and start
+//! a new one.
+//!
+//! This means that in theory the other writable connection can start
+//! transactions and should block for a max of 1 second - well under the 5
+//! seconds before that other writer will fail with a SQLITE_BUSY or similar error.
+//!
+//! However, in practice we see the writer thread being starved - even though
+//! it's waiting for a lock, the sync thread still manages to re-get the lock.
+//! In other words, the locks used by sqlite aren't "fair".
+//!
+//! So we mitigate this with a simple approach that works fine within our
+//! "exactly 2 writers" constraints:
+//! * Each database connection shares a mutex.
+//! * Before starting a transaction, each connection locks the mutex.
+//! * It then starts an "immediate" transaction - because sqlite now holds a
+//!   lock on our behalf, we release the lock on the mutex.
+//!
+//! In other words, the lock is held only while obtaining the DB lock, then
+//! immediately released.
+//!
+//! The end result here is that if either connection is waiting for the
+//! database lock because the other already holds it, the waiting one is
+//! guaranteed to get the database lock next.
+//!
+//! One additional wrinkle here is that even if there was exactly one writer,
+//! there's still a possibility of SQLITE_BUSY if the database is being
+//! checkpointed. So we handle that case and perform exactly 1 retry.
+
+use crate::api::places_api::ConnectionType;
 use crate::db::PlacesDb;
 use crate::error::*;
 use rusqlite::{Connection, TransactionBehavior};
@@ -10,42 +46,17 @@ use std::ops::Deref;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-/// This implements "cooperative transactions" for places. It relies on our
-/// decision to have exactly 1 general purpose "writer" connection and exactly
-/// one "sync writer" - ie, exactly 2 write connections.
-///
-/// The idea is that anything that uses the sync connection should use
-/// `time_chunked_transaction`. Code using this should regularly call
-/// `maybe_commit()`, and every second, will commit the transaction and start
-/// a new one.
-///
-/// This means that in theory the other writable connection can start
-/// transactions and should block for a max of 1 second - well under the 5
-/// seconds before that other writer will fail with a SQLITE_BUSY or similar error.
-///
-/// However, in practice we see the writer thread being starved - even though
-/// it's waiting for a lock, the sync thread still manages to re-get the lock.
-/// In other words, the locks used by sqlite aren't "fair".
-///
-/// So we mitigate this with a simple approach that works fine within our
-/// "exactly 2 writers" constraints:
-/// * Each database connection shares a mutex.
-/// * Before starting a transaction, each connection locks the mutex.
-/// * It then starts an "immediate" transaction - because sqlite now holds a
-///   lock on our behalf, we release the lock on the mutex.
-///
-/// In other words, the lock is held only while obtaining the DB lock, then
-/// immediately released.
-///
-/// The end result here is that if either connection is waiting for the
-/// database lock because the other already holds it, the waiting one is
-/// guaranteed to get the database lock next.
-///
-/// One additional wrinkle here is that even if there was exactly one writer,
-/// there's still a possibility of SQLITE_BUSY if the database is being
-/// checkpointed. So we handle that case and perform exactly 1 retry.
 impl PlacesDb {
+    /// Begin a TimeChunkedTransaction. Must be called from the
+    /// sync connection, see module doc for details.
     pub fn time_chunked_transaction(&self) -> Result<TimeChunkedTransaction> {
+        if !cfg!(test) || !self.is_in_memory() {
+            assert_eq!(
+                self.conn_type(),
+                ConnectionType::Sync,
+                "time_chunked_transaction must only be called by the Sync connection"
+            );
+        }
         // Note that we don't allow commit_after as a param because it
         // is closely related to the timeouts configured on the database
         // itself.
@@ -57,7 +68,17 @@ impl PlacesDb {
         )?)
     }
 
+    /// Begin a "coop" transaction. Must be called from the sync connection, see
+    /// module doc for details.
     pub fn coop_transaction(&self) -> Result<UncheckedTransaction> {
+        // Only validate tranaction types for ConnectionType::ReadWrite.
+        if !cfg!(test) || !self.is_in_memory() {
+            assert_eq!(
+                self.conn_type(),
+                ConnectionType::ReadWrite,
+                "coop_transaction must only be called on the ReadWrite connection"
+            );
+        }
         let _lock = self.coop_tx_lock.lock().unwrap();
         get_tx_with_retry_on_locked(self.conn())
     }

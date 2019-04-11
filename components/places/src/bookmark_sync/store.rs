@@ -470,7 +470,7 @@ impl<'a> Store for BookmarksStore<'a> {
     /// all synced items and pending tombstones. This also forgets the last
     /// sync time.
     fn reset(&self) -> result::Result<(), failure::Error> {
-        let tx = self.db.coop_transaction()?;
+        let tx = self.db.time_chunked_transaction()?;
         self.db.execute_batch(&format!(
             "DELETE FROM moz_bookmarks_synced;
 
@@ -494,7 +494,7 @@ impl<'a> Store for BookmarksStore<'a> {
     /// Conceptually, the next sync will merge an empty local tree, and a full
     /// remote tree.
     fn wipe(&self) -> result::Result<(), failure::Error> {
-        let tx = self.db.coop_transaction()?;
+        let tx = self.db.time_chunked_transaction()?;
         let sql = format!(
             "INSERT INTO moz_bookmarks_deleted(guid, dateRemoved)
              SELECT guid, now()
@@ -1101,13 +1101,15 @@ mod tests {
     #[test]
     fn test_fetch_local_tree() -> Result<()> {
         let api = new_mem_api();
-        let conn = api.open_connection(ConnectionType::Sync)?;
+        let writer = api.open_connection(ConnectionType::ReadWrite)?;
+        let syncer = api.open_connection(ConnectionType::Sync)?;
 
-        conn.execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
+        writer
+            .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
             .expect("should work");
 
         insert_local_json_tree(
-            &conn,
+            &writer,
             json!({
                 "guid": &BookmarkRootGuid::Unfiled.as_guid(),
                 "children": [
@@ -1121,7 +1123,7 @@ mod tests {
         );
 
         let client_info = Cell::new(None);
-        let store = BookmarksStore::new(&conn, &client_info);
+        let store = BookmarksStore::new(&syncer, &client_info);
         let merger = Merger::new(&store, ServerTimestamp(0.0));
 
         let tree = merger.fetch_local_tree()?;

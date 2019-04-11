@@ -47,14 +47,8 @@ fn main() -> Result<()> {
     let (tx, rx) = sync_channel(0);
 
     let child = thread::spawn(move || {
-        let db1 = PlacesDb::open(
-            path,
-            None,
-            ConnectionType::ReadWrite,
-            0,
-            coop_tx_lock.clone(),
-        )
-        .unwrap();
+        let db1 =
+            PlacesDb::open(path, None, ConnectionType::Sync, 0, coop_tx_lock.clone()).unwrap();
         // assert_eq!(rx.recv().unwrap(), 0);
         let mut t = db1
             .time_chunked_transaction()
