@@ -246,7 +246,7 @@ pub fn apply_plan(
     // time_chunked_transaction - even though doesn't seem a large bottleneck
     // at this time, the fact we hold a single transaction for the entire call
     // really is used only for performance, so it's certainly a candidate.
-    let tx = db.coop_transaction()?;
+    let tx = db.time_chunked_transaction()?;
     let mut out_infos = fetch_outgoing(db, MAX_OUTGOING_PLACES, MAX_VISITS)?;
 
     for (guid, out_record) in out_infos.drain() {
@@ -264,7 +264,7 @@ pub fn apply_plan(
 }
 
 pub fn finish_plan(db: &PlacesDb) -> Result<()> {
-    let tx = db.coop_transaction()?;
+    let tx = db.time_chunked_transaction()?;
     finish_outgoing(db)?;
     log::trace!("Committing final sync plan");
     tx.commit()?;
