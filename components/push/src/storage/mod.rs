@@ -5,13 +5,12 @@
  * Handle Push data storage
  */
 
-#![allow(unknown_lints)]
 mod db;
 mod record;
 mod schema;
 mod types;
 
-pub use crate::{
+pub use self::{
     db::{PushDb as Store, Storage},
     record::PushRecord,
 };

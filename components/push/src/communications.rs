@@ -5,24 +5,16 @@
  *
  * In the future, it could be using gRPC and QUIC, or quantum relay.
  */
-
-#![allow(unknown_lints)]
-
-extern crate config;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-
+use serde_derive::*;
 use serde_json::Value;
 use std::collections::HashMap;
 use url::Url;
 use viaduct::{header_names, status_codes, Headers, Request};
 
-use config::PushConfiguration;
-use push_errors as error;
-use push_errors::ErrorKind::{
-    AlreadyRegisteredError, CommunicationError, CommunicationServerError,
+use crate::config::PushConfiguration;
+use crate::error::{
+    self,
+    ErrorKind::{AlreadyRegisteredError, CommunicationError, CommunicationServerError},
 };
 
 #[derive(Debug)]
@@ -405,7 +397,6 @@ mod test {
 
     use super::Connection;
 
-    use hex;
     use mockito::{mock, server_address};
     use serde_json::json;
 
@@ -447,7 +438,7 @@ mod test {
             .with_body(body)
             .create();
             let mut conn = connect(config.clone(), None, None).unwrap();
-            let channel_id = hex::encode(crypto::get_bytes(16).unwrap());
+            let channel_id = hex::encode(crate::crypto::get_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id).unwrap();
             ap_mock.assert();
             assert_eq!(response.uaid, DUMMY_UAID);

@@ -1,9 +1,0 @@
-[package]
-name = "notifier"
-version = "0.1.0"
-authors = ["jrconlin <me+crypt@jrconlin.com>"]
-edition = "2018"
-license = "MPL-2.0"
-
-[dependencies]
-storage={path="../storage"}

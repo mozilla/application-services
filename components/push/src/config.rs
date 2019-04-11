@@ -1,5 +1,3 @@
-#![allow(unknown_lints)]
-
 #[derive(Clone, Debug)]
 pub struct PushConfiguration {
     // host name:port

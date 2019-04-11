@@ -8,8 +8,7 @@
  * This uses prime256v1 EC encryption that should come from internal crypto calls. The "application-services"
  * module compiles openssl, however, so might be enough to tie into that.
  */
-#![allow(unknown_lints)]
-use base64;
+
 use log::{debug, error};
 use std::clone;
 use std::cmp;
@@ -22,7 +21,7 @@ use ece::{
 use openssl::ec::EcKey;
 use openssl::rand::rand_bytes;
 
-use push_errors as error;
+use crate::error;
 
 pub const SER_AUTH_LENGTH: usize = 16;
 pub type Decrypted = Vec<u8>;

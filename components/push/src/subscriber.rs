@@ -2,22 +2,14 @@
  * "priviledged" system calls may require additional handling and should be flagged as such.
  */
 
-#![allow(unknown_lints)]
-
-extern crate serde_json;
-
-extern crate communications;
-extern crate crypto;
-extern crate storage;
-
 use std::collections::HashMap;
 
-use communications::{connect, ConnectHttp, Connection, RegisterResponse};
-use config::PushConfiguration;
-use crypto::{Crypto, Cryptography, Key};
-use storage::{Storage, Store};
+use crate::communications::{connect, ConnectHttp, Connection, RegisterResponse};
+use crate::config::PushConfiguration;
+use crate::crypto::{Crypto, Cryptography, Key};
+use crate::storage::{Storage, Store};
 
-use push_errors::{self as error, ErrorKind, Result};
+use crate::error::{self, ErrorKind, Result};
 
 pub struct PushManager {
     config: PushConfiguration,
@@ -58,7 +50,7 @@ impl PushManager {
             subscription_key = Crypto::generate_key().unwrap();
         }
         // store the channelid => auth + subscription_key
-        let mut record = storage::PushRecord::new(
+        let mut record = crate::storage::PushRecord::new(
             &info.uaid,
             &channel_id,
             &info.endpoint,
@@ -167,7 +159,10 @@ impl PushManager {
         Ok(results)
     }
 
-    pub fn get_record_by_chid(&self, chid: &str) -> error::Result<Option<storage::PushRecord>> {
+    pub fn get_record_by_chid(
+        &self,
+        chid: &str,
+    ) -> error::Result<Option<crate::storage::PushRecord>> {
         self.store.get_record_by_chid(chid)
     }
 }

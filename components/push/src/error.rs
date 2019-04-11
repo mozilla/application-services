@@ -2,12 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#![allow(unknown_lints)]
-
 use std::fmt;
 use std::result;
-
-use rusqlite;
 
 use failure::{Backtrace, Context, Fail};
 use ffi_support;

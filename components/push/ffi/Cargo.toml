@@ -16,13 +16,7 @@ url = "1.7.1"
 ffi-support = { path = "../../support/ffi" }
 lazy_static = "1.3.0"
 base64 = "0.10"
-
-config = { path = "../config" }
-crypto = { path = "../crypto" }
-push-errors = {path = "../error" }
-subscriber ={ path = "../subscriber" }
-storage = { path = "../storage" }
-communications = { path = "../communications" }
+push = { path = ".." }
 viaduct = { path = "../../viaduct" }
 
 [dependencies.rusqlite]
@@ -33,7 +27,7 @@ features = ["sqlcipher", "limits", "functions"]
 path = "../../sync15"
 
 [features]
-reqwest = ["viaduct/reqwest", "communications/reqwest"]
+reqwest = ["viaduct/reqwest", "push/reqwest"]
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.7.0"
