@@ -1002,12 +1002,10 @@ mod tests {
         local_tree: Value,
     ) {
         let conn = api
-            .open_connection(ConnectionType::Sync)
+            .open_sync_connection()
             .expect("should get a sync connection");
         apply_incoming(&conn, records_json);
         assert_local_json_tree(&conn, local_folder, local_tree);
-        api.close_connection(conn)
-            .expect("should close sync connection");
     }
 
     #[test]
@@ -1037,7 +1035,7 @@ mod tests {
         ];
 
         let api = new_mem_api();
-        let conn = api.open_connection(ConnectionType::Sync)?;
+        let conn = api.open_sync_connection()?;
 
         // suck records into the store.
         let client_info = Cell::new(None);
@@ -1102,7 +1100,7 @@ mod tests {
     fn test_fetch_local_tree() -> Result<()> {
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_connection(ConnectionType::Sync)?;
+        let syncer = api.open_sync_connection()?;
 
         writer
             .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
@@ -1292,7 +1290,7 @@ mod tests {
     fn test_apply() -> Result<()> {
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_connection(ConnectionType::Sync)?;
+        let syncer = api.open_sync_connection()?;
 
         syncer
             .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
@@ -1466,7 +1464,7 @@ mod tests {
     fn test_keywords() -> Result<()> {
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_connection(ConnectionType::Sync)?;
+        let syncer = api.open_sync_connection()?;
 
         let records = vec![
             json!({
@@ -1542,7 +1540,7 @@ mod tests {
     fn test_wipe() -> Result<()> {
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_connection(ConnectionType::Sync)?;
+        let syncer = api.open_sync_connection()?;
 
         let records = vec![
             json!({
