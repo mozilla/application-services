@@ -125,7 +125,8 @@ def android_linux_x86_64():
     task = (
         android_task("Build and test (Android - linux-x86-64)", libs_tasks)
         .with_script("""
-            echo "rust.targets=linux-x86-64" > local.properties
+            echo "rust.targets=linux-x86-64,x86_64\n" > local.properties
+            echo "application-services.nonmegazord-profile=debug" >> local.properties
         """)
         .with_script("""
             yes | sdkmanager --update
