@@ -122,7 +122,7 @@ def ktlint_detekt():
 def android_linux_x86_64():
     ktlint_detekt()
     libs_tasks = libs_for("android", "desktop_linux", "desktop_macos", "desktop_win32_x86_64")
-    return (
+    task = (
         android_task("Build and test (Android - linux-x86-64)", libs_tasks)
         .with_script("""
             echo "rust.targets=linux-x86-64" > local.properties
@@ -133,8 +133,12 @@ def android_linux_x86_64():
             ./gradlew --no-daemon clean
             ./gradlew --no-daemon testDebug
         """)
-        .create()
     )
+    for module_info in module_definitions():
+        module = module_info['name']
+        if module.endswith("-megazord"):
+            task.with_script("./automation/check_megazord.sh {}".format(module[0:-9].replace("-", "_")))
+    return task.create()
 
 def gradle_module_task_name(module, gradle_task_name):
     return ":%s:%s" % (module, gradle_task_name)
@@ -157,9 +161,6 @@ def gradle_module_task(libs_tasks, module_info, is_release):
         .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "publish")))
         .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "zipMavenArtifacts")))
     )
-    # FIXME : run this on PRs
-    # if module.endswith("-megazord"):
-    #     task.with_script("./automation/check_megazord.sh {}".format(module[0:-9]))
     for artifact_info in module_info['artifacts']:
         task.with_artifacts(artifact_info['artifact'])
     if is_release:
