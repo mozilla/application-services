@@ -28,10 +28,12 @@ viaduct = { path = "../viaduct" }
 
 [dev-dependencies]
 cli-support = { path = "../support/cli" }
+force-viaduct-reqwest = { path = "../support/force-viaduct-reqwest" }
 
 [build-dependencies]
 prost-build = "0.5"
 
 [features]
 browserid = ["openssl", "hawk"]
+reqwest = ["viaduct/reqwest"]
 default = []

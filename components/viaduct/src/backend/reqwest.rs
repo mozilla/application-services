@@ -55,6 +55,7 @@ impl crate::Request {
 }
 
 pub fn send(request: crate::Request) -> Result<crate::Response, crate::Error> {
+    super::note_backend("reqwest (untrusted)");
     let request_method = request.method;
     let req = request.into_reqwest()?;
     let mut resp = CLIENT.execute(req).map_err(|e| {
@@ -93,4 +94,13 @@ pub fn send(request: crate::Request) -> Result<crate::Response, crate::Error> {
         status,
         headers,
     })
+}
+
+/// A dummy symbol we include so that we can detect whether or not the reqwest
+/// backend got compiled in.
+#[no_mangle]
+pub extern "C" fn viaduct_detect_reqwest_backend() {
+    ffi_support::abort_on_panic::call_with_output(|| {
+        println!("Nothing to see here (reqwest backend available).");
+    });
 }

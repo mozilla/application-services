@@ -157,6 +157,8 @@ def gradle_module_task(libs_tasks, module_info, is_release):
         .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "publish")))
         .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "zipMavenArtifacts")))
     )
+    if module.endswith("-megazord"):
+        task.with_script("./automation/check_megazords.sh {}".format(module[0:-9]))
     for artifact_info in module_info['artifacts']:
         task.with_artifacts(artifact_info['artifact'])
     if is_release:

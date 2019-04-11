@@ -5,6 +5,10 @@ version = "0.1.0"
 authors = ["jrconlin <me+crypt@jrconlin.com>", "Phil Jenvey <pjenvey@underboss.org>"]
 license = "MPL-2.0"
 
+[features]
+reqwest = ["communications/reqwest", "push-ffi/reqwest"]
+default = []
+
 [dependencies]
 communications={path="communications"}
 crypto={path="crypto"}

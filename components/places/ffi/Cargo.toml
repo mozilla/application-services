@@ -10,7 +10,8 @@ name = "places_ffi"
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [features]
-rust-http-stack = ["viaduct/rust-http-stack"]
+reqwest = ["viaduct/reqwest", "places/reqwest"]
+default = []
 
 [dependencies]
 serde_json = "1.0.28"

@@ -41,6 +41,7 @@ macro_rules! backend_error {
 pub fn send(request: crate::Request) -> Result<crate::Response, Error> {
     use ffi_support::IntoFfi;
     use prost::Message;
+    super::note_backend("FFI (trusted)");
 
     let method = request.method;
     let fetch = callback_holder::get_callback().ok_or_else(|| Error::BackendNotInitialized)?;
@@ -197,7 +198,7 @@ pub unsafe extern "C" fn viaduct_initialize(callback: FetchCallback) -> u8 {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn viaduct_force_enable_ffi_backend(v: u8) {
+pub extern "C" fn viaduct_force_enable_ffi_backend(v: u8) {
     ffi_support::abort_on_panic::call_with_output(|| super::force_enable_ffi_backend(v != 0));
 }
 
