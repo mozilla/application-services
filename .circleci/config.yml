@@ -26,6 +26,7 @@ commands:
           command: |
             rustup install <<parameters.rust-version>>
             rustup default <<parameters.rust-version>>
+            rustup update
             rustc --version
   build-libs:
     parameters:
@@ -121,6 +122,7 @@ jobs:
       - image: circleci/rust:latest
     steps:
       - checkout
+      - setup-rust-toolchain
       - run: rustup component add rustfmt
       - run: rustfmt --version
       - run: cargo fmt -- --check
@@ -129,6 +131,7 @@ jobs:
       - image: circleci/rust:latest
     steps:
       - checkout
+      - setup-rust-toolchain
       - run: rustup component add clippy
       - run: cargo clippy --version
       - run: cargo clippy --all --all-targets --all-features -- -D warnings
