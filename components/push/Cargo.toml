@@ -11,7 +11,7 @@ default = []
 
 [dependencies]
 communications={path="communications"}
-crypto={path="crypto"}
+push-crypto={path="crypto"}
 storage={path="storage"}
 subscriber={path="subscriber"}
 push-errors={path="error"}

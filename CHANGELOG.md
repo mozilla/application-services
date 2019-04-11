@@ -10,6 +10,8 @@
 
 ## General
 
+- Some cryptographic primitives are now backed by NSS. On reference-browser and fenix megazords the GeckoView NSS libs are used, otherwise these libraries are bundled. ([#891](https://github.com/mozilla/application-services/pull/891))
+
 ### What's Fixed
 
 - Megazords and requests should work again. ([#946](https://github.com/mozilla/application-services/pull/946))
@@ -19,6 +21,7 @@
 ## iOS
 
 - The individual components projects have been removed, please use the MozillaAppServices framework from now on. ([#932](https://github.com/mozilla/application-services/pull/932))
+- The NSS .dylibs must be included in your application project, see [instructions](https://github.com/mozilla/application-services/blob/30a1a57917c6e243c0c5d59fba24caa8de8f6b3a/docs/howtos/consuming-rust-components-on-ios.md#nss)
 
 ## Push
 

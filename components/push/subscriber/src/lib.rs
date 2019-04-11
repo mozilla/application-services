@@ -7,14 +7,14 @@
 extern crate serde_json;
 
 extern crate communications;
-extern crate crypto;
+extern crate push_crypto;
 extern crate storage;
 
 use std::collections::HashMap;
 
 use communications::{connect, ConnectHttp, Connection, RegisterResponse};
 use config::PushConfiguration;
-use crypto::{Crypto, Cryptography, Key};
+use push_crypto::{Crypto, Cryptography, Key};
 use storage::{Storage, Store};
 
 use push_errors::{self as error, ErrorKind, Result};
@@ -178,7 +178,7 @@ mod test {
 
     //use serde_json::json;
 
-    // use crypto::{get_bytes, Key};
+    // use push_crypto::{get_bytes, Key};
 
     /*
     const DUMMY_CHID: &str = "deadbeef00000000decafbad00000000";

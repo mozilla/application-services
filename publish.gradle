@@ -55,9 +55,14 @@ ext.configurePublish = { jnaForTestConfiguration = null,
         def forUnitTestsJarTask = task forUnitTestsJar(type: Jar) {
             from extractJnaResources
             from "$buildDir/rustJniLibs/desktop"
+            from "$buildDir/nativeLibs/desktop"
         }
 
         project.afterEvaluate {
+            def copyNativeLibsTask = tasks.findByName("copyNativeLibs")
+            if (copyNativeLibsTask != null) {
+                forUnitTestsJarTask.dependsOn(copyNativeLibsTask)
+            }
             forUnitTestsJarTask.dependsOn(tasks["cargoBuild"])
         }
     }

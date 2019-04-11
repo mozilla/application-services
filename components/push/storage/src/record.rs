@@ -1,6 +1,6 @@
 use rusqlite::Row;
 
-use crypto::Key;
+use push_crypto::Key;
 use push_errors::Result;
 
 use crate::types::Timestamp;
