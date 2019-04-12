@@ -141,11 +141,11 @@ impl PlacesDb {
     #[cfg(test)]
     // Useful for some tests (although most tests should use helper functions
     // in api::places_api::test)
-    pub fn open_in_memory(encryption_key: Option<&str>) -> Result<Self> {
+    pub fn open_in_memory(encryption_key: Option<&str>, conn_ty: ConnectionType) -> Result<Self> {
         Ok(Self::with_connection(
             Connection::open_in_memory()?,
             encryption_key,
-            ConnectionType::ReadWrite,
+            conn_ty,
             0,
             Arc::new(Mutex::new(())),
             true,
@@ -382,12 +382,12 @@ mod tests {
     // Sanity check that we can create a database.
     #[test]
     fn test_open() {
-        PlacesDb::open_in_memory(None).expect("no memory db");
+        PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).expect("no memory db");
     }
 
     #[test]
     fn test_reverse_host() {
-        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadOnly).expect("no memory db");
         let rev_host: String = conn
             .db
             .query_row("SELECT reverse_host('www.mozilla.org')", NO_PARAMS, |row| {
