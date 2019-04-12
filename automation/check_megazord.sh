@@ -11,10 +11,11 @@ fi
 
 MEGAZORD_NAME=$1
 
-TARGET_ARCHS=("x86_64" "x86" "arm64" "arm")
-JNI_LIBS_TARGETS=("x86_64" "x86" "arm64-v8a" "armeabi-v7a")
-NM_BINS=("x86_64-linux-android-nm" "i686-linux-android-nm" "aarch64-linux-android-nm" "arm-linux-androideabi-nm")
-RUST_TRIPLES=("x86_64-linux-android" "i686-linux-android" "aarch64-linux-android" "armv7-linux-androideabi")
+# For now just check x86_64 since we only run this for PRs
+TARGET_ARCHS=("x86_64") # "x86" "arm64" "arm")
+JNI_LIBS_TARGETS=("x86_64") # "x86" "arm64-v8a" "armeabi-v7a")
+NM_BINS=("x86_64-linux-android-nm") # "i686-linux-android-nm" "aarch64-linux-android-nm" "arm-linux-androideabi-nm")
+RUST_TRIPLES=("x86_64-linux-android") # "i686-linux-android" "aarch64-linux-android" "armv7-linux-androideabi")
 
 FORBIDDEN_SYMBOL="viaduct_detect_reqwest_backend"
 for i in "${!TARGET_ARCHS[@]}"; do
