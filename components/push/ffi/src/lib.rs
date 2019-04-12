@@ -197,4 +197,3 @@ pub extern "C" fn push_dispatch_for_chid(
 define_string_destructor!(push_destroy_string);
 define_bytebuffer_destructor!(push_destroy_buffer);
 define_handle_map_deleter!(MANAGER, push_connection_destroy);
-// define_box_destructor!(PlacesInterruptHandle, places_interrupt_handle_destroy);

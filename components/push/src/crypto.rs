@@ -335,7 +335,9 @@ mod crypto_tests {
     ) -> error::Result<Vec<u8>> {
         // The following come from internal storage;
         // More than likely, this will be stored either as an encoded or raw DER.
-        let priv_key_der_raw = "MHcCAQEEIKiZMcVhlVccuwSr62jWN4YPBrPmPKotJUWl1id0d2ifoAoGCCqGSM49AwEHoUQDQgAEFwl1-zUa0zLKYVO23LqUgZZEVesS0k_jQN_SA69ENHgPwIpWCoTq-VhHu0JiSwhF0oPUzEM-FBWYoufO6J97nQ";
+        let priv_key_der_raw =
+            "MHcCAQEEIKiZMcVhlVccuwSr62jWN4YPBrPmPKotJUWl1id0d2ifoAoGCCqGSM49AwEHoUQDQgAEFwl1-\
+             zUa0zLKYVO23LqUgZZEVesS0k_jQN_SA69ENHgPwIpWCoTq-VhHu0JiSwhF0oPUzEM-FBWYoufO6J97nQ";
         // The auth token
         let auth_raw = "LsuUOBKVQRY6-l7_Ajo-Ag";
         // This would be the public key sent to the subscription service.
@@ -348,7 +350,8 @@ mod crypto_tests {
     #[test]
     fn test_decrypt_aesgcm() {
         // The following comes from the delivered message body
-        let ciphertext = "BNKu5uTFhjyS-06eECU9-6O61int3Rr7ARbm-xPhFuyDO5sfxVs-HywGaVonvzkarvfvXE9IRT_YNA81Og2uSqDasdMuwqm1zd0O3f7049IkQep3RJ2pEZTy5DqvI7kwMLDLzea9nroq3EMH5hYhvQtQgtKXeWieEL_3yVDQVg";
+        let ciphertext = "BNKu5uTFhjyS-06eECU9-6O61int3Rr7ARbm-xPhFuyDO5sfxVs-HywGaVonvzkarvfvXE9IRT_YNA81Og2uSqDasdMuw\
+                          qm1zd0O3f7049IkQep3RJ2pEZTy5DqvI7kwMLDLzea9nroq3EMH5hYhvQtQgtKXeWieEL_3yVDQVg";
         // and now from the header values
         let dh = "keyid=foo;dh=BMOebOMWSRisAhWpRK9ZPszJC8BL9MiWvLZBoBU6pG6Kh6vUFSW4BHFMh0b83xCg3_7IgfQZXwmVuyu27vwiv5c,otherval=abcde";
         let salt = "salt=tSf2qu43C9BD0zkvRW5eUg";
@@ -357,13 +360,13 @@ mod crypto_tests {
 
         let decrypted = decrypter(ciphertext, "aesgcm", Some(salt), Some(dh)).unwrap();
 
-        // println!("decrypted: {:?}\n plaintext:{:?} ", String::from_utf8(decrypted).unwrap(), plaintext);
         assert_eq!(String::from_utf8(decrypted).unwrap(), PLAINTEXT.to_string());
     }
 
     #[test]
     fn test_fail_decrypt_aesgcm() {
-        let ciphertext = "BNKu5uTFhjyS-06eECU9-6O61int3Rr7ARbm-xPhFuyDO5sfxVs-HywGaVonvzkarvfvXE9IRT_YNA81Og2uSqDasdMuwqm1zd0O3f7049IkQep3RJ2pEZTy5DqvI7kwMLDLzea9nroq3EMH5hYhvQtQgtKXeWieEL_3yVDQVg";
+        let ciphertext = "BNKu5uTFhjyS-06eECU9-6O61int3Rr7ARbm-xPhFuyDO5sfxVs-HywGaVonvzkarvfvXE9IRT_\
+                          YNA81Og2uSqDasdMuwqm1zd0O3f7049IkQep3RJ2pEZTy5DqvI7kwMLDLzea9nroq3EMH5hYhvQtQgtKXeWieEL_3yVDQVg";
         let dh = "dh=BMOebOMWSRisAhWpRK9ZPszJC8BL9MiWvLZBoBU6pG6Kh6vUFSW4BHFMh0b83xCg3_7IgfQZXwmVuyu27vwiv5c";
         let salt = "salt=SomeInvalidSaltValue";
 
@@ -373,7 +376,11 @@ mod crypto_tests {
 
     #[test]
     fn test_decrypt_aes128gcm() {
-        let ciphertext = "Ek7iQgliMqS9kjFoiVOqRgAAEABBBFirfBtF6XTeHVPABFDveb1iu7uO1XVA_MYJeAo-4ih8WYUsXSTIYmkKMv5_UB3tZuQI7BQ2EVpYYQfvOCrWZVMRL8fJCuB5wVXcoRoTaFJwTlJ5hnw6IMSiaMqGVlc8drX7Hzy-ugzzAKRhGPV2x-gdsp58DZh9Ww5vHpHyT1xwVkXzx3KTyeBZu4gl_zR0Q00li17g0xGsE6Dg3xlkKEmaalgyUyObl6_a8RA6Ko1Rc6RhAy2jdyY1LQbBUnA";
+        let ciphertext =
+            "Ek7iQgliMqS9kjFoiVOqRgAAEABBBFirfBtF6XTeHVPABFDveb1iu7uO1XVA_MYJeAo-\
+             4ih8WYUsXSTIYmkKMv5_UB3tZuQI7BQ2EVpYYQfvOCrWZVMRL8fJCuB5wVXcoRoTaFJw\
+             TlJ5hnw6IMSiaMqGVlc8drX7Hzy-ugzzAKRhGPV2x-gdsp58DZh9Ww5vHpHyT1xwVkXz\
+             x3KTyeBZu4gl_zR0Q00li17g0xGsE6Dg3xlkKEmaalgyUyObl6_a8RA6Ko1Rc6RhAy2jdyY1LQbBUnA";
 
         let decrypted = decrypter(ciphertext, "aes128gcm", None, None).unwrap();
         assert_eq!(String::from_utf8(decrypted).unwrap(), PLAINTEXT.to_string());
