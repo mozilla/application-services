@@ -225,12 +225,12 @@ impl LoginDb {
                 let mut stmt = self.db.prepare(&query)?;
 
                 let rows = stmt.query_and_then(chunk, |row| {
-                    let guid_idx_i = row.get_checked::<_, i64>("guid_idx")?;
+                    let guid_idx_i = row.get::<_, i64>("guid_idx")?;
                     // Hitting this means our math is wrong...
                     assert!(guid_idx_i >= 0);
 
                     let guid_idx = guid_idx_i as usize;
-                    let is_mirror: bool = row.get_checked("is_mirror")?;
+                    let is_mirror: bool = row.get("is_mirror")?;
                     if is_mirror {
                         sync_data[guid_idx].set_mirror(MirrorLogin::from_row(row)?)?;
                     } else {
@@ -698,8 +698,8 @@ impl LoginDb {
             synced = SyncStatus::Synced as u8
         ))?;
         let rows = stmt.query_and_then(NO_PARAMS, |row| {
-            Ok(if row.get_checked::<_, bool>("is_deleted")? {
-                Payload::new_tombstone(row.get_checked::<_, String>("guid")?)
+            Ok(if row.get::<_, bool>("is_deleted")? {
+                Payload::new_tombstone(row.get::<_, String>("guid")?)
                     .with_sortindex(TOMBSTONE_SORTINDEX)
             } else {
                 let login = Login::from_row(row)?;
@@ -734,7 +734,7 @@ impl LoginDb {
         Ok(self.try_query_row(
             "SELECT value FROM loginsSyncMeta WHERE key = :key",
             &[(":key", &key as &ToSql)],
-            |row| Ok::<_, Error>(row.get_checked(0)?),
+            |row| Ok::<_, Error>(row.get(0)?),
             true,
         )?)
     }

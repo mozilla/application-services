@@ -55,10 +55,10 @@ pub fn check_positions(conn: &PlacesDb) {
     let parents: Vec<_> = stmt
         .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
             Ok((
-                row.get_checked::<_, i64>(0)?,
-                row.get_checked::<_, String>(1)?,
-                row.get_checked::<_, Option<String>>(2)?,
-                row.get_checked::<_, u32>(3)?,
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?,
+                row.get::<_, u32>(3)?,
             ))
         })
         .expect("should work")

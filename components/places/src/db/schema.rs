@@ -226,7 +226,7 @@ mod tests {
             "SELECT COUNT(*) from moz_places_tombstones
                      WHERE guid = :guid",
             &[(":guid", guid)],
-            |row| Ok(row.get_checked::<_, u32>(0)?),
+            |row| Ok(row.get::<_, u32>(0)?),
             true,
         );
         count.unwrap().unwrap() == 1
@@ -347,7 +347,7 @@ mod tests {
 
     fn select_simple_int(conn: &PlacesDb, stmt: &str) -> u32 {
         let count: Result<Option<u32>> =
-            conn.try_query_row(stmt, &[], |row| Ok(row.get_checked::<_, u32>(0)?), false);
+            conn.try_query_row(stmt, &[], |row| Ok(row.get::<_, u32>(0)?), false);
         count.unwrap().unwrap()
     }
 
@@ -356,7 +356,7 @@ mod tests {
             "SELECT foreign_count from moz_places
                      WHERE guid = :guid",
             &[(":guid", guid)],
-            |row| Ok(row.get_checked::<_, u32>(0)?),
+            |row| Ok(row.get::<_, u32>(0)?),
             true,
         );
         count.unwrap().unwrap()

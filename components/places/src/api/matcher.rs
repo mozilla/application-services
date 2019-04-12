@@ -187,17 +187,17 @@ impl SearchResult {
     pub fn from_adaptive_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
         let mut reasons = vec![MatchReason::PreviousUse];
 
-        let search_string = row.get_checked::<_, String>("searchString")?;
-        let _place_id = row.get_checked::<_, i64>("id")?;
-        let url = row.get_checked::<_, String>("url")?;
-        let history_title = row.get_checked::<_, Option<String>>("title")?;
-        let bookmarked = row.get_checked::<_, bool>("bookmarked")?;
-        let bookmark_title = row.get_checked::<_, Option<String>>("btitle")?;
-        let frecency = row.get_checked::<_, i64>("frecency")?;
+        let search_string = row.get::<_, String>("searchString")?;
+        let _place_id = row.get::<_, i64>("id")?;
+        let url = row.get::<_, String>("url")?;
+        let history_title = row.get::<_, Option<String>>("title")?;
+        let bookmarked = row.get::<_, bool>("bookmarked")?;
+        let bookmark_title = row.get::<_, Option<String>>("btitle")?;
+        let frecency = row.get::<_, i64>("frecency")?;
 
         let title = bookmark_title.or_else(|| history_title).unwrap_or_default();
 
-        let tags = row.get_checked::<_, Option<String>>("tags")?;
+        let tags = row.get::<_, Option<String>>("tags")?;
         if let Some(tags) = tags {
             reasons.push(MatchReason::Tags(tags));
         }
@@ -219,20 +219,20 @@ impl SearchResult {
     pub fn from_suggestion_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
         let mut reasons = vec![MatchReason::Bookmark];
 
-        let search_string = row.get_checked::<_, String>("searchString")?;
-        let url = row.get_checked::<_, String>("url")?;
+        let search_string = row.get::<_, String>("searchString")?;
+        let url = row.get::<_, String>("url")?;
 
-        let history_title = row.get_checked::<_, Option<String>>("title")?;
-        let bookmark_title = row.get_checked::<_, Option<String>>("btitle")?;
+        let history_title = row.get::<_, Option<String>>("title")?;
+        let bookmark_title = row.get::<_, Option<String>>("btitle")?;
         let title = bookmark_title.or_else(|| history_title).unwrap_or_default();
 
-        let tags = row.get_checked::<_, Option<String>>("tags")?;
+        let tags = row.get::<_, Option<String>>("tags")?;
         if let Some(tags) = tags {
             reasons.push(MatchReason::Tags(tags));
         }
         let url = Url::parse(&url).expect("Invalid URL in Places");
 
-        let frecency = row.get_checked::<_, i64>("frecency")?;
+        let frecency = row.get::<_, i64>("frecency")?;
 
         Ok(Self {
             search_string,
@@ -245,10 +245,10 @@ impl SearchResult {
     }
 
     pub fn from_origin_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
-        let search_string = row.get_checked::<_, String>("searchString")?;
-        let url = row.get_checked::<_, String>("url")?;
-        let display_url = row.get_checked::<_, String>("displayURL")?;
-        let frecency = row.get_checked::<_, i64>("frecency")?;
+        let search_string = row.get::<_, String>("searchString")?;
+        let url = row.get::<_, String>("url")?;
+        let display_url = row.get::<_, String>("displayURL")?;
+        let frecency = row.get::<_, i64>("frecency")?;
 
         let url = Url::parse(&url).expect("Invalid URL in Places");
 
@@ -263,11 +263,11 @@ impl SearchResult {
     }
 
     pub fn from_url_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
-        let search_string = row.get_checked::<_, String>("searchString")?;
-        let href = row.get_checked::<_, String>("url")?;
-        let stripped_url = row.get_checked::<_, String>("strippedURL")?;
-        let frecency = row.get_checked::<_, i64>("frecency")?;
-        let bookmarked = row.get_checked::<_, bool>("bookmarked")?;
+        let search_string = row.get::<_, String>("searchString")?;
+        let href = row.get::<_, String>("url")?;
+        let stripped_url = row.get::<_, String>("strippedURL")?;
+        let frecency = row.get::<_, i64>("frecency")?;
+        let bookmarked = row.get::<_, bool>("bookmarked")?;
 
         let mut reasons = vec![MatchReason::Url];
         if bookmarked {

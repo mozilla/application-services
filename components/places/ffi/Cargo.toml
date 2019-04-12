@@ -24,7 +24,7 @@ bytes = "0.4.12"
 viaduct = { path = "../../viaduct" }
 
 [dependencies.rusqlite]
-version = "0.16.0"
+version = "0.17.0"
 features = ["sqlcipher", "limits", "functions"]
 
 [dependencies.sync15]

@@ -21,7 +21,7 @@ lazy_static = "1.3.0"
 viaduct = { path = "../../viaduct" }
 
 [dependencies.rusqlite]
-version = "0.16.0"
+version = "0.17.0"
 features = ["sqlcipher"]
 
 [dependencies.logins]

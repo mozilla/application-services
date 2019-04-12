@@ -26,10 +26,10 @@ impl QueryPlan {
         let plan = stmt
             .query_and_then_named(params, |row| -> SqlResult<_> {
                 Ok(QueryPlanStep {
-                    node_id: row.get_checked(0)?,
-                    parent_id: row.get_checked(1)?,
-                    aux: row.get_checked(2)?,
-                    detail: row.get_checked(3)?,
+                    node_id: row.get(0)?,
+                    parent_id: row.get(1)?,
+                    aux: row.get(2)?,
+                    detail: row.get(3)?,
                 })
             })?
             .collect::<Result<Vec<QueryPlanStep>, _>>()?;

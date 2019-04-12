@@ -145,7 +145,7 @@ pub fn frecency_stale_at(db: &PlacesDb, url: &Url) -> Result<Option<Timestamp>> 
          WHERE h.url_hash = hash(:url) AND
                h.url = :url",
         &[(":url", &url.as_str())],
-        |row| -> rusqlite::Result<_> { Ok(row.get_checked::<_, Timestamp>(0)?) },
+        |row| -> rusqlite::Result<_> { Ok(row.get::<_, Timestamp>(0)?) },
         true,
     )?;
     Ok(result)
@@ -194,7 +194,7 @@ pub fn url_to_guid(db: &PlacesDb, url: &Url) -> Result<Option<SyncGuid>> {
         &[(":url", &url.clone().into_string())],
         // subtle: we explicitly need to specify rusqlite::Result or the compiler
         // struggles to work out what error type to return from try_query_row.
-        |row| -> rusqlite::Result<_> { Ok(row.get_checked::<_, SyncGuid>(0)?) },
+        |row| -> rusqlite::Result<_> { Ok(row.get::<_, SyncGuid>(0)?) },
         true,
     )?;
     Ok(result)
@@ -269,9 +269,7 @@ fn wipe_local_in_tx(db: &PlacesDb, tx: crate::db::PlacesTransaction) -> Result<(
     ])?;
 
     let need_frecency_update =
-        db.query_rows_and_then_named("SELECT id FROM moz_places", &[], |r| {
-            r.get_checked::<_, RowId>(0)
-        })?;
+        db.query_rows_and_then_named("SELECT id FROM moz_places", &[], |r| r.get::<_, RowId>(0))?;
     // Update the frecency for any remaining items, which basically means just
     // for the bookmarks.
     for row_id in need_frecency_update {
@@ -317,7 +315,7 @@ fn delete_place_visit_at_time_in_tx(db: &PlacesDb, url: &str, visit_date: Timest
            AND h.url = :url
          LIMIT 1",
         &[(":url", &url), (":visit_date", &visit_date)],
-        |row| row.get_checked::<_, RowId>(0),
+        |row| row.get::<_, RowId>(0),
         true,
     )?;
 
@@ -373,9 +371,9 @@ pub fn delete_visits_between_in_tx(db: &PlacesDb, start: Timestamp, end: Timesta
         &[(":start", &start), (":end", &end)],
         |row| -> rusqlite::Result<_> {
             Ok((
-                row.get_checked::<_, RowId>(0)?,
-                row.get_checked::<_, RowId>(1)?,
-                row.get_checked::<_, Timestamp>(2)?,
+                row.get::<_, RowId>(0)?,
+                row.get::<_, RowId>(1)?,
+                row.get::<_, Timestamp>(2)?,
             ))
         },
     )?;
@@ -441,9 +439,9 @@ struct PageToClean {
 impl PageToClean {
     pub fn from_row(row: &Row) -> Result<Self> {
         Ok(Self {
-            id: row.get_checked("id")?,
-            has_foreign: row.get_checked("has_foreign")?,
-            has_visits: row.get_checked("has_visits")?,
+            id: row.get("id")?,
+            has_foreign: row.get("has_foreign")?,
+            has_visits: row.get("has_visits")?,
         })
     }
 }
@@ -529,12 +527,12 @@ pub mod history_sync {
     impl FetchedVisit {
         pub fn from_row(row: &Row) -> Result<Self> {
             Ok(Self {
-                is_local: row.get_checked("is_local")?,
+                is_local: row.get("is_local")?,
                 visit_date: row
-                    .get_checked::<_, Option<Timestamp>>("visit_date")?
+                    .get::<_, Option<Timestamp>>("visit_date")?
                     .unwrap_or_default(),
                 visit_type: VisitTransition::from_primitive(
-                    row.get_checked::<_, Option<u8>>("visit_type")?.unwrap_or(0),
+                    row.get::<_, Option<u8>>("visit_type")?.unwrap_or(0),
                 ),
             })
         }
@@ -551,12 +549,10 @@ pub mod history_sync {
     impl FetchedVisitPage {
         pub fn from_row(row: &Row) -> Result<Self> {
             Ok(Self {
-                url: Url::parse(&row.get_checked::<_, String>("url")?)?,
-                guid: row.get_checked::<_, String>("guid")?.into(),
-                row_id: row.get_checked("id")?,
-                title: row
-                    .get_checked::<_, Option<String>>("title")?
-                    .unwrap_or_default(),
+                url: Url::parse(&row.get::<_, String>("url")?)?,
+                guid: row.get::<_, String>("guid")?.into(),
+                row_id: row.get("id")?,
+                title: row.get::<_, Option<String>>("title")?.unwrap_or_default(),
             })
         }
     }
@@ -682,7 +678,7 @@ pub mod history_sync {
                     )),
                 ),
                 &[],
-                |row| row.get_checked::<_, Timestamp>(0),
+                |row| row.get::<_, Timestamp>(0),
             )?;
 
             visits_to_skip.reserve(visits.len());
@@ -794,9 +790,7 @@ pub mod history_sync {
         let ts_rows = db.query_rows_and_then_named(
             tombstones_sql,
             &[(":max_places", &(max_places as u32))],
-            |row| -> rusqlite::Result<SyncGuid> {
-                Ok(row.get_checked::<_, String>("guid")?.into())
-            },
+            |row| -> rusqlite::Result<SyncGuid> { Ok(row.get::<_, String>("guid")?.into()) },
         )?;
         // It's unfortunatee that query_rows_and_then_named returns a Vec instead of an iterator
         // (which would be very hard to do), but as long as we have it, we might as well make use
@@ -840,8 +834,8 @@ pub mod history_sync {
                 ],
                 |row| -> RusqliteResult<_> {
                     Ok(HistoryRecordVisit {
-                        date: row.get_checked::<_, Timestamp>("date")?.into(),
-                        transition: row.get_checked::<_, u8>("transition")?,
+                        date: row.get::<_, Timestamp>("date")?.into(),
+                        transition: row.get::<_, u8>("transition")?,
                     })
                 },
             )?;
@@ -998,7 +992,7 @@ pub fn get_visited_into(
             );
             let mut stmt = db.prepare(&sql)?;
             for idx_r in stmt.query_and_then(chunk, |row| -> rusqlite::Result<_> {
-                Ok(row.get_checked::<_, i64>(0)? as usize)
+                Ok(row.get::<_, i64>(0)? as usize)
             })? {
                 let idx = idx_r?;
                 result[idx] = true;
@@ -1035,7 +1029,7 @@ pub fn get_visited_urls(
     Ok(db.query_rows_and_then_named_cached(
         &sql,
         &[(":start", &start), (":end", &end)],
-        |row| -> RusqliteResult<_> { Ok(row.get_checked::<_, String>(0)?) },
+        |row| -> RusqliteResult<_> { Ok(row.get::<_, String>(0)?) },
     )?)
 }
 
@@ -1177,7 +1171,7 @@ mod tests {
         let result: Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_places_tombstones;",
             &[],
-            |row| Ok(row.get_checked::<_, u32>(0)?),
+            |row| Ok(row.get::<_, u32>(0)?),
             true,
         );
         result
@@ -1730,12 +1724,7 @@ mod tests {
             .query_rows_and_then_named(
                 "SELECT place_id, visit_date FROM moz_historyvisit_tombstones",
                 &[],
-                |row| -> Result<_> {
-                    Ok((
-                        row.get_checked::<_, RowId>(0)?,
-                        row.get_checked::<_, Timestamp>(1)?,
-                    ))
-                },
+                |row| -> Result<_> { Ok((row.get::<_, RowId>(0)?, row.get::<_, Timestamp>(1)?)) },
             )
             .unwrap();
         tombstones.sort();
@@ -2103,7 +2092,7 @@ mod tests {
             .query_row_and_then_named(
                 "SELECT title FROM moz_places WHERE id = :id",
                 &[(":id", &maybe_row.unwrap())],
-                |row| row.get_checked(0),
+                |row| row.get(0),
                 false,
             )
             .unwrap();
