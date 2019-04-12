@@ -10,12 +10,23 @@ use coop_transaction::ChunkedCoopTransaction;
 use rusqlite::Connection;
 use sql_support::{ConnExt, UncheckedTransaction};
 
+macro_rules! debug_complaint {
+    ($($fmt_args:tt)*) => {
+        log::error!($($fmt_args)*);
+        if cfg!(debug_assertions) {
+            panic!($($fmt_args)*);
+        }
+    };
+}
 /// High level transaction type which "does the right thing" for you.
 /// Construct one with `PlacesDb::begin_transaction()`.
-pub enum PlacesTransaction<'conn> {
-    Sync(ChunkedCoopTransaction<'conn>),
-    Write(UncheckedTransaction<'conn>),
-    Read(UncheckedTransaction<'conn>),
+pub struct PlacesTransaction<'conn>(PlacesTransactionRepr<'conn>);
+
+/// Only separated from PlacesTransaction so that the internals of the former
+/// are private (so that it can't be `matched` on, for example)
+enum PlacesTransactionRepr<'conn> {
+    Chunked(ChunkedCoopTransaction<'conn>),
+    Unchunked(UncheckedTransaction<'conn>),
 }
 
 impl<'conn> PlacesTransaction<'conn> {
@@ -26,28 +37,19 @@ impl<'conn> PlacesTransaction<'conn> {
     ///   warning and does nothing.
     #[inline]
     pub fn maybe_commit(&mut self) -> Result<()> {
-        if let PlacesTransaction::Sync(tx) = self {
+        if let PlacesTransactionRepr::Chunked(tx) = &mut self.0 {
             tx.maybe_commit()?;
-        } else if cfg!(debug_assertions) {
-            panic!(
-                "maybe_commit called on non-sync transaction (this is a no-op in release build)"
-            );
         } else {
-            // Log an error even though it's extremely non-fatal. Maybe we'll
-            // see it.
-            log::error!("maybe_commit called on a non-sync transaction");
+            debug_complaint!("maybe_commit called on a non-chunked transaction");
         }
         Ok(())
     }
 
     /// Consumes and commits a PlacesTransaction transaction.
     pub fn commit(self) -> Result<()> {
-        match self {
-            PlacesTransaction::Sync(t) => t.commit()?,
-            PlacesTransaction::Write(t) => t.commit()?,
-            PlacesTransaction::Read(_) => {
-                log::warn!("Commit on a read transaction does nothing");
-            }
+        match self.0 {
+            PlacesTransactionRepr::Chunked(t) => t.commit()?,
+            PlacesTransactionRepr::Unchunked(t) => t.commit()?,
         };
         Ok(())
     }
@@ -56,12 +58,9 @@ impl<'conn> PlacesTransaction<'conn> {
     /// maybe_commit has been called, this may only roll back as far as that
     /// call.
     pub fn rollback(self) -> Result<()> {
-        match self {
-            PlacesTransaction::Sync(t) => t.rollback()?,
-            PlacesTransaction::Write(t) => t.rollback()?,
-            PlacesTransaction::Read(_) => {
-                log::warn!("Rollback on a read transaction does nothing");
-            }
+        match self.0 {
+            PlacesTransactionRepr::Chunked(t) => t.rollback()?,
+            PlacesTransactionRepr::Unchunked(t) => t.rollback()?,
         };
         Ok(())
     }
@@ -69,24 +68,35 @@ impl<'conn> PlacesTransaction<'conn> {
 
 impl super::PlacesDb {
     /// Begin the "correct" transaction type for this connection.
+    ///
+    /// - For Sync connections, begins a chunked coop transaction.
+    /// - for ReadWrite connections, begins a normal coop transaction
+    /// - for ReadOnly connections, panics in debug builds, and
+    ///   logs an error (before opening a (pointless) in release builds.
     pub fn begin_transaction(&self) -> Result<PlacesTransaction> {
-        Ok(match self.conn_type() {
-            ConnectionType::Sync => PlacesTransaction::Sync(self.chunked_coop_trransaction()?),
-            ConnectionType::ReadWrite => PlacesTransaction::Write(self.coop_transaction()?),
-            ConnectionType::ReadOnly => PlacesTransaction::Read(self.unchecked_transaction()?),
-        })
+        Ok(PlacesTransaction(match self.conn_type() {
+            ConnectionType::Sync => {
+                PlacesTransactionRepr::Chunked(self.chunked_coop_trransaction()?)
+            }
+            ConnectionType::ReadWrite => PlacesTransactionRepr::Unchunked(self.coop_transaction()?),
+            ConnectionType::ReadOnly => {
+                debug_complaint!(
+                    "Opening a transaction on a ReadOnly connection is probably a mistake"
+                );
+                // Use a (harmless) unchecked transaction with no locking.
+                PlacesTransactionRepr::Unchunked(self.unchecked_transaction()?)
+            }
+        }))
     }
 }
 
 impl<'conn> std::ops::Deref for PlacesTransaction<'conn> {
     type Target = Connection;
 
-    #[inline]
     fn deref(&self) -> &Connection {
-        match self {
-            PlacesTransaction::Sync(t) => &t,
-            PlacesTransaction::Write(t) => &t,
-            PlacesTransaction::Read(t) => &t,
+        match &self.0 {
+            PlacesTransactionRepr::Chunked(t) => &t,
+            PlacesTransactionRepr::Unchunked(t) => &t,
         }
     }
 }
