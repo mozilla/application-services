@@ -6,14 +6,14 @@ mod coop_transaction;
 
 use crate::api::places_api::ConnectionType;
 use crate::error::*;
-use coop_transaction::TimeChunkedTransaction;
+use coop_transaction::ChunkedCoopTransaction;
 use rusqlite::Connection;
 use sql_support::{ConnExt, UncheckedTransaction};
 
 /// High level transaction type which "does the right thing" for you.
 /// Construct one with `PlacesDb::begin_transaction()`.
 pub enum PlacesTransaction<'conn> {
-    Sync(TimeChunkedTransaction<'conn>),
+    Sync(ChunkedCoopTransaction<'conn>),
     Write(UncheckedTransaction<'conn>),
     Read(UncheckedTransaction<'conn>),
 }
@@ -71,7 +71,7 @@ impl super::PlacesDb {
     /// Begin the "correct" transaction type for this connection.
     pub fn begin_transaction(&self) -> Result<PlacesTransaction> {
         Ok(match self.conn_type() {
-            ConnectionType::Sync => PlacesTransaction::Sync(self.time_chunked_transaction()?),
+            ConnectionType::Sync => PlacesTransaction::Sync(self.chunked_coop_trransaction()?),
             ConnectionType::ReadWrite => PlacesTransaction::Write(self.coop_transaction()?),
             ConnectionType::ReadOnly => PlacesTransaction::Read(self.unchecked_transaction()?),
         })

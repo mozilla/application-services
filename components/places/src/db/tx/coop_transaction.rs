@@ -11,7 +11,7 @@
 //! for your db type.
 //!
 //! The idea is that anything that uses the sync connection should use
-//! `time_chunked_transaction`. Code using this should regularly call
+//! `chunked_coop_trransaction`. Code using this should regularly call
 //! `maybe_commit()`, and every second, will commit the transaction and start
 //! a new one.
 //!
@@ -51,26 +51,29 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 impl PlacesDb {
-    /// Begin a TimeChunkedTransaction. Must be called from the
+    /// Begin a ChunkedCoopTransaction. Must be called from the
     /// sync connection, see module doc for details.
-    pub(super) fn time_chunked_transaction(&self) -> Result<TimeChunkedTransaction> {
+    pub(super) fn chunked_coop_trransaction(&self) -> Result<ChunkedCoopTransaction> {
+        // Note: if there's actually a reason for a write conn to take this, we
+        // can consider relaxing this. It's not required for correctness, just happens
+        // to be the right choice for everything we expose and plan on exposing.
         assert_eq!(
             self.conn_type(),
             ConnectionType::Sync,
-            "time_chunked_transaction must only be called by the Sync connection"
+            "chunked_coop_trransaction must only be called by the Sync connection"
         );
         // Note that we don't allow commit_after as a param because it
         // is closely related to the timeouts configured on the database
         // itself.
         let commit_after = Duration::from_millis(1000);
-        Ok(TimeChunkedTransaction::new(
+        Ok(ChunkedCoopTransaction::new(
             self.conn(),
             commit_after,
             &self.coop_tx_lock,
         )?)
     }
 
-    /// Begin a "coop" transaction. Must be called from the sync connection, see
+    /// Begin a "coop" transaction. Must be called from the write connection, see
     /// module doc for details.
     pub(super) fn coop_transaction(&self) -> Result<UncheckedTransaction> {
         // Only validate tranaction types for ConnectionType::ReadWrite.
@@ -106,13 +109,13 @@ impl PlacesDb {
 /// each individual item requires multiple updates, you will probably want to
 /// ensure you call .maybe_commit() after every item rather than after
 /// each individual database update.
-pub struct TimeChunkedTransaction<'conn> {
+pub struct ChunkedCoopTransaction<'conn> {
     tx: UncheckedTransaction<'conn>,
     commit_after: Duration,
     coop: &'conn Mutex<()>,
 }
 
-impl<'conn> TimeChunkedTransaction<'conn> {
+impl<'conn> ChunkedCoopTransaction<'conn> {
     /// Begin a new transaction which may be split into multiple transactions
     /// for performance reasons. Cannot be nested, but this is not
     /// enforced - however, it is enforced by SQLite; use a rusqlite `savepoint`
@@ -137,7 +140,7 @@ impl<'conn> TimeChunkedTransaction<'conn> {
     #[inline]
     pub fn maybe_commit(&mut self) -> Result<()> {
         if self.tx.started_at.elapsed() >= self.commit_after {
-            log::debug!("TimeChunkedTransaction commiting after taking allocated time");
+            log::debug!("ChunkedCoopTransaction commiting after taking allocated time");
             self.commit_and_start_new_tx()?;
         }
         Ok(())
@@ -161,13 +164,13 @@ impl<'conn> TimeChunkedTransaction<'conn> {
         Ok(())
     }
 
-    /// Consumes and commits a TimeChunkedTransaction transaction.
+    /// Consumes and commits a ChunkedCoopTransaction transaction.
     pub fn commit(self) -> Result<()> {
         self.tx.commit()?;
         Ok(())
     }
 
-    /// Consumes and rolls a TimeChunkedTransaction, but potentially only back
+    /// Consumes and rolls a ChunkedCoopTransaction, but potentially only back
     /// to the last `maybe_commit`.
     pub fn rollback(self) -> Result<()> {
         self.tx.rollback()?;
@@ -175,7 +178,7 @@ impl<'conn> TimeChunkedTransaction<'conn> {
     }
 }
 
-impl<'conn> Deref for TimeChunkedTransaction<'conn> {
+impl<'conn> Deref for ChunkedCoopTransaction<'conn> {
     type Target = Connection;
 
     #[inline]
@@ -184,7 +187,7 @@ impl<'conn> Deref for TimeChunkedTransaction<'conn> {
     }
 }
 
-impl<'conn> ConnExt for TimeChunkedTransaction<'conn> {
+impl<'conn> ConnExt for ChunkedCoopTransaction<'conn> {
     #[inline]
     fn conn(&self) -> &Connection {
         &*self
