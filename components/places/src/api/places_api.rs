@@ -9,7 +9,7 @@ use crate::storage::{delete_meta, get_meta, put_meta};
 use crate::util::normalize_path;
 use lazy_static::lazy_static;
 use rusqlite::OpenFlags;
-use std::cell::RefCell;
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::mem;
 use std::path::{Path, PathBuf};
@@ -65,8 +65,8 @@ lazy_static! {
 static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 struct SyncState {
-    mem_cached_state: RefCell<MemoryCachedState>,
-    disk_cached_state: RefCell<Option<String>>,
+    mem_cached_state: Cell<MemoryCachedState>,
+    disk_cached_state: Cell<Option<String>>,
 }
 
 /// The entry-point to the places API. This object gives access to database
@@ -223,8 +223,8 @@ impl PlacesApi {
         let conn = self.open_sync_connection()?;
         if guard.is_none() {
             *guard = Some(SyncState {
-                mem_cached_state: RefCell::new(MemoryCachedState::default()),
-                disk_cached_state: RefCell::new(self.get_disk_persisted_state()?),
+                mem_cached_state: Cell::new(MemoryCachedState::default()),
+                disk_cached_state: Cell::new(self.get_disk_persisted_state()?),
             });
         }
 
@@ -233,16 +233,25 @@ impl PlacesApi {
         // bookmark sync too, to ensure the shared global state is correct.
         HistoryStore::migrate_v1_global_state(&conn)?;
 
-        let store = HistoryStore::new(
-            &conn,
-            &sync_state.mem_cached_state,
-            &sync_state.disk_cached_state,
-        );
+        let store = HistoryStore::new(&conn);
+        let mut mem_cached_state = sync_state
+            .mem_cached_state
+            .replace(MemoryCachedState::default());
+        let mut disk_cached_state = sync_state.disk_cached_state.replace(None);
         let mut sync_ping = telemetry::SyncTelemetryPing::new();
-        let result = store.sync(&client_init, &key_bundle, &mut sync_ping);
+        let result = store.sync(
+            &client_init,
+            &key_bundle,
+            &mut mem_cached_state,
+            &mut disk_cached_state,
+            &mut sync_ping,
+        );
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
-        self.set_disk_persisted_state(&sync_state.disk_cached_state.borrow())?;
+        self.set_disk_persisted_state(&disk_cached_state)?;
+        sync_state.mem_cached_state.replace(mem_cached_state);
+        sync_state.disk_cached_state.replace(disk_cached_state);
+
         result?;
 
         Ok(sync_ping)

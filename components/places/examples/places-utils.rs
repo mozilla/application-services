@@ -16,7 +16,6 @@ use places::{ConnectionType, PlacesApi, PlacesDb};
 
 use failure::Fail;
 use serde_derive::*;
-use std::cell::RefCell;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
@@ -177,12 +176,12 @@ fn sync(
     // probably end up using that, but it's not yet ready to handle bookmarks.
     // And until we move to PlacesApi::sync() we simply do not persist any
     // global state at all (however, we do reuse the in-memory state).
-    let mem_cached_state = RefCell::new(MemoryCachedState::default());
-    let global_state = RefCell::new(None);
+    let mut mem_cached_state = MemoryCachedState::default();
+    let mut global_state: Option<String> = None;
     let stores: Vec<Box<dyn Store>> = if engine_names.is_empty() {
         vec![
-            Box::new(BookmarksStore::new(&conn, &mem_cached_state, &global_state)),
-            Box::new(HistoryStore::new(&conn, &mem_cached_state, &global_state)),
+            Box::new(BookmarksStore::new(&conn)),
+            Box::new(HistoryStore::new(&conn)),
         ]
     } else {
         engine_names.sort();
@@ -191,12 +190,8 @@ fn sync(
             .into_iter()
             .map(|name| -> Box<dyn Store> {
                 match name.as_str() {
-                    "bookmarks" => {
-                        Box::new(BookmarksStore::new(&conn, &mem_cached_state, &global_state))
-                    }
-                    "history" => {
-                        Box::new(HistoryStore::new(&conn, &mem_cached_state, &global_state))
-                    }
+                    "bookmarks" => Box::new(BookmarksStore::new(&conn)),
+                    "history" => Box::new(HistoryStore::new(&conn)),
                     _ => unimplemented!("Can't sync unsupported engine {}", name),
                 }
             })
@@ -225,8 +220,8 @@ fn sync(
     let stores_to_sync: Vec<&dyn Store> = stores.iter().map(AsRef::as_ref).collect();
     if let Err(e) = sync_multiple(
         &stores_to_sync,
-        &mut global_state.borrow_mut(),
-        &mut mem_cached_state.borrow_mut(),
+        &mut global_state,
+        &mut mem_cached_state,
         &cli_fxa.client_init.clone(),
         &cli_fxa.root_sync_key,
         &mut sync_ping,

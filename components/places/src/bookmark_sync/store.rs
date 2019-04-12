@@ -19,13 +19,12 @@ use dogear::{
 };
 use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt};
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::result;
 use sync15::{
-    telemetry, CollSyncIds, CollectionRequest, IncomingChangeset, MemoryCachedState,
-    OutgoingChangeset, Payload, ServerTimestamp, Store,
+    telemetry, CollSyncIds, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload,
+    ServerTimestamp, Store,
 };
 static LAST_SYNC_META_KEY: &'static str = "bookmarks_last_sync_time";
 // Note that all engines in this crate should use a *different* meta key
@@ -35,22 +34,12 @@ const COLLECTION_SYNCID_META_KEY: &str = "bookmarks_sync_id";
 
 pub struct BookmarksStore<'a> {
     pub db: &'a PlacesDb,
-    pub mem_cached_state: &'a RefCell<MemoryCachedState>,
-    pub disk_cached_state: &'a RefCell<Option<String>>,
 }
 
 impl<'a> BookmarksStore<'a> {
-    pub fn new(
-        db: &'a PlacesDb,
-        mem_cached_state: &'a RefCell<MemoryCachedState>,
-        disk_cached_state: &'a RefCell<Option<String>>,
-    ) -> Self {
+    pub fn new(db: &'a PlacesDb) -> Self {
         assert_eq!(db.conn_type(), ConnectionType::Sync);
-        Self {
-            db,
-            mem_cached_state,
-            disk_cached_state,
-        }
+        Self { db }
     }
 
     fn stage_incoming(
@@ -998,9 +987,7 @@ mod tests {
 
     fn apply_incoming(conn: &PlacesDb, records_json: Value) {
         // suck records into the store.
-        let mem_cached_state = RefCell::new(MemoryCachedState::default());
-        let disk_cached_state = RefCell::new(None);
-        let store = BookmarksStore::new(&conn, &mem_cached_state, &disk_cached_state);
+        let store = BookmarksStore::new(&conn);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -1067,9 +1054,7 @@ mod tests {
         let conn = api.open_sync_connection()?;
 
         // suck records into the store.
-        let mem_cached_state = RefCell::new(MemoryCachedState::default());
-        let global_state = RefCell::new(None);
-        let store = BookmarksStore::new(&conn, &mem_cached_state, &global_state);
+        let store = BookmarksStore::new(&conn);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -1150,9 +1135,7 @@ mod tests {
             }),
         );
 
-        let mem_cached_state = RefCell::new(MemoryCachedState::default());
-        let global_state = RefCell::new(None);
-        let store = BookmarksStore::new(&syncer, &mem_cached_state, &global_state);
+        let store = BookmarksStore::new(&syncer);
         let merger = Merger::new(&store, ServerTimestamp(0.0));
 
         let tree = merger.fetch_local_tree()?;
@@ -1374,9 +1357,7 @@ mod tests {
             }),
         ];
 
-        let mem_cached_state = RefCell::new(MemoryCachedState::default());
-        let global_state = RefCell::new(None);
-        let store = BookmarksStore::new(&syncer, &mem_cached_state, &global_state);
+        let store = BookmarksStore::new(&syncer);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -1520,9 +1501,7 @@ mod tests {
             }),
         ];
 
-        let mem_cached_state = RefCell::new(MemoryCachedState::default());
-        let global_state = RefCell::new(None);
-        let store = BookmarksStore::new(&syncer, &mem_cached_state, &global_state);
+        let store = BookmarksStore::new(&syncer);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -1650,9 +1629,7 @@ mod tests {
             }),
         ];
 
-        let mem_cached_state = RefCell::new(MemoryCachedState::default());
-        let global_state = RefCell::new(None);
-        let store = BookmarksStore::new(&syncer, &mem_cached_state, &global_state);
+        let store = BookmarksStore::new(&syncer);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));

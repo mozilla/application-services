@@ -9,7 +9,6 @@ use crate::storage::history::history_sync::reset_storage;
 use rusqlite::types::{FromSql, ToSql};
 use rusqlite::Connection;
 use sql_support::ConnExt;
-use std::cell::RefCell;
 use std::ops::Deref;
 use std::result;
 use sync15::telemetry;
@@ -31,22 +30,12 @@ const COLLECTION_SYNCID_META_KEY: &str = "history_sync_id";
 // owns the connection and ClientInfo.
 pub struct HistoryStore<'a> {
     pub db: &'a PlacesDb,
-    pub mem_cached_state: &'a RefCell<MemoryCachedState>,
-    pub disk_cached_state: &'a RefCell<Option<String>>,
 }
 
 impl<'a> HistoryStore<'a> {
-    pub fn new(
-        db: &'a PlacesDb,
-        mem_cached_state: &'a RefCell<MemoryCachedState>,
-        disk_cached_state: &'a RefCell<Option<String>>,
-    ) -> Self {
+    pub fn new(db: &'a PlacesDb) -> Self {
         assert_eq!(db.conn_type(), ConnectionType::Sync);
-        Self {
-            db,
-            mem_cached_state,
-            disk_cached_state,
-        }
+        Self { db }
     }
 
     fn put_meta(&self, key: &str, value: &ToSql) -> Result<()> {
@@ -144,15 +133,14 @@ impl<'a> HistoryStore<'a> {
         &self,
         storage_init: &Sync15StorageClientInit,
         root_sync_key: &KeyBundle,
+        mem_cached_state: &mut MemoryCachedState,
+        disk_cached_state: &mut Option<String>,
         sync_ping: &mut telemetry::SyncTelemetryPing,
     ) -> Result<()> {
-        let mut disk_cached_state = self.disk_cached_state.borrow_mut();
-        let mut mem_cached_state = self.mem_cached_state.borrow_mut();
-
         let result = sync_multiple(
             &[self],
-            &mut disk_cached_state,
-            &mut mem_cached_state,
+            disk_cached_state,
+            mem_cached_state,
             storage_init,
             root_sync_key,
             sync_ping,

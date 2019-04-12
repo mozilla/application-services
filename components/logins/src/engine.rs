@@ -4,7 +4,7 @@
 use crate::db::LoginDb;
 use crate::error::*;
 use crate::login::Login;
-use std::cell::RefCell;
+use std::cell::Cell;
 use std::path::Path;
 use sync15::{sync_multiple, telemetry, KeyBundle, MemoryCachedState, Sync15StorageClientInit};
 
@@ -13,7 +13,7 @@ use sync15::{sync_multiple, telemetry, KeyBundle, MemoryCachedState, Sync15Stora
 // state, and the login DB.
 pub struct PasswordEngine {
     pub db: LoginDb,
-    pub mem_cached_state: RefCell<MemoryCachedState>,
+    pub mem_cached_state: Cell<MemoryCachedState>,
 }
 
 impl PasswordEngine {
@@ -21,7 +21,7 @@ impl PasswordEngine {
         let db = LoginDb::open(path, encryption_key)?;
         Ok(Self {
             db,
-            mem_cached_state: RefCell::new(MemoryCachedState::default()),
+            mem_cached_state: Cell::new(MemoryCachedState::default()),
         })
     }
 
@@ -29,7 +29,7 @@ impl PasswordEngine {
         let db = LoginDb::open_in_memory(encryption_key)?;
         Ok(Self {
             db,
-            mem_cached_state: RefCell::new(MemoryCachedState::default()),
+            mem_cached_state: Cell::new(MemoryCachedState::default()),
         })
     }
 
@@ -94,7 +94,7 @@ impl PasswordEngine {
         self.db.migrate_global_state()?;
 
         let mut disk_cached_state = self.db.get_global_state()?;
-        let mut mem_cached_state = self.mem_cached_state.borrow_mut();
+        let mut mem_cached_state = self.mem_cached_state.replace(MemoryCachedState::default());
 
         let result = sync_multiple(
             &[&self.db],
