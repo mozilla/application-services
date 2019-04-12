@@ -5,6 +5,10 @@ authors = ["jrconlin <me+crypt@jrconlin.com>", "Phil Jenvey <pjenvey@underboss.o
 edition = "2018"
 license = "MPL-2.0"
 
+[features]
+reqwest = ["viaduct/reqwest"]
+default = []
+
 [dependencies]
 hex = "0.3"
 log = "0.4"
@@ -16,8 +20,9 @@ viaduct = { path = "../../viaduct" }
 
 storage = {path="../storage"}
 push-errors = {path="../error"}
-crypto = {path="../crypto"}
+push-crypto = {path="../crypto"}
 config = {path="../config"}
 
 [dev-dependencies]
 mockito = "0.15"
+force-viaduct-reqwest = { path = "../../support/force-viaduct-reqwest" }

@@ -826,7 +826,7 @@ impl Store for LoginDb {
         self.mark_as_synchronized(
             &records_synced
                 .iter()
-                .map(|r| r.as_str())
+                .map(String::as_str)
                 .collect::<Vec<_>>(),
             new_timestamp,
         )?;

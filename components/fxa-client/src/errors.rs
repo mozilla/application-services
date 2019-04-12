@@ -135,6 +135,9 @@ pub enum ErrorKind {
         info: String,
     },
 
+    #[fail(display = "Crypto/NSS error: {}", _0)]
+    CryptoError(#[fail(cause)] rc_crypto::Error),
+
     // Basically reimplement error_chain's foreign_links. (Ugh, this sucks)
     #[fail(display = "Hex decode error: {}", _0)]
     HexDecodeError(#[fail(cause)] hex::FromHexError),
@@ -188,6 +191,7 @@ macro_rules! impl_from_error {
 }
 
 impl_from_error! {
+    (CryptoError, ::rc_crypto::Error),
     (HexDecodeError, ::hex::FromHexError),
     (Base64Decode, ::base64::DecodeError),
     (JsonError, ::serde_json::Error),

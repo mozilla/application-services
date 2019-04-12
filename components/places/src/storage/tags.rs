@@ -46,7 +46,7 @@ impl<'a> ValidatedTag<'a> {
 pub fn validate_tag(tag: &str) -> ValidatedTag {
     // Drop empty and oversized tags.
     let t = tag.trim();
-    if t.is_empty() || t.len() > TAG_LENGTH_MAX || t.find(|c: char| c.is_whitespace()).is_some() {
+    if t.is_empty() || t.len() > TAG_LENGTH_MAX || t.find(char::is_whitespace).is_some() {
         ValidatedTag::Invalid(tag)
     } else if t.len() != tag.len() {
         ValidatedTag::Normalized(t)
@@ -70,7 +70,7 @@ pub fn validate_tag(tag: &str) -> ValidatedTag {
 /// There is no success return value.
 pub fn tag_url(db: &PlacesDb, url: &Url, tag: &str) -> Result<()> {
     let tag = validate_tag(&tag).ensure_valid()?;
-    let tx = db.unchecked_transaction()?;
+    let tx = db.coop_transaction()?;
 
     // This function will not create a new place.
     // Fetch the place id, so we (a) avoid creating a new tag when we aren't

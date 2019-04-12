@@ -3,7 +3,7 @@ use sql_support::ConnExt;
 
 use push_errors::Result;
 
-const VERSION: i64 = 1;
+const VERSION: i64 = 2;
 
 const CREATE_TABLE_PUSH_SQL: &str = include_str!("schema.sql");
 
@@ -37,20 +37,23 @@ pub fn init(db: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn upgrade(_db: &Connection, from: i64) -> Result<()> {
+fn upgrade(db: &Connection, from: i64) -> Result<()> {
     log::debug!("Upgrading schema from {} to {}", from, VERSION);
-    if from == VERSION {
-        return Ok(());
+    match from {
+        VERSION => Ok(()),
+        0 => create(db),
+        1 => create(db),
+        _ => panic!("sorry, no upgrades yet - delete your db!"),
     }
-    panic!("sorry, no upgrades yet - delete your db!");
 }
 
 pub fn create(db: &Connection) -> Result<()> {
-    log::debug!("Creating schema");
-    db.execute_all(&[
-        CREATE_TABLE_PUSH_SQL,
-        &format!("PRAGMA user_version = {version}", version = VERSION),
-    ])?;
+    let statements = format!(
+        "{create}\n\nPRAGMA user_version = {version}",
+        create = CREATE_TABLE_PUSH_SQL,
+        version = VERSION
+    );
+    db.execute_batch(&statements)?;
 
     Ok(())
 }

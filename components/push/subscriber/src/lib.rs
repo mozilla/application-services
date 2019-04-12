@@ -7,14 +7,14 @@
 extern crate serde_json;
 
 extern crate communications;
-extern crate crypto;
+extern crate push_crypto;
 extern crate storage;
 
 use std::collections::HashMap;
 
 use communications::{connect, ConnectHttp, Connection, RegisterResponse};
 use config::PushConfiguration;
-use crypto::{Crypto, Cryptography, Key};
+use push_crypto::{Crypto, Cryptography, Key};
 use storage::{Storage, Store};
 
 use push_errors::{self as error, ErrorKind, Result};
@@ -32,11 +32,13 @@ impl PushManager {
         } else {
             Store::open_in_memory()?
         };
-        Ok(PushManager {
+        let uaid = store.get_meta("uaid")?;
+        let pm = PushManager {
             config: config.clone(),
-            conn: connect(config)?,
+            conn: connect(config, uaid.clone(), store.get_meta("auth")?)?,
             store,
-        })
+        };
+        Ok(pm)
     }
 
     // XXX: make these trait methods
@@ -66,7 +68,15 @@ impl PushManager {
         record.app_server_key = self.config.vapid_key.clone();
         record.native_id = Some(reg_token);
         self.store.put_record(&record)?;
-        // TODO: just return Record
+        // store the meta information if we've not yet done that.
+        if self.store.get_meta("uaid")?.is_none() {
+            self.store.set_meta("uaid", &info.uaid)?;
+        }
+        if self.store.get_meta("auth")?.is_none() {
+            if let Some(secret) = &info.secret {
+                self.store.set_meta("auth", &secret)?;
+            }
+        }
         Ok((info, subscription_key))
     }
 
@@ -168,7 +178,7 @@ mod test {
 
     //use serde_json::json;
 
-    // use crypto::{get_bytes, Key};
+    // use push_crypto::{get_bytes, Key};
 
     /*
     const DUMMY_CHID: &str = "deadbeef00000000decafbad00000000";

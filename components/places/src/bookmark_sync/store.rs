@@ -10,7 +10,7 @@ use super::record::{
 };
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::api::places_api::ConnectionType;
-use crate::db::PlacesDb;
+use crate::db::{PlacesDb, TimeChunkedTransaction};
 use crate::error::*;
 use crate::storage::{bookmarks::BookmarkRootGuid, delete_meta, get_meta, put_meta};
 use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
@@ -23,7 +23,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::result;
-use std::time::Duration;
 use sync15::{
     telemetry, CollSyncIds, CollectionRequest, IncomingChangeset, MemoryCachedState,
     OutgoingChangeset, Payload, ServerTimestamp, Store,
@@ -60,9 +59,7 @@ impl<'a> BookmarksStore<'a> {
         incoming_telemetry: &mut telemetry::EngineIncoming,
     ) -> Result<ServerTimestamp> {
         let timestamp = inbound.timestamp;
-        let mut tx = self
-            .db
-            .time_chunked_transaction(Duration::from_millis(1000))?;
+        let mut tx = self.db.time_chunked_transaction()?;
 
         let applicator = IncomingApplicator::new(&self.db);
 
@@ -121,6 +118,7 @@ impl<'a> BookmarksStore<'a> {
         &self,
         descendants: Vec<MergedDescendant<'t>>,
         deletions: Vec<Deletion>,
+        _tx: &mut TimeChunkedTransaction,
     ) -> Result<()> {
         // First, insert rows for all merged descendants.
         sql_support::each_sized_chunk(
@@ -398,6 +396,8 @@ impl<'a> BookmarksStore<'a> {
         // Flag all successfully synced records as uploaded. This `UPDATE` fires
         // the `pushUploadedChanges` trigger, which updates local change
         // counters and writes the items back to the synced bookmarks table.
+        let mut tx = self.db.time_chunked_transaction()?;
+
         let guids = records_synced
             .into_iter()
             .map(|id| BookmarkRecordId::from_payload_id(id).into())
@@ -413,6 +413,7 @@ impl<'a> BookmarksStore<'a> {
                 ),
                 chunk,
             )?;
+            tx.maybe_commit()?;
             Ok(())
         })?;
 
@@ -426,6 +427,7 @@ impl<'a> BookmarksStore<'a> {
 
         // Clean up.
         self.db.execute_batch("DELETE FROM itemsToUpload")?;
+        tx.commit()?;
 
         Ok(())
     }
@@ -463,9 +465,7 @@ impl<'a> Store for BookmarksStore<'a> {
         new_timestamp: ServerTimestamp,
         records_synced: Vec<String>,
     ) -> result::Result<(), failure::Error> {
-        let tx = self.db.unchecked_transaction()?;
         self.push_synced_items(new_timestamp, records_synced)?;
-        tx.commit()?;
         Ok(())
     }
 
@@ -489,7 +489,7 @@ impl<'a> Store for BookmarksStore<'a> {
     /// all synced items and pending tombstones. This also forgets the last
     /// sync time.
     fn reset(&self, ids: &Option<CollSyncIds>) -> result::Result<(), failure::Error> {
-        let tx = self.db.unchecked_transaction()?;
+        let tx = self.db.time_chunked_transaction()?;
         self.db.execute_batch(&format!(
             "DELETE FROM moz_bookmarks_synced;
 
@@ -523,7 +523,7 @@ impl<'a> Store for BookmarksStore<'a> {
     /// Conceptually, the next sync will merge an empty local tree, and a full
     /// remote tree.
     fn wipe(&self) -> result::Result<(), failure::Error> {
-        let tx = self.db.unchecked_transaction()?;
+        let tx = self.db.time_chunked_transaction()?;
         let sql = format!(
             "INSERT INTO moz_bookmarks_deleted(guid, dateRemoved)
              SELECT guid, now()
@@ -851,8 +851,9 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
         let descendants = root.descendants();
         let deletions = deletions.collect::<Vec<_>>();
 
-        let tx = self.store.db.unchecked_transaction()?;
-        self.store.update_local_items(descendants, deletions)?;
+        let mut tx = self.store.db.time_chunked_transaction()?;
+        self.store
+            .update_local_items(descendants, deletions, &mut tx)?;
         self.store.stage_local_items_to_upload()?;
         self.store.db.execute_batch(
             "DELETE FROM mergedTree;
@@ -1030,12 +1031,10 @@ mod tests {
         local_tree: Value,
     ) {
         let conn = api
-            .open_connection(ConnectionType::Sync)
+            .open_sync_connection()
             .expect("should get a sync connection");
         apply_incoming(&conn, records_json);
         assert_local_json_tree(&conn, local_folder, local_tree);
-        api.close_connection(conn)
-            .expect("should close sync connection");
     }
 
     #[test]
@@ -1065,7 +1064,7 @@ mod tests {
         ];
 
         let api = new_mem_api();
-        let conn = api.open_connection(ConnectionType::Sync)?;
+        let conn = api.open_sync_connection()?;
 
         // suck records into the store.
         let mem_cached_state = RefCell::new(MemoryCachedState::default());
@@ -1130,13 +1129,15 @@ mod tests {
     #[test]
     fn test_fetch_local_tree() -> Result<()> {
         let api = new_mem_api();
-        let conn = api.open_connection(ConnectionType::Sync)?;
+        let writer = api.open_connection(ConnectionType::ReadWrite)?;
+        let syncer = api.open_sync_connection()?;
 
-        conn.execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
+        writer
+            .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
             .expect("should work");
 
         insert_local_json_tree(
-            &conn,
+            &writer,
             json!({
                 "guid": &BookmarkRootGuid::Unfiled.as_guid(),
                 "children": [
@@ -1151,7 +1152,7 @@ mod tests {
 
         let mem_cached_state = RefCell::new(MemoryCachedState::default());
         let global_state = RefCell::new(None);
-        let store = BookmarksStore::new(&conn, &mem_cached_state, &global_state);
+        let store = BookmarksStore::new(&syncer, &mem_cached_state, &global_state);
         let merger = Merger::new(&store, ServerTimestamp(0.0));
 
         let tree = merger.fetch_local_tree()?;
@@ -1320,7 +1321,7 @@ mod tests {
     fn test_apply() -> Result<()> {
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_connection(ConnectionType::Sync)?;
+        let syncer = api.open_sync_connection()?;
 
         syncer
             .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
@@ -1495,7 +1496,7 @@ mod tests {
     fn test_keywords() -> Result<()> {
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_connection(ConnectionType::Sync)?;
+        let syncer = api.open_sync_connection()?;
 
         let records = vec![
             json!({
@@ -1572,7 +1573,7 @@ mod tests {
     fn test_wipe() -> Result<()> {
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_connection(ConnectionType::Sync)?;
+        let syncer = api.open_sync_connection()?;
 
         let records = vec![
             json!({

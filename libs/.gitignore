@@ -1,11 +1,10 @@
-bin/patchelf
-
 # Downloaded sources tarballs.
 *.tar.gz
 
 # Intermediate folders leftover on build failures.
 openssl-*
 sqlcipher-*
+nss-*
 
 # Final artifacts
 /android

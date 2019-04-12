@@ -25,13 +25,16 @@ untrusted = "0.6.2"
 url = "1.7.1"
 ffi-support = { path = "../support/ffi" }
 viaduct = { path = "../viaduct" }
+rc_crypto = { path = "../support/rc_crypto" }
 
 [dev-dependencies]
 cli-support = { path = "../support/cli" }
+force-viaduct-reqwest = { path = "../support/force-viaduct-reqwest" }
 
 [build-dependencies]
 prost-build = "0.5"
 
 [features]
 browserid = ["openssl", "hawk"]
+reqwest = ["viaduct/reqwest"]
 default = []

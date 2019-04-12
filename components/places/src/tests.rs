@@ -62,7 +62,7 @@ pub fn check_positions(conn: &PlacesDb) {
             ))
         })
         .expect("should work")
-        .map(|v| v.unwrap())
+        .map(Result::unwrap)
         .collect();
 
     assert_eq!(parents, Vec::new());

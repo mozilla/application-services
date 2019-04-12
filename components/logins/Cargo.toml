@@ -7,6 +7,7 @@ license = "MPL-2.0"
 
 [features]
 log_query_plans = ["sql-support/log_query_plans"]
+reqwest = ["sync15/reqwest"]
 default = []
 
 [dependencies]
@@ -33,3 +34,4 @@ fxa-client = { path = "../fxa-client" }
 chrono = "0.4.6"
 clap = "2.32.0"
 cli-support = { path = "../support/cli" }
+force-viaduct-reqwest = { path = "../support/force-viaduct-reqwest" }

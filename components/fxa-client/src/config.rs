@@ -143,59 +143,59 @@ impl Config {
     }
 
     pub fn content_url(&self) -> Result<Url> {
-        Url::parse(&self.content_url).map_err(|e| e.into())
+        Url::parse(&self.content_url).map_err(Into::into)
     }
 
     pub fn content_url_path(&self, path: &str) -> Result<Url> {
-        self.content_url()?.join(path).map_err(|e| e.into())
+        self.content_url()?.join(path).map_err(Into::into)
     }
 
     pub fn auth_url(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.auth_url).map_err(|e| e.into())
+        Url::parse(&self.remote_config()?.auth_url).map_err(Into::into)
     }
 
     pub fn auth_url_path(&self, path: &str) -> Result<Url> {
-        self.auth_url()?.join(path).map_err(|e| e.into())
+        self.auth_url()?.join(path).map_err(Into::into)
     }
 
     pub fn profile_url(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.profile_url).map_err(|e| e.into())
+        Url::parse(&self.remote_config()?.profile_url).map_err(Into::into)
     }
 
     pub fn profile_url_path(&self, path: &str) -> Result<Url> {
-        self.profile_url()?.join(path).map_err(|e| e.into())
+        self.profile_url()?.join(path).map_err(Into::into)
     }
 
     pub fn oauth_url(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.oauth_url).map_err(|e| e.into())
+        Url::parse(&self.remote_config()?.oauth_url).map_err(Into::into)
     }
 
     pub fn oauth_url_path(&self, path: &str) -> Result<Url> {
-        self.oauth_url()?.join(path).map_err(|e| e.into())
+        self.oauth_url()?.join(path).map_err(Into::into)
     }
 
     pub fn token_server_endpoint_url(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.token_server_endpoint_url).map_err(|e| e.into())
+        Url::parse(&self.remote_config()?.token_server_endpoint_url).map_err(Into::into)
     }
 
     pub fn authorization_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.authorization_endpoint).map_err(|e| e.into())
+        Url::parse(&self.remote_config()?.authorization_endpoint).map_err(Into::into)
     }
 
     pub fn issuer(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.issuer).map_err(|e| e.into())
+        Url::parse(&self.remote_config()?.issuer).map_err(Into::into)
     }
 
     pub fn jwks_uri(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.jwks_uri).map_err(|e| e.into())
+        Url::parse(&self.remote_config()?.jwks_uri).map_err(Into::into)
     }
 
     pub fn token_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.token_endpoint).map_err(|e| e.into())
+        Url::parse(&self.remote_config()?.token_endpoint).map_err(Into::into)
     }
 
     pub fn userinfo_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.userinfo_endpoint).map_err(|e| e.into())
+        Url::parse(&self.remote_config()?.userinfo_endpoint).map_err(Into::into)
     }
 }
 

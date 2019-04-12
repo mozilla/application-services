@@ -26,6 +26,10 @@ Rather than using a tagged release version, one can grab the build from Circle-C
 
 The project has additional 3rd-party dependencies that a client must link against.
 
+### NSS
+
+- In your project, add all the .dylibs in the `../Carthage/Build/iOS/MozillaAppServices.framework` directory to both the "Embedded Binaries" and the "Linked Frameworks and Libraries" panels.
+
 ### Protobuf
 
 - *SwiftProtoBuf.framework* should be automatically downloaded by carthage while pulling in the application-services dependency.

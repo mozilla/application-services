@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{errors::*, scoped_keys::ScopedKeysFlow, util, FirefoxAccount, RNG};
-use ring::digest;
+use rc_crypto::digest;
 use serde_derive::*;
 use std::{
     collections::HashSet,
@@ -105,14 +105,14 @@ impl FirefoxAccount {
             Some(ref refresh_token) => {
                 // Union of the already held scopes and the one requested.
                 let mut all_scopes: Vec<String> = vec![];
-                all_scopes.extend(scopes.iter().map(|s| s.to_string()));
+                all_scopes.extend(scopes.iter().map(ToString::to_string));
                 let existing_scopes = refresh_token.scopes.clone();
                 all_scopes.extend(existing_scopes);
                 HashSet::<String>::from_iter(all_scopes)
                     .into_iter()
                     .collect()
             }
-            None => scopes.iter().map(|s| s.to_string()).collect(),
+            None => scopes.iter().map(ToString::to_string).collect(),
         };
         let scopes: Vec<&str> = scopes.iter().map(<_>::as_ref).collect();
         self.oauth_flow(url, &scopes, wants_keys)
@@ -121,7 +121,7 @@ impl FirefoxAccount {
     fn oauth_flow(&mut self, mut url: Url, scopes: &[&str], wants_keys: bool) -> Result<String> {
         let state = util::random_base64_url_string(&*RNG, 16)?;
         let code_verifier = util::random_base64_url_string(&*RNG, 43)?;
-        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
+        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes())?;
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         url.query_pairs_mut()
             .append_pair("client_id", &self.state.config.client_id)
@@ -217,7 +217,7 @@ impl FirefoxAccount {
         }
         self.state.refresh_token = Some(RefreshToken {
             token: refresh_token,
-            scopes: HashSet::from_iter(resp.scope.split(' ').map(|s| s.to_string())),
+            scopes: HashSet::from_iter(resp.scope.split(' ').map(ToString::to_string)),
         });
         Ok(())
     }

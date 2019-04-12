@@ -92,7 +92,7 @@ impl<'a> IncomingApplicator<'a> {
                       )"#,
             &[
                 (":guid", &b.record_id.as_guid().as_ref()),
-                (":parentGuid", &b.parent_record_id.as_ref().map(|id| id.as_guid())),
+                (":parentGuid", &b.parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Bookmark),
                 (":dateAdded", &b.date_added),
@@ -136,7 +136,7 @@ impl<'a> IncomingApplicator<'a> {
                       :dateAdded, NULLIF(:title, ""))"#,
             &[
                 (":guid", &f.record_id.as_guid().as_ref()),
-                (":parentGuid", &f.parent_record_id.as_ref().map(|id| id.as_guid())),
+                (":parentGuid", &f.parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Folder),
                 (":dateAdded", &f.date_added),
@@ -261,13 +261,13 @@ impl<'a> IncomingApplicator<'a> {
                      )"#,
             &[
                 (":guid", &q.record_id.as_guid().as_ref()),
-                (":parentGuid", &q.parent_record_id.as_ref().map(|id| id.as_guid())),
+                (":parentGuid", &q.parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Query),
                 (":dateAdded", &q.date_added),
                 (":title", &maybe_truncate_title(&q.title)),
                 (":validity", &validity),
-                (":url", &url.map(|u| u.into_string()))
+                (":url", &url.map(Url::into_string))
             ],
         )?;
         Ok(())
@@ -320,7 +320,7 @@ impl<'a> IncomingApplicator<'a> {
                 (":guid", &l.record_id.as_guid().as_ref()),
                 (
                     ":parentGuid",
-                    &l.parent_record_id.as_ref().map(|id| id.as_guid()),
+                    &l.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
                 ),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Livemark),
@@ -344,7 +344,7 @@ impl<'a> IncomingApplicator<'a> {
                 (":guid", &s.record_id.as_guid().as_ref()),
                 (
                     ":parentGuid",
-                    &s.parent_record_id.as_ref().map(|id| id.as_guid()),
+                    &s.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
                 ),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Separator),
@@ -386,8 +386,7 @@ impl<'a> IncomingApplicator<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::places_api::{test::new_mem_api, ConnectionType};
-    use crate::db::PlacesDb;
+    use crate::api::places_api::{test::new_mem_api, PlacesApi, SyncConn};
     use crate::storage::bookmarks::BookmarkRootGuid;
 
     use crate::bookmark_sync::tests::SyncedBookmarkItem;
@@ -395,11 +394,8 @@ mod tests {
     use serde_json::{json, Value};
     use sync15::Payload;
 
-    fn apply_incoming(records_json: Value) -> PlacesDb {
-        let api = new_mem_api();
-        let conn = api
-            .open_connection(ConnectionType::Sync)
-            .expect("should get a connection");
+    fn apply_incoming(api: &PlacesApi, records_json: Value) -> SyncConn {
+        let conn = api.open_sync_connection().expect("should get a connection");
 
         let server_timestamp = ServerTimestamp(0.0);
         let applicator = IncomingApplicator::new(&conn);
@@ -430,7 +426,8 @@ mod tests {
             .as_str()
             .expect("id must be a string")
             .to_string();
-        let conn = apply_incoming(record_json);
+        let api = new_mem_api();
+        let conn = apply_incoming(&api, record_json);
         let got = SyncedBookmarkItem::get(&conn, &guid.into())
             .expect("should work")
             .expect("item should exist");

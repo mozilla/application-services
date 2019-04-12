@@ -2,7 +2,32 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.24.0...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.25.2...master)
+
+# v0.25.2 (_2018-04-11_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.24.0...v0.25.2)
+
+## General
+
+- Some cryptographic primitives are now backed by NSS. On reference-browser and fenix megazords the GeckoView NSS libs are used, otherwise these libraries are bundled. ([#891](https://github.com/mozilla/application-services/pull/891))
+
+### What's Fixed
+
+- Megazords and requests should work again. ([#946](https://github.com/mozilla/application-services/pull/946))
+- The vestigial `reqwest` backend is no longer compiled into the megazords ([#937](https://github.com/mozilla/application-services/pull/937)).
+    - Note that prior to this it was present, but unused.
+
+## iOS
+
+- The individual components projects have been removed, please use the MozillaAppServices framework from now on. ([#932](https://github.com/mozilla/application-services/pull/932))
+- The NSS .dylibs must be included in your application project, see [instructions](https://github.com/mozilla/application-services/blob/30a1a57917c6e243c0c5d59fba24caa8de8f6b3a/docs/howtos/consuming-rust-components-on-ios.md#nss)
+
+## Push
+
+### What's fixed
+
+- PushAPI now stores some metadata information across restarts ([#905](https://github.com/mozilla/application-services/issues/905))
 
 # v0.24.0 (_2018-04-08_)
 
@@ -23,7 +48,7 @@
 
     ```kotlin
     val megazordClass = Class.forName("mozilla.appservices.MyCoolMegazord")
-    val megazordInitMethod = megazordClass.getDeclaredMethod("init")
+    val megazordInitMethod = megazordClass.getDeclaredMethod("init", Lazy::class.java)
     val lazyClient: Lazy<Client> = lazy { components.core.client }
     megazordInitMethod.invoke(megazordClass, lazyClient)
     ```
@@ -32,7 +57,7 @@
 
     ```kotlin
     val megazordClass = Class.forName("mozilla.appservices.MyCoolMegazord")
-    val megazordInitMethod = megazordClass.getDeclaredMethod("init")
+    val megazordInitMethod = megazordClass.getDeclaredMethod("init", Lazy::class.java)
     // HttpURLConnectionClient is from mozilla.components.lib.fetch.httpurlconnection
     val lazyClient: Lazy<Client> = lazy { HttpURLConnectionClient() }
     megazordInitMethod.invoke(megazordClass, lazyClient)

@@ -166,7 +166,7 @@ fn sync(
     wipe: bool,
     reset: bool,
 ) -> Result<()> {
-    let conn = api.open_connection(ConnectionType::Sync)?;
+    let conn = api.open_sync_connection()?;
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
 
     if wipe_all {
@@ -222,7 +222,7 @@ fn sync(
 
     let mut sync_ping = telemetry::SyncTelemetryPing::new();
 
-    let stores_to_sync: Vec<&dyn Store> = stores.iter().map(|b| b.as_ref()).collect();
+    let stores_to_sync: Vec<&dyn Store> = stores.iter().map(AsRef::as_ref).collect();
     if let Err(e) = sync_multiple(
         &stores_to_sync,
         &mut global_state.borrow_mut(),
@@ -328,7 +328,7 @@ fn main() -> Result<()> {
     }
 
     let db_path = opts.database_path;
-    let encryption_key: Option<&str> = opts.encryption_key.as_ref().map(|s| &**s);
+    let encryption_key: Option<&str> = opts.encryption_key.as_ref().map(String::as_str);
     let api = PlacesApi::new(&db_path, encryption_key)?;
     let db = api.open_connection(ConnectionType::ReadWrite)?;
 

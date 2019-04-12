@@ -80,13 +80,13 @@ impl FxABrowserIDClient for http_client::Client {
         let request = Request::post(url)
             .query(&[("keys", if get_keys { "true" } else { "false" })])
             .json(&parameters);
-        Self::make_request(request)?.json().map_err(|e| e.into())
+        Self::make_request(request)?.json().map_err(Into::into)
     }
 
     fn account_status(&self, config: &Config, uid: &str) -> Result<AccountStatusResponse> {
         let url = config.auth_url_path("v1/account/status")?;
         let request = Request::get(url).query(&[("uid", uid)]);
-        Self::make_request(request)?.json().map_err(|e| e.into())
+        Self::make_request(request)?.json().map_err(Into::into)
     }
 
     fn keys(&self, config: &Config, key_fetch_token: &[u8]) -> Result<KeysResponse> {
@@ -129,7 +129,7 @@ impl FxABrowserIDClient for http_client::Client {
         let url = config.auth_url_path("v1/recovery_email/status")?;
         let key = derive_key_from_session_token(session_token)?;
         let request = HawkRequestBuilder::new(Method::Get, url, &key).build()?;
-        Self::make_request(request)?.json().map_err(|e| e.into())
+        Self::make_request(request)?.json().map_err(Into::into)
     }
 
     fn oauth_token_with_session_token(
@@ -153,7 +153,7 @@ impl FxABrowserIDClient for http_client::Client {
         let request = HawkRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
-        Self::make_request(request)?.json().map_err(|e| e.into())
+        Self::make_request(request)?.json().map_err(Into::into)
     }
 
     fn sign(
@@ -172,7 +172,7 @@ impl FxABrowserIDClient for http_client::Client {
         let request = HawkRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
-        Self::make_request(request)?.json().map_err(|e| e.into())
+        Self::make_request(request)?.json().map_err(Into::into)
     }
 }
 

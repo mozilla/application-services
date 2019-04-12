@@ -236,7 +236,7 @@ impl InsertableItem {
 }
 
 pub fn insert_bookmark(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid> {
-    let tx = db.unchecked_transaction()?;
+    let tx = db.coop_transaction()?;
     let result = insert_bookmark_in_tx(db, bm);
     super::delete_pending_temp_tables(db)?;
     match result {
@@ -359,7 +359,7 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
 /// Delete the specified bookmark. Returns true if a bookmark with the guid
 /// existed and was deleted, false otherwise.
 pub fn delete_bookmark(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
-    let tx = db.unchecked_transaction()?;
+    let tx = db.coop_transaction()?;
     let result = delete_bookmark_in_tx(db, guid);
     match result {
         Ok(_) => tx.commit()?,
@@ -480,7 +480,7 @@ impl UpdatableItem {
     }
 }
 pub fn update_bookmark(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
-    let tx = db.unchecked_transaction()?;
+    let tx = db.coop_transaction()?;
     let result = update_bookmark_in_tx(db, guid, item);
     // Note: `tx` automatically rolls back on drop if we don't commit
     tx.commit()?;
@@ -853,10 +853,7 @@ impl<'de> Deserialize<'de> for BookmarkTreeNode {
             Err(e) => {
                 log::warn!(
                     "ignoring invalid url for {}: {:?}",
-                    m.guid
-                        .as_ref()
-                        .map(|guid| guid.as_ref())
-                        .unwrap_or("<no guid>"),
+                    m.guid.as_ref().map(AsRef::as_ref).unwrap_or("<no guid>"),
                     e
                 );
                 None
@@ -1052,7 +1049,7 @@ pub fn insert_tree(db: &PlacesDb, tree: &FolderNode) -> Result<()> {
     let mut insert_infos: Vec<InsertableItem> = Vec::new();
     add_subtree_infos(&parent_guid, tree, &mut insert_infos);
     log::info!("insert_tree inserting {} records", insert_infos.len());
-    let tx = db.unchecked_transaction()?;
+    let tx = db.coop_transaction()?;
 
     for insertable in insert_infos {
         insert_bookmark_in_tx(db, &insertable)?;
@@ -1867,12 +1864,12 @@ mod tests {
                     Ok(row.get_checked::<_, String>(0)?)
                 })
                 .expect("should work")
-                .map(|v| v.unwrap())
+                .map(std::result::Result::unwrap)
                 .collect();
 
             assert_eq!(
                 got_guids,
-                guids.into_iter().map(|v| v.to_string()).collect()
+                guids.into_iter().map(ToString::to_string).collect()
             );
             // reset them all back
             conn.execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
@@ -1889,12 +1886,12 @@ mod tests {
                     Ok(row.get_checked::<_, String>(0)?)
                 })
                 .expect("should work")
-                .map(|v| v.unwrap())
+                .map(std::result::Result::unwrap)
                 .collect();
 
             assert_eq!(
                 got_guids,
-                guids.into_iter().map(|v| v.to_string()).collect()
+                guids.into_iter().map(ToString::to_string).collect()
             );
             // reset them all back
             conn.execute("UPDATE moz_bookmarks SET lastModified = 123", NO_PARAMS)

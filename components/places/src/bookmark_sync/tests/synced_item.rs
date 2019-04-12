@@ -91,7 +91,7 @@ macro_rules! impl_builder_ref {
 macro_rules! impl_builder_opt_ref {
     ($builder_name:ident, $T:ty) => {
         pub fn $builder_name<'a>(&'a mut self, val: Option<&$T>) -> &'a mut SyncedBookmarkItem {
-            self.$builder_name = SyncedBookmarkValue::Specified(val.map(|v| v.clone()));
+            self.$builder_name = SyncedBookmarkValue::Specified(val.map(Clone::clone));
             self
         }
     };
@@ -100,7 +100,7 @@ macro_rules! impl_builder_opt_ref {
 macro_rules! impl_builder_opt_string {
     ($builder_name:ident) => {
         pub fn $builder_name<'a>(&'a mut self, val: Option<&str>) -> &'a mut SyncedBookmarkItem {
-            self.$builder_name = SyncedBookmarkValue::Specified(val.map(|s| s.to_string()));
+            self.$builder_name = SyncedBookmarkValue::Specified(val.map(ToString::to_string));
             self
         }
     };
@@ -175,7 +175,7 @@ impl SyncedBookmarkItem {
             .get_checked::<_, Option<String>>("tags")?
             .map(|tags| {
                 tags.split(',')
-                    .map(|t| t.to_owned())
+                    .map(ToString::to_string)
                     .collect::<Vec<String>>()
             })
             .unwrap_or_default();

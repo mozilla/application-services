@@ -17,7 +17,7 @@ pub(crate) fn state_from_json(data: &str) -> Result<State> {
 
 pub(crate) fn state_to_json(state: &State) -> Result<String> {
     let state = PersistedState::V2(state.clone());
-    serde_json::to_string(&state).map_err(|e| e.into())
+    serde_json::to_string(&state).map_err(Into::into)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -63,7 +63,7 @@ impl From<StateV1> for Result<StateV2> {
                 token: token.refresh_token.clone().expect(
                     "all_refresh_tokens should only contain access tokens with refresh tokens",
                 ),
-                scopes: HashSet::from_iter(token.scopes.iter().map(|s| s.to_string())),
+                scopes: HashSet::from_iter(token.scopes.iter().map(ToString::to_string)),
             });
         Ok(StateV2 {
             config: Config::init(

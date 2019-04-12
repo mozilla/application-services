@@ -272,7 +272,9 @@ impl Cryptography for Crypto {
         let d_salt = salt.map(|v| { base64::decode_config(v, base64::URL_SAFE_NO_PAD).unwrap()});
         let d_dh = dh.map(|v| { base64::decode_config(v, base64::URL_SAFE_NO_PAD).unwrap()});
         */
-        let d_body = base64::decode_config(body, base64::URL_SAFE_NO_PAD).unwrap();
+        let d_body = base64::decode_config(body, base64::URL_SAFE_NO_PAD).map_err(|e| {
+            error::ErrorKind::TranscodingError(format!("Could not parse incoming body: {:?}", e))
+        })?;
 
         match encoding.to_lowercase().as_str() {
             "aesgcm" => Self::decrypt_aesgcm(&key, &d_body, d_salt, d_dh),

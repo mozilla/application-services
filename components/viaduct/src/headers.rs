@@ -282,9 +282,8 @@ impl Headers {
         T: FromStr,
         S: PartialEq<HeaderName>,
     {
-        self.get(name).map(|val| val.parse::<T>())
+        self.get(name).map(str::parse)
     }
-
     /// Get the value of the header with the provided name, and
     /// attempt to parse it using [`std::str::FromStr`].
     ///

@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc, Mutex, Weak,
 };
 use sync15::{telemetry, MemoryCachedState};
@@ -65,7 +65,6 @@ lazy_static! {
 static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 struct SyncState {
-    conn: PlacesDb,
     mem_cached_state: RefCell<MemoryCachedState>,
     disk_cached_state: RefCell<Option<String>>,
 }
@@ -78,6 +77,8 @@ pub struct PlacesApi {
     encryption_key: Option<String>,
     write_connection: Mutex<Option<PlacesDb>>,
     sync_state: Mutex<Option<SyncState>>,
+    coop_tx_lock: Arc<Mutex<()>>,
+    sync_conn_active: AtomicBool,
     id: usize,
 }
 impl PlacesApi {
@@ -108,14 +109,22 @@ impl PlacesApi {
             None => {
                 // We always create a new read-write connection for an initial open so
                 // we can create the schema and/or do version upgrades.
-                let connection =
-                    PlacesDb::open(&db_name, encryption_key, ConnectionType::ReadWrite, id)?;
+                let coop_tx_lock = Arc::new(Mutex::new(()));
+                let connection = PlacesDb::open(
+                    &db_name,
+                    encryption_key,
+                    ConnectionType::ReadWrite,
+                    id,
+                    coop_tx_lock.clone(),
+                )?;
                 let new = PlacesApi {
                     db_name: db_name.clone(),
-                    encryption_key: encryption_key.map(|x| x.to_string()),
+                    encryption_key: encryption_key.map(ToString::to_string),
                     write_connection: Mutex::new(Some(connection)),
                     sync_state: Mutex::new(None),
+                    sync_conn_active: AtomicBool::new(false),
                     id,
+                    coop_tx_lock,
                 };
                 let arc = Arc::new(new);
                 (*guard).insert(db_name, Arc::downgrade(&arc));
@@ -126,11 +135,17 @@ impl PlacesApi {
 
     /// Open a connection to the database.
     pub fn open_connection(&self, conn_type: ConnectionType) -> Result<PlacesDb> {
-        let ec = self.encryption_key.as_ref().map(|x| x.as_str());
+        let ec = self.encryption_key.as_ref().map(String::as_str);
         match conn_type {
             ConnectionType::ReadOnly => {
                 // make a new one - we can have as many of these as we want.
-                PlacesDb::open(self.db_name.clone(), ec, ConnectionType::ReadOnly, self.id)
+                PlacesDb::open(
+                    self.db_name.clone(),
+                    ec,
+                    ConnectionType::ReadOnly,
+                    self.id,
+                    self.coop_tx_lock.clone(),
+                )
             }
             ConnectionType::ReadWrite => {
                 // We only allow one of these.
@@ -141,9 +156,30 @@ impl PlacesApi {
                 }
             }
             ConnectionType::Sync => {
-                // ideally we'd enforce this in the same way as write_connection
-                PlacesDb::open(self.db_name.clone(), ec, ConnectionType::Sync, self.id)
+                panic!("Use `open_sync_connection` to open a sync connection");
             }
+        }
+    }
+
+    pub fn open_sync_connection(&self) -> Result<SyncConn> {
+        let prev_value = self
+            .sync_conn_active
+            .compare_and_swap(false, true, Ordering::SeqCst);
+        if prev_value {
+            Err(ErrorKind::ConnectionAlreadyOpen.into())
+        } else {
+            let ec = self.encryption_key.as_ref().map(String::as_str);
+            let db = PlacesDb::open(
+                self.db_name.clone(),
+                ec,
+                ConnectionType::Sync,
+                self.id,
+                self.coop_tx_lock.clone(),
+            )?;
+            Ok(SyncConn {
+                db,
+                flag: &self.sync_conn_active,
+            })
         }
     }
 
@@ -184,10 +220,9 @@ impl PlacesApi {
         key_bundle: &sync15::KeyBundle,
     ) -> Result<telemetry::SyncTelemetryPing> {
         let mut guard = self.sync_state.lock().unwrap();
+        let conn = self.open_sync_connection()?;
         if guard.is_none() {
-            let conn = self.open_connection(ConnectionType::Sync)?;
             *guard = Some(SyncState {
-                conn,
                 mem_cached_state: RefCell::new(MemoryCachedState::default()),
                 disk_cached_state: RefCell::new(self.get_disk_persisted_state()?),
             });
@@ -196,10 +231,10 @@ impl PlacesApi {
         let sync_state = guard.as_ref().unwrap();
         // Note that counter-intuitively, his must be called before we do a
         // bookmark sync too, to ensure the shared global state is correct.
-        HistoryStore::migrate_v1_global_state(&sync_state.conn)?;
+        HistoryStore::migrate_v1_global_state(&conn)?;
 
         let store = HistoryStore::new(
-            &sync_state.conn,
+            &conn,
             &sync_state.mem_cached_state,
             &sync_state.disk_cached_state,
         );
@@ -211,6 +246,26 @@ impl PlacesApi {
         result?;
 
         Ok(sync_ping)
+    }
+}
+
+/// Wrapper around PlacesDb that automatically sets a flag (`sync_conn_active`)
+/// to false when finished
+pub struct SyncConn<'api> {
+    db: PlacesDb,
+    flag: &'api AtomicBool,
+}
+
+impl<'a> Drop for SyncConn<'a> {
+    fn drop(&mut self) {
+        self.flag.store(false, Ordering::SeqCst)
+    }
+}
+
+impl<'a> std::ops::Deref for SyncConn<'a> {
+    type Target = PlacesDb;
+    fn deref(&self) -> &PlacesDb {
+        &self.db
     }
 }
 

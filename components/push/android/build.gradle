@@ -61,6 +61,10 @@ cargo {
     profile = rootProject.ext.nonMegazordProfile
 
     exec = rootProject.ext.cargoExec
+
+    features {
+        defaultAnd("reqwest")
+    }
 }
 
 configurations {

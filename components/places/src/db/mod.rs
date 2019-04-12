@@ -3,10 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // We don't want 'db.rs' as a sub-module. We could move the contents here? Or something else?
+mod coop_transaction;
 #[allow(clippy::module_inception)] // FIXME
 pub mod db;
 mod interrupt;
 mod schema;
 pub(crate) use self::interrupt::InterruptScope;
 pub use self::interrupt::PlacesInterruptHandle;
+pub use crate::db::coop_transaction::TimeChunkedTransaction;
 pub use crate::db::db::PlacesDb;

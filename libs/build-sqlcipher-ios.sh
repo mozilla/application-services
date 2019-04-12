@@ -4,35 +4,31 @@
 
 set -euvx
 
-if [ "$#" -ne 4 ]
+if [ "${#}" -ne 4 ]
 then
     echo "Usage:"
     echo "./build-sqlcipher-ios.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <ARCH> <IOS_MIN_SDK_VERSION>"
     exit 1
 fi
 
-SQLCIPHER_SRC_DIR=$1
-DIST_DIR=$2
-ARCH=$3
-IOS_MIN_SDK_VERSION=$4
+SQLCIPHER_SRC_DIR=${1}
+DIST_DIR=${2}
+ARCH=${3}
+IOS_MIN_SDK_VERSION=${4}
 
-if [ -d "$DIST_DIR" ]; then
-  echo "$DIST_DIR"" folder already exists. Skipping build."
+if [ -d "${DIST_DIR}" ]; then
+  echo "${DIST_DIR}"" folder already exists. Skipping build."
   exit 0
 fi
 
-SQLCIPHER_IOS="$SQLCIPHER_SRC_DIR/build-ios-""$ARCH"_$$
-mkdir -p "$SQLCIPHER_IOS"
-pushd "$SQLCIPHER_IOS"
+SQLCIPHER_IOS="${SQLCIPHER_SRC_DIR}/build-ios-""${ARCH}_${$}"
+mkdir -p "${SQLCIPHER_IOS}"
+pushd "${SQLCIPHER_IOS}"
 
-if [[ "${ARCH}" == "i386" || "${ARCH}" == "x86_64" ]]; then
+if [[ "${ARCH}" == "x86_64" ]]; then
   OS_COMPILER="iPhoneSimulator"
-  if [[ "${ARCH}" == "x86_64" ]]; then
-    HOST="x86_64-apple-darwin"
-  else
-    HOST="x86-apple-darwin"
-  fi
-elif [[ "${ARCH}" == "armv7" || "${ARCH}" == "arm64" ]]; then
+  HOST="x86_64-apple-darwin"
+elif [[ "${ARCH}" == "arm64" ]]; then
   OS_COMPILER="iPhoneOS"
   HOST="arm-apple-darwin"
 else
@@ -98,7 +94,7 @@ SQLCIPHER_CFLAGS=" \
 ../configure \
   --with-pic \
   --disable-tcl \
-  --host="$HOST" \
+  --host="${HOST}" \
   --verbose \
   --with-crypto-lib=commoncrypto \
   --enable-tempstore=yes \
@@ -119,13 +115,13 @@ make sqlite3.h
 make sqlite3ext.h
 make libsqlcipher.la
 
-mkdir -p "$DIST_DIR/include/sqlcipher"
-mkdir -p "$DIST_DIR/lib"
+mkdir -p "${DIST_DIR}/include/sqlcipher"
+mkdir -p "${DIST_DIR}/lib"
 
-cp -p "$SQLCIPHER_IOS/sqlite3.h" "$DIST_DIR/include/sqlcipher"
-cp -p "$SQLCIPHER_IOS/sqlite3ext.h" "$DIST_DIR/include/sqlcipher"
-cp -p "$SQLCIPHER_IOS/.libs/libsqlcipher.a" "$DIST_DIR/lib"
+cp -p "${SQLCIPHER_IOS}/sqlite3.h" "${DIST_DIR}/include/sqlcipher"
+cp -p "${SQLCIPHER_IOS}/sqlite3ext.h" "${DIST_DIR}/include/sqlcipher"
+cp -p "${SQLCIPHER_IOS}/.libs/libsqlcipher.a" "${DIST_DIR}/lib"
 
 popd
 
-rm -rf $SQLCIPHER_IOS
+rm -rf ${SQLCIPHER_IOS}
