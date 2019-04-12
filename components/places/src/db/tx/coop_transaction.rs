@@ -54,13 +54,11 @@ impl PlacesDb {
     /// Begin a TimeChunkedTransaction. Must be called from the
     /// sync connection, see module doc for details.
     pub(super) fn time_chunked_transaction(&self) -> Result<TimeChunkedTransaction> {
-        if !cfg!(test) || !self.is_in_memory() {
-            assert_eq!(
-                self.conn_type(),
-                ConnectionType::Sync,
-                "time_chunked_transaction must only be called by the Sync connection"
-            );
-        }
+        assert_eq!(
+            self.conn_type(),
+            ConnectionType::Sync,
+            "time_chunked_transaction must only be called by the Sync connection"
+        );
         // Note that we don't allow commit_after as a param because it
         // is closely related to the timeouts configured on the database
         // itself.
@@ -76,13 +74,11 @@ impl PlacesDb {
     /// module doc for details.
     pub(super) fn coop_transaction(&self) -> Result<UncheckedTransaction> {
         // Only validate tranaction types for ConnectionType::ReadWrite.
-        if !cfg!(test) || !self.is_in_memory() {
-            assert_eq!(
-                self.conn_type(),
-                ConnectionType::ReadWrite,
-                "coop_transaction must only be called on the ReadWrite connection"
-            );
-        }
+        assert_eq!(
+            self.conn_type(),
+            ConnectionType::ReadWrite,
+            "coop_transaction must only be called on the ReadWrite connection"
+        );
         let _lock = self.coop_tx_lock.lock().unwrap();
         get_tx_with_retry_on_locked(self.conn())
     }
