@@ -92,7 +92,7 @@ pub fn fetch_bookmark(
     item_guid: &SyncGuid,
     get_direct_children: bool,
 ) -> Result<Option<PublicNode>> {
-    let _tx = db.coop_transaction()?;
+    let _tx = db.begin_transaction()?;
     let scope = db.begin_interrupt_scope();
     let bookmark = fetch_bookmark_in_tx(db, item_guid, get_direct_children, &scope)?;
     // Note: We let _tx drop (which means it does a rollback) since it doesn't
@@ -196,7 +196,7 @@ fn fetch_bookmark_in_tx(
 pub fn update_bookmark_from_message(db: &PlacesDb, msg: ProtoBookmark) -> Result<()> {
     let info = conversions::BookmarkUpdateInfo::from(msg);
 
-    let tx = db.coop_transaction()?;
+    let tx = db.begin_transaction()?;
     let node_type: BookmarkType = db.query_row_and_then_named(
         "SELECT type FROM moz_bookmarks WHERE guid = :guid",
         &[(":guid", &info.guid)],
@@ -214,7 +214,7 @@ pub fn update_bookmark_from_message(db: &PlacesDb, msg: ProtoBookmark) -> Result
 /// requested item's position and parent info are provided as well. This is the
 /// function called by the FFI when requesting the tree.
 pub fn fetch_public_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<PublicNode>> {
-    let _tx = db.coop_transaction()?;
+    let _tx = db.begin_transaction()?;
     let tree = if let Some(tree) = fetch_tree(db, item_guid)? {
         tree
     } else {

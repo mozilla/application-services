@@ -198,8 +198,12 @@ if (file('local.properties').canRead()) {
 ext.nonMegazordProfile = "debug"
 
 if (System.getenv("CI")) {
+    // Note: CI can still override this (and does for PRs), this
+    // is just the default
     ext.nonMegazordProfile = "release"
-} else if (localProperties != null) {
+}
+
+if (localProperties != null) {
     String localNonMegazordProfile = localProperties.getProperty(
         "application-services.nonmegazord-profile");
     if (localNonMegazordProfile != null) {

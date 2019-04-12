@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn test_create_schema_twice() {
-        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).expect("no memory db");
         conn.execute_batch(CREATE_SHARED_SCHEMA_SQL)
             .expect("should allow running twice");
     }
@@ -234,7 +234,7 @@ mod tests {
 
     #[test]
     fn test_places_no_tombstone() {
-        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).expect("no memory db");
         let guid = SyncGuid::new();
 
         conn.execute_named_cached(
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn test_places_tombstone_removal() {
-        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).expect("no memory db");
         let guid = SyncGuid::new();
 
         conn.execute_named_cached(
@@ -294,7 +294,7 @@ mod tests {
 
     #[test]
     fn test_bookmark_check_constraints() {
-        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).expect("no memory db");
 
         // type==BOOKMARK but null fk
         let e = conn
@@ -365,7 +365,7 @@ mod tests {
     #[test]
     fn test_bookmark_foreign_count_triggers() {
         // create the place.
-        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).expect("no memory db");
         let guid1 = SyncGuid::new();
         let url1 = Url::parse("http://example.com")
             .expect("valid url")
@@ -425,7 +425,7 @@ mod tests {
     #[test]
     fn test_bookmark_synced_foreign_count_triggers() {
         // create the place.
-        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).expect("no memory db");
 
         let url = Url::parse("http://example.com")
             .expect("valid url")
@@ -462,7 +462,7 @@ mod tests {
 
     #[test]
     fn test_bookmark_delete_restrict() {
-        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).expect("no memory db");
         conn.execute_all(&[
             "INSERT INTO moz_places
                 (guid, url, url_hash)
@@ -499,7 +499,7 @@ mod tests {
 
     #[test]
     fn test_bookmark_auto_deletes() {
-        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).expect("no memory db");
 
         conn.execute_all(&[
             // A folder to hold a bookmark.
@@ -560,7 +560,7 @@ mod tests {
 
     #[test]
     fn test_bookmark_tombstone_auto_created() {
-        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).expect("no memory db");
         conn.execute(
             &format!(
                 "INSERT INTO moz_bookmarks
@@ -609,7 +609,7 @@ mod tests {
 
     #[test]
     fn test_bookmark_tombstone_auto_deletes() {
-        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).expect("no memory db");
         conn.execute(
             "INSERT into moz_bookmarks_deleted VALUES ('bookmarkguid', 1)",
             NO_PARAMS,
@@ -637,7 +637,7 @@ mod tests {
 
     #[test]
     fn test_bookmark_tombstone_auto_deletes_on_update() {
-        let conn = PlacesDb::open_in_memory(None).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).expect("no memory db");
 
         // check updates do the right thing.
         conn.execute(
