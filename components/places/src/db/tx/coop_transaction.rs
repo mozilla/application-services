@@ -6,6 +6,10 @@
 //! decision to have exactly 1 general purpose "writer" connection and exactly
 //! one "sync writer" - ie, exactly 2 write connections.
 //!
+//! We'll describe the implementation and strategy, but note that most callers
+//! should use `PlacesDb::begin_transaction()`, which will do the right thing
+//! for your db type.
+//!
 //! The idea is that anything that uses the sync connection should use
 //! `time_chunked_transaction`. Code using this should regularly call
 //! `maybe_commit()`, and every second, will commit the transaction and start
@@ -49,7 +53,7 @@ use std::time::{Duration, Instant};
 impl PlacesDb {
     /// Begin a TimeChunkedTransaction. Must be called from the
     /// sync connection, see module doc for details.
-    pub fn time_chunked_transaction(&self) -> Result<TimeChunkedTransaction> {
+    pub(super) fn time_chunked_transaction(&self) -> Result<TimeChunkedTransaction> {
         if !cfg!(test) || !self.is_in_memory() {
             assert_eq!(
                 self.conn_type(),
@@ -70,7 +74,7 @@ impl PlacesDb {
 
     /// Begin a "coop" transaction. Must be called from the sync connection, see
     /// module doc for details.
-    pub fn coop_transaction(&self) -> Result<UncheckedTransaction> {
+    pub(super) fn coop_transaction(&self) -> Result<UncheckedTransaction> {
         // Only validate tranaction types for ConnectionType::ReadWrite.
         if !cfg!(test) || !self.is_in_memory() {
             assert_eq!(
@@ -143,7 +147,6 @@ impl<'conn> TimeChunkedTransaction<'conn> {
         Ok(())
     }
 
-    #[inline(never)]
     fn commit_and_start_new_tx(&mut self) -> Result<()> {
         // We can't call self.tx.commit() here as it wants to consume
         // self.tx, and we can't set up the new self.tx first as then
@@ -165,6 +168,13 @@ impl<'conn> TimeChunkedTransaction<'conn> {
     /// Consumes and commits a TimeChunkedTransaction transaction.
     pub fn commit(self) -> Result<()> {
         self.tx.commit()?;
+        Ok(())
+    }
+
+    /// Consumes and rolls a TimeChunkedTransaction, but potentially only back
+    /// to the last `maybe_commit`.
+    pub fn rollback(self) -> Result<()> {
+        self.tx.rollback()?;
         Ok(())
     }
 }

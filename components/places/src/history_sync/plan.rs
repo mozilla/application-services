@@ -191,7 +191,7 @@ pub fn apply_plan(
         plans.push((guid, plan));
     }
 
-    let mut tx = db.time_chunked_transaction()?;
+    let mut tx = db.begin_transaction()?;
 
     let mut outgoing = OutgoingChangeset::new("history".into(), inbound.timestamp);
     for (guid, plan) in plans {
@@ -243,10 +243,10 @@ pub fn apply_plan(
     finish_incoming(&db)?;
     tx.commit()?;
     // It might make sense for fetch_outgoing to manage its own
-    // time_chunked_transaction - even though doesn't seem a large bottleneck
+    // begin_transaction - even though doesn't seem a large bottleneck
     // at this time, the fact we hold a single transaction for the entire call
     // really is used only for performance, so it's certainly a candidate.
-    let tx = db.time_chunked_transaction()?;
+    let tx = db.begin_transaction()?;
     let mut out_infos = fetch_outgoing(db, MAX_OUTGOING_PLACES, MAX_VISITS)?;
 
     for (guid, out_record) in out_infos.drain() {
@@ -264,7 +264,7 @@ pub fn apply_plan(
 }
 
 pub fn finish_plan(db: &PlacesDb) -> Result<()> {
-    let tx = db.time_chunked_transaction()?;
+    let tx = db.begin_transaction()?;
     finish_outgoing(db)?;
     log::trace!("Committing final sync plan");
     tx.commit()?;
