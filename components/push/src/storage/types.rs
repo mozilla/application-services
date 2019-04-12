@@ -8,7 +8,7 @@ use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use serde_derive::*;
 
-// Typesafe way to manage timestamps.
+/// Typesafe way to manage timestamps.
 // XXX: copied from places, consolidate the impls later
 #[derive(
     Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Default,
@@ -42,8 +42,6 @@ impl From<Timestamp> for SystemTime {
 
 impl From<u64> for Timestamp {
     fn from(ts: u64) -> Self {
-        // XXX: we use 0.. maybe null instead
-        //assert!(ts != 0);
         Timestamp(ts)
     }
 }

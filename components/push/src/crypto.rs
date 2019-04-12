@@ -26,10 +26,8 @@ use crate::error;
 pub const SER_AUTH_LENGTH: usize = 16;
 pub type Decrypted = Vec<u8>;
 
-/* build the key off of the OpenSSL key implementation.
- * Much of this is taken from rust_ece/crypto/openssl/lib.rs
- */
-
+/// build the key off of the OpenSSL key implementation.
+/// Much of this is taken from rust_ece/crypto/openssl/lib.rs
 pub struct Key {
     /// A "Key" contains the cryptographic Web Push Key data.
     private: LocalKeyPairImpl,
@@ -83,16 +81,12 @@ impl Key {
         let mut result: Vec<u8> = Vec::new();
         let mut keypv = self.private.to_raw();
         let pvlen = keypv.len();
-        //let mut key_bytes = self.public;
-        //let pblen = key_bytes.len();
         // specify the version
         result.push(1);
         result.push(self.auth.len() as u8);
         result.append(&mut self.auth.clone());
         result.push(pvlen as u8);
         result.append(&mut keypv);
-        //result.push(pblen as u8);
-        //result.append(&mut key_bytes);
         Ok(result)
     }
 
@@ -267,10 +261,6 @@ impl Cryptography for Crypto {
         // convert the private key into something useful.
         let d_salt = extract_value(salt, "salt");
         let d_dh = extract_value(dh, "dh");
-        /*
-        let d_salt = salt.map(|v| { base64::decode_config(v, base64::URL_SAFE_NO_PAD).unwrap()});
-        let d_dh = dh.map(|v| { base64::decode_config(v, base64::URL_SAFE_NO_PAD).unwrap()});
-        */
         let d_body = base64::decode_config(body, base64::URL_SAFE_NO_PAD).map_err(|e| {
             error::ErrorKind::TranscodingError(format!("Could not parse incoming body: {:?}", e))
         })?;
@@ -351,18 +341,6 @@ mod crypto_tests {
         // This would be the public key sent to the subscription service.
         let pub_key_raw = "BBcJdfs1GtMyymFTtty6lIGWRFXrEtJP40Df0gOvRDR4D8CKVgqE6vlYR7tCYksIRdKD1MxDPhQVmKLnzuife50";
 
-        /*
-        // The externally generated data was created using pywebpush.
-        // To generate a private key:
-        let group = EcGroup::from_curve_name(nid::Nid::X9_62_PRIME256V1).unwrap();
-        let private_key = EcKey::generate(&group).unwrap();
-        let mut context = BigNumContext::new().unwrap();
-
-        // Dump the DER for "storage"
-        println!("DER: {:?}", base64::encode_config(&private_key.private_key_to_der().unwrap(), base64::URL_SAFE_NO_PAD));
-        let public_key = private_key.public_key().to_bytes(&group, PointConversionForm::UNCOMPRESSED, &mut context).unwrap();
-        println!("PUB: {:?}", base64::encode_config(&public_key, base64::URL_SAFE_NO_PAD));
-        */
         let key = Crypto::test_key(priv_key_der_raw, pub_key_raw, auth_raw);
         Crypto::decrypt(&key, ciphertext, encoding, salt, dh)
     }

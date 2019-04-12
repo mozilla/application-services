@@ -13,23 +13,28 @@ pub struct NotifierError;
 
 use storage::ChannelID;
 
-// Incoming WebPush Notification
+/// Incoming WebPush Notification
 pub struct Notification {
-    pub channel_id: ChannelID, // associated channel ID
-    pub body: Vec<u8>,         // Raw body of the incoming notification
-    pub con: String,           // encoding from Content-Encoding
-    pub salt: Option<Vec<u8>>, // from encryption header
-    pub dh: Option<Vec<u8>>,   // from crypto-key
+    /// Associated channel ID
+    pub channel_id: ChannelID,
+    /// Raw body of the incoming notification
+    pub body: Vec<u8>,
+    /// Encoding from Content-Encoding
+    pub con: String,
+    /// Salt from encryption header
+    pub salt: Option<Vec<u8>>,
+    /// from crypto-key
+    pub dh: Option<Vec<u8>>,
 }
 
-// Outbound Push Message
+/// Outbound Push Message
 pub struct PushMessage {
     pub channel_id: ChannelID,
     pub body: Vec<u8>,
 }
 
 pub trait Notifier {
-    // process notification, broadcast, etc.
+    /// process notification, broadcast, etc.
     fn process_notification(notification: Notification) -> Result<PushMessage, NotifierError>;
     // fetch sub data
     // decrypt the notification (if required)

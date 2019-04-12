@@ -40,7 +40,6 @@ impl PushManager {
     // XXX: make these trait methods
     // XXX: should be called subscribe?
     pub fn subscribe(&mut self, channel_id: &str, scope: &str) -> Result<(RegisterResponse, Key)> {
-        //let key = self.config.vapid_key;
         let reg_token = self.config.registration_id.clone().unwrap();
         let subscription_key: Key;
         let info = self.conn.subscribe(channel_id)?;
@@ -175,23 +174,9 @@ impl PushManager {
 mod test {
     use super::*;
 
-    //use serde_json::json;
-
-    // use push_crypto::{get_bytes, Key};
-
-    /*
-    const DUMMY_CHID: &str = "deadbeef00000000decafbad00000000";
-    const DUMMY_UAID: &str = "abad1dea00000000aabbccdd00000000";
-    // Local test SENDER_ID
-    const SENDER_ID: &str = "308358850242";
-    const SECRET: &str = "SuP3rS1kRet";
-    */
-
     #[test]
     fn basic() -> Result<()> {
         let _pm = PushManager::new(Default::default())?;
-        //pm.subscribe(DUMMY_CHID, "http://example.com/test-scope")?;
-        //pm.unsubscribe(Some(DUMMY_CHID))?;
         Ok(())
     }
 }

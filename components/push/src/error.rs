@@ -7,11 +7,6 @@ use std::result;
 
 use failure::{Backtrace, Context, Fail};
 use ffi_support;
-use lazy_static;
-
-lazy_static::lazy_static! {
-    pub static ref ERROR_CODE: ffi_support::ErrorCode = ffi_support::ErrorCode::new(-867_5309);
-}
 
 pub type Result<T> = result::Result<T, Error>;
 

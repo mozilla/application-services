@@ -39,7 +39,6 @@ impl Default for PushConfiguration {
     fn default() -> PushConfiguration {
         PushConfiguration {
             server_host: String::from("push.services.mozilla.com"),
-            // socket_protocol: String::from("wss"),
             socket_protocol: None,
             http_protocol: Some(String::from("https")),
             bridge_type: Some(String::from("fcm")),
