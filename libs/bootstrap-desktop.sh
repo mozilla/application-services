@@ -18,4 +18,33 @@ else
   if [ ! -d "${SQLCIPHER_LIB_DIR}" -o ! -d "${OPENSSL_DIR}" -o ! -d "${APPSERVICES_PLATFORM_DIR}/nss" ]; then
     pushd libs && ./build-all.sh desktop && popd
   fi;
+
+  # NSS system libs check.
+  pushd "$(mktemp -d)"
+  echo '
+  use std::{ffi::*, os::raw::*, process::exit};
+  extern "C" {
+    fn dlopen(filename: *const c_char, flags: c_int) -> *mut c_void;
+  }
+
+  #[cfg(target_os = "macos")]
+  const LIB_NAME: &str = "libnss3.dylib";
+  #[cfg(target_os = "linux")]
+  const LIB_NAME: &str = "libnss3.so";
+  fn main() {
+    let result = unsafe { dlopen(CString::new(LIB_NAME).unwrap().as_ptr(), 0) };
+    if result.is_null() { println!("Could not dlopen nss"); exit(1); }
+  }
+  ' > nsslibcheck.rs
+  rustc nsslibcheck.rs && ./nsslibcheck
+  LIB_CHECK_RES="${?}"
+  popd
+  if [[ "${LIB_CHECK_RES}" != 0 ]]; then
+    echo "It looks like the NSS libraries are not installed system-wide on your computer. Tests might fail to run."
+    echo "* On MacOS:"
+    echo "brew install nss"
+    echo "brew link --force nss"
+    echo "* On Debian/Ubuntu:"
+    echo "apt-get install libnss3-dev"
+  fi
 fi
