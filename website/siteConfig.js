@@ -56,6 +56,8 @@ const siteConfig = {
   /* On page navigation for the current documentation page */
   onPageNav: 'separate',
   wrapPagesHTML: true,
+  // Don't preprocess or concatenate mdBook stylesheets.
+  separateCss: ['static/sync-storage-handbook', 'static/synconomicon'],
 };
 
 module.exports = siteConfig;
