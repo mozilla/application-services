@@ -4,6 +4,18 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.25.2...master)
 
+## Push
+
+### Breaking Change
+
+- `PushAPI.subscribe()` now returns a `SubscriptionResponse` that contains the server supplied `channelID` and the
+   `subscriptionInfo` block previously returned. Please note: the server supplied `channelID` may differ from the
+   supplied `channelID` argument. This is definitely true when an empty channelID value is provided to `subscribe()`,
+   or if the channelID is not a proper UUID.
+   The returned `channelID` value is authoritative and will be the value associated with the subscription and future
+   subscription updates. As before, the `subscriptionResponse.subscriptionInfo` can be JSON serialized and returned to 
+   the application.
+ 
 # v0.25.2 (_2018-04-11_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.24.0...v0.25.2)

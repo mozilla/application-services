@@ -147,6 +147,12 @@ impl Storage for PushDb {
             "DELETE FROM push_record WHERE uaid = :uaid",
             &[(":uaid", &uaid)],
         )?;
+        // Clean up the meta data records as well, since we probably want to reset the
+        // UAID and get a new secret.
+        self.execute_batch(
+            "DELETE FROM meta_data WHERE key='uaid';\
+             DELETE FROM meta_data WHERE key='auth';",
+        )?;
         Ok(())
     }
 
@@ -203,34 +209,53 @@ mod test {
     use crate::error::Result;
 
     use super::PushDb;
+    use crate::crypto::get_bytes;
     use crate::storage::{db::Storage, record::PushRecord};
 
     const DUMMY_UAID: &str = "abad1dea00000000aabbccdd00000000";
 
-    fn prec() -> PushRecord {
+    fn get_db() -> Result<PushDb> {
+        // NOTE: In Memory tests can sometimes produce false positives. Use the following
+        // for debugging
+        // PushDb::open("/tmp/push.sqlite");
+        PushDb::open_in_memory()
+    }
+
+    fn get_uuid() -> Result<String> {
+        Ok(get_bytes(16)?
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<Vec<String>>()
+            .join(""))
+    }
+
+    fn prec(chid: &str) -> PushRecord {
         PushRecord::new(
             DUMMY_UAID,
-            "deadbeef00000000decafbad00000000",
-            "https://example.com/update",
-            "https://example.com/1",
+            chid,
+            &format!("https://example.com/update/{}", chid),
+            "https://example.com/",
             Crypto::generate_key().expect("Couldn't generate_key"),
         )
     }
 
     #[test]
     fn basic() -> Result<()> {
-        let db = PushDb::open_in_memory()?;
-        let rec = prec();
-        let chid = &rec.channel_id;
+        let db = get_db()?;
+        let chid = &get_uuid()?;
+        let rec = prec(chid);
 
         assert!(db.get_record(DUMMY_UAID, chid)?.is_none());
-        assert!(db.put_record(&rec)?);
+        db.put_record(&rec)?;
         assert!(db.get_record(DUMMY_UAID, chid)?.is_some());
+        // don't fail if you've already added this record.
+        db.put_record(&rec)?;
+        // make sure that fetching the same uaid & chid returns the same record.
         assert_eq!(db.get_record(DUMMY_UAID, chid)?, Some(rec.clone()));
 
         let mut rec2 = rec.clone();
-        rec2.endpoint = "https://example.com/update2".to_owned();
-        assert!(db.put_record(&rec2)?);
+        rec2.endpoint = format!("https://example.com/update2/{}", chid);
+        db.put_record(&rec2)?;
         let result = db.get_record(DUMMY_UAID, chid)?.unwrap();
         assert_ne!(result, rec);
         assert_eq!(result, rec2);
@@ -239,9 +264,9 @@ mod test {
 
     #[test]
     fn delete() -> Result<()> {
-        let db = PushDb::open_in_memory()?;
-        let rec = prec();
-        let chid = &rec.channel_id;
+        let db = get_db()?;
+        let chid = &get_uuid()?;
+        let rec = prec(chid);
 
         assert!(db.put_record(&rec)?);
         assert!(db.get_record(DUMMY_UAID, chid)?.is_some());
@@ -252,11 +277,12 @@ mod test {
 
     #[test]
     fn delete_all_records() -> Result<()> {
-        let db = PushDb::open_in_memory()?;
-        let rec = prec();
+        let db = get_db()?;
+        let chid = &get_uuid()?;
+        let rec = prec(chid);
         let mut rec2 = rec.clone();
-        rec2.channel_id = "deadbeef00000002".to_owned();
-        rec2.endpoint = "https://example.com/update2".to_owned();
+        rec2.channel_id = get_uuid()?;
+        rec2.endpoint = format!("https://example.com/update/{}", &rec2.channel_id);
 
         assert!(db.put_record(&rec)?);
         assert!(db.put_record(&rec2)?);
@@ -264,13 +290,15 @@ mod test {
         db.delete_all_records(DUMMY_UAID)?;
         assert!(db.get_record(DUMMY_UAID, &rec.channel_id)?.is_none());
         assert!(db.get_record(DUMMY_UAID, &rec.channel_id)?.is_none());
+        assert!(db.get_meta("uaid")?.is_none());
+        assert!(db.get_meta("auth")?.is_none());
         Ok(())
     }
 
     #[test]
     fn meta() -> Result<()> {
         use super::Storage;
-        let db = PushDb::open_in_memory()?;
+        let db = get_db()?;
         let no_rec = db.get_meta("uaid")?;
         assert_eq!(no_rec, None);
         db.set_meta("uaid", DUMMY_UAID)?;

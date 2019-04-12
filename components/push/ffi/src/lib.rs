@@ -92,17 +92,21 @@ pub extern "C" fn push_subscribe(
         // Don't auto add the subscription to the db.
         // (endpoint updates also call subscribe and should be lighter weight)
         let (info, subscription_key) = mgr.subscribe(channel, scope_s)?;
-        // store the channelid => auth + subscription_key
-        let subscription_info = json!({
-            "endpoint": info.endpoint,
-            "keys": {
-                "auth": base64::encode_config(&subscription_key.auth,
-                                              base64::URL_SAFE_NO_PAD),
-                "p256dh": base64::encode_config(&subscription_key.public,
-                                                base64::URL_SAFE_NO_PAD)
+        // it is possible for the
+        // store the channel_id => auth + subscription_key
+        let subscription_response = json!({
+            "channel_id": info.channel_id,
+            "subscription_info": {
+                "endpoint": info.endpoint,
+                "keys": {
+                    "auth": base64::encode_config(&subscription_key.auth,
+                                                  base64::URL_SAFE_NO_PAD),
+                    "p256dh": base64::encode_config(&subscription_key.public,
+                                                    base64::URL_SAFE_NO_PAD)
+                }
             }
         });
-        Ok(subscription_info.to_string())
+        Ok(subscription_response.to_string())
     })
 }
 
@@ -131,8 +135,8 @@ pub extern "C" fn push_update(handle: u64, new_token: FfiStr<'_>, error: &mut Ex
 }
 
 // verify connection using channel list
-// Returns a JSON containing the new channelids => endpoints
-// NOTE: AC should notify processes associated with channelIDs of new endpoint
+// Returns a JSON containing the new channel_ids => endpoints
+// NOTE: AC should notify processes associated with channel_ids of new endpoint
 #[no_mangle]
 pub extern "C" fn push_verify_connection(handle: u64, error: &mut ExternError) -> *mut c_char {
     log::debug!("push_verify");

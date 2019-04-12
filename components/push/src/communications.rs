@@ -26,8 +26,9 @@ use crate::error::{
 pub struct RegisterResponse {
     /// The UAID associated with the request
     pub uaid: String,
+
     /// The Channel ID associated with the request
-    pub channelid: String,
+    pub channel_id: String,
 
     /// Auth token for subsequent calls (note, only generated on new UAIDs)
     pub secret: Option<String>,
@@ -52,10 +53,10 @@ pub trait Connection {
     // TODO [conv]: reset_uaid(). This causes all known subscriptions to be reset.
 
     /// send a new subscription request to the server, get back the server registration response.
-    fn subscribe(&mut self, channelid: &str) -> error::Result<RegisterResponse>;
+    fn subscribe(&mut self, channel_id: &str) -> error::Result<RegisterResponse>;
 
     /// Drop an endpoint
-    fn unsubscribe(&self, channelid: Option<&str>) -> error::Result<bool>;
+    fn unsubscribe(&self, channel_id: Option<&str>) -> error::Result<bool>;
 
     /// Update the autopush server with the new native OS Messaging authorization token
     fn update(&mut self, new_token: &str) -> error::Result<bool>;
@@ -115,9 +116,23 @@ pub fn connect(
     Ok(connection)
 }
 
+impl ConnectHttp {
+    fn headers(&self) -> error::Result<Headers> {
+        let mut headers = Headers::new();
+        if self.auth.is_some() {
+            headers
+                .insert(header_names::AUTHORIZATION, self.auth.clone().unwrap())
+                .map_err(|e| {
+                    error::ErrorKind::CommunicationError(format!("Header error: {:?}", e))
+                })?;
+        };
+        Ok(headers)
+    }
+}
+
 impl Connection for ConnectHttp {
     /// send a new subscription request to the server, get back the server registration response.
-    fn subscribe(&mut self, channelid: &str) -> error::Result<RegisterResponse> {
+    fn subscribe(&mut self, channel_id: &str) -> error::Result<RegisterResponse> {
         // check that things are set
         if self.options.http_protocol.is_none() || self.options.bridge_type.is_none() {
             return Err(
@@ -134,26 +149,14 @@ impl Connection for ConnectHttp {
             &options.sender_id
         );
         // Add the Authorization header if we have a prior subscription.
-        let mut auth_headers = Headers::new();
         if let Some(uaid) = &self.uaid {
             url.push('/');
             url.push_str(&uaid);
             url.push_str("/subscription");
-            if self.auth.is_none() {
-                return Err(error::ErrorKind::CommunicationError(
-                    "Missing auth secret for subscription".to_owned(),
-                )
-                .into());
-            }
-            auth_headers
-                .insert("Authorization", self.auth.clone().unwrap())
-                .map_err(|e| {
-                    error::ErrorKind::CommunicationError(format!("Header error: {:?}", e))
-                })?;
         }
         let mut body = HashMap::new();
         body.insert("token", options.registration_id.unwrap());
-        body.insert("channelID", channelid.to_owned());
+        body.insert("channelID", channel_id.to_owned());
         if self.options.vapid_key.is_some() {
             body.insert("key", options.vapid_key.unwrap());
         }
@@ -167,14 +170,18 @@ impl Connection for ConnectHttp {
 
             return Ok(RegisterResponse {
                 uaid: self.uaid.clone().unwrap(),
-                channelid: "deadbeef00000000decafbad00000000".to_owned(),
+                channel_id: "deadbeef00000000decafbad00000000".to_owned(),
                 secret: self.auth.clone(),
                 endpoint: "http://push.example.com/test/opaque".to_owned(),
                 senderid: Some(self.options.sender_id.clone()),
             });
         }
         let url = Url::parse(&url)?;
-        let requested = match Request::post(url).headers(auth_headers).json(&body).send() {
+        let requested = match Request::post(url)
+            .headers(self.headers()?)
+            .json(&body)
+            .send()
+        {
             Ok(v) => v,
             Err(e) => {
                 return Err(
@@ -210,7 +217,7 @@ impl Connection for ConnectHttp {
 
         Ok(RegisterResponse {
             uaid: self.uaid.clone().unwrap(),
-            channelid: channel_id.unwrap(),
+            channel_id: channel_id.unwrap(),
             secret: self.auth.clone(),
             endpoint: endpoint.unwrap(),
             senderid: response["senderid"].as_str().map(ToString::to_string),
@@ -241,8 +248,8 @@ impl Connection for ConnectHttp {
             return Ok(true);
         }
         match Request::delete(Url::parse(&url)?)
-            .header(header_names::AUTHORIZATION, self.auth.clone().unwrap())
-            .and_then(Request::send)
+            .headers(self.headers()?)
+            .send()
         {
             Ok(_) => Ok(true),
             Err(e) => {
@@ -278,8 +285,8 @@ impl Connection for ConnectHttp {
         body.insert("token", new_token);
         match Request::put(Url::parse(&url)?)
             .json(&body)
-            .header(header_names::AUTHORIZATION, self.auth.clone().unwrap())
-            .and_then(Request::send)
+            .headers(self.headers()?)
+            .send()
         {
             Ok(_) => Ok(true),
             Err(e) => {
@@ -317,8 +324,8 @@ impl Connection for ConnectHttp {
             &self.uaid.clone().unwrap(),
         );
         let request = match Request::get(Url::parse(&url)?)
-            .header(header_names::AUTHORIZATION, self.auth.clone().unwrap())
-            .and_then(Request::send)
+            .headers(self.headers()?)
+            .send()
         {
             Ok(v) => v,
             Err(e) => {
@@ -367,7 +374,7 @@ impl Connection for ConnectHttp {
 
     /// Verify that the server and client both have matching channel information. A "false"
     /// should force the client to drop the old UAID, request a new UAID from the server, and
-    /// resubscribe all channelids, resulting in new endpoints. This will require sending the
+    /// resubscribe all channels, resulting in new endpoints. This will require sending the
     /// new endpoints to the channel recipient functions.
     fn verify_connection(&self, channels: &[String]) -> error::Result<bool> {
         if self.auth.is_none() {
@@ -412,7 +419,7 @@ mod test {
             registration_id: Some("SomeRegistrationValue".to_owned()),
             ..Default::default()
         };
-        // SUBSCRIPTION
+        // SUBSCRIPTION with secret
         {
             let body = json!({
                 "uaid": DUMMY_UAID,
@@ -437,6 +444,32 @@ mod test {
             assert_eq!(response.uaid, DUMMY_UAID);
             // make sure we have stored the secret.
             assert_eq!(conn.auth, Some(SECRET.to_owned()));
+        }
+        // SUBSCRIPTION with no secret
+        {
+            let body = json!({
+                "uaid": DUMMY_UAID,
+                "channelID": DUMMY_CHID,
+                "endpoint": "https://example.com/update",
+                "senderid": SENDER_ID,
+                "secret": null,
+            })
+            .to_string();
+            let ap_mock = mock(
+                "POST",
+                format!("/v1/test/{}/registration", SENDER_ID).as_ref(),
+            )
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create();
+            let mut conn = connect(config.clone(), None, None).unwrap();
+            let channel_id = hex::encode(crate::crypto::get_bytes(16).unwrap());
+            let response = conn.subscribe(&channel_id).unwrap();
+            ap_mock.assert();
+            assert_eq!(response.uaid, DUMMY_UAID);
+            // make sure we have stored the secret.
+            assert_eq!(conn.auth, None);
         }
         // UNSUBSCRIBE - Single channel
         {

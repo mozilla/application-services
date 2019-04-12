@@ -183,11 +183,13 @@ class PushTest {
     fun testNewSubscription() {
         val manager = getPushManager()
 
-        val subscriptionInfo = manager.subscribe(testChannelid, "foo")
+        val subscriptionResponse = manager.subscribe(testChannelid, "foo")
         // These are mock values, but it's important that they exist.
-        assertEquals("Auth Check", auth_raw, subscriptionInfo.keys.auth)
-        assertEquals("p256 Check", public_key_raw, subscriptionInfo.keys.p256dh)
-        assertEquals("endpoint Check", "http://push.example.com/test/opaque", subscriptionInfo.endpoint)
+        assertEquals("ChannelID Check", testChannelid, subscriptionResponse.channelID)
+        assertEquals("Auth Check", auth_raw, subscriptionResponse.subscriptionInfo.keys.auth)
+        assertEquals("p256 Check", public_key_raw, subscriptionResponse.subscriptionInfo.keys.p256dh)
+        assertEquals("endpoint Check", "http://push.example.com/test/opaque",
+            subscriptionResponse.subscriptionInfo.endpoint)
     }
 
     @Test
@@ -224,7 +226,7 @@ class PushTest {
     fun testDispatchForChid() {
         val manager = getPushManager()
 
-        val subscriptionInfo = manager.subscribe(testChannelid, "foo")
+        manager.subscribe(testChannelid, "foo")
         val dispatch = manager.dispatchForChid(testChannelid)
         assertEquals("uaid", "abad1d3a00000000aabbccdd00000000", dispatch.uaid)
         assertEquals("scope", "foo", dispatch.scope)
@@ -242,5 +244,18 @@ class PushTest {
         } catch (e: PushError) {
             assert(e is StorageError)
         }
+    }
+
+    @Test
+    fun testDuplicateSubscription() {
+        val manager = getPushManager()
+
+        val testChannelId = "deadbeef00000000decafbad00000000"
+        val response1 = manager.subscribe(testChannelid, "foo")
+        val response2 = manager.subscribe(testChannelid, "foo")
+        assertEquals(response1.channelID, response2.channelID)
+        assertEquals(response1.subscriptionInfo.endpoint, response2.subscriptionInfo.endpoint)
+        assertEquals(response1.subscriptionInfo.keys.auth, response2.subscriptionInfo.keys.auth)
+        assertEquals(response1.subscriptionInfo.keys.p256dh, response2.subscriptionInfo.keys.p256dh)
     }
 }
