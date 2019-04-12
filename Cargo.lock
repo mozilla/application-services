@@ -263,29 +263,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "communications"
-version = "0.1.0"
-dependencies = [
- "config 0.1.0",
- "force-viaduct-reqwest 0.1.0",
- "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "mockito 0.15.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "push-crypto 0.1.0",
- "push-errors 0.1.0",
- "serde 1.0.90 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_derive 1.0.90 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
- "storage 0.1.0",
- "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "viaduct 0.1.0",
-]
-
-[[package]]
-name = "config"
-version = "0.1.0"
-
-[[package]]
 name = "constant_time_eq"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1195,7 +1172,7 @@ dependencies = [
 
 [[package]]
 name = "mockito"
-version = "0.15.1"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "colored 1.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1559,44 +1536,25 @@ dependencies = [
 name = "push"
 version = "0.1.0"
 dependencies = [
- "communications 0.1.0",
- "config 0.1.0",
- "push-crypto 0.1.0",
- "push-errors 0.1.0",
- "push-ffi 0.1.0",
- "storage 0.1.0",
- "subscriber 0.1.0",
-]
-
-[[package]]
-name = "push-crypto"
-version = "0.1.0"
-dependencies = [
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ece 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "env_logger 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure_derive 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "ffi-support 0.3.3",
- "hkdf 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "force-viaduct-reqwest 0.1.0",
+ "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "openssl 0.10.20 (registry+https://github.com/rust-lang/crates.io-index)",
- "push-errors 0.1.0",
- "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
- "sha2 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "push-errors"
-version = "0.1.0"
-dependencies = [
- "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "failure_derive 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "ffi-support 0.3.3",
- "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mockito 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl 0.10.20 (registry+https://github.com/rust-lang/crates.io-index)",
  "rusqlite 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.90 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_derive 1.0.90 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sql-support 0.1.0",
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "viaduct 0.1.0",
 ]
 
 [[package]]
@@ -1605,17 +1563,12 @@ version = "0.1.0"
 dependencies = [
  "android_logger 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "communications 0.1.0",
- "config 0.1.0",
  "ffi-support 0.3.3",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "push-crypto 0.1.0",
- "push-errors 0.1.0",
+ "push 0.1.0",
  "rusqlite 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
- "storage 0.1.0",
- "subscriber 0.1.0",
  "sync15 0.1.0",
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "viaduct 0.1.0",
@@ -2038,9 +1991,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "serde"
 version = "1.0.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "serde_derive 1.0.90 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "serde_derive"
@@ -2124,24 +2074,6 @@ version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "storage"
-version = "0.1.0"
-dependencies = [
- "env_logger 0.5.13 (registry+https://github.com/rust-lang/crates.io-index)",
- "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "failure_derive 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "openssl 0.10.20 (registry+https://github.com/rust-lang/crates.io-index)",
- "push-crypto 0.1.0",
- "push-errors 0.1.0",
- "rusqlite 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde 1.0.90 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
- "sql-support 0.1.0",
-]
-
-[[package]]
 name = "string"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2169,21 +2101,6 @@ dependencies = [
  "proc-macro2 0.4.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 0.15.30 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "subscriber"
-version = "0.1.0"
-dependencies = [
- "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "communications 0.1.0",
- "config 0.1.0",
- "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "push-crypto 0.1.0",
- "push-errors 0.1.0",
- "serde 1.0.90 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
- "storage 0.1.0",
 ]
 
 [[package]]
@@ -2802,7 +2719,7 @@ dependencies = [
 "checksum miniz_oxide_c_api 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b7fe927a42e3807ef71defb191dc87d4e24479b221e67015fe38ae2b7b447bab"
 "checksum mio 0.6.16 (registry+https://github.com/rust-lang/crates.io-index)" = "71646331f2619b1026cc302f87a2b8b648d5c6dd6937846a16cc8ce0f347f432"
 "checksum miow 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "8c1f2f3b1cf331de6896aabf6e9d55dca90356cc9960cca7eaaf408a355ae919"
-"checksum mockito 0.15.1 (registry+https://github.com/rust-lang/crates.io-index)" = "595c924555f318dfe293485684ea31707e0ed20ec23634ffd83d695725fb0f57"
+"checksum mockito 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)" = "51de2209113259eac2b0d4d96e2b8920b4936afbf1ba7bf0cbfae2903751942e"
 "checksum more-asserts 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
 "checksum multimap 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2eb04b9f127583ed176e163fb9ec6f3e793b87e21deedd5734a69386a18a0151"
 "checksum native-tls 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "ff8e08de0070bbf4c31f452ea2a70db092f36f6f2e4d897adf5674477d488fb2"

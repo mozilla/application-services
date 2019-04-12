@@ -1,23 +1,19 @@
-/* Handle external Push Subscription Requests.
- * "priviledged" system calls may require additional handling and should be flagged as such.
- */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#![allow(unknown_lints)]
-
-extern crate serde_json;
-
-extern crate communications;
-extern crate push_crypto;
-extern crate storage;
+//! Handle external Push Subscription Requests.
+//!
+//! "priviledged" system calls may require additional handling and should be flagged as such.
 
 use std::collections::HashMap;
 
-use communications::{connect, ConnectHttp, Connection, RegisterResponse};
-use config::PushConfiguration;
-use push_crypto::{Crypto, Cryptography, Key};
-use storage::{Storage, Store};
+use crate::communications::{connect, ConnectHttp, Connection, RegisterResponse};
+use crate::config::PushConfiguration;
+use crate::crypto::{Crypto, Cryptography, Key};
+use crate::storage::{Storage, Store};
 
-use push_errors::{self as error, ErrorKind, Result};
+use crate::error::{self, ErrorKind, Result};
 
 pub struct PushManager {
     config: PushConfiguration,
@@ -44,13 +40,13 @@ impl PushManager {
     // XXX: make these trait methods
     // XXX: should be called subscribe?
     pub fn subscribe(&mut self, channel_id: &str, scope: &str) -> Result<(RegisterResponse, Key)> {
-        //let key = self.config.vapid_key;
         let reg_token = self.config.registration_id.clone().unwrap();
         let subscription_key: Key;
         let info = self.conn.subscribe(channel_id)?;
         if &self.config.sender_id == "test" {
             subscription_key = Crypto::test_key(
-                "MHcCAQEEIKiZMcVhlVccuwSr62jWN4YPBrPmPKotJUWl1id0d2ifoAoGCCqGSM49AwEHoUQDQgAEFwl1-zUa0zLKYVO23LqUgZZEVesS0k_jQN_SA69ENHgPwIpWCoTq-VhHu0JiSwhF0oPUzEM-FBWYoufO6J97nQ",
+                "MHcCAQEEIKiZMcVhlVccuwSr62jWN4YPBrPmPKotJUWl1id0d2ifoAoGCCqGSM49AwEHoUQDQgAEFwl1-\
+                 zUa0zLKYVO23LqUgZZEVesS0k_jQN_SA69ENHgPwIpWCoTq-VhHu0JiSwhF0oPUzEM-FBWYoufO6J97nQ",
                 "BBcJdfs1GtMyymFTtty6lIGWRFXrEtJP40Df0gOvRDR4D8CKVgqE6vlYR7tCYksIRdKD1MxDPhQVmKLnzuife50",
                 "LsuUOBKVQRY6-l7_Ajo-Ag"
             )
@@ -58,7 +54,7 @@ impl PushManager {
             subscription_key = Crypto::generate_key().unwrap();
         }
         // store the channelid => auth + subscription_key
-        let mut record = storage::PushRecord::new(
+        let mut record = crate::storage::PushRecord::new(
             &info.uaid,
             &channel_id,
             &info.endpoint,
@@ -167,7 +163,10 @@ impl PushManager {
         Ok(results)
     }
 
-    pub fn get_record_by_chid(&self, chid: &str) -> error::Result<Option<storage::PushRecord>> {
+    pub fn get_record_by_chid(
+        &self,
+        chid: &str,
+    ) -> error::Result<Option<crate::storage::PushRecord>> {
         self.store.get_record_by_chid(chid)
     }
 }
@@ -176,23 +175,9 @@ impl PushManager {
 mod test {
     use super::*;
 
-    //use serde_json::json;
-
-    // use push_crypto::{get_bytes, Key};
-
-    /*
-    const DUMMY_CHID: &str = "deadbeef00000000decafbad00000000";
-    const DUMMY_UAID: &str = "abad1dea00000000aabbccdd00000000";
-    // Local test SENDER_ID
-    const SENDER_ID: &str = "308358850242";
-    const SECRET: &str = "SuP3rS1kRet";
-    */
-
     #[test]
     fn basic() -> Result<()> {
         let _pm = PushManager::new(Default::default())?;
-        //pm.subscribe(DUMMY_CHID, "http://example.com/test-scope")?;
-        //pm.unsubscribe(Some(DUMMY_CHID))?;
         Ok(())
     }
 }

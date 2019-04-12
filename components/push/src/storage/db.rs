@@ -1,11 +1,14 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use std::{ops::Deref, path::Path};
 
 use rusqlite::Connection;
 use sql_support::ConnExt;
 
-use push_errors::{ErrorKind, Result};
+use crate::error::{ErrorKind, Result};
 
-use crate::{record::PushRecord, schema};
+use super::{record::PushRecord, schema};
 
 // TODO: Add broadcasts storage
 
@@ -196,11 +199,11 @@ impl Storage for PushDb {
 
 #[cfg(test)]
 mod test {
-    use push_crypto::{Crypto, Cryptography};
-    use push_errors::Result;
+    use crate::crypto::{Crypto, Cryptography};
+    use crate::error::Result;
 
     use super::PushDb;
-    use crate::{db::Storage, record::PushRecord};
+    use crate::storage::{db::Storage, record::PushRecord};
 
     const DUMMY_UAID: &str = "abad1dea00000000aabbccdd00000000";
 

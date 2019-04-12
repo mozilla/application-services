@@ -1,11 +1,14 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
-use serde::{Deserialize, Serialize};
+use serde_derive::*;
 
-// Typesafe way to manage timestamps.
+/// Typesafe way to manage timestamps.
 // XXX: copied from places, consolidate the impls later
 #[derive(
     Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Default,
@@ -39,8 +42,6 @@ impl From<Timestamp> for SystemTime {
 
 impl From<u64> for Timestamp {
     fn from(ts: u64) -> Self {
-        // XXX: we use 0.. maybe null instead
-        //assert!(ts != 0);
         Timestamp(ts)
     }
 }

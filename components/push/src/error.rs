@@ -2,20 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#![allow(unknown_lints)]
-
 use std::fmt;
 use std::result;
 
-use rusqlite;
-
 use failure::{Backtrace, Context, Fail};
 use ffi_support;
-use lazy_static;
-
-lazy_static::lazy_static! {
-    pub static ref ERROR_CODE: ffi_support::ErrorCode = ffi_support::ErrorCode::new(-867_5309);
-}
 
 pub type Result<T> = result::Result<T, Error>;
 

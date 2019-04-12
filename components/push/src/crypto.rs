@@ -1,15 +1,14 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/.
- *
- * Handles cryptographic functions.
- * Depending on platform, this may call various libraries or have other dependencies.
- *
- * This uses prime256v1 EC encryption that should come from internal crypto calls. The "application-services"
- * module compiles openssl, however, so might be enough to tie into that.
- */
-#![allow(unknown_lints)]
-use base64;
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+//! Handles cryptographic functions.
+//!
+//! Depending on platform, this may call various libraries or have other dependencies.
+//!
+//! This uses prime256v1 EC encryption that should come from internal crypto calls. The "application-services"
+//! module compiles openssl, however, so might be enough to tie into that.
+
 use log::{debug, error};
 use std::clone;
 use std::cmp;
@@ -22,15 +21,13 @@ use ece::{
 use openssl::ec::EcKey;
 use openssl::rand::rand_bytes;
 
-use push_errors as error;
+use crate::error;
 
 pub const SER_AUTH_LENGTH: usize = 16;
 pub type Decrypted = Vec<u8>;
 
-/* build the key off of the OpenSSL key implementation.
- * Much of this is taken from rust_ece/crypto/openssl/lib.rs
- */
-
+/// build the key off of the OpenSSL key implementation.
+/// Much of this is taken from rust_ece/crypto/openssl/lib.rs
 pub struct Key {
     /// A "Key" contains the cryptographic Web Push Key data.
     private: LocalKeyPairImpl,
@@ -84,16 +81,12 @@ impl Key {
         let mut result: Vec<u8> = Vec::new();
         let mut keypv = self.private.to_raw();
         let pvlen = keypv.len();
-        //let mut key_bytes = self.public;
-        //let pblen = key_bytes.len();
         // specify the version
         result.push(1);
         result.push(self.auth.len() as u8);
         result.append(&mut self.auth.clone());
         result.push(pvlen as u8);
         result.append(&mut keypv);
-        //result.push(pblen as u8);
-        //result.append(&mut key_bytes);
         Ok(result)
     }
 
@@ -268,10 +261,6 @@ impl Cryptography for Crypto {
         // convert the private key into something useful.
         let d_salt = extract_value(salt, "salt");
         let d_dh = extract_value(dh, "dh");
-        /*
-        let d_salt = salt.map(|v| { base64::decode_config(v, base64::URL_SAFE_NO_PAD).unwrap()});
-        let d_dh = dh.map(|v| { base64::decode_config(v, base64::URL_SAFE_NO_PAD).unwrap()});
-        */
         let d_body = base64::decode_config(body, base64::URL_SAFE_NO_PAD).map_err(|e| {
             error::ErrorKind::TranscodingError(format!("Could not parse incoming body: {:?}", e))
         })?;
@@ -346,24 +335,14 @@ mod crypto_tests {
     ) -> error::Result<Vec<u8>> {
         // The following come from internal storage;
         // More than likely, this will be stored either as an encoded or raw DER.
-        let priv_key_der_raw = "MHcCAQEEIKiZMcVhlVccuwSr62jWN4YPBrPmPKotJUWl1id0d2ifoAoGCCqGSM49AwEHoUQDQgAEFwl1-zUa0zLKYVO23LqUgZZEVesS0k_jQN_SA69ENHgPwIpWCoTq-VhHu0JiSwhF0oPUzEM-FBWYoufO6J97nQ";
+        let priv_key_der_raw =
+            "MHcCAQEEIKiZMcVhlVccuwSr62jWN4YPBrPmPKotJUWl1id0d2ifoAoGCCqGSM49AwEHoUQDQgAEFwl1-\
+             zUa0zLKYVO23LqUgZZEVesS0k_jQN_SA69ENHgPwIpWCoTq-VhHu0JiSwhF0oPUzEM-FBWYoufO6J97nQ";
         // The auth token
         let auth_raw = "LsuUOBKVQRY6-l7_Ajo-Ag";
         // This would be the public key sent to the subscription service.
         let pub_key_raw = "BBcJdfs1GtMyymFTtty6lIGWRFXrEtJP40Df0gOvRDR4D8CKVgqE6vlYR7tCYksIRdKD1MxDPhQVmKLnzuife50";
 
-        /*
-        // The externally generated data was created using pywebpush.
-        // To generate a private key:
-        let group = EcGroup::from_curve_name(nid::Nid::X9_62_PRIME256V1).unwrap();
-        let private_key = EcKey::generate(&group).unwrap();
-        let mut context = BigNumContext::new().unwrap();
-
-        // Dump the DER for "storage"
-        println!("DER: {:?}", base64::encode_config(&private_key.private_key_to_der().unwrap(), base64::URL_SAFE_NO_PAD));
-        let public_key = private_key.public_key().to_bytes(&group, PointConversionForm::UNCOMPRESSED, &mut context).unwrap();
-        println!("PUB: {:?}", base64::encode_config(&public_key, base64::URL_SAFE_NO_PAD));
-        */
         let key = Crypto::test_key(priv_key_der_raw, pub_key_raw, auth_raw);
         Crypto::decrypt(&key, ciphertext, encoding, salt, dh)
     }
@@ -371,7 +350,8 @@ mod crypto_tests {
     #[test]
     fn test_decrypt_aesgcm() {
         // The following comes from the delivered message body
-        let ciphertext = "BNKu5uTFhjyS-06eECU9-6O61int3Rr7ARbm-xPhFuyDO5sfxVs-HywGaVonvzkarvfvXE9IRT_YNA81Og2uSqDasdMuwqm1zd0O3f7049IkQep3RJ2pEZTy5DqvI7kwMLDLzea9nroq3EMH5hYhvQtQgtKXeWieEL_3yVDQVg";
+        let ciphertext = "BNKu5uTFhjyS-06eECU9-6O61int3Rr7ARbm-xPhFuyDO5sfxVs-HywGaVonvzkarvfvXE9IRT_YNA81Og2uSqDasdMuw\
+                          qm1zd0O3f7049IkQep3RJ2pEZTy5DqvI7kwMLDLzea9nroq3EMH5hYhvQtQgtKXeWieEL_3yVDQVg";
         // and now from the header values
         let dh = "keyid=foo;dh=BMOebOMWSRisAhWpRK9ZPszJC8BL9MiWvLZBoBU6pG6Kh6vUFSW4BHFMh0b83xCg3_7IgfQZXwmVuyu27vwiv5c,otherval=abcde";
         let salt = "salt=tSf2qu43C9BD0zkvRW5eUg";
@@ -380,13 +360,13 @@ mod crypto_tests {
 
         let decrypted = decrypter(ciphertext, "aesgcm", Some(salt), Some(dh)).unwrap();
 
-        // println!("decrypted: {:?}\n plaintext:{:?} ", String::from_utf8(decrypted).unwrap(), plaintext);
         assert_eq!(String::from_utf8(decrypted).unwrap(), PLAINTEXT.to_string());
     }
 
     #[test]
     fn test_fail_decrypt_aesgcm() {
-        let ciphertext = "BNKu5uTFhjyS-06eECU9-6O61int3Rr7ARbm-xPhFuyDO5sfxVs-HywGaVonvzkarvfvXE9IRT_YNA81Og2uSqDasdMuwqm1zd0O3f7049IkQep3RJ2pEZTy5DqvI7kwMLDLzea9nroq3EMH5hYhvQtQgtKXeWieEL_3yVDQVg";
+        let ciphertext = "BNKu5uTFhjyS-06eECU9-6O61int3Rr7ARbm-xPhFuyDO5sfxVs-HywGaVonvzkarvfvXE9IRT_\
+                          YNA81Og2uSqDasdMuwqm1zd0O3f7049IkQep3RJ2pEZTy5DqvI7kwMLDLzea9nroq3EMH5hYhvQtQgtKXeWieEL_3yVDQVg";
         let dh = "dh=BMOebOMWSRisAhWpRK9ZPszJC8BL9MiWvLZBoBU6pG6Kh6vUFSW4BHFMh0b83xCg3_7IgfQZXwmVuyu27vwiv5c";
         let salt = "salt=SomeInvalidSaltValue";
 
@@ -396,7 +376,11 @@ mod crypto_tests {
 
     #[test]
     fn test_decrypt_aes128gcm() {
-        let ciphertext = "Ek7iQgliMqS9kjFoiVOqRgAAEABBBFirfBtF6XTeHVPABFDveb1iu7uO1XVA_MYJeAo-4ih8WYUsXSTIYmkKMv5_UB3tZuQI7BQ2EVpYYQfvOCrWZVMRL8fJCuB5wVXcoRoTaFJwTlJ5hnw6IMSiaMqGVlc8drX7Hzy-ugzzAKRhGPV2x-gdsp58DZh9Ww5vHpHyT1xwVkXzx3KTyeBZu4gl_zR0Q00li17g0xGsE6Dg3xlkKEmaalgyUyObl6_a8RA6Ko1Rc6RhAy2jdyY1LQbBUnA";
+        let ciphertext =
+            "Ek7iQgliMqS9kjFoiVOqRgAAEABBBFirfBtF6XTeHVPABFDveb1iu7uO1XVA_MYJeAo-\
+             4ih8WYUsXSTIYmkKMv5_UB3tZuQI7BQ2EVpYYQfvOCrWZVMRL8fJCuB5wVXcoRoTaFJw\
+             TlJ5hnw6IMSiaMqGVlc8drX7Hzy-ugzzAKRhGPV2x-gdsp58DZh9Ww5vHpHyT1xwVkXz\
+             x3KTyeBZu4gl_zR0Q00li17g0xGsE6Dg3xlkKEmaalgyUyObl6_a8RA6Ko1Rc6RhAy2jdyY1LQbBUnA";
 
         let decrypted = decrypter(ciphertext, "aes128gcm", None, None).unwrap();
         assert_eq!(String::from_utf8(decrypted).unwrap(), PLAINTEXT.to_string());

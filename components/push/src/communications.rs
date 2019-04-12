@@ -1,43 +1,41 @@
-/* Server Communications.
- * Handles however communication to and from the remote Push Server should be done. For Desktop
- * this will be over Websocket. For mobile, it will probably be calls into the local operating
- * system and HTTPS to the web push server.
- *
- * In the future, it could be using gRPC and QUIC, or quantum relay.
- */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#![allow(unknown_lints)]
+//! Server Communications.
+//!
+//! Handles however communication to and from the remote Push Server should be done. For Desktop
+//! this will be over Websocket. For mobile, it will probably be calls into the local operating
+//! system and HTTPS to the web push server.
+//!
+//! In the future, it could be using gRPC and QUIC, or quantum relay.
 
-extern crate config;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
-
+use serde_derive::*;
 use serde_json::Value;
 use std::collections::HashMap;
 use url::Url;
 use viaduct::{header_names, status_codes, Headers, Request};
 
-use config::PushConfiguration;
-use push_errors as error;
-use push_errors::ErrorKind::{
-    AlreadyRegisteredError, CommunicationError, CommunicationServerError,
+use crate::config::PushConfiguration;
+use crate::error::{
+    self,
+    ErrorKind::{AlreadyRegisteredError, CommunicationError, CommunicationServerError},
 };
 
 #[derive(Debug)]
 pub struct RegisterResponse {
-    // the UAID & Channel ID associated with the request
+    /// The UAID associated with the request
     pub uaid: String,
+    /// The Channel ID associated with the request
     pub channelid: String,
 
-    // Auth token for subsequent calls (note, only generated on new UAIDs)
+    /// Auth token for subsequent calls (note, only generated on new UAIDs)
     pub secret: Option<String>,
 
-    // Push endpoint for 3rd parties
+    /// Push endpoint for 3rd parties
     pub endpoint: String,
 
-    // The Sender/Group ID echoed back (if applicable.)
+    /// The Sender/Group ID echoed back (if applicable.)
     pub senderid: Option<String>,
 }
 
@@ -49,31 +47,30 @@ pub enum BroadcastValue {
 }
 
 /// A new communication link to the Autopush server
-///
 pub trait Connection {
     // get the connection UAID
     // TODO [conv]: reset_uaid(). This causes all known subscriptions to be reset.
 
-    // send a new subscription request to the server, get back the server registration response.
+    /// send a new subscription request to the server, get back the server registration response.
     fn subscribe(&mut self, channelid: &str) -> error::Result<RegisterResponse>;
 
-    // Drop an endpoint
+    /// Drop an endpoint
     fn unsubscribe(&self, channelid: Option<&str>) -> error::Result<bool>;
 
-    // Update the autopush server with the new native OS Messaging authorization token
+    /// Update the autopush server with the new native OS Messaging authorization token
     fn update(&mut self, new_token: &str) -> error::Result<bool>;
 
-    // Get a list of server known channels.
+    /// Get a list of server known channels.
     fn channel_list(&self) -> error::Result<Vec<String>>;
 
-    // Verify that the known channel list matches up with the server list. If this fails, regenerate endpoints.
-    // This should be performed once a day.
+    /// Verify that the known channel list matches up with the server list. If this fails, regenerate endpoints.
+    /// This should be performed once a day.
     fn verify_connection(&self, channels: &[String]) -> error::Result<bool>;
 
-    // Add one or more new broadcast subscriptions.
+    /// Add one or more new broadcast subscriptions.
     fn broadcast_subscribe(&self, broadcast: BroadcastValue) -> error::Result<BroadcastValue>;
 
-    // get the list of broadcasts
+    /// get the list of broadcasts
     fn broadcasts(&self) -> error::Result<BroadcastValue>;
 
     //impl TODO: Handle a Ping response with updated Broadcasts.
@@ -83,7 +80,6 @@ pub trait Connection {
 /// Connect to the Autopush server via the HTTP interface
 pub struct ConnectHttp {
     pub options: PushConfiguration,
-    // pub database: Store,
     pub uaid: Option<String>,
     pub auth: Option<String>, // Server auth token
 }
@@ -110,15 +106,9 @@ pub fn connect(
         )
         .into());
     };
-    /*    let database = match options.database_path.clone() {
-            None => Store::open_in_memory()?,
-            Some(path) => Store::open(path)?,
-        };
-    */
     let connection = ConnectHttp {
         uaid,
         options: options.clone(),
-        //        database,
         auth,
     };
 
@@ -193,11 +183,9 @@ impl Connection for ConnectHttp {
             }
         };
         if requested.is_server_error() {
-            // dbg!(requested);
             return Err(CommunicationServerError("General Server error".to_string()).into());
         }
         if requested.is_client_error() {
-            // dbg!(&requested);
             if requested.status == status_codes::CONFLICT {
                 return Err(AlreadyRegisteredError.into());
             }
@@ -388,9 +376,8 @@ impl Connection for ConnectHttp {
         if &self.options.sender_id == "test" {
             return Ok(false);
         }
-        println!(":::Getting Channel List");
+        log::trace!(":::Getting Channel List");
         let remote = self.channel_list()?;
-        //let channels = self.database.get_channel_list(&self.uaid.clone().unwrap())?;
         // verify both lists match. Either side could have lost it's mind.
         Ok(remote == channels.to_vec())
     }
@@ -405,11 +392,8 @@ mod test {
 
     use super::Connection;
 
-    use hex;
     use mockito::{mock, server_address};
     use serde_json::json;
-
-    // use push_crypto::{get_bytes, Key};
 
     const DUMMY_CHID: &str = "deadbeef00000000decafbad00000000";
     const DUMMY_UAID: &str = "abad1dea00000000aabbccdd00000000";
@@ -447,7 +431,7 @@ mod test {
             .with_body(body)
             .create();
             let mut conn = connect(config.clone(), None, None).unwrap();
-            let channel_id = hex::encode(push_crypto::get_bytes(16).unwrap());
+            let channel_id = hex::encode(crate::crypto::get_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id).unwrap();
             ap_mock.assert();
             assert_eq!(response.uaid, DUMMY_UAID);
