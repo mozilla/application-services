@@ -104,10 +104,7 @@ fn new_global(pgs: &PersistedGlobalState) -> error::Result<MetaGlobalRecord> {
         PersistedGlobalState::V2 { declined: Some(d) } => d.clone(),
         _ => {
             log::warn!("New meta/global without local app state - the list of declined engines is being reset");
-            DEFAULT_DECLINED
-                .iter()
-                .map(|name| name.to_string())
-                .collect()
+            DEFAULT_DECLINED.iter().map(ToString::to_string).collect()
         }
     };
 

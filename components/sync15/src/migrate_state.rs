@@ -5,6 +5,7 @@
 use crate::record_types::MetaGlobalRecord;
 use crate::state::PersistedGlobalState;
 use crate::CollSyncIds;
+use serde_json::Value;
 
 /// Given a string persisted as our old GlobalState V1 struct, extract out
 /// the sync IDs for the collection, plus a string which should be used as the
@@ -25,13 +26,13 @@ pub fn extract_v1_state(
         Ok(j) => j,
         Err(_) => return (None, None),
     };
-    if Some("V1") != j.get("schema_version").and_then(|v| v.as_str()) {
+    if Some("V1") != j.get("schema_version").and_then(Value::as_str) {
         return (None, None);
     }
 
     let empty = Vec::<serde_json::Value>::new();
     // Get the global and payload out so we can obtain declined first.
-    let global = match j.get("global").and_then(|v| v.as_object()) {
+    let global = match j.get("global").and_then(Value::as_object) {
         None => return (None, None),
         Some(v) => v,
     };
@@ -51,7 +52,7 @@ pub fn extract_v1_state(
     // See if the collection needs a reset.
     for change in j
         .get("engine_state_changes")
-        .and_then(|v| v.as_array())
+        .and_then(Value::as_array)
         .unwrap_or(&empty)
     {
         if change.as_str() == Some("ResetAll") {
@@ -60,16 +61,16 @@ pub fn extract_v1_state(
         // other resets we care about are objects - `"Reset":name` and
         // `"ResetAllExcept":[name, name]`
         if let Some(change_ob) = change.as_object() {
-            if change_ob.get("Reset").and_then(|v| v.as_str()) == Some(collection) {
+            if change_ob.get("Reset").and_then(Value::as_str) == Some(collection) {
                 // this engine is reset.
                 return (None, new_global_state);
             }
-            if let Some(except_array) = change_ob.get("ResetAllExcept").and_then(|v| v.as_array()) {
+            if let Some(except_array) = change_ob.get("ResetAllExcept").and_then(Value::as_array) {
                 // We have what appears to be a valid list of exceptions to reset.
                 // If every one lists an engine that isn't us, we are being reset.
                 if except_array
                     .iter()
-                    .filter_map(|v| v.as_str())
+                    .filter_map(Value::as_str)
                     .all(|s| s != collection)
                 {
                     return (None, new_global_state);
