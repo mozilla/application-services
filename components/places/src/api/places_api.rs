@@ -10,6 +10,7 @@ use lazy_static::lazy_static;
 use rusqlite::OpenFlags;
 use std::cell::Cell;
 use std::collections::HashMap;
+use std::fs;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::sync::{
@@ -89,42 +90,64 @@ impl PlacesApi {
         let name = PathBuf::from(format!("file:{}?mode=memory&cache=shared", db_name));
         Self::new_or_existing(name, encryption_key)
     }
-
-    fn new_or_existing(db_name: PathBuf, encryption_key: Option<&str>) -> Result<Arc<Self>> {
+    fn new_or_existing_into(
+        target: &mut HashMap<PathBuf, Weak<PlacesApi>>,
+        db_name: PathBuf,
+        encryption_key: Option<&str>,
+        delete_on_fail: bool,
+    ) -> Result<Arc<Self>> {
         // XXX - we should check encryption_key via the HashMap here too. Also, we'd
         // rather not keep the key in memory forever, and instead it would be better to
         // require it in open_connection.
         // (Or maybe given these issues (and the surprising performance hit), we shouldn't
         // support encrypted places databases...)
-        let mut guard = APIS.lock().unwrap();
         let id = ID_COUNTER.fetch_add(1, Ordering::SeqCst);
-        match guard.get(&db_name).and_then(Weak::upgrade) {
+        match target.get(&db_name).and_then(Weak::upgrade) {
             Some(existing) => Ok(existing.clone()),
             None => {
                 // We always create a new read-write connection for an initial open so
                 // we can create the schema and/or do version upgrades.
                 let coop_tx_lock = Arc::new(Mutex::new(()));
-                let connection = PlacesDb::open(
+                match PlacesDb::open(
                     &db_name,
                     encryption_key,
                     ConnectionType::ReadWrite,
                     id,
                     coop_tx_lock.clone(),
-                )?;
-                let new = PlacesApi {
-                    db_name: db_name.clone(),
-                    encryption_key: encryption_key.map(ToString::to_string),
-                    write_connection: Mutex::new(Some(connection)),
-                    sync_state: Mutex::new(None),
-                    sync_conn_active: AtomicBool::new(false),
-                    id,
-                    coop_tx_lock,
-                };
-                let arc = Arc::new(new);
-                (*guard).insert(db_name, Arc::downgrade(&arc));
-                Ok(arc)
+                ) {
+                    Ok(connection) => {
+                        let new = PlacesApi {
+                            db_name: db_name.clone(),
+                            encryption_key: encryption_key.map(ToString::to_string),
+                            write_connection: Mutex::new(Some(connection)),
+                            sync_state: Mutex::new(None),
+                            sync_conn_active: AtomicBool::new(false),
+                            id,
+                            coop_tx_lock,
+                        };
+                        let arc = Arc::new(new);
+                        target.insert(db_name, Arc::downgrade(&arc));
+                        Ok(arc)
+                    }
+                    Err(e) => {
+                        if !delete_on_fail {
+                            return Err(e);
+                        }
+                        if let ErrorKind::DatabaseUpgradeError = e.kind() {
+                            fs::remove_file(&db_name)?;
+                            Self::new_or_existing_into(target, db_name, encryption_key, false)
+                        } else {
+                            Err(e)
+                        }
+                    }
+                }
             }
         }
+    }
+
+    fn new_or_existing(db_name: PathBuf, encryption_key: Option<&str>) -> Result<Arc<Self>> {
+        let mut guard = APIS.lock().unwrap();
+        Self::new_or_existing_into(&mut guard, db_name, encryption_key, true)
     }
 
     /// Open a connection to the database.
@@ -350,5 +373,23 @@ mod tests {
 
         // Make sure we can open it again.
         assert!(api.open_connection(ConnectionType::ReadWrite).is_ok());
+    }
+
+    #[test]
+    fn test_old_db_version() -> Result<()> {
+        let dirname = tempfile::tempdir().unwrap();
+        let db_name = dirname.path().join("temp.db");
+        let id = {
+            let api = PlacesApi::new(&db_name, None)?;
+            let conn = api.open_connection(ConnectionType::ReadWrite)?;
+            conn.execute_batch("PRAGMA user_version = 1;")?;
+            api.close_connection(conn)?;
+            api.id
+        };
+        let api2 = PlacesApi::new(&db_name, None)?;
+        assert_ne!(id, api2.id);
+        let conn = api2.open_connection(ConnectionType::ReadWrite)?;
+        assert_ne!(1, conn.db.query_one::<i64>("PRAGMA user_version")?);
+        Ok(())
     }
 }
