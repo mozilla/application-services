@@ -20,7 +20,7 @@ use std::result;
 use std::time::SystemTime;
 use sync15::{
     extract_v1_state, telemetry, CollSyncIds, CollectionRequest, IncomingChangeset,
-    OutgoingChangeset, Payload, ServerTimestamp, Store, StoreSyncAssoc,
+    OutgoingChangeset, Payload, ServerTimestamp, Store, StoreSyncAssociation,
 };
 
 pub struct LoginDb {
@@ -562,7 +562,7 @@ impl LoginDb {
         Ok(self.execute_named_cached(&*CLONE_SINGLE_MIRROR_SQL, &[(":guid", &guid as &ToSql)])?)
     }
 
-    pub fn reset(&self, assoc: &StoreSyncAssoc) -> Result<()> {
+    pub fn reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
         log::info!("Executing reset on password store!");
         let tx = self.db.unchecked_transaction()?;
         self.execute_all(&[
@@ -572,11 +572,11 @@ impl LoginDb {
         ])?;
         self.set_last_sync(ServerTimestamp(0.0))?;
         match assoc {
-            StoreSyncAssoc::Disconnected => {
+            StoreSyncAssociation::Disconnected => {
                 self.delete_meta(schema::GLOBAL_SYNCID_META_KEY)?;
                 self.delete_meta(schema::COLLECTION_SYNCID_META_KEY)?;
             }
-            StoreSyncAssoc::Connected(ids) => {
+            StoreSyncAssociation::Connected(ids) => {
                 self.put_meta(schema::GLOBAL_SYNCID_META_KEY, &ids.global)?;
                 self.put_meta(schema::COLLECTION_SYNCID_META_KEY, &ids.coll)?;
             }
@@ -838,16 +838,18 @@ impl Store for LoginDb {
         Ok(CollectionRequest::new("passwords").full().newer_than(since))
     }
 
-    fn get_sync_assoc(&self) -> result::Result<StoreSyncAssoc, failure::Error> {
+    fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {
         let global = self.get_meta(schema::GLOBAL_SYNCID_META_KEY)?;
         let coll = self.get_meta(schema::COLLECTION_SYNCID_META_KEY)?;
         Ok(match (global, coll) {
-            (Some(global), Some(coll)) => StoreSyncAssoc::Connected(CollSyncIds { global, coll }),
-            _ => StoreSyncAssoc::Disconnected,
+            (Some(global), Some(coll)) => {
+                StoreSyncAssociation::Connected(CollSyncIds { global, coll })
+            }
+            _ => StoreSyncAssociation::Disconnected,
         })
     }
 
-    fn reset(&self, assoc: &StoreSyncAssoc) -> result::Result<(), failure::Error> {
+    fn reset(&self, assoc: &StoreSyncAssociation) -> result::Result<(), failure::Error> {
         LoginDb::reset(self, assoc)?;
         Ok(())
     }

@@ -17,7 +17,7 @@ pub struct CollSyncIds {
 
 /// Defines how a store is associated with Sync.
 #[derive(Debug, Clone, PartialEq)]
-pub enum StoreSyncAssoc {
+pub enum StoreSyncAssociation {
     /// This store is disconnected (although it may be connected in the future).
     Disconnected,
     /// Sync is connected, and has the following sync IDs.
@@ -37,9 +37,9 @@ pub struct CollState {
 
 #[derive(Debug)]
 pub enum LocalCollState {
-    /// The state is unknown, with the StoreSyncAssoc the collection
+    /// The state is unknown, with the StoreSyncAssociation the collection
     /// reports.
-    Unknown { assoc: StoreSyncAssoc },
+    Unknown { assoc: StoreSyncAssociation },
 
     /// The engine has been declined. This is a "terminal" state.
     Declined,
@@ -71,13 +71,13 @@ impl<'state> LocalCollStateMachine<'state> {
                 }
                 match meta_global.engines.get(name) {
                     Some(engine_meta) => match assoc {
-                        StoreSyncAssoc::Disconnected => Ok(LocalCollState::SyncIdChanged {
+                        StoreSyncAssociation::Disconnected => Ok(LocalCollState::SyncIdChanged {
                             ids: CollSyncIds {
                                 global: meta_global.sync_id.clone(),
                                 coll: engine_meta.sync_id.clone(),
                             },
                         }),
-                        StoreSyncAssoc::Connected(ref ids)
+                        StoreSyncAssociation::Connected(ref ids)
                             if ids.global == meta_global.sync_id
                                 && ids.coll == engine_meta.sync_id =>
                         {
@@ -101,7 +101,7 @@ impl<'state> LocalCollStateMachine<'state> {
             LocalCollState::NoSuchCollection => unreachable!("the collection is unknown"),
 
             LocalCollState::SyncIdChanged { ids } => {
-                let assoc = StoreSyncAssoc::Connected(ids);
+                let assoc = StoreSyncAssociation::Connected(ids);
                 store.reset(&assoc)?;
                 Ok(LocalCollState::Unknown { assoc })
             }
@@ -200,12 +200,12 @@ mod tests {
 
     struct TestStore {
         collection_name: &'static str,
-        assoc: Cell<StoreSyncAssoc>,
+        assoc: Cell<StoreSyncAssociation>,
         num_resets: RefCell<usize>,
     }
 
     impl TestStore {
-        fn new(collection_name: &'static str, assoc: StoreSyncAssoc) -> Self {
+        fn new(collection_name: &'static str, assoc: StoreSyncAssociation) -> Self {
             Self {
                 collection_name,
                 assoc: Cell::new(assoc),
@@ -242,11 +242,11 @@ mod tests {
             unreachable!("these tests shouldn't call these");
         }
 
-        fn get_sync_assoc(&self) -> Result<StoreSyncAssoc, failure::Error> {
-            Ok(self.assoc.replace(StoreSyncAssoc::Disconnected))
+        fn get_sync_assoc(&self) -> Result<StoreSyncAssociation, failure::Error> {
+            Ok(self.assoc.replace(StoreSyncAssociation::Disconnected))
         }
 
-        fn reset(&self, new_assoc: &StoreSyncAssoc) -> Result<(), failure::Error> {
+        fn reset(&self, new_assoc: &StoreSyncAssociation) -> Result<(), failure::Error> {
             self.assoc.replace(new_assoc.clone());
             *self.num_resets.borrow_mut() += 1;
             Ok(())
@@ -260,7 +260,7 @@ mod tests {
     #[test]
     fn test_unknown() {
         let gs = get_global_state();
-        let store = TestStore::new("unknown", StoreSyncAssoc::Disconnected);
+        let store = TestStore::new("unknown", StoreSyncAssociation::Disconnected);
         let cs = LocalCollStateMachine::get_state(&store, &gs).expect("should work");
         assert!(cs.is_none(), "unknown collection name can't sync");
         assert_eq!(store.get_num_resets(), 0);
@@ -269,12 +269,12 @@ mod tests {
     #[test]
     fn test_known_no_state() {
         let gs = get_global_state();
-        let store = TestStore::new("bookmarks", StoreSyncAssoc::Disconnected);
+        let store = TestStore::new("bookmarks", StoreSyncAssociation::Disconnected);
         let cs = LocalCollStateMachine::get_state(&store, &gs).expect("should work");
         assert!(cs.is_some(), "collection can sync");
         assert_eq!(
-            store.assoc.replace(StoreSyncAssoc::Disconnected),
-            StoreSyncAssoc::Connected(CollSyncIds {
+            store.assoc.replace(StoreSyncAssociation::Disconnected),
+            StoreSyncAssociation::Connected(CollSyncIds {
                 global: "syncIDAAAAAA".to_string(),
                 coll: "syncIDBBBBBB".to_string()
             })
@@ -287,7 +287,7 @@ mod tests {
         let gs = get_global_state();
         let store = TestStore::new(
             "bookmarks",
-            StoreSyncAssoc::Connected(CollSyncIds {
+            StoreSyncAssociation::Connected(CollSyncIds {
                 global: "syncIDXXXXXX".to_string(),
                 coll: "syncIDYYYYYY".to_string(),
             }),
@@ -295,8 +295,8 @@ mod tests {
         let cs = LocalCollStateMachine::get_state(&store, &gs).expect("should work");
         assert!(cs.is_some(), "collection can sync");
         assert_eq!(
-            store.assoc.replace(StoreSyncAssoc::Disconnected),
-            StoreSyncAssoc::Connected(CollSyncIds {
+            store.assoc.replace(StoreSyncAssociation::Disconnected),
+            StoreSyncAssociation::Connected(CollSyncIds {
                 global: "syncIDAAAAAA".to_string(),
                 coll: "syncIDBBBBBB".to_string()
             })
@@ -309,7 +309,7 @@ mod tests {
         let gs = get_global_state();
         let store = TestStore::new(
             "bookmarks",
-            StoreSyncAssoc::Connected(CollSyncIds {
+            StoreSyncAssociation::Connected(CollSyncIds {
                 global: "syncIDAAAAAA".to_string(),
                 coll: "syncIDBBBBBB".to_string(),
             }),
@@ -325,7 +325,7 @@ mod tests {
         gs.global.declined.push("bookmarks".to_string());
         let store = TestStore::new(
             "bookmarks",
-            StoreSyncAssoc::Connected(CollSyncIds {
+            StoreSyncAssociation::Connected(CollSyncIds {
                 global: "syncIDAAAAAA".to_string(),
                 coll: "syncIDBBBBBB".to_string(),
             }),

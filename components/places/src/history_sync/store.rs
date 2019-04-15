@@ -13,7 +13,7 @@ use std::result;
 use sync15::telemetry;
 use sync15::{
     extract_v1_state, sync_multiple, CollSyncIds, CollectionRequest, IncomingChangeset, KeyBundle,
-    MemoryCachedState, OutgoingChangeset, ServerTimestamp, Store, StoreSyncAssoc,
+    MemoryCachedState, OutgoingChangeset, ServerTimestamp, Store, StoreSyncAssociation,
     Sync15StorageClientInit,
 };
 
@@ -80,17 +80,17 @@ impl<'a> HistoryStore<'a> {
         Ok(())
     }
 
-    fn do_reset(&self, assoc: &StoreSyncAssoc) -> Result<()> {
+    fn do_reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
         log::info!("Resetting history store");
         let tx = self.db.begin_transaction()?;
         reset_storage(self.db)?;
         self.put_meta(LAST_SYNC_META_KEY, &0)?;
         match assoc {
-            StoreSyncAssoc::Disconnected => {
+            StoreSyncAssociation::Disconnected => {
                 self.delete_meta(GLOBAL_SYNCID_META_KEY)?;
                 self.delete_meta(COLLECTION_SYNCID_META_KEY)?;
             }
-            StoreSyncAssoc::Connected(ids) => {
+            StoreSyncAssociation::Connected(ids) => {
                 self.put_meta(GLOBAL_SYNCID_META_KEY, &ids.global)?;
                 self.put_meta(COLLECTION_SYNCID_META_KEY, &ids.coll)?;
             }
@@ -198,16 +198,18 @@ impl<'a> Store for HistoryStore<'a> {
             .limit(MAX_INCOMING_PLACES))
     }
 
-    fn get_sync_assoc(&self) -> result::Result<StoreSyncAssoc, failure::Error> {
+    fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {
         let global = self.get_meta(GLOBAL_SYNCID_META_KEY)?;
         let coll = self.get_meta(COLLECTION_SYNCID_META_KEY)?;
         Ok(match (global, coll) {
-            (Some(global), Some(coll)) => StoreSyncAssoc::Connected(CollSyncIds { global, coll }),
-            _ => StoreSyncAssoc::Disconnected,
+            (Some(global), Some(coll)) => {
+                StoreSyncAssociation::Connected(CollSyncIds { global, coll })
+            }
+            _ => StoreSyncAssociation::Disconnected,
         })
     }
 
-    fn reset(&self, assoc: &StoreSyncAssoc) -> result::Result<(), failure::Error> {
+    fn reset(&self, assoc: &StoreSyncAssociation) -> result::Result<(), failure::Error> {
         self.do_reset(assoc)?;
         Ok(())
     }

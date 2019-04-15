@@ -20,7 +20,7 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
 use sync15::{
-    sync_multiple, telemetry, MemoryCachedState, SetupStorageClient, Store, StoreSyncAssoc,
+    sync_multiple, telemetry, MemoryCachedState, SetupStorageClient, Store, StoreSyncAssociation,
     Sync15StorageClient,
 };
 use url::Url;
@@ -203,7 +203,7 @@ fn sync(
             store.wipe()?;
         }
         if reset {
-            store.reset(&StoreSyncAssoc::Disconnected)?;
+            store.reset(&StoreSyncAssociation::Disconnected)?;
         }
     }
 
