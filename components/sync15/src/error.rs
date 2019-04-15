@@ -114,7 +114,10 @@ pub enum ErrorKind {
     #[fail(display = "Client upgrade required; server storage version too new")]
     ClientUpgradeRequired,
 
-    #[fail(display = "Our storage needs setting up and we can't do it")]
+    // This means that our global state machine needs to enter a state (such as
+    // "FreshStartNeeded", but the allowed_states don't include that state.)
+    // It typically means we are trying to do a "fast" or "read-only" sync.
+    #[fail(display = "Our storage needs setting up and we can't currently do it")]
     SetupRequired,
 
     #[fail(display = "Store error: {}", _0)]

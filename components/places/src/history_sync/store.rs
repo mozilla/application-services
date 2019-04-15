@@ -8,7 +8,6 @@ use crate::error::*;
 use crate::storage::history::history_sync::reset_storage;
 use rusqlite::types::{FromSql, ToSql};
 use rusqlite::Connection;
-use sql_support::ConnExt;
 use std::ops::Deref;
 use std::result;
 use sync15::telemetry;
@@ -83,7 +82,7 @@ impl<'a> HistoryStore<'a> {
 
     fn do_reset(&self, assoc: &StoreSyncAssoc) -> Result<()> {
         log::info!("Resetting history store");
-        let tx = self.db.unchecked_transaction()?;
+        let tx = self.db.begin_transaction()?;
         reset_storage(self.db)?;
         self.put_meta(LAST_SYNC_META_KEY, &0)?;
         match assoc {
@@ -109,7 +108,7 @@ impl<'a> HistoryStore<'a> {
     pub fn migrate_v1_global_state(db: &PlacesDb) -> Result<()> {
         if let Some(old_state) = crate::storage::get_meta(db, "history_global_state")? {
             log::info!("there's old global state - migrating");
-            let tx = db.unchecked_transaction()?;
+            let tx = db.begin_transaction()?;
             let (new_sync_ids, new_global_state) = extract_v1_state(old_state, "history");
             if let Some(sync_ids) = new_sync_ids {
                 crate::storage::put_meta(db, GLOBAL_SYNCID_META_KEY, &sync_ids.global)?;
