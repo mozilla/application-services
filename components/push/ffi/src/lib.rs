@@ -9,15 +9,12 @@ use ffi_support::{
     ConcurrentHandleMap, ExternError, FfiStr,
 };
 use std::os::raw::c_char;
-// use sync15::telemetry;
 
-use base64;
-use lazy_static;
 use serde_json::{self, json};
 
-use config::PushConfiguration;
-use push_errors::{self, Result};
-use subscriber::PushManager;
+use push::config::PushConfiguration;
+use push::error::Result;
+use push::subscriber::PushManager;
 
 #[no_mangle]
 pub extern "C" fn push_enable_logcat_logging() {
@@ -144,7 +141,7 @@ pub extern "C" fn push_verify_connection(handle: u64, error: &mut ExternError) -
             let new_endpoints = mgr.regenerate_endpoints()?;
             if !new_endpoints.is_empty() {
                 return serde_json::to_string(&new_endpoints).map_err(|e| {
-                    push_errors::ErrorKind::TranscodingError(format!("{:?}", e)).into()
+                    push::error::ErrorKind::TranscodingError(format!("{:?}", e)).into()
                 });
             }
         }
@@ -200,4 +197,3 @@ pub extern "C" fn push_dispatch_for_chid(
 define_string_destructor!(push_destroy_string);
 define_bytebuffer_destructor!(push_destroy_buffer);
 define_handle_map_deleter!(MANAGER, push_connection_destroy);
-// define_box_destructor!(PlacesInterruptHandle, places_interrupt_handle_destroy);

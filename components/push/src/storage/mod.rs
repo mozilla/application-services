@@ -2,11 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#![allow(unknown_lints)]
+//! Handle Push data storage
 
-pub mod communications;
-pub mod config;
-pub mod crypto;
-pub mod error;
-pub mod storage;
-pub mod subscriber;
+mod db;
+mod record;
+mod schema;
+mod types;
+
+pub use self::{
+    db::{PushDb as Store, Storage},
+    record::PushRecord,
+};

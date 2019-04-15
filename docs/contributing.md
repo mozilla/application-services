@@ -21,7 +21,21 @@ To work on the code in this repo you will need to be familiar with
 the [Rust](https://www.rust-lang.org/) programming language.
 You can get a working rust compiler and toolchain via [rustup](https://rustup.rs/).
 
-Some components require `openssl` and `sqlcipher` in order to build correctly.
+The Network Security Suite (NSS) libraries must be available on your system for
+tests to run correctly.
+You can install them by doing the following:
+
+* On MacOS (using the [Homebrew package manager](https://brew.sh/)):
+```
+brew install nss
+brew link --force nss
+```
+* On Debian/Ubuntu:
+```
+apt-get install libnss3-dev
+```
+
+Some components also require `openssl` and `sqlcipher` in order to build correctly.
 You may be able to install these via your OS package manager, but for consistency
 we recommend using the versions included in this repo by doing the following from
 the root of your checkout:

@@ -4,7 +4,7 @@
 
 // This example demonstrates how our "cooperative transactions" work.
 // Execute with a cmdline something like:
-// % RUST_LOG=places::db::coop_transaction=debug cargo run --example check-coop-tx
+// % RUST_LOG=places::db::tx=debug cargo run --example check-coop-tx
 
 use places::api::places_api::ConnectionType;
 use places::PlacesDb;
@@ -51,7 +51,7 @@ fn main() -> Result<()> {
             PlacesDb::open(path, None, ConnectionType::Sync, 0, coop_tx_lock.clone()).unwrap();
         // assert_eq!(rx.recv().unwrap(), 0);
         let mut t = db1
-            .time_chunked_transaction()
+            .begin_transaction()
             .expect("should get the thread transaction");
         println!("inner has tx");
         tx.send(0).unwrap();
@@ -68,7 +68,7 @@ fn main() -> Result<()> {
     println!("inner thread has tx lock, so charging ahead...");
     for i in 100_000..100_020 {
         let tx = dbmain
-            .coop_transaction()
+            .begin_transaction()
             .expect("should get the main transaction");
         update(&dbmain, i).unwrap();
         tx.commit().expect("main thread should commit");

@@ -10,7 +10,7 @@ use super::record::{
 };
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::api::places_api::ConnectionType;
-use crate::db::{PlacesDb, TimeChunkedTransaction};
+use crate::db::{PlacesDb, PlacesTransaction};
 use crate::error::*;
 use crate::storage::{bookmarks::BookmarkRootGuid, delete_meta, get_meta, put_meta};
 use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
@@ -48,7 +48,7 @@ impl<'a> BookmarksStore<'a> {
         incoming_telemetry: &mut telemetry::EngineIncoming,
     ) -> Result<ServerTimestamp> {
         let timestamp = inbound.timestamp;
-        let mut tx = self.db.time_chunked_transaction()?;
+        let mut tx = self.db.begin_transaction()?;
 
         let applicator = IncomingApplicator::new(&self.db);
 
@@ -107,7 +107,7 @@ impl<'a> BookmarksStore<'a> {
         &self,
         descendants: Vec<MergedDescendant<'t>>,
         deletions: Vec<Deletion>,
-        _tx: &mut TimeChunkedTransaction,
+        _tx: &mut PlacesTransaction,
     ) -> Result<()> {
         // First, insert rows for all merged descendants.
         sql_support::each_sized_chunk(
@@ -385,7 +385,7 @@ impl<'a> BookmarksStore<'a> {
         // Flag all successfully synced records as uploaded. This `UPDATE` fires
         // the `pushUploadedChanges` trigger, which updates local change
         // counters and writes the items back to the synced bookmarks table.
-        let mut tx = self.db.time_chunked_transaction()?;
+        let mut tx = self.db.begin_transaction()?;
 
         let guids = records_synced
             .into_iter()
@@ -478,7 +478,7 @@ impl<'a> Store for BookmarksStore<'a> {
     /// all synced items and pending tombstones. This also forgets the last
     /// sync time.
     fn reset(&self, ids: &Option<CollSyncIds>) -> result::Result<(), failure::Error> {
-        let tx = self.db.time_chunked_transaction()?;
+        let tx = self.db.begin_transaction()?;
         self.db.execute_batch(&format!(
             "DELETE FROM moz_bookmarks_synced;
 
@@ -512,7 +512,7 @@ impl<'a> Store for BookmarksStore<'a> {
     /// Conceptually, the next sync will merge an empty local tree, and a full
     /// remote tree.
     fn wipe(&self) -> result::Result<(), failure::Error> {
-        let tx = self.db.time_chunked_transaction()?;
+        let tx = self.db.begin_transaction()?;
         let sql = format!(
             "INSERT INTO moz_bookmarks_deleted(guid, dateRemoved)
              SELECT guid, now()
@@ -840,7 +840,7 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
         let descendants = root.descendants();
         let deletions = deletions.collect::<Vec<_>>();
 
-        let mut tx = self.store.db.time_chunked_transaction()?;
+        let mut tx = self.store.db.begin_transaction()?;
         self.store
             .update_local_items(descendants, deletions, &mut tx)?;
         self.store.stage_local_items_to_upload()?;
