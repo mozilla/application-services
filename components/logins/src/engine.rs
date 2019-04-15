@@ -6,7 +6,9 @@ use crate::error::*;
 use crate::login::Login;
 use std::cell::Cell;
 use std::path::Path;
-use sync15::{sync_multiple, telemetry, KeyBundle, MemoryCachedState, Sync15StorageClientInit};
+use sync15::{
+    sync_multiple, telemetry, KeyBundle, MemoryCachedState, StoreSyncAssoc, Sync15StorageClientInit,
+};
 
 // This isn't really an engine in the firefox sync15 desktop sense -- it's
 // really a bundle of state that contains the sync storage client, the sync
@@ -60,7 +62,7 @@ impl PasswordEngine {
     }
 
     pub fn reset(&self) -> Result<()> {
-        self.db.reset(&None)?;
+        self.db.reset(&StoreSyncAssoc::Disconnected)?;
         Ok(())
     }
 

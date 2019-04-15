@@ -4,7 +4,7 @@
 
 use crate::changeset::{CollectionUpdate, IncomingChangeset, OutgoingChangeset};
 use crate::client::Sync15StorageClient;
-use crate::coll_state::{CollSyncIds, LocalCollStateMachine};
+use crate::coll_state::{LocalCollStateMachine, StoreSyncAssoc};
 use crate::error::Error;
 use crate::request::CollectionRequest;
 use crate::state::GlobalState;
@@ -39,17 +39,11 @@ pub trait Store {
 
     /// Get persisted sync IDs. If they don't match the global state we'll be
     /// `reset()` with the new IDs.
-    fn get_sync_ids(&self) -> Result<(Option<CollSyncIds>), failure::Error>;
+    fn get_sync_assoc(&self) -> Result<StoreSyncAssoc, failure::Error>;
 
     /// Reset the store without wiping local data, ready for a "first sync".
-    /// If called with Some(), then it means Sync is going to remain connected
-    /// so the specified guids should be persisted as part of resetting the state.
-    /// If called with None, it means Sync is being disconnected (although it
-    /// may be reconnected in the future), so these items should be deleted from
-    /// the store.
-    /// In both cases, after this call succeeds, `get_sync_ids()` should return
-    /// these values)
-    fn reset(&self, new_ids: &Option<CollSyncIds>) -> Result<(), failure::Error>;
+    /// `assoc` defines how this store is to be associated with sync.
+    fn reset(&self, assoc: &StoreSyncAssoc) -> Result<(), failure::Error>;
 
     fn wipe(&self) -> Result<(), failure::Error>;
 }

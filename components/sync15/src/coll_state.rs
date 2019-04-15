@@ -15,6 +15,15 @@ pub struct CollSyncIds {
     pub coll: String,
 }
 
+/// Defines how a store is associated with Sync.
+#[derive(Debug, Clone, PartialEq)]
+pub enum StoreSyncAssoc {
+    /// This store is disconnected (although it may be connected in the future).
+    Disconnected,
+    /// Sync is connected, and has the following sync IDs.
+    Connected(CollSyncIds),
+}
+
 /// Holds state for a collection. In general, only the CollState is
 /// needed to sync a collection (but a valid GlobalState is needed to obtain
 /// a CollState)
@@ -28,9 +37,9 @@ pub struct CollState {
 
 #[derive(Debug)]
 pub enum LocalCollState {
-    /// The state is unknown. If the collection knows what the IDs were last
-    /// time they are here, otherwise None
-    Unknown { ids: Option<CollSyncIds> },
+    /// The state is unknown, with the StoreSyncAssoc the collection
+    /// reports.
+    Unknown { assoc: StoreSyncAssoc },
 
     /// The engine has been declined. This is a "terminal" state.
     Declined,
@@ -56,28 +65,33 @@ impl<'state> LocalCollStateMachine<'state> {
         let name = &store.collection_name().to_string();
         let meta_global = &self.global_state.global;
         match from {
-            LocalCollState::Unknown { ids } => {
+            LocalCollState::Unknown { assoc } => {
                 if meta_global.declined.contains(name) {
                     return Ok(LocalCollState::Declined);
                 }
                 match meta_global.engines.get(name) {
-                    Some(engine_meta) => {
-                        let ids_match = ids.map_or(false, |ids| {
-                            ids.global == meta_global.sync_id && ids.coll == engine_meta.sync_id
-                        });
-                        if ids_match {
+                    Some(engine_meta) => match assoc {
+                        StoreSyncAssoc::Disconnected => Ok(LocalCollState::SyncIdChanged {
+                            ids: CollSyncIds {
+                                global: meta_global.sync_id.clone(),
+                                coll: engine_meta.sync_id.clone(),
+                            },
+                        }),
+                        StoreSyncAssoc::Connected(ref ids)
+                            if ids.global == meta_global.sync_id
+                                && ids.coll == engine_meta.sync_id =>
+                        {
                             Ok(LocalCollState::Ready {
                                 key: self.global_state.keys.default.clone(),
                             })
-                        } else {
-                            Ok(LocalCollState::SyncIdChanged {
-                                ids: CollSyncIds {
-                                    global: meta_global.sync_id.clone(),
-                                    coll: engine_meta.sync_id.clone(),
-                                },
-                            })
                         }
-                    }
+                        _ => Ok(LocalCollState::SyncIdChanged {
+                            ids: CollSyncIds {
+                                global: meta_global.sync_id.clone(),
+                                coll: engine_meta.sync_id.clone(),
+                            },
+                        }),
+                    },
                     None => Ok(LocalCollState::NoSuchCollection),
                 }
             }
@@ -87,9 +101,9 @@ impl<'state> LocalCollStateMachine<'state> {
             LocalCollState::NoSuchCollection => unreachable!("the collection is unknown"),
 
             LocalCollState::SyncIdChanged { ids } => {
-                let ids = Some(ids);
-                store.reset(&ids)?;
-                Ok(LocalCollState::Unknown { ids })
+                let assoc = StoreSyncAssoc::Connected(ids);
+                store.reset(&assoc)?;
+                Ok(LocalCollState::Unknown { assoc })
             }
 
             LocalCollState::Ready { .. } => unreachable!("can't advance from ready"),
@@ -102,7 +116,7 @@ impl<'state> LocalCollStateMachine<'state> {
         store: &Store,
     ) -> error::Result<Option<CollState>> {
         let mut s = LocalCollState::Unknown {
-            ids: store.get_sync_ids()?,
+            assoc: store.get_sync_assoc()?,
         };
         // This is a simple state machine and should never take more than
         // 10 goes around.
@@ -186,15 +200,15 @@ mod tests {
 
     struct TestStore {
         collection_name: &'static str,
-        sync_ids: Cell<Option<CollSyncIds>>,
+        assoc: Cell<StoreSyncAssoc>,
         num_resets: RefCell<usize>,
     }
 
     impl TestStore {
-        fn new(collection_name: &'static str, sync_ids: Option<CollSyncIds>) -> Self {
+        fn new(collection_name: &'static str, assoc: StoreSyncAssoc) -> Self {
             Self {
                 collection_name,
-                sync_ids: Cell::new(sync_ids),
+                assoc: Cell::new(assoc),
                 num_resets: RefCell::new(0),
             }
         }
@@ -228,12 +242,12 @@ mod tests {
             unreachable!("these tests shouldn't call these");
         }
 
-        fn get_sync_ids(&self) -> Result<(Option<CollSyncIds>), failure::Error> {
-            Ok(self.sync_ids.replace(None))
+        fn get_sync_assoc(&self) -> Result<StoreSyncAssoc, failure::Error> {
+            Ok(self.assoc.replace(StoreSyncAssoc::Disconnected))
         }
 
-        fn reset(&self, new_ids: &Option<CollSyncIds>) -> Result<(), failure::Error> {
-            self.sync_ids.replace(new_ids.clone());
+        fn reset(&self, new_assoc: &StoreSyncAssoc) -> Result<(), failure::Error> {
+            self.assoc.replace(new_assoc.clone());
             *self.num_resets.borrow_mut() += 1;
             Ok(())
         }
@@ -246,7 +260,7 @@ mod tests {
     #[test]
     fn test_unknown() {
         let gs = get_global_state();
-        let store = TestStore::new("unknown", None);
+        let store = TestStore::new("unknown", StoreSyncAssoc::Disconnected);
         let cs = LocalCollStateMachine::get_state(&store, &gs).expect("should work");
         assert!(cs.is_none(), "unknown collection name can't sync");
         assert_eq!(store.get_num_resets(), 0);
@@ -255,12 +269,12 @@ mod tests {
     #[test]
     fn test_known_no_state() {
         let gs = get_global_state();
-        let store = TestStore::new("bookmarks", None);
+        let store = TestStore::new("bookmarks", StoreSyncAssoc::Disconnected);
         let cs = LocalCollStateMachine::get_state(&store, &gs).expect("should work");
         assert!(cs.is_some(), "collection can sync");
         assert_eq!(
-            store.sync_ids.replace(None),
-            Some(CollSyncIds {
+            store.assoc.replace(StoreSyncAssoc::Disconnected),
+            StoreSyncAssoc::Connected(CollSyncIds {
                 global: "syncIDAAAAAA".to_string(),
                 coll: "syncIDBBBBBB".to_string()
             })
@@ -273,7 +287,7 @@ mod tests {
         let gs = get_global_state();
         let store = TestStore::new(
             "bookmarks",
-            Some(CollSyncIds {
+            StoreSyncAssoc::Connected(CollSyncIds {
                 global: "syncIDXXXXXX".to_string(),
                 coll: "syncIDYYYYYY".to_string(),
             }),
@@ -281,8 +295,8 @@ mod tests {
         let cs = LocalCollStateMachine::get_state(&store, &gs).expect("should work");
         assert!(cs.is_some(), "collection can sync");
         assert_eq!(
-            store.sync_ids.replace(None),
-            Some(CollSyncIds {
+            store.assoc.replace(StoreSyncAssoc::Disconnected),
+            StoreSyncAssoc::Connected(CollSyncIds {
                 global: "syncIDAAAAAA".to_string(),
                 coll: "syncIDBBBBBB".to_string()
             })
@@ -295,7 +309,7 @@ mod tests {
         let gs = get_global_state();
         let store = TestStore::new(
             "bookmarks",
-            Some(CollSyncIds {
+            StoreSyncAssoc::Connected(CollSyncIds {
                 global: "syncIDAAAAAA".to_string(),
                 coll: "syncIDBBBBBB".to_string(),
             }),
@@ -311,7 +325,7 @@ mod tests {
         gs.global.declined.push("bookmarks".to_string());
         let store = TestStore::new(
             "bookmarks",
-            Some(CollSyncIds {
+            StoreSyncAssoc::Connected(CollSyncIds {
                 global: "syncIDAAAAAA".to_string(),
                 coll: "syncIDBBBBBB".to_string(),
             }),

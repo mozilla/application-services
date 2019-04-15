@@ -24,7 +24,7 @@ use std::fmt;
 use std::result;
 use sync15::{
     telemetry, CollSyncIds, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload,
-    ServerTimestamp, Store,
+    ServerTimestamp, Store, StoreSyncAssoc,
 };
 static LAST_SYNC_META_KEY: &'static str = "bookmarks_last_sync_time";
 // Note that all engines in this crate should use a *different* meta key
@@ -467,17 +467,20 @@ impl<'a> Store for BookmarksStore<'a> {
             .newer_than(since))
     }
 
-    fn get_sync_ids(&self) -> result::Result<Option<CollSyncIds>, failure::Error> {
+    fn get_sync_assoc(&self) -> result::Result<StoreSyncAssoc, failure::Error> {
         let global = get_meta(self.db, GLOBAL_SYNCID_META_KEY)?;
         let coll = get_meta(self.db, COLLECTION_SYNCID_META_KEY)?;
-        Ok(global.and_then(|global| coll.and_then(|coll| Some(CollSyncIds { global, coll }))))
+        Ok(match (global, coll) {
+            (Some(global), Some(coll)) => StoreSyncAssoc::Connected(CollSyncIds { global, coll }),
+            _ => StoreSyncAssoc::Disconnected,
+        })
     }
 
     /// Removes all sync metadata, such that the next sync is treated as a
     /// first sync. Unlike `wipe`, this keeps all local items, but clears
     /// all synced items and pending tombstones. This also forgets the last
     /// sync time.
-    fn reset(&self, ids: &Option<CollSyncIds>) -> result::Result<(), failure::Error> {
+    fn reset(&self, assoc: &StoreSyncAssoc) -> result::Result<(), failure::Error> {
         let tx = self.db.begin_transaction()?;
         self.db.execute_batch(&format!(
             "DELETE FROM moz_bookmarks_synced;
@@ -491,12 +494,12 @@ impl<'a> Store for BookmarksStore<'a> {
         ))?;
         create_synced_bookmark_roots(self.db)?;
         put_meta(self.db, LAST_SYNC_META_KEY, &0)?;
-        match ids {
-            None => {
+        match assoc {
+            StoreSyncAssoc::Disconnected => {
                 delete_meta(self.db, GLOBAL_SYNCID_META_KEY)?;
                 delete_meta(self.db, COLLECTION_SYNCID_META_KEY)?;
             }
-            Some(ids) => {
+            StoreSyncAssoc::Connected(ids) => {
                 put_meta(self.db, GLOBAL_SYNCID_META_KEY, &ids.global)?;
                 put_meta(self.db, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
             }

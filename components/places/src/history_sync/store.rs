@@ -14,7 +14,8 @@ use std::result;
 use sync15::telemetry;
 use sync15::{
     extract_v1_state, sync_multiple, CollSyncIds, CollectionRequest, IncomingChangeset, KeyBundle,
-    MemoryCachedState, OutgoingChangeset, ServerTimestamp, Store, Sync15StorageClientInit,
+    MemoryCachedState, OutgoingChangeset, ServerTimestamp, Store, StoreSyncAssoc,
+    Sync15StorageClientInit,
 };
 
 use super::plan::{apply_plan, finish_plan};
@@ -80,17 +81,17 @@ impl<'a> HistoryStore<'a> {
         Ok(())
     }
 
-    fn do_reset(&self, ids: &Option<CollSyncIds>) -> Result<()> {
+    fn do_reset(&self, assoc: &StoreSyncAssoc) -> Result<()> {
         log::info!("Resetting history store");
         let tx = self.db.unchecked_transaction()?;
         reset_storage(self.db)?;
         self.put_meta(LAST_SYNC_META_KEY, &0)?;
-        match ids {
-            None => {
+        match assoc {
+            StoreSyncAssoc::Disconnected => {
                 self.delete_meta(GLOBAL_SYNCID_META_KEY)?;
                 self.delete_meta(COLLECTION_SYNCID_META_KEY)?;
             }
-            Some(ids) => {
+            StoreSyncAssoc::Connected(ids) => {
                 self.put_meta(GLOBAL_SYNCID_META_KEY, &ids.global)?;
                 self.put_meta(COLLECTION_SYNCID_META_KEY, &ids.coll)?;
             }
@@ -198,14 +199,17 @@ impl<'a> Store for HistoryStore<'a> {
             .limit(MAX_INCOMING_PLACES))
     }
 
-    fn get_sync_ids(&self) -> result::Result<Option<CollSyncIds>, failure::Error> {
+    fn get_sync_assoc(&self) -> result::Result<StoreSyncAssoc, failure::Error> {
         let global = self.get_meta(GLOBAL_SYNCID_META_KEY)?;
         let coll = self.get_meta(COLLECTION_SYNCID_META_KEY)?;
-        Ok(global.and_then(|global| coll.and_then(|coll| Some(CollSyncIds { global, coll }))))
+        Ok(match (global, coll) {
+            (Some(global), Some(coll)) => StoreSyncAssoc::Connected(CollSyncIds { global, coll }),
+            _ => StoreSyncAssoc::Disconnected,
+        })
     }
 
-    fn reset(&self, new_ids: &Option<CollSyncIds>) -> result::Result<(), failure::Error> {
-        self.do_reset(new_ids)?;
+    fn reset(&self, assoc: &StoreSyncAssoc) -> result::Result<(), failure::Error> {
+        self.do_reset(assoc)?;
         Ok(())
     }
 

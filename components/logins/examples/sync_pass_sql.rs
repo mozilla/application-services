@@ -13,7 +13,7 @@ use logins::{Login, PasswordEngine};
 use prettytable::*;
 use rusqlite::NO_PARAMS;
 use serde_json;
-use sync15::telemetry;
+use sync15::{telemetry, StoreSyncAssoc};
 
 // I'm completely punting on good error handling here.
 type Result<T> = std::result::Result<T, failure::Error>;
@@ -349,7 +349,7 @@ fn main() -> Result<()> {
             }
             'R' | 'r' => {
                 log::info!("Resetting client.");
-                if let Err(e) = engine.db.reset(&None) {
+                if let Err(e) = engine.db.reset(&StoreSyncAssoc::Disconnected) {
                     log::warn!("Failed to reset! {}", e);
                 }
             }
