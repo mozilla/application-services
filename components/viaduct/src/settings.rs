@@ -23,10 +23,16 @@ pub(crate) struct Settings {
     _priv: (),
 }
 
+#[cfg(target_os = "ios")]
+const TIMEOUT_DURATION: Duration = Duration::from_secs(30);
+
+#[cfg(not(target_os = "ios"))]
+const TIMEOUT_DURATION: Duration = Duration::from_secs(10);
+
 // The singleton instance of our settings.
 pub(crate) static GLOBAL_SETTINGS: &Settings = &Settings {
-    read_timeout: Some(Duration::from_secs(30)),
-    connect_timeout: Some(Duration::from_secs(30)),
+    read_timeout: Some(TIMEOUT_DURATION),
+    connect_timeout: Some(TIMEOUT_DURATION),
     follow_redirects: true,
     include_cookies: false,
     use_caches: false,
