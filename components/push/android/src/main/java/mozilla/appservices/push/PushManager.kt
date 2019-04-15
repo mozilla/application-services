@@ -62,12 +62,12 @@ class PushManager(
     override fun subscribe(
         channelID: String,
         scope: String
-    ): SubscriptionInfo {
+    ): SubscriptionResponse {
         val json = rustCallForString { error ->
             LibPushFFI.INSTANCE.push_subscribe(
                 this.handle.get(), channelID, scope, error)
         }
-        return SubscriptionInfo.fromString(json)
+        return SubscriptionResponse.fromString(json)
     }
 
     override fun unsubscribe(channelID: String): Boolean {
@@ -197,14 +197,28 @@ class SubscriptionInfo constructor (
 ) {
 
     companion object {
-        internal fun fromString(msg: String): SubscriptionInfo {
-            val obj = JSONObject(msg)
+        internal fun fromObject(obj: JSONObject): SubscriptionInfo {
             val keyObj = obj.getJSONObject("keys")
             return SubscriptionInfo(
                     endpoint = obj.getString("endpoint"),
                     keys = KeyInfo(
                             auth = keyObj.getString("auth"),
                             p256dh = keyObj.getString("p256dh"))
+            )
+        }
+    }
+}
+
+class SubscriptionResponse constructor (
+    val channelID: String,
+    val subscriptionInfo: SubscriptionInfo
+) {
+    companion object {
+        internal fun fromString(msg: String): SubscriptionResponse {
+            val obj = JSONObject(msg)
+            return SubscriptionResponse(
+                channelID = obj.getString("channel_id"),
+                subscriptionInfo = SubscriptionInfo.fromObject(obj.getJSONObject("subscription_info"))
             )
         }
     }
@@ -295,7 +309,7 @@ interface PushAPI : java.lang.AutoCloseable {
     fun subscribe(
         channelID: String = "",
         scope: String = ""
-    ): SubscriptionInfo
+    ): SubscriptionResponse
 
     /**
      * Unsubscribe a given channelID, ending that subscription for the user.

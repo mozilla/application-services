@@ -4,7 +4,7 @@
 
 //! Handle external Push Subscription Requests.
 //!
-//! "priviledged" system calls may require additional handling and should be flagged as such.
+//! "privileged" system calls may require additional handling and should be flagged as such.
 
 use std::collections::HashMap;
 
@@ -53,10 +53,10 @@ impl PushManager {
         } else {
             subscription_key = Crypto::generate_key().unwrap();
         }
-        // store the channelid => auth + subscription_key
+        // store the channel_id => auth + subscription_key
         let mut record = crate::storage::PushRecord::new(
             &info.uaid,
-            &channel_id,
+            &info.channel_id,
             &info.endpoint,
             scope,
             subscription_key.clone(),
@@ -67,8 +67,6 @@ impl PushManager {
         // store the meta information if we've not yet done that.
         if self.store.get_meta("uaid")?.is_none() {
             self.store.set_meta("uaid", &info.uaid)?;
-        }
-        if self.store.get_meta("auth")?.is_none() {
             if let Some(secret) = &info.secret {
                 self.store.set_meta("auth", &secret)?;
             }
@@ -132,7 +130,7 @@ impl PushManager {
                 };
                 Err(ErrorKind::StorageError(format!(
                     "No record for uaid:chid {:?}:{:?}",
-                    self.conn.uaid, chid
+                    uaid, chid
                 ))
                 .into())
             }
