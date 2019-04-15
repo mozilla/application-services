@@ -43,7 +43,7 @@ pub fn map_nss_secstatus<F>(callback: F) -> Result<()>
 where
     F: FnOnce() -> SECStatus,
 {
-    if let SECSuccess = callback() {
+    if callback() == SECSuccess {
         return Ok(());
     }
     let error_code = unsafe { PR_GetError() };

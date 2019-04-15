@@ -4,11 +4,15 @@
 
 #![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
 
-mod types;
-
 use std::os::raw::{c_char, c_uchar};
-pub use types::nspr::*;
-pub use types::nss3::*;
+
+include!(concat!(env!("OUT_DIR"), "/nss_bindings.rs"));
+
+// Remap some constants.
+pub const SECSuccess: SECStatus = _SECStatus_SECSuccess;
+pub const SECFailure: SECStatus = _SECStatus_SECFailure;
+pub const PR_FALSE: PRBool = 0;
+pub const PR_TRUE: PRBool = 1;
 
 // This is the version this crate is claiming to be compatible with.
 // We check it at runtime using `NSS_VersionCheck`.
@@ -61,5 +65,5 @@ nss_exports! {
     unsafe fn NSS_IsInitialized() -> PRBool;
     unsafe fn NSS_GetVersion() -> *const c_char;
     unsafe fn NSS_VersionCheck(importedVersion: *const c_char) -> PRBool;
-    unsafe fn PK11_HashBuf(hashAlg: SECOidTag, out: *mut c_uchar, r#in: *const c_uchar, len: PRInt32) -> SECStatus;
+    unsafe fn PK11_HashBuf(hashAlg: SECOidTag::Type, out: *mut c_uchar, r#in: *const c_uchar, len: PRInt32) -> SECStatus;
 }

@@ -1,0 +1,31 @@
+# In this file, every section corresponds to a header file.
+# A corresponding binding file will be created in $OUT_DIR.
+
+headers = [
+    "nss.h",
+    "seccomon.h",
+    "secoidt.h",
+    "prtypes.h",
+    "prerror.h",
+]
+enums = [
+    "SECOidTag",
+    "SECStatus",
+]
+types = [
+    "PRBool",
+    "PRInt32",
+    "PRUint32",
+    "PRErrorCode",
+    "SECOidTag",
+    "SECStatus",
+    "NSSInitContext",
+    "NSSInitParameters",
+]
+variables = [
+    "NSS_INIT_FORCEOPEN",
+    "NSS_INIT_NOCERTDB",
+    "NSS_INIT_NOMODDB",
+    "NSS_INIT_OPTIMIZESPACE",
+    "NSS_INIT_READONLY",
+]

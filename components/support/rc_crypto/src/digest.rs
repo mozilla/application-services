@@ -17,10 +17,10 @@ impl Algorithm {
     }
 }
 
-impl From<&Algorithm> for nss_sys::SECOidTag {
+impl From<&Algorithm> for nss_sys::SECOidTag::Type {
     fn from(alg: &Algorithm) -> Self {
         match alg {
-            Algorithm::SHA256 => nss_sys::SEC_OID_SHA256,
+            Algorithm::SHA256 => nss_sys::SECOidTag::SEC_OID_SHA256,
             // _ => nss_sys::SEC_OID_UNKNOWN,
         }
     }
