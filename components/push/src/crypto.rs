@@ -9,7 +9,7 @@
 //! This uses prime256v1 EC encryption that should come from internal crypto calls. The "application-services"
 //! module compiles openssl, however, so might be enough to tie into that.
 
-use log::{debug, error};
+use log;
 use std::clone;
 use std::cmp;
 use std::fmt;
@@ -183,7 +183,7 @@ pub fn get_bytes(size: usize) -> error::Result<Vec<u8>> {
 fn extract_value(string: Option<&str>, target: &str) -> Option<Vec<u8>> {
     if let Some(val) = string {
         if !val.contains(&format!("{}=", target)) {
-            debug!("No sub-value found for {}", target);
+            log::debug!("No sub-value found for {}", target);
             return None;
         }
         let items: Vec<&str> = val.split(|c| c == ',' || c == ';').collect();
@@ -193,7 +193,7 @@ fn extract_value(string: Option<&str>, target: &str) -> Option<Vec<u8>> {
                 return match base64::decode_config(kv[1], base64::URL_SAFE_NO_PAD) {
                     Ok(v) => Some(v),
                     Err(e) => {
-                        error!("base64 failed for target:{}; {:?}", target, e);
+                        log::error!("base64 failed for target:{}; {:?}", target, e);
                         None
                     }
                 };

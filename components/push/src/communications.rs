@@ -383,7 +383,7 @@ impl Connection for ConnectHttp {
         if &self.options.sender_id == "test" {
             return Ok(false);
         }
-        log::trace!(":::Getting Channel List");
+        log::debug!("Getting Channel List");
         let remote = self.channel_list()?;
         // verify both lists match. Either side could have lost it's mind.
         Ok(remote == channels.to_vec())
