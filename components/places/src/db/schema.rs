@@ -190,8 +190,6 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
     if get_current_schema_version(db)? == VERSION {
         return Ok(());
     }
-    // FIXME https://github.com/mozilla/application-services/issues/438
-    // NB: PlacesConnection.kt checks for this error message verbatim as a workaround.
     Err(ErrorKind::DatabaseUpgradeError.into())
 }
 
