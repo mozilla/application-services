@@ -38,10 +38,24 @@ impl PushManager {
     }
 
     // XXX: make these trait methods
-    // XXX: should be called subscribe?
     pub fn subscribe(&mut self, channel_id: &str, scope: &str) -> Result<(RegisterResponse, Key)> {
         let reg_token = self.config.registration_id.clone().unwrap();
         let subscription_key: Key;
+        if let Some(uaid) = self.conn.uaid.clone() {
+            // Don't fetch the connection from the server if we've already got one.
+            if let Some(record) = self.store.get_record(&uaid, channel_id)? {
+                return Ok((
+                    RegisterResponse {
+                        uaid,
+                        channel_id: record.channel_id,
+                        endpoint: record.endpoint,
+                        secret: self.store.get_meta("auth")?,
+                        senderid: Some(reg_token),
+                    },
+                    Key::deserialize(record.key)?,
+                ));
+            }
+        }
         let info = self.conn.subscribe(channel_id)?;
         if &self.config.sender_id == "test" {
             subscription_key = Crypto::test_key(
@@ -175,7 +189,18 @@ mod test {
 
     #[test]
     fn basic() -> Result<()> {
-        let _pm = PushManager::new(Default::default())?;
+        let test_channel_id = "deadbeef00000000decafbad00000000";
+        let test_config = PushConfiguration {
+            sender_id: "test".to_owned(),
+            ..Default::default()
+        };
+        let mut pm = PushManager::new(test_config)?;
+        let (info, key) = pm.subscribe(test_channel_id, "")?;
+        // verify that a subsequent request for the same channel ID returns the same subscription
+        let (info2, key2) = pm.subscribe(test_channel_id, "")?;
+        assert_eq!(info.endpoint, info2.endpoint);
+        assert_eq!(key, key2);
+
         Ok(())
     }
 }
