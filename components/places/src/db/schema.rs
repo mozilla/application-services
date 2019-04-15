@@ -190,9 +190,7 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
     if get_current_schema_version(db)? == VERSION {
         return Ok(());
     }
-    // FIXME https://github.com/mozilla/application-services/issues/438
-    // NB: PlacesConnection.kt checks for this error message verbatim as a workaround.
-    panic!("sorry, no upgrades yet - delete your db!");
+    Err(ErrorKind::DatabaseUpgradeError.into())
 }
 
 pub fn create(db: &PlacesDb) -> Result<()> {
