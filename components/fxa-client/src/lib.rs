@@ -142,6 +142,40 @@ impl FirefoxAccount {
             .append_pair("showSuccessMessage", "true");
         Ok(url)
     }
+
+    /// Get the "manage account" page URL.
+    /// It is typically used in the application's account status UI,
+    /// to link the user out to a webpage where they can manage
+    /// all the details of their account.
+    ///
+    /// * `entrypoint` - Application-provided string identifying the UI touchpoint
+    ///                  through which the page was accessed, for metrics purposes.
+    pub fn get_manage_account_url(&mut self, entrypoint: &str) -> Result<Url> {
+        let mut url = self.state.config.content_url_path("settings")?;
+        url.query_pairs_mut().append_pair("entrypoint", entrypoint);
+        self.add_account_identifiers_to_url(url)
+    }
+
+    /// Get the "manage devices" page URL.
+    /// It is typically used in the application's account status UI,
+    /// to link the user out to a webpage where they can manage
+    /// the devices connected to their account.
+    ///
+    /// * `entrypoint` - Application-provided string identifying the UI touchpoint
+    ///                  through which the page was accessed, for metrics purposes.
+    pub fn get_manage_devices_url(&mut self, entrypoint: &str) -> Result<Url> {
+        let mut url = self.state.config.content_url_path("settings/clients")?;
+        url.query_pairs_mut().append_pair("entrypoint", entrypoint);
+        self.add_account_identifiers_to_url(url)
+    }
+
+    fn add_account_identifiers_to_url(&mut self, mut url: Url) -> Result<Url> {
+        let profile = self.get_profile(false)?;
+        url.query_pairs_mut()
+            .append_pair("uid", &profile.uid)
+            .append_pair("email", &profile.email);
+        Ok(url)
+    }
 }
 
 pub(crate) struct CachedResponse<T> {
@@ -153,6 +187,25 @@ pub(crate) struct CachedResponse<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    impl FirefoxAccount {
+        fn add_cached_profile(&mut self, uid: &str, email: &str) {
+            self.profile_cache = Some(CachedResponse {
+                response: Profile {
+                    uid: uid.into(),
+                    email: email.into(),
+                    locale: "en-US".into(),
+                    display_name: None,
+                    avatar: "".into(),
+                    avatar_default: true,
+                    amr_values: vec![],
+                    two_factor_authentication: false,
+                },
+                cached_at: util::now(),
+                etag: "fake etag".into(),
+            });
+        }
+    }
 
     #[test]
     fn test_fxa_is_send() {
@@ -178,6 +231,44 @@ mod tests {
         assert_eq!(
             url,
             "https://stable.dev.lcip.org/connect_another_device?showSuccessMessage=true"
+                .to_string()
+        );
+    }
+
+    #[test]
+    fn test_get_manage_account_url() {
+        let mut fxa =
+            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        // No current user -> Error.
+        match fxa.get_manage_account_url("test").unwrap_err().kind() {
+            ErrorKind::NoCachedToken(_) => {}
+            _ => panic!("error not NoCachedToken"),
+        };
+        // With current user -> expected Url.
+        fxa.add_cached_profile("123", "test@example.com");
+        let url = fxa.get_manage_account_url("test").unwrap().to_string();
+        assert_eq!(
+            url,
+            "https://stable.dev.lcip.org/settings?entrypoint=test&uid=123&email=test%40example.com"
+                .to_string()
+        );
+    }
+
+    #[test]
+    fn test_get_manage_devices_url() {
+        let mut fxa =
+            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        // No current user -> Error.
+        match fxa.get_manage_devices_url("test").unwrap_err().kind() {
+            ErrorKind::NoCachedToken(_) => {}
+            _ => panic!("error not NoCachedToken"),
+        };
+        // With current user -> expected Url.
+        fxa.add_cached_profile("123", "test@example.com");
+        let url = fxa.get_manage_devices_url("test").unwrap().to_string();
+        assert_eq!(
+            url,
+            "https://stable.dev.lcip.org/settings/clients?entrypoint=test&uid=123&email=test%40example.com"
                 .to_string()
         );
     }

@@ -188,6 +188,34 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     }
 
     /**
+     * Fetches the user's manage-account url.
+     *
+     * This performs network requests, and should not be used on the main thread.
+     *
+     * @throws FxaException.Unauthorized We couldn't find any suitable access token to identify the user.
+     * The caller should then start the OAuth Flow again with the "profile" scope.
+     */
+    fun getManageAccountURL(entrypoint: String): String {
+        return rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_get_manage_account_url(this.handle.get(), entrypoint, e)
+        }.getAndConsumeRustString()
+    }
+
+    /**
+     * Fetches the user's manage-devices url.
+     *
+     * This performs network requests, and should not be used on the main thread.
+     *
+     * @throws FxaException.Unauthorized We couldn't find any suitable access token to identify the user.
+     * The caller should then start the OAuth Flow again with the "profile" scope.
+     */
+    fun getManageDevicesURL(entrypoint: String): String {
+        return rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_get_manage_devices_url(this.handle.get(), entrypoint, e)
+        }.getAndConsumeRustString()
+    }
+
+    /**
      * Tries to fetch an access token for the given scope.
      *
      * This performs network requests, and should not be used on the main thread.

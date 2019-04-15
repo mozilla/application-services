@@ -13,6 +13,7 @@ crate-type = ["lib", "staticlib", "cdylib"]
 ffi-support = { path = "../../support/ffi" }
 log = "0.4.6"
 lazy_static = "1.3.0"
+url = "1.7.1"
 viaduct = { path = "../../viaduct" }
 
 [dependencies.fxa-client]
