@@ -67,7 +67,7 @@ impl PushRecord {
         }
     }
 
-    pub(crate) fn from_row(row: &Row) -> Result<Self> {
+    pub(crate) fn from_row(row: &Row<'_>) -> Result<Self> {
         Ok(PushRecord {
             uaid: row.get("uaid")?,
             channel_id: row.get("channel_id")?,

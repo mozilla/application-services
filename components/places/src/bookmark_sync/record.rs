@@ -104,7 +104,7 @@ impl<'de> Deserialize<'de> for BookmarkRecordId {
         impl<'de> Visitor<'de> for V {
             type Value = BookmarkRecordId;
 
-            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("a bookmark record ID")
             }
 

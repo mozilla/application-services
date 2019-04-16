@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #![allow(unknown_lints)]
+#![warn(rust_2018_idioms)]
 
 #[cfg(feature = "browserid")]
 pub use crate::browser_id::{SyncKeys, WebChannelResponse};
@@ -43,9 +44,9 @@ lazy_static! {
 }
 
 #[cfg(feature = "browserid")]
-type FxAClient = http_client::browser_id::FxABrowserIDClient + Sync + Send;
+type FxAClient = dyn http_client::browser_id::FxABrowserIDClient + Sync + Send;
 #[cfg(not(feature = "browserid"))]
-type FxAClient = http_client::FxAClient + Sync + Send;
+type FxAClient = dyn http_client::FxAClient + Sync + Send;
 
 pub struct FirefoxAccount {
     client: Arc<FxAClient>,

@@ -238,7 +238,7 @@ impl Sync15StorageClient {
             match status {
                 404 => Sync15ClientResponse::NotFound { route },
                 401 => Sync15ClientResponse::Unauthorized { route },
-                500...600 => Sync15ClientResponse::ServerError { route, status },
+                500..=600 => Sync15ClientResponse::ServerError { route, status },
                 _ => Sync15ClientResponse::RequestFailed { route, status },
             }
         })

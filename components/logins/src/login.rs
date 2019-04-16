@@ -53,7 +53,7 @@ pub struct Login {
     pub times_used: i64,
 }
 
-fn string_or_default(row: &Row, col: &str) -> Result<String> {
+fn string_or_default(row: &Row<'_>, col: &str) -> Result<String> {
     Ok(row.get::<_, Option<String>>(col)?.unwrap_or_default())
 }
 
@@ -87,7 +87,7 @@ impl Login {
         Ok(())
     }
 
-    pub(crate) fn from_row(row: &Row) -> Result<Login> {
+    pub(crate) fn from_row(row: &Row<'_>) -> Result<Login> {
         Ok(Login {
             id: row.get("guid")?,
             password: row.get("password")?,
@@ -126,7 +126,7 @@ impl MirrorLogin {
         self.login.guid_str()
     }
 
-    pub(crate) fn from_row(row: &Row) -> Result<MirrorLogin> {
+    pub(crate) fn from_row(row: &Row<'_>) -> Result<MirrorLogin> {
         Ok(MirrorLogin {
             login: Login::from_row(row)?,
             is_overridden: row.get("is_overridden")?,
@@ -170,7 +170,7 @@ impl LocalLogin {
         self.login.guid_str()
     }
 
-    pub(crate) fn from_row(row: &Row) -> Result<LocalLogin> {
+    pub(crate) fn from_row(row: &Row<'_>) -> Result<LocalLogin> {
         Ok(LocalLogin {
             login: Login::from_row(row)?,
             sync_status: SyncStatus::from_u8(row.get("sync_status")?)?,

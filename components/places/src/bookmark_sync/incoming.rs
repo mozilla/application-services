@@ -394,7 +394,7 @@ mod tests {
     use serde_json::{json, Value};
     use sync15::Payload;
 
-    fn apply_incoming(api: &PlacesApi, records_json: Value) -> SyncConn {
+    fn apply_incoming(api: &PlacesApi, records_json: Value) -> SyncConn<'_> {
         let conn = api.open_sync_connection().expect("should get a connection");
 
         let server_timestamp = ServerTimestamp(0.0);

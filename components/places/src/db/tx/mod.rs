@@ -73,7 +73,7 @@ impl super::PlacesDb {
     /// - for ReadWrite connections, begins a normal coop transaction
     /// - for ReadOnly connections, panics in debug builds, and
     ///   logs an error (before opening a (pointless) in release builds.
-    pub fn begin_transaction(&self) -> Result<PlacesTransaction> {
+    pub fn begin_transaction(&self) -> Result<PlacesTransaction<'_>> {
         Ok(PlacesTransaction(match self.conn_type() {
             ConnectionType::Sync => {
                 PlacesTransactionRepr::Chunked(self.chunked_coop_trransaction()?)

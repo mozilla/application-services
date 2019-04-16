@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #![allow(unknown_lints)]
+#![warn(rust_2018_idioms)]
 
 use clap::value_t;
 use failure::bail;
@@ -100,7 +101,7 @@ struct LegacyPlace {
 }
 
 impl LegacyPlace {
-    pub fn from_row(row: &rusqlite::Row) -> Self {
+    pub fn from_row(row: &rusqlite::Row<'_>) -> Self {
         Self {
             id: row.get_unwrap("place_id"),
             guid: row.get_unwrap("place_guid"),

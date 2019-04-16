@@ -46,7 +46,7 @@ impl clone::Clone for Key {
 }
 
 impl fmt::Debug for Key {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{{private: {:?}, public: {:?}, auth: {:?}}}",

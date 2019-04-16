@@ -39,7 +39,7 @@ impl QueryPlan {
         })
     }
 
-    pub fn print_pretty_tree(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    pub fn print_pretty_tree(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.plan.is_empty() {
             return writeln!(f, "<no query plan>");
         }
@@ -58,7 +58,7 @@ impl QueryPlan {
 
     fn print_tree(
         &self,
-        f: &mut std::fmt::Formatter,
+        f: &mut std::fmt::Formatter<'_>,
         entry: &QueryPlanStep,
         prefix: &str,
         last_child: bool,
@@ -84,7 +84,7 @@ impl QueryPlan {
 }
 
 impl std::fmt::Display for QueryPlan {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "### QUERY PLAN")?;
         writeln!(f, "#### SQL:\n{}\n#### PLAN:", self.query)?;
         self.print_pretty_tree(f)?;

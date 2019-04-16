@@ -53,7 +53,7 @@ use std::time::{Duration, Instant};
 impl PlacesDb {
     /// Begin a ChunkedCoopTransaction. Must be called from the
     /// sync connection, see module doc for details.
-    pub(super) fn chunked_coop_trransaction(&self) -> Result<ChunkedCoopTransaction> {
+    pub(super) fn chunked_coop_trransaction(&self) -> Result<ChunkedCoopTransaction<'_>> {
         // Note: if there's actually a reason for a write conn to take this, we
         // can consider relaxing this. It's not required for correctness, just happens
         // to be the right choice for everything we expose and plan on exposing.
@@ -75,7 +75,7 @@ impl PlacesDb {
 
     /// Begin a "coop" transaction. Must be called from the write connection, see
     /// module doc for details.
-    pub(super) fn coop_transaction(&self) -> Result<UncheckedTransaction> {
+    pub(super) fn coop_transaction(&self) -> Result<UncheckedTransaction<'_>> {
         // Only validate tranaction types for ConnectionType::ReadWrite.
         assert_eq!(
             self.conn_type(),
@@ -196,7 +196,7 @@ impl<'conn> ConnExt for ChunkedCoopTransaction<'conn> {
 
 // A helper that attempts to get an Immediate lock on the DB. If it fails with
 // a "busy" or "locked" error, it does exactly 1 retry.
-fn get_tx_with_retry_on_locked(conn: &Connection) -> Result<UncheckedTransaction> {
+fn get_tx_with_retry_on_locked(conn: &Connection) -> Result<UncheckedTransaction<'_>> {
     let behavior = TransactionBehavior::Immediate;
     match UncheckedTransaction::new(conn, behavior) {
         Ok(tx) => Ok(tx),

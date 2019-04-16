@@ -188,7 +188,7 @@ impl PlacesApi {
         }
     }
 
-    pub fn open_sync_connection(&self) -> Result<SyncConn> {
+    pub fn open_sync_connection(&self) -> Result<SyncConn<'_>> {
         let prev_value = self
             .sync_conn_active
             .compare_and_swap(false, true, Ordering::SeqCst);

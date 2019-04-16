@@ -117,7 +117,7 @@ fn new_global(pgs: &PersistedGlobalState) -> error::Result<MetaGlobalRecord> {
 }
 
 pub struct SetupStateMachine<'a> {
-    client: &'a SetupStorageClient,
+    client: &'a dyn SetupStorageClient,
     root_key: &'a KeyBundle,
     pgs: &'a mut PersistedGlobalState,
     // `allowed_states` is designed so that we can arrange for the concept of
@@ -137,7 +137,7 @@ impl<'a> SetupStateMachine<'a> {
     /// all states, including uploading a fresh `meta/global` and `crypto/keys`
     /// after a node reassignment.
     pub fn for_full_sync(
-        client: &'a SetupStorageClient,
+        client: &'a dyn SetupStorageClient,
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
     ) -> SetupStateMachine<'a> {
@@ -163,7 +163,7 @@ impl<'a> SetupStateMachine<'a> {
     /// important to get to ready as quickly as possible, like syncing before
     /// sleep, or when conserving time or battery life.
     pub fn for_fast_sync(
-        client: &'a SetupStorageClient,
+        client: &'a dyn SetupStorageClient,
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
     ) -> SetupStateMachine<'a> {
@@ -179,7 +179,7 @@ impl<'a> SetupStateMachine<'a> {
     /// upload `meta/global` or `crypto/keys`. Useful for clients that only
     /// sync specific collections, like Lockbox.
     pub fn for_readonly_sync(
-        client: &'a SetupStorageClient,
+        client: &'a dyn SetupStorageClient,
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
     ) -> SetupStateMachine<'a> {
@@ -200,7 +200,7 @@ impl<'a> SetupStateMachine<'a> {
     }
 
     fn with_allowed_states(
-        client: &'a SetupStorageClient,
+        client: &'a dyn SetupStorageClient,
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
         allowed_states: Vec<&'static str>,

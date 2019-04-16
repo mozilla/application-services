@@ -254,10 +254,10 @@ impl LoginDb {
             .as_ref()
             .and_then(|s| util::url_host_port(&s));
         let args = &[
-            (":hostname", &l.hostname as &ToSql),
-            (":http_realm", &l.http_realm as &ToSql),
-            (":username", &l.username as &ToSql),
-            (":form_submit", &form_submit_host_port as &ToSql),
+            (":hostname", &l.hostname as &dyn ToSql),
+            (":http_realm", &l.http_realm as &dyn ToSql),
+            (":username", &l.username as &dyn ToSql),
+            (":form_submit", &form_submit_host_port as &dyn ToSql),
         ];
         let mut query = format!(
             "
@@ -286,7 +286,7 @@ impl LoginDb {
     pub fn get_by_id(&self, id: &str) -> Result<Option<Login>> {
         self.try_query_row(
             &GET_BY_GUID_SQL,
-            &[(":guid", &id as &ToSql)],
+            &[(":guid", &id as &dyn ToSql)],
             Login::from_row,
             true,
         )
@@ -306,7 +306,10 @@ impl LoginDb {
                 local_modified = :now_millis
             WHERE guid = :guid
                 AND is_deleted = 0",
-            &[(":now_millis", &now_ms as &ToSql), (":guid", &id as &ToSql)],
+            &[
+                (":now_millis", &now_ms as &dyn ToSql),
+                (":guid", &id as &dyn ToSql),
+            ],
         )?;
         Ok(())
     }
@@ -377,22 +380,22 @@ impl LoginDb {
         let rows_changed = self.execute_named(
             &sql,
             &[
-                (":hostname", &login.hostname as &ToSql),
-                (":http_realm", &login.http_realm as &ToSql),
-                (":form_submit_url", &login.form_submit_url as &ToSql),
-                (":username_field", &login.username_field as &ToSql),
-                (":password_field", &login.password_field as &ToSql),
-                (":username", &login.username as &ToSql),
-                (":password", &login.password as &ToSql),
-                (":guid", &login.id as &ToSql),
-                (":time_created", &login.time_created as &ToSql),
-                (":times_used", &login.times_used as &ToSql),
-                (":time_last_used", &login.time_last_used as &ToSql),
+                (":hostname", &login.hostname as &dyn ToSql),
+                (":http_realm", &login.http_realm as &dyn ToSql),
+                (":form_submit_url", &login.form_submit_url as &dyn ToSql),
+                (":username_field", &login.username_field as &dyn ToSql),
+                (":password_field", &login.password_field as &dyn ToSql),
+                (":username", &login.username as &dyn ToSql),
+                (":password", &login.password as &dyn ToSql),
+                (":guid", &login.id as &dyn ToSql),
+                (":time_created", &login.time_created as &dyn ToSql),
+                (":times_used", &login.times_used as &dyn ToSql),
+                (":time_last_used", &login.time_last_used as &dyn ToSql),
                 (
                     ":time_password_changed",
-                    &login.time_password_changed as &ToSql,
+                    &login.time_password_changed as &dyn ToSql,
                 ),
-                (":local_modified", &now_ms as &ToSql),
+                (":local_modified", &now_ms as &dyn ToSql),
             ],
         )?;
         if rows_changed == 0 {
@@ -441,15 +444,15 @@ impl LoginDb {
         self.db.execute_named(
             &sql,
             &[
-                (":hostname", &login.hostname as &ToSql),
-                (":username", &login.username as &ToSql),
-                (":password", &login.password as &ToSql),
-                (":http_realm", &login.http_realm as &ToSql),
-                (":form_submit_url", &login.form_submit_url as &ToSql),
-                (":username_field", &login.username_field as &ToSql),
-                (":password_field", &login.password_field as &ToSql),
-                (":guid", &login.id as &ToSql),
-                (":now_millis", &now_ms as &ToSql),
+                (":hostname", &login.hostname as &dyn ToSql),
+                (":username", &login.username as &dyn ToSql),
+                (":password", &login.password as &dyn ToSql),
+                (":http_realm", &login.http_realm as &dyn ToSql),
+                (":form_submit_url", &login.form_submit_url as &dyn ToSql),
+                (":username_field", &login.username_field as &dyn ToSql),
+                (":password_field", &login.password_field as &dyn ToSql),
+                (":guid", &login.id as &dyn ToSql),
+                (":now_millis", &now_ms as &dyn ToSql),
             ],
         )?;
         Ok(())
@@ -465,7 +468,7 @@ impl LoginDb {
                 SELECT 1 FROM loginsM
                 WHERE guid = :guid AND is_overridden IS NOT 1
             )",
-            &[(":guid", &id as &ToSql)],
+            &[(":guid", &id as &dyn ToSql)],
             |row| row.get(0),
         )?)
     }
@@ -485,7 +488,7 @@ impl LoginDb {
                     AND sync_status = {status_new}",
                 status_new = SyncStatus::New as u8
             ),
-            &[(":guid", &id as &ToSql)],
+            &[(":guid", &id as &dyn ToSql)],
         )?;
 
         // For IDs that have, mark is_deleted and clear sensitive fields
@@ -502,13 +505,16 @@ impl LoginDb {
                 WHERE guid = :guid",
                 status_changed = SyncStatus::Changed as u8
             ),
-            &[(":now_ms", &now_ms as &ToSql), (":guid", &id as &ToSql)],
+            &[
+                (":now_ms", &now_ms as &dyn ToSql),
+                (":guid", &id as &dyn ToSql),
+            ],
         )?;
 
         // Mark the mirror as overridden
         self.execute_named(
             "UPDATE loginsM SET is_overridden = 1 WHERE guid = :guid",
-            &[(":guid", &id as &ToSql)],
+            &[(":guid", &id as &dyn ToSql)],
         )?;
 
         // If we don't have a local record for this ID, but do have it in the mirror
@@ -520,8 +526,8 @@ impl LoginDb {
             FROM loginsM
             WHERE guid = :guid",
             changed = SyncStatus::Changed as u8),
-            &[(":now_ms", &now_ms as &ToSql),
-              (":guid", &id as &ToSql)])?;
+            &[(":now_ms", &now_ms as &dyn ToSql),
+              (":guid", &id as &dyn ToSql)])?;
 
         Ok(exists)
     }
@@ -533,7 +539,7 @@ impl LoginDb {
             is_overridden = 1
             WHERE guid = :guid
             ",
-            &[(":guid", &guid as &ToSql)],
+            &[(":guid", &guid as &dyn ToSql)],
         )?;
         Ok(())
     }
@@ -541,7 +547,7 @@ impl LoginDb {
     fn ensure_local_overlay_exists(&self, guid: &str) -> Result<()> {
         let already_have_local: bool = self.db.query_row_named(
             "SELECT EXISTS(SELECT 1 FROM loginsL WHERE guid = :guid)",
-            &[(":guid", &guid as &ToSql)],
+            &[(":guid", &guid as &dyn ToSql)],
             |row| row.get(0),
         )?;
 
@@ -559,7 +565,8 @@ impl LoginDb {
     }
 
     fn clone_mirror_to_overlay(&self, guid: &str) -> Result<usize> {
-        Ok(self.execute_named_cached(&*CLONE_SINGLE_MIRROR_SQL, &[(":guid", &guid as &ToSql)])?)
+        Ok(self
+            .execute_named_cached(&*CLONE_SINGLE_MIRROR_SQL, &[(":guid", &guid as &dyn ToSql)])?)
     }
 
     pub fn reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
@@ -609,7 +616,7 @@ impl LoginDb {
                 WHERE is_deleted = 0",
                 changed = SyncStatus::Changed as u8
             ),
-            &[(":now_ms", &now_ms as &ToSql)],
+            &[(":now_ms", &now_ms as &dyn ToSql)],
         )?;
 
         self.execute("UPDATE loginsM SET is_overridden = 1", NO_PARAMS)?;
@@ -621,7 +628,7 @@ impl LoginDb {
                 SELECT guid, :now_ms,        1,          {changed},   '',       timeCreated, :now_ms,             '',       ''
                 FROM loginsM",
                 changed = SyncStatus::Changed as u8),
-            &[(":now_ms", &now_ms as &ToSql)])?;
+            &[(":now_ms", &now_ms as &dyn ToSql)])?;
 
         Ok(())
     }
@@ -734,10 +741,10 @@ impl LoginDb {
         Ok(self.fetch_outgoing(inbound.timestamp)?)
     }
 
-    fn put_meta(&self, key: &str, value: &ToSql) -> Result<()> {
+    fn put_meta(&self, key: &str, value: &dyn ToSql) -> Result<()> {
         self.execute_named_cached(
             "REPLACE INTO loginsSyncMeta (key, value) VALUES (:key, :value)",
-            &[(":key", &key as &ToSql), (":value", value)],
+            &[(":key", &key as &dyn ToSql), (":value", value)],
         )?;
         Ok(())
     }
@@ -745,7 +752,7 @@ impl LoginDb {
     fn get_meta<T: FromSql>(&self, key: &str) -> Result<Option<T>> {
         Ok(self.try_query_row(
             "SELECT value FROM loginsSyncMeta WHERE key = :key",
-            &[(":key", &key as &ToSql)],
+            &[(":key", &key as &dyn ToSql)],
             |row| Ok::<_, Error>(row.get(0)?),
             true,
         )?)

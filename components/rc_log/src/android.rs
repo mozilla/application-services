@@ -103,13 +103,13 @@ pub struct LogSink {
 }
 
 impl log::Log for LogSink {
-    fn enabled(&self, _metadata: &log::Metadata) -> bool {
+    fn enabled(&self, _metadata: &log::Metadata<'_>) -> bool {
         // Really this could just be Acquire but whatever
         !self.disabled.load(Ordering::SeqCst)
     }
 
     fn flush(&self) {}
-    fn log(&self, record: &log::Record) {
+    fn log(&self, record: &log::Record<'_>) {
         // Important: we check stopped before writing, which means
         // it must be set before
         if self.disabled.load(Ordering::SeqCst) {

@@ -72,7 +72,7 @@ pub trait ConnExt {
     fn try_query_one<T: FromSql>(
         &self,
         sql: &str,
-        params: &[(&str, &ToSql)],
+        params: &[(&str, &dyn ToSql)],
         cache: bool,
     ) -> SqlResult<Option<T>>
     where
@@ -102,7 +102,7 @@ pub trait ConnExt {
     where
         Self: Sized,
         E: From<rusqlite::Error>,
-        F: FnOnce(&Row) -> Result<T, E>,
+        F: FnOnce(&Row<'_>) -> Result<T, E>,
     {
         crate::maybe_log_plan(self.conn(), sql, params);
         Ok(self
@@ -122,7 +122,7 @@ pub trait ConnExt {
     where
         Self: Sized,
         E: From<rusqlite::Error>,
-        F: FnMut(&Row) -> Result<T, E>,
+        F: FnMut(&Row<'_>) -> Result<T, E>,
     {
         crate::maybe_log_plan(self.conn(), sql, params);
         query_rows_and_then_named(self.conn(), sql, params, mapper, false)
@@ -139,7 +139,7 @@ pub trait ConnExt {
     where
         Self: Sized,
         E: From<rusqlite::Error>,
-        F: FnMut(&Row) -> Result<T, E>,
+        F: FnMut(&Row<'_>) -> Result<T, E>,
     {
         crate::maybe_log_plan(self.conn(), sql, params);
         query_rows_and_then_named(self.conn(), sql, params, mapper, false)
@@ -170,7 +170,7 @@ pub trait ConnExt {
     where
         Self: Sized,
         E: From<rusqlite::Error>,
-        F: FnMut(&Row) -> Result<T, E>,
+        F: FnMut(&Row<'_>) -> Result<T, E>,
         Coll: FromIterator<T>,
     {
         crate::maybe_log_plan(self.conn(), sql, params);
@@ -187,7 +187,7 @@ pub trait ConnExt {
     where
         Self: Sized,
         E: From<rusqlite::Error>,
-        F: FnMut(&Row) -> Result<T, E>,
+        F: FnMut(&Row<'_>) -> Result<T, E>,
         Coll: FromIterator<T>,
     {
         crate::maybe_log_plan(self.conn(), sql, params);
@@ -206,7 +206,7 @@ pub trait ConnExt {
     where
         Self: Sized,
         E: From<rusqlite::Error>,
-        F: FnOnce(&Row) -> Result<T, E>,
+        F: FnOnce(&Row<'_>) -> Result<T, E>,
     {
         crate::maybe_log_plan(self.conn(), sql, params);
         let conn = self.conn();
@@ -215,7 +215,7 @@ pub trait ConnExt {
         rows.next()?.map(mapper).transpose()
     }
 
-    fn unchecked_transaction(&self) -> SqlResult<UncheckedTransaction> {
+    fn unchecked_transaction(&self) -> SqlResult<UncheckedTransaction<'_>> {
         UncheckedTransaction::new(self.conn(), TransactionBehavior::Deferred)
     }
 }
@@ -344,7 +344,7 @@ fn query_rows_and_then_named<Coll, T, E, F>(
 ) -> Result<Coll, E>
 where
     E: From<rusqlite::Error>,
-    F: FnMut(&Row) -> Result<T, E>,
+    F: FnMut(&Row<'_>) -> Result<T, E>,
     Coll: FromIterator<T>,
 {
     let mut stmt = conn.prepare_maybe_cached(sql, cache)?;
