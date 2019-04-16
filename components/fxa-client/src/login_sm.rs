@@ -24,21 +24,21 @@ impl<'a> LoginStateMachine<'a> {
         LoginStateMachine { config, client }
     }
 
-    pub fn advance(&self, from: LoginState) -> LoginState {
+    pub fn advance(&self, from: LoginState) -> Result<LoginState> {
         let mut cur_state = from;
         loop {
             let cur_state_discriminant = std::mem::discriminant(&cur_state);
-            let new_state = self.advance_one(cur_state);
+            let new_state = self.advance_one(cur_state)?;
             let new_state_discriminant = std::mem::discriminant(&new_state);
             cur_state = new_state;
             if cur_state_discriminant == new_state_discriminant {
                 break;
             }
         }
-        cur_state
+        Ok(cur_state)
     }
 
-    fn advance_one(&self, from: LoginState) -> LoginState {
+    fn advance_one(&self, from: LoginState) -> Result<LoginState> {
         log::info!("advancing from state {:?}", from);
         match from {
             LoginState::Married(state) => {
@@ -46,15 +46,17 @@ impl<'a> LoginStateMachine<'a> {
                 log::debug!("Checking key pair and certificate freshness.");
                 if now > state.token_keys_and_key_pair.key_pair_expires_at {
                     log::info!("Key pair has expired. Transitioning to CohabitingBeforeKeyPair.");
-                    LoginState::CohabitingBeforeKeyPair(
+                    Ok(LoginState::CohabitingBeforeKeyPair(
                         state.token_keys_and_key_pair.token_and_keys,
-                    )
+                    ))
                 } else if now > state.certificate_expires_at {
                     log::info!("Certificate has expired. Transitioning to CohabitingAfterKeyPair.");
-                    LoginState::CohabitingAfterKeyPair(state.token_keys_and_key_pair)
+                    Ok(LoginState::CohabitingAfterKeyPair(
+                        state.token_keys_and_key_pair,
+                    ))
                 } else {
                     log::info!("Key pair and certificate are fresh; staying Married.");
-                    LoginState::Married(state) // same
+                    Ok(LoginState::Married(state)) // same
                 }
             }
             LoginState::CohabitingBeforeKeyPair(state) => {
@@ -63,7 +65,7 @@ impl<'a> LoginStateMachine<'a> {
                     Ok(key_pair) => key_pair,
                     Err(_) => {
                         log::error!("Failed to generate key pair! Transitioning to Separated.");
-                        return LoginState::Separated(state.base);
+                        return Ok(LoginState::Separated(state.base));
                     }
                 };
                 log::info!("Key pair generated! Transitioning to CohabitingAfterKeyPairState.");
@@ -72,7 +74,7 @@ impl<'a> LoginStateMachine<'a> {
                     key_pair,
                     key_pair_expires_at: now() + 30 * 24 * 3600 * 1000,
                 };
-                LoginState::CohabitingAfterKeyPair(new_state)
+                Ok(LoginState::CohabitingAfterKeyPair(new_state))
             }
             LoginState::CohabitingAfterKeyPair(state) => {
                 log::debug!("Signing public key.");
@@ -89,18 +91,18 @@ impl<'a> LoginStateMachine<'a> {
                             certificate: resp.certificate,
                             certificate_expires_at: now() + 24 * 3600 * 1000,
                         };
-                        LoginState::Married(new_state)
+                        Ok(LoginState::Married(new_state))
                     }
                     Err(e) => {
                         if let ErrorKind::RemoteError { .. } = e.kind() {
                             log::error!("Server error: {:?}. Transitioning to Separated.", e);
-                            LoginState::Separated(state.token_and_keys.base)
+                            Ok(LoginState::Separated(state.token_and_keys.base))
                         } else {
                             log::error!(
                                 "Unknown error: ({:?}). Assuming transient, not transitioning.",
                                 e
                             );
-                            LoginState::CohabitingAfterKeyPair(state)
+                            Ok(LoginState::CohabitingAfterKeyPair(state))
                         }
                     }
                 }
@@ -111,8 +113,8 @@ impl<'a> LoginStateMachine<'a> {
             LoginState::EngagedAfterVerified(state) => {
                 self.handle_ready_for_key_state(LoginState::EngagedAfterVerified, state)
             }
-            LoginState::Separated(_) => from,
-            LoginState::Unknown => from,
+            LoginState::Separated(_) => Ok(from),
+            LoginState::Unknown => Ok(from),
         }
     }
 
@@ -120,7 +122,7 @@ impl<'a> LoginStateMachine<'a> {
         &self,
         same: F,
         state: ReadyForKeysState,
-    ) -> LoginState {
+    ) -> Result<LoginState> {
         log::debug!("Fetching keys.");
         let resp = self.client.keys(&self.config, &state.key_fetch_token);
         match resp {
@@ -129,34 +131,34 @@ impl<'a> LoginStateMachine<'a> {
                     Ok(kb) => kb,
                     Err(_) => {
                         log::error!("Failed to unwrap keys response!  Transitioning to Separated.");
-                        return same(state);
+                        return Ok(same(state));
                     }
                 };
                 log::info!("Unwrapped keys response.  Transition to CohabitingBeforeKeyPair.");
-                let sync_key = browser_id::derive_sync_key(&kb);
-                let xcs = browser_id::compute_client_state(&kb);
-                LoginState::CohabitingBeforeKeyPair(TokenAndKeysState {
+                let sync_key = browser_id::derive_sync_key(&kb)?;
+                let xcs = browser_id::compute_client_state(&kb)?;
+                Ok(LoginState::CohabitingBeforeKeyPair(TokenAndKeysState {
                     base: state.base,
                     session_token: state.session_token.to_vec(),
                     sync_key,
                     xcs,
-                })
+                }))
             }
             Err(e) => match e.kind() {
                 ErrorKind::RemoteError { errno: 104, .. } => {
                     log::warn!("Account not yet verified, not transitioning.");
-                    same(state)
+                    Ok(same(state))
                 }
                 ErrorKind::RemoteError { .. } => {
                     log::error!("Server error: {:?}. Transitioning to Separated.", e);
-                    LoginState::Separated(state.base)
+                    Ok(LoginState::Separated(state.base))
                 }
                 _ => {
                     log::error!(
                         "Unknown error: ({:?}). Assuming transient, not transitioning.",
                         e
                     );
-                    same(state)
+                    Ok(same(state))
                 }
             },
         }

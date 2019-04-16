@@ -191,7 +191,7 @@ macro_rules! impl_from_error {
 }
 
 impl_from_error! {
-    (CryptoError, ::rc_crypto::Error),
+    (CryptoError, rc_crypto::Error),
     (HexDecodeError, ::hex::FromHexError),
     (Base64Decode, ::base64::DecodeError),
     (JsonError, ::serde_json::Error),

@@ -45,18 +45,19 @@ impl FirefoxAccount {
         }))
     }
 
-    fn advance_to_married(&mut self) -> Option<&MarriedState> {
-        self.advance();
+    fn advance_to_married(&mut self) -> Result<Option<&MarriedState>> {
+        self.advance()?;
         match self.state.login_state {
-            LoginState::Married(ref married) => Some(married),
-            _ => None,
+            LoginState::Married(ref married) => Ok(Some(married)),
+            _ => Ok(None),
         }
     }
 
-    pub fn advance(&mut self) {
+    pub fn advance(&mut self) -> Result<()> {
         let state_machine = LoginStateMachine::new(&self.state.config, self.client.clone());
         let state = std::mem::replace(&mut self.state.login_state, LoginState::Unknown);
-        self.state.login_state = state_machine.advance(state);
+        self.state.login_state = state_machine.advance(state)?;
+        Ok(())
     }
 
     pub(crate) fn session_token_from_state(state: &LoginState) -> Option<&[u8]> {
@@ -73,7 +74,7 @@ impl FirefoxAccount {
     }
 
     pub fn generate_assertion(&mut self, audience: &str) -> Result<String> {
-        let married = match self.advance_to_married() {
+        let married = match self.advance_to_married()? {
             Some(married) => married,
             None => return Err(ErrorKind::NotMarried.into()),
         };
@@ -87,7 +88,7 @@ impl FirefoxAccount {
     }
 
     pub fn get_sync_keys(&mut self) -> Result<SyncKeys> {
-        let married = match self.advance_to_married() {
+        let married = match self.advance_to_married()? {
             Some(married) => married,
             None => return Err(ErrorKind::NotMarried.into()),
         };

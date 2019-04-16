@@ -370,9 +370,8 @@ impl EncryptedPayload {
     where
         for<'a> T: Deserialize<'a>,
     {
-        if !key.verify_hmac_string(&self.hmac, &self.ciphertext)? {
-            return Err(error::ErrorKind::HmacMismatch.into());
-        }
+        key.verify_hmac_string(&self.hmac, &self.ciphertext)
+            .map_err(|_| error::ErrorKind::HmacMismatch)?;
 
         let iv = base64::decode(&self.iv)?;
         let ciphertext = base64::decode(&self.ciphertext)?;
@@ -507,7 +506,7 @@ mod tests {
 
         assert!(keybundle
             .verify_hmac_string(&encrypted.payload.hmac, &encrypted.payload.ciphertext)
-            .unwrap());
+            .is_ok());
 
         // While we're here, check on EncryptedPayload::serialized_len
         let val_rec =
@@ -538,7 +537,7 @@ mod tests {
 
         assert!(keybundle
             .verify_hmac_string(&encrypted.payload.hmac, &encrypted.payload.ciphertext)
-            .unwrap());
+            .is_ok());
 
         // While we're here, check on EncryptedPayload::serialized_len
         let val_rec =
@@ -574,7 +573,7 @@ mod tests {
 
         assert!(keybundle
             .verify_hmac_string(&encrypted.payload.hmac, &encrypted.payload.ciphertext)
-            .unwrap());
+            .is_ok());
 
         let decrypted = encrypted.decrypt(&keybundle).unwrap();
         // We add auto fields during decryption.

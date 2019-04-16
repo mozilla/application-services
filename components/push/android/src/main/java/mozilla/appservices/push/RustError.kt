@@ -16,6 +16,7 @@ import java.util.Arrays
 open class PushError(msg: String) : Exception(msg)
 open class InternalPanic(msg: String) : PushError(msg)
 open class OpenSSLError(msg: String) : PushError(msg)
+open class CryptoError(msg: String) : PushError(msg)
 open class CommunicationError(msg: String) : PushError(msg)
 open class CommunicationServerError(msg: String) : PushError(msg)
 open class AlreadyRegisteredError : PushError(
@@ -76,6 +77,7 @@ open class RustError : Structure() {
             31 -> return TranscodingError(message)
             32 -> return EncryptionError(message)
             33 -> return UrlParseError(message)
+            34 -> return CryptoError(message)
             -1 -> return InternalPanic(message)
             // Note: `1` is used as a generic catch all, but we
             // might as well handle the others the same way.

@@ -25,6 +25,7 @@ url = "1.7.2"
 viaduct = { path = "../viaduct" }
 ffi-support = { path = "../support/ffi" }
 sql-support = { path = "../support/sql" }
+rc_crypto = { path = "../support/rc_crypto" }
 
 [dev-dependencies]
 env_logger = "0.6.1"
