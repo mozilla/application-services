@@ -12,3 +12,6 @@ crate-type = ["lib", "staticlib", "cdylib"]
 failure = "0.1.5"
 failure_derive = "0.1.5"
 nss_sys = { path = "nss_sys" }
+
+[dev-dependencies]
+hex = "0.3.2"

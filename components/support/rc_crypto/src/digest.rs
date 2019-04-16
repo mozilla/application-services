@@ -2,7 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{error::*, util::ensure_nss_initialized, util::map_nss_secstatus};
+use crate::{
+    error::*,
+    util::{ensure_nss_initialized, map_nss_secstatus},
+};
+use std::convert::TryFrom;
 
 pub enum Algorithm {
     SHA256,
@@ -21,21 +25,57 @@ impl From<&Algorithm> for nss_sys::SECOidTag::Type {
     fn from(alg: &Algorithm) -> Self {
         match alg {
             Algorithm::SHA256 => nss_sys::SECOidTag::SEC_OID_SHA256,
-            // _ => nss_sys::SEC_OID_UNKNOWN,
         }
     }
 }
 
-pub fn digest(algorithm: &'static Algorithm, data: &[u8]) -> Result<Vec<u8>> {
+/// A calculated digest value.
+#[derive(Clone)]
+pub struct Digest {
+    pub(crate) value: Vec<u8>,
+    pub(crate) algorithm: &'static Algorithm,
+}
+
+impl Digest {
+    pub fn algorithm(&self) -> &'static Algorithm {
+        self.algorithm
+    }
+}
+
+impl AsRef<[u8]> for Digest {
+    fn as_ref(&self) -> &[u8] {
+        self.value.as_ref()
+    }
+}
+
+/// Returns the digest of data using the given digest algorithm.
+pub fn digest(algorithm: &'static Algorithm, data: &[u8]) -> Result<Digest> {
     let mut out_buf = vec![0u8; algorithm.result_len()];
     ensure_nss_initialized();
+    let data_len = i32::try_from(data.len())?;
     map_nss_secstatus(|| unsafe {
         nss_sys::PK11_HashBuf(
             algorithm.into(),
             out_buf.as_mut_ptr(),
             data.as_ptr(),
-            data.len() as i32,
+            data_len,
         )
     })?;
-    Ok(out_buf)
+    Ok(Digest {
+        value: out_buf,
+        algorithm,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hex;
+    #[test]
+    fn sha256_digest() {
+        assert_eq!(
+            hex::encode(&digest(&SHA256, b"bobo").unwrap()),
+            "bf0c97708b849de696e7373508b13c5ea92bafa972fc941d694443e494a4b84d"
+        );
+    }
 }
