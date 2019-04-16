@@ -5,6 +5,7 @@
 pub mod constant_time;
 pub mod digest;
 mod error;
+pub mod hkdf;
 pub mod hmac;
 mod p11;
 pub mod rand;

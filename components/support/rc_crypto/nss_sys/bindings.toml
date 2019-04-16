@@ -9,6 +9,7 @@ headers = [
     "prtypes.h",
     "prerror.h",
     "pk11pub.h",
+    "pkcs11t.h",
 ]
 enums = [
     "PK11Origin",
@@ -26,6 +27,7 @@ types = [
     "SECItem",
     "SECOidTag",
     "SECStatus",
+    "CK_NSS_HKDFParams",
     "CK_ATTRIBUTE_TYPE",
     "CK_MECHANISM_TYPE",
     "PK11Context",
@@ -45,6 +47,9 @@ variables = [
     "NSS_INIT_OPTIMIZESPACE",
     "NSS_INIT_READONLY",
     "CKA_SIGN",
+    "CKA_WRAP",
     "CKM_SHA256_HMAC",
+    "CKM_SHA512_HMAC",
+    "CKM_NSS_HKDF_SHA256",
     "HASH_LENGTH_MAX",
 ]

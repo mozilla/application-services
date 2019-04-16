@@ -13,6 +13,8 @@ pub const SECSuccess: SECStatus = _SECStatus_SECSuccess;
 pub const SECFailure: SECStatus = _SECStatus_SECFailure;
 pub const PR_FALSE: PRBool = 0;
 pub const PR_TRUE: PRBool = 1;
+pub const CK_FALSE: CK_BBOOL = 0;
+pub const CK_TRUE: CK_BBOOL = 1;
 
 // This is the version this crate is claiming to be compatible with.
 // We check it at runtime using `NSS_VersionCheck`.
@@ -71,4 +73,7 @@ nss_exports! {
     unsafe fn PK11_DigestOp(context: *mut PK11Context, r#in: *const c_uchar, len: c_uint) -> SECStatus;
     unsafe fn PK11_DigestFinal(context: *mut PK11Context, data: *mut c_uchar, outLen: *mut c_uint, len: c_uint) -> SECStatus;
     unsafe fn PK11_GenerateRandom(data: *mut c_uchar, len: c_int) -> SECStatus;
+    unsafe fn PK11_Derive(baseKey: *mut PK11SymKey, mechanism: CK_MECHANISM_TYPE, param: *mut SECItem, target: CK_MECHANISM_TYPE, operation: CK_ATTRIBUTE_TYPE, keySize: c_int) -> *mut PK11SymKey;
+    unsafe fn PK11_ExtractKeyValue(symKey: *mut PK11SymKey) -> SECStatus;
+    unsafe fn PK11_GetKeyData(symKey: *mut PK11SymKey) -> *mut SECItem;
 }

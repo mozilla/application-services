@@ -23,8 +23,8 @@ impl AsRef<[u8]> for Signature {
 
 /// A key to use for HMAC signing.
 pub struct SigningKey {
-    digest_alg: &'static digest::Algorithm,
-    key_value: Vec<u8>,
+    pub(crate) digest_alg: &'static digest::Algorithm,
+    pub(crate) key_value: Vec<u8>,
 }
 
 impl SigningKey {
