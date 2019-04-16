@@ -4,12 +4,17 @@
 
 use crate::storage::bookmarks::BookmarkRootGuid;
 use dogear;
+use failure::Fail;
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use serde::ser::{Serialize, Serializer};
 use serde_derive::*;
+use std::convert::TryFrom;
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+mod visit_transition_set;
+pub use visit_transition_set::VisitTransitionSet;
 
 // XXX - copied from logins - surprised it's not in `sync`
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
@@ -144,9 +149,14 @@ impl FromSql for Timestamp {
     }
 }
 
+#[derive(Fail, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[fail(display = "Invalid visit type")]
+pub struct InvalidVisitType;
+
 // NOTE: These discriminator values are the same as those used by Desktop
 // Firefox and are what is written to the database. We also duplicate them
-// in the android lib as constants on PlacesConnection.
+// in the android lib as constants on PlacesConnection, and in a couple
+// constants in visit_transition_set.rs
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum VisitTransition {
@@ -187,6 +197,13 @@ impl VisitTransition {
             9 => Some(VisitTransition::Reload),
             _ => None,
         }
+    }
+}
+
+impl TryFrom<u8> for VisitTransition {
+    type Error = InvalidVisitType;
+    fn try_from(p: u8) -> Result<Self, Self::Error> {
+        VisitTransition::from_primitive(p).ok_or(InvalidVisitType)
     }
 }
 
