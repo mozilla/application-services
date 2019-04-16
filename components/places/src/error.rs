@@ -119,6 +119,9 @@ pub enum ErrorKind {
 
     #[fail(display = "Protobuf decode error: {}", _0)]
     ProtobufDecodeError(#[fail(cause)] prost::DecodeError),
+
+    #[fail(display = "Database cannot be upgraded")]
+    DatabaseUpgradeError,
 }
 
 macro_rules! impl_from_error {
