@@ -106,8 +106,8 @@ impl<'a> BookmarksStore<'a> {
     fn update_local_items<'t>(
         &self,
         descendants: Vec<MergedDescendant<'t>>,
-        deletions: Vec<Deletion>,
-        _tx: &mut PlacesTransaction,
+        deletions: Vec<Deletion<'_>>,
+        _tx: &mut PlacesTransaction<'_>,
     ) -> Result<()> {
         // First, insert rows for all merged descendants.
         sql_support::each_sized_chunk(
@@ -558,7 +558,7 @@ struct Merger<'a> {
 }
 
 impl<'a> Merger<'a> {
-    fn new(store: &'a BookmarksStore, remote_time: ServerTimestamp) -> Self {
+    fn new(store: &'a BookmarksStore<'_>, remote_time: ServerTimestamp) -> Self {
         Self {
             store,
             remote_time,
@@ -578,7 +578,7 @@ impl<'a> Merger<'a> {
     }
 
     /// Creates a local tree item from a row in the `localItems` CTE.
-    fn local_row_to_item(&self, row: &Row) -> Result<Item> {
+    fn local_row_to_item(&self, row: &Row<'_>) -> Result<Item> {
         let guid = row.get::<_, SyncGuid>("guid")?;
         let kind = SyncedBookmarkKind::from_u8(row.get("kind")?)?;
         let mut item = Item::new(guid.into(), kind.into());
@@ -593,7 +593,7 @@ impl<'a> Merger<'a> {
     }
 
     /// Creates a remote tree item from a row in `moz_bookmarks_synced`.
-    fn remote_row_to_item(&self, row: &Row) -> Result<Item> {
+    fn remote_row_to_item(&self, row: &Row<'_>) -> Result<Item> {
         let guid = row.get::<_, SyncGuid>("guid")?;
         let kind = SyncedBookmarkKind::from_u8(row.get("kind")?)?;
         let mut item = Item::new(guid.into(), kind.into());
@@ -852,7 +852,7 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
 struct LocalItemsFragment<'a>(&'a str);
 
 impl<'a> fmt::Display for LocalItemsFragment<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{name}(id, guid, parentId, parentGuid, position, type, title, parentTitle,
@@ -892,7 +892,7 @@ struct ItemKindFragment {
 }
 
 impl fmt::Display for ItemKindFragment {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "(CASE {typ}
@@ -931,7 +931,7 @@ enum UrlOrPlaceIdFragment {
 }
 
 impl fmt::Display for UrlOrPlaceIdFragment {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             UrlOrPlaceIdFragment::Url(s) => write!(f, "{}", s),
             UrlOrPlaceIdFragment::PlaceId(s) => {
@@ -946,7 +946,7 @@ impl fmt::Display for UrlOrPlaceIdFragment {
 struct RootsFragment<'a>(&'a [BookmarkRootGuid]);
 
 impl<'a> fmt::Display for RootsFragment<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("(")?;
         for (i, guid) in self.0.iter().enumerate() {
             if i != 0 {

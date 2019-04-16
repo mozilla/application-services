@@ -30,7 +30,7 @@ impl SettableLog {
 }
 
 impl Log for SettableLog {
-    fn enabled(&self, metadata: &log::Metadata) -> bool {
+    fn enabled(&self, metadata: &log::Metadata<'_>) -> bool {
         let inner = self.inner.read().unwrap();
         if let Some(log) = &*inner {
             log.enabled(metadata)
@@ -46,7 +46,7 @@ impl Log for SettableLog {
         }
     }
 
-    fn log(&self, record: &log::Record) {
+    fn log(&self, record: &log::Record<'_>) {
         let inner = self.inner.read().unwrap();
         if let Some(log) = &*inner {
             log.log(record);

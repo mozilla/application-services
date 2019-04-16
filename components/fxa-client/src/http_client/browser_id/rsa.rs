@@ -83,7 +83,7 @@ impl Clone for RSABrowserIDKeyPair {
 }
 
 impl fmt::Debug for RSABrowserIDKeyPair {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "<rsa_key_pair>")
     }
 }
@@ -168,7 +168,7 @@ impl<'de> Deserialize<'de> for RSABrowserIDKeyPair {
                 impl<'de> Visitor<'de> for FieldVisitor {
                     type Value = Field;
 
-                    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                         formatter.write_str("`n`, `e`, `d`, `p`, `q`, `dmp1`, `dmq1`, `iqmp`")
                     }
 
@@ -199,7 +199,7 @@ impl<'de> Deserialize<'de> for RSABrowserIDKeyPair {
         impl<'de> Visitor<'de> for RSABrowserIDKeyPairVisitor {
             type Value = RSABrowserIDKeyPair;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("struct RSABrowserIDKeyPair")
             }
             #[allow(clippy::many_single_char_names)] // FIXME

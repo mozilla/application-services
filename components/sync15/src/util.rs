@@ -50,7 +50,7 @@ impl FromStr for ServerTimestamp {
 
 impl fmt::Display for ServerTimestamp {
     #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }

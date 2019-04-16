@@ -22,7 +22,7 @@ pub enum RequestOrder {
 
 impl fmt::Display for RequestOrder {
     #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RequestOrder::Oldest => f.write_str("oldest"),
             RequestOrder::Newest => f.write_str("newest"),
@@ -114,7 +114,7 @@ impl CollectionRequest {
         self
     }
 
-    fn build_query(&self, pairs: &mut Serializer<UrlQuery>) {
+    fn build_query(&self, pairs: &mut Serializer<UrlQuery<'_>>) {
         if self.full {
             pairs.append_pair("full", "1");
         }

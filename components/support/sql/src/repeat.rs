@@ -16,9 +16,9 @@ pub struct RepeatDisplay<'a, F> {
 
 impl<'a, F> fmt::Display for RepeatDisplay<'a, F>
 where
-    F: Fn(usize, &mut fmt::Formatter) -> fmt::Result,
+    F: Fn(usize, &mut fmt::Formatter<'_>) -> fmt::Result,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for i in 0..self.count {
             if i != 0 {
                 f.write_str(self.sep)?;
@@ -44,9 +44,9 @@ where
 ///            "(0,?),(1,?),(2,?)");
 /// ```
 #[inline]
-pub fn repeat_display<F>(count: usize, sep: &str, fmt_one: F) -> RepeatDisplay<F>
+pub fn repeat_display<F>(count: usize, sep: &str, fmt_one: F) -> RepeatDisplay<'_, F>
 where
-    F: Fn(usize, &mut fmt::Formatter) -> fmt::Result,
+    F: Fn(usize, &mut fmt::Formatter<'_>) -> fmt::Result,
 {
     RepeatDisplay {
         count,

@@ -170,7 +170,7 @@ impl SyncedBookmarkItem {
 
     // Return a new SyncedBookmarkItem from a database row. All values will
     // be SyncedBookmarkValue::Specified.
-    fn from_row(row: &Row) -> Result<Self> {
+    fn from_row(row: &Row<'_>) -> Result<Self> {
         let mut tags = row
             .get::<_, Option<String>>("tags")?
             .map(|tags| {

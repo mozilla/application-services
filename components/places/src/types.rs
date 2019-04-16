@@ -52,20 +52,20 @@ impl From<SyncGuid> for dogear::Guid {
 }
 
 impl ToSql for SyncGuid {
-    fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput<'_>> {
         Ok(ToSqlOutput::from(self.0.clone())) // cloning seems wrong?
     }
 }
 
 impl FromSql for SyncGuid {
-    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
         value.as_str().map(|v| SyncGuid(v.to_string()))
     }
 }
 
 impl fmt::Display for SyncGuid {
     #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
@@ -127,19 +127,19 @@ impl From<u64> for Timestamp {
 
 impl fmt::Display for Timestamp {
     #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
 impl ToSql for Timestamp {
-    fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput<'_>> {
         Ok(ToSqlOutput::from(self.0 as i64)) // hrm - no u64 in rusqlite
     }
 }
 
 impl FromSql for Timestamp {
-    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
         value.as_i64().map(|v| Timestamp(v as u64)) // hrm - no u64
     }
 }
@@ -168,7 +168,7 @@ pub enum VisitTransition {
 }
 
 impl ToSql for VisitTransition {
-    fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput<'_>> {
         Ok(ToSqlOutput::from(*self as u8))
     }
 }
@@ -195,7 +195,7 @@ struct VisitTransitionSerdeVisitor;
 impl<'de> serde::de::Visitor<'de> for VisitTransitionSerdeVisitor {
     type Value = VisitTransition;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("positive integer representing VisitTransition")
     }
 
@@ -235,7 +235,7 @@ pub enum BookmarkType {
 }
 
 impl FromSql for BookmarkType {
-    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
         let v = value.as_i64()?;
         if v < 0 || v > i64::from(u8::max_value()) {
             return Err(FromSqlError::OutOfRange(v));
@@ -272,7 +272,7 @@ impl BookmarkType {
 }
 
 impl ToSql for BookmarkType {
-    fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput<'_>> {
         Ok(ToSqlOutput::from(*self as u8))
     }
 }
@@ -320,7 +320,7 @@ impl SyncStatus {
 }
 
 impl ToSql for SyncStatus {
-    fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput<'_>> {
         Ok(ToSqlOutput::from(*self as u8))
     }
 }

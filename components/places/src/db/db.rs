@@ -230,14 +230,14 @@ mod sql_fns {
     use rusqlite::{functions::Context, types::ValueRef, Error, Result};
 
     // Helpers for define_functions
-    fn get_raw_str<'a>(ctx: &'a Context, fname: &'static str, idx: usize) -> Result<&'a str> {
+    fn get_raw_str<'a>(ctx: &'a Context<'_>, fname: &'static str, idx: usize) -> Result<&'a str> {
         ctx.get_raw(idx).as_str().map_err(|e| {
             Error::UserFunctionError(format!("Bad arg {} to '{}': {}", idx, fname, e).into())
         })
     }
 
     fn get_raw_opt_str<'a>(
-        ctx: &'a Context,
+        ctx: &'a Context<'_>,
         fname: &'static str,
         idx: usize,
     ) -> Result<Option<&'a str>> {
@@ -256,7 +256,7 @@ mod sql_fns {
     // #[inline(never)] ensures they show up in profiles.
 
     #[inline(never)]
-    pub fn hash(ctx: &Context) -> rusqlite::Result<Option<i64>> {
+    pub fn hash(ctx: &Context<'_>) -> rusqlite::Result<Option<i64>> {
         Ok(match ctx.len() {
             1 => {
                 // This is a deterministic function, which means sqlite
@@ -295,7 +295,7 @@ mod sql_fns {
     }
 
     #[inline(never)]
-    pub fn autocomplete_match(ctx: &Context) -> Result<bool> {
+    pub fn autocomplete_match(ctx: &Context<'_>) -> Result<bool> {
         let search_str = get_raw_str(ctx, "autocomplete_match", 0)?;
         let url_str = get_raw_str(ctx, "autocomplete_match", 1)?;
         let title_str = get_raw_opt_str(ctx, "autocomplete_match", 2)?.unwrap_or_default();
@@ -323,7 +323,7 @@ mod sql_fns {
     }
 
     #[inline(never)]
-    pub fn reverse_host(ctx: &Context) -> Result<String> {
+    pub fn reverse_host(ctx: &Context<'_>) -> Result<String> {
         // We reuse this memory so no need for get_raw.
         let mut host = ctx.get::<String>(0)?;
         debug_assert!(host.is_ascii(), "Hosts must be Punycoded");
@@ -340,21 +340,21 @@ mod sql_fns {
     }
 
     #[inline(never)]
-    pub fn get_prefix(ctx: &Context) -> Result<String> {
+    pub fn get_prefix(ctx: &Context<'_>) -> Result<String> {
         let href = get_raw_str(ctx, "get_prefix", 0)?;
         let (prefix, _) = split_after_prefix(&href);
         Ok(prefix.to_owned())
     }
 
     #[inline(never)]
-    pub fn get_host_and_port(ctx: &Context) -> Result<String> {
+    pub fn get_host_and_port(ctx: &Context<'_>) -> Result<String> {
         let href = get_raw_str(ctx, "get_host_and_port", 0)?;
         let (host_and_port, _) = split_after_host_and_port(&href);
         Ok(host_and_port.to_owned())
     }
 
     #[inline(never)]
-    pub fn strip_prefix_and_userinfo(ctx: &Context) -> Result<String> {
+    pub fn strip_prefix_and_userinfo(ctx: &Context<'_>) -> Result<String> {
         let href = get_raw_str(ctx, "strip_prefix_and_userinfo", 0)?;
         let (host_and_port, remainder) = split_after_host_and_port(&href);
         let mut res = String::with_capacity(host_and_port.len() + remainder.len() + 1);
@@ -364,12 +364,12 @@ mod sql_fns {
     }
 
     #[inline(never)]
-    pub fn now(_ctx: &Context) -> Result<Timestamp> {
+    pub fn now(_ctx: &Context<'_>) -> Result<Timestamp> {
         Ok(Timestamp::now())
     }
 
     #[inline(never)]
-    pub fn generate_guid(_ctx: &Context) -> Result<SyncGuid> {
+    pub fn generate_guid(_ctx: &Context<'_>) -> Result<SyncGuid> {
         Ok(SyncGuid::new())
     }
 }

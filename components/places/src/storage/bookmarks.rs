@@ -47,7 +47,7 @@ fn create_root(
         ",
         BookmarkRootGuid::Root.as_guid().as_ref()
     );
-    let params: Vec<(&str, &ToSql)> = vec![
+    let params: Vec<(&str, &dyn ToSql)> = vec![
         (":item_type", &BookmarkType::Folder),
         (":item_position", &position),
         (":item_title", &title),
@@ -1077,7 +1077,7 @@ struct FetchedTreeRow {
 }
 
 impl FetchedTreeRow {
-    pub fn from_row(row: &Row) -> Result<Self> {
+    pub fn from_row(row: &Row<'_>) -> Result<Self> {
         let url = row.get::<_, Option<String>>("url")?;
         Ok(Self {
             level: row.get("level")?,
@@ -1264,7 +1264,7 @@ pub(crate) struct RawBookmark {
 }
 
 impl RawBookmark {
-    pub fn from_row(row: &Row) -> Result<Self> {
+    pub fn from_row(row: &Row<'_>) -> Result<Self> {
         let place_id = row.get::<_, Option<RowId>>("fk")?;
         Ok(Self {
             row_id: row.get("_id")?,

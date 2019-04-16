@@ -56,7 +56,7 @@ pub trait FxABrowserIDClient: http_client::FxAClient {
         &self,
         config: &Config,
         session_token: &[u8],
-        key_pair: &BrowserIDKeyPair,
+        key_pair: &dyn BrowserIDKeyPair,
     ) -> Result<SignResponse>;
 }
 
@@ -160,7 +160,7 @@ impl FxABrowserIDClient for http_client::Client {
         &self,
         config: &Config,
         session_token: &[u8],
-        key_pair: &BrowserIDKeyPair,
+        key_pair: &dyn BrowserIDKeyPair,
     ) -> Result<SignResponse> {
         let public_key_json = key_pair.to_json(false)?;
         let parameters = json!({

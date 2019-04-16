@@ -184,7 +184,7 @@ pub struct SearchResult {
 impl SearchResult {
     /// Default search behaviors from Desktop: HISTORY, BOOKMARK, OPENPAGE, SEARCHES.
     /// Default match behavior: MATCH_BOUNDARY_ANYWHERE.
-    pub fn from_adaptive_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+    pub fn from_adaptive_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Self> {
         let mut reasons = vec![MatchReason::PreviousUse];
 
         let search_string = row.get::<_, String>("searchString")?;
@@ -216,7 +216,7 @@ impl SearchResult {
         })
     }
 
-    pub fn from_suggestion_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+    pub fn from_suggestion_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Self> {
         let mut reasons = vec![MatchReason::Bookmark];
 
         let search_string = row.get::<_, String>("searchString")?;
@@ -244,7 +244,7 @@ impl SearchResult {
         })
     }
 
-    pub fn from_origin_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+    pub fn from_origin_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Self> {
         let search_string = row.get::<_, String>("searchString")?;
         let url = row.get::<_, String>("url")?;
         let display_url = row.get::<_, String>("displayURL")?;
@@ -262,7 +262,7 @@ impl SearchResult {
         })
     }
 
-    pub fn from_url_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+    pub fn from_url_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Self> {
         let search_string = row.get::<_, String>("searchString")?;
         let href = row.get::<_, String>("url")?;
         let stripped_url = row.get::<_, String>("strippedURL")?;

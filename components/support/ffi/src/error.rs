@@ -218,8 +218,8 @@ impl Default for ExternError {
 
 // This is the `Err` of std::thread::Result, which is what
 // `panic::catch_unwind` returns.
-impl From<Box<std::any::Any + Send + 'static>> for ExternError {
-    fn from(e: Box<std::any::Any + Send + 'static>) -> Self {
+impl From<Box<dyn std::any::Any + Send + 'static>> for ExternError {
+    fn from(e: Box<dyn std::any::Any + Send + 'static>) -> Self {
         // The documentation suggests that it will *usually* be a str or String.
         let message = if let Some(s) = e.downcast_ref::<&'static str>() {
             s.to_string()

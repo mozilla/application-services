@@ -52,7 +52,7 @@ impl Method {
 }
 
 impl std::fmt::Display for Method {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.as_str())
     }
 }
@@ -242,7 +242,7 @@ impl Response {
 
     /// Get the body as a string. Assumes UTF-8 encoding. Any non-utf8 bytes
     /// are replaced with the replacement character.
-    pub fn text(&self) -> std::borrow::Cow<str> {
+    pub fn text(&self) -> std::borrow::Cow<'_, str> {
         String::from_utf8_lossy(&self.body)
     }
 

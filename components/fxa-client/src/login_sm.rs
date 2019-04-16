@@ -13,14 +13,14 @@ use std::sync::Arc;
 
 pub struct LoginStateMachine<'a> {
     config: &'a Config,
-    client: Arc<http_client::browser_id::FxABrowserIDClient>,
+    client: Arc<dyn http_client::browser_id::FxABrowserIDClient>,
 }
 
 impl<'a> LoginStateMachine<'a> {
     pub fn new(
         config: &'a Config,
-        client: Arc<http_client::browser_id::FxABrowserIDClient>,
-    ) -> LoginStateMachine {
+        client: Arc<dyn http_client::browser_id::FxABrowserIDClient>,
+    ) -> LoginStateMachine<'_> {
         LoginStateMachine { config, client }
     }
 

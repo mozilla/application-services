@@ -43,7 +43,7 @@ impl<'a> ValidatedTag<'a> {
 }
 
 /// Checks the validity of the specified tag.
-pub fn validate_tag(tag: &str) -> ValidatedTag {
+pub fn validate_tag(tag: &str) -> ValidatedTag<'_> {
     // Drop empty and oversized tags.
     let t = tag.trim();
     if t.is_empty() || t.len() > TAG_LENGTH_MAX || t.find(char::is_whitespace).is_some() {

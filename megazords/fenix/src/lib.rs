@@ -4,8 +4,8 @@
 
 #![allow(unknown_lints)]
 
-pub extern crate fxaclient_ffi;
-pub extern crate places_ffi;
-pub extern crate push_ffi;
-pub extern crate rc_log_ffi;
-pub extern crate viaduct;
+pub use fxaclient_ffi;
+pub use places_ffi;
+pub use push_ffi;
+pub use rc_log_ffi;
+pub use viaduct;

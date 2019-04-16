@@ -36,7 +36,7 @@ pub enum MatchBehavior {
 
 impl FromSql for MatchBehavior {
     #[inline]
-    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
         Ok(match value.as_i64()? {
             0 => MatchBehavior::Anywhere,
             1 => MatchBehavior::BoundaryAnywhere,
@@ -51,7 +51,7 @@ impl FromSql for MatchBehavior {
 
 impl ToSql for MatchBehavior {
     #[inline]
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput> {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
         Ok(ToSqlOutput::from(*self as u32))
     }
 }
@@ -111,7 +111,7 @@ impl SearchBehavior {
 
 impl FromSql for SearchBehavior {
     #[inline]
-    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
         SearchBehavior::from_bits(u32::column_result(value)?)
             .ok_or_else(|| FromSqlError::InvalidType)
     }
@@ -119,7 +119,7 @@ impl FromSql for SearchBehavior {
 
 impl ToSql for SearchBehavior {
     #[inline]
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput> {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
         Ok(ToSqlOutput::from(self.bits()))
     }
 }

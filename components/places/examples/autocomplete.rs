@@ -100,7 +100,7 @@ struct LegacyPlace {
 }
 
 impl LegacyPlace {
-    pub fn from_row(row: &rusqlite::Row) -> Self {
+    pub fn from_row(row: &rusqlite::Row<'_>) -> Self {
         Self {
             id: row.get_unwrap("place_id"),
             guid: row.get_unwrap("place_guid"),

@@ -38,12 +38,12 @@ struct Logger {
 }
 
 impl log::Log for Logger {
-    fn enabled(&self, _metadata: &log::Metadata) -> bool {
+    fn enabled(&self, _metadata: &log::Metadata<'_>) -> bool {
         !self.stop.load(Ordering::SeqCst)
     }
 
     fn flush(&self) {}
-    fn log(&self, record: &log::Record) {
+    fn log(&self, record: &log::Record<'_>) {
         if self.stop.load(Ordering::SeqCst) {
             // Note: `enabled` is not automatically called.
             return;

@@ -49,7 +49,7 @@ pub fn apply_observation_direct(
     };
     let mut update_change_counter = false;
     let mut update_frec = false;
-    let mut updates: Vec<(&str, &str, &ToSql)> = Vec::new();
+    let mut updates: Vec<(&str, &str, &dyn ToSql)> = Vec::new();
 
     if let Some(ref title) = visit_ob.title {
         page_info.title = crate::util::slice_up_to(title, super::TITLE_LENGTH_MAX).into();
@@ -92,7 +92,7 @@ pub fn apply_observation_direct(
     }
 
     if !updates.is_empty() {
-        let mut params: Vec<(&str, &ToSql)> = Vec::with_capacity(updates.len() + 1);
+        let mut params: Vec<(&str, &dyn ToSql)> = Vec::with_capacity(updates.len() + 1);
         let mut sets: Vec<String> = Vec::with_capacity(updates.len());
         for (col, name, val) in updates {
             sets.push(format!("{} = {}", col, name));
@@ -250,7 +250,7 @@ pub fn wipe_local(db: &PlacesDb) -> Result<()> {
     Ok(())
 }
 
-fn wipe_local_in_tx(db: &PlacesDb, tx: crate::db::PlacesTransaction) -> Result<()> {
+fn wipe_local_in_tx(db: &PlacesDb, tx: crate::db::PlacesTransaction<'_>) -> Result<()> {
     use crate::frecency::DEFAULT_FRECENCY_SETTINGS;
     db.execute_all(&[
         "DELETE FROM moz_places WHERE foreign_count == 0",
@@ -437,7 +437,7 @@ struct PageToClean {
 }
 
 impl PageToClean {
-    pub fn from_row(row: &Row) -> Result<Self> {
+    pub fn from_row(row: &Row<'_>) -> Result<Self> {
         Ok(Self {
             id: row.get("id")?,
             has_foreign: row.get("has_foreign")?,
@@ -525,7 +525,7 @@ pub mod history_sync {
     }
 
     impl FetchedVisit {
-        pub fn from_row(row: &Row) -> Result<Self> {
+        pub fn from_row(row: &Row<'_>) -> Result<Self> {
             Ok(Self {
                 is_local: row.get("is_local")?,
                 visit_date: row
@@ -547,7 +547,7 @@ pub mod history_sync {
     }
 
     impl FetchedVisitPage {
-        pub fn from_row(row: &Row) -> Result<Self> {
+        pub fn from_row(row: &Row<'_>) -> Result<Self> {
             Ok(Self {
                 url: Url::parse(&row.get::<_, String>("url")?)?,
                 guid: row.get::<_, String>("guid")?.into(),

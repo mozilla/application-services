@@ -61,7 +61,7 @@ pub struct LocalCollStateMachine<'state> {
 }
 
 impl<'state> LocalCollStateMachine<'state> {
-    fn advance(&self, from: LocalCollState, store: &Store) -> error::Result<LocalCollState> {
+    fn advance(&self, from: LocalCollState, store: &dyn Store) -> error::Result<LocalCollState> {
         let name = &store.collection_name().to_string();
         let meta_global = &self.global_state.global;
         match from {
@@ -113,7 +113,7 @@ impl<'state> LocalCollStateMachine<'state> {
     // A little whimsy - a portmanteau of far and fast
     fn run_and_run_as_farst_as_you_can(
         &mut self,
-        store: &Store,
+        store: &dyn Store,
     ) -> error::Result<Option<CollState>> {
         let mut s = LocalCollState::Unknown {
             assoc: store.get_sync_assoc()?,
@@ -156,7 +156,7 @@ impl<'state> LocalCollStateMachine<'state> {
     }
 
     pub fn get_state(
-        store: &Store,
+        store: &dyn Store,
         global_state: &'state GlobalState,
     ) -> error::Result<Option<CollState>> {
         let mut gingerbread_man = Self { global_state };

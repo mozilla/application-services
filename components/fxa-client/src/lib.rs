@@ -43,9 +43,9 @@ lazy_static! {
 }
 
 #[cfg(feature = "browserid")]
-type FxAClient = http_client::browser_id::FxABrowserIDClient + Sync + Send;
+type FxAClient = dyn http_client::browser_id::FxABrowserIDClient + Sync + Send;
 #[cfg(not(feature = "browserid"))]
-type FxAClient = http_client::FxAClient + Sync + Send;
+type FxAClient = dyn http_client::FxAClient + Sync + Send;
 
 pub struct FirefoxAccount {
     client: Arc<FxAClient>,
