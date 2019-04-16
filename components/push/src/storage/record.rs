@@ -69,14 +69,14 @@ impl PushRecord {
 
     pub(crate) fn from_row(row: &Row) -> Result<Self> {
         Ok(PushRecord {
-            uaid: row.get_checked("uaid")?,
-            channel_id: row.get_checked("channel_id")?,
-            endpoint: row.get_checked("endpoint")?,
-            scope: row.get_checked("scope")?,
-            key: row.get_checked("key")?,
-            ctime: row.get_checked("ctime")?,
-            app_server_key: row.get_checked("app_server_key")?,
-            native_id: row.get_checked("native_id")?,
+            uaid: row.get("uaid")?,
+            channel_id: row.get("channel_id")?,
+            endpoint: row.get("endpoint")?,
+            scope: row.get("scope")?,
+            key: row.get("key")?,
+            ctime: row.get("ctime")?,
+            app_server_key: row.get("app_server_key")?,
+            native_id: row.get("native_id")?,
         })
     }
 }

@@ -142,14 +142,16 @@ fn show_sql(e: &PasswordEngine, sql: &str) -> Result<()> {
 
     let rows = stmt.query_map(NO_PARAMS, |row| {
         (0..len)
-            .map(|idx| match row.get::<_, Value>(idx) {
-                Value::Null => Cell::new("null").style_spec("Fd"),
-                Value::Integer(i) => Cell::new(&i.to_string()).style_spec("Fb"),
-                Value::Real(r) => Cell::new(&r.to_string()).style_spec("Fb"),
-                Value::Text(s) => Cell::new(&s.to_string()).style_spec("Fr"),
-                Value::Blob(b) => Cell::new(&format!("{}b blob", b.len())),
+            .map(|idx| {
+                Ok(match row.get::<_, Value>(idx)? {
+                    Value::Null => Cell::new("null").style_spec("Fd"),
+                    Value::Integer(i) => Cell::new(&i.to_string()).style_spec("Fb"),
+                    Value::Real(r) => Cell::new(&r.to_string()).style_spec("Fb"),
+                    Value::Text(s) => Cell::new(&s.to_string()).style_spec("Fr"),
+                    Value::Blob(b) => Cell::new(&format!("{}b blob", b.len())),
+                })
             })
-            .collect::<Vec<_>>()
+            .collect::<std::result::Result<Vec<_>, _>>()
     })?;
 
     for row in rows {

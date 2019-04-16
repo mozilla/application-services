@@ -63,7 +63,7 @@ pub trait ConnExt {
         crate::maybe_log_plan(self.conn(), sql, &[]);
         let res: T = self
             .conn()
-            .query_row_and_then(sql, NO_PARAMS, |row| row.get_checked(0))?;
+            .query_row_and_then(sql, NO_PARAMS, |row| row.get(0))?;
         Ok(res)
     }
 
@@ -84,7 +84,7 @@ pub trait ConnExt {
         // if the first row was null.
         let res: Option<Option<T>> = self
             .conn()
-            .query_row_and_then_named(sql, params, |row| row.get_checked(0), cache)
+            .query_row_and_then_named(sql, params, |row| row.get(0), cache)
             .optional()?;
         // go from Option<Option<T>> to Option<T>
         Ok(res.unwrap_or_default())
@@ -156,7 +156,7 @@ pub trait ConnExt {
     ///         "SELECT visit_date FROM moz_historyvisit_tombstones
     ///          WHERE place_id = :place_id",
     ///         &[(":place_id", &id)],
-    ///         |row| row.get_checked::<_, i64>(0))?)
+    ///         |row| row.get::<_, i64>(0))?)
     /// }
     /// ```
     /// Note if the type isn't inferred, you'll have to do something gross like
@@ -212,13 +212,7 @@ pub trait ConnExt {
         let conn = self.conn();
         let mut stmt = MaybeCached::prepare(conn, sql, cache)?;
         let mut rows = stmt.query_named(params)?;
-        Ok(match rows.next() {
-            None => None,
-            Some(row_res) => {
-                let row = row_res?;
-                Some(mapper(&row)?)
-            }
-        })
+        rows.next()?.map(mapper).transpose()
     }
 
     fn unchecked_transaction(&self) -> SqlResult<UncheckedTransaction> {

@@ -1078,23 +1078,22 @@ struct FetchedTreeRow {
 
 impl FetchedTreeRow {
     pub fn from_row(row: &Row) -> Result<Self> {
-        let url = row.get_checked::<_, Option<String>>("url")?;
+        let url = row.get::<_, Option<String>>("url")?;
         Ok(Self {
-            level: row.get_checked("level")?,
-            id: row.get_checked::<_, RowId>("id")?,
-            guid: row.get_checked::<_, String>("guid")?.into(),
-            parent: row.get_checked::<_, Option<RowId>>("parent")?,
+            level: row.get("level")?,
+            id: row.get::<_, RowId>("id")?,
+            guid: row.get::<_, String>("guid")?.into(),
+            parent: row.get::<_, Option<RowId>>("parent")?,
             parent_guid: row
-                .get_checked::<_, Option<String>>("parentGuid")?
+                .get::<_, Option<String>>("parentGuid")?
                 .map(SyncGuid::from),
-            node_type: BookmarkType::from_u8_with_valid_url(
-                row.get_checked::<_, u8>("type")?,
-                || url.is_some(),
-            ),
-            position: row.get_checked("position")?,
-            title: row.get_checked::<_, Option<String>>("title")?,
-            date_added: row.get_checked("dateAdded")?,
-            last_modified: row.get_checked("lastModified")?,
+            node_type: BookmarkType::from_u8_with_valid_url(row.get::<_, u8>("type")?, || {
+                url.is_some()
+            }),
+            position: row.get("position")?,
+            title: row.get::<_, Option<String>>("title")?,
+            date_added: row.get("dateAdded")?,
+            last_modified: row.get("lastModified")?,
             url,
         })
     }
@@ -1266,31 +1265,30 @@ pub(crate) struct RawBookmark {
 
 impl RawBookmark {
     pub fn from_row(row: &Row) -> Result<Self> {
-        let place_id = row.get_checked::<_, Option<RowId>>("fk")?;
+        let place_id = row.get::<_, Option<RowId>>("fk")?;
         Ok(Self {
-            row_id: row.get_checked("_id")?,
+            row_id: row.get("_id")?,
             place_id,
-            bookmark_type: BookmarkType::from_u8_with_valid_url(
-                row.get_checked::<_, u8>("type")?,
-                || place_id.is_some(),
-            ),
-            parent_id: row.get_checked("_parentId")?,
-            parent_guid: row.get_checked("parentGuid")?,
-            position: row.get_checked("position")?,
-            title: row.get_checked::<_, Option<String>>("title")?,
-            url: match row.get_checked::<_, Option<String>>("url")? {
+            bookmark_type: BookmarkType::from_u8_with_valid_url(row.get::<_, u8>("type")?, || {
+                place_id.is_some()
+            }),
+            parent_id: row.get("_parentId")?,
+            parent_guid: row.get("parentGuid")?,
+            position: row.get("position")?,
+            title: row.get::<_, Option<String>>("title")?,
+            url: match row.get::<_, Option<String>>("url")? {
                 Some(s) => Some(Url::parse(&s)?),
                 None => None,
             },
-            date_added: row.get_checked("dateAdded")?,
-            date_modified: row.get_checked("lastModified")?,
-            guid: row.get_checked::<_, String>("guid")?.into(),
-            sync_status: SyncStatus::from_u8(row.get_checked::<_, u8>("_syncStatus")?),
+            date_added: row.get("dateAdded")?,
+            date_modified: row.get("lastModified")?,
+            guid: row.get::<_, String>("guid")?.into(),
+            sync_status: SyncStatus::from_u8(row.get::<_, u8>("_syncStatus")?),
             sync_change_counter: row
-                .get_checked::<_, Option<u32>>("syncChangeCounter")?
+                .get::<_, Option<u32>>("syncChangeCounter")?
                 .unwrap_or_default(),
-            child_count: row.get_checked("_childCount")?,
-            grandparent_id: row.get_checked("_grandparentId")?,
+            child_count: row.get("_childCount")?,
+            grandparent_id: row.get("_grandparentId")?,
         })
     }
 }
@@ -1861,7 +1859,7 @@ mod tests {
             let mut stmt = conn.prepare(sql).expect("sql is ok");
             let got_guids: HashSet<String> = stmt
                 .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
-                    Ok(row.get_checked::<_, String>(0)?)
+                    Ok(row.get::<_, String>(0)?)
                 })
                 .expect("should work")
                 .map(std::result::Result::unwrap)
@@ -1883,7 +1881,7 @@ mod tests {
             let mut stmt = conn.prepare(sql).expect("sql is ok");
             let got_guids: HashSet<String> = stmt
                 .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
-                    Ok(row.get_checked::<_, String>(0)?)
+                    Ok(row.get::<_, String>(0)?)
                 })
                 .expect("should work")
                 .map(std::result::Result::unwrap)

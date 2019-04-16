@@ -172,7 +172,7 @@ impl SyncedBookmarkItem {
     // be SyncedBookmarkValue::Specified.
     fn from_row(row: &Row) -> Result<Self> {
         let mut tags = row
-            .get_checked::<_, Option<String>>("tags")?
+            .get::<_, Option<String>>("tags")?
             .map(|tags| {
                 tags.split(',')
                     .map(ToString::to_string)
@@ -181,35 +181,32 @@ impl SyncedBookmarkItem {
             .unwrap_or_default();
         tags.sort();
         Ok(Self {
-            id: SyncedBookmarkValue::Specified(row.get_checked("id")?),
-            guid: SyncedBookmarkValue::Specified(row.get_checked("guid")?),
-            parent_guid: SyncedBookmarkValue::Specified(row.get_checked("parentGuid")?),
+            id: SyncedBookmarkValue::Specified(row.get("id")?),
+            guid: SyncedBookmarkValue::Specified(row.get("guid")?),
+            parent_guid: SyncedBookmarkValue::Specified(row.get("parentGuid")?),
             server_modified: SyncedBookmarkValue::Specified(ServerTimestamp(
-                row.get_checked::<_, f64>("serverModified")?,
+                row.get::<_, f64>("serverModified")?,
             )),
-            needs_merge: SyncedBookmarkValue::Specified(row.get_checked("needsMerge")?),
+            needs_merge: SyncedBookmarkValue::Specified(row.get("needsMerge")?),
             validity: SyncedBookmarkValue::Specified(
-                SyncedBookmarkValidity::from_u8(row.get_checked("validity")?)
-                    .expect("a valid validity"),
+                SyncedBookmarkValidity::from_u8(row.get("validity")?).expect("a valid validity"),
             ),
-            deleted: SyncedBookmarkValue::Specified(row.get_checked("isDeleted")?),
+            deleted: SyncedBookmarkValue::Specified(row.get("isDeleted")?),
             kind: SyncedBookmarkValue::Specified(
                 // tombstones have a kind of -1, so get it from the db as i8
-                SyncedBookmarkKind::from_u8(row.get_checked::<_, i8>("kind")? as u8).ok(),
+                SyncedBookmarkKind::from_u8(row.get::<_, i8>("kind")? as u8).ok(),
             ),
-            date_added: SyncedBookmarkValue::Specified(row.get_checked("dateAdded")?),
-            title: SyncedBookmarkValue::Specified(row.get_checked("title")?),
-            place_id: SyncedBookmarkValue::Specified(row.get_checked("placeId")?),
-            keyword: SyncedBookmarkValue::Specified(row.get_checked("keyword")?),
-            description: SyncedBookmarkValue::Specified(row.get_checked("description")?),
-            load_in_sidebar: SyncedBookmarkValue::Specified(row.get_checked("loadInSidebar")?),
-            smart_bookmark_name: SyncedBookmarkValue::Specified(
-                row.get_checked("smartBookmarkName")?,
-            ),
-            feed_url: SyncedBookmarkValue::Specified(row.get_checked("feedUrl")?),
-            site_url: SyncedBookmarkValue::Specified(row.get_checked("siteUrl")?),
+            date_added: SyncedBookmarkValue::Specified(row.get("dateAdded")?),
+            title: SyncedBookmarkValue::Specified(row.get("title")?),
+            place_id: SyncedBookmarkValue::Specified(row.get("placeId")?),
+            keyword: SyncedBookmarkValue::Specified(row.get("keyword")?),
+            description: SyncedBookmarkValue::Specified(row.get("description")?),
+            load_in_sidebar: SyncedBookmarkValue::Specified(row.get("loadInSidebar")?),
+            smart_bookmark_name: SyncedBookmarkValue::Specified(row.get("smartBookmarkName")?),
+            feed_url: SyncedBookmarkValue::Specified(row.get("feedUrl")?),
+            site_url: SyncedBookmarkValue::Specified(row.get("siteUrl")?),
             url: SyncedBookmarkValue::Specified(
-                row.get_checked::<_, Option<String>>("url")?
+                row.get::<_, Option<String>>("url")?
                     .and_then(|s| Url::parse(&s).ok()),
             ),
             tags: SyncedBookmarkValue::Specified(tags),

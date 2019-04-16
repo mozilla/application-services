@@ -142,11 +142,11 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
             FROM moz_places
             WHERE id = :page_id
         ", &[(":page_id", &page_id)], |row| {
-            let typed: i32 = row.get("typed");
-            let visit_count: i32 = row.get("visit_count");
-            let foreign_count: i32 = row.get("foreign_count");
-            let is_query: bool = row.get("is_query");
-            (typed, visit_count, foreign_count, is_query)
+            let typed: i32 = row.get("typed")?;
+            let visit_count: i32 = row.get("visit_count")?;
+            let foreign_count: i32 = row.get("foreign_count")?;
+            let is_query: bool = row.get("is_query")?;
+            Ok((typed, visit_count, foreign_count, is_query))
         })?;
 
         Ok(Self {
@@ -193,11 +193,9 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
         let row_iter = stmt.query_and_then_named(
             &[(":page_id", &self.page_id)],
             |row| -> rusqlite::Result<_> {
-                let visit_type = row.get_checked::<_, Option<u8>>("visit_type")?.unwrap_or(0);
-                let target_visit_type = row
-                    .get_checked::<_, Option<u8>>("target_visit_type")?
-                    .unwrap_or(0);
-                let age_in_days: f64 = row.get_checked("age_in_days")?;
+                let visit_type = row.get::<_, Option<u8>>("visit_type")?.unwrap_or(0);
+                let target_visit_type = row.get::<_, Option<u8>>("target_visit_type")?.unwrap_or(0);
+                let age_in_days: f64 = row.get("age_in_days")?;
                 Ok((
                     VisitTransition::from_primitive(visit_type),
                     VisitTransition::from_primitive(target_visit_type),
