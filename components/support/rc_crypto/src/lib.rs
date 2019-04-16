@@ -7,6 +7,7 @@ pub mod digest;
 mod error;
 pub mod hmac;
 mod p11;
+pub mod rand;
 mod util;
 
 pub use crate::error::{Error, ErrorKind, Result};

@@ -70,4 +70,5 @@ nss_exports! {
     unsafe fn PK11_DigestBegin(cx: *mut PK11Context) -> SECStatus;
     unsafe fn PK11_DigestOp(context: *mut PK11Context, r#in: *const c_uchar, len: c_uint) -> SECStatus;
     unsafe fn PK11_DigestFinal(context: *mut PK11Context, data: *mut c_uchar, outLen: *mut c_uint, len: c_uint) -> SECStatus;
+    unsafe fn PK11_GenerateRandom(data: *mut c_uchar, len: c_int) -> SECStatus;
 }
