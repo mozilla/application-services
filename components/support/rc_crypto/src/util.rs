@@ -4,8 +4,7 @@
 
 use crate::error::*;
 use nss_sys::*;
-use std::ffi::CString;
-use std::sync::Once;
+use std::{convert::TryFrom, ffi::CString, sync::Once};
 
 static NSS_INIT: Once = Once::new();
 
@@ -46,14 +45,22 @@ where
     if callback() == SECSuccess {
         return Ok(());
     }
+    Err(get_last_error())
+}
+
+/// Retrieve and wrap the last NSS/NSPR error in the current thread.
+pub fn get_last_error() -> Error {
     let error_code = unsafe { PR_GetError() };
-    let error_text_len = unsafe { PR_GetErrorTextLength() } as usize;
-    let mut out_str = vec![0u8; error_text_len + 1];
-    unsafe { PR_GetErrorText(out_str.as_mut_ptr()) };
-    let error_text: String = CString::new(&out_str[0..error_text_len])
-        .unwrap_or_else(|_| CString::default())
-        .to_str()
-        .unwrap_or_else(|_| "")
-        .to_owned();
-    Err(ErrorKind::NSSError(error_code, error_text).into())
+    let error_text: String = usize::try_from(unsafe { PR_GetErrorTextLength() })
+        .map(|error_text_len| {
+            let mut out_str = vec![0u8; error_text_len + 1];
+            unsafe { PR_GetErrorText(out_str.as_mut_ptr()) };
+            CString::new(&out_str[0..error_text_len])
+                .unwrap_or_else(|_| CString::default())
+                .to_str()
+                .unwrap_or_else(|_| "")
+                .to_owned()
+        })
+        .unwrap_or_else(|_| "".to_string());
+    ErrorKind::NSSError(error_code, error_text).into()
 }
