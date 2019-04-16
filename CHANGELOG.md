@@ -26,6 +26,11 @@
 - Bookmarks may now be synced using the `syncBookmarks` method on `PlacesApi`
   (and on Android, the interface it implements, `SyncManager`).
   ([#850](https://github.com/mozilla/application-services/issues/850))
+- Android only: New methods for querying paginated history have been added:
+  `getVisitCount` and `getVisitPage`
+  ([#992](https://github.com/mozilla/application-services/issues/992))
+- Android only: `getVisitInfos` now takes a list of visit types to exclude.
+  ([#920](https://github.com/mozilla/application-services/issues/920))
 
 ### Breaking Changes
 
@@ -34,6 +39,12 @@
 - Android only: `sync` has been renamed to `syncHistory` for clarity given the
   existence of `syncBookmarks`.
   ([#850](https://github.com/mozilla/application-services/issues/850))
+- Android only: `getVisitInfos` has changed, which is breaking for implementors
+  of `ReadableHistoryConnection`.
+  ([#920](https://github.com/mozilla/application-services/issues/920))
+- Android only: New methods on `ReadableHistoryConnection`: `getVisitCount` and
+  `getVisitPage`.
+  ([#992](https://github.com/mozilla/application-services/issues/992))
 
 # v0.25.2 (_2018-04-11_)
 
