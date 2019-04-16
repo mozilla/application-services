@@ -330,7 +330,31 @@ pub extern "C" fn sync15_history_sync(
     log::debug!("sync15_history_sync");
     APIS.call_with_result(error, handle, |api| -> places::Result<_> {
         // Note that api.sync returns a SyncPing which we drop on the floor.
-        api.sync(
+        api.sync_history(
+            &sync15::Sync15StorageClientInit {
+                key_id: key_id.into_string(),
+                access_token: access_token.into_string(),
+                tokenserver_url: parse_url(tokenserver_url.as_str())?,
+            },
+            &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
+        )?;
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn sync15_bookmarks_sync(
+    handle: u64,
+    key_id: FfiStr<'_>,
+    access_token: FfiStr<'_>,
+    sync_key: FfiStr<'_>,
+    tokenserver_url: FfiStr<'_>,
+    error: &mut ExternError,
+) {
+    log::debug!("sync15_bookmarks_sync");
+    APIS.call_with_result(error, handle, |api| -> places::Result<_> {
+        // Note that api.sync returns a SyncPing which we drop on the floor.
+        api.sync_bookmarks(
             &sync15::Sync15StorageClientInit {
                 key_id: key_id.into_string(),
                 access_token: access_token.into_string(),

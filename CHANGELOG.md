@@ -13,9 +13,24 @@
    supplied `channelID` argument. This is definitely true when an empty channelID value is provided to `subscribe()`,
    or if the channelID is not a proper UUID.
    The returned `channelID` value is authoritative and will be the value associated with the subscription and future
-   subscription updates. As before, the `subscriptionResponse.subscriptionInfo` can be JSON serialized and returned to 
-   the application.
- 
+   subscription updates. As before, the `subscriptionResponse.subscriptionInfo` can be JSON serialized and returned to the application.
+
+## Places
+
+### What's new
+
+- Bookmarks may now be synced using the `syncBookmarks` method on `PlacesApi`
+  (and on Android, the interface it implements, `SyncManager`).
+  ([#850](https://github.com/mozilla/application-services/issues/850))
+
+### Breaking Changes
+
+- Android only: The addition of `syncBookmarks` on the `PlacesManager` interface
+  is a breaking change. ([#850](https://github.com/mozilla/application-services/issues/850))
+- Android only: `sync` has been renamed to `syncHistory` for clarity given the
+  existence of `syncBookmarks`.
+  ([#850](https://github.com/mozilla/application-services/issues/850))
+
 # v0.25.2 (_2018-04-11_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.24.0...v0.25.2)
