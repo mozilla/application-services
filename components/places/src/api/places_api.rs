@@ -226,12 +226,12 @@ impl PlacesApi {
     }
 
     fn get_disk_persisted_state(&self) -> Result<Option<String>> {
-        let conn = self.open_connection(ConnectionType::Sync)?;
+        let conn = self.open_sync_connection()?;
         Ok(get_meta::<String>(&conn, GLOBAL_STATE_META_KEY)?)
     }
 
     fn set_disk_persisted_state(&self, state: &Option<String>) -> Result<()> {
-        let conn = self.open_connection(ConnectionType::Sync)?;
+        let conn = self.open_sync_connection()?;
         match state {
             Some(ref s) => put_meta(&conn, GLOBAL_STATE_META_KEY, s),
             None => delete_meta(&conn, GLOBAL_STATE_META_KEY),
