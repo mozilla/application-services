@@ -120,6 +120,14 @@ pub struct SetupStateMachine<'a> {
     client: &'a SetupStorageClient,
     root_key: &'a KeyBundle,
     pgs: &'a mut PersistedGlobalState,
+    // `allowed_states` is designed so that we can arrange for the concept of
+    // a "fast" sync - so we decline to advance if we need to setup from scratch.
+    // The idea is that if we need to sync before going to sleep we should do
+    // it as fast as possible. However, in practice this isn't going to do
+    // what we expect - a "fast sync" that finds lots to do is almost certainly
+    // going to take longer than a "full sync" that finds nothing to do.
+    // We should almost certainly remove this and instead allow for a "time
+    // budget", after which we get interrupted. Later...
     allowed_states: Vec<&'static str>,
     sequence: Vec<&'static str>,
 }
@@ -163,14 +171,7 @@ impl<'a> SetupStateMachine<'a> {
             client,
             root_key,
             pgs,
-            vec![
-                "Initial",
-                "InitialWithConfig",
-                "InitialWithInfo",
-                "InitialWithMetaGlobal",
-                "Ready",
-                "WithPreviousState",
-            ],
+            vec!["Ready", "WithPreviousState"],
         )
     }
 
@@ -182,8 +183,20 @@ impl<'a> SetupStateMachine<'a> {
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
     ) -> SetupStateMachine<'a> {
-        // currently identical to a "fast sync"
-        Self::for_fast_sync(client, root_key, pgs)
+        SetupStateMachine::with_allowed_states(
+            client,
+            root_key,
+            pgs,
+            // We don't allow a FreshStart in a read-only sync.
+            vec![
+                "Initial",
+                "InitialWithConfig",
+                "InitialWithInfo",
+                "InitialWithMetaGlobal",
+                "Ready",
+                "WithPreviousState",
+            ],
+        )
     }
 
     fn with_allowed_states(
