@@ -98,4 +98,6 @@ cp -p -L "${BUILD_DIR}/dist"/lib/libssl3.dylib "${DIST_DIR}/lib"
 cp -p -L "${NSPR_BUILD_DIR}/dist"/lib/libplc4.dylib "${DIST_DIR}/lib"
 cp -p -L "${NSPR_BUILD_DIR}/dist"/lib/libplds4.dylib "${DIST_DIR}/lib"
 cp -p -L "${NSPR_BUILD_DIR}/dist"/lib/libnspr4.dylib "${DIST_DIR}/lib"
+
 cp -p -L "${BUILD_DIR}/dist"/public/nss/* "${DIST_DIR}/include/nss"
+cp -p -L -R "${NSPR_BUILD_DIR}/dist"/include/nspr/* "${DIST_DIR}/include/nss"

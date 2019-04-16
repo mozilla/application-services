@@ -28,6 +28,9 @@ commands:
             rustup default <<parameters.rust-version>>
             rustup update
             rustc --version
+  install-clang: # Used by bindgen for nss_sys.
+    steps:
+      - run: sudo apt-get install clang
   install-system-nss:
     steps:
       - run: sudo apt-get install libnss3-dev
@@ -66,7 +69,9 @@ commands:
       - build-desktop-libs
       - setup-rust-toolchain:
           rust-version: <<parameters.rust-version>>
+      - install-clang
       - run: |
+          echo 'export NSS_DIR=$(pwd)/libs/desktop/linux-x86-64/nss' >> $BASH_ENV
           echo 'export OPENSSL_DIR=$(pwd)/libs/desktop/linux-x86-64/openssl' >> $BASH_ENV
           echo 'export SQLCIPHER_LIB_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/lib' >> $BASH_ENV
           echo 'export SQLCIPHER_INCLUDE_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/include' >> $BASH_ENV
@@ -134,9 +139,7 @@ jobs:
     docker:
       - image: circleci/rust:latest
     steps:
-      - checkout
-      - setup-rust-toolchain
-      - install-system-nss
+      - test-setup
       - run: rustup component add clippy
       - run: cargo clippy --version
       - run: cargo clippy --all --all-targets --all-features -- -D warnings
