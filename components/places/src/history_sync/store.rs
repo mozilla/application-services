@@ -201,11 +201,10 @@ impl<'a> Store for HistoryStore<'a> {
     fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {
         let global = self.get_meta(GLOBAL_SYNCID_META_KEY)?;
         let coll = self.get_meta(COLLECTION_SYNCID_META_KEY)?;
-        Ok(match (global, coll) {
-            (Some(global), Some(coll)) => {
-                StoreSyncAssociation::Connected(CollSyncIds { global, coll })
-            }
-            _ => StoreSyncAssociation::Disconnected,
+        Ok(if let (Some(global), Some(coll)) = (global, coll) {
+            StoreSyncAssociation::Connected(CollSyncIds { global, coll })
+        } else {
+            StoreSyncAssociation::Disconnected
         })
     }
 

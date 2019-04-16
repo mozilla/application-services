@@ -147,7 +147,8 @@ impl<'state> LocalCollStateMachine<'state> {
                         log::warn!("LocalCollStateMachine appears to be looping");
                         return Ok(None);
                     }
-                    // XXX - loop detection?
+                    // should we have better loop detection? Our limit of 10
+                    // goes is probably OK for now, but not really ideal.
                     s = self.advance(s, store)?;
                 }
             };

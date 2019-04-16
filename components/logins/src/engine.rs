@@ -24,7 +24,7 @@ impl PasswordEngine {
         let db = LoginDb::open(path, encryption_key)?;
         Ok(Self {
             db,
-            mem_cached_state: Cell::new(MemoryCachedState::default()),
+            mem_cached_state: Cell::default(),
         })
     }
 
@@ -97,7 +97,7 @@ impl PasswordEngine {
         self.db.migrate_global_state()?;
 
         let mut disk_cached_state = self.db.get_global_state()?;
-        let mut mem_cached_state = self.mem_cached_state.replace(MemoryCachedState::default());
+        let mut mem_cached_state = self.mem_cached_state.take();
 
         let result = sync_multiple(
             &[&self.db],

@@ -199,7 +199,7 @@ pub fn run_maintenance(conn: &PlacesDb) -> Result<()> {
 
 pub(crate) fn put_meta(db: &PlacesDb, key: &str, value: &ToSql) -> Result<()> {
     db.execute_named_cached(
-        "INSERT OR REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
+        "REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
         &[(":key", &key), (":value", value)],
     )?;
     Ok(())

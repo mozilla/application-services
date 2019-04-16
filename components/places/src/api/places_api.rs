@@ -21,6 +21,9 @@ use sync15::{telemetry, MemoryCachedState};
 
 // Not clear if this should be here, but this is the "global sync state"
 // which is persisted to disk and reused for all engines.
+// Note that this is only ever round-tripped, and never changed by, or impacted
+// by a store or collection, so it's safe to storage globally rather than
+// per collection.
 pub const GLOBAL_STATE_META_KEY: &str = "global_sync_state_v2";
 
 #[repr(u8)]
@@ -223,21 +226,19 @@ impl PlacesApi {
         let conn = self.open_sync_connection()?;
         if guard.is_none() {
             *guard = Some(SyncState {
-                mem_cached_state: Cell::new(MemoryCachedState::default()),
+                mem_cached_state: Cell::default(),
                 disk_cached_state: Cell::new(self.get_disk_persisted_state()?),
             });
         }
 
         let sync_state = guard.as_ref().unwrap();
-        // Note that counter-intuitively, his must be called before we do a
+        // Note that counter-intuitively, this must be called before we do a
         // bookmark sync too, to ensure the shared global state is correct.
         HistoryStore::migrate_v1_global_state(&conn)?;
 
         let store = HistoryStore::new(&conn);
-        let mut mem_cached_state = sync_state
-            .mem_cached_state
-            .replace(MemoryCachedState::default());
-        let mut disk_cached_state = sync_state.disk_cached_state.replace(None);
+        let mut mem_cached_state = sync_state.mem_cached_state.take();
+        let mut disk_cached_state = sync_state.disk_cached_state.take();
         let mut sync_ping = telemetry::SyncTelemetryPing::new();
         let result = store.sync(
             &client_init,
