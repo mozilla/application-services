@@ -32,7 +32,7 @@ impl PasswordEngine {
         let db = LoginDb::open_in_memory(encryption_key)?;
         Ok(Self {
             db,
-            mem_cached_state: Cell::new(MemoryCachedState::default()),
+            mem_cached_state: Cell::default(),
         })
     }
 
