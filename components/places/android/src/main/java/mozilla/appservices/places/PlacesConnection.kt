@@ -247,10 +247,10 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         return result
     }
 
-    override fun getVisitInfos(start: Long, end: Long): List<VisitInfo> {
+    override fun getVisitInfos(start: Long, end: Long, excludeTypes: List<VisitType>): List<VisitInfo> {
         val infoBuffer = rustCall { error ->
             LibPlacesFFI.INSTANCE.places_get_visit_infos(
-                    this.handle.get(), start, end, error)
+                    this.handle.get(), start, end, visitTransitionSet(excludeTypes), error)
         }
         try {
             val infos = MsgTypes.HistoryVisitInfos.parseFrom(infoBuffer.asCodedInputStream()!!)
@@ -588,7 +588,11 @@ interface ReadableHistoryConnection : InterruptibleConnection {
      * @param start The (inclusive) start time to bound the query.
      * @param end The (inclusive) end time to bound the query.
      */
-    fun getVisitInfos(start: Long, end: Long = Long.MAX_VALUE): List<VisitInfo>
+    fun getVisitInfos(
+        start: Long,
+        end: Long = Long.MAX_VALUE,
+        excludeTypes: List<VisitType> = listOf()
+    ): List<VisitInfo>
 
     /**
      * Return a "page" of history results. Each page will have visits in descending order

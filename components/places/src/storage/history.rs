@@ -1037,15 +1037,22 @@ pub fn get_visit_infos(
     db: &PlacesDb,
     start: Timestamp,
     end: Timestamp,
+    exclude_types: VisitTransitionSet,
 ) -> Result<HistoryVisitInfos> {
+    let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
         "SELECT h.url, h.title, v.visit_date, v.visit_type
          FROM moz_places h
          JOIN moz_historyvisits v
            ON h.id = v.place_id
          WHERE v.visit_date BETWEEN :start AND :end
+           AND ((1 << visit_type) & :allowed_types) != 0
          ORDER BY v.visit_date",
-        &[(":start", &start), (":end", &end)],
+        rusqlite::named_params! {
+            ":start": start,
+            ":end": end,
+            ":allowed_types": allowed_types,
+        },
         HistoryVisitInfo::from_row,
     )?;
     Ok(HistoryVisitInfos { infos })

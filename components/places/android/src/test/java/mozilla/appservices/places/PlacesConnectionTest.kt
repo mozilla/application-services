@@ -170,13 +170,19 @@ class PlacesConnectionTest {
     @Test
     fun testGetVisitInfos() {
         db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.LINK, at = 100000))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/2", visitType = VisitType.LINK, at = 150000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2a", visitType = VisitType.REDIRECT_TEMPORARY, at = 130000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2b", visitType = VisitType.LINK, at = 150000))
         db.noteObservation(VisitObservation(url = "https://www.example.com/3", visitType = VisitType.LINK, at = 200000))
         db.noteObservation(VisitObservation(url = "https://www.example.com/4", visitType = VisitType.LINK, at = 250000))
-        val infos = db.getVisitInfos(125000, 225000)
-        assert(infos.size == 2)
-        assert(infos[0].url == "https://www.example.com/2")
-        assert(infos[1].url == "https://www.example.com/3")
+        var infos = db.getVisitInfos(125000, 225000, excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY))
+        assertEquals(2, infos.size)
+        assertEquals("https://www.example.com/2b", infos[0].url)
+        assertEquals("https://www.example.com/3", infos[1].url)
+        infos = db.getVisitInfos(125000, 225000)
+        assertEquals(3, infos.size)
+        assertEquals("https://www.example.com/2a", infos[0].url)
+        assertEquals("https://www.example.com/2b", infos[1].url)
+        assertEquals("https://www.example.com/3", infos[2].url)
     }
 
     @Test

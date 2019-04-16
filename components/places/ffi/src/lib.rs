@@ -308,6 +308,7 @@ pub extern "C" fn places_get_visit_infos(
     handle: u64,
     start_date: i64,
     end_date: i64,
+    exclude_types: i32,
     error: &mut ExternError,
 ) -> ByteBuffer {
     log::debug!("places_get_visit_infos");
@@ -316,6 +317,8 @@ pub extern "C" fn places_get_visit_infos(
             conn,
             places::Timestamp(start_date.max(0) as u64),
             places::Timestamp(end_date.max(0) as u64),
+            VisitTransitionSet::from_u16(exclude_types as u16)
+                .expect("Bug: Invalid VisitTransitionSet"),
         )?)
     })
 }

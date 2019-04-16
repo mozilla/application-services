@@ -158,6 +158,7 @@ internal interface LibPlacesFFI : Library {
         handle: PlacesConnectionHandle,
         startDate: Long,
         endDate: Long,
+        excludeTypes: Int,
         error: RustError.ByReference
     ): RustBuffer.ByValue
 
