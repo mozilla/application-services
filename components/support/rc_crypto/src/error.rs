@@ -57,4 +57,6 @@ pub enum ErrorKind {
     NSSInitFailure,
     #[fail(display = "NSS error: {} {:?}", _0, _1)]
     NSSError(i32, String),
+    #[fail(display = "Internal error")]
+    InternalError,
 }

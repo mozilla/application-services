@@ -4,7 +4,7 @@
 
 #![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
 
-use std::os::raw::{c_char, c_uchar};
+use std::os::raw::{c_char, c_int, c_uchar, c_void};
 
 include!(concat!(env!("OUT_DIR"), "/nss_bindings.rs"));
 
@@ -65,5 +65,6 @@ nss_exports! {
     unsafe fn NSS_IsInitialized() -> PRBool;
     unsafe fn NSS_GetVersion() -> *const c_char;
     unsafe fn NSS_VersionCheck(importedVersion: *const c_char) -> PRBool;
+    unsafe fn NSS_SecureMemcmp(ia: *const c_void, ib: *const c_void, n: usize) -> c_int;
     unsafe fn PK11_HashBuf(hashAlg: SECOidTag::Type, out: *mut c_uchar, r#in: *const c_uchar, len: PRInt32) -> SECStatus;
 }
