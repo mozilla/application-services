@@ -106,6 +106,7 @@ impl PasswordEngine {
             storage_init,
             root_sync_key,
             sync_ping,
+            &self.db.interrupt_scope,
         );
         // We always update the state - sync_multiple does the right thing
         // if it needs to be dropped (ie, they will be None or contain Nones etc)

@@ -10,6 +10,7 @@ use crate::request::CollectionRequest;
 use crate::state::GlobalState;
 use crate::telemetry;
 use crate::util::ServerTimestamp;
+use interrupt::Interruptee;
 
 /// Low-level store functionality. Stores that need custom reconciliation logic should use this.
 ///
@@ -54,6 +55,7 @@ pub fn synchronize(
     store: &Store,
     fully_atomic: bool,
     telem_engine: &mut telemetry::Engine,
+    interruptee: &impl Interruptee,
 ) -> Result<(), Error> {
     let collection = store.collection_name();
     log::info!("Syncing collection {}", collection);
@@ -72,6 +74,7 @@ pub fn synchronize(
     };
 
     let collection_request = store.get_collection_request()?;
+    interruptee.err_if_interrupted()?;
     let incoming_changes = IncomingChangeset::fetch(
         client,
         &mut coll_state,
@@ -89,6 +92,7 @@ pub fn synchronize(
     let mut outgoing = store.apply_incoming(incoming_changes, &mut telem_incoming)?;
     telem_engine.incoming(telem_incoming);
 
+    interruptee.err_if_interrupted()?;
     // xxx - duplication below smells wrong
     outgoing.timestamp = new_timestamp;
     coll_state.last_modified = new_timestamp;

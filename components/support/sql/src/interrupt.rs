@@ -2,7 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::*;
+use ffi_support::IntoFfi;
+use interrupt::{Interruptable, Interruptee};
 use rusqlite::InterruptHandle;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -14,15 +15,43 @@ use std::sync::{
 /// A Sync+Send type which can be used allow someone to interrupt an
 /// operation, even if it happens while rust code (and not SQL) is
 /// executing.
-pub struct PlacesInterruptHandle {
-    pub(crate) db_handle: InterruptHandle,
-    pub(crate) interrupt_counter: Arc<AtomicUsize>,
+pub struct SqlInterruptHandle {
+    db_handle: InterruptHandle,
+    interrupt_counter: Arc<AtomicUsize>,
 }
 
-impl PlacesInterruptHandle {
-    pub fn interrupt(&self) {
+impl SqlInterruptHandle {
+    pub fn new(
+        db_handle: InterruptHandle,
+        interrupt_counter: Arc<AtomicUsize>,
+    ) -> SqlInterruptHandle {
+        SqlInterruptHandle {
+            db_handle,
+            interrupt_counter,
+        }
+    }
+}
+
+impl Interruptable for SqlInterruptHandle {
+    fn interrupt(&self) {
         self.interrupt_counter.fetch_add(1, Ordering::SeqCst);
         self.db_handle.interrupt();
+    }
+}
+
+// Ideally we'd just use implement_into_ffi_by_pointer! from ffi_support, but
+// the compiler doesn't like all the cross-crate stuff.
+unsafe impl IntoFfi for SqlInterruptHandle {
+    type Value = *mut SqlInterruptHandle;
+
+    #[inline]
+    fn ffi_default() -> *mut SqlInterruptHandle {
+        ::std::ptr::null_mut()
+    }
+
+    #[inline]
+    fn into_ffi_value(self) -> *mut SqlInterruptHandle {
+        ::std::boxed::Box::into_raw(::std::boxed::Box::new(self))
     }
 }
 
@@ -32,7 +61,8 @@ impl PlacesInterruptHandle {
 /// maybe we've run some of the autocomplete matchers, and are about to start
 /// running the others. If we rely solely on sqlite3_interrupt(), we'd miss
 /// the message that we should stop).
-pub(crate) struct InterruptScope {
+#[derive(Debug)]
+pub struct SqlInterruptScope {
     // The value of the interrupt counter when the scope began
     start_value: usize,
     // This could be &'conn AtomicUsize, but it would prevent the connection
@@ -40,25 +70,18 @@ pub(crate) struct InterruptScope {
     ptr: Arc<AtomicUsize>,
 }
 
-impl InterruptScope {
+impl SqlInterruptScope {
     #[inline]
-    pub(crate) fn new(ptr: Arc<AtomicUsize>) -> Self {
+    pub fn new(ptr: Arc<AtomicUsize>) -> Self {
         let start_value = ptr.load(Ordering::SeqCst);
         Self { start_value, ptr }
     }
+}
 
+impl Interruptee for SqlInterruptScope {
     #[inline]
-    pub(crate) fn was_interrupted(&self) -> bool {
+    fn was_interrupted(&self) -> bool {
         self.ptr.load(Ordering::SeqCst) != self.start_value
-    }
-
-    #[inline]
-    pub(crate) fn err_if_interrupted(&self) -> Result<()> {
-        if self.was_interrupted() {
-            Err(ErrorKind::InterruptedError.into())
-        } else {
-            Ok(())
-        }
     }
 }
 
@@ -71,7 +94,7 @@ mod test {
         fn is_sync<T: Sync>() {}
         fn is_send<T: Send>() {}
         // Make sure this compiles
-        is_sync::<PlacesInterruptHandle>();
-        is_send::<PlacesInterruptHandle>();
+        is_sync::<SqlInterruptHandle>();
+        is_send::<SqlInterruptHandle>();
     }
 }

@@ -15,6 +15,7 @@ use places::types::{BookmarkType, SyncGuid, Timestamp};
 use places::{ConnectionType, PlacesApi, PlacesDb};
 
 use failure::Fail;
+use interrupt::Interruptable;
 use serde_derive::*;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -167,6 +168,17 @@ fn sync(
     reset: bool,
 ) -> Result<()> {
     let conn = api.open_sync_connection()?;
+
+    // interrupts are per-connection, so we need to set that up here.
+    let interrupt_handle = conn.new_interrupt_handle();
+
+    ctrlc::set_handler(move || {
+        println!("received Ctrl+C!");
+        interrupt_handle.interrupt();
+    })
+    .expect("Error setting Ctrl-C handler");
+    let interruptee = conn.begin_interrupt_scope();
+
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
 
     if wipe_all {
@@ -181,8 +193,8 @@ fn sync(
     let mut global_state: Option<String> = None;
     let stores: Vec<Box<dyn Store>> = if engine_names.is_empty() {
         vec![
-            Box::new(BookmarksStore::new(&conn)),
-            Box::new(HistoryStore::new(&conn)),
+            Box::new(BookmarksStore::new(&conn, &interruptee)),
+            Box::new(HistoryStore::new(&conn, &interruptee)),
         ]
     } else {
         engine_names.sort();
@@ -191,8 +203,8 @@ fn sync(
             .into_iter()
             .map(|name| -> Box<dyn Store> {
                 match name.as_str() {
-                    "bookmarks" => Box::new(BookmarksStore::new(&conn)),
-                    "history" => Box::new(HistoryStore::new(&conn)),
+                    "bookmarks" => Box::new(BookmarksStore::new(&conn, &interruptee)),
+                    "history" => Box::new(HistoryStore::new(&conn, &interruptee)),
                     _ => unimplemented!("Can't sync unsupported engine {}", name),
                 }
             })
@@ -226,6 +238,7 @@ fn sync(
         &cli_fxa.client_init.clone(),
         &cli_fxa.root_sync_key,
         &mut sync_ping,
+        &interruptee,
     ) {
         log::warn!("Sync failed! {}", e);
         log::warn!("BT: {:?}", e.backtrace());

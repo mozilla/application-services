@@ -12,6 +12,7 @@ use crate::key_bundle::KeyBundle;
 use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use crate::request::{InfoCollections, InfoConfiguration};
 use crate::util::{random_guid, ServerTimestamp};
+use interrupt::Interruptee;
 use lazy_static::lazy_static;
 use serde_derive::*;
 
@@ -130,6 +131,7 @@ pub struct SetupStateMachine<'a> {
     // budget", after which we get interrupted. Later...
     allowed_states: Vec<&'static str>,
     sequence: Vec<&'static str>,
+    interruptee: &'a Interruptee,
 }
 
 impl<'a> SetupStateMachine<'a> {
@@ -140,11 +142,13 @@ impl<'a> SetupStateMachine<'a> {
         client: &'a SetupStorageClient,
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
+        interruptee: &'a Interruptee,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine::with_allowed_states(
             client,
             root_key,
             pgs,
+            interruptee,
             vec![
                 "Initial",
                 "InitialWithConfig",
@@ -166,11 +170,13 @@ impl<'a> SetupStateMachine<'a> {
         client: &'a SetupStorageClient,
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
+        interruptee: &'a Interruptee,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine::with_allowed_states(
             client,
             root_key,
             pgs,
+            interruptee,
             vec!["Ready", "WithPreviousState"],
         )
     }
@@ -182,11 +188,13 @@ impl<'a> SetupStateMachine<'a> {
         client: &'a SetupStorageClient,
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
+        interruptee: &'a Interruptee,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine::with_allowed_states(
             client,
             root_key,
             pgs,
+            interruptee,
             // We don't allow a FreshStart in a read-only sync.
             vec![
                 "Initial",
@@ -203,6 +211,7 @@ impl<'a> SetupStateMachine<'a> {
         client: &'a SetupStorageClient,
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
+        interruptee: &'a Interruptee,
         allowed_states: Vec<&'static str>,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine {
@@ -211,6 +220,7 @@ impl<'a> SetupStateMachine<'a> {
             pgs,
             sequence: Vec::new(),
             allowed_states,
+            interruptee,
         }
     }
 
@@ -384,6 +394,7 @@ impl<'a> SetupStateMachine<'a> {
             None => Initial,
         };
         loop {
+            self.interruptee.err_if_interrupted()?;
             let label = &s.label();
             log::trace!("global state: {:?}", label);
             match s {
@@ -468,6 +479,7 @@ mod tests {
 
     use crate::bso_record::{BsoRecord, EncryptedBso, EncryptedPayload, Payload};
     use crate::record_types::CryptoKeysRecord;
+    use interrupt::NeverInterrupts;
 
     struct InMemoryClient {
         info_configuration: error::Result<Sync15ClientResponse<InfoConfiguration>>,
@@ -631,7 +643,8 @@ mod tests {
         };
         let mut pgs = PersistedGlobalState::V2 { declined: None };
 
-        let mut state_machine = SetupStateMachine::for_full_sync(&client, &root_key, &mut pgs);
+        let mut state_machine =
+            SetupStateMachine::for_full_sync(&client, &root_key, &mut pgs, &NeverInterrupts);
         assert!(
             state_machine.run_to_ready(None).is_ok(),
             "Should drive state machine to ready"

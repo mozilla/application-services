@@ -5,6 +5,7 @@
 use crate::db::PlacesDb;
 use crate::error::Result;
 pub use crate::match_impl::{MatchBehavior, SearchBehavior};
+use interrupt::Interruptee;
 use serde_derive::*;
 use sql_support::ConnExt;
 use url::Url;

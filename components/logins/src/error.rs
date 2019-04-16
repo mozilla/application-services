@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use failure::{Backtrace, Context, Fail};
+use interrupt::Interrupted;
 use std::boxed::Box;
 use std::{self, fmt};
 
@@ -91,6 +92,9 @@ pub enum ErrorKind {
 
     #[fail(display = "Error parsing URL: {}", _0)]
     UrlParseError(#[fail(cause)] url::ParseError),
+
+    #[fail(display = "Operation interrupted")]
+    Interrupted(#[fail(cause)] Interrupted),
 }
 
 macro_rules! impl_from_error {
@@ -116,7 +120,8 @@ impl_from_error! {
     (JsonError, serde_json::Error),
     (UrlParseError, url::ParseError),
     (SqlError, rusqlite::Error),
-    (InvalidLogin, InvalidLogin)
+    (InvalidLogin, InvalidLogin),
+    (Interrupted, Interrupted)
 }
 
 #[derive(Debug, Fail)]

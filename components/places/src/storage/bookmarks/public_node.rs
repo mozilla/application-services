@@ -4,6 +4,7 @@
 
 use super::*;
 use crate::msg_types::BookmarkNode as ProtoBookmark;
+use sql_support::SqlInterruptScope;
 
 /// This type basically exists to become a msg_types::BookmarkNode, but is
 /// slightly less of a pain to deal with in rust.
@@ -131,7 +132,7 @@ fn fetch_bookmark_child_info(
     db: &PlacesDb,
     parent: &RawBookmark,
     get_direct_children: bool,
-    scope: &crate::db::InterruptScope,
+    scope: &SqlInterruptScope,
 ) -> Result<ChildInfo> {
     if parent.bookmark_type != BookmarkType::Folder {
         return Ok(ChildInfo::NoChildren);
@@ -175,7 +176,7 @@ fn fetch_bookmark_in_tx(
     db: &PlacesDb,
     item_guid: &SyncGuid,
     get_direct_children: bool,
-    scope: &crate::db::InterruptScope,
+    scope: &SqlInterruptScope,
 ) -> Result<Option<PublicNode>> {
     let rb = if let Some(raw) = get_raw_bookmark(db, item_guid)? {
         raw

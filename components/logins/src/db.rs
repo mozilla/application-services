@@ -7,16 +7,19 @@ use crate::login::{LocalLogin, Login, MirrorLogin, SyncLoginData, SyncStatus};
 use crate::schema;
 use crate::update_plan::UpdatePlan;
 use crate::util;
+use interrupt::Interruptee;
 use lazy_static::lazy_static;
 use rusqlite::{
     types::{FromSql, ToSql},
     Connection, NO_PARAMS,
 };
 use sql_support::{self, ConnExt};
+use sql_support::{SqlInterruptHandle, SqlInterruptScope};
 use std::collections::HashSet;
 use std::ops::Deref;
 use std::path::Path;
 use std::result;
+use std::sync::{atomic::AtomicUsize, Arc};
 use std::time::SystemTime;
 use sync15::{
     extract_v1_state, telemetry, CollSyncIds, CollectionRequest, IncomingChangeset,
@@ -25,6 +28,10 @@ use sync15::{
 
 pub struct LoginDb {
     pub db: Connection,
+    // The logins DB has exactly 1 interrupt scope, but we keep a copy of the
+    // Arc with the counter so we can create an interrupt handle.
+    interrupt_counter: Arc<AtomicUsize>,
+    pub interrupt_scope: SqlInterruptScope,
 }
 
 impl LoginDb {
@@ -75,7 +82,13 @@ impl LoginDb {
 
         db.execute_batch(&initial_pragmas)?;
 
-        let mut logins = Self { db };
+        let interrupt_counter = Arc::new(AtomicUsize::new(0));
+        let interrupt_scope = SqlInterruptScope::new(interrupt_counter.clone());
+        let mut logins = Self {
+            db,
+            interrupt_counter,
+            interrupt_scope,
+        };
         let tx = logins.db.transaction()?;
         schema::init(&tx)?;
         tx.commit()?;
@@ -100,6 +113,13 @@ impl LoginDb {
         self.conn()
             .execute_batch("PRAGMA cipher_memory_security = false;")?;
         Ok(())
+    }
+
+    pub fn new_interrupt_handle(&self) -> SqlInterruptHandle {
+        SqlInterruptHandle::new(
+            self.db.get_interrupt_handle(),
+            self.interrupt_counter.clone(),
+        )
     }
 }
 
@@ -171,6 +191,7 @@ impl LoginDb {
         {
             let mut seen_ids: HashSet<String> = HashSet::with_capacity(records.len());
             for incoming in records.iter() {
+                self.interrupt_scope.err_if_interrupted()?;
                 if seen_ids.contains(&incoming.0.id) {
                     throw!(ErrorKind::DuplicateGuid(incoming.0.id.to_string()))
                 }
@@ -183,6 +204,7 @@ impl LoginDb {
             &records,
             |r| r.0.id.as_str(),
             |chunk, offset| -> Result<()> {
+                self.interrupt_scope.err_if_interrupted()?;
                 // pairs the bound parameter for the guid with an integer index.
                 let values_with_idx = sql_support::repeat_display(chunk.len(), ",", |i, f| {
                     write!(f, "({},?)", i + offset)
@@ -645,6 +667,7 @@ impl LoginDb {
         let mut plan = UpdatePlan::default();
 
         for mut record in records {
+            self.interrupt_scope.err_if_interrupted()?;
             log::debug!("Processing remote change {}", record.guid());
             let upstream = if let Some(inbound) = record.inbound.0.take() {
                 inbound
@@ -694,7 +717,7 @@ impl LoginDb {
         // (as a way to save us from ourselves), we side-step that by creating
         // it manually.
         let tx = self.db.unchecked_transaction()?;
-        plan.execute(&tx)?;
+        plan.execute(&tx, &self.interrupt_scope)?;
         tx.commit()?;
         Ok(())
     }

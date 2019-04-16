@@ -2,12 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::interrupt::{InterruptScope, PlacesInterruptHandle};
 use super::schema;
 use crate::api::places_api::ConnectionType;
 use crate::error::*;
 use rusqlite::Connection;
-use sql_support::ConnExt;
+use sql_support::{ConnExt, SqlInterruptHandle, SqlInterruptScope};
 use std::ops::Deref;
 use std::path::Path;
 
@@ -152,16 +151,16 @@ impl PlacesDb {
         )?)
     }
 
-    pub fn new_interrupt_handle(&self) -> PlacesInterruptHandle {
-        PlacesInterruptHandle {
-            db_handle: self.db.get_interrupt_handle(),
-            interrupt_counter: self.interrupt_counter.clone(),
-        }
+    pub fn new_interrupt_handle(&self) -> SqlInterruptHandle {
+        SqlInterruptHandle::new(
+            self.db.get_interrupt_handle(),
+            self.interrupt_counter.clone(),
+        )
     }
 
     #[inline]
-    pub(crate) fn begin_interrupt_scope(&self) -> InterruptScope {
-        InterruptScope::new(self.interrupt_counter.clone())
+    pub fn begin_interrupt_scope(&self) -> SqlInterruptScope {
+        SqlInterruptScope::new(self.interrupt_counter.clone())
     }
 
     #[inline]
