@@ -20,14 +20,10 @@ pub const COMPATIBLE_NSS_VERSION: &str = "3.26";
 
 // Code adapted from https://stackoverflow.com/a/35591693. I am not this kind of smart.
 macro_rules! nss_exports {
-    () => {};
-    (
-        unsafe fn $fn_name:ident($($arg:ident: $argty:ty),*) -> $ret:ty;
-        $($tail:tt)*
-    ) => {
+    ($(unsafe fn $fn_name:ident($($arg:ident: $argty:ty),*)$( -> $ret:ty)?;)*) => {$(
         #[cfg(not(target_os = "ios"))]
         lazy_static::lazy_static! {
-            pub static ref $fn_name: libloading::Symbol<'static, unsafe extern fn($($arg: $argty),*) -> $ret> = {
+            pub static ref $fn_name: libloading::Symbol<'static, unsafe extern fn($($arg: $argty),*)$( -> $ret)?> = {
                 unsafe {
                     LIBNSS3.get(stringify!($fn_name).as_bytes()).expect(stringify!(Could not get $fn_name handle))
                 }
@@ -35,11 +31,9 @@ macro_rules! nss_exports {
         }
         #[cfg(target_os = "ios")]
         extern "C" {
-            pub fn $fn_name($($arg: $argty),*) -> $ret;
+            pub fn $fn_name($($arg: $argty),*)$( -> $ret)?;
         }
-        nss_exports! { $($tail)* }
-    };
-    // Support for functions that don't return can be added by copy-pasting the above code and removing -> ref:ty.
+    )*};
 }
 
 #[cfg(not(target_os = "ios"))]
