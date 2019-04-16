@@ -2,6 +2,7 @@
 http://creativecommons.org/publicdomain/zero/1.0/ */
 
 #![allow(unknown_lints)]
+#![warn(rust_2018_idioms)]
 
 use structopt::StructOpt;
 

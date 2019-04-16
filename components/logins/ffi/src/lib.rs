@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #![allow(unknown_lints)]
+#![warn(rust_2018_idioms)]
 // Let's allow these in the FFI code, since it's usually just a coincidence if
 // the closure is small.
 #![allow(clippy::redundant_closure)]

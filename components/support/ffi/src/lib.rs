@@ -4,6 +4,7 @@
 
 #![deny(missing_docs)]
 #![allow(unknown_lints)]
+#![warn(rust_2018_idioms)]
 
 //! # FFI Support
 //!
