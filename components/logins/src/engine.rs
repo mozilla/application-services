@@ -6,14 +6,17 @@ use crate::error::*;
 use crate::login::Login;
 use std::cell::Cell;
 use std::path::Path;
-use sync15::{sync_multiple, telemetry, ClientInfo, KeyBundle, Sync15StorageClientInit};
+use sync15::{
+    sync_multiple, telemetry, KeyBundle, MemoryCachedState, StoreSyncAssociation,
+    Sync15StorageClientInit,
+};
 
 // This isn't really an engine in the firefox sync15 desktop sense -- it's
 // really a bundle of state that contains the sync storage client, the sync
 // state, and the login DB.
 pub struct PasswordEngine {
     pub db: LoginDb,
-    pub client_info: Cell<Option<ClientInfo>>,
+    pub mem_cached_state: Cell<MemoryCachedState>,
 }
 
 impl PasswordEngine {
@@ -21,7 +24,7 @@ impl PasswordEngine {
         let db = LoginDb::open(path, encryption_key)?;
         Ok(Self {
             db,
-            client_info: Cell::new(None),
+            mem_cached_state: Cell::default(),
         })
     }
 
@@ -29,7 +32,7 @@ impl PasswordEngine {
         let db = LoginDb::open_in_memory(encryption_key)?;
         Ok(Self {
             db,
-            client_info: Cell::new(None),
+            mem_cached_state: Cell::default(),
         })
     }
 
@@ -60,7 +63,7 @@ impl PasswordEngine {
     }
 
     pub fn reset(&self) -> Result<()> {
-        self.db.reset()?;
+        self.db.reset(&StoreSyncAssociation::Disconnected)?;
         Ok(())
     }
 
@@ -90,16 +93,23 @@ impl PasswordEngine {
         root_sync_key: &KeyBundle,
         sync_ping: &mut telemetry::SyncTelemetryPing,
     ) -> Result<()> {
-        let global_state: Cell<Option<String>> = Cell::new(self.db.get_global_state()?);
+        // migrate our V1 state - this needn't live for long.
+        self.db.migrate_global_state()?;
+
+        let mut disk_cached_state = self.db.get_global_state()?;
+        let mut mem_cached_state = self.mem_cached_state.take();
+
         let result = sync_multiple(
             &[&self.db],
-            &global_state,
-            &self.client_info,
+            &mut disk_cached_state,
+            &mut mem_cached_state,
             storage_init,
             root_sync_key,
             sync_ping,
         );
-        self.db.set_global_state(global_state.replace(None))?;
+        // We always update the state - sync_multiple does the right thing
+        // if it needs to be dropped (ie, they will be None or contain Nones etc)
+        self.db.set_global_state(&disk_cached_state)?;
         let failures = result?;
         if failures.is_empty() {
             Ok(())

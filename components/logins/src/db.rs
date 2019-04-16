@@ -19,8 +19,8 @@ use std::path::Path;
 use std::result;
 use std::time::SystemTime;
 use sync15::{
-    telemetry, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload, ServerTimestamp,
-    Store,
+    extract_v1_state, telemetry, CollSyncIds, CollectionRequest, IncomingChangeset,
+    OutgoingChangeset, Payload, ServerTimestamp, Store, StoreSyncAssociation,
 };
 
 pub struct LoginDb {
@@ -562,15 +562,27 @@ impl LoginDb {
         Ok(self.execute_named_cached(&*CLONE_SINGLE_MIRROR_SQL, &[(":guid", &guid as &ToSql)])?)
     }
 
-    pub fn reset(&self) -> Result<()> {
+    pub fn reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
         log::info!("Executing reset on password store!");
+        let tx = self.db.unchecked_transaction()?;
         self.execute_all(&[
             &*CLONE_ENTIRE_MIRROR_SQL,
             "DELETE FROM loginsM",
             &format!("UPDATE loginsL SET sync_status = {}", SyncStatus::New as u8),
         ])?;
         self.set_last_sync(ServerTimestamp(0.0))?;
-        // TODO: Should we clear global_state?
+        match assoc {
+            StoreSyncAssociation::Disconnected => {
+                self.delete_meta(schema::GLOBAL_SYNCID_META_KEY)?;
+                self.delete_meta(schema::COLLECTION_SYNCID_META_KEY)?;
+            }
+            StoreSyncAssociation::Connected(ids) => {
+                self.put_meta(schema::GLOBAL_SYNCID_META_KEY, &ids.global)?;
+                self.put_meta(schema::COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+            }
+        };
+        self.delete_meta(schema::GLOBAL_STATE_META_KEY)?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -739,6 +751,14 @@ impl LoginDb {
         )?)
     }
 
+    fn delete_meta(&self, key: &str) -> Result<()> {
+        self.execute_named_cached(
+            "DELETE FROM loginsSyncMeta WHERE key = :key",
+            &[(":key", &key)],
+        )?;
+        Ok(())
+    }
+
     fn set_last_sync(&self, last_sync: ServerTimestamp) -> Result<()> {
         log::debug!("Updating last sync to {}", last_sync);
         let last_sync_millis = last_sync.as_millis() as i64;
@@ -751,8 +771,8 @@ impl LoginDb {
             .map(|millis| ServerTimestamp(millis as f64 / 1000.0)))
     }
 
-    pub fn set_global_state(&self, global_state: Option<String>) -> Result<()> {
-        let to_write = match global_state {
+    pub fn set_global_state(&self, state: &Option<String>) -> Result<()> {
+        let to_write = match state {
             Some(ref s) => s,
             None => "",
         };
@@ -761,6 +781,27 @@ impl LoginDb {
 
     pub fn get_global_state(&self) -> Result<Option<String>> {
         self.get_meta::<String>(schema::GLOBAL_STATE_META_KEY)
+    }
+
+    /// A utility we can kill by the end of 2019 ;)
+    pub fn migrate_global_state(&self) -> Result<()> {
+        if let Some(old_state) = self.get_meta("global_state")? {
+            log::info!("there's old global state - migrating");
+            let tx = self.db.unchecked_transaction()?;
+            let (new_sync_ids, new_global_state) = extract_v1_state(old_state, "passwords");
+            if let Some(sync_ids) = new_sync_ids {
+                self.put_meta(schema::GLOBAL_SYNCID_META_KEY, &sync_ids.global)?;
+                self.put_meta(schema::COLLECTION_SYNCID_META_KEY, &sync_ids.coll)?;
+                log::info!("migrated the sync IDs");
+            }
+            if let Some(new_global_state) = new_global_state {
+                self.set_global_state(&Some(new_global_state))?;
+                log::info!("migrated the global state");
+            }
+            self.delete_meta("global_state")?;
+            tx.commit()?;
+        }
+        Ok(())
     }
 }
 
@@ -797,8 +838,18 @@ impl Store for LoginDb {
         Ok(CollectionRequest::new("passwords").full().newer_than(since))
     }
 
-    fn reset(&self) -> result::Result<(), failure::Error> {
-        LoginDb::reset(self)?;
+    fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {
+        let global = self.get_meta(schema::GLOBAL_SYNCID_META_KEY)?;
+        let coll = self.get_meta(schema::COLLECTION_SYNCID_META_KEY)?;
+        Ok(if let (Some(global), Some(coll)) = (global, coll) {
+            StoreSyncAssociation::Connected(CollSyncIds { global, coll })
+        } else {
+            StoreSyncAssociation::Disconnected
+        })
+    }
+
+    fn reset(&self, assoc: &StoreSyncAssociation) -> result::Result<(), failure::Error> {
+        LoginDb::reset(self, assoc)?;
         Ok(())
     }
 

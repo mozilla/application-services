@@ -82,12 +82,6 @@ pub enum ErrorKind {
     #[fail(display = "Server requested backoff. Retry after {:?}", _0)]
     BackoffError(SystemTime),
 
-    #[fail(display = "No meta/global record is present on the server")]
-    NoMetaGlobal,
-
-    #[fail(display = "Have not fetched crypto/keys yet, or the keys are not present")]
-    NoCryptoKeys,
-
     #[fail(display = "Outgoing record is too large to upload")]
     RecordTooLargeError,
 
@@ -112,14 +106,19 @@ pub enum ErrorKind {
     #[fail(display = "Unexpected server behavior during batch upload: {}", _0)]
     ServerBatchProblem(&'static str),
 
-    #[fail(display = "Setup state machine cycle detected")]
-    SetupStateCycleError,
+    #[fail(
+        display = "It appears some other client is also trying to setup storage; try again later"
+    )]
+    SetupRace,
 
     #[fail(display = "Client upgrade required; server storage version too new")]
     ClientUpgradeRequired,
 
-    #[fail(display = "Setup state machine disallowed state {}", _0)]
-    DisallowedStateError(&'static str),
+    // This means that our global state machine needs to enter a state (such as
+    // "FreshStartNeeded", but the allowed_states don't include that state.)
+    // It typically means we are trying to do a "fast" or "read-only" sync.
+    #[fail(display = "Our storage needs setting up and we can't currently do it")]
+    SetupRequired,
 
     #[fail(display = "Store error: {}", _0)]
     StoreError(#[fail(cause)] failure::Error),

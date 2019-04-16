@@ -12,32 +12,34 @@ use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::api::places_api::ConnectionType;
 use crate::db::{PlacesDb, PlacesTransaction};
 use crate::error::*;
-use crate::storage::{bookmarks::BookmarkRootGuid, get_meta, put_meta};
+use crate::storage::{bookmarks::BookmarkRootGuid, delete_meta, get_meta, put_meta};
 use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
 use dogear::{
     self, Content, Deletion, IntoTree, Item, MergedDescendant, MergedRoot, Tree, UploadReason,
 };
 use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt};
-use std::cell::Cell;
 use std::collections::HashMap;
 use std::fmt;
 use std::result;
 use sync15::{
-    telemetry, ClientInfo, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload,
-    ServerTimestamp, Store,
+    telemetry, CollSyncIds, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload,
+    ServerTimestamp, Store, StoreSyncAssociation,
 };
 static LAST_SYNC_META_KEY: &'static str = "bookmarks_last_sync_time";
+// Note that all engines in this crate should use a *different* meta key
+// for the global sync ID, because engines are reset individually.
+const GLOBAL_SYNCID_META_KEY: &str = "bookmarks_global_sync_id";
+const COLLECTION_SYNCID_META_KEY: &str = "bookmarks_sync_id";
 
 pub struct BookmarksStore<'a> {
     pub db: &'a PlacesDb,
-    pub client_info: &'a Cell<Option<ClientInfo>>,
 }
 
 impl<'a> BookmarksStore<'a> {
-    pub fn new(db: &'a PlacesDb, client_info: &'a Cell<Option<ClientInfo>>) -> Self {
+    pub fn new(db: &'a PlacesDb) -> Self {
         assert_eq!(db.conn_type(), ConnectionType::Sync);
-        Self { db, client_info }
+        Self { db }
     }
 
     fn stage_incoming(
@@ -465,11 +467,21 @@ impl<'a> Store for BookmarksStore<'a> {
             .newer_than(since))
     }
 
+    fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {
+        let global = get_meta(self.db, GLOBAL_SYNCID_META_KEY)?;
+        let coll = get_meta(self.db, COLLECTION_SYNCID_META_KEY)?;
+        Ok(if let (Some(global), Some(coll)) = (global, coll) {
+            StoreSyncAssociation::Connected(CollSyncIds { global, coll })
+        } else {
+            StoreSyncAssociation::Disconnected
+        })
+    }
+
     /// Removes all sync metadata, such that the next sync is treated as a
     /// first sync. Unlike `wipe`, this keeps all local items, but clears
     /// all synced items and pending tombstones. This also forgets the last
     /// sync time.
-    fn reset(&self) -> result::Result<(), failure::Error> {
+    fn reset(&self, assoc: &StoreSyncAssociation) -> result::Result<(), failure::Error> {
         let tx = self.db.begin_transaction()?;
         self.db.execute_batch(&format!(
             "DELETE FROM moz_bookmarks_synced;
@@ -483,6 +495,16 @@ impl<'a> Store for BookmarksStore<'a> {
         ))?;
         create_synced_bookmark_roots(self.db)?;
         put_meta(self.db, LAST_SYNC_META_KEY, &0)?;
+        match assoc {
+            StoreSyncAssociation::Disconnected => {
+                delete_meta(self.db, GLOBAL_SYNCID_META_KEY)?;
+                delete_meta(self.db, COLLECTION_SYNCID_META_KEY)?;
+            }
+            StoreSyncAssociation::Connected(ids) => {
+                put_meta(self.db, GLOBAL_SYNCID_META_KEY, &ids.global)?;
+                put_meta(self.db, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+            }
+        };
         tx.commit()?;
         Ok(())
     }
@@ -965,13 +987,11 @@ mod tests {
     use serde_json::{json, Value};
     use url::Url;
 
-    use std::cell::Cell;
     use sync15::Payload;
 
     fn apply_incoming(conn: &PlacesDb, records_json: Value) {
         // suck records into the store.
-        let client_info = Cell::new(None);
-        let store = BookmarksStore::new(&conn, &client_info);
+        let store = BookmarksStore::new(&conn);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -1038,8 +1058,7 @@ mod tests {
         let conn = api.open_sync_connection()?;
 
         // suck records into the store.
-        let client_info = Cell::new(None);
-        let store = BookmarksStore::new(&conn, &client_info);
+        let store = BookmarksStore::new(&conn);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -1120,8 +1139,7 @@ mod tests {
             }),
         );
 
-        let client_info = Cell::new(None);
-        let store = BookmarksStore::new(&syncer, &client_info);
+        let store = BookmarksStore::new(&syncer);
         let merger = Merger::new(&store, ServerTimestamp(0.0));
 
         let tree = merger.fetch_local_tree()?;
@@ -1343,8 +1361,7 @@ mod tests {
             }),
         ];
 
-        let client_info = Cell::new(None);
-        let store = BookmarksStore::new(&syncer, &client_info);
+        let store = BookmarksStore::new(&syncer);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -1488,8 +1505,7 @@ mod tests {
             }),
         ];
 
-        let client_info = Cell::new(None);
-        let store = BookmarksStore::new(&syncer, &client_info);
+        let store = BookmarksStore::new(&syncer);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -1617,8 +1633,7 @@ mod tests {
             }),
         ];
 
-        let client_info = Cell::new(None);
-        let store = BookmarksStore::new(&syncer, &client_info);
+        let store = BookmarksStore::new(&syncer);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));

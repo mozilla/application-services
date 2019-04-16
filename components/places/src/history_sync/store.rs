@@ -2,39 +2,40 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::api::places_api::ConnectionType;
+use crate::api::places_api::{ConnectionType, GLOBAL_STATE_META_KEY};
 use crate::db::PlacesDb;
 use crate::error::*;
 use crate::storage::history::history_sync::reset_storage;
 use rusqlite::types::{FromSql, ToSql};
 use rusqlite::Connection;
-use std::cell::Cell;
 use std::ops::Deref;
 use std::result;
 use sync15::telemetry;
-use sync15::CollectionRequest;
 use sync15::{
-    sync_multiple, ClientInfo, IncomingChangeset, KeyBundle, OutgoingChangeset, ServerTimestamp,
-    Store, Sync15StorageClientInit,
+    extract_v1_state, sync_multiple, CollSyncIds, CollectionRequest, IncomingChangeset, KeyBundle,
+    MemoryCachedState, OutgoingChangeset, ServerTimestamp, Store, StoreSyncAssociation,
+    Sync15StorageClientInit,
 };
 
 use super::plan::{apply_plan, finish_plan};
 use super::MAX_INCOMING_PLACES;
 
 const LAST_SYNC_META_KEY: &str = "history_last_sync_time";
-const GLOBAL_STATE_META_KEY: &str = "history_global_state";
+// Note that all engines in this crate should use a *different* meta key
+// for the global sync ID, because engines are reset individually.
+const GLOBAL_SYNCID_META_KEY: &str = "history_global_sync_id";
+const COLLECTION_SYNCID_META_KEY: &str = "history_sync_id";
 
 // A HistoryStore is short-lived and constructed each sync by something which
 // owns the connection and ClientInfo.
 pub struct HistoryStore<'a> {
     pub db: &'a PlacesDb,
-    pub client_info: &'a Cell<Option<ClientInfo>>,
 }
 
 impl<'a> HistoryStore<'a> {
-    pub fn new(db: &'a PlacesDb, client_info: &'a Cell<Option<ClientInfo>>) -> Self {
+    pub fn new(db: &'a PlacesDb) -> Self {
         assert_eq!(db.conn_type(), ConnectionType::Sync);
-        Self { db, client_info }
+        Self { db }
     }
 
     fn put_meta(&self, key: &str, value: &ToSql) -> Result<()> {
@@ -43,6 +44,10 @@ impl<'a> HistoryStore<'a> {
 
     fn get_meta<T: FromSql>(&self, key: &str) -> Result<Option<T>> {
         crate::storage::get_meta(self.db, key)
+    }
+
+    fn delete_meta(&self, key: &str) -> Result<()> {
+        crate::storage::delete_meta(self.db, key)
     }
 
     fn do_apply_incoming(
@@ -75,23 +80,52 @@ impl<'a> HistoryStore<'a> {
         Ok(())
     }
 
-    fn do_reset(&self) -> Result<()> {
+    fn do_reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
         log::info!("Resetting history store");
+        let tx = self.db.begin_transaction()?;
         reset_storage(self.db)?;
         self.put_meta(LAST_SYNC_META_KEY, &0)?;
+        match assoc {
+            StoreSyncAssociation::Disconnected => {
+                self.delete_meta(GLOBAL_SYNCID_META_KEY)?;
+                self.delete_meta(COLLECTION_SYNCID_META_KEY)?;
+            }
+            StoreSyncAssociation::Connected(ids) => {
+                self.put_meta(GLOBAL_SYNCID_META_KEY, &ids.global)?;
+                self.put_meta(COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+            }
+        };
+        tx.commit()?;
         Ok(())
     }
 
-    fn set_global_state(&self, global_state: Option<String>) -> Result<()> {
-        let to_write = match global_state {
-            Some(ref s) => s,
-            None => "",
-        };
-        self.put_meta(GLOBAL_STATE_META_KEY, &to_write)
-    }
-
-    fn get_global_state(&self) -> Result<Option<String>> {
-        self.get_meta::<String>(GLOBAL_STATE_META_KEY)
+    /// A utility we can kill by the end of 2019 ;) Or even mid-2019?
+    /// Note that this has no `self` - it just takes a connection. This is to
+    /// ease the migration process, because this needs to be executed before
+    /// bookmarks sync, otherwise the shared, persisted global state may be
+    /// written by bookmarks before we've had a chance to migrate `declined`
+    /// over.
+    pub fn migrate_v1_global_state(db: &PlacesDb) -> Result<()> {
+        if let Some(old_state) = crate::storage::get_meta(db, "history_global_state")? {
+            log::info!("there's old global state - migrating");
+            let tx = db.begin_transaction()?;
+            let (new_sync_ids, new_global_state) = extract_v1_state(old_state, "history");
+            if let Some(sync_ids) = new_sync_ids {
+                crate::storage::put_meta(db, GLOBAL_SYNCID_META_KEY, &sync_ids.global)?;
+                crate::storage::put_meta(db, COLLECTION_SYNCID_META_KEY, &sync_ids.coll)?;
+                log::info!("migrated the sync IDs");
+            }
+            if let Some(new_global_state) = new_global_state {
+                // The global state is truly global, but both "history" and "places"
+                // are going to write it - which is why it's important this
+                // function is run before bookmarks is synced.
+                crate::storage::put_meta(db, GLOBAL_STATE_META_KEY, &new_global_state)?;
+                log::info!("migrated the global state");
+            }
+            crate::storage::delete_meta(db, "history_global_state")?;
+            tx.commit()?;
+        }
+        Ok(())
     }
 
     /// A convenience wrapper around sync_multiple.
@@ -99,18 +133,18 @@ impl<'a> HistoryStore<'a> {
         &self,
         storage_init: &Sync15StorageClientInit,
         root_sync_key: &KeyBundle,
+        mem_cached_state: &mut MemoryCachedState,
+        disk_cached_state: &mut Option<String>,
         sync_ping: &mut telemetry::SyncTelemetryPing,
     ) -> Result<()> {
-        let global_state: Cell<Option<String>> = Cell::new(self.get_global_state()?);
         let result = sync_multiple(
             &[self],
-            &global_state,
-            &self.client_info,
+            disk_cached_state,
+            mem_cached_state,
             storage_init,
             root_sync_key,
             sync_ping,
         );
-        self.set_global_state(global_state.replace(None))?;
         let failures = result?;
         if failures.is_empty() {
             Ok(())
@@ -164,8 +198,18 @@ impl<'a> Store for HistoryStore<'a> {
             .limit(MAX_INCOMING_PLACES))
     }
 
-    fn reset(&self) -> result::Result<(), failure::Error> {
-        self.do_reset()?;
+    fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {
+        let global = self.get_meta(GLOBAL_SYNCID_META_KEY)?;
+        let coll = self.get_meta(COLLECTION_SYNCID_META_KEY)?;
+        Ok(if let (Some(global), Some(coll)) = (global, coll) {
+            StoreSyncAssociation::Connected(CollSyncIds { global, coll })
+        } else {
+            StoreSyncAssociation::Disconnected
+        })
+    }
+
+    fn reset(&self, assoc: &StoreSyncAssociation) -> result::Result<(), failure::Error> {
+        self.do_reset(assoc)?;
         Ok(())
     }
 

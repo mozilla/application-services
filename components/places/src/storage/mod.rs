@@ -214,6 +214,11 @@ pub(crate) fn get_meta<T: FromSql>(db: &PlacesDb, key: &str) -> Result<Option<T>
     Ok(res)
 }
 
+pub(crate) fn delete_meta(db: &PlacesDb, key: &str) -> Result<()> {
+    db.execute_named_cached("DELETE FROM moz_meta WHERE key = :key", &[(":key", &key)])?;
+    Ok(())
+}
+
 /// Delete all items in the temp tables we use for staging changes.
 pub(crate) fn delete_pending_temp_tables(conn: &PlacesDb) -> Result<()> {
     conn.execute_batch(
@@ -222,4 +227,32 @@ pub(crate) fn delete_pending_temp_tables(conn: &PlacesDb) -> Result<()> {
          DELETE FROM moz_updateoriginsinsert_temp;",
     )?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::places_api::test::new_mem_connection;
+
+    #[test]
+    fn test_meta() {
+        let conn = new_mem_connection();
+        let value1 = "value 1".to_string();
+        let value2 = "value 2".to_string();
+        assert!(get_meta::<String>(&conn, "foo")
+            .expect("should get")
+            .is_none());
+        put_meta(&conn, "foo", &value1).expect("should put");
+        assert_eq!(
+            get_meta(&conn, "foo").expect("should get new val"),
+            Some(value1)
+        );
+        put_meta(&conn, "foo", &value2).expect("should put an existing value");
+        assert_eq!(get_meta(&conn, "foo").expect("should get"), Some(value2));
+        delete_meta(&conn, "foo").expect("should delete");
+        assert!(get_meta::<String>(&conn, &"foo")
+            .expect("should get non-existing")
+            .is_none());
+        delete_meta(&conn, "foo").expect("delete non-existing should work");
+    }
 }
