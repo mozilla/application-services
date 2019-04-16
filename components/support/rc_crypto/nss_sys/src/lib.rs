@@ -4,7 +4,7 @@
 
 #![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
 
-use std::os::raw::{c_char, c_int, c_uchar, c_void};
+use std::os::raw::{c_char, c_int, c_uchar, c_uint, c_void};
 
 include!(concat!(env!("OUT_DIR"), "/nss_bindings.rs"));
 
@@ -61,4 +61,13 @@ nss_exports! {
     unsafe fn NSS_VersionCheck(importedVersion: *const c_char) -> PRBool;
     unsafe fn NSS_SecureMemcmp(ia: *const c_void, ib: *const c_void, n: usize) -> c_int;
     unsafe fn PK11_HashBuf(hashAlg: SECOidTag::Type, out: *mut c_uchar, r#in: *const c_uchar, len: PRInt32) -> SECStatus;
+    unsafe fn PK11_FreeSlot(slot: *mut PK11SlotInfo);
+    unsafe fn PK11_FreeSymKey(symKey: *mut PK11SymKey);
+    unsafe fn PK11_DestroyContext(context: *mut PK11Context, freeit: PRBool);
+    unsafe fn PK11_GetInternalSlot() -> *mut PK11SlotInfo;
+    unsafe fn PK11_ImportSymKey(slot: *mut PK11SlotInfo, r#type: CK_MECHANISM_TYPE, origin: PK11Origin::Type, operation: CK_ATTRIBUTE_TYPE, key: *mut SECItem, wincx: *mut c_void) -> *mut PK11SymKey;
+    unsafe fn PK11_CreateContextBySymKey(r#type: CK_MECHANISM_TYPE, operation: CK_ATTRIBUTE_TYPE, symKey: *mut PK11SymKey, param: *mut SECItem) -> *mut PK11Context;
+    unsafe fn PK11_DigestBegin(cx: *mut PK11Context) -> SECStatus;
+    unsafe fn PK11_DigestOp(context: *mut PK11Context, r#in: *const c_uchar, len: c_uint) -> SECStatus;
+    unsafe fn PK11_DigestFinal(context: *mut PK11Context, data: *mut c_uchar, outLen: *mut c_uint, len: c_uint) -> SECStatus;
 }
