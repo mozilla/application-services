@@ -193,7 +193,7 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
             // Changing `moz_bookmarks_synced_structure` to store multiple
             // parents, so we need to re-download all synced bookmarks.
             &format!(
-                "DELETE FROM moz_meta WHERE key = {}",
+                "DELETE FROM moz_meta WHERE key = '{}'",
                 bookmark_sync::store::LAST_SYNC_META_KEY
             ),
             "DROP TABLE moz_bookmarks_synced",
