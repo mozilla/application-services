@@ -2,11 +2,16 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.25.2...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.0...master)
+
+
+# v0.26.0 (_2018-04-17_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.25.2...v0.26.0)
 
 ## Gradle plugin
 
-- Removed the appservices bintray repo from the plugin
+- Removed the appservices bintray repo from the plugin ([#899](https://github.com/mozilla/application-services/issues/899))
 
 ## Push
 
@@ -18,6 +23,7 @@
    or if the channelID is not a proper UUID.
    The returned `channelID` value is authoritative and will be the value associated with the subscription and future
    subscription updates. As before, the `subscriptionResponse.subscriptionInfo` can be JSON serialized and returned to the application.
+   ([#988](https://github.com/mozilla/application-services/pull/988))
 
 ## Places
 
@@ -55,7 +61,8 @@
   ([#884](https://github.com/mozilla/application-services/issues/884))
     - This is currently only implemented for iOS due to lack of interest on the
       Android side, please let us know if this is desirable in the Android API
-      as well.
+      as well. Feel free to indicate support for exposing this in the Android API
+      [here](https://github.com/mozilla/application-services/issues/1020).
 
 # v0.25.2 (_2018-04-11_)
 
