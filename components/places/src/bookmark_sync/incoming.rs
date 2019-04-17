@@ -247,12 +247,7 @@ impl<'a> IncomingApplicator<'a> {
         Ok(match self.maybe_store_url(maybe_url) {
             Ok(url) => (Some(url), validity),
             Err(e) => {
-                log::warn!(
-                    "query {} has invalid URL '{:?}': {:?}",
-                    q.record_id.as_guid(),
-                    q.url,
-                    e
-                );
+                log::warn!("query {} has invalid URL: {:?}", q.record_id.as_guid(), e);
                 (None, SyncedBookmarkValidity::Replace)
             }
         })
@@ -262,11 +257,7 @@ impl<'a> IncomingApplicator<'a> {
         let (url, validity) = match q.url.as_ref().and_then(|href| Url::parse(href).ok()) {
             Some(url) => self.determine_query_url_and_validity(&q, url)?,
             None => {
-                log::warn!(
-                    "query {} has invalid URL '{:?}'",
-                    q.record_id.as_guid(),
-                    q.url
-                );
+                log::warn!("query {} has invalid URL", q.record_id.as_guid(),);
                 (None, SyncedBookmarkValidity::Replace)
             }
         };
@@ -310,13 +301,7 @@ impl<'a> IncomingApplicator<'a> {
                         }
                     }
                     Err(e) => {
-                        log::warn!(
-                            "Livemark {} has an invalid {} URL '{}': {:?}",
-                            &guid,
-                            what,
-                            h,
-                            e
-                        );
+                        log::warn!("Livemark {} has an invalid {} URL: {:?}", &guid, what, e);
                         None
                     }
                 },
