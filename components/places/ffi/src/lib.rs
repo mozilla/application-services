@@ -20,7 +20,6 @@ use places::{storage, ConnectionType, PlacesApi, PlacesDb};
 use sql_support::SqlInterruptHandle;
 use std::os::raw::c_char;
 use std::sync::Arc;
-use telemetry_support::msg_types::EnginePingPayload;
 
 use places::api::matcher::{match_url, search_frecent, SearchParams};
 
@@ -396,7 +395,7 @@ pub extern "C" fn sync15_history_sync(
     sync_key: FfiStr<'_>,
     tokenserver_url: FfiStr<'_>,
     error: &mut ExternError,
-) -> ByteBuffer {
+) -> *mut c_char {
     log::debug!("sync15_history_sync");
     APIS.call_with_result(error, handle, |api| -> places::Result<_> {
         let ping = api.sync_history(
@@ -407,13 +406,7 @@ pub extern "C" fn sync15_history_sync(
             },
             &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
         )?;
-        match ping.syncs[0].engines.clone().into_iter().find(|e| e.name == "history") {
-            Some(telem) => {
-                let payload: EnginePingPayload = telem.into();
-                Ok(payload)
-            },
-            None => Ok(EnginePingPayload::default()),
-        }
+        Ok(ping)
     })
 }
 
@@ -425,11 +418,10 @@ pub extern "C" fn sync15_bookmarks_sync(
     sync_key: FfiStr<'_>,
     tokenserver_url: FfiStr<'_>,
     error: &mut ExternError,
-) {
+) -> *mut c_char {
     log::debug!("sync15_bookmarks_sync");
     APIS.call_with_result(error, handle, |api| -> places::Result<_> {
-        // Note that api.sync returns a SyncPing which we drop on the floor.
-        api.sync_bookmarks(
+        let ping = api.sync_bookmarks(
             &sync15::Sync15StorageClientInit {
                 key_id: key_id.into_string(),
                 access_token: access_token.into_string(),
@@ -437,7 +429,7 @@ pub extern "C" fn sync15_bookmarks_sync(
             },
             &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
         )?;
-        Ok(())
+        Ok(ping)
     })
 }
 

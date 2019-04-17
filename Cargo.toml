@@ -14,7 +14,6 @@ members = [
     "components/support/ffi",
     "components/support/force-viaduct-reqwest",
     "components/support/interrupt",
-    "components/support/telemetry",
     "components/viaduct",
     "components/sync15",
     "components/rc_log",

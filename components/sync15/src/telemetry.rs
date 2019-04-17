@@ -13,6 +13,7 @@ use serde::ser::{self, Serialize, Serializer};
 use serde_derive::*;
 #[cfg(test)]
 use serde_json::{self, json};
+use ffi_support::implement_into_ffi_by_json;
 
 use crate::error::Error;
 
@@ -34,17 +35,17 @@ where
 }
 
 /// What we record for 'when' and 'took' in a telemetry record.
-#[derive(Clone, Copy, Debug, Serialize)]
-pub struct WhenTook {
-    pub when: f64,
+#[derive(Debug, Serialize)]
+struct WhenTook {
+    when: f64,
     #[serde(skip_serializing_if = "skip_if_default")]
-    pub took: u64,
+    took: u64,
 }
 
 /// What we track while recording 'when' and 'took. It serializes as a WhenTook,
 /// except when .finished() hasn't been called, in which case it panics.
-#[derive(Clone, Debug)]
-pub enum Stopwatch {
+#[derive(Debug)]
+enum Stopwatch {
     Started(time::SystemTime, time::Instant),
     Finished(WhenTook),
 }
@@ -135,7 +136,7 @@ mod stopwatch_tests {
 
 /// A generic "Event" - suitable for all kinds of pings (although this module
 /// only cares about the sync ping)
-#[derive(Clone, Debug, Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Event {
     // We use static str references as we expect values to be literals.
     object: &'static str,
@@ -233,7 +234,7 @@ mod test_events {
 }
 
 /// A Sync failure.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Debug, Serialize)]
 #[serde(tag = "name")]
 pub enum SyncFailure {
     #[serde(rename = "shutdownerror")]
@@ -295,20 +296,20 @@ mod test {
 }
 
 /// Incoming record for an engine's sync
-#[derive(Clone, Copy, Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize)]
 pub struct EngineIncoming {
     #[serde(skip_serializing_if = "skip_if_default")]
-    pub applied: u32,
+    applied: u32,
 
     #[serde(skip_serializing_if = "skip_if_default")]
-    pub failed: u32,
+    failed: u32,
 
     #[serde(rename = "newFailed")]
     #[serde(skip_serializing_if = "skip_if_default")]
-    pub new_failed: u32,
+    new_failed: u32,
 
     #[serde(skip_serializing_if = "skip_if_default")]
-    pub reconciled: u32,
+    reconciled: u32,
 }
 
 impl EngineIncoming {
@@ -348,13 +349,13 @@ impl EngineIncoming {
 }
 
 /// Outgoing record for an engine's sync
-#[derive(Clone, Copy, Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize)]
 pub struct EngineOutgoing {
     #[serde(skip_serializing_if = "skip_if_default")]
-    pub sent: usize,
+    sent: usize,
 
     #[serde(skip_serializing_if = "skip_if_default")]
-    pub failed: usize,
+    failed: usize,
 }
 
 impl EngineOutgoing {
@@ -376,22 +377,22 @@ impl EngineOutgoing {
 }
 
 /// One engine's sync.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Engine {
-    pub name: String,
+    name: String,
 
     #[serde(flatten)]
-    pub when_took: Stopwatch,
+    when_took: Stopwatch,
 
     #[serde(skip_serializing_if = "EngineIncoming::is_empty")]
-    pub incoming: Option<EngineIncoming>,
+    incoming: Option<EngineIncoming>,
 
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub outgoing: Vec<EngineOutgoing>, // one for each batch posted.
+    outgoing: Vec<EngineOutgoing>, // one for each batch posted.
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "failureReason")]
-    pub failure: Option<SyncFailure>,
+    failure: Option<SyncFailure>,
 }
 
 impl Engine {
@@ -513,17 +514,17 @@ mod engine_tests {
 }
 
 /// A single sync. May have many engines, may have its own failure.
-#[derive(Clone, Debug, Serialize, Default)]
+#[derive(Debug, Serialize, Default)]
 pub struct SyncTelemetry {
     #[serde(flatten)]
-    pub when_took: Stopwatch,
+    when_took: Stopwatch,
 
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub engines: Vec<Engine>,
+    engines: Vec<Engine>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "failureReason")]
-    pub failure: Option<SyncFailure>,
+    failure: Option<SyncFailure>,
 }
 
 impl SyncTelemetry {
@@ -645,17 +646,17 @@ mod sync_tests {
 /// consumers of this will use this to create a "real" payload - eg, accumulating
 /// until some threshold number of syncs is reached, and contributing
 /// additional data which only the consumer knows.
-#[derive(Clone, Debug, Serialize, Default)]
+#[derive(Debug, Serialize, Default)]
 pub struct SyncTelemetryPing {
-    pub version: u32,
+    version: u32,
 
-    pub uid: Option<String>,
-
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub events: Vec<Event>,
+    uid: Option<String>,
 
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub syncs: Vec<SyncTelemetry>,
+    events: Vec<Event>,
+
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    syncs: Vec<SyncTelemetry>,
 }
 
 impl SyncTelemetryPing {
@@ -684,6 +685,8 @@ impl SyncTelemetryPing {
         self.events.push(e);
     }
 }
+
+implement_into_ffi_by_json!(SyncTelemetryPing);
 
 #[cfg(test)]
 mod ping_tests {
