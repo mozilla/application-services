@@ -8,6 +8,7 @@ use serde_derive::*;
 use serde_json::json;
 use viaduct::{header_names, status_codes, Request, Response, Method};
 use std::collections::HashMap;
+use crate::http_client::browser_id::hawk_request::HawkRequestBuilder;
 
 pub(crate) mod browser_id;
 
@@ -110,12 +111,25 @@ impl FxAClient for Client {
         session_token: &[u8],
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse> {
-        let url = config.auth_url_path("v1/oauth/authorization")?;
+        let duplicateUrl = config.auth_url_path("v1/session/duplicate")?;
+        let duplicateKey = derive_key_from_session_token(session_token)?;
+        let duplicateBody = json!({
+            "reason": "fenix"
+        });
+        let duplicateRequest = HawkRequestBuilder::new(Method::Post, duplicateUrl, &duplicateKey)
+            .body(duplicateBody)
+            .build()?;
+
+        let resp = Self::make_request(request)?.json()?;
+        let duplicateJson = resp.json()?;
+
+
+        let url = config.auth_url_path("v1/oauth/token")?;
         let key = derive_key_from_session_token(session_token)?;
         let body = json!({
             "client_id": config.client_id,
             "scope": scopes.join(" "),
-            "response_type": "token",
+            "grant_type": "fxa-credentials",
             "access_type": "offline",
         });
         let request = HawkRequestBuilder::new(Method::Post, url, &key)

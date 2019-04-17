@@ -1,10 +1,10 @@
 use fxa_client::FirefoxAccount;
 use text_io::*;
 
-static CONTENT_SERVER: &'static str = "https://fenixmigrator.dev.lcip.org";
+static CONTENT_SERVER: &'static str = "https://latest.dev.lcip.org";
 static CLIENT_ID: &'static str = "3c49430b43dfba77";
 static REDIRECT_URI: &'static str =
-    "https://fenixmigrator.dev.lcip.org/oauth/success/3c49430b43dfba77";
+    "https://latest.dev.lcip.org/oauth/success/3c49430b43dfba77";
 
 fn main() {
     let mut fxa = FirefoxAccount::new(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI);
