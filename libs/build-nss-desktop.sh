@@ -68,6 +68,7 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   cp -p -L dist/Debug/lib/libplds4.dylib "${NSS_DIR}/lib"
   cp -p -L dist/Debug/lib/libnspr4.dylib "${NSS_DIR}/lib"
   cp -p -L dist/public/nss/*.h "${NSS_DIR}/include/nss"
+  cp -p -L -R dist/Debug/include/nspr/* "${NSS_DIR}/include/nss"
   rm -rf dist && rm -f nss-dist.tar.bz2
   exit 0
 
