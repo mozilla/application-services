@@ -13,10 +13,12 @@ use rusqlite::{
     Connection, NO_PARAMS,
 };
 use sql_support::{self, ConnExt};
+use sql_support::{SqlInterruptHandle, SqlInterruptScope};
 use std::collections::HashSet;
 use std::ops::Deref;
 use std::path::Path;
 use std::result;
+use std::sync::{atomic::AtomicUsize, Arc};
 use std::time::SystemTime;
 use sync15::{
     extract_v1_state, telemetry, CollSyncIds, CollectionRequest, IncomingChangeset,
@@ -25,6 +27,7 @@ use sync15::{
 
 pub struct LoginDb {
     pub db: Connection,
+    interrupt_counter: Arc<AtomicUsize>,
 }
 
 impl LoginDb {
@@ -75,7 +78,10 @@ impl LoginDb {
 
         db.execute_batch(&initial_pragmas)?;
 
-        let mut logins = Self { db };
+        let mut logins = Self {
+            db,
+            interrupt_counter: Arc::new(AtomicUsize::new(0)),
+        };
         let tx = logins.db.transaction()?;
         schema::init(&tx)?;
         tx.commit()?;
@@ -101,6 +107,18 @@ impl LoginDb {
             .execute_batch("PRAGMA cipher_memory_security = false;")?;
         Ok(())
     }
+
+    pub fn new_interrupt_handle(&self) -> SqlInterruptHandle {
+        SqlInterruptHandle::new(
+            self.db.get_interrupt_handle(),
+            self.interrupt_counter.clone(),
+        )
+    }
+
+    #[inline]
+    pub fn begin_interrupt_scope(&self) -> SqlInterruptScope {
+        SqlInterruptScope::new(self.interrupt_counter.clone())
+    }
 }
 
 impl ConnExt for LoginDb {
@@ -121,7 +139,13 @@ impl Deref for LoginDb {
 // login specific stuff.
 
 impl LoginDb {
-    fn mark_as_synchronized(&self, guids: &[&str], ts: ServerTimestamp) -> Result<()> {
+    fn mark_as_synchronized(
+        &self,
+        guids: &[&str],
+        ts: ServerTimestamp,
+        scope: &SqlInterruptScope,
+    ) -> Result<()> {
+        let tx = self.unchecked_transaction()?;
         sql_support::each_chunk(guids, |chunk, _| -> Result<()> {
             self.db.execute(
                 &format!(
@@ -130,6 +154,7 @@ impl LoginDb {
                 ),
                 chunk,
             )?;
+            scope.err_if_interrupted()?;
 
             self.db.execute(
                 &format!(
@@ -146,6 +171,7 @@ impl LoginDb {
                 ),
                 chunk,
             )?;
+            scope.err_if_interrupted()?;
 
             self.db.execute(
                 &format!(
@@ -154,9 +180,11 @@ impl LoginDb {
                 ),
                 chunk,
             )?;
+            scope.err_if_interrupted()?;
             Ok(())
         })?;
         self.set_last_sync(ts)?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -166,6 +194,7 @@ impl LoginDb {
     fn fetch_login_data(
         &self,
         records: &[(sync15::Payload, ServerTimestamp)],
+        scope: &SqlInterruptScope,
     ) -> Result<Vec<SyncLoginData>> {
         let mut sync_data = Vec::with_capacity(records.len());
         {
@@ -178,6 +207,7 @@ impl LoginDb {
                 sync_data.push(SyncLoginData::from_payload(incoming.0.clone(), incoming.1)?);
             }
         }
+        scope.err_if_interrupted()?;
 
         sql_support::each_chunk_mapped(
             &records,
@@ -236,6 +266,7 @@ impl LoginDb {
                     } else {
                         sync_data[guid_idx].set_local(LocalLogin::from_row(row)?)?;
                     }
+                    scope.err_if_interrupted()?;
                     Ok(())
                 })?;
                 // `rows` is an Iterator<Item = Result<()>>, so we need to collect to handle the errors.
@@ -293,6 +324,7 @@ impl LoginDb {
     }
 
     pub fn touch(&self, id: &str) -> Result<()> {
+        let tx = self.unchecked_transaction()?;
         self.ensure_local_overlay_exists(id)?;
         self.mark_mirror_overridden(id)?;
         let now_ms = util::system_time_ms_i64(SystemTime::now());
@@ -311,12 +343,14 @@ impl LoginDb {
                 (":guid", &id as &dyn ToSql),
             ],
         )?;
+        tx.commit()?;
         Ok(())
     }
 
     pub fn add(&self, mut login: Login) -> Result<Login> {
         login.check_valid()?;
 
+        let tx = self.unchecked_transaction()?;
         let now_ms = util::system_time_ms_i64(SystemTime::now());
 
         // Allow an empty GUID to be passed to indicate that we should generate
@@ -405,11 +439,13 @@ impl LoginDb {
             );
             throw!(ErrorKind::DuplicateGuid(login.id));
         }
+        tx.commit()?;
         Ok(login)
     }
 
     pub fn update(&self, login: Login) -> Result<()> {
         login.check_valid()?;
+        let tx = self.unchecked_transaction()?;
         // Note: These fail with DuplicateGuid if the record doesn't exist.
         self.ensure_local_overlay_exists(login.guid_str())?;
         self.mark_mirror_overridden(login.guid_str())?;
@@ -455,6 +491,7 @@ impl LoginDb {
                 (":now_millis", &now_ms as &dyn ToSql),
             ],
         )?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -476,6 +513,7 @@ impl LoginDb {
     /// Delete the record with the provided id. Returns true if the record
     /// existed already.
     pub fn delete(&self, id: &str) -> Result<bool> {
+        let tx = self.unchecked_transaction_imm()?;
         let exists = self.exists(id)?;
         let now_ms = util::system_time_ms_i64(SystemTime::now());
 
@@ -528,7 +566,7 @@ impl LoginDb {
             changed = SyncStatus::Changed as u8),
             &[(":now_ms", &now_ms as &dyn ToSql),
               (":guid", &id as &dyn ToSql)])?;
-
+        tx.commit()?;
         Ok(exists)
     }
 
@@ -593,7 +631,8 @@ impl LoginDb {
         Ok(())
     }
 
-    pub fn wipe(&self) -> Result<()> {
+    pub fn wipe(&self, scope: &SqlInterruptScope) -> Result<()> {
+        let tx = self.unchecked_transaction()?;
         log::info!("Executing wipe on password store!");
         let now_ms = util::system_time_ms_i64(SystemTime::now());
         self.execute(
@@ -603,6 +642,7 @@ impl LoginDb {
             ),
             NO_PARAMS,
         )?;
+        scope.err_if_interrupted()?;
         self.execute_named(
             &format!(
                 "
@@ -618,8 +658,10 @@ impl LoginDb {
             ),
             &[(":now_ms", &now_ms as &dyn ToSql)],
         )?;
+        scope.err_if_interrupted()?;
 
         self.execute("UPDATE loginsM SET is_overridden = 1", NO_PARAMS)?;
+        scope.err_if_interrupted()?;
 
         self.execute_named(
             &format!("
@@ -629,17 +671,20 @@ impl LoginDb {
                 FROM loginsM",
                 changed = SyncStatus::Changed as u8),
             &[(":now_ms", &now_ms as &dyn ToSql)])?;
-
+        scope.err_if_interrupted()?;
+        tx.commit()?;
         Ok(())
     }
 
     pub fn wipe_local(&self) -> Result<()> {
         log::info!("Executing wipe_local on password store!");
+        let tx = self.unchecked_transaction()?;
         self.execute_all(&[
             "DELETE FROM loginsL",
             "DELETE FROM loginsM",
             "DELETE FROM loginsSyncMeta",
         ])?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -648,10 +693,12 @@ impl LoginDb {
         records: Vec<SyncLoginData>,
         server_now: ServerTimestamp,
         telem: &mut telemetry::EngineIncoming,
+        scope: &SqlInterruptScope,
     ) -> Result<UpdatePlan> {
         let mut plan = UpdatePlan::default();
 
         for mut record in records {
+            scope.err_if_interrupted()?;
             log::debug!("Processing remote change {}", record.guid());
             let upstream = if let Some(inbound) = record.inbound.0.take() {
                 inbound
@@ -696,17 +743,21 @@ impl LoginDb {
         Ok(plan)
     }
 
-    fn execute_plan(&self, plan: UpdatePlan) -> Result<()> {
+    fn execute_plan(&self, plan: UpdatePlan, scope: &SqlInterruptScope) -> Result<()> {
         // Because rusqlite want a mutable reference to create a transaction
         // (as a way to save us from ourselves), we side-step that by creating
         // it manually.
         let tx = self.db.unchecked_transaction()?;
-        plan.execute(&tx)?;
+        plan.execute(&tx, scope)?;
         tx.commit()?;
         Ok(())
     }
 
-    pub fn fetch_outgoing(&self, st: ServerTimestamp) -> Result<OutgoingChangeset> {
+    pub fn fetch_outgoing(
+        &self,
+        st: ServerTimestamp,
+        scope: &SqlInterruptScope,
+    ) -> Result<OutgoingChangeset> {
         // Taken from iOS. Arbitrarially large, so that clients that want to
         // process deletions first can; for us it doesn't matter.
         const TOMBSTONE_SORTINDEX: i32 = 5_000_000;
@@ -717,6 +768,7 @@ impl LoginDb {
             synced = SyncStatus::Synced as u8
         ))?;
         let rows = stmt.query_and_then(NO_PARAMS, |row| {
+            scope.err_if_interrupted()?;
             Ok(if row.get::<_, bool>("is_deleted")? {
                 Payload::new_tombstone(row.get::<_, String>("guid")?)
                     .with_sortindex(TOMBSTONE_SORTINDEX)
@@ -734,11 +786,12 @@ impl LoginDb {
         &self,
         inbound: IncomingChangeset,
         telem: &mut telemetry::EngineIncoming,
+        scope: &SqlInterruptScope,
     ) -> Result<OutgoingChangeset> {
-        let data = self.fetch_login_data(&inbound.changes)?;
-        let plan = self.reconcile(data, inbound.timestamp, telem)?;
-        self.execute_plan(plan)?;
-        Ok(self.fetch_outgoing(inbound.timestamp)?)
+        let data = self.fetch_login_data(&inbound.changes, scope)?;
+        let plan = self.reconcile(data, inbound.timestamp, telem, scope)?;
+        self.execute_plan(plan, scope)?;
+        Ok(self.fetch_outgoing(inbound.timestamp, scope)?)
     }
 
     fn put_meta(&self, key: &str, value: &dyn ToSql) -> Result<()> {
@@ -792,9 +845,9 @@ impl LoginDb {
 
     /// A utility we can kill by the end of 2019 ;)
     pub fn migrate_global_state(&self) -> Result<()> {
+        let tx = self.unchecked_transaction_imm()?;
         if let Some(old_state) = self.get_meta("global_state")? {
             log::info!("there's old global state - migrating");
-            let tx = self.db.unchecked_transaction()?;
             let (new_sync_ids, new_global_state) = extract_v1_state(old_state, "passwords");
             if let Some(sync_ids) = new_sync_ids {
                 self.put_meta(schema::GLOBAL_SYNCID_META_KEY, &sync_ids.global)?;
@@ -806,13 +859,27 @@ impl LoginDb {
                 log::info!("migrated the global state");
             }
             self.delete_meta("global_state")?;
-            tx.commit()?;
         }
+        tx.commit()?;
         Ok(())
     }
 }
 
-impl Store for LoginDb {
+pub(crate) struct LoginStore<'a> {
+    pub db: &'a LoginDb,
+    pub scope: sql_support::SqlInterruptScope,
+}
+
+impl<'a> LoginStore<'a> {
+    pub fn new(db: &'a LoginDb) -> Self {
+        Self {
+            db,
+            scope: db.begin_interrupt_scope(),
+        }
+    }
+}
+
+impl<'a> Store for LoginStore<'a> {
     fn collection_name(&self) -> &'static str {
         "passwords"
     }
@@ -822,7 +889,7 @@ impl Store for LoginDb {
         inbound: IncomingChangeset,
         telem: &mut telemetry::EngineIncoming,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
-        Ok(self.do_apply_incoming(inbound, telem)?)
+        Ok(self.db.do_apply_incoming(inbound, telem, &self.scope)?)
     }
 
     fn sync_finished(
@@ -830,24 +897,25 @@ impl Store for LoginDb {
         new_timestamp: ServerTimestamp,
         records_synced: Vec<String>,
     ) -> result::Result<(), failure::Error> {
-        self.mark_as_synchronized(
+        self.db.mark_as_synchronized(
             &records_synced
                 .iter()
                 .map(String::as_str)
                 .collect::<Vec<_>>(),
             new_timestamp,
+            &self.scope,
         )?;
         Ok(())
     }
 
     fn get_collection_request(&self) -> result::Result<CollectionRequest, failure::Error> {
-        let since = self.get_last_sync()?.unwrap_or_default();
+        let since = self.db.get_last_sync()?.unwrap_or_default();
         Ok(CollectionRequest::new("passwords").full().newer_than(since))
     }
 
     fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {
-        let global = self.get_meta(schema::GLOBAL_SYNCID_META_KEY)?;
-        let coll = self.get_meta(schema::COLLECTION_SYNCID_META_KEY)?;
+        let global = self.db.get_meta(schema::GLOBAL_SYNCID_META_KEY)?;
+        let coll = self.db.get_meta(schema::COLLECTION_SYNCID_META_KEY)?;
         Ok(if let (Some(global), Some(coll)) = (global, coll) {
             StoreSyncAssociation::Connected(CollSyncIds { global, coll })
         } else {
@@ -856,12 +924,12 @@ impl Store for LoginDb {
     }
 
     fn reset(&self, assoc: &StoreSyncAssociation) -> result::Result<(), failure::Error> {
-        LoginDb::reset(self, assoc)?;
+        self.db.reset(assoc)?;
         Ok(())
     }
 
     fn wipe(&self) -> result::Result<(), failure::Error> {
-        LoginDb::wipe(self)?;
+        self.db.wipe(&self.scope)?;
         Ok(())
     }
 }

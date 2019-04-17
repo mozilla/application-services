@@ -60,6 +60,11 @@ impl SqlInterruptScope {
         let start_value = ptr.load(Ordering::SeqCst);
         Self { start_value, ptr }
     }
+    /// Add this as an inherent method to reduce the amount of things users have to bring in.
+    #[inline]
+    pub fn err_if_interrupted(&self) -> Result<(), interrupt::Interrupted> {
+        <Self as Interruptee>::err_if_interrupted(self)
+    }
 }
 
 impl Interruptee for SqlInterruptScope {

@@ -17,7 +17,6 @@ use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
 use dogear::{
     self, Content, Deletion, IntoTree, Item, MergedDescendant, MergedRoot, Tree, UploadReason,
 };
-use interrupt::Interruptee;
 use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt, SqlInterruptScope};
 use std::collections::HashMap;

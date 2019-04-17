@@ -358,7 +358,7 @@ fn main() -> Result<()> {
             }
             'W' | 'w' => {
                 log::info!("Wiping all data from client!");
-                if let Err(e) = engine.db.wipe() {
+                if let Err(e) = engine.wipe() {
                     log::warn!("Failed to wipe! {}", e);
                 }
             }

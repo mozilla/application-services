@@ -218,6 +218,13 @@ pub trait ConnExt {
     fn unchecked_transaction(&self) -> SqlResult<UncheckedTransaction<'_>> {
         UncheckedTransaction::new(self.conn(), TransactionBehavior::Deferred)
     }
+
+    /// Begin `unchecked_transaction` with `TransactionBehavior::Immediate`. Use
+    /// when the first operation will be a read operation, that further writes
+    /// depend on for correctness.
+    fn unchecked_transaction_imm(&self) -> SqlResult<UncheckedTransaction<'_>> {
+        UncheckedTransaction::new(self.conn(), TransactionBehavior::Immediate)
+    }
 }
 
 impl ConnExt for Connection {
