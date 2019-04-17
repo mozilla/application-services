@@ -10,7 +10,10 @@ from decisionlib import *
 
 def main(task_for):
     if task_for == "github-pull-request":
-        android_linux_x86_64()
+        if "[full-ci]" in os.environ["GITHUB_PR_TITLE"]:
+            android_multiarch()
+        else:
+            android_linux_x86_64()
     elif task_for == "github-push":
         android_multiarch()
     elif task_for == "github-release":
@@ -150,8 +153,11 @@ def gradle_module_task(libs_tasks, module_info, is_release):
         task_title = "{} - Build, test and upload to bintray".format(module)
     else:
         task_title = "{} - Build and test".format(module)
-    task = (
-        android_task(task_title, libs_tasks)
+    task = android_task(task_title, libs_tasks)
+    if not is_release: # Makes builds way faster.
+        task.with_script('echo "application-services.nonmegazord-profile=debug" >> local.properties')
+    (
+        task
         .with_script("""
             yes | sdkmanager --update
             yes | sdkmanager --licenses
