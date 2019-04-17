@@ -8,9 +8,16 @@ import os.path
 from build_config import module_definitions, appservices_version
 from decisionlib import *
 
+FULL_CI_TAG = '[ci full]'
+SKIP_CI_TAG = '[ci skip]'
+
 def main(task_for):
     if task_for == "github-pull-request":
-        if "[full-ci]" in os.environ["GITHUB_PR_TITLE"]:
+        pr_title = os.environ["GITHUB_PR_TITLE"]
+        if SKIP_CI_TAG in pr_title:
+            print("CI skip requested, exiting.")
+            exit(0)
+        elif FULL_CI_TAG in pr_title:
             android_multiarch()
         else:
             android_linux_x86_64()
