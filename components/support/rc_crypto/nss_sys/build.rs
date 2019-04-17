@@ -63,7 +63,7 @@ fn main() {
     build_bindings(&bindings, &include_dir.join("nss"));
 }
 
-pub fn get_nss() -> (PathBuf, PathBuf) {
+fn get_nss() -> (PathBuf, PathBuf) {
     let nss_dir = env("NSS_DIR").expect("To build nss_sys, NSS_DIR must be set!");
     let nss_dir = Path::new(&nss_dir);
     let lib_dir = nss_dir.join("lib");
@@ -79,24 +79,8 @@ fn build_bindings(bindings: &Bindings, include_dir: &PathBuf) {
         builder = builder.header(include_dir.join(h).to_str().unwrap());
     }
 
-    let target_os = env::var("CARGO_CFG_TARGET_OS");
-    // Workaround cross-compilation bugs for iOS.
-    if let Ok("ios") = target_os.as_ref().map(|x| &**x) {
-        builder = builder.detect_include_paths(false);
-        let target_arch = env::var("CARGO_CFG_TARGET_ARCH");
-        let sdk_root;
-        match target_arch.as_ref().map(|x| &**x).unwrap() {
-            "aarch64" => {
-                sdk_root = get_ios_sdk_root("iphoneos");
-                builder = builder.clang_arg("--target=arm64-apple-ios") // See https://github.com/rust-lang/rust-bindgen/issues/1211
-            }
-            "x86_64" => {
-                sdk_root = get_ios_sdk_root("iphonesimulator");
-            }
-            _ => panic!("Unknown iOS architecture."),
-        }
-        builder = builder.clang_arg(format!("-isysroot{}", &sdk_root));
-    }
+    // Fix our cross-compilation include directories.
+    builder = fix_include_dirs(builder);
 
     // Apply the configuration.
     let empty: Vec<String> = vec![];
@@ -125,7 +109,80 @@ fn build_bindings(bindings: &Bindings, include_dir: &PathBuf) {
         .expect("couldn't write bindings");
 }
 
-pub fn get_ios_sdk_root(sdk_name: &str) -> String {
+fn fix_include_dirs(mut builder: Builder) -> Builder {
+    let target_os = env::var("CARGO_CFG_TARGET_OS");
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH");
+    match target_os.as_ref().map(|x| &**x) {
+        Ok("macos") => {
+            // Cheap and dirty way to detect we are cross-compiling.
+            if env::var_os("CI").is_some() {
+                builder = builder
+                    .detect_include_paths(false)
+                    .clang_arg("-isysroot/tmp/MacOSX10.11.sdk");
+            }
+        }
+        Ok("windows") => {
+            if env::var_os("CI").is_some() {
+                builder = builder.clang_arg("-D_M_X64");
+            }
+        }
+        Ok("ios") => {
+            let sdk_root;
+            match target_arch.as_ref().map(|x| &**x).unwrap() {
+                "aarch64" => {
+                    sdk_root = get_ios_sdk_root("iphoneos");
+                    builder = builder.clang_arg("--target=arm64-apple-ios") // See https://github.com/rust-lang/rust-bindgen/issues/1211
+                }
+                "x86_64" => {
+                    sdk_root = get_ios_sdk_root("iphonesimulator");
+                }
+                _ => panic!("Unknown iOS architecture."),
+            }
+            builder = builder
+                .detect_include_paths(false)
+                .clang_arg(format!("-isysroot{}", &sdk_root));
+        }
+        Ok("android") => {
+            let (android_api_version, ndk_root, toolchain_dir) = get_android_env();
+            let mut toolchain = target_arch.as_ref().map(|x| &**x).unwrap();
+            // The other architectures map perfectly to what libs/setup_toolchains_local.sh produces.
+            if toolchain == "aarch64" {
+                toolchain = "arm64";
+            }
+            builder = builder
+                .detect_include_paths(false)
+                .clang_arg(format!(
+                    "--sysroot={}",
+                    &ndk_root.join("sysroot").to_str().unwrap()
+                ))
+                .clang_arg(format!("-D__ANDROID_API__={}", android_api_version))
+                // stddef.h isn't defined otherwise.
+                .clang_arg(format!(
+                    "-I{}",
+                    toolchain_dir
+                        .join(format!(
+                            "{}-{}/lib64/clang/5.0/include/",
+                            toolchain, android_api_version
+                        ))
+                        .to_str()
+                        .unwrap()
+                ))
+        }
+        _ => {}
+    }
+    return builder;
+}
+
+fn get_android_env() -> (String, PathBuf, PathBuf) {
+    return (
+        // This variable is not mandatory for building yet, so fall back to 21.
+        env::var("ANDROID_NDK_API_VERSION").unwrap_or("21".to_string()),
+        PathBuf::from(env::var("ANDROID_NDK_ROOT").unwrap()),
+        PathBuf::from(env::var("ANDROID_NDK_TOOLCHAIN_DIR").unwrap()),
+    );
+}
+
+fn get_ios_sdk_root(sdk_name: &str) -> String {
     let output = Command::new("xcrun")
         .arg("--show-sdk-path")
         .arg("-sdk")
