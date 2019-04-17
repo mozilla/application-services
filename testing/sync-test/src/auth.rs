@@ -122,7 +122,7 @@ impl TestAccount {
     }
 
     pub fn new_random(opts: &Opts) -> Result<Arc<TestAccount>, failure::Error> {
-        use rand::{self, prelude::*};
+        use rand::prelude::*;
         let mut rng = thread_rng();
         let name = opts.force_username.clone().unwrap_or_else(|| {
             format!(

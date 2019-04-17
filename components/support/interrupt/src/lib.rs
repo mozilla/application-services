@@ -39,6 +39,6 @@ impl Interruptee for NeverInterrupts {
 }
 
 /// The error returned by err_if_interrupted.
-#[derive(Debug, Fail)]
+#[derive(Debug, Fail, Clone, PartialEq)]
 #[fail(display = "The operation was interrupted.")]
 pub struct Interrupted;

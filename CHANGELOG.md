@@ -46,6 +46,17 @@
   `getVisitPage`.
   ([#992](https://github.com/mozilla/application-services/issues/992))
 
+## Logins
+
+### What's new
+
+- iOS only: Logins operations may now be interrupted via the `interrupt()`
+  method on LoginsDb, which may be called from any thread.
+  ([#884](https://github.com/mozilla/application-services/issues/884))
+    - This is currently only implemented for iOS due to lack of interest on the
+      Android side, please let us know if this is desirable in the Android API
+      as well.
+
 # v0.25.2 (_2018-04-11_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.24.0...v0.25.2)

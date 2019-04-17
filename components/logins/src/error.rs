@@ -91,10 +91,13 @@ pub enum ErrorKind {
 
     #[fail(display = "Error parsing URL: {}", _0)]
     UrlParseError(#[fail(cause)] url::ParseError),
+
+    #[fail(display = "{}", _0)]
+    Interrupted(#[fail(cause)] interrupt::Interrupted),
 }
 
 macro_rules! impl_from_error {
-    ($(($variant:ident, $type:ty)),+) => ($(
+    ($(($variant:ident, $type:ty)),+ $(,)?) => ($(
         impl From<$type> for ErrorKind {
             #[inline]
             fn from(e: $type) -> ErrorKind {
@@ -116,7 +119,8 @@ impl_from_error! {
     (JsonError, serde_json::Error),
     (UrlParseError, url::ParseError),
     (SqlError, rusqlite::Error),
-    (InvalidLogin, InvalidLogin)
+    (InvalidLogin, InvalidLogin),
+    (Interrupted, interrupt::Interrupted),
 }
 
 #[derive(Debug, Fail)]

@@ -124,7 +124,7 @@ fn timestamp_to_string(milliseconds: i64) -> String {
 }
 
 fn show_sql(e: &PasswordEngine, sql: &str) -> Result<()> {
-    use prettytable::{cell::Cell, row::Row, Table};
+    use prettytable::{cell::Cell, row::Row};
     use rusqlite::types::Value;
     let conn = e.conn();
     let mut stmt = conn.prepare(sql)?;
@@ -358,7 +358,7 @@ fn main() -> Result<()> {
             }
             'W' | 'w' => {
                 log::info!("Wiping all data from client!");
-                if let Err(e) = engine.db.wipe() {
+                if let Err(e) = engine.wipe() {
                     log::warn!("Failed to wipe! {}", e);
                 }
             }

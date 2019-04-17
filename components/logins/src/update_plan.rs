@@ -6,6 +6,7 @@ use crate::error::*;
 use crate::login::{LocalLogin, Login, MirrorLogin, SyncStatus};
 use crate::util;
 use rusqlite::{types::ToSql, Connection};
+use sql_support::SqlInterruptScope;
 use std::time::SystemTime;
 use sync15::ServerTimestamp;
 
@@ -71,7 +72,7 @@ impl UpdatePlan {
             .push((login, time.as_millis() as i64, is_override));
     }
 
-    fn perform_deletes(&self, conn: &Connection) -> Result<()> {
+    fn perform_deletes(&self, conn: &Connection, scope: &SqlInterruptScope) -> Result<()> {
         sql_support::each_chunk(&self.delete_local, |chunk, _| -> Result<()> {
             conn.execute(
                 &format!(
@@ -80,6 +81,7 @@ impl UpdatePlan {
                 ),
                 chunk,
             )?;
+            scope.err_if_interrupted()?;
             Ok(())
         })?;
 
@@ -96,7 +98,7 @@ impl UpdatePlan {
     }
 
     // These aren't batched but probably should be.
-    fn perform_mirror_updates(&self, conn: &Connection) -> Result<()> {
+    fn perform_mirror_updates(&self, conn: &Connection, scope: &SqlInterruptScope) -> Result<()> {
         let sql = "
             UPDATE loginsM
             SET server_modified = :server_modified,
@@ -135,11 +137,12 @@ impl UpdatePlan {
                 (":time_created", &login.time_created as &dyn ToSql),
                 (":guid", &login.guid_str() as &dyn ToSql),
             ])?;
+            scope.err_if_interrupted()?;
         }
         Ok(())
     }
 
-    fn perform_mirror_inserts(&self, conn: &Connection) -> Result<()> {
+    fn perform_mirror_inserts(&self, conn: &Connection, scope: &SqlInterruptScope) -> Result<()> {
         let sql = "
             INSERT OR IGNORE INTO loginsM (
                 is_overridden,
@@ -201,11 +204,12 @@ impl UpdatePlan {
                 (":time_created", &login.time_created as &dyn ToSql),
                 (":guid", &login.guid_str() as &dyn ToSql),
             ])?;
+            scope.err_if_interrupted()?;
         }
         Ok(())
     }
 
-    fn perform_local_updates(&self, conn: &Connection) -> Result<()> {
+    fn perform_local_updates(&self, conn: &Connection, scope: &SqlInterruptScope) -> Result<()> {
         let sql = format!(
             "
             UPDATE loginsL
@@ -246,19 +250,20 @@ impl UpdatePlan {
                 (":times_used", &l.login.times_used as &dyn ToSql),
                 (":guid", &l.guid_str() as &dyn ToSql),
             ])?;
+            scope.err_if_interrupted()?;
         }
         Ok(())
     }
 
-    pub fn execute(&self, conn: &Connection) -> Result<()> {
+    pub fn execute(&self, conn: &Connection, scope: &SqlInterruptScope) -> Result<()> {
         log::debug!("UpdatePlan: deleting records...");
-        self.perform_deletes(conn)?;
+        self.perform_deletes(conn, scope)?;
         log::debug!("UpdatePlan: Updating existing mirror records...");
-        self.perform_mirror_updates(conn)?;
+        self.perform_mirror_updates(conn, scope)?;
         log::debug!("UpdatePlan: Inserting new mirror records...");
-        self.perform_mirror_inserts(conn)?;
+        self.perform_mirror_inserts(conn, scope)?;
         log::debug!("UpdatePlan: Updating reconciled local records...");
-        self.perform_local_updates(conn)?;
+        self.perform_local_updates(conn, scope)?;
         Ok(())
     }
 }
