@@ -121,6 +121,11 @@ fn fix_include_dirs(mut builder: Builder) -> Builder {
                     .clang_arg("-isysroot/tmp/MacOSX10.11.sdk");
             }
         }
+        Ok("windows") => {
+            if env::var_os("CI").is_some() {
+                builder = builder.clang_arg("-D_M_X64");
+            }
+        }
         Ok("ios") => {
             let sdk_root;
             match target_arch.as_ref().map(|x| &**x).unwrap() {
