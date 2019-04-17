@@ -80,7 +80,7 @@ impl From<StateV1> for Result<StateV2> {
                 state.client_id,
                 state.redirect_uri,
             ),
-            #[cfg(feature = "browserid")]
+            #[cfg(feature = "session_token")]
             login_state: super::login_sm::LoginState::Unknown,
             refresh_token,
             scoped_keys: all_scoped_keys,
@@ -94,8 +94,6 @@ struct StateV1 {
     client_id: String,
     redirect_uri: String,
     config: V1Config,
-    // #[cfg(feature = "browserid")]
-    // login_state: LoginState, // Wasn't used anyway
     oauth_cache: HashMap<String, V1AuthInfo>,
 }
 

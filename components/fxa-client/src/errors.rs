@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#[cfg(feature = "browserid")]
+#[cfg(feature = "session_token")]
 use failure::SyncFailure;
 use failure::{Backtrace, Context, Fail};
 use std::{boxed::Box, fmt, result, string};
@@ -142,10 +142,6 @@ pub enum ErrorKind {
     #[fail(display = "Hex decode error: {}", _0)]
     HexDecodeError(#[fail(cause)] hex::FromHexError),
 
-    #[cfg(feature = "browserid")]
-    #[fail(display = "OpenSSL error: {}", _0)]
-    OpensslError(#[fail(cause)] openssl::error::ErrorStack),
-
     #[fail(display = "Base64 decode error: {}", _0)]
     Base64Decode(#[fail(cause)] base64::DecodeError),
 
@@ -164,7 +160,7 @@ pub enum ErrorKind {
     #[fail(display = "Unexpected HTTP status: {}", _0)]
     UnexpectedStatus(#[fail(cause)] viaduct::UnexpectedStatus),
 
-    #[cfg(feature = "browserid")]
+    #[cfg(feature = "session_token")]
     #[fail(display = "HAWK error: {}", _0)]
     HawkError(#[fail(cause)] SyncFailure<hawk::Error>),
 }
@@ -201,22 +197,17 @@ impl_from_error! {
     (MalformedUrl, url::ParseError)
 }
 
-#[cfg(feature = "browserid")]
-impl_from_error! {
-    (OpensslError, ::openssl::error::ErrorStack)
-}
-
 // ::hawk::Error uses error_chain, and so it's not trivially compatible with failure.
 // We have to box it inside a SyncError (which allows errors to be accessed from multiple
 // threads at the same time, which failure requires for some reason...).
-#[cfg(feature = "browserid")]
+#[cfg(feature = "session_token")]
 impl From<hawk::Error> for ErrorKind {
     #[inline]
     fn from(e: hawk::Error) -> ErrorKind {
         ErrorKind::HawkError(SyncFailure::new(e))
     }
 }
-#[cfg(feature = "browserid")]
+#[cfg(feature = "session_token")]
 impl From<hawk::Error> for Error {
     #[inline]
     fn from(e: hawk::Error) -> Error {

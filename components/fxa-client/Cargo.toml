@@ -35,6 +35,6 @@ force-viaduct-reqwest = { path = "../support/force-viaduct-reqwest" }
 prost-build = "0.5"
 
 [features]
-browserid = ["openssl", "hawk"]
+session_token = ["openssl", "hawk"]
 reqwest = ["viaduct/reqwest"]
 default = []

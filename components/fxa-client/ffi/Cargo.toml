@@ -19,7 +19,7 @@ viaduct = { path = "../../viaduct" }
 path = "../"
 
 [features]
-browserid = ["fxa-client/browserid"]
+session_token = ["fxa-client/session_token"]
 reqwest = ["viaduct/reqwest", "fxa-client/reqwest"]
 
 [target.'cfg(target_os = "android")'.dependencies]

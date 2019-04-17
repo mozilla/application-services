@@ -45,7 +45,7 @@ impl FirefoxAccount {
                 }
             }
             None => {
-                #[cfg(feature = "browserid")]
+                #[cfg(feature = "session_token")]
                 {
                     match Self::session_token_from_state(&self.state.login_state) {
                         Some(session_token) => self.client.oauth_token_with_session_token(
@@ -56,7 +56,7 @@ impl FirefoxAccount {
                         None => return Err(ErrorKind::NoCachedToken(scope.to_string()).into()),
                     }
                 }
-                #[cfg(not(feature = "browserid"))]
+                #[cfg(not(feature = "session_token"))]
                 {
                     return Err(ErrorKind::NoCachedToken(scope.to_string()).into());
                 }

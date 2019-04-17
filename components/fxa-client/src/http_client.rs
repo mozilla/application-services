@@ -7,8 +7,8 @@ use serde_derive::*;
 use serde_json::json;
 use viaduct::{header_names, status_codes, Request, Response};
 
-#[cfg(feature = "browserid")]
-pub(crate) mod browser_id;
+#[cfg(feature = "session_token")]
+pub(crate) mod session_token;
 
 pub trait FxAClient {
     fn oauth_token_with_code(

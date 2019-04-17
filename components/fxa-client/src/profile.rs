@@ -51,7 +51,7 @@ impl FirefoxAccount {
     }
 }
 
-#[cfg(not(feature = "browserid"))] // Otherwise gotta impl FxABrowserIDClient too...
+#[cfg(not(feature = "session_token"))] // Otherwise gotta impl FxASessionTokenClient too...
 #[cfg(test)]
 mod tests {
     use super::*;

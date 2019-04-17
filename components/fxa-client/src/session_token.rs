@@ -4,7 +4,6 @@
 
 use crate::{
     errors::*,
-    http_client::browser_id::jwt_utils,
     login_sm::{LoginState, LoginStateMachine, MarriedState, ReadyForKeysState, SessionTokenState},
     Config, FirefoxAccount, StateV2,
 };
@@ -66,24 +65,8 @@ impl FirefoxAccount {
             // them in a single arm, so this will do for now :/
             &LoginState::EngagedBeforeVerified(ref state)
             | &LoginState::EngagedAfterVerified(ref state) => Some(state.session_token()),
-            &LoginState::CohabitingBeforeKeyPair(ref state) => Some(state.session_token()),
-            &LoginState::CohabitingAfterKeyPair(ref state) => Some(state.session_token()),
             &LoginState::Married(ref state) => Some(state.session_token()),
         }
-    }
-
-    pub fn generate_assertion(&mut self, audience: &str) -> Result<String> {
-        let married = match self.advance_to_married() {
-            Some(married) => married,
-            None => return Err(ErrorKind::NotMarried.into()),
-        };
-        let key_pair = married.key_pair();
-        let certificate = married.certificate();
-        Ok(jwt_utils::create_assertion(
-            key_pair,
-            &certificate,
-            audience,
-        )?)
     }
 
     pub fn get_sync_keys(&mut self) -> Result<SyncKeys> {

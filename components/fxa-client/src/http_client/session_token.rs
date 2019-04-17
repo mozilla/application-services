@@ -8,29 +8,74 @@ use crate::{
     util::Xorable,
     Config,
 };
-use hawk_request::HawkRequestBuilder;
+use hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256};
 use ring::{digest, hkdf, hmac};
-use rsa::RSABrowserIDKeyPair;
 use serde_derive::*;
 use serde_json::json;
 use url::Url;
-use viaduct::{Method, Request};
-mod hawk_request;
-pub(crate) mod jwt_utils;
-pub(crate) mod rsa;
+use viaduct::{header_names, Method, Request};
 
 const HKDF_SALT: [u8; 32] = [0b0; 32];
 const KEY_LENGTH: usize = 32;
-const SIGN_DURATION_MS: u64 = 24 * 60 * 60 * 1000;
 
-pub trait BrowserIDKeyPair {
-    fn get_algo(&self) -> String;
-    fn sign(&self, message: &[u8]) -> Result<Vec<u8>>;
-    fn verify_message(&self, message: &[u8], signature: &[u8]) -> Result<bool>;
-    fn to_json(&self, include_private: bool) -> Result<serde_json::Value>;
+pub struct HawkRequestBuilder<'a> {
+    url: Url,
+    method: Method,
+    body: Option<String>,
+    hkdf_sha256_key: &'a [u8],
 }
 
-pub trait FxABrowserIDClient: http_client::FxAClient {
+impl<'a> HawkRequestBuilder<'a> {
+    pub fn new(method: Method, url: Url, hkdf_sha256_key: &'a [u8]) -> Self {
+        HawkRequestBuilder {
+            url,
+            method,
+            body: None,
+            hkdf_sha256_key,
+        }
+    }
+
+    // This class assumes that the content being sent it always of the type
+    // application/json.
+    pub fn body(mut self, body: serde_json::Value) -> Self {
+        self.body = Some(body.to_string());
+        self
+    }
+
+    fn make_hawk_header(&self) -> Result<String> {
+        // Make sure we de-allocate the hash after hawk_request_builder.
+        let hash;
+        let method = format!("{}", self.method);
+        let mut hawk_request_builder = RequestBuilder::from_url(method.as_str(), &self.url)?;
+        if let Some(ref body) = self.body {
+            hash = PayloadHasher::hash("application/json", &SHA256, &body);
+            hawk_request_builder = hawk_request_builder.hash(&hash[..]);
+        }
+        let hawk_request = hawk_request_builder.request();
+        let token_id = hex::encode(&self.hkdf_sha256_key[0..KEY_LENGTH]);
+        let hmac_key = &self.hkdf_sha256_key[KEY_LENGTH..(2 * KEY_LENGTH)];
+        let hawk_credentials = Credentials {
+            id: token_id,
+            key: Key::new(hmac_key, &SHA256),
+        };
+        let header = hawk_request.make_header(&hawk_credentials)?;
+        Ok(format!("Hawk {}", header))
+    }
+
+    pub fn build(self) -> Result<Request> {
+        let hawk_header = self.make_hawk_header()?;
+        let mut request =
+            Request::new(self.method, self.url).header(header_names::AUTHORIZATION, hawk_header)?;
+        if let Some(body) = self.body {
+            request = request
+                .header(header_names::CONTENT_TYPE, "application/json")?
+                .body(body);
+        }
+        Ok(request)
+    }
+}
+
+pub trait FxASessionTokenClient: http_client::FxAClient {
     fn sign_out(&self);
     fn login(
         &self,
@@ -52,15 +97,9 @@ pub trait FxABrowserIDClient: http_client::FxAClient {
         session_token: &[u8],
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse>;
-    fn sign(
-        &self,
-        config: &Config,
-        session_token: &[u8],
-        key_pair: &dyn BrowserIDKeyPair,
-    ) -> Result<SignResponse>;
 }
 
-impl FxABrowserIDClient for http_client::Client {
+impl FxASessionTokenClient for http_client::Client {
     fn sign_out(&self) {
         panic!("Not implemented yet!");
     }
@@ -138,37 +177,13 @@ impl FxABrowserIDClient for http_client::Client {
         session_token: &[u8],
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse> {
-        let audience = get_oauth_audience(&config.oauth_url()?)?;
-        let key_pair = key_pair(1024)?;
-        let certificate = self.sign(config, session_token, &key_pair)?.certificate;
-        let assertion = jwt_utils::create_assertion(&key_pair, &certificate, &audience)?;
         let parameters = json!({
-            "assertion": assertion,
             "client_id": config.client_id,
-            "response_type": "token",
+            "grant_type": "fxa-credentials",
             "scope": scopes.join(" ")
         });
         let key = derive_key_from_session_token(session_token)?;
-        let url = config.authorization_endpoint()?;
-        let request = HawkRequestBuilder::new(Method::Post, url, &key)
-            .body(parameters)
-            .build()?;
-        Self::make_request(request)?.json().map_err(Into::into)
-    }
-
-    fn sign(
-        &self,
-        config: &Config,
-        session_token: &[u8],
-        key_pair: &dyn BrowserIDKeyPair,
-    ) -> Result<SignResponse> {
-        let public_key_json = key_pair.to_json(false)?;
-        let parameters = json!({
-            "publicKey": public_key_json,
-            "duration": SIGN_DURATION_MS
-        });
-        let key = derive_key_from_session_token(session_token)?;
-        let url = config.auth_url_path("v1/certificate/sign")?;
+        let url = config.token_endpoint()?;
         let request = HawkRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
@@ -189,10 +204,6 @@ fn kwe(name: &str, email: &str) -> Vec<u8> {
         .to_vec()
 }
 
-pub fn key_pair(len: u32) -> Result<RSABrowserIDKeyPair> {
-    RSABrowserIDKeyPair::generate_random(len)
-}
-
 pub fn derive_sync_key(kb: &[u8]) -> Vec<u8> {
     let salt = [0u8; 0];
     let context_info = kw("oldsync");
@@ -201,16 +212,6 @@ pub fn derive_sync_key(kb: &[u8]) -> Vec<u8> {
 
 pub fn compute_client_state(kb: &[u8]) -> String {
     hex::encode(digest::digest(&digest::SHA256, &kb).as_ref()[0..16].to_vec())
-}
-
-fn get_oauth_audience(oauth_url: &Url) -> Result<String> {
-    let host = oauth_url
-        .host_str()
-        .ok_or_else(|| ErrorKind::AudienceURLWithoutHost)?;
-    match oauth_url.port() {
-        Some(port) => Ok(format!("{}://{}:{}", oauth_url.scheme(), host, port)),
-        None => Ok(format!("{}://{}", oauth_url.scheme(), host)),
-    }
 }
 
 fn derive_key_from_session_token(session_token: &[u8]) -> Result<Vec<u8>> {
@@ -247,12 +248,6 @@ pub struct RecoveryEmailStatusResponse {
 #[derive(Deserialize)]
 pub struct AccountStatusResponse {
     pub exists: bool,
-}
-
-#[derive(Deserialize)]
-pub struct SignResponse {
-    #[serde(rename = "cert")]
-    pub certificate: String,
 }
 
 #[derive(Deserialize)]

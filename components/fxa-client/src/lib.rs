@@ -5,10 +5,10 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
-#[cfg(feature = "browserid")]
-pub use crate::browser_id::{SyncKeys, WebChannelResponse};
-#[cfg(feature = "browserid")]
+#[cfg(feature = "session_token")]
 use crate::login_sm::LoginState;
+#[cfg(feature = "session_token")]
+pub use crate::session_token::{SyncKeys, WebChannelResponse};
 pub use crate::{config::Config, oauth::AccessTokenInfo, profile::Profile};
 use crate::{
     errors::*,
@@ -20,17 +20,17 @@ use serde_derive::*;
 use std::{collections::HashMap, sync::Arc};
 use url::Url;
 
-#[cfg(feature = "browserid")]
-mod browser_id;
 mod config;
 pub mod errors;
 pub mod ffi;
+#[cfg(feature = "session_token")]
+mod session_token;
 // Include the `msg_types` module, which is generated from msg_types.proto.
 pub mod msg_types {
     include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
 }
 mod http_client;
-#[cfg(feature = "browserid")]
+#[cfg(feature = "session_token")]
 mod login_sm;
 mod oauth;
 mod profile;
@@ -43,9 +43,9 @@ lazy_static! {
     static ref RNG: SystemRandom = SystemRandom::new();
 }
 
-#[cfg(feature = "browserid")]
-type FxAClient = dyn http_client::browser_id::FxABrowserIDClient + Sync + Send;
-#[cfg(not(feature = "browserid"))]
+#[cfg(feature = "session_token")]
+type FxAClient = dyn http_client::session_token::FxASessionTokenClient + Sync + Send;
+#[cfg(not(feature = "session_token"))]
 type FxAClient = dyn http_client::FxAClient + Sync + Send;
 
 pub struct FirefoxAccount {
@@ -63,7 +63,7 @@ pub struct FirefoxAccount {
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct StateV2 {
     config: Config,
-    #[cfg(feature = "browserid")]
+    #[cfg(feature = "session_token")]
     login_state: LoginState,
     refresh_token: Option<RefreshToken>,
     scoped_keys: HashMap<String, ScopedKey>,
@@ -86,7 +86,7 @@ impl FirefoxAccount {
     pub fn with_config(config: Config) -> Self {
         Self::from_state(StateV2 {
             config,
-            #[cfg(feature = "browserid")]
+            #[cfg(feature = "session_token")]
             login_state: LoginState::Unknown,
             refresh_token: None,
             scoped_keys: HashMap::new(),
