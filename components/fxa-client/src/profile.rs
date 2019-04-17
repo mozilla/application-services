@@ -77,7 +77,6 @@ impl FirefoxAccount {
     }
 }
 
-#[cfg(not(feature = "browserid"))] // Otherwise gotta impl FxABrowserIDClient too...
 #[cfg(test)]
 mod tests {
     use super::*;

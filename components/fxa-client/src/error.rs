@@ -117,10 +117,6 @@ pub enum ErrorKind {
     #[fail(display = "Hex decode error: {}", _0)]
     HexDecodeError(#[fail(cause)] hex::FromHexError),
 
-    #[cfg(feature = "browserid")]
-    #[fail(display = "OpenSSL error: {}", _0)]
-    OpensslError(#[fail(cause)] openssl::error::ErrorStack),
-
     #[fail(display = "Base64 decode error: {}", _0)]
     Base64Decode(#[fail(cause)] base64::DecodeError),
 
@@ -168,12 +164,5 @@ error_support::define_error! {
 error_support::define_error_conversions! {
     ErrorKind {
         (HawkError, hawk::Error),
-    }
-}
-
-#[cfg(feature = "browserid")]
-error_support::define_error_conversions! {
-    ErrorKind {
-        (OpensslError, openssl::error::ErrorStack),
     }
 }

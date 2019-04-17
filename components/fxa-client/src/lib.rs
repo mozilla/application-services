@@ -5,10 +5,6 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
-#[cfg(feature = "browserid")]
-pub use crate::browser_id::{SyncKeys, WebChannelResponse};
-#[cfg(feature = "browserid")]
-use crate::login_sm::LoginState;
 use crate::{
     commands::send_tab::SendTabPayload,
     device::{Capability as DeviceCapability, Device},
@@ -24,8 +20,6 @@ use std::{
 };
 use url::Url;
 
-#[cfg(feature = "browserid")]
-mod browser_id;
 mod commands;
 mod config;
 pub mod device;
@@ -37,8 +31,6 @@ pub mod msg_types {
     include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
 }
 mod http_client;
-#[cfg(feature = "browserid")]
-mod login_sm;
 mod oauth;
 mod profile;
 mod scoped_keys;
@@ -47,9 +39,6 @@ pub mod send_tab;
 mod state_persistence;
 mod util;
 
-#[cfg(feature = "browserid")]
-type FxAClient = dyn http_client::browser_id::FxABrowserIDClient + Sync + Send;
-#[cfg(not(feature = "browserid"))]
 type FxAClient = dyn http_client::FxAClient + Sync + Send;
 
 pub struct FirefoxAccount {
@@ -67,8 +56,6 @@ pub struct FirefoxAccount {
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct StateV2 {
     config: Config,
-    #[cfg(feature = "browserid")]
-    login_state: LoginState,
     refresh_token: Option<RefreshToken>,
     scoped_keys: HashMap<String, ScopedKey>,
     last_handled_command: Option<u64>,
@@ -97,8 +84,6 @@ impl FirefoxAccount {
     pub fn with_config(config: Config) -> Self {
         Self::from_state(StateV2 {
             config,
-            #[cfg(feature = "browserid")]
-            login_state: LoginState::Unknown,
             refresh_token: None,
             scoped_keys: HashMap::new(),
             last_handled_command: None,
