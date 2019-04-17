@@ -32,8 +32,9 @@ else
   const LIB_NAME: &str = "libnss3.dylib";
   #[cfg(target_os = "linux")]
   const LIB_NAME: &str = "libnss3.so";
+  const RTLD_LAZY: c_int = 0x01;
   fn main() {
-    let result = unsafe { dlopen(CString::new(LIB_NAME).unwrap().as_ptr(), 0) };
+    let result = unsafe { dlopen(CString::new(LIB_NAME).unwrap().as_ptr(), RTLD_LAZY) };
     if result.is_null() { println!("Could not dlopen nss"); exit(1); }
   }
   ' > nsslibcheck.rs
