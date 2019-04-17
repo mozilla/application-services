@@ -69,7 +69,8 @@ open class NativeLibsPlugin : Plugin<Project> {
                 afterEvaluate {
                     var copyNativeLibsTask = tasks.maybeCreate("copyNativeLibs")
                     ARCHS_FOLDERS.forEach { archFolder ->
-                        val copyLibsTask = tasks.maybeCreate("copyNativeLibs-$archFolder", Copy::class.java).apply {
+                        val taskName = archFolder.replace("/", "-")
+                        val copyLibsTask = tasks.maybeCreate("copyNativeLibs-$taskName", Copy::class.java).apply {
                             from("${rootProject.rootDir}/libs/$archFolder/${nativeLib.name}/lib/")
                             into("$buildDir/nativeLibs/$archFolder")
                             nativeLib.libs.forEach {
