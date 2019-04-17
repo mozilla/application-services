@@ -6,21 +6,6 @@ plugins {
     `kotlin-dsl`
 }
 
-// Use the Android Gradle plugin version from the root project so they stay in sync.
-import java.util.Properties
-fun readProperties(propertiesFile: File) = Properties().apply {
-    propertiesFile.inputStream().use { fis ->
-        load(fis)
-    }
-}
-val properties = readProperties(File(rootDir.parentFile, "gradle.properties"))
-val androidGradlePluginVersion = properties["androidGradlePluginVersion"]
-
-dependencies {
-    "implementation"("com.android.tools.build:gradle:$androidGradlePluginVersion")
-}
-
 repositories {
-    google()
     jcenter()
 }
