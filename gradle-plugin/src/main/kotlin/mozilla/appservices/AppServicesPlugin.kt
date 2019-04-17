@@ -16,11 +16,9 @@ import org.gradle.api.artifacts.DependencySubstitutions
 import org.gradle.api.artifacts.ModuleIdentifier
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.artifacts.component.ModuleComponentSelector
-import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.internal.artifacts.DefaultModuleIdentifier
 import org.gradle.api.logging.Logger
 import org.gradle.api.logging.Logging
-import java.net.URI
 
 open class AppServicesPlugin : Plugin<Project> {
     internal lateinit var appServicesExtension: AppServicesExtension
@@ -123,25 +121,6 @@ open class AppServicesPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         with(project) {
             appServicesExtension = extensions.create("appservices", AppServicesExtension::class.java, project)
-
-            // This is somewhat temporary: https://github.com/mozilla/application-services isn't publishing to
-            // maven.mozilla.org yet, so we need a non-standard URL.  But we probably want to force
-            // https://maven.mozilla.org/maven2 in the future anyway... so it's probably not worth making this
-            // configurable.  See https://github.com/mozilla/application-services/issues/252.
-            val customName = "appservices"
-            val customURI = URI.create("https://dl.bintray.com/mozilla-appservices/application-services")
-            // If there's already a Maven repo with the right URL, or even the right name, roll with it.
-            // The name gives the opportunity to customize, if it helps in the wild.
-            val existing = project.repositories.find {
-                (it is MavenArtifactRepository) && (it.url == customURI || it.name == customName)
-            }
-            if (existing == null) {
-                logger.info("adding '$customName' Maven repository with url '${customURI.toASCIIString()}'")
-                project.repositories.maven {
-                    it.name = customName
-                    it.url = customURI
-                }
-            }
 
             project.pluginManager.withPlugin("com.android.application") {
                 var android = project.extensions.getByType(AppExtension::class.java)

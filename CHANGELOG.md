@@ -4,6 +4,10 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.25.2...master)
 
+## Gradle plugin
+
+- Removed the appservices bintray repo from the plugin
+
 ## Push
 
 ### Breaking Change
