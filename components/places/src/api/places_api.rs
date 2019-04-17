@@ -225,13 +225,11 @@ impl PlacesApi {
         Ok(())
     }
 
-    fn get_disk_persisted_state(&self) -> Result<Option<String>> {
-        let conn = self.open_sync_connection()?;
+    fn get_disk_persisted_state(&self, conn: &PlacesDb) -> Result<Option<String>> {
         Ok(get_meta::<String>(&conn, GLOBAL_STATE_META_KEY)?)
     }
 
-    fn set_disk_persisted_state(&self, state: &Option<String>) -> Result<()> {
-        let conn = self.open_sync_connection()?;
+    fn set_disk_persisted_state(&self, conn: &PlacesDb, state: &Option<String>) -> Result<()> {
         match state {
             Some(ref s) => put_meta(&conn, GLOBAL_STATE_META_KEY, s),
             None => delete_meta(&conn, GLOBAL_STATE_META_KEY),
@@ -251,7 +249,7 @@ impl PlacesApi {
         if guard.is_none() {
             *guard = Some(SyncState {
                 mem_cached_state: Cell::default(),
-                disk_cached_state: Cell::new(self.get_disk_persisted_state()?),
+                disk_cached_state: Cell::new(self.get_disk_persisted_state(&conn)?),
             });
         }
 
@@ -273,7 +271,7 @@ impl PlacesApi {
         );
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
-        self.set_disk_persisted_state(&disk_cached_state)?;
+        self.set_disk_persisted_state(&conn, &disk_cached_state)?;
         sync_state.mem_cached_state.replace(mem_cached_state);
         sync_state.disk_cached_state.replace(disk_cached_state);
 
@@ -293,7 +291,7 @@ impl PlacesApi {
         if guard.is_none() {
             *guard = Some(SyncState {
                 mem_cached_state: Cell::default(),
-                disk_cached_state: Cell::new(self.get_disk_persisted_state()?),
+                disk_cached_state: Cell::new(self.get_disk_persisted_state(&conn)?),
             });
         }
 
@@ -315,7 +313,7 @@ impl PlacesApi {
         );
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
-        self.set_disk_persisted_state(&disk_cached_state)?;
+        self.set_disk_persisted_state(&conn, &disk_cached_state)?;
         sync_state.mem_cached_state.replace(mem_cached_state);
         sync_state.disk_cached_state.replace(disk_cached_state);
 
