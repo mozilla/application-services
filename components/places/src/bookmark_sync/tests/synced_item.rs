@@ -69,6 +69,7 @@ pub struct SyncedBookmarkItem {
     // Note that url is *not* in the table, but a convenience for tests.
     pub url: SyncedBookmarkValue<Option<Url>>,
     pub tags: SyncedBookmarkValue<Vec<String>>,
+    pub children: SyncedBookmarkValue<Vec<SyncGuid>>,
 }
 
 macro_rules! impl_builder_simple {
@@ -152,16 +153,24 @@ impl SyncedBookmarkItem {
         self
     }
 
+    pub fn children(&mut self, children: Vec<SyncGuid>) -> &mut SyncedBookmarkItem {
+        self.children = SyncedBookmarkValue::Specified(children);
+        self
+    }
+
     // Get a record from the DB.
     pub fn get(conn: &PlacesDb, guid: &SyncGuid) -> Result<Option<Self>> {
         Ok(conn.try_query_row(
-            "SELECT b.*, p.url, group_concat(t.tag) AS tags
-                               FROM moz_bookmarks_synced b
-                               LEFT JOIN moz_places p on b.placeId = p.id
-                               LEFT JOIN moz_bookmarks_synced_tag_relation r ON r.itemId = b.id
-                               LEFT JOIN moz_tags t ON t.id = r.tagId
-                               WHERE b.guid = :guid
-                               GROUP BY b.id",
+            "SELECT b.*, p.url, group_concat(t.tag) AS tags,
+                    -- This creates a string like `1:bookmarkAAAA`.
+                    group_concat(s.position || ':' || s.guid) AS children
+             FROM moz_bookmarks_synced b
+             LEFT JOIN moz_places p on b.placeId = p.id
+             LEFT JOIN moz_bookmarks_synced_tag_relation r ON r.itemId = b.id
+             LEFT JOIN moz_tags t ON t.id = r.tagId
+             LEFT JOIN moz_bookmarks_synced_structure s ON s.parentGuid = b.guid
+             WHERE b.guid = :guid
+             GROUP BY b.id",
             &[(":guid", guid)],
             Self::from_row,
             true,
@@ -170,9 +179,9 @@ impl SyncedBookmarkItem {
 
     // Return a new SyncedBookmarkItem from a database row. All values will
     // be SyncedBookmarkValue::Specified.
-    fn from_row(row: &Row) -> Result<Self> {
+    fn from_row(row: &Row<'_>) -> Result<Self> {
         let mut tags = row
-            .get_checked::<_, Option<String>>("tags")?
+            .get::<_, Option<String>>("tags")?
             .map(|tags| {
                 tags.split(',')
                     .map(ToString::to_string)
@@ -180,39 +189,62 @@ impl SyncedBookmarkItem {
             })
             .unwrap_or_default();
         tags.sort();
+        // SQLite's `group_concat` concatenates grouped rows in unspecified
+        // order, so we prepend the position to the GUID in the query above,
+        // then split and sort here. This trick is fairly inefficient, and
+        // shouldn't be used in production code; see `BookmarksStore::{
+        // stage_local_items_to_upload, fetch_outgoing_records}` for an example
+        // of the latter. But it does let us collect children in a single
+        // statement.
+        let mut children: Vec<(i64, SyncGuid)> = row
+            .get::<_, Option<String>>("children")?
+            .map(|children| {
+                children
+                    .split(',')
+                    .map(|t| {
+                        let parts = t.splitn(2, ':').collect::<Vec<_>>();
+                        (
+                            parts[0].parse::<i64>().unwrap(),
+                            SyncGuid(parts[1].to_owned()),
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        children.sort_by_key(|child| child.0);
         Ok(Self {
-            id: SyncedBookmarkValue::Specified(row.get_checked("id")?),
-            guid: SyncedBookmarkValue::Specified(row.get_checked("guid")?),
-            parent_guid: SyncedBookmarkValue::Specified(row.get_checked("parentGuid")?),
+            id: SyncedBookmarkValue::Specified(row.get("id")?),
+            guid: SyncedBookmarkValue::Specified(row.get("guid")?),
+            parent_guid: SyncedBookmarkValue::Specified(row.get("parentGuid")?),
             server_modified: SyncedBookmarkValue::Specified(ServerTimestamp(
-                row.get_checked::<_, f64>("serverModified")?,
+                row.get::<_, f64>("serverModified")?,
             )),
-            needs_merge: SyncedBookmarkValue::Specified(row.get_checked("needsMerge")?),
+            needs_merge: SyncedBookmarkValue::Specified(row.get("needsMerge")?),
             validity: SyncedBookmarkValue::Specified(
-                SyncedBookmarkValidity::from_u8(row.get_checked("validity")?)
-                    .expect("a valid validity"),
+                SyncedBookmarkValidity::from_u8(row.get("validity")?).expect("a valid validity"),
             ),
-            deleted: SyncedBookmarkValue::Specified(row.get_checked("isDeleted")?),
+            deleted: SyncedBookmarkValue::Specified(row.get("isDeleted")?),
             kind: SyncedBookmarkValue::Specified(
                 // tombstones have a kind of -1, so get it from the db as i8
-                SyncedBookmarkKind::from_u8(row.get_checked::<_, i8>("kind")? as u8).ok(),
+                SyncedBookmarkKind::from_u8(row.get::<_, i8>("kind")? as u8).ok(),
             ),
-            date_added: SyncedBookmarkValue::Specified(row.get_checked("dateAdded")?),
-            title: SyncedBookmarkValue::Specified(row.get_checked("title")?),
-            place_id: SyncedBookmarkValue::Specified(row.get_checked("placeId")?),
-            keyword: SyncedBookmarkValue::Specified(row.get_checked("keyword")?),
-            description: SyncedBookmarkValue::Specified(row.get_checked("description")?),
-            load_in_sidebar: SyncedBookmarkValue::Specified(row.get_checked("loadInSidebar")?),
-            smart_bookmark_name: SyncedBookmarkValue::Specified(
-                row.get_checked("smartBookmarkName")?,
-            ),
-            feed_url: SyncedBookmarkValue::Specified(row.get_checked("feedUrl")?),
-            site_url: SyncedBookmarkValue::Specified(row.get_checked("siteUrl")?),
+            date_added: SyncedBookmarkValue::Specified(row.get("dateAdded")?),
+            title: SyncedBookmarkValue::Specified(row.get("title")?),
+            place_id: SyncedBookmarkValue::Specified(row.get("placeId")?),
+            keyword: SyncedBookmarkValue::Specified(row.get("keyword")?),
+            description: SyncedBookmarkValue::Specified(row.get("description")?),
+            load_in_sidebar: SyncedBookmarkValue::Specified(row.get("loadInSidebar")?),
+            smart_bookmark_name: SyncedBookmarkValue::Specified(row.get("smartBookmarkName")?),
+            feed_url: SyncedBookmarkValue::Specified(row.get("feedUrl")?),
+            site_url: SyncedBookmarkValue::Specified(row.get("siteUrl")?),
             url: SyncedBookmarkValue::Specified(
-                row.get_checked::<_, Option<String>>("url")?
+                row.get::<_, Option<String>>("url")?
                     .and_then(|s| Url::parse(&s).ok()),
             ),
             tags: SyncedBookmarkValue::Specified(tags),
+            children: SyncedBookmarkValue::Specified(
+                children.into_iter().map(|(_, guid)| guid).collect(),
+            ),
         })
     }
 }

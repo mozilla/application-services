@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #![allow(unknown_lints)]
+#![warn(rust_2018_idioms)]
 
 use ffi_support::{
     define_bytebuffer_destructor, define_handle_map_deleter, define_string_destructor,

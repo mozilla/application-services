@@ -97,18 +97,14 @@ mod tests {
         let row = result.expect("expect anything");
 
         assert_eq!(
-            row.get_checked::<_, String>("url").expect("should work"),
+            row.get::<_, String>("url").expect("should work"),
             "http://example.com/"
         ); // hrmph - note trailing slash
         assert_eq!(
-            row.get_checked::<_, Timestamp>("visit_date")
-                .expect("should work"),
+            row.get::<_, Timestamp>("visit_date").expect("should work"),
             date
         );
-        assert_ne!(
-            row.get_checked::<_, i32>("frecency").expect("should work"),
-            0
-        );
+        assert_ne!(row.get::<_, i32>("frecency").expect("should work"), 0);
         // XXX - check more.
     }
 }

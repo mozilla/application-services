@@ -17,10 +17,8 @@ pub fn url_host_port(url_str: &str) -> Option<String> {
     })
 }
 
-pub fn system_time_millis_from_row(row: &Row, col_name: &str) -> Result<time::SystemTime> {
-    let time_ms = row
-        .get_checked::<_, Option<i64>>(col_name)?
-        .unwrap_or_default() as u64;
+pub fn system_time_millis_from_row(row: &Row<'_>, col_name: &str) -> Result<time::SystemTime> {
+    let time_ms = row.get::<_, Option<i64>>(col_name)?.unwrap_or_default() as u64;
     Ok(time::UNIX_EPOCH + time::Duration::from_millis(time_ms))
 }
 

@@ -1,6 +1,16 @@
 version: 2.1
 
 commands:
+  install-mdbook:
+    steps:
+      - run:
+          name: Install mdBook
+          command: |
+            mkdir -p $HOME/.bin
+            pushd $HOME/.bin
+            curl -sSL https://github.com/rust-lang-nursery/mdBook/releases/download/v0.2.1/mdbook-v0.2.1-x86_64-unknown-linux-gnu.tar.gz | tar xz
+            echo 'export PATH="$HOME/.bin:$PATH"' >> $BASH_ENV
+            popd
   install-rust:
     steps:
       - run:
@@ -28,6 +38,9 @@ commands:
             rustup default <<parameters.rust-version>>
             rustup update
             rustc --version
+  install-clang: # Used by bindgen for nss_sys.
+    steps:
+      - run: sudo apt-get install clang
   install-system-nss:
     steps:
       - run: sudo apt-get install libnss3-dev
@@ -66,7 +79,9 @@ commands:
       - build-desktop-libs
       - setup-rust-toolchain:
           rust-version: <<parameters.rust-version>>
+      - install-clang
       - run: |
+          echo 'export NSS_DIR=$(pwd)/libs/desktop/linux-x86-64/nss' >> $BASH_ENV
           echo 'export OPENSSL_DIR=$(pwd)/libs/desktop/linux-x86-64/openssl' >> $BASH_ENV
           echo 'export SQLCIPHER_LIB_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/lib' >> $BASH_ENV
           echo 'export SQLCIPHER_INCLUDE_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/include' >> $BASH_ENV
@@ -134,9 +149,7 @@ jobs:
     docker:
       - image: circleci/rust:latest
     steps:
-      - checkout
-      - setup-rust-toolchain
-      - install-system-nss
+      - test-setup
       - run: rustup component add clippy
       - run: cargo clippy --version
       - run: cargo clippy --all --all-targets --all-features -- -D warnings
@@ -232,7 +245,32 @@ jobs:
             gem install --user-install dpl
             PATH=$HOME/.gem/ruby/2.3.0/bin:$PATH
             dpl --provider=releases --api-key=${GITHUB_TOKEN} --file=MozillaAppServices.framework.zip --overwrite --skip-cleanup=true
-
+  Deploy website:
+    docker:
+      - image: circleci/node:latest
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            - "f1:3e:05:3a:66:69:60:4f:1f:9f:8f:af:6e:1f:0f:53"
+      - install-mdbook
+      - checkout
+      - run:
+          name: Build and publish books and product portal
+          command: |
+            pushd docs/sync-storage-handbook
+            mdbook build
+            popd
+            pushd docs/synconomicon
+            mdbook build
+            popd
+            pushd website
+            npm install
+            cp -R ../docs/sync-storage-handbook/book static/sync-storage-handbook
+            cp -R ../docs/synconomicon/book static/synconomicon
+            git config --global user.name "Application Services"
+            git config --global user.email "application-services@mozilla.com"
+            USE_SSH=true npm run publish-gh-pages
+            popd
 workflows:
   version: 2
   check-formating:
@@ -244,6 +282,12 @@ workflows:
   check-dependencies:
     jobs:
       - Check Rust dependencies
+  deploy-website:
+    jobs:
+      - Deploy website:
+        filters:
+          branches:
+            only: master
   check-dependencies-periodically:
     jobs:
       - Check Rust dependencies

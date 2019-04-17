@@ -47,19 +47,19 @@ impl From<u64> for Timestamp {
 }
 
 impl fmt::Display for Timestamp {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
 impl ToSql for Timestamp {
-    fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput<'_>> {
         Ok(ToSqlOutput::from(self.0 as i64)) // hrm - no u64 in rusqlite
     }
 }
 
 impl FromSql for Timestamp {
-    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
         value.as_i64().map(|v| Timestamp(v as u64)) // hrm - no u64
     }
 }

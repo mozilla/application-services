@@ -152,7 +152,7 @@ impl<'a> FfiStr<'a> {
 }
 
 impl<'a> std::fmt::Debug for FfiStr<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(s) = self.as_opt_str() {
             write!(f, "FfiStr({:?})", s)
         } else {

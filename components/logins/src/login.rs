@@ -53,10 +53,8 @@ pub struct Login {
     pub times_used: i64,
 }
 
-fn string_or_default(row: &Row, col: &str) -> Result<String> {
-    Ok(row
-        .get_checked::<_, Option<String>>(col)?
-        .unwrap_or_default())
+fn string_or_default(row: &Row<'_>, col: &str) -> Result<String> {
+    Ok(row.get::<_, Option<String>>(col)?.unwrap_or_default())
 }
 
 impl Login {
@@ -89,28 +87,28 @@ impl Login {
         Ok(())
     }
 
-    pub(crate) fn from_row(row: &Row) -> Result<Login> {
+    pub(crate) fn from_row(row: &Row<'_>) -> Result<Login> {
         Ok(Login {
-            id: row.get_checked("guid")?,
-            password: row.get_checked("password")?,
+            id: row.get("guid")?,
+            password: row.get("password")?,
             username: string_or_default(row, "username")?,
 
-            hostname: row.get_checked("hostname")?,
-            http_realm: row.get_checked("httpRealm")?,
+            hostname: row.get("hostname")?,
+            http_realm: row.get("httpRealm")?,
 
-            form_submit_url: row.get_checked("formSubmitURL")?,
+            form_submit_url: row.get("formSubmitURL")?,
 
             username_field: string_or_default(row, "usernameField")?,
             password_field: string_or_default(row, "passwordField")?,
 
-            time_created: row.get_checked("timeCreated")?,
+            time_created: row.get("timeCreated")?,
             // Might be null
             time_last_used: row
-                .get_checked::<_, Option<i64>>("timeLastUsed")?
+                .get::<_, Option<i64>>("timeLastUsed")?
                 .unwrap_or_default(),
 
-            time_password_changed: row.get_checked("timePasswordChanged")?,
-            times_used: row.get_checked("timesUsed")?,
+            time_password_changed: row.get("timePasswordChanged")?,
+            times_used: row.get("timesUsed")?,
         })
     }
 }
@@ -128,13 +126,11 @@ impl MirrorLogin {
         self.login.guid_str()
     }
 
-    pub(crate) fn from_row(row: &Row) -> Result<MirrorLogin> {
+    pub(crate) fn from_row(row: &Row<'_>) -> Result<MirrorLogin> {
         Ok(MirrorLogin {
             login: Login::from_row(row)?,
-            is_overridden: row.get_checked("is_overridden")?,
-            server_modified: ServerTimestamp(
-                row.get_checked::<_, i64>("server_modified")? as f64 / 1000.0,
-            ),
+            is_overridden: row.get("is_overridden")?,
+            server_modified: ServerTimestamp(row.get::<_, i64>("server_modified")? as f64 / 1000.0),
         })
     }
 }
@@ -174,11 +170,11 @@ impl LocalLogin {
         self.login.guid_str()
     }
 
-    pub(crate) fn from_row(row: &Row) -> Result<LocalLogin> {
+    pub(crate) fn from_row(row: &Row<'_>) -> Result<LocalLogin> {
         Ok(LocalLogin {
             login: Login::from_row(row)?,
-            sync_status: SyncStatus::from_u8(row.get_checked("sync_status")?)?,
-            is_deleted: row.get_checked("is_deleted")?,
+            sync_status: SyncStatus::from_u8(row.get("sync_status")?)?,
+            is_deleted: row.get("is_deleted")?,
             local_modified: util::system_time_millis_from_row(row, "local_modified")?,
         })
     }

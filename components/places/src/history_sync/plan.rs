@@ -303,7 +303,7 @@ mod tests {
         let result: Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_places_tombstones;",
             &[],
-            |row| Ok(row.get_checked::<_, u32>(0)?),
+            |row| Ok(row.get::<_, u32>(0)?),
             true,
         );
         result
@@ -319,8 +319,8 @@ mod tests {
             &[(":url", &url.clone().into_string())],
             |row| {
                 Ok((
-                    SyncStatus::from_u8(row.get_checked::<_, u8>(0)?),
-                    row.get_checked::<_, u32>(1)?,
+                    SyncStatus::from_u8(row.get::<_, u8>(0)?),
+                    row.get::<_, u32>(1)?,
                 ))
             },
             true,

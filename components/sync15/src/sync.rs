@@ -52,7 +52,7 @@ pub trait Store {
 pub fn synchronize(
     client: &Sync15StorageClient,
     global_state: &GlobalState,
-    store: &Store,
+    store: &dyn Store,
     fully_atomic: bool,
     telem_engine: &mut telemetry::Engine,
     interruptee: &impl Interruptee,

@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::bookmark_sync::store::BookmarksStore;
 use crate::db::db::PlacesDb;
 use crate::error::*;
 use crate::history_sync::store::HistoryStore;
@@ -187,7 +188,7 @@ impl PlacesApi {
         }
     }
 
-    pub fn open_sync_connection(&self) -> Result<SyncConn> {
+    pub fn open_sync_connection(&self) -> Result<SyncConn<'_>> {
         let prev_value = self
             .sync_conn_active
             .compare_and_swap(false, true, Ordering::SeqCst);
@@ -224,13 +225,11 @@ impl PlacesApi {
         Ok(())
     }
 
-    fn get_disk_persisted_state(&self) -> Result<Option<String>> {
-        let conn = self.open_connection(ConnectionType::Sync)?;
+    fn get_disk_persisted_state(&self, conn: &PlacesDb) -> Result<Option<String>> {
         Ok(get_meta::<String>(&conn, GLOBAL_STATE_META_KEY)?)
     }
 
-    fn set_disk_persisted_state(&self, state: &Option<String>) -> Result<()> {
-        let conn = self.open_connection(ConnectionType::Sync)?;
+    fn set_disk_persisted_state(&self, conn: &PlacesDb, state: &Option<String>) -> Result<()> {
         match state {
             Some(ref s) => put_meta(&conn, GLOBAL_STATE_META_KEY, s),
             None => delete_meta(&conn, GLOBAL_STATE_META_KEY),
@@ -240,7 +239,7 @@ impl PlacesApi {
     // TODO: We need a better result here so we can return telemetry.
     // We possibly want more than just a `SyncTelemetryPing` so we can
     // return additional "custom" telemetry if the app wants it.
-    pub fn sync(
+    pub fn sync_history(
         &self,
         client_init: &sync15::Sync15StorageClientInit,
         key_bundle: &sync15::KeyBundle,
@@ -250,7 +249,7 @@ impl PlacesApi {
         if guard.is_none() {
             *guard = Some(SyncState {
                 mem_cached_state: Cell::default(),
-                disk_cached_state: Cell::new(self.get_disk_persisted_state()?),
+                disk_cached_state: Cell::new(self.get_disk_persisted_state(&conn)?),
             });
         }
 
@@ -273,7 +272,50 @@ impl PlacesApi {
         );
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
-        self.set_disk_persisted_state(&disk_cached_state)?;
+        self.set_disk_persisted_state(&conn, &disk_cached_state)?;
+        sync_state.mem_cached_state.replace(mem_cached_state);
+        sync_state.disk_cached_state.replace(disk_cached_state);
+
+        result?;
+
+        Ok(sync_ping)
+    }
+
+    // TODO: reduce duplication with above
+    pub fn sync_bookmarks(
+        &self,
+        client_init: &sync15::Sync15StorageClientInit,
+        key_bundle: &sync15::KeyBundle,
+    ) -> Result<telemetry::SyncTelemetryPing> {
+        let mut guard = self.sync_state.lock().unwrap();
+        let conn = self.open_sync_connection()?;
+        if guard.is_none() {
+            *guard = Some(SyncState {
+                mem_cached_state: Cell::default(),
+                disk_cached_state: Cell::new(self.get_disk_persisted_state(&conn)?),
+            });
+        }
+
+        let sync_state = guard.as_ref().unwrap();
+        // Note that counter-intuitively, this must be called before we do a
+        // bookmark sync too, to ensure the shared global state is correct.
+        HistoryStore::migrate_v1_global_state(&conn)?;
+
+        let interruptee = conn.begin_interrupt_scope();
+        let store = BookmarksStore::new(&conn, &interruptee);
+        let mut mem_cached_state = sync_state.mem_cached_state.take();
+        let mut disk_cached_state = sync_state.disk_cached_state.take();
+        let mut sync_ping = telemetry::SyncTelemetryPing::new();
+        let result = store.sync(
+            &client_init,
+            &key_bundle,
+            &mut mem_cached_state,
+            &mut disk_cached_state,
+            &mut sync_ping,
+        );
+        // even on failure we set the persisted state - sync itself takes care
+        // to ensure this has been None'd out if necessary.
+        self.set_disk_persisted_state(&conn, &disk_cached_state)?;
         sync_state.mem_cached_state.replace(mem_cached_state);
         sync_state.disk_cached_state.replace(disk_cached_state);
 

@@ -43,7 +43,7 @@ impl<'a> ValidatedTag<'a> {
 }
 
 /// Checks the validity of the specified tag.
-pub fn validate_tag(tag: &str) -> ValidatedTag {
+pub fn validate_tag(tag: &str) -> ValidatedTag<'_> {
     // Drop empty and oversized tags.
     let t = tag.trim();
     if t.is_empty() || t.len() > TAG_LENGTH_MAX || t.find(char::is_whitespace).is_some() {
@@ -189,8 +189,7 @@ pub fn get_urls_with_tag(db: &PlacesDb, tag: &str) -> Result<Vec<Url>> {
          ORDER BY p.frecency",
     )?;
 
-    let rows =
-        stmt.query_and_then_named(&[(":tag", &tag)], |row| row.get_checked::<_, String>("url"))?;
+    let rows = stmt.query_and_then_named(&[(":tag", &tag)], |row| row.get::<_, String>("url"))?;
     let mut urls = Vec::new();
     for row in rows {
         urls.push(Url::parse(&row?)?);
@@ -220,7 +219,7 @@ pub fn get_tags_for_url(db: &PlacesDb, url: &Url) -> Result<Vec<String>> {
          ORDER BY t.lastModified DESC",
     )?;
     let rows = stmt.query_and_then_named(&[(":url", &url.as_str())], |row| {
-        row.get_checked::<_, String>("tag")
+        row.get::<_, String>("tag")
     })?;
     let mut tags = Vec::new();
     for row in rows {
@@ -255,7 +254,7 @@ mod tests {
              FROM moz_places
              WHERE url = :url",
             &[(":url", &url.as_str())],
-            |row| Ok(row.get_checked::<_, i32>(0)?),
+            |row| Ok(row.get::<_, i32>(0)?),
             false,
         );
         count.expect("should work").expect("should get a value")
@@ -340,14 +339,14 @@ mod tests {
         let count: Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_tags",
             &[],
-            |row| Ok(row.get_checked::<_, u32>(0)?),
+            |row| Ok(row.get::<_, u32>(0)?),
             true,
         );
         assert_eq!(count.unwrap().unwrap(), 0);
         let count: Result<Option<u32>> = conn.try_query_row(
             "SELECT COUNT(*) from moz_tags_relation",
             &[],
-            |row| Ok(row.get_checked::<_, u32>(0)?),
+            |row| Ok(row.get::<_, u32>(0)?),
             true,
         );
         assert_eq!(count.unwrap().unwrap(), 0);

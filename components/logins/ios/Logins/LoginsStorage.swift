@@ -5,21 +5,6 @@
 import Foundation
 import UIKit
 
-/// Set of arguments required to sync.
-open class SyncUnlockInfo {
-    public var kid: String
-    public var fxaAccessToken: String
-    public var syncKey: String
-    public var tokenserverURL: String
-
-    public init (kid: String, fxaAccessToken: String, syncKey: String, tokenserverURL: String) {
-        self.kid = kid
-        self.fxaAccessToken = fxaAccessToken
-        self.syncKey = syncKey
-        self.tokenserverURL = tokenserverURL
-    }
-}
-
 fileprivate let queue = DispatchQueue(label: "com.mozilla.logins-storage")
 
 open class LoginsStorage {

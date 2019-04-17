@@ -134,3 +134,4 @@ cp -p -L "${NSPR_BUILD_DIR}/dist"/lib/libplds4."${EXT}" "${NSS_DIR}/lib"
 cp -p -L "${NSPR_BUILD_DIR}/dist"/lib/libnspr4."${EXT}" "${NSS_DIR}/lib"
 
 cp -p -L "${BUILD_DIR}/dist"/public/nss/* "${NSS_DIR}/include/nss"
+cp -p -L -R "${NSPR_BUILD_DIR}/dist"/include/nspr/* "${NSS_DIR}/include/nss"

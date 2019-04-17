@@ -203,10 +203,11 @@ CREATE TABLE IF NOT EXISTS moz_bookmarks_synced(
 -- also lets us catch disagreements between a folder's `children` and its
 -- childrens' `parentid`.
 CREATE TABLE IF NOT EXISTS moz_bookmarks_synced_structure(
-    guid TEXT NOT NULL PRIMARY KEY,
-    parentGuid TEXT NOT NULL REFERENCES moz_bookmarks_synced(guid)
-                             ON DELETE CASCADE,
-    position INTEGER NOT NULL
+    guid TEXT,
+    parentGuid TEXT REFERENCES moz_bookmarks_synced(guid)
+                    ON DELETE CASCADE,
+    position INTEGER NOT NULL,
+    PRIMARY KEY(parentGuid, guid)
 ) WITHOUT ROWID;
 
 -- This table holds tags for synced items.

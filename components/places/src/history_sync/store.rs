@@ -40,7 +40,7 @@ impl<'a> HistoryStore<'a> {
         Self { db, interruptee }
     }
 
-    fn put_meta(&self, key: &str, value: &ToSql) -> Result<()> {
+    fn put_meta(&self, key: &str, value: &dyn ToSql) -> Result<()> {
         crate::storage::put_meta(self.db, key, value)
     }
 

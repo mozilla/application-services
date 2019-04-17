@@ -108,7 +108,7 @@ fn get_child_guids(db: &PlacesDb, parent: RowId) -> Result<Vec<SyncGuid>> {
          WHERE parent = :parent
          ORDER BY position ASC",
         &[(":parent", &parent)],
-        |row| row.get_checked(0),
+        |row| row.get(0),
     )?)
 }
 
@@ -201,7 +201,7 @@ pub fn update_bookmark_from_message(db: &PlacesDb, msg: ProtoBookmark) -> Result
     let node_type: BookmarkType = db.query_row_and_then_named(
         "SELECT type FROM moz_bookmarks WHERE guid = :guid",
         &[(":guid", &info.guid)],
-        |r| r.get_checked(0),
+        |r| r.get(0),
         true,
     )?;
     let (guid, updatable) = info.into_updatable(node_type)?;
@@ -239,12 +239,7 @@ pub fn fetch_public_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<P
         let (parent_guid, position) = db.query_row_and_then_named(
             sql,
             &[(":guid", &item_guid)],
-            |row| -> Result<_> {
-                Ok((
-                    row.get_checked::<_, Option<SyncGuid>>(0)?,
-                    row.get_checked::<_, u32>(1)?,
-                ))
-            },
+            |row| -> Result<_> { Ok((row.get::<_, Option<SyncGuid>>(0)?, row.get::<_, u32>(1)?)) },
             true,
         )?;
         proto.parent_guid = parent_guid;
@@ -262,14 +257,14 @@ pub fn search_bookmarks(db: &PlacesDb, search: &str, limit: u32) -> Result<Vec<P
             scope.err_if_interrupted()?;
             Ok(PublicNode {
                 node_type: BookmarkType::Bookmark,
-                guid: row.get_checked("guid")?,
-                parent_guid: row.get_checked("parentGuid")?,
-                position: row.get_checked("position")?,
-                date_added: row.get_checked("dateAdded")?,
-                last_modified: row.get_checked("lastModified")?,
-                title: row.get_checked("title")?,
+                guid: row.get("guid")?,
+                parent_guid: row.get("parentGuid")?,
+                position: row.get("position")?,
+                date_added: row.get("dateAdded")?,
+                last_modified: row.get("lastModified")?,
+                title: row.get("title")?,
                 url: row
-                    .get_checked::<_, Option<String>>("url")?
+                    .get::<_, Option<String>>("url")?
                     .map(|href| url::Url::parse(&href))
                     .transpose()?,
                 child_guids: None,

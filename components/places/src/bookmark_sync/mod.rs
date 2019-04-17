@@ -99,7 +99,7 @@ impl From<SyncedBookmarkKind> for dogear::Kind {
 }
 
 impl ToSql for SyncedBookmarkKind {
-    fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput<'_>> {
         Ok(ToSqlOutput::from(*self as u8))
     }
 }
@@ -144,7 +144,7 @@ impl From<SyncedBookmarkValidity> for dogear::Validity {
 }
 
 impl ToSql for SyncedBookmarkValidity {
-    fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput<'_>> {
         Ok(ToSqlOutput::from(*self as u8))
     }
 }

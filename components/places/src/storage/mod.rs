@@ -41,19 +41,19 @@ impl From<RowId> for i64 {
 
 impl fmt::Display for RowId {
     #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
 impl ToSql for RowId {
-    fn to_sql(&self) -> RusqliteResult<ToSqlOutput> {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput<'_>> {
         Ok(ToSqlOutput::from(self.0))
     }
 }
 
 impl FromSql for RowId {
-    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
         value.as_i64().map(RowId)
     }
 }
@@ -76,31 +76,29 @@ pub struct PageInfo {
 }
 
 impl PageInfo {
-    pub fn from_row(row: &Row) -> Result<Self> {
+    pub fn from_row(row: &Row<'_>) -> Result<Self> {
         Ok(Self {
-            url: Url::parse(&row.get_checked::<_, String>("url")?)?,
-            guid: row.get_checked::<_, String>("guid")?.into(),
-            row_id: row.get_checked("id")?,
-            title: row
-                .get_checked::<_, Option<String>>("title")?
-                .unwrap_or_default(),
-            hidden: row.get_checked("hidden")?,
-            typed: row.get_checked("typed")?,
+            url: Url::parse(&row.get::<_, String>("url")?)?,
+            guid: row.get::<_, String>("guid")?.into(),
+            row_id: row.get("id")?,
+            title: row.get::<_, Option<String>>("title")?.unwrap_or_default(),
+            hidden: row.get("hidden")?,
+            typed: row.get("typed")?,
 
-            frecency: row.get_checked("frecency")?,
-            visit_count_local: row.get_checked("visit_count_local")?,
-            visit_count_remote: row.get_checked("visit_count_remote")?,
+            frecency: row.get("frecency")?,
+            visit_count_local: row.get("visit_count_local")?,
+            visit_count_remote: row.get("visit_count_remote")?,
 
             last_visit_date_local: row
-                .get_checked::<_, Option<Timestamp>>("last_visit_date_local")?
+                .get::<_, Option<Timestamp>>("last_visit_date_local")?
                 .unwrap_or_default(),
             last_visit_date_remote: row
-                .get_checked::<_, Option<Timestamp>>("last_visit_date_remote")?
+                .get::<_, Option<Timestamp>>("last_visit_date_remote")?
                 .unwrap_or_default(),
 
-            sync_status: SyncStatus::from_u8(row.get_checked::<_, u8>("sync_status")?),
+            sync_status: SyncStatus::from_u8(row.get::<_, u8>("sync_status")?),
             sync_change_counter: row
-                .get_checked::<_, Option<u32>>("sync_change_counter")?
+                .get::<_, Option<u32>>("sync_change_counter")?
                 .unwrap_or_default(),
         })
     }
@@ -116,10 +114,10 @@ struct FetchedPageInfo {
 }
 
 impl FetchedPageInfo {
-    pub fn from_row(row: &Row) -> Result<Self> {
+    pub fn from_row(row: &Row<'_>) -> Result<Self> {
         Ok(Self {
             page: PageInfo::from_row(row)?,
-            last_visit_id: row.get_checked::<_, Option<RowId>>("last_visit_id")?,
+            last_visit_id: row.get::<_, Option<RowId>>("last_visit_id")?,
         })
     }
 }
@@ -176,16 +174,16 @@ fn new_page_info(db: &PlacesDb, url: &Url, new_guid: Option<SyncGuid>) -> Result
 }
 
 impl HistoryVisitInfo {
-    pub(crate) fn from_row(row: &rusqlite::Row) -> Result<Self> {
-        let visit_type = VisitTransition::from_primitive(row.get_checked::<_, u8>("visit_type")?)
+    pub(crate) fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
+        let visit_type = VisitTransition::from_primitive(row.get::<_, u8>("visit_type")?)
             // Do we have an existing error we use for this? For now they
             // probably don't care too much about VisitTransition, so this
             // is fine.
             .unwrap_or(VisitTransition::Link);
-        let visit_date: Timestamp = row.get_checked("visit_date")?;
+        let visit_date: Timestamp = row.get("visit_date")?;
         Ok(Self {
-            url: row.get_checked("url")?,
-            title: row.get_checked("title")?,
+            url: row.get("url")?,
+            title: row.get("title")?,
             timestamp: visit_date.0 as i64,
             visit_type: visit_type as i32,
         })
@@ -197,7 +195,7 @@ pub fn run_maintenance(conn: &PlacesDb) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn put_meta(db: &PlacesDb, key: &str, value: &ToSql) -> Result<()> {
+pub(crate) fn put_meta(db: &PlacesDb, key: &str, value: &dyn ToSql) -> Result<()> {
     db.execute_named_cached(
         "REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
         &[(":key", &key), (":value", value)],

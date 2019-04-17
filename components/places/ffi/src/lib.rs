@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #![allow(unknown_lints)]
+#![warn(rust_2018_idioms)]
 // Let's allow these in the FFI code, since it's usually just a coincidence if
 // the closure is small.
 #![allow(clippy::redundant_closure)]
@@ -331,7 +332,31 @@ pub extern "C" fn sync15_history_sync(
     log::debug!("sync15_history_sync");
     APIS.call_with_result(error, handle, |api| -> places::Result<_> {
         // Note that api.sync returns a SyncPing which we drop on the floor.
-        api.sync(
+        api.sync_history(
+            &sync15::Sync15StorageClientInit {
+                key_id: key_id.into_string(),
+                access_token: access_token.into_string(),
+                tokenserver_url: parse_url(tokenserver_url.as_str())?,
+            },
+            &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
+        )?;
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn sync15_bookmarks_sync(
+    handle: u64,
+    key_id: FfiStr<'_>,
+    access_token: FfiStr<'_>,
+    sync_key: FfiStr<'_>,
+    tokenserver_url: FfiStr<'_>,
+    error: &mut ExternError,
+) {
+    log::debug!("sync15_bookmarks_sync");
+    APIS.call_with_result(error, handle, |api| -> places::Result<_> {
+        // Note that api.sync returns a SyncPing which we drop on the floor.
+        api.sync_bookmarks(
             &sync15::Sync15StorageClientInit {
                 key_id: key_id.into_string(),
                 access_token: access_token.into_string(),

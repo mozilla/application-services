@@ -285,6 +285,7 @@ def linux_cross_compile_build_task(name):
             # Rust requires dsymutil on the PATH: https://github.com/rust-lang/rust/issues/52728.
             export PATH=$PATH:/tmp/clang/bin
 
+            export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_NSS_DIR=/build/repo/libs/desktop/darwin/nss
             export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_SQLCIPHER_LIB_DIR=/build/repo/libs/desktop/darwin/sqlcipher/lib
             export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_OPENSSL_DIR=/build/repo/libs/desktop/darwin/openssl
             export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_CC=/tmp/clang/bin/clang

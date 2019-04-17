@@ -160,7 +160,7 @@ impl Storage for PushDb {
         self.query_rows_and_then_named(
             "SELECT channel_id FROM push_record WHERE uaid = :uaid",
             &[(":uaid", &uaid)],
-            |row| -> Result<String> { Ok(row.get_checked(0)?) },
+            |row| -> Result<String> { Ok(row.get(0)?) },
         )
     }
 

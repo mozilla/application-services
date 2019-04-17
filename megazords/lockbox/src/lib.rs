@@ -3,8 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #![allow(unknown_lints)]
+#![warn(rust_2018_idioms)]
 
-pub extern crate fxaclient_ffi;
-pub extern crate logins_ffi;
-pub extern crate rc_log_ffi;
-pub extern crate viaduct;
+pub use fxaclient_ffi;
+pub use logins_ffi;
+pub use rc_log_ffi;
+pub use viaduct;

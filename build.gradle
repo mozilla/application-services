@@ -232,6 +232,7 @@ ext.cargoExec = { spec, toolchain ->
     // downloaded libs.
     def libsRootDir = (System.getenv('CI') || ext.libsGitSha == null) ? rootProject.rootDir : rootProject.buildDir
 
+    spec.environment("NSS_DIR",               new File(libsRootDir, "libs/${toolchain.folder}/nss").absolutePath)
     spec.environment("OPENSSL_DIR",           new File(libsRootDir, "libs/${toolchain.folder}/openssl").absolutePath)
     spec.environment("SQLCIPHER_LIB_DIR",     new File(libsRootDir, "libs/${toolchain.folder}/sqlcipher/lib").absolutePath)
     spec.environment("SQLCIPHER_INCLUDE_DIR", new File(libsRootDir, "libs/${toolchain.folder}/sqlcipher/include").absolutePath)

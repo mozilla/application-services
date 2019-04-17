@@ -116,7 +116,7 @@ struct TokenContext {
 
 // hawk::Credentials doesn't implement debug -_-
 impl fmt::Debug for TokenContext {
-    fn fmt(&self, f: &mut fmt::Formatter) -> ::std::result::Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> ::std::result::Result<(), fmt::Error> {
         f.debug_struct("TokenContext")
             .field("token", &self.token)
             .field("credentials", &"(omitted)")

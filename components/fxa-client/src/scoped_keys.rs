@@ -19,7 +19,7 @@ pub struct ScopedKeysFlow {
 /// In the past, we chose cjose to do that job, but it added three C dependencies to build and link
 /// against: jansson, openssl and cjose itself.
 impl ScopedKeysFlow {
-    pub fn with_random_key(rng: &SecureRandom) -> Result<ScopedKeysFlow> {
+    pub fn with_random_key(rng: &dyn SecureRandom) -> Result<ScopedKeysFlow> {
         let private_key = EphemeralPrivateKey::generate(&agreement::ECDH_P256, rng)
             .map_err(|_| ErrorKind::KeyGenerationFailed)?;
         Ok(ScopedKeysFlow { private_key })
