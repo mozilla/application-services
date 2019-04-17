@@ -52,12 +52,18 @@ struct TokenServerFetcher {
 }
 
 impl TokenServerFetcher {
-    fn new(server_url: Url, access_token: String, key_id: String) -> TokenServerFetcher {
-        TokenServerFetcher {
+    fn new(base_url: Url, access_token: String, key_id: String) -> Result<TokenServerFetcher> {
+        // base_url is the end-point as returned by .well-known/fxa-client-configuration,
+        // or as directly specified by self-hosters. As a result, it doesn't have
+        // the sync 1.5 suffix of "/1.0/sync/1.5" - so add it on here.
+        // (Note that base_url must end in a slash, or the last path element in
+        // the base url will be replaced with this suffix.)
+        let server_url = base_url.join("1.0/sync/1.5")?;
+        Ok(TokenServerFetcher {
             server_url,
             access_token,
             key_id,
-        }
+        })
     }
 }
 
@@ -365,11 +371,11 @@ pub struct TokenProvider {
 }
 
 impl TokenProvider {
-    pub fn new(url: Url, access_token: String, key_id: String) -> Self {
-        let fetcher = TokenServerFetcher::new(url, access_token, key_id);
-        Self {
+    pub fn new(url: Url, access_token: String, key_id: String) -> Result<Self> {
+        let fetcher = TokenServerFetcher::new(url, access_token, key_id)?;
+        Ok(Self {
             imp: TokenProviderImpl::new(fetcher),
-        }
+        })
     }
 
     pub fn hashed_uid(&self) -> Result<String> {

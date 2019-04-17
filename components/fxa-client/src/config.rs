@@ -129,7 +129,7 @@ impl Config {
             auth_url: format!("{}/", resp.auth_server_base_url),
             oauth_url: format!("{}/", resp.oauth_server_base_url),
             profile_url: format!("{}/", resp.profile_server_base_url),
-            token_server_endpoint_url: format!("{}/1.0/sync/1.5", resp.sync_tokenserver_base_url),
+            token_server_endpoint_url: format!("{}/", resp.sync_tokenserver_base_url),
             authorization_endpoint: openid_resp.authorization_endpoint,
             issuer: openid_resp.issuer,
             jwks_uri: openid_resp.jwks_uri,
