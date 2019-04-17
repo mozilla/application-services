@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use ffi_support::implement_into_ffi_by_pointer;
-use interrupt::{Interruptable, Interruptee};
+use interrupt::Interruptee;
 use rusqlite::InterruptHandle;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -30,10 +30,8 @@ impl SqlInterruptHandle {
             interrupt_counter,
         }
     }
-}
 
-impl Interruptable for SqlInterruptHandle {
-    fn interrupt(&self) {
+    pub fn interrupt(&self) {
         self.interrupt_counter.fetch_add(1, Ordering::SeqCst);
         self.db_handle.interrupt();
     }

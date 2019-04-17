@@ -249,7 +249,6 @@ where
 #[cfg(not(windows))]
 mod autocomplete {
     use super::*;
-    use interrupt::Interruptable;
     use places::api::matcher::{search_frecent, SearchParams, SearchResult};
     use places::ErrorKind;
     use rusqlite::{Error as RusqlError, ErrorCode};

@@ -11,7 +11,6 @@ use ffi_support::{
     define_box_destructor, define_bytebuffer_destructor, define_handle_map_deleter,
     define_string_destructor, ByteBuffer, ConcurrentHandleMap, ExternError, FfiStr,
 };
-use interrupt::Interruptable;
 use places::error::*;
 use places::msg_types::BookmarkNodeList;
 use places::storage::bookmarks;

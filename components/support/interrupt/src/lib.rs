@@ -6,18 +6,13 @@
 
 use failure::Fail;
 
-/// Something that is interruptable. In practice, this will almost certainly
-/// be Sync + Send, as it will typically be created on one thread, but
-/// `.interrupt()` will be called from a different thread. However,
-/// Sync + Send semantics aren't mandated here.
-pub trait Interruptable {
-    /// Take some action when interrupted.
-    fn interrupt(&self);
-}
+// Note that in the future it might make sense to also add a trait for
+// an Interruptable, but we don't need this abstraction now and it's unclear
+// if we ever will.
 
 /// Represents the state of something that may be interrupted. Decoupled from
-/// Interruptable so that things which want to check if they have been
-/// interrupted don't need to know about the interrupt mechanics.
+/// the interrupt mechanics so that things which want to check if they have been
+/// interrupted are simpler.
 pub trait Interruptee {
     fn was_interrupted(&self) -> bool;
 

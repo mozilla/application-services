@@ -15,7 +15,6 @@ use places::types::{BookmarkType, SyncGuid, Timestamp};
 use places::{ConnectionType, PlacesApi, PlacesDb};
 
 use failure::Fail;
-use interrupt::Interruptable;
 use serde_derive::*;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
