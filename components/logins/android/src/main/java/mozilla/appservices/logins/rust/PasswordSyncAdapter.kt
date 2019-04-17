@@ -9,6 +9,7 @@ import android.util.Log
 import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
+import com.sun.jna.PointerType
 import java.lang.reflect.Proxy
 
 @Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooManyFunctions", "TooGenericExceptionThrown")
@@ -89,6 +90,12 @@ internal interface PasswordSyncAdapter : Library {
     fun sync15_passwords_update(handle: LoginsDbHandle, existing_login_json: String, error: RustError.ByReference)
 
     fun sync15_passwords_destroy_string(p: Pointer)
+
+    fun sync15_passwords_new_interrupt_handle(handle: LoginsDbHandle, error: RustError.ByReference): RawLoginsInterruptHandle?
+    fun sync15_passwords_interrupt(handle: RawLoginsInterruptHandle, error: RustError.ByReference)
+    fun sync15_passwords_interrupt_handle_destroy(handle: RawLoginsInterruptHandle)
 }
 
 internal typealias LoginsDbHandle = Long
+
+internal class RawLoginsInterruptHandle : PointerType()

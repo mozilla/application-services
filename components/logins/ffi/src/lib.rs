@@ -9,7 +9,9 @@
 #![allow(clippy::redundant_closure)]
 
 use ffi_support::ConcurrentHandleMap;
-use ffi_support::{define_handle_map_deleter, define_string_destructor, ExternError, FfiStr};
+use ffi_support::{
+    define_box_destructor, define_handle_map_deleter, define_string_destructor, ExternError, FfiStr,
+};
 use logins::{Login, PasswordEngine, Result};
 use std::os::raw::c_char;
 use sync15::telemetry;
@@ -166,6 +168,24 @@ pub extern "C" fn sync15_passwords_reset(handle: u64, error: &mut ExternError) {
 }
 
 #[no_mangle]
+pub extern "C" fn sync15_passwords_new_interrupt_handle(
+    handle: u64,
+    error: &mut ExternError,
+) -> *mut sql_support::SqlInterruptHandle {
+    log::debug!("sync15_passwords_new_interrupt_handle");
+    ENGINES.call_with_output(error, handle, |state| state.new_interrupt_handle())
+}
+
+#[no_mangle]
+pub extern "C" fn sync15_passwords_interrupt(
+    handle: &sql_support::SqlInterruptHandle,
+    error: &mut ExternError,
+) {
+    log::debug!("sync15_passwords_interrupt");
+    ffi_support::call_with_output(error, || handle.interrupt())
+}
+
+#[no_mangle]
 pub extern "C" fn sync15_passwords_get_all(handle: u64, error: &mut ExternError) -> *mut c_char {
     log::debug!("sync15_passwords_get_all");
     ENGINES.call_with_result(error, handle, |state| -> Result<String> {
@@ -218,3 +238,7 @@ pub extern "C" fn sync15_passwords_update(
 
 define_string_destructor!(sync15_passwords_destroy_string);
 define_handle_map_deleter!(ENGINES, sync15_passwords_state_destroy);
+define_box_destructor!(
+    sql_support::SqlInterruptHandle,
+    sync15_passwords_interrupt_handle_destroy
+);

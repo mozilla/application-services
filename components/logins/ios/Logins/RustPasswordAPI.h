@@ -15,6 +15,7 @@ typedef enum Sync15PasswordsErrorCode {
     Sync15Passwords_InvalidLogin     = 4,
     Sync15Passwords_InvalidKeyError  = 5,
     Sync15Passwords_NetworkError     = 6,
+    Sync15Passwords_InterruptedError = 7,
 } Sync15PasswordsErrorCode;
 
 typedef struct Sync15PasswordsError {
@@ -23,6 +24,8 @@ typedef struct Sync15PasswordsError {
 } Sync15PasswordsError;
 
 typedef uint64_t Sync15PasswordEngineHandle;
+
+typedef struct Sync15PasswordsInterruptHandle Sync15PasswordsInterruptHandle;
 
 Sync15PasswordEngineHandle sync15_passwords_state_new(char const *_Nonnull db_path,
                                                       char const *_Nonnull encryption_key,
@@ -83,3 +86,12 @@ void sync15_passwords_update(Sync15PasswordEngineHandle handle,
                              Sync15PasswordsError *_Nonnull error);
 
 void sync15_passwords_destroy_string(char const *_Nonnull str);
+
+Sync15PasswordsInterruptHandle *_Nullable
+sync15_passwords_new_interrupt_handle(Sync15PasswordEngineHandle handle,
+                                      Sync15PasswordsError *_Nonnull error);
+
+void sync15_passwords_interrupt(Sync15PasswordsInterruptHandle *_Nonnull handle,
+                                Sync15PasswordsError *_Nonnull error);
+
+void sync15_passwords_interrupt_handle_destroy(Sync15PasswordsInterruptHandle *_Nonnull handle);

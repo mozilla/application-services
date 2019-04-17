@@ -42,6 +42,10 @@ public enum LoginsStoreError: Error {
     /// This error is emitted if a request to a sync server failed.
     case Network(message: String)
 
+    /// This error is emitted if a call to `interrupt()` is made to
+    /// abort some operation.
+    case interrupted(message: String)
+
     // The name is attempting to indicate that we free rustError.message if it
     // existed, and that it's a very bad idea to touch it after you call this
     // function
@@ -75,6 +79,9 @@ public enum LoginsStoreError: Error {
 
         case Sync15Passwords_NetworkError:
             return .Network(message: String(freeingRustString: message!))
+
+        case Sync15Passwords_InterruptedError:
+            return .interrupted(message: String(freeingRustString: message!))
 
         default:
             return .Unspecified(message: String(freeingRustString: message!))

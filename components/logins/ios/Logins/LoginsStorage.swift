@@ -10,6 +10,11 @@ fileprivate let queue = DispatchQueue(label: "com.mozilla.logins-storage")
 open class LoginsStorage {
     private var raw: UInt64 = 0
     let dbPath: String
+    private var interrupt_handle: LoginsInterruptHandle?
+    // It's not 100% clear to me that this is necessary, but without it
+    // we might have a data race between reading `interrupt_handle` in
+    // `interrupt()`, and writing it in `doDestroy` (or `doOpen`)
+    private let interrupt_handle_lock: NSLock = NSLock()
 
     public init(databasePath: String) {
         self.dbPath = databasePath
@@ -29,6 +34,9 @@ open class LoginsStorage {
             try! LoginsStoreError.unwrap({ err in
                 sync15_passwords_state_destroy(raw, err)
             })
+            self.interrupt_handle_lock.lock()
+            self.interrupt_handle = nil
+            self.interrupt_handle_lock.unlock()
         }
     }
 
@@ -56,6 +64,29 @@ open class LoginsStorage {
         return self.raw
     }
 
+    private func doOpen(_ key: String) throws {
+        if self.raw != 0 {
+            return
+        }
+
+        self.raw = try LoginsStoreError.unwrap({ err in
+            sync15_passwords_state_new(self.dbPath, key, err)
+        })
+
+        do {
+            self.interrupt_handle_lock.lock()
+            defer { self.interrupt_handle_lock.unlock() }
+            self.interrupt_handle = LoginsInterruptHandle(ptr: try LoginsStoreError.unwrap({err in
+                sync15_passwords_new_interrupt_handle(self.raw, err)
+            }))
+        } catch let e {
+            // This should only happen on panic, but make sure we don't
+            // leak a database in that case.
+            self.doDestroy()
+            throw e
+        }
+    }
+
     /// Unlock the database.
     ///
     /// Throws `LockError.mismatched` if the database is already unlocked.
@@ -67,9 +98,7 @@ open class LoginsStorage {
             if self.raw != 0 {
                 throw LockError.mismatched
             }
-            self.raw = try LoginsStoreError.unwrap({ err in
-                sync15_passwords_state_new(self.dbPath, key, err)
-            })
+            try self.doOpen(key)
         })
     }
 
@@ -77,9 +106,7 @@ open class LoginsStorage {
     /// database is already unlocked.
     open func ensureUnlocked(withEncryptionKey key: String) throws {
         try queue.sync(execute: {
-            self.raw = try LoginsStoreError.unwrap({ err in
-                sync15_passwords_state_new(self.dbPath, key, err)
-            })
+            try self.doOpen(key)
         })
     }
 
@@ -230,5 +257,39 @@ open class LoginsStorage {
         })
     }
 
+    /// Interrupt a pending operation on another thread, causing it to fail with
+    /// `LoginsStoreError.interrupted`.
+    ///
+    /// This is done on a best-effort basis, and may not work for all APIs, and even
+    /// for APIs that support it, it may fail to respect the call to `interrupt()`.
+    ///
+    /// (In practice, it should, but we might miss it if you call after we "finish" the work).
+    ///
+    /// Throws: `LoginsStoreError.Panic` if the rust code panics (please report this to us if it happens).
+    open func interrupt() throws {
+        self.interrupt_handle_lock.lock()
+        defer { self.interrupt_handle_lock.unlock() }
+        // We don't throw mismatch in the case where `self.interrupt_handle` is nil,
+        // because that would require users perform external synchronization.
+        if let h = self.interrupt_handle {
+            try h.interrupt()
+        }
+    }
 }
 
+fileprivate class LoginsInterruptHandle {
+    let ptr: OpaquePointer
+    init(ptr: OpaquePointer) {
+        self.ptr = ptr
+    }
+
+    deinit {
+        sync15_passwords_interrupt_handle_destroy(self.ptr)
+    }
+
+    func interrupt() throws {
+        try LoginsStoreError.tryUnwrap { error in
+            sync15_passwords_interrupt(self.ptr, error)
+        }
+    }
+}

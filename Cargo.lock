@@ -1135,6 +1135,7 @@ dependencies = [
  "logins 0.1.0",
  "rusqlite 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sql-support 0.1.0",
  "sync15 0.1.0",
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "viaduct 0.1.0",
