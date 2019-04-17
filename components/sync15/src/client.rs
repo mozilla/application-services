@@ -174,7 +174,7 @@ impl Sync15StorageClient {
             init_params.tokenserver_url,
             init_params.access_token,
             init_params.key_id,
-        );
+        )?;
         Ok(Sync15StorageClient { tsc })
     }
 
