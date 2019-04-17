@@ -10,7 +10,6 @@ use crate::{
     Config,
 };
 use hawk_request::HawkRequestBuilder;
-use reqwest::{Client as ReqwestClient, Method, Url};
 use ring::{digest, hkdf, hmac};
 #[cfg(feature = "browserid")]
 use rsa::RSABrowserIDKeyPair;

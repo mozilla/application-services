@@ -3,11 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{config::Config, errors::*};
-use browser_id::{derive_key_from_session_token, hawk_request::HAWKRequestBuilder};
-use reqwest::{self, header, Client as ReqwestClient, Method, Request, Response, StatusCode};
+use browser_id::{derive_key_from_session_token, hawk_request::HawkRequestBuilder};
 use serde_derive::*;
 use serde_json::json;
-use viaduct::{header_names, status_codes, Request, Response};
+use viaduct::{header_names, status_codes, Request, Response, Method};
 use std::collections::HashMap;
 
 pub(crate) mod browser_id;
@@ -119,7 +118,7 @@ impl FxAClient for Client {
             "response_type": "token",
             "access_type": "offline",
         });
-        let request = HAWKRequestBuilder::new(Method::POST, url, &key)
+        let request = HawkRequestBuilder::new(Method::Post, url, &key)
             .body(body)
             .build()?;
         Ok(Self::make_request(request)?.json()?)
@@ -146,7 +145,7 @@ impl FxAClient for Client {
         });
         let url = config.auth_url_path("v1/account/scoped-key-data")?;
         let key = derive_key_from_session_token(session_token)?;
-        let request = HAWKRequestBuilder::new(Method::POST, url, &key)
+        let request = HawkRequestBuilder::new(Method::Post, url, &key)
             .body(body)
             .build()?;
         Self::make_request(request)?.json().map_err(|e| e.into())

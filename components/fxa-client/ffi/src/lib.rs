@@ -209,16 +209,16 @@ pub extern "C" fn fxa_complete_oauth_flow(
 #[no_mangle]
 pub unsafe extern "C" fn fxa_migrate_from_session_token(
     handle: u64,
-    session_token: *const c_char,
-    k_sync: *const c_char,
-    k_xcs: *const c_char,
+    session_token: FfiStr<'_>,
+    k_sync: FfiStr<'_>,
+    k_xcs: FfiStr<'_>,
     error: &mut ExternError,
 ) {
     log::debug!("fxa_migrate_from_session_token");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
-        let session_token = rust_str_from_c(session_token);
-        let k_sync = rust_str_from_c(k_sync);
-        let k_xcs = rust_str_from_c(k_xcs);
+        let session_token = session_token.as_str();
+        let k_sync = k_sync.as_str();
+        let k_xcs = k_xcs.as_str();
         fxa.migrate_from_session_token(session_token, k_sync, k_xcs)
     });
 }
