@@ -250,8 +250,9 @@ where
 mod autocomplete {
     use super::*;
     use places::api::matcher::{search_frecent, SearchParams, SearchResult};
-    use places::{ErrorKind, PlacesInterruptHandle};
+    use places::ErrorKind;
     use rusqlite::{Error as RusqlError, ErrorCode};
+    use sql_support::SqlInterruptHandle;
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         mpsc, Arc,
@@ -307,7 +308,7 @@ mod autocomplete {
         // Thread handle for the BG thread. We can't drop this without problems so we
         // prefix with _ to shut rust up about it being unused.
         _handle: thread::JoinHandle<Result<()>>,
-        interrupt_handle: PlacesInterruptHandle,
+        interrupt_handle: SqlInterruptHandle,
     }
 
     impl BackgroundAutocomplete {
@@ -348,7 +349,7 @@ mod autocomplete {
                             }
                             Err(e) => {
                                 match e.kind() {
-                                    ErrorKind::InterruptedError => {
+                                    ErrorKind::InterruptedError(_) => {
                                         // Ignore.
                                     }
                                     ErrorKind::SqlError(RusqlError::SqliteFailure(err, _))

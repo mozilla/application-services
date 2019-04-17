@@ -16,7 +16,8 @@ use places::error::*;
 use places::msg_types::BookmarkNodeList;
 use places::storage::bookmarks;
 use places::types::SyncGuid;
-use places::{db::PlacesInterruptHandle, storage, ConnectionType, PlacesApi, PlacesDb};
+use places::{storage, ConnectionType, PlacesApi, PlacesDb};
+use sql_support::SqlInterruptHandle;
 use std::os::raw::c_char;
 use std::sync::Arc;
 
@@ -113,12 +114,12 @@ pub extern "C" fn places_api_return_write_conn(
 pub extern "C" fn places_new_interrupt_handle(
     handle: u64,
     error: &mut ExternError,
-) -> *mut PlacesInterruptHandle {
+) -> *mut SqlInterruptHandle {
     CONNECTIONS.call_with_output(error, handle, |conn| conn.new_interrupt_handle())
 }
 
 #[no_mangle]
-pub extern "C" fn places_interrupt(handle: &PlacesInterruptHandle, error: &mut ExternError) {
+pub extern "C" fn places_interrupt(handle: &SqlInterruptHandle, error: &mut ExternError) {
     ffi_support::call_with_output(error, || handle.interrupt())
 }
 
@@ -488,4 +489,4 @@ define_bytebuffer_destructor!(places_destroy_bytebuffer);
 define_handle_map_deleter!(APIS, places_api_destroy);
 
 define_handle_map_deleter!(CONNECTIONS, places_connection_destroy);
-define_box_destructor!(PlacesInterruptHandle, places_interrupt_handle_destroy);
+define_box_destructor!(SqlInterruptHandle, places_interrupt_handle_destroy);

@@ -11,6 +11,7 @@ use crate::key_bundle::KeyBundle;
 use crate::state::{GlobalState, PersistedGlobalState, SetupStateMachine};
 use crate::sync::{self, Store};
 use crate::telemetry;
+use interrupt::Interruptee;
 use std::collections::HashMap;
 use std::mem;
 use std::result;
@@ -58,7 +59,9 @@ pub fn sync_multiple(
     storage_init: &Sync15StorageClientInit,
     root_sync_key: &KeyBundle,
     sync_ping: &mut telemetry::SyncTelemetryPing,
+    interruptee: &impl Interruptee,
 ) -> result::Result<HashMap<String, Error>, Error> {
+    interruptee.err_if_interrupted()?;
     let mut pgs = match persisted_global_state {
         Some(persisted_string) => {
             match serde_json::from_str::<PersistedGlobalState>(&persisted_string) {
@@ -99,13 +102,18 @@ pub fn sync_multiple(
             client: Sync15StorageClient::new(storage_init.clone())?,
         },
     };
+    interruptee.err_if_interrupted()?;
 
     // Advance the state machine to the point where it can perform a full
     // sync. This may involve uploading meta/global, crypto/keys etc.
     let global_state = {
         let last_state = mem::replace(&mut mem_cached_state.last_global_state, None);
-        let mut state_machine =
-            SetupStateMachine::for_full_sync(&client_info.client, &root_sync_key, &mut pgs);
+        let mut state_machine = SetupStateMachine::for_full_sync(
+            &client_info.client,
+            &root_sync_key,
+            &mut pgs,
+            interruptee,
+        );
         log::info!("Advancing state machine to ready (full)");
         let state = state_machine.run_to_ready(last_state)?;
         // The state machine might have updated our persisted_global_state, so
@@ -130,6 +138,7 @@ pub fn sync_multiple(
             *store,
             true,
             &mut telem_engine,
+            interruptee,
         );
 
         match result {
@@ -147,6 +156,7 @@ pub fn sync_multiple(
             }
         }
         telem_sync.engine(telem_engine);
+        interruptee.err_if_interrupted()?;
     }
 
     sync_ping.sync(telem_sync);

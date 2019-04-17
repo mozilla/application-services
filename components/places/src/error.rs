@@ -2,12 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// XXX - more copy-pasta from logins.
-
 use crate::storage::bookmarks::BookmarkRootGuid;
 use crate::types::BookmarkType;
 use dogear;
 use failure::{Backtrace, Context, Fail};
+use interrupt::Interrupted;
 use std::boxed::Box;
 use std::{self, fmt};
 
@@ -90,12 +89,9 @@ pub enum ErrorKind {
     #[fail(display = "IO error: {}", _0)]
     IoError(#[fail(cause)] std::io::Error),
 
-    // Maybe we should try to fabricate a rusqlite::Error that looks like the
-    // interrupted error?
     #[fail(display = "Operation interrupted")]
-    InterruptedError,
-    // Maybe we should try to fabricate a rusqlite::Error that looks like the
-    // interrupted error?
+    InterruptedError(#[fail(cause)] Interrupted),
+
     #[fail(display = "Tried to close connection on wrong PlacesApi instance")]
     WrongApiForClose,
 
@@ -151,7 +147,8 @@ impl_from_error! {
     (Corruption, Corruption),
     (IoError, std::io::Error),
     (MergeError, dogear::Error),
-    (ProtobufDecodeError, prost::DecodeError)
+    (ProtobufDecodeError, prost::DecodeError),
+    (InterruptedError, Interrupted)
 }
 
 #[derive(Debug, Fail)]

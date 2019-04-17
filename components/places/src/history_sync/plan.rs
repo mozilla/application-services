@@ -13,6 +13,7 @@ use crate::storage::history::history_sync::{
 };
 use crate::types::{SyncGuid, Timestamp, VisitTransition};
 use crate::valid_guid::is_valid_places_guid;
+use interrupt::Interruptee;
 use serde_json;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -169,10 +170,12 @@ pub fn apply_plan(
     db: &PlacesDb,
     inbound: IncomingChangeset,
     telem: &mut telemetry::EngineIncoming,
+    interruptee: &impl Interruptee,
 ) -> Result<OutgoingChangeset> {
     // for a first-cut, let's do this in the most naive way possible...
     let mut plans: Vec<(SyncGuid, IncomingPlan)> = Vec::with_capacity(inbound.changes.len());
     for incoming in inbound.changes {
+        interruptee.err_if_interrupted()?;
         let item = match HistorySyncRecord::from_payload(incoming.0) {
             Ok(item) => item,
             Err(e) => {
@@ -195,6 +198,7 @@ pub fn apply_plan(
 
     let mut outgoing = OutgoingChangeset::new("history".into(), inbound.timestamp);
     for (guid, plan) in plans {
+        interruptee.err_if_interrupted()?;
         tx.maybe_commit()?;
         match &plan {
             IncomingPlan::Skip => {
@@ -282,6 +286,7 @@ mod tests {
     use crate::storage::history::history_sync::fetch_visits;
     use crate::storage::history::{apply_observation, delete_place_by_guid, url_to_guid};
     use crate::types::{SyncStatus, Timestamp};
+    use interrupt::NeverInterrupts;
     use serde_json::json;
     use sql_support::ConnExt;
     use std::time::Duration;
@@ -495,7 +500,12 @@ mod tests {
         }))?;
         incoming.changes.push((payload2, ServerTimestamp(0f64)));
 
-        let outgoing = apply_plan(&db, incoming, &mut telemetry::EngineIncoming::new())?;
+        let outgoing = apply_plan(
+            &db,
+            incoming,
+            &mut telemetry::EngineIncoming::new(),
+            &NeverInterrupts,
+        )?;
         assert_eq!(
             outgoing.changes.len(),
             1,
@@ -556,7 +566,12 @@ mod tests {
         }))?;
         incoming.changes.push((payload2, ServerTimestamp(0f64)));
 
-        let outgoing = apply_plan(&db, incoming, &mut telemetry::EngineIncoming::new())?;
+        let outgoing = apply_plan(
+            &db,
+            incoming,
+            &mut telemetry::EngineIncoming::new(),
+            &NeverInterrupts,
+        )?;
         assert_eq!(outgoing.changes.len(), 1, "should have guid1 as outgoing");
         assert_eq!(outgoing.changes[0].id, guid1.as_ref());
 
@@ -613,7 +628,12 @@ mod tests {
         }))?;
         incoming.changes.push((payload2, ServerTimestamp(0f64)));
 
-        let outgoing = apply_plan(&db, incoming, &mut telemetry::EngineIncoming::new())?;
+        let outgoing = apply_plan(
+            &db,
+            incoming,
+            &mut telemetry::EngineIncoming::new(),
+            &NeverInterrupts,
+        )?;
         assert_eq!(
             outgoing.changes.len(),
             1,
@@ -644,7 +664,12 @@ mod tests {
         result.changes.push((payload, ServerTimestamp(0f64)));
 
         let db = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
-        let outgoing = apply_plan(&db, result, &mut telemetry::EngineIncoming::new())?;
+        let outgoing = apply_plan(
+            &db,
+            result,
+            &mut telemetry::EngineIncoming::new(),
+            &NeverInterrupts,
+        )?;
         assert_eq!(outgoing.changes.len(), 0, "nothing outgoing");
 
         let now: Timestamp = SystemTime::now().into();
@@ -674,7 +699,12 @@ mod tests {
         result.changes.push((payload, ServerTimestamp(0f64)));
 
         let db = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
-        let outgoing = apply_plan(&db, result, &mut telemetry::EngineIncoming::new())?;
+        let outgoing = apply_plan(
+            &db,
+            result,
+            &mut telemetry::EngineIncoming::new(),
+            &NeverInterrupts,
+        )?;
         assert_eq!(outgoing.changes.len(), 0, "should skip the invalid entry");
         Ok(())
     }
@@ -721,7 +751,12 @@ mod tests {
         result.changes.push((payload, ServerTimestamp(0f64)));
 
         let db = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
-        let outgoing = apply_plan(&db, result, &mut telemetry::EngineIncoming::new())?;
+        let outgoing = apply_plan(
+            &db,
+            result,
+            &mut telemetry::EngineIncoming::new(),
+            &NeverInterrupts,
+        )?;
 
         // should have applied it locally.
         let (page, visits) =
@@ -762,7 +797,12 @@ mod tests {
         apply_observation(&db, obs)?;
 
         let incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
-        let outgoing = apply_plan(&db, incoming, &mut telemetry::EngineIncoming::new())?;
+        let outgoing = apply_plan(
+            &db,
+            incoming,
+            &mut telemetry::EngineIncoming::new(),
+            &NeverInterrupts,
+        )?;
 
         assert_eq!(outgoing.changes.len(), 1);
         Ok(())
@@ -799,7 +839,12 @@ mod tests {
         let payload = Payload::from_json(json).unwrap();
         incoming.changes.push((payload, ServerTimestamp(0f64)));
 
-        apply_plan(&db, incoming, &mut telemetry::EngineIncoming::new())?;
+        apply_plan(
+            &db,
+            incoming,
+            &mut telemetry::EngineIncoming::new(),
+            &NeverInterrupts,
+        )?;
 
         // should still have only 1 visit and it should still be local.
         let (_page, visits) = fetch_visits(&db, &url, 2)?.expect("page exists");
@@ -840,7 +885,12 @@ mod tests {
         let payload = Payload::from_json(json).unwrap();
         incoming.changes.push((payload, ServerTimestamp(0f64)));
 
-        let outgoing = apply_plan(&db, incoming, &mut telemetry::EngineIncoming::new())?;
+        let outgoing = apply_plan(
+            &db,
+            incoming,
+            &mut telemetry::EngineIncoming::new(),
+            &NeverInterrupts,
+        )?;
 
         // should now have both visits locally.
         let (_page, visits) = fetch_visits(&db, &url, 3)?.expect("page exists");
@@ -888,7 +938,12 @@ mod tests {
         let payload = Payload::from_json(json).unwrap();
         incoming.changes.push((payload, ServerTimestamp(0f64)));
 
-        let outgoing = apply_plan(&db, incoming, &mut telemetry::EngineIncoming::new())?;
+        let outgoing = apply_plan(
+            &db,
+            incoming,
+            &mut telemetry::EngineIncoming::new(),
+            &NeverInterrupts,
+        )?;
         assert_eq!(outgoing.changes.len(), 0, "should be nothing outgoing");
         assert_eq!(get_tombstone_count(&db), 0, "should be no tombstones");
         Ok(())
@@ -910,6 +965,7 @@ mod tests {
             &db,
             IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64)),
             &mut telemetry::EngineIncoming::new(),
+            &NeverInterrupts,
         )?;
         // It should have changed to normal but still have the initial counter.
         assert_eq!(get_sync(&db, &url), (SyncStatus::Normal, 1));
@@ -924,7 +980,12 @@ mod tests {
         let payload = Payload::from_json(json).unwrap();
         incoming.changes.push((payload, ServerTimestamp(0f64)));
 
-        let outgoing = apply_plan(&db, incoming, &mut telemetry::EngineIncoming::new())?;
+        let outgoing = apply_plan(
+            &db,
+            incoming,
+            &mut telemetry::EngineIncoming::new(),
+            &NeverInterrupts,
+        )?;
         assert_eq!(outgoing.changes.len(), 0, "should be nothing outgoing");
         Ok(())
     }
@@ -945,6 +1006,7 @@ mod tests {
             &db,
             IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64)),
             &mut telemetry::EngineIncoming::new(),
+            &NeverInterrupts,
         )?;
         // It should have changed to normal but still have the initial counter.
         assert_eq!(get_sync(&db, &url), (SyncStatus::Normal, 1));
@@ -959,6 +1021,7 @@ mod tests {
             &db,
             IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64)),
             &mut telemetry::EngineIncoming::new(),
+            &NeverInterrupts,
         )?;
         assert_eq!(outgoing.changes.len(), 1, "tombstone should be uploaded");
         finish_plan(&db)?;

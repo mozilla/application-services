@@ -8,6 +8,7 @@ use crate::error::*;
 use crate::storage::history::history_sync::reset_storage;
 use rusqlite::types::{FromSql, ToSql};
 use rusqlite::Connection;
+use sql_support::SqlInterruptScope;
 use std::ops::Deref;
 use std::result;
 use sync15::telemetry;
@@ -30,12 +31,13 @@ const COLLECTION_SYNCID_META_KEY: &str = "history_sync_id";
 // owns the connection and ClientInfo.
 pub struct HistoryStore<'a> {
     pub db: &'a PlacesDb,
+    interruptee: &'a SqlInterruptScope,
 }
 
 impl<'a> HistoryStore<'a> {
-    pub fn new(db: &'a PlacesDb) -> Self {
+    pub fn new(db: &'a PlacesDb, interruptee: &'a SqlInterruptScope) -> Self {
         assert_eq!(db.conn_type(), ConnectionType::Sync);
-        Self { db }
+        Self { db, interruptee }
     }
 
     fn put_meta(&self, key: &str, value: &dyn ToSql) -> Result<()> {
@@ -56,7 +58,7 @@ impl<'a> HistoryStore<'a> {
         incoming_telemetry: &mut telemetry::EngineIncoming,
     ) -> Result<OutgoingChangeset> {
         let timestamp = inbound.timestamp;
-        let outgoing = apply_plan(&self.db, inbound, incoming_telemetry)?;
+        let outgoing = apply_plan(&self.db, inbound, incoming_telemetry, self.interruptee)?;
         // write the timestamp now, so if we are interrupted creating outgoing
         // changesets we don't need to re-reconcile what we just did.
         self.put_meta(LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
@@ -144,6 +146,7 @@ impl<'a> HistoryStore<'a> {
             storage_init,
             root_sync_key,
             sync_ping,
+            self.interruptee,
         );
         let failures = result?;
         if failures.is_empty() {

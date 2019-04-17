@@ -258,7 +258,8 @@ impl PlacesApi {
         // bookmark sync too, to ensure the shared global state is correct.
         HistoryStore::migrate_v1_global_state(&conn)?;
 
-        let store = HistoryStore::new(&conn);
+        let interruptee = conn.begin_interrupt_scope();
+        let store = HistoryStore::new(&conn, &interruptee);
         let mut mem_cached_state = sync_state.mem_cached_state.take();
         let mut disk_cached_state = sync_state.disk_cached_state.take();
         let mut sync_ping = telemetry::SyncTelemetryPing::new();
@@ -300,7 +301,8 @@ impl PlacesApi {
         // bookmark sync too, to ensure the shared global state is correct.
         HistoryStore::migrate_v1_global_state(&conn)?;
 
-        let store = BookmarksStore::new(&conn);
+        let interruptee = conn.begin_interrupt_scope();
+        let store = BookmarksStore::new(&conn, &interruptee);
         let mut mem_cached_state = sync_state.mem_cached_state.take();
         let mut disk_cached_state = sync_state.disk_cached_state.take();
         let mut sync_ping = telemetry::SyncTelemetryPing::new();

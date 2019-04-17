@@ -4,6 +4,7 @@
 use crate::db::LoginDb;
 use crate::error::*;
 use crate::login::Login;
+use interrupt::NeverInterrupts;
 use std::cell::Cell;
 use std::path::Path;
 use sync15::{
@@ -106,6 +107,7 @@ impl PasswordEngine {
             storage_init,
             root_sync_key,
             sync_ping,
+            &NeverInterrupts,
         );
         // We always update the state - sync_multiple does the right thing
         // if it needs to be dropped (ie, they will be None or contain Nones etc)

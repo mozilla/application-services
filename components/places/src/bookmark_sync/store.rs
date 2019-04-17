@@ -17,8 +17,9 @@ use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
 use dogear::{
     self, Content, Deletion, IntoTree, Item, MergedDescendant, MergedRoot, Tree, UploadReason,
 };
+use interrupt::Interruptee;
 use rusqlite::{Row, NO_PARAMS};
-use sql_support::{self, ConnExt};
+use sql_support::{self, ConnExt, SqlInterruptScope};
 use std::collections::HashMap;
 use std::fmt;
 use std::result;
@@ -35,12 +36,13 @@ const COLLECTION_SYNCID_META_KEY: &str = "bookmarks_sync_id";
 
 pub struct BookmarksStore<'a> {
     pub db: &'a PlacesDb,
+    interruptee: &'a SqlInterruptScope,
 }
 
 impl<'a> BookmarksStore<'a> {
-    pub fn new(db: &'a PlacesDb) -> Self {
+    pub fn new(db: &'a PlacesDb, interruptee: &'a SqlInterruptScope) -> Self {
         assert_eq!(db.conn_type(), ConnectionType::Sync);
-        Self { db }
+        Self { db, interruptee }
     }
 
     fn stage_incoming(
@@ -57,6 +59,7 @@ impl<'a> BookmarksStore<'a> {
             applicator.apply_payload(incoming.0, incoming.1)?;
             incoming_telemetry.applied(1);
             tx.maybe_commit()?;
+            self.interruptee.err_if_interrupted()?;
         }
         tx.commit()?;
         Ok(timestamp)
@@ -119,6 +122,7 @@ impl<'a> BookmarksStore<'a> {
                 // parameters per descendant. Rust's `SliceConcatExt::concat`
                 // is semantically equivalent, but requires a second allocation,
                 // which we _can_ avoid by writing this out.
+                self.interruptee.err_if_interrupted()?;
                 let mut params = Vec::with_capacity(chunk.len() * 4);
                 for d in chunk.iter() {
                     params.push(
@@ -265,6 +269,7 @@ impl<'a> BookmarksStore<'a> {
         )?;
         let mut results = stmt.query(NO_PARAMS)?;
         while let Some(row) = results.next()? {
+            self.interruptee.err_if_interrupted()?;
             let local_parent_id = row.get::<_, i64>("parentId")?;
             let child_guid = row.get::<_, SyncGuid>("guid")?;
             let child_record_ids = child_record_ids_by_local_parent_id
@@ -276,6 +281,7 @@ impl<'a> BookmarksStore<'a> {
         let mut stmt = self.db.prepare("SELECT id, tag FROM tagsToUpload")?;
         let mut results = stmt.query(NO_PARAMS)?;
         while let Some(row) = results.next()? {
+            self.interruptee.err_if_interrupted()?;
             let local_id = row.get::<_, i64>("id")?;
             let tag = row.get::<_, String>("tag")?;
             let tags = tags_by_local_id.entry(local_id).or_default();
@@ -290,6 +296,7 @@ impl<'a> BookmarksStore<'a> {
         )?;
         let mut results = stmt.query(NO_PARAMS)?;
         while let Some(row) = results.next()? {
+            self.interruptee.err_if_interrupted()?;
             let guid = row.get::<_, SyncGuid>("guid")?;
             let is_deleted = row.get::<_, bool>("isDeleted")?;
             if is_deleted {
@@ -400,6 +407,7 @@ impl<'a> BookmarksStore<'a> {
                 chunk,
             )?;
             tx.maybe_commit()?;
+            self.interruptee.err_if_interrupted()?;
             Ok(())
         })?;
 
@@ -433,6 +441,7 @@ impl<'a> BookmarksStore<'a> {
             storage_init,
             root_sync_key,
             sync_ping,
+            self.interruptee,
         );
         let failures = result?;
         if failures.is_empty() {
@@ -1009,7 +1018,8 @@ mod tests {
 
     fn apply_incoming(conn: &PlacesDb, records_json: Value) {
         // suck records into the store.
-        let store = BookmarksStore::new(&conn);
+        let interrupt_scope = conn.begin_interrupt_scope();
+        let store = BookmarksStore::new(&conn, &interrupt_scope);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -1076,7 +1086,8 @@ mod tests {
         let conn = api.open_sync_connection()?;
 
         // suck records into the store.
-        let store = BookmarksStore::new(&conn);
+        let interrupt_scope = conn.begin_interrupt_scope();
+        let store = BookmarksStore::new(&conn, &interrupt_scope);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -1157,7 +1168,8 @@ mod tests {
             }),
         );
 
-        let store = BookmarksStore::new(&syncer);
+        let interrupt_scope = syncer.begin_interrupt_scope();
+        let store = BookmarksStore::new(&syncer, &interrupt_scope);
         let merger = Merger::new(&store, ServerTimestamp(0.0));
 
         let tree = merger.fetch_local_tree()?;
@@ -1379,7 +1391,8 @@ mod tests {
             }),
         ];
 
-        let store = BookmarksStore::new(&syncer);
+        let interrupt_scope = syncer.begin_interrupt_scope();
+        let store = BookmarksStore::new(&syncer, &interrupt_scope);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -1523,7 +1536,8 @@ mod tests {
             }),
         ];
 
-        let store = BookmarksStore::new(&syncer);
+        let interrupt_scope = syncer.begin_interrupt_scope();
+        let store = BookmarksStore::new(&syncer, &interrupt_scope);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
@@ -1651,7 +1665,8 @@ mod tests {
             }),
         ];
 
-        let store = BookmarksStore::new(&syncer);
+        let interrupt_scope = syncer.begin_interrupt_scope();
+        let store = BookmarksStore::new(&syncer, &interrupt_scope);
 
         let mut incoming =
             IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));

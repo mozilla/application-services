@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use failure::{self, Backtrace, Context, Fail, SyncFailure};
+use interrupt::Interrupted;
 use std::boxed::Box;
 use std::time::SystemTime;
 use std::{fmt, result, string};
@@ -147,6 +148,9 @@ pub enum ErrorKind {
 
     #[fail(display = "URL parse error: {}", _0)]
     MalformedUrl(#[fail(cause)] url::ParseError),
+
+    #[fail(display = "The operation was interrupted.")]
+    Interrupted(#[fail(cause)] Interrupted),
 }
 
 macro_rules! impl_from_error {
@@ -176,7 +180,8 @@ impl_from_error! {
     (UnexpectedStatus, viaduct::UnexpectedStatus),
     (MalformedUrl, url::ParseError),
     // A bit dubious, since we only want this to happen inside `synchronize`
-    (StoreError, ::failure::Error)
+    (StoreError, ::failure::Error),
+    (Interrupted, Interrupted)
 }
 
 // ::hawk::Error uses error_chain, and so it's not trivially compatible with failure.

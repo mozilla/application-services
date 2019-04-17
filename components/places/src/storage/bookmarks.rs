@@ -7,6 +7,7 @@ use super::{fetch_page_info, new_page_info};
 use crate::db::PlacesDb;
 use crate::error::*;
 use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
+use interrupt::Interruptee;
 use rusqlite::types::ToSql;
 use rusqlite::{Connection, Row};
 use serde::{

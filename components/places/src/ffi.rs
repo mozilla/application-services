@@ -5,12 +5,11 @@
 // This module implement the traits that make the FFI code easier to manage.
 
 use crate::api::matcher::SearchResult;
-use crate::db::PlacesInterruptHandle;
 use crate::error::{Error, ErrorKind, InvalidPlaceInfo};
 use crate::msg_types;
 use ffi_support::{
-    implement_into_ffi_by_delegation, implement_into_ffi_by_json, implement_into_ffi_by_pointer,
-    implement_into_ffi_by_protobuf, ErrorCode, ExternError,
+    implement_into_ffi_by_delegation, implement_into_ffi_by_json, implement_into_ffi_by_protobuf,
+    ErrorCode, ExternError,
 };
 
 pub mod error_codes {
@@ -97,7 +96,7 @@ fn get_code(err: &Error) -> ErrorCode {
             log::info!("Operation interrupted");
             ErrorCode::new(error_codes::DATABASE_INTERRUPTED)
         }
-        ErrorKind::InterruptedError => {
+        ErrorKind::InterruptedError(_) => {
             // Can't unify with the above ... :(
             log::info!("Operation interrupted");
             ErrorCode::new(error_codes::DATABASE_INTERRUPTED)
@@ -121,7 +120,6 @@ impl From<Error> for ExternError {
 }
 
 implement_into_ffi_by_json!(SearchResult);
-implement_into_ffi_by_pointer!(PlacesInterruptHandle);
 implement_into_ffi_by_protobuf!(msg_types::HistoryVisitInfos);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNode);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNodeList);
