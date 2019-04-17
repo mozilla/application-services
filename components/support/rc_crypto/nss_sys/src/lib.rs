@@ -4,9 +4,11 @@
 
 #![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
 
-use std::os::raw::{c_char, c_int, c_uchar, c_uint, c_void};
+#[cfg_attr(feature = "cargo-clippy", allow(clippy::all))]
+mod bindings;
 
-include!(concat!(env!("OUT_DIR"), "/nss_bindings.rs"));
+pub use bindings::*;
+use std::os::raw::{c_char, c_int, c_uchar, c_uint, c_void};
 
 // Remap some constants.
 pub const SECSuccess: SECStatus = _SECStatus_SECSuccess;
