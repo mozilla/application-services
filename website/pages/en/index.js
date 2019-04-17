@@ -241,6 +241,7 @@ const Showcase = props => {
 
 const BlogPosts = props => {
   const blogposts = MetadataBlog
+    .slice(0, 8)
     .map((post, i) => {
       const match = post.path.match(/([0-9]+)\/([0-9]+)\/([0-9]+)/);
       // Because JavaScript sucks at date handling :(
