@@ -24,6 +24,8 @@ In the case when the email entry form is self hosted, **we ask that you do the f
 1. When the page that hosts your FxA form loads, have it make an XHR call to `https://accounts.firefox.com/metrics-flow`. The domain name of the request should match the FxA page that is being redirected to (e.g. https://accounts.firefox.com). You can use `fetch` to get this info.
 2. Include the following query parameters in the above request (see chart below for descriptions):
   * `entrypoint`
+  * `entrypoint_experiment`
+  * `entrypoint_validation`
   * `utm_source`
   * `utm_campaign`
   * `form_type`
@@ -39,6 +41,8 @@ By following these instructions you provide both of our teams with data needed t
 |Name|Description|Example Values|Validation regex|Amplitude Chart Example|
 |----|-----------|--------------|----------------|-----------------------|
 |`entrypoint`|The specific page or browser UI element containing the first step of the FxA sign-in/sign-up process (e.g., enter email form)|`firstrun`|<!--begin-validation-entrypoint-->^[\w.:-]+$<!--end-validation-entrypoint-->|[Firstrun form views](https://analytics.amplitude.com/mozilla-corp/chart/n8cd9no)|
+|`entrypoint_experiment`|Identifier for the experiment the user is part of (if any)||<!--begin-validation-entrypoint-experiment-->^[\w.:-]+$<!--end-validation-entrypoint-experiment-->||
+|`entrypoint_variation`|Identifier for the experiment variation the user is part of (if any)||<!--begin-validation-entrypoint-variation-->^[\w.:-]+$<!--end-validation-entrypoint-variation-->||
 |`form_type`|For self-hosted forms only (see above) the type of form that the user submits to begin the FxA flow|either: `email` if the form captures the user's email, otherwise `other`||NA|
 |`utm_source`|Unambiguous identifier of site or browser UI element that linked to the page containing the beginning of the FxA sign-in/sign-up process |`blog.mozilla.org`|<!--begin-validation-utm_source-->^[\w\/.%-]+$<!--end-validation-utm_source-->|[Registration form views segmented by utm_source](https://analytics.amplitude.com/mozilla-corp/chart/f5sz7kt)|
 |`utm_campaign`|More general label for the campaign that the site is part of|`firstrun`|<!--begin-validation-utm_campaign-->^[\w\/.%-]+$<!--end-validation-utm_campaign-->|TBD|
