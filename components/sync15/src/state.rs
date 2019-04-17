@@ -131,7 +131,7 @@ pub struct SetupStateMachine<'a> {
     // budget", after which we get interrupted. Later...
     allowed_states: Vec<&'static str>,
     sequence: Vec<&'static str>,
-    interruptee: &'a Interruptee,
+    interruptee: &'a dyn Interruptee,
 }
 
 impl<'a> SetupStateMachine<'a> {
@@ -142,7 +142,7 @@ impl<'a> SetupStateMachine<'a> {
         client: &'a dyn SetupStorageClient,
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
-        interruptee: &'a Interruptee,
+        interruptee: &'a dyn Interruptee,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine::with_allowed_states(
             client,
@@ -170,7 +170,7 @@ impl<'a> SetupStateMachine<'a> {
         client: &'a dyn SetupStorageClient,
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
-        interruptee: &'a Interruptee,
+        interruptee: &'a dyn Interruptee,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine::with_allowed_states(
             client,
@@ -188,7 +188,7 @@ impl<'a> SetupStateMachine<'a> {
         client: &'a dyn SetupStorageClient,
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
-        interruptee: &'a Interruptee,
+        interruptee: &'a dyn Interruptee,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine::with_allowed_states(
             client,
@@ -211,7 +211,7 @@ impl<'a> SetupStateMachine<'a> {
         client: &'a dyn SetupStorageClient,
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
-        interruptee: &'a Interruptee,
+        interruptee: &'a dyn Interruptee,
         allowed_states: Vec<&'static str>,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine {
