@@ -113,6 +113,14 @@ fn fix_include_dirs(mut builder: Builder) -> Builder {
     let target_os = env::var("CARGO_CFG_TARGET_OS");
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH");
     match target_os.as_ref().map(|x| &**x) {
+        Ok("macos") => {
+            // Cheap and dirty way to detect we are cross-compiling.
+            if env::var_os("CI").is_some() {
+                builder = builder
+                    .detect_include_paths(false)
+                    .clang_arg("-isysroot/tmp/MacOSX10.11.sdk");
+            }
+        }
         Ok("ios") => {
             let sdk_root;
             match target_arch.as_ref().map(|x| &**x).unwrap() {
