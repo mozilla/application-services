@@ -170,13 +170,59 @@ class PlacesConnectionTest {
     @Test
     fun testGetVisitInfos() {
         db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.LINK, at = 100000))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/2", visitType = VisitType.LINK, at = 150000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2a", visitType = VisitType.REDIRECT_TEMPORARY, at = 130000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2b", visitType = VisitType.LINK, at = 150000))
         db.noteObservation(VisitObservation(url = "https://www.example.com/3", visitType = VisitType.LINK, at = 200000))
         db.noteObservation(VisitObservation(url = "https://www.example.com/4", visitType = VisitType.LINK, at = 250000))
-        val infos = db.getVisitInfos(125000, 225000)
-        assert(infos.size == 2)
-        assert(infos[0].url == "https://www.example.com/2")
-        assert(infos[1].url == "https://www.example.com/3")
+        var infos = db.getVisitInfos(125000, 225000, excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY))
+        assertEquals(2, infos.size)
+        assertEquals("https://www.example.com/2b", infos[0].url)
+        assertEquals("https://www.example.com/3", infos[1].url)
+        infos = db.getVisitInfos(125000, 225000)
+        assertEquals(3, infos.size)
+        assertEquals("https://www.example.com/2a", infos[0].url)
+        assertEquals("https://www.example.com/2b", infos[1].url)
+        assertEquals("https://www.example.com/3", infos[2].url)
+    }
+
+    @Test
+    fun testGetVisitPage() {
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.LINK, at = 100000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2", visitType = VisitType.LINK, at = 110000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/3a", visitType = VisitType.REDIRECT_TEMPORARY, at = 120000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/3b", visitType = VisitType.REDIRECT_TEMPORARY, at = 130000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/4", visitType = VisitType.LINK, at = 140000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/5", visitType = VisitType.LINK, at = 150000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/6", visitType = VisitType.LINK, at = 160000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/7", visitType = VisitType.LINK, at = 170000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/8", visitType = VisitType.LINK, at = 180000))
+
+        assertEquals(9, db.getVisitCount())
+        assertEquals(7, db.getVisitCount(excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY)))
+
+        val want = listOf(
+                listOf("https://www.example.com/8", "https://www.example.com/7", "https://www.example.com/6"),
+                listOf("https://www.example.com/5", "https://www.example.com/4", "https://www.example.com/2"),
+                listOf("https://www.example.com/1")
+        )
+
+        var offset = 0L
+        for (expect in want) {
+            val page = db.getVisitPage(
+                    offset = offset,
+                    count = 3,
+                    excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY))
+            assertEquals(expect.size, page.size)
+            for (i in 0..(expect.size - 1)) {
+                assertEquals(expect[i], page[i].url)
+            }
+            offset += page.size
+        }
+        val empty = db.getVisitPage(
+                offset = offset,
+                count = 3,
+                excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY))
+        assertEquals(0, empty.size)
     }
 
     @Test

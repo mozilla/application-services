@@ -15,7 +15,7 @@ use ffi_support::{
 use places::error::*;
 use places::msg_types::BookmarkNodeList;
 use places::storage::bookmarks;
-use places::types::SyncGuid;
+use places::types::{SyncGuid, VisitTransitionSet};
 use places::{storage, ConnectionType, PlacesApi, PlacesDb};
 use sql_support::SqlInterruptHandle;
 use std::os::raw::c_char;
@@ -308,6 +308,7 @@ pub extern "C" fn places_get_visit_infos(
     handle: u64,
     start_date: i64,
     end_date: i64,
+    exclude_types: i32,
     error: &mut ExternError,
 ) -> ByteBuffer {
     log::debug!("places_get_visit_infos");
@@ -316,7 +317,49 @@ pub extern "C" fn places_get_visit_infos(
             conn,
             places::Timestamp(start_date.max(0) as u64),
             places::Timestamp(end_date.max(0) as u64),
+            VisitTransitionSet::from_u16(exclude_types as u16)
+                .expect("Bug: Invalid VisitTransitionSet"),
         )?)
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn places_get_visit_count(
+    handle: u64,
+    exclude_types: i32,
+    error: &mut ExternError,
+) -> i64 {
+    log::debug!("places_get_visit_count");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        storage::history::get_visit_count(
+            conn,
+            // Note: it's a bug in our FFI android (or swift, eventually) code
+            // if this expect fires.
+            VisitTransitionSet::from_u16(exclude_types as u16)
+                .expect("Bug: Invalid VisitTransitionSet"),
+        )
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn places_get_visit_page(
+    handle: u64,
+    offset: i64,
+    count: i64,
+    exclude_types: i32,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("places_get_visit_page");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        storage::history::get_visit_page(
+            conn,
+            offset,
+            count,
+            // Note: it's a bug in our FFI android (or swift, eventually) code
+            // if this expect fires.
+            VisitTransitionSet::from_u16(exclude_types as u16)
+                .expect("Bug: Invalid VisitTransitionSet"),
+        )
     })
 }
 

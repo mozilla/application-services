@@ -10,7 +10,7 @@ use crate::hash;
 use crate::msg_types::{HistoryVisitInfo, HistoryVisitInfos};
 use crate::observation::VisitObservation;
 use crate::storage::{delete_pending_temp_tables, get_meta, put_meta};
-use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition};
+use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition, VisitTransitionSet};
 use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
 use rusqlite::{Row, NO_PARAMS};
@@ -1037,15 +1037,67 @@ pub fn get_visit_infos(
     db: &PlacesDb,
     start: Timestamp,
     end: Timestamp,
+    exclude_types: VisitTransitionSet,
 ) -> Result<HistoryVisitInfos> {
+    let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
         "SELECT h.url, h.title, v.visit_date, v.visit_type
          FROM moz_places h
          JOIN moz_historyvisits v
            ON h.id = v.place_id
          WHERE v.visit_date BETWEEN :start AND :end
+           AND ((1 << visit_type) & :allowed_types) != 0
          ORDER BY v.visit_date",
-        &[(":start", &start), (":end", &end)],
+        rusqlite::named_params! {
+            ":start": start,
+            ":end": end,
+            ":allowed_types": allowed_types,
+        },
+        HistoryVisitInfo::from_row,
+    )?;
+    Ok(HistoryVisitInfos { infos })
+}
+
+pub fn get_visit_count(db: &PlacesDb, exclude_types: VisitTransitionSet) -> Result<i64> {
+    let count = if exclude_types.is_empty() {
+        db.query_one::<i64>("SELECT COUNT(*) FROM moz_historyvisits")?
+    } else {
+        let allowed_types = exclude_types.complement();
+        db.query_row_and_then_named(
+            "SELECT COUNT(*)
+             FROM moz_historyvisits
+             WHERE ((1 << visit_type) & :allowed_types) != 0",
+            rusqlite::named_params! {
+                ":allowed_types": allowed_types,
+            },
+            |r| r.get(0),
+            true,
+        )?
+    };
+    Ok(count)
+}
+
+pub fn get_visit_page(
+    db: &PlacesDb,
+    offset: i64,
+    count: i64,
+    exclude_types: VisitTransitionSet,
+) -> Result<HistoryVisitInfos> {
+    let allowed_types = exclude_types.complement();
+    let infos = db.query_rows_and_then_named_cached(
+        "SELECT h.url, h.title, v.visit_date, v.visit_type
+         FROM moz_places h
+         JOIN moz_historyvisits v
+           ON h.id = v.place_id
+         WHERE ((1 << v.visit_type) & :allowed_types) != 0
+         ORDER BY v.visit_date DESC, v.id
+         LIMIT :count
+         OFFSET :offset",
+        rusqlite::named_params! {
+            ":count": count,
+            ":offset": offset,
+            ":allowed_types": allowed_types,
+        },
         HistoryVisitInfo::from_row,
     )?;
     Ok(HistoryVisitInfos { infos })
