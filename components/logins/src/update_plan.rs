@@ -5,9 +5,7 @@
 use crate::error::*;
 use crate::login::{LocalLogin, Login, MirrorLogin, SyncStatus};
 use crate::util;
-use interrupt::Interruptee;
 use rusqlite::{types::ToSql, Connection};
-use sql_support::SqlInterruptScope;
 use std::time::SystemTime;
 use sync15::ServerTimestamp;
 
@@ -252,18 +250,13 @@ impl UpdatePlan {
         Ok(())
     }
 
-    pub fn execute(&self, conn: &Connection, interrupt_scope: &SqlInterruptScope) -> Result<()> {
+    pub fn execute(&self, conn: &Connection) -> Result<()> {
         log::debug!("UpdatePlan: deleting records...");
         self.perform_deletes(conn)?;
-        // ideally we'd pass the interrupt scope into each of these functions, but
-        // this will do for now...
-        interrupt_scope.err_if_interrupted()?;
         log::debug!("UpdatePlan: Updating existing mirror records...");
         self.perform_mirror_updates(conn)?;
-        interrupt_scope.err_if_interrupted()?;
         log::debug!("UpdatePlan: Inserting new mirror records...");
         self.perform_mirror_inserts(conn)?;
-        interrupt_scope.err_if_interrupted()?;
         log::debug!("UpdatePlan: Updating reconciled local records...");
         self.perform_local_updates(conn)?;
         Ok(())

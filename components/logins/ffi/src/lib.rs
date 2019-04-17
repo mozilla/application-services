@@ -8,12 +8,8 @@
 #![allow(clippy::redundant_closure)]
 
 use ffi_support::ConcurrentHandleMap;
-use ffi_support::{
-    define_box_destructor, define_handle_map_deleter, define_string_destructor, ExternError, FfiStr,
-};
-use interrupt::Interruptable;
+use ffi_support::{define_handle_map_deleter, define_string_destructor, ExternError, FfiStr};
 use logins::{Login, PasswordEngine, Result};
-use sql_support::SqlInterruptHandle;
 use std::os::raw::c_char;
 use sync15::telemetry;
 
@@ -178,24 +174,6 @@ pub extern "C" fn sync15_passwords_get_all(handle: u64, error: &mut ExternError)
     })
 }
 
-/// Get the interrupt handle for a connection. Must be destroyed with
-/// `sync15_passwords_interrupt_handle_destroy`.
-#[no_mangle]
-pub extern "C" fn sync15_passwords_new_interrupt_handle(
-    handle: u64,
-    error: &mut ExternError,
-) -> *mut SqlInterruptHandle {
-    ENGINES.call_with_output(error, handle, |state| state.db.new_interrupt_handle())
-}
-
-#[no_mangle]
-pub extern "C" fn sync15_passwords_interrupt_sync(
-    handle: &SqlInterruptHandle,
-    error: &mut ExternError,
-) {
-    ffi_support::call_with_output(error, || handle.interrupt())
-}
-
 #[no_mangle]
 pub extern "C" fn sync15_passwords_get_by_id(
     handle: u64,
@@ -239,7 +217,3 @@ pub extern "C" fn sync15_passwords_update(
 
 define_string_destructor!(sync15_passwords_destroy_string);
 define_handle_map_deleter!(ENGINES, sync15_passwords_state_destroy);
-define_box_destructor!(
-    SqlInterruptHandle,
-    sync15_passwords_interrupt_handle_destroy
-);
