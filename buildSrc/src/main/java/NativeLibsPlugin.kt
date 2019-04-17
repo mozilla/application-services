@@ -6,10 +6,10 @@
  * This gradle plugin generates a `copyNativeLibs` task in the project it is
  * applied to.
  * This task copies library files in the application-services libs/ folder
- * inside the build dir nativeLibs/ folder and makes sure this folder is
- * included in Android jniLibs sourcesets.
- * It is the responsability of the consumer of this plugin to depend on that
- * newly defined task, for example in the `generateDebugAssets` task.
+ * inside the build dir nativeLibs/ folder.
+ * It is the responsability of the consumer of this plugin to add `nativeLibs`
+ * to their sourceSets and to depend on that newly defined task,
+ * for example in the `generateDebugAssets` task.
  * Example of usage:
  * <pre>
  *   apply plugin: NativeLibsPlugin
@@ -18,20 +18,19 @@
  *       lib "libnss3.*" // Wildcards are supported, just like the Copy task `include` method.
  *     }
  *   }
+ *   android {
+ *     sourceSets {
+ *       main.jniLibs.srcDirs += "$buildDir/nativeLibs/android"
+ *     }
+ *   }
  *   tasks["generateDebugAssets"].dependsOn(tasks["copyNativeLibs"])
  * </pre>
  */
 
-import com.android.build.gradle.AppExtension
-import com.android.build.gradle.AppPlugin
-import com.android.build.gradle.BaseExtension
-import com.android.build.gradle.LibraryExtension
-import com.android.build.gradle.LibraryPlugin
 import org.gradle.api.tasks.Copy
 import org.gradle.api.Project
 import org.gradle.api.Plugin
 import org.gradle.kotlin.dsl.delegateClosureOf
-import java.io.File
 // Needed to be able to call `DomainObjectCollection.all` instead of Kotlin's built-in `all` method.
 import kotlin.collections.all as ktAll // ktlint-disable no-unused-imports
 
@@ -81,20 +80,6 @@ open class NativeLibsPlugin : Plugin<Project> {
                     }
                 }
             }))
-            afterEvaluate {
-                plugins.all(delegateClosureOf<Plugin<*>>({
-                    when (this) {
-                        is AppPlugin -> addToSourceSets<AppExtension>(project)
-                        is LibraryPlugin -> addToSourceSets<LibraryExtension>(project)
-                    }
-                }))
-            }
-        }
-    }
-    private inline fun <reified T : BaseExtension> addToSourceSets(project: Project): Unit = with(project) {
-        (extensions.findByName("android") as T).apply {
-            sourceSets.getByName("main").jniLibs.srcDir(File("$buildDir/nativeLibs/android"))
-            sourceSets.getByName("test").resources.srcDir(File("$buildDir/nativeLibs/desktop"))
         }
     }
 }

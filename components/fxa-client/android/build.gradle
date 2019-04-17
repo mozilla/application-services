@@ -27,6 +27,7 @@ android {
     }
 
     sourceSets {
+        main.jniLibs.srcDirs += "$buildDir/nativeLibs/android"
         test.resources.srcDirs += "$buildDir/rustJniLibs/desktop"
         test.resources.srcDirs += "$buildDir/nativeLibs/desktop"
 
