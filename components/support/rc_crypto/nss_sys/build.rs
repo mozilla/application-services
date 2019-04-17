@@ -143,7 +143,7 @@ fn fix_include_dirs(mut builder: Builder) -> Builder {
                 .clang_arg(format!("-isysroot{}", &sdk_root));
         }
         Ok("android") => {
-            let (android_api_version, ndk_root, toolchain_dir) = get_android_env();
+            let (android_api_version, _ndk_root, toolchain_dir) = get_android_env();
             let mut toolchain = target_arch.as_ref().map(|x| &**x).unwrap();
             // The other architectures map perfectly to what libs/setup_toolchains_local.sh produces.
             if toolchain == "aarch64" {
@@ -153,7 +153,10 @@ fn fix_include_dirs(mut builder: Builder) -> Builder {
                 .detect_include_paths(false)
                 .clang_arg(format!(
                     "--sysroot={}",
-                    &ndk_root.join("sysroot").to_str().unwrap()
+                    &toolchain_dir
+                        .join(format!("{}-{}/sysroot", toolchain, android_api_version))
+                        .to_str()
+                        .unwrap()
                 ))
                 .clang_arg(format!("-D__ANDROID_API__={}", android_api_version))
                 // stddef.h isn't defined otherwise.
