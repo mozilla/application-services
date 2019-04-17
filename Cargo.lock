@@ -1549,6 +1549,7 @@ dependencies = [
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
  "sql-support 0.1.0",
  "sync15 0.1.0",
+ "telemetry-support 0.1.0",
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "viaduct 0.1.0",
 ]
@@ -2280,6 +2281,18 @@ dependencies = [
  "quote 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 0.15.33 (registry+https://github.com/rust-lang/crates.io-index)",
  "unicode-xid 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "telemetry-support"
+version = "0.1.0"
+dependencies = [
+ "bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.3.3",
+ "prost 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prost-build 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prost-derive 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sync15 0.1.0",
 ]
 
 [[package]]

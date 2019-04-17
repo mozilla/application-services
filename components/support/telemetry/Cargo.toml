@@ -1,0 +1,16 @@
+[package]
+name = "telemetry-support"
+version = "0.1.0"
+authors = ["Lina Cambridge <lina@mozilla.com>"]
+edition = "2018"
+license = "MPL-2.0"
+
+[dependencies]
+bytes = "0.4.11"
+ffi-support = { path = "../ffi" }
+prost = "0.5.0"
+prost-derive = "0.5.0"
+sync15 = { path = "../../sync15" }
+
+[build-dependencies]
+prost-build = "0.5.0"

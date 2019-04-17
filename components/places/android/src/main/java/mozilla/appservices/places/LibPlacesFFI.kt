@@ -187,7 +187,7 @@ internal interface LibPlacesFFI : Library {
         sync_key: String,
         tokenserver_url: String,
         out_err: RustError.ByReference
-    )
+    ): RustBuffer.ByValue
 
     fun sync15_bookmarks_sync(
         handle: PlacesApiHandle,

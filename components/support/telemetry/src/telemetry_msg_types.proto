@@ -1,0 +1,79 @@
+syntax = "proto2";
+
+// Note: this file name must be unique due to how the iOS megazord works :(
+
+package msg_types;
+
+option java_package = "mozilla.appservices.support.telemetry";
+option java_outer_classname = "MsgTypes";
+
+/** The reason for an engine sync failing. */
+enum EngineFailureReason {
+    SHUTDOWN = 1;
+    OTHER = 2;
+    UNEXPECTED = 3;
+    AUTH = 4;
+    HTTP = 5;
+}
+
+/** Incoming record counts. */
+message EngineIncomingPayload {
+    /** The number of records that applied successfully. */
+    optional uint32 applied = 1;
+
+    /** The number of updated records that failed to apply. For stores that
+        apply records one at a time, if the record doesn't exist locally, it's
+        counted in `new_failed` instead. For stores like bookmarks, which
+        stage records first, all failures are counted here, and `new_failed` is
+        always 0. */
+    optional uint32 failed = 2;
+
+    /** The number of new records that failed to apply. See above for the
+        distinction between `new_failed` and `failed`. */
+    optional uint32 new_failed = 3;
+
+    /** For stores that apply records one at a time, the number of records
+        that had conflicts. For bookmarks, this is always 0; we instead rely
+        on event telemetry to report finer-grained structure conflicts. */
+    optional uint32 reconciled = 4;
+}
+
+/** Outgoing record counts. */
+message EngineOutgoingPayload {
+    /** The total number of successfully uploaded records. */
+    optional uint64 sent = 1;
+
+    /** The total number of records that failed to upload. */
+    optional uint64 failed = 2;
+
+    /** The number of batches committed. */
+    optional uint64 batches = 3;
+}
+
+/** A Glean telemetry ping payload for a synced engine. */
+message EnginePingPayload {
+    /** The engine name. */
+    required string name = 1;
+
+    /** The number of milliseconds it took this engine to sync, from start to
+        finish. */
+    optional uint64 took = 2;
+
+    required EngineIncomingPayload incoming = 3;
+
+    required EngineOutgoingPayload outgoing = 4;
+
+    /** The failure reason. Omitted if the sync succeeded. If present, either
+        `failure_error_message` or `failure_status_code` is guaranteed to be
+        set. */
+    optional EngineFailureReason failure_reason = 5;
+
+    /** The failure error message. For `OTHER` and `UNEXPECTED`, this is the
+        sanitized, truncated error message. For `AUTH`, this is the source of
+        the authentication error, like "FxA". Omitted for `HTTP` and successful
+        syncs. */
+    optional string failure_text = 6;
+
+    /** The HTTP status code. Omitted if the failure reason is not `HTTP`. */
+    optional uint32 failure_code = 7;
+}
