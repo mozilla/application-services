@@ -5,7 +5,7 @@
 use crate::error::*;
 use crate::login::{LocalLogin, Login, MirrorLogin, SyncStatus};
 use crate::util;
-use rusqlite::{types::ToSql, Connection};
+use rusqlite::{named_params, Connection};
 use sql_support::SqlInterruptScope;
 use std::time::SystemTime;
 use sync15::ServerTimestamp;
@@ -119,24 +119,21 @@ impl UpdatePlan {
         let mut stmt = conn.prepare_cached(sql)?;
         for (login, timestamp) in &self.mirror_updates {
             log::trace!("Updating mirror {:?}", login.guid_str());
-            stmt.execute_named(&[
-                (":server_modified", timestamp as &dyn ToSql),
-                (":http_realm", &login.http_realm as &dyn ToSql),
-                (":form_submit_url", &login.form_submit_url as &dyn ToSql),
-                (":username_field", &login.username_field as &dyn ToSql),
-                (":password_field", &login.password_field as &dyn ToSql),
-                (":password", &login.password as &dyn ToSql),
-                (":hostname", &login.hostname as &dyn ToSql),
-                (":username", &login.username as &dyn ToSql),
-                (":times_used", &login.times_used as &dyn ToSql),
-                (":time_last_used", &login.time_last_used as &dyn ToSql),
-                (
-                    ":time_password_changed",
-                    &login.time_password_changed as &dyn ToSql,
-                ),
-                (":time_created", &login.time_created as &dyn ToSql),
-                (":guid", &login.guid_str() as &dyn ToSql),
-            ])?;
+            stmt.execute_named(named_params! {
+                ":server_modified": *timestamp,
+                ":http_realm": login.http_realm,
+                ":form_submit_url": login.form_submit_url,
+                ":username_field": login.username_field,
+                ":password_field": login.password_field,
+                ":password": login.password,
+                ":hostname": login.hostname,
+                ":username": login.username,
+                ":times_used": login.times_used,
+                ":time_last_used": login.time_last_used,
+                ":time_password_changed": login.time_password_changed,
+                ":time_created": login.time_created,
+                ":guid": login.guid_str(),
+            })?;
             scope.err_if_interrupted()?;
         }
         Ok(())
@@ -185,25 +182,22 @@ impl UpdatePlan {
 
         for (login, timestamp, is_overridden) in &self.mirror_inserts {
             log::trace!("Inserting mirror {:?}", login.guid_str());
-            stmt.execute_named(&[
-                (":is_overridden", is_overridden as &dyn ToSql),
-                (":server_modified", timestamp as &dyn ToSql),
-                (":http_realm", &login.http_realm as &dyn ToSql),
-                (":form_submit_url", &login.form_submit_url as &dyn ToSql),
-                (":username_field", &login.username_field as &dyn ToSql),
-                (":password_field", &login.password_field as &dyn ToSql),
-                (":password", &login.password as &dyn ToSql),
-                (":hostname", &login.hostname as &dyn ToSql),
-                (":username", &login.username as &dyn ToSql),
-                (":times_used", &login.times_used as &dyn ToSql),
-                (":time_last_used", &login.time_last_used as &dyn ToSql),
-                (
-                    ":time_password_changed",
-                    &login.time_password_changed as &dyn ToSql,
-                ),
-                (":time_created", &login.time_created as &dyn ToSql),
-                (":guid", &login.guid_str() as &dyn ToSql),
-            ])?;
+            stmt.execute_named(named_params! {
+                ":is_overridden": *is_overridden,
+                ":server_modified": *timestamp,
+                ":http_realm": login.http_realm,
+                ":form_submit_url": login.form_submit_url,
+                ":username_field": login.username_field,
+                ":password_field": login.password_field,
+                ":password": login.password,
+                ":hostname": login.hostname,
+                ":username": login.username,
+                ":times_used": login.times_used,
+                ":time_last_used": login.time_last_used,
+                ":time_password_changed": login.time_password_changed,
+                ":time_created": login.time_created,
+                ":guid": login.guid_str(),
+            })?;
             scope.err_if_interrupted()?;
         }
         Ok(())
@@ -211,21 +205,20 @@ impl UpdatePlan {
 
     fn perform_local_updates(&self, conn: &Connection, scope: &SqlInterruptScope) -> Result<()> {
         let sql = format!(
-            "
-            UPDATE loginsL
-            SET local_modified      = :local_modified,
-                httpRealm           = :http_realm,
-                formSubmitURL       = :form_submit_url,
-                usernameField       = :username_field,
-                passwordField       = :password_field,
-                timeLastUsed        = :time_last_used,
-                timePasswordChanged = :time_password_changed,
-                timesUsed           = :times_used,
-                password            = :password,
-                hostname            = :hostname,
-                username            = :username,
-                sync_status         = {changed}
-            WHERE guid = :guid",
+            "UPDATE loginsL
+             SET local_modified      = :local_modified,
+                 httpRealm           = :http_realm,
+                 formSubmitURL       = :form_submit_url,
+                 usernameField       = :username_field,
+                 passwordField       = :password_field,
+                 timeLastUsed        = :time_last_used,
+                 timePasswordChanged = :time_password_changed,
+                 timesUsed           = :times_used,
+                 password            = :password,
+                 hostname            = :hostname,
+                 username            = :username,
+                 sync_status         = {changed}
+             WHERE guid = :guid",
             changed = SyncStatus::Changed as u8
         );
         let mut stmt = conn.prepare_cached(&sql)?;
@@ -233,23 +226,20 @@ impl UpdatePlan {
         let local_ms: i64 = util::system_time_ms_i64(SystemTime::now());
         for l in &self.local_updates {
             log::trace!("Updating local {:?}", l.guid_str());
-            stmt.execute_named(&[
-                (":local_modified", &local_ms as &dyn ToSql),
-                (":http_realm", &l.login.http_realm as &dyn ToSql),
-                (":form_submit_url", &l.login.form_submit_url as &dyn ToSql),
-                (":username_field", &l.login.username_field as &dyn ToSql),
-                (":password_field", &l.login.password_field as &dyn ToSql),
-                (":password", &l.login.password as &dyn ToSql),
-                (":hostname", &l.login.hostname as &dyn ToSql),
-                (":username", &l.login.username as &dyn ToSql),
-                (":time_last_used", &l.login.time_last_used as &dyn ToSql),
-                (
-                    ":time_password_changed",
-                    &l.login.time_password_changed as &dyn ToSql,
-                ),
-                (":times_used", &l.login.times_used as &dyn ToSql),
-                (":guid", &l.guid_str() as &dyn ToSql),
-            ])?;
+            stmt.execute_named(named_params! {
+                ":local_modified": local_ms,
+                ":http_realm": l.login.http_realm,
+                ":form_submit_url": l.login.form_submit_url,
+                ":username_field": l.login.username_field,
+                ":password_field": l.login.password_field,
+                ":password": l.login.password,
+                ":hostname": l.login.hostname,
+                ":username": l.login.username,
+                ":time_last_used": l.login.time_last_used,
+                ":time_password_changed": l.login.time_password_changed,
+                ":times_used": l.login.times_used,
+                ":guid": l.guid_str(),
+            })?;
             scope.err_if_interrupted()?;
         }
         Ok(())

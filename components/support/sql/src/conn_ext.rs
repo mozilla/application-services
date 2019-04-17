@@ -21,6 +21,18 @@ pub trait ConnExt {
     /// The method you need to implement to opt in to all of this.
     fn conn(&self) -> &Connection;
 
+    /// Set the value of the pragma on the main database. Returns the same object, for chaining.
+    fn set_pragma<T>(&self, pragma_name: &str, pragma_value: T) -> SqlResult<&Self>
+    where
+        T: ToSql,
+        Self: Sized,
+    {
+        // None == Schema name, e.g. `PRAGMA some_attached_db.something = blah`
+        self.conn()
+            .pragma_update(None, pragma_name, &pragma_value)?;
+        Ok(self)
+    }
+
     /// Get a cached or uncached statement based on a flag.
     fn prepare_maybe_cached<'conn>(
         &'conn self,
