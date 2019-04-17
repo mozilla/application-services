@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use ffi_support::IntoFfi;
+use ffi_support::implement_into_ffi_by_pointer;
 use interrupt::{Interruptable, Interruptee};
 use rusqlite::InterruptHandle;
 use std::sync::{
@@ -39,21 +39,7 @@ impl Interruptable for SqlInterruptHandle {
     }
 }
 
-// Ideally we'd just use implement_into_ffi_by_pointer! from ffi_support, but
-// the compiler doesn't like all the cross-crate stuff.
-unsafe impl IntoFfi for SqlInterruptHandle {
-    type Value = *mut SqlInterruptHandle;
-
-    #[inline]
-    fn ffi_default() -> *mut SqlInterruptHandle {
-        ::std::ptr::null_mut()
-    }
-
-    #[inline]
-    fn into_ffi_value(self) -> *mut SqlInterruptHandle {
-        ::std::boxed::Box::into_raw(::std::boxed::Box::new(self))
-    }
-}
+implement_into_ffi_by_pointer!(SqlInterruptHandle);
 
 /// A helper that can be used to determine if an interrupt request has come in while
 /// the object lives. This is used to avoid a case where we aren't running any
