@@ -2,7 +2,18 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.1...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.2...master)
+
+# v0.26.2 (_2018-04-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.1...v0.26.2)
+
+## iOS Framework
+
+### What's Fixed
+
+- iOS temporarially no longer uses NSS for crypto. This is a short term fix to
+  allow firefox-ios to release an update.
 
 # v0.26.1 (_2018-04-18_)
 
