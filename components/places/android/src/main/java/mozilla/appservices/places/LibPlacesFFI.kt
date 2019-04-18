@@ -52,7 +52,6 @@ internal interface LibPlacesFFI : Library {
     /** Create a new places api */
     fun places_api_new(
         db_path: String,
-        encryption_key: String?,
         out_err: RustError.ByReference
     ): PlacesApiHandle
 

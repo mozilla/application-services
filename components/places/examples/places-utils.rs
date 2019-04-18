@@ -265,11 +265,6 @@ pub struct Opts {
     /// Path to the database, which will be created if it doesn't exist.
     pub database_path: String,
 
-    #[structopt(name = "encryption_key", long, short = "k")]
-    /// The database encryption key. If not specified the database will not
-    /// be encrypted.
-    pub encryption_key: Option<String>,
-
     /// Leaves all logging disabled, which may be useful when evaluating perf
     #[structopt(name = "no-logging", long)]
     pub no_logging: bool,
@@ -337,8 +332,7 @@ fn main() -> Result<()> {
     }
 
     let db_path = opts.database_path;
-    let encryption_key: Option<&str> = opts.encryption_key.as_ref().map(String::as_str);
-    let api = PlacesApi::new(&db_path, encryption_key)?;
+    let api = PlacesApi::new(&db_path)?;
     let db = api.open_connection(ConnectionType::ReadWrite)?;
 
     match opts.cmd {

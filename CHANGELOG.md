@@ -4,6 +4,12 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.2...master)
 
+## Places
+
+### Breaking Changes
+
+- It is no longer possible to create an encrypted places database. ([#950](https://github.com/mozilla/application-services/issues/950))
+
 # v0.26.2 (_2018-04-18_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.1...v0.26.2)

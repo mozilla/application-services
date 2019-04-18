@@ -25,15 +25,11 @@ public class PlacesAPI {
      *
      * - Parameter path: an absolute path to a file that will be used for the internal database.
      *
-     * - Parameter encryptionKey: an optional key used for encrypting/decrypting data stored
-     *                            in the internal database. If omitted, data will be stored
-     *                            as plaintext.
-     *
      * - Throws: `PlacesError` if initializing the database failed.
      */
-    public init(path: String, encryptionKey: String? = nil) throws {
+    public init(path: String) throws {
         let handle = try PlacesError.unwrap { error in
-            places_api_new(path, encryptionKey, error)
+            places_api_new(path, error)
         }
         self.handle = handle
         do {

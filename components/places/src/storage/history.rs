@@ -1117,7 +1117,7 @@ mod tests {
     fn test_get_visited_urls() {
         use std::collections::HashSet;
         use std::time::SystemTime;
-        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
         let now: Timestamp = SystemTime::now().into();
         let now_u64 = now.0;
         // (url, when, is_remote, (expected_always, expected_only_local)
@@ -1234,7 +1234,7 @@ mod tests {
     #[test]
     fn test_visit_counts() -> Result<()> {
         let _ = env_logger::try_init();
-        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite)?;
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
         let url = Url::parse("https://www.example.com").expect("it's a valid url");
         let early_time = SystemTime::now() - Duration::new(60, 0);
         let late_time = SystemTime::now();
@@ -1323,7 +1323,7 @@ mod tests {
     #[test]
     fn test_get_visited() -> Result<()> {
         let _ = env_logger::try_init();
-        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite)?;
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
 
         let unicode_in_path = "http://www.example.com/tëst😀abc";
         let escaped_unicode_in_path = "http://www.example.com/t%C3%ABst%F0%9F%98%80abc";
@@ -1404,7 +1404,7 @@ mod tests {
     #[test]
     fn test_get_visited_into() {
         let _ = env_logger::try_init();
-        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).unwrap();
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
 
         let to_add = [
             Url::parse("https://www.example.com/1").unwrap(),
@@ -1456,7 +1456,7 @@ mod tests {
 
     #[test]
     fn test_delete_visited() {
-        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
         let late: Timestamp = SystemTime::now().into();
         let early: Timestamp = (SystemTime::now() - Duration::from_secs(30)).into();
         let url1 = Url::parse("https://www.example.com/1").unwrap();
@@ -1548,8 +1548,7 @@ mod tests {
     #[test]
     fn test_change_counter() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut conn =
-            PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).expect("no memory db");
+        let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
         let mut pi = get_observed_page(&mut conn, "http://example.com")?;
         // A new observation with just a title (ie, no visit) should update it.
         apply_observation(
@@ -1567,7 +1566,7 @@ mod tests {
     #[test]
     fn test_status_columns() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite)?;
+        let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
         let _ = env_logger::try_init();
         // A page with "normal" and a change counter.
         let mut pi = get_observed_page(&mut conn, "http://example.com/1")?;
@@ -1640,7 +1639,7 @@ mod tests {
     #[test]
     fn test_tombstones() -> Result<()> {
         let _ = env_logger::try_init();
-        let db = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite)?;
+        let db = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)
@@ -1677,7 +1676,7 @@ mod tests {
     #[test]
     fn test_sync_reset() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite)?;
+        let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
         let _ = env_logger::try_init();
         let mut pi = get_observed_page(&mut conn, "http://example.com")?;
         conn.execute_cached(
@@ -1707,8 +1706,7 @@ mod tests {
     #[test]
     fn test_fetch_visits() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut conn =
-            PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).expect("no memory db");
+        let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
         let pi = get_observed_page(&mut conn, "http://example.com/1")?;
         assert_eq!(fetch_visits(&conn, &pi.url, 0).unwrap().unwrap().1.len(), 0);
         assert_eq!(fetch_visits(&conn, &pi.url, 1).unwrap().unwrap().1.len(), 1);
@@ -1718,7 +1716,7 @@ mod tests {
     #[test]
     fn test_apply_synced_reconciliation() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite)?;
+        let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
         let mut pi = get_observed_page(&mut conn, "http://example.com/1")?;
         assert_eq!(pi.sync_status, SyncStatus::New);
         assert_eq!(pi.sync_change_counter, 1);
@@ -1734,7 +1732,7 @@ mod tests {
     #[test]
     fn test_apply_synced_deletion_new() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite)?;
+        let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
         let pi = get_observed_page(&mut conn, "http://example.com/1")?;
         assert_eq!(pi.sync_status, SyncStatus::New);
         apply_synced_deletion(&conn, &pi.guid)?;
@@ -1749,7 +1747,7 @@ mod tests {
     #[test]
     fn test_apply_synced_deletion_normal() -> Result<()> {
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite)?;
+        let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
         let pi = get_observed_page(&mut conn, "http://example.com/1")?;
         assert_eq!(pi.sync_status, SyncStatus::New);
         conn.execute_cached(
@@ -1787,7 +1785,7 @@ mod tests {
     fn test_visit_tombstones() {
         use url::Url;
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).unwrap();
+        let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
         let now = Timestamp::now();
 
         let urls = &[
@@ -1897,7 +1895,7 @@ mod tests {
         };
         use url::Url;
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).unwrap();
+        let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
         let ts = Timestamp::now().0 - 5_000_000;
         // Add a number of visits across a handful of origins.
         for o in 0..10 {
@@ -2017,7 +2015,7 @@ mod tests {
     fn test_delete_everything() {
         use url::Url;
         let _ = env_logger::try_init();
-        let mut conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).unwrap();
+        let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
         let start = Timestamp::now();
 
         let urls = &[
@@ -2112,7 +2110,7 @@ mod tests {
     #[test]
     fn test_long_strings() {
         let _ = env_logger::try_init();
-        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).unwrap();
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
         let mut url = "http://www.example.com".to_string();
         while url.len() < crate::storage::URL_LENGTH_MAX {
             url += "/garbage";

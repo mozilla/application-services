@@ -27,48 +27,21 @@ pub struct PlacesDb {
 impl PlacesDb {
     pub fn with_connection(
         db: Connection,
-        encryption_key: Option<&str>,
         conn_type: ConnectionType,
         api_id: usize,
         coop_tx_lock: Arc<Mutex<()>>,
         in_memory: bool,
     ) -> Result<Self> {
-        const PAGE_SIZE: u32 = 32768;
+        let initial_pragmas = "
+            -- The value we use was taken from Desktop Firefox, and seems necessary to
+            -- help ensure good performance on autocomplete-style queries. The default value is 1024,
+            -- which the SQLcipher docs themselves say is too small and should be changed.
+            PRAGMA page_size = 32768;
 
-        // `encryption_pragmas` is both for `PRAGMA key` and for `PRAGMA page_size` / `PRAGMA
-        // cipher_page_size` (Even though nominally page_size has nothing to do with encryption, we
-        // need to set `PRAGMA cipher_page_size` for encrypted databases, and `PRAGMA page_size` for
-        // unencrypted ones).
-        //
-        // Note: Unfortunately, for an encrypted database, the page size can not be changed without
-        // requiring a data migration, so this must be done somewhat carefully. This restriction
-        // *only* exists for encrypted DBs, and unencrypted ones (even unencrypted databases using
-        // sqlcipher), don't have this limitation.
-        //
-        // The value we use (`PAGE_SIZE`) was taken from Desktop Firefox, and seems necessary to
-        // help ensure good performance on autocomplete-style queries. The default value is 1024,
-        // which the SQLcipher docs themselves say is too small and should be changed.
-        let encryption_pragmas = if let Some(key) = encryption_key {
-            format!(
-                "PRAGMA key = '{key}';
-                 PRAGMA cipher_page_size = {page_size};",
-                key = sql_support::escape_string_for_pragma(key),
-                page_size = PAGE_SIZE,
-            )
-        } else {
-            format!(
-                "PRAGMA page_size = {};
-                 -- Disable calling mlock/munlock for every malloc/free.
-                 -- In practice this results in a massive speedup, especially
-                 -- for insert-heavy workloads.
-                 PRAGMA cipher_memory_security = false;",
-                PAGE_SIZE
-            )
-        };
-
-        let initial_pragmas = format!(
-            "
-            {}
+            -- Disable calling mlock/munlock for every malloc/free.
+            -- In practice this results in a massive speedup, especially
+            -- for insert-heavy workloads.
+            PRAGMA cipher_memory_security = false;
 
             -- `temp_store = 2` is required on Android to force the DB to keep temp
             -- files in memory, since on Android there's no tmp partition. See
@@ -89,11 +62,9 @@ impl PlacesDb {
 
             -- we unconditionally want write-ahead-logging mode
             PRAGMA journal_mode=WAL;
-        ",
-            encryption_pragmas,
-        );
+        ";
 
-        db.execute_batch(&initial_pragmas)?;
+        db.execute_batch(initial_pragmas)?;
         define_functions(&db)?;
         let res = Self {
             db,
@@ -122,14 +93,12 @@ impl PlacesDb {
 
     pub fn open(
         path: impl AsRef<Path>,
-        encryption_key: Option<&str>,
         conn_type: ConnectionType,
         api_id: usize,
         coop_tx_lock: Arc<Mutex<()>>,
     ) -> Result<Self> {
         Ok(Self::with_connection(
             Connection::open_with_flags(path, conn_type.rusqlite_flags())?,
-            encryption_key,
             conn_type,
             api_id,
             coop_tx_lock,
@@ -140,10 +109,9 @@ impl PlacesDb {
     #[cfg(test)]
     // Useful for some tests (although most tests should use helper functions
     // in api::places_api::test)
-    pub fn open_in_memory(encryption_key: Option<&str>, conn_ty: ConnectionType) -> Result<Self> {
+    pub fn open_in_memory(conn_ty: ConnectionType) -> Result<Self> {
         Ok(Self::with_connection(
             Connection::open_in_memory()?,
-            encryption_key,
             conn_ty,
             0,
             Arc::new(Mutex::new(())),
@@ -381,12 +349,12 @@ mod tests {
     // Sanity check that we can create a database.
     #[test]
     fn test_open() {
-        PlacesDb::open_in_memory(None, ConnectionType::ReadWrite).expect("no memory db");
+        PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
     }
 
     #[test]
     fn test_reverse_host() {
-        let conn = PlacesDb::open_in_memory(None, ConnectionType::ReadOnly).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadOnly).expect("no memory db");
         let rev_host: String = conn
             .db
             .query_row("SELECT reverse_host('www.mozilla.org')", NO_PARAMS, |row| {
