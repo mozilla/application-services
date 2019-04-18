@@ -87,7 +87,7 @@ pub fn init(db: &PlacesDb) -> Result<()> {
         } else {
             log::warn!(
                 "Loaded future schema version {} (we only understand version {}). \
-                 Optimisitically ",
+                 Optimistically ",
                 user_version,
                 VERSION
             );

@@ -242,7 +242,7 @@ pub(crate) fn init(db: &Connection) -> Result<()> {
         } else {
             log::warn!(
                 "Loaded future schema version {} (we only understand version {}). \
-                 Optimisitically ",
+                 Optimistically ",
                 user_version,
                 VERSION
             )
