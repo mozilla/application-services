@@ -2,7 +2,11 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.0...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.1...master)
+
+# v0.26.1 (_2018-04-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.0...v0.26.1)
 
 ## iOS Framework
 
