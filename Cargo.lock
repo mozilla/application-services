@@ -1162,6 +1162,7 @@ dependencies = [
  "logins_ffi 0.1.0",
  "places-ffi 0.1.0",
  "rc_log_ffi 0.1.0",
+ "viaduct 0.1.0",
 ]
 
 [[package]]
