@@ -32,7 +32,8 @@ pub fn ensure_nss_initialized() {
                 )
             };
             if context.is_null() {
-                panic!("Could not initialize NSS!")
+                let error = get_last_error();
+                panic!("Could not initialize NSS: {}", error);
             }
         }
     })
