@@ -36,6 +36,8 @@ types = [
     "PK11Origin",
 ]
 opaque = [
+    "NSSInitContext",
+    "NSSInitParameters",
     "PK11Context",
     "PK11SlotInfo",
     "PK11SymKey",
