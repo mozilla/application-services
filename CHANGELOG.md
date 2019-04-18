@@ -4,6 +4,11 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.0...master)
 
+## iOS Framework
+
+### What's Fixed
+
+- iOS networking should use the reqwest backend, instead of failing ([#1032](https://github.com/mozilla/application-services/pull/1032))
 
 # v0.26.0 (_2018-04-17_)
 
