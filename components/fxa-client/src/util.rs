@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::errors::*;
-use ring::rand::SecureRandom;
+use rc_crypto::rand;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 // Gets the unix epoch in ms.
@@ -21,9 +21,9 @@ pub fn now_secs() -> u64 {
     since_epoch.as_secs()
 }
 
-pub fn random_base64_url_string(rng: &dyn SecureRandom, len: usize) -> Result<String> {
+pub fn random_base64_url_string(len: usize) -> Result<String> {
     let mut out = vec![0u8; len];
-    rng.fill(&mut out).map_err(|_| ErrorKind::RngFailure)?;
+    rand::fill(&mut out).map_err(|_| ErrorKind::RngFailure)?;
     Ok(base64::encode_config(&out, base64::URL_SAFE_NO_PAD))
 }
 

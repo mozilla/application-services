@@ -9,7 +9,7 @@ use crate::{
     Config,
 };
 use hawk_request::HawkRequestBuilder;
-use ring::{digest, hkdf, hmac};
+use rc_crypto::{digest, hkdf, hmac};
 use rsa::RSABrowserIDKeyPair;
 use serde_derive::*;
 use serde_json::json;
@@ -93,7 +93,7 @@ impl FxABrowserIDClient for http_client::Client {
         let url = config.auth_url_path("v1/account/keys")?;
         let context_info = kw("keyFetchToken");
         let key =
-            derive_hkdf_sha256_key(&key_fetch_token, &HKDF_SALT, &context_info, KEY_LENGTH * 3);
+            derive_hkdf_sha256_key(&key_fetch_token, &HKDF_SALT, &context_info, KEY_LENGTH * 3)?;
         let key_request_key = &key[(KEY_LENGTH * 2)..(KEY_LENGTH * 3)];
         let request = HawkRequestBuilder::new(Method::Get, url, &key).build()?;
         let json: serde_json::Value = Self::make_request(request)?.json()?;
@@ -109,7 +109,7 @@ impl FxABrowserIDClient for http_client::Client {
         let mac_code = &data[(KEY_LENGTH * 2)..(KEY_LENGTH * 3)];
         let context_info = kw("account/keys");
         let bytes =
-            derive_hkdf_sha256_key(key_request_key, &HKDF_SALT, &context_info, KEY_LENGTH * 3);
+            derive_hkdf_sha256_key(key_request_key, &HKDF_SALT, &context_info, KEY_LENGTH * 3)?;
         let hmac_key = &bytes[0..KEY_LENGTH];
         let xor_key = &bytes[KEY_LENGTH..(KEY_LENGTH * 3)];
 
@@ -193,14 +193,16 @@ pub fn key_pair(len: u32) -> Result<RSABrowserIDKeyPair> {
     RSABrowserIDKeyPair::generate_random(len)
 }
 
-pub fn derive_sync_key(kb: &[u8]) -> Vec<u8> {
+pub fn derive_sync_key(kb: &[u8]) -> Result<Vec<u8>> {
     let salt = [0u8; 0];
     let context_info = kw("oldsync");
     derive_hkdf_sha256_key(&kb, &salt, &context_info, KEY_LENGTH * 2)
 }
 
-pub fn compute_client_state(kb: &[u8]) -> String {
-    hex::encode(digest::digest(&digest::SHA256, &kb).as_ref()[0..16].to_vec())
+pub fn compute_client_state(kb: &[u8]) -> Result<String> {
+    Ok(hex::encode(
+        &digest::digest(&digest::SHA256, &kb)?.as_ref()[0..16],
+    ))
 }
 
 fn get_oauth_audience(oauth_url: &Url) -> Result<String> {
@@ -220,14 +222,14 @@ fn derive_key_from_session_token(session_token: &[u8]) -> Result<Vec<u8>> {
         &HKDF_SALT,
         &context_info,
         KEY_LENGTH * 2,
-    ))
+    )?)
 }
 
-fn derive_hkdf_sha256_key(ikm: &[u8], salt: &[u8], info: &[u8], len: usize) -> Vec<u8> {
+fn derive_hkdf_sha256_key(ikm: &[u8], salt: &[u8], info: &[u8], len: usize) -> Result<Vec<u8>> {
     let salt = hmac::SigningKey::new(&digest::SHA256, salt);
     let mut out = vec![0u8; len];
-    hkdf::extract_and_expand(&salt, ikm, info, &mut out);
-    out.to_vec()
+    hkdf::extract_and_expand(&salt, ikm, info, &mut out)?;
+    Ok(out)
 }
 
 #[derive(Deserialize)]
@@ -283,7 +285,7 @@ mod tests {
         let streched = quick_strech_pwd(email, pwd);
         let salt = [0u8; 0];
         let context = kw("authPW");
-        let derived = derive_hkdf_sha256_key(&streched, &salt, &context, 32);
+        let derived = derive_hkdf_sha256_key(&streched, &salt, &context, 32).unwrap();
         hex::encode(derived)
     }
 

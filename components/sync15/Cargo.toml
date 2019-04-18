@@ -21,5 +21,6 @@ log = "0.4"
 lazy_static = "1.0"
 base16 = "0.1.1"
 failure = "0.1.3"
+rc_crypto = { path = "../support/rc_crypto" }
 viaduct = { path = "../viaduct" }
 interrupt = { path = "../support/interrupt" }

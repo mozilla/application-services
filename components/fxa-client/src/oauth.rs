@@ -119,8 +119,8 @@ impl FirefoxAccount {
     }
 
     fn oauth_flow(&mut self, mut url: Url, scopes: &[&str], wants_keys: bool) -> Result<String> {
-        let state = util::random_base64_url_string(&*RNG, 16)?;
-        let code_verifier = util::random_base64_url_string(&*RNG, 43)?;
+        let state = util::random_base64_url_string(16)?;
+        let code_verifier = util::random_base64_url_string(43)?;
         let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes())?;
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         url.query_pairs_mut()

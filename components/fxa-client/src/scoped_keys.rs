@@ -104,7 +104,7 @@ impl ScopedKeysFlow {
         let auth_tag = base64::decode_config(&segments[4], base64::URL_SAFE_NO_PAD)?;
         assert_eq!(auth_tag.len(), 128 / 8);
         assert_eq!(iv.len(), 96 / 8);
-        let opening_key = aead::OpeningKey::new(&aead::AES_256_GCM, &secret)
+        let opening_key = aead::OpeningKey::new(&aead::AES_256_GCM, &secret.as_ref())
             .map_err(|_| ErrorKind::KeyImportFailed)?;
         let mut in_out = ciphertext.to_vec();
         in_out.append(&mut auth_tag.to_vec());

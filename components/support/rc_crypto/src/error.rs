@@ -57,4 +57,30 @@ pub enum ErrorKind {
     NSSInitFailure,
     #[fail(display = "NSS error: {} {:?}", _0, _1)]
     NSSError(i32, String),
+    #[fail(display = "Internal error")]
+    InternalError,
+    #[fail(display = "Conversion error: {}", _0)]
+    ConversionError(#[fail(cause)] std::num::TryFromIntError),
+}
+
+macro_rules! impl_from_error {
+    ($(($variant:ident, $type:ty)),+) => ($(
+        impl From<$type> for ErrorKind {
+            #[inline]
+            fn from(e: $type) -> ErrorKind {
+                ErrorKind::$variant(e)
+            }
+        }
+
+        impl From<$type> for Error {
+            #[inline]
+            fn from(e: $type) -> Error {
+                ErrorKind::from(e).into()
+            }
+        }
+    )*);
+}
+
+impl_from_error! {
+    (ConversionError, std::num::TryFromIntError)
 }
