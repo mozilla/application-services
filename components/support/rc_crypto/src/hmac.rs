@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::{constant_time, digest, error::*};
+#[cfg(not(target_os = "ios"))]
 use crate::{
-    constant_time, digest,
-    error::*,
     p11,
     util::{ensure_nss_initialized, map_nss_secstatus},
 };
@@ -70,6 +70,7 @@ pub fn verify_with_own_key(key: &SigningKey, data: &[u8], signature: &[u8]) -> R
 }
 
 /// Calculate the HMAC of `data` using `key`.
+#[cfg(not(target_os = "ios"))]
 pub fn sign(key: &SigningKey, data: &[u8]) -> Result<Signature> {
     let mech = match key.digest_alg {
         digest::Algorithm::SHA256 => nss_sys::CKM_SHA256_HMAC,
@@ -97,6 +98,19 @@ pub fn sign(key: &SigningKey, data: &[u8]) -> Result<Signature> {
     out.truncate(usize::try_from(out_len)?);
     Ok(Signature(digest::Digest {
         value: out,
+        algorithm: key.digest_alg,
+    }))
+}
+
+#[cfg(target_os = "ios")]
+pub fn sign(key: &SigningKey, data: &[u8]) -> Result<Signature> {
+    let ring_digest = match key.digest_alg {
+        digest::Algorithm::SHA256 => &ring::digest::SHA256,
+    };
+    let ring_key = ring::hmac::SigningKey::new(&ring_digest, &key.key_value);
+    let ring_signature = ring::hmac::sign(&ring_key, data);
+    Ok(Signature(digest::Digest {
+        value: ring_signature.as_ref().to_vec(),
         algorithm: key.digest_alg,
     }))
 }
