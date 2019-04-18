@@ -2,12 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::{digest, error::*, hmac};
+#[cfg(not(target_os = "ios"))]
 use crate::{
-    digest,
-    error::*,
-    hmac, p11,
+    p11,
     util::{ensure_nss_initialized, map_nss_secstatus},
 };
+#[cfg(not(target_os = "ios"))]
 use nss_sys::*;
 use std::{
     convert::TryFrom,
@@ -32,6 +33,17 @@ pub fn extract(salt: &hmac::SigningKey, secret: &[u8]) -> Result<hmac::SigningKe
     Ok(hmac::SigningKey::new(salt.digest_algorithm(), prk.as_ref()))
 }
 
+#[cfg(target_os = "ios")]
+pub fn expand(prk: &hmac::SigningKey, info: &[u8], out: &mut [u8]) -> Result<()> {
+    let ring_digest = match prk.digest_alg {
+        digest::Algorithm::SHA256 => &ring::digest::SHA256,
+    };
+    let ring_prk = ring::hmac::SigningKey::new(&ring_digest, &prk.key_value);
+    ring::hkdf::expand(&ring_prk, info, out);
+    Ok(())
+}
+
+#[cfg(not(target_os = "ios"))]
 pub fn expand(prk: &hmac::SigningKey, info: &[u8], out: &mut [u8]) -> Result<()> {
     let mech = match prk.digest_algorithm() {
         digest::Algorithm::SHA256 => CKM_NSS_HKDF_SHA256,

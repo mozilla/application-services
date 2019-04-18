@@ -2,10 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{
-    error::*,
-    util::{ensure_nss_initialized, map_nss_secstatus},
-};
+use crate::error::*;
+#[cfg(not(target_os = "ios"))]
+use crate::util::{ensure_nss_initialized, map_nss_secstatus};
 use std::convert::TryFrom;
 
 pub enum Algorithm {
@@ -21,6 +20,7 @@ impl Algorithm {
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 impl From<&Algorithm> for nss_sys::SECOidTag::Type {
     fn from(alg: &Algorithm) -> Self {
         match alg {
@@ -49,6 +49,7 @@ impl AsRef<[u8]> for Digest {
 }
 
 /// Returns the digest of data using the given digest algorithm.
+#[cfg(not(target_os = "ios"))]
 pub fn digest(algorithm: &'static Algorithm, data: &[u8]) -> Result<Digest> {
     let mut out_buf = vec![0u8; algorithm.result_len()];
     ensure_nss_initialized();
@@ -63,6 +64,18 @@ pub fn digest(algorithm: &'static Algorithm, data: &[u8]) -> Result<Digest> {
     })?;
     Ok(Digest {
         value: out_buf,
+        algorithm,
+    })
+}
+
+#[cfg(target_os = "ios")]
+pub fn digest(algorithm: &'static Algorithm, data: &[u8]) -> Result<Digest> {
+    let ring_alg = match algorithm {
+        Algorithm::SHA256 => &ring::digest::SHA256,
+    };
+    let ring_digest = ring::digest::digest(&ring_alg, data);
+    Ok(Digest {
+        value: ring_digest.as_ref().to_vec(),
         algorithm,
     })
 }

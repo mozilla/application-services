@@ -11,8 +11,10 @@ pub mod digest;
 mod error;
 pub mod hkdf;
 pub mod hmac;
+#[cfg(not(target_os = "ios"))]
 mod p11;
 pub mod rand;
+#[cfg(not(target_os = "ios"))]
 mod util;
 
 pub use crate::error::{Error, ErrorKind, Result};
