@@ -9,6 +9,7 @@ use crate::update_plan::UpdatePlan;
 use crate::util;
 use lazy_static::lazy_static;
 use rusqlite::{
+    named_params,
     types::{FromSql, ToSql},
     Connection, NO_PARAMS,
 };
@@ -37,46 +38,26 @@ impl LoginDb {
             util::init_test_logging();
         }
 
-        let encryption_pragmas = if let Some(key) = encryption_key {
-            // TODO: We probably should support providing a key that doesn't go
-            // through PBKDF2 (e.g. pass it in as hex, or use sqlite3_key
-            // directly. See https://www.zetetic.net/sqlcipher/sqlcipher-api/#key
-            // "Raw Key Data" example. Note that this would be required to open
-            // existing iOS sqlcipher databases).
-            format!(
-                "
-                PRAGMA key = '{}';
-                PRAGMA secure_delete = true;
+        if let Some(key) = encryption_key {
+            db.set_pragma("key", key)?
+                .set_pragma("secure_delete", true)?;
 
-                -- SQLcipher pre-4.0.0 compatibility. Using SHA1 still
-                -- is less than ideal, but should be fine. Real uses of
-                -- this (lockbox, etc) use a real random string for the
-                -- encryption key, so the reduced KDF iteration count
-                -- is fine.
-                PRAGMA cipher_page_size = 1024;
-                PRAGMA kdf_iter = 64000;
-                PRAGMA cipher_hmac_algorithm = HMAC_SHA1;
-                PRAGMA cipher_kdf_algorithm = PBKDF2_HMAC_SHA1;
-            ",
-                sql_support::escape_string_for_pragma(key)
-            )
-        } else {
-            "".to_owned()
-        };
+            // SQLcipher pre-4.0.0 compatibility. Using SHA1 still
+            // is less than ideal, but should be fine. Real uses of
+            // this (lockwise, etc) use a real random string for the
+            // encryption key, so the reduced KDF iteration count
+            // is fine.
+            db.set_pragma("cipher_page_size", 1024)?
+                .set_pragma("kdf_iter", 64000)?
+                .set_pragma("cipher_hmac_algorithm", "HMAC_SHA1")?
+                .set_pragma("cipher_kdf_algorithm", "PBKDF2_HMAC_SHA1")?;
+        }
 
         // `temp_store = 2` is required on Android to force the DB to keep temp
         // files in memory, since on Android there's no tmp partition. See
         // https://github.com/mozilla/mentat/issues/505. Ideally we'd only
         // do this on Android, or allow caller to configure it.
-        let initial_pragmas = format!(
-            "
-            {}
-            PRAGMA temp_store = 2;
-        ",
-            encryption_pragmas
-        );
-
-        db.execute_batch(&initial_pragmas)?;
+        db.set_pragma("temp_store", 2)?;
 
         let mut logins = Self {
             db,
@@ -103,8 +84,7 @@ impl LoginDb {
     }
 
     pub fn disable_mem_security(&self) -> Result<()> {
-        self.conn()
-            .execute_batch("PRAGMA cipher_memory_security = false;")?;
+        self.conn().set_pragma("cipher_memory_security", false)?;
         Ok(())
     }
 
@@ -158,13 +138,12 @@ impl LoginDb {
 
             self.db.execute(
                 &format!(
-                    "
-                    INSERT OR IGNORE INTO loginsM (
-                        {common_cols}, is_overridden, server_modified
-                    )
-                    SELECT {common_cols}, 0, {modified_ms_i64}
-                    FROM loginsL
-                    WHERE is_deleted = 0 AND guid IN ({vars})",
+                    "INSERT OR IGNORE INTO loginsM (
+                         {common_cols}, is_overridden, server_modified
+                     )
+                     SELECT {common_cols}, 0, {modified_ms_i64}
+                     FROM loginsL
+                     WHERE is_deleted = 0 AND guid IN ({vars})",
                     common_cols = schema::COMMON_COLS,
                     modified_ms_i64 = ts.as_millis() as i64,
                     vars = sql_support::repeat_sql_vars(chunk.len())
@@ -218,35 +197,34 @@ impl LoginDb {
                     write!(f, "({},?)", i + offset)
                 });
                 let query = format!(
-                    "
-                    WITH to_fetch(guid_idx, fetch_guid) AS (VALUES {vals})
-                    SELECT
-                        {common_cols},
-                        is_overridden,
-                        server_modified,
-                        NULL as local_modified,
-                        NULL as is_deleted,
-                        NULL as sync_status,
-                        1 as is_mirror,
-                        to_fetch.guid_idx as guid_idx
-                    FROM loginsM
-                    JOIN to_fetch
-                        ON loginsM.guid = to_fetch.fetch_guid
+                    "WITH to_fetch(guid_idx, fetch_guid) AS (VALUES {vals})
+                     SELECT
+                         {common_cols},
+                         is_overridden,
+                         server_modified,
+                         NULL as local_modified,
+                         NULL as is_deleted,
+                         NULL as sync_status,
+                         1 as is_mirror,
+                         to_fetch.guid_idx as guid_idx
+                     FROM loginsM
+                     JOIN to_fetch
+                         ON loginsM.guid = to_fetch.fetch_guid
 
-                    UNION ALL
+                     UNION ALL
 
-                    SELECT
-                        {common_cols},
-                        NULL as is_overridden,
-                        NULL as server_modified,
-                        local_modified,
-                        is_deleted,
-                        sync_status,
-                        0 as is_mirror,
-                        to_fetch.guid_idx as guid_idx
-                    FROM loginsL
-                    JOIN to_fetch
-                        ON loginsL.guid = to_fetch.fetch_guid",
+                     SELECT
+                         {common_cols},
+                         NULL as is_overridden,
+                         NULL as server_modified,
+                         local_modified,
+                         is_deleted,
+                         sync_status,
+                         0 as is_mirror,
+                         to_fetch.guid_idx as guid_idx
+                     FROM loginsL
+                     JOIN to_fetch
+                         ON loginsL.guid = to_fetch.fetch_guid",
                     // give each VALUES item 2 entries, an index and the parameter.
                     vals = values_with_idx,
                     common_cols = schema::COMMON_COLS,
@@ -284,19 +262,18 @@ impl LoginDb {
             .form_submit_url
             .as_ref()
             .and_then(|s| util::url_host_port(&s));
-        let args = &[
-            (":hostname", &l.hostname as &dyn ToSql),
-            (":http_realm", &l.http_realm as &dyn ToSql),
-            (":username", &l.username as &dyn ToSql),
-            (":form_submit", &form_submit_host_port as &dyn ToSql),
-        ];
+        let args = named_params! {
+            ":hostname": l.hostname,
+            ":http_realm": l.http_realm,
+            ":username": l.username,
+            ":form_submit": form_submit_host_port,
+        };
         let mut query = format!(
-            "
-            SELECT {common}
-            FROM loginsL
-            WHERE hostname IS :hostname
-              AND httpRealm IS :http_realm
-              AND username IS :username",
+            "SELECT {common}
+             FROM loginsL
+             WHERE hostname IS :hostname
+               AND httpRealm IS :http_realm
+               AND username IS :username",
             common = schema::COMMON_COLS,
         );
         if form_submit_host_port.is_some() {
@@ -331,17 +308,16 @@ impl LoginDb {
         // As on iOS, just using a record doesn't flip it's status to changed.
         // TODO: this might be wrong for lockbox!
         self.execute_named_cached(
-            "
-            UPDATE loginsL
-            SET timeLastUsed = :now_millis,
-                timesUsed = timesUsed + 1,
-                local_modified = :now_millis
-            WHERE guid = :guid
-                AND is_deleted = 0",
-            &[
-                (":now_millis", &now_ms as &dyn ToSql),
-                (":guid", &id as &dyn ToSql),
-            ],
+            "UPDATE loginsL
+             SET timeLastUsed = :now_millis,
+                 timesUsed = timesUsed + 1,
+                 local_modified = :now_millis
+             WHERE guid = :guid
+                 AND is_deleted = 0",
+            named_params! {
+                ":now_millis": now_ms,
+                ":guid": id,
+            },
         )?;
         tx.commit()?;
         Ok(())
@@ -374,8 +350,7 @@ impl LoginDb {
         login.times_used = 1;
 
         let sql = format!(
-            "
-            INSERT OR IGNORE INTO loginsL (
+            "INSERT OR IGNORE INTO loginsL (
                 hostname,
                 httpRealm,
                 formSubmitURL,
@@ -413,24 +388,21 @@ impl LoginDb {
 
         let rows_changed = self.execute_named(
             &sql,
-            &[
-                (":hostname", &login.hostname as &dyn ToSql),
-                (":http_realm", &login.http_realm as &dyn ToSql),
-                (":form_submit_url", &login.form_submit_url as &dyn ToSql),
-                (":username_field", &login.username_field as &dyn ToSql),
-                (":password_field", &login.password_field as &dyn ToSql),
-                (":username", &login.username as &dyn ToSql),
-                (":password", &login.password as &dyn ToSql),
-                (":guid", &login.id as &dyn ToSql),
-                (":time_created", &login.time_created as &dyn ToSql),
-                (":times_used", &login.times_used as &dyn ToSql),
-                (":time_last_used", &login.time_last_used as &dyn ToSql),
-                (
-                    ":time_password_changed",
-                    &login.time_password_changed as &dyn ToSql,
-                ),
-                (":local_modified", &now_ms as &dyn ToSql),
-            ],
+            named_params! {
+                ":hostname": login.hostname,
+                ":http_realm": login.http_realm,
+                ":form_submit_url": login.form_submit_url,
+                ":username_field": login.username_field,
+                ":password_field": login.password_field,
+                ":username": login.username,
+                ":password": login.password,
+                ":guid": login.id,
+                ":time_created": login.time_created,
+                ":times_used": login.times_used,
+                ":time_last_used": login.time_last_used,
+                ":time_password_changed": login.time_password_changed,
+                ":local_modified": now_ms,
+            },
         )?;
         if rows_changed == 0 {
             log::error!(
@@ -453,43 +425,42 @@ impl LoginDb {
         let now_ms = util::system_time_ms_i64(SystemTime::now());
 
         let sql = format!(
-            "
-            UPDATE loginsL
-            SET local_modified      = :now_millis,
-                timeLastUsed        = :now_millis,
-                -- Only update timePasswordChanged if, well, the password changed.
-                timePasswordChanged = (CASE
-                    WHEN password = :password
-                    THEN timePasswordChanged
-                    ELSE :now_millis
-                END),
-                httpRealm           = :http_realm,
-                formSubmitURL       = :form_submit_url,
-                usernameField       = :username_field,
-                passwordField       = :password_field,
-                timesUsed           = timesUsed + 1,
-                username            = :username,
-                password            = :password,
-                hostname            = :hostname,
-                -- leave New records as they are, otherwise update them to `changed`
-                sync_status         = max(sync_status, {changed})
-            WHERE guid = :guid",
+            "UPDATE loginsL
+             SET local_modified      = :now_millis,
+                 timeLastUsed        = :now_millis,
+                 -- Only update timePasswordChanged if, well, the password changed.
+                 timePasswordChanged = (CASE
+                     WHEN password = :password
+                     THEN timePasswordChanged
+                     ELSE :now_millis
+                 END),
+                 httpRealm           = :http_realm,
+                 formSubmitURL       = :form_submit_url,
+                 usernameField       = :username_field,
+                 passwordField       = :password_field,
+                 timesUsed           = timesUsed + 1,
+                 username            = :username,
+                 password            = :password,
+                 hostname            = :hostname,
+                 -- leave New records as they are, otherwise update them to `changed`
+                 sync_status         = max(sync_status, {changed})
+             WHERE guid = :guid",
             changed = SyncStatus::Changed as u8
         );
 
         self.db.execute_named(
             &sql,
-            &[
-                (":hostname", &login.hostname as &dyn ToSql),
-                (":username", &login.username as &dyn ToSql),
-                (":password", &login.password as &dyn ToSql),
-                (":http_realm", &login.http_realm as &dyn ToSql),
-                (":form_submit_url", &login.form_submit_url as &dyn ToSql),
-                (":username_field", &login.username_field as &dyn ToSql),
-                (":password_field", &login.password_field as &dyn ToSql),
-                (":guid", &login.id as &dyn ToSql),
-                (":now_millis", &now_ms as &dyn ToSql),
-            ],
+            named_params! {
+                ":hostname": login.hostname,
+                ":username": login.username,
+                ":password": login.password,
+                ":http_realm": login.http_realm,
+                ":form_submit_url": login.form_submit_url,
+                ":username_field": login.username_field,
+                ":password_field": login.password_field,
+                ":guid": login.id,
+                ":now_millis": now_ms,
+            },
         )?;
         tx.commit()?;
         Ok(())
@@ -497,15 +468,14 @@ impl LoginDb {
 
     pub fn exists(&self, id: &str) -> Result<bool> {
         Ok(self.db.query_row_named(
-            "
-            SELECT EXISTS(
-                SELECT 1 FROM loginsL
-                WHERE guid = :guid AND is_deleted = 0
-                UNION ALL
-                SELECT 1 FROM loginsM
-                WHERE guid = :guid AND is_overridden IS NOT 1
-            )",
-            &[(":guid", &id as &dyn ToSql)],
+            "SELECT EXISTS(
+                 SELECT 1 FROM loginsL
+                 WHERE guid = :guid AND is_deleted = 0
+                 UNION ALL
+                 SELECT 1 FROM loginsM
+                 WHERE guid = :guid AND is_overridden IS NOT 1
+             )",
+            named_params! { ":guid": id },
             |row| row.get(0),
         )?)
     }
@@ -520,39 +490,34 @@ impl LoginDb {
         // Directly delete IDs that have not yet been synced to the server
         self.execute_named(
             &format!(
-                "
-                DELETE FROM loginsL
-                WHERE guid = :guid
-                    AND sync_status = {status_new}",
+                "DELETE FROM loginsL
+                 WHERE guid = :guid
+                     AND sync_status = {status_new}",
                 status_new = SyncStatus::New as u8
             ),
-            &[(":guid", &id as &dyn ToSql)],
+            named_params! { ":guid": id },
         )?;
 
         // For IDs that have, mark is_deleted and clear sensitive fields
         self.execute_named(
             &format!(
-                "
-                UPDATE loginsL
-                SET local_modified = :now_ms,
-                    sync_status = {status_changed},
-                    is_deleted = 1,
-                    password = '',
-                    hostname = '',
-                    username = ''
-                WHERE guid = :guid",
+                "UPDATE loginsL
+                 SET local_modified = :now_ms,
+                     sync_status = {status_changed},
+                     is_deleted = 1,
+                     password = '',
+                     hostname = '',
+                     username = ''
+                 WHERE guid = :guid",
                 status_changed = SyncStatus::Changed as u8
             ),
-            &[
-                (":now_ms", &now_ms as &dyn ToSql),
-                (":guid", &id as &dyn ToSql),
-            ],
+            named_params! { ":now_ms": now_ms, ":guid": id },
         )?;
 
         // Mark the mirror as overridden
         self.execute_named(
             "UPDATE loginsM SET is_overridden = 1 WHERE guid = :guid",
-            &[(":guid", &id as &dyn ToSql)],
+            named_params! { ":guid": id },
         )?;
 
         // If we don't have a local record for this ID, but do have it in the mirror
@@ -564,20 +529,15 @@ impl LoginDb {
             FROM loginsM
             WHERE guid = :guid",
             changed = SyncStatus::Changed as u8),
-            &[(":now_ms", &now_ms as &dyn ToSql),
-              (":guid", &id as &dyn ToSql)])?;
+            named_params! { ":now_ms": now_ms, ":guid": id })?;
         tx.commit()?;
         Ok(exists)
     }
 
     fn mark_mirror_overridden(&self, guid: &str) -> Result<()> {
         self.execute_named_cached(
-            "
-            UPDATE loginsM SET
-            is_overridden = 1
-            WHERE guid = :guid
-            ",
-            &[(":guid", &guid as &dyn ToSql)],
+            "UPDATE loginsM SET is_overridden = 1 WHERE guid = :guid",
+            named_params! { ":guid": guid },
         )?;
         Ok(())
     }
@@ -585,7 +545,7 @@ impl LoginDb {
     fn ensure_local_overlay_exists(&self, guid: &str) -> Result<()> {
         let already_have_local: bool = self.db.query_row_named(
             "SELECT EXISTS(SELECT 1 FROM loginsL WHERE guid = :guid)",
-            &[(":guid", &guid as &dyn ToSql)],
+            named_params! { ":guid": guid },
             |row| row.get(0),
         )?;
 
@@ -656,7 +616,7 @@ impl LoginDb {
                 WHERE is_deleted = 0",
                 changed = SyncStatus::Changed as u8
             ),
-            &[(":now_ms", &now_ms as &dyn ToSql)],
+            named_params! { ":now_ms": now_ms },
         )?;
         scope.err_if_interrupted()?;
 
@@ -670,7 +630,7 @@ impl LoginDb {
                 SELECT guid, :now_ms,        1,          {changed},   '',       timeCreated, :now_ms,             '',       ''
                 FROM loginsM",
                 changed = SyncStatus::Changed as u8),
-            &[(":now_ms", &now_ms as &dyn ToSql)])?;
+            named_params! { ":now_ms": now_ms })?;
         scope.err_if_interrupted()?;
         tx.commit()?;
         Ok(())
@@ -797,7 +757,7 @@ impl LoginDb {
     fn put_meta(&self, key: &str, value: &dyn ToSql) -> Result<()> {
         self.execute_named_cached(
             "REPLACE INTO loginsSyncMeta (key, value) VALUES (:key, :value)",
-            &[(":key", &key as &dyn ToSql), (":value", value)],
+            named_params! { ":key": key, ":value": value },
         )?;
         Ok(())
     }
@@ -805,7 +765,7 @@ impl LoginDb {
     fn get_meta<T: FromSql>(&self, key: &str) -> Result<Option<T>> {
         Ok(self.try_query_row(
             "SELECT value FROM loginsSyncMeta WHERE key = :key",
-            &[(":key", &key as &dyn ToSql)],
+            named_params! { ":key": key },
             |row| Ok::<_, Error>(row.get(0)?),
             true,
         )?)
@@ -814,7 +774,7 @@ impl LoginDb {
     fn delete_meta(&self, key: &str) -> Result<()> {
         self.execute_named_cached(
             "DELETE FROM loginsSyncMeta WHERE key = :key",
-            &[(":key", &key)],
+            named_params! { ":key": key },
         )?;
         Ok(())
     }
@@ -936,37 +896,32 @@ impl<'a> Store for LoginStore<'a> {
 
 lazy_static! {
     static ref GET_ALL_SQL: String = format!(
-        "
-        SELECT {common_cols} FROM loginsL WHERE is_deleted = 0
-        UNION ALL
-        SELECT {common_cols} FROM loginsM WHERE is_overridden = 0
-    ",
+        "SELECT {common_cols} FROM loginsL WHERE is_deleted = 0
+         UNION ALL
+         SELECT {common_cols} FROM loginsM WHERE is_overridden = 0",
         common_cols = schema::COMMON_COLS,
     );
     static ref GET_BY_GUID_SQL: String = format!(
-        "
-        SELECT {common_cols}
-        FROM loginsL
-        WHERE is_deleted = 0
-          AND guid = :guid
+        "SELECT {common_cols}
+         FROM loginsL
+         WHERE is_deleted = 0
+           AND guid = :guid
 
-        UNION ALL
+         UNION ALL
 
-        SELECT {common_cols}
-        FROM loginsM
-        WHERE is_overridden IS NOT 1
-          AND guid = :guid
-        ORDER BY hostname ASC
+         SELECT {common_cols}
+         FROM loginsM
+         WHERE is_overridden IS NOT 1
+           AND guid = :guid
+         ORDER BY hostname ASC
 
-        LIMIT 1
-        ",
+         LIMIT 1",
         common_cols = schema::COMMON_COLS,
     );
     static ref CLONE_ENTIRE_MIRROR_SQL: String = format!(
-        "
-        INSERT OR IGNORE INTO loginsL ({common_cols}, local_modified, is_deleted, sync_status)
-        SELECT {common_cols}, NULL AS local_modified, 0 AS is_deleted, 0 AS sync_status
-        FROM loginsM",
+        "INSERT OR IGNORE INTO loginsL ({common_cols}, local_modified, is_deleted, sync_status)
+         SELECT {common_cols}, NULL AS local_modified, 0 AS is_deleted, 0 AS sync_status
+         FROM loginsM",
         common_cols = schema::COMMON_COLS,
     );
     static ref CLONE_SINGLE_MIRROR_SQL: String =
