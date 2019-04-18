@@ -213,15 +213,28 @@ if (localProperties != null) {
 
 // The Cargo targets to invoke.  The mapping from short name to target
 // triple is defined by the `rust-android-gradle` plugin.
+// They can be overwritten in `local.properties` by the `rust.targets`
+// attribute.
 ext.rustTargets = [
-    'linux-x86-64',
-    'darwin',
-    'win32-x86-64-gnu',
     'arm',
     'arm64',
     'x86_64',
     'x86',
 ]
+
+// Generate libs for our current platform so we can run unit tests.
+switch (DefaultPlatform.RESOURCE_PREFIX) {
+    case 'darwin':
+        ext.rustTargets += 'darwin'
+        break
+    case 'linux-x86-64':
+        ext.rustTargets += 'linux-x86-64'
+        break
+    case 'win32-x86-64':
+        ext.rustTargets += 'win32-x86-64-gnu'
+        break
+}
+
 // Configure some environment variables, per toolchain, that will apply during
 // the Cargo build.  We assume that the `libs/` directory has been populated
 // before invoking Gradle (or Cargo).

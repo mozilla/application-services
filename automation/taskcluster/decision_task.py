@@ -161,6 +161,8 @@ def gradle_module_task(libs_tasks, module_info, is_release):
     else:
         task_title = "{} - Build and test".format(module)
     task = android_task(task_title, libs_tasks)
+    # This is important as by default the Rust plugin will only cross-compile for Android + host platform.
+    task.with_script('echo "rust.targets=arm,arm64,x86_64,x86,darwin,linux-x86-64,win32-x86-64-gnu\n" > local.properties')
     if not is_release: # Makes builds way faster.
         task.with_script('echo "application-services.nonmegazord-profile=debug" >> local.properties')
     (
