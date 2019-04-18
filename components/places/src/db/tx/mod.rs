@@ -25,8 +25,11 @@ pub struct PlacesTransaction<'conn>(PlacesTransactionRepr<'conn>);
 /// Only separated from PlacesTransaction so that the internals of the former
 /// are private (so that it can't be `matched` on, for example)
 enum PlacesTransactionRepr<'conn> {
-    Chunked(ChunkedCoopTransaction<'conn>),
-    Unchunked(UncheckedTransaction<'conn>),
+    ChunkedWrite(ChunkedCoopTransaction<'conn>),
+    UnchunkedWrite(UncheckedTransaction<'conn>),
+    // Note: these might seem pointless, but can allow us to ensure consistency
+    // between separate reads.
+    ReadOnly(UncheckedTransaction<'conn>),
 }
 
 impl<'conn> PlacesTransaction<'conn> {
@@ -37,7 +40,7 @@ impl<'conn> PlacesTransaction<'conn> {
     ///   warning and does nothing.
     #[inline]
     pub fn maybe_commit(&mut self) -> Result<()> {
-        if let PlacesTransactionRepr::Chunked(tx) = &mut self.0 {
+        if let PlacesTransactionRepr::ChunkedWrite(tx) = &mut self.0 {
             tx.maybe_commit()?;
         } else {
             debug_complaint!("maybe_commit called on a non-chunked transaction");
@@ -48,8 +51,9 @@ impl<'conn> PlacesTransaction<'conn> {
     /// Consumes and commits a PlacesTransaction transaction.
     pub fn commit(self) -> Result<()> {
         match self.0 {
-            PlacesTransactionRepr::Chunked(t) => t.commit()?,
-            PlacesTransactionRepr::Unchunked(t) => t.commit()?,
+            PlacesTransactionRepr::ChunkedWrite(t) => t.commit()?,
+            PlacesTransactionRepr::UnchunkedWrite(t) => t.commit()?,
+            PlacesTransactionRepr::ReadOnly(t) => t.commit()?,
         };
         Ok(())
     }
@@ -59,8 +63,9 @@ impl<'conn> PlacesTransaction<'conn> {
     /// call.
     pub fn rollback(self) -> Result<()> {
         match self.0 {
-            PlacesTransactionRepr::Chunked(t) => t.rollback()?,
-            PlacesTransactionRepr::Unchunked(t) => t.rollback()?,
+            PlacesTransactionRepr::ChunkedWrite(t) => t.rollback()?,
+            PlacesTransactionRepr::UnchunkedWrite(t) => t.rollback()?,
+            PlacesTransactionRepr::ReadOnly(t) => t.rollback()?,
         };
         Ok(())
     }
@@ -71,20 +76,18 @@ impl super::PlacesDb {
     ///
     /// - For Sync connections, begins a chunked coop transaction.
     /// - for ReadWrite connections, begins a normal coop transaction
-    /// - for ReadOnly connections, panics in debug builds, and
-    ///   logs an error (before opening a (pointless) in release builds.
+    /// - for ReadOnly connections, begins an unchecked transaction.
     pub fn begin_transaction(&self) -> Result<PlacesTransaction<'_>> {
         Ok(PlacesTransaction(match self.conn_type() {
             ConnectionType::Sync => {
-                PlacesTransactionRepr::Chunked(self.chunked_coop_trransaction()?)
+                PlacesTransactionRepr::ChunkedWrite(self.chunked_coop_trransaction()?)
             }
-            ConnectionType::ReadWrite => PlacesTransactionRepr::Unchunked(self.coop_transaction()?),
+            ConnectionType::ReadWrite => {
+                PlacesTransactionRepr::UnchunkedWrite(self.coop_transaction()?)
+            }
             ConnectionType::ReadOnly => {
-                debug_complaint!(
-                    "Opening a transaction on a ReadOnly connection is probably a mistake"
-                );
-                // Use a (harmless) unchecked transaction with no locking.
-                PlacesTransactionRepr::Unchunked(self.unchecked_transaction()?)
+                // Use an unchecked transaction with no locking.
+                PlacesTransactionRepr::ReadOnly(self.unchecked_transaction()?)
             }
         }))
     }
@@ -95,8 +98,9 @@ impl<'conn> std::ops::Deref for PlacesTransaction<'conn> {
 
     fn deref(&self) -> &Connection {
         match &self.0 {
-            PlacesTransactionRepr::Chunked(t) => &t,
-            PlacesTransactionRepr::Unchunked(t) => &t,
+            PlacesTransactionRepr::ChunkedWrite(t) => &t,
+            PlacesTransactionRepr::UnchunkedWrite(t) => &t,
+            PlacesTransactionRepr::ReadOnly(t) => &t,
         }
     }
 }

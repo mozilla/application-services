@@ -314,15 +314,15 @@ lazy_static::lazy_static! {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::api::places_api::test::new_mem_connection;
+    use crate::api::places_api::test::new_mem_connections;
     use crate::tests::insert_json_tree;
     use serde_json::json;
     #[test]
     fn test_get_by_url() -> Result<()> {
-        let conn = new_mem_connection();
+        let conns = new_mem_connections();
         let _ = env_logger::try_init();
         insert_json_tree(
-            &conn,
+            &conns.write,
             json!({
                 "guid": String::from(BookmarkRootGuid::Unfiled.as_str()),
                 "children": [
@@ -350,7 +350,7 @@ mod test {
             }),
         );
         let url = url::Url::parse("https://www.example2.com/a/b/c/d?q=v#abcde")?;
-        let mut bmks = fetch_bookmarks_by_url(&conn, &url)?;
+        let mut bmks = fetch_bookmarks_by_url(&conns.read, &url)?;
         bmks.sort_by_key(|b| b.guid.0.clone());
         assert_eq!(bmks.len(), 2);
         assert_eq!(
@@ -390,10 +390,10 @@ mod test {
     }
     #[test]
     fn test_search() -> Result<()> {
-        let conn = new_mem_connection();
+        let conns = new_mem_connections();
         let _ = env_logger::try_init();
         insert_json_tree(
-            &conn,
+            &conns.write,
             json!({
                 "guid": String::from(BookmarkRootGuid::Unfiled.as_str()),
                 "children": [
@@ -435,7 +435,7 @@ mod test {
                 ]
             }),
         );
-        let mut bmks = search_bookmarks(&conn, "ample", 10)?;
+        let mut bmks = search_bookmarks(&conns.read, "ample", 10)?;
         bmks.sort_by_key(|b| b.guid.0.clone());
         assert_eq!(bmks.len(), 6);
         let expect = [
@@ -480,11 +480,11 @@ mod test {
     }
     #[test]
     fn test_fetch_bookmark() -> Result<()> {
-        let conn = new_mem_connection();
+        let conns = new_mem_connections();
         let _ = env_logger::try_init();
 
         insert_json_tree(
-            &conn,
+            &conns.write,
             json!({
                 "guid": BookmarkRootGuid::Mobile.as_guid(),
                 "children": [
@@ -500,13 +500,13 @@ mod test {
             }),
         );
 
-        let root = fetch_bookmark(&conn, BookmarkRootGuid::Root.guid(), false)?.unwrap();
+        let root = fetch_bookmark(&conns.read, BookmarkRootGuid::Root.guid(), false)?.unwrap();
 
         assert!(root.child_guids.is_some());
         assert!(root.child_nodes.is_none());
         assert_eq!(root.child_guids.unwrap().len(), 4);
 
-        let root = fetch_bookmark(&conn, BookmarkRootGuid::Root.guid(), true)?.unwrap();
+        let root = fetch_bookmark(&conns.read, BookmarkRootGuid::Root.guid(), true)?.unwrap();
 
         assert!(root.child_guids.is_none());
         assert!(root.child_nodes.is_some());
@@ -528,12 +528,13 @@ mod test {
             }
         }
 
-        let unfiled = fetch_bookmark(&conn, BookmarkRootGuid::Unfiled.guid(), false)?.unwrap();
+        let unfiled =
+            fetch_bookmark(&conns.read, BookmarkRootGuid::Unfiled.guid(), false)?.unwrap();
         assert!(unfiled.child_guids.is_some());
         assert!(unfiled.child_nodes.is_none());
         assert_eq!(unfiled.child_guids.unwrap().len(), 0);
 
-        let unfiled = fetch_bookmark(&conn, BookmarkRootGuid::Unfiled.guid(), true)?.unwrap();
+        let unfiled = fetch_bookmark(&conns.read, BookmarkRootGuid::Unfiled.guid(), true)?.unwrap();
         assert!(unfiled.child_guids.is_none());
         assert!(unfiled.child_nodes.is_some());
         assert_eq!(unfiled.child_nodes.unwrap().len(), 0);
@@ -541,11 +542,11 @@ mod test {
     }
     #[test]
     fn test_fetch_tree() -> Result<()> {
-        let conn = new_mem_connection();
+        let conns = new_mem_connections();
         let _ = env_logger::try_init();
 
         insert_json_tree(
-            &conn,
+            &conns.write,
             json!({
                 "guid": BookmarkRootGuid::Mobile.as_guid(),
                 "children": [
@@ -561,7 +562,7 @@ mod test {
             }),
         );
 
-        let root = fetch_public_tree(&conn, BookmarkRootGuid::Root.guid())?.unwrap();
+        let root = fetch_public_tree(&conns.read, BookmarkRootGuid::Root.guid())?.unwrap();
         assert!(root.parent_guid.is_none());
         assert_eq!(root.position, 0);
 
@@ -582,7 +583,7 @@ mod test {
         }
         // parent_guid/position for the directly returned node is filled in separately,
         // so make sure it works for non-root nodes too.
-        let mobile = fetch_public_tree(&conn, BookmarkRootGuid::Mobile.guid())?.unwrap();
+        let mobile = fetch_public_tree(&conns.read, BookmarkRootGuid::Mobile.guid())?.unwrap();
         assert_eq!(mobile.parent_guid.unwrap(), BookmarkRootGuid::Root);
         assert_eq!(mobile.position, mobile_pos.unwrap());
 

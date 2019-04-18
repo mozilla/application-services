@@ -363,6 +363,23 @@ pub mod test {
             .open_connection(ConnectionType::ReadWrite)
             .expect("should get a connection")
     }
+
+    pub struct MemConnections {
+        pub read: PlacesDb,
+        pub write: PlacesDb,
+        pub api: Arc<PlacesApi>,
+    }
+
+    pub fn new_mem_connections() -> MemConnections {
+        let api = new_mem_api();
+        let read = api
+            .open_connection(ConnectionType::ReadOnly)
+            .expect("should get a read connection");
+        let write = api
+            .open_connection(ConnectionType::ReadWrite)
+            .expect("should get a write connection");
+        MemConnections { api, read, write }
+    }
 }
 
 #[cfg(test)]
