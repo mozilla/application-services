@@ -9,7 +9,12 @@ use crate::{
     util::{ensure_nss_initialized, map_nss_secstatus},
 };
 use nss_sys::*;
-use std::{convert::TryFrom, mem, os::raw::c_uchar, ptr};
+use std::{
+    convert::TryFrom,
+    mem,
+    os::raw::{c_uchar, c_ulong},
+    ptr,
+};
 
 pub fn extract_and_expand(
     salt: &hmac::SigningKey,
@@ -41,7 +46,7 @@ pub fn expand(prk: &hmac::SigningKey, info: &[u8], out: &mut [u8]) -> Result<()>
         ulSaltLen: 0,
         bExpand: CK_TRUE,
         pInfo: info.as_ptr() as *mut u8,
-        ulInfoLen: u64::try_from(info.len())?,
+        ulInfoLen: c_ulong::try_from(info.len())?,
     };
     let mut params = SECItem {
         type_: SECItemType::siBuffer,
