@@ -235,7 +235,7 @@ def linux_task(name):
 
 
 def linux_build_task(name):
-    return (
+    task = (
         linux_task(name)
         # https://docs.taskcluster.net/docs/reference/workers/docker-worker/docs/caches
         .with_scopes("docker-worker:cache:application-services-*")
@@ -284,6 +284,10 @@ def linux_build_task(name):
             ./libs/verify-android-environment.sh
         """)
     )
+    # Send email notifications for failures on master.
+    if os.environ["TASK_FOR"] == "github-push":
+        task.with_routes("notify.email.a-s-ci-failures@mozilla.com.on-failed")
+    return task
 
 def linux_cross_compile_build_task(name):
     return (

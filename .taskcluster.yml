@@ -62,6 +62,7 @@ tasks:
         scopes:
           - queue:create-task:${tasks_priority}:aws-provisioner-v1/${build_worker_type}
           - queue:route:statuses
+          - queue:route:notify.email.*
           - queue:scheduler-id:${scheduler_id}
           # So that we can cache task outputs for re-use.
           - "queue:route:index.project.application-services.*"
