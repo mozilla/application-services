@@ -10,19 +10,14 @@ package mozilla.appservices.places
 
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
-import java.util.Arrays
 
+@Structure.FieldOrder("code", "message")
 internal open class RustError : Structure() {
 
     class ByReference : RustError(), Structure.ByReference
 
     @JvmField var code: Int = 0
     @JvmField var message: Pointer? = null
-
-    init {
-        read()
-    }
-
     /**
      * Does this represent success?
      */
@@ -84,9 +79,5 @@ internal open class RustError : Structure() {
      */
     fun getMessage(): String? {
         return this.message?.getString(0, "utf8")
-    }
-
-    override fun getFieldOrder(): List<String> {
-        return Arrays.asList("code", "message")
     }
 }

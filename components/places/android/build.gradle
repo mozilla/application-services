@@ -112,10 +112,10 @@ protobuf {
     }
 }
 dependencies {
-    jnaForTest 'net.java.dev.jna:jna:4.5.2@jar'
+    jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
+    implementation "net.java.dev.jna:jna:$jna_version@aar"
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation 'net.java.dev.jna:jna:4.5.2@aar'
 
     implementation 'com.google.protobuf:protobuf-lite:3.0.0'
     implementation project(':as-support-library')

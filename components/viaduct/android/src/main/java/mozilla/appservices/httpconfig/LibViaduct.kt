@@ -25,7 +25,7 @@ internal interface LibViaduct : Library {
         }()
 
         internal var INSTANCE: LibViaduct = try {
-            val lib = Native.loadLibrary(JNA_LIBRARY_NAME, LibViaduct::class.java) as LibViaduct
+            val lib = Native.load<LibViaduct>(JNA_LIBRARY_NAME, LibViaduct::class.java)
             if (JNA_LIBRARY_NAME == "viaduct") {
                 // TODO Enable logging if we aren't in a megazord.
             } else {

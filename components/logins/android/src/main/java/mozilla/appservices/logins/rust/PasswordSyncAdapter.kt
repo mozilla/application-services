@@ -26,7 +26,7 @@ internal interface PasswordSyncAdapter : Library {
         }()
 
         internal var INSTANCE: PasswordSyncAdapter = try {
-            val lib = Native.loadLibrary(JNA_LIBRARY_NAME, PasswordSyncAdapter::class.java) as PasswordSyncAdapter
+            val lib = Native.load<PasswordSyncAdapter>(JNA_LIBRARY_NAME, PasswordSyncAdapter::class.java)
             if (JNA_LIBRARY_NAME == "logins_ffi") {
                 // Enable logcat logging if we aren't in a megazord.
                 lib.sync15_passwords_enable_logcat_logging()

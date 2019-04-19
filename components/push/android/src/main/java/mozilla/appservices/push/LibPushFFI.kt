@@ -9,9 +9,8 @@ import android.util.Log
 import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
-import java.lang.reflect.Proxy
-
 import mozilla.appservices.support.RustBuffer
+import java.lang.reflect.Proxy
 
 @Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
 internal interface LibPushFFI : Library {
@@ -27,7 +26,7 @@ internal interface LibPushFFI : Library {
         }()
 
         internal var INSTANCE: LibPushFFI = try {
-            Native.loadLibrary(JNA_LIBRARY_NAME, LibPushFFI::class.java) as LibPushFFI
+            Native.load<LibPushFFI>(JNA_LIBRARY_NAME, LibPushFFI::class.java)
         } catch (e: UnsatisfiedLinkError) {
             Proxy.newProxyInstance(
                 LibPushFFI::class.java.classLoader,

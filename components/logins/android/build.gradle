@@ -86,10 +86,10 @@ configurations {
 }
 
 dependencies {
-    jnaForTest 'net.java.dev.jna:jna:4.5.2@jar'
+    jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
+    implementation "net.java.dev.jna:jna:$jna_version@aar"
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation 'net.java.dev.jna:jna:4.5.2@aar'
 
     // For reasons unknown, resolving the jnaForTest configuration directly
     // trips a nasty issue with the Android-Gradle plugin 3.2.1, like `Cannot

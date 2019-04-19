@@ -25,7 +25,7 @@ internal interface LibFxAFFI : Library {
         }()
 
         internal var INSTANCE: LibFxAFFI = try {
-            val lib = Native.loadLibrary(JNA_LIBRARY_NAME, LibFxAFFI::class.java) as LibFxAFFI
+            val lib = Native.load<LibFxAFFI>(JNA_LIBRARY_NAME, LibFxAFFI::class.java)
             if (JNA_LIBRARY_NAME == "fxaclient_ffi") {
                 // Enable logcat logging if we aren't in a megazord.
                 lib.fxa_enable_logcat_logging()
