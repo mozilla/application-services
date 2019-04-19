@@ -24,16 +24,14 @@ import java.lang.ref.WeakReference
  * where necessary).
  *
  * @param path an absolute path to a file that will be used for the internal database.
- * @param encryptionKey an optional key used for encrypting/decrypting data stored in the internal
- *  database. If omitted, data will be stored in plaintext.
  */
-class PlacesApi(path: String, encryptionKey: String? = null) : PlacesManager, AutoCloseable {
+class PlacesApi(path: String) : PlacesManager, AutoCloseable {
     private var handle: AtomicLong = AtomicLong(0)
     private var writeConn: PlacesWriterConnection
 
     init {
         handle.set(rustCall(this) { error ->
-            LibPlacesFFI.INSTANCE.places_api_new(path, encryptionKey, error)
+            LibPlacesFFI.INSTANCE.places_api_new(path, error)
         })
         writeConn = PlacesWriterConnection(rustCall(this) { error ->
             LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_WRITE, error)

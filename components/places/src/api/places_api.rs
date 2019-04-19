@@ -61,8 +61,6 @@ impl ConnectionType {
 }
 
 // We only allow a single PlacesApi per filename.
-// XXX - probably need encryption key here too so we can do something sane
-// if we attempt to open the same file with different keys.
 lazy_static! {
     static ref APIS: Mutex<HashMap<PathBuf, Weak<PlacesApi>>> = Mutex::new(HashMap::new());
 }
@@ -79,7 +77,6 @@ struct SyncState {
 /// can exist to the database at once.
 pub struct PlacesApi {
     db_name: PathBuf,
-    encryption_key: Option<String>,
     write_connection: Mutex<Option<PlacesDb>>,
     sync_state: Mutex<Option<SyncState>>,
     coop_tx_lock: Arc<Mutex<()>>,
@@ -88,29 +85,23 @@ pub struct PlacesApi {
 }
 impl PlacesApi {
     /// Create a new, or fetch an already open, PlacesApi backed by a file on disk.
-    pub fn new(db_name: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Arc<Self>> {
+    pub fn new(db_name: impl AsRef<Path>) -> Result<Arc<Self>> {
         let db_name = normalize_path(db_name)?;
-        Self::new_or_existing(db_name, encryption_key)
+        Self::new_or_existing(db_name)
     }
 
     /// Create a new, or fetch an already open, memory-based PlacesApi. You must
     /// provide a name, but you are still able to have a single writer and many
     ///  reader connections to the same memory DB open.
-    pub fn new_memory(db_name: &str, encryption_key: Option<&str>) -> Result<Arc<Self>> {
+    pub fn new_memory(db_name: &str) -> Result<Arc<Self>> {
         let name = PathBuf::from(format!("file:{}?mode=memory&cache=shared", db_name));
-        Self::new_or_existing(name, encryption_key)
+        Self::new_or_existing(name)
     }
     fn new_or_existing_into(
         target: &mut HashMap<PathBuf, Weak<PlacesApi>>,
         db_name: PathBuf,
-        encryption_key: Option<&str>,
         delete_on_fail: bool,
     ) -> Result<Arc<Self>> {
-        // XXX - we should check encryption_key via the HashMap here too. Also, we'd
-        // rather not keep the key in memory forever, and instead it would be better to
-        // require it in open_connection.
-        // (Or maybe given these issues (and the surprising performance hit), we shouldn't
-        // support encrypted places databases...)
         let id = ID_COUNTER.fetch_add(1, Ordering::SeqCst);
         match target.get(&db_name).and_then(Weak::upgrade) {
             Some(existing) => Ok(existing.clone()),
@@ -120,7 +111,6 @@ impl PlacesApi {
                 let coop_tx_lock = Arc::new(Mutex::new(()));
                 match PlacesDb::open(
                     &db_name,
-                    encryption_key,
                     ConnectionType::ReadWrite,
                     id,
                     coop_tx_lock.clone(),
@@ -128,7 +118,6 @@ impl PlacesApi {
                     Ok(connection) => {
                         let new = PlacesApi {
                             db_name: db_name.clone(),
-                            encryption_key: encryption_key.map(ToString::to_string),
                             write_connection: Mutex::new(Some(connection)),
                             sync_state: Mutex::new(None),
                             sync_conn_active: AtomicBool::new(false),
@@ -145,7 +134,7 @@ impl PlacesApi {
                         }
                         if let ErrorKind::DatabaseUpgradeError = e.kind() {
                             fs::remove_file(&db_name)?;
-                            Self::new_or_existing_into(target, db_name, encryption_key, false)
+                            Self::new_or_existing_into(target, db_name, false)
                         } else {
                             Err(e)
                         }
@@ -155,20 +144,18 @@ impl PlacesApi {
         }
     }
 
-    fn new_or_existing(db_name: PathBuf, encryption_key: Option<&str>) -> Result<Arc<Self>> {
+    fn new_or_existing(db_name: PathBuf) -> Result<Arc<Self>> {
         let mut guard = APIS.lock().unwrap();
-        Self::new_or_existing_into(&mut guard, db_name, encryption_key, true)
+        Self::new_or_existing_into(&mut guard, db_name, true)
     }
 
     /// Open a connection to the database.
     pub fn open_connection(&self, conn_type: ConnectionType) -> Result<PlacesDb> {
-        let ec = self.encryption_key.as_ref().map(String::as_str);
         match conn_type {
             ConnectionType::ReadOnly => {
                 // make a new one - we can have as many of these as we want.
                 PlacesDb::open(
                     self.db_name.clone(),
-                    ec,
                     ConnectionType::ReadOnly,
                     self.id,
                     self.coop_tx_lock.clone(),
@@ -195,10 +182,8 @@ impl PlacesApi {
         if prev_value {
             Err(ErrorKind::ConnectionAlreadyOpen.into())
         } else {
-            let ec = self.encryption_key.as_ref().map(String::as_str);
             let db = PlacesDb::open(
                 self.db_name.clone(),
-                ec,
                 ConnectionType::Sync,
                 self.id,
                 self.coop_tx_lock.clone(),
@@ -355,7 +340,7 @@ pub mod test {
 
     pub fn new_mem_api() -> Arc<PlacesApi> {
         let counter = ATOMIC_COUNTER.fetch_add(1, Ordering::Relaxed);
-        PlacesApi::new_memory(&format!("test-api-{}", counter), None).expect("should get an API")
+        PlacesApi::new_memory(&format!("test-api-{}", counter)).expect("should get an API")
     }
 
     pub fn new_mem_connection() -> PlacesDb {
@@ -484,13 +469,13 @@ mod tests {
         let dirname = tempfile::tempdir().unwrap();
         let db_name = dirname.path().join("temp.db");
         let id = {
-            let api = PlacesApi::new(&db_name, None)?;
+            let api = PlacesApi::new(&db_name)?;
             let conn = api.open_connection(ConnectionType::ReadWrite)?;
             conn.execute_batch("PRAGMA user_version = 1;")?;
             api.close_connection(conn)?;
             api.id
         };
-        let api2 = PlacesApi::new(&db_name, None)?;
+        let api2 = PlacesApi::new(&db_name)?;
         assert_ne!(id, api2.id);
         let conn = api2.open_connection(ConnectionType::ReadWrite)?;
         assert_ne!(1, conn.db.query_one::<i64>("PRAGMA user_version")?);

@@ -50,16 +50,11 @@ lazy_static::lazy_static! {
 /// Instantiate a places API. Returned api must be freed with
 /// `places_api_destroy`. Returns null and logs on errors (for now).
 #[no_mangle]
-pub extern "C" fn places_api_new(
-    db_path: FfiStr<'_>,
-    encryption_key: FfiStr<'_>,
-    error: &mut ExternError,
-) -> u64 {
+pub extern "C" fn places_api_new(db_path: FfiStr<'_>, error: &mut ExternError) -> u64 {
     log::debug!("places_api_new");
     APIS.insert_with_result(error, || {
         let path = db_path.as_str();
-        let key = encryption_key.as_opt_str();
-        PlacesApi::new(path, key)
+        PlacesApi::new(path)
     })
 }
 

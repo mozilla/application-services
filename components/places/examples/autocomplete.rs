@@ -263,16 +263,11 @@ mod autocomplete {
     #[derive(Debug, Clone)]
     struct ConnectionArgs {
         path: PathBuf,
-        encryption_key: Option<String>,
     }
 
     impl ConnectionArgs {
         pub fn connect(&self) -> Result<places::PlacesDb> {
-            let key = match &self.encryption_key {
-                Some(k) => Some(k.as_str()),
-                _ => None,
-            };
-            let api = places::PlacesApi::new(self.path.to_str().unwrap(), key)?;
+            let api = places::PlacesApi::new(&self.path)?;
             Ok(api.open_connection(places::ConnectionType::ReadOnly)?)
         }
     }
@@ -496,7 +491,7 @@ mod autocomplete {
         Ok(())
     }
 
-    pub fn start_autocomplete(db_path: PathBuf, encryption_key: Option<&str>) -> Result<()> {
+    pub fn start_autocomplete(db_path: PathBuf) -> Result<()> {
         use termion::{
             clear, color,
             cursor::{self, Goto},
@@ -506,10 +501,7 @@ mod autocomplete {
             style::{Invert, NoInvert},
         };
 
-        let mut autocompleter = BackgroundAutocomplete::start(ConnectionArgs {
-            path: db_path,
-            encryption_key: encryption_key.map(ToString::to_string),
-        })?;
+        let mut autocompleter = BackgroundAutocomplete::start(ConnectionArgs { path: db_path })?;
 
         let mut stdin = termion::async_stdin();
         let stdout = std::io::stdout().into_raw_mode()?;
@@ -781,11 +773,6 @@ fn main() -> Result<()> {
             .short("d")
             .takes_value(true)
             .help("Path to the database (with the *new* schema). Defaults to './new-places.db'"))
-        .arg(clap::Arg::with_name("encryption_key")
-            .long("encryption-key")
-            .short("k")
-            .takes_value(true)
-            .help("Encryption key to use with the database. Leave blank for unencrypted"))
         .arg(clap::Arg::with_name("import_places")
             .long("import-places")
             .short("p")
@@ -814,9 +801,8 @@ fn main() -> Result<()> {
     let db_path = matches
         .value_of("database_path")
         .unwrap_or("./new-places.db");
-    let encryption_key = matches.value_of("encryption_key");
 
-    let api = places::PlacesApi::new(&db_path, encryption_key)?;
+    let api = places::PlacesApi::new(&db_path)?;
     let mut conn = api.open_connection(places::ConnectionType::ReadWrite)?;
 
     if let Some(import_places_arg) = matches.value_of("import_places") {
@@ -883,7 +869,7 @@ fn main() -> Result<()> {
         #[cfg(not(windows))]
         {
             // Can't use cfg! macro, this module doesn't exist at all on windows
-            autocomplete::start_autocomplete(Path::new(db_path).to_owned(), encryption_key)?;
+            autocomplete::start_autocomplete(Path::new(db_path).to_owned())?;
         }
         #[cfg(windows)]
         {

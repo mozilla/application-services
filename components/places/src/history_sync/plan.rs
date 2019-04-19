@@ -333,7 +333,7 @@ mod tests {
     #[test]
     fn test_invalid_guid() -> Result<()> {
         let _ = env_logger::try_init();
-        let conn = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
+        let conn = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let record = HistoryRecord {
             id: "foo".into(),
             title: "title".into(),
@@ -353,7 +353,7 @@ mod tests {
     #[test]
     fn test_invalid_url() -> Result<()> {
         let _ = env_logger::try_init();
-        let conn = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
+        let conn = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let record = HistoryRecord {
             id: "aaaaaaaaaaaa".into(),
             title: "title".into(),
@@ -373,7 +373,7 @@ mod tests {
     #[test]
     fn test_new() -> Result<()> {
         let _ = env_logger::try_init();
-        let conn = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
+        let conn = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let visits = vec![HistoryRecordVisit {
             date: SystemTime::now().into(),
             transition: 1,
@@ -397,7 +397,7 @@ mod tests {
     #[test]
     fn test_plan_dupe_visit_same_guid() -> Result<()> {
         let _ = env_logger::try_init();
-        let conn = PlacesDb::open_in_memory(None, ConnectionType::Sync).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(ConnectionType::Sync).expect("no memory db");
         let now = SystemTime::now();
         let url = Url::parse("https://example.com").expect("is valid");
         // add it locally
@@ -434,7 +434,7 @@ mod tests {
     #[test]
     fn test_plan_dupe_visit_different_guid_no_visits() {
         let _ = env_logger::try_init();
-        let conn = PlacesDb::open_in_memory(None, ConnectionType::Sync).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(ConnectionType::Sync).expect("no memory db");
         let now = SystemTime::now();
         let url = Url::parse("https://example.com").expect("is valid");
         // add it locally
@@ -470,7 +470,7 @@ mod tests {
         // which reference the same URL.
         // This is testing the case when there are no local visits to that URL.
         let _ = env_logger::try_init();
-        let db = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
+        let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let guid1 = SyncGuid::new();
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
 
@@ -529,7 +529,7 @@ mod tests {
         // but they are yet to be synced - the local guid should change and
         // all visits should be applied.
         let _ = env_logger::try_init();
-        let db = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
+        let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
 
         let guid1 = SyncGuid::new();
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
@@ -591,7 +591,7 @@ mod tests {
         // and they have been synced - the existing guid should not change,
         // although all visits should still be applied.
         let _ = env_logger::try_init();
-        let db = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
+        let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
 
         let guid1 = SyncGuid::new();
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
@@ -663,7 +663,7 @@ mod tests {
         let payload = Payload::from_json(json).unwrap();
         result.changes.push((payload, ServerTimestamp(0f64)));
 
-        let db = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
+        let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let outgoing = apply_plan(
             &db,
             result,
@@ -698,7 +698,7 @@ mod tests {
         let payload = Payload::from_json(json).unwrap();
         result.changes.push((payload, ServerTimestamp(0f64)));
 
-        let db = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
+        let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let outgoing = apply_plan(
             &db,
             result,
@@ -711,7 +711,7 @@ mod tests {
 
     #[test]
     fn test_apply_plan_incoming_invalid_visit_type() -> Result<()> {
-        let db = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
+        let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let visits = vec![HistoryRecordVisit {
             date: SystemTime::now().into(),
             transition: 99,
@@ -750,7 +750,7 @@ mod tests {
         let payload = Payload::from_json(json).unwrap();
         result.changes.push((payload, ServerTimestamp(0f64)));
 
-        let db = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
+        let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let outgoing = apply_plan(
             &db,
             result,
@@ -788,7 +788,7 @@ mod tests {
     #[test]
     fn test_apply_plan_outgoing_new() -> Result<()> {
         let _ = env_logger::try_init();
-        let db = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
+        let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let url = Url::parse("https://example.com")?;
         let now = SystemTime::now();
         let obs = VisitObservation::new(url.clone())
@@ -811,7 +811,7 @@ mod tests {
     #[test]
     fn test_simple_visit_reconciliation() -> Result<()> {
         let _ = env_logger::try_init();
-        let db = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
+        let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let ts: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
         let url = Url::parse("https://example.com")?;
 
@@ -858,7 +858,7 @@ mod tests {
     #[test]
     fn test_simple_visit_incoming_and_outgoing() -> Result<()> {
         let _ = env_logger::try_init();
-        let db = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
+        let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
         let ts2: Timestamp = SystemTime::now().into();
         let url = Url::parse("https://example.com")?;
@@ -918,7 +918,7 @@ mod tests {
     #[test]
     fn test_incoming_tombstone_local_new() -> Result<()> {
         let _ = env_logger::try_init();
-        let db = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
+        let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)
@@ -952,7 +952,7 @@ mod tests {
     #[test]
     fn test_incoming_tombstone_local_normal() -> Result<()> {
         let _ = env_logger::try_init();
-        let db = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
+        let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)
@@ -993,7 +993,7 @@ mod tests {
     #[test]
     fn test_outgoing_tombstone() -> Result<()> {
         let _ = env_logger::try_init();
-        let db = PlacesDb::open_in_memory(None, ConnectionType::Sync)?;
+        let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let url = Url::parse("https://example.com")?;
         let obs = VisitObservation::new(url.clone())
             .with_visit_type(VisitTransition::Link)

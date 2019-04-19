@@ -47,7 +47,6 @@ enum {
 };
 
 PlacesAPIHandle places_api_new(const char *_Nonnull db_path,
-                               const char *_Nullable encryption_key,
                                PlacesRustError *_Nonnull out_err);
 
 

@@ -36,19 +36,11 @@ fn main() -> Result<()> {
 
     let coop_tx_lock = Arc::new(Mutex::new(()));
 
-    let dbmain = PlacesDb::open(
-        path,
-        None,
-        ConnectionType::ReadWrite,
-        0,
-        coop_tx_lock.clone(),
-    )
-    .unwrap();
+    let dbmain = PlacesDb::open(path, ConnectionType::ReadWrite, 0, coop_tx_lock.clone()).unwrap();
     let (tx, rx) = sync_channel(0);
 
     let child = thread::spawn(move || {
-        let db1 =
-            PlacesDb::open(path, None, ConnectionType::Sync, 0, coop_tx_lock.clone()).unwrap();
+        let db1 = PlacesDb::open(path, ConnectionType::Sync, 0, coop_tx_lock.clone()).unwrap();
         // assert_eq!(rx.recv().unwrap(), 0);
         let mut t = db1
             .begin_transaction()

@@ -51,7 +51,6 @@ impl TestDb {
         let file = dir.path().join("places.sqlite");
         let mut db = PlacesDb::open(
             &file,
-            None,
             ConnectionType::ReadWrite,
             0,
             Arc::new(Mutex::new(())),
