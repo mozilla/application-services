@@ -28,3 +28,7 @@ members = [
 opt-level = "s"
 debug = true
 lto = true
+
+[patch.crates-io]
+# Until https://github.com/jgallagher/rusqlite/pull/511 lands and is in a release.
+rusqlite = { git = "https://github.com/thomcc/rusqlite", branch = "no-sqlcipher-bundled-panic" }

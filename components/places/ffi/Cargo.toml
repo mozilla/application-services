@@ -25,10 +25,6 @@ viaduct = { path = "../../viaduct" }
 interrupt = { path = "../../support/interrupt" }
 sql-support = { path = "../../support/sql" }
 
-[dependencies.rusqlite]
-version = "0.17.0"
-features = ["sqlcipher", "limits", "functions"]
-
 [dependencies.sync15]
 path = "../../sync15"
 
