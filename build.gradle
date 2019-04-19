@@ -87,6 +87,7 @@ subprojects {
             lib "*nssutil3.*"
             lib "*softokn3.*"
             lib "*smime3.*"
+            lib "*sqlite3.*"
             // We don't need SSL so we might as well save space.
             // lib "libssl3.*"
         }
