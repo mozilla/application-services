@@ -10,6 +10,10 @@
 
 - It is no longer possible to create an encrypted places database. ([#950](https://github.com/mozilla/application-services/issues/950))
 
+### What's Fixed
+
+- Non-megazord builds should once again function. ([#1045](https://github.com/mozilla/application-services/issues/1045))
+
 # v0.26.2 (_2018-04-18_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.1...v0.26.2)
