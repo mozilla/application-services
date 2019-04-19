@@ -71,6 +71,8 @@ cargo {
 
     profile = rootProject.ext.nonMegazordProfile
 
+    extraCargoBuildArguments = rootProject.ext.extraCargoBuildArguments
+
     exec = rootProject.ext.cargoExec
 }
 

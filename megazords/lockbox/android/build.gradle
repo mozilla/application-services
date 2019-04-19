@@ -71,6 +71,8 @@ cargo {
     profile = "release"
 
     exec = rootProject.ext.cargoExecWithSQLCipher
+
+    extraCargoBuildArguments = rootProject.ext.extraCargoBuildArguments
 }
 
 dependencies {

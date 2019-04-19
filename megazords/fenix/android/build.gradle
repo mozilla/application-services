@@ -69,6 +69,8 @@ cargo {
     // `debug = true` in Cargo.toml).
     profile = "release"
 
+    extraCargoBuildArguments = rootProject.ext.extraCargoBuildArguments
+
     exec = rootProject.ext.cargoExec
 }
 
