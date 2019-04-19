@@ -9,6 +9,8 @@
 pub mod constant_time;
 pub mod digest;
 mod error;
+#[cfg(feature = "hawk")]
+mod hawk_crypto;
 pub mod hkdf;
 pub mod hmac;
 #[cfg(not(target_os = "ios"))]
@@ -17,4 +19,23 @@ pub mod rand;
 #[cfg(not(target_os = "ios"))]
 mod util;
 
+// Expose `hawk` if the hawk feature is on. This avoids consumers needing to
+// configure this separately, which is more or less trivial to do incorrectly.
+#[cfg(feature = "hawk")]
+pub use hawk;
+
 pub use crate::error::{Error, ErrorKind, Result};
+
+/// Only required to be called if you intend to use this library in conjunction
+/// with the `hawk` crate.
+pub fn init_once() {
+    #[cfg(all(target_os = "ios", feature = "hawk"))]
+    {
+        static INIT_ONCE: std::sync::Once = std::sync::Once::new();
+        INIT_ONCE.call_once(hawk_crypto::init);
+    }
+    #[cfg(not(target_os = "ios"))]
+    {
+        crate::util::ensure_nss_initialized();
+    }
+}

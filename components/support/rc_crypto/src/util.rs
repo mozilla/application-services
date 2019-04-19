@@ -36,6 +36,10 @@ pub fn ensure_nss_initialized() {
                 panic!("Could not initialize NSS: {}", error);
             }
         }
+        #[cfg(feature = "hawk")]
+        {
+            crate::hawk_crypto::init();
+        }
     })
 }
 

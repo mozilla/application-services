@@ -11,6 +11,14 @@ crate-type = ["lib", "staticlib", "cdylib"]
 [dependencies]
 failure = "0.1.5"
 failure_derive = "0.1.5"
+log = "0.4.6"
+
+[dependencies.hawk]
+# Until https://github.com/taskcluster/rust-hawk/pull/23 lands
+git = "https://github.com/thomcc/rust-hawk"
+branch = "config-crypto"
+default-features = false
+optional = true
 
 [target.'cfg(not(target_os = "ios"))'.dependencies]
 nss_sys = { path = "nss_sys" }

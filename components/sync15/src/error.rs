@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use failure::{self, Backtrace, Context, Fail, SyncFailure};
+use failure::{self, Backtrace, Context, Fail};
 use interrupt::Interrupted;
+use rc_crypto::hawk;
 use std::boxed::Box;
 use std::time::SystemTime;
 use std::{fmt, result, string};
@@ -147,7 +148,7 @@ pub enum ErrorKind {
     UnexpectedStatus(#[fail(cause)] viaduct::UnexpectedStatus),
 
     #[fail(display = "HAWK error: {}", _0)]
-    HawkError(#[fail(cause)] SyncFailure<hawk::Error>),
+    HawkError(#[fail(cause)] hawk::Error),
 
     #[fail(display = "URL parse error: {}", _0)]
     MalformedUrl(#[fail(cause)] url::ParseError),
@@ -185,21 +186,6 @@ impl_from_error! {
     (MalformedUrl, url::ParseError),
     // A bit dubious, since we only want this to happen inside `synchronize`
     (StoreError, ::failure::Error),
-    (Interrupted, Interrupted)
-}
-
-// ::hawk::Error uses error_chain, and so it's not trivially compatible with failure.
-// We have to box it inside a SyncError (which allows errors to be accessed from multiple
-// threads at the same time, which failure requires for some reason...).
-impl From<hawk::Error> for ErrorKind {
-    #[inline]
-    fn from(e: hawk::Error) -> ErrorKind {
-        ErrorKind::HawkError(SyncFailure::new(e))
-    }
-}
-impl From<hawk::Error> for Error {
-    #[inline]
-    fn from(e: hawk::Error) -> Error {
-        ErrorKind::from(e).into()
-    }
+    (Interrupted, Interrupted),
+    (HawkError, hawk::Error)
 }

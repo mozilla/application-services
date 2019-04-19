@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::errors::*;
-use hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256};
+use rc_crypto::hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256};
 use url::Url;
 use viaduct::{header_names, Method, Request};
 
@@ -18,6 +18,7 @@ pub struct HawkRequestBuilder<'a> {
 
 impl<'a> HawkRequestBuilder<'a> {
     pub fn new(method: Method, url: Url, hkdf_sha256_key: &'a [u8]) -> Self {
+        rc_crypto::init_once();
         HawkRequestBuilder {
             url,
             method,
@@ -39,7 +40,7 @@ impl<'a> HawkRequestBuilder<'a> {
         let method = format!("{}", self.method);
         let mut hawk_request_builder = RequestBuilder::from_url(method.as_str(), &self.url)?;
         if let Some(ref body) = self.body {
-            hash = PayloadHasher::hash("application/json", &SHA256, &body);
+            hash = PayloadHasher::hash("application/json", SHA256, &body)?;
             hawk_request_builder = hawk_request_builder.hash(&hash[..]);
         }
         let hawk_request = hawk_request_builder.request();
@@ -47,7 +48,7 @@ impl<'a> HawkRequestBuilder<'a> {
         let hmac_key = &self.hkdf_sha256_key[KEY_LENGTH..(2 * KEY_LENGTH)];
         let hawk_credentials = Credentials {
             id: token_id,
-            key: Key::new(hmac_key, &SHA256),
+            key: Key::new(hmac_key, SHA256)?,
         };
         let header = hawk_request.make_header(&hawk_credentials)?;
         Ok(format!("Hawk {}", header))
