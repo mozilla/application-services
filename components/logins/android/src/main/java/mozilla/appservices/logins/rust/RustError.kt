@@ -20,7 +20,6 @@ import java.util.Arrays
 /**
  * This should be considered private, but it needs to be public for JNA.
  */
-@Suppress("MagicNumber")
 open class RustError : Structure() {
 
     class ByReference : RustError(), Structure.ByReference

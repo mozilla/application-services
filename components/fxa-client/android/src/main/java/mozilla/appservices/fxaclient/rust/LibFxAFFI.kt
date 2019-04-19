@@ -11,7 +11,7 @@ import com.sun.jna.Pointer
 import java.lang.reflect.Proxy
 import mozilla.appservices.support.RustBuffer
 
-@Suppress("FunctionNaming", "FunctionParameterNaming", "TooManyFunctions", "TooGenericExceptionThrown")
+@Suppress("FunctionNaming", "FunctionParameterNaming", "TooGenericExceptionThrown")
 internal interface LibFxAFFI : Library {
     companion object {
         private val JNA_LIBRARY_NAME = {

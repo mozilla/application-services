@@ -178,7 +178,6 @@ open class PlacesConnection internal constructor(connHandle: Long) : Interruptib
  *
  * This class is thread safe.
  */
-@Suppress("TooManyFunctions")
 open class PlacesReaderConnection internal constructor(connHandle: Long) :
         PlacesConnection(connHandle),
         ReadableHistoryConnection,
@@ -349,7 +348,6 @@ fun visitTransitionSet(l: List<VisitType>): Int {
  *
  * This class is thread safe.
  */
-@Suppress("TooManyFunctions")
 class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesApi) :
         PlacesReaderConnection(connHandle),
         WritableHistoryConnection,
@@ -759,7 +757,6 @@ open class UrlParseFailed(msg: String) : PlacesException(msg)
 open class PlacesConnectionBusy(msg: String) : PlacesException(msg)
 open class OperationInterrupted(msg: String) : PlacesException(msg)
 
-@SuppressWarnings("MagicNumber")
 enum class VisitType(val type: Int) {
     /** This isn't a visit, but a request to update meta data about a page */
     UPDATE_PLACE(-1),

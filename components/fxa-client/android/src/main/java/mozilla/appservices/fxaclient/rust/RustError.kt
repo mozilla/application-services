@@ -10,7 +10,6 @@ import mozilla.appservices.fxaclient.FxaException
 import mozilla.appservices.fxaclient.getAndConsumeRustString
 import java.util.Arrays
 
-@Suppress("MagicNumber")
 internal open class RustError : Structure() {
 
     class ByReference : RustError(), Structure.ByReference

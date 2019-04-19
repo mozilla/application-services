@@ -12,7 +12,6 @@ import com.sun.jna.Pointer
 import com.sun.jna.Structure
 import java.util.Arrays
 
-@Suppress("MagicNumber")
 internal open class RustError : Structure() {
 
     class ByReference : RustError(), Structure.ByReference

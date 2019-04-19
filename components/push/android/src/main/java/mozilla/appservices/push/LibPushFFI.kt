@@ -13,7 +13,7 @@ import java.lang.reflect.Proxy
 
 import mozilla.appservices.support.RustBuffer
 
-@Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooManyFunctions", "TooGenericExceptionThrown")
+@Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
 internal interface LibPushFFI : Library {
     companion object {
         private val JNA_LIBRARY_NAME = {

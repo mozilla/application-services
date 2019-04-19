@@ -13,7 +13,6 @@ private enum class LoginsStorageState {
     Closed,
 }
 
-@Suppress("TooManyFunctions")
 class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseable, LoginsStorage {
 
     private var state: LoginsStorageState = LoginsStorageState.Locked

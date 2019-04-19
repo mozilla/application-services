@@ -12,7 +12,7 @@ import com.sun.jna.Pointer
 import com.sun.jna.PointerType
 import java.lang.reflect.Proxy
 
-@Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooManyFunctions", "TooGenericExceptionThrown")
+@Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
 internal interface PasswordSyncAdapter : Library {
     companion object {
         private val JNA_LIBRARY_NAME = {
