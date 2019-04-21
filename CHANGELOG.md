@@ -94,6 +94,13 @@
       as well. Feel free to indicate support for exposing this in the Android API
       [here](https://github.com/mozilla/application-services/issues/1020).
 
+## FxA
+
+### What's New
+
+- New methods `getManageAccountURL` and `getManageDevicesURL` have been added,
+  which the application can use to direct the user to manage their account on the web.
+
 # v0.25.2 (_2018-04-11_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.24.0...v0.25.2)

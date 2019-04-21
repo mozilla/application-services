@@ -78,6 +78,14 @@ char *_Nullable fxa_get_token_server_endpoint_url(FirefoxAccountHandle handle,
 char *_Nullable fxa_get_connection_success_url(FirefoxAccountHandle handle,
                                                FxAError *_Nonnull out);
 
+char *_Nullable fxa_get_manage_account_url(FirefoxAccountHandle handle,
+                                           const char *_Nonnull entrypoint,
+                                           FxAError *_Nonnull out);
+
+char *_Nullable fxa_get_manage_devices_url(FirefoxAccountHandle handle,
+                                           const char *_Nonnull entrypoint,
+                                           FxAError *_Nonnull out);
+
 void fxa_str_free(char *_Nullable ptr);
 void fxa_free(FirefoxAccountHandle h, FxAError *_Nonnull out);
 void fxa_bytebuffer_free(FxARustBuffer buffer);

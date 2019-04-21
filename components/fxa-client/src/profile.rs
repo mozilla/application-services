@@ -17,7 +17,6 @@ impl FirefoxAccount {
     /// * `ignore_cache` - If set to true, bypass the in-memory cache
     /// and fetch the entire profile data from the server.
     pub fn get_profile(&mut self, ignore_cache: bool) -> Result<Profile> {
-        let profile_access_token = self.get_access_token(scopes::PROFILE)?.token;
         let mut etag = None;
         if let Some(ref cached_profile) = self.profile_cache {
             if !ignore_cache && util::now() < cached_profile.cached_at + PROFILE_FRESHNESS_THRESHOLD
@@ -26,6 +25,7 @@ impl FirefoxAccount {
             }
             etag = Some(cached_profile.etag.clone());
         }
+        let profile_access_token = self.get_access_token(scopes::PROFILE)?.token;
         match self
             .client
             .profile(&self.state.config, &profile_access_token, etag)?
@@ -40,13 +40,23 @@ impl FirefoxAccount {
                 }
                 Ok(response_and_etag.response)
             }
-            None => match self.profile_cache {
-                Some(ref cached_profile) => Ok(cached_profile.response.clone()),
-                None => Err(ErrorKind::UnrecoverableServerError(
-                    "Got a 304 without having sent an eTag.",
-                )
-                .into()),
-            },
+            None => {
+                match self.profile_cache.take() {
+                    Some(ref cached_profile) => {
+                        // Update `cached_at` timestamp.
+                        self.profile_cache.replace(CachedResponse {
+                            response: cached_profile.response.clone(),
+                            cached_at: util::now(),
+                            etag: cached_profile.etag.clone(),
+                        });
+                        Ok(cached_profile.response.clone())
+                    }
+                    None => Err(ErrorKind::UnrecoverableServerError(
+                        "Got a 304 without having sent an eTag.",
+                    )
+                    .into()),
+                }
+            }
         }
     }
 }

@@ -13,6 +13,7 @@ use ffi_support::{
 };
 use fxa_client::FirefoxAccount;
 use std::os::raw::c_char;
+use url::Url;
 
 #[no_mangle]
 pub extern "C" fn fxa_enable_logcat_logging() {
@@ -113,7 +114,7 @@ pub extern "C" fn fxa_get_token_server_endpoint_url(
 ) -> *mut c_char {
     log::debug!("fxa_get_token_server_endpoint_url");
     ACCOUNTS.call_with_result(error, handle, |fxa| {
-        fxa.get_token_server_endpoint_url().map(|u| u.to_string())
+        fxa.get_token_server_endpoint_url().map(Url::into_string)
     })
 }
 
@@ -130,7 +131,45 @@ pub extern "C" fn fxa_get_connection_success_url(
 ) -> *mut c_char {
     log::debug!("fxa_get_connection_success_url");
     ACCOUNTS.call_with_result(error, handle, |fxa| {
-        fxa.get_connection_success_url().map(|u| u.to_string())
+        fxa.get_connection_success_url().map(Url::into_string)
+    })
+}
+
+/// Get the url to open the user's account-management page.
+///
+/// # Safety
+///
+/// A destructor [fxa_str_free] is provided for releasing the memory for this
+/// pointer type.
+#[no_mangle]
+pub extern "C" fn fxa_get_manage_account_url(
+    handle: u64,
+    entrypoint: FfiStr<'_>,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("fxa_get_manage_account_url");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
+        fxa.get_manage_account_url(entrypoint.as_str())
+            .map(Url::into_string)
+    })
+}
+
+/// Get the url to open the user's devices-management page.
+///
+/// # Safety
+///
+/// A destructor [fxa_str_free] is provided for releasing the memory for this
+/// pointer type.
+#[no_mangle]
+pub extern "C" fn fxa_get_manage_devices_url(
+    handle: u64,
+    entrypoint: FfiStr<'_>,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("fxa_get_manage_devices_url");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
+        fxa.get_manage_devices_url(entrypoint.as_str())
+            .map(Url::into_string)
     })
 }
 

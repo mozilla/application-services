@@ -170,6 +170,22 @@ open class FirefoxAccount {
         })
     }
 
+    open func getManageAccountURL(entrypoint: String) throws -> URL {
+        return try queue.sync(execute: {
+            return URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap({err in
+                fxa_get_manage_account_url(self.raw, entrypoint, err)
+            })))!
+        })
+    }
+
+    open func getManageDevicesURL(entrypoint: String) throws -> URL {
+        return try queue.sync(execute: {
+            return URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap({err in
+                fxa_get_manage_devices_url(self.raw, entrypoint, err)
+            })))!
+        })
+    }
+
     /// Request a OAuth token by starting a new OAuth flow.
     ///
     /// This function returns a URL string that the caller should open in a webview.
