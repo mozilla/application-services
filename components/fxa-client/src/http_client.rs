@@ -8,7 +8,14 @@ use serde_derive::*;
 use serde_json::json;
 use viaduct::{header_names, status_codes, Request, Response, Method};
 use std::collections::HashMap;
-use crate::http_client::browser_id::hawk_request::HawkRequestBuilder;
+
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+struct DuplicateToken {
+    uid: String,
+    sessionToken: String,
+    verified: bool,
+    authAt: u64,
+}
 
 pub(crate) mod browser_id;
 
@@ -120,12 +127,14 @@ impl FxAClient for Client {
             .body(duplicateBody)
             .build()?;
 
-        let resp = Self::make_request(request)?.json()?;
-        let duplicateJson = resp.json()?;
+        let resp = Self::make_request(duplicateRequest)?;
+        let duplicateJson: DuplicateToken = resp.json()?;
 
 
         let url = config.auth_url_path("v1/oauth/token")?;
-        let key = derive_key_from_session_token(session_token)?;
+        let dupToken = duplicateJson.sessionToken;
+        let dupTokenBytes = hex::decode(dupToken)?;
+        let key = derive_key_from_session_token(&dupTokenBytes)?;
         let body = json!({
             "client_id": config.client_id,
             "scope": scopes.join(" "),
