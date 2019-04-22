@@ -10,6 +10,8 @@
 
 - SQLCipher has been updated to version 4.1.0 (previously 4.0.0) ([#1060](https://github.com/mozilla/application-services/pull/1060))
 
+- `android-components` has been updated to 0.50.0 (previously 0.49.0) ([#1062](https://github.com/mozilla/application-services/pull/1062))
+
 ## FxA
 
 ### What's New
