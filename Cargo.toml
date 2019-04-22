@@ -14,6 +14,7 @@ members = [
     "components/support/force-viaduct-reqwest",
     "components/support/interrupt",
     "components/support/rc_crypto",
+    "components/support/rc_crypto/nss_sys",
     "components/viaduct",
     "components/sync15",
     "components/rc_log",
