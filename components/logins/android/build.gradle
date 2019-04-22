@@ -60,7 +60,7 @@ cargo {
 
     profile = rootProject.ext.nonMegazordProfile
 
-    exec = rootProject.ext.cargoExec
+    exec = rootProject.ext.cargoExecWithSQLCipher
 
     features {
         defaultAnd("reqwest")

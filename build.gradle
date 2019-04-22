@@ -236,18 +236,25 @@ switch (DefaultPlatform.RESOURCE_PREFIX) {
         break
 }
 
+// Use in-tree libs from the source directory in CI or if the git SHA is unset; otherwise use
+// downloaded libs.
+def libsRootDir = (System.getenv('CI') || ext.libsGitSha == null) ? rootProject.rootDir : rootProject.buildDir
+
 // Configure some environment variables, per toolchain, that will apply during
 // the Cargo build.  We assume that the `libs/` directory has been populated
 // before invoking Gradle (or Cargo).
 ext.cargoExec = { spec, toolchain ->
     spec.environment("OPENSSL_STATIC", "1")
-
-    // Use in-tree libs from the source directory in CI or if the git SHA is unset; otherwise use
-    // downloaded libs.
-    def libsRootDir = (System.getenv('CI') || ext.libsGitSha == null) ? rootProject.rootDir : rootProject.buildDir
-
     spec.environment("NSS_DIR",               new File(libsRootDir, "libs/${toolchain.folder}/nss").absolutePath)
     spec.environment("OPENSSL_DIR",           new File(libsRootDir, "libs/${toolchain.folder}/openssl").absolutePath)
+}
+// Strictly speaking, we could always specify `SQLCIPHER_LIB_DIR` and
+// `SQLCIPHER_INCLUDE_DIR`, and so long as everything else is configured right,
+// we wouldn't bring it in. That said, by only specifying it when we expect it
+// to be needed, we force a compilation (well, linking) failure if the
+// configuration is otherwise wrong.
+ext.cargoExecWithSQLCipher = { spec, toolchain ->
+    ext.cargoExec(spec, toolchain)
     spec.environment("SQLCIPHER_LIB_DIR",     new File(libsRootDir, "libs/${toolchain.folder}/sqlcipher/lib").absolutePath)
     spec.environment("SQLCIPHER_INCLUDE_DIR", new File(libsRootDir, "libs/${toolchain.folder}/sqlcipher/include").absolutePath)
 }

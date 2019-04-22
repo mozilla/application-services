@@ -20,7 +20,7 @@ ece = "0.1.3"
 failure = "0.1.5"
 failure_derive = "0.1.5"
 log = "0.4.6"
-rusqlite = "0.17.0"
+rusqlite = { version = "0.17.0", features = ["bundled"] }
 url = "1.7.2"
 viaduct = { path = "../viaduct" }
 ffi-support = { path = "../support/ffi" }

@@ -21,7 +21,7 @@ viaduct = { path = "../../viaduct" }
 
 [dependencies.rusqlite]
 version = "0.17.0"
-features = ["sqlcipher", "limits", "functions"]
+features = ["limits", "functions"]
 
 [dependencies.sync15]
 path = "../../sync15"

@@ -6,8 +6,7 @@ authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 license = "MPL-2.0"
 
 [features]
-default = ["sqlcipher"]
-sqlcipher = ["rusqlite/sqlcipher"]
+default = []
 log_query_plans = []
 
 [dependencies]
