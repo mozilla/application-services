@@ -47,9 +47,10 @@ val ARCHS_FOLDERS = arrayOf(
 
 data class NativeLib(
     val name: String,
-    var libs: List<String>
+    var libs: List<String>,
+    var libRoot: String?
 ) {
-    constructor(name: String) : this(name, listOf<String>())
+    constructor(name: String) : this(name, listOf<String>(), null)
 
     public fun lib(libName: String): NativeLib {
         this.libs += libName
@@ -65,12 +66,13 @@ open class NativeLibsPlugin : Plugin<Project> {
 
             nativeLibs.all(delegateClosureOf<NativeLib>({
                 val nativeLib = this
+                val libRoot = this.libRoot ?: "${rootProject.rootDir}/build/libs"
                 afterEvaluate {
                     var copyNativeLibsTask = tasks.maybeCreate("copyNativeLibs")
                     ARCHS_FOLDERS.forEach { archFolder ->
                         val taskName = archFolder.replace("/", "-")
                         val copyLibsTask = tasks.maybeCreate("copyNativeLibs-$taskName", Copy::class.java).apply {
-                            from("${rootProject.rootDir}/libs/$archFolder/${nativeLib.name}/lib/")
+                            from("$libRoot/$archFolder/${nativeLib.name}/lib/")
                             into("$buildDir/nativeLibs/$archFolder")
                             nativeLib.libs.forEach {
                                 include(it)
