@@ -2,7 +2,11 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.2...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.0...master)
+
+# v0.27.0 (_2019-04-22_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.2...v0.27.0)
 
 ## General
 
@@ -12,6 +16,10 @@
 
 - `android-components` has been updated to 0.50.0 (previously 0.49.0) ([#1062](https://github.com/mozilla/application-services/pull/1062))
 
+- SQLCipher should no longer be required in megazords which do not contain `logins`. ([#996](https://github.com/mozilla/application-services/pull/996))
+
+- Non-megazord builds should once again work ([#1046](https://github.com/mozilla/application-services/pull/1046))
+
 ## FxA
 
 ### What's New
@@ -19,6 +27,7 @@
 - New methods `getManageAccountURL` and `getManageDevicesURL` have been added,
   which the application can use to direct the user to manage their account on the web.
   ([#984](https://github.com/mozilla/application-services/pull/984))
+- Android only: Added device registration and Firefox Send Tab capability support. Your app can opt into this by calling the `FirefoxAccount.initializeDevice` method. ([#676](https://github.com/mozilla/application-services/pull/676))
 
 ## Places
 
@@ -31,7 +40,7 @@
 
 - Non-megazord builds should once again function. ([#1045](https://github.com/mozilla/application-services/issues/1045))
 
-# v0.26.2 (_2018-04-18_)
+# v0.26.2 (_2019-04-18_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.1...v0.26.2)
 
@@ -42,7 +51,7 @@
 - iOS temporarially no longer uses NSS for crypto. This is a short term fix to
   allow firefox-ios to release an update.
 
-# v0.26.1 (_2018-04-18_)
+# v0.26.1 (_2019-04-18_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.0...v0.26.1)
 
@@ -52,14 +61,7 @@
 
 - iOS networking should use the reqwest backend, instead of failing ([#1032](https://github.com/mozilla/application-services/pull/1032))
 
-## FxA
-
-### What's new
-
-- Android only: Added device registration and Firefox Send Tab capability support. Your app can opt into this by calling the `FirefoxAccount.initializeDevice` method. ([#676](https://github.com/mozilla/application-services/pull/676))
-
-
-# v0.26.0 (_2018-04-17_)
+# v0.26.0 (_2019-04-17_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.25.2...v0.26.0)
 
@@ -118,7 +120,7 @@
       as well. Feel free to indicate support for exposing this in the Android API
       [here](https://github.com/mozilla/application-services/issues/1020).
 
-# v0.25.2 (_2018-04-11_)
+# v0.25.2 (_2019-04-11_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.24.0...v0.25.2)
 
@@ -143,7 +145,7 @@
 
 - PushAPI now stores some metadata information across restarts ([#905](https://github.com/mozilla/application-services/issues/905))
 
-# v0.24.0 (_2018-04-08_)
+# v0.24.0 (_2019-04-08_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.23.0...v0.24.0)
 
@@ -203,7 +205,7 @@
 - Swift PlacesAPI methods are not externally accessible
   ([#928](https://github.com/mozilla/application-services/issues/928))
 
-# v0.23.0 (_2018-03-29_)
+# v0.23.0 (_2019-03-29_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.22.1...v0.23.0)
 
