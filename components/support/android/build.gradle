@@ -29,7 +29,7 @@ android {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
-    api 'net.java.dev.jna:jna:4.5.2@aar'
+    implementation "net.java.dev.jna:jna:$jna_version@aar"
     api 'com.google.protobuf:protobuf-lite:3.0.0'
 }
 

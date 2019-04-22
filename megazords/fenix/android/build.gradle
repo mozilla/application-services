@@ -84,7 +84,7 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     api "org.mozilla.components:concept-fetch:$android_components_version"
 
-    jnaForTest 'net.java.dev.jna:jna:4.5.2@jar'
+    jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
 }
 
 afterEvaluate {

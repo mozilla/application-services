@@ -28,7 +28,6 @@ enum class BookmarkRoot(val id: String) {
  *
  * Must match BookmarkType in the Rust code.
  */
-@Suppress("MagicNumber")
 enum class BookmarkType(val value: Int) {
     Bookmark(1),
     Folder(2),

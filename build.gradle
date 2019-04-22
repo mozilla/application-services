@@ -3,6 +3,7 @@
 buildscript {
     ext.kotlin_version = '1.3.10'
     ext.android_components_version = '0.49.0'
+    ext.jna_version = '5.2.0'
 
     ext.build = [
         compileSdkVersion: 27,
@@ -29,7 +30,7 @@ buildscript {
 
         // Yes, this is unusual.  We want to access some host-specific
         // computation at build time.
-        classpath 'net.java.dev.jna:jna:4.5.2'
+        classpath "net.java.dev.jna:jna:$jna_version"
 
         // Downloading libs/ archives from Taskcluster.
         classpath 'de.undercouch:gradle-download-task:3.4.3'

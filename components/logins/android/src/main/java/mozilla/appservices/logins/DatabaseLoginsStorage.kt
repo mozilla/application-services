@@ -12,7 +12,6 @@ import java.util.concurrent.atomic.AtomicLong
 /**
  * LoginsStorage implementation backed by a database.
  */
-@Suppress("TooManyFunctions")
 class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsStorage {
     private var raw: AtomicLong = AtomicLong(0)
 

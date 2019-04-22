@@ -10,7 +10,6 @@ package mozilla.appservices.push
 
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
-import java.util.Arrays
 
 // Mirror the Rust errors from push/error/lib.rs
 open class PushError(msg: String) : Exception(msg)
@@ -32,17 +31,13 @@ open class UrlParseError(msg: String) : PushError(msg)
 /**
  * This should be considered private, but it needs to be public for JNA.
  */
-@Suppress("MagicNumber")
+@Structure.FieldOrder("code", "message")
 open class RustError : Structure() {
 
     class ByReference : RustError(), Structure.ByReference
 
     @JvmField var code: Int = 0
     @JvmField var message: Pointer? = null
-
-    init {
-        read()
-    }
 
     /**
      * Does this represent success?
@@ -105,9 +100,5 @@ open class RustError : Structure() {
      */
     fun getMessage(): String? {
         return this.message?.getString(0, "utf8")
-    }
-
-    override fun getFieldOrder(): List<String> {
-        return Arrays.asList("code", "message")
     }
 }

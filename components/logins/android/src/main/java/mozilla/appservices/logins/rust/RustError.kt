@@ -6,31 +6,26 @@ package mozilla.appservices.logins.rust
 
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
-import mozilla.appservices.logins.SyncAuthInvalidException
-import mozilla.appservices.logins.NoSuchRecordException
 import mozilla.appservices.logins.IdCollisionException
-import mozilla.appservices.logins.InvalidRecordException
 import mozilla.appservices.logins.InvalidKeyException
-import mozilla.appservices.logins.RequestFailedException
+import mozilla.appservices.logins.InvalidRecordException
 import mozilla.appservices.logins.LoginsStorageException
+import mozilla.appservices.logins.NoSuchRecordException
+import mozilla.appservices.logins.RequestFailedException
+import mozilla.appservices.logins.SyncAuthInvalidException
 import mozilla.appservices.logins.getAndConsumeRustString
 import mozilla.appservices.logins.getRustString
-import java.util.Arrays
 
 /**
  * This should be considered private, but it needs to be public for JNA.
  */
-@Suppress("MagicNumber")
+@Structure.FieldOrder("code", "message")
 open class RustError : Structure() {
 
     class ByReference : RustError(), Structure.ByReference
 
     @JvmField var code: Int = 0
     @JvmField var message: Pointer? = null
-
-    init {
-        read()
-    }
 
     /**
      * Does this represent failure?
@@ -82,9 +77,5 @@ open class RustError : Structure() {
      */
     fun getMessage(): String? {
         return this.message?.getRustString()
-    }
-
-    override fun getFieldOrder(): List<String> {
-        return Arrays.asList("code", "message")
     }
 }

@@ -14,7 +14,7 @@ import com.sun.jna.StringArray
 import java.lang.reflect.Proxy
 import mozilla.appservices.support.RustBuffer
 
-@Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooManyFunctions", "TooGenericExceptionThrown")
+@Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
 internal interface LibPlacesFFI : Library {
     companion object {
         private val JNA_LIBRARY_NAME = {
@@ -28,7 +28,7 @@ internal interface LibPlacesFFI : Library {
         }()
 
         internal var INSTANCE: LibPlacesFFI = try {
-            val lib = Native.loadLibrary(JNA_LIBRARY_NAME, LibPlacesFFI::class.java) as LibPlacesFFI
+            val lib = Native.load<LibPlacesFFI>(JNA_LIBRARY_NAME, LibPlacesFFI::class.java)
             if (JNA_LIBRARY_NAME == "places_ffi") {
                 // Enable logcat logging if we aren't in a megazord.
                 lib.places_enable_logcat_logging()

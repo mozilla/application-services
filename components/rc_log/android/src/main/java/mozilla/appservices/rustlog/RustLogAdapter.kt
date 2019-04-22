@@ -142,7 +142,6 @@ class LogAdapterUnexpectedError(msg: String) : LogAdapterError("Unexpected log a
 
 // Note: keep values in sync with level_filter_from_i32 in rust.
 /** Level filters, for use with setMaxLevel. */
-@Suppress("MagicNumber")
 enum class LogLevelFilter(internal val value: Int) {
     /** Disable all logging */
     OFF(0),

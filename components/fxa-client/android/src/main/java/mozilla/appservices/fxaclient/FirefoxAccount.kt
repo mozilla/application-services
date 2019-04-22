@@ -14,7 +14,6 @@ import java.util.concurrent.atomic.AtomicLong
 /**
  * FirefoxAccount represents the authentication state of a client.
  */
-@Suppress("TooManyFunctions")
 class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : AutoCloseable {
     private var handle: AtomicLong = AtomicLong(handle)
     private var persistCallback: PersistCallback? = persistCallback

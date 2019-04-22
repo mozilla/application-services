@@ -8,7 +8,6 @@ import com.google.protobuf.CodedInputStream
 import com.google.protobuf.CodedOutputStream
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
-import java.util.Arrays
 
 /**
  * This is a mapping for the `ffi_support::ByteBuffer` struct.
@@ -41,17 +40,10 @@ import java.util.Arrays
  *    for the function returning the RustBuffer, and
  *    `fun mylib_destroy_bytebuffer(bb: RustBuffer.ByValue)`.
  */
+@Structure.FieldOrder("len", "data")
 open class RustBuffer : Structure() {
     @JvmField var len: Long = 0
     @JvmField var data: Pointer? = null
-
-    init {
-        read()
-    }
-
-    override fun getFieldOrder(): List<String> {
-        return Arrays.asList("len", "data")
-    }
 
     fun asCodedInputStream(): CodedInputStream? {
         return this.data?.let {
