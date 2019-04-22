@@ -17,6 +17,7 @@
 ### Breaking Changes
 
 - It is no longer possible to create an encrypted places database. ([#950](https://github.com/mozilla/application-services/issues/950))
+- `syncBookmarks()` API is now marked `open` to be accessible outside the framework. ([#1058](https://github.com/mozilla/application-services/issues/1058))
 
 ### What's Fixed
 
