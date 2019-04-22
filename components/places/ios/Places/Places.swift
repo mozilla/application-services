@@ -103,7 +103,7 @@ public class PlacesAPI {
     /**
      * Sync the bookmarks collection.
      */
-    func syncBookmarks(unlockInfo: SyncUnlockInfo) throws {
+    open func syncBookmarks(unlockInfo: SyncUnlockInfo) throws {
         return try queue.sync {
             try PlacesError.unwrap { err in
                 sync15_bookmarks_sync(handle, unlockInfo.kid, unlockInfo.fxaAccessToken, unlockInfo.syncKey, unlockInfo.tokenserverURL, err)
