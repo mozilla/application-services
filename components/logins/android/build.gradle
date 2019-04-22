@@ -62,6 +62,8 @@ cargo {
 
     exec = rootProject.ext.cargoExecWithSQLCipher
 
+    extraCargoBuildArguments = rootProject.ext.extraCargoBuildArguments
+
     features {
         defaultAnd("reqwest")
     }

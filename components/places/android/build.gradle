@@ -69,6 +69,8 @@ cargo {
 
     exec = rootProject.ext.cargoExec
 
+    extraCargoBuildArguments = rootProject.ext.extraCargoBuildArguments
+
     features {
         defaultAnd("reqwest")
     }
