@@ -74,6 +74,7 @@ When submitting a PR:
 - Add both your code and new tests if relevant.
 - Run `cargo test` and `cargo clippy` to make sure your code passes linting and tests.
 - Please do not include merge commits in pull requests; include only commits with the new relevant code.
+- Your patch must be [GPG signed](https://help.github.com/articles/managing-commit-signature-verification) to ensure the commits come from a trusted source.
 
 ## Code Review ##
 
