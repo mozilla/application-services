@@ -12,6 +12,9 @@
   which the application can use to direct the user to manage their account on the web.
   ([#984](https://github.com/mozilla/application-services/pull/984))
 
+- Switched to use the new fxa-auth-server token endpoint which generates device records, email and push notifications
+ for connected clients([#1055](https://github.com/mozilla/application-services/pull/1055))
+
 ## Places
 
 ### Breaking Changes

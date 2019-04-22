@@ -133,7 +133,10 @@ impl Config {
             authorization_endpoint: openid_resp.authorization_endpoint,
             issuer: openid_resp.issuer,
             jwks_uri: openid_resp.jwks_uri,
-            token_endpoint: openid_resp.token_endpoint,
+            // TODO: bring back openid token endpoint once https://github.com/mozilla/fxa/issues/453 has been resolved
+            // and the openid response has been switched to the new endpoint.
+            // token_endpoint: openid_resp.token_endpoint,
+            token_endpoint: format!("{}/v1/oauth/token", resp.auth_server_base_url),
             userinfo_endpoint: openid_resp.userinfo_endpoint,
         };
         let rc = Arc::new(remote_config);
@@ -215,7 +218,7 @@ mod tests {
                 .to_string(),
             issuer: "https://dev.lcip.org/".to_string(),
             jwks_uri: "https://oauth-stable.dev.lcip.org/v1/jwks".to_string(),
-            token_endpoint: "https://oauth-stable.dev.lcip.org/v1/token".to_string(),
+            token_endpoint: "https://stable.dev.lcip.org/auth/v1/oauth/token".to_string(),
             userinfo_endpoint: "https://stable.dev.lcip.org/profile/v1/profile".to_string(),
         };
 
@@ -244,6 +247,11 @@ mod tests {
         assert_eq!(
             config.token_server_endpoint_url().unwrap().to_string(),
             "https://stable.dev.lcip.org/syncserver/token/1.0/sync/1.5"
+        );
+
+        assert_eq!(
+            config.token_endpoint().unwrap().to_string(),
+            "https://stable.dev.lcip.org/auth/v1/oauth/token"
         );
     }
 }
