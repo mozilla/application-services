@@ -68,9 +68,9 @@ impl BrowserIDKeyPair for RSABrowserIDKeyPair {
         let n = format!("{}", rsa.n().to_dec_str()?);
         let e = format!("{}", rsa.e().to_dec_str()?);
         Ok(json!({
-          "algorithm": "RS",
-          "n": n,
-          "e": e
+            "algorithm": "RS",
+            "n": n,
+            "e": e
         }))
     }
 }

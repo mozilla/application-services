@@ -5,10 +5,12 @@
 package mozilla.appservices.fxaclient
 
 import android.util.Log
+import com.sun.jna.Native
 import com.sun.jna.Pointer
 import mozilla.appservices.fxaclient.rust.FxaHandle
 import mozilla.appservices.fxaclient.rust.LibFxAFFI
 import mozilla.appservices.fxaclient.rust.RustError
+import mozilla.appservices.support.toNioDirectBuffer
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -250,6 +252,150 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
         return rustCallWithLock { e ->
             LibFxAFFI.INSTANCE.fxa_to_json(this.handle.get(), e)
         }.getAndConsumeRustString()
+    }
+
+    /**
+     * Update the push subscription details for the current device.
+     * This needs to be called every time a push subscription is modified or expires.
+     *
+     * This performs network requests, and should not be used on the main thread.
+     *
+     * @param endpoint Push callback URL
+     * @param endpoint Public key used to encrypt push payloads
+     * @param endpoint Auth key used to encrypt push payloads
+     */
+    fun setDevicePushSubscription(endpoint: String, publicKey: String, authKey: String) {
+        rustCall { e ->
+            LibFxAFFI.INSTANCE.fxa_set_push_subscription(this.handle.get(), endpoint, publicKey, authKey, e)
+        }
+    }
+
+    /**
+     * Update the display name (as shown in the FxA device manager, or the Send Tab target list)
+     * for the current device.
+     *
+     * This performs network requests, and should not be used on the main thread.
+     *
+     * @param displayName The current device display name
+     */
+    fun setDeviceDisplayName(displayName: String) {
+        rustCall { e ->
+            LibFxAFFI.INSTANCE.fxa_set_device_name(this.handle.get(), displayName, e)
+        }
+    }
+
+    /**
+     * Retrieves the list of the connected devices in the current account, including the current one.
+     *
+     * This performs network requests, and should not be used on the main thread.
+     */
+    fun getDevices(): Array<Device> {
+        val devicesBuffer = rustCall { e ->
+            LibFxAFFI.INSTANCE.fxa_get_devices(this.handle.get(), e)
+        }
+        try {
+            val devices = MsgTypes.Devices.parseFrom(devicesBuffer.asCodedInputStream()!!)
+            return Device.fromCollectionMessage(devices)
+        } finally {
+            LibFxAFFI.INSTANCE.fxa_bytebuffer_free(devicesBuffer)
+        }
+    }
+
+    /**
+     * Retrieves any pending commands for the current device.
+     * This should be called semi-regularly as the main method of commands delivery (push)
+     * can sometimes be unreliable on mobile devices.
+     * If a persist callback is set and the host application failed to process the
+     * returned account events, they will never be seen again.
+     *
+     * This performs network requests, and should not be used on the main thread.
+     *
+     * @return A collection of [AccountEvent] that should be handled by the caller.
+     */
+    fun pollDeviceCommands(): Array<AccountEvent> {
+        val eventsBuffer = rustCall { e ->
+            LibFxAFFI.INSTANCE.fxa_poll_device_commands(this.handle.get(), e)
+        }
+        this.tryPersistState()
+        try {
+            val events = MsgTypes.AccountEvents.parseFrom(eventsBuffer.asCodedInputStream()!!)
+            return AccountEvent.fromCollectionMessage(events)
+        } finally {
+            LibFxAFFI.INSTANCE.fxa_bytebuffer_free(eventsBuffer)
+        }
+    }
+
+    /**
+     * Handle any incoming push message payload coming from the Firefox Accounts
+     * servers that has been decrypted and authenticated by the Push crate.
+     *
+     * This performs network requests, and should not be used on the main thread.
+     *
+     * @return A collection of [AccountEvent] that should be handled by the caller.
+     */
+    fun handlePushMessage(payload: String): Array<AccountEvent> {
+        val eventsBuffer = rustCall { e ->
+            LibFxAFFI.INSTANCE.fxa_handle_push_message(this.handle.get(), payload, e)
+        }
+        this.tryPersistState()
+        try {
+            val events = MsgTypes.AccountEvents.parseFrom(eventsBuffer.asCodedInputStream()!!)
+            return AccountEvent.fromCollectionMessage(events)
+        } finally {
+            LibFxAFFI.INSTANCE.fxa_bytebuffer_free(eventsBuffer)
+        }
+    }
+
+    /**
+     * Ensure the current device is registered with the specified name and device type, with
+     * the required capabilities (at this time only Send Tab).
+     * This method should be called once per "device lifetime".
+     *
+     * This performs network requests, and should not be used on the main thread.
+     */
+    fun initializeDevice(name: String, deviceType: Device.Type, supportedCapabilities: Set<Device.Capability>) {
+        val capabilitiesBuilder = MsgTypes.Capabilities.newBuilder()
+        supportedCapabilities.forEach {
+            when (it) {
+                Device.Capability.SEND_TAB -> capabilitiesBuilder.addCapability(MsgTypes.Device.Capability.SEND_TAB)
+            }.exhaustive
+        }
+        val buf = capabilitiesBuilder.build()
+        val (nioBuf, len) = buf.toNioDirectBuffer()
+        rustCall { e ->
+            val ptr = Native.getDirectBufferPointer(nioBuf)
+            LibFxAFFI.INSTANCE.fxa_initialize_device(this.handle.get(), name, deviceType.toNumber(), ptr, len, e)
+        }
+        this.tryPersistState()
+    }
+
+    /**
+     * Ensure that the supported capabilities described earlier in `initializeDevice` are A-OK.
+     * As for now there's only the Send Tab capability, so we ensure the command is registered with the server.
+     * This method should be called at least every time the sync keys change (because Send Tab relies on them).
+     *
+     * This performs network requests, and should not be used on the main thread.
+     */
+    fun ensureCapabilities() {
+        rustCall { e ->
+            LibFxAFFI.INSTANCE.fxa_ensure_capabilities(this.handle.get(), e)
+        }
+        this.tryPersistState()
+    }
+
+    /**
+     * Send a single tab to another device identified by its device ID.
+     *
+     * This performs network requests, and should not be used on the main thread.
+     *
+     * @param targetDeviceId The target Device ID
+     * @param title The document title of the tab being sent
+     * @param url The url of the tab being sent
+     */
+    fun sendSingleTab(targetDeviceId: String, title: String, url: String) {
+        rustCall { e ->
+            LibFxAFFI.INSTANCE.fxa_send_tab(this.handle.get(), targetDeviceId, title, url, e)
+        }
     }
 
     @Synchronized

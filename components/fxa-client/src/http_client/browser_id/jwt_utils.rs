@@ -132,8 +132,8 @@ mod tests {
     ) -> Result<String> {
         let principal = json!({ "email": email });
         let payload = json!({
-          "principal": principal,
-          "public-key": serialized_public_key
+            "principal": principal,
+            "public-key": serialized_public_key
         });
         Ok(
             SignedJWTBuilder::new(key_pair, issuer, issued_at, expires_at)

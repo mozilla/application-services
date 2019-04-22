@@ -69,8 +69,20 @@ pub enum ErrorKind {
     #[fail(display = "No cached token for scope {}", _0)]
     NoCachedToken(String),
 
+    #[fail(display = "No cached scoped keys for scope {}", _0)]
+    NoScopedKey(String),
+
+    #[fail(display = "No stored refresh token")]
+    NoRefreshToken,
+
     #[fail(display = "Could not find a refresh token in the server response")]
     RefreshTokenNotPresent,
+
+    #[fail(display = "Action requires a prior device registration")]
+    DeviceUnregistered,
+
+    #[fail(display = "Device target is unknown (Device ID: {})", _0)]
+    UnknownTargetDevice(String),
 
     #[fail(display = "Unrecoverable server error {}", _0)]
     UnrecoverableServerError(&'static str),
@@ -79,7 +91,10 @@ pub enum ErrorKind {
     InvalidOAuthScopeValue(String),
 
     #[fail(display = "Illegal state: {}", _0)]
-    IllegalState(String),
+    IllegalState(&'static str),
+
+    #[fail(display = "Unknown command: {}", _0)]
+    UnknownCommand(String),
 
     #[fail(display = "Empty names")]
     EmptyOAuthScopeNames,
@@ -111,6 +126,9 @@ pub enum ErrorKind {
     #[fail(display = "Key agreement failed")]
     KeyAgreementFailed,
 
+    #[fail(display = "Remote key and local key mismatch")]
+    MismatchedKeys,
+
     #[fail(display = "Key import failed")]
     KeyImportFailed,
 
@@ -120,8 +138,11 @@ pub enum ErrorKind {
     #[fail(display = "Random number generation failure")]
     RngFailure,
 
-    #[fail(display = "HMAC verification failed")]
-    HmacVerifyFail,
+    #[fail(display = "HMAC mismatch")]
+    HmacMismatch,
+
+    #[fail(display = "Unsupported command: {}", _0)]
+    UnsupportedCommand(&'static str),
 
     #[fail(
         display = "Remote server error: '{}' '{}' '{}' '{}' '{}'",
@@ -139,6 +160,9 @@ pub enum ErrorKind {
     CryptoError(#[fail(cause)] rc_crypto::Error),
 
     // Basically reimplement error_chain's foreign_links. (Ugh, this sucks)
+    #[fail(display = "http-ece encryption error: {}", _0)]
+    EceError(#[fail(cause)] ece::Error),
+
     #[fail(display = "Hex decode error: {}", _0)]
     HexDecodeError(#[fail(cause)] hex::FromHexError),
 
@@ -164,9 +188,15 @@ pub enum ErrorKind {
     #[fail(display = "Unexpected HTTP status: {}", _0)]
     UnexpectedStatus(#[fail(cause)] viaduct::UnexpectedStatus),
 
+    #[fail(display = "Sync15 error: {}", _0)]
+    SyncError(#[fail(cause)] sync15::Error),
+
     #[cfg(feature = "browserid")]
     #[fail(display = "HAWK error: {}", _0)]
     HawkError(#[fail(cause)] SyncFailure<hawk::Error>),
+
+    #[fail(display = "Protobuf decode error: {}", _0)]
+    ProtobufDecodeError(#[fail(cause)] prost::DecodeError),
 }
 
 macro_rules! impl_from_error {
@@ -192,13 +222,16 @@ macro_rules! impl_from_error {
 
 impl_from_error! {
     (CryptoError, rc_crypto::Error),
+    (EceError, ece::Error),
     (HexDecodeError, ::hex::FromHexError),
     (Base64Decode, ::base64::DecodeError),
     (JsonError, ::serde_json::Error),
     (UTF8DecodeError, ::std::string::FromUtf8Error),
     (RequestError, viaduct::Error),
     (UnexpectedStatus, viaduct::UnexpectedStatus),
-    (MalformedUrl, url::ParseError)
+    (MalformedUrl, url::ParseError),
+    (SyncError, ::sync15::Error),
+    (ProtobufDecodeError, prost::DecodeError)
 }
 
 #[cfg(feature = "browserid")]

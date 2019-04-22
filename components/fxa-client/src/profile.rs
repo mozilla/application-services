@@ -112,6 +112,36 @@ mod tests {
                 panic!("Not implemented yet")
             }
         }
+        fn pending_commands(
+            &self,
+            _: &Config,
+            _: &str,
+            _: u64,
+            _: Option<u64>,
+        ) -> Result<PendingCommandsResponse> {
+            unimplemented!("Not implemented yet")
+        }
+        fn invoke_command(
+            &self,
+            _: &Config,
+            _: &str,
+            _: &str,
+            _: &str,
+            _: &serde_json::Value,
+        ) -> Result<()> {
+            unimplemented!("Not implemented yet")
+        }
+        fn devices(&self, _: &Config, _: &str) -> Result<Vec<GetDeviceResponse>> {
+            unimplemented!("Not implemented yet")
+        }
+        fn update_device(
+            &self,
+            _: &Config,
+            _: &str,
+            _: DeviceUpdateRequest<'_>,
+        ) -> Result<UpdateDeviceResponse> {
+            unimplemented!("Not implemented yet")
+        }
     }
 
     #[test]

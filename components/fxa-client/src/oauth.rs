@@ -2,7 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{errors::*, scoped_keys::ScopedKeysFlow, util, FirefoxAccount, RNG};
+use crate::{
+    errors::*,
+    scoped_keys::{ScopedKey, ScopedKeysFlow},
+    util, FirefoxAccount, RNG,
+};
 use rc_crypto::digest;
 use serde_derive::*;
 use std::{
@@ -64,7 +68,7 @@ impl FirefoxAccount {
         };
         let since_epoch = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|_| ErrorKind::IllegalState("Current date before Unix Epoch.".to_string()))?;
+            .map_err(|_| ErrorKind::IllegalState("Current date before Unix Epoch."))?;
         let expires_at = since_epoch.as_secs() + resp.expires_in;
         let token_info = AccessTokenInfo {
             scope: resp.scope,
@@ -208,11 +212,24 @@ impl FirefoxAccount {
         // In order to keep 1 and only 1 refresh token alive per client instance,
         // we also destroy the existing refresh token.
         if let Some(ref old_refresh_token) = self.state.refresh_token {
+            // Destroying a refresh token also destroys its associated device,
+            // grab the device information for replication later.
+            let device_info = self.get_current_device()?;
             if let Err(err) = self
                 .client
                 .destroy_oauth_token(&self.state.config, &old_refresh_token.token)
             {
                 log::warn!("Refresh token destruction failure: {:?}", err);
+            }
+            if let Some(device_info) = device_info {
+                if let Err(err) = self.replace_device(
+                    &device_info.display_name,
+                    &device_info.device_type,
+                    &device_info.push_subscription,
+                    &device_info.available_commands,
+                ) {
+                    log::warn!("Device information restoration failed: {:?}", err);
+                }
             }
         }
         self.state.refresh_token = Some(RefreshToken {
@@ -220,21 +237,6 @@ impl FirefoxAccount {
             scopes: HashSet::from_iter(resp.scope.split(' ').map(ToString::to_string)),
         });
         Ok(())
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ScopedKey {
-    pub kty: String,
-    pub scope: String,
-    /// URL Safe Base 64 encoded key.
-    pub k: String,
-    pub kid: String,
-}
-
-impl ScopedKey {
-    pub fn key_bytes(&self) -> Result<Vec<u8>> {
-        Ok(base64::decode_config(&self.k, base64::URL_SAFE_NO_PAD)?)
     }
 }
 

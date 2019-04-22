@@ -28,3 +28,60 @@ message ScopedKey {
     required string k = 3;
     required string kid = 4;
 }
+
+message Device {
+    message PushSubscription {
+        required string endpoint = 1;
+        required string public_key = 2;
+        required string auth_key = 3;
+    }
+    enum Capability {
+        SEND_TAB = 1;
+    }
+    enum Type {
+        DESKTOP = 1;
+        MOBILE = 2;
+        UNKNOWN = 3;
+    }
+    required string id = 1;
+    required string display_name = 2;
+    required Type type = 3;
+    optional PushSubscription push_subscription = 4;
+    required bool push_endpoint_expired = 5;
+    required bool is_current_device = 6;
+    optional uint64 last_access_time = 7;
+    repeated Capability capabilities = 8;
+}
+
+message Devices {
+    repeated Device devices = 1;
+}
+
+message Capabilities {
+    repeated Device.Capability capability = 1;
+}
+
+// This is basically an enum with associated values,
+// but it's a bit harder to model in proto2.
+message AccountEvent {
+    enum AccountEventType {
+        TAB_RECEIVED = 1; // data set to TabReceivedData.
+    }
+    required AccountEventType type = 1;
+
+    message TabReceivedData {
+        message TabHistoryEntry {
+            required string title = 1;
+            required string url = 2;
+        }
+        optional Device from = 1;
+        repeated TabHistoryEntry entries = 2;
+    }
+    oneof data {
+        TabReceivedData tab_received_data = 2;
+    };
+}
+
+message AccountEvents {
+    repeated AccountEvent events = 1;
+}
