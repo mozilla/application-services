@@ -2,7 +2,11 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.2...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.0...master)
+
+# v0.27.0 (_2019-04-22_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.2...v0.27.0)
 
 ## General
 
@@ -11,6 +15,10 @@
 - SQLCipher has been updated to version 4.1.0 (previously 4.0.0) ([#1060](https://github.com/mozilla/application-services/pull/1060))
 
 - `android-components` has been updated to 0.50.0 (previously 0.49.0) ([#1062](https://github.com/mozilla/application-services/pull/1062))
+
+- SQLCipher should no longer be required in megazords which do not contain `logins`. ([#996](https://github.com/mozilla/application-services/pull/996))
+
+- Non-megazord builds should once again work ([#1046](https://github.com/mozilla/application-services/pull/1046))
 
 ## FxA
 
