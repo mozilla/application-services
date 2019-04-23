@@ -4,19 +4,15 @@
 
 package mozilla.appservices
 
-import mozilla.appservices.httpconfig.RustHttpConfig
-import mozilla.components.concept.fetch.Client
-
 class FenixMegazord {
     companion object {
         @JvmStatic
-        fun init(client: Lazy<Client>) {
+        fun init() {
             System.setProperty("mozilla.appservices.fxaclient_ffi_lib_name", "fenix")
             System.setProperty("mozilla.appservices.places_ffi_lib_name", "fenix")
             System.setProperty("mozilla.appservices.push_ffi_lib_name", "fenix")
             System.setProperty("mozilla.appservices.rc_log_ffi_lib_name", "fenix")
             System.setProperty("mozilla.appservices.viaduct_lib_name", "fenix")
-            RustHttpConfig.setClient(client)
         }
     }
 }
