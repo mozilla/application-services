@@ -27,6 +27,8 @@ typedef uint64_t Sync15PasswordEngineHandle;
 
 typedef struct Sync15PasswordsInterruptHandle Sync15PasswordsInterruptHandle;
 
+uint64_t sync15_passwords_num_open_connections(Sync15PasswordsError *_Nonnull error_out);
+
 Sync15PasswordEngineHandle sync15_passwords_state_new(char const *_Nonnull db_path,
                                                       char const *_Nonnull encryption_key,
                                                       Sync15PasswordsError *_Nonnull error_out);
