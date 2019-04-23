@@ -14,8 +14,11 @@
  * <pre>
  *   apply plugin: NativeLibsPlugin
  *   nativeLibs {
- *     nss {
- *       lib "libnss3.*" // Wildcards are supported, just like the Copy task `include` method.
+ *     libsRoot = "${rootProject.rootDir}/libs"
+ *     libs {
+ *       nss {
+ *         lib "libnss3.*" // Wildcards are supported, just like the Copy task `include` method.
+ *       }
  *     }
  *   }
  *   android {
@@ -27,14 +30,15 @@
  * </pre>
  */
 
+import groovy.lang.Closure
 import org.gradle.api.tasks.Copy
+import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
 import org.gradle.api.Plugin
 import org.gradle.kotlin.dsl.delegateClosureOf
 // Needed to be able to call `DomainObjectCollection.all` instead of Kotlin's built-in `all` method.
 import kotlin.collections.all as ktAll // ktlint-disable no-unused-imports
 
-const val EXTENSION_NAME = "nativeLibs"
 val ARCHS_FOLDERS = arrayOf(
     "android/armeabi-v7a",
     "android/arm64-v8a",
@@ -47,10 +51,9 @@ val ARCHS_FOLDERS = arrayOf(
 
 data class NativeLib(
     val name: String,
-    var libs: List<String>,
-    var libRoot: String?
+    var libs: List<String>
 ) {
-    constructor(name: String) : this(name, listOf<String>(), null)
+    constructor(name: String) : this(name, listOf<String>())
 
     public fun lib(libName: String): NativeLib {
         this.libs += libName
@@ -58,21 +61,30 @@ data class NativeLib(
     }
 }
 
+const val EXTENSION_NAME = "nativeLibs"
+open class NativeLibsExtension(nativeLibs: NamedDomainObjectContainer<NativeLib>) {
+    lateinit var libsRoot: String
+    val libs: NamedDomainObjectContainer<NativeLib> = nativeLibs
+
+    fun libs(config: Closure<*>) {
+        this.libs.configure(config)
+    }
+}
+
 open class NativeLibsPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         with(project) {
             val nativeLibs = container(NativeLib::class.java)
-            extensions.add(EXTENSION_NAME, nativeLibs)
+            val extension = extensions.create(EXTENSION_NAME, NativeLibsExtension::class.java, nativeLibs)
 
             nativeLibs.all(delegateClosureOf<NativeLib>({
                 val nativeLib = this
-                val libRoot = this.libRoot ?: "${rootProject.rootDir}/build/libs"
                 afterEvaluate {
                     var copyNativeLibsTask = tasks.maybeCreate("copyNativeLibs")
                     ARCHS_FOLDERS.forEach { archFolder ->
                         val taskName = archFolder.replace("/", "-")
                         val copyLibsTask = tasks.maybeCreate("copyNativeLibs-$taskName", Copy::class.java).apply {
-                            from("$libRoot/$archFolder/${nativeLib.name}/lib/")
+                            from("${extension.libsRoot}/$archFolder/${nativeLib.name}/lib/")
                             into("$buildDir/nativeLibs/$archFolder")
                             nativeLib.libs.forEach {
                                 include(it)

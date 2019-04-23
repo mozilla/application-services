@@ -229,20 +229,22 @@ subprojects {
 
     apply plugin: NativeLibsPlugin
     nativeLibs {
-        nss {
-            libRoot = "${libsRootDir}/libs"
-            lib "libplc4.*"
-            lib "libplds4.*"
-            lib "libnspr4.*"
-            lib "*freebl3.*"
-            lib "*nss3.*"
-            lib "*nssckbi.*"
-            lib "*nssutil3.*"
-            lib "*softokn3.*"
-            lib "*smime3.*"
-            lib "*sqlite3.*"
-            // We don't need SSL so we might as well save space.
-            // lib "libssl3.*"
+        libsRoot = "${libsRootDir}/libs"
+        libs {
+            nss {
+                lib "libplc4.*"
+                lib "libplds4.*"
+                lib "libnspr4.*"
+                lib "*freebl3.*"
+                lib "*nss3.*"
+                lib "*nssckbi.*"
+                lib "*nssutil3.*"
+                lib "*softokn3.*"
+                lib "*smime3.*"
+                lib "*sqlite3.*"
+                // We don't need SSL so we might as well save space.
+                // lib "libssl3.*"
+            }
         }
     }
 }
