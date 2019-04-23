@@ -162,13 +162,13 @@ jobs:
     docker:
       - image: circleci/rust:latest
     # We have to use a machine with more RAM for tests so we don't run out of memory.
-    resource_class: medium+
+    resource_class: large
     steps:
       - rust-tests
   Rust tests - beta:
     docker:
       - image: circleci/rust:latest
-    resource_class: medium+
+    resource_class: large
     steps:
       - rust-tests:
           rust-version: "beta"
