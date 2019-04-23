@@ -170,19 +170,19 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
         // In case the visit is a redirect target, calculate the frecency
         // as if the original page was visited.
         // If it's a redirect source, we may want to use a lower bonus.
-        let get_recent_visits = format!("
-            SELECT
-                IFNULL(origin.visit_type, v.visit_type) AS visit_type,
-                target.visit_type AS target_visit_type,
-                ROUND((strftime('%s','now','localtime','utc') - v.visit_date/1000000)/86400) AS age_in_days
-            FROM moz_historyvisits v
-            LEFT JOIN moz_historyvisits origin ON origin.id = v.from_visit
-                AND v.visit_type BETWEEN {redirect_permanent} AND {redirect_temporary}
-            LEFT JOIN moz_historyvisits target ON v.id = target.from_visit
-                AND target.visit_type BETWEEN {redirect_permanent} AND {redirect_temporary}
-            WHERE v.place_id = :page_id
-            ORDER BY v.visit_date DESC
-            LIMIT {max_visits}",
+        let get_recent_visits = format!(
+            "SELECT
+                 IFNULL(origin.visit_type, v.visit_type) AS visit_type,
+                 target.visit_type AS target_visit_type,
+                 ROUND((now() - v.visit_date)/86400000) AS age_in_days
+             FROM moz_historyvisits v
+             LEFT JOIN moz_historyvisits origin ON origin.id = v.from_visit
+                 AND v.visit_type BETWEEN {redirect_permanent} AND {redirect_temporary}
+             LEFT JOIN moz_historyvisits target ON v.id = target.from_visit
+                 AND target.visit_type BETWEEN {redirect_permanent} AND {redirect_temporary}
+             WHERE v.place_id = :page_id
+             ORDER BY v.visit_date DESC
+             LIMIT {max_visits}",
             redirect_permanent = VisitTransition::RedirectPermanent as u8,
             redirect_temporary = VisitTransition::RedirectTemporary as u8,
             max_visits = self.settings.num_visits,

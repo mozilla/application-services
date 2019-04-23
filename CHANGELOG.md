@@ -4,6 +4,13 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.0...master)
 
+## Places
+
+### What's New
+
+- Frecencies are now recalculated for bookmarked URLs after a sync.
+  ([#847](https://github.com/mozilla/application-services/issues/847))
+
 # v0.27.0 (_2019-04-22_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.26.2...v0.27.0)

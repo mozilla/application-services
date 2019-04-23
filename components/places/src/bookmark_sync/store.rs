@@ -12,6 +12,7 @@ use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::api::places_api::ConnectionType;
 use crate::db::{PlacesDb, PlacesTransaction};
 use crate::error::*;
+use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
 use crate::storage::{bookmarks::BookmarkRootGuid, delete_meta, get_meta, put_meta};
 use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
 use dogear::{
@@ -32,6 +33,12 @@ pub const LAST_SYNC_META_KEY: &str = "bookmarks_last_sync_time";
 // for the global sync ID, because engines are reset individually.
 const GLOBAL_SYNCID_META_KEY: &str = "bookmarks_global_sync_id";
 const COLLECTION_SYNCID_META_KEY: &str = "bookmarks_sync_id";
+
+/// The maximum number of URLs for which to recalculate frecencies at once.
+/// This is a trade-off between write efficiency and transaction time: higher
+/// maximums mean fewer write statements, but longer transactions, possibly
+/// blocking writes from other connections.
+const MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK: usize = 400;
 
 pub struct BookmarksStore<'a> {
     pub db: &'a PlacesDb,
@@ -425,6 +432,79 @@ impl<'a> BookmarksStore<'a> {
         Ok(())
     }
 
+    fn update_frecencies(&self) -> Result<()> {
+        let mut tx = self.db.begin_transaction()?;
+
+        let mut frecencies = Vec::with_capacity(MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK);
+        loop {
+            let sql = format!(
+                "SELECT place_id FROM moz_places_stale_frecencies
+                 ORDER BY stale_at DESC
+                 LIMIT {}",
+                MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK
+            );
+            let mut stmt = self.db.prepare_maybe_cached(&sql, true)?;
+            let mut results = stmt.query(NO_PARAMS)?;
+            while let Some(row) = results.next()? {
+                let place_id = row.get("place_id")?;
+                // Frecency recalculation runs several statements, so check to
+                // make sure we aren't interrupted before each calculation.
+                self.interruptee.err_if_interrupted()?;
+                let frecency = calculate_frecency(
+                    &self.db,
+                    &DEFAULT_FRECENCY_SETTINGS,
+                    place_id,
+                    Some(false),
+                )?;
+                frecencies.push((place_id, frecency));
+            }
+            if frecencies.is_empty() {
+                break;
+            }
+
+            // Update all frecencies in one fell swoop...
+            self.db.execute_batch(&format!(
+                "WITH frecencies(id, frecency) AS (
+                   VALUES {}
+                 )
+                 UPDATE moz_places SET
+                   frecency = (SELECT frecency FROM frecencies f
+                               WHERE f.id = id)
+                 WHERE id IN (SELECT f.id FROM frecencies f)",
+                sql_support::repeat_display(frecencies.len(), ",", |index, f| {
+                    let (id, frecency) = frecencies[index];
+                    write!(f, "({}, {})", id, frecency)
+                })
+            ))?;
+            tx.maybe_commit()?;
+            self.interruptee.err_if_interrupted()?;
+
+            // ...And remove them from the stale table.
+            self.db.execute_batch(&format!(
+                "DELETE FROM moz_places_stale_frecencies
+                 WHERE place_id IN ({})",
+                sql_support::repeat_display(frecencies.len(), ",", |index, f| {
+                    let (id, _) = frecencies[index];
+                    write!(f, "{}", id)
+                })
+            ))?;
+            tx.maybe_commit()?;
+            self.interruptee.err_if_interrupted()?;
+
+            // If the query returned fewer URLs than the maximum, we're done.
+            // Otherwise, we might have more, so clear the ones we just
+            // recalculated and fetch the next chunk.
+            if frecencies.len() < MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK {
+                break;
+            }
+            frecencies.clear();
+        }
+
+        tx.commit()?;
+
+        Ok(())
+    }
+
     pub fn sync(
         &self,
         storage_init: &Sync15StorageClientInit,
@@ -485,6 +565,7 @@ impl<'a> Store for BookmarksStore<'a> {
         records_synced: Vec<String>,
     ) -> result::Result<(), failure::Error> {
         self.push_synced_items(new_timestamp, records_synced)?;
+        self.update_frecencies()?;
         Ok(())
     }
 
@@ -1293,6 +1374,33 @@ mod tests {
                 .expect("Should check stale frecency for new URL")
                 .is_some(),
             "Should mark frecency for new URL as stale"
+        );
+
+        let syncer = api
+            .open_sync_connection()
+            .expect("Should return Sync connection");
+        let interrupt_scope = syncer.begin_interrupt_scope();
+        let store = BookmarksStore::new(&syncer, &interrupt_scope);
+
+        store.update_frecencies().expect("Should update frecencies");
+
+        assert!(
+            frecency_stale_at(&reader, &Url::parse("http://example.com").unwrap())
+                .expect("Should check stale frecency")
+                .is_none(),
+            "Should recalculate frecency for first bookmark"
+        );
+        assert!(
+            frecency_stale_at(&reader, &Url::parse("http://example.com/2").unwrap())
+                .expect("Should check stale frecency for old URL")
+                .is_none(),
+            "Should recalculate frecency for old URL"
+        );
+        assert!(
+            frecency_stale_at(&reader, &Url::parse("http://example.com/2-remote").unwrap())
+                .expect("Should check stale frecency for new URL")
+                .is_none(),
+            "Should recalculate frecency for new URL"
         );
     }
 
