@@ -4,6 +4,47 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.1...master)
 
+## Megazords
+
+### Breaking Changes
+
+- Megazord initialization is now separate from the initialization of the http client. ([#1066](https://github.com/mozilla/application-services/issues/1066))
+    - This is done to allow application that wish to defer initializing JNA
+      (which can be costly) until later. Now, you should use the `RustHttpConfig.setClient()` function from `org.mozilla.appservices:httpconfig`:
+
+        In `build.gradle`:
+        ```groovy
+        dependencies {
+            // ...
+            implementation "org.mozilla.appservices:httpconfig:${app_services_version}"
+            // ...
+        }
+        ```
+
+        In Kotlin:
+        ```kotlin
+        import mozilla.appservices.httpconfig.RustHttpConfig
+        // At some point after megazord init.
+        RustHttpConfig.setClient(lazy { /* your http client here */ })
+        ```
+
+        Note: The megazord init no longer takes the http client, so should look like either
+        ```kotlin
+        // Was: MyMegazord.init(lazy { /* your http client */ })
+        MyMegazord.init()
+        ```
+
+        Or, if you use reflection to allow substitions to function:
+        ```kotlin
+        // This was a more complex expression you can see below in the v0.24.0 changelog.
+        val megazordClass = Class.forName("mozilla.appservices.MyCoolMegazord")
+        val megazordInitMethod = megazordClass.getDeclaredMethod("init")
+        megazordInitMethod.invoke(megazordClass)
+        ```
+
+        Note that while RustHttpConfig does not work for non-megazord builds,
+        it's also harmless to initialize it in that case.
+
 # v0.27.1 (_2019-04-26_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.0...v0.27.1)
