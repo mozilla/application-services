@@ -29,6 +29,9 @@
   ([#984](https://github.com/mozilla/application-services/pull/984))
 - Android only: Added device registration and Firefox Send Tab capability support. Your app can opt into this by calling the `FirefoxAccount.initializeDevice` method. ([#676](https://github.com/mozilla/application-services/pull/676))
 
+- Switched to use the new fxa-auth-server token endpoint which generates device records, email and push notifications
+ for connected clients([#1055](https://github.com/mozilla/application-services/pull/1055))
+
 ## Places
 
 ### Breaking Changes
