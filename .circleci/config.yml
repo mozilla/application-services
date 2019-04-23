@@ -239,12 +239,12 @@ jobs:
       - run:
           name: Release Carthage archive on GitHub
           command: |
-            # We should probably use ghr instead.
-            export TRAVIS_REPO_SLUG=mozilla/application-services # Pretty ironic but dpl reads that...
-            sudo chown -R `whoami` /Library/Ruby/Gems
-            gem install --user-install dpl
-            PATH=$HOME/.gem/ruby/2.3.0/bin:$PATH
-            dpl --provider=releases --api-key=${GITHUB_TOKEN} --file=MozillaAppServices.framework.zip --overwrite --skip-cleanup=true
+            GHR=ghr_v0.12.0_darwin_amd64
+            GHR_SHA256=c868ef9fc5dd8c8a397b74d84051d83693c42dd59041cb17b66f90f563477249
+            curl -L -O -s --retry 5 "https://github.com/tcnksm/ghr/releases/download/v0.12.0/${GHR}.zip"
+            echo "${GHR_SHA256} *${GHR}.zip" | shasum -a 256 -c -
+            unzip "${GHR}.zip"
+            ./${GHR}/ghr -replace "${CIRCLE_TAG}" MozillaAppServices.framework.zip
   Deploy website:
     docker:
       - image: circleci/node:latest
