@@ -4,6 +4,12 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.1...master)
 
+## Logins
+
+### What's new
+
+- iOS only: Logins store has a new (static) `numOpenConnections` function, which can be used to detect leaks. ([#1070](https://github.com/mozilla/application-services/pull/1070))
+
 # v0.27.1 (_2019-04-26_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.0...v0.27.1)
