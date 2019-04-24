@@ -236,7 +236,11 @@ jobs:
           destination: logs/raw_xcodebuild.log
       - save_cache:
           name: Save Rust cache
-          key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+          # We use {{ epoch }} to always upload a fresh cache:
+          # Of course, restore_cache will not find this exact key,
+          # but it will fall back to the closest key (aka the most recent).
+          # See https://discuss.circleci.com/t/add-mechanism-to-update-existing-cache-key/9014/13
+          key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ epoch }}
           paths:
             - "./target"
       - run:
