@@ -74,6 +74,21 @@ public class PlacesAPI {
     }
 
     /**
+     * Migrate bookmarks tables from a `browser.db` database.
+     *
+     * This is (mostly) a noop if there's nothing in the `bookmarksLocal` table,
+     * which should be the case for most sync users. For these users, they're
+     * better off repopulating things by syncing.
+     */
+    open func migrateBookmarksFromBrowserDb(path: String) throws {
+        try queue.sync {
+            try PlacesError.unwrap { error in
+                places_bookmarks_import_from_ios(handle, path, error)
+            }
+        }
+    }
+
+    /**
      * Open a new reader connection.
      *
      * - Throws: `PlacesError` if a connection could not be opened.

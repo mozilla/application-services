@@ -80,6 +80,21 @@ pub extern "C" fn places_connection_new(
         Ok(CONNECTIONS.insert(api.open_connection(conn_type)?))
     })
 }
+#[no_mangle]
+pub extern "C" fn places_bookmarks_import_from_ios(
+    api_handle: u64,
+    db_path: FfiStr<'_>,
+    error: &mut ExternError,
+) {
+    log::debug!("places_bookmarks_import_from_ios");
+    APIS.call_with_result(error, api_handle, |api| -> places::Result<_> {
+        // TODO: accept file URLs directly for consistency with `places_api_new`.
+        let url = url::Url::from_file_path(db_path.as_str())
+            .map_err(|_| places::error::ErrorKind::IllegalDatabasePath(db_path.as_str().into()))?;
+        places::import::import_ios_bookmarks(api, url)?;
+        Ok(())
+    })
+}
 
 // Best effort, ignores failure.
 #[no_mangle]
