@@ -16,5 +16,5 @@ interrupt = { path = "../interrupt" }
 ffi-support = { path = "../ffi" }
 
 [dependencies.rusqlite]
-version = "0.17.0"
+version = "0.18.0"
 features = ["functions", "limits"]
