@@ -223,6 +223,9 @@ jobs:
           command: |
             brew outdated carthage || brew upgrade carthage
             bash build-carthage.sh MozillaAppServices.framework.zip
+      - store_artifacts:
+          path: raw_xcodebuild.log
+          destination: logs/raw_xcodebuild.log
       - save_cache:
           name: Save Rust cache
           key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
