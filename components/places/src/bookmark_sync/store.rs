@@ -432,7 +432,7 @@ impl<'a> BookmarksStore<'a> {
         Ok(())
     }
 
-    fn update_frecencies(&self) -> Result<()> {
+    pub(crate) fn update_frecencies(&self) -> Result<()> {
         let mut tx = self.db.begin_transaction()?;
 
         let mut frecencies = Vec::with_capacity(MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK);
@@ -666,14 +666,14 @@ impl dogear::Driver for Driver {
 }
 
 // The "merger", which is just a thin wrapper for dogear.
-struct Merger<'a> {
+pub(crate) struct Merger<'a> {
     store: &'a BookmarksStore<'a>,
     remote_time: ServerTimestamp,
     local_time: Timestamp,
 }
 
 impl<'a> Merger<'a> {
-    fn new(store: &'a BookmarksStore<'_>, remote_time: ServerTimestamp) -> Self {
+    pub(crate) fn new(store: &'a BookmarksStore<'_>, remote_time: ServerTimestamp) -> Self {
         Self {
             store,
             remote_time,
@@ -681,7 +681,7 @@ impl<'a> Merger<'a> {
         }
     }
 
-    fn merge(&mut self) -> Result<()> {
+    pub(crate) fn merge(&mut self) -> Result<()> {
         use dogear::Store;
         if !self.store.has_changes()? {
             return Ok(());
