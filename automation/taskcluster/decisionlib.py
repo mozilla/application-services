@@ -27,7 +27,7 @@ import taskcluster
 # Public API
 __all__ = [
     "CONFIG", "SHARED",
-    "Task", "DockerWorkerTask",
+    "Task", "DockerWorkerTask", "BeetmoverTask",
     "build_full_task_graph", "populate_chain_of_trust_required_but_unused_files",
     "populate_chain_of_trust_task_graph",
 ]
@@ -53,9 +53,9 @@ class Config:
         # Set in the decision task’s payload, such as defined in .taskcluster.yml
         self.task_owner = os.environ.get("TASK_OWNER")
         self.task_source = os.environ.get("TASK_SOURCE")
-        self.git_url = os.environ.get("GIT_URL")
-        self.git_ref = os.environ.get("GIT_REF")
-        self.git_sha = os.environ.get("GIT_SHA")
+        self.git_url = os.environ.get("APPSERVICES_HEAD_REPOSITORY")
+        self.git_ref = os.environ.get("APPSERVICES_HEAD_BRANCH")
+        self.git_sha = os.environ.get("APPSERVICES_HEAD_REV")
 
         # Map directory string to git sha for that directory.
         self._git_sha_for_directory = {}
@@ -80,6 +80,7 @@ class Shared:
     """
     def __init__(self):
         self.now = datetime.datetime.utcnow()
+        self.tasks_cache = {}
         self.found_or_created_indexed_tasks = {}
         self.all_tasks = []
 
@@ -132,7 +133,7 @@ class Task:
     A task definition, waiting to be created.
 
     Typical is to use chain the `with_*` methods to set or extend this object’s attributes,
-    then call the `crate` or `find_or_create` method to schedule a task.
+    then call the `create` or `find_or_create` method to schedule a task.
 
     This is an abstract class that needs to be specialized for different worker implementations.
     """
@@ -210,6 +211,7 @@ class Task:
         if any(r.startswith("index.") for r in routes):
             self.extra.setdefault("index", {})["expires"] = \
                 SHARED.from_now_json(self.index_and_artifacts_expire_in)
+
         dict_update_if_truthy(
             queue_payload,
             scopes=scopes,
@@ -256,6 +258,53 @@ class Task:
         SHARED.found_or_created_indexed_tasks[index_path] = task_id
         return task_id
 
+    def reuse_or_create(self, cache_id=None):
+        """
+        See if we can re-use a task with the same cache_id or
+        create a new one, this is similar as `find_or_create`
+        except that the scope of this function is limited to
+        its execution since nothing is persisted.
+        """
+        task_id = SHARED.tasks_cache.get(cache_id)
+        if task_id is not None:
+            return task_id
+        task_id = self.create()
+        SHARED.tasks_cache[cache_id] = task_id
+        return task_id
+
+class BeetmoverTask(Task):
+    def __init__(self, name):
+        super().__init__(name)
+        self.provisioner_id = "scriptworker-prov-v1"
+        self.artifact_id = None
+        self.app_name = None
+        self.app_version = None
+        self.upstream_artifacts = []
+
+    with_app_name = chaining(setattr, "app_name")
+    with_app_version = chaining(setattr, "app_version")
+    with_artifact_id = chaining(setattr, "artifact_id")
+    with_upstream_artifact = chaining(append_to_attr, "upstream_artifacts")
+
+    def build_worker_payload(self):
+        payload =  {
+            "maxRunTime": 10 * 60,
+            "releaseProperties": {
+                "appName": self.app_name,
+            },
+            "upstreamArtifacts": self.upstream_artifacts,
+            "version": self.app_version,
+            "artifact_id": self.artifact_id,
+        }
+
+        # XXX: Beetmover jobs that transfer the `forUnitTests` maven.zip need
+        # to have an additional flag set
+        if 'forUnitTests' in self.name:
+            payload['is_jar'] = True
+
+        return payload
+
+
 class DockerWorkerTask(Task):
     """
     Task definition for a worker type that runs the `generic-worker` implementation.
@@ -298,6 +347,10 @@ class DockerWorkerTask(Task):
                 deindent("\n".join(self.scripts))
             ],
         }
+        if self.features.get("chainOfTrust"):
+            if isinstance(self.docker_image, dict):
+                cot = self.extra.setdefault("chainOfTrust", {})
+                cot.setdefault('inputs', {})['docker-image'] = self.docker_image['taskId']
         return dict_update_if_truthy(
             worker_payload,
             env=self.env,
@@ -351,11 +404,11 @@ class DockerWorkerTask(Task):
         .with_env(**git_env()) \
         .with_early_script("""
             cd repo
-            git fetch --quiet --tags "$GIT_URL" "$GIT_REF"
-            git reset --hard "$GIT_SHA"
+            git fetch --quiet --tags "$APPSERVICES_HEAD_REPOSITORY" "$APPSERVICES_HEAD_BRANCH"
+            git reset --hard "$APPSERVICES_HEAD_REV"
         """)
 
-    def with_dockerfile(self, dockerfile):
+    def with_dockerfile(self, dockerfile, use_indexed_task=True):
         """
         Build a Docker image based on the given `Dockerfile`, and use it for this task.
 
@@ -393,15 +446,21 @@ class DockerWorkerTask(Task):
                 "servobrowser/taskcluster-bootstrap:image-builder@sha256:" \
                 "0a7d012ce444d62ffb9e7f06f0c52fedc24b68c2060711b313263367f7272d9d"
             )
-            .find_or_create("docker-image." + digest)
         )
+        if self.features.get("chainOfTrust"):
+            image_build_task.with_features("chainOfTrust")
+        task_index = "appservices-docker-image." + digest
+        if use_indexed_task:
+            image_build_task_id = image_build_task.find_or_create(task_index)
+        else:
+            image_build_task_id = image_build_task.reuse_or_create(task_index)
 
         return self \
-        .with_dependencies(image_build_task) \
+        .with_dependencies(image_build_task_id) \
         .with_docker_image({
             "type": "task-image",
             "path": "public/image.tar.lz4",
-            "taskId": image_build_task,
+            "taskId": image_build_task_id,
         })
 
 
@@ -428,9 +487,9 @@ def git_env():
     assert CONFIG.git_ref
     assert CONFIG.git_sha
     return {
-        "GIT_URL": CONFIG.git_url,
-        "GIT_REF": CONFIG.git_ref,
-        "GIT_SHA": CONFIG.git_sha,
+        "APPSERVICES_HEAD_REPOSITORY": CONFIG.git_url,
+        "APPSERVICES_HEAD_BRANCH": CONFIG.git_ref,
+        "APPSERVICES_HEAD_REV": CONFIG.git_sha,
     }
 
 def dict_update_if_truthy(d, **kwargs):

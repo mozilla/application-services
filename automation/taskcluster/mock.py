@@ -41,7 +41,7 @@ Queue = fromNow = MagicMock()
 sys.modules["taskcluster"] = sys.modules[__name__]
 sys.dont_write_bytecode = True
 os.environ.update(**{k: k for k in "TASK_ID TASK_OWNER TASK_SOURCE GIT_URL GIT_SHA".split()})
-os.environ["GIT_REF"] = "refs/heads/auto"
+os.environ["APPSERVICES_HEAD_BRANCH"] = "refs/heads/auto"
 import decision_task as decision_task
 
 print("\n# Push:")

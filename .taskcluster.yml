@@ -40,11 +40,6 @@ tasks:
       $if: 'tasks_for == "github-pull-request"'
       then: ${event.pull_request.head.repo.html_url}
       else: ${event.repository.html_url}
-
-    clone_url:
-      $if: 'tasks_for == "github-pull-request"'
-      then: ${event.pull_request.head.repo.clone_url}
-      else: ${event.repository.clone_url}
   in:
     $let:
       default_task_definition:
@@ -75,6 +70,8 @@ tasks:
         metadata:
           owner: &task_owner ${user}@users.noreply.github.com
           source: &task_source ${repository}/raw/${head_rev}/.taskcluster.yml
+        extra:
+          tasks_for: ${tasks_for}
         payload:
           artifacts:
             public/task-graph.json:
@@ -101,13 +98,13 @@ tasks:
               python3 -m pip install pyyaml &&
               git init repo &&
               cd repo &&
-              git fetch --tags ${clone_url} ${head_branch} &&
+              git fetch --tags ${repository} ${head_branch} &&
               git reset --hard ${head_rev} &&
               python3 automation/taskcluster/decision_task.py
           env:
-            GIT_URL: ${clone_url}
-            GIT_REF: ${head_branch}
-            GIT_SHA: ${head_rev}
+            APPSERVICES_HEAD_REPOSITORY: ${repository}
+            APPSERVICES_HEAD_BRANCH: ${head_branch}
+            APPSERVICES_HEAD_REV: ${head_rev}
             TASK_FOR: ${tasks_for}
             TASK_OWNER: *task_owner
             TASK_SOURCE: *task_source
@@ -137,18 +134,32 @@ tasks:
                 description: Schedules the build and test tasks for Application Services.
         "tasks_for == 'github-release'":
           $let:
+            beetmover_worker_type: appsv-beetmover-v1
+            beetmover_bucket: maven-production
+            beetmover_bucket_public_url: https://maven.mozilla.org/
             tag: ${event.release.tag_name}
             release_task_definition:
+              payload:
+                features:
+                  chainOfTrust: true
               scopes:
-                # So that we can publish to nalexander@'s personal bintray
-                # at https://bintray.com/ncalexander/application-services.
-                - "secrets:get:project/application-services/publish"
+                # So that we can publish on Maven using beetmover
+                - project:mozilla:application-services:releng:beetmover:action:push-to-maven
                 # So that we can upload symbols to Socorro
                 - "secrets:get:project/application-services/symbols-token"
           in:
             $mergeDeep:
               - {$eval: 'default_task_definition'}
               - {$eval: 'release_task_definition'}
+              - payload:
+                  env:
+                    BEETMOVER_WORKER_TYPE: ${beetmover_worker_type}
+                    BEETMOVER_BUCKET: ${beetmover_bucket}
+                    BEETMOVER_BUCKET_PUBLIC_URL: ${beetmover_bucket_public_url}
+              - scopes:
+                # So that we can publish on Maven using beetmover
+                - project:mozilla:application-services:releng:beetmover:bucket:${beetmover_bucket}
+                - queue:create-task:${tasks_priority}:scriptworker-prov-v1/${beetmover_worker_type}
               - metadata:
                   name: Application Services - Decision task (${tag})
                   description: Build and publish release versions.
