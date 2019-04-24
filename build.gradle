@@ -58,43 +58,6 @@ allprojects {
     }
 }
 
-subprojects {
-    apply plugin: 'digital.wup.android-maven-publish'
-
-    // This allows to invoke Gradle like `./gradlew publishToRootProjectBuildDir` (equivalent to
-    // `./gradlew publish`) and also `./gradlew publishToProjectBuildDir`.
-    publishing {
-        repositories {
-            maven {
-                name = "rootProjectBuildDir"
-                url "file://${project.rootProject.buildDir}/maven"
-            }
-            maven {
-                name = "projectBuildDir"
-                url "file://${project.buildDir}/maven"
-            }
-        }
-    }
-
-    apply plugin: NativeLibsPlugin
-    nativeLibs {
-        nss {
-            lib "libplc4.*"
-            lib "libplds4.*"
-            lib "libnspr4.*"
-            lib "*freebl3.*"
-            lib "*nss3.*"
-            lib "*nssckbi.*"
-            lib "*nssutil3.*"
-            lib "*softokn3.*"
-            lib "*smime3.*"
-            lib "*sqlite3.*"
-            // We don't need SSL so we might as well save space.
-            // lib "libssl3.*"
-        }
-    }
-}
-
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
@@ -245,6 +208,46 @@ switch (DefaultPlatform.RESOURCE_PREFIX) {
 // Use in-tree libs from the source directory in CI or if the git SHA is unset; otherwise use
 // downloaded libs.
 def libsRootDir = (System.getenv('CI') || ext.libsGitSha == null) ? rootProject.rootDir : rootProject.buildDir
+
+subprojects {
+    apply plugin: 'digital.wup.android-maven-publish'
+
+    // This allows to invoke Gradle like `./gradlew publishToRootProjectBuildDir` (equivalent to
+    // `./gradlew publish`) and also `./gradlew publishToProjectBuildDir`.
+    publishing {
+        repositories {
+            maven {
+                name = "rootProjectBuildDir"
+                url "file://${project.rootProject.buildDir}/maven"
+            }
+            maven {
+                name = "projectBuildDir"
+                url "file://${project.buildDir}/maven"
+            }
+        }
+    }
+
+    apply plugin: NativeLibsPlugin
+    nativeLibs {
+        libsRoot = "${libsRootDir}/libs"
+        libs {
+            nss {
+                lib "libplc4.*"
+                lib "libplds4.*"
+                lib "libnspr4.*"
+                lib "*freebl3.*"
+                lib "*nss3.*"
+                lib "*nssckbi.*"
+                lib "*nssutil3.*"
+                lib "*softokn3.*"
+                lib "*smime3.*"
+                lib "*sqlite3.*"
+                // We don't need SSL so we might as well save space.
+                // lib "libssl3.*"
+            }
+        }
+    }
+}
 
 // Configure some environment variables, per toolchain, that will apply during
 // the Cargo build.  We assume that the `libs/` directory has been populated
