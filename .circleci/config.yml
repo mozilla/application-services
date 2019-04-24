@@ -143,6 +143,14 @@ commands:
           command: cargo bench --all
 
 jobs:
+  Check Swift formatting:
+    macos:
+      xcode: "10.1.0"
+    steps:
+      - checkout
+      - run: brew install swiftlint swiftformat
+      - run: swiftlint --strict
+      - run: swiftformat --lint --swiftversion 4 --verbose megazords
   Check Rust formatting:
     docker:
       - image: circleci/rust:latest
@@ -295,6 +303,9 @@ jobs:
             popd
 workflows:
   version: 2
+  swiftlint:
+    jobs:
+      - Check Swift formatting
   check-formating:
     jobs:
       - Check Rust formatting
