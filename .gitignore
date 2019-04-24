@@ -21,11 +21,12 @@ xcuserdata
 # Protobuf Swift
 *.pb.swift
 
-# Carthage built artifacts
+# Carthage generated artifacts
 Carthage
+MozillaAppServices.framework.zip
+raw_xcodebuild.log
+raw_xcodetest.log
 
 # Generated debug symbols
 crashreporter-symbols*
 automation/symbols-generation/bin/
-
-MozillaAppServices.framework.zip
