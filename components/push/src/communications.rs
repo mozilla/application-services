@@ -121,7 +121,10 @@ impl ConnectHttp {
         let mut headers = Headers::new();
         if self.auth.is_some() {
             headers
-                .insert(header_names::AUTHORIZATION, self.auth.clone().unwrap())
+                .insert(
+                    header_names::AUTHORIZATION,
+                    format!("webpush {}", self.auth.clone().unwrap()),
+                )
                 .map_err(|e| {
                     error::ErrorKind::CommunicationError(format!("Header error: {:?}", e))
                 })?;
@@ -196,9 +199,12 @@ impl Connection for ConnectHttp {
             if requested.status == status_codes::CONFLICT {
                 return Err(AlreadyRegisteredError.into());
             }
-            return Err(
-                CommunicationError(format!("Unhandled client error {:?}", requested)).into(),
-            );
+            return Err(CommunicationError(format!(
+                "Unhandled client error {} : {:?}",
+                requested.status,
+                String::from_utf8_lossy(&requested.body)
+            ))
+            .into());
         }
         let response: Value = match requested.json() {
             Ok(v) => v,
@@ -209,8 +215,13 @@ impl Connection for ConnectHttp {
             }
         };
 
-        self.uaid = response["uaid"].as_str().map(ToString::to_string);
-        self.auth = response["secret"].as_str().map(ToString::to_string);
+        if self.uaid.is_none() {
+            self.uaid = response["uaid"].as_str().map(ToString::to_string);
+        }
+        if self.auth.is_none() {
+            self.auth = response["secret"].as_str().map(ToString::to_string);
+            println!("### Got Auth {:?}", self.auth);
+        }
 
         let channel_id = response["channelID"].as_str().map(ToString::to_string);
         let endpoint = response["endpoint"].as_str().map(ToString::to_string);
@@ -316,7 +327,7 @@ impl Connection for ConnectHttp {
             return Err(CommunicationError("No Bridge Type set".into()).into());
         }
         let url = format!(
-            "{}://{}/v1/{}/{}/registration/{}/",
+            "{}://{}/v1/{}/{}/registration/{}",
             &options.http_protocol.unwrap_or_else(|| "https".to_owned()),
             &options.server_host,
             &options.bridge_type.unwrap(),
@@ -408,6 +419,44 @@ mod test {
     const SENDER_ID: &str = "FakeSenderID";
     const SECRET: &str = "SuP3rS1kRet";
 
+    /*
+        # While this is technically dead code, it should not be removed.
+        # This test case can be used against a locally running autopush server
+        # to verify that communications functions are operating correctly.
+        # Since it's not really feasible to run a local autopush server on
+        # a CI machine, it's reserved only for local debugging and testing.
+        #[test]
+        fn test_live_server() {
+            let config = PushConfiguration {
+                http_protocol: Some("http".to_owned()),
+                server_host: "localhost:8082".to_owned(),
+                sender_id: "testing".to_owned(),
+                bridge_type: Some("test".to_owned()),
+                registration_id: Some("SomeRegistrationValue".to_owned()),
+                ..Default::default()
+            };
+
+            let mut conn = connect(config, None, None).unwrap();
+            let sub1 = conn.subscribe(DUMMY_CHID).unwrap();
+            println!("### conn: {:?}", (&conn.uaid, &conn.auth));
+            println!("### Sub1: {:?}", sub1);
+            let sub2 = conn.subscribe(DUMMY_UAID).unwrap();
+            println!("### Sub2: {:?}", sub2);
+            println!("### conn: {:?}", (&conn.uaid, &conn.auth));
+            let ll = conn.channel_list().expect("channel list failed");
+            println!("### channels: {:?}", ll);
+            conn.unsubscribe(Some(DUMMY_UAID))
+                .expect("chid unsub failed");
+            println!(
+                "### verify: {:?}",
+                conn.verify_connection(&[DUMMY_CHID.to_owned()])
+            );
+            println!("### channels: {:?}", conn.channel_list());
+            conn.unsubscribe(None).expect("uaid unsub failed");
+
+            println!("Done");
+        }
+    */
     #[test]
     fn test_communications() {
         // mockito forces task serialization, so for now, we test everything in one go.
@@ -455,7 +504,7 @@ mod test {
                 "secret": null,
             })
             .to_string();
-            let ap_mock = mock(
+            let ap_ns_mock = mock(
                 "POST",
                 format!("/v1/test/{}/registration", SENDER_ID).as_ref(),
             )
@@ -466,7 +515,7 @@ mod test {
             let mut conn = connect(config.clone(), None, None).unwrap();
             let channel_id = hex::encode(crate::crypto::get_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id).unwrap();
-            ap_mock.assert();
+            ap_ns_mock.assert();
             assert_eq!(response.uaid, DUMMY_UAID);
             // make sure we have stored the secret.
             assert_eq!(conn.auth, None);
@@ -481,7 +530,7 @@ mod test {
                 )
                 .as_ref(),
             )
-            .match_header("authorization", SECRET)
+            .match_header("authorization", format!("webpush {}", SECRET).as_str())
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body("{}")
@@ -502,7 +551,7 @@ mod test {
                 "DELETE",
                 format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID).as_ref(),
             )
-            .match_header("authorization", SECRET)
+            .match_header("authorization", format!("webpush {}", SECRET).as_str())
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body("{}")
@@ -524,7 +573,7 @@ mod test {
                 "PUT",
                 format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID).as_ref(),
             )
-            .match_header("authorization", SECRET)
+            .match_header("authorization", format!("webpush {}", SECRET).as_str())
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body("{}")
@@ -553,9 +602,9 @@ mod test {
             .to_string();
             let ap_mock = mock(
                 "GET",
-                format!("/v1/test/{}/registration/{}/", SENDER_ID, DUMMY_UAID).as_ref(),
+                format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID).as_ref(),
             )
-            .match_header("authorization", SECRET)
+            .match_header("authorization", format!("webpush {}", SECRET).as_str())
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(body_cl_success)
