@@ -12,7 +12,10 @@ carthage update --platform iOS --cache-builds swift-protobuf
 ## When https://github.com/Carthage/Carthage/issues/2623 is fixed,
 ## carthage build --archive should work to produce a zip
 
-carthage build --no-skip-current --platform iOS --verbose
+set -o pipefail && \
+carthage build --no-skip-current --platform iOS --verbose | \
+tee raw_xcodebuild.log | \
+xcpretty
 
 # Exclude SwiftProtobuf.
 rm -rf Carthage/Build/iOS/SwiftProtobuf.framework*

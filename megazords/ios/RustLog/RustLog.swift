@@ -70,7 +70,7 @@ public enum LogLevelFilter: Int32 {
 /// false if we should disable the logger. You cannot call `disable()`
 /// from inside the callback (it's protected by a dispatch queue you're
 /// already running on).
-public typealias LogCallback = (_ level: LogLevel, _ tag: String?, _ message: String) -> Bool;
+public typealias LogCallback = (_ level: LogLevel, _ tag: String?, _ message: String) -> Bool
 
 /// The public interface to Rust's logger.
 ///
@@ -166,7 +166,7 @@ public enum RustLogError: Error {
 }
 
 @discardableResult
-fileprivate func rustCall<T>(_ callback: (UnsafeMutablePointer<RcLogError>) throws -> T) throws -> T {
+private func rustCall<T>(_ callback: (UnsafeMutablePointer<RcLogError>) throws -> T) throws -> T {
     var err = RcLogError(code: 0, message: nil)
     let result = try callback(&err)
     if err.code != 0 {
@@ -183,7 +183,7 @@ fileprivate func rustCall<T>(_ callback: (UnsafeMutablePointer<RcLogError>) thro
 }
 
 // This is the function actually passed to Rust.
-fileprivate func logCallbackFunc(level: Int32, optTagP: UnsafePointer<CChar>?, msgP: UnsafePointer<CChar>) {
+private func logCallbackFunc(level: Int32, optTagP: UnsafePointer<CChar>?, msgP: UnsafePointer<CChar>) {
     guard let callback = RustLog.shared.state.callback else {
         return
     }
@@ -204,7 +204,7 @@ fileprivate func logCallbackFunc(level: Int32, optTagP: UnsafePointer<CChar>?, m
 
 // This implements everything, but without synchronization. It needs to be
 // guarded by a queue, which is done by the RustLog class.
-fileprivate class RustLogState {
+private class RustLogState {
     var adapter: OpaquePointer?
     var callback: LogCallback?
 
@@ -216,7 +216,7 @@ fileprivate class RustLogState {
         }
         assert(self.callback == nil)
         self.callback = callback
-        self.adapter = try rustCall { error in
+        adapter = try rustCall { error in
             rc_log_adapter_create(logCallbackFunc, error)
         }
     }
@@ -226,7 +226,7 @@ fileprivate class RustLogState {
             return
         }
         self.adapter = nil
-        self.callback = nil
+        callback = nil
         rc_log_adapter_destroy(adapter)
     }
 
@@ -237,10 +237,10 @@ fileprivate class RustLogState {
         do {
             try enable(callback)
             return true
-        } catch let error {
-            let _ = callback(.error,
-                             "RustLog.swift",
-                             "RustLog.enable failed: \(error)")
+        } catch {
+            _ = callback(.error,
+                         "RustLog.swift",
+                         "RustLog.enable failed: \(error)")
             return false
         }
     }

@@ -1,8 +1,8 @@
+@testable import MozillaAppServices
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 import XCTest
-@testable import MozillaAppServices
 // some utility functions for the test code
 
 func dynCmp<T: Equatable>(_ optVal: T?, _ optDynVal: Any?) -> Bool {
@@ -90,8 +90,8 @@ func checkTree(_ n: BookmarkNode, _ want: [String: Any], checkChildren: CheckChi
             XCTAssertEqual(children.count, wantedChildren.count)
             let nextCheckChildren = checkChildren == .onlyGUIDsInChildren ? .onlyGUIDs : checkChildren
             // we need `i` for comparing position, or we'd just use zip().
-            for i in 0..<children.count {
-                let child = children[i];
+            for i in 0 ..< children.count {
+                let child = children[i]
                 XCTAssertEqual(child.guid, fn.childGUIDs[i])
                 XCTAssertEqual(child.parentGUID, fn.guid)
                 XCTAssertEqual(Int(child.position), i)
@@ -141,11 +141,11 @@ let DummyTree0: [String: Any] = [
         [
             "type": "bookmark",
             "url": "http://www.github.com/",
-            "title": "github"
+            "title": "github",
         ],
         [
             "type": "separator",
-            ],
+        ],
         [
             "type": "folder",
             "title": "cool folder",
@@ -153,22 +153,22 @@ let DummyTree0: [String: Any] = [
                 [
                     "type": "bookmark",
                     "title": "example0",
-                    "url": "https://www.example0.com/"
+                    "url": "https://www.example0.com/",
                 ],
                 [
                     "type": "folder",
                     "title": "empty folder",
-                    "children": EmptyChildren
+                    "children": EmptyChildren,
                 ],
                 [
                     "type": "bookmark",
                     "title": "example1",
-                    "url": "https://www.example1.com/"
+                    "url": "https://www.example1.com/",
                 ],
-            ]
+            ],
         ],
-    ]
-];
+    ],
+]
 
 class PlacesTests: XCTestCase {
     // XXX: We don't clean up PlacesAPIs properly (issue 749), so
@@ -179,7 +179,7 @@ class PlacesTests: XCTestCase {
         // This method is called before the invocation of each test method in the class.
         let url = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("testdb-\(UUID().uuidString).db")
-        self.api = try! PlacesAPI(path: url.path)
+        api = try! PlacesAPI(path: url.path)
     }
 
     override func tearDown() {
@@ -195,21 +195,21 @@ class PlacesTests: XCTestCase {
             "children": [
                 [
                     "guid": BookmarkRoots.MenuFolderGUID,
-                    "children": EmptyChildren
+                    "children": EmptyChildren,
                 ],
                 [
                     "guid": BookmarkRoots.ToolbarFolderGUID,
-                    "children": EmptyChildren
+                    "children": EmptyChildren,
                 ],
                 [
                     "guid": BookmarkRoots.UnfiledFolderGUID,
-                    "children": EmptyChildren
+                    "children": EmptyChildren,
                 ],
                 [
                     "guid": BookmarkRoots.MobileFolderGUID,
-                    "children": EmptyChildren
-                ]
-            ]
+                    "children": EmptyChildren,
+                ],
+            ],
         ])
 
         insertTree(db, parent: BookmarkRoots.MenuFolderGUID, tree: DummyTree0)
@@ -219,13 +219,13 @@ class PlacesTests: XCTestCase {
         checkTree(got, [
             "guid": BookmarkRoots.MenuFolderGUID,
             "type": "folder",
-            "children": [DummyTree0]
+            "children": [DummyTree0],
         ])
 
         // Check recursive: false
         let noGrandkids = try! db.getBookmarksTree(rootGUID: BookmarkRoots.MenuFolderGUID, recursive: false)! as! BookmarkFolder
 
-        let expectedChildGuids =  ((got as! BookmarkFolder).children![0] as! BookmarkFolder).childGUIDs;
+        let expectedChildGuids = ((got as! BookmarkFolder).children![0] as! BookmarkFolder).childGUIDs
 
         checkTree(noGrandkids, [
             "guid": BookmarkRoots.MenuFolderGUID,
@@ -234,12 +234,11 @@ class PlacesTests: XCTestCase {
                 [
                     "type": "folder",
                     "title": "my favorite bookmarks",
-                    "childGUIDs": expectedChildGuids
-                ]
-            ]
+                    "childGUIDs": expectedChildGuids,
+                ],
+            ],
         ], checkChildren: .onlyGUIDsInChildren)
     }
-
 
     func testGetBookmark() {
         let db = api.getWriter()
@@ -250,10 +249,7 @@ class PlacesTests: XCTestCase {
         checkTree(try! db.getBookmark(guid: BookmarkRoots.MenuFolderGUID)!, [
             "guid": BookmarkRoots.MenuFolderGUID,
             "type": "folder",
-            "childGUIDs": [newFolderGUID, sepGUID]
+            "childGUIDs": [newFolderGUID, sepGUID],
         ], checkChildren: .onlyGUIDs)
-
-
     }
-
 }

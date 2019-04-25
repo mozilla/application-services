@@ -1,23 +1,22 @@
+import Foundation
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 import XCTest
-import Foundation
 
 @testable import MozillaAppServices
 
 class LogTests: XCTestCase {
-
     func writeTestLog(_ message: String) {
         RustLog.shared.logTestMessage(message: message)
         // Wait for the log to come in. Cludgey but good enough.
         Thread.sleep(forTimeInterval: 0.1)
         // Force us to synchronize on the queue.
-        let _ = RustLog.shared.isEnabled
+        _ = RustLog.shared.isEnabled
     }
 
     func testLogging() {
-        var logs: [(LogLevel, String?, String)] = [];
+        var logs: [(LogLevel, String?, String)] = []
 
         assert(!RustLog.shared.isEnabled)
 
@@ -35,7 +34,7 @@ class LogTests: XCTestCase {
         writeTestLog("Test1")
         XCTAssertEqual(logs.count, 2)
         do {
-            try RustLog.shared.enable { _, _, _ in return true }
+            try RustLog.shared.enable { _, _, _ in true }
             XCTFail("Enable should fail")
         } catch let error as RustLogError {
             switch error {
@@ -44,11 +43,11 @@ class LogTests: XCTestCase {
             default:
                 XCTFail("Wrong RustLogError: \(error)")
             }
-        } catch let error {
+        } catch {
             XCTFail("Wrong error: \(error)")
         }
         // tryEnable should return false
-        XCTAssert(!RustLog.shared.tryEnable { _, _, _ in return true });
+        XCTAssert(!RustLog.shared.tryEnable { _, _, _ in true })
 
         // Adjust the max level so that the test log (which is logged at info level)
         // will not be present.
@@ -67,7 +66,7 @@ class LogTests: XCTestCase {
         writeTestLog("Test4")
 
         XCTAssertEqual(logs.count, 3)
-        var counter = 0;
+        var counter = 0
         let didEnable = RustLog.shared.tryEnable { level, tag, msg in
             let info = "Rust | Level: \(level) | tag: \(String(describing: tag)) | message: \(msg)"
             print(info)
@@ -94,6 +93,5 @@ class LogTests: XCTestCase {
         XCTAssertEqual(logs.count, 6)
         // Should be disabled now,
         XCTAssert(!RustLog.shared.isEnabled)
-
     }
 }

@@ -1,0 +1,5 @@
+included: # paths to include during linting. `--path` is ignored if present.
+  - megazords
+excluded:
+  - Carthage
+  - "megazords/ios/MozillaAppServicesTests"

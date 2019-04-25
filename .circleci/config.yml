@@ -1,6 +1,13 @@
 version: 2.1
 
 commands:
+  install-xcpretty:
+    steps:
+      - run:
+          name: Install xcpretty
+          command: |
+            gem install --user-install xcpretty
+            echo 'export PATH="$HOME/.gem/ruby/2.3.0/bin:$PATH"' >> $BASH_ENV
   install-mdbook:
     steps:
       - run:
@@ -136,6 +143,14 @@ commands:
           command: cargo bench --all
 
 jobs:
+  Check Swift formatting:
+    macos:
+      xcode: "10.1.0"
+    steps:
+      - checkout
+      - run: brew install swiftlint swiftformat
+      - run: swiftlint --strict
+      - run: swiftformat --lint --swiftversion 4 --verbose megazords
   Check Rust formatting:
     docker:
       - image: circleci/rust:latest
@@ -182,7 +197,7 @@ jobs:
       - image: circleci/rust:latest
     steps:
       - bench-all
-  Carthage build:
+  iOS build and test:
     macos:
       xcode: "10.1.0"
     steps:
@@ -197,16 +212,35 @@ jobs:
       - build-libs:
           platform: ios
       - run:
-          name: Build Carthage archive
+          name: Setup build environment
           command: |
             rustup target add aarch64-apple-ios x86_64-apple-ios
+            carthage bootstrap --platform iOS
             brew update
-            brew outdated carthage || brew upgrade carthage
             brew install swift-protobuf
+            # See https://circleci.com/docs/2.0/testing-ios/#pre-starting-the-simulator
+            xcrun instruments -w "iPhone 7 (12.1) [" || true
+      - run:
+          name: Run XCode tests
+          command: bash run-ios-tests.sh
+      - store_artifacts:
+          path: raw_xcodetest.log
+          destination: logs/raw_xcodetest.log
+      - run:
+          name: Build Carthage archive
+          command: |
+            brew outdated carthage || brew upgrade carthage
             bash build-carthage.sh MozillaAppServices.framework.zip
+      - store_artifacts:
+          path: raw_xcodebuild.log
+          destination: logs/raw_xcodebuild.log
       - save_cache:
           name: Save Rust cache
-          key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
+          # We use {{ epoch }} to always upload a fresh cache:
+          # Of course, restore_cache will not find this exact key,
+          # but it will fall back to the closest key (aka the most recent).
+          # See https://discuss.circleci.com/t/add-mechanism-to-update-existing-cache-key/9014/13
+          key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ epoch }}
           paths:
             - "./target"
       - run:
@@ -273,6 +307,9 @@ jobs:
             popd
 workflows:
   version: 2
+  swiftlint:
+    jobs:
+      - Check Swift formatting
   check-formating:
     jobs:
       - Check Rust formatting
@@ -306,13 +343,13 @@ workflows:
       - Sync integration tests
   carthage-framework:
     jobs:
-      - Carthage build:
+      - iOS build and test:
           filters:  # required since `Release` has tag filters AND requires `Build`
             tags:
               only: /.*/
       - Carthage release:
           requires:
-            - Carthage build
+            - iOS build and test
           filters:
             branches:
               ignore: /.*/
