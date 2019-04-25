@@ -13,7 +13,15 @@ use crate::types::SyncStatus;
 use sql_support::ConnExt;
 use url::Url;
 
-pub fn import_ios_bookmarks(places_api: &PlacesApi, mut ios_db_file_url: Url) -> Result<()> {
+pub fn import_ios_bookmarks(
+    places_api: &PlacesApi,
+    path: impl AsRef<std::path::Path>,
+) -> Result<()> {
+    let url = crate::util::ensure_url_path(path)?;
+    do_import_ios_bookmarks(places_api, url)
+}
+
+fn do_import_ios_bookmarks(places_api: &PlacesApi, mut ios_db_file_url: Url) -> Result<()> {
     let conn = places_api.open_sync_connection()?;
 
     let scope = conn.begin_interrupt_scope();

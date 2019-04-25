@@ -140,9 +140,7 @@ fn run_desktop_import(db: &PlacesDb, filename: String) -> Result<()> {
 
 fn run_ios_import(api: &PlacesApi, filename: String) -> Result<()> {
     println!("ios import from {}", filename);
-    let url = url::Url::from_file_path(&filename)
-        .map_err(|_| places::error::ErrorKind::IllegalDatabasePath(filename.into()))?;
-    places::import::import_ios_bookmarks(api, url)?;
+    places::import::import_ios_bookmarks(api, filename)?;
     println!("Import finished!");
     Ok(())
 }

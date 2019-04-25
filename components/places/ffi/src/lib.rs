@@ -88,10 +88,7 @@ pub extern "C" fn places_bookmarks_import_from_ios(
 ) {
     log::debug!("places_bookmarks_import_from_ios");
     APIS.call_with_result(error, api_handle, |api| -> places::Result<_> {
-        // TODO: accept file URLs directly for consistency with `places_api_new`.
-        let url = url::Url::from_file_path(db_path.as_str())
-            .map_err(|_| places::error::ErrorKind::IllegalDatabasePath(db_path.as_str().into()))?;
-        places::import::import_ios_bookmarks(api, url)?;
+        places::import::import_ios_bookmarks(api, db_path.as_str())?;
         Ok(())
     })
 }
