@@ -302,6 +302,19 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     }
 
     /**
+     * Destroy a device given its device ID.
+     *
+     * This performs network requests, and should not be used on the main thread.
+     *
+     * @param targetDeviceId The target Device ID to destroy
+     */
+    fun destroyDevice(targetDeviceId: String) {
+        rustCall { e ->
+            LibFxAFFI.INSTANCE.fxa_destroy_device(this.handle.get(), targetDeviceId, e)
+        }
+    }
+
+    /**
      * Retrieves any pending commands for the current device.
      * This should be called semi-regularly as the main method of commands delivery (push)
      * can sometimes be unreliable on mobile devices.

@@ -4,12 +4,19 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.0...master)
 
+## FxA
+
+### What's New
+
+- Added `destroyDevice` support to existing Send Tab capabilities. ([#821](https://github.com/mozilla/application-services/pull/821))
+
 ## Places
 
 ### What's New
 
 - Frecencies are now recalculated for bookmarked URLs after a sync.
   ([#847](https://github.com/mozilla/application-services/issues/847))
+
 
 # v0.27.0 (_2019-04-22_)
 
