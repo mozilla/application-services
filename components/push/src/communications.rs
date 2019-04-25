@@ -220,7 +220,6 @@ impl Connection for ConnectHttp {
         }
         if self.auth.is_none() {
             self.auth = response["secret"].as_str().map(ToString::to_string);
-            println!("### Got Auth {:?}", self.auth);
         }
 
         let channel_id = response["channelID"].as_str().map(ToString::to_string);
