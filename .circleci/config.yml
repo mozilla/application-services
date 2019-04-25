@@ -1,6 +1,26 @@
 version: 2.1
 
 commands:
+  setup-sccache:
+    steps:
+      - run:
+          name: Install sccache
+          command: |
+            if [ "$(uname)" == "Darwin" ]; then
+              SCCACHE_BIN="2018-04-02-sccache-x86_64-apple-darwin"
+            else
+              SCCACHE_BIN="2018-04-02-sccache-x86_64-unknown-linux-musl"
+            fi
+            SCCACHE_BIN_URL="https://s3-us-west-1.amazonaws.com/rust-lang-ci2/rust-ci-mirror/${SCCACHE_BIN}"
+            sudo curl --retry 5 -fo /usr/local/bin/sccache "${SCCACHE_BIN_URL}"
+            sudo chmod +x /usr/local/bin/sccache
+            # Do not forget to re-export these variables in xc-universal-binary.sh!
+            echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
+            echo 'export "SCCACHE_IDLE_TIMEOUT"="1200"' >> $BASH_ENV
+            echo 'export "SCCACHE_CACHE_SIZE"="1G"' >> $BASH_ENV
+            echo 'export "SCCACHE_ERROR_LOG"="/tmp/sccache.log"' >> $BASH_ENV
+            echo 'export "RUST_LOG"="sccache=info"' >> $BASH_ENV
+            sccache --version
   install-xcpretty:
     steps:
       - run:
@@ -86,6 +106,7 @@ commands:
       - build-desktop-libs
       - setup-rust-toolchain:
           rust-version: <<parameters.rust-version>>
+      - setup-sccache
       - install-clang
       - run: |
           echo 'export NSS_DIR=$(pwd)/libs/desktop/linux-x86-64/nss' >> $BASH_ENV
@@ -141,6 +162,28 @@ commands:
       - run:
           name: Build and Run Benchmarks
           command: cargo bench --all
+  restore-sccache-cache:
+    steps:
+      - restore_cache:
+          name: Restore sccache cache
+          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
+  save-sccache-cache:
+    steps:
+      - save_cache:
+          name: Save sccache cache
+          # We use {{ epoch }} to always upload a fresh cache:
+          # Of course, restore_cache will not find this exact key,
+          # but it will fall back to the closest key (aka the most recent).
+          # See https://discuss.circleci.com/t/add-mechanism-to-update-existing-cache-key/9014/13
+          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
+          paths:
+            - "~/.cache/sccache"
+      - store-sccache-logs
+  store-sccache-logs:
+    steps:
+      - store_artifacts:
+          path: /tmp/sccache.log
+          destination: logs/sccache.log
 
 jobs:
   Check Swift formatting:
@@ -179,24 +222,32 @@ jobs:
     # We have to use a machine with more RAM for tests so we don't run out of memory.
     resource_class: large
     steps:
+      - restore-sccache-cache
       - rust-tests
+      - save-sccache-cache
   Rust tests - beta:
     docker:
       - image: circleci/rust:latest
     resource_class: large
     steps:
+      - restore-sccache-cache
       - rust-tests:
           rust-version: "beta"
+      - save-sccache-cache
   Sync integration tests:
     docker:
       - image: circleci/rust:latest-browsers
     steps:
+      - restore-sccache-cache
       - sync-tests
+      - save-sccache-cache
   Rust benchmarks:
     docker:
       - image: circleci/rust:latest
     steps:
+      - restore-sccache-cache
       - bench-all
+      - save-sccache-cache
   iOS build and test:
     macos:
       xcode: "10.1.0"
@@ -204,19 +255,24 @@ jobs:
       - install-rust
       - setup-rust-toolchain
       - checkout
-      - restore_cache:
-          name: Restore Rust cache
-          keys:
-            - rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - rust-cache-{{ arch }}
+      - setup-sccache
       - build-libs:
           platform: ios
+      # We do not use the ssccache cache helper commands as
+      # the macOS cache is in a different folder.
+      - restore_cache:
+          name: Restore sccache cache
+          key: sccache-cache-macos-{{ arch }}
       - run:
           name: Setup build environment
           command: |
             rustup target add aarch64-apple-ios x86_64-apple-ios
+            if [ -z "${CIRCLE_TAG}" ]; then
+              # On non-release builds do not update brew (takes ages).
+              echo 'export HOMEBREW_NO_AUTO_UPDATE=1' >> $BASH_ENV
+            fi
+            brew outdated carthage || brew upgrade carthage
             carthage bootstrap --platform iOS
-            brew update
             brew install swift-protobuf
             # See https://circleci.com/docs/2.0/testing-ios/#pre-starting-the-simulator
             xcrun instruments -w "iPhone 7 (12.1) [" || true
@@ -229,20 +285,23 @@ jobs:
       - run:
           name: Build Carthage archive
           command: |
-            brew outdated carthage || brew upgrade carthage
-            bash build-carthage.sh MozillaAppServices.framework.zip
+            if [ -z "${CIRCLE_TAG}" ]; then
+              # XCode tests build in Debug configuration, save us a full
+              # Rust rebuild in Release mode by forcing Debug mode on
+              # non-release builds.
+              bash build-carthage.sh MozillaAppServices.framework.zip Debug
+            else
+              bash build-carthage.sh MozillaAppServices.framework.zip
+            fi
       - store_artifacts:
           path: raw_xcodebuild.log
           destination: logs/raw_xcodebuild.log
       - save_cache:
-          name: Save Rust cache
-          # We use {{ epoch }} to always upload a fresh cache:
-          # Of course, restore_cache will not find this exact key,
-          # but it will fall back to the closest key (aka the most recent).
-          # See https://discuss.circleci.com/t/add-mechanism-to-update-existing-cache-key/9014/13
-          key: rust-cache-{{ arch }}-{{ checksum "Cargo.lock" }}-{{ epoch }}
+          name: Save sccache cache
+          key: sccache-cache-macos-{{ arch }}-{{ epoch }}
           paths:
-            - "./target"
+            - "~/Library/Caches/Mozilla.sccache"
+      - store-sccache-logs
       - run:
           name: "Create Carthage bin-only project specification"
           command: |

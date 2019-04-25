@@ -44,12 +44,18 @@ LIBS_ARCHS=("x86_64" "arm64")
 IOS_TRIPLES=("x86_64-apple-ios" "aarch64-apple-ios")
 for i in "${!LIBS_ARCHS[@]}"; do
     LIB_ARCH=${LIBS_ARCHS[${i}]}
-    env -i PATH="${PATH}" \
+    env -i \
+        PATH="${PATH}" \
         OPENSSL_STATIC=1 \
         NSS_DIR=${LIBSDIR}/ios/${LIB_ARCH}/nss \
         OPENSSL_DIR=${LIBSDIR}/ios/${LIB_ARCH}/openssl \
         SQLCIPHER_LIB_DIR=${LIBSDIR}/ios/${LIB_ARCH}/sqlcipher/lib \
         SQLCIPHER_INCLUDE_DIR=${LIBSDIR}/ios/${LIB_ARCH}/sqlcipher/include \
+        RUSTC_WRAPPER=${RUSTC_WRAPPER} \
+        SCCACHE_IDLE_TIMEOUT=${SCCACHE_IDLE_TIMEOUT} \
+        SCCACHE_CACHE_SIZE=${SCCACHE_CACHE_SIZE} \
+        SCCACHE_ERROR_LOG=${SCCACHE_ERROR_LOG} \
+        RUST_LOG=${RUST_LOG} \
     ${HOME}/.cargo/bin/cargo build --locked -p ${FFI_TARGET} --lib ${RELFLAG} --target ${IOS_TRIPLES[${i}]}
 done
 
