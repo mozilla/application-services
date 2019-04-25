@@ -10,6 +10,13 @@
 
 - Added `destroyDevice` support to existing Send Tab capabilities. ([#821](https://github.com/mozilla/application-services/pull/821))
 
+## Places
+
+### What's New
+
+- Frecencies are now recalculated for bookmarked URLs after a sync.
+  ([#847](https://github.com/mozilla/application-services/issues/847))
+
 
 # v0.27.0 (_2019-04-22_)
 
@@ -35,6 +42,9 @@
   which the application can use to direct the user to manage their account on the web.
   ([#984](https://github.com/mozilla/application-services/pull/984))
 - Android only: Added device registration and Firefox Send Tab capability support. Your app can opt into this by calling the `FirefoxAccount.initializeDevice` method. ([#676](https://github.com/mozilla/application-services/pull/676))
+
+- Switched to use the new fxa-auth-server token endpoint which generates device records, email and push notifications
+ for connected clients([#1055](https://github.com/mozilla/application-services/pull/1055))
 
 ## Places
 

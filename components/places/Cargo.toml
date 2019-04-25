@@ -33,7 +33,7 @@ dogear = "0.2.2"
 interrupt = { path = "../support/interrupt" }
 
 [dependencies.rusqlite]
-version = "0.17.0"
+version = "0.18.0"
 features = ["functions", "bundled"]
 
 [dev-dependencies]

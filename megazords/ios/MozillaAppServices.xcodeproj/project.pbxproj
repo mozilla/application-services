@@ -339,7 +339,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = CE9D202820914D0D00F1C8FA /* Build configuration list for PBXNativeTarget "MozillaAppServices" */;
 			buildPhases = (
-				CEEA12EF20AA1D630018998A /* Run Script */,
+				CEEA12EF20AA1D630018998A /* Build Rust libraries */,
 				CE9D201B20914D0D00F1C8FA /* Sources */,
 				CE9D201C20914D0D00F1C8FA /* Frameworks */,
 				CE9D201D20914D0D00F1C8FA /* Headers */,
@@ -429,14 +429,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		CEEA12EF20AA1D630018998A /* Run Script */ = {
+		CEEA12EF20AA1D630018998A /* Build Rust libraries */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
 			);
-			name = "Run Script";
+			name = "Build Rust libraries";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;

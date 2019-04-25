@@ -23,7 +23,7 @@ viaduct = { path = "../../viaduct" }
 sql-support = { path = "../../support/sql" }
 
 [dependencies.rusqlite]
-version = "0.17.0"
+version = "0.18.0"
 features = ["sqlcipher"]
 
 [dependencies.logins]
