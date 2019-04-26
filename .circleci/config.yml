@@ -188,7 +188,7 @@ commands:
 jobs:
   Check Swift formatting:
     macos:
-      xcode: "10.1.0"
+      xcode: "10.2.1"
     steps:
       - checkout
       - run: brew install swiftlint swiftformat
@@ -250,7 +250,7 @@ jobs:
       - save-sccache-cache
   iOS build and test:
     macos:
-      xcode: "10.1.0"
+      xcode: "10.2.1"
     steps:
       - install-rust
       - setup-rust-toolchain
@@ -324,7 +324,7 @@ jobs:
           paths: MozillaAppServices.framework.zip
   Carthage release:
     macos:
-      xcode: "10.1.0"
+      xcode: "10.2.1"
     steps:
       - checkout
       - attach_workspace:
