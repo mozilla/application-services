@@ -8,7 +8,6 @@ use crate::bookmark_sync::{
     SyncedBookmarkKind,
 };
 use crate::error::*;
-use crate::storage::URL_LENGTH_MAX;
 use crate::types::SyncStatus;
 use rusqlite::{named_params, NO_PARAMS};
 use sql_support::ConnExt;
@@ -79,6 +78,8 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
 
     let scope = conn.begin_interrupt_scope();
 
+    sql_fns::define_functions(&conn)?;
+
     // Not sure why, but apparently beginning a transaction sometimes
     // fails if we open the DB as read-only. Hopefully we don't
     // unintentionally write to it anywhere...
@@ -86,13 +87,13 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
 
     // Note: `Drop` is executed in FIFO order, so this will happen after
     // the transaction's drop, which is what we want.
-    let _clear_mirror_on_drop = ExecuteOnDrop {
+    let clear_mirror_on_drop = ExecuteOnDrop {
         conn: &conn,
         sql: &WIPE_MIRROR,
     };
 
     log::trace!("Attaching database {}", ios_db_file_url);
-    let _auto_detach = attached_database(&conn, &ios_db_file_url)?;
+    let auto_detach = attached_database(&conn, &ios_db_file_url)?;
 
     let tx = conn.begin_transaction()?;
 
@@ -103,7 +104,7 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     scope.err_if_interrupted()?;
 
     log::debug!("Creating staging table");
-    conn.execute_batch(CREATE_STAGING_TABLE)?;
+    conn.execute_batch(&CREATE_STAGING_TABLE)?;
 
     log::debug!("Importing from iOS to staging table");
     conn.execute_batch(&POPULATE_STAGING)?;
@@ -152,17 +153,11 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     // since nothing that bad will happen if it is aborted.
     log::debug!("Updating frecencies");
     store.update_frecencies()?;
-    log::debug!("Committing frecency transaction...");
-
-    // This goes away when the connection closes (which is at the end of the
-    // scope), but clear it explicitly in case someone forgets to update this
-    // when we get around to
-    // https://github.com/mozilla/application-services/issues/952
-    conn.execute("DROP TABLE temp.iosBookmarksStaging", NO_PARAMS)?;
 
     log::info!("Successfully imported bookmarks!");
 
-    // Note: The Mirror is cleaned up by `_clear_mirror_on_drop` automatically.
+    auto_detach.execute_now()?;
+    clear_mirror_on_drop.execute_now()?;
 
     Ok(())
 }
@@ -281,12 +276,11 @@ lazy_static::lazy_static! {
                        generate_guid()),
                 b.bmkUri,
                 hash(b.bmkUri),
-                CASE substr(b.bmkUri, 1, 6) WHEN 'place:' THEN 0 ELSE -1 END
+                -1
          FROM temp.iosBookmarksStaging b
          WHERE b.bmkUri IS NOT NULL
            AND b.type = {bookmark_type}
-           AND length(b.bmkUri) < {url_length_max}",
-        url_length_max = URL_LENGTH_MAX,
+           AND is_valid_url(b.bmkUri)",
         bookmark_type = IosBookmarkType::Bookmark as u8,
     );
 
@@ -318,8 +312,8 @@ lazy_static::lazy_static! {
                 WHEN {ios_separator_type} THEN {separator_kind}
                 -- We filter out anything else when inserting into the stage table
             END,
-            IFNULL(b.date_added, now()),
-            IFNULL(b.title, ''),
+            b.date_added,
+            b.title,
             -- placeId
             CASE WHEN b.bmkUri IS NULL
             THEN NULL
@@ -358,95 +352,103 @@ REPLACE INTO main.moz_bookmarks_synced_structure(guid, parentGuid, position)
     );
 ";
 
-const CREATE_STAGING_TABLE: &str = "
-    CREATE TEMP TABLE temp.iosBookmarksStaging(
-        id INTEGER PRIMARY KEY,
-        guid TEXT NOT NULL UNIQUE,
-        type TINYINT NOT NULL,
-        parentid TEXT,
-        pos INT,
-        title TEXT,
-        description TEXT,
-        bmkUri TEXT,
-        keyword TEXT,
-        tags TEXT,
-        date_added INTEGER NOT NULL,
-        modified INTEGER NOT NULL,
-        isLocal TINYINT NOT NULL
+const POPULATE_STAGING: &str = "
+    INSERT OR IGNORE INTO temp.iosBookmarksStaging(
+        guid,
+        type,
+        parentid,
+        pos,
+        title,
+        description,
+        bmkUri,
+        keyword,
+        tags,
+        date_added,
+        modified,
+        isLocal
     )
+    SELECT
+        b.guid,
+        b.type,
+        b.parentid,
+        b.pos,
+        b.title,
+        b.description,
+        CASE
+            WHEN b.bmkUri IS NOT NULL
+                THEN validate_url(b.bmkUri)
+            ELSE NULL
+        END,
+        b.keyword,
+        b.tags,
+        sanitize_timestamp(b.date_added),
+        sanitize_timestamp(b.server_modified),
+        0
+    FROM ios.bookmarksBuffer b
+    WHERE NOT b.is_deleted
+    -- Skip anything also in `local` (we can't use `replace`,
+    -- since we use `IGNORE` to avoid inserting bad records)
+        AND b.guid NOT IN (SELECT l.guid FROM ios.bookmarksLocal l)
+    ;
+    INSERT OR IGNORE INTO temp.iosBookmarksStaging(
+        guid,
+        type,
+        parentid,
+        pos,
+        title,
+        description,
+        bmkUri,
+        keyword,
+        tags,
+        date_added,
+        modified,
+        isLocal
+    )
+    SELECT
+        l.guid,
+        l.type,
+        l.parentid,
+        l.pos,
+        l.title,
+        l.description,
+        l.bmkUri,
+        l.keyword,
+        l.tags,
+        sanitize_timestamp(l.date_added),
+        sanitize_timestamp(l.local_modified),
+        1
+    FROM ios.bookmarksLocal l
+    WHERE NOT l.is_deleted
+    ;
 ";
 
 lazy_static::lazy_static! {
-    static ref POPULATE_STAGING: String = format!(
-        "INSERT INTO temp.iosBookmarksStaging(
-            guid,
-            type,
-            parentid,
-            pos,
-            title,
-            description,
-            bmkUri,
-            keyword,
-            tags,
-            date_added,
-            modified,
-            isLocal
-        )
-        SELECT
-            b.guid,
-            b.type,
-            b.parentid,
-            b.pos,
-            b.title,
-            b.description,
-            b.bmkUri,
-            b.keyword,
-            b.tags,
-            b.date_added,
-            b.server_modified,
-            0
-        FROM ios.bookmarksBuffer b
-        WHERE NOT b.is_deleted
-            AND b.type IN {valid_types}
-            AND (b.bmkUri IS NULL OR length(b.bmkUri) < {url_length_max});
 
-        REPLACE INTO temp.iosBookmarksStaging(
-            guid,
-            type,
-            parentid,
-            pos,
-            title,
-            description,
-            bmkUri,
-            keyword,
-            tags,
-            date_added,
-            modified,
-            isLocal
-        )
-        SELECT
-            l.guid,
-            l.type,
-            l.parentid,
-            l.pos,
-            l.title,
-            l.description,
-            l.bmkUri,
-            l.keyword,
-            l.tags,
-            l.date_added,
-            l.local_modified,
-            1
-        FROM ios.bookmarksLocal l
-        WHERE NOT l.is_deleted
-            AND l.type IN {valid_types}
-            AND (l.bmkUri IS NULL OR length(l.bmkUri) < {url_length_max})
-            -- It's not clear if this matters
-            AND l.guid NOT IN {roots};",
-        valid_types = &*IOS_VALID_TYPES,
-        url_length_max = URL_LENGTH_MAX,
-        roots = ROOTS,
+    static ref CREATE_STAGING_TABLE: String = format!("
+        CREATE TEMP TABLE temp.iosBookmarksStaging(
+            id INTEGER PRIMARY KEY,
+            guid TEXT NOT NULL UNIQUE
+                CHECK(length(guid) == 12),
+            type TINYINT NOT NULL
+                CHECK(type == {ios_bookmark_type} OR type == {ios_folder_type} OR type == {ios_separator_type}),
+            parentid TEXT,
+            pos INT,
+            title TEXT,
+            description TEXT,
+            bmkUri TEXT
+                CHECK(type != {ios_bookmark_type} OR is_valid_url(bmkUri)),
+            keyword TEXT,
+            tags TEXT,
+            date_added INTEGER NOT NULL,
+            modified INTEGER NOT NULL,
+            isLocal TINYINT NOT NULL
+        )",
+
+            ios_bookmark_type = IosBookmarkType::Bookmark as u8,
+            ios_folder_type = IosBookmarkType::Folder as u8,
+            ios_separator_type = IosBookmarkType::Separator as u8,
     );
+
 
     static ref FIXUP_MOZ_BOOKMARKS: String = format!(
         // Is there anything else?
@@ -463,7 +465,7 @@ lazy_static::lazy_static! {
 fn attached_database<'a>(conn: &'a SyncConn<'a>, path: &Url) -> Result<ExecuteOnDrop<'a>> {
     conn.execute_named(
         "ATTACH DATABASE :path AS ios",
-        rusqlite::named_params! {
+        named_params! {
             ":path": path.as_str(),
         },
     )?;
@@ -473,13 +475,26 @@ fn attached_database<'a>(conn: &'a SyncConn<'a>, path: &Url) -> Result<ExecuteOn
     })
 }
 
-// We use/abuse the mirror to perform our import, but need to clean it up afterwards.
-// This is an RAII helper to do so.
+/// We use/abuse the mirror to perform our import, but need to clean it up
+/// afterwards. This is an RAII helper to do so.
+///
+/// Ideally, you should call `execute_now` rather than letting this drop
+/// automatically, as we can't report errors beyond logging when running
+/// Drop.
 struct ExecuteOnDrop<'a> {
     conn: &'a SyncConn<'a>,
     // Logged on errors, so &'static helps discourage using anything
     // that could have user data.
     sql: &'static str,
+}
+
+impl<'a> ExecuteOnDrop<'a> {
+    pub fn execute_now(self) -> Result<()> {
+        self.conn.execute_batch(self.sql)?;
+        // Don't run our `drop` function.
+        std::mem::forget(self);
+        Ok(())
+    }
 }
 
 impl Drop for ExecuteOnDrop<'_> {
@@ -488,5 +503,61 @@ impl Drop for ExecuteOnDrop<'_> {
             log::error!("Failed to clean up after import! {}", e);
             log::debug!("  Failed query: {}", self.sql);
         }
+    }
+}
+
+mod sql_fns {
+    use crate::storage::URL_LENGTH_MAX;
+    use crate::types::Timestamp;
+    use rusqlite::{functions::Context, types::ValueRef, Connection, Result};
+    use url::Url;
+
+    pub(super) fn define_functions(c: &Connection) -> Result<()> {
+        c.create_scalar_function("validate_url", 1, true, validate_url)?;
+        c.create_scalar_function("is_valid_url", 1, true, is_valid_url)?;
+        c.create_scalar_function("sanitize_timestamp", 1, true, sanitize_timestamp)?;
+        Ok(())
+    }
+
+    #[inline(never)]
+    pub fn validate_url(ctx: &Context<'_>) -> Result<Option<String>> {
+        let val = ctx.get_raw(0);
+        let href = if let ValueRef::Text(s) = val {
+            s
+        } else {
+            return Ok(None);
+        };
+        if href.len() > URL_LENGTH_MAX {
+            return Ok(None);
+        }
+        if let Ok(url) = Url::parse(href) {
+            Ok(Some(url.into_string()))
+        } else {
+            Ok(None)
+        }
+    }
+
+    #[inline(never)]
+    pub fn is_valid_url(ctx: &Context<'_>) -> Result<Option<bool>> {
+        Ok(match ctx.get_raw(0) {
+            ValueRef::Text(s) if s.len() <= URL_LENGTH_MAX => Some(Url::parse(s).is_ok()),
+            // Should we do this?
+            // ValueRef::Null => None,
+            _ => Some(false),
+        })
+    }
+
+    #[inline(never)]
+    pub fn sanitize_timestamp(ctx: &Context<'_>) -> Result<Timestamp> {
+        let now = Timestamp::now();
+        Ok(if let Ok(ts) = ctx.get::<Timestamp>(0) {
+            if Timestamp::EARLIEST < ts && ts < now {
+                ts
+            } else {
+                now
+            }
+        } else {
+            now
+        })
     }
 }
