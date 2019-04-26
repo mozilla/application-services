@@ -24,32 +24,35 @@
 //! As such, the following things are explicitly not imported:
 //!
 //! - Livemarks: We don't support them in our database anyway.
+//! - Tombstones: This shouldn't matter for non-sync users.
 //! - Queries: Not displayed or creatable in iOS UI, and only half-supported in
 //!   this database.
-//! - Tags: Not displayed or creatable in iOS UI, and only half-supported in
-//!   this database.
 //!
-//! The second two cases are unfortunate, but the only time where it will matter
-//! is for users:
+//! Some of this (queries, really) is a little unfortunate, since it's
+//! theoretically possible for someone to care, but this should only happen for
+//! users:
 //!
 //! - Who once used sync, but no longer do.
-//! - Who used tags and queries when they used sync.
+//! - Who used this feature when they used sync.
 //! - Who no longer have access to any firefoxes from when they were sync users,
 //!   other than this iOS device.
 //!
-//! For these users, upon signing into sync once again, they will not have any
-//! queries or tags.
+//! For these users, upon signing into sync once again, they will lose the data
+//! in question.
 //!
 //! ### Basic process
 //!
 //! - Attach the iOS database.
 //! - Slurp records into a temp table "iosBookmarksStaging" from iOS database.
-//! - Fill mirror using iosBookmarksStaging
-//! - Fill mirror structure using both iOS database and iosBookmarksStaging
-//! - Detach the iOS database
+//! - Add any entries to moz_places that are needed (in practice, they'll all be
+//!   needed, we don't yet store history for iOS).
+//! - Fill mirror using iosBookmarksStaging.
+//! - Fill mirror with tags from iosBookmarksStaging.
+//! - Fill mirror structure using both iOS database and iosBookmarksStaging.
 //! - Run dogear merge
 //! - Use iosBookmarksStaging to fixup the data that was actually inserted.
-//! - Delete mirror and mirror structure
+//! - Update frecency for new items.
+//! - Cleanup (Delete mirror and mirror structure, detach iOS database, etc).
 //!
 
 use crate::api::places_api::{PlacesApi, SyncConn};
@@ -60,6 +63,9 @@ use crate::bookmark_sync::{
 use crate::error::*;
 use crate::storage::URL_LENGTH_MAX;
 use crate::types::SyncStatus;
+use rusqlite::{named_params, NO_PARAMS};
+use sql_support::ConnExt;
+use std::collections::HashMap;
 use url::Url;
 
 pub fn import_ios_bookmarks(
@@ -80,12 +86,6 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     // unintentionally write to it anywhere...
     // ios_db_file_url.query_pairs_mut().append_pair("mode", "ro");
 
-    conn.execute_batch(CREATE_STAGING_TABLE)?;
-
-    log::trace!("Attaching database {}", ios_db_file_url);
-    let auto_detach = attached_database(&conn, &ios_db_file_url)?;
-
-    let tx = conn.begin_transaction()?;
     // Note: `Drop` is executed in FIFO order, so this will happen after
     // the transaction's drop, which is what we want.
     let _clear_mirror_on_drop = ExecuteOnDrop {
@@ -93,11 +93,19 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
         sql: &WIPE_MIRROR,
     };
 
+    log::trace!("Attaching database {}", ios_db_file_url);
+    let _auto_detach = attached_database(&conn, &ios_db_file_url)?;
+
+    let tx = conn.begin_transaction()?;
+
     // Clear the mirror now, since we're about to fill it with data from the ios
     // connection.
     log::debug!("Clearing mirror to prepare for import");
     conn.execute_batch(&WIPE_MIRROR)?;
     scope.err_if_interrupted()?;
+
+    log::debug!("Creating staging table");
+    conn.execute_batch(CREATE_STAGING_TABLE)?;
 
     log::debug!("Importing from iOS to staging table");
     conn.execute_batch(&POPULATE_STAGING)?;
@@ -111,6 +119,10 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     conn.execute_batch(&POPULATE_MIRROR)?;
     scope.err_if_interrupted()?;
 
+    log::debug!("Populating mirror tags");
+    populate_mirror_tags(&conn)?;
+    scope.err_if_interrupted()?;
+
     // Ideally we could just do this right after `CREATE_AND_POPULATE_STAGING`,
     // which would mean we could detach the iOS database sooner, but we have
     // constraints on the mirror structure that prevent this (and there's
@@ -119,9 +131,9 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     conn.execute_batch(&POPULATE_MIRROR_STRUCTURE)?;
     scope.err_if_interrupted()?;
 
-    log::debug!("Detaching iOS database");
-    drop(auto_detach);
-    scope.err_if_interrupted()?;
+    // log::debug!("Detaching iOS database");
+    // drop(auto_detach);
+    // scope.err_if_interrupted()?;
 
     let store = BookmarksStore::new(&conn, &scope);
     let mut merger = Merger::new(&store, Default::default());
@@ -148,11 +160,81 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     // scope), but clear it explicitly in case someone forgets to update this
     // when we get around to
     // https://github.com/mozilla/application-services/issues/952
-    conn.execute("DROP TABLE temp.iosBookmarksStaging", rusqlite::NO_PARAMS)?;
+    conn.execute("DROP TABLE temp.iosBookmarksStaging", NO_PARAMS)?;
 
     log::info!("Successfully imported bookmarks!");
 
     // Note: The Mirror is cleaned up by `_clear_mirror_on_drop` automatically.
+
+    Ok(())
+}
+
+// If we must.
+fn populate_mirror_tags(db: &crate::PlacesDb) -> Result<()> {
+    use crate::storage::tags::{validate_tag, ValidatedTag};
+    let mut tag_map: HashMap<String, Vec<i64>> = HashMap::new();
+    {
+        let mut stmt = db.prepare(
+            "SELECT mirror.id, stage.tags
+             FROM main.moz_bookmarks_synced mirror
+             JOIN temp.iosBookmarksStaging stage USING(guid)
+             -- iOS tags are JSON arrays of strings (or null).
+             -- Both [] and null are allowed for 'no tags'
+             WHERE stage.tags IS NOT NULL
+               AND stage.tags != '[]'",
+        )?;
+
+        let mut rows = stmt.query(NO_PARAMS)?;
+        while let Some(row) = rows.next()? {
+            let id: i64 = row.get(0)?;
+            let tags: String = row.get(1)?;
+            let tag_vec = if let Ok(ts) = serde_json::from_str::<Vec<String>>(&tags) {
+                ts
+            } else {
+                log::warn!("Ignoring bad `tags` entry");
+                log::warn!("  entry had {:?}", tags);
+                // Ignore garbage
+                continue;
+            };
+
+            for tag in tag_vec {
+                match validate_tag(&tag) {
+                    ValidatedTag::Invalid(_) => {
+                        log::warn!("Ignoring invalid tag");
+                        log::trace!(" Bad tag was: {:?}", tag);
+                    }
+                    ValidatedTag::Original(t) | ValidatedTag::Normalized(t) => {
+                        let ids = tag_map.entry(t.to_owned()).or_default();
+                        ids.push(id);
+                    }
+                }
+            }
+        }
+    }
+    let tag_count = tag_map.len();
+    let mut tagged_count = 0;
+    for (tag, tagged_items) in tag_map {
+        db.execute_named_cached(
+            "INSERT OR IGNORE INTO main.moz_tags(tag, lastModified) VALUES(:tag, now())",
+            named_params! { ":tag": tag },
+        )?;
+
+        let tag_id: i64 = db.query_row_and_then_named(
+            "SELECT id FROM main.moz_tags WHERE tag = :tag",
+            named_params! { ":tag": tag },
+            |r| r.get(0),
+            true,
+        )?;
+        tagged_count += tagged_items.len();
+        for item_id in tagged_items {
+            log::trace!("tagging {} with {}", item_id, tag);
+            db.execute_named_cached(
+                "INSERT INTO main.moz_bookmarks_synced_tag_relation(itemId, tagId) VALUES(:item_id, :tag_id)",
+                named_params! { ":tag_id": tag_id, ":item_id": item_id },
+            )?;
+        }
+    }
+    log::debug!("Tagged {} items with {} tags", tagged_count, tag_count);
 
     Ok(())
 }
@@ -289,6 +371,7 @@ const CREATE_STAGING_TABLE: &str = "
         description TEXT,
         bmkUri TEXT,
         keyword TEXT,
+        tags TEXT,
         date_added INTEGER NOT NULL,
         modified INTEGER NOT NULL,
         isLocal TINYINT NOT NULL
@@ -306,6 +389,7 @@ lazy_static::lazy_static! {
             description,
             bmkUri,
             keyword,
+            tags,
             date_added,
             modified,
             isLocal
@@ -319,6 +403,7 @@ lazy_static::lazy_static! {
             b.description,
             b.bmkUri,
             b.keyword,
+            b.tags,
             b.date_added,
             b.server_modified,
             0
@@ -336,6 +421,7 @@ lazy_static::lazy_static! {
             description,
             bmkUri,
             keyword,
+            tags,
             date_added,
             modified,
             isLocal
@@ -349,6 +435,7 @@ lazy_static::lazy_static! {
             l.description,
             l.bmkUri,
             l.keyword,
+            l.tags,
             l.date_added,
             l.local_modified,
             1
