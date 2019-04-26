@@ -76,9 +76,27 @@ public class PlacesAPI {
     /**
      * Migrate bookmarks tables from a `browser.db` database.
      *
-     * This is (mostly) a noop if there's nothing in the `bookmarksLocal` table,
-     * which should be the case for most sync users. For these users, they're
-     * better off repopulating things by syncing.
+     * It is recommended that this only be called for non-sync users,
+     * as syncing the bookmarks over will result in better handling of sync
+     * metadata, among other things.
+     *
+     * This should be performed before any writes to the database.
+     *
+     * Throws:
+     *     - `PlacesError.databaseInterrupted`: If a call is made to `interrupt()` on this
+     *                                          object from another thread.
+     *
+     *                                          This is allowed (although not ideal) and should leave
+     *                                          the database in a valid state.
+     *     - `PlacesError.unexpected`: When an error that has not specifically been exposed
+     *                                 to Swift is encountered (for example IO errors from
+     *                                 the database code, etc).
+     *
+     *                                 In particular, no explicit error is exposed for the
+     *                                 case where `path` is not valid or does not exist,
+     *                                 but it will show up here.
+     *     - `PlacesError.panic`: If the rust code panics while completing this
+     *                            operation. (If this occurs, please let us know).
      */
     open func migrateBookmarksFromBrowserDb(path: String) throws {
         try queue.sync {

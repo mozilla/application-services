@@ -14,7 +14,9 @@
 ### What's New
 
 - iOS only: PlacesApi can now migrate bookmark data from a `browser.db` database
-  via the `migrateBookmarksFromBrowserDb` function.
+  via the `migrateBookmarksFromBrowserDb` function. It is recommended that this
+  only be called for non-sync users, as syncing the bookmarks over will result
+  in better handling of sync metadata, among other things.
   ([#1078](https://github.com/mozilla/application-services/pull/1078))
 
 # v0.27.1 (_2019-04-26_)
