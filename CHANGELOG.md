@@ -2,7 +2,11 @@
 
 **See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.0...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.1...master)
+
+# v0.27.1 (_2019-04-26_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.0...v0.27.1)
 
 ## FxA
 
@@ -17,6 +21,11 @@
 - Frecencies are now recalculated for bookmarked URLs after a sync.
   ([#847](https://github.com/mozilla/application-services/issues/847))
 
+## Push
+
+### What's Fixed
+
+- Authentication failures with the autopush server should be fixed. ([#1080](https://github.com/mozilla/application-services/pull/1080))
 
 # v0.27.0 (_2019-04-22_)
 
