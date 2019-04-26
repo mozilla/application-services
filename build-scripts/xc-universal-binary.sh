@@ -51,11 +51,11 @@ for i in "${!LIBS_ARCHS[@]}"; do
         OPENSSL_DIR=${LIBSDIR}/ios/${LIB_ARCH}/openssl \
         SQLCIPHER_LIB_DIR=${LIBSDIR}/ios/${LIB_ARCH}/sqlcipher/lib \
         SQLCIPHER_INCLUDE_DIR=${LIBSDIR}/ios/${LIB_ARCH}/sqlcipher/include \
-        RUSTC_WRAPPER=${RUSTC_WRAPPER} \
-        SCCACHE_IDLE_TIMEOUT=${SCCACHE_IDLE_TIMEOUT} \
-        SCCACHE_CACHE_SIZE=${SCCACHE_CACHE_SIZE} \
-        SCCACHE_ERROR_LOG=${SCCACHE_ERROR_LOG} \
-        RUST_LOG=${RUST_LOG} \
+        RUSTC_WRAPPER=${RUSTC_WRAPPER:-} \
+        SCCACHE_IDLE_TIMEOUT=${SCCACHE_IDLE_TIMEOUT:-} \
+        SCCACHE_CACHE_SIZE=${SCCACHE_CACHE_SIZE:-} \
+        SCCACHE_ERROR_LOG=${SCCACHE_ERROR_LOG:-} \
+        RUST_LOG=${RUST_LOG:-} \
     ${HOME}/.cargo/bin/cargo build --locked -p ${FFI_TARGET} --lib ${RELFLAG} --target ${IOS_TRIPLES[${i}]}
 done
 
