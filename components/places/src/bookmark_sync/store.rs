@@ -10,7 +10,7 @@ use super::record::{
 };
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::api::places_api::ConnectionType;
-use crate::db::{PlacesDb, PlacesTransaction};
+use crate::db::PlacesDb;
 use crate::error::*;
 use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
 use crate::storage::{bookmarks::BookmarkRootGuid, delete_meta, get_meta, put_meta};
@@ -117,7 +117,6 @@ impl<'a> BookmarksStore<'a> {
         &self,
         descendants: Vec<MergedDescendant<'t>>,
         deletions: Vec<Deletion<'_>>,
-        _tx: &mut PlacesTransaction<'_>,
     ) -> Result<()> {
         // First, insert rows for all merged descendants.
         sql_support::each_sized_chunk(
@@ -670,6 +669,11 @@ pub(crate) struct Merger<'a> {
     store: &'a BookmarksStore<'a>,
     remote_time: ServerTimestamp,
     local_time: Timestamp,
+    // Used for where the merger is not the one which should be managing the
+    // transaction, e.g. in the case of bookmarks import. The only impact this has
+    // is on the `apply()` function. Always false unless the caller explicitly
+    // turns it on, to avoid accidentally enabling unintentionally.
+    external_transaction: bool,
 }
 
 impl<'a> Merger<'a> {
@@ -678,7 +682,16 @@ impl<'a> Merger<'a> {
             store,
             remote_time,
             local_time: Timestamp::now(),
+            external_transaction: false,
         }
+    }
+
+    /// Prevent (or re-enable, in principal) using `begin_transaction` in `apply()`.
+    ///
+    /// The assumption is that if you call this, someone higher up the call_stack is
+    /// managing the transaction at that point.
+    pub(crate) fn set_external_transaction(&mut self, v: bool) {
+        self.external_transaction = v;
     }
 
     pub(crate) fn merge(&mut self) -> Result<()> {
@@ -951,15 +964,20 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
         let descendants = root.descendants();
         let deletions = deletions.collect::<Vec<_>>();
 
-        let mut tx = self.store.db.begin_transaction()?;
-        self.store
-            .update_local_items(descendants, deletions, &mut tx)?;
+        let tx = if !self.external_transaction {
+            Some(self.store.db.begin_transaction()?)
+        } else {
+            None
+        };
+        self.store.update_local_items(descendants, deletions)?;
         self.store.stage_local_items_to_upload()?;
         self.store.db.execute_batch(
             "DELETE FROM mergedTree;
              DELETE FROM idsToWeaklyUpload;",
         )?;
-        tx.commit()?;
+        if let Some(tx) = tx {
+            tx.commit()?;
+        }
         Ok(())
     }
 }
