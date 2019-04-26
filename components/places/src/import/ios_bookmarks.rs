@@ -2,59 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! This import is used for iOS sync users migrating from `browser.db`-based
-//! bookmark storage to the new rust-places store.
-//!
-//! It is only used for users who are not connected to sync, as syncing
-//! bookmarks will go through a more reliable, robust, and well-tested path, and
-//! will migrate things that are unavailable on iOS due to the unfortunate
-//! history of iOS bookmark sync (accurate last modified times, for example).
-//!
-//! As a result, the goals of this import are as follows:
-//!
-//! 1. Any locally created items must be persisted.
-//!
-//! 2. Any items from remote machines that are visible to the user must be
-//!    persisted. (Note: before writing this, most of us believed that iOS wiped
-//!    it's view of remote bookmarks on sync sign-out. Apparently it does not,
-//!    and it's unclear if it ever did).
-//!
-//! ### Unsupported features
-//!
-//! As such, the following things are explicitly not imported:
-//!
-//! - Livemarks: We don't support them in our database anyway.
-//! - Tombstones: This shouldn't matter for non-sync users.
-//! - Queries: Not displayed or creatable in iOS UI, and only half-supported in
-//!   this database.
-//!
-//! Some of this (queries, really) is a little unfortunate, since it's
-//! theoretically possible for someone to care, but this should only happen for
-//! users:
-//!
-//! - Who once used sync, but no longer do.
-//! - Who used this feature when they used sync.
-//! - Who no longer have access to any firefoxes from when they were sync users,
-//!   other than this iOS device.
-//!
-//! For these users, upon signing into sync once again, they will lose the data
-//! in question.
-//!
-//! ### Basic process
-//!
-//! - Attach the iOS database.
-//! - Slurp records into a temp table "iosBookmarksStaging" from iOS database.
-//! - Add any entries to moz_places that are needed (in practice, they'll all be
-//!   needed, we don't yet store history for iOS).
-//! - Fill mirror using iosBookmarksStaging.
-//! - Fill mirror with tags from iosBookmarksStaging.
-//! - Fill mirror structure using both iOS database and iosBookmarksStaging.
-//! - Run dogear merge
-//! - Use iosBookmarksStaging to fixup the data that was actually inserted.
-//! - Update frecency for new items.
-//! - Cleanup (Delete mirror and mirror structure, detach iOS database, etc).
-//!
-
 use crate::api::places_api::{PlacesApi, SyncConn};
 use crate::bookmark_sync::{
     store::{BookmarksStore, Merger},
@@ -68,6 +15,57 @@ use sql_support::ConnExt;
 use std::collections::HashMap;
 use url::Url;
 
+/// This import is used for iOS sync users migrating from `browser.db`-based
+/// bookmark storage to the new rust-places store.
+///
+/// It is only used for users who are not connected to sync, as syncing
+/// bookmarks will go through a more reliable, robust, and well-tested path, and
+/// will migrate things that are unavailable on iOS due to the unfortunate
+/// history of iOS bookmark sync (accurate last modified times, for example).
+///
+/// As a result, the goals of this import are as follows:
+///
+/// 1. Any locally created items must be persisted.
+///
+/// 2. Any items from remote machines that are visible to the user must be
+///    persisted. (Note: before writing this, most of us believed that iOS wiped
+///    it's view of remote bookmarks on sync sign-out. Apparently it does not,
+///    and it's unclear if it ever did).
+///
+/// ### Unsupported features
+///
+/// As such, the following things are explicitly not imported:
+///
+/// - Livemarks: We don't support them in our database anyway.
+/// - Tombstones: This shouldn't matter for non-sync users.
+/// - Queries: Not displayed or creatable in iOS UI, and only half-supported in
+///   this database.
+///
+/// Some of this (queries, really) is a little unfortunate, since it's
+/// theoretically possible for someone to care, but this should only happen for
+/// users:
+///
+/// - Who once used sync, but no longer do.
+/// - Who used this feature when they used sync.
+/// - Who no longer have access to any firefoxes from when they were sync users,
+///   other than this iOS device.
+///
+/// For these users, upon signing into sync once again, they will lose the data
+/// in question.
+///
+/// ### Basic process
+///
+/// - Attach the iOS database.
+/// - Slurp records into a temp table "iosBookmarksStaging" from iOS database.
+/// - Add any entries to moz_places that are needed (in practice, they'll all be
+///   needed, we don't yet store history for iOS).
+/// - Fill mirror using iosBookmarksStaging.
+/// - Fill mirror with tags from iosBookmarksStaging.
+/// - Fill mirror structure using both iOS database and iosBookmarksStaging.
+/// - Run dogear merge
+/// - Use iosBookmarksStaging to fixup the data that was actually inserted.
+/// - Update frecency for new items.
+/// - Cleanup (Delete mirror and mirror structure, detach iOS database, etc).
 pub fn import_ios_bookmarks(
     places_api: &PlacesApi,
     path: impl AsRef<std::path::Path>,
