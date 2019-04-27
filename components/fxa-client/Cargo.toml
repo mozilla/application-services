@@ -28,6 +28,7 @@ url = "1.7.1"
 ffi-support = { path = "../support/ffi" }
 viaduct = { path = "../viaduct" }
 rc_crypto = { path = "../support/rc_crypto" }
+error-support = { path = "../support/error" }
 
 [dev-dependencies]
 cli-support = { path = "../support/cli" }

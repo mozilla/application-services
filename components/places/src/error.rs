@@ -5,55 +5,8 @@
 use crate::storage::bookmarks::BookmarkRootGuid;
 use crate::types::BookmarkType;
 use dogear;
-use failure::{Backtrace, Context, Fail};
+use failure::Fail;
 use interrupt::Interrupted;
-use std::boxed::Box;
-use std::{self, fmt};
-
-pub type Result<T> = std::result::Result<T, Error>;
-
-#[derive(Debug)]
-pub struct Error(Box<Context<ErrorKind>>);
-
-impl Fail for Error {
-    #[inline]
-    fn cause(&self) -> Option<&dyn Fail> {
-        self.0.cause()
-    }
-
-    #[inline]
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.0.backtrace()
-    }
-}
-
-impl fmt::Display for Error {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&*self.0, f)
-    }
-}
-
-impl Error {
-    #[inline]
-    pub fn kind(&self) -> &ErrorKind {
-        &*self.0.get_context()
-    }
-}
-
-impl From<ErrorKind> for Error {
-    #[inline]
-    fn from(kind: ErrorKind) -> Error {
-        Error(Box::new(Context::new(kind)))
-    }
-}
-
-impl From<Context<ErrorKind>> for Error {
-    #[inline]
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error(Box::new(inner))
-    }
-}
 
 // Note: If you add new error types that should be returned to consumers on the other side of the
 // FFI, update `get_code` in `ffi.rs`
@@ -120,35 +73,19 @@ pub enum ErrorKind {
     DatabaseUpgradeError,
 }
 
-macro_rules! impl_from_error {
-    ($(($variant:ident, $type:ty)),+) => ($(
-        impl From<$type> for ErrorKind {
-            #[inline]
-            fn from(e: $type) -> ErrorKind {
-                ErrorKind::$variant(e)
-            }
-        }
-
-        impl From<$type> for Error {
-            #[inline]
-            fn from(e: $type) -> Error {
-                ErrorKind::from(e).into()
-            }
-        }
-    )*);
-}
-
-impl_from_error! {
-    (SyncAdapterError, sync15::Error),
-    (JsonError, serde_json::Error),
-    (UrlParseError, url::ParseError),
-    (SqlError, rusqlite::Error),
-    (InvalidPlaceInfo, InvalidPlaceInfo),
-    (Corruption, Corruption),
-    (IoError, std::io::Error),
-    (MergeError, dogear::Error),
-    (ProtobufDecodeError, prost::DecodeError),
-    (InterruptedError, Interrupted)
+error_support::define_error! {
+    ErrorKind {
+        (SyncAdapterError, sync15::Error),
+        (JsonError, serde_json::Error),
+        (UrlParseError, url::ParseError),
+        (SqlError, rusqlite::Error),
+        (InvalidPlaceInfo, InvalidPlaceInfo),
+        (Corruption, Corruption),
+        (IoError, std::io::Error),
+        (MergeError, dogear::Error),
+        (ProtobufDecodeError, prost::DecodeError),
+        (InterruptedError, Interrupted)
+    }
 }
 
 #[derive(Debug, Fail)]

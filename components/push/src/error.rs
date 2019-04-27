@@ -2,68 +2,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::fmt;
-use std::result;
-
-use failure::{Backtrace, Context, Fail};
-use ffi_support;
-
-pub type Result<T> = result::Result<T, Error>;
-
-#[derive(Debug)]
-pub struct Error(Box<Context<ErrorKind>>);
-
-impl Fail for Error {
-    #[inline]
-    fn cause(&self) -> Option<&dyn Fail> {
-        self.0.cause()
-    }
-
-    #[inline]
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.0.backtrace()
-    }
-}
-
-impl fmt::Display for Error {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&*self.0, f)
-    }
-}
+use failure::Fail;
 
 impl Error {
-    #[inline]
-    pub fn kind(&self) -> &ErrorKind {
-        &*self.0.get_context()
-    }
-
     pub fn internal(msg: &str) -> Self {
         ErrorKind::InternalError(msg.to_owned()).into()
-    }
-}
-
-impl From<ErrorKind> for Error {
-    #[inline]
-    fn from(kind: ErrorKind) -> Error {
-        Error(Box::new(Context::new(kind)))
-    }
-}
-
-impl From<Context<ErrorKind>> for Error {
-    #[inline]
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error(Box::new(inner))
     }
 }
 
 impl From<openssl::error::ErrorStack> for Error {
     #[inline]
     fn from(inner: openssl::error::ErrorStack) -> Error {
-        Error(Box::new(Context::new(ErrorKind::OpenSSLError(format!(
-            "{:?}",
-            inner
-        )))))
+        Error::from(ErrorKind::OpenSSLError(format!("{:?}", inner)))
     }
 }
 
@@ -73,28 +23,12 @@ impl From<Error> for ffi_support::ExternError {
     }
 }
 
-macro_rules! impl_from_error {
-    ($(($variant:ident, $type:ty)),+) => ($(
-        impl From<$type> for ErrorKind {
-            #[inline]
-            fn from(e: $type) -> ErrorKind {
-                ErrorKind::$variant(e)
-            }
-        }
-
-        impl From<$type> for Error {
-            #[inline]
-            fn from(e: $type) -> Error {
-                ErrorKind::from(e).into()
-            }
-        }
-    )*);
-}
-
-impl_from_error! {
-    (CryptoError, rc_crypto::Error),
-    (StorageSqlError, rusqlite::Error),
-    (UrlParseError, url::ParseError)
+error_support::define_error! {
+    ErrorKind {
+        (CryptoError, rc_crypto::Error),
+        (StorageSqlError, rusqlite::Error),
+        (UrlParseError, url::ParseError),
+    }
 }
 
 #[derive(Debug, Fail)]
