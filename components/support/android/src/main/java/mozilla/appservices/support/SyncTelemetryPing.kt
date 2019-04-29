@@ -12,7 +12,8 @@ enum class FailureName {
     Other,
     Unexpected,
     Auth,
-    Http
+    Http,
+    Unknown
 }
 
 data class SyncTelemetryPing(
@@ -55,14 +56,16 @@ data class SyncInfo(
 ) {
     companion object {
         fun fromJSON(jsonObject: JSONObject): SyncInfo {
-            val failureReason = jsonObject.getJSONObject("failureReason")?.let {
-                FailureReason.fromJSON(it)
-            }
             val engines = unwrapFromJSON(jsonObject) {
                 it.getJSONArray("engines")
             }?.let {
                 EngineInfo.fromJSONArray(it)
             } ?: emptyList()
+            val failureReason = unwrapFromJSON(jsonObject) {
+                it.getJSONObject("failureReason")
+            }?.let {
+                FailureReason.fromJSON(it)
+            }
             return SyncInfo(
                 at = jsonObject.getInt("when"),
                 took = intOrZero(jsonObject, "took"),
@@ -168,37 +171,34 @@ data class OutgoingInfo(
 
 data class FailureReason (
     val name: FailureName,
-    val message: String?,
-    val code: Int
+    val message: String? = null,
+    val code: Int = -1
 ) {
     companion object {
         fun fromJSON(jsonObject: JSONObject): FailureReason? {
             return jsonObject.getString("name")?.let {
                 when (it) {
                     "shutdownerror" -> FailureReason(
-                        name = FailureName.Shutdown,
-                        message = null,
-                        code = -1
+                        name = FailureName.Shutdown
                     )
                     "othererror" -> FailureReason(
                         name = FailureName.Other,
-                        message = jsonObject.getString("error"),
-                        code = -1
+                        message = jsonObject.getString("error")
+                    )
+                    "unexpectederror" -> FailureReason(
+                        name = FailureName.Unexpected,
+                        message = jsonObject.getString("error")
                     )
                     "autherror" -> FailureReason(
                         name = FailureName.Auth,
-                        message = jsonObject.getString("from"),
-                        code = -1
+                        message = jsonObject.getString("from")
                     )
                     "httperror" -> FailureReason(
                         name = FailureName.Http,
-                        message = null,
                         code = jsonObject.getInt("code")
                     )
                     else -> FailureReason(
-                        name = FailureName.Unexpected,
-                        message = jsonObject.getString("error"),
-                        code = -1
+                        name = FailureName.Unknown
                     )
                 }
             }

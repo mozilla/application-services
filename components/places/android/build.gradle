@@ -114,13 +114,15 @@ protobuf {
     }
 }
 dependencies {
+    // Part of the public API.
+    api project(':as-support-library')
+
     jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
     implementation "net.java.dev.jna:jna:$jna_version@aar"
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     implementation 'com.google.protobuf:protobuf-lite:3.0.0'
-    implementation project(':as-support-library')
 
     // For reasons unknown, resolving the jnaForTest configuration directly
     // trips a nasty issue with the Android-Gradle plugin 3.2.1, like `Cannot
