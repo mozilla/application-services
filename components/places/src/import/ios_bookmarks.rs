@@ -31,6 +31,11 @@ use url::Url;
 ///    it's view of remote bookmarks on sync sign-out. Apparently it does not,
 ///    and it's unclear if it ever did).
 ///
+/// Additionally, it's worth noting that we assume that the iOS tree is
+/// relatively well-formed. We do leverage `dogear` for the merge, to avoid
+/// anything absurd, but for the most part the validation is fairly loose. If we
+/// see anything we don't like (URL we don't allow, for example), we skip it.
+///
 /// ### Unsupported features
 ///
 /// As such, the following things are explicitly not imported:
@@ -234,7 +239,7 @@ fn populate_mirror_tags(db: &crate::PlacesDb) -> Result<()> {
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Hash, Debug, Eq, Ord)]
 #[repr(u8)]
-enum IosBookmarkType {
+pub enum IosBookmarkType {
     // https://github.com/mozilla-mobile/firefox-ios/blob/bd08cd4d/Storage/Bookmarks/Bookmarks.swift#L192
     Bookmark = 1,
     Folder = 2,
@@ -296,8 +301,7 @@ lazy_static::lazy_static! {
             dateAdded,
             title,
             placeId,
-            keyword,
-            description
+            keyword
         )
         SELECT
             b.guid,
@@ -320,8 +324,7 @@ lazy_static::lazy_static! {
             ELSE (SELECT id FROM main.moz_places p
                   WHERE p.url_hash = hash(b.bmkUri) AND p.url = b.bmkUri)
             END,
-            b.keyword,
-            b.description
+            b.keyword
         FROM iosBookmarksStaging b",
         bookmark_kind = SyncedBookmarkKind::Bookmark as u8,
         folder_kind = SyncedBookmarkKind::Folder as u8,
@@ -352,77 +355,78 @@ REPLACE INTO main.moz_bookmarks_synced_structure(guid, parentGuid, position)
     );
 ";
 
-const POPULATE_STAGING: &str = "
-    INSERT OR IGNORE INTO temp.iosBookmarksStaging(
-        guid,
-        type,
-        parentid,
-        pos,
-        title,
-        description,
-        bmkUri,
-        keyword,
-        tags,
-        date_added,
-        modified,
-        isLocal
-    )
-    SELECT
-        b.guid,
-        b.type,
-        b.parentid,
-        b.pos,
-        b.title,
-        b.description,
-        CASE
-            WHEN b.bmkUri IS NOT NULL
-                THEN validate_url(b.bmkUri)
-            ELSE NULL
-        END,
-        b.keyword,
-        b.tags,
-        sanitize_timestamp(b.date_added),
-        sanitize_timestamp(b.server_modified),
-        0
-    FROM ios.bookmarksBuffer b
-    WHERE NOT b.is_deleted
-    -- Skip anything also in `local` (we can't use `replace`,
-    -- since we use `IGNORE` to avoid inserting bad records)
-        AND b.guid NOT IN (SELECT l.guid FROM ios.bookmarksLocal l)
-    ;
-    INSERT OR IGNORE INTO temp.iosBookmarksStaging(
-        guid,
-        type,
-        parentid,
-        pos,
-        title,
-        description,
-        bmkUri,
-        keyword,
-        tags,
-        date_added,
-        modified,
-        isLocal
-    )
-    SELECT
-        l.guid,
-        l.type,
-        l.parentid,
-        l.pos,
-        l.title,
-        l.description,
-        l.bmkUri,
-        l.keyword,
-        l.tags,
-        sanitize_timestamp(l.date_added),
-        sanitize_timestamp(l.local_modified),
-        1
-    FROM ios.bookmarksLocal l
-    WHERE NOT l.is_deleted
-    ;
-";
-
 lazy_static::lazy_static! {
+    static ref POPULATE_STAGING: String = format!(
+        "INSERT OR IGNORE INTO temp.iosBookmarksStaging(
+            guid,
+            type,
+            parentid,
+            pos,
+            title,
+            bmkUri,
+            keyword,
+            tags,
+            date_added,
+            modified,
+            isLocal
+        )
+        SELECT
+            b.guid,
+            b.type,
+            b.parentid,
+            b.pos,
+            b.title,
+            CASE
+                WHEN b.bmkUri IS NOT NULL
+                    THEN validate_url(b.bmkUri)
+                ELSE NULL
+            END,
+            b.keyword,
+            b.tags,
+            sanitize_timestamp(b.date_added),
+            sanitize_timestamp(b.server_modified),
+            0
+        FROM ios.bookmarksBuffer b
+        WHERE NOT b.is_deleted
+            -- Skip anything also in `local` (we can't use `replace`,
+            -- since we use `IGNORE` to avoid inserting bad records)
+            AND (
+                (b.guid IN {roots})
+                OR
+                (b.guid NOT IN (SELECT l.guid FROM ios.bookmarksLocal l))
+            )
+        ;
+        INSERT OR IGNORE INTO temp.iosBookmarksStaging(
+            guid,
+            type,
+            parentid,
+            pos,
+            title,
+            bmkUri,
+            keyword,
+            tags,
+            date_added,
+            modified,
+            isLocal
+        )
+        SELECT
+            l.guid,
+            l.type,
+            l.parentid,
+            l.pos,
+            l.title,
+            l.bmkUri,
+            l.keyword,
+            l.tags,
+            sanitize_timestamp(l.date_added),
+            sanitize_timestamp(l.local_modified),
+            1
+        FROM ios.bookmarksLocal l
+        WHERE NOT l.is_deleted
+        ;",
+        roots = ROOTS,
+    );
+
 
     static ref CREATE_STAGING_TABLE: String = format!("
         CREATE TEMP TABLE temp.iosBookmarksStaging(
@@ -434,7 +438,6 @@ lazy_static::lazy_static! {
             parentid TEXT,
             pos INT,
             title TEXT,
-            description TEXT,
             bmkUri TEXT
                 CHECK(type != {ios_bookmark_type} OR is_valid_url(bmkUri)),
             keyword TEXT,
