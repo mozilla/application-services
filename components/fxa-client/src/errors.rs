@@ -2,55 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use failure::Fail;
 #[cfg(feature = "browserid")]
 use failure::SyncFailure;
-use failure::{Backtrace, Context, Fail};
-use std::{boxed::Box, fmt, result, string};
-
-pub type Result<T> = result::Result<T, Error>;
-
-#[derive(Debug)]
-pub struct Error(Box<Context<ErrorKind>>);
-
-impl Fail for Error {
-    #[inline]
-    fn cause(&self) -> Option<&dyn Fail> {
-        self.0.cause()
-    }
-
-    #[inline]
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.0.backtrace()
-    }
-}
-
-impl fmt::Display for Error {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&*self.0, f)
-    }
-}
-
-impl Error {
-    #[inline]
-    pub fn kind(&self) -> &ErrorKind {
-        &*self.0.get_context()
-    }
-}
-
-impl From<ErrorKind> for Error {
-    #[inline]
-    fn from(kind: ErrorKind) -> Error {
-        Error(Box::new(Context::new(kind)))
-    }
-}
-
-impl From<Context<ErrorKind>> for Error {
-    #[inline]
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error(Box::new(inner))
-    }
-}
+use std::string;
 
 #[derive(Debug, Fail)]
 pub enum ErrorKind {
@@ -199,49 +154,31 @@ pub enum ErrorKind {
     ProtobufDecodeError(#[fail(cause)] prost::DecodeError),
 }
 
-macro_rules! impl_from_error {
-    ($(($variant:ident, $type:ty)),+) => ($(
-        impl From<$type> for ErrorKind {
-            #[inline]
-            fn from(e: $type) -> ErrorKind {
-                // We lose some information when boxing the wrapped errors, so
-                // log them here before that happens.
-                log::error!("FxA error `{}`: {:?}", stringify!($type), e);
-                ErrorKind::$variant(e)
-            }
-        }
-
-        impl From<$type> for Error {
-            #[inline]
-            fn from(e: $type) -> Error {
-                ErrorKind::from(e).into()
-            }
-        }
-    )*);
-}
-
-impl_from_error! {
-    (CryptoError, rc_crypto::Error),
-    (EceError, ece::Error),
-    (HexDecodeError, ::hex::FromHexError),
-    (Base64Decode, ::base64::DecodeError),
-    (JsonError, ::serde_json::Error),
-    (UTF8DecodeError, ::std::string::FromUtf8Error),
-    (RequestError, viaduct::Error),
-    (UnexpectedStatus, viaduct::UnexpectedStatus),
-    (MalformedUrl, url::ParseError),
-    (SyncError, ::sync15::Error),
-    (ProtobufDecodeError, prost::DecodeError)
+error_support::define_error! {
+    ErrorKind {
+        (CryptoError, rc_crypto::Error),
+        (EceError, ece::Error),
+        (HexDecodeError, hex::FromHexError),
+        (Base64Decode, base64::DecodeError),
+        (JsonError, serde_json::Error),
+        (UTF8DecodeError, std::string::FromUtf8Error),
+        (RequestError, viaduct::Error),
+        (UnexpectedStatus, viaduct::UnexpectedStatus),
+        (MalformedUrl, url::ParseError),
+        (SyncError, sync15::Error),
+        (ProtobufDecodeError, prost::DecodeError),
+    }
 }
 
 #[cfg(feature = "browserid")]
-impl_from_error! {
-    (OpensslError, ::openssl::error::ErrorStack)
+error_support::define_error_conversions! {
+    ErrorKind {
+        (OpensslError, openssl::error::ErrorStack),
+    }
 }
 
-// ::hawk::Error uses error_chain, and so it's not trivially compatible with failure.
-// We have to box it inside a SyncError (which allows errors to be accessed from multiple
-// threads at the same time, which failure requires for some reason...).
+// These can got away when we update to the next version of Hawk,
+// in https://github.com/mozilla/application-services/pull/1050
 #[cfg(feature = "browserid")]
 impl From<hawk::Error> for ErrorKind {
     #[inline]

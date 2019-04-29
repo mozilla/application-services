@@ -10,54 +10,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-use failure::{Backtrace, Context, Fail};
-use std::boxed::Box;
-use std::{self, fmt};
-
-pub type Result<T> = std::result::Result<T, Error>;
-
-#[derive(Debug)]
-pub struct Error(Box<Context<ErrorKind>>);
-
-impl Fail for Error {
-    #[inline]
-    fn cause(&self) -> Option<&dyn Fail> {
-        self.0.cause()
-    }
-
-    #[inline]
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.0.backtrace()
-    }
-}
-
-impl fmt::Display for Error {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&*self.0, f)
-    }
-}
-
-impl Error {
-    #[inline]
-    pub fn kind(&self) -> &ErrorKind {
-        &*self.0.get_context()
-    }
-}
-
-impl From<ErrorKind> for Error {
-    #[inline]
-    fn from(kind: ErrorKind) -> Error {
-        Error(Box::new(Context::new(kind)))
-    }
-}
-
-impl From<Context<ErrorKind>> for Error {
-    #[inline]
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error(Box::new(inner))
-    }
-}
+use failure::Fail;
 
 #[derive(Debug, Fail)]
 pub enum ErrorKind {
@@ -71,24 +24,8 @@ pub enum ErrorKind {
     ConversionError(#[fail(cause)] std::num::TryFromIntError),
 }
 
-macro_rules! impl_from_error {
-    ($(($variant:ident, $type:ty)),+) => ($(
-        impl From<$type> for ErrorKind {
-            #[inline]
-            fn from(e: $type) -> ErrorKind {
-                ErrorKind::$variant(e)
-            }
-        }
-
-        impl From<$type> for Error {
-            #[inline]
-            fn from(e: $type) -> Error {
-                ErrorKind::from(e).into()
-            }
-        }
-    )*);
-}
-
-impl_from_error! {
-    (ConversionError, std::num::TryFromIntError)
+error_support::define_error! {
+    ErrorKind {
+        (ConversionError, std::num::TryFromIntError),
+    }
 }

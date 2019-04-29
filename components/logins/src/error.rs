@@ -2,62 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use failure::{Backtrace, Context, Fail};
-use std::boxed::Box;
-use std::{self, fmt};
+use failure::Fail;
 
-pub type Result<T> = std::result::Result<T, Error>;
-
-// Backported part of the (someday real) failure 1.x API, basically equivalent
-// to error_chain's `bail!` (We don't call it that because `failure` has a
-// `bail` macro with different semantics)
+// TODO: this is (IMO) useful and was dropped from `failure`, consider moving it
+// into `error_support`.
 macro_rules! throw {
     ($e:expr) => {
-        return Err(::std::convert::Into::into($e));
+        return Err(Into::into($e));
     };
-}
-
-#[derive(Debug)]
-pub struct Error(Box<Context<ErrorKind>>);
-
-impl Fail for Error {
-    #[inline]
-    fn cause(&self) -> Option<&dyn Fail> {
-        self.0.cause()
-    }
-
-    #[inline]
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.0.backtrace()
-    }
-}
-
-impl fmt::Display for Error {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&*self.0, f)
-    }
-}
-
-impl Error {
-    #[inline]
-    pub fn kind(&self) -> &ErrorKind {
-        &*self.0.get_context()
-    }
-}
-
-impl From<ErrorKind> for Error {
-    #[inline]
-    fn from(kind: ErrorKind) -> Error {
-        Error(Box::new(Context::new(kind)))
-    }
-}
-
-impl From<Context<ErrorKind>> for Error {
-    #[inline]
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error(Box::new(inner))
-    }
 }
 
 #[derive(Debug, Fail)]
@@ -96,31 +48,15 @@ pub enum ErrorKind {
     Interrupted(#[fail(cause)] interrupt::Interrupted),
 }
 
-macro_rules! impl_from_error {
-    ($(($variant:ident, $type:ty)),+ $(,)?) => ($(
-        impl From<$type> for ErrorKind {
-            #[inline]
-            fn from(e: $type) -> ErrorKind {
-                ErrorKind::$variant(e)
-            }
-        }
-
-        impl From<$type> for Error {
-            #[inline]
-            fn from(e: $type) -> Error {
-                ErrorKind::from(e).into()
-            }
-        }
-    )*);
-}
-
-impl_from_error! {
-    (SyncAdapterError, sync15::Error),
-    (JsonError, serde_json::Error),
-    (UrlParseError, url::ParseError),
-    (SqlError, rusqlite::Error),
-    (InvalidLogin, InvalidLogin),
-    (Interrupted, interrupt::Interrupted),
+error_support::define_error! {
+    ErrorKind {
+        (SyncAdapterError, sync15::Error),
+        (JsonError, serde_json::Error),
+        (UrlParseError, url::ParseError),
+        (SqlError, rusqlite::Error),
+        (InvalidLogin, InvalidLogin),
+        (Interrupted, interrupt::Interrupted),
+    }
 }
 
 #[derive(Debug, Fail)]

@@ -2,63 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use failure::{self, Backtrace, Context, Fail, SyncFailure};
+use failure::{Fail, SyncFailure};
 use interrupt::Interrupted;
-use std::boxed::Box;
+use std::string;
 use std::time::SystemTime;
-use std::{fmt, result, string};
-
-pub type Result<T> = result::Result<T, Error>;
-
-#[derive(Debug)]
-pub struct Error(Box<Context<ErrorKind>>);
-
-impl Fail for Error {
-    #[inline]
-    fn cause(&self) -> Option<&dyn Fail> {
-        self.0.cause()
-    }
-
-    #[inline]
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.0.backtrace()
-    }
-}
-
-impl fmt::Display for Error {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&*self.0, f)
-    }
-}
-
-impl Error {
-    #[inline]
-    pub fn kind(&self) -> &ErrorKind {
-        &*self.0.get_context()
-    }
-
-    pub fn is_not_found(&self) -> bool {
-        match self.kind() {
-            ErrorKind::StorageHttpError { code: 404, .. } => true,
-            _ => false,
-        }
-    }
-}
-
-impl From<ErrorKind> for Error {
-    #[inline]
-    fn from(kind: ErrorKind) -> Error {
-        Error(Box::new(Context::new(kind)))
-    }
-}
-
-impl From<Context<ErrorKind>> for Error {
-    #[inline]
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error(Box::new(inner))
-    }
-}
 
 #[derive(Debug, Fail)]
 pub enum ErrorKind {
@@ -156,50 +103,43 @@ pub enum ErrorKind {
     Interrupted(#[fail(cause)] Interrupted),
 }
 
-macro_rules! impl_from_error {
-    ($(($variant:ident, $type:ty)),+) => ($(
-        impl From<$type> for ErrorKind {
-            #[inline]
-            fn from(e: $type) -> ErrorKind {
-                ErrorKind::$variant(e)
-            }
-        }
-
-        impl From<$type> for Error {
-            #[inline]
-            fn from(e: $type) -> Error {
-                ErrorKind::from(e).into()
-            }
-        }
-    )*);
+error_support::define_error! {
+    ErrorKind {
+        (CryptoError, rc_crypto::Error),
+        (OpensslError, openssl::error::ErrorStack),
+        (Base64Decode, base64::DecodeError),
+        (JsonError, serde_json::Error),
+        (BadCleartextUtf8, std::string::FromUtf8Error),
+        (RequestError, viaduct::Error),
+        (UnexpectedStatus, viaduct::UnexpectedStatus),
+        (MalformedUrl, url::ParseError),
+        // A bit dubious, since we only want this to happen inside `synchronize`
+        (StoreError, failure::Error),
+        (Interrupted, Interrupted),
+    }
 }
 
-impl_from_error! {
-    (CryptoError, rc_crypto::Error),
-    (OpensslError, ::openssl::error::ErrorStack),
-    (Base64Decode, ::base64::DecodeError),
-    (JsonError, ::serde_json::Error),
-    (BadCleartextUtf8, ::std::string::FromUtf8Error),
-    (RequestError, viaduct::Error),
-    (UnexpectedStatus, viaduct::UnexpectedStatus),
-    (MalformedUrl, url::ParseError),
-    // A bit dubious, since we only want this to happen inside `synchronize`
-    (StoreError, ::failure::Error),
-    (Interrupted, Interrupted)
+impl Error {
+    pub fn is_not_found(&self) -> bool {
+        match self.kind() {
+            ErrorKind::StorageHttpError { code: 404, .. } => true,
+            _ => false,
+        }
+    }
 }
 
-// ::hawk::Error uses error_chain, and so it's not trivially compatible with failure.
-// We have to box it inside a SyncError (which allows errors to be accessed from multiple
-// threads at the same time, which failure requires for some reason...).
+// These can got away when we update to the next version of Hawk,
+// in https://github.com/mozilla/application-services/pull/1050
 impl From<hawk::Error> for ErrorKind {
-    #[inline]
+    #[cold]
     fn from(e: hawk::Error) -> ErrorKind {
         ErrorKind::HawkError(SyncFailure::new(e))
     }
 }
+
 impl From<hawk::Error> for Error {
-    #[inline]
-    fn from(e: hawk::Error) -> Error {
+    #[cold]
+    fn from(e: hawk::Error) -> Self {
         ErrorKind::from(e).into()
     }
 }
