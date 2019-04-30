@@ -148,6 +148,24 @@ public class PlacesAPI {
             }
         }
     }
+
+    /**
+     * Reset sync metadata for the bookmarks collection.
+     *
+     * - Throws:
+     *     - `PlacesError.unexpected`: When an error that has not specifically been exposed
+     *                                 to Swift is encountered (for example IO errors from
+     *                                 the database code, etc).
+     *     - `PlacesError.panic`: If the rust code panics while completing this
+     *                            operation. (If this occurs, please let us know).
+     */
+    open func resetBookmarksMetadata() throws {
+        return try queue.sync {
+            try PlacesError.unwrap { err in
+                places_api_reset_bookmarks(handle, err)
+            }
+        }
+    }
 }
 
 /**

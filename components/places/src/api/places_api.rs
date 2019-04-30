@@ -308,6 +308,25 @@ impl PlacesApi {
 
         Ok(sync_ping)
     }
+
+    pub fn reset_bookmarks(&self) -> Result<()> {
+        // Take the lock to prevent syncing while we're doing this.
+        let _guard = self.sync_state.lock().unwrap();
+        let conn = self.open_sync_connection()?;
+
+        // Somewhat ironically, we start by migrating from the legacy storage
+        // format. We *are* just going to delete it anyway, but the code is
+        // simpler if we can just reuse the existing path.
+        HistoryStore::migrate_v1_global_state(&conn)?;
+
+        // We'd rather you didn't interrupt this, but it's a required arg for
+        // BookmarksStore.
+        let scope = conn.begin_interrupt_scope();
+        let store = BookmarksStore::new(&conn, &scope);
+        store.reset(&sync15::StoreSyncAssociation::Disconnected)?;
+
+        Ok(())
+    }
 }
 
 /// Wrapper around PlacesDb that automatically sets a flag (`sync_conn_active`)
