@@ -193,7 +193,7 @@ jobs:
       - checkout
       - run: brew install swiftlint swiftformat
       - run: swiftlint --strict
-      - run: swiftformat --lint --swiftversion 4 --verbose megazords
+      - run: swiftformat megazords components/*/ios --lint --swiftversion 4 --verbose
   Check Rust formatting:
     docker:
       - image: circleci/rust:latest

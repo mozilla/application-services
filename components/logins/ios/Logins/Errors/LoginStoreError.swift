@@ -6,7 +6,6 @@ import Foundation
 
 /// Indicates an error occurred while calling into the logins storage layer
 public enum LoginsStoreError: Error {
-
     /// This is a catch-all error code used for errors not yet exposed to consumers,
     /// typically since it doesn't seem like there's a sane way for them to be handled.
     case Unspecified(message: String)

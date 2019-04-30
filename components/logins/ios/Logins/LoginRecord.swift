@@ -22,21 +22,21 @@ open class LoginRecord {
     public var password: String
 
     /// This record's username, if any.
-    public var username: String? = nil
+    public var username: String?
 
     /// The challenge string for HTTP Basic authentication.
     ///
     /// Exactly one of `httpRealm` or `formSubmitURL` is allowed to be present,
     /// and attempting to insert or update a record to have both or neither will
     /// result in an `LoginsStoreError.InvalidLogin`.
-    public var httpRealm: String? = nil
+    public var httpRealm: String?
 
     /// The submission URL for the form where this login may be entered.
     ///
     /// As mentioned above, exactly one of `httpRealm` or `formSubmitURL` is allowed
     /// to be present, and attempting to insert or update a record to have
     /// both or neither will result in an `LoginsStoreError.InvalidLogin`.
-    public var formSubmitURL: String? = nil
+    public var formSubmitURL: String?
 
     /// A lower bound on the number of times this record has been "used".
     ///
@@ -67,10 +67,10 @@ open class LoginRecord {
     public var timePasswordChanged: Int64 = 0
 
     /// HTML field name of the username, if known.
-    public var usernameField: String? = nil
+    public var usernameField: String?
 
     /// HTML field name of the password, if known.
-    public var passwordField: String? = nil
+    public var passwordField: String?
 
     open func toJSONDict() -> [String: Any] {
         var dict: [String: Any] = [
@@ -108,7 +108,7 @@ open class LoginRecord {
 
     open func toJSON() throws -> String {
         // We need a String to pass back to rust.
-        let data: Data = try JSONSerialization.data(withJSONObject: self.toJSONDict())
+        let data: Data = try JSONSerialization.data(withJSONObject: toJSONDict())
         return String(data: data, encoding: String.Encoding.utf8)!
     }
 
@@ -136,34 +136,31 @@ open class LoginRecord {
         )
     }
 
-
-
     init(id: String,
-        password: String,
-        hostname: String,
-        username: String?,
-        formSubmitURL: String?,
-        httpRealm: String?,
-        timesUsed: Int?,
-        timeLastUsed: Int64?,
-        timeCreated: Int64?,
-        timePasswordChanged: Int64?,
-        usernameField: String?,
-        passwordField: String?) {
-            self.id = id
-            self.password = password
-            self.hostname = hostname
-            self.username = username
-            self.formSubmitURL = formSubmitURL
-            self.httpRealm = httpRealm
-            self.timesUsed = timesUsed ?? 0
-            self.timeLastUsed = timeLastUsed ?? 0
-            self.timeCreated = timeCreated ?? 0
-            self.timePasswordChanged = timePasswordChanged ?? 0
-            self.usernameField = usernameField
-            self.passwordField = passwordField
+         password: String,
+         hostname: String,
+         username: String?,
+         formSubmitURL: String?,
+         httpRealm: String?,
+         timesUsed: Int?,
+         timeLastUsed: Int64?,
+         timeCreated: Int64?,
+         timePasswordChanged: Int64?,
+         usernameField: String?,
+         passwordField: String?) {
+        self.id = id
+        self.password = password
+        self.hostname = hostname
+        self.username = username
+        self.formSubmitURL = formSubmitURL
+        self.httpRealm = httpRealm
+        self.timesUsed = timesUsed ?? 0
+        self.timeLastUsed = timeLastUsed ?? 0
+        self.timeCreated = timeCreated ?? 0
+        self.timePasswordChanged = timePasswordChanged ?? 0
+        self.usernameField = usernameField
+        self.passwordField = passwordField
     }
-
 
     public convenience init(fromJSONString json: String) throws {
         let dict = try JSONSerialization.jsonObject(with: json.data(using: .utf8)!, options: []) as? [String: Any] ?? [String: Any]()
@@ -171,9 +168,9 @@ open class LoginRecord {
     }
 
     public static func fromJSONArray(_ jsonArray: String) throws -> [LoginRecord] {
-        if  let arr = try JSONSerialization.jsonObject(with: jsonArray.data(using: .utf8)!, options: []) as? [[String: Any]] {
+        if let arr = try JSONSerialization.jsonObject(with: jsonArray.data(using: .utf8)!, options: []) as? [[String: Any]] {
             return arr.map { (dict) -> LoginRecord in
-                return LoginRecord(fromJSONDict: dict)
+                LoginRecord(fromJSONDict: dict)
             }
         }
         return [LoginRecord]()
