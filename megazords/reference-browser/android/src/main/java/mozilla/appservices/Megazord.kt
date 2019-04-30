@@ -4,7 +4,7 @@
 
 package mozilla.appservices
 
-class ReferenceBrowserMegazord {
+class Megazord {
     companion object {
         @JvmStatic
         fun init() {

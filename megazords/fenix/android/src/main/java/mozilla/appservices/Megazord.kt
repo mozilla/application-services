@@ -4,7 +4,7 @@
 
 package mozilla.appservices
 
-class FenixMegazord {
+class Megazord {
     companion object {
         @JvmStatic
         fun init() {
