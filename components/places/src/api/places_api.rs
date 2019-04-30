@@ -10,6 +10,7 @@ use crate::storage::{delete_meta, get_meta, put_meta};
 use crate::util::normalize_path;
 use lazy_static::lazy_static;
 use rusqlite::OpenFlags;
+use sql_support::SqlInterruptHandle;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::fs;
@@ -326,6 +327,15 @@ impl PlacesApi {
         store.reset(&sync15::StoreSyncAssociation::Disconnected)?;
 
         Ok(())
+    }
+
+    /// Get a new interrupt handle for the sync connection.
+    pub fn new_sync_conn_interrupt_handle(&self) -> Result<SqlInterruptHandle> {
+        // Probably not necessary to lock here, since this should only get
+        // called in startup.
+        let _guard = self.sync_state.lock().unwrap();
+        let conn = self.open_sync_connection()?;
+        Ok(conn.new_interrupt_handle())
     }
 }
 

@@ -108,6 +108,11 @@ internal interface LibPlacesFFI : Library {
         out_err: RustError.ByReference
     ): RawPlacesInterruptHandle?
 
+    fun places_new_sync_conn_interrupt_handle(
+        api: PlacesApiHandle,
+        out_err: RustError.ByReference
+    ): RawPlacesInterruptHandle?
+
     fun places_interrupt(
         conn: RawPlacesInterruptHandle,
         out_err: RustError.ByReference

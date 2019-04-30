@@ -58,10 +58,18 @@ pub extern "C" fn places_api_new(db_path: FfiStr<'_>, error: &mut ExternError) -
     })
 }
 
-/// Instantiate a places connection. Returned connection must be freed with
-/// `places_connection_destroy`, although it should be noted that this will
-/// not destroy, or even close, connections already obtained from this
-/// object. Returns null and logs on errors (for now).
+/// Get an interrupt handle for the PlacesApi's sync connection.
+#[no_mangle]
+pub extern "C" fn places_new_sync_conn_interrupt_handle(
+    handle: u64,
+    error: &mut ExternError,
+) -> *mut SqlInterruptHandle {
+    log::debug!("places_new_sync_conn_interrupt_handle");
+    APIS.call_with_result(error, handle, |api| -> places::Result<_> {
+        api.new_sync_conn_interrupt_handle()
+    })
+}
+
 #[no_mangle]
 pub extern "C" fn places_connection_new(
     handle: u64,

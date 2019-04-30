@@ -142,6 +142,10 @@ void sync15_bookmarks_sync(PlacesAPIHandle handle,
 void places_api_reset_bookmarks(PlacesAPIHandle handle,
                                 PlacesRustError *_Nonnull out_err);
 
+RawPlacesInterruptHandle *_Nullable
+places_new_sync_conn_interrupt_handle(PlacesAPIHandle handle,
+                                      PlacesRustError *_Nonnull out_err);
+
 // MARK: Bookmarks APIs
 
 PlacesRustBuffer bookmarks_get_by_guid(PlacesConnectionHandle handle,

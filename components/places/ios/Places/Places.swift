@@ -19,6 +19,7 @@ public class PlacesAPI {
     private let handle: APIHandle
     private let writeConn: PlacesWriteConnection
     private let queue = DispatchQueue(label: "com.mozilla.places.api")
+    private let interruptHandle: InterruptHandle
 
     /**
      * Initialize a PlacesAPI
@@ -37,18 +38,28 @@ public class PlacesAPI {
                 places_connection_new(handle, Int32(PlacesConn_ReadWrite), error)
             }
             writeConn = try PlacesWriteConnection(handle: writeHandle)
+
+            interruptHandle = InterruptHandle(ptr: try PlacesError.unwrap { error in
+                places_new_sync_conn_interrupt_handle(handle, error)
+            })
+
             writeConn.api = self
         } catch let e {
-            // We failed to open the write connection, even though the
-            // API was opened. This is... strange, but possible.
+            // We failed to open the write connection (or the interrupt handle),
+            // even though the API was opened. This is... strange, but possible.
             // Anyway, we want to clean up our API if this happens.
             //
-            // If closing the API fails, it's probably caused by the same underlying
-            // problem as whatever made us fail to open the write connection, so we'd
-            // rather use the first error, since it's hopefully more descriptive.
+            // If closing the API fails, it's probably caused by the same
+            // underlying problem as whatever made us fail to open the write
+            // connection, so we'd rather use the first error, since it's
+            // hopefully more descriptive.
             PlacesError.unwrapOrLog { error in
                 places_api_destroy(handle, error)
             }
+            // Note: We don't need to explicitly clean up `self.writeConn` in
+            // the case that it gets opened successfully, but initializing
+            // `self.interruptHandle` fails -- the `PlacesWriteConnection`
+            // `deinit` should still run and do the right thing.
             throw e
         }
     }
@@ -135,6 +146,15 @@ public class PlacesAPI {
 
     /**
      * Sync the bookmarks collection.
+     *
+     * - Throws:
+     *     - `PlacesError.databaseInterrupted`: If a call is made to `interrupt()` on this
+     *                                          object from another thread.
+     *     - `PlacesError.unexpected`: When an error that has not specifically been exposed
+     *                                 to Swift is encountered (for example IO errors from
+     *                                 the database code, etc).
+     *     - `PlacesError.panic`: If the rust code panics while completing this
+     *                            operation. (If this occurs, please let us know).
      */
     open func syncBookmarks(unlockInfo: SyncUnlockInfo) throws {
         return try queue.sync {
@@ -153,6 +173,8 @@ public class PlacesAPI {
      * Reset sync metadata for the bookmarks collection.
      *
      * - Throws:
+     *     - `PlacesError.databaseInterrupted`: If a call is made to `interrupt()` on this
+     *                                          object from another thread.
      *     - `PlacesError.unexpected`: When an error that has not specifically been exposed
      *                                 to Swift is encountered (for example IO errors from
      *                                 the database code, etc).
@@ -165,6 +187,18 @@ public class PlacesAPI {
                 places_api_reset_bookmarks(handle, err)
             }
         }
+    }
+
+    /**
+     * Attempt to interrupt a long-running operation which may be happening
+     * concurrently (specifically, for `interrupt` on `PlacesAPI`, this refers
+     * to a call to `sync`).
+     *
+     * If the operation is interrupted, it should fail with a
+     * `PlacesError.databaseInterrupted` error.
+     */
+    open func interrupt() {
+        interruptHandle.interrupt()
     }
 }
 
