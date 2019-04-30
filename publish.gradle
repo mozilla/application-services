@@ -13,10 +13,13 @@ def libVcsUrl = properties.libVcsUrl
 // please also update the corresponding .buildconfig-android.yml
 // `publishedArtifacts` property.
 ext.configurePublish = { jnaForTestConfiguration = null,
-                         variantWithoutLib = null ->
+                         isMegazord = false ->
     def theGroupId = rootProject.ext.library.groupId
     def theArtifactId = project.ext.artifactId
     def theDescription = project.ext.description
+
+    // XXX update this comment once things work.
+    //
     // `jnaForTestConfiguration` is a hacky way to say yes, I'm using JNA and
     // want to pack the JNA dispatch libraries and my Rust libraries into a
     // single JAR for use in unit tests that run on a development host (and not
@@ -28,7 +31,7 @@ ext.configurePublish = { jnaForTestConfiguration = null,
     // libraries packed into it.  Such an AAR will be aggregated into another
     // Maven publication that has a single megazord Rust library that provides
     // the native code functionality.
-    if (jnaForTestConfiguration != null) {
+    if (isMegazord && jnaForTestConfiguration != null) {
         task extractJnaResources(type: Sync) {
             dependsOn jnaForTestConfiguration
 
@@ -123,53 +126,53 @@ ext.configurePublish = { jnaForTestConfiguration = null,
                     }
                 }
 
-                if (variantWithoutLib != null) {
+                // if (variantWithoutLib != null) {
                     // If we are publishing a `-withoutLib` publication, we
                     // never want to choose the real one when a parent project
                     // has us as a child `project()` dependency.
-                    alias = true
-                }
+                    // alias = true
+                // }
             }
 
-            if (variantWithoutLib != null) {
-                aarWithoutLib(MavenPublication) {
-                    project.afterEvaluate {
-                        from components.findByName(variantWithoutLib)
-                    }
-                    artifact sourcesJar
-                    // Can't publish Javadoc yet: fxaclient isn't well behaved.
-                    // artifact javadocJar
+            // if (variantWithoutLib != null) {
+            //     aarWithoutLib(MavenPublication) {
+            //         project.afterEvaluate {
+            //             from components.findByName(variantWithoutLib)
+            //         }
+            //         artifact sourcesJar
+            //         // Can't publish Javadoc yet: fxaclient isn't well behaved.
+            //         // artifact javadocJar
 
-                    pom {
-                        groupId = theGroupId
-                        artifactId = "${theArtifactId}-withoutLib"
-                        description = theDescription
-                        version = rootProject.ext.library.version
+            //         pom {
+            //             groupId = theGroupId
+            //             artifactId = "${theArtifactId}-withoutLib"
+            //             description = theDescription
+            //             version = rootProject.ext.library.version
 
-                        licenses {
-                            license {
-                                name = properties.libLicense
-                                url = properties.libLicenseUrl
-                            }
-                        }
+            //             licenses {
+            //                 license {
+            //                     name = properties.libLicense
+            //                     url = properties.libLicenseUrl
+            //                 }
+            //             }
 
-                        developers {
-                            developer {
-                                name = 'Mozilla Application Services'
-                                email = 'application-services@mozilla.com'
-                            }
-                        }
+            //             developers {
+            //                 developer {
+            //                     name = 'Mozilla Application Services'
+            //                     email = 'application-services@mozilla.com'
+            //                 }
+            //             }
 
-                        scm {
-                            connection = properties.libVcsUrl
-                            developerConnection = properties.libVcsUrl
-                            url = properties.libUrl
-                        }
-                    }
-                }
-            }
+            //             scm {
+            //                 connection = properties.libVcsUrl
+            //                 developerConnection = properties.libVcsUrl
+            //                 url = properties.libUrl
+            //             }
+            //         }
+            //     }
+            // }
 
-            if (jnaForTestConfiguration != null) {
+            if (isMegazord && jnaForTestConfiguration != null) {
                 forUnitTestsJar(MavenPublication) {
                     artifact tasks['forUnitTestsJar']
 

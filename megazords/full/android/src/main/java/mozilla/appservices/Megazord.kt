@@ -8,7 +8,7 @@ class Megazord {
     companion object {
         @JvmStatic
         fun init() {
-            System.setProperty("mozilla.appservices.megazord_lib_name", "megazord")
+            System.setProperty("mozilla.appservices.megazord", "megazord")
         }
     }
 }

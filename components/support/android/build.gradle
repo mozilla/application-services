@@ -39,5 +39,5 @@ apply from: "$rootDir/publish.gradle"
 // `publishedArtifacts` property.
 ext.configurePublish(
         /* jnaForTestConfiguration= */ null,
-        /* variantWithoutLib= */ 'androidWithoutLib',
+        /* isMegazord= */ false,
 )

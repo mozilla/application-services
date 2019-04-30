@@ -108,5 +108,5 @@ apply from: "$rootDir/publish.gradle"
 // `publishedArtifacts` property.
 ext.configurePublish(
         /* jnaForTestConfiguration= */ configurations.jnaForTest,
-        /* variantWithoutLib= */ null,
+        /* isMegazord= */ true,
 )
