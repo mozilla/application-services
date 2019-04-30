@@ -7,11 +7,15 @@ import os.log
 import UIKit
 
 open class FxAConfig {
+    // FIXME: these should be lower case.
+    // swiftlint:disable identifier_name
     public enum Server: String {
         case Release = "https://accounts.firefox.com"
         case Stable = "https://stable.dev.lcip.org"
         case Dev = "https://accounts.stage.mozaws.net"
     }
+
+    // swiftlint:enable identifier_name
 
     let contentUrl: String
     let clientId: String
@@ -90,8 +94,10 @@ open class FirefoxAccount {
         }
     }
 
-    /// Serializes the state of a `FirefoxAccount` instance. It can be restored later with `fromJSON(...)`.
-    /// It is the responsability of the caller to persist that serialized state regularly (after operations that mutate `FirefoxAccount`) in a **secure** location.
+    /// Serializes the state of a `FirefoxAccount` instance. It can be restored
+    /// later with `fromJSON(...)`. It is the responsability of the caller to
+    /// persist that serialized state regularly (after operations that mutate
+    /// `FirefoxAccount`) in a **secure** location.
     open func toJSON() throws -> String {
         return try queue.sync {
             try self.toJSONInternal()

@@ -163,12 +163,14 @@ open class LoginRecord {
     }
 
     public convenience init(fromJSONString json: String) throws {
-        let dict = try JSONSerialization.jsonObject(with: json.data(using: .utf8)!, options: []) as? [String: Any] ?? [String: Any]()
-        self.init(fromJSONDict: dict)
+        let dict = try JSONSerialization.jsonObject(with: json.data(using: .utf8)!,
+                                                    options: [])
+        self.init(fromJSONDict: dict as? [String: Any] ?? [String: Any]())
     }
 
     public static func fromJSONArray(_ jsonArray: String) throws -> [LoginRecord] {
-        if let arr = try JSONSerialization.jsonObject(with: jsonArray.data(using: .utf8)!, options: []) as? [[String: Any]] {
+        if let arr = try JSONSerialization.jsonObject(with: jsonArray.data(using: .utf8)!,
+                                                      options: []) as? [[String: Any]] {
             return arr.map { (dict) -> LoginRecord in
                 LoginRecord(fromJSONDict: dict)
             }

@@ -4,6 +4,9 @@
 
 import Foundation
 
+// FIXME: these should be lower case.
+// swiftlint:disable identifier_name
+
 public enum FirefoxAccountError: Error {
     case Unauthorized(message: String)
     case Network(message: String)

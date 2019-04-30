@@ -74,7 +74,12 @@ public class BookmarkNode {
      */
     public let position: UInt32
 
-    fileprivate init(type: BookmarkNodeType, guid: String, dateAdded: Int64, lastModified: Int64, parentGUID: String?, position: UInt32) {
+    fileprivate init(type: BookmarkNodeType,
+                     guid: String,
+                     dateAdded: Int64,
+                     lastModified: Int64,
+                     parentGUID: String?,
+                     position: UInt32) {
         self.type = type
         self.guid = guid
         self.dateAdded = dateAdded
@@ -132,7 +137,13 @@ public class BookmarkItem: BookmarkNode {
      */
     public let title: String
 
-    public init(guid: String, dateAdded: Int64, lastModified: Int64, parentGUID: String?, position: UInt32, url: String, title: String) {
+    public init(guid: String,
+                dateAdded: Int64,
+                lastModified: Int64,
+                parentGUID: String?,
+                position: UInt32,
+                url: String,
+                title: String) {
         self.url = url
         self.title = title
         super.init(
@@ -177,7 +188,14 @@ public class BookmarkFolder: BookmarkNode {
      */
     public let children: [BookmarkNode]?
 
-    public init(guid: String, dateAdded: Int64, lastModified: Int64, parentGUID: String?, position: UInt32, title: String, childGUIDs: [String], children: [BookmarkNode]?) {
+    public init(guid: String,
+                dateAdded: Int64,
+                lastModified: Int64,
+                parentGUID: String?,
+                position: UInt32,
+                title: String,
+                childGUIDs: [String],
+                children: [BookmarkNode]?) {
         self.title = title
         self.childGUIDs = childGUIDs
         self.children = children

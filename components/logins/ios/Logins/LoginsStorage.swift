@@ -10,11 +10,11 @@ private let queue = DispatchQueue(label: "com.mozilla.logins-storage")
 open class LoginsStorage {
     private var raw: UInt64 = 0
     let dbPath: String
-    private var interrupt_handle: LoginsInterruptHandle?
+    private var interruptHandle: LoginsInterruptHandle?
     // It's not 100% clear to me that this is necessary, but without it
-    // we might have a data race between reading `interrupt_handle` in
+    // we might have a data race between reading `interruptHandle` in
     // `interrupt()`, and writing it in `doDestroy` (or `doOpen`)
-    private let interrupt_handle_lock: NSLock = NSLock()
+    private let interruptHandleLock: NSLock = NSLock()
 
     public init(databasePath: String) {
         dbPath = databasePath
@@ -34,9 +34,9 @@ open class LoginsStorage {
             try! LoginsStoreError.unwrap { err in
                 sync15_passwords_state_destroy(raw, err)
             }
-            interrupt_handle_lock.lock()
-            interrupt_handle = nil
-            interrupt_handle_lock.unlock()
+            interruptHandleLock.lock()
+            defer { self.interruptHandleLock.unlock() }
+            interruptHandle = nil
         }
     }
 
@@ -74,9 +74,9 @@ open class LoginsStorage {
         })
 
         do {
-            interrupt_handle_lock.lock()
-            defer { self.interrupt_handle_lock.unlock() }
-            interrupt_handle = LoginsInterruptHandle(ptr: try LoginsStoreError.unwrap { err in
+            interruptHandleLock.lock()
+            defer { self.interruptHandleLock.unlock() }
+            interruptHandle = LoginsInterruptHandle(ptr: try LoginsStoreError.unwrap { err in
                 sync15_passwords_new_interrupt_handle(self.raw, err)
             })
         } catch let e {
@@ -134,7 +134,12 @@ open class LoginsStorage {
         try queue.sync {
             let engine = try self.getUnlocked()
             try LoginsStoreError.unwrap { err in
-                sync15_passwords_sync(engine, unlockInfo.kid, unlockInfo.fxaAccessToken, unlockInfo.syncKey, unlockInfo.tokenserverURL, err)
+                sync15_passwords_sync(engine,
+                                      unlockInfo.kid,
+                                      unlockInfo.fxaAccessToken,
+                                      unlockInfo.syncKey,
+                                      unlockInfo.tokenserverURL,
+                                      err)
             }
         }
     }
@@ -267,11 +272,11 @@ open class LoginsStorage {
     ///
     /// Throws: `LoginsStoreError.Panic` if the rust code panics (please report this to us if it happens).
     open func interrupt() throws {
-        interrupt_handle_lock.lock()
-        defer { self.interrupt_handle_lock.unlock() }
-        // We don't throw mismatch in the case where `self.interrupt_handle` is nil,
+        interruptHandleLock.lock()
+        defer { self.interruptHandleLock.unlock() }
+        // We don't throw mismatch in the case where `self.interruptHandle` is nil,
         // because that would require users perform external synchronization.
-        if let h = self.interrupt_handle {
+        if let h = self.interruptHandle {
             try h.interrupt()
         }
     }

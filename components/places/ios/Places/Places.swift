@@ -80,10 +80,10 @@ public class PlacesAPI {
      */
     open func openReader() throws -> PlacesReadConnection {
         return try queue.sync {
-            let h = try PlacesError.unwrap { error in
+            let conn = try PlacesError.unwrap { error in
                 places_connection_new(handle, Int32(PlacesConn_ReadOnly), error)
             }
-            return try PlacesReadConnection(handle: h, api: self)
+            return try PlacesReadConnection(handle: conn, api: self)
         }
     }
 
@@ -106,7 +106,12 @@ public class PlacesAPI {
     open func syncBookmarks(unlockInfo: SyncUnlockInfo) throws {
         return try queue.sync {
             try PlacesError.unwrap { err in
-                sync15_bookmarks_sync(handle, unlockInfo.kid, unlockInfo.fxaAccessToken, unlockInfo.syncKey, unlockInfo.tokenserverURL, err)
+                sync15_bookmarks_sync(handle,
+                                      unlockInfo.kid,
+                                      unlockInfo.fxaAccessToken,
+                                      unlockInfo.syncKey,
+                                      unlockInfo.tokenserverURL,
+                                      err)
             }
         }
     }
@@ -435,7 +440,9 @@ public class PlacesWriteConnection: PlacesReadConnection {
      *                            operation. (If this occurs, please let us know).
      */
     @discardableResult
-    open func createFolder(parentGUID: String, title: String, position: UInt32? = nil) throws -> String {
+    open func createFolder(parentGUID: String,
+                           title: String,
+                           position: UInt32? = nil) throws -> String {
         return try queue.sync {
             try self.checkApi()
             var msg = insertionMsg(type: .folder, parentGUID: parentGUID, position: position)
@@ -510,7 +517,10 @@ public class PlacesWriteConnection: PlacesReadConnection {
      *                            operation. (If this occurs, please let us know).
      */
     @discardableResult
-    open func createBookmark(parentGUID: String, url: String, title: String?, position: UInt32? = nil) throws -> String {
+    open func createBookmark(parentGUID: String,
+                             url: String,
+                             title: String?,
+                             position: UInt32? = nil) throws -> String {
         return try queue.sync {
             try self.checkApi()
             var msg = insertionMsg(type: .bookmark, parentGUID: parentGUID, position: position)
@@ -619,7 +629,9 @@ public class PlacesWriteConnection: PlacesReadConnection {
     }
 
     // Remove the boilerplate common for all insertion messages
-    private func insertionMsg(type: BookmarkNodeType, parentGUID: String, position: UInt32?) -> MsgTypes_BookmarkNode {
+    private func insertionMsg(type: BookmarkNodeType,
+                              parentGUID: String,
+                              position: UInt32?) -> MsgTypes_BookmarkNode {
         var msg = MsgTypes_BookmarkNode()
         msg.nodeType = type.rawValue
         msg.parentGuid = parentGUID
