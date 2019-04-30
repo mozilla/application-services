@@ -105,6 +105,27 @@ fn get_code(err: &Error) -> ErrorCode {
             log::info!("The store is corrupt: {}", e);
             ErrorCode::new(error_codes::DATABASE_CORRUPT)
         }
+        ErrorKind::SyncAdapterError(e) => {
+            use sync15::ErrorKind;
+            match e.kind() {
+                ErrorKind::StoreError(store_error) => {
+                    // If it's a type-erased version of one of our errors, try
+                    // and resolve it.
+                    if let Some(places_err) = store_error.downcast_ref::<Error>() {
+                        log::info!("Recursing to resolve places error");
+                        get_code(places_err)
+                    } else {
+                        log::error!("Unexpected sync error: {:?}", err);
+                        ErrorCode::new(error_codes::UNEXPECTED)
+                    }
+                }
+                _ => {
+                    // TODO: expose network errors...
+                    log::error!("Unexpected sync error: {:?}", err);
+                    ErrorCode::new(error_codes::UNEXPECTED)
+                }
+            }
+        }
 
         err => {
             log::error!("Unexpected error: {:?}", err);
