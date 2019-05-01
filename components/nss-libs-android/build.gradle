@@ -1,6 +1,5 @@
 apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-android-extensions'
+
 
 android {
     compileSdkVersion rootProject.ext.build.compileSdkVersion
@@ -38,9 +37,9 @@ afterEvaluate {
     // android.sourceSets.main.jniLibs.srcDirs = []
 }
 
-dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-}
+// dependencies {
+//     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+// }
 
 def ARCHS_FOLDERS = [
     "android/armeabi-v7a",

@@ -97,7 +97,6 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     runtimeOnly project(":full-megazord")
-    runtimeOnly project(':nsslibs')
 
 //    jnaForTest project(path: ":full-megazord", configuration: 'jnaForTest')
 
