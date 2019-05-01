@@ -7,7 +7,6 @@ import os.log
 
 /// Indicates an error occurred while calling into the places storage layer
 public enum PlacesError: Error {
-
     /// This indicates an attempt to use a connection after the PlacesAPI
     /// it came from is destroyed. This indicates a usage error of this library.
     case connUseAfterAPIClosed
@@ -135,7 +134,7 @@ public enum PlacesError: Error {
             return result
         } catch let e {
             // Can't log what the error is without jumping through hoops apparently, oh well...
-            os_log( "Hit places error when throwing is impossible %{public}@", type: .error, "\(e)")
+            os_log("Hit places error when throwing is impossible %{public}@", type: .error, "\(e)")
             return nil
         }
     }

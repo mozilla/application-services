@@ -4,9 +4,11 @@
 
 import Foundation
 
+// https://github.com/mozilla/application-services/issues/1042
+// swiftlint:disable identifier_name
+
 /// Indicates an error occurred while calling into the logins storage layer
 public enum LoginsStoreError: Error {
-
     /// This is a catch-all error code used for errors not yet exposed to consumers,
     /// typically since it doesn't seem like there's a sane way for them to be handled.
     case Unspecified(message: String)
@@ -89,9 +91,9 @@ public enum LoginsStoreError: Error {
     }
 
     @discardableResult
-    public static func unwrap<T>(_ callback: (UnsafeMutablePointer<Sync15PasswordsError>) throws -> T?) throws -> T {
+    public static func unwrap<T>(_ fn: (UnsafeMutablePointer<Sync15PasswordsError>) throws -> T?) throws -> T {
         var err = Sync15PasswordsError(code: Sync15Passwords_NoError, message: nil)
-        guard let result = try callback(&err) else {
+        guard let result = try fn(&err) else {
             if let loginErr = LoginsStoreError.fromConsuming(err) {
                 throw loginErr
             }
@@ -106,9 +108,9 @@ public enum LoginsStoreError: Error {
     }
 
     @discardableResult
-    public static func tryUnwrap<T>(_ callback: (UnsafeMutablePointer<Sync15PasswordsError>) throws -> T?) throws -> T? {
+    public static func tryUnwrap<T>(_ fn: (UnsafeMutablePointer<Sync15PasswordsError>) throws -> T?) throws -> T? {
         var err = Sync15PasswordsError(code: Sync15Passwords_NoError, message: nil)
-        guard let result = try callback(&err) else {
+        guard let result = try fn(&err) else {
             if let loginErr = LoginsStoreError.fromConsuming(err) {
                 throw loginErr
             }

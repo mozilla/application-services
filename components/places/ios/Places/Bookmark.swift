@@ -7,13 +7,11 @@ import Foundation
 /// Snarfed from firefox-ios, although we don't have the fake desktop root,
 /// and we only have the `All` Set.
 public struct BookmarkRoots {
-
-    public static let RootGUID =          "root________"
-    public static let MobileFolderGUID =  "mobile______"
-    public static let MenuFolderGUID =    "menu________"
+    public static let RootGUID = "root________"
+    public static let MobileFolderGUID = "mobile______"
+    public static let MenuFolderGUID = "menu________"
     public static let ToolbarFolderGUID = "toolbar_____"
     public static let UnfiledFolderGUID = "unfiled_____"
-
 
     public static let All = Set<String>([
         BookmarkRoots.RootGUID,
@@ -23,7 +21,6 @@ public struct BookmarkRoots {
         BookmarkRoots.UnfiledFolderGUID,
     ])
 }
-
 
 /**
  * Enumeration of the type of a bookmark item.
@@ -38,7 +35,6 @@ public enum BookmarkNodeType: Int32 {
     // normal bookmarks), or have been removed from desktop, and
     // are not supported
 }
-
 
 /**
  * A base class containing the set of fields common to all nodes
@@ -78,10 +74,15 @@ public class BookmarkNode {
      */
     public let position: UInt32
 
-    fileprivate init(type: BookmarkNodeType, guid: String, dateAdded: Int64, lastModified: Int64, parentGUID: String?, position: UInt32) {
+    fileprivate init(type: BookmarkNodeType,
+                     guid: String,
+                     dateAdded: Int64,
+                     lastModified: Int64,
+                     parentGUID: String?,
+                     position: UInt32) {
         self.type = type
         self.guid = guid
-        self.dateAdded = dateAdded;
+        self.dateAdded = dateAdded
         self.lastModified = lastModified
         self.parentGUID = parentGUID
         self.position = position
@@ -93,7 +94,7 @@ public class BookmarkNode {
      * - Note: This is determined entirely by inspecting the GUID.
      */
     public var isRoot: Bool {
-        return BookmarkRoots.All.contains(self.guid)
+        return BookmarkRoots.All.contains(guid)
     }
 }
 
@@ -103,7 +104,7 @@ public class BookmarkNode {
  * It's type is always `BookmarkNodeType.separator`, and it has no fields
  * besides those defined by `BookmarkNode`.
  */
-public class BookmarkSeparator : BookmarkNode {
+public class BookmarkSeparator: BookmarkNode {
     public init(guid: String, dateAdded: Int64, lastModified: Int64, parentGUID: String?, position: UInt32) {
         super.init(
             type: .separator,
@@ -122,8 +123,7 @@ public class BookmarkSeparator : BookmarkNode {
  * It's type is always `BookmarkNodeType.bookmark`,  and in addition to the
  * fields provided by `BookmarkNode`, it has a `title` and a `url`.
  */
-public class BookmarkItem : BookmarkNode {
-
+public class BookmarkItem: BookmarkNode {
     /**
      * The URL of this bookmark.
      */
@@ -137,7 +137,13 @@ public class BookmarkItem : BookmarkNode {
      */
     public let title: String
 
-    public init(guid: String, dateAdded: Int64, lastModified: Int64, parentGUID: String?, position: UInt32, url: String, title: String) {
+    public init(guid: String,
+                dateAdded: Int64,
+                lastModified: Int64,
+                parentGUID: String?,
+                position: UInt32,
+                url: String,
+                title: String) {
         self.url = url
         self.title = title
         super.init(
@@ -158,7 +164,7 @@ public class BookmarkItem : BookmarkNode {
  * fields provided by `BookmarkNode`, it has a `title`, a list of `childGUIDs`,
  * and possibly a list of `children`.
  */
-public class BookmarkFolder : BookmarkNode {
+public class BookmarkFolder: BookmarkNode {
     /**
      * The title of this bookmark folder.
      *
@@ -182,7 +188,14 @@ public class BookmarkFolder : BookmarkNode {
      */
     public let children: [BookmarkNode]?
 
-    public init(guid: String, dateAdded: Int64, lastModified: Int64, parentGUID: String?, position: UInt32, title: String, childGUIDs: [String], children: [BookmarkNode]?) {
+    public init(guid: String,
+                dateAdded: Int64,
+                lastModified: Int64,
+                parentGUID: String?,
+                position: UInt32,
+                title: String,
+                childGUIDs: [String],
+                children: [BookmarkNode]?) {
         self.title = title
         self.childGUIDs = childGUIDs
         self.children = children
@@ -236,7 +249,7 @@ internal func unpackProtobuf(msg: MsgTypes_BookmarkNode) -> BookmarkNode {
         var childGUIDs = msg.childGuids
         // We don't bother sending both the guids and the child nodes over
         // the FFI as it's redundant.
-        if childGUIDs.isEmpty && !childNodes.isEmpty {
+        if childGUIDs.isEmpty, !childNodes.isEmpty {
             childGUIDs = childNodes.map { node in node.guid }
         }
         let childrenExpected = msg.hasHaveChildNodes ? msg.haveChildNodes : false

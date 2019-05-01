@@ -7,11 +7,15 @@ import os.log
 import UIKit
 
 open class FxAConfig {
+    // FIXME: these should be lower case.
+    // swiftlint:disable identifier_name
     public enum Server: String {
         case Release = "https://accounts.firefox.com"
         case Stable = "https://stable.dev.lcip.org"
         case Dev = "https://accounts.stage.mozaws.net"
     }
+
+    // swiftlint:enable identifier_name
 
     let contentUrl: String
     let clientId: String
@@ -24,21 +28,21 @@ open class FxAConfig {
     }
 
     public init(withServer server: Server, clientId: String, redirectUri: String) {
-        self.contentUrl = server.rawValue
+        contentUrl = server.rawValue
         self.clientId = clientId
         self.redirectUri = redirectUri
     }
 
     public static func release(clientId: String, redirectUri: String) -> FxAConfig {
-        return FxAConfig.init(withServer: FxAConfig.Server.Release, clientId: clientId, redirectUri: redirectUri)
+        return FxAConfig(withServer: FxAConfig.Server.Release, clientId: clientId, redirectUri: redirectUri)
     }
 
     public static func stable(clientId: String, redirectUri: String) -> FxAConfig {
-        return FxAConfig.init(withServer: FxAConfig.Server.Stable, clientId: clientId, redirectUri: redirectUri)
+        return FxAConfig(withServer: FxAConfig.Server.Stable, clientId: clientId, redirectUri: redirectUri)
     }
 
     public static func dev(clientId: String, redirectUri: String) -> FxAConfig {
-        return FxAConfig.init(withServer: FxAConfig.Server.Dev, clientId: clientId, redirectUri: redirectUri)
+        return FxAConfig(withServer: FxAConfig.Server.Dev, clientId: clientId, redirectUri: redirectUri)
     }
 }
 
@@ -61,59 +65,61 @@ open class FirefoxAccount {
     /// Please note that the `FxAConfig` provided will be consumed and therefore
     /// should not be re-used.
     public convenience init(config: FxAConfig) throws {
-        let pointer = try queue.sync(execute: {
-            return try FirefoxAccountError.unwrap({err in
+        let pointer = try queue.sync {
+            try FirefoxAccountError.unwrap { err in
                 fxa_new(config.contentUrl, config.clientId, config.redirectUri, err)
-            })
-        })
+            }
+        }
         self.init(raw: pointer)
     }
 
     /// Restore a previous instance of `FirefoxAccount` from a serialized state (obtained with `toJSON(...)`).
     open class func fromJSON(state: String) throws -> FirefoxAccount {
-        return try queue.sync(execute: {
-            let handle = try FirefoxAccountError.unwrap({ err in fxa_from_json(state, err) })
+        return try queue.sync {
+            let handle = try FirefoxAccountError.unwrap { err in fxa_from_json(state, err) }
             return FirefoxAccount(raw: handle)
-        })
+        }
     }
 
     deinit {
         if self.raw != 0 {
-            queue.sync(execute: {
-                try! FirefoxAccountError.unwrap({err in
+            queue.sync {
+                try! FirefoxAccountError.unwrap { err in
                     // Is `try!` the right thing to do? We should only hit an error here
                     // for panics and handle misuse, both inidicate bugs in our code
                     // (the first in the rust code, the 2nd in this swift wrapper).
                     fxa_free(self.raw, err)
-                })
-            })
+                }
+            }
         }
     }
 
-    /// Serializes the state of a `FirefoxAccount` instance. It can be restored later with `fromJSON(...)`.
-    /// It is the responsability of the caller to persist that serialized state regularly (after operations that mutate `FirefoxAccount`) in a **secure** location.
+    /// Serializes the state of a `FirefoxAccount` instance. It can be restored
+    /// later with `fromJSON(...)`. It is the responsability of the caller to
+    /// persist that serialized state regularly (after operations that mutate
+    /// `FirefoxAccount`) in a **secure** location.
     open func toJSON() throws -> String {
-        return try queue.sync(execute: {
-            return try self.toJSONInternal()
-        })
+        return try queue.sync {
+            try self.toJSONInternal()
+        }
     }
 
     private func toJSONInternal() throws -> String {
-        return String(freeingFxaString: try FirefoxAccountError.unwrap({err in
+        return String(freeingFxaString: try FirefoxAccountError.unwrap { err in
             fxa_to_json(self.raw, err)
-        }))
+        })
     }
 
     /// Registers a persistance callback. The callback will get called every time
     /// the `FirefoxAccount` state needs to be saved. The callback must
     /// persist the passed string in a secure location (like the keychain).
     public func registerPersistCallback(_ cb: PersistCallback) {
-        self.persistCallback = cb
+        persistCallback = cb
     }
 
     /// Unregisters a persistance callback.
     public func unregisterPersistCallback() {
-        self.persistCallback = nil
+        persistCallback = nil
     }
 
     private func tryPersistState() {
@@ -141,9 +147,9 @@ open class FirefoxAccount {
     open func getProfile(completionHandler: @escaping (Profile?, Error?) -> Void) {
         queue.async {
             do {
-                let profileBuffer = try FirefoxAccountError.unwrap({err in
+                let profileBuffer = try FirefoxAccountError.unwrap { err in
                     fxa_profile(self.raw, false, err)
-                })
+                }
                 let msg = try! MsgTypes_Profile(serializedData: Data(rustBuffer: profileBuffer))
                 fxa_bytebuffer_free(profileBuffer)
                 let profile = Profile(msg: msg)
@@ -155,35 +161,35 @@ open class FirefoxAccount {
     }
 
     open func getTokenServerEndpointURL() throws -> URL {
-        return try queue.sync(execute: {
-            return URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap({err in
+        return try queue.sync {
+            URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap { err in
                 fxa_get_token_server_endpoint_url(self.raw, err)
-            })))!
-        })
+            }))!
+        }
     }
 
     open func getConnectionSuccessURL() throws -> URL {
-        return try queue.sync(execute: {
-            return URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap({err in
+        return try queue.sync {
+            URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap { err in
                 fxa_get_connection_success_url(self.raw, err)
-            })))!
-        })
+            }))!
+        }
     }
 
     open func getManageAccountURL(entrypoint: String) throws -> URL {
-        return try queue.sync(execute: {
-            return URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap({err in
+        return try queue.sync {
+            URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap { err in
                 fxa_get_manage_account_url(self.raw, entrypoint, err)
-            })))!
-        })
+            }))!
+        }
     }
 
     open func getManageDevicesURL(entrypoint: String) throws -> URL {
-        return try queue.sync(execute: {
-            return URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap({err in
+        return try queue.sync {
+            URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap { err in
                 fxa_get_manage_devices_url(self.raw, entrypoint, err)
-            })))!
-        })
+            }))!
+        }
     }
 
     /// Request a OAuth token by starting a new OAuth flow.
@@ -199,9 +205,9 @@ open class FirefoxAccount {
         queue.async {
             do {
                 let scope = scopes.joined(separator: " ")
-                let url = URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap({err in
+                let url = URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap { err in
                     fxa_begin_oauth_flow(self.raw, scope, wantsKeys, err)
-                })))!
+                }))!
                 DispatchQueue.main.async { completionHandler(url, nil) }
             } catch {
                 DispatchQueue.main.async { completionHandler(nil, error) }
@@ -216,9 +222,9 @@ open class FirefoxAccount {
     open func completeOAuthFlow(code: String, state: String, completionHandler: @escaping (Void, Error?) -> Void) {
         queue.async {
             do {
-                try FirefoxAccountError.unwrap({err in
+                try FirefoxAccountError.unwrap { err in
                     fxa_complete_oauth_flow(self.raw, code, state, err)
-                })
+                }
                 DispatchQueue.main.async { completionHandler((), nil) }
                 self.tryPersistState()
             } catch {
@@ -235,9 +241,9 @@ open class FirefoxAccount {
     open func getAccessToken(scope: String, completionHandler: @escaping (AccessTokenInfo?, Error?) -> Void) {
         queue.async {
             do {
-                let infoBuffer = try FirefoxAccountError.unwrap({err in
+                let infoBuffer = try FirefoxAccountError.unwrap { err in
                     fxa_get_access_token(self.raw, scope, err)
-                })
+                }
                 let msg = try! MsgTypes_AccessTokenInfo(serializedData: Data(rustBuffer: infoBuffer))
                 fxa_bytebuffer_free(infoBuffer)
                 let tokenInfo = AccessTokenInfo(msg: msg)
@@ -256,10 +262,10 @@ public struct ScopedKey {
     public let kid: String
 
     internal init(msg: MsgTypes_ScopedKey) {
-        self.kty = msg.kty
-        self.scope = msg.scope
-        self.k = msg.k
-        self.kid = msg.kid
+        kty = msg.kty
+        scope = msg.scope
+        k = msg.k
+        kid = msg.kid
     }
 }
 
@@ -270,10 +276,10 @@ public struct AccessTokenInfo {
     public let expiresAt: Date
 
     internal init(msg: MsgTypes_AccessTokenInfo) {
-        self.scope = msg.scope
-        self.token = msg.token
-        self.key = msg.hasKey ? ScopedKey(msg: msg.key) : nil
-        self.expiresAt = Date.init(timeIntervalSince1970: Double(msg.expiresAt))
+        scope = msg.scope
+        token = msg.token
+        key = msg.hasKey ? ScopedKey(msg: msg.key) : nil
+        expiresAt = Date(timeIntervalSince1970: Double(msg.expiresAt))
     }
 }
 
@@ -289,9 +295,9 @@ public struct Profile {
     public let displayName: String?
 
     internal init(msg: MsgTypes_Profile) {
-        self.uid = msg.uid
-        self.email = msg.email
-        self.avatar = msg.hasAvatar ? Avatar(url: msg.avatar, isDefault: msg.avatarDefault) : nil
-        self.displayName = msg.hasDisplayName ? msg.displayName : nil
+        uid = msg.uid
+        email = msg.email
+        avatar = msg.hasAvatar ? Avatar(url: msg.avatar, isDefault: msg.avatarDefault) : nil
+        displayName = msg.hasDisplayName ? msg.displayName : nil
     }
 }

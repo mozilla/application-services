@@ -18,7 +18,7 @@ internal typealias ConnectionHandle = UInt64
 public class PlacesAPI {
     private let handle: APIHandle
     private let writeConn: PlacesWriteConnection
-    fileprivate let queue = DispatchQueue(label: "com.mozilla.places.api")
+    private let queue = DispatchQueue(label: "com.mozilla.places.api")
 
     /**
      * Initialize a PlacesAPI
@@ -36,8 +36,8 @@ public class PlacesAPI {
             let writeHandle = try PlacesError.unwrap { error in
                 places_connection_new(handle, Int32(PlacesConn_ReadWrite), error)
             }
-            self.writeConn = try PlacesWriteConnection(handle: writeHandle)
-            self.writeConn.api = self
+            writeConn = try PlacesWriteConnection(handle: writeHandle)
+            writeConn.api = self
         } catch let e {
             // We failed to open the write connection, even though the
             // API was opened. This is... strange, but possible.
@@ -80,10 +80,10 @@ public class PlacesAPI {
      */
     open func openReader() throws -> PlacesReadConnection {
         return try queue.sync {
-            let h = try PlacesError.unwrap { error in
+            let conn = try PlacesError.unwrap { error in
                 places_connection_new(handle, Int32(PlacesConn_ReadOnly), error)
             }
-            return try PlacesReadConnection(handle: h, api: self)
+            return try PlacesReadConnection(handle: conn, api: self)
         }
     }
 
@@ -106,7 +106,12 @@ public class PlacesAPI {
     open func syncBookmarks(unlockInfo: SyncUnlockInfo) throws {
         return try queue.sync {
             try PlacesError.unwrap { err in
-                sync15_bookmarks_sync(handle, unlockInfo.kid, unlockInfo.fxaAccessToken, unlockInfo.syncKey, unlockInfo.tokenserverURL, err)
+                sync15_bookmarks_sync(handle,
+                                      unlockInfo.kid,
+                                      unlockInfo.fxaAccessToken,
+                                      unlockInfo.syncKey,
+                                      unlockInfo.tokenserverURL,
+                                      err)
             }
         }
     }
@@ -117,14 +122,14 @@ public class PlacesAPI {
  */
 public class PlacesReadConnection {
     fileprivate let queue = DispatchQueue(label: "com.mozilla.places.conn")
-    fileprivate var handle: ConnectionHandle;
+    fileprivate var handle: ConnectionHandle
     fileprivate weak var api: PlacesAPI?
     fileprivate let interruptHandle: InterruptHandle
 
     fileprivate init(handle: ConnectionHandle, api: PlacesAPI? = nil) throws {
         self.handle = handle
         self.api = api
-        self.interruptHandle = InterruptHandle(ptr: try PlacesError.unwrap { error in
+        interruptHandle = InterruptHandle(ptr: try PlacesError.unwrap { error in
             places_new_interrupt_handle(handle, error)
         })
     }
@@ -149,9 +154,9 @@ public class PlacesReadConnection {
         if handle != 0 {
             // In practice this can only fail if the rust code panics, which for this
             // function would be quite bad.
-            try! PlacesError.tryUnwrap({ err in
+            try! PlacesError.tryUnwrap { err in
                 places_connection_destroy(handle, err)
-            })
+            }
         }
     }
 
@@ -341,8 +346,7 @@ public class PlacesReadConnection {
 /**
  * A read-write connection to the places database.
  */
-public class PlacesWriteConnection : PlacesReadConnection {
-
+public class PlacesWriteConnection: PlacesReadConnection {
     /**
      * Run periodic database maintenance. This might include, but is
      * not limited to:
@@ -436,7 +440,9 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *                            operation. (If this occurs, please let us know).
      */
     @discardableResult
-    open func createFolder(parentGUID: String, title: String, position: UInt32? = nil) throws -> String {
+    open func createFolder(parentGUID: String,
+                           title: String,
+                           position: UInt32? = nil) throws -> String {
         return try queue.sync {
             try self.checkApi()
             var msg = insertionMsg(type: .folder, parentGUID: parentGUID, position: position)
@@ -511,7 +517,10 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *                            operation. (If this occurs, please let us know).
      */
     @discardableResult
-    open func createBookmark(parentGUID: String, url: String, title: String?, position: UInt32? = nil) throws -> String {
+    open func createBookmark(parentGUID: String,
+                             url: String,
+                             title: String?,
+                             position: UInt32? = nil) throws -> String {
         return try queue.sync {
             try self.checkApi()
             var msg = insertionMsg(type: .bookmark, parentGUID: parentGUID, position: position)
@@ -575,11 +584,10 @@ public class PlacesWriteConnection : PlacesReadConnection {
      *                            operation. (If this occurs, please let us know).
      */
     open func updateBookmarkNode(guid: String,
-                            parentGUID: String? = nil,
-                            position: UInt32? = nil,
-                            title: String? = nil,
-                            url: String? = nil) throws
-    {
+                                 parentGUID: String? = nil,
+                                 position: UInt32? = nil,
+                                 title: String? = nil,
+                                 url: String? = nil) throws {
         try queue.sync {
             try self.checkApi()
             var msg = MsgTypes_BookmarkNode()
@@ -621,7 +629,9 @@ public class PlacesWriteConnection : PlacesReadConnection {
     }
 
     // Remove the boilerplate common for all insertion messages
-    private func insertionMsg(type: BookmarkNodeType, parentGUID: String, position: UInt32?) -> MsgTypes_BookmarkNode {
+    private func insertionMsg(type: BookmarkNodeType,
+                              parentGUID: String,
+                              position: UInt32?) -> MsgTypes_BookmarkNode {
         var msg = MsgTypes_BookmarkNode()
         msg.nodeType = type.rawValue
         msg.parentGuid = parentGUID
@@ -633,7 +643,7 @@ public class PlacesWriteConnection : PlacesReadConnection {
 }
 
 // Wrapper around rust interrupt handle.
-fileprivate class InterruptHandle {
+private class InterruptHandle {
     let ptr: OpaquePointer
     init(ptr: OpaquePointer) {
         self.ptr = ptr
