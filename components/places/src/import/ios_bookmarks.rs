@@ -28,8 +28,8 @@ use url::Url;
 ///
 /// 2. Any items from remote machines that are visible to the user must be
 ///    persisted. (Note: before writing this, most of us believed that iOS wiped
-///    it's view of remote bookmarks on sync sign-out. Apparently it does not,
-///    and it's unclear if it ever did).
+///    its view of remote bookmarks on sync sign-out. Apparently it does not,
+///    and its unclear if it ever did).
 ///
 /// Additionally, it's worth noting that we assume that the iOS tree is
 /// relatively well-formed. We do leverage `dogear` for the merge, to avoid
@@ -61,6 +61,10 @@ use url::Url;
 ///
 /// - Attach the iOS database.
 /// - Slurp records into a temp table "iosBookmarksStaging" from iOS database.
+///   - This is mostly done for convenience, and some performance benefits over
+///     using a view or reading things into Rust (we'd rather not have to go
+///     through `IncomingApplicator`, since it would require us forge
+///     `sync15::Payload`s with this data).
 /// - Add any entries to moz_places that are needed (in practice, they'll all be
 ///   needed, we don't yet store history for iOS).
 /// - Fill mirror using iosBookmarksStaging.
@@ -90,17 +94,15 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     // unintentionally write to it anywhere...
     // ios_db_file_url.query_pairs_mut().append_pair("mode", "ro");
 
-    // Note: `Drop` is executed in FIFO order, so this will happen after
-    // the transaction's drop, which is what we want.
-    let clear_mirror_on_drop = ExecuteOnDrop {
-        conn: &conn,
-        sql: &WIPE_MIRROR,
-    };
-
     log::trace!("Attaching database {}", ios_db_file_url);
     let auto_detach = attached_database(&conn, &ios_db_file_url)?;
 
     let tx = conn.begin_transaction()?;
+
+    let clear_mirror_on_drop = ExecuteOnDrop {
+        conn: &conn,
+        sql: &WIPE_MIRROR,
+    };
 
     // Clear the mirror now, since we're about to fill it with data from the ios
     // connection.
@@ -128,9 +130,10 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     scope.err_if_interrupted()?;
 
     // Ideally we could just do this right after `CREATE_AND_POPULATE_STAGING`,
-    // which would mean we could detach the iOS database sooner, but we have
-    // constraints on the mirror structure that prevent this (and there's
-    // probably nothing bad that can happen in this case anyway).
+    // but we have constraints on the mirror structure that prevent this (and
+    // there's probably nothing bad that can happen in this case anyway). We
+    // could turn use `PRAGMA defer_foreign_keys = true`, but since we commit
+    // everything in one go, that seems harder to debug.
     log::debug!("Populating mirror structure");
     conn.execute_batch(&POPULATE_MIRROR_STRUCTURE)?;
     scope.err_if_interrupted()?;
@@ -151,10 +154,12 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     log::debug!("Fixing up bookmarks");
     conn.execute_batch(&FIXUP_MOZ_BOOKMARKS)?;
     scope.err_if_interrupted()?;
+    log::debug!("Cleaning up mirror...");
+    clear_mirror_on_drop.execute_now()?;
     log::debug!("Committing...");
     tx.commit()?;
 
-    // Note: update_frecencies manages it's own transaction, which is fine,
+    // Note: update_frecencies manages its own transaction, which is fine,
     // since nothing that bad will happen if it is aborted.
     log::debug!("Updating frecencies");
     store.update_frecencies()?;
@@ -162,7 +167,6 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     log::info!("Successfully imported bookmarks!");
 
     auto_detach.execute_now()?;
-    clear_mirror_on_drop.execute_now()?;
 
     Ok(())
 }
@@ -190,7 +194,7 @@ fn populate_mirror_tags(db: &crate::PlacesDb) -> Result<()> {
                 ts
             } else {
                 log::warn!("Ignoring bad `tags` entry");
-                log::warn!("  entry had {:?}", tags);
+                log::trace!("  entry had {:?}", tags);
                 // Ignore garbage
                 continue;
             };
@@ -259,7 +263,9 @@ lazy_static::lazy_static! {
         "DELETE FROM main.moz_bookmarks_synced
            WHERE guid NOT IN {roots};
          DELETE FROM main.moz_bookmarks_synced_structure
-           WHERE guid NOT IN {roots};",
+           WHERE guid NOT IN {roots};
+         UPDATE main.moz_bookmarks_synced
+           SET needsMerge = 0;",
         roots = ROOTS,
     );
     // We omit:
@@ -308,7 +314,7 @@ lazy_static::lazy_static! {
             b.parentid,
             b.modified,
             1, -- needsMerge
-            1, -- VALIDITY_VALID, is this sane??
+            1, -- VALIDITY_VALID
             0, -- isDeleted
             CASE b.type
                 WHEN {ios_bookmark_type} THEN {bookmark_kind}
@@ -337,7 +343,6 @@ lazy_static::lazy_static! {
     );
 }
 
-// This could be a const &str, but it fits better here.
 const POPULATE_MIRROR_STRUCTURE: &str = "
 REPLACE INTO main.moz_bookmarks_synced_structure(guid, parentGuid, position)
     SELECT structure.child, structure.parent, structure.idx FROM ios.bookmarksBufferStructure structure
@@ -431,8 +436,7 @@ lazy_static::lazy_static! {
     static ref CREATE_STAGING_TABLE: String = format!("
         CREATE TEMP TABLE temp.iosBookmarksStaging(
             id INTEGER PRIMARY KEY,
-            guid TEXT NOT NULL UNIQUE
-                CHECK(length(guid) == 12),
+            guid TEXT NOT NULL UNIQUE,
             type TINYINT NOT NULL
                 CHECK(type == {ios_bookmark_type} OR type == {ios_folder_type} OR type == {ios_separator_type}),
             parentid TEXT,
@@ -457,10 +461,10 @@ lazy_static::lazy_static! {
         // Is there anything else?
         "UPDATE main.moz_bookmarks SET
            syncStatus = {unknown},
-           syncChangeCounter = 0,
+           syncChangeCounter = 1,
            lastModified = IFNULL((SELECT stage.modified FROM temp.iosBookmarksStaging stage
                                   WHERE stage.guid = main.moz_bookmarks.guid),
-                                 now())",
+                                 lastModified)",
         unknown = SyncStatus::Unknown as u8
     );
 }
