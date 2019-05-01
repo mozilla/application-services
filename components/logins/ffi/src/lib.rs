@@ -59,6 +59,11 @@ pub extern "C" fn sync15_passwords_state_new(
     })
 }
 
+#[no_mangle]
+pub extern "C" fn sync15_passwords_num_open_connections(error: &mut ExternError) -> u64 {
+    ffi_support::call_with_output(error, || ENGINES.len() as u64)
+}
+
 unsafe fn bytes_to_key_string(key_bytes: *const u8, len: usize) -> Option<String> {
     if len == 0 {
         log::info!("Opening/Creating unencrypted database!");

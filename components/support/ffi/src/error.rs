@@ -196,6 +196,30 @@ impl ExternError {
         self.message as *const _
     }
 
+    /// Get the `message` property as an [`FfiStr`]
+    #[inline]
+    pub fn get_message(&self) -> crate::FfiStr<'_> {
+        // Safe because the lifetime is the same as our lifetime.
+        unsafe { crate::FfiStr::from_raw(self.get_raw_message()) }
+    }
+
+    /// Get the `message` property as a String, or None if this is not an error result.
+    ///
+    /// ## Safety
+    ///
+    /// You should only call this if you are certain that the other side of the FFI doesn't have a
+    /// reference to this result (more specifically, to the `message` property) anywhere!
+    #[inline]
+    pub unsafe fn get_and_consume_message(self) -> Option<String> {
+        if self.code.is_success() {
+            None
+        } else {
+            let res = self.get_message().into_string();
+            self.manually_release();
+            Some(res)
+        }
+    }
+
     /// Manually release the memory behind this string. You probably don't want to call this.
     ///
     /// ## Safety
