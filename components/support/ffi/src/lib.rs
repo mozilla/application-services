@@ -423,18 +423,12 @@ impl ByteBuffer {
     /// This will panic if the buffer length (`usize`) cannot fit into a `i64`.
     #[inline]
     pub fn from_vec(bytes: Vec<u8>) -> Self {
+        use std::convert::TryFrom;
         let mut buf = bytes.into_boxed_slice();
         let data = buf.as_mut_ptr();
-        let len = buf.len();
-        assert!(
-            len as i64 >= 0 && (len as u64) <= (i64::max_value() as u64),
-            "buffer length cannot fit into a i64."
-        );
+        let len = i64::try_from(buf.len()).expect("buffer length cannot fit into a i64.");
         std::mem::forget(buf);
-        Self {
-            data,
-            len: len as i64,
-        }
+        Self { data, len }
     }
 
     /// Convert this `ByteBuffer` into a Vec<u8>. This is the only way
