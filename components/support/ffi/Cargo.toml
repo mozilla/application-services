@@ -15,7 +15,8 @@ travis-ci = { repository = "mozilla/application-services" }
 
 [features]
 default = []
-log_backtraces = ["backtrace"]
+log_panics = []
+log_backtraces = ["log_panics", "backtrace"]
 
 [dependencies]
 log = "0.4"

@@ -744,9 +744,14 @@ impl<T> ConcurrentHandleMap<T> {
     /// Note that this requires taking the map's write lock, and so it will
     /// block until all other threads have finished any read/write operations.
     pub fn delete(&self, h: Handle) -> Result<(), HandleError> {
-        // XXX figure out how to handle poison...
-        let mut map = self.map.write().unwrap();
-        map.delete(h)
+        // We use `remove` and not delete (and use the inner block) to ensure
+        // that if `v`'s destructor panics, we aren't holding the write lock
+        // when it happens, so that the map itself doesn't get poisoned.
+        let v = {
+            let mut map = self.map.write().unwrap();
+            map.remove(h)
+        };
+        v.map(drop)
     }
 
     /// Convenient wrapper for `delete` which takes a `u64` that it will
@@ -1212,6 +1217,79 @@ mod test {
             map.delete_u64(h).expect("delete to succeed");
         });
         assert_eq!(drop_counter.load(Ordering::SeqCst), count);
+    }
+
+    struct PanicOnDrop(());
+    impl Drop for PanicOnDrop {
+        fn drop(&mut self) {
+            panic!("intentional panic (drop)");
+        }
+    }
+
+    #[test]
+    fn test_panicking_drop() {
+        let map = ConcurrentHandleMap::new();
+        let h = map.insert(PanicOnDrop(())).into_u64();
+        let mut e = ExternError::success();
+        crate::call_with_result(&mut e, || map.delete_u64(h));
+        assert_eq!(e.get_code(), crate::ErrorCode::PANIC);
+        let _ = unsafe { e.get_and_consume_message() };
+        assert!(!map.map.is_poisoned());
+        let inner = map.map.read().unwrap();
+        inner.assert_valid();
+        assert_eq!(inner.len(), 0);
+    }
+
+    #[test]
+    fn test_panicking_call_with() {
+        let map = ConcurrentHandleMap::new();
+        let h = map.insert(Foobar(0)).into_u64();
+        let mut e = ExternError::success();
+        map.call_with_output(&mut e, h, |_thing| {
+            panic!("intentional panic (call_with_output)");
+        });
+
+        assert_eq!(e.get_code(), crate::ErrorCode::PANIC);
+        let _ = unsafe { e.get_and_consume_message() };
+
+        {
+            assert!(!map.map.is_poisoned());
+            let inner = map.map.read().unwrap();
+            inner.assert_valid();
+            assert_eq!(inner.len(), 1);
+            let mut seen = false;
+            for e in &inner.entries {
+                if let EntryState::Active(v) = &e.state {
+                    assert!(!seen);
+                    assert!(v.is_poisoned());
+                    seen = true;
+                }
+            }
+        }
+        assert!(map.delete_u64(h).is_ok());
+        assert!(!map.map.is_poisoned());
+        let inner = map.map.read().unwrap();
+        inner.assert_valid();
+        assert_eq!(inner.len(), 0);
+    }
+
+    #[test]
+    fn test_panicking_insert_with() {
+        let map = ConcurrentHandleMap::new();
+        let mut e = ExternError::success();
+        let res = map.insert_with_output(&mut e, || {
+            panic!("intentional panic (insert_with_output)");
+        });
+
+        assert_eq!(e.get_code(), crate::ErrorCode::PANIC);
+        let _ = unsafe { e.get_and_consume_message() };
+
+        assert_eq!(res, 0);
+
+        assert!(!map.map.is_poisoned());
+        let inner = map.map.read().unwrap();
+        inner.assert_valid();
+        assert_eq!(inner.len(), 0);
     }
 
 }

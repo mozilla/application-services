@@ -174,13 +174,10 @@ pub use crate::handle_map::{ConcurrentHandleMap, Handle, HandleError, HandleMap}
 pub fn call_with_result<R, E, F>(out_error: &mut ExternError, callback: F) -> R::Value
 where
     F: panic::UnwindSafe + FnOnce() -> Result<R, E>,
-    // It would be nice to only require std::fmt::Debug if the `log_backtraces`
-    // feature is on, but there's not really a way to do that in stable rust (at least
-    // not in a way that wouldn't add more work for consumers of this lib).
-    E: Into<ExternError> + std::fmt::Debug,
+    E: Into<ExternError>,
     R: IntoFfi,
 {
-    call_with_result_impl(out_error, callback, false)
+    call_with_result_impl(out_error, callback)
 }
 
 /// Call a callback that returns a `T` while:
@@ -205,19 +202,15 @@ where
     call_with_result(out_error, || -> Result<_, ExternError> { Ok(callback()) })
 }
 
-fn call_with_result_impl<R, E, F>(
-    out_error: &mut ExternError,
-    callback: F,
-    abort_on_panic: bool,
-) -> R::Value
+fn call_with_result_impl<R, E, F>(out_error: &mut ExternError, callback: F) -> R::Value
 where
     F: panic::UnwindSafe + FnOnce() -> Result<R, E>,
-    E: Into<ExternError> + std::fmt::Debug,
+    E: Into<ExternError>,
     R: IntoFfi,
 {
     *out_error = ExternError::success();
     let res: thread::Result<(ExternError, R::Value)> = panic::catch_unwind(|| {
-        init_backtraces_once();
+        init_panic_handling_once();
         match callback() {
             Ok(v) => (ExternError::default(), v.into_ffi_value()),
             Err(e) => (e.into(), R::ffi_default()),
@@ -229,10 +222,6 @@ where
             o
         }
         Err(e) => {
-            log::error!("Caught a panic calling rust code: {:?}", e);
-            if abort_on_panic {
-                std::process::abort();
-            }
             *out_error = e.into();
             R::ffi_default()
         }
@@ -243,17 +232,50 @@ where
 /// that aborts, instead of unwinding, on panic.
 pub mod abort_on_panic {
     use super::*;
-    use std::panic::AssertUnwindSafe;
+
+    // Struct that exists to automatically process::abort if we don't call
+    // `std::mem::forget()` on it. This can have substantial performance
+    // benefits over calling `std::panic::catch_unwind` and aborting if a panic
+    // was caught, in addition to not requiring AssertUnwindSafe (for example).
+    struct AbortOnDrop;
+    impl Drop for AbortOnDrop {
+        fn drop(&mut self) {
+            std::process::abort();
+        }
+    }
+
+    /// A helper function useful for cases where you'd like to abort on panic,
+    /// but aren't in a position where you'd like to return an FFI-compatible
+    /// type.
+    #[inline]
+    pub fn with_abort_on_panic<R, F>(callback: F) -> R
+    where
+        F: FnOnce() -> R,
+    {
+        let aborter = AbortOnDrop;
+        let res = callback();
+        std::mem::forget(aborter);
+        res
+    }
 
     /// Same as the root `call_with_result`, but aborts on panic instead of unwinding. See the
     /// `call_with_result` documentation for more.
     pub fn call_with_result<R, E, F>(out_error: &mut ExternError, callback: F) -> R::Value
     where
         F: FnOnce() -> Result<R, E>,
-        E: Into<ExternError> + std::fmt::Debug,
+        E: Into<ExternError>,
         R: IntoFfi,
     {
-        super::call_with_result_impl(out_error, AssertUnwindSafe(callback), true)
+        with_abort_on_panic(|| match callback() {
+            Ok(v) => {
+                *out_error = ExternError::default();
+                v.into_ffi_value()
+            }
+            Err(e) => {
+                *out_error = e.into();
+                R::ffi_default()
+            }
+        })
     }
 
     /// Same as the root `call_with_output`, but aborts on panic instead of unwinding. As a result,
@@ -264,22 +286,20 @@ pub mod abort_on_panic {
         F: FnOnce() -> R,
         R: IntoFfi,
     {
-        let mut dummy = ExternError::success();
-        super::call_with_result_impl(
-            &mut dummy,
-            AssertUnwindSafe(|| -> Result<_, ExternError> { Ok(callback()) }),
-            true,
-        )
+        with_abort_on_panic(callback).into_ffi_value()
     }
 }
 
-#[cfg(feature = "log_backtraces")]
-fn init_backtraces_once() {
+#[cfg(feature = "log_panics")]
+fn init_panic_handling_once() {
     use std::sync::{Once, ONCE_INIT};
     static INIT_BACKTRACES: Once = ONCE_INIT;
     INIT_BACKTRACES.call_once(move || {
-        // Turn on backtraces for failure, if it's still listening.
-        std::env::set_var("RUST_BACKTRACE", "1");
+        #[cfg(all(feature = "log_backtraces", not(target_os = "android")))]
+        {
+            // Turn on backtraces for failure, if it's still listening.
+            std::env::set_var("RUST_BACKTRACE", "1");
+        }
         // Turn on a panic hook which logs both backtraces and the panic
         // "Location" (file/line). We do both in case we've been stripped,
         // ).
@@ -295,17 +315,18 @@ fn init_backtraces_once() {
             log::error!("### Rust `panic!` hit at file '{}', line {}", file, line);
             // We could use failure for failure::Backtrace (and we enable RUST_BACKTRACE
             // to opt-in to backtraces on failure errors if possible), however:
-            // - we don't already have a failure dependency (one is likely inevitable,
-            //   and all our clients do, so this doesn't matter)
             // - `failure` only checks the RUST_BACKTRACE variable once, and we could have errors
             //   before this. So we just use the backtrace crate directly.
-            log::error!("  Complete stack trace:\n{:?}", backtrace::Backtrace::new());
+            #[cfg(all(feature = "log_backtraces", not(target_os = "android")))]
+            {
+                log::error!("  Complete stack trace:\n{:?}", backtrace::Backtrace::new());
+            }
         }));
     });
 }
 
-#[cfg(not(feature = "log_backtraces"))]
-fn init_backtraces_once() {}
+#[cfg(not(feature = "log_panics"))]
+fn init_panic_handling_once() {}
 
 /// ByteBuffer is a struct that represents an array of bytes to be sent over the FFI boundaries.
 /// There are several cases when you might want to use this, but the primary one for us
@@ -398,18 +419,12 @@ impl ByteBuffer {
     /// This will panic if the buffer length (`usize`) cannot fit into a `i64`.
     #[inline]
     pub fn from_vec(bytes: Vec<u8>) -> Self {
+        use std::convert::TryFrom;
         let mut buf = bytes.into_boxed_slice();
         let data = buf.as_mut_ptr();
-        let len = buf.len();
-        assert!(
-            len as i64 >= 0 && (len as u64) <= (i64::max_value() as u64),
-            "buffer length cannot fit into a i64."
-        );
+        let len = i64::try_from(buf.len()).expect("buffer length cannot fit into a i64.");
         std::mem::forget(buf);
-        Self {
-            data,
-            len: len as i64,
-        }
+        Self { data, len }
     }
 
     /// Convert this `ByteBuffer` into a Vec<u8>. This is the only way
