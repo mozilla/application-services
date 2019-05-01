@@ -11,6 +11,7 @@ android {
         targetSdkVersion rootProject.ext.build['targetSdkVersion']
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.ext.library.version}\"")
     }
 
     buildTypes {
@@ -86,6 +87,7 @@ dependencies {
     // api project(path: ':rustlog-library', configuration: 'withoutLib')
     // api project(path: ':viaduct-library', configuration: 'withoutLib')
 
+    runtimeOnly project(':nsslibs')
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     jnaForTest "net.java.dev.jna:jna:$jna_version@jar"

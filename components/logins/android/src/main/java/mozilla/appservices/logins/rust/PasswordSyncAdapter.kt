@@ -6,30 +6,16 @@
 package mozilla.appservices.logins.rust
 
 import com.sun.jna.Library
-import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
-import java.lang.reflect.Proxy
+import mozilla.appservices.support.loadIndirect
+import org.mozilla.appservices.logins.BuildConfig
 
 @Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
 internal interface PasswordSyncAdapter : Library {
     companion object {
-        private val JNA_LIBRARY_NAME = System.getProperty("mozilla.appservices.megazord")
-
-        internal var INSTANCE: PasswordSyncAdapter = try {
-            val lib = Native.load<PasswordSyncAdapter>(JNA_LIBRARY_NAME, PasswordSyncAdapter::class.java)
-            if (JNA_LIBRARY_NAME == "logins_ffi") {
-                // Enable logcat logging if we aren't in a megazord.
-                lib.sync15_passwords_enable_logcat_logging()
-            }
-            lib
-        } catch (e: UnsatisfiedLinkError) {
-            Proxy.newProxyInstance(
-                    PasswordSyncAdapter::class.java.classLoader,
-                    arrayOf(PasswordSyncAdapter::class.java)) { _, _, _ ->
-                throw RuntimeException("Logins storage functionality not available (no native library)", e)
-            } as PasswordSyncAdapter
-        }
+        internal var INSTANCE: PasswordSyncAdapter =
+            loadIndirect(libName = "logins", libVersion = BuildConfig.LIBRARY_VERSION)
     }
 
     fun sync15_passwords_enable_logcat_logging()

@@ -11,6 +11,7 @@ android {
         targetSdkVersion rootProject.ext.build['targetSdkVersion']
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.ext.library.version}\"")
     }
 
     buildTypes {
@@ -96,7 +97,9 @@ dependencies {
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
-    runtimeOnly project(":full-megazord")
+    implementation project(":full-megazord")
+    implementation project(":as-support-library")
+
 
 //    jnaForTest project(path: ":full-megazord", configuration: 'jnaForTest')
 
