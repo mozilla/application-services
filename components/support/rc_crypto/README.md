@@ -8,4 +8,4 @@ It pretty much follows the very rust-idiomatic [ring crate API](https://briansmi
 
 ## License
 
-This derives it's API and portions of it's implementation from the the [`ring`](https://github.com/briansmith/ring/) project, which is available under an ISC-style license. See the COPYRIGHT file, or https://github.com/briansmith/ring/blob/master/LICENSE for details.
+This derives its API and portions of its implementation from the the [`ring`](https://github.com/briansmith/ring/) project, which is available under an ISC-style license. See the COPYRIGHT file, or https://github.com/briansmith/ring/blob/master/LICENSE for details.
