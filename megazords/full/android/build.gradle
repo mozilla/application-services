@@ -80,23 +80,12 @@ cargo {
 }
 
 dependencies {
-    // api project(path: ':fxa-client-library', configuration: 'withoutLib')
-//    api project(':logins-library')
-    // api project(path: ':places-library', configuration: 'withoutLib')
-    // api project(path: ':push-library', configuration: 'withoutLib')
-    // api project(path: ':rustlog-library', configuration: 'withoutLib')
-    // api project(path: ':viaduct-library', configuration: 'withoutLib')
-
+    // Bring nss libs along with full-megazord.
     runtimeOnly project(':nsslibs')
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
 }
-
-preBuild << {
-    println 'preBuild in fullMegazord!'
-}
-
 
 afterEvaluate {
     // The `cargoBuild` task isn't available until after evaluation.
@@ -106,15 +95,7 @@ afterEvaluate {
             productFlavor += "${it.name.capitalize()}"
         }
         def buildType = "${variant.buildType.name.capitalize()}"
-        println "PRODUCT ${productFlavor}, BUILD TYPE ${buildType}"
         tasks["generate${productFlavor}${buildType}Assets"].dependsOn(tasks["cargoBuild"])
-        // Don't depend on copyNativeLibs here as NSS libs are shipped with GeckoView.
-
-        // For unit tests.
-//        preBuild.dependsOn(tasks["cargoBuild"])
-//        preBuild.dependsOn(tasks["copyNativeLibs"])
-//        tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["cargoBuild"])
-//        tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["copyNativeLibs"])
     }
 }
 

@@ -7,8 +7,6 @@ android {
     defaultConfig {
         minSdkVersion rootProject.ext.build['minSdkVersion']
         targetSdkVersion rootProject.ext.build['targetSdkVersion']
-
-    //     testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -18,9 +16,6 @@ android {
             consumerProguardFiles "$rootDir/proguard-rules-consumer-jna.pro"
         }
 
-    //     // withoutLib {
-    //     //     initWith release
-    //     // }
     }
     sourceSets {
         main.jniLibs.srcDirs += "$buildDir/nativeLibs/android"
@@ -37,9 +32,6 @@ afterEvaluate {
     // android.sourceSets.main.jniLibs.srcDirs = []
 }
 
-// dependencies {
-//     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-// }
 
 def ARCHS_FOLDERS = [
     "android/armeabi-v7a",
@@ -75,43 +67,6 @@ ARCHS_FOLDERS.each { archFolder ->
 }
 
 preBuild.dependsOn(copyNativeLibs)
-
-// nativeLibs {
-//     libsRoot = "${libsRootDir}/libs"
-//     libs {
-//         nss {
-//             lib "libplc4.*"
-//             lib "libplds4.*"
-//             lib "libnspr4.*"
-//             lib "*freebl3.*"
-//             lib "*nss3.*"
-//             lib "*nssckbi.*"
-//             lib "*nssutil3.*"
-//             lib "*softokn3.*"
-//             lib "*smime3.*"
-//             lib "*sqlite3.*"
-//             // We don't need SSL so we might as well save space.
-//             // lib "libssl3.*"
-//         }
-//     }
-// }
-
-// Should/can this be more specific than preBuild? (It should be cheap, at the
-// very least...)
-
-// preBuild.dependsOn "copyNativeLibs"
-// afterEvaluate {
-//     android.libraryVariants.all { variant ->
-//         def productFlavor = ""
-//         variant.productFlavors.each {
-//             productFlavor += "${it.name.capitalize()}"
-//         }
-//         def buildType = "${variant.buildType.name.capitalize()}"
-//         tasks["generate${productFlavor}${buildType}Assets"].dependsOn(copyNativeLibs)
-//         println "IN prebuild generate${productFlavor}${buildType}Assets"
-//         // preBuild.dependsOn(tasks["copyNativeLibs"])
-//     }
-// }
 
 apply from: "$rootDir/publish.gradle"
 // TODO: this won't output a -forUnitTests, so unit tests that do crypto won't
