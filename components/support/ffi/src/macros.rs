@@ -184,9 +184,14 @@ macro_rules! define_string_destructor {
         #[doc = "Public destructor for strings managed by the other side of the FFI."]
         #[no_mangle]
         pub unsafe extern "C" fn $mylib_destroy_string(s: *mut std::os::raw::c_char) {
-            if !s.is_null() {
-                $crate::destroy_c_string(s)
-            }
+            // Note: This should never happen, but in the case of a bug aborting
+            // here is better than the badness that happens if we unwind across
+            // the FFI boundary.
+            $crate::abort_on_panic::with_abort_on_panic(|| {
+                if !s.is_null() {
+                    $crate::destroy_c_string(s)
+                }
+            });
         }
     };
 }
@@ -216,9 +221,15 @@ macro_rules! define_box_destructor {
     ($T:ty, $destructor_name:ident) => {
         #[no_mangle]
         pub unsafe extern "C" fn $destructor_name(v: *mut $T) {
-            if !v.is_null() {
-                drop(Box::from_raw(v))
-            }
+            // We should consider passing an error parameter in here rather than
+            // aborting, but at the moment the only case where we do this
+            // (interrupt handles) should never panic in Drop, so it's probably
+            // fine.
+            $crate::abort_on_panic::with_abort_on_panic(|| {
+                if !v.is_null() {
+                    drop(Box::from_raw(v))
+                }
+            });
         }
     };
 }
@@ -247,7 +258,10 @@ macro_rules! define_bytebuffer_destructor {
     ($destructor_name:ident) => {
         #[no_mangle]
         pub extern "C" fn $destructor_name(v: $crate::ByteBuffer) {
-            v.destroy()
+            // Note: This should never happen, but in the case of a bug aborting
+            // here is better than the badness that happens if we unwind across
+            // the FFI boundary.
+            $crate::abort_on_panic::with_abort_on_panic(|| v.destroy())
         }
     };
 }
