@@ -174,10 +174,7 @@ pub use crate::handle_map::{ConcurrentHandleMap, Handle, HandleError, HandleMap}
 pub fn call_with_result<R, E, F>(out_error: &mut ExternError, callback: F) -> R::Value
 where
     F: panic::UnwindSafe + FnOnce() -> Result<R, E>,
-    // It would be nice to only require std::fmt::Debug if the `log_backtraces`
-    // feature is on, but there's not really a way to do that in stable rust (at least
-    // not in a way that wouldn't add more work for consumers of this lib).
-    E: Into<ExternError> + std::fmt::Debug,
+    E: Into<ExternError>,
     R: IntoFfi,
 {
     call_with_result_impl(out_error, callback)
@@ -208,7 +205,7 @@ where
 fn call_with_result_impl<R, E, F>(out_error: &mut ExternError, callback: F) -> R::Value
 where
     F: panic::UnwindSafe + FnOnce() -> Result<R, E>,
-    E: Into<ExternError> + std::fmt::Debug,
+    E: Into<ExternError>,
     R: IntoFfi,
 {
     *out_error = ExternError::success();
