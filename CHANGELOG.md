@@ -9,6 +9,7 @@
 ### What's new
 
 - iOS only: Logins store has a new (static) `numOpenConnections` function, which can be used to detect leaks. ([#1070](https://github.com/mozilla/application-services/pull/1070))
+
 ## Places
 
 ### What's New
@@ -18,6 +19,10 @@
   only be called for non-sync users, as syncing the bookmarks over will result
   in better handling of sync metadata, among other things.
   ([#1078](https://github.com/mozilla/application-services/pull/1078))
+- iOS: Sync can now be interrupted using the `interrupt` method
+  ([#1092](https://github.com/mozilla/application-services/pull/1092))
+- iOS: Sync metadata can be reset using the `resetBookmarksMetadata` method
+  ([#1092](https://github.com/mozilla/application-services/pull/1092))
 
 # v0.27.1 (_2019-04-26_)
 

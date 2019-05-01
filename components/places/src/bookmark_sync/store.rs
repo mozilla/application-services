@@ -529,6 +529,38 @@ impl<'a> BookmarksStore<'a> {
             Err(err.into())
         }
     }
+
+    /// Removes all sync metadata, such that the next sync is treated as a
+    /// first sync. Unlike `wipe`, this keeps all local items, but clears
+    /// all synced items and pending tombstones. This also forgets the last
+    /// sync time.
+    pub(crate) fn reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
+        let tx = self.db.begin_transaction()?;
+        self.db.execute_batch(&format!(
+            "DELETE FROM moz_bookmarks_synced;
+
+             DELETE FROM moz_bookmarks_deleted;
+
+             UPDATE moz_bookmarks
+             SET syncChangeCounter = 0,
+                 syncStatus = {}",
+            (SyncStatus::New as u8)
+        ))?;
+        create_synced_bookmark_roots(self.db)?;
+        put_meta(self.db, LAST_SYNC_META_KEY, &0)?;
+        match assoc {
+            StoreSyncAssociation::Disconnected => {
+                delete_meta(self.db, GLOBAL_SYNCID_META_KEY)?;
+                delete_meta(self.db, COLLECTION_SYNCID_META_KEY)?;
+            }
+            StoreSyncAssociation::Connected(ids) => {
+                put_meta(self.db, GLOBAL_SYNCID_META_KEY, &ids.global)?;
+                put_meta(self.db, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+            }
+        };
+        tx.commit()?;
+        Ok(())
+    }
 }
 
 impl<'a> Store for BookmarksStore<'a> {
@@ -587,35 +619,8 @@ impl<'a> Store for BookmarksStore<'a> {
         })
     }
 
-    /// Removes all sync metadata, such that the next sync is treated as a
-    /// first sync. Unlike `wipe`, this keeps all local items, but clears
-    /// all synced items and pending tombstones. This also forgets the last
-    /// sync time.
     fn reset(&self, assoc: &StoreSyncAssociation) -> result::Result<(), failure::Error> {
-        let tx = self.db.begin_transaction()?;
-        self.db.execute_batch(&format!(
-            "DELETE FROM moz_bookmarks_synced;
-
-             DELETE FROM moz_bookmarks_deleted;
-
-             UPDATE moz_bookmarks
-             SET syncChangeCounter = 0,
-                 syncStatus = {}",
-            (SyncStatus::New as u8)
-        ))?;
-        create_synced_bookmark_roots(self.db)?;
-        put_meta(self.db, LAST_SYNC_META_KEY, &0)?;
-        match assoc {
-            StoreSyncAssociation::Disconnected => {
-                delete_meta(self.db, GLOBAL_SYNCID_META_KEY)?;
-                delete_meta(self.db, COLLECTION_SYNCID_META_KEY)?;
-            }
-            StoreSyncAssociation::Connected(ids) => {
-                put_meta(self.db, GLOBAL_SYNCID_META_KEY, &ids.global)?;
-                put_meta(self.db, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
-            }
-        };
-        tx.commit()?;
+        BookmarksStore::reset(self, assoc)?;
         Ok(())
     }
 

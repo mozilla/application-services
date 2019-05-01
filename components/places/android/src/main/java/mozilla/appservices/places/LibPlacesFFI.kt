@@ -108,6 +108,11 @@ internal interface LibPlacesFFI : Library {
         out_err: RustError.ByReference
     ): RawPlacesInterruptHandle?
 
+    fun places_new_sync_conn_interrupt_handle(
+        api: PlacesApiHandle,
+        out_err: RustError.ByReference
+    ): RawPlacesInterruptHandle?
+
     fun places_interrupt(
         conn: RawPlacesInterruptHandle,
         out_err: RustError.ByReference
@@ -176,7 +181,7 @@ internal interface LibPlacesFFI : Library {
     ): Long
 
     fun sync15_history_sync(
-        handle: PlacesConnectionHandle,
+        handle: PlacesApiHandle,
         key_id: String,
         access_token: String,
         sync_key: String,
@@ -185,11 +190,16 @@ internal interface LibPlacesFFI : Library {
     )
 
     fun sync15_bookmarks_sync(
-        handle: PlacesConnectionHandle,
+        handle: PlacesApiHandle,
         key_id: String,
         access_token: String,
         sync_key: String,
         tokenserver_url: String,
+        out_err: RustError.ByReference
+    )
+
+    fun places_api_reset_bookmarks(
+        handle: PlacesApiHandle,
         out_err: RustError.ByReference
     )
 
