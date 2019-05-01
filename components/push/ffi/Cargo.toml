@@ -7,7 +7,7 @@ license = "MPL-2.0"
 
 [lib]
 name = "push_ffi"
-crate-type = ["lib", "staticlib", "cdylib"]
+crate-type = ["lib"]
 
 [dependencies]
 serde_json = "1.0.28"

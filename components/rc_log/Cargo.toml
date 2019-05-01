@@ -7,7 +7,7 @@ license = "MPL-2.0"
 
 [lib]
 name = "rc_log_ffi"
-crate-type = ["lib", "staticlib", "cdylib"]
+crate-type = ["lib"]
 
 [features]
 default = []
