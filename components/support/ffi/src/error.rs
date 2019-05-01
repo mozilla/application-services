@@ -252,6 +252,7 @@ impl From<Box<dyn std::any::Any + Send + 'static>> for ExternError {
         } else {
             "Unknown panic!".to_string()
         };
+        log::error!("Caught a panic calling rust code: {:?}", message);
         ExternError::new_error(ErrorCode::PANIC, message)
     }
 }

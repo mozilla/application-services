@@ -225,7 +225,6 @@ where
             o
         }
         Err(e) => {
-            log::error!("Caught a panic calling rust code: {:?}", e);
             *out_error = e.into();
             R::ffi_default()
         }
