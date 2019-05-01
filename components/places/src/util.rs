@@ -4,6 +4,7 @@
 
 use crate::error::{ErrorKind, Result};
 use std::path::{Path, PathBuf};
+use url::Url;
 
 /// Equivalent to `&s[..max_len.min(s.len())]`, but handles the case where
 /// `s.is_char_boundary(max_len)` is false (which would otherwise panic).
@@ -27,7 +28,7 @@ pub fn slice_up_to(s: &str, max_len: usize) -> &str {
 fn unurl_path(p: impl AsRef<Path>) -> PathBuf {
     p.as_ref()
         .to_str()
-        .and_then(|s| url::Url::parse(s).ok())
+        .and_then(|s| Url::parse(s).ok())
         .and_then(|u| {
             if u.scheme() == "file" {
                 u.to_file_path().ok()
@@ -36,6 +37,24 @@ fn unurl_path(p: impl AsRef<Path>) -> PathBuf {
             }
         })
         .unwrap_or_else(|| p.as_ref().to_owned())
+}
+
+/// If `p` is a file URL, return it, otherwise try and make it one.
+///
+/// Errors if `p` is a relative non-url path, or if it's a URL path
+/// that's isn't a `file:` URL.
+pub fn ensure_url_path(p: impl AsRef<Path>) -> Result<Url> {
+    if let Some(u) = p.as_ref().to_str().and_then(|s| Url::parse(s).ok()) {
+        if u.scheme() == "file" {
+            Ok(u)
+        } else {
+            Err(ErrorKind::IllegalDatabasePath(p.as_ref().to_owned()).into())
+        }
+    } else {
+        let p = p.as_ref();
+        let u = Url::from_file_path(p).map_err(|_| ErrorKind::IllegalDatabasePath(p.to_owned()))?;
+        Ok(u)
+    }
 }
 
 /// As best as possible, convert `p` into an absolute path, resolving
@@ -93,5 +112,22 @@ mod test {
         );
         assert_eq!(unurl_path("/foo bar/baz").to_string_lossy(), "/foo bar/baz");
         assert_eq!(unurl_path("../baz").to_string_lossy(), "../baz");
+    }
+
+    #[test]
+    fn test_ensure_url() {
+        assert_eq!(
+            ensure_url_path("file:///foo%20bar/baz").unwrap().as_str(),
+            "file:///foo%20bar/baz"
+        );
+
+        assert_eq!(
+            ensure_url_path("/foo bar/baz").unwrap().as_str(),
+            "file:///foo%20bar/baz"
+        );
+
+        assert!(ensure_url_path("bar").is_err());
+
+        assert!(ensure_url_path("http://www.not-a-file.com").is_err());
     }
 }

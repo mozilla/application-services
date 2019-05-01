@@ -69,6 +69,9 @@ char *_Nullable places_match_url(PlacesConnectionHandle handle,
                                  const char *_Nonnull search,
                                  PlacesRustError *_Nonnull out_err);
 
+void places_bookmarks_import_from_ios(PlacesAPIHandle handle,
+                                      const char *_Nonnull db_path,
+                                      PlacesRustError *_Nonnull out_err);
 
 // XXX we should move this to protobufs rather than port it to swift.
 // char *_Nullable places_get_visited(PlacesConnectionHandle handle,

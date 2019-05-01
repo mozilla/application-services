@@ -21,14 +21,6 @@ use sync15::telemetry;
 use sync15::{IncomingChangeset, OutgoingChangeset, Payload};
 use url::Url;
 
-// In desktop sync, bookmarks are clamped to Jan 23, 1993 (which is 727747200000)
-// There's no good reason history records could be older than that, so we do
-// the same here (even though desktop's history currently doesn't)
-// XXX - there's probably a case to be made for this being, say, 5 years ago -
-// then all requests earlier than that are collapsed into a single visit at
-// this timestamp.
-const EARLIEST_TIMESTAMP: Timestamp = Timestamp(727_747_200_000);
-
 /// Clamps a history visit date between the current date and the earliest
 /// sensible date.
 fn clamp_visit_date(visit_date: Timestamp) -> Timestamp {
@@ -36,8 +28,10 @@ fn clamp_visit_date(visit_date: Timestamp) -> Timestamp {
     if visit_date > now {
         return now;
     }
-    if visit_date < EARLIEST_TIMESTAMP {
-        return EARLIEST_TIMESTAMP;
+    if visit_date < Timestamp::EARLIEST {
+        // XXX This is probably wrong (and doesn't match desktop). We should
+        // assume timestamps before this are garbage, and not clamp them.
+        return Timestamp::EARLIEST;
     }
     visit_date
 }
