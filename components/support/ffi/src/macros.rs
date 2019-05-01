@@ -21,12 +21,12 @@ macro_rules! implement_into_ffi_by_pointer {
 
             #[inline]
             fn ffi_default() -> *mut $T {
-                ::std::ptr::null_mut()
+                std::ptr::null_mut()
             }
 
             #[inline]
             fn into_ffi_value(self) -> *mut $T {
-                ::std::boxed::Box::into_raw(::std::boxed::Box::new(self))
+                Box::into_raw(Box::new(self))
             }
         }
     )*}
@@ -64,13 +64,13 @@ macro_rules! implement_into_ffi_by_pointer {
 macro_rules! implement_into_ffi_by_json {
     ($($T:ty),* $(,)*) => {$(
         unsafe impl $crate::IntoFfi for $T where $T: serde::Serialize {
-            type Value = *mut ::std::os::raw::c_char;
+            type Value = *mut std::os::raw::c_char;
             #[inline]
-            fn ffi_default() -> *mut ::std::os::raw::c_char {
-                ::std::ptr::null_mut()
+            fn ffi_default() -> *mut std::os::raw::c_char {
+                std::ptr::null_mut()
             }
             #[inline]
-            fn into_ffi_value(self) -> *mut ::std::os::raw::c_char {
+            fn into_ffi_value(self) -> *mut std::os::raw::c_char {
                 // This panic is inside our catch_panic, so it should be fine.
                 // We've also documented the case where the IntoFfi impl that
                 // calls this panics, and it's rare enough that it shouldn't
@@ -183,7 +183,7 @@ macro_rules! define_string_destructor {
     ($mylib_destroy_string:ident) => {
         #[doc = "Public destructor for strings managed by the other side of the FFI."]
         #[no_mangle]
-        pub unsafe extern "C" fn $mylib_destroy_string(s: *mut ::std::os::raw::c_char) {
+        pub unsafe extern "C" fn $mylib_destroy_string(s: *mut std::os::raw::c_char) {
             if !s.is_null() {
                 $crate::destroy_c_string(s)
             }
@@ -217,7 +217,7 @@ macro_rules! define_box_destructor {
         #[no_mangle]
         pub unsafe extern "C" fn $destructor_name(v: *mut $T) {
             if !v.is_null() {
-                drop(::std::boxed::Box::from_raw(v))
+                drop(Box::from_raw(v))
             }
         }
     };
@@ -281,7 +281,7 @@ macro_rules! define_handle_map_deleter {
         pub extern "C" fn $destructor_name(v: u64, err: &mut $crate::ExternError) {
             $crate::call_with_result(err, || {
                 // Force type errors here.
-                let map: &ConcurrentHandleMap<_> = &*$HANDLE_MAP_NAME;
+                let map: &$crate::ConcurrentHandleMap<_> = &*$HANDLE_MAP_NAME;
                 map.delete_u64(v)
             })
         }
