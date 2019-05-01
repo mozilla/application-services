@@ -188,12 +188,32 @@ impl From<msg_types::device::Capability> for DeviceCapability {
     }
 }
 
+impl DeviceCapability {
+    pub unsafe fn from_protobuf_array_ptr(ptr: *const u8, len: i32) -> Vec<Self> {
+        let buffer = get_buffer(ptr, len);
+        let capabilities: Result<msg_types::Capabilities, _> = prost::Message::decode(buffer);
+        capabilities
+            .map(|cc| cc.to_capabilities_vec())
+            .unwrap_or_else(|_| vec![])
+    }
+}
+
 impl msg_types::Capabilities {
     pub fn to_capabilities_vec(&self) -> Vec<DeviceCapability> {
         self.capability
             .iter()
             .map(|c| msg_types::device::Capability::from_i32(*c).unwrap().into())
             .collect()
+    }
+}
+
+unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
+    assert!(len >= 0, "Bad buffer len: {}", len);
+    if len == 0 {
+        &[]
+    } else {
+        assert!(!data.is_null(), "Unexpected null data pointer");
+        std::slice::from_raw_parts(data, len as usize)
     }
 }
 

@@ -4,6 +4,14 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.2...master)
 
+## FxA
+
+### Breaking Changes
+
+- `FirefoxAccount.ensureCapabilities` now takes a set of capabilities
+   as a parameter. All the device registered "capabilities" such as Send
+   Tab will be replaced by the passed set of new capabilities.
+
 ## Push
 
 ### Breaking Changes

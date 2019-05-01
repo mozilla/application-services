@@ -98,7 +98,12 @@ internal interface LibFxAFFI : Library {
         capabilities_len: Int,
         e: RustError.ByReference
     )
-    fun fxa_ensure_capabilities(fxa: FxaHandle, e: RustError.ByReference)
+    fun fxa_ensure_capabilities(
+        fxa: FxaHandle,
+        capabilities_data: Pointer,
+        capabilities_len: Int,
+        e: RustError.ByReference
+    )
     fun fxa_send_tab(fxa: FxaHandle, targetDeviceId: String, title: String, url: String, e: RustError.ByReference)
 
     fun fxa_str_free(string: Pointer)

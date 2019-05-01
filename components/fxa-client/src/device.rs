@@ -15,7 +15,7 @@ use crate::{
     AccountEvent, FirefoxAccount,
 };
 use serde_derive::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 impl FirefoxAccount {
     /// Fetches the list of devices from the current account including
@@ -32,6 +32,31 @@ impl FirefoxAccount {
             .find(|d| d.is_current_device))
     }
 
+    /// Replaces the internal set of "tracked" device capabilities by re-registering
+    /// new capabilities and returns a set of device commands to register with the
+    /// server.
+    fn register_capabilities(
+        &mut self,
+        capabilities: &[Capability],
+    ) -> Result<HashMap<String, String>> {
+        let mut capabilities_set = HashSet::new();
+        let mut commands = HashMap::new();
+        for capability in capabilities {
+            match capability {
+                Capability::SendTab => {
+                    let send_tab_command = self.generate_send_tab_command_data()?;
+                    commands.insert(
+                        commands::send_tab::COMMAND_NAME.to_owned(),
+                        send_tab_command.to_owned(),
+                    );
+                    capabilities_set.insert(Capability::SendTab);
+                }
+            }
+        }
+        self.state.device_capabilities = capabilities_set;
+        Ok(commands)
+    }
+
     /// Initalizes our own device, most of the time this will be called right after logging-in
     /// for the first time.
     ///
@@ -42,19 +67,7 @@ impl FirefoxAccount {
         device_type: Type,
         capabilities: &[Capability],
     ) -> Result<()> {
-        let mut commands = HashMap::new();
-        for capability in capabilities {
-            match capability {
-                Capability::SendTab => {
-                    let send_tab_command = self.generate_send_tab_command_data()?;
-                    commands.insert(
-                        commands::send_tab::COMMAND_NAME.to_owned(),
-                        send_tab_command.to_owned(),
-                    );
-                    self.state.device_capabilities.insert(Capability::SendTab);
-                }
-            }
-        }
+        let commands = self.register_capabilities(capabilities)?;
         let update = DeviceUpdateRequestBuilder::new()
             .display_name(name)
             .device_type(&device_type)
@@ -64,21 +77,19 @@ impl FirefoxAccount {
         Ok(())
     }
 
-    /// Ensure that the capabilities requested earlier in initialize_device are A-OK.
+    /// Register a set of device capabilities against the current device.
+    ///
     /// As the only capability is Send Tab now, its command is registered with the server.
     /// Don't forget to also call this if the Sync Keys change as they
     /// encrypt the Send Tab command data.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn ensure_capabilities(&mut self) -> Result<()> {
-        for capability in self.state.device_capabilities.clone() {
-            match capability {
-                Capability::SendTab => {
-                    let send_tab_command = self.generate_send_tab_command_data()?;
-                    self.register_command(commands::send_tab::COMMAND_NAME, &send_tab_command)?;
-                }
-            }
-        }
+    pub fn ensure_capabilities(&mut self, capabilities: &[Capability]) -> Result<()> {
+        let commands = self.register_capabilities(capabilities)?;
+        let update = DeviceUpdateRequestBuilder::new()
+            .available_commands(&commands)
+            .build();
+        self.update_device(update)?;
         Ok(())
     }
 
@@ -197,6 +208,7 @@ impl FirefoxAccount {
     // TODO: this currently overwrites every other registered command
     // for the device because the server does not have a `PATCH commands`
     // endpoint yet.
+    #[allow(dead_code)]
     pub(crate) fn register_command(
         &self,
         command: &str,
