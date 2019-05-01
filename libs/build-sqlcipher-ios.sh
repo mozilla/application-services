@@ -58,6 +58,8 @@ CFLAGS="\
 # Match the SQLCIPHER_CFLAGS used in Firefox for iOS v15.x and earlier.
 # NOTE: iOS v15.x and earlier used -DSQLITE_THREADSAFE=2, but the
 # SQLCipher `configure` script seems to overwrite it to only be 0 or 1.
+# NOTE: iOS v16.x and earlier did not use -DHAVE_USLEEP=1, but it seems
+# like a safe setting since it prevents sleep with <1000ms precision.
 SQLCIPHER_CFLAGS=" \
   -DNDEBUG=1 \
   -DSQLITE_HAS_CODEC \
@@ -69,11 +71,11 @@ SQLCIPHER_CFLAGS=" \
   -DSQLITE_ENABLE_FTS3_PARENTHESIS \
   -DSQLITE_ENABLE_FTS4 \
   -DSQLITE_ENABLE_FTS5 \
+  -DHAVE_USLEEP=1 \
 "
 # These additional options are used on desktop, but are not currently
 # used on iOS until we can performance test them:
 #   -DSQLITE_SOUNDEX \
-#   -DHAVE_USLEEP=1 \
 #   -DSQLITE_ENABLE_MEMORY_MANAGEMENT=1 \
 #   -DSQLITE_ENABLE_LOAD_EXTENSION \
 #   -DSQLITE_ENABLE_COLUMN_METADATA \
