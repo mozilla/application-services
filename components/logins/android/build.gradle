@@ -96,7 +96,8 @@ dependencies {
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
-    implementation project(":full-megazord")
+    runtimeOnly project(":full-megazord")
+    runtimeOnly project(':nsslibs')
 
 //    jnaForTest project(path: ":full-megazord", configuration: 'jnaForTest')
 
@@ -116,21 +117,22 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
 }
 
- afterEvaluate {
-     // The `cargoBuild` task isn't available until after evaluation.
-     android.libraryVariants.all { variant ->
-         def productFlavor = ""
-         variant.productFlavors.each {
-             productFlavor += "${it.name.capitalize()}"
-         }
-         def buildType = "${variant.buildType.name.capitalize()}"
-         tasks["generate${productFlavor}${buildType}Assets"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
+afterEvaluate {
+    // The `cargoBuild` task isn't available until after evaluation.
+    android.libraryVariants.all { variant ->
+        def productFlavor = ""
+        variant.productFlavors.each {
+            productFlavor += "${it.name.capitalize()}"
+        }
+        def buildType = "${variant.buildType.name.capitalize()}"
+        tasks["generate${productFlavor}${buildType}Assets"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
+        // tasks["generate${productFlavor}${buildType}Assets"].dependsOn(project(':nss-libs').tasks["copyNativeLibs"])
 
-         // For unit tests.
-         tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
-         tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(project(':full-megazord').tasks["copyNativeLibs"])
-     }
- }
+        // For unit tests.
+        tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
+        // tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(project(':nss-libs').tasks["copyNativeLibs"])
+    }
+}
 
 apply from: "$rootDir/publish.gradle"
 // If using jnaForTestConfiguration or variantWithoutLib,

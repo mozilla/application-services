@@ -207,7 +207,7 @@ switch (DefaultPlatform.RESOURCE_PREFIX) {
         break
 }
 
-def libsRootDir = useDownloadedLibs ? rootProject.buildDir : rootProject.rootDir
+ext.libsRootDir = useDownloadedLibs ? rootProject.buildDir : rootProject.rootDir
 
 subprojects {
     apply plugin: 'digital.wup.android-maven-publish'
@@ -227,26 +227,26 @@ subprojects {
         }
     }
 
-    apply plugin: NativeLibsPlugin
-    nativeLibs {
-        libsRoot = "${libsRootDir}/libs"
-        libs {
-            nss {
-                lib "libplc4.*"
-                lib "libplds4.*"
-                lib "libnspr4.*"
-                lib "*freebl3.*"
-                lib "*nss3.*"
-                lib "*nssckbi.*"
-                lib "*nssutil3.*"
-                lib "*softokn3.*"
-                lib "*smime3.*"
-                lib "*sqlite3.*"
-                // We don't need SSL so we might as well save space.
-                // lib "libssl3.*"
-            }
-        }
-    }
+    // apply plugin: NativeLibsPlugin
+    // nativeLibs {
+    //     libsRoot = "${libsRootDir}/libs"
+    //     libs {
+    //         nss {
+    //             lib "libplc4.*"
+    //             lib "libplds4.*"
+    //             lib "libnspr4.*"
+    //             lib "*freebl3.*"
+    //             lib "*nss3.*"
+    //             lib "*nssckbi.*"
+    //             lib "*nssutil3.*"
+    //             lib "*softokn3.*"
+    //             lib "*smime3.*"
+    //             lib "*sqlite3.*"
+    //             // We don't need SSL so we might as well save space.
+    //             // lib "libssl3.*"
+    //         }
+    //     }
+    // }
 }
 
 // Configure some environment variables, per toolchain, that will apply during
@@ -254,8 +254,8 @@ subprojects {
 // before invoking Gradle (or Cargo).
 ext.cargoExec = { spec, toolchain ->
     spec.environment("OPENSSL_STATIC", "1")
-    spec.environment("NSS_DIR",               new File(libsRootDir, "libs/${toolchain.folder}/nss").absolutePath)
-    spec.environment("OPENSSL_DIR",           new File(libsRootDir, "libs/${toolchain.folder}/openssl").absolutePath)
+    spec.environment("NSS_DIR",               new File(rootProject.ext.libsRootDir, "libs/${toolchain.folder}/nss").absolutePath)
+    spec.environment("OPENSSL_DIR",           new File(rootProject.ext.libsRootDir, "libs/${toolchain.folder}/openssl").absolutePath)
 }
 // Strictly speaking, we could always specify `SQLCIPHER_LIB_DIR` and
 // `SQLCIPHER_INCLUDE_DIR`, and so long as everything else is configured right,
@@ -264,8 +264,8 @@ ext.cargoExec = { spec, toolchain ->
 // configuration is otherwise wrong.
 ext.cargoExecWithSQLCipher = { spec, toolchain ->
     ext.cargoExec(spec, toolchain)
-    spec.environment("SQLCIPHER_LIB_DIR",     new File(libsRootDir, "libs/${toolchain.folder}/sqlcipher/lib").absolutePath)
-    spec.environment("SQLCIPHER_INCLUDE_DIR", new File(libsRootDir, "libs/${toolchain.folder}/sqlcipher/include").absolutePath)
+    spec.environment("SQLCIPHER_LIB_DIR",     new File(rootProject.ext.libsRootDir, "libs/${toolchain.folder}/sqlcipher/lib").absolutePath)
+    spec.environment("SQLCIPHER_INCLUDE_DIR", new File(rootProject.ext.libsRootDir, "libs/${toolchain.folder}/sqlcipher/include").absolutePath)
 }
 
 detekt {

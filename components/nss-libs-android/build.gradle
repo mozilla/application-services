@@ -1,0 +1,123 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-android-extensions'
+
+android {
+    compileSdkVersion rootProject.ext.build.compileSdkVersion
+
+    defaultConfig {
+        minSdkVersion rootProject.ext.build['minSdkVersion']
+        targetSdkVersion rootProject.ext.build['targetSdkVersion']
+
+    //     testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            consumerProguardFiles "$rootDir/proguard-rules-consumer-jna.pro"
+        }
+
+    //     // withoutLib {
+    //     //     initWith release
+    //     // }
+    }
+    sourceSets {
+        main.jniLibs.srcDirs += "$buildDir/nativeLibs/android"
+        main.resources.srcDirs += "$buildDir/nativeLibs/android"
+        test.jniLibs.srcDirs += "$buildDir/nativeLibs/desktop"
+        test.resources.srcDirs += "$buildDir/nativeLibs/desktop"
+    }
+
+}
+
+afterEvaluate {
+    android.sourceSets.debug.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
+    android.sourceSets.release.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
+    // android.sourceSets.main.jniLibs.srcDirs = []
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+}
+
+def ARCHS_FOLDERS = [
+    "android/armeabi-v7a",
+    "android/arm64-v8a",
+    "android/x86",
+    "android/x86_64",
+    "desktop/linux-x86-64",
+    "desktop/darwin",
+    "desktop/win32-x86-64"
+]
+
+task copyNativeLibs
+
+ARCHS_FOLDERS.each { archFolder ->
+    def taskName = archFolder.replace("/", "-")
+    def copyArchTask = tasks.create(name: "copyNativeLibs-$taskName", type: Copy) {
+        from "${rootProject.ext.libsRootDir}/libs/$archFolder/nss/lib/"
+        include "libplc4.*"
+        include "libplds4.*"
+        include "libnspr4.*"
+        include "*freebl3.*"
+        include "*nss3.*"
+        include "*nssckbi.*"
+        include "*nssutil3.*"
+        include "*softokn3.*"
+        include "*smime3.*"
+        include "*sqlite3.*"
+        into "$buildDir/nativeLibs/$archFolder"
+    }
+    copyArchTask.dependsOn(rootProject.untarAndroidLibs)
+    copyArchTask.dependsOn(rootProject.untarDesktopLibs)
+    copyNativeLibs.dependsOn(copyArchTask)
+}
+
+preBuild.dependsOn(copyNativeLibs)
+
+// nativeLibs {
+//     libsRoot = "${libsRootDir}/libs"
+//     libs {
+//         nss {
+//             lib "libplc4.*"
+//             lib "libplds4.*"
+//             lib "libnspr4.*"
+//             lib "*freebl3.*"
+//             lib "*nss3.*"
+//             lib "*nssckbi.*"
+//             lib "*nssutil3.*"
+//             lib "*softokn3.*"
+//             lib "*smime3.*"
+//             lib "*sqlite3.*"
+//             // We don't need SSL so we might as well save space.
+//             // lib "libssl3.*"
+//         }
+//     }
+// }
+
+// Should/can this be more specific than preBuild? (It should be cheap, at the
+// very least...)
+
+// preBuild.dependsOn "copyNativeLibs"
+// afterEvaluate {
+//     android.libraryVariants.all { variant ->
+//         def productFlavor = ""
+//         variant.productFlavors.each {
+//             productFlavor += "${it.name.capitalize()}"
+//         }
+//         def buildType = "${variant.buildType.name.capitalize()}"
+//         tasks["generate${productFlavor}${buildType}Assets"].dependsOn(copyNativeLibs)
+//         println "IN prebuild generate${productFlavor}${buildType}Assets"
+//         // preBuild.dependsOn(tasks["copyNativeLibs"])
+//     }
+// }
+
+apply from: "$rootDir/publish.gradle"
+// TODO: this won't output a -forUnitTests, so unit tests that do crypto won't
+// work. Not sure how to fix really.
+ext.configurePublish(
+        /* jnaForTestConfiguration= */ null,
+        /* isMegazord= */ false,
+)
