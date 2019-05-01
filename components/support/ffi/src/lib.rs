@@ -213,7 +213,7 @@ where
 {
     *out_error = ExternError::success();
     let res: thread::Result<(ExternError, R::Value)> = panic::catch_unwind(|| {
-        init_backtraces_once();
+        init_panic_handling_once();
         match callback() {
             Ok(v) => (ExternError::default(), v.into_ffi_value()),
             Err(e) => (e.into(), R::ffi_default()),
@@ -294,13 +294,16 @@ pub mod abort_on_panic {
     }
 }
 
-#[cfg(feature = "log_backtraces")]
-fn init_backtraces_once() {
+#[cfg(feature = "log_panics")]
+fn init_panic_handling_once() {
     use std::sync::{Once, ONCE_INIT};
     static INIT_BACKTRACES: Once = ONCE_INIT;
     INIT_BACKTRACES.call_once(move || {
-        // Turn on backtraces for failure, if it's still listening.
-        std::env::set_var("RUST_BACKTRACE", "1");
+        #[cfg(all(feature = "log_backtraces", not(target_os = "android")))]
+        {
+            // Turn on backtraces for failure, if it's still listening.
+            std::env::set_var("RUST_BACKTRACE", "1");
+        }
         // Turn on a panic hook which logs both backtraces and the panic
         // "Location" (file/line). We do both in case we've been stripped,
         // ).
@@ -316,17 +319,18 @@ fn init_backtraces_once() {
             log::error!("### Rust `panic!` hit at file '{}', line {}", file, line);
             // We could use failure for failure::Backtrace (and we enable RUST_BACKTRACE
             // to opt-in to backtraces on failure errors if possible), however:
-            // - we don't already have a failure dependency (one is likely inevitable,
-            //   and all our clients do, so this doesn't matter)
             // - `failure` only checks the RUST_BACKTRACE variable once, and we could have errors
             //   before this. So we just use the backtrace crate directly.
-            log::error!("  Complete stack trace:\n{:?}", backtrace::Backtrace::new());
+            #[cfg(all(feature = "log_backtraces", not(target_os = "android")))]
+            {
+                log::error!("  Complete stack trace:\n{:?}", backtrace::Backtrace::new());
+            }
         }));
     });
 }
 
-#[cfg(not(feature = "log_backtraces"))]
-fn init_backtraces_once() {}
+#[cfg(not(feature = "log_panics"))]
+fn init_panic_handling_once() {}
 
 /// ByteBuffer is a struct that represents an array of bytes to be sent over the FFI boundaries.
 /// There are several cases when you might want to use this, but the primary one for us
