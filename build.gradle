@@ -19,7 +19,7 @@ buildscript {
         }
     }
     dependencies {
-        classpath "com.android.tools.build:gradle:$properties.androidGradlePluginVersion"
+        classpath "com.android.tools.build:gradle:3.3.2"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
 
         // Publish.
@@ -226,27 +226,6 @@ subprojects {
             }
         }
     }
-
-    // apply plugin: NativeLibsPlugin
-    // nativeLibs {
-    //     libsRoot = "${libsRootDir}/libs"
-    //     libs {
-    //         nss {
-    //             lib "libplc4.*"
-    //             lib "libplds4.*"
-    //             lib "libnspr4.*"
-    //             lib "*freebl3.*"
-    //             lib "*nss3.*"
-    //             lib "*nssckbi.*"
-    //             lib "*nssutil3.*"
-    //             lib "*softokn3.*"
-    //             lib "*smime3.*"
-    //             lib "*sqlite3.*"
-    //             // We don't need SSL so we might as well save space.
-    //             // lib "libssl3.*"
-    //         }
-    //     }
-    // }
 }
 
 // Configure some environment variables, per toolchain, that will apply during
