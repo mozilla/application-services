@@ -11,4 +11,4 @@ probably want to find the corresponding component over in
 consume it from there.
 
 You might also want to read up on [consuming megazord
-libraries](consuming-megazord-libraries.md).
+libraries](https://mozilla.github.io/application-services/docs/applications/consuming-megazord-libraries.html).
