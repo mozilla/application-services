@@ -15,7 +15,7 @@ hawk = { version = "1.0.5", optional = true }
 hex = "0.3.2"
 lazy_static = "1.0.0"
 log = "0.4"
-openssl = { version = "0.10.12", optional = true }
+openssl = { version = "= 0.10.20", optional = true }
 prost = "0.5"
 prost-derive = "0.5"
 ring = "0.14.5"
