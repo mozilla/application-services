@@ -19,7 +19,7 @@ use ece::{
     LocalKeyPairImpl,
 };
 use openssl::ec::EcKey;
-use rc_crypto::rand;
+use openssl::rand::rand_bytes;
 
 use crate::error;
 
@@ -172,7 +172,7 @@ pub struct Crypto;
 
 pub fn get_bytes(size: usize) -> error::Result<Vec<u8>> {
     let mut bytes = vec![0u8; size];
-    rand::fill(&mut bytes)?;
+    rand_bytes(bytes.as_mut_slice())?;
     Ok(bytes)
 }
 

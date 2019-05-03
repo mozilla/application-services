@@ -25,7 +25,6 @@ impl From<Error> for ffi_support::ExternError {
 
 error_support::define_error! {
     ErrorKind {
-        (CryptoError, rc_crypto::Error),
         (StorageSqlError, rusqlite::Error),
         (UrlParseError, url::ParseError),
     }
@@ -40,9 +39,6 @@ pub enum ErrorKind {
     /// An unspecifed Internal processing error has occurred
     #[fail(display = "Internal Error: {:?}", _0)]
     InternalError(String),
-
-    #[fail(display = "Crypto/NSS error: {}", _0)]
-    CryptoError(#[fail(cause)] rc_crypto::Error),
 
     /// An unknown OpenSSL Cryptography error
     #[fail(display = "OpenSSL Error: {:?}", _0)]
@@ -99,7 +95,6 @@ impl ErrorKind {
             ErrorKind::TranscodingError(_) => 31,
             ErrorKind::EncryptionError(_) => 32,
             ErrorKind::UrlParseError(_) => 33,
-            ErrorKind::CryptoError(_) => 34,
         };
         ffi_support::ErrorCode::new(code)
     }

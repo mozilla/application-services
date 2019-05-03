@@ -26,7 +26,6 @@ viaduct = { path = "../viaduct" }
 ffi-support = { path = "../support/ffi" }
 sql-support = { path = "../support/sql" }
 error-support = { path = "../support/error" }
-rc_crypto = { path = "../support/rc_crypto" }
 
 [dev-dependencies]
 env_logger = "0.6.1"
