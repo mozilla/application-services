@@ -3,12 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::{ErrorKind, Result};
-use openssl::symm;
-use rc_crypto::{
-    digest,
-    hmac::{self, Signature, SigningKey, VerificationKey},
-    rand,
-};
+use openssl::hash::MessageDigest;
+use openssl::pkey::PKey;
+use openssl::sign::Signer;
+use openssl::{self, symm};
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct KeyBundle {
@@ -36,7 +34,7 @@ impl KeyBundle {
 
     pub fn new_random() -> Result<KeyBundle> {
         let mut buffer = [0u8; 64];
-        rand::fill(&mut buffer)?;
+        openssl::rand::rand_bytes(&mut buffer)?;
         KeyBundle::from_ksync_bytes(&buffer)
     }
 
@@ -77,9 +75,20 @@ impl KeyBundle {
         [base64::encode(&self.enc_key), base64::encode(&self.mac_key)]
     }
 
-    fn hmac(&self, ciphertext: &[u8]) -> Result<Signature> {
-        let key = SigningKey::new(&digest::SHA256, self.hmac_key());
-        Ok(hmac::sign(&key, ciphertext)?)
+    /// Returns the 32 byte digest by value since it's small enough to be passed
+    /// around cheaply, and easily convertable into a slice or vec if you want.
+    fn hmac(&self, ciphertext: &[u8]) -> Result<[u8; 32]> {
+        let mut out = [0u8; 32];
+        let key = PKey::hmac(self.hmac_key())?;
+        let mut signer = Signer::new(MessageDigest::sha256(), &key)?;
+        signer.update(ciphertext)?;
+        let size = signer.sign(&mut out)?;
+        // This isn't an Err since it really should not be possible.
+        assert!(
+            size == 32,
+            "Somehow the 256 bits from sha256 do not add up into 32 bytes..."
+        );
+        Ok(out)
     }
 
     /// Important! Don't compare against this directly! use `verify_hmac` or `verify_hmac_string`!
@@ -87,25 +96,32 @@ impl KeyBundle {
         Ok(base16::encode_lower(&self.hmac(ciphertext)?))
     }
 
-    pub fn verify_hmac(&self, expected_hmac: &[u8], ciphertext_base64: &str) -> Result<()> {
-        let key = VerificationKey::new(&digest::SHA256, self.hmac_key());
-        Ok(hmac::verify(
-            &key,
-            ciphertext_base64.as_bytes(),
-            expected_hmac,
-        )?)
+    pub fn verify_hmac(&self, expected_hmac: &[u8], ciphertext_base64: &str) -> Result<bool> {
+        let computed_hmac = self.hmac(ciphertext_base64.as_bytes())?;
+        // I suspect this is unnecessary for our case, but the rust-openssl docs
+        // want us to use this over == to avoid sidechannels, and who am I to argue?
+        Ok(openssl::memcmp::eq(&expected_hmac, &computed_hmac))
     }
 
-    pub fn verify_hmac_string(&self, expected_hmac: &str, ciphertext_base64: &str) -> Result<()> {
+    pub fn verify_hmac_string(&self, expected_hmac: &str, ciphertext_base64: &str) -> Result<bool> {
+        let computed_hmac = self.hmac(ciphertext_base64.as_bytes())?;
+        // Note: openssl::memcmp::eq panics if the sizes aren't the same. Desktop returns that it
+        // was a verification failure, so we will too.
+        if expected_hmac.len() != 64 {
+            log::warn!("Garbage HMAC verification string: Wrong length");
+            return Ok(false);
+        }
         // Decode the expected_hmac into bytes to avoid issues if a client happens to encode
         // this as uppercase. This shouldn't happen in practice, but doing it this way is more
         // robust and avoids an allocation.
         let mut decoded_hmac = [0u8; 32];
+
         if base16::decode_slice(expected_hmac, &mut decoded_hmac).is_err() {
             log::warn!("Garbage HMAC verification string: contained non base16 characters");
-            return Err(ErrorKind::HmacMismatch.into());
+            return Ok(false);
         }
-        self.verify_hmac(&decoded_hmac, ciphertext_base64)
+
+        Ok(openssl::memcmp::eq(&decoded_hmac, &computed_hmac))
     }
 
     /// Decrypt the provided ciphertext with the given iv, and decodes the
@@ -136,7 +152,7 @@ impl KeyBundle {
     /// and the generated iv.
     pub fn encrypt_bytes_rand_iv(&self, cleartext_bytes: &[u8]) -> Result<(Vec<u8>, [u8; 16])> {
         let mut iv = [0u8; 16];
-        rand::fill(&mut iv)?;
+        openssl::rand::rand_bytes(&mut iv)?;
         let ciphertext = self.encrypt_bytes_with_iv(cleartext_bytes, &iv)?;
         Ok((ciphertext, iv))
     }
@@ -184,7 +200,7 @@ mod test {
         let ciphertext_base64 = CIPHERTEXT_B64_PIECES.join("");
         assert!(key_bundle
             .verify_hmac_string(HMAC_B16, &ciphertext_base64)
-            .is_ok());
+            .unwrap());
     }
 
     #[test]

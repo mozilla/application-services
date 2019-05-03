@@ -4,8 +4,7 @@
 
 use crate::{errors::*, FirefoxAccount};
 use byteorder::{BigEndian, ByteOrder};
-use rc_crypto::digest;
-use ring::{aead, agreement, agreement::EphemeralPrivateKey, rand::SecureRandom};
+use ring::{aead, agreement, agreement::EphemeralPrivateKey, digest, rand::SecureRandom};
 use serde_derive::*;
 use serde_json::{self, json};
 use untrusted::Input;
@@ -118,7 +117,7 @@ impl ScopedKeysFlow {
                 buf.extend_from_slice(&to_32b_buf(apv.len() as u32));
                 buf.extend_from_slice(apv.as_bytes());
                 buf.extend_from_slice(&to_32b_buf(256));
-                Ok(digest::digest(&digest::SHA256, &buf)?)
+                Ok(digest::digest(&digest::SHA256, &buf).as_ref()[0..32].to_vec())
             },
         )?;
 

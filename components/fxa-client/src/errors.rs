@@ -111,9 +111,6 @@ pub enum ErrorKind {
         info: String,
     },
 
-    #[fail(display = "Crypto/NSS error: {}", _0)]
-    CryptoError(#[fail(cause)] rc_crypto::Error),
-
     // Basically reimplement error_chain's foreign_links. (Ugh, this sucks)
     #[fail(display = "http-ece encryption error: {}", _0)]
     EceError(#[fail(cause)] ece::Error),
@@ -156,7 +153,6 @@ pub enum ErrorKind {
 
 error_support::define_error! {
     ErrorKind {
-        (CryptoError, rc_crypto::Error),
         (EceError, ece::Error),
         (HexDecodeError, hex::FromHexError),
         (Base64Decode, base64::DecodeError),

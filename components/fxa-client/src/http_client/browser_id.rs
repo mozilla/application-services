@@ -9,7 +9,7 @@ use crate::{
     Config,
 };
 use hawk_request::HawkRequestBuilder;
-use rc_crypto::{digest, hkdf, hmac};
+use ring::{digest, hkdf, hmac};
 use rsa::RSABrowserIDKeyPair;
 use serde_derive::*;
 use serde_json::json;
@@ -201,7 +201,7 @@ pub fn derive_sync_key(kb: &[u8]) -> Result<Vec<u8>> {
 
 pub fn compute_client_state(kb: &[u8]) -> Result<String> {
     Ok(hex::encode(
-        &digest::digest(&digest::SHA256, &kb)?.as_ref()[0..16],
+        digest::digest(&digest::SHA256, &kb).as_ref()[0..16].to_vec(),
     ))
 }
 
@@ -228,8 +228,8 @@ fn derive_key_from_session_token(session_token: &[u8]) -> Result<Vec<u8>> {
 fn derive_hkdf_sha256_key(ikm: &[u8], salt: &[u8], info: &[u8], len: usize) -> Result<Vec<u8>> {
     let salt = hmac::SigningKey::new(&digest::SHA256, salt);
     let mut out = vec![0u8; len];
-    hkdf::extract_and_expand(&salt, ikm, info, &mut out)?;
-    Ok(out)
+    hkdf::extract_and_expand(&salt, ikm, info, &mut out);
+    Ok(out.to_vec())
 }
 
 #[derive(Deserialize)]

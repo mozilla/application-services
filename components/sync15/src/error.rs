@@ -71,9 +71,6 @@ pub enum ErrorKind {
     #[fail(display = "Store error: {}", _0)]
     StoreError(#[fail(cause)] failure::Error),
 
-    #[fail(display = "Crypto/NSS error: {}", _0)]
-    CryptoError(#[fail(cause)] rc_crypto::Error),
-
     // Basically reimplement error_chain's foreign_links. (Ugh, this sucks)
     #[fail(display = "OpenSSL error: {}", _0)]
     OpensslError(#[fail(cause)] openssl::error::ErrorStack),
@@ -105,7 +102,6 @@ pub enum ErrorKind {
 
 error_support::define_error! {
     ErrorKind {
-        (CryptoError, rc_crypto::Error),
         (OpensslError, openssl::error::ErrorStack),
         (Base64Decode, base64::DecodeError),
         (JsonError, serde_json::Error),
