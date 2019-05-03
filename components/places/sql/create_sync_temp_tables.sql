@@ -15,6 +15,7 @@ CREATE TEMP TABLE mergedTree(
     position INTEGER NOT NULL,
     useRemote BOOLEAN NOT NULL, -- Take the remote state?
     shouldUpload BOOLEAN NOT NULL, -- Flag the item for upload?
+    mergedAt INTEGER NOT NULL, -- In milliseconds.
     -- The node should exist on at least one side.
     CHECK(localGuid NOT NULL OR remoteGuid NOT NULL)
 ) WITHOUT ROWID;
@@ -26,7 +27,8 @@ CREATE TEMP TABLE mergedTree(
 CREATE TEMP TABLE itemsToRemove(
     guid TEXT PRIMARY KEY,
     localLevel INTEGER NOT NULL,
-    shouldUploadTombstone BOOLEAN NOT NULL
+    shouldUploadTombstone BOOLEAN NOT NULL,
+    removedAt INTEGER NOT NULL -- In milliseconds.
 ) WITHOUT ROWID;
 
 -- A view of all synced items. We use triggers on this view to update local
@@ -38,7 +40,7 @@ CREATE TEMP VIEW itemsToMerge(localId, localGuid, remoteId, remoteGuid,
                               newType,
                               newDateAdded,
                               newTitle, oldPlaceId, newPlaceId,
-                              newKeyword) AS
+                              newKeyword, mergedAt) AS
 SELECT b.id, b.guid, v.id, v.guid,
        r.mergedGuid, r.useRemote, r.shouldUpload, r.level,
        (CASE WHEN v.kind IN (
@@ -54,7 +56,7 @@ SELECT b.id, b.guid, v.id, v.guid,
        (CASE WHEN b.dateAdded < v.dateAdded THEN b.dateAdded
              ELSE v.dateAdded END),
        v.title, b.fk, v.placeId,
-       v.keyword
+       v.keyword, r.mergedAt
 FROM mergedTree r
 LEFT JOIN moz_bookmarks_synced v ON v.guid = r.remoteGuid
 LEFT JOIN moz_bookmarks b ON b.guid = r.localGuid

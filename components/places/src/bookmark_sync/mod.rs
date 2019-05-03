@@ -15,6 +15,7 @@ use crate::storage::bookmarks::{BookmarkRootGuid, USER_CONTENT_ROOTS};
 use crate::types::SyncGuid;
 use rusqlite::types::{ToSql, ToSqlOutput};
 use rusqlite::Result as RusqliteResult;
+use std::convert::TryFrom;
 
 /// Sets up the syncable roots. All items in `moz_bookmarks_synced` descend
 /// from these roots.
@@ -144,6 +145,51 @@ impl From<SyncedBookmarkValidity> for dogear::Validity {
 }
 
 impl ToSql for SyncedBookmarkValidity {
+    fn to_sql(&self) -> RusqliteResult<ToSqlOutput<'_>> {
+        Ok(ToSqlOutput::from(*self as u8))
+    }
+}
+
+/// Actions taken for a changed synced item during a merge. These are stored
+/// in `moz_bookmarks_synced_actions`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[repr(u8)]
+pub enum SyncedBookmarkAction {
+    /// Indicates the item had newer local changes to upload.
+    UploadLocal = 1,
+    /// Indicates the item had newer remote changes to apply.
+    TakeRemote = 2,
+    /// Indicates the item had newer remote changes that were merged with local
+    /// changes, producing a newer structure to apply and upload.
+    TakeRemoteUploadNewStructure = 3,
+    /// Indicates the item was deleted locally.
+    DeleteLocal = 4,
+    /// Indicates the item was deleted remotely.
+    DeleteRemote = 5,
+    /// Indicates the item was deleted on both sides. This is set for
+    /// non-syncable items, like orphaned queries, livemarks, non-content
+    /// roots, and their descendants.
+    DeleteBoth = 6,
+}
+
+impl TryFrom<u8> for SyncedBookmarkAction {
+    type Error = Error;
+
+    #[inline]
+    fn try_from(v: u8) -> Result<Self> {
+        Ok(match v {
+            1 => SyncedBookmarkAction::UploadLocal,
+            2 => SyncedBookmarkAction::TakeRemote,
+            3 => SyncedBookmarkAction::TakeRemoteUploadNewStructure,
+            4 => SyncedBookmarkAction::DeleteLocal,
+            5 => SyncedBookmarkAction::DeleteRemote,
+            6 => SyncedBookmarkAction::DeleteBoth,
+            _ => return Err(ErrorKind::UnsupportedSyncedBookmarkAction(v).into()),
+        })
+    }
+}
+
+impl ToSql for SyncedBookmarkAction {
     fn to_sql(&self) -> RusqliteResult<ToSqlOutput<'_>> {
         Ok(ToSqlOutput::from(*self as u8))
     }

@@ -44,13 +44,27 @@ AFTER DELETE ON itemsToRemove
 BEGIN
     -- Note the URL for frecency recalculation.
     INSERT INTO moz_places_stale_frecencies(place_id, stale_at)
-    SELECT h.id, now()
+    SELECT h.id, OLD.removedAt
     FROM moz_bookmarks b
     JOIN moz_places h ON h.id = b.fk
     WHERE b.guid = OLD.guid AND
           h.frecency <> 0
     ON CONFLICT(place_id) DO UPDATE SET
         stale_at = excluded.stale_at;
+
+    -- Record if we're deleting the item locally or on both sides.
+    INSERT OR IGNORE INTO moz_bookmarks_synced_actions(guid, at, action)
+    SELECT OLD.guid, OLD.removedAt, (CASE WHEN OLD.shouldUploadTombstone
+                                     THEN 6 -- SyncedBookmarkAction::DeleteBoth
+                                     ELSE 4 -- SyncedBookmarkAction::DeleteLocal
+                                     END)
+    WHERE EXISTS(SELECT 1 FROM moz_bookmarks WHERE guid = OLD.guid);
+
+    -- Record if we're deleting the item remotely.
+    INSERT OR IGNORE INTO moz_bookmarks_synced_actions(guid, at, action)
+    SELECT OLD.guid, OLD.removedAt, 5 -- SyncedBookmarkAction::DeleteRemote
+    WHERE NOT EXISTS(SELECT 1 FROM moz_bookmarks WHERE guid = OLD.guid) AND
+          OLD.shouldUploadTombstone;
 
     -- Don't reupload tombstones for items that are already deleted on the server.
     DELETE FROM moz_bookmarks_deleted
@@ -60,7 +74,7 @@ BEGIN
     -- Upload tombstones for non-syncable items. `shouldUploadTombstone` can be
     -- removed if we ever persist tombstones (bug 1343103).
     INSERT OR IGNORE INTO moz_bookmarks_deleted(guid, dateRemoved)
-    SELECT OLD.guid, now()
+    SELECT OLD.guid, OLD.removedAt
     WHERE OLD.shouldUploadTombstone;
 
     -- Remove the item from Places.
@@ -103,7 +117,7 @@ BEGIN
                      END,
         -- Flag items with local and new structure merge states for upload.
         syncChangeCounter = OLD.shouldUpload,
-        lastModified = now()
+        lastModified = OLD.mergedAt
     WHERE id = OLD.localId;
 
     -- Drop local tombstones for revived remote items.
@@ -115,6 +129,19 @@ BEGIN
         needsMerge = 0
     WHERE needsMerge AND
           guid IN (OLD.remoteGuid, OLD.localGuid);
+
+    -- Record if we're taking the local or remote state for changed items.
+    INSERT OR IGNORE INTO moz_bookmarks_synced_actions(guid, at, action)
+    SELECT OLD.mergedGuid, OLD.mergedAt, (CASE
+           -- SyncedBookmarkAction::TakeRemoteUploadNewStructure
+           WHEN OLD.useRemote AND OLD.shouldUpload THEN 3
+           -- SyncedBookmarkAction::TakeRemote
+           WHEN OLD.useRemote AND NOT OLD.shouldUpload THEN 2
+           -- SyncedBookmarkAction::UploadLocal
+           WHEN NOT OLD.useRemote AND OLD.shouldUpload THEN 1
+           ELSE RAISE(ABORT, "Shouldn't record action for unchanged item")
+           END)
+    WHERE OLD.useRemote OR OLD.shouldUpload;
 END;
 
 CREATE TEMP TRIGGER updateLocalItems
@@ -134,7 +161,7 @@ BEGIN
            (SELECT id FROM moz_bookmarks WHERE guid = "root________"), -1,
            OLD.newType, OLD.newPlaceId,
            OLD.newTitle, OLD.newDateAdded,
-           now(),
+           OLD.mergedAt,
            2, -- SyncStatus::Normal
            OLD.shouldUpload)
     ON CONFLICT(guid) DO UPDATE SET
@@ -145,7 +172,7 @@ BEGIN
 
     -- Flag the frecency for recalculation.
     INSERT INTO moz_places_stale_frecencies(place_id, stale_at)
-    SELECT id, now()
+    SELECT id, OLD.mergedAt
     FROM moz_places
     WHERE id IN (OLD.oldPlaceId, OLD.newPlaceId) AND
           frecency <> 0
