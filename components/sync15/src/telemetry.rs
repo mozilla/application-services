@@ -255,6 +255,8 @@ pub enum SyncFailure {
 
 pub fn sync_failure_from_error(e: &Error) -> SyncFailure {
     SyncFailure::Unexpected {
+        // TODO: Distinguish between error types, truncate, and anonymize
+        // messages.
         error: e.to_string(),
     }
 }

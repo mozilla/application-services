@@ -2259,7 +2259,7 @@ dependencies = [
  "base64 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-support 0.1.0",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "ffi-support 0.3.3",
+ "ffi-support 0.3.4",
  "hawk 2.0.0 (git+https://github.com/eoger/rust-hawk?branch=use-openssl)",
  "interrupt 0.1.0",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
