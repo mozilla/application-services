@@ -237,9 +237,8 @@ public class PlacesReadConnection {
         // Note: don't need to queue.sync in deinit -- no more references exist to us.
         let handle = self.takeHandle()
         if handle != 0 {
-            // In practice this can only fail if the rust code panics, which for this
-            // function would be quite bad.
-            try! PlacesError.tryUnwrap { err in
+            // In practice this can only fail if the rust code panics.
+            PlacesError.unwrapOrLog { err in
                 places_connection_destroy(handle, err)
             }
         }
