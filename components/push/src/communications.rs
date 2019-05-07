@@ -234,7 +234,7 @@ impl Connection for ConnectHttp {
         })
     }
 
-    /// Drop a channel and stop recieving updates.
+    /// Drop a channel and stop receiving updates.
     fn unsubscribe(&self, channel_id: Option<&str>) -> error::Result<bool> {
         if self.auth.is_none() {
             return Err(CommunicationError("Connection is unauthorized".into()).into());
@@ -384,8 +384,7 @@ impl Connection for ConnectHttp {
 
     /// Verify that the server and client both have matching channel information. A "false"
     /// should force the client to drop the old UAID, request a new UAID from the server, and
-    /// resubscribe all channels, resulting in new endpoints. This will require sending the
-    /// new endpoints to the channel recipient functions.
+    /// resubscribe all channels, resulting in new endpoints.
     fn verify_connection(&self, channels: &[String]) -> error::Result<bool> {
         if self.auth.is_none() {
             return Err(CommunicationError("Connection uninitiated".to_owned()).into());
@@ -396,7 +395,12 @@ impl Connection for ConnectHttp {
         log::debug!("Getting Channel List");
         let remote = self.channel_list()?;
         // verify both lists match. Either side could have lost it's mind.
-        Ok(remote == channels.to_vec())
+        if remote != channels {
+            // Unsubscribe all the channels (just to be sure and avoid a loop)
+            self.unsubscribe(None)?;
+            return Ok(false);
+        }
+        Ok(true)
     }
 
     //impl TODO: Handle a Ping response with updated Broadcasts.

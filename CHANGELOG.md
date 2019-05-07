@@ -24,6 +24,17 @@
 - iOS: Sync metadata can be reset using the `resetBookmarksMetadata` method
   ([#1092](https://github.com/mozilla/application-services/pull/1092))
 
+## Push
+
+### Breaking Changes
+
+- `PushManager.verify_connection()` now returns a boolean. `true`
+  indicates the connection is valid and no action required, `false`
+indicates that the connection is invalid. All existing subscriptions
+have been dropped. The caller should send a `pushsubscriptionchange`
+to all known apps. (This is due to the fact that the Push API does
+not have a way to send just the new endpoint to the client PWA.)
+
 # v0.27.1 (_2019-04-26_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.0...v0.27.1)

@@ -84,19 +84,11 @@ class PushManager(
         }.toInt() == 1
     }
 
-    override fun verifyConnection(): Map<String, String> {
-        val newEndpoints: MutableMap<String, String> = linkedMapOf()
-        val response = rustCallForString { error ->
+    override fun verifyConnection(): Boolean {
+        return rustCall { error ->
             LibPushFFI.INSTANCE.push_verify_connection(
                 this.handle.get(), error)
-        }
-        if (response.isNotEmpty()) {
-            val visited = JSONObject(response)
-            for (key in visited.keys()) {
-                newEndpoints[key] = visited[key] as String
-            }
-        }
-        return newEndpoints
+        }.toInt() == 1
     }
 
     override fun decrypt(
@@ -330,13 +322,12 @@ interface PushAPI : java.lang.AutoCloseable {
     fun update(registrationToken: String): Boolean
 
     /**
-     * Verifies the connection state. NOTE: If the internal check fails,
-     * endpoints will be re-registered and new endpoints will be returned for
-     * known ChannelIDs
+     * Verifies the connection state.
      *
-     * @return Map of ChannelID: Endpoint, be sure to notify apps registered to given channelIDs of the new Endpoint.
+     * @return bool indicating if connection state is valid (true) or if channels should get a
+     * `pushsubscriptionchange` event (false).
      */
-    fun verifyConnection(): Map<String, String>
+    fun verifyConnection(): Boolean
 
     /**
      * Decrypts a raw push message.
