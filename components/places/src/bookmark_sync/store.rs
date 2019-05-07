@@ -8,7 +8,7 @@ use super::record::{
     BookmarkItemRecord, BookmarkRecord, BookmarkRecordId, FolderRecord, QueryRecord,
     SeparatorRecord,
 };
-use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
+use super::{SyncedBookmarkAction, SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::api::places_api::ConnectionType;
 use crate::db::PlacesDb;
 use crate::error::*;
@@ -21,6 +21,7 @@ use dogear::{
 use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt, SqlInterruptScope};
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::fmt;
 use std::result;
 use sync15::{
@@ -526,6 +527,50 @@ impl<'a> BookmarksStore<'a> {
         Ok(())
     }
 
+    /// Fetches a list of items that have been reuploaded with new structure for
+    /// the last 5 syncs. This is captured in logs and telemetry, and suggests
+    /// that we might be in a sync loop with another client (bug 1530145).
+    fn consecutive_reuploads(&self) -> Result<Vec<ConsecutiveReupload>> {
+        let mut reuploads = Vec::new();
+        let mut stmt = self.db.prepare(&format!(
+            "WITH
+             ranks(rank, at, guid, action) AS (
+               /* First, assign the same rank to all items uploaded in the same
+                  sync. Dense ranking assigns consecutive rank values to
+                  successive syncs. */
+               SELECT dense_rank() OVER (ORDER BY at), at, guid, action
+               FROM moz_bookmarks_synced_actions
+             ),
+             groupings(guid, at, grouping) AS (
+               /* Next, assign groups for all reuploaded items that weren't
+                  changed or deleted locally. The grouping values are arbitrary,
+                  but identical for consecutive syncs, so grouping by (GUID,
+                  grouping) yields groups with rows for consecutive syncs where
+                  the GUID was reuploaded. */
+               SELECT guid, at, rank - row_number() OVER (PARTITION BY guid ORDER BY rank)
+               FROM ranks
+               WHERE action = {action}
+             )
+             SELECT guid, min(at) AS startedAt, max(at) AS stoppedAt,
+                    count(*) AS consecutiveReuploads
+             FROM groupings
+             GROUP BY guid, grouping
+             HAVING consecutiveReuploads >= 5",
+            action = SyncedBookmarkAction::TakeRemoteUploadNewStructure as u8,
+        ))?;
+        let mut results = stmt.query(NO_PARAMS)?;
+        while let Some(row) = results.next()? {
+            self.interruptee.err_if_interrupted()?;
+            reuploads.push(ConsecutiveReupload {
+                guid: row.get("guid")?,
+                started_at: row.get("startedAt")?,
+                stopped_at: row.get("stoppedAt")?,
+                count: row.get("consecutiveReuploads")?,
+            });
+        }
+        Ok(reuploads)
+    }
+
     /// Removes all sync metadata, such that the next sync is treated as a
     /// first sync. Unlike `wipe`, this keeps all local items, but clears
     /// all synced items and pending tombstones. This also forgets the last
@@ -569,6 +614,7 @@ impl<'a> Store for BookmarksStore<'a> {
         &self,
         inbound: IncomingChangeset,
         incoming_telemetry: &mut telemetry::EngineIncoming,
+        validation: &mut Option<telemetry::Validation>,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
         // Stage all incoming items.
         let timestamp = self.stage_incoming(inbound, incoming_telemetry)?;
@@ -578,10 +624,37 @@ impl<'a> Store for BookmarksStore<'a> {
         // records.
         put_meta(self.db, LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
 
-        // Merge and stage outgoing items.
+        // Merge.
         let mut merger = Merger::new(&self, timestamp);
-        merger.merge()?;
+        let stats = merger.merge()?;
 
+        // Record validation telemetry.
+        let mut v = telemetry::Validation::with_version(3);
+        match self.consecutive_reuploads() {
+            Ok(consecutive_reuploads) => {
+                for reupload in &consecutive_reuploads {
+                    log::warn!("{}", reupload);
+                }
+                // TODO: Record more detailed stats for consecutive reuploads?
+                v.problem("consecutiveReuploads", consecutive_reuploads.len());
+            }
+            Err(err) => {
+                log::warn!("Failed to fetch stats for consecutive reuploads: {:?}", err);
+            }
+        }
+        v.problem("orphans", stats.problems.orphans)
+            .problem("misparentedRoots", stats.problems.misparented_roots)
+            .problem("multipleParents", stats.problems.multiple_parents)
+            .problem("missingParents", stats.problems.missing_parents)
+            .problem("nonFolderParents", stats.problems.non_folder_parents)
+            .problem(
+                "parentChildDisagreements",
+                stats.problems.parent_child_disagreements,
+            )
+            .problem("missingChildren", stats.problems.missing_children);
+        *validation = Some(v);
+
+        // Finally, stage outgoing items.
         let outgoing = self.fetch_outgoing_records(timestamp)?;
         Ok(outgoing)
     }
@@ -694,15 +767,15 @@ impl<'a> Merger<'a> {
         self.external_transaction = v;
     }
 
-    pub(crate) fn merge(&mut self) -> Result<()> {
+    pub(crate) fn merge(&mut self) -> Result<dogear::Stats> {
         use dogear::Store;
         if !self.store.has_changes()? {
-            return Ok(());
+            return Ok(dogear::Stats::default());
         }
         // Merge and stage outgoing items via dogear.
         let stats = self.merge_with_driver(&Driver, &MergeInterruptee(self.store.interruptee))?;
         log::debug!("merge completed: {:?}", stats);
-        Ok(())
+        Ok(stats)
     }
 
     /// Creates a local tree item from a row in the `localItems` CTE.
@@ -771,7 +844,7 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
                 .by_structure(&parent_guid.into())?;
         }
 
-        let mut tree = builder.into_tree()?;
+        let mut tree = Tree::try_from(builder)?;
 
         // Note tombstones for locally deleted items.
         let mut stmt = self
@@ -899,7 +972,7 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
                 .by_children(&parent_guid.into())?;
         }
 
-        let mut tree = builder.into_tree()?;
+        let mut tree = Tree::try_from(builder)?;
 
         // Note tombstones for remotely deleted items.
         let mut stmt = self
@@ -1101,6 +1174,23 @@ impl<'a> fmt::Display for RootsFragment<'a> {
     }
 }
 
+pub struct ConsecutiveReupload {
+    guid: SyncGuid,
+    started_at: Timestamp,
+    stopped_at: Timestamp,
+    count: i64,
+}
+
+impl fmt::Display for ConsecutiveReupload {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Item {} was reuploaded for {} syncs between {} and {}",
+            self.guid, self.count, self.started_at, self.stopped_at
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1145,7 +1235,7 @@ mod tests {
         }
 
         store
-            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new())
+            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new(), &mut None)
             .expect("Should apply incoming and stage outgoing records");
     }
 
@@ -1535,7 +1625,7 @@ mod tests {
         }
 
         let mut outgoing = store
-            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new())
+            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new(), &mut None)
             .expect("Should apply incoming and stage outgoing records");
         outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
         assert_eq!(
@@ -1680,7 +1770,7 @@ mod tests {
         }
 
         let outgoing = store
-            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new())
+            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new(), &mut None)
             .expect("Should apply incoming records");
         let mut outgoing_ids = outgoing
             .changes
@@ -1708,6 +1798,7 @@ mod tests {
             .apply_incoming(
                 IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1000)),
                 &mut telemetry::EngineIncoming::new(),
+                &mut None,
             )
             .expect("Should fetch outgoing records after making local changes");
         assert_eq!(outgoing.changes.len(), 1);
@@ -1809,7 +1900,7 @@ mod tests {
         }
 
         let outgoing = store
-            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new())
+            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new(), &mut None)
             .expect("Should apply incoming records");
         let mut outgoing_ids = outgoing
             .changes
@@ -1872,7 +1963,7 @@ mod tests {
         ));
 
         let outgoing = store
-            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new())
+            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new(), &mut None)
             .expect("Should apply F and stage tombstones for A-E");
         let (outgoing_tombstones, outgoing_records): (Vec<_>, Vec<_>) =
             outgoing.changes.iter().partition(|record| record.deleted);

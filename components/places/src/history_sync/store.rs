@@ -149,6 +149,7 @@ impl<'a> Store for HistoryStore<'a> {
         &self,
         inbound: IncomingChangeset,
         incoming_telemetry: &mut telemetry::EngineIncoming,
+        _: &mut Option<telemetry::Validation>,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
         Ok(self.do_apply_incoming(inbound, incoming_telemetry)?)
     }

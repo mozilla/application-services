@@ -23,6 +23,7 @@ pub trait Store {
         &self,
         inbound: IncomingChangeset,
         incoming_telem: &mut telemetry::EngineIncoming,
+        validation: &mut Option<telemetry::Validation>,
     ) -> Result<OutgoingChangeset, failure::Error>;
 
     fn sync_finished(
@@ -89,8 +90,13 @@ pub fn synchronize(
     );
     let new_timestamp = incoming_changes.timestamp;
     let mut telem_incoming = telemetry::EngineIncoming::new();
-    let mut outgoing = store.apply_incoming(incoming_changes, &mut telem_incoming)?;
+    let mut validation = None;
+    let mut outgoing =
+        store.apply_incoming(incoming_changes, &mut telem_incoming, &mut validation)?;
     telem_engine.incoming(telem_incoming);
+    if let Some(v) = validation {
+        telem_engine.validation(v);
+    }
 
     interruptee.err_if_interrupted()?;
     // xxx - duplication below smells wrong

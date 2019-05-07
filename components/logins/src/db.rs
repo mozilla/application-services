@@ -847,6 +847,7 @@ impl<'a> Store for LoginStore<'a> {
         &self,
         inbound: IncomingChangeset,
         telem: &mut telemetry::EngineIncoming,
+        _: &mut Option<telemetry::Validation>,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
         Ok(self.db.do_apply_incoming(inbound, telem, &self.scope)?)
     }
