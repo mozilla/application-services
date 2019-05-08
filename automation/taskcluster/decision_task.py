@@ -96,21 +96,28 @@ def desktop_linux_libs(is_release):
 
 def desktop_macos_libs(is_release):
     task = (
-        linux_cross_compile_build_task("Desktop libs (macOS): build")
+        MacOsGenericWorkerTask("Desktop libs (macOS): build")
+        .with_index_and_artifacts_expire_in(build_artifacts_expire_in)
+        .with_provisioner_id("test-provisioner")
+        .with_worker_type("macos-workers")
+        .with_max_run_time_minutes(120)
+        .with_repo()
+        .with_env(**build_env, **linux_build_env)
         .with_script("""
             pushd libs
-            ./build-all.sh darwin
+            ./build-all.sh desktop
             popd
-            tar -czf /build/repo/target.tar.gz libs/desktop
+            tar -czf target.tar.gz libs/desktop
         """)
         .with_artifacts(
-            "/build/repo/target.tar.gz",
+            "repo/target.tar.gz",
         )
     )
-    if is_release:
-        return task.create()
-    else:
-        return task.find_or_create("build.libs.desktop.macos." + CONFIG.git_sha_for_directory("libs"))
+    # if is_release:
+    #     return task.create()
+    # else:
+        # return task.find_or_create("build.libs.desktop.macos." + CONFIG.git_sha_for_directory("libs"))
+    return task.create()
 
 def desktop_win32_x86_64_libs(is_release):
     task = (

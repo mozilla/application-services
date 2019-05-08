@@ -7,11 +7,11 @@ set -euvx
 if [ "${#}" -lt 1 -o "${#}" -gt 2 ]
 then
   echo "Usage:"
-  echo "./build-nss-desktop.sh <NSS_SRC_PATH> [CROSS_COMPILE_TARGET]"
+  echo "./build-nss-desktop.sh <ABSOLUTE_SRC_DIR> [CROSS_COMPILE_TARGET]"
   exit 1
 fi
 
-NSS_SRC_PATH=${1}
+NSS_SRC_DIR=${1}
 # Whether to cross compile from Linux to a different target.  Really
 # only intended for automation.
 CROSS_COMPILE_TARGET=${2-}
@@ -22,24 +22,24 @@ if [ -n "${CROSS_COMPILE_TARGET}" -a $(uname -s) != "Linux" ]; then
 fi
 
 if [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
-  NSS_DIR=$(abspath "desktop/win32-x86-64/nss")
+  DIST_DIR=$(abspath "desktop/win32-x86-64/nss")
 elif [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
-  NSS_DIR=$(abspath "desktop/darwin/nss")
+  DIST_DIR=$(abspath "desktop/darwin/nss")
 elif [ -n "${CROSS_COMPILE_TARGET}" ]; then
   echo "Cannot build NSS for unrecognized target OS ${CROSS_COMPILE_TARGET}"
   exit 1
 elif [ $(uname -s) == "Darwin" ]; then
-  NSS_DIR=$(abspath "desktop/darwin/nss")
+  DIST_DIR=$(abspath "desktop/darwin/nss")
 elif [ $(uname -s) == "Linux" ]; then
   # This is a JNA weirdness: "x86-64" rather than "x86_64".
-  NSS_DIR=$(abspath "desktop/linux-x86-64/nss")
+  DIST_DIR=$(abspath "desktop/linux-x86-64/nss")
 else
    echo "Cannot build NSS on unrecognized host OS $(uname -s)"
    exit 1
 fi
 
-if [ -d "${NSS_DIR}" ]; then
-  echo "${NSS_DIR} folder already exists. Skipping build."
+if [ -d "${DIST_DIR}" ]; then
+  echo "${DIST_DIR} folder already exists. Skipping build."
   exit 0
 fi
 
@@ -55,26 +55,25 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   SHA256="e744a4e0ea7daad75b28eef63d6ced0acd8a993a850998018916e0cad82dc382"
   echo "${SHA256}  nss-dist.tar.bz2" | shasum -a 256 -c - || exit 2
   tar xvjf nss-dist.tar.bz2
-  mkdir -p "${NSS_DIR}/include/nss"
-  mkdir -p "${NSS_DIR}/lib"
-  cp -p -L dist/Debug/lib/libnss3.dylib "${NSS_DIR}/lib"
-  cp -p -L dist/Debug/lib/libnssutil3.dylib "${NSS_DIR}/lib"
-  cp -p -L dist/Debug/lib/libfreebl3.dylib "${NSS_DIR}/lib"
-  cp -p -L dist/Debug/lib/libnssckbi.dylib "${NSS_DIR}/lib"
-  cp -p -L dist/Debug/lib/libsmime3.dylib "${NSS_DIR}/lib"
-  cp -p -L dist/Debug/lib/libsoftokn3.dylib "${NSS_DIR}/lib"
-  cp -p -L dist/Debug/lib/libssl3.dylib "${NSS_DIR}/lib"
-  cp -p -L dist/Debug/lib/libplc4.dylib "${NSS_DIR}/lib"
-  cp -p -L dist/Debug/lib/libplds4.dylib "${NSS_DIR}/lib"
-  cp -p -L dist/Debug/lib/libnspr4.dylib "${NSS_DIR}/lib"
-  cp -p -L dist/public/nss/*.h "${NSS_DIR}/include/nss"
-  cp -p -L -R dist/Debug/include/nspr/* "${NSS_DIR}/include/nss"
+  mkdir -p "${DIST_DIR}/include/nss"
+  mkdir -p "${DIST_DIR}/lib"
+  cp -p -L dist/Debug/lib/libnss3.dylib "${DIST_DIR}/lib"
+  cp -p -L dist/Debug/lib/libnssutil3.dylib "${DIST_DIR}/lib"
+  cp -p -L dist/Debug/lib/libfreebl3.dylib "${DIST_DIR}/lib"
+  cp -p -L dist/Debug/lib/libnssckbi.dylib "${DIST_DIR}/lib"
+  cp -p -L dist/Debug/lib/libsmime3.dylib "${DIST_DIR}/lib"
+  cp -p -L dist/Debug/lib/libsoftokn3.dylib "${DIST_DIR}/lib"
+  cp -p -L dist/Debug/lib/libssl3.dylib "${DIST_DIR}/lib"
+  cp -p -L dist/Debug/lib/libplc4.dylib "${DIST_DIR}/lib"
+  cp -p -L dist/Debug/lib/libplds4.dylib "${DIST_DIR}/lib"
+  cp -p -L dist/Debug/lib/libnspr4.dylib "${DIST_DIR}/lib"
+  cp -p -L dist/public/nss/*.h "${DIST_DIR}/include/nss"
+  cp -p -L -R dist/Debug/include/nspr/* "${DIST_DIR}/include/nss"
   rm -rf dist && rm -f nss-dist.tar.bz2
   exit 0
-
 elif [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
   # Build NSPR.
-  "${NSS_SRC_PATH}"/nspr/configure \
+  "${NSS_SRC_DIR}/nspr/configure" \
     --target x86_64-w64-mingw32 \
     --enable-64bit \
     --disable-debug \
@@ -85,8 +84,9 @@ elif [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
   EXTRA_MAKE_ARGS+=('CC=x86_64-w64-mingw32-gcc')
   EXTRA_MAKE_ARGS+=('CCC=x86_64-w64-mingw32-gcc')
   EXTRA_MAKE_ARGS+=('RC=x86_64-w64-mingw32-windres -O coff --use-temp-file')
+  # TODO!
 elif [ "$(uname -s)" == "Darwin" -o "$(uname -s)" == "Linux" ]; then
-  "${NSS_SRC_PATH}"/nspr/configure \
+  "${NSS_SRC_DIR}/nspr/configure" \
     --enable-64bit \
     --disable-debug \
     --enable-optimize
@@ -95,24 +95,22 @@ make
 popd
 
 # Build NSS.
-make \
-  ${EXTRA_MAKE_ARGS[@]+"${EXTRA_MAKE_ARGS[@]}"} \
-  USE_64=1 \
-  BUILD_OPT=1 \
-  NSS_DISABLE_CHACHAPOLY=1 \
-  NSS_DISABLE_DBM=1 \
-  SOURCE_MDHEADERS_DIR="${NSPR_BUILD_DIR}/dist/include/nspr" \
-  NSPR_INCLUDE_DIR="${NSPR_BUILD_DIR}/dist/include/nspr" \
-  NSPR_LIB_DIR="${NSPR_BUILD_DIR}/dist/lib" \
-  NSINSTALL="${NSPR_BUILD_DIR}/config/nsinstall" \
-  BUILD_TREE="${BUILD_DIR}" \
-  SOURCE_PREFIX="${BUILD_DIR}/dist" \
-  SOURCE_MD_DIR="${BUILD_DIR}/dist" \
-  DIST="${BUILD_DIR}/dist" \
-  -C ${NSS_SRC_PATH}/nss
+rm -rf "${NSS_SRC_DIR}/nss/out"
+gyp -f ninja "${NSS_SRC_DIR}/nss/nss.gyp" \
+  --depth "${NSS_SRC_DIR}/nss/" \
+  --generator-output=. \
+  -Dnspr_lib_dir="${NSPR_BUILD_DIR}/dist/lib" \
+  -Dnspr_include_dir="${NSPR_BUILD_DIR}/dist/include/nspr" \
+  -Dnss_dist_dir="${BUILD_DIR}" \
+  -Dnss_public_dist_dir="${BUILD_DIR}/public" \
+  -Dnss_dist_obj_dir="${BUILD_DIR}" \
+  -Ddisable_dbm=1 \
+  -Dsign_libs=0 \
+  -Ddisable_tests=1 \
+  -Ddisable_libpkix=1
 
-mkdir -p "${NSS_DIR}/include/nss"
-mkdir -p "${NSS_DIR}/lib"
+GENERATED_DIR="${NSS_SRC_DIR}/nss/out/Release"
+ninja -C "${GENERATED_DIR}"
 
 if [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
   EXT="dll"
@@ -122,17 +120,19 @@ elif [ "$(uname -s)" == "Darwin" -o "$(uname -s)" == "Linux" ]; then
   PREFIX="lib"
 fi
 
-cp -p -L "${BUILD_DIR}/dist"/lib/"${PREFIX}"freebl3."${EXT}" "${NSS_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/"${PREFIX}"nss3."${EXT}" "${NSS_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/"${PREFIX}"nssckbi."${EXT}" "${NSS_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/"${PREFIX}"nssutil3."${EXT}" "${NSS_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/"${PREFIX}"smime3."${EXT}" "${NSS_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/"${PREFIX}"softokn3."${EXT}" "${NSS_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/"${PREFIX}"ssl3."${EXT}" "${NSS_DIR}/lib"
+mkdir -p "${DIST_DIR}/include/nss"
+mkdir -p "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/${PREFIX}freebl3.${EXT}" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/${PREFIX}nss3.${EXT}" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/${PREFIX}nssckbi.${EXT}" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/${PREFIX}nssutil3.${EXT}" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/${PREFIX}smime3.${EXT}" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/${PREFIX}softokn3.${EXT}" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/${PREFIX}ssl3.${EXT}" "${DIST_DIR}/lib"
 # For some reason the NSPR libs always have the "lib" prefix even on Windows.
-cp -p -L "${NSPR_BUILD_DIR}/dist"/lib/libplc4."${EXT}" "${NSS_DIR}/lib"
-cp -p -L "${NSPR_BUILD_DIR}/dist"/lib/libplds4."${EXT}" "${NSS_DIR}/lib"
-cp -p -L "${NSPR_BUILD_DIR}/dist"/lib/libnspr4."${EXT}" "${NSS_DIR}/lib"
+cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplc4.${EXT}" "${DIST_DIR}/lib"
+cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplds4.${EXT}" "${DIST_DIR}/lib"
+cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libnspr4.${EXT}" "${DIST_DIR}/lib"
 
-cp -p -L "${BUILD_DIR}/dist"/public/nss/* "${NSS_DIR}/include/nss"
-cp -p -L -R "${NSPR_BUILD_DIR}/dist"/include/nspr/* "${NSS_DIR}/include/nss"
+cp -p -L -R "${BUILD_DIR}/public/nss/"* "${DIST_DIR}/include/nss"
+cp -p -L -R "${NSPR_BUILD_DIR}/dist/include/nspr/"* "${DIST_DIR}/include/nss"

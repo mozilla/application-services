@@ -27,7 +27,7 @@ import taskcluster
 # Public API
 __all__ = [
     "CONFIG", "SHARED",
-    "Task", "DockerWorkerTask", "BeetmoverTask",
+    "Task", "DockerWorkerTask", "BeetmoverTask", "MacOsGenericWorkerTask",
     "build_full_task_graph", "populate_chain_of_trust_required_but_unused_files",
     "populate_chain_of_trust_task_graph",
 ]
@@ -304,8 +304,177 @@ class BeetmoverTask(Task):
 
         return payload
 
+class GenericWorkerTask(Task):
+    """
+    Task definition for a worker type that runs the `generic-worker` implementation.
+    This is an abstract class that needs to be specialized for different operating systems.
+    <https://github.com/taskcluster/generic-worker>
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.max_run_time_minutes = 30
+        self.env = {}
+        self.features = {}
+        self.mounts = []
+        self.artifacts = []
 
-class DockerWorkerTask(Task):
+    with_max_run_time_minutes = chaining(setattr, "max_run_time_minutes")
+    with_mounts = chaining(append_to_attr, "mounts")
+    with_env = chaining(update_attr, "env")
+    with_artifacts = chaining(append_to_attr, "artifacts")
+
+    def build_command(self):  # pragma: no cover
+        """
+        Overridden by sub-classes to return the `command` property of the worker payload,
+        in the format appropriate for the operating system.
+        """
+        raise NotImplementedError
+
+    def build_worker_payload(self):
+        """
+        Return a `generic-worker` worker payload.
+        <https://docs.taskcluster.net/docs/reference/workers/generic-worker/docs/payload>
+        """
+        worker_payload = {
+            "command": self.build_command(),
+            "maxRunTime": self.max_run_time_minutes * 60
+        }
+        return dict_update_if_truthy(
+            worker_payload,
+            env=self.env,
+            mounts=self.mounts,
+            features=self.features,
+            artifacts=[
+                {
+                    "type": "file",
+                    "path": path,
+                    "name": "public/" + url_basename(path),
+                    "expires": SHARED.from_now_json(self.index_and_artifacts_expire_in),
+                }
+                for path in self.artifacts
+            ],
+        )
+
+    def with_features(self, *names):
+        """
+        Enable the given `generic-worker` features.
+        <https://github.com/taskcluster/generic-worker/blob/master/native_windows.yml>
+        """
+        self.features.update({name: True for name in names})
+        return self
+
+    def _mount_content(self, url_or_artifact_name, task_id, sha256):
+        if task_id:
+            content = {"taskId": task_id, "artifact": url_or_artifact_name}
+        else:
+            content = {"url": url_or_artifact_name}
+        if sha256:
+            content["sha256"] = sha256
+        return content
+
+    def with_file_mount(self, url_or_artifact_name, task_id=None, sha256=None, path=None):
+        """
+        Make `generic-worker` download a file before the task starts
+        and make it available at `path` (which is relative to the task’s home directory).
+        If `sha256` is provided, `generic-worker` will hash the downloaded file
+        and check it against the provided signature.
+        If `task_id` is provided, this task will depend on that task
+        and `url_or_artifact_name` is the name of an artifact of that task.
+        """
+        return self.with_mounts({
+            "file": path or url_basename(url_or_artifact_name),
+            "content": self._mount_content(url_or_artifact_name, task_id, sha256),
+        })
+
+    def with_directory_mount(self, url_or_artifact_name, task_id=None, sha256=None, path=None):
+        """
+        Make `generic-worker` download an archive before the task starts,
+        and uncompress it at `path` (which is relative to the task’s home directory).
+        `url_or_artifact_name` must end in one of `.rar`, `.tar.bz2`, `.tar.gz`, or `.zip`.
+        The archive must be in the corresponding format.
+        If `sha256` is provided, `generic-worker` will hash the downloaded archive
+        and check it against the provided signature.
+        If `task_id` is provided, this task will depend on that task
+        and `url_or_artifact_name` is the name of an artifact of that task.
+        """
+        supported_formats = ["rar", "tar.bz2", "tar.gz", "zip"]
+        for fmt in supported_formats:
+            suffix = "." + fmt
+            if url_or_artifact_name.endswith(suffix):
+                return self.with_mounts({
+                    "directory": path or url_basename(url_or_artifact_name[:-len(suffix)]),
+                    "content": self._mount_content(url_or_artifact_name, task_id, sha256),
+                    "format": fmt,
+                })
+        raise ValueError(
+            "%r does not appear to be in one of the supported formats: %r"
+            % (url_or_artifact_name, ", ".join(supported_formats))
+        )  # pragma: no cover
+
+class UnixTaskMixin(Task):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def with_curl_script(self, url, file_path):
+        return self \
+        .with_script("""
+            mkdir -p $(dirname {file_path})
+            curl --retry 5 --connect-timeout 10 -Lf {url} -o {file_path}
+        """.format(url=url, file_path=file_path))
+
+    def with_curl_artifact_script(self, task_id, artifact_name, out_directory=""):
+        return self \
+        .with_dependencies(task_id) \
+        .with_curl_script(
+            "https://queue.taskcluster.net/v1/task/%s/artifacts/public/%s"
+                % (task_id, artifact_name),
+            os.path.join(out_directory, url_basename(artifact_name)),
+        )
+
+    def with_repo(self):
+        """
+        Make a shallow clone the git repository at the start of the task.
+        This uses `CONFIG.git_url`, `CONFIG.git_ref`, and `CONFIG.git_sha`
+        * generic-worker: creates the clone in a `repo` directory
+          in the task’s directory.
+        * docker-worker: creates the clone in a `/repo` directory
+          at the root of the Docker container’s filesystem.
+          `git` and `ca-certificate` need to be installed in the Docker image.
+        """
+        return self \
+        .with_env(**git_env()) \
+        .with_early_script("""
+            git init repo
+            cd repo
+            git fetch --quiet --tags "$APPSERVICES_HEAD_REPOSITORY" "$APPSERVICES_HEAD_BRANCH"
+            git reset --hard "$APPSERVICES_HEAD_REV"
+        """)
+
+class MacOsGenericWorkerTask(UnixTaskMixin, GenericWorkerTask):
+    """
+    Task definition for a `generic-worker` task running on macOS.
+    Scripts are interpreted with `bash`.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.scripts = []
+
+    with_script = chaining(append_to_attr, "scripts")
+    with_early_script = chaining(prepend_to_attr, "scripts")
+
+    def build_command(self):
+        # generic-worker accepts multiple commands, but unlike on Windows
+        # the current directory and environment variables
+        # are not preserved across commands on macOS.
+        # So concatenate scripts and use a single `bash` command instead.
+        return [
+            [
+                "/bin/bash", "--login", "-x", "-e", "-c",
+                deindent("\n".join(self.scripts))
+            ]
+        ]
+
+class DockerWorkerTask(UnixTaskMixin, GenericWorkerTask):
     """
     Task definition for a worker type that runs the `generic-worker` implementation.
 
@@ -318,20 +487,15 @@ class DockerWorkerTask(Task):
         # We use this specific version because our decision task also runs on this one.
         # We also use that same version in docker/build.dockerfile
         self.docker_image = "ubuntu:bionic-20180821"
-        self.max_run_time_minutes = 30
         self.scripts = []
         self.env = {}
         self.caches = {}
-        self.features = {}
-        self.artifacts = []
 
     with_docker_image = chaining(setattr, "docker_image")
-    with_max_run_time_minutes = chaining(setattr, "max_run_time_minutes")
-    with_artifacts = chaining(append_to_attr, "artifacts")
     with_script = chaining(append_to_attr, "scripts")
     with_early_script = chaining(prepend_to_attr, "scripts")
-    with_caches = chaining(update_attr, "caches")
     with_env = chaining(update_attr, "env")
+    with_caches = chaining(update_attr, "caches")
 
     def build_worker_payload(self):
         """
@@ -365,48 +529,6 @@ class DockerWorkerTask(Task):
                 for path in self.artifacts
             },
         )
-
-    def with_features(self, *names):
-        """
-        Enable the give `docker-worker` features.
-
-        <https://docs.taskcluster.net/docs/reference/workers/docker-worker/docs/features>
-        """
-        self.features.update({name: True for name in names})
-        return self
-
-    def with_curl_script(self, url, file_path):
-        return self \
-        .with_script("""
-            mkdir -p $(dirname {file_path})
-            curl --retry 5 --connect-timeout 10 -Lf {url} -o {file_path}
-        """.format(url=url, file_path=file_path))
-
-    def with_curl_artifact_script(self, task_id, artifact_name, out_directory=""):
-        return self \
-        .with_dependencies(task_id) \
-        .with_curl_script(
-            "https://queue.taskcluster.net/v1/task/%s/artifacts/public/%s"
-                % (task_id, artifact_name),
-            os.path.join(out_directory, url_basename(artifact_name)),
-        )
-
-    def with_repo(self):
-        """
-        Make a shallow clone the git repository at the start of the task.
-        This uses `CONFIG.git_url`, `CONFIG.git_ref`, and `CONFIG.git_sha`,
-        and creates the clone in a `/repo` directory
-        at the root of the Docker container’s filesystem.
-
-        `git` and `ca-certificate` need to be installed in the Docker image.
-        """
-        return self \
-        .with_env(**git_env()) \
-        .with_early_script("""
-            cd repo
-            git fetch --quiet --tags "$APPSERVICES_HEAD_REPOSITORY" "$APPSERVICES_HEAD_BRANCH"
-            git reset --hard "$APPSERVICES_HEAD_REV"
-        """)
 
     def with_dockerfile(self, dockerfile, use_indexed_task=True):
         """
@@ -462,6 +584,18 @@ class DockerWorkerTask(Task):
             "path": "public/image.tar.lz4",
             "taskId": image_build_task_id,
         })
+
+    def with_repo(self):
+        """
+        Our Docker image has the repo folder already git init-ed, so we overwrite `with_repo`.
+        """
+        return self \
+        .with_env(**git_env()) \
+        .with_early_script("""
+            cd repo
+            git fetch --quiet --tags "$APPSERVICES_HEAD_REPOSITORY" "$APPSERVICES_HEAD_BRANCH"
+            git reset --hard "$APPSERVICES_HEAD_REV"
+        """)
 
 
 def expand_dockerfile(dockerfile):

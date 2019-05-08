@@ -55,6 +55,11 @@ RUN apt-get update -qq \
                           patch \
                           file \
                           libnss3-dev \
+                          gyp \
+                          ninja-build \
+                          zlib1g-dev \
+                          # Delete mercurial once `libs/build-all.sh` gets NSS through a zip file.
+                          mercurial \
     && apt-get clean
 
 RUN pip install --upgrade pip

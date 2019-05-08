@@ -21,12 +21,14 @@ if [ -d "${DIST_DIR}" ]; then
   exit 0
 fi
 
-if [[ "${ARCH}" == "i386" || "${ARCH}" == "x86_64" ]]; then
+if [[ "${ARCH}" == "x86_64" ]]; then
   OS_COMPILER="iPhoneSimulator"
   TARGET="x86_64-apple-darwin"
-elif [[ "${ARCH}" == "armv7" || "${ARCH}" == "arm64" ]]; then
+  GYP_ARCH="x64"
+elif [[ "${ARCH}" == "arm64" ]]; then
   OS_COMPILER="iPhoneOS"
   TARGET="aarch64-apple-darwin"
+  GYP_ARCH="arm64"
 else
   echo "Unsupported architecture"
   exit 1
@@ -37,8 +39,7 @@ CROSS_TOP="${DEVELOPER}/Platforms/${OS_COMPILER}.platform/Developer"
 CROSS_SDK="${OS_COMPILER}.sdk"
 TOOLCHAIN_BIN="${DEVELOPER}/Toolchains/XcodeDefault.xctoolchain/usr/bin"
 ISYSROOT="${CROSS_TOP}/SDKs/${CROSS_SDK}"
-CC="${TOOLCHAIN_BIN}/clang -arch ${ARCH} -isysroot ${ISYSROOT} -lc++ -mios-version-min=${IOS_MIN_SDK_VERSION}"
-CPU_ARCH="arm" # Static on purpose as NSS's Makefiles don't try to do anything funny when CPU_ARCH == "arm".
+CC="${TOOLCHAIN_BIN}/clang -arch ${ARCH} -isysroot ${ISYSROOT} -mios-version-min=${IOS_MIN_SDK_VERSION}"
 
 # Build NSPR
 NSPR_BUILD_DIR=$(mktemp -d)
@@ -48,10 +49,10 @@ pushd "${NSPR_BUILD_DIR}"
   RANLIB="${TOOLCHAIN_BIN}/ranlib" \
   AR="${TOOLCHAIN_BIN}/ar" \
   AS="${TOOLCHAIN_BIN}/as" \
-  LD="${TOOLCHAIN_BIN}/ld -arch arm64" \
+  LD="${TOOLCHAIN_BIN}/ld" \
   CC="${CC}" \
   CCC="${CC}" \
-  --target aarch64-apple-darwin \
+  --target "${TARGET}" \
   --enable-64bit \
   --disable-debug \
   --enable-optimize
@@ -60,44 +61,39 @@ popd
 
 # Build NSS
 BUILD_DIR=$(mktemp -d)
-make \
-  CROSS_COMPILE=1 \
-  STRIP="${TOOLCHAIN_BIN}/strip" \
-  RANLIB="${TOOLCHAIN_BIN}/ranlib" \
-  AR="${TOOLCHAIN_BIN}/ar cr"' $@' \
-  AS="${TOOLCHAIN_BIN}/as -arch ${ARCH} -isysroot ${ISYSROOT}" \
-  LINK="${TOOLCHAIN_BIN}/ld -arch ${ARCH}" \
-  CC="${CC}" \
-  CCC="${CC}" \
-  OS_ARCH=Darwin \
-  OS_TEST="${CPU_ARCH}" \
-  CPU_ARCH="${CPU_ARCH}" \
-  USE_64=1 \
-  BUILD_OPT=1 \
-  NSS_DISABLE_CHACHAPOLY=1 \
-  NSS_DISABLE_DBM=1 \
-  BUILD_TREE="${BUILD_DIR}" \
-  SOURCE_PREFIX="${BUILD_DIR}/dist" \
-  SOURCE_MD_DIR="${BUILD_DIR}/dist" \
-  DIST="${BUILD_DIR}/dist" \
-  SOURCE_MDHEADERS_DIR="${NSPR_BUILD_DIR}/dist/include/nspr" \
-  NSPR_INCLUDE_DIR="${NSPR_BUILD_DIR}/dist/include/nspr" \
-  NSPR_LIB_DIR="${NSPR_BUILD_DIR}/dist/lib" \
-  NSINSTALL="${NSPR_BUILD_DIR}/config/nsinstall" \
-  -C "${NSS_SRC_DIR}/nss"
+rm -rf "${NSS_SRC_DIR}/nss/out"
+gyp -f ninja "${NSS_SRC_DIR}/nss/nss.gyp" \
+  --depth "${NSS_SRC_DIR}/nss/" \
+  --generator-output=. \
+  -DOS=ios \
+  -Dnspr_lib_dir="${NSPR_BUILD_DIR}/dist/lib" \
+  -Dnspr_include_dir="${NSPR_BUILD_DIR}/dist/include/nspr" \
+  -Dnss_dist_dir="${BUILD_DIR}" \
+  -Dnss_public_dist_dir="${BUILD_DIR}/public" \
+  -Dnss_dist_obj_dir="${BUILD_DIR}" \
+  -Dhost_arch="${GYP_ARCH}" \
+  -Dtarget_arch="${GYP_ARCH}" \
+  -Ddisable_dbm=1 \
+  -Dsign_libs=0 \
+  -Ddisable_tests=1 \
+  -Ddisable_libpkix=1 \
+  -Diphone_deployment_target="${IOS_MIN_SDK_VERSION}"
+
+GENERATED_DIR="${NSS_SRC_DIR}/nss/out/Release-$(echo ${OS_COMPILER} | tr '[:upper:]' '[:lower:]')/"
+ninja -C "${GENERATED_DIR}"
 
 mkdir -p "${DIST_DIR}/include/nss"
 mkdir -p "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/libfreebl3.dylib "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/libnss3.dylib "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/libnssckbi.dylib "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/libnssutil3.dylib "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/libsmime3.dylib "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/libsoftokn3.dylib "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/libssl3.dylib "${DIST_DIR}/lib"
-cp -p -L "${NSPR_BUILD_DIR}/dist"/lib/libplc4.dylib "${DIST_DIR}/lib"
-cp -p -L "${NSPR_BUILD_DIR}/dist"/lib/libplds4.dylib "${DIST_DIR}/lib"
-cp -p -L "${NSPR_BUILD_DIR}/dist"/lib/libnspr4.dylib "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/libfreebl3.dylib" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/libnss3.dylib" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/libnssckbi.dylib" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/libnssutil3.dylib" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/libsmime3.dylib" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/libsoftokn3.dylib" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/libssl3.dylib" "${DIST_DIR}/lib"
+cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplc4.dylib" "${DIST_DIR}/lib"
+cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplds4.dylib" "${DIST_DIR}/lib"
+cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libnspr4.dylib" "${DIST_DIR}/lib"
 
-cp -p -L "${BUILD_DIR}/dist"/public/nss/* "${DIST_DIR}/include/nss"
-cp -p -L -R "${NSPR_BUILD_DIR}/dist"/include/nspr/* "${DIST_DIR}/include/nss"
+cp -p -L -R "${BUILD_DIR}/public/nss/"* "${DIST_DIR}/include/nss"
+cp -p -L -R "${NSPR_BUILD_DIR}/dist/include/nspr/"* "${DIST_DIR}/include/nss"

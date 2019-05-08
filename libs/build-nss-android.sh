@@ -24,37 +24,27 @@ if [ -d "${DIST_DIR}" ]; then
 fi
 
 PLATFORM_PATH="${ANDROID_NDK_ROOT}/platforms/android-${ANDROID_NDK_API_VERSION}/arch-${ARCH}"
-USE_64=""
 if [ "${TOOLCHAIN}" == "x86_64-linux-android" ]
 then
-  CONFIGURE_ARCH="android64-x86_64"
-  CPU_ARCH="x86_64"
+  GYP_ARCH="x64"
   LDFLAGS="-L${PLATFORM_PATH}/usr/lib64"
-  USE_64=1
+  NSPR_64="--enable-64bit"
 elif [ "${TOOLCHAIN}" == "i686-linux-android" ]
 then
-  CONFIGURE_ARCH="android-x86"
-  CPU_ARCH="x86"
+  GYP_ARCH="ia32"
 elif [ "${TOOLCHAIN}" == "aarch64-linux-android" ]
 then
-  CONFIGURE_ARCH="android-arm64"
-  CPU_ARCH="arm"
-  USE_64=1
+  GYP_ARCH="arm64"
+  NSPR_64="--enable-64bit"
 elif [ "${TOOLCHAIN}" == "arm-linux-androideabi" ]
 then
-  CONFIGURE_ARCH="android-arm"
-  CPU_ARCH="arm"
+  GYP_ARCH="arm"
 else
   echo "Unknown toolchain"
   exit 1
 fi
-NSPR_64=""
-NSS_64=""
-if [[ -n "${USE_64}" ]]; then
-  NSPR_64="--enable-64bit"
-  NSS_64="USE_64=1"
-fi
-LDFLAGS=${LDFLAGS:-}
+LDFLAGS="${LDFLAGS:-}"
+NSPR_64="${NSPR_64:-""}"
 
 # Build NSPR
 NSPR_BUILD_DIR=$(mktemp -d)
@@ -73,45 +63,47 @@ popd
 
 # Build NSS
 BUILD_DIR=$(mktemp -d)
-# The ANDROID_ vars are just set so the Makefile doesn't complain.
-make \
-  CROSS_COMPILE=1 \
-  ANDROID_NDK=${ANDROID_NDK_ROOT} \
-  ANDROID_TOOLCHAIN_VERSION=${ANDROID_NDK_API_VERSION} \
-  CC="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-clang" \
-  CCC="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-clang++" \
-  RANLIB="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ranlib" \
-  OS_TARGET=Android \
-  ${NSS_64} \
-  LDFLAGS="${LDFLAGS}" \
-  CPU_ARCH="${CPU_ARCH}" \
-  ARCHFLAG="-D__ANDROID_API__=${ANDROID_NDK_API_VERSION}" \
-  BUILD_OPT=1 \
-  NSS_DISABLE_CHACHAPOLY=1 \
-  NSS_DISABLE_DBM=1 \
-  BUILD_TREE="${BUILD_DIR}" \
-  SOURCE_PREFIX="${BUILD_DIR}/dist" \
-  SOURCE_MD_DIR="${BUILD_DIR}/dist" \
-  DIST="${BUILD_DIR}/dist" \
-  SOURCE_MDHEADERS_DIR="${NSPR_BUILD_DIR}/dist/include/nspr" \
-  NSPR_INCLUDE_DIR="${NSPR_BUILD_DIR}/dist/include/nspr" \
-  NSPR_LIB_DIR="${NSPR_BUILD_DIR}/dist/lib" \
-  NSINSTALL="${NSPR_BUILD_DIR}/config/nsinstall" \
-  -C "${NSS_SRC_DIR}/nss"
+export AR="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ar"
+export CC="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-clang"
+export CXX="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-clang++"
+export LD="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ld"
+export NM="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-nm"
+export RANLIB="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ranlib"
+export READELF="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-readelf"
+
+BUILD_DIR=$(mktemp -d)
+rm -rf "${NSS_SRC_DIR}/nss/out"
+gyp -f ninja-android "${NSS_SRC_DIR}/nss/nss.gyp" \
+  --depth "${NSS_SRC_DIR}/nss/" \
+  --generator-output=. \
+  -DOS=android \
+  -Dnspr_lib_dir="${NSPR_BUILD_DIR}/dist/lib" \
+  -Dnspr_include_dir="${NSPR_BUILD_DIR}/dist/include/nspr" \
+  -Dnss_dist_dir="${BUILD_DIR}" \
+  -Dnss_public_dist_dir="${BUILD_DIR}/public" \
+  -Dnss_dist_obj_dir="${BUILD_DIR}" \
+  -Dhost_arch="${GYP_ARCH}" \
+  -Dtarget_arch="${GYP_ARCH}" \
+  -Ddisable_dbm=1 \
+  -Dsign_libs=0 \
+  -Ddisable_tests=1 \
+  -Ddisable_libpkix=1
+
+GENERATED_DIR="${NSS_SRC_DIR}/nss/out/Release"
+ninja -C "${GENERATED_DIR}"
 
 mkdir -p "${DIST_DIR}/include/nss"
 mkdir -p "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/libfreebl3.so "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/libnss3.so "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/libnssckbi.so "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/libnssutil3.so "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/libsmime3.so "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/libsoftokn3.so "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/libssl3.so "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/libsqlite3.so "${DIST_DIR}/lib"
-cp -p -L "${NSPR_BUILD_DIR}/dist"/lib/libplc4.so "${DIST_DIR}/lib"
-cp -p -L "${NSPR_BUILD_DIR}/dist"/lib/libplds4.so "${DIST_DIR}/lib"
-cp -p -L "${NSPR_BUILD_DIR}/dist"/lib/libnspr4.so "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/libfreebl3.so" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/libnss3.so" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/libnssckbi.so" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/libnssutil3.so" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/libsmime3.so" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/libsoftokn3.so" "${DIST_DIR}/lib"
+cp -p -L "${BUILD_DIR}/lib/libssl3.so" "${DIST_DIR}/lib"
+cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplc4.so" "${DIST_DIR}/lib"
+cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplds4.so" "${DIST_DIR}/lib"
+cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libnspr4.so" "${DIST_DIR}/lib"
 
-cp -p -L "${BUILD_DIR}/dist"/public/nss/* "${DIST_DIR}/include/nss"
-cp -p -L -R "${NSPR_BUILD_DIR}/dist"/include/nspr/* "${DIST_DIR}/include/nss"
+cp -p -L -R "${BUILD_DIR}/public/nss/"* "${DIST_DIR}/include/nss"
+cp -p -L -R "${NSPR_BUILD_DIR}/dist/include/nspr/"* "${DIST_DIR}/include/nss"

@@ -8,10 +8,10 @@ OPENSSL_SHA256="fc20130f8b7cbd2fb918b2f14e2f429e109c31ddd0fb38fc5d71d9ffed3f9f41
 SQLCIPHER_VERSION="4.1.0"
 SQLCIPHER_SHA256="65144ca3ba4c0f9cd4bae8c20bb42f2b84424bf29d1ebcf04c44a728903b1faa"
 
-NSS="nss-3.43"
-NSS_ARCHIVE="nss-3.43-with-nspr-4.21.tar.gz"
-NSS_URL="http://ftp.mozilla.org/pub/security/nss/releases/NSS_3_43_RTM/src/${NSS_ARCHIVE}"
-NSS_SHA256="fb2d54d507ceb185bac73f492cce7086a462d41977c2378aba9dd10e04448cf3"
+NSS="nss-3.44"
+NSS_ARCHIVE="nss-3.44-with-nspr-4.21.tar.gz"
+NSS_URL="http://ftp.mozilla.org/pub/security/nss/releases/NSS_3_44_RTM/src/${NSS_ARCHIVE}"
+NSS_SHA256="298d86e18e96660d3c98476274b5857b48c135d809a10d6528d8661bdf834a49"
 
 # End of configuration.
 
@@ -52,16 +52,19 @@ tar xfz "${SQLCIPHER}.tar.gz"
 SQLCIPHER_SRC_PATH=$(abspath "sqlcipher-${SQLCIPHER_VERSION}")
 
 rm -rf "${NSS}"
-if [ ! -e "${NSS_ARCHIVE}" ]; then
-  echo "Downloading ${NSS_ARCHIVE}"
-  curl -L -O "${NSS_URL}"
-else
-  echo "Using ${NSS_ARCHIVE}"
-fi
-echo "${NSS_SHA256}  ${NSS_ARCHIVE}" | shasum -a 256 -c - || exit 2
-tar xfz "${NSS_ARCHIVE}"
+# Delete the following...
+hg clone https://hg.mozilla.org/projects/nss/ -r 65efa74ef84a3b2fcab7fc960ee7c05e28bab2b1 "${NSS}"/nss
+hg clone https://hg.mozilla.org/projects/nspr/ -r 87e3d40f7fef5b67a28d6160a731a2d3118078be "${NSS}"/nspr
+# ... and uncomment the following once NSS 3.45 and NSPR 4.22 are out.
+# if [ ! -e "${NSS_ARCHIVE}" ]; then
+#   echo "Downloading ${NSS_ARCHIVE}"
+#   curl -L -O "${NSS_URL}"
+# else
+#   echo "Using ${NSS_ARCHIVE}"
+# fi
+# echo "${NSS_SHA256}  ${NSS_ARCHIVE}" | shasum -a 256 -c - || exit 2
+# tar xfz "${NSS_ARCHIVE}"
 NSS_SRC_PATH=$(abspath "${NSS}")
-./patch-nss-src.sh "${NSS_SRC_PATH}"
 
 if [ "${PLATFORM}" == "ios" ]
 then
