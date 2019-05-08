@@ -46,7 +46,14 @@ pub trait ConnExt {
     fn execute_all(&self, stmts: &[&str]) -> SqlResult<()> {
         let conn = self.conn();
         for sql in stmts {
-            conn.execute(sql, NO_PARAMS)?;
+            let r = conn.execute(sql, NO_PARAMS);
+            match r {
+                Ok(_) => {}
+                // Ignore ExecuteReturnedResults error because they're pointless
+                // and annoying.
+                Err(rusqlite::Error::ExecuteReturnedResults) => {}
+                Err(e) => return Err(e),
+            }
         }
         Ok(())
     }
