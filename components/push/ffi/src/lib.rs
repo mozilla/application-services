@@ -136,21 +136,12 @@ pub extern "C" fn push_update(handle: u64, new_token: FfiStr<'_>, error: &mut Ex
 }
 
 // verify connection using channel list
-// Returns a JSON containing the new channel_ids => endpoints
-// NOTE: AC should notify processes associated with channel_ids of new endpoint
+// Returns a bool indicating if channel_ids should resubscribe.
 #[no_mangle]
-pub extern "C" fn push_verify_connection(handle: u64, error: &mut ExternError) -> *mut c_char {
+pub extern "C" fn push_verify_connection(handle: u64, error: &mut ExternError) -> u8 {
     log::debug!("push_verify");
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<_> {
-        if !mgr.verify_connection()? {
-            let new_endpoints = mgr.regenerate_endpoints()?;
-            if !new_endpoints.is_empty() {
-                return serde_json::to_string(&new_endpoints).map_err(|e| {
-                    push::error::ErrorKind::TranscodingError(format!("{:?}", e)).into()
-                });
-            }
-        }
-        Ok(String::from(""))
+        mgr.verify_connection()
     })
 }
 
@@ -172,7 +163,7 @@ pub extern "C" fn push_decrypt(
         let r_salt: Option<&str> = salt.as_opt_str();
         let r_dh: Option<&str> = dh.as_opt_str();
         let uaid = mgr.conn.uaid.clone().unwrap();
-        mgr.decrypt(&uaid, r_chid, r_body, r_encoding, r_dh, r_salt)
+        mgr.decrypt(&uaid, r_chid, r_body, r_encoding, r_salt, r_dh)
     })
 }
 // TODO: modify these to be relevant.

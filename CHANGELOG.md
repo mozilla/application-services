@@ -22,6 +22,7 @@
 - iOS: Sync metadata can be reset using the `resetBookmarksMetadata` method
   ([#1092](https://github.com/mozilla/application-services/pull/1092))
 
+
 # v0.27.1 (_2019-04-26_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.0...v0.27.1)

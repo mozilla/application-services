@@ -94,10 +94,13 @@ impl PushManager {
         if self.conn.uaid.is_none() {
             return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
         }
-        let result = self.conn.unsubscribe(channel_id)?;
-        self.store
-            .delete_record(self.conn.uaid.as_ref().unwrap(), channel_id.unwrap())?;
-        Ok(result)
+        let uaid = self.conn.uaid.as_ref().unwrap();
+        Ok(if let Some(chid) = channel_id {
+            self.conn.unsubscribe(channel_id)? && self.store.delete_record(uaid, chid)?
+        } else {
+            self.store.delete_all_records(uaid)?;
+            self.conn.unsubscribe(None)?
+        })
     }
 
     pub fn update(&mut self, new_token: &str) -> error::Result<bool> {
@@ -119,7 +122,11 @@ impl PushManager {
         let channels = self
             .store
             .get_channel_list(self.conn.uaid.as_ref().unwrap())?;
-        self.conn.verify_connection(&channels)
+        let result = self.conn.verify_connection(&channels)?;
+        if !result {
+            self.unsubscribe(None)?;
+        }
+        Ok(result)
     }
 
     pub fn decrypt(
@@ -128,8 +135,8 @@ impl PushManager {
         chid: &str,
         body: &str,
         encoding: &str,
-        dh: Option<&str>,
         salt: Option<&str>,
+        dh: Option<&str>,
     ) -> Result<String> {
         match self.store.get_record(&uaid, chid) {
             Err(e) => Err(ErrorKind::StorageError(format!("{:?}", e)).into()),

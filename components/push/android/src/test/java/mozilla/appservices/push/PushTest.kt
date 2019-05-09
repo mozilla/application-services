@@ -218,8 +218,7 @@ class PushTest {
         manager.subscribe(testChannelid, "foo")
         // and call verifyConnection again to emulate a set value.
         val result = manager.verifyConnection()
-        val vv = result[testChannelid].toString()
-        assertEquals("Check changed endpoint", "http://push.example.com/test/obscure", vv)
+        assertEquals("Check changed endpoint", false, result)
     }
 
     @Test
