@@ -1,8 +1,6 @@
-# Unreleased Changes
+# v0.27.2 (_2019-05-08_)
 
-**See [the release process docs](docs/howtos/cut-a-new-release.md) for the steps to take when cutting a new release.**
-
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.1...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.1...v0.27.2)
 
 ## Logins
 

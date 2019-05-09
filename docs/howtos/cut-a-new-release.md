@@ -3,24 +3,25 @@
 These are the steps needed to cut a new release.
 
 1. Update the changelog.
+    1. Copy the contents from `CHANGES_UNRELEASED.md` into the top of `CHANGELOG.md`, except for the part that links to this document.
+    2. In `CHANGELOG.md`:
+        1. Replace `# Unreleased Changes` with `# v<new-version-number> (_<current date>_)`.
+        2. Replace `master` in the Full Changelog link (which you pasted in from `CHANGES_UNRELEASED.md`) to be `v<new-version-number>`. E.g. if you are releasing 0.13.2, the link should be
+            ```
+            [Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.1...v0.13.2)
+            ```
+            Note that this needs three dots (`...`) between the two tags (two dots is different). Yes, the second tag doesn't exist yet, you'll make it later.
+        3. Optionally, go over the commits between the past release and this one and see if anything is worth including.
+        4. Make sure the changelog follows the format of the other changelog entries. If you have access, [this document](https://docs.google.com/document/d/1oxdGm7OQcsy78NzXjMQKTbfzn21tl9Nopmvo8NCMWmU) is fairly comprehensive. For a concrete example, at the time of this writing, see the [0.13.0](https://github.com/mozilla/application-services/blob/master/CHANGELOG.md#0130-2019-01-09) release notes.
+            - Note that we try to provide PR or issue numbers (and links) for each change. Please add these if they are missing.
 
-    1. Add a new header between the "Full Changelog" and "See the release process docs..." lines with the version number and date of the next release.
-    2. Replace `master` in the Full Changelog link to be `v<new-version-number>`. E.g. if you are releasing 0.13.2, the link should be
-
-        ```
-        [Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.1...v0.13.2)
-        ```
-
-        Note that this needs three dots (`...`) between the two tags (two dots is different). Yes, the second tag doesn't exist yet, you'll make it later.
-
-    3. Add a new "Full Changelog" link that starts at your new version and continues to master. E.g. for 0.13.2 this would be
-        ```
-        [Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.2...master)
-        ```
-        Again, this needs 3 dots.
-    4. Optionally, go over the commits between the past release and this one and see if anything is worth including.
-    5. Make sure the changelog follows the format of the other changelog entries. If you have access, [this document](https://docs.google.com/document/d/1oxdGm7OQcsy78NzXjMQKTbfzn21tl9Nopmvo8NCMWmU) is fairly comprehensive. For a concrete example, at the time of this writing, see the [0.13.0](https://github.com/mozilla/application-services/blob/master/CHANGELOG.md#0130-2019-01-09) release notes.
-        - Note that we try to provide PR or issue numbers (and links) for each change. Please add these if they are missing.
+    3. In `CHANGES_UNRELEASED.md`:
+        1. Delete the list of changes that are now in the changelog.
+        2. Update the "Full Changelog" link so that it starts at your new version and continues to master. E.g. for 0.13.2 this would be
+            ```
+            [Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.2...master)
+            ```
+            Again, this needs 3 dots.
 
 2. Bump `libraryVersion` in the top-level [.buildconfig-android.yml](https://github.com/mozilla/application-services/blob/master/.buildconfig-android.yml) file. Be sure you're following semver, and if in doubt, ask.
 3. Land the commits that perform the steps above. This takes a PR, typically, because of branch protection on master.
