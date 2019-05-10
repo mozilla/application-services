@@ -18,45 +18,21 @@ SQLCIPHER_SRC_PATH=${2}
 NSS_SRC_PATH=${3}
 
 function universal_lib() {
-  DIR_NAME=${1}
-  LIB_NAME=${2}
+  DIR_NAME="${1}"
+  LIB_NAME="${2}"
+  shift; shift
   UNIVERSAL_DIR="ios/universal/${DIR_NAME}"
   LIB_PATH="${UNIVERSAL_DIR}/lib/${LIB_NAME}"
   if [ ! -e "${LIB_PATH}" ]; then
     mkdir -p "${UNIVERSAL_DIR}/lib"
     CMD="lipo"
-    for ARCH in "${TARGET_ARCHS[@]}"; do
+    for ARCH in "${@}"; do
       CMD="${CMD} -arch ${ARCH} ios/${ARCH}/${DIR_NAME}/lib/${LIB_NAME}"
     done
     CMD="${CMD} -output ${LIB_PATH} -create"
     ${CMD}
   fi
 }
-
-echo "# Building openssl"
-for i in "${!TARGET_ARCHS[@]}"; do
-  ARCH=${TARGET_ARCHS[${i}]}
-  DIST_DIR=$(abspath "ios/""${ARCH}""/openssl")
-  if [ -d "${DIST_DIR}" ]; then
-    echo "${DIST_DIR} already exists. Skipping building openssl."
-  else
-    ./build-openssl-ios.sh "${OPENSSL_SRC_PATH}" "${DIST_DIR}" "${ARCH}" "${IOS_MIN_SDK_VERSION}" || exit 1
-  fi
-done
-universal_lib "openssl" "libssl.a"
-universal_lib "openssl" "libcrypto.a"
-
-echo "# Building sqlcipher"
-for i in "${!TARGET_ARCHS[@]}"; do
-  ARCH=${TARGET_ARCHS[${i}]}
-  DIST_DIR=$(abspath "ios/""${ARCH}""/sqlcipher")
-  if [ -d "${DIST_DIR}" ]; then
-    echo "${DIST_DIR} already exists. Skipping building sqlcipher."
-  else
-    ./build-sqlcipher-ios.sh "${SQLCIPHER_SRC_PATH}" "${DIST_DIR}" "${ARCH}" "${IOS_MIN_SDK_VERSION}" || exit 1
-  fi
-done
-universal_lib "sqlcipher" "libsqlcipher.a"
 
 echo "# Building NSS"
 for i in "${!TARGET_ARCHS[@]}"; do
@@ -68,16 +44,51 @@ for i in "${!TARGET_ARCHS[@]}"; do
     ./build-nss-ios.sh "${NSS_SRC_PATH}" "${DIST_DIR}" "${ARCH}" "${IOS_MIN_SDK_VERSION}" || exit 1
   fi
 done
-universal_lib "nss" "libplc4.dylib"
-universal_lib "nss" "libplds4.dylib"
-universal_lib "nss" "libnspr4.dylib"
-universal_lib "nss" "libfreebl3.dylib"
-universal_lib "nss" "libnss3.dylib"
-universal_lib "nss" "libnssckbi.dylib"
-universal_lib "nss" "libnssutil3.dylib"
-universal_lib "nss" "libsmime3.dylib"
-universal_lib "nss" "libsoftokn3.dylib"
-universal_lib "nss" "libssl3.dylib"
+universal_lib "nss" "libcertdb.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libfreebl_static.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libnssb.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libnssutil.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libpkcs7.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libsmime.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libcerthi.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libnspr4.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libnssdev.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libpk11wrap_static.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libplc4.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libsoftokn_static.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libcryptohi.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libnss_static.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libnsspki.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libpkcs12.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libplds4.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libssl.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libhw-acc-crypto.a" "${TARGET_ARCHS[@]}"
+universal_lib "nss" "libgcm-aes-x86_c_lib.a" "x86_64"
+
+echo "# Building openssl"
+for i in "${!TARGET_ARCHS[@]}"; do
+  ARCH=${TARGET_ARCHS[${i}]}
+  DIST_DIR=$(abspath "ios/${ARCH}/openssl")
+  if [ -d "${DIST_DIR}" ]; then
+    echo "${DIST_DIR} already exists. Skipping building openssl."
+  else
+    ./build-openssl-ios.sh "${OPENSSL_SRC_PATH}" "${DIST_DIR}" "${ARCH}" "${IOS_MIN_SDK_VERSION}" || exit 1
+  fi
+done
+universal_lib "openssl" "libssl.a" "${TARGET_ARCHS[@]}"
+universal_lib "openssl" "libcrypto.a" "${TARGET_ARCHS[@]}"
+
+echo "# Building sqlcipher"
+for i in "${!TARGET_ARCHS[@]}"; do
+  ARCH=${TARGET_ARCHS[${i}]}
+  DIST_DIR=$(abspath "ios/${ARCH}/sqlcipher")
+  if [ -d "${DIST_DIR}" ]; then
+    echo "${DIST_DIR} already exists. Skipping building sqlcipher."
+  else
+    ./build-sqlcipher-ios.sh "${SQLCIPHER_SRC_PATH}" "${DIST_DIR}" "${ARCH}" "${IOS_MIN_SDK_VERSION}" || exit 1
+  fi
+done
+universal_lib "sqlcipher" "libsqlcipher.a" "${TARGET_ARCHS[@]}"
 
 HEADER_DIST_DIR="ios/universal/openssl/include/openssl"
 if [ ! -e "${HEADER_DIST_DIR}" ]; then

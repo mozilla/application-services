@@ -17,20 +17,18 @@ ARCH=${3}
 IOS_MIN_SDK_VERSION=${4}
 
 if [ -d "${DIST_DIR}" ]; then
-  echo "${DIST_DIR}"" folder already exists. Skipping build."
+  echo "${DIST_DIR} folder already exists. Skipping build."
   exit 0
 fi
-
-SQLCIPHER_IOS="${SQLCIPHER_SRC_DIR}/build-ios-""${ARCH}_${$}"
-mkdir -p "${SQLCIPHER_IOS}"
-pushd "${SQLCIPHER_IOS}"
 
 if [[ "${ARCH}" == "x86_64" ]]; then
   OS_COMPILER="iPhoneSimulator"
   HOST="x86_64-apple-darwin"
+  NSS_DIR=$(abspath "ios/x86_64/nss")
 elif [[ "${ARCH}" == "arm64" ]]; then
   OS_COMPILER="iPhoneOS"
   HOST="arm-apple-darwin"
+  NSS_DIR=$(abspath "ios/arm64/nss")
 else
   echo "Unsupported architecture"
   exit 1
@@ -72,7 +70,10 @@ SQLCIPHER_CFLAGS=" \
   -DSQLITE_ENABLE_FTS4 \
   -DSQLITE_ENABLE_FTS5 \
   -DHAVE_USLEEP=1 \
+  -DSQLCIPHER_CRYPTO_NSS \
+  -I${NSS_DIR}/include \
 "
+
 # These additional options are used on desktop, but are not currently
 # used on iOS until we can performance test them:
 #   -DSQLITE_SOUNDEX \
@@ -93,17 +94,43 @@ SQLCIPHER_CFLAGS=" \
 # at runtime with `PRAGMA secure_delete`:
 #   -DSQLITE_SECURE_DELETE \
 
-../configure \
+LIBS="\
+  -lcertdb \
+  -lcerthi \
+  -lcryptohi \
+  -lfreebl_static \
+  -lhw-acc-crypto \
+  -lnspr4 \
+  -lnss_static \
+  -lnssb \
+  -lnssdev \
+  -lnsspki \
+  -lnssutil \
+  -lpk11wrap_static \
+  -lplc4 \
+  -lplds4 \
+  -lsoftokn_static \
+"
+
+if [[ "${ARCH}" == "x86_64" ]]; then
+  LIBS="${LIBS} -lgcm-aes-x86_c_lib"
+fi
+
+BUILD_DIR=$(mktemp -d)
+pushd "${BUILD_DIR}"
+
+"${SQLCIPHER_SRC_DIR}/configure" \
   --with-pic \
   --disable-tcl \
   --host="${HOST}" \
   --verbose \
-  --with-crypto-lib=commoncrypto \
+  --with-crypto-lib=none \
   --enable-tempstore=yes \
   --enable-threadsafe=yes \
   --disable-editline \
   CFLAGS="${CFLAGS} ${SQLCIPHER_CFLAGS}" \
-  LDFLAGS="-framework Security -framework Foundation"
+  LDFLAGS="-L${NSS_DIR}/lib" \
+  LIBS="${LIBS}"
 
 # Make all fails because it tries to build the command line program.
 # Can't find a way around this so we'll build what we need... Sort of.
@@ -120,10 +147,8 @@ make libsqlcipher.la
 mkdir -p "${DIST_DIR}/include/sqlcipher"
 mkdir -p "${DIST_DIR}/lib"
 
-cp -p "${SQLCIPHER_IOS}/sqlite3.h" "${DIST_DIR}/include/sqlcipher"
-cp -p "${SQLCIPHER_IOS}/sqlite3ext.h" "${DIST_DIR}/include/sqlcipher"
-cp -p "${SQLCIPHER_IOS}/.libs/libsqlcipher.a" "${DIST_DIR}/lib"
+cp -p "${BUILD_DIR}/sqlite3.h" "${DIST_DIR}/include/sqlcipher"
+cp -p "${BUILD_DIR}/sqlite3ext.h" "${DIST_DIR}/include/sqlcipher"
+cp -p "${BUILD_DIR}/.libs/libsqlcipher.a" "${DIST_DIR}/lib"
 
 popd
-
-rm -rf "${SQLCIPHER_IOS}"

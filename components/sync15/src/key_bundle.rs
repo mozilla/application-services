@@ -3,10 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::{ErrorKind, Result};
-use openssl::hash::MessageDigest;
-use openssl::pkey::PKey;
-use openssl::sign::Signer;
-use openssl::{self, symm};
+use rc_crypto::{
+    aead::{self, OpeningKey, SealingKey},
+    rand,
+};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct KeyBundle {
@@ -40,7 +40,7 @@ impl KeyBundle {
 
     pub fn new_random() -> Result<KeyBundle> {
         let mut buffer = [0u8; 64];
-        openssl::rand::rand_bytes(&mut buffer)?;
+        rand::fill(&mut buffer)?;
         KeyBundle::from_ksync_bytes(&buffer)
     }
 
@@ -81,93 +81,68 @@ impl KeyBundle {
         [base64::encode(&self.enc_key), base64::encode(&self.mac_key)]
     }
 
-    /// Returns the 32 byte digest by value since it's small enough to be passed
-    /// around cheaply, and easily convertable into a slice or vec if you want.
-    fn hmac(&self, ciphertext: &[u8]) -> Result<[u8; 32]> {
-        let mut out = [0u8; 32];
-        let key = PKey::hmac(self.hmac_key())?;
-        let mut signer = Signer::new(MessageDigest::sha256(), &key)?;
-        signer.update(ciphertext)?;
-        let size = signer.sign(&mut out)?;
-        // This isn't an Err since it really should not be possible.
-        assert!(
-            size == 32,
-            "Somehow the 256 bits from sha256 do not add up into 32 bytes..."
-        );
-        Ok(out)
-    }
-
-    /// Important! Don't compare against this directly! use `verify_hmac` or `verify_hmac_string`!
-    pub fn hmac_string(&self, ciphertext: &[u8]) -> Result<String> {
-        Ok(base16::encode_lower(&self.hmac(ciphertext)?))
-    }
-
-    pub fn verify_hmac(&self, expected_hmac: &[u8], ciphertext_base64: &str) -> Result<bool> {
-        let computed_hmac = self.hmac(ciphertext_base64.as_bytes())?;
-        // I suspect this is unnecessary for our case, but the rust-openssl docs
-        // want us to use this over == to avoid sidechannels, and who am I to argue?
-        Ok(openssl::memcmp::eq(&expected_hmac, &computed_hmac))
-    }
-
-    pub fn verify_hmac_string(&self, expected_hmac: &str, ciphertext_base64: &str) -> Result<bool> {
-        let computed_hmac = self.hmac(ciphertext_base64.as_bytes())?;
-        // Note: openssl::memcmp::eq panics if the sizes aren't the same. Desktop returns that it
-        // was a verification failure, so we will too.
-        if expected_hmac.len() != 64 {
-            log::warn!("Garbage HMAC verification string: Wrong length");
-            return Ok(false);
-        }
+    /// Decrypt the provided ciphertext with the given iv, and decodes the
+    /// result as a utf8 string.
+    pub fn decrypt(&self, enc_base64: &str, iv_base64: &str, hmac_base16: &str) -> Result<String> {
         // Decode the expected_hmac into bytes to avoid issues if a client happens to encode
         // this as uppercase. This shouldn't happen in practice, but doing it this way is more
         // robust and avoids an allocation.
-        let mut decoded_hmac = [0u8; 32];
-
-        if base16::decode_slice(expected_hmac, &mut decoded_hmac).is_err() {
+        let mut decoded_hmac = vec![0u8; 32];
+        if base16::decode_slice(hmac_base16, &mut decoded_hmac).is_err() {
             log::warn!("Garbage HMAC verification string: contained non base16 characters");
-            return Ok(false);
+            return Err(ErrorKind::HmacMismatch.into());
         }
-
-        Ok(openssl::memcmp::eq(&decoded_hmac, &computed_hmac))
-    }
-
-    /// Decrypt the provided ciphertext with the given iv, and decodes the
-    /// result as a utf8 string.  Important: Caller must check verify_hmac first!
-    pub fn decrypt(&self, ciphertext: &[u8], iv: &[u8]) -> Result<String> {
-        let cleartext_bytes = symm::decrypt(
-            symm::Cipher::aes_256_cbc(),
-            self.encryption_key(),
-            Some(iv),
-            ciphertext,
+        let iv = base64::decode(iv_base64)?;
+        let ciphertext_bytes = base64::decode(enc_base64)?;
+        let key_bytes = [self.encryption_key(), self.hmac_key()].concat();
+        let key = OpeningKey::new(&aead::LEGACY_SYNC_AES_256_CBC_HMAC_SHA256, &key_bytes)?;
+        let nonce = aead::Nonce::try_assume_unique_for_key(
+            &aead::LEGACY_SYNC_AES_256_CBC_HMAC_SHA256,
+            &iv,
         )?;
+        let ciphertext_and_hmac = [ciphertext_bytes, decoded_hmac].concat();
+        let cleartext_bytes = aead::open(&key, nonce, aead::Aad::empty(), &ciphertext_and_hmac)?;
         let cleartext = String::from_utf8(cleartext_bytes)?;
         Ok(cleartext)
     }
 
     /// Encrypt using the provided IV.
-    pub fn encrypt_bytes_with_iv(&self, cleartext_bytes: &[u8], iv: &[u8]) -> Result<Vec<u8>> {
-        let ciphertext = symm::encrypt(
-            symm::Cipher::aes_256_cbc(),
-            self.encryption_key(),
-            Some(iv),
-            cleartext_bytes,
-        )?;
-        Ok(ciphertext)
+    pub fn encrypt_bytes_with_iv(
+        &self,
+        cleartext_bytes: &[u8],
+        iv: &[u8],
+    ) -> Result<(String, String)> {
+        let key_bytes = [self.encryption_key(), self.hmac_key()].concat();
+        let key = SealingKey::new(&aead::LEGACY_SYNC_AES_256_CBC_HMAC_SHA256, &key_bytes)?;
+        let nonce =
+            aead::Nonce::try_assume_unique_for_key(&aead::LEGACY_SYNC_AES_256_CBC_HMAC_SHA256, iv)?;
+        let ciphertext_and_hmac = aead::seal(&key, nonce, aead::Aad::empty(), cleartext_bytes)?;
+        let ciphertext_len = ciphertext_and_hmac.len() - key.algorithm().tag_len();
+        // Do the string conversions here so we don't have to split and copy to 2 vectors.
+        let (ciphertext, hmac_signature) = ciphertext_and_hmac.split_at(ciphertext_len);
+        let enc_base64 = base64::encode(&ciphertext);
+        let hmac_base16 = base16::encode_lower(&hmac_signature);
+        Ok((enc_base64, hmac_base16))
     }
 
     /// Generate a random iv and encrypt with it. Return both the encrypted bytes
     /// and the generated iv.
-    pub fn encrypt_bytes_rand_iv(&self, cleartext_bytes: &[u8]) -> Result<(Vec<u8>, [u8; 16])> {
+    pub fn encrypt_bytes_rand_iv(
+        &self,
+        cleartext_bytes: &[u8],
+    ) -> Result<(String, String, String)> {
         let mut iv = [0u8; 16];
-        openssl::rand::rand_bytes(&mut iv)?;
-        let ciphertext = self.encrypt_bytes_with_iv(cleartext_bytes, &iv)?;
-        Ok((ciphertext, iv))
+        rand::fill(&mut iv)?;
+        let (enc_base64, hmac_base16) = self.encrypt_bytes_with_iv(cleartext_bytes, &iv)?;
+        let iv_base64 = base64::encode(&iv);
+        Ok((enc_base64, iv_base64, hmac_base16))
     }
 
-    pub fn encrypt_with_iv(&self, cleartext: &str, iv: &[u8]) -> Result<Vec<u8>> {
+    pub fn encrypt_with_iv(&self, cleartext: &str, iv: &[u8]) -> Result<(String, String)> {
         self.encrypt_bytes_with_iv(cleartext.as_bytes(), iv)
     }
 
-    pub fn encrypt_rand_iv(&self, cleartext: &str) -> Result<(Vec<u8>, [u8; 16])> {
+    pub fn encrypt_rand_iv(&self, cleartext: &str) -> Result<(String, String, String)> {
         self.encrypt_bytes_rand_iv(cleartext.as_bytes())
     }
 }
@@ -201,20 +176,10 @@ mod test {
     ];
 
     #[test]
-    fn test_hmac() {
-        let key_bundle = KeyBundle::from_base64(ENC_KEY_B64, HMAC_KEY_B64).unwrap();
-        let ciphertext_base64 = CIPHERTEXT_B64_PIECES.join("");
-        assert!(key_bundle
-            .verify_hmac_string(HMAC_B16, &ciphertext_base64)
-            .unwrap());
-    }
-
-    #[test]
     fn test_decrypt() {
         let key_bundle = KeyBundle::from_base64(ENC_KEY_B64, HMAC_KEY_B64).unwrap();
-        let ciphertext = base64::decode(&CIPHERTEXT_B64_PIECES.join("")).unwrap();
-        let iv = base64::decode(IV_B64).unwrap();
-        let s = key_bundle.decrypt(&ciphertext, &iv).unwrap();
+        let ciphertext = CIPHERTEXT_B64_PIECES.join("");
+        let s = key_bundle.decrypt(&ciphertext, IV_B64, HMAC_B16).unwrap();
 
         let cleartext =
             String::from_utf8(base64::decode(&CLEARTEXT_B64_PIECES.join("")).unwrap()).unwrap();
@@ -227,18 +192,21 @@ mod test {
         let iv = base64::decode(IV_B64).unwrap();
 
         let cleartext_bytes = base64::decode(&CLEARTEXT_B64_PIECES.join("")).unwrap();
-        let encrypted_bytes = key_bundle
+        let (enc_base64, _hmac_base16) = key_bundle
             .encrypt_bytes_with_iv(&cleartext_bytes, &iv)
             .unwrap();
 
-        let expect_ciphertext = base64::decode(&CIPHERTEXT_B64_PIECES.join("")).unwrap();
+        let expect_ciphertext = CIPHERTEXT_B64_PIECES.join("");
 
-        assert_eq!(&encrypted_bytes, &expect_ciphertext);
+        assert_eq!(&enc_base64, &expect_ciphertext);
 
-        let (enc_bytes2, iv2) = key_bundle.encrypt_bytes_rand_iv(&cleartext_bytes).unwrap();
-        assert_ne!(&enc_bytes2, &expect_ciphertext);
+        let (enc_base64_2, iv_base64_2, hmac_base16_2) =
+            key_bundle.encrypt_bytes_rand_iv(&cleartext_bytes).unwrap();
+        assert_ne!(&enc_base64_2, &expect_ciphertext);
 
-        let s = key_bundle.decrypt(&enc_bytes2, &iv2).unwrap();
+        let s = key_bundle
+            .decrypt(&enc_base64_2, &iv_base64_2, &hmac_base16_2)
+            .unwrap();
         assert_eq!(&cleartext_bytes, &s.as_bytes());
     }
 }

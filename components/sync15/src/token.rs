@@ -4,6 +4,7 @@
 
 use crate::error::{self, ErrorKind, Result};
 use crate::util::ServerTimestamp;
+use rc_crypto::hawk;
 use serde_derive::*;
 use std::borrow::{Borrow, Cow};
 use std::cell::RefCell;
@@ -241,6 +242,9 @@ struct TokenProviderImpl<TF: TokenFetcher> {
 
 impl<TF: TokenFetcher> TokenProviderImpl<TF> {
     fn new(fetcher: TF) -> Self {
+        // We check this at the real entrypoint of the application, but tests
+        // can/do bypass that, so check this here too.
+        rc_crypto::ensure_initialized();
         TokenProviderImpl {
             fetcher,
             current_state: RefCell::new(TokenState::NoToken),
@@ -256,7 +260,7 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
 
         let credentials = hawk::Credentials {
             id: token.id.clone(),
-            key: hawk::Key::new(token.key.as_bytes(), hawk::Digest::sha256())?,
+            key: hawk::Key::new(token.key.as_bytes(), hawk::SHA256)?,
         };
 
         Ok(TokenContext::new(

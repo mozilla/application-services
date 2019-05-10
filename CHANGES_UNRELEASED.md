@@ -4,6 +4,11 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.33.2...master)
 
+## General
+
+- All of our cryptographic primitives are now backed by NSS. This change should be transparent our customers.  
+If you build application-services, it is recommended to delete the `libs/{desktop, ios, android}` folders and start over using `./build-all.sh [android|desktop|ios]`.
+
 ## Places
 
 ### What's New
@@ -19,3 +24,9 @@
 - Android only: The addition of `acceptResult` to `WritableHistoryConnection` is
   a breaking change for any custom implementations of `WritableHistoryConnection`
   ([#1332](https://github.com/mozilla/application-services/pull/1332))
+
+## Push
+
+### Breaking Changes
+
+- `OpenSSLError` has been renamed to the more general `CryptoError`.

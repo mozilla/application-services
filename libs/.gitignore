@@ -1,10 +1,12 @@
-# Downloaded sources tarballs.
+# Downloaded sources archives.
 *.tar.gz
+*.7z
 
 # Intermediate folders leftover on build failures.
-openssl-*
-sqlcipher-*
-nss-*
+openssl*
+sqlcipher*
+nss*
+dist
 
 # Final artifacts
 /android

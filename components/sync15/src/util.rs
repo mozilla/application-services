@@ -9,9 +9,9 @@ use std::str::FromStr;
 use std::time::Duration;
 use std::{fmt, num};
 
-pub fn random_guid() -> Result<String, openssl::error::ErrorStack> {
-    let mut bytes = vec![0u8; 9];
-    openssl::rand::rand_bytes(&mut bytes)?;
+pub fn random_guid() -> Result<String, rc_crypto::Error> {
+    let mut bytes = [0u8; 9];
+    rc_crypto::rand::fill(&mut bytes)?;
     Ok(base64::encode_config(&bytes, base64::URL_SAFE_NO_PAD))
 }
 
