@@ -62,6 +62,30 @@ impl PushDb {
         let conn = Connection::open_in_memory()?;
         Ok(Self::with_connection(conn)?)
     }
+
+    /// Normalize UUID values to undashed, lowercase.
+    // The server mangles ChannelID UUIDs to undashed lowercase values. We should force those
+    // so that key lookups continue to work.
+    pub fn normalize_uuid(uuid: &str) -> String {
+        uuid.replace('-', "").to_lowercase()
+    }
+
+    /// Dash UUID strings.
+    // In case it's needed.
+    pub fn uuid_to_dashed(uuid: &str) -> Result<String> {
+        if !uuid.is_ascii() || uuid.len() < 32 || uuid.len() > 36 {
+            return Err(ErrorKind::GeneralError("UUID is invalid".to_owned()).into());
+        }
+        let norm = Self::normalize_uuid(uuid);
+        Ok(format!(
+            "{}-{}-{}-{}-{}",
+            &norm[0..8],
+            &norm[8..12],
+            &norm[12..16],
+            &norm[16..20],
+            &norm[20..]
+        ))
+    }
 }
 
 impl Deref for PushDb {
@@ -86,7 +110,7 @@ impl Storage for PushDb {
         );
         Ok(self.try_query_row(
             &query,
-            &[(":uaid", &uaid), (":chid", &chid)],
+            &[(":uaid", &uaid), (":chid", &Self::normalize_uuid(chid))],
             PushRecord::from_row,
             false,
         )?)
@@ -98,7 +122,12 @@ impl Storage for PushDb {
              FROM push_record WHERE channel_id = :chid",
             common_cols = schema::COMMON_COLS,
         );
-        Ok(self.try_query_row(&query, &[(":chid", &chid)], PushRecord::from_row, false)?)
+        Ok(self.try_query_row(
+            &query,
+            &[(":chid", &Self::normalize_uuid(chid))],
+            PushRecord::from_row,
+            false,
+        )?)
     }
 
     fn put_record(&self, record: &PushRecord) -> Result<bool> {
@@ -121,7 +150,7 @@ impl Storage for PushDb {
             &query,
             &[
                 (":uaid", &record.uaid),
-                (":channel_id", &record.channel_id),
+                (":channel_id", &Self::normalize_uuid(&record.channel_id)),
                 (":endpoint", &record.endpoint),
                 (":scope", &record.scope),
                 (":key", &record.key),
@@ -137,7 +166,7 @@ impl Storage for PushDb {
         let affected_rows = self.execute_named(
             "DELETE FROM push_record
              WHERE uaid = :uaid AND channel_id = :chid",
-            &[(":uaid", &uaid), (":chid", &chid)],
+            &[(":uaid", &uaid), (":chid", &Self::normalize_uuid(chid))],
         )?;
         Ok(affected_rows == 1)
     }
@@ -171,7 +200,7 @@ impl Storage for PushDb {
             &[
                 (":endpoint", &endpoint),
                 (":uaid", &uaid),
-                (":channel_id", &channel_id),
+                (":channel_id", &Self::normalize_uuid(&channel_id)),
             ],
         )?;
         Ok(affected_rows == 1)
@@ -306,6 +335,19 @@ mod test {
         db.set_meta("fruit", "banana")?;
         assert_eq!(db.get_meta("uaid")?, Some(DUMMY_UAID.to_owned()));
         assert_eq!(db.get_meta("fruit")?, Some("banana".to_owned()));
+        Ok(())
+    }
+
+    #[test]
+    fn dash() -> Result<()> {
+        let db = get_db()?;
+        let chid = "deadbeef-0000-0000-0000-decafbad12345678";
+
+        let rec = prec(chid);
+
+        assert!(db.put_record(&rec)?);
+        assert!(db.get_record(DUMMY_UAID, chid)?.is_some());
+        assert!(db.delete_record(DUMMY_UAID, chid)?);
         Ok(())
     }
 }

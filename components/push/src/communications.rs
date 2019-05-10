@@ -21,6 +21,7 @@ use crate::error::{
     self,
     ErrorKind::{AlreadyRegisteredError, CommunicationError, CommunicationServerError},
 };
+use crate::storage::Store;
 
 #[derive(Debug)]
 pub struct RegisterResponse {
@@ -369,7 +370,12 @@ impl Connection for ConnectHttp {
                 CommunicationServerError("Invalid Response from server".to_string()).into(),
             );
         }
-        Ok(payload.channel_ids.clone())
+        Ok(payload
+            .channel_ids
+            .to_vec()
+            .into_iter()
+            .map(|s| Store::normalize_uuid(&s))
+            .collect())
     }
 
     // Add one or more new broadcast subscriptions.
@@ -392,10 +398,16 @@ impl Connection for ConnectHttp {
         if &self.options.sender_id == "test" {
             return Ok(false);
         }
+        let my_chans: Vec<String> = channels
+            .to_vec()
+            .into_iter()
+            .map(|s| Store::normalize_uuid(&s))
+            .collect();
         log::debug!("Getting Channel List");
         let remote = self.channel_list()?;
         // verify both lists match. Either side could have lost it's mind.
-        if remote != channels {
+
+        if remote != my_chans {
             // Unsubscribe all the channels (just to be sure and avoid a loop)
             self.unsubscribe(None)?;
             return Ok(false);
@@ -422,44 +434,6 @@ mod test {
     const SENDER_ID: &str = "FakeSenderID";
     const SECRET: &str = "SuP3rS1kRet";
 
-    /*
-        # While this is technically dead code, it should not be removed.
-        # This test case can be used against a locally running autopush server
-        # to verify that communications functions are operating correctly.
-        # Since it's not really feasible to run a local autopush server on
-        # a CI machine, it's reserved only for local debugging and testing.
-        #[test]
-        fn test_live_server() {
-            let config = PushConfiguration {
-                http_protocol: Some("http".to_owned()),
-                server_host: "localhost:8082".to_owned(),
-                sender_id: "testing".to_owned(),
-                bridge_type: Some("test".to_owned()),
-                registration_id: Some("SomeRegistrationValue".to_owned()),
-                ..Default::default()
-            };
-
-            let mut conn = connect(config, None, None).unwrap();
-            let sub1 = conn.subscribe(DUMMY_CHID).unwrap();
-            println!("### conn: {:?}", (&conn.uaid, &conn.auth));
-            println!("### Sub1: {:?}", sub1);
-            let sub2 = conn.subscribe(DUMMY_UAID).unwrap();
-            println!("### Sub2: {:?}", sub2);
-            println!("### conn: {:?}", (&conn.uaid, &conn.auth));
-            let ll = conn.channel_list().expect("channel list failed");
-            println!("### channels: {:?}", ll);
-            conn.unsubscribe(Some(DUMMY_UAID))
-                .expect("chid unsub failed");
-            println!(
-                "### verify: {:?}",
-                conn.verify_connection(&[DUMMY_CHID.to_owned()])
-            );
-            println!("### channels: {:?}", conn.channel_list());
-            conn.unsubscribe(None).expect("uaid unsub failed");
-
-            println!("Done");
-        }
-    */
     #[test]
     fn test_communications() {
         // mockito forces task serialization, so for now, we test everything in one go.
