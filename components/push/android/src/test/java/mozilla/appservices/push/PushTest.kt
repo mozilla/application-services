@@ -249,7 +249,6 @@ class PushTest {
     fun testDuplicateSubscription() {
         val manager = getPushManager()
 
-        val testChannelId = "deadbeef00000000decafbad00000000"
         val response1 = manager.subscribe(testChannelid, "foo")
         val response2 = manager.subscribe(testChannelid, "foo")
         assertEquals(response1.channelID, response2.channelID)

@@ -205,9 +205,45 @@ mod test {
         let (info, key) = pm.subscribe(test_channel_id, "")?;
         // verify that a subsequent request for the same channel ID returns the same subscription
         let (info2, key2) = pm.subscribe(test_channel_id, "")?;
+        assert_eq!(
+            Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_owned()),
+            pm.store.get_meta("auth")?
+        );
         assert_eq!(info.endpoint, info2.endpoint);
         assert_eq!(key, key2);
 
         Ok(())
     }
+
+    #[test]
+    fn full() -> Result<()> {
+        use ece;
+        use openssl::rand::rand_bytes;
+        use serde_json;
+
+        let data_string = b"Mary had a little lamb, with some nice mint jelly";
+        let test_channel_id = "deadbeef00000000decafbad00000000";
+        let test_config = PushConfiguration {
+            sender_id: "test".to_owned(),
+            database_path: Some("/tmp/test.db".to_owned()),
+            ..Default::default()
+        };
+        let mut pm = PushManager::new(test_config)?;
+        let (info, key) = pm.subscribe(test_channel_id, "")?;
+        // Act like a subscription provider, so create a "local" key to encrypt the data
+        let mut auth_secret = vec![0u8; 16];
+        let mut salt = vec![0u8; 16];
+        rand_bytes(&mut auth_secret)?;
+        rand_bytes(&mut salt)?;
+        let ciphertext = ece::encrypt(&key.public, &key.auth, &salt, data_string).unwrap();
+        let body = base64::encode_config(&ciphertext, base64::URL_SAFE_NO_PAD);
+
+        let result = pm.decrypt(&info.uaid, &info.channel_id, &body, "aes128gcm", None, None)?;
+        assert_eq!(
+            serde_json::to_string(&data_string.to_vec()).unwrap(),
+            result
+        );
+        Ok(())
+    }
+
 }
