@@ -10,7 +10,7 @@ The package is published as a release on github: https://github.com/mozilla/appl
 
 - Add the dependency line to the Cartfile, for instance: `github "mozilla/application-services" ~> "v0.16.1"` 
 - `carthage` will download MozillaAppServices.frameworks.zip, and add all the available frameworks to the 'Carthage/' dir.
-- Choose which framework to link against for your project (in the *Link Binary with Libraries* step in your Xcode target).
+- Link against the provided MozillaAppServices.framework (in the *Link Binary with Libraries* step in your Xcode target).
 - Add additional dependencies, see [below](#additional-dependencies).
 
 ### Adding a carthage provided framework to Xcode
