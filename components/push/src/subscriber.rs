@@ -193,6 +193,7 @@ impl PushManager {
 #[cfg(test)]
 mod test {
     use super::*;
+    use openssl::rand::rand_bytes;
 
     #[test]
     fn basic() -> Result<()> {
@@ -218,14 +219,13 @@ mod test {
     #[test]
     fn full() -> Result<()> {
         use ece;
-        use openssl::rand::rand_bytes;
         use serde_json;
 
         let data_string = b"Mary had a little lamb, with some nice mint jelly";
         let test_channel_id = "deadbeef00000000decafbad00000000";
         let test_config = PushConfiguration {
             sender_id: "test".to_owned(),
-            database_path: Some("/tmp/test.db".to_owned()),
+            // database_path: Some("test.db"),
             ..Default::default()
         };
         let mut pm = PushManager::new(test_config)?;
