@@ -71,9 +71,19 @@ class PushManager(
     }
 
     override fun unsubscribe(channelID: String): Boolean {
+        if (channelID == "") {
+            return false
+        }
         return rustCall { error ->
             LibPushFFI.INSTANCE.push_unsubscribe(
                 this.handle.get(), channelID, error)
+        }.toInt() == 1
+    }
+
+    override fun unsubscribeAll(): Boolean {
+        return rustCall { error ->
+            LibPushFFI.INSTANCE.push_unsubscribe_all(
+                this.handle.get(), error)
         }.toInt() == 1
     }
 
@@ -310,6 +320,13 @@ interface PushAPI : java.lang.AutoCloseable {
      * @return bool
      */
     fun unsubscribe(channelID: String): Boolean
+
+    /**
+     * Unsubscribe all channels for the user.
+     *
+     * @return bool
+     */
+    fun unsubscribeAll(): Boolean
 
     /**
      * Updates the Native OS push registration ID.

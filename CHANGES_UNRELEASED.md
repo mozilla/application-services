@@ -13,5 +13,11 @@
 indicates that the connection is invalid. All existing subscriptions
 have been dropped. The caller should send a `pushsubscriptionchange`
 to all known apps. (This is due to the fact that the Push API does
-not have a way to send just the new endpoint to the client PWA.) 
-[#1114](https://github.com/mozilla/application-services/issues/1114) 
+not have a way to send just the new endpoint to the client PWA.)
+[#1114](https://github.com/mozilla/application-services/issues/1114)
+
+- `PushManager.unsubscribe(...)` now will only unsubscribe a single
+  channel. It will return `false` if no channel is specified or if the
+channel was already deleted. To delete all channels for a given user,
+call `PushManager.unsubscribeAll()`.
+[#889](https://github.com/mozilla/application-services/issues/889)

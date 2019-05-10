@@ -89,7 +89,6 @@ impl PushManager {
     }
 
     // XXX: maybe -> Result<()> instead
-    // XXX: maybe handle channel_id None case separately?
     pub fn unsubscribe(&self, channel_id: Option<&str>) -> Result<bool> {
         if self.conn.uaid.is_none() {
             return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
@@ -98,6 +97,16 @@ impl PushManager {
         Ok(if let Some(chid) = channel_id {
             self.conn.unsubscribe(channel_id)? && self.store.delete_record(uaid, chid)?
         } else {
+            false
+        })
+    }
+
+    pub fn unsubscribe_all(&self) -> Result<bool> {
+        if self.conn.uaid.is_none() {
+            return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
+        }
+        let uaid = self.conn.uaid.as_ref().unwrap();
+        Ok({
             self.store.delete_all_records(uaid)?;
             self.conn.unsubscribe(None)?
         })
@@ -212,7 +221,12 @@ mod test {
         );
         assert_eq!(info.endpoint, info2.endpoint);
         assert_eq!(key, key2);
-
+        assert!(pm.unsubscribe(Some(test_channel_id))?);
+        // It's already deleted, so return false.
+        assert!(!pm.unsubscribe(Some(test_channel_id))?);
+        // No channel specified, so nothing done.
+        assert!(!pm.unsubscribe(None)?);
+        assert!(pm.unsubscribe_all()?);
         Ok(())
     }
 
