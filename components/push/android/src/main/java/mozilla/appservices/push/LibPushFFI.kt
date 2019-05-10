@@ -66,6 +66,11 @@ internal interface LibPushFFI : Library {
         out_err: RustError.ByReference
     ): Byte
 
+    fun push_unsubscribe_all(
+        mgr: PushManagerHandle,
+        out_err: RustError.ByReference
+    ): Byte
+
     fun push_update(
         mgr: PushManagerHandle,
         new_token: String,
