@@ -22,6 +22,16 @@ if [ -z "${ANDROID_NDK_ROOT}" ]; then
   exit 1
 fi
 
+if [ -z "${ANDROID_NDK_HOME}" ]; then
+  echo "Environment variable \$ANDROID_NDK_HOME is not set:"
+  echo "Please export ANDROID_NDK_HOME=\$ANDROID_NDK_ROOT for compatibility with the android gradle plugin."
+  exit 1
+elif [ "${ANDROID_NDK_HOME}" != "${ANDROID_NDK_ROOT}" ]; then
+  echo "Environment variable \$ANDROID_NDK_HOME is different from \$ANDROID_NDK_ROOT."
+  echo "Please adjust your environment variables to ensure they are the same."
+  exit 1
+fi
+
 INSTALLED_NDK_VERSION=$(sed -En -e 's/^Pkg.Revision[ \t]*=[ \t]*([0-9a-f]+).*/\1/p' ${ANDROID_NDK_ROOT}/source.properties)
 if [ "${INSTALLED_NDK_VERSION}" != ${NDK_VERSION} ]; then
   echo "Wrong Android NDK version:"

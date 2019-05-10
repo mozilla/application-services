@@ -208,6 +208,15 @@ ext.configurePublish = { jnaForTestConfiguration = null,
         }
     }
 
+    task checkMavenArtifacts
+
+    publishing.publications.withType(MavenPublication).each {publication ->
+        def checkFileSizeTask = task "checkLibSizeForMavenArtifact-${publication.artifactId}"(type: Exec) {
+            commandLine "${rootProject.projectDir}/automation/check_artifact_size.sh", project.buildDir, publication.artifactId
+        }
+        checkMavenArtifacts.dependsOn(checkFileSizeTask)
+    }
+
     task zipMavenArtifacts
 
     publishing.publications.withType(MavenPublication).each {publication ->

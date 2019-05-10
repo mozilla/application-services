@@ -20,6 +20,7 @@ may need to repeat some steps (eg, rust updates should be done periodically)
 At the end of this process you should have the following environment variables set up.
 
 - `ANDROID_NDK_ROOT`
+- `ANDROID_NDK_HOME`
 - `ANDROID_NDK_TOOLCHAIN_DIR`
 - `ANDROID_NDK_API_VERSION`
 - `ANDROID_HOME`
@@ -33,6 +34,8 @@ a rc file or similar so they persist between reboots etc.
    argument required to build OpenSSL against a v21 toolchain).
     - Extract it, put it somewhere (`$HOME/.android-ndk-r15c` is a reasonable
       choice, but it doesn't matter), and set `ANDROID_NDK_ROOT` to this location.
+    - Set `ANDROID_NDK_HOME` to match `ANDROID_NDK_ROOT`, for compatibility with
+      some android grandle plugins.
 
 2. Install `rustup` from https://rustup.rs:
     - If you already have it, run `rustup update`
