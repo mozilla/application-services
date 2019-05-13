@@ -11,6 +11,7 @@ import mozilla.appservices.fxaclient.rust.FxaHandle
 import mozilla.appservices.fxaclient.rust.LibFxAFFI
 import mozilla.appservices.fxaclient.rust.RustError
 import mozilla.appservices.support.toNioDirectBuffer
+import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -367,14 +368,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * This performs network requests, and should not be used on the main thread.
      */
     fun initializeDevice(name: String, deviceType: Device.Type, supportedCapabilities: Set<Device.Capability>) {
-        val capabilitiesBuilder = MsgTypes.Capabilities.newBuilder()
-        supportedCapabilities.forEach {
-            when (it) {
-                Device.Capability.SEND_TAB -> capabilitiesBuilder.addCapability(MsgTypes.Device.Capability.SEND_TAB)
-            }.exhaustive
-        }
-        val buf = capabilitiesBuilder.build()
-        val (nioBuf, len) = buf.toNioDirectBuffer()
+        val (nioBuf, len) = capabilitiesToBuffer(supportedCapabilities)
         rustCall { e ->
             val ptr = Native.getDirectBufferPointer(nioBuf)
             LibFxAFFI.INSTANCE.fxa_initialize_device(this.handle.get(), name, deviceType.toNumber(), ptr, len, e)
@@ -384,16 +378,32 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
 
     /**
      * Ensure that the supported capabilities described earlier in `initializeDevice` are A-OK.
+     * A set of capabilities to be supported by the Device must also be passed (at this time only
+     * Send Tab).
+     *
      * As for now there's only the Send Tab capability, so we ensure the command is registered with the server.
      * This method should be called at least every time the sync keys change (because Send Tab relies on them).
      *
      * This performs network requests, and should not be used on the main thread.
      */
-    fun ensureCapabilities() {
+    fun ensureCapabilities(supportedCapabilities: Set<Device.Capability>) {
+        val (nioBuf, len) = capabilitiesToBuffer(supportedCapabilities)
         rustCall { e ->
-            LibFxAFFI.INSTANCE.fxa_ensure_capabilities(this.handle.get(), e)
+            val ptr = Native.getDirectBufferPointer(nioBuf)
+            LibFxAFFI.INSTANCE.fxa_ensure_capabilities(this.handle.get(), ptr, len, e)
         }
         this.tryPersistState()
+    }
+
+    private fun capabilitiesToBuffer(capabilities: Set<Device.Capability>): Pair<ByteBuffer, Int> {
+        val capabilitiesBuilder = MsgTypes.Capabilities.newBuilder()
+        capabilities.forEach {
+            when (it) {
+                Device.Capability.SEND_TAB -> capabilitiesBuilder.addCapability(MsgTypes.Device.Capability.SEND_TAB)
+            }.exhaustive
+        }
+        val buf = capabilitiesBuilder.build()
+        return buf.toNioDirectBuffer()
     }
 
     /**

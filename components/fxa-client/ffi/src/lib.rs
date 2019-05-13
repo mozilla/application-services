@@ -11,7 +11,10 @@ use ffi_support::{
     define_bytebuffer_destructor, define_handle_map_deleter, define_string_destructor, ByteBuffer,
     ConcurrentHandleMap, ExternError, FfiStr,
 };
-use fxa_client::{device::PushSubscription, msg_types, FirefoxAccount};
+use fxa_client::{
+    device::{Capability as DeviceCapability, PushSubscription},
+    msg_types, FirefoxAccount,
+};
 use std::os::raw::c_char;
 use url::Url;
 
@@ -374,7 +377,7 @@ pub extern "C" fn fxa_handle_push_message(
 /// This method is marked un-safe as it reconstitutes an array of capabilities
 /// from a pointer.
 #[no_mangle]
-pub unsafe extern "C" fn fxa_initialize_device(
+pub extern "C" fn fxa_initialize_device(
     handle: u64,
     name: FfiStr<'_>,
     device_type: i32,
@@ -384,24 +387,31 @@ pub unsafe extern "C" fn fxa_initialize_device(
 ) {
     log::debug!("fxa_initialize_device");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
-        let buffer = get_buffer(capabilities_data, capabilities_len);
-        let capabilities: fxa_client::msg_types::Capabilities = prost::Message::decode(buffer)?;
+        let capabilities = unsafe {
+            DeviceCapability::from_protobuf_array_ptr(capabilities_data, capabilities_len)
+        };
         // This should not fail as device_type i32 representation is derived from our .proto schema.
         let device_type =
             msg_types::device::Type::from_i32(device_type).expect("Unknown device type code");
-        fxa.initialize_device(
-            name.as_str(),
-            device_type.into(),
-            &capabilities.to_capabilities_vec(),
-        )
+        fxa.initialize_device(name.as_str(), device_type.into(), &capabilities)
     })
 }
 
 /// Ensure that the device capabilities are registered with the server.
 #[no_mangle]
-pub extern "C" fn fxa_ensure_capabilities(handle: u64, error: &mut ExternError) {
+pub extern "C" fn fxa_ensure_capabilities(
+    handle: u64,
+    capabilities_data: *const u8,
+    capabilities_len: i32,
+    error: &mut ExternError,
+) {
     log::debug!("fxa_ensure_capabilities");
-    ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.ensure_capabilities())
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
+        let capabilities = unsafe {
+            DeviceCapability::from_protobuf_array_ptr(capabilities_data, capabilities_len)
+        };
+        fxa.ensure_capabilities(&capabilities)
+    })
 }
 
 /// Send a tab to another device identified by its Device ID.
@@ -418,17 +428,6 @@ pub extern "C" fn fxa_send_tab(
     let title = title.as_str();
     let url = url.as_str();
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.send_tab(target, title, url))
-}
-
-unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
-    assert!(len >= 0, "Bad buffer len: {}", len);
-    if len == 0 {
-        // This will still fail, but as a bad protobuf format.
-        &[]
-    } else {
-        assert!(!data.is_null(), "Unexpected null data pointer");
-        std::slice::from_raw_parts(data, len as usize)
-    }
 }
 
 define_handle_map_deleter!(ACCOUNTS, fxa_free);
