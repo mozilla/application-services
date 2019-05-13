@@ -50,14 +50,25 @@ We try to balance this responsibility against the many benefits of using existin
 * Explicitly describe your consideration of these points in the PR that introduces the new dependency.
 
 Updating to new versions of existing dependencies is a normal part of software development
-and is not accompanied by any partiulcar ceremony.
+and is not accompanied by any particular ceremony.
 
 ## Kotlin Code
 
-We depend on a small number of third-party Kotlin projects but have not written any formal guidelines
-on how to manage them.  Please join the discussion in [this github issue](https://github.com/mozilla/application-services/issues/933).
+We currently depend only on the following Kotlin dependency:
+
+* [protobuf-gradle-plugin](https://github.com/google/protobuf-gradle-plugin)
+
+We currently depend on the following **developer** dependencies in the Kotlin codebase:
+
+* detekt
+* ktlint
+
+No Kotlin dependencies should be added to the project unless absolutely necessary.
 
 ## Swift Code
 
-We depend on a small number of third-party Swift projects but have not written any formal guidelines
-on how to manage them.  Please join the discussion in [this github issue](https://github.com/mozilla/application-services/issues/934).
+We currently depend only on the [following dependencies](https://github.com/mozilla/application-services/blob/master/Cartfile):
+
+* [swift-protobuf](https://github.com/apple/swift-protobuf)
+
+No additional Swift dependencies should be added to the project unless absolutely necessary.
