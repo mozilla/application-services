@@ -39,7 +39,7 @@ features = ["functions", "bundled"]
 
 [dev-dependencies]
 more-asserts = "0.2.1"
-env_logger = "0.5.13"
+env_logger = "0.6.1"
 find-places-db = "0.1.0"
 clap = "2.32.0"
 structopt = "0.2.14"
