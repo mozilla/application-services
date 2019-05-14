@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    errors::*,
+    error::*,
     http_client::{self, browser_id::rsa::RSABrowserIDKeyPair, *},
     util::{now, Xorable},
     Config,

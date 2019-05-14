@@ -5,7 +5,7 @@
 pub use crate::commands::send_tab::{SendTabPayload, TabHistoryEntry};
 use crate::{
     commands::send_tab::{self, EncryptedSendTabPayload, PrivateSendTabKeys, PublicSendTabKeys},
-    errors::*,
+    error::*,
     http_client::GetDeviceResponse,
     scopes, FirefoxAccount,
 };

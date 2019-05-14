@@ -13,7 +13,7 @@
 /// uses the obtained public key to encrypt the `SendTabPayload` it created that
 /// contains the tab to send and finally forms the `EncryptedSendTabPayload` that is
 /// then sent to the target device.
-use crate::{device::Device, errors::*, scoped_keys::ScopedKey, scopes};
+use crate::{device::Device, error::*, scoped_keys::ScopedKey, scopes};
 use ece::{
     Aes128GcmEceWebPushImpl, LocalKeyPair, LocalKeyPairImpl, RemoteKeyPairImpl, WebPushParams,
 };

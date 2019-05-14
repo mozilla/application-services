@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    errors::*,
+    error::*,
     scoped_keys::{ScopedKey, ScopedKeysFlow},
     util, FirefoxAccount, RNG,
 };

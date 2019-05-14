@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::errors::*;
+use crate::error::*;
 use hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256};
 use url::Url;
 use viaduct::{header_names, Method, Request};
