@@ -12,7 +12,7 @@ use crate::login_sm::LoginState;
 use crate::{
     commands::send_tab::SendTabPayload,
     device::{Capability as DeviceCapability, Device},
-    errors::*,
+    error::*,
     oauth::{OAuthFlow, RefreshToken},
     scoped_keys::ScopedKey,
 };
@@ -31,7 +31,7 @@ mod browser_id;
 mod commands;
 mod config;
 pub mod device;
-pub mod errors;
+pub mod error;
 pub mod ffi;
 // Include the `msg_types` module, which is generated from msg_types.proto.
 pub mod msg_types {

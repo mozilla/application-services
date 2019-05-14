@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{config::Config, errors::*, RefreshToken, ScopedKey, StateV2};
+use crate::{config::Config, error::*, RefreshToken, ScopedKey, StateV2};
 use serde_derive::*;
 use std::{
     collections::{HashMap, HashSet},

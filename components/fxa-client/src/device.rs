@@ -7,7 +7,7 @@ pub use crate::http_client::{
 };
 use crate::{
     commands::{self, send_tab::SendTabPayload},
-    errors::*,
+    error::*,
     http_client::{
         CommandData, DeviceUpdateRequest, DeviceUpdateRequestBuilder, PendingCommand,
         UpdateDeviceResponse,
