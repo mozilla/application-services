@@ -54,10 +54,12 @@ impl<'a> HistoryStore<'a> {
     fn do_apply_incoming(
         &self,
         inbound: IncomingChangeset,
-        incoming_telemetry: &mut telemetry::EngineIncoming,
+        telem: &mut telemetry::Engine,
     ) -> Result<OutgoingChangeset> {
+        let mut incoming_telemetry = telemetry::EngineIncoming::new();
         let timestamp = inbound.timestamp;
-        let outgoing = apply_plan(&self.db, inbound, incoming_telemetry, self.interruptee)?;
+        let outgoing = apply_plan(&self.db, inbound, &mut incoming_telemetry, self.interruptee)?;
+        telem.incoming(incoming_telemetry);
         // write the timestamp now, so if we are interrupted creating outgoing
         // changesets we don't need to re-reconcile what we just did.
         self.put_meta(LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
@@ -148,10 +150,9 @@ impl<'a> Store for HistoryStore<'a> {
     fn apply_incoming(
         &self,
         inbound: IncomingChangeset,
-        incoming_telemetry: &mut telemetry::EngineIncoming,
-        _: &mut Option<telemetry::Validation>,
+        telem: &mut telemetry::Engine,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
-        Ok(self.do_apply_incoming(inbound, incoming_telemetry)?)
+        Ok(self.do_apply_incoming(inbound, telem)?)
     }
 
     fn sync_finished(

@@ -226,7 +226,7 @@ mod tests {
         fn apply_incoming(
             &self,
             _inbound: IncomingChangeset,
-            _incoming_telem: &mut telemetry::EngineIncoming,
+            _telem: &mut telemetry::Engine,
         ) -> Result<OutgoingChangeset, failure::Error> {
             unreachable!("these tests shouldn't call these");
         }

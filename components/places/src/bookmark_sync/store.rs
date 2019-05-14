@@ -169,7 +169,7 @@ impl<'a> BookmarksStore<'a> {
                         write!(f, "(?, ?, ?, ?, {}, {}, {}, {}, {})",
                             d.level, d.position, d.merged_node.merge_state.should_apply(),
                             d.merged_node.merge_state.upload_reason() != UploadReason::None,
-                            now.as_millis())
+                            now)
                     })
                 ), &params)?;
                 Ok(())
@@ -188,9 +188,7 @@ impl<'a> BookmarksStore<'a> {
                         write!(
                             f,
                             "(?, {}, {}, {})",
-                            d.local_level,
-                            d.should_upload_tombstone,
-                            now.as_millis()
+                            d.local_level, d.should_upload_tombstone, now
                         )
                     })
                 ),
@@ -613,11 +611,12 @@ impl<'a> Store for BookmarksStore<'a> {
     fn apply_incoming(
         &self,
         inbound: IncomingChangeset,
-        incoming_telemetry: &mut telemetry::EngineIncoming,
-        validation: &mut Option<telemetry::Validation>,
+        telem: &mut telemetry::Engine,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
         // Stage all incoming items.
-        let timestamp = self.stage_incoming(inbound, incoming_telemetry)?;
+        let mut incoming_telemetry = telemetry::EngineIncoming::new();
+        let timestamp = self.stage_incoming(inbound, &mut incoming_telemetry)?;
+        telem.incoming(incoming_telemetry);
 
         // write the timestamp now, so if we are interrupted merging or
         // creating outgoing changesets we don't need to re-download the same
@@ -644,15 +643,18 @@ impl<'a> Store for BookmarksStore<'a> {
         }
         v.problem("orphans", stats.problems.orphans)
             .problem("misparentedRoots", stats.problems.misparented_roots)
-            .problem("multipleParents", stats.problems.multiple_parents)
-            .problem("missingParents", stats.problems.missing_parents)
-            .problem("nonFolderParents", stats.problems.non_folder_parents)
+            .problem(
+                "multipleParents",
+                stats.problems.multiple_parents_by_children,
+            )
+            .problem("missingParents", stats.problems.missing_parent_guids)
+            .problem("nonFolderParents", stats.problems.non_folder_parent_guids)
             .problem(
                 "parentChildDisagreements",
                 stats.problems.parent_child_disagreements,
             )
             .problem("missingChildren", stats.problems.missing_children);
-        *validation = Some(v);
+        telem.validation(v);
 
         // Finally, stage outgoing items.
         let outgoing = self.fetch_outgoing_records(timestamp)?;
@@ -1235,7 +1237,7 @@ mod tests {
         }
 
         store
-            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new(), &mut None)
+            .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply incoming and stage outgoing records");
     }
 
@@ -1625,7 +1627,7 @@ mod tests {
         }
 
         let mut outgoing = store
-            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new(), &mut None)
+            .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply incoming and stage outgoing records");
         outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
         assert_eq!(
@@ -1770,7 +1772,7 @@ mod tests {
         }
 
         let outgoing = store
-            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new(), &mut None)
+            .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply incoming records");
         let mut outgoing_ids = outgoing
             .changes
@@ -1797,8 +1799,7 @@ mod tests {
         let outgoing = store
             .apply_incoming(
                 IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1000)),
-                &mut telemetry::EngineIncoming::new(),
-                &mut None,
+                &mut telemetry::Engine::new("bookmarks"),
             )
             .expect("Should fetch outgoing records after making local changes");
         assert_eq!(outgoing.changes.len(), 1);
@@ -1900,7 +1901,7 @@ mod tests {
         }
 
         let outgoing = store
-            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new(), &mut None)
+            .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply incoming records");
         let mut outgoing_ids = outgoing
             .changes
@@ -1963,7 +1964,7 @@ mod tests {
         ));
 
         let outgoing = store
-            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new(), &mut None)
+            .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply F and stage tombstones for A-E");
         let (outgoing_tombstones, outgoing_records): (Vec<_>, Vec<_>) =
             outgoing.changes.iter().partition(|record| record.deleted);
@@ -2058,7 +2059,7 @@ mod tests {
 
             let incoming =
                 IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1_000));
-            let outgoing = store.apply_incoming(incoming, &mut telemetry::EngineIncoming::new())?;
+            let outgoing = store.apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))?;
             let synced_ids: Vec<String> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             store.sync_finished(ServerTimestamp(2_000), synced_ids)?;
@@ -2077,7 +2078,7 @@ mod tests {
 
             let incoming =
                 IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1_000));
-            let outgoing = store.apply_incoming(incoming, &mut telemetry::EngineIncoming::new())?;
+            let outgoing = store.apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))?;
             let synced_ids: Vec<String> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             store.sync_finished(ServerTimestamp(2_000), synced_ids)?;

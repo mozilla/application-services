@@ -2,8 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package mozilla.appservices.support
+package mozilla.appservices.sync15
 
+import mozilla.appservices.support.stringOrNull
+import mozilla.appservices.support.unwrapFromJSON
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -46,6 +48,31 @@ data class SyncTelemetryPing(
             return fromJSON(JSONObject(jsonObjectText))
         }
     }
+
+    fun toJSON(): JSONObject {
+        return JSONObject().apply {
+            put("version", version)
+            uid?.let {
+                put("uid", it)
+            }
+            if (!events.isEmpty()) {
+                val jsonArray = JSONArray().apply {
+                    events.forEach {
+                        put(it.toJSON())
+                    }
+                }
+                put("events", jsonArray)
+            }
+            if (!syncs.isEmpty()) {
+                val jsonArray = JSONArray().apply {
+                    syncs.forEach {
+                        put(it.toJSON())
+                    }
+                }
+                put("syncs", jsonArray)
+            }
+        }
+    }
 }
 
 data class SyncInfo(
@@ -80,6 +107,26 @@ data class SyncInfo(
                 result.add(fromJSON(jsonArray.getJSONObject(index)))
             }
             return result
+        }
+    }
+
+    fun toJSON(): JSONObject {
+        return JSONObject().apply {
+            put("when", at)
+            if (took > 0) {
+                put("took", took)
+            }
+            if (!engines.isEmpty()) {
+                val jsonArray = JSONArray().apply {
+                    engines.forEach {
+                        put(it.toJSON())
+                    }
+                }
+                put("engines", jsonArray)
+            }
+            failureReason?.let {
+                put("failureReason", it.toJSON())
+            }
         }
     }
 }
@@ -127,6 +174,30 @@ data class EngineInfo(
             return result
         }
     }
+
+    fun toJSON(): JSONObject {
+        return JSONObject().apply {
+            put("name", name)
+            put("when", at)
+            if (took > 0) {
+                put("took", took)
+            }
+            incoming?.let {
+                put("incoming", it.toJSON())
+            }
+            if (!outgoing.isEmpty()) {
+                val jsonArray = JSONArray().apply {
+                    outgoing.forEach {
+                        put(it.toJSON())
+                    }
+                }
+                put("outgoing", jsonArray)
+            }
+            failureReason?.let {
+                put("failureReason", it.toJSON())
+            }
+        }
+    }
 }
 
 data class IncomingInfo(
@@ -143,6 +214,23 @@ data class IncomingInfo(
                 newFailed = intOrZero(jsonObject, "newFailed"),
                 reconciled = intOrZero(jsonObject, "reconciled")
             )
+        }
+    }
+
+    fun toJSON(): JSONObject {
+        return JSONObject().apply {
+            if (applied > 0) {
+                put("applied", applied)
+            }
+            if (failed > 0) {
+                put("failed", failed)
+            }
+            if (newFailed > 0) {
+                put("newFailed", newFailed)
+            }
+            if (reconciled > 0) {
+                put("reconciled", reconciled)
+            }
         }
     }
 }
@@ -165,6 +253,17 @@ data class OutgoingInfo(
                 result.add(fromJSON(jsonArray.getJSONObject(index)))
             }
             return result
+        }
+    }
+
+    fun toJSON(): JSONObject {
+        return JSONObject().apply {
+            if (sent > 0) {
+                put("sent", sent)
+            }
+            if (failed > 0) {
+                put("failed", failed)
+            }
         }
     }
 }
@@ -204,6 +303,38 @@ data class FailureReason (
             }
         }
     }
+
+    fun toJSON(): JSONObject {
+        return JSONObject().apply {
+            when (name) {
+                FailureName.Shutdown -> {
+                    put("name", "shutdownerror")
+                }
+                FailureName.Other -> {
+                    put("name", "othererror")
+                    message?.let {
+                        put("error", it)
+                    }
+                }
+                FailureName.Unexpected, FailureName.Unknown -> {
+                    put("name", "unexpectederror")
+                    message?.let {
+                        put("error", it)
+                    }
+                }
+                FailureName.Auth -> {
+                    put("name", "autherror")
+                    message?.let {
+                        put("from", it)
+                    }
+                }
+                FailureName.Http -> {
+                    put("name", "httperror")
+                    put("code", code)
+                }
+            }
+        }
+    }
 }
 
 data class EventInfo(
@@ -237,6 +368,19 @@ data class EventInfo(
                 result.add(fromJSON(jsonArray.getJSONObject(index)))
             }
             return result
+        }
+    }
+
+    fun toJSON(): JSONObject {
+        return JSONObject().apply {
+            put("object", obj)
+            put("method", method)
+            value?.let {
+                put("value", it)
+            }
+            if (!extra.isEmpty()) {
+                put("extra", extra)
+            }
         }
     }
 }

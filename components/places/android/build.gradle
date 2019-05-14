@@ -115,7 +115,9 @@ protobuf {
 }
 dependencies {
     // Part of the public API.
-    api project(':as-support-library')
+    api project(':sync15-library')
+
+    implementation project(':as-support-library')
 
     jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
     implementation "net.java.dev.jna:jna:$jna_version@aar"

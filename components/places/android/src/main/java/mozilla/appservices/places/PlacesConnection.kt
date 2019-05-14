@@ -8,8 +8,8 @@ import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.StringArray
 import mozilla.appservices.support.stringOrNull
-import mozilla.appservices.support.SyncTelemetryPing
 import mozilla.appservices.support.toNioDirectBuffer
+import mozilla.appservices.sync15.SyncTelemetryPing
 import org.json.JSONArray
 import org.json.JSONObject
 import java.nio.ByteBuffer

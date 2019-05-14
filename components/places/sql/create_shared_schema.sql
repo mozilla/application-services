@@ -228,5 +228,5 @@ CREATE TABLE IF NOT EXISTS moz_bookmarks_synced_actions(
     guid TEXT,
     at INTEGER, -- The merge time, in milliseconds.
     action INTEGER NOT NULL,
-    PRIMARY KEY(guid, at)
-) WITHOUT ROWID;
+    PRIMARY KEY(at, guid)
+);

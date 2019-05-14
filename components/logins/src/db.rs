@@ -745,11 +745,13 @@ impl LoginDb {
     fn do_apply_incoming(
         &self,
         inbound: IncomingChangeset,
-        telem: &mut telemetry::EngineIncoming,
+        telem: &mut telemetry::Engine,
         scope: &SqlInterruptScope,
     ) -> Result<OutgoingChangeset> {
         let data = self.fetch_login_data(&inbound.changes, scope)?;
-        let plan = self.reconcile(data, inbound.timestamp, telem, scope)?;
+        let mut incoming_telemetry = telemetry::EngineIncoming::new();
+        let plan = self.reconcile(data, inbound.timestamp, &mut incoming_telemetry, scope)?;
+        telem.incoming(incoming_telemetry);
         self.execute_plan(plan, scope)?;
         Ok(self.fetch_outgoing(inbound.timestamp, scope)?)
     }
@@ -846,8 +848,7 @@ impl<'a> Store for LoginStore<'a> {
     fn apply_incoming(
         &self,
         inbound: IncomingChangeset,
-        telem: &mut telemetry::EngineIncoming,
-        _: &mut Option<telemetry::Validation>,
+        telem: &mut telemetry::Engine,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
         Ok(self.db.do_apply_incoming(inbound, telem, &self.scope)?)
     }
