@@ -16,7 +16,7 @@ use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
 use crate::storage::{bookmarks::BookmarkRootGuid, delete_meta, get_meta, put_meta};
 use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
 use dogear::{
-    self, Content, Deletion, IntoTree, Item, MergedDescendant, MergedRoot, Tree, UploadReason,
+    self, AbortSignal, Content, Deletion, Item, MergedDescendant, MergedRoot, Tree, UploadReason,
 };
 use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt, SqlInterruptScope};
@@ -39,6 +39,19 @@ const COLLECTION_SYNCID_META_KEY: &str = "bookmarks_sync_id";
 /// maximums mean fewer write statements, but longer transactions, possibly
 /// blocking writes from other connections.
 const MAX_FRECENCIES_TO_RECALCULATE_PER_CHUNK: usize = 400;
+
+/// Adapts an interruptee to a Dogear abort signal.
+struct MergeInterruptee<'a, I>(&'a I);
+
+impl<'a, I> AbortSignal for MergeInterruptee<'a, I>
+where
+    I: interrupt::Interruptee,
+{
+    #[inline]
+    fn aborted(&self) -> bool {
+        self.0.was_interrupted()
+    }
+}
 
 pub struct BookmarksStore<'a> {
     pub db: &'a PlacesDb,
@@ -162,6 +175,7 @@ impl<'a> BookmarksStore<'a> {
 
         // Next, insert rows for deletions.
         sql_support::each_chunk(&deletions, |chunk, _| -> Result<()> {
+            self.interruptee.err_if_interrupted()?;
             self.db.execute(
                 &format!(
                     "INSERT INTO itemsToRemove(guid, localLevel, shouldUploadTombstone)
@@ -705,7 +719,7 @@ impl<'a> Merger<'a> {
             return Ok(());
         }
         // Merge and stage outgoing items via dogear.
-        let stats = self.merge_with_driver(&Driver)?;
+        let stats = self.merge_with_driver(&Driver, &MergeInterruptee(self.store.interruptee))?;
         log::debug!("merge completed: {:?}", stats);
         Ok(())
     }
@@ -771,6 +785,7 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
         };
         while let Some(row) = results.next()? {
             // All subsequent rows are descendants.
+            self.store.interruptee.err_if_interrupted()?;
             let parent_guid = row.get::<_, SyncGuid>("parentGuid")?;
             builder
                 .item(self.local_row_to_item(&row)?)?
@@ -784,9 +799,10 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
             .store
             .db
             .prepare("SELECT guid FROM moz_bookmarks_deleted")?;
-        let rows = stmt.query_and_then(NO_PARAMS, |row| row.get::<_, SyncGuid>("guid"))?;
-        for row in rows {
-            let guid = row?;
+        let mut results = stmt.query(NO_PARAMS)?;
+        while let Some(row) = results.next()? {
+            self.store.interruptee.err_if_interrupted()?;
+            let guid = row.get::<_, SyncGuid>("guid")?;
             tree.note_deleted(guid.into());
         }
 
@@ -815,6 +831,7 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
         let mut stmt = self.store.db.prepare(&sql)?;
         let mut results = stmt.query(NO_PARAMS)?;
         while let Some(row) = results.next()? {
+            self.store.interruptee.err_if_interrupted()?;
             let typ = match BookmarkType::from_u8(row.get("type")?) {
                 Some(t) => t,
                 None => continue,
@@ -879,6 +896,7 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
         let mut stmt = self.store.db.prepare(&sql)?;
         let mut results = stmt.query(NO_PARAMS)?;
         while let Some(row) = results.next()? {
+            self.store.interruptee.err_if_interrupted()?;
             let p = builder.item(self.remote_row_to_item(&row)?)?;
             if let Some(parent_guid) = row.get::<_, Option<SyncGuid>>("parentGuid")? {
                 p.by_parent_guid(parent_guid.into())?;
@@ -894,6 +912,7 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
         let mut stmt = self.store.db.prepare(&sql)?;
         let mut results = stmt.query(NO_PARAMS)?;
         while let Some(row) = results.next()? {
+            self.store.interruptee.err_if_interrupted()?;
             let guid = row.get::<_, SyncGuid>("guid")?;
             let parent_guid = row.get::<_, SyncGuid>("parentGuid")?;
             builder
@@ -908,9 +927,10 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
             .store
             .db
             .prepare("SELECT guid FROM moz_bookmarks_synced WHERE isDeleted AND needsMerge")?;
-        let rows = stmt.query_and_then(NO_PARAMS, |row| row.get::<_, SyncGuid>("guid"))?;
-        for row in rows {
-            let guid = row?;
+        let mut results = stmt.query(NO_PARAMS)?;
+        while let Some(row) = results.next()? {
+            self.store.interruptee.err_if_interrupted()?;
+            let guid = row.get::<_, SyncGuid>("guid")?;
             tree.note_deleted(guid.into());
         }
 
@@ -938,6 +958,7 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
         let mut stmt = self.store.db.prepare(&sql)?;
         let mut results = stmt.query(NO_PARAMS)?;
         while let Some(row) = results.next()? {
+            self.store.interruptee.err_if_interrupted()?;
             let content = match SyncedBookmarkKind::from_u8(row.get("kind")?)? {
                 SyncedBookmarkKind::Bookmark | SyncedBookmarkKind::Query => {
                     let title = row.get("title")?;
@@ -966,7 +987,10 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
         root: MergedRoot<'t>,
         deletions: impl Iterator<Item = Deletion<'t>>,
     ) -> Result<()> {
+        self.store.interruptee.err_if_interrupted()?;
         let descendants = root.descendants();
+
+        self.store.interruptee.err_if_interrupted()?;
         let deletions = deletions.collect::<Vec<_>>();
 
         let tx = if !self.external_transaction {
