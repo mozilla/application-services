@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::BrowserIDKeyPair;
-use crate::errors::*;
+use crate::error::*;
 use openssl::{
     bn::BigNum,
     hash::MessageDigest,

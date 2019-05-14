@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    errors::*,
+    error::*,
     http_client::browser_id::jwt_utils,
     login_sm::{LoginState, LoginStateMachine, MarriedState, ReadyForKeysState, SessionTokenState},
     Config, FirefoxAccount, StateV2,

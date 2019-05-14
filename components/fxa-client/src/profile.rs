@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub use crate::http_client::ProfileResponse as Profile;
-use crate::{errors::*, scopes, util, CachedResponse, FirefoxAccount};
+use crate::{error::*, scopes, util, CachedResponse, FirefoxAccount};
 
 // A cached profile response is considered fresh for `PROFILE_FRESHNESS_THRESHOLD` ms.
 const PROFILE_FRESHNESS_THRESHOLD: u64 = 120_000; // 2 minutes
