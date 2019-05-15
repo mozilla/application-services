@@ -184,6 +184,7 @@ def gradle_module_task(libs_tasks, module_info, is_release):
         .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "testDebug")))
         .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "assembleRelease")))
         .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "publish")))
+        .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "checkMavenArtifacts")))
         .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "zipMavenArtifacts")))
     )
     for artifact_info in module_info['artifacts']:

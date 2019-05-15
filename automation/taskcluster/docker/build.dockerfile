@@ -90,7 +90,9 @@ RUN curl -L https://dl.google.com/android/repository/sdk-tools-linux-${ANDROID_S
 # build OpenSSL.
 ENV ANDROID_NDK_VERSION "r15c"
 
+# $ANDROID_NDK_ROOT is the preferred name, but the android gradle plugin uses $ANDROID_NDK_HOME.
 ENV ANDROID_NDK_ROOT /build/android-ndk
+ENV ANDROID_NDK_HOME /build/android-ndk
 
 RUN curl -L https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux-x86_64.zip > ndk.zip \
 	&& unzip -q ndk.zip -d /build \
