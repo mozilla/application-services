@@ -20,11 +20,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "android_logger"
-version = "0.8.3"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "android_log-sys 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "env_logger 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -846,7 +845,7 @@ dependencies = [
 name = "fxaclient_ffi"
 version = "0.1.0"
 dependencies = [
- "android_logger 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "android_logger 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ffi-support 0.3.4",
  "fxa-client 0.1.0",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1141,7 +1140,7 @@ dependencies = [
 name = "logins_ffi"
 version = "0.1.0"
 dependencies = [
- "android_logger 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "android_logger 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "base16 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "ffi-support 0.3.4",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1543,7 +1542,7 @@ dependencies = [
 name = "places-ffi"
 version = "0.1.0"
 dependencies = [
- "android_logger 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "android_logger 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "ffi-support 0.3.4",
  "interrupt 0.1.0",
@@ -1680,7 +1679,7 @@ dependencies = [
 name = "push-ffi"
 version = "0.1.0"
 dependencies = [
- "android_logger 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "android_logger 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ffi-support 0.3.4",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2775,7 +2774,7 @@ dependencies = [
 "checksum adler32 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "7e522997b529f05601e05166c07ed17789691f562762c7f3b987263d2dedee5c"
 "checksum aho-corasick 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)" = "e6f484ae0c99fec2e858eb6134949117399f222608d84cadb3f58c1f97c2364c"
 "checksum android_log-sys 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "b8052e2d8aabbb8d556d6abbcce2a22b9590996c5f849b9c7ce4544a2e3b984e"
-"checksum android_logger 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)" = "ca95a50614f191f185629deeb44ab647291e50291b9d5f19f46c932b05a2d7f5"
+"checksum android_logger 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "cf44378e81264148f08e58336674542f82d0021f685d0be0320c82e1653dbe0b"
 "checksum ansi_term 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ee49baf6cb617b853aa8d93bf420db2383fab46d314482ca2803b40d5fde979b"
 "checksum approx 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "08abcc3b4e9339e33a3d0a5ed15d84a687350c05689d825e0f6655eef9e76a94"
 "checksum argon2rs 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "3f67b0b6a86dae6e67ff4ca2b6201396074996379fba2b92ff649126f37cb392"
