@@ -85,16 +85,17 @@ impl<'a> BookmarksStore<'a> {
                     (NOT v.isDeleted OR b.guid NOT NULL)
                 ) OR EXISTS (
                     WITH RECURSIVE
-                    {}
+                    {local_items}
                     SELECT 1
                     FROM localItems
-                    WHERE syncChangeCounter > 0
+                    WHERE syncChangeCounter > 0 OR syncStatus = {sync_status_new}
                 ) OR EXISTS (
                     SELECT 1
                     FROM moz_bookmarks_deleted
                 )
              AS hasChanges",
-            LocalItemsFragment("localItems")
+            local_items = LocalItemsFragment("localItems"),
+            sync_status_new = SyncStatus::New as u8
         );
         Ok(self
             .db
@@ -996,14 +997,14 @@ impl<'a> fmt::Display for LocalItemsFragment<'a> {
         write!(
             f,
             "{name}(id, guid, parentId, parentGuid, position, type, title, parentTitle,
-                    placeId, dateAdded, lastModified, syncChangeCounter, level) AS (
+                    placeId, dateAdded, lastModified, syncChangeCounter, syncStatus, level) AS (
              SELECT b.id, b.guid, 0, NULL, b.position, b.type, b.title, NULL,
-                    b.fk, b.dateAdded, b.lastModified, b.syncChangeCounter, 0
+                    b.fk, b.dateAdded, b.lastModified, b.syncChangeCounter, syncStatus, 0
              FROM moz_bookmarks b
              WHERE b.guid = '{root_guid}'
              UNION ALL
              SELECT b.id, b.guid, s.id, s.guid, b.position, b.type, b.title, s.title,
-                    b.fk, b.dateAdded, b.lastModified, b.syncChangeCounter, s.level + 1
+                    b.fk, b.dateAdded, b.lastModified, b.syncChangeCounter, b.syncStatus, s.level + 1
              FROM moz_bookmarks b
              JOIN {name} s ON s.id = b.parent)",
             name = self.0,
@@ -1117,7 +1118,7 @@ mod tests {
     use serde_json::{json, Value};
     use url::Url;
 
-    use sync15::Payload;
+    use sync15::{random_guid, CollSyncIds, Payload};
 
     fn apply_incoming(conn: &PlacesDb, records_json: Value) {
         // suck records into the store.
@@ -1931,6 +1932,64 @@ mod tests {
                 ],
             }),
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_reset() -> result::Result<(), failure::Error> {
+        let api = new_mem_api();
+        let writer = api.open_connection(ConnectionType::ReadWrite)?;
+
+        insert_local_json_tree(
+            &writer,
+            json!({
+                "guid": &BookmarkRootGuid::Menu.as_guid(),
+                "children": [
+                    {
+                        "guid": "bookmark2___",
+                        "title": "2",
+                        "url": "http://example.com/2",
+                    }
+                ],
+            }),
+        );
+
+        {
+            // scope to kill our sync connection.}
+            let syncer = api.open_sync_connection()?;
+            let interrupt_scope = syncer.begin_interrupt_scope();
+            let store = BookmarksStore::new(&syncer, &interrupt_scope);
+
+            assert_eq!(store.get_sync_assoc()?, StoreSyncAssociation::Disconnected);
+
+            let incoming =
+                IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1.0));
+            let outgoing = store.apply_incoming(incoming, &mut telemetry::EngineIncoming::new())?;
+            let synced_ids: Vec<String> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
+            assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
+            store.sync_finished(ServerTimestamp(2.0), synced_ids)?;
+
+            // now reset
+            store.reset(&StoreSyncAssociation::Connected(CollSyncIds {
+                global: random_guid()?,
+                coll: random_guid()?,
+            }))?;
+        }
+        // do it all again - after the reset we should get the same results.
+        {
+            let syncer = api.open_sync_connection()?;
+            let interrupt_scope = syncer.begin_interrupt_scope();
+            let store = BookmarksStore::new(&syncer, &interrupt_scope);
+
+            let incoming =
+                IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1.0));
+            let outgoing = store.apply_incoming(incoming, &mut telemetry::EngineIncoming::new())?;
+            let synced_ids: Vec<String> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
+            println!("IDS {:?}", synced_ids); // hrmph - this prints ["menu", "bookmark2___"]
+            assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item"); // <-------- this fails.
+            store.sync_finished(ServerTimestamp(2.0), synced_ids)?;
+        }
 
         Ok(())
     }
