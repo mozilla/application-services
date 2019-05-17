@@ -25,4 +25,4 @@ browserid = ["fxa-client/browserid"]
 reqwest = ["viaduct/reqwest", "fxa-client/reqwest"]
 
 [target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.8.3"
+android_logger = "0.7.0"
