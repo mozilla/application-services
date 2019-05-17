@@ -44,7 +44,7 @@ find-places-db = "0.1.0"
 clap = "2.32.0"
 structopt = "0.2.14"
 tempfile = "3.0.4"
-rand = "0.5.5"
+rand = "0.6.5"
 fxa-client = { path = "../fxa-client" }
 criterion = "0.2.9"
 tempdir = "0.3.7"
