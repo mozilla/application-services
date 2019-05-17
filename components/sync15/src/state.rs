@@ -567,6 +567,7 @@ mod tests {
 
     fn mocked_success_ts<T>(t: T, ts: f64) -> error::Result<Sync15ClientResponse<T>> {
         Ok(Sync15ClientResponse::Success {
+            status: 200,
             record: t,
             last_modified: ServerTimestamp(ts),
             route: "test/path".into(),

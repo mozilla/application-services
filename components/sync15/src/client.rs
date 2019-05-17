@@ -11,6 +11,7 @@ use crate::request::{
 };
 use crate::token;
 use crate::util::ServerTimestamp;
+use serde_json::Value;
 use std::str::FromStr;
 use url::Url;
 use viaduct::{
@@ -23,6 +24,7 @@ use viaduct::{
 #[derive(Debug, Clone)]
 pub enum Sync15ClientResponse<T> {
     Success {
+        status: u16,
         record: T,
         last_modified: ServerTimestamp,
         route: String,
@@ -33,6 +35,10 @@ pub enum Sync15ClientResponse<T> {
     },
     // 401
     Unauthorized {
+        route: String,
+    },
+    // 412
+    PreconditionFailed {
         route: String,
     },
     // 5XX
@@ -48,9 +54,37 @@ pub enum Sync15ClientResponse<T> {
 }
 
 impl<T> Sync15ClientResponse<T> {
-    // XXX - consider making this just `create_error` so we can throw other
-    // types of errors (eg, a specific Unauthorized or Retry-After error - but
-    // for now it always returns a StorageHttpError.
+    pub fn from_response(resp: Response) -> error::Result<Self>
+    where
+        for<'a> T: serde::de::Deserialize<'a>,
+    {
+        let route: String = resp.url.path().into();
+        Ok(if resp.is_success() {
+            let record: T = resp.json()?;
+            let last_modified = resp
+                .headers
+                .get(header_names::X_LAST_MODIFIED)
+                .and_then(|s| ServerTimestamp::from_str(s).ok())
+                .ok_or_else(|| ErrorKind::MissingServerTimestamp)?;
+            Sync15ClientResponse::Success {
+                status: resp.status,
+                record,
+                last_modified,
+                route,
+            }
+        } else {
+            let status = resp.status;
+            match status {
+                404 => Sync15ClientResponse::NotFound { route },
+                401 => Sync15ClientResponse::Unauthorized { route },
+                412 => Sync15ClientResponse::PreconditionFailed { route },
+                // / TODO: 5XX errors should parse backoff etc.
+                500..=600 => Sync15ClientResponse::ServerError { route, status },
+                _ => Sync15ClientResponse::RequestFailed { route, status },
+            }
+        })
+    }
+
     pub fn create_storage_error(self) -> ErrorKind {
         let (code, route): (u16, String) = match self {
             Sync15ClientResponse::Success { route, .. } => {
@@ -64,6 +98,9 @@ impl<T> Sync15ClientResponse<T> {
             Sync15ClientResponse::Unauthorized { route, .. } => (401, route),
             Sync15ClientResponse::ServerError { status, route } => (status, route),
             Sync15ClientResponse::RequestFailed { status, route } => (status, route),
+            Sync15ClientResponse::PreconditionFailed { .. } => {
+                return ErrorKind::BatchInterrupted;
+            }
         };
         ErrorKind::StorageHttpError {
             code,
@@ -120,14 +157,19 @@ impl SetupStorageClient for Sync15StorageClient {
                 record,
                 last_modified,
                 route,
+                status,
             } => Sync15ClientResponse::Success {
                 record: record.payload,
                 last_modified,
                 route,
+                status,
             },
             Sync15ClientResponse::NotFound { route } => Sync15ClientResponse::NotFound { route },
             Sync15ClientResponse::Unauthorized { route } => {
                 Sync15ClientResponse::Unauthorized { route }
+            }
+            Sync15ClientResponse::PreconditionFailed { route } => {
+                Sync15ClientResponse::PreconditionFailed { route }
             }
             Sync15ClientResponse::ServerError { route, status } => {
                 Sync15ClientResponse::ServerError { route, status }
@@ -160,7 +202,7 @@ impl SetupStorageClient for Sync15StorageClient {
         let url = Url::parse(&s)?;
 
         let req = self.build_request(Method::Delete, url)?;
-        match self.exec_request(req, true) {
+        match self.exec_request::<Value>(req, true) {
             Ok(_) => Ok(()),
             Err(ref e) if e.is_not_found() => Ok(()),
             Err(e) => Err(e),
@@ -208,66 +250,32 @@ impl Sync15StorageClient {
     {
         let s = self.tsc.api_endpoint()? + "/";
         let url = Url::parse(&s)?.join(relative_path.as_ref())?;
-        Ok(self.make_storage_request::<T>(method, url)?)
+        self.exec_request(self.build_request(method, url)?, false)
     }
 
-    fn make_storage_request<T>(
+    fn exec_request<T>(
         &self,
-        method: Method,
-        url: Url,
+        req: Request,
+        require_success: bool,
     ) -> error::Result<Sync15ClientResponse<T>>
     where
         for<'a> T: serde::de::Deserialize<'a>,
     {
-        let resp = self.exec_request(self.build_request(method, url)?, false)?;
-        let route: String = resp.url.path().into();
-        Ok(if resp.is_success() {
-            let record: T = resp.json()?;
-            let last_modified = resp
-                .headers
-                .get(header_names::X_LAST_MODIFIED)
-                .and_then(|s| ServerTimestamp::from_str(s).ok())
-                .ok_or_else(|| ErrorKind::MissingServerTimestamp)?;
-            Sync15ClientResponse::Success {
-                record,
-                last_modified,
-                route,
-            }
-        } else {
-            let status = resp.status;
-            match status {
-                404 => Sync15ClientResponse::NotFound { route },
-                401 => Sync15ClientResponse::Unauthorized { route },
-                500..=600 => Sync15ClientResponse::ServerError { route, status },
-                _ => Sync15ClientResponse::RequestFailed { route, status },
-            }
-        })
-    }
-
-    fn exec_request(&self, req: Request, require_success: bool) -> error::Result<Response> {
         log::trace!("request: {} {}", req.method, req.url.path());
         let resp = req.send()?;
         log::trace!("response: {}", resp.status);
 
-        if require_success && !resp.is_success() {
-            log::warn!(
-                "HTTP error {} during storage request to {}",
-                resp.status,
-                resp.url.path()
-            );
-            return Err(ErrorKind::StorageHttpError {
-                code: resp.status,
-                route: resp.url.path().into(),
+        let result = Sync15ClientResponse::from_response(resp)?;
+        match result {
+            Sync15ClientResponse::Success { .. } => Ok(result),
+            _ => {
+                if require_success {
+                    Err(result.create_storage_error().into())
+                } else {
+                    Ok(result)
+                }
             }
-            .into());
         }
-
-        // TODO:
-        // - handle backoff
-        // - x-weave-quota?
-        // - ... almost certainly other things too...
-
-        Ok(resp)
     }
 
     fn collection_request<T>(
@@ -278,7 +286,8 @@ impl Sync15StorageClient {
     where
         for<'a> T: serde::de::Deserialize<'a>,
     {
-        self.make_storage_request(method, r.build_url(Url::parse(&self.tsc.api_endpoint()?)?)?)
+        let url = r.build_url(Url::parse(&self.tsc.api_endpoint()?)?)?;
+        self.exec_request(self.build_request(method, url)?, false)
     }
 
     pub fn new_post_queue<'a, F: PostResponseHandler>(
@@ -308,7 +317,7 @@ impl Sync15StorageClient {
             .json(body)
             .header(header_names::X_IF_UNMODIFIED_SINCE, format!("{}", xius))?;
 
-        let _ = self.exec_request(req, true)?;
+        let _ = self.exec_request::<Value>(req, true)?;
 
         Ok(())
     }
@@ -343,8 +352,7 @@ impl<'a> BatchPoster for PostWrapper<'a> {
             .header(header_names::CONTENT_TYPE, "application/json")?
             .header(header_names::X_IF_UNMODIFIED_SINCE, format!("{}", xius))?
             .body(bytes);
-        let resp = self.client.exec_request(req, false)?;
-        Ok(PostResponse::from_response(&resp)?)
+        self.client.exec_request(req, false)
     }
 }
 
