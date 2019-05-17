@@ -41,16 +41,31 @@ pub struct Login {
     pub password_field: String,
 
     #[serde(default)]
+    #[serde(deserialize_with = "deserialize_timestamp")]
     pub time_created: i64,
 
     #[serde(default)]
+    #[serde(deserialize_with = "deserialize_timestamp")]
     pub time_password_changed: i64,
 
     #[serde(default)]
+    #[serde(deserialize_with = "deserialize_timestamp")]
     pub time_last_used: i64,
 
     #[serde(default)]
     pub times_used: i64,
+}
+
+fn deserialize_timestamp<'de, D>(deserializer: D) -> std::result::Result<i64, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    use serde::de::Deserialize;
+    // Invalid and negative timestamps are all replaced with 0. Eventually we
+    // should investigate replacing values that are unreasonable but still fit
+    // in an i64 (a date 1000 years in the future, for example), but
+    // appropriately handling that is complex.
+    Ok(i64::deserialize(deserializer).unwrap_or_default().max(0))
 }
 
 fn string_or_default(row: &Row<'_>, col: &str) -> Result<String> {
@@ -443,5 +458,56 @@ impl Login {
         }
 
         delta
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_invalid_payload_timestamp() {
+        #[allow(clippy::unreadable_literal)]
+        let bad_timestamp = 18446732429235952000u64;
+        let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
+            "id": "123412341234",
+            "formSubmitURL": "https://www.example.com/submit",
+            "hostname": "https://www.example.com",
+            "username": "test",
+            "password": "test",
+            "timeCreated": bad_timestamp,
+            "timeLastUsed": "some other garbage",
+            "timePasswordChanged": -30, // valid i64 but negative
+        }))
+        .unwrap();
+        let login = SyncLoginData::from_payload(bad_payload, ServerTimestamp::default())
+            .unwrap()
+            .inbound
+            .0
+            .unwrap();
+        assert_eq!(login.time_created, 0);
+        assert_eq!(login.time_last_used, 0);
+        assert_eq!(login.time_password_changed, 0);
+
+        let now64 = util::system_time_ms_i64(std::time::SystemTime::now());
+        let good_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
+            "id": "123412341234",
+            "formSubmitURL": "https://www.example.com/submit",
+            "hostname": "https://www.example.com",
+            "username": "test",
+            "password": "test",
+            "timeCreated": now64 - 100,
+            "timeLastUsed": now64 - 50,
+            "timePasswordChanged": now64 - 25,
+        }))
+        .unwrap();
+
+        let login = SyncLoginData::from_payload(good_payload, ServerTimestamp::default())
+            .unwrap()
+            .inbound
+            .0
+            .unwrap();
+
+        assert_eq!(login.time_created, now64 - 100);
+        assert_eq!(login.time_last_used, now64 - 50);
+        assert_eq!(login.time_password_changed, now64 - 25);
     }
 }
