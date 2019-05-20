@@ -85,17 +85,16 @@ impl<'a> BookmarksStore<'a> {
                     (NOT v.isDeleted OR b.guid NOT NULL)
                 ) OR EXISTS (
                     WITH RECURSIVE
-                    {local_items}
+                    {}
                     SELECT 1
                     FROM localItems
-                    WHERE syncChangeCounter > 0 OR syncStatus = {sync_status_new}
+                    WHERE syncChangeCounter > 0
                 ) OR EXISTS (
                     SELECT 1
                     FROM moz_bookmarks_deleted
                 )
              AS hasChanges",
-            local_items = LocalItemsFragment("localItems"),
-            sync_status_new = SyncStatus::New as u8
+            LocalItemsFragment("localItems")
         );
         Ok(self
             .db
@@ -543,7 +542,7 @@ impl<'a> BookmarksStore<'a> {
              DELETE FROM moz_bookmarks_deleted;
 
              UPDATE moz_bookmarks
-             SET syncChangeCounter = 0,
+             SET syncChangeCounter = 1,
                  syncStatus = {}",
             (SyncStatus::New as u8)
         ))?;
@@ -997,14 +996,14 @@ impl<'a> fmt::Display for LocalItemsFragment<'a> {
         write!(
             f,
             "{name}(id, guid, parentId, parentGuid, position, type, title, parentTitle,
-                    placeId, dateAdded, lastModified, syncChangeCounter, syncStatus, level) AS (
+                    placeId, dateAdded, lastModified, syncChangeCounter, level) AS (
              SELECT b.id, b.guid, 0, NULL, b.position, b.type, b.title, NULL,
-                    b.fk, b.dateAdded, b.lastModified, b.syncChangeCounter, syncStatus, 0
+                    b.fk, b.dateAdded, b.lastModified, b.syncChangeCounter, 0
              FROM moz_bookmarks b
              WHERE b.guid = '{root_guid}'
              UNION ALL
              SELECT b.id, b.guid, s.id, s.guid, b.position, b.type, b.title, s.title,
-                    b.fk, b.dateAdded, b.lastModified, b.syncChangeCounter, b.syncStatus, s.level + 1
+                    b.fk, b.dateAdded, b.lastModified, b.syncChangeCounter, s.level + 1
              FROM moz_bookmarks b
              JOIN {name} s ON s.id = b.parent)",
             name = self.0,
@@ -1956,7 +1955,7 @@ mod tests {
         );
 
         {
-            // scope to kill our sync connection.}
+            // scope to kill our sync connection.
             let syncer = api.open_sync_connection()?;
             let interrupt_scope = syncer.begin_interrupt_scope();
             let store = BookmarksStore::new(&syncer, &interrupt_scope);
