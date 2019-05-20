@@ -1985,8 +1985,7 @@ mod tests {
                 IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1.0));
             let outgoing = store.apply_incoming(incoming, &mut telemetry::EngineIncoming::new())?;
             let synced_ids: Vec<String> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
-            println!("IDS {:?}", synced_ids); // hrmph - this prints ["menu", "bookmark2___"]
-            assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item"); // <-------- this fails.
+            assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             store.sync_finished(ServerTimestamp(2.0), synced_ids)?;
         }
 
