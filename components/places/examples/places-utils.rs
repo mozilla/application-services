@@ -237,8 +237,9 @@ fn sync(
 
     let mut sync_ping = telemetry::SyncTelemetryPing::new();
 
+    let mut error_to_report = None;
     let stores_to_sync: Vec<&dyn Store> = stores.iter().map(AsRef::as_ref).collect();
-    if let Err(e) = sync_multiple(
+    match sync_multiple(
         &stores_to_sync,
         &mut global_state,
         &mut mem_cached_state,
@@ -247,16 +248,31 @@ fn sync(
         &mut sync_ping,
         &interruptee,
     ) {
-        log::warn!("Sync failed! {}", e);
-        log::warn!("BT: {:?}", e.backtrace());
-    } else {
-        log::info!("Sync was successful!");
+        Err(e) => {
+            log::warn!("Sync failed! {}", e);
+            log::warn!("BT: {:?}", e.backtrace());
+            error_to_report = Some(e);
+        }
+        Ok(failures) => {
+            log::info!("Sync was successful!");
+            for (name, error) in failures {
+                log::warn!("Sync of {} failed: {}", name, error);
+                log::warn!("BT: {:?}", error.backtrace());
+                if error_to_report.is_none() {
+                    error_to_report = Some(error);
+                }
+            }
+        }
     }
     println!(
         "Sync telemetry: {}",
         serde_json::to_string_pretty(&sync_ping).unwrap()
     );
-    Ok(())
+    // return an error if any engine failed.
+    match error_to_report {
+        Some(e) => Err(e.into()),
+        None => Ok(()),
+    }
 }
 
 // Note: this uses doc comments to generate the help text.
