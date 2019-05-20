@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::bso_record::{BsoRecord, EncryptedBso};
-use crate::error::{self, ErrorKind};
+use crate::error::{self, ErrorKind, StorageHttpError};
 use crate::record_types::MetaGlobalRecord;
 use crate::request::{
     BatchPoster, CollectionRequest, InfoCollections, InfoConfiguration, PostQueue, PostResponse,
@@ -86,26 +86,29 @@ impl<T> Sync15ClientResponse<T> {
     }
 
     pub fn create_storage_error(self) -> ErrorKind {
-        let (code, route): (u16, String) = match self {
-            Sync15ClientResponse::Success { route, .. } => {
+        let inner = match self {
+            Sync15ClientResponse::Success { status, route, .. } => {
                 // This should never happen as callers are expected to have
                 // already special-cased this response, so warn if it does.
                 // (or maybe we could panic?)
                 log::warn!("Converting success response into an error");
-                (200, route)
+                StorageHttpError::RequestFailed { status, route }
             }
-            Sync15ClientResponse::NotFound { route, .. } => (404, route),
-            Sync15ClientResponse::Unauthorized { route, .. } => (401, route),
-            Sync15ClientResponse::ServerError { status, route } => (status, route),
-            Sync15ClientResponse::RequestFailed { status, route } => (status, route),
-            Sync15ClientResponse::PreconditionFailed { .. } => {
-                return ErrorKind::BatchInterrupted;
+            Sync15ClientResponse::NotFound { route, .. } => StorageHttpError::NotFound { route },
+            Sync15ClientResponse::Unauthorized { route, .. } => {
+                StorageHttpError::Unauthorized { route }
+            }
+            Sync15ClientResponse::ServerError { status, route } => {
+                StorageHttpError::ServerError { status, route }
+            }
+            Sync15ClientResponse::RequestFailed { status, route } => {
+                StorageHttpError::RequestFailed { status, route }
+            }
+            Sync15ClientResponse::PreconditionFailed { route } => {
+                StorageHttpError::PreconditionFailed { route }
             }
         };
-        ErrorKind::StorageHttpError {
-            code,
-            route: route.clone(),
-        }
+        ErrorKind::StorageHttpError(inner)
     }
 }
 
@@ -202,9 +205,10 @@ impl SetupStorageClient for Sync15StorageClient {
         let url = Url::parse(&s)?;
 
         let req = self.build_request(Method::Delete, url)?;
-        match self.exec_request::<Value>(req, true) {
-            Ok(_) => Ok(()),
-            Err(ref e) if e.is_not_found() => Ok(()),
+        match self.exec_request::<Value>(req, false) {
+            Ok(Sync15ClientResponse::NotFound { .. })
+            | Ok(Sync15ClientResponse::Success { .. }) => Ok(()),
+            Ok(resp) => Err(resp.create_storage_error().into()),
             Err(e) => Err(e),
         }
     }

@@ -7,6 +7,19 @@ use interrupt::Interrupted;
 use std::string;
 use std::time::SystemTime;
 
+#[derive(Debug)]
+pub enum StorageHttpError {
+    NotFound { route: String },
+    // 401
+    Unauthorized { route: String },
+    // 412
+    PreconditionFailed { route: String },
+    // 5XX
+    ServerError { route: String, status: u16 }, // TODO: info for "retry-after" and backoff handling etc here.
+    // Other HTTP responses.
+    RequestFailed { route: String, status: u16 },
+}
+
 #[derive(Debug, Fail)]
 pub enum ErrorKind {
     #[fail(display = "Key {} had wrong length, got {}, expected {}", _0, _1, _2)]
@@ -21,20 +34,14 @@ pub enum ErrorKind {
     )]
     TokenserverHttpError(u16),
 
-    #[fail(
-        display = "HTTP status {} during a storage request to \"{}\"",
-        code, route
-    )]
-    StorageHttpError { code: u16, route: String },
+    #[fail(display = "HTTP storage error: {:?}", _0)]
+    StorageHttpError(StorageHttpError),
 
     #[fail(display = "Server requested backoff. Retry after {:?}", _0)]
     BackoffError(SystemTime),
 
     #[fail(display = "Outgoing record is too large to upload")]
     RecordTooLargeError,
-
-    #[fail(display = "The batch was not committed due to being interrupted")]
-    BatchInterrupted,
 
     // Do we want to record the concrete problems?
     #[fail(display = "Not all records were successfully uploaded")]
@@ -112,15 +119,6 @@ error_support::define_error! {
         // A bit dubious, since we only want this to happen inside `synchronize`
         (StoreError, failure::Error),
         (Interrupted, Interrupted),
-    }
-}
-
-impl Error {
-    pub fn is_not_found(&self) -> bool {
-        match self.kind() {
-            ErrorKind::StorageHttpError { code: 404, .. } => true,
-            _ => false,
-        }
     }
 }
 

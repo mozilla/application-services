@@ -478,6 +478,7 @@ mod tests {
     use super::*;
 
     use crate::bso_record::{BsoRecord, EncryptedBso, EncryptedPayload, Payload};
+    use crate::error::StorageHttpError;
     use crate::record_types::CryptoKeysRecord;
     use interrupt::NeverInterrupts;
 
@@ -529,10 +530,10 @@ mod tests {
             _global: &MetaGlobalRecord,
         ) -> error::Result<()> {
             assert_eq!(xius, ServerTimestamp(999.9));
-            Err(ErrorKind::StorageHttpError {
-                code: 500,
+            Err(ErrorKind::StorageHttpError(StorageHttpError::ServerError {
+                status: 500,
                 route: "meta/global".to_string(),
-            }
+            })
             .into())
         }
 
@@ -553,10 +554,10 @@ mod tests {
             _keys: &EncryptedBso,
         ) -> error::Result<()> {
             assert_eq!(xius, ServerTimestamp(888.8));
-            Err(ErrorKind::StorageHttpError {
-                code: 500,
+            Err(ErrorKind::StorageHttpError(StorageHttpError::ServerError {
+                status: 500,
                 route: "crypto/keys".to_string(),
-            }
+            })
             .into())
         }
 
