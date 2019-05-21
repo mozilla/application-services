@@ -1,3 +1,9 @@
+# v0.28.1 (_2019-05-21_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.28.0...v0.28.1)
+
+This release exists only to rectify a publishing error that occurred with v0.28.0.
+
 # v0.28.0 (_2019-05-17_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.27.2...v0.28.0)
