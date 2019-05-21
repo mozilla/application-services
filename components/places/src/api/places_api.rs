@@ -222,7 +222,8 @@ impl PlacesApi {
         }
     }
 
-    // TODO: We need a better result here so we can return telemetry.
+    // NOTE: This is to be deprecated
+    // #[deprecated(note = "Please use the .sync() API to sync both stores")]
     // We possibly want more than just a `SyncTelemetryPing` so we can
     // return additional "custom" telemetry if the app wants it.
     pub fn sync_history(
@@ -270,7 +271,8 @@ impl PlacesApi {
         Ok(sync_ping)
     }
 
-    // TODO: reduce duplication with above
+    // NOTE: This is to be deprecated
+    // #[deprecated(note = "Please use the .sync() API to sync both stores")]
     pub fn sync_bookmarks(
         &self,
         client_init: &sync15::Sync15StorageClientInit,
@@ -314,6 +316,57 @@ impl PlacesApi {
         result?;
 
         Ok(sync_ping)
+    }
+
+    // This is the new sync API until the sync manager lands. It's currently
+    // not wired up via the FFI - it's possible we'll do declined engines too
+    // before we do.
+    pub fn sync(
+        &self,
+        client_init: &sync15::Sync15StorageClientInit,
+        key_bundle: &sync15::KeyBundle,
+    ) -> Result<(ServiceStatus, telemetry::SyncTelemetryPing)> {
+        let mut guard = self.sync_state.lock().unwrap();
+        let conn = self.open_sync_connection()?;
+        if guard.is_none() {
+            *guard = Some(SyncState {
+                mem_cached_state: Cell::default(),
+                disk_cached_state: Cell::new(self.get_disk_persisted_state(&conn)?),
+            });
+        }
+
+        let mut service_status = ServiceStatus::Ok;
+        let sync_state = guard.as_ref().unwrap();
+        // Note that counter-intuitively, this must be called before we do a
+        // bookmark sync too, to ensure the shared global state is correct.
+        HistoryStore::migrate_v1_global_state(&conn)?;
+
+        let interruptee = conn.begin_interrupt_scope();
+        let bm_store = BookmarksStore::new(&conn, &interruptee);
+        let history_store = HistoryStore::new(&conn, &interruptee);
+        let mut mem_cached_state = sync_state.mem_cached_state.take();
+        let mut disk_cached_state = sync_state.disk_cached_state.take();
+        let mut sync_ping = telemetry::SyncTelemetryPing::new();
+
+        let result = sync15::sync_multiple(
+            &[&history_store, &bm_store],
+            &mut disk_cached_state,
+            &mut mem_cached_state,
+            client_init,
+            key_bundle,
+            &mut sync_ping,
+            &interruptee,
+            &mut service_status,
+        );
+        // even on failure we set the persisted state - sync itself takes care
+        // to ensure this has been None'd out if necessary.
+        self.set_disk_persisted_state(&conn, &disk_cached_state)?;
+        sync_state.mem_cached_state.replace(mem_cached_state);
+        sync_state.disk_cached_state.replace(disk_cached_state);
+
+        result?;
+
+        Ok((service_status, sync_ping))
     }
 
     pub fn reset_bookmarks(&self) -> Result<()> {
