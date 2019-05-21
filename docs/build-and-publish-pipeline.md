@@ -28,6 +28,8 @@ The key points:
         * Build an Android binary release.
         * Upload Android library symbols to [Socorro](https://wiki.mozilla.org/Socorro).
         * Publish it to the [maven.mozilla.org](https://maven.mozilla.org).
+* Notifications about build failures are sent to a mailing list at
+  [a-s-ci-failures@mozilla.com](https://groups.google.com/a/mozilla.com/forum/#!forum/a-s-ci-failures)
 
 For Android consumers these are the steps by which Application Services code becomes available,
 and the integrity-protection mechanisms that apply at each step:
