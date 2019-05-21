@@ -238,6 +238,7 @@ def android_multiarch_release():
                     "project:mozilla:application-services:releng:beetmover:bucket:{}".format(bucket_name),
                     "project:mozilla:application-services:releng:beetmover:action:push-to-maven"
                 )
+                .with_routes("notify.email.a-s-ci-failures@mozilla.com.on-failed")
                 .create()
             )
 
