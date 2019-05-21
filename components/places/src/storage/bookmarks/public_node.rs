@@ -274,6 +274,47 @@ pub fn search_bookmarks(db: &PlacesDb, search: &str, limit: u32) -> Result<Vec<P
     )?)
 }
 
+pub fn recent_bookmarks(db: &PlacesDb, limit: u32) -> Result<Vec<PublicNode>> {
+    let scope = db.begin_interrupt_scope();
+    let sql = format!(
+        "SELECT
+            b.guid,
+            p.guid AS parentGuid,
+            b.position,
+            b.dateAdded,
+            b.lastModified,
+            NULLIF(b.title, '') AS title,
+            h.url AS url
+        FROM moz_bookmarks b
+        JOIN moz_bookmarks p ON p.id = b.parent
+        JOIN moz_places h ON h.id = b.fk
+        WHERE b.type = {bookmark_type}
+        ORDER BY b.dateAdded DESC
+        LIMIT :limit",
+        bookmark_type = BookmarkType::Bookmark as u8,
+    );
+    Ok(
+        db.query_rows_into_cached(&sql, &[(":limit", &limit)], |row| -> Result<_> {
+            scope.err_if_interrupted()?;
+            Ok(PublicNode {
+                node_type: BookmarkType::Bookmark,
+                guid: row.get("guid")?,
+                parent_guid: row.get("parentGuid")?,
+                position: row.get("position")?,
+                date_added: row.get("dateAdded")?,
+                last_modified: row.get("lastModified")?,
+                title: row.get("title")?,
+                url: row
+                    .get::<_, Option<String>>("url")?
+                    .map(|href| url::Url::parse(&href))
+                    .transpose()?,
+                child_guids: None,
+                child_nodes: None,
+            })
+        })?,
+    )
+}
+
 lazy_static::lazy_static! {
     pub static ref SEARCH_QUERY: String = format!(
         "SELECT
@@ -587,6 +628,106 @@ mod test {
         assert_eq!(mobile.parent_guid.unwrap(), BookmarkRootGuid::Root);
         assert_eq!(mobile.position, mobile_pos.unwrap());
 
+        Ok(())
+    }
+    #[test]
+    fn test_recent() -> Result<()> {
+        let conns = new_mem_connections();
+        let _ = env_logger::try_init();
+        let kids = [
+            json!({
+                "guid": "bookmark1___",
+                "url": "https://www.example1.com/",
+                "title": "b1",
+            }),
+            json!({
+                "guid": "bookmark2___",
+                "url": "https://www.example2.com/",
+                "title": "b2",
+            }),
+            json!({
+                "guid": "bookmark3___",
+                "url": "https://www.example3.com/",
+                "title": "b3",
+            }),
+            json!({
+                "guid": "bookmark4___",
+                "url": "https://www.example4.com/",
+                "title": "b4",
+            }),
+            // should be ignored.
+            json!({
+                "guid": "folder1_____",
+                "title": "A folder",
+                "children": []
+            }),
+            json!({
+                "guid": "bookmark5___",
+                "url": "https://www.example5.com/",
+                "title": "b5",
+            }),
+        ];
+        for k in &kids {
+            insert_json_tree(
+                &conns.write,
+                json!({
+                    "guid": String::from(BookmarkRootGuid::Unfiled.as_str()),
+                    "children": [k.clone()],
+                }),
+            );
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        let bmks = recent_bookmarks(&conns.read, 3)?;
+        assert_eq!(bmks.len(), 3);
+
+        assert_eq!(
+            bmks[0],
+            PublicNode {
+                node_type: BookmarkType::Bookmark,
+                guid: "bookmark5___".into(),
+                title: Some("b5".into()),
+                url: Some(Url::parse("https://www.example5.com/").unwrap()),
+                parent_guid: Some(BookmarkRootGuid::Unfiled.into()),
+                position: 5,
+                child_guids: None,
+                child_nodes: None,
+                // Ignored by our PartialEq
+                date_added: Timestamp(0),
+                last_modified: Timestamp(0),
+            }
+        );
+        assert_eq!(
+            bmks[1],
+            PublicNode {
+                node_type: BookmarkType::Bookmark,
+                guid: "bookmark4___".into(),
+                title: Some("b4".into()),
+                url: Some(Url::parse("https://www.example4.com/").unwrap()),
+                parent_guid: Some(BookmarkRootGuid::Unfiled.into()),
+                position: 3,
+                child_guids: None,
+                child_nodes: None,
+                // Ignored by our PartialEq
+                date_added: Timestamp(0),
+                last_modified: Timestamp(0),
+            }
+        );
+        assert_eq!(
+            bmks[2],
+            PublicNode {
+                node_type: BookmarkType::Bookmark,
+                guid: "bookmark3___".into(),
+                title: Some("b3".into()),
+                url: Some(Url::parse("https://www.example3.com/").unwrap()),
+                parent_guid: Some(BookmarkRootGuid::Unfiled.into()),
+                position: 2,
+                child_guids: None,
+                child_nodes: None,
+                // Ignored by our PartialEq
+                date_added: Timestamp(0),
+                last_modified: Timestamp(0),
+            }
+        );
         Ok(())
     }
 }

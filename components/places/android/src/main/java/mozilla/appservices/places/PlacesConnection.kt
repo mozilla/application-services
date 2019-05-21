@@ -332,6 +332,19 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
             LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
         }
     }
+
+    override fun getRecentBookmarks(limit: Int): List<BookmarkItem> {
+        val rustBuf = rustCall { err ->
+            LibPlacesFFI.INSTANCE.bookmarks_get_recent(this.handle.get(), limit, err)
+        }
+
+        try {
+            val message = MsgTypes.BookmarkNodeList.parseFrom(rustBuf.asCodedInputStream()!!)
+            return unpackProtobufItemList(message)
+        } finally {
+            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
+        }
+    }
 }
 
 fun visitTransitionSet(l: List<VisitType>): Int {
