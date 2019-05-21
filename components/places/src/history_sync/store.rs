@@ -193,11 +193,10 @@ impl<'a> Store for HistoryStore<'a> {
     fn get_collection_request(&self) -> result::Result<CollectionRequest, failure::Error> {
         let since = self
             .get_meta::<i64>(LAST_SYNC_META_KEY)?
-            .map(|millis| ServerTimestamp(millis as f64 / 1000.0))
             .unwrap_or_default();
         Ok(CollectionRequest::new("history")
             .full()
-            .newer_than(since)
+            .newer_than(ServerTimestamp(since))
             .limit(MAX_INCOMING_PLACES))
     }
 

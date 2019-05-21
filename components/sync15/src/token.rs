@@ -455,7 +455,7 @@ mod tests {
                     duration: 1000,
                     hashed_fxa_uid: "hash".to_string(),
                 },
-                server_timestamp: ServerTimestamp(0f64),
+                server_timestamp: ServerTimestamp(0i64),
             })
         };
 
@@ -513,7 +513,7 @@ mod tests {
                     duration: 10,
                     hashed_fxa_uid: "hash".to_string(),
                 },
-                server_timestamp: ServerTimestamp(0f64),
+                server_timestamp: ServerTimestamp(0i64),
             })
         };
         let now: Cell<SystemTime> = Cell::new(SystemTime::now());
