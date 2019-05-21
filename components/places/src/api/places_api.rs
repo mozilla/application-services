@@ -20,7 +20,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc, Mutex, Weak,
 };
-use sync15::{telemetry, MemoryCachedState};
+use sync15::{telemetry, MemoryCachedState, ServiceStatus};
 
 // Not clear if this should be here, but this is the "global sync state"
 // which is persisted to disk and reused for all engines.
@@ -239,6 +239,8 @@ impl PlacesApi {
             });
         }
 
+        // for now we don't return the service status via this API.
+        let mut service_status = ServiceStatus::Ok;
         let sync_state = guard.as_ref().unwrap();
         // Note that counter-intuitively, this must be called before we do a
         // bookmark sync too, to ensure the shared global state is correct.
@@ -255,6 +257,7 @@ impl PlacesApi {
             &mut mem_cached_state,
             &mut disk_cached_state,
             &mut sync_ping,
+            &mut service_status,
         );
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
@@ -282,6 +285,8 @@ impl PlacesApi {
             });
         }
 
+        // for now we don't return the service status via this API.
+        let mut service_status = ServiceStatus::Ok;
         let sync_state = guard.as_ref().unwrap();
         // Note that counter-intuitively, this must be called before we do a
         // bookmark sync too, to ensure the shared global state is correct.
@@ -298,6 +303,7 @@ impl PlacesApi {
             &mut mem_cached_state,
             &mut disk_cached_state,
             &mut sync_ping,
+            &mut service_status,
         );
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.

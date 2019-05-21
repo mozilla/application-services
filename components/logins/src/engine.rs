@@ -7,7 +7,7 @@ use crate::login::Login;
 use std::cell::Cell;
 use std::path::Path;
 use sync15::{
-    sync_multiple, telemetry, KeyBundle, MemoryCachedState, StoreSyncAssociation,
+    sync_multiple, telemetry, KeyBundle, MemoryCachedState, ServiceStatus, StoreSyncAssociation,
     Sync15StorageClientInit,
 };
 
@@ -103,6 +103,7 @@ impl PasswordEngine {
 
         let mut disk_cached_state = self.db.get_global_state()?;
         let mut mem_cached_state = self.mem_cached_state.take();
+        let mut service_status = ServiceStatus::Ok;
         let store = LoginStore::new(&self.db);
 
         let result = sync_multiple(
@@ -113,6 +114,7 @@ impl PasswordEngine {
             root_sync_key,
             sync_ping,
             &store.scope,
+            &mut service_status,
         );
         // We always update the state - sync_multiple does the right thing
         // if it needs to be dropped (ie, they will be None or contain Nones etc)

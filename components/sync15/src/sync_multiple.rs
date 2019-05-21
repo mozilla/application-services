@@ -9,6 +9,7 @@ use crate::client::{Sync15StorageClient, Sync15StorageClientInit};
 use crate::error::Error;
 use crate::key_bundle::KeyBundle;
 use crate::state::{GlobalState, PersistedGlobalState, SetupStateMachine};
+use crate::status::ServiceStatus;
 use crate::sync::{self, Store};
 use crate::telemetry;
 use interrupt::Interruptee;
@@ -60,8 +61,14 @@ pub fn sync_multiple(
     root_sync_key: &KeyBundle,
     sync_ping: &mut telemetry::SyncTelemetryPing,
     interruptee: &impl Interruptee,
+    service_status: &mut ServiceStatus,
 ) -> result::Result<HashMap<String, Error>, Error> {
-    interruptee.err_if_interrupted()?;
+    *service_status = ServiceStatus::OtherError; // we'll set this to better values as we go.
+
+    if let Err(e) = interruptee.err_if_interrupted() {
+        *service_status = ServiceStatus::Interrupted;
+        return Err(e.into());
+    }
     let mut pgs = match persisted_global_state {
         Some(persisted_string) => {
             match serde_json::from_str::<PersistedGlobalState>(&persisted_string) {
@@ -102,7 +109,10 @@ pub fn sync_multiple(
             client: Sync15StorageClient::new(storage_init.clone())?,
         },
     };
-    interruptee.err_if_interrupted()?;
+    if let Err(e) = interruptee.err_if_interrupted() {
+        *service_status = ServiceStatus::Interrupted;
+        return Err(e.into());
+    }
 
     // Advance the state machine to the point where it can perform a full
     // sync. This may involve uploading meta/global, crypto/keys etc.
@@ -115,7 +125,13 @@ pub fn sync_multiple(
             interruptee,
         );
         log::info!("Advancing state machine to ready (full)");
-        let state = state_machine.run_to_ready(last_state)?;
+        let state = match state_machine.run_to_ready(last_state) {
+            Err(e) => {
+                *service_status = ServiceStatus::from_err(&e);
+                return Err(e.into());
+            }
+            Ok(state) => state,
+        };
         // The state machine might have updated our persisted_global_state, so
         // update the callers repr of it.
         mem::replace(persisted_global_state, Some(serde_json::to_string(&pgs)?));
@@ -124,6 +140,10 @@ pub fn sync_multiple(
         mem_cached_state.last_global_state = None;
         state
     };
+
+    // Set the service status to OK here - we may adjust it based on an individual
+    // store failing.
+    *service_status = ServiceStatus::Ok;
 
     let mut telem_sync = telemetry::SyncTelemetry::new();
     let mut failures: HashMap<String, Error> = HashMap::new();
@@ -150,13 +170,23 @@ pub fn sync_multiple(
                 // However, the costs of restarting the state machine from
                 // scratch really isn't that bad for now.
                 log::warn!("Sync of {} failed! {:?}", name, e);
+                let this_status = ServiceStatus::from_err(&e);
                 let f = telemetry::sync_failure_from_error(&e);
                 failures.insert(name.into(), e);
                 telem_engine.failure(f);
+                // If the failure from the store looks like anything other than
+                // a "store error" we don't bother trying the others.
+                if this_status != ServiceStatus::OtherError {
+                    *service_status = this_status;
+                    break;
+                }
             }
         }
         telem_sync.engine(telem_engine);
-        interruptee.err_if_interrupted()?;
+        if let Err(e) = interruptee.err_if_interrupted() {
+            *service_status = ServiceStatus::Interrupted;
+            return Err(e.into());
+        }
     }
 
     sync_ping.sync(telem_sync);

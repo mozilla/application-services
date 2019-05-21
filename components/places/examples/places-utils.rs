@@ -21,8 +21,8 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
 use sync15::{
-    sync_multiple, telemetry, MemoryCachedState, SetupStorageClient, Store, StoreSyncAssociation,
-    Sync15StorageClient,
+    sync_multiple, telemetry, MemoryCachedState, ServiceStatus, SetupStorageClient, Store,
+    StoreSyncAssociation, Sync15StorageClient,
 };
 use url::Url;
 
@@ -238,6 +238,7 @@ fn sync(
     let mut sync_ping = telemetry::SyncTelemetryPing::new();
 
     let mut error_to_report = None;
+    let mut service_status = ServiceStatus::Ok;
     let stores_to_sync: Vec<&dyn Store> = stores.iter().map(AsRef::as_ref).collect();
     match sync_multiple(
         &stores_to_sync,
@@ -247,6 +248,7 @@ fn sync(
         &cli_fxa.root_sync_key,
         &mut sync_ping,
         &interruptee,
+        &mut service_status,
     ) {
         Err(e) => {
             log::warn!("Sync failed! {}", e);
@@ -264,6 +266,7 @@ fn sync(
             }
         }
     }
+    println!("Sync service status: {:?}", service_status);
     println!(
         "Sync telemetry: {}",
         serde_json::to_string_pretty(&sync_ping).unwrap()
