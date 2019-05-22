@@ -149,6 +149,7 @@ pub struct BookmarkRecord {
     pub parent_title: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, deserialize_with = "de_maybe_stringified_timestamp")]
     pub date_added: Option<i64>,
 
     #[serde(default)]
@@ -187,6 +188,7 @@ pub struct QueryRecord {
     pub parent_title: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, deserialize_with = "de_maybe_stringified_timestamp")]
     pub date_added: Option<i64>,
 
     #[serde(default)]
@@ -222,6 +224,7 @@ pub struct FolderRecord {
     pub parent_title: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, deserialize_with = "de_maybe_stringified_timestamp")]
     pub date_added: Option<i64>,
 
     #[serde(default)]
@@ -254,6 +257,7 @@ pub struct LivemarkRecord {
     pub parent_title: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, deserialize_with = "de_maybe_stringified_timestamp")]
     pub date_added: Option<i64>,
 
     #[serde(default)]
@@ -289,6 +293,7 @@ pub struct SeparatorRecord {
     pub parent_title: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, deserialize_with = "de_maybe_stringified_timestamp")]
     pub date_added: Option<i64>,
 
     #[serde(default)]
@@ -315,6 +320,48 @@ pub enum BookmarkItemRecord {
     Folder(FolderRecord),
     Livemark(LivemarkRecord),
     Separator(SeparatorRecord),
+}
+
+// dateAdded on a bookmark might be a string! See #1148.
+fn de_maybe_stringified_timestamp<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<i64>, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    use std::fmt;
+    use std::marker::PhantomData;
+
+    struct StringOrInt(PhantomData<Option<i64>>);
+
+    impl<'de> Visitor<'de> for StringOrInt {
+        type Value = Option<i64>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            formatter.write_str("string or int")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Option<i64>, E>
+        where
+            E: serde::de::Error,
+        {
+            match value.parse::<i64>() {
+                Ok(v) => Ok(Some(v)),
+                Err(_) => Err(E::custom("invalid string literal")),
+            }
+        }
+
+        // all positive int literals
+        fn visit_i64<E: serde::de::Error>(self, value: i64) -> Result<Option<i64>, E> {
+            Ok(Some(value.max(0)))
+        }
+
+        // all negative int literals
+        fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<Option<i64>, E> {
+            Ok(Some((value as i64).max(0)))
+        }
+    }
+    deserializer.deserialize_any(StringOrInt(PhantomData))
 }
 
 #[cfg(test)]
@@ -449,5 +496,76 @@ mod tests {
                 "hasDupe": false,
             })
         );
+    }
+
+    // It's unfortunate that all below 'dateadded' tests only check the
+    // 'BookmarkItemRecord' variant, so it would be a problem if `date_added` on
+    // other variants forgot to do the `deserialize_with` dance. We could
+    // implement a new type to make that less likely, but that's not foolproof
+    // either and causes this hysterical raisin to leak out from this module.
+    fn check_date_added(j: serde_json::Value, expected: Option<i64>) {
+        let r: BookmarkItemRecord = serde_json::from_value(j).expect("should deserialize");
+        match &r {
+            BookmarkItemRecord::Bookmark(b) => assert_eq!(b.date_added, expected),
+            _ => panic!("unexpected record type"),
+        };
+    }
+
+    #[test]
+    fn test_dateadded_missing() {
+        check_date_added(
+            json!({"id": "unfiled", "parentid": "menu", "type": "bookmark"}),
+            None,
+        )
+    }
+
+    #[test]
+    fn test_dateadded_int() {
+        check_date_added(
+            json!({"id": "unfiled", "parentid": "menu", "type": "bookmark", "dateAdded": 123}),
+            Some(123),
+        )
+    }
+
+    #[test]
+    fn test_dateadded_negative() {
+        check_date_added(
+            json!({"id": "unfiled", "parentid": "menu", "type": "bookmark", "dateAdded": -1}),
+            Some(0),
+        )
+    }
+
+    #[test]
+    fn test_dateadded_str() {
+        check_date_added(
+            json!({"id": "unfiled", "parentid": "menu", "type": "bookmark", "dateAdded": "123"}),
+            Some(123),
+        )
+    }
+
+    // A kinda "policy" decision - like serde, 'type errors' fail rather than default.
+    #[test]
+    fn test_dateadded_null() {
+        // a literal `null` is insane (and note we already test it *missing* above)
+        serde_json::from_value::<BookmarkItemRecord>(
+            json!({"id": "unfiled", "parentid": "menu", "type": "bookmark", "dateAdded": null}),
+        )
+        .expect_err("should fail, literal null");
+    }
+
+    #[test]
+    fn test_dateadded_invalid_str() {
+        serde_json::from_value::<BookmarkItemRecord>(
+            json!({"id": "unfiled", "parentid": "menu", "type": "bookmark", "dateAdded": "foo"}),
+        )
+        .expect_err("should fail, bad string value");
+    }
+
+    #[test]
+    fn test_dateadded_invalid_type() {
+        serde_json::from_value::<BookmarkItemRecord>(
+            json!({"id": "unfiled", "parentid": "menu", "type": "bookmark", "dateAdded": []}),
+        )
+        .expect_err("should fail, invalid type");
     }
 }
