@@ -162,6 +162,10 @@ PlacesRustBuffer bookmarks_search(PlacesConnectionHandle handle,
                                   int32_t limit,
                                   PlacesRustError *_Nonnull out_err);
 
+PlacesRustBuffer bookmarks_get_recent(PlacesConnectionHandle handle,
+                                      int32_t limit,
+                                      PlacesRustError *_Nonnull out_err);
+
 PlacesRustBuffer bookmarks_get_tree(PlacesConnectionHandle handle,
                                     char const *_Nullable root_guid,
                                     PlacesRustError *_Nonnull out_err);

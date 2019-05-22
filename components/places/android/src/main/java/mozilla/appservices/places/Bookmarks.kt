@@ -228,6 +228,20 @@ interface ReadableBookmarksConnection : InterruptibleConnection {
      * has its `interrupt()` method called on another thread.
      */
     fun searchBookmarks(query: String, limit: Int): List<BookmarkItem>
+
+    /**
+     * Returns the list of most recently added bookmarks.
+     *
+     * The result list be in order of time of addition, descending (more recent
+     * additions first), and will contain no folder or separator nodes.
+     *
+     * @param limit The maximum number of items to return.
+     * @return A list of recently added bookmarks.
+     *
+     * @throws OperationInterrupted if this database implements [InterruptibleConnection] and
+     * has its `interrupt()` method called on another thread.
+     */
+    fun getRecentBookmarks(limit: Int): List<BookmarkItem>
 }
 
 /**

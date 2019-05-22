@@ -543,10 +543,24 @@ pub extern "C" fn bookmarks_search(
     limit: i32,
     error: &mut ExternError,
 ) -> ByteBuffer {
-    log::debug!("bookmarks_get_all_with_url");
+    log::debug!("bookmarks_search");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         Ok(BookmarkNodeList::from(
             bookmarks::public_node::search_bookmarks(conn, query.as_str(), limit as u32)?,
+        ))
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn bookmarks_get_recent(
+    handle: u64,
+    limit: i32,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("bookmarks_get_recent");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        Ok(BookmarkNodeList::from(
+            bookmarks::public_node::recent_bookmarks(conn, limit as u32)?,
         ))
     })
 }

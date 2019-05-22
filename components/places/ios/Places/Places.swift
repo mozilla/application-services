@@ -414,6 +414,44 @@ public class PlacesReadConnection {
     }
 
     /**
+     * Returns the list of most recently added bookmarks.
+     *
+     * The result list be in order of time of addition, descending (more recent
+     * additions first), and will contain no folder or separator nodes.
+     *
+     * - Parameter limit: The maximum number of items to return.
+     * - Returns: A list of recently added bookmarks.
+     * - Throws:
+     *     - `PlacesError.databaseInterrupted`: If a call is made to
+     *                                          `interrupt()` on this object
+     *                                          from another thread.
+     *     - `PlacesError.connUseAfterAPIClosed`: If the PlacesAPI that returned
+     *                                            this connection object has
+     *                                            been closed. This indicates
+     *                                            API misuse.
+     *     - `PlacesError.databaseBusy`: If this query times out with a
+     *       SQLITE_BUSY error.
+     *     - `PlacesError.unexpected`: When an error that has not specifically
+     *                                 been exposed to Swift is encountered (for
+     *                                 example IO errors from the database code,
+     *                                 etc).
+     *     - `PlacesError.panic`: If the rust code panics while completing this
+     *                            operation. (If this occurs, please let us
+     *                            know).
+     */
+    open func getRecentBookmarks(limit: UInt) throws -> [BookmarkItem] {
+        return try queue.sync {
+            try self.checkApi()
+            let buffer = try PlacesError.unwrap { error in
+                bookmarks_get_recent(self.handle, Int32(limit), error)
+            }
+            defer { places_destroy_bytebuffer(buffer) }
+            let msg = try MsgTypes_BookmarkNodeList(serializedData: Data(placesRustBuffer: buffer))
+            return unpackProtobufItemList(msg: msg)
+        }
+    }
+
+    /**
      * Attempt to interrupt a long-running operation which may be
      * happening concurrently. If the operation is interrupted,
      * it will fail.
