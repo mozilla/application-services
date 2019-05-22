@@ -49,4 +49,10 @@ else
     echo "* On Debian/Ubuntu:"
     echo "apt-get install libnss3-dev"
   fi
+  if [ $(uname -s) == "Darwin" ] && [ ! -f "/usr/include/pthread.h" ]; then
+    # rustc does not include the macOS SDK headers in its include list yet
+    # (see https://developer.apple.com/documentation/xcode_release_notes/xcode_10_release_notes)
+    echo "macOS system headers are not installed in /usr/include, please run:"
+    echo "open /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg"
+  fi
 fi
