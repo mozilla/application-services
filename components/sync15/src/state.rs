@@ -528,7 +528,7 @@ mod tests {
             xius: ServerTimestamp,
             _global: &MetaGlobalRecord,
         ) -> error::Result<()> {
-            assert_eq!(xius, ServerTimestamp(999.9));
+            assert_eq!(xius, ServerTimestamp(999_900));
             Err(ErrorKind::StorageHttpError {
                 code: 500,
                 route: "meta/global".to_string(),
@@ -552,7 +552,7 @@ mod tests {
             xius: ServerTimestamp,
             _keys: &EncryptedBso,
         ) -> error::Result<()> {
-            assert_eq!(xius, ServerTimestamp(888.8));
+            assert_eq!(xius, ServerTimestamp(888_800));
             Err(ErrorKind::StorageHttpError {
                 code: 500,
                 route: "crypto/keys".to_string(),
@@ -565,7 +565,7 @@ mod tests {
         }
     }
 
-    fn mocked_success_ts<T>(t: T, ts: f64) -> error::Result<Sync15ClientResponse<T>> {
+    fn mocked_success_ts<T>(t: T, ts: i64) -> error::Result<Sync15ClientResponse<T>> {
         Ok(Sync15ClientResponse::Success {
             record: t,
             last_modified: ServerTimestamp(ts),
@@ -574,7 +574,7 @@ mod tests {
     }
 
     fn mocked_success<T>(t: T) -> error::Result<Sync15ClientResponse<T>> {
-        mocked_success_ts(t, 0.0)
+        mocked_success_ts(t, 0)
     }
 
     // for tests, we want a BSO with a specific timestamp, which we never
@@ -605,14 +605,14 @@ mod tests {
     fn test_state_machine_ready_from_empty() {
         let root_key = KeyBundle::new_random().unwrap();
         let keys = CollectionKeys {
-            timestamp: 123.4.into(),
+            timestamp: 123_400.into(),
             default: KeyBundle::new_random().unwrap(),
             collections: HashMap::new(),
         };
         let client = InMemoryClient {
             info_configuration: mocked_success(InfoConfiguration::default()),
             info_collections: mocked_success(InfoCollections::new(
-                vec![("meta", 123.456), ("crypto", 145.0)]
+                vec![("meta", 123_456), ("crypto", 145_000)]
                     .into_iter()
                     .map(|(key, value)| (key.to_owned(), value.into()))
                     .collect(),
@@ -633,12 +633,12 @@ mod tests {
                     .collect(),
                     declined: vec![],
                 },
-                999.0,
+                999_000,
             ),
             crypto_keys: mocked_success_ts(
-                keys.to_encrypted_bso_with_timestamp(&root_key, 888.0.into())
+                keys.to_encrypted_bso_with_timestamp(&root_key, 888_000.into())
                     .expect("should always work in this test"),
-                888.0,
+                888_000,
             ),
         };
         let mut pgs = PersistedGlobalState::V2 { declined: None };

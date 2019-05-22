@@ -716,12 +716,12 @@ mod test {
             .full()
             .limit(10)
             .sort_by(RequestOrder::Oldest)
-            .older_than(ServerTimestamp(9876.54))
-            .newer_than(ServerTimestamp(1234.56))
+            .older_than(ServerTimestamp(9_876_540))
+            .newer_than(ServerTimestamp(1_234_560))
             .build_url(base.clone())
             .unwrap();
         assert_eq!(complex.as_str(),
-            "https://example.com/sync/storage/specific?full=1&limit=10&older=9876.54&newer=1234.56&sort=oldest");
+            "https://example.com/sync/storage/specific?full=1&limit=10&older=9876540&newer=1234560&sort=oldest");
     }
 
     #[derive(Debug, Clone)]
@@ -892,7 +892,7 @@ mod test {
 
     fn pq_test_setup(
         cfg: InfoConfiguration,
-        lm: f64,
+        lm: i64,
         resps: Vec<PostResponse>,
     ) -> (MockedPostQueue, TestPosterRef) {
         let tester = TestPoster::new(&cfg, resps);
@@ -900,7 +900,7 @@ mod test {
         (pq, tester)
     }
 
-    fn fake_response<'a, T: Into<Option<&'a str>>>(status: u16, lm: f64, batch: T) -> PostResponse {
+    fn fake_response<'a, T: Into<Option<&'a str>>>(status: u16, lm: i64, batch: T) -> PostResponse {
         PostResponse {
             status,
             last_modified: ServerTimestamp(lm),
@@ -927,7 +927,7 @@ mod test {
             let val = serde_json::to_value(BsoRecord {
                 id: "".into(),
                 collection: "".into(),
-                modified: ServerTimestamp(0.0),
+                modified: ServerTimestamp(0),
                 sortindex: None,
                 ttl: None,
                 payload: EncryptedPayload {
@@ -954,7 +954,7 @@ mod test {
         BsoRecord {
             id: "".into(),
             collection: "".into(),
-            modified: ServerTimestamp(0.0),
+            modified: ServerTimestamp(0),
             sortindex: None,
             ttl: None,
             payload: EncryptedPayload {
@@ -979,11 +979,11 @@ mod test {
             max_record_payload_bytes: 1000,
             ..InfoConfiguration::default()
         };
-        let time = 11_111_111.0;
+        let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
             cfg,
             time,
-            vec![fake_response(status_codes::OK, time + 100.0, None)],
+            vec![fake_response(status_codes::OK, time + 100_000, None)],
         );
 
         pq.enqueue(&make_record(100)).unwrap();
@@ -1008,13 +1008,13 @@ mod test {
             max_request_bytes: 250,
             ..InfoConfiguration::default()
         };
-        let time = 11_111_111.0;
+        let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
             cfg,
             time,
             vec![
-                fake_response(status_codes::OK, time + 100.0, None),
-                fake_response(status_codes::OK, time + 200.0, None),
+                fake_response(status_codes::OK, time + 100_000, None),
+                fake_response(status_codes::OK, time + 200_000, None),
             ],
         );
 
@@ -1057,13 +1057,13 @@ mod test {
             max_request_bytes: 350,
             ..InfoConfiguration::default()
         };
-        let time = 11_111_111.0;
+        let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
             cfg,
             time,
             vec![
-                fake_response(status_codes::OK, time + 100.0, None),
-                fake_response(status_codes::OK, time + 200.0, None),
+                fake_response(status_codes::OK, time + 100_000, None),
+                fake_response(status_codes::OK, time + 200_000, None),
             ],
         );
 
@@ -1091,13 +1091,13 @@ mod test {
     #[test]
     fn test_pq_single_batch() {
         let cfg = InfoConfiguration::default();
-        let time = 11_111_111.0;
+        let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
             cfg,
             time,
             vec![fake_response(
                 status_codes::ACCEPTED,
-                time + 100.0,
+                time + 100_000,
                 Some("1234"),
             )],
         );
@@ -1129,13 +1129,13 @@ mod test {
             max_post_bytes: 200,
             ..InfoConfiguration::default()
         };
-        let time = 11_111_111.0;
+        let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
             cfg,
             time,
             vec![
                 fake_response(status_codes::ACCEPTED, time, Some("1234")),
-                fake_response(status_codes::ACCEPTED, time + 100.0, Some("1234")),
+                fake_response(status_codes::ACCEPTED, time + 100_000, Some("1234")),
             ],
         );
 
@@ -1178,14 +1178,14 @@ mod test {
             max_post_records: 3,
             ..InfoConfiguration::default()
         };
-        let time = 11_111_111.0;
+        let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
             cfg,
             time,
             vec![
                 fake_response(status_codes::ACCEPTED, time, Some("1234")),
                 fake_response(status_codes::ACCEPTED, time, Some("1234")),
-                fake_response(status_codes::ACCEPTED, time + 100.0, Some("1234")),
+                fake_response(status_codes::ACCEPTED, time + 100_000, Some("1234")),
             ],
         );
 
@@ -1244,15 +1244,15 @@ mod test {
             max_total_records: 5,
             ..InfoConfiguration::default()
         };
-        let time = 11_111_111.0;
+        let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
             cfg,
             time,
             vec![
                 fake_response(status_codes::ACCEPTED, time, Some("1234")),
-                fake_response(status_codes::ACCEPTED, time + 100.0, Some("1234")),
-                fake_response(status_codes::ACCEPTED, time + 100.0, Some("abcd")),
-                fake_response(status_codes::ACCEPTED, time + 200.0, Some("abcd")),
+                fake_response(status_codes::ACCEPTED, time + 100_000, Some("1234")),
+                fake_response(status_codes::ACCEPTED, time + 100_000, Some("abcd")),
+                fake_response(status_codes::ACCEPTED, time + 200_000, Some("abcd")),
             ],
         );
 
@@ -1320,19 +1320,6 @@ mod test {
         );
     }
 
-    macro_rules! assert_feq {
-        ($a:expr, $b:expr) => {
-            let a = $a;
-            let b = $b;
-            assert!(
-                (a - b).abs() < std::f64::EPSILON,
-                "assert_feq failure: {} != {}",
-                a,
-                b
-            )
-        };
-    }
-
     #[test]
     #[allow(clippy::cyclomatic_complexity)]
     fn test_pq_multi_post_multi_batch_bytes() {
@@ -1341,37 +1328,37 @@ mod test {
             max_total_bytes: 500,
             ..InfoConfiguration::default()
         };
-        let time = 11_111_111.0;
+        let time = 11_111_111_000;
         let (mut pq, tester) = pq_test_setup(
             cfg,
             time,
             vec![
                 fake_response(status_codes::ACCEPTED, time, Some("1234")),
-                fake_response(status_codes::ACCEPTED, time + 100.0, Some("1234")), // should commit
-                fake_response(status_codes::ACCEPTED, time + 100.0, Some("abcd")),
-                fake_response(status_codes::ACCEPTED, time + 200.0, Some("abcd")), // should commit
+                fake_response(status_codes::ACCEPTED, time + 100_000, Some("1234")), // should commit
+                fake_response(status_codes::ACCEPTED, time + 100_000, Some("abcd")),
+                fake_response(status_codes::ACCEPTED, time + 200_000, Some("abcd")), // should commit
             ],
         );
 
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
-        assert_feq!(pq.last_modified.0, time);
+        assert_eq!(pq.last_modified.0, time);
         // POST
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
         // POST + COMMIT
         pq.enqueue(&make_record(100)).unwrap();
-        assert_feq!(pq.last_modified.0, time + 100.0);
+        assert_eq!(pq.last_modified.0, time + 100_000);
         pq.enqueue(&make_record(100)).unwrap();
         pq.enqueue(&make_record(100)).unwrap();
 
         // POST
         pq.enqueue(&make_record(100)).unwrap();
-        assert_feq!(pq.last_modified.0, time + 100.0);
+        assert_eq!(pq.last_modified.0, time + 100_000);
         pq.flush(true).unwrap(); // COMMIT
 
-        assert_feq!(pq.last_modified.0, time + 200.0);
+        assert_eq!(pq.last_modified.0, time + 200_000);
 
         let t = tester.borrow();
         assert!(t.cur_batch.is_none());

@@ -615,12 +615,10 @@ impl<'a> Store for BookmarksStore<'a> {
     }
 
     fn get_collection_request(&self) -> result::Result<CollectionRequest, failure::Error> {
-        let since = get_meta::<i64>(self.db, LAST_SYNC_META_KEY)?
-            .map(|millis| ServerTimestamp(millis as f64 / 1000.0))
-            .unwrap_or_default();
+        let since = get_meta::<i64>(self.db, LAST_SYNC_META_KEY)?.unwrap_or_default();
         Ok(CollectionRequest::new(self.collection_name())
             .full()
-            .newer_than(since))
+            .newer_than(ServerTimestamp(since)))
     }
 
     fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {
@@ -749,9 +747,7 @@ impl<'a> Merger<'a> {
         // of seconds before creating a ServerTimestamp and doing duration_since.
         let age = self
             .remote_time
-            .duration_since(ServerTimestamp(
-                row.get::<_, f64>("serverModified")? / 1000.0,
-            ))
+            .duration_since(ServerTimestamp(row.get::<_, i64>("serverModified")?))
             .unwrap_or_default();
         item.age = age.as_secs() as i64 * 1000 + i64::from(age.subsec_millis());
         item.needs_merge = row.get("needsMerge")?;
@@ -1149,18 +1145,18 @@ mod tests {
         let store = BookmarksStore::new(&conn, &interrupt_scope);
 
         let mut incoming =
-            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
+            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0));
 
         match records_json {
             Value::Array(records) => {
                 for record in records {
                     let payload = Payload::from_json(record).unwrap();
-                    incoming.changes.push((payload, ServerTimestamp(0.0)));
+                    incoming.changes.push((payload, ServerTimestamp(0)));
                 }
             }
             Value::Object(_) => {
                 let payload = Payload::from_json(records_json).unwrap();
-                incoming.changes.push((payload, ServerTimestamp(0.0)));
+                incoming.changes.push((payload, ServerTimestamp(0)));
             }
             _ => panic!("unexpected json value"),
         }
@@ -1217,18 +1213,18 @@ mod tests {
         let store = BookmarksStore::new(&conn, &interrupt_scope);
 
         let mut incoming =
-            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
+            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0));
 
         for record in records {
             let payload = Payload::from_json(record).unwrap();
-            incoming.changes.push((payload, ServerTimestamp(0.0)));
+            incoming.changes.push((payload, ServerTimestamp(0)));
         }
 
         store
             .stage_incoming(incoming, &mut telemetry::EngineIncoming::new())
             .expect("Should apply incoming and stage outgoing records");
 
-        let merger = Merger::new(&store, ServerTimestamp(0.0));
+        let merger = Merger::new(&store, ServerTimestamp(0));
 
         let tree = merger.fetch_remote_tree()?;
 
@@ -1297,7 +1293,7 @@ mod tests {
 
         let interrupt_scope = syncer.begin_interrupt_scope();
         let store = BookmarksStore::new(&syncer, &interrupt_scope);
-        let merger = Merger::new(&store, ServerTimestamp(0.0));
+        let merger = Merger::new(&store, ServerTimestamp(0));
 
         let tree = merger.fetch_local_tree()?;
 
@@ -1549,10 +1545,10 @@ mod tests {
         let store = BookmarksStore::new(&syncer, &interrupt_scope);
 
         let mut incoming =
-            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
+            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0));
         for record in records {
             let payload = Payload::from_json(record).unwrap();
-            incoming.changes.push((payload, ServerTimestamp(0.0)));
+            incoming.changes.push((payload, ServerTimestamp(0)));
         }
 
         let mut outgoing = store
@@ -1633,7 +1629,7 @@ mod tests {
 
         store
             .sync_finished(
-                ServerTimestamp(0.0),
+                ServerTimestamp(0),
                 vec![
                     "bookmarkAAAA".into(),
                     "bookmarkBBBB".into(),
@@ -1694,10 +1690,10 @@ mod tests {
         let store = BookmarksStore::new(&syncer, &interrupt_scope);
 
         let mut incoming =
-            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
+            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0));
         for record in records {
             let payload = Payload::from_json(record).unwrap();
-            incoming.changes.push((payload, ServerTimestamp(0.0)));
+            incoming.changes.push((payload, ServerTimestamp(0)));
         }
 
         let outgoing = store
@@ -1712,7 +1708,7 @@ mod tests {
         assert_eq!(outgoing_ids, &["menu", "mobile", "toolbar", "unfiled"],);
 
         store
-            .sync_finished(ServerTimestamp(0.0), outgoing_ids)
+            .sync_finished(ServerTimestamp(0), outgoing_ids)
             .expect("Should push synced changes back to the store");
 
         update_bookmark(
@@ -1727,7 +1723,7 @@ mod tests {
 
         let outgoing = store
             .apply_incoming(
-                IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1.0)),
+                IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1000)),
                 &mut telemetry::EngineIncoming::new(),
             )
             .expect("Should fetch outgoing records after making local changes");
@@ -1823,10 +1819,10 @@ mod tests {
         let store = BookmarksStore::new(&syncer, &interrupt_scope);
 
         let mut incoming =
-            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0.0));
+            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0));
         for record in records {
             let payload = Payload::from_json(record).unwrap();
-            incoming.changes.push((payload, ServerTimestamp(0.0)));
+            incoming.changes.push((payload, ServerTimestamp(0)));
         }
 
         let outgoing = store
@@ -1841,7 +1837,7 @@ mod tests {
         assert_eq!(outgoing_ids, &["menu", "mobile", "toolbar", "unfiled"],);
 
         store
-            .sync_finished(ServerTimestamp(0.0), outgoing_ids)
+            .sync_finished(ServerTimestamp(0), outgoing_ids)
             .expect("Should push synced changes back to the store");
 
         store.wipe().expect("Should wipe the store");
@@ -1886,10 +1882,10 @@ mod tests {
         });
 
         let mut incoming =
-            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1.0));
+            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1000));
         incoming.changes.push((
             Payload::from_json(record_for_f).unwrap(),
-            ServerTimestamp(1.0),
+            ServerTimestamp(1000),
         ));
 
         let outgoing = store

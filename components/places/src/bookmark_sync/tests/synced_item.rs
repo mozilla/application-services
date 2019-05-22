@@ -217,7 +217,7 @@ impl SyncedBookmarkItem {
             guid: SyncedBookmarkValue::Specified(row.get("guid")?),
             parent_guid: SyncedBookmarkValue::Specified(row.get("parentGuid")?),
             server_modified: SyncedBookmarkValue::Specified(ServerTimestamp(
-                row.get::<_, f64>("serverModified")?,
+                row.get::<_, i64>("serverModified")?,
             )),
             needs_merge: SyncedBookmarkValue::Specified(row.get("needsMerge")?),
             validity: SyncedBookmarkValue::Specified(
