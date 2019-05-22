@@ -498,10 +498,11 @@ mod tests {
         );
     }
 
-    // XXX - all below 'dateadded' tests only check the 'BookmarkItemRecord' variant.
-    // Is there a sane way to check all? Should we maybe have a specific type
-    // avoiding the need to remember `date_added: Option<i64>` needs the serde
-    // `deserialize_with` attribute?
+    // It's unfortunate that all below 'dateadded' tests only check the
+    // 'BookmarkItemRecord' variant, so it would be a problem if `date_added` on
+    // other variants forgot to do the `deserialize_with` dance. We could
+    // implement a new type to make that less likely, but that's not foolproof
+    // either and causes this hysterical raisin to leak out from this module.
     fn check_date_added(j: serde_json::Value, expected: Option<i64>) {
         let r: BookmarkItemRecord = serde_json::from_value(j).expect("should deserialize");
         match &r {
