@@ -845,7 +845,10 @@ pub mod history_sync {
                 continue;
             }
             if visits.is_empty() {
-                log::info!(
+                // This will be true for things like bookmarks which haven't
+                // had visits locally applied, and if we later prune old visits
+                // we'll also hit it, so don't make much log noise.
+                log::trace!(
                     "Page {:?} is flagged to be uploaded, but has no visits - skipping",
                     &page.guid
                 );
