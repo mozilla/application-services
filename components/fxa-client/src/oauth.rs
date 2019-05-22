@@ -205,37 +205,47 @@ impl FirefoxAccount {
         {
             log::warn!("Access token destruction failure: {:?}", err);
         }
-        let refresh_token = match resp.refresh_token {
+        let old_refresh_token = self.state.refresh_token.clone();
+        let new_refresh_token = match resp.refresh_token {
             Some(ref refresh_token) => refresh_token.clone(),
             None => return Err(ErrorKind::RefreshTokenNotPresent.into()),
         };
+        // Destroying a refresh token also destroys its associated device,
+        // grab the device information for replication later.
+        let old_device_info = match old_refresh_token {
+            Some(_) => match self.get_current_device() {
+                Ok(maybe_device) => maybe_device,
+                Err(err) => {
+                    log::warn!("Error while getting previous device information: {:?}", err);
+                    None
+                }
+            },
+            None => None,
+        };
+        self.state.refresh_token = Some(RefreshToken {
+            token: new_refresh_token,
+            scopes: HashSet::from_iter(resp.scope.split(' ').map(ToString::to_string)),
+        });
         // In order to keep 1 and only 1 refresh token alive per client instance,
         // we also destroy the existing refresh token.
-        if let Some(ref old_refresh_token) = self.state.refresh_token {
-            // Destroying a refresh token also destroys its associated device,
-            // grab the device information for replication later.
-            let device_info = self.get_current_device()?;
+        if let Some(ref refresh_token) = old_refresh_token {
             if let Err(err) = self
                 .client
-                .destroy_oauth_token(&self.state.config, &old_refresh_token.token)
+                .destroy_oauth_token(&self.state.config, &refresh_token.token)
             {
                 log::warn!("Refresh token destruction failure: {:?}", err);
             }
-            if let Some(device_info) = device_info {
-                if let Err(err) = self.replace_device(
-                    &device_info.display_name,
-                    &device_info.device_type,
-                    &device_info.push_subscription,
-                    &device_info.available_commands,
-                ) {
-                    log::warn!("Device information restoration failed: {:?}", err);
-                }
+        }
+        if let Some(ref device_info) = old_device_info {
+            if let Err(err) = self.replace_device(
+                &device_info.display_name,
+                &device_info.device_type,
+                &device_info.push_subscription,
+                &device_info.available_commands,
+            ) {
+                log::warn!("Device information restoration failed: {:?}", err);
             }
         }
-        self.state.refresh_token = Some(RefreshToken {
-            token: refresh_token,
-            scopes: HashSet::from_iter(resp.scope.split(' ').map(ToString::to_string)),
-        });
         Ok(())
     }
 }
