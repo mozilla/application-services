@@ -145,7 +145,7 @@ impl MirrorLogin {
         Ok(MirrorLogin {
             login: Login::from_row(row)?,
             is_overridden: row.get("is_overridden")?,
-            server_modified: ServerTimestamp(row.get::<_, i64>("server_modified")?),
+            server_modified: ServerTimestamp(row.get::<_, i64>("server_modified")? as f64 / 1000.0),
         })
     }
 }
@@ -235,7 +235,7 @@ impl_login!(LocalLogin {
 
 impl_login!(MirrorLogin {
     is_overridden: false,
-    server_modified: ServerTimestamp(0)
+    server_modified: ServerTimestamp(0.0)
 });
 
 // Stores data needed to do a 3-way merge
