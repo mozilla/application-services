@@ -404,7 +404,7 @@ mod tests {
     fn apply_incoming(api: &PlacesApi, records_json: Value) -> SyncConn<'_> {
         let conn = api.open_sync_connection().expect("should get a connection");
 
-        let server_timestamp = ServerTimestamp(0);
+        let server_timestamp = ServerTimestamp(0.0);
         let applicator = IncomingApplicator::new(&conn);
 
         match records_json {
