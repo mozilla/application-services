@@ -71,7 +71,7 @@ async function oauthCommand(emailAddr, password, fxaAuthUrl, oauthFlowUrl) {
             // `body > p` indicates we're on the (quite simple) lockbox redirect page
             // `.confirm` indicates that we actually got told we need to confirm the
             // sign in.
-            .wait("body > p, .confirm")
+            .wait("#fxa-oauth-success-header, .confirm")
             .exists(".confirm");
 
         if (needConfirmation) {
@@ -88,7 +88,7 @@ async function oauthCommand(emailAddr, password, fxaAuthUrl, oauthFlowUrl) {
         // We should be automatically redirected to the lockbox redirect page soon enough (if we
         // haven't already been), so wait for that and get the page's location.
         let redirectUrl = await nightmare
-            .wait("body > p")
+            .wait("#fxa-oauth-success-header")
             .evaluate(() => window.location.href);
 
         logInfo("Got redirect URL: " + redirectUrl);

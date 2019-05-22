@@ -19,8 +19,8 @@ type Result<T> = std::result::Result<T, failure::Error>;
 
 // Defaults - not clear they are the best option, but they are a currently
 // working option.
-const CLIENT_ID: &str = "98adfa37698f255b";
-const REDIRECT_URI: &str = "https://lockbox.firefox.com/fxa/ios-redirect.html";
+const CLIENT_ID: &str = "3c49430b43dfba77";
+const REDIRECT_URI: &str = "https://stable.dev.lcip.org/oauth/success/3c49430b43dfba77";
 const SYNC_SCOPE: &str = "https://identity.mozilla.com/apps/oldsync";
 
 fn load_fxa_creds(path: &str) -> Result<FirefoxAccount> {

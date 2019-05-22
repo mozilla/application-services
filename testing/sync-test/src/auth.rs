@@ -9,11 +9,11 @@ use std::sync::{Arc, Once, ONCE_INIT};
 use sync15::{KeyBundle, Sync15StorageClientInit};
 use url::Url;
 
-pub const CLIENT_ID: &str = "98adfa37698f255b"; // Hrm...
+pub const CLIENT_ID: &str = "3c49430b43dfba77"; // Hrm...
 pub const SYNC_SCOPE: &str = "https://identity.mozilla.com/apps/oldsync";
 
 // TODO: This is wrong for dev?
-pub const REDIRECT_URI: &str = "https://lockbox.firefox.com/fxa/ios-redirect.html";
+pub const REDIRECT_URI: &str = "https://stable.dev.lcip.org/oauth/success/3c49430b43dfba77";
 
 lazy_static::lazy_static! {
     // Figures out where `sync-test/helper` lives. This is pretty gross, but once
