@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::{Error, ErrorKind, StorageHttpError};
+use crate::error::{Error, ErrorKind, ErrorResponse};
 use crate::telemetry::SyncTelemetryPing;
 use std::collections::HashMap;
 
@@ -44,7 +44,7 @@ impl ServiceStatus {
             // BackoffError is also from the tokenserver.
             ErrorKind::BackoffError(_) => ServiceStatus::ServiceError,
             ErrorKind::StorageHttpError(ref e) => match e {
-                StorageHttpError::Unauthorized { .. } => ServiceStatus::AuthenticationError,
+                ErrorResponse::Unauthorized { .. } => ServiceStatus::AuthenticationError,
                 _ => ServiceStatus::ServiceError,
             },
 

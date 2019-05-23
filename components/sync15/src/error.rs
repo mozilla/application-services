@@ -7,8 +7,9 @@ use interrupt::Interrupted;
 use std::string;
 use std::time::SystemTime;
 
-#[derive(Debug)]
-pub enum StorageHttpError {
+/// This enum is to discriminate `StorageHttpError`, and not used as an error.
+#[derive(Debug, Clone)]
+pub enum ErrorResponse {
     NotFound { route: String },
     // 401
     Unauthorized { route: String },
@@ -35,7 +36,7 @@ pub enum ErrorKind {
     TokenserverHttpError(u16),
 
     #[fail(display = "HTTP storage error: {:?}", _0)]
-    StorageHttpError(StorageHttpError),
+    StorageHttpError(ErrorResponse),
 
     #[fail(display = "Server requested backoff. Retry after {:?}", _0)]
     BackoffError(SystemTime),

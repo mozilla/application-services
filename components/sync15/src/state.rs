@@ -7,7 +7,7 @@ use std::mem;
 
 use crate::client::{SetupStorageClient, Sync15ClientResponse};
 use crate::collection_keys::CollectionKeys;
-use crate::error::{self, ErrorKind};
+use crate::error::{self, ErrorKind, ErrorResponse};
 use crate::key_bundle::KeyBundle;
 use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use crate::request::{InfoCollections, InfoConfiguration};
@@ -231,7 +231,9 @@ impl<'a> SetupStateMachine<'a> {
             Initial => {
                 let config = match self.client.fetch_info_configuration()? {
                     Sync15ClientResponse::Success { record, .. } => record,
-                    Sync15ClientResponse::NotFound { .. } => InfoConfiguration::default(),
+                    Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }) => {
+                        InfoConfiguration::default()
+                    }
                     other => return Err(other.create_storage_error().into()),
                 };
                 Ok(InitialWithConfig { config })
@@ -253,7 +255,9 @@ impl<'a> SetupStateMachine<'a> {
                     }),
                     // If the server doesn't have a `crypto/keys`, start over
                     // and reupload our `meta/global` and `crypto/keys`.
-                    Sync15ClientResponse::NotFound { .. } => Ok(FreshStartRequired { config }),
+                    Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }) => {
+                        Ok(FreshStartRequired { config })
+                    }
                     other => Err(other.create_storage_error().into()),
                 }
             }
@@ -289,7 +293,9 @@ impl<'a> SetupStateMachine<'a> {
                         })
                     }
                 }
-                Sync15ClientResponse::NotFound { .. } => Ok(FreshStartRequired { config }),
+                Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }) => {
+                    Ok(FreshStartRequired { config })
+                }
                 other => Err(other.create_storage_error().into()),
             },
 
@@ -329,7 +335,9 @@ impl<'a> SetupStateMachine<'a> {
                     }
                     // If the server doesn't have a `crypto/keys`, start over
                     // and reupload our `meta/global` and `crypto/keys`.
-                    Sync15ClientResponse::NotFound { .. } => Ok(FreshStartRequired { config }),
+                    Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }) => {
+                        Ok(FreshStartRequired { config })
+                    }
                     other => Err(other.create_storage_error().into()),
                 }
             }
@@ -478,7 +486,6 @@ mod tests {
     use super::*;
 
     use crate::bso_record::{BsoRecord, EncryptedBso, EncryptedPayload, Payload};
-    use crate::error::StorageHttpError;
     use crate::record_types::CryptoKeysRecord;
     use interrupt::NeverInterrupts;
 
@@ -495,20 +502,20 @@ mod tests {
         ) -> error::Result<Sync15ClientResponse<InfoConfiguration>> {
             match &self.info_configuration {
                 Ok(client_response) => Ok(client_response.clone()),
-                Err(_) => Ok(Sync15ClientResponse::ServerError {
+                Err(_) => Ok(Sync15ClientResponse::Error(ErrorResponse::ServerError {
                     status: 500,
                     route: "test/path".into(),
-                }),
+                })),
             }
         }
 
         fn fetch_info_collections(&self) -> error::Result<Sync15ClientResponse<InfoCollections>> {
             match &self.info_collections {
                 Ok(collections) => Ok(collections.clone()),
-                Err(_) => Ok(Sync15ClientResponse::ServerError {
+                Err(_) => Ok(Sync15ClientResponse::Error(ErrorResponse::ServerError {
                     status: 500,
                     route: "test/path".into(),
-                }),
+                })),
             }
         }
 
@@ -517,10 +524,10 @@ mod tests {
                 Ok(global) => Ok(global.clone()),
                 // TODO(lina): Special handling for 404s, we want to ensure we
                 // handle missing keys and other server errors correctly.
-                Err(_) => Ok(Sync15ClientResponse::ServerError {
+                Err(_) => Ok(Sync15ClientResponse::Error(ErrorResponse::ServerError {
                     status: 500,
                     route: "test/path".into(),
-                }),
+                })),
             }
         }
 
@@ -530,7 +537,7 @@ mod tests {
             _global: &MetaGlobalRecord,
         ) -> error::Result<()> {
             assert_eq!(xius, ServerTimestamp(999.9));
-            Err(ErrorKind::StorageHttpError(StorageHttpError::ServerError {
+            Err(ErrorKind::StorageHttpError(ErrorResponse::ServerError {
                 status: 500,
                 route: "meta/global".to_string(),
             })
@@ -541,10 +548,10 @@ mod tests {
             match &self.crypto_keys {
                 Ok(keys) => Ok(keys.clone()),
                 // TODO(lina): Same as above, for 404s.
-                Err(_) => Ok(Sync15ClientResponse::ServerError {
+                Err(_) => Ok(Sync15ClientResponse::Error(ErrorResponse::ServerError {
                     status: 500,
                     route: "test/path".into(),
-                }),
+                })),
             }
         }
 
@@ -554,7 +561,7 @@ mod tests {
             _keys: &EncryptedBso,
         ) -> error::Result<()> {
             assert_eq!(xius, ServerTimestamp(888.8));
-            Err(ErrorKind::StorageHttpError(StorageHttpError::ServerError {
+            Err(ErrorKind::StorageHttpError(ErrorResponse::ServerError {
                 status: 500,
                 route: "crypto/keys".to_string(),
             })

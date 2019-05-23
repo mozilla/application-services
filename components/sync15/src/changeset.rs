@@ -4,7 +4,7 @@
 
 use crate::bso_record::{EncryptedBso, Payload};
 use crate::client::{Sync15ClientResponse, Sync15StorageClient};
-use crate::error::{self, ErrorKind, Result, StorageHttpError};
+use crate::error::{self, ErrorKind, ErrorResponse, Result};
 use crate::key_bundle::KeyBundle;
 use crate::request::{CollectionRequest, NormalResponseHandler, UploadInfo};
 use crate::util::ServerTimestamp;
@@ -130,7 +130,7 @@ impl<'a> CollectionUpdate<'a> {
         if xius < state.last_modified {
             // We know we are going to fail the XIUS check...
             return Err(
-                ErrorKind::StorageHttpError(StorageHttpError::PreconditionFailed {
+                ErrorKind::StorageHttpError(ErrorResponse::PreconditionFailed {
                     route: collection,
                 })
                 .into(),
