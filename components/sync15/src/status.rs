@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 /// The general status of sync - should probably be moved to the "sync manager"
 /// once we have one!
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ServiceStatus {
     /// Everything is fine.
     Ok,
