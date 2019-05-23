@@ -4,7 +4,7 @@ projects:
   fxa-client-library:
     path: components/fxa-client/android
     artifactId: fxaclient
-    publishedArtifacts:
+    publications:
       - name: fxaclient
         type: aar
       - name: fxaclient-withoutLib
@@ -15,7 +15,7 @@ projects:
   logins-library:
     path: components/logins/android
     artifactId: logins
-    publishedArtifacts:
+    publications:
       - name: logins
         type: aar
       - name: logins-withoutLib
@@ -26,7 +26,7 @@ projects:
   places-library:
     path: components/places/android
     artifactId: places
-    publishedArtifacts:
+    publications:
       - name: places
         type: aar
       - name: places-withoutLib
@@ -37,7 +37,7 @@ projects:
   rustlog-library:
     path: components/rc_log/android
     artifactId: rustlog
-    publishedArtifacts:
+    publications:
       - name: rustlog
         type: aar
       - name: rustlog-withoutLib
@@ -48,7 +48,7 @@ projects:
   viaduct-library:
     path: components/viaduct/android
     artifactId: httpconfig
-    publishedArtifacts:
+    publications:
       - name: httpconfig
         type: aar
       - name: httpconfig-withoutLib
@@ -59,7 +59,7 @@ projects:
   as-support-library:
     path: components/support/android
     artifactId: support
-    publishedArtifacts:
+    publications:
       - name: support
         type: aar
       - name: support-withoutLib
@@ -68,7 +68,7 @@ projects:
   push-library:
     path: components/push/android
     artifactId: push
-    publishedArtifacts:
+    publications:
       - name: push
         type: aar
       - name: push-withoutLib
@@ -85,7 +85,7 @@ projects:
     uploadSymbols: true
     path: megazords/lockbox/android
     artifactId: lockbox-megazord
-    publishedArtifacts:
+    publications:
       - name: lockbox-megazord
         type: aar
       - name: lockbox-megazord-forUnitTests
@@ -95,7 +95,7 @@ projects:
     uploadSymbols: true
     path: megazords/reference-browser/android
     artifactId: reference-browser-megazord
-    publishedArtifacts:
+    publications:
       - name: reference-browser-megazord
         type: aar
       - name: reference-browser-megazord-forUnitTests
@@ -105,7 +105,7 @@ projects:
     uploadSymbols: true
     path: megazords/fenix/android
     artifactId: fenix-megazord
-    publishedArtifacts:
+    publications:
       - name: fenix-megazord
         type: aar
       - name: fenix-megazord-forUnitTests

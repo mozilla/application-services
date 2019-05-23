@@ -11,7 +11,7 @@ def libVcsUrl = properties.libVcsUrl
 
 // If using jnaForTestConfiguration or variantWithoutLib,
 // please also update the corresponding .buildconfig-android.yml
-// `publishedArtifacts` property.
+// `publications` property.
 ext.configurePublish = { jnaForTestConfiguration = null,
                          variantWithoutLib = null ->
     def theGroupId = rootProject.ext.library.groupId

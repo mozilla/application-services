@@ -187,8 +187,9 @@ def gradle_module_task(libs_tasks, module_info, is_release):
         .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "checkMavenArtifacts")))
         .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "zipMavenArtifacts")))
     )
-    for artifact_info in module_info['artifacts']:
-        task.with_artifacts(artifact_info['build_fs_path'], artifact_info['taskcluster_path'])
+    for publication in module_info['publications']:
+        for artifact in publication.to_artifacts(('', '.sha1', '.md5')):
+            task.with_artifacts(artifact['build_fs_path'], artifact['taskcluster_path'])
     if is_release and module_info['uploadSymbols']:
         task.with_scopes("secrets:get:project/application-services/symbols-token")
         task.with_script("./automation/upload_android_symbols.sh {}".format(module_info['path']))
@@ -216,9 +217,6 @@ def android_multiarch_release():
     for module_info in module_definitions():
         module = module_info['name']
         build_task = module_build_tasks[module]
-        # for artifact in module_info['artifacts']:
-        #     artifact_name = artifact['name']
-        #     artifact_path = artifact['path']
         (
             BeetmoverTask("Publish Android module: {} via beetmover".format(module))
             .with_description("Publish release module {} to {}".format(module, bucket_public_url))
@@ -226,7 +224,9 @@ def android_multiarch_release():
             # We want to make sure ALL builds succeeded before doing a release.
             .with_dependencies(*module_build_tasks.values())
             .with_upstream_artifact({
-                "paths": [artifact['taskcluster_path'] for artifact in module_info["artifacts"]],
+                "paths": [artifact['taskcluster_path']
+                          for publication in module_info["publications"]
+                          for artifact in publication.to_artifacts(('', '.sha1', '.md5'))],
                 "taskId": build_task,
                 "taskType": "build",
             })
@@ -238,7 +238,9 @@ def android_multiarch_release():
                     artifact["taskcluster_path"]: {
                         "checksums_path": "",  # TODO beetmover marks this as required, but it's not needed
                         "destinations": [artifact["maven_destination"]],
-                    } for artifact in module_info["artifacts"]
+                    }
+                    for publication in module_info["publications"]
+                    for artifact in publication.to_artifacts(('', '.sha1', '.md5'))
                 },
             }])
             .with_app_version(version)
