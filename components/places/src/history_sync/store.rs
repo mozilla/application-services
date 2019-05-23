@@ -79,6 +79,8 @@ impl<'a> HistoryStore<'a> {
         // write timestamp to reflect what we just wrote.
         self.put_meta(LAST_SYNC_META_KEY, &(new_timestamp.as_millis() as i64))?;
 
+        self.db.pragma_update(None, "wal_checkpoint", &"PASSIVE")?;
+
         Ok(())
     }
 

@@ -191,7 +191,11 @@ impl HistoryVisitInfo {
 }
 
 pub fn run_maintenance(conn: &PlacesDb) -> Result<()> {
-    conn.execute_all(&["VACUUM", "PRAGMA optimize"])?;
+    conn.execute_all(&[
+        "VACUUM",
+        "PRAGMA optimize",
+        "PRAGMA wal_checkpoint(PASSIVE)",
+    ])?;
     Ok(())
 }
 
