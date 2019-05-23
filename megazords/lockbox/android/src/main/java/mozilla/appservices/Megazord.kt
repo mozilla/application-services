@@ -4,11 +4,14 @@
 
 package mozilla.appservices
 
+import org.mozilla.appservices.lockbox_megazord.BuildConfig
+
 class Megazord {
     companion object {
         @JvmStatic
         fun init() {
-            System.setProperty("mozilla.appservices.megazord", "lockbox")
+            System.setProperty("mozilla.appservices.megazord.library", "lockbox")
+            System.setProperty("mozilla.appservices.megazord.version", BuildConfig.LIBRARY_VERSION)
         }
     }
 }

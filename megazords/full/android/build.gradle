@@ -24,7 +24,7 @@ android {
 
     sourceSets {
         test.jniLibs.srcDirs += "$buildDir/rustJniLibs/desktop"
-        test.jniLibs.srcDirs += "$buildDir/nativeLibs/desktop"
+        // test.jniLibs.srcDirs += "$buildDir/nativeLibs/desktop"
     }
 
     // Uncomment to include debug symbols in native library builds.
@@ -81,7 +81,7 @@ cargo {
 
 dependencies {
     // Bring nss libs along with full-megazord.
-    runtimeOnly project(':nsslibs')
+    // runtimeOnly project(':nsslibs')
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     jnaForTest "net.java.dev.jna:jna:$jna_version@jar"

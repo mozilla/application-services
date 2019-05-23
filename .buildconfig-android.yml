@@ -1,31 +1,31 @@
 libraryVersion: 0.31.2
 groupId: org.mozilla.appservices
 projects:
-  # fxa-client-library:
-  #   path: components/fxa-client/android
-  #   artifactId: fxaclient
-  #   publishedArtifacts: [fxaclient]
-  #   description: Firefox Accounts client.
+  fxa-client-library:
+    path: components/fxa-client/android
+    artifactId: fxaclient
+    publishedArtifacts: [fxaclient]
+    description: Firefox Accounts client.
   logins-library:
     path: components/logins/android
     artifactId: logins
     publishedArtifacts: [logins]
     description: Sync 1.5 logins implementation.
-  # places-library:
-  #   path: components/places/android
-  #   artifactId: places
-  #   publishedArtifacts: [places]
-  #   description: Low level places storage implementation.
-  # rustlog-library:
-  #   path: components/rc_log/android
-  #   artifactId: rustlog
-  #   publishedArtifacts: [rustlog]
-  #   description: Android hook into the log crate.
-  # viaduct-library:
-  #   path: components/viaduct/android
-  #   artifactId: httpconfig
-  #   publishedArtifacts: [httpconfig]
-  #   description: Component allowing the configuration of Rust HTTP stack.
+  places-library:
+    path: components/places/android
+    artifactId: places
+    publishedArtifacts: [places]
+    description: Low level places storage implementation.
+  rustlog-library:
+    path: components/rc_log/android
+    artifactId: rustlog
+    publishedArtifacts: [rustlog]
+    description: Android hook into the log crate.
+  viaduct-library:
+    path: components/viaduct/android
+    artifactId: httpconfig
+    publishedArtifacts: [httpconfig]
+    description: Component allowing the configuration of Rust HTTP stack.
   as-support-library:
     path: components/support/android
     artifactId: support
@@ -36,35 +36,35 @@ projects:
     artifactId: sync15
     publishedArtifacts: [sync15]
     description: Shared Sync types for Kotlin.
-  # push-library:
-  #   path: components/push/android
-  #   artifactId: push
-  #   publishedArtifacts: [push]
-  #   description: Low level WebPush handler implementation.
+  push-library:
+    path: components/push/android
+    artifactId: push
+    publishedArtifacts: [push]
+    description: Low level WebPush handler implementation.
   full-megazord:
     uploadSymbols: true
     path: megazords/full/android
     artifactId: full-megazord
     publishedArtifacts: [full-megazord, full-megazord-forUnitTests]
     description: Megazord containing all features
-  # lockbox-megazord:
-  #   uploadSymbols: true
-  #   path: megazords/lockbox/android
-  #   artifactId: lockbox-megazord
-  #   publishedArtifacts: [lockbox-megazord, lockbox-megazord-forUnitTests]
-  #   description: Megazord of [fxaclient, logins, logging].
-  # reference-browser-megazord:
-  #   uploadSymbols: true
-  #   path: megazords/reference-browser/android
-  #   artifactId: reference-browser-megazord
-  #   publishedArtifacts: [reference-browser-megazord, reference-browser-megazord-forUnitTests]
-  #   description: Megazord of [fxaclient, logins, places, push, logging].
-  # fenix-megazord:
-  #   uploadSymbols: true
-  #   path: megazords/fenix/android
-  #   artifactId: fenix-megazord
-  #   publishedArtifacts: [fenix-megazord, fenix-megazord-forUnitTests]
-  #   description: Megazord of [fxaclient, places, push, logging].
+  lockbox-megazord:
+    uploadSymbols: true
+    path: megazords/lockbox/android
+    artifactId: lockbox-megazord
+    publishedArtifacts: [lockbox-megazord, lockbox-megazord-forUnitTests]
+    description: Megazord of [fxaclient, logins, logging].
+  reference-browser-megazord:
+    uploadSymbols: true
+    path: megazords/reference-browser/android
+    artifactId: reference-browser-megazord
+    publishedArtifacts: [reference-browser-megazord, reference-browser-megazord-forUnitTests]
+    description: Megazord of [fxaclient, logins, places, push, logging].
+  fenix-megazord:
+    uploadSymbols: true
+    path: megazords/fenix/android
+    artifactId: fenix-megazord
+    publishedArtifacts: [fenix-megazord, fenix-megazord-forUnitTests]
+    description: Megazord of [fxaclient, places, push, logging].
   nsslibs:
     path: components/nss-libs-android
     artifactId: nsslibs

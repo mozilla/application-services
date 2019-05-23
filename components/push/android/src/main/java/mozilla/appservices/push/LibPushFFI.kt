@@ -11,30 +11,16 @@ import com.sun.jna.Native
 import com.sun.jna.Pointer
 import mozilla.appservices.support.RustBuffer
 import java.lang.reflect.Proxy
+import mozilla.appservices.support.loadIndirect
+import org.mozilla.appservices.push.BuildConfig
 
 @Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
 internal interface LibPushFFI : Library {
     companion object {
-        private val JNA_LIBRARY_NAME = {
-            val libname = System.getProperty("mozilla.appservices.push_ffi_lib_name")
-            if (libname != null) {
-                Log.i("AppServices", "Using push_ffi_lib_name: {$libname}")
-                libname
-            } else {
-                "push_ffi"
-            }
-        }()
-
-        internal var INSTANCE: LibPushFFI = try {
-            Native.load<LibPushFFI>(JNA_LIBRARY_NAME, LibPushFFI::class.java)
-        } catch (e: UnsatisfiedLinkError) {
-            Proxy.newProxyInstance(
-                LibPushFFI::class.java.classLoader,
-                arrayOf(LibPushFFI::class.java)) { _, _, _ ->
-                throw RuntimeException("Push functionality not available", e)
-            } as LibPushFFI
-        }
+        internal var INSTANCE: LibPushFFI =
+            loadIndirect(libName = "push", libVersion = BuildConfig.LIBRARY_VERSION)
     }
+
 
     // Important: strings returned from rust as *mut char must be Pointers on this end, returning a
     // String will work but either force us to leak them, or cause us to corrupt the heap (when we

@@ -15,33 +15,8 @@ use ffi_support::{
 use logins::{Login, PasswordEngine, Result};
 use std::os::raw::c_char;
 
-fn logging_init() {
-    #[cfg(target_os = "android")]
-    {
-        android_logger::init_once(
-            android_logger::Filter::default().with_min_level(log::Level::Debug),
-            Some("liblogins_ffi"),
-        );
-        log::debug!("Android logging should be hooked up!")
-    }
-}
-
 lazy_static::lazy_static! {
     static ref ENGINES: ConcurrentHandleMap<PasswordEngine> = ConcurrentHandleMap::new();
-}
-
-#[no_mangle]
-pub extern "C" fn sync15_passwords_enable_logcat_logging() {
-    #[cfg(target_os = "android")]
-    {
-        let _ = std::panic::catch_unwind(|| {
-            android_logger::init_once(
-                android_logger::Filter::default().with_min_level(log::Level::Debug),
-                Some("liblogins_ffi"),
-            );
-            log::debug!("Android logging should be hooked up!")
-        });
-    }
 }
 
 #[no_mangle]
@@ -89,7 +64,6 @@ pub unsafe extern "C" fn sync15_passwords_state_new_with_hex_key(
     encryption_key_len: u32,
     error: &mut ExternError,
 ) -> u64 {
-    logging_init();
     log::debug!("sync15_passwords_state_new_with_hex_key");
     ENGINES.insert_with_result(error, || {
         let path = db_path.as_str();

@@ -17,20 +17,6 @@ use push::config::PushConfiguration;
 use push::error::Result;
 use push::subscriber::PushManager;
 
-#[no_mangle]
-pub extern "C" fn push_enable_logcat_logging() {
-    #[cfg(target_os = "android")]
-    {
-        let _ = std::panic::catch_unwind(|| {
-            android_logger::init_once(
-                android_logger::Filter::default().with_min_level(log::Level::Debug),
-                Some("libpush_ffi"),
-            );
-            log::debug!("Android logging should be hooked up!")
-        });
-    }
-}
-
 lazy_static::lazy_static! {
     static ref MANAGER: ConcurrentHandleMap<PushManager> = ConcurrentHandleMap::new();
 }

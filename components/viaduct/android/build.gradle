@@ -1,5 +1,4 @@
 apply plugin: 'com.android.library'
-apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 apply plugin: 'com.google.protobuf'
@@ -12,6 +11,7 @@ android {
         targetSdkVersion rootProject.ext.build['targetSdkVersion']
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.ext.library.version}\"")
     }
 
     buildTypes {
@@ -20,14 +20,11 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             consumerProguardFiles "$rootDir/proguard-rules-consumer-jna.pro"
         }
-
-        withoutLib {
-            initWith release
-        }
     }
 
     sourceSets {
         test.resources.srcDirs += "$buildDir/rustJniLibs/desktop"
+        test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
 
         main {
             proto {
@@ -35,41 +32,6 @@ android {
             }
         }
     }
-
-    // Uncomment to include debug symbols in native library builds.
-    // packagingOptions { doNotStrip "**/*.so" }
-}
-
-configurations {
-    withoutLib {
-    }
-}
-
-afterEvaluate {
-    android.sourceSets.debug.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
-    android.sourceSets.release.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
-    android.sourceSets.main.jniLibs.srcDirs = []
-}
-
-cargo {
-    // The directory of the Cargo.toml to build.
-    module = '..'
-
-    // The Android NDK API level to target.
-    apiLevel = 21
-
-    // Where Cargo writes its outputs.
-    targetDirectory = '../../target'
-
-    libname = 'viaduct'
-
-    targets = rootProject.ext.rustTargets
-
-    profile = rootProject.ext.nonMegazordProfile
-
-    extraCargoBuildArguments = rootProject.ext.extraCargoBuildArguments
-
-    exec = rootProject.ext.cargoExec
 }
 
 configurations {
@@ -88,7 +50,6 @@ configurations {
     // Success!
     jnaForTest
 }
-
 protobuf {
     protoc {
         artifact = 'com.google.protobuf:protoc:3.0.0'
@@ -118,7 +79,8 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     implementation 'com.google.protobuf:protobuf-lite:3.0.0'
-    implementation project(':as-support-library')
+    api project(":full-megazord")
+    implementation project(":as-support-library")
 
     // For reasons unknown, resolving the jnaForTest configuration directly
     // trips a nasty issue with the Android-Gradle plugin 3.2.1, like `Cannot
@@ -144,12 +106,10 @@ afterEvaluate {
             productFlavor += "${it.name.capitalize()}"
         }
         def buildType = "${variant.buildType.name.capitalize()}"
-        if (variant.buildType.name != 'withoutLib') {
-            tasks["generate${productFlavor}${buildType}Assets"].dependsOn(tasks["cargoBuild"])
-        }
+        tasks["generate${productFlavor}${buildType}Assets"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
 
         // For unit tests.
-        tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["cargoBuild"])
+        tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
     }
 }
 

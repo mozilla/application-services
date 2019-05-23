@@ -11,37 +11,16 @@ import com.sun.jna.Native
 import com.sun.jna.Pointer
 import java.lang.reflect.Proxy
 import mozilla.appservices.support.RustBuffer
+import mozilla.appservices.support.loadIndirect
+import org.mozilla.appservices.fxaclient.BuildConfig
+
 
 @Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
 internal interface LibFxAFFI : Library {
     companion object {
-        private val JNA_LIBRARY_NAME = {
-            val libname = System.getProperty("mozilla.appservices.fxaclient_ffi_lib_name")
-            if (libname != null) {
-                Log.i("AppServices", "Using fxaclient_ffi_lib_name: " + libname)
-                libname
-            } else {
-                "fxaclient_ffi"
-            }
-        }()
-
-        internal var INSTANCE: LibFxAFFI = try {
-            val lib = Native.load<LibFxAFFI>(JNA_LIBRARY_NAME, LibFxAFFI::class.java)
-            if (JNA_LIBRARY_NAME == "fxaclient_ffi") {
-                // Enable logcat logging if we aren't in a megazord.
-                lib.fxa_enable_logcat_logging()
-            }
-            lib
-        } catch (e: UnsatisfiedLinkError) {
-            Proxy.newProxyInstance(
-                    LibFxAFFI::class.java.classLoader,
-                    arrayOf(LibFxAFFI::class.java)) { _, _, _ ->
-                throw RuntimeException("Firefox Account functionality not available", e)
-            } as LibFxAFFI
-        }
+        internal var INSTANCE: LibFxAFFI =
+            loadIndirect(libName = "fxaclient", libVersion = BuildConfig.LIBRARY_VERSION)
     }
-
-    fun fxa_enable_logcat_logging()
 
     fun fxa_new(
         contentUrl: String,

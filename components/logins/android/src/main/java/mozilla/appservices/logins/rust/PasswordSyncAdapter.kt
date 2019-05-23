@@ -18,8 +18,6 @@ internal interface PasswordSyncAdapter : Library {
             loadIndirect(libName = "logins", libVersion = BuildConfig.LIBRARY_VERSION)
     }
 
-    fun sync15_passwords_enable_logcat_logging()
-
     fun sync15_passwords_state_new(
         mentat_db_path: String,
         encryption_key: String,

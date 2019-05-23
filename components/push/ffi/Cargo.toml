@@ -28,6 +28,3 @@ path = "../../sync15"
 
 [features]
 reqwest = ["viaduct/reqwest", "push/reqwest"]
-
-[target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.7.0"

@@ -4,11 +4,14 @@
 
 package mozilla.appservices
 
+import org.mozilla.appservices.fenix_megazord.BuildConfig
+
 class Megazord {
     companion object {
         @JvmStatic
         fun init() {
-            System.setProperty("mozilla.appservices.megazord", "fenix")
+            System.setProperty("mozilla.appservices.megazord.library", "fenix")
+            System.setProperty("mozilla.appservices.megazord.version", BuildConfig.LIBRARY_VERSION)
         }
     }
 }

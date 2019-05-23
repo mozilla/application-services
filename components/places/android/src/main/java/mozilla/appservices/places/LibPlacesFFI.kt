@@ -13,37 +13,15 @@ import com.sun.jna.PointerType
 import com.sun.jna.StringArray
 import java.lang.reflect.Proxy
 import mozilla.appservices.support.RustBuffer
+import mozilla.appservices.support.loadIndirect
+import org.mozilla.appservices.places.BuildConfig
 
 @Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
 internal interface LibPlacesFFI : Library {
     companion object {
-        private val JNA_LIBRARY_NAME = {
-            val libname = System.getProperty("mozilla.appservices.places_ffi_lib_name")
-            if (libname != null) {
-                Log.i("AppServices", "Using places_ffi_lib_name: " + libname)
-                libname
-            } else {
-                "places_ffi"
-            }
-        }()
-
-        internal var INSTANCE: LibPlacesFFI = try {
-            val lib = Native.load<LibPlacesFFI>(JNA_LIBRARY_NAME, LibPlacesFFI::class.java)
-            if (JNA_LIBRARY_NAME == "places_ffi") {
-                // Enable logcat logging if we aren't in a megazord.
-                lib.places_enable_logcat_logging()
-            }
-            lib
-        } catch (e: UnsatisfiedLinkError) {
-            Proxy.newProxyInstance(
-                LibPlacesFFI::class.java.classLoader,
-                arrayOf(LibPlacesFFI::class.java)) { _, _, _ ->
-                throw RuntimeException("Places functionality not available", e)
-            } as LibPlacesFFI
-        }
+        internal var INSTANCE: LibPlacesFFI =
+            loadIndirect(libName = "places", libVersion = BuildConfig.LIBRARY_VERSION)
     }
-
-    fun places_enable_logcat_logging()
 
     // Important: strings returned from rust as *mut char must be Pointers on this end, returning a
     // String will work but either force us to leak them, or cause us to corrupt the heap (when we

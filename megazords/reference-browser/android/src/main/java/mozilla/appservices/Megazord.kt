@@ -4,11 +4,14 @@
 
 package mozilla.appservices
 
+import org.mozilla.appservices.reference_browser_megazord.BuildConfig
+
 class Megazord {
     companion object {
         @JvmStatic
         fun init() {
-            System.setProperty("mozilla.appservices.megazord", "reference_browser")
+            System.setProperty("mozilla.appservices.megazord.library", "reference_browser")
+            System.setProperty("mozilla.appservices.megazord.version", BuildConfig.LIBRARY_VERSION)
         }
     }
 }

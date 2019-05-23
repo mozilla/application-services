@@ -1,5 +1,4 @@
 apply plugin: 'com.android.library'
-//apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
@@ -51,12 +50,8 @@ dependencies {
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
-    implementation project(":full-megazord")
-    // We throw som exceptions defined here.
-    api project(":as-support-library")
-
-
-//    jnaForTest project(path: ":full-megazord", configuration: 'jnaForTest')
+    api project(":full-megazord")
+    implementation project(":as-support-library")
 
     // For reasons unknown, resolving the jnaForTest configuration directly
     // trips a nasty issue with the Android-Gradle plugin 3.2.1, like `Cannot
@@ -65,7 +60,7 @@ dependencies {
     // super-configuration of the testImplementation and then the `.files` is
     // causing it to be resolved.  Cloning first dissociates the configuration,
     // avoiding other configurations from being resolved.  Tricky!
-    testImplementation "net.java.dev.jna:jna:$jna_version@jar"//files(configurations.jnaForTest.copyRecursive().files)
+    testImplementation files(configurations.jnaForTest.copyRecursive().files)
     testImplementation 'junit:junit:4.12'
     testImplementation 'org.robolectric:robolectric:3.8'
     testImplementation 'org.mockito:mockito-core:2.21.0'

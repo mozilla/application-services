@@ -28,20 +28,6 @@ fn parse_url(url: &str) -> places::Result<url::Url> {
     Ok(url::Url::parse(url)?)
 }
 
-#[no_mangle]
-pub extern "C" fn places_enable_logcat_logging() {
-    #[cfg(target_os = "android")]
-    {
-        let _ = std::panic::catch_unwind(|| {
-            android_logger::init_once(
-                android_logger::Filter::default().with_min_level(log::Level::Debug),
-                Some("libplaces_ffi"),
-            );
-            log::debug!("Android logging should be hooked up!")
-        });
-    }
-}
-
 lazy_static::lazy_static! {
     static ref APIS: ConcurrentHandleMap<Arc<PlacesApi>> = ConcurrentHandleMap::new();
     static ref CONNECTIONS: ConcurrentHandleMap<PlacesDb> = ConcurrentHandleMap::new();
