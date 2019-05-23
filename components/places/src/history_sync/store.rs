@@ -14,8 +14,8 @@ use std::result;
 use sync15::telemetry;
 use sync15::{
     extract_v1_state, sync_multiple, CollSyncIds, CollectionRequest, IncomingChangeset, KeyBundle,
-    MemoryCachedState, OutgoingChangeset, ServerTimestamp, ServiceStatus, Store,
-    StoreSyncAssociation, Sync15StorageClientInit,
+    MemoryCachedState, OutgoingChangeset, ServerTimestamp, Store, StoreSyncAssociation,
+    Sync15StorageClientInit, SyncResult,
 };
 
 use super::plan::{apply_plan, finish_plan};
@@ -137,28 +137,15 @@ impl<'a> HistoryStore<'a> {
         root_sync_key: &KeyBundle,
         mem_cached_state: &mut MemoryCachedState,
         disk_cached_state: &mut Option<String>,
-        sync_ping: &mut telemetry::SyncTelemetryPing,
-        service_status: &mut ServiceStatus,
-    ) -> Result<()> {
-        let result = sync_multiple(
+    ) -> SyncResult {
+        sync_multiple(
             &[self],
             disk_cached_state,
             mem_cached_state,
             storage_init,
             root_sync_key,
-            sync_ping,
             self.interruptee,
-            service_status,
-        );
-        let failures = result?;
-        if failures.is_empty() {
-            Ok(())
-        } else {
-            assert_eq!(failures.len(), 1);
-            let (name, err) = failures.into_iter().next().unwrap();
-            assert_eq!(name, "history");
-            Err(err.into())
-        }
+        )
     }
 }
 

@@ -25,8 +25,8 @@ use std::fmt;
 use std::result;
 use sync15::{
     telemetry, CollSyncIds, CollectionRequest, IncomingChangeset, KeyBundle, MemoryCachedState,
-    OutgoingChangeset, Payload, ServerTimestamp, ServiceStatus, Store, StoreSyncAssociation,
-    Sync15StorageClientInit,
+    OutgoingChangeset, Payload, ServerTimestamp, Store, StoreSyncAssociation,
+    Sync15StorageClientInit, SyncResult,
 };
 pub const LAST_SYNC_META_KEY: &str = "bookmarks_last_sync_time";
 // Note that all engines in this crate should use a *different* meta key
@@ -524,26 +524,15 @@ impl<'a> BookmarksStore<'a> {
         root_sync_key: &KeyBundle,
         mem_cached_state: &mut MemoryCachedState,
         disk_cached_state: &mut Option<String>,
-        sync_ping: &mut telemetry::SyncTelemetryPing,
-        service_status: &mut ServiceStatus,
-    ) -> Result<()> {
-        let result = sync15::sync_multiple(
+    ) -> SyncResult {
+        sync15::sync_multiple(
             &[self],
             disk_cached_state,
             mem_cached_state,
             storage_init,
             root_sync_key,
-            sync_ping,
             self.interruptee,
-            service_status,
-        );
-        let failures = result?;
-        if failures.is_empty() {
-            Ok(())
-        } else {
-            let (_, err) = failures.into_iter().next().unwrap();
-            Err(err.into())
-        }
+        )
     }
 
     /// Removes all sync metadata, such that the next sync is treated as a

@@ -14,7 +14,7 @@ use logins::{Login, PasswordEngine};
 use prettytable::*;
 use rusqlite::NO_PARAMS;
 use serde_json;
-use sync15::{telemetry, StoreSyncAssociation};
+use sync15::StoreSyncAssociation;
 
 // I'm completely punting on good error handling here.
 type Result<T> = std::result::Result<T, failure::Error>;
@@ -364,14 +364,16 @@ fn main() -> Result<()> {
             }
             'S' | 's' => {
                 log::info!("Syncing!");
-                let mut sync_ping = telemetry::SyncTelemetryPing::new();
-                if let Err(e) = engine.sync(&cli_fxa.client_init, &cli_fxa.root_sync_key, &mut sync_ping) {
-                    log::warn!("Sync failed! {}", e);
-                    log::warn!("BT: {:?}", e.backtrace());
-                } else {
-                    log::info!("Sync was successful!");
+                match engine.sync(&cli_fxa.client_init, &cli_fxa.root_sync_key) {
+                    Err(e) => {
+                        log::warn!("Sync failed! {}", e);
+                        log::warn!("BT: {:?}", e.backtrace());
+                    },
+                    Ok(sync_ping) => {
+                        log::info!("Sync was successful!");
+                        log::info!("Sync telemetry: {}", serde_json::to_string_pretty(&sync_ping).unwrap());
+                    }
                 }
-                log::info!("Sync telemetry: {}", serde_json::to_string_pretty(&sync_ping).unwrap());
             }
             'V' | 'v' => {
                 if let Err(e) = show_all(&engine) {

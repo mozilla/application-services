@@ -9,9 +9,10 @@ use crate::client::{Sync15StorageClient, Sync15StorageClientInit};
 use crate::error::Error;
 use crate::key_bundle::KeyBundle;
 use crate::state::{GlobalState, PersistedGlobalState, SetupStateMachine};
-use crate::status::ServiceStatus;
+use crate::status::{ServiceStatus, SyncResult};
 use crate::sync::{self, Store};
 use crate::telemetry;
+use failure::Fail;
 use interrupt::Interruptee;
 use std::collections::HashMap;
 use std::mem;
@@ -59,15 +60,55 @@ pub fn sync_multiple(
     mem_cached_state: &mut MemoryCachedState,
     storage_init: &Sync15StorageClientInit,
     root_sync_key: &KeyBundle,
-    sync_ping: &mut telemetry::SyncTelemetryPing,
     interruptee: &impl Interruptee,
-    service_status: &mut ServiceStatus,
-) -> result::Result<HashMap<String, Error>, Error> {
-    *service_status = ServiceStatus::OtherError; // we'll set this to better values as we go.
+) -> SyncResult {
+    let mut sync_result = SyncResult {
+        service_status: ServiceStatus::OtherError,
+        result: Ok(()),
+        engine_results: HashMap::with_capacity(stores.len()),
+        telemetry: telemetry::SyncTelemetryPing::new(),
+    };
+    match do_sync_multiple(
+        stores,
+        persisted_global_state,
+        mem_cached_state,
+        storage_init,
+        root_sync_key,
+        interruptee,
+        &mut sync_result,
+    ) {
+        Ok(()) => {
+            log::debug!(
+                "sync was successful, final status={:?}",
+                sync_result.service_status
+            );
+        }
+        Err(e) => {
+            log::warn!(
+                "sync failed: {}, final status={:?}\nBacktrace: {:?}",
+                e,
+                sync_result.service_status,
+                e.backtrace()
+            );
+            sync_result.result = Err(e);
+        }
+    }
+    sync_result
+}
 
-    if let Err(e) = interruptee.err_if_interrupted() {
-        *service_status = ServiceStatus::Interrupted;
-        return Err(e.into());
+/// The actual worker for sync_multiple.
+fn do_sync_multiple(
+    stores: &[&dyn Store],
+    persisted_global_state: &mut Option<String>,
+    mem_cached_state: &mut MemoryCachedState,
+    storage_init: &Sync15StorageClientInit,
+    root_sync_key: &KeyBundle,
+    interruptee: &impl Interruptee,
+    sync_result: &mut SyncResult,
+) -> result::Result<(), Error> {
+    if interruptee.was_interrupted() {
+        sync_result.service_status = ServiceStatus::Interrupted;
+        return Ok(());
     }
     let mut pgs = match persisted_global_state {
         Some(persisted_string) => {
@@ -109,9 +150,9 @@ pub fn sync_multiple(
             client: Sync15StorageClient::new(storage_init.clone())?,
         },
     };
-    if let Err(e) = interruptee.err_if_interrupted() {
-        *service_status = ServiceStatus::Interrupted;
-        return Err(e.into());
+    if interruptee.was_interrupted() {
+        sync_result.service_status = ServiceStatus::Interrupted;
+        return Ok(());
     }
 
     // Advance the state machine to the point where it can perform a full
@@ -127,15 +168,15 @@ pub fn sync_multiple(
         log::info!("Advancing state machine to ready (full)");
         let state = match state_machine.run_to_ready(last_state) {
             Err(e) => {
-                *service_status = ServiceStatus::from_err(&e);
-                return Err(e.into());
+                sync_result.service_status = ServiceStatus::from_err(&e);
+                return Err(e);
             }
             Ok(state) => state,
         };
         // The state machine might have updated our persisted_global_state, so
         // update the callers repr of it.
         mem::replace(persisted_global_state, Some(serde_json::to_string(&pgs)?));
-        sync_ping.uid(client_info.client.hashed_uid()?);
+        sync_result.telemetry.uid(client_info.client.hashed_uid()?);
         // As for client_info, put None back now so we start from scratch on error.
         mem_cached_state.last_global_state = None;
         state
@@ -143,10 +184,10 @@ pub fn sync_multiple(
 
     // Set the service status to OK here - we may adjust it based on an individual
     // store failing.
-    *service_status = ServiceStatus::Ok;
+    sync_result.service_status = ServiceStatus::Ok;
 
+    let mut num_failures = 0;
     let mut telem_sync = telemetry::SyncTelemetry::new();
-    let mut failures: HashMap<String, Error> = HashMap::new();
     for store in stores {
         let name = store.collection_name();
         log::info!("Syncing {} engine!", name);
@@ -163,38 +204,43 @@ pub fn sync_multiple(
 
         match result {
             Ok(()) => log::info!("Sync of {} was successful!", name),
-            Err(e) => {
+            Err(ref e) => {
+                num_failures += 1;
                 // XXX - while we arrange to reset the global state machine
-                // here via, ideally we'd be more fine-grained
-                // about it - eg, a simple network error shouldn't cause this.
+                // here via the `num_failures` check below, ideally we'd be more
+                // fine-grained about it - eg, a simple network error shouldn't
+                // cause this.
                 // However, the costs of restarting the state machine from
                 // scratch really isn't that bad for now.
                 log::warn!("Sync of {} failed! {:?}", name, e);
                 let this_status = ServiceStatus::from_err(&e);
                 let f = telemetry::sync_failure_from_error(&e);
-                failures.insert(name.into(), e);
                 telem_engine.failure(f);
                 // If the failure from the store looks like anything other than
                 // a "store error" we don't bother trying the others.
                 if this_status != ServiceStatus::OtherError {
-                    *service_status = this_status;
+                    telem_sync.engine(telem_engine);
+                    sync_result.engine_results.insert(name.into(), result);
+                    sync_result.service_status = this_status;
                     break;
                 }
             }
         }
         telem_sync.engine(telem_engine);
-        if let Err(e) = interruptee.err_if_interrupted() {
-            *service_status = ServiceStatus::Interrupted;
-            return Err(e.into());
+        sync_result.engine_results.insert(name.into(), result);
+        if interruptee.was_interrupted() {
+            sync_result.service_status = ServiceStatus::Interrupted;
+            return Ok(());
         }
     }
 
-    sync_ping.sync(telem_sync);
-    if !failures.is_empty() {
+    sync_result.telemetry.sync(telem_sync);
+    if num_failures == 0 {
+        // XXX - not clear if we should really only do this on full success,
+        // particularly if it's just a network error. See XXX above for more.
         log::info!("Updating persisted global state");
         mem_cached_state.last_client_info = Some(client_info);
         mem_cached_state.last_global_state = Some(global_state);
     }
-
-    Ok(failures)
+    Ok(())
 }

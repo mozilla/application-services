@@ -3,6 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::{Error, ErrorKind, StorageHttpError};
+use crate::telemetry::SyncTelemetryPing;
+use std::collections::HashMap;
 
 /// The general status of sync - should probably be moved to the "sync manager"
 /// once we have one!
@@ -56,4 +58,21 @@ impl ServiceStatus {
             _ => ServiceStatus::OtherError,
         }
     }
+}
+
+/// The result of a sync request. This too is from the "sync manager", but only
+/// has a fraction of the things it will have when we actually build that.
+#[derive(Debug)]
+pub struct SyncResult {
+    /// The general health.
+    pub service_status: ServiceStatus,
+
+    /// The result of the sync.
+    pub result: Result<(), Error>,
+
+    /// The result for each engine.
+    /// Note that we expect the `String` to be replaced with an enum later.
+    pub engine_results: HashMap<String, Result<(), Error>>,
+
+    pub telemetry: SyncTelemetryPing,
 }

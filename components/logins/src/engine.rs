@@ -7,7 +7,7 @@ use crate::login::Login;
 use std::cell::Cell;
 use std::path::Path;
 use sync15::{
-    sync_multiple, telemetry, KeyBundle, MemoryCachedState, ServiceStatus, StoreSyncAssociation,
+    sync_multiple, telemetry, KeyBundle, MemoryCachedState, StoreSyncAssociation,
     Sync15StorageClientInit,
 };
 
@@ -96,37 +96,33 @@ impl PasswordEngine {
         &self,
         storage_init: &Sync15StorageClientInit,
         root_sync_key: &KeyBundle,
-        sync_ping: &mut telemetry::SyncTelemetryPing,
-    ) -> Result<()> {
+    ) -> Result<telemetry::SyncTelemetryPing> {
         // migrate our V1 state - this needn't live for long.
         self.db.migrate_global_state()?;
 
         let mut disk_cached_state = self.db.get_global_state()?;
         let mut mem_cached_state = self.mem_cached_state.take();
-        let mut service_status = ServiceStatus::Ok;
         let store = LoginStore::new(&self.db);
 
-        let result = sync_multiple(
+        let mut result = sync_multiple(
             &[&store],
             &mut disk_cached_state,
             &mut mem_cached_state,
             storage_init,
             root_sync_key,
-            sync_ping,
             &store.scope,
-            &mut service_status,
         );
         // We always update the state - sync_multiple does the right thing
         // if it needs to be dropped (ie, they will be None or contain Nones etc)
         self.db.set_global_state(&disk_cached_state)?;
-        let failures = result?;
-        if failures.is_empty() {
-            Ok(())
-        } else {
-            assert_eq!(failures.len(), 1);
-            let (name, err) = failures.into_iter().next().unwrap();
-            assert_eq!(name, "passwords");
-            Err(err.into())
+
+        // for b/w compat reasons, we do some dances with the result.
+        if let Err(e) = result.result {
+            return Err(e.into());
+        }
+        match result.engine_results.remove("passwords") {
+            None | Some(Ok(())) => Ok(result.telemetry),
+            Some(Err(e)) => Err(e.into()),
         }
     }
 }

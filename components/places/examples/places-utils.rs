@@ -21,8 +21,8 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
 use sync15::{
-    sync_multiple, telemetry, MemoryCachedState, ServiceStatus, SetupStorageClient, Store,
-    StoreSyncAssociation, Sync15StorageClient,
+    sync_multiple, MemoryCachedState, SetupStorageClient, Store, StoreSyncAssociation,
+    Sync15StorageClient,
 };
 use url::Url;
 
@@ -235,41 +235,40 @@ fn sync(
     // Migrate state, which we must do before we sync *any* engine.
     HistoryStore::migrate_v1_global_state(&conn)?;
 
-    let mut sync_ping = telemetry::SyncTelemetryPing::new();
-
     let mut error_to_report = None;
-    let mut service_status = ServiceStatus::Ok;
     let stores_to_sync: Vec<&dyn Store> = stores.iter().map(AsRef::as_ref).collect();
-    match sync_multiple(
+    let mut result = sync_multiple(
         &stores_to_sync,
         &mut global_state,
         &mut mem_cached_state,
         &cli_fxa.client_init.clone(),
         &cli_fxa.root_sync_key,
-        &mut sync_ping,
         &interruptee,
-        &mut service_status,
-    ) {
+    );
+
+    for (name, result) in result.engine_results.drain() {
+        match result {
+            Ok(()) => log::info!("Status for {:?}: Ok", name),
+            Err(e) => {
+                log::warn!("Status for {:?}: {:?}", name, e);
+                error_to_report = Some(e);
+            }
+        }
+    }
+
+    match result.result {
         Err(e) => {
             log::warn!("Sync failed! {}", e);
             log::warn!("BT: {:?}", e.backtrace());
             error_to_report = Some(e);
         }
-        Ok(failures) => {
-            log::info!("Sync was successful!");
-            for (name, error) in failures {
-                log::warn!("Sync of {} failed: {}", name, error);
-                log::warn!("BT: {:?}", error.backtrace());
-                if error_to_report.is_none() {
-                    error_to_report = Some(error);
-                }
-            }
-        }
+        Ok(()) => log::info!("Sync was successful!"),
     }
-    println!("Sync service status: {:?}", service_status);
+
+    println!("Sync service status: {:?}", result.service_status);
     println!(
         "Sync telemetry: {}",
-        serde_json::to_string_pretty(&sync_ping).unwrap()
+        serde_json::to_string_pretty(&result.telemetry).unwrap()
     );
     // return an error if any engine failed.
     match error_to_report {

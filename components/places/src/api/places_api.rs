@@ -20,7 +20,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc, Mutex, Weak,
 };
-use sync15::{telemetry, MemoryCachedState, ServiceStatus};
+use sync15::{telemetry, MemoryCachedState, SyncResult};
 
 // Not clear if this should be here, but this is the "global sync state"
 // which is persisted to disk and reused for all engines.
@@ -222,10 +222,9 @@ impl PlacesApi {
         }
     }
 
-    // NOTE: This is to be deprecated
-    // #[deprecated(note = "Please use the .sync() API to sync both stores")]
-    // We possibly want more than just a `SyncTelemetryPing` so we can
-    // return additional "custom" telemetry if the app wants it.
+    // NOTE: This should be deprecated as soon as possible - that will be once
+    // all consumers have been updated to use the .sync() method below, and/or
+    // we have implemented the sync manager and migrated consumers to that.
     pub fn sync_history(
         &self,
         client_init: &sync15::Sync15StorageClientInit,
@@ -240,8 +239,6 @@ impl PlacesApi {
             });
         }
 
-        // for now we don't return the service status via this API.
-        let mut service_status = ServiceStatus::Ok;
         let sync_state = guard.as_ref().unwrap();
         // Note that counter-intuitively, this must be called before we do a
         // bookmark sync too, to ensure the shared global state is correct.
@@ -251,14 +248,11 @@ impl PlacesApi {
         let store = HistoryStore::new(&conn, &interruptee);
         let mut mem_cached_state = sync_state.mem_cached_state.take();
         let mut disk_cached_state = sync_state.disk_cached_state.take();
-        let mut sync_ping = telemetry::SyncTelemetryPing::new();
-        let result = store.sync(
+        let mut result = store.sync(
             &client_init,
             &key_bundle,
             &mut mem_cached_state,
             &mut disk_cached_state,
-            &mut sync_ping,
-            &mut service_status,
         );
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
@@ -266,13 +260,19 @@ impl PlacesApi {
         sync_state.mem_cached_state.replace(mem_cached_state);
         sync_state.disk_cached_state.replace(disk_cached_state);
 
-        result?;
-
-        Ok(sync_ping)
+        // for b/w compat reasons, we do some dances with the result.
+        if let Err(e) = result.result {
+            return Err(e.into());
+        }
+        match result.engine_results.remove("history") {
+            None | Some(Ok(())) => Ok(result.telemetry),
+            Some(Err(e)) => Err(e.into()),
+        }
     }
 
-    // NOTE: This is to be deprecated
-    // #[deprecated(note = "Please use the .sync() API to sync both stores")]
+    // NOTE: This should be deprecated as soon as possible - that will be once
+    // all consumers have been updated to use the .sync() method below, and/or
+    // we have implemented the sync manager and migrated consumers to that.
     pub fn sync_bookmarks(
         &self,
         client_init: &sync15::Sync15StorageClientInit,
@@ -287,8 +287,6 @@ impl PlacesApi {
             });
         }
 
-        // for now we don't return the service status via this API.
-        let mut service_status = ServiceStatus::Ok;
         let sync_state = guard.as_ref().unwrap();
         // Note that counter-intuitively, this must be called before we do a
         // bookmark sync too, to ensure the shared global state is correct.
@@ -298,14 +296,11 @@ impl PlacesApi {
         let store = BookmarksStore::new(&conn, &interruptee);
         let mut mem_cached_state = sync_state.mem_cached_state.take();
         let mut disk_cached_state = sync_state.disk_cached_state.take();
-        let mut sync_ping = telemetry::SyncTelemetryPing::new();
-        let result = store.sync(
+        let mut result = store.sync(
             &client_init,
             &key_bundle,
             &mut mem_cached_state,
             &mut disk_cached_state,
-            &mut sync_ping,
-            &mut service_status,
         );
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
@@ -313,9 +308,14 @@ impl PlacesApi {
         sync_state.mem_cached_state.replace(mem_cached_state);
         sync_state.disk_cached_state.replace(disk_cached_state);
 
-        result?;
-
-        Ok(sync_ping)
+        // for b/w compat reasons, we do some dances with the result.
+        if let Err(e) = result.result {
+            return Err(e.into());
+        }
+        match result.engine_results.remove("bookmarks") {
+            None | Some(Ok(())) => Ok(result.telemetry),
+            Some(Err(e)) => Err(e.into()),
+        }
     }
 
     // This is the new sync API until the sync manager lands. It's currently
@@ -325,7 +325,7 @@ impl PlacesApi {
         &self,
         client_init: &sync15::Sync15StorageClientInit,
         key_bundle: &sync15::KeyBundle,
-    ) -> Result<(ServiceStatus, telemetry::SyncTelemetryPing)> {
+    ) -> Result<SyncResult> {
         let mut guard = self.sync_state.lock().unwrap();
         let conn = self.open_sync_connection()?;
         if guard.is_none() {
@@ -335,7 +335,6 @@ impl PlacesApi {
             });
         }
 
-        let mut service_status = ServiceStatus::Ok;
         let sync_state = guard.as_ref().unwrap();
         // Note that counter-intuitively, this must be called before we do a
         // bookmark sync too, to ensure the shared global state is correct.
@@ -346,7 +345,6 @@ impl PlacesApi {
         let history_store = HistoryStore::new(&conn, &interruptee);
         let mut mem_cached_state = sync_state.mem_cached_state.take();
         let mut disk_cached_state = sync_state.disk_cached_state.take();
-        let mut sync_ping = telemetry::SyncTelemetryPing::new();
 
         let result = sync15::sync_multiple(
             &[&history_store, &bm_store],
@@ -354,9 +352,7 @@ impl PlacesApi {
             &mut mem_cached_state,
             client_init,
             key_bundle,
-            &mut sync_ping,
             &interruptee,
-            &mut service_status,
         );
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
@@ -364,9 +360,7 @@ impl PlacesApi {
         sync_state.mem_cached_state.replace(mem_cached_state);
         sync_state.disk_cached_state.replace(disk_cached_state);
 
-        result?;
-
-        Ok((service_status, sync_ping))
+        Ok(result)
     }
 
     pub fn reset_bookmarks(&self) -> Result<()> {
