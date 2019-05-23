@@ -20,7 +20,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc, Mutex, Weak,
 };
-use sync15::{telemetry, MemoryCachedState, SyncResult};
+use sync15::{sync_multiple, telemetry, MemoryCachedState, SyncResult};
 
 // Not clear if this should be here, but this is the "global sync state"
 // which is persisted to disk and reused for all engines.
@@ -222,7 +222,7 @@ impl PlacesApi {
         }
     }
 
-    // NOTE: This should be deprecated as soon as possible - that will be once
+    // NOTE: These should be deprecated as soon as possible - that will be once
     // all consumers have been updated to use the .sync() method below, and/or
     // we have implemented the sync manager and migrated consumers to that.
     pub fn sync_history(
@@ -230,54 +230,53 @@ impl PlacesApi {
         client_init: &sync15::Sync15StorageClientInit,
         key_bundle: &sync15::KeyBundle,
     ) -> Result<telemetry::SyncTelemetryPing> {
-        let mut guard = self.sync_state.lock().unwrap();
-        let conn = self.open_sync_connection()?;
-        if guard.is_none() {
-            *guard = Some(SyncState {
-                mem_cached_state: Cell::default(),
-                disk_cached_state: Cell::new(self.get_disk_persisted_state(&conn)?),
-            });
-        }
-
-        let sync_state = guard.as_ref().unwrap();
-        // Note that counter-intuitively, this must be called before we do a
-        // bookmark sync too, to ensure the shared global state is correct.
-        HistoryStore::migrate_v1_global_state(&conn)?;
-
-        let interruptee = conn.begin_interrupt_scope();
-        let store = HistoryStore::new(&conn, &interruptee);
-        let mut mem_cached_state = sync_state.mem_cached_state.take();
-        let mut disk_cached_state = sync_state.disk_cached_state.take();
-        let mut result = store.sync(
-            &client_init,
-            &key_bundle,
-            &mut mem_cached_state,
-            &mut disk_cached_state,
-        );
-        // even on failure we set the persisted state - sync itself takes care
-        // to ensure this has been None'd out if necessary.
-        self.set_disk_persisted_state(&conn, &disk_cached_state)?;
-        sync_state.mem_cached_state.replace(mem_cached_state);
-        sync_state.disk_cached_state.replace(disk_cached_state);
-
-        // for b/w compat reasons, we do some dances with the result.
-        if let Err(e) = result.result {
-            return Err(e.into());
-        }
-        match result.engine_results.remove("history") {
-            None | Some(Ok(())) => Ok(result.telemetry),
-            Some(Err(e)) => Err(e.into()),
-        }
+        self.do_sync_one(
+            "history",
+            move |conn, mem_cached_state, disk_cached_state| {
+                let interruptee = conn.begin_interrupt_scope();
+                let store = HistoryStore::new(&conn, &interruptee);
+                sync_multiple(
+                    &[&store],
+                    disk_cached_state,
+                    mem_cached_state,
+                    client_init,
+                    key_bundle,
+                    &interruptee,
+                )
+            },
+        )
     }
 
-    // NOTE: This should be deprecated as soon as possible - that will be once
-    // all consumers have been updated to use the .sync() method below, and/or
-    // we have implemented the sync manager and migrated consumers to that.
     pub fn sync_bookmarks(
         &self,
         client_init: &sync15::Sync15StorageClientInit,
         key_bundle: &sync15::KeyBundle,
     ) -> Result<telemetry::SyncTelemetryPing> {
+        self.do_sync_one(
+            "bookmarks",
+            move |conn, mem_cached_state, disk_cached_state| {
+                let interruptee = conn.begin_interrupt_scope();
+                let store = BookmarksStore::new(&conn, &interruptee);
+                sync_multiple(
+                    &[&store],
+                    disk_cached_state,
+                    mem_cached_state,
+                    client_init,
+                    key_bundle,
+                    &interruptee,
+                )
+            },
+        )
+    }
+
+    pub fn do_sync_one<F>(
+        &self,
+        name: &'static str,
+        syncer: F,
+    ) -> Result<telemetry::SyncTelemetryPing>
+    where
+        F: FnOnce(&SyncConn<'_>, &mut MemoryCachedState, &mut Option<String>) -> SyncResult,
+    {
         let mut guard = self.sync_state.lock().unwrap();
         let conn = self.open_sync_connection()?;
         if guard.is_none() {
@@ -288,20 +287,13 @@ impl PlacesApi {
         }
 
         let sync_state = guard.as_ref().unwrap();
-        // Note that counter-intuitively, this must be called before we do a
-        // bookmark sync too, to ensure the shared global state is correct.
+        // Note that this *must* be called before either history or bookmarks are
+        // synced, to ensure the shared global state is correct.
         HistoryStore::migrate_v1_global_state(&conn)?;
 
-        let interruptee = conn.begin_interrupt_scope();
-        let store = BookmarksStore::new(&conn, &interruptee);
         let mut mem_cached_state = sync_state.mem_cached_state.take();
         let mut disk_cached_state = sync_state.disk_cached_state.take();
-        let mut result = store.sync(
-            &client_init,
-            &key_bundle,
-            &mut mem_cached_state,
-            &mut disk_cached_state,
-        );
+        let mut result = syncer(&conn, &mut mem_cached_state, &mut disk_cached_state);
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
         self.set_disk_persisted_state(&conn, &disk_cached_state)?;
@@ -312,7 +304,7 @@ impl PlacesApi {
         if let Err(e) = result.result {
             return Err(e.into());
         }
-        match result.engine_results.remove("bookmarks") {
+        match result.engine_results.remove(name) {
             None | Some(Ok(())) => Ok(result.telemetry),
             Some(Err(e)) => Err(e.into()),
         }

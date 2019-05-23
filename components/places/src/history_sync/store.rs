@@ -13,9 +13,8 @@ use std::ops::Deref;
 use std::result;
 use sync15::telemetry;
 use sync15::{
-    extract_v1_state, sync_multiple, CollSyncIds, CollectionRequest, IncomingChangeset, KeyBundle,
-    MemoryCachedState, OutgoingChangeset, ServerTimestamp, Store, StoreSyncAssociation,
-    Sync15StorageClientInit, SyncResult,
+    extract_v1_state, CollSyncIds, CollectionRequest, IncomingChangeset, OutgoingChangeset,
+    ServerTimestamp, Store, StoreSyncAssociation,
 };
 
 use super::plan::{apply_plan, finish_plan};
@@ -128,24 +127,6 @@ impl<'a> HistoryStore<'a> {
             tx.commit()?;
         }
         Ok(())
-    }
-
-    /// A convenience wrapper around sync_multiple.
-    pub fn sync(
-        &self,
-        storage_init: &Sync15StorageClientInit,
-        root_sync_key: &KeyBundle,
-        mem_cached_state: &mut MemoryCachedState,
-        disk_cached_state: &mut Option<String>,
-    ) -> SyncResult {
-        sync_multiple(
-            &[self],
-            disk_cached_state,
-            mem_cached_state,
-            storage_init,
-            root_sync_key,
-            self.interruptee,
-        )
     }
 }
 
