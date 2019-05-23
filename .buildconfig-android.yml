@@ -4,37 +4,77 @@ projects:
   fxa-client-library:
     path: components/fxa-client/android
     artifactId: fxaclient
-    publishedArtifacts: [fxaclient, fxaclient-forUnitTests, fxaclient-withoutLib]
+    publishedArtifacts:
+      - name: fxaclient
+        type: aar
+      - name: fxaclient-withoutLib
+        type: aar
+      - name: fxaclient-forUnitTests
+        type: jar
     description: Firefox Accounts client.
   logins-library:
     path: components/logins/android
     artifactId: logins
-    publishedArtifacts: [logins, logins-forUnitTests, logins-withoutLib]
+    publishedArtifacts:
+      - name: logins
+        type: aar
+      - name: logins-withoutLib
+        type: aar
+      - name: logins-forUnitTests
+        type: jar
     description: Sync 1.5 logins implementation.
   places-library:
     path: components/places/android
     artifactId: places
-    publishedArtifacts: [places, places-forUnitTests, places-withoutLib]
+    publishedArtifacts:
+      - name: places
+        type: aar
+      - name: places-withoutLib
+        type: aar
+      - name: places-forUnitTests
+        type: jar
     description: Low level places storage implementation.
   rustlog-library:
     path: components/rc_log/android
     artifactId: rustlog
-    publishedArtifacts: [rustlog, rustlog-forUnitTests, rustlog-withoutLib]
+    publishedArtifacts:
+      - name: rustlog
+        type: aar
+      - name: rustlog-withoutLib
+        type: aar
+      - name: rustlog-forUnitTests
+        type: jar
     description: Android hook into the log crate.
   viaduct-library:
     path: components/viaduct/android
     artifactId: httpconfig
-    publishedArtifacts: [httpconfig, httpconfig-forUnitTests, httpconfig-withoutLib]
+    publishedArtifacts:
+      - name: httpconfig
+        type: aar
+      - name: httpconfig-withoutLib
+        type: aar
+      - name: httpconfig-forUnitTests
+        type: jar
     description: Component allowing the configuration of Rust HTTP stack.
   as-support-library:
     path: components/support/android
     artifactId: support
-    publishedArtifacts: [support, support-withoutLib]
+    publishedArtifacts:
+      - name: support
+        type: aar
+      - name: support-withoutLib
+        type: aar
     description: Shared types for app services kotlin.
   push-library:
     path: components/push/android
     artifactId: push
-    publishedArtifacts: [push, push-forUnitTests, push-withoutLib]
+    publishedArtifacts:
+      - name: push
+        type: aar
+      - name: push-withoutLib
+        type: aar
+      - name: push-forUnitTests
+        type: jar
     description: Low level WebPush handler implementation.
   sync15-library:
     path: components/sync15/android
@@ -45,17 +85,29 @@ projects:
     uploadSymbols: true
     path: megazords/lockbox/android
     artifactId: lockbox-megazord
-    publishedArtifacts: [lockbox-megazord, lockbox-megazord-forUnitTests]
+    publishedArtifacts:
+      - name: lockbox-megazord
+        type: aar
+      - name: lockbox-megazord-forUnitTests
+        type: jar
     description: Megazord of [fxaclient, logins, logging].
   reference-browser-megazord:
     uploadSymbols: true
     path: megazords/reference-browser/android
     artifactId: reference-browser-megazord
-    publishedArtifacts: [reference-browser-megazord, reference-browser-megazord-forUnitTests]
+    publishedArtifacts:
+      - name: reference-browser-megazord
+        type: aar
+      - name: reference-browser-megazord-forUnitTests
+        type: jar
     description: Megazord of [fxaclient, logins, places, push, logging].
   fenix-megazord:
     uploadSymbols: true
     path: megazords/fenix/android
     artifactId: fenix-megazord
-    publishedArtifacts: [fenix-megazord, fenix-megazord-forUnitTests]
+    publishedArtifacts:
+      - name: fenix-megazord
+        type: aar
+      - name: fenix-megazord-forUnitTests
+        type: jar
     description: Megazord of [fxaclient, places, push, logging].

@@ -188,7 +188,7 @@ def gradle_module_task(libs_tasks, module_info, is_release):
         .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "zipMavenArtifacts")))
     )
     for artifact_info in module_info['artifacts']:
-        task.with_artifacts(artifact_info['artifact'])
+        task.with_artifacts(artifact_info['build_fs_path'], artifact_info['taskcluster_path'])
     if is_release and module_info['uploadSymbols']:
         task.with_scopes("secrets:get:project/application-services/symbols-token")
         task.with_script("./automation/upload_android_symbols.sh {}".format(module_info['path']))
@@ -216,31 +216,39 @@ def android_multiarch_release():
     for module_info in module_definitions():
         module = module_info['name']
         build_task = module_build_tasks[module]
-        for artifact in module_info['artifacts']:
-            artifact_name = artifact['name']
-            artifact_path = artifact['path']
-            (
-                BeetmoverTask("Publish Android module: {} via beetmover".format(artifact_name))
-                .with_description("Publish release module {} to {}".format(artifact_name, bucket_public_url))
-                .with_worker_type(worker_type)
-                # We want to make sure ALL builds succeeded before doing a release.
-                .with_dependencies(*module_build_tasks.values())
-                .with_upstream_artifact({
-                    "paths": [artifact_path],
-                    "taskId": build_task,
-                    "taskType": "build",
-                    "zipExtract": True,
-                })
-                .with_app_name("appservices")
-                .with_artifact_id(artifact_name)
-                .with_app_version(version)
-                .with_scopes(
-                    "project:mozilla:application-services:releng:beetmover:bucket:{}".format(bucket_name),
-                    "project:mozilla:application-services:releng:beetmover:action:push-to-maven"
-                )
-                .with_routes("notify.email.a-s-ci-failures@mozilla.com.on-failed")
-                .create()
+        # for artifact in module_info['artifacts']:
+        #     artifact_name = artifact['name']
+        #     artifact_path = artifact['path']
+        (
+            BeetmoverTask("Publish Android module: {} via beetmover".format(module))
+            .with_description("Publish release module {} to {}".format(module, bucket_public_url))
+            .with_worker_type(worker_type)
+            # We want to make sure ALL builds succeeded before doing a release.
+            .with_dependencies(*module_build_tasks.values())
+            .with_upstream_artifact({
+                "paths": [artifact['taskcluster_path'] for artifact in module_info["artifacts"]],
+                "taskId": build_task,
+                "taskType": "build",
+            })
+            .with_app_name("appservices")
+            .with_artifact_map([{
+                "locale": "en-US",
+                "taskId": build_task,
+                "paths": {
+                    artifact["taskcluster_path"]: {
+                        "checksums_path": "",  # TODO beetmover marks this as required, but it's not needed
+                        "destinations": [artifact["maven_destination"]],
+                    } for artifact in module_info["artifacts"]
+                },
+            }])
+            .with_app_version(version)
+            .with_scopes(
+                "project:mozilla:application-services:releng:beetmover:bucket:{}".format(bucket_name),
+                "project:mozilla:application-services:releng:beetmover:action:push-to-maven"
             )
+            .with_routes("notify.email.a-s-ci-failures@mozilla.com.on-failed")
+            .create()
+        )
 
 def dockerfile_path(name):
     return os.path.join(os.path.dirname(__file__), "docker", name + ".dockerfile")

@@ -21,6 +21,8 @@ import os
 import re
 import subprocess
 import sys
+from typing import List
+
 import taskcluster
 
 
@@ -107,7 +109,7 @@ class Shared:
         # TODO: Switch to async python to speed up submission
         for task_id in self.all_tasks:
             full_task_graph[task_id] = {
-                'task': SHARED.queue_service.task(task_id),
+                'task': task_id #SHARED.queue_service.task(task_id),
             }
         return full_task_graph
 
@@ -276,33 +278,34 @@ class BeetmoverTask(Task):
     def __init__(self, name):
         super().__init__(name)
         self.provisioner_id = "scriptworker-prov-v1"
-        self.artifact_id = None
         self.app_name = None
         self.app_version = None
         self.upstream_artifacts = []
+        self.artifact_map = []
 
     with_app_name = chaining(setattr, "app_name")
     with_app_version = chaining(setattr, "app_version")
-    with_artifact_id = chaining(setattr, "artifact_id")
     with_upstream_artifact = chaining(append_to_attr, "upstream_artifacts")
+    with_artifact_map = chaining(setattr, "artifact_map")
 
     def build_worker_payload(self):
-        payload =  {
+        payload = {
             "maxRunTime": 10 * 60,
             "releaseProperties": {
                 "appName": self.app_name,
             },
             "upstreamArtifacts": self.upstream_artifacts,
+            "artifactMap": self.artifact_map,
             "version": self.app_version,
-            "artifact_id": self.artifact_id,
         }
 
-        # XXX: Beetmover jobs that transfer the `forUnitTests` maven.zip need
-        # to have an additional flag set
-        if 'forUnitTests' in self.name:
-            payload['is_jar'] = True
-
         return payload
+
+
+class DockerWorkerArtifact:
+    def __init__(self, worker_fs_path, taskcluster_path):
+        self.worker_fs_path = worker_fs_path
+        self.taskcluster_path = taskcluster_path
 
 
 class DockerWorkerTask(Task):
@@ -313,6 +316,9 @@ class DockerWorkerTask(Task):
 
     <https://github.com/taskcluster/docker-worker>
     """
+
+    artifacts: List[DockerWorkerArtifact]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # We use this specific version because our decision task also runs on this one.
@@ -327,11 +333,26 @@ class DockerWorkerTask(Task):
 
     with_docker_image = chaining(setattr, "docker_image")
     with_max_run_time_minutes = chaining(setattr, "max_run_time_minutes")
-    with_artifacts = chaining(append_to_attr, "artifacts")
     with_script = chaining(append_to_attr, "scripts")
     with_early_script = chaining(prepend_to_attr, "scripts")
     with_caches = chaining(update_attr, "caches")
     with_env = chaining(update_attr, "env")
+
+    def with_artifacts(self, worker_fs_path, taskcluster_path=None):
+        """Adds artifact to task definition
+
+        Args:
+            worker_fs_path: path to artifact on worker
+            taskcluster_path: as represented on taskcluster. Defaults to "public/{the url basename of worker_path}"
+
+        Returns:
+
+        """
+        self.artifacts.append(DockerWorkerArtifact(
+            worker_fs_path,
+            taskcluster_path or "public/" + url_basename(worker_fs_path)
+        ))
+        return self
 
     def build_worker_payload(self):
         """
@@ -357,12 +378,12 @@ class DockerWorkerTask(Task):
             cache=self.caches,
             features=self.features,
             artifacts={
-                "public/" + url_basename(path): {
+                artifact.taskcluster_path: {
                     "type": "file",
-                    "path": path,
+                    "path": artifact.worker_fs_path,
                     "expires": SHARED.from_now_json(self.index_and_artifacts_expire_in),
                 }
-                for path in self.artifacts
+                for artifact in self.artifacts
             },
         )
 
