@@ -584,6 +584,7 @@ impl<'a> Store for BookmarksStore<'a> {
     ) -> result::Result<(), failure::Error> {
         self.push_synced_items(new_timestamp, records_synced)?;
         self.update_frecencies()?;
+        self.db.pragma_update(None, "wal_checkpoint", &"PASSIVE")?;
         Ok(())
     }
 

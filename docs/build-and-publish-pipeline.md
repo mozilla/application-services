@@ -16,10 +16,8 @@ The key points:
 * [TaskCluster](../automation/taskcluster/README.md) runs on every pull-request, release,
   and push to master, to ensure Android artifacts build correctly and to execute their
   tests via gradle.
-* [CircleCI](../.circleci/config.yml) runs on every branch, pull-request, and release,
-  to execute lint checks and automated tests at the rust level.
-  * We [do not currently run Swift tests in CI](https://github.com/mozilla/application-services/issues/607),
-    but intend to run those using CircleCI as well.
+* [CircleCI](../.circleci/config.yml) runs on every branch, pull-request (including forks), and release,
+  to execute lint checks and automated tests at the Rust and Swift level.
 * Releases are made by [manually creating a new release](./howtos/cut-a-new-release.md) via github,
   which triggers various CI jobs:
     * [CircleCI](../.circleci/config.yml) is used to build an iOS binary release on every release,

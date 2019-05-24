@@ -62,6 +62,10 @@ impl PlacesDb {
 
             -- we unconditionally want write-ahead-logging mode
             PRAGMA journal_mode=WAL;
+
+            -- How often to autocheckpoint (in units of pages).
+            -- 2048000 (our max desired WAL size) / 32760 (page size).
+            PRAGMA wal_autocheckpoint=62
         ";
 
         db.execute_batch(initial_pragmas)?;
