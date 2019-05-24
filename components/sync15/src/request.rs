@@ -1237,6 +1237,7 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::cognitive_complexity)]
     fn test_pq_multi_post_multi_batch_records() {
         let cfg = InfoConfiguration {
             max_post_records: 3,
@@ -1333,6 +1334,7 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::cognitive_complexity)]
     fn test_pq_multi_post_multi_batch_bytes() {
         let cfg = InfoConfiguration {
             max_post_bytes: 300,
