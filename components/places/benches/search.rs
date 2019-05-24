@@ -64,7 +64,7 @@ impl TestDb {
 }
 
 macro_rules! db_bench {
-    ($c:expr, $name:literal, |$db:ident = $test_db_name:ident| $expr:expr) => {{
+    ($c:expr, $name:literal, |$db:ident : $test_db_name:ident| $expr:expr) => {{
         let $test_db_name = $test_db_name.clone();
         $c.bench_function($name, move |b| {
             let $db = &$test_db_name.db;
@@ -75,35 +75,47 @@ macro_rules! db_bench {
 
 fn bench_search_frecent(c: &mut Criterion) {
     let test_db = TestDb::new();
-    db_bench!(c, "search_frecent string", |db = test_db| {
-        search_frecent(&db, SearchParams {
-            search_string: "mozilla".into(),
-            limit: 10,
-        }).unwrap()
+    db_bench!(c, "search_frecent string", |db: test_db| {
+        search_frecent(
+            &db,
+            SearchParams {
+                search_string: "mozilla".into(),
+                limit: 10,
+            },
+        )
+        .unwrap()
     });
-    db_bench!(c, "search_frecent origin", |db = test_db| {
-        search_frecent(&db, SearchParams {
-            search_string: "blog.mozilla.org".into(),
-            limit: 10,
-        }).unwrap()
+    db_bench!(c, "search_frecent origin", |db: test_db| {
+        search_frecent(
+            &db,
+            SearchParams {
+                search_string: "blog.mozilla.org".into(),
+                limit: 10,
+            },
+        )
+        .unwrap()
     });
-    db_bench!(c, "search_frecent url", |db = test_db| {
-        search_frecent(&db, SearchParams {
-            search_string: "https://hg.mozilla.org/mozilla-central".into(),
-            limit: 10,
-        }).unwrap()
+    db_bench!(c, "search_frecent url", |db: test_db| {
+        search_frecent(
+            &db,
+            SearchParams {
+                search_string: "https://hg.mozilla.org/mozilla-central".into(),
+                limit: 10,
+            },
+        )
+        .unwrap()
     });
 }
 
 fn bench_match_url(c: &mut Criterion) {
     let test_db = TestDb::new();
-    db_bench!(c, "match_url string", |db = test_db| {
+    db_bench!(c, "match_url string", |db: test_db| {
         match_url(&db, "mozilla").unwrap()
     });
-    db_bench!(c, "match_url origin", |db = test_db| {
+    db_bench!(c, "match_url origin", |db: test_db| {
         match_url(&db, "blog.mozilla.org").unwrap()
     });
-    db_bench!(c, "match_url url", |db = test_db| {
+    db_bench!(c, "match_url url", |db: test_db| {
         match_url(&db, "https://hg.mozilla.org/mozilla-central").unwrap()
     });
 }
