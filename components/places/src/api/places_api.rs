@@ -313,6 +313,11 @@ impl PlacesApi {
     // This is the new sync API until the sync manager lands. It's currently
     // not wired up via the FFI - it's possible we'll do declined engines too
     // before we do.
+    // Note we've made a policy decision about the return value - even though
+    // it is Result<SyncResult>, we will only return an Err() if there's a
+    // fatal error that prevents us starting a sync, such as failure to open
+    // the DB. Any errors that happen *after* sync must not escape - ie, once
+    // we have a SyncResult, we must return it.
     pub fn sync(
         &self,
         client_init: &sync15::Sync15StorageClientInit,
@@ -338,6 +343,7 @@ impl PlacesApi {
         let mut mem_cached_state = sync_state.mem_cached_state.take();
         let mut disk_cached_state = sync_state.disk_cached_state.take();
 
+        // NOTE: After here we must never return Err()!
         let result = sync15::sync_multiple(
             &[&history_store, &bm_store],
             &mut disk_cached_state,
@@ -348,7 +354,9 @@ impl PlacesApi {
         );
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
-        self.set_disk_persisted_state(&conn, &disk_cached_state)?;
+        if let Err(e) = self.set_disk_persisted_state(&conn, &disk_cached_state) {
+            log::error!("Failed to persist the sync state: {:?}", e);
+        }
         sync_state.mem_cached_state.replace(mem_cached_state);
         sync_state.disk_cached_state.replace(disk_cached_state);
 
