@@ -238,7 +238,7 @@ fn init_logging() {
     env_logger::init_from_env(env_logger::Env::default().filter_or("RUST_LOG", spec));
 }
 
-#[allow(clippy::cyclomatic_complexity)] // FIXME
+#[allow(clippy::cognitive_complexity)] // FIXME
 fn main() -> Result<()> {
     init_logging();
     std::env::set_var("RUST_BACKTRACE", "1");
