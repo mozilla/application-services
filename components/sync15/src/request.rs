@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::bso_record::EncryptedBso;
+use crate::client::Sync15ClientResponse;
 use crate::error::{self, ErrorKind, Result};
 use crate::util::ServerTimestamp;
 use serde_derive::*;
@@ -11,7 +12,7 @@ use std::default::Default;
 use std::fmt;
 use std::ops::Deref;
 use url::{form_urlencoded::Serializer, Url, UrlQuery};
-use viaduct::{header_names, status_codes, Response};
+use viaduct::status_codes;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RequestOrder {
@@ -285,33 +286,7 @@ pub struct UploadResult {
     pub success: Vec<String>,
 }
 
-// Easier to fake during tests
-#[derive(Debug, Clone)]
-pub struct PostResponse {
-    pub status: u16,
-    pub result: UploadResult, // This is lazy...
-    pub last_modified: ServerTimestamp,
-}
-
-impl PostResponse {
-    pub fn is_success(&self) -> bool {
-        status_codes::is_success_code(self.status)
-    }
-    pub fn from_response(r: &Response) -> Result<PostResponse> {
-        let result: UploadResult = r.json()?;
-        // TODO Can this happen in error cases?
-        let last_modified = r
-            .headers
-            .try_get::<ServerTimestamp, _>(header_names::X_LAST_MODIFIED)
-            .ok_or_else(|| ErrorKind::MissingServerTimestamp)?;
-        let status = r.status;
-        Ok(PostResponse {
-            status,
-            result,
-            last_modified,
-        })
-    }
-}
+pub type PostResponse = Sync15ClientResponse<UploadResult>;
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum BatchState {
@@ -376,32 +351,25 @@ impl NormalResponseHandler {
 
 impl PostResponseHandler for NormalResponseHandler {
     fn handle_response(&mut self, r: PostResponse, mid_batch: bool) -> error::Result<()> {
-        if !r.is_success() {
-            log::warn!("Got failure status from server while posting: {}", r.status);
-            if r.status == status_codes::PRECONDITION_FAILED {
-                return Err(ErrorKind::BatchInterrupted.into());
-            } else {
-                return Err(ErrorKind::StorageHttpError {
-                    code: r.status,
-                    route: "collection storage (TODO: record route somewhere)".into(),
+        match r {
+            Sync15ClientResponse::Success { record, .. } => {
+                if !record.failed.is_empty() && !self.allow_failed {
+                    return Err(ErrorKind::RecordUploadFailed.into());
                 }
-                .into());
+                for id in record.success.iter() {
+                    self.pending_success.push(id.clone());
+                }
+                for kv in record.failed.iter() {
+                    self.pending_failed.push(kv.0.clone());
+                }
+                if !mid_batch {
+                    self.successful_ids.append(&mut self.pending_success);
+                    self.failed_ids.append(&mut self.pending_failed);
+                }
+                Ok(())
             }
+            _ => Err(r.create_storage_error().into()),
         }
-        if !r.result.failed.is_empty() && !self.allow_failed {
-            return Err(ErrorKind::RecordUploadFailed.into());
-        }
-        for id in r.result.success.iter() {
-            self.pending_success.push(id.clone());
-        }
-        for kv in r.result.failed.iter() {
-            self.pending_failed.push(kv.0.clone());
-        }
-        if !mid_batch {
-            self.successful_ids.append(&mut self.pending_success);
-            self.failed_ids.append(&mut self.pending_failed);
-        }
-        Ok(())
     }
 }
 
@@ -560,20 +528,22 @@ where
 
         let resp = resp_or_error?;
 
-        if !resp.is_success() {
-            let code = resp.status;
-            self.on_response.handle_response(resp, !want_commit)?;
-            log::error!("Bug: expected OnResponse to have bailed out!");
-            // Should we assert here instead?
-            return Err(ErrorKind::StorageHttpError {
-                code,
-                route: "Client bug!".into(),
+        let (status, last_modified, record) = match resp {
+            Sync15ClientResponse::Success {
+                status,
+                last_modified,
+                ref record,
+                ..
+            } => (status, last_modified, record),
+            _ => {
+                self.on_response.handle_response(resp, !want_commit)?;
+                // on_response() should always fail!
+                unreachable!();
             }
-            .into());
-        }
+        };
 
         if want_commit || self.batch == BatchState::Unsupported {
-            self.last_modified = resp.last_modified;
+            self.last_modified = last_modified;
         }
 
         if want_commit {
@@ -583,22 +553,21 @@ where
             return Ok(());
         }
 
-        if resp.status != status_codes::ACCEPTED {
+        if status != status_codes::ACCEPTED {
             if self.in_batch() {
                 return Err(ErrorKind::ServerBatchProblem(
                     "Server responded non-202 success code while a batch was in progress",
                 )
                 .into());
             }
-            self.last_modified = resp.last_modified;
+            self.last_modified = last_modified;
             self.batch = BatchState::Unsupported;
             self.batch_limits.clear();
             self.on_response.handle_response(resp, false)?;
             return Ok(());
         }
 
-        let batch_id = resp
-            .result
+        let batch_id = record
             .batch
             .as_ref()
             .ok_or_else(|| {
@@ -608,7 +577,7 @@ where
 
         match &self.batch {
             BatchState::Unsupported => {
-                log::warn!("Server changed it's mind about supporting batching mid-batch...");
+                log::warn!("Server changed its mind about supporting batching mid-batch...");
             }
 
             BatchState::InBatch(ref cur_id) => {
@@ -624,7 +593,7 @@ where
 
         // Can't change this in match arms without NLL
         self.batch = BatchState::InBatch(batch_id);
-        self.last_modified = resp.last_modified;
+        self.last_modified = last_modified;
 
         self.on_response.handle_response(resp, true)?;
 
@@ -824,13 +793,20 @@ mod test {
             self.all_posts.push(post.clone());
             let response = self.responses.pop_front().unwrap();
 
+            let record = match response {
+                Sync15ClientResponse::Success { ref record, .. } => record,
+                _ => {
+                    panic!("only success codes are used in this test");
+                }
+            };
+
             if self.cur_batch.is_none() {
                 assert!(
                     batch.is_none() || batch == Some("true".into()),
                     "We shouldn't be in a batch now"
                 );
                 self.cur_batch = Some(BatchInfo {
-                    id: response.result.batch.clone(),
+                    id: record.batch.clone(),
                     posts: vec![],
                     records: 0,
                     bytes: 0,
@@ -856,7 +832,7 @@ mod test {
                 assert_eq!(batch.bytes, queue.batch_limits.cur_bytes);
             }
 
-            if commit || response.result.batch.is_none() {
+            if commit || record.batch.is_none() {
                 let batch = self.cur_batch.take().unwrap();
                 self.batches.push(batch);
             }
@@ -901,14 +877,16 @@ mod test {
     }
 
     fn fake_response<'a, T: Into<Option<&'a str>>>(status: u16, lm: f64, batch: T) -> PostResponse {
-        PostResponse {
+        assert!(status_codes::is_success_code(status));
+        Sync15ClientResponse::Success {
             status,
             last_modified: ServerTimestamp(lm),
-            result: UploadResult {
+            record: UploadResult {
                 batch: batch.into().map(Into::into),
                 failed: HashMap::new(),
                 success: vec![],
             },
+            route: "test/path".into(),
         }
     }
 

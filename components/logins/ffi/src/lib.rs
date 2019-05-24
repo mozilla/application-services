@@ -14,7 +14,6 @@ use ffi_support::{
 };
 use logins::{Login, PasswordEngine, Result};
 use std::os::raw::c_char;
-use sync15::telemetry;
 
 fn logging_init() {
     #[cfg(target_os = "android")]
@@ -125,7 +124,6 @@ pub extern "C" fn sync15_passwords_sync(
 ) {
     log::debug!("sync15_passwords_sync");
     ENGINES.call_with_result(error, handle, |state| -> Result<()> {
-        let mut sync_ping = telemetry::SyncTelemetryPing::new();
         state.sync(
             &sync15::Sync15StorageClientInit {
                 key_id: key_id.into_string(),
@@ -133,8 +131,8 @@ pub extern "C" fn sync15_passwords_sync(
                 tokenserver_url: parse_url(tokenserver_url.as_str())?,
             },
             &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
-            &mut sync_ping,
-        )
+        )?;
+        Ok(())
     })
 }
 

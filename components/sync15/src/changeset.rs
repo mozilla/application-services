@@ -4,7 +4,7 @@
 
 use crate::bso_record::{EncryptedBso, Payload};
 use crate::client::{Sync15ClientResponse, Sync15StorageClient};
-use crate::error::{self, ErrorKind, Result};
+use crate::error::{self, ErrorKind, ErrorResponse, Result};
 use crate::key_bundle::KeyBundle;
 use crate::request::{CollectionRequest, NormalResponseHandler, UploadInfo};
 use crate::util::ServerTimestamp;
@@ -128,8 +128,13 @@ impl<'a> CollectionUpdate<'a> {
         let collection = changeset.collection.clone();
         let xius = changeset.timestamp;
         if xius < state.last_modified {
-            // Not actually interrupted, but we know we'd fail the XIUS check.
-            return Err(ErrorKind::BatchInterrupted.into());
+            // We know we are going to fail the XIUS check...
+            return Err(
+                ErrorKind::StorageHttpError(ErrorResponse::PreconditionFailed {
+                    route: collection,
+                })
+                .into(),
+            );
         }
         let to_update = changeset.encrypt(&state.key)?;
         Ok(CollectionUpdate::new(
