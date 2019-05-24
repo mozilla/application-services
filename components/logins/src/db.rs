@@ -9,6 +9,7 @@ use crate::update_plan::UpdatePlan;
 use crate::util;
 use lazy_static::lazy_static;
 use rusqlite::{
+    config::DbConfig,
     named_params,
     types::{FromSql, ToSql},
     Connection, NO_PARAMS,
@@ -58,6 +59,7 @@ impl LoginDb {
         // https://github.com/mozilla/mentat/issues/505. Ideally we'd only
         // do this on Android, or allow caller to configure it.
         db.set_pragma("temp_store", 2)?;
+        db.set_db_config(DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true)?;
 
         let mut logins = Self {
             db,

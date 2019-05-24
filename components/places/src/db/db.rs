@@ -5,7 +5,7 @@
 use super::schema;
 use crate::api::places_api::ConnectionType;
 use crate::error::*;
-use rusqlite::Connection;
+use rusqlite::{config::DbConfig, Connection};
 use sql_support::{ConnExt, SqlInterruptHandle, SqlInterruptScope};
 use std::ops::Deref;
 use std::path::Path;
@@ -69,6 +69,7 @@ impl PlacesDb {
         ";
 
         db.execute_batch(initial_pragmas)?;
+        db.set_db_config(DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true)?;
         define_functions(&db)?;
         let res = Self {
             db,
