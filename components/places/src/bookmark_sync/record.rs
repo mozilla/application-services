@@ -329,7 +329,6 @@ fn de_maybe_stringified_timestamp<'de, D>(
 where
     D: serde::de::Deserializer<'de>,
 {
-    use std::fmt;
     use std::marker::PhantomData;
 
     struct StringOrInt(PhantomData<Option<i64>>);
