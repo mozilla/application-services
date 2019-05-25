@@ -225,7 +225,7 @@ impl Payload {
         CleartextBso {
             id,
             collection,
-            modified: 0.0.into(), // Doesn't matter.
+            modified: 0.into(), // Doesn't matter.
             sortindex,
             ttl,
             payload: self,
@@ -446,7 +446,7 @@ mod tests {
         let record: BsoRecord<EncryptedPayload> = serde_json::from_str(serialized).unwrap();
         assert_eq!(&record.id, "1234");
         assert_eq!(&record.collection, "passwords");
-        assert!((record.modified.0 - 1234_4321.0).abs() < std::f64::EPSILON);
+        assert_eq!((record.modified.0 - 12_344_321_000).abs(), 0);
         assert_eq!(record.sortindex, None);
         assert_eq!(&record.payload.iv, "aaaaa");
         assert_eq!(&record.payload.hmac, "bbbbb");
@@ -473,7 +473,7 @@ mod tests {
         let goal = r#"{"id":"1234","collection":"passwords","payload":"{\"IV\":\"aaaaa\",\"hmac\":\"bbbbb\",\"ciphertext\":\"ccccc\"}"}"#;
         let record = BsoRecord {
             id: "1234".into(),
-            modified: ServerTimestamp(999.0), // shouldn't be serialized by client no matter what it's value is
+            modified: ServerTimestamp(999), // shouldn't be serialized by client no matter what it's value is
             collection: "passwords".into(),
             sortindex: None,
             ttl: None,
