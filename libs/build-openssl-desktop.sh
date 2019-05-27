@@ -62,7 +62,7 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
     no-asm shared \
     -march=x86-64 \
     '-B /tmp/cctools/bin' \
-    '-target x86_64-apple-darwin11' \
+    '-target x86_64-darwin11' \
     '-isysroot /tmp/MacOSX10.11.sdk' \
     '-Wl,-syslibroot,/tmp/MacOSX10.11.sdk' \
     '-Wl,-dead_strip' \

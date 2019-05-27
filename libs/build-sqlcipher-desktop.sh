@@ -100,13 +100,13 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   export NM=/tmp/cctools/bin/x86_64-darwin11-nm
   export LD=/tmp/cctools/bin/x86_64-darwin11-ld
 
-  export CFLAGS='-B /tmp/cctools/bin -target x86_64-apple-darwin11 -mlinker-version=137 -isysroot /tmp/MacOSX10.11.sdk -I/tmp/MacOSX10.11.sdk/usr/include -iframework /tmp/MacOSX10.11.sdk/System/Library/Frameworks'
+  export CFLAGS='-B /tmp/cctools/bin -target x86_64-darwin11 -mlinker-version=137 -isysroot /tmp/MacOSX10.11.sdk -I/tmp/MacOSX10.11.sdk/usr/include -iframework /tmp/MacOSX10.11.sdk/System/Library/Frameworks'
   export LDFLAGS='-B /tmp/cctools/bin -Wl,-syslibroot,/tmp/MacOSX10.11.sdk -Wl,-dead_strip'
   # This is crucial.  Without this, libtool drops the `-target ...`
   # flags from the clang compiler linker driver invocation, resulting
   # in clang choosing a random system `ld` rather than the macOS
   # linker from the cctools port.
-  export LTLINK_EXTRAS='-XCClinker -target -XCClinker x86_64-apple-darwin11 -XCClinker -B -XCClinker /tmp/cctools/bin'
+  export LTLINK_EXTRAS='-XCClinker -target -XCClinker x86_64-darwin11 -XCClinker -B -XCClinker /tmp/cctools/bin'
 
   # See https://searchfox.org/mozilla-central/rev/8848b9741fc4ee4e9bc3ae83ea0fc048da39979f/build/macosx/cross-mozconfig.common#12-13.
   export LD_LIBRARY_PATH=/tmp/clang/lib
