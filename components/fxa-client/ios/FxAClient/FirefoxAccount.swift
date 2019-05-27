@@ -215,6 +215,34 @@ open class FirefoxAccount {
         }
     }
 
+    /// Request a OAuth token by starting a `force_auth` OAuth flow providing an email.
+    ///
+    /// This function returns a URL string that the caller should open in a webview.
+    ///
+    /// Once the user has confirmed the authorization grant, they will get redirected to `redirect_url`:
+    /// the caller must intercept that redirection, extract the `code` and `state` query parameters and call
+    /// `completeOAuthFlow(...)` to complete the flow.
+    ///
+    /// It is possible also to request keys (e.g. sync keys) during that flow by setting `wants_keys` to true.
+    open func beginForceAuthOAuthFlow(
+        email: String,
+        scopes: [String],
+        wantsKeys: Bool,
+        completionHandler: @escaping (URL?, Error?) -> Void
+    ) {
+        queue.async {
+            do {
+                let scope = scopes.joined(separator: " ")
+                let url = URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap { err in
+                    fxa_force_auth_oauth_flow(self.raw, email, scope, wantsKeys, err)
+                }))!
+                DispatchQueue.main.async { completionHandler(url, nil) }
+            } catch {
+                DispatchQueue.main.async { completionHandler(nil, error) }
+            }
+        }
+    }
+
     /// Finish an OAuth flow initiated by `beginOAuthFlow(...)` and returns token/keys.
     ///
     /// This resulting token might not have all the `scopes` the caller have requested (e.g. the user

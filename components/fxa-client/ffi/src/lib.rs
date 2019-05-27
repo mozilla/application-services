@@ -231,6 +231,37 @@ pub extern "C" fn fxa_begin_oauth_flow(
     })
 }
 
+/// Request a OAuth token by starting a `force_auth` OAuth flow providing an email.
+///
+/// This function returns a URL string that the caller should open in a webview.
+///
+/// Once the user has confirmed the authorization grant, they will get redirected to `redirect_url`:
+/// the caller must intercept that redirection, extract the `code` and `state` query parameters and call
+/// [fxa_complete_oauth_flow] to complete the flow.
+///
+/// It is possible also to request keys (e.g. sync keys) during that flow by setting `wants_keys` to true.
+///
+/// # Safety
+///
+/// A destructor [fxa_str_free] is provided for releasing the memory for this
+/// pointer type.
+#[no_mangle]
+pub extern "C" fn fxa_force_auth_oauth_flow(
+    handle: u64,
+    email: FfiStr<'_>,
+    scope: FfiStr<'_>,
+    wants_keys: bool,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("fxa_force_auth_oauth_flow");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
+        let email = email.as_str();
+        let scope = scope.as_str();
+        let scopes: Vec<&str> = scope.split(' ').collect();
+        fxa.force_auth_oauth_flow(&email, &scopes, wants_keys)
+    })
+}
+
 /// Finish an OAuth flow initiated by [fxa_begin_oauth_flow].
 #[no_mangle]
 pub extern "C" fn fxa_complete_oauth_flow(

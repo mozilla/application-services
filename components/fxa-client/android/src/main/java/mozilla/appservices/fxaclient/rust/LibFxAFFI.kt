@@ -60,6 +60,14 @@ internal interface LibFxAFFI : Library {
         e: RustError.ByReference
     ): Pointer?
 
+    fun fxa_force_auth_oauth_flow(
+        fxa: FxaHandle,
+        email: String,
+        scopes: String,
+        wantsKeys: Boolean,
+        e: RustError.ByReference
+    ): Pointer?
+
     fun fxa_begin_pairing_flow(
         fxa: FxaHandle,
         pairingUrl: String,

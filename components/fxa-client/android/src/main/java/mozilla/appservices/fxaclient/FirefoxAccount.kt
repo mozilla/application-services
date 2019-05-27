@@ -104,6 +104,22 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     }
 
     /**
+     * Constructs a URL used to begin the `force_auth` OAuth flow for the requested email, scopes and keys.
+     *
+     * This performs network requests, and should not be used on the main thread.
+     *
+     * @param scopes List of OAuth scopes for which the client wants access
+     * @param wantsKeys Fetch keys for end-to-end encryption of data from Mozilla-hosted services
+     * @return String that resolves to the flow URL when complete
+     */
+    fun beginForceAuthOAuthFlow(email: String, scopes: Array<String>, wantsKeys: Boolean): String {
+        val scope = scopes.joinToString(" ")
+        return rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_force_auth_oauth_flow(this.handle.get(), email, scope, wantsKeys, e)
+        }.getAndConsumeRustString()
+    }
+
+    /**
      * Begins the pairing flow.
      *
      * This performs network requests, and should not be used on the main thread.

@@ -48,6 +48,12 @@ char *_Nullable fxa_begin_oauth_flow(FirefoxAccountHandle handle,
                                      bool wants_keys,
                                      FxAError *_Nonnull out);
 
+char *_Nullable fxa_force_auth_oauth_flow(FirefoxAccountHandle handle,
+                                    const char *_Nonnull email,
+                                    const char *_Nonnull scopes,
+                                    bool wants_keys,
+                                    FxAError *_Nonnull out);
+
 void fxa_complete_oauth_flow(FirefoxAccountHandle handle,
                              const char *_Nonnull code,
                              const char *_Nonnull state,

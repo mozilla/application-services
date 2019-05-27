@@ -122,6 +122,40 @@ impl FirefoxAccount {
         self.oauth_flow(url, &scopes, wants_keys)
     }
 
+    /// Initiate a `force_auth` OAuth login flow providing an email value return a URL that should be navigated to.
+    ///
+    /// * `email` - The email that is used for `force_auth`
+    /// * `scopes` - Space-separated list of requested scopes.
+    /// * `wants_keys` - Retrieve scoped keys associated with scopes supporting it.
+    pub fn force_auth_oauth_flow(
+        &mut self,
+        email: &str,
+        scopes: &[&str],
+        wants_keys: bool,
+    ) -> Result<String> {
+        let mut url = self.state.config.authorization_endpoint()?;
+        url.query_pairs_mut()
+            .append_pair("action", "force_auth")
+            .append_pair("email", email)
+            .append_pair("response_type", "code");
+
+        let scopes: Vec<String> = match self.state.refresh_token {
+            Some(ref refresh_token) => {
+                // Union of the already held scopes and the one requested.
+                let mut all_scopes: Vec<String> = vec![];
+                all_scopes.extend(scopes.iter().map(ToString::to_string));
+                let existing_scopes = refresh_token.scopes.clone();
+                all_scopes.extend(existing_scopes);
+                HashSet::<String>::from_iter(all_scopes)
+                    .into_iter()
+                    .collect()
+            }
+            None => scopes.iter().map(ToString::to_string).collect(),
+        };
+        let scopes: Vec<&str> = scopes.iter().map(<_>::as_ref).collect();
+        self.oauth_flow(url, &scopes, wants_keys)
+    }
+
     fn oauth_flow(&mut self, mut url: Url, scopes: &[&str], wants_keys: bool) -> Result<String> {
         let state = util::random_base64_url_string(&*RNG, 16)?;
         let code_verifier = util::random_base64_url_string(&*RNG, 43)?;
@@ -349,6 +383,72 @@ mod tests {
         assert_eq!(
             pairs.next(),
             Some((Cow::Borrowed("action"), Cow::Borrowed("email")))
+        );
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("response_type"), Cow::Borrowed("code")))
+        );
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("client_id"), Cow::Borrowed("12345678")))
+        );
+        assert_eq!(
+            pairs.next(),
+            Some((
+                Cow::Borrowed("redirect_uri"),
+                Cow::Borrowed("https://foo.bar")
+            ))
+        );
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("scope"), Cow::Borrowed("profile")))
+        );
+        let state_param = pairs.next().unwrap();
+        assert_eq!(state_param.0, Cow::Borrowed("state"));
+        assert_eq!(state_param.1.len(), 22);
+        assert_eq!(
+            pairs.next(),
+            Some((
+                Cow::Borrowed("code_challenge_method"),
+                Cow::Borrowed("S256")
+            ))
+        );
+        let code_challenge_param = pairs.next().unwrap();
+        assert_eq!(code_challenge_param.0, Cow::Borrowed("code_challenge"));
+        assert_eq!(code_challenge_param.1.len(), 43);
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("access_type"), Cow::Borrowed("offline")))
+        );
+        let keys_jwk = pairs.next().unwrap();
+        assert_eq!(keys_jwk.0, Cow::Borrowed("keys_jwk"));
+        assert_eq!(keys_jwk.1.len(), 168);
+    }
+
+    #[test]
+    fn test_oauth_force_auth_flow_url_with_keys() {
+        let mut fxa = FirefoxAccount::new(
+            "https://accounts.firefox.com",
+            "12345678",
+            "https://foo.bar",
+        );
+        let url = fxa
+            .force_auth_oauth_flow("test@restmail.net", &["profile"], true)
+            .unwrap();
+        let flow_url = Url::parse(&url).unwrap();
+
+        assert_eq!(flow_url.host_str(), Some("accounts.firefox.com"));
+        assert_eq!(flow_url.path(), "/authorization");
+
+        let mut pairs = flow_url.query_pairs();
+        assert_eq!(pairs.count(), 11);
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("action"), Cow::Borrowed("force_auth")))
+        );
+        assert_eq!(
+            pairs.next(),
+            Some((Cow::Borrowed("email"), Cow::Borrowed("test@restmail.net")))
         );
         assert_eq!(
             pairs.next(),
