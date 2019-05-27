@@ -132,7 +132,7 @@ tasks:
             - metadata:
                 name: Application Services - Decision task (master)
                 description: Schedules the build and test tasks for Application Services.
-        "tasks_for == 'github-release'":
+        "tasks_for == 'github-release' && event['action'] == 'published'":
           $let:
             beetmover_worker_type: appsv-beetmover-v1
             beetmover_bucket: maven-production
