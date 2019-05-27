@@ -55,8 +55,8 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   export CC=/tmp/clang/bin/clang
 
   export TOOLCHAIN_PREFIX=/tmp/cctools/bin
-  export AR=/tmp/cctools/bin/x86_64-apple-darwin11-ar
-  export RANLIB=/tmp/cctools/bin/x86_64-apple-darwin11-ranlib
+  export AR=/tmp/cctools/bin/x86_64-darwin11-ar
+  export RANLIB=/tmp/cctools/bin/x86_64-darwin11-ranlib
 
   LD_LIBRARY_PATH=/tmp/clang/lib ./Configure darwin64-x86_64-cc \
     no-asm shared \

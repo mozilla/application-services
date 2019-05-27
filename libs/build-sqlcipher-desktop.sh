@@ -93,12 +93,12 @@ make clean || true
 if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   export CC=/tmp/clang/bin/clang
 
-  export AR=/tmp/cctools/bin/x86_64-apple-darwin11-ar
-  export RANLIB=/tmp/cctools/bin/x86_64-apple-darwin11-ranlib
-  export STRIP=/tmp/cctools/bin/x86_64-apple-darwin11-strip
-  export LIBTOOL=/tmp/cctools/bin/x86_64-apple-darwin11-libtool
-  export NM=/tmp/cctools/bin/x86_64-apple-darwin11-nm
-  export LD=/tmp/cctools/bin/x86_64-apple-darwin11-ld
+  export AR=/tmp/cctools/bin/x86_64-darwin11-ar
+  export RANLIB=/tmp/cctools/bin/x86_64-darwin11-ranlib
+  export STRIP=/tmp/cctools/bin/x86_64-darwin11-strip
+  export LIBTOOL=/tmp/cctools/bin/x86_64-darwin11-libtool
+  export NM=/tmp/cctools/bin/x86_64-darwin11-nm
+  export LD=/tmp/cctools/bin/x86_64-darwin11-ld
 
   export CFLAGS='-B /tmp/cctools/bin -target x86_64-apple-darwin11 -mlinker-version=137 -isysroot /tmp/MacOSX10.11.sdk -I/tmp/MacOSX10.11.sdk/usr/include -iframework /tmp/MacOSX10.11.sdk/System/Library/Frameworks'
   export LDFLAGS='-B /tmp/cctools/bin -Wl,-syslibroot,/tmp/MacOSX10.11.sdk -Wl,-dead_strip'
