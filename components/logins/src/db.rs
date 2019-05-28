@@ -577,7 +577,7 @@ impl LoginDb {
             "DELETE FROM loginsM",
             &format!("UPDATE loginsL SET sync_status = {}", SyncStatus::New as u8),
         ])?;
-        self.set_last_sync(ServerTimestamp(0.0))?;
+        self.set_last_sync(ServerTimestamp(0))?;
         match assoc {
             StoreSyncAssociation::Disconnected => {
                 self.delete_meta(schema::GLOBAL_SYNCID_META_KEY)?;
@@ -788,9 +788,8 @@ impl LoginDb {
     }
 
     fn get_last_sync(&self) -> Result<Option<ServerTimestamp>> {
-        Ok(self
-            .get_meta::<i64>(schema::LAST_SYNC_META_KEY)?
-            .map(|millis| ServerTimestamp(millis as f64 / 1000.0)))
+        let millis = self.get_meta::<i64>(schema::LAST_SYNC_META_KEY)?.unwrap();
+        Ok(Some(ServerTimestamp(millis)))
     }
 
     pub fn set_global_state(&self, state: &Option<String>) -> Result<()> {

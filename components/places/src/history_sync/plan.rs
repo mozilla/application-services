@@ -473,7 +473,7 @@ mod tests {
         let url = Url::parse("https://example.com")?;
 
         // 2 incoming records with the same URL.
-        let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
+        let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0i64));
         let payload = Payload::from_json(json!({
             "id": guid1,
             "title": "title",
@@ -482,7 +482,7 @@ mod tests {
             "ttl": 100,
             "visits": [ {"date": ServerVisitTimestamp::from(ts1), "type": 1}]
         }))?;
-        incoming.changes.push((payload, ServerTimestamp(0f64)));
+        incoming.changes.push((payload, ServerTimestamp(0i64)));
 
         let payload2 = Payload::from_json(json!({
             "id": guid2,
@@ -492,7 +492,7 @@ mod tests {
             "ttl": 100,
             "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
         }))?;
-        incoming.changes.push((payload2, ServerTimestamp(0f64)));
+        incoming.changes.push((payload2, ServerTimestamp(0i64)));
 
         let outgoing = apply_plan(
             &db,
@@ -539,7 +539,7 @@ mod tests {
         apply_observation(&db, obs)?;
 
         // 2 incoming records with the same URL.
-        let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
+        let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0i64));
         let payload = Payload::from_json(json!({
             "id": guid1,
             "title": "title",
@@ -548,7 +548,7 @@ mod tests {
             "ttl": 100,
             "visits": [ {"date": ServerVisitTimestamp::from(ts1), "type": 1}]
         }))?;
-        incoming.changes.push((payload, ServerTimestamp(0f64)));
+        incoming.changes.push((payload, ServerTimestamp(0i64)));
 
         let payload2 = Payload::from_json(json!({
             "id": guid2,
@@ -558,7 +558,7 @@ mod tests {
             "ttl": 100,
             "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
         }))?;
-        incoming.changes.push((payload2, ServerTimestamp(0f64)));
+        incoming.changes.push((payload2, ServerTimestamp(0i64)));
 
         let outgoing = apply_plan(
             &db,
@@ -601,7 +601,7 @@ mod tests {
         apply_observation(&db, obs)?;
 
         // 2 incoming records with the same URL.
-        let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
+        let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0i64));
         let payload = Payload::from_json(json!({
             "id": guid1,
             "title": "title",
@@ -610,7 +610,7 @@ mod tests {
             "ttl": 100,
             "visits": [ {"date": ServerVisitTimestamp::from(ts1), "type": 1}]
         }))?;
-        incoming.changes.push((payload, ServerTimestamp(0f64)));
+        incoming.changes.push((payload, ServerTimestamp(0i64)));
 
         let payload2 = Payload::from_json(json!({
             "id": guid2,
@@ -620,7 +620,7 @@ mod tests {
             "ttl": 100,
             "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
         }))?;
-        incoming.changes.push((payload2, ServerTimestamp(0f64)));
+        incoming.changes.push((payload2, ServerTimestamp(0i64)));
 
         let outgoing = apply_plan(
             &db,
@@ -653,9 +653,9 @@ mod tests {
             "ttl": 100,
             "visits": [ {"date": 15_423_493_234_840_000_000u64, "type": 1}]
         });
-        let mut result = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
+        let mut result = IncomingChangeset::new("history".to_string(), ServerTimestamp(0i64));
         let payload = Payload::from_json(json).unwrap();
-        result.changes.push((payload, ServerTimestamp(0f64)));
+        result.changes.push((payload, ServerTimestamp(0i64)));
 
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let outgoing = apply_plan(
@@ -688,9 +688,9 @@ mod tests {
             "ttl": 100,
             "visits": [ {"date": -123, "type": 1}]
         });
-        let mut result = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
+        let mut result = IncomingChangeset::new("history".to_string(), ServerTimestamp(0i64));
         let payload = Payload::from_json(json).unwrap();
-        result.changes.push((payload, ServerTimestamp(0f64)));
+        result.changes.push((payload, ServerTimestamp(0i64)));
 
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let outgoing = apply_plan(
@@ -740,9 +740,9 @@ mod tests {
             "ttl": 100,
             "visits": [ {"date": ServerVisitTimestamp::from(now), "type": 1}]
         });
-        let mut result = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
+        let mut result = IncomingChangeset::new("history".to_string(), ServerTimestamp(0i64));
         let payload = Payload::from_json(json).unwrap();
-        result.changes.push((payload, ServerTimestamp(0f64)));
+        result.changes.push((payload, ServerTimestamp(0i64)));
 
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let outgoing = apply_plan(
@@ -790,7 +790,7 @@ mod tests {
             .with_at(Some(now.into()));
         apply_observation(&db, obs)?;
 
-        let incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
+        let incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0i64));
         let outgoing = apply_plan(
             &db,
             incoming,
@@ -829,9 +829,9 @@ mod tests {
             "visits": [ {"date": ServerVisitTimestamp::from(ts), "type": 1}]
         });
 
-        let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
+        let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0i64));
         let payload = Payload::from_json(json).unwrap();
-        incoming.changes.push((payload, ServerTimestamp(0f64)));
+        incoming.changes.push((payload, ServerTimestamp(0i64)));
 
         apply_plan(
             &db,
@@ -875,9 +875,9 @@ mod tests {
             "visits": [ {"date": ServerVisitTimestamp::from(ts2), "type": 1}]
         });
 
-        let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
+        let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0i64));
         let payload = Payload::from_json(json).unwrap();
-        incoming.changes.push((payload, ServerTimestamp(0f64)));
+        incoming.changes.push((payload, ServerTimestamp(0i64)));
 
         let outgoing = apply_plan(
             &db,
@@ -928,9 +928,9 @@ mod tests {
             "deleted": true,
         });
 
-        let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
+        let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0i64));
         let payload = Payload::from_json(json).unwrap();
-        incoming.changes.push((payload, ServerTimestamp(0f64)));
+        incoming.changes.push((payload, ServerTimestamp(0i64)));
 
         let outgoing = apply_plan(
             &db,
@@ -957,7 +957,7 @@ mod tests {
         // Set the status to normal
         apply_plan(
             &db,
-            IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64)),
+            IncomingChangeset::new("history".to_string(), ServerTimestamp(0i64)),
             &mut telemetry::EngineIncoming::new(),
             &NeverInterrupts,
         )?;
@@ -970,9 +970,9 @@ mod tests {
             "deleted": true,
         });
 
-        let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64));
+        let mut incoming = IncomingChangeset::new("history".to_string(), ServerTimestamp(0i64));
         let payload = Payload::from_json(json).unwrap();
-        incoming.changes.push((payload, ServerTimestamp(0f64)));
+        incoming.changes.push((payload, ServerTimestamp(0i64)));
 
         let outgoing = apply_plan(
             &db,
@@ -998,7 +998,7 @@ mod tests {
         // Set the status to normal
         apply_plan(
             &db,
-            IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64)),
+            IncomingChangeset::new("history".to_string(), ServerTimestamp(0i64)),
             &mut telemetry::EngineIncoming::new(),
             &NeverInterrupts,
         )?;
@@ -1013,7 +1013,7 @@ mod tests {
 
         let outgoing = apply_plan(
             &db,
-            IncomingChangeset::new("history".to_string(), ServerTimestamp(0f64)),
+            IncomingChangeset::new("history".to_string(), ServerTimestamp(0i64)),
             &mut telemetry::EngineIncoming::new(),
             &NeverInterrupts,
         )?;
