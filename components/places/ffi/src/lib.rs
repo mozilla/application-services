@@ -530,9 +530,16 @@ pub extern "C" fn bookmarks_get_all_with_url(
 ) -> ByteBuffer {
     log::debug!("bookmarks_get_all_with_url");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        Ok(BookmarkNodeList::from(
-            bookmarks::public_node::fetch_bookmarks_by_url(conn, &parse_url(url.as_str())?)?,
-        ))
+        Ok(match parse_url(url.as_str()) {
+            Ok(url) => {
+                BookmarkNodeList::from(bookmarks::public_node::fetch_bookmarks_by_url(conn, &url)?)
+            }
+            Err(e) => {
+                // There are no bookmarks with the URL if it's invalid.
+                log::warn!("Invalid URL passed to bookmarks_get_all_with_url, {}", e);
+                BookmarkNodeList::from(Vec::<bookmarks::public_node::PublicNode>::new())
+            }
+        })
     })
 }
 
