@@ -22,13 +22,13 @@ ARTIFACT_ID="$2"
 # we perform megazord builds, but at least it's an upper bound for now...
 LIMIT=30000000
 
-if [ -d $BUILD_DIR ]; then
-    for AAR_FILE in `find $BUILD_DIR -path "*/$ARTIFACT_ID/*" -name "*.aar"`; do
-        SIZE=`du -b $AAR_FILE | cut -f 1`
-        if [ $SIZE -gt $LIMIT ]; then
+if [ -d "${BUILD_DIR}" ]; then
+    while IFS= read -r -d '' AAR_FILE; do
+        SIZE=$(du -b "${AAR_FILE}" | cut -f 1)
+        if [ "${SIZE}" -gt "${LIMIT}" ]; then
             echo "ERROR: Build artifact is unacceptably large." >&2
-            du -h $AAR_FILE >&2
+            du -h "${AAR_FILE}" >&2
             exit 1
         fi
-    done
+    done <   <(find "${BUILD_DIR}" -path "*/${ARTIFACT_ID}/*" -name "*.aar" -print0)
 fi

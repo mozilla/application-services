@@ -211,6 +211,14 @@ jobs:
       - run: rustup component add clippy
       - run: cargo clippy --version
       - run: cargo clippy --all --all-targets --all-features -- -D warnings
+  Lint Bash scripts:
+    docker:
+      - image: koalaman/shellcheck-alpine:stable
+    steps:
+      - checkout
+      - run:
+          name: Lint Bash scripts with shellcheck
+          command: ./automation/lint_bash_scripts.sh
   Check Rust dependencies:
     docker:
       - image: circleci/rust:latest
@@ -378,6 +386,9 @@ workflows:
   check-dependencies:
     jobs:
       - Check Rust dependencies
+  bash-lint:
+    jobs:
+      - Lint Bash scripts
   deploy-website:
     jobs:
       - Deploy website:

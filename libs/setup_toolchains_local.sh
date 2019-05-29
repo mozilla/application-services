@@ -17,9 +17,16 @@ if [ -z "${ANDROID_NDK_ROOT}" ]; then
     exit 1
 fi
 
-source "$(dirname "${0}")/android_defaults.sh"
-mkdir -p ${ANDROID_NDK_TOOLCHAIN_DIR}
-echo "Installing toolchains for the following architectures: ${TARGET_ARCHS[@]}."
+if [ ! -f "$PWD/android_defaults.sh" ]
+then
+    echo "setup_toolchains_local.sh must be executed from within the libs/ directory."
+    exit 1
+fi
+
+# shellcheck disable=SC1091
+source "android_defaults.sh"
+mkdir -p "${ANDROID_NDK_TOOLCHAIN_DIR}"
+echo "Installing toolchains for the following architectures: ${TARGET_ARCHS[*]}."
 echo "The toolchains will be installed in ${ANDROID_NDK_TOOLCHAIN_DIR} (ANDROID_NDK_TOOLCHAIN_DIR)."
 echo "The Android API version is set to ${ANDROID_NDK_API_VERSION} (ANDROID_NDK_API_VERSION)."
 echo ""
@@ -35,7 +42,7 @@ for ARCH in "${TARGET_ARCHS[@]}"; do
 done
 
 # Setup cargo linkers
-CONFIG_FILE="$(dirname "${0}")/../.cargo/config"
+CONFIG_FILE="../.cargo/config"
 read -p "Would you like to set-up the toolchain linkers in .cargo/config? (you should say yes) " -n 1 -r
 echo ""
 if [[ ! ${REPLY} =~ ^[Yy]$ ]]
@@ -43,7 +50,7 @@ then
   exit 0
 fi
 
-mkdir -p "$(dirname "${0}")/../.cargo"
+mkdir -p "../.cargo"
 echo -n "" > ${CONFIG_FILE} # Clear the file first
 for i in "${!TARGET_ARCHS[@]}"; do
   ARCH=${TARGET_ARCHS[${i}]}

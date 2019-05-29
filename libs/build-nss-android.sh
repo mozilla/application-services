@@ -27,22 +27,18 @@ PLATFORM_PATH="${ANDROID_NDK_ROOT}/platforms/android-${ANDROID_NDK_API_VERSION}/
 USE_64=""
 if [ "${TOOLCHAIN}" == "x86_64-linux-android" ]
 then
-  CONFIGURE_ARCH="android64-x86_64"
   CPU_ARCH="x86_64"
   LDFLAGS="-L${PLATFORM_PATH}/usr/lib64"
   USE_64=1
 elif [ "${TOOLCHAIN}" == "i686-linux-android" ]
 then
-  CONFIGURE_ARCH="android-x86"
   CPU_ARCH="x86"
 elif [ "${TOOLCHAIN}" == "aarch64-linux-android" ]
 then
-  CONFIGURE_ARCH="android-arm64"
   CPU_ARCH="arm"
   USE_64=1
 elif [ "${TOOLCHAIN}" == "arm-linux-androideabi" ]
 then
-  CONFIGURE_ARCH="android-arm"
   CPU_ARCH="arm"
 else
   echo "Unknown toolchain"
@@ -76,8 +72,8 @@ BUILD_DIR=$(mktemp -d)
 # The ANDROID_ vars are just set so the Makefile doesn't complain.
 make \
   CROSS_COMPILE=1 \
-  ANDROID_NDK=${ANDROID_NDK_ROOT} \
-  ANDROID_TOOLCHAIN_VERSION=${ANDROID_NDK_API_VERSION} \
+  ANDROID_NDK="${ANDROID_NDK_ROOT}" \
+  ANDROID_TOOLCHAIN_VERSION="${ANDROID_NDK_API_VERSION}" \
   CC="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-clang" \
   CCC="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-clang++" \
   RANLIB="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ranlib" \

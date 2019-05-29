@@ -2,7 +2,7 @@
 
 set -euvx
 
-if [ "${#}" -lt 1 -o "${#}" -gt 2 ]
+if [ "${#}" -lt 1 ] || [ "${#}" -gt 2 ]
 then
   echo "Usage:"
   echo "./build-sqlcipher-desktop.sh <SQLCIPHER_SRC_PATH> [CROSS_COMPILE_TARGET]"
@@ -14,7 +14,7 @@ SQLCIPHER_SRC_PATH=${1}
 # only intended for automation.
 CROSS_COMPILE_TARGET=${2-}
 
-if [ -n "${CROSS_COMPILE_TARGET}" -a $(uname -s) != "Linux" ]; then
+if [ -n "${CROSS_COMPILE_TARGET}" ] && [ "$(uname -s)" != "Linux" ]; then
   echo "Can only cross compile from 'Linux'; 'uname -s' is $(uname -s)"
   exit 1
 fi
@@ -28,10 +28,10 @@ elif [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
 elif [ -n "${CROSS_COMPILE_TARGET}" ]; then
   echo "Cannot build SQLCipher for unrecognized target OS ${CROSS_COMPILE_TARGET}"
   exit 1
-elif [ $(uname -s) == "Darwin" ]; then
+elif [ "$(uname -s)" == "Darwin" ]; then
   SQLCIPHER_DIR=$(abspath "desktop/darwin/sqlcipher")
   OPENSSL_DIR=$(abspath "desktop/darwin/openssl")
-elif [ $(uname -s) == "Linux" ]; then
+elif [ "$(uname -s)" == "Linux" ]; then
   # This is a JNA weirdness: "x86-64" rather than "x86_64".
   SQLCIPHER_DIR=$(abspath "desktop/linux-x86-64/sqlcipher")
   OPENSSL_DIR=$(abspath "desktop/linux-x86-64/openssl")
@@ -126,6 +126,7 @@ elif [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
 pushd ..
 
 # From https://github.com/qTox/qTox/blob/9525505bff8719c84b6193174ea5e7ec097c54b8/windows/cross-compile/build.sh#L390-L446.
+# shellcheck disable=SC2016
 sed -i s/'if test "$TARGET_EXEEXT" = ".exe"'/'if test ".exe" = ".exe"'/g configure
 
 # Can't quite figure out what to tell ./configure so that it gets the picture
@@ -163,7 +164,7 @@ popd
     CFLAGS="${SQLCIPHER_CFLAGS} -I${OPENSSL_DIR}/include -L${OPENSSL_DIR}/lib" \
     LDFLAGS="-L${OPENSSL_DIR}/lib" \
     LIBS="-llibcrypto -lgdi32 -lws2_32"
-elif [ $(uname -s) == "Darwin" ]; then
+elif [ "$(uname -s)" == "Darwin" ]; then
   ../configure --prefix="${PWD}/install-prefix" \
     --with-pic \
     --disable-shared \
@@ -173,7 +174,7 @@ elif [ $(uname -s) == "Darwin" ]; then
     CFLAGS="${SQLCIPHER_CFLAGS} -I${OPENSSL_DIR}/include -L${OPENSSL_DIR}/lib" \
     LDFLAGS="-L${OPENSSL_DIR}/lib" \
     LIBS="-lcrypto"
-elif [ $(uname -s) == "Linux" ]; then
+elif [ "$(uname -s)" == "Linux" ]; then
   ../configure --prefix="${PWD}/install-prefix" \
     --with-pic \
     --disable-shared \

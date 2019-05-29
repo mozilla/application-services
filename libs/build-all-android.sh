@@ -19,7 +19,8 @@ then
     exit 1
 fi
 
-source "$(dirname "${0}")/android_defaults.sh"
+# shellcheck disable=SC1091
+source "android_defaults.sh"
 OPENSSL_SRC_PATH=${1}
 SQLCIPHER_SRC_PATH=${2}
 NSS_SRC_PATH=${3}

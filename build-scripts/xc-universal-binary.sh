@@ -28,9 +28,9 @@ LIBSDIR=${APPSVC_ROOT}/libs
 TARGETDIR=${APPSVC_ROOT}/target
 
 # If the libs don't exist, or it's modification time is older than the last commit in ${LIBSDIR}/ios, wipe it out.
-if [ ! -d ${LIBSDIR}/ios ] || [ $(stat -f "%m" ${LIBSDIR}/ios) -lt $(git log -n 1 --pretty=format:%at -- ${LIBSDIR}) ]; then
+if [ ! -d "${LIBSDIR}/ios" ] || [ "$(stat -f "%m" "${LIBSDIR}/ios")" -lt "$(git log -n 1 --pretty=format:%at -- "${LIBSDIR}")" ]; then
     echo "No iOS libs present, or they are stale"
-    pushd ${LIBSDIR}
+    pushd "${LIBSDIR}"
     rm -rf ios
     env -i PATH="${PATH}" HOME="${HOME}" ./build-all.sh ios
     popd
@@ -47,16 +47,16 @@ for i in "${!LIBS_ARCHS[@]}"; do
     env -i \
         PATH="${PATH}" \
         OPENSSL_STATIC=1 \
-        NSS_DIR=${LIBSDIR}/ios/${LIB_ARCH}/nss \
-        OPENSSL_DIR=${LIBSDIR}/ios/${LIB_ARCH}/openssl \
-        SQLCIPHER_LIB_DIR=${LIBSDIR}/ios/${LIB_ARCH}/sqlcipher/lib \
-        SQLCIPHER_INCLUDE_DIR=${LIBSDIR}/ios/${LIB_ARCH}/sqlcipher/include \
-        RUSTC_WRAPPER=${RUSTC_WRAPPER:-} \
-        SCCACHE_IDLE_TIMEOUT=${SCCACHE_IDLE_TIMEOUT:-} \
-        SCCACHE_CACHE_SIZE=${SCCACHE_CACHE_SIZE:-} \
-        SCCACHE_ERROR_LOG=${SCCACHE_ERROR_LOG:-} \
-        RUST_LOG=${RUST_LOG:-} \
-    ${HOME}/.cargo/bin/cargo build --locked -p ${FFI_TARGET} --lib ${RELFLAG} --target ${IOS_TRIPLES[${i}]}
+        NSS_DIR="${LIBSDIR}/ios/${LIB_ARCH}/nss" \
+        OPENSSL_DIR="${LIBSDIR}/ios/${LIB_ARCH}/openssl" \
+        SQLCIPHER_LIB_DIR="${LIBSDIR}/ios/${LIB_ARCH}/sqlcipher/lib" \
+        SQLCIPHER_INCLUDE_DIR="${LIBSDIR}/ios/${LIB_ARCH}/sqlcipher/include" \
+        RUSTC_WRAPPER="${RUSTC_WRAPPER:-}" \
+        SCCACHE_IDLE_TIMEOUT="${SCCACHE_IDLE_TIMEOUT:-}" \
+        SCCACHE_CACHE_SIZE="${SCCACHE_CACHE_SIZE:-}" \
+        SCCACHE_ERROR_LOG="${SCCACHE_ERROR_LOG:-}" \
+        RUST_LOG="${RUST_LOG:-}" \
+    "${HOME}"/.cargo/bin/cargo build --locked -p "${FFI_TARGET}" --lib ${RELFLAG} --target "${IOS_TRIPLES[${i}]}"
 done
 
 UNIVERSAL_BINARY=${TARGETDIR}/universal/${RELDIR}/${STATIC_LIB_NAME}
@@ -66,14 +66,14 @@ NEED_LIPO=
 # we need to run `lipo` again.
 if [[ ! -f "${UNIVERSAL_BINARY}" ]]; then
     NEED_LIPO=1
-elif [[ $(stat -f "%m" ${TARGETDIR}/x86_64-apple-ios/${RELDIR}/${STATIC_LIB_NAME}) -gt $(stat -f "%m" ${UNIVERSAL_BINARY}) ]]; then
+elif [[ "$(stat -f "%m" "${TARGETDIR}/x86_64-apple-ios/${RELDIR}/${STATIC_LIB_NAME}")" -gt "$(stat -f "%m" "${UNIVERSAL_BINARY}")" ]]; then
     NEED_LIPO=1
-elif [[ $(stat -f "%m" ${TARGETDIR}/aarch64-apple-ios/${RELDIR}/${STATIC_LIB_NAME}) -gt $(stat -f "%m" ${UNIVERSAL_BINARY}) ]]; then
+elif [[ "$(stat -f "%m" "${TARGETDIR}/aarch64-apple-ios/${RELDIR}/${STATIC_LIB_NAME}")" -gt "$(stat -f "%m" "${UNIVERSAL_BINARY}")" ]]; then
     NEED_LIPO=1
 fi
 if [[ "${NEED_LIPO}" = "1" ]]; then
-    mkdir -p ${TARGETDIR}/universal/${RELDIR}
+    mkdir -p "${TARGETDIR}/universal/${RELDIR}"
     lipo -create -output "${UNIVERSAL_BINARY}" \
-        ${TARGETDIR}/x86_64-apple-ios/${RELDIR}/${STATIC_LIB_NAME} \
-        ${TARGETDIR}/aarch64-apple-ios/${RELDIR}/${STATIC_LIB_NAME}
+        "${TARGETDIR}/x86_64-apple-ios/${RELDIR}/${STATIC_LIB_NAME}" \
+        "${TARGETDIR}/aarch64-apple-ios/${RELDIR}/${STATIC_LIB_NAME}"
 fi
