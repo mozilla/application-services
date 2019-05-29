@@ -15,7 +15,7 @@ fi
 NSS_SRC_PATH=${1}
 
 # Remove once NSS 3.44 is out (see bug 1540205 for context).
-echo '\
+echo '
 --- chacha20poly1305.c	2019-03-15 20:25:08.000000000 -0400
 +++ chacha20poly1305.c.patched	2019-03-29 17:24:37.000000000 -0400
 @@ -157,6 +157,7 @@
@@ -34,10 +34,11 @@ echo '\
 
  SECStatus
  ChaCha20Poly1305_Seal(const ChaCha20Poly1305Context *ctx, unsigned char *output,
-' | patch ${NSS_SRC_PATH}/nss/lib/freebl/chacha20poly1305.c
+' | patch "${NSS_SRC_PATH}/nss/lib/freebl/chacha20poly1305.c"
 
 # TODO: file bug to get this upstream.
-echo '\
+# shellcheck disable=SC2016
+echo '
 --- configure	2019-03-07 05:04:05.000000000 -0500
 +++ configure.patched	2019-04-02 15:04:27.000000000 -0400
 @@ -2641,6 +2641,12 @@
@@ -53,10 +54,11 @@ echo '\
  arm-linux*-android*|*-linuxandroid*)
      android_tool_prefix="arm-linux-androideabi"
      ;;
-' | patch ${NSS_SRC_PATH}/nspr/configure
+' | patch "${NSS_SRC_PATH}/nspr/configure"
 
 # TODO: file bug to get this upstream.
-echo '\
+# shellcheck disable=SC2016
+echo '
 --- Linux.mk	2019-04-02 14:55:31.000000000 -0400
 +++ Linux.mk.patched	2019-04-02 14:55:32.000000000 -0400
 @@ -135,6 +135,10 @@
@@ -70,12 +72,12 @@ echo '\
  ifdef USE_PTHREADS
  	DEFINES		+= -D_REENTRANT
  endif
-' | patch ${NSS_SRC_PATH}/nss/coreconf/Linux.mk
+' | patch "${NSS_SRC_PATH}/nss/coreconf/Linux.mk"
 
 # TODO: file bug to get this upstream.
 # This param makes mingw32 gcc trip.
-sed -i -e '/w44996/d' "${NSS_SRC_PATH}"/nss/lib/sqlite/Makefile
+sed -i -e '/w44996/d' "${NSS_SRC_PATH}/nss/lib/sqlite/Makefile"
 
 # We probably don't want to upstream this.
 # Only build NSS lib and skip tests
-sed -i -e '/^DIRS = /s/ cmd cpputil gtests$//' "${NSS_SRC_PATH}"/nss/manifest.mn
+sed -i -e '/^DIRS = /s/ cmd cpputil gtests$//' "${NSS_SRC_PATH}/nss/manifest.mn"

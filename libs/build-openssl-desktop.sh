@@ -4,7 +4,7 @@ set -euvx
 
 # End of configuration.
 
-if [ "${#}" -lt 1 -o "${#}" -gt 2 ]
+if [ "${#}" -lt 1 ] || [ "${#}" -gt 2 ]
 then
   echo "Usage:"
   echo "./build-openssl-desktop.sh <OPENSSL_SRC_PATH> [CROSS_COMPILE_TARGET]"
@@ -14,7 +14,7 @@ fi
 OPENSSL_SRC_PATH=${1}
 CROSS_COMPILE_TARGET=${2-}
 
-if [ -n "${CROSS_COMPILE_TARGET}" -a $(uname -s) != "Linux" ]; then
+if [ -n "${CROSS_COMPILE_TARGET}" ] && [ "$(uname -s)" != "Linux" ]; then
   echo "Can only cross compile from 'Linux'; 'uname -s' is $(uname -s)"
   exit 1
 fi
@@ -26,9 +26,9 @@ elif [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
 elif [ -n "${CROSS_COMPILE_TARGET}" ]; then
   echo "Cannot build OpenSSL for unrecognized target OS ${CROSS_COMPILE_TARGET}"
   exit 1
-elif [ $(uname -s) == "Darwin" ]; then
+elif [ "$(uname -s)" == "Darwin" ]; then
   OPENSSL_DIR=$(abspath "desktop/darwin/openssl")
-elif [ $(uname -s) == "Linux" ]; then
+elif [ "$(uname -s)" == "Linux" ]; then
   # This is a JNA weirdness: "x86-64" rather than "x86_64".
   OPENSSL_DIR=$(abspath "desktop/linux-x86-64/openssl")
 else
@@ -77,12 +77,12 @@ elif [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
     ./Configure --cross-compile-prefix=x86_64-w64-mingw32- mingw64 \
       shared \
       --prefix="${OPENSSL_OUTPUT_PATH}"
-elif [ $(uname -s) == "Darwin" ]; then
+elif [ "$(uname -s)" == "Darwin" ]; then
     # Force 64 bits on macOS.
     ./Configure darwin64-x86_64-cc \
       shared \
       --prefix="${OPENSSL_OUTPUT_PATH}"
-elif [ $(uname -s) == "Linux" ]; then
+elif [ "$(uname -s)" == "Linux" ]; then
     ./config shared \
       --prefix="${OPENSSL_OUTPUT_PATH}"
 fi

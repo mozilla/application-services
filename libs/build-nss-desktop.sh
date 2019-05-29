@@ -4,7 +4,7 @@
 
 set -euvx
 
-if [ "${#}" -lt 1 -o "${#}" -gt 2 ]
+if [ "${#}" -lt 1 ] || [ "${#}" -gt 2 ]
 then
   echo "Usage:"
   echo "./build-nss-desktop.sh <NSS_SRC_PATH> [CROSS_COMPILE_TARGET]"
@@ -16,7 +16,7 @@ NSS_SRC_PATH=${1}
 # only intended for automation.
 CROSS_COMPILE_TARGET=${2-}
 
-if [ -n "${CROSS_COMPILE_TARGET}" -a $(uname -s) != "Linux" ]; then
+if [ -n "${CROSS_COMPILE_TARGET}" ] && [ "$(uname -s)" != "Linux" ]; then
   echo "Can only cross compile from 'Linux'; 'uname -s' is $(uname -s)"
   exit 1
 fi
@@ -28,9 +28,9 @@ elif [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
 elif [ -n "${CROSS_COMPILE_TARGET}" ]; then
   echo "Cannot build NSS for unrecognized target OS ${CROSS_COMPILE_TARGET}"
   exit 1
-elif [ $(uname -s) == "Darwin" ]; then
+elif [ "$(uname -s)" == "Darwin" ]; then
   NSS_DIR=$(abspath "desktop/darwin/nss")
-elif [ $(uname -s) == "Linux" ]; then
+elif [ "$(uname -s)" == "Linux" ]; then
   # This is a JNA weirdness: "x86-64" rather than "x86_64".
   NSS_DIR=$(abspath "desktop/linux-x86-64/nss")
 else
@@ -85,7 +85,7 @@ elif [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
   EXTRA_MAKE_ARGS+=('CC=x86_64-w64-mingw32-gcc')
   EXTRA_MAKE_ARGS+=('CCC=x86_64-w64-mingw32-gcc')
   EXTRA_MAKE_ARGS+=('RC=x86_64-w64-mingw32-windres -O coff --use-temp-file')
-elif [ "$(uname -s)" == "Darwin" -o "$(uname -s)" == "Linux" ]; then
+elif [ "$(uname -s)" == "Darwin" ] || [ "$(uname -s)" == "Linux" ]; then
   "${NSS_SRC_PATH}"/nspr/configure \
     --enable-64bit \
     --disable-debug \
@@ -109,7 +109,7 @@ make \
   SOURCE_PREFIX="${BUILD_DIR}/dist" \
   SOURCE_MD_DIR="${BUILD_DIR}/dist" \
   DIST="${BUILD_DIR}/dist" \
-  -C ${NSS_SRC_PATH}/nss
+  -C "${NSS_SRC_PATH}/nss"
 
 mkdir -p "${NSS_DIR}/include/nss"
 mkdir -p "${NSS_DIR}/lib"
@@ -117,22 +117,22 @@ mkdir -p "${NSS_DIR}/lib"
 if [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
   EXT="dll"
   PREFIX=""
-elif [ "$(uname -s)" == "Darwin" -o "$(uname -s)" == "Linux" ]; then
+elif [ "$(uname -s)" == "Darwin" ] || [ "$(uname -s)" == "Linux" ]; then
   [[ "$(uname -s)" == "Darwin" ]] && EXT="dylib" || EXT="so"
   PREFIX="lib"
 fi
 
-cp -p -L "${BUILD_DIR}/dist"/lib/"${PREFIX}"freebl3."${EXT}" "${NSS_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/"${PREFIX}"nss3."${EXT}" "${NSS_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/"${PREFIX}"nssckbi."${EXT}" "${NSS_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/"${PREFIX}"nssutil3."${EXT}" "${NSS_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/"${PREFIX}"smime3."${EXT}" "${NSS_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/"${PREFIX}"softokn3."${EXT}" "${NSS_DIR}/lib"
-cp -p -L "${BUILD_DIR}/dist"/lib/"${PREFIX}"ssl3."${EXT}" "${NSS_DIR}/lib"
+cp -p -L "${BUILD_DIR}/dist/lib/${PREFIX}freebl3.${EXT}" "${NSS_DIR}/lib"
+cp -p -L "${BUILD_DIR}/dist/lib/${PREFIX}nss3.${EXT}" "${NSS_DIR}/lib"
+cp -p -L "${BUILD_DIR}/dist/lib/${PREFIX}nssckbi.${EXT}" "${NSS_DIR}/lib"
+cp -p -L "${BUILD_DIR}/dist/lib/${PREFIX}nssutil3.${EXT}" "${NSS_DIR}/lib"
+cp -p -L "${BUILD_DIR}/dist/lib/${PREFIX}smime3.${EXT}" "${NSS_DIR}/lib"
+cp -p -L "${BUILD_DIR}/dist/lib/${PREFIX}softokn3.${EXT}" "${NSS_DIR}/lib"
+cp -p -L "${BUILD_DIR}/dist/lib/${PREFIX}ssl3.${EXT}" "${NSS_DIR}/lib"
 # For some reason the NSPR libs always have the "lib" prefix even on Windows.
-cp -p -L "${NSPR_BUILD_DIR}/dist"/lib/libplc4."${EXT}" "${NSS_DIR}/lib"
-cp -p -L "${NSPR_BUILD_DIR}/dist"/lib/libplds4."${EXT}" "${NSS_DIR}/lib"
-cp -p -L "${NSPR_BUILD_DIR}/dist"/lib/libnspr4."${EXT}" "${NSS_DIR}/lib"
+cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplc4.${EXT}" "${NSS_DIR}/lib"
+cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplds4.${EXT}" "${NSS_DIR}/lib"
+cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libnspr4.${EXT}" "${NSS_DIR}/lib"
 
 cp -p -L "${BUILD_DIR}/dist"/public/nss/* "${NSS_DIR}/include/nss"
 cp -p -L -R "${NSPR_BUILD_DIR}/dist"/include/nspr/* "${NSS_DIR}/include/nss"

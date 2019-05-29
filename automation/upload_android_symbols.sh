@@ -9,8 +9,15 @@ then
     exit 1
 fi
 
+if [ ! -f "$PWD/libs/android_defaults.sh" ]
+then
+    echo "upload_android_symbols.sh must be executed from the root directory."
+    exit 1
+fi
+
 PROJECT_PATH=${1}
 
+# shellcheck disable=SC1091
 source "libs/android_defaults.sh"
 
 OUTPUT_FOLDER="crashreporter-symbols"
