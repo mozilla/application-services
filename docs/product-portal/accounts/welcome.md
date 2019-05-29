@@ -225,6 +225,7 @@ Below is a list of current and future Mozilla services that delegate authenticat
 
 ### Current
 
+*   [Firefox Send](https://send.firefox.com/)
 *   [Firefox Sync](https://www.mozilla.org/en-US/firefox/sync/) (since Firefox 29)
 *   [Find My Device](https://wiki.mozilla.org/CloudServices/FindMyDevice)
 *   [Firefox Marketplace](/en-US/Marketplace)
