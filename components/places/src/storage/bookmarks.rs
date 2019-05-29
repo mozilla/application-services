@@ -901,6 +901,23 @@ impl<'de> Deserialize<'de> for BookmarkTreeNode {
     }
 }
 
+/// Get the URL of the bookmark matching a keyword
+pub fn bookmarks_get_url_for_keyword(db: &PlacesDb, keyword: &str) -> Result<Option<Url>> {
+    let bookmark_url = db.try_query_row(
+        "SELECT url FROM moz_places p
+        JOIN moz_bookmarks_synced b ON b.placeId = p.id
+        WHERE b.keyword = :keyword",
+        &[(":keyword", &keyword)],
+        |row| row.get::<_, String>("url"),
+        true,
+    )?;
+
+    match bookmark_url {
+        Some(b) => Ok(Some(Url::parse(&b)?)),
+        None => Ok(None),
+    }
+}
+
 #[cfg(test)]
 mod test_serialize {
     use super::*;
@@ -1406,6 +1423,57 @@ mod tests {
             .expect("should work")
             .unwrap()
             .position
+    }
+
+    #[test]
+    fn test_bookmark_url_for_keyword() -> Result<()> {
+        let conn = new_mem_connection();
+
+        let url = Url::parse("http://example.com")
+            .expect("valid url")
+            .into_string();
+
+        conn.execute_named_cached(
+            "INSERT INTO moz_places (guid, url, url_hash) VALUES ('fake_guid___', :url, hash(:url))",
+            &[(":url", &url)],
+        )
+        .expect("should work");
+        let place_id = conn.last_insert_rowid();
+
+        // create a bookmark with keyword 'donut' pointing at it.
+        conn.execute_named_cached(
+            "INSERT INTO moz_bookmarks_synced
+                (keyword, placeId, guid)
+            VALUES
+                ('donut', :place_id, 'fake_guid___')",
+            &[(":place_id", &place_id)],
+        )
+        .expect("should work");
+
+        assert_eq!(
+            bookmarks_get_url_for_keyword(&conn, "donut")?,
+            Some(Url::parse("http://example.com")?)
+        );
+        assert_eq!(bookmarks_get_url_for_keyword(&conn, "juice")?, None);
+
+        // now change the keyword to 'ice cream'
+        conn.execute_named_cached(
+            "REPLACE INTO moz_bookmarks_synced
+                (keyword, placeId, guid)
+            VALUES
+                ('ice cream', :place_id, 'fake_guid___')",
+            &[(":place_id", &place_id)],
+        )
+        .expect("should work");
+
+        assert_eq!(
+            bookmarks_get_url_for_keyword(&conn, "ice cream")?,
+            Some(Url::parse("http://example.com")?)
+        );
+        assert_eq!(bookmarks_get_url_for_keyword(&conn, "donut")?, None);
+        assert_eq!(bookmarks_get_url_for_keyword(&conn, "ice")?, None);
+
+        Ok(())
     }
 
     #[test]

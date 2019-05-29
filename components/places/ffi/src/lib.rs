@@ -569,6 +569,19 @@ pub extern "C" fn bookmarks_get_all_with_url(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn bookmarks_get_url_for_keyword(
+    handle: u64,
+    keyword: FfiStr<'_>,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("bookmarks_get_url_for_keyword");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let url = bookmarks::bookmarks_get_url_for_keyword(conn, keyword.as_str())?;
+        Ok(url.map(url::Url::into_string))
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn bookmarks_search(
     handle: u64,
     query: FfiStr<'_>,
