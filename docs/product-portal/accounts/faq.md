@@ -5,7 +5,7 @@ sidebar_label: Frequently Asked Questions
 ---
 
 ## Am I required to create a Firefox Account to use Firefox?
-No. A Firefox Account is only required for Mozilla Services that require authentication, such as Firefox Sync and advanced features on Firefox Marketplace like purchasing paid apps, adding app reviews etc.
+No. A Firefox Account is only required for Mozilla Services that require authentication, such as Firefox Sync and advanced features on addons.mozilla.org like posting reviews, publishing new add-ons, etc.
 
 ## Why does Firefox Accounts require me to choose a password?
 One of the primary services that uses Firefox Accounts is Firefox Sync, which encrypts all your data client-side before submitting it to the server. The password is used to securely derive an encryption key.
