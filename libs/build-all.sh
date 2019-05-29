@@ -15,6 +15,12 @@ NSS_SHA256="fb2d54d507ceb185bac73f492cce7086a462d41977c2378aba9dd10e04448cf3"
 
 # End of configuration.
 
+if [ ! -f "$(pwd)/build-all.sh" ]
+then
+    echo "build-all.sh must be executed from within the libs/ directory."
+    exit 1
+fi
+
 if [ "${#}" -ne 1 ]
 then
     echo "Usage:"
