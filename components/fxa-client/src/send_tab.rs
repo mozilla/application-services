@@ -15,21 +15,24 @@ impl FirefoxAccount {
     ///
     /// **💾 This method alters the persisted account state.**
     pub(crate) fn generate_send_tab_command_data(&mut self) -> Result<String> {
-        let own_keys: PrivateSendTabKeys =
-            match self.state.commands_data.get(send_tab::COMMAND_NAME) {
-                Some(s) => serde_json::from_str(s)?,
-                None => {
-                    let keys = PrivateSendTabKeys::from_random()?;
-                    self.state.commands_data.insert(
-                        send_tab::COMMAND_NAME.to_owned(),
-                        serde_json::to_string(&keys)?,
-                    );
-                    keys
-                }
-            };
+        let own_keys = self.load_or_generate_keys()?;
         let public_keys: PublicSendTabKeys = own_keys.into();
         let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
         public_keys.as_command_data(&oldsync_key)
+    }
+
+    fn load_or_generate_keys(&mut self) -> Result<PrivateSendTabKeys> {
+        if let Some(s) = self.state.commands_data.get(send_tab::COMMAND_NAME) {
+            match PrivateSendTabKeys::deserialize(s) {
+                Ok(keys) => return Ok(keys),
+                Err(_) => log::error!("Could not deserialize Send Tab keys. Re-creating them."),
+            }
+        }
+        let keys = PrivateSendTabKeys::from_random()?;
+        self.state
+            .commands_data
+            .insert(send_tab::COMMAND_NAME.to_owned(), keys.serialize()?);
+        Ok(keys)
     }
 
     /// Send a single tab to another device designated by its device ID.
@@ -52,7 +55,7 @@ impl FirefoxAccount {
     ) -> Result<(Option<GetDeviceResponse>, SendTabPayload)> {
         let send_tab_key: PrivateSendTabKeys =
             match self.state.commands_data.get(send_tab::COMMAND_NAME) {
-                Some(s) => serde_json::from_str(s)?,
+                Some(s) => PrivateSendTabKeys::deserialize(s)?,
                 None => {
                     return Err(ErrorKind::IllegalState(
                         "Cannot find send-tab keys. Has initialize_device been called before?",
