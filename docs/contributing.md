@@ -64,6 +64,8 @@ Patches should be submitted as [pull requests](https://help.github.com/articles/
 Before submitting a PR:
 - Your code must run and pass all the automated tests before you submit your PR for review. "Work in progress" pull requests are allowed to be submitted, but should be clearly labeled as such and should not be merged until all tests pass and the code has been reviewed.
   - Run `cargo test --all` to make sure all tests still pass and no warnings are emitted.
+  - Run `cargo run -p sync-test` to make sure the sync integration tests still pass.
+  Note: You need to have [node](https://nodejs.org/) installed for running the integration tests.
   - Run `cargo clippy --all-targets --all-features` to make sure that linting passes (You may need to `rustup component add clippy` first).
   - Run `cargo fmt` to ensure the code is formatted correctly.
 - Your patch should include new tests that cover your changes. It is your and your reviewer's responsibility to ensure your patch includes adequate tests.
