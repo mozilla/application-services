@@ -8,7 +8,6 @@
 use std::collections::HashMap;
 use std::time;
 
-// We use serde to serialize to json (but we never need to deserialize)
 use serde::ser::{self, Serialize, Serializer};
 use serde_derive::*;
 #[cfg(test)]
