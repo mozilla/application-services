@@ -137,7 +137,8 @@ data class EngineInfo(
     val took: Int,
     val incoming: IncomingInfo?,
     val outgoing: List<OutgoingInfo>,
-    val failureReason: FailureReason?
+    val failureReason: FailureReason?,
+    val validation: ValidationInfo?
 ) {
     companion object {
         fun fromJSON(jsonObject: JSONObject): EngineInfo {
@@ -156,13 +157,19 @@ data class EngineInfo(
             }?.let {
                 FailureReason.fromJSON(it)
             }
+            val validation = unwrapFromJSON(jsonObject) {
+                jsonObject.getJSONObject("validation")
+            }?.let {
+                ValidationInfo.fromJSON(it)
+            }
             return EngineInfo(
                 name = jsonObject.getString("name"),
                 at = jsonObject.getInt("when"),
                 took = intOrZero(jsonObject, "took"),
                 incoming = incoming,
                 outgoing = outgoing,
-                failureReason = failureReason
+                failureReason = failureReason,
+                validation = validation
             )
         }
 
@@ -195,6 +202,9 @@ data class EngineInfo(
             }
             failureReason?.let {
                 put("failureReason", it.toJSON())
+            }
+            validation?.let {
+                put("validation", it.toJSON())
             }
         }
     }
@@ -263,6 +273,80 @@ data class OutgoingInfo(
             }
             if (failed > 0) {
                 put("failed", failed)
+            }
+        }
+    }
+}
+
+data class ValidationInfo(
+    val version: Int,
+    val problems: List<ProblemInfo>,
+    val failureReason: FailureReason?
+) {
+    companion object {
+        fun fromJSON(jsonObject: JSONObject): ValidationInfo {
+            val problems = unwrapFromJSON(jsonObject) {
+                it.getJSONArray("outgoing")
+            }?.let {
+                ProblemInfo.fromJSONArray(it)
+            } ?: emptyList()
+            val failureReason = unwrapFromJSON(jsonObject) {
+                it.getJSONObject("failureReason")
+            }?.let {
+                FailureReason.fromJSON(it)
+            }
+            return ValidationInfo(
+                version = jsonObject.getInt("version"),
+                problems = problems,
+                failureReason = failureReason
+            )
+        }
+    }
+
+    fun toJSON(): JSONObject {
+        return JSONObject().apply {
+            put("version", version)
+            if (!problems.isEmpty()) {
+                val jsonArray = JSONArray().apply {
+                    problems.forEach {
+                        put(it.toJSON())
+                    }
+                }
+                put("problems", jsonArray)
+            }
+            failureReason?.let {
+                put("failueReason", it.toJSON())
+            }
+        }
+    }
+}
+
+data class ProblemInfo(
+    val name: String,
+    val count: Int
+) {
+    companion object {
+        fun fromJSON(jsonObject: JSONObject): ProblemInfo {
+            return ProblemInfo(
+                name = jsonObject.getString("name"),
+                count = intOrZero(jsonObject, "count")
+            )
+        }
+
+        fun fromJSONArray(jsonArray: JSONArray): List<ProblemInfo> {
+            val result: MutableList<ProblemInfo> = mutableListOf()
+            for (index in 0 until jsonArray.length()) {
+                result.add(fromJSON(jsonArray.getJSONObject(index)))
+            }
+            return result
+        }
+    }
+
+    fun toJSON(): JSONObject {
+        return JSONObject().apply {
+            put("name", name)
+            if (count > 0) {
+                put("count", count)
             }
         }
     }
