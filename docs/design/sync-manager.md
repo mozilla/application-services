@@ -230,7 +230,11 @@ For the purposes of the sync manager, we define:
 * An *engine* is the unit exposed to the user - an "engine" can be enabled
   or disabled. There is a single set of canonical "engines" used across the
   entire sync ecosystem - ie, desktop and mobile devices all need to agree
-  about what engines exist and what the identifier for an engine is.
+  about what engines exist and what the identifier for an engine is (although
+  note that, to some degree, the sync manager and the application will need to
+  handle engines which are unknown by this application, but which have been
+  introduced on other devices, presumably due to those other devices running
+  a newer version - see "Declined" below for more.)
 
 * An *Api* is the unit exposed to the application layer for general application
   functionality. Application services has 'places' and 'logins' Apis and is
@@ -269,13 +273,181 @@ manager, we have the following hard requirements:
   may change on every sync (ie, when the user opts in to or out of a particular
   engine on another device)
 
-A complication is that due to networks being unreliable, there's an inherent
-conflict between "what is the current state?" and "what state changes are
-requested?". For example, if the user changes the state of an engine while
-there's no network, then exits the app, how do we ensure the user's new state
-is updated next time the app starts? What if the user has since made a
-different state request on a different device? Is the state as last-known on
-this device considered canonical?
+While not a "current" hard requirement, we want to add one more to account
+for the future:
+
+* Future engines can be introduced in a sane way and can co-exist with
+  applications which don't know about the new engines.
+
+### New and unknown engines
+
+Because "choose what to sync" is typically only offered at account creation
+time, only engines which exist at that time are explicitly offered. New engines
+shouldn't be enabled without explicit consent from the user, but the user
+was never offered the engine. We've struck this in practice with the
+"creditcards" and "addresses" engines on Desktop Firefox.
+
+#### Better understanding the problem.
+
+For the sake of this disussion, let's assume 3 devices are connected to
+an account and there's a new engine being rolled out.
+
+* A "Nightly" device, which has had support for the new engine for
+  some time.
+
+* A "Beta" device, which has just been upgraded, and this upgrade is the
+  very first time it understands anything about the new engine.
+
+* A "Release" device, which doesn't understand anything about the new engine.
+
+Consider the "Beta" device - just because it was upgraded to understand a new
+engine doesn't mean that other devices aren't already aware of the engine -
+in this scenario, the "Nightly" device has already been syncing it. But when
+the "Nightly" device was initially upgraded, it truly was the first device to
+have ever known about the engine.
+
+This means that we can't just treat "declined" as a simple bool for this:
+
+* If the Beta device assumes new engines must be declined, it may decline
+  an engine which was previously explicitly allowed by the Nightly device.
+
+* If the Beta device doesn't mark the new engine as declined and it
+  really is the first ever device to understand the engine, then
+  the new engine will be enabled without user consent.
+
+* Before the first sync, the beta device has no idea whether another device
+  may have allowed or declined the new engine.
+
+Further complicating this is the fact that any of these devices may be the
+first to sync after a node reassignment or password reset.
+
+#### Suggested solution
+
+Instead of just supplying a list of declined engines, the containing
+application will supply a list of all known engines, and a tri-state
+value for each. The tri-state values are:
+
+* Declined - the engine is known by this application to be declined.
+* Allowed - the engine is known by this application to be allowed. (XXX - note
+  that in practice, this might be better described as "Exists" - there's no
+  explicit list of allowed engines. I'm not sure that distinction is worthwhile
+  though?)
+* Unknown - the engine state is not known by this application.
+
+After a sync, the sync manager will return the list of known engines with the
+same tri-state value. In almost all cases, the list of engines returned will
+have either "Allowed" or "Declined" - "Unknown" is an edge case (for example, if
+you invent an engine name, you'll get this back.) Importantly, the application
+must expect that the engines it gets back after the sync might include engines
+that were not initially specified - it will get the *complete* set of known
+engines and their state. The application is expected to persist these values and
+supply them to subsequent `sync()` calls, although it need not provide UI
+allowing them to be changed. Note that it technically could supply such UI,
+but it is advised not to, for UX reasons discussed further below.
+
+On the very first sync for an application (eg, immediately after being
+connected to an account), and assuming the application has not explicitly
+asked what to sync, the application should supply the list of engines
+with "Unknown" for the state values. However, if the application has asked
+the user to choose, it is free to specify "Allowed" or "Declined" - it just
+needs to be aware that doing so may overwrite current values for the account.
+
+If a device supplies "Unknown" for an engine, and there's no storage for the
+account (eg, a device syncing after a node reassignment) it will not sync that
+engine. This is because it doesn't know what the state for that engine should
+be. It will start syncing the engine when some other device shows up and either
+adds the collection or adds it to declined, or if the user explicitly visits
+"choose what to sync" on the device. This might be surprising, and possibly
+contentious, but should be very rare.
+
+#### Examples
+
+(Note that for simplicity, this section uses JSON to represent the declined
+list, but that's not how it will be specified in practice)
+
+Let's take Fenix as an example, when a user signs in to an existing account
+and before they've explicitly chosen what to sync on that device:
+
+* On the very first sync, it will supply `{"bookmarks": Unknown, "history", Unknown}`
+* When sync returns, it might get back, for example.
+  `{"bookmarks": Enabled, "history": Disabled, "passwords": Enabled, ...}`
+* The application is expected to persist *all* of these values - including 
+  "passwords", even though it doesn't understand that collection. This value
+  may be used to repopulate the declined list should this device be the first to
+  sync after storage is reset.
+
+For any app on which an account is created, and where a "choose what to sync"
+UI is part of the account creation flow:
+
+* On the very first sync, it will supply all of the "offered" engines, and
+  will supply explicit "Enabled" or "Disabled" values - nothing will be specified
+  as "Unknown".
+* Because this will be the first sync for the account, no other engines will
+  exist on the server, so the exact same states will be returned after the sync.
+
+And some edge-cases:
+
+* On the very first sync, an app supplies
+  `{"bookmarks": Unknown, "history", Unknown, "not-an-engine": Unknown}`
+* If the sync fails early, it gets the exact same thing back.
+* If the sync works, it gets back, say:
+  `{"not-an-engine": Unknown, "bookmarks": Enabled, "history": Disabled, "passwords": Enabled, ...}`
+
+#### How the sync manager resolves these
+
+There's no canonical list of engines, so somehow the sync manager needs to work
+out what to do. When storage already exists on the server, it's relatively simple -
+we have `declined` in meta/global and we have the list of current collections in
+info/collections.
+
+If there is no storage things get tricky. Consider the Fenix example above -
+it will find no storage, and even though it doesn't sync passwords, it knows
+passwords should be enabled. It will not put passwords in the declined list, but
+neither will it create the passwords collection. So even though the app supplied
+`{passwords: Enabled}`, it will now get back `{passwords: Unknown}`. This will
+only be a problem is Fenix decides to show "passwords" in its "choose what to
+sync" - so Fenix should probably avoid offering unknown engines (which is fine,
+because that would probably confuse the user anyway!) Regardless, in this
+scenario, some other device that *does* sync passwords will show up and will
+remember that it was enabled, so everything ends up OK.
+
+#### How do new engines become enabled?
+
+As implied above, the state of an engine transitions from "Unknown" to "Allowed"
+when it appears in info/collections and isn't in declined. When the very first
+device which knows about a new engine appears, and assuming this device hasn't
+already shown explicit UI allowing the new engine, we can expect the application
+to specify "Unknown" for the new collection. During the sync, we can expect that
+collection to not appear in info/collections, so the sync manager will return
+"Unknown" for this engine - and it will not sync.
+
+At some point, this app will show UI asking the user if they want to sync
+this new engine (this need not be special UI, the normal "choose what to sync"
+UI for the app will presumably include this new engine). After that explicit
+UI, the app will begin supplying either "Allowed" or "Declined" for this engine,
+and the sync manager will take the appropriate action (ie, either add it to
+declined, or sync it causing info/collections to begin reporting it)
+
+#### Problems, challenges, etc
+
+There's a UX issue here in that applications somehow needs to handle this
+tri-state value. In most cases the app will arrange to only show a
+"choose what to sync" UI after connecting and after the first sync, but
+it might also need to handle "incidental" showing of this UI before that
+first sync completes - for example, simply *showing* the UI probably shouldn't
+force changing the state of an engine from "Unknown". The UX challenge is to
+ensure the user really has consented before marking an engine as "Allowed".
+
+### Handling races between devices.
+
+Even with the tri-state declined flags discussed above, an additional
+complication is that due to networks being unreliable, there's an inherent
+conflict between "what is the current state of enabled/disabled engines?" and
+"what state changes are requested?". For example, if the user changes the state
+of an engine while there's no network, then exits the app, how do we ensure the
+user's new state is updated next time the app starts? What if the user has since
+made a different state request on a different device? Is the state as last-known
+on this device considered canonical?
 
 To clarify, consider:
 
@@ -297,9 +469,10 @@ no real definition for "correctly")
 
 Regardless, the low-level component will not pretend to hide this complexity
 (ie, it will ignore it!). The low-level component will allow the app to ask
-for state changes as part of a sync, and will return what's on the server at
-the end of every sync. The app is then free to build whatever experience
-it desires around this.
+for state changes as part of a sync, and use the persisted last-modified date
+of meta/global to decide whether to try and apply the changes or not - so if any
+other device has changed this, the requested state changes will be discarded and
+it will return what's on the server at the end of the sync.
 
 ## Disconnecting from Sync
 
@@ -397,25 +570,18 @@ that needs to be passed around.
 
 ```rust
 
-// We want to define a list of "engine IDs" - ie, canonical strings which
-// refer to what the user perceives as an "enigine" - but as above, these
-// *do not* correspond 1:1 with either "stores" or "collections" (eg, "history"
-// refers to 2 stores, and in a future world, might involve 3 collections).
-enum Engine {
-  History, // The "History" and "Forms" stores.
-  Bookmarks, // The "Bookmark" store.
-  Passwords,
-}
-
-impl Engine {
-  fn as_str(&self) -> &'static str {
-    match self {
-      History => "history",
-      // etc
-  }
-}
+// A previous version of this document suggested using an enum to identify
+// engines. However, as discussed above re the declined list, apps will need to
+// have some support for engines which didn't exist at the time that software
+// was released.
+// Therefore, all engine identifiers are simple Strings. There's a canonical
+// list of names which apps will need to agree on, but that list needs to be
+// externally managed.
+type Engine = String;
 
 // A struct which reflects engine declined states.
+// XXX - this simple `bool` doesn't reflect the tri-state discussion for declined
+// above - this should be fixed once there's general agreement on the above.
 struct EngineState {
   engine: Engine,
   enabled: bool,
