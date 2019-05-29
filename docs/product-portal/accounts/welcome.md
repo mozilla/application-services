@@ -23,7 +23,7 @@ Firefox Accounts integration is currently recommended only for Mozilla-hosted se
 
 All reliers need to register the following information with Firefox Accounts:
 
-*   **name** \- a user friendly name for your service, e.g., "Firefox Marketplace".
+*   **name** \- a user friendly name for your service, e.g., "Firefox Send".
 *   **redirect_uri** - a HTTPS endpoint on your service, to which we can return the user after authentication has completed.
 
 In return, your service will be allocated a set of OAuth client credentials:
@@ -227,8 +227,6 @@ Below is a list of current and future Mozilla services that delegate authenticat
 
 *   [Firefox Send](https://send.firefox.com/)
 *   [Firefox Sync](https://www.mozilla.org/en-US/firefox/sync/) (since Firefox 29)
-*   [Find My Device](https://wiki.mozilla.org/CloudServices/FindMyDevice)
-*   [Firefox Marketplace](/en-US/Marketplace)
 *   [addons.mozilla.org](https://addons.mozilla.org)
 *   [Mozilla IAM](https://github.com/mozilla-iam/mozilla-iam) (since [June 2018](https://discourse.mozilla.org/t/announcing-firefox-accounts-in-mozilla-iam/29218))
 
