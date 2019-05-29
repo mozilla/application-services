@@ -16,14 +16,17 @@ use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
 use crate::storage::{bookmarks::BookmarkRootGuid, delete_meta, get_meta, put_meta};
 use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
 use dogear::{
-    self, AbortSignal, Content, Deletion, Item, MergedDescendant, MergedRoot, Tree, UploadReason,
+    self, AbortSignal, Content, Deletion, Item, MergedDescendant, MergedRoot, TelemetryEvent, Tree,
+    UploadReason,
 };
 use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt, SqlInterruptScope};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fmt;
 use std::result;
+use std::time::Duration;
 use sync15::{
     telemetry, CollSyncIds, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload,
     ServerTimestamp, Store, StoreSyncAssociation,
@@ -33,6 +36,17 @@ pub const LAST_SYNC_META_KEY: &str = "bookmarks_last_sync_time";
 // for the global sync ID, because engines are reset individually.
 const GLOBAL_SYNCID_META_KEY: &str = "bookmarks_global_sync_id";
 const COLLECTION_SYNCID_META_KEY: &str = "bookmarks_sync_id";
+
+/// The window of time for which to store actions in
+/// `moz_bookmarks_synced_actions`. All merge actions older than this window are
+/// pruned at the end of each sync.
+const PRUNE_OLD_ACTIONS_AFTER_DEFAULT: Duration = Duration::from_secs(10 * 60 * 60 * 24); // 10 days.
+/// A `moz_meta` key for the last time synced actions were pruned.
+const ACTIONS_LAST_PRUNED_AT_META_KEY: &str = "bookmarks_synced_actions_last_pruned_at";
+
+/// Warn if the same item is reuploaded after this many consecutive syncs.
+/// This is a heuristic that we use to detect possible sync loops.
+const WARN_AFTER_CONSECUTIVE_REUPLOADS_DEFAULT: i64 = 5;
 
 /// The maximum number of URLs for which to recalculate frecencies at once.
 /// This is a trade-off between write efficiency and transaction time: higher
@@ -525,50 +539,6 @@ impl<'a> BookmarksStore<'a> {
         Ok(())
     }
 
-    /// Fetches a list of items that have been reuploaded with new structure for
-    /// the last 5 syncs. This is captured in logs and telemetry, and suggests
-    /// that we might be in a sync loop with another client (bug 1530145).
-    fn consecutive_reuploads(&self) -> Result<Vec<ConsecutiveReupload>> {
-        let mut reuploads = Vec::new();
-        let mut stmt = self.db.prepare(&format!(
-            "WITH
-             ranks(rank, at, guid, action) AS (
-               /* First, assign the same rank to all items uploaded in the same
-                  sync. Dense ranking assigns consecutive rank values to
-                  successive syncs. */
-               SELECT dense_rank() OVER (ORDER BY at), at, guid, action
-               FROM moz_bookmarks_synced_actions
-             ),
-             groupings(guid, at, grouping) AS (
-               /* Next, assign groups for all reuploaded items that weren't
-                  changed or deleted locally. The grouping values are arbitrary,
-                  but identical for consecutive syncs, so grouping by (GUID,
-                  grouping) yields groups with rows for consecutive syncs where
-                  the GUID was reuploaded. */
-               SELECT guid, at, rank - row_number() OVER (PARTITION BY guid ORDER BY rank)
-               FROM ranks
-               WHERE action = {action}
-             )
-             SELECT guid, min(at) AS startedAt, max(at) AS stoppedAt,
-                    count(*) AS consecutiveReuploads
-             FROM groupings
-             GROUP BY guid, grouping
-             HAVING consecutiveReuploads >= 5",
-            action = SyncedBookmarkAction::TakeRemoteUploadNewStructure as u8,
-        ))?;
-        let mut results = stmt.query(NO_PARAMS)?;
-        while let Some(row) = results.next()? {
-            self.interruptee.err_if_interrupted()?;
-            reuploads.push(ConsecutiveReupload {
-                guid: row.get("guid")?,
-                started_at: row.get("startedAt")?,
-                stopped_at: row.get("stoppedAt")?,
-                count: row.get("consecutiveReuploads")?,
-            });
-        }
-        Ok(reuploads)
-    }
-
     /// Removes all sync metadata, such that the next sync is treated as a
     /// first sync. Unlike `wipe`, this keeps all local items, but clears
     /// all synced items and pending tombstones. This also forgets the last
@@ -624,37 +594,8 @@ impl<'a> Store for BookmarksStore<'a> {
         put_meta(self.db, LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
 
         // Merge.
-        let mut merger = Merger::new(&self, timestamp);
-        let stats = merger.merge()?;
-
-        // Record validation telemetry.
-        let mut v = telemetry::Validation::with_version(3);
-        match self.consecutive_reuploads() {
-            Ok(consecutive_reuploads) => {
-                for reupload in &consecutive_reuploads {
-                    log::warn!("{}", reupload);
-                }
-                // TODO: Record more detailed stats for consecutive reuploads?
-                v.problem("consecutiveReuploads", consecutive_reuploads.len());
-            }
-            Err(err) => {
-                log::warn!("Failed to fetch stats for consecutive reuploads: {:?}", err);
-            }
-        }
-        v.problem("orphans", stats.problems.orphans)
-            .problem("misparentedRoots", stats.problems.misparented_roots)
-            .problem(
-                "multipleParents",
-                stats.problems.multiple_parents_by_children,
-            )
-            .problem("missingParents", stats.problems.missing_parent_guids)
-            .problem("nonFolderParents", stats.problems.non_folder_parent_guids)
-            .problem(
-                "parentChildDisagreements",
-                stats.problems.parent_child_disagreements,
-            )
-            .problem("missingChildren", stats.problems.missing_children);
-        telem.validation(v);
+        let mut merger = Merger::with_telemetry(&self, timestamp, telem);
+        merger.merge()?;
 
         // Finally, stage outgoing items.
         let outgoing = self.fetch_outgoing_records(timestamp)?;
@@ -731,11 +672,42 @@ impl<'a> Store for BookmarksStore<'a> {
     }
 }
 
-struct Driver;
+struct Driver {
+    validation: RefCell<telemetry::Validation>,
+}
+
+impl Driver {
+    fn new() -> Driver {
+        Driver {
+            validation: RefCell::default(),
+        }
+    }
+}
 
 impl dogear::Driver for Driver {
     fn generate_new_guid(&self, _invalid_guid: &dogear::Guid) -> dogear::Result<dogear::Guid> {
         Ok(SyncGuid::new().into())
+    }
+
+    fn record_telemetry_event(&self, event: TelemetryEvent) {
+        // Record validation telemetry for remote trees.
+        if let TelemetryEvent::FetchRemoteTree(stats) = event {
+            self.validation
+                .borrow_mut()
+                .problem("orphans", stats.problems.orphans)
+                .problem("misparentedRoots", stats.problems.misparented_roots)
+                .problem(
+                    "multipleParents",
+                    stats.problems.multiple_parents_by_children,
+                )
+                .problem("missingParents", stats.problems.missing_parent_guids)
+                .problem("nonFolderParents", stats.problems.non_folder_parent_guids)
+                .problem(
+                    "parentChildDisagreements",
+                    stats.problems.parent_child_disagreements,
+                )
+                .problem("missingChildren", stats.problems.missing_children);
+        }
     }
 }
 
@@ -749,6 +721,9 @@ pub(crate) struct Merger<'a> {
     // is on the `apply()` function. Always false unless the caller explicitly
     // turns it on, to avoid accidentally enabling unintentionally.
     external_transaction: bool,
+    prune_old_actions_after: Duration,
+    warn_after_consecutive_reuploads: i64,
+    telem: Option<&'a mut telemetry::Engine>,
 }
 
 impl<'a> Merger<'a> {
@@ -758,6 +733,25 @@ impl<'a> Merger<'a> {
             remote_time,
             local_time: Timestamp::now(),
             external_transaction: false,
+            prune_old_actions_after: PRUNE_OLD_ACTIONS_AFTER_DEFAULT,
+            warn_after_consecutive_reuploads: WARN_AFTER_CONSECUTIVE_REUPLOADS_DEFAULT,
+            telem: None,
+        }
+    }
+
+    pub(crate) fn with_telemetry(
+        store: &'a BookmarksStore<'_>,
+        remote_time: ServerTimestamp,
+        telem: &'a mut telemetry::Engine,
+    ) -> Self {
+        Self {
+            store,
+            remote_time,
+            local_time: Timestamp::now(),
+            external_transaction: false,
+            prune_old_actions_after: PRUNE_OLD_ACTIONS_AFTER_DEFAULT,
+            warn_after_consecutive_reuploads: WARN_AFTER_CONSECUTIVE_REUPLOADS_DEFAULT,
+            telem: Some(telem),
         }
     }
 
@@ -769,15 +763,39 @@ impl<'a> Merger<'a> {
         self.external_transaction = v;
     }
 
-    pub(crate) fn merge(&mut self) -> Result<dogear::Stats> {
+    /// Changes the merge action pruning interval. Exposed for tests.
+    fn set_prune_old_actions_after(&mut self, v: Duration) {
+        self.prune_old_actions_after = v;
+    }
+
+    pub(crate) fn merge(&mut self) -> Result<()> {
         use dogear::Store;
         if !self.store.has_changes()? {
-            return Ok(dogear::Stats::default());
+            return Ok(());
         }
         // Merge and stage outgoing items via dogear.
-        let stats = self.merge_with_driver(&Driver, &MergeInterruptee(self.store.interruptee))?;
-        log::debug!("merge completed: {:?}", stats);
-        Ok(stats)
+        let driver = Driver::new();
+        let result = self.merge_with_driver(&driver, &MergeInterruptee(self.store.interruptee));
+        log::debug!("merge completed");
+
+        // Record telemetry in all cases, even if the merge fails.
+        if self.telem.is_some() {
+            let consecutive_reuploads = self.fetch_consecutive_reuploads().unwrap_or_else(|err| {
+                log::warn!("Failed to fetch stats for consecutive reuploads: {:?}", err);
+                Vec::new()
+            });
+            for reupload in &consecutive_reuploads {
+                log::warn!("{}", reupload);
+            }
+            let mut v = driver.validation.into_inner();
+            let telem = self.telem.as_mut().unwrap();
+            v.problem("consecutiveReuploads", consecutive_reuploads.len());
+            telem.validation(v);
+        }
+        if let Err(err) = self.maybe_prune_old_actions() {
+            log::warn!("Failed to prune old bookmark sync actions: {:?}", err);
+        }
+        result
     }
 
     /// Creates a local tree item from a row in the `localItems` CTE.
@@ -811,6 +829,79 @@ impl<'a> Merger<'a> {
         item.needs_merge = row.get("needsMerge")?;
         item.validity = SyncedBookmarkValidity::from_u8(row.get("validity")?)?.into();
         Ok(item)
+    }
+
+    /// Prunes old merge actions from the `moz_bookmarks_synced_actions` table.
+    fn maybe_prune_old_actions(&self) -> Result<()> {
+        let now = Timestamp::now();
+        let elapsed = get_meta::<Timestamp>(self.store.db, ACTIONS_LAST_PRUNED_AT_META_KEY)?
+            .and_then(|t| now.duration_since(t))
+            .unwrap_or_default();
+        if elapsed >= self.prune_old_actions_after {
+            let tx = if !self.external_transaction {
+                Some(self.store.db.begin_transaction()?)
+            } else {
+                None
+            };
+            let prune_until = now
+                .checked_sub(self.prune_old_actions_after)
+                .unwrap_or_default();
+            self.store.db.execute_batch(&format!(
+                "DELETE FROM moz_bookmarks_synced_actions
+                 WHERE at <= {}",
+                prune_until
+            ))?;
+            put_meta(self.store.db, ACTIONS_LAST_PRUNED_AT_META_KEY, &now)?;
+            if let Some(tx) = tx {
+                tx.commit()?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Fetches a list of items that have been reuploaded with new structure for
+    /// the last 5 syncs. This is captured in logs and telemetry, and suggests
+    /// that we might be in a sync loop with another client (bug 1530145).
+    fn fetch_consecutive_reuploads(&self) -> Result<Vec<ConsecutiveReupload>> {
+        let mut reuploads = Vec::new();
+        let mut stmt = self.store.db.prepare(&format!(
+            "WITH
+             ranks(rank, at, guid, action) AS (
+               /* First, assign the same rank to all items uploaded in the same
+                  sync. Dense ranking assigns consecutive rank values to
+                  successive syncs. */
+               SELECT dense_rank() OVER (ORDER BY at), at, guid, action
+               FROM moz_bookmarks_synced_actions
+             ),
+             groupings(guid, at, grouping) AS (
+               /* Next, assign groups for all reuploaded items that weren't
+                  changed or deleted locally. The grouping values are arbitrary,
+                  but identical for consecutive syncs, so grouping by (GUID,
+                  grouping) yields groups with rows for consecutive syncs where
+                  the GUID was reuploaded. */
+               SELECT guid, at, rank - row_number() OVER (PARTITION BY guid ORDER BY rank)
+               FROM ranks
+               WHERE action = {action}
+             )
+             SELECT guid, min(at) AS startedAt, max(at) AS stoppedAt,
+                    count(*) AS consecutiveReuploads
+             FROM groupings
+             GROUP BY guid, grouping
+             HAVING consecutiveReuploads >= {threshold}",
+            action = SyncedBookmarkAction::TakeRemoteUploadNewStructure as u8,
+            threshold = self.warn_after_consecutive_reuploads
+        ))?;
+        let mut results = stmt.query(NO_PARAMS)?;
+        while let Some(row) = results.next()? {
+            self.store.interruptee.err_if_interrupted()?;
+            reuploads.push(ConsecutiveReupload {
+                guid: row.get("guid")?,
+                started_at: row.get("startedAt")?,
+                stopped_at: row.get("stoppedAt")?,
+                count: row.get("consecutiveReuploads")?,
+            });
+        }
+        Ok(reuploads)
     }
 }
 

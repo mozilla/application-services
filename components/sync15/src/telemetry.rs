@@ -476,6 +476,7 @@ impl Validation {
 #[derive(Debug, Default, Serialize)]
 pub struct Problem {
     name: &'static str,
+    #[serde(skip_serializing_if = "skip_if_default")]
     count: usize,
 }
 

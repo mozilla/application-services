@@ -95,6 +95,11 @@ impl Timestamp {
         SystemTime::from(self).duration_since(other.into()).ok()
     }
 
+    #[inline]
+    pub fn checked_sub(self, d: Duration) -> Option<Timestamp> {
+        SystemTime::from(self).checked_sub(d).map(Timestamp::from)
+    }
+
     pub fn as_millis(self) -> u64 {
         self.0
     }
