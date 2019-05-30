@@ -4,5 +4,7 @@
   "recommendations": [
     // Bash scripts linting.
     "timonwong.shellcheck",
+    // Rust language support.
+    "rust-lang.rust",
   ]
 }
