@@ -60,9 +60,6 @@ pub enum ErrorKind {
     #[fail(display = "Synced bookmark has unsupported validity {}", _0)]
     UnsupportedSyncedBookmarkValidity(u8),
 
-    #[fail(display = "Unsupported synced bookmark action {}", _0)]
-    UnsupportedSyncedBookmarkAction(u8),
-
     // This will happen if you provide something absurd like
     // "/" or "" as your database path. For more subtley broken paths,
     // we'll likely return an IoError.

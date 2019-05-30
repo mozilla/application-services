@@ -52,20 +52,6 @@ BEGIN
     ON CONFLICT(place_id) DO UPDATE SET
         stale_at = excluded.stale_at;
 
-    -- Record if we're deleting the item locally or on both sides.
-    INSERT OR IGNORE INTO moz_bookmarks_synced_actions(guid, at, action)
-    SELECT OLD.guid, OLD.removedAt, (CASE WHEN OLD.shouldUploadTombstone
-                                     THEN 6 -- SyncedBookmarkAction::DeleteBoth
-                                     ELSE 4 -- SyncedBookmarkAction::DeleteLocal
-                                     END)
-    WHERE EXISTS(SELECT 1 FROM moz_bookmarks WHERE guid = OLD.guid);
-
-    -- Record if we're deleting the item remotely.
-    INSERT OR IGNORE INTO moz_bookmarks_synced_actions(guid, at, action)
-    SELECT OLD.guid, OLD.removedAt, 5 -- SyncedBookmarkAction::DeleteRemote
-    WHERE NOT EXISTS(SELECT 1 FROM moz_bookmarks WHERE guid = OLD.guid) AND
-          OLD.shouldUploadTombstone;
-
     -- Don't reupload tombstones for items that are already deleted on the server.
     DELETE FROM moz_bookmarks_deleted
     WHERE NOT OLD.shouldUploadTombstone AND
@@ -129,19 +115,6 @@ BEGIN
         needsMerge = 0
     WHERE needsMerge AND
           guid IN (OLD.remoteGuid, OLD.localGuid);
-
-    -- Record if we're taking the local or remote state for changed items.
-    INSERT OR IGNORE INTO moz_bookmarks_synced_actions(guid, at, action)
-    SELECT OLD.mergedGuid, OLD.mergedAt, (CASE
-           -- SyncedBookmarkAction::TakeRemoteUploadNewStructure
-           WHEN OLD.useRemote AND OLD.shouldUpload THEN 3
-           -- SyncedBookmarkAction::TakeRemote
-           WHEN OLD.useRemote AND NOT OLD.shouldUpload THEN 2
-           -- SyncedBookmarkAction::UploadLocal
-           WHEN NOT OLD.useRemote AND OLD.shouldUpload THEN 1
-           ELSE RAISE(ABORT, "Shouldn't record action for unchanged item")
-           END)
-    WHERE OLD.useRemote OR OLD.shouldUpload;
 END;
 
 CREATE TEMP TRIGGER updateLocalItems

@@ -218,15 +218,3 @@ CREATE TABLE IF NOT EXISTS moz_bookmarks_synced_tag_relation(
                            ON DELETE CASCADE,
     PRIMARY KEY(itemId, tagId)
 ) WITHOUT ROWID;
-
--- This table is a log of actions taken during each merge. An action can be a
--- deletion (local, remote, or both), local change (uploaded to the server),
--- remote change with remote structure (applied to the local tree), or remote
--- change with new structure (applied to the local tree and reuploaded). This is
--- used for telemetry gathering and diagnostics.
-CREATE TABLE IF NOT EXISTS moz_bookmarks_synced_actions(
-    guid TEXT,
-    at INTEGER, -- The merge time, in milliseconds.
-    action INTEGER NOT NULL,
-    PRIMARY KEY(at, guid)
-);
