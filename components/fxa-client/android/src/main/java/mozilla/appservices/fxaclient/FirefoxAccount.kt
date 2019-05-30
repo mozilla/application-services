@@ -262,8 +262,8 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * This performs network requests, and should not be used on the main thread.
      *
      * @param endpoint Push callback URL
-     * @param endpoint Public key used to encrypt push payloads
-     * @param endpoint Auth key used to encrypt push payloads
+     * @param publicKey Public key used to encrypt push payloads
+     * @param authKey Auth key used to encrypt push payloads
      */
     fun setDevicePushSubscription(endpoint: String, publicKey: String, authKey: String) {
         rustCall { e ->
