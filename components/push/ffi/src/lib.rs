@@ -102,7 +102,7 @@ pub extern "C" fn push_subscribe(
                 "keys": {
                     "auth": base64::encode_config(&subscription_key.auth,
                                                   base64::URL_SAFE_NO_PAD),
-                    "p256dh": base64::encode_config(&subscription_key.public,
+                    "p256dh": base64::encode_config(&subscription_key.public_key(),
                                                     base64::URL_SAFE_NO_PAD)
                 }
             }

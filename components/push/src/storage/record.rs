@@ -4,7 +4,7 @@
 
 use rusqlite::Row;
 
-use crate::crypto::Key;
+use crate::crypto::KeyV1 as Key;
 use crate::error::Result;
 
 use super::types::Timestamp;
@@ -36,7 +36,7 @@ pub struct PushRecord {
     /// The receipient (service worker)'s scope
     pub scope: String,
 
-    /// Private EC Prime256v1 key info. (Public key can be derived from this)
+    /// Private EC Prime256v1 key info.
     pub key: Vec<u8>,
 
     /// Time this subscription was created.

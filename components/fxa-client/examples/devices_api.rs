@@ -15,9 +15,9 @@ use std::{
 use url::Url;
 
 static CREDENTIALS_PATH: &'static str = "credentials.json";
-static CONTENT_SERVER: &'static str = "https://devices2.dev.lcip.org";
-static CLIENT_ID: &'static str = "3c49430b43dfba77";
-static REDIRECT_URI: &'static str = "https://devices2.dev.lcip.org/oauth/success/3c49430b43dfba77";
+static CONTENT_SERVER: &'static str = "https://accounts.firefox.com";
+static CLIENT_ID: &'static str = "a2270f727f45f648";
+static REDIRECT_URI: &'static str = "https://accounts.firefox.com/oauth/success/a2270f727f45f648";
 static SCOPES: &'static [&'static str] = &["profile", "https://identity.mozilla.com/apps/oldsync"];
 static DEFAULT_DEVICE_NAME: &'static str = "Bobo device";
 

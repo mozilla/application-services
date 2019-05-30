@@ -15,7 +15,8 @@
 /// then sent to the target device.
 use crate::{device::Device, error::*, scoped_keys::ScopedKey, scopes};
 use ece::{
-    Aes128GcmEceWebPushImpl, LocalKeyPair, LocalKeyPairImpl, RemoteKeyPairImpl, WebPushParams,
+    Aes128GcmEceWebPushImpl, EcKeyComponents, LocalKeyPair, LocalKeyPairImpl, RemotePublicKey,
+    RemotePublicKeyImpl, WebPushParams,
 };
 use hex;
 use serde_derive::*;
@@ -30,9 +31,9 @@ pub struct EncryptedSendTabPayload {
 }
 
 impl EncryptedSendTabPayload {
-    pub fn decrypt(self, keys: &PrivateSendTabKeys) -> Result<SendTabPayload> {
+    pub(crate) fn decrypt(self, keys: &PrivateSendTabKeysV1) -> Result<SendTabPayload> {
         let encrypted = base64::decode_config(&self.encrypted, base64::URL_SAFE_NO_PAD)?;
-        let private_key = LocalKeyPairImpl::new(&keys.private_key)?;
+        let private_key = LocalKeyPairImpl::from_raw_components(&keys.p256key)?;
         let decrypted =
             Aes128GcmEceWebPushImpl::decrypt(&private_key, &keys.auth_secret, &encrypted)?;
         Ok(serde_json::from_slice(&decrypted)?)
@@ -56,7 +57,7 @@ impl SendTabPayload {
     fn encrypt(&self, keys: PublicSendTabKeys) -> Result<EncryptedSendTabPayload> {
         let bytes = serde_json::to_vec(&self)?;
         let public_key = base64::decode_config(&keys.public_key, base64::URL_SAFE_NO_PAD)?;
-        let public_key = RemoteKeyPairImpl::from_raw(&public_key);
+        let public_key = RemotePublicKeyImpl::from_raw(&public_key)?;
         let auth_secret = base64::decode_config(&keys.auth_secret, base64::URL_SAFE_NO_PAD)?;
         let encrypted = Aes128GcmEceWebPushImpl::encrypt(
             &public_key,
@@ -75,21 +76,42 @@ pub struct TabHistoryEntry {
     pub url: String,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct PrivateSendTabKeys {
-    public_key: Vec<u8>,
-    private_key: Vec<u8>,
+#[derive(Serialize, Deserialize, Clone)]
+pub(crate) enum VersionnedPrivateSendTabKeys {
+    V1(PrivateSendTabKeysV1),
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub(crate) struct PrivateSendTabKeysV1 {
+    p256key: EcKeyComponents,
     auth_secret: Vec<u8>,
+}
+pub(crate) type PrivateSendTabKeys = PrivateSendTabKeysV1;
+
+impl PrivateSendTabKeys {
+    // We define this method so the type-checker prevents us from
+    // trying to serialize `PrivateSendTabKeys` directly since
+    // `serde_json::to_string` would compile because both types derive
+    // `Serialize`.
+    pub(crate) fn serialize(&self) -> Result<String> {
+        Ok(serde_json::to_string(&VersionnedPrivateSendTabKeys::V1(
+            self.clone(),
+        ))?)
+    }
+
+    pub(crate) fn deserialize(s: &str) -> Result<Self> {
+        let versionned: VersionnedPrivateSendTabKeys = serde_json::from_str(s)?;
+        match versionned {
+            VersionnedPrivateSendTabKeys::V1(prv_key) => Ok(prv_key),
+        }
+    }
 }
 
 impl PrivateSendTabKeys {
     pub fn from_random() -> Result<Self> {
         let (key_pair, auth_secret) = ece::generate_keypair_and_auth_secret()?;
-        let private_key = key_pair.to_raw();
-        let public_key = key_pair.pub_as_raw()?;
         Ok(Self {
-            public_key,
-            private_key,
+            p256key: key_pair.raw_components()?,
             auth_secret: auth_secret.to_vec(),
         })
     }
@@ -155,7 +177,10 @@ impl PublicSendTabKeys {
 impl From<PrivateSendTabKeys> for PublicSendTabKeys {
     fn from(internal: PrivateSendTabKeys) -> Self {
         Self {
-            public_key: base64::encode_config(&internal.public_key, base64::URL_SAFE_NO_PAD),
+            public_key: base64::encode_config(
+                &internal.p256key.public_key(),
+                base64::URL_SAFE_NO_PAD,
+            ),
             auth_secret: base64::encode_config(&internal.auth_secret, base64::URL_SAFE_NO_PAD),
         }
     }
