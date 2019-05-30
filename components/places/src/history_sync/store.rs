@@ -56,10 +56,13 @@ impl<'a> HistoryStore<'a> {
         inbound: IncomingChangeset,
         telem: &mut telemetry::Engine,
     ) -> Result<OutgoingChangeset> {
-        let mut incoming_telemetry = telemetry::EngineIncoming::new();
         let timestamp = inbound.timestamp;
-        let outgoing = apply_plan(&self.db, inbound, &mut incoming_telemetry, self.interruptee)?;
-        telem.incoming(incoming_telemetry);
+        let outgoing = {
+            let mut incoming_telemetry = telemetry::EngineIncoming::new();
+            let result = apply_plan(&self.db, inbound, &mut incoming_telemetry, self.interruptee);
+            telem.incoming(incoming_telemetry);
+            result
+        }?;
         // write the timestamp now, so if we are interrupted creating outgoing
         // changesets we don't need to re-reconcile what we just did.
         self.put_meta(LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;

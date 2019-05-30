@@ -9,6 +9,19 @@ import mozilla.appservices.support.unwrapFromJSON
 import org.json.JSONArray
 import org.json.JSONObject
 
+/**
+ * This file defines Kotlin data classes for unpacking the Sync telemetry ping,
+ * which the FFI returns as a JSON string from `sync15_history_sync` and
+ * `sync15_bookmarks_sync`.
+ *
+ * The Kotlin API parses the string into a `SyncTelemetryPing`, and passes it
+ * to Android Components, where it's unpacked and marshaled into Glean pings.
+ * Glean doesn't currently support nested fields, so we send one ping per
+ * engine (`EngineInfo`) per sync (`SyncInfo`).
+ *
+ * Applications like Fenix that embed Glean will automatically submit these
+ * pings.
+ */
 enum class FailureName {
     Shutdown,
     Other,
@@ -50,28 +63,26 @@ data class SyncTelemetryPing(
     }
 
     fun toJSON(): JSONObject {
-        return JSONObject().apply {
-            put("version", version)
-            uid?.let {
-                put("uid", it)
-            }
-            if (!events.isEmpty()) {
-                val jsonArray = JSONArray().apply {
-                    events.forEach {
-                        put(it.toJSON())
-                    }
-                }
-                put("events", jsonArray)
-            }
-            if (!syncs.isEmpty()) {
-                val jsonArray = JSONArray().apply {
-                    syncs.forEach {
-                        put(it.toJSON())
-                    }
-                }
-                put("syncs", jsonArray)
-            }
+        var result = JSONObject()
+        result.put("version", version)
+        uid?.let {
+            result.put("uid", it)
         }
+        if (!events.isEmpty()) {
+            result.put("events", JSONArray().apply {
+                events.forEach {
+                    put(it.toJSON())
+                }
+            })
+        }
+        if (!syncs.isEmpty()) {
+            result.put("syncs", JSONArray().apply {
+                syncs.forEach {
+                    put(it.toJSON())
+                }
+            })
+        }
+        return result
     }
 }
 
@@ -111,23 +122,22 @@ data class SyncInfo(
     }
 
     fun toJSON(): JSONObject {
-        return JSONObject().apply {
-            put("when", at)
-            if (took > 0) {
-                put("took", took)
-            }
-            if (!engines.isEmpty()) {
-                val jsonArray = JSONArray().apply {
-                    engines.forEach {
-                        put(it.toJSON())
-                    }
-                }
-                put("engines", jsonArray)
-            }
-            failureReason?.let {
-                put("failureReason", it.toJSON())
-            }
+        var result = JSONObject()
+        result.put("when", at)
+        if (took > 0) {
+            result.put("took", took)
         }
+        if (!engines.isEmpty()) {
+            result.put("engines", JSONArray().apply {
+                engines.forEach {
+                    put(it.toJSON())
+                }
+            })
+        }
+        failureReason?.let {
+            result.put("failureReason", it.toJSON())
+        }
+        return result
     }
 }
 
@@ -183,30 +193,29 @@ data class EngineInfo(
     }
 
     fun toJSON(): JSONObject {
-        return JSONObject().apply {
-            put("name", name)
-            put("when", at)
-            if (took > 0) {
-                put("took", took)
-            }
-            incoming?.let {
-                put("incoming", it.toJSON())
-            }
-            if (!outgoing.isEmpty()) {
-                val jsonArray = JSONArray().apply {
-                    outgoing.forEach {
-                        put(it.toJSON())
-                    }
-                }
-                put("outgoing", jsonArray)
-            }
-            failureReason?.let {
-                put("failureReason", it.toJSON())
-            }
-            validation?.let {
-                put("validation", it.toJSON())
-            }
+        val result = JSONObject()
+        result.put("name", name)
+        result.put("when", at)
+        if (took > 0) {
+            result.put("took", took)
         }
+        incoming?.let {
+            result.put("incoming", it.toJSON())
+        }
+        if (!outgoing.isEmpty()) {
+            result.put("outgoing", JSONArray().apply {
+                outgoing.forEach {
+                    put(it.toJSON())
+                }
+            })
+        }
+        failureReason?.let {
+            result.put("failureReason", it.toJSON())
+        }
+        validation?.let {
+            result.put("validation", it.toJSON())
+        }
+        return result
     }
 }
 
@@ -304,20 +313,19 @@ data class ValidationInfo(
     }
 
     fun toJSON(): JSONObject {
-        return JSONObject().apply {
-            put("version", version)
-            if (!problems.isEmpty()) {
-                val jsonArray = JSONArray().apply {
-                    problems.forEach {
-                        put(it.toJSON())
-                    }
+        var result = JSONObject()
+        result.put("version", version)
+        if (!problems.isEmpty()) {
+            result.put("problems", JSONArray().apply {
+                problems.forEach {
+                    put(it.toJSON())
                 }
-                put("problems", jsonArray)
-            }
-            failureReason?.let {
-                put("failueReason", it.toJSON())
-            }
+            })
         }
+        failureReason?.let {
+            result.put("failueReason", it.toJSON())
+        }
+        return result
     }
 }
 
@@ -352,7 +360,7 @@ data class ProblemInfo(
     }
 }
 
-data class FailureReason (
+data class FailureReason(
     val name: FailureName,
     val message: String? = null,
     val code: Int = -1
@@ -389,35 +397,35 @@ data class FailureReason (
     }
 
     fun toJSON(): JSONObject {
-        return JSONObject().apply {
-            when (name) {
-                FailureName.Shutdown -> {
-                    put("name", "shutdownerror")
-                }
-                FailureName.Other -> {
-                    put("name", "othererror")
-                    message?.let {
-                        put("error", it)
-                    }
-                }
-                FailureName.Unexpected, FailureName.Unknown -> {
-                    put("name", "unexpectederror")
-                    message?.let {
-                        put("error", it)
-                    }
-                }
-                FailureName.Auth -> {
-                    put("name", "autherror")
-                    message?.let {
-                        put("from", it)
-                    }
-                }
-                FailureName.Http -> {
-                    put("name", "httperror")
-                    put("code", code)
+        var result = JSONObject()
+        when (name) {
+            FailureName.Shutdown -> {
+                result.put("name", "shutdownerror")
+            }
+            FailureName.Other -> {
+                result.put("name", "othererror")
+                message?.let {
+                    result.put("error", it)
                 }
             }
+            FailureName.Unexpected, FailureName.Unknown -> {
+                result.put("name", "unexpectederror")
+                message?.let {
+                    result.put("error", it)
+                }
+            }
+            FailureName.Auth -> {
+                result.put("name", "autherror")
+                message?.let {
+                    result.put("from", it)
+                }
+            }
+            FailureName.Http -> {
+                result.put("name", "httperror")
+                result.put("code", code)
+            }
         }
+        return result
     }
 }
 

@@ -749,9 +749,12 @@ impl LoginDb {
         scope: &SqlInterruptScope,
     ) -> Result<OutgoingChangeset> {
         let data = self.fetch_login_data(&inbound.changes, scope)?;
-        let mut incoming_telemetry = telemetry::EngineIncoming::new();
-        let plan = self.reconcile(data, inbound.timestamp, &mut incoming_telemetry, scope)?;
-        telem.incoming(incoming_telemetry);
+        let plan = {
+            let mut incoming_telemetry = telemetry::EngineIncoming::new();
+            let result = self.reconcile(data, inbound.timestamp, &mut incoming_telemetry, scope);
+            telem.incoming(incoming_telemetry);
+            result
+        }?;
         self.execute_plan(plan, scope)?;
         Ok(self.fetch_outgoing(inbound.timestamp, scope)?)
     }

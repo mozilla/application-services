@@ -1026,7 +1026,8 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
         } else {
             None
         };
-        self.store.update_local_items(self.local_time, descendants, deletions)?;
+        self.store
+            .update_local_items(self.local_time, descendants, deletions)?;
         self.store.stage_local_items_to_upload()?;
         self.store.db.execute_batch(
             "DELETE FROM mergedTree;
@@ -2033,7 +2034,8 @@ mod tests {
 
             let incoming =
                 IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1_000));
-            let outgoing = store.apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))?;
+            let outgoing =
+                store.apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))?;
             let synced_ids: Vec<String> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             store.sync_finished(ServerTimestamp(2_000), synced_ids)?;
@@ -2052,7 +2054,8 @@ mod tests {
 
             let incoming =
                 IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1_000));
-            let outgoing = store.apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))?;
+            let outgoing =
+                store.apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))?;
             let synced_ids: Vec<String> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             store.sync_finished(ServerTimestamp(2_000), synced_ids)?;
