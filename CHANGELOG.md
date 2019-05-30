@@ -1,3 +1,25 @@
+# v0.30.0 (_2019-05-30_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.29.0...v0.30.0)
+
+## Push
+
+### Breaking Changes
+
+* Changed the internal serialization format of the Push Keys.
+
+## FxA Client
+
+### Breaking Changes
+
+* Changed the internal serialization format of the Send Tab Keys. Calling `ensureCapabilities` will re-generate them.
+
+### Features
+
+* Added `migrateFromSessionToken` to allow creating a refreshToken from an existing sessionToken.
+Useful for Fennec to Fenix bootstrap flow, where the user can just reuse the existing sessionToken to 
+create a new session with a refreshToken.
+
 # v0.29.0 (_2019-05-23_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.28.1...v0.29.0)
