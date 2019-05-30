@@ -247,6 +247,24 @@ pub extern "C" fn fxa_complete_oauth_flow(
     });
 }
 
+/// Migrate from a logged-in browserid Firefox Account.
+#[no_mangle]
+pub unsafe extern "C" fn fxa_migrate_from_session_token(
+    handle: u64,
+    session_token: FfiStr<'_>,
+    k_sync: FfiStr<'_>,
+    k_xcs: FfiStr<'_>,
+    error: &mut ExternError,
+) {
+    log::debug!("fxa_migrate_from_session_token");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
+        let session_token = session_token.as_str();
+        let k_sync = k_sync.as_str();
+        let k_xcs = k_xcs.as_str();
+        fxa.migrate_from_session_token(session_token, k_sync, k_xcs)
+    });
+}
+
 /// Try to get an access token.
 ///
 /// If the system can't find a suitable token but has a `refresh token` or a `session_token`,
