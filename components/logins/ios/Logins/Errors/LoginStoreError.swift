@@ -4,9 +4,6 @@
 
 import Foundation
 
-// https://github.com/mozilla/application-services/issues/1042
-// swiftlint:disable identifier_name
-
 /// Indicates an error occurred while calling into the logins storage layer
 public enum LoginsStoreError: Error {
     /// This is a catch-all error code used for errors not yet exposed to consumers,
