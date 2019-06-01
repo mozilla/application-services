@@ -80,7 +80,7 @@ then
   ./build-nss-desktop.sh "${NSS_SRC_PATH}"
   ./build-openssl-desktop.sh "${OPENSSL_SRC_PATH}"
   ./build-sqlcipher-desktop.sh "${SQLCIPHER_SRC_PATH}"
-elif [ "${PLATFORM}" == "darwin" -o "${PLATFORM}" == "win32-x86-64" ]
+elif [ "${PLATFORM}" == "darwin" ] || [ "${PLATFORM}" == "win32-x86-64" ]
 then
   ./build-nss-desktop.sh "${NSS_SRC_PATH}" "${PLATFORM}"
   ./build-openssl-desktop.sh "${OPENSSL_SRC_PATH}" "${PLATFORM}"

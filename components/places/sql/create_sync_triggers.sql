@@ -44,7 +44,7 @@ AFTER DELETE ON itemsToRemove
 BEGIN
     -- Note the URL for frecency recalculation.
     INSERT INTO moz_places_stale_frecencies(place_id, stale_at)
-    SELECT h.id, now()
+    SELECT h.id, OLD.removedAt
     FROM moz_bookmarks b
     JOIN moz_places h ON h.id = b.fk
     WHERE b.guid = OLD.guid AND
@@ -60,7 +60,7 @@ BEGIN
     -- Upload tombstones for non-syncable items. `shouldUploadTombstone` can be
     -- removed if we ever persist tombstones (bug 1343103).
     INSERT OR IGNORE INTO moz_bookmarks_deleted(guid, dateRemoved)
-    SELECT OLD.guid, now()
+    SELECT OLD.guid, OLD.removedAt
     WHERE OLD.shouldUploadTombstone;
 
     -- Remove the item from Places.
@@ -103,7 +103,7 @@ BEGIN
                      END,
         -- Flag items with local and new structure merge states for upload.
         syncChangeCounter = OLD.shouldUpload,
-        lastModified = now()
+        lastModified = OLD.mergedAt
     WHERE id = OLD.localId;
 
     -- Drop local tombstones for revived remote items.
@@ -134,7 +134,7 @@ BEGIN
            (SELECT id FROM moz_bookmarks WHERE guid = "root________"), -1,
            OLD.newType, OLD.newPlaceId,
            OLD.newTitle, OLD.newDateAdded,
-           now(),
+           OLD.mergedAt,
            2, -- SyncStatus::Normal
            OLD.shouldUpload)
     ON CONFLICT(guid) DO UPDATE SET
@@ -145,7 +145,7 @@ BEGIN
 
     -- Flag the frecency for recalculation.
     INSERT INTO moz_places_stale_frecencies(place_id, stale_at)
-    SELECT id, now()
+    SELECT id, OLD.mergedAt
     FROM moz_places
     WHERE id IN (OLD.oldPlaceId, OLD.newPlaceId) AND
           frecency <> 0

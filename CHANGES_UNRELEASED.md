@@ -2,7 +2,8 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.29.0...master)
+[Full Cihangelog](https://github.com/mozilla/application-services/compare/v0.30.0...master)
+
 ## Logins
 
 ### Breaking Changes

@@ -8,7 +8,7 @@
 use std::collections::HashMap;
 use std::time;
 
-// We use serde to serialize to json (but we never need to deserialize)
+use ffi_support::implement_into_ffi_by_json;
 use serde::ser::{self, Serialize, Serializer};
 use serde_derive::*;
 #[cfg(test)]
@@ -254,6 +254,8 @@ pub enum SyncFailure {
 
 pub fn sync_failure_from_error(e: &Error) -> SyncFailure {
     SyncFailure::Unexpected {
+        // TODO: Distinguish between error types, truncate, and anonymize
+        // messages.
         error: e.to_string(),
     }
 }
@@ -392,6 +394,9 @@ pub struct Engine {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "failureReason")]
     failure: Option<SyncFailure>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    validation: Option<Validation>,
 }
 
 impl Engine {
@@ -402,6 +407,7 @@ impl Engine {
             incoming: None,
             outgoing: Vec::new(),
             failure: None,
+            validation: None,
         }
     }
 
@@ -428,9 +434,49 @@ impl Engine {
         }
     }
 
+    pub fn validation(&mut self, v: Validation) {
+        assert!(self.validation.is_none());
+        self.validation = Some(v);
+    }
+
     fn finished(&mut self) {
         self.when_took = self.when_took.finished();
     }
+}
+
+#[derive(Debug, Default, Serialize)]
+pub struct Validation {
+    version: u32,
+
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    problems: Vec<Problem>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "failureReason")]
+    failure: Option<SyncFailure>,
+}
+
+impl Validation {
+    pub fn with_version(version: u32) -> Validation {
+        Validation {
+            version,
+            ..Validation::default()
+        }
+    }
+
+    pub fn problem(&mut self, name: &'static str, count: usize) -> &mut Self {
+        if count > 0 {
+            self.problems.push(Problem { name, count });
+        }
+        self
+    }
+}
+
+#[derive(Debug, Default, Serialize)]
+pub struct Problem {
+    name: &'static str,
+    #[serde(skip_serializing_if = "skip_if_default")]
+    count: usize,
 }
 
 #[cfg(test)]
@@ -684,6 +730,8 @@ impl SyncTelemetryPing {
         self.events.push(e);
     }
 }
+
+implement_into_ffi_by_json!(SyncTelemetryPing);
 
 #[cfg(test)]
 mod ping_tests {

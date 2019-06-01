@@ -16,11 +16,14 @@ use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
 use crate::storage::{bookmarks::BookmarkRootGuid, delete_meta, get_meta, put_meta};
 use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
 use dogear::{
-    self, AbortSignal, Content, Deletion, Item, MergedDescendant, MergedRoot, Tree, UploadReason,
+    self, AbortSignal, Content, Deletion, Item, MergedDescendant, MergedRoot, TelemetryEvent, Tree,
+    UploadReason,
 };
 use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt, SqlInterruptScope};
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::fmt;
 use std::result;
 use sync15::{
@@ -127,6 +130,7 @@ impl<'a> BookmarksStore<'a> {
     /// then reupload the remote side with a new structure.
     fn update_local_items<'t>(
         &self,
+        now: Timestamp,
         descendants: Vec<MergedDescendant<'t>>,
         deletions: Vec<Deletion<'_>>,
     ) -> Result<()> {
@@ -159,13 +163,14 @@ impl<'a> BookmarksStore<'a> {
                 }
                 self.db.execute(&format!("
                     INSERT INTO mergedTree(localGuid, remoteGuid, mergedGuid, mergedParentGuid, level,
-                                           position, useRemote, shouldUpload)
+                                           position, useRemote, shouldUpload, mergedAt)
                     VALUES {}",
                     sql_support::repeat_display(chunk.len(), ",", |index, f| {
                         let d = &chunk[index];
-                        write!(f, "(?, ?, ?, ?, {}, {}, {}, {})",
+                        write!(f, "(?, ?, ?, ?, {}, {}, {}, {}, {})",
                             d.level, d.position, d.merged_node.merge_state.should_apply(),
-                            d.merged_node.merge_state.upload_reason() != UploadReason::None)
+                            d.merged_node.merge_state.upload_reason() != UploadReason::None,
+                            now)
                     })
                 ), &params)?;
                 Ok(())
@@ -177,11 +182,15 @@ impl<'a> BookmarksStore<'a> {
             self.interruptee.err_if_interrupted()?;
             self.db.execute(
                 &format!(
-                    "INSERT INTO itemsToRemove(guid, localLevel, shouldUploadTombstone)
+                    "INSERT INTO itemsToRemove(guid, localLevel, shouldUploadTombstone, removedAt)
                      VALUES {}",
                     sql_support::repeat_display(chunk.len(), ",", |index, f| {
                         let d = &chunk[index];
-                        write!(f, "(?, {}, {})", d.local_level, d.should_upload_tombstone)
+                        write!(
+                            f,
+                            "(?, {}, {}, {})",
+                            d.local_level, d.should_upload_tombstone, now
+                        )
                     })
                 ),
                 chunk.iter().map(|d| d.guid.as_str()),
@@ -559,20 +568,23 @@ impl<'a> Store for BookmarksStore<'a> {
     fn apply_incoming(
         &self,
         inbound: IncomingChangeset,
-        incoming_telemetry: &mut telemetry::EngineIncoming,
+        telem: &mut telemetry::Engine,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
         // Stage all incoming items.
-        let timestamp = self.stage_incoming(inbound, incoming_telemetry)?;
+        let mut incoming_telemetry = telemetry::EngineIncoming::new();
+        let timestamp = self.stage_incoming(inbound, &mut incoming_telemetry)?;
+        telem.incoming(incoming_telemetry);
 
         // write the timestamp now, so if we are interrupted merging or
         // creating outgoing changesets we don't need to re-download the same
         // records.
         put_meta(self.db, LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
 
-        // Merge and stage outgoing items.
-        let mut merger = Merger::new(&self, timestamp);
+        // Merge.
+        let mut merger = Merger::with_telemetry(&self, timestamp, telem);
         merger.merge()?;
 
+        // Finally, stage outgoing items.
         let outgoing = self.fetch_outgoing_records(timestamp)?;
         Ok(outgoing)
     }
@@ -647,11 +659,35 @@ impl<'a> Store for BookmarksStore<'a> {
     }
 }
 
-struct Driver;
+#[derive(Default)]
+struct Driver {
+    validation: RefCell<telemetry::Validation>,
+}
 
 impl dogear::Driver for Driver {
     fn generate_new_guid(&self, _invalid_guid: &dogear::Guid) -> dogear::Result<dogear::Guid> {
         Ok(SyncGuid::new().into())
+    }
+
+    fn record_telemetry_event(&self, event: TelemetryEvent) {
+        // Record validation telemetry for remote trees.
+        if let TelemetryEvent::FetchRemoteTree(stats) = event {
+            self.validation
+                .borrow_mut()
+                .problem("orphans", stats.problems.orphans)
+                .problem("misparentedRoots", stats.problems.misparented_roots)
+                .problem(
+                    "multipleParents",
+                    stats.problems.multiple_parents_by_children,
+                )
+                .problem("missingParents", stats.problems.missing_parent_guids)
+                .problem("nonFolderParents", stats.problems.non_folder_parent_guids)
+                .problem(
+                    "parentChildDisagreements",
+                    stats.problems.parent_child_disagreements,
+                )
+                .problem("missingChildren", stats.problems.missing_children);
+        }
     }
 }
 
@@ -665,6 +701,7 @@ pub(crate) struct Merger<'a> {
     // is on the `apply()` function. Always false unless the caller explicitly
     // turns it on, to avoid accidentally enabling unintentionally.
     external_transaction: bool,
+    telem: Option<&'a mut telemetry::Engine>,
 }
 
 impl<'a> Merger<'a> {
@@ -674,6 +711,21 @@ impl<'a> Merger<'a> {
             remote_time,
             local_time: Timestamp::now(),
             external_transaction: false,
+            telem: None,
+        }
+    }
+
+    pub(crate) fn with_telemetry(
+        store: &'a BookmarksStore<'_>,
+        remote_time: ServerTimestamp,
+        telem: &'a mut telemetry::Engine,
+    ) -> Self {
+        Self {
+            store,
+            remote_time,
+            local_time: Timestamp::now(),
+            external_transaction: false,
+            telem: Some(telem),
         }
     }
 
@@ -691,9 +743,15 @@ impl<'a> Merger<'a> {
             return Ok(());
         }
         // Merge and stage outgoing items via dogear.
-        let stats = self.merge_with_driver(&Driver, &MergeInterruptee(self.store.interruptee))?;
-        log::debug!("merge completed: {:?}", stats);
-        Ok(())
+        let driver = Driver::default();
+        let result = self.merge_with_driver(&driver, &MergeInterruptee(self.store.interruptee));
+        log::debug!("merge completed");
+
+        // Record telemetry in all cases, even if the merge fails.
+        if let Some(ref mut telem) = self.telem {
+            telem.validation(driver.validation.into_inner());
+        }
+        result
     }
 
     /// Creates a local tree item from a row in the `localItems` CTE.
@@ -762,7 +820,7 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
                 .by_structure(&parent_guid.into())?;
         }
 
-        let mut tree = builder.into_tree()?;
+        let mut tree = Tree::try_from(builder)?;
 
         // Note tombstones for locally deleted items.
         let mut stmt = self
@@ -890,7 +948,7 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
                 .by_children(&parent_guid.into())?;
         }
 
-        let mut tree = builder.into_tree()?;
+        let mut tree = Tree::try_from(builder)?;
 
         // Note tombstones for remotely deleted items.
         let mut stmt = self
@@ -968,7 +1026,8 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
         } else {
             None
         };
-        self.store.update_local_items(descendants, deletions)?;
+        self.store
+            .update_local_items(self.local_time, descendants, deletions)?;
         self.store.stage_local_items_to_upload()?;
         self.store.db.execute_batch(
             "DELETE FROM mergedTree;
@@ -1092,6 +1151,23 @@ impl<'a> fmt::Display for RootsFragment<'a> {
     }
 }
 
+pub struct ConsecutiveReupload {
+    guid: SyncGuid,
+    started_at: Timestamp,
+    stopped_at: Timestamp,
+    count: i64,
+}
+
+impl fmt::Display for ConsecutiveReupload {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Item {} was reuploaded for {} syncs between {} and {}",
+            self.guid, self.count, self.started_at, self.stopped_at
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1136,7 +1212,7 @@ mod tests {
         }
 
         store
-            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new())
+            .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply incoming and stage outgoing records");
     }
 
@@ -1526,7 +1602,7 @@ mod tests {
         }
 
         let mut outgoing = store
-            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new())
+            .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply incoming and stage outgoing records");
         outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
         assert_eq!(
@@ -1671,7 +1747,7 @@ mod tests {
         }
 
         let outgoing = store
-            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new())
+            .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply incoming records");
         let mut outgoing_ids = outgoing
             .changes
@@ -1698,7 +1774,7 @@ mod tests {
         let outgoing = store
             .apply_incoming(
                 IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1000)),
-                &mut telemetry::EngineIncoming::new(),
+                &mut telemetry::Engine::new("bookmarks"),
             )
             .expect("Should fetch outgoing records after making local changes");
         assert_eq!(outgoing.changes.len(), 1);
@@ -1800,7 +1876,7 @@ mod tests {
         }
 
         let outgoing = store
-            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new())
+            .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply incoming records");
         let mut outgoing_ids = outgoing
             .changes
@@ -1863,7 +1939,7 @@ mod tests {
         ));
 
         let outgoing = store
-            .apply_incoming(incoming, &mut telemetry::EngineIncoming::new())
+            .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply F and stage tombstones for A-E");
         let (outgoing_tombstones, outgoing_records): (Vec<_>, Vec<_>) =
             outgoing.changes.iter().partition(|record| record.deleted);
@@ -1958,7 +2034,8 @@ mod tests {
 
             let incoming =
                 IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1_000));
-            let outgoing = store.apply_incoming(incoming, &mut telemetry::EngineIncoming::new())?;
+            let outgoing =
+                store.apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))?;
             let synced_ids: Vec<String> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             store.sync_finished(ServerTimestamp(2_000), synced_ids)?;
@@ -1977,7 +2054,8 @@ mod tests {
 
             let incoming =
                 IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1_000));
-            let outgoing = store.apply_incoming(incoming, &mut telemetry::EngineIncoming::new())?;
+            let outgoing =
+                store.apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))?;
             let synced_ids: Vec<String> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             store.sync_finished(ServerTimestamp(2_000), synced_ids)?;

@@ -241,6 +241,22 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     }
 
     /**
+     * Migrate from a logged-in Firefox Account.
+     *
+     * Modifies the FirefoxAccount state.
+     * @param sessionToken 64 character string of hex-encoded bytes
+     * @param kSync 128 character string of hex-encoded bytes
+     * @param kXCS 32 character string of hex-encoded bytes
+     * This performs network requests, and should not be used on the main thread.
+     */
+    fun migrateFromSessionToken(sessionToken: String, kSync: String, kXCS: String) {
+        rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS, e)
+        }
+        this.tryPersistState()
+    }
+
+    /**
      * Saves the current account's authentication state as a JSON string, for persistence in
      * the Android KeyStore/shared preferences. The authentication state can be restored using
      * [FirefoxAccount.fromJSONString].
@@ -262,8 +278,8 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * This performs network requests, and should not be used on the main thread.
      *
      * @param endpoint Push callback URL
-     * @param endpoint Public key used to encrypt push payloads
-     * @param endpoint Auth key used to encrypt push payloads
+     * @param publicKey Public key used to encrypt push payloads
+     * @param authKey Auth key used to encrypt push payloads
      */
     fun setDevicePushSubscription(endpoint: String, publicKey: String, authKey: String) {
         rustCall { e ->

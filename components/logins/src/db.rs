@@ -9,7 +9,6 @@ use crate::update_plan::UpdatePlan;
 use crate::util;
 use lazy_static::lazy_static;
 use rusqlite::{
-    config::DbConfig,
     named_params,
     types::{FromSql, ToSql},
     Connection, NO_PARAMS,
@@ -59,7 +58,6 @@ impl LoginDb {
         // https://github.com/mozilla/mentat/issues/505. Ideally we'd only
         // do this on Android, or allow caller to configure it.
         db.set_pragma("temp_store", 2)?;
-        db.set_db_config(DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true)?;
 
         let mut logins = Self {
             db,
@@ -747,11 +745,16 @@ impl LoginDb {
     fn do_apply_incoming(
         &self,
         inbound: IncomingChangeset,
-        telem: &mut telemetry::EngineIncoming,
+        telem: &mut telemetry::Engine,
         scope: &SqlInterruptScope,
     ) -> Result<OutgoingChangeset> {
         let data = self.fetch_login_data(&inbound.changes, scope)?;
-        let plan = self.reconcile(data, inbound.timestamp, telem, scope)?;
+        let plan = {
+            let mut incoming_telemetry = telemetry::EngineIncoming::new();
+            let result = self.reconcile(data, inbound.timestamp, &mut incoming_telemetry, scope);
+            telem.incoming(incoming_telemetry);
+            result
+        }?;
         self.execute_plan(plan, scope)?;
         Ok(self.fetch_outgoing(inbound.timestamp, scope)?)
     }
@@ -848,7 +851,7 @@ impl<'a> Store for LoginStore<'a> {
     fn apply_incoming(
         &self,
         inbound: IncomingChangeset,
-        telem: &mut telemetry::EngineIncoming,
+        telem: &mut telemetry::Engine,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
         Ok(self.db.do_apply_incoming(inbound, telem, &self.scope)?)
     }

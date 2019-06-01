@@ -3,12 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{config::Config, error::*};
+use browser_id::{derive_hawk_auth_key_from_session_token, hawk_request::HawkRequestBuilder};
 use serde_derive::*;
 use serde_json::json;
 use std::collections::HashMap;
-use viaduct::{header_names, status_codes, Request, Response};
+use viaduct::{header_names, status_codes, Method, Request, Response};
 
-#[cfg(feature = "browserid")]
 pub(crate) mod browser_id;
 
 pub trait FxAClient {
@@ -22,6 +22,17 @@ pub trait FxAClient {
         &self,
         config: &Config,
         refresh_token: &str,
+        scopes: &[&str],
+    ) -> Result<OAuthTokenResponse>;
+    fn duplicate_session(
+        &self,
+        config: &Config,
+        session_token: &[u8],
+    ) -> Result<DuplicateTokenResponse>;
+    fn oauth_token_from_session_token(
+        &self,
+        config: &Config,
+        session_token: &[u8],
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse>;
     fn destroy_oauth_token(&self, config: &Config, token: &str) -> Result<()>;
@@ -54,6 +65,12 @@ pub trait FxAClient {
         update: DeviceUpdateRequest<'_>,
     ) -> Result<UpdateDeviceResponse>;
     fn destroy_device(&self, config: &Config, refresh_token: &str, id: &str) -> Result<()>;
+    fn scoped_key_data(
+        &self,
+        config: &Config,
+        session_token: &[u8],
+        scope: &str,
+    ) -> Result<HashMap<String, ScopedKeyDataResponse>>;
 }
 
 pub struct Client;
@@ -111,6 +128,43 @@ impl FxAClient for Client {
             "scope": scopes.join(" ")
         });
         self.make_oauth_token_request(config, body)
+    }
+
+    fn duplicate_session(
+        &self,
+        config: &Config,
+        session_token: &[u8],
+    ) -> Result<DuplicateTokenResponse> {
+        let url = config.auth_url_path("v1/session/duplicate")?;
+        let key = derive_hawk_auth_key_from_session_token(&session_token)?;
+        let duplicate_body = json!({
+            "reason": "migration"
+        });
+        let request = HawkRequestBuilder::new(Method::Post, url, &key)
+            .body(duplicate_body)
+            .build()?;
+
+        Ok(Self::make_request(request)?.json()?)
+    }
+
+    fn oauth_token_from_session_token(
+        &self,
+        config: &Config,
+        session_token: &[u8],
+        scopes: &[&str],
+    ) -> Result<OAuthTokenResponse> {
+        let url = config.auth_url_path("v1/oauth/token")?;
+        let key = derive_hawk_auth_key_from_session_token(&session_token)?;
+        let body = json!({
+            "client_id": config.client_id,
+            "scope": scopes.join(" "),
+            "grant_type": "fxa-credentials",
+            "access_type": "offline",
+        });
+        let request = HawkRequestBuilder::new(Method::Post, url, &key)
+            .body(body)
+            .build()?;
+        Ok(Self::make_request(request)?.json()?)
     }
 
     fn destroy_oauth_token(&self, config: &Config, token: &str) -> Result<()> {
@@ -194,6 +248,24 @@ impl FxAClient for Client {
 
         Self::make_request(request)?;
         Ok(())
+    }
+
+    fn scoped_key_data(
+        &self,
+        config: &Config,
+        session_token: &[u8],
+        scope: &str,
+    ) -> Result<HashMap<String, ScopedKeyDataResponse>> {
+        let body = json!({
+            "client_id": config.client_id,
+            "scope": scope,
+        });
+        let url = config.auth_url_path("v1/account/scoped-key-data")?;
+        let key = derive_hawk_auth_key_from_session_token(session_token)?;
+        let request = HawkRequestBuilder::new(Method::Post, url, &key)
+            .body(body)
+            .build()?;
+        Self::make_request(request)?.json().map_err(|e| e.into())
     }
 }
 
@@ -432,4 +504,23 @@ pub struct ProfileResponse {
     pub amr_values: Vec<String>,
     #[serde(rename = "twoFactorAuthentication")]
     pub two_factor_authentication: bool,
+}
+
+#[derive(Deserialize)]
+pub struct ScopedKeyDataResponse {
+    pub identifier: String,
+    #[serde(rename = "keyRotationSecret")]
+    pub key_rotation_secret: String,
+    #[serde(rename = "keyRotationTimestamp")]
+    pub key_rotation_timestamp: u64,
+}
+
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct DuplicateTokenResponse {
+    pub uid: String,
+    #[serde(rename = "sessionToken")]
+    pub session_token: String,
+    pub verified: bool,
+    #[serde(rename = "authAt")]
+    pub auth_at: u64,
 }

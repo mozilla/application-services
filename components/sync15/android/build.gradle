@@ -1,0 +1,41 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-android-extensions'
+
+android {
+   compileSdkVersion rootProject.ext.build.compileSdkVersion
+
+   defaultConfig {
+       minSdkVersion rootProject.ext.build['minSdkVersion']
+       targetSdkVersion rootProject.ext.build['targetSdkVersion']
+
+       testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+   }
+
+   buildTypes {
+       release {
+           minifyEnabled false
+           proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+           consumerProguardFiles "$rootDir/proguard-rules-consumer-jna.pro"
+       }
+
+       withoutLib {
+           initWith release
+       }
+   }
+
+}
+
+dependencies {
+   implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+   implementation project(':as-support-library')
+}
+
+apply from: "$rootDir/publish.gradle"
+// If using jnaForTestConfiguration or variantWithoutLib,
+// please also update the corresponding .buildconfig-android.yml
+// `publishedArtifacts` property.
+ext.configurePublish(
+       /* jnaForTestConfiguration= */ null,
+       /* variantWithoutLib= */ null,
+)

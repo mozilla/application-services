@@ -23,10 +23,8 @@ fi
 
 if [[ "${ARCH}" == "i386" || "${ARCH}" == "x86_64" ]]; then
   OS_COMPILER="iPhoneSimulator"
-  TARGET="x86_64-apple-darwin"
 elif [[ "${ARCH}" == "armv7" || "${ARCH}" == "arm64" ]]; then
   OS_COMPILER="iPhoneOS"
-  TARGET="aarch64-apple-darwin"
 else
   echo "Unsupported architecture"
   exit 1

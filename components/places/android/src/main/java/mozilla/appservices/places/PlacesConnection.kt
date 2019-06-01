@@ -7,9 +7,10 @@ package mozilla.appservices.places
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.StringArray
+import mozilla.appservices.support.stringOrNull
 import mozilla.appservices.support.toNioDirectBuffer
+import mozilla.appservices.sync15.SyncTelemetryPing
 import org.json.JSONArray
-import org.json.JSONException
 import org.json.JSONObject
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -77,8 +78,8 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
         }
     }
 
-    override fun syncHistory(syncInfo: SyncAuthInfo) {
-        rustCall(this) { error ->
+    override fun syncHistory(syncInfo: SyncAuthInfo): SyncTelemetryPing {
+        val pingJSONString = rustCallForString(this) { error ->
             LibPlacesFFI.INSTANCE.sync15_history_sync(
                     this.handle.get(),
                     syncInfo.kid,
@@ -88,10 +89,11 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
                     error
             )
         }
+        return SyncTelemetryPing.fromJSONString(pingJSONString)
     }
 
-    override fun syncBookmarks(syncInfo: SyncAuthInfo) {
-        rustCall(this) { error ->
+    override fun syncBookmarks(syncInfo: SyncAuthInfo): SyncTelemetryPing {
+        val pingJSONString = rustCallForString(this) { error ->
             LibPlacesFFI.INSTANCE.sync15_bookmarks_sync(
                     this.handle.get(),
                     syncInfo.kid,
@@ -101,6 +103,7 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
                     error
             )
         }
+        return SyncTelemetryPing.fromJSONString(pingJSONString)
     }
 }
 
@@ -113,6 +116,18 @@ internal inline fun <U> rustCall(syncOn: Any, callback: (RustError.ByReference) 
         } else {
             return ret
         }
+    }
+}
+
+@Suppress("TooGenericExceptionThrown")
+internal inline fun rustCallForString(syncOn: Any, callback: (RustError.ByReference) -> Pointer?): String {
+    val cstring = rustCall(syncOn, callback)
+            ?: throw RuntimeException("Bug: Don't use this function when you can return" +
+                    " null on success.")
+    try {
+        return cstring.getString(0, "utf8")
+    } finally {
+        LibPlacesFFI.INSTANCE.places_destroy_string(cstring)
     }
 }
 
@@ -159,16 +174,8 @@ open class PlacesConnection internal constructor(connHandle: Long) : Interruptib
         return rustCall(this, callback)
     }
 
-    @Suppress("TooGenericExceptionThrown")
     internal inline fun rustCallForString(callback: (RustError.ByReference) -> Pointer?): String {
-        val cstring = rustCall(callback)
-                ?: throw RuntimeException("Bug: Don't use this function when you can return" +
-                        " null on success.")
-        try {
-            return cstring.getString(0, "utf8")
-        } finally {
-            LibPlacesFFI.INSTANCE.places_destroy_string(cstring)
-        }
+        return rustCallForString(this, callback)
     }
 }
 
@@ -524,24 +531,24 @@ interface PlacesManager {
     fun getWriter(): WritableHistoryConnection
 
     /**
-     * Syncs the places history store.
+     * Syncs the places history store, returning a telemetry ping.
      *
      * Note that this function blocks until the sync is complete, which may
      * take some time due to the network etc. Because only 1 thread can be
      * using a PlacesAPI at a time, it is recommended, but not enforced, that
      * you have all connections you intend using open before calling this.
      */
-    fun syncHistory(syncInfo: SyncAuthInfo)
+    fun syncHistory(syncInfo: SyncAuthInfo): SyncTelemetryPing
 
     /**
-     * Syncs the places bookmarks store.
+     * Syncs the places bookmarks store, returning a telemetry ping.
      *
      * Note that this function blocks until the sync is complete, which may
      * take some time due to the network etc. Because only 1 thread can be
      * using a PlacesAPI at a time, it is recommended, but not enforced, that
      * you have all connections you intend using open before calling this.
      */
-    fun syncBookmarks(syncInfo: SyncAuthInfo)
+    fun syncBookmarks(syncInfo: SyncAuthInfo): SyncTelemetryPing
 }
 
 interface InterruptibleConnection : AutoCloseable {
@@ -825,13 +832,6 @@ data class VisitObservation(
     }
 }
 
-private fun stringOrNull(jsonObject: JSONObject, key: String): String? {
-    return try {
-        jsonObject.getString(key)
-    } catch (e: JSONException) {
-        null
-    }
-}
 data class SearchResult(
     val searchString: String,
     val url: String,

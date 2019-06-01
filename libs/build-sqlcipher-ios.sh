@@ -126,4 +126,4 @@ cp -p "${SQLCIPHER_IOS}/.libs/libsqlcipher.a" "${DIST_DIR}/lib"
 
 popd
 
-rm -rf ${SQLCIPHER_IOS}
+rm -rf "${SQLCIPHER_IOS}"

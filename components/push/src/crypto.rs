@@ -9,132 +9,65 @@
 //! This uses prime256v1 EC encryption that should come from internal crypto calls. The "application-services"
 //! module compiles openssl, however, so might be enough to tie into that.
 
-use log;
-use std::clone;
-use std::cmp;
-use std::fmt;
-
-use ece::{
-    Aes128GcmEceWebPushImpl, AesGcmEceWebPushImpl, AesGcmEncryptedBlock, LocalKeyPair,
-    LocalKeyPairImpl,
-};
-use openssl::ec::EcKey;
-use openssl::rand::rand_bytes;
-
 use crate::error;
+use ece::{
+    Aes128GcmEceWebPushImpl, AesGcmEceWebPushImpl, AesGcmEncryptedBlock, EcKeyComponents,
+    LocalKeyPair, LocalKeyPairImpl,
+};
+use log;
+use openssl::rand::rand_bytes;
+use serde_derive::*;
 
 pub const SER_AUTH_LENGTH: usize = 16;
 pub type Decrypted = Vec<u8>;
 
-/// build the key off of the OpenSSL key implementation.
-/// Much of this is taken from rust_ece/crypto/openssl/lib.rs
-pub struct Key {
-    /// A "Key" contains the cryptographic Web Push Key data.
-    private: LocalKeyPairImpl,
-    pub public: Vec<u8>,
+#[derive(Serialize, Deserialize, Clone)]
+pub(crate) enum VersionnedKey {
+    V1(KeyV1),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct KeyV1 {
+    p256key: EcKeyComponents,
     pub auth: Vec<u8>,
 }
-
-impl clone::Clone for Key {
-    fn clone(&self) -> Key {
-        Key {
-            private: LocalKeyPairImpl::new(&self.private.to_raw()).unwrap(),
-            public: self.public.clone(),
-            auth: self.auth.clone(),
-        }
-    }
-}
-
-impl fmt::Debug for Key {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{{private: {:?}, public: {:?}, auth: {:?}}}",
-            base64::encode_config(&self.private.to_raw(), base64::URL_SAFE_NO_PAD),
-            base64::encode_config(&self.public, base64::URL_SAFE_NO_PAD),
-            base64::encode_config(&self.auth, base64::URL_SAFE_NO_PAD)
-        )
-    }
-}
-
-impl cmp::PartialEq for Key {
-    fn eq(&self, other: &Key) -> bool {
-        self.private.to_raw() == other.private.to_raw()
-            && self.public == other.public
-            && self.auth == other.auth
-    }
-}
+pub type Key = KeyV1;
 
 impl Key {
-    /*
-    re-instantiating the private key from a vector looks to be overly complex.
-    */
-
-    //TODO: Make these real serde functions
-    /// Serialize a Key's private and auth information into a recoverable byte array.
-    pub fn serialize(&self) -> error::Result<Vec<u8>> {
-        // Unfortunately, EcKey::private_key_from_der(original.private_key_to_der())
-        // produces a Key, but reading the public_key().to_bytes() fails with an
-        // openssl "incompatible objects" error.
-        // This does not bode well for doing actual functions with it.
-        // So for now, hand serializing the Key.
-        let mut result: Vec<u8> = Vec::new();
-        let mut keypv = self.private.to_raw();
-        let pvlen = keypv.len();
-        // specify the version
-        result.push(1);
-        result.push(self.auth.len() as u8);
-        result.append(&mut self.auth.clone());
-        result.push(pvlen as u8);
-        result.append(&mut keypv);
-        Ok(result)
+    // We define this method so the type-checker prevents us from
+    // trying to serialize `Key` directly since `bincode::serialize`
+    // would compile because both types derive `Serialize`.
+    pub(crate) fn serialize(&self) -> error::Result<Vec<u8>> {
+        bincode::serialize(&VersionnedKey::V1(self.clone())).map_err(|e| {
+            error::ErrorKind::GeneralError(format!("Could not serialize key: {:?}", e)).into()
+        })
     }
 
-    /// Recover a byte array into a Key structure.
-    pub fn deserialize(raw: Vec<u8>) -> error::Result<Key> {
-        if raw[0] != 1 {
-            return Err(error::ErrorKind::EncryptionError(
-                "Unknown Key Serialization version".to_owned(),
-            )
-            .into());
+    pub(crate) fn deserialize(bytes: &[u8]) -> error::Result<Self> {
+        let versionned: VersionnedKey = bincode::deserialize(bytes).map_err(|e| {
+            error::ErrorKind::GeneralError(format!("Could not de-serialize key: {:?}", e))
+        })?;
+        match versionned {
+            VersionnedKey::V1(prv_key) => Ok(prv_key),
         }
-        let mut start = 1;
-        // TODO: Make the following a macro call.
-        // fetch out the auth
-        let mut l = raw[start] as usize;
-        start += 1;
-        let mut end = start + l;
-        let auth = &raw[start..end];
-        // get the private key
-        l = raw[end] as usize;
-        start = end + 1;
-        end = start + l;
-        // generate the private key from the components
-        let private = match LocalKeyPairImpl::new(&raw[start..end]) {
-            Ok(p) => p,
-            Err(e) => {
-                return Err(error::ErrorKind::EncryptionError(format!(
-                    "Could not reinstate key {:?}",
-                    e
-                ))
-                .into());
-            }
-        };
-        let pubkey = match private.pub_as_raw() {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(error::ErrorKind::EncryptionError(format!(
-                    "Could not dump public key: {:?}",
-                    e
-                ))
-                .into());
-            }
-        };
-        Ok(Key {
-            private,
-            public: pubkey,
-            auth: auth.to_vec(),
+    }
+
+    pub fn key_pair(&self) -> error::Result<LocalKeyPairImpl> {
+        LocalKeyPairImpl::from_raw_components(&self.p256key).map_err(|e| {
+            error::ErrorKind::EncryptionError(format!(
+                "Could not re-create key from components: {:?}",
+                e
+            ))
+            .into()
         })
+    }
+
+    pub fn private_key(&self) -> &[u8] {
+        self.p256key.private_key()
+    }
+
+    pub fn public_key(&self) -> &[u8] {
+        self.p256key.public_key()
     }
 }
 
@@ -206,46 +139,28 @@ fn extract_value(string: Option<&str>, target: &str) -> Option<Vec<u8>> {
 impl Cryptography for Crypto {
     /// Generate a new cryptographic Key
     fn generate_key() -> error::Result<Key> {
-        let key = match LocalKeyPairImpl::generate_random() {
-            Ok(k) => k,
-            Err(e) => {
-                return Err(error::ErrorKind::EncryptionError(format!(
-                    "Could not generate key: {:?}",
-                    e
-                ))
-                .into());
-            }
-        };
+        let key = LocalKeyPairImpl::generate_random().map_err(|e| {
+            error::ErrorKind::EncryptionError(format!("Could not generate key: {:?}", e))
+        })?;
+        let components = key.raw_components().map_err(|e| {
+            error::ErrorKind::EncryptionError(format!("Could not extract key components: {:?}", e))
+        })?;
         let auth = get_bytes(SER_AUTH_LENGTH)?;
-        let public = match key.pub_as_raw() {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(error::ErrorKind::EncryptionError(format!(
-                    "Could not dump public key: {:?}",
-                    e
-                ))
-                .into());
-            }
-        };
         Ok(Key {
-            private: key,
-            public,
+            p256key: components,
             auth,
         })
     }
 
     // generate unit test key
     fn test_key(priv_key: &str, pub_key: &str, auth: &str) -> Key {
-        let private = EcKey::private_key_from_der(
-            &base64::decode_config(priv_key, base64::URL_SAFE_NO_PAD).unwrap(),
-        )
-        .unwrap();
-        let public = base64::decode_config(pub_key, base64::URL_SAFE_NO_PAD).unwrap();
+        let components = EcKeyComponents::new(
+            base64::decode_config(priv_key, base64::URL_SAFE_NO_PAD).unwrap(),
+            base64::decode_config(pub_key, base64::URL_SAFE_NO_PAD).unwrap(),
+        );
         let auth = base64::decode_config(auth, base64::URL_SAFE_NO_PAD).unwrap();
-
         Key {
-            private: private.into(),
-            public,
+            p256key: components,
             auth,
         }
     }
@@ -305,17 +220,13 @@ impl Cryptography for Crypto {
                 .into());
             }
         };
-        match AesGcmEceWebPushImpl::decrypt(&key.private, &key.auth, &block) {
-            Ok(result) => Ok(result),
-            Err(e) => Err(error::ErrorKind::OpenSSLError(format!("{:?}", e)).into()),
-        }
+        AesGcmEceWebPushImpl::decrypt(&key.key_pair()?, &key.auth, &block)
+            .map_err(|e| error::ErrorKind::OpenSSLError(format!("{:?}", e)).into())
     }
 
     fn decrypt_aes128gcm(key: &Key, content: &[u8]) -> error::Result<Vec<u8>> {
-        match Aes128GcmEceWebPushImpl::decrypt(&key.private, &key.auth, &content) {
-            Ok(result) => Ok(result),
-            Err(e) => Err(error::ErrorKind::OpenSSLError(format!("{:?}", e)).into()),
-        }
+        Aes128GcmEceWebPushImpl::decrypt(&key.key_pair()?, &key.auth, &content)
+            .map_err(|e| error::ErrorKind::OpenSSLError(format!("{:?}", e)).into())
     }
 }
 
@@ -333,17 +244,13 @@ mod crypto_tests {
         salt: Option<&str>,
         dh: Option<&str>,
     ) -> error::Result<Vec<u8>> {
-        // The following come from internal storage;
-        // More than likely, this will be stored either as an encoded or raw DER.
-        let priv_key_der_raw =
-            "MHcCAQEEIKiZMcVhlVccuwSr62jWN4YPBrPmPKotJUWl1id0d2ifoAoGCCqGSM49AwEHoUQDQgAEFwl1-\
-             zUa0zLKYVO23LqUgZZEVesS0k_jQN_SA69ENHgPwIpWCoTq-VhHu0JiSwhF0oPUzEM-FBWYoufO6J97nQ";
+        let priv_key_d = "qJkxxWGVVxy7BKvraNY3hg8Gs-Y8qi0lRaXWJ3R3aJ8";
         // The auth token
         let auth_raw = "LsuUOBKVQRY6-l7_Ajo-Ag";
         // This would be the public key sent to the subscription service.
         let pub_key_raw = "BBcJdfs1GtMyymFTtty6lIGWRFXrEtJP40Df0gOvRDR4D8CKVgqE6vlYR7tCYksIRdKD1MxDPhQVmKLnzuife50";
 
-        let key = Crypto::test_key(priv_key_der_raw, pub_key_raw, auth_raw);
+        let key = Crypto::test_key(priv_key_d, pub_key_raw, auth_raw);
         Crypto::decrypt(&key, ciphertext, encoding, salt, dh)
     }
 
@@ -384,23 +291,5 @@ mod crypto_tests {
 
         let decrypted = decrypter(ciphertext, "aes128gcm", None, None).unwrap();
         assert_eq!(String::from_utf8(decrypted).unwrap(), PLAINTEXT.to_string());
-    }
-
-    #[test]
-    fn test_key_serde() {
-        let key = Crypto::generate_key().unwrap();
-        let key_dump = key.serialize().unwrap();
-        let key2 = Key::deserialize(key_dump).unwrap();
-        assert!(key.private.to_raw() == key2.private.to_raw());
-        assert!(key.public == key2.public);
-        assert!(key.auth == key2.auth);
-        assert!(key == key2);
-    }
-
-    #[test]
-    fn test_key_debug() {
-        let key = Crypto::generate_key().unwrap();
-
-        println!("Key: {:?}", key);
     }
 }

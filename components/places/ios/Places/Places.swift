@@ -147,6 +147,10 @@ public class PlacesAPI {
     /**
      * Sync the bookmarks collection.
      *
+     * - Returns: A JSON string representing a telemetry ping for this sync. The
+     *            string contains the ping payload, and should be sent to the
+     *            telemetry submission endpoint.
+     *
      * - Throws:
      *     - `PlacesError.databaseInterrupted`: If a call is made to `interrupt()` on this
      *                                          object from another thread.
@@ -156,9 +160,9 @@ public class PlacesAPI {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    open func syncBookmarks(unlockInfo: SyncUnlockInfo) throws {
+    open func syncBookmarks(unlockInfo: SyncUnlockInfo) throws -> String {
         return try queue.sync {
-            try PlacesError.unwrap { err in
+            let pingStr = try PlacesError.unwrap { err in
                 sync15_bookmarks_sync(handle,
                                       unlockInfo.kid,
                                       unlockInfo.fxaAccessToken,
@@ -166,6 +170,7 @@ public class PlacesAPI {
                                       unlockInfo.tokenserverURL,
                                       err)
             }
+            return String(freeingPlacesString: pingStr)
         }
     }
 

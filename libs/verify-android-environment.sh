@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Ensure the build toolchains are set up correctly for android builds.
 #
 # This file should be used via `./libs/verify-android-environment.sh`.
@@ -32,22 +34,14 @@ elif [ "${ANDROID_NDK_HOME}" != "${ANDROID_NDK_ROOT}" ]; then
   exit 1
 fi
 
-INSTALLED_NDK_VERSION=$(sed -En -e 's/^Pkg.Revision[ \t]*=[ \t]*([0-9a-f]+).*/\1/p' ${ANDROID_NDK_ROOT}/source.properties)
+INSTALLED_NDK_VERSION=$(sed -En -e 's/^Pkg.Revision[ \t]*=[ \t]*([0-9a-f]+).*/\1/p' "${ANDROID_NDK_ROOT}/source.properties")
 if [ "${INSTALLED_NDK_VERSION}" != ${NDK_VERSION} ]; then
   echo "Wrong Android NDK version:"
   echo "Expected version ${NDK_VERSION}, got ${INSTALLED_NDK_VERSION}"
   exit 1
 fi
 
-INSTALLED_RUST_TARGETS=$(rustup target list)
-for TARGET in "${RUST_TARGETS[@]}"
-do
-  if ! [ "$(echo "${INSTALLED_RUST_TARGETS}" | grep "${TARGET}")" ]; then
-    echo "Missing Rust target: ${TARGET}"
-    echo "Installing the required target, please hold on."
-    rustup target add ${TARGET}
-  fi
-done
+rustup target add "${RUST_TARGETS[@]}"
 
 if [ -z "${ANDROID_NDK_TOOLCHAIN_DIR}" ]; then
   echo "Could not find Android NDK toolchain directory:"

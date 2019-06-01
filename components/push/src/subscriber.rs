@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use crate::communications::{connect, ConnectHttp, Connection, RegisterResponse};
 use crate::config::PushConfiguration;
-use crate::crypto::{Crypto, Cryptography, Key};
+use crate::crypto::{Crypto, Cryptography, KeyV1 as Key};
 use crate::storage::{Storage, Store};
 
 use crate::error::{self, ErrorKind, Result};
@@ -52,15 +52,14 @@ impl PushManager {
                         secret: self.store.get_meta("auth")?,
                         senderid: Some(reg_token),
                     },
-                    Key::deserialize(record.key)?,
+                    Key::deserialize(&record.key)?,
                 ));
             }
         }
         let info = self.conn.subscribe(channel_id)?;
         if &self.config.sender_id == "test" {
             subscription_key = Crypto::test_key(
-                "MHcCAQEEIKiZMcVhlVccuwSr62jWN4YPBrPmPKotJUWl1id0d2ifoAoGCCqGSM49AwEHoUQDQgAEFwl1-\
-                 zUa0zLKYVO23LqUgZZEVesS0k_jQN_SA69ENHgPwIpWCoTq-VhHu0JiSwhF0oPUzEM-FBWYoufO6J97nQ",
+                "qJkxxWGVVxy7BKvraNY3hg8Gs-Y8qi0lRaXWJ3R3aJ8",
                 "BBcJdfs1GtMyymFTtty6lIGWRFXrEtJP40Df0gOvRDR4D8CKVgqE6vlYR7tCYksIRdKD1MxDPhQVmKLnzuife50",
                 "LsuUOBKVQRY6-l7_Ajo-Ag"
             )
@@ -147,24 +146,18 @@ impl PushManager {
         salt: Option<&str>,
         dh: Option<&str>,
     ) -> Result<String> {
-        match self.store.get_record(&uaid, chid) {
-            Err(e) => Err(ErrorKind::StorageError(format!("{:?}", e)).into()),
-            Ok(v) => {
-                if let Some(val) = v {
-                    let key = Key::deserialize(val.key)?;
-                    return match Crypto::decrypt(&key, body, encoding, salt, dh) {
-                        Err(e) => Err(ErrorKind::EncryptionError(format!("{:?}", e)).into()),
-                        Ok(v) => serde_json::to_string(&v)
-                            .map_err(|e| ErrorKind::TranscodingError(format!("{:?}", e)).into()),
-                    };
-                };
-                Err(ErrorKind::StorageError(format!(
-                    "No record for uaid:chid {:?}:{:?}",
-                    uaid, chid
-                ))
-                .into())
-            }
-        }
+        let val = self
+            .store
+            .get_record(&uaid, chid)
+            .map_err(|e| ErrorKind::StorageError(format!("{:?}", e)))?
+            .ok_or_else(|| {
+                ErrorKind::StorageError(format!("No record for uaid:chid {:?}:{:?}", uaid, chid))
+            })?;
+        let key = Key::deserialize(&val.key)?;
+        let decrypted = Crypto::decrypt(&key, body, encoding, salt, dh)
+            .map_err(|e| ErrorKind::EncryptionError(format!("{:?}", e)))?;
+        serde_json::to_string(&decrypted)
+            .map_err(|e| ErrorKind::TranscodingError(format!("{:?}", e)).into())
     }
 
     /// Fetch new endpoints for a list of channels.
@@ -249,10 +242,12 @@ mod test {
         let mut salt = vec![0u8; 16];
         rand_bytes(&mut auth_secret)?;
         rand_bytes(&mut salt)?;
-        let ciphertext = ece::encrypt(&key.public, &key.auth, &salt, data_string).unwrap();
+        let ciphertext = ece::encrypt(&key.public_key(), &key.auth, &salt, data_string).unwrap();
         let body = base64::encode_config(&ciphertext, base64::URL_SAFE_NO_PAD);
 
-        let result = pm.decrypt(&info.uaid, &info.channel_id, &body, "aes128gcm", None, None)?;
+        let result = pm
+            .decrypt(&info.uaid, &info.channel_id, &body, "aes128gcm", None, None)
+            .unwrap();
         assert_eq!(
             serde_json::to_string(&data_string.to_vec()).unwrap(),
             result
