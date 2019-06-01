@@ -2,4 +2,12 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.30.0...master)
+[Full Cihangelog](https://github.com/mozilla/application-services/compare/v0.30.0...master)
+
+## Logins
+
+### Breaking Changes
+
+- iOS: LoginsStoreError enum variants have their name `lowerCamelCased`
+  instead of `UpperCamelCased`, to better fit with common Swift code style.
+  ([#1042](https://github.com/mozilla/application-services/issues/1042))

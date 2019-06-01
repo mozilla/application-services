@@ -4,28 +4,25 @@
 
 import Foundation
 
-// https://github.com/mozilla/application-services/issues/1042
-// swiftlint:disable identifier_name
-
 /// Indicates an error occurred while calling into the logins storage layer
 public enum LoginsStoreError: Error {
     /// This is a catch-all error code used for errors not yet exposed to consumers,
     /// typically since it doesn't seem like there's a sane way for them to be handled.
-    case Unspecified(message: String)
+    case unspecified(message: String)
 
     /// The rust code implementing logins storage paniced. This always indicates a bug.
-    case Panic(message: String)
+    case panic(message: String)
 
     /// This indicates that the sync authentication is invalid, likely due to having
     /// expired.
-    case AuthInvalid(message: String)
+    case authInvalid(message: String)
 
     /// This is thrown if a `touch` or `update` refers to a record whose ID is not known
-    case NoSuchRecord(message: String)
+    case noSuchRecord(message: String)
 
     /// This is thrown on attempts to `add` a record with a specific ID, but that ID
     /// already exists.
-    case DuplicateGuid(message: String)
+    case duplicateGuid(message: String)
 
     /// This is thrown on attempts to insert or update a record so that it
     /// is no longer valid. Valid records have:
@@ -33,16 +30,16 @@ public enum LoginsStoreError: Error {
     /// - non-empty hostnames
     /// - non-empty passwords
     /// - and exactly one of `httpRealm` or `formSubmitUrl` is non-null.
-    case InvalidLogin(message: String)
+    case invalidLogin(message: String)
 
     /// This error is emitted in two cases:
     ///
     /// 1. An incorrect key is used to to open the login database
     /// 2. The file at the path specified is not a sqlite database.
-    case InvalidKey(message: String)
+    case invalidKey(message: String)
 
     /// This error is emitted if a request to a sync server failed.
-    case Network(message: String)
+    case network(message: String)
 
     /// This error is emitted if a call to `interrupt()` is made to
     /// abort some operation.
@@ -59,34 +56,34 @@ public enum LoginsStoreError: Error {
             return nil
 
         case Sync15Passwords_OtherError:
-            return .Unspecified(message: String(freeingRustString: message!))
+            return .unspecified(message: String(freeingRustString: message!))
 
         case Sync15Passwords_UnexpectedPanic:
-            return .Panic(message: String(freeingRustString: message!))
+            return .panic(message: String(freeingRustString: message!))
 
         case Sync15Passwords_AuthInvalidError:
-            return .AuthInvalid(message: String(freeingRustString: message!))
+            return .authInvalid(message: String(freeingRustString: message!))
 
         case Sync15Passwords_NoSuchRecord:
-            return .NoSuchRecord(message: String(freeingRustString: message!))
+            return .noSuchRecord(message: String(freeingRustString: message!))
 
         case Sync15Passwords_DuplicateGuid:
-            return .DuplicateGuid(message: String(freeingRustString: message!))
+            return .duplicateGuid(message: String(freeingRustString: message!))
 
         case Sync15Passwords_InvalidLogin:
-            return .InvalidLogin(message: String(freeingRustString: message!))
+            return .invalidLogin(message: String(freeingRustString: message!))
 
         case Sync15Passwords_InvalidKeyError:
-            return .InvalidKey(message: String(freeingRustString: message!))
+            return .invalidKey(message: String(freeingRustString: message!))
 
         case Sync15Passwords_NetworkError:
-            return .Network(message: String(freeingRustString: message!))
+            return .network(message: String(freeingRustString: message!))
 
         case Sync15Passwords_InterruptedError:
             return .interrupted(message: String(freeingRustString: message!))
 
         default:
-            return .Unspecified(message: String(freeingRustString: message!))
+            return .unspecified(message: String(freeingRustString: message!))
         }
     }
 
