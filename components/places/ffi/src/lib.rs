@@ -256,8 +256,15 @@ pub extern "C" fn places_delete_place(handle: u64, url: FfiStr<'_>, error: &mut 
     log::debug!("places_delete_place");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let url = parse_url(url.as_str())?;
-        if let Some(guid) = storage::history::url_to_guid(conn, &url)? {
-            storage::history::delete_place_by_guid(conn, &guid)?;
+        let guid = match parse_url(url.as_str()) {
+            Ok(url) => storage::history::url_to_guid(conn, &url)?,
+            Err(e) => {
+                log::warn!("Invalid URL passed to places_delete_place, {}", e);
+                storage::history::href_to_guid(conn, url.clone().as_str())?
+            }
+        };
+        if guid.is_some() {
+            storage::history::delete_place_by_guid(conn, &guid.unwrap())?;
         }
         Ok(())
     })
@@ -290,11 +297,23 @@ pub extern "C" fn places_delete_visit(
 ) {
     log::debug!("places_delete_visit");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        storage::history::delete_place_visit_at_time(
-            conn,
-            &parse_url(url.as_str())?,
-            places::Timestamp(timestamp.max(0) as u64),
-        )?;
+        match parse_url(url.as_str()) {
+            Ok(url) => {
+                storage::history::delete_place_visit_at_time(
+                    conn,
+                    &url,
+                    places::Timestamp(timestamp.max(0) as u64),
+                )?;
+            }
+            Err(e) => {
+                log::warn!("Invalid URL passed to places_delete_visit, {}", e);
+                storage::history::delete_place_visit_at_time_by_href(
+                    conn,
+                    url.as_str(),
+                    places::Timestamp(timestamp.max(0) as u64),
+                )?;
+            }
+        };
         Ok(())
     })
 }
