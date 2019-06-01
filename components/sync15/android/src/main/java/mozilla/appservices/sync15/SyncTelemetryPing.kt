@@ -22,6 +22,7 @@ import org.json.JSONObject
  * Applications like Fenix that embed Glean will automatically submit these
  * pings.
  */
+
 enum class FailureName {
     Shutdown,
     Other,
@@ -33,11 +34,13 @@ enum class FailureName {
 
 data class SyncTelemetryPing(
     val version: Int,
-    val uid: String?,
+    val uid: String,
     val events: List<EventInfo>,
     val syncs: List<SyncInfo>
 ) {
     companion object {
+        @JvmField val EMPTY_UID = "0".repeat(32)
+
         fun fromJSON(jsonObject: JSONObject): SyncTelemetryPing {
             val events = unwrapFromJSON(jsonObject) {
                 it.getJSONArray("events")
@@ -51,7 +54,7 @@ data class SyncTelemetryPing(
             } ?: emptyList()
             return SyncTelemetryPing(
                 version = jsonObject.getInt("version"),
-                uid = stringOrNull(jsonObject, "uid"),
+                uid = stringOrNull(jsonObject, "uid") ?: EMPTY_UID,
                 events = events,
                 syncs = syncs
             )
@@ -65,9 +68,7 @@ data class SyncTelemetryPing(
     fun toJSON(): JSONObject {
         var result = JSONObject()
         result.put("version", version)
-        uid?.let {
-            result.put("uid", it)
-        }
+        result.put("uid", uid)
         if (!events.isEmpty()) {
             result.put("events", JSONArray().apply {
                 events.forEach {
