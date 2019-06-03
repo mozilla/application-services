@@ -188,10 +188,15 @@ fn add_visit(
 
 /// Returns the GUID for the specified Url, or None if it doesn't exist.
 pub fn url_to_guid(db: &PlacesDb, url: &Url) -> Result<Option<SyncGuid>> {
+    href_to_guid(db, url.clone().as_str())
+}
+
+/// Returns the GUID for the specified Url String, or None if it doesn't exist.
+pub fn href_to_guid(db: &PlacesDb, url: &str) -> Result<Option<SyncGuid>> {
     let sql = "SELECT guid FROM moz_places WHERE url_hash = hash(:url) AND url = :url";
     let result: Option<(SyncGuid)> = db.try_query_row(
         sql,
-        &[(":url", &url.clone().into_string())],
+        &[(":url", &url.to_owned())],
         // subtle: we explicitly need to specify rusqlite::Result or the compiler
         // struggles to work out what error type to return from try_query_row.
         |row| -> rusqlite::Result<_> { Ok(row.get::<_, SyncGuid>(0)?) },
@@ -233,8 +238,16 @@ pub fn delete_visits_between(db: &PlacesDb, start: Timestamp, end: Timestamp) ->
 }
 
 pub fn delete_place_visit_at_time(db: &PlacesDb, place: &Url, visit: Timestamp) -> Result<()> {
+    delete_place_visit_at_time_by_href(db, place.as_str(), visit)
+}
+
+pub fn delete_place_visit_at_time_by_href(
+    db: &PlacesDb,
+    place: &str,
+    visit: Timestamp,
+) -> Result<()> {
     let tx = db.begin_transaction()?;
-    delete_place_visit_at_time_in_tx(db, place.as_str(), visit)?;
+    delete_place_visit_at_time_in_tx(db, place, visit)?;
     tx.commit()?;
     Ok(())
 }
