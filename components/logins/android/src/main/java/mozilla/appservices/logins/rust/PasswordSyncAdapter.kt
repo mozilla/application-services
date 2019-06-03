@@ -68,6 +68,7 @@ internal interface PasswordSyncAdapter : Library {
     // return json array
     fun sync15_passwords_get_all(handle: LoginsDbHandle, error: RustError.ByReference): Pointer?
 
+    // Returns a JSON string containing a sync ping.
     fun sync15_passwords_sync(
         handle: LoginsDbHandle,
         key_id: String,
@@ -75,7 +76,7 @@ internal interface PasswordSyncAdapter : Library {
         sync_key: String,
         token_server_url: String,
         error: RustError.ByReference
-    )
+    ): Pointer?
 
     fun sync15_passwords_wipe(handle: LoginsDbHandle, error: RustError.ByReference)
     fun sync15_passwords_wipe_local(handle: LoginsDbHandle, error: RustError.ByReference)

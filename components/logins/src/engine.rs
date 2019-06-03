@@ -117,6 +117,9 @@ impl PasswordEngine {
         self.db.set_global_state(&disk_cached_state)?;
 
         // for b/w compat reasons, we do some dances with the result.
+        // XXX - note that this means telemetry isn't going to be reported back
+        // to the app - we need to check with lockwise about whether they really
+        // need these failures to be reported or whether we can loosen this.
         if let Err(e) = result.result {
             return Err(e.into());
         }
