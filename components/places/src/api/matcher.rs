@@ -184,7 +184,7 @@ pub struct SearchResult {
 impl SearchResult {
     /// Default search behaviors from Desktop: HISTORY, BOOKMARK, OPENPAGE, SEARCHES.
     /// Default match behavior: MATCH_BOUNDARY_ANYWHERE.
-    pub fn from_adaptive_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Self> {
+    pub fn from_adaptive_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Option<Self>> {
         let mut reasons = vec![MatchReason::PreviousUse];
 
         let search_string = row.get::<_, String>("searchString")?;
@@ -204,19 +204,23 @@ impl SearchResult {
         if bookmarked {
             reasons.push(MatchReason::Bookmark);
         }
-        let url = Url::parse(&url).expect("Invalid URL in Places");
-
-        Ok(Self {
-            search_string,
-            url,
-            title,
-            icon_url: None,
-            frecency,
-            reasons,
+        Ok(match Url::parse(&url) {
+            Ok(url) => Some(Self {
+                search_string,
+                url,
+                title,
+                icon_url: None,
+                frecency,
+                reasons,
+            }),
+            Err(_) => {
+                log::trace!("Ignoring invalid url in search result: {}", url);
+                None
+            }
         })
     }
 
-    pub fn from_suggestion_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Self> {
+    pub fn from_suggestion_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Option<Self>> {
         let mut reasons = vec![MatchReason::Bookmark];
 
         let search_string = row.get::<_, String>("searchString")?;
@@ -230,39 +234,47 @@ impl SearchResult {
         if let Some(tags) = tags {
             reasons.push(MatchReason::Tags(tags));
         }
-        let url = Url::parse(&url).expect("Invalid URL in Places");
-
         let frecency = row.get::<_, i64>("frecency")?;
 
-        Ok(Self {
-            search_string,
-            url,
-            title,
-            icon_url: None,
-            frecency,
-            reasons,
+        Ok(match Url::parse(&url) {
+            Ok(url) => Some(Self {
+                search_string,
+                url,
+                title,
+                icon_url: None,
+                frecency,
+                reasons,
+            }),
+            Err(_) => {
+                log::trace!("Ignoring invalid url in search result: {}", url);
+                None
+            }
         })
     }
 
-    pub fn from_origin_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Self> {
+    pub fn from_origin_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Option<Self>> {
         let search_string = row.get::<_, String>("searchString")?;
         let url = row.get::<_, String>("url")?;
         let display_url = row.get::<_, String>("displayURL")?;
         let frecency = row.get::<_, i64>("frecency")?;
 
-        let url = Url::parse(&url).expect("Invalid URL in Places");
-
-        Ok(Self {
-            search_string,
-            url,
-            title: display_url,
-            icon_url: None,
-            frecency,
-            reasons: vec![MatchReason::Origin],
+        Ok(match Url::parse(&url) {
+            Ok(url) => Some(Self {
+                search_string,
+                url,
+                title: display_url,
+                icon_url: None,
+                frecency,
+                reasons: vec![MatchReason::Origin],
+            }),
+            Err(_) => {
+                log::trace!("Ignoring invalid url in search result: {}", url);
+                None
+            }
         })
     }
 
-    pub fn from_url_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Self> {
+    pub fn from_url_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Option<Self>> {
         let search_string = row.get::<_, String>("searchString")?;
         let href = row.get::<_, String>("url")?;
         let stripped_url = row.get::<_, String>("strippedURL")?;
@@ -284,24 +296,39 @@ impl SearchResult {
                     }
                     None => &href[stripped_url_index..],
                 };
-                let url = Url::parse(&[stripped_prefix, title].concat())
-                    .expect("Malformed suggested URL");
+                let url = match Url::parse(&[stripped_prefix, title].concat()) {
+                    Err(_) => {
+                        log::trace!(
+                            "Ignoring invalid pseudo-url in search result: {}{}",
+                            stripped_prefix,
+                            title
+                        );
+                        return Ok(None);
+                    }
+                    Ok(url) => url,
+                };
                 (url, title.into())
             }
             None => {
-                let url = Url::parse(&href).expect("Invalid URL in Places");
+                let url = match Url::parse(&href) {
+                    Err(_) => {
+                        log::trace!("Ignoring invalid href in search result: {}", href);
+                        return Ok(None);
+                    }
+                    Ok(url) => url,
+                };
                 (url, stripped_url)
             }
         };
 
-        Ok(Self {
+        Ok(Some(Self {
             search_string,
             url,
             title: display_url,
             icon_url: None,
             frecency,
             reasons,
-        })
+        }))
     }
 }
 
@@ -391,6 +418,9 @@ impl<'query> Matcher for OriginOrUrl<'query> {
                 ],
                 SearchResult::from_origin_row,
             )?
+            .into_iter()
+            .flatten()
+            .collect()
         } else if self.query.contains(|c| c == '/' || c == ':' || c == '?') {
             let (host, remainder) = split_after_host_and_port(self.query);
             // This can fail if the "host" has some characters that are not
@@ -414,6 +444,9 @@ impl<'query> Matcher for OriginOrUrl<'query> {
                 ],
                 SearchResult::from_url_row,
             )?
+            .into_iter()
+            .flatten()
+            .collect()
         } else {
             vec![]
         })
@@ -442,8 +475,9 @@ impl<'query> Adaptive<'query> {
 
 impl<'query> Matcher for Adaptive<'query> {
     fn search(&self, conn: &PlacesDb, max_results: u32) -> Result<Vec<SearchResult>> {
-        Ok(conn.query_rows_and_then_named_cached(
-            "
+        Ok(conn
+            .query_rows_and_then_named_cached(
+                "
             SELECT h.url as url,
                    h.title as title,
                    EXISTS(SELECT 1 FROM moz_bookmarks
@@ -474,14 +508,17 @@ impl<'query> Matcher for Adaptive<'query> {
                                      NULL, :matchBehavior, :searchBehavior)
             ORDER BY rank DESC, h.frecency DESC
             LIMIT :maxResults",
-            &[
-                (":searchString", &self.query),
-                (":matchBehavior", &self.match_behavior),
-                (":searchBehavior", &self.search_behavior),
-                (":maxResults", &max_results),
-            ],
-            SearchResult::from_adaptive_row,
-        )?)
+                &[
+                    (":searchString", &self.query),
+                    (":matchBehavior", &self.match_behavior),
+                    (":searchBehavior", &self.search_behavior),
+                    (":maxResults", &max_results),
+                ],
+                SearchResult::from_adaptive_row,
+            )?
+            .into_iter()
+            .flatten()
+            .collect())
     }
 }
 
@@ -507,8 +544,9 @@ impl<'query> Suggestions<'query> {
 
 impl<'query> Matcher for Suggestions<'query> {
     fn search(&self, conn: &PlacesDb, max_results: u32) -> Result<Vec<SearchResult>> {
-        Ok(conn.query_rows_and_then_named_cached(
-            "
+        Ok(conn
+            .query_rows_and_then_named_cached(
+                "
             SELECT h.url, h.title,
                    EXISTS(SELECT 1 FROM moz_bookmarks
                           WHERE fk = h.id) AS bookmarked,
@@ -532,14 +570,17 @@ impl<'query> Matcher for Suggestions<'query> {
               AND (+h.visit_count_local > 0 OR +h.visit_count_remote > 0)
             ORDER BY h.frecency DESC, h.id DESC
             LIMIT :maxResults",
-            &[
-                (":searchString", &self.query),
-                (":matchBehavior", &self.match_behavior),
-                (":searchBehavior", &self.search_behavior),
-                (":maxResults", &max_results),
-            ],
-            SearchResult::from_suggestion_row,
-        )?)
+                &[
+                    (":searchString", &self.query),
+                    (":matchBehavior", &self.match_behavior),
+                    (":searchBehavior", &self.search_behavior),
+                    (":maxResults", &max_results),
+                ],
+                SearchResult::from_suggestion_row,
+            )?
+            .into_iter()
+            .flatten()
+            .collect())
     }
 }
 
