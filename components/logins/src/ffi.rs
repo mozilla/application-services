@@ -35,8 +35,8 @@ pub mod error_codes {
     /// A request to the sync server failed.
     pub const NETWORK: i32 = 6;
 
-    /// A request to the sync server failed.
-    pub const INTERRUPTED: i32 = 6;
+    /// The operation was interrupted.
+    pub const INTERRUPTED: i32 = 7;
 }
 
 fn get_code(err: &Error) -> ErrorCode {
