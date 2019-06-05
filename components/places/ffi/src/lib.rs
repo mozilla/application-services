@@ -24,7 +24,7 @@ use std::sync::Arc;
 use places::api::matcher::{match_url, search_frecent, SearchParams};
 
 // indirection to help `?` figure out the target error type
-fn parse_url(url: &str) -> sync15::Result<url::Url> {
+fn parse_url(url: &str) -> places::Result<url::Url> {
     Ok(url::Url::parse(url)?)
 }
 
