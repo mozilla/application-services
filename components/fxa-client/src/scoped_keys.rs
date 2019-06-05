@@ -18,7 +18,7 @@ impl FirefoxAccount {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ScopedKey {
     pub kty: String,
     pub scope: String,
@@ -30,6 +30,16 @@ pub struct ScopedKey {
 impl ScopedKey {
     pub fn key_bytes(&self) -> Result<Vec<u8>> {
         Ok(base64::decode_config(&self.k, base64::URL_SAFE_NO_PAD)?)
+    }
+}
+
+impl std::fmt::Debug for ScopedKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ScopedKey")
+            .field("kty", &self.kty)
+            .field("scope", &self.scope)
+            .field("kid", &self.kid)
+            .finish()
     }
 }
 
