@@ -259,10 +259,18 @@ impl FirefoxAccount {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct RefreshToken {
     pub token: String,
     pub scopes: HashSet<String>,
+}
+
+impl std::fmt::Debug for RefreshToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RefreshToken")
+            .field("scopes", &self.scopes)
+            .finish()
+    }
 }
 
 pub struct OAuthFlow {
@@ -270,12 +278,22 @@ pub struct OAuthFlow {
     pub code_verifier: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct AccessTokenInfo {
     pub scope: String,
     pub token: String,
     pub key: Option<ScopedKey>,
     pub expires_at: u64, // seconds since epoch
+}
+
+impl std::fmt::Debug for AccessTokenInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AccessTokenInfo")
+            .field("scope", &self.scope)
+            .field("key", &self.key)
+            .field("expires_at", &self.expires_at)
+            .finish()
+    }
 }
 
 #[cfg(test)]
