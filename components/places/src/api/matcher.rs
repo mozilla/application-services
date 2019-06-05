@@ -27,8 +27,9 @@ where
         .inspect(|r| {
             if let Err(ref e) = *r {
                 log::warn!("Failed to perform a search: {}", e);
-                #[cfg(debug_assertions)]
-                panic!("Failed to perform a search: {}", e);
+                if cfg!(debug_assertions) {
+                    panic!("Failed to perform a search: {}", e);
+                }
             }
         })
         .flatten()
@@ -773,7 +774,10 @@ mod tests {
     // we are panicing where we think we are, note the 'expected' string.
     // (Not really clear this test offers much value, but seems worth having...)
     #[test]
-    #[should_panic(expected = "Failed to perform a search:")]
+    #[cfg_attr(
+        debug_assertions,
+        should_panic(expected = "Failed to perform a search:")
+    )]
     fn search_invalid_url() {
         use rusqlite::NO_PARAMS;
         let conn = new_mem_connection();
