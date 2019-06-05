@@ -161,7 +161,7 @@ pub trait ConnExt {
         F: FnMut(&Row<'_>) -> Result<T, E>,
     {
         crate::maybe_log_plan(self.conn(), sql, params);
-        query_rows_and_then_named(self.conn(), sql, params, mapper, false)
+        query_rows_and_then_named(self.conn(), sql, params, mapper, true)
     }
 
     /// Like `query_rows_and_then_named`, but works if you want a non-Vec as a result.
