@@ -253,6 +253,24 @@ open class FirefoxAccount {
             }
         }
     }
+
+    /// This method should be called when a request made with
+    /// an OAuth token failed with an authentication error.
+    /// It clears the internal cache of OAuth access tokens,
+    /// so the caller can try to call `getAccessToken` or `getProfile`
+    /// again.
+    open func clearAccessTokenCache(completionHandler: @escaping (Void, Error?) -> Void) {
+        queue.async {
+            do {
+                try FirefoxAccountError.unwrap { err in
+                    fxa_clear_access_token_cache(self.raw, err)
+                }
+                DispatchQueue.main.async { completionHandler((), nil) }
+            } catch {
+                DispatchQueue.main.async { completionHandler((), error) }
+            }
+        }
+    }
 }
 
 public struct ScopedKey {

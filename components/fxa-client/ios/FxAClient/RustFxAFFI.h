@@ -57,6 +57,9 @@ FxARustBuffer fxa_get_access_token(FirefoxAccountHandle handle,
                                    const char *_Nonnull scope,
                                    FxAError *_Nonnull out);
 
+FxARustBuffer fxa_clear_access_token_cache(FirefoxAccountHandle handle,
+                                             FxAError *_Nonnull out);
+
 FirefoxAccountHandle fxa_from_json(const char *_Nonnull json,
                                    FxAError *_Nonnull out);
 
