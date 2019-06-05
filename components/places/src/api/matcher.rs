@@ -11,22 +11,28 @@ use sql_support::{maybe_log_plan, ConnExt};
 use url::Url;
 
 // A helper to log, cache and execute a query, returning a vector of flattened rows.
-fn query_flat_rows_and_then_named<T, E, F>(
+fn query_flat_rows_and_then_named<T, F>(
     conn: &PlacesDb,
     sql: &str,
     params: &[(&str, &dyn ToSql)],
     mapper: F,
 ) -> Result<Vec<T>>
 where
-    E: From<rusqlite::Error>,
-    F: FnMut(&Row<'_>) -> std::result::Result<Option<T>, E>,
+    F: FnMut(&Row<'_>) -> Result<T>,
 {
     maybe_log_plan(conn, sql, params);
     let mut stmt = conn.prepare_maybe_cached(sql, true)?;
     let iter = stmt.query_and_then_named(params, mapper)?;
-    // XXX - one flatten() is for Result<>, the other for Option<> - markh
-    // can't work out how to fail on error!
-    Ok(iter.flatten().flatten().collect())
+    Ok(iter
+        .inspect(|r| {
+            if let Err(ref e) = *r {
+                log::warn!("Failed to perform a search: {}", e);
+                #[cfg(debug_assertions)]
+                panic!("Failed to perform a search: {}", e);
+            }
+        })
+        .flatten()
+        .collect::<Vec<_>>())
 }
 
 #[derive(Debug, Clone)]
@@ -204,7 +210,7 @@ pub struct SearchResult {
 impl SearchResult {
     /// Default search behaviors from Desktop: HISTORY, BOOKMARK, OPENPAGE, SEARCHES.
     /// Default match behavior: MATCH_BOUNDARY_ANYWHERE.
-    pub fn from_adaptive_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Option<Self>> {
+    pub fn from_adaptive_row(row: &rusqlite::Row<'_>) -> Result<Self> {
         let mut reasons = vec![MatchReason::PreviousUse];
 
         let search_string = row.get::<_, String>("searchString")?;
@@ -224,23 +230,19 @@ impl SearchResult {
         if bookmarked {
             reasons.push(MatchReason::Bookmark);
         }
-        Ok(match Url::parse(&url) {
-            Ok(url) => Some(Self {
-                search_string,
-                url,
-                title,
-                icon_url: None,
-                frecency,
-                reasons,
-            }),
-            Err(_) => {
-                log::trace!("Ignoring invalid url in search result: {}", url);
-                None
-            }
+        let url = Url::parse(&url)?;
+
+        Ok(Self {
+            search_string,
+            url,
+            title,
+            icon_url: None,
+            frecency,
+            reasons,
         })
     }
 
-    pub fn from_suggestion_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Option<Self>> {
+    pub fn from_suggestion_row(row: &rusqlite::Row<'_>) -> Result<Self> {
         let mut reasons = vec![MatchReason::Bookmark];
 
         let search_string = row.get::<_, String>("searchString")?;
@@ -254,47 +256,39 @@ impl SearchResult {
         if let Some(tags) = tags {
             reasons.push(MatchReason::Tags(tags));
         }
+        let url = Url::parse(&url)?;
+
         let frecency = row.get::<_, i64>("frecency")?;
 
-        Ok(match Url::parse(&url) {
-            Ok(url) => Some(Self {
-                search_string,
-                url,
-                title,
-                icon_url: None,
-                frecency,
-                reasons,
-            }),
-            Err(_) => {
-                log::trace!("Ignoring invalid url in search result: {}", url);
-                None
-            }
+        Ok(Self {
+            search_string,
+            url,
+            title,
+            icon_url: None,
+            frecency,
+            reasons,
         })
     }
 
-    pub fn from_origin_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Option<Self>> {
+    pub fn from_origin_row(row: &rusqlite::Row<'_>) -> Result<Self> {
         let search_string = row.get::<_, String>("searchString")?;
         let url = row.get::<_, String>("url")?;
         let display_url = row.get::<_, String>("displayURL")?;
         let frecency = row.get::<_, i64>("frecency")?;
 
-        Ok(match Url::parse(&url) {
-            Ok(url) => Some(Self {
-                search_string,
-                url,
-                title: display_url,
-                icon_url: None,
-                frecency,
-                reasons: vec![MatchReason::Origin],
-            }),
-            Err(_) => {
-                log::trace!("Ignoring invalid url in search result: {}", url);
-                None
-            }
+        let url = Url::parse(&url)?;
+
+        Ok(Self {
+            search_string,
+            url,
+            title: display_url,
+            icon_url: None,
+            frecency,
+            reasons: vec![MatchReason::Origin],
         })
     }
 
-    pub fn from_url_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Option<Self>> {
+    pub fn from_url_row(row: &rusqlite::Row<'_>) -> Result<Self> {
         let search_string = row.get::<_, String>("searchString")?;
         let href = row.get::<_, String>("url")?;
         let stripped_url = row.get::<_, String>("strippedURL")?;
@@ -316,39 +310,23 @@ impl SearchResult {
                     }
                     None => &href[stripped_url_index..],
                 };
-                let url = match Url::parse(&[stripped_prefix, title].concat()) {
-                    Err(_) => {
-                        log::trace!(
-                            "Ignoring invalid pseudo-url in search result: {}{}",
-                            stripped_prefix,
-                            title
-                        );
-                        return Ok(None);
-                    }
-                    Ok(url) => url,
-                };
+                let url = Url::parse(&[stripped_prefix, title].concat())?;
                 (url, title.into())
             }
             None => {
-                let url = match Url::parse(&href) {
-                    Err(_) => {
-                        log::trace!("Ignoring invalid href in search result: {}", href);
-                        return Ok(None);
-                    }
-                    Ok(url) => url,
-                };
+                let url = Url::parse(&href)?;
                 (url, stripped_url)
             }
         };
 
-        Ok(Some(Self {
+        Ok(Self {
             search_string,
             url,
             title: display_url,
             icon_url: None,
             frecency,
             reasons,
-        }))
+        })
     }
 }
 
@@ -790,5 +768,29 @@ mod tests {
             },
         )
         .unwrap();
+    }
+    // This panics in tests but not for "real" consumers. In an effort to ensure
+    // we are panicing where we think we are, note the 'expected' string.
+    // (Not really clear this test offers much value, but seems worth having...)
+    #[test]
+    #[should_panic(expected = "Failed to perform a search:")]
+    fn search_invalid_url() {
+        use rusqlite::NO_PARAMS;
+        let conn = new_mem_connection();
+
+        conn.execute(
+            "INSERT INTO moz_places (guid, url, url_hash, frecency)
+             VALUES ('fake_guid___', 'not-a-url', hash('not-a-url'), 10)",
+            NO_PARAMS,
+        )
+        .expect("should insert");
+
+        let _ = search_frecent(
+            &conn,
+            SearchParams {
+                search_string: "not-a-url".into(),
+                limit: 10,
+            },
+        );
     }
 }
