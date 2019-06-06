@@ -260,3 +260,16 @@ macro_rules! impl_into_ffi_for_primitive {
 
 // See IntoFfi docs for why this is not exhaustive
 impl_into_ffi_for_primitive![(), i8, u8, i16, u16, i32, u32, i64, u64, f32, f64];
+
+// just cuts down on boilerplate. Not public.
+macro_rules! impl_into_ffi_for_pointer {
+    ($($T:ty),+) => {$(
+        unsafe impl IntoFfi for $T {
+            type Value = Self;
+            #[inline] fn ffi_default() -> Self { ptr::null_mut() }
+            #[inline] fn into_ffi_value(self) -> Self { self }
+        }
+    )+}
+}
+
+impl_into_ffi_for_pointer![*mut i8, *const i8, *mut u8, *const u8];
