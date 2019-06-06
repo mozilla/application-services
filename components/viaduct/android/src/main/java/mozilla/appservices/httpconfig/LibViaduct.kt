@@ -51,6 +51,8 @@ internal interface LibViaduct : Library {
     fun viaduct_initialize(cb: RawFetchCallback): Byte
 
     fun viaduct_force_enable_ffi_backend(b: Byte)
+
+    fun viaduct_log_error(s: String)
 }
 
 internal interface RawFetchCallback : Callback {

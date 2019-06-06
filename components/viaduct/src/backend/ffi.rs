@@ -4,7 +4,7 @@
 
 use crate::settings::GLOBAL_SETTINGS;
 use crate::{msg_types, Error};
-use ffi_support::ByteBuffer;
+use ffi_support::{ByteBuffer, FfiStr};
 
 ffi_support::implement_into_ffi_by_protobuf!(msg_types::Request);
 
@@ -62,24 +62,13 @@ pub fn send(request: crate::Request) -> Result<crate::Response, Error> {
         }
     };
 
-    if let Some(exn) = response.exception {
-        let exn_name = exn
-            .name
-            .as_ref()
-            .map(String::as_str)
-            .unwrap_or("<unknown exception>");
-        let exn_msg = exn
-            .msg
-            .as_ref()
-            .map(String::as_str)
-            .unwrap_or("<no message provided>");
+    if let Some(exn) = response.exception_message {
         log::error!(
             // Well, we caught *something* java wanted to tell us about, anyway.
-            "Caught network error (presumably). Type: {}, message: {:?}",
-            exn_name,
-            exn_msg
+            "Caught network error (presumably). Message: {:?}",
+            exn
         );
-        return Err(Error::NetworkError(format!("{}: {:?}", exn_name, exn_msg)));
+        return Err(Error::NetworkError(format!("Java error: {:?}", exn)));
     }
     let status = response
         .status
@@ -190,6 +179,15 @@ pub extern "C" fn viaduct_alloc_bytebuffer(sz: i32) -> ByteBuffer {
         ffi_support::call_with_output(&mut error, || ByteBuffer::new_with_size(sz.max(0) as usize));
     error.consume_and_log_if_error();
     buffer
+}
+
+#[no_mangle]
+pub extern "C" fn viaduct_log_error(s: FfiStr<'_>) {
+    let mut error = ffi_support::ExternError::default();
+    ffi_support::call_with_output(&mut error, || {
+        log::error!("Viaduct Ffi Error: {}", s.as_str())
+    });
+    error.consume_and_log_if_error();
 }
 
 #[no_mangle]
