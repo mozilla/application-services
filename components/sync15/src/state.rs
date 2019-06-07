@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 use std::mem;
 
+use crate::bso_record::EncryptedBso;
 use crate::client::{SetupStorageClient, Sync15ClientResponse};
 use crate::collection_keys::CollectionKeys;
 use crate::error::{self, ErrorKind, ErrorResponse};
@@ -80,7 +81,7 @@ pub struct GlobalState {
     pub collections: InfoCollections,
     pub global: MetaGlobalRecord,
     pub global_timestamp: ServerTimestamp,
-    pub keys: CollectionKeys,
+    pub keys: EncryptedBso,
 }
 
 /// Creates a fresh `meta/global` record, using the default engine selections,
@@ -323,13 +324,12 @@ impl<'a> SetupStateMachine<'a> {
                         // json body also carries the timestamp. If they aren't
                         // identical something has screwed up and we should die.
                         assert_eq!(last_modified, record.modified);
-                        let new_keys = CollectionKeys::from_encrypted_bso(record, self.root_key)?;
                         let state = GlobalState {
                             config,
                             collections,
                             global,
                             global_timestamp,
-                            keys: new_keys,
+                            keys: record,
                         };
                         Ok(Ready { state })
                     }
@@ -350,8 +350,8 @@ impl<'a> SetupStateMachine<'a> {
                     record: collections,
                     ..
                 } => Ok(
-                    if is_fresh(old_state.global_timestamp, &collections, "meta")
-                        && is_fresh(old_state.keys.timestamp, &collections, "crypto")
+                    if is_same_timestamp(old_state.global_timestamp, &collections, "meta")
+                        && is_same_timestamp(old_state.keys.modified, &collections, "crypto")
                     {
                         Ready {
                             state: GlobalState {
@@ -476,9 +476,12 @@ impl SetupState {
     }
 }
 
-/// Whether we should skip fetching an item.
-fn is_fresh(local: ServerTimestamp, collections: &InfoCollections, key: &str) -> bool {
-    collections.get(key).map_or(false, |ts| local >= *ts)
+/// Whether we should skip fetching an item. Used when we already have timestamps
+/// and want to check if we should reuse our existing state. The state's fairly
+/// cheap to recreate and very bad to use if it is wrong, so we insist on the
+/// *exact* timestamp matching and not a simple "later than" check.
+fn is_same_timestamp(local: ServerTimestamp, collections: &InfoCollections, key: &str) -> bool {
+    collections.get(key).map_or(false, |ts| local == *ts)
 }
 
 #[cfg(test)]

@@ -6,6 +6,7 @@ use crate::changeset::{CollectionUpdate, IncomingChangeset, OutgoingChangeset};
 use crate::client::Sync15StorageClient;
 use crate::coll_state::{LocalCollStateMachine, StoreSyncAssociation};
 use crate::error::Error;
+use crate::key_bundle::KeyBundle;
 use crate::request::CollectionRequest;
 use crate::state::GlobalState;
 use crate::telemetry;
@@ -52,6 +53,7 @@ pub trait Store {
 pub fn synchronize(
     client: &Sync15StorageClient,
     global_state: &GlobalState,
+    root_sync_key: &KeyBundle,
     store: &dyn Store,
     fully_atomic: bool,
     telem_engine: &mut telemetry::Engine,
@@ -61,7 +63,8 @@ pub fn synchronize(
     log::info!("Syncing collection {}", collection);
 
     // our global state machine is ready - get the collection machine going.
-    let mut coll_state = match LocalCollStateMachine::get_state(store, global_state)? {
+    let mut coll_state = match LocalCollStateMachine::get_state(store, global_state, root_sync_key)?
+    {
         Some(coll_state) => coll_state,
         None => {
             // XXX - this is either "error" or "declined".

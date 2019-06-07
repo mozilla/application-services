@@ -28,11 +28,21 @@ struct ClientInfo {
     client: Sync15StorageClient,
 }
 
+impl ClientInfo {
+    fn new(ci: &Sync15StorageClientInit) -> Result<Self, Error> {
+        Ok(Self {
+            client_init: ci.clone(),
+            client: Sync15StorageClient::new(ci.clone())?,
+        })
+    }
+}
+
 /// Info we want callers to store *in memory* for us so that subsequent
 /// syncs are faster. This should never be persisted to storage as it holds
 /// sensitive information, such as the sync decryption keys.
 #[derive(Debug, Default)]
 pub struct MemoryCachedState {
+    last_hmac: Option<[u8; 32]>,
     last_client_info: Option<ClientInfo>,
     last_global_state: Option<GlobalState>,
 }
@@ -110,6 +120,19 @@ fn do_sync_multiple(
         sync_result.service_status = ServiceStatus::Interrupted;
         return Ok(());
     }
+
+    if match mem_cached_state.last_hmac {
+        // Wiping state when None costs nothing as there's is other state.
+        None => true,
+        // XXX - Does this do what I think it does? :) What's a better way?
+        Some(bytes) => !root_sync_key.verify_hmac(&bytes, "")?,
+    } {
+        log::info!("Discarding all state as the account might have changed");
+        *persisted_global_state = None;
+        *mem_cached_state = MemoryCachedState::default();
+        mem_cached_state.last_hmac = Some(root_sync_key.hmac(&[])?);
+    }
+
     let mut pgs = match persisted_global_state {
         Some(persisted_string) => {
             match serde_json::from_str::<PersistedGlobalState>(&persisted_string) {
@@ -136,19 +159,13 @@ fn do_sync_multiple(
         Some(client_info) => {
             // if our storage_init has changed we can't reuse the client
             if client_info.client_init != *storage_init {
-                ClientInfo {
-                    client_init: storage_init.clone(),
-                    client: Sync15StorageClient::new(storage_init.clone())?,
-                }
+                ClientInfo::new(storage_init)?
             } else {
                 // we can reuse it (which should be the common path)
                 client_info
             }
         }
-        None => ClientInfo {
-            client_init: storage_init.clone(),
-            client: Sync15StorageClient::new(storage_init.clone())?,
-        },
+        None => ClientInfo::new(storage_init)?,
     };
     if interruptee.was_interrupted() {
         sync_result.service_status = ServiceStatus::Interrupted;
@@ -196,6 +213,7 @@ fn do_sync_multiple(
         let result = sync::synchronize(
             &client_info.client,
             &global_state,
+            root_sync_key,
             *store,
             true,
             &mut telem_engine,

@@ -83,7 +83,7 @@ impl KeyBundle {
 
     /// Returns the 32 byte digest by value since it's small enough to be passed
     /// around cheaply, and easily convertable into a slice or vec if you want.
-    fn hmac(&self, ciphertext: &[u8]) -> Result<[u8; 32]> {
+    pub fn hmac(&self, ciphertext: &[u8]) -> Result<[u8; 32]> {
         let mut out = [0u8; 32];
         let key = PKey::hmac(self.hmac_key())?;
         let mut signer = Signer::new(MessageDigest::sha256(), &key)?;
