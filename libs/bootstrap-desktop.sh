@@ -15,6 +15,7 @@ else
   fi
   export SQLCIPHER_LIB_DIR="${APPSERVICES_PLATFORM_DIR}/sqlcipher/lib"
   export SQLCIPHER_INCLUDE_DIR="${APPSERVICES_PLATFORM_DIR}/sqlcipher/include"
+  export SQLCIPHER_NO_PKG_CONFIG=1
   export OPENSSL_DIR="${APPSERVICES_PLATFORM_DIR}/openssl"
   export NSS_DIR="${APPSERVICES_PLATFORM_DIR}/nss"
   if [ ! -d "${SQLCIPHER_LIB_DIR}" ] || [ ! -d "${OPENSSL_DIR}" ] || [ ! -d "${NSS_DIR}" ]; then
