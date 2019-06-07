@@ -47,7 +47,7 @@ use crate::error::*;
 use rusqlite::{Connection, TransactionBehavior};
 use sql_support::{ConnExt, UncheckedTransaction};
 use std::ops::Deref;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 impl PlacesDb {
@@ -82,8 +82,8 @@ impl PlacesDb {
             ConnectionType::ReadWrite,
             "coop_transaction must only be called on the ReadWrite connection"
         );
-        let _lock = self.coop_tx_lock.lock().unwrap();
-        get_tx_with_retry_on_locked(self.conn())
+        let lock = self.coop_tx_lock.lock().unwrap();
+        get_tx_with_retry_on_locked(self.conn(), &lock)
     }
 }
 
@@ -125,8 +125,8 @@ impl<'conn> ChunkedCoopTransaction<'conn> {
         commit_after: Duration,
         coop: &'conn Mutex<()>,
     ) -> Result<Self> {
-        let _lock = coop.lock().unwrap();
-        let tx = get_tx_with_retry_on_locked(conn)?;
+        let lock = coop.lock().unwrap();
+        let tx = get_tx_with_retry_on_locked(conn, &lock)?;
         Ok(Self {
             tx,
             commit_after,
@@ -159,8 +159,8 @@ impl<'conn> ChunkedCoopTransaction<'conn> {
         // database is being checkpointed - so we still perform exactly 1 retry,
         // which we do while we have the lock, because we don't want our other
         // write connection to win this race either.
-        let _lock = self.coop.lock().unwrap();
-        self.tx = get_tx_with_retry_on_locked(self.tx.conn)?;
+        let lock = self.coop.lock().unwrap();
+        self.tx = get_tx_with_retry_on_locked(self.tx.conn, &lock)?;
         Ok(())
     }
 
@@ -213,7 +213,10 @@ fn should_retry<T>(r: &rusqlite::Result<T>) -> bool {
 
 /// A helper that attempts to get an Immediate lock on the DB. If it fails with
 /// a "busy" or "locked" error, it does exactly 1 retry.
-fn get_tx_with_retry_on_locked(conn: &Connection) -> Result<UncheckedTransaction<'_>> {
+fn get_tx_with_retry_on_locked<'lock, 'conn: 'lock>(
+    conn: &'conn Connection,
+    _proof_of_lock: &'lock MutexGuard<'lock, ()>,
+) -> Result<UncheckedTransaction<'conn>> {
     let started_at = Instant::now();
     // Do the first attempt without waiting. Most of the time this will succeed.
     let behavior = TransactionBehavior::Immediate;
