@@ -194,28 +194,104 @@ impl<'conn> ConnExt for ChunkedCoopTransaction<'conn> {
     }
 }
 
-// A helper that attempts to get an Immediate lock on the DB. If it fails with
-// a "busy" or "locked" error, it does exactly 1 retry.
-fn get_tx_with_retry_on_locked(conn: &Connection) -> Result<UncheckedTransaction<'_>> {
-    let behavior = TransactionBehavior::Immediate;
-    match UncheckedTransaction::new(conn, behavior) {
-        Ok(tx) => Ok(tx),
-        Err(rusqlite::Error::SqliteFailure(err, _))
-            if err.code == rusqlite::ErrorCode::DatabaseBusy
-                || err.code == rusqlite::ErrorCode::DatabaseLocked =>
-        {
-            // retry the lock - we assume that this lock request still
-            // blocks for the default period, so we don't need to sleep
-            // etc.
-            let started_at = Instant::now();
-            log::warn!("Attempting to get a read lock failed - doing one retry");
-            let tx = UncheckedTransaction::new(conn, behavior).map_err(|err| {
-                log::warn!("Retrying the lock failed after {:?}", started_at.elapsed());
-                err
-            })?;
-            log::info!("Retrying the lock worked after {:?}", started_at.elapsed());
-            Ok(tx)
-        }
-        Err(e) => Err(e.into()),
+
+fn is_database_busy(e: &rusqlite::Error) -> bool {
+    if let rusqlite::Error::SqliteFailure(err, _) = e {
+        err.code == rusqlite::ErrorCode::DatabaseBusy
+            || err.code == rusqlite::ErrorCode::DatabaseLocked
+    } else {
+        false
     }
+}
+
+fn should_retry<T>(r: &rusqlite::Result<T>) -> bool {
+    match r {
+        Ok(_) => false,
+        Err(e) => is_database_busy(e),
+    }
+}
+
+/// A helper that attempts to get an Immediate lock on the DB. If it fails with
+/// a "busy" or "locked" error, it does exactly 1 retry.
+fn get_tx_with_retry_on_locked(conn: &Connection) -> Result<UncheckedTransaction<'_>> {
+    let started_at = Instant::now();
+    // Do the first attempt without waiting. Most of the time this will succeed.
+    let behavior = TransactionBehavior::Immediate;
+    log::debug!("Attempting to acquire database lock...");
+    let mut result = UncheckedTransaction::new(conn, behavior);
+
+    // This is a little awkward, but hard to simplify since we can't return
+    // `result` (which must be by move) while borrowing for the `match`.
+    if !should_retry(&result) {
+        if let Err(e) = &result {
+            log::error!(
+                "Failed to acquire database lock with non-busy error: {:?}",
+                e
+            );
+        } else {
+            log::debug!(
+                "Successfully acquired database lock on first try (took {:?})",
+                started_at.elapsed()
+            );
+        }
+        return result.map_err(Error::from);
+    }
+    // Do the retry loop. Each iteration will assign to `result`, so that in the
+    // case of repeated BUSY failures, w
+
+    log::warn!(
+        "Attempting to acquire database lock failed - retrying {} more times",
+        RETRY_BACKOFF.len()
+    );
+    // These are fairly arbitrary. We'll retry for around 6 seconds before
+    // giving up completely, but after each failure, we wait for longer than
+    // the previous.
+    const RETRY_BACKOFF: &[std::time::Duration] = &[
+        std::time::Duration::from_millis(50),
+        std::time::Duration::from_millis(100),
+        std::time::Duration::from_millis(500),
+        std::time::Duration::from_millis(1000),
+        std::time::Duration::from_millis(5000),
+    ];
+    for (retry_num, &delay) in RETRY_BACKOFF.iter().enumerate() {
+        log::debug!("Retry: Sleeping for {:?}", delay);
+        std::thread::sleep(delay);
+        // `retry_num + 2` to count both the current and first attempt.
+        let attempt_num = retry_num + 2;
+        log::debug!(
+            "Retry: Attempting to acquire lock (attempt #{:?})",
+            attempt_num
+        );
+        result = UncheckedTransaction::new(conn, behavior);
+        match &result {
+            Ok(_tx) => {
+                log::info!(
+                    "Retrying the lock worked after {:?} ({} attempts)",
+                    started_at.elapsed(),
+                    attempt_num,
+                );
+                break;
+            }
+            Err(e) if is_database_busy(e) => {
+                let attempts_left = RETRY_BACKOFF.len() - 1 - retry_num;
+                if attempts_left > 0 {
+                    log::warn!(
+                        "Attempting to acquire database lock failed - retrying {} more times",
+                        attempts_left
+                    );
+                } else {
+                    log::warn!(
+                        "Retrying the lock failed after {:?} ({} attempts)",
+                        started_at.elapsed(),
+                        RETRY_BACKOFF.len() + 1
+                    );
+                }
+            }
+            Err(e) => {
+                log::error!("Got non-busy error while attempting to acquire lock: {}", e);
+                break;
+            }
+        }
+    }
+    result.map_err(Error::from)
 }
