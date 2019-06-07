@@ -156,9 +156,9 @@ impl Drop for PlacesDb {
     fn drop(&mut self) {
         // In line with both the recommendations from SQLite and the behavior of places in
         // Database.cpp, we run `PRAGMA optimize` before closing the connection.
-        self.db
-            .execute_batch("PRAGMA optimize(0x02);")
-            .expect("PRAGMA optimize should always succeed!");
+        if let Err(e) = self.db.execute_batch("PRAGMA optimize(0x02);") {
+            log::warn!("Failed to run `PRAGMA optimize` (can happen if another thread is in a transaction): {}", e);
+        }
     }
 }
 

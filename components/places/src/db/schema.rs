@@ -127,7 +127,7 @@ pub fn init(db: &PlacesDb) -> Result<()> {
 
 /// Helper for upgrade. Intended use:
 ///
-/// ```rust,ignore
+/// ```text
 /// migration(db, 2, 3, &[stuff, to, migrate, version2, to, version3], || Ok(()))?;
 /// migration(db, 3, 4, &[stuff, to, migrate, version3, to, version4], || Ok(()))?;
 /// migration(db, 4, 5, &[stuff, to, migrate, version4, to, version5], || Ok(()))?;

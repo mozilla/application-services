@@ -132,6 +132,11 @@ commands:
       - run:
           name: Test (no default features)
           command: cargo test --all --no-default-features --verbose
+      - run:
+          # Currently these don't have any `--feature` dependencies, so it's not
+          # worth running them 3 times with `--all-features`/`--no-default-features`.
+          name: Test (tests that are by default)
+          command: cargo test --all --verbose -- --ignored
   dependency-checks:
     steps:
       - checkout

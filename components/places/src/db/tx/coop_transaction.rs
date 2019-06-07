@@ -82,6 +82,7 @@ impl PlacesDb {
             ConnectionType::ReadWrite,
             "coop_transaction must only be called on the ReadWrite connection"
         );
+        log::debug!("Acquiring coop_tx_lock (coop_transaction)");
         let lock = self.coop_tx_lock.lock().unwrap();
         get_tx_with_retry_on_locked(self.conn(), &lock)
     }
@@ -125,6 +126,7 @@ impl<'conn> ChunkedCoopTransaction<'conn> {
         commit_after: Duration,
         coop: &'conn Mutex<()>,
     ) -> Result<Self> {
+        log::info!("Acquiring coop_tx_lock (ChunkedCoopTransaction)");
         let lock = coop.lock().unwrap();
         let tx = get_tx_with_retry_on_locked(conn, &lock)?;
         Ok(Self {
@@ -140,7 +142,10 @@ impl<'conn> ChunkedCoopTransaction<'conn> {
     #[inline]
     pub fn maybe_commit(&mut self) -> Result<()> {
         if self.tx.started_at.elapsed() >= self.commit_after {
-            log::debug!("ChunkedCoopTransaction commiting after taking allocated time");
+            log::debug!(
+                "ChunkedCoopTransaction commiting after taking allocated time (after {:?})",
+                self.tx.started_at.elapsed()
+            );
             self.commit_and_start_new_tx()?;
         }
         Ok(())
@@ -152,6 +157,7 @@ impl<'conn> ChunkedCoopTransaction<'conn> {
         // we'll be trying to start a new transaction while the current
         // one is in progress. So explicitly set the finished flag on it.
         self.tx.finished = true;
+        log::debug!("Executing commit for chunked transaction");
         self.tx.execute_batch("COMMIT")?;
         // acquire a lock on our cooperator - if our only other writer
         // thread holds a write lock we'll block until it is released.
@@ -159,6 +165,7 @@ impl<'conn> ChunkedCoopTransaction<'conn> {
         // database is being checkpointed - so we still perform exactly 1 retry,
         // which we do while we have the lock, because we don't want our other
         // write connection to win this race either.
+        log::debug!("Acquiring coop_tx_lock (commit_and_start_new_tx)");
         let lock = self.coop.lock().unwrap();
         self.tx = get_tx_with_retry_on_locked(self.tx.conn, &lock)?;
         Ok(())
@@ -193,7 +200,6 @@ impl<'conn> ConnExt for ChunkedCoopTransaction<'conn> {
         &*self
     }
 }
-
 
 fn is_database_busy(e: &rusqlite::Error) -> bool {
     if let rusqlite::Error::SqliteFailure(err, _) = e {
@@ -246,9 +252,10 @@ fn get_tx_with_retry_on_locked<'lock, 'conn: 'lock>(
         "Attempting to acquire database lock failed - retrying {} more times",
         RETRY_BACKOFF.len()
     );
-    // These are fairly arbitrary. We'll retry for around 6 seconds before
-    // giving up completely, but after each failure, we wait for longer than
-    // the previous.
+    // These are fairly arbitrary. We'll retry 5 times before giving up
+    // completely, but after each failure, we wait for longer than the previous.
+    // Note that between each attempt, SQLite itself will wait up to
+    // `sqlite3_busy_timeout` ms, which is 5000 by default.
     const RETRY_BACKOFF: &[std::time::Duration] = &[
         std::time::Duration::from_millis(50),
         std::time::Duration::from_millis(100),
