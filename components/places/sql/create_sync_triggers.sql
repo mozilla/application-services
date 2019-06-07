@@ -137,7 +137,7 @@ BEGIN
            OLD.mergedAt,
            2, -- SyncStatus::Normal
            OLD.shouldUpload)
-    ON CONFLICT(guid) DO UPDATE SET
+    ON CONFLICT(id) DO UPDATE SET
         title = excluded.title,
         dateAdded = excluded.dateAdded,
         lastModified = excluded.lastModified,
