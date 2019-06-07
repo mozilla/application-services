@@ -214,8 +214,7 @@ fn do_sync_multiple(
                 // scratch really isn't that bad for now.
                 log::warn!("Sync of {} failed! {:?}", name, e);
                 let this_status = ServiceStatus::from_err(&e);
-                let f = telemetry::sync_failure_from_error(&e);
-                telem_engine.failure(f);
+                telem_engine.failure(e);
                 // If the failure from the store looks like anything other than
                 // a "store error" we don't bother trying the others.
                 if this_status != ServiceStatus::OtherError {
