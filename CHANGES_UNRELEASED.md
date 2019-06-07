@@ -14,6 +14,13 @@
   the Sync ping. This should be posted to the legacy telemetry submission
   endpoint.
 
+## Places
+
+### What's fixed
+
+- Deduping synced bookmarks with newer server timestamps no longer throws
+  unique constraint violations.
+
 ## Logins
 
 ### Breaking Changes
