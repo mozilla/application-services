@@ -355,24 +355,52 @@ impl EngineIncoming {
         }
     }
 
+    /// Increment the value of `applied` by `n`.
     #[inline]
     pub fn applied(&mut self, n: u32) {
         self.applied += n;
     }
 
+    /// Increment the value of `failed` by `n`.
     #[inline]
     pub fn failed(&mut self, n: u32) {
         self.failed += n;
     }
 
+    /// Increment the value of `new_failed` by `n`.
     #[inline]
     pub fn new_failed(&mut self, n: u32) {
         self.new_failed += n;
     }
 
+    /// Increment the value of `reconciled` by `n`.
     #[inline]
     pub fn reconciled(&mut self, n: u32) {
         self.reconciled += n;
+    }
+
+    /// Get the value of `applied`. Mostly useful for testing.
+    #[inline]
+    pub fn get_applied(&self) -> u32 {
+        self.applied
+    }
+
+    /// Get the value of `failed`. Mostly useful for testing.
+    #[inline]
+    pub fn get_failed(&self) -> u32 {
+        self.failed
+    }
+
+    /// Get the value of `new_failed`. Mostly useful for testing.
+    #[inline]
+    pub fn get_new_failed(&self) -> u32 {
+        self.new_failed
+    }
+
+    /// Get the value of `reconciled`. Mostly useful for testing.
+    #[inline]
+    pub fn get_reconciled(&self) -> u32 {
+        self.reconciled
     }
 }
 
