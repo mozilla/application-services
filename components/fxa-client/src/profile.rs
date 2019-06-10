@@ -188,7 +188,7 @@ mod tests {
             .returns_once(Ok(OAuthTokenResponse {
                 keys_jwe: None,
                 refresh_token: None,
-                expires_in: 6000000,
+                expires_in: 6_000_000,
                 scope: "profile".to_owned(),
                 access_token: "good_profile_token".to_owned(),
             }));
