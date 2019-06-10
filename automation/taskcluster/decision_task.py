@@ -3,7 +3,8 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
+import enum
+from enum import Enum
 import os.path
 from build_config import module_definitions, appservices_version
 from decisionlib import *
@@ -24,7 +25,8 @@ def main(task_for):
     elif task_for == "github-push":
         android_multiarch()
     elif task_for == "github-release":
-        android_multiarch_release()
+        is_staging = os.environ['IS_STAGING']
+        android_multiarch_release(is_staging)
     else:
         raise ValueError("Unrecognized $TASK_FOR value: %r", task_for)
 
@@ -54,11 +56,10 @@ linux_build_env = {
 
 # Calls "$PLATFORM_libs" functions and returns
 # their tasks IDs.
-def libs_for(*platforms):
-    is_release = os.environ["TASK_FOR"] == "github-release"
-    return list(map(lambda p: globals()[p + "_libs"](is_release), platforms))
+def libs_for(deploy_environment, *platforms):
+    return list(map(lambda p: globals()[p + "_libs"](deploy_environment), platforms))
 
-def android_libs(is_release):
+def android_libs(deploy_environment):
     task = (
         linux_build_task("Android libs (all architectures): build")
         .with_script("""
@@ -71,12 +72,12 @@ def android_libs(is_release):
             "/build/repo/target.tar.gz",
         )
     )
-    if is_release:
-        return task.create()
-    else:
+    if deploy_environment == DeployEnvironment.NONE:
         return task.find_or_create("build.libs.android." + CONFIG.git_sha_for_directory("libs"))
+    else:
+        return task.create()
 
-def desktop_linux_libs(is_release):
+def desktop_linux_libs(deploy_environment):
     task = (
         linux_build_task("Desktop libs (Linux): build")
         .with_script("""
@@ -89,12 +90,13 @@ def desktop_linux_libs(is_release):
             "/build/repo/target.tar.gz",
         )
     )
-    if is_release:
-        return task.create()
-    else:
+    if deploy_environment == DeployEnvironment.NONE:
         return task.find_or_create("build.libs.desktop.linux." + CONFIG.git_sha_for_directory("libs"))
+    else:
+        return task.create()
 
-def desktop_macos_libs(is_release):
+
+def desktop_macos_libs(deploy_environment):
     task = (
         linux_cross_compile_build_task("Desktop libs (macOS): build")
         .with_script("""
@@ -107,12 +109,13 @@ def desktop_macos_libs(is_release):
             "/build/repo/target.tar.gz",
         )
     )
-    if is_release:
-        return task.create()
-    else:
+    if deploy_environment == DeployEnvironment.NONE:
         return task.find_or_create("build.libs.desktop.macos." + CONFIG.git_sha_for_directory("libs"))
+    else:
+        return task.create()
 
-def desktop_win32_x86_64_libs(is_release):
+
+def desktop_win32_x86_64_libs(deploy_environment):
     task = (
         linux_build_task("Desktop libs (win32-x86-64): build")
         .with_script("""
@@ -126,10 +129,11 @@ def desktop_win32_x86_64_libs(is_release):
             "/build/repo/target.tar.gz",
         )
     )
-    if is_release:
-        return task.create()
-    else:
+    if deploy_environment == DeployEnvironment.NONE:
         return task.find_or_create("build.libs.desktop.win32-x86-64." + CONFIG.git_sha_for_directory("libs"))
+    else:
+        return task.create()
+
 
 def android_task(task_name, libs_tasks):
     task = linux_cross_compile_build_task(task_name)
@@ -144,7 +148,7 @@ def ktlint_detekt():
 
 def android_linux_x86_64():
     ktlint_detekt()
-    libs_tasks = libs_for("android", "desktop_linux", "desktop_macos", "desktop_win32_x86_64")
+    libs_tasks = libs_for(DeployEnvironment.NONE, "android", "desktop_linux", "desktop_macos", "desktop_win32_x86_64")
     task = (
         android_task("Build and test (Android - linux-x86-64)", libs_tasks)
         .with_script("""
@@ -167,12 +171,12 @@ def android_linux_x86_64():
 def gradle_module_task_name(module, gradle_task_name):
     return ":%s:%s" % (module, gradle_task_name)
 
-def gradle_module_task(libs_tasks, module_info, is_release):
+def gradle_module_task(libs_tasks, module_info, deploy_environment):
     module = module_info['name']
     task = android_task("{} - Build and test".format(module), libs_tasks)
     # This is important as by default the Rust plugin will only cross-compile for Android + host platform.
     task.with_script('echo "rust.targets=arm,arm64,x86_64,x86,darwin,linux-x86-64,win32-x86-64-gnu\n" > local.properties')
-    if not is_release: # Makes builds way faster.
+    if deploy_environment == DeployEnvironment.NONE:  # Makes builds way faster.
         task.with_script('echo "application-services.nonmegazord-profile=debug" >> local.properties')
     (
         task
@@ -190,24 +194,24 @@ def gradle_module_task(libs_tasks, module_info, is_release):
     for publication in module_info['publications']:
         for artifact in publication.to_artifacts(('', '.sha1', '.md5')):
             task.with_artifacts(artifact['build_fs_path'], artifact['taskcluster_path'])
-    if is_release and module_info['uploadSymbols']:
+    if deploy_environment == DeployEnvironment.RELEASE and module_info['uploadSymbols']:
         task.with_scopes("secrets:get:project/application-services/symbols-token")
         task.with_script("./automation/upload_android_symbols.sh {}".format(module_info['path']))
     return task.create()
 
-def build_gradle_modules_tasks(is_release):
-    libs_tasks = libs_for("android", "desktop_linux", "desktop_macos", "desktop_win32_x86_64")
+def build_gradle_modules_tasks(deploy_environment):
+    libs_tasks = libs_for(deploy_environment, "android", "desktop_linux", "desktop_macos", "desktop_win32_x86_64")
     module_build_tasks = {}
     for module_info in module_definitions():
-        module_build_tasks[module_info['name']] = gradle_module_task(libs_tasks, module_info, is_release)
+        module_build_tasks[module_info['name']] = gradle_module_task(libs_tasks, module_info, deploy_environment)
     return module_build_tasks
 
 def android_multiarch():
     ktlint_detekt()
-    build_gradle_modules_tasks(False)
+    build_gradle_modules_tasks(DeployEnvironment.NONE)
 
-def android_multiarch_release():
-    module_build_tasks = build_gradle_modules_tasks(True)
+def android_multiarch_release(is_staging):
+    module_build_tasks = build_gradle_modules_tasks(DeployEnvironment.STAGING_RELEASE if is_staging else DeployEnvironment.RELEASE)
 
     version = appservices_version()
     worker_type = os.environ['BEETMOVER_WORKER_TYPE']
@@ -349,6 +353,12 @@ CONFIG.index_prefix = "project.application-services.application-services"
 CONFIG.docker_image_build_worker_type = "application-services-r"
 CONFIG.docker_images_expire_in = build_dependencies_artifacts_expire_in
 CONFIG.repacked_msi_files_expire_in = build_dependencies_artifacts_expire_in
+
+
+class DeployEnvironment(Enum):
+    RELEASE = enum.auto()
+    STAGING_RELEASE = enum.auto()
+    NONE = enum.auto()
 
 
 if __name__ == "__main__":  # pragma: no cover

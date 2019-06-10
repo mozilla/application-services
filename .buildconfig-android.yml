@@ -79,7 +79,9 @@ projects:
   sync15-library:
     path: components/sync15/android
     artifactId: sync15
-    publishedArtifacts: [sync15]
+    publications:
+      - name: sync15
+        type: aar
     description: Shared Sync types for Kotlin.
   lockbox-megazord:
     uploadSymbols: true
