@@ -72,9 +72,11 @@ impl Default for PersistedGlobalState {
     }
 }
 
-/// Holds global Sync state, including server upload limits, and the
+/// Holds global Sync state, including server upload limits, the
 /// last-fetched collection modified times, `meta/global` record, and
-/// the default encryption key.
+/// encrypted copies of the crypto/keys resourse (which we hold as encrypted
+/// both to avoid keeping them in memory longer than necessary, and guard against
+/// the wrong (ie, a different user's) root key being passed in.
 #[derive(Debug, Clone)]
 pub struct GlobalState {
     pub config: InfoConfiguration,
