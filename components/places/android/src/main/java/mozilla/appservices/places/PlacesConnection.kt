@@ -9,7 +9,6 @@ import com.sun.jna.Pointer
 import com.sun.jna.StringArray
 import mozilla.appservices.support.stringOrNull
 import mozilla.appservices.support.toNioDirectBuffer
-import mozilla.appservices.sync15.SyncTelemetryPing
 import org.json.JSONArray
 import org.json.JSONObject
 import java.nio.ByteBuffer
@@ -78,8 +77,8 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
         }
     }
 
-    override fun syncHistory(syncInfo: SyncAuthInfo): SyncTelemetryPing {
-        val pingJSONString = rustCallForString(this) { error ->
+    override fun syncHistory(syncInfo: SyncAuthInfo): String {
+        return rustCallForString(this) { error ->
             LibPlacesFFI.INSTANCE.sync15_history_sync(
                     this.handle.get(),
                     syncInfo.kid,
@@ -89,11 +88,10 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
                     error
             )
         }
-        return SyncTelemetryPing.fromJSONString(pingJSONString)
     }
 
-    override fun syncBookmarks(syncInfo: SyncAuthInfo): SyncTelemetryPing {
-        val pingJSONString = rustCallForString(this) { error ->
+    override fun syncBookmarks(syncInfo: SyncAuthInfo): String {
+        return rustCallForString(this) { error ->
             LibPlacesFFI.INSTANCE.sync15_bookmarks_sync(
                     this.handle.get(),
                     syncInfo.kid,
@@ -103,7 +101,6 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
                     error
             )
         }
-        return SyncTelemetryPing.fromJSONString(pingJSONString)
     }
 }
 
@@ -538,7 +535,7 @@ interface PlacesManager {
      * using a PlacesAPI at a time, it is recommended, but not enforced, that
      * you have all connections you intend using open before calling this.
      */
-    fun syncHistory(syncInfo: SyncAuthInfo): SyncTelemetryPing
+    fun syncHistory(syncInfo: SyncAuthInfo): String
 
     /**
      * Syncs the places bookmarks store, returning a telemetry ping.
@@ -548,7 +545,7 @@ interface PlacesManager {
      * using a PlacesAPI at a time, it is recommended, but not enforced, that
      * you have all connections you intend using open before calling this.
      */
-    fun syncBookmarks(syncInfo: SyncAuthInfo): SyncTelemetryPing
+    fun syncBookmarks(syncInfo: SyncAuthInfo): String
 }
 
 interface InterruptibleConnection : AutoCloseable {

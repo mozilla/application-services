@@ -36,11 +36,6 @@ projects:
     artifactId: push
     publishedArtifacts: [push, push-forUnitTests, push-withoutLib]
     description: Low level WebPush handler implementation.
-  sync15-library:
-    path: components/sync15/android
-    artifactId: sync15
-    publishedArtifacts: [sync15, sync15-withoutLib]
-    description: Shared Sync types for Kotlin.
   lockbox-megazord:
     uploadSymbols: true
     path: megazords/lockbox/android
