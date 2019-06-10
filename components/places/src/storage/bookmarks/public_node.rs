@@ -198,15 +198,11 @@ pub fn update_bookmark_from_message(db: &PlacesDb, msg: ProtoBookmark) -> Result
     let info = conversions::BookmarkUpdateInfo::from(msg);
 
     let tx = db.begin_transaction()?;
-    let node_type: BookmarkType = db.query_row_and_then_named(
-        "SELECT type FROM moz_bookmarks WHERE guid = :guid",
-        &[(":guid", &info.guid)],
-        |r| r.get(0),
-        true,
-    )?;
-    let (guid, updatable) = info.into_updatable(node_type)?;
+    let existing = get_raw_bookmark(db, &info.guid)?
+        .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(info.guid.to_string()))?;
+    let (guid, updatable) = info.into_updatable(existing.bookmark_type)?;
 
-    update_bookmark_in_tx(db, &guid, &updatable)?;
+    update_bookmark_in_tx(db, &guid, &updatable, existing)?;
     tx.commit()?;
     Ok(())
 }
