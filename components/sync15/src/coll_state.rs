@@ -186,10 +186,10 @@ mod tests {
     use std::cell::{Cell, RefCell};
     use std::collections::HashMap;
 
-    fn get_global_state() -> GlobalState {
+    fn get_global_state(root_key: &KeyBundle) -> GlobalState {
         let keys = CollectionKeys::new_random()
             .unwrap()
-            .to_encrypted_bso(&KeyBundle::new_random().unwrap())
+            .to_encrypted_bso(&root_key)
             .unwrap();
         GlobalState {
             config: InfoConfiguration::default(),
@@ -276,7 +276,7 @@ mod tests {
     #[test]
     fn test_unknown() {
         let root_key = KeyBundle::new_random().expect("should work");
-        let gs = get_global_state();
+        let gs = get_global_state(&root_key);
         let store = TestStore::new("unknown", StoreSyncAssociation::Disconnected);
         let cs = LocalCollStateMachine::get_state(&store, &gs, &root_key).expect("should work");
         assert!(cs.is_none(), "unknown collection name can't sync");
@@ -286,7 +286,7 @@ mod tests {
     #[test]
     fn test_known_no_state() {
         let root_key = KeyBundle::new_random().expect("should work");
-        let gs = get_global_state();
+        let gs = get_global_state(&root_key);
         let store = TestStore::new("bookmarks", StoreSyncAssociation::Disconnected);
         let cs = LocalCollStateMachine::get_state(&store, &gs, &root_key).expect("should work");
         assert!(cs.is_some(), "collection can sync");
@@ -303,7 +303,7 @@ mod tests {
     #[test]
     fn test_known_wrong_state() {
         let root_key = KeyBundle::new_random().expect("should work");
-        let gs = get_global_state();
+        let gs = get_global_state(&root_key);
         let store = TestStore::new(
             "bookmarks",
             StoreSyncAssociation::Connected(CollSyncIds {
@@ -326,7 +326,7 @@ mod tests {
     #[test]
     fn test_known_good_state() {
         let root_key = KeyBundle::new_random().expect("should work");
-        let gs = get_global_state();
+        let gs = get_global_state(&root_key);
         let store = TestStore::new(
             "bookmarks",
             StoreSyncAssociation::Connected(CollSyncIds {
@@ -342,7 +342,7 @@ mod tests {
     #[test]
     fn test_declined() {
         let root_key = KeyBundle::new_random().expect("should work");
-        let mut gs = get_global_state();
+        let mut gs = get_global_state(&root_key);
         gs.global.declined.push("bookmarks".to_string());
         let store = TestStore::new(
             "bookmarks",
