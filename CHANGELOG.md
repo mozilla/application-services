@@ -1,3 +1,32 @@
+# v0.31.0 (_2019-06-07_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.30.0...v0.31.0)
+
+## Sync
+
+- Android: A new `sync15` package defines Kotlin data classes for the Sync
+  telemetry ping. ([#1112](https://github.com/mozilla/application-services/pull/1112))
+- Android: `PlacesApi.syncHistory` and `PlacesApi.syncBookmarks` now return a
+  `SyncTelemetryPing`. ([#1112](https://github.com/mozilla/application-services/pull/1112))
+- iOS: `PlacesAPI.syncBookmarks` now returns a JSON string with the contents of
+  the Sync ping. This should be posted to the legacy telemetry submission
+  endpoint. ([#1112](https://github.com/mozilla/application-services/pull/1112))
+
+## Places
+
+### What's fixed
+
+- Deduping synced bookmarks with newer server timestamps no longer throws
+  unique constraint violations. ([#1259](https://github.com/mozilla/application-services/pull/1259))
+
+## Logins
+
+### Breaking Changes
+
+- iOS: LoginsStoreError enum variants have their name `lowerCamelCased`
+  instead of `UpperCamelCased`, to better fit with common Swift code style.
+  ([#1042](https://github.com/mozilla/application-services/issues/1042))
+
 # v0.30.0 (_2019-05-30_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.29.0...v0.30.0)
