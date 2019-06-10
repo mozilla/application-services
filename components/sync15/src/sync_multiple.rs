@@ -28,6 +28,15 @@ struct ClientInfo {
     client: Sync15StorageClient,
 }
 
+impl ClientInfo {
+    fn new(ci: &Sync15StorageClientInit) -> Result<Self, Error> {
+        Ok(Self {
+            client_init: ci.clone(),
+            client: Sync15StorageClient::new(ci.clone())?,
+        })
+    }
+}
+
 /// Info we want callers to store *in memory* for us so that subsequent
 /// syncs are faster. This should never be persisted to storage as it holds
 /// sensitive information, such as the sync decryption keys.
@@ -110,6 +119,33 @@ fn do_sync_multiple(
         sync_result.service_status = ServiceStatus::Interrupted;
         return Ok(());
     }
+
+    // We put None back into last_client_info now so if we fail entirely,
+    // reinitialize everything related to the client.
+    let client_info = match mem::replace(&mut mem_cached_state.last_client_info, None) {
+        Some(client_info) => {
+            // if our storage_init has changed it probably means the user has
+            // changed, courtesy of the 'kid' in the structure. Thus, we can't
+            // reuse the client or any other cached state.
+            if client_info.client_init != *storage_init {
+                log::info!("Discarding all state as the account might have changed");
+                *persisted_global_state = None;
+                *mem_cached_state = MemoryCachedState::default();
+                ClientInfo::new(storage_init)?
+            } else {
+                // we can reuse it (which should be the common path)
+                client_info
+            }
+        }
+        None => {
+            // We almost certainly have no other state here, but to be safe, we
+            // throw away any we do have.
+            *persisted_global_state = None;
+            *mem_cached_state = MemoryCachedState::default();
+            ClientInfo::new(storage_init)?
+        }
+    };
+
     let mut pgs = match persisted_global_state {
         Some(persisted_string) => {
             match serde_json::from_str::<PersistedGlobalState>(&persisted_string) {
@@ -125,31 +161,11 @@ fn do_sync_multiple(
             }
         }
         None => {
-            log::warn!("The application didn't give us persisted state - this is only expected on the very first run");
+            log::info!("The application didn't give us persisted state - this is only expected on the very first run for a given user.");
             PersistedGlobalState::default()
         }
     };
 
-    // We put None back into last_client_info now so if we fail entirely,
-    // reinitialize everything related to the client.
-    let client_info = match mem::replace(&mut mem_cached_state.last_client_info, None) {
-        Some(client_info) => {
-            // if our storage_init has changed we can't reuse the client
-            if client_info.client_init != *storage_init {
-                ClientInfo {
-                    client_init: storage_init.clone(),
-                    client: Sync15StorageClient::new(storage_init.clone())?,
-                }
-            } else {
-                // we can reuse it (which should be the common path)
-                client_info
-            }
-        }
-        None => ClientInfo {
-            client_init: storage_init.clone(),
-            client: Sync15StorageClient::new(storage_init.clone())?,
-        },
-    };
     if interruptee.was_interrupted() {
         sync_result.service_status = ServiceStatus::Interrupted;
         return Ok(());
@@ -196,6 +212,7 @@ fn do_sync_multiple(
         let result = sync::synchronize(
             &client_info.client,
             &global_state,
+            root_sync_key,
             *store,
             true,
             &mut telem_engine,

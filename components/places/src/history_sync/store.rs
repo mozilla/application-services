@@ -89,7 +89,6 @@ impl<'a> HistoryStore<'a> {
     }
 
     fn do_reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
-        log::info!("Resetting history store");
         let tx = self.db.begin_transaction()?;
         reset_storage(self.db)?;
         self.put_meta(LAST_SYNC_META_KEY, &0)?;

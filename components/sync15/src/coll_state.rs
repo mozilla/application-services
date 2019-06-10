@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::collection_keys::CollectionKeys;
 use crate::error;
 use crate::key_bundle::KeyBundle;
 use crate::request::InfoConfiguration;
@@ -58,6 +59,7 @@ pub enum LocalCollState {
 
 pub struct LocalCollStateMachine<'state> {
     global_state: &'state GlobalState,
+    root_key: &'state KeyBundle,
 }
 
 impl<'state> LocalCollStateMachine<'state> {
@@ -81,8 +83,12 @@ impl<'state> LocalCollStateMachine<'state> {
                             if ids.global == meta_global.sync_id
                                 && ids.coll == engine_meta.sync_id =>
                         {
+                            let coll_keys = CollectionKeys::from_encrypted_bso(
+                                self.global_state.keys.clone(),
+                                self.root_key,
+                            )?;
                             Ok(LocalCollState::Ready {
-                                key: self.global_state.keys.default.clone(),
+                                key: coll_keys.key_for_collection(name).clone(),
                             })
                         }
                         _ => Ok(LocalCollState::SyncIdChanged {
@@ -102,6 +108,7 @@ impl<'state> LocalCollStateMachine<'state> {
 
             LocalCollState::SyncIdChanged { ids } => {
                 let assoc = StoreSyncAssociation::Connected(ids);
+                log::info!("Resetting {} store", store.collection_name());
                 store.reset(&assoc)?;
                 Ok(LocalCollState::Unknown { assoc })
             }
@@ -158,8 +165,12 @@ impl<'state> LocalCollStateMachine<'state> {
     pub fn get_state(
         store: &dyn Store,
         global_state: &'state GlobalState,
+        root_key: &'state KeyBundle,
     ) -> error::Result<Option<CollState>> {
-        let mut gingerbread_man = Self { global_state };
+        let mut gingerbread_man = Self {
+            global_state,
+            root_key,
+        };
         gingerbread_man.run_and_run_as_farst_as_you_can(store)
     }
 }
@@ -175,7 +186,11 @@ mod tests {
     use std::cell::{Cell, RefCell};
     use std::collections::HashMap;
 
-    fn get_global_state() -> GlobalState {
+    fn get_global_state(root_key: &KeyBundle) -> GlobalState {
+        let keys = CollectionKeys::new_random()
+            .unwrap()
+            .to_encrypted_bso(&root_key)
+            .unwrap();
         GlobalState {
             config: InfoConfiguration::default(),
             collections: InfoCollections::new(HashMap::new()),
@@ -195,7 +210,7 @@ mod tests {
                 declined: vec![],
             },
             global_timestamp: ServerTimestamp::default(),
-            keys: CollectionKeys::new_random().expect("should work"),
+            keys,
         }
     }
 
@@ -260,18 +275,20 @@ mod tests {
 
     #[test]
     fn test_unknown() {
-        let gs = get_global_state();
+        let root_key = KeyBundle::new_random().expect("should work");
+        let gs = get_global_state(&root_key);
         let store = TestStore::new("unknown", StoreSyncAssociation::Disconnected);
-        let cs = LocalCollStateMachine::get_state(&store, &gs).expect("should work");
+        let cs = LocalCollStateMachine::get_state(&store, &gs, &root_key).expect("should work");
         assert!(cs.is_none(), "unknown collection name can't sync");
         assert_eq!(store.get_num_resets(), 0);
     }
 
     #[test]
     fn test_known_no_state() {
-        let gs = get_global_state();
+        let root_key = KeyBundle::new_random().expect("should work");
+        let gs = get_global_state(&root_key);
         let store = TestStore::new("bookmarks", StoreSyncAssociation::Disconnected);
-        let cs = LocalCollStateMachine::get_state(&store, &gs).expect("should work");
+        let cs = LocalCollStateMachine::get_state(&store, &gs, &root_key).expect("should work");
         assert!(cs.is_some(), "collection can sync");
         assert_eq!(
             store.assoc.replace(StoreSyncAssociation::Disconnected),
@@ -285,7 +302,8 @@ mod tests {
 
     #[test]
     fn test_known_wrong_state() {
-        let gs = get_global_state();
+        let root_key = KeyBundle::new_random().expect("should work");
+        let gs = get_global_state(&root_key);
         let store = TestStore::new(
             "bookmarks",
             StoreSyncAssociation::Connected(CollSyncIds {
@@ -293,7 +311,7 @@ mod tests {
                 coll: "syncIDYYYYYY".to_string(),
             }),
         );
-        let cs = LocalCollStateMachine::get_state(&store, &gs).expect("should work");
+        let cs = LocalCollStateMachine::get_state(&store, &gs, &root_key).expect("should work");
         assert!(cs.is_some(), "collection can sync");
         assert_eq!(
             store.assoc.replace(StoreSyncAssociation::Disconnected),
@@ -307,7 +325,8 @@ mod tests {
 
     #[test]
     fn test_known_good_state() {
-        let gs = get_global_state();
+        let root_key = KeyBundle::new_random().expect("should work");
+        let gs = get_global_state(&root_key);
         let store = TestStore::new(
             "bookmarks",
             StoreSyncAssociation::Connected(CollSyncIds {
@@ -315,14 +334,15 @@ mod tests {
                 coll: "syncIDBBBBBB".to_string(),
             }),
         );
-        let cs = LocalCollStateMachine::get_state(&store, &gs).expect("should work");
+        let cs = LocalCollStateMachine::get_state(&store, &gs, &root_key).expect("should work");
         assert!(cs.is_some(), "collection can sync");
         assert_eq!(store.get_num_resets(), 0);
     }
 
     #[test]
     fn test_declined() {
-        let mut gs = get_global_state();
+        let root_key = KeyBundle::new_random().expect("should work");
+        let mut gs = get_global_state(&root_key);
         gs.global.declined.push("bookmarks".to_string());
         let store = TestStore::new(
             "bookmarks",
@@ -331,7 +351,7 @@ mod tests {
                 coll: "syncIDBBBBBB".to_string(),
             }),
         );
-        let cs = LocalCollStateMachine::get_state(&store, &gs).expect("should work");
+        let cs = LocalCollStateMachine::get_state(&store, &gs, &root_key).expect("should work");
         assert!(cs.is_none(), "declined collection can sync");
         assert_eq!(store.get_num_resets(), 0);
     }

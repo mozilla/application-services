@@ -222,7 +222,12 @@ impl Sync15StorageClient {
     where
         for<'a> T: serde::de::Deserialize<'a>,
     {
-        log::trace!("request: {} {}", req.method, req.url.path());
+        log::trace!(
+            "request: {} {} ({:?})",
+            req.method,
+            req.url.path(),
+            req.url.query()
+        );
         let resp = req.send()?;
         log::trace!("response: {}", resp.status);
 
