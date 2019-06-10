@@ -189,7 +189,6 @@ def gradle_module_task(libs_tasks, module_info, deploy_environment):
         .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "assembleRelease")))
         .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "publish")))
         .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "checkMavenArtifacts")))
-        .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "zipMavenArtifacts")))
     )
     for publication in module_info['publications']:
         for artifact in publication.to_artifacts(('', '.sha1', '.md5')):

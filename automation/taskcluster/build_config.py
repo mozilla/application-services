@@ -56,7 +56,7 @@ def module_definitions():
     version = build_config['libraryVersion']
     modules_defs = []
     for (name, project) in build_config['projects'].items():
-        project_path = os.path.abspath(project['path'])
+        project_path = '/build/repo/{}'.format(project['path'])
         module_artifacts = []
         for artifact in project['publications']:
             artifact_name = artifact['name']
@@ -76,7 +76,7 @@ def module_definitions():
 
         modules_defs.append({
             'name': name,
-            'publications': [Publication(publication['name'], publication['type'], version, project_path)
+            'publications': [Publication(publication['name'], PublicationType(publication['type']), version, project_path)
                              for publication in project['publications']],
             'artifacts': module_artifacts,
             'uploadSymbols': project.get('uploadSymbols', False),

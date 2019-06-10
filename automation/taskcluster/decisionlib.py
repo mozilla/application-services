@@ -109,7 +109,7 @@ class Shared:
         # TODO: Switch to async python to speed up submission
         for task_id in self.all_tasks:
             full_task_graph[task_id] = {
-                'task': task_id #SHARED.queue_service.task(task_id),
+                'task': SHARED.queue_service.task(task_id),
             }
         return full_task_graph
 
