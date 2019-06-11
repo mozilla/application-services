@@ -73,7 +73,7 @@ protobuf {
 
 dependencies {
     // Part of the public API.
-    api project(':sync15-library')
+    api project(':sync15')
 
     jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
     implementation "net.java.dev.jna:jna:$jna_version@aar"
@@ -82,7 +82,7 @@ dependencies {
 
     implementation 'com.google.protobuf:protobuf-lite:3.0.0'
     api project(":full-megazord")
-    implementation project(":as-support-library")
+    implementation project(":support")
 
     // For reasons unknown, resolving the jnaForTest configuration directly
     // trips a nasty issue with the Android-Gradle plugin 3.2.1, like `Cannot

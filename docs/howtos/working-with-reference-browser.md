@@ -54,9 +54,9 @@ In `android-components/settings.gradle`:
 includeBuild('../application-services') {
     dependencySubstitution {
         // As required.
-        substitute module('org.mozilla.appservices:fxaclient') with project(':fxa-client-library')
-        substitute module('org.mozilla.appservices:logins') with project(':logins-library')
-        substitute module('org.mozilla.appservices:places') with project(':places-library')
+        substitute module('org.mozilla.appservices:fxaclient') with project(':fxaclient')
+        substitute module('org.mozilla.appservices:logins') with project(':logins')
+        substitute module('org.mozilla.appservices:places') with project(':places')
     }
 }
 ```
@@ -78,16 +78,16 @@ includeBuild('../android-components') {
 includeBuild('../application-services') {
     dependencySubstitution {
         // As required.
-        substitute module('org.mozilla.appservices:fxaclient') with project(':fxa-client-library')
-        substitute module('org.mozilla.appservices:logins') with project(':logins-library')
-        substitute module('org.mozilla.appservices:places') with project(':places-library')
+        substitute module('org.mozilla.appservices:fxaclient') with project(':fxaclient')
+        substitute module('org.mozilla.appservices:logins') with project(':logins')
+        substitute module('org.mozilla.appservices:places') with project(':places')
     }
 }
 ```
 
 ## Caveat
 
-There's a big gotcha with library substitutions: the Gradle build computes lazily, and AARs don't include their transitive dependencies' JNI libraries.  This means that in `android-components`, `./gradlew :service-sync-logins:assembleDebug` **does not** invoke `:logins-library:cargoBuild`, even though `:service-sync-logins` depends on the substitution for `:logins-library` and even if the inputs to Cargo have changed!  It's the final consumer of the `:service-sync-logins` project (or publication) that will incorporate the JNI libraries.
+There's a big gotcha with library substitutions: the Gradle build computes lazily, and AARs don't include their transitive dependencies' JNI libraries.  This means that in `android-components`, `./gradlew :service-sync-logins:assembleDebug` **does not** invoke `:logins:cargoBuild`, even though `:service-sync-logins` depends on the substitution for `:logins` and even if the inputs to Cargo have changed!  It's the final consumer of the `:service-sync-logins` project (or publication) that will incorporate the JNI libraries.
 
 In practice that means _you should always be targeting something that produces an APK_: a test, a sample module, or the Reference Browser itself.  Then you should find that the `cargoBuild` tasks are invoked as you expect.
 

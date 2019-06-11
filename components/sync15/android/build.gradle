@@ -28,7 +28,7 @@ android {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation project(':as-support-library')
+    implementation project(':support')
 }
 
 apply from: "$rootDir/publish.gradle"

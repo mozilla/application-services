@@ -1,42 +1,42 @@
 libraryVersion: 0.31.2
 groupId: org.mozilla.appservices
 projects:
-  fxa-client-library:
+  fxaclient:
     path: components/fxa-client/android
     artifactId: fxaclient
     publishedArtifacts: [fxaclient]
     description: Firefox Accounts client.
-  logins-library:
+  logins:
     path: components/logins/android
     artifactId: logins
     publishedArtifacts: [logins]
     description: Sync 1.5 logins implementation.
-  places-library:
+  places:
     path: components/places/android
     artifactId: places
     publishedArtifacts: [places]
     description: Low level places storage implementation.
-  rustlog-library:
+  rustlog:
     path: components/rc_log/android
     artifactId: rustlog
     publishedArtifacts: [rustlog]
     description: Android hook into the log crate.
-  viaduct-library:
+  httpconfig:
     path: components/viaduct/android
     artifactId: httpconfig
     publishedArtifacts: [httpconfig]
     description: Component allowing the configuration of Rust HTTP stack.
-  as-support-library:
+  support:
     path: components/support/android
     artifactId: support
     publishedArtifacts: [support]
     description: Shared types for app services kotlin.
-  sync15-library:
+  sync15:
     path: components/sync15/android
     artifactId: sync15
     publishedArtifacts: [sync15]
     description: Shared Sync types for Kotlin.
-  push-library:
+  push:
     path: components/push/android
     artifactId: push
     publishedArtifacts: [push]

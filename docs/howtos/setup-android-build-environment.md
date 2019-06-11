@@ -108,12 +108,12 @@ If you just want the build artifacts, you probably want one of the `assemble` ta
    `assembleDebug` or `assembleRelease`.
 
 For example, to build a debug version of the places library, the command you
-want is `./gradlew places-library:assembleDebug`
+want is `./gradlew places:assembleDebug`
 
 After building, you should find the built artifact under the `target` directory,
 with sub-directories for each Android architecture. For example, after executing:
 
-    % ./gradlew places-library:assembleDebug
+    % ./gradlew places:assembleDebug
 
 you will find:
 

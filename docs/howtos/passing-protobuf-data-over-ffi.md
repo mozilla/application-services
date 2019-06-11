@@ -168,7 +168,7 @@ follow the examples of the other steps it takes.
     4. Add the following to your dependencies:
         ```groovy
         implementation 'com.google.protobuf:protobuf-lite:3.0.0'
-        implementation project(':as-support-library')
+        implementation project(':support')
         ```
 2. In the file where the foreign functions are defined, make sure that the
    function returning this type returns a `RustBuffer.ByValue` (`RustBuffer` is
