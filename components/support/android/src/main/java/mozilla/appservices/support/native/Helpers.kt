@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package mozilla.appservices.support
+package mozilla.appservices.support.native
 
 import com.google.protobuf.CodedOutputStream
 import com.google.protobuf.MessageLite

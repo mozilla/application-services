@@ -168,11 +168,11 @@ follow the examples of the other steps it takes.
     4. Add the following to your dependencies:
         ```groovy
         implementation 'com.google.protobuf:protobuf-lite:3.0.0'
-        implementation project(':support')
+        implementation project(':native-support')
         ```
 2. In the file where the foreign functions are defined, make sure that the
    function returning this type returns a `RustBuffer.ByValue` (`RustBuffer` is
-   in `mozilla.appservices.support`).
+   in `mozilla.appservices.support.native`).
 
    Additionally, add a declaration for `mylib_destroy_bytebuffer` (the name must match what was used in the `ffi/src/lib.rs` above). This should look like:
 

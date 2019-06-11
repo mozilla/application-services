@@ -11,8 +11,8 @@ import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
 import java.lang.reflect.Proxy
-import mozilla.appservices.support.RustBuffer
-import mozilla.appservices.support.loadIndirect
+import mozilla.appservices.support.native.RustBuffer
+import mozilla.appservices.support.native.loadIndirect
 import org.mozilla.appservices.rustlog.BuildConfig
 
 @Suppress("FunctionNaming", "TooGenericExceptionThrown")

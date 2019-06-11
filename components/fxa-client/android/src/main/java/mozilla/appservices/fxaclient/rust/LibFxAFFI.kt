@@ -10,8 +10,8 @@ import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import java.lang.reflect.Proxy
-import mozilla.appservices.support.RustBuffer
-import mozilla.appservices.support.loadIndirect
+import mozilla.appservices.support.native.RustBuffer
+import mozilla.appservices.support.native.loadIndirect
 import org.mozilla.appservices.fxaclient.BuildConfig
 
 

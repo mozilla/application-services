@@ -7,11 +7,11 @@ package mozilla.appservices.places
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.StringArray
-import mozilla.appservices.support.stringOrNull
-import mozilla.appservices.support.toNioDirectBuffer
+import mozilla.appservices.support.native.toNioDirectBuffer
 import mozilla.appservices.sync15.SyncTelemetryPing
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicLong
@@ -829,6 +829,14 @@ data class VisitObservation(
         this.referrer?.let { o.put("referrer", it) }
         this.isRemote?.let { o.put("is_remote", it) }
         return o
+    }
+}
+
+fun stringOrNull(jsonObject: JSONObject, key: String): String? {
+    return try {
+        jsonObject.getString(key)
+    } catch (e: JSONException) {
+        null
     }
 }
 

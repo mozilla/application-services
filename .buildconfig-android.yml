@@ -26,10 +26,10 @@ projects:
     artifactId: httpconfig
     publishedArtifacts: [httpconfig]
     description: Component allowing the configuration of Rust HTTP stack.
-  support:
+  native-support:
     path: components/support/android
-    artifactId: support
-    publishedArtifacts: [support]
+    artifactId: native-support
+    publishedArtifacts: [native-support]
     description: Shared types for app services kotlin.
   sync15:
     path: components/sync15/android

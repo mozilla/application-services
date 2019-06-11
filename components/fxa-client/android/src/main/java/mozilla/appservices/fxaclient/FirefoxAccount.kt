@@ -10,7 +10,7 @@ import com.sun.jna.Pointer
 import mozilla.appservices.fxaclient.rust.FxaHandle
 import mozilla.appservices.fxaclient.rust.LibFxAFFI
 import mozilla.appservices.fxaclient.rust.RustError
-import mozilla.appservices.support.toNioDirectBuffer
+import mozilla.appservices.support.native.toNioDirectBuffer
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
 

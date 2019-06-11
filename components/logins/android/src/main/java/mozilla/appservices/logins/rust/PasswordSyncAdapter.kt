@@ -8,7 +8,7 @@ package mozilla.appservices.logins.rust
 import com.sun.jna.Library
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
-import mozilla.appservices.support.loadIndirect
+import mozilla.appservices.support.native.loadIndirect
 import org.mozilla.appservices.logins.BuildConfig
 
 @Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
