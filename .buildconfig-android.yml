@@ -65,8 +65,3 @@ projects:
     artifactId: fenix-megazord
     publishedArtifacts: [fenix-megazord, fenix-megazord-forUnitTests]
     description: Megazord of [fxaclient, places, push, logging].
-  nsslibs:
-    path: components/nss-libs-android
-    artifactId: nsslibs
-    publishedArtifacts: [nsslibs]
-    description: Component containing the NSS shared objects

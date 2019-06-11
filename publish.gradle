@@ -58,14 +58,9 @@ ext.configurePublish = { jnaForTestConfiguration = null,
         def forUnitTestsJarTask = task forUnitTestsJar(type: Jar) {
             from extractJnaResources
             from "$buildDir/rustJniLibs/desktop"
-            from "$buildDir/nativeLibs/desktop"
         }
 
         project.afterEvaluate {
-            def copyNativeLibsTask = tasks.findByName("copyNativeLibs")
-            if (copyNativeLibsTask != null) {
-                forUnitTestsJarTask.dependsOn(copyNativeLibsTask)
-            }
             forUnitTestsJarTask.dependsOn(tasks["cargoBuild"])
         }
     }
@@ -125,52 +120,7 @@ ext.configurePublish = { jnaForTestConfiguration = null,
                         url = libUrl
                     }
                 }
-
-                // if (variantWithoutLib != null) {
-                    // If we are publishing a `-withoutLib` publication, we
-                    // never want to choose the real one when a parent project
-                    // has us as a child `project()` dependency.
-                    // alias = true
-                // }
             }
-
-            // if (variantWithoutLib != null) {
-            //     aarWithoutLib(MavenPublication) {
-            //         project.afterEvaluate {
-            //             from components.findByName(variantWithoutLib)
-            //         }
-            //         artifact sourcesJar
-            //         // Can't publish Javadoc yet: fxaclient isn't well behaved.
-            //         // artifact javadocJar
-
-            //         pom {
-            //             groupId = theGroupId
-            //             artifactId = "${theArtifactId}-withoutLib"
-            //             description = theDescription
-            //             version = rootProject.ext.library.version
-
-            //             licenses {
-            //                 license {
-            //                     name = properties.libLicense
-            //                     url = properties.libLicenseUrl
-            //                 }
-            //             }
-
-            //             developers {
-            //                 developer {
-            //                     name = 'Mozilla Application Services'
-            //                     email = 'application-services@mozilla.com'
-            //                 }
-            //             }
-
-            //             scm {
-            //                 connection = properties.libVcsUrl
-            //                 developerConnection = properties.libVcsUrl
-            //                 url = properties.libUrl
-            //             }
-            //         }
-            //     }
-            // }
 
             if (isMegazord && jnaForTestConfiguration != null) {
                 forUnitTestsJar(MavenPublication) {
