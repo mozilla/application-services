@@ -126,10 +126,10 @@ fn do_sync_multiple(
         Some(client_info) => {
             // if our storage_init has changed it probably means the user has
             // changed, courtesy of the 'kid' in the structure. Thus, we can't
-            // reuse the client or any other cached state.
+            // reuse the client or the memory cached state. We do keep the disk
+            // state as currently that's only the declined list.
             if client_info.client_init != *storage_init {
                 log::info!("Discarding all state as the account might have changed");
-                *persisted_global_state = None;
                 *mem_cached_state = MemoryCachedState::default();
                 ClientInfo::new(storage_init)?
             } else {
@@ -139,8 +139,7 @@ fn do_sync_multiple(
         }
         None => {
             // We almost certainly have no other state here, but to be safe, we
-            // throw away any we do have.
-            *persisted_global_state = None;
+            // throw away any memory state we do have.
             *mem_cached_state = MemoryCachedState::default();
             ClientInfo::new(storage_init)?
         }
