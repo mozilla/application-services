@@ -57,16 +57,6 @@ class MegazordNotInitialized(libName: String) : MegazordError(
     libName,
     "The application-services megazord has not yet been initialized, but is needed by \"$libName\""
 )
-
-fun assertMegazordLibVersionsCompatible(libName: String, libVersion: String, mzVersion: String) {
-    // We require exact equality, since we don't perform a major version
-    // bump if we change the ABI. In practice, this seems unlikely to
-    // cause problems, but we could come up with a scheme if this proves annoying.
-    if (libVersion != mzVersion) {
-        throw IncompatibleMegazordVersion(libName, libVersion, mzVersion)
-    }
-}
-
 /**
  * Determine the megazord library name, and check that it's version is
  * compatible with the version of our bindings. Returns the megazord
