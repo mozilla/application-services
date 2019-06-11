@@ -1,3 +1,15 @@
+# v0.31.2 (_2019-06-10_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.31.1...v0.31.2)
+
+## Sync
+
+### What's fixed
+
+- Fixes an edge case introduced in v0.31.1 where a users set of declined engines
+  (aka the "Choose what to Sync" preferences) could be forgotten.
+  ([#1273](https://github.com/mozilla/application-services/pull/1273))
+
 # v0.31.1 (_2019-06-10_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.31.0...v0.31.1)
