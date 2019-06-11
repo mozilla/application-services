@@ -4,11 +4,8 @@
 
 package mozilla.appservices.httpconfig
 
-import android.util.Log
 import com.sun.jna.Library
 import com.sun.jna.Callback
-import com.sun.jna.Native
-import java.lang.reflect.Proxy
 import mozilla.appservices.support.native.RustBuffer
 import mozilla.appservices.support.native.loadIndirect
 import org.mozilla.appservices.httpconfig.BuildConfig

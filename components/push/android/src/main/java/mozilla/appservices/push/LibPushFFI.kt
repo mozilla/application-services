@@ -5,12 +5,9 @@
 
 package mozilla.appservices.push
 
-import android.util.Log
 import com.sun.jna.Library
-import com.sun.jna.Native
 import com.sun.jna.Pointer
 import mozilla.appservices.support.native.RustBuffer
-import java.lang.reflect.Proxy
 import mozilla.appservices.support.native.loadIndirect
 import org.mozilla.appservices.push.BuildConfig
 
@@ -20,7 +17,6 @@ internal interface LibPushFFI : Library {
         internal var INSTANCE: LibPushFFI =
             loadIndirect(libName = "push", libVersion = BuildConfig.LIBRARY_VERSION)
     }
-
 
     // Important: strings returned from rust as *mut char must be Pointers on this end, returning a
     // String will work but either force us to leak them, or cause us to corrupt the heap (when we

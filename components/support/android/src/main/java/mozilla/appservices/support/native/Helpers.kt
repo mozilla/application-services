@@ -28,18 +28,35 @@ fun <T : MessageLite> T.toNioDirectBuffer(): Pair<ByteBuffer, Int> {
     return Pair(first = nioBuf, second = len)
 }
 
-sealed class MegazordError(msg: String): Exception(msg)
+sealed class MegazordError : Exception {
+    val libName: String
+    constructor(libName: String, msg: String) : super(msg) {
+        this.libName = libName
+    }
+    constructor(libName: String, msg: String, cause: Throwable) : super(msg, cause) {
+        this.libName = libName
+    }
+}
+
+class MegazordNotAvailable(
+    libName: String,
+    cause: UnsatisfiedLinkError
+) : MegazordError(libName, "Failed to locate megazord library: '$libName'", cause)
 
 class IncompatibleMegazordVersion(
-    val libName: String,
+    libName: String,
     val libVersion: String,
     val mzVersion: String
-) : MegazordError("Incompatible megazord version: library \"$libName\" was compiled expecting " +
-                 "app-services version \"$libVersion\", but the megazord provides version \"$mzVersion\"")
+) : MegazordError(
+    libName,
+    "Incompatible megazord version: library \"$libName\" was compiled expecting " +
+    "app-services version \"$libVersion\", but the megazord provides version \"$mzVersion\""
+)
 
-class MegazordNotInitialized(val libName: String) : MegazordError(
-    "The application-services megazord has not yet been initialized, but is needed by \"$libName\"")
-
+class MegazordNotInitialized(libName: String) : MegazordError(
+    libName,
+    "The application-services megazord has not yet been initialized, but is needed by \"$libName\""
+)
 
 fun assertMegazordLibVersionsCompatible(libName: String, libVersion: String, mzVersion: String) {
     // We require exact equality, since we don't perform a major version
@@ -80,18 +97,16 @@ fun megazordCheck(libName: String, libVersion: String): String {
  * Indirect as in, we aren't using JNA direct mapping. Eventually we'd
  * like to (it's faster), but that's a problem for another day.
  */
-inline fun <reified Lib: Library> loadIndirect(libName: String, libVersion: String): Lib {
+inline fun <reified Lib : Library> loadIndirect(libName: String, libVersion: String): Lib {
     val mzLibrary = megazordCheck(libName, libVersion)
     return try {
         Native.load<Lib>(mzLibrary, Lib::class.java)
     } catch (e: UnsatisfiedLinkError) {
-        // This shouldn't actually be necessary if we set things up so that
-        // unit testing works, but until we verify that that happens, do this.
+        // TODO: This should probably be a hard error now, right?
         Proxy.newProxyInstance(
             Lib::class.java.classLoader,
             arrayOf(Lib::class.java)) { _, _, _ ->
-            throw RuntimeException("functionality not available (no native library)", e)
+            throw MegazordNotAvailable(libName, e)
         } as Lib
     }
 }
-
