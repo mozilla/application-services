@@ -5,8 +5,6 @@
 package mozilla.appservices.support
 
 import com.google.protobuf.CodedOutputStream
-import org.json.JSONException
-import org.json.JSONObject
 import com.google.protobuf.MessageLite
 import com.sun.jna.Library
 import com.sun.jna.Native
@@ -28,27 +26,6 @@ fun <T : MessageLite> T.toNioDirectBuffer(): Pair<ByteBuffer, Int> {
     this.writeTo(output)
     output.checkNoSpaceLeft()
     return Pair(first = nioBuf, second = len)
-}
-
-/**
- * Extracts an optional property value from a JSON object, returning `null` if
- * the property doesn't exist.
- */
-inline fun <T> unwrapFromJSON(jsonObject: JSONObject, func: (JSONObject) -> T): T? {
-    return try {
-        func(jsonObject)
-    } catch (e: JSONException) {
-        null
-    }
-}
-
-/**
- * Extracts an optional string value from a JSON object.
- */
-fun stringOrNull(jsonObject: JSONObject, key: String): String? {
-    return unwrapFromJSON(jsonObject) {
-        it.getString(key)
-    }
 }
 
 sealed class MegazordError(msg: String): Exception(msg)
