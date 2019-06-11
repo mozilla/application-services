@@ -9,29 +9,41 @@ def libProjectName = properties.libProjectName
 def libUrl = properties.libUrl
 def libVcsUrl = properties.libVcsUrl
 
-// If using jnaForTestConfiguration or variantWithoutLib,
-// please also update the corresponding .buildconfig-android.yml
-// `publishedArtifacts` property.
-ext.configurePublish = { jnaForTestConfiguration = null,
-                         isMegazord = false ->
+// `jnaForTestConfiguration` is a hacky way to say yes, I'm using JNA and want
+// to pack the JNA dispatch libraries and my Rust libraries into a single JAR
+// for use in unit tests that run on a development host (and not an Android
+// target device).  We extract the JNA libraries and our local Rust libraries
+// and stick them into a JAR that consumers augment their test configuration
+// with.
+//
+// It's only used for megazords, for which it's required. Passing it in for a
+// non-megazord is allowed, but will trigger a warning, but is allowed.
+ext.configurePublish = { jnaForTestConfiguration = null ->
     def theGroupId = rootProject.ext.library.groupId
     def theArtifactId = project.ext.artifactId
     def theDescription = project.ext.description
+    def artifacts = project.ext.configProps.publishedArtifacts;
 
-    // XXX update this comment once things work.
-    //
-    // `jnaForTestConfiguration` is a hacky way to say yes, I'm using JNA and
-    // want to pack the JNA dispatch libraries and my Rust libraries into a
-    // single JAR for use in unit tests that run on a development host (and not
-    // an Android target device).  We extract the JNA libraries and our local
-    // Rust libraries and stick them into a JAR that consumers augment their
-    // test configuration with.
-    //
-    // `variantWithoutLib` says to publish an AAR that doesn't have native Rust
-    // libraries packed into it.  Such an AAR will be aggregated into another
-    // Maven publication that has a single megazord Rust library that provides
-    // the native code functionality.
-    if (isMegazord && jnaForTestConfiguration != null) {
+    // This is a little cludgey, but it seems unlikely to cause a problem, and
+    // we are already doing it inside taskcluster.
+    def isMegazord = theArtifactId.endsWith("-megazord")
+
+    // Do some sanity checks. The following properties should either all be
+    // true, or none of them should be true:
+    // - We're a megazord
+    // - jnaForTestConfiguration was provided
+    // - we should have 2 publish artifacts, [project, project-forUnitTests]
+    if (isMegazord != (jnaForTestConfiguration != null)) {
+        throw new GradleException("ext.configurePublish needs a `jnaForTestConfiguration` iff the project is a megazord")
+    }
+
+    if (isMegazord != (artifacts.size() == 2)) {
+        // Maybe this should be a warning, but it would have caught bugs in the
+        // past, so let's make it an error.
+        throw new GradleException("Currently only megazords are expected to have multiple published artifacts");
+    }
+
+    if (isMegazord) {
         task extractJnaResources(type: Sync) {
             dependsOn jnaForTestConfiguration
 
@@ -122,7 +134,7 @@ ext.configurePublish = { jnaForTestConfiguration = null,
                 }
             }
 
-            if (isMegazord && jnaForTestConfiguration != null) {
+            if (isMegazord) {
                 forUnitTestsJar(MavenPublication) {
                     artifact tasks['forUnitTestsJar']
 

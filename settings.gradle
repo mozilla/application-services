@@ -20,6 +20,11 @@ def setupProject(name, projectProps) {
     def description = projectProps.description
     def artifactId = projectProps.artifactId
 
+    // TODO: Can we remove artifactId?
+    if (name != artifactId) {
+        throw new GradleException("Project name should match artifactId")
+    }
+
     settings.include(":$name")
 
     project(":$name").projectDir = new File(rootDir, path)
@@ -31,6 +36,8 @@ def setupProject(name, projectProps) {
         if (project.name == name) {
             project.ext.description = description
             project.ext.artifactId = artifactId
+            // Expose the rest of the project properties, mostly for validation reasons.
+            project.ext.configProps = projectProps
         }
     }
 }
