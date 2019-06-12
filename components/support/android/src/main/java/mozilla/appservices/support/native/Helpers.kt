@@ -4,6 +4,11 @@
 
 package mozilla.appservices.support.native
 
+// TODO: We'd like to be using the a-c log tooling here, but adding that
+// dependency is slightly tricky (This also could run before its log sink
+// is setup!). Since logging here very much helps debugging substitution
+// issues, we just use logcat.
+import android.util.Log
 import com.google.protobuf.CodedOutputStream
 import com.google.protobuf.MessageLite
 import com.sun.jna.Library
@@ -33,9 +38,11 @@ sealed class MegazordError : Exception {
      * The name of the component we were trying to initialize when we had the error.
      */
     val componentName: String
+
     constructor(componentName: String, msg: String) : super(msg) {
         this.componentName = componentName
     }
+
     constructor(componentName: String, msg: String, cause: Throwable) : super(msg, cause) {
         this.componentName = componentName
     }
@@ -54,7 +61,7 @@ class IncompatibleMegazordVersion(
 ) : MegazordError(
     componentName,
     "Incompatible megazord version: library \"$componentName\" was compiled expecting " +
-    "app-services version \"$componentVersion\", but the megazord \"$megazordLibrary\" provides " +
+        "app-services version \"$componentVersion\", but the megazord \"$megazordLibrary\" provides " +
         "version \"${megazordVersion ?: "unknown"}\""
 )
 
@@ -88,21 +95,32 @@ internal const val FULL_MEGAZORD_LIBRARY: String = "megazord"
 
 internal fun doMegazordCheck(componentName: String, componentVersion: String): String {
     val mzLibrary = System.getProperty("mozilla.appservices.megazord.library")
+    Log.d("RustNativeSupport", "lib configured: ${mzLibrary ?: "none"}")
     if (mzLibrary == null) {
         // If it's null, then the megazord hasn't been initialized.
         if (checkFullMegazord(componentName, componentVersion)) {
             return FULL_MEGAZORD_LIBRARY
         }
+        Log.e(
+            "RustNativeSupport",
+            "megazord not initialized, and default not present. failing to init $componentName"
+        )
         throw MegazordNotInitialized(componentName)
     }
 
     // Assume it's properly initialized if it's been initialized at all
     val mzVersion = System.getProperty("mozilla.appservices.megazord.version")!!
+    Log.d("RustNativeSupport", "lib version configured: $mzVersion")
 
     // We require exact equality, since we don't perform a major version
     // bump if we change the ABI. In practice, this seems unlikely to
     // cause problems, but we could come up with a scheme if this proves annoying.
     if (componentVersion != mzVersion) {
+        Log.e(
+            "RustNativeSupport",
+            "version requested by component doesn't initialized " +
+                "megazord version ($componentVersion != $componentVersion)"
+        )
         throw IncompatibleMegazordVersion(componentName, componentVersion, mzLibrary, mzVersion)
     }
     return mzLibrary
@@ -118,19 +136,27 @@ internal fun doMegazordCheck(componentName: String, componentVersion: String): S
  */
 @Synchronized
 fun megazordCheck(componentName: String, componentVersion: String): String {
+    Log.d("RustNativeSupport", "megazordCheck($componentName, $componentVersion")
     val mzLibraryUsed = System.getProperty("mozilla.appservices.megazord.library.used")
+    Log.d("RustNativeSupport", "lib in use: ${mzLibraryUsed ?: "none"}")
     val mzLibraryDetermined = doMegazordCheck(componentName, componentVersion)
+    Log.d("RustNativeSupport", "settled on $mzLibraryDetermined")
 
     // If we've already initialized the megazord, that means we've probably already loaded bindings
     // from it somewhere. It would be a big problem for us to use some bindings from one lib and
     // some from another, so we just fail.
     if (mzLibraryUsed != null && mzLibraryDetermined != mzLibraryUsed) {
+        Log.e(
+            "RustNativeSupport",
+            "Different than first time through ($mzLibraryDetermined != $mzLibraryUsed)!"
+        )
         throw MultipleMegazordsPresent(componentName, mzLibraryUsed, mzLibraryDetermined)
     }
 
     // Mark that we're about to load bindings from the specified lib. Note that we don't do this
     // in the case that the megazord check threw.
     if (mzLibraryUsed != null) {
+        Log.d("RustNativeSupport", "setting first time through: $mzLibraryDetermined")
         System.setProperty("mozilla.appservices.megazord.library.used", mzLibraryDetermined)
     }
     return mzLibraryDetermined
@@ -142,7 +168,10 @@ fun megazordCheck(componentName: String, componentVersion: String): String {
  * Indirect as in, we aren't using JNA direct mapping. Eventually we'd
  * like to (it's faster), but that's a problem for another day.
  */
-inline fun <reified Lib : Library> loadIndirect(componentName: String, componentVersion: String): Lib {
+inline fun <reified Lib : Library> loadIndirect(
+    componentName: String,
+    componentVersion: String
+): Lib {
     val mzLibrary = megazordCheck(componentName, componentVersion)
     return try {
         Native.load<Lib>(mzLibrary, Lib::class.java)
@@ -150,7 +179,8 @@ inline fun <reified Lib : Library> loadIndirect(componentName: String, component
         // TODO: This should probably be a hard error now, right?
         Proxy.newProxyInstance(
             Lib::class.java.classLoader,
-            arrayOf(Lib::class.java)) { _, _, _ ->
+            arrayOf(Lib::class.java)
+        ) { _, _, _ ->
             throw MegazordNotAvailable(componentName, e)
         } as Lib
     }
@@ -177,19 +207,45 @@ internal interface LibMegazordFfi : Library {
  */
 internal fun checkFullMegazord(componentName: String, componentVersion: String): Boolean {
     return try {
+        Log.d(
+            "RustNativeSupport",
+            "No lib configured, trying full megazord"
+        )
         // It's not ideal to do this every time, but it should be rare, not too costly,
         // and the workaround for the app is simple (just init the megazord).
         val lib = Native.load<LibMegazordFfi>(FULL_MEGAZORD_LIBRARY, LibMegazordFfi::class.java)
 
         val version = lib.full_megazord_get_version()
-            ?: throw IncompatibleMegazordVersion(componentName, componentVersion, FULL_MEGAZORD_LIBRARY, null)
+
+        Log.d(
+            "RustNativeSupport",
+            "found full megazord, it self-reports version as: ${version ?: "unknown"}"
+        )
+        if (version == null) {
+            throw IncompatibleMegazordVersion(
+                componentName,
+                componentVersion,
+                FULL_MEGAZORD_LIBRARY,
+                null
+            )
+        }
 
         if (version != componentVersion) {
-            throw IncompatibleMegazordVersion(componentName, componentVersion, FULL_MEGAZORD_LIBRARY, version)
+            Log.e(
+                "RustNativeSupport",
+                "found default megazord, but versions don't match ($version != $componentVersion)"
+            )
+            throw IncompatibleMegazordVersion(
+                componentName,
+                componentVersion,
+                FULL_MEGAZORD_LIBRARY,
+                version
+            )
         }
 
         true
     } catch (e: UnsatisfiedLinkError) {
+        Log.e("RustNativeSupport", "Default megazord not found: ${e.localizedMessage}")
         false
     }
 }
