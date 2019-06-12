@@ -20,7 +20,6 @@ members = [
     "megazords/fenix",
     "megazords/full",
     "megazords/lockbox",
-    "megazords/reference-browser",
     "megazords/ios/rust",
     "testing/sync-test",
 ]

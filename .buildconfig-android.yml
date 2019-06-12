@@ -53,12 +53,6 @@ projects:
     artifactId: lockbox-megazord
     publishedArtifacts: [lockbox-megazord, lockbox-megazord-forUnitTests]
     description: Megazord of [fxaclient, logins, logging].
-  reference-browser-megazord:
-    uploadSymbols: true
-    path: megazords/reference-browser/android
-    artifactId: reference-browser-megazord
-    publishedArtifacts: [reference-browser-megazord, reference-browser-megazord-forUnitTests]
-    description: Megazord of [fxaclient, logins, places, push, logging].
   fenix-megazord:
     uploadSymbols: true
     path: megazords/fenix/android
