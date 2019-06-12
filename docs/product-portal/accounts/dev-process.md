@@ -40,178 +40,87 @@ for the Application Services team:
 ## Issue management
 
 Most of our work takes place on [GitHub](https://github.com/mozilla/fxa).
-We use labels and milestones to keep things organised,
-and [waffle.io](https://waffle.io) to provide
-an overview of bug status and activity:
-
-* [Active issues for Firefox Accounts](https://waffle.io/mozilla/fxa)
+We use labels and milestones to keep things organised.
 
 Issue status is reflected by the following:
 
-* The milestone indicates *why* we are working on this issue.
-* The waffle column indicates *what* the next action is and *when*
-  we expect to complete it.
+* The milestone indicates *when* we are working on this issue.
+* The issue itself will have updates indicating *what* the next action is.
 * The assignee, if any, indicates *who* is responsible for that action.
 
 ### Milestones
 
-When we start working on a new feature,
+When we start working on a new sprint,
 we create a corresponding
 [milestone in github](https://github.com/mozilla/fxa/milestones)
-and break down the task
-into bugs associated with that milestone.
-There's also an ongoing
-["quality" milestone](https://waffle.io/mozilla/fxa?milestone=FxA-0:%20quality)
-for tracking work
-related to overall quality
-rather than a particular feature.
+and fill it with issues that should be closed in that sprint.
 
-If it's not obvious
-what milestone an issue should belong to,
-that's a strong signal
-that we're not ready to work on it yet.
+### Labels
 
-Milestones are synced across all our repos using the
-[sync_milestones.js](https://github.com/mozilla/fxa/blob/master/scripts/sync_milestones.js)
-script.
+We use labels to help categorize and identify issues. The label taxonomy is:
 
-### Waffle Columns
+##### Bug Type/Status:
+* **status:unconfirmed**
+* **status:bug**
+* **status:enhancement**
+* **status:wontfix**
+* **status:invalid**
+* **status:duplicate**
+* **Status:worksforme**
+* **status:blocker**
 
-Issues that are not being actively worked on are managed in the following columns:
+##### Categories:
+* **code quality**
+* **perf**
+* **security**
+* **documentation**
 
-* **triage**:  all incoming issues start out in this column by default.
-* **backlog**: issues that we plan to work on someday, but not urgently.
-* **next**: issues that we plan to pick up in the next development cycle.
+##### Contributors:
+* **good first issue**
+* **help wanted**
+* **help wanted (taken)** Since you can't assign an issue to someone who isn't in the organization
 
-Issues that are under active development are managed in the following columns:
+##### Skill labels should accompany any good first issue label:
+* **skill:css**
+* **skill:html**
+* **skill:js**
+* **skill:rust**
+* **skill:database**
 
-* **active**:  issues that someone is actively working on.
-* **in review**: issues that have a PR ready for review; the assignee is the.
-* **blocked**:  issues on which progress has stalled due to external factors.
+##### Blocked on another person/team/decision:
+* **needs:discussion** There is an open question blocking this issue from moving forward
+* **needs:legal**
+* **needs:ops**
+* **needs:product** Any product questions including missing content or copy
+* **needs:qa**
+* **needs:security**
+* **needs:visuals**  UI is in place but doesn’t look right
+* **needs:ux** Questions about flow, or user experience
 
-All issues in these four columns should have an assignee, who is the person
-responsible for taking the next action on that bug.
+##### Priority labels are based on [Bugzilla's triage process](https://mozilla.github.io/bug-handling/triage-bugzilla):
+* **p1**
+* **p2**
+* **p3**
+* **p5**
 
-### Other Labels
+##### Project Tracking:
+* **Epic** ZenHub uses this to track epics and we're exploring using ZenHub
 
-We use the following labels to add additional context on issues:
-
-  current development cycle.
-* **shipit**: indicates items that need to be merged before cutting the current train.
-* **good-first-bug**: indicates well-scoped, approachable tasks that may be a good
-  starting point for new contributors to the project.
-* **i18n**: indicates issues that affect internationalized strings, and so need special
-  care when merging to avoid issues with translations.
-* **ux**: indicates issues that have a UX component, and thus should receive input and
-  validation from the UX team.
-
-Labels are synced across all the repos using the
-[sync_labels.js](https://github.com/mozilla/fxa/blob/master/scripts/sync_labels.js)
-script.
 
 ### Bug Triage
 
-Issues in the **triage** column should move into one of the other columns
-via these guidelines:
-
-* If it's so important that we need to get to it in the next few days,
-  put it in **active** and consider adding a **❤❤❤** label to
-  increase visibility.
-
-* If we should get to it in the next few weeks, put it in **next**.
-
-* If we should get to it in the next few months, put it towards the top
-  of **backlog** and add a **❤** label to increase visibility.
-
-* If we should get to it eventually, put it further down in **backlog**.
-
-* Otherwise, just close it.
-
-While we hold regular triage meetings, developers with sufficient context are
-welcome to deal with issues in the **triage** column at any time.
+We triage issues every week in our meetings.  Depending on the size of our
+backlog, we may schedule other meetings focused solely on triaging older
+issues.
 
 
 ## Checkin Meetings
 
-The team meets regularly
-to stay in sync about development status
-and ensure nothing is falling through the cracks.
-During meetings we take notes in the
-**[coordination google-doc](https://docs.google.com/document/d/1r_qfb-D1Yt5KAT8IIVPvjaeliFORbQk-xFE_tRNM4Rc/)**,
-and afterward we send a summary of each meeting
-to an appropriate mailing list.
+The team meets regularly to stay in sync about development status and ensure
+nothing is falling through the cracks.  During meetings we take notes and
+afterward we send a summary of each meeting to an appropriate mailing list.
 
-We hold the following meetings
-over the course of each two-week cycle,
-with meeting times pinned
-to Mozilla Standard Time (aka Pacific Time).
-
-
-### Mondays at 08:30
-
-This is a 60 minute meeting slot that's convenient for Europe and US-East.
-The first 30 minutes are split between UX/PM and dev/ops discussions,
-the second 30 for triaging new bugs and pruning the backlog.
-
-Minutes are emailed to [dev-fxacct@mozilla.org](https://mail.mozilla.org/pipermail/dev-fxacct/)
-
-### Mondays at 12:30
-
-#### Weekly: Show and Tell and Share
-
-We get together to demonstrate
-any new features that will be included on the next train,
-or any other interesting work
-that was completed in the previous cycle.
-
-Minutes are emailed to [dev-fxacct@mozilla.org](https://mail.mozilla.org/pipermail/dev-fxacct/)
-
-### Mondays at 13:00
-
-This is the one time each week
-where all team members everywhere in the world
-get together in the same (virtual) room
-at the same time.
-
-
-#### First week: Dev Planning Meeting
-
-We review any items remaining
-in **blocked**, **review** or **active**
-to determine whether they
-should carry over to the upcoming train,
-or be de-priotitized.
-We then work through the issues
-in **next** to decide what to commit to
-for the upcoming train.
-
-Minutes are not recorded from this meeting.
-
-#### Second week: Retrospective
-
-We take time every two weeks
-to explicitly reflect on our development process -
-what worked, what didn't, what new things we'd like to try.
-
-Minutes are private
-and are emailed to [fxa-staff@mozilla.com](https://groups.google.com/a/mozilla.com/forum/#!forum/fxa-staff)
-
-### Tuesdays at 13:30
-
-This is a 30 minute meeting slot
-that is convenient for US-West and Oceania.
-
-#### Weekly: DevOps Catchup
-
-We dedicate some time to discuss backend operational issues.
-
-On weeks when we are cutting a new train,
-we review the status of any **shipit** items
-from the Monday meeting, and tag new releases
-of the relevant repos for the outbound train.
-
-Minutes are emailed to [dev-fxacct@mozilla.org](https://mail.mozilla.org/pipermail/dev-fxacct/),
-sans any confidential operational notes.
+Please see our [project calendar](https://www.google.com/calendar/embed?src=mozilla.com_urbkla6jvphpk1t8adi5c12kic%40group.calendar.google.com) for details.
 
 ## Code Review
 
@@ -271,56 +180,8 @@ Here are some handy questions and things to consider when reviewing code for Fir
 
 ## Tagging releases
 
-Each repo has a `grunt` script
-for tagging new releases.
-This script is responsible for:
+The release process is being [documented and reviewed](https://docs.google.com/document/d/1lAK-Wvmr7xPsVHIDVFhG5RlQKQQL1Z4NlhyCPLLq4-U/edit?ts=5cb8ba2d).  We'll update this official documentation when the details are sorted out.
 
-* Updating the version strings
-  in `package.json` and `npm-shrinkwrap.json`.
-
-* Writing commit summaries
-  to the change log.
-
-* Committing these changes.
-
-The script will not push the tag,
-so you can always check what's changed
-before making the decision
-about whether the changes were correct
-and it's okay to push.
-
-To tag a major release, run:
-
-```
-grunt version
-```
-
-To tag a patch release, run:
-
-```
-grunt version:patch
-```
-
-Patch releases should normally be tagged
-in a specific `train-nnn` branch,
-which must then be merged back to `master`.
-
-It's important that:
-
-1. The merge happens;
-
-2. It really is just a vanilla `git merge`
-   and not a `rebase`, `cherry-pick` or `merge --squash`.
-
-Doing it this way
-ensures that all releases show up in the changelog,
-with commits correctly listed under the appropriate version,
-and that future releases are never missing the details
-from earlier ones.
-Other approaches,
-like cherry-picking between branches
-or fixing in master then uplifting to a train branch,
-will break the history.
 
 ### What if the merge messes up the changelog?
 
@@ -455,7 +316,7 @@ by doing the following:
 
 * Push the private train branch to the public repo,
   as a new branch:
-  * `git push public train-XYZ:train-XYZ-uplift` 
+  * `git push public train-XYZ:train-XYZ-uplift`
 * Open a PR in the public repo,
   targeting the public `train-XYZ` branch,
   for review and merge.
