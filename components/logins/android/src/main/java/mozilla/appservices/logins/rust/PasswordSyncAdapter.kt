@@ -15,7 +15,7 @@ import org.mozilla.appservices.logins.BuildConfig
 internal interface PasswordSyncAdapter : Library {
     companion object {
         internal var INSTANCE: PasswordSyncAdapter =
-            loadIndirect(libName = "logins", libVersion = BuildConfig.LIBRARY_VERSION)
+            loadIndirect(componentName = "logins", componentVersion = BuildConfig.LIBRARY_VERSION)
     }
 
     fun sync15_passwords_state_new(

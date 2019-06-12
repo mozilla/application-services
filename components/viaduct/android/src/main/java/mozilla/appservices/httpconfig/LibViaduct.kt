@@ -4,8 +4,8 @@
 
 package mozilla.appservices.httpconfig
 
-import com.sun.jna.Library
 import com.sun.jna.Callback
+import com.sun.jna.Library
 import mozilla.appservices.support.native.RustBuffer
 import mozilla.appservices.support.native.loadIndirect
 import org.mozilla.appservices.httpconfig.BuildConfig
@@ -14,7 +14,10 @@ import org.mozilla.appservices.httpconfig.BuildConfig
 internal interface LibViaduct : Library {
     companion object {
         internal var INSTANCE: LibViaduct = {
-            val inst = loadIndirect<LibViaduct>(libName = "viaduct", libVersion = BuildConfig.LIBRARY_VERSION)
+            val inst = loadIndirect<LibViaduct>(
+                componentName = "viaduct",
+                componentVersion = BuildConfig.LIBRARY_VERSION
+            )
             inst.viaduct_force_enable_ffi_backend(1)
             inst
         }()

@@ -73,7 +73,11 @@ cargo {
     // `debug = true` in Cargo.toml).
     profile = "release"
 
-    exec = rootProject.ext.cargoExecWithSQLCipher
+    exec = { spec, toolchain ->
+        rootProject.ext.cargoExecWithSQLCipher(spec, toolchain)
+        // Only used in the full megazord (that is, in this project) at build time.
+        spec.environment("MEGAZORD_VERSION", rootProject.ext.library.version)
+    }
 
     extraCargoBuildArguments = rootProject.ext.extraCargoBuildArguments
 }

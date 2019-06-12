@@ -15,7 +15,7 @@ import org.mozilla.appservices.fxaclient.BuildConfig
 internal interface LibFxAFFI : Library {
     companion object {
         internal var INSTANCE: LibFxAFFI =
-            loadIndirect(libName = "fxaclient", libVersion = BuildConfig.LIBRARY_VERSION)
+            loadIndirect(componentName = "fxaclient", componentVersion = BuildConfig.LIBRARY_VERSION)
     }
 
     fun fxa_new(

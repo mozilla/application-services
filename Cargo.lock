@@ -1152,6 +1152,7 @@ name = "megazord"
 version = "0.1.0"
 dependencies = [
  "fxaclient_ffi 0.1.0",
+ "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "logins_ffi 0.1.0",
  "places-ffi 0.1.0",
  "push-ffi 0.1.0",

@@ -17,7 +17,7 @@ import org.mozilla.appservices.places.BuildConfig
 internal interface LibPlacesFFI : Library {
     companion object {
         internal var INSTANCE: LibPlacesFFI =
-            loadIndirect(libName = "places", libVersion = BuildConfig.LIBRARY_VERSION)
+            loadIndirect(componentName = "places", componentVersion = BuildConfig.LIBRARY_VERSION)
     }
 
     // Important: strings returned from rust as *mut char must be Pointers on this end, returning a

@@ -15,7 +15,7 @@ import org.mozilla.appservices.push.BuildConfig
 internal interface LibPushFFI : Library {
     companion object {
         internal var INSTANCE: LibPushFFI =
-            loadIndirect(libName = "push", libVersion = BuildConfig.LIBRARY_VERSION)
+            loadIndirect(componentName = "push", componentVersion = BuildConfig.LIBRARY_VERSION)
     }
 
     // Important: strings returned from rust as *mut char must be Pointers on this end, returning a

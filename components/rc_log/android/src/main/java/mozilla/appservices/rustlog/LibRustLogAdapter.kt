@@ -16,7 +16,7 @@ internal interface LibRustLogAdapter : Library {
     companion object {
         // XXX this should be direct binding...
         internal var INSTANCE: LibRustLogAdapter =
-            loadIndirect(libName = "rustlog", libVersion = BuildConfig.LIBRARY_VERSION)
+            loadIndirect(componentName = "rustlog", componentVersion = BuildConfig.LIBRARY_VERSION)
     }
 
     fun rc_log_adapter_create(
