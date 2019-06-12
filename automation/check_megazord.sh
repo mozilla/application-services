@@ -11,6 +11,12 @@ fi
 
 MEGAZORD_NAME=$1
 
+# The `full-megazord` is `libmegazord.so`. Eventually we should figure out a way
+# to avoid hardcoding this check, but for now it's not too bad.
+if [ "$MEGAZORD_NAME" = "full" ]; then
+    MEGAZORD_NAME="megazord"
+fi
+
 # For now just check x86_64 since we only run this for PRs
 TARGET_ARCHS=("x86_64") # "x86" "arm64" "arm")
 NM_BINS=("x86_64-linux-android-nm") # "i686-linux-android-nm" "aarch64-linux-android-nm" "arm-linux-androideabi-nm")
