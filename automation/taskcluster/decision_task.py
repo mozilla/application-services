@@ -155,6 +155,7 @@ def android_linux_x86_64():
             yes | sdkmanager --update
             yes | sdkmanager --licenses
             ./gradlew --no-daemon clean
+            ./gradlew --no-daemon assembleDebug
             ./gradlew --no-daemon testDebug
         """)
     )
