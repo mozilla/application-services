@@ -70,6 +70,7 @@ impl PlacesDb {
 
         db.execute_batch(initial_pragmas)?;
         define_functions(&db)?;
+        db.set_prepared_statement_cache_capacity(128);
         let res = Self {
             db,
             conn_type,

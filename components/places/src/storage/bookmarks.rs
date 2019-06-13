@@ -481,30 +481,35 @@ impl UpdatableItem {
 }
 pub fn update_bookmark(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
     let tx = db.begin_transaction()?;
-    let result = update_bookmark_in_tx(db, guid, item);
+    let existing = get_raw_bookmark(db, guid)?
+        .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(guid.to_string()))?;
+    let result = update_bookmark_in_tx(db, guid, item, existing);
     // Note: `tx` automatically rolls back on drop if we don't commit
     tx.commit()?;
     result
 }
 
-fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
+fn update_bookmark_in_tx(
+    db: &PlacesDb,
+    guid: &SyncGuid,
+    item: &UpdatableItem,
+    raw: RawBookmark,
+) -> Result<()> {
     if guid.is_root() {
         return Err(InvalidPlaceInfo::CannotUpdateRoot(BookmarkRootGuid::Root).into());
     }
-    let existing = get_raw_bookmark(db, guid)?
-        .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(guid.to_string()))?;
-    let existing_parent_guid = existing
+    let existing_parent_guid = raw
         .parent_guid
         .as_ref()
         .ok_or_else(|| Corruption::NonRootWithoutParent(guid.to_string()))?;
 
-    let existing_parent_id = existing
+    let existing_parent_id = raw
         .parent_id
         .ok_or_else(|| Corruption::NoParent(guid.to_string(), existing_parent_guid.to_string()))?;
 
-    if existing.bookmark_type != item.bookmark_type() {
+    if raw.bookmark_type != item.bookmark_type() {
         return Err(InvalidPlaceInfo::MismatchedBookmarkType(
-            existing.bookmark_type as u8,
+            raw.bookmark_type as u8,
             item.bookmark_type() as u8,
         )
         .into());
@@ -519,7 +524,7 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
     match item.location() {
         UpdateTreeLocation::None => {
             parent_id = existing_parent_id;
-            position = existing.position;
+            position = raw.position;
             update_old_parent_status = false;
             update_new_parent_status = false;
         }
@@ -530,7 +535,7 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
             let parent = get_raw_bookmark(db, existing_parent_guid)?.ok_or_else(|| {
                 Corruption::NoParent(guid.to_string(), existing_parent_guid.to_string())
             })?;
-            position = update_pos_for_move(db, *pos, &existing, &parent)?;
+            position = update_pos_for_move(db, *pos, &raw, &parent)?;
         }
         UpdateTreeLocation::Parent(new_parent_guid, pos) => {
             if new_parent_guid == BookmarkRootGuid::Root {
@@ -547,13 +552,13 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
             let existing_parent = get_raw_bookmark(db, existing_parent_guid)?.ok_or_else(|| {
                 Corruption::NoParent(guid.to_string(), existing_parent_guid.to_string())
             })?;
-            update_pos_for_deletion(db, existing.position, existing_parent.row_id)?;
+            update_pos_for_deletion(db, raw.position, existing_parent.row_id)?;
             position = resolve_pos_for_insert(db, *pos, &new_parent)?;
         }
     };
     let place_id = match item {
         UpdatableItem::Bookmark(b) => match &b.url {
-            None => existing.place_id,
+            None => raw.place_id,
             Some(url) => {
                 let page_info = match fetch_page_info(db, &url)? {
                     Some(info) => info.page,
@@ -565,7 +570,7 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
         _ => {
             // Updating a non-bookmark item, so the existing item must not
             // have a place_id
-            assert_eq!(existing.place_id, None);
+            assert_eq!(raw.place_id, None);
             None
         }
     };
@@ -579,7 +584,7 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
     };
 
     let title: Option<String> = match update_title {
-        None => existing.title.clone(),
+        None => raw.title.clone(),
         // We don't differentiate between null and the empty string for title,
         // just like desktop doesn't post bug 1360872, hence an empty string
         // means "set to null".
@@ -592,7 +597,7 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
         }
     };
 
-    let change_incr = title != existing.title || place_id != existing.place_id;
+    let change_incr = title != raw.title || place_id != raw.place_id;
 
     let now = Timestamp::now();
 
@@ -615,7 +620,7 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
             (":title", &maybe_truncate_title(&title)),
             (":now", &now),
             (":change_incr", &(change_incr as u32)),
-            (":id", &existing.row_id),
+            (":id", &raw.row_id),
         ],
     )?;
 

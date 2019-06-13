@@ -289,6 +289,17 @@ pub extern "C" fn fxa_get_access_token(
     })
 }
 
+/// This method should be called when a request made with
+/// an OAuth token failed with an authentication error.
+/// It clears the internal cache of OAuth access tokens,
+/// so the caller can try to call `fxa_get_access_token` or `fxa_profile`
+/// again.
+#[no_mangle]
+pub extern "C" fn fxa_clear_access_token_cache(handle: u64, error: &mut ExternError) {
+    log::debug!("fxa_clear_access_token_cache");
+    ACCOUNTS.call_with_output_mut(error, handle, |fxa| fxa.clear_access_token_cache())
+}
+
 /// Update the Push subscription information for the current device.
 #[no_mangle]
 pub extern "C" fn fxa_set_push_subscription(

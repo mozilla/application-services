@@ -211,6 +211,10 @@ jobs:
       - run: rustup component add clippy
       - run: cargo clippy --version
       - run: cargo clippy --all --all-targets --all-features -- -D warnings
+      # Run clippy without any features so that we still lint things that are
+      # behind a `#[cfg(not(feature = "..."))]`, which will always be false with
+      # --all-features.
+      - run: cargo clippy --all --all-targets --no-default-features -- -D warnings
   Lint Bash scripts:
     docker:
       - image: koalaman/shellcheck-alpine:stable

@@ -3,5 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 fn main() {
+    println!("cargo:rerun-if-changed=src/fetch_msg_types.proto");
     prost_build::compile_protos(&["src/fetch_msg_types.proto"], &["src/"]).unwrap();
 }

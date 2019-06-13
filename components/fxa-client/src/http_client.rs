@@ -11,6 +11,7 @@ use viaduct::{header_names, status_codes, Method, Request, Response};
 
 pub(crate) mod browser_id;
 
+#[cfg_attr(test, mockiato::mockable)]
 pub trait FxAClient {
     fn oauth_token_with_code(
         &self,

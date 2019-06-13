@@ -42,9 +42,14 @@ impl From<i64> for ServerTimestamp {
 }
 
 impl From<f64> for ServerTimestamp {
-    #[inline]
     fn from(ts: f64) -> Self {
-        ServerTimestamp((ts * 1000.0).round() as i64)
+        let rf = (ts * 1000.0).round();
+        if !rf.is_finite() || rf < 0.0 || rf >= i64::max_value() as f64 {
+            log::error!("Illegal timestamp: {}", ts);
+            ServerTimestamp(0)
+        } else {
+            ServerTimestamp(rf as i64)
+        }
     }
 }
 
@@ -53,7 +58,7 @@ impl FromStr for ServerTimestamp {
     type Err = num::ParseFloatError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let val = f64::from_str(s)?;
-        Ok(ServerTimestamp((val * 1000.0).round() as i64))
+        Ok(val.into())
     }
 }
 
@@ -106,14 +111,14 @@ impl<'de> Deserialize<'de> for ServerTimestamp {
             type Value = ServerTimestamp;
 
             fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                formatter.write_str("An 64 bit float number value.")
+                formatter.write_str("A 64 bit float number value.")
             }
 
             fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
             where
                 E: de::Error,
             {
-                Ok(ServerTimestamp((value * 1000.0).round() as i64))
+                Ok(value.into())
             }
         }
 

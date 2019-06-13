@@ -23,17 +23,15 @@ use url::Url;
 
 /// Clamps a history visit date between the current date and the earliest
 /// sensible date.
-fn clamp_visit_date(visit_date: Timestamp) -> Timestamp {
+fn clamp_visit_date(visit_date: Timestamp) -> std::result::Result<Timestamp, ()> {
     let now = Timestamp::now();
     if visit_date > now {
-        return now;
+        return Ok(now);
     }
     if visit_date < Timestamp::EARLIEST {
-        // XXX This is probably wrong (and doesn't match desktop). We should
-        // assume timestamps before this are garbage, and not clamp them.
-        return Timestamp::EARLIEST;
+        return Err(());
     }
-    visit_date
+    Ok(visit_date)
 }
 
 /// This is the action we will take *locally* for each incoming record.
@@ -109,8 +107,14 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
             Some(t) => t,
             None => continue,
         };
-        let date_use = clamp_visit_date(visit.visit_date);
-        cur_visit_map.insert((transition, date_use));
+        match clamp_visit_date(visit.visit_date) {
+            Ok(date_use) => {
+                cur_visit_map.insert((transition, date_use));
+            }
+            Err(_) => {
+                log::warn!("Ignored visit before 1993-01-23");
+            }
+        }
     }
     // If we already have MAX_RECORDS visits, then we will ignore incoming
     // visits older than that, to avoid adding dupes of earlier visits.
@@ -131,18 +135,24 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
             Some(v) => v,
             None => continue,
         };
-        let timestamp = clamp_visit_date(incoming_visit.date.into());
-        if earliest_allowed > timestamp.into() {
-            continue;
-        }
-        // If the entry isn't in our map we should add it.
-        let key = (transition, timestamp);
-        if !cur_visit_map.contains(&key) {
-            to_apply.push(HistoryRecordVisit {
-                date: timestamp.into(),
-                transition: transition as u8,
-            });
-            cur_visit_map.insert(key);
+        match clamp_visit_date(incoming_visit.date.into()) {
+            Ok(timestamp) => {
+                if earliest_allowed > timestamp.into() {
+                    continue;
+                }
+                // If the entry isn't in our map we should add it.
+                let key = (transition, timestamp);
+                if !cur_visit_map.contains(&key) {
+                    to_apply.push(HistoryRecordVisit {
+                        date: timestamp.into(),
+                        transition: transition as u8,
+                    });
+                    cur_visit_map.insert(key);
+                }
+            }
+            Err(()) => {
+                log::warn!("Ignored visit before 1993-01-23");
+            }
         }
     }
     // Now we need to check the other attributes.
@@ -1023,5 +1033,14 @@ mod tests {
         assert_eq!(get_tombstone_count(&db), 0);
 
         Ok(())
+    }
+
+    #[test]
+    fn test_clamp_visit_date() {
+        let ts = Timestamp::from(727_747_199_999);
+        assert!(clamp_visit_date(ts).is_err());
+
+        let ts = Timestamp::now();
+        assert_eq!(clamp_visit_date(ts), Ok(ts));
     }
 }

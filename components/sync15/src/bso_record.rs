@@ -370,8 +370,12 @@ impl EncryptedPayload {
     where
         for<'a> T: Deserialize<'a>,
     {
-        key.verify_hmac_string(&self.hmac, &self.ciphertext)
+        let matches = key
+            .verify_hmac_string(&self.hmac, &self.ciphertext)
             .map_err(|_| error::ErrorKind::HmacMismatch)?;
+        if !matches {
+            return Err(error::ErrorKind::HmacMismatch.into());
+        }
 
         let iv = base64::decode(&self.iv)?;
         let ciphertext = base64::decode(&self.ciphertext)?;
@@ -506,7 +510,7 @@ mod tests {
 
         assert!(keybundle
             .verify_hmac_string(&encrypted.payload.hmac, &encrypted.payload.ciphertext)
-            .is_ok());
+            .unwrap());
 
         // While we're here, check on EncryptedPayload::serialized_len
         let val_rec =
@@ -537,7 +541,7 @@ mod tests {
 
         assert!(keybundle
             .verify_hmac_string(&encrypted.payload.hmac, &encrypted.payload.ciphertext)
-            .is_ok());
+            .unwrap());
 
         // While we're here, check on EncryptedPayload::serialized_len
         let val_rec =
@@ -573,7 +577,7 @@ mod tests {
 
         assert!(keybundle
             .verify_hmac_string(&encrypted.payload.hmac, &encrypted.payload.ciphertext)
-            .is_ok());
+            .unwrap());
 
         let decrypted = encrypted.decrypt(&keybundle).unwrap();
         // We add auto fields during decryption.
@@ -582,5 +586,30 @@ mod tests {
 
         assert_eq!(decrypted.sortindex, Some(100));
         assert_eq!(decrypted.ttl, Some(99));
+    }
+    #[test]
+    fn test_record_bad_hmac() {
+        let payload = json!({ "id": "aaaaaaaaaaaa", "age": 105, "meta": "data", "sortindex": 100, "ttl": 99 });
+        let bso = Payload::from_json(payload.clone())
+            .unwrap()
+            .into_bso("dummy".into());
+
+        let keybundle = KeyBundle::new_random().unwrap();
+        let encrypted = bso.clone().encrypt(&keybundle).unwrap();
+        let keybundle2 = KeyBundle::new_random().unwrap();
+
+        let e = encrypted
+            .decrypt(&keybundle2)
+            .expect_err("Should fail because wrong keybundle");
+
+        // Note: ErrorKind isn't PartialEq, so.
+        match e.kind() {
+            error::ErrorKind::HmacMismatch => {
+                // yay.
+            }
+            other => {
+                panic!("Expected HMAC mismatch, got {:?}", other);
+            }
+        }
     }
 }

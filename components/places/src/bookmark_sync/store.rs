@@ -1189,24 +1189,38 @@ mod tests {
 
     use sync15::{random_guid, CollSyncIds, Payload};
 
-    fn apply_incoming(conn: &PlacesDb, records_json: Value) {
+    fn apply_incoming(conn: &PlacesDb, remote_time: ServerTimestamp, records_json: Value) {
         // suck records into the store.
         let interrupt_scope = conn.begin_interrupt_scope();
         let store = BookmarksStore::new(&conn, &interrupt_scope);
 
-        let mut incoming =
-            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0));
+        let mut incoming = IncomingChangeset::new(store.collection_name().to_string(), remote_time);
 
         match records_json {
             Value::Array(records) => {
                 for record in records {
+                    let timestamp = record
+                        .as_object()
+                        .and_then(|r| r.get("modified"))
+                        .map(|v| {
+                            serde_json::from_value(v.clone())
+                                .expect("Should deserialize server modified")
+                        })
+                        .unwrap_or(remote_time);
                     let payload = Payload::from_json(record).unwrap();
-                    incoming.changes.push((payload, ServerTimestamp(0)));
+                    incoming.changes.push((payload, timestamp));
                 }
             }
-            Value::Object(_) => {
+            Value::Object(ref r) => {
+                let timestamp = r
+                    .get("modified")
+                    .map(|v| {
+                        serde_json::from_value(v.clone())
+                            .expect("Should deserialize server modified")
+                    })
+                    .unwrap_or(remote_time);
                 let payload = Payload::from_json(records_json).unwrap();
-                incoming.changes.push((payload, ServerTimestamp(0)));
+                incoming.changes.push((payload, timestamp));
             }
             _ => panic!("unexpected json value"),
         }
@@ -1214,6 +1228,21 @@ mod tests {
         store
             .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply incoming and stage outgoing records");
+
+        let mut stmt = conn
+            .prepare("SELECT guid FROM itemsToUpload")
+            .expect("Should prepare statement to fetch uploaded GUIDs");
+        let uploaded_guids: Vec<String> = stmt
+            .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
+                Ok(row.get::<_, String>(0)?)
+            })
+            .expect("Should fetch uploaded GUIDs")
+            .map(std::result::Result::unwrap)
+            .collect();
+
+        store
+            .push_synced_items(remote_time, uploaded_guids)
+            .expect("Should push synced changes back to the store");
     }
 
     fn assert_incoming_creates_local_tree(
@@ -1225,7 +1254,7 @@ mod tests {
         let conn = api
             .open_sync_connection()
             .expect("should get a sync connection");
-        apply_incoming(&conn, records_json);
+        apply_incoming(&conn, ServerTimestamp(0), records_json);
         assert_local_json_tree(&conn, local_folder, local_tree);
     }
 
@@ -2060,6 +2089,362 @@ mod tests {
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             store.sync_finished(ServerTimestamp(2_000), synced_ids)?;
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_dedupe_local_newer() -> result::Result<(), failure::Error> {
+        let _ = env_logger::try_init();
+
+        let api = new_mem_api();
+        let writer = api.open_connection(ConnectionType::ReadWrite)?;
+        let syncer = api.open_sync_connection()?;
+
+        let local_modified = Timestamp::now();
+        let remote_modified = local_modified.as_millis() as f64 / 1000f64 - 5f64;
+
+        // Start with merged items.
+        apply_incoming(
+            &syncer,
+            ServerTimestamp::from(remote_modified),
+            json!([{
+                "id": "menu",
+                "type": "folder",
+                "parentid": "places",
+                "parentName": "",
+                "title": "menu",
+                "children": ["bookmarkAAA5"],
+                "modified": remote_modified,
+            }, {
+                "id": "bookmarkAAA5",
+                "type": "bookmark",
+                "parentid": "menu",
+                "parentName": "menu",
+                "title": "A",
+                "bmkUri": "http://example.com/a",
+                "modified": remote_modified,
+            }]),
+        );
+
+        // Add newer local dupes.
+        insert_local_json_tree(
+            &writer,
+            json!({
+                "guid": &BookmarkRootGuid::Menu.as_guid(),
+                "children": [{
+                    "guid": "bookmarkAAA1",
+                    "title": "A",
+                    "url": "http://example.com/a",
+                    "date_added": local_modified,
+                    "last_modified": local_modified,
+                }, {
+                    "guid": "bookmarkAAA2",
+                    "title": "A",
+                    "url": "http://example.com/a",
+                    "date_added": local_modified,
+                    "last_modified": local_modified,
+                }, {
+                    "guid": "bookmarkAAA3",
+                    "title": "A",
+                    "url": "http://example.com/a",
+                    "date_added": local_modified,
+                    "last_modified": local_modified,
+                }],
+            }),
+        );
+
+        // Add older remote dupes.
+        apply_incoming(
+            &syncer,
+            ServerTimestamp(local_modified.as_millis() as i64),
+            json!([{
+                "id": "menu",
+                "type": "folder",
+                "parentid": "places",
+                "parentName": "",
+                "title": "menu",
+                "children": ["bookmarkAAAA", "bookmarkAAA4", "bookmarkAAA5"],
+            }, {
+                "id": "bookmarkAAAA",
+                "type": "bookmark",
+                "parentid": "menu",
+                "parentName": "menu",
+                "title": "A",
+                "bmkUri": "http://example.com/a",
+                "modified": remote_modified,
+            }, {
+                "id": "bookmarkAAA4",
+                "type": "bookmark",
+                "parentid": "menu",
+                "parentName": "menu",
+                "title": "A",
+                "bmkUri": "http://example.com/a",
+                "modified": remote_modified,
+            }]),
+        );
+
+        assert_local_json_tree(
+            &writer,
+            &BookmarkRootGuid::Menu.as_guid(),
+            json!({
+                "guid": &BookmarkRootGuid::Menu.as_guid(),
+                "children": [{
+                    "guid": "bookmarkAAAA",
+                    "title": "A",
+                    "url": "http://example.com/a",
+                }, {
+                    "guid": "bookmarkAAA4",
+                    "title": "A",
+                    "url": "http://example.com/a",
+                }, {
+                    "guid": "bookmarkAAA5",
+                    "title": "A",
+                    "url": "http://example.com/a",
+                }, {
+                    "guid": "bookmarkAAA3",
+                    "title": "A",
+                    "url": "http://example.com/a",
+                }],
+            }),
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_deduping_remote_newer() -> result::Result<(), failure::Error> {
+        let _ = env_logger::try_init();
+
+        let api = new_mem_api();
+        let writer = api.open_connection(ConnectionType::ReadWrite)?;
+        let syncer = api.open_sync_connection()?;
+
+        let local_modified = Timestamp::from(Timestamp::now().as_millis() - 5000);
+        let remote_modified = local_modified.as_millis() as f64 / 1000f64;
+
+        // Start with merged items.
+        apply_incoming(
+            &syncer,
+            ServerTimestamp::from(remote_modified),
+            json!([{
+                "id": "menu",
+                "type": "folder",
+                "parentid": "places",
+                "parentName": "",
+                "title": "menu",
+                "children": ["folderAAAAAA"],
+                "modified": remote_modified,
+            }, {
+                // Shouldn't dedupe to `folderA11111` because it's been applied.
+                "id": "folderAAAAAA",
+                "type": "folder",
+                "parentid": "menu",
+                "parentName": "menu",
+                "title": "A",
+                "children": ["bookmarkGGGG"],
+                "modified": remote_modified,
+            }, {
+                // Shouldn't dedupe to `bookmarkG111`.
+                "id": "bookmarkGGGG",
+                "type": "bookmark",
+                "parentid": "folderAAAAAA",
+                "parentName": "A",
+                "title": "G",
+                "bmkUri": "http://example.com/g",
+                "modified": remote_modified,
+            }]),
+        );
+
+        // Add older local dupes.
+        insert_local_json_tree(
+            &writer,
+            json!({
+                "guid": "folderAAAAAA",
+                "children": [{
+                    // Not a candidate for `bookmarkH111` because we didn't dupe `folderAAAAAA`.
+                    "guid": "bookmarkHHHH",
+                    "title": "H",
+                    "url": "http://example.com/h",
+                    "date_added": local_modified,
+                    "last_modified": local_modified,
+                }]
+            }),
+        );
+        insert_local_json_tree(
+            &writer,
+            json!({
+                "guid": &BookmarkRootGuid::Menu.as_guid(),
+                "children": [{
+                    // Should dupe to `folderB11111`.
+                    "guid": "folderBBBBBB",
+                    "type": BookmarkType::Folder as u8,
+                    "title": "B",
+                    "date_added": local_modified,
+                    "last_modified": local_modified,
+                    "children": [{
+                        // Should dupe to `bookmarkC222`.
+                        "guid": "bookmarkC111",
+                        "title": "C",
+                        "url": "http://example.com/c",
+                        "date_added": local_modified,
+                        "last_modified": local_modified,
+                    }, {
+                        // Should dupe to `separatorF11` because the positions are the same.
+                        "guid": "separatorFFF",
+                        "type": BookmarkType::Separator as u8,
+                        "date_added": local_modified,
+                        "last_modified": local_modified,
+                    }],
+                }, {
+                    // Shouldn't dupe to `separatorE11`, because the positions are different.
+                    "guid": "separatorEEE",
+                    "type": BookmarkType::Separator as u8,
+                    "date_added": local_modified,
+                    "last_modified": local_modified,
+                }, {
+                    // Shouldn't dupe to `bookmarkC222` because the parents are different.
+                    "guid": "bookmarkCCCC",
+                    "title": "C",
+                    "url": "http://example.com/c",
+                    "date_added": local_modified,
+                    "last_modified": local_modified,
+                }, {
+                    // Should dupe to `queryD111111`.
+                    "guid": "queryDDDDDDD",
+                    "title": "Most Visited",
+                    "url": "place:maxResults=10&sort=8",
+                    "date_added": local_modified,
+                    "last_modified": local_modified,
+                }],
+            }),
+        );
+
+        // Add newer remote items.
+        apply_incoming(
+            &syncer,
+            ServerTimestamp::from(remote_modified),
+            json!([{
+                "id": "menu",
+                "type": "folder",
+                "parentid": "places",
+                "parentName": "",
+                "title": "menu",
+                "children": ["folderAAAAAA", "folderB11111", "folderA11111", "separatorE11", "queryD111111"],
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified + 5f64,
+            }, {
+                "id": "folderB11111",
+                "type": "folder",
+                "parentid": "menu",
+                "parentName": "menu",
+                "title": "B",
+                "children": ["bookmarkC222", "separatorF11"],
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified + 5f64,
+            }, {
+                "id": "bookmarkC222",
+                "type": "bookmark",
+                "parentid": "folderB11111",
+                "parentName": "B",
+                "title": "C",
+                "bmkUri": "http://example.com/c",
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified + 5f64,
+            }, {
+                "id": "separatorF11",
+                "type": "separator",
+                "parentid": "folderB11111",
+                "parentName": "B",
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified + 5f64,
+            }, {
+                "id": "folderA11111",
+                "type": "folder",
+                "parentid": "menu",
+                "parentName": "menu",
+                "title": "A",
+                "children": ["bookmarkG111"],
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified + 5f64,
+            }, {
+                "id": "bookmarkG111",
+                "type": "bookmark",
+                "parentid": "folderA11111",
+                "parentName": "A",
+                "title": "G",
+                "bmkUri": "http://example.com/g",
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified + 5f64,
+            }, {
+                "id": "separatorE11",
+                "type": "separator",
+                "parentid": "folderB11111",
+                "parentName": "B",
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified + 5f64,
+            }, {
+                "id": "queryD111111",
+                "type": "query",
+                "parentid": "menu",
+                "parentName": "menu",
+                "title": "Most Visited",
+                "bmkUri": "place:maxResults=10&sort=8",
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified + 5f64,
+            }]),
+        );
+
+        assert_local_json_tree(
+            &writer,
+            &BookmarkRootGuid::Menu.as_guid(),
+            json!({
+                "guid": &BookmarkRootGuid::Menu.as_guid(),
+                "children": [{
+                    "guid": "folderAAAAAA",
+                    "children": [{
+                        "guid": "bookmarkGGGG",
+                        "title": "G",
+                        "url": "http://example.com/g",
+                    }, {
+                        "guid": "bookmarkHHHH",
+                        "title": "H",
+                        "url": "http://example.com/h",
+                    }]
+                }, {
+                    "guid": "folderB11111",
+                    "children": [{
+                        "guid": "bookmarkC222",
+                        "title": "C",
+                        "url": "http://example.com/c",
+                    }, {
+                        "guid": "separatorF11",
+                        "type": BookmarkType::Separator as u8,
+                    }],
+                }, {
+                    "guid": "folderA11111",
+                    "children": [{
+                        "guid": "bookmarkG111",
+                        "title": "G",
+                        "url": "http://example.com/g",
+                    }]
+                }, {
+                    "guid": "separatorE11",
+                    "type": BookmarkType::Separator as u8,
+                }, {
+                    "guid": "queryD111111",
+                    "title": "Most Visited",
+                    "url": "place:maxResults=10&sort=8",
+                }, {
+                    "guid": "separatorEEE",
+                    "type": BookmarkType::Separator as u8,
+                }, {
+                    "guid": "bookmarkCCCC",
+                    "title": "C",
+                    "url": "http://example.com/c",
+                }],
+            }),
+        );
 
         Ok(())
     }

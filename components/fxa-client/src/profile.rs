@@ -17,6 +17,22 @@ impl FirefoxAccount {
     /// * `ignore_cache` - If set to true, bypass the in-memory cache
     /// and fetch the entire profile data from the server.
     pub fn get_profile(&mut self, ignore_cache: bool) -> Result<Profile> {
+        match self.get_profile_helper(ignore_cache) {
+            Ok(res) => Ok(res),
+            Err(e) => match e.kind() {
+                ErrorKind::RemoteError { code: 401, .. } => {
+                    log::warn!(
+                        "Access token rejected, clearing the tokens cache and trying again."
+                    );
+                    self.clear_access_token_cache();
+                    self.get_profile_helper(ignore_cache)
+                }
+                _ => Err(e),
+            },
+        }
+    }
+
+    fn get_profile_helper(&mut self, ignore_cache: bool) -> Result<Profile> {
         let mut etag = None;
         if let Some(ref cached_profile) = self.profile_cache {
             if !ignore_cache && util::now() < cached_profile.cached_at + PROFILE_FRESHNESS_THRESHOLD
@@ -65,130 +81,47 @@ impl FirefoxAccount {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{http_client::*, oauth::AccessTokenInfo, Config};
-    use std::{collections::HashMap, sync::Arc};
-
-    struct FakeClient {
-        pub is_success: bool, // Can't clone Result<T, error>.
-        pub profile_response: Option<ResponseAndETag<ProfileResponse>>,
-    }
+    use crate::{
+        http_client::*,
+        oauth::{AccessTokenInfo, RefreshToken},
+    };
+    use std::sync::Arc;
 
     impl FirefoxAccount {
-        fn add_token(&mut self, scope: &str, token_info: AccessTokenInfo) {
+        fn add_cached_token(&mut self, scope: &str, token_info: AccessTokenInfo) {
             self.access_token_cache
                 .insert(scope.to_string(), token_info);
         }
     }
 
-    impl FxAClient for FakeClient {
-        fn oauth_token_with_code(
-            &self,
-            _: &Config,
-            _: &str,
-            _: &str,
-        ) -> Result<OAuthTokenResponse> {
-            unimplemented!()
-        }
-        fn oauth_token_with_refresh_token(
-            &self,
-            _: &Config,
-            _: &str,
-            _: &[&str],
-        ) -> Result<OAuthTokenResponse> {
-            unimplemented!()
-        }
-        fn oauth_token_from_session_token(
-            &self,
-            _: &Config,
-            _: &[u8],
-            _: &[&str],
-        ) -> Result<OAuthTokenResponse> {
-            unimplemented!()
-        }
-        fn duplicate_session(
-            &self,
-            _config: &Config,
-            _token: &[u8],
-        ) -> Result<DuplicateTokenResponse> {
-            unimplemented!()
-        }
-        fn destroy_oauth_token(&self, _config: &Config, _token: &str) -> Result<()> {
-            unimplemented!()
-        }
-        fn scoped_key_data(
-            &self,
-            _: &Config,
-            _: &[u8],
-            _: &str,
-        ) -> Result<HashMap<String, ScopedKeyDataResponse>> {
-            unimplemented!()
-        }
-        fn profile(
-            &self,
-            _: &Config,
-            _: &str,
-            _: Option<String>,
-        ) -> Result<Option<ResponseAndETag<ProfileResponse>>> {
-            if self.is_success {
-                Ok(self.profile_response.clone())
-            } else {
-                panic!("Not implemented yet")
-            }
-        }
-        fn pending_commands(
-            &self,
-            _: &Config,
-            _: &str,
-            _: u64,
-            _: Option<u64>,
-        ) -> Result<PendingCommandsResponse> {
-            unimplemented!("Not implemented yet")
-        }
-        fn invoke_command(
-            &self,
-            _: &Config,
-            _: &str,
-            _: &str,
-            _: &str,
-            _: &serde_json::Value,
-        ) -> Result<()> {
-            unimplemented!("Not implemented yet")
-        }
-        fn devices(&self, _: &Config, _: &str) -> Result<Vec<GetDeviceResponse>> {
-            unimplemented!("Not implemented yet")
-        }
-        fn update_device(
-            &self,
-            _: &Config,
-            _: &str,
-            _: DeviceUpdateRequest<'_>,
-        ) -> Result<UpdateDeviceResponse> {
-            unimplemented!("Not implemented yet")
-        }
-
-        fn destroy_device(&self, _: &Config, _: &str, _: &str) -> Result<()> {
-            unimplemented!("Not implemented yet")
-        }
-    }
+    // FIXME: https://github.com/myelin-ai/mockiato/issues/106.
+    unsafe impl<'a> Send for FxAClientMock<'a> {}
+    unsafe impl<'a> Sync for FxAClientMock<'a> {}
 
     #[test]
     fn test_fetch_profile() {
         let mut fxa =
             FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
 
-        fxa.add_token(
+        fxa.add_cached_token(
             "profile",
             AccessTokenInfo {
                 scope: "profile".to_string(),
-                token: "toktok".to_string(),
+                token: "profiletok".to_string(),
                 key: None,
                 expires_at: u64::max_value(),
             },
         );
 
-        let client = Arc::new(FakeClient {
-            is_success: true,
-            profile_response: Some(ResponseAndETag {
+        let mut client = FxAClientMock::new();
+        client
+            .expect_profile(
+                mockiato::Argument::any,
+                |token| token.partial_eq("profiletok"),
+                mockiato::Argument::any,
+            )
+            .times(1)
+            .returns_once(Ok(Some(ResponseAndETag {
                 response: ProfileResponse {
                     uid: "12345ab".to_string(),
                     email: "foo@bar.com".to_string(),
@@ -200,9 +133,87 @@ mod tests {
                     two_factor_authentication: false,
                 },
                 etag: None,
-            }),
+            })));
+        fxa.set_client(Arc::new(client));
+
+        let p = fxa.get_profile(false).unwrap();
+        assert_eq!(p.email, "foo@bar.com");
+    }
+
+    #[test]
+    fn test_expired_access_token_refetch() {
+        let mut fxa =
+            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+
+        fxa.add_cached_token(
+            "profile",
+            AccessTokenInfo {
+                scope: "profile".to_string(),
+                token: "bad_access_token".to_string(),
+                key: None,
+                expires_at: u64::max_value(),
+            },
+        );
+        let mut refresh_token_scopes = std::collections::HashSet::new();
+        refresh_token_scopes.insert("profile".to_owned());
+        fxa.state.refresh_token = Some(RefreshToken {
+            token: "refreshtok".to_owned(),
+            scopes: refresh_token_scopes,
         });
-        fxa.set_client(client);
+
+        let mut client = FxAClientMock::new();
+        // First call to profile() we fail with 401.
+        client
+            .expect_profile(
+                mockiato::Argument::any,
+                |token| token.partial_eq("bad_access_token"),
+                mockiato::Argument::any,
+            )
+            .times(1)
+            .returns_once(Err(ErrorKind::RemoteError{
+                code: 401,
+                errno: 110,
+                error: "Unauthorized".to_owned(),
+                message: "Invalid authentication token in request signature".to_owned(),
+                info: "https://github.com/mozilla/fxa-auth-server/blob/master/docs/api.md#response-format".to_owned(),
+            }.into()));
+        // Then we'll try to get a new access token.
+        client
+            .expect_oauth_token_with_refresh_token(
+                mockiato::Argument::any,
+                |token| token.partial_eq("refreshtok"),
+                mockiato::Argument::any,
+            )
+            .times(1)
+            .returns_once(Ok(OAuthTokenResponse {
+                keys_jwe: None,
+                refresh_token: None,
+                expires_in: 6_000_000,
+                scope: "profile".to_owned(),
+                access_token: "good_profile_token".to_owned(),
+            }));
+        // Then hooray it works!
+        client
+            .expect_profile(
+                mockiato::Argument::any,
+                |token| token.partial_eq("good_profile_token"),
+                mockiato::Argument::any,
+            )
+            .times(1)
+            .returns_once(Ok(Some(ResponseAndETag {
+                response: ProfileResponse {
+                    uid: "12345ab".to_string(),
+                    email: "foo@bar.com".to_string(),
+                    locale: "fr-FR".to_string(),
+                    display_name: None,
+                    avatar: "https://foo.avatar".to_string(),
+                    avatar_default: true,
+                    amr_values: vec![],
+                    two_factor_authentication: false,
+                },
+                etag: None,
+            })));
+        fxa.set_client(Arc::new(client));
 
         let p = fxa.get_profile(false).unwrap();
         assert_eq!(p.email, "foo@bar.com");
