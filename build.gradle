@@ -210,6 +210,7 @@ switch (DefaultPlatform.RESOURCE_PREFIX) {
 ext.libsRootDir = useDownloadedLibs ? rootProject.buildDir : rootProject.rootDir
 
 subprojects {
+    group = "org.mozilla.appservices"
     apply plugin: 'digital.wup.android-maven-publish'
 
     // This allows to invoke Gradle like `./gradlew publishToRootProjectBuildDir` (equivalent to
