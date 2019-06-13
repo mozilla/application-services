@@ -158,29 +158,13 @@ if (file('local.properties').canRead()) {
     logger.lifecycle('Local configuration: loaded local.properties')
 }
 
-// For non-megazord builds, don't do a release build unless we explicitly want
-// it (e.g. in CI, or if specified in local.properties). This avoids some cases
-// where two builds of some crates are required when they wouldn't otherwise be,
-// as well as improving build times for local development.
-ext.nonMegazordProfile = "debug"
 // Additionally, we require `--locked` in CI, but not for local builds.
 // Unlike the above, this can't be overridden by `local.properties` (mainly
 // because doing so seems pointless, not for any security reason)
 ext.extraCargoBuildArguments = []
 
 if (System.getenv("CI")) {
-    // Note: CI can still override this (and does for PRs), this
-    // is just the default
-    ext.nonMegazordProfile = "release"
     ext.extraCargoBuildArguments = ["--locked"]
-}
-
-if (localProperties != null) {
-    String localNonMegazordProfile = localProperties.getProperty(
-        "application-services.nonmegazord-profile");
-    if (localNonMegazordProfile != null) {
-        ext.nonMegazordProfile = localNonMegazordProfile;
-    }
 }
 
 // The Cargo targets to invoke.  The mapping from short name to target
