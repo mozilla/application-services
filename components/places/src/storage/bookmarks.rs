@@ -1123,8 +1123,12 @@ fn inflate(
 }
 
 /// Fetch the tree starting at the specified folder guid.
-/// Returns a BookmarkTreeNode::Folder(_)
-pub fn fetch_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<BookmarkTreeNode>> {
+/// Returns a `BookmarkTreeNode::Folder(_)`, its parent's guid (if any), and
+/// position inside its parent.
+pub fn fetch_tree(
+    db: &PlacesDb,
+    item_guid: &SyncGuid,
+) -> Result<Option<(BookmarkTreeNode, Option<SyncGuid>, u32)>> {
     // XXX - this needs additional work for tags - unlike desktop, there's no
     // "tags" folder, but instead a couple of tables to join on.
     let sql = r#"
@@ -1172,10 +1176,15 @@ pub fn fetch_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<Bookmark
     let mut results =
         stmt.query_and_then_named(&[(":item_guid", item_guid)], FetchedTreeRow::from_row)?;
 
+    let parent_guid: Option<SyncGuid>;
+    let position: u32;
+
     // The first row in the result set is always the root of our tree.
     let mut root = match results.next() {
         Some(result) => {
             let row = result?;
+            parent_guid = row.parent_guid.clone();
+            position = row.position;
             FolderNode {
                 guid: Some(row.guid.clone()),
                 date_added: Some(row.date_added),
@@ -1245,7 +1254,7 @@ pub fn fetch_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<Bookmark
 
     // Finally, inflate our tree.
     inflate(&mut root, &mut pseudo_tree);
-    Ok(Some(root))
+    Ok(Some((root, parent_guid, position)))
 }
 
 /// A "raw" bookmark - a representation of the row and some summary fields.
@@ -2069,7 +2078,7 @@ mod tests {
         let conn = new_mem_connection();
 
         // Fetch the root
-        let t = fetch_tree(&conn, &BookmarkRootGuid::Root.into())?.unwrap();
+        let (t, _, _) = fetch_tree(&conn, &BookmarkRootGuid::Root.into())?.unwrap();
         let f = match t {
             BookmarkTreeNode::Folder(ref f) => f,
             _ => panic!("tree root must be a folder"),
