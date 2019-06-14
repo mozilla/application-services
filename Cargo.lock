@@ -260,7 +260,7 @@ dependencies = [
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "sync15 0.1.0",
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "webbrowser 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webbrowser 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -835,7 +835,7 @@ dependencies = [
  "untrusted 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "viaduct 0.1.0",
- "webbrowser 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webbrowser 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2713,12 +2713,7 @@ dependencies = [
 
 [[package]]
 name = "webbrowser"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "webbrowser"
-version = "0.4.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "widestring 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3074,8 +3069,7 @@ dependencies = [
 "checksum void 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 "checksum walkdir 2.2.7 (registry+https://github.com/rust-lang/crates.io-index)" = "9d9d7ed3431229a144296213105a390676cc49c9b6a72bd19f3176c98e129fa1"
 "checksum want 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "797464475f30ddb8830cc529aaaae648d581f99e2036a928877dfde027ddf6b3"
-"checksum webbrowser 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "21c311234fd1392a0071c1476cb7a4338dd2479e03e80e2328fbbf2db117b028"
-"checksum webbrowser 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f08b2530d0f0c96ae77672bd927d07cec2ea33b07d1a8f74cfcf35e61f98fd0e"
+"checksum webbrowser 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "c01efd7cb6939b7f34983f1edff0550e5b21b49e2db4495656295922df8939ac"
 "checksum which 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b57acb10231b9493c8472b20cb57317d0679a49e0bdbee44b3b803a6473af164"
 "checksum widestring 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "effc0e4ff8085673ea7b9b2e3c73f6bd4d118810c9009ed8f1e16bd96c331db6"
 "checksum winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "167dc9d6949a9b857f3451275e911c3f44255842c1f7a76f33c55103a909087a"
