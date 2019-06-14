@@ -141,7 +141,7 @@ open class LoginsStorage {
     open func sync(unlockInfo: SyncUnlockInfo) throws -> String {
         return try queue.sync {
             let engine = try self.getUnlocked()
-            return try LoginsStoreError.unwrap { err in
+            let ptr = try LoginsStoreError.unwrap { err in
                 sync15_passwords_sync(engine,
                                       unlockInfo.kid,
                                       unlockInfo.fxaAccessToken,
@@ -149,6 +149,7 @@ open class LoginsStorage {
                                       unlockInfo.tokenserverURL,
                                       err)
             }
+            return String(freeingRustString: ptr)
         }
     }
 
