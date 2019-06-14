@@ -1,3 +1,17 @@
+# v0.32.0 (_2019-06-14_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.31.2...v0.32.0)
+
+## Places
+
+### What's fixed
+
+- Fix an error that could happen when the place database is closed.
+  ([#1304](https://github.com/mozilla/application-services/pull/1304))
+
+- iOS only: Ensure interruption errors don't come through as network errors.
+  ([#1304](https://github.com/mozilla/application-services/pull/1304))
+
 # v0.31.2 (_2019-06-10_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.31.1...v0.31.2)
