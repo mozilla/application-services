@@ -582,7 +582,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "ece"
-version = "1.0.0"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -813,7 +813,7 @@ dependencies = [
  "bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "cli-support 0.1.0",
  "dialoguer 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "ece 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ece 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-support 0.1.0",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "ffi-support 0.3.4",
@@ -1685,7 +1685,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bincode 1.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "ece 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ece 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-support 0.1.0",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2870,7 +2870,7 @@ dependencies = [
 "checksum dirs 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)" = "3fd78930633bd1c6e35c4b42b1df7b0cbc6bc191146e512bb3bedf243fcc3901"
 "checksum dogear 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "c01a457f8d6689260111be60774bfb68e558b41bc89b866ebc3bbed60ba255cb"
 "checksum dtoa 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)" = "ea57b42383d091c85abcc2706240b94ab2a8fa1fc81c10ff23c4de06e2a90b5e"
-"checksum ece 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "40e99abed8da2542dd7d0e8593ae12081c3358e52c644923a1f142818d47f8e1"
+"checksum ece 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "c4912abb05a6a79d8298fe869eace1e64167cb3e22f6a12f3de040aaecd4cac7"
 "checksum either 1.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "5527cfe0d098f36e3f8839852688e63c8fff1c90b2b405aef730615f9a7bcf7b"
 "checksum encode_unicode 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)" = "90b2c9496c001e8cb61827acdefad780795c42264c137744cae6f7d9e3450abd"
 "checksum encoding_rs 0.8.17 (registry+https://github.com/rust-lang/crates.io-index)" = "4155785c79f2f6701f185eb2e6b4caf0555ec03477cb4c70db67b465311620ed"
