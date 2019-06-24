@@ -11,4 +11,4 @@ fxa-client = { path = "../../fxa-client" }
 log = "0.4.6"
 sync15 = { path = "../../sync15" }
 url = "1.7.1"
-webbrowser = "0.3.1"
+webbrowser = "0.5.1"
