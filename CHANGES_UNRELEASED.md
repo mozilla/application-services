@@ -9,3 +9,9 @@
 ### What's Fixed
 
 - Ensures bookmark sync doesn't fail if a bookmark or query is missing or has an invalid URL ([#1325](https://github.com/mozilla/application-services/issues/1325))
+
+## FxA Client
+
+### Fixes
+
+- Fixes SendTab initializeDevice in Android to use the proper device type ([#1314](https://github.com/mozilla/application-services/pull/1314))

@@ -42,7 +42,12 @@ data class Device(
         }
 
         fun toNumber(): Int {
-            return MsgTypes.Device.Type.DESKTOP.number
+            // the number resolves to values in fxa_msg_types.proto#L41
+            return when (this) {
+                DESKTOP -> MsgTypes.Device.Type.DESKTOP.number
+                MOBILE -> MsgTypes.Device.Type.MOBILE.number
+                else -> MsgTypes.Device.Type.UNKNOWN.number
+            }
         }
     }
     data class PushSubscription(
