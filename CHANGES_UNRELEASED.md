@@ -2,4 +2,10 @@
 
 # Unreleased Changes
 
+## FxA Client
+
+### Fixes
+
+- Fixes SendTab initializeDevice in Android to use the proper device type ([#1314](https://github.com/mozilla/application-services/pull/1314))
+
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.0...master)
