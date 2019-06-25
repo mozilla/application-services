@@ -33,7 +33,7 @@ more-asserts = "0.2.1"
 env_logger = "0.5.13"
 prettytable-rs = "0.7.0"
 fxa-client = { path = "../fxa-client" }
-chrono = "0.4.6"
+chrono = "0.4.7"
 clap = "2.32.0"
 cli-support = { path = "../support/cli" }
 force-viaduct-reqwest = { path = "../support/force-viaduct-reqwest" }
