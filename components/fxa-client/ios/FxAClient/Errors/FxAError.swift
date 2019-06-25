@@ -7,11 +7,25 @@ import Foundation
 // FIXME: these should be lower case.
 // swiftlint:disable identifier_name
 
-public enum FirefoxAccountError: Error {
+public enum FirefoxAccountError: LocalizedError {
     case Unauthorized(message: String)
     case Network(message: String)
     case Unspecified(message: String)
     case Panic(message: String)
+
+    /// Our implementation of the localizedError protocol -- (This shows up in Sentry)
+    public var errorDescription: String? {
+        switch self {
+        case let .Unauthorized(message):
+            return "FirefoxAccountError.Unauthorized: \(message)"
+        case let .Network(message):
+            return "FirefoxAccountError.Network: \(message)"
+        case let .Unspecified(message):
+            return "FirefoxAccountError.Unspecified: \(message)"
+        case let .Panic(message):
+            return "FirefoxAccountError.Panic: \(message)"
+        }
+    }
 
     // The name is attempting to indicate that we free fxaError.message if it
     // existed, and that it's a very bad idea to touch it after you call this

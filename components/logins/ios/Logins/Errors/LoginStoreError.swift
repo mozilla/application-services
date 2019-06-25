@@ -5,7 +5,7 @@
 import Foundation
 
 /// Indicates an error occurred while calling into the logins storage layer
-public enum LoginsStoreError: Error {
+public enum LoginsStoreError: LocalizedError {
     /// This is a catch-all error code used for errors not yet exposed to consumers,
     /// typically since it doesn't seem like there's a sane way for them to be handled.
     case unspecified(message: String)
@@ -44,6 +44,30 @@ public enum LoginsStoreError: Error {
     /// This error is emitted if a call to `interrupt()` is made to
     /// abort some operation.
     case interrupted(message: String)
+
+    /// Our implementation of the localizedError protocol -- (This shows up in Sentry)
+    public var errorDescription: String? {
+        switch self {
+        case let .unspecified(message):
+            return "LoginsStoreError.unspecified: \(message)"
+        case let .panic(message):
+            return "LoginsStoreError.panic: \(message)"
+        case let .authInvalid(message):
+            return "LoginsStoreError.authInvalid: \(message)"
+        case let .noSuchRecord(message):
+            return "LoginsStoreError.noSuchRecord: \(message)"
+        case let .duplicateGuid(message):
+            return "LoginsStoreError.duplicateGuid: \(message)"
+        case let .invalidLogin(message):
+            return "LoginsStoreError.invalidLogin: \(message)"
+        case let .invalidKey(message):
+            return "LoginsStoreError.invalidKey: \(message)"
+        case let .network(message):
+            return "LoginsStoreError.network: \(message)"
+        case let .interrupted(message):
+            return "LoginsStoreError.interrupted: \(message)"
+        }
+    }
 
     // The name is attempting to indicate that we free rustError.message if it
     // existed, and that it's a very bad idea to touch it after you call this
