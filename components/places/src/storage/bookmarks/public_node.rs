@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use super::super::bookmarks::FetchDepth;
 use super::*;
 use crate::msg_types::BookmarkNode as ProtoBookmark;
-use sql_support::SqlInterruptScope;
 
 /// This type basically exists to become a msg_types::BookmarkNode, but is
 /// slightly less of a pain to deal with in rust.
@@ -93,105 +93,30 @@ pub fn fetch_bookmark(
     item_guid: &SyncGuid,
     get_direct_children: bool,
 ) -> Result<Option<PublicNode>> {
-    let _tx = db.begin_transaction()?;
-    let scope = db.begin_interrupt_scope();
-    let bookmark = fetch_bookmark_in_tx(db, item_guid, get_direct_children, &scope)?;
-    // Note: We let _tx drop (which means it does a rollback) since it doesn't
-    // matter, we just are using a transaction to ensure things don't change out
-    // from under us, since this executes more than one query.
-    Ok(bookmark)
-}
-
-fn get_child_guids(db: &PlacesDb, parent: RowId) -> Result<Vec<SyncGuid>> {
-    Ok(db.query_rows_into(
-        "SELECT guid FROM moz_bookmarks
-         WHERE parent = :parent
-         ORDER BY position ASC",
-        &[(":parent", &parent)],
-        |row| row.get(0),
-    )?)
-}
-
-enum ChildInfo {
-    NoChildren,
-    Guids(Vec<SyncGuid>),
-    Nodes(Vec<PublicNode>),
-}
-
-impl ChildInfo {
-    fn guids_nodes(self) -> (Option<Vec<SyncGuid>>, Option<Vec<PublicNode>>) {
-        match self {
-            ChildInfo::NoChildren => (None, None),
-            ChildInfo::Guids(g) => (Some(g), None),
-            ChildInfo::Nodes(n) => (None, Some(n)),
-        }
-    }
-}
-
-fn fetch_bookmark_child_info(
-    db: &PlacesDb,
-    parent: &RawBookmark,
-    get_direct_children: bool,
-    scope: &SqlInterruptScope,
-) -> Result<ChildInfo> {
-    if parent.bookmark_type != BookmarkType::Folder {
-        return Ok(ChildInfo::NoChildren);
-    }
-    // If we already know that we have no children, don't
-    // bother querying for them.
-    if parent.child_count == 0 {
-        return Ok(if get_direct_children {
-            ChildInfo::Nodes(vec![])
-        } else {
-            ChildInfo::Guids(vec![])
-        });
-    }
-    if !get_direct_children {
-        // Just get the guids.
-        return Ok(ChildInfo::Guids(get_child_guids(db, parent.row_id)?));
-    }
-    // Fetch children. the future this should probably be done by allowing a
-    // depth parameter to be passed into fetch_tree.
-    let child_nodes = get_raw_bookmarks_with_parent(db, parent.row_id)?
-        .into_iter()
-        .map(|kid| {
-            let child_guids = if kid.bookmark_type == BookmarkType::Folder {
-                if kid.child_count == 0 {
-                    Some(vec![])
-                } else {
-                    Some(get_child_guids(db, kid.row_id)?)
-                }
-            } else {
-                None
-            };
-            scope.err_if_interrupted()?;
-            Ok(PublicNode::from(kid).with_children(child_guids, None))
-        })
-        .collect::<Result<Vec<_>>>()?;
-    Ok(ChildInfo::Nodes(child_nodes))
-}
-
-// Implementation of fetch_bookmark
-fn fetch_bookmark_in_tx(
-    db: &PlacesDb,
-    item_guid: &SyncGuid,
-    get_direct_children: bool,
-    scope: &SqlInterruptScope,
-) -> Result<Option<PublicNode>> {
-    let rb = if let Some(raw) = get_raw_bookmark(db, item_guid)? {
-        raw
+    let depth = if get_direct_children {
+        FetchDepth::Specific(1)
     } else {
-        return Ok(None);
+        FetchDepth::Specific(0)
     };
+    let mut bookmark = fetch_public_tree_with_depth(db, item_guid, &depth)?.unwrap();
 
-    scope.err_if_interrupted()?;
-    // If we're a folder that has children, fetch child guids or children.
-    let (child_guids, child_nodes) =
-        fetch_bookmark_child_info(db, &rb, get_direct_children, scope)?.guids_nodes();
+    if get_direct_children {
+        if let Some(child_nodes) = bookmark.child_nodes.as_mut() {
+            for node in child_nodes {
+                node.child_guids = node
+                    .child_nodes
+                    .take()
+                    .map(|children| children.into_iter().map(|child| child.guid).collect());
+            }
+        }
+    } else {
+        bookmark.child_guids = bookmark
+            .child_nodes
+            .take()
+            .map(|children| children.into_iter().map(|child| child.guid).collect());
+    }
 
-    Ok(Some(
-        PublicNode::from(rb).with_children(child_guids, child_nodes),
-    ))
+    Ok(Some(bookmark))
 }
 
 pub fn update_bookmark_from_message(db: &PlacesDb, msg: ProtoBookmark) -> Result<()> {
@@ -207,13 +132,23 @@ pub fn update_bookmark_from_message(db: &PlacesDb, msg: ProtoBookmark) -> Result
     Ok(())
 }
 
-/// Call fetch_tree, convert the result to a ProtoBookmark, and ensure the
-/// requested item's position and parent info are provided as well. This is the
-/// function called by the FFI when requesting the tree.
+/// Call fetch_public_tree_with_depth with FetchDepth::Deepest.
+/// This is the function called by the FFI when requesting the tree.
 pub fn fetch_public_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<PublicNode>> {
+    fetch_public_tree_with_depth(db, item_guid, &FetchDepth::Deepest)
+}
+
+/// Call fetch_tree with a depth parameter and convert the result
+/// to a ProtoBookmark, and ensure the requested item's position
+/// and parent info are provided as well.
+pub fn fetch_public_tree_with_depth(
+    db: &PlacesDb,
+    item_guid: &SyncGuid,
+    target_depth: &FetchDepth,
+) -> Result<Option<PublicNode>> {
     let _tx = db.begin_transaction()?;
     let (tree, parent_guid, position) =
-        if let Some((tree, parent_guid, position)) = fetch_tree(db, item_guid)? {
+        if let Some((tree, parent_guid, position)) = fetch_tree(db, item_guid, target_depth)? {
             (tree, parent_guid, position)
         } else {
             return Ok(None);

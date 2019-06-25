@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use crate::{
     db::PlacesDb,
-    storage::bookmarks::{fetch_tree, insert_tree, BookmarkTreeNode},
+    storage::bookmarks::{fetch_tree, insert_tree, BookmarkTreeNode, FetchDepth},
     types::SyncGuid,
 };
 
@@ -23,7 +23,16 @@ pub fn insert_json_tree(conn: &PlacesDb, jtree: Value) {
 }
 
 pub fn assert_json_tree(conn: &PlacesDb, folder: &SyncGuid, expected: Value) {
-    let (fetched, _, _) = fetch_tree(conn, folder)
+    assert_json_tree_with_depth(conn, folder, expected, &FetchDepth::Deepest)
+}
+
+pub fn assert_json_tree_with_depth(
+    conn: &PlacesDb,
+    folder: &SyncGuid,
+    expected: Value,
+    target_depth: &FetchDepth,
+) {
+    let (fetched, _, _) = fetch_tree(conn, folder, target_depth)
         .expect("error fetching tree")
         .unwrap();
     let deser_tree: BookmarkTreeNode = serde_json::from_value(expected).unwrap();
