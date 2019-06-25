@@ -26,12 +26,18 @@ pub(crate) enum VersionnedKey {
     V1(KeyV1),
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct KeyV1 {
     p256key: EcKeyComponents,
     pub auth: Vec<u8>,
 }
 pub type Key = KeyV1;
+
+impl std::fmt::Debug for KeyV1 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KeyV1").finish()
+    }
+}
 
 impl Key {
     // We define this method so the type-checker prevents us from

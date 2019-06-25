@@ -1,3 +1,86 @@
+# v0.32.0 (_2019-06-14_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.31.2...v0.32.0)
+
+## Places
+
+### What's fixed
+
+- Fix an error that could happen when the place database is closed.
+  ([#1304](https://github.com/mozilla/application-services/pull/1304))
+
+- iOS only: Ensure interruption errors don't come through as network errors.
+  ([#1304](https://github.com/mozilla/application-services/pull/1304))
+
+# v0.31.2 (_2019-06-10_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.31.1...v0.31.2)
+
+## Sync
+
+### What's fixed
+
+- Fixes an edge case introduced in v0.31.1 where a users set of declined engines
+  (aka the "Choose what to Sync" preferences) could be forgotten.
+  ([#1273](https://github.com/mozilla/application-services/pull/1273))
+
+# v0.31.1 (_2019-06-10_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.31.0...v0.31.1)
+
+## Sync
+
+### What's fixed
+
+- Fixes an issue where a stale sync key will be used in cases where a user signs
+  out and signs in to another account. ([#1256](https://github.com/mozilla/application-services/pull/1256))
+
+## FxA Client
+
+### What's new
+
+- Added a new method to help recover from invalid access tokens.
+  ([#1244](https://github.com/mozilla/application-services/pull/1244)) If the
+  application receives an an authentication exception while using a token
+  obtained through `FirefoxAccount.getAccessToken`, it should:
+  - Call `FirefoxAccount.clearAccessTokenCache` to remove the invalid token from the internal cache.
+  - Retry the operation after obtaining fresh access token via `FirefoxAccount.getAccessToken`.
+  - If the retry also fails with an authentication exception, then the user will need to reconnect
+    their account via a fresh OAuth flow.
+- `FirefoxAccount.getProfile` now performs the above retry logic automagically.
+  An authentication error while calling `getProfile` indicates that the user
+  needs to reconnect their account.
+  ([#1244](https://github.com/mozilla/application-services/pull/1244)
+
+# v0.31.0 (_2019-06-07_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.30.0...v0.31.0)
+
+## Sync
+
+- Android: A new `sync15` package defines Kotlin data classes for the Sync
+  telemetry ping. ([#1112](https://github.com/mozilla/application-services/pull/1112))
+- Android: `PlacesApi.syncHistory` and `PlacesApi.syncBookmarks` now return a
+  `SyncTelemetryPing`. ([#1112](https://github.com/mozilla/application-services/pull/1112))
+- iOS: `PlacesAPI.syncBookmarks` now returns a JSON string with the contents of
+  the Sync ping. This should be posted to the legacy telemetry submission
+  endpoint. ([#1112](https://github.com/mozilla/application-services/pull/1112))
+
+## Places
+
+### What's fixed
+
+- Deduping synced bookmarks with newer server timestamps no longer throws
+  unique constraint violations. ([#1259](https://github.com/mozilla/application-services/pull/1259))
+
+## Logins
+
+### Breaking Changes
+
+- iOS: LoginsStoreError enum variants have their name `lowerCamelCased`
+  instead of `UpperCamelCased`, to better fit with common Swift code style.
+  ([#1042](https://github.com/mozilla/application-services/issues/1042))
+
 # v0.30.0 (_2019-05-30_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.29.0...v0.30.0)

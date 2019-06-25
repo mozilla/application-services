@@ -35,7 +35,7 @@ open class RustError : Structure() {
         return code != 0
     }
 
-    @Suppress("ReturnCount", "TooGenericExceptionThrown")
+    @Suppress("ReturnCount", "TooGenericExceptionThrown", "ComplexMethod")
     fun intoException(): LoginsStorageException {
         if (!isFailure()) {
             // It's probably a bad idea to throw here! We're probably leaking something if this is

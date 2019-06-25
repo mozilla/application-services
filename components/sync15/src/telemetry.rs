@@ -14,7 +14,7 @@ use serde_derive::*;
 #[cfg(test)]
 use serde_json::{self, json};
 
-use crate::error::Error;
+use crate::error::{Error, ErrorKind, ErrorResponse};
 
 // For skip_serializing_if
 fn skip_if_default<T: PartialEq + Default>(v: &T) -> bool {
@@ -246,17 +246,46 @@ pub enum SyncFailure {
     Unexpected { error: String },
 
     #[serde(rename = "autherror")]
-    Auth { from: String },
+    Auth { from: &'static str },
 
     #[serde(rename = "httperror")]
-    Http { code: u32 },
+    Http { code: u16 },
 }
 
-pub fn sync_failure_from_error(e: &Error) -> SyncFailure {
-    SyncFailure::Unexpected {
-        // TODO: Distinguish between error types, truncate, and anonymize
-        // messages.
-        error: e.to_string(),
+impl<'a> From<&'a Error> for SyncFailure {
+    fn from(e: &Error) -> SyncFailure {
+        match e.kind() {
+            ErrorKind::TokenserverHttpError(status) => {
+                if *status == 401 {
+                    SyncFailure::Auth {
+                        from: "tokenserver",
+                    }
+                } else {
+                    SyncFailure::Http { code: *status }
+                }
+            }
+            ErrorKind::BackoffError(_) => SyncFailure::Http { code: 503 },
+            ErrorKind::StorageHttpError(ref e) => match e {
+                ErrorResponse::NotFound { .. } => SyncFailure::Http { code: 404 },
+                ErrorResponse::Unauthorized { .. } => SyncFailure::Auth { from: "storage" },
+                ErrorResponse::PreconditionFailed { .. } => SyncFailure::Http { code: 412 },
+                ErrorResponse::ServerError { status, .. } => SyncFailure::Http { code: *status },
+                ErrorResponse::RequestFailed { status, .. } => SyncFailure::Http { code: *status },
+            },
+            ErrorKind::OpensslError(ref e) => SyncFailure::Unexpected {
+                error: e.to_string(),
+            },
+            ErrorKind::RequestError(ref e) => SyncFailure::Unexpected {
+                error: e.to_string(),
+            },
+            ErrorKind::UnexpectedStatus(ref e) => SyncFailure::Http { code: e.status },
+            ErrorKind::Interrupted(ref e) => SyncFailure::Unexpected {
+                error: e.to_string(),
+            },
+            e => SyncFailure::Other {
+                error: e.to_string(),
+            },
+        }
     }
 }
 
@@ -283,9 +312,7 @@ mod test {
         );
 
         assert_json(
-            &SyncFailure::Auth {
-                from: "FxA".to_string(),
-            },
+            &SyncFailure::Auth { from: "FxA" },
             json!({"name": "autherror", "from": "FxA"}),
         );
 
@@ -420,9 +447,10 @@ impl Engine {
         self.outgoing.push(out);
     }
 
-    pub fn failure(&mut self, failure: SyncFailure) {
+    pub fn failure(&mut self, err: impl Into<SyncFailure>) {
         // Currently we take the first error, under the assumption that the
         // first is the most important and all others stem from that.
+        let failure = err.into();
         if self.failure.is_none() {
             self.failure = Some(failure);
         } else {

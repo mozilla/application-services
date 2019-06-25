@@ -481,30 +481,35 @@ impl UpdatableItem {
 }
 pub fn update_bookmark(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
     let tx = db.begin_transaction()?;
-    let result = update_bookmark_in_tx(db, guid, item);
+    let existing = get_raw_bookmark(db, guid)?
+        .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(guid.to_string()))?;
+    let result = update_bookmark_in_tx(db, guid, item, existing);
     // Note: `tx` automatically rolls back on drop if we don't commit
     tx.commit()?;
     result
 }
 
-fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
+fn update_bookmark_in_tx(
+    db: &PlacesDb,
+    guid: &SyncGuid,
+    item: &UpdatableItem,
+    raw: RawBookmark,
+) -> Result<()> {
     if guid.is_root() {
         return Err(InvalidPlaceInfo::CannotUpdateRoot(BookmarkRootGuid::Root).into());
     }
-    let existing = get_raw_bookmark(db, guid)?
-        .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(guid.to_string()))?;
-    let existing_parent_guid = existing
+    let existing_parent_guid = raw
         .parent_guid
         .as_ref()
         .ok_or_else(|| Corruption::NonRootWithoutParent(guid.to_string()))?;
 
-    let existing_parent_id = existing
+    let existing_parent_id = raw
         .parent_id
         .ok_or_else(|| Corruption::NoParent(guid.to_string(), existing_parent_guid.to_string()))?;
 
-    if existing.bookmark_type != item.bookmark_type() {
+    if raw.bookmark_type != item.bookmark_type() {
         return Err(InvalidPlaceInfo::MismatchedBookmarkType(
-            existing.bookmark_type as u8,
+            raw.bookmark_type as u8,
             item.bookmark_type() as u8,
         )
         .into());
@@ -519,7 +524,7 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
     match item.location() {
         UpdateTreeLocation::None => {
             parent_id = existing_parent_id;
-            position = existing.position;
+            position = raw.position;
             update_old_parent_status = false;
             update_new_parent_status = false;
         }
@@ -530,7 +535,7 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
             let parent = get_raw_bookmark(db, existing_parent_guid)?.ok_or_else(|| {
                 Corruption::NoParent(guid.to_string(), existing_parent_guid.to_string())
             })?;
-            position = update_pos_for_move(db, *pos, &existing, &parent)?;
+            position = update_pos_for_move(db, *pos, &raw, &parent)?;
         }
         UpdateTreeLocation::Parent(new_parent_guid, pos) => {
             if new_parent_guid == BookmarkRootGuid::Root {
@@ -547,13 +552,13 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
             let existing_parent = get_raw_bookmark(db, existing_parent_guid)?.ok_or_else(|| {
                 Corruption::NoParent(guid.to_string(), existing_parent_guid.to_string())
             })?;
-            update_pos_for_deletion(db, existing.position, existing_parent.row_id)?;
+            update_pos_for_deletion(db, raw.position, existing_parent.row_id)?;
             position = resolve_pos_for_insert(db, *pos, &new_parent)?;
         }
     };
     let place_id = match item {
         UpdatableItem::Bookmark(b) => match &b.url {
-            None => existing.place_id,
+            None => raw.place_id,
             Some(url) => {
                 let page_info = match fetch_page_info(db, &url)? {
                     Some(info) => info.page,
@@ -565,7 +570,7 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
         _ => {
             // Updating a non-bookmark item, so the existing item must not
             // have a place_id
-            assert_eq!(existing.place_id, None);
+            assert_eq!(raw.place_id, None);
             None
         }
     };
@@ -579,7 +584,7 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
     };
 
     let title: Option<String> = match update_title {
-        None => existing.title.clone(),
+        None => raw.title.clone(),
         // We don't differentiate between null and the empty string for title,
         // just like desktop doesn't post bug 1360872, hence an empty string
         // means "set to null".
@@ -592,7 +597,7 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
         }
     };
 
-    let change_incr = title != existing.title || place_id != existing.place_id;
+    let change_incr = title != raw.title || place_id != raw.place_id;
 
     let now = Timestamp::now();
 
@@ -615,7 +620,7 @@ fn update_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -
             (":title", &maybe_truncate_title(&title)),
             (":now", &now),
             (":change_incr", &(change_incr as u32)),
-            (":id", &existing.row_id),
+            (":id", &raw.row_id),
         ],
     )?;
 
@@ -1118,8 +1123,12 @@ fn inflate(
 }
 
 /// Fetch the tree starting at the specified folder guid.
-/// Returns a BookmarkTreeNode::Folder(_)
-pub fn fetch_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<BookmarkTreeNode>> {
+/// Returns a `BookmarkTreeNode::Folder(_)`, its parent's guid (if any), and
+/// position inside its parent.
+pub fn fetch_tree(
+    db: &PlacesDb,
+    item_guid: &SyncGuid,
+) -> Result<Option<(BookmarkTreeNode, Option<SyncGuid>, u32)>> {
     // XXX - this needs additional work for tags - unlike desktop, there's no
     // "tags" folder, but instead a couple of tables to join on.
     let sql = r#"
@@ -1167,10 +1176,15 @@ pub fn fetch_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<Bookmark
     let mut results =
         stmt.query_and_then_named(&[(":item_guid", item_guid)], FetchedTreeRow::from_row)?;
 
+    let parent_guid: Option<SyncGuid>;
+    let position: u32;
+
     // The first row in the result set is always the root of our tree.
     let mut root = match results.next() {
         Some(result) => {
             let row = result?;
+            parent_guid = row.parent_guid.clone();
+            position = row.position;
             FolderNode {
                 guid: Some(row.guid.clone()),
                 date_added: Some(row.date_added),
@@ -1240,7 +1254,7 @@ pub fn fetch_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<Bookmark
 
     // Finally, inflate our tree.
     inflate(&mut root, &mut pseudo_tree);
-    Ok(Some(root))
+    Ok(Some((root, parent_guid, position)))
 }
 
 /// A "raw" bookmark - a representation of the row and some summary fields.
@@ -2064,7 +2078,7 @@ mod tests {
         let conn = new_mem_connection();
 
         // Fetch the root
-        let t = fetch_tree(&conn, &BookmarkRootGuid::Root.into())?.unwrap();
+        let (t, _, _) = fetch_tree(&conn, &BookmarkRootGuid::Root.into())?.unwrap();
         let f = match t {
             BookmarkTreeNode::Folder(ref f) => f,
             _ => panic!("tree root must be a folder"),

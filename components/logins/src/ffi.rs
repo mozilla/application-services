@@ -35,7 +35,7 @@ pub mod error_codes {
     /// A request to the sync server failed.
     pub const NETWORK: i32 = 6;
 
-    /// The operation was interrupted.
+    /// An operation has been interrupted.
     pub const INTERRUPTED: i32 = 7;
 }
 

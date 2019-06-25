@@ -16,7 +16,7 @@ const RETRY_AFTER_DEFAULT_MS: u64 = 10000;
 
 // The TokenserverToken is the token as received directly from the token server
 // and deserialized from JSON.
-#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Clone, PartialEq, Eq)]
 struct TokenserverToken {
     id: String,
     key: String,
@@ -24,6 +24,17 @@ struct TokenserverToken {
     uid: u64,
     duration: u64,
     hashed_fxa_uid: String,
+}
+
+impl std::fmt::Debug for TokenserverToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TokenserverToken")
+            .field("api_endpoint", &self.api_endpoint)
+            .field("uid", &self.uid)
+            .field("duration", &self.duration)
+            .field("hashed_fxa_uid", &self.hashed_fxa_uid)
+            .finish()
+    }
 }
 
 // The struct returned by the TokenFetcher - the token itself and the

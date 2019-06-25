@@ -8,10 +8,16 @@ use openssl::pkey::PKey;
 use openssl::sign::Signer;
 use openssl::{self, symm};
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct KeyBundle {
     enc_key: Vec<u8>,
     mac_key: Vec<u8>,
+}
+
+impl std::fmt::Debug for KeyBundle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KeyBundle").finish()
+    }
 }
 
 impl KeyBundle {

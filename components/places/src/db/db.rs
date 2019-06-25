@@ -70,6 +70,7 @@ impl PlacesDb {
 
         db.execute_batch(initial_pragmas)?;
         define_functions(&db)?;
+        db.set_prepared_statement_cache_capacity(128);
         let res = Self {
             db,
             conn_type,
@@ -155,9 +156,10 @@ impl Drop for PlacesDb {
     fn drop(&mut self) {
         // In line with both the recommendations from SQLite and the behavior of places in
         // Database.cpp, we run `PRAGMA optimize` before closing the connection.
-        self.db
-            .execute_batch("PRAGMA optimize(0x02);")
-            .expect("PRAGMA optimize should always succeed!");
+        let res = self.db.execute_batch("PRAGMA optimize(0x02);");
+        if let Err(e) = res {
+            log::warn!("Failed to execute pragma optimize (DB locked?): {}", e);
+        }
     }
 }
 

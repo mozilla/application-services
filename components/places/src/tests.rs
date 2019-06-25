@@ -23,7 +23,7 @@ pub fn insert_json_tree(conn: &PlacesDb, jtree: Value) {
 }
 
 pub fn assert_json_tree(conn: &PlacesDb, folder: &SyncGuid, expected: Value) {
-    let fetched = fetch_tree(conn, folder)
+    let (fetched, _, _) = fetch_tree(conn, folder)
         .expect("error fetching tree")
         .unwrap();
     let deser_tree: BookmarkTreeNode = serde_json::from_value(expected).unwrap();

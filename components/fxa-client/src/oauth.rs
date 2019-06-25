@@ -124,6 +124,7 @@ impl FirefoxAccount {
     }
 
     fn oauth_flow(&mut self, mut url: Url, scopes: &[&str], wants_keys: bool) -> Result<String> {
+        self.clear_access_token_cache();
         let state = util::random_base64_url_string(&*RNG, 16)?;
         let code_verifier = util::random_base64_url_string(&*RNG, 43)?;
         let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
@@ -161,6 +162,7 @@ impl FirefoxAccount {
     ///
     /// **💾 This method alters the persisted account state.**
     pub fn complete_oauth_flow(&mut self, code: &str, state: &str) -> Result<()> {
+        self.clear_access_token_cache();
         let oauth_flow = match self.flow_store.remove(state) {
             Some(oauth_flow) => oauth_flow,
             None => return Err(ErrorKind::UnknownOAuthState.into()),
@@ -257,12 +259,24 @@ impl FirefoxAccount {
         }
         Ok(())
     }
+
+    pub fn clear_access_token_cache(&mut self) {
+        self.access_token_cache.clear();
+    }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct RefreshToken {
     pub token: String,
     pub scopes: HashSet<String>,
+}
+
+impl std::fmt::Debug for RefreshToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RefreshToken")
+            .field("scopes", &self.scopes)
+            .finish()
+    }
 }
 
 pub struct OAuthFlow {
@@ -270,12 +284,22 @@ pub struct OAuthFlow {
     pub code_verifier: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct AccessTokenInfo {
     pub scope: String,
     pub token: String,
     pub key: Option<ScopedKey>,
     pub expires_at: u64, // seconds since epoch
+}
+
+impl std::fmt::Debug for AccessTokenInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AccessTokenInfo")
+            .field("scope", &self.scope)
+            .field("key", &self.key)
+            .field("expires_at", &self.expires_at)
+            .finish()
+    }
 }
 
 #[cfg(test)]

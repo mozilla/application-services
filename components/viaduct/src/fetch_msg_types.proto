@@ -30,11 +30,8 @@ message Request {
 }
 
 message Response {
-    message ExceptionThrown {
-        optional string name = 1;
-        optional string msg = 2;
-    }
-    optional ExceptionThrown exception = 1;
+    // If this is present, nothing else is.
+    optional string exception_message = 1;
     optional string url = 2;
     optional int32 status = 3;
     optional bytes body = 4;

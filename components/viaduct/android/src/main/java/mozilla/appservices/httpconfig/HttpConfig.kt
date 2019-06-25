@@ -95,10 +95,8 @@ object RustHttpConfig {
                     }
                     rb
                 } catch (e: Throwable) {
-                    MsgTypes.Response.newBuilder().setException(
-                            MsgTypes.Response.ExceptionThrown.newBuilder()
-                                    .setName(e.javaClass.canonicalName)
-                                    .setMsg(e.message))
+                    LibViaduct.INSTANCE.viaduct_log_error("Network error: ${e.message}")
+                    MsgTypes.Response.newBuilder().setExceptionMessage(e.message)
                 }
                 val built = rb.build()
                 val needed = built.serializedSize
@@ -112,6 +110,7 @@ object RustHttpConfig {
                 } catch (e: Throwable) {
                     // Note: we want to clean this up only if we are not returning it to rust.
                     LibViaduct.INSTANCE.viaduct_destroy_bytebuffer(outputBuf)
+                    LibViaduct.INSTANCE.viaduct_log_error("Failed to write buffer: ${e.message}")
                     throw e
                 }
             } finally {
@@ -140,6 +139,7 @@ internal class CallbackImpl : RawFetchCallback {
         try {
             return RustHttpConfig.doFetch(b)
         } catch (e: Throwable) {
+            LibViaduct.INSTANCE.viaduct_log_error("doFetch failed: ${e.message}")
             // This is our last resort. It's bad news should we fail to
             // return something from this function.
             return RustBuffer.ByValue()

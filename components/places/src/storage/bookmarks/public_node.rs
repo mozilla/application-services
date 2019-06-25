@@ -198,15 +198,11 @@ pub fn update_bookmark_from_message(db: &PlacesDb, msg: ProtoBookmark) -> Result
     let info = conversions::BookmarkUpdateInfo::from(msg);
 
     let tx = db.begin_transaction()?;
-    let node_type: BookmarkType = db.query_row_and_then_named(
-        "SELECT type FROM moz_bookmarks WHERE guid = :guid",
-        &[(":guid", &info.guid)],
-        |r| r.get(0),
-        true,
-    )?;
-    let (guid, updatable) = info.into_updatable(node_type)?;
+    let existing = get_raw_bookmark(db, &info.guid)?
+        .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(info.guid.to_string()))?;
+    let (guid, updatable) = info.into_updatable(existing.bookmark_type)?;
 
-    update_bookmark_in_tx(db, &guid, &updatable)?;
+    update_bookmark_in_tx(db, &guid, &updatable, existing)?;
     tx.commit()?;
     Ok(())
 }
@@ -216,11 +212,12 @@ pub fn update_bookmark_from_message(db: &PlacesDb, msg: ProtoBookmark) -> Result
 /// function called by the FFI when requesting the tree.
 pub fn fetch_public_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<PublicNode>> {
     let _tx = db.begin_transaction()?;
-    let tree = if let Some(tree) = fetch_tree(db, item_guid)? {
-        tree
-    } else {
-        return Ok(None);
-    };
+    let (tree, parent_guid, position) =
+        if let Some((tree, parent_guid, position)) = fetch_tree(db, item_guid)? {
+            (tree, parent_guid, position)
+        } else {
+            return Ok(None);
+        };
 
     // `position` and `parent_guid` will be handled for the children of
     // `item_guid` by `PublicNode::from` automatically, however we
@@ -228,20 +225,6 @@ pub fn fetch_public_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<P
     let mut proto = PublicNode::from(tree);
 
     if item_guid != BookmarkRootGuid::Root {
-        let sql = "
-            SELECT
-                p.guid AS parent_guid,
-                b.position AS position
-            FROM moz_bookmarks b
-            LEFT JOIN moz_bookmarks p ON p.id = b.parent
-            WHERE b.guid = :guid
-        ";
-        let (parent_guid, position) = db.query_row_and_then_named(
-            sql,
-            &[(":guid", &item_guid)],
-            |row| -> Result<_> { Ok((row.get::<_, Option<SyncGuid>>(0)?, row.get::<_, u32>(1)?)) },
-            true,
-        )?;
         proto.parent_guid = parent_guid;
         proto.position = position;
     }
@@ -627,6 +610,10 @@ mod test {
         let mobile = fetch_public_tree(&conns.read, BookmarkRootGuid::Mobile.guid())?.unwrap();
         assert_eq!(mobile.parent_guid.unwrap(), BookmarkRootGuid::Root);
         assert_eq!(mobile.position, mobile_pos.unwrap());
+
+        let bm1 = fetch_public_tree(&conns.read, &SyncGuid::from("bookmark1___"))?.unwrap();
+        assert_eq!(bm1.parent_guid.unwrap(), BookmarkRootGuid::Mobile);
+        assert_eq!(bm1.position, 0);
 
         Ok(())
     }

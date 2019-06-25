@@ -241,6 +241,19 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     }
 
     /**
+     * This method should be called when a request made with
+     * an OAuth token failed with an authentication error.
+     * It clears the internal cache of OAuth access tokens,
+     * so the caller can try to call `getAccessToken` or `getProfile`
+     * again.
+     */
+    fun clearAccessTokenCache() {
+        rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_clear_access_token_cache(this.handle.get(), e)
+        }
+    }
+
+    /**
      * Migrate from a logged-in Firefox Account.
      *
      * Modifies the FirefoxAccount state.
