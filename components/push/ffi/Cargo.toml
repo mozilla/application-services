@@ -20,7 +20,7 @@ push = { path = ".." }
 viaduct = { path = "../../viaduct" }
 
 [dependencies.rusqlite]
-version = "0.18.0"
+version = "0.19.0"
 features = ["limits", "functions"]
 
 [dependencies.sync15]

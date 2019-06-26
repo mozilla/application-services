@@ -34,7 +34,7 @@ interrupt = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 
 [dependencies.rusqlite]
-version = "0.18.0"
+version = "0.19.0"
 features = ["functions", "bundled"]
 
 [dev-dependencies]
