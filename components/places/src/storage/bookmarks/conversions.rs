@@ -108,35 +108,6 @@ impl From<RawBookmark> for PublicNode {
     }
 }
 
-impl PublicNode {
-    pub(crate) fn with_children(
-        mut self,
-        guids: Option<Vec<SyncGuid>>,
-        nodes: Option<Vec<PublicNode>>,
-    ) -> Self {
-        if guids.is_some() || nodes.is_some() {
-            debug_assert_eq!(
-                self.node_type,
-                BookmarkType::Folder,
-                "Trying to set children on non-folder"
-            );
-            debug_assert!(
-                guids.is_some() || nodes.is_some(),
-                "Only one of guids or nodes should be provided for folders"
-            );
-        } else {
-            debug_assert_ne!(
-                self.node_type,
-                BookmarkType::Folder,
-                "Should provide children or guids to folder!"
-            );
-        }
-        self.child_nodes = nodes;
-        self.child_guids = guids;
-        self
-    }
-}
-
 impl From<Vec<PublicNode>> for msg_types::BookmarkNodeList {
     fn from(ns: Vec<PublicNode>) -> Self {
         Self {

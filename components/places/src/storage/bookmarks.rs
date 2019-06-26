@@ -76,6 +76,11 @@ pub enum BookmarkPosition {
     Append,
 }
 
+pub enum FetchDepth {
+    Specific(usize),
+    Deepest,
+}
+
 /// Helpers to deal with managing the position correctly.
 
 /// Updates the position of existing items so that the insertion of a child in
@@ -1122,12 +1127,13 @@ fn inflate(
     }
 }
 
-/// Fetch the tree starting at the specified folder guid.
-/// Returns a `BookmarkTreeNode::Folder(_)`, its parent's guid (if any), and
+/// Fetch the tree starting at the specified guid.
+/// Returns a `BookmarkTreeNode`, its parent's guid (if any), and
 /// position inside its parent.
 pub fn fetch_tree(
     db: &PlacesDb,
     item_guid: &SyncGuid,
+    target_depth: &FetchDepth,
 ) -> Result<Option<(BookmarkTreeNode, Option<SyncGuid>, u32)>> {
     // XXX - this needs additional work for tags - unlike desktop, there's no
     // "tags" folder, but instead a couple of tables to join on.
@@ -1185,17 +1191,38 @@ pub fn fetch_tree(
             let row = result?;
             parent_guid = row.parent_guid.clone();
             position = row.position;
-            FolderNode {
-                guid: Some(row.guid.clone()),
-                date_added: Some(row.date_added),
-                last_modified: Some(row.last_modified),
-                title: row.title.clone(),
-                children: Vec::new(),
+            match row.node_type {
+                BookmarkType::Folder => FolderNode {
+                    guid: Some(row.guid.clone()),
+                    date_added: Some(row.date_added),
+                    last_modified: Some(row.last_modified),
+                    title: row.title.clone(),
+                    children: Vec::new(),
+                }
+                .into(),
+                BookmarkType::Bookmark => BookmarkNode {
+                    guid: Some(row.guid.clone()),
+                    date_added: Some(row.date_added),
+                    last_modified: Some(row.last_modified),
+                    title: row.title.clone(),
+                    url: Url::parse(row.url.clone().unwrap().as_str())?,
+                }
+                .into(),
+                BookmarkType::Separator => SeparatorNode {
+                    guid: Some(row.guid.clone()),
+                    date_added: Some(row.date_added),
+                    last_modified: Some(row.last_modified),
+                }
+                .into(),
             }
-            .into()
         }
         None => return Ok(None),
     };
+
+    // Skip the rest and return if root is not a folder
+    if let BookmarkTreeNode::Bookmark(_) | BookmarkTreeNode::Separator(_) = root {
+        return Ok(Some((root, parent_guid, position)));
+    }
 
     scope.err_if_interrupted()?;
     // For all remaining rows, build a pseudo-tree that maps parent GUIDs to
@@ -1206,6 +1233,12 @@ pub fn fetch_tree(
     for result in results {
         let row = result?;
         scope.err_if_interrupted()?;
+        // Check if we have done fetching the asked depth
+        if let FetchDepth::Specific(d) = *target_depth {
+            if row.level as usize > d + 1 {
+                break;
+            }
+        }
         let node = match row.node_type {
             BookmarkType::Bookmark => match &row.url {
                 Some(url_str) => match Url::parse(&url_str) {
@@ -1354,23 +1387,13 @@ fn get_raw_bookmarks_for_url(db: &PlacesDb, url: &Url) -> Result<Vec<RawBookmark
         RawBookmark::from_row,
     )?)
 }
-fn get_raw_bookmarks_with_parent(db: &impl ConnExt, parent: RowId) -> Result<Vec<RawBookmark>> {
-    Ok(db.query_rows_into_cached(
-        &format!(
-            "{} WHERE b.parent = :parent ORDER BY b.position ASC",
-            RAW_BOOKMARK_SQL
-        ),
-        &[(":parent", &parent)],
-        RawBookmark::from_row,
-    )?)
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::api::places_api::test::new_mem_connection;
     use crate::db::PlacesDb;
-    use crate::tests::{assert_json_tree, insert_json_tree};
+    use crate::tests::{assert_json_tree, assert_json_tree_with_depth, insert_json_tree};
     use pretty_assertions::assert_eq;
     use rusqlite::NO_PARAMS;
     use serde_json::Value;
@@ -2078,7 +2101,8 @@ mod tests {
         let conn = new_mem_connection();
 
         // Fetch the root
-        let (t, _, _) = fetch_tree(&conn, &BookmarkRootGuid::Root.into())?.unwrap();
+        let (t, _, _) =
+            fetch_tree(&conn, &BookmarkRootGuid::Root.into(), &FetchDepth::Deepest)?.unwrap();
         let f = match t {
             BookmarkTreeNode::Folder(ref f) => f,
             _ => panic!("tree root must be a folder"),
@@ -2089,7 +2113,7 @@ mod tests {
     }
 
     #[test]
-    fn test_insert_tree() -> Result<()> {
+    fn test_insert_tree_and_fetch_level() -> Result<()> {
         let _ = env_logger::try_init();
         let conn = new_mem_connection();
 
@@ -2140,8 +2164,45 @@ mod tests {
         };
         insert_tree(&conn, &tree)?;
 
-        // check  it.
-        assert_json_tree(
+        let expected = json!({
+            "guid": &BookmarkRootGuid::Unfiled.as_guid(),
+            "children": [
+                {
+                    "title": "the bookmark",
+                    "url": "https://www.example.com/"
+                },
+                {
+                    "title": "A folder",
+                    "children": [
+                        {
+                            "title": "bookmark 1 in A folder",
+                            "url": "https://www.example2.com/"
+                        },
+                        {
+                            "title": "bookmark 2 in A folder",
+                            "url": "https://www.example3.com/"
+                        }
+                    ],
+                },
+                {
+                    "title": "another bookmark",
+                    "url": "https://www.example4.com/",
+                }
+            ]
+        });
+        // check it with deepest fetching level.
+        assert_json_tree(&conn, &BookmarkRootGuid::Unfiled.into(), expected.clone());
+
+        // check it with one level deep, which should be the same as the previous
+        assert_json_tree_with_depth(
+            &conn,
+            &BookmarkRootGuid::Unfiled.into(),
+            expected.clone(),
+            &FetchDepth::Specific(1),
+        );
+
+        // check it with zero level deep, which should return root and its children only
+        assert_json_tree_with_depth(
             &conn,
             &BookmarkRootGuid::Unfiled.into(),
             json!({
@@ -2153,16 +2214,7 @@ mod tests {
                     },
                     {
                         "title": "A folder",
-                        "children": [
-                            {
-                                "title": "bookmark 1 in A folder",
-                                "url": "https://www.example2.com/"
-                            },
-                            {
-                                "title": "bookmark 2 in A folder",
-                                "url": "https://www.example3.com/"
-                            }
-                        ],
+                        "children": [],
                     },
                     {
                         "title": "another bookmark",
@@ -2170,7 +2222,10 @@ mod tests {
                     }
                 ]
             }),
+            &FetchDepth::Specific(0),
         );
+
         Ok(())
     }
+
 }
