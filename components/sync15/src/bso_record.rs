@@ -236,7 +236,7 @@ impl Payload {
         Ok(serde_json::from_value(value)?)
     }
 
-    pub fn into_record<T>(self) -> error::Result<T>
+    pub fn into_record<T>(self) -> Result<T, serde_json::Error>
     where
         for<'a> T: Deserialize<'a>,
     {
