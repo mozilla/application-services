@@ -12,6 +12,7 @@ import mozilla.appservices.logins.InvalidRecordException
 import mozilla.appservices.logins.LoginsStorageException
 import mozilla.appservices.logins.NoSuchRecordException
 import mozilla.appservices.logins.RequestFailedException
+import mozilla.appservices.logins.InterruptedException
 import mozilla.appservices.logins.SyncAuthInvalidException
 import mozilla.appservices.logins.getAndConsumeRustString
 import mozilla.appservices.logins.getRustString
@@ -34,7 +35,7 @@ open class RustError : Structure() {
         return code != 0
     }
 
-    @Suppress("ReturnCount", "TooGenericExceptionThrown")
+    @Suppress("ReturnCount", "TooGenericExceptionThrown", "ComplexMethod")
     fun intoException(): LoginsStorageException {
         if (!isFailure()) {
             // It's probably a bad idea to throw here! We're probably leaking something if this is
@@ -49,6 +50,7 @@ open class RustError : Structure() {
             4 -> return InvalidRecordException(message)
             5 -> return InvalidKeyException(message)
             6 -> return RequestFailedException(message)
+            7 -> return InterruptedException(message)
             else -> return LoginsStorageException(message)
         }
     }

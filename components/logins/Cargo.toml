@@ -12,8 +12,8 @@ default = []
 
 [dependencies]
 sync15 = { path = "../sync15" }
-serde = "1.0.79"
-serde_derive = "1.0.79"
+serde = "1.0.93"
+serde_derive = "1.0.93"
 serde_json = "1.0.28"
 log = "0.4.6"
 lazy_static = "1.1.0"
@@ -25,7 +25,7 @@ interrupt = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 
 [dependencies.rusqlite]
-version = "0.18.0"
+version = "0.19.0"
 features = ["sqlcipher", "limits"]
 
 [dev-dependencies]
@@ -33,7 +33,7 @@ more-asserts = "0.2.1"
 env_logger = "0.5.13"
 prettytable-rs = "0.7.0"
 fxa-client = { path = "../fxa-client" }
-chrono = "0.4.6"
+chrono = "0.4.7"
 clap = "2.32.0"
 cli-support = { path = "../support/cli" }
 force-viaduct-reqwest = { path = "../support/force-viaduct-reqwest" }

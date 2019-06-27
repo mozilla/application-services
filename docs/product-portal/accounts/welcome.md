@@ -10,12 +10,12 @@ Creating a Firefox Account requires a user to give us a pre-existing email addre
 
 To login to an existing Firefox Account, the user must provide the email address and password given during account creation. If the user forgets her password, she can reset via an email link sent to the email address given during account creation. 
 
-All new relying services should integrate with Firefox Accounts via the [OAuth 2.0 API](https://github.com/mozilla/fxa-oauth-server/blob/master/docs/api.md).  There is also a legacy API based on the BrowserID protocol, which is available only in some Firefox user agents and is not recommended for new applications.
+All new relying services should integrate with Firefox Accounts via the [OAuth 2.0 API](https://github.com/mozilla/fxa/blob/master/packages/fxa-auth-server/docs/api.md).  There is also a legacy API based on the BrowserID protocol, which is available only in some Firefox user agents and is not supported for new applications.
 
 OAuth 2.0 API
 -------------
 
-The OAuth 2.0 API is the **preferred method** of integrating with Firefox Accounts.  It is built on open standards, is available across all platforms, and gives relying services access to user profile data.  To delegate authentication to Firefox Accounts in this manner, you will first need to register for OAuth relier credentials, then add support for a HTTP redirection-based login flow to your service.
+The OAuth 2.0 API is the currently supported method of integrating with Firefox Accounts.  It is built on open standards, is available across all platforms, and gives relying services access to user profile data.  To delegate authentication to Firefox Accounts in this manner, you will first need to register for OAuth relier credentials, then add support for a HTTP redirection-based login flow to your service.
 
 ### Becoming a Firefox Accounts relier
 
@@ -218,23 +218,11 @@ URLs for various production, stage, and development deployments. To use these, y
 *   FxA example relier: [https://123done-latest.dev.lcip.org](https://123done-latest.dev.lcip.org)
 *   Add this [user.js](https://bug1098694.bmoattachments.org/attachment.cgi?id=8759426) file to your profile directory to configure Firefox Sync with this environment
 
-Services that use Firefox Accounts
-----------------------------------
-
-Below is a list of current and future Mozilla services that delegate authentication to Firefox Accounts.
-
-### Current
-
-*   [Firefox Send](https://send.firefox.com/)
-*   [Firefox Sync](https://www.mozilla.org/en-US/firefox/sync/) (since Firefox 29)
-*   [addons.mozilla.org](https://addons.mozilla.org)
-*   [Mozilla IAM](https://github.com/mozilla-iam/mozilla-iam) (since [June 2018](https://discourse.mozilla.org/t/announcing-firefox-accounts-in-mozilla-iam/29218))
-
 Contact
 -------
 
 *   Dev list: [dev-fxacct@mozilla.org](mailto:dev-fxacct@mozilla.org)
-*   IRC: #fxa
+*   Slack or IRC: #fxa
 
 Additional resources
 --------------------

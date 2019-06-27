@@ -258,8 +258,12 @@ impl SyncLoginData {
         &self.guid
     }
 
-    #[inline]
-    pub fn from_payload(payload: sync15::Payload, ts: ServerTimestamp) -> Result<Self> {
+    // Note: fetch_login_data in db.rs assumes that this can only fail with a deserialization error. Currently, this is true,
+    // but you'll need to adjust that function if you make this return another type of Result.
+    pub fn from_payload(
+        payload: sync15::Payload,
+        ts: ServerTimestamp,
+    ) -> std::result::Result<Self, serde_json::Error> {
         let guid = payload.id.clone();
         let login: Option<Login> = if payload.is_tombstone() {
             None

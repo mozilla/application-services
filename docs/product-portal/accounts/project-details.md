@@ -5,8 +5,7 @@ sidebar_label: Project Details
 ---
 
 Firefox Accounts is the authentication and authorization system for Cloud
-Services at Mozilla, providing access to services such as Firefox Sync and
-Firefox Hello.
+Services at Mozilla, providing access to services such as Firefox Sync.
 
 This documentation is for contributors wanting to help develop and maintain
 the Firefox Accounts service.  We have separate documentation for other purposes:
@@ -16,8 +15,7 @@ the Firefox Accounts service.  We have separate documentation for other purposes
 You can [create an account](https://accounts.firefox.com/signup) or
 [sign in](https://accounts.firefox.com/signin) directly on [https://accounts.firefox.com](https://accounts.firefox.com),
 but you almost certainly want to start by using an account-attached service such as
-[Firefox Sync](https://www.mozilla.org/en-US/firefox/sync/)
-or [Firefox Hello](https://www.mozilla.org/en-US/firefox/hello/).
+[Firefox Sync](https://www.mozilla.org/en-US/firefox/sync/).
 
 More information is available on [Mozilla's support site](https://support.mozilla.org/en-US/kb/access-mozilla-services-firefox-accounts).
 
@@ -39,29 +37,41 @@ Links:
 These fine folks are the globally distributed team at the core of Firefox Accounts
 development, and will be happy to help answer any questions you might have:
 
-* [Ryan Kelly](https://github.com/rfk) - Engineering (Melbourne, approx UTC+10)
-* [Shane Tomlinson](https://github.com/shane-tomlinson/) - Engineering (London, approx UTC)
-* [Vlad Filippov](https://github.com/vladikoff) - Engineering (Toronto, approx UTC-5)
-* [Vijay Budhram](https://github.com/vbudhram) - Engineering (Orlando, approx UTC-5)
-* [Phil Booth](https://github.com/philbooth) - Engineering (London, approx UTC)
-* [John Morrison](https://github.com/jrgm) - Operations (Mountain View, approx UTC-8)
-* [Jon Buckley](https://github.com/jbuck) - Operations (Toronto, approx UTC-5)
-* [Ryan Feeley](https://github.com/rfeeley) - UX (Toronto, approx UTC-5)
-* [Chris Karlof](https://github.com/ckarlof) - Identity Services Manager (San Francisco, approx UTC-8)
-* [Alex Davis](https://github.com/davismtl) - Product Manager (Mountain View, approx UTC-8)
+* [Barry Chen](https://github.com/chenba) - Engineering (UTC-5)
+* [Ben Bangert](https://github.com/bbangert) - Engineering (UTC-8)
+* [Danny Coates](https://github.com/dannycoates) - Engineering (UTC-8)
+* [Ian Bicking](https://github.com/ianb) - Engineering (UTC-5)
+* [Lauren Zugai](https://github.com/lzoog) - Engineering (UTC-5)
+* [Les Orchard](https://github.com/lmorchard) - Engineering (UTC-8)
+* [Phil Booth](https://github.com/philbooth) - Engineering (UTC)
+* [Shane Tomlinson](https://github.com/shane-tomlinson) - Engineering (UTC)
+* [Vijay Budhram](https://github.com/vbudhram) - Engineering (UTC-5)
+* [John Morrison](https://github.com/jrgm) - Operations (UTC-8)
+* [Jon Buckley](https://github.com/jbuck) - Operations (UTC-5)
+* [Ryan Feeley](https://github.com/rfeeley) - UX (UTC-5)
+* [Alex Davis](https://github.com/davismtl) - Product Manager (UTC-8)
+* [Wil Clouser](https://github.com/clouserw) - Engineering Manager (UTC-8)
 
 We meet regularly to triage bugs and make grand plans for the future.  Anyone is welcome to
 join us in the following forums:
 
-* Regular video meetings, as noted on the [project calendar](https://www.google.com/calendar/embed?src=mozilla.com_urbkla6jvphpk1t8adi5c12kic%40group.calendar.google.com) and with minutes in the [coordination google-doc](https://docs.google.com/document/d/1r_qfb-D1Yt5KAT8IIVPvjaeliFORbQk-xFE_tRNM4Rc/)
+* Regular video meetings, as noted on the [project calendar](https://www.google.com/calendar/embed?src=mozilla.com_urbkla6jvphpk1t8adi5c12kic%40group.calendar.google.com)
 * The [Firefox Accounts mailing list](https://mail.mozilla.org/listinfo/dev-fxacct)
-* The `#fxa` channel on [Mozilla IRC](https://wiki.mozilla.org/IRC)
+* The `#fxa` channel on Slack or [Mozilla IRC](https://wiki.mozilla.org/IRC)
+
+Firefox Accounts has been around long enough that many people have contributed.
+Below are significant contributors emeritus:
+
+* [Ryan Kelly](https://github.com/rfk) - Engineering (Melbourne, approx UTC+10)
+* [Vlad Filippov](https://github.com/vladikoff) - Engineering (Toronto, approx UTC-5)
+* [Chris Karlof](https://github.com/ckarlof) - Identity Services Manager (San Francisco, approx UTC-8)
 
 
 ## Code
 
-We mostly follow a micro-services architecture, with each component of the system
-being developed in a separate repository.  The main components fit together like so:
+The code [can be found on GitHub](https://github.com/mozilla/fxa).  We mostly
+follow a micro-services architecture.  The main components fit together like
+so:
 
 [![High-level architecture diagram showing relationships between different FxA services](https://www.lucidchart.com/publicSegments/view/8760a3b3-77d1-4390-bc9b-e9ab309eca0f/image.png)](https://www.lucidchart.com/publicSegments/view/8760a3b3-77d1-4390-bc9b-e9ab309eca0f/image.png)
 
@@ -69,13 +79,11 @@ being developed in a separate repository.  The main components fit together like
 
 [Edit Component Chart](https://www.lucidchart.com/documents/edit/677146e7-0fb8-4486-99a7-7eacaa16b6be/0)
 
-Most repositories are [available via GitHub](https://github.com/mozilla?utf8=%E2%9C%93&query=fxa)
-
 You can read more about the [details of our development process](./dev-process.html)
 
 ### Core Servers and Libraries
 
-#### [fxa-content-server](https://github.com/mozilla/fxa-content-server)
+#### fxa-content-server
 
 The Content Server hosts static assets (HTML, Javascript, CSS, etc.) that support user interactions with the Firefox Accounts. The responsibilities of the Content Server include:
 
@@ -93,14 +101,14 @@ Links:
 
 Interaction with the Firefox Accounts authentication and OAuth APIs are is done via a Javascript client library. In addition to communicating with the backend servers, it also performs local key stretching (PBKDF2 and scrypt) on the user's password before it's used in the API. It is hosted by the Content Server. This library is called `fxa-js-client` and at one time called "Gherkin".
 
-#### [fxa-js-client](https://github.com/mozilla/fxa-js-client)
+#### fxa-js-client
 
 Links:
 
 - [Key stretching details](https://wiki.mozilla.org/Identity/AttachedServices/KeyServerProtocol#Client-Side_Key_Stretching)
 - [Key stretching performance tests](https://wiki.mozilla.org/Identity/AttachedServices/Key_Stretching_Performance_Tests)
 
-#### [fxa-auth-server](https://github.com/mozilla/fxa-auth-server)
+#### fxa-auth-server
 
 - The Auth Server provides an HTTP API that:
     - authenticates the user
@@ -111,50 +119,33 @@ Links:
     - [Dev deployment](https://github.com/mozilla/fxa-auth-server#dev-deployment)
     - [Python API client (primarily a reference client)](https://github.com/warner/picl-spec-crypto)
 
-#### [fxa-oauth-server](https://github.com/mozilla/fxa-oauth-server)
+#### fxa-oauth-server
 - The OAuth Server provides an HTTP API that:
     - accepts BrowserID assertions from the auth-server as authentication
     - implements a standard OAuth2 token-granting flow
 - Links:
     - [API documentation](https://github.com/mozilla/fxa-oauth-server/blob/master/docs/api.md)
-#### [fxa-profile-server](https://github.com/mozilla/fxa-profile-server)
+
+#### fxa-profile-server
 
 A server to provide common profile-related data for a Firefox Account. Such as name, avatar, location, age, gender, etc.
 
-#### [fxa-auth-db-mysql](https://github.com/mozilla/fxa-auth-db-mysql)
+#### fxa-auth-db-mysql
 
 Database service that includes the database API. As well as MySql and Memory backends.
 
-#### [fxa-customs-server](https://github.com/mozilla/fxa-customs-server)
+#### fxa-customs-server
 
 - FxA uses the Customs Server to detect and mitigate fraud & abuse.
 - Deployment: currently pulled in by the auth server as an npm dependency
-
-### Other
-
-- [fxa-relier-client](https://github.com/mozilla/fxa-relier-client) [DEPRECATED]
-- [fxa-auth-db-mem](https://github.com/mozilla/fxa-auth-db-mem) [DEPRECATED]
-- [fxa-auth-db-server](https://github.com/mozilla/fxa-auth-db-server) [DEPRECATED]
-- [fxa-easter-egg](https://github.com/mozilla/fxa-easter-egg)
-- [browserid-verifier](https://github.com/mozilla/browserid-verifier) - FxA enables clients to generate BrowserID assertions on behalf of the user. FxA provides a hosted verifier for verifying these assertions.
-    - [Verifier library](https://github.com/mozilla/browserid-local-verify)
-    - [Production deployment](https://verifier.accounts.firefox.com/v2)
-
 
 ## Deployments
 
 For detailed server and deployment information [see this MDN page](https://developer.mozilla.org/en-US/docs/Mozilla/Tech/Firefox_Accounts/Introduction#Firefox_Accounts_deployments).
 
-## Resources
- - [Meeting Notes Archive](https://wiki.mozilla.org/Identity/Firefox_Accounts/Meeting_Notes)
-
 ## Bugs
 
-Most of our work takes place on github, and we use [waffle.io](https://waffle.io) to provide an overview of bug status and activity:
-
-* [All GitHub issues for Firefox Accounts](https://waffle.io/mozilla/fxa)
-
-If you have found a bug in FxA, please file it via the dashboard above
+If you have found a bug in FxA, please [file it on GitHub](https://github.com/mozilla/fxa/issues/new)
 
 There is also a "Core/FxAccounts" bugzilla component that covers the accounts code inside Firefox itself, and a "Server: Firefox Accounts" component for when FxA code interacts with parts of Mozilla that operate out of bugzilla:
 
@@ -164,7 +155,6 @@ There is also a "Core/FxAccounts" bugzilla component that covers the accounts co
 
 ## How To
 
-* [Get started with local development](https://github.com/mozilla/fxa-local-dev)
 * [Run your own FxA server stack](https://docs.services.mozilla.com/howtos/run-fxa.html)
 
 

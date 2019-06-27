@@ -6,7 +6,7 @@ import Foundation
 import os.log
 
 /// Indicates an error occurred while calling into the places storage layer
-public enum PlacesError: Error {
+public enum PlacesError: LocalizedError {
     /// This indicates an attempt to use a connection after the PlacesAPI
     /// it came from is destroyed. This indicates a usage error of this library.
     case connUseAfterAPIClosed
@@ -55,6 +55,38 @@ public enum PlacesError: Error {
     /// Thrown when attempting to update or delete a root, or
     /// insert a new item as a child of root________.
     case cannotUpdateRoot(message: String)
+
+    /// Our implementation of the localizedError protocol -- (This shows up in Sentry)
+    public var errorDescription: String? {
+        switch self {
+        case .connUseAfterAPIClosed:
+            return "PlacesError.connUseAfterAPIClosed"
+        case let .unexpected(message):
+            return "PlacesError.unexpected: \(message)"
+        case let .panic(message):
+            return "PlacesError.panic: \(message)"
+        case let .invalidPlace(message):
+            return "PlacesError.invalidPlace: \(message)"
+        case let .urlParseError(message):
+            return "PlacesError.urlParseError: \(message)"
+        case let .databaseBusy(message):
+            return "PlacesError.databaseBusy: \(message)"
+        case let .databaseInterrupted(message):
+            return "PlacesError.databaseInterrupted: \(message)"
+        case let .databaseCorrupt(message):
+            return "PlacesError.databaseCorrupt: \(message)"
+        case let .invalidParent(message):
+            return "PlacesError.invalidParent: \(message)"
+        case let .noSuchItem(message):
+            return "PlacesError.noSuchItem: \(message)"
+        case let .urlTooLong(message):
+            return "PlacesError.urlTooLong: \(message)"
+        case let .illegalChange(message):
+            return "PlacesError.illegalChange: \(message)"
+        case let .cannotUpdateRoot(message):
+            return "PlacesError.cannotUpdateRoot: \(message)"
+        }
+    }
 
     // The name is attempting to indicate that we free rustError.message if it
     // existed, and that it's a very bad idea to touch it after you call this
