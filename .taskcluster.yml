@@ -134,7 +134,7 @@ tasks:
                 description: Schedules the build and test tasks for Application Services.
         "tasks_for == 'github-release' && event['action'] == 'published'":
           $let:
-            is_staging: 'event.repository.html_url == "https://github.com/mozilla/application-services"'
+            is_staging: 'event.repository.html_url != "https://github.com/mozilla/application-services"'
           in:
             $let:
               beetmover_worker_type:
@@ -157,12 +157,21 @@ tasks:
                 scopes:
                   # So that we can publish on Maven using beetmover
                   - project:mozilla:application-services:releng:beetmover:action:push-to-maven
-                  # So that we can upload symbols to Socorro
-                  # - "secrets:get:project/application-services/symbols-token"
             in:
               $mergeDeep:
                 - {$eval: 'default_task_definition'}
                 - {$eval: 'release_task_definition'}
+                - $if: 'is_staging'
+                  then:
+                    scopes:
+                      - project:mozilla:application-services:releng:signing:cert:dep-signing
+                      - queue:create-task:scriptworker-prov-v1/appsv-signing-dep-v1
+                  else:
+                    scopes:
+                      - project:mozilla:application-services:releng:signing:cert:release-signing
+                      - queue:create-task:scriptworker-prov-v1/appsv-signing-v1
+                      # So that we can upload symbols to Socorro
+                      - "secrets:get:project/application-services/symbols-token"
                 - payload:
                     env:
                       IS_STAGING: ${is_staging}

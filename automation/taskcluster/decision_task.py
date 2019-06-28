@@ -8,6 +8,7 @@ from enum import Enum
 import os.path
 from build_config import module_definitions, appservices_version
 from decisionlib import *
+from decisionlib import SignTask
 
 FULL_CI_TAG = '[ci full]'
 SKIP_CI_TAG = '[ci skip]'
@@ -213,25 +214,51 @@ def android_multiarch_release(is_staging):
     module_build_tasks = build_gradle_modules_tasks(DeployEnvironment.STAGING_RELEASE if is_staging else DeployEnvironment.RELEASE)
 
     version = appservices_version()
-    worker_type = os.environ['BEETMOVER_WORKER_TYPE']
     bucket_name = os.environ['BEETMOVER_BUCKET']
     bucket_public_url = os.environ['BEETMOVER_BUCKET_PUBLIC_URL']
 
     for module_info in module_definitions():
         module = module_info['name']
         build_task = module_build_tasks[module]
+        sign_task = (
+            SignTask("Sign Android module: {}".format(module))
+            .with_description("Signs module")
+            .with_worker_type("appsv-signing-dep-v1" if is_staging else "appsv-signing-v1")
+            # We want to make sure ALL builds succeeded before doing a release.
+            .with_dependencies(*module_build_tasks.values())
+            .with_upstream_artifact({
+                "paths": [artifact["taskcluster_path"]
+                          for publication in module_info["publications"]
+                          for artifact in publication.to_artifacts(('',))],
+                "formats": ["autograph_gpg"],
+                "taskId": build_task,
+                "taskType": "build"
+            })
+            .with_scopes(
+                "project:mozilla:application-services:releng:signing:cert:{}-signing".format(
+                    "dep" if is_staging else "release")
+            )
+            .create()
+        )
+
         (
             BeetmoverTask("Publish Android module: {} via beetmover".format(module))
             .with_description("Publish release module {} to {}".format(module, bucket_public_url))
-            .with_worker_type(worker_type)
-            # We want to make sure ALL builds succeeded before doing a release.
-            .with_dependencies(*module_build_tasks.values())
+            .with_worker_type(os.environ['BEETMOVER_WORKER_TYPE'])
+            .with_dependencies(sign_task)
             .with_upstream_artifact({
                 "paths": [artifact['taskcluster_path']
                           for publication in module_info["publications"]
                           for artifact in publication.to_artifacts(('', '.sha1', '.md5'))],
                 "taskId": build_task,
                 "taskType": "build",
+            })
+            .with_upstream_artifact({
+                "paths": [artifact['taskcluster_path']
+                          for publication in module_info["publications"]
+                          for artifact in publication.to_artifacts(('.asc',))],
+                "taskId": sign_task,
+                "taskType": "signing",
             })
             .with_app_name("appservices")
             .with_artifact_map([{
@@ -244,6 +271,17 @@ def android_multiarch_release(is_staging):
                     }
                     for publication in module_info["publications"]
                     for artifact in publication.to_artifacts(('', '.sha1', '.md5'))
+                }
+            }, {
+                "locale": "en-US",
+                "taskId": sign_task,
+                "paths": {
+                    artifact["taskcluster_path"]: {
+                        "checksums_path": "",  # TODO beetmover marks this as required, but it's not needed
+                        "destinations": [artifact["maven_destination"]],
+                    }
+                    for publication in module_info["publications"]
+                    for artifact in publication.to_artifacts(('.asc',))
                 },
             }])
             .with_app_version(version)

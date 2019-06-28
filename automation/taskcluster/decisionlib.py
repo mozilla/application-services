@@ -302,6 +302,23 @@ class BeetmoverTask(Task):
         return payload
 
 
+class SignTask(Task):
+    def __init__(self, name):
+        super().__init__(name)
+        self.provisioner_id = "scriptworker-prov-v1"
+        self.upstream_artifacts = []
+
+    with_upstream_artifact = chaining(append_to_attr, "upstream_artifacts")
+
+    def build_worker_payload(self):
+        payload = {
+            "maxRunTime": 10 * 60,
+            "upstreamArtifacts": self.upstream_artifacts,
+        }
+
+        return payload
+
+
 class DockerWorkerArtifact:
     def __init__(self, worker_fs_path, taskcluster_path):
         self.worker_fs_path = worker_fs_path
