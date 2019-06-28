@@ -867,8 +867,10 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
             let content = match typ {
                 BookmarkType::Bookmark => {
                     let title = row.get("title")?;
-                    let url_href = row.get("url")?;
-                    Content::Bookmark { title, url_href }
+                    match row.get::<_, Option<String>>("url")? {
+                        Some(url_href) => Content::Bookmark { title, url_href },
+                        None => continue,
+                    }
                 }
                 BookmarkType::Folder => {
                     let title = row.get("title")?;
@@ -990,8 +992,10 @@ impl<'a> dogear::Store<Error> for Merger<'a> {
             let content = match SyncedBookmarkKind::from_u8(row.get("kind")?)? {
                 SyncedBookmarkKind::Bookmark | SyncedBookmarkKind::Query => {
                     let title = row.get("title")?;
-                    let url_href = row.get("url")?;
-                    Content::Bookmark { title, url_href }
+                    match row.get::<_, Option<String>>("url")? {
+                        Some(url_href) => Content::Bookmark { title, url_href },
+                        None => continue,
+                    }
                 }
                 SyncedBookmarkKind::Folder => {
                     let title = row.get("title")?;
@@ -2445,6 +2449,66 @@ mod tests {
                 }],
             }),
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_fetch_remote_contents_with_invalid_item() -> Result<()> {
+        let _ = env_logger::try_init();
+        let records = vec![
+            json!({
+                "id": "bookmarkAAAA",
+                "type": "bookmark",
+                "parentid": "unfiled",
+                "parentName": "unfiled",
+                "title": "A",
+                "bmkUri": "!@#$%^&",
+            }),
+            json!({
+                "id": "bookmarkBBBB",
+                "type": "bookmark",
+                "parentid": "unfiled",
+                "parentName": "unfiled",
+                "title": "B",
+                "bmkUri": "http://example.com/ok",
+            }),
+            json!({
+                "id": "unfiled",
+                "type": "folder",
+                "parentid": "places",
+                "parentName": "",
+                "dateAdded": 0,
+                "title": "unfiled",
+                "children": ["bookmarkAAAA", "bookmarkBBBB"],
+            }),
+        ];
+
+        let api = new_mem_api();
+        let conn = api.open_sync_connection()?;
+
+        // suck records into the store.
+        let interrupt_scope = conn.begin_interrupt_scope();
+        let store = BookmarksStore::new(&conn, &interrupt_scope);
+
+        let mut incoming =
+            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0));
+
+        for record in records {
+            let payload = Payload::from_json(record).unwrap();
+            incoming.changes.push((payload, ServerTimestamp(0)));
+        }
+
+        store
+            .stage_incoming(incoming, &mut telemetry::EngineIncoming::new())
+            .expect("Should apply incoming and stage outgoing records");
+
+        let merger = Merger::new(&store, ServerTimestamp(0));
+
+        let contents = merger.fetch_new_remote_contents()?;
+        let mut guids: Vec<&str> = contents.keys().map(|g| g.as_str()).collect();
+        guids.sort();
+        assert_eq!(guids, &["bookmarkBBBB"]);
 
         Ok(())
     }
