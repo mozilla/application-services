@@ -1,3 +1,13 @@
+# v0.32.2 (_2019-06-28_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.1...v0.32.2)
+
+## General
+
+- This is a release that aims to test infrastructure changes (ci-admin).
+
+- OpenSSL dependency updated. ([#1328](https://github.com/mozilla/application-services/pull/1328))
+
 # v0.32.1 (_2019-06-26_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.0...v0.32.1)
