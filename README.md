@@ -48,8 +48,7 @@ The code for these components is organized as follows:
       applications.
     * The [Swift bindings](components/logins/ios) for use by iOS applications.
 * [./megazords/](megazords) contains infrastructure for bundling multiple rust
-  components into a single build artifact called a
-  "[megazord library](https://github.com/mozilla/application-services/blob/master/docs/product-portal/applications/consuming-megazord-libraries.md)"
+  components into a single build artifact called a "[megazord library](docs/design/megazords.md)"
   for easy consumption by applications.
 
 For more details on how the client libraries are built and published, please see

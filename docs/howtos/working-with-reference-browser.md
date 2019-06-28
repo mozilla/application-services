@@ -6,7 +6,7 @@ This is a companion to the [equivalent instructions for the android-components r
 
 Modern Gradle supports [composite builds](https://docs.gradle.org/current/userguide/composite_builds.html), which allows to substitute on-disk projects for binary publications.  Composite builds transparently accomplish what is usually a frustrating loop of:
 1. change library
-1. publishing library snapshot to the local Maven repository
+1. publish library snapshot to the local Maven repository
 1. consume library snapshot in application
 
 ## Preparation
@@ -35,7 +35,9 @@ rust.targets=x86
 
 ## Substituting projects
 
-### Using local.properties
+Both android-components and reference-browser have custom build logic for dealing with composite builds,
+so you should be able to configure it by simply adding the path to the application-services repo
+in the correct `local.properties` file:
 
 In `android-components/local.properties`:
 ```groovy
@@ -47,18 +49,12 @@ In `reference-browser/local.properties`:
 substitutions.application-services.dir=../application-services
 ```
 
-### Using settings.gradle
+If this doesn't seem to work, or if you need to configure composite builds for a project that does
+not contain this custom logic, add the following to `settings.gradle`:
 
 In `android-components/settings.gradle`:
 ```groovy
-includeBuild('../application-services') {
-    dependencySubstitution {
-        // As required.
-        substitute module('org.mozilla.appservices:fxaclient') with project(':fxaclient')
-        substitute module('org.mozilla.appservices:logins') with project(':logins')
-        substitute module('org.mozilla.appservices:places') with project(':places')
-    }
-}
+includeBuild('../application-services')
 ```
 
 In `reference-browser/settings.gradle`:
@@ -75,14 +71,7 @@ includeBuild('../android-components') {
 // Gradle handles transitive dependencies just fine, but Android Studio doesn't seem to always do
 // the right thing.  Duplicate the transitive dependencies from `android-components/settings.gradle`
 // here as well.
-includeBuild('../application-services') {
-    dependencySubstitution {
-        // As required.
-        substitute module('org.mozilla.appservices:fxaclient') with project(':fxaclient')
-        substitute module('org.mozilla.appservices:logins') with project(':logins')
-        substitute module('org.mozilla.appservices:places') with project(':places')
-    }
-}
+includeBuild('../application-services')
 ```
 
 ## Caveat
