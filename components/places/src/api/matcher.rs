@@ -58,7 +58,7 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
     // and a search if all else fails. We only try origins and URLs for
     // heuristic matches, since that's all we support.
 
-    let matches = match_with_limit(
+    let mut matches = match_with_limit(
         conn,
         &[
             // Try to match on the origin, or the full URL.
@@ -77,6 +77,9 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
         ],
         params.limit,
     )?;
+
+    matches.sort_unstable_by(|a, b| a.url.cmp(&b.url));
+    matches.dedup_by(|a, b| a.url == b.url);
 
     Ok(matches)
 }
