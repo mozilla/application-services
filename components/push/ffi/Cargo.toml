@@ -10,7 +10,7 @@ name = "push_ffi"
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
-serde_json = "1.0.28"
+serde_json = "1.0.40"
 log = "0.4"
 url = "1.7.1"
 ffi-support = { path = "../../support/ffi" }

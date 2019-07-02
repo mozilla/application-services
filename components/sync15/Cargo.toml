@@ -14,7 +14,7 @@ base64 = "0.9.3"
 ffi-support = { path = "../support/ffi" }
 serde = "1.0.93"
 serde_derive = "1.0.93"
-serde_json = "1.0.28"
+serde_json = "1.0.40"
 url = "1.7.1"
 openssl = "0.10.23"
 hawk = { git = "https://github.com/eoger/rust-hawk", branch = "use-openssl" }

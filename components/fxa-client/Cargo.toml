@@ -21,7 +21,7 @@ prost-derive = "0.5"
 ring = "0.14.5"
 serde = { version = "1.0.93", features = ["rc"] }
 serde_derive = "1.0.93"
-serde_json = "1.0.28"
+serde_json = "1.0.40"
 sync15 = { path = "../sync15" }
 untrusted = "0.6.2"
 url = "1.7.1"
