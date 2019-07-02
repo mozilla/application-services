@@ -1,3 +1,15 @@
+# v0.32.3 (_2019-07-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.2...v0.32.3)
+
+## Places
+
+### What's Fixed
+
+- `PlacesReaderConnection.queryAutocomplete` should return unique results. ([#970](https://github.com/mozilla/application-services/issues/970))
+
+- Ensures bookmark sync doesn't fail if a bookmark or query is missing or has an invalid URL. ([#1325](https://github.com/mozilla/application-services/issues/1325))
+
 # v0.32.2 (_2019-06-28_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.1...v0.32.2)
