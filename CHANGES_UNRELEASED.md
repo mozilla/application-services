@@ -2,10 +2,4 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.2...master)
-
-## Places
-
-### What's Fixed
-
-- Ensures bookmark sync doesn't fail if a bookmark or query is missing or has an invalid URL ([#1325](https://github.com/mozilla/application-services/issues/1325))
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.3...master)
