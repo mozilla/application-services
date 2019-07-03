@@ -1,3 +1,19 @@
+# v0.31.3 (_2019-07-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.31.1...v0.31.3)
+
+## General
+
+- (Backport) Update `smallvec` dependency to pick up a security fix ([#1353](https://github.com/mozilla/application-services/pull/1353))
+
+## Places
+
+- (Backport) Ensures bookmark sync doesn't fail if a bookmark or query is missing or has an invalid URL ([#1325](https://github.com/mozilla/application-services/issues/1325))
+
+## FxA Client
+
+- (Backport) Fixes SendTab initializeDevice in Android to use the proper device type ([#1314](https://github.com/mozilla/application-services/pull/1314))
+
 # v0.31.2 (_2019-06-10_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.31.1...v0.31.2)
