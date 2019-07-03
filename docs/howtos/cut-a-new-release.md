@@ -1,6 +1,6 @@
 # Application Services Release Process
 
-These are the steps needed to cut a new release.
+These are the steps needed to cut a new release from latest master.
 
 1. Update the changelog.
     1. Copy the contents from `CHANGES_UNRELEASED.md` into the top of `CHANGELOG.md`, except for the part that links to this document.
@@ -51,3 +51,28 @@ These are the steps needed to cut a new release.
         - You can do this before the release has been cut by adding `substitutions.application-services.dir=/path/to/application-services` in your `local.properties` file in android-components. Remember that you have done this, however, as it overrides changes in `Dependencies.kt`.
 
     5. Get it PRed and landed.
+
+
+These are the steps needed to cut a new point-release from an existing release that is behind latest master.
+
+1. If necessary, make a new branch named `release-v0.XX` which will be used for all point-releases on the `v0.XX.Y`
+   series. Example:
+    ```
+    git checkout -b release-v0.31 v0.31.2
+    git push -u origin release-v0.31
+    ```
+2. Make a new branch with any fixes to be included in the release, *remembering not to make any breaking API
+   changes.*. This may involve cherry-picking fixes from master, or developing a new fix directly against the
+   branch. Example:
+    ```
+    git checkout -b fixes-for-v0.31.3 release-v0.31
+    git cherry-pick 37d35304a4d1d285c8f6f3ce3df3c412fcd2d6c6
+    git push -u origin fixes-for-v0.31.3
+    ```
+3. Follow the above steps for cuting a new release from master, except that:
+    * When opening a PR to land the commits, target the `release-v0.XX` branch rather than master.
+    * When cutting the new release via github's UI, target the `release-v0.XX` branch rather than master.
+4. Merge the new release back to master.
+    * This will typically require a PR and involve resolving merge conflicts in the changelog.
+    * This ensures we do not accidentally orphan any fixes that were made directly against the release branch,
+      and also helps ensure that every release has an easily-discoverable changelog entry in master.
