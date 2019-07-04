@@ -134,7 +134,10 @@ tasks:
                 description: Schedules the build and test tasks for Application Services.
         "tasks_for == 'github-release' && event['action'] == 'published'":
           $let:
-            is_staging: 'event.repository.html_url != "https://github.com/mozilla/application-services"'
+            is_staging:
+              $if: 'event.repository.html_url != "https://github.com/mozilla/application-services"'
+              then: true
+              else: false
           in:
             $let:
               beetmover_worker_type:
