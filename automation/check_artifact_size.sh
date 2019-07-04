@@ -20,7 +20,7 @@ ARTIFACT_ID="$2"
 # Seems like a lot? They include compiled rust code for 4 architectures.
 # We expect this size to decrease over time as we make changes to the way
 # we perform megazord builds, but at least it's an upper bound for now...
-LIMIT=30000000
+LIMIT=36700160
 
 if [ -d "${BUILD_DIR}" ]; then
     while IFS= read -r -d '' AAR_FILE; do
