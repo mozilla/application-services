@@ -134,32 +134,54 @@ tasks:
                 description: Schedules the build and test tasks for Application Services.
         "tasks_for == 'github-release' && event['action'] == 'published'":
           $let:
-            beetmover_worker_type: appsv-beetmover-v1
-            beetmover_bucket: maven-production
-            beetmover_bucket_public_url: https://maven.mozilla.org/
-            tag: ${event.release.tag_name}
-            release_task_definition:
-              payload:
-                features:
-                  chainOfTrust: true
-              scopes:
-                # So that we can publish on Maven using beetmover
-                - project:mozilla:application-services:releng:beetmover:action:push-to-maven
-                # So that we can upload symbols to Socorro
-                - "secrets:get:project/application-services/symbols-token"
+            is_staging: 'event.repository.html_url != "https://github.com/mozilla/application-services"'
           in:
-            $mergeDeep:
-              - {$eval: 'default_task_definition'}
-              - {$eval: 'release_task_definition'}
-              - payload:
-                  env:
-                    BEETMOVER_WORKER_TYPE: ${beetmover_worker_type}
-                    BEETMOVER_BUCKET: ${beetmover_bucket}
-                    BEETMOVER_BUCKET_PUBLIC_URL: ${beetmover_bucket_public_url}
-              - scopes:
-                # So that we can publish on Maven using beetmover
-                - project:mozilla:application-services:releng:beetmover:bucket:${beetmover_bucket}
-                - queue:create-task:${tasks_priority}:scriptworker-prov-v1/${beetmover_worker_type}
-              - metadata:
-                  name: Application Services - Decision task (${tag})
-                  description: Build and publish release versions.
+            $let:
+              beetmover_worker_type:
+                $if: 'is_staging'
+                then: appsv-beetmover-dev
+                else: appsv-beetmover-v1
+              beetmover_bucket:
+                $if: 'is_staging'
+                then: maven-staging
+                else: maven-production
+              beetmover_bucket_public_url:
+                $if: 'is_staging'
+                then: https://maven-default.stage.mozaws.net/
+                else: https://maven.mozilla.org/
+              tag: ${event.release.tag_name}
+              release_task_definition:
+                payload:
+                  features:
+                    chainOfTrust: true
+                scopes:
+                  # So that we can publish on Maven using beetmover
+                  - project:mozilla:application-services:releng:beetmover:action:push-to-maven
+            in:
+              $mergeDeep:
+                - {$eval: 'default_task_definition'}
+                - {$eval: 'release_task_definition'}
+                - $if: 'is_staging'
+                  then:
+                    scopes:
+                      - project:mozilla:application-services:releng:signing:cert:dep-signing
+                      - queue:create-task:scriptworker-prov-v1/appsv-signing-dep-v1
+                  else:
+                    scopes:
+                      - project:mozilla:application-services:releng:signing:cert:release-signing
+                      - queue:create-task:scriptworker-prov-v1/appsv-signing-v1
+                      # So that we can upload symbols to Socorro
+                      - "secrets:get:project/application-services/symbols-token"
+                - payload:
+                    env:
+                      IS_STAGING: ${is_staging}
+                      BEETMOVER_WORKER_TYPE: ${beetmover_worker_type}
+                      BEETMOVER_BUCKET: ${beetmover_bucket}
+                      BEETMOVER_BUCKET_PUBLIC_URL: ${beetmover_bucket_public_url}
+                - scopes:
+                  # So that we can publish on Maven using beetmover
+                  - project:mozilla:application-services:releng:beetmover:bucket:${beetmover_bucket}
+                  - queue:create-task:${tasks_priority}:scriptworker-prov-v1/${beetmover_worker_type}
+                - metadata:
+                    name: Application Services - Decision task (${tag})
+                    description: Build and publish release versions.
