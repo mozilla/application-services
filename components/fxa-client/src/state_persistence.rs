@@ -16,23 +16,22 @@ pub(crate) fn state_from_json(data: &str) -> Result<State> {
 }
 
 pub(crate) fn state_to_json(state: &State) -> Result<String> {
-    let state = PersistedState::V2(state.clone());
+    let state = PersistedState::V2(Box::new(state.clone()));
     serde_json::to_string(&state).map_err(Into::into)
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "schema_version")]
-#[allow(clippy::large_enum_variant)]
 enum PersistedState {
     #[serde(skip_serializing)]
-    V1(StateV1),
-    V2(StateV2),
+    V1(Box<StateV1>),
+    V2(Box<StateV2>),
 }
 
 fn upgrade_state(in_state: PersistedState) -> Result<State> {
     match in_state {
-        PersistedState::V1(state) => state.into(),
-        PersistedState::V2(state) => Ok(state),
+        PersistedState::V1(state) => (*state).into(),
+        PersistedState::V2(state) => Ok(*state),
     }
 }
 
