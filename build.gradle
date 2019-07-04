@@ -224,6 +224,7 @@ subprojects {
 // before invoking Gradle (or Cargo).
 ext.cargoExec = { spec, toolchain ->
     spec.environment("OPENSSL_STATIC", "1")
+    spec.environment("NSS_STATIC", "1")
     spec.environment("NSS_DIR",               new File(rootProject.ext.libsRootDir, "libs/${toolchain.folder}/nss").absolutePath)
     spec.environment("OPENSSL_DIR",           new File(rootProject.ext.libsRootDir, "libs/${toolchain.folder}/openssl").absolutePath)
 }
