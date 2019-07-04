@@ -42,7 +42,7 @@ more-asserts = "0.2.1"
 env_logger = "0.5.13"
 find-places-db = "0.1.0"
 clap = "2.32.0"
-structopt = "0.2.16"
+structopt = "0.2.18"
 tempfile = "3.0.8"
 rand = "0.7.0"
 fxa-client = { path = "../fxa-client" }
