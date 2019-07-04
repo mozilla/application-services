@@ -26,7 +26,7 @@ def main(task_for):
     elif task_for == "github-push":
         android_multiarch()
     elif task_for == "github-release":
-        is_staging = os.environ['IS_STAGING']
+        is_staging = os.environ['IS_STAGING'] == 'true'
         android_multiarch_release(is_staging)
     else:
         raise ValueError("Unrecognized $TASK_FOR value: %r", task_for)
