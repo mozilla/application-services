@@ -1,3 +1,9 @@
+# v0.33.1 (_2019-07-04_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.33.0...v0.33.1)
+
+This release exists only to rectify a publishing error that occurred with v0.33.0.
+
 # v0.33.0 (_2019-07-04_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.3...v0.33.0)
