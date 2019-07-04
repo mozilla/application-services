@@ -22,6 +22,7 @@ pub(crate) fn state_to_json(state: &State) -> Result<String> {
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "schema_version")]
+#[allow(clippy::large_enum_variant)]
 enum PersistedState {
     #[serde(skip_serializing)]
     V1(StateV1),
