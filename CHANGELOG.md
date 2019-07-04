@@ -1,3 +1,15 @@
+# v0.33.0 (_2019-07-04_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.3...v0.33.0)
+
+## FxA Client
+
+### Breaking Changes
+
+- iOS: FirefoxAccountError enum variants have their name `lowerCamelCased`
+  instead of `UpperCamelCased`, to better fit with common Swift code style.
+  ([#1324](https://github.com/mozilla/application-services/issues/1324))
+
 # v0.32.3 (_2019-07-02_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.2...v0.32.3)
