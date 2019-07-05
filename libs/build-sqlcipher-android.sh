@@ -80,21 +80,10 @@ SQLCIPHER_CFLAGS=" \
 "
 
 LIBS="\
-  -lcertdb \
-  -lcerthi \
-  -lcryptohi \
-  -lfreebl_static \
-  -lhw-acc-crypto \
-  -lnspr4 \
-  -lnss_static \
-  -lnssb \
-  -lnssdev \
-  -lnsspki \
-  -lnssutil \
-  -lpk11wrap_static \
-  -lplc4 \
-  -lplds4 \
-  -lsoftokn_static \
+  -lfreebl3 \
+  -lnss3 \
+  -lnssckbi \
+  -lsoftokn3 \
 "
 
 if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]] || [[ "${TOOLCHAIN}" == "i686-linux-android" ]]; then

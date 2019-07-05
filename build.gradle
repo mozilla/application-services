@@ -232,6 +232,7 @@ subprojects {
 // the Cargo build.  We assume that the `libs/` directory has been populated
 // before invoking Gradle (or Cargo).
 ext.cargoExec = { spec, toolchain ->
+    spec.environment("NSS_USE_FOLDED_LIBS", "1")
     spec.environment("OPENSSL_STATIC", "1")
     spec.environment("NSS_DIR",               new File(libsRootDir, "libs/${toolchain.folder}/nss").absolutePath)
     spec.environment("OPENSSL_DIR",           new File(libsRootDir, "libs/${toolchain.folder}/openssl").absolutePath)
