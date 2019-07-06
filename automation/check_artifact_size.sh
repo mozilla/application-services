@@ -16,10 +16,7 @@ fi
 BUILD_DIR="$1"
 ARTIFACT_ID="$2"
 
-# Even our largest .aar should be less than 30M.
-# Seems like a lot? They include compiled rust code for 4 architectures.
-# We expect this size to decrease over time as we make changes to the way
-# we perform megazord builds, but at least it's an upper bound for now...
+# Artifact size limit is 35MB
 LIMIT=36700160
 
 if [ -d "${BUILD_DIR}" ]; then
