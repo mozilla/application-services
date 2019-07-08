@@ -278,6 +278,7 @@ jobs:
       - run:
           name: Setup build environment
           command: |
+            sudo installer -pkg /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg -target /
             rustup target add aarch64-apple-ios x86_64-apple-ios
             if [ -z "${CIRCLE_TAG}" ]; then
               # On non-release builds do not update brew (takes ages).
