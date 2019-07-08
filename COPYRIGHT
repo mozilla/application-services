@@ -1,3 +1,9 @@
 Unless otherwise specified (below and/or in individual files), the code in
 this repository is subject to the Mozilla Public License, version 2.0
 <LICENSE-MPL> or <https://www.mozilla.org/en-US/MPL/2.0/>.
+
+- The ffi-support crate, in components/support/ffi, is dual licensed under the
+  Apache License, Version 2.0 <components/support/ffi/LICENSE-APACHE> or
+  <http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+  <components/support/ffi/LICENSE-MIT> or <http://opensource.org/licenses/MIT>,
+  at your option.

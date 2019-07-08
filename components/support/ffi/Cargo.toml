@@ -8,7 +8,7 @@ repository = "https://github.com/mozilla/application-services"
 readme = "README.md"
 keywords = ["ffi", "bindings"]
 categories = ["development-tools::ffi"]
-license = "MPL-2.0"
+license = "Apache-2.0 / MIT"
 
 [badges]
 travis-ci = { repository = "mozilla/application-services" }
