@@ -21,7 +21,7 @@ use sql_support::SqlInterruptHandle;
 use std::os::raw::c_char;
 use std::sync::Arc;
 
-use places::api::matcher::{match_url, search_frecent, SearchParams};
+use places::api::matcher::{self, match_url, search_frecent, SearchParams};
 
 // indirection to help `?` figure out the target error type
 fn parse_url(url: &str) -> places::Result<url::Url> {
@@ -403,6 +403,27 @@ pub extern "C" fn places_get_visit_page(
             VisitTransitionSet::from_u16(exclude_types as u16)
                 .expect("Bug: Invalid VisitTransitionSet"),
         )
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn places_accept_result(
+    handle: u64,
+    search_string: FfiStr<'_>,
+    url: FfiStr<'_>,
+    error: &mut ExternError,
+) {
+    log::debug!("places_accept_result");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let search_string = search_string.as_str();
+        let url = if let Ok(url) = parse_url(url.as_str()) {
+            url
+        } else {
+            log::warn!("Ignoring invalid URL in places_accept_result");
+            return Ok(());
+        };
+        matcher::accept_result(conn, search_string, &url)?;
+        Ok(())
     })
 }
 
