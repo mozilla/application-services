@@ -22,6 +22,9 @@ pub enum Error {
     /// its response. This *probably* should never happen, but who knows.
     #[fail(display = "URL Parse Error: {}", _0)]
     UrlError(#[fail(cause)] url::ParseError),
+
+    #[fail(display = "Validation error: URL does not use TLS protocol.")]
+    NonTlsUrl,
 }
 
 impl From<url::ParseError> for Error {
