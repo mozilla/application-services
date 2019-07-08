@@ -34,7 +34,6 @@ cli-support = { path = "../support/cli" }
 force-viaduct-reqwest = { path = "../support/force-viaduct-reqwest" }
 dialoguer = "0.4.0"
 webbrowser = "0.5.1"
-# Use unreleased `mockiato` with support for `returns_once`.
 mockiato = "0.8.0"
 
 [build-dependencies]
