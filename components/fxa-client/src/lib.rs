@@ -63,7 +63,6 @@ pub struct FirefoxAccount {
     state: StateV2,
     access_token_cache: HashMap<String, AccessTokenInfo>,
     flow_store: HashMap<String, OAuthFlow>,
-    profile_cache: Option<CachedResponse<Profile>>,
 }
 
 // If this structure is modified, please
@@ -84,6 +83,7 @@ pub(crate) struct StateV2 {
     #[serde(default)] // Same
     device_capabilities: HashSet<DeviceCapability>,
     session_token: Option<String>, // Hex-formatted string.
+    last_seen_profile: Option<CachedResponse<Profile>>,
 }
 
 impl FirefoxAccount {
@@ -93,7 +93,6 @@ impl FirefoxAccount {
             state,
             access_token_cache: HashMap::new(),
             flow_store: HashMap::new(),
-            profile_cache: None,
         }
     }
 
@@ -111,6 +110,7 @@ impl FirefoxAccount {
             commands_data: HashMap::new(),
             device_capabilities: HashSet::new(),
             session_token: None,
+            last_seen_profile: None,
         })
     }
 
@@ -231,6 +231,7 @@ pub enum AccountEvent {
     TabReceived((Option<Device>, SendTabPayload)),
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub(crate) struct CachedResponse<T> {
     response: T,
     cached_at: u64,
@@ -258,7 +259,7 @@ mod tests {
 
     impl FirefoxAccount {
         fn add_cached_profile(&mut self, uid: &str, email: &str) {
-            self.profile_cache = Some(CachedResponse {
+            self.state.last_seen_profile = Some(CachedResponse {
                 response: Profile {
                     uid: uid.into(),
                     email: email.into(),
