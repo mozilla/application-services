@@ -48,7 +48,6 @@ pub struct FirefoxAccount {
     state: StateV2,
     access_token_cache: HashMap<String, AccessTokenInfo>,
     flow_store: HashMap<String, OAuthFlow>,
-    profile_cache: Option<CachedResponse<Profile>>,
 }
 
 // If this structure is modified, please:
@@ -69,6 +68,7 @@ pub(crate) struct StateV2 {
     #[serde(default)] // Same
     device_capabilities: HashSet<DeviceCapability>,
     session_token: Option<String>, // Hex-formatted string.
+    last_seen_profile: Option<CachedResponse<Profile>>,
 }
 
 impl StateV2 {
@@ -77,8 +77,8 @@ impl StateV2 {
     fn start_over(&self) -> StateV2 {
         StateV2 {
             config: self.config.clone(),
-            #[cfg(feature = "browserid")]
-            login_state: LoginState::Unknown,
+            // Leave the profile cache untouched so we can reconnect later.
+            last_seen_profile: self.last_seen_profile.clone(),
             refresh_token: None,
             scoped_keys: HashMap::new(),
             last_handled_command: None,
@@ -96,7 +96,6 @@ impl FirefoxAccount {
             state,
             access_token_cache: HashMap::new(),
             flow_store: HashMap::new(),
-            profile_cache: None,
         }
     }
 
@@ -112,6 +111,7 @@ impl FirefoxAccount {
             commands_data: HashMap::new(),
             device_capabilities: HashSet::new(),
             session_token: None,
+            last_seen_profile: None,
         })
     }
 
@@ -151,7 +151,6 @@ impl FirefoxAccount {
     pub fn start_over(&mut self) {
         self.state = self.state.start_over();
         self.access_token_cache.clear();
-        // Leave `self.profile_cache` untouched so we can reconnect later.
         self.flow_store.clear();
     }
 
@@ -274,6 +273,7 @@ pub enum AccountEvent {
     TabReceived((Option<Device>, SendTabPayload)),
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub(crate) struct CachedResponse<T> {
     response: T,
     cached_at: u64,
@@ -301,7 +301,7 @@ mod tests {
 
     impl FirefoxAccount {
         fn add_cached_profile(&mut self, uid: &str, email: &str) {
-            self.profile_cache = Some(CachedResponse {
+            self.state.last_seen_profile = Some(CachedResponse {
                 response: Profile {
                     uid: uid.into(),
                     email: email.into(),

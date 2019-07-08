@@ -151,6 +151,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
         } finally {
             LibFxAFFI.INSTANCE.fxa_bytebuffer_free(profileBuffer)
         }
+        this.tryPersistState()
     }
 
     /**

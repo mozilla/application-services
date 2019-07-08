@@ -154,6 +154,7 @@ open class FirefoxAccount {
                 fxa_bytebuffer_free(profileBuffer)
                 let profile = Profile(msg: msg)
                 DispatchQueue.main.async { completionHandler(profile, nil) }
+                self.tryPersistState()
             } catch {
                 DispatchQueue.main.async { completionHandler(nil, error) }
             }
