@@ -34,8 +34,7 @@ cli-support = { path = "../support/cli" }
 force-viaduct-reqwest = { path = "../support/force-viaduct-reqwest" }
 dialoguer = "0.4.0"
 webbrowser = "0.5.1"
-# Use unreleased `mockiato` with support for `returns_once`.
-mockiato = { git = "https://github.com/myelin-ai/mockiato.git", rev = "bfd8d83a64d41d26ef593b304c183fb7c4ba61be" }
+mockiato = "0.8.0"
 
 [build-dependencies]
 prost-build = "0.5"

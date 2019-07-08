@@ -807,7 +807,7 @@ dependencies = [
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "mockiato 0.7.0 (git+https://github.com/myelin-ai/mockiato.git?rev=bfd8d83a64d41d26ef593b304c183fb7c4ba61be)",
+ "mockiato 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl 0.10.23 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost-build 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1277,10 +1277,10 @@ dependencies = [
 
 [[package]]
 name = "mockiato"
-version = "0.7.0"
-source = "git+https://github.com/myelin-ai/mockiato.git?rev=bfd8d83a64d41d26ef593b304c183fb7c4ba61be#bfd8d83a64d41d26ef593b304c183fb7c4ba61be"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "mockiato-codegen 0.7.0 (git+https://github.com/myelin-ai/mockiato.git?rev=bfd8d83a64d41d26ef593b304c183fb7c4ba61be)",
+ "mockiato-codegen 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "nameof 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "nearly_eq 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1288,8 +1288,8 @@ dependencies = [
 
 [[package]]
 name = "mockiato-codegen"
-version = "0.7.0"
-source = "git+https://github.com/myelin-ai/mockiato.git?rev=bfd8d83a64d41d26ef593b304c183fb7c4ba61be#bfd8d83a64d41d26ef593b304c183fb7c4ba61be"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "heck 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3016,8 +3016,8 @@ dependencies = [
 "checksum miniz_oxide_c_api 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "5b78ca5446dd9fe0dab00e058731b6b08a8c1d2b9cdb8efb10876e24e9ae2494"
 "checksum mio 0.6.19 (registry+https://github.com/rust-lang/crates.io-index)" = "83f51996a3ed004ef184e16818edc51fadffe8e7ca68be67f9dee67d84d0ff23"
 "checksum miow 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "8c1f2f3b1cf331de6896aabf6e9d55dca90356cc9960cca7eaaf408a355ae919"
-"checksum mockiato 0.7.0 (git+https://github.com/myelin-ai/mockiato.git?rev=bfd8d83a64d41d26ef593b304c183fb7c4ba61be)" = "<none>"
-"checksum mockiato-codegen 0.7.0 (git+https://github.com/myelin-ai/mockiato.git?rev=bfd8d83a64d41d26ef593b304c183fb7c4ba61be)" = "<none>"
+"checksum mockiato 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f1a4d448466f28fa40058cbb390b412eedfb6724f95cf0834f45480357171e69"
+"checksum mockiato-codegen 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "119c1b5acf12d4f90a50966141fb4a250a15d84301d2a9ddbd0358db6bc2d1e7"
 "checksum mockito 0.17.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d303c060b18db22e0a9ac12133c32f927c3f980b6f70004bc0cb2f8accc94704"
 "checksum more-asserts 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
 "checksum multimap 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2eb04b9f127583ed176e163fb9ec6f3e793b87e21deedd5734a69386a18a0151"
