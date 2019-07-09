@@ -29,7 +29,7 @@ sql-support = { path = "../support/sql" }
 error-support = { path = "../support/error" }
 
 [dev-dependencies]
-env_logger = "0.6.1"
+env_logger = "0.6.2"
 mockito = "0.17.1"
 hex = "0.3.2"
 force-viaduct-reqwest = { path = "../support/force-viaduct-reqwest" }
