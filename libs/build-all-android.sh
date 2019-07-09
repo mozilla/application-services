@@ -41,7 +41,7 @@ echo "# Building openssl"
 for i in "${!TARGET_ARCHS[@]}"; do
   ARCH=${TARGET_ARCHS[${i}]}
   DIST=${TARGET_ARCHS_DISTS[${i}]}
-  DIST_DIR=$(abspath "android/""${DIST}""/openssl")
+  DIST_DIR=$(abspath "android/${DIST}/openssl")
   if [ -d "${DIST_DIR}" ]; then
     echo "${DIST_DIR} already exists. Skipping building openssl."
   else
@@ -53,11 +53,11 @@ echo "# Building sqlcipher"
 for i in "${!TARGET_ARCHS[@]}"; do
   ARCH=${TARGET_ARCHS[${i}]}
   DIST=${TARGET_ARCHS_DISTS[${i}]}
-  OPENSSL_DIR=$(abspath "android/""${DIST}""/openssl")
-  DIST_DIR=$(abspath "android/""${DIST}""/sqlcipher")
+  NSS_DIR=$(abspath "android/${DIST}/nss")
+  DIST_DIR=$(abspath "android/${DIST}/sqlcipher")
   if [ -d "${DIST_DIR}" ]; then
     echo "${DIST_DIR} already exists. Skipping building sqlcipher."
   else
-    ./build-sqlcipher-android.sh "${SQLCIPHER_SRC_PATH}" "${DIST_DIR}" "${ANDROID_NDK_TOOLCHAIN_DIR}/${ARCH}-${ANDROID_NDK_API_VERSION}" "${TARGET_ARCHS_TOOLCHAINS[${i}]}" "${ANDROID_NDK_API_VERSION}" "${OPENSSL_DIR}" || exit 1
+    ./build-sqlcipher-android.sh "${SQLCIPHER_SRC_PATH}" "${DIST_DIR}" "${ANDROID_NDK_TOOLCHAIN_DIR}/${ARCH}-${ANDROID_NDK_API_VERSION}" "${TARGET_ARCHS_TOOLCHAINS[${i}]}" "${ANDROID_NDK_API_VERSION}" "${NSS_DIR}" || exit 1
   fi
 done

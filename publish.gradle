@@ -59,10 +59,6 @@ ext.configurePublish = { jnaForTestConfiguration = null,
         }
 
         project.afterEvaluate {
-            def copyNativeLibsTask = tasks.findByName("copyNativeLibs")
-            if (copyNativeLibsTask != null) {
-                forUnitTestsJarTask.dependsOn(copyNativeLibsTask)
-            }
             forUnitTestsJarTask.dependsOn(tasks["cargoBuild"])
         }
     }

@@ -272,7 +272,7 @@ impl<'a> From<&'a Error> for SyncFailure {
                 ErrorResponse::ServerError { status, .. } => SyncFailure::Http { code: *status },
                 ErrorResponse::RequestFailed { status, .. } => SyncFailure::Http { code: *status },
             },
-            ErrorKind::OpensslError(ref e) => SyncFailure::Unexpected {
+            ErrorKind::CryptoError(ref e) => SyncFailure::Unexpected {
                 error: e.to_string(),
             },
             ErrorKind::RequestError(ref e) => SyncFailure::Unexpected {

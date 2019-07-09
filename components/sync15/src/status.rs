@@ -49,8 +49,7 @@ impl ServiceStatus {
             },
 
             // Network errors.
-            ErrorKind::OpensslError(_)
-            | ErrorKind::RequestError(_)
+            ErrorKind::RequestError(_)
             | ErrorKind::UnexpectedStatus(_)
             | ErrorKind::HawkError(_) => ServiceStatus::NetworkError,
 
