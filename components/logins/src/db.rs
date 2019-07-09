@@ -173,6 +173,7 @@ impl LoginDb {
     fn fetch_login_data(
         &self,
         records: &[(sync15::Payload, ServerTimestamp)],
+        telem: &mut telemetry::EngineIncoming,
         scope: &SqlInterruptScope,
     ) -> Result<Vec<SyncLoginData>> {
         let mut sync_data = Vec::with_capacity(records.len());
@@ -183,7 +184,15 @@ impl LoginDb {
                     throw!(ErrorKind::DuplicateGuid(incoming.0.id.to_string()))
                 }
                 seen_ids.insert(incoming.0.id.clone());
-                sync_data.push(SyncLoginData::from_payload(incoming.0.clone(), incoming.1)?);
+                match SyncLoginData::from_payload(incoming.0.clone(), incoming.1) {
+                    Ok(v) => sync_data.push(v),
+                    Err(e) => {
+                        log::error!("Failed to deserialize record {:?}: {}", incoming.0.id, e);
+                        // Ideally we'd track new_failed, but it's unclear how
+                        // much value it has.
+                        telem.failed(1);
+                    }
+                }
             }
         }
         scope.err_if_interrupted()?;
@@ -748,9 +757,9 @@ impl LoginDb {
         telem: &mut telemetry::Engine,
         scope: &SqlInterruptScope,
     ) -> Result<OutgoingChangeset> {
-        let data = self.fetch_login_data(&inbound.changes, scope)?;
+        let mut incoming_telemetry = telemetry::EngineIncoming::new();
+        let data = self.fetch_login_data(&inbound.changes, &mut incoming_telemetry, scope)?;
         let plan = {
-            let mut incoming_telemetry = telemetry::EngineIncoming::new();
             let result = self.reconcile(data, inbound.timestamp, &mut incoming_telemetry, scope);
             telem.incoming(incoming_telemetry);
             result
@@ -930,4 +939,54 @@ lazy_static! {
     );
     static ref CLONE_SINGLE_MIRROR_SQL: String =
         format!("{} WHERE guid = :guid", &*CLONE_ENTIRE_MIRROR_SQL,);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_bad_record() {
+        let db = LoginDb::open_in_memory(Some("testing")).unwrap();
+        let scope = db.begin_interrupt_scope();
+        let mut telem = sync15::telemetry::EngineIncoming::new();
+        let res = db
+            .fetch_login_data(
+                &[
+                    // tombstone
+                    (
+                        sync15::Payload::new_tombstone("dummy_000001".into()),
+                        sync15::ServerTimestamp(10000),
+                    ),
+                    // invalid
+                    (
+                        sync15::Payload::from_json(serde_json::json!({
+                            "id": "dummy_000002",
+                            "garbage": "data",
+                            "etc": "not a login"
+                        }))
+                        .unwrap(),
+                        sync15::ServerTimestamp(10000),
+                    ),
+                    // valid
+                    (
+                        sync15::Payload::from_json(serde_json::json!({
+                            "id": "dummy_000003",
+                            "formSubmitURL": "https://www.example.com/submit",
+                            "hostname": "https://www.example.com",
+                            "username": "test",
+                            "password": "test",
+                        }))
+                        .unwrap(),
+                        sync15::ServerTimestamp(10000),
+                    ),
+                ],
+                &mut telem,
+                &scope,
+            )
+            .unwrap();
+        assert_eq!(telem.get_failed(), 1);
+        assert_eq!(res.len(), 2);
+        assert_eq!(res[0].guid, "dummy_000001");
+        assert_eq!(res[1].guid, "dummy_000003");
+    }
 }

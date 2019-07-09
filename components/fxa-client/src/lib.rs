@@ -17,8 +17,6 @@ use crate::{
     scoped_keys::ScopedKey,
 };
 pub use crate::{config::Config, oauth::AccessTokenInfo, profile::Profile};
-use lazy_static::lazy_static;
-use ring::rand::SystemRandom;
 use serde_derive::*;
 use std::{
     collections::{HashMap, HashSet},
@@ -48,10 +46,6 @@ pub mod scopes;
 pub mod send_tab;
 mod state_persistence;
 mod util;
-
-lazy_static! {
-    pub static ref RNG: SystemRandom = SystemRandom::new();
-}
 
 #[cfg(feature = "browserid")]
 type FxAClient = dyn http_client::browser_id::FxABrowserIDClient + Sync + Send;

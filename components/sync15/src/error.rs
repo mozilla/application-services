@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use failure::{Fail, SyncFailure};
+use failure::Fail;
 use interrupt::Interrupted;
+use rc_crypto::hawk;
 use std::string;
 use std::time::SystemTime;
 
@@ -79,9 +80,8 @@ pub enum ErrorKind {
     #[fail(display = "Store error: {}", _0)]
     StoreError(#[fail(cause)] failure::Error),
 
-    // Basically reimplement error_chain's foreign_links. (Ugh, this sucks)
-    #[fail(display = "OpenSSL error: {}", _0)]
-    OpensslError(#[fail(cause)] openssl::error::ErrorStack),
+    #[fail(display = "Crypto/NSS error: {}", _0)]
+    CryptoError(#[fail(cause)] rc_crypto::Error),
 
     #[fail(display = "Base64 decode error: {}", _0)]
     Base64Decode(#[fail(cause)] base64::DecodeError),
@@ -99,7 +99,7 @@ pub enum ErrorKind {
     UnexpectedStatus(#[fail(cause)] viaduct::UnexpectedStatus),
 
     #[fail(display = "HAWK error: {}", _0)]
-    HawkError(#[fail(cause)] SyncFailure<hawk::Error>),
+    HawkError(#[fail(cause)] hawk::Error),
 
     #[fail(display = "URL parse error: {}", _0)]
     MalformedUrl(#[fail(cause)] url::ParseError),
@@ -110,7 +110,7 @@ pub enum ErrorKind {
 
 error_support::define_error! {
     ErrorKind {
-        (OpensslError, openssl::error::ErrorStack),
+        (CryptoError, rc_crypto::Error),
         (Base64Decode, base64::DecodeError),
         (JsonError, serde_json::Error),
         (BadCleartextUtf8, std::string::FromUtf8Error),
@@ -120,21 +120,6 @@ error_support::define_error! {
         // A bit dubious, since we only want this to happen inside `synchronize`
         (StoreError, failure::Error),
         (Interrupted, Interrupted),
-    }
-}
-
-// These can got away when we update to the next version of Hawk,
-// in https://github.com/mozilla/application-services/pull/1050
-impl From<hawk::Error> for ErrorKind {
-    #[cold]
-    fn from(e: hawk::Error) -> ErrorKind {
-        ErrorKind::HawkError(SyncFailure::new(e))
-    }
-}
-
-impl From<hawk::Error> for Error {
-    #[cold]
-    fn from(e: hawk::Error) -> Self {
-        ErrorKind::from(e).into()
+        (HawkError, hawk::Error),
     }
 }

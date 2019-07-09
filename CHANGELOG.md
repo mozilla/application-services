@@ -1,3 +1,101 @@
+# v0.33.2 (_2019-07-04_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.33.1...v0.33.2)
+
+This release exists only to rectify a publishing error that occurred with v0.33.1.
+
+# v0.33.1 (_2019-07-04_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.33.0...v0.33.1)
+
+This release exists only to rectify a publishing error that occurred with v0.33.0.
+
+# v0.33.0 (_2019-07-04_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.3...v0.33.0)
+
+## FxA Client
+
+### Breaking Changes
+
+- iOS: FirefoxAccountError enum variants have their name `lowerCamelCased`
+  instead of `UpperCamelCased`, to better fit with common Swift code style.
+  ([#1324](https://github.com/mozilla/application-services/issues/1324))
+
+# v0.32.3 (_2019-07-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.2...v0.32.3)
+
+## Places
+
+### What's Fixed
+
+- `PlacesReaderConnection.queryAutocomplete` should return unique results. ([#970](https://github.com/mozilla/application-services/issues/970))
+
+- Ensures bookmark sync doesn't fail if a bookmark or query is missing or has an invalid URL. ([#1325](https://github.com/mozilla/application-services/issues/1325))
+
+# v0.32.2 (_2019-06-28_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.1...v0.32.2)
+
+## General
+
+- This is a release that aims to test infrastructure changes (ci-admin).
+
+- OpenSSL dependency updated. ([#1328](https://github.com/mozilla/application-services/pull/1328))
+
+# v0.32.1 (_2019-06-26_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.0...v0.32.1)
+
+## FxA Client
+
+### What's Fixed
+
+- Fixes SendTab initializeDevice in Android to use the proper device type ([#1314](https://github.com/mozilla/application-services/pull/1314))
+
+## iOS Bindings
+
+### What's Fixed
+
+- Errors emitted from the rust code should now all properly output their description. ([#1323](https://github.com/mozilla/application-services/pull/1323))
+
+## Logins
+
+### What's Fixed
+
+- Remote login records which cannot be parsed are now ignored (and reported in telemetry). [#1253](https://github.com/mozilla/application-services/issues/1253)
+
+# v0.32.0 (_2019-06-14_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.31.2...v0.32.0)
+
+## Places
+
+### What's fixed
+
+- Fix an error that could happen when the place database is closed.
+  ([#1304](https://github.com/mozilla/application-services/pull/1304))
+
+- iOS only: Ensure interruption errors don't come through as network errors.
+  ([#1304](https://github.com/mozilla/application-services/pull/1304))
+
+# v0.31.3 (_2019-07-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.31.2...v0.31.3)
+
+## General
+
+- (Backport) Update `smallvec` dependency to pick up a security fix ([#1353](https://github.com/mozilla/application-services/pull/1353))
+
+## Places
+
+- (Backport) Ensures bookmark sync doesn't fail if a bookmark or query is missing or has an invalid URL ([#1325](https://github.com/mozilla/application-services/issues/1325))
+
+## FxA Client
+
+- (Backport) Fixes SendTab initializeDevice in Android to use the proper device type ([#1314](https://github.com/mozilla/application-services/pull/1314))
+
 # v0.31.2 (_2019-06-10_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.31.1...v0.31.2)

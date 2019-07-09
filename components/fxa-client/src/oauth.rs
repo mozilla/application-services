@@ -6,9 +6,9 @@ use crate::{
     error::*,
     http_client::OAuthTokenResponse,
     scoped_keys::{ScopedKey, ScopedKeysFlow},
-    util, FirefoxAccount, RNG,
+    util, FirefoxAccount,
 };
-use ring::digest;
+use rc_crypto::digest;
 use serde_derive::*;
 use std::{
     collections::HashSet,
@@ -125,9 +125,9 @@ impl FirefoxAccount {
 
     fn oauth_flow(&mut self, mut url: Url, scopes: &[&str], wants_keys: bool) -> Result<String> {
         self.clear_access_token_cache();
-        let state = util::random_base64_url_string(&*RNG, 16)?;
-        let code_verifier = util::random_base64_url_string(&*RNG, 43)?;
-        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
+        let state = util::random_base64_url_string(16)?;
+        let code_verifier = util::random_base64_url_string(43)?;
+        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes())?;
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         url.query_pairs_mut()
             .append_pair("client_id", &self.state.config.client_id)
@@ -138,7 +138,7 @@ impl FirefoxAccount {
             .append_pair("code_challenge", &code_challenge)
             .append_pair("access_type", "offline");
         let scoped_keys_flow = if wants_keys {
-            let flow = ScopedKeysFlow::with_random_key(&*RNG)?;
+            let flow = ScopedKeysFlow::with_random_key()?;
             let jwk_json = flow.generate_keys_jwk()?;
             let keys_jwk = base64::encode_config(&jwk_json, base64::URL_SAFE_NO_PAD);
             url.query_pairs_mut().append_pair("keys_jwk", &keys_jwk);

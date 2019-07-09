@@ -58,7 +58,7 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
     // and a search if all else fails. We only try origins and URLs for
     // heuristic matches, since that's all we support.
 
-    let matches = match_with_limit(
+    let mut matches = match_with_limit(
         conn,
         &[
             // Try to match on the origin, or the full URL.
@@ -77,6 +77,9 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
         ],
         params.limit,
     )?;
+
+    matches.sort_unstable_by(|a, b| a.url.cmp(&b.url));
+    matches.dedup_by(|a, b| a.url == b.url);
 
     Ok(matches)
 }
@@ -118,7 +121,7 @@ fn match_with_limit(
 
 /// Records an accepted autocomplete match, recording the query string,
 /// and chosen URL for subsequent matches.
-pub fn accept_result(conn: &PlacesDb, result: &SearchResult) -> Result<()> {
+pub fn accept_result(conn: &PlacesDb, search_string: &str, url: &Url) -> Result<()> {
     // See `nsNavHistory::AutoCompleteFeedback`.
     conn.execute_named(
         "INSERT OR REPLACE INTO moz_inputhistory(place_id, input, use_count)
@@ -127,8 +130,8 @@ pub fn accept_result(conn: &PlacesDb, result: &SearchResult) -> Result<()> {
          LEFT JOIN moz_inputhistory i ON i.place_id = h.id AND i.input = :input_text
          WHERE url_hash = hash(:page_url) AND url = :page_url",
         &[
-            (":input_text", &result.search_string),
-            (":page_url", &result.url.as_str()),
+            (":input_text", &search_string),
+            (":page_url", &url.as_str()),
         ],
     )?;
 
@@ -663,18 +666,7 @@ mod tests {
                 && result.url.as_str() == "http://example.com/123"
                 && result.reasons == [MatchReason::Url]));
 
-        accept_result(
-            &conn,
-            &SearchResult {
-                search_string: "ample".into(),
-                url: url.clone(),
-                title: "Example page 123".into(),
-                icon_url: None,
-                frecency: -1,
-                reasons: vec![],
-            },
-        )
-        .expect("Should accept input history match");
+        accept_result(&conn, "ample", &url).expect("Should accept input history match");
 
         let by_adaptive = search_frecent(
             &conn,

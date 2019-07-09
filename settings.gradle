@@ -23,7 +23,7 @@ def setupProject(name, projectProps) {
 
     // TODO: Can we remove artifactId?
     if (name != artifactId) {
-        throw new GradleException("Project name should match artifactId")
+        throw new GradleException("Project name should match artifactId: $name != $artifactId")
     }
 
     settings.include(":$name")

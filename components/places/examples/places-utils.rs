@@ -9,8 +9,8 @@ use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use places::bookmark_sync::store::BookmarksStore;
 use places::history_sync::store::HistoryStore;
 use places::storage::bookmarks::{
-    fetch_tree, insert_tree, BookmarkNode, BookmarkRootGuid, BookmarkTreeNode, FolderNode,
-    SeparatorNode,
+    fetch_tree, insert_tree, BookmarkNode, BookmarkRootGuid, BookmarkTreeNode, FetchDepth,
+    FolderNode, SeparatorNode,
 };
 use places::types::{BookmarkType, SyncGuid, Timestamp};
 use places::{ConnectionType, PlacesApi, PlacesDb};
@@ -161,7 +161,7 @@ fn run_native_export(db: &PlacesDb, filename: String) -> Result<()> {
     let file = File::create(filename)?;
     let writer = BufWriter::new(file);
 
-    let tree = fetch_tree(db, &BookmarkRootGuid::Root.into())?.unwrap();
+    let tree = fetch_tree(db, &BookmarkRootGuid::Root.into(), &FetchDepth::Deepest)?.unwrap();
     serde_json::to_writer_pretty(writer, &tree)?;
     Ok(())
 }

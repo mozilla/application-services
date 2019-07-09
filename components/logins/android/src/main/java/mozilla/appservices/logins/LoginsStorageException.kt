@@ -51,3 +51,8 @@ class InvalidKeyException(msg: String) : LoginsStorageException(msg)
  * This error is emitted if a request to a sync server failed.
  */
 class RequestFailedException(msg: String) : LoginsStorageException(msg)
+
+/**
+ * This error is emitted if a sync or other operation is interrupted.
+ */
+class InterruptedException(msg: String) : LoginsStorageException(msg)

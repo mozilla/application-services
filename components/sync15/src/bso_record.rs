@@ -236,7 +236,7 @@ impl Payload {
         Ok(serde_json::from_value(value)?)
     }
 
-    pub fn into_record<T>(self) -> error::Result<T>
+    pub fn into_record<T>(self) -> Result<T, serde_json::Error>
     where
         for<'a> T: Deserialize<'a>,
     {
@@ -370,17 +370,7 @@ impl EncryptedPayload {
     where
         for<'a> T: Deserialize<'a>,
     {
-        let matches = key
-            .verify_hmac_string(&self.hmac, &self.ciphertext)
-            .map_err(|_| error::ErrorKind::HmacMismatch)?;
-        if !matches {
-            return Err(error::ErrorKind::HmacMismatch.into());
-        }
-
-        let iv = base64::decode(&self.iv)?;
-        let ciphertext = base64::decode(&self.ciphertext)?;
-        let cleartext = key.decrypt(&ciphertext, &iv)?;
-
+        let cleartext = key.decrypt(&self.ciphertext, &self.iv, &self.hmac)?;
         Ok(serde_json::from_str(&cleartext)?)
     }
 
@@ -389,13 +379,11 @@ impl EncryptedPayload {
         cleartext_payload: &T,
     ) -> error::Result<Self> {
         let cleartext = serde_json::to_string(cleartext_payload)?;
-        let (enc_bytes, iv) = key.encrypt_bytes_rand_iv(&cleartext.as_bytes())?;
-        let iv_base64 = base64::encode(&iv);
-        let enc_base64 = base64::encode(&enc_bytes);
-        let hmac = key.hmac_string(enc_base64.as_bytes())?;
+        let (enc_base64, iv_base64, hmac_base16) =
+            key.encrypt_bytes_rand_iv(&cleartext.as_bytes())?;
         Ok(EncryptedPayload {
             iv: iv_base64,
-            hmac,
+            hmac: hmac_base16,
             ciphertext: enc_base64,
         })
     }
@@ -508,10 +496,6 @@ mod tests {
 
         let encrypted = orig_record.clone().encrypt(&keybundle).unwrap();
 
-        assert!(keybundle
-            .verify_hmac_string(&encrypted.payload.hmac, &encrypted.payload.ciphertext)
-            .unwrap());
-
         // While we're here, check on EncryptedPayload::serialized_len
         let val_rec =
             serde_json::from_str::<JsonValue>(&serde_json::to_string(&encrypted).unwrap()).unwrap();
@@ -538,10 +522,6 @@ mod tests {
         let keybundle = KeyBundle::new_random().unwrap();
 
         let encrypted = orig_record.clone().encrypt(&keybundle).unwrap();
-
-        assert!(keybundle
-            .verify_hmac_string(&encrypted.payload.hmac, &encrypted.payload.ciphertext)
-            .unwrap());
 
         // While we're here, check on EncryptedPayload::serialized_len
         let val_rec =
@@ -575,10 +555,6 @@ mod tests {
         let keybundle = KeyBundle::new_random().unwrap();
         let encrypted = bso.clone().encrypt(&keybundle).unwrap();
 
-        assert!(keybundle
-            .verify_hmac_string(&encrypted.payload.hmac, &encrypted.payload.ciphertext)
-            .unwrap());
-
         let decrypted = encrypted.decrypt(&keybundle).unwrap();
         // We add auto fields during decryption.
         assert_eq!(decrypted.payload.data["sortindex"], 100);
@@ -604,11 +580,11 @@ mod tests {
 
         // Note: ErrorKind isn't PartialEq, so.
         match e.kind() {
-            error::ErrorKind::HmacMismatch => {
+            error::ErrorKind::CryptoError(_) => {
                 // yay.
             }
             other => {
-                panic!("Expected HMAC mismatch, got {:?}", other);
+                panic!("Expected Crypto Error, got {:?}", other);
             }
         }
     }

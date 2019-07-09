@@ -1,61 +1,89 @@
-libraryVersion: 0.31.2
+libraryVersion: 0.34.0
 groupId: org.mozilla.appservices
 projects:
   fxaclient:
     path: components/fxa-client/android
     artifactId: fxaclient
-    publishedArtifacts: [fxaclient]
+    publications:
+      - name: fxaclient
+        type: aar
     description: Firefox Accounts client.
   logins:
     path: components/logins/android
     artifactId: logins
-    publishedArtifacts: [logins]
+    publications:
+      - name: logins
+        type: aar
     description: Sync 1.5 logins implementation.
   places:
     path: components/places/android
     artifactId: places
-    publishedArtifacts: [places]
+    publications:
+      - name: places
+        type: aar
     description: Low level places storage implementation.
   rustlog:
     path: components/rc_log/android
     artifactId: rustlog
-    publishedArtifacts: [rustlog]
+    publications:
+      - name: rustlog
+        type: aar
     description: Android hook into the log crate.
   httpconfig:
     path: components/viaduct/android
     artifactId: httpconfig
-    publishedArtifacts: [httpconfig]
+    publications:
+      - name: httpconfig
+        type: aar
     description: Component allowing the configuration of Rust HTTP stack.
   native-support:
     path: components/support/android
     artifactId: native-support
-    publishedArtifacts: [native-support]
-    description: Shared types for app services kotlin.
-  sync15:
-    path: components/sync15/android
-    artifactId: sync15
-    publishedArtifacts: [sync15]
-    description: Shared Sync types for Kotlin.
+    publications:
+      - name: native-support
+        type: aar
+    description: Shared native code utilities for rust component kotlin.
   push:
     path: components/push/android
     artifactId: push
-    publishedArtifacts: [push]
+    publications:
+      - name: push
+        type: aar
     description: Low level WebPush handler implementation.
-  full-megazord:
-    uploadSymbols: true
-    path: megazords/full/android
-    artifactId: full-megazord
-    publishedArtifacts: [full-megazord, full-megazord-forUnitTests]
-    description: Megazord containing all features
+  sync15:
+    path: components/sync15/android
+    artifactId: sync15
+    publications:
+      - name: sync15
+        type: aar
+    description: Shared Sync types for Kotlin.
   lockbox-megazord:
     uploadSymbols: true
     path: megazords/lockbox/android
     artifactId: lockbox-megazord
-    publishedArtifacts: [lockbox-megazord, lockbox-megazord-forUnitTests]
+    publications:
+      - name: lockbox-megazord
+        type: aar
+      - name: lockbox-megazord-forUnitTests
+        type: jar
     description: Megazord of [fxaclient, logins, logging].
+  full-megazord:
+    uploadSymbols: true
+    path: megazords/full/android
+    artifactId: full-megazord
+    publications:
+      - name: full-megazord
+        type: aar
+      - name: full-megazord-forUnitTests
+        type: jar
+    description: Megazord containing all features
   fenix-megazord:
     uploadSymbols: true
     path: megazords/fenix/android
     artifactId: fenix-megazord
-    publishedArtifacts: [fenix-megazord, fenix-megazord-forUnitTests]
+    publications:
+      - name: fenix-megazord
+        type: aar
+      - name: fenix-megazord-forUnitTests
+        type: jar
     description: Megazord of [fxaclient, places, push, logging].

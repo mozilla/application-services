@@ -4,19 +4,6 @@
 
 use failure::Fail;
 
-impl Error {
-    pub fn internal(msg: &str) -> Self {
-        ErrorKind::InternalError(msg.to_owned()).into()
-    }
-}
-
-impl From<openssl::error::ErrorStack> for Error {
-    #[inline]
-    fn from(inner: openssl::error::ErrorStack) -> Error {
-        Error::from(ErrorKind::OpenSSLError(format!("{:?}", inner)))
-    }
-}
-
 impl From<Error> for ffi_support::ExternError {
     fn from(e: Error) -> ffi_support::ExternError {
         ffi_support::ExternError::new_error(e.kind().error_code(), format!("{:?}", e))
@@ -36,13 +23,8 @@ pub enum ErrorKind {
     #[fail(display = "General Error: {:?}", _0)]
     GeneralError(String),
 
-    /// An unspecifed Internal processing error has occurred
-    #[fail(display = "Internal Error: {:?}", _0)]
-    InternalError(String),
-
-    /// An unknown OpenSSL Cryptography error
-    #[fail(display = "OpenSSL Error: {:?}", _0)]
-    OpenSSLError(String),
+    #[fail(display = "Crypto error: {}", _0)]
+    CryptoError(String),
 
     /// A Client communication error
     #[fail(display = "Communication Error: {:?}", _0)]
@@ -70,9 +52,6 @@ pub enum ErrorKind {
     #[fail(display = "Transcoding Error: {}", _0)]
     TranscodingError(String),
 
-    #[fail(display = "Encryption Error: {}", _0)]
-    EncryptionError(String),
-
     /// A failure to parse a URL.
     #[fail(display = "URL parse error: {:?}", _0)]
     UrlParseError(#[fail(cause)] url::ParseError),
@@ -84,8 +63,7 @@ impl ErrorKind {
     pub fn error_code(&self) -> ffi_support::ErrorCode {
         let code = match self {
             ErrorKind::GeneralError(_) => 22,
-            ErrorKind::InternalError(_) => 23,
-            ErrorKind::OpenSSLError(_) => 24,
+            ErrorKind::CryptoError(_) => 24,
             ErrorKind::CommunicationError(_) => 25,
             ErrorKind::CommunicationServerError(_) => 26,
             ErrorKind::AlreadyRegisteredError => 27,
@@ -93,7 +71,6 @@ impl ErrorKind {
             ErrorKind::StorageSqlError(_) => 29,
             ErrorKind::MissingRegistrationTokenError => 30,
             ErrorKind::TranscodingError(_) => 31,
-            ErrorKind::EncryptionError(_) => 32,
             ErrorKind::UrlParseError(_) => 33,
         };
         ffi_support::ErrorCode::new(code)

@@ -253,6 +253,13 @@ internal interface LibPlacesFFI : Library {
     fun places_interrupt_handle_destroy(obj: RawPlacesInterruptHandle)
 
     fun places_destroy_bytebuffer(bb: RustBuffer.ByValue)
+
+    fun places_accept_result(
+        handle: PlacesConnectionHandle,
+        search_string: String,
+        url: String,
+        out_err: RustError.ByReference
+    )
 }
 
 internal typealias PlacesConnectionHandle = Long

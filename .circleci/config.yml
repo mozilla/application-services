@@ -68,9 +68,6 @@ commands:
   install-clang: # Used by bindgen for nss_sys.
     steps:
       - run: sudo apt-get install clang
-  install-system-nss:
-    steps:
-      - run: sudo apt-get install libnss3-dev
   build-libs:
     parameters:
       platform:
@@ -93,8 +90,25 @@ commands:
   build-desktop-libs:
     steps:
       - run: sudo apt-get install tcl
+      - run:
+          name: Install NSS build system dependencies
+          command: sudo apt-get install ninja-build gyp mercurial zlib1g-dev
       - build-libs:
           platform: desktop
+  build-ios-libs:
+    steps:
+      - run:
+          name: Install NSS build system dependencies
+          command: |
+            brew install ninja mercurial
+            pushd ..
+            git clone https://chromium.googlesource.com/external/gyp.git
+            pushd gyp
+            python setup.py install
+            popd
+            popd
+      - build-libs:
+          platform: ios
   test-setup:
     parameters:
       rust-version:
@@ -102,7 +116,6 @@ commands:
         default: "stable"
     steps:
       - checkout
-      - install-system-nss
       - build-desktop-libs
       - setup-rust-toolchain:
           rust-version: <<parameters.rust-version>>
@@ -268,8 +281,7 @@ jobs:
       - setup-rust-toolchain
       - checkout
       - setup-sccache
-      - build-libs:
-          platform: ios
+      - build-ios-libs
       # We do not use the ssccache cache helper commands as
       # the macOS cache is in a different folder.
       - restore_cache:
@@ -278,6 +290,7 @@ jobs:
       - run:
           name: Setup build environment
           command: |
+            sudo installer -pkg /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg -target /
             rustup target add aarch64-apple-ios x86_64-apple-ios
             if [ -z "${CIRCLE_TAG}" ]; then
               # On non-release builds do not update brew (takes ages).

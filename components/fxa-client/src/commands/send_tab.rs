@@ -14,11 +14,11 @@
 /// contains the tab to send and finally forms the `EncryptedSendTabPayload` that is
 /// then sent to the target device.
 use crate::{device::Device, error::*, scoped_keys::ScopedKey, scopes};
-use ece::{
-    Aes128GcmEceWebPushImpl, EcKeyComponents, LocalKeyPair, LocalKeyPairImpl, RemotePublicKey,
-    RemotePublicKeyImpl, WebPushParams,
-};
 use hex;
+use rc_crypto::ece::{
+    self, Aes128GcmEceWebPushImpl, EcKeyComponents, LocalKeyPair, LocalKeyPairImpl,
+    RemotePublicKey, RemotePublicKeyImpl, WebPushParams,
+};
 use serde_derive::*;
 use sync15::{EncryptedPayload, KeyBundle};
 

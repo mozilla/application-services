@@ -97,7 +97,6 @@ afterEvaluate {
 }
 
 apply from: "$rootDir/publish.gradle"
-
 ext.configurePublish(
         /* jnaForTestConfiguration= */ configurations.jnaForTest,
 )

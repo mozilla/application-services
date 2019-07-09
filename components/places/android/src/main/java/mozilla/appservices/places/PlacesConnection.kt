@@ -482,6 +482,13 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         }
     }
 
+    override fun acceptResult(searchString: String, url: String) {
+        rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_accept_result(
+                    this.handle.get(), searchString, url, error)
+        }
+    }
+
     @Synchronized
     override fun close() {
         // If our API is still around, do nothing.
@@ -745,6 +752,15 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
      * @param visitTimestamp The timestamp of the visit to delete, in MS since the unix epoch
      */
     fun deleteVisit(url: String, visitTimestamp: Long)
+
+    /**
+     * Records an accepted autocomplete match, recording the query string,
+     * and chosen URL for subsequent matches.
+     *
+     * @param searchString The query string
+     * @param url The chosen URL string
+     */
+    fun acceptResult(searchString: String, url: String)
 }
 
 class InterruptHandle internal constructor(raw: RawPlacesInterruptHandle) : AutoCloseable {
