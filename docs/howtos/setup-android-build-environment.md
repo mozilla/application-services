@@ -40,7 +40,6 @@ a rc file or similar so they persist between reboots etc.
 2. Install `rustup` from https://rustup.rs:
     - If you already have it, run `rustup update`
     - Run `rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android`
-    - Run `rustup toolchain add beta` (TODO: this no longer appears necessary).
 
 3. Ensure your clone of `mozilla/application-services` is up to date.
 
@@ -64,7 +63,8 @@ a rc file or similar so they persist between reboots etc.
      them somewhere - use the "SDK Manager" to identify this location.
    - Set `ANDROID_HOME` to this location and add it to your rc file.
 
-7. Build openssl and sqlcipher
+7. Build NSS, OpenSSL and sqlcipher
+    - Make sure both [GYP](https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP) and [ninja](https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages) are available on your system.
     - `cd path/to/application-services/libs` (Same dir you were just in for step 4)
     - `./build-all.sh android` (Go make some coffee or something, this will take
        some time as it has to compile sqlcipher and openssl for x86, x86_64, arm, and arm64).

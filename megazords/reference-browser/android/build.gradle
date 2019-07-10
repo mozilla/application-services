@@ -98,18 +98,16 @@ afterEvaluate {
         }
         def buildType = "${variant.buildType.name.capitalize()}"
         tasks["generate${productFlavor}${buildType}Assets"].dependsOn(tasks["cargoBuild"])
-        // Don't depend on copyNativeLibs here as NSS libs are shipped with GeckoView.
 
         // For unit tests.
         tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["cargoBuild"])
-        tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["copyNativeLibs"])
     }
 }
 
 apply from: "$rootDir/publish.gradle"
 // If using jnaForTestConfiguration or variantWithoutLib,
 // please also update the corresponding .buildconfig-android.yml
-// `publishedArtifacts` property.
+// `publications` property.
 ext.configurePublish(
         /* jnaForTestConfiguration= */ configurations.jnaForTest,
         /* variantWithoutLib= */ null,

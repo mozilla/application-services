@@ -5,11 +5,11 @@ set -euvx
 if [ "${#}" -lt 1 ] || [ "${#}" -gt 2 ]
 then
   echo "Usage:"
-  echo "./build-sqlcipher-desktop.sh <SQLCIPHER_SRC_PATH> [CROSS_COMPILE_TARGET]"
+  echo "./build-sqlcipher-desktop.sh <ABSOLUTE_SRC_DIR> [CROSS_COMPILE_TARGET]"
   exit 1
 fi
 
-SQLCIPHER_SRC_PATH=${1}
+SQLCIPHER_SRC_DIR=${1}
 # Whether to cross compile from Linux to a different target.  Really
 # only intended for automation.
 CROSS_COMPILE_TARGET=${2-}
@@ -20,28 +20,28 @@ if [ -n "${CROSS_COMPILE_TARGET}" ] && [ "$(uname -s)" != "Linux" ]; then
 fi
 
 if [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
-  SQLCIPHER_DIR=$(abspath "desktop/win32-x86-64/sqlcipher")
-  OPENSSL_DIR=$(abspath "desktop/win32-x86-64/openssl")
+  DIST_DIR=$(abspath "desktop/win32-x86-64/sqlcipher")
+  NSS_DIR=$(abspath "desktop/win32-x86-64/nss")
 elif [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
-  SQLCIPHER_DIR=$(abspath "desktop/darwin/sqlcipher")
-  OPENSSL_DIR=$(abspath "desktop/darwin/openssl")
+  DIST_DIR=$(abspath "desktop/darwin/sqlcipher")
+  NSS_DIR=$(abspath "desktop/darwin/nss")
 elif [ -n "${CROSS_COMPILE_TARGET}" ]; then
   echo "Cannot build SQLCipher for unrecognized target OS ${CROSS_COMPILE_TARGET}"
   exit 1
 elif [ "$(uname -s)" == "Darwin" ]; then
-  SQLCIPHER_DIR=$(abspath "desktop/darwin/sqlcipher")
-  OPENSSL_DIR=$(abspath "desktop/darwin/openssl")
+  DIST_DIR=$(abspath "desktop/darwin/sqlcipher")
+  NSS_DIR=$(abspath "desktop/darwin/nss")
 elif [ "$(uname -s)" == "Linux" ]; then
   # This is a JNA weirdness: "x86-64" rather than "x86_64".
-  SQLCIPHER_DIR=$(abspath "desktop/linux-x86-64/sqlcipher")
-  OPENSSL_DIR=$(abspath "desktop/linux-x86-64/openssl")
+  DIST_DIR=$(abspath "desktop/linux-x86-64/sqlcipher")
+  NSS_DIR=$(abspath "desktop/linux-x86-64/nss")
 else
    echo "Cannot build SQLcipher on unrecognized host OS $(uname -s)"
    exit 1
 fi
 
-if [ -d "${SQLCIPHER_DIR}" ]; then
-  echo "${SQLCIPHER_DIR} folder already exists. Skipping build."
+if [ -d "${DIST_DIR}" ]; then
+  echo "${DIST_DIR} folder already exists. Skipping build."
   exit 0
 fi
 
@@ -70,18 +70,35 @@ SQLCIPHER_CFLAGS=" \
   -DSQLITE_ENABLE_FTS3_PARENTHESIS \
   -DSQLITE_ENABLE_FTS4 \
   -DSQLITE_ENABLE_FTS5 \
-  -DSQLCIPHER_CRYPTO_OPENSSL \
+  -DSQLCIPHER_CRYPTO_NSS \
   -DSQLITE_ENABLE_DBSTAT_VTAB \
   -DSQLITE_SECURE_DELETE=1 \
   -DSQLITE_DEFAULT_PAGE_SIZE=32768 \
   -DSQLITE_MAX_DEFAULT_PAGE_SIZE=32768 \
+  -I${NSS_DIR}/include \
 "
 
-rm -rf "${SQLCIPHER_SRC_PATH}/build-desktop"
-mkdir -p "${SQLCIPHER_SRC_PATH}/build-desktop/install-prefix"
-pushd "${SQLCIPHER_SRC_PATH}/build-desktop"
+LIBS="\
+  -lcertdb \
+  -lcerthi \
+  -lcryptohi \
+  -lfreebl_static \
+  -lhw-acc-crypto \
+  -lnspr4 \
+  -lnss_static \
+  -lnssb \
+  -lnssdev \
+  -lnsspki \
+  -lnssutil \
+  -lpk11wrap_static \
+  -lplc4 \
+  -lplds4 \
+  -lsoftokn_static \
+  -lgcm-aes-x86_c_lib \
+"
 
-make clean || true
+BUILD_DIR=$(mktemp -d)
+pushd "${BUILD_DIR}"
 
 # Why `--with-pic --enable-shared`?  We're doing unusual things.  By
 # default, libtool builds a static library (.a) with a non-PIC .o, and
@@ -111,19 +128,19 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   # See https://searchfox.org/mozilla-central/rev/8848b9741fc4ee4e9bc3ae83ea0fc048da39979f/build/macosx/cross-mozconfig.common#12-13.
   export LD_LIBRARY_PATH=/tmp/clang/lib
 
-  ../configure --prefix="${PWD}/install-prefix" \
+  "${SQLCIPHER_SRC_DIR}/configure" \
     --with-pic \
     --disable-shared \
     --host=x86_64-apple-darwin \
     --with-crypto-lib=none \
     --disable-tcl \
     --enable-tempstore=yes \
-    CFLAGS="${CFLAGS} ${SQLCIPHER_CFLAGS} -I${OPENSSL_DIR}/include -L${OPENSSL_DIR}/lib" \
-    LDFLAGS="${LDFLAGS} -L${OPENSSL_DIR}/lib" \
-    LIBS="-lcrypto"
+    CFLAGS="${CFLAGS} ${SQLCIPHER_CFLAGS}" \
+    LDFLAGS="${LDFLAGS} -L${NSS_DIR}/lib" \
+    LIBS="${LIBS}"
 elif [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
 
-pushd ..
+pushd "${SQLCIPHER_SRC_DIR}"
 
 # From https://github.com/qTox/qTox/blob/9525505bff8719c84b6193174ea5e7ec097c54b8/windows/cross-compile/build.sh#L390-L446.
 # shellcheck disable=SC2016
@@ -152,7 +169,7 @@ EOF
 patch --forward --ignore-whitespace < Makefile.in-patch
 popd
 
-  ../configure --prefix="${PWD}/install-prefix" \
+  "${SQLCIPHER_SRC_DIR}/configure" \
     --with-pic \
     --disable-shared \
     --build=x86_64 \
@@ -161,42 +178,46 @@ popd
     --enable-tempstore=yes \
     --with-crypto-lib=none \
     --disable-tcl \
-    CFLAGS="${SQLCIPHER_CFLAGS} -I${OPENSSL_DIR}/include -L${OPENSSL_DIR}/lib" \
-    LDFLAGS="-L${OPENSSL_DIR}/lib" \
-    LIBS="-llibcrypto -lgdi32 -lws2_32"
+    CFLAGS="${SQLCIPHER_CFLAGS}" \
+    LDFLAGS="-L${NSS_DIR}/lib" \
+    LIBS="${LIBS}"
 elif [ "$(uname -s)" == "Darwin" ]; then
-  ../configure --prefix="${PWD}/install-prefix" \
+  "${SQLCIPHER_SRC_DIR}/configure" \
     --with-pic \
     --disable-shared \
     --enable-tempstore=yes \
     --with-crypto-lib=none \
     --disable-tcl \
-    CFLAGS="${SQLCIPHER_CFLAGS} -I${OPENSSL_DIR}/include -L${OPENSSL_DIR}/lib" \
-    LDFLAGS="-L${OPENSSL_DIR}/lib" \
-    LIBS="-lcrypto"
+    CFLAGS="${SQLCIPHER_CFLAGS}" \
+    LDFLAGS="-L${NSS_DIR}/lib" \
+    LIBS="${LIBS}"
 elif [ "$(uname -s)" == "Linux" ]; then
-  ../configure --prefix="${PWD}/install-prefix" \
+  "${SQLCIPHER_SRC_DIR}/configure" \
     --with-pic \
     --disable-shared \
     --enable-tempstore=yes \
     --with-crypto-lib=none \
     --disable-tcl \
-    CFLAGS="${SQLCIPHER_CFLAGS} -I${OPENSSL_DIR}/include -L${OPENSSL_DIR}/lib" \
-    LDFLAGS="-L${OPENSSL_DIR}/lib" \
-    LIBS="-lcrypto -ldl -lm -lpthread"
+    CFLAGS="${SQLCIPHER_CFLAGS}" \
+    LDFLAGS="-L${NSS_DIR}/lib" \
+    LIBS="${LIBS}"
 fi
 
-make -j6
-make install
+make sqlite3.h
+make sqlite3ext.h
+make libsqlcipher.la
 
-mkdir -p "${SQLCIPHER_DIR}/lib"
-cp -r "install-prefix/include" "${SQLCIPHER_DIR}"
-cp -p "install-prefix/lib/libsqlcipher.a" "${SQLCIPHER_DIR}/lib/libsqlcipher.a"
+mkdir -p "${DIST_DIR}/include/sqlcipher"
+mkdir -p "${DIST_DIR}/lib"
 
-chmod +w "${SQLCIPHER_DIR}/lib/libsqlcipher.a"
+cp -p "${BUILD_DIR}/sqlite3.h" "${DIST_DIR}/include/sqlcipher"
+cp -p "${BUILD_DIR}/sqlite3ext.h" "${DIST_DIR}/include/sqlcipher"
+cp -p "${BUILD_DIR}/.libs/libsqlcipher.a" "${DIST_DIR}/lib"
+
+chmod +w "${DIST_DIR}/lib/libsqlcipher.a"
 
 if [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
-  mv "${SQLCIPHER_DIR}/lib/libsqlcipher.a" "${SQLCIPHER_DIR}/lib/sqlcipher.lib"
+  mv "${DIST_DIR}/lib/libsqlcipher.a" "${DIST_DIR}/lib/sqlcipher.lib"
 fi
 
 popd

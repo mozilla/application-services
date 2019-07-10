@@ -4,10 +4,13 @@
 
 use crate::{error::*, FirefoxAccount};
 use byteorder::{BigEndian, ByteOrder};
-use ring::{aead, agreement, agreement::EphemeralPrivateKey, digest, rand::SecureRandom};
+use rc_crypto::{
+    aead, agreement,
+    agreement::{Ephemeral, KeyPair},
+    digest,
+};
 use serde_derive::*;
 use serde_json::{self, json};
-use untrusted::Input;
 
 impl FirefoxAccount {
     pub(crate) fn get_scoped_key(&self, scope: &str) -> Result<&ScopedKey> {
@@ -44,7 +47,7 @@ impl std::fmt::Debug for ScopedKey {
 }
 
 pub struct ScopedKeysFlow {
-    private_key: EphemeralPrivateKey,
+    key_pair: KeyPair<Ephemeral>,
 }
 
 /// Theorically, everything done in this file could and should be done in a JWT library.
@@ -53,18 +56,22 @@ pub struct ScopedKeysFlow {
 /// In the past, we chose cjose to do that job, but it added three C dependencies to build and link
 /// against: jansson, openssl and cjose itself.
 impl ScopedKeysFlow {
-    pub fn with_random_key(rng: &dyn SecureRandom) -> Result<ScopedKeysFlow> {
-        let private_key = EphemeralPrivateKey::generate(&agreement::ECDH_P256, rng)
+    pub fn with_random_key() -> Result<Self> {
+        let key_pair = KeyPair::<Ephemeral>::generate(&agreement::ECDH_P256)
             .map_err(|_| ErrorKind::KeyGenerationFailed)?;
-        Ok(ScopedKeysFlow { private_key })
+        Ok(Self { key_pair })
+    }
+
+    #[cfg(test)]
+    pub fn from_static_key_pair(key_pair: KeyPair<agreement::Static>) -> Result<Self> {
+        let (private_key, _) = key_pair.split();
+        let ephemeral_prv_key = private_key._tests_only_dangerously_convert_to_ephemeral();
+        let key_pair = KeyPair::from_private_key(ephemeral_prv_key)?;
+        Ok(Self { key_pair })
     }
 
     pub fn generate_keys_jwk(&self) -> Result<String> {
-        let pub_key = &self
-            .private_key
-            .compute_public_key()
-            .map_err(|_| ErrorKind::PublicKeyComputationFailed)?;
-        let pub_key_bytes = pub_key.as_ref();
+        let pub_key_bytes = self.key_pair.public_key().to_bytes()?;
         // Uncompressed form (see SECG SEC1 section 2.3.3).
         // First byte is 4, then 32 bytes for x, and 32 bytes for y.
         assert_eq!(pub_key_bytes.len(), 1 + 32 + 32);
@@ -86,66 +93,83 @@ impl ScopedKeysFlow {
         let segments: Vec<&str> = jwe.split('.').collect();
         let header = base64::decode_config(&segments[0], base64::URL_SAFE_NO_PAD)?;
         let protected_header: serde_json::Value = serde_json::from_slice(&header)?;
-        assert_eq!(protected_header["epk"]["kty"], "EC");
-        assert_eq!(protected_header["epk"]["crv"], "P-256");
+        if protected_header["epk"]["kty"] != "EC" {
+            return Err(ErrorKind::UnrecoverableServerError("Only EC keys are supported.").into());
+        }
+        if protected_header["epk"]["crv"] != "P-256" {
+            return Err(
+                ErrorKind::UnrecoverableServerError("Only P-256 curves are supported.").into(),
+            );
+        }
+        let alg = protected_header["enc"]
+            .as_str()
+            .ok_or_else(|| ErrorKind::UnrecoverableServerError("enc is not a string."))?;
+        let apu = protected_header["apu"].as_str().unwrap_or("");
+        let apv = protected_header["apv"].as_str().unwrap_or("");
 
         // Part 1: Grab the x/y from the other party and construct the secret.
         let x = base64::decode_config(
-            &protected_header["epk"]["x"].as_str().unwrap(),
+            &protected_header["epk"]["x"]
+                .as_str()
+                .ok_or_else(|| ErrorKind::UnrecoverableServerError("x is not a string."))?,
             base64::URL_SAFE_NO_PAD,
         )?;
         let y = base64::decode_config(
-            &protected_header["epk"]["y"].as_str().unwrap(),
+            &protected_header["epk"]["y"]
+                .as_str()
+                .ok_or_else(|| ErrorKind::UnrecoverableServerError("y is not a string."))?,
             base64::URL_SAFE_NO_PAD,
         )?;
-        assert_eq!(x.len(), 256 / 8);
-        assert_eq!(y.len(), 256 / 8);
+        if x.len() != (256 / 8) {
+            return Err(ErrorKind::UnrecoverableServerError("X must be 32 bytes long.").into());
+        }
+        if y.len() != (256 / 8) {
+            return Err(ErrorKind::UnrecoverableServerError("Y must be 32 bytes long.").into());
+        }
         let mut peer_pub_key: Vec<u8> = vec![0x04];
         peer_pub_key.extend_from_slice(&x);
         peer_pub_key.extend_from_slice(&y);
-        let peer_pub_key = Input::from(&peer_pub_key);
-        let secret = agreement::agree_ephemeral(
-            self.private_key,
-            &agreement::ECDH_P256,
-            peer_pub_key,
-            ErrorKind::KeyAgreementFailed,
-            |z| {
-                // ConcatKDF (1 iteration since keyLen <= hashLen).
-                // See rfc7518 section 4.6 for reference.
-                let counter = 1;
-                let alg = protected_header["enc"].as_str().unwrap();
-                let apu = protected_header["apu"].as_str().unwrap_or("");
-                let apv = protected_header["apv"].as_str().unwrap_or("");
-                let mut buf: Vec<u8> = vec![];
-                buf.extend_from_slice(&to_32b_buf(counter));
-                buf.extend_from_slice(&z);
-                // otherinfo
-                buf.extend_from_slice(&to_32b_buf(alg.len() as u32));
-                buf.extend_from_slice(alg.as_bytes());
-                buf.extend_from_slice(&to_32b_buf(apu.len() as u32));
-                buf.extend_from_slice(apu.as_bytes());
-                buf.extend_from_slice(&to_32b_buf(apv.len() as u32));
-                buf.extend_from_slice(apv.as_bytes());
-                buf.extend_from_slice(&to_32b_buf(256));
-                Ok(digest::digest(&digest::SHA256, &buf).as_ref()[0..32].to_vec())
-            },
-        )?;
+        let (private_key, _) = self.key_pair.split();
+        let ikm = private_key.agree(&agreement::ECDH_P256, &peer_pub_key)?;
+        let secret = ikm.derive(|z| {
+            // ConcatKDF (1 iteration since keyLen <= hashLen).
+            // See rfc7518 section 4.6 for reference.
+            let counter = 1;
+            let mut buf: Vec<u8> = vec![];
+            buf.extend_from_slice(&to_32b_buf(counter));
+            buf.extend_from_slice(&z);
+            // otherinfo
+            buf.extend_from_slice(&to_32b_buf(alg.len() as u32));
+            buf.extend_from_slice(alg.as_bytes());
+            buf.extend_from_slice(&to_32b_buf(apu.len() as u32));
+            buf.extend_from_slice(apu.as_bytes());
+            buf.extend_from_slice(&to_32b_buf(apv.len() as u32));
+            buf.extend_from_slice(apv.as_bytes());
+            buf.extend_from_slice(&to_32b_buf(256));
+            digest::digest(&digest::SHA256, &buf)
+        })?;
 
         // Part 2: decrypt the payload with the obtained secret
-        assert_eq!(segments[1].len(), 0); // Encrypted Key is zero-length.
+        if !segments[1].is_empty() {
+            return Err(
+                ErrorKind::UnrecoverableServerError("The Encrypted Key must be empty.").into(),
+            );
+        }
         let iv = base64::decode_config(&segments[2], base64::URL_SAFE_NO_PAD)?;
         let ciphertext = base64::decode_config(&segments[3], base64::URL_SAFE_NO_PAD)?;
         let auth_tag = base64::decode_config(&segments[4], base64::URL_SAFE_NO_PAD)?;
-        assert_eq!(auth_tag.len(), 128 / 8);
-        assert_eq!(iv.len(), 96 / 8);
+        if auth_tag.len() != (128 / 8) {
+            return Err(
+                ErrorKind::UnrecoverableServerError("The auth tag must be 16 bytes long.").into(),
+            );
+        }
         let opening_key = aead::OpeningKey::new(&aead::AES_256_GCM, &secret.as_ref())
             .map_err(|_| ErrorKind::KeyImportFailed)?;
-        let mut in_out = ciphertext.to_vec();
-        in_out.append(&mut auth_tag.to_vec());
-        // We have already asserted that iv is 12 bytes long.
-        let nonce = aead::Nonce::try_assume_unique_for_key(&iv).expect("iv was not 12 bytes long.");
+        let mut ciphertext_and_tag = ciphertext.to_vec();
+        ciphertext_and_tag.extend(&auth_tag.to_vec());
+        let nonce = aead::Nonce::try_assume_unique_for_key(&aead::AES_256_GCM, &iv)?;
         let aad = aead::Aad::from(segments[0].as_bytes());
-        let plaintext = aead::open_in_place(&opening_key, nonce, aad, 0, &mut in_out)
+        let plaintext = aead::open(&opening_key, nonce, aad, &ciphertext_and_tag)
             .map_err(|_| ErrorKind::AEADOpenFailure)?;
         String::from_utf8(plaintext.to_vec()).map_err(Into::into)
     }
@@ -160,17 +184,30 @@ fn to_32b_buf(n: u32) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ring::test::rand::FixedSliceRandom;
+    use rc_crypto::agreement::PrivateKey;
 
     #[test]
     fn test_flow() {
-        let fake_rng = FixedSliceRandom {
-            bytes: &[
-                81, 172, 131, 226, 73, 255, 225, 1, 239, 46, 242, 203, 73, 38, 128, 53, 240, 212,
-                167, 208, 28, 66, 119, 80, 187, 244, 232, 133, 2, 168, 202, 127,
-            ],
-        };
-        let flow = ScopedKeysFlow::with_random_key(&fake_rng).unwrap();
+        let x = base64::decode_config(
+            "ARvGIPJ5eIFdp6YTM-INVDqwfun2R9FfCUvXbH7QCIU",
+            base64::URL_SAFE_NO_PAD,
+        )
+        .unwrap();
+        let y = base64::decode_config(
+            "hk8gP0Po8nBh-WSiTsvsyesC5c1L6fGOEVuX8FHsvTs",
+            base64::URL_SAFE_NO_PAD,
+        )
+        .unwrap();
+        let d = base64::decode_config(
+            "UayD4kn_4QHvLvLLSSaANfDUp9AcQndQu_TohQKoyn8",
+            base64::URL_SAFE_NO_PAD,
+        )
+        .unwrap();
+        let ec_key =
+            agreement::EcKey::from_coordinates(agreement::Curve::P256, &d, &x, &y).unwrap();
+        let private_key = PrivateKey::<rc_crypto::agreement::Static>::import(&ec_key).unwrap();
+        let key_pair = KeyPair::from(private_key).unwrap();
+        let flow = ScopedKeysFlow::from_static_key_pair(key_pair).unwrap();
         let json = flow.generate_keys_jwk().unwrap();
         assert_eq!(json, "{\"crv\":\"P-256\",\"kty\":\"EC\",\"x\":\"ARvGIPJ5eIFdp6YTM-INVDqwfun2R9FfCUvXbH7QCIU\",\"y\":\"hk8gP0Po8nBh-WSiTsvsyesC5c1L6fGOEVuX8FHsvTs\"}");
 

@@ -4,26 +4,23 @@
 
 import Foundation
 
-// FIXME: these should be lower case.
-// swiftlint:disable identifier_name
-
 public enum FirefoxAccountError: LocalizedError {
-    case Unauthorized(message: String)
-    case Network(message: String)
-    case Unspecified(message: String)
-    case Panic(message: String)
+    case unauthorized(message: String)
+    case network(message: String)
+    case unspecified(message: String)
+    case panic(message: String)
 
     /// Our implementation of the localizedError protocol -- (This shows up in Sentry)
     public var errorDescription: String? {
         switch self {
-        case let .Unauthorized(message):
-            return "FirefoxAccountError.Unauthorized: \(message)"
-        case let .Network(message):
-            return "FirefoxAccountError.Network: \(message)"
-        case let .Unspecified(message):
-            return "FirefoxAccountError.Unspecified: \(message)"
-        case let .Panic(message):
-            return "FirefoxAccountError.Panic: \(message)"
+        case let .unauthorized(message):
+            return "FirefoxAccountError.unauthorized: \(message)"
+        case let .network(message):
+            return "FirefoxAccountError.network: \(message)"
+        case let .unspecified(message):
+            return "FirefoxAccountError.unspecified: \(message)"
+        case let .panic(message):
+            return "FirefoxAccountError.panic: \(message)"
         }
     }
 
@@ -36,15 +33,15 @@ public enum FirefoxAccountError: LocalizedError {
         case FxA_NoError:
             return nil
         case FxA_NetworkError:
-            return .Network(message: String(freeingFxaString: message!))
+            return .network(message: String(freeingFxaString: message!))
         case FxA_AuthenticationError:
-            return .Unauthorized(message: String(freeingFxaString: message!))
+            return .unauthorized(message: String(freeingFxaString: message!))
         case FxA_Other:
-            return .Unspecified(message: String(freeingFxaString: message!))
+            return .unspecified(message: String(freeingFxaString: message!))
         case FxA_InternalPanic:
-            return .Panic(message: String(freeingFxaString: message!))
+            return .panic(message: String(freeingFxaString: message!))
         default:
-            return .Unspecified(message: String(freeingFxaString: message!))
+            return .unspecified(message: String(freeingFxaString: message!))
         }
     }
 
