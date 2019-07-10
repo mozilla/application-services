@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::SyncGuid;
 use lazy_static::lazy_static;
+use sync_guid::Guid as SyncGuid;
 
 pub const USER_CONTENT_ROOTS: &[BookmarkRootGuid] = &[
     BookmarkRootGuid::Menu,
@@ -28,23 +28,23 @@ lazy_static! {
     static ref GUIDS: [(BookmarkRootGuid, SyncGuid); 5] = [
         (
             BookmarkRootGuid::Root,
-            SyncGuid(BookmarkRootGuid::Root.as_str().into())
+            SyncGuid::from(BookmarkRootGuid::Root.as_str())
         ),
         (
             BookmarkRootGuid::Menu,
-            SyncGuid(BookmarkRootGuid::Menu.as_str().into())
+            SyncGuid::from(BookmarkRootGuid::Menu.as_str())
         ),
         (
             BookmarkRootGuid::Toolbar,
-            SyncGuid(BookmarkRootGuid::Toolbar.as_str().into())
+            SyncGuid::from(BookmarkRootGuid::Toolbar.as_str())
         ),
         (
             BookmarkRootGuid::Unfiled,
-            SyncGuid(BookmarkRootGuid::Unfiled.as_str().into())
+            SyncGuid::from(BookmarkRootGuid::Unfiled.as_str())
         ),
         (
             BookmarkRootGuid::Mobile,
-            SyncGuid(BookmarkRootGuid::Mobile.as_str().into())
+            SyncGuid::from(BookmarkRootGuid::Mobile.as_str())
         ),
     ];
 }
@@ -71,12 +71,12 @@ impl BookmarkRootGuid {
     pub fn well_known(guid: &str) -> Option<Self> {
         GUIDS
             .iter()
-            .find(|(_, sync_guid)| sync_guid.0 == guid)
+            .find(|(_, sync_guid)| sync_guid.as_str() == guid)
             .map(|(root, _)| *root)
     }
 
     pub fn from_guid(guid: &SyncGuid) -> Option<Self> {
-        Self::well_known(&guid.0)
+        Self::well_known(guid.as_ref())
     }
 }
 
@@ -89,26 +89,26 @@ impl From<BookmarkRootGuid> for SyncGuid {
 // Allow comparisons between BookmarkRootGuid and SyncGuids
 impl PartialEq<BookmarkRootGuid> for SyncGuid {
     fn eq(&self, other: &BookmarkRootGuid) -> bool {
-        self.0 == other.as_str()
+        self.as_str().as_bytes() == other.as_str().as_bytes()
     }
 }
 
 impl PartialEq<SyncGuid> for BookmarkRootGuid {
     fn eq(&self, other: &SyncGuid) -> bool {
-        other.0 == self.as_str()
+        other.as_str().as_bytes() == self.as_str().as_bytes()
     }
 }
 
 // Even if we have a reference to &SyncGuid
 impl<'a> PartialEq<BookmarkRootGuid> for &'a SyncGuid {
     fn eq(&self, other: &BookmarkRootGuid) -> bool {
-        self.0 == other.as_str()
+        self.as_str().as_bytes() == other.as_str().as_bytes()
     }
 }
 
 impl<'a> PartialEq<&'a SyncGuid> for BookmarkRootGuid {
     fn eq(&self, other: &&'a SyncGuid) -> bool {
-        other.0 == self.as_str()
+        other.as_str().as_bytes() == self.as_str().as_bytes()
     }
 }
 

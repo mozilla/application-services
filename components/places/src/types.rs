@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::storage::bookmarks::BookmarkRootGuid;
-use dogear;
 use failure::Fail;
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
@@ -15,65 +13,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod visit_transition_set;
 pub use visit_transition_set::VisitTransitionSet;
-
-// XXX - copied from logins - surprised it's not in `sync`
-#[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
-pub struct SyncGuid(pub String);
-
-impl SyncGuid {
-    #[allow(clippy::new_without_default)] // This probably should not be called `new`...
-    pub fn new() -> Self {
-        SyncGuid(sync15::random_guid().unwrap())
-    }
-
-    pub fn as_root(&self) -> Option<BookmarkRootGuid> {
-        BookmarkRootGuid::well_known(&self.0)
-    }
-
-    pub fn is_root(&self) -> bool {
-        BookmarkRootGuid::well_known(&self.0).is_some()
-    }
-}
-
-impl AsRef<str> for SyncGuid {
-    fn as_ref(&self) -> &str {
-        self.0.as_ref()
-    }
-}
-
-impl<T> From<T> for SyncGuid
-where
-    T: Into<String>,
-{
-    fn from(x: T) -> SyncGuid {
-        SyncGuid(x.into())
-    }
-}
-
-impl From<SyncGuid> for dogear::Guid {
-    fn from(guid: SyncGuid) -> dogear::Guid {
-        guid.as_ref().into()
-    }
-}
-
-impl ToSql for SyncGuid {
-    fn to_sql(&self) -> RusqliteResult<ToSqlOutput<'_>> {
-        Ok(ToSqlOutput::from(self.0.clone())) // cloning seems wrong?
-    }
-}
-
-impl FromSql for SyncGuid {
-    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        value.as_str().map(|v| SyncGuid(v.to_string()))
-    }
-}
-
-impl fmt::Display for SyncGuid {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
 
 // Typesafe way to manage timestamps.
 // We should probably work out how to share this too?

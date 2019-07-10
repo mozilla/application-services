@@ -29,7 +29,7 @@ impl Default for PublicNode {
             // Note: we mainly want `Default::default()` for filling in the
             // missing part of struct decls.
             node_type: BookmarkType::Separator,
-            guid: SyncGuid(String::default()),
+            guid: SyncGuid::from(""),
             parent_guid: None,
             position: 0,
             date_added: Timestamp(0),
@@ -310,7 +310,7 @@ mod test {
         );
         let url = url::Url::parse("https://www.example2.com/a/b/c/d?q=v#abcde")?;
         let mut bmks = fetch_bookmarks_by_url(&conns.read, &url)?;
-        bmks.sort_by_key(|b| b.guid.0.clone());
+        bmks.sort_by_key(|b| b.guid.as_str().to_string());
         assert_eq!(bmks.len(), 2);
         assert_eq!(
             bmks[0],
@@ -395,7 +395,7 @@ mod test {
             }),
         );
         let mut bmks = search_bookmarks(&conns.read, "ample", 10)?;
-        bmks.sort_by_key(|b| b.guid.0.clone());
+        bmks.sort_by_key(|b| b.guid.as_str().to_string());
         assert_eq!(bmks.len(), 6);
         let expect = [
             ("bookmark1___", "https://www.example1.com/", "", 0),
@@ -426,7 +426,7 @@ mod test {
             ),
         ];
         for (got, want) in bmks.iter().zip(expect.iter()) {
-            assert_eq!(&got.guid.0, want.0);
+            assert_eq!(got.guid.as_str(), want.0);
             assert_eq!(got.url.as_ref().unwrap(), &url::Url::parse(want.1).unwrap());
             assert_eq!(got.title.as_ref().unwrap_or(&String::new()), want.2);
             assert_eq!(got.position, want.3);
@@ -478,8 +478,8 @@ mod test {
                 assert_eq!(
                     child.child_guids.unwrap(),
                     &[
-                        SyncGuid("bookmark1___".into()),
-                        SyncGuid("bookmark2___".into())
+                        SyncGuid::from("bookmark1___"),
+                        SyncGuid::from("bookmark2___")
                     ]
                 );
             } else {
