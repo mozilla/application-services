@@ -8,8 +8,8 @@ use serde_json::Value;
 use crate::{
     db::PlacesDb,
     storage::bookmarks::{fetch_tree, insert_tree, BookmarkTreeNode, FetchDepth},
-    types::SyncGuid,
 };
+use sync_guid::Guid as SyncGuid;
 
 use pretty_assertions::assert_eq;
 

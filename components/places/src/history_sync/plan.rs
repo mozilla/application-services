@@ -11,14 +11,14 @@ use crate::storage::history::history_sync::{
     apply_synced_deletion, apply_synced_reconciliation, apply_synced_visits, fetch_outgoing,
     fetch_visits, finish_incoming, finish_outgoing, FetchedVisit, FetchedVisitPage, OutgoingInfo,
 };
-use crate::types::{SyncGuid, Timestamp, VisitTransition};
-use crate::valid_guid::is_valid_places_guid;
+use crate::types::{Timestamp, VisitTransition};
 use interrupt::Interruptee;
 use serde_json;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
 use sync15::telemetry;
 use sync15::{IncomingChangeset, OutgoingChangeset, Payload};
+use sync_guid::Guid as SyncGuid;
 use url::Url;
 
 /// Clamps a history visit date between the current date and the earliest
@@ -65,7 +65,7 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
         Err(e) => return IncomingPlan::Invalid(e.into()),
     };
 
-    if !is_valid_places_guid(record.id.as_ref()) {
+    if !record.id.is_valid_for_places() {
         return IncomingPlan::Invalid(InvalidPlaceInfo::InvalidGuid.into());
     }
 
@@ -260,7 +260,9 @@ pub fn apply_plan(
     for (guid, out_record) in out_infos.drain() {
         let payload = match out_record {
             OutgoingInfo::Record(record) => Payload::from_record(record)?,
-            OutgoingInfo::Tombstone => Payload::new_tombstone_with_ttl(guid.0.clone(), HISTORY_TTL),
+            OutgoingInfo::Tombstone => {
+                Payload::new_tombstone_with_ttl(guid.as_str().to_string(), HISTORY_TTL)
+            }
         };
         log::trace!("outgoing {:?}", payload);
         outgoing.changes.push(payload);
@@ -451,7 +453,7 @@ mod tests {
 
         // try and add an incoming record with the same URL but different guid.
         let record = HistoryRecord {
-            id: SyncGuid::new(),
+            id: SyncGuid::from(sync15::random_guid().unwrap()),
             title: "title".into(),
             hist_uri: "https://example.com".into(),
             sortindex: 0,
@@ -475,10 +477,10 @@ mod tests {
         // This is testing the case when there are no local visits to that URL.
         let _ = env_logger::try_init();
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
-        let guid1 = SyncGuid::new();
+        let guid1 = SyncGuid::from(sync15::random_guid().unwrap());
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
 
-        let guid2 = SyncGuid::new();
+        let guid2 = SyncGuid::from(sync15::random_guid().unwrap());
         let ts2: Timestamp = SystemTime::now().into();
         let url = Url::parse("https://example.com")?;
 
@@ -535,10 +537,10 @@ mod tests {
         let _ = env_logger::try_init();
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
 
-        let guid1 = SyncGuid::new();
+        let guid1 = SyncGuid::from(sync15::random_guid().unwrap());
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
 
-        let guid2 = SyncGuid::new();
+        let guid2 = SyncGuid::from(sync15::random_guid().unwrap());
         let ts2: Timestamp = SystemTime::now().into();
         let url = Url::parse("https://example.com")?;
 
@@ -597,10 +599,10 @@ mod tests {
         let _ = env_logger::try_init();
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
 
-        let guid1 = SyncGuid::new();
+        let guid1 = SyncGuid::from(sync15::random_guid().unwrap());
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
 
-        let guid2 = SyncGuid::new();
+        let guid2 = SyncGuid::from(sync15::random_guid().unwrap());
         let ts2: Timestamp = SystemTime::now().into();
         let url = Url::parse("https://example.com")?;
 

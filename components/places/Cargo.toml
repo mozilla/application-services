@@ -32,6 +32,7 @@ bytes = "0.4.11"
 dogear = "0.2.6"
 interrupt = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
+sync-guid = { path = "../support/guid", features = ["rusqlite_support"]}
 
 [dependencies.rusqlite]
 version = "0.19.0"

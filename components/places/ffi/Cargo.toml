@@ -24,6 +24,7 @@ bytes = "0.4.12"
 viaduct = { path = "../../viaduct" }
 interrupt = { path = "../../support/interrupt" }
 sql-support = { path = "../../support/sql" }
+sync-guid = { path = "../../support/guid" }
 
 [dependencies.sync15]
 path = "../../sync15"

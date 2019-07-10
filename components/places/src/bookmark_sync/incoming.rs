@@ -13,11 +13,11 @@ use crate::storage::{
     tags::{validate_tag, ValidatedTag},
     URL_LENGTH_MAX,
 };
-use crate::types::SyncGuid;
 use rusqlite::Connection;
 use sql_support::{self, ConnExt};
 use std::iter;
 use sync15::ServerTimestamp;
+use sync_guid::Guid as SyncGuid;
 use url::Url;
 
 // From Desktop's Ci.nsINavHistoryQueryOptions, but we define it as a str
@@ -92,7 +92,7 @@ impl<'a> IncomingApplicator<'a> {
                       END
                       )"#,
             &[
-                (":guid", &b.record_id.as_guid().as_ref()),
+                (":guid", &b.record_id.as_guid().as_str()),
                 (":parentGuid", &b.parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Bookmark),
@@ -121,7 +121,7 @@ impl<'a> IncomingApplicator<'a> {
                                  WHERE guid = :guid),
                                 (SELECT id FROM moz_tags
                                  WHERE tag = :tag))",
-                        &[(":guid", &b.record_id.as_guid().as_ref()), (":tag", t)],
+                        &[(":guid", &b.record_id.as_guid().as_str()), (":tag", t)],
                     )?;
                 }
             };
@@ -136,7 +136,7 @@ impl<'a> IncomingApplicator<'a> {
                VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
                       :dateAdded, NULLIF(:title, ""))"#,
             &[
-                (":guid", &f.record_id.as_guid().as_ref()),
+                (":guid", &f.record_id.as_guid().as_str()),
                 (":parentGuid", &f.parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Folder),
@@ -171,7 +171,7 @@ impl<'a> IncomingApplicator<'a> {
                     &sql,
                     iter::once(&f.record_id)
                         .chain(chunk.iter())
-                        .map(|record_id| record_id.as_guid().as_ref()),
+                        .map(|record_id| record_id.as_guid().as_str()),
                 )?;
                 Ok(())
             },
@@ -273,7 +273,7 @@ impl<'a> IncomingApplicator<'a> {
                       )
                      )"#,
             &[
-                (":guid", &q.record_id.as_guid().as_ref()),
+                (":guid", &q.record_id.as_guid().as_str()),
                 (":parentGuid", &q.parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Query),
@@ -324,7 +324,7 @@ impl<'a> IncomingApplicator<'a> {
              VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
                     :dateAdded, :title, :feedUrl, :siteUrl, :validity)",
             &[
-                (":guid", &l.record_id.as_guid().as_ref()),
+                (":guid", &l.record_id.as_guid().as_str()),
                 (
                     ":parentGuid",
                     &l.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
@@ -348,7 +348,7 @@ impl<'a> IncomingApplicator<'a> {
              VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
                     :dateAdded)",
             &[
-                (":guid", &s.record_id.as_guid().as_ref()),
+                (":guid", &s.record_id.as_guid().as_str()),
                 (
                     ":parentGuid",
                     &s.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
@@ -469,7 +469,7 @@ mod tests {
     #[test]
     fn test_apply_folder() {
         let children = (1..sql_support::default_max_variable_number() * 2)
-            .map(|i| SyncGuid(format!("{:A>12}", i)))
+            .map(|i| SyncGuid::from(format!("{:A>12}", i)))
             .collect::<Vec<_>>();
         let value = serde_json::to_value(BookmarkItemRecord::from(FolderRecord {
             record_id: BookmarkRecordId::from_payload_id("folderAAAAAA".into()),

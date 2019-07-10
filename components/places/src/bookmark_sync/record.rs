@@ -4,12 +4,13 @@
 
 use std::fmt;
 
-use crate::{storage::bookmarks::BookmarkRootGuid, types::SyncGuid};
+use crate::storage::bookmarks::BookmarkRootGuid;
 use serde::{
     de::{Deserialize, Deserializer, Visitor},
     ser::{Serialize, Serializer},
 };
 use serde_derive::*;
+use sync_guid::Guid as SyncGuid;
 
 /// A bookmark record ID. Bookmark record IDs are the same as Places GUIDs,
 /// except for:
@@ -35,7 +36,7 @@ impl BookmarkRecordId {
             "toolbar" => BookmarkRootGuid::Toolbar.as_guid(),
             "unfiled" => BookmarkRootGuid::Unfiled.as_guid(),
             "mobile" => BookmarkRootGuid::Mobile.as_guid(),
-            _ => SyncGuid(payload_id),
+            _ => SyncGuid::from(payload_id),
         })
     }
 
@@ -53,7 +54,7 @@ impl BookmarkRecordId {
     pub fn into_payload_id(self) -> String {
         self.root_payload_id()
             .map(Into::into)
-            .unwrap_or_else(|| (self.0).0)
+            .unwrap_or_else(|| (self.0).into_string())
     }
 
     /// Returns a reference to the GUID for this record ID.

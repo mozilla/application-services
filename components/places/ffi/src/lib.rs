@@ -15,11 +15,12 @@ use ffi_support::{
 use places::error::*;
 use places::msg_types::BookmarkNodeList;
 use places::storage::bookmarks;
-use places::types::{SyncGuid, VisitTransitionSet};
+use places::types::VisitTransitionSet;
 use places::{storage, ConnectionType, PlacesApi, PlacesDb};
 use sql_support::SqlInterruptHandle;
 use std::os::raw::c_char;
 use std::sync::Arc;
+use sync_guid::Guid as SyncGuid;
 
 use places::api::matcher::{self, match_url, search_frecent, SearchParams};
 
@@ -481,7 +482,7 @@ pub extern "C" fn bookmarks_get_tree(
 ) -> ByteBuffer {
     log::debug!("bookmarks_get_tree");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let root_id = SyncGuid(guid.into());
+        let root_id = SyncGuid::from(guid.as_str());
         Ok(bookmarks::public_node::fetch_public_tree(conn, &root_id)?)
     })
 }
@@ -495,7 +496,7 @@ pub extern "C" fn bookmarks_get_by_guid(
 ) -> ByteBuffer {
     log::debug!("bookmarks_get_by_guid");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let guid = SyncGuid(guid.into());
+        let guid = SyncGuid::from(guid.as_str());
         Ok(bookmarks::public_node::fetch_bookmark(
             conn,
             &guid,
@@ -529,7 +530,7 @@ pub unsafe extern "C" fn bookmarks_insert(
         let bookmark: BookmarkNode = prost::Message::decode(buffer)?;
         let insertable = bookmark.into_insertable()?;
         let guid = bookmarks::insert_bookmark(conn, &insertable)?;
-        Ok(guid.0)
+        Ok(guid.into_string())
     })
 }
 
@@ -554,7 +555,7 @@ pub unsafe extern "C" fn bookmarks_update(
 pub extern "C" fn bookmarks_delete(handle: u64, id: FfiStr<'_>, error: &mut ExternError) -> u8 {
     log::debug!("bookmarks_delete");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let guid = SyncGuid(id.into_string());
+        let guid = SyncGuid::from(id.as_str());
         let did_delete = bookmarks::delete_bookmark(conn, &guid)?;
         Ok(did_delete)
     })
