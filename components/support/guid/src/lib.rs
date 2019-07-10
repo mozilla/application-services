@@ -4,6 +4,8 @@
 
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
+// (It's tempting to avoid the utf8 checks, but they're easy to get wrong, so)
+#![deny(unsafe_code)]
 #[cfg(feature = "serde_support")]
 mod serde_support;
 
@@ -39,16 +41,19 @@ enum Repr {
     Fast(FastGuid),
 
     // invariants:
-    // - _0.len() <= MAX_GUID_LEN
-    // - _0.bytes().all(|&b| Guid::is_valid_byte(b))
+    // - _0.len() > MAX_FAST_GUID_LEN
     Slow(String),
 }
 
+/// Invariants:
+///
+/// - `len <= MAX_FAST_GUID_LEN`.
+/// - `data[0..len]` encodes valid utf8.
+/// - `data[len..].iter().all(|&b| b == b'\0')`
+///
+/// Note: None of these are required for memory safety, just correctness.
 #[derive(Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 struct FastGuid {
-    // invariants:
-    // - len <= MAX_FAST_GUID_LEN.
-    // - data[0..len].iter().all(|&b| Guid::is_valid_byte(b))
     len: u8,
     data: [u8; MAX_FAST_GUID_LEN],
 }
@@ -61,7 +66,7 @@ const MAX_FAST_GUID_LEN: usize = 14;
 impl FastGuid {
     #[inline]
     fn from_slice(bytes: &[u8]) -> Self {
-        // Cecked by the caller, so debug_assert is fine.
+        // Checked by the caller, so debug_assert is fine.
         debug_assert!(
             can_use_fast(bytes),
             "Bug: Caller failed to check can_use_fast: {:?}",
@@ -77,14 +82,8 @@ impl FastGuid {
 
     #[inline]
     fn as_str(&self) -> &str {
-        // Sanity check we weren't mutated and that nobody's creating us in other ways.
-        debug_assert!(
-            can_use_fast(self.bytes()),
-            "Bug: FastGuid bytes became invalid: {:?}",
-            self.bytes()
-        );
-        // This should never fail, but it's not worth using unsafe for.
-        str::from_utf8(self.bytes()).unwrap()
+        // Note: we only use debug_assert! to enusre valid utf8-ness, so this need
+        str::from_utf8(self.bytes()).expect("Invalid fast guid bytes!")
     }
 
     #[inline]
@@ -103,37 +102,37 @@ impl FastGuid {
 // - false to use Repr::Slow
 #[inline]
 fn can_use_fast<T: ?Sized + AsRef<[u8]>>(bytes: &T) -> bool {
-    bytes.as_ref().len() <= MAX_FAST_GUID_LEN
+    let bytes = bytes.as_ref();
+    // This is fine as a debug_assert since we'll still panic if it's ever used
+    // in such a way where it would matter.
+    debug_assert!(str::from_utf8(bytes).is_ok());
+    bytes.len() <= MAX_FAST_GUID_LEN
 }
 
 impl Guid {
-    /// Try to convert `b` into a `Guid`.
+    /// Convert `b` into a `Guid`.
     #[inline]
     fn from_string(s: String) -> Self {
         Guid::from_vec(s.into_bytes())
     }
 
-    /// Try to convert `b` into a `Guid`.
+    /// Convert `b` into a `Guid`.
     #[inline]
     fn from_slice(b: &[u8]) -> Self {
         if can_use_fast(b) {
             Guid(Repr::Fast(FastGuid::from_slice(b)))
         } else {
-            debug_assert!(b.iter().all(|v| v.is_ascii()));
-            // This unwrap can't fire unless there's a bug in `can_use_fast`,
-            // but it's not worth using unsafe here.
-            Guid(Repr::Slow(String::from_utf8(b.into()).unwrap()))
+            Guid::new_slow(b.into())
         }
     }
 
-    /// Try to convert `v` to a `Guid`, consuming it.
+    /// Convert `v` to a `Guid`, consuming it.
     #[inline]
     fn from_vec(v: Vec<u8>) -> Self {
         if can_use_fast(&v) {
             Guid(Repr::Fast(FastGuid::from_slice(&v)))
         } else {
-            debug_assert!(v.iter().all(|b| b.is_ascii()));
-            Guid(Repr::Slow(String::from_utf8(v).unwrap()))
+            Guid::new_slow(v)
         }
     }
 
@@ -169,17 +168,22 @@ impl Guid {
         self.len() == 12 && self.bytes().all(Guid::is_valid_places_byte)
     }
 
-    /// Returns true if the byte `b` is a character that is allowed to
-    /// appear in a GUID.
-    #[inline]
-    pub fn is_valid_byte(b: u8) -> bool {
-        b' ' <= b && b <= b'~'
-    }
-
     /// Returns true if the byte `b` is a valid base64url byte.
     #[inline]
     pub fn is_valid_places_byte(b: u8) -> bool {
         BASE64URL_BYTES[b as usize] == 1
+    }
+
+    #[cold]
+    fn new_slow(v: Vec<u8>) -> Self {
+        assert!(
+            !can_use_fast(&v),
+            "Could use fast for guid (len = {})",
+            v.len()
+        );
+        Guid(Repr::Slow(
+            String::from_utf8(v).expect("Invalid slow guid bytes!"),
+        ))
     }
 }
 
