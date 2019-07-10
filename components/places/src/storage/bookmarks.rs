@@ -291,10 +291,7 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
               (:fk, :type, :parent, :position, :title, :dateAdded, :lastModified,
                :guid, :syncStatus, :syncChangeCounter)";
 
-    let guid = bm
-        .guid()
-        .clone()
-        .unwrap_or_else(|| SyncGuid::from(sync15::random_guid().unwrap()));
+    let guid = bm.guid().clone().unwrap_or_else(SyncGuid::random);
     let date_added = bm.date_added().unwrap_or_else(Timestamp::now);
     // last_modified can't be before date_added
     let last_modified = max(
@@ -910,7 +907,7 @@ mod test_serialize {
 
     #[test]
     fn test_tree_serialize() -> Result<()> {
-        let guid = SyncGuid::from(sync15::random_guid().unwrap());
+        let guid = SyncGuid::random();
         let tree = BookmarkTreeNode::Folder(FolderNode {
             guid: Some(guid.clone()),
             date_added: None,
@@ -1036,10 +1033,7 @@ fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Ve
                 .into(),
             ),
             BookmarkTreeNode::Folder(f) => {
-                let my_guid = f
-                    .guid
-                    .clone()
-                    .unwrap_or_else(|| SyncGuid::from(sync15::random_guid().unwrap()));
+                let my_guid = f.guid.clone().unwrap_or_else(SyncGuid::random);
                 // must add the folder before we recurse into children.
                 insert_infos.push(
                     InsertableFolder {
@@ -1493,10 +1487,10 @@ mod tests {
         let _ = env_logger::try_init();
         let conn = new_mem_connection();
 
-        let guid1 = SyncGuid::from(sync15::random_guid().unwrap());
-        let guid2 = SyncGuid::from(sync15::random_guid().unwrap());
-        let guid2_1 = SyncGuid::from(sync15::random_guid().unwrap());
-        let guid3 = SyncGuid::from(sync15::random_guid().unwrap());
+        let guid1 = SyncGuid::random();
+        let guid2 = SyncGuid::random();
+        let guid2_1 = SyncGuid::random();
+        let guid3 = SyncGuid::random();
 
         let jtree = json!({
             "guid": &BookmarkRootGuid::Unfiled.as_guid(),

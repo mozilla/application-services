@@ -147,7 +147,7 @@ fn fetch_page_info(db: &PlacesDb, url: &Url) -> Result<Option<FetchedPageInfo>> 
 fn new_page_info(db: &PlacesDb, url: &Url, new_guid: Option<SyncGuid>) -> Result<PageInfo> {
     let guid = match new_guid {
         Some(guid) => guid,
-        None => SyncGuid::from(sync15::random_guid().unwrap()),
+        None => SyncGuid::random(),
     };
     let url_str = url.as_str();
     if url_str.len() > URL_LENGTH_MAX {

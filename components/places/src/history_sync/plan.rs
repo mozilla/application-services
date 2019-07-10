@@ -453,7 +453,7 @@ mod tests {
 
         // try and add an incoming record with the same URL but different guid.
         let record = HistoryRecord {
-            id: SyncGuid::from(sync15::random_guid().unwrap()),
+            id: SyncGuid::random(),
             title: "title".into(),
             hist_uri: "https://example.com".into(),
             sortindex: 0,
@@ -477,10 +477,10 @@ mod tests {
         // This is testing the case when there are no local visits to that URL.
         let _ = env_logger::try_init();
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
-        let guid1 = SyncGuid::from(sync15::random_guid().unwrap());
+        let guid1 = SyncGuid::random();
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
 
-        let guid2 = SyncGuid::from(sync15::random_guid().unwrap());
+        let guid2 = SyncGuid::random();
         let ts2: Timestamp = SystemTime::now().into();
         let url = Url::parse("https://example.com")?;
 
@@ -537,10 +537,10 @@ mod tests {
         let _ = env_logger::try_init();
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
 
-        let guid1 = SyncGuid::from(sync15::random_guid().unwrap());
+        let guid1 = SyncGuid::random();
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
 
-        let guid2 = SyncGuid::from(sync15::random_guid().unwrap());
+        let guid2 = SyncGuid::random();
         let ts2: Timestamp = SystemTime::now().into();
         let url = Url::parse("https://example.com")?;
 
@@ -599,10 +599,10 @@ mod tests {
         let _ = env_logger::try_init();
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
 
-        let guid1 = SyncGuid::from(sync15::random_guid().unwrap());
+        let guid1 = SyncGuid::random();
         let ts1: Timestamp = (SystemTime::now() - Duration::new(5, 0)).into();
 
-        let guid2 = SyncGuid::from(sync15::random_guid().unwrap());
+        let guid2 = SyncGuid::random();
         let ts2: Timestamp = SystemTime::now().into();
         let url = Url::parse("https://example.com")?;
 

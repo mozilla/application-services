@@ -344,7 +344,7 @@ mod sql_fns {
 
     #[inline(never)]
     pub fn generate_guid(_ctx: &Context<'_>) -> Result<SyncGuid> {
-        Ok(SyncGuid::from(sync15::random_guid().unwrap()))
+        Ok(SyncGuid::random())
     }
 }
 

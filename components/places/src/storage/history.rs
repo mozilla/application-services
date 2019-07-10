@@ -2070,7 +2070,7 @@ mod tests {
 
         apply_synced_visits(
             &conn,
-            &SyncGuid::from(sync15::random_guid().unwrap()),
+            &SyncGuid::random(),
             &url::Url::parse("http://www.example.com/123").unwrap(),
             &None,
             &[
@@ -2102,7 +2102,7 @@ mod tests {
         // Check that we don't insert a place if all visits are too old.
         apply_synced_visits(
             &conn,
-            &SyncGuid::from(sync15::random_guid().unwrap()),
+            &SyncGuid::random(),
             &url::Url::parse("http://www.example.com/1234").unwrap(),
             &None,
             &[HistoryRecordVisit {

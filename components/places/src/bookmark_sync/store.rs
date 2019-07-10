@@ -667,9 +667,7 @@ struct Driver {
 
 impl dogear::Driver for Driver {
     fn generate_new_guid(&self, _invalid_guid: &dogear::Guid) -> dogear::Result<dogear::Guid> {
-        Ok(SyncGuid::from(sync15::random_guid().unwrap())
-            .as_str()
-            .into())
+        Ok(SyncGuid::random().as_str().into())
     }
 
     fn record_telemetry_event(&self, event: TelemetryEvent) {
