@@ -110,15 +110,54 @@ fn can_use_fast<T: ?Sized + AsRef<[u8]>>(bytes: &T) -> bool {
 }
 
 impl Guid {
+    /// Create a guid from a `str`.
+    #[inline]
+    pub fn new(s: &str) -> Self {
+        Guid::from_slice(s.as_ref())
+    }
+
+    /// Create an empty guid. Usable as a constant.
+    #[inline]
+    pub const fn empty() -> Self {
+        Guid(Repr::Fast(FastGuid {
+            len: 0,
+            data: [0u8; MAX_FAST_GUID_LEN],
+        }))
+    }
+
+    /// Create a random guid (of 12 base64url characters). Requires the `random`
+    /// feature.
+    #[cfg(feature = "random")]
+    pub fn random() -> Self {
+        let mut bytes = [0u8; 9];
+        // TODO: investigate if we should replace this with something infallible
+        // (from e.g. `rand`)
+        rc_crypto::rand::fill(&mut bytes).unwrap();
+
+        // Note: only first 12 bytes are used, but remaining are required to
+        // build the FastGuid
+        let mut output = [0u8; MAX_FAST_GUID_LEN];
+
+        let bytes_written =
+            base64::encode_config_slice(&bytes, base64::URL_SAFE_NO_PAD, &mut output[..12]);
+
+        debug_assert!(bytes_written == 12);
+
+        Guid(Repr::Fast(FastGuid {
+            len: 12,
+            data: output,
+        }))
+    }
+
     /// Convert `b` into a `Guid`.
     #[inline]
-    fn from_string(s: String) -> Self {
+    pub fn from_string(s: String) -> Self {
         Guid::from_vec(s.into_bytes())
     }
 
     /// Convert `b` into a `Guid`.
     #[inline]
-    fn from_slice(b: &[u8]) -> Self {
+    pub fn from_slice(b: &[u8]) -> Self {
         if can_use_fast(b) {
             Guid(Repr::Fast(FastGuid::from_slice(b)))
         } else {
@@ -128,7 +167,7 @@ impl Guid {
 
     /// Convert `v` to a `Guid`, consuming it.
     #[inline]
-    fn from_vec(v: Vec<u8>) -> Self {
+    pub fn from_vec(v: Vec<u8>) -> Self {
         if can_use_fast(&v) {
             Guid(Repr::Fast(FastGuid::from_slice(&v)))
         } else {
@@ -349,5 +388,24 @@ mod test {
             Guid::from("abcdabcdabcd4321"),
             Vec::from(b"ABCDabcdabcd4321".as_ref())
         );
+    }
+
+    #[cfg(feature = "random")]
+    #[test]
+    fn test_random() {
+        use std::collections::HashSet;
+        // Used to verify uniqueness within our sample of 1000. Could cause
+        // random failures, but desktop has the same test, and it's never caused
+        // a problem AFAIK.
+        let mut seen: HashSet<String> = HashSet::new();
+        for _ in 0..1000 {
+            let g = Guid::random();
+            assert_eq!(g.len(), 12);
+            assert!(g.is_valid_for_places());
+            let decoded = base64::decode_config(&g, base64::URL_SAFE_NO_PAD).unwrap();
+            assert_eq!(decoded.len(), 9);
+            let no_collision = seen.insert(g.clone().into_string());
+            assert!(no_collision, "{}", g);
+        }
     }
 }

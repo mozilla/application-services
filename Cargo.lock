@@ -2452,6 +2452,8 @@ dependencies = [
 name = "sync-guid"
 version = "0.1.0"
 dependencies = [
+ "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rc_crypto 0.1.0",
  "rusqlite 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.94 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_test 1.0.94 (registry+https://github.com/rust-lang/crates.io-index)",
