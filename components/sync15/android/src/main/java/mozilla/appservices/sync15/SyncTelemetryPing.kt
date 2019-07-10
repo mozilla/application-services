@@ -4,9 +4,8 @@
 
 package mozilla.appservices.sync15
 
-import mozilla.appservices.support.stringOrNull
-import mozilla.appservices.support.unwrapFromJSON
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
 
 /**
@@ -497,4 +496,25 @@ private fun intOrZero(jsonObject: JSONObject, key: String): Int {
     return unwrapFromJSON(jsonObject) {
         it.getInt(key)
     } ?: 0
+}
+
+/**
+ * Extracts an optional property value from a JSON object, returning `null` if
+ * the property doesn't exist.
+ */
+inline fun <T> unwrapFromJSON(jsonObject: JSONObject, func: (JSONObject) -> T): T? {
+    return try {
+        func(jsonObject)
+    } catch (e: JSONException) {
+        null
+    }
+}
+
+/**
+ * Extracts an optional string value from a JSON object.
+ */
+fun stringOrNull(jsonObject: JSONObject, key: String): String? {
+    return unwrapFromJSON(jsonObject) {
+        it.getString(key)
+    }
 }
