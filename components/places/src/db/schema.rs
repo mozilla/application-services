@@ -267,7 +267,7 @@ mod tests {
     #[test]
     fn test_places_no_tombstone() {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
-        let guid = SyncGuid::from(sync15::random_guid().unwrap());
+        let guid = SyncGuid::random();
 
         conn.execute_named_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES (:guid, :url, hash(:url))",
@@ -297,7 +297,7 @@ mod tests {
     #[test]
     fn test_places_tombstone_removal() {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
-        let guid = SyncGuid::from(sync15::random_guid().unwrap());
+        let guid = SyncGuid::random();
 
         conn.execute_named_cached(
             "INSERT INTO moz_places_tombstones VALUES (:guid)",
@@ -398,11 +398,11 @@ mod tests {
     fn test_bookmark_foreign_count_triggers() {
         // create the place.
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
-        let guid1 = SyncGuid::from(sync15::random_guid().unwrap());
+        let guid1 = SyncGuid::random();
         let url1 = Url::parse("http://example.com")
             .expect("valid url")
             .into_string();
-        let guid2 = SyncGuid::from(sync15::random_guid().unwrap());
+        let guid2 = SyncGuid::random();
         let url2 = Url::parse("http://example2.com")
             .expect("valid url")
             .into_string();
