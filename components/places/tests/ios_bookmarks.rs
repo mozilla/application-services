@@ -7,13 +7,14 @@ use places::{
     api::places_api::{ConnectionType, PlacesApi},
     import::ios_bookmarks::IosBookmarkType,
     storage::bookmarks,
-    Result, SyncGuid, Timestamp,
+    Result, Timestamp,
 };
 use rusqlite::Connection;
 use sql_support::ConnExt;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use sync_guid::Guid as SyncGuid;
 use tempfile::tempdir;
 
 fn empty_ios_db(path: &Path) -> Result<Connection> {
@@ -341,7 +342,7 @@ fn test_import_empty() -> Result<()> {
 // XXX SyncGuid is a pain to work with, but apparently dogear::Guid can't turn
 // into it because of our blanket into impl... ;_;
 fn sync_guid(d: &dogear::Guid) -> SyncGuid {
-    SyncGuid(d.as_str().to_owned())
+    SyncGuid::from(d.as_str())
 }
 
 #[test]

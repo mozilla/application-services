@@ -7,9 +7,10 @@ use crate::{
     db::PlacesDb,
     error::*,
     storage::RowId,
-    types::{SyncGuid, Timestamp},
+    types::Timestamp,
 };
 use rusqlite::Row;
+use sync_guid::Guid as SyncGuid;
 
 use sql_support::{self, ConnExt};
 use sync15::ServerTimestamp;
@@ -205,7 +206,7 @@ impl SyncedBookmarkItem {
                         let parts = t.splitn(2, ':').collect::<Vec<_>>();
                         (
                             parts[0].parse::<i64>().unwrap(),
-                            SyncGuid(parts[1].to_owned()),
+                            SyncGuid::from(parts[1].to_owned()),
                         )
                     })
                     .collect::<Vec<_>>()

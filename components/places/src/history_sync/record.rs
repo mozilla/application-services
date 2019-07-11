@@ -4,8 +4,8 @@
 
 use super::ServerVisitTimestamp;
 use crate::error::*;
-use crate::types::SyncGuid;
 use serde_derive::*;
+use sync_guid::Guid as SyncGuid;
 
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]

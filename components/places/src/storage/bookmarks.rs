@@ -6,7 +6,7 @@ use super::RowId;
 use super::{fetch_page_info, new_page_info};
 use crate::db::PlacesDb;
 use crate::error::*;
-use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
+use crate::types::{BookmarkType, SyncStatus, Timestamp};
 use rusqlite::types::ToSql;
 use rusqlite::{Connection, Row};
 use serde::{
@@ -19,6 +19,7 @@ use serde_json::{self, json};
 use sql_support::{self, ConnExt};
 use std::cmp::{max, min};
 use std::collections::HashMap;
+use sync_guid::Guid as SyncGuid;
 use url::Url;
 
 pub use public_node::PublicNode;
@@ -45,7 +46,7 @@ fn create_root(
              (SELECT id FROM moz_bookmarks WHERE guid = {:?}),
              1, :sync_status)
         ",
-        BookmarkRootGuid::Root.as_guid().as_ref()
+        BookmarkRootGuid::Root.as_guid().as_str()
     );
     let params: Vec<(&str, &dyn ToSql)> = vec![
         (":item_type", &BookmarkType::Folder),
@@ -290,7 +291,10 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
               (:fk, :type, :parent, :position, :title, :dateAdded, :lastModified,
                :guid, :syncStatus, :syncChangeCounter)";
 
-    let guid = bm.guid().clone().unwrap_or_else(SyncGuid::new);
+    let guid = bm
+        .guid()
+        .clone()
+        .unwrap_or_else(|| SyncGuid::from(sync15::random_guid().unwrap()));
     let date_added = bm.date_added().unwrap_or_else(Timestamp::now);
     // last_modified can't be before date_added
     let last_modified = max(
@@ -375,7 +379,7 @@ pub fn delete_bookmark(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
 
 fn delete_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
     // Can't delete a root.
-    if let Some(root) = guid.as_root() {
+    if let Some(root) = BookmarkRootGuid::well_known(&guid.as_str()) {
         return Err(InvalidPlaceInfo::CannotUpdateRoot(root).into());
     }
     let record = match get_raw_bookmark(db, guid)? {
@@ -500,7 +504,8 @@ fn update_bookmark_in_tx(
     item: &UpdatableItem,
     raw: RawBookmark,
 ) -> Result<()> {
-    if guid.is_root() {
+    // if guid is root
+    if BookmarkRootGuid::well_known(&guid.as_str()).is_some() {
         return Err(InvalidPlaceInfo::CannotUpdateRoot(BookmarkRootGuid::Root).into());
     }
     let existing_parent_guid = raw
@@ -905,7 +910,7 @@ mod test_serialize {
 
     #[test]
     fn test_tree_serialize() -> Result<()> {
-        let guid = SyncGuid::new();
+        let guid = SyncGuid::from(sync15::random_guid().unwrap());
         let tree = BookmarkTreeNode::Folder(FolderNode {
             guid: Some(guid.clone()),
             date_added: None,
@@ -1031,7 +1036,10 @@ fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Ve
                 .into(),
             ),
             BookmarkTreeNode::Folder(f) => {
-                let my_guid = f.guid.clone().unwrap_or_else(SyncGuid::new);
+                let my_guid = f
+                    .guid
+                    .clone()
+                    .unwrap_or_else(|| SyncGuid::from(sync15::random_guid().unwrap()));
                 // must add the folder before we recurse into children.
                 insert_infos.push(
                     InsertableFolder {
@@ -1485,10 +1493,10 @@ mod tests {
         let _ = env_logger::try_init();
         let conn = new_mem_connection();
 
-        let guid1 = SyncGuid::new();
-        let guid2 = SyncGuid::new();
-        let guid2_1 = SyncGuid::new();
-        let guid3 = SyncGuid::new();
+        let guid1 = SyncGuid::from(sync15::random_guid().unwrap());
+        let guid2 = SyncGuid::from(sync15::random_guid().unwrap());
+        let guid2_1 = SyncGuid::from(sync15::random_guid().unwrap());
+        let guid3 = SyncGuid::from(sync15::random_guid().unwrap());
 
         let jtree = json!({
             "guid": &BookmarkRootGuid::Unfiled.as_guid(),

@@ -10,7 +10,8 @@ use super::{
 
 use crate::error::{InvalidPlaceInfo, Result};
 use crate::msg_types;
-use crate::types::{BookmarkType, SyncGuid};
+use crate::types::BookmarkType;
+use sync_guid::Guid as SyncGuid;
 use url::Url;
 
 impl From<BookmarkTreeNode> for PublicNode {
@@ -66,17 +67,17 @@ impl From<PublicNode> for msg_types::BookmarkNode {
         };
         Self {
             node_type: Some(n.node_type as i32),
-            guid: Some(n.guid.0),
+            guid: Some(n.guid.into_string()),
             date_added: Some(n.date_added.0 as i64),
             last_modified: Some(n.last_modified.0 as i64),
             title: n.title,
             url: n.url.map(url::Url::into_string),
-            parent_guid: n.parent_guid.map(|g| g.0),
+            parent_guid: n.parent_guid.map(|g| g.into_string()),
             position: Some(n.position),
             child_guids: n.child_guids.map_or(vec![], |child_guids| {
                 child_guids
                     .into_iter()
-                    .map(|m| m.0)
+                    .map(|m| m.into_string())
                     .collect::<Vec<String>>()
             }),
             child_nodes: n.child_nodes.map_or(vec![], |nodes| {
@@ -243,10 +244,10 @@ impl From<msg_types::BookmarkNode> for BookmarkUpdateInfo {
         Self {
             // This is a bug in our code on the other side of the FFI,
             // so expect should be fine.
-            guid: SyncGuid(n.guid.expect("Missing guid")),
+            guid: SyncGuid::from(n.guid.expect("Missing guid")),
             title: n.title,
             url: n.url,
-            parent_guid: n.parent_guid.map(SyncGuid),
+            parent_guid: n.parent_guid.map(SyncGuid::from),
             position: n.position,
         }
     }

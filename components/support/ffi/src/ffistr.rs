@@ -135,7 +135,7 @@ impl<'a> FfiStr<'a> {
     /// If the string should be mandatory, you should use
     /// [`FfiStr::into_string`] instead. If an owned string is not needed, you
     /// may want to use [`FfiStr::as_str`] or [`FfiStr::as_opt_str`] instead,
-    /// (however, note the differnces in how invalid UTF-8 is handled, should
+    /// (however, note the differences in how invalid UTF-8 is handled, should
     /// this be relevant to your use).
     pub fn into_opt_string(self) -> Option<String> {
         if !self.cstr.is_null() {
@@ -154,7 +154,7 @@ impl<'a> FfiStr<'a> {
     /// If the string should *not* be mandatory, you should use
     /// [`FfiStr::into_opt_string`] instead. If an owned string is not needed,
     /// you may want to use [`FfiStr::as_str`] or [`FfiStr::as_opt_str`]
-    /// instead, (however, note the differnces in how invalid UTF-8 is handled,
+    /// instead, (however, note the differences in how invalid UTF-8 is handled,
     /// should this be relevant to your use).
     #[inline]
     pub fn into_string(self) -> String {
