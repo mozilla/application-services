@@ -87,7 +87,7 @@ internal interface LibFxAFFI : Library {
     )
     fun fxa_set_device_name(fxa: FxaHandle, displayName: String, e: RustError.ByReference)
     fun fxa_get_devices(fxa: FxaHandle, e: RustError.ByReference): RustBuffer.ByValue
-    fun fxa_destroy_device(fxa: FxaHandle, targetDeviceId: String, e: RustError.ByReference)
+    fun fxa_disconnect(fxa: FxaHandle, e: RustError.ByReference)
     fun fxa_poll_device_commands(fxa: FxaHandle, e: RustError.ByReference): RustBuffer.ByValue
     fun fxa_handle_push_message(fxa: FxaHandle, jsonPayload: String, e: RustError.ByReference): RustBuffer.ByValue
 

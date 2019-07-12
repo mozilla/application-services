@@ -271,6 +271,22 @@ open class FirefoxAccount {
             }
         }
     }
+
+    /// Disconnect from the account and optionaly destroy our device record.
+    /// `beginOAuthFlow(...)` will need to be called to reconnect.
+    open func disconnect(completionHandler: @escaping (Void, Error?) -> Void) {
+        queue.async {
+            do {
+                try FirefoxAccountError.unwrap { err in
+                    fxa_disconnect(self.raw, err)
+                }
+                DispatchQueue.main.async { completionHandler((), nil) }
+                self.tryPersistState()
+            } catch {
+                DispatchQueue.main.async { completionHandler((), error) }
+            }
+        }
+    }
 }
 
 public struct ScopedKey {
