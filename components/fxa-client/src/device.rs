@@ -263,12 +263,6 @@ impl FirefoxAccount {
         self.client
             .update_device(&self.state.config, refresh_token, update)
     }
-
-    pub fn destroy_device(&self, device_id: &str) -> Result<()> {
-        let refresh_token = self.get_refresh_token()?;
-        self.client
-            .destroy_device(&self.state.config, refresh_token, device_id)
-    }
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]

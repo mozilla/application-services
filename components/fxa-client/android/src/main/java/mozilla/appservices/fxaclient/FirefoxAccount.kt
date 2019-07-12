@@ -332,16 +332,16 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     }
 
     /**
-     * Destroy a device given its device ID.
+     * Disconnect from the account and optionaly destroy our device record.
+     * `beginOAuthFlow` will need to be called to reconnect.
      *
      * This performs network requests, and should not be used on the main thread.
-     *
-     * @param targetDeviceId The target Device ID to destroy
      */
-    fun destroyDevice(targetDeviceId: String) {
+    fun disconnect() {
         rustCall { e ->
-            LibFxAFFI.INSTANCE.fxa_destroy_device(this.handle.get(), targetDeviceId, e)
+            LibFxAFFI.INSTANCE.fxa_disconnect(this.handle.get(), e)
         }
+        this.tryPersistState()
     }
 
     /**

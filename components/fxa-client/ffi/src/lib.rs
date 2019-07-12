@@ -371,12 +371,13 @@ pub extern "C" fn fxa_poll_device_commands(handle: u64, error: &mut ExternError)
     })
 }
 
-/// Destroy the device given a device_id.
+/// Disconnect from the account and optionaly destroy our device record.
 #[no_mangle]
-pub extern "C" fn fxa_destroy_device(handle: u64, device_id: FfiStr<'_>, error: &mut ExternError) {
-    log::debug!("fxa_destroy_device");
-    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
-        fxa.destroy_device(device_id.as_str()).map(|_| ())
+pub extern "C" fn fxa_disconnect(handle: u64, error: &mut ExternError) {
+    log::debug!("fxa_disconnect");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| -> fxa_client::Result<()> {
+        fxa.disconnect();
+        Ok(())
     })
 }
 
