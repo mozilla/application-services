@@ -299,25 +299,6 @@ pub struct CommandReceivedPushPayload {
 mod tests {
     use super::*;
 
-    impl FirefoxAccount {
-        fn add_cached_profile(&mut self, uid: &str, email: &str) {
-            self.state.last_seen_profile = Some(CachedResponse {
-                response: Profile {
-                    uid: uid.into(),
-                    email: email.into(),
-                    locale: "en-US".into(),
-                    display_name: None,
-                    avatar: "".into(),
-                    avatar_default: true,
-                    amr_values: vec![],
-                    two_factor_authentication: false,
-                },
-                cached_at: util::now(),
-                etag: "fake etag".into(),
-            });
-        }
-    }
-
     #[test]
     fn test_fxa_is_send() {
         fn is_send<T: Send>() {}

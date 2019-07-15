@@ -89,9 +89,21 @@ mod tests {
     use std::sync::Arc;
 
     impl FirefoxAccount {
-        fn add_cached_token(&mut self, scope: &str, token_info: AccessTokenInfo) {
-            self.access_token_cache
-                .insert(scope.to_string(), token_info);
+        pub fn add_cached_profile(&mut self, uid: &str, email: &str) {
+            self.state.last_seen_profile = Some(CachedResponse {
+                response: Profile {
+                    uid: uid.into(),
+                    email: email.into(),
+                    locale: "en-US".into(),
+                    display_name: None,
+                    avatar: "".into(),
+                    avatar_default: true,
+                    amr_values: vec![],
+                    two_factor_authentication: false,
+                },
+                cached_at: util::now(),
+                etag: "fake etag".into(),
+            });
         }
     }
 

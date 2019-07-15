@@ -93,10 +93,21 @@ impl FirefoxAccount {
     /// * `scopes` - Space-separated list of requested scopes.
     /// * `wants_keys` - Retrieve scoped keys associated with scopes supporting it.
     pub fn begin_oauth_flow(&mut self, scopes: &[&str], wants_keys: bool) -> Result<String> {
-        let mut url = self.state.config.authorization_endpoint()?;
+        let mut url = if self.state.last_seen_profile.is_some() {
+            self.state.config.content_url_path("/oauth/force_auth")?
+        } else {
+            self.state.config.authorization_endpoint()?
+        };
+
         url.query_pairs_mut()
             .append_pair("action", "email")
             .append_pair("response_type", "code");
+
+        if let Some(ref cached_profile) = self.state.last_seen_profile {
+            url.query_pairs_mut()
+                .append_pair("email", &cached_profile.response.email);
+        }
+
         let scopes: Vec<String> = match self.state.refresh_token {
             Some(ref refresh_token) => {
                 // Union of the already held scopes and the one requested.
@@ -298,6 +309,13 @@ mod tests {
     use super::*;
     use std::borrow::Cow;
 
+    impl FirefoxAccount {
+        pub fn add_cached_token(&mut self, scope: &str, token_info: AccessTokenInfo) {
+            self.access_token_cache
+                .insert(scope.to_string(), token_info);
+        }
+    }
+
     #[test]
     fn test_oauth_flow_url() {
         let mut fxa = FirefoxAccount::new(
@@ -413,6 +431,22 @@ mod tests {
         let keys_jwk = pairs.next().unwrap();
         assert_eq!(keys_jwk.0, Cow::Borrowed("keys_jwk"));
         assert_eq!(keys_jwk.1.len(), 168);
+    }
+
+    #[test]
+    fn test_force_auth_url() {
+        let mut fxa =
+            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let email = "test@example.com";
+        fxa.add_cached_profile("123", email);
+        let url = fxa.begin_oauth_flow(&["profile"], false).unwrap();
+        let url = Url::parse(&url).unwrap();
+        assert_eq!(url.path(), "/oauth/force_auth");
+        let mut pairs = url.query_pairs();
+        assert_eq!(
+            pairs.find(|e| e.0 == "email"),
+            Some((Cow::Borrowed("email"), Cow::Borrowed(email),))
+        );
     }
 
     #[test]

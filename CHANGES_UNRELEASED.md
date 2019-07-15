@@ -13,3 +13,6 @@
   disconnection by invalidating OAuth tokens and destroying the device record
   if it exists. ([#1397](https://github.com/mozilla/application-services/issues/1397))
 - The `FirefoxAccount.disconnect` method has been added to the Swift bindings as well.
+- The `FirefoxAccount.beginOAuthFlow` method will redirect to a content page that
+  forces the user to connect to the last seen user email. To avoid this behavior,
+  a new `FirefoxAccount` instance with a new persisted state must be created.
