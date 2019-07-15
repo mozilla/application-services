@@ -27,7 +27,7 @@ rc_crypto = { path = "../support/rc_crypto", features = ["ece", "hawk"] }
 error-support = { path = "../support/error" }
 
 [dev-dependencies]
-ring = "0.14.5"
+ring = "0.15.0"
 cli-support = { path = "../support/cli" }
 force-viaduct-reqwest = { path = "../support/force-viaduct-reqwest" }
 dialoguer = "0.4.0"
