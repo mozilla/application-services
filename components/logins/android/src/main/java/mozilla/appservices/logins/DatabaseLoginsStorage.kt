@@ -7,6 +7,7 @@ package mozilla.appservices.logins
 import com.sun.jna.Pointer
 import mozilla.appservices.logins.rust.PasswordSyncAdapter
 import mozilla.appservices.logins.rust.RustError
+import mozilla.appservices.sync15.SyncTelemetryPing
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -92,8 +93,8 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     }
 
     @Throws(LoginsStorageException::class)
-    override fun sync(syncInfo: SyncUnlockInfo) {
-        rustCallWithLock { raw, error ->
+    override fun sync(syncInfo: SyncUnlockInfo): SyncTelemetryPing {
+        val json = rustCallWithLock { raw, error ->
             PasswordSyncAdapter.INSTANCE.sync15_passwords_sync(
                     raw,
                     syncInfo.kid,
@@ -101,8 +102,9 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
                     syncInfo.syncKey,
                     syncInfo.tokenserverURL,
                     error
-            )
+            )?.getAndConsumeRustString()
         }
+        return SyncTelemetryPing.fromJSONString(json)
     }
 
     @Throws(LoginsStorageException::class)

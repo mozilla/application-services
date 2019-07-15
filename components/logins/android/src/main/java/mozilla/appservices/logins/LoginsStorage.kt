@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 package mozilla.appservices.logins
+import mozilla.appservices.sync15.SyncTelemetryPing
 
 class SyncUnlockInfo(
     val kid: String,
@@ -81,7 +82,7 @@ interface LoginsStorage : AutoCloseable {
      * @throws [LoginsStorageException] On unexpected errors (IO failure, rust panics, etc)
      */
     @Throws(LoginsStorageException::class)
-    fun sync(syncInfo: SyncUnlockInfo)
+    fun sync(syncInfo: SyncUnlockInfo): SyncTelemetryPing
 
     /**
      * Delete all locally stored login sync metadata (last sync timestamps, etc).
