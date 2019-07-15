@@ -49,23 +49,14 @@ impl FirefoxAccount {
                     return Err(ErrorKind::NoCachedToken(scope.to_string()).into());
                 }
             }
-            None => {
-                #[cfg(feature = "browserid")]
-                {
-                    match Self::session_token_from_state(&self.state.login_state) {
-                        Some(session_token) => self.client.oauth_token_with_session_token(
-                            &self.state.config,
-                            session_token,
-                            &[scope],
-                        )?,
-                        None => return Err(ErrorKind::NoCachedToken(scope.to_string()).into()),
-                    }
-                }
-                #[cfg(not(feature = "browserid"))]
-                {
-                    return Err(ErrorKind::NoCachedToken(scope.to_string()).into());
-                }
-            }
+            None => match self.state.session_token {
+                Some(ref session_token) => self.client.oauth_token_with_session_token(
+                    &self.state.config,
+                    &session_token,
+                    &[scope],
+                )?,
+                None => return Err(ErrorKind::NoCachedToken(scope.to_string()).into()),
+            },
         };
         let since_epoch = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -167,7 +158,7 @@ impl FirefoxAccount {
             Some(oauth_flow) => oauth_flow,
             None => return Err(ErrorKind::UnknownOAuthState.into()),
         };
-        let resp = self.client.oauth_token_with_code(
+        let resp = self.client.oauth_tokens_from_code(
             &self.state.config,
             &code,
             &oauth_flow.code_verifier,

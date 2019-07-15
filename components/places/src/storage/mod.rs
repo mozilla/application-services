@@ -12,13 +12,14 @@ pub mod tags;
 use crate::db::PlacesDb;
 use crate::error::{ErrorKind, InvalidPlaceInfo, Result};
 use crate::msg_types::HistoryVisitInfo;
-use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition};
+use crate::types::{SyncStatus, Timestamp, VisitTransition};
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use rusqlite::Row;
 use serde_derive::*;
 use sql_support::{self, ConnExt};
 use std::fmt;
+use sync_guid::Guid as SyncGuid;
 use url::Url;
 
 /// From https://searchfox.org/mozilla-central/rev/93905b660f/toolkit/components/places/PlacesUtils.jsm#189
@@ -146,7 +147,7 @@ fn fetch_page_info(db: &PlacesDb, url: &Url) -> Result<Option<FetchedPageInfo>> 
 fn new_page_info(db: &PlacesDb, url: &Url, new_guid: Option<SyncGuid>) -> Result<PageInfo> {
     let guid = match new_guid {
         Some(guid) => guid,
-        None => SyncGuid::new(),
+        None => SyncGuid::random(),
     };
     let url_str = url.as_str();
     if url_str.len() > URL_LENGTH_MAX {

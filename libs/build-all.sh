@@ -33,6 +33,16 @@ PLATFORM="${1}"
 abspath () { case "${1}" in /*)printf "%s\\n" "${1}";; *)printf "%s\\n" "${PWD}/${1}";; esac; }
 export -f abspath
 
+if ! [ -x "$(command -v gyp)" ]; then
+  echo 'Error: gyp needs to be installed and executable. See https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP for install instructions.' >&2
+  exit 1
+fi
+
+if ! [ -x "$(command -v ninja)" ]; then
+  echo 'Error: ninja needs to be installed and executable. See https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages for install instructions.' >&2
+  exit 1
+fi
+
 OPENSSL="openssl-${OPENSSL_VERSION}"
 rm -rf "${OPENSSL}"
 if [ ! -e "${OPENSSL}.tar.gz" ]; then

@@ -12,9 +12,9 @@ mod tests;
 use crate::db::PlacesDb;
 use crate::error::*;
 use crate::storage::bookmarks::{BookmarkRootGuid, USER_CONTENT_ROOTS};
-use crate::types::SyncGuid;
 use rusqlite::types::{ToSql, ToSqlOutput};
 use rusqlite::Result as RusqliteResult;
+use sync_guid::Guid as SyncGuid;
 
 /// Sets up the syncable roots. All items in `moz_bookmarks_synced` descend
 /// from these roots.
@@ -33,8 +33,8 @@ pub fn create_synced_bookmark_roots(db: &PlacesDb) -> Result<()> {
              INSERT OR IGNORE INTO moz_bookmarks_synced_structure(
                  guid, parentGuid, position)
              VALUES('{guid}', '{parent_guid}', {pos});",
-            guid = guid.as_ref(),
-            parent_guid = parent_guid.as_ref(),
+            guid = guid.as_str(),
+            parent_guid = parent_guid.as_str(),
             kind = SyncedBookmarkKind::Folder as u8,
             pos = pos
         ))?;

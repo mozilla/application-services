@@ -10,11 +10,12 @@ use crate::hash;
 use crate::msg_types::{HistoryVisitInfo, HistoryVisitInfos};
 use crate::observation::VisitObservation;
 use crate::storage::{delete_pending_temp_tables, get_meta, put_meta};
-use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition, VisitTransitionSet};
+use crate::types::{SyncStatus, Timestamp, VisitTransition, VisitTransitionSet};
 use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
 use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt};
+use sync_guid::Guid as SyncGuid;
 use url::Url;
 
 /// When `delete_everything` is called (to perform a permanent local deletion), in
@@ -2069,7 +2070,7 @@ mod tests {
 
         apply_synced_visits(
             &conn,
-            &SyncGuid::new(),
+            &SyncGuid::random(),
             &url::Url::parse("http://www.example.com/123").unwrap(),
             &None,
             &[
@@ -2101,7 +2102,7 @@ mod tests {
         // Check that we don't insert a place if all visits are too old.
         apply_synced_visits(
             &conn,
-            &SyncGuid::new(),
+            &SyncGuid::random(),
             &url::Url::parse("http://www.example.com/1234").unwrap(),
             &None,
             &[HistoryRecordVisit {

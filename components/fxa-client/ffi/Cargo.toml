@@ -11,7 +11,7 @@ crate-type = ["lib"]
 
 [dependencies]
 ffi-support = { path = "../../support/ffi" }
-log = "0.4.6"
+log = "0.4.7"
 lazy_static = "1.3.0"
 url = "1.7.1"
 prost = "0.5.0"
@@ -21,5 +21,4 @@ viaduct = { path = "../../viaduct" }
 path = "../"
 
 [features]
-browserid = ["fxa-client/browserid"]
 reqwest = ["viaduct/reqwest", "fxa-client/reqwest"]

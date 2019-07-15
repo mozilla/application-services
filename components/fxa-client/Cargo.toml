@@ -23,7 +23,7 @@ sync15 = { path = "../sync15" }
 url = "1.7.1"
 ffi-support = { path = "../support/ffi" }
 viaduct = { path = "../viaduct" }
-rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
+rc_crypto = { path = "../support/rc_crypto", features = ["ece", "hawk"] }
 error-support = { path = "../support/error" }
 
 [dev-dependencies]
@@ -38,6 +38,5 @@ mockiato = "0.8.0"
 prost-build = "0.5"
 
 [features]
-browserid = ["openssl", "rc_crypto/hawk"]
 reqwest = ["viaduct/reqwest"]
 default = []

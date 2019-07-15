@@ -6,6 +6,7 @@ package mozilla.appservices.logins
 
 import android.util.Log
 import java.util.UUID
+import mozilla.appservices.sync15.SyncTelemetryPing
 
 private enum class LoginsStorageState {
     Unlocked,
@@ -88,9 +89,10 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
 
     @Synchronized
     @Throws(LoginsStorageException::class)
-    override fun sync(syncInfo: SyncUnlockInfo) {
+    override fun sync(syncInfo: SyncUnlockInfo): SyncTelemetryPing {
         checkUnlocked()
         Log.w("MemoryLoginsStorage", "Not syncing because this implementation can not sync")
+        return SyncTelemetryPing(version = 1, uid = "uid", events = emptyList(), syncs = emptyList())
     }
 
     @Synchronized
