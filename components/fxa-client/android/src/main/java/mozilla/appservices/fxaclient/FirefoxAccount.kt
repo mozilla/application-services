@@ -93,13 +93,12 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * This performs network requests, and should not be used on the main thread.
      *
      * @param scopes List of OAuth scopes for which the client wants access
-     * @param wantsKeys Fetch keys for end-to-end encryption of data from Mozilla-hosted services
      * @return String that resolves to the flow URL when complete
      */
-    fun beginOAuthFlow(scopes: Array<String>, wantsKeys: Boolean): String {
+    fun beginOAuthFlow(scopes: Array<String>): String {
         val scope = scopes.joinToString(" ")
         return rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_begin_oauth_flow(this.handle.get(), scope, wantsKeys, e)
+            LibFxAFFI.INSTANCE.fxa_begin_oauth_flow(this.handle.get(), scope, e)
         }.getAndConsumeRustString()
     }
 

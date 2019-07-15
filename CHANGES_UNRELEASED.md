@@ -3,3 +3,10 @@
 # Unreleased Changes
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.36.0...master)
+
+## FxA Client
+
+### Breaking changes
+
+- The `FirefoxAccount.beginOAuthFlow` method does not require the `wantsKeys` argument anymore
+  as it will always do the right thing based on the requested scopes.

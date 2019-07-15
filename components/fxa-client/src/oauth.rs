@@ -85,14 +85,13 @@ impl FirefoxAccount {
             return Err(ErrorKind::OriginMismatch.into());
         }
         url.set_fragment(pairing_url.fragment());
-        self.oauth_flow(url, scopes, true)
+        self.oauth_flow(url, scopes)
     }
 
     /// Initiate an OAuth login flow and return a URL that should be navigated to.
     ///
     /// * `scopes` - Space-separated list of requested scopes.
-    /// * `wants_keys` - Retrieve scoped keys associated with scopes supporting it.
-    pub fn begin_oauth_flow(&mut self, scopes: &[&str], wants_keys: bool) -> Result<String> {
+    pub fn begin_oauth_flow(&mut self, scopes: &[&str]) -> Result<String> {
         let mut url = if self.state.last_seen_profile.is_some() {
             self.state.config.content_url_path("/oauth/force_auth")?
         } else {
@@ -122,15 +121,18 @@ impl FirefoxAccount {
             None => scopes.iter().map(ToString::to_string).collect(),
         };
         let scopes: Vec<&str> = scopes.iter().map(<_>::as_ref).collect();
-        self.oauth_flow(url, &scopes, wants_keys)
+        self.oauth_flow(url, &scopes)
     }
 
-    fn oauth_flow(&mut self, mut url: Url, scopes: &[&str], wants_keys: bool) -> Result<String> {
+    fn oauth_flow(&mut self, mut url: Url, scopes: &[&str]) -> Result<String> {
         self.clear_access_token_cache();
         let state = util::random_base64_url_string(16)?;
         let code_verifier = util::random_base64_url_string(43)?;
         let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes())?;
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
+        let scoped_keys_flow = ScopedKeysFlow::with_random_key()?;
+        let jwk_json = scoped_keys_flow.generate_keys_jwk()?;
+        let keys_jwk = base64::encode_config(&jwk_json, base64::URL_SAFE_NO_PAD);
         url.query_pairs_mut()
             .append_pair("client_id", &self.state.config.client_id)
             .append_pair("redirect_uri", &self.state.config.redirect_uri)
@@ -138,20 +140,12 @@ impl FirefoxAccount {
             .append_pair("state", &state)
             .append_pair("code_challenge_method", "S256")
             .append_pair("code_challenge", &code_challenge)
-            .append_pair("access_type", "offline");
-        let scoped_keys_flow = if wants_keys {
-            let flow = ScopedKeysFlow::with_random_key()?;
-            let jwk_json = flow.generate_keys_jwk()?;
-            let keys_jwk = base64::encode_config(&jwk_json, base64::URL_SAFE_NO_PAD);
-            url.query_pairs_mut().append_pair("keys_jwk", &keys_jwk);
-            Some(flow)
-        } else {
-            None
-        };
+            .append_pair("access_type", "offline")
+            .append_pair("keys_jwk", &keys_jwk);
         self.flow_store.insert(
             state.clone(), // Since state is supposed to be unique, we use it to key our flows.
             OAuthFlow {
-                scoped_keys_flow,
+                scoped_keys_flow: Some(scoped_keys_flow),
                 code_verifier,
             },
         );
@@ -182,33 +176,18 @@ impl FirefoxAccount {
         resp: OAuthTokenResponse,
         scoped_keys_flow: Option<ScopedKeysFlow>,
     ) -> Result<()> {
-        // This assumes that if the server returns keys_jwe, the jwk argument is Some.
-        match resp.keys_jwe {
-            Some(ref jwe) => {
-                let scoped_keys_flow = match scoped_keys_flow {
-                    Some(flow) => flow,
-                    None => {
-                        return Err(ErrorKind::UnrecoverableServerError(
-                            "Got a JWE without sending a JWK.",
-                        )
-                        .into());
-                    }
-                };
-                let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe)?;
-                let scoped_keys: serde_json::Map<String, serde_json::Value> =
-                    serde_json::from_str(&decrypted_keys)?;
-                for (scope, key) in scoped_keys {
-                    let scoped_key: ScopedKey = serde_json::from_value(key)?;
-                    self.state.scoped_keys.insert(scope, scoped_key);
-                }
+        if let Some(ref jwe) = resp.keys_jwe {
+            let scoped_keys_flow = scoped_keys_flow.ok_or_else(|| {
+                ErrorKind::UnrecoverableServerError("Got a JWE but have no JWK to decrypt it.")
+            })?;
+            let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe)?;
+            let scoped_keys: serde_json::Map<String, serde_json::Value> =
+                serde_json::from_str(&decrypted_keys)?;
+            for (scope, key) in scoped_keys {
+                let scoped_key: ScopedKey = serde_json::from_value(key)?;
+                self.state.scoped_keys.insert(scope, scoped_key);
             }
-            None => {
-                if scoped_keys_flow.is_some() {
-                    log::error!("Expected to get keys back alongside the token but the server didn't send them.");
-                    return Err(ErrorKind::TokenWithoutKeys.into());
-                }
-            }
-        };
+        }
         // We are only interested in the refresh token at this time because we
         // don't want to return an over-scoped access token.
         // Let's be good citizens and destroy this access token.
@@ -323,64 +302,7 @@ mod tests {
             "12345678",
             "https://foo.bar",
         );
-        let url = fxa.begin_oauth_flow(&["profile"], false).unwrap();
-        let flow_url = Url::parse(&url).unwrap();
-
-        assert_eq!(flow_url.host_str(), Some("accounts.firefox.com"));
-        assert_eq!(flow_url.path(), "/authorization");
-
-        let mut pairs = flow_url.query_pairs();
-        assert_eq!(pairs.count(), 9);
-        assert_eq!(
-            pairs.next(),
-            Some((Cow::Borrowed("action"), Cow::Borrowed("email")))
-        );
-        assert_eq!(
-            pairs.next(),
-            Some((Cow::Borrowed("response_type"), Cow::Borrowed("code")))
-        );
-        assert_eq!(
-            pairs.next(),
-            Some((Cow::Borrowed("client_id"), Cow::Borrowed("12345678")))
-        );
-        assert_eq!(
-            pairs.next(),
-            Some((
-                Cow::Borrowed("redirect_uri"),
-                Cow::Borrowed("https://foo.bar")
-            ))
-        );
-        assert_eq!(
-            pairs.next(),
-            Some((Cow::Borrowed("scope"), Cow::Borrowed("profile")))
-        );
-        let state_param = pairs.next().unwrap();
-        assert_eq!(state_param.0, Cow::Borrowed("state"));
-        assert_eq!(state_param.1.len(), 22);
-        assert_eq!(
-            pairs.next(),
-            Some((
-                Cow::Borrowed("code_challenge_method"),
-                Cow::Borrowed("S256")
-            ))
-        );
-        let code_challenge_param = pairs.next().unwrap();
-        assert_eq!(code_challenge_param.0, Cow::Borrowed("code_challenge"));
-        assert_eq!(code_challenge_param.1.len(), 43);
-        assert_eq!(
-            pairs.next(),
-            Some((Cow::Borrowed("access_type"), Cow::Borrowed("offline")))
-        );
-    }
-
-    #[test]
-    fn test_oauth_flow_url_with_keys() {
-        let mut fxa = FirefoxAccount::new(
-            "https://accounts.firefox.com",
-            "12345678",
-            "https://foo.bar",
-        );
-        let url = fxa.begin_oauth_flow(&["profile"], true).unwrap();
+        let url = fxa.begin_oauth_flow(&["profile"]).unwrap();
         let flow_url = Url::parse(&url).unwrap();
 
         assert_eq!(flow_url.host_str(), Some("accounts.firefox.com"));
@@ -439,7 +361,7 @@ mod tests {
             FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
         let email = "test@example.com";
         fxa.add_cached_profile("123", email);
-        let url = fxa.begin_oauth_flow(&["profile"], false).unwrap();
+        let url = fxa.begin_oauth_flow(&["profile"]).unwrap();
         let url = Url::parse(&url).unwrap();
         assert_eq!(url.path(), "/oauth/force_auth");
         let mut pairs = url.query_pairs();
