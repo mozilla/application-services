@@ -93,7 +93,7 @@ class MultipleMegazordsPresent(
 
 internal const val FULL_MEGAZORD_LIBRARY: String = "megazord"
 
-internal fun doMegazordCheck(componentName: String, componentVersion: String): String {
+internal fun lookupMegazordLibrary(componentName: String, componentVersion: String): String {
     val mzLibrary = System.getProperty("mozilla.appservices.megazord.library")
     Log.d("RustNativeSupport", "lib configured: ${mzLibrary ?: "none"}")
     if (mzLibrary == null) {
@@ -135,11 +135,11 @@ internal fun doMegazordCheck(componentName: String, componentVersion: String): S
  * It should not be called by consumers.
  */
 @Synchronized
-fun megazordCheck(componentName: String, componentVersion: String): String {
-    Log.d("RustNativeSupport", "megazordCheck($componentName, $componentVersion")
+fun findMegazordLibraryName(componentName: String, componentVersion: String): String {
+    Log.d("RustNativeSupport", "findMegazordLibraryName($componentName, $componentVersion")
     val mzLibraryUsed = System.getProperty("mozilla.appservices.megazord.library.used")
     Log.d("RustNativeSupport", "lib in use: ${mzLibraryUsed ?: "none"}")
-    val mzLibraryDetermined = doMegazordCheck(componentName, componentVersion)
+    val mzLibraryDetermined = lookupMegazordLibrary(componentName, componentVersion)
     Log.d("RustNativeSupport", "settled on $mzLibraryDetermined")
 
     // If we've already initialized the megazord, that means we've probably already loaded bindings
@@ -163,7 +163,9 @@ fun megazordCheck(componentName: String, componentVersion: String): String {
 }
 
 /**
- * Contains all the boilerplate for loading a
+ * Contains all the boilerplate for loading a library binding from the megazord,
+ * locating it if necessary, safety-checking versions, and setting up a fallback
+ * if loading fails.
  *
  * Indirect as in, we aren't using JNA direct mapping. Eventually we'd
  * like to (it's faster), but that's a problem for another day.
@@ -172,7 +174,7 @@ inline fun <reified Lib : Library> loadIndirect(
     componentName: String,
     componentVersion: String
 ): Lib {
-    val mzLibrary = megazordCheck(componentName, componentVersion)
+    val mzLibrary = findMegazordLibraryName(componentName, componentVersion)
     return try {
         Native.load<Lib>(mzLibrary, Lib::class.java)
     } catch (e: UnsatisfiedLinkError) {

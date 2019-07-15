@@ -1,7 +1,7 @@
 [package]
 name = "megazord"
 version = "0.1.0"
-authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
+authors = ["application-services <application-services@mozilla.com>"]
 edition = "2018"
 license = "MPL-2.0"
 

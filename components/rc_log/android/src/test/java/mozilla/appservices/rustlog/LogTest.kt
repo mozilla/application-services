@@ -117,8 +117,11 @@ class LogTest {
         assertEquals(logs.size, 6)
 
         // We called `enable` again, so we expect to have used another thread
-        // XXX why is this 1?
-        // assertEquals(threadIds.size, 2)
+
+        // TODO: changing to indirect binding has chnged how JNA allocates threads
+        // for our callbacks, and has this next line fail. We should change it back
+        // once things are back to normal. Ditto for commented out lines below labeled
+        // assertEquals(threadIds.size, 2) // INDIRECT
 
         RustLogAdapter.disable()
 
@@ -136,8 +139,7 @@ class LogTest {
         assert(!RustLogAdapter.isEnabled)
 
         // new log callback, new thread.
-        // XXX why is this 1?
-        // assertEquals(threadIds.size, 3)
+        // assertEquals(threadIds.size, 3) // INDIRECT
 
         // Check behavior of 'disable by throw'
         RustLogAdapter.enable { level, tagStr, msgStr ->
@@ -156,8 +158,7 @@ class LogTest {
         assert(!RustLogAdapter.isEnabled)
 
         // new log callback, new thread.
-        // XXX why is this 1?
-        // assertEquals(threadIds.size, 4)
+        // assertEquals(threadIds.size, 4) // INDIRECT
 
         // Clean up
         RustLogAdapter.disable()
@@ -167,7 +168,7 @@ class LogTest {
             Thread.sleep(10)
             System.gc()
         }
-        // XXX this should be 0
+        // assertEquals(threads.size, 0) // INDIRECT
         assertEquals(threads.size, 1)
     }
 }

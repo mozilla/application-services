@@ -24,6 +24,10 @@ android {
 
     sourceSets {
         test.resources.srcDirs += "$buildDir/rustJniLibs/desktop"
+
+        // Add the full-megazord's build directory to our resource path so that
+        // we can actually find it during tests. (Unfortunately, each project
+        // has their own build dir)
         test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
 
         main {

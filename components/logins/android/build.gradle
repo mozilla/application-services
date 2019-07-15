@@ -23,6 +23,9 @@ android {
 
     sourceSets {
         test.resources.srcDirs += "$buildDir/rustJniLibs/desktop"
+        // Add the full-megazord's build directory to our resource path so that
+        // we can actually find it during tests. (Unfortunately, each project
+        // has their own build dir)
         test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
     }
 }
@@ -46,7 +49,7 @@ configurations {
 
 dependencies {
     // Part of the public API.
-    api project(':sync15-library')
+    api project(':sync15')
 
     jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
     implementation "net.java.dev.jna:jna:$jna_version@aar"

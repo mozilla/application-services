@@ -17,7 +17,7 @@ def libVcsUrl = properties.libVcsUrl
 // with.
 //
 // It's only used for megazords, for which it's required. Passing it in for a
-// non-megazord is allowed, but will trigger a warning, but is allowed.
+// non-megazord is allowed, but will trigger a warning.
 ext.configurePublish = { jnaForTestConfiguration = null ->
     def theGroupId = rootProject.ext.library.groupId
     def theArtifactId = project.ext.artifactId

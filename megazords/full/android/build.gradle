@@ -33,7 +33,6 @@ android {
 afterEvaluate {
     android.sourceSets.debug.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
     android.sourceSets.release.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
-//    android.sourceSets.main.jniLibs.srcDirs = []
 }
 
 configurations {

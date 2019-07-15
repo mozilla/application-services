@@ -20,12 +20,13 @@ pub use viaduct;
 /// optional for the default (full) megazord.
 ///
 /// This function exists so that the `native_support` code can ensure that we
-/// still check tthat the version of the functions in the megazord library and
+/// still check that the version of the functions in the megazord library and
 /// the version of the code loading them is identical.
 ///
 /// Critically, that means this function (unlike our other functions) must be
 /// ABI stable! It needs to take no arguments, and return either null, or a
-/// NUL-terminated C string.
+/// NUL-terminated C string. Failure to do this will result in memory unsafety
+/// when an old version of the megazord loader loads a newer library!
 ///
 /// If we ever need to change that (which seems unlikely, since we could encode
 /// whatever we want in a string if it came to it), we must change the functions
