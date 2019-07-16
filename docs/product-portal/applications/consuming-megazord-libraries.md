@@ -4,7 +4,7 @@ title: Consuming megazord libraries on Android
 sidebar_label: Consuming megazord libraries
 ---
 
-# Megazord libraries
+# Consuming megazord libraries on Android
 
 Each Rust component published by Application Services is conceptually a stand-alone library, but they
 all depend on a shared core of functionality for exposing Rust to Kotlin.  In order to allow easy interop
@@ -39,7 +39,7 @@ open class Application extends android.app.Application {
 }
 ```
 
-The `init()` method sets some Java system properties that help the component modules locate the compiled
+The `init()` method sets some Java system properties that help the component modules locate their compiled
 rust code.
 
 After initializing the Megazord, the application can configure shared infrastructure such as logging:
@@ -80,8 +80,8 @@ The configured settings will then be used by all rust components provided by the
 ## Using a custom Megazord
 
 The default megazord library contains compiled rust code for *all* components published by Application Services.
-If the consuming application only uses a subset of those components, it's possible to its package size and load
-time by using a custom-built megazord library containing only the required components.
+If the consuming application only uses a subset of those components, it's possible to reduce its package size and
+load time by using a custom-built megazord library containing only the required components.
 
 First, you will need to select an appropriate custom megazord. Application Services publishes several custom megazords
 to fit the needs of existing Firefox applications:
@@ -91,14 +91,15 @@ to fit the needs of existing Firefox applications:
 | `lockbox` | `fxaclient`, `logins` | `org.mozilla.appservices:lockbox-megazord` |
 | `fenix` | `fxaclient`, `logins`, `places` | `org.mozilla.appservices:fenix-megazord` |
 
-Then, simply use gradle's builtin support for [dependency
-substitution](https://docs.gradle.org/current/dsl/org.gradle.api.artifacts.DependencySubstitutions.html)
+Then, simply use gradle's builtin support for [module replacement](https://docs.gradle.org/current/userguide/customizing_dependency_resolution_behavior.html#sec:module_replacement)
 to replace the default "full megazord" with your selected custom build:
 
 ```groovy
-configurations.all {
-  resolutionStrategy.dependencySubstitution {
-    substitute module("org.mozilla.appservices:full-megazord:X.Y.Z") with module("org.mozilla.appservices:fenix-megazord:X.Y.Z")
+dependencies {
+  modules {
+    module('org.mozilla.appservices:full-megazord') {
+      replacedBy('org.mozilla.appservices:fenix-megazord', 'prefer the fenix megazord, to reduce final application size')
+    }
   }
 }
 ```
@@ -109,24 +110,25 @@ If you would like a new custom megazord for your project, please reach out via #
 
 Since the megazord library contains compiled native code, it cannot be used directly for running local unittests
 (it's compiled for the android target device, not for your development host machine). To support running unittests
-via the JVM on the host machine, we publish a special `forUnitTests` variant of the megazord library in which the
+via the JVM on the host machine, we publish a special `forUnitTests` configuration of each megazord library, in which the
 native code is compiled into a JAR for common desktop architectures.
 
-Use dependency substitution to include it in your test configuration as follows:
+Simply add this JAR to your classpath when running tests, like so:
 
 ```groovy
-configurations.testImplementation.resolutionStrategy.dependencySubstitution {
-  substitute module("org.mozilla.appservices:full-megazord:X.Y.Z") with module("org.mozilla.appservices:full-megazord-forUnitTests:X.Y.Z")
+dependencies {
+  testImplementation "org.mozilla.appservices:full-megazord-forUnitTests:X.Y.Z"
 }
 ```
 
-If you are using a custom megazord library, substitute both the default and custom module with the `forUnitTests`
-variant of your custom megazord:
+Or, if you are using a custom megazord library, like this:
 
 
 ```groovy
-configurations.testImplementation.resolutionStrategy.dependencySubstitution {
-  substitute module("org.mozilla.appservices:full-megazord:X.Y.Z") with module("org.mozilla.appservices:fenix-megazord-forUnitTests:X.Y.Z")
-  substitute module("org.mozilla.appservices:fenix-megazord:X.Y.Z") with module("org.mozilla.appservices:fenix-megazord-forUnitTests:X.Y.Z")
+dependencies {
+  testImplementation "org.mozilla.appservices:fenix-megazord-forUnitTests:X.Y.Z"
 }
 ```
+
+This will make the appropriate `.so` files available to your tests at runtime, without affecting the code
+that is bunlded into the built version of your app.
