@@ -6,8 +6,8 @@ distribution we compile all the rust code for all components together into a sin
 has a number of advantages:
 
 * Easy and direct interoperability between different components at the Rust level
-* Cross-component optimization
-* Reduced code size to to distributing a single copy of the rust stdlib, low-level dependencies, etc.
+* Cross-component optimization of generated code
+* Reduced code size thanks to distributing a single copy of the rust stdlib, low-level dependencies, etc.
 
 This process is affectionately known as "megazording" and the resulting artifact as a ***megazord library***.
 
@@ -20,35 +20,35 @@ We need to distribute each component as a separate Android ARchive (AAR) that ca
 via gradle, we need to provide a way for the application to avoid shipping rust code for components that it
 isn't using, and we need to do it in a way that maintanins the advantages listed above.
 
-This document describes our current approach to meeting all those requirements on android.
+This document describes our current approach to meeting all those requirements on Android.
 
 ## AAR Dependency Graph
 
-We publish a separate AAR for each component (e.g. fxaclient, places, logins) that contains
-*just* the Kotlin wrappers that expose it to Android. Each of these AARs depends on a separate
+We publish a separate AAR for each component (e.g. fxaclient, places, logins) which contains
+*just* the Kotlin wrappers that expose the relevant functionality to Android. Each of these AARs depends on a separate
 shared "megazord" AAR in which all the rust code has been compiled together into a single `.so` file.
 The application's dependency graph thus looks like this:
 
 [![megazord dependency diagram](https://docs.google.com/drawings/d/e/2PACX-1vTA6wL3ibJRNjKXsmescTfKTx0w_fpr5NcDIF_4T5AsnZfCi8UEEcav8vibocSyKpHOQOk5ysiDBm-D/pub?w=727&h=546)](https://docs.google.com/drawings/d/1owo4wo2F1ePlCq2NS0LmAOG4jRoT_eVBahGNeWHuhJY/)
 
-This generates a strange inversion of dependency flow in our build pipeline:
+This generates a kind of strange inversion of dependencies in our build pipeline:
 
-* Each individual component defines both a rust crate and an android AAR.
-* There is a special "full-megazord" component that also defines a rust crate and an android AAR.
+* Each individual component defines both a rust crate and an Android AAR.
+* There is a special "full-megazord" component that also defines a rust crate and an Android AAR.
 * The full-megazord rust crate depends on the rust crates for each individual component.
-* But the android AAR for each component depends on the android AAR of the full-megazord!
+* But the Android AAR for each component depends on the Android AAR of the full-megazord!
 
-However, this has the benefit that we can use gradle's dependency-substitution features to easily manage
-the rust code that is shipping in each application.
+It's a little odd, but it has the benefit that we can use gradle's dependency-replacement features to easily
+manage the rust code that is shipping in each application.
 
 ## Custom Megazords
 
 By default, an application that uses *any* appservices component will include the compiled rust code
 for *all* appservices components.
 
-To reduce its code size, the application can use [dependency
-substitution](https://docs.gradle.org/current/dsl/org.gradle.api.artifacts.DependencySubstitutions.html) to
-replace the "full-megazord" AAR with a custom-built megazord AAR containing only the components it requires.
+To reduce its overall code size, the application can use gradle's [module replacement
+rules](https://docs.gradle.org/current/userguide/customizing_dependency_resolution_behavior.html#sec:module_replacement)
+to replace the "full-megazord" AAR with a custom-built megazord AAR containing only the components it requires.
 Such an AAR can be built in the same way as the "full-megazord", and simply avoid depending on the rust
 crates for components that are not required.
 
@@ -57,11 +57,13 @@ helper functions for loading the correct megazord `.so` file.  The Kotlin wrappe
 load its shared library by calling `mozilla.appservices.support.native.loadIndirect`, specifying both the
 name of the component and the expected version number of the shared library.
 
-XXX TODO: explain a bit about how it uses system properties to manage which library gets loaded.
-
 ## Unit Tests
 
-XXX TODO: explain the `forUnitTests` thing here.
+The full-megazord AAR contains compiled rust code that targets various Android platforms, and is not
+suitable for running on a Desktop development machine. In order to support integration with unittest
+suites such as robolectric, each megazord has a corresponding Java ARchive (JAR) distribution named e.g.
+`full-megazord-forUnitTests.jar`. This contains the rust code compiled for various Desktop architectures,
+and consumers can add it to their classpath when running tests on a Desktop machine.
 
 
 ## Gotchas and Rough Edges
@@ -85,6 +87,6 @@ the compiled rust code. Typically this looks something like:
 test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
 ```
 
-The above also means that unittests will not work correctly when doing local substitutions builds,
+The above also means that unittests will not work correctly when doing local composite builds,
 because it's unreasonable to expect the main project (e.g. Fenix) to include the above in its build scripts.
 
