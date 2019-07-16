@@ -6,6 +6,10 @@
 
 ## FxA Client
 
+### What's new
+
+- The Tablet, VR and TV devices types have been added.
+
 ### What's fixed
 
 - The `FirefoxAccount.disconnect` method should now properly dispose of the associated device record.

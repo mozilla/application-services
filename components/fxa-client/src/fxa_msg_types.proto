@@ -41,7 +41,10 @@ message Device {
     enum Type {
         DESKTOP = 1;
         MOBILE = 2;
-        UNKNOWN = 3;
+        TABLET = 3;
+        VR = 4;
+        TV = 5;
+        UNKNOWN = 6;
     }
     required string id = 1;
     required string display_name = 2;
