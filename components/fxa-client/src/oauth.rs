@@ -203,7 +203,7 @@ impl FirefoxAccount {
         // Let's be good citizens and destroy this access token.
         if let Err(err) = self
             .client
-            .destroy_oauth_token(&self.state.config, &resp.access_token)
+            .destroy_access_token(&self.state.config, &resp.access_token)
         {
             log::warn!("Access token destruction failure: {:?}", err);
         }
@@ -233,7 +233,7 @@ impl FirefoxAccount {
         if let Some(ref refresh_token) = old_refresh_token {
             if let Err(err) = self
                 .client
-                .destroy_oauth_token(&self.state.config, &refresh_token.token)
+                .destroy_refresh_token(&self.state.config, &refresh_token.token)
             {
                 log::warn!("Refresh token destruction failure: {:?}", err);
             }
