@@ -156,14 +156,22 @@ impl From<PushSubscription> for msg_types::device::PushSubscription {
 impl From<AccountEvent> for msg_types::AccountEvent {
     fn from(e: AccountEvent) -> Self {
         match e {
-            AccountEvent::TabReceived((device, payload)) => Self {
-                r#type: msg_types::account_event::AccountEventType::TabReceived as i32,
-                data: Some(msg_types::account_event::Data::TabReceivedData(
-                    msg_types::account_event::TabReceivedData {
-                        from: device.map(Into::into),
-                        entries: payload.entries.into_iter().map(Into::into).collect(),
-                    },
-                )),
+            AccountEvent::TabReceived(device_and_payload) => {
+                // Need box patterns in Rust stable.
+                let (device, payload) = *device_and_payload;
+                Self {
+                    r#type: msg_types::account_event::AccountEventType::TabReceived as i32,
+                    data: Some(msg_types::account_event::Data::TabReceivedData(
+                        msg_types::account_event::TabReceivedData {
+                            from: device.map(Into::into),
+                            entries: payload.entries.into_iter().map(Into::into).collect(),
+                        },
+                    )),
+                }
+            }
+            AccountEvent::ProfileUpdated => Self {
+                r#type: msg_types::account_event::AccountEventType::ProfileUpdated as i32,
+                data: None,
             },
         }
     }

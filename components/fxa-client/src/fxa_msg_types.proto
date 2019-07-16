@@ -66,6 +66,7 @@ message Capabilities {
 message AccountEvent {
     enum AccountEventType {
         TAB_RECEIVED = 1; // data set to TabReceivedData.
+        PROFILE_UPDATED = 2; // no data.
     }
     required AccountEventType type = 1;
 

@@ -158,7 +158,9 @@ impl FirefoxAccount {
         let devices = self.get_devices()?;
         for data in commands {
             match self.parse_command(data, &devices) {
-                Ok((sender, tab)) => account_events.push(AccountEvent::TabReceived((sender, tab))),
+                Ok((sender, tab)) => {
+                    account_events.push(AccountEvent::TabReceived(Box::new((sender, tab))))
+                }
                 Err(e) => log::error!("Error while processing command: {}", e),
             };
         }

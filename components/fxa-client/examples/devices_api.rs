@@ -93,17 +93,16 @@ fn main() -> Result<(), failure::Error> {
                     .unwrap_or_else(|_| vec![]); // Ignore 404 errors for now.
                 persist_fxa_state(&acct.lock().unwrap());
                 for e in evts {
-                    match e {
-                        AccountEvent::TabReceived((device, payload)) => {
-                            let tab = &payload.entries[0];
-                            match device {
-                                Some(ref d) => {
-                                    println!("Tab received from {}: {}", d.display_name, tab.url)
-                                }
-                                None => println!("Tab received: {}", tab.url),
-                            };
-                            webbrowser::open(&tab.url).unwrap();
-                        }
+                    if let AccountEvent::TabReceived(device_and_payload) = e {
+                        let (device, payload) = *device_and_payload;
+                        let tab = &payload.entries[0];
+                        match device {
+                            Some(ref d) => {
+                                println!("Tab received from {}: {}", d.display_name, tab.url)
+                            }
+                            None => println!("Tab received: {}", tab.url),
+                        };
+                        webbrowser::open(&tab.url).unwrap();
                     }
                 }
                 thread::sleep(time::Duration::from_secs(1));

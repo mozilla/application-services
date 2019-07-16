@@ -16,6 +16,8 @@ val <T> T.exhaustive: T
 sealed class AccountEvent {
     // A tab with all its history entries (back button).
     class TabReceived(val from: Device?, val entries: Array<TabHistoryEntry>) : AccountEvent()
+    // A notification that the profile has been updated.
+    class ProfileUpdated : AccountEvent()
 
     companion object {
         private fun fromMessage(msg: MsgTypes.AccountEvent): AccountEvent {
@@ -28,6 +30,9 @@ sealed class AccountEvent {
                                 TabHistoryEntry(title = it.title, url = it.url)
                             }.toTypedArray()
                     )
+                }
+                MsgTypes.AccountEvent.AccountEventType.PROFILE_UPDATED -> {
+                    return ProfileUpdated
                 }
             }.exhaustive
         }
