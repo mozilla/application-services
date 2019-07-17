@@ -145,13 +145,13 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
         val profileBuffer = rustCallWithLock { e ->
             LibFxAFFI.INSTANCE.fxa_profile(this.handle.get(), ignoreCache, e)
         }
+        this.tryPersistState()
         try {
             val p = MsgTypes.Profile.parseFrom(profileBuffer.asCodedInputStream()!!)
             return Profile.fromMessage(p)
         } finally {
             LibFxAFFI.INSTANCE.fxa_bytebuffer_free(profileBuffer)
         }
-        this.tryPersistState()
     }
 
     /**
