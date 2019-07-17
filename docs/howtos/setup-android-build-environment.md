@@ -64,7 +64,6 @@ a rc file or similar so they persist between reboots etc.
    - Set `ANDROID_HOME` to this location and add it to your rc file.
 
 7. Build NSS, OpenSSL and sqlcipher
-    - Make sure both [GYP](https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP) and [ninja](https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages) are available on your system.
     - `cd path/to/application-services/libs` (Same dir you were just in for step 4)
     - `./build-all.sh android` (Go make some coffee or something, this will take
        some time as it has to compile sqlcipher and openssl for x86, x86_64, arm, and arm64).
