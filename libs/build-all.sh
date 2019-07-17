@@ -43,6 +43,12 @@ if ! [ -x "$(command -v ninja)" ]; then
   exit 1
 fi
 
+# SQLCipher needs TCL.
+if ! [ -x "$(command -v tclsh)" ]; then
+  echo 'Error: tclsh needs to be installed and executable. See https://www.tcl.tk/software/tcltk/.' >&2
+  exit 1
+fi
+
 OPENSSL="openssl-${OPENSSL_VERSION}"
 rm -rf "${OPENSSL}"
 if [ ! -e "${OPENSSL}.tar.gz" ]; then
