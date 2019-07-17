@@ -31,10 +31,5 @@ dependencies {
 }
 
 apply from: "$rootDir/publish.gradle"
-// If using jnaForTestConfiguration or variantWithoutLib,
-// please also update the corresponding .buildconfig-android.yml
-// `publishedArtifacts` property.
-ext.configurePublish(
-        /* jnaForTestConfiguration= */ null,
-        /* variantWithoutLib= */ null,
-)
+
+ext.configurePublish()

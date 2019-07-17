@@ -7,7 +7,7 @@ license = "MPL-2.0"
 
 [lib]
 name = "places_ffi"
-crate-type = ["lib", "staticlib", "cdylib"]
+crate-type = ["lib"]
 
 [features]
 reqwest = ["viaduct/reqwest", "places/reqwest"]
@@ -31,6 +31,3 @@ path = "../../sync15"
 
 [dependencies.places]
 path = ".."
-
-[target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.7.0"

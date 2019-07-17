@@ -11,6 +11,7 @@ buildscript {
         jcenter()
     }
 }
+rootProject.name = "appservices"
 
 // See https://docs.gradle.org/current/userguide/publishing_maven.html#publishing_maven:deferred_configuration.
 enableFeaturePreview('STABLE_PUBLISHING')
@@ -19,6 +20,11 @@ def setupProject(name, projectProps) {
     def path = projectProps.path
     def description = projectProps.description
     def artifactId = projectProps.artifactId
+
+    // TODO: Can we remove artifactId?
+    if (name != artifactId) {
+        throw new GradleException("Project name should match artifactId: $name != $artifactId")
+    }
 
     settings.include(":$name")
 
@@ -31,6 +37,8 @@ def setupProject(name, projectProps) {
         if (project.name == name) {
             project.ext.description = description
             project.ext.artifactId = artifactId
+            // Expose the rest of the project properties, mostly for validation reasons.
+            project.ext.configProps = projectProps
         }
     }
 }

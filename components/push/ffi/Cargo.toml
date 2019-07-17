@@ -7,7 +7,7 @@ license = "MPL-2.0"
 
 [lib]
 name = "push_ffi"
-crate-type = ["lib", "staticlib", "cdylib"]
+crate-type = ["lib"]
 
 [dependencies]
 serde_json = "1.0.40"
@@ -28,6 +28,3 @@ path = "../../sync15"
 
 [features]
 reqwest = ["viaduct/reqwest", "push/reqwest"]
-
-[target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.7.0"

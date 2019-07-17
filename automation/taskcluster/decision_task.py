@@ -154,12 +154,12 @@ def android_linux_x86_64():
         android_task("Build and test (Android - linux-x86-64)", libs_tasks)
         .with_script("""
             echo "rust.targets=linux-x86-64,x86_64\n" > local.properties
-            echo "application-services.nonmegazord-profile=debug" >> local.properties
         """)
         .with_script("""
             yes | sdkmanager --update
             yes | sdkmanager --licenses
             ./gradlew --no-daemon clean
+            ./gradlew --no-daemon assembleDebug
             ./gradlew --no-daemon testDebug
         """)
     )
@@ -177,8 +177,6 @@ def gradle_module_task(libs_tasks, module_info, deploy_environment):
     task = android_task("{} - Build and test".format(module), libs_tasks)
     # This is important as by default the Rust plugin will only cross-compile for Android + host platform.
     task.with_script('echo "rust.targets=arm,arm64,x86_64,x86,darwin,linux-x86-64,win32-x86-64-gnu\n" > local.properties')
-    if deploy_environment == DeployEnvironment.NONE:  # Makes builds way faster.
-        task.with_script('echo "application-services.nonmegazord-profile=debug" >> local.properties')
     (
         task
         .with_script("""

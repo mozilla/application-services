@@ -1,5 +1,6 @@
 package mozilla.appservices.push
 
+import mozilla.appservices.Megazord
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -21,6 +22,7 @@ class PushTest {
 
     @Before
     fun initDB() {
+        Megazord.init()
         dbFile = tmpFolder.newFile().toString()
     }
 

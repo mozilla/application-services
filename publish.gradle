@@ -9,26 +9,34 @@ def libProjectName = properties.libProjectName
 def libUrl = properties.libUrl
 def libVcsUrl = properties.libVcsUrl
 
-// If using jnaForTestConfiguration or variantWithoutLib,
-// please also update the corresponding .buildconfig-android.yml
-// `publications` property.
-ext.configurePublish = { jnaForTestConfiguration = null,
-                         variantWithoutLib = null ->
+// `jnaForTestConfiguration` is a hacky way to say yes, I'm using JNA and want
+// to pack the JNA dispatch libraries and my Rust libraries into a single JAR
+// for use in unit tests that run on a development host (and not an Android
+// target device).  We extract the JNA libraries and our local Rust libraries
+// and stick them into a JAR that consumers augment their test configuration
+// with.
+//
+// It's only used for megazords, for which it's required. Passing it in for a
+// non-megazord is allowed, but will trigger a warning.
+ext.configurePublish = { jnaForTestConfiguration = null ->
     def theGroupId = rootProject.ext.library.groupId
     def theArtifactId = project.ext.artifactId
     def theDescription = project.ext.description
-    // `jnaForTestConfiguration` is a hacky way to say yes, I'm using JNA and
-    // want to pack the JNA dispatch libraries and my Rust libraries into a
-    // single JAR for use in unit tests that run on a development host (and not
-    // an Android target device).  We extract the JNA libraries and our local
-    // Rust libraries and stick them into a JAR that consumers augment their
-    // test configuration with.
-    //
-    // `variantWithoutLib` says to publish an AAR that doesn't have native Rust
-    // libraries packed into it.  Such an AAR will be aggregated into another
-    // Maven publication that has a single megazord Rust library that provides
-    // the native code functionality.
-    if (jnaForTestConfiguration != null) {
+
+    // This is a little cludgey, but it seems unlikely to cause a problem, and
+    // we are already doing it inside taskcluster.
+    def isMegazord = theArtifactId.endsWith("-megazord")
+
+    // Do some sanity checks. The following properties should either all be
+    // true, or none of them should be true:
+    // - We're a megazord
+    // - jnaForTestConfiguration was provided
+    // - we should have 2 publish artifacts, [project, project-forUnitTests]
+    if (isMegazord != (jnaForTestConfiguration != null)) {
+        throw new GradleException("ext.configurePublish needs a `jnaForTestConfiguration` iff the project is a megazord")
+    }
+
+    if (isMegazord) {
         task extractJnaResources(type: Sync) {
             dependsOn jnaForTestConfiguration
 
@@ -55,7 +63,6 @@ ext.configurePublish = { jnaForTestConfiguration = null,
         def forUnitTestsJarTask = task forUnitTestsJar(type: Jar) {
             from extractJnaResources
             from "$buildDir/rustJniLibs/desktop"
-            from "$buildDir/nativeLibs/desktop"
         }
 
         project.afterEvaluate {
@@ -118,54 +125,9 @@ ext.configurePublish = { jnaForTestConfiguration = null,
                         url = libUrl
                     }
                 }
-
-                if (variantWithoutLib != null) {
-                    // If we are publishing a `-withoutLib` publication, we
-                    // never want to choose the real one when a parent project
-                    // has us as a child `project()` dependency.
-                    alias = true
-                }
             }
 
-            if (variantWithoutLib != null) {
-                aarWithoutLib(MavenPublication) {
-                    project.afterEvaluate {
-                        from components.findByName(variantWithoutLib)
-                    }
-                    artifact sourcesJar
-                    // Can't publish Javadoc yet: fxaclient isn't well behaved.
-                    // artifact javadocJar
-
-                    pom {
-                        groupId = theGroupId
-                        artifactId = "${theArtifactId}-withoutLib"
-                        description = theDescription
-                        version = rootProject.ext.library.version
-
-                        licenses {
-                            license {
-                                name = properties.libLicense
-                                url = properties.libLicenseUrl
-                            }
-                        }
-
-                        developers {
-                            developer {
-                                name = 'Mozilla Application Services'
-                                email = 'application-services@mozilla.com'
-                            }
-                        }
-
-                        scm {
-                            connection = properties.libVcsUrl
-                            developerConnection = properties.libVcsUrl
-                            url = properties.libUrl
-                        }
-                    }
-                }
-            }
-
-            if (jnaForTestConfiguration != null) {
+            if (isMegazord) {
                 forUnitTestsJar(MavenPublication) {
                     artifact tasks['forUnitTestsJar']
 

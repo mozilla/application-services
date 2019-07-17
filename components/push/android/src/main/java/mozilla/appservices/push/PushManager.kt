@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicLong
 import org.json.JSONObject
 import org.json.JSONArray
 
-import mozilla.appservices.support.RustBuffer
+import mozilla.appservices.support.native.RustBuffer
 
 /**
  * An implementation of a [PushAPI] backed by a Rust Push library.

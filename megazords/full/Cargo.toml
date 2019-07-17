@@ -1,8 +1,8 @@
 [package]
-name = "reference-browser"
-edition = "2018"
+name = "megazord"
 version = "0.1.0"
 authors = ["application-services <application-services@mozilla.com>"]
+edition = "2018"
 license = "MPL-2.0"
 
 [lib]
@@ -14,4 +14,5 @@ logins_ffi = { path = "../../components/logins/ffi" }
 places-ffi = { path = "../../components/places/ffi" }
 push-ffi = { path = "../../components/push/ffi" }
 rc_log_ffi = { path = "../../components/rc_log" }
-viaduct = { path = "../../components/viaduct" }
+viaduct = { path = "../../components/viaduct", default_features = false }
+lazy_static = "1.3.0"

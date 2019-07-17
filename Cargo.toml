@@ -22,8 +22,8 @@ members = [
     "components/sync15",
     "components/rc_log",
     "megazords/fenix",
+    "megazords/full",
     "megazords/lockbox",
-    "megazords/reference-browser",
     "megazords/ios/rust",
     "testing/sync-test",
 ]

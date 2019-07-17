@@ -18,20 +18,6 @@ use fxa_client::{
 use std::os::raw::c_char;
 use url::Url;
 
-#[no_mangle]
-pub extern "C" fn fxa_enable_logcat_logging() {
-    #[cfg(target_os = "android")]
-    {
-        let _ = std::panic::catch_unwind(|| {
-            android_logger::init_once(
-                android_logger::Filter::default().with_min_level(log::Level::Debug),
-                Some("libfxaclient_ffi"),
-            );
-            log::debug!("Android logging should be hooked up!")
-        });
-    }
-}
-
 lazy_static::lazy_static! {
     static ref ACCOUNTS: ConcurrentHandleMap<FirefoxAccount> = ConcurrentHandleMap::new();
 }

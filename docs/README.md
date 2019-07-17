@@ -17,6 +17,9 @@ you work on app-services projects.  We have:
   * Docs for various infrastructure pieces:
     * Our [Dependency Management Policies](./dependency-management.md)
     * Our [Build and Publish Pipeline](./build-and-publish-pipeline.md)
+  * Architectural design docs:
+    * How [megazording](./design/megazords.md) works, and why we do it.
+    * The motivation and design of the [sync manager](./design/sync-manager.md).
   * Howtos for specific coding activities:
     * Code and architecture guidelines:
       * [Guide to Building a Rust Component](./howtos/building-a-rust-component.md)

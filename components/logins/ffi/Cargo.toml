@@ -7,7 +7,7 @@ license = "MPL-2.0"
 
 [lib]
 name = "logins_ffi"
-crate-type = ["lib", "staticlib", "cdylib"]
+crate-type = ["lib"]
 
 [features]
 reqwest = ["viaduct/reqwest", "logins/reqwest"]
@@ -34,6 +34,3 @@ path = "../../sync15"
 
 [dependencies.ffi-support]
 path = "../../support/ffi"
-
-[target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.7.0"

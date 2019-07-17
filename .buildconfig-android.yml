@@ -1,82 +1,56 @@
 libraryVersion: 0.34.0
 groupId: org.mozilla.appservices
 projects:
-  fxa-client-library:
+  fxaclient:
     path: components/fxa-client/android
     artifactId: fxaclient
     publications:
       - name: fxaclient
         type: aar
-      - name: fxaclient-withoutLib
-        type: aar
-      - name: fxaclient-forUnitTests
-        type: jar
     description: Firefox Accounts client.
-  logins-library:
+  logins:
     path: components/logins/android
     artifactId: logins
     publications:
       - name: logins
         type: aar
-      - name: logins-withoutLib
-        type: aar
-      - name: logins-forUnitTests
-        type: jar
     description: Sync 1.5 logins implementation.
-  places-library:
+  places:
     path: components/places/android
     artifactId: places
     publications:
       - name: places
         type: aar
-      - name: places-withoutLib
-        type: aar
-      - name: places-forUnitTests
-        type: jar
     description: Low level places storage implementation.
-  rustlog-library:
+  rustlog:
     path: components/rc_log/android
     artifactId: rustlog
     publications:
       - name: rustlog
         type: aar
-      - name: rustlog-withoutLib
-        type: aar
-      - name: rustlog-forUnitTests
-        type: jar
     description: Android hook into the log crate.
-  viaduct-library:
+  httpconfig:
     path: components/viaduct/android
     artifactId: httpconfig
     publications:
       - name: httpconfig
         type: aar
-      - name: httpconfig-withoutLib
-        type: aar
-      - name: httpconfig-forUnitTests
-        type: jar
     description: Component allowing the configuration of Rust HTTP stack.
-  as-support-library:
+  native-support:
     path: components/support/android
-    artifactId: support
+    artifactId: native-support
     publications:
-      - name: support
+      - name: native-support
         type: aar
-      - name: support-withoutLib
-        type: aar
-    description: Shared types for app services kotlin.
-  push-library:
+    description: Shared native code utilities for rust component kotlin.
+  push:
     path: components/push/android
     artifactId: push
     publications:
       - name: push
         type: aar
-      - name: push-withoutLib
-        type: aar
-      - name: push-forUnitTests
-        type: jar
     description: Low level WebPush handler implementation.
-  sync15-library:
+  sync15:
     path: components/sync15/android
     artifactId: sync15
     publications:
@@ -93,16 +67,16 @@ projects:
       - name: lockbox-megazord-forUnitTests
         type: jar
     description: Megazord of [fxaclient, logins, logging].
-  reference-browser-megazord:
+  full-megazord:
     uploadSymbols: true
-    path: megazords/reference-browser/android
-    artifactId: reference-browser-megazord
+    path: megazords/full/android
+    artifactId: full-megazord
     publications:
-      - name: reference-browser-megazord
+      - name: full-megazord
         type: aar
-      - name: reference-browser-megazord-forUnitTests
+      - name: full-megazord-forUnitTests
         type: jar
-    description: Megazord of [fxaclient, logins, places, push, logging].
+    description: Megazord containing all features
   fenix-megazord:
     uploadSymbols: true
     path: megazords/fenix/android

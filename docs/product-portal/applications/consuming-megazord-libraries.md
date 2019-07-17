@@ -4,143 +4,131 @@ title: Consuming megazord libraries on Android
 sidebar_label: Consuming megazord libraries
 ---
 
-# Megazord libraries
+# Consuming megazord libraries on Android
 
-The Rust component libraries that Application Services publishes stand alone: each published Android
-ARchive (AAR) contains managed code (`classes.jar`) and multiple `.so` library files (one for each
-supported architecture).  That means consuming multiple such libraries entails at least two `.so`
-libraries, and each of those libraries includes the entire Rust standard library as well as
-(potentially many) duplicated dependencies.  To save space and allow cross-component native-code
-Link Time Optimization (LTO, i.e., inlining, dead code elimination, etc) Application Services also
-publishes aggregate libraries -- so called *megazord libraries* -- that compose multiple Rust
-components into a single optimized `.so` library file.  The managed code can be easily configured to
-use such a megazord without significant changes.
+Each Rust component published by Application Services is conceptually a stand-alone library, but they
+all depend on a shared core of functionality for exposing Rust to Kotlin.  In order to allow easy interop
+between components, enable cross-component native-code Link Time Optimization, and reduce final application
+size, the rust code for all components is compiled and distributed together as a single aggregate library
+which we have dubbed a ***megazord library***.
 
-There are two tasks we want to arrange.  First, we want to substitute component modules for the
-single aggregate megazord module (a process that we call "megazording"); second, we want to arrange
-for native Rust code to be available to JVM unit tests.  (They're related because the unit test
-changes depend on the megazord used.)
+Each Application Services component is published as an Android ARchive (AAR) that contains the managed code
+for that component (`classes.jar`) and which depends on a separate "megazord" AAR that contains all of the
+compiled rust code (`libmegazord.so`). For an application that consumes multiple Application Services components,
+the dependency graph thus looks like this:
 
-Both tasks are handled by the
-[org.mozilla.appservices](https://github.com/mozilla/application-services/gradle-plugin/README.md)
-Gradle plugin.
+[![megazord dependency diagram](https://docs.google.com/drawings/d/e/2PACX-1vTA6wL3ibJRNjKXsmescTfKTx0w_fpr5NcDIF_4T5AsnZfCi8UEEcav8vibocSyKpHOQOk5ysiDBm-D/pub?w=727&h=546)](https://docs.google.com/drawings/d/1owo4wo2F1ePlCq2NS0LmAOG4jRoT_eVBahGNeWHuhJY/)
 
-# Consuming megazords
+While this setup is *mostly* transparent to the consuming application, there are a few points to be aware of
+which are outlined below.
 
-You'll need to:
+## Initializing Shared Infrastructure
 
-1. Choose a megazord from the [list of megazords](#megazords) that Application Services produces in automation.
-1. [Apply](#apply-the-gradle-plugin) the `org.mozilla.appservices` Gradle plugin.
-1. [Configure](#configure-the-gradle-plugin) the Gradle plugin.
-1. [Call `.init()`](#configuring-the-consuming-application) in your `Application.onCreate()`.
-1. [Verify](#verify-that-your-apk-is-megazorded) that your APK is megazorded.
+The megazord AAR exposes a single additional JVM class, `mozilla.appservices.Megazord`, which the application
+should initialize explicitly. This would typically be done in the `Application.onCreate()` method, like so:
 
-## Megazords
+```kotlin
+import mozilla.appservices.Megazord
+
+open class Application extends android.app.Application {
+    override fun onCreate() {
+        super.onCreate();
+        Megazord.init();
+    }
+    ...
+}
+```
+
+The `init()` method sets some Java system properties that help the component modules locate their compiled
+rust code.
+
+After initializing the Megazord, the application can configure shared infrastructure such as logging:
+
+```kotlin
+import mozilla.components.support.rustlog.RustLog
+
+open class Application extends android.app.Application {
+    override fun onCreate() {
+      ...
+      Megazord.init();
+      ...
+      RustLog.enable()
+      ...
+    }
+}
+```
+
+Or networking:
+
+```kotlin
+import mozilla.components.lib.fetch.httpurlconnection.HttpURLConnectionClient
+import mozilla.appservices.httpconfig.RustHttpConfig
+
+open class Application extends android.app.Application {
+    override fun onCreate() {
+      ...
+      Megazord.init();
+      ...
+      RustHttpConfig.setClient(lazy { HttpURLConnectionClient() })
+      ...
+    }
+}
+```
+
+The configured settings will then be used by all rust components provided by the megazord.
+
+## Using a custom Megazord
+
+The default megazord library contains compiled rust code for *all* components published by Application Services.
+If the consuming application only uses a subset of those components, it's possible to reduce its package size and
+load time by using a custom-built megazord library containing only the required components.
+
+First, you will need to select an appropriate custom megazord. Application Services publishes several custom megazords
+to fit the needs of existing Firefox applications:
 
 | Name | Components | Maven publication |
 | --- | --- | --- |
 | `lockbox` | `fxaclient`, `logins` | `org.mozilla.appservices:lockbox-megazord` |
-| `reference-browser` | `fxaclient`, `logins`, `places` | `org.mozilla.appservices:reference-browser-megazord` |
+| `fenix` | `fxaclient`, `logins`, `places` | `org.mozilla.appservices:fenix-megazord` |
 
-If your project needs an additional megazord, talk to #rust-components on Slack.
-
-## Apply the Gradle plugin
-
-<a alt="Version badge" href="https://plugins.gradle.org/plugin/org.mozilla.appservices.gradle-plugin">
-<img align="left" src="https://img.shields.io/maven-metadata/v/https/plugins.gradle.org/m2/org/mozilla/appservices/org.mozilla.appservices.gradle.plugin/maven-metadata.xml.svg?label=org.mozilla.appservices&colorB=brightgreen" />
-</a>
-<br/>
-
-Build script snippet for plugins DSL for Gradle 2.1 and later:
+Then, simply use gradle's builtin support for [module replacement](https://docs.gradle.org/current/userguide/customizing_dependency_resolution_behavior.html#sec:module_replacement)
+to replace the default "full megazord" with your selected custom build:
 
 ```groovy
-plugins {
-  id 'org.mozilla.appservices' version '0.1.0'
-}
-```
-
-Build script snippet for use in older Gradle versions or where dynamic configuration is required:
-
-```groovy
-buildscript {
-  repositories {
-    maven {
-      url 'https://plugins.gradle.org/m2/'
+dependencies {
+  modules {
+    module('org.mozilla.appservices:full-megazord') {
+      replacedBy('org.mozilla.appservices:fenix-megazord', 'prefer the fenix megazord, to reduce final application size')
     }
   }
-  dependencies {
-    classpath 'gradle.plugin.org.mozilla.appservices:gradle-plugin:0.1.0"
-  }
 }
-
-apply plugin: 'org.mozilla.appservices'
 ```
 
-## Configure the Gradle plugin
+If you would like a new custom megazord for your project, please reach out via #rust-components in slack.
 
-To consume a specific megazord module, use something like:
+## Running unit tests
+
+Since the megazord library contains compiled native code, it cannot be used directly for running local unittests
+(it's compiled for the android target device, not for your development host machine). To support running unittests
+via the JVM on the host machine, we publish a special `forUnitTests` configuration of each megazord library, in which the
+native code is compiled into a JAR for common desktop architectures.
+
+Simply add this JAR to your classpath when running tests, like so:
 
 ```groovy
-appservices {
-    defaultConfig {
-        // Megazord in all Android variants.  The default is to not megazord.
-        megazord = 'lockbox' // Or 'reference-browser', etc.
-        enableUnitTests = false // Defaults to true.
-    }
-```
-
-If you need, you can configure per Android variant: see the
-[plugin docs](https://github.com/mozilla/application-services/gradle-plugin/README.md).
-
-## Configuring the consuming application
-
-The megazord modules expose a single additional JVM class, like
-`org.mozilla.appservices.{Lockbox,ReferenceBrowser}Megazord`.  That class has a single static
-`init()` method that consuming applications should invoke in their `Application.onCreate()` method,
-like:
-
-```xml
-<manifest>
-    <application android:name=".Application" ...>
-    </application>
-    ...
-</manifest>
-```
-
-and:
-
-```java
-public class Application extends android.app.Application {
-    @Override
-    public void onCreate() {
-        super.onCreate();
-
-        org.mozilla.appservices.LockboxMegazord.init();
-    }
-
-    ...
+dependencies {
+  testImplementation "org.mozilla.appservices:full-megazord-forUnitTests:X.Y.Z"
 }
 ```
 
-The `init()` method sets some Java system properties that tell the component modules which megazord
-native code library contains the underlying component native code.
+Or, if you are using a custom megazord library, like this:
 
-## Verify that your APK is megazorded
 
-After `./gradlew app:assembleDebug`, list the contents of the APK produced.  For the Reference
-Browser, this might be like:
-
-```
-./gradlew app:assembleGeckoNightlyArmDebug
-unzip -l app/build/outputs/apk/geckoNightlyArm/debug/app-geckoNightly-arm-armeabi-v7a-debug.apk | grep lib/
+```groovy
+dependencies {
+  testImplementation "org.mozilla.appservices:fenix-megazord-forUnitTests:X.Y.Z"
+}
 ```
 
-You should see a single megazord `.so` library, like:
-
-```
-  5172812  00-00-1980 00:00   lib/armeabi-v7a/libreference_browser.so
-```
-and no additional _component_ `.so` libraries (like `libfxaclient_ffi.so`).  You will see additional
-`.so` libraries -- just not component libraries, which are generally suffixed `_ffi.so`.
-
-Then exercise your functionality on device and don't think about megazording again!
+This will make the appropriate `.so` files available to your tests at runtime, without affecting the code
+that is bunlded into the built version of your app.

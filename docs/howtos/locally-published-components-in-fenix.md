@@ -1,8 +1,9 @@
 # Using locally-published components in Fenix
 
-Note: This is a bit tedious, so feel free to ask in slack if there's a better
-way to test things. At the moment substitution is broken, so this is necessary
-in more cases than we'd like.
+Note: This is a bit tedious, and you might like to try the substitution-based
+approach documented in [Development with the Reference Browser](./working-with-reference-browser.md).
+That approach is still fairly new, and the local-publishing approach in this document
+is necessary if it fails.
 
 Note 2: This is fenix-specific only in that some links on the page go to the
 `mozilla-mobile/fenix` repository, and that I'm describing `fenix`, however
@@ -10,22 +11,7 @@ these steps should work for e.g. `reference-browser`, as well. (Same goes for
 lockwise, or any other consumer of our components, but they may use a different
 structure -- lockwise has no Dependencies.kt, for example)
 
-1. If you've added a new project to the megazord:
-    1. In the gradle plugin's [`AppServicesExtension.kt`](AppServicesExtension),
-       add the new component to the relevant megazord. Note: you may have
-       already done this.
-    2. In the gradle plugin's [`build.gradle`](plugin-build-gradle), change
-       `ext.plugin_version` to end with `-TESTING$N`
-       <sup><a href="#note1">1</a></sup> where `$N` is some number
-       that you haven't used for this before.
-
-       Example: `ext.plugin_version = '0.4.4-TESTING3'`
-    3. Inside the `gradle-plugin` directory run `./gradlew publishToMavenLocal`.
-
-       It's important that you do this from inside the plugin's directory,
-       e.g. cwd must be `path/to/application-services/gradle-plugin`!
-
-2. Inside the `application-services` repository root:
+1. Inside the `application-services` repository root:
     1. In [`.buildconfig-android.yml`](app-services-yaml), change
        `libraryVersion` to end in `-TESTING$N` <sup><a href="#note1">1</a></sup>,
        where `$N` is some number that you haven't used for this before.
@@ -37,7 +23,7 @@ structure -- lockwise has no Dependencies.kt, for example)
        the next step much faster.
     3. Run `./gradlew publishToMavenLocal`. This may take between 5 and 10 minutes.
 
-3. Inside the `android-components` repository root:
+2. Inside the `android-components` repository root:
     1. In [`.buildconfig.yml`](android-components-yaml), change
        `componentsVersion` to end in `-TESTING$N` <sup><a href="#note1">1</a></sup>,
        where `$N` is some number that you haven't used for this before.
@@ -57,7 +43,7 @@ structure -- lockwise has no Dependencies.kt, for example)
 
     5. Run `./gradlew publishToMavenLocal`.
 
-4. Inside the `fenix` repository root:
+3. Inside the `fenix` repository root:
     1. Inside [`build.gradle`](fenix-build-gradle-1), add
        `mavenLocal()` inside `allprojects { repositories { <here> } }`.
         1. If you added a new project to the megazord (e.g. you went through the
@@ -107,8 +93,6 @@ matched (e.g. all of the identifiers ended in `-TESTING3`, this is not required,
 so long as you match everything up correctly at the end. This can be tricky, so
 I always try to use the same number).
 
-[AppServicesExtension]: https://github.com/mozilla/application-services/blob/594f4e3f6c190bc5a6732f64afc573c09020038a/gradle-plugin/src/main/kotlin/mozilla/appservices/AppServicesExtension.kt#L21-L55
-[plugin-build-gradle]: https://github.com/mozilla/application-services/blob/594f4e3f6c190bc5a6732f64afc573c09020038a/gradle-plugin/build.gradle#L3
 [app-services-yaml]: https://github.com/mozilla/application-services/blob/594f4e3f6c190bc5a6732f64afc573c09020038a/.buildconfig-android.yml#L1
 [android-components-yaml]: https://github.com/mozilla-mobile/android-components/blob/b98206cf8de818499bdc87c00de942a41f8aa2fb/.buildconfig.yml#L1
 [android-components-deps]: https://github.com/mozilla-mobile/android-components/blob/b98206cf8de818499bdc87c00de942a41f8aa2fb/buildSrc/src/main/java/Dependencies.kt#L37
