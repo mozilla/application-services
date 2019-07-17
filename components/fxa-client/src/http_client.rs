@@ -46,7 +46,8 @@ pub trait FxAClient {
         config: &Config,
         session_token: &str,
     ) -> Result<DuplicateTokenResponse>;
-    fn destroy_oauth_token(&self, config: &Config, token: &str) -> Result<()>;
+    fn destroy_access_token(&self, config: &Config, token: &str) -> Result<()>;
+    fn destroy_refresh_token(&self, config: &Config, token: &str) -> Result<()>;
     fn profile(
         &self,
         config: &Config,
@@ -201,13 +202,18 @@ impl FxAClient for Client {
         Ok(Self::make_request(request)?.json()?)
     }
 
-    fn destroy_oauth_token(&self, config: &Config, token: &str) -> Result<()> {
+    fn destroy_access_token(&self, config: &Config, access_token: &str) -> Result<()> {
         let body = json!({
-            "token": token,
+            "access_token": access_token,
         });
-        let url = config.oauth_url_path("v1/destroy")?;
-        Self::make_request(Request::post(url).json(&body))?;
-        Ok(())
+        self.destroy_token_helper(config, &body)
+    }
+
+    fn destroy_refresh_token(&self, config: &Config, refresh_token: &str) -> Result<()> {
+        let body = json!({
+            "refresh_token": refresh_token,
+        });
+        self.destroy_token_helper(config, &body)
     }
 
     fn pending_commands(
@@ -306,6 +312,12 @@ impl FxAClient for Client {
 impl Client {
     pub fn new() -> Self {
         Self {}
+    }
+
+    fn destroy_token_helper(&self, config: &Config, body: &serde_json::Value) -> Result<()> {
+        let url = config.oauth_url_path("v1/destroy")?;
+        Self::make_request(Request::post(url).json(body))?;
+        Ok(())
     }
 
     fn make_oauth_token_request(

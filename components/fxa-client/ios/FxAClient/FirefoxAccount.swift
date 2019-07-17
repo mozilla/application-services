@@ -154,6 +154,7 @@ open class FirefoxAccount {
                 fxa_bytebuffer_free(profileBuffer)
                 let profile = Profile(msg: msg)
                 DispatchQueue.main.async { completionHandler(profile, nil) }
+                self.tryPersistState()
             } catch {
                 DispatchQueue.main.async { completionHandler(nil, error) }
             }
@@ -266,6 +267,22 @@ open class FirefoxAccount {
                     fxa_clear_access_token_cache(self.raw, err)
                 }
                 DispatchQueue.main.async { completionHandler((), nil) }
+            } catch {
+                DispatchQueue.main.async { completionHandler((), error) }
+            }
+        }
+    }
+
+    /// Disconnect from the account and optionaly destroy our device record.
+    /// `beginOAuthFlow(...)` will need to be called to reconnect.
+    open func disconnect(completionHandler: @escaping (Void, Error?) -> Void) {
+        queue.async {
+            do {
+                try FirefoxAccountError.unwrap { err in
+                    fxa_disconnect(self.raw, err)
+                }
+                DispatchQueue.main.async { completionHandler((), nil) }
+                self.tryPersistState()
             } catch {
                 DispatchQueue.main.async { completionHandler((), error) }
             }

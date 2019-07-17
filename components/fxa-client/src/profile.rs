@@ -16,6 +16,8 @@ impl FirefoxAccount {
     ///
     /// * `ignore_cache` - If set to true, bypass the in-memory cache
     /// and fetch the entire profile data from the server.
+    ///
+    /// **💾 This method alters the persisted account state.**
     pub fn get_profile(&mut self, ignore_cache: bool) -> Result<Profile> {
         match self.get_profile_helper(ignore_cache) {
             Ok(res) => Ok(res),
@@ -34,7 +36,7 @@ impl FirefoxAccount {
 
     fn get_profile_helper(&mut self, ignore_cache: bool) -> Result<Profile> {
         let mut etag = None;
-        if let Some(ref cached_profile) = self.profile_cache {
+        if let Some(ref cached_profile) = self.state.last_seen_profile {
             if !ignore_cache && util::now() < cached_profile.cached_at + PROFILE_FRESHNESS_THRESHOLD
             {
                 return Ok(cached_profile.response.clone());
@@ -48,7 +50,7 @@ impl FirefoxAccount {
         {
             Some(response_and_etag) => {
                 if let Some(etag) = response_and_etag.etag {
-                    self.profile_cache = Some(CachedResponse {
+                    self.state.last_seen_profile = Some(CachedResponse {
                         response: response_and_etag.response.clone(),
                         cached_at: util::now(),
                         etag,
@@ -57,10 +59,10 @@ impl FirefoxAccount {
                 Ok(response_and_etag.response)
             }
             None => {
-                match self.profile_cache.take() {
+                match self.state.last_seen_profile.take() {
                     Some(ref cached_profile) => {
                         // Update `cached_at` timestamp.
-                        self.profile_cache.replace(CachedResponse {
+                        self.state.last_seen_profile.replace(CachedResponse {
                             response: cached_profile.response.clone(),
                             cached_at: util::now(),
                             etag: cached_profile.etag.clone(),
@@ -87,9 +89,21 @@ mod tests {
     use std::sync::Arc;
 
     impl FirefoxAccount {
-        fn add_cached_token(&mut self, scope: &str, token_info: AccessTokenInfo) {
-            self.access_token_cache
-                .insert(scope.to_string(), token_info);
+        pub fn add_cached_profile(&mut self, uid: &str, email: &str) {
+            self.state.last_seen_profile = Some(CachedResponse {
+                response: Profile {
+                    uid: uid.into(),
+                    email: email.into(),
+                    locale: "en-US".into(),
+                    display_name: None,
+                    avatar: "".into(),
+                    avatar_default: true,
+                    amr_values: vec![],
+                    two_factor_authentication: false,
+                },
+                cached_at: util::now(),
+                etag: "fake etag".into(),
+            });
         }
     }
 

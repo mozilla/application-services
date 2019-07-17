@@ -8,11 +8,10 @@
 use crate::{
     commands::send_tab::SendTabPayload,
     device::{Capability as DeviceCapability, Device},
-    error::*,
     oauth::{OAuthFlow, RefreshToken},
     scoped_keys::ScopedKey,
 };
-pub use crate::{config::Config, oauth::AccessTokenInfo, profile::Profile};
+pub use crate::{config::Config, error::*, oauth::AccessTokenInfo, profile::Profile};
 use serde_derive::*;
 use std::{
     collections::{HashMap, HashSet},
@@ -41,18 +40,22 @@ mod util;
 
 type FxAClient = dyn http_client::FxAClient + Sync + Send;
 
+// It this struct is modified, please check if the
+// `FirefoxAccount.start_over` function also needs
+// to be modified.
 pub struct FirefoxAccount {
     client: Arc<FxAClient>,
     state: StateV2,
     access_token_cache: HashMap<String, AccessTokenInfo>,
     flow_store: HashMap<String, OAuthFlow>,
-    profile_cache: Option<CachedResponse<Profile>>,
 }
 
-// If this structure is modified, please
-// check whether or not a migration needs to be done
-// as these fields are persisted as a JSON string
+// If this structure is modified, please:
+// 1. Check if a migration needs to be done, as
+// these fields are persisted as a JSON string
 // (see `state_persistence.rs`).
+// 2. Check if the `StateVX.start_over` function
+// also needs to to be modified.
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct StateV2 {
     config: Config,
@@ -65,6 +68,25 @@ pub(crate) struct StateV2 {
     #[serde(default)] // Same
     device_capabilities: HashSet<DeviceCapability>,
     session_token: Option<String>, // Hex-formatted string.
+    last_seen_profile: Option<CachedResponse<Profile>>,
+}
+
+impl StateV2 {
+    /// Clear the whole persisted state of the account, but keep just enough
+    /// information to eventually reconnect to the same user account later.
+    fn start_over(&self) -> StateV2 {
+        StateV2 {
+            config: self.config.clone(),
+            // Leave the profile cache untouched so we can reconnect later.
+            last_seen_profile: self.last_seen_profile.clone(),
+            refresh_token: None,
+            scoped_keys: HashMap::new(),
+            last_handled_command: None,
+            commands_data: HashMap::new(),
+            device_capabilities: HashSet::new(),
+            session_token: None,
+        }
+    }
 }
 
 impl FirefoxAccount {
@@ -74,7 +96,6 @@ impl FirefoxAccount {
             state,
             access_token_cache: HashMap::new(),
             flow_store: HashMap::new(),
-            profile_cache: None,
         }
     }
 
@@ -90,6 +111,7 @@ impl FirefoxAccount {
             commands_data: HashMap::new(),
             device_capabilities: HashSet::new(),
             session_token: None,
+            last_seen_profile: None,
         })
     }
 
@@ -122,6 +144,14 @@ impl FirefoxAccount {
     /// to be restored later using `from_json`.
     pub fn to_json(&self) -> Result<String> {
         state_persistence::state_to_json(&self.state)
+    }
+
+    /// Clear the whole persisted/cached state of the account, but keep just
+    /// enough information to eventually reconnect to the same user account later.
+    pub fn start_over(&mut self) {
+        self.state = self.state.start_over();
+        self.access_token_cache.clear();
+        self.flow_store.clear();
     }
 
     /// Get the Sync Token Server endpoint URL.
@@ -203,6 +233,39 @@ impl FirefoxAccount {
             None => Err(ErrorKind::NoRefreshToken.into()),
         }
     }
+
+    /// Disconnect from the account and optionaly destroy our device record. This will
+    /// leave the account object in a state where it can eventually reconnect to the same user.
+    /// This is a "best effort" infallible method: e.g. if the network is unreachable,
+    /// the device could still be in the FxA devices manager.
+    ///
+    /// **💾 This method alters the persisted account state.**
+    pub fn disconnect(&mut self) {
+        // Save the refresh token before resetting the state.
+        let refresh_token = match self.state.refresh_token {
+            Some(ref t) => Some(t.token.clone()),
+            None => None,
+        };
+        self.start_over();
+        if let Some(refresh_token) = refresh_token {
+            // Delete the current device (which deletes the refresh token), or
+            // the refresh token directly if we don't have a device.
+            let destroy_result = match self.get_current_device() {
+                // If we get an error trying to fetch our device record we'll at least
+                // still try to delete the refresh token itself.
+                Ok(Some(device)) => {
+                    self.client
+                        .destroy_device(&self.state.config, &refresh_token, &device.id)
+                }
+                _ => self
+                    .client
+                    .destroy_refresh_token(&self.state.config, &refresh_token),
+            };
+            if let Err(e) = destroy_result {
+                log::warn!("Error while destroying the device: {}", e);
+            }
+        }
+    }
 }
 
 pub enum AccountEvent {
@@ -210,6 +273,7 @@ pub enum AccountEvent {
     TabReceived((Option<Device>, SendTabPayload)),
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub(crate) struct CachedResponse<T> {
     response: T,
     cached_at: u64,
@@ -234,25 +298,6 @@ pub struct CommandReceivedPushPayload {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    impl FirefoxAccount {
-        fn add_cached_profile(&mut self, uid: &str, email: &str) {
-            self.profile_cache = Some(CachedResponse {
-                response: Profile {
-                    uid: uid.into(),
-                    email: email.into(),
-                    locale: "en-US".into(),
-                    display_name: None,
-                    avatar: "".into(),
-                    avatar_default: true,
-                    amr_values: vec![],
-                    two_factor_authentication: false,
-                },
-                cached_at: util::now(),
-                etag: "fake etag".into(),
-            });
-        }
-    }
 
     #[test]
     fn test_fxa_is_send() {

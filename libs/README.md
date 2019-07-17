@@ -8,7 +8,11 @@ This directory builds the required libraries for iOS, Android and desktop platfo
 * `./build-all.sh android` - Build for Android
 * `./build-all.sh desktop` - Build for Desktop
 
-[GYP](https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP) and [ninja](https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages) are required to run these scripts.
+### Build dependencies
+
+* [GYP](https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP)
+* [ninja](https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages)
+* [Tcl](https://www.tcl.tk/software/tcltk/)
 
 ### Supported architectures
 
