@@ -309,6 +309,7 @@ jobs:
           destination: logs/raw_xcodetest.log
       - run:
           name: Build Carthage archive
+          no_output_timeout: 20m
           command: |
             if [ -z "${CIRCLE_TAG}" ]; then
               # XCode tests build in Debug configuration, save us a full
