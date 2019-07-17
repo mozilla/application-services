@@ -11,7 +11,7 @@ use cli_support::prompt::{prompt_string, prompt_usize};
 use failure::Fail;
 
 use logins::{Login, PasswordEngine};
-use prettytable::*;
+use prettytable::{cell, row, Cell, Row, Table};
 use rusqlite::NO_PARAMS;
 use serde_json;
 use sync15::StoreSyncAssociation;
@@ -124,7 +124,6 @@ fn timestamp_to_string(milliseconds: i64) -> String {
 }
 
 fn show_sql(e: &PasswordEngine, sql: &str) -> Result<()> {
-    use prettytable::{cell::Cell, row::Row};
     use rusqlite::types::Value;
     let conn = e.conn();
     let mut stmt = conn.prepare(sql)?;
