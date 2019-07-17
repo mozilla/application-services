@@ -198,6 +198,11 @@ subprojects {
     group = "org.mozilla.appservices"
     apply plugin: 'digital.wup.android-maven-publish'
 
+    // Enable Kotlin warnings as errors for all modules.
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+        kotlinOptions.allWarningsAsErrors = true
+    }
+
     // This allows to invoke Gradle like `./gradlew publishToRootProjectBuildDir` (equivalent to
     // `./gradlew publish`) and also `./gradlew publishToProjectBuildDir`.
     publishing {
