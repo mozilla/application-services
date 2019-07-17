@@ -6,6 +6,11 @@
 
 ## FxA Client
 
+### What's Fixed
+
+- The state persistence callback is now correctly triggered after a call
+  to `FirefoxAccount.getProfile`.
+
 ### Breaking changes
 
 - The `FirefoxAccount.destroyDevice` method has been removed in favor of the
