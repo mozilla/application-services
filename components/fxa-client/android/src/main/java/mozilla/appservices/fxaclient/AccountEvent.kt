@@ -19,16 +19,17 @@ sealed class AccountEvent {
 
     companion object {
         private fun fromMessage(msg: MsgTypes.AccountEvent): AccountEvent {
-            when (msg.type) {
+            return when (msg.type) {
                 MsgTypes.AccountEvent.AccountEventType.TAB_RECEIVED -> {
                     val data = msg.tabReceivedData
-                    return TabReceived(
-                            from = if (data.hasFrom()) Device.fromMessage(data.from) else null,
-                            entries = data.entriesList.map {
-                                TabHistoryEntry(title = it.title, url = it.url)
-                            }.toTypedArray()
+                    TabReceived(
+                        from = if (data.hasFrom()) Device.fromMessage(data.from) else null,
+                        entries = data.entriesList.map {
+                            TabHistoryEntry(title = it.title, url = it.url)
+                        }.toTypedArray()
                     )
                 }
+                null -> throw NullPointerException("AccountEvent type cannot be null.")
             }.exhaustive
         }
         internal fun fromCollectionMessage(msg: MsgTypes.AccountEvents): Array<AccountEvent> {
