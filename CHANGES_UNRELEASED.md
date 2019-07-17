@@ -8,8 +8,8 @@
 
 ### Megazords
 
-The long-awaited android megazord changes have arrived. This has a large number
-of changes, many of them breaking:
+The long-awaited android [megazord changes](./docs/design/megazords) have
+arrived. This has a large number of changes, many of them breaking:
 ([#1103](https://github.com/mozilla/application-services/pull/1103))
 
 - Consumers who depend on network features of application-services, but

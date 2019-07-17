@@ -19,7 +19,7 @@ import java.nio.ByteOrder
 
 /**
  * A helper for converting a protobuf Message into a direct `java.nio.ByteBuffer`
- * and it's length. This avoids a copy when passing data to Rust, when compared
+ * and its length. This avoids a copy when passing data to Rust, when compared
  * to using an `Array<Byte>`
  */
 
@@ -127,7 +127,7 @@ internal fun lookupMegazordLibrary(componentName: String, componentVersion: Stri
 }
 
 /**
- * Determine the megazord library name, and check that it's version is
+ * Determine the megazord library name, and check that its version is
  * compatible with the version of our bindings. Returns the megazord
  * library name.
  *
