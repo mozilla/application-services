@@ -1,4 +1,4 @@
-libraryVersion: 0.34.0
+libraryVersion: 0.35.0-TESTING
 groupId: org.mozilla.appservices
 projects:
   fxaclient:
