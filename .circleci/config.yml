@@ -122,6 +122,7 @@ commands:
       - setup-sccache
       - install-clang
       - run: |
+          echo 'export NSS_STATIC=1' >> $BASH_ENV
           echo 'export NSS_DIR=$(pwd)/libs/desktop/linux-x86-64/nss' >> $BASH_ENV
           echo 'export OPENSSL_DIR=$(pwd)/libs/desktop/linux-x86-64/openssl' >> $BASH_ENV
           echo 'export SQLCIPHER_LIB_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/lib' >> $BASH_ENV
