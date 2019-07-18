@@ -82,8 +82,8 @@ pub fn extract_v1_state(
     // Try and find the sync guids in the global payload.
     let gsid = meta_global.sync_id;
     let ids = meta_global.engines.get(collection).map(|coll| CollSyncIds {
-        global: gsid.to_string(),
-        coll: coll.sync_id.to_string(),
+        global: gsid,
+        coll: coll.sync_id.clone(),
     });
     (ids, new_global_state)
 }
@@ -121,8 +121,8 @@ mod tests {
 
     fn make_csids(global: &str, coll: &str) -> Option<CollSyncIds> {
         Some(CollSyncIds {
-            global: global.to_string(),
-            coll: coll.to_string(),
+            global: global.into(),
+            coll: coll.into(),
         })
     }
 

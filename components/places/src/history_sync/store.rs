@@ -16,6 +16,7 @@ use sync15::{
     extract_v1_state, CollSyncIds, CollectionRequest, IncomingChangeset, OutgoingChangeset,
     ServerTimestamp, Store, StoreSyncAssociation,
 };
+use sync_guid::Guid;
 
 use super::plan::{apply_plan, finish_plan};
 use super::MAX_INCOMING_PLACES;
@@ -72,7 +73,7 @@ impl<'a> HistoryStore<'a> {
     fn do_sync_finished(
         &self,
         new_timestamp: ServerTimestamp,
-        records_synced: Vec<String>,
+        records_synced: Vec<Guid>,
     ) -> Result<()> {
         log::info!(
             "sync completed after uploading {} records",
@@ -160,7 +161,7 @@ impl<'a> Store for HistoryStore<'a> {
     fn sync_finished(
         &self,
         new_timestamp: ServerTimestamp,
-        records_synced: Vec<String>,
+        records_synced: Vec<Guid>,
     ) -> result::Result<(), failure::Error> {
         self.do_sync_finished(new_timestamp, records_synced)?;
         Ok(())

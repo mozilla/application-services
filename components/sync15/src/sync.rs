@@ -12,6 +12,7 @@ use crate::state::GlobalState;
 use crate::telemetry;
 use crate::util::ServerTimestamp;
 use interrupt::Interruptee;
+use sync_guid::Guid;
 
 /// Low-level store functionality. Stores that need custom reconciliation logic should use this.
 ///
@@ -29,7 +30,7 @@ pub trait Store {
     fn sync_finished(
         &self,
         new_timestamp: ServerTimestamp,
-        records_synced: Vec<String>,
+        records_synced: Vec<Guid>,
     ) -> Result<(), failure::Error>;
 
     /// The store is responsible for building the collection request. Engines

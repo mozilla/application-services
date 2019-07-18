@@ -4,6 +4,7 @@
 
 use serde_derive::*;
 use std::collections::HashMap;
+use sync_guid::Guid;
 
 // Known record formats.
 
@@ -11,13 +12,13 @@ use std::collections::HashMap;
 pub struct MetaGlobalEngine {
     pub version: usize,
     #[serde(rename = "syncID")]
-    pub sync_id: String,
+    pub sync_id: Guid,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MetaGlobalRecord {
     #[serde(rename = "syncID")]
-    pub sync_id: String,
+    pub sync_id: Guid,
     #[serde(rename = "storageVersion")]
     pub storage_version: usize,
     pub engines: HashMap<String, MetaGlobalEngine>,
@@ -26,7 +27,7 @@ pub struct MetaGlobalRecord {
 
 #[derive(Deserialize, Serialize, Clone, Debug, Eq, PartialEq)]
 pub struct CryptoKeysRecord {
-    pub id: String,
+    pub id: Guid,
     pub collection: String,
     pub default: [String; 2],
     pub collections: HashMap<String, [String; 2]>,

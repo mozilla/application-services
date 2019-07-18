@@ -9,7 +9,7 @@ use logins::{Login, PasswordEngine, Result as LoginResult};
 
 // Doesn't check metadata fields
 pub fn assert_logins_equiv(a: &Login, b: &Login) {
-    assert_eq!(b.id, a.id, "id mismatch");
+    assert_eq!(b.guid, a.guid, "id mismatch");
     assert_eq!(b.hostname, a.hostname, "hostname mismatch");
     assert_eq!(
         b.form_submit_url, a.form_submit_url,
@@ -42,7 +42,7 @@ pub fn add_login(e: &PasswordEngine, l: Login) -> LoginResult<Login> {
 
 pub fn verify_login(e: &PasswordEngine, l: &Login) {
     let equivalent = e
-        .get(&l.id)
+        .get(&l.guid)
         .expect("get() to succeed")
         .expect("Expected login to be present");
     assert_logins_equiv(&equivalent, l);
@@ -91,7 +91,7 @@ fn test_login_general(c0: &mut TestClient, c1: &mut TestClient) {
     add_login(
         &c0.logins_engine,
         Login {
-            id: l0id.into(),
+            guid: l0id.into(),
             hostname: "http://www.example.com".into(),
             form_submit_url: Some("http://login.example.com".into()),
             username: "cool_username".into(),
@@ -109,7 +109,7 @@ fn test_login_general(c0: &mut TestClient, c1: &mut TestClient) {
     let login1_c0 = add_login(
         &c0.logins_engine,
         Login {
-            id: l1id.into(),
+            guid: l1id.into(),
             hostname: "http://www.example.com".into(),
             http_realm: Some("Login".into()),
             username: "cool_username".into(),
@@ -198,7 +198,7 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
     let login0 = add_login(
         &c0.logins_engine,
         Login {
-            id: l0id.into(),
+            guid: l0id.into(),
             hostname: "http://www.example.com".into(),
             form_submit_url: Some("http://login.example.com".into()),
             username: "cool_username".into(),
@@ -213,7 +213,7 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
     let login1 = add_login(
         &c0.logins_engine,
         Login {
-            id: l1id.into(),
+            guid: l1id.into(),
             hostname: "http://www.example.com".into(),
             http_realm: Some("Login".into()),
             username: "cool_username".into(),
@@ -226,7 +226,7 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
     let login2 = add_login(
         &c0.logins_engine,
         Login {
-            id: l2id.into(),
+            guid: l2id.into(),
             hostname: "https://www.example.org".into(),
             http_realm: Some("Test".into()),
             username: "cool_username100".into(),
@@ -239,7 +239,7 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
     let login3 = add_login(
         &c0.logins_engine,
         Login {
-            id: l3id.into(),
+            guid: l3id.into(),
             hostname: "https://www.example.net".into(),
             http_realm: Some("Http Realm".into()),
             username: "cool_username99".into(),

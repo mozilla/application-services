@@ -23,6 +23,7 @@ sql-support = { path = "../support/sql" }
 ffi-support = { path = "../support/ffi" }
 interrupt = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
+sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
 
 [dependencies.rusqlite]
 version = "0.19.0"

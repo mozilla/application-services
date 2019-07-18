@@ -9,11 +9,12 @@ use crate::request::InfoConfiguration;
 use crate::state::GlobalState;
 use crate::sync::Store;
 use crate::util::ServerTimestamp;
+use sync_guid::Guid;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CollSyncIds {
-    pub global: String,
-    pub coll: String,
+    pub global: Guid,
+    pub coll: Guid,
 }
 
 /// Defines how a store is associated with Sync.
@@ -185,6 +186,7 @@ mod tests {
     use crate::telemetry;
     use std::cell::{Cell, RefCell};
     use std::collections::HashMap;
+    use sync_guid::Guid;
 
     fn get_global_state(root_key: &KeyBundle) -> GlobalState {
         let keys = CollectionKeys::new_random()
@@ -195,13 +197,13 @@ mod tests {
             config: InfoConfiguration::default(),
             collections: InfoCollections::new(HashMap::new()),
             global: MetaGlobalRecord {
-                sync_id: "syncIDAAAAAA".to_owned(),
+                sync_id: "syncIDAAAAAA".into(),
                 storage_version: 5usize,
                 engines: vec![(
                     "bookmarks",
                     MetaGlobalEngine {
                         version: 1usize,
-                        sync_id: "syncIDBBBBBB".to_owned(),
+                        sync_id: "syncIDBBBBBB".into(),
                     },
                 )]
                 .into_iter()
@@ -249,7 +251,7 @@ mod tests {
         fn sync_finished(
             &self,
             _new_timestamp: ServerTimestamp,
-            _records_synced: Vec<String>,
+            _records_synced: Vec<Guid>,
         ) -> Result<(), failure::Error> {
             unreachable!("these tests shouldn't call these");
         }
@@ -293,8 +295,8 @@ mod tests {
         assert_eq!(
             store.assoc.replace(StoreSyncAssociation::Disconnected),
             StoreSyncAssociation::Connected(CollSyncIds {
-                global: "syncIDAAAAAA".to_string(),
-                coll: "syncIDBBBBBB".to_string()
+                global: "syncIDAAAAAA".into(),
+                coll: "syncIDBBBBBB".into(),
             })
         );
         assert_eq!(store.get_num_resets(), 1);
@@ -307,8 +309,8 @@ mod tests {
         let store = TestStore::new(
             "bookmarks",
             StoreSyncAssociation::Connected(CollSyncIds {
-                global: "syncIDXXXXXX".to_string(),
-                coll: "syncIDYYYYYY".to_string(),
+                global: "syncIDXXXXXX".into(),
+                coll: "syncIDYYYYYY".into(),
             }),
         );
         let cs = LocalCollStateMachine::get_state(&store, &gs, &root_key).expect("should work");
@@ -316,8 +318,8 @@ mod tests {
         assert_eq!(
             store.assoc.replace(StoreSyncAssociation::Disconnected),
             StoreSyncAssociation::Connected(CollSyncIds {
-                global: "syncIDAAAAAA".to_string(),
-                coll: "syncIDBBBBBB".to_string()
+                global: "syncIDAAAAAA".into(),
+                coll: "syncIDBBBBBB".into(),
             })
         );
         assert_eq!(store.get_num_resets(), 1);
@@ -330,8 +332,8 @@ mod tests {
         let store = TestStore::new(
             "bookmarks",
             StoreSyncAssociation::Connected(CollSyncIds {
-                global: "syncIDAAAAAA".to_string(),
-                coll: "syncIDBBBBBB".to_string(),
+                global: "syncIDAAAAAA".into(),
+                coll: "syncIDBBBBBB".into(),
             }),
         );
         let cs = LocalCollStateMachine::get_state(&store, &gs, &root_key).expect("should work");
@@ -347,8 +349,8 @@ mod tests {
         let store = TestStore::new(
             "bookmarks",
             StoreSyncAssociation::Connected(CollSyncIds {
-                global: "syncIDAAAAAA".to_string(),
-                coll: "syncIDBBBBBB".to_string(),
+                global: "syncIDAAAAAA".into(),
+                coll: "syncIDBBBBBB".into(),
             }),
         );
         let cs = LocalCollStateMachine::get_state(&store, &gs, &root_key).expect("should work");

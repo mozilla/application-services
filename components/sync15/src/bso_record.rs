@@ -12,10 +12,11 @@ use serde_derive::*;
 use serde_json::{self, Map, Value as JsonValue};
 use std::convert::From;
 use std::ops::{Deref, DerefMut};
+use sync_guid::Guid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BsoRecord<T> {
-    pub id: String,
+    pub id: Guid,
 
     // It's not clear to me if this actually can be empty in practice.
     // firefox-ios seems to think it can...
@@ -69,7 +70,7 @@ impl<T> BsoRecord<T> {
     #[inline]
     pub fn new_record(id: String, coll: String, payload: T) -> BsoRecord<T> {
         BsoRecord {
-            id,
+            id: id.into(),
             collection: coll,
             ttl: None,
             sortindex: None,
@@ -168,7 +169,7 @@ impl<T> DerefMut for BsoRecord<T> {
 /// benefit here.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Payload {
-    pub id: String,
+    pub id: Guid,
 
     #[serde(default)]
     #[serde(skip_serializing_if = "is_false")]
@@ -189,7 +190,7 @@ impl Payload {
     #[inline]
     pub fn new_tombstone(id: String) -> Payload {
         Payload {
-            id,
+            id: id.into(),
             deleted: true,
             data: Map::new(),
         }
@@ -307,7 +308,7 @@ impl From<Payload> for JsonValue {
             id,
             deleted,
         } = cleartext;
-        data.insert("id".to_string(), JsonValue::String(id));
+        data.insert("id".to_string(), JsonValue::String(id.into_string()));
         if deleted {
             data.insert("deleted".to_string(), JsonValue::Bool(true));
         }

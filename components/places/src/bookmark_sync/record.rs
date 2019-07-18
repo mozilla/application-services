@@ -29,14 +29,14 @@ pub struct BookmarkRecordId(SyncGuid);
 
 impl BookmarkRecordId {
     /// Creates a bookmark record ID from a Sync record payload ID.
-    pub fn from_payload_id(payload_id: String) -> BookmarkRecordId {
+    pub fn from_payload_id(payload_id: SyncGuid) -> BookmarkRecordId {
         BookmarkRecordId(match payload_id.as_str() {
             "places" => BookmarkRootGuid::Root.as_guid(),
             "menu" => BookmarkRootGuid::Menu.as_guid(),
             "toolbar" => BookmarkRootGuid::Toolbar.as_guid(),
             "unfiled" => BookmarkRootGuid::Unfiled.as_guid(),
             "mobile" => BookmarkRootGuid::Mobile.as_guid(),
-            _ => SyncGuid::from(payload_id),
+            _ => payload_id,
         })
     }
 
@@ -116,7 +116,7 @@ impl<'de> Deserialize<'de> for BookmarkRecordId {
             ) -> std::result::Result<BookmarkRecordId, E> {
                 // The JSON deserializer passes owned strings, so we can avoid
                 // cloning the payload ID in the common case...
-                Ok(BookmarkRecordId::from_payload_id(payload_id))
+                Ok(BookmarkRecordId::from_payload_id(payload_id.into()))
             }
 
             #[inline]
