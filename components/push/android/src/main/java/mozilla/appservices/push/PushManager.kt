@@ -14,14 +14,14 @@ import mozilla.appservices.support.native.RustBuffer
 /**
  * An implementation of a [PushAPI] backed by a Rust Push library.
  *
- * @param serverHost the host name for the service (e.g. "push.service.mozilla.org").
+ * @param serverHost the host name for the service (e.g. "updates.push.services.mozilla.com").
  * @param httpProtocol the optional socket protocol (default: "https")
  * @param bridgeType the optional bridge protocol (default: "fcm")
  * @param registrationId the native OS messaging registration id
  */
 class PushManager(
     senderId: String,
-    serverHost: String = "push.service.mozilla.com",
+    serverHost: String = "updates.push.services.mozilla.com",
     httpProtocol: String = "https",
     bridgeType: BridgeType,
     registrationId: String,
