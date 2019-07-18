@@ -8,12 +8,13 @@ use rusqlite::Row;
 use serde_derive::*;
 use std::time::{self, SystemTime};
 use sync15::ServerTimestamp;
+use sync_guid::Guid;
 
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Login {
-    // TODO: consider `#[serde(rename = "id")] pub guid: String` to avoid confusion
-    pub id: String,
+    #[serde(rename = "id")]
+    pub guid: Guid,
 
     pub hostname: String,
 
@@ -74,13 +75,13 @@ fn string_or_default(row: &Row<'_>, col: &str) -> Result<String> {
 
 impl Login {
     #[inline]
-    pub fn guid(&self) -> &String {
-        &self.id
+    pub fn guid(&self) -> &Guid {
+        &self.guid
     }
 
     #[inline]
     pub fn guid_str(&self) -> &str {
-        self.id.as_str()
+        self.guid.as_str()
     }
 
     pub fn check_valid(&self) -> Result<()> {
@@ -104,7 +105,7 @@ impl Login {
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<Login> {
         Ok(Login {
-            id: row.get("guid")?,
+            guid: row.get("guid")?,
             password: row.get("password")?,
             username: string_or_default(row, "username")?,
 
@@ -240,7 +241,7 @@ impl_login!(MirrorLogin {
 
 // Stores data needed to do a 3-way merge
 pub(crate) struct SyncLoginData {
-    pub guid: String,
+    pub guid: Guid,
     pub local: Option<LocalLogin>,
     pub mirror: Option<MirrorLogin>,
     // None means it's a deletion
@@ -250,11 +251,11 @@ pub(crate) struct SyncLoginData {
 impl SyncLoginData {
     #[inline]
     pub fn guid_str(&self) -> &str {
-        &self.guid[..]
+        &self.guid.as_str()
     }
 
     #[inline]
-    pub fn guid(&self) -> &String {
+    pub fn guid(&self) -> &Guid {
         &self.guid
     }
 

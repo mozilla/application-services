@@ -74,7 +74,7 @@ impl PasswordEngine {
 
     pub fn add(&self, login: Login) -> Result<String> {
         // Just return the record's ID (which we may have generated).
-        self.db.add(login).map(|record| record.id)
+        self.db.add(login).map(|record| record.guid.into_string())
     }
 
     pub fn disable_mem_security(&self) -> Result<()> {
@@ -136,9 +136,10 @@ mod test {
     use crate::util;
     use more_asserts::*;
     use std::time::SystemTime;
+    use sync_guid::Guid;
     // Doesn't check metadata fields
     fn assert_logins_equiv(a: &Login, b: &Login) {
-        assert_eq!(b.id, a.id);
+        assert_eq!(b.guid, a.guid);
         assert_eq!(b.hostname, a.hostname);
         assert_eq!(b.form_submit_url, a.form_submit_url);
         assert_eq!(b.http_realm, a.http_realm);
@@ -156,7 +157,7 @@ mod test {
         let start_us = util::system_time_ms_i64(SystemTime::now());
 
         let a = Login {
-            id: "aaaaaaaaaaaa".into(),
+            guid: "aaaaaaaaaaaa".into(),
             hostname: "https://www.example.com".into(),
             form_submit_url: Some("https://www.example.com/login".into()),
             username: "coolperson21".into(),
@@ -180,9 +181,9 @@ mod test {
         let a_id = engine.add(a.clone()).expect("added a");
         let b_id = engine.add(b.clone()).expect("added b");
 
-        assert_eq!(a_id, a.id);
+        assert_eq!(a_id, a.guid);
 
-        assert_ne!(b_id, b.id, "Should generate guid when none provided");
+        assert_ne!(b_id, b.guid, "Should generate guid when none provided");
 
         let a_from_db = engine
             .get(&a_id)
@@ -203,7 +204,7 @@ mod test {
         assert_logins_equiv(
             &b_from_db,
             &Login {
-                id: b_id.clone(),
+                guid: Guid::from(b_id.as_str()),
                 ..b.clone()
             },
         );
@@ -216,8 +217,8 @@ mod test {
         assert_eq!(list.len(), 2);
         let mut expect = vec![a_from_db.clone(), b_from_db.clone()];
 
-        list.sort_by(|a, b| b.id.cmp(&a.id));
-        expect.sort_by(|a, b| b.id.cmp(&a.id));
+        list.sort_by(|a, b| b.guid.cmp(&a.guid));
+        expect.sort_by(|a, b| b.guid.cmp(&a.guid));
         assert_eq!(list, expect);
 
         engine.delete(&a_id).expect("Successful delete");
@@ -233,7 +234,7 @@ mod test {
         let now_us = util::system_time_ms_i64(SystemTime::now());
         let b2 = Login {
             password: "newpass".into(),
-            id: b_id.clone(),
+            guid: Guid::from(b_id.as_str()),
             ..b.clone()
         };
 

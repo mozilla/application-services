@@ -517,7 +517,7 @@ mod tests {
             1,
             "should have guid1 as outgoing with both visits."
         );
-        assert_eq!(outgoing.changes[0].id, guid1.as_ref());
+        assert_eq!(outgoing.changes[0].id, guid1);
 
         // should have 1 URL with both visits locally.
         let (page, visits) = fetch_visits(&db, &url, 3)?.expect("page exists");
@@ -579,7 +579,7 @@ mod tests {
             &NeverInterrupts,
         )?;
         assert_eq!(outgoing.changes.len(), 1, "should have guid1 as outgoing");
-        assert_eq!(outgoing.changes[0].id, guid1.as_ref());
+        assert_eq!(outgoing.changes[0].id, guid1);
 
         // should have 1 URL with all visits locally, but with the first incoming guid.
         let (page, visits) = fetch_visits(&db, &url, 3)?.expect("page exists");

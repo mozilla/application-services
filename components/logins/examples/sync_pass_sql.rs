@@ -15,6 +15,7 @@ use prettytable::{cell, row, Cell, Row, Table};
 use rusqlite::NO_PARAMS;
 use serde_json;
 use sync15::StoreSyncAssociation;
+use sync_guid::Guid;
 
 // I'm completely punting on good error handling here.
 type Result<T> = std::result::Result<T, failure::Error>;
@@ -28,7 +29,7 @@ fn read_login() -> Login {
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
     let record = Login {
-        id: sync15::random_guid().unwrap(),
+        guid: Guid::random(),
         username,
         password,
         username_field,
@@ -161,7 +162,7 @@ fn show_sql(e: &PasswordEngine, sql: &str) -> Result<()> {
     Ok(())
 }
 
-fn show_all(engine: &PasswordEngine) -> Result<Vec<String>> {
+fn show_all(engine: &PasswordEngine) -> Result<Vec<Guid>> {
     let records = engine.list()?;
 
     let mut table = prettytable::Table::new();
@@ -187,11 +188,11 @@ fn show_all(engine: &PasswordEngine) -> Result<Vec<String>> {
 
     let mut v = Vec::with_capacity(records.len());
     let mut record_copy = records.clone();
-    record_copy.sort_by(|a, b| a.id.cmp(&b.id));
+    record_copy.sort_by(|a, b| a.guid.cmp(&b.guid));
     for rec in records.iter() {
         table.add_row(row![
             r->v.len(),
-            Fr->&rec.id,
+            Fr->&rec.guid,
             &rec.username,
             Fd->&rec.password,
 
@@ -211,7 +212,7 @@ fn show_all(engine: &PasswordEngine) -> Result<Vec<String>> {
                 timestamp_to_string(rec.time_last_used)
             }
         ]);
-        v.push(rec.id.clone());
+        v.push(rec.guid.clone());
     }
     table.printstd();
     Ok(v)
@@ -228,7 +229,7 @@ fn prompt_record_id(e: &PasswordEngine, action: &str) -> Result<Option<String>> 
         log::info!("No such index");
         return Ok(None);
     }
-    Ok(Some(index_to_id[input].clone()))
+    Ok(Some(index_to_id[input].as_str().into()))
 }
 
 fn init_logging() {

@@ -12,7 +12,12 @@ mod serde_support;
 #[cfg(feature = "rusqlite_support")]
 mod rusqlite_support;
 
-use std::{fmt, ops, str};
+use std::{
+    cmp::Ordering,
+    fmt,
+    hash::{Hash, Hasher},
+    ops, str,
+};
 
 /// This is a type intended to be used to represent the guids used by sync. It
 /// has several benefits over using a `String`:
@@ -25,7 +30,7 @@ use std::{fmt, ops, str};
 /// 3. It's optimized for the guids commonly used by sync. In particular, short guids
 ///    (including the guids which would meet `PlacesUtils.isValidGuid`) do not incur
 ///    any heap allocation, and are stored inline.
-#[derive(Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(Clone)]
 pub struct Guid(Repr);
 
 // The internal representation of a GUID. Most Sync GUIDs are 12 bytes,
@@ -35,7 +40,7 @@ pub struct Guid(Repr);
 //
 // This is separate only because making `Guid` an enum would expose the
 // internals.
-#[derive(Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(Clone)]
 enum Repr {
     // see FastGuid for invariants
     Fast(FastGuid),
@@ -52,7 +57,7 @@ enum Repr {
 /// - `data[len..].iter().all(|&b| b == b'\0')`
 ///
 /// Note: None of these are required for memory safety, just correctness.
-#[derive(Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[derive(Clone)]
 struct FastGuid {
     len: u8,
     data: [u8; MAX_FAST_GUID_LEN],
@@ -238,6 +243,32 @@ const BASE64URL_BYTES: [u8; 256] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
+impl Ord for Guid {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.as_bytes().cmp(&other.as_bytes())
+    }
+}
+
+impl PartialOrd for Guid {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for Guid {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_bytes() == other.as_bytes()
+    }
+}
+
+impl Eq for Guid {}
+
+impl Hash for Guid {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_bytes().hash(state);
+    }
+}
+
 impl<'a> From<&'a str> for Guid {
     #[inline]
     fn from(s: &'a str) -> Guid {
@@ -315,6 +346,14 @@ impl fmt::Display for Guid {
     }
 }
 
+impl std::default::Default for Guid {
+    /// Create a default guid by calling `Guid::empty()`
+    #[inline]
+    fn default() -> Self {
+        Guid::empty()
+    }
+}
+
 macro_rules! impl_guid_eq {
     ($($other: ty),+) => {$(
         impl<'a> PartialEq<$other> for Guid {
@@ -388,6 +427,11 @@ mod test {
             Guid::from("abcdabcdabcd4321"),
             Vec::from(b"ABCDabcdabcd4321".as_ref())
         );
+
+        // order by data instead of length
+        assert!(Guid::from("zzz") > Guid::from("aaaaaa"));
+        assert!(Guid::from("ThisIsASolowGuid") < Guid::from("zzz"));
+        assert!(Guid::from("ThisIsASolowGuid") > Guid::from("AnotherSlowGuid"));
     }
 
     #[cfg(feature = "random")]

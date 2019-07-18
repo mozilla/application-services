@@ -9,12 +9,6 @@ use std::str::FromStr;
 use std::time::Duration;
 use std::{fmt, num};
 
-pub fn random_guid() -> Result<String, rc_crypto::Error> {
-    let mut bytes = [0u8; 9];
-    rc_crypto::rand::fill(&mut bytes)?;
-    Ok(base64::encode_config(&bytes, base64::URL_SAFE_NO_PAD))
-}
-
 /// Typesafe way to manage server timestamps without accidentally mixing them up with
 /// local ones.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Default)]
@@ -129,7 +123,6 @@ impl<'de> Deserialize<'de> for ServerTimestamp {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::collections::HashSet;
 
     #[test]
     fn test_server_timestamp() {
@@ -140,17 +133,6 @@ mod test {
         let dur = t0.duration_since(t1).unwrap();
         assert_eq!(dur.as_secs(), 200);
         assert_eq!(dur.subsec_nanos(), 100_000_000);
-    }
-
-    #[test]
-    fn test_gen_guid() {
-        let mut set = HashSet::new();
-        for _ in 0..100 {
-            let res = random_guid().unwrap();
-            assert_eq!(res.len(), 12);
-            assert!(!set.contains(&res));
-            set.insert(res);
-        }
     }
 
     #[test]

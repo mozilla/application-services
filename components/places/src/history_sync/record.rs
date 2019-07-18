@@ -55,9 +55,6 @@ impl HistorySyncRecord {
             let record: HistoryRecord = payload.into_record()?;
             Some(record)
         };
-        Ok(Self {
-            guid: guid.into(),
-            record,
-        })
+        Ok(Self { guid, record })
     }
 }

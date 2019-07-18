@@ -36,4 +36,4 @@ pub use crate::state::{GlobalState, SetupStateMachine};
 pub use crate::status::{ServiceStatus, SyncResult};
 pub use crate::sync::{synchronize, Store};
 pub use crate::sync_multiple::{sync_multiple, MemoryCachedState};
-pub use crate::util::{random_guid, ServerTimestamp, SERVER_EPOCH};
+pub use crate::util::{ServerTimestamp, SERVER_EPOCH};

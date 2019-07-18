@@ -412,7 +412,7 @@ impl<'a> BookmarksStore<'a> {
     fn push_synced_items(
         &self,
         uploaded_at: ServerTimestamp,
-        records_synced: Vec<String>,
+        records_synced: Vec<SyncGuid>,
     ) -> Result<()> {
         // Flag all successfully synced records as uploaded. This `UPDATE` fires
         // the `pushUploadedChanges` trigger, which updates local change
@@ -593,7 +593,7 @@ impl<'a> Store for BookmarksStore<'a> {
     fn sync_finished(
         &self,
         new_timestamp: ServerTimestamp,
-        records_synced: Vec<String>,
+        records_synced: Vec<SyncGuid>,
     ) -> result::Result<(), failure::Error> {
         self.push_synced_items(new_timestamp, records_synced)?;
         self.update_frecencies()?;
@@ -1190,9 +1190,10 @@ mod tests {
     use dogear::{Store as DogearStore, Validity};
     use pretty_assertions::assert_eq;
     use serde_json::{json, Value};
+    use sync_guid::Guid;
     use url::Url;
 
-    use sync15::{random_guid, CollSyncIds, Payload};
+    use sync15::{CollSyncIds, Payload};
 
     fn apply_incoming(conn: &PlacesDb, remote_time: ServerTimestamp, records_json: Value) {
         // suck records into the store.
@@ -1237,9 +1238,9 @@ mod tests {
         let mut stmt = conn
             .prepare("SELECT guid FROM itemsToUpload")
             .expect("Should prepare statement to fetch uploaded GUIDs");
-        let uploaded_guids: Vec<String> = stmt
+        let uploaded_guids: Vec<Guid> = stmt
             .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
-                Ok(row.get::<_, String>(0)?)
+                Ok(row.get::<_, Guid>(0)?)
             })
             .expect("Should fetch uploaded GUIDs")
             .map(std::result::Result::unwrap)
@@ -1640,7 +1641,11 @@ mod tests {
             .expect("Should apply incoming and stage outgoing records");
         outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
         assert_eq!(
-            outgoing.changes.iter().map(|p| &p.id).collect::<Vec<_>>(),
+            outgoing
+                .changes
+                .iter()
+                .map(|p| p.id.as_str())
+                .collect::<Vec<_>>(),
             vec!["bookmarkAAAA", "bookmarkBBBB", "unfiled",]
         );
         let record_for_a = outgoing
@@ -1979,7 +1984,7 @@ mod tests {
             outgoing.changes.iter().partition(|record| record.deleted);
         let mut outgoing_record_ids = outgoing_records
             .into_iter()
-            .map(|p| p.id.clone())
+            .map(|p| p.id.as_str())
             .collect::<Vec<_>>();
         outgoing_record_ids.sort();
         assert_eq!(
@@ -2070,14 +2075,14 @@ mod tests {
                 IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1_000));
             let outgoing =
                 store.apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))?;
-            let synced_ids: Vec<String> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
+            let synced_ids: Vec<Guid> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             store.sync_finished(ServerTimestamp(2_000), synced_ids)?;
 
             // now reset
             store.reset(&StoreSyncAssociation::Connected(CollSyncIds {
-                global: random_guid()?,
-                coll: random_guid()?,
+                global: Guid::random(),
+                coll: Guid::random(),
             }))?;
         }
         // do it all again - after the reset we should get the same results.
@@ -2090,7 +2095,7 @@ mod tests {
                 IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1_000));
             let outgoing =
                 store.apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))?;
-            let synced_ids: Vec<String> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
+            let synced_ids: Vec<Guid> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             store.sync_finished(ServerTimestamp(2_000), synced_ids)?;
         }

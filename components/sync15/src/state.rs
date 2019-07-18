@@ -12,10 +12,11 @@ use crate::error::{self, ErrorKind, ErrorResponse};
 use crate::key_bundle::KeyBundle;
 use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use crate::request::{InfoCollections, InfoConfiguration};
-use crate::util::{random_guid, ServerTimestamp};
+use crate::util::ServerTimestamp;
 use interrupt::Interruptee;
 use lazy_static::lazy_static;
 use serde_derive::*;
+use sync_guid::Guid;
 
 use self::SetupState::*;
 
@@ -89,10 +90,10 @@ pub struct GlobalState {
 /// Creates a fresh `meta/global` record, using the default engine selections,
 /// and declined engines from our PersistedGlobalState.
 fn new_global(pgs: &PersistedGlobalState) -> error::Result<MetaGlobalRecord> {
-    let sync_id = random_guid()?;
+    let sync_id = Guid::random();
     let mut engines: HashMap<String, _> = HashMap::new();
     for (name, version) in DEFAULT_ENGINES.iter() {
-        let sync_id = random_guid()?;
+        let sync_id = Guid::random();
         engines.insert(
             name.to_string(),
             MetaGlobalEngine {
@@ -633,13 +634,13 @@ mod tests {
             )),
             meta_global: mocked_success_ts(
                 MetaGlobalRecord {
-                    sync_id: "syncIDAAAAAA".to_owned(),
+                    sync_id: "syncIDAAAAAA".into(),
                     storage_version: 5usize,
                     engines: vec![(
                         "bookmarks",
                         MetaGlobalEngine {
                             version: 1usize,
-                            sync_id: "syncIDBBBBBB".to_owned(),
+                            sync_id: "syncIDBBBBBB".into(),
                         },
                     )]
                     .into_iter()
