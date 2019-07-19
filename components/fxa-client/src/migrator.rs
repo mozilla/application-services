@@ -30,7 +30,7 @@ impl FirefoxAccount {
             .duplicate_session(&self.state.config, &session_token)?;
 
         let duplicated_session_token = duplicate_session.session_token;
-        self.state.session_token = Some(duplicated_session_token.clone());
+
         let oauth_response = self.client.oauth_tokens_from_session_token(
             &self.state.config,
             &duplicated_session_token,
@@ -58,6 +58,7 @@ impl FirefoxAccount {
             k: k_sync,
             kid,
         };
+        self.state.session_token = Some(duplicated_session_token.clone());
         self.state
             .scoped_keys
             .insert(scopes::OLD_SYNC.to_string(), k_sync_scoped_key);
