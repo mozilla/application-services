@@ -254,6 +254,23 @@ open class FirefoxAccount {
         }
     }
 
+    /// Check whether the refreshToken is active
+    open func checkAuthorizationStatus(completionHandler: @escaping (IntrospectInfo?, Error?) -> Void) {
+        queue.async {
+            do {
+                let infoBuffer = try FirefoxAccountError.unwrap { err in
+                    fxa_check_authorization_status(self.raw, err)
+                }
+                let msg = try! MsgTypes_IntrospectInfo(serializedData: Data(rustBuffer: infoBuffer))
+                fxa_bytebuffer_free(infoBuffer)
+                let tokenInfo = IntrospectInfo(msg: msg)
+                DispatchQueue.main.async { completionHandler(tokenInfo, nil) }
+            } catch {
+                DispatchQueue.main.async { completionHandler(nil, error) }
+            }
+        }
+    }
+
     /// This method should be called when a request made with
     /// an OAuth token failed with an authentication error.
     /// It clears the internal cache of OAuth access tokens,
@@ -314,6 +331,22 @@ public struct AccessTokenInfo {
         token = msg.token
         key = msg.hasKey ? ScopedKey(msg: msg.key) : nil
         expiresAt = Date(timeIntervalSince1970: Double(msg.expiresAt))
+    }
+}
+
+public struct IntrospectInfo {
+    public let active: Bool
+    public let tokenType: String
+    public let scope: String?
+    public let exp: Date
+    public let iss: String?
+
+    internal init(msg: MsgTypes_IntrospectInfo) {
+        active = msg.active
+        tokenType = msg.tokenType
+        scope = msg.hasScope ? msg.scope : nil
+        exp = Date(timeIntervalSince1970: Double(msg.exp))
+        iss = msg.hasIss ? msg.iss : nil
     }
 }
 

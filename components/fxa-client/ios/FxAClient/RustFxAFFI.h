@@ -62,6 +62,9 @@ void fxa_clear_access_token_cache(FirefoxAccountHandle handle,
 void fxa_disconnect(FirefoxAccountHandle handle,
                     FxAError *_Nonnull out);
 
+FxARustBuffer fxa_check_authorization_status(FirefoxAccountHandle handle,
+                                             FxAError *_Nonnull out);
+
 FirefoxAccountHandle fxa_from_json(const char *_Nonnull json,
                                    FxAError *_Nonnull out);
 

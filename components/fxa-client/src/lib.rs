@@ -11,7 +11,9 @@ use crate::{
     oauth::{OAuthFlow, RefreshToken},
     scoped_keys::ScopedKey,
 };
-pub use crate::{config::Config, error::*, oauth::AccessTokenInfo, profile::Profile};
+pub use crate::{
+    config::Config, error::*, oauth::AccessTokenInfo, oauth::IntrospectInfo, profile::Profile,
+};
 use serde_derive::*;
 use std::{
     collections::{HashMap, HashSet},

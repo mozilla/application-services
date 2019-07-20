@@ -87,6 +87,23 @@ impl FirefoxAccount {
         }
     }
 
+    /// Check whether user is authorized using our refresh token.
+    pub fn check_authorization_status(&mut self) -> Result<IntrospectInfo> {
+        let resp = match self.state.refresh_token {
+            Some(ref refresh_token) => self
+                .client
+                .oauth_introspect_refresh_token(&self.state.config, &refresh_token.token)?,
+            None => return Err(ErrorKind::NoRefreshToken.into()),
+        };
+        Ok(IntrospectInfo {
+            active: resp.active,
+            token_type: resp.token_type,
+            scope: resp.scope,
+            exp: resp.exp,
+            iss: resp.iss,
+        })
+    }
+
     /// Initiate a pairing flow and return a URL that should be navigated to.
     ///
     /// * `pairing_url` - A pairing URL obtained by scanning a QR code produced by
@@ -339,11 +356,22 @@ impl std::fmt::Debug for AccessTokenInfo {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct IntrospectInfo {
+    pub active: bool,
+    pub token_type: String,
+    pub scope: Option<String>,
+    pub exp: Option<u64>,
+    pub iss: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::http_client::*;
     use std::borrow::Cow;
     use std::collections::HashMap;
+    use std::sync::Arc;
 
     impl FirefoxAccount {
         pub fn add_cached_token(&mut self, scope: &str, token_info: AccessTokenInfo) {
@@ -551,5 +579,39 @@ mod tests {
                 _ => panic!("error not OriginMismatch"),
             },
         }
+    }
+
+    #[test]
+    fn test_check_authorization_status() {
+        let mut fxa =
+            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+
+        let refresh_token_scopes = std::collections::HashSet::new();
+        fxa.state.refresh_token = Some(RefreshToken {
+            token: "refresh_token".to_owned(),
+            scopes: refresh_token_scopes,
+        });
+
+        let mut client = FxAClientMock::new();
+        client
+            .expect_oauth_introspect_refresh_token(mockiato::Argument::any, |token| {
+                token.partial_eq("refresh_token")
+            })
+            .times(1)
+            .returns_once(Ok(IntrospectResponse {
+                active: true,
+                token_type: "refresh".to_string(),
+                scope: None,
+                exp: None,
+                iss: None,
+            }));
+        fxa.set_client(Arc::new(client));
+
+        let auth_status = fxa.check_authorization_status().unwrap();
+        assert_eq!(auth_status.active, true);
+        assert_eq!(auth_status.token_type, "refresh".to_string());
+        assert_eq!(auth_status.scope, None);
+        assert_eq!(auth_status.exp, None);
+        assert_eq!(auth_status.iss, None);
     }
 }
