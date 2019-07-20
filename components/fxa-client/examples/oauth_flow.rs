@@ -6,7 +6,7 @@ use url::Url;
 const CONTENT_SERVER: &str = "http://127.0.0.1:3030";
 const CLIENT_ID: &str = "7f368c6886429f19";
 const REDIRECT_URI: &str = "https://mozilla.github.io/notes/fxa/android-redirect.html";
-const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
+const SCOPES: &[&str] = &["profile"];
 
 fn main() {
     let mut fxa = FirefoxAccount::new(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI);
@@ -19,6 +19,8 @@ fn main() {
     let code = &query_params["code"];
     let state = &query_params["state"];
     fxa.complete_oauth_flow(&code, &state).unwrap();
+    let auth_status = fxa.check_authorization_status();
+    println!("auth_status: {:?}", auth_status);
     let oauth_info = fxa.get_access_token(SCOPES[0]);
     println!("access_token: {:?}", oauth_info);
 }

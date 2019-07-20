@@ -228,4 +228,57 @@ mod tests {
         let p = fxa.get_profile(false).unwrap();
         assert_eq!(p.email, "foo@bar.com");
     }
+
+    #[test]
+    fn test_check_authorization_status() {
+        let mut fxa =
+            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+
+        let refresh_token_scopes = std::collections::HashSet::new();
+        fxa.state.refresh_token = Some(RefreshToken {
+            token: "refresh_token".to_owned(),
+            scopes: refresh_token_scopes,
+        });
+
+        // Positive test: 'active' evaluates to true
+        let mut client = FxAClientMock::new();
+        client
+            .expect_oauth_introspection_with_refresh_token(mockiato::Argument::any, |token| {
+                token.partial_eq("refresh_token")
+            })
+            .times(1)
+            .returns_once(Ok(IntrospectResponse {
+                active: true,
+                token_type: "refresh".to_string(),
+                scope: None,
+                exp: None,
+                iss: None,
+            }));
+        fxa.set_client(Arc::new(client));
+
+        let auth_status = fxa.check_authorization_status().unwrap();
+        assert_eq!(auth_status.active, true);
+        assert_eq!(auth_status.token_type, "refresh".to_string());
+        assert_eq!(auth_status.scope, None);
+        assert_eq!(auth_status.exp, None);
+        assert_eq!(auth_status.iss, None);
+
+        // Negative test: 'active' evaluates to false
+        let mut client = FxAClientMock::new();
+        client
+            .expect_oauth_introspection_with_refresh_token(
+                mockiato::Argument::any,
+                |token| token.partial_eq("refresh_token")
+            )
+            .times(1)
+            .returns_once(Err(ErrorKind::RemoteError{
+                code: 401,
+                errno: 110,
+                error: "Unauthorized".to_owned(),
+                message: "Invalid authentication token in request signature".to_owned(),
+                info: "https://github.com/mozilla/fxa-auth-server/blob/master/docs/api.md#response-format".to_owned(),
+            }.into()));
+        fxa.set_client(Arc::new(client));
+        assert_eq!(true, fxa.check_authorization_status().is_err());
+    }
 }

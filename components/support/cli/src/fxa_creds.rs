@@ -79,6 +79,13 @@ pub fn get_cli_fxa(config: Config, cred_file: &str) -> Result<CliFxa> {
     // TODO: we should probably set a persist callback on acct?
     let mut acct = load_or_create_fxa_creds(cred_file, config)?;
     // `scope` could be a param, but I can't see it changing.
+    match acct.check_authorization_status() {
+        Ok(_) => {}
+        Err(e) => {
+            panic!("No creds - run some other tool to set them up. {}", e);
+        }
+    };
+    acct.check_authorization_status()?;
     let token_info: AccessTokenInfo = match acct.get_access_token(SYNC_SCOPE) {
         Ok(t) => t,
         Err(e) => {

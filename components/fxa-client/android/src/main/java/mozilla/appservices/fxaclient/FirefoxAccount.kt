@@ -242,6 +242,18 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
         }
     }
 
+    fun checkAuthorizationStatus(): IntrospectInfo {
+        val buffer = rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_check_authorization_status(this.handle.get(), e)
+        }
+        try {
+            val msg = MsgTypes.IntrospectInfo.parseFrom(buffer.asCodedInputStream()!!)
+            return IntrospectInfo.fromMessage(msg)
+        } finally {
+            LibFxAFFI.INSTANCE.fxa_bytebuffer_free(buffer)
+        }
+    }
+
     /**
      * Tries to return a session token
      *

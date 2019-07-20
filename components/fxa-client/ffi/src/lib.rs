@@ -286,6 +286,17 @@ pub extern "C" fn fxa_get_session_token(handle: u64, error: &mut ExternError) ->
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.get_session_token())
 }
 
+/// Check if OAuth refresh token is authorized
+/// Should be called before retrieving the access token
+#[no_mangle]
+pub extern "C" fn fxa_check_authorization_status(
+    handle: u64,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("fxa_check_authorization_status");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.check_authorization_status())
+}
+
 /// This method should be called when a request made with
 /// an OAuth token failed with an authentication error.
 /// It clears the internal cache of OAuth access tokens,

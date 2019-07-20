@@ -48,6 +48,7 @@ Firefox Accounts provides a [OAuth 2.0 API](https://github.com/mozilla/fxa-oaut
 Given the URL of the Firefox Accounts server, reliers should fetch the [OpenID Connect Discovery Document](http://openid.net/specs/openid-connect-discovery-1_0.html) from [/.well-known/openid-configuration](https://accounts.firefox.com/.well-known/openid-configuration).  This will return a JSON document with all the endpoint URLs necessary to complete the login flow.  In particular it will contain:
 
 *   "authorization_endpoint": the URL to which the client should be directed to begin the authentication flow
+*   "introspection_endpoint": the URL at which an OAuth access token is checked for authorization status
 *   "token_endpoint": the URL at which an OAuth access code can be exchanged for an access token
 *   "userinfo_endpoint": the URL at which additional user profile data can be obtained
 
@@ -83,6 +84,12 @@ The relying service should make the following security checks:
 *   Verify the **state** in the redirect request matches the **state** value previously associated with the client session.
 
 A failure in either of these verifications indicates a security error and the relying service should re-start the login flow. If the relying service receives one of these requests when the client session is already associated with a FxA user, it should be ignored.
+
+#### Checking authorization status for OAuth token
+
+To check whether an user is authorized, instead of calling the authorization endpoint and waiting
+for an error to be thrown, the return value of `oauth::check_authorization_status` will return
+metadata about user's refresh token. If there is no refresh token held or the token is not authorized, error is thrown.
 
 #### Obtaining an OAuth access token
 

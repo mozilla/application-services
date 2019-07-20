@@ -15,7 +15,8 @@
 use crate::{
     commands,
     device::{Capability as DeviceCapability, Device, PushSubscription, Type as DeviceType},
-    msg_types, send_tab, AccessTokenInfo, AccountEvent, Error, ErrorKind, Profile, ScopedKey,
+    msg_types, send_tab, AccessTokenInfo, AccountEvent, Error, ErrorKind, IntrospectInfo, Profile,
+    ScopedKey,
 };
 use ffi_support::{
     implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf, ErrorCode, ExternError,
@@ -69,6 +70,18 @@ impl From<AccessTokenInfo> for msg_types::AccessTokenInfo {
             token: a.token,
             key: a.key.map(Into::into),
             expires_at: a.expires_at,
+        }
+    }
+}
+
+impl From<IntrospectInfo> for msg_types::IntrospectInfo {
+    fn from(a: IntrospectInfo) -> Self {
+        msg_types::IntrospectInfo {
+            active: a.active,
+            token_type: a.token_type,
+            scope: a.scope,
+            exp: a.exp,
+            iss: a.iss,
         }
     }
 }
@@ -227,6 +240,8 @@ implement_into_ffi_by_protobuf!(msg_types::Profile);
 implement_into_ffi_by_delegation!(Profile, msg_types::Profile);
 implement_into_ffi_by_protobuf!(msg_types::AccessTokenInfo);
 implement_into_ffi_by_delegation!(AccessTokenInfo, msg_types::AccessTokenInfo);
+implement_into_ffi_by_protobuf!(msg_types::IntrospectInfo);
+implement_into_ffi_by_delegation!(IntrospectInfo, msg_types::IntrospectInfo);
 implement_into_ffi_by_protobuf!(msg_types::Device);
 implement_into_ffi_by_delegation!(Device, msg_types::Device);
 implement_into_ffi_by_delegation!(AccountEvent, msg_types::AccountEvent);

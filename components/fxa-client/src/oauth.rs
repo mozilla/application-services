@@ -87,6 +87,35 @@ impl FirefoxAccount {
         }
     }
 
+    /// Check whether user is authorized using the refresh token.
+    /// If there is no refresh token held. If the token is not authorized,
+    /// error is thrown.
+    pub fn check_authorization_status(&mut self) -> Result<IntrospectInfo> {
+        let resp = match self.state.refresh_token {
+            Some(ref refresh_token) => self
+                .client
+                .oauth_introspection_with_refresh_token(&self.state.config, &refresh_token.token)?,
+            None => return Err(ErrorKind::NoRefreshToken.into()),
+        };
+        if resp.active {
+            Ok(IntrospectInfo {
+                active: resp.active,
+                token_type: resp.token_type,
+                scope: resp.scope,
+                exp: resp.exp,
+                iss: resp.iss,
+            })
+        } else {
+            Err(ErrorKind::RemoteError{
+                code: 401,
+                errno: 110,
+                error: "Unauthorized".to_owned(),
+                message: "Invalid authentication token in request signature".to_owned(),
+                info: "https://github.com/mozilla/fxa-auth-server/blob/master/docs/api.md#response-format".to_owned(),
+            }.into())
+        }
+    }
+
     /// Initiate a pairing flow and return a URL that should be navigated to.
     ///
     /// * `pairing_url` - A pairing URL obtained by scanning a QR code produced by
@@ -310,6 +339,15 @@ impl std::fmt::Debug for AccessTokenInfo {
             .field("expires_at", &self.expires_at)
             .finish()
     }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct IntrospectInfo {
+    pub active: bool,
+    pub token_type: String,
+    pub scope: Option<String>,
+    pub exp: Option<u64>,
+    pub iss: Option<String>,
 }
 
 #[cfg(test)]

@@ -47,6 +47,7 @@ pub struct RemoteConfig {
     issuer: String,
     jwks_uri: String,
     token_endpoint: String,
+    introspection_endpoint: String,
     userinfo_endpoint: String,
 }
 
@@ -84,6 +85,7 @@ impl Config {
         issuer: String,
         jwks_uri: String,
         token_endpoint: String,
+        introspection_endpoint: String,
         userinfo_endpoint: String,
         client_id: String,
         redirect_uri: String,
@@ -97,6 +99,7 @@ impl Config {
             issuer,
             jwks_uri,
             token_endpoint,
+            introspection_endpoint,
             userinfo_endpoint,
         };
 
@@ -137,6 +140,7 @@ impl Config {
             // and the openid response has been switched to the new endpoint.
             // token_endpoint: openid_resp.token_endpoint,
             token_endpoint: format!("{}/v1/oauth/token", resp.auth_server_base_url),
+            introspection_endpoint: format!("{}/v1/introspect", resp.oauth_server_base_url),
             userinfo_endpoint: openid_resp.userinfo_endpoint,
         };
         let rc = Arc::new(remote_config);
@@ -197,6 +201,10 @@ impl Config {
         Url::parse(&self.remote_config()?.token_endpoint).map_err(Into::into)
     }
 
+    pub fn introspection_endpoint(&self) -> Result<Url> {
+        Url::parse(&self.remote_config()?.introspection_endpoint).map_err(Into::into)
+    }
+
     pub fn userinfo_endpoint(&self) -> Result<Url> {
         Url::parse(&self.remote_config()?.userinfo_endpoint).map_err(Into::into)
     }
@@ -219,6 +227,7 @@ mod tests {
             issuer: "https://dev.lcip.org/".to_string(),
             jwks_uri: "https://oauth-stable.dev.lcip.org/v1/jwks".to_string(),
             token_endpoint: "https://stable.dev.lcip.org/auth/v1/oauth/token".to_string(),
+            introspection_endpoint: "https://stable.dev.lcip.org/auth/v1/introspect".to_string(),
             userinfo_endpoint: "https://stable.dev.lcip.org/profile/v1/profile".to_string(),
         };
 
@@ -252,6 +261,11 @@ mod tests {
         assert_eq!(
             config.token_endpoint().unwrap().to_string(),
             "https://stable.dev.lcip.org/auth/v1/oauth/token"
+        );
+
+        assert_eq!(
+            config.introspection_endpoint().unwrap().to_string(),
+            "https://stable.dev.lcip.org/auth/v1/introspect"
         );
     }
 }
