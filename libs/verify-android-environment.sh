@@ -51,4 +51,42 @@ if [ -z "${ANDROID_NDK_TOOLCHAIN_DIR}" ]; then
   exit 1
 fi
 
+# Determine the Java command to use to start the JVM.
+# Same implementation as gradlew
+if [ -n "$JAVA_HOME" ] ; then
+    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
+        # IBM's JDK on AIX uses strange locations for the executables
+        JAVACMD="$JAVA_HOME/jre/sh/java"
+    else
+        JAVACMD="$JAVA_HOME/bin/java"
+    fi
+    if [ ! -x "$JAVACMD" ] ; then
+        die "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME
+
+Please set the JAVA_HOME variable in your environment to match the
+location of your Java installation."
+    fi
+else
+    JAVACMD="java"
+    command -v $JAVACMD >/dev/null 2>&1 || die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
+
+Please set the JAVA_HOME variable in your environment to match the
+location of your Java installation."
+fi
+
+JAVA_MAJOR_VERSION=$($JAVACMD -version 2>&1 | sed -E -n 's/.* version "([^.-]*).*"/\1/p' | cut -d' ' -f1)
+if [[ "$JAVA_MAJOR_VERSION" -lt 8 ]] ; then
+    if [[ "$JAVA_MAJOR_VERSION" -eq 1 ]] ; then
+      version=$("$JAVACMD" -version 2>&1 | awk -F '"' '/version/ {print $2}')
+      version=$(echo "$version" | awk -F. '{printf("%03d%03d",$1,$2);}')
+      if [[ 10#$version -lt 10#001008 ]]; then
+          echo "Java version is less than version 8"
+          exit
+      fi
+    else
+      echo "ERROR: Incompatible java version"
+      exit 1
+    fi
+fi
+
 echo "Looks good! cd to libs/ and run ./build-all.sh android"
