@@ -20,4 +20,4 @@ ece = { version = "1.0.1", optional = true }
 
 [dev-dependencies]
 hex = "0.3.2"
-openssl-sys = "0.9.46"
+openssl-sys = "0.9.48"
