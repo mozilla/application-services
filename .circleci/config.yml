@@ -153,7 +153,10 @@ commands:
           name: Check for security vulnerabilities in dependencies
           command: |
             cargo install cargo-audit
-            cargo audit
+            # Ignore RUSTSEC-2019-0011, it doesn't seem to be a problem in practice and
+            # we can't fix it without a new release of crossbeam-epoch.
+            # Ref: https://github.com/crossbeam-rs/crossbeam/issues/401
+            cargo audit --ignore RUSTSEC-2019-0011
       - run:
           name: Check licence compatibility of dependencies
           command: |
