@@ -40,7 +40,7 @@ tasks:
 
     is_repo_trusted:
       # Pull requests on main repository can't be trusted because anybody can open a PR on it, without a review
-      $if: 'tasks_for in ["github-push", "github-release"] && event.repository.html_url == "https://github.com/mozilla/application-services/"'
+      $if: 'tasks_for in ["github-push", "github-release"] && event.repository.html_url == "https://github.com/mozilla/application-services"'
       then: true
       else: false
   in:
