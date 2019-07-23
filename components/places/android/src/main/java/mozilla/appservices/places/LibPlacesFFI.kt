@@ -37,6 +37,12 @@ internal interface LibPlacesFFI : Library {
         out_err: RustError.ByReference
     ): PlacesConnectionHandle
 
+    fun places_bookmarks_import_from_fennec(
+        handle: PlacesApiHandle,
+        db_path: String,
+        out_err: RustError.ByReference
+    )
+
     fun places_history_import_from_fennec(
         handle: PlacesApiHandle,
         db_path: String,

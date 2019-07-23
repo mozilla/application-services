@@ -4,6 +4,7 @@
 
 pub mod common;
 pub mod fennec;
+pub use fennec::import_bookmarks as import_fennec_bookmarks;
 pub use fennec::import_history as import_fennec_history;
 pub mod ios_bookmarks;
 pub use ios_bookmarks::import_ios_bookmarks;
