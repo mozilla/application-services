@@ -8,7 +8,7 @@ This repository hosts the code and docs needed to integrate with the products of
 [Application Services](https://mana.mozilla.org/wiki/display/CLOUDSERVICES/Application+Services+Home)
 team.
 
-If you're interested in getting involved in the development of those products
+If you are interested in getting involved in the development of those products
 then you're in the right place! Please review the more detailed guide on
 [how to contribute](docs/contributing.md) to this project as well as
 the [Community Participation Guidelines](https://www.mozilla.org/en-US/about/governance/policies/participation/).

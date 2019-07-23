@@ -299,7 +299,7 @@ def dockerfile_path(name):
 def linux_task(name):
     task = (
         DockerWorkerTask(name)
-        .with_worker_type("application-services-r")
+        .with_worker_type(os.environ.get("BUILD_WORKER_TYPE"))
     )
     if os.environ["TASK_FOR"] == "github-release":
         task.with_features("chainOfTrust")
@@ -387,7 +387,6 @@ def linux_cross_compile_build_task(name):
 
 CONFIG.task_name_template = "Application Services - %s"
 CONFIG.index_prefix = "project.application-services.application-services"
-CONFIG.docker_image_build_worker_type = "application-services-r"
 CONFIG.docker_images_expire_in = build_dependencies_artifacts_expire_in
 CONFIG.repacked_msi_files_expire_in = build_dependencies_artifacts_expire_in
 

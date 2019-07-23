@@ -44,7 +44,6 @@ class Config:
         self.index_prefix = "garbage.application-services-decisionlib"
         self.scopes_for_all_subtasks = []
         self.routes_for_all_subtasks = []
-        self.docker_image_build_worker_type = None
         self.docker_images_expire_in = "1 month"
         self.repacked_msi_files_expire_in = "1 month"
 
@@ -55,6 +54,8 @@ class Config:
         # Set in the decision task’s payload, such as defined in .taskcluster.yml
         self.task_owner = os.environ.get("TASK_OWNER")
         self.task_source = os.environ.get("TASK_SOURCE")
+        self.build_worker_type = os.environ.get("BUILD_WORKER_TYPE")
+        self.images_worker_type = os.environ.get("IMAGES_WORKER_TYPE")
         self.git_url = os.environ.get("APPSERVICES_HEAD_REPOSITORY")
         self.git_ref = os.environ.get("APPSERVICES_HEAD_BRANCH")
         self.git_sha = os.environ.get("APPSERVICES_HEAD_REV")
@@ -469,7 +470,7 @@ class DockerWorkerTask(Task):
 
         image_build_task = (
             DockerWorkerTask("Docker image: " + image_name)
-            .with_worker_type(CONFIG.docker_image_build_worker_type or self.worker_type)
+            .with_worker_type(CONFIG.images_worker_type)
             .with_max_run_time_minutes(30)
             .with_index_and_artifacts_expire_in(CONFIG.docker_images_expire_in)
             .with_features("dind")

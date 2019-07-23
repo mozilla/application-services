@@ -95,7 +95,7 @@ RUN curl -L https://dl.google.com/android/repository/sdk-tools-linux-${ANDROID_S
 # Android NDK
 
 # r15c agrees with mozilla-central and, critically, supports the --deprecated-headers flag needed to
-# build OpenSSL.
+# build OpenSSL
 ENV ANDROID_NDK_VERSION "r15c"
 
 # $ANDROID_NDK_ROOT is the preferred name, but the android gradle plugin uses $ANDROID_NDK_HOME.
