@@ -35,7 +35,7 @@ echo ""
 for ARCH in "${TARGET_ARCHS[@]}"; do
   if [ ! -d "${ANDROID_NDK_TOOLCHAIN_DIR}/${ARCH}-${ANDROID_NDK_API_VERSION}" ]; then
     echo "Installing ${ARCH} toolchain..."
-    python "${ANDROID_NDK_ROOT}/build/tools/make_standalone_toolchain.py" --arch="${ARCH}" --api="${ANDROID_NDK_API_VERSION}" --install-dir="${ANDROID_NDK_TOOLCHAIN_DIR}/${ARCH}-${ANDROID_NDK_API_VERSION}" --deprecated-headers --force
+    python3 "${ANDROID_NDK_ROOT}/build/tools/make_standalone_toolchain.py" --arch="${ARCH}" --api="${ANDROID_NDK_API_VERSION}" --install-dir="${ANDROID_NDK_TOOLCHAIN_DIR}/${ARCH}-${ANDROID_NDK_API_VERSION}" --deprecated-headers --force
   else
     echo "${ARCH} toolchain already exists. Skipping installation."
   fi

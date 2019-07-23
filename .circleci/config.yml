@@ -104,7 +104,7 @@ commands:
             pushd ..
             git clone https://chromium.googlesource.com/external/gyp.git
             pushd gyp
-            python setup.py install
+            python3 setup.py install
             popd
             popd
       - build-libs:

@@ -120,7 +120,6 @@ def desktop_win32_x86_64_libs(deploy_environment):
     task = (
         linux_build_task("Desktop libs (win32-x86-64): build")
         .with_script("""
-            apt-get install --quiet --yes --no-install-recommends mingw-w64
             pushd libs
             ./build-all.sh win32-x86-64
             popd
@@ -325,12 +324,7 @@ def linux_build_task(name):
         .with_script("""
             rustup toolchain install stable
             rustup default stable
-            # rustup target add x86_64-unknown-linux-gnu # See https://github.com/rust-lang-nursery/rustup.rs/issues/1533.
-
-            rustup target add x86_64-linux-android
-            rustup target add i686-linux-android
-            rustup target add armv7-linux-androideabi
-            rustup target add aarch64-linux-android
+            rustup target add x86_64-linux-android i686-linux-android armv7-linux-androideabi aarch64-linux-android
         """)
         .with_script("""
             test -d $ANDROID_NDK_TOOLCHAIN_DIR/arm-$ANDROID_NDK_API_VERSION    || $ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py --arch="arm"   --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/arm-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
@@ -376,7 +370,6 @@ def linux_cross_compile_build_task(name):
             # For ring's use of `cc`.
             export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_CFLAGS_x86_64_apple_darwin="-B /tmp/cctools/bin -target x86_64-darwin11 -isysroot /tmp/MacOSX10.11.sdk -Wl,-syslibroot,/tmp/MacOSX10.11.sdk -Wl,-dead_strip"
 
-            apt-get install --quiet --yes --no-install-recommends mingw-w64
             rustup target add x86_64-pc-windows-gnu
             export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_PC_WINDOWS_GNU_RUSTFLAGS="-C linker=x86_64-w64-mingw32-gcc"
             export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_PC_WINDOWS_GNU_AR=x86_64-w64-mingw32-ar

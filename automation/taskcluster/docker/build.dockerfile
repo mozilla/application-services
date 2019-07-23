@@ -6,7 +6,7 @@
 # We also use that same version in decisionlib.py
 FROM ubuntu:bionic-20180821
 
-MAINTAINER Nick Alexander "nalexander@mozilla.com"
+MAINTAINER Edouard Oger "eoger@mozilla.com"
 
 # Configuration
 
@@ -44,9 +44,10 @@ RUN apt-get update -qq \
                           # For `cc` crates; see https://github.com/jwilm/alacritty/issues/1440.
                           g++ \
                           clang \
-                          python \
-                          python-pip \
-                          python-setuptools \
+                          python3 \
+                          python3-pip \
+                          # taskcluster > mohawk > setuptools.
+                          python3-setuptools \
                           locales \
                           unzip \
                           xz-utils \
@@ -54,6 +55,8 @@ RUN apt-get update -qq \
                           tclsh \
                           patch \
                           file \
+                          # For windows cross-compilation.
+                          mingw-w64 \
                           # NSS build dependencies
                           gyp \
                           ninja-build \
@@ -65,9 +68,10 @@ RUN apt-get update -qq \
                           # End of NSS build dependencies
     && apt-get clean
 
-RUN pip install --upgrade pip
-RUN pip install 'taskcluster>=4,<5'
-RUN pip install pyyaml
+RUN pip3 install --upgrade pip
+RUN pip3 install \
+    'taskcluster>=4,<5' \
+    pyyaml
 
 RUN locale-gen en_US.UTF-8
 
@@ -123,12 +127,14 @@ RUN set -eux; \
 
 ENV PATH=/root/.cargo/bin:$PATH
 
+# sccache
 RUN \
     curl --silent --show-error --fail --location --retry 5 --retry-delay 10 \
         https://github.com/mozilla/sccache/releases/download/0.2.8/sccache-0.2.8-x86_64-unknown-linux-musl.tar.gz \
         | tar -xz --strip-components=1 -C /usr/local/bin/ \
             sccache-0.2.8-x86_64-unknown-linux-musl/sccache
 
+# tooltool
 RUN \
     curl --location --retry 10 --retry-delay 10 \
          -o /usr/local/bin/tooltool.py \

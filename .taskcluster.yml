@@ -114,7 +114,7 @@ tasks:
               - --login
               - -cx
               - >-
-                pip3 install --upgrade pip &&
+                python3 -m pip install --upgrade pip &&
                 python3 -m pip install pyyaml &&
                 git init repo &&
                 cd repo &&

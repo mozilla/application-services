@@ -141,7 +141,7 @@ You will need the following tools in WSL:
 
 * unzip - `sudo apt install unzip`
 
-* python - `sudo apt install python`
+* python 3 - `sudo apt install python3`
 
 * java - you may already have it? try `java -version`. Java ended up causing me grief (stuck at 100% CPU doing nothing), but google pointed at one popular way of installing java:
 
