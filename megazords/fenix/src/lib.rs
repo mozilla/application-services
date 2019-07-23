@@ -10,4 +10,5 @@ pub use logins_ffi;
 pub use places_ffi;
 pub use push_ffi;
 pub use rc_log_ffi;
+pub use sync_manager_ffi;
 pub use viaduct;

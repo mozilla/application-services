@@ -15,3 +15,4 @@ places-ffi = { path = "../../components/places/ffi" }
 push-ffi = { path = "../../components/push/ffi" }
 rc_log_ffi = { path = "../../components/rc_log" }
 viaduct = { path = "../../components/viaduct", default-features = false }
+sync_manager_ffi = { path = "../../components/sync_manager/ffi", features = ["places"] }

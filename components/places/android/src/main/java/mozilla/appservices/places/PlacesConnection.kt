@@ -45,6 +45,15 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
         private const val READ_WRITE: Int = 2
     }
 
+    /**
+     * Return the raw handle used to reference this PlacesApi.
+     *
+     * Generally should only be used to pass the handle into `SyncManager.setPlaces`
+     */
+    fun getHandle(): Long {
+        return this.handle.get()
+    }
+
     override fun openReader(): PlacesReaderConnection {
         val connHandle = rustCall(this) { error ->
             LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_ONLY, error)

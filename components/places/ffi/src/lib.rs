@@ -30,7 +30,7 @@ fn parse_url(url: &str) -> places::Result<url::Url> {
 }
 
 lazy_static::lazy_static! {
-    static ref APIS: ConcurrentHandleMap<Arc<PlacesApi>> = ConcurrentHandleMap::new();
+    pub static ref APIS: ConcurrentHandleMap<Arc<PlacesApi>> = ConcurrentHandleMap::new();
     static ref CONNECTIONS: ConcurrentHandleMap<PlacesDb> = ConcurrentHandleMap::new();
 }
 

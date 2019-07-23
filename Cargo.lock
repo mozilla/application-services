@@ -623,6 +623,7 @@ dependencies = [
  "places-ffi 0.1.0",
  "push-ffi 0.1.0",
  "rc_log_ffi 0.1.0",
+ "sync_manager_ffi 0.1.0",
  "viaduct 0.1.0",
 ]
 
@@ -1028,6 +1029,7 @@ dependencies = [
  "fxaclient_ffi 0.1.0",
  "logins_ffi 0.1.0",
  "rc_log_ffi 0.1.0",
+ "sync_manager_ffi 0.1.0",
  "viaduct 0.1.0",
 ]
 
@@ -1107,6 +1109,7 @@ dependencies = [
  "places-ffi 0.1.0",
  "push-ffi 0.1.0",
  "rc_log_ffi 0.1.0",
+ "sync_manager_ffi 0.1.0",
  "viaduct 0.1.0",
 ]
 
@@ -2349,6 +2352,37 @@ dependencies = [
  "sync-guid 0.1.0",
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "viaduct 0.1.0",
+]
+
+[[package]]
+name = "sync_manager"
+version = "0.1.0"
+dependencies = [
+ "bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "error-support 0.1.0",
+ "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.3.5",
+ "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "logins 0.1.0",
+ "places 0.1.0",
+ "prost 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prost-build 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prost-derive 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sync15 0.1.0",
+]
+
+[[package]]
+name = "sync_manager_ffi"
+version = "0.1.0"
+dependencies = [
+ "ffi-support 0.3.5",
+ "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "logins_ffi 0.1.0",
+ "places-ffi 0.1.0",
+ "prost 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sync15 0.1.0",
+ "sync_manager 0.1.0",
 ]
 
 [[package]]
