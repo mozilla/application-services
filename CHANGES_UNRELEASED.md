@@ -2,4 +2,4 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.35.3...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.35.4...master)
