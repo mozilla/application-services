@@ -37,7 +37,6 @@ RUN apt-get update -qq \
     # we cannot navigate while building the Docker image.
     && apt-get install -qy tzdata \
     && apt-get install -qy --no-install-recommends openjdk-8-jdk \
-                          wget \
                           expect \
                           git \
                           curl \
@@ -114,17 +113,16 @@ RUN curl -L https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_V
 ENV ANDROID_NDK_TOOLCHAIN_DIR /root/.android-ndk-r15c-toolchain
 ENV ANDROID_NDK_API_VERSION 21
 
-# Rust (cribbed from https://github.com/rust-lang-nursery/docker-rust/blob/ced83778ec6fea7f63091a484946f95eac0ee611/1.27.1/stretch/Dockerfile)
-
+# Rust
 RUN set -eux; \
-    rustArch='x86_64-unknown-linux-gnu'; rustupSha256='ce09d3de51432b34a8ff73c7aaa1edb64871b2541d2eb474441cedb8bf14c5fa'; \
-    url="https://static.rust-lang.org/rustup/archive/1.17.0/${rustArch}/rustup-init"; \
-    wget "$url"; \
-    echo "${rustupSha256} *rustup-init" | sha256sum -c -; \
+    RUSTUP_PLATFORM='x86_64-unknown-linux-gnu'; \
+    RUSTUP_VERSION='1.18.3'; \
+    RUSTUP_SHA256='a46fe67199b7bcbbde2dcbc23ae08db6f29883e260e23899a88b9073effc9076'; \
+    curl -O -s --retry 5 "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUSTUP_PLATFORM}/rustup-init"; \
+    echo "${RUSTUP_SHA256} *rustup-init" | sha256sum -c -; \
     chmod +x rustup-init; \
     ./rustup-init -y --no-modify-path --default-toolchain none; \
     rm rustup-init
-
 ENV PATH=/root/.cargo/bin:$PATH
 
 # sccache
