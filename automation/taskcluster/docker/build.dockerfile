@@ -40,6 +40,8 @@ RUN apt-get update -qq \
         openjdk-8-jdk \
         git \
         curl \
+        # Required by symbolstore.py.
+        file \
         # Will set up the timezone to UTC (?).
         tzdata \
         # To install UTF-8 locales.
