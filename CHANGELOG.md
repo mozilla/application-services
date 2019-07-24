@@ -1,3 +1,20 @@
+# v0.35.1 (_2019-07-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.35.0...v0.35.1)
+
+## FxA Client
+
+### What's Fixed
+
+* Android: `migrateFromSessionToken` will not leave the account in a broken state if
+  network errors happen during the migration process.
+
+## Push
+
+### What's Fixed
+
+* Updated the default server host for the push service to match the production server.
+
 # v0.35.0 (_2019-07-16_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.34.0...v0.35.0)
