@@ -2,7 +2,7 @@
 
 set -euvx
 
-if [ "$#" -ne 1 ]
+if [[ "$#" -ne 1 ]]
 then
     echo "Usage:"
     echo "./automation/check_megazord.sh <megazord_name>"
@@ -13,7 +13,7 @@ MEGAZORD_NAME=$1
 
 # The `full-megazord` is `libmegazord.so`. Eventually we should figure out a way
 # to avoid hardcoding this check, but for now it's not too bad.
-if [ "$MEGAZORD_NAME" = "full" ]; then
+if [[ "$MEGAZORD_NAME" = "full" ]]; then
     MEGAZORD_NAME="megazord"
 fi
 

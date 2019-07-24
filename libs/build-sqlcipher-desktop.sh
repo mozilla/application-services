@@ -2,7 +2,7 @@
 
 set -euvx
 
-if [ "${#}" -lt 1 ] || [ "${#}" -gt 2 ]
+if [[ "${#}" -lt 1 ]] || [[ "${#}" -gt 2 ]]
 then
   echo "Usage:"
   echo "./build-sqlcipher-desktop.sh <ABSOLUTE_SRC_DIR> [CROSS_COMPILE_TARGET]"
@@ -14,7 +14,7 @@ SQLCIPHER_SRC_DIR=${1}
 # only intended for automation.
 CROSS_COMPILE_TARGET=${2-}
 
-if [ -n "${CROSS_COMPILE_TARGET}" ] && [ "$(uname -s)" != "Linux" ]; then
+if [[ -n "${CROSS_COMPILE_TARGET}" ]] && [[ "$(uname -s)" != "Linux" ]]; then
   echo "Can only cross compile from 'Linux'; 'uname -s' is $(uname -s)"
   exit 1
 fi
@@ -25,13 +25,13 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
 elif [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   DIST_DIR=$(abspath "desktop/darwin/sqlcipher")
   NSS_DIR=$(abspath "desktop/darwin/nss")
-elif [ -n "${CROSS_COMPILE_TARGET}" ]; then
+elif [[ -n "${CROSS_COMPILE_TARGET}" ]]; then
   echo "Cannot build SQLCipher for unrecognized target OS ${CROSS_COMPILE_TARGET}"
   exit 1
-elif [ "$(uname -s)" == "Darwin" ]; then
+elif [[ "$(uname -s)" == "Darwin" ]]; then
   DIST_DIR=$(abspath "desktop/darwin/sqlcipher")
   NSS_DIR=$(abspath "desktop/darwin/nss")
-elif [ "$(uname -s)" == "Linux" ]; then
+elif [[ "$(uname -s)" == "Linux" ]]; then
   # This is a JNA weirdness: "x86-64" rather than "x86_64".
   DIST_DIR=$(abspath "desktop/linux-x86-64/sqlcipher")
   NSS_DIR=$(abspath "desktop/linux-x86-64/nss")
@@ -40,7 +40,7 @@ else
    exit 1
 fi
 
-if [ -d "${DIST_DIR}" ]; then
+if [[ -d "${DIST_DIR}" ]]; then
   echo "${DIST_DIR} folder already exists. Skipping build."
   exit 0
 fi
@@ -181,7 +181,7 @@ popd
     CFLAGS="${SQLCIPHER_CFLAGS}" \
     LDFLAGS="-L${NSS_DIR}/lib" \
     LIBS="${LIBS}"
-elif [ "$(uname -s)" == "Darwin" ]; then
+elif [[ "$(uname -s)" == "Darwin" ]]; then
   "${SQLCIPHER_SRC_DIR}/configure" \
     --with-pic \
     --disable-shared \
@@ -191,7 +191,7 @@ elif [ "$(uname -s)" == "Darwin" ]; then
     CFLAGS="${SQLCIPHER_CFLAGS}" \
     LDFLAGS="-L${NSS_DIR}/lib" \
     LIBS="${LIBS}"
-elif [ "$(uname -s)" == "Linux" ]; then
+elif [[ "$(uname -s)" == "Linux" ]]; then
   "${SQLCIPHER_SRC_DIR}/configure" \
     --with-pic \
     --disable-shared \

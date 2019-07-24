@@ -2,7 +2,7 @@
 set -euvx
 
 # This should be invoked from inside xcode, not manually
-if [ "${#}" -ne 4 ]
+if [[ "${#}" -ne 4 ]]
 then
     echo "Usage (note: only call inside xcode!):"
     echo "path/to/build-scripts/xc-universal-binary.sh <STATIC_LIB_NAME> <FFI_TARGET> <APPSVC_ROOT_PATH> <buildvariant>"
@@ -28,7 +28,7 @@ LIBSDIR=${APPSVC_ROOT}/libs
 TARGETDIR=${APPSVC_ROOT}/target
 
 # If the libs don't exist, or it's modification time is older than the last commit in ${LIBSDIR}/ios, wipe it out.
-if [ ! -d "${LIBSDIR}/ios" ] || [ "$(stat -f "%m" "${LIBSDIR}/ios")" -lt "$(git log -n 1 --pretty=format:%at -- "${LIBSDIR}")" ]; then
+if [[ ! -d "${LIBSDIR}/ios" ]] || [[ "$(stat -f "%m" "${LIBSDIR}/ios")" -lt "$(git log -n 1 --pretty=format:%at -- "${LIBSDIR}")" ]]; then
     echo "No iOS libs present, or they are stale"
     pushd "${LIBSDIR}"
     rm -rf ios

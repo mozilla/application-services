@@ -11,13 +11,13 @@ CLANG_BINS=("x86_64-linux-android-clang" "i686-linux-android-clang" "aarch64-lin
 
 ANDROID_NDK_ROOT="${1:-${ANDROID_NDK_ROOT}}"
 
-if [ -z "${ANDROID_NDK_ROOT}" ]; then
+if [[ -z "${ANDROID_NDK_ROOT}" ]]; then
     echo "Usage:"
     echo "./setup_toolchains_local.sh <ANDROID_NDK_ROOT>"
     exit 1
 fi
 
-if [ ! -f "$PWD/android_defaults.sh" ]
+if [[ ! -f "$PWD/android_defaults.sh" ]]
 then
     echo "setup_toolchains_local.sh must be executed from within the libs/ directory."
     exit 1
@@ -33,7 +33,7 @@ echo ""
 
 # Toolchains installation
 for ARCH in "${TARGET_ARCHS[@]}"; do
-  if [ ! -d "${ANDROID_NDK_TOOLCHAIN_DIR}/${ARCH}-${ANDROID_NDK_API_VERSION}" ]; then
+  if [[ ! -d "${ANDROID_NDK_TOOLCHAIN_DIR}/${ARCH}-${ANDROID_NDK_API_VERSION}" ]]; then
     echo "Installing ${ARCH} toolchain..."
     python3 "${ANDROID_NDK_ROOT}/build/tools/make_standalone_toolchain.py" --arch="${ARCH}" --api="${ANDROID_NDK_API_VERSION}" --install-dir="${ANDROID_NDK_TOOLCHAIN_DIR}/${ARCH}-${ANDROID_NDK_API_VERSION}" --deprecated-headers --force
   else

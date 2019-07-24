@@ -15,13 +15,13 @@ NSS="nss-3.44"
 
 # End of configuration.
 
-if [ ! -f "$(pwd)/build-all.sh" ]
+if [[ ! -f "$(pwd)/build-all.sh" ]]
 then
     echo "build-all.sh must be executed from within the libs/ directory."
     exit 1
 fi
 
-if [ "${#}" -ne 1 ]
+if [[ "${#}" -ne 1 ]]
 then
     echo "Usage:"
     echo "./build-all.sh [ios|android|desktop]"
@@ -33,25 +33,25 @@ PLATFORM="${1}"
 abspath () { case "${1}" in /*)printf "%s\\n" "${1}";; *)printf "%s\\n" "${PWD}/${1}";; esac; }
 export -f abspath
 
-if ! [ -x "$(command -v gyp)" ]; then
+if ! [[ -x "$(command -v gyp)" ]]; then
   echo 'Error: gyp needs to be installed and executable. See https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP for install instructions.' >&2
   exit 1
 fi
 
-if ! [ -x "$(command -v ninja)" ]; then
+if ! [[ -x "$(command -v ninja)" ]]; then
   echo 'Error: ninja needs to be installed and executable. See https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages for install instructions.' >&2
   exit 1
 fi
 
 # SQLCipher needs TCL.
-if ! [ -x "$(command -v tclsh)" ]; then
+if ! [[ -x "$(command -v tclsh)" ]]; then
   echo 'Error: tclsh needs to be installed and executable. See https://www.tcl.tk/software/tcltk/.' >&2
   exit 1
 fi
 
 OPENSSL="openssl-${OPENSSL_VERSION}"
 rm -rf "${OPENSSL}"
-if [ ! -e "${OPENSSL}.tar.gz" ]; then
+if [[ ! -e "${OPENSSL}.tar.gz" ]]; then
   echo "Downloading ${OPENSSL}.tar.gz"
   curl -L -O "https://www.openssl.org/source/${OPENSSL}.tar.gz"
 else
@@ -68,7 +68,7 @@ SQLCIPHER_SRC_PATH=$(abspath "sqlcipher")
 # ... and uncomment the following once SQLCipher has an NSS crypto backend.
 # SQLCIPHER="v${SQLCIPHER_VERSION}"
 # rm -rf "${SQLCIPHER}"
-# if [ ! -e "${SQLCIPHER}.tar.gz" ]; then
+# if [[ ! -e "${SQLCIPHER}.tar.gz" ]]; then
 #   echo "Downloading ${SQLCIPHER}.tar.gz"
 #   curl -L -O "https://github.com/sqlcipher/sqlcipher/archive/${SQLCIPHER}.tar.gz"
 # else
@@ -85,7 +85,7 @@ hg clone https://hg.mozilla.org/projects/nss/ -r 0c5d37301637ed024de8c2cbdbecf14
 git clone --single-branch --branch without-versions https://github.com/eoger/nspr.git "${NSS}"/nspr
 # hg clone https://hg.mozilla.org/projects/nspr/ -r cc73b6c7dab2e8053533e1f2c0c23dc721e10b76 "${NSS}"/nspr
 # ... and uncomment the following once NSS 3.45 and NSPR 4.22 are out.
-# if [ ! -e "${NSS_ARCHIVE}" ]; then
+# if [[ ! -e "${NSS_ARCHIVE}" ]]; then
 #   echo "Downloading ${NSS_ARCHIVE}"
 #   curl -L -O "${NSS_URL}"
 # else
@@ -125,18 +125,18 @@ diff -r 65efa74ef84a coreconf/config.gypi
          \'include_dirs\': [
 ' | patch "${NSS_SRC_PATH}/nss/coreconf/config.gypi"
 
-if [ "${PLATFORM}" == "ios" ]
+if [[ "${PLATFORM}" == "ios" ]]
 then
   ./build-all-ios.sh "${OPENSSL_SRC_PATH}" "${SQLCIPHER_SRC_PATH}" "${NSS_SRC_PATH}"
-elif [ "${PLATFORM}" == "android" ]
+elif [[ "${PLATFORM}" == "android" ]]
 then
   ./build-all-android.sh "${OPENSSL_SRC_PATH}" "${SQLCIPHER_SRC_PATH}" "${NSS_SRC_PATH}"
-elif [ "${PLATFORM}" == "desktop" ]
+elif [[ "${PLATFORM}" == "desktop" ]]
 then
   ./build-nss-desktop.sh "${NSS_SRC_PATH}"
   ./build-openssl-desktop.sh "${OPENSSL_SRC_PATH}"
   ./build-sqlcipher-desktop.sh "${SQLCIPHER_SRC_PATH}"
-elif [ "${PLATFORM}" == "darwin" ] || [ "${PLATFORM}" == "win32-x86-64" ]
+elif [[ "${PLATFORM}" == "darwin" ]] || [[ "${PLATFORM}" == "win32-x86-64" ]]
 then
   ./build-nss-desktop.sh "${NSS_SRC_PATH}" "${PLATFORM}"
   ./build-openssl-desktop.sh "${OPENSSL_SRC_PATH}" "${PLATFORM}"

@@ -2,7 +2,7 @@
 
 set -euvx
 
-if [ "$#" -ne 3 ]
+if [[ "$#" -ne 3 ]]
 then
     echo "Usage: <path/to/relevant/nm> <path/to/relevant/library> <symbol_name>"
     echo "Example Usage:"
