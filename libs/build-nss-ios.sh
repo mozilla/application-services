@@ -4,7 +4,7 @@
 
 set -euvx
 
-if [ "${#}" -ne 4 ]
+if [[ "${#}" -ne 4 ]]
 then
     echo "Usage:"
     echo "./build-nss-ios.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <ARCH> <IOS_MIN_SDK_VERSION>"
@@ -16,7 +16,7 @@ DIST_DIR=${2}
 ARCH=${3}
 IOS_MIN_SDK_VERSION=${4}
 
-if [ -d "${DIST_DIR}" ]; then
+if [[ -d "${DIST_DIR}" ]]; then
   echo "${DIST_DIR} folder already exists. Skipping build."
   exit 0
 fi

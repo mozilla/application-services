@@ -4,7 +4,7 @@
 
 set -euvx
 
-if [ "${#}" -ne 5 ]
+if [[ "${#}" -ne 5 ]]
 then
     echo "Usage:"
     echo "./build-openssl-android.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <TOOLCHAIN_PATH> <TOOLCHAIN> <ANDROID_NDK_API_VERSION>"
@@ -17,7 +17,7 @@ TOOLCHAIN_PATH=${3}
 TOOLCHAIN=${4}
 ANDROID_NDK_API_VERSION=${5}
 
-if [ -d "${DIST_DIR}" ]; then
+if [[ -d "${DIST_DIR}" ]]; then
   echo "${DIST_DIR}"" folder already exists. Skipping build."
   exit 0
 fi
@@ -31,16 +31,16 @@ export PATH="${TOOLCHAIN_PATH}/bin:${PATH}"
 OPENSSL_OUTPUT_PATH="/tmp/openssl-${TOOLCHAIN}_${$}"
 mkdir -p "${OPENSSL_OUTPUT_PATH}"
 
-if [ "${TOOLCHAIN}" == "x86_64-linux-android" ]
+if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]]
 then
   CONFIGURE_ARCH="android64-x86_64"
-elif [ "${TOOLCHAIN}" == "i686-linux-android" ]
+elif [[ "${TOOLCHAIN}" == "i686-linux-android" ]]
 then
   CONFIGURE_ARCH="android-x86"
-elif [ "${TOOLCHAIN}" == "aarch64-linux-android" ]
+elif [[ "${TOOLCHAIN}" == "aarch64-linux-android" ]]
 then
   CONFIGURE_ARCH="android-arm64"
-elif [ "${TOOLCHAIN}" == "arm-linux-androideabi" ]
+elif [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]]
 then
   CONFIGURE_ARCH="android-arm"
 else

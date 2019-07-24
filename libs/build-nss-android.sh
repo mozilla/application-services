@@ -4,7 +4,7 @@
 
 set -euvx
 
-if [ "${#}" -ne 6 ]
+if [[ "${#}" -ne 6 ]]
 then
     echo "Usage:"
     echo "./build-nss-android.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <ARCH> <TOOLCHAIN_PATH> <TOOLCHAIN> <ANDROID_NDK_API_VERSION>"
@@ -18,25 +18,25 @@ TOOLCHAIN_PATH=${4}
 TOOLCHAIN=${5}
 ANDROID_NDK_API_VERSION=${6}
 
-if [ -d "${DIST_DIR}" ]; then
+if [[ -d "${DIST_DIR}" ]]; then
   echo "${DIST_DIR} folder already exists. Skipping build."
   exit 0
 fi
 
 PLATFORM_PATH="${ANDROID_NDK_ROOT}/platforms/android-${ANDROID_NDK_API_VERSION}/arch-${ARCH}"
-if [ "${TOOLCHAIN}" == "x86_64-linux-android" ]
+if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]]
 then
   GYP_ARCH="x64"
   LDFLAGS="-L${PLATFORM_PATH}/usr/lib64"
   NSPR_64="--enable-64bit"
-elif [ "${TOOLCHAIN}" == "i686-linux-android" ]
+elif [[ "${TOOLCHAIN}" == "i686-linux-android" ]]
 then
   GYP_ARCH="ia32"
-elif [ "${TOOLCHAIN}" == "aarch64-linux-android" ]
+elif [[ "${TOOLCHAIN}" == "aarch64-linux-android" ]]
 then
   GYP_ARCH="arm64"
   NSPR_64="--enable-64bit"
-elif [ "${TOOLCHAIN}" == "arm-linux-androideabi" ]
+elif [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]]
 then
   GYP_ARCH="arm"
 else

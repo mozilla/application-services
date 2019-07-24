@@ -4,7 +4,7 @@
 
 set -euvx
 
-if [ "${#}" -ne 6 ]
+if [[ "${#}" -ne 6 ]]
 then
     echo "Usage:"
     echo "./build-sqlcipher-android.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <TOOLCHAIN_PATH> <TOOLCHAIN> <ANDROID_NDK_API_VERSION> <NSS_DIR>"
@@ -18,7 +18,7 @@ TOOLCHAIN=${4}
 ANDROID_NDK_API_VERSION=${5}
 NSS_DIR=${6}
 
-if [ -d "${DIST_DIR}" ]; then
+if [[ -d "${DIST_DIR}" ]]; then
   echo "${DIST_DIR} folder already exists. Skipping build."
   exit 0
 fi
@@ -31,16 +31,16 @@ export LD="${TOOLCHAIN_BIN}/${TOOLCHAIN}-ld"
 export AR="${TOOLCHAIN_BIN}/${TOOLCHAIN}-ar"
 export CFLAGS="-D__ANDROID_API__=${ANDROID_NDK_API_VERSION}"
 
-if [ "${TOOLCHAIN}" == "x86_64-linux-android" ]
+if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]]
 then
   HOST="x86_64-linux"
-elif [ "${TOOLCHAIN}" == "i686-linux-android" ]
+elif [[ "${TOOLCHAIN}" == "i686-linux-android" ]]
 then
   HOST="i686-linux"
-elif [ "${TOOLCHAIN}" == "aarch64-linux-android" ]
+elif [[ "${TOOLCHAIN}" == "aarch64-linux-android" ]]
 then
   HOST="arm-linux"
-elif [ "${TOOLCHAIN}" == "arm-linux-androideabi" ]
+elif [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]]
 then
   HOST="arm-linux"
 else

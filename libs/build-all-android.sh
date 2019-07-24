@@ -12,7 +12,7 @@ TARGET_ARCHS_TOOLCHAINS=("x86_64-linux-android" "i686-linux-android" "aarch64-li
 
 # End of configuration.
 
-if [ "${#}" -ne 3 ]
+if [[ "${#}" -ne 3 ]]
 then
     echo "Usage:"
     echo "./build-all-android.sh <OPENSSL_SRC_PATH> <SQLCIPHER_SRC_PATH> <NSS_SRC_PATH>"
@@ -30,7 +30,7 @@ for i in "${!TARGET_ARCHS[@]}"; do
   ARCH=${TARGET_ARCHS[${i}]}
   DIST=${TARGET_ARCHS_DISTS[${i}]}
   DIST_DIR=$(abspath "android/${DIST}/nss")
-  if [ -d "${DIST_DIR}" ]; then
+  if [[ -d "${DIST_DIR}" ]]; then
     echo "${DIST_DIR} already exists. Skipping building nss."
   else
     ./build-nss-android.sh "${NSS_SRC_PATH}" "${DIST_DIR}" "${ARCH}" "${ANDROID_NDK_TOOLCHAIN_DIR}/${ARCH}-${ANDROID_NDK_API_VERSION}" "${TARGET_ARCHS_TOOLCHAINS[${i}]}" "${ANDROID_NDK_API_VERSION}" || exit 1
@@ -42,7 +42,7 @@ for i in "${!TARGET_ARCHS[@]}"; do
   ARCH=${TARGET_ARCHS[${i}]}
   DIST=${TARGET_ARCHS_DISTS[${i}]}
   DIST_DIR=$(abspath "android/${DIST}/openssl")
-  if [ -d "${DIST_DIR}" ]; then
+  if [[ -d "${DIST_DIR}" ]]; then
     echo "${DIST_DIR} already exists. Skipping building openssl."
   else
     ./build-openssl-android.sh "${OPENSSL_SRC_PATH}" "${DIST_DIR}" "${ANDROID_NDK_TOOLCHAIN_DIR}/${ARCH}-${ANDROID_NDK_API_VERSION}" "${TARGET_ARCHS_TOOLCHAINS[${i}]}" "${ANDROID_NDK_API_VERSION}" || exit 1
@@ -55,7 +55,7 @@ for i in "${!TARGET_ARCHS[@]}"; do
   DIST=${TARGET_ARCHS_DISTS[${i}]}
   NSS_DIR=$(abspath "android/${DIST}/nss")
   DIST_DIR=$(abspath "android/${DIST}/sqlcipher")
-  if [ -d "${DIST_DIR}" ]; then
+  if [[ -d "${DIST_DIR}" ]]; then
     echo "${DIST_DIR} already exists. Skipping building sqlcipher."
   else
     ./build-sqlcipher-android.sh "${SQLCIPHER_SRC_PATH}" "${DIST_DIR}" "${ANDROID_NDK_TOOLCHAIN_DIR}/${ARCH}-${ANDROID_NDK_API_VERSION}" "${TARGET_ARCHS_TOOLCHAINS[${i}]}" "${ANDROID_NDK_API_VERSION}" "${NSS_DIR}" || exit 1

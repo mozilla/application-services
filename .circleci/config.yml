@@ -239,7 +239,7 @@ jobs:
       - checkout
       - run:
           name: Lint Bash scripts with shellcheck
-          command: ./automation/lint_bash_scripts.sh
+          command: sh automation/lint_bash_scripts.sh
   Check Rust dependencies:
     docker:
       - image: circleci/rust:latest

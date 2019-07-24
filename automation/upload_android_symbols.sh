@@ -2,14 +2,14 @@
 
 set -euvx
 
-if [ "${#}" -ne 1 ]
+if [[ "${#}" -ne 1 ]]
 then
     echo "Usage:"
     echo "./automation/upload_android_symbols.sh <project path>"
     exit 1
 fi
 
-if [ ! -f "$PWD/libs/android_defaults.sh" ]
+if [[ ! -f "$PWD/libs/android_defaults.sh" ]]
 then
     echo "upload_android_symbols.sh must be executed from the root directory."
     exit 1
@@ -23,7 +23,7 @@ source "libs/android_defaults.sh"
 OUTPUT_FOLDER="crashreporter-symbols"
 DUMP_SYMS_DIR="automation/symbols-generation/bin"
 
-if [ ! -f "${DUMP_SYMS_DIR}/dump_syms" ]; then
+if [[ ! -f "${DUMP_SYMS_DIR}/dump_syms" ]]; then
   tooltool.py --manifest=automation/symbols-generation/dump_syms.manifest --url=http://taskcluster/tooltool.mozilla-releng.net/ fetch
   chmod +x dump_syms
   mkdir -p "${DUMP_SYMS_DIR}"

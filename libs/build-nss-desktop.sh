@@ -4,7 +4,7 @@
 
 set -euvx
 
-if [ "${#}" -lt 1 ] || [ "${#}" -gt 2 ]
+if [[ "${#}" -lt 1 ]] || [[ "${#}" -gt 2 ]]
 then
   echo "Usage:"
   echo "./build-nss-desktop.sh <ABSOLUTE_SRC_DIR> [CROSS_COMPILE_TARGET]"
@@ -16,7 +16,7 @@ NSS_SRC_DIR=${1}
 # only intended for automation.
 CROSS_COMPILE_TARGET=${2-}
 
-if [ -n "${CROSS_COMPILE_TARGET}" ] && [ "$(uname -s)" != "Linux" ]; then
+if [[ -n "${CROSS_COMPILE_TARGET}" ]] && [[ "$(uname -s)" != "Linux" ]]; then
   echo "Can only cross compile from 'Linux'; 'uname -s' is $(uname -s)"
   exit 1
 fi
@@ -25,12 +25,12 @@ if [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
   DIST_DIR=$(abspath "desktop/win32-x86-64/nss")
 elif [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   DIST_DIR=$(abspath "desktop/darwin/nss")
-elif [ -n "${CROSS_COMPILE_TARGET}" ]; then
+elif [[ -n "${CROSS_COMPILE_TARGET}" ]]; then
   echo "Cannot build NSS for unrecognized target OS ${CROSS_COMPILE_TARGET}"
   exit 1
-elif [ "$(uname -s)" == "Darwin" ]; then
+elif [[ "$(uname -s)" == "Darwin" ]]; then
   DIST_DIR=$(abspath "desktop/darwin/nss")
-elif [ "$(uname -s)" == "Linux" ]; then
+elif [[ "$(uname -s)" == "Linux" ]]; then
   # This is a JNA weirdness: "x86-64" rather than "x86_64".
   DIST_DIR=$(abspath "desktop/linux-x86-64/nss")
 else
@@ -38,7 +38,7 @@ else
    exit 1
 fi
 
-if [ -d "${DIST_DIR}" ]; then
+if [[ -d "${DIST_DIR}" ]]; then
   echo "${DIST_DIR} folder already exists. Skipping build."
   exit 0
 fi
@@ -58,7 +58,7 @@ elif [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
   echo "${SHA256}  nss_nspr_static_libs_win32.7z" | shasum -a 256 -c - || exit 2
   7z x nss_nspr_static_libs_win32.7z -aoa && rm -rf nss_nspr_static_libs_win32.7z
   NSS_DIST_DIR=$(abspath "dist")
-elif [ "$(uname -s)" == "Darwin" ] || [ "$(uname -s)" == "Linux" ]; then
+elif [[ "$(uname -s)" == "Darwin" ]] || [[ "$(uname -s)" == "Linux" ]]; then
   "${NSS_SRC_DIR}"/nss/build.sh \
     --opt \
     --static \
@@ -72,7 +72,7 @@ fi
 if [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
   EXT="lib"
   PREFIX=""
-elif [ "$(uname -s)" == "Darwin" ] || [ "$(uname -s)" == "Linux" ]; then
+elif [[ "$(uname -s)" == "Darwin" ]] || [[ "$(uname -s)" == "Linux" ]]; then
   EXT="a"
   PREFIX="lib"
 fi
