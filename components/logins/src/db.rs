@@ -722,7 +722,7 @@ impl LoginDb {
         st: ServerTimestamp,
         scope: &SqlInterruptScope,
     ) -> Result<OutgoingChangeset> {
-        // Taken from iOS. Arbitrarially large, so that clients that want to
+        // Taken from iOS. Arbitrarily large, so that clients that want to
         // process deletions first can; for us it doesn't matter.
         const TOMBSTONE_SORTINDEX: i32 = 5_000_000;
         const DEFAULT_SORTINDEX: i32 = 1;
