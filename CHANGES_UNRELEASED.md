@@ -2,11 +2,4 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.35.0...master)
-
-## Push
-
-### What's Fixed
-
-* Updated the default server host for the push service to match the production server.
-
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.35.1...master)
