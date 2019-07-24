@@ -14,7 +14,10 @@ ENV ANDROID_BUILD_TOOLS "28.0.3"
 ENV ANDROID_SDK_VERSION "3859397"
 ENV ANDROID_PLATFORM_VERSION "28"
 
+# Set up the language variables to avoid problems (we run locale-gen later).
 ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
 
 # Do not use fancy output on taskcluster
 ENV TERM dumb
@@ -25,7 +28,6 @@ ENV GRADLE_OPTS -Xmx4096m -Dorg.gradle.daemon=false
 ENV CI_TASKCLUSTER true
 
 ENV \
-    #
     # Some APT packages like 'tzdata' wait for user input on install by default.
     # https://stackoverflow.com/questions/44331836/apt-get-install-tzdata-noninteractive
     DEBIAN_FRONTEND=noninteractive
@@ -33,38 +35,45 @@ ENV \
 # System.
 
 RUN apt-get update -qq \
-    # We need to install tzdata before all of the other packages. Otherwise it will show an interactive dialog that
-    # we cannot navigate while building the Docker image.
-    && apt-get install -qy tzdata \
-    && apt-get install -qy --no-install-recommends openjdk-8-jdk \
-                          expect \
-                          git \
-                          curl \
-                          # For `cc` crates; see https://github.com/jwilm/alacritty/issues/1440.
-                          g++ \
-                          clang \
-                          python3 \
-                          python3-pip \
-                          # taskcluster > mohawk > setuptools.
-                          python3-setuptools \
-                          locales \
-                          unzip \
-                          xz-utils \
-                          make \
-                          tclsh \
-                          patch \
-                          file \
-                          # For windows cross-compilation.
-                          mingw-w64 \
-                          # NSS build dependencies
-                          gyp \
-                          ninja-build \
-                          zlib1g-dev \
-                          # Delete mercurial once `libs/build-all.sh` gets NSS through a zip file.
-                          mercurial \
-                          # Delete p7zip once NSS windows is actually compiled instead of downloaded.
-                          p7zip-full \
-                          # End of NSS build dependencies
+    && apt-get install -qy --no-install-recommends \
+        # To compile Android stuff.
+        openjdk-8-jdk \
+        git \
+        curl \
+        # Will set up the timezone to UTC (?).
+        tzdata \
+        # To install UTF-8 locales.
+        locales \
+        # For `cc` crates; see https://github.com/jwilm/alacritty/issues/1440.
+        # <TODO: Is this still true?>.
+        g++ \
+        # <TODO: Explain why we have this dependency>.
+        clang \
+        python3 \
+        python3-pip \
+        # taskcluster > mohawk > setuptools.
+        python3-setuptools \
+        # Required to extract the Android SDK/NDK.
+        unzip \
+        # Required by tooltool to extract tar.xz archives.
+        xz-utils \
+        # Required to build libs/.
+        make \
+        # Required to build sqlcipher.
+        tclsh \
+        # Required in libs/ by some scripts patching the source they download.
+        patch \
+        # For windows cross-compilation.
+        mingw-w64 \
+        ## NSS build dependencies
+        gyp \
+        ninja-build \
+        zlib1g-dev \
+        # <TODO: Delete mercurial once `libs/build-all.sh` gets NSS through a zip file>.
+        mercurial \
+        # <TODO: Delete p7zip once NSS windows is actually compiled instead of downloaded>.
+        p7zip-full \
+        ## End of NSS build dependencies
     && apt-get clean
 
 RUN pip3 install --upgrade pip
@@ -72,6 +81,7 @@ RUN pip3 install \
     'taskcluster>=4,<5' \
     pyyaml
 
+# Compile the UTF-8 english locale files (required by Python).
 RUN locale-gen en_US.UTF-8
 
 # Android SDK
@@ -106,9 +116,9 @@ ENV ANDROID_NDK_ROOT /build/android-ndk
 ENV ANDROID_NDK_HOME /build/android-ndk
 
 RUN curl -L https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux-x86_64.zip > ndk.zip \
-	&& unzip -q ndk.zip -d /build \
-	&& rm ndk.zip \
-  && mv /build/android-ndk-${ANDROID_NDK_VERSION} ${ANDROID_NDK_ROOT}
+    && unzip -q ndk.zip -d /build \
+    && rm ndk.zip \
+    && mv /build/android-ndk-${ANDROID_NDK_VERSION} ${ANDROID_NDK_ROOT}
 
 ENV ANDROID_NDK_TOOLCHAIN_DIR /root/.android-ndk-r15c-toolchain
 ENV ANDROID_NDK_API_VERSION 21
