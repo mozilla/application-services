@@ -26,6 +26,7 @@ from __future__ import print_function
 import errno
 import sys
 import platform
+import io
 import os
 import re
 import shutil
@@ -113,7 +114,7 @@ githubRegex = re.compile(r'^(?:https://github.com/|git@github.com:)([^/]+)/([^/]
 
 def read_output(*args):
     (stdout, _) = subprocess.Popen(args=args, stdout=subprocess.PIPE).communicate()
-    return stdout.rstrip()
+    return stdout.decode("utf-8").rstrip()
 
 class GitHubRepoInfo:
     """
@@ -140,7 +141,7 @@ class GitHubRepoInfo:
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (stdout, _) = p.communicate()
         if p.returncode == 0:
-            rev = stdout.rstrip()
+            rev = stdout.decode("utf-8").rstrip()
         else:
             rev = read_output('git', '-C', path, 'rev-parse', 'HEAD')
 
@@ -396,7 +397,8 @@ class Dumper:
             print(' '.join(cmd), file=sys.stderr)
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                     stderr=open(os.devnull, 'wb'))
-            module_line = proc.stdout.next()
+            stdout = io.TextIOWrapper(proc.stdout, encoding="utf-8")
+            module_line = stdout.readline()
             if module_line.startswith("MODULE"):
                 # MODULE os cpu guid debug_file
                 (guid, debug_file) = (module_line.split())[3:5]
@@ -415,7 +417,7 @@ class Dumper:
                 f = open(full_path, "w")
                 f.write(module_line)
                 # now process the rest of the output
-                for line in proc.stdout:
+                for line in stdout:
                     if line.startswith("FILE"):
                         # FILE index filename
                         (x, index, filename) = line.rstrip().split(None, 2)
