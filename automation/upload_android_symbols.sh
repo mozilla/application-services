@@ -43,10 +43,10 @@ for i in "${!TARGET_ARCHS[@]}"; do
   export OBJCOPY="${ANDROID_NDK_TOOLCHAIN_DIR}/${TARGET_ARCHS[${i}]}-${ANDROID_NDK_API_VERSION}/bin/${OBJCOPY_BINS[${i}]}"
   JNI_SO_PATH="${PROJECT_PATH}/build/rustJniLibs/android/${JNI_LIBS_TARGETS[${i}]}"
   for sofile in "${JNI_SO_PATH}"/*.so; do
-    python automation/symbols-generation/symbolstore.py -c -s . --vcs-info "${DUMP_SYMS_DIR}"/dump_syms "${OUTPUT_FOLDER}" "${sofile}"
+    python3 automation/symbols-generation/symbolstore.py -c -s . --vcs-info "${DUMP_SYMS_DIR}"/dump_syms "${OUTPUT_FOLDER}" "${sofile}"
   done
 done
 
 # 2. Upload them.
-pip install -r automation/symbols-generation/requirements.txt
-python automation/symbols-generation/upload_symbols.py "${OUTPUT_FOLDER}"
+pip3 install -r automation/symbols-generation/requirements.txt
+python3 automation/symbols-generation/upload_symbols.py "${OUTPUT_FOLDER}"

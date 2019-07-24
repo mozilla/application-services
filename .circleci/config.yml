@@ -44,9 +44,9 @@ commands:
           name: Install Rust
           command: |
             RUSTUP_PLATFORM=x86_64-apple-darwin
-            RUSTUP_VERSION=1.17.0
-            RUSTUP_SHA256=f5da97b1854844fd7d61c52af8d78238c022fdc0ff0eeaf804baa0b9f7ff59d3
-            curl -O -s --retry 5 "https://static.rust-lang.org/rustup/archive/$RUSTUP_VERSION/$RUSTUP_PLATFORM/rustup-init"
+            RUSTUP_VERSION=1.18.3
+            RUSTUP_SHA256=16734a9a2d87a3054bd4eea962642687e50a34b6e73e17df6f3361c2c534dc30
+            curl -O -s --retry 5 "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUSTUP_PLATFORM}/rustup-init"
             echo "${RUSTUP_SHA256} *rustup-init" | shasum -a 256 -c -
             chmod +x rustup-init
             ./rustup-init -y --no-modify-path
@@ -104,7 +104,7 @@ commands:
             pushd ..
             git clone https://chromium.googlesource.com/external/gyp.git
             pushd gyp
-            python setup.py install
+            python3 setup.py install
             popd
             popd
       - build-libs:
