@@ -131,6 +131,15 @@ internal inline fun rustCallForString(syncOn: Any, callback: (RustError.ByRefere
     }
 }
 
+internal inline fun rustCallForOptString(syncOn: Any, callback: (RustError.ByReference) -> Pointer?): String? {
+    val cstring = rustCall(syncOn, callback)
+    try {
+        return cstring?.getString(0, "utf8")
+    } finally {
+        cstring?.let { LibPlacesFFI.INSTANCE.places_destroy_string(it) }
+    }
+}
+
 @Suppress("TooGenericExceptionCaught")
 open class PlacesConnection internal constructor(connHandle: Long) : InterruptibleConnection, AutoCloseable {
     protected var handle: AtomicLong = AtomicLong(0)
@@ -177,6 +186,10 @@ open class PlacesConnection internal constructor(connHandle: Long) : Interruptib
     internal inline fun rustCallForString(callback: (RustError.ByReference) -> Pointer?): String {
         return rustCallForString(this, callback)
     }
+
+    internal inline fun rustCallForOptString(callback: (RustError.ByReference) -> Pointer?): String? {
+        return rustCallForOptString(this, callback)
+    }
 }
 
 /**
@@ -197,15 +210,8 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
     }
 
     override fun matchUrl(query: String): String? {
-        // Can't use rustCallForString if we return null on success. Possibly worth splitting
-        // into a rustCallForOptString or something, but I'll wait until we need it again.
-        val urlPtr = rustCall { error ->
+        return rustCallForOptString { error ->
             LibPlacesFFI.INSTANCE.places_match_url(this.handle.get(), query, error)
-        }
-        try {
-            return urlPtr?.getString(0, "utf-8")
-        } finally {
-            urlPtr?.let { LibPlacesFFI.INSTANCE.places_destroy_string(it) }
         }
     }
 
@@ -324,6 +330,12 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
             return unpackProtobufItemList(message)
         } finally {
             LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
+        }
+    }
+
+    override fun getBookmarkUrlForKeyword(keyword: String): String? {
+        return rustCallForOptString { error ->
+            LibPlacesFFI.INSTANCE.bookmarks_get_url_for_keyword(this.handle.get(), keyword, error)
         }
     }
 

@@ -157,6 +157,10 @@ PlacesRustBuffer bookmarks_get_all_with_url(PlacesConnectionHandle handle,
                                             char const *_Nonnull url,
                                             PlacesRustError *_Nonnull out_err);
 
+char *_Nullable bookmarks_get_url_for_keyword(PlacesConnectionHandle handle,
+                                              char const *_Nonnull keyword,
+                                              PlacesRustError *_Nonnull out_err);
+
 PlacesRustBuffer bookmarks_search(PlacesConnectionHandle handle,
                                   char const *_Nonnull query,
                                   int32_t limit,

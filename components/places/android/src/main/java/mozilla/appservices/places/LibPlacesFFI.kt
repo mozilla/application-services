@@ -186,6 +186,12 @@ internal interface LibPlacesFFI : Library {
         error: RustError.ByReference
     ): RustBuffer.ByValue
 
+    fun bookmarks_get_url_for_keyword(
+        handle: PlacesConnectionHandle,
+        keyword: String,
+        error: RustError.ByReference
+    ): Pointer?
+
     fun bookmarks_get_tree(
         handle: PlacesConnectionHandle,
         optRootId: String?,

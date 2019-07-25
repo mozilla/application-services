@@ -383,6 +383,37 @@ public class PlacesReadConnection {
     }
 
     /**
+     * Returns the URL for the provided search keyword, if one exists.
+     *
+     * - Parameter keyword: The search keyword.
+     * - Returns: The bookmarked URL for the keyword, if set.
+     * - Throws:
+     *     - `PlacesError.databaseInterrupted`: If a call is made to `interrupt()` on this
+     *                                          object from another thread.
+     *     - `PlacesError.connUseAfterAPIClosed`: If the PlacesAPI that returned this connection
+     *                                            object has been closed. This indicates API
+     *                                            misuse.
+     *     - `PlacesError.databaseBusy`: If this query times out with a SQLITE_BUSY error.
+     *     - `PlacesError.unexpected`: When an error that has not specifically been exposed
+     *                                 to Swift is encountered (for example IO errors from
+     *                                 the database code, etc).
+     *     - `PlacesError.panic`: If the rust code panics while completing this
+     *                            operation. (If this occurs, please let us know).
+     */
+    open func getBookmarkURLForKeyword(keyword: String) throws -> String? {
+        return try queue.sync {
+            try self.checkApi()
+            let maybeURL = try PlacesError.tryUnwrap { error in
+                bookmarks_get_url_for_keyword(self.handle, keyword, error)
+            }
+            guard let url = maybeURL else {
+                return nil
+            }
+            return String(freeingPlacesString: url)
+        }
+    }
+
+    /**
      * Returns the list of bookmarks that match the provided search string.
      *
      * The order of the results is unspecified.
