@@ -195,7 +195,7 @@ fn define_functions(c: &Connection) -> Result<()> {
     Ok(())
 }
 
-mod sql_fns {
+pub(crate) mod sql_fns {
     use crate::api::matcher::{split_after_host_and_port, split_after_prefix};
     use crate::hash;
     use crate::match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
