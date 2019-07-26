@@ -74,7 +74,7 @@ cargo {
 
     extraCargoBuildArguments = rootProject.ext.extraCargoBuildArguments
 
-    exec = rootProject.ext.cargoExec
+    exec = rootProject.ext.cargoExecWithSQLCipher
 }
 
 dependencies {
