@@ -44,6 +44,12 @@ pub enum ErrorKind {
     #[fail(display = "Error parsing URL: {}", _0)]
     UrlParseError(#[fail(cause)] url::ParseError),
 
+    // This will happen if you provide something absurd like
+    // "/" or "" as your database path. For more subtley broken paths,
+    // we'll likely return an IoError.
+    #[fail(display = "Illegal database path: {:?}", _0)]
+    IllegalDatabasePath(std::path::PathBuf),
+
     #[fail(display = "{}", _0)]
     Interrupted(#[fail(cause)] interrupt::Interrupted),
 }

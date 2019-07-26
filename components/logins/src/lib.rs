@@ -11,6 +11,7 @@ mod login;
 
 mod db;
 mod engine;
+pub mod import;
 pub mod schema;
 mod update_plan;
 mod util;

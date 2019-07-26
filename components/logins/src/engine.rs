@@ -87,6 +87,10 @@ impl PasswordEngine {
         &self.db.db
     }
 
+    pub fn begin_interrupt_scope(&self) -> sql_support::SqlInterruptScope {
+        self.db.begin_interrupt_scope()
+    }
+
     pub fn new_interrupt_handle(&self) -> sql_support::SqlInterruptHandle {
         self.db.new_interrupt_handle()
     }

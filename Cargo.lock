@@ -1167,6 +1167,7 @@ dependencies = [
  "sql-support 0.1.0",
  "sync-guid 0.1.0",
  "sync15 0.1.0",
+ "tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
