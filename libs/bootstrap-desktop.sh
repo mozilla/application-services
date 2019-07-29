@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # shellcheck disable=SC2148,SC2164
 # Set environment variables for using vendored dependencies in desktop builds.
 #
