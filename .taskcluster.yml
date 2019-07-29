@@ -9,7 +9,6 @@ tasks:
   $let:
     decision_task_id: {$eval: as_slugid("decision_task")}
     expires_in: {$fromNow: '1 year'}
-    user: ${event.sender.login}
     scheduler_id: taskcluster-github
 
     # We define the following variable at the very top, because they are used in the
@@ -40,6 +39,13 @@ tasks:
       $if: 'tasks_for in ["github-push", "github-release"] && event.repository.html_url == "https://github.com/mozilla/application-services"'
       then: true
       else: false
+
+    user:
+      # dependabot-preview[bot]@users.noreply.github.com doesn't validate as email.
+      # It would be easier if TC simply didn't enforce an email format for "owner".
+      $if: 'event.sender.login == "dependabot-preview[bot]"'
+      then: dependabot
+      else: ${event.sender.login}
   in:
     $let:
       images_worker_type:
