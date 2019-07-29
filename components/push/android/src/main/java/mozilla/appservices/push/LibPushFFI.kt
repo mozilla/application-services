@@ -74,7 +74,7 @@ internal interface LibPushFFI : Library {
         out_err: RustError.ByReference
     ): Pointer?
 
-    fun push_dispatch_for_chid(
+    fun push_dispatch_info_for_chid(
         mgr: PushManagerHandle,
         channelID: String,
         out_err: RustError.ByReference
