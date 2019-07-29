@@ -32,7 +32,7 @@ class PushManager(
 
     init {
         try {
-        handle.set(rustCall { error ->
+            handle.set(rustCall { error ->
                 LibPushFFI.INSTANCE.push_connection_new(
                         serverHost,
                         httpProtocol,
@@ -108,19 +108,19 @@ class PushManager(
         salt: String,
         dh: String
     ): ByteArray {
-            val result = rustCallForString { error ->
-            LibPushFFI.INSTANCE.push_decrypt(
-                this.handle.get(), channelID, body, encoding, salt, dh, error
-            ) }
-            val jarray = JSONArray(result)
-            val retarray = ByteArray(jarray.length())
-            // `for` is inclusive.
-            val end = jarray.length() - 1
-            for (i in 0..end) {
-                retarray[i] = jarray.getInt(i).toByte()
-            }
-            return retarray
+        val result = rustCallForString { error ->
+        LibPushFFI.INSTANCE.push_decrypt(
+            this.handle.get(), channelID, body, encoding, salt, dh, error
+        ) }
+        val jarray = JSONArray(result)
+        val retarray = ByteArray(jarray.length())
+        // `for` is inclusive.
+        val end = jarray.length() - 1
+        for (i in 0..end) {
+            retarray[i] = jarray.getInt(i).toByte()
         }
+        return retarray
+    }
 
     override fun dispatchForChid(channelID: String): DispatchInfo {
         val json = rustCallForString { error ->
