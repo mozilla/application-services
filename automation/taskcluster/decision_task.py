@@ -10,16 +10,20 @@ from build_config import module_definitions, appservices_version
 from decisionlib import *
 from decisionlib import SignTask
 
+# Tags that when matched in pull-requests titles will alter the CI tasks we run.
 FULL_CI_TAG = '[ci full]'
 SKIP_CI_TAG = '[ci skip]'
+# Task owners for which we always run full CI. Typically bots.
+FULL_CI_GH_USERS = ['dependabot@users.noreply.github.com']
 
 def main(task_for):
     if task_for == "github-pull-request":
+        task_owner = os.environ["TASK_OWNER"]
         pr_title = os.environ["GITHUB_PR_TITLE"]
         if SKIP_CI_TAG in pr_title:
             print("CI skip requested, exiting.")
             exit(0)
-        elif FULL_CI_TAG in pr_title:
+        elif FULL_CI_TAG in pr_title or task_owner in FULL_CI_GH_USERS:
             android_multiarch()
         else:
             android_linux_x86_64()
