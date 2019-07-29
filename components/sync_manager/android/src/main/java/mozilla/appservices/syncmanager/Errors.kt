@@ -38,4 +38,3 @@ open class UnsupportedEngine(msg: String) : SyncManagerException(msg)
  * to fail? It's probably a bug in the caller (they should call `setBlah` first)...
  */
 open class ClosedEngine(msg: String) : SyncManagerException(msg)
-

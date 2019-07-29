@@ -224,7 +224,7 @@ pub extern "C" fn sync15_passwords_import(
     log::debug!("sync15_passwords_import");
     ENGINES.call_with_result(error, handle, |state| {
         let logins: Vec<Login> = serde_json::from_str(records_json.as_str())?;
-        state.import_multiple(&logins)
+        state.lock().unwrap().import_multiple(&logins)
     })
 }
 

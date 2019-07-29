@@ -100,6 +100,7 @@ data class SyncResult(
     val telemetry: SyncTelemetryPing?
 ) {
     companion object {
+        @Suppress("ComplexMethod")
         internal fun fromProtobuf(pb: MsgTypes.SyncResult): SyncResult {
             val nextSyncAllowedAt = if (pb.hasNextSyncAllowedAt()) {
                 pb.nextSyncAllowedAt

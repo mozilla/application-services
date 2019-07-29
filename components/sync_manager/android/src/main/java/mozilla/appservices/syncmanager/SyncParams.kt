@@ -88,6 +88,7 @@ data class SyncParams(
      */
     val persistedState: String?
 ) {
+    @Suppress("ComplexMethod")
     internal fun toProtobuf(): MsgTypes.SyncParams {
         val builder = MsgTypes.SyncParams.newBuilder()
 
