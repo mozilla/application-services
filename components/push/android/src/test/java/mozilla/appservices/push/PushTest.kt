@@ -224,16 +224,6 @@ class PushTest {
     }
 
     @Test
-    fun testDispatchForChid() {
-        val manager = getPushManager()
-
-        manager.subscribe(testChannelid, "foo")
-        val dispatch = manager.dispatchForChid(testChannelid)
-        assertEquals("uaid", "abad1d3a00000000aabbccdd00000000", dispatch.uaid)
-        assertEquals("scope", "foo", dispatch.scope)
-    }
-
-    @Test
     fun testValidPath() {
         try {
             PushManager(

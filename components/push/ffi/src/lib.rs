@@ -161,29 +161,6 @@ pub extern "C" fn push_decrypt(
         mgr.decrypt(&uaid, r_chid, r_body, r_encoding, r_salt, r_dh)
     })
 }
-// TODO: modify these to be relevant.
-
-#[no_mangle]
-pub extern "C" fn push_dispatch_for_chid(
-    handle: u64,
-    chid: FfiStr<'_>,
-    error: &mut ExternError,
-) -> *mut c_char {
-    log::debug!("push_dispatch_for_chid");
-    MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<String> {
-        let chid = chid.as_str();
-        match mgr.get_record_by_chid(chid)? {
-            Some(record) => {
-                let dispatch = json!({
-                    "uaid": record.uaid,
-                    "scope": record.scope,
-                });
-                Ok(dispatch.to_string())
-            }
-            None => Ok(String::from("")),
-        }
-    })
-}
 
 define_string_destructor!(push_destroy_string);
 define_bytebuffer_destructor!(push_destroy_buffer);

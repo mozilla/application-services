@@ -108,26 +108,18 @@ class PushManager(
         salt: String,
         dh: String
     ): ByteArray {
-            val result = rustCallForString { error ->
-            LibPushFFI.INSTANCE.push_decrypt(
-                this.handle.get(), channelID, body, encoding, salt, dh, error
-            ) }
-            val jarray = JSONArray(result)
-            val retarray = ByteArray(jarray.length())
-            // `for` is inclusive.
-            val end = jarray.length() - 1
-            for (i in 0..end) {
-                retarray[i] = jarray.getInt(i).toByte()
-            }
-            return retarray
+        val result = rustCallForString { error ->
+        LibPushFFI.INSTANCE.push_decrypt(
+            this.handle.get(), channelID, body, encoding, salt, dh, error
+        ) }
+        val jarray = JSONArray(result)
+        val retarray = ByteArray(jarray.length())
+        // `for` is inclusive.
+        val end = jarray.length() - 1
+        for (i in 0..end) {
+            retarray[i] = jarray.getInt(i).toByte()
         }
-
-    override fun dispatchForChid(channelID: String): DispatchInfo {
-        val json = rustCallForString { error ->
-            LibPushFFI.INSTANCE.push_dispatch_for_chid(
-                this.handle.get(), channelID, error)
-        }
-        return DispatchInfo.fromString(json)
+        return retarray
     }
 
     private inline fun <U> rustCall(callback: (RustError.ByReference) -> U): U {
@@ -375,11 +367,4 @@ interface PushAPI : java.lang.AutoCloseable {
         salt: String = "",
         dh: String = ""
     ): ByteArray
-
-    /** get the dispatch info for a given subscription channel
-     *
-     * @param channelID subscription channelID
-     * @return DispatchInfo containing the channelID and scope string.
-     */
-    fun dispatchForChid(channelID: String): DispatchInfo
 }
