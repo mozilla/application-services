@@ -80,7 +80,7 @@ SQLCIPHER_SRC_PATH=$(abspath "sqlcipher")
 
 rm -rf "${NSS}"
 # Delete the following...
-hg clone https://hg.mozilla.org/projects/nss/ -r 0c5d37301637ed024de8c2cbdbecf144aae12163 "${NSS}"/nss
+hg clone https://hg.mozilla.org/projects/nss/ -r caf5d97f786fc3dad2f9318b228007a233b5f0bd "${NSS}"/nss
 # Temporary fix for bug 1561953
 git clone --single-branch --branch without-versions https://github.com/eoger/nspr.git "${NSS}"/nspr
 # hg clone https://hg.mozilla.org/projects/nspr/ -r cc73b6c7dab2e8053533e1f2c0c23dc721e10b76 "${NSS}"/nspr

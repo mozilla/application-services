@@ -114,6 +114,8 @@ LIBS="\
 
 if [[ "${ARCH}" == "x86_64" ]]; then
   LIBS="${LIBS} -lgcm-aes-x86_c_lib"
+else
+  LIBS="${LIBS} -lgcm-aes-aarch64_c_lib"
 fi
 
 BUILD_DIR=$(mktemp -d)
