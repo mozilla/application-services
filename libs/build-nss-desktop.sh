@@ -23,16 +23,20 @@ fi
 
 if [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
   DIST_DIR=$(abspath "desktop/win32-x86-64/nss")
+  TARGET_OS="windows"
 elif [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   DIST_DIR=$(abspath "desktop/darwin/nss")
+  TARGET_OS="macos"
 elif [ -n "${CROSS_COMPILE_TARGET}" ]; then
   echo "Cannot build NSS for unrecognized target OS ${CROSS_COMPILE_TARGET}"
   exit 1
 elif [ "$(uname -s)" == "Darwin" ]; then
   DIST_DIR=$(abspath "desktop/darwin/nss")
+  TARGET_OS="macos"
 elif [ "$(uname -s)" == "Linux" ]; then
   # This is a JNA weirdness: "x86-64" rather than "x86_64".
   DIST_DIR=$(abspath "desktop/linux-x86-64/nss")
+  TARGET_OS="linux"
 else
    echo "Cannot build NSS on unrecognized host OS $(uname -s)"
    exit 1
@@ -96,8 +100,19 @@ cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}smime.${EXT}" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}softokn_static.${EXT}" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}ssl.${EXT}" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}hw-acc-crypto.${EXT}" "${DIST_DIR}/lib"
+
 # HW specific.
+# https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#159-163
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}gcm-aes-x86_c_lib.${EXT}" "${DIST_DIR}/lib"
+# https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#224-233
+if [[ "${TARGET_OS}" == "windows" ]] || [[ "${TARGET_OS}" == "linux" ]]; then
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}intel-gcm-wrap_c_lib.${EXT}" "${DIST_DIR}/lib"
+  # https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#43-47
+  if [[ "${TARGET_OS}" == "linux" ]]; then
+    cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}intel-gcm-s_lib.${EXT}" "${DIST_DIR}/lib"
+  fi
+fi
+
 # For some reason the NSPR libs always have the "lib" prefix even on Windows.
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libplc4.${EXT}" "${DIST_DIR}/lib/${PREFIX}plc4.${EXT}"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libplds4.${EXT}" "${DIST_DIR}/lib/${PREFIX}plds4.${EXT}"

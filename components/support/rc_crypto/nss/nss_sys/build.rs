@@ -73,8 +73,20 @@ fn main() {
     ];
     // Hardware specific libs.
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
+    // https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#159-163
     if target_arch == "x86_64" || target_arch == "x86" {
         static_libs.push("gcm-aes-x86_c_lib");
+    }
+    // https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#224-233
+    if ((target_os == "android" || target_os == "linux") && target_arch == "x86_64")
+        || target_os == "windows"
+    {
+        static_libs.push("intel-gcm-wrap_c_lib");
+        // https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#43-47
+        if (target_os == "android" || target_os == "linux") && target_arch == "x86_64" {
+            static_libs.push("intel-gcm-s_lib");
+        }
     }
     // Emit -L flags
     for lib in static_libs {
