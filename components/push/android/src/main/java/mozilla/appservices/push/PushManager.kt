@@ -32,7 +32,7 @@ class PushManager(
 
     init {
         try {
-        handle.set(rustCall { error ->
+            handle.set(rustCall { error ->
                 LibPushFFI.INSTANCE.push_connection_new(
                         serverHost,
                         httpProtocol,
@@ -108,26 +108,26 @@ class PushManager(
         salt: String,
         dh: String
     ): ByteArray {
-            val result = rustCallForString { error ->
-            LibPushFFI.INSTANCE.push_decrypt(
-                this.handle.get(), channelID, body, encoding, salt, dh, error
-            ) }
-            val jarray = JSONArray(result)
-            val retarray = ByteArray(jarray.length())
-            // `for` is inclusive.
-            val end = jarray.length() - 1
-            for (i in 0..end) {
-                retarray[i] = jarray.getInt(i).toByte()
-            }
-            return retarray
+        val result = rustCallForString { error ->
+        LibPushFFI.INSTANCE.push_decrypt(
+            this.handle.get(), channelID, body, encoding, salt, dh, error
+        ) }
+        val jarray = JSONArray(result)
+        val retarray = ByteArray(jarray.length())
+        // `for` is inclusive.
+        val end = jarray.length() - 1
+        for (i in 0..end) {
+            retarray[i] = jarray.getInt(i).toByte()
         }
+        return retarray
+    }
 
-    override fun dispatchForChid(channelID: String): DispatchInfo {
-        val json = rustCallForString { error ->
-            LibPushFFI.INSTANCE.push_dispatch_for_chid(
+    override fun dispatchInfoForChid(channelID: String): DispatchInfo? {
+        val json = rustCallForOptString { error ->
+            LibPushFFI.INSTANCE.push_dispatch_info_for_chid(
                 this.handle.get(), channelID, error)
         }
-        return DispatchInfo.fromString(json)
+        return json?.let { DispatchInfo.fromString(it) }
     }
 
     private inline fun <U> rustCall(callback: (RustError.ByReference) -> U): U {
@@ -151,6 +151,15 @@ class PushManager(
             return cstring.getString(0, "utf8")
         } finally {
             LibPushFFI.INSTANCE.push_destroy_string(cstring)
+        }
+    }
+
+    private inline fun rustCallForOptString(callback: (RustError.ByReference) -> Pointer?): String? {
+        val cstring = rustCall(callback)
+        try {
+            return cstring?.getString(0, "utf8")
+        } finally {
+            cstring?.let { LibPushFFI.INSTANCE.push_destroy_string(cstring) }
         }
     }
 
@@ -381,5 +390,5 @@ interface PushAPI : java.lang.AutoCloseable {
      * @param channelID subscription channelID
      * @return DispatchInfo containing the channelID and scope string.
      */
-    fun dispatchForChid(channelID: String): DispatchInfo
+    fun dispatchInfoForChid(channelID: String): DispatchInfo?
 }

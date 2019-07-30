@@ -224,11 +224,11 @@ class PushTest {
     }
 
     @Test
-    fun testDispatchForChid() {
+    fun testDispatchInfoForChid() {
         val manager = getPushManager()
 
         manager.subscribe(testChannelid, "foo")
-        val dispatch = manager.dispatchForChid(testChannelid)
+        val dispatch = manager.dispatchInfoForChid(testChannelid)!!
         assertEquals("uaid", "abad1d3a00000000aabbccdd00000000", dispatch.uaid)
         assertEquals("scope", "foo", dispatch.scope)
     }
