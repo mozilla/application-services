@@ -22,19 +22,23 @@ fi
 if [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
   DIST_DIR=$(abspath "desktop/win32-x86-64/sqlcipher")
   NSS_DIR=$(abspath "desktop/win32-x86-64/nss")
+  TARGET_OS="windows"
 elif [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   DIST_DIR=$(abspath "desktop/darwin/sqlcipher")
   NSS_DIR=$(abspath "desktop/darwin/nss")
+  TARGET_OS="macos"
 elif [[ -n "${CROSS_COMPILE_TARGET}" ]]; then
   echo "Cannot build SQLCipher for unrecognized target OS ${CROSS_COMPILE_TARGET}"
   exit 1
 elif [[ "$(uname -s)" == "Darwin" ]]; then
   DIST_DIR=$(abspath "desktop/darwin/sqlcipher")
   NSS_DIR=$(abspath "desktop/darwin/nss")
+  TARGET_OS="macos"
 elif [[ "$(uname -s)" == "Linux" ]]; then
   # This is a JNA weirdness: "x86-64" rather than "x86_64".
   DIST_DIR=$(abspath "desktop/linux-x86-64/sqlcipher")
   NSS_DIR=$(abspath "desktop/linux-x86-64/nss")
+  TARGET_OS="linux"
 else
    echo "Cannot build SQLcipher on unrecognized host OS $(uname -s)"
    exit 1
@@ -96,6 +100,12 @@ LIBS="\
   -lsoftokn_static \
   -lgcm-aes-x86_c_lib \
 "
+
+if [[ "${TARGET_OS}" == "windows" ]]; then
+  LIBS="${LIBS} -lintel-gcm-wrap_c_lib"
+elif [[ "${TARGET_OS}" == "linux" ]]; then
+  LIBS="${LIBS} -lintel-gcm-wrap_c_lib -lintel-gcm-s_lib"
+fi
 
 BUILD_DIR=$(mktemp -d)
 pushd "${BUILD_DIR}"
