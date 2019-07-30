@@ -99,6 +99,8 @@ LIBS="\
 
 if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]] || [[ "${TOOLCHAIN}" == "i686-linux-android" ]]; then
   LIBS="${LIBS} -lgcm-aes-x86_c_lib"
+elif [[ "${TOOLCHAIN}" == "aarch64-linux-android" ]]; then
+  LIBS="${LIBS} -lgcm-aes-aarch64_c_lib"
 fi
 if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]]; then
   LIBS="${LIBS} -lintel-gcm-wrap_c_lib -lintel-gcm-s_lib"
