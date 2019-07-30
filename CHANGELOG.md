@@ -1,3 +1,31 @@
+# v0.36.0 (_2019-07-30_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.35.4...v0.36.0)
+
+## General
+
+### What's New
+
+- The Fenix megazord now supports Logins. ([#1465](https://github.com/mozilla/application-services/pull/1465))
+
+- For maintainers only: please delete the `libs/{desktop, ios, android}` folders and start over using `./build-all.sh [android|desktop|ios]`.
+
+### What's fixed
+
+- Android x86_64 crashes involving the `intel_aes_encrypt_cbc_128` missing symbol have been fixed. ([#1495](https://github.com/mozilla/application-services/pull/1495))
+
+## Places
+
+### What's New
+
+- Added a `getBookmarkURLForKeyword` method that retrieves a URL associated to a keyword. ([#1345](https://github.com/mozilla/application-services/pull/1345))
+
+## Push
+
+### Breaking changes
+
+- `PushManager.dispatchForChid` method has been renamed to `dispatchInfoForChid` and its result type is now Nullable. ([#1490](https://github.com/mozilla/application-services/pull/1490))
+
 # v0.35.4 (_2019-07-24_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.35.3...v0.35.4)
