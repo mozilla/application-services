@@ -26,8 +26,10 @@ existing dependencies:
 * Regularly run [cargo-audit](https://github.com/RustSec/cargo-audit) in CI to alert us to
   security problems in our dependencies.
     * It runs on every PR, and once per hour as a scheduled job with failures reported to slack.
-* Use [cargo-license](https://github.com/onur/cargo-license) for a basic licence-compatibility
-  check as part of CI, to guard against human error.
+* Use [a home-grown tool](../tools/dependency_summary.py) to generate a summary of dependency licenses
+  and to check them for compatibility with MPL-2.0.
+    * Check these summaries into the repository and have CI alert on unexpected changes,
+      to guard against pulling in new versions of a dependency under a different license.
 
 Adding a new dependency, whether we like it or not, is a big deal - that dependency and everything
 it brings with it will become part of Firefox-branded products that we ship to end users.
@@ -47,28 +49,43 @@ We try to balance this responsibility against the many benefits of using existin
   * Dev dependencies do not require as much scrutiny as dependencies that will ship in consuming applications,
     but should still be given some thought.
     * There is still the potential for supply-chain compromise with dev dependencies!
-* Explicitly describe your consideration of these points in the PR that introduces the new dependency.
+* As part of the PR that introduces the new dependency:
+    * Regenerate dependency summary files using the [regenerate_dependency_summaries.sh](../tools/regenerate_dependency_summaries.sh).
+    * Explicitly describe your consideration of the above points.
 
 Updating to new versions of existing dependencies is a normal part of software development
 and is not accompanied by any particular ceremony.
 
-## Kotlin Code
+## Android/Kotlin Code
 
-We currently depend only on the following Kotlin dependency:
+We currently depend only on the following Kotlin dependencies:
 
+* [JNA](https://github.com/java-native-access/jna)
 * [protobuf-gradle-plugin](https://github.com/google/protobuf-gradle-plugin)
 
-We currently depend on the following **developer** dependencies in the Kotlin codebase:
+We currently depend on the following **developer** dependencies in the Kotlin codebase,
+but they do not get included in built distribution files:
 
 * detekt
 * ktlint
 
-No Kotlin dependencies should be added to the project unless absolutely necessary.
+No additional Kotlin dependencies should be added to the project unless absolutely necessary.
 
-## Swift Code
+## iOS/Swift Code
 
 We currently depend only on the [following dependencies](https://github.com/mozilla/application-services/blob/master/Cartfile):
 
 * [swift-protobuf](https://github.com/apple/swift-protobuf)
 
 No additional Swift dependencies should be added to the project unless absolutely necessary.
+
+## Other Code
+
+We currently depend on local builds of the following system dependencies:
+
+* [OpenSSL](https://www.openssl.org/source/)
+* [NSS](https://hg.mozilla.org/projects/nss) and [NSPR](https://hg.mozilla.org/projects/nspr)
+* [SQLCipher](https://github.com/sqlcipher/sqlcipher)
+* [Protobuf](https://github.com/protocolbuffers/protobuf)
+
+No additional system dependencies should be added to the project unless absolutely necessary.

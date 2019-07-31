@@ -155,10 +155,16 @@ commands:
             cargo install cargo-audit
             cargo audit
       - run:
-          name: Check licence compatibility of dependencies
+          name: Check for any unrecorded changes in our dependency trees
           command: |
-            cargo install cargo-license
-            bash ./automation/license-check.sh
+            pip3 install requests
+            rustup install nightly
+            cargo metadata --locked > /dev/null
+            python3 ./tools/dependency_summary.py --check ./DEPENDENCIES.md
+            python3 ./tools/dependency_summary.py --all-android-targets --package megazord --check megazords/full/DEPENDENCIES.md
+            python3 ./tools/dependency_summary.py --all-ios-targets --package megazord_ios --check megazords/ios/DEPENDENCIES.md
+            python3 ./tools/dependency_summary.py --all-android-targets --package fenix --check megazords/fenix/DEPENDENCIES.md
+            python3 ./tools/dependency_summary.py --all-android-targets --package lockbox --check megazords/lockbox/DEPENDENCIES.md
   sync-tests:
     steps:
       - test-setup
@@ -238,9 +244,11 @@ jobs:
           name: Lint Bash scripts with shellcheck
           command: sh automation/lint_bash_scripts.sh
   Check Rust dependencies:
-    docker:
-      - image: circleci/rust:latest
+    macos:
+      xcode: "10.2.1"
     steps:
+      - install-rust
+      - setup-rust-toolchain
       - dependency-checks
   Rust tests - stable:
     docker:
