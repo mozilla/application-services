@@ -131,4 +131,16 @@ dependencies {
 ```
 
 This will make the appropriate `.so` files available to your tests at runtime, without affecting the code
-that is bunlded into the built version of your app.
+that is bundled into the built version of your app.
+
+
+## Third-party licenses
+
+This project incorporates code from a number of third-party dependencies,
+under a variety of open-source licenses, and the set of dependencies will vary
+depending on which megazord is in use.
+
+Each megazord publication in Maven is accompanied by a file named like
+`example-megazord-X.Y.Z.LICENSES.md`. You should review the license info
+in this file and decide on an appropriate way to include license and attribution
+notices into your product.

@@ -20,4 +20,4 @@ xcpretty
 
 # Exclude SwiftProtobuf.
 rm -rf Carthage/Build/iOS/SwiftProtobuf.framework*
-zip -r "${FRAMEWORK_NAME}" Carthage/Build/iOS
+zip -r "${FRAMEWORK_NAME}" Carthage/Build/iOS megazords/ios/DEPENDENCIES.md

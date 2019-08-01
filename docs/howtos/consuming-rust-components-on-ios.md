@@ -36,6 +36,12 @@ The project has additional 3rd-party dependencies that a client must link agains
 - *SwiftProtoBuf.framework* should be automatically downloaded by carthage while pulling in the application-services dependency.
 - [Add that framework to Xcode.](#adding-a-carthage-provided-framework-to-xcode)
 
+## Third-party licenses
+
+This project incorporates code from a number of third-party dependencies,
+under a variety of open-source licenses. You should review the license info
+in the file `DEPENDENCIES.md` and decide on an appropriate way to include
+license and attribution notices into your product.
 
 
 
