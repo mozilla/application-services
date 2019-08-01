@@ -734,7 +734,7 @@ def print_dependency_summary(deps, file=sys.stdout):
 
     pf("# Licenses for Third-Party Dependencies")
     pf("")
-    pf("Software packages built from this source code may incorporate code from a number of third-party dependencies.")
+    pf("Binary distributions of this software incorporate code from a number of third-party dependencies.")
     pf("These dependencies are available under a variety of free and open source licenses,")
     pf("the details of which are reproduced below.")
     pf("")

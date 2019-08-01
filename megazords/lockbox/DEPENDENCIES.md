@@ -1,6 +1,6 @@
 # Licenses for Third-Party Dependencies
 
-Software packages built from this source code may incorporate code from a number of third-party dependencies.
+Binary distributions of this software incorporate code from a number of third-party dependencies.
 These dependencies are available under a variety of free and open source licenses,
 the details of which are reproduced below.
 

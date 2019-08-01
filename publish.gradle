@@ -95,6 +95,12 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
                 // Can't publish Javadoc yet: fxaclient isn't well behaved.
                 // artifact javadocJar
 
+                if (isMegazord) {
+                    artifact file("${projectDir}/../DEPENDENCIES.md"), {
+                        extension "LICENSES.md"
+                    }
+                }
+
                 // If this goes haywire with
                 // 'Cannot configure the 'publishing' extension after it has been accessed.',
                 // see https://github.com/researchgate/gradle-release/issues/125 and
@@ -130,7 +136,9 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
             if (isMegazord) {
                 forUnitTestsJar(MavenPublication) {
                     artifact tasks['forUnitTestsJar']
-
+                    artifact file("${projectDir}/../DEPENDENCIES.md"), {
+                        extension "LICENSES.md"
+                    }
                     pom {
                         groupId = theGroupId
                         artifactId = "${theArtifactId}-forUnitTests"
