@@ -182,7 +182,7 @@ impl TestClient {
         log::info!("Doing oauth flow!");
 
         let mut fxa = FirefoxAccount::with_config(acct.cfg.clone());
-        let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE], true)?;
+        let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE])?;
         let auth_url = acct.cfg.auth_url()?;
         let redirected_to = run_helper_command(
             "oauth",

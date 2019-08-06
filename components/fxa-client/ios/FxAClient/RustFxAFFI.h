@@ -45,7 +45,6 @@ typedef uint64_t FirefoxAccountHandle;
 
 char *_Nullable fxa_begin_oauth_flow(FirefoxAccountHandle handle,
                                      const char *_Nonnull scopes,
-                                     bool wants_keys,
                                      FxAError *_Nonnull out);
 
 void fxa_complete_oauth_flow(FirefoxAccountHandle handle,

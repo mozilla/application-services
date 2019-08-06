@@ -10,7 +10,7 @@ const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
 
 fn main() {
     let mut fxa = FirefoxAccount::new(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI);
-    let url = fxa.begin_oauth_flow(&SCOPES, false).unwrap();
+    let url = fxa.begin_oauth_flow(&SCOPES).unwrap();
     println!("Open the following URL:");
     println!("{}", url);
     let redirect_uri: String = prompt_string("Obtained redirect URI").unwrap();

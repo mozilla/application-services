@@ -196,8 +196,6 @@ pub extern "C" fn fxa_begin_pairing_flow(
 /// the caller must intercept that redirection, extract the `code` and `state` query parameters and call
 /// [fxa_complete_oauth_flow] to complete the flow.
 ///
-/// It is possible also to request keys (e.g. sync keys) during that flow by setting `wants_keys` to true.
-///
 /// # Safety
 ///
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
@@ -206,14 +204,13 @@ pub extern "C" fn fxa_begin_pairing_flow(
 pub extern "C" fn fxa_begin_oauth_flow(
     handle: u64,
     scope: FfiStr<'_>,
-    wants_keys: bool,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("fxa_begin_oauth_flow");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let scope = scope.as_str();
         let scopes: Vec<&str> = scope.split(' ').collect();
-        fxa.begin_oauth_flow(&scopes, wants_keys)
+        fxa.begin_oauth_flow(&scopes)
     })
 }
 

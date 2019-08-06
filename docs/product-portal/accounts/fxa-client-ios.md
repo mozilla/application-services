@@ -82,7 +82,7 @@ in the web view.
 ```swift
 fxa.getProfile() { result, error in
     if let error = error as? FxAError, case FxAError.Unauthorized = error {
-        fxa.beginOAuthFlow(scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"], wantsKeys: true) { result, error in
+        fxa.beginOAuthFlow(scopes: ["profile", "https://identity.mozilla.com/apps/oldsync"]) { result, error in
             guard let authUrl = result else { return }
             DispatchQueue.main.async {
                 self.webView.load(URLRequest(url: authUrl))

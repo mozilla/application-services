@@ -200,14 +200,12 @@ open class FirefoxAccount {
     /// Once the user has confirmed the authorization grant, they will get redirected to `redirect_url`:
     /// the caller must intercept that redirection, extract the `code` and `state` query parameters and call
     /// `completeOAuthFlow(...)` to complete the flow.
-    ///
-    /// It is possible also to request keys (e.g. sync keys) during that flow by setting `wants_keys` to true.
-    open func beginOAuthFlow(scopes: [String], wantsKeys: Bool, completionHandler: @escaping (URL?, Error?) -> Void) {
+    open func beginOAuthFlow(scopes: [String], completionHandler: @escaping (URL?, Error?) -> Void) {
         queue.async {
             do {
                 let scope = scopes.joined(separator: " ")
                 let url = URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap { err in
-                    fxa_begin_oauth_flow(self.raw, scope, wantsKeys, err)
+                    fxa_begin_oauth_flow(self.raw, scope, err)
                 }))!
                 DispatchQueue.main.async { completionHandler(url, nil) }
             } catch {
