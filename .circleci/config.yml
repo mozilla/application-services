@@ -157,7 +157,7 @@ commands:
       - run:
           name: Check for any unrecorded changes in our dependency trees
           command: |
-            pip3 install requests
+            pip3 install --require-hashes -r ./tools/requirements.txt
             rustup install nightly
             cargo metadata --locked > /dev/null
             python3 ./tools/dependency_summary.py --check ./DEPENDENCIES.md
@@ -165,6 +165,14 @@ commands:
             python3 ./tools/dependency_summary.py --all-ios-targets --package megazord_ios --check megazords/ios/DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-android-targets --package fenix --check megazords/fenix/DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-android-targets --package lockbox --check megazords/lockbox/DEPENDENCIES.md
+  sync-bugzilla-to-github:
+    steps:
+      - checkout
+      - run:
+          name: Mirror Bugzilla issues into GitHub
+          command: |
+            sudo pip3 install --require-hashes -r ./tools/requirements.txt
+            python3 ./tools/sync_bugzilla_to_github.py
   sync-tests:
     steps:
       - test-setup
@@ -250,6 +258,11 @@ jobs:
       - install-rust
       - setup-rust-toolchain
       - dependency-checks
+  Mirror Bugzilla issues into GitHub:
+    docker:
+      - image: circleci/python:latest
+    steps:
+      - sync-bugzilla-to-github
   Rust tests - stable:
     docker:
       - image: circleci/rust:latest
@@ -425,6 +438,16 @@ workflows:
   check-dependencies-periodically:
     jobs:
       - Check Rust dependencies
+    triggers:
+      - schedule:
+          cron: "0 * * * *"
+          filters:
+            branches:
+              only:
+                - master
+  mirror-bugzilla-to-github-periodically:
+    jobs:
+      - Mirror Bugzilla issues into GitHub
     triggers:
       - schedule:
           cron: "0 * * * *"
