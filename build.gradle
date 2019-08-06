@@ -4,7 +4,7 @@ buildscript {
     ext.kotlin_version = '1.3.10'
     ext.android_components_version = '0.50.0'
     ext.jna_version = '5.2.0'
-    ext.android_gradle_plugin_version = '3.3.2'
+    ext.android_gradle_plugin_version = '3.4.1'
 
     ext.build = [
         compileSdkVersion: 27,
@@ -144,9 +144,10 @@ if (useDownloadedLibs) {
     subprojects { project ->
         afterEvaluate {
             android.libraryVariants.all { v ->
-                def task = v.preBuild
-                task.dependsOn(rootProject.untarAndroidLibs)
-                task.dependsOn(rootProject.untarDesktopLibs)
+                v.preBuildProvider.configure {
+                    dependsOn(rootProject.untarAndroidLibs)
+                    dependsOn(rootProject.untarDesktopLibs)
+                }
             }
         }
     }
