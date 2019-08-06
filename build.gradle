@@ -144,9 +144,10 @@ if (useDownloadedLibs) {
     subprojects { project ->
         afterEvaluate {
             android.libraryVariants.all { v ->
-                def task = v.preBuild
-                task.dependsOn(rootProject.untarAndroidLibs)
-                task.dependsOn(rootProject.untarDesktopLibs)
+                v.preBuildProvider.configure {
+                    dependsOn(rootProject.untarAndroidLibs)
+                    dependsOn(rootProject.untarDesktopLibs)
+                }
             }
         }
     }
