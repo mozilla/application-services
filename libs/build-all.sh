@@ -82,7 +82,7 @@ rm -rf "${NSS}"
 # Delete the following...
 hg clone https://hg.mozilla.org/projects/nss/ -r caf5d97f786fc3dad2f9318b228007a233b5f0bd "${NSS}"/nss
 # Temporary fix for bug 1561953
-git clone --single-branch --branch without-versions https://github.com/eoger/nspr.git "${NSS}"/nspr
+git clone --single-branch --branch filter-out-vrsion https://github.com/eoger/nspr.git "${NSS}"/nspr
 # hg clone https://hg.mozilla.org/projects/nspr/ -r cc73b6c7dab2e8053533e1f2c0c23dc721e10b76 "${NSS}"/nspr
 # ... and uncomment the following once NSS 3.45 and NSPR 4.22 are out.
 # if [[ ! -e "${NSS_ARCHIVE}" ]]; then
