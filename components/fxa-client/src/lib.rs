@@ -40,6 +40,12 @@ mod util;
 
 type FxAClient = dyn http_client::FxAClient + Sync + Send;
 
+// FIXME: https://github.com/myelin-ai/mockiato/issues/106.
+#[cfg(test)]
+unsafe impl<'a> Send for http_client::FxAClientMock<'a> {}
+#[cfg(test)]
+unsafe impl<'a> Sync for http_client::FxAClientMock<'a> {}
+
 // It this struct is modified, please check if the
 // `FirefoxAccount.start_over` function also needs
 // to be modified.
@@ -241,13 +247,7 @@ impl FirefoxAccount {
     ///
     /// **💾 This method alters the persisted account state.**
     pub fn disconnect(&mut self) {
-        // Save the refresh token before resetting the state.
-        let refresh_token = match self.state.refresh_token {
-            Some(ref t) => Some(t.token.clone()),
-            None => None,
-        };
-        self.start_over();
-        if let Some(refresh_token) = refresh_token {
+        if let Some(ref refresh_token) = self.state.refresh_token {
             // Delete the current device (which deletes the refresh token), or
             // the refresh token directly if we don't have a device.
             let destroy_result = match self.get_current_device() {
@@ -255,16 +255,17 @@ impl FirefoxAccount {
                 // still try to delete the refresh token itself.
                 Ok(Some(device)) => {
                     self.client
-                        .destroy_device(&self.state.config, &refresh_token, &device.id)
+                        .destroy_device(&self.state.config, &refresh_token.token, &device.id)
                 }
                 _ => self
                     .client
-                    .destroy_refresh_token(&self.state.config, &refresh_token),
+                    .destroy_refresh_token(&self.state.config, &refresh_token.token),
             };
             if let Err(e) = destroy_result {
                 log::warn!("Error while destroying the device: {}", e);
             }
         }
+        self.start_over();
     }
 }
 
@@ -298,6 +299,7 @@ pub struct CommandReceivedPushPayload {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use http_client::FxAClientMock;
 
     #[test]
     fn test_fxa_is_send() {
@@ -369,5 +371,181 @@ mod tests {
     fn test_deserialize_push_message() {
         let json = "{\"version\":1,\"command\":\"fxaccounts:command_received\",\"data\":{\"command\":\"send-tab-recv\",\"index\":1,\"sender\":\"bobo\",\"url\":\"https://mozilla.org\"}}";
         let _: PushPayload = serde_json::from_str(&json).unwrap();
+    }
+
+    #[test]
+    fn test_disconnect_no_refresh_token() {
+        let mut fxa =
+            FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
+
+        fxa.add_cached_token(
+            "profile",
+            AccessTokenInfo {
+                scope: "profile".to_string(),
+                token: "profiletok".to_string(),
+                key: None,
+                expires_at: u64::max_value(),
+            },
+        );
+
+        let client = FxAClientMock::new();
+        fxa.set_client(Arc::new(client));
+
+        assert!(!fxa.access_token_cache.is_empty());
+        fxa.disconnect();
+        assert!(fxa.access_token_cache.is_empty());
+    }
+
+    #[test]
+    fn test_disconnect_device() {
+        let mut fxa =
+            FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
+
+        fxa.state.refresh_token = Some(RefreshToken {
+            token: "refreshtok".to_string(),
+            scopes: HashSet::default(),
+        });
+
+        let mut client = FxAClientMock::new();
+        client
+            .expect_devices(mockiato::Argument::any, |token| {
+                token.partial_eq("refreshtok")
+            })
+            .times(1)
+            .returns_once(Ok(vec![
+                Device {
+                    common: http_client::DeviceResponseCommon {
+                        id: "1234a".to_owned(),
+                        display_name: "My Device".to_owned(),
+                        device_type: http_client::DeviceType::Mobile,
+                        push_subscription: None,
+                        available_commands: HashMap::default(),
+                        push_endpoint_expired: false,
+                    },
+                    is_current_device: true,
+                    location: http_client::DeviceLocation {
+                        city: None,
+                        country: None,
+                        state: None,
+                        state_code: None,
+                    },
+                    last_access_time: None,
+                },
+                Device {
+                    common: http_client::DeviceResponseCommon {
+                        id: "a4321".to_owned(),
+                        display_name: "My Other Device".to_owned(),
+                        device_type: http_client::DeviceType::Desktop,
+                        push_subscription: None,
+                        available_commands: HashMap::default(),
+                        push_endpoint_expired: false,
+                    },
+                    is_current_device: false,
+                    location: http_client::DeviceLocation {
+                        city: None,
+                        country: None,
+                        state: None,
+                        state_code: None,
+                    },
+                    last_access_time: None,
+                },
+            ]));
+        client
+            .expect_destroy_device(
+                mockiato::Argument::any,
+                |token| token.partial_eq("refreshtok"),
+                |device_id| device_id.partial_eq("1234a"),
+            )
+            .times(1)
+            .returns_once(Ok(()));
+        fxa.set_client(Arc::new(client));
+
+        assert!(fxa.state.refresh_token.is_some());
+        fxa.disconnect();
+        assert!(fxa.state.refresh_token.is_none());
+    }
+
+    #[test]
+    fn test_disconnect_no_device() {
+        let mut fxa =
+            FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
+
+        fxa.state.refresh_token = Some(RefreshToken {
+            token: "refreshtok".to_string(),
+            scopes: HashSet::default(),
+        });
+
+        let mut client = FxAClientMock::new();
+        client
+            .expect_devices(mockiato::Argument::any, |token| {
+                token.partial_eq("refreshtok")
+            })
+            .times(1)
+            .returns_once(Ok(vec![Device {
+                common: http_client::DeviceResponseCommon {
+                    id: "a4321".to_owned(),
+                    display_name: "My Other Device".to_owned(),
+                    device_type: http_client::DeviceType::Desktop,
+                    push_subscription: None,
+                    available_commands: HashMap::default(),
+                    push_endpoint_expired: false,
+                },
+                is_current_device: false,
+                location: http_client::DeviceLocation {
+                    city: None,
+                    country: None,
+                    state: None,
+                    state_code: None,
+                },
+                last_access_time: None,
+            }]));
+        client
+            .expect_destroy_refresh_token(mockiato::Argument::any, |token| {
+                token.partial_eq("refreshtok")
+            })
+            .times(1)
+            .returns_once(Ok(()));
+        fxa.set_client(Arc::new(client));
+
+        assert!(fxa.state.refresh_token.is_some());
+        fxa.disconnect();
+        assert!(fxa.state.refresh_token.is_none());
+    }
+
+    #[test]
+    fn test_disconnect_network_errors() {
+        let mut fxa =
+            FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
+
+        fxa.state.refresh_token = Some(RefreshToken {
+            token: "refreshtok".to_string(),
+            scopes: HashSet::default(),
+        });
+
+        let mut client = FxAClientMock::new();
+        client
+            .expect_devices(mockiato::Argument::any, |token| {
+                token.partial_eq("refreshtok")
+            })
+            .times(1)
+            .returns_once(Ok(vec![]));
+        client
+            .expect_destroy_refresh_token(mockiato::Argument::any, |token| {
+                token.partial_eq("refreshtok")
+            })
+            .times(1)
+            .returns_once(Err(ErrorKind::RemoteError {
+                code: 500,
+                errno: 101,
+                error: "Did not work!".to_owned(),
+                message: "Did not work!".to_owned(),
+                info: "Did not work!".to_owned(),
+            }
+            .into()));
+        fxa.set_client(Arc::new(client));
+
+        assert!(fxa.state.refresh_token.is_some());
+        fxa.disconnect();
+        assert!(fxa.state.refresh_token.is_none());
     }
 }

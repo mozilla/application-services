@@ -107,10 +107,6 @@ mod tests {
         }
     }
 
-    // FIXME: https://github.com/myelin-ai/mockiato/issues/106.
-    unsafe impl<'a> Send for FxAClientMock<'a> {}
-    unsafe impl<'a> Sync for FxAClientMock<'a> {}
-
     #[test]
     fn test_fetch_profile() {
         let mut fxa =
