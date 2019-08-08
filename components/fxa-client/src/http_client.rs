@@ -492,6 +492,12 @@ pub enum DeviceType {
     Desktop,
     #[serde(rename = "mobile")]
     Mobile,
+    #[serde(rename = "tablet")]
+    Tablet,
+    #[serde(rename = "vr")]
+    VR,
+    #[serde(rename = "tv")]
+    TV,
     #[serde(other)]
     #[serde(skip_serializing)] // Don't you dare trying.
     Unknown,
