@@ -643,6 +643,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "fftv"
+version = "0.1.0"
+dependencies = [
+ "fxaclient_ffi 0.1.0",
+ "push-ffi 0.1.0",
+ "rc_log_ffi 0.1.0",
+ "viaduct 0.1.0",
+]
+
+[[package]]
 name = "find-places-db"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -162,6 +162,7 @@ commands:
             python3 ./tools/dependency_summary.py --all-android-targets --package megazord --check megazords/full/DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-ios-targets --package megazord_ios --check megazords/ios/DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-android-targets --package fenix --check megazords/fenix/DEPENDENCIES.md
+            python3 ./tools/dependency_summary.py --all-android-targets --package fftv --check megazords/fftv/DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-android-targets --package lockbox --check megazords/lockbox/DEPENDENCIES.md
   sync-bugzilla-to-github:
     steps:

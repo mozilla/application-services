@@ -89,7 +89,8 @@ to fit the needs of existing Firefox applications:
 | Name | Components | Maven publication |
 | --- | --- | --- |
 | `lockbox` | `fxaclient`, `logins` | `org.mozilla.appservices:lockbox-megazord` |
-| `fenix` | `fxaclient`, `logins`, `places` | `org.mozilla.appservices:fenix-megazord` |
+| `fenix` | `fxaclient`, `logins`, `places`, `push` | `org.mozilla.appservices:fenix-megazord` |
+| `fftv` | `fxaclient`, `push` | `org.mozilla.appservices:fftv-megazord` |
 
 Then, simply use gradle's builtin support for [module replacement](https://docs.gradle.org/current/userguide/customizing_dependency_resolution_behavior.html#sec:module_replacement)
 to replace the default "full megazord" with your selected custom build:

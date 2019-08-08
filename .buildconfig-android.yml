@@ -87,3 +87,13 @@ projects:
       - name: fenix-megazord-forUnitTests
         type: jar
     description: Megazord of [fxaclient, places, push, logging].
+  fftv-megazord:
+    uploadSymbols: true
+    path: megazords/fftv/android
+    artifactId: fftv-megazord
+    publications:
+      - name: fftv-megazord
+        type: aar
+      - name: fftv-megazord-forUnitTests
+        type: jar
+    description: Megazord of [fxaclient, push, logging].
