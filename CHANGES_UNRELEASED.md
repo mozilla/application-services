@@ -2,19 +2,4 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.36.0...master)
-
-## FxA Client
-
-### What's new
-
-- The Tablet, VR and TV devices types have been added.
-
-### What's fixed
-
-- The `FirefoxAccount.disconnect` method should now properly dispose of the associated device record.
-
-### Breaking changes
-
-- The `FirefoxAccount.beginOAuthFlow` method does not require the `wantsKeys` argument anymore
-  as it will always do the right thing based on the requested scopes.
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.37.0...master)
