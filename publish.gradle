@@ -110,6 +110,7 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
                     artifactId = theArtifactId
                     description = theDescription
                     version = rootProject.ext.library.version
+                    packaging = "aar"
 
                     licenses {
                         license {
@@ -144,6 +145,7 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
                         artifactId = "${theArtifactId}-forUnitTests"
                         description = theDescription
                         version = rootProject.ext.library.version
+                        packaging = "jar"
 
                         licenses {
                             license {
