@@ -230,6 +230,10 @@ impl FirefoxAccount {
                     self.poll_device_commands()
                 }
             }
+            PushPayload::Unknown => {
+                log::info!("Unknown Push command.");
+                Ok(vec![])
+            }
         }
     }
 
@@ -286,6 +290,8 @@ pub(crate) struct CachedResponse<T> {
 pub enum PushPayload {
     #[serde(rename = "fxaccounts:command_received")]
     CommandReceived(CommandReceivedPushPayload),
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Debug, Deserialize)]
@@ -371,6 +377,15 @@ mod tests {
     fn test_deserialize_push_message() {
         let json = "{\"version\":1,\"command\":\"fxaccounts:command_received\",\"data\":{\"command\":\"send-tab-recv\",\"index\":1,\"sender\":\"bobo\",\"url\":\"https://mozilla.org\"}}";
         let _: PushPayload = serde_json::from_str(&json).unwrap();
+    }
+
+    #[test]
+    fn test_handle_push_message_unknown_command() {
+        let mut fxa =
+            FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
+        let json = "{\"version\":1,\"command\":\"huh\"}";
+        let events = fxa.handle_push_message(json).unwrap();
+        assert!(events.is_empty());
     }
 
     #[test]
