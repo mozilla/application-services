@@ -1,3 +1,21 @@
+
+# v0.37.1 (_2019-08-09_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.37.0...v0.37.1)
+
+## Android
+
+### What's fixed
+
+- Published artifacts should now correctly declare their `packaging` type in
+  their pom files. ([#1564](https://github.com/mozilla/application-services/pull/1564))
+
+## FxA Client
+
+### What's fixed
+
+- `FirefoxAccount.handlePushMessage` will not return an error on unknown push payloads.
+
 # v0.37.0 (_2019-08-08_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.36.0...v0.37.0)

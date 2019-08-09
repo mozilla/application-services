@@ -1,4 +1,4 @@
-libraryVersion: 0.37.0
+libraryVersion: 0.37.1
 groupId: org.mozilla.appservices
 projects:
   fxaclient:
