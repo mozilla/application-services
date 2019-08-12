@@ -175,6 +175,13 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
         }
     }
 
+    @Throws(LoginsStorageException::class)
+    override fun importLoginsFromFennec(path: String) {
+        return rustCallWithLock { raw, error ->
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_import_from_fennec(raw, path, error)
+        }
+    }
+
     @Synchronized
     @Throws(LoginsStorageException::class)
     override fun close() {

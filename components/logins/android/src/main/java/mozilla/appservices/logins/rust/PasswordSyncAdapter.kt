@@ -65,6 +65,8 @@ internal interface PasswordSyncAdapter : Library {
     fun sync15_passwords_add(handle: LoginsDbHandle, new_login_json: String, error: RustError.ByReference): Pointer?
     fun sync15_passwords_update(handle: LoginsDbHandle, existing_login_json: String, error: RustError.ByReference)
 
+    fun sync15_passwords_import_from_fennec(handle: LoginsDbHandle, db_path: String, error: RustError.ByReference)
+
     fun sync15_passwords_destroy_string(p: Pointer)
 
     fun sync15_passwords_new_interrupt_handle(handle: LoginsDbHandle, error: RustError.ByReference): RawLoginsInterruptHandle?

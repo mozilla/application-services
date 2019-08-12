@@ -189,4 +189,14 @@ interface LoginsStorage : AutoCloseable {
      */
     @Throws(LoginsStorageException::class)
     fun update(login: ServerPassword)
+
+    /**
+     * Imports logins from a Fennec `browser.db` database.
+     * It has been designed exclusively for non-sync users and only
+     * worked with non-master password locked Fennec databases.
+     *
+     * @throws [LoginsStorageException] On unexpected errors (IO failure, rust panics, etc)
+     */
+    @Throws(LoginsStorageException::class)
+    fun importLoginsFromFennec(path: String)
 }

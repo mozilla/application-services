@@ -213,6 +213,18 @@ pub extern "C" fn sync15_passwords_update(
     });
 }
 
+#[no_mangle]
+pub extern "C" fn sync15_passwords_import_from_fennec(
+    handle: u64,
+    db_path: FfiStr<'_>,
+    error: &mut ExternError,
+) {
+    log::debug!("sync15_passwords_import_from_fennec");
+    ENGINES.call_with_result(error, handle, |state| {
+        logins::import::import_fennec_logins(&state, db_path.as_str())
+    });
+}
+
 define_string_destructor!(sync15_passwords_destroy_string);
 define_handle_map_deleter!(ENGINES, sync15_passwords_state_destroy);
 define_box_destructor!(

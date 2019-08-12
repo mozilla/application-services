@@ -203,6 +203,11 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
         list += newRecord
     }
 
+    @Throws(LoginsStorageException::class)
+    override fun importLoginsFromFennec(path: String) {
+        // Unimplemented.
+    }
+
     @Synchronized
     @Throws(LoginsStorageException::class)
     override fun list(): List<ServerPassword> {
