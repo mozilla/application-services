@@ -13,7 +13,6 @@ the details of which are reproduced below.
 * [MIT License: bytes](#mit-license-bytes)
 * [MIT License: caseless](#mit-license-caseless)
 * [MIT License: clap](#mit-license-clap)
-* [MIT License: generic-array](#mit-license-generic-array)
 * [MIT License: h2](#mit-license-h2)
 * [MIT License: http-body](#mit-license-http-body)
 * [MIT License: hyper](#mit-license-hyper)
@@ -49,7 +48,6 @@ the details of which are reproduced below.
 * [BSD-3-Clause License: bindgen](#bsd-3-clause-license-bindgen)
 * [BSD-3-Clause License: protobuf](#bsd-3-clause-license-protobuf)
 * [BSD-3-Clause License: sqlcipher](#bsd-3-clause-license-sqlcipher)
-* [BSD-3-Clause License: subtle](#bsd-3-clause-license-subtle)
 * [OpenSSL License](#openssl-license)
 * [Optional Notice: SQlite](#optional-notice-sqlite)
 * [Optional Notice: zlib](#optional-notice-zlib)
@@ -448,9 +446,6 @@ The following text applies to code linked from these dependendencies:
 [backtrace](https://github.com/rust-lang/backtrace-rs),
 [base64](https://github.com/alicemaz/rust-base64),
 [bitflags](https://github.com/bitflags/bitflags),
-[block-buffer](https://github.com/RustCrypto/utils),
-[block-padding](https://github.com/RustCrypto/utils),
-[byte-tools](https://github.com/RustCrypto/utils),
 [c2-chacha](https://github.com/cryptocorrosion/cryptocorrosion),
 [cc](https://github.com/alexcrichton/cc-rs),
 [cexpr](https://github.com/jethrogb/rust-cexpr),
@@ -465,8 +460,6 @@ The following text applies to code linked from these dependendencies:
 [crossbeam-epoch](https://github.com/crossbeam-rs/crossbeam),
 [crossbeam-queue](https://github.com/crossbeam-rs/crossbeam),
 [crossbeam-utils](https://github.com/crossbeam-rs/crossbeam),
-[crypto-mac](https://github.com/RustCrypto/traits),
-[digest](https://github.com/RustCrypto/traits),
 [dogear](https://github.com/mozilla/dogear),
 [dtoa](https://github.com/dtolnay/dtoa),
 [either](https://github.com/bluss/either),
@@ -475,7 +468,6 @@ The following text applies to code linked from these dependendencies:
 [error-chain](https://github.com/rust-lang-nursery/error-chain),
 [failure](https://github.com/rust-lang-nursery/failure),
 [failure_derive](https://github.com/withoutboats/failure_derive),
-[fake-simd](https://github.com/RustCrypto/utils),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
 [fixedbitset](https://github.com/bluss/fixedbitset),
@@ -490,8 +482,6 @@ The following text applies to code linked from these dependendencies:
 [glob](https://github.com/rust-lang/glob),
 [heck](https://github.com/withoutboats/heck),
 [hex](https://github.com/KokaKiwi/rust-hex),
-[hkdf](https://github.com/RustCrypto/KDFs/),
-[hmac](https://github.com/RustCrypto/MACs),
 [http](https://github.com/hyperium/http),
 [httparse](https://github.com/seanmonstar/httparse),
 [humantime](None),
@@ -516,7 +506,6 @@ The following text applies to code linked from these dependendencies:
 [nodrop](https://github.com/bluss/arrayvec),
 [num_cpus](https://github.com/seanmonstar/num_cpus),
 [once_cell](https://github.com/matklad/once_cell),
-[opaque-debug](https://github.com/RustCrypto/utils),
 [openssl-probe](https://github.com/alexcrichton/openssl-probe),
 [openssl](https://github.com/sfackler/rust-openssl),
 [parking_lot](https://github.com/Amanieu/parking_lot),
@@ -560,7 +549,6 @@ The following text applies to code linked from these dependendencies:
 [serde_derive](https://github.com/serde-rs/serde),
 [serde_json](https://github.com/serde-rs/json),
 [serde_urlencoded](https://github.com/nox/serde_urlencoded),
-[sha2](https://github.com/RustCrypto/hashes),
 [shlex](https://github.com/comex/rust-shlex),
 [siphasher](https://github.com/jedisct1/rust-siphash),
 [smallbitvec](https://github.com/servo/smallbitvec),
@@ -572,7 +560,6 @@ The following text applies to code linked from these dependendencies:
 [thread_local](https://github.com/Amanieu/thread_local-rs),
 [time](https://github.com/rust-lang/time),
 [toml](https://github.com/alexcrichton/toml-rs),
-[typenum](https://github.com/paholg/typenum),
 [ucd-util](https://github.com/BurntSushi/ucd-generate),
 [unicase](https://github.com/seanmonstar/unicase),
 [unicode-bidi](https://github.com/servo/unicode-bidi),
@@ -1009,35 +996,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-```
--------------
-## MIT License: generic-array
-
-The following text applies to code linked from these dependendencies:
-[generic-array](https://github.com/fizyk20/generic-array.git)
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2015 Bartłomiej Kamiński
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 ```
 -------------
 ## MIT License: h2
@@ -2196,43 +2154,6 @@ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
 ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-```
--------------
-## BSD-3-Clause License: subtle
-
-The following text applies to code linked from these dependendencies:
-[subtle](https://github.com/dalek-cryptography/subtle)
-
-```
-Copyright (c) 2016-2017 Isis Agora Lovecruft, Henry de Valence. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
-
-1. Redistributions of source code must retain the above copyright
-notice, this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright
-notice, this list of conditions and the following disclaimer in the
-documentation and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its
-contributors may be used to endorse or promote products derived from
-this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
-IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
-TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 
 ```
 -------------

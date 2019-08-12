@@ -7,55 +7,22 @@ use crate::{
     agreement::{self, Curve, EcKey},
     digest, hkdf, hmac, rand,
 };
-use ece::{
-    Aes128GcmEceWebPush, AesGcmEceWebPush, Crypto, ErrorKind, Result,
-    ECE_WEBPUSH_AUTH_SECRET_LENGTH,
-};
-pub use ece::{
-    AesGcmEncryptedBlock, EcKeyComponents, Error, LocalKeyPair, RemotePublicKey, WebPushParams,
-};
+use ece::crypto::{Cryptographer, EcKeyComponents, LocalKeyPair, RemotePublicKey};
 
-// Can't `impl From<crate::Result<T>> for ece::Result<T>`
-// because we don't own either struct :-(
-fn convert<T>(r: crate::Result<T>) -> Result<T> {
-    match r {
-        Ok(v) => Ok(v),
-        Err(_) => Err(ErrorKind::CryptoError.into()),
+impl From<crate::Error> for ece::Error {
+    fn from(_: crate::Error) -> Self {
+        ece::ErrorKind::CryptoError.into()
     }
 }
 
-pub struct RemotePublicKeyImpl {
-    raw: Vec<u8>,
-}
-
-impl RemotePublicKeyImpl {
-    fn _from_raw(bytes: &[u8]) -> crate::Result<RemotePublicKeyImpl> {
-        Ok(RemotePublicKeyImpl {
-            raw: bytes.to_owned(),
-        })
-    }
-
-    fn _as_raw(&self) -> crate::Result<Vec<u8>> {
-        Ok(self.raw.to_vec())
-    }
-}
-
-impl ece::crypto_backend::RemotePublicKey for RemotePublicKeyImpl {
-    fn from_raw(bytes: &[u8]) -> Result<Self> {
-        convert(Self::_from_raw(bytes))
-    }
-
-    fn as_raw(&self) -> Result<Vec<u8>> {
-        convert(self._as_raw())
-    }
-}
-
-pub struct LocalKeyPairImpl {
+pub struct RcCryptoLocalKeyPair {
     wrapped: agreement::KeyPair<agreement::Static>,
 }
+// SECKEYPrivateKeyStr and SECKEYPublicKeyStr are Sync.
+unsafe impl Sync for RcCryptoLocalKeyPair {}
 
-impl LocalKeyPairImpl {
-    fn _from_raw_components(components: &EcKeyComponents) -> crate::Result<Self> {
+impl RcCryptoLocalKeyPair {
+    pub fn from_raw_components(components: &EcKeyComponents) -> Result<Self, ece::Error> {
         let ec_key = EcKey::new(
             Curve::P256,
             components.private_key(),
@@ -63,10 +30,24 @@ impl LocalKeyPairImpl {
         );
         let priv_key = agreement::PrivateKey::<agreement::Static>::import(&ec_key)?;
         let wrapped = agreement::KeyPair::<agreement::Static>::from_private_key(priv_key)?;
-        Ok(LocalKeyPairImpl { wrapped })
+        Ok(RcCryptoLocalKeyPair { wrapped })
     }
 
-    fn _raw_components(&self) -> crate::Result<EcKeyComponents> {
+    pub fn generate_random() -> Result<Self, ece::Error> {
+        let wrapped = agreement::KeyPair::<agreement::Static>::generate(&agreement::ECDH_P256)?;
+        Ok(RcCryptoLocalKeyPair { wrapped })
+    }
+
+    fn agree(&self, peer: &RcCryptoRemotePublicKey) -> Result<Vec<u8>, ece::Error> {
+        self.wrapped
+            .private_key()
+            .agree_static(&agreement::ECDH_P256, &peer.as_raw()?)?
+            .derive(|z| Ok(z.to_vec()))
+    }
+}
+
+impl LocalKeyPair for RcCryptoLocalKeyPair {
+    fn raw_components(&self) -> Result<EcKeyComponents, ece::Error> {
         let ec_key = self.wrapped.private_key().export()?;
         Ok(EcKeyComponents::new(
             ec_key.private_key(),
@@ -74,187 +55,133 @@ impl LocalKeyPairImpl {
         ))
     }
 
-    fn agree(&self, peer: &RemotePublicKeyImpl) -> crate::Result<Vec<u8>> {
-        self.wrapped
-            .private_key()
-            .agree_static(&agreement::ECDH_P256, &peer._as_raw()?)?
-            .derive(|z| Ok(z.to_vec()))
-    }
-
-    fn _generate_random() -> crate::Result<Self> {
-        let wrapped = agreement::KeyPair::<agreement::Static>::generate(&agreement::ECDH_P256)?;
-        Ok(LocalKeyPairImpl { wrapped })
-    }
-
-    fn _pub_as_raw(&self) -> crate::Result<Vec<u8>> {
+    fn pub_as_raw(&self) -> Result<Vec<u8>, ece::Error> {
         let bytes = self.wrapped.public_key().to_bytes()?;
         Ok(bytes.to_vec())
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+pub struct RcCryptoRemotePublicKey {
+    raw: Vec<u8>,
 }
 
-impl ece::crypto_backend::LocalKeyPair for LocalKeyPairImpl {
-    fn generate_random() -> Result<Self> {
-        convert(Self::_generate_random())
-    }
-
-    fn from_raw_components(components: &EcKeyComponents) -> Result<Self> {
-        convert(Self::_from_raw_components(components))
-    }
-
-    fn raw_components(&self) -> Result<EcKeyComponents> {
-        convert(self._raw_components())
-    }
-
-    fn pub_as_raw(&self) -> Result<Vec<u8>> {
-        convert(self._pub_as_raw())
+impl RcCryptoRemotePublicKey {
+    pub fn from_raw(bytes: &[u8]) -> Result<RcCryptoRemotePublicKey, ece::Error> {
+        Ok(RcCryptoRemotePublicKey {
+            raw: bytes.to_owned(),
+        })
     }
 }
 
-pub struct CryptoImpl;
-
-impl CryptoImpl {
-    fn _generate_ephemeral_keypair() -> crate::Result<LocalKeyPairImpl> {
-        Ok(LocalKeyPairImpl::_generate_random()?)
+impl RemotePublicKey for RcCryptoRemotePublicKey {
+    fn as_raw(&self) -> Result<Vec<u8>, ece::Error> {
+        Ok(self.raw.to_vec())
     }
 
-    fn _compute_ecdh_secret(
-        remote: &RemotePublicKeyImpl,
-        local: &LocalKeyPairImpl,
-    ) -> crate::Result<Vec<u8>> {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+pub(crate) struct RcCryptoCryptographer;
+
+impl Cryptographer for RcCryptoCryptographer {
+    fn generate_ephemeral_keypair(&self) -> Result<Box<dyn LocalKeyPair>, ece::Error> {
+        Ok(Box::new(RcCryptoLocalKeyPair::generate_random()?))
+    }
+
+    fn import_key_pair(
+        &self,
+        components: &EcKeyComponents,
+    ) -> Result<Box<dyn LocalKeyPair>, ece::Error> {
+        Ok(Box::new(RcCryptoLocalKeyPair::from_raw_components(
+            components,
+        )?))
+    }
+
+    fn import_public_key(&self, raw: &[u8]) -> Result<Box<dyn RemotePublicKey>, ece::Error> {
+        Ok(Box::new(RcCryptoRemotePublicKey::from_raw(raw)?))
+    }
+
+    fn compute_ecdh_secret(
+        &self,
+        remote: &dyn RemotePublicKey,
+        local: &dyn LocalKeyPair,
+    ) -> Result<Vec<u8>, ece::Error> {
+        let local_any = local.as_any();
+        let local = local_any.downcast_ref::<RcCryptoLocalKeyPair>().unwrap();
+        let remote_any = remote.as_any();
+        let remote = remote_any
+            .downcast_ref::<RcCryptoRemotePublicKey>()
+            .unwrap();
         Ok(local.agree(&remote)?)
     }
 
-    fn _hkdf_sha256(salt: &[u8], secret: &[u8], info: &[u8], len: usize) -> crate::Result<Vec<u8>> {
+    fn hkdf_sha256(
+        &self,
+        salt: &[u8],
+        secret: &[u8],
+        info: &[u8],
+        len: usize,
+    ) -> Result<Vec<u8>, ece::Error> {
         let salt = hmac::SigningKey::new(&digest::SHA256, &salt);
         let mut out = vec![0u8; len];
         hkdf::extract_and_expand(&salt, &secret, &info, &mut out)?;
         Ok(out)
     }
 
-    fn _aes_gcm_128_encrypt(
+    fn aes_gcm_128_encrypt(
+        &self,
         key: &[u8],
         iv: &[u8],
         data: &[u8],
-        tag_len: usize,
-    ) -> crate::Result<Vec<u8>> {
+    ) -> Result<Vec<u8>, ece::Error> {
         let key = aead::SealingKey::new(&aead::AES_128_GCM, key)?;
         let nonce = aead::Nonce::try_assume_unique_for_key(&aead::AES_128_GCM, iv)?;
-        // XXX TODO: tag_len is always fixed.
-        assert!(tag_len == aead::AES_128_GCM.tag_len());
         Ok(aead::seal(&key, nonce, aead::Aad::empty(), data)?)
     }
 
-    fn _aes_gcm_128_decrypt(
+    fn aes_gcm_128_decrypt(
+        &self,
         key: &[u8],
         iv: &[u8],
-        data: &[u8],
-        tag: &[u8],
-    ) -> crate::Result<Vec<u8>> {
+        ciphertext_and_tag: &[u8],
+    ) -> Result<Vec<u8>, ece::Error> {
         let key = aead::OpeningKey::new(&aead::AES_128_GCM, key)?;
         let nonce = aead::Nonce::try_assume_unique_for_key(&aead::AES_128_GCM, iv)?;
-        // XXX TODO: is it necessary to receive `data` and `tag` separately?
-        let mut ciphertext = vec![0u8; data.len() + tag.len()];
-        ciphertext[0..data.len()].copy_from_slice(&data);
-        ciphertext[data.len()..].copy_from_slice(&tag);
-        Ok(aead::open(&key, nonce, aead::Aad::empty(), &ciphertext)?)
+        Ok(aead::open(
+            &key,
+            nonce,
+            aead::Aad::empty(),
+            &ciphertext_and_tag,
+        )?)
     }
 
-    fn _random(dest: &mut [u8]) -> crate::Result<()> {
+    fn random_bytes(&self, dest: &mut [u8]) -> Result<(), ece::Error> {
         Ok(rand::fill(dest)?)
     }
 }
 
-impl ece::crypto_backend::Crypto for CryptoImpl {
-    type RemotePublicKey = RemotePublicKeyImpl;
-    type LocalKeyPair = LocalKeyPairImpl;
-
-    fn generate_ephemeral_keypair() -> Result<Self::LocalKeyPair> {
-        convert(Self::_generate_ephemeral_keypair())
-    }
-
-    fn compute_ecdh_secret(
-        remote: &Self::RemotePublicKey,
-        local: &Self::LocalKeyPair,
-    ) -> Result<Vec<u8>> {
-        convert(Self::_compute_ecdh_secret(remote, local))
-    }
-
-    fn hkdf_sha256(salt: &[u8], secret: &[u8], info: &[u8], len: usize) -> Result<Vec<u8>> {
-        convert(Self::_hkdf_sha256(salt, secret, info, len))
-    }
-
-    fn aes_gcm_128_encrypt(key: &[u8], iv: &[u8], data: &[u8], tag_len: usize) -> Result<Vec<u8>> {
-        convert(Self::_aes_gcm_128_encrypt(key, iv, data, tag_len))
-    }
-
-    fn aes_gcm_128_decrypt(key: &[u8], iv: &[u8], data: &[u8], tag: &[u8]) -> Result<Vec<u8>> {
-        convert(Self::_aes_gcm_128_decrypt(key, iv, data, tag))
-    }
-
-    fn random(dest: &mut [u8]) -> ece::Result<()> {
-        convert(Self::_random(dest))
-    }
-}
-
-pub type Aes128GcmEceWebPushImpl = Aes128GcmEceWebPush<CryptoImpl>;
-pub type AesGcmEceWebPushImpl = AesGcmEceWebPush<CryptoImpl>;
-
-/// Generate a local ECE key pair and auth nonce.
-pub fn generate_keypair_and_auth_secret(
-) -> Result<(LocalKeyPairImpl, [u8; ECE_WEBPUSH_AUTH_SECRET_LENGTH])> {
-    let local_key_pair = LocalKeyPairImpl::generate_random()?;
-    let mut auth_secret = [0u8; ECE_WEBPUSH_AUTH_SECRET_LENGTH];
-    CryptoImpl::random(&mut auth_secret)?;
-    Ok((local_key_pair, auth_secret))
-}
-
-/// Encrypt a block using default AES128GCM encoding.
-///
-/// param remote_pub &[u8] - The remote public key
-/// param remote_auth &u8 - The remote authorization token
-/// param salt &[u8] - The locally generated random salt
-/// param data &[u8] - The data to encrypt
-///
-pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], salt: &[u8], data: &[u8]) -> Result<Vec<u8>> {
-    let remote_key = RemotePublicKeyImpl::from_raw(remote_pub)?;
-    let local_key = CryptoImpl::generate_ephemeral_keypair()?;
-    // Pick a random size to pad to.
-    // It's a sampled random, endianness doesn't really matter here.
-    // XXX TODO: could we pick too much padding here, and fail with EncryptPadding error?
-    let mut padr = [0u8; 2];
-    CryptoImpl::random(&mut padr)?;
-    let pad = ((usize::from(padr[0]) + (usize::from(padr[1]) << 8)) % 4095) + 1;
-    let params = WebPushParams::new(4096, pad, Vec::from(salt));
-    Ok(Aes128GcmEceWebPushImpl::encrypt_with_keys(
-        &local_key,
-        &remote_key,
-        &remote_auth,
-        data,
-        params,
-    )?)
-}
-
-/// Decrypt a block using default AES128GCM encoding.
-///
-/// param components &str - The locally generated private key components.
-/// param auth &str - The locally generated auth token (this value was shared with the encryptor)
-/// param data &[u8] - The encrypted data block
-///
-pub fn decrypt(components: &EcKeyComponents, auth: &[u8], data: &[u8]) -> Result<Vec<u8>> {
-    let priv_key = LocalKeyPairImpl::from_raw_components(components).unwrap();
-    Aes128GcmEceWebPushImpl::decrypt(&priv_key, &auth, data)
+// Please call `rc_crypto::ensure_initialized()` instead of calling
+// this function directly.
+pub(crate) fn init() {
+    ece::crypto::set_cryptographer(&crate::ece_crypto::RcCryptoCryptographer)
+        .expect("Failed to initialize `ece` cryptographer!")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ece::*;
 
     // Copy-pasta from the tests in the ECE crate.
-
-    fn generate_keys() -> Result<(LocalKeyPairImpl, LocalKeyPairImpl)> {
-        let local_key = LocalKeyPairImpl::generate_random()?;
-        let remote_key = LocalKeyPairImpl::generate_random()?;
-        Ok((local_key, remote_key))
+    fn generate_keys() -> Result<(Box<dyn LocalKeyPair>, Box<dyn LocalKeyPair>)> {
+        let local_key = RcCryptoLocalKeyPair::generate_random()?;
+        let remote_key = RcCryptoLocalKeyPair::generate_random()?;
+        Ok((Box::new(local_key), Box::new(remote_key)))
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -271,14 +198,14 @@ mod tests {
         let private_key = hex::decode(private_key).unwrap();
         let public_key = hex::decode(public_key).unwrap();
         let ec_key = EcKeyComponents::new(private_key, public_key);
-        let local_key_pair = LocalKeyPairImpl::from_raw_components(&ec_key)?;
+        let local_key_pair = RcCryptoLocalKeyPair::from_raw_components(&ec_key)?;
         let remote_pub_key = hex::decode(remote_pub_key).unwrap();
-        let remote_pub_key = RemotePublicKeyImpl::from_raw(&remote_pub_key)?;
+        let remote_pub_key = RcCryptoRemotePublicKey::from_raw(&remote_pub_key).unwrap();
         let auth_secret = hex::decode(auth_secret).unwrap();
         let salt = hex::decode(salt).unwrap();
         let plaintext = plaintext.as_bytes();
         let params = WebPushParams::new(rs, pad_length, salt);
-        let ciphertext = Aes128GcmEceWebPushImpl::encrypt_with_keys(
+        let ciphertext = Aes128GcmEceWebPush::encrypt_with_keys(
             &local_key_pair,
             &remote_pub_key,
             &auth_secret,
@@ -307,33 +234,38 @@ mod tests {
 
     #[test]
     fn test_e2e() {
+        crate::ensure_initialized();
         let (local_key, remote_key) = generate_keys().unwrap();
         let plaintext = b"When I grow up, I want to be a watermelon";
         let mut auth_secret = vec![0u8; 16];
-        CryptoImpl::random(&mut auth_secret).unwrap();
-        let remote_public =
-            RemotePublicKeyImpl::from_raw(&remote_key.pub_as_raw().unwrap()).unwrap();
+        RcCryptoCryptographer
+            .random_bytes(&mut auth_secret)
+            .unwrap();
+        let remote_public = RcCryptoCryptographer
+            .import_public_key(&remote_key.pub_as_raw().unwrap())
+            .unwrap();
         let params = WebPushParams::default();
-        let ciphertext = Aes128GcmEceWebPushImpl::encrypt_with_keys(
-            &local_key,
-            &remote_public,
+        let ciphertext = Aes128GcmEceWebPush::encrypt_with_keys(
+            &*local_key,
+            &*remote_public,
             &auth_secret,
             plaintext,
             params,
         )
         .unwrap();
         let decrypted =
-            Aes128GcmEceWebPushImpl::decrypt(&remote_key, &auth_secret, &ciphertext).unwrap();
+            Aes128GcmEceWebPush::decrypt(&*remote_key, &auth_secret, &ciphertext).unwrap();
         assert_eq!(decrypted, plaintext.to_vec());
     }
 
     #[test]
     fn test_conv_fn() -> Result<()> {
+        crate::ensure_initialized();
         let (local_key, auth) = generate_keypair_and_auth_secret()?;
         let plaintext = b"Mary had a little lamb, with some nice mint jelly";
         let mut salt = vec![0u8; 16];
-        CryptoImpl::random(&mut salt)?;
-        let encoded = encrypt(&local_key.pub_as_raw()?, &auth, &salt, plaintext)?;
+        RcCryptoCryptographer.random_bytes(&mut salt)?;
+        let encoded = encrypt(&local_key.pub_as_raw()?, &auth, &salt, plaintext).unwrap();
         let decoded = decrypt(&local_key.raw_components()?, &auth, &encoded)?;
         assert_eq!(decoded, plaintext.to_vec());
         Ok(())
@@ -341,6 +273,7 @@ mod tests {
 
     #[test]
     fn try_encrypt_ietf_rfc() {
+        crate::ensure_initialized();
         let ciphertext = try_encrypt(
             "c9f58f89813e9f8e872e71f42aa64e1757c9254dcc62b72ddc010bb4043ea11c",
             "04fe33f4ab0dea71914db55823f73b54948f41306d920732dbb9a59a53286482200e597a7b7bc260ba1c227998580992e93973002f3012a28ae8f06bbb78e5ec0f",
@@ -356,6 +289,7 @@ mod tests {
 
     #[test]
     fn try_encrypt_rs_24_pad_6() {
+        crate::ensure_initialized();
         let ciphertext = try_encrypt(
             "0f28beaf7e27793c03638dc2973a15b0016e1b367cbffda8861ab175f31bce02",
             "0430efcb1eb043b805e4e44bab35f82513c33fedb28700f7e568ac8b61e8d835665a51eb6679b2db228a10c0c3fe5077062848d9bb3d60279f93ce35484728aa1f",
@@ -371,6 +305,7 @@ mod tests {
 
     #[test]
     fn try_encrypt_rs_18_pad_31() {
+        crate::ensure_initialized();
         // This test is also interesting because the data length (54) is a
         // multiple of rs (18). We'll allocate memory to hold 4 records, but only
         // write 3.
@@ -389,6 +324,7 @@ mod tests {
 
     #[test]
     fn test_decrypt_rs_24_pad_0() {
+        crate::ensure_initialized();
         let plaintext = try_decrypt(
             "c899d11d32e2b7e6fe7498786f50f23b98ace5397ad261de39ba6449ecc12cad",
             "04b3fc72e4365cbeb5c78862396eb5e66fd905b483a1b3eac04695f4b802e5b493c5e3b70eb427b6c728b2b204fc255fa218cb45f34d235242705e0d1ea87236e0",
@@ -400,6 +336,7 @@ mod tests {
 
     #[test]
     fn test_decrypt_rs_49_pad_84_ciphertext_len_falls_on_record_boundary() {
+        crate::ensure_initialized();
         let plaintext = try_decrypt(
             "67004a4ea820deed8e49db5e9480e63d3ea3cce1ae8e1a60609713d527d001ef",
             "04014e8f14b92da07ce083b93f96367e87b217a47f7ef2ee93a9d343aa063e575a9f30d59c690c6a39b3fc815b150ca7dd149601741337b53507a51f41b173a721",
@@ -411,6 +348,7 @@ mod tests {
 
     #[test]
     fn test_decrypt_ietf_rfc() {
+        crate::ensure_initialized();
         let plaintext = try_decrypt(
             "ab5757a70dd4a53e553a6bbf71ffefea2874ec07a6b379e3c48f895a02dc33de",
             "042571b2becdfde360551aaf1ed0f4cd366c11cebe555f89bcb7b186a53339173168ece2ebe018597bd30479b86e3c8f8eced577ca59187e9246990db682008b0e",
@@ -422,6 +360,7 @@ mod tests {
 
     #[test]
     fn test_decrypt_rs_18_pad_0() {
+        crate::ensure_initialized();
         let plaintext = try_decrypt(
             "27433fab8970b3cb5284b61183efb46286562cd2a7330d8cae960911a5571d0c",
             "04515d4326355652399da24b2be9241e633b5cf14faf0cf3a6fd60317b954c0a2f4848548004b27b0cf7480bc810c6bec03a8fb79c8ea00fc8b05e00f8834563ef",
@@ -433,6 +372,7 @@ mod tests {
 
     #[test]
     fn test_decrypt_missing_header_block() {
+        crate::ensure_initialized();
         let err = try_decrypt(
             "1be83f38332ef09681faf3f307b1ff2e10cab78cc7cdab683ac0ee92ac3f6ee1",
             "04dba991ca215343f36bdd3e857cafde3d18bf57f1835b2833bad414f0884162051ac96a0b24490037d07cf528e4e18e100a1a64eb744748544bf1e220dabacf2c",
@@ -442,12 +382,13 @@ mod tests {
         .unwrap_err();
         match err.kind() {
             ErrorKind::HeaderTooShort => {}
-            _ => panic!("Expected HeaderTooShort error"),
+            _ => panic!("Unexpected error type!"),
         };
     }
 
     #[test]
     fn test_decrypt_truncated_sender_key() {
+        crate::ensure_initialized();
         let err = try_decrypt(
             "ce88e8e0b3057a4752eb4c8fa931eb621c302da5ad03b81af459cf6735560cae",
             "04a325d99084c40de0ce722a042c448d94a32691721ca79e3cf745e78c69886194b02cea19224176795a9d4dbbb2073af2ccd6fa6f0a4c7c4968556be502a3ba81",
@@ -457,12 +398,13 @@ mod tests {
         .unwrap_err();
         match err.kind() {
             ErrorKind::InvalidKeyLength => {}
-            _ => panic!("Expected InvalidKeyLength error"),
+            _ => panic!("Unexpected error type!"),
         };
     }
 
     #[test]
     fn test_decrypt_truncated_auth_secret() {
+        crate::ensure_initialized();
         let err = try_decrypt(
             "60c7636a517de7039a0ac2d0e3064400794c78e7e049398129a227cee0f9a801",
             "04fdd04128a85c05896d7f81fe118bdcb887b9f3c1ff4183adc4c824d128607300e986b2dfb5a610e5af43e408a00730584f93e3dfddfc44737d5f08fb2d6f8916",
@@ -470,13 +412,14 @@ mod tests {
             "8115f4988b8c392a7bacb43c8f1ac5650000001241041994483c541e9bc39a6af03ff713aa7745c284e138a42a2435b797b20c4b698cf5118b4f8555317c190eabebfab749c164d3f6bdebe0d441719131a357d8890a13c4dbd4b16ff3dd5a83f7c91ad6e040ac42730a7f0b3cd3245e9f8d6ff31c751d410cfd"
         ).unwrap_err();
         match err.kind() {
-            ErrorKind::CryptoError => {}
-            _ => panic!("Expected CryptoError"),
+            ece::ErrorKind::CryptoError => {}
+            _ => panic!("Unexpected error type!"),
         };
     }
 
     #[test]
     fn test_decrypt_early_final_record() {
+        crate::ensure_initialized();
         let err = try_decrypt(
             "5dda1d918bc407ba3cda12cb8014d49aa7e0269002820304466bc80034ca9240",
             "04c95c6520dad11e8f6a1bf8031a40c2a4ee1045c1903be06a1dfa7f829cceb2de02481ae6bd0476121b12c5532d0b231788077efa0683a5bfe0d62339b251cb35",
@@ -485,7 +428,7 @@ mod tests {
         ).unwrap_err();
         match err.kind() {
             ErrorKind::DecryptPadding => {}
-            _ => panic!("Expected DecryptPadding error"),
+            _ => panic!("Unexpected error type!"),
         };
     }
 }
