@@ -2,9 +2,6 @@
 
 set -euvx
 
-OPENSSL_VERSION="1.1.1a"
-OPENSSL_SHA256="fc20130f8b7cbd2fb918b2f14e2f429e109c31ddd0fb38fc5d71d9ffed3f9f41"
-
 # SQLCIPHER_VERSION="4.1.0"
 # SQLCIPHER_SHA256="65144ca3ba4c0f9cd4bae8c20bb42f2b84424bf29d1ebcf04c44a728903b1faa"
 
@@ -49,18 +46,6 @@ if ! [[ -x "$(command -v tclsh)" ]]; then
   exit 1
 fi
 
-OPENSSL="openssl-${OPENSSL_VERSION}"
-rm -rf "${OPENSSL}"
-if [[ ! -e "${OPENSSL}.tar.gz" ]]; then
-  echo "Downloading ${OPENSSL}.tar.gz"
-  curl -L -O "https://www.openssl.org/source/${OPENSSL}.tar.gz"
-else
-  echo "Using ${OPENSSL}.tar.gz"
-fi
-echo "${OPENSSL_SHA256}  ${OPENSSL}.tar.gz" | shasum -a 256 -c - || exit 2
-tar xfz "${OPENSSL}.tar.gz"
-OPENSSL_SRC_PATH=$(abspath ${OPENSSL})
-
 # Delete the following...
 rm -rf sqlcipher
 git clone --single-branch --branch nss-crypto-impl --depth 1 "https://github.com/eoger/sqlcipher.git"
@@ -93,51 +78,19 @@ hg clone https://hg.mozilla.org/projects/nspr/ -r bf5c37749c28c523134e41b1e28b6f
 # tar xfz "${NSS_ARCHIVE}"
 NSS_SRC_PATH=$(abspath "${NSS}")
 
-# Some NSS symbols clash with OpenSSL symbols, rename them using
-# C preprocessor define macros.
-echo $'\
-diff -r 65efa74ef84a coreconf/config.gypi
---- a/coreconf/config.gypi      Thu May 16 09:43:04 2019 +0000
-+++ b/coreconf/config.gypi      Thu May 23 19:46:44 2019 -0400
-@@ -138,6 +138,21 @@
-       \'<(nspr_include_dir)\',
-       \'<(nss_dist_dir)/private/<(module)\',
-     ],
-+    \'defines\': [
-+      \'HMAC_Update=NSS_HMAC_Update\',
-+      \'HMAC_Init=NSS_HMAC_Init\',
-+      \'MD5_Update=NSS_MD5_Update\',
-+      \'SHA1_Update=NSS_SHA1_Update\',
-+      \'SHA256_Update=NSS_SHA256_Update\',
-+      \'SHA224_Update=NSS_SHA224_Update\',
-+      \'SHA512_Update=NSS_SHA512_Update\',
-+      \'SHA384_Update=NSS_SHA384_Update\',
-+      \'SEED_set_key=NSS_SEED_set_key\',
-+      \'SEED_encrypt=NSS_SEED_encrypt\',
-+      \'SEED_decrypt=NSS_SEED_decrypt\',
-+      \'SEED_ecb_encrypt=NSS_SEED_ecb_encrypt\',
-+      \'SEED_cbc_encrypt=NSS_SEED_cbc_encrypt\',
-+    ],
-     \'conditions\': [
-       [ \'mozpkix_only==1 and OS=="linux"\', {
-         \'include_dirs\': [
-' | patch "${NSS_SRC_PATH}/nss/coreconf/config.gypi"
-
 if [[ "${PLATFORM}" == "ios" ]]
 then
-  ./build-all-ios.sh "${OPENSSL_SRC_PATH}" "${SQLCIPHER_SRC_PATH}" "${NSS_SRC_PATH}"
+  ./build-all-ios.sh "${SQLCIPHER_SRC_PATH}" "${NSS_SRC_PATH}"
 elif [[ "${PLATFORM}" == "android" ]]
 then
-  ./build-all-android.sh "${OPENSSL_SRC_PATH}" "${SQLCIPHER_SRC_PATH}" "${NSS_SRC_PATH}"
+  ./build-all-android.sh "${SQLCIPHER_SRC_PATH}" "${NSS_SRC_PATH}"
 elif [[ "${PLATFORM}" == "desktop" ]]
 then
   ./build-nss-desktop.sh "${NSS_SRC_PATH}"
-  ./build-openssl-desktop.sh "${OPENSSL_SRC_PATH}"
   ./build-sqlcipher-desktop.sh "${SQLCIPHER_SRC_PATH}"
 elif [[ "${PLATFORM}" == "darwin" ]] || [[ "${PLATFORM}" == "win32-x86-64" ]]
 then
   ./build-nss-desktop.sh "${NSS_SRC_PATH}" "${PLATFORM}"
-  ./build-openssl-desktop.sh "${OPENSSL_SRC_PATH}" "${PLATFORM}"
   ./build-sqlcipher-desktop.sh "${SQLCIPHER_SRC_PATH}" "${PLATFORM}"
 else
   echo "Unrecognized platform"
@@ -145,7 +98,6 @@ else
 fi
 
 echo "Cleaning up"
-rm -rf "${OPENSSL_SRC_PATH}"
 rm -rf "${SQLCIPHER_SRC_PATH}"
 rm -rf "${NSS_SRC_PATH}"
 

@@ -18,6 +18,7 @@ members = [
     "components/support/rc_crypto",
     "components/support/rc_crypto/nss",
     "components/support/rc_crypto/nss/nss_sys",
+    "components/support/stub-openssl",
     "components/viaduct",
     "components/sync15",
     "components/rc_log",
@@ -32,3 +33,6 @@ members = [
 opt-level = "s"
 debug = true
 lto = true
+
+[patch.crates-io]
+openssl = { path = "components/support/stub-openssl" }

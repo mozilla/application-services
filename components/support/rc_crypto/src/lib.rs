@@ -48,12 +48,6 @@ pub use crate::error::{Error, ErrorKind, Result};
 // such as places and logins.
 #[allow(unused_extern_crates)]
 extern crate libsqlite3_sys;
-// For some reason when running `cargo test --all` we use
-// the sqlcipher version of `libsqlite3_sys`, which has a
-// dependency on OpenSSL.
-#[cfg(test)]
-#[allow(unused_extern_crates)]
-extern crate openssl_sys;
 
 /// Only required to be called if you intend to use this library in conjunction
 /// with the `hawk` crate.
