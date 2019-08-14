@@ -29,7 +29,7 @@ pub mod agreement;
 pub mod constant_time;
 pub mod digest;
 #[cfg(feature = "ece")]
-pub mod ece;
+pub mod ece_crypto;
 mod error;
 #[cfg(feature = "hawk")]
 mod hawk_crypto;
@@ -42,18 +42,17 @@ pub mod rand;
 #[cfg(feature = "hawk")]
 pub use hawk;
 
+// Expose `ece` if the ece feature is on. This avoids consumers needing to
+// configure this separately, which is more or less trivial to do incorrectly.
+#[cfg(feature = "ece")]
+pub use ece;
+
 pub use crate::error::{Error, ErrorKind, Result};
 
 // So we link against the SQLite lib imported by parent crates
 // such as places and logins.
 #[allow(unused_extern_crates)]
 extern crate libsqlite3_sys;
-// For some reason when running `cargo test --all` we use
-// the sqlcipher version of `libsqlite3_sys`, which has a
-// dependency on OpenSSL.
-#[cfg(test)]
-#[allow(unused_extern_crates)]
-extern crate openssl_sys;
 
 /// Only required to be called if you intend to use this library in conjunction
 /// with the `hawk` crate.
@@ -62,6 +61,9 @@ pub fn ensure_initialized() {
     #[cfg(feature = "hawk")]
     {
         static INIT_ONCE: std::sync::Once = std::sync::Once::new();
-        INIT_ONCE.call_once(crate::hawk_crypto::init);
+        INIT_ONCE.call_once(|| {
+            crate::hawk_crypto::init();
+            crate::ece_crypto::init();
+        });
     }
 }

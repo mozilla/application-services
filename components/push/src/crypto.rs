@@ -4,9 +4,9 @@
 
 use crate::error;
 use rc_crypto::ece::{
-    Aes128GcmEceWebPushImpl, AesGcmEceWebPushImpl, AesGcmEncryptedBlock, EcKeyComponents,
-    LocalKeyPair, LocalKeyPairImpl,
+    Aes128GcmEceWebPush, AesGcmEceWebPush, AesGcmEncryptedBlock, EcKeyComponents, LocalKeyPair,
 };
+use rc_crypto::ece_crypto::RcCryptoLocalKeyPair;
 use rc_crypto::rand;
 use serde_derive::*;
 
@@ -50,8 +50,8 @@ impl Key {
         }
     }
 
-    pub fn key_pair(&self) -> error::Result<LocalKeyPairImpl> {
-        LocalKeyPairImpl::from_raw_components(&self.p256key).map_err(|e| {
+    pub fn key_pair(&self) -> error::Result<RcCryptoLocalKeyPair> {
+        RcCryptoLocalKeyPair::from_raw_components(&self.p256key).map_err(|e| {
             error::ErrorKind::CryptoError(format!(
                 "Could not re-create key from components: {:?}",
                 e
@@ -139,7 +139,7 @@ fn extract_value(string: Option<&str>, target: &str) -> Option<Vec<u8>> {
 impl Cryptography for Crypto {
     /// Generate a new cryptographic Key
     fn generate_key() -> error::Result<Key> {
-        let key = LocalKeyPairImpl::generate_random().map_err(|e| {
+        let key = RcCryptoLocalKeyPair::generate_random().map_err(|e| {
             error::ErrorKind::CryptoError(format!("Could not generate key: {:?}", e))
         })?;
         let components = key.raw_components().map_err(|e| {
@@ -173,6 +173,7 @@ impl Cryptography for Crypto {
         salt: Option<&str>,
         dh: Option<&str>,
     ) -> error::Result<Decrypted> {
+        rc_crypto::ensure_initialized();
         // convert the private key into something useful.
         let d_salt = extract_value(salt, "salt");
         let d_dh = extract_value(dh, "dh");
@@ -216,12 +217,12 @@ impl Cryptography for Crypto {
                 .into());
             }
         };
-        AesGcmEceWebPushImpl::decrypt(&key.key_pair()?, &key.auth, &block)
+        AesGcmEceWebPush::decrypt(&key.key_pair()?, &key.auth, &block)
             .map_err(|_| error::ErrorKind::CryptoError("Decryption error".to_owned()).into())
     }
 
     fn decrypt_aes128gcm(key: &Key, content: &[u8]) -> error::Result<Vec<u8>> {
-        Aes128GcmEceWebPushImpl::decrypt(&key.key_pair()?, &key.auth, &content)
+        Aes128GcmEceWebPush::decrypt(&key.key_pair()?, &key.auth, &content)
             .map_err(|_| error::ErrorKind::CryptoError("Decryption error".to_owned()).into())
     }
 }
