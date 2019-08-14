@@ -21,7 +21,7 @@ To work on the code in this repo you will need to be familiar with
 the [Rust](https://www.rust-lang.org/) programming language.
 You can get a working rust compiler and toolchain via [rustup](https://rustup.rs/).
 
-Some components also require `openssl` and `sqlcipher` in order to build correctly.
+Some components also require `nss` and `sqlcipher` in order to build correctly.
 You may be able to install these via your OS package manager, but for consistency
 we recommend using the versions included in this repo by doing the following from
 the root of your checkout:

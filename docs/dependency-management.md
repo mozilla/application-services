@@ -83,7 +83,6 @@ No additional Swift dependencies should be added to the project unless absolutel
 
 We currently depend on local builds of the following system dependencies:
 
-* [OpenSSL](https://www.openssl.org/source/)
 * [NSS](https://hg.mozilla.org/projects/nss) and [NSPR](https://hg.mozilla.org/projects/nspr)
 * [SQLCipher](https://github.com/sqlcipher/sqlcipher)
 * [Protobuf](https://github.com/protocolbuffers/protobuf)

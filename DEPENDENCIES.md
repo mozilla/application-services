@@ -507,6 +507,7 @@ The following text applies to code linked from these dependendencies:
 [num_cpus](https://github.com/seanmonstar/num_cpus),
 [once_cell](https://github.com/matklad/once_cell),
 [openssl-probe](https://github.com/alexcrichton/openssl-probe),
+[openssl-src](https://github.com/alexcrichton/openssl-src-rs),
 [openssl](https://github.com/sfackler/rust-openssl),
 [parking_lot](https://github.com/Amanieu/parking_lot),
 [parking_lot_core](https://github.com/Amanieu/parking_lot),

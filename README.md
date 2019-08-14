@@ -37,7 +37,7 @@ that are largely shared across platforms, like this:
 The code for these components is organized as follows:
 
 * [./libs/](libs) contains infratructure for building some native dependencies,
-  such as OpenSSL.
+  such as NSS.
 * [./components/](components) contains the source for each component, and its
   FFI bindings.
   * See [./components/logins/](components/logins) for an example, where you can

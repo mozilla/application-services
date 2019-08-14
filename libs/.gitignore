@@ -3,7 +3,6 @@
 *.7z
 
 # Intermediate folders leftover on build failures.
-openssl*
 sqlcipher*
 nss*
 dist
