@@ -33,13 +33,13 @@ internal interface LibPushFFI : Library {
         out_err: RustError.ByReference
     ): PushManagerHandle
 
-    /** Returns JSON string, which you need to free with push_destroy_string */
+    /** Returns Protocol Buffer */
     fun push_subscribe(
         mgr: PushManagerHandle,
         channel_id: String,
         scope: String,
         out_err: RustError.ByReference
-    ): Pointer?
+    ): RustBuffer.ByValue?
 
     /** Returns bool */
     fun push_unsubscribe(
@@ -78,7 +78,7 @@ internal interface LibPushFFI : Library {
         mgr: PushManagerHandle,
         channelID: String,
         out_err: RustError.ByReference
-    ): Pointer?
+    ): RustBuffer.ByValue?
 
     /** Destroy strings returned from libpush_ffi calls. */
     fun push_destroy_string(s: Pointer)

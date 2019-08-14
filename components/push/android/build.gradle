@@ -1,6 +1,7 @@
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
+apply plugin: 'com.google.protobuf'
 
 android {
     compileSdkVersion rootProject.ext.build.compileSdkVersion
@@ -27,6 +28,12 @@ android {
         // we can actually find it during tests. (Unfortunately, each project
         // has their own build dir)
         test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
+
+        main {
+            proto {
+                srcDir '../src'
+            }
+        }
     }
 }
 
@@ -47,12 +54,34 @@ configurations {
     jnaForTest
 }
 
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:3.0.0'
+    }
+    plugins {
+        javalite {
+            artifact = 'com.google.protobuf:protoc-gen-javalite:3.0.0'
+        }
+    }
+    generateProtoTasks {
+        all().each { task ->
+            task.builtins {
+                remove java
+            }
+            task.plugins {
+                javalite { }
+            }
+        }
+    }
+}
+
 dependencies {
     jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
     implementation "net.java.dev.jna:jna:$jna_version@aar"
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
+    implementation 'com.google.protobuf:protobuf-lite:3.0.0'
     api project(":full-megazord")
     implementation project(":native-support")
 
