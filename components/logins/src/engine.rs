@@ -77,6 +77,10 @@ impl PasswordEngine {
         self.db.add(login).map(|record| record.guid.into_string())
     }
 
+    pub fn import_multiple(&self, logins: &[Login]) -> Result<u64> {
+        self.db.import_multiple(logins)
+    }
+
     pub fn disable_mem_security(&self) -> Result<()> {
         self.db.disable_mem_security()
     }

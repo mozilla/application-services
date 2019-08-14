@@ -172,6 +172,15 @@ interface LoginsStorage : AutoCloseable {
     fun add(login: ServerPassword): String
 
     /**
+     * Imports provided logins into the database.
+     * GUIDs are thrown away and replaced by auto-generated ones from the crate.
+     *
+     * @throws [LoginsStorageException] On unexpected errors (IO failure, rust panics, etc)
+     */
+    @Throws(LoginsStorageException::class)
+    fun importLogins(logins: Array<ServerPassword>): Long
+
+    /**
      * Updates the fields in the provided record.
      *
      * This will return an error if `login.id` does not refer to

@@ -181,6 +181,23 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
 
     @Synchronized
     @Throws(LoginsStorageException::class)
+    override fun importLogins(logins: Array<ServerPassword>): Long {
+        checkUnlocked()
+        var numErrors = 0L
+        for (login in logins) {
+            val toInsert = login.copy(id = UUID.randomUUID().toString())
+            try {
+                checkValid(toInsert)
+                list += toInsert
+            } catch (e: InvalidRecordException) {
+                numErrors += 1
+            }
+        }
+        return numErrors
+    }
+
+    @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun update(login: ServerPassword) {
         checkUnlocked()
         val current = list.find { it.id == login.id }

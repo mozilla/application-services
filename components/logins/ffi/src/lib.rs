@@ -201,6 +201,19 @@ pub extern "C" fn sync15_passwords_add(
 }
 
 #[no_mangle]
+pub extern "C" fn sync15_passwords_import(
+    handle: u64,
+    records_json: FfiStr<'_>,
+    error: &mut ExternError,
+) -> u64 {
+    log::debug!("sync15_passwords_import");
+    ENGINES.call_with_result(error, handle, |state| {
+        let logins: Vec<Login> = serde_json::from_str(records_json.as_str())?;
+        state.import_multiple(&logins)
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn sync15_passwords_update(
     handle: u64,
     record_json: FfiStr<'_>,
