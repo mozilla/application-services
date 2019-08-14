@@ -6,8 +6,8 @@ package mozilla.appservices.push
 
 import com.sun.jna.Pointer
 import java.util.concurrent.atomic.AtomicLong
-import org.json.JSONObject
 import org.json.JSONArray
+import com.google.protobuf.CodedInputStream
 
 import mozilla.appservices.support.native.RustBuffer
 
@@ -63,11 +63,12 @@ class PushManager(
         channelID: String,
         scope: String
     ): SubscriptionResponse {
-        val json = rustCallForString { error ->
+        val respBuffer = rustCallForBuffer { error ->
             LibPushFFI.INSTANCE.push_subscribe(
                 this.handle.get(), channelID, scope, error)
         }
-        return SubscriptionResponse.fromString(json)
+        val response = MsgTypes.SubscriptionResponse.parseFrom(respBuffer)
+        return SubscriptionResponse.fromMessage(response)
     }
 
     override fun unsubscribe(channelID: String): Boolean {
@@ -123,11 +124,12 @@ class PushManager(
     }
 
     override fun dispatchInfoForChid(channelID: String): DispatchInfo? {
-        val json = rustCallForOptString { error ->
+        val infoBuffer = rustCallForOptBuffer { error ->
             LibPushFFI.INSTANCE.push_dispatch_info_for_chid(
                 this.handle.get(), channelID, error)
         }
-        return json?.let { DispatchInfo.fromString(it) }
+        val info = MsgTypes.DispatchInfo.parseFrom(infoBuffer)
+        return DispatchInfo.fromMessage(info)
     }
 
     private inline fun <U> rustCall(callback: (RustError.ByReference) -> U): U {
@@ -164,14 +166,25 @@ class PushManager(
     }
 
     @Suppress("TooGenericExceptionThrown")
-    private inline fun rustCallForBuffer(callback: (RustError.ByReference) -> RustBuffer.ByValue?): ByteArray {
+    private inline fun rustCallForBuffer(callback: (RustError.ByReference) -> RustBuffer.ByValue?):
+            CodedInputStream {
         val cbuff = rustCall(callback)
                 ?: throw RuntimeException("Bug: Don't use this function when you can return" +
                 "null on success.")
         try {
-            return cbuff.pointer.getByteArray(0, cbuff.size())
+            return cbuff.asCodedInputStream()!!
         } finally {
             LibPushFFI.INSTANCE.push_destroy_buffer(cbuff)
+        }
+    }
+
+    private inline fun rustCallForOptBuffer(callback: (RustError.ByReference) -> RustBuffer.ByValue?):
+            CodedInputStream? {
+        val cbuff = rustCall(callback)
+        try {
+            return cbuff?.let { cbuff.asCodedInputStream()!! }
+        } finally {
+            cbuff?.let { LibPushFFI.INSTANCE.push_destroy_buffer(cbuff) }
         }
     }
 }
@@ -197,10 +210,19 @@ enum class BridgeType {
  * probably want a way of sharing these.
  */
 
-class KeyInfo(
+class KeyInfo constructor (
     var auth: String,
     var p256dh: String
-)
+) {
+    companion object {
+        internal fun fromMessage(msg: MsgTypes.KeyInfo): KeyInfo {
+            return KeyInfo(
+                auth = msg.auth,
+                p256dh = msg.p256Dh
+            )
+        }
+    }
+}
 
 class SubscriptionInfo constructor (
     val endpoint: String,
@@ -208,13 +230,10 @@ class SubscriptionInfo constructor (
 ) {
 
     companion object {
-        internal fun fromObject(obj: JSONObject): SubscriptionInfo {
-            val keyObj = obj.getJSONObject("keys")
+        internal fun fromMessage(msg: MsgTypes.SubscriptionInfo): SubscriptionInfo {
             return SubscriptionInfo(
-                    endpoint = obj.getString("endpoint"),
-                    keys = KeyInfo(
-                            auth = keyObj.getString("auth"),
-                            p256dh = keyObj.getString("p256dh"))
+                    endpoint = msg.endpoint,
+                    keys = KeyInfo.fromMessage(msg.keys)
             )
         }
     }
@@ -225,11 +244,10 @@ class SubscriptionResponse constructor (
     val subscriptionInfo: SubscriptionInfo
 ) {
     companion object {
-        internal fun fromString(msg: String): SubscriptionResponse {
-            val obj = JSONObject(msg)
+        internal fun fromMessage(msg: MsgTypes.SubscriptionResponse): SubscriptionResponse {
             return SubscriptionResponse(
-                channelID = obj.getString("channel_id"),
-                subscriptionInfo = SubscriptionInfo.fromObject(obj.getJSONObject("subscription_info"))
+                channelID = msg.channelID,
+                subscriptionInfo = SubscriptionInfo.fromMessage(msg.subscriptionInfo)
             )
         }
     }
@@ -240,11 +258,10 @@ class DispatchInfo constructor (
     val scope: String
 ) {
     companion object {
-        internal fun fromString(msg: String): DispatchInfo {
-            val obj = JSONObject(msg)
+        internal fun fromMessage(msg: MsgTypes.DispatchInfo): DispatchInfo {
             return DispatchInfo(
-                uaid = obj.getString("uaid"),
-                scope = obj.getString("scope")
+                uaid = msg.uaid,
+                scope = msg.scope
             )
         }
     }

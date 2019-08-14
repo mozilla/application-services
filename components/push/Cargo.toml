@@ -26,6 +26,9 @@ ffi-support = { path = "../support/ffi" }
 sql-support = { path = "../support/sql" }
 error-support = { path = "../support/error" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
+prost = "0.5.0"
+prost-derive = "0.5.0"
+bytes = "0.4.11"
 
 [dev-dependencies]
 env_logger = "0.6.2"
@@ -33,3 +36,5 @@ mockito = "0.20.0"
 hex = "0.3.2"
 force-viaduct-reqwest = { path = "../support/force-viaduct-reqwest" }
 
+[build-dependencies]
+prost-build = "0.5.0"
