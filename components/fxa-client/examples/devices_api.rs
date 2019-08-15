@@ -14,12 +14,12 @@ use std::{
 };
 use url::Url;
 
-static CREDENTIALS_PATH: &'static str = "credentials.json";
-static CONTENT_SERVER: &'static str = "https://accounts.firefox.com";
-static CLIENT_ID: &'static str = "a2270f727f45f648";
-static REDIRECT_URI: &'static str = "https://accounts.firefox.com/oauth/success/a2270f727f45f648";
-static SCOPES: &'static [&'static str] = &["profile", "https://identity.mozilla.com/apps/oldsync"];
-static DEFAULT_DEVICE_NAME: &'static str = "Bobo device";
+static CREDENTIALS_PATH: &str = "credentials.json";
+static CONTENT_SERVER: &str = "https://accounts.firefox.com";
+static CLIENT_ID: &str = "a2270f727f45f648";
+static REDIRECT_URI: &str = "https://accounts.firefox.com/oauth/success/a2270f727f45f648";
+static SCOPES: &[&str] = &["profile", "https://identity.mozilla.com/apps/oldsync"];
+static DEFAULT_DEVICE_NAME: &str = "Bobo device";
 
 fn load_fxa_creds() -> Result<FirefoxAccount, failure::Error> {
     let mut file = fs::File::open(CREDENTIALS_PATH)?;
