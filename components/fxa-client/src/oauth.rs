@@ -434,8 +434,7 @@ mod tests {
 
     #[test]
     fn test_pairing_flow_origin_mismatch() {
-        static PAIRING_URL: &'static str =
-            "https://bad.origin.com/pair#channel_id=foo&channel_key=bar";
+        static PAIRING_URL: &str = "https://bad.origin.com/pair#channel_id=foo&channel_key=bar";
         let mut fxa = FirefoxAccount::new(
             "https://accounts.firefox.com",
             "12345678",

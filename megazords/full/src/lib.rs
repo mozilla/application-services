@@ -40,7 +40,7 @@ pub extern "C" fn full_megazord_get_version() -> *const c_char {
 // we'll return null from this function, which will cause the megazord
 // version checker to throw. Separated as a constant to make it clear that
 // this is a thing determined at compile time.
-static VERSION: Option<&'static str> = option_env!("MEGAZORD_VERSION");
+static VERSION: Option<&str> = option_env!("MEGAZORD_VERSION");
 
 // For now it's tricky for this string to get freed, so just allocate one and save its pointer.
 lazy_static::lazy_static! {

@@ -1,9 +1,9 @@
 use cli_support::prompt::prompt_string;
 use fxa_client::FirefoxAccount;
 
-static CLIENT_ID: &'static str = "3c49430b43dfba77";
-static CONTENT_SERVER: &'static str = "https://latest.dev.lcip.org";
-static REDIRECT_URI: &'static str = "https://latest.dev.lcip.org/oauth/success/3c49430b43dfba77";
+static CLIENT_ID: &str = "3c49430b43dfba77";
+static CONTENT_SERVER: &str = "https://latest.dev.lcip.org";
+static REDIRECT_URI: &str = "https://latest.dev.lcip.org/oauth/success/3c49430b43dfba77";
 
 fn main() {
     let mut fxa = FirefoxAccount::new(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI);
