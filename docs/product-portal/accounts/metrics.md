@@ -25,7 +25,7 @@ In the case when the email entry form is self hosted, **we ask that you do the f
 2. Include the following query parameters in the above request (see chart below for descriptions):
   * `entrypoint`
   * `entrypoint_experiment`
-  * `entrypoint_validation`
+  * `entrypoint_variation`
   * `utm_source`
   * `utm_campaign`
   * `form_type`
