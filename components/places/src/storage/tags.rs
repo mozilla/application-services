@@ -46,7 +46,7 @@ impl<'a> ValidatedTag<'a> {
 pub fn validate_tag(tag: &str) -> ValidatedTag<'_> {
     // Drop empty and oversized tags.
     let t = tag.trim();
-    if t.is_empty() || t.len() > TAG_LENGTH_MAX || t.find(char::is_whitespace).is_some() {
+    if t.is_empty() || t.len() > TAG_LENGTH_MAX {
         ValidatedTag::Invalid(tag)
     } else if t.len() != tag.len() {
         ValidatedTag::Normalized(t)
@@ -277,7 +277,12 @@ mod tests {
         assert!(!v.is_original());
         assert!(v.ensure_valid().is_err());
 
-        assert_eq!(validate_tag("foo bar"), ValidatedTag::Invalid("foo bar"));
+        assert_eq!(validate_tag("foo bar"), ValidatedTag::Original("foo bar"));
+        assert_eq!(
+            validate_tag(" foo bar "),
+            ValidatedTag::Normalized("foo bar")
+        );
+
         assert!(validate_tag(&"f".repeat(101)).ensure_valid().is_err());
     }
 
