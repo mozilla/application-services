@@ -12,18 +12,17 @@ TARGET_ARCHS_TOOLCHAINS=("x86_64-linux-android" "i686-linux-android" "aarch64-li
 
 # End of configuration.
 
-if [[ "${#}" -ne 3 ]]
+if [[ "${#}" -ne 2 ]]
 then
     echo "Usage:"
-    echo "./build-all-android.sh <OPENSSL_SRC_PATH> <SQLCIPHER_SRC_PATH> <NSS_SRC_PATH>"
+    echo "./build-all-android.sh <SQLCIPHER_SRC_PATH> <NSS_SRC_PATH>"
     exit 1
 fi
 
 # shellcheck disable=SC1091
 source "android_defaults.sh"
-OPENSSL_SRC_PATH=${1}
-SQLCIPHER_SRC_PATH=${2}
-NSS_SRC_PATH=${3}
+SQLCIPHER_SRC_PATH=${1}
+NSS_SRC_PATH=${2}
 
 echo "# Building NSS"
 for i in "${!TARGET_ARCHS[@]}"; do
@@ -34,18 +33,6 @@ for i in "${!TARGET_ARCHS[@]}"; do
     echo "${DIST_DIR} already exists. Skipping building nss."
   else
     ./build-nss-android.sh "${NSS_SRC_PATH}" "${DIST_DIR}" "${ARCH}" "${ANDROID_NDK_TOOLCHAIN_DIR}/${ARCH}-${ANDROID_NDK_API_VERSION}" "${TARGET_ARCHS_TOOLCHAINS[${i}]}" "${ANDROID_NDK_API_VERSION}" || exit 1
-  fi
-done
-
-echo "# Building openssl"
-for i in "${!TARGET_ARCHS[@]}"; do
-  ARCH=${TARGET_ARCHS[${i}]}
-  DIST=${TARGET_ARCHS_DISTS[${i}]}
-  DIST_DIR=$(abspath "android/${DIST}/openssl")
-  if [[ -d "${DIST_DIR}" ]]; then
-    echo "${DIST_DIR} already exists. Skipping building openssl."
-  else
-    ./build-openssl-android.sh "${OPENSSL_SRC_PATH}" "${DIST_DIR}" "${ANDROID_NDK_TOOLCHAIN_DIR}/${ARCH}-${ANDROID_NDK_API_VERSION}" "${TARGET_ARCHS_TOOLCHAINS[${i}]}" "${ANDROID_NDK_API_VERSION}" || exit 1
   fi
 done
 

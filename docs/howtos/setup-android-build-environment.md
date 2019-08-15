@@ -63,10 +63,10 @@ a rc file or similar so they persist between reboots etc.
      them somewhere - use the "SDK Manager" to identify this location.
    - Set `ANDROID_HOME` to this location and add it to your rc file.
 
-7. Build NSS, OpenSSL and sqlcipher
+7. Build NSS and SQLCipher
     - `cd path/to/application-services/libs` (Same dir you were just in for step 4)
     - `./build-all.sh android` (Go make some coffee or something, this will take
-       some time as it has to compile sqlcipher and openssl for x86, x86_64, arm, and arm64).
+       some time as it has to compile NSS and SQLCipher for x86, x86_64, arm, and arm64).
     - Note that if something goes wrong here
         - Check all environment variables mentions above are set and correct.
         - The following directories should exist, and point to standalone NDK
@@ -127,7 +127,7 @@ You should also find the .kt files for the project somewhere there and in the ri
 
 # Using Windows
 
-It's currently tricky to get some of these builds working on Windows, primarily due to our use of `sqlcipher` and `openssl`. However, by using the Windows Subsystem for Linux, it is possible to get builds working, but still have them published to your "native" local maven cache so it's available for use by a "native" Android Studio.
+It's currently tricky to get some of these builds working on Windows, primarily due to our use of `sqlcipher`. However, by using the Windows Subsystem for Linux, it is possible to get builds working, but still have them published to your "native" local maven cache so it's available for use by a "native" Android Studio.
 
 As above, this document may be incomplete, so please edit or open PRs where necessary.
 

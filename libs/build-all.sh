@@ -2,9 +2,6 @@
 
 set -euvx
 
-OPENSSL_VERSION="1.1.1a"
-OPENSSL_SHA256="fc20130f8b7cbd2fb918b2f14e2f429e109c31ddd0fb38fc5d71d9ffed3f9f41"
-
 # SQLCIPHER_VERSION="4.1.0"
 # SQLCIPHER_SHA256="65144ca3ba4c0f9cd4bae8c20bb42f2b84424bf29d1ebcf04c44a728903b1faa"
 
@@ -48,18 +45,6 @@ if ! [[ -x "$(command -v tclsh)" ]]; then
   echo 'Error: tclsh needs to be installed and executable. See https://www.tcl.tk/software/tcltk/.' >&2
   exit 1
 fi
-
-OPENSSL="openssl-${OPENSSL_VERSION}"
-rm -rf "${OPENSSL}"
-if [[ ! -e "${OPENSSL}.tar.gz" ]]; then
-  echo "Downloading ${OPENSSL}.tar.gz"
-  curl -L -O "https://www.openssl.org/source/${OPENSSL}.tar.gz"
-else
-  echo "Using ${OPENSSL}.tar.gz"
-fi
-echo "${OPENSSL_SHA256}  ${OPENSSL}.tar.gz" | shasum -a 256 -c - || exit 2
-tar xfz "${OPENSSL}.tar.gz"
-OPENSSL_SRC_PATH=$(abspath ${OPENSSL})
 
 # Delete the following...
 rm -rf sqlcipher
@@ -125,19 +110,17 @@ diff -r 65efa74ef84a coreconf/config.gypi
 
 if [[ "${PLATFORM}" == "ios" ]]
 then
-  ./build-all-ios.sh "${OPENSSL_SRC_PATH}" "${SQLCIPHER_SRC_PATH}" "${NSS_SRC_PATH}"
+  ./build-all-ios.sh "${SQLCIPHER_SRC_PATH}" "${NSS_SRC_PATH}"
 elif [[ "${PLATFORM}" == "android" ]]
 then
-  ./build-all-android.sh "${OPENSSL_SRC_PATH}" "${SQLCIPHER_SRC_PATH}" "${NSS_SRC_PATH}"
+  ./build-all-android.sh "${SQLCIPHER_SRC_PATH}" "${NSS_SRC_PATH}"
 elif [[ "${PLATFORM}" == "desktop" ]]
 then
   ./build-nss-desktop.sh "${NSS_SRC_PATH}"
-  ./build-openssl-desktop.sh "${OPENSSL_SRC_PATH}"
   ./build-sqlcipher-desktop.sh "${SQLCIPHER_SRC_PATH}"
 elif [[ "${PLATFORM}" == "darwin" ]] || [[ "${PLATFORM}" == "win32-x86-64" ]]
 then
   ./build-nss-desktop.sh "${NSS_SRC_PATH}" "${PLATFORM}"
-  ./build-openssl-desktop.sh "${OPENSSL_SRC_PATH}" "${PLATFORM}"
   ./build-sqlcipher-desktop.sh "${SQLCIPHER_SRC_PATH}" "${PLATFORM}"
 else
   echo "Unrecognized platform"
@@ -145,7 +128,6 @@ else
 fi
 
 echo "Cleaning up"
-rm -rf "${OPENSSL_SRC_PATH}"
 rm -rf "${SQLCIPHER_SRC_PATH}"
 rm -rf "${NSS_SRC_PATH}"
 
