@@ -530,7 +530,7 @@ mod sql_fns {
     pub fn validate_url(ctx: &Context<'_>) -> Result<Option<String>> {
         let val = ctx.get_raw(0);
         let href = if let ValueRef::Text(s) = val {
-            s
+            std::str::from_utf8(s)?
         } else {
             return Ok(None);
         };
@@ -547,7 +547,13 @@ mod sql_fns {
     #[inline(never)]
     pub fn is_valid_url(ctx: &Context<'_>) -> Result<Option<bool>> {
         Ok(match ctx.get_raw(0) {
-            ValueRef::Text(s) if s.len() <= URL_LENGTH_MAX => Some(Url::parse(s).is_ok()),
+            ValueRef::Text(s) if s.len() <= URL_LENGTH_MAX => {
+                if let Ok(s) = std::str::from_utf8(s) {
+                    Some(Url::parse(s).is_ok())
+                } else {
+                    Some(false)
+                }
+            }
             // Should we do this?
             // ValueRef::Null => None,
             _ => Some(false),
