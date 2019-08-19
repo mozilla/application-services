@@ -1,3 +1,20 @@
+# v0.38.0 (_2019-08-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.37.1...v0.38.0)
+
+## General
+
+- Our OpenSSL dependency has been removed for all platforms other than
+  desktop-linux (used when running local rust unit tests and the android
+  -forUnitTests artifact). All other platforms use NSS.
+  ([#1570](https://github.com/mozilla/application-services/pull/1570))
+
+## Places
+
+### What's Fixed
+
+* Tags containing embedded whitespace are no longer marked as invalid and
+  removed. ([#1616](https://github.com/mozilla/application-services/issues/1616))
 
 # v0.37.1 (_2019-08-09_)
 
