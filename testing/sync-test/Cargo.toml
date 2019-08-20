@@ -9,7 +9,7 @@ license = "MPL-2.0"
 logins = { path = "../../components/logins", features = ["reqwest"] }
 sync15 = { path = "../../components/sync15", features = ["reqwest"] }
 fxa-client = { path = "../../components/fxa-client", features = ["reqwest"] }
-url = "1.7.1"
+url = "2.1.0"
 env_logger = "0.6.2"
 log = "0.4.8"
 failure = "0.1.3"
