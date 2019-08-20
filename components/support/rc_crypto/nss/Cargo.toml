@@ -14,5 +14,5 @@ error-support = { path = "../../error" }
 failure = "0.1.5"
 failure_derive = "0.1.5"
 nss_sys = { path = "nss_sys" }
-serde = "1.0.98"
+serde = "1.0.99"
 serde_derive = "1.0.99"
