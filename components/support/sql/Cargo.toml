@@ -17,4 +17,4 @@ ffi-support = { path = "../ffi" }
 
 [dependencies.rusqlite]
 version = "0.20.0"
-features = ["functions", "limits"]
+features = ["functions", "limits", "bundled"]
