@@ -69,6 +69,9 @@ pub enum ErrorKind {
     #[fail(display = "Protobuf decode error: {}", _0)]
     ProtobufDecodeError(#[fail(cause)] prost::DecodeError),
 
+    #[fail(display = "UTF8 Error: {}", _0)]
+    Utf8Error(#[fail(cause)] std::str::Utf8Error),
+
     #[fail(display = "Database cannot be upgraded")]
     DatabaseUpgradeError,
 }
@@ -84,7 +87,8 @@ error_support::define_error! {
         (IoError, std::io::Error),
         (MergeError, dogear::Error),
         (ProtobufDecodeError, prost::DecodeError),
-        (InterruptedError, Interrupted)
+        (InterruptedError, Interrupted),
+        (Utf8Error, std::str::Utf8Error),
     }
 }
 
