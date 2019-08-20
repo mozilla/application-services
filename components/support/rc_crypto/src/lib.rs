@@ -55,14 +55,16 @@ pub use crate::error::{Error, ErrorKind, Result};
 extern crate libsqlite3_sys;
 
 /// Only required to be called if you intend to use this library in conjunction
-/// with the `hawk` crate.
+/// with the `hawk` or the `ece` crate.
 pub fn ensure_initialized() {
     nss::ensure_initialized();
-    #[cfg(feature = "hawk")]
+    #[cfg(any(feature = "hawk", feature = "ece"))]
     {
         static INIT_ONCE: std::sync::Once = std::sync::Once::new();
         INIT_ONCE.call_once(|| {
+            #[cfg(feature = "hawk")]
             crate::hawk_crypto::init();
+            #[cfg(feature = "ece")]
             crate::ece_crypto::init();
         });
     }
