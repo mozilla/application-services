@@ -6,7 +6,7 @@ the details of which are reproduced below.
 
 * [Mozilla Public License 2.0](#mozilla-public-license-20)
 * [Apache License 2.0](#apache-license-20)
-* [MIT License: aho-corasick, byteorder, memchr, termcolor, utf8-ranges](#mit-license-aho-corasick-byteorder-memchr-termcolor-utf8-ranges)
+* [MIT License: aho-corasick, byteorder, memchr, termcolor](#mit-license-aho-corasick-byteorder-memchr-termcolor)
 * [MIT License: ansi_term](#mit-license-ansi_term)
 * [MIT License: atty](#mit-license-atty)
 * [MIT License: bincode](#mit-license-bincode)
@@ -16,7 +16,6 @@ the details of which are reproduced below.
 * [MIT License: libsqlite3-sys, rusqlite](#mit-license-libsqlite3-sys-rusqlite)
 * [MIT License: matches](#mit-license-matches)
 * [MIT License: nom](#mit-license-nom)
-* [MIT License: spin](#mit-license-spin)
 * [MIT License: strsim](#mit-license-strsim)
 * [MIT License: synstructure](#mit-license-synstructure)
 * [MIT License: textwrap](#mit-license-textwrap)
@@ -460,7 +459,7 @@ The following text applies to code linked from these dependendencies:
 [peeking_take_while](https://github.com/fitzgen/peeking_take_while),
 [percent-encoding](https://github.com/servo/rust-url/),
 [petgraph](https://github.com/bluss/petgraph),
-[pkg-config](https://github.com/alexcrichton/pkg-config-rs),
+[pkg-config](https://github.com/rust-lang/pkg-config-rs),
 [ppv-lite86](https://github.com/cryptocorrosion/cryptocorrosion),
 [proc-macro2](https://github.com/alexcrichton/proc-macro2),
 [prost-build](https://github.com/danburkert/prost),
@@ -499,7 +498,6 @@ The following text applies to code linked from these dependendencies:
 [thread_local](https://github.com/Amanieu/thread_local-rs),
 [time](https://github.com/rust-lang/time),
 [toml](https://github.com/alexcrichton/toml-rs),
-[ucd-util](https://github.com/BurntSushi/ucd-generate),
 [unicode-bidi](https://github.com/servo/unicode-bidi),
 [unicode-normalization](https://github.com/unicode-rs/unicode-normalization),
 [unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation),
@@ -717,14 +715,13 @@ limitations under the License.
 
 ```
 -------------
-## MIT License: aho-corasick, byteorder, memchr, termcolor, utf8-ranges
+## MIT License: aho-corasick, byteorder, memchr, termcolor
 
 The following text applies to code linked from these dependendencies:
 [aho-corasick](https://github.com/BurntSushi/aho-corasick),
 [byteorder](https://github.com/BurntSushi/byteorder),
 [memchr](https://github.com/BurntSushi/rust-memchr),
-[termcolor](https://github.com/BurntSushi/termcolor),
-[utf8-ranges](https://github.com/BurntSushi/utf8-ranges)
+[termcolor](https://github.com/BurntSushi/termcolor)
 
 ```
 The MIT License (MIT)
@@ -1025,35 +1022,6 @@ LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-```
--------------
-## MIT License: spin
-
-The following text applies to code linked from these dependendencies:
-[spin](https://github.com/mvdnes/spin-rs.git)
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2014 Mathijs van de Nes
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 ```
 -------------
 ## MIT License: strsim

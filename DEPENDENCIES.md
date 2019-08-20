@@ -6,7 +6,7 @@ the details of which are reproduced below.
 
 * [Mozilla Public License 2.0](#mozilla-public-license-20)
 * [Apache License 2.0](#apache-license-20)
-* [MIT License: aho-corasick, byteorder, memchr, termcolor, utf8-ranges](#mit-license-aho-corasick-byteorder-memchr-termcolor-utf8-ranges)
+* [MIT License: aho-corasick, byteorder, memchr, termcolor](#mit-license-aho-corasick-byteorder-memchr-termcolor)
 * [MIT License: ansi_term](#mit-license-ansi_term)
 * [MIT License: atty](#mit-license-atty)
 * [MIT License: bincode](#mit-license-bincode)
@@ -21,22 +21,19 @@ the details of which are reproduced below.
 * [MIT License: matches](#mit-license-matches)
 * [MIT License: memoffset](#mit-license-memoffset)
 * [MIT License: mime_guess](#mit-license-mime_guess)
-* [MIT License: miniz_oxide, miniz_oxide_c_api](#mit-license-miniz_oxide-miniz_oxide_c_api)
+* [MIT License: miniz_oxide](#mit-license-miniz_oxide)
 * [MIT License: mio](#mit-license-mio)
 * [MIT License: nom](#mit-license-nom)
 * [MIT License: openssl-sys](#mit-license-openssl-sys)
 * [MIT License: owning_ref](#mit-license-owning_ref)
-* [MIT License: phf, phf_codegen, phf_generator, phf_shared](#mit-license-phf-phf_codegen-phf_generator-phf_shared)
 * [MIT License: schannel](#mit-license-schannel)
 * [MIT License: slab, string](#mit-license-slab-string)
-* [MIT License: spin](#mit-license-spin)
 * [MIT License: strsim](#mit-license-strsim)
 * [MIT License: synstructure](#mit-license-synstructure)
 * [MIT License: textwrap](#mit-license-textwrap)
 * [MIT License: tokio, tokio-buf, tokio-current-thread, tokio-executor, tokio-io, tokio-reactor, tokio-sync, tokio-tcp, tokio-threadpool, tokio-timer](#mit-license-tokio-tokio-buf-tokio-current-thread-tokio-executor-tokio-io-tokio-reactor-tokio-sync-tokio-tcp-tokio-threadpool-tokio-timer)
 * [MIT License: try-lock](#mit-license-try-lock)
 * [MIT License: try_from](#mit-license-try_from)
-* [MIT License: unicase](#mit-license-unicase)
 * [MIT License: want](#mit-license-want)
 * [MIT License: which](#mit-license-which)
 * [MIT License: winapi](#mit-license-winapi)
@@ -514,7 +511,7 @@ The following text applies to code linked from these dependendencies:
 [peeking_take_while](https://github.com/fitzgen/peeking_take_while),
 [percent-encoding](https://github.com/servo/rust-url/),
 [petgraph](https://github.com/bluss/petgraph),
-[pkg-config](https://github.com/alexcrichton/pkg-config-rs),
+[pkg-config](https://github.com/rust-lang/pkg-config-rs),
 [ppv-lite86](https://github.com/cryptocorrosion/cryptocorrosion),
 [proc-macro2](https://github.com/alexcrichton/proc-macro2),
 [prost-build](https://github.com/danburkert/prost),
@@ -551,7 +548,6 @@ The following text applies to code linked from these dependendencies:
 [serde_json](https://github.com/serde-rs/json),
 [serde_urlencoded](https://github.com/nox/serde_urlencoded),
 [shlex](https://github.com/comex/rust-shlex),
-[siphasher](https://github.com/jedisct1/rust-siphash),
 [smallbitvec](https://github.com/servo/smallbitvec),
 [smallvec](https://github.com/servo/rust-smallvec),
 [stable_deref_trait](https://github.com/storyyeller/stable_deref_trait),
@@ -561,7 +557,6 @@ The following text applies to code linked from these dependendencies:
 [thread_local](https://github.com/Amanieu/thread_local-rs),
 [time](https://github.com/rust-lang/time),
 [toml](https://github.com/alexcrichton/toml-rs),
-[ucd-util](https://github.com/BurntSushi/ucd-generate),
 [unicase](https://github.com/seanmonstar/unicase),
 [unicode-bidi](https://github.com/servo/unicode-bidi),
 [unicode-normalization](https://github.com/unicode-rs/unicode-normalization),
@@ -781,14 +776,13 @@ limitations under the License.
 
 ```
 -------------
-## MIT License: aho-corasick, byteorder, memchr, termcolor, utf8-ranges
+## MIT License: aho-corasick, byteorder, memchr, termcolor
 
 The following text applies to code linked from these dependendencies:
 [aho-corasick](https://github.com/BurntSushi/aho-corasick),
 [byteorder](https://github.com/BurntSushi/byteorder),
 [memchr](https://github.com/BurntSushi/rust-memchr),
-[termcolor](https://github.com/BurntSushi/termcolor),
-[utf8-ranges](https://github.com/BurntSushi/utf8-ranges)
+[termcolor](https://github.com/BurntSushi/termcolor)
 
 ```
 The MIT License (MIT)
@@ -1247,11 +1241,10 @@ SOFTWARE.
 
 ```
 -------------
-## MIT License: miniz_oxide, miniz_oxide_c_api
+## MIT License: miniz_oxide
 
 The following text applies to code linked from these dependendencies:
-[miniz_oxide](https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide),
-[miniz_oxide_c_api](https://github.com/Frommi/miniz_oxide)
+[miniz_oxide](https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide)
 
 ```
 MIT License
@@ -1399,38 +1392,6 @@ SOFTWARE.
 
 ```
 -------------
-## MIT License: phf, phf_codegen, phf_generator, phf_shared
-
-The following text applies to code linked from these dependendencies:
-[phf](https://github.com/sfackler/rust-phf),
-[phf_codegen](https://github.com/sfackler/rust-phf),
-[phf_generator](https://github.com/sfackler/rust-phf),
-[phf_shared](https://github.com/sfackler/rust-phf)
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2014-2016 Steven Fackler
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-```
--------------
 ## MIT License: schannel
 
 The following text applies to code linked from these dependendencies:
@@ -1480,35 +1441,6 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
-```
--------------
-## MIT License: spin
-
-The following text applies to code linked from these dependendencies:
-[spin](https://github.com/mvdnes/spin-rs.git)
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2014 Mathijs van de Nes
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 ```
 -------------
 ## MIT License: strsim
@@ -1689,35 +1621,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-```
--------------
-## MIT License: unicase
-
-The following text applies to code linked from these dependendencies:
-[unicase](https://github.com/seanmonstar/unicase)
-
-```
-Copyright (c) 2014-2015 Sean McArthur
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
 
 ```
 -------------
