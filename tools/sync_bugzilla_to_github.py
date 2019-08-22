@@ -36,6 +36,7 @@ SYNCED_ISSUE_BUGID_REGEX = re.compile(
     # N.B. we can't use a r'raw string' literal here because of the \N escape.
     '\N{LADY BEETLE} Issue is synchronized with Bugzilla \\[Bug (\\d+)\\]')
 SEE_ALSO_ISSUE_REGEX_TEMPLATE = r'^https://github.com/{}/issues/\d+$'
+SYNCED_ISSUE_CLOSE_COMMENT = 'Upstream bug has been closed with the following resolution: {resolution}.'
 
 # Jira adds some metadata to issue descriptions, indicated by this separator.
 # We want to preserve any lines like this from the github issue description.
@@ -116,7 +117,7 @@ class BugSet(object):
         # silently omitted from this query.
         if found_bugs:
             public_bugs = set()
-            url = BZ_URL + '/bug?include_fields=id,is_open,see_also,summary,status'
+            url = BZ_URL + '/bug?include_fields=id,is_open,see_also,summary,status,resolution'
             url += '&id=' + '&id='.join(found_bugs)
             for bug in get_json(url)['bugs']:
                 bugid = str(bug['id'])
@@ -253,6 +254,9 @@ class MirrorIssueSet(object):
                     issue.number, changed_fields, **bug_info)
                 # Weird API thing where `issue.edit` accepts strings rather than label refs...
                 issue_info['labels'] = [l.name for l in issue_info['labels']]
+                # Explain why we are closing this issue.
+                if not bug_info['is_open'] and 'state' in changed_fields and 'resolution' in bug_info:
+                    issue.create_comment(SYNCED_ISSUE_CLOSE_COMMENT.format(resolution=bug_info['resolution']))
                 issue.edit(**issue_info)
                 return True
             # else:
