@@ -368,7 +368,8 @@ jobs:
             echo "binary \"$JSON_URL\" ~> 0.0.1-snapshot # mozilla/application-services@$CIRCLE_SHA1"
       - persist_to_workspace:
           root: .
-          paths: MozillaAppServices.framework.zip
+          paths:
+            - MozillaAppServices.framework.zip
   Carthage release:
     macos:
       xcode: "10.2.1"
@@ -431,9 +432,9 @@ workflows:
   deploy-website:
     jobs:
       - Deploy website:
-        filters:
-          branches:
-            only: master
+          filters:
+            branches:
+              only: master
   check-dependencies-periodically:
     jobs:
       - Check Rust dependencies
