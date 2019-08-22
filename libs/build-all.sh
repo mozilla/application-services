@@ -65,8 +65,8 @@ SQLCIPHER_SRC_PATH=$(abspath "sqlcipher")
 
 rm -rf "${NSS}"
 # Delete the following...
-hg clone https://hg.mozilla.org/projects/nss/ -r caf5d97f786fc3dad2f9318b228007a233b5f0bd "${NSS}"/nss
-hg clone https://hg.mozilla.org/projects/nspr/ -r bf5c37749c28c523134e41b1e28b6ffaf2d2c4e9 "${NSS}"/nspr
+hg clone https://hg.mozilla.org/projects/nss/ -r 7f146eb7adacabb83dc7f77083776b28956c5528 "${NSS}"/nss
+hg clone https://hg.mozilla.org/projects/nspr/ -r NSPR_4_22_BRANCH "${NSS}"/nspr
 # ... and uncomment the following once NSS 3.45 and NSPR 4.22 are out.
 # if [[ ! -e "${NSS_ARCHIVE}" ]]; then
 #   echo "Downloading ${NSS_ARCHIVE}"
