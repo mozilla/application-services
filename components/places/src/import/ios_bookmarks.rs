@@ -2,12 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::api::places_api::{PlacesApi, SyncConn};
+use crate::api::places_api::PlacesApi;
 use crate::bookmark_sync::{
     store::{BookmarksStore, Merger},
     SyncedBookmarkKind,
 };
 use crate::error::*;
+use crate::import::common::{attached_database, ExecuteOnDrop};
 use crate::types::SyncStatus;
 use rusqlite::{named_params, NO_PARAMS};
 use sql_support::ConnExt;
@@ -95,14 +96,11 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     // ios_db_file_url.query_pairs_mut().append_pair("mode", "ro");
 
     log::trace!("Attaching database {}", ios_db_file_url);
-    let auto_detach = attached_database(&conn, &ios_db_file_url)?;
+    let auto_detach = attached_database(&conn, &ios_db_file_url, "ios")?;
 
     let tx = conn.begin_transaction()?;
 
-    let clear_mirror_on_drop = ExecuteOnDrop {
-        conn: &conn,
-        sql: &WIPE_MIRROR,
-    };
+    let clear_mirror_on_drop = ExecuteOnDrop::new(&conn, WIPE_MIRROR.to_string());
 
     // Clear the mirror now, since we're about to fill it with data from the ios
     // connection.
@@ -469,108 +467,14 @@ lazy_static::lazy_static! {
     );
 }
 
-fn attached_database<'a>(conn: &'a SyncConn<'a>, path: &Url) -> Result<ExecuteOnDrop<'a>> {
-    conn.execute_named(
-        "ATTACH DATABASE :path AS ios",
-        named_params! {
-            ":path": path.as_str(),
-        },
-    )?;
-    Ok(ExecuteOnDrop {
-        conn,
-        sql: "DETACH DATABASE ios;",
-    })
-}
-
-/// We use/abuse the mirror to perform our import, but need to clean it up
-/// afterwards. This is an RAII helper to do so.
-///
-/// Ideally, you should call `execute_now` rather than letting this drop
-/// automatically, as we can't report errors beyond logging when running
-/// Drop.
-struct ExecuteOnDrop<'a> {
-    conn: &'a SyncConn<'a>,
-    // Logged on errors, so &'static helps discourage using anything
-    // that could have user data.
-    sql: &'static str,
-}
-
-impl<'a> ExecuteOnDrop<'a> {
-    pub fn execute_now(self) -> Result<()> {
-        self.conn.execute_batch(self.sql)?;
-        // Don't run our `drop` function.
-        std::mem::forget(self);
-        Ok(())
-    }
-}
-
-impl Drop for ExecuteOnDrop<'_> {
-    fn drop(&mut self) {
-        if let Err(e) = self.conn.execute_batch(self.sql) {
-            log::error!("Failed to clean up after import! {}", e);
-            log::debug!("  Failed query: {}", self.sql);
-        }
-    }
-}
-
 mod sql_fns {
-    use crate::storage::URL_LENGTH_MAX;
-    use crate::types::Timestamp;
-    use rusqlite::{functions::Context, types::ValueRef, Connection, Result};
-    use url::Url;
+    use crate::import::common::sql_fns::{is_valid_url, sanitize_timestamp, validate_url};
+    use rusqlite::{Connection, Result};
 
     pub(super) fn define_functions(c: &Connection) -> Result<()> {
         c.create_scalar_function("validate_url", 1, true, validate_url)?;
         c.create_scalar_function("is_valid_url", 1, true, is_valid_url)?;
         c.create_scalar_function("sanitize_timestamp", 1, true, sanitize_timestamp)?;
         Ok(())
-    }
-
-    #[inline(never)]
-    pub fn validate_url(ctx: &Context<'_>) -> Result<Option<String>> {
-        let val = ctx.get_raw(0);
-        let href = if let ValueRef::Text(s) = val {
-            std::str::from_utf8(s)?
-        } else {
-            return Ok(None);
-        };
-        if href.len() > URL_LENGTH_MAX {
-            return Ok(None);
-        }
-        if let Ok(url) = Url::parse(href) {
-            Ok(Some(url.into_string()))
-        } else {
-            Ok(None)
-        }
-    }
-
-    #[inline(never)]
-    pub fn is_valid_url(ctx: &Context<'_>) -> Result<Option<bool>> {
-        Ok(match ctx.get_raw(0) {
-            ValueRef::Text(s) if s.len() <= URL_LENGTH_MAX => {
-                if let Ok(s) = std::str::from_utf8(s) {
-                    Some(Url::parse(s).is_ok())
-                } else {
-                    Some(false)
-                }
-            }
-            // Should we do this?
-            // ValueRef::Null => None,
-            _ => Some(false),
-        })
-    }
-
-    #[inline(never)]
-    pub fn sanitize_timestamp(ctx: &Context<'_>) -> Result<Timestamp> {
-        let now = Timestamp::now();
-        Ok(if let Ok(ts) = ctx.get::<Timestamp>(0) {
-            if Timestamp::EARLIEST < ts && ts < now {
-                ts
-            } else {
-                now
-            }
-        } else {
-            now
-        })
     }
 }

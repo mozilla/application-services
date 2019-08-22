@@ -74,6 +74,9 @@ pub enum ErrorKind {
 
     #[fail(display = "Database cannot be upgraded")]
     DatabaseUpgradeError,
+
+    #[fail(display = "Database version {} is not supported", _0)]
+    UnsupportedDatabaseVersion(i64),
 }
 
 error_support::define_error! {

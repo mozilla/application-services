@@ -75,6 +75,7 @@ pub extern "C" fn places_connection_new(
         Ok(CONNECTIONS.insert(api.open_connection(conn_type)?))
     })
 }
+
 #[no_mangle]
 pub extern "C" fn places_bookmarks_import_from_ios(
     api_handle: u64,
@@ -84,6 +85,19 @@ pub extern "C" fn places_bookmarks_import_from_ios(
     log::debug!("places_bookmarks_import_from_ios");
     APIS.call_with_result(error, api_handle, |api| -> places::Result<_> {
         places::import::import_ios_bookmarks(api, db_path.as_str())?;
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn places_history_import_from_fennec(
+    api_handle: u64,
+    db_path: FfiStr<'_>,
+    error: &mut ExternError,
+) {
+    log::debug!("places_history_import_from_fennec");
+    APIS.call_with_result(error, api_handle, |api| -> places::Result<_> {
+        places::import::import_fennec_history(api, db_path.as_str())?;
         Ok(())
     })
 }
