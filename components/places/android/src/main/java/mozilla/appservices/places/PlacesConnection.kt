@@ -411,6 +411,13 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         deleteVisitsBetween(since, Long.MAX_VALUE)
     }
 
+    override fun importBookmarksFromFennec(path: String) {
+        rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_bookmarks_import_from_fennec(
+                    this.handle.get(), path, error)
+        }
+    }
+
     override fun importVisitsFromFennec(path: String) {
         rustCall { error ->
             LibPlacesFFI.INSTANCE.places_history_import_from_fennec(
@@ -746,6 +753,15 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
      * @param start time for the deletion, unix timestamp in milliseconds.
      */
     fun deleteVisitsSince(since: Long)
+
+    /**
+     * Imports bookmarks from a Fennec `browser.db` database.
+     *
+     * It has been designed exclusively for non-sync users.
+     *
+     * @param path Path to the `browser.db` file database.
+     */
+    fun importBookmarksFromFennec(path: String)
 
     /**
      * Imports visits from a Fennec `browser.db` database.
