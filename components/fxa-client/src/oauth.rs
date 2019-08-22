@@ -20,6 +20,9 @@ use url::Url;
 // If a cached token has less than `OAUTH_MIN_TIME_LEFT` seconds left to live,
 // it will be considered already expired.
 const OAUTH_MIN_TIME_LEFT: u64 = 60;
+// Special redirect urn based on the OAuth native spec, signals that the
+// WebChannel flow is used
+const OAUTH_WEBCHANNEL_REDIRECT: &str = "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel";
 
 impl FirefoxAccount {
     /// Fetch a short-lived access token using the saved refresh token.
@@ -135,13 +138,21 @@ impl FirefoxAccount {
         let keys_jwk = base64::encode_config(&jwk_json, base64::URL_SAFE_NO_PAD);
         url.query_pairs_mut()
             .append_pair("client_id", &self.state.config.client_id)
-            .append_pair("redirect_uri", &self.state.config.redirect_uri)
             .append_pair("scope", &scopes.join(" "))
             .append_pair("state", &state)
             .append_pair("code_challenge_method", "S256")
             .append_pair("code_challenge", &code_challenge)
             .append_pair("access_type", "offline")
             .append_pair("keys_jwk", &keys_jwk);
+
+        if self.state.config.redirect_uri == OAUTH_WEBCHANNEL_REDIRECT {
+            url.query_pairs_mut()
+                .append_pair("context", "oauth_webchannel_v1");
+        } else {
+            url.query_pairs_mut()
+                .append_pair("redirect_uri", &self.state.config.redirect_uri);
+        }
+
         self.flow_store.insert(
             state.clone(), // Since state is supposed to be unique, we use it to key our flows.
             OAuthFlow {
@@ -287,6 +298,7 @@ impl std::fmt::Debug for AccessTokenInfo {
 mod tests {
     use super::*;
     use std::borrow::Cow;
+    use std::collections::HashMap;
 
     impl FirefoxAccount {
         pub fn add_cached_token(&mut self, scope: &str, token_info: AccessTokenInfo) {
@@ -318,17 +330,12 @@ mod tests {
             pairs.next(),
             Some((Cow::Borrowed("response_type"), Cow::Borrowed("code")))
         );
+
         assert_eq!(
             pairs.next(),
             Some((Cow::Borrowed("client_id"), Cow::Borrowed("12345678")))
         );
-        assert_eq!(
-            pairs.next(),
-            Some((
-                Cow::Borrowed("redirect_uri"),
-                Cow::Borrowed("https://foo.bar")
-            ))
-        );
+
         assert_eq!(
             pairs.next(),
             Some((Cow::Borrowed("scope"), Cow::Borrowed("profile")))
@@ -353,6 +360,14 @@ mod tests {
         let keys_jwk = pairs.next().unwrap();
         assert_eq!(keys_jwk.0, Cow::Borrowed("keys_jwk"));
         assert_eq!(keys_jwk.1.len(), 168);
+
+        assert_eq!(
+            pairs.next(),
+            Some((
+                Cow::Borrowed("redirect_uri"),
+                Cow::Borrowed("https://foo.bar")
+            ))
+        );
     }
 
     #[test]
@@ -369,6 +384,40 @@ mod tests {
             pairs.find(|e| e.0 == "email"),
             Some((Cow::Borrowed("email"), Cow::Borrowed(email),))
         );
+    }
+
+    #[test]
+    fn test_webchannel_context_url() {
+        const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
+        let mut fxa = FirefoxAccount::new(
+            "https://accounts.firefox.com",
+            "12345678",
+            "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel",
+        );
+        let url = fxa.begin_oauth_flow(&SCOPES).unwrap();
+        let url = Url::parse(&url).unwrap();
+        let query_params: HashMap<_, _> = url.query_pairs().into_owned().collect();
+        let context = &query_params["context"];
+        assert_eq!(context, "oauth_webchannel_v1");
+        assert_eq!(query_params.get("redirect_uri"), None);
+    }
+
+    #[test]
+    fn test_webchannel_pairing_context_url() {
+        const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
+        const PAIRING_URL: &str = "https://accounts.firefox.com/pair#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
+
+        let mut fxa = FirefoxAccount::new(
+            "https://accounts.firefox.com",
+            "12345678",
+            "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel",
+        );
+        let url = fxa.begin_pairing_flow(&PAIRING_URL, &SCOPES).unwrap();
+        let url = Url::parse(&url).unwrap();
+        let query_params: HashMap<_, _> = url.query_pairs().into_owned().collect();
+        let context = &query_params["context"];
+        assert_eq!(context, "oauth_webchannel_v1");
+        assert_eq!(query_params.get("redirect_uri"), None);
     }
 
     #[test]
@@ -399,17 +448,11 @@ mod tests {
         assert_eq!(
             pairs.next(),
             Some((
-                Cow::Borrowed("redirect_uri"),
-                Cow::Borrowed("https://foo.bar")
-            ))
-        );
-        assert_eq!(
-            pairs.next(),
-            Some((
                 Cow::Borrowed("scope"),
                 Cow::Borrowed("https://identity.mozilla.com/apps/oldsync")
             ))
         );
+
         let state_param = pairs.next().unwrap();
         assert_eq!(state_param.0, Cow::Borrowed("state"));
         assert_eq!(state_param.1.len(), 22);
@@ -430,6 +473,14 @@ mod tests {
         let keys_jwk = pairs.next().unwrap();
         assert_eq!(keys_jwk.0, Cow::Borrowed("keys_jwk"));
         assert_eq!(keys_jwk.1.len(), 168);
+
+        assert_eq!(
+            pairs.next(),
+            Some((
+                Cow::Borrowed("redirect_uri"),
+                Cow::Borrowed("https://foo.bar")
+            ))
+        );
     }
 
     #[test]
