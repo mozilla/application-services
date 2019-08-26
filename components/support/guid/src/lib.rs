@@ -207,6 +207,14 @@ impl Guid {
         }
     }
 
+    /// Returns true for Guids that are deemed valid by the sync server.
+    /// See https://github.com/mozilla-services/server-syncstorage/blob/d92ef07877aebd05b92f87f6ade341d6a55bffc8/syncstorage/bso.py#L24
+    pub fn is_valid_for_sync_server(&self) -> bool {
+        !self.is_empty()
+            && self.len() <= 64
+            && self.bytes().all(|b| b >= b' ' && b <= b'~' && b != b',')
+    }
+
     /// Returns true for Guids that are valid places guids, and false for all others.
     pub fn is_valid_for_places(&self) -> bool {
         self.len() == 12 && self.bytes().all(Guid::is_valid_places_byte)

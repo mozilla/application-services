@@ -32,6 +32,10 @@ pub enum ErrorKind {
     )]
     NoSuchRecord(String),
 
+    // Fennec import only works on empty logins tables.
+    #[fail(display = "The logins tables are not empty")]
+    NonEmptyTable,
+
     #[fail(display = "Error synchronizing: {}", _0)]
     SyncAdapterError(#[fail(cause)] sync15::Error),
 

@@ -9,6 +9,7 @@ import mozilla.appservices.logins.rust.PasswordSyncAdapter
 import mozilla.appservices.logins.rust.RustError
 import mozilla.appservices.sync15.SyncTelemetryPing
 import java.util.concurrent.atomic.AtomicLong
+import org.json.JSONArray
 
 /**
  * LoginsStorage implementation backed by a database.
@@ -165,6 +166,18 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
         return rustCallWithLock { raw, error ->
             PasswordSyncAdapter.INSTANCE.sync15_passwords_add(raw, s, error)
         }.getAndConsumeRustString()
+    }
+
+    @Throws(LoginsStorageException::class)
+    override fun importLogins(logins: Array<ServerPassword>): Long {
+        val s = JSONArray().apply {
+            logins.forEach {
+                put(it.toJSON())
+            }
+        }.toString()
+        return rustCallWithLock { raw, error ->
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_import(raw, s, error)
+        }
     }
 
     @Throws(LoginsStorageException::class)

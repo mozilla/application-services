@@ -419,6 +419,95 @@ impl LoginDb {
         Ok(login)
     }
 
+    pub fn import_multiple(&self, logins: &[Login]) -> Result<u64> {
+        // Check if the logins table is empty first.
+        let mut num_existing_logins =
+            self.query_row::<i64, _, _>("SELECT COUNT(*) FROM loginsL", NO_PARAMS, |r| r.get(0))?;
+        num_existing_logins +=
+            self.query_row::<i64, _, _>("SELECT COUNT(*) FROM loginsM", NO_PARAMS, |r| r.get(0))?;
+        if num_existing_logins > 0 {
+            return Err(ErrorKind::NonEmptyTable.into());
+        }
+        let tx = self.unchecked_transaction()?;
+        let now_ms = util::system_time_ms_i64(SystemTime::now());
+        let sql = format!(
+            "INSERT OR IGNORE INTO loginsL (
+                hostname,
+                httpRealm,
+                formSubmitURL,
+                usernameField,
+                passwordField,
+                timesUsed,
+                username,
+                password,
+                guid,
+                timeCreated,
+                timeLastUsed,
+                timePasswordChanged,
+                local_modified,
+                is_deleted,
+                sync_status
+            ) VALUES (
+                :hostname,
+                :http_realm,
+                :form_submit_url,
+                :username_field,
+                :password_field,
+                :times_used,
+                :username,
+                :password,
+                :guid,
+                :time_created,
+                :time_last_used,
+                :time_password_changed,
+                :local_modified,
+                0, -- is_deleted
+                {new} -- sync_status
+            )",
+            new = SyncStatus::New as u8
+        );
+        let mut num_failed = 0;
+        for login in logins {
+            if let Err(e) = login.check_valid() {
+                log::warn!("Skipping login {} as it is invalid ({}).", login.guid, e);
+                num_failed += 1;
+                continue;
+            }
+            let old_guid = &login.guid; // Keep the old GUID around so we can debug errors easily.
+            let guid = if old_guid.is_valid_for_sync_server() {
+                old_guid.clone()
+            } else {
+                Guid::random()
+            };
+            match self.execute_named_cached(
+                &sql,
+                named_params! {
+                    ":hostname": login.hostname,
+                    ":http_realm": login.http_realm,
+                    ":form_submit_url": login.form_submit_url,
+                    ":username_field": login.username_field,
+                    ":password_field": login.password_field,
+                    ":username": login.username,
+                    ":password": login.password,
+                    ":guid": guid,
+                    ":time_created": login.time_created,
+                    ":times_used": login.times_used,
+                    ":time_last_used": login.time_last_used,
+                    ":time_password_changed": login.time_password_changed,
+                    ":local_modified": now_ms,
+                },
+            ) {
+                Ok(_) => log::info!("Imported {} (new GUID {}) successfully.", old_guid, guid),
+                Err(e) => {
+                    log::warn!("Could not import {} ({}).", old_guid, e);
+                    num_failed += 1;
+                }
+            };
+        }
+        tx.commit()?;
+        Ok(num_failed)
+    }
+
     pub fn update(&self, login: Login) -> Result<()> {
         login.check_valid()?;
         let tx = self.unchecked_transaction()?;
