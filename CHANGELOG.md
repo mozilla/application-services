@@ -1,3 +1,21 @@
+# v0.38.1 (_2019-08-26_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.38.0...v0.38.1)
+
+## FxA Client
+
+### What's new
+
+-  Added support for a webchannel redirect behaviour. ([#1608](https://github.com/mozilla/application-services/pull/1608))
+
+## Android
+
+### What's new
+
+- Initial versions of Fennec data import methods have landed:
+  - Bookmarks and history visits can be imported by calling `PlacesWriterConnection.importBookmarksFromFennec` and `PlacesWriterConnection.importVisitsFromFennec` respectively. ([#1595](https://github.com/mozilla/application-services/pull/1595), [#1461](https://github.com/mozilla/application-services/pull/1461))
+  - Logins can be imported with `LoginsStorage.importLogins`. ([#1614](https://github.com/mozilla/application-services/pull/1614))
+
 # v0.38.0 (_2019-08-19_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.37.1...v0.38.0)
