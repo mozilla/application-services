@@ -189,7 +189,7 @@ impl Connection for ConnectHttp {
             Ok(v) => v,
             Err(e) => {
                 return Err(
-                    CommunicationServerError(format!("Could not fetch endpoint: {:?}", e)).into(),
+                    CommunicationServerError(format!("Could not fetch endpoint: {}", e)).into(),
                 );
             }
         };
@@ -263,9 +263,7 @@ impl Connection for ConnectHttp {
             .send()
         {
             Ok(_) => Ok(true),
-            Err(e) => {
-                Err(CommunicationServerError(format!("Could not unsubscribe: {:?}", e)).into())
-            }
+            Err(e) => Err(CommunicationServerError(format!("Could not unsubscribe: {}", e)).into()),
         }
     }
 
@@ -301,7 +299,7 @@ impl Connection for ConnectHttp {
         {
             Ok(_) => Ok(true),
             Err(e) => {
-                Err(CommunicationServerError(format!("Could not update token: {:?}", e)).into())
+                Err(CommunicationServerError(format!("Could not update token: {}", e)).into())
             }
         }
     }
@@ -341,7 +339,7 @@ impl Connection for ConnectHttp {
             Ok(v) => v,
             Err(e) => {
                 return Err(CommunicationServerError(format!(
-                    "Could not fetch channel list: {:?}",
+                    "Could not fetch channel list: {}",
                     e
                 ))
                 .into());
