@@ -24,10 +24,15 @@ ffi-support = { path = "../support/ffi" }
 interrupt = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
+prost = "0.5.0"
+prost-derive = "0.5.0"
 
 [dependencies.rusqlite]
 version = "0.19.0"
 features = ["sqlcipher", "limits"]
+
+[build-dependencies]
+prost-build = "0.5"
 
 [dev-dependencies]
 more-asserts = "0.2.1"

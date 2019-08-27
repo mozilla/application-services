@@ -16,6 +16,9 @@ mod update_plan;
 mod util;
 
 mod ffi;
+pub mod msg_types {
+    include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
+}
 
 pub use crate::engine::*;
 pub use crate::error::*;
