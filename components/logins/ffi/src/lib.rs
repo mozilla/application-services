@@ -10,7 +10,7 @@
 
 use ffi_support::ConcurrentHandleMap;
 use ffi_support::{
-    define_box_destructor, define_handle_map_deleter, define_string_destructor, ExternError, FfiStr,
+    define_box_destructor, define_handle_map_deleter, define_string_destructor, define_bytebuffer_destructor, ExternError, FfiStr, ByteBuffer
 };
 use logins::{Login, PasswordEngine, Result};
 use std::os::raw::c_char;
@@ -193,12 +193,11 @@ pub extern "C" fn sync15_passwords_interrupt(
 }
 
 #[no_mangle]
-pub extern "C" fn sync15_passwords_get_all(handle: u64, error: &mut ExternError) -> *mut c_char {
+pub extern "C" fn sync15_passwords_get_all(handle: u64, error: &mut ExternError) -> ByteBuffer {
     log::debug!("sync15_passwords_get_all");
     ENGINES.call_with_result(error, handle, |state| -> Result<String> {
-        let all_passwords = state.lock().unwrap().list()?;
-        let result = serde_json::to_string(&all_passwords)?;
-        Ok(result)
+        let all_passwords = state.list()?;
+        Ok(all_passwords)
     })
 }
 
@@ -221,7 +220,7 @@ pub extern "C" fn sync15_passwords_get_by_id(
     handle: u64,
     id: FfiStr<'_>,
     error: &mut ExternError,
-) -> *mut c_char {
+) -> ByteBuffer {
     log::debug!("sync15_passwords_get_by_id");
     ENGINES.call_with_result(error, handle, |state| {
         state.lock().unwrap().get(id.as_str())
@@ -233,7 +232,7 @@ pub extern "C" fn sync15_passwords_add(
     handle: u64,
     record_json: FfiStr<'_>,
     error: &mut ExternError,
-) -> *mut c_char {
+) -> ByteBuffer {
     log::debug!("sync15_passwords_add");
     ENGINES.call_with_result(error, handle, |state| {
         let mut parsed: serde_json::Value = serde_json::from_str(record_json.as_str())?;
