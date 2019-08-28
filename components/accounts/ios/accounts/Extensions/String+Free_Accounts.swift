@@ -4,8 +4,9 @@
 
 import Foundation
 
-extension Data {
-    init(rustBuffer: FxAManagerRustBuffer) {
-        self.init(bytes: rustBuffer.data!, count: Int(rustBuffer.len))
+extension String {
+    public init(freeingAccountsString accountsString: UnsafeMutablePointer<CChar>) {
+        defer { fxa_mgr_str_free(accountsString) }
+        self.init(cString: accountsString)
     }
 }

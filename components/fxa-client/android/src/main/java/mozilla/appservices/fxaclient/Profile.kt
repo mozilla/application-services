@@ -12,7 +12,8 @@ data class Profile(
     val displayName: String?
 ) {
     companion object {
-        internal fun fromMessage(msg: MsgTypes.Profile): Profile {
+        // TODO: this should be "internal".
+        fun fromMessage(msg: MsgTypes.Profile): Profile {
             return Profile(uid = if (msg.hasUid()) msg.uid else null,
                 email = if (msg.hasEmail()) msg.email else null,
                 avatar = if (msg.hasAvatar()) msg.avatar else null,

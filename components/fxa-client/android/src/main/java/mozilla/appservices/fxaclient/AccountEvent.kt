@@ -32,7 +32,8 @@ sealed class AccountEvent {
                 null -> throw NullPointerException("AccountEvent type cannot be null.")
             }.exhaustive
         }
-        internal fun fromCollectionMessage(msg: MsgTypes.AccountEvents): Array<AccountEvent> {
+        // TODO: should no be public!
+        fun fromCollectionMessage(msg: MsgTypes.AccountEvents): Array<AccountEvent> {
             return msg.eventsList.map {
                 fromMessage(it)
             }.toTypedArray()

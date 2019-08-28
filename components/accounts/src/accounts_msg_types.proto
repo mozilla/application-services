@@ -1,0 +1,18 @@
+syntax = "proto2";
+
+// Note: this file name must be unique due to how the iOS megazord works :(
+
+package msg_types;
+
+option java_package = "mozilla.appservices.accounts";
+option java_outer_classname = "MsgTypes";
+
+message AccountState {
+    enum State {
+        START = 1;
+        NOT_AUTHENTICATED = 2;
+        AUTHENTICATION_PROBLEM = 3;
+        AUTHENTICATED = 4;
+    }
+    required State state = 1;
+}

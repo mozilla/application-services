@@ -244,13 +244,13 @@ impl FirefoxAccount {
     pub(crate) fn replace_device(
         &self,
         display_name: &str,
-        device_type: &Type,
+        device_type: Type,
         push_subscription: &Option<PushSubscription>,
         commands: &HashMap<String, String>,
     ) -> Result<UpdateDeviceResponse> {
         let mut builder = DeviceUpdateRequestBuilder::new()
             .display_name(display_name)
-            .device_type(device_type)
+            .device_type(&device_type)
             .available_commands(commands);
         if let Some(push_subscription) = push_subscription {
             builder = builder.push_subscription(push_subscription)

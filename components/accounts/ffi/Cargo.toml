@@ -1,0 +1,21 @@
+[package]
+name = "accounts_ffi"
+edition = "2018"
+version = "0.1.0"
+authors = ["application-services@mozilla.com"]
+license = "MPL-2.0"
+
+[lib]
+name = "accounts_ffi"
+crate-type = ["lib"]
+
+[dependencies]
+lazy_static = "1.4.0"
+log = "0.4.8"
+prost = "0.5.0"
+fxa-client = { path = "../../fxa-client" }
+ffi-support = { path = "../../support/ffi" }
+# What about viaduct?
+
+[dependencies.accounts]
+path = "../"

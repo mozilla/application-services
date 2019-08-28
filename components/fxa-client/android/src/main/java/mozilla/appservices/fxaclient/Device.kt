@@ -75,7 +75,7 @@ data class Device(
         }
     }
     companion object {
-        internal fun fromMessage(msg: MsgTypes.Device): Device {
+        fun fromMessage(msg: MsgTypes.Device): Device {
             return Device(
                     id = msg.id,
                     displayName = msg.displayName,
@@ -89,7 +89,7 @@ data class Device(
                     capabilities = msg.capabilitiesList.map { Capability.fromMessage(it) }
             )
         }
-        internal fun fromCollectionMessage(msg: MsgTypes.Devices): Array<Device> {
+        fun fromCollectionMessage(msg: MsgTypes.Devices): Array<Device> {
             return msg.devicesList.map {
                 fromMessage(it)
             }.toTypedArray()

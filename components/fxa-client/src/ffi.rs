@@ -233,3 +233,4 @@ implement_into_ffi_by_delegation!(AccountEvent, msg_types::AccountEvent);
 implement_into_ffi_by_protobuf!(msg_types::AccountEvent);
 implement_into_ffi_by_protobuf!(msg_types::Devices);
 implement_into_ffi_by_protobuf!(msg_types::AccountEvents);
+implement_into_ffi_by_protobuf!(msg_types::DeviceConstellation);

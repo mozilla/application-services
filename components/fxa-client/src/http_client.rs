@@ -486,7 +486,7 @@ pub struct DeviceUpdateRequest<'a> {
     available_commands: Option<Option<&'a HashMap<String, String>>>,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum DeviceType {
     #[serde(rename = "desktop")]
     Desktop,

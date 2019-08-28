@@ -88,3 +88,9 @@ message AccountEvent {
 message AccountEvents {
     repeated AccountEvent events = 1;
 }
+
+// TODO: Should be in  accounts_msg_types.proto but it's easier here.
+message DeviceConstellation {
+    optional Device current_device = 1;
+    required Devices other_devices = 2;
+}

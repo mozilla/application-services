@@ -1,5 +1,7 @@
 [workspace]
 members = [
+    "components/accounts",
+    "components/accounts/ffi",
     "components/fxa-client",
     "components/fxa-client/ffi",
     "components/logins",

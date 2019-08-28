@@ -242,7 +242,7 @@ impl FirefoxAccount {
         if let Some(ref device_info) = old_device_info {
             if let Err(err) = self.replace_device(
                 &device_info.display_name,
-                &device_info.device_type,
+                device_info.device_type,
                 &device_info.push_subscription,
                 &device_info.available_commands,
             ) {

@@ -1,14 +1,15 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
-    ext.kotlin_version = '1.3.10'
+    ext.kotlin_version = '1.3.50'
     ext.android_components_version = '0.50.0'
     ext.jna_version = '5.2.0'
     ext.android_gradle_plugin_version = '3.5.0'
 
     ext.build = [
-        compileSdkVersion: 27,
-        targetSdkVersion: 27,
+        // These values are the same as android-components.
+        compileSdkVersion: 29,
+        targetSdkVersion: 28,
         minSdkVersion: 21, // So that we can publish for aarch64.
     ]
 

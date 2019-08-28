@@ -1,6 +1,13 @@
-libraryVersion: 0.38.2
+libraryVersion: 0.99.9-BOBOLOCAL
 groupId: org.mozilla.appservices
 projects:
+  accounts:
+    path: components/accounts/android
+    artifactId: accounts
+    publications:
+      - name: accounts
+        type: aar
+    description: Firefox Accounts manager.
   fxaclient:
     path: components/fxa-client/android
     artifactId: fxaclient
