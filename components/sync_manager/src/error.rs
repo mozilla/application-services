@@ -15,11 +15,19 @@ pub enum ErrorKind {
     InvalidHandle(#[fail(cause)] ffi_support::HandleError),
     #[fail(display = "Protobuf decode error: {}", _0)]
     ProtobufDecodeError(#[fail(cause)] prost::DecodeError),
+    // Used for things like 'failed to decode the provided sync key because it's
+    // completely the wrong format', etc.
+    #[fail(display = "Sync error: {}", _0)]
+    Sync15Error(#[fail(cause)] sync15::Error),
+    #[fail(display = "URL parse error: {}", _0)]
+    UrlParseError(#[fail(cause)] url::ParseError),
 }
 
 error_support::define_error! {
     ErrorKind {
         (InvalidHandle, ffi_support::HandleError),
         (ProtobufDecodeError, prost::DecodeError),
+        (Sync15Error, sync15::Error),
+        (UrlParseError, url::ParseError),
     }
 }

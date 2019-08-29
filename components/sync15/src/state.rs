@@ -87,6 +87,26 @@ pub struct GlobalState {
     pub keys: EncryptedBso,
 }
 
+impl GlobalState {
+    // TODO: this function needs to change once we understand 'accepted'.
+    pub fn update_declined_engines(&mut self, changes: &HashMap<String, bool>) {
+        let mut current_state: HashMap<String, bool> = self
+            .global
+            .declined
+            .iter()
+            .map(|e| (e.to_string(), false))
+            .collect();
+        for (e, v) in changes {
+            current_state.insert(e.to_string(), *v);
+        }
+        let new_declined = current_state
+            .into_iter()
+            .filter_map(|(e, allow)| if allow { None } else { Some(e) })
+            .collect::<Vec<String>>();
+        self.global.declined = new_declined;
+    }
+}
+
 /// Creates a fresh `meta/global` record, using the default engine selections,
 /// and declined engines from our PersistedGlobalState.
 fn new_global(pgs: &PersistedGlobalState) -> error::Result<MetaGlobalRecord> {

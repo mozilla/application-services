@@ -66,6 +66,9 @@ pub struct SyncResult {
     /// The general health.
     pub service_status: ServiceStatus,
 
+    /// The set of declined engines, if we know them.
+    pub declined: Option<Vec<String>>,
+
     /// The result of the sync.
     pub result: Result<(), Error>,
 

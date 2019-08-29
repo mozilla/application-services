@@ -68,9 +68,9 @@ lazy_static! {
 
 static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
-struct SyncState {
-    mem_cached_state: Cell<MemoryCachedState>,
-    disk_cached_state: Cell<Option<String>>,
+pub struct SyncState {
+    pub mem_cached_state: Cell<MemoryCachedState>,
+    pub disk_cached_state: Cell<Option<String>>,
 }
 
 /// The entry-point to the places API. This object gives access to database
@@ -242,6 +242,7 @@ impl PlacesApi {
                     client_init,
                     key_bundle,
                     &interruptee,
+                    None,
                 )
             },
         )
@@ -264,6 +265,7 @@ impl PlacesApi {
                     client_init,
                     key_bundle,
                     &interruptee,
+                    None,
                 )
             },
         )
@@ -351,6 +353,7 @@ impl PlacesApi {
             client_init,
             key_bundle,
             &interruptee,
+            None,
         );
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
@@ -380,6 +383,23 @@ impl PlacesApi {
         store.reset(&sync15::StoreSyncAssociation::Disconnected)?;
 
         Ok(())
+    }
+
+    pub fn reset_history(&self) -> Result<()> {
+        // Take the lock to prevent syncing while we're doing this.
+        let _guard = self.sync_state.lock().unwrap();
+        let conn = self.open_sync_connection()?;
+
+        // Somewhat ironically, we start by migrating from the legacy storage
+        // format. We *are* just going to delete it anyway, but the code is
+        // simpler if we can just reuse the existing path.
+        HistoryStore::migrate_v1_global_state(&conn)?;
+
+        // We'd rather you didn't interrupt this, but it's a required arg for
+        // HistoryStore
+        let scope = conn.begin_interrupt_scope();
+        let store = HistoryStore::new(&conn, &scope);
+        store.do_reset(&sync15::StoreSyncAssociation::Disconnected)
     }
 
     /// Get a new interrupt handle for the sync connection.

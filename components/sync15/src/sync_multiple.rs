@@ -70,10 +70,12 @@ pub fn sync_multiple(
     storage_init: &Sync15StorageClientInit,
     root_sync_key: &KeyBundle,
     interruptee: &impl Interruptee,
+    engines_to_state_change: Option<&HashMap<String, bool>>,
 ) -> SyncResult {
     let mut sync_result = SyncResult {
         service_status: ServiceStatus::OtherError,
         result: Ok(()),
+        declined: None,
         engine_results: HashMap::with_capacity(stores.len()),
         telemetry: telemetry::SyncTelemetryPing::new(),
     };
@@ -85,6 +87,7 @@ pub fn sync_multiple(
         root_sync_key,
         interruptee,
         &mut sync_result,
+        engines_to_state_change,
     ) {
         Ok(()) => {
             log::debug!(
@@ -114,6 +117,8 @@ fn do_sync_multiple(
     root_sync_key: &KeyBundle,
     interruptee: &impl Interruptee,
     sync_result: &mut SyncResult,
+    // FIXME: finish threading this through
+    _engines_to_state_change: Option<&HashMap<String, bool>>,
 ) -> result::Result<(), Error> {
     if interruptee.was_interrupted() {
         sync_result.service_status = ServiceStatus::Interrupted;
@@ -160,7 +165,10 @@ fn do_sync_multiple(
             }
         }
         None => {
-            log::info!("The application didn't give us persisted state - this is only expected on the very first run for a given user.");
+            log::info!(
+                "The application didn't give us persisted state - \
+                 this is only expected on the very first run for a given user."
+            );
             PersistedGlobalState::default()
         }
     };
