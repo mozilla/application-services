@@ -5,10 +5,10 @@ set -euvx
 # SQLCIPHER_VERSION="4.1.0"
 # SQLCIPHER_SHA256="65144ca3ba4c0f9cd4bae8c20bb42f2b84424bf29d1ebcf04c44a728903b1faa"
 
-NSS="nss-3.44"
-# NSS_ARCHIVE="nss-3.44-with-nspr-4.21.tar.gz"
-# NSS_URL="http://ftp.mozilla.org/pub/security/nss/releases/NSS_3_44_RTM/src/${NSS_ARCHIVE}"
-# NSS_SHA256="298d86e18e96660d3c98476274b5857b48c135d809a10d6528d8661bdf834a49"
+NSS="nss-3.46"
+NSS_ARCHIVE="nss-3.46-with-nspr-4.22.tar.gz"
+NSS_URL="http://ftp.mozilla.org/pub/security/nss/releases/NSS_3_46_RTM/src/${NSS_ARCHIVE}"
+NSS_SHA256="3d4197196e870ab2dccc6ee497e0ec83f45ea070fee929dd931491c024d69f31"
 
 # End of configuration.
 
@@ -64,18 +64,14 @@ SQLCIPHER_SRC_PATH=$(abspath "sqlcipher")
 # SQLCIPHER_SRC_PATH=$(abspath "sqlcipher-${SQLCIPHER_VERSION}")
 
 rm -rf "${NSS}"
-# Delete the following...
-hg clone https://hg.mozilla.org/projects/nss/ -r caf5d97f786fc3dad2f9318b228007a233b5f0bd "${NSS}"/nss
-hg clone https://hg.mozilla.org/projects/nspr/ -r bf5c37749c28c523134e41b1e28b6ffaf2d2c4e9 "${NSS}"/nspr
-# ... and uncomment the following once NSS 3.45 and NSPR 4.22 are out.
-# if [[ ! -e "${NSS_ARCHIVE}" ]]; then
-#   echo "Downloading ${NSS_ARCHIVE}"
-#   curl -L -O "${NSS_URL}"
-# else
-#   echo "Using ${NSS_ARCHIVE}"
-# fi
-# echo "${NSS_SHA256}  ${NSS_ARCHIVE}" | shasum -a 256 -c - || exit 2
-# tar xfz "${NSS_ARCHIVE}"
+if [[ ! -e "${NSS_ARCHIVE}" ]]; then
+  echo "Downloading ${NSS_ARCHIVE}"
+  curl -L -O "${NSS_URL}"
+else
+  echo "Using ${NSS_ARCHIVE}"
+fi
+echo "${NSS_SHA256}  ${NSS_ARCHIVE}" | shasum -a 256 -c - || exit 2
+tar xfz "${NSS_ARCHIVE}"
 NSS_SRC_PATH=$(abspath "${NSS}")
 
 # Some NSS symbols clash with OpenSSL symbols, rename them using

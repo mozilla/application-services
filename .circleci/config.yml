@@ -92,7 +92,7 @@ commands:
       - run: sudo apt-get install tcl
       - run:
           name: Install NSS build system dependencies
-          command: sudo apt-get install ninja-build gyp mercurial zlib1g-dev
+          command: sudo apt-get install ninja-build gyp zlib1g-dev
       - build-libs:
           platform: desktop
   build-ios-libs:
@@ -100,7 +100,7 @@ commands:
       - run:
           name: Install NSS build system dependencies
           command: |
-            brew install ninja mercurial
+            brew install ninja
             pushd ..
             git clone https://chromium.googlesource.com/external/gyp.git
             pushd gyp

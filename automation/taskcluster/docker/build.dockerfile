@@ -71,8 +71,6 @@ RUN apt-get update -qq \
         gyp \
         ninja-build \
         zlib1g-dev \
-        # <TODO: Delete mercurial once `libs/build-all.sh` gets NSS through a zip file>.
-        mercurial \
         # <TODO: Delete p7zip once NSS windows is actually compiled instead of downloaded>.
         p7zip-full \
         ## End of NSS build dependencies
