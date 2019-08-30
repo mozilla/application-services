@@ -64,6 +64,7 @@ elif [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
   NSS_DIST_DIR=$(abspath "dist")
 elif [[ "$(uname -s)" == "Darwin" ]] || [[ "$(uname -s)" == "Linux" ]]; then
   "${NSS_SRC_DIR}"/nss/build.sh \
+    -v \
     --opt \
     --static \
     --disable-tests \
