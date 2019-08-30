@@ -80,14 +80,16 @@ pub fn sync_multiple(
         telemetry: telemetry::SyncTelemetryPing::new(),
     };
     match do_sync_multiple(
-        stores,
+        SyncMultipleParams {
+            stores,
+            storage_init,
+            interruptee,
+            _engines_to_state_change: engines_to_state_change,
+            root_sync_key,
+        },
         persisted_global_state,
         mem_cached_state,
-        storage_init,
-        root_sync_key,
-        interruptee,
         &mut sync_result,
-        engines_to_state_change,
     ) {
         Ok(()) => {
             log::debug!(
@@ -108,19 +110,26 @@ pub fn sync_multiple(
     sync_result
 }
 
+// This is just the read-only parameters, to keep the number of lifetime
+// arguments on this struct low. The mutable params are passed separately.
+// (Honestly, this exists mostly to shut clippy up about too many arguments).
+struct SyncMultipleParams<'a> {
+    stores: &'a [&'a dyn Store],
+    storage_init: &'a Sync15StorageClientInit,
+    root_sync_key: &'a KeyBundle,
+    interruptee: &'a dyn Interruptee,
+    // FIXME: finish threading this through
+    _engines_to_state_change: Option<&'a HashMap<String, bool>>,
+}
+
 /// The actual worker for sync_multiple.
 fn do_sync_multiple(
-    stores: &[&dyn Store],
+    params: SyncMultipleParams<'_>,
     persisted_global_state: &mut Option<String>,
     mem_cached_state: &mut MemoryCachedState,
-    storage_init: &Sync15StorageClientInit,
-    root_sync_key: &KeyBundle,
-    interruptee: &impl Interruptee,
     sync_result: &mut SyncResult,
-    // FIXME: finish threading this through
-    _engines_to_state_change: Option<&HashMap<String, bool>>,
 ) -> result::Result<(), Error> {
-    if interruptee.was_interrupted() {
+    if params.interruptee.was_interrupted() {
         sync_result.service_status = ServiceStatus::Interrupted;
         return Ok(());
     }
@@ -133,10 +142,10 @@ fn do_sync_multiple(
             // changed, courtesy of the 'kid' in the structure. Thus, we can't
             // reuse the client or the memory cached state. We do keep the disk
             // state as currently that's only the declined list.
-            if client_info.client_init != *storage_init {
+            if client_info.client_init != *params.storage_init {
                 log::info!("Discarding all state as the account might have changed");
                 *mem_cached_state = MemoryCachedState::default();
-                ClientInfo::new(storage_init)?
+                ClientInfo::new(params.storage_init)?
             } else {
                 // we can reuse it (which should be the common path)
                 client_info
@@ -146,7 +155,7 @@ fn do_sync_multiple(
             // We almost certainly have no other state here, but to be safe, we
             // throw away any memory state we do have.
             *mem_cached_state = MemoryCachedState::default();
-            ClientInfo::new(storage_init)?
+            ClientInfo::new(params.storage_init)?
         }
     };
 
@@ -173,7 +182,7 @@ fn do_sync_multiple(
         }
     };
 
-    if interruptee.was_interrupted() {
+    if params.interruptee.was_interrupted() {
         sync_result.service_status = ServiceStatus::Interrupted;
         return Ok(());
     }
@@ -184,9 +193,9 @@ fn do_sync_multiple(
         let last_state = mem::replace(&mut mem_cached_state.last_global_state, None);
         let mut state_machine = SetupStateMachine::for_full_sync(
             &client_info.client,
-            &root_sync_key,
+            &params.root_sync_key,
             &mut pgs,
-            interruptee,
+            params.interruptee,
         );
         log::info!("Advancing state machine to ready (full)");
         let state = match state_machine.run_to_ready(last_state) {
@@ -211,7 +220,7 @@ fn do_sync_multiple(
 
     let mut num_failures = 0;
     let mut telem_sync = telemetry::SyncTelemetry::new();
-    for store in stores {
+    for store in params.stores {
         let name = store.collection_name();
         log::info!("Syncing {} engine!", name);
 
@@ -219,11 +228,11 @@ fn do_sync_multiple(
         let result = sync::synchronize(
             &client_info.client,
             &global_state,
-            root_sync_key,
+            params.root_sync_key,
             *store,
             true,
             &mut telem_engine,
-            interruptee,
+            params.interruptee,
         );
 
         match result {
@@ -251,7 +260,7 @@ fn do_sync_multiple(
         }
         telem_sync.engine(telem_engine);
         sync_result.engine_results.insert(name.into(), result);
-        if interruptee.was_interrupted() {
+        if params.interruptee.was_interrupted() {
             sync_result.service_status = ServiceStatus::Interrupted;
             return Ok(());
         }
