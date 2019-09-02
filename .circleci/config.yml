@@ -440,7 +440,7 @@ workflows:
       - Check Rust dependencies
     triggers:
       - schedule:
-          cron: "0 * * * *"
+          cron: "0 7 * * *"
           filters:
             branches:
               only:
@@ -450,7 +450,7 @@ workflows:
       - Mirror Bugzilla issues into GitHub
     triggers:
       - schedule:
-          cron: "0 * * * *"
+          cron: "0,30 * * * *"
           filters:
             branches:
               only:
