@@ -222,6 +222,10 @@ fn do_sync_multiple(
     let mut telem_sync = telemetry::SyncTelemetry::new();
     for store in params.stores {
         let name = store.collection_name();
+        if global_state.global.declined.iter().any(|e| e == name) {
+            log::info!("The {} engine is declined. Skipping", name);
+            continue;
+        }
         log::info!("Syncing {} engine!", name);
 
         let mut telem_engine = telemetry::Engine::new(name);
