@@ -87,11 +87,17 @@ pub struct GlobalState {
     pub keys: EncryptedBso,
 }
 
-impl GlobalState {
+fn same_declined(a: &[String], b: &[String]) -> bool {
+    use std::collections::HashSet;
+    let ea = a.iter().map(|s| s.as_str()).collect::<HashSet<_>>();
+    let eb = b.iter().map(|s| s.as_str()).collect::<HashSet<_>>();
+    ea == eb
+}
+
+impl MetaGlobalRecord {
     // TODO: this function needs to change once we understand 'accepted'.
-    pub fn update_declined_engines(&mut self, changes: &HashMap<String, bool>) {
+    pub fn update_declined_engines(&mut self, changes: &HashMap<String, bool>) -> bool {
         let mut current_state: HashMap<String, bool> = self
-            .global
             .declined
             .iter()
             .map(|e| (e.to_string(), false))
@@ -103,7 +109,9 @@ impl GlobalState {
             .into_iter()
             .filter_map(|(e, allow)| if allow { None } else { Some(e) })
             .collect::<Vec<String>>();
-        self.global.declined = new_declined;
+        let same = !changes.is_empty() && !same_declined(&self.declined, &new_declined);
+        self.declined = new_declined;
+        same
     }
 }
 
@@ -155,6 +163,7 @@ pub struct SetupStateMachine<'a> {
     // budget", after which we get interrupted. Later...
     allowed_states: Vec<&'static str>,
     sequence: Vec<&'static str>,
+    engine_updates: Option<&'a HashMap<String, bool>>,
     interruptee: &'a dyn Interruptee,
 }
 
@@ -166,6 +175,7 @@ impl<'a> SetupStateMachine<'a> {
         client: &'a dyn SetupStorageClient,
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
+        engine_updates: Option<&'a HashMap<String, bool>>,
         interruptee: &'a dyn Interruptee,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine::with_allowed_states(
@@ -173,6 +183,7 @@ impl<'a> SetupStateMachine<'a> {
             root_key,
             pgs,
             interruptee,
+            engine_updates,
             vec![
                 "Initial",
                 "InitialWithConfig",
@@ -194,6 +205,7 @@ impl<'a> SetupStateMachine<'a> {
         client: &'a dyn SetupStorageClient,
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
+        engine_updates: Option<&'a HashMap<String, bool>>,
         interruptee: &'a dyn Interruptee,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine::with_allowed_states(
@@ -201,6 +213,7 @@ impl<'a> SetupStateMachine<'a> {
             root_key,
             pgs,
             interruptee,
+            engine_updates,
             vec!["Ready", "WithPreviousState"],
         )
     }
@@ -219,6 +232,8 @@ impl<'a> SetupStateMachine<'a> {
             root_key,
             pgs,
             interruptee,
+            // No engine updates for a readonly sync
+            None,
             // We don't allow a FreshStart in a read-only sync.
             vec![
                 "Initial",
@@ -236,6 +251,7 @@ impl<'a> SetupStateMachine<'a> {
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
         interruptee: &'a dyn Interruptee,
+        engine_updates: Option<&'a HashMap<String, bool>>,
         allowed_states: Vec<&'static str>,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine {
@@ -244,6 +260,7 @@ impl<'a> SetupStateMachine<'a> {
             pgs,
             sequence: Vec::new(),
             allowed_states,
+            engine_updates,
             interruptee,
         }
     }
@@ -291,7 +308,7 @@ impl<'a> SetupStateMachine<'a> {
                 collections,
             } => match self.client.fetch_meta_global()? {
                 Sync15ClientResponse::Success {
-                    record: global,
+                    record: mut global,
                     last_modified: global_timestamp,
                     ..
                 } => {
@@ -306,15 +323,26 @@ impl<'a> SetupStateMachine<'a> {
                     if global.storage_version < STORAGE_VERSION {
                         Ok(FreshStartRequired { config })
                     } else {
-                        // TODO: Here would be a good place to check if we've enabled
-                        // or disabled any engines locally, and update `m/g` to reflect
-                        // that.
-                        Ok(InitialWithMetaGlobal {
-                            config,
-                            collections,
-                            global,
-                            global_timestamp,
-                        })
+                        // Check and see if we have engine changes to make. If
+                        // we do, then we need to reupload meta/global.
+                        let need_refresh = if let Some(es) = self.engine_updates {
+                            global.update_declined_engines(es)
+                        } else {
+                            false
+                        };
+                        if need_refresh {
+                            // XXX Need new state for 'need fresh meta/global'.
+                            // Using FreshStartRequired here is not something we
+                            // can do in production.
+                            Ok(FreshStartRequired { config })
+                        } else {
+                            Ok(InitialWithMetaGlobal {
+                                config,
+                                collections,
+                                global,
+                                global_timestamp,
+                            })
+                        }
                     }
                 }
                 Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }) => {
@@ -400,7 +428,10 @@ impl<'a> SetupStateMachine<'a> {
                 self.client.wipe_all_remote()?;
 
                 // Upload a fresh `meta/global`...
-                let new_global = new_global(self.pgs)?;
+                let mut new_global = new_global(self.pgs)?;
+                if let Some(updates) = self.engine_updates {
+                    new_global.update_declined_engines(updates);
+                }
                 self.client
                     .put_meta_global(ServerTimestamp::default(), &new_global)?;
 
@@ -679,7 +710,7 @@ mod tests {
         let mut pgs = PersistedGlobalState::V2 { declined: None };
 
         let mut state_machine =
-            SetupStateMachine::for_full_sync(&client, &root_key, &mut pgs, &NeverInterrupts);
+            SetupStateMachine::for_full_sync(&client, &root_key, &mut pgs, None, &NeverInterrupts);
         assert!(
             state_machine.run_to_ready(None).is_ok(),
             "Should drive state machine to ready"

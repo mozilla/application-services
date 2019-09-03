@@ -84,7 +84,7 @@ pub fn sync_multiple(
             stores,
             storage_init,
             interruptee,
-            _engines_to_state_change: engines_to_state_change,
+            engines_to_state_change,
             root_sync_key,
         },
         persisted_global_state,
@@ -118,8 +118,7 @@ struct SyncMultipleParams<'a> {
     storage_init: &'a Sync15StorageClientInit,
     root_sync_key: &'a KeyBundle,
     interruptee: &'a dyn Interruptee,
-    // FIXME: finish threading this through
-    _engines_to_state_change: Option<&'a HashMap<String, bool>>,
+    engines_to_state_change: Option<&'a HashMap<String, bool>>,
 }
 
 /// The actual worker for sync_multiple.
@@ -195,6 +194,7 @@ fn do_sync_multiple(
             &client_info.client,
             &params.root_sync_key,
             &mut pgs,
+            params.engines_to_state_change,
             params.interruptee,
         );
         log::info!("Advancing state machine to ready (full)");
