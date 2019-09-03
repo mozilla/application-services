@@ -775,7 +775,9 @@ pub mod history_sync {
         max_visits: usize,
     ) -> Result<HashMap<SyncGuid, OutgoingInfo>> {
         // Note that we want *all* "new" regardless of change counter,
-        // so that we do the right thing after a "reset".
+        // so that we do the right thing after a "reset". We also
+        // exclude hidden URLs from syncing, to match Desktop
+        // (bug 1173359).
         let places_sql = format!(
             "
             SELECT guid, url, id, title, hidden, typed, frecency,
@@ -783,7 +785,8 @@ pub mod history_sync {
                 last_visit_date_local, last_visit_date_remote,
                 sync_status, sync_change_counter
             FROM moz_places
-            WHERE (sync_change_counter > 0 OR sync_status != {})
+            WHERE (sync_change_counter > 0 OR sync_status != {}) AND
+                  NOT hidden
             ORDER BY frecency DESC
             LIMIT :max_places",
             (SyncStatus::Normal as u8)
@@ -1058,12 +1061,13 @@ pub fn get_visit_infos(
 ) -> Result<HistoryVisitInfos> {
     let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
-        "SELECT h.url, h.title, v.visit_date, v.visit_type
+        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden
          FROM moz_places h
          JOIN moz_historyvisits v
            ON h.id = v.place_id
          WHERE v.visit_date BETWEEN :start AND :end
-           AND ((1 << visit_type) & :allowed_types) != 0
+           AND ((1 << visit_type) & :allowed_types) != 0 AND
+           NOT h.hidden
          ORDER BY v.visit_date",
         rusqlite::named_params! {
             ":start": start,
@@ -1102,11 +1106,12 @@ pub fn get_visit_page(
 ) -> Result<HistoryVisitInfos> {
     let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
-        "SELECT h.url, h.title, v.visit_date, v.visit_type
+        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden
          FROM moz_places h
          JOIN moz_historyvisits v
            ON h.id = v.place_id
-         WHERE ((1 << v.visit_type) & :allowed_types) != 0
+         WHERE ((1 << v.visit_type) & :allowed_types) != 0 AND
+               NOT h.hidden
          ORDER BY v.visit_date DESC, v.id
          LIMIT :count
          OFFSET :offset",

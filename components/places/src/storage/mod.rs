@@ -187,6 +187,7 @@ impl HistoryVisitInfo {
             title: row.get("title")?,
             timestamp: visit_date.0 as i64,
             visit_type: visit_type as i32,
+            is_hidden: row.get("hidden")?,
         })
     }
 }

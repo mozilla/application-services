@@ -953,7 +953,13 @@ data class VisitInfo(
     /**
      * What the transition type of the visit is.
      */
-    val visitType: VisitType
+    val visitType: VisitType,
+
+    /**
+     * Whether the page is hidden because it redirected to another page, or was
+     * visited in a frame.
+     */
+    val isHidden: Boolean
 ) {
     companion object {
         internal fun fromMessage(msg: MsgTypes.HistoryVisitInfos): List<VisitInfo> {
@@ -961,7 +967,8 @@ data class VisitInfo(
                 VisitInfo(url = it.url,
                     title = it.title,
                     visitTime = it.timestamp,
-                    visitType = intToVisitType[it.visitType]!!)
+                    visitType = intToVisitType[it.visitType]!!,
+                    isHidden = it.isHidden)
             }
         }
     }
