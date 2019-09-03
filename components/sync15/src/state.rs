@@ -14,7 +14,6 @@ use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use crate::request::{InfoCollections, InfoConfiguration};
 use crate::util::ServerTimestamp;
 use interrupt::Interruptee;
-use lazy_static::lazy_static;
 use serde_derive::*;
 use sync_guid::Guid;
 
@@ -22,27 +21,25 @@ use self::SetupState::*;
 
 const STORAGE_VERSION: usize = 5;
 
-lazy_static! {
-    /// Maps names to storage versions for engines to include in a fresh
-    /// `meta/global` record. We include engines that we don't implement
-    /// because they'll be disabled on other clients if we omit them
-    /// (bug 1479929).
-    static ref DEFAULT_ENGINES: Vec<(&'static str, usize)> = vec![
-        ("passwords", 1),
-        ("clients", 1),
-        ("addons", 1),
-        ("addresses", 1),
-        ("bookmarks", 2),
-        ("creditcards", 1),
-        ("forms", 1),
-        ("history", 1),
-        ("prefs", 2),
-        ("tabs", 1),
-    ];
+/// Maps names to storage versions for engines to include in a fresh
+/// `meta/global` record. We include engines that we don't implement
+/// because they'll be disabled on other clients if we omit them
+/// (bug 1479929).
+const DEFAULT_ENGINES: &[(&str, usize)] = &[
+    ("passwords", 1),
+    ("clients", 1),
+    ("addons", 1),
+    ("addresses", 1),
+    ("bookmarks", 2),
+    ("creditcards", 1),
+    ("forms", 1),
+    ("history", 1),
+    ("prefs", 2),
+    ("tabs", 1),
+];
 
-    // Declined engines to include in a fresh `meta/global` record.
-    static ref DEFAULT_DECLINED: Vec<&'static str> = vec![];
-}
+// Declined engines to include in a fresh `meta/global` record.
+const DEFAULT_DECLINED: &[&str] = &[];
 
 /// State that we require the app to persist to storage for us.
 /// It's a little unfortunate we need this, because it's only tracking
