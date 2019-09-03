@@ -40,6 +40,26 @@ pub fn disconnect() {
     manager.disconnect();
 }
 
+pub fn wipe(engine: &str) -> Result<()> {
+    let mut manager = MANAGER.lock().unwrap();
+    manager.wipe(engine)
+}
+
+pub fn wipe_all() -> Result<()> {
+    let mut manager = MANAGER.lock().unwrap();
+    manager.wipe_all()
+}
+
+pub fn reset(engine: &str) -> Result<()> {
+    let mut manager = MANAGER.lock().unwrap();
+    manager.reset(engine)
+}
+
+pub fn reset_all() -> Result<()> {
+    let mut manager = MANAGER.lock().unwrap();
+    manager.reset_all()
+}
+
 pub fn sync(params: msg_types::SyncParams) -> Result<msg_types::SyncResult> {
     let mut manager = MANAGER.lock().unwrap();
     manager.sync(params)

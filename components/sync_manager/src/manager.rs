@@ -38,6 +38,95 @@ impl SyncManager {
         self.logins = Arc::downgrade(&logins);
     }
 
+    pub fn wipe(&mut self, engine: &str) -> Result<()> {
+        match engine {
+            "logins" => {
+                if let Some(logins) = self
+                    .logins
+                    .upgrade()
+                    .as_ref()
+                    .map(|l| l.lock().expect("poisoned logins mutex"))
+                {
+                    logins.wipe()?;
+                    Ok(())
+                } else {
+                    Err(ErrorKind::ConnectionClosed(engine.into()).into())
+                }
+            }
+            "bookmarks" => {
+                if let Some(places) = self.places.upgrade() {
+                    places.wipe_bookmarks()?;
+                    Ok(())
+                } else {
+                    Err(ErrorKind::ConnectionClosed(engine.into()).into())
+                }
+            }
+            _ => Err(ErrorKind::UnknownEngine(engine.into()).into()),
+        }
+    }
+
+    pub fn wipe_all(&mut self) -> Result<()> {
+        if let Some(logins) = self
+            .logins
+            .upgrade()
+            .as_ref()
+            .map(|l| l.lock().expect("poisoned logins mutex"))
+        {
+            logins.wipe()?;
+        }
+        if let Some(places) = self.places.upgrade() {
+            places.wipe_bookmarks()?;
+        }
+        Ok(())
+    }
+
+    pub fn reset(&mut self, engine: &str) -> Result<()> {
+        match engine {
+            "logins" => {
+                if let Some(logins) = self
+                    .logins
+                    .upgrade()
+                    .as_ref()
+                    .map(|l| l.lock().expect("poisoned logins mutex"))
+                {
+                    logins.reset()?;
+                    Ok(())
+                } else {
+                    Err(ErrorKind::ConnectionClosed(engine.into()).into())
+                }
+            }
+            "bookmarks" | "history" => {
+                if let Some(places) = self.places.upgrade() {
+                    if engine == "bookmarks" {
+                        places.reset_bookmarks()?;
+                    } else {
+                        places.reset_history()?;
+                    }
+                    Ok(())
+                } else {
+                    Err(ErrorKind::ConnectionClosed(engine.into()).into())
+                }
+            }
+            _ => Err(ErrorKind::UnknownEngine(engine.into()).into()),
+        }
+    }
+
+    pub fn reset_all(&mut self) -> Result<()> {
+        if let Some(logins) = self
+            .logins
+            .upgrade()
+            .as_ref()
+            .map(|l| l.lock().expect("poisoned logins mutex"))
+        {
+            logins.reset()?;
+        }
+        if let Some(places) = self.places.upgrade() {
+            places.reset_bookmarks()?;
+            places.reset_history()?;
+        }
+        Ok(())
+    }
+
     pub fn disconnect(&mut self) {
         if let Some(logins) = self
             .logins

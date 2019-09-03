@@ -34,8 +34,8 @@ use sync_guid::Guid as SyncGuid;
 pub const LAST_SYNC_META_KEY: &str = "bookmarks_last_sync_time";
 // Note that all engines in this crate should use a *different* meta key
 // for the global sync ID, because engines are reset individually.
-const GLOBAL_SYNCID_META_KEY: &str = "bookmarks_global_sync_id";
-const COLLECTION_SYNCID_META_KEY: &str = "bookmarks_sync_id";
+pub const GLOBAL_SYNCID_META_KEY: &str = "bookmarks_global_sync_id";
+pub const COLLECTION_SYNCID_META_KEY: &str = "bookmarks_sync_id";
 
 /// The maximum number of URLs for which to recalculate frecencies at once.
 /// This is a trade-off between write efficiency and transaction time: higher
