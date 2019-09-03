@@ -328,10 +328,15 @@ impl<'a> SetupStateMachine<'a> {
                             false
                         };
                         if need_refresh {
-                            // XXX Need new state for 'need fresh meta/global'.
-                            // Using FreshStartRequired here is not something we
-                            // can do in production.
-                            Ok(FreshStartRequired { config })
+                            let global_timestamp = self
+                                .client
+                                .put_meta_global(ServerTimestamp::default(), &global)?;
+                            Ok(InitialWithMetaGlobal {
+                                config,
+                                collections,
+                                global,
+                                global_timestamp,
+                            })
                         } else {
                             Ok(InitialWithMetaGlobal {
                                 config,
@@ -589,7 +594,7 @@ mod tests {
             &self,
             xius: ServerTimestamp,
             _global: &MetaGlobalRecord,
-        ) -> error::Result<()> {
+        ) -> error::Result<ServerTimestamp> {
             assert_eq!(xius, ServerTimestamp(999_900));
             Err(ErrorKind::StorageHttpError(ErrorResponse::ServerError {
                 status: 500,

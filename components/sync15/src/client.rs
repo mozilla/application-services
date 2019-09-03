@@ -101,7 +101,7 @@ pub trait SetupStorageClient {
         &self,
         xius: ServerTimestamp,
         global: &MetaGlobalRecord,
-    ) -> error::Result<()>;
+    ) -> error::Result<ServerTimestamp>;
     fn put_crypto_keys(&self, xius: ServerTimestamp, keys: &EncryptedBso) -> error::Result<()>;
     fn wipe_all_remote(&self) -> error::Result<()>;
 }
@@ -148,13 +148,14 @@ impl SetupStorageClient for Sync15StorageClient {
         &self,
         xius: ServerTimestamp,
         global: &MetaGlobalRecord,
-    ) -> error::Result<()> {
+    ) -> error::Result<ServerTimestamp> {
         let bso = BsoRecord::new_record("global".into(), "meta".into(), global);
         self.put("storage/meta/global", xius, &bso)
     }
 
     fn put_crypto_keys(&self, xius: ServerTimestamp, keys: &EncryptedBso) -> error::Result<()> {
-        self.put("storage/crypto/keys", xius, keys)
+        self.put("storage/crypto/keys", xius, keys)?;
+        Ok(())
     }
 
     fn wipe_all_remote(&self) -> error::Result<()> {
@@ -271,7 +272,12 @@ impl Sync15StorageClient {
         Ok(PostQueue::new(config, ts, pw, on_response))
     }
 
-    fn put<P, B>(&self, relative_path: P, xius: ServerTimestamp, body: &B) -> error::Result<()>
+    fn put<P, B>(
+        &self,
+        relative_path: P,
+        xius: ServerTimestamp,
+        body: &B,
+    ) -> error::Result<ServerTimestamp>
     where
         P: AsRef<str>,
         B: serde::ser::Serialize,
@@ -284,9 +290,13 @@ impl Sync15StorageClient {
             .json(body)
             .header(header_names::X_IF_UNMODIFIED_SINCE, format!("{}", xius))?;
 
-        let _ = self.exec_request::<Value>(req, true)?;
-
-        Ok(())
+        let resp = self.exec_request::<Value>(req, true)?;
+        // Note: we pass `true` for require_success, so this panic never happens.
+        if let Sync15ClientResponse::Success { last_modified, .. } = resp {
+            Ok(last_modified)
+        } else {
+            unreachable!("Error returned exec_request when `require_success` was true");
+        }
     }
 
     pub fn hashed_uid(&self) -> error::Result<String> {
