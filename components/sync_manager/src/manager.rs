@@ -3,13 +3,19 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::msg_types::{ServiceStatus, SyncParams, SyncReason, SyncResult};
+use crate::msg_types::{DeviceType, ServiceStatus, SyncParams, SyncReason, SyncResult};
+use crate::{reset, reset_all, wipe, wipe_all};
 use logins::PasswordEngine;
 use places::{bookmark_sync::store::BookmarksStore, history_sync::store::HistoryStore, PlacesApi};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::result;
 use std::sync::{atomic::AtomicUsize, Arc, Mutex, Weak};
 use std::time::SystemTime;
-use sync15::MemoryCachedState;
+use sync15::{
+    self,
+    clients::{self, Command, CommandProcessor, CommandStatus, Settings},
+    MemoryCachedState,
+};
 
 const LOGINS_ENGINE: &str = "passwords";
 const HISTORY_ENGINE: &str = "history";
@@ -250,7 +256,20 @@ impl SyncManager {
         } else {
             Some(&params.engines_to_change_state)
         };
-        let result = sync15::sync_multiple(
+        let settings = Settings {
+            fxa_device_id: params.fxa_device_id,
+            device_name: params.device_name,
+            device_type: if params.device_type == (DeviceType::Mobile as i32) {
+                clients::DeviceType::Mobile
+            } else if params.device_type == (DeviceType::Tablet as i32) {
+                clients::DeviceType::Tablet
+            } else {
+                clients::DeviceType::Desktop
+            },
+        };
+        let c = SyncClient::new(settings);
+        let result = sync15::sync_multiple_with_command_processor(
+            Some(&c),
             &store_refs,
             &mut disk_cached_state,
             &mut mem_cached_state,
@@ -381,4 +400,41 @@ fn check_engine_list(list: &[String], have_engines: &[&str]) -> Result<()> {
         }
     }
     Ok(())
+}
+
+struct SyncClient(Settings);
+
+impl SyncClient {
+    pub fn new(settings: Settings) -> SyncClient {
+        SyncClient(settings)
+    }
+}
+
+impl CommandProcessor for SyncClient {
+    fn settings(&self) -> &Settings {
+        &self.0
+    }
+
+    fn apply_incoming_command(
+        &self,
+        command: Command,
+    ) -> result::Result<CommandStatus, failure::Error> {
+        let result = match command {
+            Command::Wipe(engine) => wipe(&engine),
+            Command::WipeAll => wipe_all(),
+            Command::Reset(engine) => reset(&engine),
+            Command::ResetAll => reset_all(),
+        };
+        match result {
+            Ok(()) => Ok(CommandStatus::Applied),
+            Err(err) => match err.kind() {
+                ErrorKind::UnknownEngine(_) => Ok(CommandStatus::Unsupported),
+                _ => Err(err.into()),
+            },
+        }
+    }
+
+    fn fetch_outgoing_commands(&self) -> result::Result<HashSet<Command>, failure::Error> {
+        Ok(HashSet::new())
+    }
 }

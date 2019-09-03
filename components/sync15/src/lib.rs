@@ -8,6 +8,7 @@
 mod bso_record;
 mod changeset;
 mod client;
+pub mod clients;
 mod coll_state;
 mod collection_keys;
 mod error;
@@ -35,5 +36,7 @@ pub use crate::request::CollectionRequest;
 pub use crate::state::{GlobalState, SetupStateMachine};
 pub use crate::status::{ServiceStatus, SyncResult};
 pub use crate::sync::{synchronize, Store};
-pub use crate::sync_multiple::{sync_multiple, MemoryCachedState, SyncRequestInfo};
+pub use crate::sync_multiple::{
+    sync_multiple, sync_multiple_with_command_processor, MemoryCachedState, SyncRequestInfo,
+};
 pub use crate::util::{ServerTimestamp, SERVER_EPOCH};
