@@ -1,3 +1,19 @@
+# v0.38.2 (_2019-09-04_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.38.1...v0.38.2)
+
+## Android
+
+### What's new
+
+- The Gradle Android Plugin has been updated to 3.5.0. ([#1680](https://github.com/mozilla/application-services/pull/1680))
+
+## iOS
+
+### What's new
+
+- Releases are now built with Xcode 11.0.0. ([#1719](https://github.com/mozilla/application-services/pull/1719))
+
 # v0.38.1 (_2019-08-26_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.38.0...v0.38.1)
