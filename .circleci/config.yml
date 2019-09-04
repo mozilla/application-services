@@ -321,7 +321,7 @@ jobs:
             carthage bootstrap --platform iOS
             brew install swift-protobuf
             # See https://circleci.com/docs/2.0/testing-ios/#pre-starting-the-simulator
-            xcrun instruments -w "iPhone 7 (12.1) [" || true
+            xcrun instruments -w "iPhone 8 (13.0) [" || true
       - run:
           name: Run XCode tests
           command: bash run-ios-tests.sh
