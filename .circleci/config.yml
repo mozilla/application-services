@@ -215,7 +215,7 @@ commands:
 jobs:
   Check Swift formatting:
     macos:
-      xcode: "10.2.1"
+      xcode: "11.0.0"
     steps:
       - checkout
       - run: brew install swiftlint swiftformat
@@ -252,7 +252,7 @@ jobs:
           command: sh automation/lint_bash_scripts.sh
   Check Rust dependencies:
     macos:
-      xcode: "10.2.1"
+      xcode: "11.0.0"
     steps:
       - install-rust
       - setup-rust-toolchain
@@ -296,7 +296,7 @@ jobs:
       - save-sccache-cache
   iOS build and test:
     macos:
-      xcode: "10.2.1"
+      xcode: "11.0.0"
     steps:
       - install-rust
       - setup-rust-toolchain
