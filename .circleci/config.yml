@@ -147,7 +147,6 @@ commands:
           command: cargo test --all --no-default-features --verbose
   dependency-checks:
     steps:
-      - checkout
       - run:
           name: Check for security vulnerabilities in dependencies
           command: |
@@ -251,11 +250,12 @@ jobs:
           name: Lint Bash scripts with shellcheck
           command: sh automation/lint_bash_scripts.sh
   Check Rust dependencies:
-    macos:
-      xcode: "11.0.0"
+    docker:
+      - image: circleci/rust:latest
     steps:
-      - install-rust
+      - run: sudo apt-get install python3-pip
       - setup-rust-toolchain
+      - checkout
       - dependency-checks
   Mirror Bugzilla issues into GitHub:
     docker:
