@@ -372,7 +372,7 @@ jobs:
             - MozillaAppServices.framework.zip
   Carthage release:
     macos:
-      xcode: "10.2.1"
+      xcode: "11.0.0"
     steps:
       - checkout
       - attach_workspace:
