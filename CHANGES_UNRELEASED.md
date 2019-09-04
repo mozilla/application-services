@@ -2,6 +2,12 @@
 
 # Unreleased Changes
 
+## iOS
+
+### What's new
+
+- CircleCI builds with Xcode 11.0.0.
+
 ## Android
 
 ### What's new
