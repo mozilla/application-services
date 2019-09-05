@@ -94,7 +94,7 @@ impl SyncManager {
             None
         };
         let l = logins.as_ref().map(|l| l.lock().expect("poisoned mutex"));
-        // XXX this isn't ideal, we should have real support for interruption.
+        // TODO(issue 1684) this isn't ideal, we should have real support for interruption.
         let p = Arc::new(AtomicUsize::new(0));
         let interruptee = sql_support::SqlInterruptScope::new(p);
 
@@ -150,9 +150,8 @@ impl SyncManager {
         Ok(SyncResult {
             status,
             results,
-            // XXX FIXME/FINISH ME
-            have_declined: false,
-            declined: vec![],
+            have_declined: result.declined.is_some(),
+            declined: result.declined.unwrap_or_default(),
             next_sync_allowed_at: None,
             persisted_state: disk_cached_state.unwrap_or_default(),
             telemetry_json: Some(telemetry_json),

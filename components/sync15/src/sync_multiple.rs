@@ -161,7 +161,14 @@ fn do_sync_multiple(
     let mut pgs = match persisted_global_state {
         Some(persisted_string) => {
             match serde_json::from_str::<PersistedGlobalState>(&persisted_string) {
-                Ok(state) => state,
+                Ok(state) => {
+                    // TODO: we might want to consider setting `result.declined`
+                    // to what `state` has in it's declined list. I've opted not
+                    // to do that so that `result.declined == null` can be used
+                    // to determine whether or not we managed to update the
+                    // remote declined list.
+                    state
+                }
                 _ => {
                     // Don't log the error since it might contain sensitive
                     // info (although currently it only contains the declined engines list)
@@ -213,6 +220,9 @@ fn do_sync_multiple(
         mem_cached_state.last_global_state = None;
         state
     };
+    // Now that we've gone through the state machine, store the declined list in
+    // the sync_result out param.
+    sync_result.declined = Some(global_state.global.declined.clone());
 
     // Set the service status to OK here - we may adjust it based on an individual
     // store failing.
