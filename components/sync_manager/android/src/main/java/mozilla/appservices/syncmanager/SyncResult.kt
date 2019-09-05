@@ -82,7 +82,8 @@ data class SyncResult(
 
     /**
      * The next time we're allowed to sync, in milliseconds since
-     * the unix epoch.
+     * the unix epoch, or null if there are no known restrictions on
+     * the next time we can sync.
      *
      * If this value is in the future, then there's some kind of back-off.
      * Note that it's not necessary for the app to enforce this, but should

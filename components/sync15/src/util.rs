@@ -8,7 +8,7 @@ use std::convert::From;
 use std::str::FromStr;
 use std::time::Duration;
 use std::{fmt, num};
-
+use std::sync::atomic::{AtomicU32, Ordering};
 /// Typesafe way to manage server timestamps without accidentally mixing them up with
 /// local ones.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Default)]
@@ -60,6 +60,33 @@ impl fmt::Display for ServerTimestamp {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0 as f64 / 1000.0)
+    }
+}
+
+/// Finds the maximum of the current value and the argument `val`, and sets the
+/// new value to the result.
+///
+/// Note: `AtomicFoo::fetch_max` is unstable, and can't really be implemented as
+/// a single atomic operation from outside the stdlib ;-;
+pub(crate) fn atomic_update_max(v: &AtomicU32, new: u32) {
+    // For loads (and the compare_exchange_weak second ordering argument) this
+    // is too strong, we could probably get away with Acquire (or maybe Relaxed
+    // because we don't need the result?). In either case, this fn isn't called
+    // from a hot spot so whatever.
+    let mut cur = v.load(Ordering::SeqCst);
+    while cur < new {
+        // we're already handling the failure case so there's no reason not to
+        // use _weak here.
+        match v.compare_exchange_weak(cur, new, Ordering::SeqCst, Ordering::SeqCst) {
+            Ok(_) => {
+                // Success.
+                break
+            }
+            Err(new_cur) => {
+                // Interrupted, keep trying.
+                cur = new_cur
+            }
+        }
     }
 }
 

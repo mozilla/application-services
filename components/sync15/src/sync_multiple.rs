@@ -5,7 +5,7 @@
 // This helps you perform a sync of multiple stores and helps you manage
 // global and local state between syncs.
 
-use crate::client::{Sync15StorageClient, Sync15StorageClientInit};
+use crate::client::{BackoffListener, Sync15StorageClient, Sync15StorageClientInit};
 use crate::error::Error;
 use crate::key_bundle::KeyBundle;
 use crate::state::{GlobalState, PersistedGlobalState, SetupStateMachine};
@@ -17,6 +17,7 @@ use interrupt::Interruptee;
 use std::collections::HashMap;
 use std::mem;
 use std::result;
+use std::time::SystemTime;
 
 /// Info about the client to use. We reuse the client unless
 /// we discover the client_init has changed, in which case we re-create one.
@@ -44,6 +45,15 @@ impl ClientInfo {
 pub struct MemoryCachedState {
     last_client_info: Option<ClientInfo>,
     last_global_state: Option<GlobalState>,
+    // This is just stored in memory, as persisting an invalid value far in the
+    // future has the potential to break sync for good.
+    next_sync_after: Option<SystemTime>,
+}
+
+impl MemoryCachedState {
+    pub fn get_next_sync_after(&self) -> Option<SystemTime> {
+        self.next_sync_after
+    }
 }
 
 /// Sync multiple stores
@@ -76,15 +86,18 @@ pub fn sync_multiple(
         service_status: ServiceStatus::OtherError,
         result: Ok(()),
         declined: None,
+        next_sync_after: None,
         engine_results: HashMap::with_capacity(stores.len()),
         telemetry: telemetry::SyncTelemetryPing::new(),
     };
+    let backoff = crate::client::new_backoff_listener();
     match do_sync_multiple(
         SyncMultipleParams {
             stores,
             storage_init,
             interruptee,
             engines_to_state_change,
+            backoff: backoff.clone(),
             root_sync_key,
         },
         persisted_global_state,
@@ -107,6 +120,8 @@ pub fn sync_multiple(
             sync_result.result = Err(e);
         }
     }
+    sync_result.set_sync_after(backoff.get_required_wait().unwrap_or_default());
+    mem_cached_state.next_sync_after = sync_result.next_sync_after;
     sync_result
 }
 
@@ -118,6 +133,7 @@ struct SyncMultipleParams<'a> {
     storage_init: &'a Sync15StorageClientInit,
     root_sync_key: &'a KeyBundle,
     interruptee: &'a dyn Interruptee,
+    backoff: BackoffListener,
     engines_to_state_change: Option<&'a HashMap<String, bool>>,
 }
 
@@ -135,7 +151,7 @@ fn do_sync_multiple(
 
     // We put None back into last_client_info now so if we fail entirely,
     // reinitialize everything related to the client.
-    let client_info = match mem::replace(&mut mem_cached_state.last_client_info, None) {
+    let mut client_info = match mem::replace(&mut mem_cached_state.last_client_info, None) {
         Some(client_info) => {
             // if our storage_init has changed it probably means the user has
             // changed, courtesy of the 'kid' in the structure. Thus, we can't
@@ -157,6 +173,8 @@ fn do_sync_multiple(
             ClientInfo::new(params.storage_init)?
         }
     };
+    // Ensure we use the correct listener.
+    client_info.client.backoff = params.backoff.clone();
 
     let mut pgs = match persisted_global_state {
         Some(persisted_string) => {
@@ -232,6 +250,10 @@ fn do_sync_multiple(
     let mut telem_sync = telemetry::SyncTelemetry::new();
     for store in params.stores {
         let name = store.collection_name();
+        if params.backoff.get_required_wait().is_some() {
+            log::warn!("Got backoff, bailing out of sync early");
+            break;
+        }
         if global_state.global.declined.iter().any(|e| e == name) {
             log::info!("The {} engine is declined. Skipping", name);
             continue;

@@ -3,12 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::msg_types::{ServiceStatus, SyncParams, SyncResult};
+use crate::msg_types::{ServiceStatus, SyncParams, SyncReason, SyncResult};
 use logins::PasswordEngine;
 use places::{bookmark_sync::store::BookmarksStore, history_sync::store::HistoryStore, PlacesApi};
 use std::collections::HashMap;
-use std::sync::Mutex;
-use std::sync::{atomic::AtomicUsize, Arc, Weak};
+use std::sync::{atomic::AtomicUsize, Arc, Mutex, Weak};
+use std::time::SystemTime;
 use sync15::MemoryCachedState;
 
 const LOGINS_ENGINE: &str = "passwords";
@@ -64,10 +64,10 @@ impl SyncManager {
         }
     }
 
-    pub fn sync(&mut self, mut params: SyncParams) -> Result<SyncResult> {
-        let mut places = self.places.upgrade();
-        let logins = self.logins.upgrade();
+    pub fn sync(&mut self, params: SyncParams) -> Result<SyncResult> {
         let mut have_engines = vec![];
+        let places = self.places.upgrade();
+        let logins = self.logins.upgrade();
         if places.is_some() {
             have_engines.push(HISTORY_ENGINE);
             have_engines.push(BOOKMARKS_ENGINE);
@@ -76,6 +76,30 @@ impl SyncManager {
             have_engines.push(LOGINS_ENGINE);
         }
         check_engine_list(&params.engines_to_sync, &have_engines)?;
+
+        let next_sync_after = self
+            .mem_cached_state
+            .as_ref()
+            .and_then(|mcs| mcs.get_next_sync_after());
+        if backoff_in_effect(next_sync_after, &params) {
+            self.do_sync(params)
+        } else {
+            Ok(SyncResult {
+                status: ServiceStatus::BackedOff as i32,
+                results: Default::default(),
+                have_declined: false,
+                declined: vec![],
+                next_sync_allowed_at: system_time_to_millis(next_sync_after),
+                persisted_state: params.persisted_state.unwrap_or_default(),
+                // It would be nice to record telemetry here.
+                telemetry_json: None,
+            })
+        }
+    }
+
+    fn do_sync(&mut self, mut params: SyncParams) -> Result<SyncResult> {
+        let mut places = self.places.upgrade();
+        let logins = self.logins.upgrade();
 
         let key_bundle = sync15::KeyBundle::from_ksync_base64(&params.acct_sync_key)?;
         let tokenserver_url = url::Url::parse(&params.acct_tokenserver_url)?;
@@ -140,7 +164,29 @@ impl SyncManager {
         let results: HashMap<String, String> = result
             .engine_results
             .into_iter()
-            .filter_map(|(e, r)| r.err().map(|r| (e, r.to_string())))
+            .map(|(e, r)| {
+                (
+                    e,
+                    match r {
+                        Ok(()) => "".to_string(),
+                        Err(e) => {
+                            let msg = e.to_string();
+                            if msg.is_empty() {
+                                log::error!(
+                                    "Bug: error message string is empty for error: {:?}",
+                                    e
+                                );
+                                // This shouldn't happen, but we use empty string to
+                                // indicate success on the other side, so just ensure
+                                // our errors error can't be
+                                "<unspecified error>".to_string()
+                            } else {
+                                msg
+                            }
+                        }
+                    },
+                )
+            })
             .collect();
 
         // Unwrap here can never fail -- it indicates trying to serialize an
@@ -152,11 +198,40 @@ impl SyncManager {
             results,
             have_declined: result.declined.is_some(),
             declined: result.declined.unwrap_or_default(),
-            next_sync_allowed_at: None,
+            next_sync_allowed_at: system_time_to_millis(result.next_sync_after),
             persisted_state: disk_cached_state.unwrap_or_default(),
             telemetry_json: Some(telemetry_json),
         })
     }
+}
+
+fn backoff_in_effect(next_sync_after: Option<SystemTime>, p: &SyncParams) -> bool {
+    let now = SystemTime::now();
+    if let Some(nsa) = next_sync_after {
+        if nsa > now {
+            return if p.reason == (SyncReason::User as i32)
+                || p.reason == (SyncReason::EnabledChange as i32)
+            {
+                log::info!(
+                    "Still under backoff, but syncing anyway because reason is {:?}",
+                    p.reason
+                );
+                false
+            } else if !p.engines_to_change_state.is_empty() {
+                log::info!(
+                    "Still under backoff, but syncing because we have enabled state changes."
+                );
+                false
+            } else {
+                log::info!(
+                    "Still under backoff, and there's no compelling reason for us to ignore it"
+                );
+                true
+            };
+        }
+    }
+    log::debug!("Not under backoff");
+    false
 }
 
 impl From<sync15::ServiceStatus> for ServiceStatus {
@@ -172,6 +247,13 @@ impl From<sync15::ServiceStatus> for ServiceStatus {
             OtherError => ServiceStatus::OtherError,
         }
     }
+}
+
+fn system_time_to_millis(st: Option<SystemTime>) -> Option<i64> {
+    use std::convert::TryFrom;
+    let d = st?.duration_since(std::time::UNIX_EPOCH).ok()?;
+    // This should always succeed for remotely sane values.
+    i64::try_from(d.as_secs() * 1_000 + u64::from(d.subsec_nanos()) / 1_000_000).ok()
 }
 
 fn should_sync(p: &SyncParams, engine: &str) -> bool {

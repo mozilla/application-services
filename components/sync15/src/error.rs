@@ -123,3 +123,14 @@ error_support::define_error! {
         (HawkError, hawk::Error),
     }
 }
+
+impl Error {
+    pub(crate) fn get_backoff(&self) -> Option<SystemTime> {
+        if let ErrorKind::BackoffError(time) = self.kind() {
+            Some(*time)
+        } else {
+            None
+        }
+    }
+}
+

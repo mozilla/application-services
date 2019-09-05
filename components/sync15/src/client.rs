@@ -13,6 +13,7 @@ use crate::token;
 use crate::util::ServerTimestamp;
 use serde_json::Value;
 use std::str::FromStr;
+use std::sync::atomic::{AtomicU32, Ordering};
 use url::Url;
 use viaduct::{
     header_names::{self, AUTHORIZATION},
@@ -20,7 +21,7 @@ use viaduct::{
 };
 
 /// A response from a GET request on a Sync15StorageClient, encapsulating all
-/// the variants users of this client needs to care about.
+/// the variants users of this client needs to care about
 #[derive(Debug, Clone)]
 pub enum Sync15ClientResponse<T> {
     Success {
@@ -32,12 +33,43 @@ pub enum Sync15ClientResponse<T> {
     Error(ErrorResponse),
 }
 
+fn parse_seconds(seconds_str: &str) -> Option<u32> {
+    let secs = seconds_str.parse::<f64>().ok()?.ceil();
+    // Note: u32 doesn't impl TryFrom<f64> :(
+    if !secs.is_finite() || secs < 0.0 || secs >= f64::from(u32::max_value()) {
+        Some(secs as u32)
+    } else {
+        log::warn!("invalid backoff value: {}", secs);
+        None
+    }
+}
+
 impl<T> Sync15ClientResponse<T> {
-    pub fn from_response(resp: Response) -> error::Result<Self>
+    pub fn from_response(resp: Response, backoff_listener: &BackoffListener) -> error::Result<Self>
     where
         for<'a> T: serde::de::Deserialize<'a>,
     {
         let route: String = resp.url.path().into();
+        // Android seems to respect retry_after even on success requests, so we
+        // will too if it's present. This also lets us handle both backoff-like
+        // properties in the same place.
+        let retry_after = resp
+            .headers
+            .get(header_names::RETRY_AFTER)
+            .and_then(parse_seconds);
+
+        let backoff = resp
+            .headers
+            .get(header_names::X_WEAVE_BACKOFF)
+            .and_then(parse_seconds);
+
+        if let Some(b) = backoff {
+            backoff_listener.note_backoff(b);
+        }
+        if let Some(ra) = retry_after {
+            backoff_listener.note_retry_after(ra);
+        }
+
         Ok(if resp.is_success() {
             let record: T = resp.json()?;
             let last_modified = resp
@@ -45,6 +77,7 @@ impl<T> Sync15ClientResponse<T> {
                 .get(header_names::X_LAST_MODIFIED)
                 .and_then(|s| ServerTimestamp::from_str(s).ok())
                 .ok_or_else(|| ErrorKind::MissingServerTimestamp)?;
+
             Sync15ClientResponse::Success {
                 status: resp.status,
                 record,
@@ -57,7 +90,6 @@ impl<T> Sync15ClientResponse<T> {
                 404 => Sync15ClientResponse::Error(ErrorResponse::NotFound { route }),
                 401 => Sync15ClientResponse::Error(ErrorResponse::Unauthorized { route }),
                 412 => Sync15ClientResponse::Error(ErrorResponse::PreconditionFailed { route }),
-                // / TODO: 5XX errors should parse backoff etc.
                 500..=600 => {
                     Sync15ClientResponse::Error(ErrorResponse::ServerError { route, status })
                 }
@@ -104,11 +136,61 @@ pub trait SetupStorageClient {
     ) -> error::Result<ServerTimestamp>;
     fn put_crypto_keys(&self, xius: ServerTimestamp, keys: &EncryptedBso) -> error::Result<()>;
     fn wipe_all_remote(&self) -> error::Result<()>;
+    fn get_backoff_requested(&self) -> Option<std::time::Duration> {
+        None
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct BackoffState {
+    pub backoff_secs: AtomicU32,
+    pub retry_after_secs: AtomicU32,
+}
+
+pub(crate) type BackoffListener = std::sync::Arc<BackoffState>;
+
+pub(crate) fn new_backoff_listener() -> BackoffListener {
+    std::sync::Arc::new(BackoffState::default())
+}
+
+impl BackoffState {
+    pub fn note_backoff(&self, noted: u32) {
+        crate::util::atomic_update_max(&self.backoff_secs, noted)
+    }
+
+    pub fn note_retry_after(&self, noted: u32) {
+        crate::util::atomic_update_max(&self.retry_after_secs, noted)
+    }
+
+    pub fn get_backoff_secs(&self) -> u32 {
+        self.backoff_secs.load(Ordering::SeqCst)
+    }
+
+    pub fn get_retry_after_secs(&self) -> u32 {
+        self.retry_after_secs.load(Ordering::SeqCst)
+    }
+
+    pub fn get_required_wait(&self) -> Option<std::time::Duration> {
+        let bo = self.get_backoff_secs();
+        let ra = self.get_retry_after_secs();
+        let secs = u64::from(bo.max(ra));
+        if secs > 0 {
+            Some(std::time::Duration::from_secs(secs))
+        } else {
+            None
+        }
+    }
+
+    pub fn reset(&self) {
+        self.backoff_secs.store(0, Ordering::SeqCst);
+        self.retry_after_secs.store(0, Ordering::SeqCst);
+    }
 }
 
 #[derive(Debug)]
 pub struct Sync15StorageClient {
     tsc: token::TokenProvider,
+    pub(crate) backoff: BackoffListener,
 }
 
 impl SetupStorageClient for Sync15StorageClient {
@@ -170,6 +252,10 @@ impl SetupStorageClient for Sync15StorageClient {
             Err(e) => Err(e),
         }
     }
+
+    fn get_backoff_requested(&self) -> Option<std::time::Duration> {
+        self.backoff.get_required_wait()
+    }
 }
 
 impl Sync15StorageClient {
@@ -180,7 +266,10 @@ impl Sync15StorageClient {
             init_params.access_token,
             init_params.key_id,
         )?;
-        Ok(Sync15StorageClient { tsc })
+        Ok(Sync15StorageClient {
+            tsc,
+            backoff: new_backoff_listener(),
+        })
     }
 
     pub fn get_encrypted_records(
@@ -233,7 +322,7 @@ impl Sync15StorageClient {
         let resp = req.send()?;
         log::trace!("response: {}", resp.status);
 
-        let result = Sync15ClientResponse::from_response(resp)?;
+        let result = Sync15ClientResponse::from_response(resp, &self.backoff)?;
         match result {
             Sync15ClientResponse::Success { .. } => Ok(result),
             _ => {

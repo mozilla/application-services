@@ -483,6 +483,10 @@ impl<'a> SetupStateMachine<'a> {
             };
             self.sequence.push(label);
             s = self.advance(s)?;
+            // TODO: Consider checking `self.client.get_backoff_requested()`
+            // here, and returning early if it wouldn't cause data loss (an
+            // example of data loss would be pending changes in
+            // `self.engine_updates`).
         }
     }
 }

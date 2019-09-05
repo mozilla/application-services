@@ -5,6 +5,7 @@
 use crate::error::{Error, ErrorKind, ErrorResponse};
 use crate::telemetry::SyncTelemetryPing;
 use std::collections::HashMap;
+use std::time::{Duration, SystemTime};
 
 /// The general status of sync - should probably be moved to the "sync manager"
 /// once we have one!
@@ -77,4 +78,32 @@ pub struct SyncResult {
     pub engine_results: HashMap<String, Result<(), Error>>,
 
     pub telemetry: SyncTelemetryPing,
+
+    pub next_sync_after: Option<std::time::SystemTime>,
+}
+
+// If `r` has a BackoffError, then returns the later backoff value.
+fn advance_backoff(cur_best: SystemTime, r: &Result<(), Error>) -> SystemTime {
+    if let Err(e) = r {
+        if let Some(time) = e.get_backoff() {
+            return std::cmp::max(time, cur_best);
+        }
+    }
+    cur_best
+}
+
+impl SyncResult {
+    pub(crate) fn set_sync_after(&mut self, backoff_duration: Duration) {
+        let now = SystemTime::now();
+        let toplevel = advance_backoff(now + backoff_duration, &self.result);
+        let sync_after = self
+            .engine_results
+            .values()
+            .fold(toplevel, |b, r| advance_backoff(b, r));
+        if sync_after <= now {
+            self.next_sync_after = None;
+        } else {
+            self.next_sync_after = Some(sync_after);
+        }
+    }
 }
