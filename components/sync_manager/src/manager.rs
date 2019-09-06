@@ -81,15 +81,21 @@ impl SyncManager {
             .mem_cached_state
             .as_ref()
             .and_then(|mcs| mcs.get_next_sync_after());
-        if backoff_in_effect(next_sync_after, &params) {
+        if !backoff_in_effect(next_sync_after, &params) {
+            log::info!("No backoff in effect (or we decided to ignore it), starting sync");
             self.do_sync(params)
         } else {
+            let ts = system_time_to_millis(next_sync_after);
+            log::warn!(
+                "Backoff still in effect (until {:?}), bailing out early",
+                ts
+            );
             Ok(SyncResult {
                 status: ServiceStatus::BackedOff as i32,
                 results: Default::default(),
                 have_declined: false,
                 declined: vec![],
-                next_sync_allowed_at: system_time_to_millis(next_sync_after),
+                next_sync_allowed_at: ts,
                 persisted_state: params.persisted_state.unwrap_or_default(),
                 // It would be nice to record telemetry here.
                 telemetry_json: None,
@@ -160,21 +166,23 @@ impl SyncManager {
             Some(&params.engines_to_change_state),
         );
 
+        log::info!("Sync finished with status {:?}", result.service_status);
         let status = ServiceStatus::from(result.service_status) as i32;
         let results: HashMap<String, String> = result
             .engine_results
             .into_iter()
             .map(|(e, r)| {
+                log::info!("engine {:?} status: {:?}", e, r);
                 (
                     e,
                     match r {
                         Ok(()) => "".to_string(),
-                        Err(e) => {
-                            let msg = e.to_string();
+                        Err(err) => {
+                            let msg = err.to_string();
                             if msg.is_empty() {
                                 log::error!(
                                     "Bug: error message string is empty for error: {:?}",
-                                    e
+                                    err
                                 );
                                 // This shouldn't happen, but we use empty string to
                                 // indicate success on the other side, so just ensure
@@ -261,6 +269,11 @@ fn should_sync(p: &SyncParams, engine: &str) -> bool {
 }
 
 fn check_engine_list(list: &[String], have_engines: &[&str]) -> Result<()> {
+    log::trace!(
+        "Checking engines requested ({:?}) vs local engines ({:?})",
+        list,
+        have_engines
+    );
     for e in list {
         if e == "bookmarks" || e == "history" || e == "passwords" {
             if !have_engines.iter().any(|engine| e == engine) {

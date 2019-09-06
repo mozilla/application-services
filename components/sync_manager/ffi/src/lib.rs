@@ -14,6 +14,7 @@ use sync_manager::Result as MgrResult;
 #[no_mangle]
 pub extern "C" fn sync_manager_set_places(_places_api_handle: u64, error: &mut ExternError) {
     ffi_support::call_with_result(error, || -> MgrResult<()> {
+        log::debug!("sync_manager_set_places");
         // #[cfg(feature = "places")]
         {
             let api = places_ffi::APIS
@@ -34,6 +35,7 @@ pub extern "C" fn sync_manager_set_places(_places_api_handle: u64, error: &mut E
 #[no_mangle]
 pub extern "C" fn sync_manager_set_logins(_logins_handle: u64, error: &mut ExternError) {
     ffi_support::call_with_result(error, || -> MgrResult<()> {
+        log::debug!("sync_manager_set_logins");
         // #[cfg(feature = "logins")]
         {
             let api = logins_ffi::ENGINES
@@ -53,7 +55,10 @@ pub extern "C" fn sync_manager_set_logins(_logins_handle: u64, error: &mut Exter
 
 #[no_mangle]
 pub extern "C" fn sync_manager_disconnect(error: &mut ExternError) {
-    ffi_support::call_with_output(error, sync_manager::disconnect);
+    ffi_support::call_with_output(error, || {
+        log::debug!("sync_manager_disconnect");
+        sync_manager::disconnect()
+    });
 }
 
 unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
@@ -74,6 +79,7 @@ pub unsafe extern "C" fn sync_manager_sync(
     error: &mut ExternError,
 ) -> ffi_support::ByteBuffer {
     ffi_support::call_with_result(error, || {
+        log::debug!("sync_manager_sync");
         let buffer = get_buffer(params_data, params_len);
         let params: sync_manager::msg_types::SyncParams = prost::Message::decode(buffer)?;
         sync_manager::sync(params)

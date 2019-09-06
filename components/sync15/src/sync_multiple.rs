@@ -51,6 +51,12 @@ pub struct MemoryCachedState {
 }
 
 impl MemoryCachedState {
+    pub fn clear_sensitive_info(&mut self) {
+        self.last_client_info = None;
+        self.last_global_state = None;
+        // Leave the backoff time, as there's no reason to think it's not still
+        // true.
+    }
     pub fn get_next_sync_after(&self) -> Option<SystemTime> {
         self.next_sync_after
     }
@@ -82,6 +88,7 @@ pub fn sync_multiple(
     interruptee: &impl Interruptee,
     engines_to_state_change: Option<&HashMap<String, bool>>,
 ) -> SyncResult {
+    log::info!("Syncing {} stores", stores.len());
     let mut sync_result = SyncResult {
         service_status: ServiceStatus::OtherError,
         result: Ok(()),
@@ -162,24 +169,30 @@ fn do_sync_multiple(
                 *mem_cached_state = MemoryCachedState::default();
                 ClientInfo::new(params.storage_init)?
             } else {
+                log::debug!("Reusing memory-cached client_info");
                 // we can reuse it (which should be the common path)
                 client_info
             }
         }
         None => {
+            log::debug!("mem_cached_state was stale or missing, need setup");
             // We almost certainly have no other state here, but to be safe, we
             // throw away any memory state we do have.
-            *mem_cached_state = MemoryCachedState::default();
+            mem_cached_state.clear_sensitive_info();
             ClientInfo::new(params.storage_init)?
         }
     };
-    // Ensure we use the correct listener.
+    // Ensure we use the correct listener here rather than on all the branches
+    // above, since it seems less error prone.
     client_info.client.backoff = params.backoff.clone();
+
+    log::trace!("Setup client info, now reading persisted state");
 
     let mut pgs = match persisted_global_state {
         Some(persisted_string) => {
             match serde_json::from_str::<PersistedGlobalState>(&persisted_string) {
                 Ok(state) => {
+                    log::trace!("Read persisted state: {:?}", state);
                     // TODO: we might want to consider setting `result.declined`
                     // to what `state` has in it's declined list. I've opted not
                     // to do that so that `result.declined == null` can be used
