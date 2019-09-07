@@ -2,8 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::HashMap;
-use std::mem;
+use std::collections::{HashMap, HashSet};
 
 use crate::bso_record::EncryptedBso;
 use crate::client::{SetupStorageClient, Sync15ClientResponse};
@@ -70,6 +69,70 @@ impl Default for PersistedGlobalState {
     }
 }
 
+#[derive(Debug, Default)]
+pub(crate) struct EngineChangesNeeded {
+    pub local_resets: HashSet<String>,
+    pub remote_wipes: HashSet<String>,
+}
+
+impl PersistedGlobalState {
+    pub(crate) fn update_engine_state(
+        &mut self,
+        remote_declined: Option<&[String]>,
+        local_changes: Option<&HashMap<String, bool>>,
+    ) -> (EngineChangesNeeded, bool) {
+        let initial_declined = self.get_declined().to_vec();
+        let lc = local_changes.cloned().unwrap_or_default();
+
+        let mut next_declined: HashSet<String> = remote_declined
+            .unwrap_or(&initial_declined)
+            .iter()
+            .cloned()
+            .collect();
+
+        let mut remote_wipes: HashSet<String> = Default::default();
+
+        for (name, enabled) in lc.iter() {
+            if !*enabled {
+                remote_wipes.insert(name.to_owned());
+            } else {
+                next_declined.remove(name);
+            }
+        }
+
+        for already_declined in remote_declined.unwrap_or_default().iter() {
+            remote_wipes.remove(already_declined);
+        }
+
+        let mut newly_declined = next_declined.clone();
+        for e in &initial_declined {
+            newly_declined.remove(e);
+        }
+
+        self.set_declined(next_declined.into_iter().collect());
+
+        (
+            EngineChangesNeeded {
+                remote_wipes,
+                local_resets: newly_declined,
+            },
+            !lc.is_empty(),
+        )
+    }
+
+    fn set_declined(&mut self, new_declined: Vec<String>) {
+        match self {
+            Self::V2 { ref mut declined } => *declined = Some(new_declined),
+        }
+    }
+    pub(crate) fn get_declined(&self) -> &[String] {
+        match self {
+            Self::V2 { declined: Some(d) } => &d,
+            Self::V2 { declined: None } => &[],
+        }
+    }
+}
+
 /// Holds global Sync state, including server upload limits, the
 /// last-fetched collection modified times, `meta/global` record, and
 /// encrypted copies of the crypto/keys resourse (which we hold as encrypted
@@ -82,34 +145,6 @@ pub struct GlobalState {
     pub global: MetaGlobalRecord,
     pub global_timestamp: ServerTimestamp,
     pub keys: EncryptedBso,
-}
-
-fn same_declined(a: &[String], b: &[String]) -> bool {
-    use std::collections::HashSet;
-    let ea = a.iter().map(|s| s.as_str()).collect::<HashSet<_>>();
-    let eb = b.iter().map(|s| s.as_str()).collect::<HashSet<_>>();
-    ea == eb
-}
-
-impl MetaGlobalRecord {
-    // TODO: this function needs to change once we understand 'accepted'.
-    pub fn update_declined_engines(&mut self, changes: &HashMap<String, bool>) -> bool {
-        let mut current_state: HashMap<String, bool> = self
-            .declined
-            .iter()
-            .map(|e| (e.to_string(), false))
-            .collect();
-        for (e, v) in changes {
-            current_state.insert(e.to_string(), *v);
-        }
-        let new_declined = current_state
-            .into_iter()
-            .filter_map(|(e, allow)| if allow { None } else { Some(e) })
-            .collect::<Vec<String>>();
-        let same = !changes.is_empty() && !same_declined(&self.declined, &new_declined);
-        self.declined = new_declined;
-        same
-    }
 }
 
 /// Creates a fresh `meta/global` record, using the default engine selections,
@@ -132,10 +167,7 @@ fn new_global(pgs: &PersistedGlobalState) -> error::Result<MetaGlobalRecord> {
     // it was at the time.
     let declined = match pgs {
         PersistedGlobalState::V2 { declined: Some(d) } => d.clone(),
-        _ => {
-            log::warn!("New meta/global without local app state - the list of declined engines is being reset");
-            DEFAULT_DECLINED.iter().map(ToString::to_string).collect()
-        }
+        _ => DEFAULT_DECLINED.iter().map(ToString::to_string).collect(),
     };
 
     Ok(MetaGlobalRecord {
@@ -162,6 +194,7 @@ pub struct SetupStateMachine<'a> {
     sequence: Vec<&'static str>,
     engine_updates: Option<&'a HashMap<String, bool>>,
     interruptee: &'a dyn Interruptee,
+    pub(crate) changes_needed: Option<EngineChangesNeeded>,
 }
 
 impl<'a> SetupStateMachine<'a> {
@@ -259,6 +292,7 @@ impl<'a> SetupStateMachine<'a> {
             allowed_states,
             engine_updates,
             interruptee,
+            changes_needed: None,
         }
     }
 
@@ -320,17 +354,19 @@ impl<'a> SetupStateMachine<'a> {
                     if global.storage_version < STORAGE_VERSION {
                         Ok(FreshStartRequired { config })
                     } else {
-                        // Check and see if we have engine changes to make. If
-                        // we do, then we need to reupload meta/global.
-                        let need_refresh = if let Some(es) = self.engine_updates {
-                            global.update_declined_engines(es)
-                        } else {
-                            false
-                        };
-                        if need_refresh {
+                        let (changes_needed, upload_new_declined) = self
+                            .pgs
+                            .update_engine_state(Some(&global.declined), self.engine_updates);
+
+                        self.changes_needed = Some(changes_needed);
+
+                        if upload_new_declined {
+                            global.declined = self.pgs.get_declined().to_vec();
+
                             let global_timestamp = self
                                 .client
                                 .put_meta_global(ServerTimestamp::default(), &global)?;
+
                             Ok(InitialWithMetaGlobal {
                                 config,
                                 collections,
@@ -359,13 +395,6 @@ impl<'a> SetupStateMachine<'a> {
                 global,
                 global_timestamp,
             } => {
-                // Update our PersistedGlobalState with the mega/global we just read.
-                mem::replace(
-                    self.pgs,
-                    PersistedGlobalState::V2 {
-                        declined: Some(global.declined.clone()),
-                    },
-                );
                 // Now try and get keys etc - if we fresh-start we'll re-use declined.
                 match self.client.fetch_crypto_keys()? {
                     Sync15ClientResponse::Success {
@@ -430,10 +459,14 @@ impl<'a> SetupStateMachine<'a> {
                 self.client.wipe_all_remote()?;
 
                 // Upload a fresh `meta/global`...
-                let mut new_global = new_global(self.pgs)?;
-                if let Some(updates) = self.engine_updates {
-                    new_global.update_declined_engines(updates);
-                }
+                let (mut changes, _) = self.pgs.update_engine_state(None, self.engine_updates);
+                // Already wiped.
+                changes.remote_wipes.clear();
+
+                self.changes_needed = Some(changes);
+
+                let new_global = new_global(self.pgs)?;
+
                 self.client
                     .put_meta_global(ServerTimestamp::default(), &new_global)?;
 
@@ -483,10 +516,6 @@ impl<'a> SetupStateMachine<'a> {
             };
             self.sequence.push(label);
             s = self.advance(s)?;
-            // TODO: Consider checking `self.client.get_backoff_requested()`
-            // here, and returning early if it wouldn't cause data loss (an
-            // example of data loss would be pending changes in
-            // `self.engine_updates`).
         }
     }
 }

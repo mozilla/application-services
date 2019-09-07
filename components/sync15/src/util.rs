@@ -6,9 +6,9 @@ use serde::de::{self, Deserialize, Deserializer, Visitor};
 use serde::ser::{Serialize, Serializer};
 use std::convert::From;
 use std::str::FromStr;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 use std::{fmt, num};
-use std::sync::atomic::{AtomicU32, Ordering};
 /// Typesafe way to manage server timestamps without accidentally mixing them up with
 /// local ones.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Default)]
@@ -80,7 +80,7 @@ pub(crate) fn atomic_update_max(v: &AtomicU32, new: u32) {
         match v.compare_exchange_weak(cur, new, Ordering::SeqCst, Ordering::SeqCst) {
             Ok(_) => {
                 // Success.
-                break
+                break;
             }
             Err(new_cur) => {
                 // Interrupted, keep trying.

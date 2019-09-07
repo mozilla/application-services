@@ -136,9 +136,6 @@ pub trait SetupStorageClient {
     ) -> error::Result<ServerTimestamp>;
     fn put_crypto_keys(&self, xius: ServerTimestamp, keys: &EncryptedBso) -> error::Result<()>;
     fn wipe_all_remote(&self) -> error::Result<()>;
-    fn get_backoff_requested(&self) -> Option<std::time::Duration> {
-        None
-    }
 }
 
 #[derive(Debug, Default)]
@@ -170,10 +167,10 @@ impl BackoffState {
         self.retry_after_secs.load(Ordering::SeqCst)
     }
 
-    pub fn get_required_wait(&self) -> Option<std::time::Duration> {
+    pub fn get_required_wait(&self, ignore_soft_backoff: bool) -> Option<std::time::Duration> {
         let bo = self.get_backoff_secs();
         let ra = self.get_retry_after_secs();
-        let secs = u64::from(bo.max(ra));
+        let secs = u64::from(if ignore_soft_backoff { ra } else { bo.max(ra) });
         if secs > 0 {
             Some(std::time::Duration::from_secs(secs))
         } else {
@@ -251,10 +248,6 @@ impl SetupStorageClient for Sync15StorageClient {
             Ok(resp) => Err(resp.create_storage_error().into()),
             Err(e) => Err(e),
         }
-    }
-
-    fn get_backoff_requested(&self) -> Option<std::time::Duration> {
-        self.backoff.get_required_wait()
     }
 }
 
@@ -390,6 +383,18 @@ impl Sync15StorageClient {
 
     pub fn hashed_uid(&self) -> error::Result<String> {
         self.tsc.hashed_uid()
+    }
+
+    pub(crate) fn wipe_remote_engine(&self, engine: &str) -> error::Result<()> {
+        let s = self.tsc.api_endpoint()? + "/";
+        let url = Url::parse(&s)?.join(engine.as_ref())?;
+        let req = self.build_request(Method::Delete, url)?;
+        match self.exec_request::<Value>(req, false) {
+            Ok(Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }))
+            | Ok(Sync15ClientResponse::Success { .. }) => Ok(()),
+            Ok(resp) => Err(resp.create_storage_error().into()),
+            Err(e) => Err(e),
+        }
     }
 }
 

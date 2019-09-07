@@ -49,7 +49,7 @@ impl SyncManager {
                 log::error!("Failed to reset logins: {}", e);
             }
         } else {
-            log::warn!("Unable to wipe logins, be sure to call set_logins before disconnect if this is surprising");
+            log::warn!("Unable to reset logins, be sure to call set_logins before disconnect if this is surprising");
         }
 
         if let Some(places) = self.places.upgrade() {
@@ -60,7 +60,7 @@ impl SyncManager {
                 log::error!("Failed to reset history: {}", e);
             }
         } else {
-            log::warn!("Unable to wipe places, be sure to call set_places before disconnect if this is surprising");
+            log::warn!("Unable to reset places, be sure to call set_places before disconnect if this is surprising");
         }
     }
 
@@ -155,7 +155,11 @@ impl SyncManager {
             access_token: params.acct_access_token.clone(),
             tokenserver_url,
         };
-
+        let engines_to_change = if params.engines_to_change_state.is_empty() {
+            None
+        } else {
+            Some(&params.engines_to_change_state)
+        };
         let result = sync15::sync_multiple(
             &store_refs,
             &mut disk_cached_state,
@@ -163,7 +167,10 @@ impl SyncManager {
             &client_init,
             &key_bundle,
             &interruptee,
-            Some(&params.engines_to_change_state),
+            Some(sync15::SyncRequestInfo {
+                engines_to_state_change: engines_to_change,
+                is_user_action: params.reason == (SyncReason::User as i32),
+            }),
         );
 
         log::info!("Sync finished with status {:?}", result.service_status);
