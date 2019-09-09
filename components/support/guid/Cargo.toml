@@ -19,4 +19,4 @@ serde_support = ["serde"]
 default = ["serde_support"]
 
 [dev-dependencies]
-serde_test = "1.0.99"
+serde_test = "1.0.100"
