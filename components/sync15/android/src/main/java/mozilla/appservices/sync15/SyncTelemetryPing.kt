@@ -376,7 +376,7 @@ data class FailureReason(
 ) {
     companion object {
         fun fromJSON(jsonObject: JSONObject): FailureReason? {
-            return jsonObject.getString("name")?.let {
+            return jsonObject.getString("name").let {
                 when (it) {
                     "shutdownerror" -> FailureReason(
                         name = FailureName.Shutdown
