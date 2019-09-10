@@ -272,6 +272,20 @@ pub extern "C" fn fxa_get_access_token(
     })
 }
 
+/// Try to get a session token.
+///
+/// If the system can't find a suitable token it will return an error
+///
+/// # Safety
+///
+/// A destructor [fxa_bytebuffer_free] is provided for releasing the memory for this
+/// pointer type.
+#[no_mangle]
+pub extern "C" fn fxa_get_session_token(handle: u64, error: &mut ExternError) -> *mut c_char {
+    log::debug!("fxa_get_session_token");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.get_session_token())
+}
+
 /// This method should be called when a request made with
 /// an OAuth token failed with an authentication error.
 /// It clears the internal cache of OAuth access tokens,

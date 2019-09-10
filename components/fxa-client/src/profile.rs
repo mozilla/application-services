@@ -200,6 +200,7 @@ mod tests {
                 expires_in: 6_000_000,
                 scope: "profile".to_owned(),
                 access_token: "good_profile_token".to_owned(),
+                session_token: None,
             }));
         // Then hooray it works!
         client
