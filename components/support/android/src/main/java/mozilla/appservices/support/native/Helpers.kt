@@ -118,8 +118,8 @@ internal fun lookupMegazordLibrary(componentName: String, componentVersion: Stri
     if (componentVersion != mzVersion) {
         Log.e(
             "RustNativeSupport",
-            "version requested by component doesn't initialized " +
-                "megazord version ($componentVersion != $componentVersion)"
+            "version requested by component doesn't match initialized " +
+                "megazord version ($componentVersion != $mzVersion)"
         )
         throw IncompatibleMegazordVersion(componentName, componentVersion, mzLibrary, mzVersion)
     }
