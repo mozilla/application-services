@@ -115,6 +115,8 @@ data class SyncParams(
         builder.acctKeyId = this.authInfo.kid
         builder.acctTokenserverUrl = this.authInfo.tokenserverURL
 
+        builder.persistedState = this.persistedState
+
         return builder.build()
     }
 }
