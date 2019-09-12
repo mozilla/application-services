@@ -147,6 +147,14 @@ interface LoginsStorage : AutoCloseable {
     fun list(): List<ServerPassword>
 
     /**
+     * Fetch the list of passwords for some hostname from the underlying storage layer.
+     *
+     * @throws [LoginsStorageException] On unexpected errors (IO failure, rust panics, etc)
+     */
+    @Throws(LoginsStorageException::class)
+    fun getByHostname(hostname: String): List<ServerPassword>
+
+    /**
      * Inserts the provided login into the database, returning its id.
      *
      * This function ignores values in metadata fields (`timesUsed`,

@@ -233,6 +233,14 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
         return ArrayList(list)
     }
 
+    @Synchronized
+    @Throws(LoginsStorageException::class)
+    override fun getByHostname(hostname: String): List<ServerPassword> {
+        checkUnlocked()
+        list = list.filter { it.hostname == hostname }
+        return ArrayList(list)
+    }
+
     private fun checkNotClosed() {
         if (state == LoginsStorageState.Closed) {
             throw LoginsStorageException("Using MemoryLoginsStorage after close!")
