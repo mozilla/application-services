@@ -363,9 +363,8 @@ impl<'a> SetupStateMachine<'a> {
                         if upload_new_declined {
                             global.declined = self.pgs.get_declined().to_vec();
 
-                            let global_timestamp = self
-                                .client
-                                .put_meta_global(ServerTimestamp::default(), &global)?;
+                            let global_timestamp =
+                                self.client.put_meta_global(global_timestamp, &global)?;
 
                             Ok(InitialWithMetaGlobal {
                                 config,
