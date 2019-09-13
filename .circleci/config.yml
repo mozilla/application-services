@@ -163,6 +163,7 @@ commands:
             python3 ./tools/dependency_summary.py --all-ios-targets --package megazord_ios --check megazords/ios/DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-android-targets --package fenix --check megazords/fenix/DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-android-targets --package lockbox --check megazords/lockbox/DEPENDENCIES.md
+
   sync-bugzilla-to-github:
     steps:
       - checkout
@@ -257,6 +258,30 @@ jobs:
       - setup-rust-toolchain
       - checkout
       - dependency-checks
+  Log Rust Changes:
+    docker:
+      - image: python:3.7-buster
+    steps:
+      - setup_remote_docker:
+          version: 18.02.0-ce
+      - run:
+          name: Install Docker client
+          command: |
+            set -x
+            VER="18.06.3-ce"
+            curl -L -o /tmp/docker-$VER.tgz https://download.docker.com/linux/static/stable/x86_64/docker-$VER.tgz
+            tar -xz -C /tmp -f /tmp/docker-$VER.tgz
+            mv /tmp/docker/* /usr/bin
+      - run:
+          name: pull find-package-rugaru image
+          command: |
+            docker pull mozilla/dependencyscan:latest
+      - run:
+          name: log a rust dependency changes
+          command: |
+            printf "{\"org\": \"mozilla-services\", \"repo\": \"application-services\", \"ref\": {\"value\": \"master\", \"kind\": \"branch\"}, \"repo_url\": \"https://github.com/mozilla/application-services.git\"}\n{\"org\": \"mozilla-services\", \"repo\": \"application-services\", \"ref\": {\"value\": \"$CIRCLE_SHA1\", \"kind\": \"commit\"}, \"repo_url\": \"https://github.com/mozilla/application-services.git\"}\n"  | \
+                docker run --rm -i -v /var/run/docker.sock:/var/run/docker.sock --name fpr-cargo_metadata mozilla/dependencyscan:latest python fpr/run_pipeline.py cargo_metadata | \
+                docker run --rm -i -v /var/run/docker.sock:/var/run/docker.sock --name fpr-rust_changelog mozilla/dependencyscan:latest python fpr/run_pipeline.py rust_changelog -m Cargo.toml
   Mirror Bugzilla issues into GitHub:
     docker:
       - image: circleci/python:latest
@@ -426,6 +451,9 @@ workflows:
   check-dependencies:
     jobs:
       - Check Rust dependencies
+  log-rust-changelog:
+    jobs:
+      - Log Rust Changes
   bash-lint:
     jobs:
       - Lint Bash scripts
