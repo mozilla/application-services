@@ -357,8 +357,6 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
             if changes.local_resets.contains(name) {
                 log::info!("Resetting engine {}, as it was declined remotely", name);
                 s.reset(&StoreSyncAssociation::Disconnected)?;
-            } else {
-                log::warn!("Don't have the ability to reset collection {}...", name);
             }
         }
 
