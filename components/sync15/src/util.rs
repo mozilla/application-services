@@ -4,6 +4,7 @@
 
 use serde::de::{self, Deserialize, Deserializer, Visitor};
 use serde::ser::{Serialize, Serializer};
+use std::collections::{HashMap, HashSet};
 use std::convert::From;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -147,6 +148,38 @@ impl<'de> Deserialize<'de> for ServerTimestamp {
     }
 }
 
+// Ideally these would be generic, but eh.
+pub(crate) fn set_union(a: &HashSet<String>, b: &HashSet<String>) -> HashSet<String> {
+    a.iter().chain(b.iter()).cloned().collect()
+}
+
+pub(crate) fn set_difference(a: &HashSet<String>, b: &HashSet<String>) -> HashSet<String> {
+    a.iter()
+        .filter(|v| !b.contains(v.as_str()))
+        .cloned()
+        .collect()
+}
+
+pub(crate) fn set_intersection(a: &HashSet<String>, b: &HashSet<String>) -> HashSet<String> {
+    a.iter()
+        .filter(|v| b.contains(v.as_str()))
+        .cloned()
+        .collect()
+}
+
+pub(crate) fn partition_by_value(v: &HashMap<String, bool>) -> (HashSet<String>, HashSet<String>) {
+    let mut true_: HashSet<String> = HashSet::new();
+    let mut false_: HashSet<String> = HashSet::new();
+    for (s, val) in v {
+        if *val {
+            true_.insert(s.clone());
+        } else {
+            false_.insert(s.clone());
+        }
+    }
+    (true_, false_)
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -173,5 +206,42 @@ mod test {
         // test deserialize
         let ts: ServerTimestamp = serde_json::from_str(&ser).unwrap();
         assert_eq!(ServerTimestamp(123_456), ts);
+    }
+    #[test]
+    fn test_set_ops() {
+        fn hash_set(s: &[&str]) -> HashSet<String> {
+            s.iter()
+                .copied()
+                .map(ToOwned::to_owned)
+                .collect::<HashSet<_>>()
+        }
+
+        assert_eq!(
+            set_union(&hash_set(&["a", "b", "c"]), &hash_set(&["b", "d"])),
+            hash_set(&["a", "b", "c", "d"]),
+        );
+
+        assert_eq!(
+            set_difference(&hash_set(&["a", "b", "c"]), &hash_set(&["b", "d"])),
+            hash_set(&["a", "c"]),
+        );
+        assert_eq!(
+            set_intersection(&hash_set(&["a", "b", "c"]), &hash_set(&["b", "d"])),
+            hash_set(&["b"]),
+        );
+        let m: HashMap<String, bool> = [
+            ("foo", true),
+            ("bar", true),
+            ("baz", false),
+            ("quux", false),
+        ]
+        .iter()
+        .copied()
+        .map(|(a, b)| (a.to_owned(), b))
+        .collect();
+        assert_eq!(
+            partition_by_value(&m),
+            (hash_set(&["foo", "bar"]), hash_set(&["baz", "quux"])),
+        );
     }
 }

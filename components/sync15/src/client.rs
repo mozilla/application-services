@@ -77,6 +77,11 @@ impl<T> Sync15ClientResponse<T> {
                 .get(header_names::X_LAST_MODIFIED)
                 .and_then(|s| ServerTimestamp::from_str(s).ok())
                 .ok_or_else(|| ErrorKind::MissingServerTimestamp)?;
+            log::info!(
+                "Request \"{}\" has incoming x-last-modified {:?}",
+                route,
+                last_modified
+            );
 
             Sync15ClientResponse::Success {
                 status: resp.status,
@@ -85,6 +90,7 @@ impl<T> Sync15ClientResponse<T> {
                 route,
             }
         } else {
+            log::info!("Request \"{}\" was an error!", route,);
             let status = resp.status;
             match status {
                 404 => Sync15ClientResponse::Error(ErrorResponse::NotFound { route }),
@@ -209,12 +215,19 @@ impl SetupStorageClient for Sync15StorageClient {
                 last_modified,
                 route,
                 status,
-            } => Sync15ClientResponse::Success {
-                record: record.payload,
-                last_modified,
-                route,
-                status,
-            },
+            } => {
+                log::debug!(
+                    "Got meta global with modified = {}; last-modified = {}",
+                    record.modified,
+                    last_modified
+                );
+                Sync15ClientResponse::Success {
+                    record: record.payload,
+                    last_modified,
+                    route,
+                    status,
+                }
+            }
             Sync15ClientResponse::Error(e) => Sync15ClientResponse::Error(e),
         })
     }
@@ -313,7 +326,6 @@ impl Sync15StorageClient {
             req.url.query()
         );
         let resp = req.send()?;
-        log::trace!("response: {}", resp.status);
 
         let result = Sync15ClientResponse::from_response(resp, &self.backoff)?;
         match result {
@@ -387,7 +399,8 @@ impl Sync15StorageClient {
 
     pub(crate) fn wipe_remote_engine(&self, engine: &str) -> error::Result<()> {
         let s = self.tsc.api_endpoint()? + "/";
-        let url = Url::parse(&s)?.join(engine.as_ref())?;
+        let url = Url::parse(&s)?.join(&format!("storage/{}", engine))?;
+        log::debug!("Wiping: {:?}", url);
         let req = self.build_request(Method::Delete, url)?;
         match self.exec_request::<Value>(req, false) {
             Ok(Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }))

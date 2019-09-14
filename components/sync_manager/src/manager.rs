@@ -65,6 +65,7 @@ impl SyncManager {
     }
 
     pub fn sync(&mut self, params: SyncParams) -> Result<SyncResult> {
+        log::debug!("Got sync input: {:?}", params);
         let mut have_engines = vec![];
         let places = self.places.upgrade();
         let logins = self.logins.upgrade();
