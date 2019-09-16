@@ -52,6 +52,7 @@ pub struct MemoryCachedState {
 }
 
 impl MemoryCachedState {
+    // Called we notice the cached state is stale.
     pub fn clear_sensitive_info(&mut self) {
         self.last_client_info = None;
         self.last_global_state = None;
@@ -170,10 +171,6 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
 
         log::info!("Preparing client info");
         let client_info = self.prepare_client_info()?;
-
-        if self.was_interrupted() {
-            return Ok(());
-        }
 
         if self.was_interrupted() {
             return Ok(());
@@ -309,7 +306,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
         // lifetime issue
         let changes = state_machine.changes_needed.take();
         // The state machine might have updated our persisted_global_state, so
-        // update the callers repr of it.
+        // update the caller's repr of it.
         mem::replace(
             self.persisted_global_state,
             Some(serde_json::to_string(&pgs)?),

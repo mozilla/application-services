@@ -5,15 +5,12 @@ authors = ["application-services <application-services@mozilla.com>"]
 edition = "2018"
 license = "MPL-2.0"
 
-[features]
-# logins = ["sync_manager/logins", "logins_ffi"]
-# places = ["sync_manager/places", "places-ffi"]
 
 [dependencies]
 sync_manager = { path = ".." }
 sync15 = { path = "../../sync15" }
 ffi-support = { path = "../../support/ffi" }
-places-ffi = { path = "../../places/ffi" }#, optional = true }
-logins_ffi = { path = "../../logins/ffi" }#, optional = true }
+places-ffi = { path = "../../places/ffi" }
+logins_ffi = { path = "../../logins/ffi" }
 prost = "0.5.0"
 log = "0.4.7"

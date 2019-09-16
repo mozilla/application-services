@@ -34,7 +34,7 @@ object SyncManager {
 
     /**
      * Disconnect this device from sync. This essentially clears shared state having to do with
-     * sync, as well as each engines sync-specific local state
+     * sync, as well as each engine's sync-specific local state.
      */
     fun disconnect() {
         rustCall { err ->

@@ -27,14 +27,11 @@ open class InternalPanic(msg: String) : SyncManagerException(msg)
 open class UnsupportedEngine(msg: String) : SyncManagerException(msg)
 
 /**
- * We were asked to sync an engine but we couldn't because the connection
+ * We were asked to sync an engine but we couldn't because the connection is closed.
  *
  * Note: When not syncing, the manager holds a weak reference to connection
  * objects, and so performing something like: `SyncManager.setLogins(handle)`,
  * closing/locking the logins connection, and then trying to sync logins will
  * produce this error.
- *
- * TODO: Should this be an error reported in SyncResult and not cause the sync
- * to fail? It's probably a bug in the caller (they should call `setBlah` first)...
  */
 open class ClosedEngine(msg: String) : SyncManagerException(msg)

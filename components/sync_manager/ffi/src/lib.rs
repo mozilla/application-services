@@ -15,20 +15,12 @@ use sync_manager::Result as MgrResult;
 pub extern "C" fn sync_manager_set_places(_places_api_handle: u64, error: &mut ExternError) {
     ffi_support::call_with_result(error, || -> MgrResult<()> {
         log::debug!("sync_manager_set_places");
-        // #[cfg(feature = "places")]
-        {
-            let api = places_ffi::APIS
-                .get_u64(_places_api_handle, |api| -> Result<_, HandleError> {
-                    Ok(std::sync::Arc::clone(api))
-                })?;
-            sync_manager::set_places(api);
-            Ok(())
-        }
-        // #[cfg(not(feature = "places"))]
-        // {
-        //     log::error!("Sync manager not compiled with places support");
-        //     Err(sync_manager::ErrorKind::UnsupportedFeature("places".to_string()).into())
-        // }
+        let api = places_ffi::APIS
+            .get_u64(_places_api_handle, |api| -> Result<_, HandleError> {
+                Ok(std::sync::Arc::clone(api))
+            })?;
+        sync_manager::set_places(api);
+        Ok(())
     })
 }
 
@@ -36,20 +28,12 @@ pub extern "C" fn sync_manager_set_places(_places_api_handle: u64, error: &mut E
 pub extern "C" fn sync_manager_set_logins(_logins_handle: u64, error: &mut ExternError) {
     ffi_support::call_with_result(error, || -> MgrResult<()> {
         log::debug!("sync_manager_set_logins");
-        // #[cfg(feature = "logins")]
-        {
-            let api = logins_ffi::ENGINES
-                .get_u64(_logins_handle, |api| -> Result<_, HandleError> {
-                    Ok(std::sync::Arc::clone(api))
-                })?;
-            sync_manager::set_logins(api);
-            Ok(())
-        }
-        // #[cfg(not(feature = "logins"))]
-        // {
-        //     log::error!("Sync manager not compiled with logins support");
-        //     Err(sync_manager::ErrorKind::UnsupportedFeature("logins".to_string()).into())
-        // }
+        let api = logins_ffi::ENGINES
+            .get_u64(_logins_handle, |api| -> Result<_, HandleError> {
+                Ok(std::sync::Arc::clone(api))
+            })?;
+        sync_manager::set_logins(api);
+        Ok(())
     })
 }
 

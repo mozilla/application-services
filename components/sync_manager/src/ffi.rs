@@ -13,7 +13,7 @@ pub mod error_codes {
     /// or were compiled without support for it.
     pub const UNSUPPORTED_ENGINE: i32 = 2;
 
-    /// We were asked to sync an engine which is not open (e.g. Weak::upgrade
+    /// We were asked to sync an engine which is not open (i.e. Weak::upgrade
     /// returns None).
     pub const ENGINE_NOT_OPEN: i32 = 3;
 }
