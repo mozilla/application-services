@@ -241,6 +241,17 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     }
 
     /**
+     * Tries to return a session token
+     *
+     * @throws FxaException Will send you an exception if there is no session token set
+     */
+    fun getSessionToken(): String {
+        return rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_get_session_token(this.handle.get(), e)
+        }.getAndConsumeRustString()
+    }
+
+    /**
      * This method should be called when a request made with
      * an OAuth token failed with an authentication error.
      * It clears the internal cache of OAuth access tokens,

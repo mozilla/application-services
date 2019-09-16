@@ -29,6 +29,9 @@ pub enum ErrorKind {
     #[fail(display = "No stored refresh token")]
     NoRefreshToken,
 
+    #[fail(display = "No stored session token")]
+    NoSessionToken,
+
     #[fail(display = "Could not find a refresh token in the server response")]
     RefreshTokenNotPresent,
 

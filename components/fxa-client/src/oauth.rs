@@ -76,6 +76,14 @@ impl FirefoxAccount {
         Ok(token_info)
     }
 
+    /// Retrieve the current session token from state
+    pub fn get_session_token(&mut self) -> Result<String> {
+        match self.state.session_token {
+            Some(ref session_token) => Ok(session_token.to_string()),
+            None => Err(ErrorKind::NoSessionToken.into()),
+        }
+    }
+
     /// Initiate a pairing flow and return a URL that should be navigated to.
     ///
     /// * `pairing_url` - A pairing URL obtained by scanning a QR code produced by
@@ -199,6 +207,13 @@ impl FirefoxAccount {
                 self.state.scoped_keys.insert(scope, scoped_key);
             }
         }
+
+        // If the client requested a 'tokens/session' OAuth scope then as part of the code
+        // exchange this will get a session_token in the response.
+        if resp.session_token.is_some() {
+            self.state.session_token = resp.session_token;
+        }
+
         // We are only interested in the refresh token at this time because we
         // don't want to return an over-scoped access token.
         // Let's be good citizens and destroy this access token.
