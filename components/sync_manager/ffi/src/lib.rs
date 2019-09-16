@@ -28,10 +28,9 @@ pub extern "C" fn sync_manager_set_places(_places_api_handle: u64, error: &mut E
 pub extern "C" fn sync_manager_set_logins(_logins_handle: u64, error: &mut ExternError) {
     ffi_support::call_with_result(error, || -> MgrResult<()> {
         log::debug!("sync_manager_set_logins");
-        let api = logins_ffi::ENGINES
-            .get_u64(_logins_handle, |api| -> Result<_, HandleError> {
-                Ok(std::sync::Arc::clone(api))
-            })?;
+        let api = logins_ffi::ENGINES.get_u64(_logins_handle, |api| -> Result<_, HandleError> {
+            Ok(std::sync::Arc::clone(api))
+        })?;
         sync_manager::set_logins(api);
         Ok(())
     })
