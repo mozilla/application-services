@@ -29,6 +29,6 @@ optional = true
 version = "0.3.35"
 
 [dev-dependencies]
-rand = "0.7.0"
+rand = "0.7.1"
 rayon = "1.2.0"
 env_logger = "0.6.2"
