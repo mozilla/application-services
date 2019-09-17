@@ -19,6 +19,8 @@ enum DeviceType {
     DESKTOP = 1;
     MOBILE = 2;
     TABLET = 3;
+    VR = 4;
+    TV = 5;
 }
 
 message SyncParams {

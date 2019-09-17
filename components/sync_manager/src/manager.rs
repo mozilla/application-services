@@ -21,6 +21,17 @@ const LOGINS_ENGINE: &str = "passwords";
 const HISTORY_ENGINE: &str = "history";
 const BOOKMARKS_ENGINE: &str = "bookmarks";
 
+// Casts aren't allowed in `match` arms, so we can't directly match
+// `SyncParams.device_type`, which is an `i32`, against `DeviceType`
+// variants. Instead, we reflect all variants into constants, cast them
+// into the target type, and match against them. Please keep this list in sync
+// with `msg_types::DeviceType` and `sync15::clients::DeviceType`.
+const DEVICE_TYPE_DESKTOP: i32 = DeviceType::Desktop as i32;
+const DEVICE_TYPE_MOBILE: i32 = DeviceType::Mobile as i32;
+const DEVICE_TYPE_TABLET: i32 = DeviceType::Tablet as i32;
+const DEVICE_TYPE_VR: i32 = DeviceType::Vr as i32;
+const DEVICE_TYPE_TV: i32 = DeviceType::Tv as i32;
+
 pub struct SyncManager {
     mem_cached_state: Option<MemoryCachedState>,
     places: Weak<PlacesApi>,
@@ -66,7 +77,7 @@ impl SyncManager {
                 } else {
                     Err(ErrorKind::ConnectionClosed(engine.into()).into())
                 }
-            },
+            }
             "history" => {
                 if let Some(places) = self.places.upgrade() {
                     places.wipe_history()?;
@@ -74,7 +85,7 @@ impl SyncManager {
                 } else {
                     Err(ErrorKind::ConnectionClosed(engine.into()).into())
                 }
-            },
+            }
             _ => Err(ErrorKind::UnknownEngine(engine.into()).into()),
         }
     }
@@ -265,15 +276,23 @@ impl SyncManager {
         } else {
             Some(&params.engines_to_change_state)
         };
+
         let settings = Settings {
             fxa_device_id: params.fxa_device_id,
             device_name: params.device_name,
-            device_type: if params.device_type == (DeviceType::Mobile as i32) {
-                clients::DeviceType::Mobile
-            } else if params.device_type == (DeviceType::Tablet as i32) {
-                clients::DeviceType::Tablet
-            } else {
-                clients::DeviceType::Desktop
+            device_type: match params.device_type {
+                DEVICE_TYPE_DESKTOP => clients::DeviceType::Desktop,
+                DEVICE_TYPE_MOBILE => clients::DeviceType::Mobile,
+                DEVICE_TYPE_TABLET => clients::DeviceType::Tablet,
+                DEVICE_TYPE_VR => clients::DeviceType::VR,
+                DEVICE_TYPE_TV => clients::DeviceType::TV,
+                _ => {
+                    log::warn!(
+                        "Unknown device type {}; assuming desktop",
+                        params.device_type
+                    );
+                    clients::DeviceType::Desktop
+                }
             },
         };
         let c = SyncClient::new(settings);

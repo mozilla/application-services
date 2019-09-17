@@ -5,7 +5,6 @@
 use std::collections::HashSet;
 
 use failure;
-use serde_derive::*;
 
 mod engine;
 mod record;
@@ -56,7 +55,7 @@ pub enum CommandStatus {
 
 /// Information about this device to include in its client record. This should
 /// be persisted across syncs, as part of the sync manager state.
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Settings {
     /// The FxA device ID of this client, also used as this client's record ID
     /// in the clients collection.
@@ -68,12 +67,15 @@ pub struct Settings {
     pub device_type: DeviceType,
 }
 
-/// The type of a client.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+/// The type of a client. Please keep these variants in sync with the device
+/// types in the FxA client and sync manager.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum DeviceType {
     Desktop,
     Mobile,
     Tablet,
+    VR,
+    TV,
 }
 
 impl DeviceType {
@@ -82,6 +84,8 @@ impl DeviceType {
             DeviceType::Desktop => "desktop",
             DeviceType::Mobile => "mobile",
             DeviceType::Tablet => "tablet",
+            DeviceType::VR => "vr",
+            DeviceType::TV => "tv",
         }
     }
 }
