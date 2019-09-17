@@ -104,11 +104,15 @@ impl<'a> Driver<'a> {
                     .iter()
                     .filter_map(|c| c.as_command())
                     .collect();
-                let new_outgoing_commands = outgoing_commands
+                let mut new_outgoing_commands = outgoing_commands
                     .difference(&current_commands)
                     .cloned()
-                    .map(CommandRecord::from);
-                client.commands.extend(new_outgoing_commands);
+                    .collect::<Vec<_>>();
+                // Sort, to ensure deterministic ordering for tests.
+                new_outgoing_commands.sort();
+                client
+                    .commands
+                    .extend(new_outgoing_commands.into_iter().map(CommandRecord::from));
                 if client.commands.len() == old_len {
                     continue;
                 }
@@ -403,11 +407,11 @@ mod tests {
             "name": "Fenix",
             "type": "mobile",
             "commands": [{
-                "command": "resetEngine",
-                "args": ["history"],
-            }, {
                 "command": "wipeEngine",
                 "args": ["bookmarks"],
+            }, {
+                "command": "resetEngine",
+                "args": ["history"],
             }],
             "fxaDeviceId": "deviceCCCCCC",
         }]);

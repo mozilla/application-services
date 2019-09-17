@@ -90,14 +90,14 @@ impl DeviceType {
     }
 }
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Command {
-    /// Erases all local data for a specific engine.
-    Wipe(String),
     /// Erases all local data.
     WipeAll,
-    /// Resets local sync state for a specific engine.
-    Reset(String),
+    /// Erases all local data for a specific engine.
+    Wipe(String),
     /// Resets local sync state for all engines.
     ResetAll,
+    /// Resets local sync state for a specific engine.
+    Reset(String),
 }
