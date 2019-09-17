@@ -148,23 +148,17 @@ impl<'de> Deserialize<'de> for ServerTimestamp {
     }
 }
 
-// Ideally these would be generic, but eh.
+// Slight wrappers around the builtin methods for doing this.
 pub(crate) fn set_union(a: &HashSet<String>, b: &HashSet<String>) -> HashSet<String> {
-    a.iter().chain(b.iter()).cloned().collect()
+    a.union(b).cloned().collect()
 }
 
 pub(crate) fn set_difference(a: &HashSet<String>, b: &HashSet<String>) -> HashSet<String> {
-    a.iter()
-        .filter(|v| !b.contains(v.as_str()))
-        .cloned()
-        .collect()
+    a.difference(b).cloned().collect()
 }
 
 pub(crate) fn set_intersection(a: &HashSet<String>, b: &HashSet<String>) -> HashSet<String> {
-    a.iter()
-        .filter(|v| b.contains(v.as_str()))
-        .cloned()
-        .collect()
+    a.intersection(b).cloned().collect()
 }
 
 pub(crate) fn partition_by_value(v: &HashMap<String, bool>) -> (HashSet<String>, HashSet<String>) {

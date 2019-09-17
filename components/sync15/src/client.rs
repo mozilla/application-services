@@ -21,7 +21,7 @@ use viaduct::{
 };
 
 /// A response from a GET request on a Sync15StorageClient, encapsulating all
-/// the variants users of this client needs to care about
+/// the variants users of this client needs to care about.
 #[derive(Debug, Clone)]
 pub enum Sync15ClientResponse<T> {
     Success {

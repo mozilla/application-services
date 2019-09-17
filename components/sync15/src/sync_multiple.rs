@@ -201,7 +201,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
 
         if self.any_failed_engines {
             // XXX - not clear if we should really only do this on full success,
-            // particularly if it's just a network error. See XXX above for more.
+            // particularly if it's just a network error.
             log::info!("Updating persisted global state");
             self.mem_cached_state.last_client_info = Some(client_info);
             self.mem_cached_state.last_global_state = Some(global_state);
