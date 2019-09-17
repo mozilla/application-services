@@ -43,6 +43,27 @@ data class SyncAuthInfo(
 )
 
 /**
+ * The type of this device. This is used in the UI; for example, to show an
+ * icon for this device in the Synced Tabs or Send Tab views in other products.
+ */
+enum class DeviceType {
+    DESKTOP,
+    MOBILE,
+    TABLET,
+    VR,
+    TV,
+}
+
+/**
+ * A class for providing information about this device for syncing.
+ */
+data class DeviceSettings(
+    val fxaDeviceId: String,
+    val name: String,
+    val type: DeviceType
+)
+
+/**
  * Parameters to use for syncing.
  */
 data class SyncParams(
@@ -86,7 +107,12 @@ data class SyncParams(
      * The previously persisted sync state (from `SyncResult.persistedState`),
      * if any exists.
      */
-    val persistedState: String?
+    val persistedState: String?,
+
+    /**
+     * The information used to populate a client record for this device.
+     */
+    val deviceSettings: DeviceSettings
 ) {
     @Suppress("ComplexMethod")
     internal fun toProtobuf(): MsgTypes.SyncParams {
@@ -116,6 +142,16 @@ data class SyncParams(
         builder.acctTokenserverUrl = this.authInfo.tokenserverURL
 
         builder.persistedState = this.persistedState
+
+        builder.fxaDeviceId = this.deviceSettings.fxaDeviceId
+        builder.deviceName = this.deviceSettings.name
+        builder.deviceType = when (this.deviceSettings.type) {
+            DeviceType.DESKTOP -> MsgTypes.DeviceType.DESKTOP
+            DeviceType.MOBILE -> MsgTypes.DeviceType.MOBILE
+            DeviceType.TABLET -> MsgTypes.DeviceType.TABLET
+            DeviceType.VR -> MsgTypes.DeviceType.VR
+            DeviceType.TV -> MsgTypes.DeviceType.TV
+        }
 
         return builder.build()
     }
