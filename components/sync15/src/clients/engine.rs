@@ -252,3 +252,168 @@ impl<'a> Engine<'a> {
         Ok(inbound)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::result;
+
+    use failure;
+    use interrupt::NeverInterrupts;
+    use serde_json::{json, Value};
+
+    use crate::clients::{CommandStatus, DeviceType, Settings};
+    use crate::util::ServerTimestamp;
+
+    use super::*;
+
+    #[test]
+    fn tests_clients_sync() {
+        struct TestProcessor(Settings);
+
+        impl CommandProcessor for TestProcessor {
+            fn settings(&self) -> &Settings {
+                &self.0
+            }
+
+            fn apply_incoming_command(
+                &self,
+                command: Command,
+            ) -> result::Result<CommandStatus, failure::Error> {
+                Ok(if let Command::Reset(name) = command {
+                    if name == "forms" {
+                        CommandStatus::Unsupported
+                    } else {
+                        CommandStatus::Applied
+                    }
+                } else {
+                    CommandStatus::Ignored
+                })
+            }
+
+            fn fetch_outgoing_commands(&self) -> result::Result<HashSet<Command>, failure::Error> {
+                let mut commands = HashSet::new();
+                commands.insert(Command::Wipe("bookmarks".into()));
+                commands.insert(Command::Reset("history".into()));
+                Ok(commands)
+            }
+        }
+
+        let processor = TestProcessor(Settings {
+            fxa_device_id: "deviceAAAAAA".into(),
+            device_name: "Laptop".into(),
+            device_type: DeviceType::Desktop,
+        });
+        let config = InfoConfiguration::default();
+
+        let driver = Driver {
+            command_processor: &processor,
+            interruptee: &NeverInterrupts,
+            config: &config,
+        };
+
+        let clients = json!([{
+            "id": "deviceBBBBBB",
+            "name": "iPhone",
+            "type": "mobile",
+            "commands": [{
+                "command": "resetEngine",
+                "args": ["history"],
+            }],
+            "fxaDeviceId": "iPhooooooone",
+            "protocols": ["1.5"],
+            "device": "iPhone",
+        }, {
+            "id": "deviceCCCCCC",
+            "name": "Fenix",
+            "type": "mobile",
+            "commands": [],
+            "fxaDeviceId": "deviceCCCCCC",
+        }, {
+            "id": "deviceAAAAAA",
+            "name": "Laptop with a different name",
+            "type": "desktop",
+            "commands": [{
+                "command": "wipeEngine",
+                "args": ["logins"]
+            }, {
+                "command": "displayURI",
+                "args": ["http://example.com", "Fennec", "Example page"],
+                "flowID": "flooooooooow",
+            }, {
+                "command": "resetEngine",
+                "args": ["forms"],
+            }, {
+                "command": "logout",
+                "args": [],
+            }],
+            "fxaDeviceId": "deviceAAAAAA",
+        }]);
+        let inbound = if let Value::Array(clients) = clients {
+            let changes = clients
+                .into_iter()
+                .map(|c| (Payload::from_json(c).unwrap(), ServerTimestamp(0)))
+                .collect();
+            IncomingChangeset {
+                changes,
+                timestamp: ServerTimestamp(0),
+                collection: COLLECTION_NAME.into(),
+            }
+        } else {
+            unreachable!("`clients` must be an array of client records")
+        };
+
+        let mut outgoing = driver.sync(inbound).expect("Should sync clients");
+        outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
+        let expected = json!([{
+            "id": "deviceAAAAAA",
+            "name": "Laptop",
+            "type": "desktop",
+            "commands": [{
+                "command": "displayURI",
+                "args": ["http://example.com", "Fennec", "Example page"],
+                "flowID": "flooooooooow",
+            }, {
+                "command": "resetEngine",
+                "args": ["forms"],
+            }, {
+                "command": "logout",
+                "args": [],
+            }],
+            "fxaDeviceId": "deviceAAAAAA",
+            "protocols": ["1.5"],
+        }, {
+            "id": "deviceBBBBBB",
+            "name": "iPhone",
+            "type": "mobile",
+            "commands": [{
+                "command": "resetEngine",
+                "args": ["history"],
+            }, {
+                "command": "wipeEngine",
+                "args": ["bookmarks"],
+            }],
+            "fxaDeviceId": "iPhooooooone",
+            "protocols": ["1.5"],
+            "device": "iPhone",
+        }, {
+            "id": "deviceCCCCCC",
+            "name": "Fenix",
+            "type": "mobile",
+            "commands": [{
+                "command": "resetEngine",
+                "args": ["history"],
+            }, {
+                "command": "wipeEngine",
+                "args": ["bookmarks"],
+            }],
+            "fxaDeviceId": "deviceCCCCCC",
+        }]);
+        if let Value::Array(expected) = expected {
+            for (i, record) in expected.into_iter().enumerate() {
+                assert_eq!(outgoing.changes[i], Payload::from_json(record).unwrap());
+            }
+        } else {
+            unreachable!("`expected_clients` must be an array of client records")
+        };
+    }
+}

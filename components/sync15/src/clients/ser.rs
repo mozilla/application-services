@@ -69,7 +69,7 @@ pub fn shrink_to_fit<T: Serialize>(list: &mut Vec<T>, payload_size_max_bytes: us
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::clients::record::CommandRecord;
 
