@@ -2,13 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#![allow(unknown_lints)]
-#![warn(rust_2018_idioms)]
-
-pub use fxaclient_ffi;
-pub use logins_ffi;
-pub use places_ffi;
-pub use push_ffi;
-pub use rc_log_ffi;
-pub use sync_manager_ffi;
-pub use viaduct;
+fn main() {
+    println!("cargo:rerun-if-changed=src/manager_msg_types.proto");
+    prost_build::compile_protos(&["src/manager_msg_types.proto"], &["src/"]).unwrap();
+}

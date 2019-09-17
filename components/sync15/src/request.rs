@@ -266,7 +266,7 @@ impl Default for InfoConfiguration {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct InfoCollections(HashMap<String, ServerTimestamp>);
+pub struct InfoCollections(pub(crate) HashMap<String, ServerTimestamp>);
 
 impl InfoCollections {
     pub fn new(collections: HashMap<String, ServerTimestamp>) -> InfoCollections {

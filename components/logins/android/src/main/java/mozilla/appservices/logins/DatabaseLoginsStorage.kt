@@ -29,6 +29,17 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
         return handle
     }
 
+    /**
+     * Return the raw handle used to reference this logins database.
+     *
+     * Generally should only be used to pass the handle into `SyncManager.setLogins`.
+     *
+     * Note: handles do not remain valid after locking / unlocking the logins database.
+     */
+    fun getHandle(): Long {
+        return this.raw.get()
+    }
+
     @Synchronized
     @Throws(LoginsStorageException::class)
     override fun lock() {

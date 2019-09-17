@@ -922,7 +922,7 @@ impl LoginDb {
     }
 }
 
-pub(crate) struct LoginStore<'a> {
+pub struct LoginStore<'a> {
     pub db: &'a LoginDb,
     pub scope: sql_support::SqlInterruptScope,
 }

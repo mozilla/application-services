@@ -1,0 +1,25 @@
+[package]
+name = "sync_manager"
+version = "0.1.0"
+authors = ["application-services <application-services@mozilla.com>"]
+edition = "2018"
+license = "MPL-2.0"
+
+[dependencies]
+sync15 = { path = "../sync15" }
+places = { path = "../places" }
+logins = { path = "../logins" }
+ffi-support = { path = "../support/ffi" }
+failure = "0.1.5"
+error-support = { path = "../support/error" }
+prost = "0.5.0"
+prost-derive = "0.5.0"
+bytes = "0.4.12"
+lazy_static = "1.4.0"
+log = "0.4.8"
+sql-support = { path = "../support/sql" }
+url = "1.7.2"
+serde_json = "1.0.40"
+
+[build-dependencies]
+prost-build = "0.5.0"

@@ -58,7 +58,7 @@ pub fn synchronize(
     store: &dyn Store,
     fully_atomic: bool,
     telem_engine: &mut telemetry::Engine,
-    interruptee: &impl Interruptee,
+    interruptee: &dyn Interruptee,
 ) -> Result<(), Error> {
     let collection = store.collection_name();
     log::info!("Syncing collection {}", collection);

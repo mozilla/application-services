@@ -57,6 +57,13 @@ projects:
       - name: sync15
         type: aar
     description: Shared Sync types for Kotlin.
+  syncmanager:
+    path: components/sync_manager/android
+    artifactId: syncmanager
+    publications:
+      - name: syncmanager
+        type: aar
+    description: Sync manager implementation
   lockbox-megazord:
     uploadSymbols: true
     path: megazords/lockbox/android

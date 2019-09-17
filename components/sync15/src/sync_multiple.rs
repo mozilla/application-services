@@ -5,10 +5,11 @@
 // This helps you perform a sync of multiple stores and helps you manage
 // global and local state between syncs.
 
-use crate::client::{Sync15StorageClient, Sync15StorageClientInit};
+use crate::client::{BackoffListener, Sync15StorageClient, Sync15StorageClientInit};
+use crate::coll_state::StoreSyncAssociation;
 use crate::error::Error;
 use crate::key_bundle::KeyBundle;
-use crate::state::{GlobalState, PersistedGlobalState, SetupStateMachine};
+use crate::state::{EngineChangesNeeded, GlobalState, PersistedGlobalState, SetupStateMachine};
 use crate::status::{ServiceStatus, SyncResult};
 use crate::sync::{self, Store};
 use crate::telemetry;
@@ -17,6 +18,7 @@ use interrupt::Interruptee;
 use std::collections::HashMap;
 use std::mem;
 use std::result;
+use std::time::SystemTime;
 
 /// Info about the client to use. We reuse the client unless
 /// we discover the client_init has changed, in which case we re-create one.
@@ -44,6 +46,22 @@ impl ClientInfo {
 pub struct MemoryCachedState {
     last_client_info: Option<ClientInfo>,
     last_global_state: Option<GlobalState>,
+    // This is just stored in memory, as persisting an invalid value far in the
+    // future has the potential to break sync for good.
+    next_sync_after: Option<SystemTime>,
+}
+
+impl MemoryCachedState {
+    // Called we notice the cached state is stale.
+    pub fn clear_sensitive_info(&mut self) {
+        self.last_client_info = None;
+        self.last_global_state = None;
+        // Leave the backoff time, as there's no reason to think it's not still
+        // true.
+    }
+    pub fn get_next_sync_after(&self) -> Option<SystemTime> {
+        self.next_sync_after
+    }
 }
 
 /// Sync multiple stores
@@ -69,23 +87,34 @@ pub fn sync_multiple(
     mem_cached_state: &mut MemoryCachedState,
     storage_init: &Sync15StorageClientInit,
     root_sync_key: &KeyBundle,
-    interruptee: &impl Interruptee,
+    interruptee: &dyn Interruptee,
+    req_info: Option<SyncRequestInfo<'_>>,
 ) -> SyncResult {
+    log::info!("Syncing {} stores", stores.len());
     let mut sync_result = SyncResult {
         service_status: ServiceStatus::OtherError,
         result: Ok(()),
+        declined: None,
+        next_sync_after: None,
         engine_results: HashMap::with_capacity(stores.len()),
         telemetry: telemetry::SyncTelemetryPing::new(),
     };
-    match do_sync_multiple(
+    let backoff = crate::client::new_backoff_listener();
+    let req_info = req_info.unwrap_or_default();
+    let driver = SyncMultipleDriver {
         stores,
+        storage_init,
+        interruptee,
+        engines_to_state_change: req_info.engines_to_state_change,
+        backoff: backoff.clone(),
+        root_sync_key,
+        result: &mut sync_result,
         persisted_global_state,
         mem_cached_state,
-        storage_init,
-        root_sync_key,
-        interruptee,
-        &mut sync_result,
-    ) {
+        any_failed_engines: false,
+        ignore_soft_backoff: req_info.is_user_action,
+    };
+    match driver.sync() {
         Ok(()) => {
             log::debug!(
                 "sync was successful, final status={:?}",
@@ -102,160 +131,297 @@ pub fn sync_multiple(
             sync_result.result = Err(e);
         }
     }
+    // Respect `backoff` value when computing the next sync time even if we were
+    // ignoring it during the sync
+    sync_result.set_sync_after(backoff.get_required_wait(false).unwrap_or_default());
+    mem_cached_state.next_sync_after = sync_result.next_sync_after;
+    log::trace!("Sync result: {:?}", sync_result);
     sync_result
 }
 
-/// The actual worker for sync_multiple.
-fn do_sync_multiple(
-    stores: &[&dyn Store],
-    persisted_global_state: &mut Option<String>,
-    mem_cached_state: &mut MemoryCachedState,
-    storage_init: &Sync15StorageClientInit,
-    root_sync_key: &KeyBundle,
-    interruptee: &impl Interruptee,
-    sync_result: &mut SyncResult,
-) -> result::Result<(), Error> {
-    if interruptee.was_interrupted() {
-        sync_result.service_status = ServiceStatus::Interrupted;
-        return Ok(());
+/// This is essentially a bag of information that the sync manager knows, but
+/// otherwise we won't. It should probably be rethought if it gains many more
+/// fields.
+#[derive(Debug, Default)]
+pub struct SyncRequestInfo<'a> {
+    pub engines_to_state_change: Option<&'a HashMap<String, bool>>,
+    pub is_user_action: bool,
+}
+
+// The sync multiple driver
+struct SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
+    stores: &'info [&'info dyn Store],
+    storage_init: &'info Sync15StorageClientInit,
+    root_sync_key: &'info KeyBundle,
+    interruptee: &'info dyn Interruptee,
+    backoff: BackoffListener,
+    engines_to_state_change: Option<&'info HashMap<String, bool>>,
+    result: &'res mut SyncResult,
+    persisted_global_state: &'pgs mut Option<String>,
+    mem_cached_state: &'mcs mut MemoryCachedState,
+    ignore_soft_backoff: bool,
+    any_failed_engines: bool,
+}
+
+impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
+    /// The actual worker for sync_multiple.
+    fn sync(mut self) -> result::Result<(), Error> {
+        log::info!("Loading/initializing persisted state");
+        let mut pgs = self.prepare_persisted_state();
+
+        log::info!("Preparing client info");
+        let client_info = self.prepare_client_info()?;
+
+        if self.was_interrupted() {
+            return Ok(());
+        }
+
+        log::info!("Entering sync state machine");
+        // Advance the state machine to the point where it can perform a full
+        // sync. This may involve uploading meta/global, crypto/keys etc.
+        let mut global_state = self.run_state_machine(&client_info, &mut pgs)?;
+
+        if self.was_interrupted() {
+            return Ok(());
+        }
+
+        // Set the service status to OK here - we may adjust it based on an individual
+        // store failing.
+        self.result.service_status = ServiceStatus::Ok;
+
+        log::info!("Synchronizing stores");
+
+        let telem_sync = self.sync_stores(&client_info, &mut global_state);
+        self.result.telemetry.sync(telem_sync);
+
+        log::info!(
+            "Finished syncing stores. All successful: {}",
+            !self.any_failed_engines
+        );
+
+        if self.any_failed_engines {
+            // XXX - not clear if we should really only do this on full success,
+            // particularly if it's just a network error.
+            log::info!("Updating persisted global state");
+            self.mem_cached_state.last_client_info = Some(client_info);
+            self.mem_cached_state.last_global_state = Some(global_state);
+        }
+
+        Ok(())
     }
 
-    // We put None back into last_client_info now so if we fail entirely,
-    // reinitialize everything related to the client.
-    let client_info = match mem::replace(&mut mem_cached_state.last_client_info, None) {
-        Some(client_info) => {
-            // if our storage_init has changed it probably means the user has
-            // changed, courtesy of the 'kid' in the structure. Thus, we can't
-            // reuse the client or the memory cached state. We do keep the disk
-            // state as currently that's only the declined list.
-            if client_info.client_init != *storage_init {
-                log::info!("Discarding all state as the account might have changed");
-                *mem_cached_state = MemoryCachedState::default();
-                ClientInfo::new(storage_init)?
-            } else {
-                // we can reuse it (which should be the common path)
-                client_info
-            }
+    fn was_interrupted(&mut self) -> bool {
+        if self.interruptee.was_interrupted() {
+            log::info!("Interrupted, bailing out");
+            self.result.service_status = ServiceStatus::Interrupted;
+            true
+        } else {
+            false
         }
-        None => {
-            // We almost certainly have no other state here, but to be safe, we
-            // throw away any memory state we do have.
-            *mem_cached_state = MemoryCachedState::default();
-            ClientInfo::new(storage_init)?
-        }
-    };
+    }
 
-    let mut pgs = match persisted_global_state {
-        Some(persisted_string) => {
-            match serde_json::from_str::<PersistedGlobalState>(&persisted_string) {
-                Ok(state) => state,
-                _ => {
-                    // Don't log the error since it might contain sensitive
-                    // info (although currently it only contains the declined engines list)
-                    log::error!(
-                        "Failed to parse PersistedGlobalState from JSON! Falling back to default"
-                    );
-                    PersistedGlobalState::default()
+    fn sync_stores(
+        &mut self,
+        client_info: &ClientInfo,
+        global_state: &mut GlobalState,
+    ) -> telemetry::SyncTelemetry {
+        let mut telem_sync = telemetry::SyncTelemetry::new();
+        for store in self.stores {
+            let name = store.collection_name();
+            if self
+                .backoff
+                .get_required_wait(self.ignore_soft_backoff)
+                .is_some()
+            {
+                log::warn!("Got backoff, bailing out of sync early");
+                break;
+            }
+            if global_state.global.declined.iter().any(|e| e == name) {
+                log::info!("The {} engine is declined. Skipping", name);
+                continue;
+            }
+            log::info!("Syncing {} engine!", name);
+
+            let mut telem_engine = telemetry::Engine::new(name);
+            let result = sync::synchronize(
+                &client_info.client,
+                &global_state,
+                self.root_sync_key,
+                *store,
+                true,
+                &mut telem_engine,
+                self.interruptee,
+            );
+
+            match result {
+                Ok(()) => log::info!("Sync of {} was successful!", name),
+                Err(ref e) => {
+                    self.any_failed_engines = true;
+                    // XXX - while we arrange to reset the global state machine
+                    // here via the `any_failed_engines` check below, ideally we'd be more
+                    // fine-grained about it - eg, a simple network error shouldn't
+                    // cause this.
+                    // However, the costs of restarting the state machine from
+                    // scratch really isn't that bad for now.
+                    log::warn!("Sync of {} failed! {:?}", name, e);
+                    let this_status = ServiceStatus::from_err(&e);
+                    telem_engine.failure(e);
+                    // If the failure from the store looks like anything other than
+                    // a "store error" we don't bother trying the others.
+                    if this_status != ServiceStatus::OtherError {
+                        telem_sync.engine(telem_engine);
+                        self.result.engine_results.insert(name.into(), result);
+                        self.result.service_status = this_status;
+                        break;
+                    }
                 }
             }
+            telem_sync.engine(telem_engine);
+            self.result.engine_results.insert(name.into(), result);
+            if self.was_interrupted() {
+                break;
+            }
         }
-        None => {
-            log::info!("The application didn't give us persisted state - this is only expected on the very first run for a given user.");
-            PersistedGlobalState::default()
-        }
-    };
-
-    if interruptee.was_interrupted() {
-        sync_result.service_status = ServiceStatus::Interrupted;
-        return Ok(());
+        telem_sync
     }
 
-    // Advance the state machine to the point where it can perform a full
-    // sync. This may involve uploading meta/global, crypto/keys etc.
-    let global_state = {
-        let last_state = mem::replace(&mut mem_cached_state.last_global_state, None);
+    fn run_state_machine(
+        &mut self,
+        client_info: &ClientInfo,
+        pgs: &mut PersistedGlobalState,
+    ) -> result::Result<GlobalState, Error> {
+        let last_state = mem::replace(&mut self.mem_cached_state.last_global_state, None);
+
         let mut state_machine = SetupStateMachine::for_full_sync(
             &client_info.client,
-            &root_sync_key,
-            &mut pgs,
-            interruptee,
+            &self.root_sync_key,
+            pgs,
+            self.engines_to_state_change,
+            self.interruptee,
         );
+
         log::info!("Advancing state machine to ready (full)");
-        let state = match state_machine.run_to_ready(last_state) {
+        let res = state_machine.run_to_ready(last_state);
+        // Grab this now even though we don't need it until later to avoid a
+        // lifetime issue
+        let changes = state_machine.changes_needed.take();
+        // The state machine might have updated our persisted_global_state, so
+        // update the caller's repr of it.
+        mem::replace(
+            self.persisted_global_state,
+            Some(serde_json::to_string(&pgs)?),
+        );
+
+        // Now that we've gone through the state machine, store the declined list in
+        // the sync_result
+        self.result.declined = Some(pgs.get_declined().to_vec());
+        log::debug!(
+            "Declined engines list after state machine set to: {:?}",
+            self.result.declined,
+        );
+
+        if let Some(c) = changes {
+            self.wipe_or_reset_engines(c, &client_info.client)?;
+        }
+        let state = match res {
             Err(e) => {
-                sync_result.service_status = ServiceStatus::from_err(&e);
+                self.result.service_status = ServiceStatus::from_err(&e);
                 return Err(e);
             }
             Ok(state) => state,
         };
-        // The state machine might have updated our persisted_global_state, so
-        // update the callers repr of it.
-        mem::replace(persisted_global_state, Some(serde_json::to_string(&pgs)?));
-        sync_result.telemetry.uid(client_info.client.hashed_uid()?);
+        self.result.telemetry.uid(client_info.client.hashed_uid()?);
         // As for client_info, put None back now so we start from scratch on error.
-        mem_cached_state.last_global_state = None;
-        state
-    };
+        self.mem_cached_state.last_global_state = None;
+        Ok(state)
+    }
 
-    // Set the service status to OK here - we may adjust it based on an individual
-    // store failing.
-    sync_result.service_status = ServiceStatus::Ok;
-
-    let mut num_failures = 0;
-    let mut telem_sync = telemetry::SyncTelemetry::new();
-    for store in stores {
-        let name = store.collection_name();
-        log::info!("Syncing {} engine!", name);
-
-        let mut telem_engine = telemetry::Engine::new(name);
-        let result = sync::synchronize(
-            &client_info.client,
-            &global_state,
-            root_sync_key,
-            *store,
-            true,
-            &mut telem_engine,
-            interruptee,
-        );
-
-        match result {
-            Ok(()) => log::info!("Sync of {} was successful!", name),
-            Err(ref e) => {
-                num_failures += 1;
-                // XXX - while we arrange to reset the global state machine
-                // here via the `num_failures` check below, ideally we'd be more
-                // fine-grained about it - eg, a simple network error shouldn't
-                // cause this.
-                // However, the costs of restarting the state machine from
-                // scratch really isn't that bad for now.
-                log::warn!("Sync of {} failed! {:?}", name, e);
-                let this_status = ServiceStatus::from_err(&e);
-                telem_engine.failure(e);
-                // If the failure from the store looks like anything other than
-                // a "store error" we don't bother trying the others.
-                if this_status != ServiceStatus::OtherError {
-                    telem_sync.engine(telem_engine);
-                    sync_result.engine_results.insert(name.into(), result);
-                    sync_result.service_status = this_status;
-                    break;
-                }
-            }
-        }
-        telem_sync.engine(telem_engine);
-        sync_result.engine_results.insert(name.into(), result);
-        if interruptee.was_interrupted() {
-            sync_result.service_status = ServiceStatus::Interrupted;
+    fn wipe_or_reset_engines(
+        &mut self,
+        changes: EngineChangesNeeded,
+        client: &Sync15StorageClient,
+    ) -> result::Result<(), Error> {
+        if changes.local_resets.is_empty() && changes.remote_wipes.is_empty() {
             return Ok(());
         }
+        for e in &changes.remote_wipes {
+            log::info!("Engine {:?} just got disabled locally, wiping server", e);
+            client.wipe_remote_engine(&e)?;
+        }
+
+        for s in self.stores {
+            let name = s.collection_name();
+            if changes.local_resets.contains(name) {
+                log::info!("Resetting engine {}, as it was declined remotely", name);
+                s.reset(&StoreSyncAssociation::Disconnected)?;
+            }
+        }
+
+        Ok(())
     }
 
-    sync_result.telemetry.sync(telem_sync);
-    if num_failures == 0 {
-        // XXX - not clear if we should really only do this on full success,
-        // particularly if it's just a network error. See XXX above for more.
-        log::info!("Updating persisted global state");
-        mem_cached_state.last_client_info = Some(client_info);
-        mem_cached_state.last_global_state = Some(global_state);
+    fn prepare_client_info(&mut self) -> result::Result<ClientInfo, Error> {
+        let mut client_info = match mem::replace(&mut self.mem_cached_state.last_client_info, None)
+        {
+            Some(client_info) => {
+                // if our storage_init has changed it probably means the user has
+                // changed, courtesy of the 'kid' in the structure. Thus, we can't
+                // reuse the client or the memory cached state. We do keep the disk
+                // state as currently that's only the declined list.
+                if client_info.client_init != *self.storage_init {
+                    log::info!("Discarding all state as the account might have changed");
+                    *self.mem_cached_state = MemoryCachedState::default();
+                    ClientInfo::new(self.storage_init)?
+                } else {
+                    log::debug!("Reusing memory-cached client_info");
+                    // we can reuse it (which should be the common path)
+                    client_info
+                }
+            }
+            None => {
+                log::debug!("mem_cached_state was stale or missing, need setup");
+                // We almost certainly have no other state here, but to be safe, we
+                // throw away any memory state we do have.
+                self.mem_cached_state.clear_sensitive_info();
+                ClientInfo::new(self.storage_init)?
+            }
+        };
+        // Ensure we use the correct listener here rather than on all the branches
+        // above, since it seems less error prone.
+        client_info.client.backoff = self.backoff.clone();
+        Ok(client_info)
     }
-    Ok(())
+
+    fn prepare_persisted_state(&mut self) -> PersistedGlobalState {
+        match self.persisted_global_state {
+            Some(persisted_string) => {
+                match serde_json::from_str::<PersistedGlobalState>(&persisted_string) {
+                    Ok(state) => {
+                        log::trace!("Read persisted state: {:?}", state);
+                        // TODO: we might want to consider setting `result.declined`
+                        // to what `state` has in it's declined list. I've opted not
+                        // to do that so that `result.declined == null` can be used
+                        // to determine whether or not we managed to update the
+                        // remote declined list.
+                        state
+                    }
+                    _ => {
+                        // Don't log the error since it might contain sensitive
+                        // info (although currently it only contains the declined engines list)
+                        log::error!(
+                            "Failed to parse PersistedGlobalState from JSON! Falling back to default"
+                        );
+                        PersistedGlobalState::default()
+                    }
+                }
+            }
+            None => {
+                log::info!(
+                    "The application didn't give us persisted state - \
+                     this is only expected on the very first run for a given user."
+                );
+                PersistedGlobalState::default()
+            }
+        }
+    }
 }

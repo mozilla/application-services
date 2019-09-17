@@ -20,3 +20,11 @@ Also we now store the session_token into the state from the 'https://identity.mo
   a new `is_hidden` flag is added to `HistoryVisitInfo`, though it's currently
   always `false`, since those visits are excluded.
   ([#1715](https://github.com/mozilla/application-services/pull/1715))
+
+## Sync Manager
+
+- The new sync manager component is now available for integration ([#1447](https://github.com/mozilla/application-services/pull/1447)).
+    - This should include no breaking changes at the moment, but in the future
+      we will deprecate the non-sync manager sync APIs on android.
+    - Note: Currently, the sync manager is only available in the `full` and
+      `fenix` megazords.

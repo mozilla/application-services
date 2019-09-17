@@ -245,6 +245,7 @@ fn sync(
         &cli_fxa.client_init.clone(),
         &cli_fxa.root_sync_key,
         &interruptee,
+        None,
     );
 
     for (name, result) in result.engine_results.drain() {

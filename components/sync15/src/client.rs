@@ -13,6 +13,7 @@ use crate::token;
 use crate::util::ServerTimestamp;
 use serde_json::Value;
 use std::str::FromStr;
+use std::sync::atomic::{AtomicU32, Ordering};
 use url::Url;
 use viaduct::{
     header_names::{self, AUTHORIZATION},
@@ -32,12 +33,43 @@ pub enum Sync15ClientResponse<T> {
     Error(ErrorResponse),
 }
 
+fn parse_seconds(seconds_str: &str) -> Option<u32> {
+    let secs = seconds_str.parse::<f64>().ok()?.ceil();
+    // Note: u32 doesn't impl TryFrom<f64> :(
+    if !secs.is_finite() || secs < 0.0 || secs >= f64::from(u32::max_value()) {
+        Some(secs as u32)
+    } else {
+        log::warn!("invalid backoff value: {}", secs);
+        None
+    }
+}
+
 impl<T> Sync15ClientResponse<T> {
-    pub fn from_response(resp: Response) -> error::Result<Self>
+    pub fn from_response(resp: Response, backoff_listener: &BackoffListener) -> error::Result<Self>
     where
         for<'a> T: serde::de::Deserialize<'a>,
     {
         let route: String = resp.url.path().into();
+        // Android seems to respect retry_after even on success requests, so we
+        // will too if it's present. This also lets us handle both backoff-like
+        // properties in the same place.
+        let retry_after = resp
+            .headers
+            .get(header_names::RETRY_AFTER)
+            .and_then(parse_seconds);
+
+        let backoff = resp
+            .headers
+            .get(header_names::X_WEAVE_BACKOFF)
+            .and_then(parse_seconds);
+
+        if let Some(b) = backoff {
+            backoff_listener.note_backoff(b);
+        }
+        if let Some(ra) = retry_after {
+            backoff_listener.note_retry_after(ra);
+        }
+
         Ok(if resp.is_success() {
             let record: T = resp.json()?;
             let last_modified = resp
@@ -45,6 +77,12 @@ impl<T> Sync15ClientResponse<T> {
                 .get(header_names::X_LAST_MODIFIED)
                 .and_then(|s| ServerTimestamp::from_str(s).ok())
                 .ok_or_else(|| ErrorKind::MissingServerTimestamp)?;
+            log::info!(
+                "Request \"{}\" has incoming x-last-modified {:?}",
+                route,
+                last_modified
+            );
+
             Sync15ClientResponse::Success {
                 status: resp.status,
                 record,
@@ -52,12 +90,12 @@ impl<T> Sync15ClientResponse<T> {
                 route,
             }
         } else {
+            log::info!("Request \"{}\" was an error!", route,);
             let status = resp.status;
             match status {
                 404 => Sync15ClientResponse::Error(ErrorResponse::NotFound { route }),
                 401 => Sync15ClientResponse::Error(ErrorResponse::Unauthorized { route }),
                 412 => Sync15ClientResponse::Error(ErrorResponse::PreconditionFailed { route }),
-                // / TODO: 5XX errors should parse backoff etc.
                 500..=600 => {
                     Sync15ClientResponse::Error(ErrorResponse::ServerError { route, status })
                 }
@@ -101,14 +139,61 @@ pub trait SetupStorageClient {
         &self,
         xius: ServerTimestamp,
         global: &MetaGlobalRecord,
-    ) -> error::Result<()>;
+    ) -> error::Result<ServerTimestamp>;
     fn put_crypto_keys(&self, xius: ServerTimestamp, keys: &EncryptedBso) -> error::Result<()>;
     fn wipe_all_remote(&self) -> error::Result<()>;
+}
+
+#[derive(Debug, Default)]
+pub struct BackoffState {
+    pub backoff_secs: AtomicU32,
+    pub retry_after_secs: AtomicU32,
+}
+
+pub(crate) type BackoffListener = std::sync::Arc<BackoffState>;
+
+pub(crate) fn new_backoff_listener() -> BackoffListener {
+    std::sync::Arc::new(BackoffState::default())
+}
+
+impl BackoffState {
+    pub fn note_backoff(&self, noted: u32) {
+        crate::util::atomic_update_max(&self.backoff_secs, noted)
+    }
+
+    pub fn note_retry_after(&self, noted: u32) {
+        crate::util::atomic_update_max(&self.retry_after_secs, noted)
+    }
+
+    pub fn get_backoff_secs(&self) -> u32 {
+        self.backoff_secs.load(Ordering::SeqCst)
+    }
+
+    pub fn get_retry_after_secs(&self) -> u32 {
+        self.retry_after_secs.load(Ordering::SeqCst)
+    }
+
+    pub fn get_required_wait(&self, ignore_soft_backoff: bool) -> Option<std::time::Duration> {
+        let bo = self.get_backoff_secs();
+        let ra = self.get_retry_after_secs();
+        let secs = u64::from(if ignore_soft_backoff { ra } else { bo.max(ra) });
+        if secs > 0 {
+            Some(std::time::Duration::from_secs(secs))
+        } else {
+            None
+        }
+    }
+
+    pub fn reset(&self) {
+        self.backoff_secs.store(0, Ordering::SeqCst);
+        self.retry_after_secs.store(0, Ordering::SeqCst);
+    }
 }
 
 #[derive(Debug)]
 pub struct Sync15StorageClient {
     tsc: token::TokenProvider,
+    pub(crate) backoff: BackoffListener,
 }
 
 impl SetupStorageClient for Sync15StorageClient {
@@ -130,12 +215,19 @@ impl SetupStorageClient for Sync15StorageClient {
                 last_modified,
                 route,
                 status,
-            } => Sync15ClientResponse::Success {
-                record: record.payload,
-                last_modified,
-                route,
-                status,
-            },
+            } => {
+                log::debug!(
+                    "Got meta global with modified = {}; last-modified = {}",
+                    record.modified,
+                    last_modified
+                );
+                Sync15ClientResponse::Success {
+                    record: record.payload,
+                    last_modified,
+                    route,
+                    status,
+                }
+            }
             Sync15ClientResponse::Error(e) => Sync15ClientResponse::Error(e),
         })
     }
@@ -148,13 +240,14 @@ impl SetupStorageClient for Sync15StorageClient {
         &self,
         xius: ServerTimestamp,
         global: &MetaGlobalRecord,
-    ) -> error::Result<()> {
+    ) -> error::Result<ServerTimestamp> {
         let bso = BsoRecord::new_record("global".into(), "meta".into(), global);
         self.put("storage/meta/global", xius, &bso)
     }
 
     fn put_crypto_keys(&self, xius: ServerTimestamp, keys: &EncryptedBso) -> error::Result<()> {
-        self.put("storage/crypto/keys", xius, keys)
+        self.put("storage/crypto/keys", xius, keys)?;
+        Ok(())
     }
 
     fn wipe_all_remote(&self) -> error::Result<()> {
@@ -179,7 +272,10 @@ impl Sync15StorageClient {
             init_params.access_token,
             init_params.key_id,
         )?;
-        Ok(Sync15StorageClient { tsc })
+        Ok(Sync15StorageClient {
+            tsc,
+            backoff: new_backoff_listener(),
+        })
     }
 
     pub fn get_encrypted_records(
@@ -230,9 +326,8 @@ impl Sync15StorageClient {
             req.url.query()
         );
         let resp = req.send()?;
-        log::trace!("response: {}", resp.status);
 
-        let result = Sync15ClientResponse::from_response(resp)?;
+        let result = Sync15ClientResponse::from_response(resp, &self.backoff)?;
         match result {
             Sync15ClientResponse::Success { .. } => Ok(result),
             _ => {
@@ -271,7 +366,12 @@ impl Sync15StorageClient {
         Ok(PostQueue::new(config, ts, pw, on_response))
     }
 
-    fn put<P, B>(&self, relative_path: P, xius: ServerTimestamp, body: &B) -> error::Result<()>
+    fn put<P, B>(
+        &self,
+        relative_path: P,
+        xius: ServerTimestamp,
+        body: &B,
+    ) -> error::Result<ServerTimestamp>
     where
         P: AsRef<str>,
         B: serde::ser::Serialize,
@@ -284,13 +384,30 @@ impl Sync15StorageClient {
             .json(body)
             .header(header_names::X_IF_UNMODIFIED_SINCE, format!("{}", xius))?;
 
-        let _ = self.exec_request::<Value>(req, true)?;
-
-        Ok(())
+        let resp = self.exec_request::<Value>(req, true)?;
+        // Note: we pass `true` for require_success, so this panic never happens.
+        if let Sync15ClientResponse::Success { last_modified, .. } = resp {
+            Ok(last_modified)
+        } else {
+            unreachable!("Error returned exec_request when `require_success` was true");
+        }
     }
 
     pub fn hashed_uid(&self) -> error::Result<String> {
         self.tsc.hashed_uid()
+    }
+
+    pub(crate) fn wipe_remote_engine(&self, engine: &str) -> error::Result<()> {
+        let s = self.tsc.api_endpoint()? + "/";
+        let url = Url::parse(&s)?.join(&format!("storage/{}", engine))?;
+        log::debug!("Wiping: {:?}", url);
+        let req = self.build_request(Method::Delete, url)?;
+        match self.exec_request::<Value>(req, false) {
+            Ok(Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }))
+            | Ok(Sync15ClientResponse::Success { .. }) => Ok(()),
+            Ok(resp) => Err(resp.create_storage_error().into()),
+            Err(e) => Err(e),
+        }
     }
 }
 
