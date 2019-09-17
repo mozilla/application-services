@@ -6,7 +6,7 @@ use crate::bookmark_sync::store::BookmarksStore;
 use crate::db::db::PlacesDb;
 use crate::error::*;
 use crate::history_sync::store::HistoryStore;
-use crate::storage::{delete_meta, get_meta, put_meta};
+use crate::storage::{self, delete_meta, get_meta, put_meta};
 use crate::util::normalize_path;
 use lazy_static::lazy_static;
 use rusqlite::OpenFlags;
@@ -366,6 +366,20 @@ impl PlacesApi {
         Ok(result)
     }
 
+    pub fn wipe_bookmarks(&self) -> Result<()> {
+        // Take the lock to prevent syncing while we're doing this.
+        let _guard = self.sync_state.lock().unwrap();
+        let conn = self.open_sync_connection()?;
+
+        // Somewhat ironically, we start by migrating from the legacy storage
+        // format. We *are* just going to delete it anyway, but the code is
+        // simpler if we can just reuse the existing path.
+        HistoryStore::migrate_v1_global_state(&conn)?;
+
+        storage::bookmarks::delete_everything(&conn)?;
+        Ok(())
+    }
+
     pub fn reset_bookmarks(&self) -> Result<()> {
         // Take the lock to prevent syncing while we're doing this.
         let _guard = self.sync_state.lock().unwrap();
@@ -382,6 +396,20 @@ impl PlacesApi {
         let store = BookmarksStore::new(&conn, &scope);
         store.reset(&sync15::StoreSyncAssociation::Disconnected)?;
 
+        Ok(())
+    }
+
+    pub fn wipe_history(&self) -> Result<()> {
+        // Take the lock to prevent syncing while we're doing this.
+        let _guard = self.sync_state.lock().unwrap();
+        let conn = self.open_sync_connection()?;
+
+        // Somewhat ironically, we start by migrating from the legacy storage
+        // format. We *are* just going to delete it anyway, but the code is
+        // simpler if we can just reuse the existing path.
+        HistoryStore::migrate_v1_global_state(&conn)?;
+
+        storage::history::delete_everything(&conn)?;
         Ok(())
     }
 

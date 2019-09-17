@@ -6,6 +6,7 @@
 // global and local state between syncs.
 
 use crate::client::{BackoffListener, Sync15StorageClient, Sync15StorageClientInit};
+use crate::clients::{self, CommandProcessor};
 use crate::coll_state::StoreSyncAssociation;
 use crate::error::Error;
 use crate::key_bundle::KeyBundle;
@@ -90,6 +91,32 @@ pub fn sync_multiple(
     interruptee: &dyn Interruptee,
     req_info: Option<SyncRequestInfo<'_>>,
 ) -> SyncResult {
+    sync_multiple_with_command_processor(
+        None,
+        stores,
+        persisted_global_state,
+        mem_cached_state,
+        storage_init,
+        root_sync_key,
+        interruptee,
+        req_info,
+    )
+}
+
+/// Like `sync_multiple`, but specifies an optional command processor to handle
+/// commands from the clients collection. This function is called by the sync
+/// manager, which provides its own processor.
+#[allow(clippy::too_many_arguments)]
+pub fn sync_multiple_with_command_processor(
+    command_processor: Option<&dyn CommandProcessor>,
+    stores: &[&dyn Store],
+    persisted_global_state: &mut Option<String>,
+    mem_cached_state: &mut MemoryCachedState,
+    storage_init: &Sync15StorageClientInit,
+    root_sync_key: &KeyBundle,
+    interruptee: &dyn Interruptee,
+    req_info: Option<SyncRequestInfo<'_>>,
+) -> SyncResult {
     log::info!("Syncing {} stores", stores.len());
     let mut sync_result = SyncResult {
         service_status: ServiceStatus::OtherError,
@@ -102,6 +129,7 @@ pub fn sync_multiple(
     let backoff = crate::client::new_backoff_listener();
     let req_info = req_info.unwrap_or_default();
     let driver = SyncMultipleDriver {
+        command_processor,
         stores,
         storage_init,
         interruptee,
@@ -150,6 +178,7 @@ pub struct SyncRequestInfo<'a> {
 
 // The sync multiple driver
 struct SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
+    command_processor: Option<&'info dyn CommandProcessor>,
     stores: &'info [&'info dyn Store],
     storage_init: &'info Sync15StorageClientInit,
     root_sync_key: &'info KeyBundle,
@@ -188,6 +217,35 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
         // Set the service status to OK here - we may adjust it based on an individual
         // store failing.
         self.result.service_status = ServiceStatus::Ok;
+
+        if let Some(command_processor) = self.command_processor {
+            log::info!("Synchronizing clients engine");
+            let engine = clients::Engine {
+                command_processor,
+                interruptee: self.interruptee,
+                storage_client: &client_info.client,
+                global_state: &global_state,
+                root_sync_key: &self.root_sync_key,
+            };
+            if let Err(e) = engine.sync() {
+                // Record telemetry with the error just in case...
+                let mut telem_sync = telemetry::SyncTelemetry::new();
+                let mut telem_engine = telemetry::Engine::new("clients");
+                telem_engine.failure(&e);
+                telem_sync.engine(telem_engine);
+                self.result.service_status = ServiceStatus::from_err(&e);
+
+                // ...And bail, because a clients engine sync failure is fatal.
+                return Err(e);
+            }
+            // We don't record telemetry for successful clients engine
+            // syncs, since we only keep client records in memory, we
+            // expect the counts to be the same most times, and a
+            // failure aborts the entire sync.
+            if self.was_interrupted() {
+                return Ok(());
+            }
+        }
 
         log::info!("Synchronizing stores");
 

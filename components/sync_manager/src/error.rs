@@ -2,6 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use failure::Fail;
+use interrupt::Interrupted;
+use logins;
+use places;
+use sync15;
 
 #[derive(Debug, Fail)]
 pub enum ErrorKind {
@@ -21,6 +25,14 @@ pub enum ErrorKind {
     Sync15Error(#[fail(cause)] sync15::Error),
     #[fail(display = "URL parse error: {}", _0)]
     UrlParseError(#[fail(cause)] url::ParseError),
+    #[fail(display = "Operation interrupted")]
+    InterruptedError(#[fail(cause)] Interrupted),
+    #[fail(display = "Error parsing JSON data: {}", _0)]
+    JsonError(#[fail(cause)] serde_json::Error),
+    #[fail(display = "Logins error: {}", _0)]
+    LoginsError(#[fail(cause)] logins::Error),
+    #[fail(display = "Places error: {}", _0)]
+    PlacesError(#[fail(cause)] places::Error),
 }
 
 error_support::define_error! {
@@ -29,5 +41,9 @@ error_support::define_error! {
         (ProtobufDecodeError, prost::DecodeError),
         (Sync15Error, sync15::Error),
         (UrlParseError, url::ParseError),
+        (InterruptedError, Interrupted),
+        (JsonError, serde_json::Error),
+        (LoginsError, logins::Error),
+        (PlacesError, places::Error),
     }
 }

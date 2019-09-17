@@ -5,7 +5,7 @@
 use crate::api::places_api::{ConnectionType, GLOBAL_STATE_META_KEY};
 use crate::db::PlacesDb;
 use crate::error::*;
-use crate::storage::history::history_sync::reset_storage;
+use crate::storage::history::{delete_everything, history_sync::reset_storage};
 use rusqlite::types::{FromSql, ToSql};
 use rusqlite::Connection;
 use sql_support::SqlInterruptScope;
@@ -21,11 +21,11 @@ use sync_guid::Guid;
 use super::plan::{apply_plan, finish_plan};
 use super::MAX_INCOMING_PLACES;
 
-const LAST_SYNC_META_KEY: &str = "history_last_sync_time";
+pub const LAST_SYNC_META_KEY: &str = "history_last_sync_time";
 // Note that all engines in this crate should use a *different* meta key
 // for the global sync ID, because engines are reset individually.
-const GLOBAL_SYNCID_META_KEY: &str = "history_global_sync_id";
-const COLLECTION_SYNCID_META_KEY: &str = "history_sync_id";
+pub const GLOBAL_SYNCID_META_KEY: &str = "history_global_sync_id";
+pub const COLLECTION_SYNCID_META_KEY: &str = "history_sync_id";
 
 // A HistoryStore is short-lived and constructed each sync by something which
 // owns the connection and ClientInfo.
@@ -193,7 +193,7 @@ impl<'a> Store for HistoryStore<'a> {
     }
 
     fn wipe(&self) -> result::Result<(), failure::Error> {
-        log::warn!("not implemented");
+        delete_everything(&self.db)?;
         Ok(())
     }
 }

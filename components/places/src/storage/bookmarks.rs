@@ -3,7 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::RowId;
+use super::{delete_meta, put_meta};
 use super::{fetch_page_info, new_page_info};
+use crate::bookmark_sync;
 use crate::db::PlacesDb;
 use crate::error::*;
 use crate::types::{BookmarkType, SyncStatus, Timestamp};
@@ -1067,6 +1069,40 @@ fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Ve
             }
         };
     }
+}
+
+/// Erases all bookmarks and resets all Sync metadata.
+pub fn delete_everything(db: &PlacesDb) -> Result<()> {
+    let tx = db.begin_transaction()?;
+    delete_everything_in_tx(db)?;
+    tx.commit()?;
+    Ok(())
+}
+
+fn delete_everything_in_tx(db: &PlacesDb) -> Result<()> {
+    db.execute_batch(&format!(
+        "DELETE FROM moz_bookmarks_synced;
+
+         DELETE FROM moz_bookmarks_deleted;
+
+         DELETE FROM moz_bookmarks
+         WHERE guid NOT IN ('{}', '{}', '{}', '{}', '{}');
+
+         UPDATE moz_bookmarks
+         SET syncChangeCounter = 1,
+             syncStatus = {}",
+        BookmarkRootGuid::Root.as_str(),
+        BookmarkRootGuid::Menu.as_str(),
+        BookmarkRootGuid::Mobile.as_str(),
+        BookmarkRootGuid::Toolbar.as_str(),
+        BookmarkRootGuid::Unfiled.as_str(),
+        (SyncStatus::New as u8)
+    ))?;
+    bookmark_sync::create_synced_bookmark_roots(db)?;
+    put_meta(db, bookmark_sync::store::LAST_SYNC_META_KEY, &0)?;
+    delete_meta(db, bookmark_sync::store::GLOBAL_SYNCID_META_KEY)?;
+    delete_meta(db, bookmark_sync::store::COLLECTION_SYNCID_META_KEY)?;
+    Ok(())
 }
 
 pub fn insert_tree(db: &PlacesDb, tree: &FolderNode) -> Result<()> {

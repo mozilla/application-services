@@ -15,6 +15,14 @@ enum SyncReason {
     ENABLED_CHANGE = 5;
 }
 
+enum DeviceType {
+    DESKTOP = 1;
+    MOBILE = 2;
+    TABLET = 3;
+    VR = 4;
+    TV = 5;
+}
+
 message SyncParams {
     repeated string engines_to_sync = 1;
     required bool sync_all_engines = 2;
@@ -31,6 +39,10 @@ message SyncParams {
     required string acct_access_token = 7;
     required string acct_tokenserver_url = 8;
     required string acct_sync_key = 9;
+
+    required string fxa_device_id = 10;
+    required string device_name = 11;
+    required DeviceType device_type = 12;
 }
 
 enum ServiceStatus {

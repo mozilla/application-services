@@ -3,17 +3,34 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::msg_types::{ServiceStatus, SyncParams, SyncReason, SyncResult};
+use crate::msg_types::{DeviceType, ServiceStatus, SyncParams, SyncReason, SyncResult};
+use crate::{reset, reset_all, wipe, wipe_all};
 use logins::PasswordEngine;
 use places::{bookmark_sync::store::BookmarksStore, history_sync::store::HistoryStore, PlacesApi};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::result;
 use std::sync::{atomic::AtomicUsize, Arc, Mutex, Weak};
 use std::time::SystemTime;
-use sync15::MemoryCachedState;
+use sync15::{
+    self,
+    clients::{self, Command, CommandProcessor, CommandStatus, Settings},
+    MemoryCachedState,
+};
 
 const LOGINS_ENGINE: &str = "passwords";
 const HISTORY_ENGINE: &str = "history";
 const BOOKMARKS_ENGINE: &str = "bookmarks";
+
+// Casts aren't allowed in `match` arms, so we can't directly match
+// `SyncParams.device_type`, which is an `i32`, against `DeviceType`
+// variants. Instead, we reflect all variants into constants, cast them
+// into the target type, and match against them. Please keep this list in sync
+// with `msg_types::DeviceType` and `sync15::clients::DeviceType`.
+const DEVICE_TYPE_DESKTOP: i32 = DeviceType::Desktop as i32;
+const DEVICE_TYPE_MOBILE: i32 = DeviceType::Mobile as i32;
+const DEVICE_TYPE_TABLET: i32 = DeviceType::Tablet as i32;
+const DEVICE_TYPE_VR: i32 = DeviceType::Vr as i32;
+const DEVICE_TYPE_TV: i32 = DeviceType::Tv as i32;
 
 pub struct SyncManager {
     mem_cached_state: Option<MemoryCachedState>,
@@ -36,6 +53,104 @@ impl SyncManager {
 
     pub fn set_logins(&mut self, logins: Arc<Mutex<PasswordEngine>>) {
         self.logins = Arc::downgrade(&logins);
+    }
+
+    pub fn wipe(&mut self, engine: &str) -> Result<()> {
+        match engine {
+            "logins" => {
+                if let Some(logins) = self
+                    .logins
+                    .upgrade()
+                    .as_ref()
+                    .map(|l| l.lock().expect("poisoned logins mutex"))
+                {
+                    logins.wipe()?;
+                    Ok(())
+                } else {
+                    Err(ErrorKind::ConnectionClosed(engine.into()).into())
+                }
+            }
+            "bookmarks" => {
+                if let Some(places) = self.places.upgrade() {
+                    places.wipe_bookmarks()?;
+                    Ok(())
+                } else {
+                    Err(ErrorKind::ConnectionClosed(engine.into()).into())
+                }
+            }
+            "history" => {
+                if let Some(places) = self.places.upgrade() {
+                    places.wipe_history()?;
+                    Ok(())
+                } else {
+                    Err(ErrorKind::ConnectionClosed(engine.into()).into())
+                }
+            }
+            _ => Err(ErrorKind::UnknownEngine(engine.into()).into()),
+        }
+    }
+
+    pub fn wipe_all(&mut self) -> Result<()> {
+        if let Some(logins) = self
+            .logins
+            .upgrade()
+            .as_ref()
+            .map(|l| l.lock().expect("poisoned logins mutex"))
+        {
+            logins.wipe()?;
+        }
+        if let Some(places) = self.places.upgrade() {
+            places.wipe_bookmarks()?;
+            places.wipe_history()?;
+        }
+        Ok(())
+    }
+
+    pub fn reset(&mut self, engine: &str) -> Result<()> {
+        match engine {
+            "logins" => {
+                if let Some(logins) = self
+                    .logins
+                    .upgrade()
+                    .as_ref()
+                    .map(|l| l.lock().expect("poisoned logins mutex"))
+                {
+                    logins.reset()?;
+                    Ok(())
+                } else {
+                    Err(ErrorKind::ConnectionClosed(engine.into()).into())
+                }
+            }
+            "bookmarks" | "history" => {
+                if let Some(places) = self.places.upgrade() {
+                    if engine == "bookmarks" {
+                        places.reset_bookmarks()?;
+                    } else {
+                        places.reset_history()?;
+                    }
+                    Ok(())
+                } else {
+                    Err(ErrorKind::ConnectionClosed(engine.into()).into())
+                }
+            }
+            _ => Err(ErrorKind::UnknownEngine(engine.into()).into()),
+        }
+    }
+
+    pub fn reset_all(&mut self) -> Result<()> {
+        if let Some(logins) = self
+            .logins
+            .upgrade()
+            .as_ref()
+            .map(|l| l.lock().expect("poisoned logins mutex"))
+        {
+            logins.reset()?;
+        }
+        if let Some(places) = self.places.upgrade() {
+            places.reset_bookmarks()?;
+            places.reset_history()?;
+        }
+        Ok(())
     }
 
     pub fn disconnect(&mut self) {
@@ -161,7 +276,28 @@ impl SyncManager {
         } else {
             Some(&params.engines_to_change_state)
         };
-        let result = sync15::sync_multiple(
+
+        let settings = Settings {
+            fxa_device_id: params.fxa_device_id,
+            device_name: params.device_name,
+            device_type: match params.device_type {
+                DEVICE_TYPE_DESKTOP => clients::DeviceType::Desktop,
+                DEVICE_TYPE_MOBILE => clients::DeviceType::Mobile,
+                DEVICE_TYPE_TABLET => clients::DeviceType::Tablet,
+                DEVICE_TYPE_VR => clients::DeviceType::VR,
+                DEVICE_TYPE_TV => clients::DeviceType::TV,
+                _ => {
+                    log::warn!(
+                        "Unknown device type {}; assuming desktop",
+                        params.device_type
+                    );
+                    clients::DeviceType::Desktop
+                }
+            },
+        };
+        let c = SyncClient::new(settings);
+        let result = sync15::sync_multiple_with_command_processor(
+            Some(&c),
             &store_refs,
             &mut disk_cached_state,
             &mut mem_cached_state,
@@ -292,4 +428,41 @@ fn check_engine_list(list: &[String], have_engines: &[&str]) -> Result<()> {
         }
     }
     Ok(())
+}
+
+struct SyncClient(Settings);
+
+impl SyncClient {
+    pub fn new(settings: Settings) -> SyncClient {
+        SyncClient(settings)
+    }
+}
+
+impl CommandProcessor for SyncClient {
+    fn settings(&self) -> &Settings {
+        &self.0
+    }
+
+    fn apply_incoming_command(
+        &self,
+        command: Command,
+    ) -> result::Result<CommandStatus, failure::Error> {
+        let result = match command {
+            Command::Wipe(engine) => wipe(&engine),
+            Command::WipeAll => wipe_all(),
+            Command::Reset(engine) => reset(&engine),
+            Command::ResetAll => reset_all(),
+        };
+        match result {
+            Ok(()) => Ok(CommandStatus::Applied),
+            Err(err) => match err.kind() {
+                ErrorKind::UnknownEngine(_) => Ok(CommandStatus::Unsupported),
+                _ => Err(err.into()),
+            },
+        }
+    }
+
+    fn fetch_outgoing_commands(&self) -> result::Result<HashSet<Command>, failure::Error> {
+        Ok(HashSet::new())
+    }
 }
