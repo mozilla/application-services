@@ -1072,14 +1072,14 @@ fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Ve
 }
 
 /// Erases all bookmarks and resets all Sync metadata.
-pub fn erase_everything(db: &PlacesDb) -> Result<()> {
+pub fn delete_everything(db: &PlacesDb) -> Result<()> {
     let tx = db.begin_transaction()?;
-    erase_everything_in_tx(db)?;
+    delete_everything_in_tx(db)?;
     tx.commit()?;
     Ok(())
 }
 
-fn erase_everything_in_tx(db: &PlacesDb) -> Result<()> {
+fn delete_everything_in_tx(db: &PlacesDb) -> Result<()> {
     db.execute_batch(&format!(
         "DELETE FROM moz_bookmarks_synced;
 

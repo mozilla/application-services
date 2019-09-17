@@ -66,7 +66,15 @@ impl SyncManager {
                 } else {
                     Err(ErrorKind::ConnectionClosed(engine.into()).into())
                 }
-            }
+            },
+            "history" => {
+                if let Some(places) = self.places.upgrade() {
+                    places.wipe_history()?;
+                    Ok(())
+                } else {
+                    Err(ErrorKind::ConnectionClosed(engine.into()).into())
+                }
+            },
             _ => Err(ErrorKind::UnknownEngine(engine.into()).into()),
         }
     }
@@ -82,6 +90,7 @@ impl SyncManager {
         }
         if let Some(places) = self.places.upgrade() {
             places.wipe_bookmarks()?;
+            places.wipe_history()?;
         }
         Ok(())
     }

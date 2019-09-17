@@ -7,9 +7,12 @@ use crate::db::PlacesDb;
 use crate::error::Result;
 use crate::frecency;
 use crate::hash;
+use crate::history_sync::store::{
+    COLLECTION_SYNCID_META_KEY, GLOBAL_SYNCID_META_KEY, LAST_SYNC_META_KEY,
+};
 use crate::msg_types::{HistoryVisitInfo, HistoryVisitInfos};
 use crate::observation::VisitObservation;
-use crate::storage::{delete_pending_temp_tables, get_meta, put_meta};
+use crate::storage::{delete_meta, delete_pending_temp_tables, get_meta, put_meta};
 use crate::types::{SyncStatus, Timestamp, VisitTransition, VisitTransitionSet};
 use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
@@ -260,24 +263,33 @@ pub fn prune_destructively(db: &PlacesDb) -> Result<()> {
 
 pub fn wipe_local(db: &PlacesDb) -> Result<()> {
     let tx = db.begin_transaction()?;
-    wipe_local_in_tx(db, tx)?;
+    wipe_local_in_tx(db)?;
+    tx.commit()?;
+    // Note: SQLite cannot VACUUM within a transaction.
+    db.execute_batch("VACUUM")?;
     Ok(())
 }
 
-fn wipe_local_in_tx(db: &PlacesDb, tx: crate::db::PlacesTransaction<'_>) -> Result<()> {
+fn wipe_local_in_tx(db: &PlacesDb) -> Result<()> {
     use crate::frecency::DEFAULT_FRECENCY_SETTINGS;
     db.execute_all(&[
         "DELETE FROM moz_places WHERE foreign_count == 0",
         "DELETE FROM moz_historyvisits",
         "DELETE FROM moz_places_tombstones",
-        "DELETE FROM moz_inputhistory",
+        "DELETE FROM moz_inputhistory AS i WHERE NOT EXISTS(
+             SELECT 1 FROM moz_places h
+             WHERE h.id = i.place_id)",
         "DELETE FROM moz_historyvisit_tombstones",
         "DELETE FROM moz_origins
          WHERE id NOT IN (SELECT origin_id FROM moz_places)",
         &format!(
-            "UPDATE moz_places SET
-                frecency = {unvisited_bookmark_frec},
-                sync_change_counter = 0",
+            r#"UPDATE moz_places SET
+                frecency = (CASE WHEN url_hash BETWEEN hash("place", "prefix_lo") AND
+                                                       hash("place", "prefix_hi")
+                                 THEN 0
+                                 ELSE {unvisited_bookmark_frec}
+                            END),
+                sync_change_counter = 0"#,
             unvisited_bookmark_frec = DEFAULT_FRECENCY_SETTINGS.unvisited_bookmark_bonus
         ),
     ])?;
@@ -290,9 +302,6 @@ fn wipe_local_in_tx(db: &PlacesDb, tx: crate::db::PlacesTransaction<'_>) -> Resu
         update_frecency(db, row_id, None)?;
     }
     delete_pending_temp_tables(db)?;
-    tx.commit()?;
-    // Note: SQLite cannot VACUUM within a transaction.
-    db.conn().execute("VACUUM", NO_PARAMS)?;
     Ok(())
 }
 
@@ -314,7 +323,17 @@ pub fn delete_everything(db: &PlacesDb) -> Result<()> {
 
     put_meta(db, DELETION_HIGH_WATER_MARK_META_KEY, &new_mark)?;
 
-    wipe_local_in_tx(db, tx)?;
+    wipe_local_in_tx(db)?;
+
+    // Remove Sync metadata, too.
+    put_meta(db, LAST_SYNC_META_KEY, &0)?;
+    delete_meta(db, GLOBAL_SYNCID_META_KEY)?;
+    delete_meta(db, COLLECTION_SYNCID_META_KEY)?;
+
+    tx.commit()?;
+
+    // Note: SQLite cannot VACUUM within a transaction.
+    db.execute_batch("VACUUM")?;
     Ok(())
 }
 

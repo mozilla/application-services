@@ -376,7 +376,7 @@ impl PlacesApi {
         // simpler if we can just reuse the existing path.
         HistoryStore::migrate_v1_global_state(&conn)?;
 
-        storage::bookmarks::erase_everything(&conn)?;
+        storage::bookmarks::delete_everything(&conn)?;
         Ok(())
     }
 
@@ -396,6 +396,20 @@ impl PlacesApi {
         let store = BookmarksStore::new(&conn, &scope);
         store.reset(&sync15::StoreSyncAssociation::Disconnected)?;
 
+        Ok(())
+    }
+
+    pub fn wipe_history(&self) -> Result<()> {
+        // Take the lock to prevent syncing while we're doing this.
+        let _guard = self.sync_state.lock().unwrap();
+        let conn = self.open_sync_connection()?;
+
+        // Somewhat ironically, we start by migrating from the legacy storage
+        // format. We *are* just going to delete it anyway, but the code is
+        // simpler if we can just reuse the existing path.
+        HistoryStore::migrate_v1_global_state(&conn)?;
+
+        storage::history::delete_everything(&conn)?;
         Ok(())
     }
 
