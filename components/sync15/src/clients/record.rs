@@ -34,7 +34,11 @@ pub struct ClientRecord {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub protocols: Vec<String>,
 
-    #[serde(default, rename = "formfactor" skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        rename = "formfactor",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub form_factor: Option<String>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
