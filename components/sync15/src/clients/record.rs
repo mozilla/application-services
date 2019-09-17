@@ -70,7 +70,7 @@ pub struct CommandRecord {
     /// Some commands, like repair, send a "flow ID" that other cliennts can
     /// record in their telemetry. We don't currently send commands with
     /// flow IDs, but we round-trip them.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, rename = "flowID", skip_serializing_if = "Option::is_none")]
     pub flow_id: Option<String>,
 }
 

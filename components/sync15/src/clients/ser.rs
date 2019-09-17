@@ -67,3 +67,62 @@ pub fn shrink_to_fit<T: Serialize>(list: &mut Vec<T>, payload_size_max_bytes: us
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::clients::record::CommandRecord;
+
+    #[test]
+    fn test_compute_serialized_size() {
+        assert_eq!(compute_serialized_size(&1).unwrap(), 1);
+        assert_eq!(compute_serialized_size(&"hi").unwrap(), 4);
+        assert_eq!(
+            compute_serialized_size(&["hi", "hello", "bye"]).unwrap(),
+            20
+        );
+    }
+
+    #[test]
+    fn test_shrink_to_fit() {
+        let mut commands = vec![
+            CommandRecord {
+                name: "wipeEngine".into(),
+                args: vec!["bookmarks".into()],
+                flow_id: Some("flow".into()),
+            },
+            CommandRecord {
+                name: "resetEngine".into(),
+                args: vec!["history".into()],
+                flow_id: Some("flow".into()),
+            },
+            CommandRecord {
+                name: "logout".into(),
+                args: Vec::new(),
+                flow_id: None,
+            },
+        ];
+
+        // 4096 bytes is enough to fit all three commands.
+        shrink_to_fit(&mut commands, 4096).unwrap();
+        assert_eq!(commands.len(), 3);
+
+        let sizes = commands
+            .iter()
+            .map(|c| compute_serialized_size(c).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(sizes, &[61, 60, 30]);
+
+        // `logout` won't fit within 2168 bytes.
+        shrink_to_fit(&mut commands, 2168).unwrap();
+        assert_eq!(commands.len(), 2);
+
+        // `resetEngine` won't fit within 2084 bytes.
+        shrink_to_fit(&mut commands, 2084).unwrap();
+        assert_eq!(commands.len(), 1);
+
+        // `wipeEngine` won't fit at all.
+        shrink_to_fit(&mut commands, 1024).unwrap();
+        assert!(commands.is_empty());
+    }
+}
