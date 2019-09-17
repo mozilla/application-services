@@ -227,8 +227,24 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
                 global_state: &global_state,
                 root_sync_key: &self.root_sync_key,
             };
-            // Note that a clients engine sync failure is fatal.
-            engine.sync()?;
+            if let Err(e) = engine.sync() {
+                // Record telemetry with the error just in case...
+                let mut telem_sync = telemetry::SyncTelemetry::new();
+                let mut telem_engine = telemetry::Engine::new("clients");
+                telem_engine.failure(&e);
+                telem_sync.engine(telem_engine);
+                self.result.service_status = ServiceStatus::from_err(&e);
+
+                // ...And bail, because a clients engine sync failure is fatal.
+                return Err(e);
+            }
+            // We don't record telemetry for successful clients engine
+            // syncs, since we only keep client records in memory, we
+            // expect the counts to be the same most times, and a
+            // failure aborts the entire sync.
+            if self.was_interrupted() {
+                return Ok(());
+            }
         }
 
         log::info!("Synchronizing stores");
