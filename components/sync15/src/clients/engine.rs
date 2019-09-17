@@ -46,13 +46,16 @@ impl<'a> Driver<'a> {
 
             // Unpack the client record. We should never have tombstones in the
             // clients collection, so we don't check for `is_tombstone`.
-            // TODO(lina): The Desktop engine automatically deletes these.
+            // https://github.com/mozilla/application-services/issues/1801
+            // tracks deleting these from the server.
             let mut client: ClientRecord = payload.into_record()?;
 
             if client.id == self.command_processor.settings().fxa_device_id {
                 // If we see our own client record, apply any incoming commands,
                 // remove them from the list, and reupload the record. Any
                 // commands that we don't understand also go back in the list.
+                // https://github.com/mozilla/application-services/issues/1800
+                // tracks if that's the right thing to do.
                 let mut current_client_record = self.current_client_record();
                 for c in client.commands {
                     let status = match c.as_command() {
