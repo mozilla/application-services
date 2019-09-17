@@ -252,6 +252,17 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     }
 
     /**
+     * Get the current device id
+     *
+     * @throws FxaException Will send you an exception if there is no device id set
+     */
+    fun getCurrentDeviceId(): String {
+        return rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_get_current_device_id(this.handle.get(), e)
+        }.getAndConsumeRustString()
+    }
+
+    /**
      * This method should be called when a request made with
      * an OAuth token failed with an authentication error.
      * It clears the internal cache of OAuth access tokens,

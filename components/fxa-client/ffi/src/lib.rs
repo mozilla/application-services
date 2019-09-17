@@ -297,6 +297,20 @@ pub extern "C" fn fxa_clear_access_token_cache(handle: u64, error: &mut ExternEr
     ACCOUNTS.call_with_output_mut(error, handle, |fxa| fxa.clear_access_token_cache())
 }
 
+/// Try to get the current device id from state.
+///
+/// If the system can't find it then it will return an error
+///
+/// # Safety
+///
+/// A destructor [fxa_bytebuffer_free] is provided for releasing the memory for this
+/// pointer type.
+#[no_mangle]
+pub extern "C" fn fxa_get_current_device_id(handle: u64, error: &mut ExternError) -> *mut c_char {
+    log::debug!("fxa_get_current_device_id");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.get_current_device_id())
+}
+
 /// Update the Push subscription information for the current device.
 #[no_mangle]
 pub extern "C" fn fxa_set_push_subscription(

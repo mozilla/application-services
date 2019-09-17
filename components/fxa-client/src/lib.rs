@@ -65,6 +65,7 @@ pub struct FirefoxAccount {
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct StateV2 {
     config: Config,
+    current_device_id: Option<String>,
     refresh_token: Option<RefreshToken>,
     scoped_keys: HashMap<String, ScopedKey>,
     last_handled_command: Option<u64>,
@@ -83,6 +84,7 @@ impl StateV2 {
     fn start_over(&self) -> StateV2 {
         StateV2 {
             config: self.config.clone(),
+            current_device_id: None,
             // Leave the profile cache untouched so we can reconnect later.
             last_seen_profile: self.last_seen_profile.clone(),
             refresh_token: None,
@@ -117,6 +119,7 @@ impl FirefoxAccount {
             commands_data: HashMap::new(),
             device_capabilities: HashSet::new(),
             session_token: None,
+            current_device_id: None,
             last_seen_profile: None,
         })
     }

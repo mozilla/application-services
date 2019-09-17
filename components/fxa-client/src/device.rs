@@ -73,7 +73,8 @@ impl FirefoxAccount {
             .device_type(&device_type)
             .available_commands(&commands)
             .build();
-        self.update_device(update)?;
+        let resp = self.update_device(update)?;
+        self.state.current_device_id = Option::from(resp.id);
         Ok(())
     }
 
@@ -89,7 +90,8 @@ impl FirefoxAccount {
         let update = DeviceUpdateRequestBuilder::new()
             .available_commands(&commands)
             .build();
-        self.update_device(update)?;
+        let resp = self.update_device(update)?;
+        self.state.current_device_id = Option::from(resp.id);
         Ok(())
     }
 
@@ -262,6 +264,14 @@ impl FirefoxAccount {
         let refresh_token = self.get_refresh_token()?;
         self.client
             .update_device(&self.state.config, refresh_token, update)
+    }
+
+    /// Retrieve the current device id from state
+    pub fn get_current_device_id(&mut self) -> Result<String> {
+        match self.state.current_device_id {
+            Some(ref device_id) => Ok(device_id.to_string()),
+            None => Err(ErrorKind::NoCurrentDeviceId.into()),
+        }
     }
 }
 
