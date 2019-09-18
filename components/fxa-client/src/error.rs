@@ -32,6 +32,9 @@ pub enum ErrorKind {
     #[fail(display = "No stored session token")]
     NoSessionToken,
 
+    #[fail(display = "No stored current device id")]
+    NoCurrentDeviceId,
+
     #[fail(display = "Could not find a refresh token in the server response")]
     RefreshTokenNotPresent,
 

@@ -3,3 +3,9 @@
 # Unreleased Changes
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.39.0...master)
+
+## FxA Client
+
+### What's new
+
+Add ability to get the current device id in Kotlin via `getCurrentDeviceId` method.
