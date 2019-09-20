@@ -72,7 +72,6 @@ LICENES_IN_PREFERENCE_ORDER = [
     # Special one-off licenses for particular projects.
     "EXT-OPENSSL",
     "EXT-SQLITE",
-    "EXT-ZLIB",
 ]
 
 # Packages that get pulled into our dependency tree but we know we definitely don't
@@ -158,19 +157,11 @@ EXTRA_PACKAGE_METADATA = {
         "license_text": "This software makes use of the 'SQLite' database engine, and we are very"\
                         " grateful to D. Richard Hipp and team for producing it.",
     },
-    "ext-zlib": {
-        "name": "zlib",
-        "repository": "https://www.zlib.net/",
-        "license": "EXT-ZLIB",
-        "license_text": "This software makes use of the 'zlib' compression library, and we are very"\
-                        " grateful to Jean-loup Gailly, Mark Adler and team for producing it.",
-    },
 }
 
 # And these are rust packages that pull in the above dependencies.
 # Others are added on a per-target basis during dependency resolution.
 PACKAGES_WITH_EXTRA_DEPENDENCIES = {
-    "adler32": ["ext-zlib"],
     "nss_sys": ["ext-nss", "ext-nspr"],
     "openssl-sys": ["ext-openssl"],
     "rusqlite": ["ext-sqlite"],
@@ -783,8 +774,6 @@ def format_license_header(license, deps):
         return "OpenSSL License"
     if license == "EXT-SQLITE":
         return "Optional Notice: SQlite"
-    if license == "EXT-ZLIB":
-        return "Optional Notice: zlib"
     license = license.split(":")[0]
     # Dedupe in case of multiple versons of dependencies
     names = sorted(set(info["name"] for info in deps))
