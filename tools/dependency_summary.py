@@ -67,6 +67,8 @@ LICENES_IN_PREFERENCE_ORDER = [
     "ISC",
     "BSD-2-Clause",
     "BSD-3-Clause",
+    # Zlib is permissive and compatible with MPL.
+    "Zlib",
     # Special one-off licenses for particular projects.
     "EXT-OPENSSL",
     "EXT-SQLITE",
@@ -200,16 +202,10 @@ PACKAGES_WITH_EXTRA_DEPENDENCIES = {
 # Any such changes will prevent us from regenerating the dependency summary, triggering a CI failure
 # and causing a human to investigate and resolve the change.
 PACKAGE_METADATA_FIXUPS = {
-    # In this case the rust code is BSD-3-Clause and the wrapped zlib library is under the Zlib license,
-    # which does not require explicit attribution.
     "adler32": {
-        "license": {
-            "check": "BSD-3-Clause AND Zlib",
-            "fixup": "BSD-3-Clause",
-        },
         "license_file": {
             "check": None,
-            "fixup": "LICENSE",
+            "fixup": "https://raw.githubusercontent.com/remram44/adler32-rs/master/LICENSE",
         }
     },
     # These packages do not unambiguously delcare their licensing file.
