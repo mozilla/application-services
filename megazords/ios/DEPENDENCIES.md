@@ -39,7 +39,6 @@ the details of which are reproduced below.
 * [BSD-3-Clause License: sqlcipher](#bsd-3-clause-license-sqlcipher)
 * [Zlib License: adler32](#zlib-license-adler32)
 * [Optional Notice: SQlite](#optional-notice-sqlite)
-* [Optional Notice: zlib](#optional-notice-zlib)
 -------------
 ## Mozilla Public License 2.0
 
@@ -1858,14 +1857,5 @@ The following text applies to code linked from these dependendencies:
 
 ```
 This software makes use of the 'SQLite' database engine, and we are very grateful to D. Richard Hipp and team for producing it.
-```
--------------
-## Optional Notice: zlib
-
-The following text applies to code linked from these dependendencies:
-[zlib](https://www.zlib.net/)
-
-```
-This software makes use of the 'zlib' compression library, and we are very grateful to Jean-loup Gailly, Mark Adler and team for producing it.
 ```
 -------------
