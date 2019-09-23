@@ -73,7 +73,8 @@ public class BookmarkNode {
      * The (0-based) position of this record within it's parent.
      */
     public let position: UInt32
-
+    // We use this from tests.
+    // swiftformat:disable redundantFileprivate
     fileprivate init(type: BookmarkNodeType,
                      guid: String,
                      dateAdded: Int64,
@@ -87,6 +88,8 @@ public class BookmarkNode {
         self.parentGUID = parentGUID
         self.position = position
     }
+
+    // swiftformat:enable redundantFileprivate
 
     /**
      * Returns true if this record is a bookmark root.
