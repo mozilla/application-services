@@ -205,15 +205,22 @@ fn new_global(pgs: &PersistedGlobalState) -> error::Result<MetaGlobalRecord> {
 fn fixup_meta_global(global: &mut MetaGlobalRecord) -> bool {
     let mut changed_any = false;
     for &(name, version) in DEFAULT_ENGINES.iter() {
-        if !global.engines.contains_key(name) {
-            log::debug!("SyncID for engine {:?} was missing!", name);
-            global.engines.insert(
-                name.to_string(),
-                MetaGlobalEngine {
-                    version,
-                    sync_id: Guid::random(),
-                },
-            );
+        let had_engine = global.engines.contains_key(name);
+        let should_have_engine = !global.declined.iter().any(|c| c == name);
+        if had_engine != should_have_engine {
+            if should_have_engine {
+                log::debug!("SyncID for engine {:?} was missing", name);
+                global.engines.insert(
+                    name.to_string(),
+                    MetaGlobalEngine {
+                        version,
+                        sync_id: Guid::random(),
+                    },
+                );
+            } else {
+                log::debug!("SyncID for engine {:?} was present, but shouldn't be", name);
+                global.engines.remove(name);
+            }
             changed_any = true;
         }
     }
@@ -413,12 +420,12 @@ impl<'a> SetupStateMachine<'a> {
                                 .set_declined(result.declined.iter().cloned().collect());
                             // If the declined engines differ from remote, fix that.
                             let fixed_declined = if result.declined != initial_global_declined {
+                                global.declined = result.declined.iter().cloned().collect();
                                 log::info!(
                                     "Uploading new declined {:?} to meta/global with timestamp {:?}",
                                     global.declined,
                                     global_timestamp,
                                 );
-                                global.declined = result.declined.iter().cloned().collect();
                                 true
                             } else {
                                 false
@@ -711,7 +718,10 @@ mod tests {
             // Ensure that the meta/global record we uploaded is "fixed up"
             assert!(DEFAULT_ENGINES
                 .iter()
+                .filter(|e| e.0 != "logins")
                 .all(|&(k, _v)| global.engines.contains_key(k)));
+            assert!(!global.engines.contains_key("logins"));
+            assert_eq!(global.declined, vec!["logins".to_string()]);
             Ok(ServerTimestamp(999_900))
         }
 
@@ -802,7 +812,8 @@ mod tests {
             .into_iter()
             .map(|(key, value)| (key.to_owned(), value))
             .collect(),
-            declined: vec![],
+            // We ensure that the record we upload doesn't have a logins record.
+            declined: vec!["logins".to_string()],
         };
         let client = InMemoryClient {
             info_configuration: mocked_success(InfoConfiguration::default()),
