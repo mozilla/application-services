@@ -1,4 +1,14 @@
 
+# v0.39.2 (_2019-09-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.39.1...v0.39.2)
+
+## Sync Manager
+
+### What's fixed
+
+- Clients with missing engines in meta/global should have the engines repopulated. ([#1847](https://github.com/mozilla/application-services/pull/1847))
+
 # v0.39.1 (_2019-09-17_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.39.0...v0.39.1)
