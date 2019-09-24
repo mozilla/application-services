@@ -705,14 +705,14 @@ mod tests {
         fn put_meta_global(
             &self,
             xius: ServerTimestamp,
-            _global: &MetaGlobalRecord,
+            global: &MetaGlobalRecord,
         ) -> error::Result<ServerTimestamp> {
-            assert_eq!(xius, ServerTimestamp(999_900));
-            Err(ErrorKind::StorageHttpError(ErrorResponse::ServerError {
-                status: 500,
-                route: "meta/global".to_string(),
-            })
-            .into())
+            assert_eq!(xius, ServerTimestamp(999_000));
+            // Ensure that the meta/global record we uploaded is "fixed up"
+            assert!(DEFAULT_ENGINES
+                .iter()
+                .all(|&(k, _v)| global.engines.contains_key(k)));
+            Ok(ServerTimestamp(999_900))
         }
 
         fn fetch_crypto_keys(&self) -> error::Result<Sync15ClientResponse<EncryptedBso>> {
@@ -789,7 +789,7 @@ mod tests {
             default: KeyBundle::new_random().unwrap(),
             collections: HashMap::new(),
         };
-        let mut mg = MetaGlobalRecord {
+        let mg = MetaGlobalRecord {
             sync_id: "syncIDAAAAAA".into(),
             storage_version: 5usize,
             engines: vec![(
@@ -804,7 +804,6 @@ mod tests {
             .collect(),
             declined: vec![],
         };
-        fixup_meta_global(&mut mg);
         let client = InMemoryClient {
             info_configuration: mocked_success(InfoConfiguration::default()),
             info_collections: mocked_success(InfoCollections::new(
