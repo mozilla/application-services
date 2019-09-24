@@ -1,3 +1,14 @@
+# v0.39.3 (_2019-09-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.39.2...v0.39.3)
+
+## FxA Client
+
+### What's new
+
+- The OAuth access token cache is now persisted as part of the account state data,
+  which should reduce the number of times callers need to fetch a fresh access token
+  from the server.
 
 # v0.39.2 (_2019-09-24_)
 
