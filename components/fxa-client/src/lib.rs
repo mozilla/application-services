@@ -52,7 +52,6 @@ unsafe impl<'a> Sync for http_client::FxAClientMock<'a> {}
 pub struct FirefoxAccount {
     client: Arc<FxAClient>,
     state: StateV2,
-    access_token_cache: HashMap<String, AccessTokenInfo>,
     flow_store: HashMap<String, OAuthFlow>,
 }
 
@@ -74,6 +73,8 @@ pub(crate) struct StateV2 {
     commands_data: HashMap<String, String>,
     #[serde(default)] // Same
     device_capabilities: HashSet<DeviceCapability>,
+    #[serde(default)] // Same
+    access_token_cache: HashMap<String, AccessTokenInfo>,
     session_token: Option<String>, // Hex-formatted string.
     last_seen_profile: Option<CachedResponse<Profile>>,
 }
@@ -91,6 +92,7 @@ impl StateV2 {
             scoped_keys: HashMap::new(),
             last_handled_command: None,
             commands_data: HashMap::new(),
+            access_token_cache: HashMap::new(),
             device_capabilities: HashSet::new(),
             session_token: None,
         }
@@ -102,7 +104,6 @@ impl FirefoxAccount {
         Self {
             client: Arc::new(http_client::Client::new()),
             state,
-            access_token_cache: HashMap::new(),
             flow_store: HashMap::new(),
         }
     }
@@ -121,6 +122,7 @@ impl FirefoxAccount {
             session_token: None,
             current_device_id: None,
             last_seen_profile: None,
+            access_token_cache: HashMap::new(),
         })
     }
 
@@ -159,7 +161,6 @@ impl FirefoxAccount {
     /// enough information to eventually reconnect to the same user account later.
     pub fn start_over(&mut self) {
         self.state = self.state.start_over();
-        self.access_token_cache.clear();
         self.flow_store.clear();
     }
 
@@ -409,9 +410,9 @@ mod tests {
         let client = FxAClientMock::new();
         fxa.set_client(Arc::new(client));
 
-        assert!(!fxa.access_token_cache.is_empty());
+        assert!(!fxa.state.access_token_cache.is_empty());
         fxa.disconnect();
-        assert!(fxa.access_token_cache.is_empty());
+        assert!(fxa.state.access_token_cache.is_empty());
     }
 
     #[test]
