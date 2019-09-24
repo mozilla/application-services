@@ -221,6 +221,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * Tries to fetch an access token for the given scope.
      *
      * This performs network requests, and should not be used on the main thread.
+     * It may modify the persisted account state.
      *
      * @param scope Single OAuth scope (no spaces) for which the client wants access
      * @return [AccessTokenInfo] that stores the token, along with its scopes and keys when complete
@@ -232,6 +233,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
         val buffer = rustCallWithLock { e ->
             LibFxAFFI.INSTANCE.fxa_get_access_token(this.handle.get(), scope, e)
         }
+        this.tryPersistState()
         try {
             val msg = MsgTypes.AccessTokenInfo.parseFrom(buffer.asCodedInputStream()!!)
             return AccessTokenInfo.fromMessage(msg)

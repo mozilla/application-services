@@ -243,6 +243,7 @@ open class FirefoxAccount {
                 let infoBuffer = try FirefoxAccountError.unwrap { err in
                     fxa_get_access_token(self.raw, scope, err)
                 }
+                self.tryPersistState()
                 let msg = try! MsgTypes_AccessTokenInfo(serializedData: Data(rustBuffer: infoBuffer))
                 fxa_bytebuffer_free(infoBuffer)
                 let tokenInfo = AccessTokenInfo(msg: msg)
