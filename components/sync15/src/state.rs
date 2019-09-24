@@ -202,6 +202,24 @@ fn new_global(pgs: &PersistedGlobalState) -> error::Result<MetaGlobalRecord> {
     })
 }
 
+fn fixup_meta_global(global: &mut MetaGlobalRecord) -> bool {
+    let mut changed_any = false;
+    for &(name, version) in DEFAULT_ENGINES.iter() {
+        if !global.engines.contains_key(name) {
+            log::debug!("SyncID for engine {:?} was missing!", name);
+            global.engines.insert(
+                name.to_string(),
+                MetaGlobalEngine {
+                    version,
+                    sync_id: Guid::random(),
+                },
+            );
+            changed_any = true;
+        }
+    }
+    changed_any
+}
+
 pub struct SetupStateMachine<'a> {
     client: &'a dyn SetupStorageClient,
     root_key: &'a KeyBundle,
@@ -393,15 +411,30 @@ impl<'a> SetupStateMachine<'a> {
                             // Persist the new declined.
                             self.pgs
                                 .set_declined(result.declined.iter().cloned().collect());
-
                             // If the declined engines differ from remote, fix that.
-                            if result.declined != initial_global_declined {
-                                global.declined = result.declined.iter().cloned().collect();
+                            let fixed_declined = if result.declined != initial_global_declined {
                                 log::info!(
                                     "Uploading new declined {:?} to meta/global with timestamp {:?}",
                                     global.declined,
                                     global_timestamp,
                                 );
+                                global.declined = result.declined.iter().cloned().collect();
+                                true
+                            } else {
+                                false
+                            };
+                            // If there are missing syncIds, we need to fix those as well
+                            let fixed_ids = if fixup_meta_global(&mut global) {
+                                log::info!(
+                                    "Uploading corrected meta/global with timestamp {:?}",
+                                    global_timestamp,
+                                );
+                                true
+                            } else {
+                                false
+                            };
+
+                            if fixed_declined || fixed_ids {
                                 global_timestamp =
                                     self.client.put_meta_global(global_timestamp, &global)?;
                                 log::debug!("new global_timestamp: {:?}", global_timestamp);
@@ -672,14 +705,14 @@ mod tests {
         fn put_meta_global(
             &self,
             xius: ServerTimestamp,
-            _global: &MetaGlobalRecord,
+            global: &MetaGlobalRecord,
         ) -> error::Result<ServerTimestamp> {
-            assert_eq!(xius, ServerTimestamp(999_900));
-            Err(ErrorKind::StorageHttpError(ErrorResponse::ServerError {
-                status: 500,
-                route: "meta/global".to_string(),
-            })
-            .into())
+            assert_eq!(xius, ServerTimestamp(999_000));
+            // Ensure that the meta/global record we uploaded is "fixed up"
+            assert!(DEFAULT_ENGINES
+                .iter()
+                .all(|&(k, _v)| global.engines.contains_key(k)));
+            Ok(ServerTimestamp(999_900))
         }
 
         fn fetch_crypto_keys(&self) -> error::Result<Sync15ClientResponse<EncryptedBso>> {
@@ -756,6 +789,21 @@ mod tests {
             default: KeyBundle::new_random().unwrap(),
             collections: HashMap::new(),
         };
+        let mg = MetaGlobalRecord {
+            sync_id: "syncIDAAAAAA".into(),
+            storage_version: 5usize,
+            engines: vec![(
+                "bookmarks",
+                MetaGlobalEngine {
+                    version: 1usize,
+                    sync_id: "syncIDBBBBBB".into(),
+                },
+            )]
+            .into_iter()
+            .map(|(key, value)| (key.to_owned(), value))
+            .collect(),
+            declined: vec![],
+        };
         let client = InMemoryClient {
             info_configuration: mocked_success(InfoConfiguration::default()),
             info_collections: mocked_success(InfoCollections::new(
@@ -764,24 +812,7 @@ mod tests {
                     .map(|(key, value)| (key.to_owned(), value.into()))
                     .collect(),
             )),
-            meta_global: mocked_success_ts(
-                MetaGlobalRecord {
-                    sync_id: "syncIDAAAAAA".into(),
-                    storage_version: 5usize,
-                    engines: vec![(
-                        "bookmarks",
-                        MetaGlobalEngine {
-                            version: 1usize,
-                            sync_id: "syncIDBBBBBB".into(),
-                        },
-                    )]
-                    .into_iter()
-                    .map(|(key, value)| (key.to_owned(), value))
-                    .collect(),
-                    declined: vec![],
-                },
-                999_000,
-            ),
+            meta_global: mocked_success_ts(mg, 999_000),
             crypto_keys: mocked_success_ts(
                 keys.to_encrypted_bso_with_timestamp(&root_key, 888_000.into())
                     .expect("should always work in this test"),
