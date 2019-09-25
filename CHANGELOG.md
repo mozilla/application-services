@@ -1,3 +1,14 @@
+# v0.39.4 (_2019-09-25_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.39.3...v0.39.4)
+
+## Sync Manager
+
+### What's fixed
+
+- Engines which are disabled will not have engine records in meta/global. ([#1866](https://github.com/mozilla/application-services/pull/1866))
+- The FxA access token is no longer logged at the debug level. ([#1866](https://github.com/mozilla/application-services/pull/1866))
+
 # v0.39.3 (_2019-09-24_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.39.2...v0.39.3)
