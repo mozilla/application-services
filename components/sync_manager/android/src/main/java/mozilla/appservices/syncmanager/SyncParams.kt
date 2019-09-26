@@ -140,8 +140,7 @@ data class SyncParams(
         builder.acctSyncKey = this.authInfo.syncKey
         builder.acctKeyId = this.authInfo.kid
         builder.acctTokenserverUrl = this.authInfo.tokenserverURL
-
-        builder.persistedState = this.persistedState
+        this.persistedState?.let { builder.persistedState = it }
 
         builder.fxaDeviceId = this.deviceSettings.fxaDeviceId
         builder.deviceName = this.deviceSettings.name
