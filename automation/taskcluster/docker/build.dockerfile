@@ -93,7 +93,7 @@ ENV ANDROID_HOME /build/android-sdk
 ENV ANDROID_SDK_HOME /build/android-sdk
 ENV PATH ${PATH}:${ANDROID_SDK_HOME}/tools:${ANDROID_SDK_HOME}/tools/bin:${ANDROID_SDK_HOME}/platform-tools:/opt/tools:${ANDROID_SDK_HOME}/build-tools/${ANDROID_BUILD_TOOLS}
 
-RUN curl -L https://dl.google.com/android/repository/sdk-tools-linux-${ANDROID_SDK_VERSION}.zip > sdk.zip \
+RUN curl -sfSL --retry 5 --retry-delay 10 https://dl.google.com/android/repository/sdk-tools-linux-${ANDROID_SDK_VERSION}.zip > sdk.zip \
     && unzip -q sdk.zip -d ${ANDROID_SDK_HOME} \
     && rm sdk.zip \
     && mkdir -p /build/android-sdk/.android/ \
@@ -115,7 +115,7 @@ ENV ANDROID_NDK_VERSION "r15c"
 ENV ANDROID_NDK_ROOT /build/android-ndk
 ENV ANDROID_NDK_HOME /build/android-ndk
 
-RUN curl -L https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux-x86_64.zip > ndk.zip \
+RUN curl -sfSL --retry 5 --retry-delay 10 https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux-x86_64.zip > ndk.zip \
     && unzip -q ndk.zip -d /build \
     && rm ndk.zip \
     && mv /build/android-ndk-${ANDROID_NDK_VERSION} ${ANDROID_NDK_ROOT}
@@ -128,7 +128,7 @@ RUN set -eux; \
     RUSTUP_PLATFORM='x86_64-unknown-linux-gnu'; \
     RUSTUP_VERSION='1.18.3'; \
     RUSTUP_SHA256='a46fe67199b7bcbbde2dcbc23ae08db6f29883e260e23899a88b9073effc9076'; \
-    curl -O -s --retry 5 "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUSTUP_PLATFORM}/rustup-init"; \
+    curl -sfSL --retry 5 --retry-delay 10 -O "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUSTUP_PLATFORM}/rustup-init"; \
     echo "${RUSTUP_SHA256} *rustup-init" | sha256sum -c -; \
     chmod +x rustup-init; \
     ./rustup-init -y --no-modify-path --default-toolchain none; \
@@ -137,14 +137,14 @@ ENV PATH=/root/.cargo/bin:$PATH
 
 # sccache
 RUN \
-    curl --silent --show-error --fail --location --retry 5 --retry-delay 10 \
+    curl -sfSL --retry 5 --retry-delay 10 \
         https://github.com/mozilla/sccache/releases/download/0.2.11/sccache-0.2.11-x86_64-unknown-linux-musl.tar.gz \
         | tar -xz --strip-components=1 -C /usr/local/bin/ \
             sccache-0.2.11-x86_64-unknown-linux-musl/sccache
 
 # tooltool
 RUN \
-    curl --location --retry 10 --retry-delay 10 \
+    curl -sfSL --retry 5 --retry-delay 10 \
          -o /usr/local/bin/tooltool.py \
          https://raw.githubusercontent.com/mozilla/build-tooltool/36511dae0ead6848017e2d569b1f6f1b36984d40/tooltool.py && \
          chmod +x /usr/local/bin/tooltool.py

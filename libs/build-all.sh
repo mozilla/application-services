@@ -55,7 +55,7 @@ SQLCIPHER_SRC_PATH=$(abspath "sqlcipher")
 # rm -rf "${SQLCIPHER}"
 # if [[ ! -e "${SQLCIPHER}.tar.gz" ]]; then
 #   echo "Downloading ${SQLCIPHER}.tar.gz"
-#   curl -L -O "https://github.com/sqlcipher/sqlcipher/archive/${SQLCIPHER}.tar.gz"
+#   curl -sfSL --retry 5 --retry-delay 10 -O "https://github.com/sqlcipher/sqlcipher/archive/${SQLCIPHER}.tar.gz"
 # else
 #   echo "Using ${SQLCIPHER}.tar.gz"
 # fi
@@ -66,7 +66,7 @@ SQLCIPHER_SRC_PATH=$(abspath "sqlcipher")
 rm -rf "${NSS}"
 if [[ ! -e "${NSS_ARCHIVE}" ]]; then
   echo "Downloading ${NSS_ARCHIVE}"
-  curl -L -O "${NSS_URL}"
+  curl -sfSL --retry 5 --retry-delay 10 -O "${NSS_URL}"
 else
   echo "Using ${NSS_ARCHIVE}"
 fi

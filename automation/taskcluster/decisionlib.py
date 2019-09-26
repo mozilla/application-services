@@ -418,7 +418,7 @@ class DockerWorkerTask(Task):
         return self \
         .with_script("""
             mkdir -p $(dirname {file_path})
-            curl --retry 5 --connect-timeout 10 -Lf {url} -o {file_path}
+            curl -sfSL --retry 5 --retry-delay 10 --connect-timeout 10 {url} -o {file_path}
         """.format(url=url, file_path=file_path))
 
     def with_curl_artifact_script(self, task_id, artifact_name, out_directory=""):
