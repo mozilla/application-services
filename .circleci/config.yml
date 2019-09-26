@@ -317,6 +317,7 @@ jobs:
   Rust benchmarks:
     docker:
       - image: circleci/rust:latest
+    resource_class: large
     steps:
       - restore-sccache-cache
       - bench-all
