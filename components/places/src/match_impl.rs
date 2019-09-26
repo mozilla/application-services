@@ -44,7 +44,7 @@ impl FromSql for MatchBehavior {
             3 => MatchBehavior::Beginning,
             4 => MatchBehavior::AnywhereUnmodified,
             5 => MatchBehavior::BeginningCaseSensitive,
-            _ => Err(FromSqlError::InvalidType)?,
+            _ => return Err(FromSqlError::InvalidType),
         })
     }
 }
