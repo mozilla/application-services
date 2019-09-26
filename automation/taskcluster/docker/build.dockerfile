@@ -138,9 +138,9 @@ ENV PATH=/root/.cargo/bin:$PATH
 # sccache
 RUN \
     curl --silent --show-error --fail --location --retry 5 --retry-delay 10 \
-        https://github.com/mozilla/sccache/releases/download/0.2.8/sccache-0.2.8-x86_64-unknown-linux-musl.tar.gz \
+        https://github.com/mozilla/sccache/releases/download/0.2.11/sccache-0.2.11-x86_64-unknown-linux-musl.tar.gz \
         | tar -xz --strip-components=1 -C /usr/local/bin/ \
-            sccache-0.2.8-x86_64-unknown-linux-musl/sccache
+            sccache-0.2.11-x86_64-unknown-linux-musl/sccache
 
 # tooltool
 RUN \

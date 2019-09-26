@@ -6,13 +6,15 @@ commands:
       - run:
           name: Install sccache
           command: |
+            SCCACHE_VERSION=0.2.11
             if [ "$(uname)" == "Darwin" ]; then
-              SCCACHE_BIN="2018-04-02-sccache-x86_64-apple-darwin"
+              SCCACHE="sccache-${SCCACHE_VERSION}-x86_64-apple-darwin"
             else
-              SCCACHE_BIN="2018-04-02-sccache-x86_64-unknown-linux-musl"
+              SCCACHE="sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl"
             fi
-            SCCACHE_BIN_URL="https://s3-us-west-1.amazonaws.com/rust-lang-ci2/rust-ci-mirror/${SCCACHE_BIN}"
-            sudo curl --retry 5 -fo /usr/local/bin/sccache "${SCCACHE_BIN_URL}"
+            SCCACHE_ARCHIVE="${SCCACHE}.tar.gz"
+            SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/${SCCACHE_ARCHIVE}"
+            curl -sfSL --retry 5 --retry-delay 10 "${SCCACHE_URL}" | sudo tar -xz --strip-components=1 -C /usr/local/bin/ "${SCCACHE}/sccache"
             sudo chmod +x /usr/local/bin/sccache
             # Do not forget to re-export these variables in xc-universal-binary.sh!
             echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
