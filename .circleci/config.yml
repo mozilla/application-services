@@ -6,13 +6,15 @@ commands:
       - run:
           name: Install sccache
           command: |
+            SCCACHE_VERSION=0.2.11
             if [ "$(uname)" == "Darwin" ]; then
-              SCCACHE_BIN="2018-04-02-sccache-x86_64-apple-darwin"
+              SCCACHE="sccache-${SCCACHE_VERSION}-x86_64-apple-darwin"
             else
-              SCCACHE_BIN="2018-04-02-sccache-x86_64-unknown-linux-musl"
+              SCCACHE="sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl"
             fi
-            SCCACHE_BIN_URL="https://s3-us-west-1.amazonaws.com/rust-lang-ci2/rust-ci-mirror/${SCCACHE_BIN}"
-            sudo curl --retry 5 -fo /usr/local/bin/sccache "${SCCACHE_BIN_URL}"
+            SCCACHE_ARCHIVE="${SCCACHE}.tar.gz"
+            SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/${SCCACHE_ARCHIVE}"
+            curl -sfSL --retry 5 --retry-delay 10 "${SCCACHE_URL}" | sudo tar -xz --strip-components=1 -C /usr/local/bin/ "${SCCACHE}/sccache"
             sudo chmod +x /usr/local/bin/sccache
             # Do not forget to re-export these variables in xc-universal-binary.sh!
             echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
@@ -35,7 +37,7 @@ commands:
           command: |
             mkdir -p $HOME/.bin
             pushd $HOME/.bin
-            curl -sSL https://github.com/rust-lang-nursery/mdBook/releases/download/v0.2.1/mdbook-v0.2.1-x86_64-unknown-linux-gnu.tar.gz | tar xz
+            curl -sfSL --retry 5 --retry-delay 10 https://github.com/rust-lang-nursery/mdBook/releases/download/v0.2.1/mdbook-v0.2.1-x86_64-unknown-linux-gnu.tar.gz | tar xz
             echo 'export PATH="$HOME/.bin:$PATH"' >> $BASH_ENV
             popd
   install-rust:
@@ -46,7 +48,7 @@ commands:
             RUSTUP_PLATFORM=x86_64-apple-darwin
             RUSTUP_VERSION=1.18.3
             RUSTUP_SHA256=16734a9a2d87a3054bd4eea962642687e50a34b6e73e17df6f3361c2c534dc30
-            curl -O -s --retry 5 "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUSTUP_PLATFORM}/rustup-init"
+            curl -sfSL --retry 5 --retry-delay 10 -O "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUSTUP_PLATFORM}/rustup-init"
             echo "${RUSTUP_SHA256} *rustup-init" | shasum -a 256 -c -
             chmod +x rustup-init
             ./rustup-init -y --no-modify-path
@@ -178,7 +180,7 @@ commands:
       - run:
           name: Install Node.js
           command: |
-            curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
+            curl -sfSL --retry 5 --retry-delay 10 https://deb.nodesource.com/setup_10.x | sudo -E bash -
             sudo apt-get install -y nodejs
       - run:
           name: Sync Integration Test Suite
@@ -269,7 +271,7 @@ jobs:
           command: |
             set -x
             VER="18.06.3-ce"
-            curl -L -o /tmp/docker-$VER.tgz https://download.docker.com/linux/static/stable/x86_64/docker-$VER.tgz
+            curl -sfSL --retry 5 --retry-delay 10 -o /tmp/docker-$VER.tgz https://download.docker.com/linux/static/stable/x86_64/docker-$VER.tgz
             tar -xz -C /tmp -f /tmp/docker-$VER.tgz
             mv /tmp/docker/* /usr/bin
       - run:
@@ -407,7 +409,7 @@ jobs:
           command: |
             GHR=ghr_v0.12.0_darwin_amd64
             GHR_SHA256=c868ef9fc5dd8c8a397b74d84051d83693c42dd59041cb17b66f90f563477249
-            curl -L -O -s --retry 5 "https://github.com/tcnksm/ghr/releases/download/v0.12.0/${GHR}.zip"
+            curl -sfSL --retry 5 --retry-delay 10 -O "https://github.com/tcnksm/ghr/releases/download/v0.12.0/${GHR}.zip"
             echo "${GHR_SHA256} *${GHR}.zip" | shasum -a 256 -c -
             unzip "${GHR}.zip"
             ./${GHR}/ghr -replace "${CIRCLE_TAG}" MozillaAppServices.framework.zip

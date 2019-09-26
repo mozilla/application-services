@@ -252,8 +252,8 @@ impl Connection for ConnectHttp {
             &options.sender_id,
             &self.uaid.clone().unwrap(),
         );
-        if channel_id.is_some() {
-            url = format!("{}/subscription/{}", url, channel_id.unwrap())
+        if let Some(channel_id) = channel_id {
+            url = format!("{}/subscription/{}", url, channel_id)
         }
         if &self.options.sender_id == "test" {
             return Ok(true);
@@ -595,5 +595,4 @@ mod test {
             assert!(response == [DUMMY_CHID.to_owned()]);
         }
     }
-
 }

@@ -50,14 +50,14 @@ fi
 # TODO compile on macOS/windows machines once `chainOfTrust` is supported on macOS (1499051).
 if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   # Generated from nss-try@0c5d37301637ed024de8c2cbdbecf144aae12163.
-  curl -L -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_libs_darwin.tar.bz2"
+  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_libs_darwin.tar.bz2"
   SHA256="b25d6d057d39213aeb5426dfbb0223a1d33f1706a1fcde1b3547fd7895c922f7"
   echo "${SHA256}  nss_nspr_static_libs_darwin.tar.bz2" | shasum -a 256 -c - || exit 2
   tar xvjf nss_nspr_static_libs_darwin.tar.bz2 && rm -rf nss_nspr_static_libs_darwin.tar.bz2
   NSS_DIST_DIR=$(abspath "dist")
 elif [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
   # Generated from nss-try@0c5d37301637ed024de8c2cbdbecf144aae12163.
-  curl -L -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_libs_win32.7z"
+  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_libs_win32.7z"
   SHA256="cdafb89f727f7a5d6cf1c6c01b58af150f780a4438863d3a1f98b6aa50809ded"
   echo "${SHA256}  nss_nspr_static_libs_win32.7z" | shasum -a 256 -c - || exit 2
   7z x nss_nspr_static_libs_win32.7z -aoa && rm -rf nss_nspr_static_libs_win32.7z

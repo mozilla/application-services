@@ -304,8 +304,8 @@ pub mod abort_on_panic {
 
 #[cfg(feature = "log_panics")]
 fn init_panic_handling_once() {
-    use std::sync::{Once, ONCE_INIT};
-    static INIT_BACKTRACES: Once = ONCE_INIT;
+    use std::sync::Once;
+    static INIT_BACKTRACES: Once = Once::new();
     INIT_BACKTRACES.call_once(move || {
         #[cfg(all(feature = "log_backtraces", not(target_os = "android")))]
         {

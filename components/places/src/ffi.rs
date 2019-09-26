@@ -55,7 +55,6 @@ pub mod error_codes {
     /// `CannotUpdateRoot`: Attempt to modify a root in a way that is illegal, e.g. adding a child
     /// to root________, updating properties of a root, deleting a root, etc.
     pub const INVALID_PLACE_INFO_CANNOT_UPDATE_ROOT: i32 = 64 + 4;
-
 }
 
 fn get_code(err: &Error) -> ErrorCode {

@@ -226,5 +226,4 @@ mod test {
             Ok(HeaderName("content-type".into()))
         );
     }
-
 }

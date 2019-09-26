@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use lazy_static::lazy_static;
-use std::sync::{Once, RwLock, ONCE_INIT};
+use std::sync::{Once, RwLock};
 
 use log::Log;
 
@@ -55,7 +55,7 @@ impl Log for SettableLog {
 }
 
 pub fn init_once() {
-    static INITIALIZER: Once = ONCE_INIT;
+    static INITIALIZER: Once = Once::new();
     INITIALIZER.call_once(|| {
         log::set_logger(&*SETTABLE_LOG).expect(
             "Failed to initialize SettableLog, other log implementation already initialized?",

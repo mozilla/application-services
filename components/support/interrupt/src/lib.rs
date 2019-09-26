@@ -21,10 +21,9 @@ pub trait Interruptee {
 
     fn err_if_interrupted(&self) -> std::result::Result<(), Interrupted> {
         if self.was_interrupted() {
-            Err(Interrupted)?
-        } else {
-            Ok(())
+            return Err(Interrupted);
         }
+        Ok(())
     }
 }
 

@@ -1303,5 +1303,4 @@ mod test {
         inner.assert_valid();
         assert_eq!(inner.len(), 0);
     }
-
 }

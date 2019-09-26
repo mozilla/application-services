@@ -357,5 +357,4 @@ mod tests {
         assert!(cs.is_none(), "declined collection can sync");
         assert_eq!(store.get_num_resets(), 0);
     }
-
 }

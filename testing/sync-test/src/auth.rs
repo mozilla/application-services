@@ -5,7 +5,7 @@ use crate::Opts;
 use fxa_client::{self, Config as FxaConfig, FirefoxAccount};
 use logins::PasswordEngine;
 use std::collections::HashMap;
-use std::sync::{Arc, Once, ONCE_INIT};
+use std::sync::{Arc, Once};
 use sync15::{KeyBundle, Sync15StorageClientInit};
 use url::Url;
 
@@ -39,7 +39,7 @@ lazy_static::lazy_static! {
 fn run_helper_command(cmd: &str, cmd_args: &[&str]) -> Result<String, failure::Error> {
     use std::process::{self, Command};
     // This `Once` is used to run `npm install` first time through.
-    static HELPER_SETUP: Once = ONCE_INIT;
+    static HELPER_SETUP: Once = Once::new();
     HELPER_SETUP.call_once(|| {
         let dir = &*HELPER_SCRIPT_DIR;
         std::env::set_current_dir(dir).expect("Failed to change directory...");
