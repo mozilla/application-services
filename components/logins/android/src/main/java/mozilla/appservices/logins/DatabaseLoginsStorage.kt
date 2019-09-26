@@ -36,7 +36,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
      *
      * Note: handles do not remain valid after locking / unlocking the logins database.
      */
-    fun getHandle(): Long {
+    override fun getHandle(): Long {
         return this.raw.get()
     }
 

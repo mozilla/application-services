@@ -26,6 +26,10 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
         }
     }
 
+    override fun getHandle(): Long {
+        throw UnsupportedOperationException("Only DatabaseLoginsStorage supports getHandle")
+    }
+
     @Synchronized
     @Throws(LoginsStorageException::class)
     override fun close() {

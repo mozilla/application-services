@@ -198,4 +198,17 @@ interface LoginsStorage : AutoCloseable {
      */
     @Throws(LoginsStorageException::class)
     fun update(login: ServerPassword)
+
+    /**
+     * Return the raw handle used to reference this logins database.
+     *
+     * This is only valid for the DatabaseLoginsStorage, and was added to this
+     * interface regardless by popular demand. Other types will throw an
+     * UnsupportedOperationException.
+     *
+     * Generally should only be used to pass the handle into `SyncManager.setLogins`.
+     *
+     * Note: handles do not remain valid after locking / unlocking the logins database.
+     */
+    fun getHandle(): Long
 }
