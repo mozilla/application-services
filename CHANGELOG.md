@@ -1,3 +1,13 @@
+# v0.40.0 (_2019-09-26_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.39.4...v0.40.0)
+
+## Logins
+
+### Breaking Changes
+
+- getHandle has been moved to the LoginsStorage interface. All implementers other than DatabaseLoginsStorage should implement this by throwing a `UnsupportedOperationException`.
+
 # v0.39.4 (_2019-09-25_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.39.3...v0.39.4)
