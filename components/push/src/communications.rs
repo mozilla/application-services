@@ -595,5 +595,4 @@ mod test {
             assert!(response == [DUMMY_CHID.to_owned()]);
         }
     }
-
 }

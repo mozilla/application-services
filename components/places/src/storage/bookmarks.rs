@@ -1018,7 +1018,6 @@ mod test_serialize {
 
         Ok(())
     }
-
 }
 
 fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Vec<InsertableItem>) {
@@ -2333,5 +2332,4 @@ mod tests {
 
         Ok(())
     }
-
 }

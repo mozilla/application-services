@@ -371,9 +371,7 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
                 // this is unrecoverable.
                 Err(ErrorKind::StorageResetError.into())
             }
-            TokenState::Backoff(ref remaining, _) => {
-                Err(ErrorKind::BackoffError(*remaining).into())
-            }
+            TokenState::Backoff(ref remaining, _) => Err(ErrorKind::BackoffError(*remaining).into()),
         }
     }
 
