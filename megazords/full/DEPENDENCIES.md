@@ -810,7 +810,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ## MIT License: bincode
 
 The following text applies to code linked from these dependendencies:
-[bincode](https://github.com/TyOverby/bincode)
+[bincode](https://github.com/servo/bincode)
 
 ```
 The MIT License (MIT)
