@@ -245,9 +245,10 @@ fn fix_include_dirs(mut builder: Builder) -> Builder {
                         .to_str()
                         .unwrap()
                 ))
-                .clang_arg(format!("-D__ANDROID_API__={}", android_api_version))
+                .clang_arg(format!("-D__ANDROID_API__={}", android_api_version));
+            if cfg!(target_os = "linux") {
                 // stddef.h isn't defined otherwise.
-                .clang_arg(format!(
+                builder = builder.clang_arg(format!(
                     "-I{}",
                     toolchain_dir
                         .join(format!(
@@ -256,7 +257,8 @@ fn fix_include_dirs(mut builder: Builder) -> Builder {
                         ))
                         .to_str()
                         .unwrap()
-                ))
+                ));
+            }
         }
         _ => {}
     }
