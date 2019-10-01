@@ -31,7 +31,7 @@ cli-support = { path = "../support/cli" }
 force-viaduct-reqwest = { path = "../support/force-viaduct-reqwest" }
 dialoguer = "0.4.0"
 webbrowser = "0.5.1"
-mockiato = "0.9.0"
+mockiato = "0.9.4"
 
 [build-dependencies]
 prost-build = "0.5"
