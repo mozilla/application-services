@@ -2054,6 +2054,9 @@ mod tests {
 
     #[test]
     fn test_delete_everything() {
+        use crate::storage::bookmarks::{
+            self, BookmarkPosition, BookmarkRootGuid, InsertableBookmark,
+        };
         use url::Url;
         let _ = env_logger::try_init();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
@@ -2062,6 +2065,7 @@ mod tests {
         let urls = &[
             Url::parse("http://example.com/1").unwrap(),
             Url::parse("http://example.com/2").unwrap(),
+            Url::parse("http://example.com/3").unwrap(),
         ];
 
         let dates = &[
@@ -2076,15 +2080,64 @@ mod tests {
             }
         }
 
-        delete_everything(&conn).unwrap();
+        bookmarks::insert_bookmark(
+            &conn,
+            &InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.into(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: Some("bookmarkAAAA".into()),
+                url: urls[2].clone(),
+                title: Some("A".into()),
+            }
+            .into(),
+        )
+        .expect("Should insert bookmark with URL 3");
+
+        conn.execute_named(
+            "WITH entries(url, input) AS (
+               VALUES(:url1, 'hi'), (:url3, 'bye')
+             )
+             INSERT INTO moz_inputhistory(place_id, input, use_count)
+             SELECT h.id, e.input, 1
+             FROM entries e
+             JOIN moz_places h ON h.url_hash = hash(e.url) AND
+                                  h.url = e.url",
+            &[(":url1", &urls[1].as_str()), (":url3", &urls[2].as_str())],
+        )
+        .expect("Should insert autocomplete history entries");
+
+        delete_everything(&conn).expect("Should delete everything except URL 3");
 
         std::thread::sleep(std::time::Duration::from_millis(50));
 
-        assert_eq!(
-            0,
-            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_places")
-                .unwrap(),
-        );
+        // Should leave bookmarked URLs alone, and keep autocomplete history for
+        // those URLs.
+        let mut places_stmt = conn.prepare("SELECT url FROM moz_places").unwrap();
+        let remaining_urls: Vec<String> = places_stmt
+            .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
+                Ok(row.get::<_, String>(0)?)
+            })
+            .expect("Should fetch remaining URLs")
+            .map(std::result::Result::unwrap)
+            .collect();
+        assert_eq!(remaining_urls, &["http://example.com/3"]);
+
+        let mut input_stmt = conn.prepare("SELECT input FROM moz_inputhistory").unwrap();
+        let remaining_inputs: Vec<String> = input_stmt
+            .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
+                Ok(row.get::<_, String>(0)?)
+            })
+            .expect("Should fetch remaining autocomplete history entries")
+            .map(std::result::Result::unwrap)
+            .collect();
+        assert_eq!(remaining_inputs, &["bye"]);
+
+        bookmarks::delete_bookmark(&conn, &"bookmarkAAAA".into())
+            .expect("Should delete bookmark with URL 3");
+
+        delete_everything(&conn).expect("Should delete all URLs");
 
         assert_eq!(
             0,

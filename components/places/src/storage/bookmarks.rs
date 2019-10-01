@@ -2332,4 +2332,71 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_delete_everything() -> Result<()> {
+        let _ = env_logger::try_init();
+        let conn = new_mem_connection();
+
+        insert_bookmark(
+            &conn,
+            &InsertableFolder {
+                parent_guid: BookmarkRootGuid::Unfiled.into(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: Some("folderAAAAAA".into()),
+                title: Some("A".into()),
+            }
+            .into(),
+        )?;
+        insert_bookmark(
+            &conn,
+            &InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.into(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: Some("bookmarkBBBB".into()),
+                url: Url::parse("http://example.com/b")?,
+                title: Some("B".into()),
+            }
+            .into(),
+        )?;
+        insert_bookmark(
+            &conn,
+            &InsertableBookmark {
+                parent_guid: "folderAAAAAA".into(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: Some("bookmarkCCCC".into()),
+                url: Url::parse("http://example.com/c")?,
+                title: Some("C".into()),
+            }
+            .into(),
+        )?;
+
+        delete_everything(&conn)?;
+
+        let (tree, _, _) =
+            fetch_tree(&conn, &BookmarkRootGuid::Root.into(), &FetchDepth::Deepest)?.unwrap();
+        if let BookmarkTreeNode::Folder(root) = tree {
+            assert_eq!(root.children.len(), 4);
+            let unfiled = root
+                .children
+                .iter()
+                .find(|c| c.guid() == BookmarkRootGuid::Unfiled.guid())
+                .expect("Should return unfiled root");
+            if let BookmarkTreeNode::Folder(unfiled) = unfiled {
+                assert!(unfiled.children.is_empty());
+            } else {
+                panic!("The unfiled root should be a folder");
+            }
+        } else {
+            panic!("`fetch_tree` should return the Places root folder");
+        }
+
+        Ok(())
+    }
 }
