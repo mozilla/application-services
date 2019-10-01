@@ -301,6 +301,12 @@ impl LoginDb {
         rows.collect::<Result<_>>()
     }
 
+    pub fn get_by_hostname(&self, hostname: &str) -> Result<Vec<Login>> {
+        let mut stmt = self.db.prepare_cached(&GET_ALL_BY_HOSTNAME_SQL)?;
+        let rows = stmt.query_and_then(&[hostname], Login::from_row)?;
+        rows.collect::<Result<_>>()
+    }
+
     pub fn get_by_id(&self, id: &str) -> Result<Option<Login>> {
         self.try_query_row(
             &GET_BY_GUID_SQL,
@@ -1010,6 +1016,19 @@ lazy_static! {
          ORDER BY hostname ASC
 
          LIMIT 1",
+        common_cols = schema::COMMON_COLS,
+    );
+    static ref GET_ALL_BY_HOSTNAME_SQL: String = format!(
+        "SELECT {common_cols}
+         FROM loginsL
+         WHERE is_deleted = 0
+           AND hostname = :hostname
+         UNION ALL
+
+         SELECT {common_cols}
+         FROM loginsM
+         WHERE is_overridden = 0
+           AND hostname = :hostname",
         common_cols = schema::COMMON_COLS,
     );
     static ref CLONE_ENTIRE_MIRROR_SQL: String = format!(

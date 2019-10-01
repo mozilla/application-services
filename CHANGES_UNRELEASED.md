@@ -3,3 +3,9 @@
 # Unreleased Changes
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.40.0...master)
+
+## Logins
+
+### What's new
+
+Add ability to get logins by hostname using the new `getByHostname` API.

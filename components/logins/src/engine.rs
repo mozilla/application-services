@@ -44,6 +44,10 @@ impl PasswordEngine {
         self.db.get_by_id(id)
     }
 
+    pub fn get_by_hostname(&self, hostname: &str) -> Result<Vec<Login>> {
+        self.db.get_by_hostname(hostname)
+    }
+
     pub fn touch(&self, id: &str) -> Result<()> {
         self.db.touch(id)
     }
@@ -220,6 +224,7 @@ mod test {
 
         let mut list = engine.list().expect("Grabbing list to work");
         assert_eq!(list.len(), 2);
+
         let mut expect = vec![a_from_db.clone(), b_from_db.clone()];
 
         list.sort_by(|a, b| b.guid.cmp(&a.guid));
@@ -235,6 +240,17 @@ mod test {
         let list = engine.list().expect("Grabbing list to work");
         assert_eq!(list.len(), 1);
         assert_eq!(list[0], b_from_db);
+
+        let list = engine
+            .get_by_hostname("https://www.example2.com")
+            .expect("Expect a list for this hostname");
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0], b_from_db);
+
+        let list = engine
+            .get_by_hostname("https://www.example.com")
+            .expect("Expect an empty list");
+        assert_eq!(list.len(), 0);
 
         let now_us = util::system_time_ms_i64(SystemTime::now());
         let b2 = Login {
