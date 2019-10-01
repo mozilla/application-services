@@ -31,4 +31,4 @@ version = "0.3.38"
 [dev-dependencies]
 rand = "0.7.2"
 rayon = "1.2.0"
-env_logger = "0.6.2"
+env_logger = "0.7.0"
