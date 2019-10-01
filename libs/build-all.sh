@@ -104,6 +104,21 @@ diff -r 65efa74ef84a coreconf/config.gypi
          \'include_dirs\': [
 ' | patch "${NSS_SRC_PATH}/nss/coreconf/config.gypi"
 
+# Early return hack to prevent NSPR Android setup
+# which does not work with ndk unified headers and clang.
+echo $'\
+@@ -2662,6 +2662,9 @@
+
+ case "$target" in
+ *-android*|*-linuxandroid*)
++    $as_echo "#define ANDROID 1" >>confdefs.h
++    ;;
++    unreachable)
+     if test -z "$android_ndk" ; then
+        as_fn_error $? "You must specify --with-android-ndk=/path/to/ndk when targeting Android." "$LINENO" 5
+     fi
+' | patch "${NSS_SRC_PATH}/nspr/configure"
+
 if [[ "${PLATFORM}" == "ios" ]]
 then
   ./build-all-ios.sh "${SQLCIPHER_SRC_PATH}" "${NSS_SRC_PATH}"

@@ -4,30 +4,27 @@
 
 set -euvx
 
-if [[ "${#}" -ne 6 ]]
+if [[ "${#}" -ne 5 ]]
 then
     echo "Usage:"
-    echo "./build-nss-android.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <ARCH> <TOOLCHAIN_PATH> <TOOLCHAIN> <ANDROID_NDK_API_VERSION>"
+    echo "./build-nss-android.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <TOOLCHAIN_PATH> <TOOLCHAIN> <ANDROID_NDK_API_VERSION>"
     exit 1
 fi
 
 NSS_SRC_DIR=${1}
 DIST_DIR=${2}
-ARCH=${3}
-TOOLCHAIN_PATH=${4}
-TOOLCHAIN=${5}
-ANDROID_NDK_API_VERSION=${6}
+TOOLCHAIN_PATH=${3}
+TOOLCHAIN=${4}
+ANDROID_NDK_API_VERSION=${5}
 
 if [[ -d "${DIST_DIR}" ]]; then
   echo "${DIST_DIR} folder already exists. Skipping build."
   exit 0
 fi
 
-PLATFORM_PATH="${ANDROID_NDK_ROOT}/platforms/android-${ANDROID_NDK_API_VERSION}/arch-${ARCH}"
 if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]]
 then
   GYP_ARCH="x64"
-  LDFLAGS="-L${PLATFORM_PATH}/usr/lib64"
   NSPR_64="--enable-64bit"
 elif [[ "${TOOLCHAIN}" == "i686-linux-android" ]]
 then
@@ -43,19 +40,29 @@ else
   echo "Unknown toolchain"
   exit 1
 fi
-LDFLAGS="${LDFLAGS:-}"
 NSPR_64="${NSPR_64:-""}"
+
+export AR="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ar"
+export CC="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}${ANDROID_NDK_API_VERSION}-clang"
+export CXX="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}${ANDROID_NDK_API_VERSION}-clang++"
+# https://developer.android.com/ndk/guides/other_build_systems:
+# For 32-bit ARM, the compiler is prefixed with armv7a-linux-androideabi,
+# but the binutils tools are prefixed with arm-linux-androideabi.
+if [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]]; then
+  export CC="${TOOLCHAIN_PATH}/bin/armv7a-linux-androideabi${ANDROID_NDK_API_VERSION}-clang"
+  export CXX="${TOOLCHAIN_PATH}/bin/armv7a-linux-androideabi${ANDROID_NDK_API_VERSION}-clang++"
+fi
+export LD="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ld"
+export NM="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-nm"
+export RANLIB="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ranlib"
+export READELF="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-readelf"
 
 # Build NSPR
 NSPR_BUILD_DIR=$(mktemp -d)
 pushd "${NSPR_BUILD_DIR}"
 "${NSS_SRC_DIR}"/nspr/configure \
-  LDFLAGS="${LDFLAGS}" \
   ${NSPR_64} \
   --target="${TOOLCHAIN}" \
-  --with-android-ndk="${ANDROID_NDK_ROOT}" \
-  --with-android-toolchain="${TOOLCHAIN_PATH}" \
-  --with-android-platform="${PLATFORM_PATH}" \
    --disable-debug \
    --enable-optimize
 make
@@ -63,13 +70,6 @@ popd
 
 # Build NSS
 BUILD_DIR=$(mktemp -d)
-export AR="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ar"
-export CC="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-clang"
-export CXX="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-clang++"
-export LD="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ld"
-export NM="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-nm"
-export RANLIB="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ranlib"
-export READELF="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-readelf"
 
 BUILD_DIR=$(mktemp -d)
 rm -rf "${NSS_SRC_DIR}/nss/out"

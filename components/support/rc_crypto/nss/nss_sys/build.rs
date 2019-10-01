@@ -230,30 +230,25 @@ fn fix_include_dirs(mut builder: Builder) -> Builder {
                 .clang_arg(format!("-isysroot{}", &sdk_root));
         }
         Ok("android") => {
-            let (android_api_version, _ndk_root, toolchain_dir) = get_android_env();
-            let mut toolchain = target_arch.as_ref().map(|x| &**x).unwrap();
-            // The other architectures map perfectly to what libs/setup_toolchains_local.sh produces.
-            if toolchain == "aarch64" {
-                toolchain = "arm64";
-            }
-            builder = builder
-                .detect_include_paths(false)
-                .clang_arg(format!(
-                    "--sysroot={}",
-                    &toolchain_dir
-                        .join(format!("{}-{}/sysroot", toolchain, android_api_version))
-                        .to_str()
-                        .unwrap()
-                ))
-                .clang_arg(format!("-D__ANDROID_API__={}", android_api_version));
+            let android_ndk_root = PathBuf::from(env::var("ANDROID_NDK_ROOT").unwrap());
+            builder = builder.detect_include_paths(false).clang_arg(format!(
+                "--sysroot={}",
+                &android_ndk_root
+                    .join(format!(
+                        "toolchains/llvm/prebuilt/{}/sysroot",
+                        android_host_tag()
+                    ))
+                    .to_str()
+                    .unwrap()
+            ));
             if cfg!(target_os = "linux") {
                 // stddef.h isn't defined otherwise.
                 builder = builder.clang_arg(format!(
                     "-I{}",
-                    toolchain_dir
+                    &android_ndk_root
                         .join(format!(
-                            "{}-{}/lib64/clang/5.0/include/",
-                            toolchain, android_api_version
+                            "toolchains/llvm/prebuilt/{}/lib64/clang/8.0.7/include/",
+                            android_host_tag()
                         ))
                         .to_str()
                         .unwrap()
@@ -265,13 +260,14 @@ fn fix_include_dirs(mut builder: Builder) -> Builder {
     return builder;
 }
 
-fn get_android_env() -> (String, PathBuf, PathBuf) {
-    return (
-        // This variable is not mandatory for building yet, so fall back to 21.
-        env::var("ANDROID_NDK_API_VERSION").unwrap_or("21".to_string()),
-        PathBuf::from(env::var("ANDROID_NDK_ROOT").unwrap()),
-        PathBuf::from(env::var("ANDROID_NDK_TOOLCHAIN_DIR").unwrap()),
-    );
+fn android_host_tag() -> &'static str {
+    // cfg! target_os actually refers to the host environment in this case (build script).
+    #[cfg(target_os = "macos")]
+    return "darwin-x86_64";
+    #[cfg(target_os = "linux")]
+    return "linux-x86_64";
+    #[cfg(target_os = "windows")]
+    return "windows-x86_64";
 }
 
 fn get_ios_sdk_root(sdk_name: &str) -> String {

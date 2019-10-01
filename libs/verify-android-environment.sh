@@ -4,7 +4,7 @@
 #
 # This file should be used via `./libs/verify-android-environment.sh`.
 
-NDK_VERSION=15
+NDK_VERSION=20
 RUST_TARGETS=("aarch64-linux-android" "armv7-linux-androideabi" "i686-linux-android" "x86_64-linux-android")
 
 if [[ ! -f "$(pwd)/libs/build-all.sh" ]]; then
@@ -20,7 +20,7 @@ fi
 
 if [[ -z "${ANDROID_NDK_ROOT}" ]]; then
   echo "Could not find Android NDK:"
-  echo 'Please install the Android NDK r15c and then set ANDROID_NDK_ROOT.'
+  echo 'Please install Android NDK r20 and then set ANDROID_NDK_ROOT.'
   exit 1
 fi
 
@@ -42,14 +42,6 @@ if [[ "${INSTALLED_NDK_VERSION}" != "${NDK_VERSION}" ]]; then
 fi
 
 rustup target add "${RUST_TARGETS[@]}"
-
-if [[ -z "${ANDROID_NDK_TOOLCHAIN_DIR}" ]]; then
-  echo "Could not find Android NDK toolchain directory:"
-  echo "1. Create a directory where to set up the toolchains (e.g. ~/.ndk-standalone-toolchains)."
-  echo "2. Set ANDROID_NDK_TOOLCHAIN_DIR to this newly created directory."
-  echo "3. Run setup_toolchains_local.sh in the libs/ directory."
-  exit 1
-fi
 
 # Determine the Java command to use to start the JVM.
 # Same implementation as gradlew
