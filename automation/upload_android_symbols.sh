@@ -40,7 +40,7 @@ mkdir -p "${OUTPUT_FOLDER}"
 
 # 1. Generate the symbols.
 for i in "${!TARGET_ARCHS[@]}"; do
-  export OBJCOPY="${ANDROID_NDK_TOOLCHAIN_DIR}/${TARGET_ARCHS[${i}]}-${ANDROID_NDK_API_VERSION}/bin/${OBJCOPY_BINS[${i}]}"
+  export OBJCOPY="${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/${NDK_HOST_TAG}/bin/${OBJCOPY_BINS[${i}]}"
   JNI_SO_PATH="${PROJECT_PATH}/build/rustJniLibs/android/${JNI_LIBS_TARGETS[${i}]}"
   for sofile in "${JNI_SO_PATH}"/*.so; do
     python3 automation/symbols-generation/symbolstore.py -c -s . --vcs-info "${DUMP_SYMS_DIR}"/dump_syms "${OUTPUT_FOLDER}" "${sofile}"

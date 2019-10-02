@@ -23,13 +23,18 @@ if [[ -d "${DIST_DIR}" ]]; then
   exit 0
 fi
 
-export TOOLCHAIN_BIN="${TOOLCHAIN_PATH}/bin"
-export CC="${TOOLCHAIN_BIN}/${TOOLCHAIN}-gcc"
-export CXX="${TOOLCHAIN_BIN}/${TOOLCHAIN}-g++"
-export RANLIB="${TOOLCHAIN_BIN}/${TOOLCHAIN}-ranlib"
-export LD="${TOOLCHAIN_BIN}/${TOOLCHAIN}-ld"
-export AR="${TOOLCHAIN_BIN}/${TOOLCHAIN}-ar"
-export CFLAGS="-D__ANDROID_API__=${ANDROID_NDK_API_VERSION}"
+export AR="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ar"
+export CC="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}${ANDROID_NDK_API_VERSION}-clang"
+export CXX="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}${ANDROID_NDK_API_VERSION}-clang++"
+# https://developer.android.com/ndk/guides/other_build_systems:
+# For 32-bit ARM, the compiler is prefixed with armv7a-linux-androideabi,
+# but the binutils tools are prefixed with arm-linux-androideabi.
+if [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]]; then
+  export CC="${TOOLCHAIN_PATH}/bin/armv7a-linux-androideabi${ANDROID_NDK_API_VERSION}-clang"
+  export CXX="${TOOLCHAIN_PATH}/bin/armv7a-linux-androideabi${ANDROID_NDK_API_VERSION}-clang++"
+fi
+export LD="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ld"
+export RANLIB="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ranlib"
 
 if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]]
 then
@@ -117,7 +122,7 @@ pushd "${BUILD_DIR}"
   --with-crypto-lib=none \
   --disable-tcl \
   --enable-tempstore=yes \
-  CFLAGS="${CFLAGS} ${SQLCIPHER_CFLAGS}" \
+  CFLAGS="${SQLCIPHER_CFLAGS}" \
   LDFLAGS="-L${NSS_DIR}/lib" \
   LIBS="${LIBS} -llog -lm"
 

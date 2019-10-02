@@ -107,21 +107,17 @@ RUN curl -sfSL --retry 5 --retry-delay 10 https://dl.google.com/android/reposito
 
 # Android NDK
 
-# r15c agrees with mozilla-central and, critically, supports the --deprecated-headers flag needed to
-# build OpenSSL
-ENV ANDROID_NDK_VERSION "r15c"
+ENV ANDROID_NDK_VERSION "r20"
 
 # $ANDROID_NDK_ROOT is the preferred name, but the android gradle plugin uses $ANDROID_NDK_HOME.
 ENV ANDROID_NDK_ROOT /build/android-ndk
 ENV ANDROID_NDK_HOME /build/android-ndk
+ENV ANDROID_NDK_API_VERSION 21
 
 RUN curl -sfSL --retry 5 --retry-delay 10 https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux-x86_64.zip > ndk.zip \
     && unzip -q ndk.zip -d /build \
     && rm ndk.zip \
     && mv /build/android-ndk-${ANDROID_NDK_VERSION} ${ANDROID_NDK_ROOT}
-
-ENV ANDROID_NDK_TOOLCHAIN_DIR /root/.android-ndk-r15c-toolchain
-ENV ANDROID_NDK_API_VERSION 21
 
 # Rust
 RUN set -eux; \

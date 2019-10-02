@@ -26,25 +26,23 @@ NSS_SRC_PATH=${2}
 
 echo "# Building NSS"
 for i in "${!TARGET_ARCHS[@]}"; do
-  ARCH=${TARGET_ARCHS[${i}]}
   DIST=${TARGET_ARCHS_DISTS[${i}]}
   DIST_DIR=$(abspath "android/${DIST}/nss")
   if [[ -d "${DIST_DIR}" ]]; then
     echo "${DIST_DIR} already exists. Skipping building nss."
   else
-    ./build-nss-android.sh "${NSS_SRC_PATH}" "${DIST_DIR}" "${ARCH}" "${ANDROID_NDK_TOOLCHAIN_DIR}/${ARCH}-${ANDROID_NDK_API_VERSION}" "${TARGET_ARCHS_TOOLCHAINS[${i}]}" "${ANDROID_NDK_API_VERSION}" || exit 1
+    ./build-nss-android.sh "${NSS_SRC_PATH}" "${DIST_DIR}" "${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/${NDK_HOST_TAG}" "${TARGET_ARCHS_TOOLCHAINS[${i}]}" "${ANDROID_NDK_API_VERSION}" || exit 1
   fi
 done
 
 echo "# Building sqlcipher"
 for i in "${!TARGET_ARCHS[@]}"; do
-  ARCH=${TARGET_ARCHS[${i}]}
   DIST=${TARGET_ARCHS_DISTS[${i}]}
   NSS_DIR=$(abspath "android/${DIST}/nss")
   DIST_DIR=$(abspath "android/${DIST}/sqlcipher")
   if [[ -d "${DIST_DIR}" ]]; then
     echo "${DIST_DIR} already exists. Skipping building sqlcipher."
   else
-    ./build-sqlcipher-android.sh "${SQLCIPHER_SRC_PATH}" "${DIST_DIR}" "${ANDROID_NDK_TOOLCHAIN_DIR}/${ARCH}-${ANDROID_NDK_API_VERSION}" "${TARGET_ARCHS_TOOLCHAINS[${i}]}" "${ANDROID_NDK_API_VERSION}" "${NSS_DIR}" || exit 1
+    ./build-sqlcipher-android.sh "${SQLCIPHER_SRC_PATH}" "${DIST_DIR}" "${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/${NDK_HOST_TAG}" "${TARGET_ARCHS_TOOLCHAINS[${i}]}" "${ANDROID_NDK_API_VERSION}" "${NSS_DIR}" || exit 1
   fi
 done
