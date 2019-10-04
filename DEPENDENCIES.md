@@ -25,7 +25,6 @@ the details of which are reproduced below.
 * [MIT License: mio](#mit-license-mio)
 * [MIT License: nom](#mit-license-nom)
 * [MIT License: openssl-sys](#mit-license-openssl-sys)
-* [MIT License: owning_ref](#mit-license-owning_ref)
 * [MIT License: schannel](#mit-license-schannel)
 * [MIT License: slab, string](#mit-license-slab-string)
 * [MIT License: strsim](#mit-license-strsim)
@@ -549,7 +548,6 @@ The following text applies to code linked from these dependendencies:
 [shlex](https://github.com/comex/rust-shlex),
 [smallbitvec](https://github.com/servo/smallbitvec),
 [smallvec](https://github.com/servo/rust-smallvec),
-[stable_deref_trait](https://github.com/storyyeller/stable_deref_trait),
 [swift-protobuf](https://github.com/apple/swift-protobuf),
 [syn](https://github.com/dtolnay/syn),
 [tempfile](https://github.com/Stebalien/tempfile),
@@ -1358,36 +1356,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-
-```
--------------
-## MIT License: owning_ref
-
-The following text applies to code linked from these dependendencies:
-[owning_ref](https://github.com/Kimundi/owning-ref-rs)
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2015 Marvin Löbel
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 
 ```
 -------------
