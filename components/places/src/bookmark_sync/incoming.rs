@@ -2,10 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::record::{
-    BookmarkItemRecord, BookmarkRecord, BookmarkRecordId, FolderRecord, LivemarkRecord,
-    QueryRecord, SeparatorRecord,
-};
+use super::record::BookmarkRecordId;
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::error::*;
 use crate::storage::{
@@ -14,6 +11,7 @@ use crate::storage::{
     URL_LENGTH_MAX,
 };
 use rusqlite::Connection;
+use serde_json::Value as JsonValue;
 use sql_support::{self, ConnExt};
 use std::iter;
 use sync15::ServerTimestamp;
@@ -46,39 +44,59 @@ impl<'a> IncomingApplicator<'a> {
                 BookmarkRecordId::from_payload_id(payload.id).as_guid(),
             )?;
         } else {
-            let item: BookmarkItemRecord = payload.into_record()?;
-            match item {
-                BookmarkItemRecord::Bookmark(b) => self.store_incoming_bookmark(timestamp, b)?,
-                BookmarkItemRecord::Query(q) => self.store_incoming_query(timestamp, q)?,
-                BookmarkItemRecord::Folder(f) => self.store_incoming_folder(timestamp, f)?,
-                BookmarkItemRecord::Livemark(l) => self.store_incoming_livemark(timestamp, l)?,
-                BookmarkItemRecord::Separator(s) => self.store_incoming_sep(timestamp, s)?,
-            }
+            let value: JsonValue = payload.into();
+            match value["type"].as_str() {
+                Some("bookmark") => self.store_incoming_bookmark(timestamp, &value)?,
+                Some("query") => self.store_incoming_query(timestamp, &value)?,
+                Some("folder") => self.store_incoming_folder(timestamp, &value)?,
+                Some("livemark") => self.store_incoming_livemark(timestamp, &value)?,
+                Some("separator") => self.store_incoming_sep(timestamp, &value)?,
+                t => log::warn!("Incoming payload has invalid type: {:?}", t),
+            };
         }
         Ok(())
     }
 
-    fn store_incoming_bookmark(&self, modified: ServerTimestamp, b: BookmarkRecord) -> Result<()> {
-        let url = match self.maybe_store_href(b.url.as_ref()) {
-            Ok(url) => (Some(url.into_string())),
+    fn store_incoming_bookmark(&self, modified: ServerTimestamp, b: &JsonValue) -> Result<()> {
+        let mut validity = SyncedBookmarkValidity::Valid;
+
+        let record_id = unpack_id("id", b)?;
+        let parent_record_id = unpack_optional_id("parentid", b);
+        let date_added = unpack_optional_i64("dateAdded", b, &mut validity);
+        let title = unpack_optional_str("title", b, &mut validity);
+        let keyword = unpack_optional_str("keyword", b, &mut validity);
+
+        let mut tags = vec![];
+        if let Some(array) = b["tags"].as_array() {
+            for v in array {
+                if let JsonValue::String(s) = v {
+                    tags.push(validate_tag(&s));
+                } else {
+                    set_reupload(&mut validity);
+                }
+            }
+        };
+
+        let url = unpack_optional_str("bmkUri", b, &mut validity);
+        let url = match self.maybe_store_href(url) {
+            Ok(u) => (Some(u.into_string())),
             Err(e) => {
                 log::warn!("Incoming bookmark has an invalid URL: {:?}", e);
+                // The bookmark has an invalid URL, so we can't apply it.
+                set_replace(&mut validity);
                 None
             }
         };
-        let tags = b.tags.iter().map(|t| validate_tag(t));
-        let validity = if url.is_none() {
-            // The bookmark has an invalid URL, so we can't apply it.
-            SyncedBookmarkValidity::Replace
-        } else if tags.clone().all(|t| t.is_original()) {
-            // The bookmark has a valid URL and all original tags, so we can
-            // apply it as-is.
-            SyncedBookmarkValidity::Valid
-        } else {
-            // The bookmark has a valid URL, but invalid or normalized tags. We
-            // can apply it, but should also reupload it with the new tags.
-            SyncedBookmarkValidity::Reupload
-        };
+
+        for t in &tags {
+            if !t.is_original() && validity < SyncedBookmarkValidity::Reupload {
+                // The bookmark has a valid URL, but invalid or normalized tags. We
+                // can apply it, but should also reupload it with the new tags.
+                validity = SyncedBookmarkValidity::Reupload;
+                break;
+            }
+        }
+
         self.db.execute_named_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
                                                  dateAdded, title, keyword, validity, placeId)
@@ -92,13 +110,13 @@ impl<'a> IncomingApplicator<'a> {
                       END
                       )"#,
             &[
-                (":guid", &b.record_id.as_guid().as_str()),
-                (":parentGuid", &b.parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
+                (":guid", &record_id.as_guid().as_str()),
+                (":parentGuid", &parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Bookmark),
-                (":dateAdded", &b.date_added),
-                (":title", &maybe_truncate_title(&b.title)),
-                (":keyword", &b.keyword),
+                (":dateAdded", &date_added),
+                (":title", &maybe_truncate_title(&title)),
+                (":keyword", &keyword),
                 (":validity", &validity),
                 (":url", &url),
             ],
@@ -121,7 +139,7 @@ impl<'a> IncomingApplicator<'a> {
                                  WHERE guid = :guid),
                                 (SELECT id FROM moz_tags
                                  WHERE tag = :tag))",
-                        &[(":guid", &b.record_id.as_guid().as_str()), (":tag", t)],
+                        &[(":guid", &record_id.as_guid().as_str()), (":tag", t)],
                     )?;
                 }
             };
@@ -129,23 +147,45 @@ impl<'a> IncomingApplicator<'a> {
         Ok(())
     }
 
-    fn store_incoming_folder(&self, modified: ServerTimestamp, f: FolderRecord) -> Result<()> {
+    fn store_incoming_folder(&self, modified: ServerTimestamp, f: &JsonValue) -> Result<()> {
+        let mut validity = SyncedBookmarkValidity::Valid;
+
+        let record_id = unpack_id("id", f)?;
+        let parent_record_id = unpack_optional_id("parentid", f);
+        let date_added = unpack_optional_i64("dateAdded", f, &mut validity);
+        let title = unpack_optional_str("title", f, &mut validity);
+
+        let mut children: Vec<BookmarkRecordId> = vec![];
+        if let Some(array) = f["children"].as_array() {
+            for v in array {
+                if v.is_string() {
+                    children.push(BookmarkRecordId::from_payload_id(
+                        v.as_str().unwrap().into(),
+                    ));
+                } else {
+                    return Err(
+                        ErrorKind::InvalidPlaceInfo(InvalidPlaceInfo::InvalidChildGuid).into(),
+                    );
+                }
+            }
+        };
+
         self.db.execute_named_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
                                                  dateAdded, title)
                VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
                       :dateAdded, NULLIF(:title, ""))"#,
             &[
-                (":guid", &f.record_id.as_guid().as_str()),
-                (":parentGuid", &f.parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
+                (":guid", &record_id.as_guid().as_str()),
+                (":parentGuid", &parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Folder),
-                (":dateAdded", &f.date_added),
-                (":title", &maybe_truncate_title(&f.title)),
+                (":dateAdded", &date_added),
+                (":title", &maybe_truncate_title(&title)),
             ],
         )?;
         sql_support::each_sized_chunk(
-            &f.children,
+            &children,
             // -1 because we want to leave an extra binding parameter (`?1`)
             // for the folder's GUID.
             sql_support::default_max_variable_number() - 1,
@@ -169,9 +209,9 @@ impl<'a> IncomingApplicator<'a> {
                 );
                 self.db.execute(
                     &sql,
-                    iter::once(&f.record_id)
+                    iter::once(&record_id)
                         .chain(chunk.iter())
-                        .map(|record_id| record_id.as_guid().as_str()),
+                        .map(|id| id.as_guid().as_str()),
                 )?;
                 Ok(())
             },
@@ -194,7 +234,8 @@ impl<'a> IncomingApplicator<'a> {
 
     fn determine_query_url_and_validity(
         &self,
-        q: &QueryRecord,
+        tag_folder_name: Option<&str>,
+        record_id: &BookmarkRecordId,
         url: Url,
     ) -> Result<(Option<Url>, SyncedBookmarkValidity)> {
         // wow - this  is complex, but markh is struggling to see how to
@@ -210,8 +251,8 @@ impl<'a> IncomingApplicator<'a> {
                 .clone()
                 .any(|(k, v)| k == "type" && v == RESULTS_AS_TAG_CONTENTS)
             {
-                if let Some(tag_folder_name) = &q.tag_folder_name {
-                    validate_tag(tag_folder_name)
+                if let Some(t) = tag_folder_name {
+                    validate_tag(t)
                         .ensure_valid()
                         .and_then(|tag| Ok(Url::parse(&format!("place:tag={}", tag))?))
                         .map(|url| (Some(url), SyncedBookmarkValidity::Reupload))
@@ -247,20 +288,32 @@ impl<'a> IncomingApplicator<'a> {
         Ok(match self.maybe_store_url(maybe_url) {
             Ok(url) => (Some(url), validity),
             Err(e) => {
-                log::warn!("query {} has invalid URL: {:?}", q.record_id.as_guid(), e);
+                log::warn!("query {} has invalid URL: {:?}", record_id.as_guid(), e);
                 (None, SyncedBookmarkValidity::Replace)
             }
         })
     }
 
-    fn store_incoming_query(&self, modified: ServerTimestamp, q: QueryRecord) -> Result<()> {
-        let (url, validity) = match q.url.as_ref().and_then(|href| Url::parse(href).ok()) {
-            Some(url) => self.determine_query_url_and_validity(&q, url)?,
+    fn store_incoming_query(&self, modified: ServerTimestamp, q: &JsonValue) -> Result<()> {
+        let mut validity = SyncedBookmarkValidity::Valid;
+        let record_id = unpack_id("id", q)?;
+        let parent_record_id = unpack_optional_id("parentid", q);
+        let date_added = unpack_optional_i64("dateAdded", q, &mut validity);
+        let title = unpack_optional_str("title", q, &mut validity);
+        let url = unpack_optional_str("bmkUri", q, &mut validity);
+        let tag_folder_name = unpack_optional_str("folderName", q, &mut validity);
+
+        let (url, url_validity) = match url.and_then(|href| Url::parse(href).ok()) {
+            Some(url) => self.determine_query_url_and_validity(tag_folder_name, &record_id, url)?,
             None => {
-                log::warn!("query {} has invalid URL", q.record_id.as_guid(),);
+                log::warn!("query {} has invalid URL", &record_id.as_guid(),);
                 (None, SyncedBookmarkValidity::Replace)
             }
         };
+
+        if validity < url_validity {
+            validity = url_validity;
+        }
 
         self.db.execute_named_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
@@ -273,12 +326,12 @@ impl<'a> IncomingApplicator<'a> {
                       )
                      )"#,
             &[
-                (":guid", &q.record_id.as_guid().as_str()),
-                (":parentGuid", &q.parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
+                (":guid", &record_id.as_guid().as_str()),
+                (":parentGuid", &parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Query),
-                (":dateAdded", &q.date_added),
-                (":title", &maybe_truncate_title(&q.title)),
+                (":dateAdded", &date_added),
+                (":title", &maybe_truncate_title(&title)),
                 (":validity", &validity),
                 (":url", &url.map(Url::into_string))
             ],
@@ -286,9 +339,18 @@ impl<'a> IncomingApplicator<'a> {
         Ok(())
     }
 
-    fn store_incoming_livemark(&self, modified: ServerTimestamp, l: LivemarkRecord) -> Result<()> {
+    fn store_incoming_livemark(&self, modified: ServerTimestamp, l: &JsonValue) -> Result<()> {
+        let mut validity = SyncedBookmarkValidity::Valid;
+
+        let record_id = unpack_id("id", l)?;
+        let parent_record_id = unpack_optional_id("parentid", l);
+        let date_added = unpack_optional_i64("dateAdded", l, &mut validity);
+        let title = unpack_optional_str("title", l, &mut validity);
+        let feed_url = unpack_optional_str("feedUri", l, &mut validity);
+        let site_url = unpack_optional_str("siteUri", l, &mut validity);
+
         // livemarks don't store a reference to the place, so we validate it manually.
-        fn validate_href(h: Option<String>, guid: &SyncGuid, what: &str) -> Option<String> {
+        fn validate_href(h: Option<&str>, guid: &SyncGuid, what: &str) -> Option<String> {
             match h {
                 Some(h) => match Url::parse(&h) {
                     Ok(url) => {
@@ -311,28 +373,28 @@ impl<'a> IncomingApplicator<'a> {
                 }
             }
         }
-        let feed_url = validate_href(l.feed_url, &l.record_id.as_guid(), "feed");
-        let site_url = validate_href(l.site_url, &l.record_id.as_guid(), "site");
-        let validity = if feed_url.is_some() {
-            SyncedBookmarkValidity::Valid
-        } else {
-            SyncedBookmarkValidity::Replace
-        };
+        let feed_url = validate_href(feed_url, &record_id.as_guid(), "feed");
+        let site_url = validate_href(site_url, &record_id.as_guid(), "site");
+
+        if feed_url.is_none() && validity < SyncedBookmarkValidity::Replace {
+            validity = SyncedBookmarkValidity::Replace;
+        }
+
         self.db.execute_named_cached(
             "REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
                                                dateAdded, title, feedURL, siteURL, validity)
              VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
                     :dateAdded, :title, :feedUrl, :siteUrl, :validity)",
             &[
-                (":guid", &l.record_id.as_guid().as_str()),
+                (":guid", &record_id.as_guid().as_str()),
                 (
                     ":parentGuid",
-                    &l.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
+                    &parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
                 ),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Livemark),
-                (":dateAdded", &l.date_added),
-                (":title", &l.title),
+                (":dateAdded", &date_added),
+                (":title", &title),
                 (":feedUrl", &feed_url),
                 (":siteUrl", &site_url),
                 (":validity", &validity),
@@ -341,27 +403,33 @@ impl<'a> IncomingApplicator<'a> {
         Ok(())
     }
 
-    fn store_incoming_sep(&self, modified: ServerTimestamp, s: SeparatorRecord) -> Result<()> {
+    fn store_incoming_sep(&self, modified: ServerTimestamp, s: &JsonValue) -> Result<()> {
+        let mut validity = SyncedBookmarkValidity::Valid;
+
+        let record_id = unpack_id("id", s)?;
+        let parent_record_id = unpack_optional_id("parentid", s);
+        let date_added = unpack_optional_i64("dateAdded", s, &mut validity);
+
         self.db.execute_named_cached(
             "REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
                                                dateAdded)
              VALUES(:guid, :parentGuid, :serverModified, 1, :kind,
                     :dateAdded)",
             &[
-                (":guid", &s.record_id.as_guid().as_str()),
+                (":guid", &record_id.as_guid().as_str()),
                 (
                     ":parentGuid",
-                    &s.parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
+                    &parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
                 ),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Separator),
-                (":dateAdded", &s.date_added),
+                (":dateAdded", &date_added),
             ],
         )?;
         Ok(())
     }
 
-    fn maybe_store_href(&self, href: Option<&String>) -> Result<Url> {
+    fn maybe_store_href(&self, href: Option<&str>) -> Result<Url> {
         if let Some(href) = href {
             self.maybe_store_url(Some(Url::parse(href)?))
         } else {
@@ -390,12 +458,80 @@ impl<'a> IncomingApplicator<'a> {
     }
 }
 
+fn unpack_id(key: &str, data: &JsonValue) -> Result<BookmarkRecordId> {
+    if let Some(id) = data[key].as_str() {
+        Ok(BookmarkRecordId::from_payload_id(id.into()))
+    } else {
+        Err(ErrorKind::InvalidPlaceInfo(InvalidPlaceInfo::InvalidGuid).into())
+    }
+}
+
+fn unpack_optional_id(key: &str, data: &JsonValue) -> Option<BookmarkRecordId> {
+    let val = &data[key];
+    val.as_str()
+        .map(|v| BookmarkRecordId::from_payload_id(v.into()))
+}
+
+fn unpack_optional_str<'a>(
+    key: &str,
+    data: &'a JsonValue,
+    validity: &mut SyncedBookmarkValidity,
+) -> Option<&'a str> {
+    let val = &data[key];
+    match val {
+        JsonValue::String(s) => Some(&s),
+        JsonValue::Null => None,
+        _ => {
+            set_reupload(validity);
+            None
+        }
+    }
+}
+
+fn unpack_optional_i64(
+    key: &str,
+    data: &JsonValue,
+    validity: &mut SyncedBookmarkValidity,
+) -> Option<i64> {
+    let val = &data[key];
+    if val.is_i64() {
+        val.as_i64()
+    } else if val.is_u64() {
+        Some(val.as_u64().unwrap() as i64)
+    } else if val.is_string() {
+        set_reupload(validity);
+        if let Ok(n) = val.as_str().unwrap().parse() {
+            Some(n)
+        } else {
+            None
+        }
+    } else if val.is_null() {
+        None
+    } else {
+        set_reupload(validity);
+        None
+    }
+}
+
+fn set_replace(validity: &mut SyncedBookmarkValidity) {
+    if *validity < SyncedBookmarkValidity::Replace {
+        *validity = SyncedBookmarkValidity::Replace;
+    }
+}
+
+fn set_reupload(validity: &mut SyncedBookmarkValidity) {
+    if *validity < SyncedBookmarkValidity::Reupload {
+        *validity = SyncedBookmarkValidity::Reupload;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::api::places_api::{test::new_mem_api, PlacesApi, SyncConn};
     use crate::storage::bookmarks::BookmarkRootGuid;
 
+    use crate::bookmark_sync::record::{BookmarkItemRecord, FolderRecord};
     use crate::bookmark_sync::tests::SyncedBookmarkItem;
     use pretty_assertions::assert_eq;
     use serde_json::{json, Value};

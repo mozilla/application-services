@@ -103,6 +103,8 @@ pub enum InvalidPlaceInfo {
     InvalidGuid,
     #[fail(display = "Invalid parent: {}", _0)]
     InvalidParent(String),
+    #[fail(display = "Invalid child guid")]
+    InvalidChildGuid,
 
     // NoSuchGuid is used for guids, which aren't considered private information,
     // so it's fine if this error, including the guid, is in the logs.
