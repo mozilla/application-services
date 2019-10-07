@@ -40,12 +40,12 @@ class Config:
     Global configuration, for users of the library to modify.
     """
     def __init__(self):
-        self.task_name_template = "%s"
-        self.index_prefix = "garbage.application-services-decisionlib"
+        self.task_name_template = "Application Services - %s"
+        self.index_prefix = "project.application-services.application-services"
         self.scopes_for_all_subtasks = []
         self.routes_for_all_subtasks = []
-        self.docker_images_expire_in = "1 month"
-        self.repacked_msi_files_expire_in = "1 month"
+        self.docker_images_expire_in = "3 month"
+        self.repacked_msi_files_expire_in = "3 month"
 
         # Set by docker-worker:
         # https://docs.taskcluster.net/docs/reference/workers/docker-worker/docs/environment
@@ -223,8 +223,8 @@ class Task:
         )
 
         task_id = taskcluster.slugId().decode("utf8")
-        SHARED.schedule_task(task_id, queue_payload)
-        return task_id
+        # TODO mhentges I removed this SHARED.schedule_task(task_id, queue_payload)
+        return task_id, queue_payload
 
     def find_or_create(self, index_path=None):
         """
