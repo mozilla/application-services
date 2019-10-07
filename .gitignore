@@ -4,6 +4,7 @@ credentials.json
 *-engine.json
 .cargo
 *.db
+!taskcluster/ci/build
 
 # Android stuff.
 *.iml

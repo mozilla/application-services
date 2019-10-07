@@ -1,0 +1,57 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+  - taskgraph.transforms.job:transforms
+  - taskgraph.transforms.cached_tasks:transforms
+  - taskgraph.transforms.task:transforms
+
+job-defaults:
+  routes:
+    - notify.email.a-s-ci-failures@mozilla.com.on-failed # TODO only notify for github-push
+  run:
+    using: toolchain-script
+  worker-type: b-linux
+  worker:
+    env: {}
+    docker-image: {in-tree: linux}
+    max-run-time: 7200
+
+jobs:
+  android:
+    description: 'Android libs (all architectures): build'
+    run:
+      script: android.sh
+      toolchain-artifact: /build/repo/target.gz
+      toolchain-alias: android-libs
+      resources:
+        - 'libs'
+  desktop-linux:
+    description: 'Desktop libs (Linux): build'
+    run:
+      script: desktop-linux.sh
+      toolchain-artifact: /build/repo/target.gz
+      toolchain-alias: desktop-linux-libs
+      resources:
+        - 'libs'
+  desktop-macos:
+    description: 'Desktop libs (macOS): build'
+    worker:
+      docker-image: {in-tree: cross-compile}
+    run:
+      script: desktop-macos.sh
+      toolchain-artifact: /build/repo/target.gz
+      toolchain-alias: desktop-macos-libs
+      resources:
+        - 'libs'
+  desktop-win32-x86-64:
+    description: 'Desktop libs (win32-x86-64): build'
+    run:
+      script: desktop-win32-x86-64.sh
+      toolchain-artifact: /build/repo/target.gz
+      toolchain-alias: desktop-win32-x86-64-libs
+      resources:
+        - 'libs'
