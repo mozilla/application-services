@@ -13,6 +13,8 @@ kind-dependencies:
   - toolchain
 
 job-defaults:
+  attributes:
+    run-on-pr-type: full-ci
   run-on-tasks-for: [github-pull-request]
   description: '{module_name} - Build and test'
   scopes:

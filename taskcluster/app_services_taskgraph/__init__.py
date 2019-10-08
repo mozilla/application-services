@@ -36,3 +36,11 @@ def get_decision_parameters(graph_config, parameters):
             raise ValueError("Cannot run github-release if the environment variable "
                              "'MOZILLA_HEAD_TAG' is not defined")
         parameters["head_tag"] = head_tag.decode("utf-8")
+    elif parameters["tasks_for"] == "github-pull-request":
+        pr_title = os.environ.get("MOZILLA_PULL_REQUEST_TITLE", "")
+        if "[ci full]" in pr_title:
+            parameters["target_tasks_method"] = "pr-full"
+        elif "[ci skip]" in pr_title:
+            parameters["target_tasks_method"] = "pr-skip"
+        else:
+            parameters["target_tasks_method"] = "pr-normal"

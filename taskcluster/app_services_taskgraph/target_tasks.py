@@ -7,6 +7,31 @@ from __future__ import absolute_import, print_function, unicode_literals
 from taskgraph.target_tasks import _target_task, standard_filter
 
 
+@_target_task('pr-skip')
+def target_tasks_pr_skip(full_task_graph, parameters, graph_config):
+    return []
+
+
+@_target_task('pr-full')
+def target_tasks_default(full_task_graph, parameters, graph_config):
+    """Target the tasks which have indicated they should be run on this project
+    via the `run_on_projects` attributes."""
+    def filter(task, params):
+        return task.attributes.get("run-on-pr-type", "full-ci") == "full-ci"
+
+    return [l for l, task in full_task_graph.tasks.iteritems() if filter(task, parameters)]
+
+
+@_target_task('pr-normal')
+def target_tasks_default(full_task_graph, parameters, graph_config):
+    """Target the tasks which have indicated they should be run on this project
+    via the `run_on_projects` attributes."""
+    def filter(task, params):
+        return task.attributes.get("run-on-pr-type", "normal-ci") == "normal-ci"
+
+    return [l for l, task in full_task_graph.tasks.iteritems() if filter(task, parameters)]
+
+
 @_target_task('default')
 def target_tasks_default(full_task_graph, parameters, graph_config):
     """Target the tasks which have indicated they should be run on this project
