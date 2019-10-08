@@ -15,6 +15,7 @@ kind-dependencies:
 jobs:
   pr:
     attributes:
+      run-on-pr-type: normal-ci
       add-megazord-checks: true
     run-on-tasks-for: [github-pull-request]
     description: Build and test (Android - linux-x86-64)
