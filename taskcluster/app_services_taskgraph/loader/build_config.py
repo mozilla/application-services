@@ -14,7 +14,11 @@ from ..build_config import get_components
 
 def loader(kind, path, config, params, loaded_tasks):
     config['jobs'] = jobs = {
-        component['name']: {}
+        component['name']: {
+            'attributes': {
+                'buildconfig': component
+            }
+        }
         for component in get_components()
     }
 

@@ -13,7 +13,9 @@ transforms = TransformSequence()
 @transforms.add
 def build_task(config, tasks):
     for task in tasks:
-        script = task["worker"].pop("script")
+        module_name = task["attributes"]["buildconfig"]["name"]
+
+        script = task["worker"].pop("script").format(module_name=module_name)
         bash_command = [
             "/bin/bash",
             "--login",
@@ -22,6 +24,7 @@ def build_task(config, tasks):
         ]
 
         task["run"]["command"] = bash_command
+        task["description"] = task["description"].format(module_name=module_name)
 
         yield task
 

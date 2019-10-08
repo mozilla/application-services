@@ -11,6 +11,8 @@ rustup target add x86_64-apple-darwin
 # is all cribbed from mozilla-central; start at
 # https://searchfox.org/mozilla-central/rev/39cb1e96cf97713c444c5a0404d4f84627aee85d/build/macosx/cross-mozconfig.common.
 
+# TODO the macos tools shouldn't be in the docker image
+# https://mozilla.slack.com/archives/GEZ4ZJCRM/p1570562744025800
 COPY macos-cc-tools.manifest /tmp/
 
 WORKDIR /tmp
