@@ -13,6 +13,8 @@ from taskgraph.util.memoize import memoize
 def get_components():
     build_config = _read_build_config()
     return [{
+        'version': build_config['libraryVersion'
+                                ''],
         'name': name,
         'path': project['path'],
         'artifactId': project['artifactId'],
