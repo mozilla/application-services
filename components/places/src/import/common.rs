@@ -11,20 +11,25 @@ pub mod sql_fns {
     use crate::storage::URL_LENGTH_MAX;
     use crate::types::Timestamp;
     use rusqlite::{functions::Context, types::ValueRef, Result};
+    use std::convert::TryFrom;
     use url::Url;
 
     #[inline(never)]
     pub fn sanitize_timestamp(ctx: &Context<'_>) -> Result<Timestamp> {
         let now = Timestamp::now();
-        Ok(if let Ok(ts) = ctx.get::<Timestamp>(0) {
-            if Timestamp::EARLIEST < ts && ts < now {
-                ts
-            } else {
-                now
+        let is_sane = |ts: Timestamp| -> bool { Timestamp::EARLIEST < ts && ts < now };
+        if let Ok(ts) = ctx.get::<i64>(0) {
+            let ts = Timestamp(u64::try_from(ts).unwrap_or(0));
+            if is_sane(ts) {
+                return Ok(ts);
             }
-        } else {
-            now
-        })
+            // Maybe the timestamp was actually in μs?
+            let ts = Timestamp(ts.as_millis() / 1000);
+            if is_sane(ts) {
+                return Ok(ts);
+            }
+        }
+        Ok(now)
     }
 
     #[inline(never)]
