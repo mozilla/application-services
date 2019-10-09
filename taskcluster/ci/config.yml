@@ -25,6 +25,19 @@ workers:
       implementation: docker-worker
       os: linux
       worker-type: 'mobile-{level}-images'
+    dep-signing:
+      provisioner: scriptworker-prov-v1
+      implementation: scriptworker-signing
+      os: scriptworker
+      worker-type: appsv-signing-dep-v1
+    signing:
+      provisioner: scriptworker-prov-v1
+      implementation: scriptworker-signing
+      os: scriptworker
+      worker-type:
+        by-level:
+          "3": appsv-signing-v1
+          default: appsv-signing-dep-v1
 
 scriptworker:
   scope-prefix: project:mozilla:application-services:releng

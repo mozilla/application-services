@@ -13,8 +13,7 @@ from taskgraph.util.memoize import memoize
 def get_components():
     build_config = _read_build_config()
     return [{
-        'version': build_config['libraryVersion'
-                                ''],
+        'version': build_config['libraryVersion'],
         'name': name,
         'path': project['path'],
         'artifactId': project['artifactId'],
@@ -32,3 +31,12 @@ def _read_build_config():
 
     with open(os.path.join(project_dir, '.buildconfig-android.yml'), 'rb') as f:
         return yaml.safe_load(f)
+
+
+def script_to_bash_command(script):
+    return [
+        "/bin/bash",
+        "--login",
+        "-c",
+        "cat <<'SCRIPT' > ../script.sh && bash -e ../script.sh\n{}\nSCRIPT".format(script)
+    ]

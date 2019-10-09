@@ -6,6 +6,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 from taskgraph.transforms.base import TransformSequence
 
+from taskcluster.app_services_taskgraph.build_config import script_to_bash_command
 
 transforms = TransformSequence()
 
@@ -30,12 +31,7 @@ def build_task(config, tasks):
         version = module_info["version"]
 
         script = task["worker"].pop("script").format(module_name=name)
-        bash_command = [
-            "/bin/bash",
-            "--login",
-            "-c",
-            "cat <<'SCRIPT' > ../script.sh && bash -e ../script.sh\n{}\nSCRIPT".format(script)
-        ]
+        bash_command = script_to_bash_command(script)
 
         task["run"]["command"] = bash_command
         task["description"] = task["description"].format(module_name=name)
