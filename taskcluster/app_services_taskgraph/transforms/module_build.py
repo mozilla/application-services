@@ -14,12 +14,10 @@ transforms = TransformSequence()
 @transforms.add
 def release_upload_symbols(config, tasks):
     for task in tasks:
-        if config.params["tasks_for"] != "github-release":
-            yield task
-            return
+        if config.params["tasks_for"] == "github-release":
+            task["worker"]["script"] += "./automation/upload_android_symbols.sh {}".format(task["attributes"]["buildconfig"]["path"])
+            task["scopes"].append("secrets:get:project/application-services/symbols-token")
 
-        task["worker"]["script"] += "./automation/upload_android_symbols.sh {}".format(task["attributes"]["buildconfig"]["path"])
-        task["scopes"].append("secrets:get:project/application-services/symbols-token")
         yield task
 
 
