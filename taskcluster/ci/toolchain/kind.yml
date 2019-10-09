@@ -11,9 +11,15 @@ transforms:
 
 job-defaults:
   routes:
-    - notify.email.a-s-ci-failures@mozilla.com.on-failed # TODO only notify for github-push
+    by-tasks-for:
+      github-push:
+        - notify.email.a-s-ci-failures@mozilla.com.on-failed
+      default: []
   run:
     using: toolchain-script
+    toolchain-artifact: /build/repo/target.gz
+    resources:
+      - 'libs'
   worker-type: b-linux
   worker:
     env: {}
@@ -25,33 +31,21 @@ jobs:
     description: 'Android libs (all architectures): build'
     run:
       script: android.sh
-      toolchain-artifact: /build/repo/target.gz
       toolchain-alias: android-libs
-      resources:
-        - 'libs'
   desktop-linux:
     description: 'Desktop libs (Linux): build'
     run:
       script: desktop-linux.sh
-      toolchain-artifact: /build/repo/target.gz
       toolchain-alias: desktop-linux-libs
-      resources:
-        - 'libs'
   desktop-macos:
     description: 'Desktop libs (macOS): build'
     worker:
       docker-image: {in-tree: cross-compile}
     run:
       script: desktop-macos.sh
-      toolchain-artifact: /build/repo/target.gz
       toolchain-alias: desktop-macos-libs
-      resources:
-        - 'libs'
   desktop-win32-x86-64:
     description: 'Desktop libs (win32-x86-64): build'
     run:
       script: desktop-win32-x86-64.sh
-      toolchain-artifact: /build/repo/target.gz
       toolchain-alias: desktop-win32-x86-64-libs
-      resources:
-        - 'libs'

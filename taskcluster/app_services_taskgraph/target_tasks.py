@@ -17,7 +17,7 @@ def target_tasks_default(full_task_graph, parameters, graph_config):
     """Target the tasks which have indicated they should be run on this project
     via the `run_on_projects` attributes."""
     def filter(task, params):
-        return task.attributes.get("run-on-pr-type", "full-ci") == "full-ci"
+        return task.attributes.get("run-on-pr-type", "all") in ("full-ci", "all")
 
     return [l for l, task in full_task_graph.tasks.iteritems() if filter(task, parameters)]
 
@@ -27,16 +27,6 @@ def target_tasks_default(full_task_graph, parameters, graph_config):
     """Target the tasks which have indicated they should be run on this project
     via the `run_on_projects` attributes."""
     def filter(task, params):
-        return task.attributes.get("run-on-pr-type", "normal-ci") == "normal-ci"
-
-    return [l for l, task in full_task_graph.tasks.iteritems() if filter(task, parameters)]
-
-
-@_target_task('default')
-def target_tasks_default(full_task_graph, parameters, graph_config):
-    """Target the tasks which have indicated they should be run on this project
-    via the `run_on_projects` attributes."""
-    def filter(task, params):
-        return standard_filter(task, params)
+        return task.attributes.get("run-on-pr-type", "all") in ("normal-ci", "all")
 
     return [l for l, task in full_task_graph.tasks.iteritems() if filter(task, parameters)]
