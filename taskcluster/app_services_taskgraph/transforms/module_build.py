@@ -6,7 +6,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 from taskgraph.transforms.base import TransformSequence
 
-from taskcluster.app_services_taskgraph.build_config import script_to_bash_command
+from ..build_config import script_to_bash_command
 
 transforms = TransformSequence()
 
