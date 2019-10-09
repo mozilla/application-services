@@ -5,6 +5,7 @@
 loader: taskgraph.loader.transform:loader
 
 transforms:
+  - app_services_taskgraph.transforms.toolchain:transforms
   - taskgraph.transforms.job:transforms
   - taskgraph.transforms.cached_tasks:transforms
   - taskgraph.transforms.task:transforms
