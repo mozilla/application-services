@@ -201,6 +201,12 @@ fn test_import() -> Result<()> {
             is_local: false,
         },
         FennecVisit {
+            history: &history[1],
+            visit_type: VisitTransition::Link,
+            date: Timestamp::from(1_565_117_123_123_123), // Microsecond timestamp should be imported.
+            is_local: false,
+        },
+        FennecVisit {
             history: &history[3],
             visit_type: VisitTransition::Link,
             date: Timestamp::from(1_565_117_389_898),
