@@ -6,6 +6,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 from taskgraph.transforms.base import TransformSequence
 
+from . import publications_to_artifact_paths
 
 transforms = TransformSequence()
 
@@ -18,18 +19,10 @@ def build_upstream_artifacts(config, tasks):
         name = module_info["name"]
         version = module_info["version"]
 
-        artifact_paths = []
-        for publication in module_info["publications"]:
-            extensions = ('.pom', '.aar', '-sources.jar') if publication["type"] == "aar" else ('.pom', '.jar')
-
-            for extension in extensions:
-                artifact_filename = "{}-{}{}".format(name, version, extension)
-                artifact_paths.append("public/build/{}".format(artifact_filename))
-
         worker_definition = {"upstream-artifacts": [{
             "taskId": {"task-reference": "<{}>".format(dep.kind)},
-            "taskType": dep.kind,
-            "paths": artifact_paths,
+            "taskType": "build",
+            "paths": publications_to_artifact_paths(name, version, module_info["publications"]),
             "formats": ["autograph_gpg"],
         }]}
 

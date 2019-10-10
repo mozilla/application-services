@@ -44,3 +44,43 @@ def build_scriptworker_signing_payload(config, task, task_def):
     task_def["scopes"].extend([
         "{}:signing:format:{}".format(scope_prefix, signing_format) for signing_format in sorted(formats)
     ])
+
+
+@payload_builder(
+    "scriptworker-beetmover",
+    schema={
+        Required("bucket"): text_type,
+        Required("max-run-time"): int,
+        Required("version"): str,
+        Required("app-name"): text_type,
+        Required("upstream-artifacts"): [{
+            Required("taskId"): taskref_or_string,
+            Required("taskType"): text_type,
+            Required("paths"): [text_type],
+        }],
+        Required("artifact-map"): [{
+            Required("task-id"): taskref_or_string,
+            Required("locale"): text_type,
+            Required("paths"): {text_type: dict},
+        }],
+    }
+)
+def build_scriptworker_beetmover_payload(config, task, task_def):
+    worker = task["worker"]
+    task_def["tags"]["worker-implementation"] = "scriptworker"
+    task_def["payload"] = {
+        "maxRunTime": worker["max-run-time"],
+        "upstreamArtifacts": worker["upstream-artifacts"],
+        "artifactMap": [{
+            "taskId": map["task-id"],
+            "locale": map["locale"],
+            "paths": map["paths"],
+        } for map in worker["artifact-map"]],
+        "version": worker["version"],
+        "releaseProperties": {
+            "appName": worker["app-name"]
+        }
+    }
+
+    task_def["scopes"].append("project:mozilla:application-services:releng:beetmover:bucket:{}".format(worker["bucket"]))
+    task_def["scopes"].append("project:mozilla:application-services:releng:beetmover:action:push-to-maven")

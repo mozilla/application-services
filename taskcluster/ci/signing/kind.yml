@@ -2,10 +2,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 ---
-loader: app_services_taskgraph.loader.module_dep:loader
+loader: app_services_taskgraph.loader.single_dep:loader
 
 transforms:
-  - app_services_taskgraph.transforms.module_dep:transforms
+  - app_services_taskgraph.transforms.single_dep:transforms
   - app_services_taskgraph.transforms.signing:transforms
   - taskgraph.transforms.task:transforms
 
@@ -13,5 +13,6 @@ kind-dependencies:
   - module-build
 
 job-template:
+  run-on-tasks-for: [github-release]
   description: 'Signs module'
   worker-type: signing

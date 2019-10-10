@@ -38,6 +38,19 @@ workers:
         by-level:
           "3": appsv-signing-v1
           default: appsv-signing-dep-v1
+    dep-beetmover:
+      provisioner: scriptworker-prov-v1
+      implementation: scriptworker-beetmover
+      os: scriptworker
+      worker-type: appsv-beetmover-dev
+    beetmover:
+      provisioner: scriptworker-prov-v1
+      implementation: scriptworker-beetmover
+      os: scriptworker
+      worker-type:
+        by-level:
+          "3": appsv-beetmover-v1
+          default: appsv-beetmover-dev
 
 scriptworker:
   scope-prefix: project:mozilla:application-services:releng
