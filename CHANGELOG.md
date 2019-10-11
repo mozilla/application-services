@@ -1,3 +1,17 @@
+# v0.42.0 (_2019-10-10_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.41.0...v0.42.0)
+
+## Android
+
+### What's new
+
+- Fennec history import now supports microsecond timestamps for `date_visited`.
+
+### Breaking changes
+
+- The methods for importing places data from fenix have been moved from the writer connection to the PlacesAPI.
+
 # v0.41.0 (_2019-10-02_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.40.0...v0.41.0)

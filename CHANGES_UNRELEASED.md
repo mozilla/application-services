@@ -2,10 +2,4 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.41.0...master)
-
-## Android
-
-### What's new
-
-- Fennec history import now supports microsecond timestamps for `date_visited`.
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.41.1...master)
