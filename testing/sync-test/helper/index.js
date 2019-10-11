@@ -80,7 +80,7 @@ async function oauthCommand(emailAddr, password, fxaAuthUrl, oauthFlowUrl) {
             // Same process as for the verification during account creation, but we're looking for
             // a different template name (we also don't know the uid ahead of time).
             await restmailAutoverify(fxaAuthUrl, emailAddr, mail =>
-                mail.headers["x-template-name"] == "verifyLoginEmail");
+                mail.headers["x-template-name"] == "verifyLogin");
         } else {
             logInfo("Don't need sign-in confirmation, waiting for redirect instead.");
         }
@@ -248,7 +248,7 @@ async function createCommand(emailAddr, password, authUrl) {
 
     await restmailAutoverify(authUrl, emailAddr, mail =>
         mail.headers["x-uid"] === uid &&
-        mail.headers["x-template-name"] === "verifyEmail");
+        mail.headers["x-template-name"] === "verify");
 
     logInfo("Account created and verified!");
 }
