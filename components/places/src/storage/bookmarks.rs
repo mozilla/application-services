@@ -254,10 +254,10 @@ pub fn insert_bookmark(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid> {
     result
 }
 
-pub fn maybe_truncate_title(t: &Option<String>) -> Option<&str> {
+pub fn maybe_truncate_title<'a>(t: &Option<&'a str>) -> Option<&'a str> {
     use super::TITLE_LENGTH_MAX;
     use crate::util::slice_up_to;
-    t.as_ref().map(|title| slice_up_to(title, TITLE_LENGTH_MAX))
+    t.map(|title| slice_up_to(title, TITLE_LENGTH_MAX))
 }
 
 fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid> {
@@ -304,7 +304,7 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
     let bookmark_type = bm.bookmark_type();
     match bm {
         InsertableItem::Bookmark(ref b) => {
-            let title = maybe_truncate_title(&b.title);
+            let title = maybe_truncate_title(&b.title.as_ref().map(String::as_str));
             db.execute_named_cached(
                 sql,
                 &[
@@ -337,7 +337,7 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
             )?;
         }
         InsertableItem::Folder(ref f) => {
-            let title = maybe_truncate_title(&f.title);
+            let title = maybe_truncate_title(&f.title.as_ref().map(String::as_str));
             db.execute_named_cached(
                 sql,
                 &[
@@ -626,7 +626,10 @@ fn update_bookmark_in_tx(
             (":fk", &place_id),
             (":parent", &parent_id),
             (":position", &position),
-            (":title", &maybe_truncate_title(&title)),
+            (
+                ":title",
+                &maybe_truncate_title(&title.as_ref().map(String::as_str)),
+            ),
             (":now", &now),
             (":change_incr", &(change_incr as u32)),
             (":id", &raw.row_id),
