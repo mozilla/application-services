@@ -27,7 +27,7 @@ If that's not why you're here, then instead you might enjoy:
 This repository is used to build client-side libraries for integrating with
 Firefox Application services such as Firefox Accounts, Firefox Sync and Push.
 Each of these is called a "component" and is built using a core of shared code
-writen in Rust, wrapped with native language bindings for different platforms.
+written in Rust, wrapped with native language bindings for different platforms.
 
 The end result is an application that can be assembled from re-usable components
 that are largely shared across platforms, like this:
