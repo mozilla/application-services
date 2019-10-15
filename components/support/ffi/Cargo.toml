@@ -22,7 +22,7 @@ log_backtraces = ["log_panics", "backtrace"]
 log = "0.4"
 lazy_static = "1.4.0"
 failure = "0.1.5"
-failure_derive = "0.1.5"
+failure_derive = "0.1.6"
 
 [dependencies.backtrace]
 optional = true

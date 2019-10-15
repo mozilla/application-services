@@ -13,7 +13,7 @@ default = []
 
 [dependencies]
 failure = "0.1.5"
-failure_derive = "0.1.5"
+failure_derive = "0.1.6"
 url = "1.7.2"
 log = "0.4"
 lazy_static = "1.4.0"

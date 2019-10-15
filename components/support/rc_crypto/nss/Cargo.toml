@@ -12,7 +12,7 @@ crate-type = ["lib"]
 base64 = "0.10.1"
 error-support = { path = "../../error" }
 failure = "0.1.5"
-failure_derive = "0.1.5"
+failure_derive = "0.1.6"
 nss_sys = { path = "nss_sys" }
 serde = "1.0.101"
 serde_derive = "1.0.101"

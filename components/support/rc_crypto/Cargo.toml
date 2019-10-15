@@ -11,7 +11,7 @@ crate-type = ["lib"]
 [dependencies]
 base64 = "0.10.1"
 failure = "0.1.5"
-failure_derive = "0.1.5"
+failure_derive = "0.1.6"
 error-support = { path = "../error" }
 nss = { path = "nss" }
 libsqlite3-sys = { version = "0.16.0", features = ["bundled"] }
