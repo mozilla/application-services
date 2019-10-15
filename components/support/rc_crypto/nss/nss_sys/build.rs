@@ -56,7 +56,52 @@ fn env_str(name: &str) -> Option<String> {
     env::var(name).ok()
 }
 
+fn env_flag(name: &str) -> bool {
+    match env_str(name).as_ref().map(String::as_ref) {
+        Some("1") => true,
+        Some("0") => false,
+        Some(s) => {
+            println!(
+                "cargo:warning=unknown value for environment var {:?}: {:?}. Ignoring",
+                name, s
+            );
+            false
+        }
+        None => false,
+    }
+}
+const DEFAULT_ANDROID_NDK_API_VERSION: &str = "21";
+
+// Set the CLANG_PATH env variable to point to the right clang for the NDK in question.
+// Note that this basically needs to be done first thing in main.
+fn maybe_setup_ndk_clang_path() {
+    let target_os = env::var("CARGO_CFG_TARGET_OS").ok();
+    if target_os.as_ref().map_or(false, |x| x == "android") {
+        let mut buf = PathBuf::from(env("ANDROID_NDK_ROOT").unwrap());
+        let ndk_api = env_str("ANDROID_NDK_API_VERSION")
+            .unwrap_or(DEFAULT_ANDROID_NDK_API_VERSION.to_owned());
+
+        if ndk_api.is_empty() {
+            println!("cargo:warning=ANDROID_NDK_API_VERSION is unset. Trying unprefixed");
+        }
+        let mut target = env::var("TARGET").unwrap();
+        if target == "armv7-linux-androideabi" {
+            // See https://developer.android.com/ndk/guides/other_build_systems
+            // for information on why this is weird and different (or at least,
+            // confirmation that it's supposed to be that way...)
+            target = "armv7a-linux-androideabi".to_owned();
+        }
+        for &path in &["toolchains", "llvm", "prebuilt", android_host_tag(), "bin"] {
+            buf.push(path);
+        }
+        buf.push(format!("{}{}-clang", target, ndk_api));
+        env::set_var("CLANG_PATH", buf);
+    }
+}
+
 fn main() {
+    // Note: this has to be first!
+    maybe_setup_ndk_clang_path();
     // 1. NSS linking.
     let (lib_dir, include_dir) = get_nss();
     println!(
@@ -75,15 +120,11 @@ fn main() {
 }
 
 fn determine_kind() -> LinkingKind {
-    return match env_str("NSS_STATIC").as_ref().map(String::as_ref) {
-        Some("1") => LinkingKind::Static,
-        _ => {
-            let folded_libs = match env_str("NSS_USE_FOLDED_LIBS").as_ref().map(String::as_ref) {
-                Some("1") => true,
-                _ => false,
-            };
-            return LinkingKind::Dynamic { folded_libs };
-        }
+    return if env_flag("NSS_STATIC") {
+        LinkingKind::Static
+    } else {
+        let folded_libs = env_flag("NSS_USE_FOLDED_LIBS");
+        return LinkingKind::Dynamic { folded_libs };
     };
 }
 
@@ -228,32 +269,6 @@ fn fix_include_dirs(mut builder: Builder) -> Builder {
             builder = builder
                 .detect_include_paths(false)
                 .clang_arg(format!("-isysroot{}", &sdk_root));
-        }
-        Ok("android") => {
-            let android_ndk_root = PathBuf::from(env::var("ANDROID_NDK_ROOT").unwrap());
-            builder = builder.detect_include_paths(false).clang_arg(format!(
-                "--sysroot={}",
-                &android_ndk_root
-                    .join(format!(
-                        "toolchains/llvm/prebuilt/{}/sysroot",
-                        android_host_tag()
-                    ))
-                    .to_str()
-                    .unwrap()
-            ));
-            if cfg!(target_os = "linux") {
-                // stddef.h isn't defined otherwise.
-                builder = builder.clang_arg(format!(
-                    "-I{}",
-                    &android_ndk_root
-                        .join(format!(
-                            "toolchains/llvm/prebuilt/{}/lib64/clang/8.0.7/include/",
-                            android_host_tag()
-                        ))
-                        .to_str()
-                        .unwrap()
-                ));
-            }
         }
         _ => {}
     }
