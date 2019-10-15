@@ -19,7 +19,7 @@ url = "1.7.1"
 log = "0.4"
 lazy_static = "1.4"
 base16 = "0.2.1"
-failure = "0.1.3"
+failure = "0.1.6"
 rc_crypto = { path = "../support/rc_crypto", features = ["hawk"] }
 viaduct = { path = "../viaduct" }
 interrupt = { path = "../support/interrupt" }

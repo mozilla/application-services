@@ -12,7 +12,7 @@ crate-type = ["lib"]
 default = []
 
 [dependencies]
-failure = "0.1.5"
+failure = "0.1.6"
 failure_derive = "0.1.5"
 url = "1.7.2"
 log = "0.4"

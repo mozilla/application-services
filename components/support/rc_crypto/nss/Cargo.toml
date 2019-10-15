@@ -11,7 +11,7 @@ crate-type = ["lib"]
 [dependencies]
 base64 = "0.10.1"
 error-support = { path = "../../error" }
-failure = "0.1.5"
+failure = "0.1.6"
 failure_derive = "0.1.5"
 nss_sys = { path = "nss_sys" }
 serde = "1.0.101"
