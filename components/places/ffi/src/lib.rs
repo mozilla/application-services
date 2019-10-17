@@ -94,11 +94,12 @@ pub extern "C" fn places_bookmarks_import_from_fennec(
     api_handle: u64,
     db_path: FfiStr<'_>,
     error: &mut ExternError,
-) {
+) -> ByteBuffer {
     log::debug!("places_bookmarks_import_from_fennec");
     APIS.call_with_result(error, api_handle, |api| -> places::Result<_> {
-        places::import::import_fennec_bookmarks(api, db_path.as_str())?;
-        Ok(())
+        Ok(BookmarkNodeList::from(
+            places::import::import_fennec_bookmarks(api, db_path.as_str())?,
+        ))
     })
 }
 

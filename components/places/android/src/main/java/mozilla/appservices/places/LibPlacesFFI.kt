@@ -41,7 +41,7 @@ internal interface LibPlacesFFI : Library {
         handle: PlacesApiHandle,
         db_path: String,
         out_err: RustError.ByReference
-    )
+    ): RustBuffer.ByValue
 
     fun places_history_import_from_fennec(
         handle: PlacesApiHandle,
