@@ -9,19 +9,24 @@ use crate::bookmark_sync::{
 };
 use crate::error::*;
 use crate::import::common::{attached_database, ExecuteOnDrop};
-use crate::types::SyncStatus;
+use crate::storage::bookmarks::PublicNode;
+use crate::types::{BookmarkType, SyncStatus};
+use rusqlite::NO_PARAMS;
 use sql_support::ConnExt;
 use url::Url;
 
 // From https://searchfox.org/mozilla-central/rev/597a69c70a5cce6f42f159eb54ad1ef6745f5432/mobile/android/base/java/org/mozilla/gecko/db/BrowserDatabaseHelper.java#73.
 const FENNEC_DB_VERSION: i64 = 39;
 
-pub fn import(places_api: &PlacesApi, path: impl AsRef<std::path::Path>) -> Result<()> {
+pub fn import(
+    places_api: &PlacesApi,
+    path: impl AsRef<std::path::Path>,
+) -> Result<Vec<PublicNode>> {
     let url = crate::util::ensure_url_path(path)?;
     do_import(places_api, url)
 }
 
-fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<()> {
+fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Vec<PublicNode>> {
     let conn = places_api.open_sync_connection()?;
 
     let scope = conn.begin_interrupt_scope();
@@ -79,6 +84,15 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<()> {
     conn.execute_batch(&POPULATE_MIRROR_STRUCTURE)?;
     scope.err_if_interrupted()?;
 
+    // Grab the pinned websites (they are stored as bookmarks).
+    let mut stmt = conn.prepare(&FETCH_PINNED)?;
+    let pinned_rows = stmt.query_map(NO_PARAMS, public_node_from_fennec_pinned)?;
+    scope.err_if_interrupted()?;
+    let mut pinned = Vec::new();
+    for row in pinned_rows {
+        pinned.push(row?);
+    }
+
     // log::debug!("Detaching Fennec database");
     // drop(auto_detach);
     // scope.err_if_interrupted()?;
@@ -109,7 +123,7 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<()> {
 
     auto_detach.execute_now()?;
 
-    Ok(())
+    Ok(pinned)
 }
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Hash, Debug, Eq, Ord)]
@@ -232,6 +246,25 @@ lazy_static::lazy_static! {
         ;
     ";
 
+    static ref FETCH_PINNED: String = format!("
+        SELECT
+            b.guid,
+            b.position,
+            b.title,
+            b.url,
+            sanitize_timestamp(b.created) as created,
+            sanitize_timestamp(b.modified) as modified
+        FROM fennec.bookmarks b
+        WHERE
+            b.type == {fennec_bookmark_type} AND
+            b.parent = {fennec_pinned_parent_id} AND
+            NOT b.deleted
+        ;
+    ",
+        fennec_bookmark_type = FennecBookmarkType::Bookmark as u8,
+        fennec_pinned_parent_id = -3,
+    );
+
     static ref CREATE_STAGING_TABLE: String = format!("
         CREATE TEMP TABLE temp.fennecBookmarksStaging(
             id INTEGER PRIMARY KEY,
@@ -265,6 +298,24 @@ lazy_static::lazy_static! {
                                  lastModified)",
         unknown = SyncStatus::Unknown as u8
     );
+}
+
+fn public_node_from_fennec_pinned(
+    row: &rusqlite::Row<'_>,
+) -> std::result::Result<PublicNode, rusqlite::Error> {
+    Ok(PublicNode {
+        node_type: BookmarkType::Bookmark,
+        guid: row.get::<_, String>("guid")?.into(),
+        parent_guid: None,
+        position: row.get("position")?,
+        date_added: row.get("created")?,
+        last_modified: row.get("modified")?,
+        title: row.get::<_, Option<String>>("title")?,
+        url: row
+            .get::<_, Option<String>>("url")?
+            .and_then(|s| Url::parse(&s).ok()),
+        ..Default::default()
+    })
 }
 
 mod sql_fns {

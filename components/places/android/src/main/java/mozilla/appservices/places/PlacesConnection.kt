@@ -115,10 +115,17 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
         return SyncTelemetryPing.fromJSONString(pingJSONString)
     }
 
-    override fun importBookmarksFromFennec(path: String) {
-        rustCall(this) { error ->
+    override fun importBookmarksFromFennec(path: String): List<BookmarkItem> {
+        val rustBuf = rustCall(this) { error ->
             LibPlacesFFI.INSTANCE.places_bookmarks_import_from_fennec(
                 this.handle.get(), path, error)
+        }
+
+        try {
+            val message = MsgTypes.BookmarkNodeList.parseFrom(rustBuf.asCodedInputStream()!!)
+            return unpackProtobufItemList(message)
+        } finally {
+            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
         }
     }
 
@@ -591,14 +598,21 @@ interface PlacesManager {
      * you have all connections you intend using open before calling this.
      */
     fun syncBookmarks(syncInfo: SyncAuthInfo): SyncTelemetryPing
+
     /**
      * Imports bookmarks from a Fennec `browser.db` database.
+     * Fennec used to store "pinned websites" as normal bookmarks
+     * under an invisible root.
+     * During import, this un-syncable root and its children are ignored,
+     * so we return the pinned websites separately as a list so
+     * Fenix can store them in a collection.
      *
      * It has been designed exclusively for non-sync users.
      *
      * @param path Path to the `browser.db` file database.
+     * @return A list of pinned websites.
      */
-    fun importBookmarksFromFennec(path: String)
+    fun importBookmarksFromFennec(path: String): List<BookmarkItem>
 
     /**
      * Imports visits from a Fennec `browser.db` database.

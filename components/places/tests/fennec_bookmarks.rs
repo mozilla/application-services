@@ -244,7 +244,7 @@ fn test_import() -> Result<()> {
         FennecBookmark {
             _id: 11,
             parent: -3,
-            title: Some("Bookmark under un-syncable root".to_owned()),
+            title: Some("Pinned Bookmark".to_owned()),
             url: Some("https://foo.bar".to_owned()),
             ..Default::default()
         },
@@ -253,7 +253,9 @@ fn test_import() -> Result<()> {
 
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
 
-    places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
+    let pinned = places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
+    assert_eq!(pinned.len(), 1);
+    assert_eq!(pinned[0].title, Some("Pinned Bookmark".to_owned()));
 
     // Uncomment the following to debug with cargo test -- --nocapture.
     // println!(
