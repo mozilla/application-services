@@ -1,3 +1,13 @@
+# v0.42.1 (_2019-10-21_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.42.0...v0.42.1)
+
+## Android
+
+### What's new
+
+- The Fennec bookmarks import method (`importBookmarksFromFennec`) will now return a list of pinned bookmarks. ([#1993](https://github.com/mozilla/application-services/pull/1993))
+
 # v0.42.0 (_2019-10-10_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.41.0...v0.42.0)
