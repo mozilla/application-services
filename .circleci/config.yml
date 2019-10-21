@@ -123,6 +123,8 @@ commands:
           rust-version: <<parameters.rust-version>>
       - setup-sccache
       - install-clang
+      # clipboard crate depends on some x11 libs.
+      - run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
       - run: |
           echo 'export NSS_STATIC=1' >> $BASH_ENV
           echo 'export NSS_DIR=$(pwd)/libs/desktop/linux-x86-64/nss' >> $BASH_ENV

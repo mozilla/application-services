@@ -20,6 +20,7 @@ use manager::SyncManager;
 use places::PlacesApi;
 use std::sync::Arc;
 use std::sync::Mutex;
+use tabs::TabsEngine;
 
 lazy_static::lazy_static! {
     static ref MANAGER: Mutex<SyncManager> = Mutex::new(SyncManager::new());
@@ -33,6 +34,11 @@ pub fn set_places(places: Arc<PlacesApi>) {
 pub fn set_logins(places: Arc<Mutex<PasswordEngine>>) {
     let mut manager = MANAGER.lock().unwrap();
     manager.set_logins(places);
+}
+
+pub fn set_tabs(tabs: Arc<Mutex<TabsEngine>>) {
+    let mut manager = MANAGER.lock().unwrap();
+    manager.set_tabs(tabs);
 }
 
 pub fn disconnect() {

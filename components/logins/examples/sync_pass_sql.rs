@@ -7,7 +7,7 @@
 #![warn(rust_2018_idioms)]
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
-use cli_support::prompt::{prompt_string, prompt_usize};
+use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 use failure::Fail;
 
 use logins::{Login, PasswordEngine};
@@ -110,10 +110,6 @@ fn prompt_bool(msg: &str) -> Option<bool> {
         'n' | 'N' | 'f' | 'F' => Some(false),
         _ => None,
     })
-}
-
-fn prompt_chars(msg: &str) -> Option<char> {
-    prompt_string(msg).and_then(|r| r.chars().next())
 }
 
 fn timestamp_to_string(milliseconds: i64) -> String {
@@ -302,7 +298,7 @@ fn main() -> Result<()> {
     }
 
     loop {
-        match prompt_chars("[A]dd, [D]elete, [U]pdate, [S]ync, [V]iew, [H]ostname search, [R]eset, [W]ipe, [T]ouch, E[x]ecute SQL Query, or [Q]uit").unwrap_or('?') {
+        match prompt_char("[A]dd, [D]elete, [U]pdate, [S]ync, [V]iew, [H]ostname search, [R]eset, [W]ipe, [T]ouch, E[x]ecute SQL Query, or [Q]uit").unwrap_or('?') {
             'A' | 'a' => {
                 log::info!("Adding new record");
                 let record = read_login();

@@ -8,6 +8,8 @@ members = [
     "components/push",
     "components/push/ffi",
     "components/places/ffi",
+    "components/tabs",
+    "components/tabs/ffi",
     "components/support/cli",
     "components/support/sql",
     "components/support/error",
