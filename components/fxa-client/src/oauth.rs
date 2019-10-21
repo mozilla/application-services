@@ -138,6 +138,33 @@ impl FirefoxAccount {
         self.oauth_flow(url, &scopes)
     }
 
+    /// Fetch an OAuth code for a particular client using a session token from the account state.
+    /// This method doesn't support OAuth public clients at this time.
+    ///
+    /// * `client_id` - OAuth client id.
+    /// * `scopes` - Space-separated list of requested scopes.
+    /// * `state` - OAuth state.
+    /// * `access_type` - Type of OAuth access, can be "offline" and "online.
+    pub fn authorize_code_using_session_token(
+        &mut self,
+        client_id: &str,
+        scope: &str,
+        state: &str,
+        access_type: &str,
+    ) -> Result<String> {
+        let session_token = self.get_session_token()?;
+        let resp = self.client.authorization_code_using_session_token(
+            &self.state.config,
+            &client_id,
+            &session_token,
+            &scope,
+            &state,
+            &access_type,
+        )?;
+
+        Ok(resp.code)
+    }
+
     fn oauth_flow(&mut self, mut url: Url, scopes: &[&str]) -> Result<String> {
         self.clear_access_token_cache();
         let state = util::random_base64_url_string(16)?;

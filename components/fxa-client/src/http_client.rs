@@ -41,6 +41,15 @@ pub trait FxAClient {
         session_token: &str,
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse>;
+    fn authorization_code_using_session_token(
+        &self,
+        config: &Config,
+        client_id: &str,
+        session_token: &str,
+        scope: &str,
+        state: &str,
+        access_type: &str,
+    ) -> Result<OAuthAuthResponse>;
     fn duplicate_session(
         &self,
         config: &Config,
@@ -183,6 +192,31 @@ impl FxAClient for Client {
             .body(parameters)
             .build()?;
         Self::make_request(request)?.json().map_err(Into::into)
+    }
+
+    fn authorization_code_using_session_token(
+        &self,
+        config: &Config,
+        client_id: &str,
+        session_token: &str,
+        scope: &str,
+        state: &str,
+        access_type: &str,
+    ) -> Result<OAuthAuthResponse> {
+        let parameters = json!({
+            "client_id": client_id,
+            "scope": scope,
+            "response_type": "code",
+            "state": state,
+            "access_type": access_type,
+        });
+        let key = derive_auth_key_from_session_token(session_token)?;
+        let url = config.auth_url_path("v1/oauth/authorization")?;
+        let request = HawkRequestBuilder::new(Method::Post, url, &key)
+            .body(parameters)
+            .build()?;
+
+        Ok(Self::make_request(request)?.json()?)
     }
 
     fn duplicate_session(
@@ -614,6 +648,13 @@ pub struct OAuthTokenResponse {
     pub expires_in: u64,
     pub scope: String,
     pub access_token: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct OAuthAuthResponse {
+    pub redirect: String,
+    pub code: String,
+    pub state: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

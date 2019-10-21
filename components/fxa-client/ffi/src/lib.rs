@@ -365,6 +365,33 @@ pub extern "C" fn fxa_get_devices(handle: u64, error: &mut ExternError) -> ByteB
     })
 }
 
+/// Try to get an OAuth code using a session token.
+///
+/// The system will use the stored `session_token` to provision a new code and return it.
+///
+/// # Safety
+///
+/// A destructor [fxa_bytebuffer_free] is provided for releasing the memory for this
+/// pointer type.
+#[no_mangle]
+pub extern "C" fn fxa_authorize_auth_code(
+    handle: u64,
+    client_id: FfiStr<'_>,
+    scope: FfiStr<'_>,
+    state: FfiStr<'_>,
+    access_type: FfiStr<'_>,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("fxa_authorize_auth_code");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
+        let client_id = client_id.as_str();
+        let scope = scope.as_str();
+        let state = state.as_str();
+        let access_type = access_type.as_str();
+        fxa.authorize_code_using_session_token(client_id, scope, state, access_type)
+    })
+}
+
 /// Poll and parse available remote commands targeted to our own device.
 ///
 /// # Safety
