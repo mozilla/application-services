@@ -72,7 +72,13 @@ struct LogRecord {
 impl<'a, 'b> From<&'b log::Record<'a>> for LogRecord {
     // XXX important! Don't log in this function!
     fn from(r: &'b log::Record<'a>) -> Self {
-        let message = format!("{}", r.args());
+        let thread_id = format!("{:?}", std::thread::current().id());
+        let thread_id = if thread_id.starts_with("ThreadId(") && thread_id.ends_with(')') {
+            format!("t{}", &thread_id[9..(thread_id.len() - 1)])
+        } else {
+            thread_id
+        };
+        let message = format!("{} {}", thread_id, r.args());
         Self {
             level: r.level().into(),
             tag: r
