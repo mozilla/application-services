@@ -472,6 +472,12 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         }
     }
 
+    override fun deleteAllBookmarks() {
+        rustCall { error ->
+            LibPlacesFFI.INSTANCE.bookmarks_delete_everything(this.handle.get(), error)
+        }
+    }
+
     override fun deleteBookmarkNode(guid: String): Boolean {
         val existedByte = rustCall { error ->
             LibPlacesFFI.INSTANCE.bookmarks_delete(this.handle.get(), guid, error)
