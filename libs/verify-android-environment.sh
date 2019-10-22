@@ -66,19 +66,10 @@ Please set the JAVA_HOME variable in your environment to match the
 location of your Java installation."
 fi
 
-JAVA_MAJOR_VERSION=$($JAVACMD -version 2>&1 | sed -E -n 's/.* version "([^.-]*).*"/\1/p' | cut -d' ' -f1)
-if [[ "$JAVA_MAJOR_VERSION" -lt 8 ]] ; then
-    if [[ "$JAVA_MAJOR_VERSION" -eq 1 ]] ; then
-      version=$("$JAVACMD" -version 2>&1 | awk -F '"' '/version/ {print $2}')
-      version=$(echo "$version" | awk -F. '{printf("%03d%03d",$1,$2);}')
-      if [[ 10#$version -lt 10#001008 ]]; then
-          echo "Java version is less than version 8"
-          exit
-      fi
-    else
-      echo "ERROR: Incompatible java version"
-      exit 1
-    fi
+JAVA_VERSION=$("$JAVACMD" -version 2>&1 | grep -i version | cut -d'"' -f2 | cut -d'.' -f1-2)
+if [[ "${JAVA_VERSION}" != "1.8" ]]; then
+  echo "Incompatible java version: ${JAVA_VERSION}. JDK 8 must be installed."
+  exit 1
 fi
 
 echo "Looks good! cd to libs/ and run ./build-all.sh android"
