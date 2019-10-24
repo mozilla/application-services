@@ -252,6 +252,11 @@ internal interface LibPlacesFFI : Library {
         error: RustError.ByReference
     ): Byte
 
+    fun bookmarks_delete_everything(
+        handle: PlacesConnectionHandle,
+        error: RustError.ByReference
+    )
+
     /** Destroy strings returned from libplaces_ffi calls. */
     fun places_destroy_string(s: Pointer)
 

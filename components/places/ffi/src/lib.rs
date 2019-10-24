@@ -502,6 +502,15 @@ pub extern "C" fn bookmarks_get_tree(
 }
 
 #[no_mangle]
+pub extern "C" fn bookmarks_delete_everything(handle: u64, error: &mut ExternError) {
+    log::debug!("bookmarks_delete_everything");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        bookmarks::delete_everything(conn)?;
+        Ok(())
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn bookmarks_get_by_guid(
     handle: u64,
     guid: FfiStr<'_>,

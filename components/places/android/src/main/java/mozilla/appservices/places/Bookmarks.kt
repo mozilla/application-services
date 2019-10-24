@@ -274,6 +274,12 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
     fun deleteBookmarkNode(guid: String): Boolean
 
     /**
+     * Delete all bookmarks without affecting history
+     *
+     */
+    fun deleteAllBookmarks()
+
+    /**
      * Create a bookmark folder, returning its guid.
      *
      * @param parentGUID The GUID of the (soon to be) parent of this bookmark.
