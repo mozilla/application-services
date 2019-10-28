@@ -217,7 +217,7 @@ commands:
 jobs:
   Check Swift formatting:
     macos:
-      xcode: "11.0.0"
+      xcode: "11.1.0"
     steps:
       - checkout
       - run: brew install swiftlint swiftformat
@@ -324,7 +324,7 @@ jobs:
       - save-sccache-cache
   iOS build and test:
     macos:
-      xcode: "11.0.0"
+      xcode: "11.1.0"
     steps:
       - install-rust
       - setup-rust-toolchain
@@ -339,7 +339,9 @@ jobs:
       - run:
           name: Setup build environment
           command: |
-            sudo installer -pkg /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg -target /
+            # DON'T TRY THIS AT HOME. This will probably mess up your macOS install, seriously.
+            # Issue to get the proper fix: https://github.com/alexcrichton/cc-rs/issues/452
+            sudo ln -s /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/* /usr/local/include/
             rustup target add aarch64-apple-ios x86_64-apple-ios
             if [ -z "${CIRCLE_TAG}" ]; then
               # On non-release builds do not update brew (takes ages).
@@ -400,7 +402,7 @@ jobs:
             - MozillaAppServices.framework.zip
   Carthage release:
     macos:
-      xcode: "11.0.0"
+      xcode: "11.1.0"
     steps:
       - checkout
       - attach_workspace:
