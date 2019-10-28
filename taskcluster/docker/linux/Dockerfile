@@ -8,6 +8,16 @@ FROM ubuntu:bionic-20180821
 
 MAINTAINER Edouard Oger "eoger@mozilla.com"
 
+# Add worker user
+
+RUN mkdir /builds && \
+    useradd -d /builds/worker -s /bin/bash -m worker && \
+    chown worker:worker /builds/worker && \
+    mkdir /builds/worker/artifacts && \
+    chown worker:worker /builds/worker/artifacts
+
+WORKDIR /builds/worker/
+
 # Configuration
 
 ENV ANDROID_BUILD_TOOLS "28.0.3"
@@ -149,28 +159,6 @@ RUN \
          https://raw.githubusercontent.com/mozilla/build-tooltool/36511dae0ead6848017e2d569b1f6f1b36984d40/tooltool.py && \
          chmod +x /usr/local/bin/tooltool.py
 
-#----------------------------------------------------------------------------------------------------------------------
-#-- Configuration -----------------------------------------------------------------------------------------------------
-#----------------------------------------------------------------------------------------------------------------------
-
-ENV RUST_BACKTRACE='1'
-ENV RUSTFLAGS='-Dwarnings'
-ENV CARGO_INCREMENTAL='0'
-ENV CI='1'
-ENV CCACHE='sccache'
-ENV RUSTC_WRAPPER='sccache'
-ENV SCCACHE_IDLE_TIMEOUT='1200'
-ENV SCCACHE_CACHE_SIZE='40G'
-ENV SCCACHE_ERROR_LOG='/build/sccache.log'
-ENV RUST_LOG='sccache=info'
-
-RUN rustup toolchain install stable
-RUN rustup default stable
-RUN rustup target add x86_64-linux-android i686-linux-android armv7-linux-androideabi aarch64-linux-android
-RUN test -d $ANDROID_NDK_TOOLCHAIN_DIR/arm-$ANDROID_NDK_API_VERSION    || $ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py --arch="arm"   --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/arm-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
-RUN test -d $ANDROID_NDK_TOOLCHAIN_DIR/arm64-$ANDROID_NDK_API_VERSION  || $ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py --arch="arm64" --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/arm64-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
-RUN test -d $ANDROID_NDK_TOOLCHAIN_DIR/x86-$ANDROID_NDK_API_VERSION    || $ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py --arch="x86"   --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/x86-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
-RUN test -d $ANDROID_NDK_TOOLCHAIN_DIR/x86_64-$ANDROID_NDK_API_VERSION || $ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py --arch="x86_64"   --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/x86_64-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
 
 # %include-run-task
 
