@@ -265,6 +265,27 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     }
 
     /**
+     * Provisions an OAuth code using the session token from state
+     *
+     * @param clientId OAuth client id.
+     * @param scopes Array of scopes for the OAuth code.
+     * @param state OAuth flow state.
+     * @param accessType Type of access, "offline" or "online".
+     * This performs network requests, and should not be used on the main thread.
+     */
+    fun authorizeOAuthCode(
+        clientId: String,
+        scopes: Array<String>,
+        state: String,
+        accessType: String = "online"
+    ): String {
+        val scope = scopes.joinToString(" ")
+        return rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_authorize_auth_code(this.handle.get(), clientId, scope, state, accessType, e)
+        }.getAndConsumeRustString()
+    }
+
+    /**
      * This method should be called when a request made with
      * an OAuth token failed with an authentication error.
      * It clears the internal cache of OAuth access tokens,
