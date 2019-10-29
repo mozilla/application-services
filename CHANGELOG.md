@@ -1,3 +1,20 @@
+# v0.42.2 (_2019-10-21_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.42.1...v0.42.2)
+
+## Android
+
+### What's new
+
+- Exposed `stroage::bookmarks::erase_everything`, which deletes all bookmarks without affecting history, through FFI. ([#2012](https://github.com/mozilla/application-services/pull/2012))
+
+## FxA Client
+
+### What's new
+
+Android: Add ability to get an OAuth code using a session token via the `authorizeOAuthCode` method. ([#2003](https://github.com/mozilla/application-services/pull/2003))
+
+
 # v0.42.1 (_2019-10-21_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.42.0...v0.42.1)
