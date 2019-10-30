@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euvx
 
+# XCode tries to be helpful and overwrites the PATH. Reset that.
+PATH="$(bash -l -c 'echo $PATH')"
+
 # This should be invoked from inside xcode, not manually
 if [[ "${#}" -ne 4 ]]
 then
