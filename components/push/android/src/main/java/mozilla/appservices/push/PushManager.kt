@@ -62,7 +62,7 @@ class PushManager(
     override fun subscribe(
         channelID: String,
         scope: String,
-        appServerKey: String
+        appServerKey: String?
     ): SubscriptionResponse {
         val respBuffer = rustCallForBuffer { error ->
             LibPushFFI.INSTANCE.push_subscribe(
@@ -256,13 +256,17 @@ class SubscriptionResponse constructor (
 
 class DispatchInfo constructor (
     val uaid: String,
-    val scope: String
+    val scope: String,
+    val endpoint: String,
+    val appServerKey: String?
 ) {
     companion object {
         internal fun fromMessage(msg: MsgTypes.DispatchInfo): DispatchInfo {
             return DispatchInfo(
                 uaid = msg.uaid,
-                scope = msg.scope
+                scope = msg.scope,
+                endpoint = msg.endpoint,
+                appServerKey = msg.appServerKey
             )
         }
     }
@@ -333,13 +337,13 @@ interface PushAPI : java.lang.AutoCloseable {
      *
      * @param channelID Channel ID (UUID4) for new subscription, either pre-generated or "" and one will be created.
      * @param scope Site scope string (defaults to "" for no site scope string).
-     * @param appServerKey VAPID public key to "lock" subscriptions (defaults to "" for no key)
+     * @param appServerKey optional VAPID public key to "lock" subscriptions (defaults to "" for no key)
      * @return a SubscriptionInfo structure
      */
     fun subscribe(
         channelID: String = "",
         scope: String = "",
-        appServerKey: String = ""
+        appServerKey: String? = null
     ): SubscriptionResponse
 
     /**

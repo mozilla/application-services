@@ -178,7 +178,7 @@ pub extern "C" fn push_dispatch_info_for_chid(
                 uaid: record.uaid,
                 scope: record.scope,
                 endpoint: record.endpoint,
-                app_server_key: record.app_server_key.unwrap_or_else(|| "".to_owned()),
+                app_server_key: record.app_server_key,
             })),
             None => Ok(None),
         }

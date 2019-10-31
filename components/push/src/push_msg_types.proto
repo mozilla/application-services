@@ -9,7 +9,7 @@ message DispatchInfo {
     required string uaid = 1;
     required string scope = 2;
     required string endpoint = 3;
-    required string appServerKey = 4;
+    optional string app_server_key = 4;
 }
 
 message KeyInfo {
