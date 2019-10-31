@@ -183,9 +183,9 @@ mod test {
             ..Default::default()
         };
         let mut pm = PushManager::new(test_config)?;
-        let (info, key) = pm.subscribe(test_channel_id, "")?;
+        let (info, key) = pm.subscribe(test_channel_id, "", None)?;
         // verify that a subsequent request for the same channel ID returns the same subscription
-        let (info2, key2) = pm.subscribe(test_channel_id, "")?;
+        let (info2, key2) = pm.subscribe(test_channel_id, "", None)?;
         assert_eq!(
             Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_owned()),
             pm.store.get_meta("auth")?
@@ -214,7 +214,7 @@ mod test {
             ..Default::default()
         };
         let mut pm = PushManager::new(test_config)?;
-        let (info, key) = pm.subscribe(test_channel_id, "")?;
+        let (info, key) = pm.subscribe(test_channel_id, "", None)?;
         // Act like a subscription provider, so create a "local" key to encrypt the data
         let mut auth_secret = vec![0u8; 16];
         let mut salt = vec![0u8; 16];

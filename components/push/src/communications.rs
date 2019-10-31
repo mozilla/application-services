@@ -471,7 +471,7 @@ mod test {
             .create();
             let mut conn = connect(config.clone(), None, None).unwrap();
             let channel_id = hex::encode(crate::crypto::get_bytes(16).unwrap());
-            let response = conn.subscribe(&channel_id).unwrap();
+            let response = conn.subscribe(&channel_id, None).unwrap();
             ap_mock.assert();
             assert_eq!(response.uaid, DUMMY_UAID);
             // make sure we have stored the secret.
@@ -497,7 +497,7 @@ mod test {
             .create();
             let mut conn = connect(config.clone(), None, None).unwrap();
             let channel_id = hex::encode(crate::crypto::get_bytes(16).unwrap());
-            let response = conn.subscribe(&channel_id).unwrap();
+            let response = conn.subscribe(&channel_id, None).unwrap();
             ap_ns_mock.assert();
             assert_eq!(response.uaid, DUMMY_UAID);
             // make sure we have stored the secret.
