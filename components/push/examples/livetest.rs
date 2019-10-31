@@ -41,7 +41,6 @@ fn test_live_server() -> Result<()> {
         registration_id: Some("SomeRegistrationValue".to_owned()),
         ..Default::default()
     };
-
     let mut pm = PushManager::new(config)?;
     let channel1 = dummy_uuid()?;
     let channel2 = dummy_uuid()?;
@@ -53,6 +52,7 @@ fn test_live_server() -> Result<()> {
     // These are normally opaque values, displayed here for debug.
     println!("Connection info: {:?}", (&pm.conn.uaid, &pm.conn.auth));
     println!("## Subscription 1: {:?}", sub1);
+    println!("## Info: {:?}", pm.get_record_by_chid(&channel1));
     let sub2 = pm.subscribe(&channel2, "")?;
     println!("## Subscription 2: {:?}", sub2);
 

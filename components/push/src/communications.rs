@@ -54,7 +54,11 @@ pub trait Connection {
     // TODO [conv]: reset_uaid(). This causes all known subscriptions to be reset.
 
     /// send a new subscription request to the server, get back the server registration response.
-    fn subscribe(&mut self, channel_id: &str) -> error::Result<RegisterResponse>;
+    fn subscribe(
+        &mut self,
+        channel_id: &str,
+        app_server_key: Option<&str>,
+    ) -> error::Result<RegisterResponse>;
 
     /// Drop an endpoint
     fn unsubscribe(&self, channel_id: Option<&str>) -> error::Result<bool>;
@@ -136,7 +140,11 @@ impl ConnectHttp {
 
 impl Connection for ConnectHttp {
     /// send a new subscription request to the server, get back the server registration response.
-    fn subscribe(&mut self, channel_id: &str) -> error::Result<RegisterResponse> {
+    fn subscribe(
+        &mut self,
+        channel_id: &str,
+        app_server_key: Option<&str>,
+    ) -> error::Result<RegisterResponse> {
         // check that things are set
         if self.options.http_protocol.is_none() || self.options.bridge_type.is_none() {
             return Err(
@@ -161,8 +169,8 @@ impl Connection for ConnectHttp {
         let mut body = HashMap::new();
         body.insert("token", options.registration_id.unwrap());
         body.insert("channelID", channel_id.to_owned());
-        if self.options.vapid_key.is_some() {
-            body.insert("key", options.vapid_key.unwrap());
+        if let Some(key) = app_server_key {
+            body.insert("key", key.to_owned());
         }
         // for unit tests, we shouldn't call the server. This is because we would need to create
         // a valid FCM test senderid (and make sure we call it), etc. There has also been a

@@ -68,6 +68,7 @@ pub extern "C" fn push_subscribe(
     handle: u64,
     channel_id: FfiStr<'_>,
     scope: FfiStr<'_>,
+    app_key: FfiStr<'_>,
     error: &mut ExternError,
 ) -> ByteBuffer {
     log::debug!("push_get_subscription");
@@ -75,9 +76,10 @@ pub extern "C" fn push_subscribe(
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<_> {
         let channel = channel_id.as_str();
         let scope_s = scope.as_str();
+        let app_key = app_key.as_opt_str();
         // Don't auto add the subscription to the db.
         // (endpoint updates also call subscribe and should be lighter weight)
-        let (info, subscription_key) = mgr.subscribe(channel, scope_s)?;
+        let (info, subscription_key) = mgr.subscribe(channel, scope_s, app_key)?;
         // it is possible for the
         // store the channel_id => auth + subscription_key
         Ok(SubscriptionResponse {
@@ -175,6 +177,8 @@ pub extern "C" fn push_dispatch_info_for_chid(
             Some(record) => Ok(Some(DispatchInfo {
                 uaid: record.uaid,
                 scope: record.scope,
+                endpoint: record.endpoint,
+                app_server_key: record.app_server_key.unwrap_or_else(|| "".to_owned()),
             })),
             None => Ok(None),
         }

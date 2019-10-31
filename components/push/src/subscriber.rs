@@ -6,8 +6,6 @@
 //!
 //! "privileged" system calls may require additional handling and should be flagged as such.
 
-use std::collections::HashMap;
-
 use crate::communications::{connect, ConnectHttp, Connection, RegisterResponse};
 use crate::config::PushConfiguration;
 use crate::crypto::{Crypto, Cryptography, KeyV1 as Key};
@@ -38,7 +36,12 @@ impl PushManager {
     }
 
     // XXX: make these trait methods
-    pub fn subscribe(&mut self, channel_id: &str, scope: &str) -> Result<(RegisterResponse, Key)> {
+    pub fn subscribe(
+        &mut self,
+        channel_id: &str,
+        scope: &str,
+        server_key: Option<&str>,
+    ) -> Result<(RegisterResponse, Key)> {
         let reg_token = self.config.registration_id.clone().unwrap();
         let subscription_key: Key;
         if let Some(uaid) = self.conn.uaid.clone() {
@@ -56,7 +59,7 @@ impl PushManager {
                 ));
             }
         }
-        let info = self.conn.subscribe(channel_id)?;
+        let info = self.conn.subscribe(channel_id, server_key)?;
         if &self.config.sender_id == "test" {
             subscription_key = Crypto::test_key(
                 "qJkxxWGVVxy7BKvraNY3hg8Gs-Y8qi0lRaXWJ3R3aJ8",
@@ -74,7 +77,7 @@ impl PushManager {
             scope,
             subscription_key.clone(),
         );
-        record.app_server_key = self.config.vapid_key.clone();
+        record.app_server_key = server_key.map(|v| v.to_owned());
         record.native_id = Some(reg_token);
         self.store.put_record(&record)?;
         // store the meta information if we've not yet done that.
@@ -158,30 +161,6 @@ impl PushManager {
             .map_err(|e| ErrorKind::CryptoError(format!("{:?}", e)))?;
         serde_json::to_string(&decrypted)
             .map_err(|e| ErrorKind::TranscodingError(format!("{:?}", e)).into())
-    }
-
-    /// Fetch new endpoints for a list of channels.
-    pub fn regenerate_endpoints(&mut self) -> error::Result<HashMap<String, String>> {
-        if self.conn.uaid.is_none() {
-            return Err(ErrorKind::GeneralError("No subscriptions defined yet.".into()).into());
-        }
-        let uaid = self.conn.uaid.clone().unwrap();
-        let channels = self.store.get_channel_list(&uaid)?;
-        let mut results: HashMap<String, String> = HashMap::new();
-        if &self.config.sender_id == "test" {
-            results.insert(
-                "deadbeef00000000decafbad00000000".to_owned(),
-                "http://push.example.com/test/obscure".to_owned(),
-            );
-            return Ok(results);
-        }
-        for channel in channels {
-            let info = self.conn.subscribe(&channel)?;
-            self.store
-                .update_endpoint(&uaid, &channel, &info.endpoint)?;
-            results.insert(channel.clone(), info.endpoint);
-        }
-        Ok(results)
     }
 
     pub fn get_record_by_chid(
