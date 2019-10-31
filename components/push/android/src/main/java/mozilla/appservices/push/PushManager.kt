@@ -62,7 +62,7 @@ class PushManager(
     override fun subscribe(
         channelID: String,
         scope: String,
-        appServerKey: String,
+        appServerKey: String
     ): SubscriptionResponse {
         val respBuffer = rustCallForBuffer { error ->
             LibPushFFI.INSTANCE.push_subscribe(
@@ -338,8 +338,8 @@ interface PushAPI : java.lang.AutoCloseable {
      */
     fun subscribe(
         channelID: String = "",
-        scope: String = ""
-        appServerKey: String = "",
+        scope: String = "",
+        appServerKey: String = ""
     ): SubscriptionResponse
 
     /**
