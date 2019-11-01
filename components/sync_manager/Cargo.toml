@@ -9,6 +9,7 @@ license = "MPL-2.0"
 sync15 = { path = "../sync15" }
 places = { path = "../places" }
 logins = { path = "../logins" }
+tabs = { path = "../tabs" }
 ffi-support = { path = "../support/ffi" }
 failure = "0.1.6"
 error-support = { path = "../support/error" }

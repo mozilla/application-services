@@ -23,6 +23,10 @@ pub fn prompt_string<S: AsRef<str>>(prompt: S) -> Option<String> {
     }
 }
 
+pub fn prompt_char(msg: &str) -> Option<char> {
+    prompt_string(msg).and_then(|r| r.chars().next())
+}
+
 pub fn prompt_usize<S: AsRef<str>>(prompt: S) -> Option<usize> {
     if let Some(s) = prompt_string(prompt) {
         match s.parse::<usize>() {

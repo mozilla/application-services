@@ -8,6 +8,7 @@ use structopt::StructOpt;
 
 mod auth;
 mod logins;
+mod tabs;
 mod testing;
 
 use crate::auth::{FxaConfigUrl, TestUser};
@@ -98,5 +99,6 @@ pub fn main() {
     println!("### Running sync integration tests ###");
     init_testing();
     run_test_groups(&opts, vec![crate::logins::get_test_group()]);
+    run_test_groups(&opts, vec![crate::tabs::get_test_group()]);
     println!("### Sync integration tests passed!");
 }
