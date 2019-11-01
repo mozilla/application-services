@@ -112,10 +112,22 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
                     version = rootProject.ext.library.version
                     packaging = "aar"
 
-                    licenses {
-                        license {
-                            name = libLicense
-                            url = libLicenseUrl
+
+                    license {
+                        name = libLicense
+                        url = libLicenseUrl
+                    }
+
+                    // Megazords include compiled code from third-party rust dependencies.
+                    // We add the license info of those dependencies to the .pom to make it
+                    // easy for consumers to incorporate into their license info page.
+                    if (isMegazord) {
+                        def depLicenses = new XmlSlurper().parse(new File("${projectDir}/dependency-licenses.xml"))
+                        depLicenses.license.each { node ->
+                            license {
+                                name = node.name.text()
+                                url = node.url.text()
+                            }
                         }
                     }
 
