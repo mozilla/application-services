@@ -16,10 +16,12 @@ use sync15::{
     clients::{self, Command, CommandProcessor, CommandStatus, Settings},
     MemoryCachedState,
 };
+use tabs::TabsEngine;
 
 const LOGINS_ENGINE: &str = "passwords";
 const HISTORY_ENGINE: &str = "history";
 const BOOKMARKS_ENGINE: &str = "bookmarks";
+const TABS_ENGINE: &str = "tabs";
 
 // Casts aren't allowed in `match` arms, so we can't directly match
 // `SyncParams.device_type`, which is an `i32`, against `DeviceType`
@@ -36,6 +38,7 @@ pub struct SyncManager {
     mem_cached_state: Option<MemoryCachedState>,
     places: Weak<PlacesApi>,
     logins: Weak<Mutex<PasswordEngine>>,
+    tabs: Weak<Mutex<TabsEngine>>,
 }
 
 impl SyncManager {
@@ -44,6 +47,7 @@ impl SyncManager {
             mem_cached_state: None,
             places: Weak::new(),
             logins: Weak::new(),
+            tabs: Weak::new(),
         }
     }
 
@@ -53,6 +57,10 @@ impl SyncManager {
 
     pub fn set_logins(&mut self, logins: Arc<Mutex<PasswordEngine>>) {
         self.logins = Arc::downgrade(&logins);
+    }
+
+    pub fn set_tabs(&mut self, tabs: Arc<Mutex<TabsEngine>>) {
+        self.tabs = Arc::downgrade(&tabs);
     }
 
     pub fn wipe(&mut self, engine: &str) -> Result<()> {
@@ -182,6 +190,7 @@ impl SyncManager {
     pub fn sync(&mut self, params: SyncParams) -> Result<SyncResult> {
         let mut have_engines = vec![];
         let places = self.places.upgrade();
+        let tabs = self.tabs.upgrade();
         let logins = self.logins.upgrade();
         if places.is_some() {
             have_engines.push(HISTORY_ENGINE);
@@ -189,6 +198,9 @@ impl SyncManager {
         }
         if logins.is_some() {
             have_engines.push(LOGINS_ENGINE);
+        }
+        if tabs.is_some() {
+            have_engines.push(TABS_ENGINE);
         }
         check_engine_list(&params.engines_to_sync, &have_engines)?;
 
@@ -221,6 +233,7 @@ impl SyncManager {
     fn do_sync(&mut self, mut params: SyncParams) -> Result<SyncResult> {
         let mut places = self.places.upgrade();
         let logins = self.logins.upgrade();
+        let tabs = self.tabs.upgrade();
 
         let key_bundle = sync15::KeyBundle::from_ksync_base64(&params.acct_sync_key)?;
         let tokenserver_url = url::Url::parse(&params.acct_tokenserver_url)?;
@@ -228,6 +241,7 @@ impl SyncManager {
         let logins_sync = should_sync(&params, LOGINS_ENGINE);
         let bookmarks_sync = should_sync(&params, BOOKMARKS_ENGINE);
         let history_sync = should_sync(&params, HISTORY_ENGINE);
+        let tabs_sync = should_sync(&params, TABS_ENGINE);
 
         let places_conn = if bookmarks_sync || history_sync {
             places
@@ -239,6 +253,7 @@ impl SyncManager {
             None
         };
         let l = logins.as_ref().map(|l| l.lock().expect("poisoned mutex"));
+        let t = tabs.as_ref().map(|t| t.lock().expect("poisoned mutex"));
         // TODO(issue 1684) this isn't ideal, we should have real support for interruption.
         let p = Arc::new(AtomicUsize::new(0));
         let interruptee = sql_support::SqlInterruptScope::new(p);
@@ -261,6 +276,11 @@ impl SyncManager {
         if let Some(le) = l.as_ref() {
             assert!(logins_sync, "Should have already checked");
             stores.push(Box::new(logins::LoginStore::new(&le.db)));
+        }
+
+        if let Some(tbs) = t.as_ref() {
+            assert!(tabs_sync, "Should have already checked");
+            stores.push(Box::new(tabs::TabsStore::new(&tbs.storage)));
         }
 
         let store_refs: Vec<&dyn sync15::Store> = stores.iter().map(|s| &**s).collect();
@@ -418,7 +438,7 @@ fn check_engine_list(list: &[String], have_engines: &[&str]) -> Result<()> {
         have_engines
     );
     for e in list {
-        if e == "bookmarks" || e == "history" || e == "passwords" {
+        if [BOOKMARKS_ENGINE, HISTORY_ENGINE, LOGINS_ENGINE, TABS_ENGINE].contains(&e.as_ref()) {
             if !have_engines.iter().any(|engine| e == engine) {
                 return Err(ErrorKind::UnsupportedFeature(e.to_string()).into());
             }

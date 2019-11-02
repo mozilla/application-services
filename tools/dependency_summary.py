@@ -1,3 +1,4 @@
+#!/usr/bin/env python3 
 #
 # This script can be used to generate a summary of our third-party dependencies,
 # including license details. Use it like this:
@@ -18,6 +19,9 @@ import json
 import textwrap
 import itertools
 import collections
+from urllib.parse import urlparse, urlunparse
+from xml.sax import saxutils
+
 import requests
 
 # The targets used by rust-android-gradle, including the ones for unit testing.
@@ -121,11 +125,14 @@ EXTRA_PACKAGE_METADATA = {
         "repository": "https://www.openssl.org/source/",
         "license": "EXT-OPENSSL",
         "license_file": "https://www.openssl.org/source/license-openssl-ssleay.txt",
+        "license_url": "https://www.openssl.org/source/license.html",
     },
     "ext-ring": {
         "name": "ring",
         "repository": "https://github.com/briansmith/ring",
         "license": "ISC",
+        "license_file": "https://raw.githubusercontent.com/briansmith/ring/master/LICENSE",
+        "license_url": "https://github.com/briansmith/ring/blob/master/LICENSE",
         # We're only using the API surface from ring, not its internals,
         # and all the relevant files and under this ISC-style license.
         "license_text": textwrap.dedent(r"""
@@ -154,6 +161,7 @@ EXTRA_PACKAGE_METADATA = {
         "name": "sqlite",
         "repository": "https://www.sqlite.org/",
         "license": "EXT-SQLITE",
+        "license_file": "https://sqlite.org/copyright.html",
         "license_text": "This software makes use of the 'SQLite' database engine, and we are very"\
                         " grateful to D. Richard Hipp and team for producing it.",
     },
@@ -418,7 +426,71 @@ PACKAGE_METADATA_FIXUPS = {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/master/LICENSE-MIT",
         },
-    }
+    },
+    # These packages do not make it easy to infer a URL at which their license can be read,
+    # so we track it down by hand and hard-code it here.
+    "ansi_term": {
+        "repository": {
+            "check": None,
+            "fixup": "https://github.com/ogham/rust-ansi-term",
+        },
+    },
+    "c2-chacha": {
+        "repository": {
+            "check": "https://github.com/cryptocorrosion/cryptocorrosion",
+        },
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/cryptocorrosion/cryptocorrosion/blob/master/stream-ciphers/chacha/LICENSE-APACHE"
+        },
+    },
+    "humantime": {
+        "repository": {
+            "check": None,
+            "fixup": "https://github.com/tailhook/humantime",
+        },
+    },
+    "mime": {
+        # The current head of "mime" repo has been re-licensed from MIT/Apache-2.0 to MIT,
+        # meaning that the expected "LICENSE-APACHE" file is not available on master.
+        "version": {
+            "check": "0.3.14",
+        },
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/hyperium/mime/blob/v0.3.14/LICENSE-APACHE"
+        },
+    },
+    "ppv-lite86": {
+        "repository": {
+            "check": "https://github.com/cryptocorrosion/cryptocorrosion",
+        },
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/cryptocorrosion/cryptocorrosion/blob/master/utils-simd/ppv-lite86/LICENSE-APACHE"
+        },
+    },
+    "time": {
+        "repository": {
+            "check": "https://github.com/rust-lang/time",
+        },
+        "license_url": {
+            "check": None,
+            # The repo has been moved to a difference org.
+            "fixup": "https://github.com/time-rs/time/blob/master/LICENSE-Apache"
+        },
+    },
+    "winapi": {
+        "repository": {
+            # This repo as a whole says its "MIT/Apache-2.0", but the crate distribution
+            # for this particular crate only specifies "MIT".
+            "check": "https://github.com/retep998/winapi-rs",
+        },
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/retep998/winapi-rs/blob/master/LICENSE-MIT",
+        },
+    },
 }
 
 # Sets of common licence file names, by license type.
@@ -622,11 +694,16 @@ class WorkspaceMetadata(object):
         pkgInfo = self.pkgInfoById[id]
         chosenLicense = self.pick_most_acceptable_license(
             id, pkgInfo["license"])
+        licenseFile = self._find_license_file(id, chosenLicense, pkgInfo)
+        assert pkgInfo["name"] is not None
+        assert pkgInfo["repository"] is not None
         return {
             "name": pkgInfo["name"],
             "repository": pkgInfo["repository"],
             "license": chosenLicense,
-            "license_text": self._fetch_license_text(id, chosenLicense, pkgInfo),
+            "license_file": licenseFile,
+            "license_text":  self._fetch_license_text(id, licenseFile, pkgInfo),
+            "license_url":  self._find_license_url(id, chosenLicense, licenseFile, pkgInfo)
         }
 
     def pick_most_acceptable_license(self, id, licenseId):
@@ -647,19 +724,10 @@ class WorkspaceMetadata(object):
         raise RuntimeError(
             "Could not determine acceptable license for {}; license is '{}'".format(id, licenseId))
 
-    def _fetch_license_text(self, id, license, pkgInfo):
-        if "license_text" in pkgInfo:
-            return pkgInfo["license_text"]
+    def _find_license_file(self, id, license, pkgInfo):
         licenseFile = pkgInfo.get("license_file", None)
         if licenseFile is not None:
-            if licenseFile.startswith("https://"):
-                r = requests.get(licenseFile)
-                r.raise_for_status()
-                return r.content.decode("utf8")
-            else:
-                pkgRoot = os.path.dirname(pkgInfo["manifest_path"])
-                with open(os.path.join(pkgRoot, licenseFile)) as f:
-                    return f.read()
+            return licenseFile
         # No explicit license file was declared, let's see if we can unambiguously identify one
         # using common naming conventions.
         pkgRoot = os.path.dirname(pkgInfo["manifest_path"])
@@ -670,9 +738,8 @@ class WorkspaceMetadata(object):
         foundLicenseFiles = [nm for nm in os.listdir(
             pkgRoot) if nm.lower() in licenseFileNames]
         if len(foundLicenseFiles) == 1:
-            with open(os.path.join(pkgRoot, foundLicenseFiles[0])) as f:
-                return f.read()
-        # We couldn't find the right license text. Let's do what we can to help a human
+            return foundLicenseFiles[0]
+        # We couldn't find the right license file. Let's do what we can to help a human
         # pick the right one and add it to the list of manual fixups.
         if len(foundLicenseFiles) > 1:
             err = "Multiple ambiguous license files found for '{}'.\n".format(
@@ -687,15 +754,92 @@ class WorkspaceMetadata(object):
                 pkgInfo["repository"])
         raise RuntimeError(err)
 
+    def _fetch_license_text(self, id, licenseFile, pkgInfo):
+        if "license_text" in pkgInfo:
+            return pkgInfo["license_text"]
+        if licenseFile.startswith("https://"):
+            r = requests.get(licenseFile)
+            r.raise_for_status()
+            return r.content.decode("utf8")
+        else:
+            pkgRoot = os.path.dirname(pkgInfo["manifest_path"])
+            with open(os.path.join(pkgRoot, licenseFile)) as f:
+                return f.read()
 
-def print_dependency_summary(deps, file=sys.stdout):
-    """Print a nicely-formatted summary of dependencies and their license info."""
-    def pf(string, *args):
-        if args:
-            string = string.format(*args)
-        print(string, file=file)
+    def _find_license_url(self, id, chosenLicense, licenseFile, pkgInfo):
+        """Find an appropriate URL at which humans can view a project's license."""
+        licenseUrl = pkgInfo.get("license_url")
+        if licenseUrl is not None:
+            return licenseUrl
+        # Try to infer a sutiable URL from the local license file
+        # and github repo metadata.
+        if urlparse(licenseFile).scheme:
+            licenseUrl = licenseFile
+        else:
+            repo = pkgInfo["repository"]
+            if repo:
+                if repo.startswith("http://github.com/"):
+                    repo = repo.replace("http://", "https://")
+                if repo.startswith("https://github.com/"):
+                    # Some projects include extra context in their repo URL; strip it off.
+                    for strip_suffix in [".git", "/tree/master/{}".format(pkgInfo["name"])]:
+                        if repo.endswith(strip_suffix):
+                            repo = repo[:-len(strip_suffix)]
+                    # Try a couple of common locations for the license file.
+                    for path in ["/master/", "/master/{}/".format(pkgInfo["name"])]:
+                        licenseUrl = repo.replace("github.com", "raw.githubusercontent.com")
+                        licenseUrl += path + licenseFile
+                        r = requests.get(licenseUrl)
+                        if r.status_code == 200:
+                            # Found it!
+                            # TODO: We could check whether the content matches what was on disk.
+                            break
+                    else:
+                        # No potential URLs were actually live.
+                        licenseUrl = None
+            if licenseUrl is None:
+                err = "Could not infer license URL for '{}'.\n".format(pkgInfo["name"])
+                err += "Please locate the correct license URL and add it to `PACKAGE_METADATA_FIXUPS`.\n"
+                err += "You may need to poke around in the source repository at {}".format(repo)
+                err += " for a {} license file named {}.".format(chosenLicense, licenseFile)
+                #raise RuntimeError(err)
+                print(err)
+                return None
+        # As a special case, convert raw github URLs back into human-friendly page URLs.
+        if licenseUrl.startswith("https://raw.githubusercontent.com/"):
+            licenseUrl = re.sub(r"raw.githubusercontent.com/([^/]+)/([^/]+)/",
+                                r"github.com/\1/\2/blob/",
+                                licenseUrl)
+        return licenseUrl
 
-    # Dedupe by shared license text where possible.
+
+def make_license_title(license, deps=None):
+    """Make a nice human-readable title for a license, and the deps it applies to."""
+    if license == "EXT-OPENSSL":
+        return "OpenSSL License"
+    if license == "EXT-SQLITE":
+        return "Optional Notice: SQLite"
+    if license == "MPL-2.0":
+        title = "Mozilla Public License 2.0"
+    elif license == "Apache-2.0":
+        title = "Apache License 2.0"
+    else:
+        title = "{} License".format(license)
+    if deps:
+        # Dedupe in case of multiple versons of dependencies
+        names = sorted(set(d["name"] for d in deps))
+        title = "{}: {}".format(title, ", ".join(names))
+    return title
+
+
+def group_dependencies_for_printing(deps):
+    """Iterate over groups of dependencies and their license info, in print order.
+
+    This is a helper function to group and sort our various dependencies,
+    so that they're always printed in sensible, consistent order and we
+    don't unnecessarily repeat any license text.
+    """
+    # Group by shared license text where possible.
     depsByLicenseTextHash = collections.defaultdict(list)
     for info in deps:
         if info["license"] in ("MPL-2.0", "Apache-2.0") or info["license"].startswith("EXT-"):
@@ -709,15 +853,60 @@ def print_dependency_summary(deps, file=sys.stdout):
                 hashlib.sha256(text.encode("utf8")).hexdigest()
         depsByLicenseTextHash[licenseTextHash].append(info)
 
-    # List licenses in the order in which we prefer them, then in alphabetical order
-    # of the dependency names. This ensures a convenient and stable ordering.
-    def sort_key(licenseTextHash):
-        for i, license in enumerate(LICENES_IN_PREFERENCE_ORDER):
-            if licenseTextHash.startswith(license):
-                return (i, sorted(info["name"] for info in depsByLicenseTextHash[licenseTextHash]))
-        return (i + 1, sorted(info["name"] for info in depsByLicenseTextHash[licenseTextHash]))
+    # Add summary information for each group.
+    groups = []
+    for licenseTextHash, deps in depsByLicenseTextHash.items():
+        deps = sorted(deps, key=lambda i: i["name"])
 
-    sections = sorted(depsByLicenseTextHash.keys(), key=sort_key)
+        # Find single canonical license text for the group, which is the whole point of grouping.
+        license = deps[0]["license"]
+        if licenseTextHash != "Apache-2.0":
+            licenseText = deps[0]["license_text"]
+        else:
+            # As a bit of a hack, we need to find a copy of the "canonical" apache license text
+            # that still has the copyright placeholders in it, and no project-specific additions.
+            for dep in deps:
+                licenseText = dep["license_text"]
+                if "[yyyy]" in licenseText and "NSS" not in licenseText:
+                    break
+            else:
+                raise RuntimeError(
+                    "Could not find appropriate apache license text")
+
+        # Make a nice human-readable description for the group.
+        # For some licenses we don't want to list all the deps in the title.
+        if license in ("MPL-2.0", "Apache-2.0"):
+            title = make_license_title(license)
+        else:
+            title = make_license_title(license, deps)
+
+        groups.append({
+            "title": title,
+            "dependencies": deps,
+            "license": license,
+            "license_text_hash": licenseTextHash,
+            "license_text": licenseText,
+            "license_url": deps[0].get("license_url", "No license URL for {}".format(title)),
+        })
+
+    # List groups in the order in which we prefer their license, then in alphabetical order
+    # of the dependency names. This ensures a convenient and stable ordering.
+    def sort_key(group):
+        for i, license in enumerate(LICENES_IN_PREFERENCE_ORDER):
+            if group["license"] == license:
+                return (i, [d["name"] for d in group["dependencies"]])
+        return (i + 1, [d["name"] for d in group["dependencies"]])
+
+    groups.sort(key=sort_key)
+    return groups
+
+
+def print_dependency_summary_markdown(deps, file=sys.stdout):
+    """Print a nicely-formatted summary of dependencies and their license info."""
+    def pf(string, *args):
+        if args:
+            string = string.format(*args)
+        print(string, file=file)
 
     pf("# Licenses for Third-Party Dependencies")
     pf("")
@@ -726,62 +915,59 @@ def print_dependency_summary(deps, file=sys.stdout):
     pf("the details of which are reproduced below.")
     pf("")
 
+    sections = group_dependencies_for_printing(deps)
+
     # First a "table of contents" style thing.
-    for licenseTextHash in sections:
-        header = format_license_header(
-            licenseTextHash, depsByLicenseTextHash[licenseTextHash])
-        pf("* [{}](#{})", header, header_to_anchor(header))
+    for section in sections:
+        header = section["title"]
+        anchor = header.lower().replace(" ", "-").replace(".",
+                                                          "").replace(",", "").replace(":", "")
+        pf("* [{}](#{})", header, anchor)
 
     pf("-------------")
 
     # Now the actual license details.
-    for licenseTextHash in sections:
-        deps = sorted(
-            depsByLicenseTextHash[licenseTextHash], key=lambda i: i["name"])
-        licenseText = deps[0]["license_text"]
-        for dep in deps:
-            licenseText = dep["license_text"]
-            # As a bit of a hack, we need to find a copy of the "canonical" apache license text
-            # that still has the copyright placeholders in it, and no project-specific additions.
-            if licenseTextHash != "Apache-2.0":
-                break
-            if "[yyyy]" in licenseText and "NSS" not in licenseText:
-                break
-        else:
-            raise RuntimeError(
-                "Could not find appropriate apache license text")
-        pf("## {}", format_license_header(licenseTextHash, deps))
+    for section in sections:
+        pf("## {}", section["title"])
         pf("")
         pkgs = ["[{}]({})".format(info["name"], info["repository"])
-                for info in deps]
+                for info in section["dependencies"]]
         # Dedupe in case of multiple versons of dependencies.
         pkgs = sorted(set(pkgs))
         pf("The following text applies to code linked from these dependendencies:\n{}", ",\n".join(pkgs))
         pf("")
         pf("```")
-        assert "```" not in licenseText
-        pf("{}", licenseText)
+        assert "```" not in section["license_text"]
+        pf("{}", section["license_text"])
         pf("```")
         pf("-------------")
 
 
-def format_license_header(license, deps):
-    if license == "MPL-2.0":
-        return "Mozilla Public License 2.0"
-    if license == "Apache-2.0":
-        return "Apache License 2.0"
-    if license == "EXT-OPENSSL":
-        return "OpenSSL License"
-    if license == "EXT-SQLITE":
-        return "Optional Notice: SQlite"
-    license = license.split(":")[0]
-    # Dedupe in case of multiple versons of dependencies
-    names = sorted(set(info["name"] for info in deps))
-    return "{} License: {}".format(license, ", ".join(names))
+def print_dependency_summary_pom(deps, file=sys.stdout):
+    """Print a summary of dependencies and their license info in .pom file XML format."""
+    def pf(string, *args):
+        if args:
+            string = string.format(*args)
+        print(string, file=file)
 
+    pf("<licenses>")
+    pf("<!--")
+    pf("Binary distributions of this software incorporate code from a number of third-party dependencies.")
+    pf("These dependencies are available under a variety of free and open source licenses,")
+    pf("the details of which are reproduced below.")
+    pf("-->")
 
-def header_to_anchor(header):
-    return header.lower().replace(" ", "-").replace(".", "").replace(",", "").replace(":", "")
+    sections = group_dependencies_for_printing(deps)
+
+    for section in sections:
+        # For the .pom file we want to list each dependency separately.
+        for dep in section["dependencies"]:
+            pf("  <license>")
+            pf("    <name>{}</name>", saxutils.escape(make_license_title(dep["license"], [dep])))
+            pf("    <url>{}</url>", saxutils.escape(dep["license_url"]))
+            pf("  </license>")
+
+    pf("</licenses>")
 
 
 if __name__ == "__main__":
@@ -793,8 +979,10 @@ if __name__ == "__main__":
                         dest="targets", const=ALL_ANDROID_TARGETS)
     parser.add_argument('--all-ios-targets', action="append_const",
                         dest="targets", const=ALL_IOS_TARGETS)
-    parser.add_argument('--json', action="store_true",
-                        help="output JSON rather than human-readable text")
+    parser.add_argument('--format',
+                        choices=["markdown", "json", "pom"],
+                        default="markdown",
+                        help="output format to generate")
     parser.add_argument('--check', action="store",
                         help="suppress output, instead checking that it matches the given file")
     args = parser.parse_args()
@@ -817,10 +1005,12 @@ if __name__ == "__main__":
     else:
         output = sys.stdout
 
-    if args.json:
+    if args.format == "json":
         json.dump([info for info in deps], output)
+    elif args.format == "pom":
+        print_dependency_summary_pom(deps, file=output)
     else:
-        print_dependency_summary(deps, file=output)
+        print_dependency_summary_markdown(deps, file=output)
 
     if args.check:
         with open(args.check, 'r') as f:

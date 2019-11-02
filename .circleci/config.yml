@@ -123,6 +123,8 @@ commands:
           rust-version: <<parameters.rust-version>>
       - setup-sccache
       - install-clang
+      # clipboard crate depends on some x11 libs.
+      - run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
       - run: |
           echo 'export NSS_STATIC=1' >> $BASH_ENV
           echo 'export NSS_DIR=$(pwd)/libs/desktop/linux-x86-64/nss' >> $BASH_ENV
@@ -161,10 +163,13 @@ commands:
             rustup install nightly
             cargo metadata --locked > /dev/null
             python3 ./tools/dependency_summary.py --check ./DEPENDENCIES.md
-            python3 ./tools/dependency_summary.py --all-android-targets --package megazord --check megazords/full/DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-ios-targets --package megazord_ios --check megazords/ios/DEPENDENCIES.md
+            python3 ./tools/dependency_summary.py --all-android-targets --package megazord --check megazords/full/DEPENDENCIES.md
+            python3 ./tools/dependency_summary.py --all-android-targets --package megazord --format pom --check megazords/full/android/dependency-licenses.xml
             python3 ./tools/dependency_summary.py --all-android-targets --package fenix --check megazords/fenix/DEPENDENCIES.md
+            python3 ./tools/dependency_summary.py --all-android-targets --package fenix --format pom --check megazords/fenix/android/dependency-licenses.xml
             python3 ./tools/dependency_summary.py --all-android-targets --package lockbox --check megazords/lockbox/DEPENDENCIES.md
+            python3 ./tools/dependency_summary.py --all-android-targets --package lockbox --format pom --check megazords/lockbox/android/dependency-licenses.xml
 
   sync-bugzilla-to-github:
     steps:

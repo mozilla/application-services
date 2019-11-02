@@ -4,6 +4,14 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.42.2...master)
 
+## General
+
+### What's New
+
+- On Android, our Megazord libraries now include license information for dependencies
+  as part of their `.pom` file, making it easily available to tools such as the
+   [oss-licenses-plugin](https://github.com/google/play-services-plugins/tree/master/oss-licenses-plugin)
+
 ## Push Client
 
 ### What's new

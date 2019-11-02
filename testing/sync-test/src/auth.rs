@@ -7,6 +7,7 @@ use logins::PasswordEngine;
 use std::collections::HashMap;
 use std::sync::{Arc, Once};
 use sync15::{KeyBundle, Sync15StorageClientInit};
+use tabs::TabsEngine;
 use url::Url;
 
 pub const CLIENT_ID: &str = "3c49430b43dfba77"; // Hrm...
@@ -175,6 +176,7 @@ pub struct TestClient {
     pub test_acct: Arc<TestAccount>,
     // XXX do this more generically...
     pub logins_engine: PasswordEngine,
+    pub tabs_engine: TabsEngine,
 }
 
 impl TestClient {
@@ -201,10 +203,15 @@ impl TestClient {
         fxa.complete_oauth_flow(&query_params["code"], &query_params["state"])?;
         log::info!("OAuth flow finished");
 
+        fxa.initialize_device("Testing Device", fxa_client::device::Type::Desktop, &[])?;
+
+        let device_id = fxa.get_current_device_id()?;
+
         Ok(Self {
             fxa,
             test_acct: acct,
             logins_engine: PasswordEngine::new_in_memory(None)?,
+            tabs_engine: TabsEngine::new(&device_id),
         })
     }
 
@@ -245,6 +252,7 @@ impl TestClient {
     pub fn fully_reset_local_db(&mut self) -> Result<(), failure::Error> {
         // Not great...
         self.logins_engine = PasswordEngine::new_in_memory(None)?;
+        self.tabs_engine = TabsEngine::new(&self.fxa.get_current_device_id()?);
         Ok(())
     }
 }

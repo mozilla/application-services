@@ -60,6 +60,8 @@ fn create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
         .collect::<HashMap<String, String>>();
 
     acct.complete_oauth_flow(&query_params["code"], &query_params["state"])?;
+    // Device registration.
+    acct.initialize_device("CLI Device", fxa_client::device::Type::Desktop, &[])?;
     let mut file = fs::File::create(path)?;
     write!(file, "{}", acct.to_json()?)?;
     file.flush()?;

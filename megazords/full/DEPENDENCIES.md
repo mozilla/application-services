@@ -26,7 +26,7 @@ the details of which are reproduced below.
 * [BSD-3-Clause License: bindgen](#bsd-3-clause-license-bindgen)
 * [BSD-3-Clause License: protobuf](#bsd-3-clause-license-protobuf)
 * [BSD-3-Clause License: sqlcipher](#bsd-3-clause-license-sqlcipher)
-* [Optional Notice: SQlite](#optional-notice-sqlite)
+* [Optional Notice: SQLite](#optional-notice-sqlite)
 -------------
 ## Mozilla Public License 2.0
 
@@ -438,7 +438,7 @@ The following text applies to code linked from these dependendencies:
 [glob](https://github.com/rust-lang/glob),
 [heck](https://github.com/withoutboats/heck),
 [hex](https://github.com/KokaKiwi/rust-hex),
-[humantime](None),
+[humantime](https://github.com/tailhook/humantime),
 [idna](https://github.com/servo/rust-url/),
 [iovec](https://github.com/carllerche/iovec),
 [itertools](https://github.com/bluss/rust-itertools),
@@ -750,7 +750,7 @@ THE SOFTWARE.
 ## MIT License: ansi_term
 
 The following text applies to code linked from these dependendencies:
-[ansi_term](None)
+[ansi_term](https://github.com/ogham/rust-ansi-term)
 
 ```
 The MIT License (MIT)
@@ -1415,7 +1415,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ```
 -------------
-## Optional Notice: SQlite
+## Optional Notice: SQLite
 
 The following text applies to code linked from these dependendencies:
 [sqlite](https://www.sqlite.org/)
