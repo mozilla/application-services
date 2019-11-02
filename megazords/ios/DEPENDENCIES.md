@@ -37,7 +37,7 @@ the details of which are reproduced below.
 * [BSD-3-Clause License: bindgen](#bsd-3-clause-license-bindgen)
 * [BSD-3-Clause License: sqlcipher](#bsd-3-clause-license-sqlcipher)
 * [Zlib License: adler32](#zlib-license-adler32)
-* [Optional Notice: SQlite](#optional-notice-sqlite)
+* [Optional Notice: SQLite](#optional-notice-sqlite)
 -------------
 ## Mozilla Public License 2.0
 
@@ -468,7 +468,7 @@ The following text applies to code linked from these dependendencies:
 [hex](https://github.com/KokaKiwi/rust-hex),
 [http](https://github.com/hyperium/http),
 [httparse](https://github.com/seanmonstar/httparse),
-[humantime](None),
+[humantime](https://github.com/tailhook/humantime),
 [hyper-tls](https://github.com/hyperium/hyper-tls),
 [idna](https://github.com/servo/rust-url/),
 [indexmap](https://github.com/bluss/indexmap),
@@ -792,7 +792,7 @@ THE SOFTWARE.
 ## MIT License: ansi_term
 
 The following text applies to code linked from these dependendencies:
-[ansi_term](None)
+[ansi_term](https://github.com/ogham/rust-ansi-term)
 
 ```
 The MIT License (MIT)
@@ -1818,7 +1818,7 @@ Copyright notice for the original C code from the zlib project:
 
 ```
 -------------
-## Optional Notice: SQlite
+## Optional Notice: SQLite
 
 The following text applies to code linked from these dependendencies:
 [sqlite](https://www.sqlite.org/)
