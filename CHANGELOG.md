@@ -1,3 +1,17 @@
+# v0.42.3 (_2019-11-04_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.42.3...master)
+
+## General
+
+### What's New
+
+- On Android, our Megazord libraries now include license information for dependencies
+  as part of their `.pom` file, making it easily available to tools such as the
+   [oss-licenses-plugin](https://github.com/google/play-services-plugins/tree/master/oss-licenses-plugin)
+
+- Our iOS framework binaries are now built using XCode 11.2.
+
 # v0.42.2 (_2019-10-21_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.42.1...v0.42.2)
