@@ -11,6 +11,10 @@ mod ffi;
 mod storage;
 mod sync;
 
+pub mod msg_types {
+    include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
+}
+
 pub use crate::storage::{ClientRemoteTabs, RemoteTab};
 pub use crate::sync::engine::TabsEngine;
 pub use crate::sync::store::TabsStore;
