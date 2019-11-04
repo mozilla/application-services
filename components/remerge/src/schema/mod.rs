@@ -5,10 +5,10 @@
 pub mod desc;
 
 pub mod error;
+pub mod json;
 pub mod merge_kinds;
-pub mod yaml;
 
 pub use desc::*;
 pub use error::SchemaError;
+pub use json::parse_from_string;
 pub use merge_kinds::*;
-pub use yaml::parse_from_string;

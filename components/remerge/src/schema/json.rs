@@ -16,8 +16,8 @@ use url::Url;
 
 pub const FORMAT_VERSION: usize = 1;
 
-pub fn parse_from_string(yaml: &str, is_remote: bool) -> Result<RecordSchema, SchemaError> {
-    let schema = match serde_yaml::from_str::<RawSchema>(yaml) {
+pub fn parse_from_string(json: &str, is_remote: bool) -> Result<RecordSchema, SchemaError> {
+    let schema = match serde_json::from_str::<RawSchema>(json) {
         Ok(schema) => schema,
         Err(e) => {
             // If it's local then this is just a format error.
@@ -28,7 +28,7 @@ pub fn parse_from_string(yaml: &str, is_remote: bool) -> Result<RecordSchema, Sc
             }
             // If it's remote, then it failed, but it could have failed because
             // it's from a future version. Check that.
-            let version = match serde_yaml::from_str::<JustFormatVersion>(yaml) {
+            let version = match serde_json::from_str::<JustFormatVersion>(json) {
                 Ok(s) => s.format_version,
                 Err(_) => {
                     // Ditto with moving `e` (which we want to use because it can give
@@ -36,12 +36,11 @@ pub fn parse_from_string(yaml: &str, is_remote: bool) -> Result<RecordSchema, Sc
                     return Err(SchemaError::FormatError(e));
                 }
             };
-
-            if version != FORMAT_VERSION {
-                throw!(SchemaError::WrongFormatVersion(version));
-            }
-            // Otherwise, report a format error.
-            return Err(SchemaError::FormatError(e));
+            return Err(if version != FORMAT_VERSION {
+                SchemaError::WrongFormatVersion(version)
+            } else {
+                SchemaError::FormatError(e)
+            });
         }
     };
     let parser = SchemaParser::new(&schema, false);
@@ -137,7 +136,7 @@ pub enum RawFieldType {
     #[serde(rename = "untyped")]
     Untyped {
         #[serde(flatten)]
-        // XXX does using JsonValue here still work now that we use yaml?
+        // XXX does using JsonValue here still work now that we use json?
         common: RawFieldCommon<Option<JsonValue>>,
     },
 
@@ -916,11 +915,7 @@ impl<'a> SchemaParser<'a> {
         if let Some(TimestampDefault::Value(default)) = tsd {
             ensure!(
                 default >= crate::util::EARLIEST_SANE_TIME,
-                FieldError::LazyCatchall(
-                    "Default value for `timestamp` field is before the \
-                     release of the first web browser"
-                        .into()
-                )
+                FieldError::DefaultTimestampTooOld,
             );
         }
         Ok(FieldType::Timestamp {
@@ -940,21 +935,18 @@ impl<'a> SchemaParser<'a> {
             let mut seen: HashSet<&str> = HashSet::with_capacity(s.len());
             for r in s {
                 let id = r.get(id_key).ok_or_else(|| {
-                    FieldError::LazyCatchall(
-                        "record_set default value contains a record without the id_key".into(),
-                    )
+                    FieldError::BadRecordSetDefault(BadRecordSetDefaultKind::IdKeyMissing)
                 })?;
                 if let JsonValue::String(s) = id {
-                    ensure!(!seen.contains(s.as_str()),
-                        FieldError::LazyCatchall(
-                            "record_set default value contains a records duplicate values for id_key".into()
-                        ));
+                    ensure!(
+                        !seen.contains(s.as_str()),
+                        FieldError::BadRecordSetDefault(BadRecordSetDefaultKind::IdKeyDupe),
+                    );
                     seen.insert(s);
                 } else {
                     // We could probably allow numbers...
-                    throw!(FieldError::LazyCatchall(
-                        "record_set default value contains a records with a non-string id_key"
-                            .into()
+                    throw!(FieldError::BadRecordSetDefault(
+                        BadRecordSetDefaultKind::IdKeyInvalidType
                     ));
                 }
             }
@@ -976,25 +968,23 @@ impl<'a> SchemaParser<'a> {
     ) -> Result<(), FieldError> {
         ensure!(
             min.map_or(true, |v| v.sane_value()),
-            FieldError::BadNumBounds
+            FieldError::BadNumBounds,
         );
         ensure!(
             max.map_or(true, |v| v.sane_value()),
-            FieldError::BadNumBounds
+            FieldError::BadNumBounds,
         );
         if min.is_some() || max.is_some() {
             ensure!(if_oob.is_some(), FieldError::NoBoundsCheckInfo);
         }
         ensure!(
             !matches!((min, max), (Some(lo), Some(hi)) if hi < lo),
-            FieldError::BadNumBounds
+            FieldError::BadNumBounds,
         );
         if max.is_some() {
             ensure!(
                 field.get_merge() != Some(ParsedMerge::TakeSum),
-                FieldError::LazyCatchall(
-                    "merge = take_sum is incompatible with specifying a maximum value".into()
-                )
+                FieldError::MergeTakeSumNoMax,
             );
         }
 

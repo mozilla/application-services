@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::desc::*;
+use super::json::ParsedMerge;
 use super::merge_kinds::*;
-use super::yaml::ParsedMerge;
 use failure::Fail;
 
 #[derive(Debug, Clone, Fail)]
@@ -76,8 +76,38 @@ pub enum FieldError {
         got: TimestampMerge,
     },
 
-    #[fail(display = "{}", _0)]
-    LazyCatchall(String),
+    // There are a few cases here, it doesn't feel worth it to merge them
+    // somehow.
+    #[fail(display = "record_set has illegal default value: {}", _0)]
+    BadRecordSetDefault(BadRecordSetDefaultKind),
+
+    #[fail(display = "merge strategy 'take_sum' forbids specifying a 'max' value")]
+    MergeTakeSumNoMax,
+
+    #[fail(
+        display = "Illegal default timestamp. Must be after the release of the first web browser"
+    )]
+    DefaultTimestampTooOld,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum BadRecordSetDefaultKind {
+    IdKeyMissing,
+    IdKeyDupe,
+    IdKeyInvalidType,
+}
+
+impl std::fmt::Display for BadRecordSetDefaultKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use BadRecordSetDefaultKind::*;
+        match self {
+            IdKeyMissing => f.write_str("contains an item without an id_key"),
+            IdKeyDupe => f.write_str("contains an item with a duplicate id_key"),
+            IdKeyInvalidType => f.write_str(
+                "contains an item with an id_key with an invalid type (must be a string)",
+            ),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -88,9 +118,10 @@ pub enum SemverProp {
 
 impl std::fmt::Display for SemverProp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use SemverProp::*;
         match self {
-            SemverProp::Version => f.write_str("version"),
-            SemverProp::RequiredVersion => f.write_str("required_version"),
+            Version => f.write_str("version"),
+            RequiredVersion => f.write_str("required_version"),
         }
     }
 }
@@ -98,7 +129,7 @@ impl std::fmt::Display for SemverProp {
 #[derive(Debug, Fail)]
 pub enum SchemaError {
     #[fail(display = "Schema format error: {}", _0)]
-    FormatError(#[fail(cause)] serde_yaml::Error),
+    FormatError(#[fail(cause)] serde_json::Error),
 
     #[fail(display = "Cannot parse format_version: {}", _0)]
     WrongFormatVersion(usize),
@@ -206,9 +237,6 @@ pub enum SchemaError {
         version: semver::Version,
         req: semver::VersionReq,
     },
-
-    #[fail(display = "{}", _0)]
-    LazyCatchall(String),
 }
 
 pub type SchemaResult<T> = std::result::Result<T, SchemaError>;

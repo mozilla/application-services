@@ -25,18 +25,22 @@ pub fn is_base64url_byte(b: u8) -> bool {
 }
 
 /// Return with the provided Err(error) after invoking Into conversions
-#[macro_export]
+///
+/// Essentially equivalent to explicitly writing `Err(e)?`, but logs the error,
+/// and is more well-behaved from a type-checking perspective.
 macro_rules! throw {
-    ($e:expr) => {{
+    ($e:expr $(,)?) => {{
         log::error!("Error: {}", $e);
-        return Err(::std::convert::Into::into($e));
+        return Err(std::convert::Into::into($e));
     }};
 }
 
 /// Like assert! but with `throw!` and not `panic!`.
-#[macro_export]
+///
+/// Equivalent to explicitly writing `if !cond { throw!(e) }`, but logs what the
+/// failed condition was (at warning levels).
 macro_rules! ensure {
-    ($cond:expr, $e:expr) => {
+    ($cond:expr, $e:expr $(,)?) => {
         if !($cond) {
             log::warn!(concat!("Ensure ", stringify!($cond), " failed!"));
             throw!($e)
