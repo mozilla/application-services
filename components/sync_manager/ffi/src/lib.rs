@@ -37,6 +37,18 @@ pub extern "C" fn sync_manager_set_logins(_logins_handle: u64, error: &mut Exter
 }
 
 #[no_mangle]
+pub extern "C" fn sync_manager_set_tabs(_tabs_handle: u64, error: &mut ExternError) {
+    ffi_support::call_with_result(error, || -> MgrResult<()> {
+        log::debug!("sync_manager_set_tabs");
+        let api = tabs_ffi::ENGINES.get_u64(_tabs_handle, |api| -> Result<_, HandleError> {
+            Ok(std::sync::Arc::clone(api))
+        })?;
+        sync_manager::set_tabs(api);
+        Ok(())
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn sync_manager_disconnect(error: &mut ExternError) {
     ffi_support::call_with_output(error, || {
         log::debug!("sync_manager_disconnect");

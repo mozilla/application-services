@@ -12,5 +12,6 @@ sync15 = { path = "../../sync15" }
 ffi-support = { path = "../../support/ffi" }
 places-ffi = { path = "../../places/ffi" }
 logins_ffi = { path = "../../logins/ffi" }
+tabs_ffi = { path = "../../tabs/ffi" }
 prost = "0.5.0"
 log = "0.4.7"
