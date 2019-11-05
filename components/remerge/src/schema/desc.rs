@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::merge_kinds::*;
+use index_vec::IndexVec;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
@@ -12,7 +13,12 @@ use url::Url;
 pub const REMERGE_FEATURES_UNDERSTOOD: &[&str] = &["record_set", "untyped_map"];
 
 pub type JsonObject = serde_json::Map<String, JsonValue>;
-pub type FieldIndex = usize;
+
+index_vec::define_index_type! {
+    /// Newtype wrapper around usize, referring into the `fields` vec in a
+    /// RecordSchema
+    pub struct FieldIndex = usize;
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RecordSchema {
@@ -22,7 +28,7 @@ pub struct RecordSchema {
     pub remerge_features_used: Vec<String>,
 
     pub legacy: bool,
-    pub fields: Vec<Field>,
+    pub fields: IndexVec<FieldIndex, Field>,
     pub field_map: HashMap<String, FieldIndex>,
 
     pub dedupe_on: Vec<FieldIndex>,

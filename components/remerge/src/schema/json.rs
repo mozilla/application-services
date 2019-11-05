@@ -1,13 +1,20 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-// Clippy doesn't like serde's output...
+
+//! This module is concerned primarially with schema parsing (from RawSchema,
+//! e.g. the schema represented as JSON), and validation. It's a little bit
+//! hairy, and for the definitive documentation, you should refer to the
+
+// Clippy seems to be upset about serde's output:
+// https://github.com/rust-lang/rust-clippy/issues/4326
 #![allow(clippy::type_repetition_in_bounds)]
 
 use super::desc::*;
 use super::error::*;
 use super::merge_kinds::*;
 use crate::util::is_default;
+use index_vec::IndexVec;
 use matches::matches;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -352,11 +359,11 @@ struct SchemaParser<'a> {
     is_remote: bool,
     input_fields: HashMap<String, &'a RawFieldType>,
 
-    parsed_fields: Vec<Field>,
+    parsed_fields: IndexVec<FieldIndex, Field>,
     dedupe_ons: HashSet<String>,
     possible_composite_roots: HashSet<String>,
     composite_members: HashSet<String>,
-    indices: HashMap<String, usize>,
+    indices: HashMap<String, FieldIndex>,
 }
 
 fn parse_version(v: &str, prop: SemverProp) -> SchemaResult<semver::Version> {
@@ -420,7 +427,7 @@ impl<'a> SchemaParser<'a> {
             .fields
             .iter()
             .enumerate()
-            .map(|(i, f)| (f.name().to_string(), i))
+            .map(|(i, f)| (f.name().to_string(), FieldIndex::from(i)))
             .collect();
 
         Self {
@@ -428,7 +435,7 @@ impl<'a> SchemaParser<'a> {
             is_remote,
             indices,
             input_fields: repr.fields.iter().map(|f| (f.name().into(), f)).collect(),
-            parsed_fields: Vec::with_capacity(repr.fields.len()),
+            parsed_fields: IndexVec::with_capacity(repr.fields.len()),
             // parsed_composites: HashMap::new(),
             dedupe_ons: repr.dedupe_on.iter().cloned().collect(),
             possible_composite_roots: composite_roots,
@@ -473,8 +480,8 @@ impl<'a> SchemaParser<'a> {
             return Err(SchemaError::MissingRemergeFeature(f.clone()));
         }
 
-        let mut own_guid_idx: Option<usize> = None;
-        let mut updated_at_idx: Option<usize> = None;
+        let mut own_guid_idx: Option<FieldIndex> = None;
+        let mut updated_at_idx: Option<FieldIndex> = None;
 
         for (i, field) in self.input.fields.iter().enumerate() {
             let parsed = self.parse_field(field)?;
@@ -482,14 +489,14 @@ impl<'a> SchemaParser<'a> {
             match &parsed.ty {
                 FieldType::OwnGuid { .. } => {
                     ensure!(own_guid_idx.is_none(), SchemaError::MultipleOwnGuid);
-                    own_guid_idx = Some(i);
+                    own_guid_idx = Some(i.into());
                 }
                 FieldType::Timestamp {
                     semantic: Some(TimestampSemantic::UpdatedAt),
                     ..
                 } => {
                     ensure!(updated_at_idx.is_none(), SchemaError::MultipleUpdateAt);
-                    updated_at_idx = Some(i);
+                    updated_at_idx = Some(i.into());
                 }
                 _ => {}
             }
