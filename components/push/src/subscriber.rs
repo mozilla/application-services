@@ -155,7 +155,7 @@ impl PushManager {
             })?;
         let key = Key::deserialize(&val.key)?;
         let decrypted = Crypto::decrypt(&key, body, encoding, salt, dh)
-            .map_err(|e| ErrorKind::EncryptionError(format!("{:?}", e)))?;
+            .map_err(|e| ErrorKind::CryptoError(format!("{:?}", e)))?;
         serde_json::to_string(&decrypted)
             .map_err(|e| ErrorKind::TranscodingError(format!("{:?}", e)).into())
     }
@@ -195,7 +195,6 @@ impl PushManager {
 #[cfg(test)]
 mod test {
     use super::*;
-    use openssl::rand::rand_bytes;
 
     #[test]
     fn basic() -> Result<()> {
@@ -225,7 +224,7 @@ mod test {
 
     #[test]
     fn full() -> Result<()> {
-        use ece;
+        use rc_crypto::ece;
         use serde_json;
 
         let data_string = b"Mary had a little lamb, with some nice mint jelly";
@@ -240,8 +239,8 @@ mod test {
         // Act like a subscription provider, so create a "local" key to encrypt the data
         let mut auth_secret = vec![0u8; 16];
         let mut salt = vec![0u8; 16];
-        rand_bytes(&mut auth_secret)?;
-        rand_bytes(&mut salt)?;
+        rc_crypto::rand::fill(&mut auth_secret).unwrap();
+        rc_crypto::rand::fill(&mut salt).unwrap();
         let ciphertext = ece::encrypt(&key.public_key(), &key.auth, &salt, data_string).unwrap();
         let body = base64::encode_config(&ciphertext, base64::URL_SAFE_NO_PAD);
 
@@ -254,5 +253,4 @@ mod test {
         );
         Ok(())
     }
-
 }

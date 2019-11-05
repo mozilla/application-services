@@ -14,11 +14,9 @@
 /// contains the tab to send and finally forms the `EncryptedSendTabPayload` that is
 /// then sent to the target device.
 use crate::{device::Device, error::*, scoped_keys::ScopedKey, scopes};
-use ece::{
-    Aes128GcmEceWebPushImpl, EcKeyComponents, LocalKeyPair, LocalKeyPairImpl, RemotePublicKey,
-    RemotePublicKeyImpl, WebPushParams,
-};
 use hex;
+use rc_crypto::ece::{self, Aes128GcmEceWebPush, EcKeyComponents, WebPushParams};
+use rc_crypto::ece_crypto::{RcCryptoLocalKeyPair, RcCryptoRemotePublicKey};
 use serde_derive::*;
 use sync15::{EncryptedPayload, KeyBundle};
 
@@ -32,10 +30,10 @@ pub struct EncryptedSendTabPayload {
 
 impl EncryptedSendTabPayload {
     pub(crate) fn decrypt(self, keys: &PrivateSendTabKeysV1) -> Result<SendTabPayload> {
+        rc_crypto::ensure_initialized();
         let encrypted = base64::decode_config(&self.encrypted, base64::URL_SAFE_NO_PAD)?;
-        let private_key = LocalKeyPairImpl::from_raw_components(&keys.p256key)?;
-        let decrypted =
-            Aes128GcmEceWebPushImpl::decrypt(&private_key, &keys.auth_secret, &encrypted)?;
+        let private_key = RcCryptoLocalKeyPair::from_raw_components(&keys.p256key)?;
+        let decrypted = Aes128GcmEceWebPush::decrypt(&private_key, &keys.auth_secret, &encrypted)?;
         Ok(serde_json::from_slice(&decrypted)?)
     }
 }
@@ -55,11 +53,12 @@ impl SendTabPayload {
         }
     }
     fn encrypt(&self, keys: PublicSendTabKeys) -> Result<EncryptedSendTabPayload> {
+        rc_crypto::ensure_initialized();
         let bytes = serde_json::to_vec(&self)?;
         let public_key = base64::decode_config(&keys.public_key, base64::URL_SAFE_NO_PAD)?;
-        let public_key = RemotePublicKeyImpl::from_raw(&public_key)?;
+        let public_key = RcCryptoRemotePublicKey::from_raw(&public_key)?;
         let auth_secret = base64::decode_config(&keys.auth_secret, base64::URL_SAFE_NO_PAD)?;
-        let encrypted = Aes128GcmEceWebPushImpl::encrypt(
+        let encrypted = Aes128GcmEceWebPush::encrypt(
             &public_key,
             &auth_secret,
             &bytes,
@@ -109,6 +108,7 @@ impl PrivateSendTabKeys {
 
 impl PrivateSendTabKeys {
     pub fn from_random() -> Result<Self> {
+        rc_crypto::ensure_initialized();
         let (key_pair, auth_secret) = ece::generate_keypair_and_auth_secret()?;
         Ok(Self {
             p256key: key_pair.raw_components()?,

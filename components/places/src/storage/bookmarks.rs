@@ -3,10 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::RowId;
+use super::{delete_meta, put_meta};
 use super::{fetch_page_info, new_page_info};
+use crate::bookmark_sync;
 use crate::db::PlacesDb;
 use crate::error::*;
-use crate::types::{BookmarkType, SyncGuid, SyncStatus, Timestamp};
+use crate::types::{BookmarkType, SyncStatus, Timestamp};
 use rusqlite::types::ToSql;
 use rusqlite::{Connection, Row};
 use serde::{
@@ -19,6 +21,7 @@ use serde_json::{self, json};
 use sql_support::{self, ConnExt};
 use std::cmp::{max, min};
 use std::collections::HashMap;
+use sync_guid::Guid as SyncGuid;
 use url::Url;
 
 pub use public_node::PublicNode;
@@ -45,7 +48,7 @@ fn create_root(
              (SELECT id FROM moz_bookmarks WHERE guid = {:?}),
              1, :sync_status)
         ",
-        BookmarkRootGuid::Root.as_guid().as_ref()
+        BookmarkRootGuid::Root.as_guid().as_str()
     );
     let params: Vec<(&str, &dyn ToSql)> = vec![
         (":item_type", &BookmarkType::Folder),
@@ -251,10 +254,10 @@ pub fn insert_bookmark(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid> {
     result
 }
 
-pub fn maybe_truncate_title(t: &Option<String>) -> Option<&str> {
+pub fn maybe_truncate_title<'a>(t: &Option<&'a str>) -> Option<&'a str> {
     use super::TITLE_LENGTH_MAX;
     use crate::util::slice_up_to;
-    t.as_ref().map(|title| slice_up_to(title, TITLE_LENGTH_MAX))
+    t.map(|title| slice_up_to(title, TITLE_LENGTH_MAX))
 }
 
 fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid> {
@@ -290,7 +293,7 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
               (:fk, :type, :parent, :position, :title, :dateAdded, :lastModified,
                :guid, :syncStatus, :syncChangeCounter)";
 
-    let guid = bm.guid().clone().unwrap_or_else(SyncGuid::new);
+    let guid = bm.guid().clone().unwrap_or_else(SyncGuid::random);
     let date_added = bm.date_added().unwrap_or_else(Timestamp::now);
     // last_modified can't be before date_added
     let last_modified = max(
@@ -301,7 +304,7 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
     let bookmark_type = bm.bookmark_type();
     match bm {
         InsertableItem::Bookmark(ref b) => {
-            let title = maybe_truncate_title(&b.title);
+            let title = maybe_truncate_title(&b.title.as_ref().map(String::as_str));
             db.execute_named_cached(
                 sql,
                 &[
@@ -334,7 +337,7 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
             )?;
         }
         InsertableItem::Folder(ref f) => {
-            let title = maybe_truncate_title(&f.title);
+            let title = maybe_truncate_title(&f.title.as_ref().map(String::as_str));
             db.execute_named_cached(
                 sql,
                 &[
@@ -375,7 +378,7 @@ pub fn delete_bookmark(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
 
 fn delete_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
     // Can't delete a root.
-    if let Some(root) = guid.as_root() {
+    if let Some(root) = BookmarkRootGuid::well_known(&guid.as_str()) {
         return Err(InvalidPlaceInfo::CannotUpdateRoot(root).into());
     }
     let record = match get_raw_bookmark(db, guid)? {
@@ -500,7 +503,8 @@ fn update_bookmark_in_tx(
     item: &UpdatableItem,
     raw: RawBookmark,
 ) -> Result<()> {
-    if guid.is_root() {
+    // if guid is root
+    if BookmarkRootGuid::well_known(&guid.as_str()).is_some() {
         return Err(InvalidPlaceInfo::CannotUpdateRoot(BookmarkRootGuid::Root).into());
     }
     let existing_parent_guid = raw
@@ -622,7 +626,10 @@ fn update_bookmark_in_tx(
             (":fk", &place_id),
             (":parent", &parent_id),
             (":position", &position),
-            (":title", &maybe_truncate_title(&title)),
+            (
+                ":title",
+                &maybe_truncate_title(&title.as_ref().map(String::as_str)),
+            ),
             (":now", &now),
             (":change_incr", &(change_incr as u32)),
             (":id", &raw.row_id),
@@ -899,13 +906,30 @@ impl<'de> Deserialize<'de> for BookmarkTreeNode {
     }
 }
 
+/// Get the URL of the bookmark matching a keyword
+pub fn bookmarks_get_url_for_keyword(db: &PlacesDb, keyword: &str) -> Result<Option<Url>> {
+    let bookmark_url = db.try_query_row(
+        "SELECT url FROM moz_places p
+        JOIN moz_bookmarks_synced b ON b.placeId = p.id
+        WHERE b.keyword = :keyword",
+        &[(":keyword", &keyword)],
+        |row| row.get::<_, String>("url"),
+        true,
+    )?;
+
+    match bookmark_url {
+        Some(b) => Ok(Some(Url::parse(&b)?)),
+        None => Ok(None),
+    }
+}
+
 #[cfg(test)]
 mod test_serialize {
     use super::*;
 
     #[test]
     fn test_tree_serialize() -> Result<()> {
-        let guid = SyncGuid::new();
+        let guid = SyncGuid::random();
         let tree = BookmarkTreeNode::Folder(FolderNode {
             guid: Some(guid.clone()),
             date_added: None,
@@ -997,7 +1021,6 @@ mod test_serialize {
 
         Ok(())
     }
-
 }
 
 fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Vec<InsertableItem>) {
@@ -1031,7 +1054,7 @@ fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Ve
                 .into(),
             ),
             BookmarkTreeNode::Folder(f) => {
-                let my_guid = f.guid.clone().unwrap_or_else(SyncGuid::new);
+                let my_guid = f.guid.clone().unwrap_or_else(SyncGuid::random);
                 // must add the folder before we recurse into children.
                 insert_infos.push(
                     InsertableFolder {
@@ -1048,6 +1071,40 @@ fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Ve
             }
         };
     }
+}
+
+/// Erases all bookmarks and resets all Sync metadata.
+pub fn delete_everything(db: &PlacesDb) -> Result<()> {
+    let tx = db.begin_transaction()?;
+    delete_everything_in_tx(db)?;
+    tx.commit()?;
+    Ok(())
+}
+
+fn delete_everything_in_tx(db: &PlacesDb) -> Result<()> {
+    db.execute_batch(&format!(
+        "DELETE FROM moz_bookmarks_synced;
+
+         DELETE FROM moz_bookmarks_deleted;
+
+         DELETE FROM moz_bookmarks
+         WHERE guid NOT IN ('{}', '{}', '{}', '{}', '{}');
+
+         UPDATE moz_bookmarks
+         SET syncChangeCounter = 1,
+             syncStatus = {}",
+        BookmarkRootGuid::Root.as_str(),
+        BookmarkRootGuid::Menu.as_str(),
+        BookmarkRootGuid::Mobile.as_str(),
+        BookmarkRootGuid::Toolbar.as_str(),
+        BookmarkRootGuid::Unfiled.as_str(),
+        (SyncStatus::New as u8)
+    ))?;
+    bookmark_sync::create_synced_bookmark_roots(db)?;
+    put_meta(db, bookmark_sync::store::LAST_SYNC_META_KEY, &0)?;
+    delete_meta(db, bookmark_sync::store::GLOBAL_SYNCID_META_KEY)?;
+    delete_meta(db, bookmark_sync::store::COLLECTION_SYNCID_META_KEY)?;
+    Ok(())
 }
 
 pub fn insert_tree(db: &PlacesDb, tree: &FolderNode) -> Result<()> {
@@ -1407,6 +1464,57 @@ mod tests {
     }
 
     #[test]
+    fn test_bookmark_url_for_keyword() -> Result<()> {
+        let conn = new_mem_connection();
+
+        let url = Url::parse("http://example.com")
+            .expect("valid url")
+            .into_string();
+
+        conn.execute_named_cached(
+            "INSERT INTO moz_places (guid, url, url_hash) VALUES ('fake_guid___', :url, hash(:url))",
+            &[(":url", &url)],
+        )
+        .expect("should work");
+        let place_id = conn.last_insert_rowid();
+
+        // create a bookmark with keyword 'donut' pointing at it.
+        conn.execute_named_cached(
+            "INSERT INTO moz_bookmarks_synced
+                (keyword, placeId, guid)
+            VALUES
+                ('donut', :place_id, 'fake_guid___')",
+            &[(":place_id", &place_id)],
+        )
+        .expect("should work");
+
+        assert_eq!(
+            bookmarks_get_url_for_keyword(&conn, "donut")?,
+            Some(Url::parse("http://example.com")?)
+        );
+        assert_eq!(bookmarks_get_url_for_keyword(&conn, "juice")?, None);
+
+        // now change the keyword to 'ice cream'
+        conn.execute_named_cached(
+            "REPLACE INTO moz_bookmarks_synced
+                (keyword, placeId, guid)
+            VALUES
+                ('ice cream', :place_id, 'fake_guid___')",
+            &[(":place_id", &place_id)],
+        )
+        .expect("should work");
+
+        assert_eq!(
+            bookmarks_get_url_for_keyword(&conn, "ice cream")?,
+            Some(Url::parse("http://example.com")?)
+        );
+        assert_eq!(bookmarks_get_url_for_keyword(&conn, "donut")?, None);
+        assert_eq!(bookmarks_get_url_for_keyword(&conn, "ice")?, None);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_insert() -> Result<()> {
         let _ = env_logger::try_init();
         let conn = new_mem_connection();
@@ -1485,10 +1593,10 @@ mod tests {
         let _ = env_logger::try_init();
         let conn = new_mem_connection();
 
-        let guid1 = SyncGuid::new();
-        let guid2 = SyncGuid::new();
-        let guid2_1 = SyncGuid::new();
-        let guid3 = SyncGuid::new();
+        let guid1 = SyncGuid::random();
+        let guid2 = SyncGuid::random();
+        let guid2_1 = SyncGuid::random();
+        let guid3 = SyncGuid::random();
 
         let jtree = json!({
             "guid": &BookmarkRootGuid::Unfiled.as_guid(),
@@ -2228,4 +2336,70 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_delete_everything() -> Result<()> {
+        let _ = env_logger::try_init();
+        let conn = new_mem_connection();
+
+        insert_bookmark(
+            &conn,
+            &InsertableFolder {
+                parent_guid: BookmarkRootGuid::Unfiled.into(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: Some("folderAAAAAA".into()),
+                title: Some("A".into()),
+            }
+            .into(),
+        )?;
+        insert_bookmark(
+            &conn,
+            &InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.into(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: Some("bookmarkBBBB".into()),
+                url: Url::parse("http://example.com/b")?,
+                title: Some("B".into()),
+            }
+            .into(),
+        )?;
+        insert_bookmark(
+            &conn,
+            &InsertableBookmark {
+                parent_guid: "folderAAAAAA".into(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: Some("bookmarkCCCC".into()),
+                url: Url::parse("http://example.com/c")?,
+                title: Some("C".into()),
+            }
+            .into(),
+        )?;
+
+        delete_everything(&conn)?;
+
+        let (tree, _, _) =
+            fetch_tree(&conn, &BookmarkRootGuid::Root.into(), &FetchDepth::Deepest)?.unwrap();
+        if let BookmarkTreeNode::Folder(root) = tree {
+            assert_eq!(root.children.len(), 4);
+            let unfiled = root
+                .children
+                .iter()
+                .find(|c| c.guid() == BookmarkRootGuid::Unfiled.guid())
+                .expect("Should return unfiled root");
+            if let BookmarkTreeNode::Folder(unfiled) = unfiled {
+                assert!(unfiled.children.is_empty());
+            } else {
+                panic!("The unfiled root should be a folder");
+            }
+        } else {
+            panic!("`fetch_tree` should return the Places root folder");
+        }
+
+        Ok(())
+    }
 }

@@ -4,48 +4,48 @@
 
 set -euvx
 
-if [ "${#}" -ne 6 ]
+if [[ "${#}" -ne 6 ]]
 then
     echo "Usage:"
-    echo "./build-sqlcipher-android.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <TOOLCHAIN_PATH> <TOOLCHAIN> <ANDROID_NDK_API_VERSION> <OPENSSL_DIR>"
+    echo "./build-sqlcipher-android.sh <ABSOLUTE_SRC_DIR> <DIST_DIR> <TOOLCHAIN_PATH> <TOOLCHAIN> <ANDROID_NDK_API_VERSION> <NSS_DIR>"
     exit 1
 fi
 
-SQLCIPHER_DIR=${1}
+SQLCIPHER_SRC_DIR=${1}
 DIST_DIR=${2}
 TOOLCHAIN_PATH=${3}
 TOOLCHAIN=${4}
 ANDROID_NDK_API_VERSION=${5}
-OPENSSL_DIR=${6}
+NSS_DIR=${6}
 
-if [ -d "${DIST_DIR}" ]; then
-  echo "${DIST_DIR}"" folder already exists. Skipping build."
+if [[ -d "${DIST_DIR}" ]]; then
+  echo "${DIST_DIR} folder already exists. Skipping build."
   exit 0
 fi
 
-cd "${SQLCIPHER_DIR}"
+export AR="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ar"
+export CC="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}${ANDROID_NDK_API_VERSION}-clang"
+export CXX="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}${ANDROID_NDK_API_VERSION}-clang++"
+# https://developer.android.com/ndk/guides/other_build_systems:
+# For 32-bit ARM, the compiler is prefixed with armv7a-linux-androideabi,
+# but the binutils tools are prefixed with arm-linux-androideabi.
+if [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]]; then
+  export CC="${TOOLCHAIN_PATH}/bin/armv7a-linux-androideabi${ANDROID_NDK_API_VERSION}-clang"
+  export CXX="${TOOLCHAIN_PATH}/bin/armv7a-linux-androideabi${ANDROID_NDK_API_VERSION}-clang++"
+fi
+export LD="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ld"
+export RANLIB="${TOOLCHAIN_PATH}/bin/${TOOLCHAIN}-ranlib"
 
-export TOOLCHAIN_BIN="${TOOLCHAIN_PATH}""/bin/"
-export CC="${TOOLCHAIN_BIN}""${TOOLCHAIN}""-gcc"
-export CXX="${TOOLCHAIN_BIN}""${TOOLCHAIN}""-g++"
-export RANLIB="${TOOLCHAIN_BIN}""${TOOLCHAIN}""-ranlib"
-export LD="${TOOLCHAIN_BIN}""${TOOLCHAIN}""-ld"
-export AR="${TOOLCHAIN_BIN}""${TOOLCHAIN}""-ar"
-export CFLAGS="-D__ANDROID_API__=${ANDROID_NDK_API_VERSION}"
-
-SQLCIPHER_OUTPUT_PATH="/tmp/sqlcipher-""${TOOLCHAIN}_${$}"
-mkdir -p "${SQLCIPHER_OUTPUT_PATH}"
-
-if [ "${TOOLCHAIN}" == "x86_64-linux-android" ]
+if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]]
 then
   HOST="x86_64-linux"
-elif [ "${TOOLCHAIN}" == "i686-linux-android" ]
+elif [[ "${TOOLCHAIN}" == "i686-linux-android" ]]
 then
   HOST="i686-linux"
-elif [ "${TOOLCHAIN}" == "aarch64-linux-android" ]
+elif [[ "${TOOLCHAIN}" == "aarch64-linux-android" ]]
 then
   HOST="arm-linux"
-elif [ "${TOOLCHAIN}" == "arm-linux-androideabi" ]
+elif [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]]
 then
   HOST="arm-linux"
 else
@@ -76,30 +76,68 @@ SQLCIPHER_CFLAGS=" \
   -DSQLITE_ENABLE_FTS3_PARENTHESIS \
   -DSQLITE_ENABLE_FTS4 \
   -DSQLITE_ENABLE_FTS5 \
-  -DSQLCIPHER_CRYPTO_OPENSSL \
+  -DSQLCIPHER_CRYPTO_NSS \
   -DSQLITE_ENABLE_DBSTAT_VTAB \
   -DSQLITE_SECURE_DELETE \
   -DSQLITE_DEFAULT_PAGE_SIZE=32768 \
   -DSQLITE_MAX_DEFAULT_PAGE_SIZE=32768 \
+  -I${NSS_DIR}/include \
 "
 
-make clean || true
+LIBS="\
+  -lcertdb \
+  -lcerthi \
+  -lcryptohi \
+  -lfreebl_static \
+  -lhw-acc-crypto \
+  -lnspr4 \
+  -lnss_static \
+  -lnssb \
+  -lnssdev \
+  -lnsspki \
+  -lnssutil \
+  -lpk11wrap_static \
+  -lplc4 \
+  -lplds4 \
+  -lsoftokn_static \
+"
 
-./configure --prefix="${SQLCIPHER_OUTPUT_PATH}" \
+if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]] || [[ "${TOOLCHAIN}" == "i686-linux-android" ]]; then
+  LIBS="${LIBS} -lgcm-aes-x86_c_lib"
+elif [[ "${TOOLCHAIN}" == "aarch64-linux-android" ]]; then
+  LIBS="${LIBS} -lgcm-aes-aarch64_c_lib"
+fi
+if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]]; then
+  LIBS="${LIBS} -lintel-gcm-wrap_c_lib -lintel-gcm-s_lib"
+fi
+
+BUILD_DIR=$(mktemp -d)
+pushd "${BUILD_DIR}"
+
+"${SQLCIPHER_SRC_DIR}/configure" \
   --host="${HOST}" \
-  --enable-tempstore=always \
-  CFLAGS="${CFLAGS} ${SQLCIPHER_CFLAGS} -I${OPENSSL_DIR}/include -L${OPENSSL_DIR}/lib" \
-  LIBS="-lcrypto -llog -lm" \
-  LDFLAGS="${OPENSSL_DIR}/lib/libcrypto.a "
+  --with-pic \
+  --verbose \
+  --disable-shared \
+  --with-crypto-lib=none \
+  --disable-tcl \
+  --enable-tempstore=yes \
+  CFLAGS="${SQLCIPHER_CFLAGS}" \
+  LDFLAGS="-L${NSS_DIR}/lib" \
+  LIBS="${LIBS} -llog -lm"
 
-make -j6
-make install
+make sqlite3.h
+make sqlite3ext.h
+make libsqlcipher.la
 
-mkdir -p "${DIST_DIR}""/include/sqlcipher"
-mkdir -p "${DIST_DIR}""/lib"
+mkdir -p "${DIST_DIR}/include/sqlcipher"
+mkdir -p "${DIST_DIR}/lib"
 
-cp -p "${SQLCIPHER_OUTPUT_PATH}"/lib/libsqlcipher.a "${DIST_DIR}"/lib/libsqlcipher.a
+cp -p "${BUILD_DIR}/sqlite3.h" "${DIST_DIR}/include/sqlcipher"
+cp -p "${BUILD_DIR}/sqlite3ext.h" "${DIST_DIR}/include/sqlcipher"
+cp -p "${BUILD_DIR}/.libs/libsqlcipher.a" "${DIST_DIR}/lib"
 
 # Just in case, ensure that the created binaries are not -w.
-chmod +w "${DIST_DIR}"/lib/libsqlcipher.a
-rm -rf "${SQLCIPHER_OUTPUT_PATH}"
+chmod +w "${DIST_DIR}/lib/libsqlcipher.a"
+
+popd

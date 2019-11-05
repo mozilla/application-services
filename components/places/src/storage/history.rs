@@ -7,14 +7,18 @@ use crate::db::PlacesDb;
 use crate::error::Result;
 use crate::frecency;
 use crate::hash;
+use crate::history_sync::store::{
+    COLLECTION_SYNCID_META_KEY, GLOBAL_SYNCID_META_KEY, LAST_SYNC_META_KEY,
+};
 use crate::msg_types::{HistoryVisitInfo, HistoryVisitInfos};
 use crate::observation::VisitObservation;
-use crate::storage::{delete_pending_temp_tables, get_meta, put_meta};
-use crate::types::{SyncGuid, SyncStatus, Timestamp, VisitTransition, VisitTransitionSet};
+use crate::storage::{delete_meta, delete_pending_temp_tables, get_meta, put_meta};
+use crate::types::{SyncStatus, Timestamp, VisitTransition, VisitTransitionSet};
 use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
 use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt};
+use sync_guid::Guid as SyncGuid;
 use url::Url;
 
 /// When `delete_everything` is called (to perform a permanent local deletion), in
@@ -259,24 +263,33 @@ pub fn prune_destructively(db: &PlacesDb) -> Result<()> {
 
 pub fn wipe_local(db: &PlacesDb) -> Result<()> {
     let tx = db.begin_transaction()?;
-    wipe_local_in_tx(db, tx)?;
+    wipe_local_in_tx(db)?;
+    tx.commit()?;
+    // Note: SQLite cannot VACUUM within a transaction.
+    db.execute_batch("VACUUM")?;
     Ok(())
 }
 
-fn wipe_local_in_tx(db: &PlacesDb, tx: crate::db::PlacesTransaction<'_>) -> Result<()> {
+fn wipe_local_in_tx(db: &PlacesDb) -> Result<()> {
     use crate::frecency::DEFAULT_FRECENCY_SETTINGS;
     db.execute_all(&[
         "DELETE FROM moz_places WHERE foreign_count == 0",
         "DELETE FROM moz_historyvisits",
         "DELETE FROM moz_places_tombstones",
-        "DELETE FROM moz_inputhistory",
+        "DELETE FROM moz_inputhistory AS i WHERE NOT EXISTS(
+             SELECT 1 FROM moz_places h
+             WHERE h.id = i.place_id)",
         "DELETE FROM moz_historyvisit_tombstones",
         "DELETE FROM moz_origins
          WHERE id NOT IN (SELECT origin_id FROM moz_places)",
         &format!(
-            "UPDATE moz_places SET
-                frecency = {unvisited_bookmark_frec},
-                sync_change_counter = 0",
+            r#"UPDATE moz_places SET
+                frecency = (CASE WHEN url_hash BETWEEN hash("place", "prefix_lo") AND
+                                                       hash("place", "prefix_hi")
+                                 THEN 0
+                                 ELSE {unvisited_bookmark_frec}
+                            END),
+                sync_change_counter = 0"#,
             unvisited_bookmark_frec = DEFAULT_FRECENCY_SETTINGS.unvisited_bookmark_bonus
         ),
     ])?;
@@ -289,9 +302,6 @@ fn wipe_local_in_tx(db: &PlacesDb, tx: crate::db::PlacesTransaction<'_>) -> Resu
         update_frecency(db, row_id, None)?;
     }
     delete_pending_temp_tables(db)?;
-    tx.commit()?;
-    // Note: SQLite cannot VACUUM within a transaction.
-    db.conn().execute("VACUUM", NO_PARAMS)?;
     Ok(())
 }
 
@@ -313,7 +323,17 @@ pub fn delete_everything(db: &PlacesDb) -> Result<()> {
 
     put_meta(db, DELETION_HIGH_WATER_MARK_META_KEY, &new_mark)?;
 
-    wipe_local_in_tx(db, tx)?;
+    wipe_local_in_tx(db)?;
+
+    // Remove Sync metadata, too.
+    put_meta(db, LAST_SYNC_META_KEY, &0)?;
+    delete_meta(db, GLOBAL_SYNCID_META_KEY)?;
+    delete_meta(db, COLLECTION_SYNCID_META_KEY)?;
+
+    tx.commit()?;
+
+    // Note: SQLite cannot VACUUM within a transaction.
+    db.execute_batch("VACUUM")?;
     Ok(())
 }
 
@@ -774,7 +794,9 @@ pub mod history_sync {
         max_visits: usize,
     ) -> Result<HashMap<SyncGuid, OutgoingInfo>> {
         // Note that we want *all* "new" regardless of change counter,
-        // so that we do the right thing after a "reset".
+        // so that we do the right thing after a "reset". We also
+        // exclude hidden URLs from syncing, to match Desktop
+        // (bug 1173359).
         let places_sql = format!(
             "
             SELECT guid, url, id, title, hidden, typed, frecency,
@@ -782,7 +804,8 @@ pub mod history_sync {
                 last_visit_date_local, last_visit_date_remote,
                 sync_status, sync_change_counter
             FROM moz_places
-            WHERE (sync_change_counter > 0 OR sync_status != {})
+            WHERE (sync_change_counter > 0 OR sync_status != {}) AND
+                  NOT hidden
             ORDER BY frecency DESC
             LIMIT :max_places",
             (SyncStatus::Normal as u8)
@@ -1057,12 +1080,13 @@ pub fn get_visit_infos(
 ) -> Result<HistoryVisitInfos> {
     let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
-        "SELECT h.url, h.title, v.visit_date, v.visit_type
+        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden
          FROM moz_places h
          JOIN moz_historyvisits v
            ON h.id = v.place_id
          WHERE v.visit_date BETWEEN :start AND :end
-           AND ((1 << visit_type) & :allowed_types) != 0
+           AND ((1 << visit_type) & :allowed_types) != 0 AND
+           NOT h.hidden
          ORDER BY v.visit_date",
         rusqlite::named_params! {
             ":start": start,
@@ -1101,11 +1125,12 @@ pub fn get_visit_page(
 ) -> Result<HistoryVisitInfos> {
     let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
-        "SELECT h.url, h.title, v.visit_date, v.visit_type
+        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden
          FROM moz_places h
          JOIN moz_historyvisits v
            ON h.id = v.place_id
-         WHERE ((1 << v.visit_type) & :allowed_types) != 0
+         WHERE ((1 << v.visit_type) & :allowed_types) != 0 AND
+               NOT h.hidden
          ORDER BY v.visit_date DESC, v.id
          LIMIT :count
          OFFSET :offset",
@@ -2029,6 +2054,9 @@ mod tests {
 
     #[test]
     fn test_delete_everything() {
+        use crate::storage::bookmarks::{
+            self, BookmarkPosition, BookmarkRootGuid, InsertableBookmark,
+        };
         use url::Url;
         let _ = env_logger::try_init();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
@@ -2037,6 +2065,7 @@ mod tests {
         let urls = &[
             Url::parse("http://example.com/1").unwrap(),
             Url::parse("http://example.com/2").unwrap(),
+            Url::parse("http://example.com/3").unwrap(),
         ];
 
         let dates = &[
@@ -2051,15 +2080,64 @@ mod tests {
             }
         }
 
-        delete_everything(&conn).unwrap();
+        bookmarks::insert_bookmark(
+            &conn,
+            &InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.into(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: Some("bookmarkAAAA".into()),
+                url: urls[2].clone(),
+                title: Some("A".into()),
+            }
+            .into(),
+        )
+        .expect("Should insert bookmark with URL 3");
+
+        conn.execute_named(
+            "WITH entries(url, input) AS (
+               VALUES(:url1, 'hi'), (:url3, 'bye')
+             )
+             INSERT INTO moz_inputhistory(place_id, input, use_count)
+             SELECT h.id, e.input, 1
+             FROM entries e
+             JOIN moz_places h ON h.url_hash = hash(e.url) AND
+                                  h.url = e.url",
+            &[(":url1", &urls[1].as_str()), (":url3", &urls[2].as_str())],
+        )
+        .expect("Should insert autocomplete history entries");
+
+        delete_everything(&conn).expect("Should delete everything except URL 3");
 
         std::thread::sleep(std::time::Duration::from_millis(50));
 
-        assert_eq!(
-            0,
-            conn.query_one::<i64>("SELECT COUNT(*) FROM moz_places")
-                .unwrap(),
-        );
+        // Should leave bookmarked URLs alone, and keep autocomplete history for
+        // those URLs.
+        let mut places_stmt = conn.prepare("SELECT url FROM moz_places").unwrap();
+        let remaining_urls: Vec<String> = places_stmt
+            .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
+                Ok(row.get::<_, String>(0)?)
+            })
+            .expect("Should fetch remaining URLs")
+            .map(std::result::Result::unwrap)
+            .collect();
+        assert_eq!(remaining_urls, &["http://example.com/3"]);
+
+        let mut input_stmt = conn.prepare("SELECT input FROM moz_inputhistory").unwrap();
+        let remaining_inputs: Vec<String> = input_stmt
+            .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
+                Ok(row.get::<_, String>(0)?)
+            })
+            .expect("Should fetch remaining autocomplete history entries")
+            .map(std::result::Result::unwrap)
+            .collect();
+        assert_eq!(remaining_inputs, &["bye"]);
+
+        bookmarks::delete_bookmark(&conn, &"bookmarkAAAA".into())
+            .expect("Should delete bookmark with URL 3");
+
+        delete_everything(&conn).expect("Should delete all URLs");
 
         assert_eq!(
             0,
@@ -2069,7 +2147,7 @@ mod tests {
 
         apply_synced_visits(
             &conn,
-            &SyncGuid::new(),
+            &SyncGuid::random(),
             &url::Url::parse("http://www.example.com/123").unwrap(),
             &None,
             &[
@@ -2101,7 +2179,7 @@ mod tests {
         // Check that we don't insert a place if all visits are too old.
         apply_synced_visits(
             &conn,
-            &SyncGuid::new(),
+            &SyncGuid::random(),
             &url::Url::parse("http://www.example.com/1234").unwrap(),
             &None,
             &[HistoryRecordVisit {

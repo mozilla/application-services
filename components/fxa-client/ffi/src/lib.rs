@@ -18,20 +18,6 @@ use fxa_client::{
 use std::os::raw::c_char;
 use url::Url;
 
-#[no_mangle]
-pub extern "C" fn fxa_enable_logcat_logging() {
-    #[cfg(target_os = "android")]
-    {
-        let _ = std::panic::catch_unwind(|| {
-            android_logger::init_once(
-                android_logger::Filter::default().with_min_level(log::Level::Debug),
-                Some("libfxaclient_ffi"),
-            );
-            log::debug!("Android logging should be hooked up!")
-        });
-    }
-}
-
 lazy_static::lazy_static! {
     static ref ACCOUNTS: ConcurrentHandleMap<FirefoxAccount> = ConcurrentHandleMap::new();
 }
@@ -210,8 +196,6 @@ pub extern "C" fn fxa_begin_pairing_flow(
 /// the caller must intercept that redirection, extract the `code` and `state` query parameters and call
 /// [fxa_complete_oauth_flow] to complete the flow.
 ///
-/// It is possible also to request keys (e.g. sync keys) during that flow by setting `wants_keys` to true.
-///
 /// # Safety
 ///
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
@@ -220,14 +204,13 @@ pub extern "C" fn fxa_begin_pairing_flow(
 pub extern "C" fn fxa_begin_oauth_flow(
     handle: u64,
     scope: FfiStr<'_>,
-    wants_keys: bool,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("fxa_begin_oauth_flow");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let scope = scope.as_str();
         let scopes: Vec<&str> = scope.split(' ').collect();
-        fxa.begin_oauth_flow(&scopes, wants_keys)
+        fxa.begin_oauth_flow(&scopes)
     })
 }
 
@@ -247,7 +230,7 @@ pub extern "C" fn fxa_complete_oauth_flow(
     });
 }
 
-/// Migrate from a logged-in browserid Firefox Account.
+/// Migrate from a logged-in sessionToken Firefox Account.
 #[no_mangle]
 pub unsafe extern "C" fn fxa_migrate_from_session_token(
     handle: u64,
@@ -289,6 +272,20 @@ pub extern "C" fn fxa_get_access_token(
     })
 }
 
+/// Try to get a session token.
+///
+/// If the system can't find a suitable token it will return an error
+///
+/// # Safety
+///
+/// A destructor [fxa_bytebuffer_free] is provided for releasing the memory for this
+/// pointer type.
+#[no_mangle]
+pub extern "C" fn fxa_get_session_token(handle: u64, error: &mut ExternError) -> *mut c_char {
+    log::debug!("fxa_get_session_token");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.get_session_token())
+}
+
 /// This method should be called when a request made with
 /// an OAuth token failed with an authentication error.
 /// It clears the internal cache of OAuth access tokens,
@@ -298,6 +295,20 @@ pub extern "C" fn fxa_get_access_token(
 pub extern "C" fn fxa_clear_access_token_cache(handle: u64, error: &mut ExternError) {
     log::debug!("fxa_clear_access_token_cache");
     ACCOUNTS.call_with_output_mut(error, handle, |fxa| fxa.clear_access_token_cache())
+}
+
+/// Try to get the current device id from state.
+///
+/// If the system can't find it then it will return an error
+///
+/// # Safety
+///
+/// A destructor [fxa_bytebuffer_free] is provided for releasing the memory for this
+/// pointer type.
+#[no_mangle]
+pub extern "C" fn fxa_get_current_device_id(handle: u64, error: &mut ExternError) -> *mut c_char {
+    log::debug!("fxa_get_current_device_id");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.get_current_device_id())
 }
 
 /// Update the Push subscription information for the current device.
@@ -354,6 +365,33 @@ pub extern "C" fn fxa_get_devices(handle: u64, error: &mut ExternError) -> ByteB
     })
 }
 
+/// Try to get an OAuth code using a session token.
+///
+/// The system will use the stored `session_token` to provision a new code and return it.
+///
+/// # Safety
+///
+/// A destructor [fxa_bytebuffer_free] is provided for releasing the memory for this
+/// pointer type.
+#[no_mangle]
+pub extern "C" fn fxa_authorize_auth_code(
+    handle: u64,
+    client_id: FfiStr<'_>,
+    scope: FfiStr<'_>,
+    state: FfiStr<'_>,
+    access_type: FfiStr<'_>,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("fxa_authorize_auth_code");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
+        let client_id = client_id.as_str();
+        let scope = scope.as_str();
+        let state = state.as_str();
+        let access_type = access_type.as_str();
+        fxa.authorize_code_using_session_token(client_id, scope, state, access_type)
+    })
+}
+
 /// Poll and parse available remote commands targeted to our own device.
 ///
 /// # Safety
@@ -371,12 +409,13 @@ pub extern "C" fn fxa_poll_device_commands(handle: u64, error: &mut ExternError)
     })
 }
 
-/// Destroy the device given a device_id.
+/// Disconnect from the account and optionaly destroy our device record.
 #[no_mangle]
-pub extern "C" fn fxa_destroy_device(handle: u64, device_id: FfiStr<'_>, error: &mut ExternError) {
-    log::debug!("fxa_destroy_device");
-    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
-        fxa.destroy_device(device_id.as_str()).map(|_| ())
+pub extern "C" fn fxa_disconnect(handle: u64, error: &mut ExternError) {
+    log::debug!("fxa_disconnect");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| -> fxa_client::Result<()> {
+        fxa.disconnect();
+        Ok(())
     })
 }
 

@@ -1,6 +1,6 @@
 ## libs
 
-This directory builds `openssl` for iOS, Android and desktop platforms.
+This directory builds the required libraries for iOS, Android and desktop platforms.
 
 ### Usage
 
@@ -8,6 +8,11 @@ This directory builds `openssl` for iOS, Android and desktop platforms.
 * `./build-all.sh android` - Build for Android
 * `./build-all.sh desktop` - Build for Desktop
 
+### Build dependencies
+
+* [GYP](https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP)
+* [ninja](https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages)
+* [Tcl](https://www.tcl.tk/software/tcltk/)
 
 ### Supported architectures
 

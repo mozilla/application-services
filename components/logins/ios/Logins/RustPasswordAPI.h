@@ -45,19 +45,19 @@ char *_Nullable sync15_passwords_get_by_id(Sync15PasswordEngineHandle handle,
                                           char const *_Nonnull id,
                                           Sync15PasswordsError *_Nonnull error_out);
 
-char *_Nullable sync15_passwords_get_by_id(Sync15PasswordEngineHandle handle,
-                                          char const *_Nonnull id,
+char *_Nullable sync15_passwords_get_by_hostname(Sync15PasswordEngineHandle handle,
+                                          char const *_Nonnull hostname,
                                           Sync15PasswordsError *_Nonnull error_out);
 
 char *_Nullable sync15_passwords_get_all(Sync15PasswordEngineHandle handle,
                                          Sync15PasswordsError *_Nonnull error_out);
 
-void sync15_passwords_sync(Sync15PasswordEngineHandle handle,
-                           char const *_Nonnull key_id,
-                           char const *_Nonnull access_token,
-                           char const *_Nonnull sync_key,
-                           char const *_Nonnull token_server_url,
-                           Sync15PasswordsError *_Nonnull error);
+char *_Nullable sync15_passwords_sync(Sync15PasswordEngineHandle handle,
+                                      char const *_Nonnull key_id,
+                                      char const *_Nonnull access_token,
+                                      char const *_Nonnull sync_key,
+                                      char const *_Nonnull token_server_url,
+                                      Sync15PasswordsError *_Nonnull error);
 
 void sync15_passwords_wipe(Sync15PasswordEngineHandle handle,
                            Sync15PasswordsError *_Nonnull error);

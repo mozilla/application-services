@@ -69,8 +69,14 @@ pub enum ErrorKind {
     #[fail(display = "Protobuf decode error: {}", _0)]
     ProtobufDecodeError(#[fail(cause)] prost::DecodeError),
 
+    #[fail(display = "UTF8 Error: {}", _0)]
+    Utf8Error(#[fail(cause)] std::str::Utf8Error),
+
     #[fail(display = "Database cannot be upgraded")]
     DatabaseUpgradeError,
+
+    #[fail(display = "Database version {} is not supported", _0)]
+    UnsupportedDatabaseVersion(i64),
 }
 
 error_support::define_error! {
@@ -84,7 +90,8 @@ error_support::define_error! {
         (IoError, std::io::Error),
         (MergeError, dogear::Error),
         (ProtobufDecodeError, prost::DecodeError),
-        (InterruptedError, Interrupted)
+        (InterruptedError, Interrupted),
+        (Utf8Error, std::str::Utf8Error),
     }
 }
 
@@ -96,6 +103,8 @@ pub enum InvalidPlaceInfo {
     InvalidGuid,
     #[fail(display = "Invalid parent: {}", _0)]
     InvalidParent(String),
+    #[fail(display = "Invalid child guid")]
+    InvalidChildGuid,
 
     // NoSuchGuid is used for guids, which aren't considered private information,
     // so it's fine if this error, including the guid, is in the logs.

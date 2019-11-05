@@ -2,12 +2,12 @@
 
 set -euvx
 
-if [ "$#" -ne 3 ]
+if [[ "$#" -ne 3 ]]
 then
     echo "Usage: <path/to/relevant/nm> <path/to/relevant/library> <symbol_name>"
     echo "Example Usage:"
     echo "$ bash testing/err-if-symbol.sh \\"
-    echo "    \$ANDROID_NDK_TOOLCHAIN_DIR/x86-${ANDROID_NDK_API_VERSION}/bin/i686-linux-android-nm \\"
+    echo "    \${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/${NDK_HOST_TAG}/bin/i686-linux-android-nm \\"
     echo "    target/i686-linux-android/release/librc_log_ffi.so \\"
     echo "    viaduct_detect_reqwest_backend"
     exit 1

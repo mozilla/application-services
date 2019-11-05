@@ -14,7 +14,7 @@ class RustLogAdapter private constructor(
     // IMPORTANT: This must not be GCed while the adapter is alive!
     @Suppress("Unused")
     private val callbackImpl: RawLogCallbackImpl,
-    private val adapter: LibRustLogAdapter.RawLogAdapter
+    private val adapter: RawLogAdapter
 ) {
     companion object {
         @Volatile
@@ -66,7 +66,7 @@ class RustLogAdapter private constructor(
             // make callbackImpl isn't GCed here, or very bad things will happen. (Should the logger
             // init code abort on panic?)
             val adapter = rustCall { err ->
-                LibRustLogAdapter.rc_log_adapter_create(callbackImpl, err)
+                LibRustLogAdapter.INSTANCE.rc_log_adapter_create(callbackImpl, err)
             }
             // For example, it would be *extremely bad* if somehow adapter were actually null here.
             instance = RustLogAdapter(callbackImpl, adapter!!)
@@ -91,7 +91,7 @@ class RustLogAdapter private constructor(
         @Synchronized
         fun disable() {
             val state = instance ?: return
-            LibRustLogAdapter.rc_log_adapter_destroy(state.adapter)
+            LibRustLogAdapter.INSTANCE.rc_log_adapter_destroy(state.adapter)
             // XXX Letting that callback get GCed still makes me extremely uneasy...
             // Maybe we should just null out the callback provided by the user so that
             // it can be GCed (while letting the RawLogCallbackImpl which actually is
@@ -104,7 +104,7 @@ class RustLogAdapter private constructor(
         fun setMaxLevel(level: LogLevelFilter) {
             if (isEnabled) {
                 rustCall { e ->
-                    LibRustLogAdapter.rc_log_adapter_set_max_level(
+                    LibRustLogAdapter.INSTANCE.rc_log_adapter_set_max_level(
                             level.value,
                             e
                     )
@@ -157,7 +157,7 @@ enum class LogLevelFilter(internal val value: Int) {
     TRACE(5),
 }
 
-internal class RawLogCallbackImpl(private val onLog: OnLog) : LibRustLogAdapter.RawLogCallback {
+internal class RawLogCallbackImpl(private val onLog: OnLog) : RawLogCallback {
     @Suppress("TooGenericExceptionCaught")
     override fun invoke(level: Int, tag: Pointer?, message: Pointer): Byte {
         // We can't safely throw here!
@@ -186,6 +186,6 @@ internal fun Pointer.getAndConsumeRustString(): String {
     try {
         return this.getString(0, "utf8")
     } finally {
-        LibRustLogAdapter.rc_log_adapter_destroy_string(this)
+        LibRustLogAdapter.INSTANCE.rc_log_adapter_destroy_string(this)
     }
 }

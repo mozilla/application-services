@@ -5,7 +5,7 @@
 package mozilla.appservices.httpconfig
 
 import com.google.protobuf.ByteString
-import mozilla.appservices.support.RustBuffer
+import mozilla.appservices.support.native.RustBuffer
 import mozilla.components.concept.fetch.Client
 import mozilla.components.concept.fetch.MutableHeaders
 import mozilla.components.concept.fetch.Request

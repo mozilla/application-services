@@ -10,7 +10,7 @@ import com.sun.jna.Pointer
 import mozilla.appservices.fxaclient.rust.FxaHandle
 import mozilla.appservices.fxaclient.rust.LibFxAFFI
 import mozilla.appservices.fxaclient.rust.RustError
-import mozilla.appservices.support.toNioDirectBuffer
+import mozilla.appservices.support.native.toNioDirectBuffer
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
 
@@ -93,13 +93,12 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * This performs network requests, and should not be used on the main thread.
      *
      * @param scopes List of OAuth scopes for which the client wants access
-     * @param wantsKeys Fetch keys for end-to-end encryption of data from Mozilla-hosted services
      * @return String that resolves to the flow URL when complete
      */
-    fun beginOAuthFlow(scopes: Array<String>, wantsKeys: Boolean): String {
+    fun beginOAuthFlow(scopes: Array<String>): String {
         val scope = scopes.joinToString(" ")
         return rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_begin_oauth_flow(this.handle.get(), scope, wantsKeys, e)
+            LibFxAFFI.INSTANCE.fxa_begin_oauth_flow(this.handle.get(), scope, e)
         }.getAndConsumeRustString()
     }
 
@@ -145,6 +144,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
         val profileBuffer = rustCallWithLock { e ->
             LibFxAFFI.INSTANCE.fxa_profile(this.handle.get(), ignoreCache, e)
         }
+        this.tryPersistState()
         try {
             val p = MsgTypes.Profile.parseFrom(profileBuffer.asCodedInputStream()!!)
             return Profile.fromMessage(p)
@@ -221,6 +221,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * Tries to fetch an access token for the given scope.
      *
      * This performs network requests, and should not be used on the main thread.
+     * It may modify the persisted account state.
      *
      * @param scope Single OAuth scope (no spaces) for which the client wants access
      * @return [AccessTokenInfo] that stores the token, along with its scopes and keys when complete
@@ -232,12 +233,56 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
         val buffer = rustCallWithLock { e ->
             LibFxAFFI.INSTANCE.fxa_get_access_token(this.handle.get(), scope, e)
         }
+        this.tryPersistState()
         try {
             val msg = MsgTypes.AccessTokenInfo.parseFrom(buffer.asCodedInputStream()!!)
             return AccessTokenInfo.fromMessage(msg)
         } finally {
             LibFxAFFI.INSTANCE.fxa_bytebuffer_free(buffer)
         }
+    }
+
+    /**
+     * Tries to return a session token
+     *
+     * @throws FxaException Will send you an exception if there is no session token set
+     */
+    fun getSessionToken(): String {
+        return rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_get_session_token(this.handle.get(), e)
+        }.getAndConsumeRustString()
+    }
+
+    /**
+     * Get the current device id
+     *
+     * @throws FxaException Will send you an exception if there is no device id set
+     */
+    fun getCurrentDeviceId(): String {
+        return rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_get_current_device_id(this.handle.get(), e)
+        }.getAndConsumeRustString()
+    }
+
+    /**
+     * Provisions an OAuth code using the session token from state
+     *
+     * @param clientId OAuth client id.
+     * @param scopes Array of scopes for the OAuth code.
+     * @param state OAuth flow state.
+     * @param accessType Type of access, "offline" or "online".
+     * This performs network requests, and should not be used on the main thread.
+     */
+    fun authorizeOAuthCode(
+        clientId: String,
+        scopes: Array<String>,
+        state: String,
+        accessType: String = "online"
+    ): String {
+        val scope = scopes.joinToString(" ")
+        return rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_authorize_auth_code(this.handle.get(), clientId, scope, state, accessType, e)
+        }.getAndConsumeRustString()
     }
 
     /**
@@ -332,16 +377,16 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     }
 
     /**
-     * Destroy a device given its device ID.
+     * Disconnect from the account and optionaly destroy our device record.
+     * `beginOAuthFlow` will need to be called to reconnect.
      *
      * This performs network requests, and should not be used on the main thread.
-     *
-     * @param targetDeviceId The target Device ID to destroy
      */
-    fun destroyDevice(targetDeviceId: String) {
+    fun disconnect() {
         rustCall { e ->
-            LibFxAFFI.INSTANCE.fxa_destroy_device(this.handle.get(), targetDeviceId, e)
+            LibFxAFFI.INSTANCE.fxa_disconnect(this.handle.get(), e)
         }
+        this.tryPersistState()
     }
 
     /**

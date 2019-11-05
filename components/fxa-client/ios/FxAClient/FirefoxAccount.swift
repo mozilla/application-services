@@ -154,6 +154,7 @@ open class FirefoxAccount {
                 fxa_bytebuffer_free(profileBuffer)
                 let profile = Profile(msg: msg)
                 DispatchQueue.main.async { completionHandler(profile, nil) }
+                self.tryPersistState()
             } catch {
                 DispatchQueue.main.async { completionHandler(nil, error) }
             }
@@ -199,14 +200,12 @@ open class FirefoxAccount {
     /// Once the user has confirmed the authorization grant, they will get redirected to `redirect_url`:
     /// the caller must intercept that redirection, extract the `code` and `state` query parameters and call
     /// `completeOAuthFlow(...)` to complete the flow.
-    ///
-    /// It is possible also to request keys (e.g. sync keys) during that flow by setting `wants_keys` to true.
-    open func beginOAuthFlow(scopes: [String], wantsKeys: Bool, completionHandler: @escaping (URL?, Error?) -> Void) {
+    open func beginOAuthFlow(scopes: [String], completionHandler: @escaping (URL?, Error?) -> Void) {
         queue.async {
             do {
                 let scope = scopes.joined(separator: " ")
                 let url = URL(string: String(freeingFxaString: try FirefoxAccountError.unwrap { err in
-                    fxa_begin_oauth_flow(self.raw, scope, wantsKeys, err)
+                    fxa_begin_oauth_flow(self.raw, scope, err)
                 }))!
                 DispatchQueue.main.async { completionHandler(url, nil) }
             } catch {
@@ -244,6 +243,7 @@ open class FirefoxAccount {
                 let infoBuffer = try FirefoxAccountError.unwrap { err in
                     fxa_get_access_token(self.raw, scope, err)
                 }
+                self.tryPersistState()
                 let msg = try! MsgTypes_AccessTokenInfo(serializedData: Data(rustBuffer: infoBuffer))
                 fxa_bytebuffer_free(infoBuffer)
                 let tokenInfo = AccessTokenInfo(msg: msg)
@@ -266,6 +266,22 @@ open class FirefoxAccount {
                     fxa_clear_access_token_cache(self.raw, err)
                 }
                 DispatchQueue.main.async { completionHandler((), nil) }
+            } catch {
+                DispatchQueue.main.async { completionHandler((), error) }
+            }
+        }
+    }
+
+    /// Disconnect from the account and optionaly destroy our device record.
+    /// `beginOAuthFlow(...)` will need to be called to reconnect.
+    open func disconnect(completionHandler: @escaping (Void, Error?) -> Void) {
+        queue.async {
+            do {
+                try FirefoxAccountError.unwrap { err in
+                    fxa_disconnect(self.raw, err)
+                }
+                DispatchQueue.main.async { completionHandler((), nil) }
+                self.tryPersistState()
             } catch {
                 DispatchQueue.main.async { completionHandler((), error) }
             }

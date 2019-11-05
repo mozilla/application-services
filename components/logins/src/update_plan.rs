@@ -9,11 +9,12 @@ use rusqlite::{named_params, Connection};
 use sql_support::SqlInterruptScope;
 use std::time::SystemTime;
 use sync15::ServerTimestamp;
+use sync_guid::Guid;
 
 #[derive(Default, Debug, Clone)]
 pub(crate) struct UpdatePlan {
-    pub delete_mirror: Vec<String>,
-    pub delete_local: Vec<String>,
+    pub delete_mirror: Vec<Guid>,
+    pub delete_local: Vec<Guid>,
     pub local_updates: Vec<MirrorLogin>,
     // the bool is the `is_overridden` flag, the i64 is ServerTimestamp in millis
     pub mirror_inserts: Vec<(Login, i64, bool)>,
@@ -26,7 +27,7 @@ impl UpdatePlan {
         self.mirror_inserts
             .push((upstream.0, upstream.1.as_millis() as i64, is_override));
         if !is_override {
-            self.delete_local.push(local.id.to_string());
+            self.delete_local.push(local.guid.clone());
         }
     }
 
@@ -58,9 +59,9 @@ impl UpdatePlan {
         self.local_updates.push(new);
     }
 
-    pub fn plan_delete(&mut self, id: String) {
-        self.delete_local.push(id.to_string());
-        self.delete_mirror.push(id.to_string());
+    pub fn plan_delete(&mut self, id: Guid) {
+        self.delete_local.push(id.clone());
+        self.delete_mirror.push(id.clone());
     }
 
     pub fn plan_mirror_update(&mut self, login: Login, time: ServerTimestamp) {

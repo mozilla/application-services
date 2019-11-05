@@ -45,7 +45,6 @@ typedef uint64_t FirefoxAccountHandle;
 
 char *_Nullable fxa_begin_oauth_flow(FirefoxAccountHandle handle,
                                      const char *_Nonnull scopes,
-                                     bool wants_keys,
                                      FxAError *_Nonnull out);
 
 void fxa_complete_oauth_flow(FirefoxAccountHandle handle,
@@ -57,8 +56,11 @@ FxARustBuffer fxa_get_access_token(FirefoxAccountHandle handle,
                                    const char *_Nonnull scope,
                                    FxAError *_Nonnull out);
 
-FxARustBuffer fxa_clear_access_token_cache(FirefoxAccountHandle handle,
-                                             FxAError *_Nonnull out);
+void fxa_clear_access_token_cache(FirefoxAccountHandle handle,
+                                  FxAError *_Nonnull out);
+
+void fxa_disconnect(FirefoxAccountHandle handle,
+                    FxAError *_Nonnull out);
 
 FirefoxAccountHandle fxa_from_json(const char *_Nonnull json,
                                    FxAError *_Nonnull out);

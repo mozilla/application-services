@@ -1,6 +1,6 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
-if [ ! -f "$PWD/automation/lint_bash_scripts.sh" ]
+if [[ ! -f "$PWD/automation/lint_bash_scripts.sh" ]]
 then
     echo "lint_bash_scripts.sh must be executed from the root directory."
     exit 1

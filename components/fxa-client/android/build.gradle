@@ -1,5 +1,4 @@
 apply plugin: 'com.android.library'
-apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 apply plugin: 'com.google.protobuf'
@@ -12,6 +11,7 @@ android {
         targetSdkVersion rootProject.ext.build['targetSdkVersion']
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.ext.library.version}\"")
     }
 
     buildTypes {
@@ -20,61 +20,20 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             consumerProguardFiles "$rootDir/proguard-rules-consumer-jna.pro"
         }
-
-        withoutLib {
-            initWith release
-        }
     }
 
     sourceSets {
-        main.jniLibs.srcDirs += "$buildDir/nativeLibs/android"
         test.resources.srcDirs += "$buildDir/rustJniLibs/desktop"
-        test.resources.srcDirs += "$buildDir/nativeLibs/desktop"
+        // Add the full-megazord's build directory to our resource path so that
+        // we can actually find it during tests. (Unfortunately, each project
+        // has their own build dir)
+        test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
 
         main {
             proto {
                 srcDir '../src'
             }
         }
-    }
-
-    // Uncomment to include debug symbols in native library builds.
-    // packagingOptions { doNotStrip "**/*.so" }
-}
-
-configurations {
-    withoutLib {
-    }
-}
-
-afterEvaluate {
-    android.sourceSets.debug.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
-    android.sourceSets.release.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
-    android.sourceSets.main.jniLibs.srcDirs = []
-}
-
-cargo {
-    // The directory of the Cargo.toml to build.
-    module = '../ffi'
-
-    // The Android NDK API level to target.
-    apiLevel = 21
-
-    // Where Cargo writes its outputs.
-    targetDirectory = '../../../target'
-
-    libname = 'fxaclient_ffi'
-
-    targets = rootProject.ext.rustTargets
-
-    profile = rootProject.ext.nonMegazordProfile
-
-    exec = rootProject.ext.cargoExec
-
-    extraCargoBuildArguments = rootProject.ext.extraCargoBuildArguments
-
-    features {
-        defaultAnd("reqwest")
     }
 }
 
@@ -94,7 +53,6 @@ configurations {
     // Success!
     jnaForTest
 }
-
 protobuf {
     protoc {
         artifact = 'com.google.protobuf:protoc:3.0.0'
@@ -123,7 +81,8 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     implementation 'com.google.protobuf:protobuf-lite:3.0.0'
-    implementation project(':as-support-library')
+    api project(":full-megazord")
+    implementation project(":native-support")
 
     // For reasons unknown, resolving the jnaForTest configuration directly
     // trips a nasty issue with the Android-Gradle plugin 3.2.1, like `Cannot
@@ -149,22 +108,13 @@ afterEvaluate {
             productFlavor += "${it.name.capitalize()}"
         }
         def buildType = "${variant.buildType.name.capitalize()}"
-        if (variant.buildType.name != 'withoutLib') {
-            tasks["generate${productFlavor}${buildType}Assets"].dependsOn(tasks["cargoBuild"])
-            tasks["generate${productFlavor}${buildType}Assets"].dependsOn(tasks["copyNativeLibs"])
-        }
+        tasks["generate${productFlavor}${buildType}Assets"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
 
         // For unit tests.
-        tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["cargoBuild"])
-        tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["copyNativeLibs"])
+        tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
     }
 }
 
 apply from: "$rootDir/publish.gradle"
-// If using jnaForTestConfiguration or variantWithoutLib,
-// please also update the corresponding .buildconfig-android.yml
-// `publishedArtifacts` property.
-ext.configurePublish(
-        /* jnaForTestConfiguration= */ configurations.jnaForTest,
-        /* variantWithoutLib= */ 'androidWithoutLib',
-)
+
+ext.configurePublish()

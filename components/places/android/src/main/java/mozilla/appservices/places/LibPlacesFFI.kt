@@ -5,45 +5,20 @@
 
 package mozilla.appservices.places
 
-import android.util.Log
 import com.sun.jna.Library
-import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
 import com.sun.jna.StringArray
-import java.lang.reflect.Proxy
-import mozilla.appservices.support.RustBuffer
+import mozilla.appservices.support.native.RustBuffer
+import mozilla.appservices.support.native.loadIndirect
+import org.mozilla.appservices.places.BuildConfig
 
 @Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
 internal interface LibPlacesFFI : Library {
     companion object {
-        private val JNA_LIBRARY_NAME = {
-            val libname = System.getProperty("mozilla.appservices.places_ffi_lib_name")
-            if (libname != null) {
-                Log.i("AppServices", "Using places_ffi_lib_name: " + libname)
-                libname
-            } else {
-                "places_ffi"
-            }
-        }()
-
-        internal var INSTANCE: LibPlacesFFI = try {
-            val lib = Native.load<LibPlacesFFI>(JNA_LIBRARY_NAME, LibPlacesFFI::class.java)
-            if (JNA_LIBRARY_NAME == "places_ffi") {
-                // Enable logcat logging if we aren't in a megazord.
-                lib.places_enable_logcat_logging()
-            }
-            lib
-        } catch (e: UnsatisfiedLinkError) {
-            Proxy.newProxyInstance(
-                LibPlacesFFI::class.java.classLoader,
-                arrayOf(LibPlacesFFI::class.java)) { _, _, _ ->
-                throw RuntimeException("Places functionality not available", e)
-            } as LibPlacesFFI
-        }
+        internal var INSTANCE: LibPlacesFFI =
+            loadIndirect(componentName = "places", componentVersion = BuildConfig.LIBRARY_VERSION)
     }
-
-    fun places_enable_logcat_logging()
 
     // Important: strings returned from rust as *mut char must be Pointers on this end, returning a
     // String will work but either force us to leak them, or cause us to corrupt the heap (when we
@@ -61,6 +36,18 @@ internal interface LibPlacesFFI : Library {
         conn_type: Int,
         out_err: RustError.ByReference
     ): PlacesConnectionHandle
+
+    fun places_bookmarks_import_from_fennec(
+        handle: PlacesApiHandle,
+        db_path: String,
+        out_err: RustError.ByReference
+    ): RustBuffer.ByValue
+
+    fun places_history_import_from_fennec(
+        handle: PlacesApiHandle,
+        db_path: String,
+        out_err: RustError.ByReference
+    )
 
     fun places_note_observation(
         handle: PlacesConnectionHandle,
@@ -211,6 +198,12 @@ internal interface LibPlacesFFI : Library {
         error: RustError.ByReference
     ): RustBuffer.ByValue
 
+    fun bookmarks_get_url_for_keyword(
+        handle: PlacesConnectionHandle,
+        keyword: String,
+        error: RustError.ByReference
+    ): Pointer?
+
     fun bookmarks_get_tree(
         handle: PlacesConnectionHandle,
         optRootId: String?,
@@ -259,6 +252,11 @@ internal interface LibPlacesFFI : Library {
         error: RustError.ByReference
     ): Byte
 
+    fun bookmarks_delete_everything(
+        handle: PlacesConnectionHandle,
+        error: RustError.ByReference
+    )
+
     /** Destroy strings returned from libplaces_ffi calls. */
     fun places_destroy_string(s: Pointer)
 
@@ -278,6 +276,13 @@ internal interface LibPlacesFFI : Library {
     fun places_interrupt_handle_destroy(obj: RawPlacesInterruptHandle)
 
     fun places_destroy_bytebuffer(bb: RustBuffer.ByValue)
+
+    fun places_accept_result(
+        handle: PlacesConnectionHandle,
+        search_string: String,
+        url: String,
+        out_err: RustError.ByReference
+    )
 }
 
 internal typealias PlacesConnectionHandle = Long

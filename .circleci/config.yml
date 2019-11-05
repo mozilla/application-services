@@ -6,13 +6,15 @@ commands:
       - run:
           name: Install sccache
           command: |
+            SCCACHE_VERSION=0.2.11
             if [ "$(uname)" == "Darwin" ]; then
-              SCCACHE_BIN="2018-04-02-sccache-x86_64-apple-darwin"
+              SCCACHE="sccache-${SCCACHE_VERSION}-x86_64-apple-darwin"
             else
-              SCCACHE_BIN="2018-04-02-sccache-x86_64-unknown-linux-musl"
+              SCCACHE="sccache-${SCCACHE_VERSION}-x86_64-unknown-linux-musl"
             fi
-            SCCACHE_BIN_URL="https://s3-us-west-1.amazonaws.com/rust-lang-ci2/rust-ci-mirror/${SCCACHE_BIN}"
-            sudo curl --retry 5 -fo /usr/local/bin/sccache "${SCCACHE_BIN_URL}"
+            SCCACHE_ARCHIVE="${SCCACHE}.tar.gz"
+            SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/${SCCACHE_VERSION}/${SCCACHE_ARCHIVE}"
+            curl -sfSL --retry 5 --retry-delay 10 "${SCCACHE_URL}" | sudo tar -xz --strip-components=1 -C /usr/local/bin/ "${SCCACHE}/sccache"
             sudo chmod +x /usr/local/bin/sccache
             # Do not forget to re-export these variables in xc-universal-binary.sh!
             echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
@@ -35,7 +37,7 @@ commands:
           command: |
             mkdir -p $HOME/.bin
             pushd $HOME/.bin
-            curl -sSL https://github.com/rust-lang-nursery/mdBook/releases/download/v0.2.1/mdbook-v0.2.1-x86_64-unknown-linux-gnu.tar.gz | tar xz
+            curl -sfSL --retry 5 --retry-delay 10 https://github.com/rust-lang-nursery/mdBook/releases/download/v0.2.1/mdbook-v0.2.1-x86_64-unknown-linux-gnu.tar.gz | tar xz
             echo 'export PATH="$HOME/.bin:$PATH"' >> $BASH_ENV
             popd
   install-rust:
@@ -44,9 +46,9 @@ commands:
           name: Install Rust
           command: |
             RUSTUP_PLATFORM=x86_64-apple-darwin
-            RUSTUP_VERSION=1.17.0
-            RUSTUP_SHA256=f5da97b1854844fd7d61c52af8d78238c022fdc0ff0eeaf804baa0b9f7ff59d3
-            curl -O -s --retry 5 "https://static.rust-lang.org/rustup/archive/$RUSTUP_VERSION/$RUSTUP_PLATFORM/rustup-init"
+            RUSTUP_VERSION=1.18.3
+            RUSTUP_SHA256=16734a9a2d87a3054bd4eea962642687e50a34b6e73e17df6f3361c2c534dc30
+            curl -sfSL --retry 5 --retry-delay 10 -O "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUSTUP_PLATFORM}/rustup-init"
             echo "${RUSTUP_SHA256} *rustup-init" | shasum -a 256 -c -
             chmod +x rustup-init
             ./rustup-init -y --no-modify-path
@@ -68,9 +70,6 @@ commands:
   install-clang: # Used by bindgen for nss_sys.
     steps:
       - run: sudo apt-get install clang
-  install-system-nss:
-    steps:
-      - run: sudo apt-get install libnss3-dev
   build-libs:
     parameters:
       platform:
@@ -93,8 +92,25 @@ commands:
   build-desktop-libs:
     steps:
       - run: sudo apt-get install tcl
+      - run:
+          name: Install NSS build system dependencies
+          command: sudo apt-get install ninja-build gyp zlib1g-dev
       - build-libs:
           platform: desktop
+  build-ios-libs:
+    steps:
+      - run:
+          name: Install NSS build system dependencies
+          command: |
+            brew install ninja
+            pushd ..
+            git clone https://chromium.googlesource.com/external/gyp.git
+            pushd gyp
+            python3 setup.py install
+            popd
+            popd
+      - build-libs:
+          platform: ios
   test-setup:
     parameters:
       rust-version:
@@ -102,15 +118,16 @@ commands:
         default: "stable"
     steps:
       - checkout
-      - install-system-nss
       - build-desktop-libs
       - setup-rust-toolchain:
           rust-version: <<parameters.rust-version>>
       - setup-sccache
       - install-clang
+      # clipboard crate depends on some x11 libs.
+      - run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
       - run: |
+          echo 'export NSS_STATIC=1' >> $BASH_ENV
           echo 'export NSS_DIR=$(pwd)/libs/desktop/linux-x86-64/nss' >> $BASH_ENV
-          echo 'export OPENSSL_DIR=$(pwd)/libs/desktop/linux-x86-64/openssl' >> $BASH_ENV
           echo 'export SQLCIPHER_LIB_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/lib' >> $BASH_ENV
           echo 'export SQLCIPHER_INCLUDE_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/include' >> $BASH_ENV
   rust-tests:
@@ -134,24 +151,41 @@ commands:
           command: cargo test --all --no-default-features --verbose
   dependency-checks:
     steps:
-      - checkout
       - run:
           name: Check for security vulnerabilities in dependencies
           command: |
             cargo install cargo-audit
             cargo audit
       - run:
-          name: Check licence compatibility of dependencies
+          name: Check for any unrecorded changes in our dependency trees
           command: |
-            cargo install cargo-license
-            bash ./automation/license-check.sh
+            pip3 install --require-hashes -r ./tools/requirements.txt
+            rustup install nightly
+            cargo metadata --locked > /dev/null
+            python3 ./tools/dependency_summary.py --check ./DEPENDENCIES.md
+            python3 ./tools/dependency_summary.py --all-ios-targets --package megazord_ios --check megazords/ios/DEPENDENCIES.md
+            python3 ./tools/dependency_summary.py --all-android-targets --package megazord --check megazords/full/DEPENDENCIES.md
+            python3 ./tools/dependency_summary.py --all-android-targets --package megazord --format pom --check megazords/full/android/dependency-licenses.xml
+            python3 ./tools/dependency_summary.py --all-android-targets --package fenix --check megazords/fenix/DEPENDENCIES.md
+            python3 ./tools/dependency_summary.py --all-android-targets --package fenix --format pom --check megazords/fenix/android/dependency-licenses.xml
+            python3 ./tools/dependency_summary.py --all-android-targets --package lockbox --check megazords/lockbox/DEPENDENCIES.md
+            python3 ./tools/dependency_summary.py --all-android-targets --package lockbox --format pom --check megazords/lockbox/android/dependency-licenses.xml
+
+  sync-bugzilla-to-github:
+    steps:
+      - checkout
+      - run:
+          name: Mirror Bugzilla issues into GitHub
+          command: |
+            sudo pip3 install --require-hashes -r ./tools/requirements.txt
+            python3 ./tools/sync_bugzilla_to_github.py
   sync-tests:
     steps:
       - test-setup
       - run:
           name: Install Node.js
           command: |
-            curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
+            curl -sfSL --retry 5 --retry-delay 10 https://deb.nodesource.com/setup_10.x | sudo -E bash -
             sudo apt-get install -y nodejs
       - run:
           name: Sync Integration Test Suite
@@ -188,7 +222,7 @@ commands:
 jobs:
   Check Swift formatting:
     macos:
-      xcode: "10.2.1"
+      xcode: "11.2.0"
     steps:
       - checkout
       - run: brew install swiftlint swiftformat
@@ -222,17 +256,49 @@ jobs:
       - checkout
       - run:
           name: Lint Bash scripts with shellcheck
-          command: ./automation/lint_bash_scripts.sh
+          command: sh automation/lint_bash_scripts.sh
   Check Rust dependencies:
     docker:
       - image: circleci/rust:latest
     steps:
+      - run: sudo apt-get install python3-pip
+      - setup-rust-toolchain
+      - checkout
       - dependency-checks
+  Log Rust Changes:
+    docker:
+      - image: python:3.7-buster
+    steps:
+      - setup_remote_docker:
+          version: 18.02.0-ce
+      - run:
+          name: Install Docker client
+          command: |
+            set -x
+            VER="18.06.3-ce"
+            curl -sfSL --retry 5 --retry-delay 10 -o /tmp/docker-$VER.tgz https://download.docker.com/linux/static/stable/x86_64/docker-$VER.tgz
+            tar -xz -C /tmp -f /tmp/docker-$VER.tgz
+            mv /tmp/docker/* /usr/bin
+      - run:
+          name: pull find-package-rugaru image
+          command: |
+            docker pull mozilla/dependencyscan:latest
+      - run:
+          name: log a rust dependency changes
+          command: |
+            printf "{\"org\": \"mozilla-services\", \"repo\": \"application-services\", \"ref\": {\"value\": \"master\", \"kind\": \"branch\"}, \"repo_url\": \"https://github.com/mozilla/application-services.git\"}\n{\"org\": \"mozilla-services\", \"repo\": \"application-services\", \"ref\": {\"value\": \"$CIRCLE_SHA1\", \"kind\": \"commit\"}, \"repo_url\": \"https://github.com/mozilla/application-services.git\"}\n"  | \
+                docker run --rm -i -v /var/run/docker.sock:/var/run/docker.sock --name fpr-cargo_metadata mozilla/dependencyscan:latest python fpr/run_pipeline.py cargo_metadata | \
+                docker run --rm -i -v /var/run/docker.sock:/var/run/docker.sock --name fpr-rust_changelog mozilla/dependencyscan:latest python fpr/run_pipeline.py rust_changelog -m Cargo.toml
+  Mirror Bugzilla issues into GitHub:
+    docker:
+      - image: circleci/python:latest
+    steps:
+      - sync-bugzilla-to-github
   Rust tests - stable:
     docker:
       - image: circleci/rust:latest
     # We have to use a machine with more RAM for tests so we don't run out of memory.
-    resource_class: large
+    resource_class: xlarge
     steps:
       - restore-sccache-cache
       - rust-tests
@@ -240,7 +306,7 @@ jobs:
   Rust tests - beta:
     docker:
       - image: circleci/rust:latest
-    resource_class: large
+    resource_class: xlarge
     steps:
       - restore-sccache-cache
       - rust-tests:
@@ -256,20 +322,20 @@ jobs:
   Rust benchmarks:
     docker:
       - image: circleci/rust:latest
+    resource_class: large
     steps:
       - restore-sccache-cache
       - bench-all
       - save-sccache-cache
   iOS build and test:
     macos:
-      xcode: "10.2.1"
+      xcode: "11.2.0"
     steps:
       - install-rust
       - setup-rust-toolchain
       - checkout
       - setup-sccache
-      - build-libs:
-          platform: ios
+      - build-ios-libs
       # We do not use the ssccache cache helper commands as
       # the macOS cache is in a different folder.
       - restore_cache:
@@ -287,7 +353,7 @@ jobs:
             carthage bootstrap --platform iOS
             brew install swift-protobuf
             # See https://circleci.com/docs/2.0/testing-ios/#pre-starting-the-simulator
-            xcrun instruments -w "iPhone 7 (12.1) [" || true
+            xcrun instruments -w "iPhone 8 (13.0) [" || true
       - run:
           name: Run XCode tests
           command: bash run-ios-tests.sh
@@ -296,6 +362,7 @@ jobs:
           destination: logs/raw_xcodetest.log
       - run:
           name: Build Carthage archive
+          no_output_timeout: 20m
           command: |
             if [ -z "${CIRCLE_TAG}" ]; then
               # XCode tests build in Debug configuration, save us a full
@@ -333,10 +400,11 @@ jobs:
             echo "binary \"$JSON_URL\" ~> 0.0.1-snapshot # mozilla/application-services@$CIRCLE_SHA1"
       - persist_to_workspace:
           root: .
-          paths: MozillaAppServices.framework.zip
+          paths:
+            - MozillaAppServices.framework.zip
   Carthage release:
     macos:
-      xcode: "10.2.1"
+      xcode: "11.2.0"
     steps:
       - checkout
       - attach_workspace:
@@ -346,7 +414,7 @@ jobs:
           command: |
             GHR=ghr_v0.12.0_darwin_amd64
             GHR_SHA256=c868ef9fc5dd8c8a397b74d84051d83693c42dd59041cb17b66f90f563477249
-            curl -L -O -s --retry 5 "https://github.com/tcnksm/ghr/releases/download/v0.12.0/${GHR}.zip"
+            curl -sfSL --retry 5 --retry-delay 10 -O "https://github.com/tcnksm/ghr/releases/download/v0.12.0/${GHR}.zip"
             echo "${GHR_SHA256} *${GHR}.zip" | shasum -a 256 -c -
             unzip "${GHR}.zip"
             ./${GHR}/ghr -replace "${CIRCLE_TAG}" MozillaAppServices.framework.zip
@@ -390,21 +458,34 @@ workflows:
   check-dependencies:
     jobs:
       - Check Rust dependencies
+  log-rust-changelog:
+    jobs:
+      - Log Rust Changes
   bash-lint:
     jobs:
       - Lint Bash scripts
   deploy-website:
     jobs:
       - Deploy website:
-        filters:
-          branches:
-            only: master
+          filters:
+            branches:
+              only: master
   check-dependencies-periodically:
     jobs:
       - Check Rust dependencies
     triggers:
       - schedule:
-          cron: "0 * * * *"
+          cron: "0 7 * * *"
+          filters:
+            branches:
+              only:
+                - master
+  mirror-bugzilla-to-github-periodically:
+    jobs:
+      - Mirror Bugzilla issues into GitHub
+    triggers:
+      - schedule:
+          cron: "0,30 * * * *"
           filters:
             branches:
               only:

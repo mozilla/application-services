@@ -189,7 +189,7 @@ impl Connection for ConnectHttp {
             Ok(v) => v,
             Err(e) => {
                 return Err(
-                    CommunicationServerError(format!("Could not fetch endpoint: {:?}", e)).into(),
+                    CommunicationServerError(format!("Could not fetch endpoint: {}", e)).into(),
                 );
             }
         };
@@ -252,8 +252,8 @@ impl Connection for ConnectHttp {
             &options.sender_id,
             &self.uaid.clone().unwrap(),
         );
-        if channel_id.is_some() {
-            url = format!("{}/subscription/{}", url, channel_id.unwrap())
+        if let Some(channel_id) = channel_id {
+            url = format!("{}/subscription/{}", url, channel_id)
         }
         if &self.options.sender_id == "test" {
             return Ok(true);
@@ -263,9 +263,7 @@ impl Connection for ConnectHttp {
             .send()
         {
             Ok(_) => Ok(true),
-            Err(e) => {
-                Err(CommunicationServerError(format!("Could not unsubscribe: {:?}", e)).into())
-            }
+            Err(e) => Err(CommunicationServerError(format!("Could not unsubscribe: {}", e)).into()),
         }
     }
 
@@ -301,7 +299,7 @@ impl Connection for ConnectHttp {
         {
             Ok(_) => Ok(true),
             Err(e) => {
-                Err(CommunicationServerError(format!("Could not update token: {:?}", e)).into())
+                Err(CommunicationServerError(format!("Could not update token: {}", e)).into())
             }
         }
     }
@@ -341,7 +339,7 @@ impl Connection for ConnectHttp {
             Ok(v) => v,
             Err(e) => {
                 return Err(CommunicationServerError(format!(
-                    "Could not fetch channel list: {:?}",
+                    "Could not fetch channel list: {}",
                     e
                 ))
                 .into());
@@ -597,5 +595,4 @@ mod test {
             assert!(response == [DUMMY_CHID.to_owned()]);
         }
     }
-
 }

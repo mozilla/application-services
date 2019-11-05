@@ -3,21 +3,31 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{config::Config, error::*};
-use browser_id::{derive_hawk_auth_key_from_session_token, hawk_request::HawkRequestBuilder};
+use hex;
+use rc_crypto::hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256};
+use rc_crypto::{digest, hkdf, hmac};
 use serde_derive::*;
 use serde_json::json;
 use std::collections::HashMap;
+use url::Url;
 use viaduct::{header_names, status_codes, Method, Request, Response};
 
-pub(crate) mod browser_id;
+const HAWK_HKDF_SALT: [u8; 32] = [0b0; 32];
+const HAWK_KEY_LENGTH: usize = 32;
 
 #[cfg_attr(test, mockiato::mockable)]
 pub trait FxAClient {
-    fn oauth_token_with_code(
+    fn oauth_tokens_from_code(
         &self,
         config: &Config,
         code: &str,
         code_verifier: &str,
+    ) -> Result<OAuthTokenResponse>;
+    fn oauth_tokens_from_session_token(
+        &self,
+        config: &Config,
+        session_token: &str,
+        scopes: &[&str],
     ) -> Result<OAuthTokenResponse>;
     fn oauth_token_with_refresh_token(
         &self,
@@ -25,18 +35,28 @@ pub trait FxAClient {
         refresh_token: &str,
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse>;
+    fn oauth_token_with_session_token(
+        &self,
+        config: &Config,
+        session_token: &str,
+        scopes: &[&str],
+    ) -> Result<OAuthTokenResponse>;
+    fn authorization_code_using_session_token(
+        &self,
+        config: &Config,
+        client_id: &str,
+        session_token: &str,
+        scope: &str,
+        state: &str,
+        access_type: &str,
+    ) -> Result<OAuthAuthResponse>;
     fn duplicate_session(
         &self,
         config: &Config,
-        session_token: &[u8],
+        session_token: &str,
     ) -> Result<DuplicateTokenResponse>;
-    fn oauth_token_from_session_token(
-        &self,
-        config: &Config,
-        session_token: &[u8],
-        scopes: &[&str],
-    ) -> Result<OAuthTokenResponse>;
-    fn destroy_oauth_token(&self, config: &Config, token: &str) -> Result<()>;
+    fn destroy_access_token(&self, config: &Config, token: &str) -> Result<()>;
+    fn destroy_refresh_token(&self, config: &Config, token: &str) -> Result<()>;
     fn profile(
         &self,
         config: &Config,
@@ -69,7 +89,7 @@ pub trait FxAClient {
     fn scoped_key_data(
         &self,
         config: &Config,
-        session_token: &[u8],
+        session_token: &str,
         scope: &str,
     ) -> Result<HashMap<String, ScopedKeyDataResponse>>;
 }
@@ -102,7 +122,9 @@ impl FxAClient for Client {
         }))
     }
 
-    fn oauth_token_with_code(
+    // For the one-off generation of a `refresh_token` and associated meta from transient credentials.
+
+    fn oauth_tokens_from_code(
         &self,
         config: &Config,
         code: &str,
@@ -115,6 +137,28 @@ impl FxAClient for Client {
         });
         self.make_oauth_token_request(config, body)
     }
+
+    fn oauth_tokens_from_session_token(
+        &self,
+        config: &Config,
+        session_token: &str,
+        scopes: &[&str],
+    ) -> Result<OAuthTokenResponse> {
+        let url = config.token_endpoint()?;
+        let key = derive_auth_key_from_session_token(&session_token)?;
+        let body = json!({
+            "client_id": config.client_id,
+            "scope": scopes.join(" "),
+            "grant_type": "fxa-credentials",
+            "access_type": "offline",
+        });
+        let request = HawkRequestBuilder::new(Method::Post, url, &key)
+            .body(body)
+            .build()?;
+        Ok(Self::make_request(request)?.json()?)
+    }
+
+    // For the regular generation of an `access_token` from long-lived credentials.
 
     fn oauth_token_with_refresh_token(
         &self,
@@ -131,13 +175,57 @@ impl FxAClient for Client {
         self.make_oauth_token_request(config, body)
     }
 
+    fn oauth_token_with_session_token(
+        &self,
+        config: &Config,
+        session_token: &str,
+        scopes: &[&str],
+    ) -> Result<OAuthTokenResponse> {
+        let parameters = json!({
+            "client_id": config.client_id,
+            "grant_type": "fxa-credentials",
+            "scope": scopes.join(" ")
+        });
+        let key = derive_auth_key_from_session_token(session_token)?;
+        let url = config.token_endpoint()?;
+        let request = HawkRequestBuilder::new(Method::Post, url, &key)
+            .body(parameters)
+            .build()?;
+        Self::make_request(request)?.json().map_err(Into::into)
+    }
+
+    fn authorization_code_using_session_token(
+        &self,
+        config: &Config,
+        client_id: &str,
+        session_token: &str,
+        scope: &str,
+        state: &str,
+        access_type: &str,
+    ) -> Result<OAuthAuthResponse> {
+        let parameters = json!({
+            "client_id": client_id,
+            "scope": scope,
+            "response_type": "code",
+            "state": state,
+            "access_type": access_type,
+        });
+        let key = derive_auth_key_from_session_token(session_token)?;
+        let url = config.auth_url_path("v1/oauth/authorization")?;
+        let request = HawkRequestBuilder::new(Method::Post, url, &key)
+            .body(parameters)
+            .build()?;
+
+        Ok(Self::make_request(request)?.json()?)
+    }
+
     fn duplicate_session(
         &self,
         config: &Config,
-        session_token: &[u8],
+        session_token: &str,
     ) -> Result<DuplicateTokenResponse> {
         let url = config.auth_url_path("v1/session/duplicate")?;
-        let key = derive_hawk_auth_key_from_session_token(&session_token)?;
+        let key = derive_auth_key_from_session_token(&session_token)?;
         let duplicate_body = json!({
             "reason": "migration"
         });
@@ -148,33 +236,18 @@ impl FxAClient for Client {
         Ok(Self::make_request(request)?.json()?)
     }
 
-    fn oauth_token_from_session_token(
-        &self,
-        config: &Config,
-        session_token: &[u8],
-        scopes: &[&str],
-    ) -> Result<OAuthTokenResponse> {
-        let url = config.auth_url_path("v1/oauth/token")?;
-        let key = derive_hawk_auth_key_from_session_token(&session_token)?;
+    fn destroy_access_token(&self, config: &Config, access_token: &str) -> Result<()> {
         let body = json!({
-            "client_id": config.client_id,
-            "scope": scopes.join(" "),
-            "grant_type": "fxa-credentials",
-            "access_type": "offline",
+            "access_token": access_token,
         });
-        let request = HawkRequestBuilder::new(Method::Post, url, &key)
-            .body(body)
-            .build()?;
-        Ok(Self::make_request(request)?.json()?)
+        self.destroy_token_helper(config, &body)
     }
 
-    fn destroy_oauth_token(&self, config: &Config, token: &str) -> Result<()> {
+    fn destroy_refresh_token(&self, config: &Config, refresh_token: &str) -> Result<()> {
         let body = json!({
-            "token": token,
+            "refresh_token": refresh_token,
         });
-        let url = config.oauth_url_path("v1/destroy")?;
-        Self::make_request(Request::post(url).json(&body))?;
-        Ok(())
+        self.destroy_token_helper(config, &body)
     }
 
     fn pending_commands(
@@ -254,7 +327,7 @@ impl FxAClient for Client {
     fn scoped_key_data(
         &self,
         config: &Config,
-        session_token: &[u8],
+        session_token: &str,
         scope: &str,
     ) -> Result<HashMap<String, ScopedKeyDataResponse>> {
         let body = json!({
@@ -262,7 +335,7 @@ impl FxAClient for Client {
             "scope": scope,
         });
         let url = config.auth_url_path("v1/account/scoped-key-data")?;
-        let key = derive_hawk_auth_key_from_session_token(session_token)?;
+        let key = derive_auth_key_from_session_token(session_token)?;
         let request = HawkRequestBuilder::new(Method::Post, url, &key)
             .body(body)
             .build()?;
@@ -273,6 +346,12 @@ impl FxAClient for Client {
 impl Client {
     pub fn new() -> Self {
         Self {}
+    }
+
+    fn destroy_token_helper(&self, config: &Config, body: &serde_json::Value) -> Result<()> {
+        let url = config.oauth_url_path("v1/destroy")?;
+        Self::make_request(Request::post(url).json(body))?;
+        Ok(())
     }
 
     fn make_oauth_token_request(
@@ -307,6 +386,79 @@ impl Client {
 
 fn bearer_token(token: &str) -> String {
     format!("Bearer {}", token)
+}
+
+fn kw(name: &str) -> Vec<u8> {
+    format!("identity.mozilla.com/picl/v1/{}", name)
+        .as_bytes()
+        .to_vec()
+}
+
+pub fn derive_auth_key_from_session_token(session_token: &str) -> Result<Vec<u8>> {
+    let session_token_bytes = hex::decode(session_token)?;
+    let context_info = kw("sessionToken");
+    let salt = hmac::SigningKey::new(&digest::SHA256, &HAWK_HKDF_SALT);
+    let mut out = vec![0u8; HAWK_KEY_LENGTH * 2];
+    hkdf::extract_and_expand(&salt, &session_token_bytes, &context_info, &mut out)?;
+    Ok(out)
+}
+
+struct HawkRequestBuilder<'a> {
+    url: Url,
+    method: Method,
+    body: Option<String>,
+    hkdf_sha256_key: &'a [u8],
+}
+
+impl<'a> HawkRequestBuilder<'a> {
+    pub fn new(method: Method, url: Url, hkdf_sha256_key: &'a [u8]) -> Self {
+        rc_crypto::ensure_initialized();
+        HawkRequestBuilder {
+            url,
+            method,
+            body: None,
+            hkdf_sha256_key,
+        }
+    }
+
+    // This class assumes that the content being sent it always of the type
+    // application/json.
+    pub fn body(mut self, body: serde_json::Value) -> Self {
+        self.body = Some(body.to_string());
+        self
+    }
+
+    fn make_hawk_header(&self) -> Result<String> {
+        // Make sure we de-allocate the hash after hawk_request_builder.
+        let hash;
+        let method = format!("{}", self.method);
+        let mut hawk_request_builder = RequestBuilder::from_url(method.as_str(), &self.url)?;
+        if let Some(ref body) = self.body {
+            hash = PayloadHasher::hash("application/json", SHA256, &body)?;
+            hawk_request_builder = hawk_request_builder.hash(&hash[..]);
+        }
+        let hawk_request = hawk_request_builder.request();
+        let token_id = hex::encode(&self.hkdf_sha256_key[0..HAWK_KEY_LENGTH]);
+        let hmac_key = &self.hkdf_sha256_key[HAWK_KEY_LENGTH..(2 * HAWK_KEY_LENGTH)];
+        let hawk_credentials = Credentials {
+            id: token_id,
+            key: Key::new(hmac_key, SHA256)?,
+        };
+        let header = hawk_request.make_header(&hawk_credentials)?;
+        Ok(format!("Hawk {}", header))
+    }
+
+    pub fn build(self) -> Result<Request> {
+        let hawk_header = self.make_hawk_header()?;
+        let mut request =
+            Request::new(self.method, self.url).header(header_names::AUTHORIZATION, hawk_header)?;
+        if let Some(body) = self.body {
+            request = request
+                .header(header_names::CONTENT_TYPE, "application/json")?
+                .body(body);
+        }
+        Ok(request)
+    }
 }
 
 #[derive(Clone)]
@@ -374,6 +526,12 @@ pub enum DeviceType {
     Desktop,
     #[serde(rename = "mobile")]
     Mobile,
+    #[serde(rename = "tablet")]
+    Tablet,
+    #[serde(rename = "vr")]
+    VR,
+    #[serde(rename = "tv")]
+    TV,
     #[serde(other)]
     #[serde(skip_serializing)] // Don't you dare trying.
     Unknown,
@@ -486,9 +644,17 @@ pub struct DeviceResponseCommon {
 pub struct OAuthTokenResponse {
     pub keys_jwe: Option<String>,
     pub refresh_token: Option<String>,
+    pub session_token: Option<String>,
     pub expires_in: u64,
     pub scope: String,
     pub access_token: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct OAuthAuthResponse {
+    pub redirect: String,
+    pub code: String,
+    pub state: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

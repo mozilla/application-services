@@ -1,5 +1,6 @@
 package mozilla.appservices.push
 
+import mozilla.appservices.Megazord
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -21,6 +22,7 @@ class PushTest {
 
     @Before
     fun initDB() {
+        Megazord.init()
         dbFile = tmpFolder.newFile().toString()
     }
 
@@ -222,11 +224,11 @@ class PushTest {
     }
 
     @Test
-    fun testDispatchForChid() {
+    fun testDispatchInfoForChid() {
         val manager = getPushManager()
 
         manager.subscribe(testChannelid, "foo")
-        val dispatch = manager.dispatchForChid(testChannelid)
+        val dispatch = manager.dispatchInfoForChid(testChannelid)!!
         assertEquals("uaid", "abad1d3a00000000aabbccdd00000000", dispatch.uaid)
         assertEquals("scope", "foo", dispatch.scope)
     }

@@ -5,8 +5,9 @@ use crate::Opts;
 use fxa_client::{self, Config as FxaConfig, FirefoxAccount};
 use logins::PasswordEngine;
 use std::collections::HashMap;
-use std::sync::{Arc, Once, ONCE_INIT};
+use std::sync::{Arc, Once};
 use sync15::{KeyBundle, Sync15StorageClientInit};
+use tabs::TabsEngine;
 use url::Url;
 
 pub const CLIENT_ID: &str = "3c49430b43dfba77"; // Hrm...
@@ -39,7 +40,7 @@ lazy_static::lazy_static! {
 fn run_helper_command(cmd: &str, cmd_args: &[&str]) -> Result<String, failure::Error> {
     use std::process::{self, Command};
     // This `Once` is used to run `npm install` first time through.
-    static HELPER_SETUP: Once = ONCE_INIT;
+    static HELPER_SETUP: Once = Once::new();
     HELPER_SETUP.call_once(|| {
         let dir = &*HELPER_SCRIPT_DIR;
         std::env::set_current_dir(dir).expect("Failed to change directory...");
@@ -123,7 +124,7 @@ impl TestAccount {
 
     pub fn new_random(opts: &Opts) -> Result<Arc<TestAccount>, failure::Error> {
         use rand::prelude::*;
-        let mut rng = thread_rng();
+        let rng = thread_rng();
         let name = opts.force_username.clone().unwrap_or_else(|| {
             format!(
                 "rust-login-sql-test--{}",
@@ -175,6 +176,7 @@ pub struct TestClient {
     pub test_acct: Arc<TestAccount>,
     // XXX do this more generically...
     pub logins_engine: PasswordEngine,
+    pub tabs_engine: TabsEngine,
 }
 
 impl TestClient {
@@ -182,7 +184,7 @@ impl TestClient {
         log::info!("Doing oauth flow!");
 
         let mut fxa = FirefoxAccount::with_config(acct.cfg.clone());
-        let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE], true)?;
+        let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE])?;
         let auth_url = acct.cfg.auth_url()?;
         let redirected_to = run_helper_command(
             "oauth",
@@ -201,10 +203,15 @@ impl TestClient {
         fxa.complete_oauth_flow(&query_params["code"], &query_params["state"])?;
         log::info!("OAuth flow finished");
 
+        fxa.initialize_device("Testing Device", fxa_client::device::Type::Desktop, &[])?;
+
+        let device_id = fxa.get_current_device_id()?;
+
         Ok(Self {
             fxa,
             test_acct: acct,
             logins_engine: PasswordEngine::new_in_memory(None)?,
+            tabs_engine: TabsEngine::new(&device_id),
         })
     }
 
@@ -245,6 +252,7 @@ impl TestClient {
     pub fn fully_reset_local_db(&mut self) -> Result<(), failure::Error> {
         // Not great...
         self.logins_engine = PasswordEngine::new_in_memory(None)?;
+        self.tabs_engine = TabsEngine::new(&self.fxa.get_current_device_id()?);
         Ok(())
     }
 }

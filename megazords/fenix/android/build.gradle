@@ -3,8 +3,6 @@ apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
-import com.sun.jna.Platform
-
 android {
     compileSdkVersion rootProject.ext.build.compileSdkVersion
 
@@ -13,6 +11,7 @@ android {
         targetSdkVersion rootProject.ext.build['targetSdkVersion']
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.ext.library.version}\"")
     }
 
     buildTypes {
@@ -24,12 +23,16 @@ android {
     }
 
     sourceSets {
-        test.resources.srcDirs += "$buildDir/rustJniLibs/desktop"
-        test.resources.srcDirs += "$buildDir/nativeLibs/desktop"
+        test.jniLibs.srcDirs += "$buildDir/rustJniLibs/desktop"
     }
 
     // Uncomment to include debug symbols in native library builds.
     // packagingOptions { doNotStrip "**/*.so" }
+}
+
+afterEvaluate {
+    android.sourceSets.debug.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
+    android.sourceSets.release.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
 }
 
 configurations {
@@ -71,18 +74,11 @@ cargo {
 
     extraCargoBuildArguments = rootProject.ext.extraCargoBuildArguments
 
-    exec = rootProject.ext.cargoExec
+    exec = rootProject.ext.cargoExecWithSQLCipher
 }
 
 dependencies {
-    api project(path: ':fxa-client-library', configuration: 'withoutLib')
-    api project(path: ':places-library', configuration: 'withoutLib')
-    api project(path: ':push-library', configuration: 'withoutLib')
-    api project(path: ':rustlog-library', configuration: 'withoutLib')
-    api project(path: ':viaduct-library', configuration: 'withoutLib')
-    compile project(path: ':viaduct-library')
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    api "org.mozilla.components:concept-fetch:$android_components_version"
 
     jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
 }
@@ -96,19 +92,10 @@ afterEvaluate {
         }
         def buildType = "${variant.buildType.name.capitalize()}"
         tasks["generate${productFlavor}${buildType}Assets"].dependsOn(tasks["cargoBuild"])
-        // Don't depend on copyNativeLibs here as NSS libs are shipped with GeckoView.
-
-        // For unit tests.
-        tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["cargoBuild"])
-        tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["copyNativeLibs"])
     }
 }
 
 apply from: "$rootDir/publish.gradle"
-// If using jnaForTestConfiguration or variantWithoutLib,
-// please also update the corresponding .buildconfig-android.yml
-// `publishedArtifacts` property.
 ext.configurePublish(
         /* jnaForTestConfiguration= */ configurations.jnaForTest,
-        /* variantWithoutLib= */ null,
 )

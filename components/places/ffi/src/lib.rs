@@ -15,35 +15,22 @@ use ffi_support::{
 use places::error::*;
 use places::msg_types::BookmarkNodeList;
 use places::storage::bookmarks;
-use places::types::{SyncGuid, VisitTransitionSet};
+use places::types::VisitTransitionSet;
 use places::{storage, ConnectionType, PlacesApi, PlacesDb};
 use sql_support::SqlInterruptHandle;
 use std::os::raw::c_char;
 use std::sync::Arc;
+use sync_guid::Guid as SyncGuid;
 
-use places::api::matcher::{match_url, search_frecent, SearchParams};
+use places::api::matcher::{self, match_url, search_frecent, SearchParams};
 
 // indirection to help `?` figure out the target error type
 fn parse_url(url: &str) -> places::Result<url::Url> {
     Ok(url::Url::parse(url)?)
 }
 
-#[no_mangle]
-pub extern "C" fn places_enable_logcat_logging() {
-    #[cfg(target_os = "android")]
-    {
-        let _ = std::panic::catch_unwind(|| {
-            android_logger::init_once(
-                android_logger::Filter::default().with_min_level(log::Level::Debug),
-                Some("libplaces_ffi"),
-            );
-            log::debug!("Android logging should be hooked up!")
-        });
-    }
-}
-
 lazy_static::lazy_static! {
-    static ref APIS: ConcurrentHandleMap<Arc<PlacesApi>> = ConcurrentHandleMap::new();
+    pub static ref APIS: ConcurrentHandleMap<Arc<PlacesApi>> = ConcurrentHandleMap::new();
     static ref CONNECTIONS: ConcurrentHandleMap<PlacesDb> = ConcurrentHandleMap::new();
 }
 
@@ -88,6 +75,7 @@ pub extern "C" fn places_connection_new(
         Ok(CONNECTIONS.insert(api.open_connection(conn_type)?))
     })
 }
+
 #[no_mangle]
 pub extern "C" fn places_bookmarks_import_from_ios(
     api_handle: u64,
@@ -97,6 +85,33 @@ pub extern "C" fn places_bookmarks_import_from_ios(
     log::debug!("places_bookmarks_import_from_ios");
     APIS.call_with_result(error, api_handle, |api| -> places::Result<_> {
         places::import::import_ios_bookmarks(api, db_path.as_str())?;
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn places_bookmarks_import_from_fennec(
+    api_handle: u64,
+    db_path: FfiStr<'_>,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("places_bookmarks_import_from_fennec");
+    APIS.call_with_result(error, api_handle, |api| -> places::Result<_> {
+        Ok(BookmarkNodeList::from(
+            places::import::import_fennec_bookmarks(api, db_path.as_str())?,
+        ))
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn places_history_import_from_fennec(
+    api_handle: u64,
+    db_path: FfiStr<'_>,
+    error: &mut ExternError,
+) {
+    log::debug!("places_history_import_from_fennec");
+    APIS.call_with_result(error, api_handle, |api| -> places::Result<_> {
+        places::import::import_fennec_history(api, db_path.as_str())?;
         Ok(())
     })
 }
@@ -263,8 +278,8 @@ pub extern "C" fn places_delete_place(handle: u64, url: FfiStr<'_>, error: &mut 
                 storage::history::href_to_guid(conn, url.clone().as_str())?
             }
         };
-        if guid.is_some() {
-            storage::history::delete_place_by_guid(conn, &guid.unwrap())?;
+        if let Some(guid) = guid {
+            storage::history::delete_place_by_guid(conn, &guid)?;
         }
         Ok(())
     })
@@ -407,6 +422,27 @@ pub extern "C" fn places_get_visit_page(
 }
 
 #[no_mangle]
+pub extern "C" fn places_accept_result(
+    handle: u64,
+    search_string: FfiStr<'_>,
+    url: FfiStr<'_>,
+    error: &mut ExternError,
+) {
+    log::debug!("places_accept_result");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let search_string = search_string.as_str();
+        let url = if let Ok(url) = parse_url(url.as_str()) {
+            url
+        } else {
+            log::warn!("Ignoring invalid URL in places_accept_result");
+            return Ok(());
+        };
+        matcher::accept_result(conn, search_string, &url)?;
+        Ok(())
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn sync15_history_sync(
     handle: u64,
     key_id: FfiStr<'_>,
@@ -460,8 +496,17 @@ pub extern "C" fn bookmarks_get_tree(
 ) -> ByteBuffer {
     log::debug!("bookmarks_get_tree");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let root_id = SyncGuid(guid.into());
+        let root_id = SyncGuid::from(guid.as_str());
         Ok(bookmarks::public_node::fetch_public_tree(conn, &root_id)?)
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn bookmarks_delete_everything(handle: u64, error: &mut ExternError) {
+    log::debug!("bookmarks_delete_everything");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        bookmarks::delete_everything(conn)?;
+        Ok(())
     })
 }
 
@@ -474,7 +519,7 @@ pub extern "C" fn bookmarks_get_by_guid(
 ) -> ByteBuffer {
     log::debug!("bookmarks_get_by_guid");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let guid = SyncGuid(guid.into());
+        let guid = SyncGuid::from(guid.as_str());
         Ok(bookmarks::public_node::fetch_bookmark(
             conn,
             &guid,
@@ -508,7 +553,7 @@ pub unsafe extern "C" fn bookmarks_insert(
         let bookmark: BookmarkNode = prost::Message::decode(buffer)?;
         let insertable = bookmark.into_insertable()?;
         let guid = bookmarks::insert_bookmark(conn, &insertable)?;
-        Ok(guid.0)
+        Ok(guid.into_string())
     })
 }
 
@@ -533,7 +578,7 @@ pub unsafe extern "C" fn bookmarks_update(
 pub extern "C" fn bookmarks_delete(handle: u64, id: FfiStr<'_>, error: &mut ExternError) -> u8 {
     log::debug!("bookmarks_delete");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let guid = SyncGuid(id.into_string());
+        let guid = SyncGuid::from(id.as_str());
         let did_delete = bookmarks::delete_bookmark(conn, &guid)?;
         Ok(did_delete)
     })
@@ -557,6 +602,19 @@ pub extern "C" fn bookmarks_get_all_with_url(
                 BookmarkNodeList::from(Vec::<bookmarks::public_node::PublicNode>::new())
             }
         })
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn bookmarks_get_url_for_keyword(
+    handle: u64,
+    keyword: FfiStr<'_>,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("bookmarks_get_url_for_keyword");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let url = bookmarks::bookmarks_get_url_for_keyword(conn, keyword.as_str())?;
+        Ok(url.map(url::Url::into_string))
     })
 }
 

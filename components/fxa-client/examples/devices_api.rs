@@ -14,12 +14,12 @@ use std::{
 };
 use url::Url;
 
-static CREDENTIALS_PATH: &'static str = "credentials.json";
-static CONTENT_SERVER: &'static str = "https://accounts.firefox.com";
-static CLIENT_ID: &'static str = "a2270f727f45f648";
-static REDIRECT_URI: &'static str = "https://accounts.firefox.com/oauth/success/a2270f727f45f648";
-static SCOPES: &'static [&'static str] = &["profile", "https://identity.mozilla.com/apps/oldsync"];
-static DEFAULT_DEVICE_NAME: &'static str = "Bobo device";
+static CREDENTIALS_PATH: &str = "credentials.json";
+static CONTENT_SERVER: &str = "https://accounts.firefox.com";
+static CLIENT_ID: &str = "a2270f727f45f648";
+static REDIRECT_URI: &str = "https://accounts.firefox.com/oauth/success/a2270f727f45f648";
+static SCOPES: &[&str] = &["profile", "https://identity.mozilla.com/apps/oldsync"];
+static DEFAULT_DEVICE_NAME: &str = "Bobo device";
 
 fn load_fxa_creds() -> Result<FirefoxAccount, failure::Error> {
     let mut file = fs::File::open(CREDENTIALS_PATH)?;
@@ -49,7 +49,7 @@ fn persist_fxa_state(acct: &FirefoxAccount) {
 
 fn create_fxa_creds(cfg: Config) -> Result<FirefoxAccount, failure::Error> {
     let mut acct = FirefoxAccount::with_config(cfg);
-    let oauth_uri = acct.begin_oauth_flow(&SCOPES, true)?;
+    let oauth_uri = acct.begin_oauth_flow(&SCOPES)?;
 
     if webbrowser::open(&oauth_uri.as_ref()).is_err() {
         println!("Please visit this URL, sign in, and then copy-paste the final URL below.");
@@ -115,7 +115,7 @@ fn main() -> Result<(), failure::Error> {
     loop {
         println!("Main menu:");
         let mut main_menu = Select::new();
-        main_menu.items(&["Set Display Name", "Send a Tab", "Destroy Device", "Quit"]);
+        main_menu.items(&["Set Display Name", "Send a Tab", "Quit"]);
         main_menu.default(0);
         let main_menu_selection = main_menu.interact().unwrap();
 
@@ -148,23 +148,7 @@ fn main() -> Result<(), failure::Error> {
                     .unwrap();
                 println!("Tab sent!");
             }
-            2 => {
-                let devices = acct.lock().unwrap().get_devices().unwrap();
-                let devices_names: Vec<String> =
-                    devices.iter().map(|i| i.display_name.clone()).collect();
-                let mut targets_menu = Select::new();
-                targets_menu.default(0);
-                let devices_names_refs: Vec<&str> =
-                    devices_names.iter().map(AsRef::as_ref).collect();
-                targets_menu.items(&devices_names_refs);
-                println!("Choose the device to destroy:");
-                let selection = targets_menu.interact().unwrap();
-                let target = &devices[selection];
-
-                acct.lock().unwrap().destroy_device(&target.id).unwrap();
-                println!("Should be gone!");
-            }
-            3 => ::std::process::exit(0),
+            2 => ::std::process::exit(0),
             _ => panic!("Invalid choice!"),
         }
     }

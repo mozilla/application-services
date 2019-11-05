@@ -33,11 +33,11 @@
 		CDC21B15221DCE3700AA71E5 /* RustLogFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = CDC21B13221DCE3700AA71E5 /* RustLogFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CE1ADA9722249FDA00E89714 /* Data+RustBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1ADA9622249FDA00E89714 /* Data+RustBuffer.swift */; };
 		CE3A2F38225BDE5300EA569C /* PlacesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3A2F37225BDE5300EA569C /* PlacesTests.swift */; };
+		CEFB1EB022EF708B0001E20F /* ResultError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEFB1EAF22EF708B0001E20F /* ResultError.swift */; };
 		D05434A1225680D900FDE4EF /* MozillaAppServices.h in Headers */ = {isa = PBXBuildFile; fileRef = C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D05434A2225680F400FDE4EF /* RustFxAFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = C852EEE0220A2A2B00A6E79A /* RustFxAFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D05434A32256810200FDE4EF /* RustPasswordAPI.h in Headers */ = {isa = PBXBuildFile; fileRef = C852EEC8220A29FE00A6E79A /* RustPasswordAPI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		EB7DE84D2214D30B00E7CF17 /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */; };
-		EB879D64221231F400753DC9 /* CommonErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB879D4D221231F400753DC9 /* CommonErrors.swift */; };
 		EB879D7F221234EB00753DC9 /* MozillaAppServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE9D202020914D0D00F1C8FA /* MozillaAppServices.framework */; };
 		EB879D8B22123FD900753DC9 /* LoginsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB879D8A22123FD900753DC9 /* LoginsTests.swift */; };
 /* End PBXBuildFile section */
@@ -109,8 +109,8 @@
 		CE1ADA9622249FDA00E89714 /* Data+RustBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Data+RustBuffer.swift"; sourceTree = "<group>"; };
 		CE3A2F37225BDE5300EA569C /* PlacesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacesTests.swift; sourceTree = "<group>"; };
 		CE9D202020914D0D00F1C8FA /* MozillaAppServices.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = MozillaAppServices.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		CEFB1EAF22EF708B0001E20F /* ResultError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultError.swift; sourceTree = "<group>"; };
 		EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftProtobuf.framework; path = ../../Carthage/Build/iOS/SwiftProtobuf.framework; sourceTree = "<group>"; };
-		EB879D4D221231F400753DC9 /* CommonErrors.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CommonErrors.swift; sourceTree = "<group>"; };
 		EB879D7A221234EB00753DC9 /* MozillaAppServicesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MozillaAppServicesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB879D7E221234EB00753DC9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		EB879D8A22123FD900753DC9 /* LoginsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginsTests.swift; sourceTree = "<group>"; };
@@ -256,11 +256,12 @@
 		CE9D201620914D0D00F1C8FA = {
 			isa = PBXGroup;
 			children = (
+				C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */,
+				CD02CF3822568BCC00124DA2 /* SyncUnlockInfo.swift */,
+				CEFB1EB122EF70960001E20F /* Errors */,
 				CD85A44822361E880099BFA9 /* Places */,
 				CDC21B11221DCE3700AA71E5 /* RustLog */,
-				C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */,
 				C852EEB2220A285B00A6E79A /* config */,
-				EB879D4B221231F400753DC9 /* support */,
 				C852EEDA220A2A2B00A6E79A /* FxAClient */,
 				C852EEC7220A29FE00A6E79A /* Logins */,
 				EB879D7B221234EB00753DC9 /* MozillaAppServicesTests */,
@@ -288,22 +289,12 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		EB879D4B221231F400753DC9 /* support */ = {
+		CEFB1EB122EF70960001E20F /* Errors */ = {
 			isa = PBXGroup;
 			children = (
-				EB879D4C221231F400753DC9 /* ios */,
+				CEFB1EAF22EF708B0001E20F /* ResultError.swift */,
 			);
-			name = support;
-			path = ../../components/support;
-			sourceTree = "<group>";
-		};
-		EB879D4C221231F400753DC9 /* ios */ = {
-			isa = PBXGroup;
-			children = (
-				CD02CF3822568BCC00124DA2 /* SyncUnlockInfo.swift */,
-				EB879D4D221231F400753DC9 /* CommonErrors.swift */,
-			);
-			path = ios;
+			path = Errors;
 			sourceTree = "<group>";
 		};
 		EB879D7B221234EB00753DC9 /* MozillaAppServicesTests */ = {
@@ -450,6 +441,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CEFB1EB022EF708B0001E20F /* ResultError.swift in Sources */,
 				CE1ADA9722249FDA00E89714 /* Data+RustBuffer.swift in Sources */,
 				C852EEE8220A2A2B00A6E79A /* String+Free_FxAClient.swift in Sources */,
 				CDC0089F2236CAD100893800 /* places_msg_types.proto in Sources */,
@@ -459,7 +451,6 @@
 				CDC0089D2236CAB900893800 /* fxa_msg_types.proto in Sources */,
 				CD85A45A22361E890099BFA9 /* PlacesError.swift in Sources */,
 				CD85A45422361E890099BFA9 /* Places.swift in Sources */,
-				EB879D64221231F400753DC9 /* CommonErrors.swift in Sources */,
 				C852EED8220A29FE00A6E79A /* LockError.swift in Sources */,
 				CD85A45722361E890099BFA9 /* String+Free_Places.swift in Sources */,
 				C852EED5220A29FE00A6E79A /* LoginRecord.swift in Sources */,

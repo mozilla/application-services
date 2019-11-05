@@ -2,12 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#![allow(unknown_lints)]
+#![allow(unknown_lints, clippy::implicit_hasher)]
 #![warn(rust_2018_idioms)]
 
 mod bso_record;
 mod changeset;
 mod client;
+pub mod clients;
 mod coll_state;
 mod collection_keys;
 mod error;
@@ -35,5 +36,7 @@ pub use crate::request::CollectionRequest;
 pub use crate::state::{GlobalState, SetupStateMachine};
 pub use crate::status::{ServiceStatus, SyncResult};
 pub use crate::sync::{synchronize, Store};
-pub use crate::sync_multiple::{sync_multiple, MemoryCachedState};
-pub use crate::util::{random_guid, ServerTimestamp, SERVER_EPOCH};
+pub use crate::sync_multiple::{
+    sync_multiple, sync_multiple_with_command_processor, MemoryCachedState, SyncRequestInfo,
+};
+pub use crate::util::{ServerTimestamp, SERVER_EPOCH};

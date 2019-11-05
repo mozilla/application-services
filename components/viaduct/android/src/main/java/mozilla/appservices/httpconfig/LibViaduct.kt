@@ -4,44 +4,23 @@
 
 package mozilla.appservices.httpconfig
 
-import android.util.Log
-import com.sun.jna.Library
 import com.sun.jna.Callback
-import com.sun.jna.Native
-import java.lang.reflect.Proxy
-import mozilla.appservices.support.RustBuffer
+import com.sun.jna.Library
+import mozilla.appservices.support.native.RustBuffer
+import mozilla.appservices.support.native.loadIndirect
+import org.mozilla.appservices.httpconfig.BuildConfig
 
 @Suppress("FunctionNaming", "TooGenericExceptionThrown")
 internal interface LibViaduct : Library {
     companion object {
-        private val JNA_LIBRARY_NAME = {
-            val libname = System.getProperty("mozilla.appservices.viaduct_lib_name")
-            if (libname != null) {
-                Log.i("AppServices", "Using viaduct_lib_name: " + libname)
-                libname
-            } else {
-                "viaduct"
-            }
+        internal var INSTANCE: LibViaduct = {
+            val inst = loadIndirect<LibViaduct>(
+                componentName = "viaduct",
+                componentVersion = BuildConfig.LIBRARY_VERSION
+            )
+            inst.viaduct_force_enable_ffi_backend(1)
+            inst
         }()
-
-        internal var INSTANCE: LibViaduct = try {
-            val lib = Native.load<LibViaduct>(JNA_LIBRARY_NAME, LibViaduct::class.java)
-            if (JNA_LIBRARY_NAME == "viaduct") {
-                // TODO Enable logging if we aren't in a megazord.
-            } else {
-                // We're in a megazord. At the moment, we can't prevent cargo
-                // from compiling in reqwest. So we force-enable this backend
-                // as a stopgap.
-                lib.viaduct_force_enable_ffi_backend(1)
-            }
-            lib
-        } catch (e: UnsatisfiedLinkError) {
-            Proxy.newProxyInstance(
-                    LibViaduct::class.java.classLoader,
-                    arrayOf(LibViaduct::class.java)) { _, _, _ ->
-                throw RuntimeException("LibViaduct not available", e)
-            } as LibViaduct
-        }
     }
 
     fun viaduct_destroy_bytebuffer(b: RustBuffer.ByValue)

@@ -4,6 +4,7 @@ buildscript {
     ext.kotlin_version = '1.3.10'
     ext.android_components_version = '0.50.0'
     ext.jna_version = '5.2.0'
+    ext.android_gradle_plugin_version = '3.5.0'
 
     ext.build = [
         compileSdkVersion: 27,
@@ -19,13 +20,13 @@ buildscript {
         }
     }
     dependencies {
-        classpath "com.android.tools.build:gradle:$properties.androidGradlePluginVersion"
+        classpath "com.android.tools.build:gradle:$android_gradle_plugin_version"
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
 
         // Publish.
         classpath 'digital.wup:android-maven-publish:3.6.2'
 
-        classpath 'gradle.plugin.org.mozilla.rust-android-gradle:plugin:0.8.1'
+        classpath 'gradle.plugin.org.mozilla.rust-android-gradle:plugin:0.8.3'
 
         // Yes, this is unusual.  We want to access some host-specific
         // computation at build time.
@@ -143,9 +144,10 @@ if (useDownloadedLibs) {
     subprojects { project ->
         afterEvaluate {
             android.libraryVariants.all { v ->
-                def task = v.preBuild
-                task.dependsOn(rootProject.untarAndroidLibs)
-                task.dependsOn(rootProject.untarDesktopLibs)
+                v.preBuildProvider.configure {
+                    dependsOn(rootProject.untarAndroidLibs)
+                    dependsOn(rootProject.untarDesktopLibs)
+                }
             }
         }
     }
@@ -158,29 +160,13 @@ if (file('local.properties').canRead()) {
     logger.lifecycle('Local configuration: loaded local.properties')
 }
 
-// For non-megazord builds, don't do a release build unless we explicitly want
-// it (e.g. in CI, or if specified in local.properties). This avoids some cases
-// where two builds of some crates are required when they wouldn't otherwise be,
-// as well as improving build times for local development.
-ext.nonMegazordProfile = "debug"
 // Additionally, we require `--locked` in CI, but not for local builds.
 // Unlike the above, this can't be overridden by `local.properties` (mainly
 // because doing so seems pointless, not for any security reason)
 ext.extraCargoBuildArguments = []
 
 if (System.getenv("CI")) {
-    // Note: CI can still override this (and does for PRs), this
-    // is just the default
-    ext.nonMegazordProfile = "release"
     ext.extraCargoBuildArguments = ["--locked"]
-}
-
-if (localProperties != null) {
-    String localNonMegazordProfile = localProperties.getProperty(
-        "application-services.nonmegazord-profile");
-    if (localNonMegazordProfile != null) {
-        ext.nonMegazordProfile = localNonMegazordProfile;
-    }
 }
 
 // The Cargo targets to invoke.  The mapping from short name to target
@@ -207,10 +193,16 @@ switch (DefaultPlatform.RESOURCE_PREFIX) {
         break
 }
 
-def libsRootDir = useDownloadedLibs ? rootProject.buildDir : rootProject.rootDir
+ext.libsRootDir = useDownloadedLibs ? rootProject.buildDir : rootProject.rootDir
 
 subprojects {
+    group = "org.mozilla.appservices"
     apply plugin: 'digital.wup.android-maven-publish'
+
+    // Enable Kotlin warnings as errors for all modules.
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+        kotlinOptions.allWarningsAsErrors = true
+    }
 
     // This allows to invoke Gradle like `./gradlew publishToRootProjectBuildDir` (equivalent to
     // `./gradlew publish`) and also `./gradlew publishToProjectBuildDir`.
@@ -226,36 +218,14 @@ subprojects {
             }
         }
     }
-
-    apply plugin: NativeLibsPlugin
-    nativeLibs {
-        libsRoot = "${libsRootDir}/libs"
-        libs {
-            nss {
-                lib "libplc4.*"
-                lib "libplds4.*"
-                lib "libnspr4.*"
-                lib "*freebl3.*"
-                lib "*nss3.*"
-                lib "*nssckbi.*"
-                lib "*nssutil3.*"
-                lib "*softokn3.*"
-                lib "*smime3.*"
-                lib "*sqlite3.*"
-                // We don't need SSL so we might as well save space.
-                // lib "libssl3.*"
-            }
-        }
-    }
 }
 
 // Configure some environment variables, per toolchain, that will apply during
 // the Cargo build.  We assume that the `libs/` directory has been populated
 // before invoking Gradle (or Cargo).
 ext.cargoExec = { spec, toolchain ->
-    spec.environment("OPENSSL_STATIC", "1")
-    spec.environment("NSS_DIR",               new File(libsRootDir, "libs/${toolchain.folder}/nss").absolutePath)
-    spec.environment("OPENSSL_DIR",           new File(libsRootDir, "libs/${toolchain.folder}/openssl").absolutePath)
+    spec.environment("NSS_STATIC", "1")
+    spec.environment("NSS_DIR",               new File(rootProject.ext.libsRootDir, "libs/${toolchain.folder}/nss").absolutePath)
 }
 // Strictly speaking, we could always specify `SQLCIPHER_LIB_DIR` and
 // `SQLCIPHER_INCLUDE_DIR`, and so long as everything else is configured right,
@@ -264,8 +234,8 @@ ext.cargoExec = { spec, toolchain ->
 // configuration is otherwise wrong.
 ext.cargoExecWithSQLCipher = { spec, toolchain ->
     ext.cargoExec(spec, toolchain)
-    spec.environment("SQLCIPHER_LIB_DIR",     new File(libsRootDir, "libs/${toolchain.folder}/sqlcipher/lib").absolutePath)
-    spec.environment("SQLCIPHER_INCLUDE_DIR", new File(libsRootDir, "libs/${toolchain.folder}/sqlcipher/include").absolutePath)
+    spec.environment("SQLCIPHER_LIB_DIR",     new File(rootProject.ext.libsRootDir, "libs/${toolchain.folder}/sqlcipher/lib").absolutePath)
+    spec.environment("SQLCIPHER_INCLUDE_DIR", new File(rootProject.ext.libsRootDir, "libs/${toolchain.folder}/sqlcipher/include").absolutePath)
 }
 
 detekt {

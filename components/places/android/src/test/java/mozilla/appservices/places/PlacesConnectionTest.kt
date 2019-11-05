@@ -3,6 +3,7 @@
 
 package mozilla.appservices.places
 
+import mozilla.appservices.Megazord
 import org.junit.After
 import org.junit.rules.TemporaryFolder
 import org.junit.Rule
@@ -25,6 +26,7 @@ class PlacesConnectionTest {
 
     @Before
     fun initAPI() {
+        Megazord.init()
         api = PlacesApi(path = dbFolder.newFile().absolutePath)
         db = api.getWriter()
     }

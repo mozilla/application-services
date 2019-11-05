@@ -21,7 +21,6 @@ At the end of this process you should have the following environment variables s
 
 - `ANDROID_NDK_ROOT`
 - `ANDROID_NDK_HOME`
-- `ANDROID_NDK_TOOLCHAIN_DIR`
 - `ANDROID_NDK_API_VERSION`
 - `ANDROID_HOME`
 - `JAVA_HOME`
@@ -29,10 +28,8 @@ At the end of this process you should have the following environment variables s
 These variables are required every time you build, so you should add them to
 a rc file or similar so they persist between reboots etc.
 
-1. Install NDK r15c from https://developer.android.com/ndk/downloads/older_releases
-   (yes, this sucks, but newer versions don't understand the `--deprecated-headers`
-   argument required to build OpenSSL against a v21 toolchain).
-    - Extract it, put it somewhere (`$HOME/.android-ndk-r15c` is a reasonable
+1. Install NDK r20 from https://developer.android.com/ndk/downloads
+    - Extract it, put it somewhere (`$HOME/.android-ndk-r20` is a reasonable
       choice, but it doesn't matter), and set `ANDROID_NDK_ROOT` to this location.
     - Set `ANDROID_NDK_HOME` to match `ANDROID_NDK_ROOT`, for compatibility with
       some android grandle plugins.
@@ -40,38 +37,25 @@ a rc file or similar so they persist between reboots etc.
 2. Install `rustup` from https://rustup.rs:
     - If you already have it, run `rustup update`
     - Run `rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android`
-    - Run `rustup toolchain add beta` (TODO: this no longer appears necessary).
 
 3. Ensure your clone of `mozilla/application-services` is up to date.
 
-4. Setup your NDK toolchains.
-    - Create a directory where we'll install the standalone toolchains.
-        - `mkdir -p ~/.ndk-standalone-toolchains`
-        - `export ANDROID_NDK_TOOLCHAIN_DIR=$HOME/.ndk-standalone-toolchains`
-    - `cd path/to/application-services/libs`
-    - `./setup_toolchains_local.sh $ANDROID_NDK_ROOT`
-        - Say yes if/when prompted.
-        - When this is done, it should have set `$ANDROID_NDK_API_VERSION` (to 21),
-          but you should add this to an rcfile as above.
-
-5. Install or locate Java
+4. Install or locate Java
     - Either install Java, or, if Android Studio is installed, you can probably find one
       installed in a `jre` directory under the Android Studio directory.
     - Set `JAVA_HOME` to this location and add it to your rc file.
 
-6. Install or locate the Android SDKs
+5. Install or locate the Android SDKs
    - Install the Android SDKs. If Android Studio is involved, it may have already installed
      them somewhere - use the "SDK Manager" to identify this location.
    - Set `ANDROID_HOME` to this location and add it to your rc file.
 
-7. Build openssl and sqlcipher
+6. Build NSS and SQLCipher
     - `cd path/to/application-services/libs` (Same dir you were just in for step 4)
     - `./build-all.sh android` (Go make some coffee or something, this will take
-       some time as it has to compile sqlcipher and openssl for x86, x86_64, arm, and arm64).
+       some time as it has to compile NSS and SQLCipher for x86, x86_64, arm, and arm64).
     - Note that if something goes wrong here
         - Check all environment variables mentions above are set and correct.
-        - The following directories should exist, and point to standalone NDK
-          toolchains `$ANDROID_NDK_TOOLCHAIN_DIR/{x86,x86_64,arm,arm64}-$ANDROID_NDK_API_VERSION`.
 
 ## Building
 
@@ -108,12 +92,12 @@ If you just want the build artifacts, you probably want one of the `assemble` ta
    `assembleDebug` or `assembleRelease`.
 
 For example, to build a debug version of the places library, the command you
-want is `./gradlew places-library:assembleDebug`
+want is `./gradlew places:assembleDebug`
 
 After building, you should find the built artifact under the `target` directory,
 with sub-directories for each Android architecture. For example, after executing:
 
-    % ./gradlew places-library:assembleDebug
+    % ./gradlew places:assembleDebug
 
 you will find:
 
@@ -128,7 +112,7 @@ You should also find the .kt files for the project somewhere there and in the ri
 
 # Using Windows
 
-It's currently tricky to get some of these builds working on Windows, primarily due to our use of `sqlcipher` and `openssl`. However, by using the Windows Subsystem for Linux, it is possible to get builds working, but still have them published to your "native" local maven cache so it's available for use by a "native" Android Studio.
+It's currently tricky to get some of these builds working on Windows, primarily due to our use of `sqlcipher`. However, by using the Windows Subsystem for Linux, it is possible to get builds working, but still have them published to your "native" local maven cache so it's available for use by a "native" Android Studio.
 
 As above, this document may be incomplete, so please edit or open PRs where necessary.
 
@@ -142,7 +126,7 @@ You will need the following tools in WSL:
 
 * unzip - `sudo apt install unzip`
 
-* python - `sudo apt install python`
+* python 3 - `sudo apt install python3`
 
 * java - you may already have it? try `java -version`. Java ended up causing me grief (stuck at 100% CPU doing nothing), but google pointed at one popular way of installing java:
 

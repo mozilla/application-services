@@ -1,6 +1,18 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+/* Copyright 2018-2019 Mozilla Foundation
+ *
+ * Licensed under the Apache License (Version 2.0), or the MIT license,
+ * (the "Licenses") at your option. You may not use this file except in
+ * compliance with one of the Licenses. You may obtain copies of the
+ * Licenses at:
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *    http://opensource.org/licenses/MIT
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Licenses is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licenses for the specific language governing permissions and
+ * limitations under the Licenses. */
 
 use std::ffi::CStr;
 use std::marker::PhantomData;
@@ -123,7 +135,7 @@ impl<'a> FfiStr<'a> {
     /// If the string should be mandatory, you should use
     /// [`FfiStr::into_string`] instead. If an owned string is not needed, you
     /// may want to use [`FfiStr::as_str`] or [`FfiStr::as_opt_str`] instead,
-    /// (however, note the differnces in how invalid UTF-8 is handled, should
+    /// (however, note the differences in how invalid UTF-8 is handled, should
     /// this be relevant to your use).
     pub fn into_opt_string(self) -> Option<String> {
         if !self.cstr.is_null() {
@@ -142,7 +154,7 @@ impl<'a> FfiStr<'a> {
     /// If the string should *not* be mandatory, you should use
     /// [`FfiStr::into_opt_string`] instead. If an owned string is not needed,
     /// you may want to use [`FfiStr::as_str`] or [`FfiStr::as_opt_str`]
-    /// instead, (however, note the differnces in how invalid UTF-8 is handled,
+    /// instead, (however, note the differences in how invalid UTF-8 is handled,
     /// should this be relevant to your use).
     #[inline]
     pub fn into_string(self) -> String {

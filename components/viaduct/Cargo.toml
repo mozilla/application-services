@@ -6,24 +6,24 @@ edition = "2018"
 license = "MPL-2.0"
 
 [lib]
-crate-type = ["lib", "cdylib"]
+crate-type = ["lib"]
 
 [features]
 default = []
 
 [dependencies]
-failure = "0.1.5"
+failure = "0.1.6"
 failure_derive = "0.1.5"
 url = "1.7.2"
 log = "0.4"
-lazy_static = "1.3.0"
+lazy_static = "1.4.0"
 serde = "1.0"
 serde_json = "1.0"
 prost = "0.5.0"
 prost-derive = "0.5.0"
 bytes = "0.4.12"
 ffi-support = { path = "../support/ffi" }
-reqwest = { version = "0.9.11", optional = true }
+reqwest = { version = "0.9.19", features = ["default-tls-vendored"], optional = true }
 
 
 [build-dependencies]

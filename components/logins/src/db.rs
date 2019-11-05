@@ -25,6 +25,7 @@ use sync15::{
     extract_v1_state, telemetry, CollSyncIds, CollectionRequest, IncomingChangeset,
     OutgoingChangeset, Payload, ServerTimestamp, Store, StoreSyncAssociation,
 };
+use sync_guid::Guid;
 
 pub struct LoginDb {
     pub db: Connection,
@@ -178,7 +179,7 @@ impl LoginDb {
     ) -> Result<Vec<SyncLoginData>> {
         let mut sync_data = Vec::with_capacity(records.len());
         {
-            let mut seen_ids: HashSet<String> = HashSet::with_capacity(records.len());
+            let mut seen_ids: HashSet<Guid> = HashSet::with_capacity(records.len());
             for incoming in records.iter() {
                 if seen_ids.contains(&incoming.0.id) {
                     throw!(ErrorKind::DuplicateGuid(incoming.0.id.to_string()))
@@ -300,6 +301,12 @@ impl LoginDb {
         rows.collect::<Result<_>>()
     }
 
+    pub fn get_by_hostname(&self, hostname: &str) -> Result<Vec<Login>> {
+        let mut stmt = self.db.prepare_cached(&GET_ALL_BY_HOSTNAME_SQL)?;
+        let rows = stmt.query_and_then(&[hostname], Login::from_row)?;
+        rows.collect::<Result<_>>()
+    }
+
     pub fn get_by_id(&self, id: &str) -> Result<Option<Login>> {
         self.try_query_row(
             &GET_BY_GUID_SQL,
@@ -341,14 +348,8 @@ impl LoginDb {
         // Allow an empty GUID to be passed to indicate that we should generate
         // one. (Note that the FFI, does not require that the `id` field be
         // present in the JSON, and replaces it with an empty string if missing).
-        if login.id.is_empty() {
-            // Our FFI handles panics so this is fine. In practice there's not
-            // much we can do here. Using a CSPRNG for this is probably
-            // unnecessary, so we likely could fall back to something less
-            // fallible eventually, but it's unlikely very much else will work
-            // if this fails, so it doesn't matter much.
-            login.id = sync15::random_guid()
-                .expect("Failed to generate failed to generate random bytes for GUID");
+        if login.guid.is_empty() {
+            login.guid = Guid::random()
         }
 
         // Fill in default metadata.
@@ -405,7 +406,7 @@ impl LoginDb {
                 ":password_field": login.password_field,
                 ":username": login.username,
                 ":password": login.password,
-                ":guid": login.id,
+                ":guid": login.guid,
                 ":time_created": login.time_created,
                 ":times_used": login.times_used,
                 ":time_last_used": login.time_last_used,
@@ -416,12 +417,101 @@ impl LoginDb {
         if rows_changed == 0 {
             log::error!(
                 "Record {:?} already exists (use `update` to update records, not add)",
-                login.id
+                login.guid
             );
-            throw!(ErrorKind::DuplicateGuid(login.id));
+            throw!(ErrorKind::DuplicateGuid(login.guid.into_string()));
         }
         tx.commit()?;
         Ok(login)
+    }
+
+    pub fn import_multiple(&self, logins: &[Login]) -> Result<u64> {
+        // Check if the logins table is empty first.
+        let mut num_existing_logins =
+            self.query_row::<i64, _, _>("SELECT COUNT(*) FROM loginsL", NO_PARAMS, |r| r.get(0))?;
+        num_existing_logins +=
+            self.query_row::<i64, _, _>("SELECT COUNT(*) FROM loginsM", NO_PARAMS, |r| r.get(0))?;
+        if num_existing_logins > 0 {
+            return Err(ErrorKind::NonEmptyTable.into());
+        }
+        let tx = self.unchecked_transaction()?;
+        let now_ms = util::system_time_ms_i64(SystemTime::now());
+        let sql = format!(
+            "INSERT OR IGNORE INTO loginsL (
+                hostname,
+                httpRealm,
+                formSubmitURL,
+                usernameField,
+                passwordField,
+                timesUsed,
+                username,
+                password,
+                guid,
+                timeCreated,
+                timeLastUsed,
+                timePasswordChanged,
+                local_modified,
+                is_deleted,
+                sync_status
+            ) VALUES (
+                :hostname,
+                :http_realm,
+                :form_submit_url,
+                :username_field,
+                :password_field,
+                :times_used,
+                :username,
+                :password,
+                :guid,
+                :time_created,
+                :time_last_used,
+                :time_password_changed,
+                :local_modified,
+                0, -- is_deleted
+                {new} -- sync_status
+            )",
+            new = SyncStatus::New as u8
+        );
+        let mut num_failed = 0;
+        for login in logins {
+            if let Err(e) = login.check_valid() {
+                log::warn!("Skipping login {} as it is invalid ({}).", login.guid, e);
+                num_failed += 1;
+                continue;
+            }
+            let old_guid = &login.guid; // Keep the old GUID around so we can debug errors easily.
+            let guid = if old_guid.is_valid_for_sync_server() {
+                old_guid.clone()
+            } else {
+                Guid::random()
+            };
+            match self.execute_named_cached(
+                &sql,
+                named_params! {
+                    ":hostname": login.hostname,
+                    ":http_realm": login.http_realm,
+                    ":form_submit_url": login.form_submit_url,
+                    ":username_field": login.username_field,
+                    ":password_field": login.password_field,
+                    ":username": login.username,
+                    ":password": login.password,
+                    ":guid": guid,
+                    ":time_created": login.time_created,
+                    ":times_used": login.times_used,
+                    ":time_last_used": login.time_last_used,
+                    ":time_password_changed": login.time_password_changed,
+                    ":local_modified": now_ms,
+                },
+            ) {
+                Ok(_) => log::info!("Imported {} (new GUID {}) successfully.", old_guid, guid),
+                Err(e) => {
+                    log::warn!("Could not import {} ({}).", old_guid, e);
+                    num_failed += 1;
+                }
+            };
+        }
+        tx.commit()?;
+        Ok(num_failed)
     }
 
     pub fn update(&self, login: Login) -> Result<()> {
@@ -467,7 +557,7 @@ impl LoginDb {
                 ":form_submit_url": login.form_submit_url,
                 ":username_field": login.username_field,
                 ":password_field": login.password_field,
-                ":guid": login.id,
+                ":guid": login.guid,
                 ":now_millis": now_ms,
             },
         )?;
@@ -697,8 +787,8 @@ impl LoginDb {
                     if let Some(dupe) = self.find_dupe(&upstream)? {
                         log::debug!(
                             "  Incoming record {} was is a dupe of local record {}",
-                            upstream.id,
-                            dupe.id
+                            upstream.guid,
+                            dupe.guid
                         );
                         plan.plan_two_way_merge(&dupe, (upstream, upstream_time));
                     } else {
@@ -727,7 +817,7 @@ impl LoginDb {
         st: ServerTimestamp,
         scope: &SqlInterruptScope,
     ) -> Result<OutgoingChangeset> {
-        // Taken from iOS. Arbitrarially large, so that clients that want to
+        // Taken from iOS. Arbitrarily large, so that clients that want to
         // process deletions first can; for us it doesn't matter.
         const TOMBSTONE_SORTINDEX: i32 = 5_000_000;
         const DEFAULT_SORTINDEX: i32 = 1;
@@ -838,7 +928,7 @@ impl LoginDb {
     }
 }
 
-pub(crate) struct LoginStore<'a> {
+pub struct LoginStore<'a> {
     pub db: &'a LoginDb,
     pub scope: sql_support::SqlInterruptScope,
 }
@@ -868,13 +958,10 @@ impl<'a> Store for LoginStore<'a> {
     fn sync_finished(
         &self,
         new_timestamp: ServerTimestamp,
-        records_synced: Vec<String>,
+        records_synced: Vec<Guid>,
     ) -> result::Result<(), failure::Error> {
         self.db.mark_as_synchronized(
-            &records_synced
-                .iter()
-                .map(String::as_str)
-                .collect::<Vec<_>>(),
+            &records_synced.iter().map(Guid::as_str).collect::<Vec<_>>(),
             new_timestamp,
             &self.scope,
         )?;
@@ -929,6 +1016,19 @@ lazy_static! {
          ORDER BY hostname ASC
 
          LIMIT 1",
+        common_cols = schema::COMMON_COLS,
+    );
+    static ref GET_ALL_BY_HOSTNAME_SQL: String = format!(
+        "SELECT {common_cols}
+         FROM loginsL
+         WHERE is_deleted = 0
+           AND hostname = :hostname
+         UNION ALL
+
+         SELECT {common_cols}
+         FROM loginsM
+         WHERE is_overridden = 0
+           AND hostname = :hostname",
         common_cols = schema::COMMON_COLS,
     );
     static ref CLONE_ENTIRE_MIRROR_SQL: String = format!(

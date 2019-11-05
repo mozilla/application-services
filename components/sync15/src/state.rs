@@ -2,8 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::HashMap;
-use std::mem;
+use std::collections::{HashMap, HashSet};
 
 use crate::bso_record::EncryptedBso;
 use crate::client::{SetupStorageClient, Sync15ClientResponse};
@@ -12,36 +11,34 @@ use crate::error::{self, ErrorKind, ErrorResponse};
 use crate::key_bundle::KeyBundle;
 use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use crate::request::{InfoCollections, InfoConfiguration};
-use crate::util::{random_guid, ServerTimestamp};
+use crate::util::ServerTimestamp;
 use interrupt::Interruptee;
-use lazy_static::lazy_static;
 use serde_derive::*;
+use sync_guid::Guid;
 
 use self::SetupState::*;
 
 const STORAGE_VERSION: usize = 5;
 
-lazy_static! {
-    /// Maps names to storage versions for engines to include in a fresh
-    /// `meta/global` record. We include engines that we don't implement
-    /// because they'll be disabled on other clients if we omit them
-    /// (bug 1479929).
-    static ref DEFAULT_ENGINES: Vec<(&'static str, usize)> = vec![
-        ("passwords", 1),
-        ("clients", 1),
-        ("addons", 1),
-        ("addresses", 1),
-        ("bookmarks", 2),
-        ("creditcards", 1),
-        ("forms", 1),
-        ("history", 1),
-        ("prefs", 2),
-        ("tabs", 1),
-    ];
+/// Maps names to storage versions for engines to include in a fresh
+/// `meta/global` record. We include engines that we don't implement
+/// because they'll be disabled on other clients if we omit them
+/// (bug 1479929).
+const DEFAULT_ENGINES: &[(&str, usize)] = &[
+    ("passwords", 1),
+    ("clients", 1),
+    ("addons", 1),
+    ("addresses", 1),
+    ("bookmarks", 2),
+    ("creditcards", 1),
+    ("forms", 1),
+    ("history", 1),
+    ("prefs", 2),
+    ("tabs", 1),
+];
 
-    // Declined engines to include in a fresh `meta/global` record.
-    static ref DEFAULT_DECLINED: Vec<&'static str> = vec![];
-}
+// Declined engines to include in a fresh `meta/global` record.
+const DEFAULT_DECLINED: &[&str] = &[];
 
 /// State that we require the app to persist to storage for us.
 /// It's a little unfortunate we need this, because it's only tracking
@@ -72,6 +69,94 @@ impl Default for PersistedGlobalState {
     }
 }
 
+#[derive(Debug, Default, Clone, PartialEq)]
+pub(crate) struct EngineChangesNeeded {
+    pub local_resets: HashSet<String>,
+    pub remote_wipes: HashSet<String>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+struct RemoteEngineState {
+    info_collections: HashSet<String>,
+    declined: HashSet<String>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+struct EngineStateInput {
+    local_declined: HashSet<String>,
+    remote: Option<RemoteEngineState>,
+    user_changes: HashMap<String, bool>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+struct EngineStateOutput {
+    // The new declined.
+    declined: HashSet<String>,
+    // Which engines need resets or wipes.
+    changes_needed: EngineChangesNeeded,
+}
+
+fn compute_engine_states(input: EngineStateInput) -> EngineStateOutput {
+    use crate::util::*;
+    log::debug!("compute_engine_states: input {:?}", input);
+    let (must_enable, must_disable) = partition_by_value(&input.user_changes);
+    let have_remote = input.remote.is_some();
+    let RemoteEngineState {
+        info_collections,
+        declined: remote_declined,
+    } = input.remote.clone().unwrap_or_default();
+
+    let both_declined_and_remote = set_intersection(&info_collections, &remote_declined);
+    if !both_declined_and_remote.is_empty() {
+        // Should we wipe these too?
+        log::warn!(
+            "Remote state contains engines which are in both info/collections and meta/global's declined: {:?}",
+            both_declined_and_remote,
+        );
+    }
+
+    let most_recent_declined_list = if have_remote {
+        &remote_declined
+    } else {
+        &input.local_declined
+    };
+
+    let result_declined = set_difference(
+        &set_union(most_recent_declined_list, &must_disable),
+        &must_enable,
+    );
+
+    let output = EngineStateOutput {
+        changes_needed: EngineChangesNeeded {
+            // Anything now declined which wasn't in our declined list before gets a reset.
+            local_resets: set_difference(&result_declined, &input.local_declined),
+            // Anything remote that we just declined gets a wipe. In the future
+            // we might want to consider wiping things in both remote declined
+            // and info/collections, but we'll let other clients pick up their
+            // own mess for now.
+            remote_wipes: set_intersection(&info_collections, &must_disable),
+        },
+        declined: result_declined,
+    };
+    // No PII here and this helps debug problems.
+    log::debug!("compute_engine_states: output {:?}", output);
+    output
+}
+
+impl PersistedGlobalState {
+    fn set_declined(&mut self, new_declined: Vec<String>) {
+        match self {
+            Self::V2 { ref mut declined } => *declined = Some(new_declined),
+        }
+    }
+    pub(crate) fn get_declined(&self) -> &[String] {
+        match self {
+            Self::V2 { declined: Some(d) } => &d,
+            Self::V2 { declined: None } => &[],
+        }
+    }
+}
+
 /// Holds global Sync state, including server upload limits, the
 /// last-fetched collection modified times, `meta/global` record, and
 /// encrypted copies of the crypto/keys resourse (which we hold as encrypted
@@ -89,10 +174,10 @@ pub struct GlobalState {
 /// Creates a fresh `meta/global` record, using the default engine selections,
 /// and declined engines from our PersistedGlobalState.
 fn new_global(pgs: &PersistedGlobalState) -> error::Result<MetaGlobalRecord> {
-    let sync_id = random_guid()?;
+    let sync_id = Guid::random();
     let mut engines: HashMap<String, _> = HashMap::new();
     for (name, version) in DEFAULT_ENGINES.iter() {
-        let sync_id = random_guid()?;
+        let sync_id = Guid::random();
         engines.insert(
             name.to_string(),
             MetaGlobalEngine {
@@ -106,10 +191,7 @@ fn new_global(pgs: &PersistedGlobalState) -> error::Result<MetaGlobalRecord> {
     // it was at the time.
     let declined = match pgs {
         PersistedGlobalState::V2 { declined: Some(d) } => d.clone(),
-        _ => {
-            log::warn!("New meta/global without local app state - the list of declined engines is being reset");
-            DEFAULT_DECLINED.iter().map(ToString::to_string).collect()
-        }
+        _ => DEFAULT_DECLINED.iter().map(ToString::to_string).collect(),
     };
 
     Ok(MetaGlobalRecord {
@@ -118,6 +200,31 @@ fn new_global(pgs: &PersistedGlobalState) -> error::Result<MetaGlobalRecord> {
         engines,
         declined,
     })
+}
+
+fn fixup_meta_global(global: &mut MetaGlobalRecord) -> bool {
+    let mut changed_any = false;
+    for &(name, version) in DEFAULT_ENGINES.iter() {
+        let had_engine = global.engines.contains_key(name);
+        let should_have_engine = !global.declined.iter().any(|c| c == name);
+        if had_engine != should_have_engine {
+            if should_have_engine {
+                log::debug!("SyncID for engine {:?} was missing", name);
+                global.engines.insert(
+                    name.to_string(),
+                    MetaGlobalEngine {
+                        version,
+                        sync_id: Guid::random(),
+                    },
+                );
+            } else {
+                log::debug!("SyncID for engine {:?} was present, but shouldn't be", name);
+                global.engines.remove(name);
+            }
+            changed_any = true;
+        }
+    }
+    changed_any
 }
 
 pub struct SetupStateMachine<'a> {
@@ -134,7 +241,9 @@ pub struct SetupStateMachine<'a> {
     // budget", after which we get interrupted. Later...
     allowed_states: Vec<&'static str>,
     sequence: Vec<&'static str>,
+    engine_updates: Option<&'a HashMap<String, bool>>,
     interruptee: &'a dyn Interruptee,
+    pub(crate) changes_needed: Option<EngineChangesNeeded>,
 }
 
 impl<'a> SetupStateMachine<'a> {
@@ -145,6 +254,7 @@ impl<'a> SetupStateMachine<'a> {
         client: &'a dyn SetupStorageClient,
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
+        engine_updates: Option<&'a HashMap<String, bool>>,
         interruptee: &'a dyn Interruptee,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine::with_allowed_states(
@@ -152,6 +262,7 @@ impl<'a> SetupStateMachine<'a> {
             root_key,
             pgs,
             interruptee,
+            engine_updates,
             vec![
                 "Initial",
                 "InitialWithConfig",
@@ -173,6 +284,7 @@ impl<'a> SetupStateMachine<'a> {
         client: &'a dyn SetupStorageClient,
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
+        engine_updates: Option<&'a HashMap<String, bool>>,
         interruptee: &'a dyn Interruptee,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine::with_allowed_states(
@@ -180,6 +292,7 @@ impl<'a> SetupStateMachine<'a> {
             root_key,
             pgs,
             interruptee,
+            engine_updates,
             vec!["Ready", "WithPreviousState"],
         )
     }
@@ -198,6 +311,8 @@ impl<'a> SetupStateMachine<'a> {
             root_key,
             pgs,
             interruptee,
+            // No engine updates for a readonly sync
+            None,
             // We don't allow a FreshStart in a read-only sync.
             vec![
                 "Initial",
@@ -215,6 +330,7 @@ impl<'a> SetupStateMachine<'a> {
         root_key: &'a KeyBundle,
         pgs: &'a mut PersistedGlobalState,
         interruptee: &'a dyn Interruptee,
+        engine_updates: Option<&'a HashMap<String, bool>>,
         allowed_states: Vec<&'static str>,
     ) -> SetupStateMachine<'a> {
         SetupStateMachine {
@@ -223,7 +339,9 @@ impl<'a> SetupStateMachine<'a> {
             pgs,
             sequence: Vec::new(),
             allowed_states,
+            engine_updates,
             interruptee,
+            changes_needed: None,
         }
     }
 
@@ -268,39 +386,88 @@ impl<'a> SetupStateMachine<'a> {
             InitialWithInfo {
                 config,
                 collections,
-            } => match self.client.fetch_meta_global()? {
-                Sync15ClientResponse::Success {
-                    record: global,
-                    last_modified: global_timestamp,
-                    ..
-                } => {
-                    // If the server has a newer storage version, we can't
-                    // sync until our client is updated.
-                    if global.storage_version > STORAGE_VERSION {
-                        return Err(ErrorKind::ClientUpgradeRequired.into());
-                    }
+            } => {
+                match self.client.fetch_meta_global()? {
+                    Sync15ClientResponse::Success {
+                        record: mut global,
+                        last_modified: mut global_timestamp,
+                        ..
+                    } => {
+                        // If the server has a newer storage version, we can't
+                        // sync until our client is updated.
+                        if global.storage_version > STORAGE_VERSION {
+                            return Err(ErrorKind::ClientUpgradeRequired.into());
+                        }
 
-                    // If the server has an older storage version, wipe and
-                    // reupload.
-                    if global.storage_version < STORAGE_VERSION {
-                        Ok(FreshStartRequired { config })
-                    } else {
-                        // TODO: Here would be a good place to check if we've enabled
-                        // or disabled any engines locally, and update `m/g` to reflect
-                        // that.
-                        Ok(InitialWithMetaGlobal {
-                            config,
-                            collections,
-                            global,
-                            global_timestamp,
-                        })
+                        // If the server has an older storage version, wipe and
+                        // reupload.
+                        if global.storage_version < STORAGE_VERSION {
+                            Ok(FreshStartRequired { config })
+                        } else {
+                            log::info!("Have info/collections and meta/global. Computing new engine states");
+                            let initial_global_declined: HashSet<String> =
+                                global.declined.iter().cloned().collect();
+                            let result = compute_engine_states(EngineStateInput {
+                                local_declined: self.pgs.get_declined().iter().cloned().collect(),
+                                user_changes: self.engine_updates.cloned().unwrap_or_default(),
+                                remote: Some(RemoteEngineState {
+                                    declined: initial_global_declined.clone(),
+                                    info_collections: collections.keys().cloned().collect(),
+                                }),
+                            });
+                            // Persist the new declined.
+                            self.pgs
+                                .set_declined(result.declined.iter().cloned().collect());
+                            // If the declined engines differ from remote, fix that.
+                            let fixed_declined = if result.declined != initial_global_declined {
+                                global.declined = result.declined.iter().cloned().collect();
+                                log::info!(
+                                    "Uploading new declined {:?} to meta/global with timestamp {:?}",
+                                    global.declined,
+                                    global_timestamp,
+                                );
+                                true
+                            } else {
+                                false
+                            };
+                            // If there are missing syncIds, we need to fix those as well
+                            let fixed_ids = if fixup_meta_global(&mut global) {
+                                log::info!(
+                                    "Uploading corrected meta/global with timestamp {:?}",
+                                    global_timestamp,
+                                );
+                                true
+                            } else {
+                                false
+                            };
+
+                            if fixed_declined || fixed_ids {
+                                global_timestamp =
+                                    self.client.put_meta_global(global_timestamp, &global)?;
+                                log::debug!("new global_timestamp: {:?}", global_timestamp);
+                            }
+                            // Update the set of changes needed.
+                            if self.changes_needed.is_some() {
+                                // Should never happen (we prevent state machine
+                                // loops elsewhere) but if it did, the info is stale
+                                // anyway.
+                                log::warn!("Already have a set of changes needed, Overwriting...");
+                            }
+                            self.changes_needed = Some(result.changes_needed);
+                            Ok(InitialWithMetaGlobal {
+                                config,
+                                collections,
+                                global,
+                                global_timestamp,
+                            })
+                        }
                     }
+                    Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }) => {
+                        Ok(FreshStartRequired { config })
+                    }
+                    other => Err(other.create_storage_error().into()),
                 }
-                Sync15ClientResponse::Error(ErrorResponse::NotFound { .. }) => {
-                    Ok(FreshStartRequired { config })
-                }
-                other => Err(other.create_storage_error().into()),
-            },
+            }
 
             InitialWithMetaGlobal {
                 config,
@@ -308,13 +475,6 @@ impl<'a> SetupStateMachine<'a> {
                 global,
                 global_timestamp,
             } => {
-                // Update our PersistedGlobalState with the mega/global we just read.
-                mem::replace(
-                    self.pgs,
-                    PersistedGlobalState::V2 {
-                        declined: Some(global.declined.clone()),
-                    },
-                );
                 // Now try and get keys etc - if we fresh-start we'll re-use declined.
                 match self.client.fetch_crypto_keys()? {
                     Sync15ClientResponse::Success {
@@ -376,10 +536,23 @@ impl<'a> SetupStateMachine<'a> {
 
             FreshStartRequired { config } => {
                 // Wipe the server.
+                log::info!("Fresh start: wiping remote");
                 self.client.wipe_all_remote()?;
 
                 // Upload a fresh `meta/global`...
+                log::info!("Uploading meta/global");
+                let computed = compute_engine_states(EngineStateInput {
+                    local_declined: self.pgs.get_declined().iter().cloned().collect(),
+                    user_changes: self.engine_updates.cloned().unwrap_or_default(),
+                    remote: None,
+                });
+                self.pgs
+                    .set_declined(computed.declined.iter().cloned().collect());
+
+                self.changes_needed = Some(computed.changes_needed);
+
                 let new_global = new_global(self.pgs)?;
+
                 self.client
                     .put_meta_global(ServerTimestamp::default(), &new_global)?;
 
@@ -539,14 +712,17 @@ mod tests {
         fn put_meta_global(
             &self,
             xius: ServerTimestamp,
-            _global: &MetaGlobalRecord,
-        ) -> error::Result<()> {
-            assert_eq!(xius, ServerTimestamp(999_900));
-            Err(ErrorKind::StorageHttpError(ErrorResponse::ServerError {
-                status: 500,
-                route: "meta/global".to_string(),
-            })
-            .into())
+            global: &MetaGlobalRecord,
+        ) -> error::Result<ServerTimestamp> {
+            assert_eq!(xius, ServerTimestamp(999_000));
+            // Ensure that the meta/global record we uploaded is "fixed up"
+            assert!(DEFAULT_ENGINES
+                .iter()
+                .filter(|e| e.0 != "logins")
+                .all(|&(k, _v)| global.engines.contains_key(k)));
+            assert!(!global.engines.contains_key("logins"));
+            assert_eq!(global.declined, vec!["logins".to_string()]);
+            Ok(ServerTimestamp(999_900))
         }
 
         fn fetch_crypto_keys(&self) -> error::Result<Sync15ClientResponse<EncryptedBso>> {
@@ -623,6 +799,22 @@ mod tests {
             default: KeyBundle::new_random().unwrap(),
             collections: HashMap::new(),
         };
+        let mg = MetaGlobalRecord {
+            sync_id: "syncIDAAAAAA".into(),
+            storage_version: 5usize,
+            engines: vec![(
+                "bookmarks",
+                MetaGlobalEngine {
+                    version: 1usize,
+                    sync_id: "syncIDBBBBBB".into(),
+                },
+            )]
+            .into_iter()
+            .map(|(key, value)| (key.to_owned(), value))
+            .collect(),
+            // We ensure that the record we upload doesn't have a logins record.
+            declined: vec!["logins".to_string()],
+        };
         let client = InMemoryClient {
             info_configuration: mocked_success(InfoConfiguration::default()),
             info_collections: mocked_success(InfoCollections::new(
@@ -631,24 +823,7 @@ mod tests {
                     .map(|(key, value)| (key.to_owned(), value.into()))
                     .collect(),
             )),
-            meta_global: mocked_success_ts(
-                MetaGlobalRecord {
-                    sync_id: "syncIDAAAAAA".to_owned(),
-                    storage_version: 5usize,
-                    engines: vec![(
-                        "bookmarks",
-                        MetaGlobalEngine {
-                            version: 1usize,
-                            sync_id: "syncIDBBBBBB".to_owned(),
-                        },
-                    )]
-                    .into_iter()
-                    .map(|(key, value)| (key.to_owned(), value))
-                    .collect(),
-                    declined: vec![],
-                },
-                999_000,
-            ),
+            meta_global: mocked_success_ts(mg, 999_000),
             crypto_keys: mocked_success_ts(
                 keys.to_encrypted_bso_with_timestamp(&root_key, 888_000.into())
                     .expect("should always work in this test"),
@@ -658,7 +833,7 @@ mod tests {
         let mut pgs = PersistedGlobalState::V2 { declined: None };
 
         let mut state_machine =
-            SetupStateMachine::for_full_sync(&client, &root_key, &mut pgs, &NeverInterrupts);
+            SetupStateMachine::for_full_sync(&client, &root_key, &mut pgs, None, &NeverInterrupts);
         assert!(
             state_machine.run_to_ready(None).is_ok(),
             "Should drive state machine to ready"
@@ -673,6 +848,101 @@ mod tests {
                 "Ready",
             ],
             "Should cycle through all states"
+        );
+    }
+
+    fn string_set(s: &[&str]) -> HashSet<String> {
+        s.iter().map(ToString::to_string).collect()
+    }
+    fn string_map<T: Clone>(s: &[(&str, T)]) -> HashMap<String, T> {
+        s.iter().map(|v| (v.0.to_string(), v.1.clone())).collect()
+    }
+    #[test]
+    fn test_engine_states() {
+        assert_eq!(
+            compute_engine_states(EngineStateInput {
+                local_declined: string_set(&["foo", "bar"]),
+                remote: None,
+                user_changes: Default::default(),
+            }),
+            EngineStateOutput {
+                declined: string_set(&["foo", "bar"]),
+                // No wipes, no resets
+                changes_needed: Default::default(),
+            }
+        );
+        assert_eq!(
+            compute_engine_states(EngineStateInput {
+                local_declined: string_set(&["foo", "bar"]),
+                remote: Some(RemoteEngineState {
+                    declined: string_set(&["foo"]),
+                    info_collections: string_set(&["bar"])
+                }),
+                user_changes: Default::default(),
+            }),
+            EngineStateOutput {
+                // Now we have `foo`.
+                declined: string_set(&["foo"]),
+                // No wipes, no resets, should just be a local update.
+                changes_needed: Default::default(),
+            }
+        );
+        assert_eq!(
+            compute_engine_states(EngineStateInput {
+                local_declined: string_set(&["foo", "bar"]),
+                remote: Some(RemoteEngineState {
+                    declined: string_set(&["foo", "bar", "quux"]),
+                    info_collections: string_set(&[])
+                }),
+                user_changes: Default::default(),
+            }),
+            EngineStateOutput {
+                // Now we have `foo`.
+                declined: string_set(&["foo", "bar", "quux"]),
+                changes_needed: EngineChangesNeeded {
+                    // Should reset `quux`.
+                    local_resets: string_set(&["quux"]),
+                    // No wipes, though.
+                    remote_wipes: string_set(&[]),
+                }
+            }
+        );
+        assert_eq!(
+            compute_engine_states(EngineStateInput {
+                local_declined: string_set(&["bar", "baz"]),
+                remote: Some(RemoteEngineState {
+                    declined: string_set(&["bar", "baz",]),
+                    info_collections: string_set(&["quux"])
+                }),
+                // Change a declined engine to undeclined.
+                user_changes: string_map(&[("bar", true)]),
+            }),
+            EngineStateOutput {
+                declined: string_set(&["baz"]),
+                // No wipes, just undecline it.
+                changes_needed: Default::default()
+            }
+        );
+        assert_eq!(
+            compute_engine_states(EngineStateInput {
+                local_declined: string_set(&["bar", "baz"]),
+                remote: Some(RemoteEngineState {
+                    declined: string_set(&["bar", "baz"]),
+                    info_collections: string_set(&["foo"])
+                }),
+                // Change an engine which exists remotely to declined.
+                user_changes: string_map(&[("foo", false)]),
+            }),
+            EngineStateOutput {
+                declined: string_set(&["baz", "bar", "foo"]),
+                // No wipes, just undecline it.
+                changes_needed: EngineChangesNeeded {
+                    // Should reset our local foo
+                    local_resets: string_set(&["foo"]),
+                    // And wipe the server.
+                    remote_wipes: string_set(&["foo"]),
+                }
+            }
         );
     }
 }

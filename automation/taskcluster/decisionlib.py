@@ -21,6 +21,8 @@ import os
 import re
 import subprocess
 import sys
+from typing import List
+
 import taskcluster
 
 
@@ -42,7 +44,6 @@ class Config:
         self.index_prefix = "garbage.application-services-decisionlib"
         self.scopes_for_all_subtasks = []
         self.routes_for_all_subtasks = []
-        self.docker_image_build_worker_type = None
         self.docker_images_expire_in = "1 month"
         self.repacked_msi_files_expire_in = "1 month"
 
@@ -53,6 +54,8 @@ class Config:
         # Set in the decision task’s payload, such as defined in .taskcluster.yml
         self.task_owner = os.environ.get("TASK_OWNER")
         self.task_source = os.environ.get("TASK_SOURCE")
+        self.build_worker_type = os.environ.get("BUILD_WORKER_TYPE")
+        self.images_worker_type = os.environ.get("IMAGES_WORKER_TYPE")
         self.git_url = os.environ.get("APPSERVICES_HEAD_REPOSITORY")
         self.git_ref = os.environ.get("APPSERVICES_HEAD_BRANCH")
         self.git_sha = os.environ.get("APPSERVICES_HEAD_REV")
@@ -276,33 +279,51 @@ class BeetmoverTask(Task):
     def __init__(self, name):
         super().__init__(name)
         self.provisioner_id = "scriptworker-prov-v1"
-        self.artifact_id = None
         self.app_name = None
         self.app_version = None
         self.upstream_artifacts = []
+        self.artifact_map = []
 
     with_app_name = chaining(setattr, "app_name")
     with_app_version = chaining(setattr, "app_version")
-    with_artifact_id = chaining(setattr, "artifact_id")
     with_upstream_artifact = chaining(append_to_attr, "upstream_artifacts")
+    with_artifact_map = chaining(setattr, "artifact_map")
 
     def build_worker_payload(self):
-        payload =  {
+        payload = {
             "maxRunTime": 10 * 60,
             "releaseProperties": {
                 "appName": self.app_name,
             },
             "upstreamArtifacts": self.upstream_artifacts,
+            "artifactMap": self.artifact_map,
             "version": self.app_version,
-            "artifact_id": self.artifact_id,
         }
 
-        # XXX: Beetmover jobs that transfer the `forUnitTests` maven.zip need
-        # to have an additional flag set
-        if 'forUnitTests' in self.name:
-            payload['is_jar'] = True
+        return payload
+
+
+class SignTask(Task):
+    def __init__(self, name):
+        super().__init__(name)
+        self.provisioner_id = "scriptworker-prov-v1"
+        self.upstream_artifacts = []
+
+    with_upstream_artifact = chaining(append_to_attr, "upstream_artifacts")
+
+    def build_worker_payload(self):
+        payload = {
+            "maxRunTime": 10 * 60,
+            "upstreamArtifacts": self.upstream_artifacts,
+        }
 
         return payload
+
+
+class DockerWorkerArtifact:
+    def __init__(self, worker_fs_path, taskcluster_path):
+        self.worker_fs_path = worker_fs_path
+        self.taskcluster_path = taskcluster_path
 
 
 class DockerWorkerTask(Task):
@@ -313,6 +334,9 @@ class DockerWorkerTask(Task):
 
     <https://github.com/taskcluster/docker-worker>
     """
+
+    artifacts: List[DockerWorkerArtifact]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # We use this specific version because our decision task also runs on this one.
@@ -327,11 +351,26 @@ class DockerWorkerTask(Task):
 
     with_docker_image = chaining(setattr, "docker_image")
     with_max_run_time_minutes = chaining(setattr, "max_run_time_minutes")
-    with_artifacts = chaining(append_to_attr, "artifacts")
     with_script = chaining(append_to_attr, "scripts")
     with_early_script = chaining(prepend_to_attr, "scripts")
     with_caches = chaining(update_attr, "caches")
     with_env = chaining(update_attr, "env")
+
+    def with_artifacts(self, worker_fs_path, taskcluster_path=None):
+        """Adds artifact to task definition
+
+        Args:
+            worker_fs_path: path to artifact on worker
+            taskcluster_path: as represented on taskcluster. Defaults to "public/{the url basename of worker_path}"
+
+        Returns:
+
+        """
+        self.artifacts.append(DockerWorkerArtifact(
+            worker_fs_path,
+            taskcluster_path or "public/" + url_basename(worker_fs_path)
+        ))
+        return self
 
     def build_worker_payload(self):
         """
@@ -357,12 +396,12 @@ class DockerWorkerTask(Task):
             cache=self.caches,
             features=self.features,
             artifacts={
-                "public/" + url_basename(path): {
+                artifact.taskcluster_path: {
                     "type": "file",
-                    "path": path,
+                    "path": artifact.worker_fs_path,
                     "expires": SHARED.from_now_json(self.index_and_artifacts_expire_in),
                 }
-                for path in self.artifacts
+                for artifact in self.artifacts
             },
         )
 
@@ -379,7 +418,7 @@ class DockerWorkerTask(Task):
         return self \
         .with_script("""
             mkdir -p $(dirname {file_path})
-            curl --retry 5 --connect-timeout 10 -Lf {url} -o {file_path}
+            curl -sfSL --retry 5 --retry-delay 10 --connect-timeout 10 {url} -o {file_path}
         """.format(url=url, file_path=file_path))
 
     def with_curl_artifact_script(self, task_id, artifact_name, out_directory=""):
@@ -431,7 +470,7 @@ class DockerWorkerTask(Task):
 
         image_build_task = (
             DockerWorkerTask("Docker image: " + image_name)
-            .with_worker_type(CONFIG.docker_image_build_worker_type or self.worker_type)
+            .with_worker_type(CONFIG.images_worker_type)
             .with_max_run_time_minutes(30)
             .with_index_and_artifacts_expire_in(CONFIG.docker_images_expire_in)
             .with_features("dind")

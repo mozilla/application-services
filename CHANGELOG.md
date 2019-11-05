@@ -1,3 +1,431 @@
+# v0.42.2 (_2019-10-21_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.42.1...v0.42.2)
+
+## Android
+
+### What's new
+
+- Exposed `stroage::bookmarks::erase_everything`, which deletes all bookmarks without affecting history, through FFI. ([#2012](https://github.com/mozilla/application-services/pull/2012))
+
+## FxA Client
+
+### What's new
+
+Android: Add ability to get an OAuth code using a session token via the `authorizeOAuthCode` method. ([#2003](https://github.com/mozilla/application-services/pull/2003))
+
+
+# v0.42.1 (_2019-10-21_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.42.0...v0.42.1)
+
+## Android
+
+### What's new
+
+- The Fennec bookmarks import method (`importBookmarksFromFennec`) will now return a list of pinned bookmarks. ([#1993](https://github.com/mozilla/application-services/pull/1993))
+
+# v0.42.0 (_2019-10-10_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.41.0...v0.42.0)
+
+## Android
+
+### What's new
+
+- Fennec history import now supports microsecond timestamps for `date_visited`.
+
+### Breaking changes
+
+- The methods for importing places data from fenix have been moved from the writer connection to the PlacesAPI.
+
+# v0.41.0 (_2019-10-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.40.0...v0.41.0)
+
+## General
+
+### What's New
+
+- Our components are now built with the newer Android NDK r20 instead of r15c. This change will make it easier for contributors to set up their development environment since there's no need to generate Android toolchains anymore. ([#1916](https://github.com/mozilla/application-services/pull/1916))  
+For existing contributors, here's what you need to do immediately:
+  - Download and extract the [Android NDK r20](https://developer.android.com/ndk/downloads).
+  - Change the `ANDROID_NDK_ROOT` and `ANDROID_NDK_HOME` environment variables to point to the newer NDK dir. You can also delete the now un-used `ANDROID_NDK_TOOLCHAIN_DIR` variable.
+  - Delete `.cargo/config` at the root of the repository if you have it.
+  - Regenerate the Android libs: `cd libs && rm -rf android && ./build-all.sh android`.
+
+## Logins
+
+### What's new
+
+- Added ability to get logins by hostname by using `LoginsStorage.getByHostname`. ([#1782](https://github.com/mozilla/application-services/pull/1782))
+
+# v0.40.0 (_2019-09-26_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.39.4...v0.40.0)
+
+## Logins
+
+### Breaking Changes
+
+- getHandle has been moved to the LoginsStorage interface. All implementers other than DatabaseLoginsStorage should implement this by throwing a `UnsupportedOperationException`.
+
+# v0.39.4 (_2019-09-25_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.39.3...v0.39.4)
+
+## Sync Manager
+
+### What's fixed
+
+- Engines which are disabled will not have engine records in meta/global. ([#1866](https://github.com/mozilla/application-services/pull/1866))
+- The FxA access token is no longer logged at the debug level. ([#1866](https://github.com/mozilla/application-services/pull/1866))
+
+# v0.39.3 (_2019-09-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.39.2...v0.39.3)
+
+## FxA Client
+
+### What's new
+
+- The OAuth access token cache is now persisted as part of the account state data,
+  which should reduce the number of times callers need to fetch a fresh access token
+  from the server.
+
+# v0.39.2 (_2019-09-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.39.1...v0.39.2)
+
+## Sync Manager
+
+### What's fixed
+
+- Clients with missing engines in meta/global should have the engines repopulated. ([#1847](https://github.com/mozilla/application-services/pull/1847))
+
+# v0.39.1 (_2019-09-17_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.39.0...v0.39.1)
+
+## FxA Client
+
+### What's new
+
+Add ability to get the current device id in Kotlin via `getCurrentDeviceId` method.
+
+# v0.39.0 (_2019-09-17_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.38.2...v0.39.0)
+
+## FxA Client
+
+### What's new
+
+* New `getSessionToken` method on the FxA Client that returns the stored session_token from state.
+Also we now store the session_token into the state from the 'https://identity.mozilla.com/tokens/session' scope.
+
+## Places
+
+### What's fixed
+
+- Hidden URLs (redirect sources, or links visited in frames) are no longer
+  synced or returned in `get_visit_infos` or `get_visit_page`. Additionally,
+  a new `is_hidden` flag is added to `HistoryVisitInfo`, though it's currently
+  always `false`, since those visits are excluded.
+  ([#1715](https://github.com/mozilla/application-services/pull/1715))
+
+## Sync Manager
+
+- The new sync manager component is now available for integration ([#1447](https://github.com/mozilla/application-services/pull/1447)).
+    - This should include no breaking changes at the moment, but in the future
+      we will deprecate the non-sync manager sync APIs on android.
+    - Note: Currently, the sync manager is only available in the `full` and
+      `fenix` megazords.
+
+# v0.38.2 (_2019-09-04_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.38.1...v0.38.2)
+
+## Android
+
+### What's new
+
+- The Gradle Android Plugin has been updated to 3.5.0. ([#1680](https://github.com/mozilla/application-services/pull/1680))
+
+## iOS
+
+### What's new
+
+- Releases are now built with Xcode 11.0.0. ([#1719](https://github.com/mozilla/application-services/pull/1719))
+
+# v0.38.1 (_2019-08-26_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.38.0...v0.38.1)
+
+## FxA Client
+
+### What's new
+
+-  Added support for a webchannel redirect behaviour. ([#1608](https://github.com/mozilla/application-services/pull/1608))
+
+## Android
+
+### What's new
+
+- Initial versions of Fennec data import methods have landed:
+  - Bookmarks and history visits can be imported by calling `PlacesWriterConnection.importBookmarksFromFennec` and `PlacesWriterConnection.importVisitsFromFennec` respectively. ([#1595](https://github.com/mozilla/application-services/pull/1595), [#1461](https://github.com/mozilla/application-services/pull/1461))
+  - Logins can be imported with `LoginsStorage.importLogins`. ([#1614](https://github.com/mozilla/application-services/pull/1614))
+
+# v0.38.0 (_2019-08-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.37.1...v0.38.0)
+
+## General
+
+- Our OpenSSL dependency has been removed for all platforms other than
+  desktop-linux (used when running local rust unit tests and the android
+  -forUnitTests artifact). All other platforms use NSS.
+  ([#1570](https://github.com/mozilla/application-services/pull/1570))
+
+## Places
+
+### What's Fixed
+
+* Tags containing embedded whitespace are no longer marked as invalid and
+  removed. ([#1616](https://github.com/mozilla/application-services/issues/1616))
+
+# v0.37.1 (_2019-08-09_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.37.0...v0.37.1)
+
+## Android
+
+### What's fixed
+
+- Published artifacts should now correctly declare their `packaging` type in
+  their pom files. ([#1564](https://github.com/mozilla/application-services/pull/1564))
+
+## FxA Client
+
+### What's fixed
+
+- `FirefoxAccount.handlePushMessage` will not return an error on unknown push payloads.
+
+# v0.37.0 (_2019-08-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.36.0...v0.37.0)
+
+## FxA Client
+
+### What's new
+
+- The Tablet, VR and TV devices types have been added.
+
+### What's fixed
+
+- The `FirefoxAccount.disconnect` method should now properly dispose of the associated device record.
+
+### Breaking changes
+
+- The `FirefoxAccount.beginOAuthFlow` method does not require the `wantsKeys` argument anymore
+  as it will always do the right thing based on the requested scopes.
+
+# v0.36.0 (_2019-07-30_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.35.4...v0.36.0)
+
+## General
+
+### What's New
+
+- The Fenix megazord now supports Logins. ([#1465](https://github.com/mozilla/application-services/pull/1465))
+
+- For maintainers only: please delete the `libs/{desktop, ios, android}` folders and start over using `./build-all.sh [android|desktop|ios]`.
+
+### What's fixed
+
+- Android x86_64 crashes involving the `intel_aes_encrypt_cbc_128` missing symbol have been fixed. ([#1495](https://github.com/mozilla/application-services/pull/1495))
+
+## Places
+
+### What's New
+
+- Added a `getBookmarkURLForKeyword` method that retrieves a URL associated to a keyword. ([#1345](https://github.com/mozilla/application-services/pull/1345))
+
+## Push
+
+### Breaking changes
+
+- `PushManager.dispatchForChid` method has been renamed to `dispatchInfoForChid` and its result type is now Nullable. ([#1490](https://github.com/mozilla/application-services/pull/1490))
+
+# v0.35.4 (_2019-07-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.35.3...v0.35.4)
+
+This release exists only to rectify a publishing error that occurred with v0.35.3.
+
+# v0.35.3 (_2019-07-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.35.2...v0.35.3)
+
+This release exists only to rectify a publishing error that occurred with v0.35.2.
+
+# v0.35.2 (_2019-07-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.35.1...v0.35.2)
+
+This release exists only to rectify a publishing error that occurred with v0.35.1.
+
+# v0.35.1 (_2019-07-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.35.0...v0.35.1)
+
+## FxA Client
+
+### What's Fixed
+
+* Android: `migrateFromSessionToken` will not leave the account in a broken state if
+  network errors happen during the migration process.
+
+## Push
+
+### What's Fixed
+
+* Updated the default server host for the push service to match the production server.
+
+# v0.35.0 (_2019-07-16_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.34.0...v0.35.0)
+
+## General
+
+### Megazords
+
+The long-awaited android [megazord changes](./docs/design/megazords) have
+arrived. This has a large number of changes, many of them breaking:
+([#1103](https://github.com/mozilla/application-services/pull/1103))
+
+- Consumers who depend on network features of application-services, but
+  which were not using a megazord, will no longer be able to use a legacy
+  HTTP stack by default.
+
+- Consumers who depend on network features and *do* use a megazord, can no
+  longer initialize HTTP in the same call as the megazord.
+
+- Both of these cases should import the `org.mozilla.appservices:httpconfig`
+  package, and call `RustHttpConfig.setClient(lazy { /* client to use */ })`
+  before calling functions which make HTTP requests.
+
+- For custom megazord users, the name of your megazord is now always
+  `mozilla.appservices.Megazord`. You no longer need to load it by reflection,
+  since the swapped-out version always has the same name as your custom version.
+
+- The reference-browser megazord has effectively been replaced by the
+  full-megazord, which is also the megazord used by default
+
+- The steps to swap-out a custom megazord have changed. The specific steps are
+  slightly different in various cases, and we will file PRs to help make the
+  transition.
+
+- Substitution builds once again work, except for running unit tests against
+  Rust code.
+
+## FxA Client
+
+### What's Fixed
+
+- The state persistence callback is now correctly triggered after a call
+  to `FirefoxAccount.getProfile`.
+
+### Breaking changes
+
+- The `FirefoxAccount.destroyDevice` method has been removed in favor of the
+  more general `FirefoxAccount.disconnect` method which will ensure a full
+  disconnection by invalidating OAuth tokens and destroying the device record
+  if it exists. ([#1397](https://github.com/mozilla/application-services/issues/1397))
+- The `FirefoxAccount.disconnect` method has been added to the Swift bindings as well.
+- The `FirefoxAccount.beginOAuthFlow` method will redirect to a content page that
+  forces the user to connect to the last seen user email. To avoid this behavior,
+  a new `FirefoxAccount` instance with a new persisted state must be created.
+
+# v0.34.0 (_2019-07-10_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.33.2...v0.34.0)
+
+## General
+
+- All of our cryptographic primitives are now backed by NSS ([#1349](https://github.com/mozilla/application-services/pull/1349)). This change should be transparent our customers.
+
+  If you build application-services, it is recommended to delete the `libs/{desktop, ios, android}` folders and start over using `./build-all.sh [android|desktop|ios]`. [GYP](https://github.com/mogemimi/pomdog/wiki/How-to-Install-GYP) and [ninja](https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages) are required to build these libraries.
+
+## Places
+
+### What's New
+
+- Added `WritableHistoryConnection.acceptResult(searchString, url)` for marking
+  an awesomebar result as accepted.
+  ([#1332](https://github.com/mozilla/application-services/pull/1332))
+    - Specifically, `queryAutocomplete` calls for searches that contain
+      frequently accepted results are more highly ranked.
+
+### Breaking changes
+
+- Android only: The addition of `acceptResult` to `WritableHistoryConnection` is
+  a breaking change for any custom implementations of `WritableHistoryConnection`
+  ([#1332](https://github.com/mozilla/application-services/pull/1332))
+
+## Push
+
+### Breaking Changes
+
+- `OpenSSLError` has been renamed to the more general `CryptoError`. ([#1349](https://github.com/mozilla/application-services/pull/1349))
+
+# v0.33.2 (_2019-07-04_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.33.1...v0.33.2)
+
+This release exists only to rectify a publishing error that occurred with v0.33.1.
+
+# v0.33.1 (_2019-07-04_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.33.0...v0.33.1)
+
+This release exists only to rectify a publishing error that occurred with v0.33.0.
+
+# v0.33.0 (_2019-07-04_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.3...v0.33.0)
+
+## FxA Client
+
+### Breaking Changes
+
+- iOS: FirefoxAccountError enum variants have their name `lowerCamelCased`
+  instead of `UpperCamelCased`, to better fit with common Swift code style.
+  ([#1324](https://github.com/mozilla/application-services/issues/1324))
+
+# v0.32.3 (_2019-07-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.2...v0.32.3)
+
+## Places
+
+### What's Fixed
+
+- `PlacesReaderConnection.queryAutocomplete` should return unique results. ([#970](https://github.com/mozilla/application-services/issues/970))
+
+- Ensures bookmark sync doesn't fail if a bookmark or query is missing or has an invalid URL. ([#1325](https://github.com/mozilla/application-services/issues/1325))
+
+# v0.32.2 (_2019-06-28_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.1...v0.32.2)
+
+## General
+
+- This is a release that aims to test infrastructure changes (ci-admin).
+
+- OpenSSL dependency updated. ([#1328](https://github.com/mozilla/application-services/pull/1328))
+
 # v0.32.1 (_2019-06-26_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.32.0...v0.32.1)
@@ -33,6 +461,22 @@
 
 - iOS only: Ensure interruption errors don't come through as network errors.
   ([#1304](https://github.com/mozilla/application-services/pull/1304))
+
+# v0.31.3 (_2019-07-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.31.2...v0.31.3)
+
+## General
+
+- (Backport) Update `smallvec` dependency to pick up a security fix ([#1353](https://github.com/mozilla/application-services/pull/1353))
+
+## Places
+
+- (Backport) Ensures bookmark sync doesn't fail if a bookmark or query is missing or has an invalid URL ([#1325](https://github.com/mozilla/application-services/issues/1325))
+
+## FxA Client
+
+- (Backport) Fixes SendTab initializeDevice in Android to use the proper device type ([#1314](https://github.com/mozilla/application-services/pull/1314))
 
 # v0.31.2 (_2019-06-10_)
 

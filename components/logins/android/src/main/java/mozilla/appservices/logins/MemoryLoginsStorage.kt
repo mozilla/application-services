@@ -6,6 +6,7 @@ package mozilla.appservices.logins
 
 import android.util.Log
 import java.util.UUID
+import mozilla.appservices.sync15.SyncTelemetryPing
 
 private enum class LoginsStorageState {
     Unlocked,
@@ -23,6 +24,10 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
         if (ids.size != list.size) {
             throw LoginsStorageException("MemoryLoginsStorage was provided with logins list that had duplicated IDs")
         }
+    }
+
+    override fun getHandle(): Long {
+        throw UnsupportedOperationException("Only DatabaseLoginsStorage supports getHandle")
     }
 
     @Synchronized
@@ -88,9 +93,10 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
 
     @Synchronized
     @Throws(LoginsStorageException::class)
-    override fun sync(syncInfo: SyncUnlockInfo) {
+    override fun sync(syncInfo: SyncUnlockInfo): SyncTelemetryPing {
         checkUnlocked()
         Log.w("MemoryLoginsStorage", "Not syncing because this implementation can not sync")
+        return SyncTelemetryPing(version = 1, uid = "uid", events = emptyList(), syncs = emptyList())
     }
 
     @Synchronized
@@ -179,6 +185,23 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
 
     @Synchronized
     @Throws(LoginsStorageException::class)
+    override fun importLogins(logins: Array<ServerPassword>): Long {
+        checkUnlocked()
+        var numErrors = 0L
+        for (login in logins) {
+            val toInsert = login.copy(id = UUID.randomUUID().toString())
+            try {
+                checkValid(toInsert)
+                list += toInsert
+            } catch (e: InvalidRecordException) {
+                numErrors += 1
+            }
+        }
+        return numErrors
+    }
+
+    @Synchronized
+    @Throws(LoginsStorageException::class)
     override fun update(login: ServerPassword) {
         checkUnlocked()
         val current = list.find { it.id == login.id }
@@ -207,6 +230,14 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
         checkUnlocked()
         // Return a copy so that mutations aren't visible (AIUI using `val` consistently in
         // ServerPassword means it's immutable, so it's fine that this is a shallow copy)
+        return ArrayList(list)
+    }
+
+    @Synchronized
+    @Throws(LoginsStorageException::class)
+    override fun getByHostname(hostname: String): List<ServerPassword> {
+        checkUnlocked()
+        list = list.filter { it.hostname == hostname }
         return ArrayList(list)
     }
 

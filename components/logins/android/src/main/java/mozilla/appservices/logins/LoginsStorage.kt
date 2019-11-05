@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 package mozilla.appservices.logins
+import mozilla.appservices.sync15.SyncTelemetryPing
 
 class SyncUnlockInfo(
     val kid: String,
@@ -81,7 +82,7 @@ interface LoginsStorage : AutoCloseable {
      * @throws [LoginsStorageException] On unexpected errors (IO failure, rust panics, etc)
      */
     @Throws(LoginsStorageException::class)
-    fun sync(syncInfo: SyncUnlockInfo)
+    fun sync(syncInfo: SyncUnlockInfo): SyncTelemetryPing
 
     /**
      * Delete all locally stored login sync metadata (last sync timestamps, etc).
@@ -146,6 +147,14 @@ interface LoginsStorage : AutoCloseable {
     fun list(): List<ServerPassword>
 
     /**
+     * Fetch the list of passwords for some hostname from the underlying storage layer.
+     *
+     * @throws [LoginsStorageException] On unexpected errors (IO failure, rust panics, etc)
+     */
+    @Throws(LoginsStorageException::class)
+    fun getByHostname(hostname: String): List<ServerPassword>
+
+    /**
      * Inserts the provided login into the database, returning its id.
      *
      * This function ignores values in metadata fields (`timesUsed`,
@@ -171,6 +180,15 @@ interface LoginsStorage : AutoCloseable {
     fun add(login: ServerPassword): String
 
     /**
+     * Imports provided logins into the database.
+     * GUIDs are thrown away and replaced by auto-generated ones from the crate.
+     *
+     * @throws [LoginsStorageException] On unexpected errors (IO failure, rust panics, etc)
+     */
+    @Throws(LoginsStorageException::class)
+    fun importLogins(logins: Array<ServerPassword>): Long
+
+    /**
      * Updates the fields in the provided record.
      *
      * This will return an error if `login.id` does not refer to
@@ -188,4 +206,17 @@ interface LoginsStorage : AutoCloseable {
      */
     @Throws(LoginsStorageException::class)
     fun update(login: ServerPassword)
+
+    /**
+     * Return the raw handle used to reference this logins database.
+     *
+     * This is only valid for the DatabaseLoginsStorage, and was added to this
+     * interface regardless by popular demand. Other types will throw an
+     * UnsupportedOperationException.
+     *
+     * Generally should only be used to pass the handle into `SyncManager.setLogins`.
+     *
+     * Note: handles do not remain valid after locking / unlocking the logins database.
+     */
+    fun getHandle(): Long
 }

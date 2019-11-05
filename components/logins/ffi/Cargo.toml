@@ -7,23 +7,23 @@ license = "MPL-2.0"
 
 [lib]
 name = "logins_ffi"
-crate-type = ["lib", "staticlib", "cdylib"]
+crate-type = ["lib"]
 
 [features]
 reqwest = ["viaduct/reqwest", "logins/reqwest"]
 
 [dependencies]
-serde_json = "1.0.28"
+serde_json = "1.0.40"
 log = "0.4"
 url = "1.7.1"
-base16 = "0.1.1"
-lazy_static = "1.3.0"
+base16 = "0.2.1"
+lazy_static = "1.4.0"
 viaduct = { path = "../../viaduct" }
 # For SqlInterruptHandle
 sql-support = { path = "../../support/sql" }
 
 [dependencies.rusqlite]
-version = "0.19.0"
+version = "0.20.0"
 features = ["sqlcipher"]
 
 [dependencies.logins]
@@ -34,6 +34,3 @@ path = "../../sync15"
 
 [dependencies.ffi-support]
 path = "../../support/ffi"
-
-[target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.7.0"

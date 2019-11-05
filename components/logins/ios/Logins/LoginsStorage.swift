@@ -136,11 +136,12 @@ open class LoginsStorage {
         close()
     }
 
-    /// Synchronize with the server.
-    open func sync(unlockInfo: SyncUnlockInfo) throws {
-        try queue.sync {
+    /// Synchronize with the server. Returns the sync telemetry "ping" as a JSON
+    /// string.
+    open func sync(unlockInfo: SyncUnlockInfo) throws -> String {
+        return try queue.sync {
             let engine = try self.getUnlocked()
-            try LoginsStoreError.unwrap { err in
+            let ptr = try LoginsStoreError.unwrap { err in
                 sync15_passwords_sync(engine,
                                       unlockInfo.kid,
                                       unlockInfo.fxaAccessToken,
@@ -148,6 +149,7 @@ open class LoginsStorage {
                                       unlockInfo.tokenserverURL,
                                       err)
             }
+            return String(freeingRustString: ptr)
         }
     }
 
@@ -263,6 +265,18 @@ open class LoginsStorage {
             let engine = try self.getUnlocked()
             let rustStr = try LoginsStoreError.unwrap { err in
                 sync15_passwords_get_all(engine, err)
+            }
+            let jsonStr = String(freeingRustString: rustStr)
+            return try LoginRecord.fromJSONArray(jsonStr)
+        }
+    }
+
+    /// Get the list of records for some hostname.
+    open func getByHostname(hostname: String) throws -> [LoginRecord] {
+        return try queue.sync {
+            let engine = try self.getUnlocked()
+            let rustStr = try LoginsStoreError.unwrap { err in
+                sync15_passwords_get_by_hostname(engine, hostname, err)
             }
             let jsonStr = String(freeingRustString: rustStr)
             return try LoginRecord.fromJSONArray(jsonStr)

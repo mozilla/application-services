@@ -1,6 +1,18 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+/* Copyright 2018-2019 Mozilla Foundation
+ *
+ * Licensed under the Apache License (Version 2.0), or the MIT license,
+ * (the "Licenses") at your option. You may not use this file except in
+ * compliance with one of the Licenses. You may obtain copies of the
+ * Licenses at:
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *    http://opensource.org/licenses/MIT
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Licenses is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licenses for the specific language governing permissions and
+ * limitations under the Licenses. */
 
 use crate::string::*;
 use std::os::raw::c_char;
@@ -248,3 +260,16 @@ macro_rules! impl_into_ffi_for_primitive {
 
 // See IntoFfi docs for why this is not exhaustive
 impl_into_ffi_for_primitive![(), i8, u8, i16, u16, i32, u32, i64, u64, f32, f64];
+
+// just cuts down on boilerplate. Not public.
+macro_rules! impl_into_ffi_for_pointer {
+    ($($T:ty),+) => {$(
+        unsafe impl IntoFfi for $T {
+            type Value = Self;
+            #[inline] fn ffi_default() -> Self { ptr::null_mut() }
+            #[inline] fn into_ffi_value(self) -> Self { self }
+        }
+    )+}
+}
+
+impl_into_ffi_for_pointer![*mut i8, *const i8, *mut u8, *const u8];

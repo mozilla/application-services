@@ -17,6 +17,8 @@ mod util;
 
 mod ffi;
 
+// Mostly exposed for the sync manager.
+pub use crate::db::LoginStore;
 pub use crate::engine::*;
 pub use crate::error::*;
 pub use crate::login::*;

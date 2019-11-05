@@ -8,7 +8,7 @@ This repository hosts the code and docs needed to integrate with the products of
 [Application Services](https://mana.mozilla.org/wiki/display/CLOUDSERVICES/Application+Services+Home)
 team.
 
-If you're interested in getting involved in the development of those products
+If you are interested in getting involved in the development of those products
 then you're in the right place! Please review the more detailed guide on
 [how to contribute](docs/contributing.md) to this project as well as
 the [Community Participation Guidelines](https://www.mozilla.org/en-US/about/governance/policies/participation/).
@@ -27,7 +27,7 @@ If that's not why you're here, then instead you might enjoy:
 This repository is used to build client-side libraries for integrating with
 Firefox Application services such as Firefox Accounts, Firefox Sync and Push.
 Each of these is called a "component" and is built using a core of shared code
-writen in Rust, wrapped with native language bindings for different platforms.
+written in Rust, wrapped with native language bindings for different platforms.
 
 The end result is an application that can be assembled from re-usable components
 that are largely shared across platforms, like this:
@@ -37,7 +37,7 @@ that are largely shared across platforms, like this:
 The code for these components is organized as follows:
 
 * [./libs/](libs) contains infratructure for building some native dependencies,
-  such as OpenSSL.
+  such as NSS.
 * [./components/](components) contains the source for each component, and its
   FFI bindings.
   * See [./components/logins/](components/logins) for an example, where you can
@@ -48,8 +48,7 @@ The code for these components is organized as follows:
       applications.
     * The [Swift bindings](components/logins/ios) for use by iOS applications.
 * [./megazords/](megazords) contains infrastructure for bundling multiple rust
-  components into a single build artifact called a
-  "[megazord library](https://github.com/mozilla/application-services/blob/master/docs/product-portal/applications/consuming-megazord-libraries.md)"
+  components into a single build artifact called a "[megazord library](docs/design/megazords.md)"
   for easy consumption by applications.
 
 For more details on how the client libraries are built and published, please see

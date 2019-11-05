@@ -215,6 +215,17 @@ interface ReadableBookmarksConnection : InterruptibleConnection {
     fun getBookmarksWithURL(url: String): List<BookmarkItem>
 
     /**
+     * Returns the URL for the provided search keyword, if one exists.
+     *
+     * @param The search keyword.
+     * @return The bookmarked URL for the keyword, if set.
+     *
+     * @throws OperationInterrupted if this database implements [InterruptibleConnection] and
+     * has its `interrupt()` method called on another thread.
+     */
+    fun getBookmarkUrlForKeyword(keyword: String): String?
+
+    /**
      * Returns the list of bookmarks that match the provided search string.
      *
      * The order of the results is unspecified.
@@ -261,6 +272,12 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * @throws CannotUpdateRoot If `guid` refers to a bookmark root.
      */
     fun deleteBookmarkNode(guid: String): Boolean
+
+    /**
+     * Delete all bookmarks without affecting history
+     *
+     */
+    fun deleteAllBookmarks()
 
     /**
      * Create a bookmark folder, returning its guid.

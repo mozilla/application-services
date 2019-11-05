@@ -25,17 +25,15 @@ impl FirefoxAccount {
             return Err(ErrorKind::IllegalState("Session Token is already set.").into());
         }
         // Trade our session token for a refresh token.
-        self.state.session_token = Some(session_token.to_string());
-        let session_token = hex::decode(&session_token)?;
         let duplicate_session = self
             .client
             .duplicate_session(&self.state.config, &session_token)?;
 
         let duplicated_session_token = duplicate_session.session_token;
-        let duplicated_session_token_bytes = hex::decode(duplicated_session_token)?;
-        let oauth_response = self.client.oauth_token_from_session_token(
+
+        let oauth_response = self.client.oauth_tokens_from_session_token(
             &self.state.config,
-            &duplicated_session_token_bytes,
+            &duplicated_session_token,
             &[scopes::PROFILE, scopes::OLD_SYNC],
         )?;
         self.handle_oauth_response(oauth_response, None)?;
@@ -45,9 +43,11 @@ impl FirefoxAccount {
         let k_sync = base64::encode_config(&k_sync, base64::URL_SAFE_NO_PAD);
         let k_xcs = hex::decode(k_xcs)?;
         let k_xcs = base64::encode_config(&k_xcs, base64::URL_SAFE_NO_PAD);
-        let scoped_key_data =
-            self.client
-                .scoped_key_data(&self.state.config, &session_token, scopes::OLD_SYNC)?;
+        let scoped_key_data = self.client.scoped_key_data(
+            &self.state.config,
+            &duplicated_session_token,
+            scopes::OLD_SYNC,
+        )?;
         let oldsync_key_data = scoped_key_data.get(scopes::OLD_SYNC).ok_or_else(|| {
             ErrorKind::IllegalState("The session token doesn't have access to kSync!")
         })?;
@@ -58,6 +58,7 @@ impl FirefoxAccount {
             k: k_sync,
             kid,
         };
+        self.state.session_token = Some(duplicated_session_token.clone());
         self.state
             .scoped_keys
             .insert(scopes::OLD_SYNC.to_string(), k_sync_scoped_key);

@@ -3,14 +3,15 @@
 
 package mozilla.appservices.logins
 
-import org.junit.rules.TemporaryFolder
+import mozilla.appservices.Megazord
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.fail
 import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import org.junit.Test
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.fail
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
@@ -20,6 +21,7 @@ class DatabaseLoginsStorageTest : LoginsStorageTest() {
     val dbFolder = TemporaryFolder()
 
     override fun createTestStore(): LoginsStorage {
+        Megazord.init()
         val dbPath = dbFolder.newFile()
         return DatabaseLoginsStorage(dbPath = dbPath.absolutePath)
     }

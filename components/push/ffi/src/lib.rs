@@ -6,30 +6,14 @@
 #![warn(rust_2018_idioms)]
 
 use ffi_support::{
-    define_bytebuffer_destructor, define_handle_map_deleter, define_string_destructor,
+    define_bytebuffer_destructor, define_handle_map_deleter, define_string_destructor, ByteBuffer,
     ConcurrentHandleMap, ExternError, FfiStr,
 };
 use std::os::raw::c_char;
 
-use serde_json::{self, json};
-
 use push::config::PushConfiguration;
 use push::error::Result;
 use push::subscriber::PushManager;
-
-#[no_mangle]
-pub extern "C" fn push_enable_logcat_logging() {
-    #[cfg(target_os = "android")]
-    {
-        let _ = std::panic::catch_unwind(|| {
-            android_logger::init_once(
-                android_logger::Filter::default().with_min_level(log::Level::Debug),
-                Some("libpush_ffi"),
-            );
-            log::debug!("Android logging should be hooked up!")
-        });
-    }
-}
 
 lazy_static::lazy_static! {
     static ref MANAGER: ConcurrentHandleMap<PushManager> = ConcurrentHandleMap::new();
@@ -85,9 +69,10 @@ pub extern "C" fn push_subscribe(
     channel_id: FfiStr<'_>,
     scope: FfiStr<'_>,
     error: &mut ExternError,
-) -> *mut c_char {
+) -> ByteBuffer {
     log::debug!("push_get_subscription");
-    MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<String> {
+    use push::msg_types::{KeyInfo, SubscriptionInfo, SubscriptionResponse};
+    MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<_> {
         let channel = channel_id.as_str();
         let scope_s = scope.as_str();
         // Don't auto add the subscription to the db.
@@ -95,19 +80,19 @@ pub extern "C" fn push_subscribe(
         let (info, subscription_key) = mgr.subscribe(channel, scope_s)?;
         // it is possible for the
         // store the channel_id => auth + subscription_key
-        let subscription_response = json!({
-            "channel_id": info.channel_id,
-            "subscription_info": {
-                "endpoint": info.endpoint,
-                "keys": {
-                    "auth": base64::encode_config(&subscription_key.auth,
-                                                  base64::URL_SAFE_NO_PAD),
-                    "p256dh": base64::encode_config(&subscription_key.public_key(),
-                                                    base64::URL_SAFE_NO_PAD)
-                }
-            }
-        });
-        Ok(subscription_response.to_string())
+        Ok(SubscriptionResponse {
+            channel_id: info.channel_id,
+            subscription_info: SubscriptionInfo {
+                endpoint: info.endpoint,
+                keys: KeyInfo {
+                    auth: base64::encode_config(&subscription_key.auth, base64::URL_SAFE_NO_PAD),
+                    p256dh: base64::encode_config(
+                        &subscription_key.public_key(),
+                        base64::URL_SAFE_NO_PAD,
+                    ),
+                },
+            },
+        })
     })
 }
 
@@ -175,26 +160,23 @@ pub extern "C" fn push_decrypt(
         mgr.decrypt(&uaid, r_chid, r_body, r_encoding, r_salt, r_dh)
     })
 }
-// TODO: modify these to be relevant.
 
 #[no_mangle]
-pub extern "C" fn push_dispatch_for_chid(
+pub extern "C" fn push_dispatch_info_for_chid(
     handle: u64,
     chid: FfiStr<'_>,
     error: &mut ExternError,
-) -> *mut c_char {
-    log::debug!("push_dispatch_for_chid");
-    MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<String> {
+) -> ByteBuffer {
+    log::debug!("push_dispatch_info_for_chid");
+    use push::msg_types::DispatchInfo;
+    MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<Option<_>> {
         let chid = chid.as_str();
         match mgr.get_record_by_chid(chid)? {
-            Some(record) => {
-                let dispatch = json!({
-                    "uaid": record.uaid,
-                    "scope": record.scope,
-                });
-                Ok(dispatch.to_string())
-            }
-            None => Ok(String::from("")),
+            Some(record) => Ok(Some(DispatchInfo {
+                uaid: record.uaid,
+                scope: record.scope,
+            })),
+            None => Ok(None),
         }
     })
 }

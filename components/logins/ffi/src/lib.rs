@@ -14,34 +14,13 @@ use ffi_support::{
 };
 use logins::{Login, PasswordEngine, Result};
 use std::os::raw::c_char;
-
-fn logging_init() {
-    #[cfg(target_os = "android")]
-    {
-        android_logger::init_once(
-            android_logger::Filter::default().with_min_level(log::Level::Debug),
-            Some("liblogins_ffi"),
-        );
-        log::debug!("Android logging should be hooked up!")
-    }
-}
+use std::sync::{Arc, Mutex};
 
 lazy_static::lazy_static! {
-    static ref ENGINES: ConcurrentHandleMap<PasswordEngine> = ConcurrentHandleMap::new();
-}
-
-#[no_mangle]
-pub extern "C" fn sync15_passwords_enable_logcat_logging() {
-    #[cfg(target_os = "android")]
-    {
-        let _ = std::panic::catch_unwind(|| {
-            android_logger::init_once(
-                android_logger::Filter::default().with_min_level(log::Level::Debug),
-                Some("liblogins_ffi"),
-            );
-            log::debug!("Android logging should be hooked up!")
-        });
-    }
+    // TODO: this is basically a RwLock<HandleMap<Mutex<Arc<Mutex<...>>>>.
+    // but could just be a `RwLock<HandleMap<Arc<Mutex<...>>>>`.
+    // Find a way to express this cleanly in ffi_support?
+    pub static ref ENGINES: ConcurrentHandleMap<Arc<Mutex<PasswordEngine>>> = ConcurrentHandleMap::new();
 }
 
 #[no_mangle]
@@ -51,10 +30,10 @@ pub extern "C" fn sync15_passwords_state_new(
     error: &mut ExternError,
 ) -> u64 {
     log::debug!("sync15_passwords_state_new");
-    ENGINES.insert_with_result(error, || {
+    ENGINES.insert_with_result(error, || -> logins::Result<_> {
         let path = db_path.as_str();
         let key = encryption_key.as_str();
-        PasswordEngine::new(path, Some(key))
+        Ok(Arc::new(Mutex::new(PasswordEngine::new(path, Some(key))?)))
     })
 }
 
@@ -89,14 +68,16 @@ pub unsafe extern "C" fn sync15_passwords_state_new_with_hex_key(
     encryption_key_len: u32,
     error: &mut ExternError,
 ) -> u64 {
-    logging_init();
     log::debug!("sync15_passwords_state_new_with_hex_key");
-    ENGINES.insert_with_result(error, || {
+    ENGINES.insert_with_result(error, || -> logins::Result<_> {
         let path = db_path.as_str();
         let key = bytes_to_key_string(encryption_key, encryption_key_len as usize);
         // We have a Option<String>, but need an Option<&str>...
         let opt_key_ref = key.as_ref().map(String::as_str);
-        PasswordEngine::new(path, opt_key_ref)
+        Ok(Arc::new(Mutex::new(PasswordEngine::new(
+            path,
+            opt_key_ref,
+        )?)))
     })
 }
 
@@ -109,7 +90,7 @@ fn parse_url(url: &str) -> sync15::Result<url::Url> {
 pub extern "C" fn sync15_passwords_disable_mem_security(handle: u64, error: &mut ExternError) {
     log::debug!("sync15_passwords_disable_mem_security");
     ENGINES.call_with_result(error, handle, |state| -> Result<()> {
-        state.disable_mem_security()
+        state.lock().unwrap().disable_mem_security()
     })
 }
 
@@ -121,10 +102,10 @@ pub extern "C" fn sync15_passwords_sync(
     sync_key: FfiStr<'_>,
     tokenserver_url: FfiStr<'_>,
     error: &mut ExternError,
-) {
+) -> *mut c_char {
     log::debug!("sync15_passwords_sync");
-    ENGINES.call_with_result(error, handle, |state| -> Result<()> {
-        state.sync(
+    ENGINES.call_with_result(error, handle, |state| -> Result<_> {
+        let ping = state.lock().unwrap().sync(
             &sync15::Sync15StorageClientInit {
                 key_id: key_id.into_string(),
                 access_token: access_token.into_string(),
@@ -132,14 +113,16 @@ pub extern "C" fn sync15_passwords_sync(
             },
             &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
         )?;
-        Ok(())
+        Ok(ping)
     })
 }
 
 #[no_mangle]
 pub extern "C" fn sync15_passwords_touch(handle: u64, id: FfiStr<'_>, error: &mut ExternError) {
     log::debug!("sync15_passwords_touch");
-    ENGINES.call_with_result(error, handle, |state| state.touch(id.as_str()))
+    ENGINES.call_with_result(error, handle, |state| {
+        state.lock().unwrap().touch(id.as_str())
+    })
 }
 
 #[no_mangle]
@@ -149,25 +132,27 @@ pub extern "C" fn sync15_passwords_delete(
     error: &mut ExternError,
 ) -> u8 {
     log::debug!("sync15_passwords_delete");
-    ENGINES.call_with_result(error, handle, |state| state.delete(id.as_str()))
+    ENGINES.call_with_result(error, handle, |state| {
+        state.lock().unwrap().delete(id.as_str())
+    })
 }
 
 #[no_mangle]
 pub extern "C" fn sync15_passwords_wipe(handle: u64, error: &mut ExternError) {
     log::debug!("sync15_passwords_wipe");
-    ENGINES.call_with_result(error, handle, |state| state.wipe())
+    ENGINES.call_with_result(error, handle, |state| state.lock().unwrap().wipe())
 }
 
 #[no_mangle]
 pub extern "C" fn sync15_passwords_wipe_local(handle: u64, error: &mut ExternError) {
     log::debug!("sync15_passwords_wipe_local");
-    ENGINES.call_with_result(error, handle, |state| state.wipe_local())
+    ENGINES.call_with_result(error, handle, |state| state.lock().unwrap().wipe_local())
 }
 
 #[no_mangle]
 pub extern "C" fn sync15_passwords_reset(handle: u64, error: &mut ExternError) {
     log::debug!("sync15_passwords_reset");
-    ENGINES.call_with_result(error, handle, |state| state.reset())
+    ENGINES.call_with_result(error, handle, |state| state.lock().unwrap().reset())
 }
 
 #[no_mangle]
@@ -176,7 +161,9 @@ pub extern "C" fn sync15_passwords_new_interrupt_handle(
     error: &mut ExternError,
 ) -> *mut sql_support::SqlInterruptHandle {
     log::debug!("sync15_passwords_new_interrupt_handle");
-    ENGINES.call_with_output(error, handle, |state| state.new_interrupt_handle())
+    ENGINES.call_with_output(error, handle, |state| {
+        state.lock().unwrap().new_interrupt_handle()
+    })
 }
 
 #[no_mangle]
@@ -192,8 +179,22 @@ pub extern "C" fn sync15_passwords_interrupt(
 pub extern "C" fn sync15_passwords_get_all(handle: u64, error: &mut ExternError) -> *mut c_char {
     log::debug!("sync15_passwords_get_all");
     ENGINES.call_with_result(error, handle, |state| -> Result<String> {
-        let all_passwords = state.list()?;
+        let all_passwords = state.lock().unwrap().list()?;
         let result = serde_json::to_string(&all_passwords)?;
+        Ok(result)
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn sync15_passwords_get_by_hostname(
+    handle: u64,
+    hostname: FfiStr<'_>,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("sync15_passwords_get_by_hostname");
+    ENGINES.call_with_result(error, handle, |state| -> Result<String> {
+        let passwords = state.lock().unwrap().get_by_hostname(hostname.as_str())?;
+        let result = serde_json::to_string(&passwords)?;
         Ok(result)
     })
 }
@@ -205,7 +206,9 @@ pub extern "C" fn sync15_passwords_get_by_id(
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("sync15_passwords_get_by_id");
-    ENGINES.call_with_result(error, handle, |state| state.get(id.as_str()))
+    ENGINES.call_with_result(error, handle, |state| {
+        state.lock().unwrap().get(id.as_str())
+    })
 }
 
 #[no_mangle]
@@ -222,7 +225,20 @@ pub extern "C" fn sync15_passwords_add(
             parsed["id"] = serde_json::Value::String(String::default());
         }
         let login: Login = serde_json::from_value(parsed)?;
-        state.add(login)
+        state.lock().unwrap().add(login)
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn sync15_passwords_import(
+    handle: u64,
+    records_json: FfiStr<'_>,
+    error: &mut ExternError,
+) -> u64 {
+    log::debug!("sync15_passwords_import");
+    ENGINES.call_with_result(error, handle, |state| {
+        let logins: Vec<Login> = serde_json::from_str(records_json.as_str())?;
+        state.lock().unwrap().import_multiple(&logins)
     })
 }
 
@@ -235,7 +251,7 @@ pub extern "C" fn sync15_passwords_update(
     log::debug!("sync15_passwords_update");
     ENGINES.call_with_result(error, handle, |state| {
         let parsed: Login = serde_json::from_str(record_json.as_str())?;
-        state.update(parsed)
+        state.lock().unwrap().update(parsed)
     });
 }
 

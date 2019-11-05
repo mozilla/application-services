@@ -1,6 +1,18 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+/* Copyright 2018-2019 Mozilla Foundation
+ *
+ * Licensed under the Apache License (Version 2.0), or the MIT license,
+ * (the "Licenses") at your option. You may not use this file except in
+ * compliance with one of the Licenses. You may obtain copies of the
+ * Licenses at:
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *    http://opensource.org/licenses/MIT
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Licenses is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licenses for the specific language governing permissions and
+ * limitations under the Licenses. */
 
 #![deny(missing_docs)]
 #![allow(unknown_lints)]
@@ -292,8 +304,8 @@ pub mod abort_on_panic {
 
 #[cfg(feature = "log_panics")]
 fn init_panic_handling_once() {
-    use std::sync::{Once, ONCE_INIT};
-    static INIT_BACKTRACES: Once = ONCE_INIT;
+    use std::sync::Once;
+    static INIT_BACKTRACES: Once = Once::new();
     INIT_BACKTRACES.call_once(move || {
         #[cfg(all(feature = "log_backtraces", not(target_os = "android")))]
         {

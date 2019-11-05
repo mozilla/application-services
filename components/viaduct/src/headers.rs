@@ -382,6 +382,7 @@ pub mod consts {
         (X_WEAVE_NEXT_OFFSET, "x-weave-next-offset"),
         (X_WEAVE_RECORDS, "x-weave-records"),
         (X_WEAVE_TIMESTAMP, "x-weave-timestamp"),
+        (X_WEAVE_BACKOFF, "x-weave-backoff"),
     );
 
     #[test]
@@ -400,5 +401,4 @@ pub mod consts {
             );
         }
     }
-
 }

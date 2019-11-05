@@ -5,43 +5,18 @@
 
 package mozilla.appservices.logins.rust
 
-import android.util.Log
 import com.sun.jna.Library
-import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
-import java.lang.reflect.Proxy
+import mozilla.appservices.support.native.loadIndirect
+import org.mozilla.appservices.logins.BuildConfig
 
 @Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
 internal interface PasswordSyncAdapter : Library {
     companion object {
-        private val JNA_LIBRARY_NAME = {
-            val libname = System.getProperty("mozilla.appservices.logins_ffi_lib_name")
-            if (libname != null) {
-                Log.i("AppServices", "Using logins_ffi_lib_name: " + libname)
-                libname
-            } else {
-                "logins_ffi"
-            }
-        }()
-
-        internal var INSTANCE: PasswordSyncAdapter = try {
-            val lib = Native.load<PasswordSyncAdapter>(JNA_LIBRARY_NAME, PasswordSyncAdapter::class.java)
-            if (JNA_LIBRARY_NAME == "logins_ffi") {
-                // Enable logcat logging if we aren't in a megazord.
-                lib.sync15_passwords_enable_logcat_logging()
-            }
-            lib
-        } catch (e: UnsatisfiedLinkError) {
-            Proxy.newProxyInstance(
-                    PasswordSyncAdapter::class.java.classLoader,
-                    arrayOf(PasswordSyncAdapter::class.java)) { _, _, _ ->
-                throw RuntimeException("Logins storage functionality not available (no native library)", e)
-            } as PasswordSyncAdapter
-        }
+        internal var INSTANCE: PasswordSyncAdapter =
+            loadIndirect(componentName = "logins", componentVersion = BuildConfig.LIBRARY_VERSION)
     }
-
-    fun sync15_passwords_enable_logcat_logging()
 
     fun sync15_passwords_state_new(
         mentat_db_path: String,
@@ -68,6 +43,10 @@ internal interface PasswordSyncAdapter : Library {
     // return json array
     fun sync15_passwords_get_all(handle: LoginsDbHandle, error: RustError.ByReference): Pointer?
 
+    // return json array
+    fun sync15_passwords_get_by_hostname(handle: LoginsDbHandle, hostname: String, error: RustError.ByReference): Pointer?
+
+    // Returns a JSON string containing a sync ping.
     fun sync15_passwords_sync(
         handle: LoginsDbHandle,
         key_id: String,
@@ -75,7 +54,7 @@ internal interface PasswordSyncAdapter : Library {
         sync_key: String,
         token_server_url: String,
         error: RustError.ByReference
-    )
+    ): Pointer?
 
     fun sync15_passwords_wipe(handle: LoginsDbHandle, error: RustError.ByReference)
     fun sync15_passwords_wipe_local(handle: LoginsDbHandle, error: RustError.ByReference)
@@ -88,6 +67,7 @@ internal interface PasswordSyncAdapter : Library {
     // Note: returns guid of new login entry (unless one was specifically requested)
     fun sync15_passwords_add(handle: LoginsDbHandle, new_login_json: String, error: RustError.ByReference): Pointer?
     fun sync15_passwords_update(handle: LoginsDbHandle, existing_login_json: String, error: RustError.ByReference)
+    fun sync15_passwords_import(handle: LoginsDbHandle, logins_json: String, error: RustError.ByReference): Long
 
     fun sync15_passwords_destroy_string(p: Pointer)
 

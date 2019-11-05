@@ -6,9 +6,9 @@ use crate::{
     error::*,
     http_client::OAuthTokenResponse,
     scoped_keys::{ScopedKey, ScopedKeysFlow},
-    util, FirefoxAccount, RNG,
+    util, FirefoxAccount,
 };
-use ring::digest;
+use rc_crypto::digest;
 use serde_derive::*;
 use std::{
     collections::HashSet,
@@ -20,6 +20,9 @@ use url::Url;
 // If a cached token has less than `OAUTH_MIN_TIME_LEFT` seconds left to live,
 // it will be considered already expired.
 const OAUTH_MIN_TIME_LEFT: u64 = 60;
+// Special redirect urn based on the OAuth native spec, signals that the
+// WebChannel flow is used
+const OAUTH_WEBCHANNEL_REDIRECT: &str = "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel";
 
 impl FirefoxAccount {
     /// Fetch a short-lived access token using the saved refresh token.
@@ -28,11 +31,13 @@ impl FirefoxAccount {
     /// using `begin_oauth_flow`.
     ///
     /// * `scopes` - Space-separated list of requested scopes.
+    ///
+    /// **💾 This method may alter the persisted account state.**
     pub fn get_access_token(&mut self, scope: &str) -> Result<AccessTokenInfo> {
         if scope.contains(' ') {
             return Err(ErrorKind::MultipleScopesRequested.into());
         }
-        if let Some(oauth_info) = self.access_token_cache.get(scope) {
+        if let Some(oauth_info) = self.state.access_token_cache.get(scope) {
             if oauth_info.expires_at > util::now_secs() + OAUTH_MIN_TIME_LEFT {
                 return Ok(oauth_info.clone());
             }
@@ -49,23 +54,14 @@ impl FirefoxAccount {
                     return Err(ErrorKind::NoCachedToken(scope.to_string()).into());
                 }
             }
-            None => {
-                #[cfg(feature = "browserid")]
-                {
-                    match Self::session_token_from_state(&self.state.login_state) {
-                        Some(session_token) => self.client.oauth_token_with_session_token(
-                            &self.state.config,
-                            session_token,
-                            &[scope],
-                        )?,
-                        None => return Err(ErrorKind::NoCachedToken(scope.to_string()).into()),
-                    }
-                }
-                #[cfg(not(feature = "browserid"))]
-                {
-                    return Err(ErrorKind::NoCachedToken(scope.to_string()).into());
-                }
-            }
+            None => match self.state.session_token {
+                Some(ref session_token) => self.client.oauth_token_with_session_token(
+                    &self.state.config,
+                    &session_token,
+                    &[scope],
+                )?,
+                None => return Err(ErrorKind::NoCachedToken(scope.to_string()).into()),
+            },
         };
         let since_epoch = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -77,9 +73,18 @@ impl FirefoxAccount {
             key: self.state.scoped_keys.get(scope).cloned(),
             expires_at,
         };
-        self.access_token_cache
+        self.state
+            .access_token_cache
             .insert(scope.to_string(), token_info.clone());
         Ok(token_info)
+    }
+
+    /// Retrieve the current session token from state
+    pub fn get_session_token(&mut self) -> Result<String> {
+        match self.state.session_token {
+            Some(ref session_token) => Ok(session_token.to_string()),
+            None => Err(ErrorKind::NoSessionToken.into()),
+        }
     }
 
     /// Initiate a pairing flow and return a URL that should be navigated to.
@@ -94,18 +99,28 @@ impl FirefoxAccount {
             return Err(ErrorKind::OriginMismatch.into());
         }
         url.set_fragment(pairing_url.fragment());
-        self.oauth_flow(url, scopes, true)
+        self.oauth_flow(url, scopes)
     }
 
     /// Initiate an OAuth login flow and return a URL that should be navigated to.
     ///
     /// * `scopes` - Space-separated list of requested scopes.
-    /// * `wants_keys` - Retrieve scoped keys associated with scopes supporting it.
-    pub fn begin_oauth_flow(&mut self, scopes: &[&str], wants_keys: bool) -> Result<String> {
-        let mut url = self.state.config.authorization_endpoint()?;
+    pub fn begin_oauth_flow(&mut self, scopes: &[&str]) -> Result<String> {
+        let mut url = if self.state.last_seen_profile.is_some() {
+            self.state.config.content_url_path("/oauth/force_auth")?
+        } else {
+            self.state.config.authorization_endpoint()?
+        };
+
         url.query_pairs_mut()
             .append_pair("action", "email")
             .append_pair("response_type", "code");
+
+        if let Some(ref cached_profile) = self.state.last_seen_profile {
+            url.query_pairs_mut()
+                .append_pair("email", &cached_profile.response.email);
+        }
+
         let scopes: Vec<String> = match self.state.refresh_token {
             Some(ref refresh_token) => {
                 // Union of the already held scopes and the one requested.
@@ -120,36 +135,66 @@ impl FirefoxAccount {
             None => scopes.iter().map(ToString::to_string).collect(),
         };
         let scopes: Vec<&str> = scopes.iter().map(<_>::as_ref).collect();
-        self.oauth_flow(url, &scopes, wants_keys)
+        self.oauth_flow(url, &scopes)
     }
 
-    fn oauth_flow(&mut self, mut url: Url, scopes: &[&str], wants_keys: bool) -> Result<String> {
+    /// Fetch an OAuth code for a particular client using a session token from the account state.
+    /// This method doesn't support OAuth public clients at this time.
+    ///
+    /// * `client_id` - OAuth client id.
+    /// * `scopes` - Space-separated list of requested scopes.
+    /// * `state` - OAuth state.
+    /// * `access_type` - Type of OAuth access, can be "offline" and "online.
+    pub fn authorize_code_using_session_token(
+        &mut self,
+        client_id: &str,
+        scope: &str,
+        state: &str,
+        access_type: &str,
+    ) -> Result<String> {
+        let session_token = self.get_session_token()?;
+        let resp = self.client.authorization_code_using_session_token(
+            &self.state.config,
+            &client_id,
+            &session_token,
+            &scope,
+            &state,
+            &access_type,
+        )?;
+
+        Ok(resp.code)
+    }
+
+    fn oauth_flow(&mut self, mut url: Url, scopes: &[&str]) -> Result<String> {
         self.clear_access_token_cache();
-        let state = util::random_base64_url_string(&*RNG, 16)?;
-        let code_verifier = util::random_base64_url_string(&*RNG, 43)?;
-        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes());
+        let state = util::random_base64_url_string(16)?;
+        let code_verifier = util::random_base64_url_string(43)?;
+        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes())?;
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
+        let scoped_keys_flow = ScopedKeysFlow::with_random_key()?;
+        let jwk_json = scoped_keys_flow.generate_keys_jwk()?;
+        let keys_jwk = base64::encode_config(&jwk_json, base64::URL_SAFE_NO_PAD);
         url.query_pairs_mut()
             .append_pair("client_id", &self.state.config.client_id)
-            .append_pair("redirect_uri", &self.state.config.redirect_uri)
             .append_pair("scope", &scopes.join(" "))
             .append_pair("state", &state)
             .append_pair("code_challenge_method", "S256")
             .append_pair("code_challenge", &code_challenge)
-            .append_pair("access_type", "offline");
-        let scoped_keys_flow = if wants_keys {
-            let flow = ScopedKeysFlow::with_random_key(&*RNG)?;
-            let jwk_json = flow.generate_keys_jwk()?;
-            let keys_jwk = base64::encode_config(&jwk_json, base64::URL_SAFE_NO_PAD);
-            url.query_pairs_mut().append_pair("keys_jwk", &keys_jwk);
-            Some(flow)
+            .append_pair("access_type", "offline")
+            .append_pair("keys_jwk", &keys_jwk);
+
+        if self.state.config.redirect_uri == OAUTH_WEBCHANNEL_REDIRECT {
+            url.query_pairs_mut()
+                .append_pair("context", "oauth_webchannel_v1");
         } else {
-            None
-        };
+            url.query_pairs_mut()
+                .append_pair("redirect_uri", &self.state.config.redirect_uri);
+        }
+
         self.flow_store.insert(
             state.clone(), // Since state is supposed to be unique, we use it to key our flows.
             OAuthFlow {
-                scoped_keys_flow,
+                scoped_keys_flow: Some(scoped_keys_flow),
                 code_verifier,
             },
         );
@@ -167,7 +212,7 @@ impl FirefoxAccount {
             Some(oauth_flow) => oauth_flow,
             None => return Err(ErrorKind::UnknownOAuthState.into()),
         };
-        let resp = self.client.oauth_token_with_code(
+        let resp = self.client.oauth_tokens_from_code(
             &self.state.config,
             &code,
             &oauth_flow.code_verifier,
@@ -180,39 +225,31 @@ impl FirefoxAccount {
         resp: OAuthTokenResponse,
         scoped_keys_flow: Option<ScopedKeysFlow>,
     ) -> Result<()> {
-        // This assumes that if the server returns keys_jwe, the jwk argument is Some.
-        match resp.keys_jwe {
-            Some(ref jwe) => {
-                let scoped_keys_flow = match scoped_keys_flow {
-                    Some(flow) => flow,
-                    None => {
-                        return Err(ErrorKind::UnrecoverableServerError(
-                            "Got a JWE without sending a JWK.",
-                        )
-                        .into());
-                    }
-                };
-                let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe)?;
-                let scoped_keys: serde_json::Map<String, serde_json::Value> =
-                    serde_json::from_str(&decrypted_keys)?;
-                for (scope, key) in scoped_keys {
-                    let scoped_key: ScopedKey = serde_json::from_value(key)?;
-                    self.state.scoped_keys.insert(scope, scoped_key);
-                }
+        if let Some(ref jwe) = resp.keys_jwe {
+            let scoped_keys_flow = scoped_keys_flow.ok_or_else(|| {
+                ErrorKind::UnrecoverableServerError("Got a JWE but have no JWK to decrypt it.")
+            })?;
+            let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe)?;
+            let scoped_keys: serde_json::Map<String, serde_json::Value> =
+                serde_json::from_str(&decrypted_keys)?;
+            for (scope, key) in scoped_keys {
+                let scoped_key: ScopedKey = serde_json::from_value(key)?;
+                self.state.scoped_keys.insert(scope, scoped_key);
             }
-            None => {
-                if scoped_keys_flow.is_some() {
-                    log::error!("Expected to get keys back alongside the token but the server didn't send them.");
-                    return Err(ErrorKind::TokenWithoutKeys.into());
-                }
-            }
-        };
+        }
+
+        // If the client requested a 'tokens/session' OAuth scope then as part of the code
+        // exchange this will get a session_token in the response.
+        if resp.session_token.is_some() {
+            self.state.session_token = resp.session_token;
+        }
+
         // We are only interested in the refresh token at this time because we
         // don't want to return an over-scoped access token.
         // Let's be good citizens and destroy this access token.
         if let Err(err) = self
             .client
-            .destroy_oauth_token(&self.state.config, &resp.access_token)
+            .destroy_access_token(&self.state.config, &resp.access_token)
         {
             log::warn!("Access token destruction failure: {:?}", err);
         }
@@ -242,7 +279,7 @@ impl FirefoxAccount {
         if let Some(ref refresh_token) = old_refresh_token {
             if let Err(err) = self
                 .client
-                .destroy_oauth_token(&self.state.config, &refresh_token.token)
+                .destroy_refresh_token(&self.state.config, &refresh_token.token)
             {
                 log::warn!("Refresh token destruction failure: {:?}", err);
             }
@@ -261,7 +298,7 @@ impl FirefoxAccount {
     }
 
     pub fn clear_access_token_cache(&mut self) {
-        self.access_token_cache.clear();
+        self.state.access_token_cache.clear();
     }
 }
 
@@ -306,6 +343,15 @@ impl std::fmt::Debug for AccessTokenInfo {
 mod tests {
     use super::*;
     use std::borrow::Cow;
+    use std::collections::HashMap;
+
+    impl FirefoxAccount {
+        pub fn add_cached_token(&mut self, scope: &str, token_info: AccessTokenInfo) {
+            self.state
+                .access_token_cache
+                .insert(scope.to_string(), token_info);
+        }
+    }
 
     #[test]
     fn test_oauth_flow_url() {
@@ -314,64 +360,7 @@ mod tests {
             "12345678",
             "https://foo.bar",
         );
-        let url = fxa.begin_oauth_flow(&["profile"], false).unwrap();
-        let flow_url = Url::parse(&url).unwrap();
-
-        assert_eq!(flow_url.host_str(), Some("accounts.firefox.com"));
-        assert_eq!(flow_url.path(), "/authorization");
-
-        let mut pairs = flow_url.query_pairs();
-        assert_eq!(pairs.count(), 9);
-        assert_eq!(
-            pairs.next(),
-            Some((Cow::Borrowed("action"), Cow::Borrowed("email")))
-        );
-        assert_eq!(
-            pairs.next(),
-            Some((Cow::Borrowed("response_type"), Cow::Borrowed("code")))
-        );
-        assert_eq!(
-            pairs.next(),
-            Some((Cow::Borrowed("client_id"), Cow::Borrowed("12345678")))
-        );
-        assert_eq!(
-            pairs.next(),
-            Some((
-                Cow::Borrowed("redirect_uri"),
-                Cow::Borrowed("https://foo.bar")
-            ))
-        );
-        assert_eq!(
-            pairs.next(),
-            Some((Cow::Borrowed("scope"), Cow::Borrowed("profile")))
-        );
-        let state_param = pairs.next().unwrap();
-        assert_eq!(state_param.0, Cow::Borrowed("state"));
-        assert_eq!(state_param.1.len(), 22);
-        assert_eq!(
-            pairs.next(),
-            Some((
-                Cow::Borrowed("code_challenge_method"),
-                Cow::Borrowed("S256")
-            ))
-        );
-        let code_challenge_param = pairs.next().unwrap();
-        assert_eq!(code_challenge_param.0, Cow::Borrowed("code_challenge"));
-        assert_eq!(code_challenge_param.1.len(), 43);
-        assert_eq!(
-            pairs.next(),
-            Some((Cow::Borrowed("access_type"), Cow::Borrowed("offline")))
-        );
-    }
-
-    #[test]
-    fn test_oauth_flow_url_with_keys() {
-        let mut fxa = FirefoxAccount::new(
-            "https://accounts.firefox.com",
-            "12345678",
-            "https://foo.bar",
-        );
-        let url = fxa.begin_oauth_flow(&["profile"], true).unwrap();
+        let url = fxa.begin_oauth_flow(&["profile"]).unwrap();
         let flow_url = Url::parse(&url).unwrap();
 
         assert_eq!(flow_url.host_str(), Some("accounts.firefox.com"));
@@ -387,17 +376,12 @@ mod tests {
             pairs.next(),
             Some((Cow::Borrowed("response_type"), Cow::Borrowed("code")))
         );
+
         assert_eq!(
             pairs.next(),
             Some((Cow::Borrowed("client_id"), Cow::Borrowed("12345678")))
         );
-        assert_eq!(
-            pairs.next(),
-            Some((
-                Cow::Borrowed("redirect_uri"),
-                Cow::Borrowed("https://foo.bar")
-            ))
-        );
+
         assert_eq!(
             pairs.next(),
             Some((Cow::Borrowed("scope"), Cow::Borrowed("profile")))
@@ -422,6 +406,64 @@ mod tests {
         let keys_jwk = pairs.next().unwrap();
         assert_eq!(keys_jwk.0, Cow::Borrowed("keys_jwk"));
         assert_eq!(keys_jwk.1.len(), 168);
+
+        assert_eq!(
+            pairs.next(),
+            Some((
+                Cow::Borrowed("redirect_uri"),
+                Cow::Borrowed("https://foo.bar")
+            ))
+        );
+    }
+
+    #[test]
+    fn test_force_auth_url() {
+        let mut fxa =
+            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let email = "test@example.com";
+        fxa.add_cached_profile("123", email);
+        let url = fxa.begin_oauth_flow(&["profile"]).unwrap();
+        let url = Url::parse(&url).unwrap();
+        assert_eq!(url.path(), "/oauth/force_auth");
+        let mut pairs = url.query_pairs();
+        assert_eq!(
+            pairs.find(|e| e.0 == "email"),
+            Some((Cow::Borrowed("email"), Cow::Borrowed(email),))
+        );
+    }
+
+    #[test]
+    fn test_webchannel_context_url() {
+        const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
+        let mut fxa = FirefoxAccount::new(
+            "https://accounts.firefox.com",
+            "12345678",
+            "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel",
+        );
+        let url = fxa.begin_oauth_flow(&SCOPES).unwrap();
+        let url = Url::parse(&url).unwrap();
+        let query_params: HashMap<_, _> = url.query_pairs().into_owned().collect();
+        let context = &query_params["context"];
+        assert_eq!(context, "oauth_webchannel_v1");
+        assert_eq!(query_params.get("redirect_uri"), None);
+    }
+
+    #[test]
+    fn test_webchannel_pairing_context_url() {
+        const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
+        const PAIRING_URL: &str = "https://accounts.firefox.com/pair#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
+
+        let mut fxa = FirefoxAccount::new(
+            "https://accounts.firefox.com",
+            "12345678",
+            "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel",
+        );
+        let url = fxa.begin_pairing_flow(&PAIRING_URL, &SCOPES).unwrap();
+        let url = Url::parse(&url).unwrap();
+        let query_params: HashMap<_, _> = url.query_pairs().into_owned().collect();
+        let context = &query_params["context"];
+        assert_eq!(context, "oauth_webchannel_v1");
+        assert_eq!(query_params.get("redirect_uri"), None);
     }
 
     #[test]
@@ -452,17 +494,11 @@ mod tests {
         assert_eq!(
             pairs.next(),
             Some((
-                Cow::Borrowed("redirect_uri"),
-                Cow::Borrowed("https://foo.bar")
-            ))
-        );
-        assert_eq!(
-            pairs.next(),
-            Some((
                 Cow::Borrowed("scope"),
                 Cow::Borrowed("https://identity.mozilla.com/apps/oldsync")
             ))
         );
+
         let state_param = pairs.next().unwrap();
         assert_eq!(state_param.0, Cow::Borrowed("state"));
         assert_eq!(state_param.1.len(), 22);
@@ -483,12 +519,19 @@ mod tests {
         let keys_jwk = pairs.next().unwrap();
         assert_eq!(keys_jwk.0, Cow::Borrowed("keys_jwk"));
         assert_eq!(keys_jwk.1.len(), 168);
+
+        assert_eq!(
+            pairs.next(),
+            Some((
+                Cow::Borrowed("redirect_uri"),
+                Cow::Borrowed("https://foo.bar")
+            ))
+        );
     }
 
     #[test]
     fn test_pairing_flow_origin_mismatch() {
-        static PAIRING_URL: &'static str =
-            "https://bad.origin.com/pair#channel_id=foo&channel_key=bar";
+        static PAIRING_URL: &str = "https://bad.origin.com/pair#channel_id=foo&channel_key=bar";
         let mut fxa = FirefoxAccount::new(
             "https://accounts.firefox.com",
             "12345678",

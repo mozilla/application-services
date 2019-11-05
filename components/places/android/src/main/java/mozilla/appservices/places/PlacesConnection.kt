@@ -7,11 +7,11 @@ package mozilla.appservices.places
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.StringArray
-import mozilla.appservices.support.stringOrNull
-import mozilla.appservices.support.toNioDirectBuffer
+import mozilla.appservices.support.native.toNioDirectBuffer
 import mozilla.appservices.sync15.SyncTelemetryPing
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicLong
@@ -43,6 +43,15 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
         // These numbers come from `places::db::ConnectionType`
         private const val READ_ONLY: Int = 1
         private const val READ_WRITE: Int = 2
+    }
+
+    /**
+     * Return the raw handle used to reference this PlacesApi.
+     *
+     * Generally should only be used to pass the handle into `SyncManager.setPlaces`
+     */
+    fun getHandle(): Long {
+        return this.handle.get()
     }
 
     override fun openReader(): PlacesReaderConnection {
@@ -105,6 +114,27 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
         }
         return SyncTelemetryPing.fromJSONString(pingJSONString)
     }
+
+    override fun importBookmarksFromFennec(path: String): List<BookmarkItem> {
+        val rustBuf = rustCall(this) { error ->
+            LibPlacesFFI.INSTANCE.places_bookmarks_import_from_fennec(
+                this.handle.get(), path, error)
+        }
+
+        try {
+            val message = MsgTypes.BookmarkNodeList.parseFrom(rustBuf.asCodedInputStream()!!)
+            return unpackProtobufItemList(message)
+        } finally {
+            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
+        }
+    }
+
+    override fun importVisitsFromFennec(path: String) {
+        rustCall(this) { error ->
+            LibPlacesFFI.INSTANCE.places_history_import_from_fennec(
+                this.handle.get(), path, error)
+        }
+    }
 }
 
 internal inline fun <U> rustCall(syncOn: Any, callback: (RustError.ByReference) -> U): U {
@@ -128,6 +158,15 @@ internal inline fun rustCallForString(syncOn: Any, callback: (RustError.ByRefere
         return cstring.getString(0, "utf8")
     } finally {
         LibPlacesFFI.INSTANCE.places_destroy_string(cstring)
+    }
+}
+
+internal inline fun rustCallForOptString(syncOn: Any, callback: (RustError.ByReference) -> Pointer?): String? {
+    val cstring = rustCall(syncOn, callback)
+    try {
+        return cstring?.getString(0, "utf8")
+    } finally {
+        cstring?.let { LibPlacesFFI.INSTANCE.places_destroy_string(it) }
     }
 }
 
@@ -177,6 +216,10 @@ open class PlacesConnection internal constructor(connHandle: Long) : Interruptib
     internal inline fun rustCallForString(callback: (RustError.ByReference) -> Pointer?): String {
         return rustCallForString(this, callback)
     }
+
+    internal inline fun rustCallForOptString(callback: (RustError.ByReference) -> Pointer?): String? {
+        return rustCallForOptString(this, callback)
+    }
 }
 
 /**
@@ -197,15 +240,8 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
     }
 
     override fun matchUrl(query: String): String? {
-        // Can't use rustCallForString if we return null on success. Possibly worth splitting
-        // into a rustCallForOptString or something, but I'll wait until we need it again.
-        val urlPtr = rustCall { error ->
+        return rustCallForOptString { error ->
             LibPlacesFFI.INSTANCE.places_match_url(this.handle.get(), query, error)
-        }
-        try {
-            return urlPtr?.getString(0, "utf-8")
-        } finally {
-            urlPtr?.let { LibPlacesFFI.INSTANCE.places_destroy_string(it) }
         }
     }
 
@@ -327,6 +363,12 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         }
     }
 
+    override fun getBookmarkUrlForKeyword(keyword: String): String? {
+        return rustCallForOptString { error ->
+            LibPlacesFFI.INSTANCE.bookmarks_get_url_for_keyword(this.handle.get(), keyword, error)
+        }
+    }
+
     override fun searchBookmarks(query: String, limit: Int): List<BookmarkItem> {
         val rustBuf = rustCall { err ->
             LibPlacesFFI.INSTANCE.bookmarks_search(this.handle.get(), query, limit, err)
@@ -430,6 +472,12 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         }
     }
 
+    override fun deleteAllBookmarks() {
+        rustCall { error ->
+            LibPlacesFFI.INSTANCE.bookmarks_delete_everything(this.handle.get(), error)
+        }
+    }
+
     override fun deleteBookmarkNode(guid: String): Boolean {
         val existedByte = rustCall { error ->
             LibPlacesFFI.INSTANCE.bookmarks_delete(this.handle.get(), guid, error)
@@ -479,6 +527,13 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         rustCall { err ->
             val ptr = Native.getDirectBufferPointer(nioBuf)
             LibPlacesFFI.INSTANCE.bookmarks_update(this.handle.get(), ptr, len, err)
+        }
+    }
+
+    override fun acceptResult(searchString: String, url: String) {
+        rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_accept_result(
+                    this.handle.get(), searchString, url, error)
         }
     }
 
@@ -549,6 +604,31 @@ interface PlacesManager {
      * you have all connections you intend using open before calling this.
      */
     fun syncBookmarks(syncInfo: SyncAuthInfo): SyncTelemetryPing
+
+    /**
+     * Imports bookmarks from a Fennec `browser.db` database.
+     * Fennec used to store "pinned websites" as normal bookmarks
+     * under an invisible root.
+     * During import, this un-syncable root and its children are ignored,
+     * so we return the pinned websites separately as a list so
+     * Fenix can store them in a collection.
+     *
+     * It has been designed exclusively for non-sync users.
+     *
+     * @param path Path to the `browser.db` file database.
+     * @return A list of pinned websites.
+     */
+    fun importBookmarksFromFennec(path: String): List<BookmarkItem>
+
+    /**
+     * Imports visits from a Fennec `browser.db` database.
+     *
+     * It has been designed exclusively for non-sync users and should
+     * be called before bookmarks import.
+     *
+     * @param path Path to the `browser.db` file database.
+     */
+    fun importVisitsFromFennec(path: String)
 }
 
 interface InterruptibleConnection : AutoCloseable {
@@ -745,6 +825,15 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
      * @param visitTimestamp The timestamp of the visit to delete, in MS since the unix epoch
      */
     fun deleteVisit(url: String, visitTimestamp: Long)
+
+    /**
+     * Records an accepted autocomplete match, recording the query string,
+     * and chosen URL for subsequent matches.
+     *
+     * @param searchString The query string
+     * @param url The chosen URL string
+     */
+    fun acceptResult(searchString: String, url: String)
 }
 
 class InterruptHandle internal constructor(raw: RawPlacesInterruptHandle) : AutoCloseable {
@@ -832,6 +921,14 @@ data class VisitObservation(
     }
 }
 
+fun stringOrNull(jsonObject: JSONObject, key: String): String? {
+    return try {
+        jsonObject.getString(key)
+    } catch (e: JSONException) {
+        null
+    }
+}
+
 data class SearchResult(
     val searchString: String,
     val url: String,
@@ -884,7 +981,13 @@ data class VisitInfo(
     /**
      * What the transition type of the visit is.
      */
-    val visitType: VisitType
+    val visitType: VisitType,
+
+    /**
+     * Whether the page is hidden because it redirected to another page, or was
+     * visited in a frame.
+     */
+    val isHidden: Boolean
 ) {
     companion object {
         internal fun fromMessage(msg: MsgTypes.HistoryVisitInfos): List<VisitInfo> {
@@ -892,7 +995,8 @@ data class VisitInfo(
                 VisitInfo(url = it.url,
                     title = it.title,
                     visitTime = it.timestamp,
-                    visitType = intToVisitType[it.visitType]!!)
+                    visitType = intToVisitType[it.visitType]!!,
+                    isHidden = it.isHidden)
             }
         }
     }

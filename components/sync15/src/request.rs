@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::default::Default;
 use std::fmt;
 use std::ops::Deref;
+use sync_guid::Guid;
 use url::{form_urlencoded::Serializer, Url, UrlQuery};
 use viaduct::status_codes;
 
@@ -36,7 +37,7 @@ impl fmt::Display for RequestOrder {
 pub struct CollectionRequest {
     pub collection: String,
     pub full: bool,
-    pub ids: Option<Vec<String>>,
+    pub ids: Option<Vec<Guid>>,
     pub limit: usize,
     pub older: Option<ServerTimestamp>,
     pub newer: Option<ServerTimestamp>,
@@ -67,7 +68,7 @@ impl CollectionRequest {
     #[inline]
     pub fn ids<V>(mut self, v: V) -> CollectionRequest
     where
-        V: Into<Vec<String>>,
+        V: Into<Vec<Guid>>,
     {
         self.ids = Some(v.into());
         self
@@ -123,7 +124,13 @@ impl CollectionRequest {
             pairs.append_pair("limit", &format!("{}", self.limit));
         }
         if let Some(ids) = &self.ids {
-            pairs.append_pair("ids", &ids.join(","));
+            pairs.append_pair(
+                "ids",
+                &ids.iter()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<&str>>()
+                    .join(","),
+            );
         }
         if let Some(batch) = &self.batch {
             pairs.append_pair("batch", &batch);
@@ -259,7 +266,7 @@ impl Default for InfoConfiguration {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct InfoCollections(HashMap<String, ServerTimestamp>);
+pub struct InfoCollections(pub(crate) HashMap<String, ServerTimestamp>);
 
 impl InfoCollections {
     pub fn new(collections: HashMap<String, ServerTimestamp>) -> InfoCollections {
@@ -280,10 +287,10 @@ pub struct UploadResult {
     batch: Option<String>,
     /// Maps record id => why failed
     #[serde(default = "HashMap::new")]
-    pub failed: HashMap<String, String>,
+    pub failed: HashMap<Guid, String>,
     /// Vec of ids
     #[serde(default = "Vec::new")]
-    pub success: Vec<String>,
+    pub success: Vec<Guid>,
 }
 
 pub type PostResponse = Sync15ClientResponse<UploadResult>;
@@ -330,11 +337,11 @@ pub trait PostResponseHandler {
 
 #[derive(Debug, Clone)]
 pub(crate) struct NormalResponseHandler {
-    pub failed_ids: Vec<String>,
-    pub successful_ids: Vec<String>,
+    pub failed_ids: Vec<Guid>,
+    pub successful_ids: Vec<Guid>,
     pub allow_failed: bool,
-    pub pending_failed: Vec<String>,
-    pub pending_success: Vec<String>,
+    pub pending_failed: Vec<Guid>,
+    pub pending_success: Vec<Guid>,
 }
 
 impl NormalResponseHandler {
@@ -603,8 +610,8 @@ where
 
 #[derive(Clone)]
 pub struct UploadInfo {
-    pub successful_ids: Vec<String>,
-    pub failed_ids: Vec<String>,
+    pub successful_ids: Vec<Guid>,
+    pub failed_ids: Vec<Guid>,
     pub modified_timestamp: ServerTimestamp,
 }
 
@@ -1394,5 +1401,4 @@ mod test {
     // - mixed bytes/record limits
     //
     // A lot of these have good examples in test_postqueue.js on deskftop sync
-
 }

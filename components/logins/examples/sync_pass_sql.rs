@@ -7,14 +7,15 @@
 #![warn(rust_2018_idioms)]
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
-use cli_support::prompt::{prompt_string, prompt_usize};
+use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 use failure::Fail;
 
 use logins::{Login, PasswordEngine};
-use prettytable::*;
+use prettytable::{cell, row, Cell, Row, Table};
 use rusqlite::NO_PARAMS;
 use serde_json;
 use sync15::StoreSyncAssociation;
+use sync_guid::Guid;
 
 // I'm completely punting on good error handling here.
 type Result<T> = std::result::Result<T, failure::Error>;
@@ -28,7 +29,7 @@ fn read_login() -> Login {
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
     let record = Login {
-        id: sync15::random_guid().unwrap(),
+        guid: Guid::random(),
         username,
         password,
         username_field,
@@ -111,10 +112,6 @@ fn prompt_bool(msg: &str) -> Option<bool> {
     })
 }
 
-fn prompt_chars(msg: &str) -> Option<char> {
-    prompt_string(msg).and_then(|r| r.chars().next())
-}
-
 fn timestamp_to_string(milliseconds: i64) -> String {
     use chrono::{DateTime, Local};
     use std::time::{Duration, UNIX_EPOCH};
@@ -124,7 +121,6 @@ fn timestamp_to_string(milliseconds: i64) -> String {
 }
 
 fn show_sql(e: &PasswordEngine, sql: &str) -> Result<()> {
-    use prettytable::{cell::Cell, row::Row};
     use rusqlite::types::Value;
     let conn = e.conn();
     let mut stmt = conn.prepare(sql)?;
@@ -162,7 +158,7 @@ fn show_sql(e: &PasswordEngine, sql: &str) -> Result<()> {
     Ok(())
 }
 
-fn show_all(engine: &PasswordEngine) -> Result<Vec<String>> {
+fn show_all(engine: &PasswordEngine) -> Result<Vec<Guid>> {
     let records = engine.list()?;
 
     let mut table = prettytable::Table::new();
@@ -188,11 +184,11 @@ fn show_all(engine: &PasswordEngine) -> Result<Vec<String>> {
 
     let mut v = Vec::with_capacity(records.len());
     let mut record_copy = records.clone();
-    record_copy.sort_by(|a, b| a.id.cmp(&b.id));
+    record_copy.sort_by(|a, b| a.guid.cmp(&b.guid));
     for rec in records.iter() {
         table.add_row(row![
             r->v.len(),
-            Fr->&rec.id,
+            Fr->&rec.guid,
             &rec.username,
             Fd->&rec.password,
 
@@ -212,7 +208,7 @@ fn show_all(engine: &PasswordEngine) -> Result<Vec<String>> {
                 timestamp_to_string(rec.time_last_used)
             }
         ]);
-        v.push(rec.id.clone());
+        v.push(rec.guid.clone());
     }
     table.printstd();
     Ok(v)
@@ -229,7 +225,7 @@ fn prompt_record_id(e: &PasswordEngine, action: &str) -> Result<Option<String>> 
         log::info!("No such index");
         return Ok(None);
     }
-    Ok(Some(index_to_id[input].clone()))
+    Ok(Some(index_to_id[input].as_str().into()))
 }
 
 fn init_logging() {
@@ -302,7 +298,7 @@ fn main() -> Result<()> {
     }
 
     loop {
-        match prompt_chars("[A]dd, [D]elete, [U]pdate, [S]ync, [V]iew, [R]eset, [W]ipe, [T]ouch, E[x]ecute SQL Query, or [Q]uit").unwrap_or('?') {
+        match prompt_char("[A]dd, [D]elete, [U]pdate, [S]ync, [V]iew, [H]ostname search, [R]eset, [W]ipe, [T]ouch, E[x]ecute SQL Query, or [Q]uit").unwrap_or('?') {
             'A' | 'a' => {
                 log::info!("Adding new record");
                 let record = read_login();
@@ -378,6 +374,20 @@ fn main() -> Result<()> {
             'V' | 'v' => {
                 if let Err(e) = show_all(&engine) {
                     log::warn!("Failed to dump passwords? This is probably bad! {}", e);
+                }
+            }
+            'H' | 'h' => {
+                log::info!("Hostname search");
+                if let Some(hostname) = prompt_string("Hostname (one line only, press enter when done):\n") {
+                    match engine.get_by_hostname(&hostname) {
+                        Err(e) => {
+                            log::warn!("Hostname lookup failed! {}", e);
+                            log::warn!("BT: {:?}", e.backtrace());
+                        },
+                        Ok(result) => {
+                            log::info!("Hostname result: {}", serde_json::to_string_pretty(&result).unwrap());
+                        }
+                    }
                 }
             }
             'T' | 't' => {

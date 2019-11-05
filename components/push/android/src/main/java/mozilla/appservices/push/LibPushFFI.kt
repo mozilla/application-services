@@ -5,35 +5,17 @@
 
 package mozilla.appservices.push
 
-import android.util.Log
 import com.sun.jna.Library
-import com.sun.jna.Native
 import com.sun.jna.Pointer
-import mozilla.appservices.support.RustBuffer
-import java.lang.reflect.Proxy
+import mozilla.appservices.support.native.RustBuffer
+import mozilla.appservices.support.native.loadIndirect
+import org.mozilla.appservices.push.BuildConfig
 
 @Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
 internal interface LibPushFFI : Library {
     companion object {
-        private val JNA_LIBRARY_NAME = {
-            val libname = System.getProperty("mozilla.appservices.push_ffi_lib_name")
-            if (libname != null) {
-                Log.i("AppServices", "Using push_ffi_lib_name: {$libname}")
-                libname
-            } else {
-                "push_ffi"
-            }
-        }()
-
-        internal var INSTANCE: LibPushFFI = try {
-            Native.load<LibPushFFI>(JNA_LIBRARY_NAME, LibPushFFI::class.java)
-        } catch (e: UnsatisfiedLinkError) {
-            Proxy.newProxyInstance(
-                LibPushFFI::class.java.classLoader,
-                arrayOf(LibPushFFI::class.java)) { _, _, _ ->
-                throw RuntimeException("Push functionality not available", e)
-            } as LibPushFFI
-        }
+        internal var INSTANCE: LibPushFFI =
+            loadIndirect(componentName = "push", componentVersion = BuildConfig.LIBRARY_VERSION)
     }
 
     // Important: strings returned from rust as *mut char must be Pointers on this end, returning a
@@ -51,13 +33,13 @@ internal interface LibPushFFI : Library {
         out_err: RustError.ByReference
     ): PushManagerHandle
 
-    /** Returns JSON string, which you need to free with push_destroy_string */
+    /** Returns Protocol Buffer */
     fun push_subscribe(
         mgr: PushManagerHandle,
         channel_id: String,
         scope: String,
         out_err: RustError.ByReference
-    ): Pointer?
+    ): RustBuffer.ByValue?
 
     /** Returns bool */
     fun push_unsubscribe(
@@ -92,11 +74,11 @@ internal interface LibPushFFI : Library {
         out_err: RustError.ByReference
     ): Pointer?
 
-    fun push_dispatch_for_chid(
+    fun push_dispatch_info_for_chid(
         mgr: PushManagerHandle,
         channelID: String,
         out_err: RustError.ByReference
-    ): Pointer?
+    ): RustBuffer.ByValue?
 
     /** Destroy strings returned from libpush_ffi calls. */
     fun push_destroy_string(s: Pointer)

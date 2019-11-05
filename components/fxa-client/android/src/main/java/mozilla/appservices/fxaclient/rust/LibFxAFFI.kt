@@ -5,43 +5,18 @@
 
 package mozilla.appservices.fxaclient.rust
 
-import android.util.Log
 import com.sun.jna.Library
-import com.sun.jna.Native
 import com.sun.jna.Pointer
-import java.lang.reflect.Proxy
-import mozilla.appservices.support.RustBuffer
+import mozilla.appservices.support.native.RustBuffer
+import mozilla.appservices.support.native.loadIndirect
+import org.mozilla.appservices.fxaclient.BuildConfig
 
 @Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
 internal interface LibFxAFFI : Library {
     companion object {
-        private val JNA_LIBRARY_NAME = {
-            val libname = System.getProperty("mozilla.appservices.fxaclient_ffi_lib_name")
-            if (libname != null) {
-                Log.i("AppServices", "Using fxaclient_ffi_lib_name: " + libname)
-                libname
-            } else {
-                "fxaclient_ffi"
-            }
-        }()
-
-        internal var INSTANCE: LibFxAFFI = try {
-            val lib = Native.load<LibFxAFFI>(JNA_LIBRARY_NAME, LibFxAFFI::class.java)
-            if (JNA_LIBRARY_NAME == "fxaclient_ffi") {
-                // Enable logcat logging if we aren't in a megazord.
-                lib.fxa_enable_logcat_logging()
-            }
-            lib
-        } catch (e: UnsatisfiedLinkError) {
-            Proxy.newProxyInstance(
-                    LibFxAFFI::class.java.classLoader,
-                    arrayOf(LibFxAFFI::class.java)) { _, _, _ ->
-                throw RuntimeException("Firefox Account functionality not available", e)
-            } as LibFxAFFI
-        }
+        internal var INSTANCE: LibFxAFFI =
+            loadIndirect(componentName = "fxaclient", componentVersion = BuildConfig.LIBRARY_VERSION)
     }
-
-    fun fxa_enable_logcat_logging()
 
     fun fxa_new(
         contentUrl: String,
@@ -56,7 +31,6 @@ internal interface LibFxAFFI : Library {
     fun fxa_begin_oauth_flow(
         fxa: FxaHandle,
         scopes: String,
-        wantsKeys: Boolean,
         e: RustError.ByReference
     ): Pointer?
 
@@ -76,6 +50,9 @@ internal interface LibFxAFFI : Library {
 
     fun fxa_complete_oauth_flow(fxa: FxaHandle, code: String, state: String, e: RustError.ByReference)
     fun fxa_get_access_token(fxa: FxaHandle, scope: String, e: RustError.ByReference): RustBuffer.ByValue
+    fun fxa_get_session_token(fxa: FxaHandle, e: RustError.ByReference): Pointer?
+    fun fxa_get_current_device_id(fxa: FxaHandle, e: RustError.ByReference): Pointer?
+    fun fxa_authorize_auth_code(fxa: FxaHandle, clientId: String, scope: String, state: String, accessType: String, e: RustError.ByReference): Pointer?
     fun fxa_clear_access_token_cache(fxa: FxaHandle, e: RustError.ByReference)
 
     fun fxa_set_push_subscription(
@@ -87,7 +64,7 @@ internal interface LibFxAFFI : Library {
     )
     fun fxa_set_device_name(fxa: FxaHandle, displayName: String, e: RustError.ByReference)
     fun fxa_get_devices(fxa: FxaHandle, e: RustError.ByReference): RustBuffer.ByValue
-    fun fxa_destroy_device(fxa: FxaHandle, targetDeviceId: String, e: RustError.ByReference)
+    fun fxa_disconnect(fxa: FxaHandle, e: RustError.ByReference)
     fun fxa_poll_device_commands(fxa: FxaHandle, e: RustError.ByReference): RustBuffer.ByValue
     fun fxa_handle_push_message(fxa: FxaHandle, jsonPayload: String, e: RustError.ByReference): RustBuffer.ByValue
 

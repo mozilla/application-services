@@ -7,7 +7,9 @@ package mozilla.appservices.logins
 import com.sun.jna.Pointer
 import mozilla.appservices.logins.rust.PasswordSyncAdapter
 import mozilla.appservices.logins.rust.RustError
+import mozilla.appservices.sync15.SyncTelemetryPing
 import java.util.concurrent.atomic.AtomicLong
+import org.json.JSONArray
 
 /**
  * LoginsStorage implementation backed by a database.
@@ -25,6 +27,17 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
             throw LoginsStorageException("Using DatabaseLoginsStorage without unlocking first")
         }
         return handle
+    }
+
+    /**
+     * Return the raw handle used to reference this logins database.
+     *
+     * Generally should only be used to pass the handle into `SyncManager.setLogins`.
+     *
+     * Note: handles do not remain valid after locking / unlocking the logins database.
+     */
+    override fun getHandle(): Long {
+        return this.raw.get()
     }
 
     @Synchronized
@@ -92,8 +105,8 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     }
 
     @Throws(LoginsStorageException::class)
-    override fun sync(syncInfo: SyncUnlockInfo) {
-        rustCallWithLock { raw, error ->
+    override fun sync(syncInfo: SyncUnlockInfo): SyncTelemetryPing {
+        val json = rustCallWithLock { raw, error ->
             PasswordSyncAdapter.INSTANCE.sync15_passwords_sync(
                     raw,
                     syncInfo.kid,
@@ -101,8 +114,9 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
                     syncInfo.syncKey,
                     syncInfo.tokenserverURL,
                     error
-            )
+            )?.getAndConsumeRustString()
         }
+        return SyncTelemetryPing.fromJSONString(json)
     }
 
     @Throws(LoginsStorageException::class)
@@ -158,11 +172,31 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     }
 
     @Throws(LoginsStorageException::class)
+    override fun getByHostname(hostname: String): List<ServerPassword> {
+        val json = rustCallWithLock { raw, error ->
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_hostname(raw, hostname, error)
+        }.getAndConsumeRustString()
+        return ServerPassword.fromJSONArray(json)
+    }
+
+    @Throws(LoginsStorageException::class)
     override fun add(login: ServerPassword): String {
         val s = login.toJSON().toString()
         return rustCallWithLock { raw, error ->
             PasswordSyncAdapter.INSTANCE.sync15_passwords_add(raw, s, error)
         }.getAndConsumeRustString()
+    }
+
+    @Throws(LoginsStorageException::class)
+    override fun importLogins(logins: Array<ServerPassword>): Long {
+        val s = JSONArray().apply {
+            logins.forEach {
+                put(it.toJSON())
+            }
+        }.toString()
+        return rustCallWithLock { raw, error ->
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_import(raw, s, error)
+        }
     }
 
     @Throws(LoginsStorageException::class)

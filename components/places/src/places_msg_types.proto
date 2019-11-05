@@ -12,6 +12,7 @@ message HistoryVisitInfo {
     optional string title = 2;
     required int64 timestamp = 3;
     required int32 visit_type = 4;
+    required bool is_hidden = 5;
 }
 
 message HistoryVisitInfos {

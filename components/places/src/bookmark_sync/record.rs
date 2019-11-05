@@ -4,12 +4,13 @@
 
 use std::fmt;
 
-use crate::{storage::bookmarks::BookmarkRootGuid, types::SyncGuid};
+use crate::storage::bookmarks::BookmarkRootGuid;
 use serde::{
     de::{Deserialize, Deserializer, Visitor},
     ser::{Serialize, Serializer},
 };
 use serde_derive::*;
+use sync_guid::Guid as SyncGuid;
 
 /// A bookmark record ID. Bookmark record IDs are the same as Places GUIDs,
 /// except for:
@@ -28,14 +29,14 @@ pub struct BookmarkRecordId(SyncGuid);
 
 impl BookmarkRecordId {
     /// Creates a bookmark record ID from a Sync record payload ID.
-    pub fn from_payload_id(payload_id: String) -> BookmarkRecordId {
+    pub fn from_payload_id(payload_id: SyncGuid) -> BookmarkRecordId {
         BookmarkRecordId(match payload_id.as_str() {
             "places" => BookmarkRootGuid::Root.as_guid(),
             "menu" => BookmarkRootGuid::Menu.as_guid(),
             "toolbar" => BookmarkRootGuid::Toolbar.as_guid(),
             "unfiled" => BookmarkRootGuid::Unfiled.as_guid(),
             "mobile" => BookmarkRootGuid::Mobile.as_guid(),
-            _ => SyncGuid(payload_id),
+            _ => payload_id,
         })
     }
 
@@ -53,7 +54,7 @@ impl BookmarkRecordId {
     pub fn into_payload_id(self) -> String {
         self.root_payload_id()
             .map(Into::into)
-            .unwrap_or_else(|| (self.0).0)
+            .unwrap_or_else(|| (self.0).into_string())
     }
 
     /// Returns a reference to the GUID for this record ID.
@@ -115,7 +116,7 @@ impl<'de> Deserialize<'de> for BookmarkRecordId {
             ) -> std::result::Result<BookmarkRecordId, E> {
                 // The JSON deserializer passes owned strings, so we can avoid
                 // cloning the payload ID in the common case...
-                Ok(BookmarkRecordId::from_payload_id(payload_id))
+                Ok(BookmarkRecordId::from_payload_id(payload_id.into()))
             }
 
             #[inline]

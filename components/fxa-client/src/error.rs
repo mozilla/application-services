@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use failure::Fail;
-use failure::SyncFailure;
+use rc_crypto::hawk;
 use std::string;
 
 #[derive(Debug, Fail)]
@@ -28,6 +28,12 @@ pub enum ErrorKind {
 
     #[fail(display = "No stored refresh token")]
     NoRefreshToken,
+
+    #[fail(display = "No stored session token")]
+    NoSessionToken,
+
+    #[fail(display = "No stored current device id")]
+    NoCurrentDeviceId,
 
     #[fail(display = "Could not find a refresh token in the server response")]
     RefreshTokenNotPresent,
@@ -77,9 +83,6 @@ pub enum ErrorKind {
     #[fail(display = "Public key computation failed")]
     PublicKeyComputationFailed,
 
-    #[fail(display = "Key agreement failed")]
-    KeyAgreementFailed,
-
     #[fail(display = "Remote key and local key mismatch")]
     MismatchedKeys,
 
@@ -110,16 +113,15 @@ pub enum ErrorKind {
         info: String,
     },
 
-    // Basically reimplement error_chain's foreign_links. (Ugh, this sucks)
+    // Basically reimplement error_chain's foreign_links. (Ugh, this sucks).
+    #[fail(display = "Crypto/NSS error: {}", _0)]
+    CryptoError(#[fail(cause)] rc_crypto::Error),
+
     #[fail(display = "http-ece encryption error: {}", _0)]
-    EceError(#[fail(cause)] ece::Error),
+    EceError(#[fail(cause)] rc_crypto::ece::Error),
 
     #[fail(display = "Hex decode error: {}", _0)]
     HexDecodeError(#[fail(cause)] hex::FromHexError),
-
-    #[cfg(feature = "browserid")]
-    #[fail(display = "OpenSSL error: {}", _0)]
-    OpensslError(#[fail(cause)] openssl::error::ErrorStack),
 
     #[fail(display = "Base64 decode error: {}", _0)]
     Base64Decode(#[fail(cause)] base64::DecodeError),
@@ -143,7 +145,7 @@ pub enum ErrorKind {
     SyncError(#[fail(cause)] sync15::Error),
 
     #[fail(display = "HAWK error: {}", _0)]
-    HawkError(#[fail(cause)] SyncFailure<hawk::Error>),
+    HawkError(#[fail(cause)] hawk::Error),
 
     #[fail(display = "Protobuf decode error: {}", _0)]
     ProtobufDecodeError(#[fail(cause)] prost::DecodeError),
@@ -151,7 +153,8 @@ pub enum ErrorKind {
 
 error_support::define_error! {
     ErrorKind {
-        (EceError, ece::Error),
+        (CryptoError, rc_crypto::Error),
+        (EceError, rc_crypto::ece::Error),
         (HexDecodeError, hex::FromHexError),
         (Base64Decode, base64::DecodeError),
         (JsonError, serde_json::Error),
@@ -164,24 +167,8 @@ error_support::define_error! {
     }
 }
 
-#[cfg(feature = "browserid")]
 error_support::define_error_conversions! {
     ErrorKind {
-        (OpensslError, openssl::error::ErrorStack),
-    }
-}
-
-// These can got away when we update to the next version of Hawk,
-// in https://github.com/mozilla/application-services/pull/1050
-impl From<hawk::Error> for ErrorKind {
-    #[inline]
-    fn from(e: hawk::Error) -> ErrorKind {
-        ErrorKind::HawkError(SyncFailure::new(e))
-    }
-}
-impl From<hawk::Error> for Error {
-    #[inline]
-    fn from(e: hawk::Error) -> Error {
-        ErrorKind::from(e).into()
+        (HawkError, hawk::Error),
     }
 }

@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euvx
 
+# XCode tries to be helpful and overwrites the PATH. Reset that.
+PATH="$(bash -l -c 'echo $PATH')"
+
 # This should be invoked from inside xcode, not manually
-if [ "${#}" -ne 4 ]
+if [[ "${#}" -ne 4 ]]
 then
     echo "Usage (note: only call inside xcode!):"
     echo "path/to/build-scripts/xc-universal-binary.sh <STATIC_LIB_NAME> <FFI_TARGET> <APPSVC_ROOT_PATH> <buildvariant>"
@@ -28,7 +31,7 @@ LIBSDIR=${APPSVC_ROOT}/libs
 TARGETDIR=${APPSVC_ROOT}/target
 
 # If the libs don't exist, or it's modification time is older than the last commit in ${LIBSDIR}/ios, wipe it out.
-if [ ! -d "${LIBSDIR}/ios" ] || [ "$(stat -f "%m" "${LIBSDIR}/ios")" -lt "$(git log -n 1 --pretty=format:%at -- "${LIBSDIR}")" ]; then
+if [[ ! -d "${LIBSDIR}/ios" ]] || [[ "$(stat -f "%m" "${LIBSDIR}/ios")" -lt "$(git log -n 1 --pretty=format:%at -- "${LIBSDIR}")" ]]; then
     echo "No iOS libs present, or they are stale"
     pushd "${LIBSDIR}"
     rm -rf ios
@@ -46,9 +49,8 @@ for i in "${!LIBS_ARCHS[@]}"; do
     LIB_ARCH=${LIBS_ARCHS[${i}]}
     env -i \
         PATH="${PATH}" \
-        OPENSSL_STATIC=1 \
+        NSS_STATIC=1 \
         NSS_DIR="${LIBSDIR}/ios/${LIB_ARCH}/nss" \
-        OPENSSL_DIR="${LIBSDIR}/ios/${LIB_ARCH}/openssl" \
         SQLCIPHER_LIB_DIR="${LIBSDIR}/ios/${LIB_ARCH}/sqlcipher/lib" \
         SQLCIPHER_INCLUDE_DIR="${LIBSDIR}/ios/${LIB_ARCH}/sqlcipher/include" \
         RUSTC_WRAPPER="${RUSTC_WRAPPER:-}" \

@@ -43,7 +43,7 @@ fn load_or_create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
 
 fn create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
     let mut acct = FirefoxAccount::with_config(cfg);
-    let oauth_uri = acct.begin_oauth_flow(&[SYNC_SCOPE], true)?;
+    let oauth_uri = acct.begin_oauth_flow(&[SYNC_SCOPE])?;
 
     if webbrowser::open(&oauth_uri.as_ref()).is_err() {
         log::warn!("Failed to open a web browser D:");
@@ -60,6 +60,8 @@ fn create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
         .collect::<HashMap<String, String>>();
 
     acct.complete_oauth_flow(&query_params["code"], &query_params["state"])?;
+    // Device registration.
+    acct.initialize_device("CLI Device", fxa_client::device::Type::Desktop, &[])?;
     let mut file = fs::File::create(path)?;
     write!(file, "{}", acct.to_json()?)?;
     file.flush()?;
