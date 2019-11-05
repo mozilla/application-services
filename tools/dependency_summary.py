@@ -699,6 +699,7 @@ class WorkspaceMetadata(object):
         assert pkgInfo["repository"] is not None
         return {
             "name": pkgInfo["name"],
+            "id": pkgInfo.get("id", pkgInfo["name"]), # Our fake external packages don't have an id.
             "repository": pkgInfo["repository"],
             "license": chosenLicense,
             "license_file": licenseFile,
@@ -856,7 +857,9 @@ def group_dependencies_for_printing(deps):
     # Add summary information for each group.
     groups = []
     for licenseTextHash, deps in depsByLicenseTextHash.items():
-        deps = sorted(deps, key=lambda i: i["name"])
+        # Sort by name and then by full package id, to produce a stable total order
+        # that makes sense to humans and handles multiple versions of the same package.
+        deps = sorted(deps, key=lambda i: (i["name"], i["id"]))
 
         # Find single canonical license text for the group, which is the whole point of grouping.
         license = deps[0]["license"]
