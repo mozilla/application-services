@@ -212,6 +212,10 @@ pub extern "C" fn places_match_url(
     CONNECTIONS.call_with_result(error, handle, |conn| match_url(conn, search.as_str()))
 }
 
+/// # Safety
+/// This takes a bunch of pointers and dereferences all of them. It was written
+/// this way to avoid unnecessary overhead, but should really be rewritten to
+/// use protobufs.
 #[no_mangle]
 pub unsafe extern "C" fn places_get_visited(
     handle: u64,
@@ -538,7 +542,8 @@ unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
         std::slice::from_raw_parts(data, len as usize)
     }
 }
-
+/// # Safety
+/// Deref pointer, thus unsafe
 #[no_mangle]
 pub unsafe extern "C" fn bookmarks_insert(
     handle: u64,
@@ -557,6 +562,8 @@ pub unsafe extern "C" fn bookmarks_insert(
     })
 }
 
+/// # Safety
+/// Deref pointer, thus unsafe
 #[no_mangle]
 pub unsafe extern "C" fn bookmarks_update(
     handle: u64,
@@ -605,6 +612,8 @@ pub extern "C" fn bookmarks_get_all_with_url(
     })
 }
 
+/// # Safety
+/// Deref pointer, thus unsafe
 #[no_mangle]
 pub unsafe extern "C" fn bookmarks_get_url_for_keyword(
     handle: u64,

@@ -154,7 +154,7 @@ impl<'a> Driver<'a> {
     fn max_record_payload_size(&self) -> usize {
         let payload_max = self.config.max_record_payload_bytes;
         if payload_max <= self.config.max_post_bytes {
-            self.config.max_post_bytes.checked_sub(4096).unwrap_or(0)
+            self.config.max_post_bytes.saturating_sub(4096)
         } else {
             payload_max
         }
