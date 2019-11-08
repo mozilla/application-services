@@ -626,7 +626,7 @@ mod tests {
             ),
             NO_PARAMS,
         )
-        .expect("should insert regular bookmark folder");;
+        .expect("should insert regular bookmark folder");
         conn.execute(
             "DELETE FROM moz_bookmarks WHERE guid = 'bookmarkguid'",
             NO_PARAMS,
@@ -659,7 +659,7 @@ mod tests {
                         (3, 1, 0, 1, 1, 'bookmarkguid')",
             NO_PARAMS,
         )
-        .expect("should insert regular bookmark folder");;
+        .expect("should insert regular bookmark folder");
         // tombstone should have vanished.
         assert_eq!(
             select_simple_int(&conn, "SELECT COUNT(*) from moz_bookmarks_deleted"),
@@ -686,7 +686,7 @@ mod tests {
                         (3, 1, 0, 1, 1, 'fake_guid___')",
             NO_PARAMS,
         )
-        .expect("should insert regular bookmark folder");;
+        .expect("should insert regular bookmark folder");
         // tombstone should remain.
         assert_eq!(
             select_simple_int(&conn, "SELECT COUNT(*) from moz_bookmarks_deleted"),
