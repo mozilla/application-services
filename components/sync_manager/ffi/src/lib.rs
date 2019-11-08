@@ -54,7 +54,8 @@ unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
         std::slice::from_raw_parts(data, len as usize)
     }
 }
-
+/// # Safety
+/// Reads pointer, thus unsafe.
 #[no_mangle]
 pub unsafe extern "C" fn sync_manager_sync(
     params_data: *const u8,

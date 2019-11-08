@@ -106,10 +106,10 @@ pub extern "C" fn rc_log_adapter_set_max_level(level: i32, out_err: &mut ffi_sup
 // keep this around globally (as lazy_static or something) and basically just
 // turn it on/off in create/destroy... Might be more reliable?
 #[no_mangle]
-pub unsafe extern "C" fn rc_log_adapter_destroy(to_destroy: *mut imp::LogAdapterState) {
-    ffi_support::abort_on_panic::call_with_output(|| {
+pub extern "C" fn rc_log_adapter_destroy(to_destroy: Option<Box<imp::LogAdapterState>>) {
+    ffi_support::abort_on_panic::call_with_output(move || {
         log::set_max_level(log::LevelFilter::Off);
-        drop(Box::from_raw(to_destroy));
+        drop(to_destroy);
         settable_log::unset_logger();
     })
 }
