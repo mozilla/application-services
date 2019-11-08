@@ -165,6 +165,10 @@ the details of which are reproduced below.
     <url>https://github.com/contain-rs/lru-cache/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: maybe-uninit</name>
+    <url>https://github.com/est31/maybe-uninit/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: multimap</name>
     <url>https://github.com/havarnov/multimap/blob/master/LICENSE-APACHE</url>
   </license>
