@@ -46,10 +46,6 @@ tasks:
       else: ${event.sender.login}
   in:
     $let:
-      scheduler_id:
-        $if: 'is_repo_trusted'
-        then: 'application-services-level-3'
-        else: 'application-services-level-1'
       provisioner_id:
         $if: 'is_repo_trusted'
         then: 'app-services-3'
@@ -61,7 +57,9 @@ tasks:
         default_task_definition:
           taskId: ${decision_task_id}
           taskGroupId: ${decision_task_id}
-          schedulerId: ${scheduler_id}
+          # because we're not using `reporting: checks-v1`, we need to keep using taskcluster-github as scheduler_id.
+          # This will change in the near future when https://github.com/mozilla/application-services/pull/1945 lands
+          schedulerId: taskcluster-github
           created: {$fromNow: ''}
           deadline: {$fromNow: '4 hours'}
           expires: ${expires_in}
@@ -75,7 +73,7 @@ tasks:
             - queue:create-task:${tasks_priority}:${provisioner_id}/images
             - queue:route:statuses
             - queue:route:notify.email.*
-            - queue:scheduler-id:${scheduler_id}
+            - queue:scheduler-id:taskcluster-github
             # So that we can cache task outputs for re-use.
             - "queue:route:index.project.application-services.*"
             # So that we can re-use Gradle/Cargo/sccache bits between tasks.
@@ -127,7 +125,7 @@ tasks:
               TASK_FOR: ${tasks_for}
               TASK_OWNER: *task_owner
               TASK_SOURCE: *task_source
-              SCHEDULER_ID: ${scheduler_id}
+              SCHEDULER_ID: taskcluster-github
               PROVISIONER_ID: ${provisioner_id}
             features:
               taskclusterProxy: true
