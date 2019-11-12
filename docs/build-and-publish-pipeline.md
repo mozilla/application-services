@@ -30,7 +30,7 @@ The key points:
   [a-s-ci-failures@mozilla.com](https://groups.google.com/a/mozilla.com/forum/#!forum/a-s-ci-failures)
 * Taskcluster scopes are managed by the Release Engineering team using [ciadmin](https://hg.mozilla.org/ci/ci-admin/). The proper way to
   add new scopes is to ask them on the `#releaseduty-mobile` Slack channel.
-  For testing or emergency, they can be modified directly on the [Taskcluster Scope Inspector](https://tools.taskcluster.net/auth/scopes/),
+  For testing or emergency, they can be modified directly on the [Taskcluster Scope Inspector](https://firefox-ci-tc.services.mozilla.com/auth/scopes/),
   but when new `ciadmin` changes are applied, these changes will be lost.
 
 For Android consumers these are the steps by which Application Services code becomes available,

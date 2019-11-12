@@ -9,8 +9,6 @@ tasks:
   $let:
     decision_task_id: {$eval: as_slugid("decision_task")}
     expires_in: {$fromNow: '1 year'}
-    scheduler_id: taskcluster-github
-
     # We define the following variable at the very top, because they are used in the
     # default definition
     head_branch:
@@ -48,18 +46,10 @@ tasks:
       else: ${event.sender.login}
   in:
     $let:
-      images_worker_type:
+      provisioner_id:
         $if: 'is_repo_trusted'
-        then: app-services-3-images
-        else: app-services-1-images
-      decision_worker_type:
-        $if: 'is_repo_trusted'
-        then: app-services-3-decision
-        else: app-services-1-decision
-      build_worker_type:
-        $if: 'is_repo_trusted'
-        then: app-services-3-b-linux
-        else: app-services-1-b-linux
+        then: 'app-services-3'
+        else: 'app-services-1'
       # TODO: revisit once bug 1533314 is done to possibly infer better priorities
       tasks_priority: highest
     in:
@@ -67,21 +57,23 @@ tasks:
         default_task_definition:
           taskId: ${decision_task_id}
           taskGroupId: ${decision_task_id}
-          schedulerId: ${scheduler_id}
+          # because we're not using `reporting: checks-v1`, we need to keep using taskcluster-github as scheduler_id.
+          # This will change in the near future when https://github.com/mozilla/application-services/pull/1945 lands
+          schedulerId: taskcluster-github
           created: {$fromNow: ''}
           deadline: {$fromNow: '4 hours'}
           expires: ${expires_in}
-          provisionerId: aws-provisioner-v1
-          workerType: ${decision_worker_type}
+          provisionerId: ${provisioner_id}
+          workerType: 'decision'
           priority: ${tasks_priority}
           requires: all-completed
           retries: 5
           scopes:
-            - queue:create-task:${tasks_priority}:aws-provisioner-v1/${build_worker_type}
-            - queue:create-task:${tasks_priority}:aws-provisioner-v1/${images_worker_type}
+            - queue:create-task:${tasks_priority}:${provisioner_id}/b-linux
+            - queue:create-task:${tasks_priority}:${provisioner_id}/images
             - queue:route:statuses
             - queue:route:notify.email.*
-            - queue:scheduler-id:${scheduler_id}
+            - queue:scheduler-id:taskcluster-github
             # So that we can cache task outputs for re-use.
             - "queue:route:index.project.application-services.*"
             # So that we can re-use Gradle/Cargo/sccache bits between tasks.
@@ -128,11 +120,13 @@ tasks:
               APPSERVICES_HEAD_REPOSITORY: ${repository}
               APPSERVICES_HEAD_BRANCH: ${head_branch}
               APPSERVICES_HEAD_REV: ${head_rev}
-              BUILD_WORKER_TYPE: ${build_worker_type}
-              IMAGES_WORKER_TYPE: ${images_worker_type}
+              BUILD_WORKER_TYPE: b-linux
+              IMAGES_WORKER_TYPE: images
               TASK_FOR: ${tasks_for}
               TASK_OWNER: *task_owner
               TASK_SOURCE: *task_source
+              SCHEDULER_ID: taskcluster-github
+              PROVISIONER_ID: ${provisioner_id}
             features:
               taskclusterProxy: true
       in:
@@ -167,8 +161,8 @@ tasks:
               $let:
                 beetmover_worker_type:
                   $if: 'is_staging'
-                  then: appsv-beetmover-dev
-                  else: appsv-beetmover-v1
+                  then: appservices-1-beetmover
+                  else: appservices-3-beetmover
                 beetmover_bucket:
                   $if: 'is_staging'
                   then: maven-staging
@@ -193,11 +187,11 @@ tasks:
                     then:
                       scopes:
                         - project:mozilla:application-services:releng:signing:cert:dep-signing
-                        - queue:create-task:scriptworker-prov-v1/appsv-signing-dep-v1
+                        - queue:create-task:scriptworker-k8s/appservices-t-signing
                     else:
                       scopes:
                         - project:mozilla:application-services:releng:signing:cert:release-signing
-                        - queue:create-task:scriptworker-prov-v1/appsv-signing-v1
+                        - queue:create-task:scriptworker-k8s/appservices-3-signing
                         # So that we can upload symbols to Socorro
                         - "secrets:get:project/application-services/symbols-token"
                   - payload:
@@ -207,9 +201,9 @@ tasks:
                         BEETMOVER_BUCKET: ${beetmover_bucket}
                         BEETMOVER_BUCKET_PUBLIC_URL: ${beetmover_bucket_public_url}
                   - scopes:
-                    # So that we can publish on Maven using beetmover
+                    # in order to publish on Maven using beetmover
                     - project:mozilla:application-services:releng:beetmover:bucket:${beetmover_bucket}
-                    - queue:create-task:${tasks_priority}:scriptworker-prov-v1/${beetmover_worker_type}
+                    - queue:create-task:${tasks_priority}:scriptworker-k8s/${beetmover_worker_type}
                   - metadata:
                       name: Application Services - Decision task (${tag})
                       description: Build and publish release versions.
