@@ -127,6 +127,8 @@ tasks:
               TASK_FOR: ${tasks_for}
               TASK_OWNER: *task_owner
               TASK_SOURCE: *task_source
+              SCHEDULER_ID: ${scheduler_id}
+              PROVISIONER_ID: ${provisioner_id}
             features:
               taskclusterProxy: true
       in:
