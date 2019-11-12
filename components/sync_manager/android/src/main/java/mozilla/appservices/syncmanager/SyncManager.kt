@@ -20,6 +20,7 @@ object SyncManager {
             LibSyncManagerFFI.INSTANCE.sync_manager_set_places(placesApiHandle, err)
         }
     }
+
     /**
      * Point the manager at the implementation of `DatabaseLoginsStorage` to use.
      *
@@ -29,6 +30,18 @@ object SyncManager {
     fun setLogins(loginsDbHandle: Long) {
         rustCall { err ->
             LibSyncManagerFFI.INSTANCE.sync_manager_set_logins(loginsDbHandle, err)
+        }
+    }
+
+    /**
+     * Point the manager at the implementation of `RemoteTabsProvider` to use.
+     *
+     * @param tabsProviderHandle A value returned by `RemoteTabsProvider.getHandle()`
+     * @throws [UnsupportedEngine] If the manager was not compiled with tabs support.
+     */
+    fun setTabs(tabsProviderHandle: Long) {
+        rustCall { err ->
+            LibSyncManagerFFI.INSTANCE.sync_manager_set_tabs(tabsProviderHandle, err)
         }
     }
 
