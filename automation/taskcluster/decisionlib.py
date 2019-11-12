@@ -425,7 +425,7 @@ class DockerWorkerTask(Task):
         return self \
         .with_dependencies(task_id) \
         .with_curl_script(
-            "https://queue.taskcluster.net/v1/task/%s/artifacts/public/%s"
+            "https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/%s/artifacts/public/%s"
                 % (task_id, artifact_name),
             os.path.join(out_directory, url_basename(artifact_name)),
         )
