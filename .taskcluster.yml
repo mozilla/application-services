@@ -201,7 +201,7 @@ tasks:
                         BEETMOVER_BUCKET: ${beetmover_bucket}
                         BEETMOVER_BUCKET_PUBLIC_URL: ${beetmover_bucket_public_url}
                   - scopes:
-                    # In order to publish on Maven using beetmover
+                    # in order to publish on Maven using beetmover
                     - project:mozilla:application-services:releng:beetmover:bucket:${beetmover_bucket}
                     - queue:create-task:${tasks_priority}:scriptworker-k8s/${beetmover_worker_type}
                   - metadata:
