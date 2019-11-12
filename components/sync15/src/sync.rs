@@ -4,6 +4,7 @@
 
 use crate::changeset::{CollectionUpdate, IncomingChangeset, OutgoingChangeset};
 use crate::client::Sync15StorageClient;
+use crate::clients;
 use crate::coll_state::{LocalCollStateMachine, StoreSyncAssociation};
 use crate::error::Error;
 use crate::key_bundle::KeyBundle;
@@ -20,6 +21,19 @@ use sync_guid::Guid;
 /// all to return failure::Error, which we expose as ErrorKind::StoreError.
 pub trait Store {
     fn collection_name(&self) -> &'static str;
+
+    /// Prepares the store for syncing. The tabs store currently uses this to
+    /// store the current list of clients, which it uses to look up device names
+    /// and types.
+    ///
+    /// Note that this method is only called by `sync_multiple`, and only if a
+    /// command processor is registered. In particular, `prepare_for_sync` will
+    /// not be called if the store is synced using `sync::synchronize` or
+    /// `sync_multiple::sync_multiple`. It _will_ be called if the store is
+    /// synced via the Sync Manager.
+    fn prepare_for_sync(&self, _: &clients::Engine<'_>) -> Result<(), failure::Error> {
+        Ok(())
+    }
 
     fn apply_incoming(
         &self,
@@ -60,6 +74,29 @@ pub fn synchronize(
     telem_engine: &mut telemetry::Engine,
     interruptee: &dyn Interruptee,
 ) -> Result<(), Error> {
+    synchronize_with_clients_engine(
+        client,
+        global_state,
+        root_sync_key,
+        None,
+        store,
+        fully_atomic,
+        telem_engine,
+        interruptee,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn synchronize_with_clients_engine(
+    client: &Sync15StorageClient,
+    global_state: &GlobalState,
+    root_sync_key: &KeyBundle,
+    clients: Option<&clients::Engine<'_>>,
+    store: &dyn Store,
+    fully_atomic: bool,
+    telem_engine: &mut telemetry::Engine,
+    interruptee: &dyn Interruptee,
+) -> Result<(), Error> {
     let collection = store.collection_name();
     log::info!("Syncing collection {}", collection);
 
@@ -76,6 +113,10 @@ pub fn synchronize(
             return Ok(());
         }
     };
+
+    if let Some(clients) = clients {
+        store.prepare_for_sync(clients)?;
+    }
 
     let collection_request = store.get_collection_request()?;
     interruptee.err_if_interrupted()?;

@@ -218,16 +218,10 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
         // store failing.
         self.result.service_status = ServiceStatus::Ok;
 
-        if let Some(command_processor) = self.command_processor {
+        let clients_engine = if let Some(command_processor) = self.command_processor {
             log::info!("Synchronizing clients engine");
-            let engine = clients::Engine {
-                command_processor,
-                interruptee: self.interruptee,
-                storage_client: &client_info.client,
-                global_state: &global_state,
-                root_sync_key: &self.root_sync_key,
-            };
-            if let Err(e) = engine.sync() {
+            let mut engine = clients::Engine::new(command_processor, self.interruptee);
+            if let Err(e) = engine.sync(&client_info.client, &global_state, &self.root_sync_key) {
                 // Record telemetry with the error just in case...
                 let mut telem_sync = telemetry::SyncTelemetry::new();
                 let mut telem_engine = telemetry::Engine::new("clients");
@@ -245,11 +239,14 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
             if self.was_interrupted() {
                 return Ok(());
             }
-        }
+            Some(engine)
+        } else {
+            None
+        };
 
         log::info!("Synchronizing stores");
 
-        let telem_sync = self.sync_stores(&client_info, &mut global_state);
+        let telem_sync = self.sync_stores(&client_info, &mut global_state, clients_engine.as_ref());
         self.result.telemetry.sync(telem_sync);
 
         log::info!(
@@ -282,6 +279,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
         &mut self,
         client_info: &ClientInfo,
         global_state: &mut GlobalState,
+        clients: Option<&clients::Engine<'_>>,
     ) -> telemetry::SyncTelemetry {
         let mut telem_sync = telemetry::SyncTelemetry::new();
         for store in self.stores {
@@ -301,10 +299,11 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
             log::info!("Syncing {} engine!", name);
 
             let mut telem_engine = telemetry::Engine::new(name);
-            let result = sync::synchronize(
+            let result = sync::synchronize_with_clients_engine(
                 &client_info.client,
                 &global_state,
                 self.root_sync_key,
+                clients,
                 *store,
                 true,
                 &mut telem_engine,

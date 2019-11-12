@@ -2,7 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::HashSet;
+use std::{
+    collections::{HashMap, HashSet},
+    mem,
+};
 
 use crate::{
     bso_record::Payload,
@@ -19,7 +22,7 @@ use interrupt::Interruptee;
 use super::{
     record::{ClientRecord, CommandRecord},
     ser::shrink_to_fit,
-    Command, CommandProcessor, CommandStatus,
+    Command, CommandProcessor, CommandStatus, DeviceType, RemoteClient,
 };
 use crate::error::Result;
 
@@ -34,12 +37,11 @@ struct Driver<'a> {
 }
 
 impl<'a> Driver<'a> {
-    fn sync(&self, inbound: IncomingChangeset) -> Result<OutgoingChangeset> {
-        let mut outgoing = OutgoingChangeset::new(COLLECTION_NAME.into(), inbound.timestamp);
-        outgoing.timestamp = inbound.timestamp;
-
+    fn sync(&self, inbound: IncomingChangeset) -> Result<Vec<ClientRecord>> {
         self.interruptee.err_if_interrupted()?;
         let outgoing_commands = self.command_processor.fetch_outgoing_commands()?;
+
+        let mut outgoing = Vec::with_capacity(inbound.changes.len());
 
         for (payload, _) in inbound.changes {
             self.interruptee.err_if_interrupted()?;
@@ -85,9 +87,7 @@ impl<'a> Driver<'a> {
 
                 // We always upload our own client record on each sync, even if it
                 // doesn't change, to keep it fresh.
-                outgoing
-                    .changes
-                    .push(Payload::from_record(current_client_record)?);
+                outgoing.push(current_client_record);
             } else {
                 // For other clients, write our outgoing commands into their
                 // records. If we don't have any, we don't need to reupload the
@@ -125,7 +125,7 @@ impl<'a> Driver<'a> {
                     self.memcache_max_record_payload_size(),
                 )?;
 
-                outgoing.changes.push(Payload::from_record(client)?);
+                outgoing.push(client);
             }
         }
 
@@ -175,12 +175,23 @@ impl<'a> Driver<'a> {
 pub struct Engine<'a> {
     pub command_processor: &'a dyn CommandProcessor,
     pub interruptee: &'a dyn Interruptee,
-    pub storage_client: &'a Sync15StorageClient,
-    pub global_state: &'a GlobalState,
-    pub root_sync_key: &'a KeyBundle,
+    pub recent_client_list: HashMap<String, RemoteClient>,
 }
 
 impl<'a> Engine<'a> {
+    /// Creates a new clients engine that delegates to the given command
+    /// processor to apply incoming commands.
+    pub fn new<'b>(
+        command_processor: &'b dyn CommandProcessor,
+        interruptee: &'b dyn Interruptee,
+    ) -> Engine<'b> {
+        Engine {
+            command_processor,
+            interruptee,
+            recent_client_list: HashMap::new(),
+        }
+    }
+
     /// Syncs the clients collection. This works a little differently than
     /// other collections:
     ///
@@ -197,17 +208,19 @@ impl<'a> Engine<'a> {
     /// For these reasons, we implement this engine directly in the `sync15`
     /// crate, and provide a specialized `sync` method instead of implementing
     /// `sync15::Store`.
-    pub fn sync(&self) -> Result<()> {
+    pub fn sync(
+        &mut self,
+        storage_client: &Sync15StorageClient,
+        global_state: &GlobalState,
+        root_sync_key: &KeyBundle,
+    ) -> Result<()> {
         log::info!("Syncing collection clients");
 
-        let coll_keys = CollectionKeys::from_encrypted_bso(
-            self.global_state.keys.clone(),
-            &self.root_sync_key,
-        )?;
+        let coll_keys =
+            CollectionKeys::from_encrypted_bso(global_state.keys.clone(), &root_sync_key)?;
         let mut coll_state = CollState {
-            config: self.global_state.config.clone(),
-            last_modified: self
-                .global_state
+            config: global_state.config.clone(),
+            last_modified: global_state
                 .collections
                 .get(COLLECTION_NAME)
                 .cloned()
@@ -215,25 +228,37 @@ impl<'a> Engine<'a> {
             key: coll_keys.key_for_collection(COLLECTION_NAME).clone(),
         };
 
-        let inbound = self.fetch_incoming(&mut coll_state)?;
+        let inbound = self.fetch_incoming(&storage_client, &mut coll_state)?;
 
         let driver = Driver {
             command_processor: self.command_processor,
             interruptee: self.interruptee,
-            config: &self.global_state.config,
+            config: &global_state.config,
         };
 
-        let outgoing = driver.sync(inbound)?;
+        let mut outgoing = OutgoingChangeset::new(COLLECTION_NAME.into(), inbound.timestamp);
+        outgoing.timestamp = inbound.timestamp;
+
+        let clients = driver.sync(inbound)?;
+        let mut recent_client_list = HashMap::new();
+        for client in clients {
+            recent_client_list.insert(
+                client.id.clone(),
+                RemoteClient {
+                    device_name: client.name.clone(),
+                    device_type: client.typ.as_ref().and_then(DeviceType::try_from_str),
+                },
+            );
+            outgoing.changes.push(Payload::from_record(client)?);
+        }
+        mem::replace(&mut self.recent_client_list, recent_client_list);
+
         coll_state.last_modified = outgoing.timestamp;
 
         self.interruptee.err_if_interrupted()?;
-        let upload_info = CollectionUpdate::new_from_changeset(
-            &self.storage_client,
-            &coll_state,
-            outgoing,
-            true,
-        )?
-        .upload()?;
+        let upload_info =
+            CollectionUpdate::new_from_changeset(&storage_client, &coll_state, outgoing, true)?
+                .upload()?;
 
         log::info!(
             "Upload success ({} records success, {} records failed)",
@@ -245,12 +270,16 @@ impl<'a> Engine<'a> {
         Ok(())
     }
 
-    fn fetch_incoming(&self, coll_state: &mut CollState) -> Result<IncomingChangeset> {
+    fn fetch_incoming(
+        &self,
+        storage_client: &Sync15StorageClient,
+        coll_state: &mut CollState,
+    ) -> Result<IncomingChangeset> {
         let coll_request = CollectionRequest::new(COLLECTION_NAME).full();
 
         self.interruptee.err_if_interrupted()?;
         let inbound = IncomingChangeset::fetch(
-            &self.storage_client,
+            &storage_client,
             coll_state,
             COLLECTION_NAME.into(),
             &coll_request,
@@ -370,7 +399,7 @@ mod tests {
         };
 
         let mut outgoing = driver.sync(inbound).expect("Should sync clients");
-        outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
+        outgoing.sort_by(|a, b| a.id.cmp(&b.id));
         let expected = json!([{
             "id": "deviceAAAAAA",
             "name": "Laptop",
@@ -417,7 +446,10 @@ mod tests {
         }]);
         if let Value::Array(expected) = expected {
             for (i, record) in expected.into_iter().enumerate() {
-                assert_eq!(outgoing.changes[i], Payload::from_json(record).unwrap());
+                assert_eq!(
+                    outgoing[i],
+                    serde_json::from_value::<ClientRecord>(record).unwrap()
+                );
             }
         } else {
             unreachable!("`expected_clients` must be an array of client records")

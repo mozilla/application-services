@@ -11,6 +11,7 @@ mod record;
 mod ser;
 
 pub use engine::Engine;
+pub use record::ClientRecord;
 
 /// A command processor applies incoming commands like wipes and resets for all
 /// stores, and returns commands to send to other clients. It also manages
@@ -53,6 +54,13 @@ pub enum CommandStatus {
     Unsupported,
 }
 
+/// Information about a remote client in the clients collection.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct RemoteClient {
+    pub device_name: String,
+    pub device_type: Option<DeviceType>,
+}
+
 /// Information about this device to include in its client record. This should
 /// be persisted across syncs, as part of the sync manager state.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -79,6 +87,17 @@ pub enum DeviceType {
 }
 
 impl DeviceType {
+    pub fn try_from_str(d: impl AsRef<str>) -> Option<DeviceType> {
+        match d.as_ref() {
+            "desktop" => Some(DeviceType::Desktop),
+            "mobile" => Some(DeviceType::Mobile),
+            "tablet" => Some(DeviceType::Tablet),
+            "vr" => Some(DeviceType::VR),
+            "tv" => Some(DeviceType::TV),
+            _ => None,
+        }
+    }
+
     pub fn as_str(self) -> &'static str {
         match self {
             DeviceType::Desktop => "desktop",
