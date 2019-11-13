@@ -86,6 +86,8 @@ struct JustFormatVersion {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RawSchema {
+    /// The name of this collection
+    pub name: String,
     /// The version of the schema
     pub version: String,
 
@@ -516,6 +518,7 @@ impl<'a> SchemaParser<'a> {
         self.check_used_features(&self.input.remerge_features_used)?;
 
         Ok(RecordSchema {
+            name: self.input.name.clone(),
             version,
             required_version,
             remerge_features_used: self.input.remerge_features_used.clone(),

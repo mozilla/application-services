@@ -22,6 +22,7 @@ index_vec::define_index_type! {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RecordSchema {
+    pub name: String,
     pub version: semver::Version,
     pub required_version: semver::VersionReq,
 
