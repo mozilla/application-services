@@ -11,7 +11,6 @@ mod record;
 mod ser;
 
 pub use engine::Engine;
-pub use record::ClientRecord;
 
 /// A command processor applies incoming commands like wipes and resets for all
 /// stores, and returns commands to send to other clients. It also manages
@@ -59,6 +58,15 @@ pub enum CommandStatus {
 pub struct RemoteClient {
     pub device_name: String,
     pub device_type: Option<DeviceType>,
+}
+
+impl From<&record::ClientRecord> for RemoteClient {
+    fn from(record: &record::ClientRecord) -> RemoteClient {
+        RemoteClient {
+            device_name: record.name.clone(),
+            device_type: record.typ.as_ref().and_then(DeviceType::try_from_str),
+        }
+    }
 }
 
 /// Information about this device to include in its client record. This should

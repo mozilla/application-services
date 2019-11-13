@@ -2,10 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::{
-    collections::{HashMap, HashSet},
-    mem,
-};
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     bso_record::Payload,
@@ -22,7 +19,7 @@ use interrupt::Interruptee;
 use super::{
     record::{ClientRecord, CommandRecord},
     ser::shrink_to_fit,
-    Command, CommandProcessor, CommandStatus, DeviceType, RemoteClient,
+    Command, CommandProcessor, CommandStatus, RemoteClient,
 };
 use crate::error::Result;
 
@@ -34,14 +31,29 @@ struct Driver<'a> {
     command_processor: &'a dyn CommandProcessor,
     interruptee: &'a dyn Interruptee,
     config: &'a InfoConfiguration,
+    recent_client_list: HashMap<String, RemoteClient>,
 }
 
 impl<'a> Driver<'a> {
-    fn sync(&self, inbound: IncomingChangeset) -> Result<Vec<ClientRecord>> {
+    fn new(
+        command_processor: &'a dyn CommandProcessor,
+        interruptee: &'a dyn Interruptee,
+        config: &'a InfoConfiguration,
+    ) -> Driver<'a> {
+        Driver {
+            command_processor,
+            interruptee,
+            config,
+            recent_client_list: HashMap::new(),
+        }
+    }
+
+    fn sync(&mut self, inbound: IncomingChangeset) -> Result<OutgoingChangeset> {
+        let mut outgoing = OutgoingChangeset::new(COLLECTION_NAME.into(), inbound.timestamp);
+        outgoing.timestamp = inbound.timestamp;
+
         self.interruptee.err_if_interrupted()?;
         let outgoing_commands = self.command_processor.fetch_outgoing_commands()?;
-
-        let mut outgoing = Vec::with_capacity(inbound.changes.len());
 
         for (payload, _) in inbound.changes {
             self.interruptee.err_if_interrupted()?;
@@ -85,13 +97,26 @@ impl<'a> Driver<'a> {
                     self.memcache_max_record_payload_size(),
                 )?;
 
+                // Add the new client record to our map of recently synced
+                // clients, so that downstream consumers like synced tabs can
+                // access them.
+                self.recent_client_list.insert(
+                    current_client_record.id.clone(),
+                    (&current_client_record).into(),
+                );
+
                 // We always upload our own client record on each sync, even if it
                 // doesn't change, to keep it fresh.
-                outgoing.push(current_client_record);
+                outgoing
+                    .changes
+                    .push(Payload::from_record(current_client_record)?);
             } else {
-                // For other clients, write our outgoing commands into their
-                // records. If we don't have any, we don't need to reupload the
-                // other client's record.
+                // Add the other client to our map of recently synced clients.
+                self.recent_client_list
+                    .insert(client.id.clone(), (&client).into());
+
+                // Bail if we don't have any outgoing commands to write into
+                // the other client's record.
                 if outgoing_commands.is_empty() {
                     continue;
                 }
@@ -125,7 +150,7 @@ impl<'a> Driver<'a> {
                     self.memcache_max_record_payload_size(),
                 )?;
 
-                outgoing.push(client);
+                outgoing.changes.push(Payload::from_record(client)?);
             }
         }
 
@@ -230,28 +255,14 @@ impl<'a> Engine<'a> {
 
         let inbound = self.fetch_incoming(&storage_client, &mut coll_state)?;
 
-        let driver = Driver {
-            command_processor: self.command_processor,
-            interruptee: self.interruptee,
-            config: &global_state.config,
-        };
+        let mut driver = Driver::new(
+            self.command_processor,
+            self.interruptee,
+            &global_state.config,
+        );
 
-        let mut outgoing = OutgoingChangeset::new(COLLECTION_NAME.into(), inbound.timestamp);
-        outgoing.timestamp = inbound.timestamp;
-
-        let clients = driver.sync(inbound)?;
-        let mut recent_client_list = HashMap::new();
-        for client in clients {
-            recent_client_list.insert(
-                client.id.clone(),
-                RemoteClient {
-                    device_name: client.name.clone(),
-                    device_type: client.typ.as_ref().and_then(DeviceType::try_from_str),
-                },
-            );
-            outgoing.changes.push(Payload::from_record(client)?);
-        }
-        mem::replace(&mut self.recent_client_list, recent_client_list);
+        let outgoing = driver.sync(inbound)?;
+        self.recent_client_list = driver.recent_client_list;
 
         coll_state.last_modified = outgoing.timestamp;
 
@@ -341,11 +352,7 @@ mod tests {
         });
         let config = InfoConfiguration::default();
 
-        let driver = Driver {
-            command_processor: &processor,
-            interruptee: &NeverInterrupts,
-            config: &config,
-        };
+        let mut driver = Driver::new(&processor, &NeverInterrupts, &config);
 
         let clients = json!([{
             "id": "deviceBBBBBB",
@@ -399,7 +406,35 @@ mod tests {
         };
 
         let mut outgoing = driver.sync(inbound).expect("Should sync clients");
-        outgoing.sort_by(|a, b| a.id.cmp(&b.id));
+        outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
+
+        // Make sure the list of recently synced remote clients is correct.
+        let expected_ids = &["deviceAAAAAA", "deviceBBBBBB", "deviceCCCCCC"];
+        let mut actual_ids = driver.recent_client_list.keys().collect::<Vec<&String>>();
+        actual_ids.sort();
+        assert_eq!(actual_ids, expected_ids);
+
+        let expected_remote_clients = &[
+            RemoteClient {
+                device_name: "Laptop".into(),
+                device_type: Some(DeviceType::Desktop),
+            },
+            RemoteClient {
+                device_name: "iPhone".into(),
+                device_type: Some(DeviceType::Mobile),
+            },
+            RemoteClient {
+                device_name: "Fenix".into(),
+                device_type: Some(DeviceType::Mobile),
+            },
+        ];
+        let actual_remote_clients = expected_ids
+            .iter()
+            .filter_map(|&id| driver.recent_client_list.get(id))
+            .cloned()
+            .collect::<Vec<RemoteClient>>();
+        assert_eq!(actual_remote_clients, expected_remote_clients);
+
         let expected = json!([{
             "id": "deviceAAAAAA",
             "name": "Laptop",
@@ -446,10 +481,7 @@ mod tests {
         }]);
         if let Value::Array(expected) = expected {
             for (i, record) in expected.into_iter().enumerate() {
-                assert_eq!(
-                    outgoing[i],
-                    serde_json::from_value::<ClientRecord>(record).unwrap()
-                );
+                assert_eq!(outgoing.changes[i], Payload::from_json(record).unwrap());
             }
         } else {
             unreachable!("`expected_clients` must be an array of client records")
