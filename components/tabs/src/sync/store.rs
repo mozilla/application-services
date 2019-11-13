@@ -34,7 +34,7 @@ impl RemoteTab {
 }
 
 impl ClientRemoteTabs {
-    fn from_record_with_device(
+    fn from_record_with_remote_client(
         client_id: String,
         remote_client: &RemoteClient,
         record: TabsRecord,
@@ -90,8 +90,7 @@ impl<'a> Store for TabsStore<'a> {
     }
 
     fn prepare_for_sync(&self, engine: &clients::Engine<'_>) -> Result<(), failure::Error> {
-        self.remote_clients
-            .replace(engine.recent_client_list.clone());
+        self.remote_clients.replace(engine.recent_clients.clone());
         Ok(())
     }
 
@@ -119,7 +118,7 @@ impl<'a> Store for TabsStore<'a> {
             };
             let id = record.id.clone();
             let tab = if let Some(remote_client) = self.remote_clients.borrow().get(&id) {
-                ClientRemoteTabs::from_record_with_device(id, remote_client, record)
+                ClientRemoteTabs::from_record_with_remote_client(id, remote_client, record)
             } else {
                 ClientRemoteTabs::from_record(id, record)
             };

@@ -31,7 +31,7 @@ struct Driver<'a> {
     command_processor: &'a dyn CommandProcessor,
     interruptee: &'a dyn Interruptee,
     config: &'a InfoConfiguration,
-    recent_client_list: HashMap<String, RemoteClient>,
+    recent_clients: HashMap<String, RemoteClient>,
 }
 
 impl<'a> Driver<'a> {
@@ -44,7 +44,7 @@ impl<'a> Driver<'a> {
             command_processor,
             interruptee,
             config,
-            recent_client_list: HashMap::new(),
+            recent_clients: HashMap::new(),
         }
     }
 
@@ -100,7 +100,7 @@ impl<'a> Driver<'a> {
                 // Add the new client record to our map of recently synced
                 // clients, so that downstream consumers like synced tabs can
                 // access them.
-                self.recent_client_list.insert(
+                self.recent_clients.insert(
                     current_client_record.id.clone(),
                     (&current_client_record).into(),
                 );
@@ -112,7 +112,7 @@ impl<'a> Driver<'a> {
                     .push(Payload::from_record(current_client_record)?);
             } else {
                 // Add the other client to our map of recently synced clients.
-                self.recent_client_list
+                self.recent_clients
                     .insert(client.id.clone(), (&client).into());
 
                 // Bail if we don't have any outgoing commands to write into
@@ -200,7 +200,7 @@ impl<'a> Driver<'a> {
 pub struct Engine<'a> {
     pub command_processor: &'a dyn CommandProcessor,
     pub interruptee: &'a dyn Interruptee,
-    pub recent_client_list: HashMap<String, RemoteClient>,
+    pub recent_clients: HashMap<String, RemoteClient>,
 }
 
 impl<'a> Engine<'a> {
@@ -213,7 +213,7 @@ impl<'a> Engine<'a> {
         Engine {
             command_processor,
             interruptee,
-            recent_client_list: HashMap::new(),
+            recent_clients: HashMap::new(),
         }
     }
 
@@ -262,7 +262,7 @@ impl<'a> Engine<'a> {
         );
 
         let outgoing = driver.sync(inbound)?;
-        self.recent_client_list = driver.recent_client_list;
+        self.recent_clients = driver.recent_clients;
 
         coll_state.last_modified = outgoing.timestamp;
 
@@ -410,7 +410,7 @@ mod tests {
 
         // Make sure the list of recently synced remote clients is correct.
         let expected_ids = &["deviceAAAAAA", "deviceBBBBBB", "deviceCCCCCC"];
-        let mut actual_ids = driver.recent_client_list.keys().collect::<Vec<&String>>();
+        let mut actual_ids = driver.recent_clients.keys().collect::<Vec<&String>>();
         actual_ids.sort();
         assert_eq!(actual_ids, expected_ids);
 
@@ -430,7 +430,7 @@ mod tests {
         ];
         let actual_remote_clients = expected_ids
             .iter()
-            .filter_map(|&id| driver.recent_client_list.get(id))
+            .filter_map(|&id| driver.recent_clients.get(id))
             .cloned()
             .collect::<Vec<RemoteClient>>();
         assert_eq!(actual_remote_clients, expected_remote_clients);
