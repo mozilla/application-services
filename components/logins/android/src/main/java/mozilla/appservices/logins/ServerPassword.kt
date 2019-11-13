@@ -36,7 +36,7 @@ data class ServerPassword(
     val password: String,
 
     /**
-     * The HTTP realm, which is the challenge string for HTTP Basic Auth). May be null in the case
+     * The HTTP realm, which is the challenge string for HTTP Basic Auth. May be null in the case
      * that this login has a formSubmitURL instead.
      */
     val httpRealm: String? = null,
