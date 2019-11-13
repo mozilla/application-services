@@ -52,15 +52,21 @@ Before submitting a PR:
   - Run `cargo test --all` to make sure all tests still pass and no warnings are emitted.
   - Run `cargo run -p sync-test` to make sure the sync integration tests still pass.
   Note: You need to have [node](https://nodejs.org/) installed for running the integration tests.
-  - Run `cargo clippy --all-targets --all-features` to make sure that linting passes (You may need to `rustup component add clippy` first).
+  - Run `cargo clippy --all --all-targets --all-features` to make sure that linting passes (You may need to `rustup component add clippy` first).
   - Run `cargo fmt` to ensure the code is formatted correctly.
-- Your patch should include new tests that cover your changes. It is your and your reviewer's responsibility to ensure your patch includes adequate tests.
+  - If you have modified any Kotlin code, check that `./gradlew ktlint detekt` runs without emitting any warnings.
+  - If you have modified any Swift code, check that `swiftformat --swiftversion 4 megazords components/*/ios && swiftlint` runs without emitting any warnings or producing changes.
+- Your patch should include new tests that cover your changes, or be accompanied by explanation for why it doesn't need any. It is your
+  and your reviewer's responsibility to ensure your patch includes adequate tests.
+- Your patch should include a changelog entry in [CHANGES_UNRELEASED.md](../CHANGES_UNRELEASED.md) or an explanation of why
+  it does not need one. Any breaking changes to Swift or Kotlin binding APIs should be noted explicitly
+- If your patch adds new dependencies, they must follow our [dependency management guidelines](./dependency-management.md).
+  Please include a summary of the due dilligence applied in selecting new dependencies.
 
 When submitting a PR:
 - You agree to license your code under the project's open source license ([MPL 2.0](/LICENSE)).
 - Base your branch off the current `master` (see below for an example workflow).
 - Add both your code and new tests if relevant.
-- Run `cargo test` and `cargo clippy` to make sure your code passes linting and tests.
 - Please do not include merge commits in pull requests; include only commits with the new relevant code.
 - Your patch must be [GPG signed](https://help.github.com/articles/managing-commit-signature-verification) to ensure the commits come from a trusted source.
 
