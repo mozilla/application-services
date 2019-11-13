@@ -1,6 +1,30 @@
+# v0.42.4 (_2019-11-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.42.3...v0.42.4)
+
+## General
+
+### What's New
+
+- Synced Tabs is available as an Android component in the `org.mozilla.appservices.experimental.remotetabs` maven package.
+
+## Push Client
+
+### What's new
+
+- `PushManager.dispatchInfoForChid(channelID)` now also returns the
+  `endpoint` and `appServerKey` from the subscription.
+
+### Breaking Changes
+
+- The `appServerKey` VAPID public key has moved from `PushConfig` to
+  `PushManager.subscription(channelID, scope, appServerKey)`.
+
+- The unused `regenerate_endpoints()` function has been removed.
+
 # v0.42.3 (_2019-11-04_)
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.42.3...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.42.2...v0.42.3)
 
 ## General
 
