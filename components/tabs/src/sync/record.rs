@@ -18,7 +18,7 @@ pub struct TabsRecordTab {
 #[serde(rename_all = "camelCase")]
 pub struct TabsRecord {
     pub id: String, // `String` instead of `SyncGuid` because some IDs are FxA device ID.
-    // pub client_name: String,
+    pub client_name: String,
     pub tabs: Vec<TabsRecordTab>,
 }
 
