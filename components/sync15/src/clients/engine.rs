@@ -48,6 +48,10 @@ impl<'a> Driver<'a> {
         }
     }
 
+    fn note_recent_client(&mut self, client: &ClientRecord) {
+        self.recent_clients.insert(client.id.clone(), client.into());
+    }
+
     fn sync(&mut self, inbound: IncomingChangeset) -> Result<OutgoingChangeset> {
         let mut outgoing = OutgoingChangeset::new(COLLECTION_NAME.into(), inbound.timestamp);
         outgoing.timestamp = inbound.timestamp;
@@ -100,10 +104,7 @@ impl<'a> Driver<'a> {
                 // Add the new client record to our map of recently synced
                 // clients, so that downstream consumers like synced tabs can
                 // access them.
-                self.recent_clients.insert(
-                    current_client_record.id.clone(),
-                    (&current_client_record).into(),
-                );
+                self.note_recent_client(&current_client_record);
 
                 // We always upload our own client record on each sync, even if it
                 // doesn't change, to keep it fresh.
@@ -112,8 +113,7 @@ impl<'a> Driver<'a> {
                     .push(Payload::from_record(current_client_record)?);
             } else {
                 // Add the other client to our map of recently synced clients.
-                self.recent_clients
-                    .insert(client.id.clone(), (&client).into());
+                self.note_recent_client(&client);
 
                 // Bail if we don't have any outgoing commands to write into
                 // the other client's record.
@@ -286,6 +286,9 @@ impl<'a> Engine<'a> {
         storage_client: &Sync15StorageClient,
         coll_state: &mut CollState,
     ) -> Result<IncomingChangeset> {
+        // Note that, unlike other stores, we always fetch the full collection
+        // on every sync, so `inbound` will return all clients, not just the
+        // ones that changed since the last sync.
         let coll_request = CollectionRequest::new(COLLECTION_NAME).full();
 
         self.interruptee.err_if_interrupted()?;
