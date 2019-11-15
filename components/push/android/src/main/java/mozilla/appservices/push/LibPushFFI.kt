@@ -38,6 +38,7 @@ internal interface LibPushFFI : Library {
         mgr: PushManagerHandle,
         channel_id: String,
         scope: String,
+        appServerKey: String?,
         out_err: RustError.ByReference
     ): RustBuffer.ByValue?
 

@@ -70,6 +70,9 @@ class PushTest {
      */
     protected val mockSenderId = "test"
 
+    protected val vapidPubKey = "BBCcCWavxjfIyW6NRhqclO9IZj9oW1gFKUBSgwcigfNcpXSfRk5JQTOcahMLjzO" +
+            "1bkHMoiw4b6L7YTyF8foLEEU"
+
     protected fun getPushManager(): PushManager {
         return PushManager(
                 senderId = mockSenderId,
@@ -197,7 +200,7 @@ class PushTest {
     @Test
     fun testUnsubscribe() {
         val manager = getPushManager()
-        manager.subscribe(testChannelid, "foo")
+        manager.subscribe(testChannelid, "foo", vapidPubKey)
         val result = manager.unsubscribe(testChannelid)
         assertEquals("Unsubscription check", true, result)
     }
@@ -227,10 +230,12 @@ class PushTest {
     fun testDispatchInfoForChid() {
         val manager = getPushManager()
 
-        manager.subscribe(testChannelid, "foo")
+        manager.subscribe(testChannelid, "foo", vapidPubKey)
         val dispatch = manager.dispatchInfoForChid(testChannelid)!!
         assertEquals("uaid", "abad1d3a00000000aabbccdd00000000", dispatch.uaid)
         assertEquals("scope", "foo", dispatch.scope)
+        assert(dispatch.endpoint.length > 0)
+        assertEquals(dispatch.appServerKey, vapidPubKey)
     }
 
     @Test

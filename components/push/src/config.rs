@@ -19,9 +19,6 @@ pub struct PushConfiguration {
     /// Native OS registration ID value
     pub registration_id: Option<String>,
 
-    /// base64 encoded public VAPID key (to secure endpoint)
-    pub vapid_key: Option<String>,
-
     /// Service enabled flag
     pub enabled: bool,
 
@@ -43,7 +40,6 @@ impl Default for PushConfiguration {
             http_protocol: Some(String::from("https")),
             bridge_type: Some(String::from("fcm")),
             registration_id: Some(String::from("deafbeef00000000")),
-            vapid_key: None,
             enabled: true,
             ping_interval: 1800,
             sender_id: String::from(""),
