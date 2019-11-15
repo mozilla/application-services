@@ -59,6 +59,8 @@ impl<'a> Driver<'a> {
         self.interruptee.err_if_interrupted()?;
         let outgoing_commands = self.command_processor.fetch_outgoing_commands()?;
 
+        let mut has_own_client_record = false;
+
         for (payload, _) in inbound.changes {
             self.interruptee.err_if_interrupted()?;
 
@@ -74,6 +76,7 @@ impl<'a> Driver<'a> {
                 // commands that we don't understand also go back in the list.
                 // https://github.com/mozilla/application-services/issues/1800
                 // tracks if that's the right thing to do.
+                has_own_client_record = true;
                 let mut current_client_record = self.current_client_record();
                 for c in client.commands {
                     let status = match c.as_command() {
@@ -152,6 +155,15 @@ impl<'a> Driver<'a> {
 
                 outgoing.changes.push(Payload::from_record(client)?);
             }
+        }
+
+        // Upload a record for our own client, if we didn't replace it already.
+        if !has_own_client_record {
+            let current_client_record = self.current_client_record();
+            self.note_recent_client(&current_client_record);
+            outgoing
+                .changes
+                .push(Payload::from_record(current_client_record)?);
         }
 
         Ok(outgoing)
@@ -316,43 +328,53 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn tests_clients_sync() {
-        struct TestProcessor(Settings);
+    struct TestProcessor {
+        settings: Settings,
+        outgoing_commands: HashSet<Command>,
+    }
 
-        impl CommandProcessor for TestProcessor {
-            fn settings(&self) -> &Settings {
-                &self.0
-            }
-
-            fn apply_incoming_command(
-                &self,
-                command: Command,
-            ) -> result::Result<CommandStatus, failure::Error> {
-                Ok(if let Command::Reset(name) = command {
-                    if name == "forms" {
-                        CommandStatus::Unsupported
-                    } else {
-                        CommandStatus::Applied
-                    }
-                } else {
-                    CommandStatus::Ignored
-                })
-            }
-
-            fn fetch_outgoing_commands(&self) -> result::Result<HashSet<Command>, failure::Error> {
-                let mut commands = HashSet::new();
-                commands.insert(Command::Wipe("bookmarks".into()));
-                commands.insert(Command::Reset("history".into()));
-                Ok(commands)
-            }
+    impl CommandProcessor for TestProcessor {
+        fn settings(&self) -> &Settings {
+            &self.settings
         }
 
-        let processor = TestProcessor(Settings {
-            fxa_device_id: "deviceAAAAAA".into(),
-            device_name: "Laptop".into(),
-            device_type: DeviceType::Desktop,
-        });
+        fn apply_incoming_command(
+            &self,
+            command: Command,
+        ) -> result::Result<CommandStatus, failure::Error> {
+            Ok(if let Command::Reset(name) = command {
+                if name == "forms" {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Applied
+                }
+            } else {
+                CommandStatus::Ignored
+            })
+        }
+
+        fn fetch_outgoing_commands(&self) -> result::Result<HashSet<Command>, failure::Error> {
+            Ok(self.outgoing_commands.clone())
+        }
+    }
+
+    #[test]
+    fn test_clients_sync() {
+        let processor = TestProcessor {
+            settings: Settings {
+                fxa_device_id: "deviceAAAAAA".into(),
+                device_name: "Laptop".into(),
+                device_type: DeviceType::Desktop,
+            },
+            outgoing_commands: [
+                Command::Wipe("bookmarks".into()),
+                Command::Reset("history".into()),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
+        };
+
         let config = InfoConfiguration::default();
 
         let mut driver = Driver::new(&processor, &NeverInterrupts, &config);
@@ -488,6 +510,90 @@ mod tests {
             }
         } else {
             unreachable!("`expected_clients` must be an array of client records")
+        }
+    }
+
+    #[test]
+    fn test_fresh_client_record() {
+        let processor = TestProcessor {
+            settings: Settings {
+                fxa_device_id: "deviceAAAAAA".into(),
+                device_name: "Laptop".into(),
+                device_type: DeviceType::Desktop,
+            },
+            outgoing_commands: HashSet::new(),
         };
+
+        let config = InfoConfiguration::default();
+
+        let mut driver = Driver::new(&processor, &NeverInterrupts, &config);
+
+        let clients = json!([{
+            "id": "deviceBBBBBB",
+            "name": "iPhone",
+            "type": "mobile",
+            "commands": [{
+                "command": "resetEngine",
+                "args": ["history"],
+            }],
+            "fxaDeviceId": "iPhooooooone",
+            "protocols": ["1.5"],
+            "device": "iPhone",
+        }]);
+
+        let inbound = if let Value::Array(clients) = clients {
+            let changes = clients
+                .into_iter()
+                .map(|c| (Payload::from_json(c).unwrap(), ServerTimestamp(0)))
+                .collect();
+            IncomingChangeset {
+                changes,
+                timestamp: ServerTimestamp(0),
+                collection: COLLECTION_NAME.into(),
+            }
+        } else {
+            unreachable!("`clients` must be an array of client records")
+        };
+
+        let mut outgoing = driver.sync(inbound).expect("Should sync clients");
+        outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
+
+        // Make sure the list of recently synced remote clients is correct.
+        let expected_ids = &["deviceAAAAAA", "deviceBBBBBB"];
+        let mut actual_ids = driver.recent_clients.keys().collect::<Vec<&String>>();
+        actual_ids.sort();
+        assert_eq!(actual_ids, expected_ids);
+
+        let expected_remote_clients = &[
+            RemoteClient {
+                device_name: "Laptop".into(),
+                device_type: Some(DeviceType::Desktop),
+            },
+            RemoteClient {
+                device_name: "iPhone".into(),
+                device_type: Some(DeviceType::Mobile),
+            },
+        ];
+        let actual_remote_clients = expected_ids
+            .iter()
+            .filter_map(|&id| driver.recent_clients.get(id))
+            .cloned()
+            .collect::<Vec<RemoteClient>>();
+        assert_eq!(actual_remote_clients, expected_remote_clients);
+
+        let expected = json!([{
+            "id": "deviceAAAAAA",
+            "name": "Laptop",
+            "type": "desktop",
+            "fxaDeviceId": "deviceAAAAAA",
+            "protocols": ["1.5"],
+        }]);
+        if let Value::Array(expected) = expected {
+            for (i, record) in expected.into_iter().enumerate() {
+                assert_eq!(outgoing.changes[i], Payload::from_json(record).unwrap());
+            }
+        } else {
+            unreachable!("`expected_clients` must be an array of client records")
+        }
     }
 }
