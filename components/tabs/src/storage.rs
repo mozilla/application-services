@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::cell::RefCell;
+use sync15::clients::DeviceType;
 
 #[derive(Clone, Debug)]
 pub struct RemoteTab {
@@ -14,7 +15,9 @@ pub struct RemoteTab {
 
 #[derive(Clone, Debug)]
 pub struct ClientRemoteTabs {
-    pub client_id: String, // Corresponds to the FxA device id of the client.
+    pub client_id: String, // Corresponds to the `clients` collection ID of the client.
+    pub client_name: String,
+    pub device_type: DeviceType,
     pub remote_tabs: Vec<RemoteTab>,
 }
 

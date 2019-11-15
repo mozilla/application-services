@@ -19,3 +19,7 @@ pub use crate::storage::{ClientRemoteTabs, RemoteTab};
 pub use crate::sync::engine::TabsEngine;
 pub use crate::sync::store::TabsStore;
 pub use error::{Error, ErrorKind, Result};
+
+// Re-export `DeviceType`, so that it's easier for consumers to make
+// `ClientRemoteTabs` structs without importing `sync15`.
+pub use sync15::clients::DeviceType;
