@@ -76,7 +76,12 @@ pub extern "C" fn push_subscribe(
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<_> {
         let channel = channel_id.as_str();
         let scope_s = scope.as_str();
-        let app_key = app_key.as_opt_str();
+        let mut app_key = app_key.as_opt_str();
+        // While potentially an error, a misconfigured system may use "" as
+        // an application key. In that case, we drop the application key.
+        if app_key == Some("") {
+            app_key = None;
+        }
         // Don't auto add the subscription to the db.
         // (endpoint updates also call subscribe and should be lighter weight)
         let (info, subscription_key) = mgr.subscribe(channel, scope_s, app_key)?;
