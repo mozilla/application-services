@@ -5,9 +5,10 @@
 use crate::storage::TabsStorage;
 use crate::storage::{ClientRemoteTabs, RemoteTab};
 use crate::sync::record::{TabsRecord, TabsRecordTab};
-use std::cell::Cell;
-use std::result;
+use std::cell::{Cell, RefCell};
+use std::{collections::HashMap, result};
 use sync15::{
+    clients::{self, DeviceType, RemoteClient},
     telemetry, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload, ServerTimestamp,
     Store, StoreSyncAssociation,
 };
@@ -33,15 +34,31 @@ impl RemoteTab {
 }
 
 impl ClientRemoteTabs {
+    fn from_record_with_remote_client(
+        client_id: String,
+        remote_client: &RemoteClient,
+        record: TabsRecord,
+    ) -> Self {
+        Self {
+            client_id,
+            client_name: remote_client.device_name.clone(),
+            device_type: remote_client.device_type.unwrap_or(DeviceType::Mobile),
+            remote_tabs: record.tabs.iter().map(RemoteTab::from_record_tab).collect(),
+        }
+    }
+
     fn from_record(client_id: String, record: TabsRecord) -> Self {
         Self {
             client_id,
+            client_name: record.client_name,
+            device_type: DeviceType::Mobile,
             remote_tabs: record.tabs.iter().map(RemoteTab::from_record_tab).collect(),
         }
     }
     fn to_record(&self) -> TabsRecord {
         TabsRecord {
             id: self.client_id.clone(),
+            client_name: self.client_name.clone(),
             tabs: self
                 .remote_tabs
                 .iter()
@@ -53,6 +70,7 @@ impl ClientRemoteTabs {
 
 pub struct TabsStore<'a> {
     storage: &'a TabsStorage,
+    remote_clients: RefCell<HashMap<String, RemoteClient>>,
     last_sync: Cell<Option<ServerTimestamp>>, // We use a cell because `sync_finished` doesn't take a mutable reference to &self.
 }
 
@@ -60,6 +78,7 @@ impl<'a> TabsStore<'a> {
     pub fn new(storage: &'a TabsStorage) -> Self {
         Self {
             storage,
+            remote_clients: RefCell::default(),
             last_sync: Cell::default(),
         }
     }
@@ -68,6 +87,11 @@ impl<'a> TabsStore<'a> {
 impl<'a> Store for TabsStore<'a> {
     fn collection_name(&self) -> &'static str {
         "tabs"
+    }
+
+    fn prepare_for_sync(&self, engine: &clients::Engine<'_>) -> Result<(), failure::Error> {
+        self.remote_clients.replace(engine.recent_clients.clone());
+        Ok(())
     }
 
     fn apply_incoming(
@@ -92,16 +116,37 @@ impl<'a> Store for TabsStore<'a> {
                     continue;
                 }
             };
-            // TODO: this is wrong anything that doesn't use the sync manager crate,
-            // we need to get fxa_client_id from the clients collection instead.
             let id = record.id.clone();
-            remote_tabs.push(ClientRemoteTabs::from_record(id, record));
+            let tab = if let Some(remote_client) = self.remote_clients.borrow().get(&id) {
+                ClientRemoteTabs::from_record_with_remote_client(id, remote_client, record)
+            } else {
+                ClientRemoteTabs::from_record(id, record)
+            };
+            remote_tabs.push(tab);
         }
         self.storage.replace_remote_tabs(remote_tabs);
         let mut outgoing = OutgoingChangeset::new("tabs".into(), inbound.timestamp);
         if let Some(local_tabs) = self.storage.get_local_tabs() {
+            let (client_name, device_type) = self
+                .remote_clients
+                .borrow()
+                .get(local_id)
+                .map(|client| {
+                    (
+                        client.device_name.clone(),
+                        client.device_type.unwrap_or(DeviceType::Mobile),
+                    )
+                })
+                .unwrap_or_else(|| {
+                    // TODO: Since we know our own client ID thanks to
+                    // `self.remote_clients`, we don't need consumers to
+                    // pass it themselves.
+                    (String::new(), DeviceType::Mobile)
+                });
             let local_record = ClientRemoteTabs {
                 client_id: local_id.to_owned(),
+                client_name,
+                device_type,
                 remote_tabs: local_tabs.to_vec(),
             };
             let payload = Payload::from_record(local_record.to_record())?;

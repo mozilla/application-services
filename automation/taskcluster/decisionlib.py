@@ -143,9 +143,9 @@ class Task:
     def __init__(self, name):
         self.name = name
         self.description = ""
-        self.scheduler_id = "taskcluster-github"
-        self.provisioner_id = "aws-provisioner-v1"
-        self.worker_type = "github-worker"
+        self.scheduler_id = os.environ.get("SCHEDULER_ID")
+        self.provisioner_id = os.environ.get("PROVISIONER_ID")
+        self.worker_type = os.environ.get("BUILD_WORKER_TYPE")
         self.deadline_in = "1 day"
         self.expires_in = "1 year"
         self.index_and_artifacts_expire_in = self.expires_in
@@ -425,7 +425,7 @@ class DockerWorkerTask(Task):
         return self \
         .with_dependencies(task_id) \
         .with_curl_script(
-            "https://queue.taskcluster.net/v1/task/%s/artifacts/public/%s"
+            "https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/%s/artifacts/public/%s"
                 % (task_id, artifact_name),
             os.path.join(out_directory, url_basename(artifact_name)),
         )

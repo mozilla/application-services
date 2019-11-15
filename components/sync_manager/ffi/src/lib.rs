@@ -37,6 +37,18 @@ pub extern "C" fn sync_manager_set_logins(_logins_handle: u64, error: &mut Exter
 }
 
 #[no_mangle]
+pub extern "C" fn sync_manager_set_tabs(_tabs_handle: u64, error: &mut ExternError) {
+    ffi_support::call_with_result(error, || -> MgrResult<()> {
+        log::debug!("sync_manager_set_tabs");
+        let api = tabs_ffi::ENGINES.get_u64(_tabs_handle, |api| -> Result<_, HandleError> {
+            Ok(std::sync::Arc::clone(api))
+        })?;
+        sync_manager::set_tabs(api);
+        Ok(())
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn sync_manager_disconnect(error: &mut ExternError) {
     ffi_support::call_with_output(error, || {
         log::debug!("sync_manager_disconnect");
@@ -54,7 +66,8 @@ unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
         std::slice::from_raw_parts(data, len as usize)
     }
 }
-
+/// # Safety
+/// Reads pointer, thus unsafe.
 #[no_mangle]
 pub unsafe extern "C" fn sync_manager_sync(
     params_data: *const u8,

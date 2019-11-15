@@ -224,7 +224,7 @@ def android_multiarch_release(is_staging):
         sign_task = (
             SignTask("Sign Android module: {}".format(module))
             .with_description("Signs module")
-            .with_worker_type("appsv-signing-dep-v1" if is_staging else "appsv-signing-v1")
+            .with_worker_type("appservices-t-signing" if is_staging else "appservices-3-signing")
             # We want to make sure ALL builds succeeded before doing a release.
             .with_dependencies(*module_build_tasks.values())
             .with_upstream_artifact({

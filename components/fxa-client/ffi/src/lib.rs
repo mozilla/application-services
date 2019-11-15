@@ -232,7 +232,7 @@ pub extern "C" fn fxa_complete_oauth_flow(
 
 /// Migrate from a logged-in sessionToken Firefox Account.
 #[no_mangle]
-pub unsafe extern "C" fn fxa_migrate_from_session_token(
+pub extern "C" fn fxa_migrate_from_session_token(
     handle: u64,
     session_token: FfiStr<'_>,
     k_sync: FfiStr<'_>,

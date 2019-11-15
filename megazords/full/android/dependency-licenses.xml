@@ -38,7 +38,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: base64</name>
-    <url>https://github.com/alicemaz/rust-base64/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/marshallpierce/rust-base64/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: bitflags</name>
@@ -319,10 +319,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: ryu</name>
     <url>https://github.com/dtolnay/ryu/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: safemem</name>
-    <url>https://github.com/abonander/safemem/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: scopeguard</name>

@@ -61,6 +61,10 @@ unsafe fn bytes_to_key_string(key_bytes: *const u8, len: usize) -> Option<String
 /// If a key_len of 0 is provided, then the database will not be encrypted.
 ///
 /// Note: lowercase hex characters are used (e.g. it encodes using the character set 0-9a-f and NOT 0-9A-F).
+///
+/// # Safety
+///
+/// Dereferences the `encryption_key` pointer, and is thus unsafe.
 #[no_mangle]
 pub unsafe extern "C" fn sync15_passwords_state_new_with_hex_key(
     db_path: FfiStr<'_>,

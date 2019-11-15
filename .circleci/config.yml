@@ -148,7 +148,19 @@ commands:
           command: cargo test --all --all-features --verbose
       - run:
           name: Test (no default features)
-          command: cargo test --all --no-default-features --verbose
+          # Apparently --no-default-features in the root has never worked. So
+          # just pull the list of packages out of cargo metadata and run the
+          # test command for each package separately.
+          command: |
+            for package in $(cargo metadata --format-version 1 | jq -r '.workspace_members[] | sub(" .*$"; "")'); do
+              # For some reason cargo even rejects `-p package` for this, so we
+              # have to pull out the manifest... There's probably a way to make
+              # jq do this as part of the prev expression if you know how to use
+              # it, but whatever.
+              manifest=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == $pkg) | .manifest_path' --arg pkg $package)
+              echo "## no-default-features test for $package (manifest @ $manifest)"
+              cargo test --manifest-path $manifest --no-default-features --verbose
+            done
   dependency-checks:
     steps:
       - run:
