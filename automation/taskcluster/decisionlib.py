@@ -278,7 +278,7 @@ class Task:
 class BeetmoverTask(Task):
     def __init__(self, name):
         super().__init__(name)
-        self.provisioner_id = "scriptworker-prov-v1"
+        self.provisioner_id = "scriptworker-k8s"
         self.app_name = None
         self.app_version = None
         self.upstream_artifacts = []
@@ -306,7 +306,7 @@ class BeetmoverTask(Task):
 class SignTask(Task):
     def __init__(self, name):
         super().__init__(name)
-        self.provisioner_id = "scriptworker-prov-v1"
+        self.provisioner_id = "scriptworker-k8s"
         self.upstream_artifacts = []
 
     with_upstream_artifact = chaining(append_to_attr, "upstream_artifacts")
