@@ -448,6 +448,7 @@ The following text applies to code linked from these dependendencies:
 [lock_api](https://github.com/Amanieu/parking_lot),
 [log](https://github.com/rust-lang/log),
 [lru-cache](https://github.com/contain-rs/lru-cache),
+[maybe-uninit](https://github.com/est31/maybe-uninit),
 [multimap](https://github.com/havarnov/multimap),
 [once_cell](https://github.com/matklad/once_cell),
 [parking_lot](https://github.com/Amanieu/parking_lot),
