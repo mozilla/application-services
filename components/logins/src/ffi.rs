@@ -40,7 +40,7 @@ pub mod error_codes {
     // InvalidLogin items that can actually be triggered, the others
     // (if they happen accidentally) will come through as unexpected.
 
-    pub const INVALID_LOGIN_EMPTY_HOSTNAME: i32 = 64;
+    pub const INVALID_LOGIN_EMPTY_ORIGIN: i32 = 64;
     pub const INVALID_LOGIN_EMPTY_PASSWORD: i32 = 64 + 1;
     pub const INVALID_LOGIN_DUPLICATE_LOGIN: i32 = 64 + 2;
     pub const INVALID_LOGIN_BOTH_TARGETS: i32 = 64 + 3;
@@ -70,7 +70,7 @@ fn get_code(err: &Error) -> ErrorCode {
         ErrorKind::InvalidLogin(desc) => {
             log::error!("Invalid login: {}", desc);
             ErrorCode::new(match desc {
-                InvalidLogin::EmptyHostname => error_codes::INVALID_LOGIN_EMPTY_HOSTNAME,
+                InvalidLogin::EmptyOrigin => error_codes::INVALID_LOGIN_EMPTY_ORIGIN,
                 InvalidLogin::EmptyPassword => error_codes::INVALID_LOGIN_EMPTY_PASSWORD,
                 InvalidLogin::DuplicateLogin => error_codes::INVALID_LOGIN_DUPLICATE_LOGIN,
                 InvalidLogin::BothTargets => error_codes::INVALID_LOGIN_BOTH_TARGETS,

@@ -256,7 +256,7 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
     @Suppress("ThrowsCount")
     private fun checkValid(login: ServerPassword) {
         if (login.hostname == "") {
-            throw InvalidRecordException("Invalid login: Hostname is empty", InvalidLoginReason.EMPTY_HOSTNAME)
+            throw InvalidRecordException("Invalid login: Origin is empty", InvalidLoginReason.EMPTY_ORIGIN)
         }
         if (login.password == "") {
             throw InvalidRecordException("Invalid login: Password is empty", InvalidLoginReason.EMPTY_PASSWORD)

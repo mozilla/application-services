@@ -86,7 +86,7 @@ impl Login {
 
     pub fn check_valid(&self) -> Result<()> {
         if self.hostname.is_empty() {
-            throw!(InvalidLogin::EmptyHostname);
+            throw!(InvalidLogin::EmptyOrigin);
         }
 
         if self.password.is_empty() {

@@ -65,8 +65,9 @@ error_support::define_error! {
 
 #[derive(Debug, Fail)]
 pub enum InvalidLogin {
-    #[fail(display = "Hostname is empty")]
-    EmptyHostname,
+    // EmptyOrigin error occurs when the login's hostname field is empty.
+    #[fail(display = "Origin is empty")]
+    EmptyOrigin,
     #[fail(display = "Password is empty")]
     EmptyPassword,
     #[fail(display = "Login already exists")]
