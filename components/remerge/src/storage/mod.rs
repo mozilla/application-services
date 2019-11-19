@@ -36,3 +36,12 @@ impl<'a> std::convert::TryFrom<&'a str> for NativeSchemaInfo<'a> {
         })
     }
 }
+
+// This doesn't really belong here.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[repr(u8)]
+pub enum SyncStatus {
+    Synced = 0,
+    Changed = 1,
+    New = 2,
+}

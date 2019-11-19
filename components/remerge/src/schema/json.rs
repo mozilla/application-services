@@ -925,7 +925,7 @@ impl<'a> SchemaParser<'a> {
 
         if let Some(TimestampDefault::Value(default)) = tsd {
             ensure!(
-                default >= crate::util::EARLIEST_SANE_TIME,
+                default >= crate::ms_time::EARLIEST_SANE_TIME,
                 FieldError::DefaultTimestampTooOld,
             );
         }

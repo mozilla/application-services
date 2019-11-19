@@ -21,6 +21,9 @@ pub enum ErrorKind {
     #[fail(display = "Invalid schema: {}", _0)]
     SchemaError(#[fail(cause)] crate::schema::error::SchemaError),
 
+    #[fail(display = "Invalid record: {}", _0)]
+    InvalidRecord(#[fail(cause)] InvalidRecord),
+
     #[fail(display = "Error parsing JSON data: {}", _0)]
     JsonError(#[fail(cause)] serde_json::Error),
 
@@ -37,5 +40,26 @@ error_support::define_error! {
         (SchemaError, crate::schema::error::SchemaError),
         (UrlParseError, url::ParseError),
         (SqlError, rusqlite::Error),
+        (InvalidRecord, InvalidRecord),
     }
+}
+
+#[derive(Debug, Fail)]
+pub enum InvalidRecord {
+    #[fail(display = "Cannot insert non-json object")]
+    NotJsonObject,
+    #[fail(display = "The field {:?} is required", _0)]
+    MissingRequiredField(String),
+    #[fail(display = "The field {:?} must be of type \"{}\"", _0, _1)]
+    WrongFieldType(String, crate::schema::FieldKind),
+    #[fail(display = "The field {:?} must parse as a valid url", _0)]
+    NotUrl(String),
+    #[fail(display = "The field {:?} is out of the required bounds", _0)]
+    OutOfBounds(String),
+    #[fail(display = "The field {:?} is not a valid record_set", _0)]
+    InvalidRecordSet(String),
+    #[fail(display = "The field {:?} is not a valid guid", _0)]
+    InvalidGuid(String),
+    #[fail(display = "A record with the given guid already exists")]
+    IdNotUnique,
 }

@@ -23,9 +23,10 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct RemergeInfo {
-    collection_name: String,
-    native: Arc<RecordSchema>,
-    local: Arc<RecordSchema>,
+    pub(crate) collection_name: String,
+    pub(crate) native: Arc<RecordSchema>,
+    pub(crate) local: Arc<RecordSchema>,
+    pub(crate) client_id: sync_guid::Guid,
 }
 
 pub(super) fn load_or_bootstrap(
@@ -42,6 +43,7 @@ pub(super) fn load_or_bootstrap(
         }
         let local_ver: String = meta::get(db, meta::LOCAL_SCHEMA_VERSION)?;
         let native_ver: String = meta::get(db, meta::NATIVE_SCHEMA_VERSION)?;
+        let client_id: sync_guid::Guid = meta::get(db, meta::OWN_CLIENT_ID)?;
 
         if native_ver != native.version.to_string() {
             // XXX migrate existing records here!
@@ -62,6 +64,7 @@ pub(super) fn load_or_bootstrap(
             local: Arc::new(parsed),
             native,
             collection_name: name,
+            client_id,
         })
     } else {
         bootstrap(db, native)
@@ -91,9 +94,11 @@ pub(super) fn bootstrap(
     meta::put(db, meta::LOCAL_SCHEMA_VERSION, &ver_str)?;
     meta::put(db, meta::NATIVE_SCHEMA_VERSION, &ver_str)?;
     meta::put(db, meta::COLLECTION_NAME, &native.parsed.name)?;
+    meta::put(db, meta::CHANGE_COUNTER, &1)?;
     Ok(RemergeInfo {
         collection_name: native.parsed.name.clone(),
         native: native.parsed.clone(),
         local: native.parsed.clone(),
+        client_id: guid,
     })
 }

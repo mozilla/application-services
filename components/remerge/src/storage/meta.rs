@@ -17,7 +17,7 @@ pub(crate) const LOCAL_SCHEMA_VERSION: MetaKey = MetaKey("remerge/local-schema")
 pub(crate) const NATIVE_SCHEMA_VERSION: MetaKey = MetaKey("remerge/native-schema");
 pub(crate) const OWN_CLIENT_ID: MetaKey = MetaKey("remerge/client-id");
 
-pub(crate) const LAST_SYNC_SERVER_MS: MetaKey = MetaKey("remerge/server-last-sync-ms");
+// pub(crate) const LAST_SYNC_SERVER_MS: MetaKey = MetaKey("remerge/server-last-sync-ms");
 pub(crate) const CHANGE_COUNTER: MetaKey = MetaKey("remerge/change-counter");
 
 pub(crate) fn put(db: &Connection, key: MetaKey, value: &dyn ToSql) -> Result<()> {

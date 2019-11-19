@@ -17,17 +17,12 @@ CREATE TABLE remerge_schemas (
     schema_text      TEXT NOT NULL
 );
 
-CREATE TABLE rec_common (
-    id             INTEGER PRIMARY KEY,
-    guid           TEXT NOT NULL UNIQUE,
-);
-
 -- Table of local records
 CREATE TABLE rec_local (
     id             INTEGER PRIMARY KEY,
     guid           TEXT NOT NULL UNIQUE,
 
-    remerge_schema_id INTEGER,
+    remerge_schema_version TEXT,
 
     record_data    TEXT NOT NULL,
     -- A local timestamp
@@ -37,19 +32,17 @@ CREATE TABLE rec_local (
     sync_status    TINYINT NOT NULL DEFAULT 0,
 
     vector_clock   TEXT NOT NULL,
-    last_writer_id TEXT NOT NULL,
-
-    FOREIGN KEY(remerge_schema_id) REFERENCES remerge_schemas(id)
+    last_writer_id TEXT NOT NULL
 );
 
--- The "mirror", e.g.
+-- The "mirror", e.g. the last remote value we've seen.
 CREATE TABLE rec_mirror (
     id             INTEGER PRIMARY KEY,
     guid           TEXT NOT NULL UNIQUE,
 
     record_data TEXT NOT NULL,
 
-    remerge_schema_id INTEGER,
+    remerge_schema_version TEXT,
 
     -- in milliseconds (a sync15::ServerTimestamp multiplied by 1000 and truncated)
     server_modified_ms INTEGER NOT NULL,
@@ -58,8 +51,7 @@ CREATE TABLE rec_mirror (
     is_overridden   TINYINT NOT NULL DEFAULT 0,
 
     vector_clock   TEXT, -- Can be null for legacy collections...
-    last_writer_id TEXT NOT NULL, -- A sync guid.
-    FOREIGN KEY(remerge_schema_id) REFERENCES remerge_schemas(id)
+    last_writer_id TEXT NOT NULL -- A sync guid.
 );
 
 

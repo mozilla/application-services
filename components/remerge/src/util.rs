@@ -48,7 +48,3 @@ macro_rules! ensure {
         }
     };
 }
-
-/// Release of WorldWideWeb, the first web browser. Synced data could never come
-/// from before this date. XXX this could be untrue for new collections...
-pub const EARLIEST_SANE_TIME: i64 = 662_083_200_000;
