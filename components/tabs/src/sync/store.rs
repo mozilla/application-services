@@ -72,6 +72,7 @@ pub struct TabsStore<'a> {
     storage: &'a TabsStorage,
     remote_clients: RefCell<HashMap<String, RemoteClient>>,
     last_sync: Cell<Option<ServerTimestamp>>, // We use a cell because `sync_finished` doesn't take a mutable reference to &self.
+    sync_store_assoc: RefCell<StoreSyncAssociation>,
 }
 
 impl<'a> TabsStore<'a> {
@@ -80,7 +81,13 @@ impl<'a> TabsStore<'a> {
             storage,
             remote_clients: RefCell::default(),
             last_sync: Cell::default(),
+            sync_store_assoc: RefCell::new(StoreSyncAssociation::Disconnected),
         }
+    }
+    fn wipe_reset_helper(&self, is_wipe: bool) -> result::Result<(), failure::Error> {
+        self.remote_clients.borrow_mut().clear();
+        self.storage.wipe(is_wipe);
+        Ok(())
     }
 }
 
@@ -176,17 +183,15 @@ impl<'a> Store for TabsStore<'a> {
     }
 
     fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {
-        // This will cause the sync manager to call `reset`, which does nothing.
-        Ok(StoreSyncAssociation::Disconnected)
+        Ok(self.sync_store_assoc.borrow().clone())
     }
 
-    fn reset(&self, _assoc: &StoreSyncAssociation) -> result::Result<(), failure::Error> {
-        // Do nothing!
-        Ok(())
+    fn reset(&self, assoc: &StoreSyncAssociation) -> result::Result<(), failure::Error> {
+        self.sync_store_assoc.replace(assoc.clone());
+        self.wipe_reset_helper(false)
     }
 
     fn wipe(&self) -> result::Result<(), failure::Error> {
-        // Do nothing!
-        Ok(())
+        self.wipe_reset_helper(true)
     }
 }
