@@ -227,6 +227,32 @@ abstract class LoginsStorageTest {
     }
 
     @Test
+    fun testEnsureValid() {
+        val test = getTestStore()
+        test.unlock(encryptionKey)
+
+        test.add(ServerPassword(
+                id = "bbbbb",
+                hostname = "https://www.foo.org",
+                httpRealm = "Some Realm",
+                password = "MyPassword",
+                username = "MyUsername"))
+
+        val dupeLogin = ServerPassword(
+                id = "",
+                hostname = "https://www.foo.org",
+                httpRealm = "Some Realm",
+                password = "MyPassword",
+                username = "MyUsername")
+
+        expectException(InvalidRecordException::class.java) {
+            test.ensureValid(dupeLogin)
+        }
+
+        test.delete("bbbbb")
+    }
+
+    @Test
     fun testUpdate() {
         val test = getTestStore()
         test.unlock(encryptionKey)

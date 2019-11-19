@@ -25,12 +25,8 @@ public enum LoginsStoreError: LocalizedError {
     case duplicateGuid(message: String)
 
     /// This is thrown on attempts to insert or update a record so that it
-    /// is no longer valid. Valid records have:
-    ///
-    /// - non-empty hostnames
-    /// - non-empty passwords
-    /// - and exactly one of `httpRealm` or `formSubmitUrl` is non-null.
-    case invalidLogin(message: String)
+    /// is no longer valid. See InvalidLoginReason for list of reasons.
+    case invalidLogin(message: String, reason: InvalidLoginReason)
 
     /// This error is emitted in two cases:
     ///
@@ -94,8 +90,20 @@ public enum LoginsStoreError: LocalizedError {
         case Sync15Passwords_DuplicateGuid:
             return .duplicateGuid(message: String(freeingRustString: message!))
 
-        case Sync15Passwords_InvalidLogin:
-            return .invalidLogin(message: String(freeingRustString: message!))
+        case Sync15Passwords_InvalidLogin_EmptyHostname:
+            return .invalidLogin(message: String(freeingRustString: message!), reason: .emptyHostname)
+
+        case Sync15Passwords_InvalidLogin_EmptyPassword:
+            return .invalidLogin(message: String(freeingRustString: message!), reason: .emptyPassword)
+
+        case Sync15Passwords_InvalidLogin_DuplicateLogin:
+            return .invalidLogin(message: String(freeingRustString: message!), reason: .duplicateLogin)
+
+        case Sync15Passwords_InvalidLogin_BothTargets:
+            return .invalidLogin(message: String(freeingRustString: message!), reason: .bothTargets)
+
+        case Sync15Passwords_InvalidLogin_NoTarget:
+            return .invalidLogin(message: String(freeingRustString: message!), reason: .noTarget)
 
         case Sync15Passwords_InvalidKeyError:
             return .invalidKey(message: String(freeingRustString: message!))
@@ -144,4 +152,13 @@ public enum LoginsStoreError: LocalizedError {
         }
         return result
     }
+}
+
+/// Indicates a record is invalid
+public enum InvalidLoginReason {
+    case emptyHostname
+    case emptyPassword
+    case duplicateLogin
+    case bothTargets
+    case noTarget
 }

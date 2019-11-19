@@ -4,7 +4,7 @@
 
 // This module implement the traits that make the FFI code easier to manage.
 
-use crate::{Error, ErrorKind, Login};
+use crate::{Error, ErrorKind, InvalidLogin, Login};
 use ffi_support::{implement_into_ffi_by_json, ErrorCode, ExternError};
 use sync15::ErrorKind as Sync15ErrorKind;
 
@@ -25,18 +25,26 @@ pub mod error_codes {
     /// already existed.
     pub const DUPLICATE_GUID: i32 = 3;
 
-    /// Attempted to insert or update a record so that it is invalid
-    pub const INVALID_LOGIN: i32 = 4;
-
     /// Either the file is not a database, or it is not encrypted with the
     /// provided encryption key.
-    pub const INVALID_KEY: i32 = 5;
+    pub const INVALID_KEY: i32 = 4;
 
     /// A request to the sync server failed.
-    pub const NETWORK: i32 = 6;
+    pub const NETWORK: i32 = 5;
 
     /// An operation has been interrupted.
-    pub const INTERRUPTED: i32 = 7;
+    pub const INTERRUPTED: i32 = 6;
+
+    // Skip a bunch of spaces to make it clear these are part of a group,
+    // even as more and more errors get added. We're only exposing the
+    // InvalidLogin items that can actually be triggered, the others
+    // (if they happen accidentally) will come through as unexpected.
+
+    pub const INVALID_LOGIN_EMPTY_HOSTNAME: i32 = 64;
+    pub const INVALID_LOGIN_EMPTY_PASSWORD: i32 = 64 + 1;
+    pub const INVALID_LOGIN_DUPLICATE_LOGIN: i32 = 64 + 2;
+    pub const INVALID_LOGIN_BOTH_TARGETS: i32 = 64 + 3;
+    pub const INVALID_LOGIN_NO_TARGET: i32 = 64 + 4;
 }
 
 fn get_code(err: &Error) -> ErrorCode {
@@ -61,7 +69,13 @@ fn get_code(err: &Error) -> ErrorCode {
         }
         ErrorKind::InvalidLogin(desc) => {
             log::error!("Invalid login: {}", desc);
-            ErrorCode::new(error_codes::INVALID_LOGIN)
+            ErrorCode::new(match desc {
+                InvalidLogin::EmptyHostname => error_codes::INVALID_LOGIN_EMPTY_HOSTNAME,
+                InvalidLogin::EmptyPassword => error_codes::INVALID_LOGIN_EMPTY_PASSWORD,
+                InvalidLogin::DuplicateLogin => error_codes::INVALID_LOGIN_DUPLICATE_LOGIN,
+                InvalidLogin::BothTargets => error_codes::INVALID_LOGIN_BOTH_TARGETS,
+                InvalidLogin::NoTarget => error_codes::INVALID_LOGIN_NO_TARGET,
+            })
         }
         // We can't destructure `err` without bringing in the libsqlite3_sys crate
         // (and I'd really rather not) so we can't put this in the match.

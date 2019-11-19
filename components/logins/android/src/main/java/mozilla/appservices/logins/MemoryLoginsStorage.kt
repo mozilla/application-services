@@ -171,7 +171,7 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
             timePasswordChanged = System.currentTimeMillis()
         )
 
-        checkValid(toInsert)
+        checkValidWithNoDupes(toInsert)
 
         val sp = list.find { it.id == toInsert.id }
         if (sp != null) {
@@ -191,7 +191,7 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
         for (login in logins) {
             val toInsert = login.copy(id = UUID.randomUUID().toString())
             try {
-                checkValid(toInsert)
+                checkValidWithNoDupes(toInsert)
                 list += toInsert
             } catch (e: InvalidRecordException) {
                 numErrors += 1
@@ -217,7 +217,7 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
                     System.currentTimeMillis()
                 })
 
-        checkValid(newRecord)
+        checkValidWithNoDupes(newRecord)
 
         list = list.filter { it.id != login.id }
 
@@ -256,18 +256,45 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
     @Suppress("ThrowsCount")
     private fun checkValid(login: ServerPassword) {
         if (login.hostname == "") {
-            throw InvalidRecordException("Invalid login: Hostname is empty")
+            throw InvalidRecordException("Invalid login: Hostname is empty", InvalidLoginReason.EMPTY_HOSTNAME)
         }
         if (login.password == "") {
-            throw InvalidRecordException("Invalid login: Password is empty")
+            throw InvalidRecordException("Invalid login: Password is empty", InvalidLoginReason.EMPTY_PASSWORD)
         }
         if (login.formSubmitURL != null && login.httpRealm != null) {
             throw InvalidRecordException(
-                    "Invalid login: Both `formSubmitUrl` and `httpRealm` are present")
+                    "Invalid login: Both `formSubmitUrl` and `httpRealm` are present",
+                    InvalidLoginReason.BOTH_TARGETS)
         }
         if (login.formSubmitURL == null && login.httpRealm == null) {
             throw InvalidRecordException(
-                    "Invalid login: Neither `formSubmitUrl` and `httpRealm` are present")
+                    "Invalid login: Neither `formSubmitUrl` and `httpRealm` are present",
+                    InvalidLoginReason.NO_TARGET)
+        }
+    }
+
+    override fun ensureValid(login: ServerPassword) {
+        checkValidWithNoDupes(login)
+    }
+
+    @Suppress("ThrowsCount")
+    private fun checkValidWithNoDupes(login: ServerPassword) {
+        checkValid(login)
+
+        val hasDupe = list.any {
+            it.id != login.id &&
+            it.hostname == login.hostname &&
+            it.username == login.username &&
+            (
+                it.formSubmitURL == login.formSubmitURL ||
+                it.httpRealm == login.httpRealm
+            )
+        }
+
+        if (hasDupe) {
+            throw InvalidRecordException(
+                    "Invalid login: Login already exists",
+                    InvalidLoginReason.DUPLICATE_LOGIN)
         }
     }
 }

@@ -61,6 +61,9 @@ internal interface PasswordSyncAdapter : Library {
     fun sync15_passwords_reset(handle: LoginsDbHandle, error: RustError.ByReference)
 
     fun sync15_passwords_touch(handle: LoginsDbHandle, id: String, error: RustError.ByReference)
+
+    fun sync15_passwords_check_valid(handle: LoginsDbHandle, json: String, error: RustError.ByReference)
+
     // This is 1 for true and 0 for false, it would be a boolean but we need to return a value with
     // a known size.
     fun sync15_passwords_delete(handle: LoginsDbHandle, id: String, error: RustError.ByReference): Byte
