@@ -30,6 +30,13 @@ but on the understanding that it may be a lengthy discussion.
 
 ## Using the Logins component
 
+### Before using this component
+
+Products sending telemetry and using this component *must request* a data-review following
+[this process](https://wiki.mozilla.org/Firefox/Data_Collection).
+This component provides data collection using the [Glean SDK](https://mozilla.github.io/glean/book/index.html).
+The list of metrics being collected is available in the [metrics documentation](../../docs/metrics/logins/metrics.md).
+
 ### Prerequisites
 
 To use this component for local storage of logins data, you will need to know how to integrate appservices components

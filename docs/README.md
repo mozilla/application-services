@@ -12,6 +12,8 @@ Everything else in this directory is contributor-facing documentation to help
 you work on app-services projects.  We have:
 
   * A high-level guide to [Contributing to Application Services](./contributing.md)
+  * A description of the [metrics](./metrics/README.md) gathered by each component
+    (via the [glean](https://mozilla.github.io/glean/) framework).
   * The [Synconomicon](https://mozilla.github.io/application-services/synconomicon/), a deep dive into the internals of sync and storage for Firefox Applications.
   * The [Sync and Storage Handbook](https://mozilla.github.io/application-services/sync-storage-handbook/index.html), which provides a higher-level view of our sync and storage components.
   * Docs for various infrastructure pieces:

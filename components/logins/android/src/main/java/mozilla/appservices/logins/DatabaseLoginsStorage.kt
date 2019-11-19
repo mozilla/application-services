@@ -10,6 +10,19 @@ import mozilla.appservices.logins.rust.RustError
 import mozilla.appservices.sync15.SyncTelemetryPing
 import java.util.concurrent.atomic.AtomicLong
 import org.json.JSONArray
+import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMetrics
+
+/**
+ * Import some private Glean types, so that we can use them in type declarations.
+ *
+ * I do not like importing these private classes, but I do like the nice generic
+ * code they allow me to write! By agreement with the Glean team, we must not
+ * instantiate anything from these classes, and it's on us to fix any bustage
+ * on version updates.
+ */
+import mozilla.components.service.glean.private.CounterMetricType
+import mozilla.components.service.glean.private.TimingDistributionMetricType
+import mozilla.components.service.glean.private.LabeledMetricType
 
 /**
  * LoginsStorage implementation backed by a database.
@@ -55,29 +68,37 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     @Synchronized
     @Throws(LoginsStorageException::class)
     override fun unlock(encryptionKey: String) {
-        return rustCall {
-            if (!isLocked()) {
-                throw MismatchedLockException("Unlock called when we are already unlocked")
+        return unlockCounters.measure {
+            rustCall {
+                if (!isLocked()) {
+                    throw MismatchedLockException("Unlock called when we are already unlocked")
+                }
+                LoginsStoreMetrics.unlockTime.measure {
+                    raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new(
+                            dbPath,
+                            encryptionKey,
+                            it))
+                }
             }
-            raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new(
-                    dbPath,
-                    encryptionKey,
-                    it))
         }
     }
 
     @Synchronized
     @Throws(LoginsStorageException::class)
     override fun unlock(encryptionKey: ByteArray) {
-        return rustCall {
-            if (!isLocked()) {
-                throw MismatchedLockException("Unlock called when we are already unlocked")
+        return unlockCounters.measure {
+            rustCall {
+                if (!isLocked()) {
+                    throw MismatchedLockException("Unlock called when we are already unlocked")
+                }
+                LoginsStoreMetrics.unlockTime.measure {
+                    raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new_with_hex_key(
+                            dbPath,
+                            encryptionKey,
+                            encryptionKey.size,
+                            it))
+                }
             }
-            raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new_with_hex_key(
-                    dbPath,
-                    encryptionKey,
-                    encryptionKey.size,
-                    it))
         }
     }
 
@@ -142,49 +163,73 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
 
     @Throws(LoginsStorageException::class)
     override fun delete(id: String): Boolean {
-        return rustCallWithLock { raw, error ->
-            val deleted = PasswordSyncAdapter.INSTANCE.sync15_passwords_delete(raw, id, error)
-            deleted.toInt() != 0
+        return writeQueryCounters.measure {
+            rustCallWithLock { raw, error ->
+                val deleted = LoginsStoreMetrics.writeQueryTime.measure {
+                    PasswordSyncAdapter.INSTANCE.sync15_passwords_delete(raw, id, error)
+                }
+                deleted.toInt() != 0
+            }
         }
     }
 
     @Throws(LoginsStorageException::class)
     override fun get(id: String): ServerPassword? {
-        val json = nullableRustCallWithLock { raw, error ->
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_id(raw, id, error)
-        }?.getAndConsumeRustString()
-        return json?.let { ServerPassword.fromJSON(it) }
+        return readQueryCounters.measure {
+            val json = nullableRustCallWithLock { raw, error ->
+                LoginsStoreMetrics.readQueryTime.measure {
+                    PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_id(raw, id, error)
+                }
+            }?.getAndConsumeRustString()
+            json?.let { ServerPassword.fromJSON(it) }
+        }
     }
 
     @Throws(LoginsStorageException::class)
     override fun touch(id: String) {
-        rustCallWithLock { raw, error ->
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_touch(raw, id, error)
+        writeQueryCounters.measure {
+            rustCallWithLock { raw, error ->
+                LoginsStoreMetrics.writeQueryTime.measure {
+                    PasswordSyncAdapter.INSTANCE.sync15_passwords_touch(raw, id, error)
+                }
+            }
         }
     }
 
     @Throws(LoginsStorageException::class)
     override fun list(): List<ServerPassword> {
-        val json = rustCallWithLock { raw, error ->
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_get_all(raw, error)
-        }.getAndConsumeRustString()
-        return ServerPassword.fromJSONArray(json)
+        return readQueryCounters.measure {
+            val json = rustCallWithLock { raw, error ->
+                LoginsStoreMetrics.readQueryTime.measure {
+                    PasswordSyncAdapter.INSTANCE.sync15_passwords_get_all(raw, error)
+                }
+            }.getAndConsumeRustString()
+            ServerPassword.fromJSONArray(json)
+        }
     }
 
     @Throws(LoginsStorageException::class)
     override fun getByHostname(hostname: String): List<ServerPassword> {
-        val json = rustCallWithLock { raw, error ->
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_hostname(raw, hostname, error)
-        }.getAndConsumeRustString()
-        return ServerPassword.fromJSONArray(json)
+        return readQueryCounters.measure {
+            val json = rustCallWithLock { raw, error ->
+                LoginsStoreMetrics.readQueryTime.measure {
+                    PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_hostname(raw, hostname, error)
+                }
+            }.getAndConsumeRustString()
+            ServerPassword.fromJSONArray(json)
+        }
     }
 
     @Throws(LoginsStorageException::class)
     override fun add(login: ServerPassword): String {
-        val s = login.toJSON().toString()
-        return rustCallWithLock { raw, error ->
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_add(raw, s, error)
-        }.getAndConsumeRustString()
+        return writeQueryCounters.measure {
+            val s = login.toJSON().toString()
+            rustCallWithLock { raw, error ->
+                LoginsStoreMetrics.writeQueryTime.measure {
+                    PasswordSyncAdapter.INSTANCE.sync15_passwords_add(raw, s, error)
+                }
+            }.getAndConsumeRustString()
+        }
     }
 
     @Throws(LoginsStorageException::class)
@@ -201,17 +246,25 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
 
     @Throws(LoginsStorageException::class)
     override fun update(login: ServerPassword) {
-        val s = login.toJSON().toString()
-        return rustCallWithLock { raw, error ->
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_update(raw, s, error)
+        return writeQueryCounters.measure {
+            val s = login.toJSON().toString()
+            rustCallWithLock { raw, error ->
+                LoginsStoreMetrics.writeQueryTime.measure {
+                    PasswordSyncAdapter.INSTANCE.sync15_passwords_update(raw, s, error)
+                }
+            }
         }
     }
 
     @Throws(InvalidRecordException::class)
     override fun ensureValid(login: ServerPassword) {
-        val s = login.toJSON().toString()
-        rustCallWithLock { raw, error ->
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_check_valid(raw, s, error)
+        readQueryCounters.measure {
+            val s = login.toJSON().toString()
+            rustCallWithLock { raw, error ->
+                LoginsStoreMetrics.readQueryTime.measure {
+                    PasswordSyncAdapter.INSTANCE.sync15_passwords_check_valid(raw, s, error)
+                }
+            }
         }
     }
 
@@ -257,6 +310,27 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     private inline fun <U> rustCallWithLock(callback: (Long, RustError.ByReference) -> U?): U {
         return nullableRustCallWithLock(callback)!!
     }
+
+    private val unlockCounters: LoginsStoreCounterMetrics by lazy {
+        LoginsStoreCounterMetrics(
+            LoginsStoreMetrics.unlockCount,
+            LoginsStoreMetrics.unlockErrorCount
+        )
+    }
+
+    private val readQueryCounters: LoginsStoreCounterMetrics by lazy {
+        LoginsStoreCounterMetrics(
+            LoginsStoreMetrics.readQueryCount,
+            LoginsStoreMetrics.readQueryErrorCount
+        )
+    }
+
+    private val writeQueryCounters: LoginsStoreCounterMetrics by lazy {
+        LoginsStoreCounterMetrics(
+            LoginsStoreMetrics.writeQueryCount,
+            LoginsStoreMetrics.writeQueryErrorCount
+        )
+    }
 }
 
 /**
@@ -279,4 +353,67 @@ internal fun Pointer.getAndConsumeRustString(): String {
  */
 internal fun Pointer.getRustString(): String {
     return this.getString(0, "utf8")
+}
+
+/**
+ * A helper extension method for conveniently measuring execution time of a closure.
+ *
+ * N.B. since we're measuring calls to Rust code here, the provided callback may be doing
+ * unsafe things. It's very imporant that we always call the function exactly once here
+ * and don't try to do anything tricky like stashing it for later or calling it multiple times.
+ */
+inline fun <U> TimingDistributionMetricType.measure(funcToMeasure: () -> U): U {
+    val timerId = this.start()
+    try {
+        return funcToMeasure()
+    } finally {
+        this.stopAndAccumulate(timerId)
+    }
+}
+
+/**
+ * A helper class for gathering basic count metrics on different kinds of LoginsStore operation.
+ *
+ * For each type of operation, we want to measure:
+ *    - total count of operations performed
+ *    - count of operations that produced an error, labeled by type
+ *
+ * This is a convenince wrapper to measure the two in one shot.
+ */
+class LoginsStoreCounterMetrics(
+    val count: CounterMetricType,
+    val errCount: LabeledMetricType<CounterMetricType>
+) {
+    @Suppress("ComplexMethod", "TooGenericExceptionCaught")
+    inline fun <U> measure(callback: () -> U): U {
+        count.add()
+        try {
+            return callback()
+        } catch (e: Exception) {
+            when (e) {
+                is NoSuchRecordException -> {
+                    errCount["no_such_recod"].add()
+                }
+                is IdCollisionException -> {
+                    errCount["id_collision"].add()
+                }
+                is InvalidKeyException -> {
+                    errCount["invalid_key"].add()
+                }
+                is InterruptedException -> {
+                    errCount["interrupted"].add()
+                }
+                is InvalidRecordException -> {
+                    errCount["invalid_record"].add()
+                }
+                is LoginsStorageException -> {
+                    errCount["storage_error"].add()
+                }
+                else -> {
+                    errCount["__other__"].add()
+                }
+            }
+            throw e
+        }
+    }
 }

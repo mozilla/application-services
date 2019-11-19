@@ -1,3 +1,7 @@
+plugins {
+    id "com.jetbrains.python.envs" version "0.0.26"
+}
+
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
@@ -28,6 +32,12 @@ android {
         // has their own build dir)
         test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
     }
+
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
 }
 
 configurations {
@@ -56,6 +66,8 @@ dependencies {
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
+    implementation "org.mozilla.components:service-glean:$android_components_version"
+
     api project(":full-megazord")
     implementation project(":native-support")
 
@@ -68,8 +80,11 @@ dependencies {
     // avoiding other configurations from being resolved.  Tricky!
     testImplementation files(configurations.jnaForTest.copyRecursive().files)
     testImplementation 'junit:junit:4.12'
-    testImplementation 'org.robolectric:robolectric:3.8'
+    testImplementation 'org.robolectric:robolectric:4.2.1'
     testImplementation 'org.mockito:mockito-core:2.21.0'
+    testImplementation 'androidx.test:core-ktx:1.2.0'
+    testImplementation 'androidx.work:work-testing:2.2.0'
+    testImplementation "org.mozilla.telemetry:glean-forUnitTests:$glean_version"
 
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
@@ -92,5 +107,9 @@ afterEvaluate {
 }
 
 apply from: "$rootDir/publish.gradle"
-
 ext.configurePublish()
+
+ext.gleanGenerateMarkdownDocs = true
+ext.gleanDocsDirectory = "$rootDir/docs/metrics/logins"
+apply from: "https://github.com/mozilla-mobile/android-components/raw/v${android_components_version}/components/service/glean/scripts/sdk_generator.gradle"
+
