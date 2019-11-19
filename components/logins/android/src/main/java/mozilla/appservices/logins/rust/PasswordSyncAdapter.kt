@@ -77,6 +77,18 @@ internal interface PasswordSyncAdapter : Library {
     fun sync15_passwords_new_interrupt_handle(handle: LoginsDbHandle, error: RustError.ByReference): RawLoginsInterruptHandle?
     fun sync15_passwords_interrupt(handle: RawLoginsInterruptHandle, error: RustError.ByReference)
     fun sync15_passwords_interrupt_handle_destroy(handle: RawLoginsInterruptHandle)
+
+    fun sync15_passwords_rekey_database(
+        handle: LoginsDbHandle,
+        new_encryption_key: String,
+        error: RustError.ByReference
+    )
+    fun sync15_passwords_rekey_database_with_hex_key(
+        handle: LoginsDbHandle,
+        new_encryption_key_bytes: ByteArray,
+        new_encryption_key_len: Int,
+        error: RustError.ByReference
+    )
 }
 
 internal typealias LoginsDbHandle = Long

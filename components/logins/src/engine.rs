@@ -89,6 +89,10 @@ impl PasswordEngine {
         self.db.disable_mem_security()
     }
 
+    pub fn rekey_database(&self, new_encryption_key: &str) -> Result<()> {
+        self.db.rekey_database(new_encryption_key)
+    }
+
     // This is basically exposed just for sync_pass_sql, but it doesn't seem
     // unreasonable.
     pub fn conn(&self) -> &rusqlite::Connection {
@@ -275,6 +279,14 @@ mod test {
         assert_ge!(b_after_update.time_last_used, now_us);
         // Should be two even though we updated twice
         assert_eq!(b_after_update.times_used, 2);
+    }
+
+    #[test]
+    fn test_rekey() {
+        let engine = PasswordEngine::new_in_memory(Some("secret")).unwrap();
+        engine.rekey_database("new_encryption_key").unwrap();
+        let list = engine.list().expect("Grabbing Empty list to work");
+        assert_eq!(list.len(), 0);
     }
 }
 

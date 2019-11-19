@@ -90,6 +90,16 @@ impl LoginDb {
         Ok(())
     }
 
+    /// Change the key on an existing encrypted database,
+    /// it must first be unlocked with the current encryption key.
+    /// Once the database is readable and writeable, PRAGMA rekey
+    /// can be used to re-encrypt every page in the database with a new key.
+    /// https://www.zetetic.net/sqlcipher/sqlcipher-api/#Changing_Key
+    pub fn rekey_database(&self, new_encryption_key: &str) -> Result<()> {
+        self.conn().set_pragma("rekey", new_encryption_key)?;
+        Ok(())
+    }
+
     pub fn new_interrupt_handle(&self) -> SqlInterruptHandle {
         SqlInterruptHandle::new(
             self.db.get_interrupt_handle(),

@@ -266,6 +266,24 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
         }
     }
 
+    @Throws(LoginsStorageException::class)
+    override fun rekeyDatabase(newEncryptionKey: String) {
+        return rustCallWithLock { raw, error ->
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_rekey_database(raw, newEncryptionKey, error)
+        }
+    }
+
+    @Throws(LoginsStorageException::class)
+    override fun rekeyDatabase(newEncryptionKey: ByteArray) {
+        return rustCallWithLock { raw, error ->
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_rekey_database_with_hex_key(
+                    raw,
+                    newEncryptionKey,
+                    newEncryptionKey.size,
+                    error)
+        }
+    }
+
     @Synchronized
     @Throws(LoginsStorageException::class)
     override fun close() {
