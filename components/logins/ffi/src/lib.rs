@@ -130,6 +130,19 @@ pub extern "C" fn sync15_passwords_touch(handle: u64, id: FfiStr<'_>, error: &mu
 }
 
 #[no_mangle]
+pub extern "C" fn sync15_passwords_check_valid(
+    handle: u64,
+    record_json: FfiStr<'_>,
+    error: &mut ExternError,
+) {
+    log::debug!("sync15_passwords_check_valid");
+    ENGINES.call_with_result(error, handle, |state| {
+        let parsed: Login = serde_json::from_str(record_json.as_str())?;
+        state.lock().unwrap().check_valid_with_no_dupes(&parsed)
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn sync15_passwords_delete(
     handle: u64,
     id: FfiStr<'_>,

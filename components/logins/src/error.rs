@@ -69,6 +69,8 @@ pub enum InvalidLogin {
     EmptyHostname,
     #[fail(display = "Password is empty")]
     EmptyPassword,
+    #[fail(display = "Login already exists")]
+    DuplicateLogin,
     #[fail(display = "Both `formSubmitUrl` and `httpRealm` are present")]
     BothTargets,
     #[fail(display = "Neither `formSubmitUrl` and `httpRealm` are present")]

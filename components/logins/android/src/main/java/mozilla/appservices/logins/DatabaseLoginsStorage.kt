@@ -207,6 +207,14 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
         }
     }
 
+    @Throws(InvalidRecordException::class)
+    override fun ensureValid(login: ServerPassword) {
+        val s = login.toJSON().toString()
+        rustCallWithLock { raw, error ->
+            PasswordSyncAdapter.INSTANCE.sync15_passwords_check_valid(raw, s, error)
+        }
+    }
+
     @Synchronized
     @Throws(LoginsStorageException::class)
     override fun close() {
