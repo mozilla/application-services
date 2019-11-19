@@ -6,7 +6,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 from taskgraph.transforms.base import TransformSequence
 
-from ..build_config import get_components, script_to_bash_command
+from ..build_config import get_components
 
 transforms = TransformSequence()
 
@@ -19,14 +19,5 @@ def add_megazord_checks(config, tasks):
     for task in tasks:
         if task.pop("add-megazord-checks", False):
             task["worker"]["script"] += "\n" + "\n".join(megazord_commands)
-        yield task
-
-
-@transforms.add
-def build_task(config, tasks):
-    for task in tasks:
-        script = task["worker"].pop("script")
-        task["run"]["command"] = script_to_bash_command(script)
-
         yield task
 

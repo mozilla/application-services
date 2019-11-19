@@ -6,8 +6,6 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 from taskgraph.transforms.base import TransformSequence
 
-from ..build_config import script_to_bash_command
-
 transforms = TransformSequence()
 
 
@@ -28,10 +26,7 @@ def build_task(config, tasks):
         name = module_info["name"]
         version = module_info["version"]
 
-        script = task["worker"].pop("script").format(module_name=name)
-        bash_command = script_to_bash_command(script)
-
-        task["run"]["command"] = bash_command
+        task["worker"]["script"] = task["worker"]["script"].format(module_name=name)
         task["description"] = task["description"].format(module_name=name)
         task["worker"]["artifacts"] = artifacts = []
 
@@ -45,6 +40,5 @@ def build_task(config, tasks):
                     "path": "/builds/worker/checkouts/src/build/maven/org/mozilla/appservices/{}/{}/{}".format(name, version, artifact_filename),
                     "type": "file",
                 })
-
 
         yield task

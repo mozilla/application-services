@@ -6,6 +6,8 @@ loader: taskgraph.loader.transform:loader
 
 transforms:
   - app_services_taskgraph.transforms.android_build:transforms
+  - app_services_taskgraph.transforms.out_of_docker_setup:transforms
+  - app_services_taskgraph.transforms.script_to_run_task:transforms
   - taskgraph.transforms.job:transforms
   - taskgraph.transforms.task:transforms
 
@@ -17,15 +19,17 @@ jobs:
     attributes:
       run-on-pr-type: normal-ci
     add-megazord-checks: true
+    needs-sccache: true
     run-on-tasks-for: [github-pull-request]
     description: Build and test (Android - linux-x86-64)
     scopes:
       - project:releng:services/tooltool/api/download/internal
     worker-type: b-linux
     worker:
-      docker-image: {in-tree: cross-compile}
+      docker-image: {in-tree: linux}
       max-run-time: 1800
       script: |
+        rsync -a /builds/worker/fetches/libs/ /builds/worker/checkouts/src/libs/
         echo "rust.targets=linux-x86-64,x86_64\n" > local.properties
         ./gradlew --no-daemon clean
         ./gradlew --no-daemon assembleDebug

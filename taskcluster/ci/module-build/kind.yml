@@ -6,6 +6,8 @@ loader: app_services_taskgraph.loader.build_config:loader
 
 transforms:
   - app_services_taskgraph.transforms.module_build:transforms
+  - app_services_taskgraph.transforms.out_of_docker_setup:transforms
+  - app_services_taskgraph.transforms.script_to_run_task:transforms
   - taskgraph.transforms.job:transforms
   - taskgraph.transforms.task:transforms
 
@@ -21,7 +23,7 @@ job-defaults:
     - project:releng:services/tooltool/api/download/internal
   worker-type: b-linux
   worker:
-    docker-image: {in-tree: cross-compile}
+    docker-image: {in-tree: linux}
     max-run-time: 1800
     script: |
       echo "rust.targets=arm,arm64,x86_64,x86,darwin,linux-x86-64,win32-x86-64-gnu\n" > local.properties

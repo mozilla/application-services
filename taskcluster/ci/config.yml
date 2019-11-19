@@ -2,55 +2,52 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 ---
-trust-domain: app-services
+trust-domain: application-services
 task-priority: highest
 
 taskgraph:
   register: app_services_taskgraph:register
   repositories:
-    mobile:
+    appservices:
       name: "Application Services"
-  cached-task-prefix: project.mozilla.app-services
+  cached-task-prefix: project.application-services
   decision-parameters: 'app_services_taskgraph:get_decision_parameters'
 
 workers:
   aliases:
     b-linux:
-      provisioner: aws-provisioner-v1
+      provisioner: 'app-services-{level}'
       implementation: docker-worker
       os: linux
-      worker-type: 'app-services-{level}-b-linux'
+      worker-type: 'b-linux'
     images:
-      provisioner: aws-provisioner-v1
+      provisioner: 'app-services-{level}'
       implementation: docker-worker
       os: linux
-      worker-type: 'mobile-{level}-images'
+      worker-type: 'images'
     dep-signing:
-      provisioner: scriptworker-prov-v1
+      provisioner: scriptworker-k8s
       implementation: scriptworker-signing
       os: scriptworker
-      worker-type: appsv-signing-dep-v1
+      worker-type: appservices-t-signing
     signing:
-      provisioner: scriptworker-prov-v1
+      provisioner: scriptworker-k8s
       implementation: scriptworker-signing
       os: scriptworker
       worker-type:
         by-level:
-          "3": appsv-signing-v1
-          default: appsv-signing-dep-v1
+          "3": appservices-3-signing
+          default: appservices-t-signing
     dep-beetmover:
-      provisioner: scriptworker-prov-v1
+      provisioner: scriptworker-k8s
       implementation: scriptworker-beetmover
       os: scriptworker
-      worker-type: appsv-beetmover-dev
+      worker-type: appservices-1-beetmover
     beetmover:
-      provisioner: scriptworker-prov-v1
+      provisioner: scriptworker-k8s
       implementation: scriptworker-beetmover
       os: scriptworker
-      worker-type:
-        by-level:
-          "3": appsv-beetmover-v1
-          default: appsv-beetmover-dev
+      worker-type: 'appservices-{level}-beetmover'
 
 scriptworker:
   scope-prefix: project:mozilla:application-services:releng
