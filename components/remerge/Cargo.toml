@@ -14,9 +14,15 @@ log = "0.4.8"
 semver = { version = "0.9.0", features = ["serde"] }
 lazy_static = "1.4.0"
 index_vec = "0.1.0"
-
+sql-support = {path = "../support/sql"}
+error-support = {path = "../support/error"}
+sync-guid = {path = "../support/guid", features = ["random", "rusqlite_support"]}
 # it's not clear if we should actually use these deps (they're fine and not
 # uncommon or anything, but we could avoid them at the cost of slightly more
 # code).
 matches = "0.1.8"
 num-traits = "0.2.8"
+
+[dependencies.rusqlite]
+version = "0.20.0"
+features = ["functions", "bundled"]
