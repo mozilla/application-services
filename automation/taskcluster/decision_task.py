@@ -16,53 +16,23 @@ SKIP_CI_TAG = '[ci skip]'
 # Task owners for which we always run full CI. Typically bots.
 FULL_CI_GH_USERS = ['dependabot@users.noreply.github.com']
 
-def main(task_for):
-    if task_for == "github-pull-request":
-        task_owner = os.environ["TASK_OWNER"]
-        pr_title = os.environ["GITHUB_PR_TITLE"]
-        if SKIP_CI_TAG in pr_title:
-            print("CI skip requested, exiting.")
-            exit(0)
-        elif FULL_CI_TAG in pr_title or task_owner in FULL_CI_GH_USERS:
-            android_multiarch()
-        else:
-            android_linux_x86_64()
-    elif task_for == "github-push":
+
+def pr(pr_title, is_dependabot):
+    if SKIP_CI_TAG in pr_title:
+        print("CI skip requested, not creating any tasks.")
+    elif FULL_CI_TAG in pr_title or is_dependabot:
         android_multiarch()
-    elif task_for == "github-release":
-        is_staging = os.environ['IS_STAGING'] == 'true'
-        android_multiarch_release(is_staging)
     else:
-        raise ValueError("Unrecognized $TASK_FOR value: %r", task_for)
+        android_linux_x86_64()
 
-    full_task_graph = build_full_task_graph()
-    populate_chain_of_trust_task_graph(full_task_graph)
-    populate_chain_of_trust_required_but_unused_files()
 
-build_artifacts_expire_in = "1 month"
-build_dependencies_artifacts_expire_in = "3 month"
-log_artifacts_expire_in = "1 year"
+def master_push():
+    android_multiarch()
 
-build_env = {
-    "RUST_BACKTRACE": "1",
-    "RUSTFLAGS": "-Dwarnings",
-    "CARGO_INCREMENTAL": "0",
-    "CI": "1",
-}
-linux_build_env = {
-    "TERM": "dumb",  # Keep Gradle output sensible.
-    "CCACHE": "sccache",
-    "RUSTC_WRAPPER": "sccache",
-    "SCCACHE_IDLE_TIMEOUT": "1200",
-    "SCCACHE_CACHE_SIZE": "40G",
-    "SCCACHE_ERROR_LOG": "/build/sccache.log",
-    "RUST_LOG": "sccache=info",
-}
 
-# Calls "$PLATFORM_libs" functions and returns
-# their tasks IDs.
-def libs_for(deploy_environment, *platforms):
-    return list(map(lambda p: globals()[p + "_libs"](deploy_environment), platforms))
+def release(is_staging):
+    android_multiarch_release(is_staging)
+
 
 def android_libs(deploy_environment):
     task = (
@@ -147,12 +117,20 @@ def android_task(task_name, libs_tasks):
     return task
 
 def ktlint_detekt():
-    linux_build_task("detekt").with_script("./gradlew --no-daemon clean detekt").create()
-    linux_build_task("ktlint").with_script("./gradlew --no-daemon clean ktlint").create()
+    return (
+        linux_build_task("detekt").with_script("./gradlew --no-daemon clean detekt").create(),
+        linux_build_task("ktlint").with_script("./gradlew --no-daemon clean ktlint").create()
+    )
 
 def android_linux_x86_64():
     ktlint_detekt()
-    libs_tasks = libs_for(DeployEnvironment.NONE, "android", "desktop_linux", "desktop_macos", "desktop_win32_x86_64")
+    deploy_environment = DeployEnvironment.NONE
+    libs_tasks = (
+        android_libs(deploy_environment),
+        desktop_linux_libs(deploy_environment),
+        desktop_macos_libs(deploy_environment),
+        desktop_win32_x86_64_libs(deploy_environment)
+    )
     task = (
         android_task("Build and test (Android - linux-x86-64)", libs_tasks)
         .with_script("""
@@ -201,7 +179,12 @@ def gradle_module_task(libs_tasks, module_info, deploy_environment):
     return task.create()
 
 def build_gradle_modules_tasks(deploy_environment):
-    libs_tasks = libs_for(deploy_environment, "android", "desktop_linux", "desktop_macos", "desktop_win32_x86_64")
+    libs_tasks = (
+        android_libs(deploy_environment),
+        desktop_linux_libs(deploy_environment),
+        desktop_macos_libs(deploy_environment),
+        desktop_win32_x86_64_libs(deploy_environment)
+    )
     module_build_tasks = {}
     for module_info in module_definitions():
         module_build_tasks[module_info['name']] = gradle_module_task(libs_tasks, module_info, deploy_environment)
@@ -319,11 +302,23 @@ def linux_build_task(name):
             "application-services-gradle": "/root/.gradle",
             "application-services-rustup": "/root/.rustup",
         })
-        .with_index_and_artifacts_expire_in(build_artifacts_expire_in)
+        .with_index_and_artifacts_expire_in("1 month")
         .with_artifacts("/build/sccache.log")
         .with_max_run_time_minutes(120)
         .with_dockerfile(dockerfile_path("build"), use_indexed_docker_image)
-        .with_env(**build_env, **linux_build_env)
+        .with_env(**{
+            "RUST_BACKTRACE": "1",
+            "RUSTFLAGS": "-Dwarnings",
+            "CARGO_INCREMENTAL": "0",
+            "CI": "1",
+            "TERM": "dumb",  # Keep Gradle output sensible.
+            "CCACHE": "sccache",
+            "RUSTC_WRAPPER": "sccache",
+            "SCCACHE_IDLE_TIMEOUT": "1200",
+            "SCCACHE_CACHE_SIZE": "40G",
+            "SCCACHE_ERROR_LOG": "/build/sccache.log",
+            "RUST_LOG": "sccache=info",
+        })
         # We're stuck on 1.38.0 until we figure out the `cc` problems.
         .with_script("""
             rustup toolchain install 1.38.0
@@ -374,16 +369,28 @@ def linux_cross_compile_build_task(name):
         """)
     )
 
-CONFIG.task_name_template = "Application Services - %s"
-CONFIG.index_prefix = "project.application-services.application-services"
-CONFIG.docker_images_expire_in = build_dependencies_artifacts_expire_in
-CONFIG.repacked_msi_files_expire_in = build_dependencies_artifacts_expire_in
-
 
 class DeployEnvironment(Enum):
     RELEASE = enum.auto()
     STAGING_RELEASE = enum.auto()
     NONE = enum.auto()
+
+
+def main(task_for):
+    if task_for == "github-pull-request":
+        # TODO don't use TASK_OWNER, get from parameters instead
+        pr(os.environ["MOZILLA_PULL_REQUEST_TITLE"], os.environ["TASK_OWNER"] in FULL_CI_GH_USERS)
+    elif task_for == "github-push":
+        master_push()
+    elif task_for == "github-release":
+        # TODO use level instead
+        release(os.environ['IS_STAGING'] == 'true')
+    else:
+        raise ValueError("Unrecognized $TASK_FOR value: %r", task_for)
+
+    full_task_graph = build_full_task_graph()
+    populate_chain_of_trust_task_graph(full_task_graph)
+    populate_chain_of_trust_required_but_unused_files()
 
 
 if __name__ == "__main__":  # pragma: no cover

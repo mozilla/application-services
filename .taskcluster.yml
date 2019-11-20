@@ -1,209 +1,181 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
+---
 version: 1
+reporting: checks-v1
 policy:
-  pullRequests: public
+  # XXX We restrict taskcluster to collaborators so priviledged tests (like UI tests) can run on PRs
+  pullRequests: collaborators
 tasks:
-  $let:
-    decision_task_id: {$eval: as_slugid("decision_task")}
-    expires_in: {$fromNow: '1 year'}
-    # We define the following variable at the very top, because they are used in the
-    # default definition
-    head_branch:
-      $if: 'tasks_for == "github-pull-request"'
-      then: ${event.pull_request.head.ref}
-      else:
-        $if: 'tasks_for == "github-push"'
-        then: ${event.ref}
-        else: ${event.release.target_commitish}
-
-    head_rev:
-      $if: 'tasks_for == "github-pull-request"'
-      then: ${event.pull_request.head.sha}
-      else:
-        $if: 'tasks_for == "github-push"'
-        then: ${event.after}
-        else: ${event.release.tag_name}
-
-    repository:
-      $if: 'tasks_for == "github-pull-request"'
-      then: ${event.pull_request.head.repo.html_url}
-      else: ${event.repository.html_url}
-
-    is_repo_trusted:
-      # Pull requests on main repository can't be trusted because anybody can open a PR on it, without a review
-      $if: 'tasks_for in ["github-push", "github-release"] && event.repository.html_url == "https://github.com/mozilla/application-services"'
-      then: true
-      else: false
-
-    user:
-      # dependabot-preview[bot]@users.noreply.github.com doesn't validate as email.
-      # It would be easier if TC simply didn't enforce an email format for "owner".
-      $if: 'event.sender.login == "dependabot-preview[bot]"'
-      then: dependabot
-      else: ${event.sender.login}
-  in:
-    $let:
-      provisioner_id:
-        $if: 'is_repo_trusted'
-        then: 'app-services-3'
-        else: 'app-services-1'
-      # TODO: revisit once bug 1533314 is done to possibly infer better priorities
-      tasks_priority: highest
+  - $let:
+      taskgraph:
+        branch: taskgraph-try
+        revision: ad3af8371ed4c1da87804ef11b2459b2b71cf854
+      trustDomain: application-services
     in:
       $let:
-        default_task_definition:
-          taskId: ${decision_task_id}
-          taskGroupId: ${decision_task_id}
-          # because we're not using `reporting: checks-v1`, we need to keep using taskcluster-github as scheduler_id.
-          # This will change in the near future when https://github.com/mozilla/application-services/pull/1945 lands
-          schedulerId: taskcluster-github
-          created: {$fromNow: ''}
-          deadline: {$fromNow: '4 hours'}
-          expires: ${expires_in}
-          provisionerId: ${provisioner_id}
-          workerType: 'decision'
-          priority: ${tasks_priority}
-          requires: all-completed
-          retries: 5
-          scopes:
-            - queue:create-task:${tasks_priority}:${provisioner_id}/b-linux
-            - queue:create-task:${tasks_priority}:${provisioner_id}/images
-            - queue:route:statuses
-            - queue:route:notify.email.*
-            - queue:scheduler-id:taskcluster-github
-            # So that we can cache task outputs for re-use.
-            - "queue:route:index.project.application-services.*"
-            # So that we can re-use Gradle/Cargo/sccache bits between tasks.
-            - "docker-worker:cache:application-services-*"
-            # So that we can fetch the macOS SDK from internal tooltool.
-            - project:releng:services/tooltool/api/download/internal
-          routes:
-            - statuses
-          metadata:
-            owner: &task_owner ${user}@users.noreply.github.com
-            source: &task_source ${repository}/raw/${head_rev}/.taskcluster.yml
-          extra:
-            tasks_for: ${tasks_for}
-          payload:
-            artifacts:
-              public/task-graph.json:
-                type: file
-                path: /repo/task-graph.json
-                expires: ${expires_in}
-              public/actions.json:
-                type: file
-                path: /repo/actions.json
-                expires: ${expires_in}
-              public/parameters.yml:
-                type: file
-                path: /repo/parameters.yml
-                expires: ${expires_in}
-            maxRunTime: {$eval: '20 * 60'}
-            # https://github.com/servo/taskcluster-bootstrap-docker-images#decision-task
-            image: "servobrowser/taskcluster-bootstrap:decision-task@sha256:28045b7ec0485ef363f8cb14f194008b47e9ede99f2ea40a1e945e921fce976e"
-            command: # TODO: servo decision-task image doesn't include pyyaml.
-              - /bin/bash
-              - --login
-              - -cx
-              - >-
-                python3 -m pip install --upgrade pip &&
-                python3 -m pip install pyyaml &&
-                git init repo &&
-                cd repo &&
-                git fetch --tags ${repository} ${head_branch} &&
-                git reset --hard ${head_rev} &&
-                python3 automation/taskcluster/decision_task.py
-            env:
-              APPSERVICES_HEAD_REPOSITORY: ${repository}
-              APPSERVICES_HEAD_BRANCH: ${head_branch}
-              APPSERVICES_HEAD_REV: ${head_rev}
-              BUILD_WORKER_TYPE: b-linux
-              IMAGES_WORKER_TYPE: images
-              TASK_FOR: ${tasks_for}
-              TASK_OWNER: *task_owner
-              TASK_SOURCE: *task_source
-              SCHEDULER_ID: taskcluster-github
-              PROVISIONER_ID: ${provisioner_id}
-            features:
-              taskclusterProxy: true
+        # Github events have this stuff in different places...
+        ownerEmail:
+          # dependabot-preview[bot]@users.noreply.github.com doesn't validate as email.
+          # It would be easier if TC simply didn't enforce an email format for "owner".
+          $if: 'event.sender.login == "dependabot-preview[bot]"'
+          then: dependabot@users.noreply.github.com
+          else: ${event.sender.login}@users.noreply.github.com
+        baseRepoUrl:
+          $if: 'tasks_for in ["github-push", "github-release"]'
+          then: '${event.repository.html_url}'
+          else:
+            $if: 'tasks_for == "github-pull-request"'
+            then: '${event.pull_request.base.repo.html_url}'
+        repoUrl:
+          $if: 'tasks_for in ["github-push", "github-release"]'
+          then: '${event.repository.html_url}'
+          else:
+            $if: 'tasks_for == "github-pull-request"'
+            then: '${event.pull_request.head.repo.html_url}'
+        project:
+          $if: 'tasks_for in ["github-push", "github-release"]'
+          then: '${event.repository.name}'
+          else:
+            $if: 'tasks_for == "github-pull-request"'
+            then: '${event.pull_request.head.repo.name}'
+        head_branch:
+          $if: 'tasks_for == "github-pull-request"'
+          then: ${event.pull_request.head.ref}
+          else:
+            $if: 'tasks_for == "github-push"'
+            then: ${event.ref}
+            else:
+              $if: 'tasks_for == "github-release"'
+              then: '${event.release.target_commitish}'
+        head_sha:
+          $if: 'tasks_for == "github-push"'
+          then: '${event.after}'
+          else:
+            $if: 'tasks_for == "github-pull-request"'
+            then: '${event.pull_request.head.sha}'
+            else:
+              $if: 'tasks_for == "github-release"'
+              then: '${event.release.tag_name}'
+        ownTaskId: {$eval: as_slugid("decision_task")}
       in:
-        $match:
-          "tasks_for == 'github-pull-request' && event['action'] in ['opened', 'reopened', 'edited', 'synchronize']":
-            $let:
-              pull_request_title: ${event.pull_request.title}
-              pull_request_number: ${event.pull_request.number}
-              pull_request_url: ${event.pull_request.html_url}
-            in:
-              $mergeDeep:
-                - {$eval: 'default_task_definition'}
-                - payload:
-                    env:
-                      GITHUB_PR_TITLE: ${pull_request_title}
-                - metadata:
-                    name: 'Application Services - Decision task (Pull Request #${pull_request_number})'
-                    description: 'Building and testing Application Services - triggered by [#${pull_request_number}](${pull_request_url})'
-          "tasks_for == 'github-push' && head_branch == 'refs/heads/master'":
-            $mergeDeep:
-              - {$eval: 'default_task_definition'}
-              - metadata:
-                  name: Application Services - Decision task (master)
-                  description: Schedules the build and test tasks for Application Services.
-          "tasks_for == 'github-release' && event['action'] == 'published'":
-            $let:
-              is_staging:
-                $if: 'event.repository.html_url != "https://github.com/mozilla/application-services"'
-                then: true
-                else: false
-            in:
-              $let:
-                beetmover_worker_type:
-                  $if: 'is_staging'
-                  then: appservices-1-beetmover
-                  else: appservices-3-beetmover
-                beetmover_bucket:
-                  $if: 'is_staging'
-                  then: maven-staging
-                  else: maven-production
-                beetmover_bucket_public_url:
-                  $if: 'is_staging'
-                  then: https://maven-default.stage.mozaws.net/
-                  else: https://maven.mozilla.org/
-                tag: ${event.release.tag_name}
-                release_task_definition:
-                  payload:
-                    features:
-                      chainOfTrust: true
-                  scopes:
-                    # So that we can publish on Maven using beetmover
-                    - project:mozilla:application-services:releng:beetmover:action:push-to-maven
-              in:
-                $mergeDeep:
-                  - {$eval: 'default_task_definition'}
-                  - {$eval: 'release_task_definition'}
-                  - $if: 'is_staging'
+        $if: 'tasks_for in ["github-pull-request", "github-release"] || tasks_for == "github-push" && head_branch == "refs/heads/master"'
+        then:
+          $let:
+            level:
+              $if: 'tasks_for in ["github-push", "github-release"] && repoUrl == "https://github.com/mozilla/application-services"'
+              then: '3'
+              else: '1'
+          in:
+            taskId: '${ownTaskId}'
+            taskGroupId: '${ownTaskId}'  # same as taskId; this is how automation identifies a decision task
+            schedulerId: '${trustDomain}-level-${level}'
+            created: {$fromNow: ''}
+            deadline: {$fromNow: '1 day'}
+            expires: {$fromNow: '1 year 1 second'}  # 1 second so artifacts expire first, despite rounding errors
+            metadata:
+              $merge:
+                - owner: "${ownerEmail}"
+                  source: '${repoUrl}/raw/${head_sha}/.taskcluster.yml'
+                - $if: 'tasks_for in ["github-push", "github-pull-request", "github-release"]'
+                  then:
+                    name: "Decision Task"
+                    description: 'The task that creates all of the other tasks in the task graph'
+            provisionerId: "app-services-${level}"
+            workerType: "decision"
+            tags:
+              kind: decision-task
+            routes:
+              - checks
+            scopes:
+              # `https://` is 8 characters so, ${repoUrl[8:]} is the repository without the protocol.
+              $if: 'tasks_for == "github-push"'
+              then:
+                $let:
+                  short_head_branch:
+                    $if: 'head_branch[:11] == "refs/heads/"'
+                    then: {$eval: 'head_branch[11:]'}
+                    else: ${head_branch}
+                in:
+                  - 'assume:repo:${repoUrl[8:]}:branch:${short_head_branch}'
+              else:
+                $if: 'tasks_for == "github-pull-request"'
+                then:
+                  - 'assume:repo:github.com/${event.pull_request.base.repo.full_name}:pull-request'
+                else:
+                  $if: 'tasks_for == "github-release"'
+                  then:
+                    - 'assume:repo:${repoUrl[8:]}:release'
+
+            requires: all-completed
+            priority: lowest
+            retries: 5
+
+            payload:
+              env:
+                # run-task uses these to check out the source; the inputs
+                # to `mach taskgraph decision` are all on the command line.
+                $merge:
+                  - MOZILLA_BASE_REPOSITORY: '${baseRepoUrl}'
+                    MOZILLA_HEAD_REPOSITORY: '${repoUrl}'
+                    MOZILLA_HEAD_REF: '${head_branch}'
+                    MOZILLA_HEAD_REV: '${head_sha}'
+                    MOZILLA_REPOSITORY_TYPE: git
+                    TASKGRAPH_BASE_REPOSITORY: https://hg.mozilla.org/ci/taskgraph
+                    TASKGRAPH_HEAD_REPOSITORY: https://hg.mozilla.org/ci/${taskgraph.branch}
+                    TASKGRAPH_HEAD_REV: ${taskgraph.revision}
+                    TASKGRAPH_REPOSITORY_TYPE: hg
+                    REPOSITORIES: {$json: {mozilla: "Application Services", taskgraph: "Taskgraph"}}
+                    HG_STORE_PATH: /builds/worker/checkouts/hg-store
+                    ANDROID_SDK_ROOT: /builds/worker/android-sdk
+                    MOZ_FETCHES_DIR: /builds/worker/checkouts/src
+                  - $if: 'tasks_for in ["github-pull-request"]'
                     then:
-                      scopes:
-                        - project:mozilla:application-services:releng:signing:cert:dep-signing
-                        - queue:create-task:scriptworker-k8s/appservices-t-signing
-                    else:
-                      scopes:
-                        - project:mozilla:application-services:releng:signing:cert:release-signing
-                        - queue:create-task:scriptworker-k8s/appservices-3-signing
-                        # So that we can upload symbols to Socorro
-                        - "secrets:get:project/application-services/symbols-token"
-                  - payload:
-                      env:
-                        IS_STAGING: ${is_staging}
-                        BEETMOVER_WORKER_TYPE: ${beetmover_worker_type}
-                        BEETMOVER_BUCKET: ${beetmover_bucket}
-                        BEETMOVER_BUCKET_PUBLIC_URL: ${beetmover_bucket_public_url}
-                  - scopes:
-                    # in order to publish on Maven using beetmover
-                    - project:mozilla:application-services:releng:beetmover:bucket:${beetmover_bucket}
-                    - queue:create-task:${tasks_priority}:scriptworker-k8s/${beetmover_worker_type}
-                  - metadata:
-                      name: Application Services - Decision task (${tag})
-                      description: Build and publish release versions.
+                      MOZILLA_PULL_REQUEST_TITLE: '${event.pull_request.title}'
+                      MOZILLA_PULL_REQUEST_NUMBER: '${event.pull_request.number}'
+                  - $if: 'tasks_for == "github-release"'
+                    then:
+                      MOZILLA_HEAD_TAG: '${event.release.tag_name}'
+              features:
+                taskclusterProxy: true
+                chainOfTrust: true
+              # Note: This task is built server side without the context or tooling that
+              # exist in tree so we must hard code the hash
+              image:
+                mozillareleases/taskgraph:decision-mobile-6020473b1a928d8df50e234a7ca2e81ade2220a4fb5fbe16b02477dd64a49728@sha256:98d226736b7d03907114bf37938002b90e8a37cbe3a297690e349f1ddddb1d7c
+
+              maxRunTime: 1800
+
+              command:
+                - /usr/local/bin/run-task
+                - '--mozilla-checkout=/builds/worker/checkouts/src'
+                - '--taskgraph-checkout=/builds/worker/checkouts/taskgraph'
+                - '--task-cwd=/builds/worker/checkouts/src'
+                - '--'
+                - bash
+                - -cx
+                - >
+                  PIP_IGNORE_INSTALLED=0 pip install --user /builds/worker/checkouts/taskgraph &&
+                  PIP_IGNORE_INSTALLED=0 pip install --user arrow taskcluster pyyaml &&
+                  ln -s /builds/worker/artifacts artifacts &&
+                  ~/.local/bin/taskgraph decision
+                  --pushlog-id='0'
+                  --pushdate='0'
+                  --project='${project}'
+                  --message=""
+                  --owner='${ownerEmail}'
+                  --level='${level}'
+                  --base-repository="$MOZILLA_BASE_REPOSITORY"
+                  --head-repository="$MOZILLA_HEAD_REPOSITORY"
+                  --head-ref="$MOZILLA_HEAD_REF"
+                  --head-rev="$MOZILLA_HEAD_REV"
+                  --repository-type="$MOZILLA_REPOSITORY_TYPE"
+                  --tasks-for='${tasks_for}'
+              artifacts:
+                'public':
+                  type: 'directory'
+                  path: '/builds/worker/artifacts'
+                  expires: {$fromNow: '1 year'}
+            extra:
+              tasks_for: '${tasks_for}'
