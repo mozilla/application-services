@@ -90,8 +90,8 @@ public enum LoginsStoreError: LocalizedError {
         case Sync15Passwords_DuplicateGuid:
             return .duplicateGuid(message: String(freeingRustString: message!))
 
-        case Sync15Passwords_InvalidLogin_EmptyHostname:
-            return .invalidLogin(message: String(freeingRustString: message!), reason: .emptyHostname)
+        case Sync15Passwords_InvalidLogin_EmptyOrigin:
+            return .invalidLogin(message: String(freeingRustString: message!), reason: .emptyOrigin)
 
         case Sync15Passwords_InvalidLogin_EmptyPassword:
             return .invalidLogin(message: String(freeingRustString: message!), reason: .emptyPassword)
@@ -156,7 +156,7 @@ public enum LoginsStoreError: LocalizedError {
 
 /// Indicates a record is invalid
 public enum InvalidLoginReason {
-    case emptyHostname
+    case emptyOrigin
     case emptyPassword
     case duplicateLogin
     case bothTargets

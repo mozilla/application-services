@@ -16,7 +16,7 @@ typedef enum Sync15PasswordsErrorCode {
     Sync15Passwords_NetworkError     = 5,
     Sync15Passwords_InterruptedError = 6,
 
-    Sync15Passwords_InvalidLogin_EmptyHostname = 64 + 0,
+    Sync15Passwords_InvalidLogin_EmptyOrigin = 64 + 0,
     Sync15Passwords_InvalidLogin_EmptyPassword = 64 + 1,
     Sync15Passwords_InvalidLogin_DuplicateLogin = 64 + 2,
     Sync15Passwords_InvalidLogin_BothTargets = 64 + 3,

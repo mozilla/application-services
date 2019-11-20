@@ -52,7 +52,7 @@ open class RustError : Structure() {
             5 -> return RequestFailedException(message)
             6 -> return InterruptedException(message)
 
-            64 -> return InvalidRecordException(message, InvalidLoginReason.EMPTY_HOSTNAME)
+            64 -> return InvalidRecordException(message, InvalidLoginReason.EMPTY_ORIGIN)
             65 -> return InvalidRecordException(message, InvalidLoginReason.EMPTY_PASSWORD)
             66 -> return InvalidRecordException(message, InvalidLoginReason.DUPLICATE_LOGIN)
             67 -> return InvalidRecordException(message, InvalidLoginReason.BOTH_TARGETS)

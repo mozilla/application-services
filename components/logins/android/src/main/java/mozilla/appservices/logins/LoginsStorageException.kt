@@ -58,8 +58,8 @@ class InterruptedException(msg: String) : LoginsStorageException(msg)
  * A reason a login may be invalid
  */
 enum class InvalidLoginReason {
-    /** Hostnames may not be empty */
-    EMPTY_HOSTNAME,
+    /** Origins may not be empty */
+    EMPTY_ORIGIN,
     /** Passwords may not be empty */
     EMPTY_PASSWORD,
     /** The login already exists */
