@@ -1,3 +1,20 @@
+# v0.44.0 (_2019-11-21_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.43.1...v0.44.0)
+
+## Logins
+
+### What's new
+
+- Added ability to prevent insertion/updates from creating dupes via `LoginsStorage.ensureValid`. ([#2101](https://github.com/mozilla/application-services/pull/2101))
+
+## Tabs
+
+### Breaking Changes
+
+- The `RemoteTabsProvider` class constructor does not take the `localDeviceId` argument anymore.
+- The `RemoteTabsProvider.sync` method takes a `localDeviceId` argument.
+
 # v0.43.1 (_2019-11-18_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.43.0...v0.43.1)
