@@ -12,12 +12,12 @@ import mozilla.appservices.remotetabs.rust.RustError
 import mozilla.appservices.sync15.SyncTelemetryPing
 import java.util.concurrent.atomic.AtomicLong
 
-class RemoteTabsProvider(localDeviceId: String) : AutoCloseable {
+class RemoteTabsProvider : AutoCloseable {
     private var handle: AtomicLong = AtomicLong(0)
 
     init {
         handle.set(rustCall { error ->
-            LibRemoteTabsFFI.INSTANCE.remote_tabs_new(localDeviceId, error)
+            LibRemoteTabsFFI.INSTANCE.remote_tabs_new(error)
         })
     }
 
@@ -56,7 +56,7 @@ class RemoteTabsProvider(localDeviceId: String) : AutoCloseable {
     /**
      * Convenience Sync function.
      */
-    fun sync(syncInfo: SyncAuthInfo): SyncTelemetryPing {
+    fun sync(syncInfo: SyncAuthInfo, localDeviceId: String): SyncTelemetryPing {
         val json = rustCallWithLock { error ->
             LibRemoteTabsFFI.INSTANCE.remote_tabs_sync(
                     this.handle.get(),
@@ -64,6 +64,7 @@ class RemoteTabsProvider(localDeviceId: String) : AutoCloseable {
                     syncInfo.fxaAccessToken,
                     syncInfo.syncKey,
                     syncInfo.tokenserverURL,
+                    localDeviceId,
                     error
             )?.getAndConsumeRustString()
         }

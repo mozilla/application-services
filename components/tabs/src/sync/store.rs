@@ -73,6 +73,7 @@ pub struct TabsStore<'a> {
     remote_clients: RefCell<HashMap<String, RemoteClient>>,
     last_sync: Cell<Option<ServerTimestamp>>, // We use a cell because `sync_finished` doesn't take a mutable reference to &self.
     sync_store_assoc: RefCell<StoreSyncAssociation>,
+    pub(crate) local_id: RefCell<String>,
 }
 
 impl<'a> TabsStore<'a> {
@@ -82,6 +83,7 @@ impl<'a> TabsStore<'a> {
             remote_clients: RefCell::default(),
             last_sync: Cell::default(),
             sync_store_assoc: RefCell::new(StoreSyncAssociation::Disconnected),
+            local_id: RefCell::default(), // Will get replaced in `prepare_for_sync`.
         }
     }
     fn wipe_reset_helper(&self, is_wipe: bool) -> result::Result<(), failure::Error> {
@@ -98,6 +100,7 @@ impl<'a> Store for TabsStore<'a> {
 
     fn prepare_for_sync(&self, engine: &clients::Engine<'_>) -> Result<(), failure::Error> {
         self.remote_clients.replace(engine.recent_clients.clone());
+        self.local_id.replace(engine.local_client_id());
         Ok(())
     }
 
@@ -107,7 +110,7 @@ impl<'a> Store for TabsStore<'a> {
         telem: &mut telemetry::Engine,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
-        let local_id = self.storage.get_local_id();
+        let local_id = self.local_id.borrow().clone();
         let mut remote_tabs = Vec::with_capacity(inbound.changes.len());
 
         for incoming in inbound.changes {
@@ -137,19 +140,14 @@ impl<'a> Store for TabsStore<'a> {
             let (client_name, device_type) = self
                 .remote_clients
                 .borrow()
-                .get(local_id)
+                .get(&local_id)
                 .map(|client| {
                     (
                         client.device_name.clone(),
                         client.device_type.unwrap_or(DeviceType::Mobile),
                     )
                 })
-                .unwrap_or_else(|| {
-                    // TODO: Since we know our own client ID thanks to
-                    // `self.remote_clients`, we don't need consumers to
-                    // pass it themselves.
-                    (String::new(), DeviceType::Mobile)
-                });
+                .unwrap_or_else(|| (String::new(), DeviceType::Mobile));
             let local_record = ClientRemoteTabs {
                 client_id: local_id.to_owned(),
                 client_name,

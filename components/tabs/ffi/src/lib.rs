@@ -27,11 +27,10 @@ fn parse_url(url: &str) -> Result<url::Url> {
 }
 
 #[no_mangle]
-pub extern "C" fn remote_tabs_new(local_id: FfiStr<'_>, error: &mut ExternError) -> u64 {
+pub extern "C" fn remote_tabs_new(error: &mut ExternError) -> u64 {
     log::debug!("remote_tabs_new");
     ENGINES.insert_with_result(error, || -> Result<_> {
-        let local_id = local_id.as_str();
-        Ok(Arc::new(Mutex::new(TabsEngine::new(local_id))))
+        Ok(Arc::new(Mutex::new(TabsEngine::new())))
     })
 }
 
@@ -42,6 +41,7 @@ pub extern "C" fn remote_tabs_sync(
     access_token: FfiStr<'_>,
     sync_key: FfiStr<'_>,
     tokenserver_url: FfiStr<'_>,
+    local_device_id: FfiStr<'_>,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("remote_tabs_sync");
@@ -53,6 +53,7 @@ pub extern "C" fn remote_tabs_sync(
                 tokenserver_url: parse_url(tokenserver_url.as_str())?,
             },
             &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
+            local_device_id.as_str(),
         )?;
         Ok(ping)
     })

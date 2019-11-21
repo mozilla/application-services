@@ -313,6 +313,12 @@ impl<'a> Engine<'a> {
 
         Ok(inbound)
     }
+
+    pub fn local_client_id(&self) -> String {
+        // Bit dirty but it's the easiest way to reach to our own
+        // device ID without refactoring the whole sync manager crate.
+        self.command_processor.settings().fxa_device_id.clone()
+    }
 }
 
 #[cfg(test)]

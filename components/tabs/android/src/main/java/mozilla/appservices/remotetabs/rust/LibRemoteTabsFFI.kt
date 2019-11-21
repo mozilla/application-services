@@ -19,7 +19,6 @@ internal interface LibRemoteTabsFFI : Library {
     }
 
     fun remote_tabs_new(
-        local_id: String,
         error: RustError.ByReference
     ): TabsApiHandle
 
@@ -44,6 +43,7 @@ internal interface LibRemoteTabsFFI : Library {
         access_token: String,
         sync_key: String,
         token_server_url: String,
+        local_device_id: String,
         error: RustError.ByReference
     ): Pointer?
 

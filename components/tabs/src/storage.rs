@@ -22,22 +22,22 @@ pub struct ClientRemoteTabs {
 }
 
 pub struct TabsStorage {
-    local_id: String,
     local_tabs: RefCell<Option<Vec<RemoteTab>>>,
     remote_tabs: RefCell<Option<Vec<ClientRemoteTabs>>>,
 }
 
+impl Default for TabsStorage {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TabsStorage {
-    pub fn new(local_id: &str) -> Self {
+    pub fn new() -> Self {
         Self {
-            local_id: local_id.to_owned(),
             local_tabs: RefCell::default(),
             remote_tabs: RefCell::default(),
         }
-    }
-
-    pub fn get_local_id(&self) -> &str {
-        &self.local_id
     }
 
     pub fn update_local_state(&mut self, local_state: Vec<RemoteTab>) {

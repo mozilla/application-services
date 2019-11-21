@@ -34,8 +34,8 @@ pub fn assert_remote_tabs_equiv(l: &ClientRemoteTabs, r: &ClientRemoteTabs) {
 }
 
 pub fn sync_tabs(client: &mut TestClient) -> Result<(), failure::Error> {
-    let (init, key) = client.data_for_sync()?;
-    client.tabs_engine.sync(&init, &key)?;
+    let (init, key, device_id) = client.data_for_sync()?;
+    client.tabs_engine.sync(&init, &key, &device_id)?;
     Ok(())
 }
 
