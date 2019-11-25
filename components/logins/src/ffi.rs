@@ -4,8 +4,10 @@
 
 // This module implement the traits that make the FFI code easier to manage.
 #![feature("prost_support")]
-use crate::{Error, ErrorKind, Login, msg_types};
-use ffi_support::{implement_into_ffi_by_protobuf, implement_into_ffi_by_delegation, ErrorCode, ExternError};
+use crate::{msg_types, Error, ErrorKind, Login};
+use ffi_support::{
+    implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf, ErrorCode, ExternError,
+};
 use sync15::ErrorKind as Sync15ErrorKind;
 
 pub mod error_codes {
@@ -101,27 +103,27 @@ impl From<Login> for msg_types::Login {
     fn from(login: Login) -> Self {
         Self {
             guid: login.guid,
-            
+
             hostname: login.hostname,
-            
+
             form_submit_url: login.form_submit_url,
-            
-            http_realm: login.http_realm, 
-            
+
+            http_realm: login.http_realm,
+
             username: login.username,
-            
+
             password: login.password,
-            
+
             username_field: login.username_field,
-            
+
             password_field: login.password_field,
-            
+
             time_created: login.time_created,
-            
+
             time_password_changed: login.time_password_changed,
-            
+
             times_last_used: login.time_last_used,
-            
+
             times_used: login.times_used,
         }
     }
