@@ -35,9 +35,12 @@ abstract class LoginsStorageTest {
 
         store.add(ServerPassword(
                 id = "bbbbbbbbbbbb",
+                username = "Foobar2000",
                 hostname = "https://www.example.org",
                 formSubmitURL = "https://www.example.org/login",
-                password = "MyVeryCoolPassword"
+                password = "MyVeryCoolPassword",
+                usernameField = "users_name",
+                passwordField = "users_password"
         ))
 
         store.lock()
@@ -179,7 +182,9 @@ abstract class LoginsStorageTest {
                     hostname = "https://www.foo.org",
                     httpRealm = "Some Realm",
                     password = "MyPassword",
-                    username = "MyUsername"
+                    username = "MyUsername",
+                    usernameField = "",
+                    passwordField = ""
             ))
         }
 
@@ -194,7 +199,9 @@ abstract class LoginsStorageTest {
                 hostname = "https://www.foo.org",
                 httpRealm = "Some Realm",
                 password = "MyPassword",
-                username = null
+                username = "Foobar2000",
+                usernameField = "",
+                passwordField = ""
         )
 
         val generatedID = test.add(toInsert)
@@ -219,7 +226,10 @@ abstract class LoginsStorageTest {
                 hostname = "http://www.bar.com",
                 formSubmitURL = "http://login.bar.com",
                 password = "DummyPassword",
-                username = "DummyUsername"))
+                username = "DummyUsername",
+                usernameField = "users_name",
+                passwordField = "users_password"
+        ))
 
         assertEquals("123412341234", specificID)
 
@@ -236,21 +246,30 @@ abstract class LoginsStorageTest {
                 hostname = "https://www.foo.org",
                 httpRealm = "Some Realm",
                 password = "MyPassword",
-                username = "MyUsername"))
+                username = "MyUsername",
+                usernameField = "",
+                passwordField = ""
+        ))
 
         val dupeLogin = ServerPassword(
                 id = "",
                 hostname = "https://www.foo.org",
                 httpRealm = "Some Realm",
                 password = "MyPassword",
-                username = "MyUsername")
+                username = "MyUsername",
+                usernameField = "",
+                passwordField = ""
+        )
 
         val nullValueLogin = ServerPassword(
                 id = "",
                 hostname = "https://www.test.org",
                 httpRealm = "Some Other Realm",
                 password = "MyPassword",
-                username = "\u0000MyUsername2")
+                username = "\u0000MyUsername2",
+                usernameField = "",
+                passwordField = ""
+        )
 
         expectException(InvalidRecordException::class.java) {
             test.ensureValid(dupeLogin)
@@ -274,7 +293,9 @@ abstract class LoginsStorageTest {
                     hostname = "https://www.foo.org",
                     httpRealm = "Some Realm",
                     password = "MyPassword",
-                    username = "MyUsername"
+                    username = "MyUsername",
+                    usernameField = "",
+                    passwordField = ""
             ))
         }
 
@@ -316,7 +337,10 @@ abstract class LoginsStorageTest {
                 hostname = "http://www.bar.com",
                 formSubmitURL = "http://login.bar.com",
                 password = "DummyPassword",
-                username = "DummyUsername"))
+                username = "DummyUsername",
+                usernameField = "users_name",
+                passwordField = "users_password"
+        ))
 
         assertEquals("123412341234", specificID)
 
@@ -348,14 +372,18 @@ abstract class LoginsStorageTest {
                         httpRealm = "Test Realm",
                         formSubmitURL = "https://www.foo.org/login",
                         password = "MyPassword",
-                        username = "MyUsername"
+                        username = "MyUsername",
+                        usernameField = "users_name",
+                        passwordField = "users_password"
                 ),
                 // Neither formSubmitURL nor httpRealm
                 ServerPassword(
                         id = "",
                         hostname = "https://www.foo.org",
                         password = "MyPassword",
-                        username = "MyUsername"
+                        username = "MyUsername",
+                        usernameField = "",
+                        passwordField = ""
                 ),
                 // Empty password
                 ServerPassword(
@@ -363,7 +391,9 @@ abstract class LoginsStorageTest {
                         hostname = "https://www.foo.org",
                         httpRealm = "Some Realm",
                         password = "",
-                        username = "MyUsername"
+                        username = "MyUsername",
+                        usernameField = "",
+                        passwordField = ""
                 ),
                 // Empty hostname
                 ServerPassword(
@@ -371,7 +401,9 @@ abstract class LoginsStorageTest {
                         hostname = "",
                         httpRealm = "Some Realm",
                         password = "MyPassword",
-                        username = "MyUsername"
+                        username = "MyUsername",
+                        usernameField = "",
+                        passwordField = ""
                 )
         )
     }
