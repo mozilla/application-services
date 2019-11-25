@@ -120,27 +120,16 @@ impl From<Login> for msg_types::Login {
     fn from(login: Login) -> Self {
         Self {
             guid: login.guid,
-
             hostname: login.hostname,
-
             form_submit_url: login.form_submit_url,
-
             http_realm: login.http_realm,
-
             username: login.username,
-
             password: login.password,
-
             username_field: login.username_field,
-
             password_field: login.password_field,
-
             time_created: login.time_created,
-
             time_password_changed: login.time_password_changed,
-
             times_last_used: login.time_last_used,
-
             times_used: login.times_used,
         }
     }

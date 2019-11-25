@@ -10,7 +10,8 @@
 
 use ffi_support::ConcurrentHandleMap;
 use ffi_support::{
-    define_box_destructor, define_handle_map_deleter, define_string_destructor, define_bytebuffer_destructor, ExternError, FfiStr, ByteBuffer
+    define_box_destructor, define_bytebuffer_destructor, define_handle_map_deleter,
+    define_string_destructor, ByteBuffer, ExternError, FfiStr,
 };
 use logins::{Login, PasswordEngine, Result};
 use std::os::raw::c_char;
