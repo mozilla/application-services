@@ -36,7 +36,7 @@ Not initially, but it's something we'd like to support in the future.
 No.
 
 ## Is it possible to host your own Firefox Accounts service, like with Firefox Sync?
-[Yes.](https://docs.services.mozilla.com/howtos/run-fxa.html)
+[Yes.](https://mozilla-services.readthedocs.io/en/latest/howtos/run-fxa.html)
 
 
 # OAuth Integration
