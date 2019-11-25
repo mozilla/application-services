@@ -11,7 +11,7 @@ macro_rules! define_error_wrapper {
         /// method, which we don't use much but should *really* use more.
         pub use failure::ResultExt;
 
-        pub type Result<T> = std::result::Result<T, Error>;
+        pub type Result<T, E = Error> = std::result::Result<T, E>;
 
         #[derive(Debug)]
         pub struct Error(Box<failure::Context<$Kind>>);

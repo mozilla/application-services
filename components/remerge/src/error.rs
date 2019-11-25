@@ -24,6 +24,18 @@ pub enum ErrorKind {
     #[fail(display = "Invalid record: {}", _0)]
     InvalidRecord(#[fail(cause)] InvalidRecord),
 
+    #[fail(
+        display = "No record with guid exists (when one was required): {:?}",
+        _0
+    )]
+    NoSuchRecord(String),
+
+    #[fail(
+        display = "Failed to convert local record to native record (may indicate bad remerge schema): {}",
+        _0
+    )]
+    LocalToNativeError(String),
+
     #[fail(display = "Error parsing JSON data: {}", _0)]
     JsonError(#[fail(cause)] serde_json::Error),
 
@@ -60,6 +72,11 @@ pub enum InvalidRecord {
     InvalidRecordSet(String),
     #[fail(display = "The field {:?} is not a valid guid", _0)]
     InvalidGuid(String),
+    // TODO(issue 2232): Should be more specific.
+    #[fail(display = "The field {:?} is invalid: {}", _0, _1)]
+    InvalidField(String, String),
     #[fail(display = "A record with the given guid already exists")]
     IdNotUnique,
+    #[fail(display = "Record violates a `dedupe_on` constraint")]
+    Duplicate,
 }

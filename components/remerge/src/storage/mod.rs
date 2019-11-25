@@ -4,8 +4,13 @@
 
 pub mod bootstrap;
 pub mod db;
+mod info;
 mod meta;
+pub mod records;
 pub mod schema;
+
+pub use info::RemergeInfo;
+pub use records::{LocalRecord, NativeRecord};
 
 use crate::schema::RecordSchema;
 use std::sync::Arc;
@@ -20,6 +25,9 @@ use std::sync::Arc;
 /// stable serialization format for schemas, and don't need two).
 ///
 /// Initialize with TryFrom.
+///
+// XXX the name NativeSchemaInfo is kind of confusing with RemergeSchemaInfo...
+//     Neither are great names
 #[derive(Clone)]
 pub struct NativeSchemaInfo<'a> {
     pub parsed: Arc<RecordSchema>,

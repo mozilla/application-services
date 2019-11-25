@@ -5,16 +5,14 @@
 use super::merge_kinds::*;
 use crate::error::*;
 use crate::ms_time::EARLIEST_SANE_TIME;
+use crate::{JsonObject, JsonValue};
 use index_vec::IndexVec;
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
 use std::collections::{HashMap, HashSet};
 use url::Url;
 
 /// The set of features understood by this client.
 pub const REMERGE_FEATURES_UNDERSTOOD: &[&str] = &["record_set", "untyped_map"];
-
-pub type JsonObject = serde_json::Map<String, JsonValue>;
 
 index_vec::define_index_type! {
     /// Newtype wrapper around usize, referring into the `fields` vec in a
@@ -48,6 +46,13 @@ pub struct RecordSchema {
     pub field_own_guid: Option<FieldIndex>,
 }
 
+impl RecordSchema {
+    pub fn field<'a, S: ?Sized + AsRef<str>>(&'a self, name: &S) -> Option<&'a Field> {
+        let idx = *self.field_map.get(name.as_ref())?;
+        Some(&self.fields[idx])
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum CompositeInfo {
     Member { root: FieldIndex },
@@ -58,6 +63,7 @@ pub enum CompositeInfo {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Field {
     pub name: String,
+    // Note: frequently equal to name.
     pub local_name: String,
 
     pub required: bool,
@@ -73,6 +79,7 @@ pub struct Field {
 
 impl Field {
     pub fn validate(&self, v: JsonValue) -> Result<JsonValue> {
+        // TODO(issue 2232): most errors should be more specific.
         use InvalidRecord::*;
         if !self.required && v.is_null() {
             return Ok(v);
@@ -170,6 +177,8 @@ impl Field {
             }
 
             FieldType::Timestamp { .. } => {
+                // XXX should we check `semantic` here? See also comments in
+                // `native_to_local` in `storage::info`.
                 if let JsonValue::Number(n) = v {
                     let v = n
                         .as_i64()
@@ -248,6 +257,17 @@ impl Field {
         } else {
             Ok(val)
         }
+    }
+
+    pub fn timestamp_semantic(&self) -> Option<TimestampSemantic> {
+        match &self.ty {
+            FieldType::Timestamp { semantic, .. } => *semantic,
+            _ => None,
+        }
+    }
+
+    pub fn is_kind(&self, k: FieldKind) -> bool {
+        self.ty.is_kind(k)
     }
 }
 

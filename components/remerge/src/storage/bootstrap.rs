@@ -14,25 +14,16 @@
 //!   - native-schema-version
 //!
 
-use super::meta;
+use super::{meta, RemergeInfo};
 use crate::error::*;
-use crate::schema::RecordSchema;
-
+use crate::Guid;
 use rusqlite::Connection;
 use std::sync::Arc;
-
-#[derive(Clone)]
-pub struct RemergeInfo {
-    pub(crate) collection_name: String,
-    pub(crate) native: Arc<RecordSchema>,
-    pub(crate) local: Arc<RecordSchema>,
-    pub(crate) client_id: sync_guid::Guid,
-}
 
 pub(super) fn load_or_bootstrap(
     db: &Connection,
     native: super::NativeSchemaInfo<'_>,
-) -> Result<RemergeInfo> {
+) -> Result<(RemergeInfo, Guid)> {
     if let Some(name) = meta::try_get::<String>(db, meta::COLLECTION_NAME)? {
         let native = native.parsed;
         if name != native.name {
@@ -60,12 +51,14 @@ pub(super) fn load_or_bootstrap(
         // is yes, we should probably have more tests to ensure we never begin
         // rejecting a schema we previously considered valid!
         let parsed = crate::schema::parse_from_string(&local_schema, false)?;
-        Ok(RemergeInfo {
-            local: Arc::new(parsed),
-            native,
-            collection_name: name,
+        Ok((
+            RemergeInfo {
+                local: Arc::new(parsed),
+                native,
+                collection_name: name,
+            },
             client_id,
-        })
+        ))
     } else {
         bootstrap(db, native)
     }
@@ -74,7 +67,7 @@ pub(super) fn load_or_bootstrap(
 pub(super) fn bootstrap(
     db: &Connection,
     native: super::NativeSchemaInfo<'_>,
-) -> Result<RemergeInfo> {
+) -> Result<(RemergeInfo, Guid)> {
     let guid = sync_guid::Guid::random();
     meta::put(db, meta::OWN_CLIENT_ID, &guid)?;
     let sql = "
@@ -95,10 +88,12 @@ pub(super) fn bootstrap(
     meta::put(db, meta::NATIVE_SCHEMA_VERSION, &ver_str)?;
     meta::put(db, meta::COLLECTION_NAME, &native.parsed.name)?;
     meta::put(db, meta::CHANGE_COUNTER, &1)?;
-    Ok(RemergeInfo {
-        collection_name: native.parsed.name.clone(),
-        native: native.parsed.clone(),
-        local: native.parsed.clone(),
-        client_id: guid,
-    })
+    Ok((
+        RemergeInfo {
+            collection_name: native.parsed.name.clone(),
+            native: native.parsed.clone(),
+            local: native.parsed.clone(),
+        },
+        guid,
+    ))
 }

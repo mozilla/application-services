@@ -5,9 +5,9 @@
 //! Our implementation of vector clocks. See the remerge RFC's appendix for an
 //! overview of how these work if you're unfamiliar.
 
+use crate::Guid;
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use std::collections::BTreeMap;
-use sync_guid::Guid;
 
 pub type Counter = u64;
 
@@ -105,27 +105,32 @@ impl VClock {
     /// instead. Otherwise, do nothing.
     ///
     /// Notes that this clock has seen the `value`th event of `client_id`.
-    pub fn apply(&mut self, client_id: Guid, value: Counter) {
+    #[must_use]
+    pub fn apply(mut self, client_id: Guid, value: Counter) -> Self {
         if value == 0 {
             // Avoid inserting 0 if we can help it.
-            return;
+            return self;
         }
         let old_value = self.0.entry(client_id).or_default();
         if *old_value < value {
             *old_value = value;
         }
+        self
     }
 
-    pub fn apply_all(&mut self, o: &VClock) {
-        for (id, ctr) in &o.0 {
-            self.apply(id.clone(), *ctr)
-        }
+    #[must_use]
+    pub fn combine(self, o: &VClock) -> Self {
+        o.0.iter()
+            .fold(self, |accum, (id, ctr)| accum.apply(id.clone(), *ctr))
     }
+}
 
-    pub fn merge(&self, o: &VClock) -> Self {
-        let mut res = self.clone();
-        res.apply_all(o);
-        res
+impl<'a> IntoIterator for &'a VClock {
+    type IntoIter = std::collections::btree_map::Iter<'a, Guid, Counter>;
+    type Item = (&'a Guid, &'a Counter);
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
     }
 }
 

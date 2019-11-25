@@ -15,10 +15,10 @@ use super::desc::*;
 use super::error::*;
 use super::merge_kinds::*;
 use crate::util::is_default;
+use crate::{JsonObject, JsonValue};
 use index_vec::IndexVec;
 use matches::matches;
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
 use std::collections::{HashMap, HashSet};
 use url::Url;
 

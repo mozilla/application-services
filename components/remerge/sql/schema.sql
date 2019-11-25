@@ -23,7 +23,7 @@ CREATE TABLE rec_local (
     guid           TEXT NOT NULL UNIQUE,
 
     remerge_schema_version TEXT,
-
+    -- XXX Should this be nullable for the case where is_deleted == true?
     record_data    TEXT NOT NULL,
     -- A local timestamp
     local_modified_ms INTEGER NOT NULL DEFAULT 0,
