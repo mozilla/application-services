@@ -119,7 +119,7 @@ impl From<Error> for ExternError {
 impl From<Login> for msg_types::Login {
     fn from(login: Login) -> Self {
         Self {
-            guid: login.guid,
+            guid: login.guid.to_string(),
             hostname: login.hostname,
             form_submit_url: login.form_submit_url,
             http_realm: login.http_realm,
@@ -129,7 +129,7 @@ impl From<Login> for msg_types::Login {
             password_field: login.password_field,
             time_created: login.time_created,
             time_password_changed: login.time_password_changed,
-            times_last_used: login.time_last_used,
+            time_last_used: login.time_last_used,
             times_used: login.times_used,
         }
     }
