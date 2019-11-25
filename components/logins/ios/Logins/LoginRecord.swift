@@ -22,7 +22,7 @@ open class LoginRecord {
     public var password: String
 
     /// This record's username, if any.
-    public var username: String?
+    public var username: String
 
     /// The challenge string for HTTP Basic authentication.
     ///
@@ -67,10 +67,10 @@ open class LoginRecord {
     public var timePasswordChanged: Int64 = 0
 
     /// HTML field name of the username, if known.
-    public var usernameField: String?
+    public var usernameField: String
 
     /// HTML field name of the password, if known.
-    public var passwordField: String?
+    public var passwordField: String
 
     open func toJSONDict() -> [String: Any] {
         var dict: [String: Any] = [
@@ -82,11 +82,11 @@ open class LoginRecord {
             "timeCreated": self.timeCreated,
             "timeLastUsed": self.timeLastUsed,
             "timePasswordChanged": self.timePasswordChanged,
-        ]
 
-        if let username = self.username {
-            dict["username"] = username
-        }
+            "username": self.username,
+            "passwordField": self.passwordField,
+            "usernameField": self.usernameField,
+        ]
 
         if let httpRealm = self.httpRealm {
             dict["httpRealm"] = httpRealm
@@ -96,13 +96,6 @@ open class LoginRecord {
             dict["formSubmitURL"] = formSubmitURL
         }
 
-        if let passwordField = self.passwordField {
-            dict["passwordField"] = passwordField
-        }
-
-        if let usernameField = self.usernameField {
-            dict["usernameField"] = usernameField
-        }
         return dict
     }
 
@@ -121,7 +114,7 @@ open class LoginRecord {
             password: dict["password"] as? String ?? "",
             hostname: dict["hostname"] as? String ?? "",
 
-            username: dict["username"] as? String,
+            username: dict["username"] as? String ?? "",
 
             formSubmitURL: dict["formSubmitURL"] as? String,
             httpRealm: dict["httpRealm"] as? String,
@@ -131,23 +124,23 @@ open class LoginRecord {
             timeCreated: (dict["timeCreated"] as? Int64) ?? 0,
             timePasswordChanged: (dict["timePasswordChanged"] as? Int64) ?? 0,
 
-            usernameField: dict["usernameField"] as? String,
-            passwordField: dict["passwordField"] as? String
+            usernameField: dict["usernameField"] as? String ?? "",
+            passwordField: dict["passwordField"] as? String ?? ""
         )
     }
 
     init(id: String,
          password: String,
          hostname: String,
-         username: String?,
+         username: String,
          formSubmitURL: String?,
          httpRealm: String?,
          timesUsed: Int?,
          timeLastUsed: Int64?,
          timeCreated: Int64?,
          timePasswordChanged: Int64?,
-         usernameField: String?,
-         passwordField: String?) {
+         usernameField: String,
+         passwordField: String) {
         self.id = id
         self.password = password
         self.hostname = hostname
