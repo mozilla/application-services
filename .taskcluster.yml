@@ -11,8 +11,8 @@ tasks:
   - $let:
       taskgraph:
         branch: taskgraph-try
-        revision: 92818b07522233961a3f91924a65e7a004028dac
-      trustDomain: app-services
+        revision: ad3af8371ed4c1da87804ef11b2459b2b71cf854
+      trustDomain: application-services
     in:
       $let:
         # Github events have this stuff in different places...
@@ -82,8 +82,8 @@ tasks:
                   then:
                     name: "Decision Task"
                     description: 'The task that creates all of the other tasks in the task graph'
-            provisionerId: "aws-provisioner-v1"
-            workerType: "${trustDomain}-${level}-decision"
+            provisionerId: "app-services-${level}"
+            workerType: "decision"
             tags:
               kind: decision-task
             routes:
@@ -117,26 +117,26 @@ tasks:
                 # run-task uses these to check out the source; the inputs
                 # to `mach taskgraph decision` are all on the command line.
                 $merge:
-                  - MOZILLA_BASE_REPOSITORY: '${baseRepoUrl}'
-                    MOZILLA_HEAD_REPOSITORY: '${repoUrl}'
-                    MOZILLA_HEAD_REF: '${head_branch}'
-                    MOZILLA_HEAD_REV: '${head_sha}'
-                    MOZILLA_REPOSITORY_TYPE: git
+                  - APPSERVICES_BASE_REPOSITORY: '${baseRepoUrl}'
+                    APPSERVICES_HEAD_REPOSITORY: '${repoUrl}'
+                    APPSERVICES_HEAD_REF: '${head_branch}'
+                    APPSERVICES_HEAD_REV: '${head_sha}'
+                    APPSERVICES_REPOSITORY_TYPE: git
                     TASKGRAPH_BASE_REPOSITORY: https://hg.mozilla.org/ci/taskgraph
                     TASKGRAPH_HEAD_REPOSITORY: https://hg.mozilla.org/ci/${taskgraph.branch}
                     TASKGRAPH_HEAD_REV: ${taskgraph.revision}
                     TASKGRAPH_REPOSITORY_TYPE: hg
-                    REPOSITORIES: {$json: {mozilla: "Application Services", taskgraph: "Taskgraph"}}
+                    REPOSITORIES: {$json: {appservices: "Application Services", taskgraph: "Taskgraph"}}
                     HG_STORE_PATH: /builds/worker/checkouts/hg-store
                     ANDROID_SDK_ROOT: /builds/worker/android-sdk
                     MOZ_FETCHES_DIR: /builds/worker/checkouts/src
                   - $if: 'tasks_for in ["github-pull-request"]'
                     then:
-                      MOZILLA_PULL_REQUEST_TITLE: '${event.pull_request.title}'
-                      MOZILLA_PULL_REQUEST_NUMBER: '${event.pull_request.number}'
+                      APPSERVICES_PULL_REQUEST_TITLE: '${event.pull_request.title}'
+                      APPSERVICES_PULL_REQUEST_NUMBER: '${event.pull_request.number}'
                   - $if: 'tasks_for == "github-release"'
                     then:
-                      MOZILLA_HEAD_TAG: '${event.release.tag_name}'
+                      APPSERVICES_HEAD_TAG: '${event.release.tag_name}'
               features:
                 taskclusterProxy: true
                 chainOfTrust: true
@@ -149,7 +149,7 @@ tasks:
 
               command:
                 - /usr/local/bin/run-task
-                - '--mozilla-checkout=/builds/worker/checkouts/src'
+                - '--appservices-checkout=/builds/worker/checkouts/src'
                 - '--taskgraph-checkout=/builds/worker/checkouts/taskgraph'
                 - '--task-cwd=/builds/worker/checkouts/src'
                 - '--'
@@ -166,11 +166,11 @@ tasks:
                   --message=""
                   --owner='${ownerEmail}'
                   --level='${level}'
-                  --base-repository="$MOZILLA_BASE_REPOSITORY"
-                  --head-repository="$MOZILLA_HEAD_REPOSITORY"
-                  --head-ref="$MOZILLA_HEAD_REF"
-                  --head-rev="$MOZILLA_HEAD_REV"
-                  --repository-type="$MOZILLA_REPOSITORY_TYPE"
+                  --base-repository="$APPSERVICES_BASE_REPOSITORY"
+                  --head-repository="$APPSERVICES_HEAD_REPOSITORY"
+                  --head-ref="$APPSERVICES_HEAD_REF"
+                  --head-rev="$APPSERVICES_HEAD_REV"
+                  --repository-type="$APPSERVICES_REPOSITORY_TYPE"
                   --tasks-for='${tasks_for}'
               artifacts:
                 'public':

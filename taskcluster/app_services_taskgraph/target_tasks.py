@@ -4,7 +4,7 @@
 
 from __future__ import absolute_import, print_function, unicode_literals
 
-from taskgraph.target_tasks import _target_task, standard_filter
+from taskgraph.target_tasks import _target_task, filter_for_tasks_for
 
 
 @_target_task('pr-skip')
@@ -16,17 +16,19 @@ def target_tasks_pr_skip(full_task_graph, parameters, graph_config):
 def target_tasks_default(full_task_graph, parameters, graph_config):
     """Target the tasks which have indicated they should be run on this project
     via the `run_on_projects` attributes."""
-    def filter(task, params):
-        return task.attributes.get("run-on-pr-type", "all") in ("full-ci", "all")
+    def filter(task):
+        return filter_for_tasks_for(task, parameters) \
+            and task.attributes.get("run-on-pr-type", "all") in ("full-ci", "all")
 
-    return [l for l, task in full_task_graph.tasks.iteritems() if filter(task, parameters)]
+    return [l for l, task in full_task_graph.tasks.iteritems() if filter(task)]
 
 
 @_target_task('pr-normal')
 def target_tasks_default(full_task_graph, parameters, graph_config):
     """Target the tasks which have indicated they should be run on this project
     via the `run_on_projects` attributes."""
-    def filter(task, params):
-        return task.attributes.get("run-on-pr-type", "all") in ("normal-ci", "all")
+    def filter(task):
+        return filter_for_tasks_for(task, parameters) \
+                and task.attributes.get("run-on-pr-type", "all") in ("normal-ci", "all")
 
-    return [l for l, task in full_task_graph.tasks.iteritems() if filter(task, parameters)]
+    return [l for l, task in full_task_graph.tasks.iteritems() if filter(task)]

@@ -12,5 +12,3 @@ transforms:
 
 jobs:
     linux: {}
-    cross-compile:
-        parent: linux

@@ -8,6 +8,18 @@ FROM ubuntu:bionic-20180821
 
 MAINTAINER Edouard Oger "eoger@mozilla.com"
 
+RUN echo "trigger rebuild"
+
+# Add worker user
+
+RUN mkdir /builds && \
+    useradd -d /builds/worker -s /bin/bash -m worker && \
+    chown worker:worker /builds/worker && \
+    mkdir /builds/worker/artifacts && \
+    chown worker:worker /builds/worker/artifacts
+
+WORKDIR /builds/worker/
+
 # Configuration
 
 ENV ANDROID_BUILD_TOOLS "28.0.3"
@@ -74,6 +86,7 @@ RUN apt-get update -qq \
         # <TODO: Delete p7zip once NSS windows is actually compiled instead of downloaded>.
         p7zip-full \
         ## End of NSS build dependencies
+        rsync \
     && apt-get clean
 
 RUN pip3 install --upgrade pip
@@ -86,18 +99,18 @@ RUN locale-gen en_US.UTF-8
 
 # Android SDK
 
-RUN mkdir -p /build/android-sdk
-WORKDIR /build
+RUN mkdir -p /builds/worker/android-sdk
+WORKDIR /builds/worker
 
-ENV ANDROID_HOME /build/android-sdk
-ENV ANDROID_SDK_HOME /build/android-sdk
+ENV ANDROID_HOME /builds/worker/android-sdk
+ENV ANDROID_SDK_HOME /builds/worker/android-sdk
 ENV PATH ${PATH}:${ANDROID_SDK_HOME}/tools:${ANDROID_SDK_HOME}/tools/bin:${ANDROID_SDK_HOME}/platform-tools:/opt/tools:${ANDROID_SDK_HOME}/build-tools/${ANDROID_BUILD_TOOLS}
 
-RUN curl -L https://dl.google.com/android/repository/sdk-tools-linux-${ANDROID_SDK_VERSION}.zip > sdk.zip \
+RUN curl -sfSL --retry 5 --retry-delay 10 https://dl.google.com/android/repository/sdk-tools-linux-${ANDROID_SDK_VERSION}.zip > sdk.zip \
     && unzip -q sdk.zip -d ${ANDROID_SDK_HOME} \
     && rm sdk.zip \
-    && mkdir -p /build/android-sdk/.android/ \
-    && touch /build/android-sdk/.android/repositories.cfg \
+    && mkdir -p /builds/worker/android-sdk/.android/ \
+    && touch /builds/worker/android-sdk/.android/repositories.cfg \
     && yes | sdkmanager --licenses \
     && sdkmanager --verbose "platform-tools" \
         "platforms;android-${ANDROID_PLATFORM_VERSION}" \
@@ -105,72 +118,40 @@ RUN curl -L https://dl.google.com/android/repository/sdk-tools-linux-${ANDROID_S
         "extras;android;m2repository" \
         "extras;google;m2repository"
 
+RUN chown -R worker:worker /builds/worker/android-sdk
+
 # Android NDK
 
 # r15c agrees with mozilla-central and, critically, supports the --deprecated-headers flag needed to
 # build OpenSSL
-ENV ANDROID_NDK_VERSION "r15c"
+ENV ANDROID_NDK_VERSION "r20"
 
 # $ANDROID_NDK_ROOT is the preferred name, but the android gradle plugin uses $ANDROID_NDK_HOME.
-ENV ANDROID_NDK_ROOT /build/android-ndk
-ENV ANDROID_NDK_HOME /build/android-ndk
+ENV ANDROID_NDK_ROOT /builds/worker/android-ndk
+ENV ANDROID_NDK_HOME /builds/worker/android-ndk
 
-RUN curl -L https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux-x86_64.zip > ndk.zip \
-    && unzip -q ndk.zip -d /build \
+RUN curl -sfSL --retry 5 --retry-delay 10 https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux-x86_64.zip > ndk.zip \
+    && unzip -q ndk.zip -d /builds/worker \
     && rm ndk.zip \
-    && mv /build/android-ndk-${ANDROID_NDK_VERSION} ${ANDROID_NDK_ROOT}
+    && mv /builds/worker/android-ndk-${ANDROID_NDK_VERSION} ${ANDROID_NDK_ROOT}
 
-ENV ANDROID_NDK_TOOLCHAIN_DIR /root/.android-ndk-r15c-toolchain
+ENV ANDROID_NDK_TOOLCHAIN_DIR /builds/worker/.android-ndk-r15c-toolchain
 ENV ANDROID_NDK_API_VERSION 21
-
-# Rust
-RUN set -eux; \
-    RUSTUP_PLATFORM='x86_64-unknown-linux-gnu'; \
-    RUSTUP_VERSION='1.18.3'; \
-    RUSTUP_SHA256='a46fe67199b7bcbbde2dcbc23ae08db6f29883e260e23899a88b9073effc9076'; \
-    curl -O -s --retry 5 "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUSTUP_PLATFORM}/rustup-init"; \
-    echo "${RUSTUP_SHA256} *rustup-init" | sha256sum -c -; \
-    chmod +x rustup-init; \
-    ./rustup-init -y --no-modify-path --default-toolchain none; \
-    rm rustup-init
-ENV PATH=/root/.cargo/bin:$PATH
 
 # sccache
 RUN \
-    curl --silent --show-error --fail --location --retry 5 --retry-delay 10 \
-        https://github.com/mozilla/sccache/releases/download/0.2.8/sccache-0.2.8-x86_64-unknown-linux-musl.tar.gz \
+    curl -sfSL --retry 5 --retry-delay 10 \
+        https://github.com/mozilla/sccache/releases/download/0.2.11/sccache-0.2.11-x86_64-unknown-linux-musl.tar.gz \
         | tar -xz --strip-components=1 -C /usr/local/bin/ \
-            sccache-0.2.8-x86_64-unknown-linux-musl/sccache
+            sccache-0.2.11-x86_64-unknown-linux-musl/sccache
 
 # tooltool
 RUN \
-    curl --location --retry 10 --retry-delay 10 \
+    curl -sfSL --retry 10 --retry-delay 10 \
          -o /usr/local/bin/tooltool.py \
          https://raw.githubusercontent.com/mozilla/build-tooltool/36511dae0ead6848017e2d569b1f6f1b36984d40/tooltool.py && \
          chmod +x /usr/local/bin/tooltool.py
 
-#----------------------------------------------------------------------------------------------------------------------
-#-- Configuration -----------------------------------------------------------------------------------------------------
-#----------------------------------------------------------------------------------------------------------------------
-
-ENV RUST_BACKTRACE='1'
-ENV RUSTFLAGS='-Dwarnings'
-ENV CARGO_INCREMENTAL='0'
-ENV CI='1'
-ENV CCACHE='sccache'
-ENV RUSTC_WRAPPER='sccache'
-ENV SCCACHE_IDLE_TIMEOUT='1200'
-ENV SCCACHE_CACHE_SIZE='40G'
-ENV SCCACHE_ERROR_LOG='/build/sccache.log'
-ENV RUST_LOG='sccache=info'
-
-RUN rustup toolchain install stable
-RUN rustup default stable
-RUN rustup target add x86_64-linux-android i686-linux-android armv7-linux-androideabi aarch64-linux-android
-RUN test -d $ANDROID_NDK_TOOLCHAIN_DIR/arm-$ANDROID_NDK_API_VERSION    || $ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py --arch="arm"   --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/arm-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
-RUN test -d $ANDROID_NDK_TOOLCHAIN_DIR/arm64-$ANDROID_NDK_API_VERSION  || $ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py --arch="arm64" --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/arm64-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
-RUN test -d $ANDROID_NDK_TOOLCHAIN_DIR/x86-$ANDROID_NDK_API_VERSION    || $ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py --arch="x86"   --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/x86-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
-RUN test -d $ANDROID_NDK_TOOLCHAIN_DIR/x86_64-$ANDROID_NDK_API_VERSION || $ANDROID_NDK_ROOT/build/tools/make_standalone_toolchain.py --arch="x86_64"   --api="$ANDROID_NDK_API_VERSION" --install-dir="$ANDROID_NDK_TOOLCHAIN_DIR/x86_64-$ANDROID_NDK_API_VERSION" --deprecated-headers --force
 
 # %include-run-task
 

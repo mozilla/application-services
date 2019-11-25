@@ -18,7 +18,6 @@ job-defaults:
       default: []
   run:
     using: toolchain-script
-    toolchain-artifact: /build/repo/target.gz
     resources:
       - 'libs'
   worker-type: b-linux
@@ -33,20 +32,26 @@ jobs:
     run:
       script: android.sh
       toolchain-alias: android-libs
+      toolchain-artifact: public/build/android.tar.gz
   desktop-linux:
     description: 'Desktop libs (Linux): build'
     run:
       script: desktop-linux.sh
       toolchain-alias: desktop-linux-libs
+      toolchain-artifact: public/build/linux.tar.gz
   desktop-macos:
     description: 'Desktop libs (macOS): build'
+    scopes:
+      - project:releng:services/tooltool/api/download/internal
     worker:
-      docker-image: {in-tree: cross-compile}
+      docker-image: {in-tree: linux}
     run:
       script: desktop-macos.sh
       toolchain-alias: desktop-macos-libs
+      toolchain-artifact: public/build/macos.tar.gz
   desktop-win32-x86-64:
     description: 'Desktop libs (win32-x86-64): build'
     run:
       script: desktop-win32-x86-64.sh
       toolchain-alias: desktop-win32-x86-64-libs
+      toolchain-artifact: public/build/win.tar.gz

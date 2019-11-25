@@ -7,7 +7,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.schema import resolve_keyed_by
 
-from taskcluster.app_services_taskgraph.transforms import publications_to_artifact_paths, \
+from . import publications_to_artifact_paths, \
     publications_to_artifact_map_paths
 
 transforms = TransformSequence()

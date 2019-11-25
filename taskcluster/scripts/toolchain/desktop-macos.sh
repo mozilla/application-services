@@ -1,4 +1,9 @@
+#!/bin/bash
+cd src
+. ./taskcluster/scripts/toolchain/rustup-setup.sh
+. ./taskcluster/scripts/toolchain/cross-compile-setup.sh
 pushd libs
 ./build-all.sh darwin
 popd
-tar -czf /build/repo/target.tar.gz libs/desktop
+mkdir -p $UPLOAD_DIR
+tar -czf $UPLOAD_DIR/macos.tar.gz libs/desktop
