@@ -10,3 +10,10 @@
 
 - `username`, `usernameField`, and `passwordField` are no longer
   serialized as `null` in the case where they are empty strings.
+
+- Android: `ServerPassword` fields `username`, `usernameField`, and
+  `passwordField` are now required fields -- `null` is not acceptable,
+  but empty strings are OK.
+
+- iOS: `LoginRecord` fields `username`, `usernameField` and
+  `passwordField` are no longer nullable.
