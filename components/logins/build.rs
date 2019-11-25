@@ -4,5 +4,9 @@
 
 fn main() {
     println!("cargo:rerun-if-changed=src/places_msg_types.proto");
-    prost_build::compile_protos(&["../places/src/places_msg_types.proto"], &["../places/src/"]).unwrap();
+    prost_build::compile_protos(
+        &["../places/src/places_msg_types.proto"],
+        &["../places/src/"],
+    )
+    .unwrap();
 }
