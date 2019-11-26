@@ -9,11 +9,11 @@
 ### Breaking Changes
 
 - `username`, `usernameField`, and `passwordField` are no longer
-  serialized as `null` in the case where they are empty strings.
+  serialized as `null` in the case where they are empty strings. ([#2252](https://github.com/mozilla/application-services/pull/2252/))
 
 - Android: `ServerPassword` fields `username`, `usernameField`, and
   `passwordField` are now required fields -- `null` is not acceptable,
-  but empty strings are OK.
+  but empty strings are OK. ([#2252](https://github.com/mozilla/application-services/pull/2252/))
 
 - iOS: `LoginRecord` fields `username`, `usernameField` and
-  `passwordField` are no longer nullable.
+  `passwordField` are no longer nullable. ([#2252](https://github.com/mozilla/application-services/pull/2252/))
