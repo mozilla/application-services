@@ -311,7 +311,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     }
 
     /**
-     * Migrate from a logged-in Firefox Account.
+     * Migrate from a logged-in Firefox Account, takes ownership of the provided session token.
      *
      * Modifies the FirefoxAccount state.
      * @param sessionToken 64 character string of hex-encoded bytes
@@ -321,7 +321,25 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      */
     fun migrateFromSessionToken(sessionToken: String, kSync: String, kXCS: String) {
         rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS, e)
+            LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS,
+                    false, e)
+        }
+        this.tryPersistState()
+    }
+
+    /**
+     * Copy a logged-in session of a Firefox Account, creates a new session token in the process.
+     *
+     * Modifies the FirefoxAccount state.
+     * @param sessionToken 64 character string of hex-encoded bytes
+     * @param kSync 128 character string of hex-encoded bytes
+     * @param kXCS 32 character string of hex-encoded bytes
+     * This performs network requests, and should not be used on the main thread.
+     */
+    fun copyFromSessionToken(sessionToken: String, kSync: String, kXCS: String) {
+        rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS,
+                    true, e)
         }
         this.tryPersistState()
     }
