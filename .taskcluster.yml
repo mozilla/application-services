@@ -69,17 +69,7 @@ tasks:
           requires: all-completed
           retries: 5
           scopes:
-            - queue:create-task:${tasks_priority}:${provisioner_id}/b-linux
-            - queue:create-task:${tasks_priority}:${provisioner_id}/images
-            - queue:route:statuses
-            - queue:route:notify.email.*
             - queue:scheduler-id:taskcluster-github
-            # So that we can cache task outputs for re-use.
-            - "queue:route:index.project.application-services.*"
-            # So that we can re-use Gradle/Cargo/sccache bits between tasks.
-            - "docker-worker:cache:application-services-*"
-            # So that we can fetch the macOS SDK from internal tooltool.
-            - project:releng:services/tooltool/api/download/internal
           routes:
             - statuses
           metadata:
@@ -139,6 +129,8 @@ tasks:
             in:
               $mergeDeep:
                 - {$eval: 'default_task_definition'}
+                - scopes:
+                   - assume:repo:${event.repository.html_url[8:]}:pull-request
                 - payload:
                     env:
                       GITHUB_PR_TITLE: ${pull_request_title}
@@ -148,6 +140,8 @@ tasks:
           "tasks_for == 'github-push' && head_branch == 'refs/heads/master'":
             $mergeDeep:
               - {$eval: 'default_task_definition'}
+              - scopes:
+                - assume:repo:${event.repository.html_url[8:]}:branch:master
               - metadata:
                   name: Application Services - Decision task (master)
                   description: Schedules the build and test tasks for Application Services.
@@ -176,34 +170,18 @@ tasks:
                   payload:
                     features:
                       chainOfTrust: true
-                  scopes:
-                    # So that we can publish on Maven using beetmover
-                    - project:mozilla:application-services:releng:beetmover:action:push-to-maven
               in:
                 $mergeDeep:
                   - {$eval: 'default_task_definition'}
                   - {$eval: 'release_task_definition'}
-                  - $if: 'is_staging'
-                    then:
-                      scopes:
-                        - project:mozilla:application-services:releng:signing:cert:dep-signing
-                        - queue:create-task:scriptworker-k8s/appservices-t-signing
-                    else:
-                      scopes:
-                        - project:mozilla:application-services:releng:signing:cert:release-signing
-                        - queue:create-task:scriptworker-k8s/appservices-3-signing
-                        # So that we can upload symbols to Socorro
-                        - "secrets:get:project/application-services/symbols-token"
+                  - scopes:
+                    - assume:repo:${event.repository.html_url[8:]}:release
                   - payload:
                       env:
                         IS_STAGING: ${is_staging}
                         BEETMOVER_WORKER_TYPE: ${beetmover_worker_type}
                         BEETMOVER_BUCKET: ${beetmover_bucket}
                         BEETMOVER_BUCKET_PUBLIC_URL: ${beetmover_bucket_public_url}
-                  - scopes:
-                    # in order to publish on Maven using beetmover
-                    - project:mozilla:application-services:releng:beetmover:bucket:${beetmover_bucket}
-                    - queue:create-task:${tasks_priority}:scriptworker-k8s/${beetmover_worker_type}
                   - metadata:
                       name: Application Services - Decision task (${tag})
                       description: Build and publish release versions.
