@@ -68,4 +68,6 @@ enum class InvalidLoginReason {
     BOTH_TARGETS,
     /** Both `httpRealm` and `formSubmitUrl` are null */
     NO_TARGET,
+    /** Login has illegal field */
+    ILLEGAL_FIELD_VALUE,
 }

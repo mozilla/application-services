@@ -45,6 +45,7 @@ pub mod error_codes {
     pub const INVALID_LOGIN_DUPLICATE_LOGIN: i32 = 64 + 2;
     pub const INVALID_LOGIN_BOTH_TARGETS: i32 = 64 + 3;
     pub const INVALID_LOGIN_NO_TARGET: i32 = 64 + 4;
+    pub const INVALID_LOGIN_ILLEGAL_FIELD_VALUE: i32 = 64 + 5;
 }
 
 fn get_code(err: &Error) -> ErrorCode {
@@ -75,6 +76,9 @@ fn get_code(err: &Error) -> ErrorCode {
                 InvalidLogin::DuplicateLogin => error_codes::INVALID_LOGIN_DUPLICATE_LOGIN,
                 InvalidLogin::BothTargets => error_codes::INVALID_LOGIN_BOTH_TARGETS,
                 InvalidLogin::NoTarget => error_codes::INVALID_LOGIN_NO_TARGET,
+                InvalidLogin::IllegalFieldValue { .. } => {
+                    error_codes::INVALID_LOGIN_ILLEGAL_FIELD_VALUE
+                }
             })
         }
         // We can't destructure `err` without bringing in the libsqlite3_sys crate

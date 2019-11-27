@@ -120,6 +120,22 @@ class LoginsTests: XCTestCase {
             passwordField: nil
         )
 
+        let nullValueLogin = LoginRecord(
+            id: "",
+            password: "hunter3",
+            hostname: "https://www.example6.com",
+            username: "\0cooluser56",
+            formSubmitURL: "https://www.example6.com/login",
+            httpRealm: nil,
+            timesUsed: nil,
+            timeLastUsed: nil,
+            timeCreated: nil,
+            timePasswordChanged: nil,
+            usernameField: nil,
+            passwordField: nil
+        )
+
         XCTAssertThrowsError(try storage.ensureValid(login: dupeLogin))
+        XCTAssertThrowsError(try storage.ensureValid(login: nullValueLogin))
     }
 }

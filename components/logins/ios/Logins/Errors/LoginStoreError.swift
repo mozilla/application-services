@@ -105,6 +105,9 @@ public enum LoginsStoreError: LocalizedError {
         case Sync15Passwords_InvalidLogin_NoTarget:
             return .invalidLogin(message: String(freeingRustString: message!), reason: .noTarget)
 
+        case Sync15Passwords_InvalidLogin_IllegalFieldValue:
+            return .invalidLogin(message: String(freeingRustString: message!), reason: .illegalFieldValue)
+
         case Sync15Passwords_InvalidKeyError:
             return .invalidKey(message: String(freeingRustString: message!))
 
@@ -161,4 +164,5 @@ public enum InvalidLoginReason {
     case duplicateLogin
     case bothTargets
     case noTarget
+    case illegalFieldValue
 }

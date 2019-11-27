@@ -100,6 +100,59 @@ impl Login {
         if self.form_submit_url.is_none() && self.http_realm.is_none() {
             throw!(InvalidLogin::NoTarget);
         }
+
+        let form_submit_url = self.form_submit_url.clone().unwrap_or_default();
+        let http_realm = self.http_realm.clone().unwrap_or_default();
+
+        let field_data = [
+            ("formSubmitUrl", &form_submit_url),
+            ("httpRealm", &http_realm),
+            ("hostname", &self.hostname),
+            ("usernameField", &self.username_field),
+            ("passwordField", &self.password_field),
+            ("username", &self.username),
+            ("password", &self.password),
+        ];
+
+        for (field_name, field_value) in &field_data {
+            // Nuls are invalid.
+            if field_value.contains('\0') {
+                throw!(InvalidLogin::IllegalFieldValue {
+                    field_info: format!("`{}` contains Nul", field_name)
+                });
+            }
+
+            // Newlines are invalid in Desktop with the exception of the username
+            // and password fields.
+            if field_name != &"username"
+                && field_name != &"password"
+                && (field_value.contains('\n') || field_value.contains('\r'))
+            {
+                throw!(InvalidLogin::IllegalFieldValue {
+                    field_info: format!("`{}` contains newline", field_name)
+                });
+            }
+        }
+
+        // Desktop doesn't like fields with the below patterns
+        if self.username_field == "." {
+            throw!(InvalidLogin::IllegalFieldValue {
+                field_info: "`usernameField` is a period".into()
+            });
+        }
+
+        if form_submit_url == "." {
+            throw!(InvalidLogin::IllegalFieldValue {
+                field_info: "`formSubmitUrl` is a period".into()
+            });
+        }
+
+        if self.hostname.contains(" (") {
+            throw!(InvalidLogin::IllegalFieldValue {
+                field_info: "Origin is Malformed".into()
+            });
+        }
+
         Ok(())
     }
 
@@ -514,5 +567,198 @@ mod tests {
         assert_eq!(login.time_created, now64 - 100);
         assert_eq!(login.time_last_used, now64 - 50);
         assert_eq!(login.time_password_changed, now64 - 25);
+    }
+
+    #[test]
+    fn test_check_valid() {
+        struct TestCase {
+            login: Login,
+            should_err: bool,
+            expected_err: &'static str,
+        }
+
+        let valid_login = Login {
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let login_with_empty_hostname = Login {
+            hostname: "".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let login_with_empty_password = Login {
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "".into(),
+            ..Login::default()
+        };
+
+        let login_with_form_submit_and_http_realm = Login {
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            form_submit_url: Some("https://www.example.com".into()),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let login_without_form_submit_or_http_realm = Login {
+            hostname: "https://www.example.com".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let login_with_null_html_realm = Login {
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.\0com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let login_with_null_username = Login {
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "\0".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let login_with_newline_hostname = Login {
+            hostname: "\rhttps://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let login_with_newline_username_field = Login {
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            username_field: "\n".into(),
+            ..Login::default()
+        };
+
+        let login_with_newline_password = Login {
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test\n".into(),
+            ..Login::default()
+        };
+
+        let login_with_period_username_field = Login {
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            username_field: ".".into(),
+            ..Login::default()
+        };
+
+        let login_with_period_form_submit_url = Login {
+            form_submit_url: Some(".".into()),
+            hostname: "https://www.example.com".into(),
+            username: "test".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let login_with_malformed_origin_parens = Login {
+            hostname: " (".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let test_cases = [
+            TestCase {
+                login: valid_login,
+                should_err: false,
+                expected_err: "",
+            },
+            TestCase {
+                login: login_with_empty_hostname,
+                should_err: true,
+                expected_err: "Invalid login: Origin is empty",
+            },
+            TestCase {
+                login: login_with_empty_password,
+                should_err: true,
+                expected_err: "Invalid login: Password is empty",
+            },
+            TestCase {
+                login: login_with_form_submit_and_http_realm,
+                should_err: true,
+                expected_err: "Invalid login: Both `formSubmitUrl` and `httpRealm` are present",
+            },
+            TestCase {
+                login: login_without_form_submit_or_http_realm,
+                should_err: true,
+                expected_err: "Invalid login: Neither `formSubmitUrl` or `httpRealm` are present",
+            },
+            TestCase {
+                login: login_with_null_html_realm,
+                should_err: true,
+                expected_err: "Invalid login: Login has illegal field: `httpRealm` contains Nul",
+            },
+            TestCase {
+                login: login_with_null_username,
+                should_err: true,
+                expected_err: "Invalid login: Login has illegal field: `username` contains Nul",
+            },
+            TestCase {
+                login: login_with_newline_hostname,
+                should_err: true,
+                expected_err: "Invalid login: Login has illegal field: `hostname` contains newline",
+            },
+            TestCase {
+                login: login_with_newline_username_field,
+                should_err: true,
+                expected_err:
+                    "Invalid login: Login has illegal field: `usernameField` contains newline",
+            },
+            TestCase {
+                login: login_with_newline_password,
+                should_err: false,
+                expected_err: "",
+            },
+            TestCase {
+                login: login_with_period_username_field,
+                should_err: true,
+                expected_err: "Invalid login: Login has illegal field: `usernameField` is a period",
+            },
+            TestCase {
+                login: login_with_period_form_submit_url,
+                should_err: true,
+                expected_err: "Invalid login: Login has illegal field: `formSubmitUrl` is a period",
+            },
+            TestCase {
+                login: login_with_malformed_origin_parens,
+                should_err: true,
+                expected_err: "Invalid login: Login has illegal field: Origin is Malformed",
+            },
+        ];
+
+        for tc in &test_cases {
+            let actual = tc.login.check_valid();
+
+            if tc.should_err {
+                assert!(actual.is_err());
+                assert_eq!(tc.expected_err, actual.unwrap_err().to_string());
+            } else {
+                assert!(actual.is_ok());
+            }
+        }
     }
 }

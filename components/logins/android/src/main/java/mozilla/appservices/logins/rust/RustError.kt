@@ -57,6 +57,7 @@ open class RustError : Structure() {
             66 -> return InvalidRecordException(message, InvalidLoginReason.DUPLICATE_LOGIN)
             67 -> return InvalidRecordException(message, InvalidLoginReason.BOTH_TARGETS)
             68 -> return InvalidRecordException(message, InvalidLoginReason.NO_TARGET)
+            69 -> return InvalidRecordException(message, InvalidLoginReason.ILLEGAL_FIELD_VALUE)
 
             else -> return LoginsStorageException(message)
         }

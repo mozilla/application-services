@@ -74,6 +74,8 @@ pub enum InvalidLogin {
     DuplicateLogin,
     #[fail(display = "Both `formSubmitUrl` and `httpRealm` are present")]
     BothTargets,
-    #[fail(display = "Neither `formSubmitUrl` and `httpRealm` are present")]
+    #[fail(display = "Neither `formSubmitUrl` or `httpRealm` are present")]
     NoTarget,
+    #[fail(display = "Login has illegal field: {}", _0)]
+    IllegalFieldValue { field_info: String },
 }
