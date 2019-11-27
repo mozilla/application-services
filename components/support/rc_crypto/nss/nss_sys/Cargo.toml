@@ -9,7 +9,7 @@ license = "MPL-2.0"
 crate-type = ["lib"]
 
 [build-dependencies]
-bindgen = "0.51.0"
+bindgen = "0.52.0"
 serde = "1.0.101"
 serde_derive = "1.0.101"
 toml = "0.5.3"
