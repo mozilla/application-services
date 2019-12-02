@@ -361,6 +361,10 @@ the details of which are reproduced below.
     <url>https://github.com/servo/rust-smallvec/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: smallvec</name>
+    <url>https://github.com/servo/rust-smallvec/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: syn</name>
     <url>https://github.com/dtolnay/syn/blob/master/LICENSE-APACHE</url>
   </license>
