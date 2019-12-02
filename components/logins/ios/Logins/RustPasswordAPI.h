@@ -21,6 +21,7 @@ typedef enum Sync15PasswordsErrorCode {
     Sync15Passwords_InvalidLogin_DuplicateLogin = 64 + 2,
     Sync15Passwords_InvalidLogin_BothTargets = 64 + 3,
     Sync15Passwords_InvalidLogin_NoTarget = 64 + 4,
+    Sync15Passwords_InvalidLogin_IllegalFieldValue = 64 + 5,
 
 } Sync15PasswordsErrorCode;
 

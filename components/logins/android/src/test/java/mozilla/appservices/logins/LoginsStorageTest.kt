@@ -245,8 +245,19 @@ abstract class LoginsStorageTest {
                 password = "MyPassword",
                 username = "MyUsername")
 
+        val nullValueLogin = ServerPassword(
+                id = "",
+                hostname = "https://www.test.org",
+                httpRealm = "Some Other Realm",
+                password = "MyPassword",
+                username = "\u0000MyUsername2")
+
         expectException(InvalidRecordException::class.java) {
             test.ensureValid(dupeLogin)
+        }
+
+        expectException(InvalidRecordException::class.java) {
+            test.ensureValid(nullValueLogin)
         }
 
         test.delete("bbbbb")

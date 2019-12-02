@@ -271,10 +271,60 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
                     "Invalid login: Neither `formSubmitUrl` and `httpRealm` are present",
                     InvalidLoginReason.NO_TARGET)
         }
+
+        checkIllegalValues(login)
     }
 
     override fun ensureValid(login: ServerPassword) {
         checkValidWithNoDupes(login)
+    }
+
+    @Suppress("ThrowsCount")
+    private fun checkIllegalValues(login: ServerPassword) {
+        val fieldData = listOf(
+            Pair("formSubmitUrl", login.formSubmitURL),
+            Pair("httpRealm", login.httpRealm),
+            Pair("hostname", login.hostname),
+            Pair("usernameField", login.usernameField),
+            Pair("passwordField", login.passwordField),
+            Pair("username", login.username),
+            Pair("password", login.password)
+        )
+
+        fieldData.forEach {
+            if (it.second.toString().contains("\u0000")) {
+                throw InvalidRecordException(
+                    "Invalid login: Login has illegal field: `$it.first` contains Nul",
+                    InvalidLoginReason.ILLEGAL_FIELD_VALUE)
+            }
+        }
+
+        // Newlines are invalid in Desktop with the exception of the username and password fields.
+        val fieldDataSubset = fieldData.subList(0, fieldData.size - 2)
+
+        fieldDataSubset.forEach {
+            if (it.second.toString().contains("\n") || it.second.toString().contains("\r")) {
+                throw InvalidRecordException(
+                    "Invalid login: Login has illegal field: `$it.first` contains newline",
+                    InvalidLoginReason.ILLEGAL_FIELD_VALUE)
+            }
+        }
+
+        if (login.usernameField == ".") {
+            throw InvalidRecordException(
+                    "Invalid login: Login has illegal field: `usernameField` is a period",
+                    InvalidLoginReason.ILLEGAL_FIELD_VALUE)
+        }
+        if (login.formSubmitURL == ".") {
+            throw InvalidRecordException(
+                    "Invalid login: Login has illegal field: `formSubmitUrl` is a period",
+                    InvalidLoginReason.ILLEGAL_FIELD_VALUE)
+        }
+        if (login.hostname.contains(" (")) {
+            throw InvalidRecordException(
+                    "Invalid login: Login has illegal field: Origin is Malformed",
+                    InvalidLoginReason.ILLEGAL_FIELD_VALUE)
+        }
     }
 
     @Suppress("ThrowsCount")
