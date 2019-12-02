@@ -4,7 +4,7 @@
 
 // This module implement the traits that make the FFI code easier to manage.
 
-#![feature("prost_support")]
+//#![feature("prost_support")]
 
 use crate::{msg_types, Error, ErrorKind, InvalidLogin, Login};
 
@@ -119,7 +119,7 @@ impl From<Error> for ExternError {
 impl From<Login> for msg_types::Login {
     fn from(login: Login) -> Self {
         Self {
-            guid: login.guid.to_string(),
+            id: login.guid.to_string(),
             hostname: login.hostname,
             form_submit_url: login.form_submit_url,
             http_realm: login.http_realm,
@@ -135,5 +135,15 @@ impl From<Login> for msg_types::Login {
     }
 }
 
+impl From<Vec<Login>> for msg_types::LoginsNodeList {
+    fn from(login_nodes: Vec<Login>) -> Self {
+        Self {
+            nodes: login_nodes.iter().map(|n| n.to_owned().into()).collect(),
+        }
+    }
+}
+
 implement_into_ffi_by_protobuf!(msg_types::Login);
+implement_into_ffi_by_protobuf!(msg_types::LoginsNodeList);
+implement_into_ffi_by_protobuf!(msg_types::LoginAddResponse);
 implement_into_ffi_by_delegation!(Login, msg_types::Login);

@@ -14,6 +14,7 @@ use ffi_support::{
     define_string_destructor, ByteBuffer, ExternError, FfiStr,
 };
 use logins::{Login, PasswordEngine, Result};
+use logins::msg_types::{LoginsNodeList, LoginAddResponse};
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
 
@@ -196,9 +197,9 @@ pub extern "C" fn sync15_passwords_interrupt(
 #[no_mangle]
 pub extern "C" fn sync15_passwords_get_all(handle: u64, error: &mut ExternError) -> ByteBuffer {
     log::debug!("sync15_passwords_get_all");
-    ENGINES.call_with_result(error, handle, |state| -> Result<String> {
-        let all_passwords = state.list()?;
-        Ok(all_passwords)
+    ENGINES.call_with_result(error, handle, |state| -> Result<_> {
+        let all_passwords = state.lock().unwrap().list()?;
+        Ok(LoginsNodeList::from(all_passwords))
     })
 }
 
@@ -209,7 +210,7 @@ pub extern "C" fn sync15_passwords_get_by_id(
     error: &mut ExternError,
 ) -> ByteBuffer {
     log::debug!("sync15_passwords_get_by_id");
-    ENGINES.call_with_result(error, handle, |state| {
+    ENGINES.call_with_result(error, handle, |state| -> Result<_> {
         state.lock().unwrap().get(id.as_str())
     })
 }
@@ -221,14 +222,14 @@ pub extern "C" fn sync15_passwords_add(
     error: &mut ExternError,
 ) -> ByteBuffer {
     log::debug!("sync15_passwords_add");
-    ENGINES.call_with_result(error, handle, |state| {
+    ENGINES.call_with_result(error, handle, |state| -> Result<_> {
         let mut parsed: serde_json::Value = serde_json::from_str(record_json.as_str())?;
         if parsed.get("id").is_none() {
             // Note: we replace this with a real guid in `db.rs`.
             parsed["id"] = serde_json::Value::String(String::default());
         }
         let login: Login = serde_json::from_value(parsed)?;
-        state.lock().unwrap().add(login)
+        Ok(LoginAddResponse{record_id: state.lock().unwrap().add(login).unwrap()})
     })
 }
 

@@ -9,7 +9,7 @@ option java_outer_classname = "MsgTypes";
 
 
 message Login {
-    required string guid = 1;
+    required string id = 1;
     required string hostname = 2;
     optional string form_submit_url = 3;
     optional string http_realm = 4;
@@ -23,3 +23,11 @@ message Login {
     required int64 times_used = 12;
 }
 
+
+message LoginsNodeList {
+    repeated Login nodes = 1;
+}
+
+message LoginAddResponse {
+    required string record_id = 1;
+}
