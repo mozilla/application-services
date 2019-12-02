@@ -196,9 +196,8 @@ fn test_import() -> Result<()> {
             url: "I'm a super invalid URL, yo".to_owned(),
             ..Default::default()
         },
-        // Add "http://💖.com/💖" using an escaped string.
         FennecHistory {
-            url: "http://\u{1F496}.com/\u{1F496}".to_owned(),
+            url: "http://💖.com/💖".to_owned(),
             ..Default::default()
         },
         // Add "http://😍.com/😍" already punycoded.

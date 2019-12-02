@@ -147,12 +147,14 @@ fn test_import() -> Result<()> {
         let url = Url::parse(url_str)?;
         let conn = places_api.open_connection(ConnectionType::ReadOnly)?;
         Ok(conn.query_row_and_then(
-            "SELECT COUNT(*) from main.moz_bookmarks b
-            LEFT JOIN main.moz_places h ON h.id = b.fk
-            WHERE h.url_hash = hash(:url) AND h.url = :url",
+            "SELECT EXISTS(
+                SELECT 1 FROM main.moz_bookmarks b
+                LEFT JOIN main.moz_places h ON h.id = b.fk
+                WHERE h.url_hash = hash(:url) AND h.url = :url
+            )",
             &[&url.as_str()],
-            |r| r.get::<_, u32>(0),
-        )? == 1)
+            |r| r.get(0),
+        )?)
     }
 
     let tmpdir = tempdir().unwrap();
