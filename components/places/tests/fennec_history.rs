@@ -143,6 +143,22 @@ fn test_import_unsupported_db_version() -> Result<()> {
 
 #[test]
 fn test_import() -> Result<()> {
+    use places::db::PlacesDb;
+    use places::storage::fetch_page_info;
+    use url::Url;
+
+    fn check_visit_counts(
+        db: &PlacesDb,
+        url: &str,
+        expected_local: i32,
+        expected_remote: i32,
+    ) -> Result<()> {
+        let pi = fetch_page_info(db, &Url::parse(url)?)?.expect("has page");
+        assert_eq!(pi.page.visit_count_local, expected_local);
+        assert_eq!(pi.page.visit_count_remote, expected_remote);
+        Ok(())
+    }
+
     let tmpdir = tempdir().unwrap();
     let fennec_path = tmpdir.path().join("browser.db");
     let fennec_db = empty_fennec_db(&fennec_path)?;
@@ -178,6 +194,16 @@ fn test_import() -> Result<()> {
         },
         FennecHistory {
             url: "I'm a super invalid URL, yo".to_owned(),
+            ..Default::default()
+        },
+        // Add "http://💖.com/💖" using an escaped string.
+        FennecHistory {
+            url: "http://\u{1F496}.com/\u{1F496}".to_owned(),
+            ..Default::default()
+        },
+        // Add "http://😍.com/😍" already punycoded.
+        FennecHistory {
+            url: "http://xn--r28h.com/%F0%9F%98%8D".to_owned(),
             ..Default::default()
         },
     ];
@@ -224,6 +250,18 @@ fn test_import() -> Result<()> {
             date: Timestamp::from(1_565_117_389_898),
             is_local: true,
         },
+        FennecVisit {
+            history: &history[7],
+            visit_type: VisitTransition::Link,
+            date: Timestamp::from(1_565_117_389_898),
+            is_local: true,
+        },
+        FennecVisit {
+            history: &history[8],
+            visit_type: VisitTransition::Link,
+            date: Timestamp::from(1_565_117_389_898),
+            is_local: false,
+        },
     ];
     insert_history_and_visits(&fennec_db, &history, &visits)?;
 
@@ -251,6 +289,17 @@ fn test_import() -> Result<()> {
     .expect("should insert");
 
     places::import::import_fennec_history(&places_api, fennec_path)?;
+
+    // Check we imported things correctly.
+    check_visit_counts(&conn, "https://bobo.com/", 1, 1)?;
+    check_visit_counts(&conn, "https://mozilla.org/", 0, 2)?;
+    // foo.bar has no visits, but should still get a place.
+    check_visit_counts(&conn, "https://foo.bar/", 0, 0)?;
+    check_visit_counts(&conn, "https://gonnacolide.guid/", 1, 0)?;
+    check_visit_counts(&conn, "https://existing.guid", 1, 0)?;
+    check_visit_counts(&conn, "https://existing.guid", 1, 0)?;
+    check_visit_counts(&conn, "http://💖.com/💖", 1, 0)?;
+    check_visit_counts(&conn, "http://😍.com/😍", 0, 1)?;
 
     // Uncomment the following to debug with cargo test -- --nocapture.
     // println!(
