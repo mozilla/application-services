@@ -161,6 +161,15 @@ internal interface LibPlacesFFI : Library {
         error: RustError.ByReference
     ): RustBuffer.ByValue
 
+    fun places_get_visit_page_with_bound(
+        handle: PlacesConnectionHandle,
+        bound: Long,
+        offset: Long,
+        count: Long,
+        excludeTypes: Int,
+        error: RustError.ByReference
+    ): RustBuffer.ByValue
+
     fun places_get_visit_count(
         handle: PlacesConnectionHandle,
         excludeTypes: Int,
