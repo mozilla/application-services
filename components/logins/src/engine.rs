@@ -186,8 +186,6 @@ mod test {
             http_realm: Some("Some String Here".into()),
             username: "asdf".into(),
             password: "fdsa".into(),
-            username_field: "input_user".into(),
-            password_field: "input_pass".into(),
             ..Login::default()
         };
 

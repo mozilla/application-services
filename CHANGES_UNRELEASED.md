@@ -6,6 +6,11 @@
 
 ## Logins
 
+### Breaking Changes
+
+- Login records with a `httpRealm` attribute will now have their `usernameField` and `passwordField
+  properties silently cleared, to help ensure data consistency. ([#2158](https://github.com/mozilla/application-services/pull/2158)
+
 ### What's new
 
 - Added invalid character checks from Desktop to `LoginsStorage.ensureValid` and introduced `INVALID_LOGIN_ILLEGAL_FIELD_VALUE` error. ([#2262](https://github.com/mozilla/application-services/pull/2262))

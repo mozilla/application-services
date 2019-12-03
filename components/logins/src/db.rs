@@ -339,8 +339,8 @@ impl LoginDb {
         Ok(())
     }
 
-    pub fn add(&self, mut login: Login) -> Result<Login> {
-        self.check_valid_with_no_dupes(&login)?;
+    pub fn add(&self, login: Login) -> Result<Login> {
+        let mut login = self.fixup_and_check_for_dupes(login)?;
 
         let tx = self.unchecked_transaction()?;
         let now_ms = util::system_time_ms_i64(SystemTime::now());
@@ -353,11 +353,18 @@ impl LoginDb {
         }
 
         // Fill in default metadata.
-        // TODO: allow this to be provided for testing?
-        login.time_created = now_ms;
-        login.time_password_changed = now_ms;
-        login.time_last_used = now_ms;
-        login.times_used = 1;
+        if login.time_created == 0 {
+            login.time_created = now_ms;
+        }
+        if login.time_password_changed == 0 {
+            login.time_password_changed = now_ms;
+        }
+        if login.time_last_used == 0 {
+            login.time_last_used = now_ms;
+        }
+        if login.times_used == 0 {
+            login.times_used = 1;
+        }
 
         let sql = format!(
             "INSERT OR IGNORE INTO loginsL (
@@ -474,11 +481,29 @@ impl LoginDb {
         );
         let mut num_failed = 0;
         for login in logins {
-            if let Err(e) = self.check_valid_with_no_dupes(&login) {
-                log::warn!("Skipping login {} as it is invalid ({}).", login.guid, e);
-                num_failed += 1;
-                continue;
-            }
+            // This is a little bit of hoop-jumping to avoid cloning each borrowed item
+            // in order to *possibly* created a fixed-up version.
+            let mut login = login;
+            let maybe_fixed_login = login.maybe_fixup().and_then(|fixed| {
+                match &fixed {
+                    None => self.check_for_dupes(login)?,
+                    Some(l) => self.check_for_dupes(&l)?,
+                };
+                Ok(fixed)
+            });
+            match &maybe_fixed_login {
+                Ok(None) => {} // The provided login was fine all along
+                Ok(Some(l)) => {
+                    // We made a new, fixed-up Login.
+                    login = l;
+                }
+                Err(e) => {
+                    log::warn!("Skipping login {} as it is invalid ({}).", login.guid, e);
+                    num_failed += 1;
+                    continue;
+                }
+            };
+            // Now we can safely insert it, knowing that it's valid data.
             let old_guid = &login.guid; // Keep the old GUID around so we can debug errors easily.
             let guid = if old_guid.is_valid_for_sync_server() {
                 old_guid.clone()
@@ -515,7 +540,8 @@ impl LoginDb {
     }
 
     pub fn update(&self, login: Login) -> Result<()> {
-        self.check_valid_with_no_dupes(&login)?;
+        let login = self.fixup_and_check_for_dupes(login)?;
+
         let tx = self.unchecked_transaction()?;
         // Note: These fail with DuplicateGuid if the record doesn't exist.
         self.ensure_local_overlay_exists(login.guid_str())?;
@@ -567,9 +593,17 @@ impl LoginDb {
 
     pub fn check_valid_with_no_dupes(&self, login: &Login) -> Result<()> {
         login.check_valid()?;
-        let _dupe_exists = self.dupe_exists(login)?;
+        self.check_for_dupes(login)
+    }
 
-        if _dupe_exists {
+    pub fn fixup_and_check_for_dupes(&self, login: Login) -> Result<Login> {
+        let login = login.fixup()?;
+        self.check_for_dupes(&login)?;
+        Ok(login)
+    }
+
+    pub fn check_for_dupes(&self, login: &Login) -> Result<()> {
+        if self.dupe_exists(&login)? {
             throw!(InvalidLogin::DuplicateLogin);
         }
         Ok(())
