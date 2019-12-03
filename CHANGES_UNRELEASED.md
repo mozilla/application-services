@@ -2,6 +2,14 @@
 
 # Unreleased Changes
 
+## Places
+
+### What's new
+
+- Added and exposed `storage::history::get_visit_page_with_bound`, which performs
+  faster visit paging by first skipping directly to a `bound` timestamp and then
+  skipping over `offset` items from `bound`, through FFI. ([#1019](https://github.com/mozilla/application-services/issues/1019))
+
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.44.0...master)
 
 ## Logins
