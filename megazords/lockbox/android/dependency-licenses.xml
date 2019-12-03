@@ -137,6 +137,10 @@ the details of which are reproduced below.
     <url>https://github.com/rust-lang-nursery/lazy-static.rs/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: lazycell</name>
+    <url>https://github.com/indiv0/lazycell/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: libc</name>
     <url>https://github.com/rust-lang/libc/blob/master/LICENSE-APACHE</url>
   </license>
