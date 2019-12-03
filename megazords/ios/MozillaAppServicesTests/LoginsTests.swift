@@ -85,4 +85,57 @@ class LoginsTests: XCTestCase {
         XCTAssertNil(record1.formSubmitURL)
         XCTAssertEqual(record1.httpRealm, "Something Something")
     }
+
+    func testLoginEnsureValid() {
+        let storage = getTestStorage()
+        try! storage.unlock(withEncryptionKey: "test123")
+
+        let id0 = try! storage.add(login: LoginRecord(
+            id: "",
+            password: "hunter5",
+            hostname: "https://www.example5.com",
+            username: "cooluser55",
+            formSubmitURL: "https://www.example5.com/login",
+            httpRealm: nil,
+            timesUsed: nil,
+            timeLastUsed: nil,
+            timeCreated: nil,
+            timePasswordChanged: nil,
+            usernameField: nil,
+            passwordField: nil
+        ))
+
+        let dupeLogin = LoginRecord(
+            id: "",
+            password: "hunter3",
+            hostname: "https://www.example5.com",
+            username: "cooluser55",
+            formSubmitURL: "https://www.example5.com/login",
+            httpRealm: nil,
+            timesUsed: nil,
+            timeLastUsed: nil,
+            timeCreated: nil,
+            timePasswordChanged: nil,
+            usernameField: nil,
+            passwordField: nil
+        )
+
+        let nullValueLogin = LoginRecord(
+            id: "",
+            password: "hunter3",
+            hostname: "https://www.example6.com",
+            username: "\0cooluser56",
+            formSubmitURL: "https://www.example6.com/login",
+            httpRealm: nil,
+            timesUsed: nil,
+            timeLastUsed: nil,
+            timeCreated: nil,
+            timePasswordChanged: nil,
+            usernameField: nil,
+            passwordField: nil
+        )
+
+        XCTAssertThrowsError(try storage.ensureValid(login: dupeLogin))
+        XCTAssertThrowsError(try storage.ensureValid(login: nullValueLogin))
+    }
 }

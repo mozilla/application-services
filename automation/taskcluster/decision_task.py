@@ -224,7 +224,7 @@ def android_multiarch_release(is_staging):
         sign_task = (
             SignTask("Sign Android module: {}".format(module))
             .with_description("Signs module")
-            .with_worker_type("appsv-signing-dep-v1" if is_staging else "appsv-signing-v1")
+            .with_worker_type("appservices-t-signing" if is_staging else "appservices-3-signing")
             # We want to make sure ALL builds succeeded before doing a release.
             .with_dependencies(*module_build_tasks.values())
             .with_upstream_artifact({
@@ -324,9 +324,10 @@ def linux_build_task(name):
         .with_max_run_time_minutes(120)
         .with_dockerfile(dockerfile_path("build"), use_indexed_docker_image)
         .with_env(**build_env, **linux_build_env)
+        # We're stuck on 1.38.0 until we figure out the `cc` problems.
         .with_script("""
-            rustup toolchain install stable
-            rustup default stable
+            rustup toolchain install 1.38.0
+            rustup default 1.38.0
             rustup target add x86_64-linux-android i686-linux-android armv7-linux-androideabi aarch64-linux-android
         """)
         .with_repo()

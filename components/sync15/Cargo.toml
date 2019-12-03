@@ -10,7 +10,7 @@ reqwest = ["viaduct/reqwest"]
 default = []
 
 [dependencies]
-base64 = "0.9.3"
+base64 = "0.11.0"
 ffi-support = { path = "../support/ffi" }
 serde = "1.0.101"
 serde_derive = "1.0.101"

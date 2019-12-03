@@ -40,6 +40,10 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<()> {
 
     let tx = conn.begin_transaction()?;
 
+    log::debug!("Creating and populating staging table");
+    conn.execute_batch(&CREATE_STAGING_TABLE)?;
+    conn.execute_batch(&FILL_STAGING)?;
+
     log::debug!("Populating missing entries in moz_places");
     conn.execute_batch(&FILL_MOZ_PLACES)?;
     scope.err_if_interrupted()?;
@@ -65,21 +69,43 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<()> {
 }
 
 lazy_static::lazy_static! {
+    // We use a staging table purely so that we can normalize URLs (and
+    // specifically, punycode them)
+    static ref CREATE_STAGING_TABLE: &'static str = "
+        CREATE TEMP TABLE temp.fennecHistoryStaging(
+            guid TEXT PRIMARY KEY,
+            url TEXT,
+            url_hash INTEGER NOT NULL,
+            title TEXT
+        ) WITHOUT ROWID;"
+    ;
+
+    static ref FILL_STAGING: &'static str = "
+        INSERT OR IGNORE INTO temp.fennecHistoryStaging(guid, url, url_hash, title)
+            SELECT
+                guid, -- The places record in our DB may be different, but we
+                      -- need this to join to Fennec's visits table.
+                validate_url(h.url),
+                hash(validate_url(h.url)),
+                h.title
+            FROM fennec.history h
+            WHERE url IS NOT NULL"
+        ;
+
     // Insert any missing entries into moz_places that we'll need for this.
     static ref FILL_MOZ_PLACES: &'static str =
         "INSERT OR IGNORE INTO main.moz_places(guid, url, url_hash, title, frecency, sync_change_counter)
             SELECT
                 IFNULL(
-                    (SELECT p.guid FROM main.moz_places p WHERE p.url_hash = hash(h.url) AND p.url = h.url),
+                    (SELECT p.guid FROM main.moz_places p WHERE p.url_hash = t.url_hash AND p.url = t.url),
                     generate_guid()
                 ),
-                h.url,
-                hash(h.url),
-                h.title,
+                t.url,
+                t.url_hash,
+                t.title,
                 -1,
                 1
-            FROM fennec.history h
-            WHERE is_valid_url(h.url)"
+            FROM temp.fennecHistoryStaging t"
     ;
 
     // Insert history visits
@@ -87,22 +113,21 @@ lazy_static::lazy_static! {
         "INSERT OR IGNORE INTO main.moz_historyvisits(from_visit, place_id, visit_date, visit_type, is_local)
             SELECT
                 NULL, -- Fenec does not store enough information to rebuild redirect chains.
-                (SELECT p.id FROM main.moz_places p WHERE p.url_hash = hash(h.url) AND p.url = h.url),
+                (SELECT p.id FROM main.moz_places p WHERE p.url_hash = t.url_hash AND p.url = t.url),
                 sanitize_timestamp(v.date),
                 v.visit_type, -- Fennec stores visit types maps 1:1 to ours.
                 v.is_local
             FROM fennec.visits v
-            LEFT JOIN fennec.history h on v.history_guid = h.guid
-            WHERE is_valid_url(h.url)"
+            LEFT JOIN temp.fennecHistoryStaging t on v.history_guid = t.guid"
     ;
 }
 
 pub(super) fn define_sql_functions(c: &Connection) -> Result<()> {
     c.create_scalar_function(
-        "is_valid_url",
+        "validate_url",
         1,
         true,
-        crate::import::common::sql_fns::is_valid_url,
+        crate::import::common::sql_fns::validate_url,
     )?;
     c.create_scalar_function(
         "sanitize_timestamp",

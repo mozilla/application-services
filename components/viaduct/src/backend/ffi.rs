@@ -137,7 +137,10 @@ mod callback_holder {
     // Overly-paranoid sanity checking to ensure that these types are
     // convertible between each-other. `transmute` actually should check this for
     // us too, but this helps document the invariants we rely on in this code.
-
+    //
+    // Note that these are guaranteed by
+    // https://rust-lang.github.io/unsafe-code-guidelines/layout/function-pointers.html
+    // and thus this is a little paranoid.
     ffi_support::static_assert!(
         STATIC_ASSERT_USIZE_EQ_FUNC_SIZE,
         std::mem::size_of::<usize>() == std::mem::size_of::<FetchCallback>()
@@ -156,8 +159,8 @@ mod callback_holder {
     }
 
     /// Set the function pointer to the FetchCallback. Returns false if we did nothing because the callback had already been initialized
-    pub(super) unsafe fn set_callback(h: FetchCallback) -> bool {
-        let as_usize = std::mem::transmute::<FetchCallback, usize>(h);
+    pub(super) fn set_callback(h: FetchCallback) -> bool {
+        let as_usize = h as usize;
         let old_ptr = CALLBACK_PTR.compare_and_swap(0, as_usize, Ordering::SeqCst);
         if old_ptr != 0 {
             // This is an internal bug, the other side of the FFI should ensure
@@ -191,7 +194,7 @@ pub extern "C" fn viaduct_log_error(s: FfiStr<'_>) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn viaduct_initialize(callback: FetchCallback) -> u8 {
+pub extern "C" fn viaduct_initialize(callback: FetchCallback) -> u8 {
     ffi_support::abort_on_panic::call_with_output(|| callback_holder::set_callback(callback))
 }
 

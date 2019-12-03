@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     bso_record::Payload,
@@ -19,7 +19,7 @@ use interrupt::Interruptee;
 use super::{
     record::{ClientRecord, CommandRecord},
     ser::shrink_to_fit,
-    Command, CommandProcessor, CommandStatus,
+    Command, CommandProcessor, CommandStatus, RemoteClient,
 };
 use crate::error::Result;
 
@@ -31,15 +31,35 @@ struct Driver<'a> {
     command_processor: &'a dyn CommandProcessor,
     interruptee: &'a dyn Interruptee,
     config: &'a InfoConfiguration,
+    recent_clients: HashMap<String, RemoteClient>,
 }
 
 impl<'a> Driver<'a> {
-    fn sync(&self, inbound: IncomingChangeset) -> Result<OutgoingChangeset> {
+    fn new(
+        command_processor: &'a dyn CommandProcessor,
+        interruptee: &'a dyn Interruptee,
+        config: &'a InfoConfiguration,
+    ) -> Driver<'a> {
+        Driver {
+            command_processor,
+            interruptee,
+            config,
+            recent_clients: HashMap::new(),
+        }
+    }
+
+    fn note_recent_client(&mut self, client: &ClientRecord) {
+        self.recent_clients.insert(client.id.clone(), client.into());
+    }
+
+    fn sync(&mut self, inbound: IncomingChangeset) -> Result<OutgoingChangeset> {
         let mut outgoing = OutgoingChangeset::new(COLLECTION_NAME.into(), inbound.timestamp);
         outgoing.timestamp = inbound.timestamp;
 
         self.interruptee.err_if_interrupted()?;
         let outgoing_commands = self.command_processor.fetch_outgoing_commands()?;
+
+        let mut has_own_client_record = false;
 
         for (payload, _) in inbound.changes {
             self.interruptee.err_if_interrupted()?;
@@ -56,6 +76,7 @@ impl<'a> Driver<'a> {
                 // commands that we don't understand also go back in the list.
                 // https://github.com/mozilla/application-services/issues/1800
                 // tracks if that's the right thing to do.
+                has_own_client_record = true;
                 let mut current_client_record = self.current_client_record();
                 for c in client.commands {
                     let status = match c.as_command() {
@@ -83,15 +104,22 @@ impl<'a> Driver<'a> {
                     self.memcache_max_record_payload_size(),
                 )?;
 
+                // Add the new client record to our map of recently synced
+                // clients, so that downstream consumers like synced tabs can
+                // access them.
+                self.note_recent_client(&current_client_record);
+
                 // We always upload our own client record on each sync, even if it
                 // doesn't change, to keep it fresh.
                 outgoing
                     .changes
                     .push(Payload::from_record(current_client_record)?);
             } else {
-                // For other clients, write our outgoing commands into their
-                // records. If we don't have any, we don't need to reupload the
-                // other client's record.
+                // Add the other client to our map of recently synced clients.
+                self.note_recent_client(&client);
+
+                // Bail if we don't have any outgoing commands to write into
+                // the other client's record.
                 if outgoing_commands.is_empty() {
                     continue;
                 }
@@ -129,6 +157,15 @@ impl<'a> Driver<'a> {
             }
         }
 
+        // Upload a record for our own client, if we didn't replace it already.
+        if !has_own_client_record {
+            let current_client_record = self.current_client_record();
+            self.note_recent_client(&current_client_record);
+            outgoing
+                .changes
+                .push(Payload::from_record(current_client_record)?);
+        }
+
         Ok(outgoing)
     }
 
@@ -154,7 +191,7 @@ impl<'a> Driver<'a> {
     fn max_record_payload_size(&self) -> usize {
         let payload_max = self.config.max_record_payload_bytes;
         if payload_max <= self.config.max_post_bytes {
-            self.config.max_post_bytes.checked_sub(4096).unwrap_or(0)
+            self.config.max_post_bytes.saturating_sub(4096)
         } else {
             payload_max
         }
@@ -175,12 +212,23 @@ impl<'a> Driver<'a> {
 pub struct Engine<'a> {
     pub command_processor: &'a dyn CommandProcessor,
     pub interruptee: &'a dyn Interruptee,
-    pub storage_client: &'a Sync15StorageClient,
-    pub global_state: &'a GlobalState,
-    pub root_sync_key: &'a KeyBundle,
+    pub recent_clients: HashMap<String, RemoteClient>,
 }
 
 impl<'a> Engine<'a> {
+    /// Creates a new clients engine that delegates to the given command
+    /// processor to apply incoming commands.
+    pub fn new<'b>(
+        command_processor: &'b dyn CommandProcessor,
+        interruptee: &'b dyn Interruptee,
+    ) -> Engine<'b> {
+        Engine {
+            command_processor,
+            interruptee,
+            recent_clients: HashMap::new(),
+        }
+    }
+
     /// Syncs the clients collection. This works a little differently than
     /// other collections:
     ///
@@ -197,17 +245,19 @@ impl<'a> Engine<'a> {
     /// For these reasons, we implement this engine directly in the `sync15`
     /// crate, and provide a specialized `sync` method instead of implementing
     /// `sync15::Store`.
-    pub fn sync(&self) -> Result<()> {
+    pub fn sync(
+        &mut self,
+        storage_client: &Sync15StorageClient,
+        global_state: &GlobalState,
+        root_sync_key: &KeyBundle,
+    ) -> Result<()> {
         log::info!("Syncing collection clients");
 
-        let coll_keys = CollectionKeys::from_encrypted_bso(
-            self.global_state.keys.clone(),
-            &self.root_sync_key,
-        )?;
+        let coll_keys =
+            CollectionKeys::from_encrypted_bso(global_state.keys.clone(), &root_sync_key)?;
         let mut coll_state = CollState {
-            config: self.global_state.config.clone(),
-            last_modified: self
-                .global_state
+            config: global_state.config.clone(),
+            last_modified: global_state
                 .collections
                 .get(COLLECTION_NAME)
                 .cloned()
@@ -215,25 +265,23 @@ impl<'a> Engine<'a> {
             key: coll_keys.key_for_collection(COLLECTION_NAME).clone(),
         };
 
-        let inbound = self.fetch_incoming(&mut coll_state)?;
+        let inbound = self.fetch_incoming(&storage_client, &mut coll_state)?;
 
-        let driver = Driver {
-            command_processor: self.command_processor,
-            interruptee: self.interruptee,
-            config: &self.global_state.config,
-        };
+        let mut driver = Driver::new(
+            self.command_processor,
+            self.interruptee,
+            &global_state.config,
+        );
 
         let outgoing = driver.sync(inbound)?;
+        self.recent_clients = driver.recent_clients;
+
         coll_state.last_modified = outgoing.timestamp;
 
         self.interruptee.err_if_interrupted()?;
-        let upload_info = CollectionUpdate::new_from_changeset(
-            &self.storage_client,
-            &coll_state,
-            outgoing,
-            true,
-        )?
-        .upload()?;
+        let upload_info =
+            CollectionUpdate::new_from_changeset(&storage_client, &coll_state, outgoing, true)?
+                .upload()?;
 
         log::info!(
             "Upload success ({} records success, {} records failed)",
@@ -245,18 +293,31 @@ impl<'a> Engine<'a> {
         Ok(())
     }
 
-    fn fetch_incoming(&self, coll_state: &mut CollState) -> Result<IncomingChangeset> {
+    fn fetch_incoming(
+        &self,
+        storage_client: &Sync15StorageClient,
+        coll_state: &mut CollState,
+    ) -> Result<IncomingChangeset> {
+        // Note that, unlike other stores, we always fetch the full collection
+        // on every sync, so `inbound` will return all clients, not just the
+        // ones that changed since the last sync.
         let coll_request = CollectionRequest::new(COLLECTION_NAME).full();
 
         self.interruptee.err_if_interrupted()?;
         let inbound = IncomingChangeset::fetch(
-            &self.storage_client,
+            &storage_client,
             coll_state,
             COLLECTION_NAME.into(),
             &coll_request,
         )?;
 
         Ok(inbound)
+    }
+
+    pub fn local_client_id(&self) -> String {
+        // Bit dirty but it's the easiest way to reach to our own
+        // device ID without refactoring the whole sync manager crate.
+        self.command_processor.settings().fxa_device_id.clone()
     }
 }
 
@@ -273,50 +334,56 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn tests_clients_sync() {
-        struct TestProcessor(Settings);
+    struct TestProcessor {
+        settings: Settings,
+        outgoing_commands: HashSet<Command>,
+    }
 
-        impl CommandProcessor for TestProcessor {
-            fn settings(&self) -> &Settings {
-                &self.0
-            }
-
-            fn apply_incoming_command(
-                &self,
-                command: Command,
-            ) -> result::Result<CommandStatus, failure::Error> {
-                Ok(if let Command::Reset(name) = command {
-                    if name == "forms" {
-                        CommandStatus::Unsupported
-                    } else {
-                        CommandStatus::Applied
-                    }
-                } else {
-                    CommandStatus::Ignored
-                })
-            }
-
-            fn fetch_outgoing_commands(&self) -> result::Result<HashSet<Command>, failure::Error> {
-                let mut commands = HashSet::new();
-                commands.insert(Command::Wipe("bookmarks".into()));
-                commands.insert(Command::Reset("history".into()));
-                Ok(commands)
-            }
+    impl CommandProcessor for TestProcessor {
+        fn settings(&self) -> &Settings {
+            &self.settings
         }
 
-        let processor = TestProcessor(Settings {
-            fxa_device_id: "deviceAAAAAA".into(),
-            device_name: "Laptop".into(),
-            device_type: DeviceType::Desktop,
-        });
+        fn apply_incoming_command(
+            &self,
+            command: Command,
+        ) -> result::Result<CommandStatus, failure::Error> {
+            Ok(if let Command::Reset(name) = command {
+                if name == "forms" {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Applied
+                }
+            } else {
+                CommandStatus::Ignored
+            })
+        }
+
+        fn fetch_outgoing_commands(&self) -> result::Result<HashSet<Command>, failure::Error> {
+            Ok(self.outgoing_commands.clone())
+        }
+    }
+
+    #[test]
+    fn test_clients_sync() {
+        let processor = TestProcessor {
+            settings: Settings {
+                fxa_device_id: "deviceAAAAAA".into(),
+                device_name: "Laptop".into(),
+                device_type: DeviceType::Desktop,
+            },
+            outgoing_commands: [
+                Command::Wipe("bookmarks".into()),
+                Command::Reset("history".into()),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
+        };
+
         let config = InfoConfiguration::default();
 
-        let driver = Driver {
-            command_processor: &processor,
-            interruptee: &NeverInterrupts,
-            config: &config,
-        };
+        let mut driver = Driver::new(&processor, &NeverInterrupts, &config);
 
         let clients = json!([{
             "id": "deviceBBBBBB",
@@ -371,6 +438,34 @@ mod tests {
 
         let mut outgoing = driver.sync(inbound).expect("Should sync clients");
         outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
+
+        // Make sure the list of recently synced remote clients is correct.
+        let expected_ids = &["deviceAAAAAA", "deviceBBBBBB", "deviceCCCCCC"];
+        let mut actual_ids = driver.recent_clients.keys().collect::<Vec<&String>>();
+        actual_ids.sort();
+        assert_eq!(actual_ids, expected_ids);
+
+        let expected_remote_clients = &[
+            RemoteClient {
+                device_name: "Laptop".into(),
+                device_type: Some(DeviceType::Desktop),
+            },
+            RemoteClient {
+                device_name: "iPhone".into(),
+                device_type: Some(DeviceType::Mobile),
+            },
+            RemoteClient {
+                device_name: "Fenix".into(),
+                device_type: Some(DeviceType::Mobile),
+            },
+        ];
+        let actual_remote_clients = expected_ids
+            .iter()
+            .filter_map(|&id| driver.recent_clients.get(id))
+            .cloned()
+            .collect::<Vec<RemoteClient>>();
+        assert_eq!(actual_remote_clients, expected_remote_clients);
+
         let expected = json!([{
             "id": "deviceAAAAAA",
             "name": "Laptop",
@@ -421,6 +516,90 @@ mod tests {
             }
         } else {
             unreachable!("`expected_clients` must be an array of client records")
+        }
+    }
+
+    #[test]
+    fn test_fresh_client_record() {
+        let processor = TestProcessor {
+            settings: Settings {
+                fxa_device_id: "deviceAAAAAA".into(),
+                device_name: "Laptop".into(),
+                device_type: DeviceType::Desktop,
+            },
+            outgoing_commands: HashSet::new(),
         };
+
+        let config = InfoConfiguration::default();
+
+        let mut driver = Driver::new(&processor, &NeverInterrupts, &config);
+
+        let clients = json!([{
+            "id": "deviceBBBBBB",
+            "name": "iPhone",
+            "type": "mobile",
+            "commands": [{
+                "command": "resetEngine",
+                "args": ["history"],
+            }],
+            "fxaDeviceId": "iPhooooooone",
+            "protocols": ["1.5"],
+            "device": "iPhone",
+        }]);
+
+        let inbound = if let Value::Array(clients) = clients {
+            let changes = clients
+                .into_iter()
+                .map(|c| (Payload::from_json(c).unwrap(), ServerTimestamp(0)))
+                .collect();
+            IncomingChangeset {
+                changes,
+                timestamp: ServerTimestamp(0),
+                collection: COLLECTION_NAME.into(),
+            }
+        } else {
+            unreachable!("`clients` must be an array of client records")
+        };
+
+        let mut outgoing = driver.sync(inbound).expect("Should sync clients");
+        outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
+
+        // Make sure the list of recently synced remote clients is correct.
+        let expected_ids = &["deviceAAAAAA", "deviceBBBBBB"];
+        let mut actual_ids = driver.recent_clients.keys().collect::<Vec<&String>>();
+        actual_ids.sort();
+        assert_eq!(actual_ids, expected_ids);
+
+        let expected_remote_clients = &[
+            RemoteClient {
+                device_name: "Laptop".into(),
+                device_type: Some(DeviceType::Desktop),
+            },
+            RemoteClient {
+                device_name: "iPhone".into(),
+                device_type: Some(DeviceType::Mobile),
+            },
+        ];
+        let actual_remote_clients = expected_ids
+            .iter()
+            .filter_map(|&id| driver.recent_clients.get(id))
+            .cloned()
+            .collect::<Vec<RemoteClient>>();
+        assert_eq!(actual_remote_clients, expected_remote_clients);
+
+        let expected = json!([{
+            "id": "deviceAAAAAA",
+            "name": "Laptop",
+            "type": "desktop",
+            "fxaDeviceId": "deviceAAAAAA",
+            "protocols": ["1.5"],
+        }]);
+        if let Value::Array(expected) = expected {
+            for (i, record) in expected.into_iter().enumerate() {
+                assert_eq!(outgoing.changes[i], Payload::from_json(record).unwrap());
+            }
+        } else {
+            unreachable!("`expected_clients` must be an array of client records")
+        }
     }
 }

@@ -1,7 +1,7 @@
 [package]
 name = "ffi-support"
 edition = "2018"
-version = "0.3.5"
+version = "0.3.6"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 description = "A crate to help expose Rust functions over the FFI."
 repository = "https://github.com/mozilla/application-services"

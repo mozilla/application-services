@@ -65,12 +65,17 @@ error_support::define_error! {
 
 #[derive(Debug, Fail)]
 pub enum InvalidLogin {
-    #[fail(display = "Hostname is empty")]
-    EmptyHostname,
+    // EmptyOrigin error occurs when the login's hostname field is empty.
+    #[fail(display = "Origin is empty")]
+    EmptyOrigin,
     #[fail(display = "Password is empty")]
     EmptyPassword,
+    #[fail(display = "Login already exists")]
+    DuplicateLogin,
     #[fail(display = "Both `formSubmitUrl` and `httpRealm` are present")]
     BothTargets,
-    #[fail(display = "Neither `formSubmitUrl` and `httpRealm` are present")]
+    #[fail(display = "Neither `formSubmitUrl` or `httpRealm` are present")]
     NoTarget,
+    #[fail(display = "Login has illegal field: {}", _0)]
+    IllegalFieldValue { field_info: String },
 }

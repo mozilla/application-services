@@ -427,11 +427,11 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 ## Apache License 2.0
 
 The following text applies to code linked from these dependendencies:
-[arrayvec](https://github.com/bluss/arrayvec),
 [autocfg](https://github.com/cuviper/autocfg),
 [backtrace-sys](https://github.com/alexcrichton/backtrace-rs),
 [backtrace](https://github.com/rust-lang/backtrace-rs),
 [base64](https://github.com/alicemaz/rust-base64),
+[base64](https://github.com/marshallpierce/rust-base64),
 [bitflags](https://github.com/bitflags/bitflags),
 [c2-chacha](https://github.com/cryptocorrosion/cryptocorrosion),
 [cc](https://github.com/alexcrichton/cc-rs),
@@ -481,11 +481,11 @@ The following text applies to code linked from these dependendencies:
 [lock_api](https://github.com/Amanieu/parking_lot),
 [log](https://github.com/rust-lang/log),
 [lru-cache](https://github.com/contain-rs/lru-cache),
+[maybe-uninit](https://github.com/est31/maybe-uninit),
 [mime](https://github.com/hyperium/mime),
 [multimap](https://github.com/havarnov/multimap),
 [native-tls](https://github.com/sfackler/rust-native-tls),
 [net2](https://github.com/rust-lang-nursery/net2-rs),
-[nodrop](https://github.com/bluss/arrayvec),
 [num_cpus](https://github.com/seanmonstar/num_cpus),
 [once_cell](https://github.com/matklad/once_cell),
 [parking_lot](https://github.com/Amanieu/parking_lot),
@@ -520,7 +520,6 @@ The following text applies to code linked from these dependendencies:
 [rustc-hash](https://github.com/rust-lang-nursery/rustc-hash),
 [rustc_version](https://github.com/Kimundi/rustc-version-rs),
 [ryu](https://github.com/dtolnay/ryu),
-[safemem](https://github.com/abonander/safemem),
 [scopeguard](https://github.com/bluss/scopeguard),
 [security-framework-sys](https://github.com/kornelski/rust-security-framework),
 [security-framework](https://github.com/kornelski/rust-security-framework),

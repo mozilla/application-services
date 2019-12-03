@@ -9,6 +9,7 @@ import com.sun.jna.Structure
 import mozilla.appservices.logins.IdCollisionException
 import mozilla.appservices.logins.InvalidKeyException
 import mozilla.appservices.logins.InvalidRecordException
+import mozilla.appservices.logins.InvalidLoginReason
 import mozilla.appservices.logins.LoginsStorageException
 import mozilla.appservices.logins.NoSuchRecordException
 import mozilla.appservices.logins.RequestFailedException
@@ -47,10 +48,17 @@ open class RustError : Structure() {
             1 -> return SyncAuthInvalidException(message)
             2 -> return NoSuchRecordException(message)
             3 -> return IdCollisionException(message)
-            4 -> return InvalidRecordException(message)
-            5 -> return InvalidKeyException(message)
-            6 -> return RequestFailedException(message)
-            7 -> return InterruptedException(message)
+            4 -> return InvalidKeyException(message)
+            5 -> return RequestFailedException(message)
+            6 -> return InterruptedException(message)
+
+            64 -> return InvalidRecordException(message, InvalidLoginReason.EMPTY_ORIGIN)
+            65 -> return InvalidRecordException(message, InvalidLoginReason.EMPTY_PASSWORD)
+            66 -> return InvalidRecordException(message, InvalidLoginReason.DUPLICATE_LOGIN)
+            67 -> return InvalidRecordException(message, InvalidLoginReason.BOTH_TARGETS)
+            68 -> return InvalidRecordException(message, InvalidLoginReason.NO_TARGET)
+            69 -> return InvalidRecordException(message, InvalidLoginReason.ILLEGAL_FIELD_VALUE)
+
             else -> return LoginsStorageException(message)
         }
     }

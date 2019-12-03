@@ -80,7 +80,7 @@ data class SyncParams(
      * Requesting that we sync an unknown engine type will result in a
      * [UnsupportedEngine] error.
      *
-     * Passing `null` here is used to indicate that all known engines
+     * Passing `null` here is used to indicate that all known and configured engines
      * should be synced.
      */
     val engines: List<String>?,

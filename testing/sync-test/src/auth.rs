@@ -205,19 +205,17 @@ impl TestClient {
 
         fxa.initialize_device("Testing Device", fxa_client::device::Type::Desktop, &[])?;
 
-        let device_id = fxa.get_current_device_id()?;
-
         Ok(Self {
             fxa,
             test_acct: acct,
             logins_engine: PasswordEngine::new_in_memory(None)?,
-            tabs_engine: TabsEngine::new(&device_id),
+            tabs_engine: TabsEngine::new(),
         })
     }
 
     pub fn data_for_sync(
         &mut self,
-    ) -> Result<(Sync15StorageClientInit, KeyBundle), failure::Error> {
+    ) -> Result<(Sync15StorageClientInit, KeyBundle, String), failure::Error> {
         // Allow overriding it via environment
         let tokenserver_url = option_env!("TOKENSERVER_URL")
             .map(|env_var| {
@@ -239,7 +237,9 @@ impl TestClient {
 
         let root_sync_key = KeyBundle::from_ksync_base64(&key.k)?;
 
-        Ok((client_init, root_sync_key))
+        let device_id = self.fxa.get_current_device_id()?;
+
+        Ok((client_init, root_sync_key, device_id))
     }
 
     pub fn fully_wipe_server(&mut self) -> Result<(), failure::Error> {
@@ -252,7 +252,7 @@ impl TestClient {
     pub fn fully_reset_local_db(&mut self) -> Result<(), failure::Error> {
         // Not great...
         self.logins_engine = PasswordEngine::new_in_memory(None)?;
-        self.tabs_engine = TabsEngine::new(&self.fxa.get_current_device_id()?);
+        self.tabs_engine = TabsEngine::new();
         Ok(())
     }
 }

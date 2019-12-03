@@ -339,8 +339,8 @@ impl LoginDb {
         Ok(())
     }
 
-    pub fn add(&self, mut login: Login) -> Result<Login> {
-        login.check_valid()?;
+    pub fn add(&self, login: Login) -> Result<Login> {
+        let mut login = self.fixup_and_check_for_dupes(login)?;
 
         let tx = self.unchecked_transaction()?;
         let now_ms = util::system_time_ms_i64(SystemTime::now());
@@ -353,11 +353,18 @@ impl LoginDb {
         }
 
         // Fill in default metadata.
-        // TODO: allow this to be provided for testing?
-        login.time_created = now_ms;
-        login.time_password_changed = now_ms;
-        login.time_last_used = now_ms;
-        login.times_used = 1;
+        if login.time_created == 0 {
+            login.time_created = now_ms;
+        }
+        if login.time_password_changed == 0 {
+            login.time_password_changed = now_ms;
+        }
+        if login.time_last_used == 0 {
+            login.time_last_used = now_ms;
+        }
+        if login.times_used == 0 {
+            login.times_used = 1;
+        }
 
         let sql = format!(
             "INSERT OR IGNORE INTO loginsL (
@@ -474,11 +481,29 @@ impl LoginDb {
         );
         let mut num_failed = 0;
         for login in logins {
-            if let Err(e) = login.check_valid() {
-                log::warn!("Skipping login {} as it is invalid ({}).", login.guid, e);
-                num_failed += 1;
-                continue;
-            }
+            // This is a little bit of hoop-jumping to avoid cloning each borrowed item
+            // in order to *possibly* created a fixed-up version.
+            let mut login = login;
+            let maybe_fixed_login = login.maybe_fixup().and_then(|fixed| {
+                match &fixed {
+                    None => self.check_for_dupes(login)?,
+                    Some(l) => self.check_for_dupes(&l)?,
+                };
+                Ok(fixed)
+            });
+            match &maybe_fixed_login {
+                Ok(None) => {} // The provided login was fine all along
+                Ok(Some(l)) => {
+                    // We made a new, fixed-up Login.
+                    login = l;
+                }
+                Err(e) => {
+                    log::warn!("Skipping login {} as it is invalid ({}).", login.guid, e);
+                    num_failed += 1;
+                    continue;
+                }
+            };
+            // Now we can safely insert it, knowing that it's valid data.
             let old_guid = &login.guid; // Keep the old GUID around so we can debug errors easily.
             let guid = if old_guid.is_valid_for_sync_server() {
                 old_guid.clone()
@@ -515,7 +540,8 @@ impl LoginDb {
     }
 
     pub fn update(&self, login: Login) -> Result<()> {
-        login.check_valid()?;
+        let login = self.fixup_and_check_for_dupes(login)?;
+
         let tx = self.unchecked_transaction()?;
         // Note: These fail with DuplicateGuid if the record doesn't exist.
         self.ensure_local_overlay_exists(login.guid_str())?;
@@ -563,6 +589,64 @@ impl LoginDb {
         )?;
         tx.commit()?;
         Ok(())
+    }
+
+    pub fn check_valid_with_no_dupes(&self, login: &Login) -> Result<()> {
+        login.check_valid()?;
+        self.check_for_dupes(login)
+    }
+
+    pub fn fixup_and_check_for_dupes(&self, login: Login) -> Result<Login> {
+        let login = login.fixup()?;
+        self.check_for_dupes(&login)?;
+        Ok(login)
+    }
+
+    pub fn check_for_dupes(&self, login: &Login) -> Result<()> {
+        if self.dupe_exists(&login)? {
+            throw!(InvalidLogin::DuplicateLogin);
+        }
+        Ok(())
+    }
+
+    pub fn dupe_exists(&self, login: &Login) -> Result<bool> {
+        // Note: the query below compares the guids of the given login with existing logins
+        //  to prevent a login from being considered a duplicate of itself (e.g. during updates).
+        Ok(self.db.query_row_named(
+            "SELECT EXISTS(
+                SELECT 1 FROM loginsL
+                WHERE is_deleted = 0
+                    AND guid <> :guid
+                    AND hostname = :hostname
+                    AND NULLIF(username, '') = :username
+                    AND (
+                        formSubmitURL = :form_submit
+                        OR
+                        httpRealm = :http_realm
+                    )
+
+                UNION ALL
+
+                SELECT 1 FROM loginsM
+                WHERE is_overridden = 0
+                    AND guid <> :guid
+                    AND hostname = :hostname
+                    AND NULLIF(username, '') = :username
+                    AND (
+                        formSubmitURL = :form_submit
+                        OR
+                        httpRealm = :http_realm
+                    )
+             )",
+            named_params! {
+                ":guid": &login.guid,
+                ":hostname": &login.hostname,
+                ":username": &login.username,
+                ":http_realm": login.http_realm.as_ref(),
+                ":form_submit": login.form_submit_url.as_ref(),
+            },
+            |row| row.get(0),
+        )?)
     }
 
     pub fn exists(&self, id: &str) -> Result<bool> {
@@ -1088,5 +1172,67 @@ mod tests {
         assert_eq!(res.len(), 2);
         assert_eq!(res[0].guid, "dummy_000001");
         assert_eq!(res[1].guid, "dummy_000003");
+    }
+
+    #[test]
+    fn test_check_valid_with_no_dupes_with_dupe() {
+        let db = LoginDb::open_in_memory(Some("testing")).unwrap();
+        let login = db
+            .add(Login {
+                guid: "dummy_000001".into(),
+                form_submit_url: Some("https://www.example.com/submit".into()),
+                hostname: "https://www.example.com".into(),
+                http_realm: None,
+                username: "test".into(),
+                password: "test".into(),
+                ..Login::default()
+            })
+            .unwrap();
+
+        let duplicate_login_check = db.check_valid_with_no_dupes(&Login {
+            guid: Guid::empty(),
+            form_submit_url: Some("https://www.example.com/submit".into()),
+            hostname: "https://www.example.com".into(),
+            http_realm: None,
+            username: "test".into(),
+            password: "test2".into(),
+            ..Login::default()
+        });
+
+        db.delete(login.guid_str()).unwrap();
+        assert!(&duplicate_login_check.is_err());
+        assert_eq!(
+            &duplicate_login_check.unwrap_err().to_string(),
+            "Invalid login: Login already exists"
+        )
+    }
+
+    #[test]
+    fn test_check_valid_with_no_dupes_with_unique_login() {
+        let db = LoginDb::open_in_memory(Some("testing")).unwrap();
+        let login = db
+            .add(Login {
+                guid: "dummy_000001".into(),
+                form_submit_url: Some("https://www.example.com/submit".into()),
+                hostname: "https://www.example.com".into(),
+                http_realm: None,
+                username: "test".into(),
+                password: "test".into(),
+                ..Login::default()
+            })
+            .unwrap();
+
+        let unique_login_check = db.check_valid_with_no_dupes(&Login {
+            guid: Guid::empty(),
+            form_submit_url: None,
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Login::default()
+        });
+
+        db.delete(login.guid_str()).unwrap();
+        assert!(&unique_login_check.is_ok())
     }
 }

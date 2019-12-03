@@ -140,6 +140,23 @@ fn test_import_unsupported_db_version() -> Result<()> {
 
 #[test]
 fn test_import() -> Result<()> {
+    use places::api::places_api::ConnectionType;
+    use url::Url;
+
+    fn bookmark_exists(places_api: &PlacesApi, url_str: &str) -> Result<bool> {
+        let url = Url::parse(url_str)?;
+        let conn = places_api.open_connection(ConnectionType::ReadOnly)?;
+        Ok(conn.query_row_and_then(
+            "SELECT EXISTS(
+                SELECT 1 FROM main.moz_bookmarks b
+                LEFT JOIN main.moz_places h ON h.id = b.fk
+                WHERE h.url_hash = hash(:url) AND h.url = :url
+            )",
+            &[&url.as_str()],
+            |r| r.get(0),
+        )?)
+    }
+
     let tmpdir = tempdir().unwrap();
     let fennec_path = tmpdir.path().join("browser.db");
     let fennec_db = empty_fennec_db(&fennec_path)?;
@@ -248,6 +265,20 @@ fn test_import() -> Result<()> {
             url: Some("https://foo.bar".to_owned()),
             ..Default::default()
         },
+        FennecBookmark {
+            _id: 12,
+            parent: 7,
+            title: Some("Non-punycode".to_owned()),
+            url: Some("http://\u{1F496}.com/\u{1F496}".to_owned()),
+            ..Default::default()
+        },
+        FennecBookmark {
+            _id: 13,
+            parent: 7,
+            title: Some("Already punycode".to_owned()),
+            url: Some("http://xn--r28h.com/%F0%9F%98%8D".to_owned()),
+            ..Default::default()
+        },
     ];
     insert_bookmarks(&fennec_db, &bookmarks)?;
 
@@ -257,6 +288,10 @@ fn test_import() -> Result<()> {
     assert_eq!(pinned.len(), 1);
     assert_eq!(pinned[0].title, Some("Pinned Bookmark".to_owned()));
 
+    assert!(bookmark_exists(&places_api, &"about:firefox")?);
+    assert!(bookmark_exists(&places_api, &"https://bar.foo")?);
+    assert!(bookmark_exists(&places_api, &"http://💖.com/💖")?);
+    assert!(bookmark_exists(&places_api, &"http://😍.com/😍")?);
     // Uncomment the following to debug with cargo test -- --nocapture.
     // println!(
     //     "Places DB Path: {}",

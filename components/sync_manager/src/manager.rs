@@ -238,22 +238,31 @@ impl SyncManager {
         let key_bundle = sync15::KeyBundle::from_ksync_base64(&params.acct_sync_key)?;
         let tokenserver_url = url::Url::parse(&params.acct_tokenserver_url)?;
 
-        let logins_sync = should_sync(&params, LOGINS_ENGINE);
-        let bookmarks_sync = should_sync(&params, BOOKMARKS_ENGINE);
-        let history_sync = should_sync(&params, HISTORY_ENGINE);
-        let tabs_sync = should_sync(&params, TABS_ENGINE);
+        let bookmarks_sync = should_sync(&params, BOOKMARKS_ENGINE) && places.is_some();
+        let history_sync = should_sync(&params, HISTORY_ENGINE) && places.is_some();
+        let logins_sync = should_sync(&params, LOGINS_ENGINE) && logins.is_some();
+        let tabs_sync = should_sync(&params, TABS_ENGINE) && tabs.is_some();
 
         let places_conn = if bookmarks_sync || history_sync {
             places
                 .as_mut()
-                .expect("already checked")
+                .expect("trying to sync an engine that has not been configured")
                 .open_sync_connection()
                 .ok()
         } else {
             None
         };
-        let l = logins.as_ref().map(|l| l.lock().expect("poisoned mutex"));
-        let t = tabs.as_ref().map(|t| t.lock().expect("poisoned mutex"));
+        let l = if logins_sync {
+            logins.as_ref().map(|l| l.lock().expect("poisoned mutex"))
+        } else {
+            None
+        };
+        let t = if tabs_sync {
+            tabs.as_ref().map(|t| t.lock().expect("poisoned mutex"))
+        } else {
+            None
+        };
+
         // TODO(issue 1684) this isn't ideal, we should have real support for interruption.
         let p = Arc::new(AtomicUsize::new(0));
         let interruptee = sql_support::SqlInterruptScope::new(p);
@@ -265,6 +274,10 @@ impl SyncManager {
         let mut stores: Vec<Box<dyn sync15::Store>> = vec![];
 
         if let Some(pc) = places_conn.as_ref() {
+            assert!(
+                history_sync || bookmarks_sync,
+                "Should have already checked"
+            );
             if history_sync {
                 stores.push(Box::new(HistoryStore::new(pc, &interruptee)))
             }

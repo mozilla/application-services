@@ -2,6 +2,261 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+//  N.B. if you're making a documentation change here, you might also want to make it in:
+//
+//    * The API docs in ../ios/Logins/LoginRecord.swift
+//    * The API docs in ../android/src/main/java/mozilla/appservices/logins/ServerPassword.kt
+//    * The android-components docs at
+//      https://github.com/mozilla-mobile/android-components/tree/master/components/service/sync-logins
+//
+//  We'll figure out a more scalable approach to maintaining all those docs at some point...
+
+//!
+//! Login Records
+//! =============
+//!
+//! The core datatype managed by this component is a "login record", which contains the following fields:
+//!
+//! - `id`:  A unique string identifier for this record.
+//!
+//!   Consumers may assume that `id` contains only "safe" ASCII characters but should otherwise
+//!   treat this it as an opaque identifier. It should be left blank when adding a new record,
+//!   in which case a new id will be automatically generated.
+//!
+//! - `hostname`:  The origin at which this login can be used, as a string.
+//!
+//!   The login should only be used on sites that match this origin (for whatever definition
+//!   of "matches" makes sense at the application level, e.g. eTLD+1 matching).
+//!   This field is required, must be a valid origin in punycode format, and must not be
+//!   set to the empty string.
+//!
+//!   **YES, THIS FIELD IS CONFUSINGLY NAMED. IT SHOULD BE A FULL ORIGIN, NOT A HOSTNAME.
+//!   WE INTEND TO RENAME THIS TO `origin` IN A FUTURE RELEASE.**
+//!
+//!   Examples of valid `hostname` values include:
+//!   - "https://site.com"
+//!   - "http://site.com:1234"
+//!   - "ftp://ftp.site.com"
+//!   - "moz-proxy://127.0.0.1:8888"
+//!   - "chrome://MyLegacyExtension"
+//!   - "file:///"
+//!
+//!   If invalid data is received in this field (either from the application, or via sync)
+//!   then the logins store will attempt to coerce it into valid data by:
+//!   - truncating full URLs to just their origin component, if it is not an opaque origin
+//!   - converting values with non-ascii characters into punycode
+//!
+//!   **XXX TODO:**
+//!   - test that we validate as an origin.
+//!   - test that we fixup full URLs by turning them into origins?
+//!   - the thing where we normalize to punycode, including tests
+//!   - how to provide the non-punycode version to the app easily?
+//!   - the great renaming (maybe we can do the punycode thing at the same time?)
+//!
+//! - `password`:  The saved password, as a string.
+//!
+//!   This field is required, and must not be set to the empty string. It must not contain
+//!   null bytes, but can otherwise be an arbitrary unicode string.
+//!
+//!   **XXX TODO:**
+//!   - test that it cannot by null or the empty string
+//!   - test that it cannot contain null bytes (do we want to fixup by just removing them?)
+//!   - test that it *can* contain non-ascii characters (esp. when round-tripped through the db)
+//!
+//! - `username`:  The username associated with this login, if any, as a string.
+//!
+//!   This field is required, but may be set to the empty string if no username is associated
+//!   with the login. It must not contain null bytes, but can otherwise be an arbitrary unicode
+//!   string.
+//!
+//!   **XXX TODO:**:
+//!   - test that it cannot by null
+//!   - test that it cannot contain null bytes (do we want to fixup by just removing them?)
+//!   - test that it *can* contain non-ascii characters (esp. when round-tripped through the db)
+//!
+//! - `httpRealm`:  The challenge string for HTTP Basic authentication, if any.
+//!
+//!   If present, the login should only be used in response to a HTTP Basic Auth
+//!   challenge that specifies a matching realm. For legacy reasons this string may not
+//!   contain null bytes, carriage returns or newlines.
+//!
+//!   If this field is set to the empty string, this indicates a wildcard match on realm.
+//!
+//!   This field must not be present if `formSubmitURL` is set, since they indicate different types
+//!   of login (HTTP-Auth based versus form-based). Exactly one of `httpRealm` and `formSubmitURL`
+//!   must be present.
+//!
+//!   **XXX TODO**:
+//!   - test that it cannot contain null bytes, carriage returns or newlines (do we want to fixup by just removing them?)
+//!   - test that it cannot be present with formSubmitURL
+//!   - test that it *can* contain non-ascii characters (esp. when round-tripped through the db)
+//!
+//! - `formSubmitURL`:  The target origin of forms in which this login can be used, if any, as a string.
+//!
+//!   If present, the login should only be used in forms whose target submission URL matches this origin.
+//!   This field must be a valid origin or one of the following special cases:
+//!   - An empty string, which is a wildcard match for any origin.
+//!   - The single character ".", which is equivalent to the empty string
+//!   - The string "javascript:", which matches any form with javascript target URL.
+//!
+//!   **YES, THIS FIELD IS CONFUSINGLY NAMED. IT SHOULD BE AN ORIGIN, NOT A FULL URL. WE INTEND TO
+//!   RENAME THIS TO `formActionOrigin` IN A FUTURE RELEASE.**
+//!
+//!   This field must not be present if `httpRealm` is set, since they indicate different types of login
+//!   (HTTP-Auth based versus form-based). Exactly one of `httpRealm` and `formSubmitURL` must be present.
+//!
+//!   If invalid data is received in this field (either from the application, or via sync) then the
+//!   logins store will attempt to coerce it into valid data by:
+//!   - truncating full URLs to just their origin component
+//!   - converting origins with non-ascii characters into punycode
+//!   - replacing invalid values with null if a valid 'httpRealm' field is present
+//!
+//!   **XXX TODO**:
+//!   - test that we validate as an origin.
+//!   - test that we fixup full URLs by turning them into origins?
+//!   - test that we fixup "." to the empty string
+//!   - test that we allow the special "javascript:" value
+//!   - test that it *can* contain non-ascii characters (esp. when round-tripped through the db)
+//!   - test that it cannot be present with 'httpRealm'
+//!   - test that we set invalid values to null when 'httpRealm' is present
+//!   - the thing where we normalize to punycode, including tests
+//!   - how to provide the non-punycode version to the app easily?
+//!   - the great renaming (maybe we can do the punycode thing at the same time?)
+//!
+//! - `usernameField`:  The name of the form field into which the 'username' should be filled, if any.
+//!
+//!   This value is stored if provided by the application, but does not imply any restrictions on
+//!   how the login may be used in practice. For legacy reasons this string may not contain null
+//!   bytes, carriage returns or newlines. This field must be empty unless `formSubmitURL` is set.
+//!
+//!   If invalid data is received in this field (either from the application, or via sync)
+//!   then the logins store will attempt to coerce it into valid data by:
+//!   - setting to the empty string if 'formSubmitURL' is not present
+//!
+//!   **XXX TODO:**
+//!   - test that we reject invalid characters; should we fix them up at all?
+//!   - test that it *can* contain non-ascii characters (esp. when round-tripped through the db)
+//!
+//! - `passwordField`:  The name of the form field into which the 'password' should be filled, if any.
+//!
+//!   This value is stored if provided by the application, but does not imply any restrictions on
+//!   how the login may be used in practice. For legacy reasons this string may not contain null
+//!   bytes, carriage returns or newlines. This field must be empty unless `formSubmitURL` is set.
+//!
+//!   If invalid data is received in this field (either from the application, or via sync)
+//!   then the logins store will attempt to coerce it into valid data by:
+//!   - setting to the empty string if 'formSubmitURL' is not present
+//!
+//!   **XXX TODO:**
+//!   - test that we reject invalid characters; should we fix them up at all?
+//!   - test that it *can* contain non-ascii characters (esp. when round-tripped through the db)
+//!
+//! - `timesUsed`:  A lower bound on the number of times the password from this record has been used, as an integer.
+//!
+//!   Applications should use the `touch()` method of the logins store to indicate when a password
+//!   has been used, and should ensure that they only count uses of the actual `password` field
+//!   (so for example, copying the `password` field to the clipboard should count as a "use", but
+//!   copying just the `username` field should not).
+//!
+//!   This number may not record uses that occurred on other devices, since some legacy
+//!   sync clients do not record this information. It may be zero for records obtained
+//!   via sync that have never been used locally.
+//!
+//!   When merging duplicate records, the two usage counts are summed.
+//!
+//!   This field is managed internally by the logins store by default and does not need to
+//!   be set explicitly, although any application-provided value will be preserved when creating
+//!   a new record.
+//!
+//!   If invalid data is received in this field (either from the application, or via sync)
+//!   then the logins store will attempt to coerce it into valid data by:
+//!   - replacing missing or negative values with 0
+//!
+//!   **XXX TODO:**
+//!   - test that we prevent this timestamp from moving backwards.
+//!   - test fixups of missing or negative values
+//!   - test that we correctly merge dupes
+//!
+//! - `timeCreated`: An upper bound on the time of creation of this login, in integer milliseconds from the unix epoch.
+//!
+//!   This is an upper bound because some legacy sync clients do not record this information.
+//!
+//!   Note that this field is typically a timestamp taken from the local machine clock, so it
+//!   may be wildly inaccurate if the client does not have an accurate clock.
+//!
+//!   This field is managed internally by the logins store by default and does not need to
+//!   be set explicitly, although any application-provided value will be preserved when creating
+//!   a new record.
+//!
+//!   When merging duplicate records, the smallest non-zero value is taken.
+//!
+//!   If invalid data is received in this field (either from the application, or via sync)
+//!   then the logins store will attempt to coerce it into valid data by:
+//!   - replacing missing or negative values with the current time
+//!
+//!   **XXX TODO:**
+//!   - test that we prevent this timestamp from moving backwards.
+//!   - test fixups of missing or negative values
+//!   - test that we correctly merge dupes
+//!
+//! - `timeLastUsed`: A lower bound on the time of last use of this login, in integer milliseconds from the unix epoch.
+//!
+//!   This is a lower bound because some legacy sync clients do not record this information;
+//!   in that case newer clients set `timeLastUsed` when they use the record for the first time.
+//!
+//!   Note that this field is typically a timestamp taken from the local machine clock, so it
+//!   may be wildly inaccurate if the client does not have an accurate clock.
+//!
+//!   This field is managed internally by the logins store by default and does not need to
+//!   be set explicitly, although any application-provided value will be preserved when creating
+//!   a new record.
+//!
+//!   When merging duplicate records, the largest non-zero value is taken.
+//!
+//!   If invalid data is received in this field (either from the application, or via sync)
+//!   then the logins store will attempt to coerce it into valid data by:
+//!   - removing negative values
+//!
+//!   **XXX TODO:**
+//!   - test that we prevent this timestamp from moving backwards.
+//!   - test fixups of missing or negative values
+//!   - test that we correctly merge dupes
+//!
+//! - `timePasswordChanged`: A lower bound on the time that the `password` field was last changed, in integer
+//!                          milliseconds from the unix epoch.
+//!
+//!   Changes to other fields (such as `username`) are not reflected in this timestamp.
+//!   This is a lower bound because some legacy sync clients do not record this information;
+//!   in that case newer clients set `timePasswordChanged` when they change the `password` field.
+//!
+//!   Note that this field is typically a timestamp taken from the local machine clock, so it
+//!   may be wildly inaccurate if the client does not have an accurate clock.
+//!
+//!   This field is managed internally by the logins store by default and does not need to
+//!   be set explicitly, although any application-provided value will be preserved when creating
+//!   a new record.
+//!
+//!   When merging duplicate records, the largest non-zero value is taken.
+//!
+//!   If invalid data is received in this field (either from the application, or via sync)
+//!   then the logins store will attempt to coerce it into valid data by:
+//!   - removing negative values
+//!
+//!   **XXX TODO:**
+//!   - test that we prevent this timestamp from moving backwards.
+//!   - test that we don't set this for changes to other fields.
+//!   - test that we correctly merge dupes
+//!
+//! In order to deal with data from legacy clients in a robust way, it is necessary to be able to build
+//! and manipulate `Login` structs that contain invalid data.  The following methods can be used by callers
+//! to ensure that they're only work with valid records:
+//!
+//! - `Login::check_valid()`:    Checks valdity of a login record, returning `()` if it is valid
+//!                              or an error if it is not.
+//!
+//! - `Login::fixup()`:   Returns either the existing login if it is valid, a clone with invalid fields
+//!                       fixed up if it was safe to do so, or an error if the login is irreperably invalid.
+
 use crate::error::*;
 use crate::util;
 use rusqlite::Row;
@@ -84,9 +339,56 @@ impl Login {
         self.guid.as_str()
     }
 
+    /// Checks whether the Login is valid, without attempting to fix any fields.
+    /// Returns an error if invalid data is found, even if it could have been fixed.
     pub fn check_valid(&self) -> Result<()> {
+        self.validate_and_fixup(false)?;
+        Ok(())
+    }
+
+    /// Return either the existing login, a fixed-up verion, or an error.
+    /// This consumes `self` to make it easy for callers to unconditionally
+    /// replace a Login with an owned fixed-up version, preventing them from
+    /// using one that is invalid.
+    pub fn fixup(self) -> Result<Self> {
+        match self.maybe_fixup()? {
+            None => Ok(self),
+            Some(login) => Ok(login),
+        }
+    }
+
+    /// Like `fixup()` above, but takes `self` by reference and returns
+    /// an Option for the fixed-up version, allowing the caller to make
+    /// more choices about what to do next.
+    pub fn maybe_fixup(&self) -> Result<Option<Self>> {
+        self.validate_and_fixup(true)
+    }
+
+    /// Internal helper for doing validation and fixups.
+    fn validate_and_fixup(&self, fixup: bool) -> Result<Option<Self>> {
+        // XXX TODO: we've definitely got more validation and fixups to add here!
+
+        let mut maybe_fixed = None;
+
+        /// A little helper to magic a Some(self.clone()) into existence when needed.
+        macro_rules! get_fixed_or_throw {
+            ($err:expr) => {
+                // This is a block expression returning a local variable,
+                // entirely so we can give it an explicit type declaration.
+                {
+                    if !fixup {
+                        throw!($err)
+                    }
+                    log::warn!("Fixing login record {}: {:?}", self.guid, $err);
+                    let fixed: Result<&mut Login> =
+                        Ok(maybe_fixed.get_or_insert_with(|| self.clone()));
+                    fixed
+                }
+            };
+        };
+
         if self.hostname.is_empty() {
-            throw!(InvalidLogin::EmptyHostname);
+            throw!(InvalidLogin::EmptyOrigin);
         }
 
         if self.password.is_empty() {
@@ -100,11 +402,81 @@ impl Login {
         if self.form_submit_url.is_none() && self.http_realm.is_none() {
             throw!(InvalidLogin::NoTarget);
         }
-        Ok(())
+
+        let form_submit_url = self.form_submit_url.clone().unwrap_or_default();
+        let http_realm = self.http_realm.clone().unwrap_or_default();
+
+        let field_data = [
+            ("formSubmitUrl", &form_submit_url),
+            ("httpRealm", &http_realm),
+            ("hostname", &self.hostname),
+            ("usernameField", &self.username_field),
+            ("passwordField", &self.password_field),
+            ("username", &self.username),
+            ("password", &self.password),
+        ];
+
+        for (field_name, field_value) in &field_data {
+            // Nuls are invalid.
+            if field_value.contains('\0') {
+                throw!(InvalidLogin::IllegalFieldValue {
+                    field_info: format!("`{}` contains Nul", field_name)
+                });
+            }
+
+            // Newlines are invalid in Desktop with the exception of the username
+            // and password fields.
+            if field_name != &"username"
+                && field_name != &"password"
+                && (field_value.contains('\n') || field_value.contains('\r'))
+            {
+                throw!(InvalidLogin::IllegalFieldValue {
+                    field_info: format!("`{}` contains newline", field_name)
+                });
+            }
+        }
+
+        // Desktop doesn't like fields with the below patterns
+        if self.username_field == "." {
+            throw!(InvalidLogin::IllegalFieldValue {
+                field_info: "`usernameField` is a period".into()
+            });
+        }
+
+        if form_submit_url == "." {
+            throw!(InvalidLogin::IllegalFieldValue {
+                field_info: "`formSubmitUrl` is a period".into()
+            });
+        }
+
+        if self.hostname.contains(" (") {
+            throw!(InvalidLogin::IllegalFieldValue {
+                field_info: "Origin is Malformed".into()
+            });
+        }
+
+        if self.form_submit_url.is_none() {
+            if !self.username_field.is_empty() {
+                get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
+                    field_info: "usernameField must be empty when formSubmitURL is null".into()
+                })?
+                .username_field
+                .clear();
+            }
+            if !self.password_field.is_empty() {
+                get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
+                    field_info: "passwordField must be empty when formSubmitURL is null".into()
+                })?
+                .password_field
+                .clear();
+            }
+        }
+
+        Ok(maybe_fixed)
     }
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<Login> {
-        Ok(Login {
+        let login = Login {
             guid: row.get("guid")?,
             password: row.get("password")?,
             username: string_or_default(row, "username")?,
@@ -125,7 +497,10 @@ impl Login {
 
             time_password_changed: row.get("timePasswordChanged")?,
             times_used: row.get("timesUsed")?,
-        })
+        };
+        // For now, we want to apply fixups but still return the record if
+        // there is unfixably invalid data in the db.
+        Ok(login.maybe_fixup().unwrap_or(None).unwrap_or(login))
     }
 }
 
@@ -270,7 +645,9 @@ impl SyncLoginData {
             None
         } else {
             let record: Login = payload.into_record()?;
-            Some(record)
+            // If we can fixup incoming records from sync, do so.
+            // But if we can't then keep the invalid data.
+            record.maybe_fixup().unwrap_or(None).or(Some(record))
         };
         Ok(Self {
             guid,
@@ -469,7 +846,7 @@ impl Login {
 mod tests {
     use super::*;
     #[test]
-    fn test_invalid_payload_timestamp() {
+    fn test_invalid_payload_timestamps() {
         #[allow(clippy::unreadable_literal)]
         let bad_timestamp = 18446732429235952000u64;
         let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
@@ -514,5 +891,242 @@ mod tests {
         assert_eq!(login.time_created, now64 - 100);
         assert_eq!(login.time_last_used, now64 - 50);
         assert_eq!(login.time_password_changed, now64 - 25);
+    }
+
+    #[test]
+    fn test_check_valid() {
+        struct TestCase {
+            login: Login,
+            should_err: bool,
+            expected_err: &'static str,
+        }
+
+        let valid_login = Login {
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let login_with_empty_hostname = Login {
+            hostname: "".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let login_with_empty_password = Login {
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "".into(),
+            ..Login::default()
+        };
+
+        let login_with_form_submit_and_http_realm = Login {
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            form_submit_url: Some("https://www.example.com".into()),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let login_without_form_submit_or_http_realm = Login {
+            hostname: "https://www.example.com".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let login_with_null_html_realm = Login {
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.\0com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let login_with_null_username = Login {
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "\0".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let login_with_newline_hostname = Login {
+            hostname: "\rhttps://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let login_with_newline_username_field = Login {
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            username_field: "\n".into(),
+            ..Login::default()
+        };
+
+        let login_with_newline_password = Login {
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test\n".into(),
+            ..Login::default()
+        };
+
+        let login_with_period_username_field = Login {
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            username_field: ".".into(),
+            ..Login::default()
+        };
+
+        let login_with_period_form_submit_url = Login {
+            form_submit_url: Some(".".into()),
+            hostname: "https://www.example.com".into(),
+            username: "test".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let login_with_malformed_origin_parens = Login {
+            hostname: " (".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let test_cases = [
+            TestCase {
+                login: valid_login,
+                should_err: false,
+                expected_err: "",
+            },
+            TestCase {
+                login: login_with_empty_hostname,
+                should_err: true,
+                expected_err: "Invalid login: Origin is empty",
+            },
+            TestCase {
+                login: login_with_empty_password,
+                should_err: true,
+                expected_err: "Invalid login: Password is empty",
+            },
+            TestCase {
+                login: login_with_form_submit_and_http_realm,
+                should_err: true,
+                expected_err: "Invalid login: Both `formSubmitUrl` and `httpRealm` are present",
+            },
+            TestCase {
+                login: login_without_form_submit_or_http_realm,
+                should_err: true,
+                expected_err: "Invalid login: Neither `formSubmitUrl` or `httpRealm` are present",
+            },
+            TestCase {
+                login: login_with_null_html_realm,
+                should_err: true,
+                expected_err: "Invalid login: Login has illegal field: `httpRealm` contains Nul",
+            },
+            TestCase {
+                login: login_with_null_username,
+                should_err: true,
+                expected_err: "Invalid login: Login has illegal field: `username` contains Nul",
+            },
+            TestCase {
+                login: login_with_newline_hostname,
+                should_err: true,
+                expected_err: "Invalid login: Login has illegal field: `hostname` contains newline",
+            },
+            TestCase {
+                login: login_with_newline_username_field,
+                should_err: true,
+                expected_err:
+                    "Invalid login: Login has illegal field: `usernameField` contains newline",
+            },
+            TestCase {
+                login: login_with_newline_password,
+                should_err: false,
+                expected_err: "",
+            },
+            TestCase {
+                login: login_with_period_username_field,
+                should_err: true,
+                expected_err: "Invalid login: Login has illegal field: `usernameField` is a period",
+            },
+            TestCase {
+                login: login_with_period_form_submit_url,
+                should_err: true,
+                expected_err: "Invalid login: Login has illegal field: `formSubmitUrl` is a period",
+            },
+            TestCase {
+                login: login_with_malformed_origin_parens,
+                should_err: true,
+                expected_err: "Invalid login: Login has illegal field: Origin is Malformed",
+            },
+        ];
+
+        for tc in &test_cases {
+            let actual = tc.login.check_valid();
+
+            if tc.should_err {
+                assert!(actual.is_err());
+                assert_eq!(tc.expected_err, actual.unwrap_err().to_string());
+            } else {
+                assert!(actual.is_ok());
+            }
+        }
+    }
+
+    #[test]
+    fn test_username_field_requires_a_form_target() {
+        let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
+            "id": "123412341234",
+            "httpRealm": "test",
+            "hostname": "https://www.example.com",
+            "username": "test",
+            "password": "test",
+            "usernameField": "invalid"
+        }))
+        .unwrap();
+
+        let login: Login = bad_payload.clone().into_record().unwrap();
+        assert_eq!(login.username_field, "invalid");
+        assert!(login.check_valid().is_err());
+        assert_eq!(login.fixup().unwrap().username_field, "");
+
+        // Incoming sync data gets fixed automatically.
+        let login = SyncLoginData::from_payload(bad_payload, ServerTimestamp::default())
+            .unwrap()
+            .inbound
+            .0
+            .unwrap();
+        assert_eq!(login.username_field, "");
+    }
+
+    #[test]
+    fn test_password_field_requires_a_form_target() {
+        let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
+            "id": "123412341234",
+            "httpRealm": "test",
+            "hostname": "https://www.example.com",
+            "username": "test",
+            "password": "test",
+            "passwordField": "invalid"
+        }))
+        .unwrap();
+
+        let login: Login = bad_payload.into_record().unwrap();
+        assert_eq!(login.password_field, "invalid");
+        assert!(login.check_valid().is_err());
+        assert_eq!(login.fixup().unwrap().password_field, "");
     }
 }

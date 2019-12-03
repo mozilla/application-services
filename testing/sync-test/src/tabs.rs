@@ -3,7 +3,7 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 
 use crate::auth::TestClient;
 use crate::testing::TestGroup;
-use tabs::{ClientRemoteTabs, RemoteTab, TabsEngine};
+use tabs::{ClientRemoteTabs, DeviceType, RemoteTab, TabsEngine};
 
 // helpers...
 
@@ -34,8 +34,8 @@ pub fn assert_remote_tabs_equiv(l: &ClientRemoteTabs, r: &ClientRemoteTabs) {
 }
 
 pub fn sync_tabs(client: &mut TestClient) -> Result<(), failure::Error> {
-    let (init, key) = client.data_for_sync()?;
-    client.tabs_engine.sync(&init, &key)?;
+    let (init, key, device_id) = client.data_for_sync()?;
+    client.tabs_engine.sync(&init, &key, &device_id)?;
     Ok(())
 }
 
@@ -59,6 +59,8 @@ fn test_tabs(c0: &mut TestClient, c1: &mut TestClient) {
         &c1.tabs_engine,
         &ClientRemoteTabs {
             client_id: c0.fxa.get_current_device_id().unwrap(),
+            client_name: String::new(),
+            device_type: DeviceType::Mobile,
             remote_tabs: vec![t0],
         },
     );
@@ -86,6 +88,8 @@ fn test_tabs(c0: &mut TestClient, c1: &mut TestClient) {
         &c0.tabs_engine,
         &ClientRemoteTabs {
             client_id: c1.fxa.get_current_device_id().unwrap(),
+            client_name: String::new(),
+            device_type: DeviceType::Mobile,
             remote_tabs: vec![t1, t2],
         },
     );

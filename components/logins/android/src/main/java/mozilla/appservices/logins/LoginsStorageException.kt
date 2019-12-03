@@ -31,13 +31,10 @@ class IdCollisionException(msg: String) : LoginsStorageException(msg)
 
 /**
  * This is thrown on attempts to insert or update a record so that it
- * is no longer valid. Valid records have:
- *
- * - non-empty hostnames
- * - non-empty passwords
- * - and exactly one of `httpRealm` or `formSubmitUrl` is non-null.
+ * is no longer valid. See [InvalidLoginReason] for a list of reasons
+ * a record may be considered invalid
  */
-class InvalidRecordException(msg: String) : LoginsStorageException(msg)
+class InvalidRecordException(msg: String, public val reason: InvalidLoginReason) : LoginsStorageException(msg)
 
 /**
  * This error is emitted in two cases:
@@ -56,3 +53,21 @@ class RequestFailedException(msg: String) : LoginsStorageException(msg)
  * This error is emitted if a sync or other operation is interrupted.
  */
 class InterruptedException(msg: String) : LoginsStorageException(msg)
+
+/**
+ * A reason a login may be invalid
+ */
+enum class InvalidLoginReason {
+    /** Origins may not be empty */
+    EMPTY_ORIGIN,
+    /** Passwords may not be empty */
+    EMPTY_PASSWORD,
+    /** The login already exists */
+    DUPLICATE_LOGIN,
+    /** Both `httpRealm` and `formSubmitUrl` are non-null */
+    BOTH_TARGETS,
+    /** Both `httpRealm` and `formSubmitUrl` are null */
+    NO_TARGET,
+    /** Login has illegal field */
+    ILLEGAL_FIELD_VALUE,
+}

@@ -137,6 +137,10 @@ impl PasswordEngine {
             Some(Err(e)) => Err(e.into()),
         }
     }
+
+    pub fn check_valid_with_no_dupes(&self, login: &Login) -> Result<()> {
+        self.db.check_valid_with_no_dupes(login)
+    }
 }
 
 #[cfg(test)]
@@ -182,8 +186,6 @@ mod test {
             http_realm: Some("Some String Here".into()),
             username: "asdf".into(),
             password: "fdsa".into(),
-            username_field: "input_user".into(),
-            password_field: "input_pass".into(),
             ..Login::default()
         };
 

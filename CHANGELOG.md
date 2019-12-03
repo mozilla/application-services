@@ -1,3 +1,70 @@
+# v0.44.0 (_2019-11-21_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.43.1...v0.44.0)
+
+## Logins
+
+### What's new
+
+- Added ability to prevent insertion/updates from creating dupes via `LoginsStorage.ensureValid`. ([#2101](https://github.com/mozilla/application-services/pull/2101))
+
+## Tabs
+
+### Breaking Changes
+
+- The `RemoteTabsProvider` class constructor does not take the `localDeviceId` argument anymore.
+- The `RemoteTabsProvider.sync` method takes a `localDeviceId` argument.
+
+# v0.43.1 (_2019-11-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.43.0...v0.43.1)
+
+This release exists only to rectify a publishing error that occurred with v0.43.0.
+
+# v0.43.0 (_2019-11-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.42.4...v0.43.0)
+
+This release exists only to rectify a publishing error that occurred with v0.42.4.
+
+# v0.42.4 (_2019-11-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.42.3...v0.42.4)
+
+## General
+
+### What's New
+
+- Synced Tabs is available as an Android component in the `org.mozilla.appservices.experimental.remotetabs` maven package.
+
+## Push Client
+
+### What's new
+
+- `PushManager.dispatchInfoForChid(channelID)` now also returns the
+  `endpoint` and `appServerKey` from the subscription.
+
+### Breaking Changes
+
+- The `appServerKey` VAPID public key has moved from `PushConfig` to
+  `PushManager.subscription(channelID, scope, appServerKey)`.
+
+- The unused `regenerate_endpoints()` function has been removed.
+
+# v0.42.3 (_2019-11-04_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.42.2...v0.42.3)
+
+## General
+
+### What's New
+
+- On Android, our Megazord libraries now include license information for dependencies
+  as part of their `.pom` file, making it easily available to tools such as the
+   [oss-licenses-plugin](https://github.com/google/play-services-plugins/tree/master/oss-licenses-plugin)
+
+- Our iOS framework binaries are now built using XCode 11.2.
+
 # v0.42.2 (_2019-10-21_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.42.1...v0.42.2)

@@ -33,7 +33,7 @@ fn main() -> Result<()> {
     let mut cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
     let device_id = cli_fxa.account.get_current_device_id()?;
 
-    let mut engine = TabsEngine::new(&device_id);
+    let mut engine = TabsEngine::new();
 
     loop {
         match prompt_char("[U]pdate local state, [L]ist remote tabs, [S]ync or [Q]uit")
@@ -69,7 +69,7 @@ fn main() -> Result<()> {
             }
             'S' | 's' => {
                 log::info!("Syncing!");
-                match engine.sync(&cli_fxa.client_init, &cli_fxa.root_sync_key) {
+                match engine.sync(&cli_fxa.client_init, &cli_fxa.root_sync_key, &device_id) {
                     Err(e) => {
                         log::warn!("Sync failed! {}", e);
                     }

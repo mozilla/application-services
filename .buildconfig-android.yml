@@ -1,4 +1,4 @@
-libraryVersion: 0.42.2
+libraryVersion: 0.44.0
 groupId: org.mozilla.appservices
 projects:
   fxaclient:
@@ -64,6 +64,13 @@ projects:
       - name: syncmanager
         type: aar
     description: Sync manager implementation
+  tabs:
+    path: components/tabs/android
+    artifactId: tabs
+    publications:
+      - name: tabs
+        type: aar
+    description: Sync 1.5 remote tabs implementation.
   lockbox-megazord:
     uploadSymbols: true
     path: megazords/lockbox/android
