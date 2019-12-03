@@ -69,38 +69,38 @@ This release exists only to rectify a publishing error that occurred with v0.42.
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.42.1...v0.42.2)
 
-## Android
+## Places
 
 ### What's new
 
-- Exposed `stroage::bookmarks::erase_everything`, which deletes all bookmarks without affecting history, through FFI. ([#2012](https://github.com/mozilla/application-services/pull/2012))
+- Android: Exposed `stroage::bookmarks::erase_everything`, which deletes all bookmarks without affecting history, through FFI. ([#2012](https://github.com/mozilla/application-services/pull/2012))
 
 ## FxA Client
 
 ### What's new
 
-Android: Add ability to get an OAuth code using a session token via the `authorizeOAuthCode` method. ([#2003](https://github.com/mozilla/application-services/pull/2003))
+- Android: Add ability to get an OAuth code using a session token via the `authorizeOAuthCode` method. ([#2003](https://github.com/mozilla/application-services/pull/2003))
 
 
 # v0.42.1 (_2019-10-21_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.42.0...v0.42.1)
 
-## Android
+## Places
 
 ### What's new
 
-- The Fennec bookmarks import method (`importBookmarksFromFennec`) will now return a list of pinned bookmarks. ([#1993](https://github.com/mozilla/application-services/pull/1993))
+- Android: The Fennec bookmarks import method (`importBookmarksFromFennec`) will now return a list of pinned bookmarks. ([#1993](https://github.com/mozilla/application-services/pull/1993))
 
 # v0.42.0 (_2019-10-10_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.41.0...v0.42.0)
 
-## Android
+## Places
 
 ### What's new
 
-- Fennec history import now supports microsecond timestamps for `date_visited`.
+- Android: Fennec history import now supports microsecond timestamps for `date_visited`.
 
 ### Breaking changes
 
