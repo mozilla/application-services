@@ -189,9 +189,9 @@ URLs may use the following merge strategies:
 
 - `default`: Optional default value.
 
-## `number`
+## `real`
 
-Indicates that this field is numeric. Numbers are 64 bit floats, but NaN is
+Indicates that this field is numeric. Reals are 64 bit floats, but NaN is
 forbidden.
 
 Numbers may use the following merge strategies:
@@ -235,7 +235,7 @@ Numbers may use the following merge strategies:
 Indicates that this field is an integer. Integers are equivalent to numbers
 except they are represented as 64-bit signed integers.
 
-These have all the same options and restrictions as `number`, but using 64
+These have all the same options and restrictions as `real`, but using 64
 bit integers.
 
 ## `timestamp`

@@ -5,6 +5,7 @@
 //! This module is concerned primarially with schema parsing (from RawSchema,
 //! e.g. the schema represented as JSON), and validation. It's a little bit
 //! hairy, and for the definitive documentation, you should refer to the
+//! `docs/design/remerge/schema-format.md` docs.
 
 // Clippy seems to be upset about serde's output:
 // https://github.com/rust-lang/rust-clippy/issues/4326
@@ -83,7 +84,13 @@ impl<T> FieldErrorHelper for Result<T, FieldError> {
 struct JustFormatVersion {
     format_version: usize,
 }
-
+/// The serialized representation of the schema.
+///
+/// Note that if you change this, you will likely have to change the data in
+/// `schema/desc.rs`.
+///
+/// Important: Note that changes to this are in general not allowed to fail to
+/// parse older versions of this format.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RawSchema {
     /// The name of this collection
@@ -169,8 +176,8 @@ pub enum RawFieldType {
         common: RawFieldCommon<Option<bool>>,
     },
 
-    #[serde(rename = "number")]
-    Number {
+    #[serde(rename = "real")]
+    Real {
         #[serde(flatten)]
         common: RawFieldCommon<Option<f64>>,
 
@@ -255,7 +262,7 @@ macro_rules! common_getter {
                 RawFieldType::Text { common, .. } => &common.$name,
                 RawFieldType::Url { common, .. } => &common.$name,
                 RawFieldType::Boolean { common, .. } => &common.$name,
-                RawFieldType::Number { common, .. } => &common.$name,
+                RawFieldType::Real { common, .. } => &common.$name,
                 RawFieldType::Integer { common, .. } => &common.$name,
                 RawFieldType::Timestamp { common, .. } => &common.$name,
                 RawFieldType::OwnGuid { common, .. } => &common.$name,
@@ -280,7 +287,7 @@ impl RawFieldType {
             RawFieldType::Untyped { .. } => FieldKind::Untyped,
             RawFieldType::Text { .. } => FieldKind::Text,
             RawFieldType::Url { .. } => FieldKind::Url,
-            RawFieldType::Number { .. } => FieldKind::Number,
+            RawFieldType::Real { .. } => FieldKind::Real,
             RawFieldType::Integer { .. } => FieldKind::Integer,
             RawFieldType::Timestamp { .. } => FieldKind::Timestamp,
             RawFieldType::Boolean { .. } => FieldKind::Boolean,
@@ -310,7 +317,7 @@ impl RawFieldType {
             RawFieldType::Text { common, .. } => common.default.is_some(),
             RawFieldType::Url { common, .. } => common.default.is_some(),
             RawFieldType::Boolean { common, .. } => common.default.is_some(),
-            RawFieldType::Number { common, .. } => common.default.is_some(),
+            RawFieldType::Real { common, .. } => common.default.is_some(),
             RawFieldType::Integer { common, .. } => common.default.is_some(),
             RawFieldType::Timestamp { common, .. } => common.default.is_some(),
             RawFieldType::OwnGuid { .. } => false,
@@ -357,8 +364,6 @@ impl RawTimestampSemantic {
 }
 struct SchemaParser<'a> {
     input: &'a RawSchema,
-    #[allow(dead_code)] // XXX USE ME
-    is_remote: bool,
     input_fields: HashMap<String, &'a RawFieldType>,
 
     parsed_fields: IndexVec<FieldIndex, Field>,
@@ -411,7 +416,7 @@ fn compatible_version_req(v: &semver::Version) -> semver::VersionReq {
 }
 
 impl<'a> SchemaParser<'a> {
-    pub fn new(repr: &'a RawSchema, is_remote: bool) -> Self {
+    pub fn new(repr: &'a RawSchema, _is_remote: bool) -> Self {
         let composite_roots = repr
             .fields
             .iter()
@@ -434,7 +439,6 @@ impl<'a> SchemaParser<'a> {
 
         Self {
             input: repr,
-            is_remote,
             indices,
             input_fields: repr.fields.iter().map(|f| (f.name().into(), f)).collect(),
             parsed_fields: IndexVec::with_capacity(repr.fields.len()),
@@ -838,7 +842,7 @@ impl<'a> SchemaParser<'a> {
                     is_origin: *is_origin,
                 }
             }
-            RawFieldType::Number {
+            RawFieldType::Real {
                 common,
                 min,
                 max,
@@ -847,7 +851,7 @@ impl<'a> SchemaParser<'a> {
                 self.check_number_bounds(field, min, max, *if_out_of_bounds, &common.default)
                     .named(field_name)?;
                 let merge = merge.to_number_merge(field).ok_or_else(bad_merge)?;
-                FieldType::Number {
+                FieldType::Real {
                     merge,
                     min: *min,
                     max: *max,
@@ -1077,7 +1081,7 @@ impl TypeRestriction {
             FieldKind::Url => TypeRestriction::permit_all(),
             FieldKind::Integer => TypeRestriction::new(false, true, false),
             FieldKind::Timestamp => TypeRestriction::new(false, true, false),
-            FieldKind::Number => TypeRestriction::new(false, true, false),
+            FieldKind::Real => TypeRestriction::new(false, true, false),
             FieldKind::Boolean => TypeRestriction::permit_all(),
 
             FieldKind::OwnGuid => TypeRestriction::forbid_all(),

@@ -20,6 +20,8 @@ index_vec::define_index_type! {
     pub struct FieldIndex = usize;
 }
 
+/// The unserialized representation of the schema, parsed from a `RawSchema` (in
+/// json.rs). If you change this, you may have to change that as well.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RecordSchema {
     pub name: String,
@@ -85,7 +87,7 @@ pub enum FieldType {
         default: Option<Url>,
     },
 
-    Number {
+    Real {
         merge: NumberMerge,
         min: Option<f64>,
         max: Option<f64>,
@@ -153,11 +155,9 @@ impl TimestampSemantic {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ChangePreference {
-    #[serde(rename = "missing")]
     Missing,
-
-    #[serde(rename = "present")]
     Present,
 }
 
@@ -173,7 +173,7 @@ pub enum FieldKind {
     Untyped,
     Text,
     Url,
-    Number,
+    Real,
     Integer,
     Timestamp,
     Boolean,
@@ -189,7 +189,7 @@ impl std::fmt::Display for FieldKind {
             FieldKind::Untyped => "untyped",
             FieldKind::Text => "text",
             FieldKind::Url => "url",
-            FieldKind::Number => "number",
+            FieldKind::Real => "real",
             FieldKind::Integer => "integer",
             FieldKind::Timestamp => "timestamp",
             FieldKind::Boolean => "boolean",
@@ -207,7 +207,7 @@ impl FieldType {
             FieldType::Text { .. } => k == FieldKind::Text,
             FieldType::Url { .. } => k == FieldKind::Url,
 
-            FieldType::Number { .. } => k == FieldKind::Number,
+            FieldType::Real { .. } => k == FieldKind::Real,
             FieldType::Integer { .. } => k == FieldKind::Integer,
             FieldType::Timestamp { .. } => k == FieldKind::Timestamp,
 
@@ -224,7 +224,7 @@ impl FieldType {
             // have diff. types, but they all impl PartialEq<UntypedMerge>.
             FieldType::Untyped { merge, .. } => &um == merge,
             FieldType::Text { merge, .. } | FieldType::Url { merge, .. } => &um == merge,
-            FieldType::Number { merge, .. } | FieldType::Integer { merge, .. } => &um == merge,
+            FieldType::Real { merge, .. } | FieldType::Integer { merge, .. } => &um == merge,
             FieldType::Timestamp { merge, .. } => &um == merge,
             FieldType::Boolean { merge, .. } => &um == merge,
 

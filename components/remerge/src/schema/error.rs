@@ -14,7 +14,7 @@ pub enum FieldError {
 
     #[fail(
         display = "Merge strategy '{:?}' and type '{:?}' are not compatible.",
-        ty, merge
+        merge, ty
     )]
     IllegalMergeForType { ty: FieldKind, merge: ParsedMerge },
 
@@ -36,7 +36,7 @@ pub enum FieldError {
     #[fail(display = "Fields of type '{}' may not be part of a composite", _0)]
     TypeNotComposite(FieldKind),
 
-    #[fail(display = "\"deprecated\" and \"required\" may not both be true on a field'")]
+    #[fail(display = "\"deprecated\" and \"required\" may not both be true on a field")]
     DeprecatedRequiredConflict,
 
     #[fail(display = "Missing `if_out_of_bounds` on bounded number")]
