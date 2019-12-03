@@ -107,11 +107,11 @@ impl PageInfo {
 
 // fetch_page_info gives you one of these.
 #[derive(Debug)]
-struct FetchedPageInfo {
-    page: PageInfo,
+pub struct FetchedPageInfo {
+    pub page: PageInfo,
     // XXX - not clear what this is used for yet, and whether it should be local, remote or either?
     // The sql below isn't quite sure either :)
-    last_visit_id: Option<RowId>,
+    pub last_visit_id: Option<RowId>,
 }
 
 impl FetchedPageInfo {
@@ -124,7 +124,7 @@ impl FetchedPageInfo {
 }
 
 // History::FetchPageInfo
-fn fetch_page_info(db: &PlacesDb, url: &Url) -> Result<Option<FetchedPageInfo>> {
+pub fn fetch_page_info(db: &PlacesDb, url: &Url) -> Result<Option<FetchedPageInfo>> {
     let sql = "
       SELECT guid, url, id, title, hidden, typed, frecency,
              visit_count_local, visit_count_remote,

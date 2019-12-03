@@ -140,6 +140,8 @@ pub enum FennecBookmarkType {
 
 lazy_static::lazy_static! {
     // Insert any missing entries into moz_places that we'll need for this.
+    // No need to validate URLs here because we already did when filling the
+    // staging table.
     static ref FILL_MOZ_PLACES: String = format!(
         "INSERT OR IGNORE INTO main.moz_places(guid, url, url_hash, frecency)
          SELECT IFNULL((SELECT p.guid FROM main.moz_places p
@@ -150,8 +152,7 @@ lazy_static::lazy_static! {
                 -1
          FROM temp.fennecBookmarksStaging b
          WHERE b.bmkUri IS NOT NULL
-           AND b.type = {bookmark_type}
-           AND is_valid_url(b.bmkUri)",
+           AND b.type = {bookmark_type}",
         bookmark_type = FennecBookmarkType::Bookmark as u8,
     );
 
@@ -211,7 +212,7 @@ REPLACE INTO main.moz_bookmarks_synced_structure(guid, parentGuid, position)
 ";
 
 lazy_static::lazy_static! {
-    static ref POPULATE_STAGING: &'static str =
+    static ref POPULATE_STAGING: String = format!(
         "INSERT OR IGNORE INTO temp.fennecBookmarksStaging(
             guid,
             type,
@@ -235,7 +236,7 @@ lazy_static::lazy_static! {
                 WHEN b.url IS NOT NULL
                     THEN validate_url(b.url)
                 ELSE NULL
-            END,
+            END as uri,
             b.keyword,
             b.tags,
             sanitize_timestamp(b.created),
@@ -243,8 +244,11 @@ lazy_static::lazy_static! {
             1
         FROM fennec.bookmarks b
         WHERE NOT b.deleted
+              AND (type != {fennec_bookmark_type} OR uri IS NOT NULL)
         ;
-    ";
+        ",
+        fennec_bookmark_type = FennecBookmarkType::Bookmark as u8
+    );
 
     static ref FETCH_PINNED: String = format!("
         SELECT
@@ -275,7 +279,7 @@ lazy_static::lazy_static! {
             pos INT,
             title TEXT,
             bmkUri TEXT
-                CHECK(type != {fennec_bookmark_type} OR is_valid_url(bmkUri)),
+                CHECK(type != {fennec_bookmark_type} OR validate_url(bmkUri) == bmkUri),
             keyword TEXT,
             tags TEXT,
             date_added INTEGER NOT NULL,
@@ -319,13 +323,12 @@ fn public_node_from_fennec_pinned(
 }
 
 mod sql_fns {
-    use crate::import::common::sql_fns::{is_valid_url, sanitize_timestamp, validate_url};
+    use crate::import::common::sql_fns::{sanitize_timestamp, validate_url};
     use rusqlite::{functions::Context, Connection, Result};
 
     pub(super) fn define_functions(c: &Connection) -> Result<()> {
         c.create_scalar_function("normalize_root_guid", 1, true, normalize_root_guid)?;
         c.create_scalar_function("validate_url", 1, true, validate_url)?;
-        c.create_scalar_function("is_valid_url", 1, true, is_valid_url)?;
         c.create_scalar_function("sanitize_timestamp", 1, true, sanitize_timestamp)?;
         Ok(())
     }
