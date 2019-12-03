@@ -75,8 +75,8 @@ implementation, or allow for better compatibility with sync15 or ease of use.
 #### 1. Large data sets are out of scope.
 
 For collections that expect to store many thousands of records for typical use
-cases, another solution (we should encourage those teams to reach out to us
-instead).
+cases, another solution is required (we should encourage those teams to reach
+out to us instead).
 
 #### 2. No support for inter-record references.
 
@@ -148,7 +148,7 @@ Instead we'd either expose something like this as a new data type or merge
 strategy and put it behind a remerge feature (see the Extending Remerge
 section), or accept remerge isn't a good fit for them (for example, if someone
 wanted a custom merge handler so that they could sync something of similar
-structuaral complexity to bookmarks).
+structural complexity to bookmarks).
 
 ### High level overview
 
@@ -158,10 +158,10 @@ allow clients who have not fully been updated to perform merges without data
 loss.
 
 Additionally, the schema contains two version numbers. Both the schema version,
-and the minimum version a client must have to sync. These two allow us to
-migrate the schema progressively, only locking out clients that are past a
-certain age, while letting users with devices which are only a single version
-behind sync.
+and the minimum (native schema) version a client must have to sync. These two
+allow us to migrate the schema progressively, only locking out clients that are
+past a certain age, while letting users with devices which are only a single
+version behind sync.
 
 In order to keep compatibility while new versions of remerge add new features,
 we use an explicit list of required feature flags. A secondary list of optional
@@ -445,8 +445,8 @@ All records also have their modification timestamps.
 
 3. A "merged delta" is produced as followed:
 
-    1. All changes which *are not* part of composite fields which are only
-       modified in one of the two deltas are copied into the merged delta.
+    1. For any change, if it was modified in only one of the two deltas and is
+       not part of a composite field, copy it into the merged delta.
 
     2. For each composite field containing one or more changed non-deprecated
        sub-fields:
@@ -475,7 +475,7 @@ All records also have their modification timestamps.
         - If the field is an `untyped_map`: performs a similar operation to the 3WM
           where deltas are created, and each field is merged by `take_newest`.
             - If `prefer_deletions` is true, then if one field is set to the
-              tombstone value, and the other
+              tombstone value, delete it.
             - This is a little hand-wavey, but seems sufficiently specified,
               esp. given that we aren't planning on implementing it immediately.
         - If the field is a `record_set`:
@@ -484,13 +484,13 @@ All records also have their modification timestamps.
             - The new mirror is the `old_mirror UNION (local - mirror) UNION (remote - mirror)`
             - In the case of conflict (a new or changed record present in both local or mirror),
               the newer value is taken.
-            - Note: Deletions are stored as explicit tombstones, and preferred
-              over modificatons iff. `prefer_deletions` is true.
+            - Note: Deletions (from the set) are stored as explicit tombstones,
+              and preferred over modificatons iff. `prefer_deletions` is true.
             - This is a little hand-wavey, but seems sufficiently specified,
               esp. given that we aren't planning on implementing it immediately.
 
-4. The "merged delta" is applied to the mirror record to produce the new mirror
-   record which will be uploaded to the server.
+4. The "merged delta" is applied to the mirror record to produce the new local
+   record which will be uploaded to the server, and become the next mirror.
 
     - This record will have a vector clock that is a descendent of the local,
       mirror, and incoming remote clocks.

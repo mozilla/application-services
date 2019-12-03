@@ -135,9 +135,10 @@ Each entry in fields has the following properties:
     - These are used prior to application of the merge strategy, see the section
       describing the `sync` algorithm for details.
 
-Additionally many types contain a `default` value, which is discussed in the section on  which are applied both to
-incoming items that are missing it, and to items inserted locally that do not
-have it.
+Additionally many types contain a `default` value, which is discussed in the
+section on the relevant record type, and in the RFC's section on the merge
+algorithm (Merging a record). These are applied both to incoming items that are
+missing it, and to items inserted locally that do not have it.
 
 Some types have additional options (most types support providing a `default`
 value too, for example). See below for specifics.
@@ -332,6 +333,7 @@ May use the following conflict strategies:
 
 - `take_newest`
 - `prefer_remote`
+- `duplicate`
 
 ### Options
 
