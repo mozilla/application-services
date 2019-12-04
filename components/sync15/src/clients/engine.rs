@@ -447,14 +447,17 @@ mod tests {
 
         let expected_remote_clients = &[
             RemoteClient {
+                fxa_device_id: Some("deviceAAAAAA".to_string()),
                 device_name: "Laptop".into(),
                 device_type: Some(DeviceType::Desktop),
             },
             RemoteClient {
+                fxa_device_id: Some("iPhooooooone".to_string()),
                 device_name: "iPhone".into(),
                 device_type: Some(DeviceType::Mobile),
             },
             RemoteClient {
+                fxa_device_id: Some("deviceCCCCCC".to_string()),
                 device_name: "Fenix".into(),
                 device_type: Some(DeviceType::Mobile),
             },
@@ -572,10 +575,12 @@ mod tests {
 
         let expected_remote_clients = &[
             RemoteClient {
+                fxa_device_id: Some("deviceAAAAAA".to_string()),
                 device_name: "Laptop".into(),
                 device_type: Some(DeviceType::Desktop),
             },
             RemoteClient {
+                fxa_device_id: Some("iPhooooooone".to_string()),
                 device_name: "iPhone".into(),
                 device_type: Some(DeviceType::Mobile),
             },

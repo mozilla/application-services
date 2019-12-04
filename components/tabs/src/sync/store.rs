@@ -128,7 +128,15 @@ impl<'a> Store for TabsStore<'a> {
             };
             let id = record.id.clone();
             let tab = if let Some(remote_client) = self.remote_clients.borrow().get(&id) {
-                ClientRemoteTabs::from_record_with_remote_client(id, remote_client, record)
+                ClientRemoteTabs::from_record_with_remote_client(
+                    remote_client
+                        .fxa_device_id
+                        .as_ref()
+                        .unwrap_or(&id)
+                        .to_owned(),
+                    remote_client,
+                    record,
+                )
             } else {
                 ClientRemoteTabs::from_record(id, record)
             };
