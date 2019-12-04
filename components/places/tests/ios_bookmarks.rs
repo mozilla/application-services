@@ -418,6 +418,18 @@ fn test_import_with_local() -> Result<()> {
         ..IosNode::default()
     });
 
+    let b2id = nodes.insert_local(IosNode {
+        bmk_uri: Some("http://💖.com/💖".into()),
+        parentid: dogear::MOBILE_GUID,
+        ..IosNode::default()
+    });
+
+    let b3id = nodes.insert_local(IosNode {
+        bmk_uri: Some("http://xn--r28h.com/%F0%9F%98%8D".into()),
+        parentid: dogear::MOBILE_GUID,
+        ..IosNode::default()
+    });
+
     nodes.populate(&ios_db)?;
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
     places::import::import_ios_bookmarks(&places_api, ios_path)?;
@@ -442,6 +454,14 @@ fn test_import_with_local() -> Result<()> {
         Some(url::Url::parse("https://www.example.com/1%202%203").unwrap())
     );
 
+    let bmk2 =
+        bookmarks::public_node::fetch_bookmark(&places_db, &sync_guid(&b2id), false)?.unwrap();
+    assert_eq!(bmk2.url, Some(url::Url::parse("http://💖.com/💖").unwrap()));
+
+    let bmk3 =
+        bookmarks::public_node::fetch_bookmark(&places_db, &sync_guid(&b3id), false)?.unwrap();
+    assert_eq!(bmk3.url, Some(url::Url::parse("http://😍.com/😍").unwrap()));
+
     let mobile = bookmarks::public_node::fetch_bookmark(
         &places_db,
         &sync_guid(&dogear::MOBILE_GUID),
@@ -451,7 +471,12 @@ fn test_import_with_local() -> Result<()> {
 
     assert_eq!(
         mobile.child_guids,
-        Some(vec![sync_guid(&b0id), sync_guid(&b1id),])
+        Some(vec![
+            sync_guid(&b0id),
+            sync_guid(&b1id),
+            sync_guid(&b2id),
+            sync_guid(&b3id)
+        ])
     );
 
     Ok(())
