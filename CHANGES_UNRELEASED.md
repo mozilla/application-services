@@ -4,6 +4,12 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.44.0...master)
 
+## FxA Client
+
+### What's new
+
+- `FirefoxAccount.checkAuthorizationStatus` will check the status of the currently stored refresh token.
+
 ## Logins
 
 ### Breaking Changes

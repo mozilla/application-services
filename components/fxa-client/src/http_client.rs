@@ -29,6 +29,11 @@ pub trait FxAClient {
         session_token: &str,
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse>;
+    fn oauth_introspect_refresh_token(
+        &self,
+        config: &Config,
+        refresh_token: &str,
+    ) -> Result<IntrospectResponse>;
     fn oauth_token_with_refresh_token(
         &self,
         config: &Config,
@@ -217,6 +222,19 @@ impl FxAClient for Client {
             .build()?;
 
         Ok(Self::make_request(request)?.json()?)
+    }
+
+    fn oauth_introspect_refresh_token(
+        &self,
+        config: &Config,
+        refresh_token: &str,
+    ) -> Result<IntrospectResponse> {
+        let body = json!({
+            "token_type_hint": "refresh_token",
+            "token": refresh_token,
+        });
+        let url = config.introspection_endpoint()?;
+        Ok(Self::make_request(Request::post(url).json(&body))?.json()?)
     }
 
     fn duplicate_session(
@@ -655,6 +673,15 @@ pub struct OAuthAuthResponse {
     pub redirect: String,
     pub code: String,
     pub state: String,
+}
+
+#[derive(Deserialize)]
+pub struct IntrospectResponse {
+    pub active: bool,
+    pub token_type: String,
+    pub scope: Option<String>,
+    pub exp: Option<u64>,
+    pub iss: Option<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
