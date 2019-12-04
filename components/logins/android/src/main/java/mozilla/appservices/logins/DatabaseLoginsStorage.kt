@@ -25,6 +25,27 @@ import mozilla.components.service.glean.private.TimingDistributionMetricType
 import mozilla.components.service.glean.private.LabeledMetricType
 
 /**
+ * This component can emit metrics via Glean, but the consuming application
+ * needs to explicitly opt-in. It does so by calling this function to tell
+ * us what version of our metrics it wants to opt in to.
+ *
+ * Thus, it's very important that when you add new metrics-collection in this
+ * component, you increment the value of `LATEST_METRICS_VERSION` to indicate it.
+ */
+
+private const val LATEST_METRICS_VERSION = 1
+private const val METRICS_V1 = 1
+private var enabledMetricsVersion = 0
+
+@Suppress("TooGenericExceptionThrown")
+fun enableTelemetry(version: Int) {
+    if (version > LATEST_METRICS_VERSION) {
+        throw RuntimeException("mozilla.appservices.logins is on metrics version $LATEST_METRICS_VERSION, not $version")
+    }
+    enabledMetricsVersion = version
+}
+
+/**
  * LoginsStorage implementation backed by a database.
  */
 class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsStorage {
@@ -73,7 +94,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
                 if (!isLocked()) {
                     throw MismatchedLockException("Unlock called when we are already unlocked")
                 }
-                LoginsStoreMetrics.unlockTime.measure {
+                unlockTimer.measure {
                     raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new(
                             dbPath,
                             encryptionKey,
@@ -91,7 +112,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
                 if (!isLocked()) {
                     throw MismatchedLockException("Unlock called when we are already unlocked")
                 }
-                LoginsStoreMetrics.unlockTime.measure {
+                unlockTimer.measure {
                     raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new_with_hex_key(
                             dbPath,
                             encryptionKey,
@@ -165,7 +186,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     override fun delete(id: String): Boolean {
         return writeQueryCounters.measure {
             rustCallWithLock { raw, error ->
-                val deleted = LoginsStoreMetrics.writeQueryTime.measure {
+                val deleted = writeQueryTimer.measure {
                     PasswordSyncAdapter.INSTANCE.sync15_passwords_delete(raw, id, error)
                 }
                 deleted.toInt() != 0
@@ -177,7 +198,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     override fun get(id: String): ServerPassword? {
         return readQueryCounters.measure {
             val json = nullableRustCallWithLock { raw, error ->
-                LoginsStoreMetrics.readQueryTime.measure {
+                readQueryTimer.measure {
                     PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_id(raw, id, error)
                 }
             }?.getAndConsumeRustString()
@@ -189,7 +210,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     override fun touch(id: String) {
         writeQueryCounters.measure {
             rustCallWithLock { raw, error ->
-                LoginsStoreMetrics.writeQueryTime.measure {
+                writeQueryTimer.measure {
                     PasswordSyncAdapter.INSTANCE.sync15_passwords_touch(raw, id, error)
                 }
             }
@@ -200,7 +221,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     override fun list(): List<ServerPassword> {
         return readQueryCounters.measure {
             val json = rustCallWithLock { raw, error ->
-                LoginsStoreMetrics.readQueryTime.measure {
+                readQueryTimer.measure {
                     PasswordSyncAdapter.INSTANCE.sync15_passwords_get_all(raw, error)
                 }
             }.getAndConsumeRustString()
@@ -212,7 +233,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     override fun getByHostname(hostname: String): List<ServerPassword> {
         return readQueryCounters.measure {
             val json = rustCallWithLock { raw, error ->
-                LoginsStoreMetrics.readQueryTime.measure {
+                readQueryTimer.measure {
                     PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_hostname(raw, hostname, error)
                 }
             }.getAndConsumeRustString()
@@ -225,7 +246,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
         return writeQueryCounters.measure {
             val s = login.toJSON().toString()
             rustCallWithLock { raw, error ->
-                LoginsStoreMetrics.writeQueryTime.measure {
+                writeQueryTimer.measure {
                     PasswordSyncAdapter.INSTANCE.sync15_passwords_add(raw, s, error)
                 }
             }.getAndConsumeRustString()
@@ -241,7 +262,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
                 }
             }.toString()
             rustCallWithLock { raw, error ->
-                LoginsStoreMetrics.writeQueryTime.measure {
+                writeQueryTimer.measure {
                     PasswordSyncAdapter.INSTANCE.sync15_passwords_import(raw, s, error)
                 }
             }
@@ -253,7 +274,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
         return writeQueryCounters.measure {
             val s = login.toJSON().toString()
             rustCallWithLock { raw, error ->
-                LoginsStoreMetrics.writeQueryTime.measure {
+                writeQueryTimer.measure {
                     PasswordSyncAdapter.INSTANCE.sync15_passwords_update(raw, s, error)
                 }
             }
@@ -311,22 +332,55 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
         return nullableRustCallWithLock(callback)!!
     }
 
-    private val unlockCounters: LoginsStoreCounterMetrics by lazy {
-        LoginsStoreCounterMetrics(
+    /**
+     * Private metrics-gathering helpers.
+     *
+     * If you want to add a new metric here, you need to create a new METRIC_V<N> constant
+     * and make appropriate adjustments to LATEST_METRICS_VERSION in code and docs. This helps
+     * ensure that consuming applications have to explicitly opt-in to new metrics emitted
+     * by this component.
+     */
+
+    private val unlockTimer: OptionalTimingDistributionMetric by lazy {
+        OptionalTimingDistributionMetric(
+            METRICS_V1,
+            LoginsStoreMetrics.unlockTime
+        )
+    }
+
+    private val readQueryTimer: OptionalTimingDistributionMetric by lazy {
+        OptionalTimingDistributionMetric(
+            METRICS_V1,
+            LoginsStoreMetrics.readQueryTime
+        )
+    }
+
+    private val writeQueryTimer: OptionalTimingDistributionMetric by lazy {
+        OptionalTimingDistributionMetric(
+            METRICS_V1,
+            LoginsStoreMetrics.writeQueryTime
+        )
+    }
+
+    private val unlockCounters: OptionalCounterMetrics by lazy {
+        OptionalCounterMetrics(
+            METRICS_V1,
             LoginsStoreMetrics.unlockCount,
             LoginsStoreMetrics.unlockErrorCount
         )
     }
 
-    private val readQueryCounters: LoginsStoreCounterMetrics by lazy {
-        LoginsStoreCounterMetrics(
+    private val readQueryCounters: OptionalCounterMetrics by lazy {
+        OptionalCounterMetrics(
+            METRICS_V1,
             LoginsStoreMetrics.readQueryCount,
             LoginsStoreMetrics.readQueryErrorCount
         )
     }
 
-    private val writeQueryCounters: LoginsStoreCounterMetrics by lazy {
-        LoginsStoreCounterMetrics(
+    private val writeQueryCounters: OptionalCounterMetrics by lazy {
+        OptionalCounterMetrics(
+            METRICS_V1,
             LoginsStoreMetrics.writeQueryCount,
             LoginsStoreMetrics.writeQueryErrorCount
         )
@@ -356,39 +410,52 @@ internal fun Pointer.getRustString(): String {
 }
 
 /**
- * A helper extension method for conveniently measuring execution time of a closure.
+ * A helper class method for optionally measuring execution time of a closure.
  *
  * N.B. since we're measuring calls to Rust code here, the provided callback may be doing
  * unsafe things. It's very imporant that we always call the function exactly once here
  * and don't try to do anything tricky like stashing it for later or calling it multiple times.
  */
-inline fun <U> TimingDistributionMetricType.measure(funcToMeasure: () -> U): U {
-    val timerId = this.start()
-    try {
-        return funcToMeasure()
-    } finally {
-        this.stopAndAccumulate(timerId)
+private class OptionalTimingDistributionMetric(
+    val version: Int,
+    val timer: TimingDistributionMetricType
+) {
+    inline fun <U> measure(funcToMeasure: () -> U): U {
+        if (enabledMetricsVersion < version) {
+            return funcToMeasure()
+        }
+        val timerId = timer.start()
+        try {
+            return funcToMeasure()
+        } finally {
+            timer.stopAndAccumulate(timerId)
+        }
     }
 }
 
 /**
- * A helper class for gathering basic count metrics on different kinds of LoginsStore operation.
+ * A helper class for optionally gathering basic count metrics on different kinds of LoginsStore operation.
  *
  * For each type of operation, we want to measure:
  *    - total count of operations performed
  *    - count of operations that produced an error, labeled by type
  *
- * This is a convenince wrapper to measure the two in one shot.
+ * This is a convenince wrapper to measure the two in one shot, if the application has enabled an
+ * appropriate level of telemetry-gathering.
  */
-class LoginsStoreCounterMetrics(
+private class OptionalCounterMetrics(
+    val version: Int,
     val count: CounterMetricType,
     val errCount: LabeledMetricType<CounterMetricType>
 ) {
     @Suppress("ComplexMethod", "TooGenericExceptionCaught")
-    inline fun <U> measure(callback: () -> U): U {
+    inline fun <U> measure(funcToMeasure: () -> U): U {
+        if (enabledMetricsVersion < version) {
+            return funcToMeasure()
+        }
         count.add()
         try {
-            return callback()
+            return funcToMeasure()
         } catch (e: Exception) {
             when (e) {
                 is NoSuchRecordException -> {

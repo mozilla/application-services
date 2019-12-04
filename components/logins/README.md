@@ -30,13 +30,6 @@ but on the understanding that it may be a lengthy discussion.
 
 ## Using the Logins component
 
-### Before using this component
-
-Products sending telemetry and using this component *must request* a data-review following
-[this process](https://wiki.mozilla.org/Firefox/Data_Collection).
-This component provides data collection using the [Glean SDK](https://mozilla.github.io/glean/book/index.html).
-The list of metrics being collected is available in the [metrics documentation](../../docs/metrics/logins/metrics.md).
-
 ### Prerequisites
 
 To use this component for local storage of logins data, you will need to know how to integrate appservices components
@@ -66,6 +59,13 @@ mechanism). It can then create, read, update and delete login records from the d
 
 ### Examples
 - [Android integration](https://github.com/mozilla-mobile/android-components/blob/master/components/service/sync-logins/README.md)
+
+### Telemetry
+
+This component supports collecting quality and performance telemetry using the [Glean SDK](https://mozilla.github.io/glean/),
+but this collection is disabled by default. Applications that send telemetry via Glean may opt-in to gathering these metrics by
+calling the `mozilla.appservices.logins.enableTelemetry` function, after following the instructions for data-review found
+[here](../../docs/metrics/README.md).
 
 
 ### API Documentation

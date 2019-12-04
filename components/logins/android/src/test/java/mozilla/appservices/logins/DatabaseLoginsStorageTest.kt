@@ -9,6 +9,7 @@ import mozilla.components.service.glean.testing.GleanTestRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.fail
+import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -26,6 +27,12 @@ class DatabaseLoginsStorageTest : LoginsStorageTest() {
 
     @get:Rule
     val gleanRule = GleanTestRule(ApplicationProvider.getApplicationContext())
+
+    @After
+    fun resetEnableTelemetry() {
+        // Revert to default state after each test.
+        mozilla.appservices.logins.enableTelemetry(0)
+    }
 
     override fun createTestStore(): DatabaseLoginsStorage {
         Megazord.init()
@@ -100,7 +107,36 @@ class DatabaseLoginsStorageTest : LoginsStorageTest() {
     }
 
     @Test
+    fun testDisablingTelemetry() {
+        val store = createTestStore()
+        val key = "0123456789abcdef"
+
+        assert(!LoginsStoreMetrics.unlockTime.testHasValue())
+
+        // No metrics are gathered by default.
+        store.unlock(key)
+        store.lock()
+        assert(!LoginsStoreMetrics.unlockTime.testHasValue())
+
+        // But they will be if explicitly enabled.
+        mozilla.appservices.logins.enableTelemetry(1)
+        store.unlock(key)
+        store.lock()
+        assert(LoginsStoreMetrics.unlockTime.testHasValue())
+
+        // The app can't opt-in to a metrics version that doesn't exist.
+        try {
+            mozilla.appservices.logins.enableTelemetry(2)
+            fail("Should have thrown")
+        } catch (e: RuntimeException) {
+            // All good.
+        }
+    }
+
+    @Test
     fun testMetricsGathering() {
+        mozilla.appservices.logins.enableTelemetry(1)
+
         val store = createTestStore()
         val key = "0123456789abcdef"
 
