@@ -288,8 +288,7 @@ lazy_static::lazy_static! {
                 -1
          FROM temp.iosBookmarksStaging b
          WHERE b.bmkUri IS NOT NULL
-           AND b.type = {bookmark_type}
-           AND is_valid_url(b.bmkUri)",
+           AND b.type = {bookmark_type}",
         bookmark_type = IosBookmarkType::Bookmark as u8,
     );
 
@@ -383,7 +382,7 @@ lazy_static::lazy_static! {
                 WHEN b.bmkUri IS NOT NULL
                     THEN validate_url(b.bmkUri)
                 ELSE NULL
-            END,
+            END as uri,
             b.keyword,
             b.tags,
             sanitize_timestamp(b.date_added),
@@ -398,6 +397,7 @@ lazy_static::lazy_static! {
                 OR
                 (b.guid NOT IN (SELECT l.guid FROM ios.bookmarksLocal l))
             )
+            AND (b.type != {ios_bookmark_type} OR uri IS NOT NULL)
         ;
         INSERT OR IGNORE INTO temp.iosBookmarksStaging(
             guid,
@@ -418,7 +418,7 @@ lazy_static::lazy_static! {
             l.parentid,
             l.pos,
             l.title,
-            l.bmkUri,
+            validate_url(l.bmkUri) as uri,
             l.keyword,
             l.tags,
             sanitize_timestamp(l.date_added),
@@ -426,8 +426,10 @@ lazy_static::lazy_static! {
             1
         FROM ios.bookmarksLocal l
         WHERE NOT l.is_deleted
+        AND uri IS NOT NULL
         ;",
         roots = ROOTS,
+        ios_bookmark_type = IosBookmarkType::Bookmark as u8,
     );
 
 
@@ -441,7 +443,7 @@ lazy_static::lazy_static! {
             pos INT,
             title TEXT,
             bmkUri TEXT
-                CHECK(type != {ios_bookmark_type} OR is_valid_url(bmkUri)),
+                CHECK(type != {ios_bookmark_type} OR validate_url(bmkUri) == bmkUri),
             keyword TEXT,
             tags TEXT,
             date_added INTEGER NOT NULL,
@@ -468,12 +470,11 @@ lazy_static::lazy_static! {
 }
 
 mod sql_fns {
-    use crate::import::common::sql_fns::{is_valid_url, sanitize_timestamp, validate_url};
+    use crate::import::common::sql_fns::{sanitize_timestamp, validate_url};
     use rusqlite::{Connection, Result};
 
     pub(super) fn define_functions(c: &Connection) -> Result<()> {
         c.create_scalar_function("validate_url", 1, true, validate_url)?;
-        c.create_scalar_function("is_valid_url", 1, true, is_valid_url)?;
         c.create_scalar_function("sanitize_timestamp", 1, true, sanitize_timestamp)?;
         Ok(())
     }

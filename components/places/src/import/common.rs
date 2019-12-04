@@ -32,6 +32,8 @@ pub mod sql_fns {
         Ok(now)
     }
 
+    // Possibly better named as "normalize URL" - even in non-error cases, the
+    // result string may not be the same href used passed as input.
     #[inline(never)]
     pub fn validate_url(ctx: &Context<'_>) -> Result<Option<String>> {
         let val = ctx.get_raw(0);
@@ -48,20 +50,6 @@ pub mod sql_fns {
         } else {
             Ok(None)
         }
-    }
-
-    #[inline(never)]
-    pub fn is_valid_url(ctx: &Context<'_>) -> Result<Option<bool>> {
-        Ok(match ctx.get_raw(0) {
-            ValueRef::Text(s) if s.len() <= URL_LENGTH_MAX => {
-                if let Ok(s) = std::str::from_utf8(s) {
-                    Some(Url::parse(s).is_ok())
-                } else {
-                    Some(false)
-                }
-            }
-            _ => Some(false),
-        })
     }
 }
 
