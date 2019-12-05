@@ -28,7 +28,7 @@ error-support = { path = "../support/error" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
 prost = "0.5.0"
 prost-derive = "0.5.0"
-bytes = "0.4.11"
+bytes = "0.4.12"
 
 [dev-dependencies]
 env_logger = "0.7.0"

@@ -487,6 +487,7 @@ The following text applies to code linked from these dependendencies:
 [itoa](https://github.com/dtolnay/itoa),
 [jna](https://github.com/java-native-access/jna),
 [lazy_static](https://github.com/rust-lang-nursery/lazy-static.rs),
+[lazycell](https://github.com/indiv0/lazycell),
 [libc](https://github.com/rust-lang/libc),
 [linked-hash-map](https://github.com/contain-rs/linked-hash-map),
 [lock_api](https://github.com/Amanieu/parking_lot),

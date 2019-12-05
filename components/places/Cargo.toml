@@ -28,7 +28,7 @@ idna = "0.2.0"
 memchr = "2.2.1"
 prost = "0.5.0"
 prost-derive = "0.5.0"
-bytes = "0.4.11"
+bytes = "0.4.12"
 dogear = "0.2.6"
 interrupt = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
@@ -62,7 +62,7 @@ prost-build = "0.5.0"
 # our example doesn't work on Windows), it does get further in the compilation
 # such that "cargo test" etc shows errors in our code rather than in termion.
 [target.'cfg(not(windows))'.dev-dependencies]
-termion = "1.5.3"
+termion = "1.5.4"
 
 [[bench]]
 name = "match_impl"

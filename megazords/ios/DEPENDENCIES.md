@@ -476,6 +476,7 @@ The following text applies to code linked from these dependendencies:
 [itertools](https://github.com/bluss/rust-itertools),
 [itoa](https://github.com/dtolnay/itoa),
 [lazy_static](https://github.com/rust-lang-nursery/lazy-static.rs),
+[lazycell](https://github.com/indiv0/lazycell),
 [libc](https://github.com/rust-lang/libc),
 [linked-hash-map](https://github.com/contain-rs/linked-hash-map),
 [lock_api](https://github.com/Amanieu/parking_lot),
