@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -euvx
+
 python3 ./tools/dependency_summary.py > ./DEPENDENCIES.md
 
 python3 ./tools/dependency_summary.py --all-ios-targets --package megazord_ios > megazords/ios/DEPENDENCIES.md
