@@ -5,7 +5,7 @@
 package mozilla.appservices.remotetabs
 
 data class ClientTabs(
-    val clientId: String,
+    val clientId: String, // FxA device ID or the Sync client record ID if unavailable.
     val tabs: List<RemoteTab>
 ) {
     companion object {

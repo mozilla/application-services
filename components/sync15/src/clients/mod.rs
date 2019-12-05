@@ -56,6 +56,7 @@ pub enum CommandStatus {
 /// Information about a remote client in the clients collection.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct RemoteClient {
+    pub fxa_device_id: Option<String>,
     pub device_name: String,
     pub device_type: Option<DeviceType>,
 }
@@ -63,6 +64,7 @@ pub struct RemoteClient {
 impl From<&record::ClientRecord> for RemoteClient {
     fn from(record: &record::ClientRecord) -> RemoteClient {
         RemoteClient {
+            fxa_device_id: record.fxa_device_id.clone(),
             device_name: record.name.clone(),
             device_type: record.typ.as_ref().and_then(DeviceType::try_from_str),
         }
