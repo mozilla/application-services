@@ -144,7 +144,7 @@ impl<'a> Store for TabsStore<'a> {
         }
         self.storage.replace_remote_tabs(remote_tabs);
         let mut outgoing = OutgoingChangeset::new("tabs".into(), inbound.timestamp);
-        if let Some(local_tabs) = self.storage.get_local_tabs() {
+        if let Some(local_tabs) = self.storage.prepare_local_tabs_for_upload() {
             let (client_name, device_type) = self
                 .remote_clients
                 .borrow()
