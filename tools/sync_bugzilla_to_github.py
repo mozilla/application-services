@@ -26,7 +26,11 @@ import urllib.parse
 import requests
 from github import Github
 
-GH_REPO = 'mozilla/application-services'
+DRY_RUN = False
+VERBOSE_DEBUG = False
+
+GH_REPO = 'mozilla/application-services-bug-mirror'
+GH_OLD_REPOS = ['mozilla/application-services']
 GH_LABEL = 'bugzilla'
 
 BZ_URL = 'https://bugzilla.mozilla.org/rest'
@@ -87,6 +91,9 @@ class BugSet(object):
 
     def __getitem__(self, key):
         return self.bugs[str(key)]
+
+    def __delitem__(self, key):
+        del self.bugs[str(key)]
 
     def __iter__(self):
         return iter(self.bugs)
@@ -184,13 +191,14 @@ class MirrorIssueSet(object):
     def __init__(self, repo, label, api_key=None):
         self._gh = Github(api_key)
         self._repo = self._gh.get_repo(repo)
+        self._repo_name = repo
         self._label = self._repo.get_label(label)
         self._see_also_regex = re.compile(
             SEE_ALSO_ISSUE_REGEX_TEMPLATE.format(repo))
         # The mirror issues, indexes by bugzilla bugid.
         self.mirror_issues = {}
 
-    def sync_from_bugset(self, bugs):
+    def sync_from_bugset(self, bugs, updates_only=False):
         """Sync the mirrored issues with the given BugSet (which might be modified in-place)."""
         self.update_from_github()
         log('Found {} mirror issues in github', len(self.mirror_issues))
@@ -204,12 +212,16 @@ class MirrorIssueSet(object):
             bugs.update_from_bugzilla(id=missing_bugs)
         num_updated = 0
         for bugid in bugs:
+            if updates_only and bugid not in self.mirror_issues:
+                if VERBOSE_DEBUG:
+                    log('Not creating new bug {} in old repo', bugid)
+                continue
             if self.sync_issue_from_bug_info(bugid, bugs[bugid]):
                 num_updated += 1
         if num_updated > 0:
             log('Updated {} issues from bugzilla to github', num_updated)
         else:
-            log('Looks like everything is up-to-date')
+            log('Looks like everything is up-to-date in {}', self._repo_name)
 
     def update_from_github(self):
         """Find mirror issues in the github repo.
@@ -246,7 +258,11 @@ class MirrorIssueSet(object):
                 else:
                     issue_info.pop('state')
                     log('Creating mirror issue for bz{id}', **bug_info)
-                    issue = self.mirror_issues[bugid] = self._repo.create_issue(**issue_info)
+                    if DRY_RUN:
+                        issue = {}
+                    else:
+                        issue = self._repo.create_issue(**issue_info)
+                    self.mirror_issues[bugid] = issue
                     return True
         else:
             changed_fields = [
@@ -258,13 +274,14 @@ class MirrorIssueSet(object):
                 # Weird API thing where `issue.edit` accepts strings rather than label refs...
                 issue_info['labels'] = [l.name for l in issue_info['labels']]
                 # Explain why we are closing this issue.
-                if not bug_info['is_open'] and 'state' in changed_fields and 'resolution' in bug_info:
-                    issue.create_comment(SYNCED_ISSUE_CLOSE_COMMENT.format(resolution=bug_info['resolution']))
-                issue.edit(**issue_info)
+                if not DRY_RUN:
+                    if not bug_info['is_open'] and 'state' in changed_fields and 'resolution' in bug_info:
+                        issue.create_comment(SYNCED_ISSUE_CLOSE_COMMENT.format(resolution=bug_info['resolution']))
+                    issue.edit(**issue_info)
                 return True
-            # else:
-            #    # Uncomment me for helpful output during debugging.
-            #    log('No change for issue #{}', issue.number)
+            else:
+                if VERBOSE_DEBUG:
+                    log('No change for issue #{}', issue.number)
         return False
 
     def _format_issue_info(self, bug_info, issue):
@@ -303,7 +320,7 @@ class MirrorIssueSet(object):
 
 
 def sync_bugzilla_to_github():
-        # Find the sets of bugs in both places, to intersect them.
+    # Find the sets of bugs in bugzilla that we want to mirror.
     log('Finding relevant bugs in bugzilla...')
     bugs = BugSet(os.environ.get('BZ_API_KEY'))
     bugs.update_from_bugzilla(product='Firefox', component='Firefox Accounts',
@@ -311,9 +328,24 @@ def sync_bugzilla_to_github():
     bugs.update_from_bugzilla(product='Firefox', component='Sync',
                               resolved=False, creation_time=MIN_CREATION_TIME)
     log('Found {} bugzilla bugs', len(bugs))
-    log('Syncing to github')
-    issues = MirrorIssueSet(
-        GH_REPO, GH_LABEL, os.environ.get('GITHUB_TOKEN'))
+
+    gh_token = os.environ.get('GITHUB_TOKEN')
+
+    # Find any that are already represented in old github repos.
+    # We don't want to make duplicates of them in the current repo!
+    for old_repo in GH_OLD_REPOS:
+        log('Syncing to old github repo at {}', old_repo)
+        old_issues = MirrorIssueSet(old_repo, GH_LABEL, gh_token)
+        old_issues.sync_from_bugset(bugs, updates_only=True)
+        done_count = 0
+        for bugid in old_issues.mirror_issues:
+            if bugid in bugs:
+                del bugs[bugid]
+                done_count += 1
+        log('Synced {} bugs, now {} left to sync', done_count, len(bugs))
+
+    log('Syncing to github repo at {}', GH_REPO)
+    issues = MirrorIssueSet(GH_REPO, GH_LABEL, gh_token)
     issues.sync_from_bugset(bugs)
     log('Done!')
 
