@@ -450,12 +450,14 @@ pub extern "C" fn fxa_handle_push_message(
     })
 }
 
-/// Initalizes our own device, most of the time this will be called right after logging-in
-/// for the first time.
-/// This method is marked un-safe as it reconstitutes an array of capabilities
-/// from a pointer.
+/// Initalizes our own device, most of the time this will be called right after
+/// logging-in for the first time.
+///
+/// # Safety
+/// This function is unsafe because it will dereference `capabilities_data` and
+/// read `capabilities_len` bytes from it.
 #[no_mangle]
-pub extern "C" fn fxa_initialize_device(
+pub unsafe extern "C" fn fxa_initialize_device(
     handle: u64,
     name: FfiStr<'_>,
     device_type: i32,
@@ -465,9 +467,8 @@ pub extern "C" fn fxa_initialize_device(
 ) {
     log::debug!("fxa_initialize_device");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
-        let capabilities = unsafe {
-            DeviceCapability::from_protobuf_array_ptr(capabilities_data, capabilities_len)
-        };
+        let capabilities =
+            DeviceCapability::from_protobuf_array_ptr(capabilities_data, capabilities_len);
         // This should not fail as device_type i32 representation is derived from our .proto schema.
         let device_type =
             msg_types::device::Type::from_i32(device_type).expect("Unknown device type code");
@@ -476,8 +477,12 @@ pub extern "C" fn fxa_initialize_device(
 }
 
 /// Ensure that the device capabilities are registered with the server.
+///
+/// # Safety
+/// This function is unsafe because it will dereference `capabilities_data` and
+/// read `capabilities_len` bytes from it.
 #[no_mangle]
-pub extern "C" fn fxa_ensure_capabilities(
+pub unsafe extern "C" fn fxa_ensure_capabilities(
     handle: u64,
     capabilities_data: *const u8,
     capabilities_len: i32,
@@ -485,9 +490,8 @@ pub extern "C" fn fxa_ensure_capabilities(
 ) {
     log::debug!("fxa_ensure_capabilities");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
-        let capabilities = unsafe {
-            DeviceCapability::from_protobuf_array_ptr(capabilities_data, capabilities_len)
-        };
+        let capabilities =
+            DeviceCapability::from_protobuf_array_ptr(capabilities_data, capabilities_len);
         fxa.ensure_capabilities(&capabilities)
     })
 }
