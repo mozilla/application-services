@@ -42,6 +42,9 @@ pub enum ErrorKind {
     #[fail(display = "Storage Error: {:?}", _0)]
     StorageError(String),
 
+    #[fail(display = "No record for uaid:chid {:?}:{:?}", _0, _1)]
+    RecordNotFoundError(String, String),
+
     /// A failure to encode data to/from storage.
     #[fail(display = "Error executing SQL: {}", _0)]
     StorageSqlError(#[fail(cause)] rusqlite::Error),
@@ -71,6 +74,7 @@ impl ErrorKind {
             ErrorKind::StorageSqlError(_) => 29,
             ErrorKind::MissingRegistrationTokenError => 30,
             ErrorKind::TranscodingError(_) => 31,
+            ErrorKind::RecordNotFoundError(_, _) => 32,
             ErrorKind::UrlParseError(_) => 33,
         };
         ffi_support::ErrorCode::new(code)

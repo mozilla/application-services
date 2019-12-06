@@ -24,6 +24,7 @@ open class MissingRegistrationTokenError : PushError(
         "Missing Registration Token. Please register with OS first.")
 open class StorageSqlError(msg: String) : PushError(msg)
 open class TranscodingError(msg: String) : PushError(msg)
+open class RecordNotFoundError(msg: String) : PushError(msg)
 open class UrlParseError(msg: String) : PushError(msg)
 
 /**
@@ -68,6 +69,7 @@ open class RustError : Structure() {
             29 -> return StorageSqlError(message)
             30 -> return MissingRegistrationTokenError()
             31 -> return TranscodingError(message)
+            32 -> return RecordNotFoundError(message)
             33 -> return UrlParseError(message)
             -1 -> return InternalPanic(message)
             // Note: `1` is used as a generic catch all, but we
