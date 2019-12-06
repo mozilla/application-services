@@ -153,9 +153,7 @@ impl PushManager {
             .store
             .get_record(&uaid, chid)
             .map_err(|e| ErrorKind::StorageError(format!("{:?}", e)))?
-            .ok_or_else(|| {
-                ErrorKind::StorageError(format!("No record for uaid:chid {:?}:{:?}", uaid, chid))
-            })?;
+            .ok_or_else(|| ErrorKind::RecordNotFoundError(uaid.to_owned(), chid.to_owned()))?;
         let key = Key::deserialize(&val.key)?;
         let decrypted = Crypto::decrypt(&key, body, encoding, salt, dh)
             .map_err(|e| ErrorKind::CryptoError(format!("{:?}", e)))?;
