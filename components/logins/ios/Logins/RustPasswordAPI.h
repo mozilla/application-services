@@ -52,8 +52,8 @@ char *_Nullable sync15_passwords_get_by_id(Sync15PasswordEngineHandle handle,
                                           char const *_Nonnull id,
                                           Sync15PasswordsError *_Nonnull error_out);
 
-char *_Nullable sync15_passwords_get_by_hostname(Sync15PasswordEngineHandle handle,
-                                          char const *_Nonnull hostname,
+char *_Nullable sync15_passwords_get_by_base_domain(Sync15PasswordEngineHandle handle,
+                                          char const *_Nonnull baseDomain,
                                           Sync15PasswordsError *_Nonnull error_out);
 
 char *_Nullable sync15_passwords_get_all(Sync15PasswordEngineHandle handle,

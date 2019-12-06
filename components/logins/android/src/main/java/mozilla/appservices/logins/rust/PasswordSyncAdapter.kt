@@ -44,7 +44,7 @@ internal interface PasswordSyncAdapter : Library {
     fun sync15_passwords_get_all(handle: LoginsDbHandle, error: RustError.ByReference): Pointer?
 
     // return json array
-    fun sync15_passwords_get_by_hostname(handle: LoginsDbHandle, hostname: String, error: RustError.ByReference): Pointer?
+    fun sync15_passwords_get_by_base_domain(handle: LoginsDbHandle, basedomain: String, error: RustError.ByReference): Pointer?
 
     // Returns a JSON string containing a sync ping.
     fun sync15_passwords_sync(

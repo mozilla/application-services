@@ -282,12 +282,12 @@ open class LoginsStorage {
         }
     }
 
-    /// Get the list of records for some hostname.
-    open func getByHostname(hostname: String) throws -> [LoginRecord] {
+    /// Get the list of records for some base domain.
+    open func getByBaseDomain(baseDomain: String) throws -> [LoginRecord] {
         return try queue.sync {
             let engine = try self.getUnlocked()
             let rustStr = try LoginsStoreError.unwrap { err in
-                sync15_passwords_get_by_hostname(engine, hostname, err)
+                sync15_passwords_get_by_base_domain(engine, baseDomain, err)
             }
             let jsonStr = String(freeingRustString: rustStr)
             return try LoginRecord.fromJSONArray(jsonStr)
