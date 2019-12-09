@@ -1,4 +1,4 @@
-#!/usr/bin/env python3 
+#!/usr/bin/env python3
 #
 # This script can be used to generate a summary of our third-party dependencies,
 # including license details. Use it like this:
@@ -937,7 +937,7 @@ def print_dependency_summary_markdown(deps, file=sys.stdout):
                 for info in section["dependencies"]]
         # Dedupe in case of multiple versons of dependencies.
         pkgs = sorted(set(pkgs))
-        pf("The following text applies to code linked from these dependendencies:\n{}", ",\n".join(pkgs))
+        pf("The following text applies to code linked from these dependencies:\n{}", ",\n".join(pkgs))
         pf("")
         pf("```")
         assert "```" not in section["license_text"]
