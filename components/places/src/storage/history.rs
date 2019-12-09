@@ -10,7 +10,7 @@ use crate::hash;
 use crate::history_sync::store::{
     COLLECTION_SYNCID_META_KEY, GLOBAL_SYNCID_META_KEY, LAST_SYNC_META_KEY,
 };
-use crate::msg_types::{HistoryVisitInfo, HistoryVisitInfos};
+use crate::msg_types::{HistoryVisitInfo, HistoryVisitInfos, HistoryVisitInfosWithBound};
 use crate::observation::VisitObservation;
 use crate::storage::{delete_meta, delete_pending_temp_tables, get_meta, put_meta};
 use crate::types::{SyncStatus, Timestamp, VisitTransition, VisitTransitionSet};
@@ -1144,13 +1144,73 @@ pub fn get_visit_page(
     Ok(HistoryVisitInfos { infos })
 }
 
+pub fn get_visit_page_with_bound(
+    db: &PlacesDb,
+    bound: i64,
+    offset: i64,
+    count: i64,
+    exclude_types: VisitTransitionSet,
+) -> Result<HistoryVisitInfosWithBound> {
+    let allowed_types = exclude_types.complement();
+    let infos = db.query_rows_and_then_named_cached(
+        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden
+         FROM moz_places h
+         JOIN moz_historyvisits v
+           ON h.id = v.place_id
+         WHERE ((1 << v.visit_type) & :allowed_types) != 0 AND
+               NOT h.hidden
+               AND v.visit_date <= :bound
+         ORDER BY v.visit_date DESC, v.id
+         LIMIT :count
+         OFFSET :offset",
+        rusqlite::named_params! {
+            ":allowed_types": allowed_types,
+            ":bound": bound,
+            ":count": count,
+            ":offset": offset,
+        },
+        HistoryVisitInfo::from_row,
+    )?;
+
+    if let Some(l) = infos.last() {
+        if l.timestamp == bound {
+            // all items' timestamp are equal to the previous bound
+            let offset = offset + infos.len() as i64;
+            Ok(HistoryVisitInfosWithBound {
+                infos,
+                bound,
+                offset,
+            })
+        } else {
+            let bound = l.timestamp;
+            let offset = infos
+                .iter()
+                .rev()
+                .take_while(|i| i.timestamp == bound)
+                .count() as i64;
+            Ok(HistoryVisitInfosWithBound {
+                infos,
+                bound,
+                offset,
+            })
+        }
+    } else {
+        // infos is Empty
+        Ok(HistoryVisitInfosWithBound {
+            infos,
+            bound: 0,
+            offset: 0,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::history_sync::*;
     use super::*;
     use crate::api::places_api::ConnectionType;
     use crate::history_sync::record::{HistoryRecord, HistoryRecordVisit};
-    use crate::types::Timestamp;
+    use crate::types::{Timestamp, VisitTransitionSet};
     use pretty_assertions::assert_eq;
     use std::time::{Duration, SystemTime};
 
@@ -2243,5 +2303,175 @@ mod tests {
         // Ensure what we get back sta
         assert_eq!(db_title.len(), crate::storage::TITLE_LENGTH_MAX);
         assert!(title.starts_with(&db_title));
+    }
+
+    #[test]
+    fn test_get_visit_page_with_bound() {
+        use std::time::SystemTime;
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
+        let now: Timestamp = SystemTime::now().into();
+        let now_u64 = now.0;
+        let now_i64 = now.0 as i64;
+        // (url, when, is_remote, (expected_always, expected_only_local)
+        let to_add = [
+            (
+                "https://www.example.com/0",
+                "older 2",
+                now_u64 - 200_200,
+                false,
+                (true, false),
+            ),
+            (
+                "https://www.example.com/1",
+                "older 1",
+                now_u64 - 200_100,
+                false,
+                (true, false),
+            ),
+            (
+                "https://www.example.com/2",
+                "same time",
+                now_u64 - 200_000,
+                false,
+                (true, false),
+            ),
+            (
+                "https://www.example.com/3",
+                "same time",
+                now_u64 - 200_000,
+                false,
+                (true, false),
+            ),
+            (
+                "https://www.example.com/4",
+                "same time",
+                now_u64 - 200_000,
+                false,
+                (true, false),
+            ),
+            (
+                "https://www.example.com/5",
+                "same time",
+                now_u64 - 200_000,
+                false,
+                (true, false),
+            ),
+            (
+                "https://www.example.com/6",
+                "same time",
+                now_u64 - 200_000,
+                false,
+                (true, false),
+            ),
+            (
+                "https://www.example.com/7",
+                "same time",
+                now_u64 - 200_000,
+                false,
+                (true, false),
+            ),
+            (
+                "https://www.example.com/8",
+                "same time",
+                now_u64 - 200_000,
+                false,
+                (true, false),
+            ),
+            (
+                "https://www.example.com/9",
+                "same time",
+                now_u64 - 200_000,
+                false,
+                (true, false),
+            ),
+            (
+                "https://www.example.com/10",
+                "more recent 2",
+                now_u64 - 199_000,
+                false,
+                (true, false),
+            ),
+            (
+                "https://www.example.com/11",
+                "more recent 1",
+                now_u64 - 198_000,
+                false,
+                (true, false),
+            ),
+        ];
+
+        for &(url, title, when, remote, _) in &to_add {
+            apply_observation(
+                &conn,
+                VisitObservation::new(Url::parse(url).unwrap())
+                    .with_title(title.to_owned())
+                    .with_at(Timestamp(when))
+                    .with_is_remote(remote)
+                    .with_visit_type(VisitTransition::Link),
+            )
+            .expect("Should apply visit");
+        }
+
+        // test when offset fall on a point where visited_date changes
+        let infos_with_bound =
+            get_visit_page_with_bound(&conn, now_i64 - 200_000, 8, 2, VisitTransitionSet::empty())
+                .unwrap();
+        let infos = infos_with_bound.infos;
+        assert_eq!(infos[0].title.as_ref().unwrap().as_str(), "older 1",);
+        assert_eq!(infos[1].title.as_ref().unwrap().as_str(), "older 2",);
+        assert_eq!(infos_with_bound.bound, now_i64 - 200_200,);
+        assert_eq!(infos_with_bound.offset, 1,);
+
+        // test when offset fall on one item before visited_date changes
+        let infos_with_bound =
+            get_visit_page_with_bound(&conn, now_i64 - 200_000, 7, 1, VisitTransitionSet::empty())
+                .unwrap();
+        assert_eq!(infos_with_bound.infos[0].url, "https://www.example.com/9",);
+
+        // test when offset fall on one item after visited_date changes
+        let infos_with_bound =
+            get_visit_page_with_bound(&conn, now_i64 - 200_000, 9, 1, VisitTransitionSet::empty())
+                .unwrap();
+        assert_eq!(
+            infos_with_bound.infos[0].title.as_ref().unwrap().as_str(),
+            "older 2",
+        );
+
+        // with a small page length, loop through items that have the same visited date
+        let count = 2;
+        let mut bound = now_i64 - 199_000;
+        let mut offset = 1;
+        for _i in 0..4 {
+            let infos_with_bound =
+                get_visit_page_with_bound(&conn, bound, offset, count, VisitTransitionSet::empty())
+                    .unwrap();
+            assert_eq!(
+                infos_with_bound.infos[0].title.as_ref().unwrap().as_str(),
+                "same time",
+            );
+            assert_eq!(
+                infos_with_bound.infos[1].title.as_ref().unwrap().as_str(),
+                "same time",
+            );
+            bound = infos_with_bound.bound;
+            offset = infos_with_bound.offset;
+        }
+        // bound and offset should have skipped the 8 items that have the same visited date
+        assert_eq!(bound, now_i64 - 200_000,);
+        assert_eq!(offset, 8,);
+
+        // when bound is now and offset is zero
+        let infos_with_bound =
+            get_visit_page_with_bound(&conn, now_i64, 0, 2, VisitTransitionSet::empty()).unwrap();
+        assert_eq!(
+            infos_with_bound.infos[0].title.as_ref().unwrap().as_str(),
+            "more recent 1",
+        );
+        assert_eq!(
+            infos_with_bound.infos[1].title.as_ref().unwrap().as_str(),
+            "more recent 2",
+        );
+        assert_eq!(infos_with_bound.bound, now_i64 - 199_000);
+        assert_eq!(infos_with_bound.offset, 1);
     }
 }

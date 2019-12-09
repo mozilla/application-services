@@ -19,6 +19,12 @@ message HistoryVisitInfos {
     repeated HistoryVisitInfo infos = 1;
 }
 
+message HistoryVisitInfosWithBound {
+    repeated HistoryVisitInfo infos = 1;
+    required int64 bound = 2;
+    required int64 offset = 3;
+}
+
 /**
  * A bookmark node.
  *

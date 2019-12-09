@@ -313,6 +313,24 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         }
     }
 
+    override fun getVisitPageWithBound(
+        bound: Long,
+        offset: Long,
+        count: Long,
+        excludeTypes: List<VisitType>
+    ): VisitInfosWithBound {
+        val infoBuffer = rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_get_visit_page_with_bound(
+                    this.handle.get(), offset, bound, count, visitTransitionSet(excludeTypes), error)
+        }
+        try {
+            val infos = MsgTypes.HistoryVisitInfosWithBound.parseFrom(infoBuffer.asCodedInputStream()!!)
+            return VisitInfosWithBound.fromMessage(infos)
+        } finally {
+            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(infoBuffer)
+        }
+    }
+
     override fun getVisitCount(excludeTypes: List<VisitType>): Long {
         return rustCall { error ->
             LibPlacesFFI.INSTANCE.places_get_visit_count(
@@ -705,6 +723,24 @@ interface ReadableHistoryConnection : InterruptibleConnection {
     fun getVisitPage(offset: Long, count: Long, excludeTypes: List<VisitType> = listOf()): List<VisitInfo>
 
     /**
+     * Page more efficiently than using simple numeric offset. We first figure out
+     * a visited timestamp upper bound, then do a smaller numeric offset relative to
+     * the bound.
+     *
+     * @param bound The upper bound of already visited items.
+     * @param offset The offset between first item that has visit date equal to bound
+     *  and last visited item.
+     * @param count The number eof items to return in the page.
+     * @param excludeTypes List of visit types to exclude.
+     */
+    fun getVisitPageWithBound(
+        bound: Long,
+        offset: Long,
+        count: Long,
+        excludeTypes: List<VisitType> = listOf()
+    ): VisitInfosWithBound
+
+    /**
      * Get the number of history visits.
      *
      * It is intended that this be used with `getVisitPage` to allow pagination
@@ -998,6 +1034,31 @@ data class VisitInfo(
                     visitType = intToVisitType[it.visitType]!!,
                     isHidden = it.isHidden)
             }
+        }
+    }
+}
+
+data class VisitInfosWithBound(
+    val infos: List<VisitInfo>,
+    val bound: Long,
+    val offset: Long
+) {
+    companion object {
+        internal fun fromMessage(msg: MsgTypes.HistoryVisitInfosWithBound): VisitInfosWithBound {
+            val infoList = msg.infosList.map {
+                VisitInfo(
+                    url = it.url,
+                    title = it.title,
+                    visitTime = it.timestamp,
+                    visitType = intToVisitType[it.visitType]!!,
+                    isHidden = it.isHidden
+                )
+            }
+            return VisitInfosWithBound(
+                infos = infoList,
+                bound = msg.bound,
+                offset = msg.offset
+            )
         }
     }
 }

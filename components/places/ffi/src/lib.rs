@@ -426,6 +426,28 @@ pub extern "C" fn places_get_visit_page(
 }
 
 #[no_mangle]
+pub extern "C" fn places_get_visit_page_with_bound(
+    handle: u64,
+    bound: i64,
+    offset: i64,
+    count: i64,
+    exclude_types: i32,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("places_get_visit_page");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        storage::history::get_visit_page_with_bound(
+            conn,
+            bound,
+            offset,
+            count,
+            VisitTransitionSet::from_u16(exclude_types as u16)
+                .expect("Bug: Invalid VisitTransitionSet"),
+        )
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn places_accept_result(
     handle: u64,
     search_string: FfiStr<'_>,
