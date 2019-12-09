@@ -41,7 +41,7 @@ the details of which are reproduced below.
 -------------
 ## Mozilla Public License 2.0
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [NSPR](https://hg.mozilla.org/projects/nspr),
 [NSS](https://hg.mozilla.org/projects/nss),
 [ece](https://github.com/mozilla/rust-ece),
@@ -426,7 +426,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 -------------
 ## Apache License 2.0
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [autocfg](https://github.com/cuviper/autocfg),
 [backtrace-sys](https://github.com/alexcrichton/backtrace-rs),
 [backtrace](https://github.com/rust-lang/backtrace-rs),
@@ -758,7 +758,7 @@ limitations under the License.
 -------------
 ## MIT License: aho-corasick, byteorder, memchr, termcolor
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [aho-corasick](https://github.com/BurntSushi/aho-corasick),
 [byteorder](https://github.com/BurntSushi/byteorder),
 [memchr](https://github.com/BurntSushi/rust-memchr),
@@ -791,7 +791,7 @@ THE SOFTWARE.
 -------------
 ## MIT License: ansi_term
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [ansi_term](https://github.com/ogham/rust-ansi-term)
 
 ```
@@ -821,7 +821,7 @@ SOFTWARE.
 -------------
 ## MIT License: atty
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [atty](https://github.com/softprops/atty)
 
 ```
@@ -850,7 +850,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 -------------
 ## MIT License: bytes
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [bytes](https://github.com/carllerche/bytes)
 
 ```
@@ -884,7 +884,7 @@ DEALINGS IN THE SOFTWARE.
 -------------
 ## MIT License: caseless
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [caseless](https://github.com/SimonSapin/rust-caseless)
 
 ```
@@ -915,7 +915,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 -------------
 ## MIT License: clap
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [clap](https://github.com/clap-rs/clap)
 
 ```
@@ -945,7 +945,7 @@ SOFTWARE.
 -------------
 ## MIT License: h2
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [h2](https://github.com/hyperium/h2)
 
 ```
@@ -979,7 +979,7 @@ DEALINGS IN THE SOFTWARE.
 -------------
 ## MIT License: http-body
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [http-body](https://github.com/hyperium/http-body)
 
 ```
@@ -1013,7 +1013,7 @@ DEALINGS IN THE SOFTWARE.
 -------------
 ## MIT License: hyper
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [hyper](https://github.com/hyperium/hyper)
 
 ```
@@ -1042,7 +1042,7 @@ THE SOFTWARE.
 -------------
 ## MIT License: libsqlite3-sys, rusqlite
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [libsqlite3-sys](https://github.com/jgallagher/rusqlite),
 [rusqlite](https://github.com/jgallagher/rusqlite)
 
@@ -1071,7 +1071,7 @@ THE SOFTWARE.
 -------------
 ## MIT License: matches
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [matches](https://github.com/SimonSapin/rust-std-candidates)
 
 ```
@@ -1105,7 +1105,7 @@ DEALINGS IN THE SOFTWARE.
 -------------
 ## MIT License: memoffset
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [memoffset](https://github.com/Gilnaa/memoffset)
 
 ```
@@ -1132,7 +1132,7 @@ SOFTWARE.
 -------------
 ## MIT License: mime_guess
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [mime_guess](https://github.com/abonander/mime_guess)
 
 ```
@@ -1163,7 +1163,7 @@ SOFTWARE.
 -------------
 ## MIT License: miniz_oxide
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [miniz_oxide](https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide)
 
 ```
@@ -1193,7 +1193,7 @@ SOFTWARE.
 -------------
 ## MIT License: mio
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [mio](https://github.com/carllerche/mio)
 
 ```
@@ -1221,7 +1221,7 @@ THE SOFTWARE.
 -------------
 ## MIT License: nom
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [nom](https://github.com/Geal/nom)
 
 ```
@@ -1250,7 +1250,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 -------------
 ## MIT License: slab, string
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [slab](https://github.com/carllerche/slab),
 [string](https://github.com/carllerche/string)
 
@@ -1285,7 +1285,7 @@ DEALINGS IN THE SOFTWARE.
 -------------
 ## MIT License: strsim
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [strsim](https://github.com/dguo/strsim-rs)
 
 ```
@@ -1317,7 +1317,7 @@ SOFTWARE.
 -------------
 ## MIT License: synstructure
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [synstructure](https://github.com/mystor/synstructure)
 
 ```
@@ -1333,7 +1333,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 -------------
 ## MIT License: textwrap
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [textwrap](https://github.com/mgeisler/textwrap)
 
 ```
@@ -1363,7 +1363,7 @@ SOFTWARE.
 -------------
 ## MIT License: tokio, tokio-buf, tokio-current-thread, tokio-executor, tokio-io, tokio-reactor, tokio-sync, tokio-tcp, tokio-threadpool, tokio-timer
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [tokio-buf](https://github.com/tokio-rs/tokio),
 [tokio-current-thread](https://github.com/tokio-rs/tokio),
 [tokio-executor](https://github.com/tokio-rs/tokio),
@@ -1406,7 +1406,7 @@ DEALINGS IN THE SOFTWARE.
 -------------
 ## MIT License: try-lock
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [try-lock](https://github.com/seanmonstar/try-lock)
 
 ```
@@ -1436,7 +1436,7 @@ THE SOFTWARE.
 -------------
 ## MIT License: try_from
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [try_from](https://github.com/derekjw/try_from)
 
 ```
@@ -1466,7 +1466,7 @@ SOFTWARE.
 -------------
 ## MIT License: want
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [want](https://github.com/seanmonstar/want)
 
 ```
@@ -1495,7 +1495,7 @@ THE SOFTWARE.
 -------------
 ## MIT License: which
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [which](https://github.com/harryfei/which-rs.git)
 
 ```
@@ -1523,7 +1523,7 @@ THE SOFTWARE.
 -------------
 ## CC0-1.0 License: base16
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [base16](https://github.com/thomcc/rust-base16)
 
 ```
@@ -1653,7 +1653,7 @@ express Statement of Purpose.
 -------------
 ## ISC License: libloading
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [libloading](https://github.com/nagisa/rust_libloading/)
 
 ```
@@ -1674,7 +1674,7 @@ THIS SOFTWARE.
 -------------
 ## ISC License: ring
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [ring](https://github.com/briansmith/ring)
 
 ```
@@ -1697,7 +1697,7 @@ CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 -------------
 ## BSD-3-Clause License: bindgen
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [bindgen](https://github.com/rust-lang/rust-bindgen)
 
 ```
@@ -1735,7 +1735,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -------------
 ## BSD-3-Clause License: sqlcipher
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [sqlcipher](https://github.com/sqlcipher/sqlcipher)
 
 ```
@@ -1768,7 +1768,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -------------
 ## Zlib License: adler32
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [adler32](https://github.com/remram44/adler32-rs)
 
 ```
@@ -1820,7 +1820,7 @@ Copyright notice for the original C code from the zlib project:
 -------------
 ## Optional Notice: SQLite
 
-The following text applies to code linked from these dependendencies:
+The following text applies to code linked from these dependencies:
 [sqlite](https://www.sqlite.org/)
 
 ```
