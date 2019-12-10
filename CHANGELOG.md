@@ -1,3 +1,9 @@
+# v0.45.1 (_2019-12-10_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.45.0...v0.45.1)
+
+This release exists only to rectify a publishing error that occurred with v0.45.0.
+
 # v0.45.0 (_2019-12-10_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.44.0...v0.45.0)
