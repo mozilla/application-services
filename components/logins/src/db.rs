@@ -1269,7 +1269,7 @@ mod tests {
         assert!(&unique_login_check.is_ok())
     }
 
-    fn check_matches(db: &LoginDb, query: &str, expected: &Vec<&str>) {
+    fn check_matches(db: &LoginDb, query: &str, expected: &[&str]) {
         let mut results = db
             .get_by_base_domain(query)
             .unwrap()
@@ -1277,7 +1277,7 @@ mod tests {
             .map(|l| l.hostname)
             .collect::<Vec<String>>();
         results.sort();
-        let mut sorted = expected.clone();
+        let mut sorted = expected.to_owned();
         sorted.sort();
         assert_eq!(sorted, results);
     }
@@ -1302,7 +1302,7 @@ mod tests {
             check_matches(&db, query, &good);
         }
         for query in zero_queries {
-            check_matches(&db, query, &vec![]);
+            check_matches(&db, query, &[]);
         }
     }
 
