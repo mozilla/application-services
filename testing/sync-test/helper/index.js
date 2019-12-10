@@ -69,18 +69,20 @@ async function oauthCommand(emailAddr, password, fxaAuthUrl, oauthFlowUrl) {
             .click("#submit-btn")
 
             // `body > p` indicates we're on the (quite simple) lockbox redirect page
-            // `.confirm` indicates that we actually got told we need to confirm the
+            // `#fxa-signin-code-header` indicates that we actually got told we need to confirm the
             // sign in.
-            .wait("#fxa-oauth-success-header, .confirm")
-            .exists(".confirm");
+            .wait("#fxa-oauth-success-header, #fxa-signin-code-header")
+            .exists("#fxa-signin-code-header");
 
         if (needConfirmation) {
             // Sign in confirmation. Doesn't happen on prod, happens (AFAICT) every time on dev
             logInfo("Need to do sign-in confirmation, attempting to do so through restmail...");
-            // Same process as for the verification during account creation, but we're looking for
-            // a different template name (we also don't know the uid ahead of time).
-            await restmailAutoverify(fxaAuthUrl, emailAddr, mail =>
-                mail.headers["x-template-name"] == "verifyLogin");
+            let code = await restmailFindLoginCode(emailAddr);
+            await nightmare
+                .wait(".otp-code[type='text']")
+                .type(".otp-code[type='text']", code)
+                .wait("button[type='submit']")
+                .click("button[type='submit']");
         } else {
             logInfo("Don't need sign-in confirmation, waiting for redirect instead.");
         }
@@ -198,13 +200,20 @@ async function findInRestmail(emailAddr, filterFn) {
     throw new Error("Hit retry max!");
 }
 
-async function restmailAutoverify(authUrl, emailAddr, predicate) {
-    let verificationEmail = await findInRestmail(emailAddr, predicate);
-    logInfo(`Found email, POSTing info to ${authUrl}/v1/recovery_email/verify_code`);
+async function restmailVerifyAccount(authUrl, uid, emailAddr) {
+    let verificationEmail = await findInRestmail(emailAddr, mail =>
+        mail.headers["x-uid"] === uid &&
+        mail.headers["x-template-name"] === "verify");
     await postJSON(`${authUrl}/v1/recovery_email/verify_code`, {
         uid: verificationEmail.headers["x-uid"],
         code: verificationEmail.headers["x-verify-code"],
     });
+}
+
+async function restmailFindLoginCode(emailAddr) {
+    let verificationEmail = await findInRestmail(emailAddr, mail =>
+        mail.headers["x-template-name"] == "verifyLoginCode");
+    return verificationEmail.headers["x-signin-verify-code"];
 }
 
 async function postJSON(url, jsonBody) {
@@ -246,9 +255,7 @@ async function createCommand(emailAddr, password, authUrl) {
     logInfo(`POST /v1/account/create succeeded`);
     logInfo("Autoverifying account on restmail... uid = " + uid);
 
-    await restmailAutoverify(authUrl, emailAddr, mail =>
-        mail.headers["x-uid"] === uid &&
-        mail.headers["x-template-name"] === "verify");
+    await restmailVerifyAccount(authUrl, uid, emailAddr);
 
     logInfo("Account created and verified!");
 }
