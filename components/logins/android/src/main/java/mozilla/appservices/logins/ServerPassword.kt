@@ -27,7 +27,7 @@ data class ServerPassword(
      */
     val hostname: String,
 
-    val username: String? = null,
+    val username: String,
 
     /**
      * The password field of this record. It is an error to attempt to insert or update
@@ -67,8 +67,8 @@ data class ServerPassword(
      */
     val timePasswordChanged: Long = 0L,
 
-    val usernameField: String? = null,
-    val passwordField: String? = null
+    val usernameField: String,
+    val passwordField: String
 ) {
 
     fun toJSON(): JSONObject {
@@ -80,21 +80,15 @@ data class ServerPassword(
         o.put("timeCreated", timeCreated)
         o.put("timeLastUsed", timeLastUsed)
         o.put("timePasswordChanged", timePasswordChanged)
-        if (username != null) {
-            o.put("username", username)
-        }
+        o.put("username", username)
         if (httpRealm != null) {
             o.put("httpRealm", httpRealm)
         }
         if (formSubmitURL != null) {
             o.put("formSubmitURL", formSubmitURL)
         }
-        if (usernameField != null) {
-            o.put("usernameField", usernameField)
-        }
-        if (passwordField != null) {
-            o.put("passwordField", passwordField)
-        }
+        o.put("usernameField", usernameField)
+        o.put("passwordField", passwordField)
         return o
     }
 
@@ -114,13 +108,13 @@ data class ServerPassword(
 
                     hostname = jsonObject.getString("hostname"),
                     password = jsonObject.getString("password"),
-                    username = stringOrNull("username"),
+                    username = jsonObject.getString("username"),
 
                     httpRealm = stringOrNull("httpRealm"),
                     formSubmitURL = stringOrNull("formSubmitURL"),
 
-                    usernameField = stringOrNull("usernameField"),
-                    passwordField = stringOrNull("passwordField"),
+                    usernameField = jsonObject.getString("usernameField"),
+                    passwordField = jsonObject.getString("passwordField"),
 
                     timesUsed = jsonObject.getInt("timesUsed"),
 

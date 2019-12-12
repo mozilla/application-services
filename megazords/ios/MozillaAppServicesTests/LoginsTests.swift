@@ -57,8 +57,8 @@ class LoginsTests: XCTestCase {
             timeLastUsed: nil,
             timeCreated: nil,
             timePasswordChanged: nil,
-            usernameField: nil,
-            passwordField: nil
+            usernameField: "users_name",
+            passwordField: "users_password"
         ))
 
         let record0 = try! storage.get(id: id0)!
@@ -76,8 +76,8 @@ class LoginsTests: XCTestCase {
             timeLastUsed: nil,
             timeCreated: nil,
             timePasswordChanged: nil,
-            usernameField: nil,
-            passwordField: nil
+            usernameField: "",
+            passwordField: ""
         ))
 
         let record1 = try! storage.get(id: id1)!
@@ -101,8 +101,8 @@ class LoginsTests: XCTestCase {
             timeLastUsed: nil,
             timeCreated: nil,
             timePasswordChanged: nil,
-            usernameField: nil,
-            passwordField: nil
+            usernameField: "users_name",
+            passwordField: "users_password"
         ))
 
         let dupeLogin = LoginRecord(
@@ -116,8 +116,8 @@ class LoginsTests: XCTestCase {
             timeLastUsed: nil,
             timeCreated: nil,
             timePasswordChanged: nil,
-            usernameField: nil,
-            passwordField: nil
+            usernameField: "users_name",
+            passwordField: "users_password"
         )
 
         let nullValueLogin = LoginRecord(
@@ -131,8 +131,8 @@ class LoginsTests: XCTestCase {
             timeLastUsed: nil,
             timeCreated: nil,
             timePasswordChanged: nil,
-            usernameField: nil,
-            passwordField: nil
+            usernameField: "users_name",
+            passwordField: "users_password"
         )
 
         XCTAssertThrowsError(try storage.ensureValid(login: dupeLogin))

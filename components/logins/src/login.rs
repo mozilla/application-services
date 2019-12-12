@@ -283,17 +283,14 @@ pub struct Login {
     pub http_realm: Option<String>,
 
     #[serde(default)]
-    #[serde(skip_serializing_if = "String::is_empty")]
     pub username: String,
 
     pub password: String,
 
     #[serde(default)]
-    #[serde(skip_serializing_if = "String::is_empty")]
     pub username_field: String,
 
     #[serde(default)]
-    #[serde(skip_serializing_if = "String::is_empty")]
     pub password_field: String,
 
     #[serde(default)]
