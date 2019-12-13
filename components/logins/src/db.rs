@@ -26,6 +26,7 @@ use sync15::{
     OutgoingChangeset, Payload, ServerTimestamp, Store, StoreSyncAssociation,
 };
 use sync_guid::Guid;
+use url::{Host, Url};
 
 pub struct LoginDb {
     pub db: Connection,
@@ -301,9 +302,54 @@ impl LoginDb {
         rows.collect::<Result<_>>()
     }
 
-    pub fn get_by_hostname(&self, hostname: &str) -> Result<Vec<Login>> {
-        let mut stmt = self.db.prepare_cached(&GET_ALL_BY_HOSTNAME_SQL)?;
-        let rows = stmt.query_and_then(&[hostname], Login::from_row)?;
+    pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<Login>> {
+        // We first parse the input string as a host so it is normalized.
+        let base_host = match Host::parse(base_domain) {
+            Ok(d) => d,
+            Err(e) => {
+                // don't log the input string as it's PII.
+                log::warn!("get_by_base_domain was passed an invalid domain: {}", e);
+                return Ok(vec![]);
+            }
+        };
+        // We just do a linear scan. Another option is to have an indexed
+        // reverse-host column or similar, but current thinking is that it's
+        // extra complexity for (probably) zero actual benefit given the record
+        // counts are expected to be so low.
+        // A regex would probably make this simpler, but we don't want to drag
+        // in a regex lib just for this.
+        let mut stmt = self.db.prepare_cached(&GET_ALL_SQL)?;
+        let rows = stmt
+            .query_and_then(NO_PARAMS, Login::from_row)?
+            .filter(|r| {
+                let login = r
+                    .as_ref()
+                    .ok()
+                    .and_then(|login| Url::parse(&login.hostname).ok());
+                let this_host = login.as_ref().and_then(|url| url.host());
+                match (&base_host, this_host) {
+                    (Host::Domain(base), Some(Host::Domain(look))) => {
+                        // a fairly long-winded way of saying
+                        // `login.hostname == base_domain ||
+                        //  login.hostname.ends_with('.' + base_domain);`
+                        let mut rev_input = base.chars().rev();
+                        let mut rev_host = look.chars().rev();
+                        loop {
+                            match (rev_input.next(), rev_host.next()) {
+                                (Some(ref a), Some(ref b)) if a == b => continue,
+                                (None, None) => return true, // exactly equal
+                                (None, Some(ref h)) => return *h == '.',
+                                _ => return false,
+                            }
+                        }
+                    }
+                    // ip addresses must match exactly.
+                    (Host::Ipv4(base), Some(Host::Ipv4(look))) => *base == look,
+                    (Host::Ipv6(base), Some(Host::Ipv6(look))) => *base == look,
+                    // all "mismatches" in domain types are false.
+                    _ => false,
+                }
+            });
         rows.collect::<Result<_>>()
     }
 
@@ -1102,19 +1148,6 @@ lazy_static! {
          LIMIT 1",
         common_cols = schema::COMMON_COLS,
     );
-    static ref GET_ALL_BY_HOSTNAME_SQL: String = format!(
-        "SELECT {common_cols}
-         FROM loginsL
-         WHERE is_deleted = 0
-           AND hostname = :hostname
-         UNION ALL
-
-         SELECT {common_cols}
-         FROM loginsM
-         WHERE is_overridden = 0
-           AND hostname = :hostname",
-        common_cols = schema::COMMON_COLS,
-    );
     static ref CLONE_ENTIRE_MIRROR_SQL: String = format!(
         "INSERT OR IGNORE INTO loginsL ({common_cols}, local_modified, is_deleted, sync_status)
          SELECT {common_cols}, NULL AS local_modified, 0 AS is_deleted, 0 AS sync_status
@@ -1234,5 +1267,114 @@ mod tests {
 
         db.delete(login.guid_str()).unwrap();
         assert!(&unique_login_check.is_ok())
+    }
+
+    fn check_matches(db: &LoginDb, query: &str, expected: &[&str]) {
+        let mut results = db
+            .get_by_base_domain(query)
+            .unwrap()
+            .into_iter()
+            .map(|l| l.hostname)
+            .collect::<Vec<String>>();
+        results.sort();
+        let mut sorted = expected.to_owned();
+        sorted.sort();
+        assert_eq!(sorted, results);
+    }
+
+    fn check_good_bad(
+        good: Vec<&str>,
+        bad: Vec<&str>,
+        good_queries: Vec<&str>,
+        zero_queries: Vec<&str>,
+    ) {
+        let db = LoginDb::open_in_memory(Some("testing")).unwrap();
+        for h in good.iter().chain(bad.iter()) {
+            db.add(Login {
+                hostname: (*h).into(),
+                http_realm: Some((*h).into()),
+                password: "test".into(),
+                ..Login::default()
+            })
+            .unwrap();
+        }
+        for query in good_queries {
+            check_matches(&db, query, &good);
+        }
+        for query in zero_queries {
+            check_matches(&db, query, &[]);
+        }
+    }
+
+    #[test]
+    fn test_get_by_base_domain_invalid() {
+        check_good_bad(
+            vec!["https://example.com"],
+            vec![],
+            vec![],
+            vec!["invalid query"],
+        );
+    }
+
+    #[test]
+    fn test_get_by_base_domain() {
+        check_good_bad(
+            vec![
+                "https://example.com",
+                "https://www.example.com",
+                "http://www.example.com",
+                "http://www.example.com:8080",
+                "http://sub.example.com:8080",
+                "https://sub.example.com:8080",
+                "https://sub.sub.example.com",
+                "ftp://sub.example.com",
+                // Handling file:// is questionable - it would also be fine to
+                // not handle it! It's left here more to document the fact that
+                // we do!
+                "file://example.com",
+            ],
+            vec![
+                "https://badexample.com",
+                "https://example.co",
+                "https://example.com.au",
+            ],
+            vec!["example.com"],
+            vec!["foo.com"],
+        );
+        // punycode! This is likely to need adjusting once we normalize
+        // on insert.
+        check_good_bad(
+            vec![
+                "http://😍.com",
+                "http://xn--r28h.com", // punycoded version of the above.
+            ],
+            vec!["http://💖.com"],
+            vec!["😍.com", "xn--r28h.com"],
+            vec![],
+        );
+    }
+
+    #[test]
+    fn test_get_by_base_domain_ipv4() {
+        check_good_bad(
+            vec!["http://127.0.0.1", "https://127.0.0.1:8000"],
+            vec!["https://127.0.0.0", "https://example.com"],
+            vec!["127.0.0.1"],
+            vec!["127.0.0.2"],
+        );
+    }
+
+    #[test]
+    fn test_get_by_base_domain_ipv6() {
+        check_good_bad(
+            vec![
+                "http://[::1]",
+                "https://[::1]:8000",
+                "https://[0:0:0:0:0:0:0:1]", // this is [::1]
+            ],
+            vec!["https://[0:0:0:0:0:0:1:1]", "https://example.com"],
+            vec!["[::1]", "[0:0:0:0:0:0:0:1]"],
+            vec!["[0:0:0:0:0:0:1:2]"],
+        );
     }
 }

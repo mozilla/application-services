@@ -298,7 +298,7 @@ fn main() -> Result<()> {
     }
 
     loop {
-        match prompt_char("[A]dd, [D]elete, [U]pdate, [S]ync, [V]iew, [H]ostname search, [R]eset, [W]ipe, [T]ouch, E[x]ecute SQL Query, or [Q]uit").unwrap_or('?') {
+        match prompt_char("[A]dd, [D]elete, [U]pdate, [S]ync, [V]iew, [B]ase-domain search, [R]eset, [W]ipe, [T]ouch, E[x]ecute SQL Query, or [Q]uit").unwrap_or('?') {
             'A' | 'a' => {
                 log::info!("Adding new record");
                 let record = read_login();
@@ -376,16 +376,16 @@ fn main() -> Result<()> {
                     log::warn!("Failed to dump passwords? This is probably bad! {}", e);
                 }
             }
-            'H' | 'h' => {
-                log::info!("Hostname search");
-                if let Some(hostname) = prompt_string("Hostname (one line only, press enter when done):\n") {
-                    match engine.get_by_hostname(&hostname) {
+            'B' | 'b' => {
+                log::info!("Base Domain search");
+                if let Some(basedomain) = prompt_string("Base domain (one line only, press enter when done):\n") {
+                    match engine.get_by_base_domain(&basedomain) {
                         Err(e) => {
-                            log::warn!("Hostname lookup failed! {}", e);
+                            log::warn!("Base domain lookup failed! {}", e);
                             log::warn!("BT: {:?}", e.backtrace());
                         },
                         Ok(result) => {
-                            log::info!("Hostname result: {}", serde_json::to_string_pretty(&result).unwrap());
+                            log::info!("Base domain result: {}", serde_json::to_string_pretty(&result).unwrap());
                         }
                     }
                 }

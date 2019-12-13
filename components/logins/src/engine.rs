@@ -44,8 +44,8 @@ impl PasswordEngine {
         self.db.get_by_id(id)
     }
 
-    pub fn get_by_hostname(&self, hostname: &str) -> Result<Vec<Login>> {
-        self.db.get_by_hostname(hostname)
+    pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<Login>> {
+        self.db.get_by_base_domain(base_domain)
     }
 
     pub fn touch(&self, id: &str) -> Result<()> {
@@ -244,13 +244,13 @@ mod test {
         assert_eq!(list[0], b_from_db);
 
         let list = engine
-            .get_by_hostname("https://www.example2.com")
+            .get_by_base_domain("example2.com")
             .expect("Expect a list for this hostname");
         assert_eq!(list.len(), 1);
         assert_eq!(list[0], b_from_db);
 
         let list = engine
-            .get_by_hostname("https://www.example.com")
+            .get_by_base_domain("www.example.com")
             .expect("Expect an empty list");
         assert_eq!(list.len(), 0);
 

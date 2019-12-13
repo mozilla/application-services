@@ -203,14 +203,17 @@ pub extern "C" fn sync15_passwords_get_all(handle: u64, error: &mut ExternError)
 }
 
 #[no_mangle]
-pub extern "C" fn sync15_passwords_get_by_hostname(
+pub extern "C" fn sync15_passwords_get_by_base_domain(
     handle: u64,
-    hostname: FfiStr<'_>,
+    base_domain: FfiStr<'_>,
     error: &mut ExternError,
 ) -> *mut c_char {
-    log::debug!("sync15_passwords_get_by_hostname");
+    log::debug!("sync15_passwords_get_by_base_domain");
     ENGINES.call_with_result(error, handle, |state| -> Result<String> {
-        let passwords = state.lock().unwrap().get_by_hostname(hostname.as_str())?;
+        let passwords = state
+            .lock()
+            .unwrap()
+            .get_by_base_domain(base_domain.as_str())?;
         let result = serde_json::to_string(&passwords)?;
         Ok(result)
     })

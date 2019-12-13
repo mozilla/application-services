@@ -209,12 +209,10 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     }
 
     @Throws(LoginsStorageException::class)
-    override fun getByHostname(hostname: String): List<ServerPassword> {
+    override fun getByBaseDomain(baseDomain: String): List<ServerPassword> {
         return readQueryCounters.measure {
             val json = rustCallWithLock { raw, error ->
-                LoginsStoreMetrics.readQueryTime.measure {
-                    PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_hostname(raw, hostname, error)
-                }
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_base_domain(raw, baseDomain, error)
             }.getAndConsumeRustString()
             ServerPassword.fromJSONArray(json)
         }

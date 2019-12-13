@@ -235,10 +235,8 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
 
     @Synchronized
     @Throws(LoginsStorageException::class)
-    override fun getByHostname(hostname: String): List<ServerPassword> {
-        checkUnlocked()
-        list = list.filter { it.hostname == hostname }
-        return ArrayList(list)
+    override fun getByBaseDomain(baseDomain: String): List<ServerPassword> {
+        throw UnsupportedOperationException("Only DatabaseLoginsStorage supports getByBaseDomain")
     }
 
     private fun checkNotClosed() {

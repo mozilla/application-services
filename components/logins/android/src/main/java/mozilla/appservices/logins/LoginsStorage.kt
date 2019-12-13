@@ -147,12 +147,12 @@ interface LoginsStorage : AutoCloseable {
     fun list(): List<ServerPassword>
 
     /**
-     * Fetch the list of passwords for some hostname from the underlying storage layer.
+     * Fetch the list of passwords for some base domain from the underlying storage layer.
      *
      * @throws [LoginsStorageException] On unexpected errors (IO failure, rust panics, etc)
      */
     @Throws(LoginsStorageException::class)
-    fun getByHostname(hostname: String): List<ServerPassword>
+    fun getByBaseDomain(baseDomain: String): List<ServerPassword>
 
     /**
      * Inserts the provided login into the database, returning its id.
