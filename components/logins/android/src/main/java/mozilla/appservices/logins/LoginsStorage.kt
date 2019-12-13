@@ -152,7 +152,7 @@ interface LoginsStorage : AutoCloseable {
      * @throws [LoginsStorageException] On unexpected errors (IO failure, rust panics, etc)
      */
     @Throws(LoginsStorageException::class)
-    fun getByBaseDomain(hostname: String): List<ServerPassword>
+    fun getByBaseDomain(baseDomain: String): List<ServerPassword>
 
     /**
      * Inserts the provided login into the database, returning its id.
