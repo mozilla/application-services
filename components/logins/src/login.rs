@@ -39,7 +39,7 @@
 //!   - "ftp://ftp.site.com"
 //!   - "moz-proxy://127.0.0.1:8888"
 //!   - "chrome://MyLegacyExtension"
-//!   - "file:///"
+//!   - "file://"
 //!   - "https://[::1]"
 //!
 //!   If invalid data is received in this field (either from the application, or via sync)
@@ -930,11 +930,7 @@ mod tests {
             "ftp://ftp.site.com",
             "moz-proxy://127.0.0.1:8888",
             "chrome://MyLegacyExtension",
-            // XXXX - "file:///" fails here due to our "no trailing slash"
-            // rule - so this should be 'file://'.
-            // Should we change this, and the docs at the top of the file, to
-            // `file://`?
-            "file:///",
+            "file://",
             "https://[::1]",
         ];
         for h in valid_hostnames {
