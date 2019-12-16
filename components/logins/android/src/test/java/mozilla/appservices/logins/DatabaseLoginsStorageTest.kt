@@ -147,12 +147,11 @@ class DatabaseLoginsStorageTest : LoginsStorageTest() {
         assert(!LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testHasValue())
 
         try {
-            // N.B. this is invalid due to both `httpRealm` and `formSubmitURL`
+            // N.B. this is invalid due to `formSubmitURL` being an invalid url.
             store.add(ServerPassword(
                     id = "bbbbbbbbbbbb",
                     hostname = "https://test.example.com",
-                    httpRealm = "Something",
-                    formSubmitURL = "https://www.example.com",
+                    formSubmitURL = "not a url",
                     username = "Foobar2000",
                     password = "hunter2",
                     usernameField = "users_name",

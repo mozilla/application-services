@@ -63,7 +63,8 @@ class LoginsTests: XCTestCase {
 
         let record0 = try! storage.get(id: id0)!
         XCTAssertNil(record0.httpRealm)
-        XCTAssertEqual(record0.formSubmitURL, "https://www.example.com/login")
+        // We fixed up the formSubmitURL to just be the origin part of the url.
+        XCTAssertEqual(record0.formSubmitURL, "https://www.example.com")
 
         let id1 = try! storage.add(login: LoginRecord(
             id: "",
@@ -95,7 +96,7 @@ class LoginsTests: XCTestCase {
             password: "hunter5",
             hostname: "https://www.example5.com",
             username: "cooluser55",
-            formSubmitURL: "https://www.example5.com/login",
+            formSubmitURL: "https://www.example5.com",
             httpRealm: nil,
             timesUsed: nil,
             timeLastUsed: nil,
@@ -110,7 +111,7 @@ class LoginsTests: XCTestCase {
             password: "hunter3",
             hostname: "https://www.example5.com",
             username: "cooluser55",
-            formSubmitURL: "https://www.example5.com/login",
+            formSubmitURL: "https://www.example5.com",
             httpRealm: nil,
             timesUsed: nil,
             timeLastUsed: nil,
@@ -125,7 +126,7 @@ class LoginsTests: XCTestCase {
             password: "hunter3",
             hostname: "https://www.example6.com",
             username: "\0cooluser56",
-            formSubmitURL: "https://www.example6.com/login",
+            formSubmitURL: "https://www.example6.com",
             httpRealm: nil,
             timesUsed: nil,
             timeLastUsed: nil,
