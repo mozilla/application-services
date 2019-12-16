@@ -74,6 +74,10 @@ Each entry in fields has the following properties:
         - This is to allow the possibility that a future version of remerge will
         allow you to reference properties in nested objects like `foo.bar`.
 
+    - Field `name`s should not change (this is the name of the field on the
+      server). Renaming a field conceptually can be done by specifying a
+      `local_name`.
+
 - `local_name`: Optional string, used to rename fields, defaults to `name`. Only
   the *native* schema's `local_name` values are ever used, since that's what
   calling code understands.

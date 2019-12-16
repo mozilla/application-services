@@ -3,13 +3,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub mod bootstrap;
+mod bundle;
 pub mod db;
-mod info;
 mod meta;
 pub mod records;
 pub mod schema;
 
-pub use info::RemergeInfo;
+pub use bundle::SchemaBundle;
 pub use records::{LocalRecord, NativeRecord};
 
 use crate::schema::RecordSchema;
@@ -26,15 +26,13 @@ use std::sync::Arc;
 ///
 /// Initialize with TryFrom.
 ///
-// XXX the name NativeSchemaInfo is kind of confusing with RemergeSchemaInfo...
-//     Neither are great names
 #[derive(Clone)]
-pub struct NativeSchemaInfo<'a> {
+pub struct NativeSchemaAndText<'a> {
     pub parsed: Arc<RecordSchema>,
     pub source: &'a str,
 }
 
-impl<'a> std::convert::TryFrom<&'a str> for NativeSchemaInfo<'a> {
+impl<'a> std::convert::TryFrom<&'a str> for NativeSchemaAndText<'a> {
     type Error = crate::schema::SchemaError;
     fn try_from(s: &'a str) -> std::result::Result<Self, Self::Error> {
         let schema = crate::schema::parse_from_string(s, false)?;

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::{info::ToLocalReason, LocalRecord, NativeRecord, RemergeInfo, SyncStatus};
+use super::{bundle::ToLocalReason, LocalRecord, NativeRecord, SchemaBundle, SyncStatus};
 use crate::error::*;
 use crate::ms_time::MsTime;
 use crate::vclock::{Counter, VClock};
@@ -14,7 +14,7 @@ use std::sync::Mutex;
 
 pub struct RemergeDb {
     db: Connection,
-    info: RemergeInfo,
+    info: SchemaBundle,
     client_id: sync_guid::Guid,
 }
 
@@ -27,7 +27,7 @@ lazy_static::lazy_static! {
 impl RemergeDb {
     pub fn with_connection(
         mut db: Connection,
-        native: super::NativeSchemaInfo<'_>,
+        native: super::NativeSchemaAndText<'_>,
     ) -> Result<Self> {
         let _g = DB_INIT_MUTEX.lock().unwrap();
         let pragmas = "
@@ -99,7 +99,7 @@ impl RemergeDb {
             throw!(InvalidRecord::Duplicate);
         }
         let ctr = self.counter_bump()?;
-        let vclock = VClock::new(self.client_id(), ctr as Counter);
+        let vclock = VClock::new(self.client_id(), ctr);
 
         let now = MsTime::now();
         self.db.execute_named(
@@ -222,7 +222,6 @@ impl RemergeDb {
     }
 
     pub fn get_by_id(&self, id: &str) -> Result<Option<NativeRecord>> {
-        let _ = id;
         let r: Option<LocalRecord> = self.db.try_query_row(
             "SELECT record_data FROM rec_local WHERE guid = :guid AND is_deleted = 0
              UNION ALL
@@ -260,15 +259,12 @@ impl RemergeDb {
         }
 
         log::debug!("No overlay; cloning one for {:?}.", guid);
-        let changed = self.clone_mirror_to_overlay(guid)?;
-        if changed == 0 {
-            log::error!("Failed to create local overlay for GUID {:?}.", guid);
-            throw!(ErrorKind::NoSuchRecord(guid.to_owned()));
-        }
-        Ok(())
+        self.clone_mirror_to_overlay(guid)
     }
 
-    fn clone_mirror_to_overlay(&self, guid: &str) -> Result<usize> {
+    // Note: unlike the version of this function in `logins`, we return Err if
+    // `guid` is invalid instead of expecting the caller to check
+    fn clone_mirror_to_overlay(&self, guid: &str) -> Result<()> {
         let sql = "
             INSERT OR IGNORE INTO rec_local
                 (guid, record_data, vector_clock, last_writer_id, local_modified_ms, is_deleted, sync_status)
@@ -277,9 +273,15 @@ impl RemergeDb {
             FROM rec_mirror
             WHERE guid = :guid
         ";
-        Ok(self
+        let changed = self
             .db
-            .execute_named_cached(sql, named_params! { ":guid": guid })?)
+            .execute_named_cached(sql, named_params! { ":guid": guid })?;
+
+        if changed == 0 {
+            log::error!("Failed to create local overlay for GUID {:?}.", guid);
+            throw!(ErrorKind::NoSuchRecord(guid.to_owned()));
+        }
+        Ok(())
     }
 
     fn mark_mirror_overridden(&self, guid: &str) -> Result<()> {
@@ -346,7 +348,7 @@ impl RemergeDb {
         self.client_id.clone()
     }
 
-    pub fn info(&self) -> &RemergeInfo {
+    pub fn info(&self) -> &SchemaBundle {
         &self.info
     }
 

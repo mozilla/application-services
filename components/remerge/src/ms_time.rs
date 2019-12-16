@@ -23,6 +23,19 @@ impl MsTime {
     pub fn now() -> Self {
         SystemTime::now().into()
     }
+
+    #[inline]
+    pub fn from_millis(ts: i64) -> Self {
+        MsTime(ts)
+    }
+
+    /// Note: panics if `u64` is too large (which would require an
+    /// astronomically large timestamp)
+    #[inline]
+    pub fn from_unsigned_millis(ts: u64) -> Self {
+        assert!(ts < (std::i64::MAX as u64));
+        MsTime(ts as i64)
+    }
 }
 
 impl std::ops::Sub for MsTime {
@@ -59,21 +72,6 @@ impl From<MsTime> for i64 {
     #[inline]
     fn from(ts: MsTime) -> Self {
         ts.0
-    }
-}
-
-impl From<i64> for MsTime {
-    #[inline]
-    fn from(ts: i64) -> Self {
-        MsTime(ts)
-    }
-}
-
-impl From<u64> for MsTime {
-    #[inline]
-    fn from(ts: u64) -> Self {
-        assert!(ts < (std::i64::MAX as u64));
-        MsTime(ts as i64)
     }
 }
 

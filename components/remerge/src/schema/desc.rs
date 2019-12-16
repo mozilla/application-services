@@ -177,8 +177,9 @@ impl Field {
             }
 
             FieldType::Timestamp { .. } => {
-                // XXX should we check `semantic` here? See also comments in
-                // `native_to_local` in `storage::info`.
+                // We don't really have enough info to validate `semantic` here
+                // (See also comments in `native_to_local` in `storage::info`),
+                // so we don't check it.
                 if let JsonValue::Number(n) = v {
                     let v = n
                         .as_i64()
@@ -212,9 +213,9 @@ impl Field {
                         seen.insert(k.as_str());
                     } else {
                         log::trace!(
-                            "Record set entry {:?} is missing or has invalid id_key {:?}",
+                            "Invalid id for id_key {:?} in record_set entry {:?}",
+                            id_key,
                             item,
-                            id_key
                         );
                         throw!(InvalidRecordSet(self.name.clone()));
                     }
@@ -442,8 +443,6 @@ impl FieldType {
     }
     pub fn get_default(&self) -> Option<JsonValue> {
         match self {
-            // These branches must be separate since many of the `merge`s
-            // have diff. types, but they all impl PartialEq<UntypedMerge>.
             FieldType::Untyped { default, .. } => default.clone(),
             FieldType::Text { default, .. } => default.as_ref().map(|s| s.as_str().into()),
             FieldType::Url { default, .. } => default.as_ref().map(|s| s.to_string().into()),

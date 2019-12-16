@@ -25,13 +25,13 @@ pub enum ToLocalReason {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct RemergeInfo {
+pub struct SchemaBundle {
     pub(crate) collection_name: String,
     pub(crate) native: Arc<RecordSchema>,
     pub(crate) local: Arc<RecordSchema>,
 }
 
-impl RemergeInfo {
+impl SchemaBundle {
     /// Convert a native record to a local record.
     ///
     /// The reason parameter influences the behavior of this function.
@@ -76,7 +76,7 @@ impl RemergeInfo {
 
         let mut fields = JsonObject::default();
         // TODO: Maybe we should ensure this for all `Record`s?
-        let mut inserted_guid = false;
+        let mut seen_guid = false;
         let now_ms = crate::MsTime::now();
 
         for field in &self.local.fields {
@@ -101,7 +101,7 @@ impl RemergeInfo {
                 if is_guid {
                     if let JsonValue::String(s) = &fixed {
                         id = Guid::from(s.as_str());
-                        inserted_guid = true;
+                        seen_guid = true;
                     } else {
                         unreachable!(
                             "Field::validate checks that OwnGuid fields have string values."
@@ -120,7 +120,7 @@ impl RemergeInfo {
                     // Erroring here would make this a breaking change. However,
                     // we don't really want to just support it blindly, so we
                     // check and see if the native schema version thinks this
-                    // should be a timestamp field too, and if so we allow it
+                    // should be a timestamp field too, and if so we allow it.
                     //
                     // However, we use our own timestamps, so that they're
                     // consistent with timestamps we generate elsewhere.
@@ -200,7 +200,7 @@ impl RemergeInfo {
         // XXX We should error if there are any fields in the native record we
         // don't know about, instead of silently droppin them.
 
-        if !inserted_guid && reason == ToLocalReason::Creation {
+        if !seen_guid && reason == ToLocalReason::Creation {
             self.complain_unless_auto_guid()?;
         }
 
@@ -210,7 +210,8 @@ impl RemergeInfo {
     pub fn local_to_native(&self, record: &LocalRecord) -> Result<NativeRecord> {
         let mut fields = JsonObject::default();
         // Note: we should probably report special telemetry for many of these
-        // errors, as they indicate (either a bug in remerge or)
+        // errors, as they indicate (either a bug in remerge or in the provided
+        // schema)
         for native_field in &self.native.fields {
             // First try the record. Note that the `name` property isnt'
             // supposed to change, barring removal or similar. (This is why
@@ -249,17 +250,16 @@ impl RemergeInfo {
                         native_field.local_name,
                     );
                 } else {
-                    // Same -- this is bad, but if it really matters we report
-                    // below.
-                    //
-                    // (That said, for this one, it might be worth always
-                    // erroring for tho, since the local schema's default value
-                    // for some field being invalid according to the native
-                    // schema should be a breaking change)
-                    log::error!(
-                        "More recent schema has default record for field {:?}, but it required fixups according to the native schema!",
-                        native_field.local_name,
-                    );
+                    // The local schema's default value for some field is
+                    // invalid according to the native schema. This should be a
+                    // breaking change if it ever happens, and means the schema
+                    // has problems, so we report an error here (even if it's an
+                    // optional field...)
+                    throw!(ErrorKind::LocalToNativeError(format!(
+                        "More recent schema has default record for field {:?}, \
+                         but it was not valid according to the native schema",
+                        native_field.local_name
+                    )));
                 }
             }
 

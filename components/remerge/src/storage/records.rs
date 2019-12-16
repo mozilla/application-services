@@ -69,7 +69,7 @@ pub type NativeRecord = Record<NativeFormat>;
 ///   use [`RemoteRecord`].
 ///
 /// Converting between a record in one format to another requires schema
-/// information. This can generally done by methods on `RemergeInfo`.
+/// information. This can generally done by methods on `SchemaBundle`.
 
 #[repr(transparent)]
 #[derive(Debug, Clone, PartialEq)]

@@ -9,12 +9,13 @@
 //!
 //! - Must insert the provided native schema into schemas table
 //! - Must populate the metadata keys with their initial values. Specifically:
-//!   - collection-name
-//!   - local-schema-version
-//!   - native-schema-version
-//!
+//!   - remerge/collection-name
+//!   - remerge/local-schema-version
+//!   - remerge/native-schema-version
+//!   - remerge/client-id
+//!   - remerge/change-counter
 
-use super::{meta, RemergeInfo};
+use super::{meta, SchemaBundle};
 use crate::error::*;
 use crate::Guid;
 use rusqlite::Connection;
@@ -22,15 +23,12 @@ use std::sync::Arc;
 
 pub(super) fn load_or_bootstrap(
     db: &Connection,
-    native: super::NativeSchemaInfo<'_>,
-) -> Result<(RemergeInfo, Guid)> {
+    native: super::NativeSchemaAndText<'_>,
+) -> Result<(SchemaBundle, Guid)> {
     if let Some(name) = meta::try_get::<String>(db, meta::COLLECTION_NAME)? {
         let native = native.parsed;
         if name != native.name {
-            throw!(ErrorKind::SchemaNameMatchError(
-                native.name.clone(),
-                name.clone()
-            ));
+            throw!(ErrorKind::SchemaNameMatchError(native.name.clone(), name));
         }
         let local_ver: String = meta::get(db, meta::LOCAL_SCHEMA_VERSION)?;
         let native_ver: String = meta::get(db, meta::NATIVE_SCHEMA_VERSION)?;
@@ -42,7 +40,7 @@ pub(super) fn load_or_bootstrap(
             meta::put(db, meta::NATIVE_SCHEMA_VERSION, &native.version.to_string())?;
         }
         let local_schema: String = db.query_row(
-            "SELECT schema_text FROM remerge_schemas WHERE version = ? LIMIT 1",
+            "SELECT schema_text FROM remerge_schemas WHERE version = ?",
             rusqlite::params![local_ver],
             |r| r.get(0),
         )?;
@@ -52,7 +50,7 @@ pub(super) fn load_or_bootstrap(
         // rejecting a schema we previously considered valid!
         let parsed = crate::schema::parse_from_string(&local_schema, false)?;
         Ok((
-            RemergeInfo {
+            SchemaBundle {
                 local: Arc::new(parsed),
                 native,
                 collection_name: name,
@@ -66,8 +64,8 @@ pub(super) fn load_or_bootstrap(
 
 pub(super) fn bootstrap(
     db: &Connection,
-    native: super::NativeSchemaInfo<'_>,
-) -> Result<(RemergeInfo, Guid)> {
+    native: super::NativeSchemaAndText<'_>,
+) -> Result<(SchemaBundle, Guid)> {
     let guid = sync_guid::Guid::random();
     meta::put(db, meta::OWN_CLIENT_ID, &guid)?;
     let sql = "
@@ -89,7 +87,7 @@ pub(super) fn bootstrap(
     meta::put(db, meta::COLLECTION_NAME, &native.parsed.name)?;
     meta::put(db, meta::CHANGE_COUNTER, &1)?;
     Ok((
-        RemergeInfo {
+        SchemaBundle {
             collection_name: native.parsed.name.clone(),
             native: native.parsed.clone(),
             local: native.parsed.clone(),
