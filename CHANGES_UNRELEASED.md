@@ -15,3 +15,4 @@
 ### What's new
 
 - `LoginsStorage.getByBaseDomain` has been added ([#2152](https://github.com/mozilla/application-services/issues/2152))
+- Removed hard deletion of `SyncStatus::New` records in `delete` and `wipe` logins database functions. ([#2362](https://github.com/mozilla/application-services/pull/2362))
