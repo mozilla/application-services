@@ -1354,10 +1354,6 @@ mod tests {
                 "https://sub.example.com:8080",
                 "https://sub.sub.example.com",
                 "ftp://sub.example.com",
-                // Handling file:// is questionable - it would also be fine to
-                // not handle it! It's left here more to document the fact that
-                // we do!
-                "file://example.com",
             ],
             vec![
                 "https://badexample.com",

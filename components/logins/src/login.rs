@@ -346,6 +346,15 @@ impl Login {
                 {
                     // Not identical - we only want the origin part, so kill
                     // any other parts which may exist.
+                    // But first special case `file://` URLs which always
+                    // resolve to `file://`
+                    if u.scheme() == "file" {
+                        return Ok(if origin == "file://" {
+                            None
+                        } else {
+                            Some("file://".into())
+                        });
+                    }
                     u.set_path("");
                     u.set_fragment(None);
                     u.set_query(None);
@@ -922,9 +931,10 @@ mod tests {
     }
 
     #[test]
-    fn test_valid_hostnames() {
-        // The list of valid hostnames documented at the top of this file
-        let valid_hostnames = vec![
+    fn test_url_fixups() -> Result<()> {
+        // Start with URLs which are all valid and already normalized.
+        for input in &[
+            // The list of valid hostnames documented at the top of this file.
             "https://site.com",
             "http://site.com:1234",
             "ftp://ftp.site.com",
@@ -932,17 +942,36 @@ mod tests {
             "chrome://MyLegacyExtension",
             "file://",
             "https://[::1]",
-        ];
-        for h in valid_hostnames {
-            let l = Login {
-                hostname: h.into(),
-                form_submit_url: Some(h.into()),
-                username: "test".into(),
-                password: "test".into(),
-                ..Login::default()
-            };
-            assert!(l.check_valid().is_ok());
+        ] {
+            assert_eq!(Login::validate_and_fixup_origin(input)?, None);
         }
+
+        // And URLs which get normalized.
+        for (input, output) in &[
+            ("https://site.com/", "https://site.com"),
+            ("http://site.com:1234/", "http://site.com:1234"),
+            // All `file://` URLs normalize to exactly `file://`. See #2384 for
+            // why we might consider changing that later.
+            ("file:///", "file://"),
+            ("file://foo/bar", "file://"),
+            ("file://foo/bar/", "file://"),
+            ("moz-proxy://127.0.0.1:8888/", "moz-proxy://127.0.0.1:8888"),
+            (
+                "moz-proxy://127.0.0.1:8888/foo",
+                "moz-proxy://127.0.0.1:8888",
+            ),
+            ("chrome://MyLegacyExtension/", "chrome://MyLegacyExtension"),
+            (
+                "chrome://MyLegacyExtension/foo",
+                "chrome://MyLegacyExtension",
+            ),
+        ] {
+            assert_eq!(
+                Login::validate_and_fixup_origin(input)?,
+                Some((*output).into())
+            );
+        }
+        Ok(())
     }
 
     #[test]
