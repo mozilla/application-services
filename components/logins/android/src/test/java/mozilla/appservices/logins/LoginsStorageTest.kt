@@ -365,12 +365,11 @@ abstract class LoginsStorageTest {
 
     companion object {
         val INVALID_RECORDS: List<ServerPassword> = listOf(
-                // Both formSubmitURL and httpRealm
+                // Invalid formSubmitURL
                 ServerPassword(
                         id = "",
                         hostname = "https://www.foo.org",
-                        httpRealm = "Test Realm",
-                        formSubmitURL = "https://www.foo.org/login",
+                        formSubmitURL = "not a url",
                         password = "MyPassword",
                         username = "MyUsername",
                         usernameField = "users_name",
