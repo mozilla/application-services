@@ -28,7 +28,7 @@ idna = "0.2.0"
 memchr = "2.2.1"
 prost = "0.5.0"
 prost-derive = "0.5.0"
-bytes = "0.4.12"
+bytes = "0.5.3"
 dogear = "0.2.6"
 interrupt = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
