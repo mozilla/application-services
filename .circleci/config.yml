@@ -234,7 +234,7 @@ commands:
 jobs:
   Check Swift formatting:
     macos:
-      xcode: "11.2.0"
+      xcode: "11.3.0"
     steps:
       - checkout
       - run: brew install swiftlint swiftformat
@@ -341,7 +341,7 @@ jobs:
       - save-sccache-cache
   iOS build and test:
     macos:
-      xcode: "11.2.0"
+      xcode: "11.3.0"
     steps:
       - install-rust
       - setup-rust-toolchain
@@ -416,7 +416,7 @@ jobs:
             - MozillaAppServices.framework.zip
   Carthage release:
     macos:
-      xcode: "11.2.0"
+      xcode: "11.3.0"
     steps:
       - checkout
       - attach_workspace:
