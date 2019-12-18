@@ -175,6 +175,15 @@ open class LoginsStorage {
         }
     }
 
+    open func rekeyDatabase(withNewEncryptionKey newKey: String) throws {
+        try queue.sync {
+            let engine = try self.getUnlocked()
+            try LoginsStoreError.unwrap { err in
+                sync15_passwords_rekey_database(engine, newKey, err)
+            }
+        }
+    }
+
     /// Delete all locally stored login data.
     open func wipe() throws {
         try queue.sync {

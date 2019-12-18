@@ -235,4 +235,16 @@ interface LoginsStorage : AutoCloseable {
      */
     @Throws(InvalidRecordException::class)
     fun ensureValid(login: ServerPassword)
+
+    /**
+     * Change the key on an existing encrypted database.
+     */
+    @Throws(LoginsStorageException::class)
+    fun rekeyDatabase(newEncryptionKey: String)
+
+    /**
+     * Change the key on an existing encrypted database.
+     */
+    @Throws(LoginsStorageException::class)
+    fun rekeyDatabase(newEncryptionKey: ByteArray)
 }

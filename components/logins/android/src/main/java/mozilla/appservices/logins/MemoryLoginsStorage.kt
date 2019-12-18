@@ -64,6 +64,18 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
         unlock("")
     }
 
+    @Throws(LoginsStorageException::class)
+    override fun rekeyDatabase(newEncryptionKey: ByteArray) {
+        // Currently we never check the key for the in-memory version, so this is fine.
+        Log.w("MemoryLoginsStorage", "Rekey is a noop because this implementation does not check the key")
+    }
+
+    @Throws(LoginsStorageException::class)
+    override fun rekeyDatabase(newEncryptionKey: String) {
+        // Currently we never check the key for the in-memory version, so this is fine.
+        Log.w("MemoryLoginsStorage", "Reset is a noop because this implementation does not check the key")
+    }
+
     @Synchronized
     override fun isLocked(): Boolean {
         return state == LoginsStorageState.Locked
@@ -104,7 +116,7 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
     @Throws(LoginsStorageException::class)
     override fun reset() {
         checkUnlocked()
-        Log.w("MemoryLoginsStorage", "Reset is a noop becasue this implementation can not sync")
+        Log.w("MemoryLoginsStorage", "Reset is a noop because this implementation can not sync")
     }
 
     @Synchronized

@@ -99,6 +99,43 @@ pub extern "C" fn sync15_passwords_disable_mem_security(handle: u64, error: &mut
 }
 
 #[no_mangle]
+pub extern "C" fn sync15_passwords_rekey_database(
+    handle: u64,
+    new_encryption_key: FfiStr<'_>,
+    error: &mut ExternError,
+) {
+    log::debug!("sync15_passwords_rekey_database");
+    let new_key = new_encryption_key.as_str();
+    ENGINES.call_with_result(error, handle, |state| -> Result<()> {
+        state.lock().unwrap().rekey_database(new_key)
+    })
+}
+
+/// Same as sync15_passwords_rekey_database, but accepts a byte array encryption key.
+///
+/// If a key_len of 0 is provided, then the database will not be encrypted.
+///
+/// Note: lowercase hex characters are used (e.g. it encodes using the character set 0-9a-f and NOT 0-9A-F).
+///
+/// # Safety
+///
+/// Dereferences the `new_encryption_key` pointer, and is thus unsafe.
+#[no_mangle]
+pub unsafe extern "C" fn sync15_passwords_rekey_database_with_hex_key(
+    handle: u64,
+    new_encryption_key: *const u8,
+    new_encryption_key_len: u32,
+    error: &mut ExternError,
+) {
+    log::debug!("sync15_passwords_rekey_database_with_hex_key");
+    ENGINES.call_with_result(error, handle, |state| -> Result<()> {
+        let new_key =
+            bytes_to_key_string(new_encryption_key, new_encryption_key_len as usize).unwrap();
+        state.lock().unwrap().rekey_database(&new_key)
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn sync15_passwords_sync(
     handle: u64,
     key_id: FfiStr<'_>,

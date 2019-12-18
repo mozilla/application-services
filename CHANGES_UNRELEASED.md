@@ -2,4 +2,10 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.47.0...master)
+## Logins
+
+### What's new
+
+- Android: Added ability to rekey the database via `rekeyDatabase`. [[#2228](https://github.com/mozilla/application-services/pull/2228)]
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.43.1...master)
