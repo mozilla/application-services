@@ -411,20 +411,20 @@ impl Login {
         }
 
         if self.form_submit_url.is_some() && self.http_realm.is_some() {
-            get_fixed_or_throw!(InvalidLogin::BothTargets)?.form_submit_url = None;
+            get_fixed_or_throw!(InvalidLogin::BothTargets)?.http_realm = None;
         }
 
         if self.form_submit_url.is_none() && self.http_realm.is_none() {
             throw!(InvalidLogin::NoTarget);
         }
 
-        let form_submit_url = maybe_fixed
+        let form_submit_url = self.form_submit_url.clone().unwrap_or_default();
+        let http_realm = maybe_fixed
             .as_ref()
             .unwrap_or(self)
-            .form_submit_url
+            .http_realm
             .clone()
             .unwrap_or_default();
-        let http_realm = self.http_realm.clone().unwrap_or_default();
 
         let field_data = [
             ("formSubmitUrl", &form_submit_url),
@@ -1279,7 +1279,7 @@ mod tests {
         // Note that most URL fixups are tested above, but we have one or 2 here.
         let login_with_full_url = Login {
             hostname: "http://example.com/foo?query=wtf#bar".into(),
-            form_submit_url: Some("http://example.com/foo#bar?query=wtf".into()),
+            form_submit_url: Some("http://example.com/foo?query=wtf#bar".into()),
             username: "test".into(),
             password: "test".into(),
             ..Login::default()
@@ -1303,12 +1303,12 @@ mod tests {
 
         let login_with_form_submit_and_http_realm = Login {
             hostname: "https://www.example.com".into(),
-            http_realm: Some("https://www.example.com".into()),
+            form_submit_url: Some("https://www.example.com".into()),
             // If both http_realm and form_submit_url are specified, we drop
-            // the latter when fixing up - but for this test we must have an
-            // invalid value in form_submit_url - we mustn't validate it
-            // if we are dropping it!
-            form_submit_url: Some("\n".into()),
+            // the former when fixing up. So for this test we must have an
+            // invalid value in http_realm to ensure we don't validate a value
+            // we end up dropping.
+            http_realm: Some("\n".into()),
             password: "test".into(),
             ..Login::default()
         };
@@ -1331,7 +1331,7 @@ mod tests {
             },
             TestCase {
                 login: login_with_form_submit_and_http_realm,
-                fixedup_form_submit_url: None,
+                fixedup_form_submit_url: Some("https://www.example.com".into()),
                 ..TestCase::default()
             },
         ];
