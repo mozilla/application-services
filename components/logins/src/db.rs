@@ -1194,7 +1194,7 @@ mod tests {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         db.add(Login {
             guid: "dummy_000001".into(),
-            form_submit_url: Some("https://www.example.com/submit".into()),
+            form_submit_url: Some("https://www.example.com".into()),
             hostname: "https://www.example.com".into(),
             http_realm: None,
             username: "test".into(),
@@ -1205,7 +1205,7 @@ mod tests {
 
         let duplicate_login_check = db.check_valid_with_no_dupes(&Login {
             guid: Guid::empty(),
-            form_submit_url: Some("https://www.example.com/submit".into()),
+            form_submit_url: Some("https://www.example.com".into()),
             hostname: "https://www.example.com".into(),
             http_realm: None,
             username: "test".into(),
@@ -1221,11 +1221,59 @@ mod tests {
     }
 
     #[test]
+    fn test_unicode_submit() {
+        let db = LoginDb::open_in_memory(Some("testing")).unwrap();
+        db.add(Login {
+            guid: "dummy_000001".into(),
+            form_submit_url: Some("http://😍.com".into()),
+            hostname: "http://😍.com".into(),
+            http_realm: None,
+            username: "😍".into(),
+            username_field: "😍".into(),
+            password: "😍".into(),
+            password_field: "😍".into(),
+            ..Login::default()
+        })
+        .unwrap();
+        let fetched = db
+            .get_by_id("dummy_000001")
+            .expect("should work")
+            .expect("should get a record");
+        assert_eq!(fetched.hostname, "http://xn--r28h.com");
+        assert_eq!(fetched.form_submit_url.unwrap(), "http://xn--r28h.com");
+        assert_eq!(fetched.username, "😍");
+        assert_eq!(fetched.username_field, "😍");
+        assert_eq!(fetched.password, "😍");
+        assert_eq!(fetched.password_field, "😍");
+    }
+
+    #[test]
+    fn test_unicode_realm() {
+        let db = LoginDb::open_in_memory(Some("testing")).unwrap();
+        db.add(Login {
+            guid: "dummy_000001".into(),
+            form_submit_url: None,
+            hostname: "http://😍.com".into(),
+            http_realm: Some("😍😍".into()),
+            username: "😍".into(),
+            password: "😍".into(),
+            ..Login::default()
+        })
+        .unwrap();
+        let fetched = db
+            .get_by_id("dummy_000001")
+            .expect("should work")
+            .expect("should get a record");
+        assert_eq!(fetched.hostname, "http://xn--r28h.com");
+        assert_eq!(fetched.http_realm.unwrap(), "😍😍");
+    }
+
+    #[test]
     fn test_check_valid_with_no_dupes_with_unique_login() {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         db.add(Login {
             guid: "dummy_000001".into(),
-            form_submit_url: Some("https://www.example.com/submit".into()),
+            form_submit_url: Some("https://www.example.com".into()),
             hostname: "https://www.example.com".into(),
             http_realm: None,
             username: "test".into(),
@@ -1306,10 +1354,6 @@ mod tests {
                 "https://sub.example.com:8080",
                 "https://sub.sub.example.com",
                 "ftp://sub.example.com",
-                // Handling file:// is questionable - it would also be fine to
-                // not handle it! It's left here more to document the fact that
-                // we do!
-                "file://example.com",
             ],
             vec![
                 "https://badexample.com",
@@ -1323,8 +1367,7 @@ mod tests {
         // on insert.
         check_good_bad(
             vec![
-                "http://😍.com",
-                "http://xn--r28h.com", // punycoded version of the above.
+                "http://xn--r28h.com", // punycoded version of "http://😍.com"
             ],
             vec!["http://💖.com"],
             vec!["😍.com", "xn--r28h.com"],
@@ -1345,11 +1388,7 @@ mod tests {
     #[test]
     fn test_get_by_base_domain_ipv6() {
         check_good_bad(
-            vec![
-                "http://[::1]",
-                "https://[::1]:8000",
-                "https://[0:0:0:0:0:0:0:1]", // this is [::1]
-            ],
+            vec!["http://[::1]", "https://[::1]:8000"],
             vec!["https://[0:0:0:0:0:0:1:1]", "https://example.com"],
             vec!["[::1]", "[0:0:0:0:0:0:0:1]"],
             vec!["[0:0:0:0:0:0:1:2]"],
