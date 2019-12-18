@@ -369,7 +369,7 @@ abstract class LoginsStorageTest {
                 ServerPassword(
                         id = "",
                         hostname = "https://www.foo.org",
-                        formSubmitURL = "not a url",
+                        formSubmitURL = "invalid\u0000value",
                         password = "MyPassword",
                         username = "MyUsername",
                         usernameField = "users_name",
