@@ -14,6 +14,7 @@ private enum class LoginsStorageState {
     Closed,
 }
 
+@Deprecated(message = "Use DatabaseLoginsStorage(\":memory:\") instead")
 class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseable, LoginsStorage {
 
     private var state: LoginsStorageState = LoginsStorageState.Locked

@@ -9,6 +9,7 @@ import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
+@Suppress("DEPRECATION")
 class MemoryLoginsStorageTest : LoginsStorageTest() {
 
     override fun createTestStore(): LoginsStorage {
