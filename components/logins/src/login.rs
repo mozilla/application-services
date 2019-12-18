@@ -950,6 +950,14 @@ mod tests {
         for (input, output) in &[
             ("https://site.com/", "https://site.com"),
             ("http://site.com:1234/", "http://site.com:1234"),
+            ("http://example.com/foo?query=wtf#bar", "http://example.com"),
+            ("http://example.com/foo#bar", "http://example.com"),
+            (
+                "http://username:password@example.com/",
+                "http://example.com",
+            ),
+            ("http://😍.com/", "http://xn--r28h.com"),
+            ("https://[0:0:0:0:0:0:0:1]", "https://[::1]"),
             // All `file://` URLs normalize to exactly `file://`. See #2384 for
             // why we might consider changing that later.
             ("file:///", "file://"),
@@ -1268,8 +1276,9 @@ mod tests {
             fixedup_form_submit_url: Option<String>,
         }
 
+        // Note that most URL fixups are tested above, but we have one or 2 here.
         let login_with_full_url = Login {
-            hostname: "http://example.com/foo#bar?query=wtf".into(),
+            hostname: "http://example.com/foo?query=wtf#bar".into(),
             form_submit_url: Some("http://example.com/foo#bar?query=wtf".into()),
             username: "test".into(),
             password: "test".into(),
@@ -1279,22 +1288,6 @@ mod tests {
         let login_with_host_unicode = Login {
             hostname: "http://😍.com".into(),
             form_submit_url: Some("http://😍.com".into()),
-            username: "test".into(),
-            password: "test".into(),
-            ..Login::default()
-        };
-
-        let login_with_hostname_trailing_slash = Login {
-            hostname: "https://www.example.com/".into(),
-            form_submit_url: Some("https://www.example.com/".into()),
-            username: "test".into(),
-            password: "test".into(),
-            ..Login::default()
-        };
-
-        let login_with_hostname_expanded_ipv6 = Login {
-            hostname: "https://[0:0:0:0:0:0:0:1]".into(),
-            form_submit_url: Some("https://[0:0:0:0:0:0:0:1]".into()),
             username: "test".into(),
             password: "test".into(),
             ..Login::default()
@@ -1330,16 +1323,6 @@ mod tests {
                 login: login_with_host_unicode,
                 fixedup_host: "http://xn--r28h.com".into(),
                 fixedup_form_submit_url: Some("http://xn--r28h.com".into()),
-            },
-            TestCase {
-                login: login_with_hostname_trailing_slash,
-                fixedup_host: "https://www.example.com".into(),
-                fixedup_form_submit_url: Some("https://www.example.com".into()),
-            },
-            TestCase {
-                login: login_with_hostname_expanded_ipv6,
-                fixedup_host: "https://[::1]".into(),
-                fixedup_form_submit_url: Some("https://[::1]".into()),
             },
             TestCase {
                 login: login_with_period_fsu,
