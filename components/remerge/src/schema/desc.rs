@@ -128,9 +128,9 @@ impl Field {
                         if *is_origin {
                             let o = url.origin();
                             if !o.is_tuple() {
-                                // XXX Should have a special error for 'not an origin'
-                                throw!(NotUrl(self.name.clone()));
+                                throw!(OriginWasOpaque(self.name.clone()));
                             }
+                            // Truncate value to just origin
                             Ok(o.ascii_serialization().into())
                         } else {
                             Ok(url.to_string().into())
