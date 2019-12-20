@@ -68,6 +68,8 @@ pub enum InvalidRecord {
     NotUrl(String),
     #[fail(display = "The field {:?} must have a non-opaque origin", _0)]
     OriginWasOpaque(String),
+    #[fail(display = "The field {:?} has more URL parts than just an origin", _0)]
+    UrlWasNotOrigin(String),
     #[fail(display = "The field {:?} is out of the required bounds", _0)]
     OutOfBounds(String),
     #[fail(display = "The field {:?} is not a valid record_set", _0)]

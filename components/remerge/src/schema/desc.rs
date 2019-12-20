@@ -130,6 +130,14 @@ impl Field {
                             if !o.is_tuple() {
                                 throw!(OriginWasOpaque(self.name.clone()));
                             }
+                            if url.username() != ""
+                                || url.password().is_some()
+                                || url.path() != "/"
+                                || url.query().is_some()
+                                || url.fragment().is_some()
+                            {
+                                throw!(UrlWasNotOrigin(self.name.clone()));
+                            }
                             // Truncate value to just origin
                             Ok(o.ascii_serialization().into())
                         } else {
