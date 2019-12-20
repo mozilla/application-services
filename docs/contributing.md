@@ -24,16 +24,15 @@ Build instructions are available [here](building.md). Do not hesitate to let us 
 Patches should be submitted as [pull requests](https://help.github.com/articles/about-pull-requests/) (PRs).
 
 Before submitting a PR:
-- Your code must run and pass all the automated tests before you submit your PR for review. "Work in progress" pull requests are allowed to be submitted, but should be clearly labeled as such and should not be merged until all tests pass and the code has been reviewed.
-  - Run `cargo test --all` to make sure all tests still pass and no warnings are emitted.
-  - Run `cargo run -p sync-test` to make sure the sync integration tests still pass.
-  Note: You need to have [node](https://nodejs.org/) installed for running the integration tests.
-  - Run `cargo clippy --all --all-targets --all-features` to make sure that linting passes (You may need to `rustup component add clippy` first).
-  - Run `cargo fmt` to ensure the code is formatted correctly.
-  - If you have modified any Kotlin code, check that `./gradlew ktlint detekt` runs without emitting any warnings.
-  - If you have modified any Swift code, check that `swiftformat --swiftversion 4 megazords components/*/ios && swiftlint` runs without emitting any warnings or producing changes.
+- Run `cargo fmt` to ensure your Rust code is correctly formatted.
+  - If you have modified any Swift code, also run `swiftformat --swiftversion 4` on the modified code.
+- Your code must run and pass all the automated tests before you submit your PR for review.
+  - The simplest way to confirm this is to use the `./automation/all_tests.sh` script, which runs all test suites
+    and linters for Rust, Kotlin and Swift code.
+  - "Work in progress" pull requests are welcome, but should be clearly labeled as such and should not be merged until all tests pass and the code has been reviewed.
 - Your patch should include new tests that cover your changes, or be accompanied by explanation for why it doesn't need any. It is your
   and your reviewer's responsibility to ensure your patch includes adequate tests.
+  - Consult the [testing guide](./howtos/testing-a-rust-component.md) for some tips on writing effective tests.
 - Your patch should include a changelog entry in [CHANGES_UNRELEASED.md](../CHANGES_UNRELEASED.md) or an explanation of why
   it does not need one. Any breaking changes to Swift or Kotlin binding APIs should be noted explicitly
 - If your patch adds new dependencies, they must follow our [dependency management guidelines](./dependency-management.md).

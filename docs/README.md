@@ -25,6 +25,7 @@ you work on app-services projects.  We have:
   * Howtos for specific coding activities:
     * Code and architecture guidelines:
       * [Guide to Building a Rust Component](./howtos/building-a-rust-component.md)
+      * [Guide to Testing a Rust Component](./howtos/testing-a-rust-component.md)
       * [How to expose your Rust Component to Kotlin](./howtos/exposing-rust-components-to-kotlin.md)
       * [How to expose your Rust Component to Swift](./howtos/exposing-rust-components-to-swift.md)
       * [How to pass data cross the FFI boundary](./howtos/when-to-use-what-in-the-ffi.md)
