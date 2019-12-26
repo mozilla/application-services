@@ -242,7 +242,7 @@ jobs:
       - run: swiftformat megazords components/*/ios --lint --swiftversion 4 --verbose
   Check Rust formatting:
     docker:
-      - image: circleci/rust:latest
+      - image: circleci/rust:1.39
     steps:
       - checkout
       - setup-rust-toolchain
@@ -251,7 +251,7 @@ jobs:
       - run: cargo fmt -- --check
   Lint Rust with clippy:
     docker:
-      - image: circleci/rust:latest
+      - image: circleci/rust:1.39
     steps:
       - test-setup
       - run: rustup component add clippy
