@@ -76,9 +76,9 @@ open class LoginsStorage {
             return
         }
 
-        raw = try LoginsStoreError.unwrap({ err in
+        raw = try LoginsStoreError.unwrap { err in
             sync15_passwords_state_new(self.dbPath, key, err)
-        })
+        }
 
         do {
             interruptHandleLock.lock()
