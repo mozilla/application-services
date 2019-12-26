@@ -245,7 +245,8 @@ jobs:
       - image: circleci/rust:1.38
     steps:
       - checkout
-      - setup-rust-toolchain
+      - setup-rust-toolchain:
+          rust-version: 1.38.0
       - run: rustup component add rustfmt
       - run: rustfmt --version
       - run: cargo fmt -- --check
@@ -253,7 +254,8 @@ jobs:
     docker:
       - image: circleci/rust:1.38
     steps:
-      - test-setup
+      - test-setup:
+          rust-version: 1.38.0
       - run: rustup component add clippy
       - run: cargo clippy --version
       - run: cargo clippy --all --all-targets --all-features -- -D warnings
