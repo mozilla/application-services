@@ -12,6 +12,10 @@ impl FirefoxAccount {
     /// * `session_token` - Hex-formatted session token.
     /// * `k_xcs` - Hex-formatted kXCS.
     /// * `k_sync` - Hex-formatted kSync.
+    /// * `copy_session_token` - If true then the provided 'session_token' will be duplicated
+    ///     and the resulting session will use a new session token. If false, the provided
+    ///     token will be reused.
+    ///
     ///
     /// **💾 This method alters the persisted account state.**
     pub fn migrate_from_session_token(
@@ -19,21 +23,27 @@ impl FirefoxAccount {
         session_token: &str,
         k_sync: &str,
         k_xcs: &str,
+        copy_session_token: bool,
     ) -> Result<()> {
         // if there is already a session token on account, we error out.
         if self.state.session_token.is_some() {
             return Err(ErrorKind::IllegalState("Session Token is already set.").into());
         }
+
+        let migration_session_token = if copy_session_token {
+            let duplicate_session = self
+                .client
+                .duplicate_session(&self.state.config, &session_token)?;
+
+            duplicate_session.session_token
+        } else {
+            session_token.to_string()
+        };
+
         // Trade our session token for a refresh token.
-        let duplicate_session = self
-            .client
-            .duplicate_session(&self.state.config, &session_token)?;
-
-        let duplicated_session_token = duplicate_session.session_token;
-
         let oauth_response = self.client.oauth_tokens_from_session_token(
             &self.state.config,
-            &duplicated_session_token,
+            &migration_session_token,
             &[scopes::PROFILE, scopes::OLD_SYNC],
         )?;
         self.handle_oauth_response(oauth_response, None)?;
@@ -45,7 +55,7 @@ impl FirefoxAccount {
         let k_xcs = base64::encode_config(&k_xcs, base64::URL_SAFE_NO_PAD);
         let scoped_key_data = self.client.scoped_key_data(
             &self.state.config,
-            &duplicated_session_token,
+            &migration_session_token,
             scopes::OLD_SYNC,
         )?;
         let oldsync_key_data = scoped_key_data.get(scopes::OLD_SYNC).ok_or_else(|| {
@@ -58,7 +68,7 @@ impl FirefoxAccount {
             k: k_sync,
             kid,
         };
-        self.state.session_token = Some(duplicated_session_token.clone());
+        self.state.session_token = Some(migration_session_token.clone());
         self.state
             .scoped_keys
             .insert(scopes::OLD_SYNC.to_string(), k_sync_scoped_key);

@@ -237,6 +237,7 @@ pub extern "C" fn fxa_migrate_from_session_token(
     session_token: FfiStr<'_>,
     k_sync: FfiStr<'_>,
     k_xcs: FfiStr<'_>,
+    copy_session_token: bool,
     error: &mut ExternError,
 ) {
     log::debug!("fxa_migrate_from_session_token");
@@ -244,7 +245,7 @@ pub extern "C" fn fxa_migrate_from_session_token(
         let session_token = session_token.as_str();
         let k_sync = k_sync.as_str();
         let k_xcs = k_xcs.as_str();
-        fxa.migrate_from_session_token(session_token, k_sync, k_xcs)
+        fxa.migrate_from_session_token(session_token, k_sync, k_xcs, copy_session_token)
     });
 }
 
