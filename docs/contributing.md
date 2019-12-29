@@ -15,33 +15,9 @@ Participation in this project is governed by the
 You can file issues here on GitHub. Please try to include as much information as you can and under what conditions
 you saw the issue.
 
-## Making Code Changes ##
+## Building the project ##
 
-To work on the code in this repo you will need to be familiar with
-the [Rust](https://www.rust-lang.org/) programming language.
-You can get a working rust compiler and toolchain via [rustup](https://rustup.rs/).
-
-Some components also require `nss` and `sqlcipher` in order to build correctly.
-You may be able to install these via your OS package manager, but for consistency
-we recommend using the versions included in this repo by doing the following from
-the root of your checkout:
-
-```
-source ./libs/bootstrap-desktop.sh
-```
-
-This will compile the dependencies if necessary and export environment variables
-to configure your rust build to use them.
-
-You can check that all dependencies are installed correctly by running the following from the
-root of your checkout:
-
-```
-cargo test --all
-```
-
-If you plan to work on the Android component bindings, you should also review
-the instructions for [setting up an Android build environment](https://github.com/mozilla/application-services/blob/master/docs/howtos/setup-android-build-environment.md)
+Build instructions are available [here](building.md). Do not hesitate to let us know which pain-points you had with setting up your environment!
 
 ## Sending Pull Requests ##
 
