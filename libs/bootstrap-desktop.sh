@@ -12,6 +12,8 @@ if [[ ! -f "$(pwd)/libs/build-all.sh" ]]; then
   exit 1
 fi
 
+"$(pwd)/libs/bootstrap-common.sh"
+
 if [[ "$(uname -s)" == "Darwin" ]]; then
   APPSERVICES_PLATFORM_DIR="$(pwd)/libs/desktop/darwin"
 else
