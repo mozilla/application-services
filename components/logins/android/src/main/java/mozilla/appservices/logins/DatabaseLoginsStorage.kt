@@ -10,6 +10,7 @@ import mozilla.appservices.logins.rust.RustError
 import mozilla.appservices.sync15.SyncTelemetryPing
 import java.util.concurrent.atomic.AtomicLong
 import org.json.JSONArray
+import org.json.JSONObject
 import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMetrics
 
 /**
@@ -231,14 +232,17 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     }
 
     @Throws(LoginsStorageException::class)
-    override fun importLogins(logins: Array<ServerPassword>): Long {
-        val s = JSONArray().apply {
-            logins.forEach {
-                put(it.toJSON())
-            }
-        }.toString()
-        return rustCallWithLock { raw, error ->
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_import(raw, s, error)
+    override fun importLogins(logins: Array<ServerPassword>): JSONObject {
+        return writeQueryCounters.measure {
+            val s = JSONArray().apply {
+                logins.forEach {
+                    put(it.toJSON())
+                }
+            }.toString()
+            val json = rustCallWithLock { raw, error ->
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_import(raw, s, error)
+            }.getAndConsumeRustString()
+            JSONObject(json)
         }
     }
 

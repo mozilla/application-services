@@ -4,6 +4,7 @@
 
 package mozilla.appservices.logins
 import mozilla.appservices.sync15.SyncTelemetryPing
+import org.json.JSONObject
 
 class SyncUnlockInfo(
     val kid: String,
@@ -186,7 +187,7 @@ interface LoginsStorage : AutoCloseable {
      * @throws [LoginsStorageException] On unexpected errors (IO failure, rust panics, etc)
      */
     @Throws(LoginsStorageException::class)
-    fun importLogins(logins: Array<ServerPassword>): Long
+    fun importLogins(logins: Array<ServerPassword>): JSONObject
 
     /**
      * Updates the fields in the provided record.

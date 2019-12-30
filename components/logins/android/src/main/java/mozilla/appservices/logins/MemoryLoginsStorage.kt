@@ -7,6 +7,7 @@ package mozilla.appservices.logins
 import android.util.Log
 import java.util.UUID
 import mozilla.appservices.sync15.SyncTelemetryPing
+import org.json.JSONObject
 
 private enum class LoginsStorageState {
     Unlocked,
@@ -198,7 +199,7 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
 
     @Synchronized
     @Throws(LoginsStorageException::class)
-    override fun importLogins(logins: Array<ServerPassword>): Long {
+    override fun importLogins(logins: Array<ServerPassword>): JSONObject {
         checkUnlocked()
         var numErrors = 0L
         for (login in logins) {
@@ -210,7 +211,12 @@ class MemoryLoginsStorage(private var list: List<ServerPassword>) : AutoCloseabl
                 numErrors += 1
             }
         }
-        return numErrors
+        // Note: This returned JSONObject does not have the same members as its
+        // counterpart in DatabaseLoginsStorage! It is being returned merely
+        // to remedy build errors.
+        val json = JSONObject()
+        json.put("num_failed", numErrors)
+        return json
     }
 
     @Synchronized

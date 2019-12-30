@@ -1,7 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::db::{LoginDb, LoginStore};
+use crate::db::{LoginDb, LoginStore, MigrationMetrics};
 use crate::error::*;
 use crate::login::Login;
 use std::cell::Cell;
@@ -81,7 +81,7 @@ impl PasswordEngine {
         self.db.add(login).map(|record| record.guid.into_string())
     }
 
-    pub fn import_multiple(&self, logins: &[Login]) -> Result<u64> {
+    pub fn import_multiple(&self, logins: &[Login]) -> Result<MigrationMetrics> {
         self.db.import_multiple(logins)
     }
 

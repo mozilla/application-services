@@ -70,7 +70,9 @@ internal interface PasswordSyncAdapter : Library {
     // Note: returns guid of new login entry (unless one was specifically requested)
     fun sync15_passwords_add(handle: LoginsDbHandle, new_login_json: String, error: RustError.ByReference): Pointer?
     fun sync15_passwords_update(handle: LoginsDbHandle, existing_login_json: String, error: RustError.ByReference)
-    fun sync15_passwords_import(handle: LoginsDbHandle, logins_json: String, error: RustError.ByReference): Long
+
+    // Returns a JSON string containing import metrics
+    fun sync15_passwords_import(handle: LoginsDbHandle, logins_json: String, error: RustError.ByReference): Pointer?
 
     fun sync15_passwords_destroy_string(p: Pointer)
 
