@@ -110,22 +110,6 @@ impl std::fmt::Display for BadRecordSetDefaultKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum SemverProp {
-    Version,
-    RequiredVersion,
-}
-
-impl std::fmt::Display for SemverProp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use SemverProp::*;
-        match self {
-            Version => f.write_str("version"),
-            RequiredVersion => f.write_str("required_version"),
-        }
-    }
-}
-
 #[derive(Debug, Fail)]
 pub enum SchemaError {
     #[fail(display = "Schema format error: {}", _0)]
@@ -135,32 +119,10 @@ pub enum SchemaError {
     WrongFormatVersion(usize),
 
     #[fail(
-        display = "Failed to parse semantic version string {:?} from property '{}': {}",
-        got, prop, err
-    )]
-    VersionParseFailed {
-        prop: SemverProp,
-        got: String,
-        #[fail(cause)]
-        err: semver::SemVerError,
-    },
-
-    #[fail(
-        display = "Failed to parse semantic version requirement {:?} from property '{}': {}",
-        got, prop, err
-    )]
-    VersionReqParseFailed {
-        prop: SemverProp,
-        got: String,
-        #[fail(cause)]
-        err: semver::ReqParseError,
-    },
-
-    #[fail(
         display = "Schema required_version '{}' and version '{}' are not compatible.",
         _0, _1
     )]
-    LocalRequiredVersionNotCompatible(semver::VersionReq, semver::Version),
+    LocalRequiredVersionNotCompatible(u32, u32),
 
     #[fail(
         display = "Remerge feature {} is required but not supported locally",

@@ -8,28 +8,11 @@
         }
     },
     {
-        "error": "VersionParseFailed",
-        "schema": {
-            "name": "test",
-            "version": "garbage",
-            "fields": []
-        }
-    },
-    {
-        "error": "VersionReqParseFailed",
-        "schema": {
-            "name": "test",
-            "version": "1.0.0",
-            "required_version": "garbage",
-            "fields": []
-        }
-    },
-    {
         "error": "LocalRequiredVersionNotCompatible",
         "schema": {
             "name": "test",
-            "version": "1.0.0",
-            "required_version": "2.0.0",
+            "version": 1,
+            "required_version": 2,
             "fields": []
         }
     },
@@ -37,7 +20,7 @@
         "error": "MissingRemergeFeature",
         "schema": {
             "name": "test",
-            "version": "1.0.0",
+            "version": 1,
             "fields": [],
             "remerge_features_used": ["example"]
         }
@@ -45,7 +28,7 @@
     {
         "error": "DuplicateField",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -62,7 +45,7 @@
     {
         "error": "IllegalMergeForType",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -76,7 +59,7 @@
     {
         "error": "IllegalMergeForType",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -90,7 +73,7 @@
     {
         "error": "UnknownCompositeRoot",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -104,7 +87,7 @@
     {
         "error": "TypeForbidsMergeStrat",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -118,7 +101,7 @@
     {
         "error": "TypeNotComposite",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -136,7 +119,7 @@
     {
         "error": "DeprecatedRequiredConflict",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -151,7 +134,7 @@
     {
         "error": "NoBoundsCheckInfo",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -166,7 +149,7 @@
     {
         "error": "BadNumBounds",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -182,7 +165,7 @@
     {
         "error": "BadNumDefault",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -200,7 +183,7 @@
         "error": "NumberClampOnCompositeRoot",
         "skip": true,
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -221,7 +204,7 @@
     {
         "error": "CompositeRecursion",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -240,7 +223,7 @@
     {
         "error": "BadDefaultUrl",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -254,7 +237,7 @@
     {
         "error": "BadDefaultOrigin",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -269,7 +252,7 @@
     {
         "error": "MergeTakeSumNoMax",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -286,7 +269,7 @@
     {
         "error": "DefaultTimestampTooOld",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -300,7 +283,7 @@
     {
         "error": "DedupeOnWithDuplicateField",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -319,7 +302,7 @@
     {
         "error": "UnknownDedupeOnField",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -335,7 +318,7 @@
     {
         "error": "PartialCompositeDedupeOn",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -355,7 +338,7 @@
     },
     {
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -378,7 +361,7 @@
     {
         "error": "MultipleOwnGuid",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -396,7 +379,7 @@
     {
         "error": "MultipleUpdateAt",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "fields": [
                 {
@@ -415,7 +398,7 @@
     {
         "error": "LegacyMissingId",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "legacy": true,
             "fields": [
@@ -429,7 +412,7 @@
     {
         "error": "DeprecatedFieldDedupeOn",
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "test",
             "legacy": true,
             "fields": [
@@ -447,7 +430,7 @@
 
     {
         "schema": {
-            "version": "1.0.0",
+            "version": 1,
             "name": "logins-example",
             "legacy": true,
             "fields": [

@@ -96,10 +96,10 @@ pub struct RawSchema {
     /// The name of this collection
     pub name: String,
     /// The version of the schema
-    pub version: String,
+    pub version: u32,
 
     /// The required version of the schema
-    pub required_version: Option<String>,
+    pub required_version: Option<u32>,
 
     #[serde(default)]
     pub remerge_features_used: Vec<String>,
@@ -373,48 +373,6 @@ struct SchemaParser<'a> {
     indices: HashMap<String, FieldIndex>,
 }
 
-fn parse_version(v: &str, prop: SemverProp) -> SchemaResult<semver::Version> {
-    semver::Version::parse(v).map_err(|err| SchemaError::VersionParseFailed {
-        got: v.into(),
-        prop,
-        err,
-    })
-}
-
-fn parse_version_req(
-    o: &Option<String>,
-    prop: SemverProp,
-) -> SchemaResult<Option<semver::VersionReq>> {
-    // when transpose is stable this could be simpler...
-    if let Some(v) = o {
-        Ok(Some(semver::VersionReq::parse(v).map_err(|err| {
-            SchemaError::VersionReqParseFailed {
-                got: v.clone(),
-                prop,
-                err,
-            }
-        })?))
-    } else {
-        Ok(None)
-    }
-}
-
-fn compatible_version_req(v: &semver::Version) -> semver::VersionReq {
-    let mut without_build = v.clone();
-    without_build.build.clear();
-    let version_req = format!("^ {}", without_build);
-    match semver::VersionReq::parse(&version_req) {
-        Ok(v) => v,
-        Err(e) => {
-            // Include this info in the panic string so we can debug if this ever happens.
-            panic!(
-                "Bug: Failed to parse our generated VersionReq {:?}: {}",
-                version_req, e
-            );
-        }
-    }
-}
-
 impl<'a> SchemaParser<'a> {
     pub fn new(repr: &'a RawSchema, _is_remote: bool) -> Self {
         let composite_roots = repr
@@ -449,19 +407,6 @@ impl<'a> SchemaParser<'a> {
         }
     }
 
-    fn check_user_version(&self) -> SchemaResult<(semver::Version, semver::VersionReq)> {
-        let cur_version = parse_version(&self.input.version, SemverProp::Version)?;
-        let req_version =
-            parse_version_req(&self.input.required_version, SemverProp::RequiredVersion)?
-                .unwrap_or_else(|| compatible_version_req(&cur_version));
-
-        ensure!(
-            req_version.matches(&cur_version),
-            SchemaError::LocalRequiredVersionNotCompatible(req_version, cur_version)
-        );
-        Ok((cur_version, req_version))
-    }
-
     fn is_identity(&self, name: &str) -> bool {
         self.dedupe_ons.contains(name)
     }
@@ -472,7 +417,13 @@ impl<'a> SchemaParser<'a> {
     }
 
     pub fn parse(mut self) -> SchemaResult<RecordSchema> {
-        let (version, required_version) = self.check_user_version()?;
+        let required_version = self.input.required_version.unwrap_or(0);
+        let version = self.input.version;
+
+        ensure!(
+            required_version <= version,
+            SchemaError::LocalRequiredVersionNotCompatible(required_version, version)
+        );
 
         let unknown_feat = self
             .input

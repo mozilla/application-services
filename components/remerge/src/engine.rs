@@ -72,7 +72,7 @@ mod test {
 
     lazy_static::lazy_static! {
         pub static ref SCHEMA: String = json!({
-            "version": "1.0.0",
+            "version": 1,
             "name": "logins-example",
             "legacy": true,
             "fields": [
