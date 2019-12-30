@@ -129,11 +129,11 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
         }
     }
 
-    override fun importVisitsFromFennec(path: String) {
-        rustCall(this) { error ->
-            LibPlacesFFI.INSTANCE.places_history_import_from_fennec(
-                this.handle.get(), path, error)
+    override fun importVisitsFromFennec(path: String): JSONObject {
+        val json = rustCallForString(this) { error ->
+            LibPlacesFFI.INSTANCE.places_history_import_from_fennec(this.handle.get(), path, error)
         }
+        return JSONObject(json)
     }
 }
 
@@ -646,7 +646,7 @@ interface PlacesManager {
      *
      * @param path Path to the `browser.db` file database.
      */
-    fun importVisitsFromFennec(path: String)
+    fun importVisitsFromFennec(path: String): JSONObject
 }
 
 interface InterruptibleConnection : AutoCloseable {

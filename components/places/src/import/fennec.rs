@@ -3,6 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 mod bookmarks;
-mod history;
+pub mod history;
 pub use bookmarks::import as import_bookmarks;
 pub use history::import as import_history;
