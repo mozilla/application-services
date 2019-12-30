@@ -13,6 +13,7 @@ use rusqlite::{
     types::{FromSql, ToSql},
     Connection, NO_PARAMS,
 };
+use serde_derive::*;
 use sql_support::{self, ConnExt};
 use sql_support::{SqlInterruptHandle, SqlInterruptScope};
 use std::collections::HashSet;
@@ -20,13 +21,33 @@ use std::ops::Deref;
 use std::path::Path;
 use std::result;
 use std::sync::{atomic::AtomicUsize, Arc};
-use std::time::SystemTime;
+use std::time::{Duration, Instant, SystemTime};
 use sync15::{
     extract_v1_state, telemetry, CollSyncIds, CollectionRequest, IncomingChangeset,
     OutgoingChangeset, Payload, ServerTimestamp, Store, StoreSyncAssociation,
 };
 use sync_guid::Guid;
 use url::{Host, Url};
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
+pub struct MigrationPhaseMetrics {
+    num_processed: u64,
+    num_succeeded: u64,
+    num_failed: u64,
+    total_duration: u128,
+    errors: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
+pub struct MigrationMetrics {
+    fixup_phase: MigrationPhaseMetrics,
+    insert_phase: MigrationPhaseMetrics,
+    num_processed: u64,
+    num_succeeded: u64,
+    num_failed: u64,
+    total_duration: u128,
+    errors: Vec<String>,
+}
 
 pub struct LoginDb {
     pub db: Connection,
@@ -488,7 +509,7 @@ impl LoginDb {
         Ok(login)
     }
 
-    pub fn import_multiple(&self, logins: &[Login]) -> Result<u64> {
+    pub fn import_multiple(&self, logins: &[Login]) -> Result<MigrationMetrics> {
         // Check if the logins table is empty first.
         let mut num_existing_logins =
             self.query_row::<i64, _, _>("SELECT COUNT(*) FROM loginsL", NO_PARAMS, |r| r.get(0))?;
@@ -499,6 +520,7 @@ impl LoginDb {
         }
         let tx = self.unchecked_transaction()?;
         let now_ms = util::system_time_ms_i64(SystemTime::now());
+        let import_start = Instant::now();
         let sql = format!(
             "INSERT OR IGNORE INTO loginsL (
                 hostname,
@@ -535,7 +557,13 @@ impl LoginDb {
             )",
             new = SyncStatus::New as u8
         );
-        let mut num_failed = 0;
+        let import_start_total_logins: u64 = logins.len() as u64;
+        let mut num_failed_fixup: u64 = 0;
+        let mut num_failed_insert: u64 = 0;
+        let mut fixup_phase_duration = Duration::new(0, 0);
+        let mut fixup_errors: Vec<String> = Vec::new();
+        let mut insert_errors: Vec<String> = Vec::new();
+
         for login in logins {
             // This is a little bit of hoop-jumping to avoid cloning each borrowed item
             // in order to *possibly* created a fixed-up version.
@@ -555,7 +583,11 @@ impl LoginDb {
                 }
                 Err(e) => {
                     log::warn!("Skipping login {} as it is invalid ({}).", login.guid, e);
-                    num_failed += 1;
+                    fixup_errors.push(format!(
+                        "Skipping login {} as it is invalid ({}).",
+                        login.guid, e
+                    ));
+                    num_failed_fixup += 1;
                     continue;
                 }
             };
@@ -566,6 +598,7 @@ impl LoginDb {
             } else {
                 Guid::random()
             };
+            fixup_phase_duration = import_start.elapsed();
             match self.execute_named_cached(
                 &sql,
                 named_params! {
@@ -587,12 +620,52 @@ impl LoginDb {
                 Ok(_) => log::info!("Imported {} (new GUID {}) successfully.", old_guid, guid),
                 Err(e) => {
                     log::warn!("Could not import {} ({}).", old_guid, e);
-                    num_failed += 1;
+                    insert_errors.push(format!("Could not import {} ({}).", old_guid, e));
+                    num_failed_insert += 1;
                 }
             };
         }
         tx.commit()?;
-        Ok(num_failed)
+
+        let num_post_fixup = import_start_total_logins - num_failed_fixup;
+        let num_failed = num_failed_fixup + num_failed_insert;
+        let insert_phase_duration = import_start
+            .elapsed()
+            .checked_sub(fixup_phase_duration)
+            .unwrap_or_else(|| Duration::new(0, 0));
+        let mut all_errors = Vec::new();
+        all_errors.extend(fixup_errors.clone());
+        all_errors.extend(insert_errors.clone());
+
+        let metrics = MigrationMetrics {
+            fixup_phase: MigrationPhaseMetrics {
+                num_processed: import_start_total_logins,
+                num_succeeded: num_post_fixup,
+                num_failed: num_failed_fixup,
+                total_duration: fixup_phase_duration.as_millis(),
+                errors: fixup_errors,
+            },
+            insert_phase: MigrationPhaseMetrics {
+                num_processed: num_post_fixup,
+                num_succeeded: num_post_fixup - num_failed_insert,
+                num_failed: num_failed_insert,
+                total_duration: insert_phase_duration.as_millis(),
+                errors: insert_errors,
+            },
+            num_processed: import_start_total_logins,
+            num_succeeded: import_start_total_logins - num_failed,
+            num_failed,
+            total_duration: fixup_phase_duration
+                .checked_add(insert_phase_duration)
+                .unwrap_or_else(|| Duration::new(0, 0))
+                .as_millis(),
+            errors: all_errors,
+        };
+        log::info!(
+            "Finished importing logins with the following metrics: {:#?}",
+            metrics
+        );
+        Ok(metrics)
     }
 
     pub fn update(&self, login: Login) -> Result<()> {
@@ -1200,7 +1273,7 @@ mod tests {
     }
 
     #[test]
-    fn test_check_valid_with_no_dupes_with_dupe() {
+    fn test_check_valid_with_no_dupes() {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         db.add(Login {
             guid: "dummy_000001".into(),
@@ -1213,7 +1286,17 @@ mod tests {
         })
         .unwrap();
 
-        let duplicate_login_check = db.check_valid_with_no_dupes(&Login {
+        let unique_login = Login {
+            guid: Guid::empty(),
+            form_submit_url: None,
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+
+        let duplicate_login = Login {
             guid: Guid::empty(),
             form_submit_url: Some("https://www.example.com".into()),
             hostname: "https://www.example.com".into(),
@@ -1221,13 +1304,36 @@ mod tests {
             username: "test".into(),
             password: "test2".into(),
             ..Login::default()
-        });
+        };
 
-        assert!(&duplicate_login_check.is_err());
-        assert_eq!(
-            &duplicate_login_check.unwrap_err().to_string(),
-            "Invalid login: Login already exists"
-        )
+        struct TestCase {
+            login: Login,
+            should_err: bool,
+            expected_err: &'static str,
+        }
+
+        let test_cases = [
+            TestCase {
+                login: unique_login,
+                should_err: false,
+                expected_err: "",
+            },
+            TestCase {
+                login: duplicate_login,
+                should_err: true,
+                expected_err: "Invalid login: Login already exists",
+            },
+        ];
+
+        for tc in &test_cases {
+            let login_check = db.check_valid_with_no_dupes(&tc.login);
+            if tc.should_err {
+                assert!(&login_check.is_err());
+                assert_eq!(&login_check.unwrap_err().to_string(), tc.expected_err)
+            } else {
+                assert!(&login_check.is_ok())
+            }
+        }
     }
 
     #[test]
@@ -1276,33 +1382,6 @@ mod tests {
             .expect("should get a record");
         assert_eq!(fetched.hostname, "http://xn--r28h.com");
         assert_eq!(fetched.http_realm.unwrap(), "😍😍");
-    }
-
-    #[test]
-    fn test_check_valid_with_no_dupes_with_unique_login() {
-        let db = LoginDb::open_in_memory(Some("testing")).unwrap();
-        db.add(Login {
-            guid: "dummy_000001".into(),
-            form_submit_url: Some("https://www.example.com".into()),
-            hostname: "https://www.example.com".into(),
-            http_realm: None,
-            username: "test".into(),
-            password: "test".into(),
-            ..Login::default()
-        })
-        .unwrap();
-
-        let unique_login_check = db.check_valid_with_no_dupes(&Login {
-            guid: Guid::empty(),
-            form_submit_url: None,
-            hostname: "https://www.example.com".into(),
-            http_realm: Some("https://www.example.com".into()),
-            username: "test".into(),
-            password: "test".into(),
-            ..Login::default()
-        });
-
-        assert!(&unique_login_check.is_ok())
     }
 
     fn check_matches(db: &LoginDb, query: &str, expected: &[&str]) {
@@ -1478,5 +1557,215 @@ mod tests {
         assert_eq!(expected_tombstone_count, actual_tombstone_count);
         assert!(!db.exists(login1.guid_str()).unwrap());
         assert!(!db.exists(login2.guid_str()).unwrap());
+    }
+
+    fn delete_logins(db: &LoginDb, guids: &[String]) -> Result<()> {
+        sql_support::each_chunk(guids, |chunk, _| -> Result<()> {
+            db.execute(
+                &format!(
+                    "DELETE FROM loginsL WHERE guid IN ({vars})",
+                    vars = sql_support::repeat_sql_vars(chunk.len())
+                ),
+                chunk,
+            )?;
+            Ok(())
+        })?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_import_multiple() {
+        struct TestCase {
+            logins: Vec<Login>,
+            has_populated_metrics: bool,
+            expected_metrics: MigrationMetrics,
+        }
+
+        let db = LoginDb::open_in_memory(Some("testing")).unwrap();
+
+        // Adding login to trigger non-empty table error
+        let login = db
+            .add(Login {
+                hostname: "https://www.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                username: "test_user_1".into(),
+                password: "test_password_1".into(),
+                ..Login::default()
+            })
+            .unwrap();
+
+        let import_with_populated_table = db.import_multiple(Vec::new().as_slice());
+        assert!(import_with_populated_table.is_err());
+        assert_eq!(
+            import_with_populated_table.unwrap_err().to_string(),
+            "The logins tables are not empty"
+        );
+
+        // Removing added login so the test cases below don't fail
+        delete_logins(&db, &[login.guid.into_string()]).unwrap();
+
+        // Setting up test cases
+        let valid_login_guid1: Guid = Guid::random();
+        let valid_login1 = Login {
+            guid: valid_login_guid1.clone(),
+            form_submit_url: Some("https://www.example.com".into()),
+            hostname: "https://www.example.com".into(),
+            http_realm: None,
+            username: "test".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+        let valid_login_guid2: Guid = Guid::random();
+        let valid_login2 = Login {
+            guid: valid_login_guid2.clone(),
+            form_submit_url: Some("https://www.example2.com".into()),
+            hostname: "https://www.example2.com".into(),
+            http_realm: None,
+            username: "test2".into(),
+            password: "test2".into(),
+            ..Login::default()
+        };
+        let valid_login_guid3: Guid = Guid::random();
+        let valid_login3 = Login {
+            guid: valid_login_guid3.clone(),
+            form_submit_url: Some("https://www.example3.com".into()),
+            hostname: "https://www.example3.com".into(),
+            http_realm: None,
+            username: "test3".into(),
+            password: "test3".into(),
+            ..Login::default()
+        };
+        let duplicate_login_guid: Guid = Guid::random();
+        let duplicate_login = Login {
+            guid: duplicate_login_guid.clone(),
+            form_submit_url: Some("https://www.example.com".into()),
+            hostname: "https://www.example.com".into(),
+            http_realm: None,
+            username: "test".into(),
+            password: "test2".into(),
+            ..Login::default()
+        };
+
+        let duplicate_logins = vec![
+            valid_login1.clone(),
+            duplicate_login.clone(),
+            valid_login2.clone(),
+        ];
+
+        let duplicate_logins_metrics = MigrationMetrics {
+            fixup_phase: MigrationPhaseMetrics {
+                num_processed: 3,
+                num_succeeded: 2,
+                num_failed: 1,
+                errors: vec![format!(
+                    "Skipping login {} as it is invalid (Invalid login: Login already exists).",
+                    duplicate_login_guid.clone()
+                )],
+                ..MigrationPhaseMetrics::default()
+            },
+            insert_phase: MigrationPhaseMetrics {
+                num_processed: 2,
+                num_succeeded: 2,
+                ..MigrationPhaseMetrics::default()
+            },
+            num_processed: 3,
+            num_succeeded: 2,
+            num_failed: 1,
+            errors: vec![format!(
+                "Skipping login {} as it is invalid (Invalid login: Login already exists).",
+                duplicate_login_guid.clone()
+            )],
+            ..MigrationMetrics::default()
+        };
+
+        let valid_logins = vec![
+            valid_login1.clone(),
+            valid_login2.clone(),
+            valid_login3.clone(),
+        ];
+
+        let valid_logins_metrics = MigrationMetrics {
+            fixup_phase: MigrationPhaseMetrics {
+                num_processed: 3,
+                num_succeeded: 3,
+                ..MigrationPhaseMetrics::default()
+            },
+            insert_phase: MigrationPhaseMetrics {
+                num_processed: 3,
+                num_succeeded: 3,
+                ..MigrationPhaseMetrics::default()
+            },
+            num_processed: 3,
+            num_succeeded: 3,
+            ..MigrationMetrics::default()
+        };
+
+        let test_cases = [
+            TestCase {
+                logins: Vec::new(),
+                has_populated_metrics: false,
+                expected_metrics: MigrationMetrics {
+                    ..MigrationMetrics::default()
+                },
+            },
+            TestCase {
+                logins: duplicate_logins,
+                has_populated_metrics: true,
+                expected_metrics: duplicate_logins_metrics,
+            },
+            TestCase {
+                logins: valid_logins,
+                has_populated_metrics: true,
+                expected_metrics: valid_logins_metrics,
+            },
+        ];
+
+        for tc in &test_cases {
+            let import_result = db.import_multiple(tc.logins.as_slice());
+            assert!(import_result.is_ok());
+
+            let actual_metrics = import_result.unwrap();
+
+            if tc.has_populated_metrics {
+                let mut guids = Vec::new();
+                for login in &tc.logins {
+                    guids.push(login.clone().guid.into_string());
+                }
+
+                assert_eq!(
+                    actual_metrics.num_processed,
+                    tc.expected_metrics.num_processed
+                );
+                assert_eq!(
+                    actual_metrics.num_succeeded,
+                    tc.expected_metrics.num_succeeded
+                );
+                assert_eq!(actual_metrics.num_failed, tc.expected_metrics.num_failed);
+                assert_eq!(actual_metrics.errors, tc.expected_metrics.errors);
+
+                let phases = [
+                    (
+                        actual_metrics.fixup_phase,
+                        tc.expected_metrics.fixup_phase.clone(),
+                    ),
+                    (
+                        actual_metrics.insert_phase,
+                        tc.expected_metrics.insert_phase.clone(),
+                    ),
+                ];
+
+                for (actual, expected) in &phases {
+                    assert_eq!(actual.num_processed, expected.num_processed);
+                    assert_eq!(actual.num_succeeded, expected.num_succeeded);
+                    assert_eq!(actual.num_failed, expected.num_failed);
+                    assert_eq!(actual.errors, expected.errors);
+                }
+
+                // clearing the database for next test case
+                delete_logins(&db, guids.as_slice()).unwrap();
+            } else {
+                assert_eq!(actual_metrics, tc.expected_metrics);
+            }
+        }
     }
 }

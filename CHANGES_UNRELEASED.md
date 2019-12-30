@@ -4,6 +4,10 @@
 
 ## Logins
 
+### Breaking Changes
+
+- `LoginsStorage.importLogins` returns logins migration metrics as JSON object. ([#2382](https://github.com/mozilla/application-services/issues/2382))
+
 ### What's new
 
 - Android: Added ability to rekey the database via `rekeyDatabase`. [[#2228](https://github.com/mozilla/application-services/pull/2228)]

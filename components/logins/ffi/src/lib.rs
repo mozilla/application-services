@@ -291,11 +291,13 @@ pub extern "C" fn sync15_passwords_import(
     handle: u64,
     records_json: FfiStr<'_>,
     error: &mut ExternError,
-) -> u64 {
+) -> *mut c_char {
     log::debug!("sync15_passwords_import");
-    ENGINES.call_with_result(error, handle, |state| {
+    ENGINES.call_with_result(error, handle, |state| -> Result<String> {
         let logins: Vec<Login> = serde_json::from_str(records_json.as_str())?;
-        state.lock().unwrap().import_multiple(&logins)
+        let import_metrics = state.lock().unwrap().import_multiple(&logins)?;
+        let result = serde_json::to_string(&import_metrics)?;
+        Ok(result)
     })
 }
 
