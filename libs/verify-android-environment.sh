@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# shellcheck disable=SC2148,SC2164
 # Ensure the build toolchains are set up correctly for android builds.
 #
 # This file should be used via `./libs/verify-android-environment.sh`.
@@ -11,6 +12,8 @@ if [[ ! -f "$(pwd)/libs/build-all.sh" ]]; then
   echo "ERROR: verify-android-environment.sh should be run from the root directory of the repo"
   exit 1
 fi
+
+"$(pwd)/libs/bootstrap-common.sh"
 
 if [[ -z "${ANDROID_HOME}" ]]; then
   echo "Could not find Android SDK:"
@@ -72,4 +75,10 @@ if [[ "${JAVA_VERSION}" != "1.8" ]]; then
   exit 1
 fi
 
-echo "Looks good! cd to libs/ and run ./build-all.sh android"
+if [[ ! -d "${PWD}/libs/android/arm64-v8a/nss" ]] || [[ ! -d "${PWD}/libs/android/arm64-v8a/sqlcipher" ]]; then
+  pushd libs
+  ./build-all.sh android
+  popd
+fi;
+
+echo "Looks good! Try building with ./gradlew :assembleDebug"
