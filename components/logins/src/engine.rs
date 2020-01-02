@@ -28,6 +28,14 @@ impl PasswordEngine {
         })
     }
 
+    pub fn new_with_salt(path: impl AsRef<Path>, encryption_key: &str, salt: &str) -> Result<Self> {
+        let db = LoginDb::open_with_salt(path, encryption_key, salt)?;
+        Ok(Self {
+            db,
+            mem_cached_state: Cell::default(),
+        })
+    }
+
     pub fn new_in_memory(encryption_key: Option<&str>) -> Result<Self> {
         let db = LoginDb::open_in_memory(encryption_key)?;
         Ok(Self {

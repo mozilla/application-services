@@ -12,7 +12,7 @@ use ffi_support::ConcurrentHandleMap;
 use ffi_support::{
     define_box_destructor, define_handle_map_deleter, define_string_destructor, ExternError, FfiStr,
 };
-use logins::{Login, PasswordEngine, Result};
+use logins::{Login, LoginDb, PasswordEngine, Result};
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
 
@@ -34,6 +34,24 @@ pub extern "C" fn sync15_passwords_state_new(
         let path = db_path.as_str();
         let key = encryption_key.as_str();
         Ok(Arc::new(Mutex::new(PasswordEngine::new(path, Some(key))?)))
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn sync15_passwords_state_new_with_salt(
+    db_path: FfiStr<'_>,
+    encryption_key: FfiStr<'_>,
+    salt: FfiStr<'_>,
+    error: &mut ExternError,
+) -> u64 {
+    log::debug!("sync15_passwords_state_new_with_salt");
+    ENGINES.insert_with_result(error, || -> logins::Result<_> {
+        let path = db_path.as_str();
+        let key = encryption_key.as_str();
+        let salt = salt.as_str();
+        Ok(Arc::new(Mutex::new(PasswordEngine::new_with_salt(
+            path, key, salt,
+        )?)))
     })
 }
 
@@ -82,6 +100,45 @@ pub unsafe extern "C" fn sync15_passwords_state_new_with_hex_key(
             path,
             opt_key_ref,
         )?)))
+    })
+}
+
+/// Opens an existing database that stores its salt in the header bytes and retrieves its salt.
+///
+/// # Safety
+///
+/// Dereferences the `encryption_key` pointer, and is thus unsafe.
+#[no_mangle]
+pub unsafe extern "C" fn sync15_passwords_get_db_salt(
+    db_path: FfiStr<'_>,
+    encryption_key: FfiStr<'_>,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("sync15_passwords_get_db_salt");
+    let path = db_path.as_str();
+    let key = encryption_key.as_str();
+    ffi_support::call_with_result(error, || LoginDb::open_and_get_salt(path, key))
+}
+
+/// Opens an existing database that stores its salt in the header bytes and migrates it
+/// to a plaintext header one.
+///
+/// # Safety
+///
+/// Dereferences the `encryption_key` and `salt` pointers, and is thus unsafe.
+#[no_mangle]
+pub unsafe extern "C" fn sync15_passwords_migrate_plaintext_header(
+    db_path: FfiStr<'_>,
+    encryption_key: FfiStr<'_>,
+    salt: FfiStr<'_>,
+    error: &mut ExternError,
+) {
+    log::debug!("sync15_passwords_migrate_plaintext_header");
+    let path = db_path.as_str();
+    let key = encryption_key.as_str();
+    let salt = salt.as_str();
+    ffi_support::call_with_result(error, || {
+        LoginDb::open_and_migrate_to_plaintext_header(path, key, salt)
     })
 }
 

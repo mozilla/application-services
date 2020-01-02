@@ -35,6 +35,9 @@ pub mod error_codes {
     /// An operation has been interrupted.
     pub const INTERRUPTED: i32 = 6;
 
+    /// An invalid salt was provided.
+    pub const INVALID_SALT: i32 = 7;
+
     // Skip a bunch of spaces to make it clear these are part of a group,
     // even as more and more errors get added. We're only exposing the
     // InvalidLogin items that can actually be triggered, the others
@@ -100,6 +103,11 @@ fn get_code(err: &Error) -> ErrorCode {
         ErrorKind::Interrupted(_) => {
             log::warn!("Operation interrupted (Outside SQL)");
             ErrorCode::new(error_codes::INTERRUPTED)
+        }
+
+        ErrorKind::InvalidSalt => {
+            log::error!("Invalid salt provided");
+            ErrorCode::new(error_codes::INVALID_SALT)
         }
 
         err => {
