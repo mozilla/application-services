@@ -111,7 +111,10 @@ impl<'a> IncomingApplicator<'a> {
                       )"#,
             &[
                 (":guid", &record_id.as_guid().as_str()),
-                (":parentGuid", &parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
+                (
+                    ":parentGuid",
+                    &parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
+                ),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Bookmark),
                 (":dateAdded", &date_added),
@@ -177,7 +180,10 @@ impl<'a> IncomingApplicator<'a> {
                       :dateAdded, NULLIF(:title, ""))"#,
             &[
                 (":guid", &record_id.as_guid().as_str()),
-                (":parentGuid", &parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
+                (
+                    ":parentGuid",
+                    &parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
+                ),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Folder),
                 (":dateAdded", &date_added),
@@ -327,13 +333,16 @@ impl<'a> IncomingApplicator<'a> {
                      )"#,
             &[
                 (":guid", &record_id.as_guid().as_str()),
-                (":parentGuid", &parent_record_id.as_ref().map(BookmarkRecordId::as_guid)),
+                (
+                    ":parentGuid",
+                    &parent_record_id.as_ref().map(BookmarkRecordId::as_guid),
+                ),
                 (":serverModified", &(modified.as_millis() as i64)),
                 (":kind", &SyncedBookmarkKind::Query),
                 (":dateAdded", &date_added),
                 (":title", &maybe_truncate_title(&title)),
                 (":validity", &validity),
-                (":url", &url.map(Url::into_string))
+                (":url", &url.map(Url::into_string)),
             ],
         )?;
         Ok(())
