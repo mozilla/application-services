@@ -198,7 +198,7 @@ pub fn url_to_guid(db: &PlacesDb, url: &Url) -> Result<Option<SyncGuid>> {
 /// Returns the GUID for the specified Url String, or None if it doesn't exist.
 pub fn href_to_guid(db: &PlacesDb, url: &str) -> Result<Option<SyncGuid>> {
     let sql = "SELECT guid FROM moz_places WHERE url_hash = hash(:url) AND url = :url";
-    let result: Option<(SyncGuid)> = db.try_query_row(
+    let result: Option<SyncGuid> = db.try_query_row(
         sql,
         &[(":url", &url.to_owned())],
         // subtle: we explicitly need to specify rusqlite::Result or the compiler

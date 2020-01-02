@@ -103,7 +103,7 @@ fn match_with_limit(
     conn: &PlacesDb,
     matchers: &[&dyn Matcher],
     max_results: u32,
-) -> Result<(Vec<SearchResult>)> {
+) -> Result<Vec<SearchResult>> {
     let mut results = Vec::new();
     let mut rem_results = max_results;
     let scope = conn.begin_interrupt_scope();
