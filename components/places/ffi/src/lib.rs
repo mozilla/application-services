@@ -94,11 +94,25 @@ pub extern "C" fn places_bookmarks_import_from_fennec(
     api_handle: u64,
     db_path: FfiStr<'_>,
     error: &mut ExternError,
-) -> ByteBuffer {
+) -> *mut c_char {
     log::debug!("places_bookmarks_import_from_fennec");
     APIS.call_with_result(error, api_handle, |api| -> places::Result<_> {
+        let import_metrics = places::import::import_fennec_bookmarks(api, db_path.as_str())?;
+        let result = serde_json::to_string(&import_metrics)?;
+        Ok(result)
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn places_pinned_sites_import_from_fennec(
+    api_handle: u64,
+    db_path: FfiStr<'_>,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("places_pinned_sites_import_from_fennec");
+    APIS.call_with_result(error, api_handle, |api| -> places::Result<_> {
         Ok(BookmarkNodeList::from(
-            places::import::import_fennec_bookmarks(api, db_path.as_str())?,
+            places::import::import_fennec_pinned_sites(api, db_path.as_str())?,
         ))
     })
 }

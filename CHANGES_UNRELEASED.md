@@ -33,5 +33,10 @@ before this release.
 ### Breaking Changes
 
 - - `PlacesApi.importVisitsFromFennec` return history migration metrics as JSON object. ([#2414](https://github.com/mozilla/application-services/issues/2414))
+- - `PlacesApi.importBookmarksFromFennec` no longer returns pinned bookmarks, it now returns migration metrics as JSON object. ([#2427](https://github.com/mozilla/application-services/issues/2427))
+
+### What's new
+
+* Android: New method `PlacesApi.importPinnedSitesFromFennec` returns a list of pinned bookmarks from Fennec. ([#2427](https://github.com/mozilla/application-services/issues/2427))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.44.0...master)

@@ -7,26 +7,51 @@ use crate::bookmark_sync::{
     store::{BookmarksStore, Merger},
     SyncedBookmarkKind,
 };
+use crate::db::db::PlacesDb;
 use crate::error::*;
 use crate::import::common::{attached_database, ExecuteOnDrop};
 use crate::storage::bookmarks::PublicNode;
 use crate::types::{BookmarkType, SyncStatus};
 use rusqlite::NO_PARAMS;
+use serde_derive::*;
 use sql_support::ConnExt;
+use std::time::Instant;
 use url::Url;
 
 // From https://searchfox.org/mozilla-central/rev/597a69c70a5cce6f42f159eb54ad1ef6745f5432/mobile/android/base/java/org/mozilla/gecko/db/BrowserDatabaseHelper.java#73.
 const FENNEC_DB_VERSION: i64 = 39;
 
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
+pub struct BookmarksMigrationResult {
+    pub num_total: u32,
+    pub num_succeeded: u32,
+    pub num_failed: u32,
+    pub total_duration: u128,
+}
+
+fn select_count(conn: &PlacesDb, stmt: &str) -> u32 {
+    let count: Result<Option<u32>> =
+        conn.try_query_row(stmt, &[], |row| Ok(row.get::<_, u32>(0)?), false);
+    count.unwrap().unwrap()
+}
+
 pub fn import(
     places_api: &PlacesApi,
     path: impl AsRef<std::path::Path>,
-) -> Result<Vec<PublicNode>> {
+) -> Result<BookmarksMigrationResult> {
     let url = crate::util::ensure_url_path(path)?;
     do_import(places_api, url)
 }
 
-fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Vec<PublicNode>> {
+pub fn import_pinned_sites(
+    places_api: &PlacesApi,
+    path: impl AsRef<std::path::Path>,
+) -> Result<Vec<PublicNode>> {
+    let url = crate::util::ensure_url_path(path)?;
+    do_pinned_sites_import(places_api, url)
+}
+
+fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<BookmarksMigrationResult> {
     let conn = places_api.open_sync_connection()?;
 
     let scope = conn.begin_interrupt_scope();
@@ -38,6 +63,7 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Vec<Publ
     // unintentionally write to it anywhere...
     // fennec_db_file_url.query_pairs_mut().append_pair("mode", "ro");
 
+    let import_start = Instant::now();
     log::trace!("Attaching database {}", fennec_db_file_url);
     let auto_detach = attached_database(&conn, &fennec_db_file_url, "fennec")?;
 
@@ -49,6 +75,9 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Vec<Publ
     let tx = conn.begin_transaction()?;
 
     let clear_mirror_on_drop = ExecuteOnDrop::new(&conn, WIPE_MIRROR.to_string());
+
+    log::debug!("Counting Fennec bookmarks");
+    let num_total = select_count(&conn, &COUNT_FENNEC_BOOKMARKS);
 
     // Clear the mirror now, since we're about to fill it with data from the fennec
     // connection.
@@ -84,19 +113,6 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Vec<Publ
     conn.execute_batch(&POPULATE_MIRROR_STRUCTURE)?;
     scope.err_if_interrupted()?;
 
-    // Grab the pinned websites (they are stored as bookmarks).
-    let mut stmt = conn.prepare(&FETCH_PINNED)?;
-    let pinned_rows = stmt.query_map(NO_PARAMS, public_node_from_fennec_pinned)?;
-    scope.err_if_interrupted()?;
-    let mut pinned = Vec::new();
-    for row in pinned_rows {
-        pinned.push(row?);
-    }
-
-    // log::debug!("Detaching Fennec database");
-    // drop(auto_detach);
-    // scope.err_if_interrupted()?;
-
     let store = BookmarksStore::new(&conn, &scope);
     let mut merger = Merger::new(&store, Default::default());
     // We're already in a transaction.
@@ -121,6 +137,50 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Vec<Publ
 
     log::info!("Successfully imported bookmarks!");
 
+    log::debug!("Counting Fenix bookmarks");
+    let num_succeeded = select_count(&conn, &COUNT_FENIX_BOOKMARKS);
+    let num_failed = num_total - num_succeeded;
+
+    auto_detach.execute_now()?;
+
+    let metrics = BookmarksMigrationResult {
+        num_total,
+        num_succeeded,
+        num_failed,
+        total_duration: import_start.elapsed().as_millis(),
+    };
+
+    Ok(metrics)
+}
+
+fn do_pinned_sites_import(
+    places_api: &PlacesApi,
+    fennec_db_file_url: Url,
+) -> Result<Vec<PublicNode>> {
+    let conn = places_api.open_sync_connection()?;
+    let scope = conn.begin_interrupt_scope();
+
+    sql_fns::define_functions(&conn)?;
+
+    log::trace!("Attaching database {}", fennec_db_file_url);
+    let auto_detach = attached_database(&conn, &fennec_db_file_url, "fennec")?;
+
+    let db_version = conn.db.query_one::<i64>("PRAGMA fennec.user_version")?;
+    if db_version != FENNEC_DB_VERSION {
+        return Err(ErrorKind::UnsupportedDatabaseVersion(db_version).into());
+    }
+
+    log::debug!("Fetching pinned websites");
+    // Grab the pinned websites (they are stored as bookmarks).
+    let mut stmt = conn.prepare(&FETCH_PINNED)?;
+    let pinned_rows = stmt.query_map(NO_PARAMS, public_node_from_fennec_pinned)?;
+    scope.err_if_interrupted()?;
+    let mut pinned = Vec::new();
+    for row in pinned_rows {
+        pinned.push(row?);
+    }
+
+    log::info!("Successfully fetched pinned websites");
     auto_detach.execute_now()?;
 
     Ok(pinned)
@@ -302,6 +362,16 @@ lazy_static::lazy_static! {
                                  lastModified)",
         unknown = SyncStatus::Unknown as u8
     );
+
+    // Count Fennec bookmarks
+    static ref COUNT_FENNEC_BOOKMARKS: &'static str =
+        "SELECT COUNT(*) FROM fennec.bookmarks"
+    ;
+
+    // Count Fenix bookmarks
+    static ref COUNT_FENIX_BOOKMARKS: &'static str =
+        "SELECT COUNT(*) FROM main.moz_bookmarks"
+    ;
 }
 
 fn public_node_from_fennec_pinned(

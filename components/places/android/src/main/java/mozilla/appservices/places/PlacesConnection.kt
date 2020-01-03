@@ -115,9 +115,16 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
         return SyncTelemetryPing.fromJSONString(pingJSONString)
     }
 
-    override fun importBookmarksFromFennec(path: String): List<BookmarkItem> {
+    override fun importBookmarksFromFennec(path: String): JSONObject {
+        val json = rustCallForString(this) { error ->
+            LibPlacesFFI.INSTANCE.places_bookmarks_import_from_fennec(this.handle.get(), path, error)
+        }
+        return JSONObject(json)
+    }
+
+    override fun importPinnedSitesFromFennec(path: String): List<BookmarkItem> {
         val rustBuf = rustCall(this) { error ->
-            LibPlacesFFI.INSTANCE.places_bookmarks_import_from_fennec(
+            LibPlacesFFI.INSTANCE.places_pinned_sites_import_from_fennec(
                 this.handle.get(), path, error)
         }
 
@@ -625,18 +632,13 @@ interface PlacesManager {
 
     /**
      * Imports bookmarks from a Fennec `browser.db` database.
-     * Fennec used to store "pinned websites" as normal bookmarks
-     * under an invisible root.
-     * During import, this un-syncable root and its children are ignored,
-     * so we return the pinned websites separately as a list so
-     * Fenix can store them in a collection.
      *
      * It has been designed exclusively for non-sync users.
      *
      * @param path Path to the `browser.db` file database.
-     * @return A list of pinned websites.
+     * @return JSONObject with import metrics.
      */
-    fun importBookmarksFromFennec(path: String): List<BookmarkItem>
+    fun importBookmarksFromFennec(path: String): JSONObject
 
     /**
      * Imports visits from a Fennec `browser.db` database.
@@ -645,8 +647,23 @@ interface PlacesManager {
      * be called before bookmarks import.
      *
      * @param path Path to the `browser.db` file database.
+     * @return JSONObject with import metrics.
      */
     fun importVisitsFromFennec(path: String): JSONObject
+
+    /**
+     * Returns pinned sites from a Fennec `browser.db` bookmark database.
+     *
+     * Fennec used to store "pinned websites" as normal bookmarks
+     * under an invisible root.
+     * During import, this un-syncable root and its children are ignored,
+     * so we return the pinned websites separately as a list so
+     * Fenix can store them in a collection.
+     *
+     * @param path Path to the `browser.db` file database.
+     * @return A list of pinned websites.
+     */
+    fun importPinnedSitesFromFennec(path: String): List<BookmarkItem>
 }
 
 interface InterruptibleConnection : AutoCloseable {

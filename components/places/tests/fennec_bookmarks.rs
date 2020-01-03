@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use places::import::fennec::bookmarks::BookmarksMigrationResult;
 use places::{api::places_api::PlacesApi, ErrorKind, Result, Timestamp};
 use rusqlite::types::{ToSql, ToSqlOutput};
 use rusqlite::{Connection, NO_PARAMS};
@@ -159,6 +160,7 @@ fn test_import() -> Result<()> {
 
     let tmpdir = tempdir().unwrap();
     let fennec_path = tmpdir.path().join("browser.db");
+    let fennec_path_pinned = fennec_path.clone();
     let fennec_db = empty_fennec_db(&fennec_path)?;
 
     let bookmarks = [
@@ -284,7 +286,19 @@ fn test_import() -> Result<()> {
 
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
 
-    let pinned = places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
+    let metrics = places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
+    let expected_metrics = BookmarksMigrationResult {
+        num_succeeded: 11,
+        total_duration: 4,
+        num_failed: 4,
+        num_total: 15,
+    };
+    assert_eq!(metrics.num_succeeded, expected_metrics.num_succeeded);
+    assert_eq!(metrics.num_failed, expected_metrics.num_failed);
+    assert_eq!(metrics.num_total, expected_metrics.num_total);
+    assert!(metrics.total_duration > 0);
+
+    let pinned = places::import::import_fennec_pinned_sites(&places_api, fennec_path_pinned)?;
     assert_eq!(pinned.len(), 1);
     assert_eq!(pinned[0].title, Some("Pinned Bookmark".to_owned()));
 
