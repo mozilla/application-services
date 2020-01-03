@@ -257,10 +257,17 @@ jobs:
       - run: rustup component add clippy
       - run: cargo clippy --version
       - run: cargo clippy --all --all-targets --all-features -- -D warnings -A clippy::redundant_clone
-      # Run clippy without any features so that we still lint things that are
-      # behind a `#[cfg(not(feature = "..."))]`, which will always be false with
-      # --all-features.
-      - run: cargo clippy --all --all-targets --no-default-features -- -D warnings -A clippy::redundant_clone
+      # --no-default-features does not work on a workspace, so we do it for every crate.
+      - run: |
+          for package in $(cargo metadata --format-version 1 | jq -r '.workspace_members[] | sub(" .*$"; "")'); do
+            # For some reason cargo even rejects `-p package` for this, so we
+            # have to pull out the manifest... There's probably a way to make
+            # jq do this as part of the prev expression if you know how to use
+            # it, but whatever.
+            manifest=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == $pkg) | .manifest_path' --arg pkg $package)
+            echo "## no-default-features clippy for $package (manifest @ $manifest)"
+            cargo clippy --manifest-path $manifest --all-targets --no-default-features -- -D warnings -A clippy::redundant_clone
+          done
   Lint Bash scripts:
     docker:
       - image: koalaman/shellcheck-alpine:stable
