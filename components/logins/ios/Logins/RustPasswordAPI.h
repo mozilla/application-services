@@ -15,6 +15,7 @@ typedef enum Sync15PasswordsErrorCode {
     Sync15Passwords_InvalidKeyError  = 4,
     Sync15Passwords_NetworkError     = 5,
     Sync15Passwords_InterruptedError = 6,
+    Sync15Passwords_InvalidSaltError = 7,
 
     Sync15Passwords_InvalidLogin_EmptyOrigin = 64 + 0,
     Sync15Passwords_InvalidLogin_EmptyPassword = 64 + 1,
@@ -40,6 +41,11 @@ Sync15PasswordEngineHandle sync15_passwords_state_new(char const *_Nonnull db_pa
                                                       char const *_Nonnull encryption_key,
                                                       Sync15PasswordsError *_Nonnull error_out);
 
+Sync15PasswordEngineHandle sync15_passwords_state_new_with_salt(char const *_Nonnull db_path,
+                                                                char const *_Nonnull encryption_key,
+                                                                char const *_Nonnull salt,
+                                                                Sync15PasswordsError *_Nonnull error_out);
+
 Sync15PasswordEngineHandle sync15_passwords_state_new_with_hex_key(char const *_Nonnull db_path,
                                                                    uint8_t const *encryption_key_bytes,
                                                                    uint32_t encryption_key_len,
@@ -47,6 +53,15 @@ Sync15PasswordEngineHandle sync15_passwords_state_new_with_hex_key(char const *_
 
 void sync15_passwords_state_destroy(Sync15PasswordEngineHandle handle,
                                     Sync15PasswordsError *_Nonnull error_out);
+
+char *_Nullable sync15_passwords_get_db_salt(char const *_Nonnull db_path,
+                                             char const *_Nonnull encryption_key,
+                                             Sync15PasswordsError *_Nonnull error_out);
+
+void sync15_passwords_migrate_plaintext_header(char const *_Nonnull db_path,
+                                               char const *_Nonnull encryption_key,
+                                               char const *_Nonnull salt,
+                                               Sync15PasswordsError *_Nonnull error_out);
 
 char *_Nullable sync15_passwords_get_by_id(Sync15PasswordEngineHandle handle,
                                           char const *_Nonnull id,

@@ -36,6 +36,9 @@ pub enum ErrorKind {
     #[fail(display = "The logins tables are not empty")]
     NonEmptyTable,
 
+    #[fail(display = "The provided salt is invalid")]
+    InvalidSalt,
+
     #[fail(display = "Error synchronizing: {}", _0)]
     SyncAdapterError(#[fail(cause)] sync15::Error),
 

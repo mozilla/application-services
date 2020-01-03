@@ -41,6 +41,10 @@ public enum LoginsStoreError: LocalizedError {
     /// abort some operation.
     case interrupted(message: String)
 
+    /// This error is emitted if the salt provided to unlock the
+    /// database was invalid.
+    case invalidSalt(message: String)
+
     /// Our implementation of the localizedError protocol -- (This shows up in Sentry)
     public var errorDescription: String? {
         switch self {
@@ -62,6 +66,8 @@ public enum LoginsStoreError: LocalizedError {
             return "LoginsStoreError.network: \(message)"
         case let .interrupted(message):
             return "LoginsStoreError.interrupted: \(message)"
+        case let .invalidSalt(message):
+            return "LoginsStoreError.invalidSalt: \(message)"
         }
     }
 
@@ -116,6 +122,9 @@ public enum LoginsStoreError: LocalizedError {
 
         case Sync15Passwords_InterruptedError:
             return .interrupted(message: String(freeingRustString: message!))
+
+        case Sync15Passwords_InvalidSaltError:
+            return .invalidSalt(message: String(freeingRustString: message!))
 
         default:
             return .unspecified(message: String(freeingRustString: message!))

@@ -71,13 +71,56 @@ open class LoginsStorage {
         return raw
     }
 
-    private func doOpen(_ key: String) throws {
+    /// Unlock the database and reads the salt.
+    ///
+    /// Throws `LockError.mismatched` if the database is already unlocked.
+    ///
+    /// Throws a `LoginStoreError.InvalidKey` if the key is incorrect, or if dbPath does not point
+    /// to a database, (may also throw `LoginStoreError.Unspecified` or `.Panic`).
+    open func getDbSaltForKey(key: String) throws -> String {
+        try queue.sync {
+            if self.raw != 0 {
+                throw LockError.mismatched
+            }
+            let ptr = try LoginsStoreError.unwrap { err in
+                sync15_passwords_get_db_salt(self.dbPath, key, err)
+            }
+            return String(freeingRustString: ptr)
+        }
+    }
+
+    /// Migrate an existing database to a sqlcipher plaintext header.
+    /// If your application calls this method without reading and persisting
+    /// the salt, the database will be rendered un-usable.
+    ///
+    /// Throws `LockError.mismatched` if the database is already unlocked.
+    ///
+    /// Throws a `LoginStoreError.InvalidKey` if the key is incorrect, or if dbPath does not point
+    /// to a database, (may also throw `LoginStoreError.Unspecified` or `.Panic`).
+    open func migrateToPlaintextHeader(key: String, salt: String) throws {
+        try queue.sync {
+            if self.raw != 0 {
+                throw LockError.mismatched
+            }
+            try LoginsStoreError.unwrap { err in
+                sync15_passwords_migrate_plaintext_header(self.dbPath, key, salt, err)
+            }
+        }
+    }
+
+    private func doOpen(_ key: String, salt: String?) throws {
         if raw != 0 {
             return
         }
 
-        raw = try LoginsStoreError.unwrap { err in
-            sync15_passwords_state_new(self.dbPath, key, err)
+        if let salt = salt {
+            raw = try LoginsStoreError.unwrap { err in
+                sync15_passwords_state_new_with_salt(self.dbPath, key, salt, err)
+            }
+        } else {
+            raw = try LoginsStoreError.unwrap { err in
+                sync15_passwords_state_new(self.dbPath, key, err)
+            }
         }
 
         do {
@@ -95,25 +138,52 @@ open class LoginsStorage {
     }
 
     /// Unlock the database.
+    /// `key` must be a random string.
+    /// `salt` must be an hex-encoded string of 32 characters (e.g. `a6a97a03ac3e5a20617175355ea2da5c`).
     ///
     /// Throws `LockError.mismatched` if the database is already unlocked.
     ///
     /// Throws a `LoginStoreError.InvalidKey` if the key is incorrect, or if dbPath does not point
     /// to a database, (may also throw `LoginStoreError.Unspecified` or `.Panic`).
+    open func unlockWithKeyAndSalt(key: String, salt: String) throws {
+        try queue.sync {
+            if self.raw != 0 {
+                throw LockError.mismatched
+            }
+            try self.doOpen(key, salt: salt)
+        }
+    }
+
+    /// Equivalent to `unlockWithKeyAndSalt(key:, salt:)`, but does not throw if the
+    /// database is already unlocked.
+    open func ensureUnlockedWithKeyAndSalt(key: String, salt: String) throws {
+        try queue.sync {
+            try self.doOpen(key, salt: salt)
+        }
+    }
+
+    /// Unlock the database.
+    ///
+    /// Throws `LockError.mismatched` if the database is already unlocked.
+    ///
+    /// Throws a `LoginStoreError.InvalidKey` if the key is incorrect, or if dbPath does not point
+    /// to a database, (may also throw `LoginStoreError.Unspecified` or `.Panic`).
+    @available(*, deprecated, message: "Use unlockWithKeyAndSalt instead.")
     open func unlock(withEncryptionKey key: String) throws {
         try queue.sync {
             if self.raw != 0 {
                 throw LockError.mismatched
             }
-            try self.doOpen(key)
+            try self.doOpen(key, salt: nil)
         }
     }
 
     /// equivalent to `unlock(withEncryptionKey:)`, but does not throw if the
     /// database is already unlocked.
+    @available(*, deprecated, message: "Use ensureUnlockedWithKeyAndSalt instead.")
     open func ensureUnlocked(withEncryptionKey key: String) throws {
         try queue.sync {
-            try self.doOpen(key)
+            try self.doOpen(key, salt: nil)
         }
     }
 

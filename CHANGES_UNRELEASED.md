@@ -8,6 +8,10 @@
 
 - `LoginsStorage.importLogins` returns logins migration metrics as JSON object. ([#2382](https://github.com/mozilla/application-services/issues/2382))
 
+- iOS only: Added a migration path for apps to convert the encrypted database headers to plaintext([#2100](https://github.com/mozilla/application-services/issues/2100)).  
+New databases must be opened using `LoginsStorage.unlockWithKeyAndSalt` instead of `LoginsStorage.unlock` which is now deprecated.  
+To migrate current users databases, it is required to call `LoginsStorage.migrateToPlaintextHeader` before opening the database. This new method requires a salt. The salt persistence is now the responsibility of the application, which should be stored alongside the encryption key. For an existing database, the salt can be obtained using `LoginsStorage.getDbSaltForKey`.
+
 ### What's new
 
 - Android: Added ability to rekey the database via `rekeyDatabase`. [[#2228](https://github.com/mozilla/application-services/pull/2228)]

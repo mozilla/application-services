@@ -38,3 +38,4 @@ chrono = "0.4.8"
 clap = "2.32.0"
 cli-support = { path = "../support/cli" }
 force-viaduct-reqwest = { path = "../support/force-viaduct-reqwest" }
+tempdir = "0.3.7"
