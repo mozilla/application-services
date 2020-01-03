@@ -27,7 +27,7 @@ pub struct HistoryMigrationResult {
 pub fn import(
     places_api: &PlacesApi,
     path: impl AsRef<std::path::Path>,
-) -> Result<(HistoryMigrationResult)> {
+) -> Result<HistoryMigrationResult> {
     let url = crate::util::ensure_url_path(path)?;
     do_import(places_api, url)
 }
@@ -38,7 +38,7 @@ pub fn select_count(conn: &PlacesDb, stmt: &str) -> u32 {
     count.unwrap().unwrap()
 }
 
-fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<(HistoryMigrationResult)> {
+fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<HistoryMigrationResult> {
     let conn = places_api.open_sync_connection()?;
 
     let scope = conn.begin_interrupt_scope();
