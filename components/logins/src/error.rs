@@ -82,3 +82,30 @@ pub enum InvalidLogin {
     #[fail(display = "Login has illegal field: {}", _0)]
     IllegalFieldValue { field_info: String },
 }
+
+impl Error {
+    // Get a short textual label identifying the type of error that occurred,
+    // but without including any potentially-sensitive information.
+    pub fn label(&self) -> &'static str {
+        match self.kind() {
+            ErrorKind::BadSyncStatus(_) => "BadSyncStatus",
+            ErrorKind::DuplicateGuid(_) => "DuplicateGuid",
+            ErrorKind::NoSuchRecord(_) => "NoSuchRecord",
+            ErrorKind::NonEmptyTable => "NonEmptyTable",
+            ErrorKind::InvalidSalt => "InvalidSalt",
+            ErrorKind::SyncAdapterError(_) => "SyncAdapterError",
+            ErrorKind::JsonError(_) => "JsonError",
+            ErrorKind::UrlParseError(_) => "UrlParseError",
+            ErrorKind::SqlError(_) => "SqlError",
+            ErrorKind::Interrupted(_) => "Interrupted",
+            ErrorKind::InvalidLogin(desc) => match desc {
+                InvalidLogin::EmptyOrigin => "InvalidLogin::EmptyOrigin",
+                InvalidLogin::EmptyPassword => "InvalidLogin::EmptyPassword",
+                InvalidLogin::DuplicateLogin => "InvalidLogin::DuplicateLogin",
+                InvalidLogin::BothTargets => "InvalidLogin::BothTargets",
+                InvalidLogin::NoTarget => "InvalidLogin::NoTarget",
+                InvalidLogin::IllegalFieldValue { .. } => "InvalidLogin::IllegalFieldValue",
+            },
+        }
+    }
+}
