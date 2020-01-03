@@ -110,7 +110,7 @@ dependencies {
     testImplementation 'org.mockito:mockito-core:2.21.0'
     testImplementation 'androidx.test:core-ktx:1.2.0'
     testImplementation 'androidx.work:work-testing:2.2.0'
-    // testImplementation "org.mozilla.telemetry:glean-forUnitTests:$glean_version"
+    testImplementation "org.mozilla.telemetry:glean-forUnitTests:$glean_version"
 
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
@@ -138,5 +138,5 @@ ext.configurePublish()
 
 // Generate markdown docs for the collected metrics.
 ext.gleanGenerateMarkdownDocs = true
-ext.gleanDocsDirectory = "$rootDir/docs/collected-metrics/logins"
+ext.gleanDocsDirectory = "$rootDir/docs/metrics/places"
 apply from: "https://github.com/mozilla-mobile/android-components/raw/v${android_components_version}/components/service/glean/scripts/sdk_generator.gradle"

@@ -9,12 +9,11 @@
 # Changes to these metrics require data review, which should take into consideration
 # the following known consumers of the places component Android bindings:
 #
-#  * Firefox Preview??
-#  * Firefox Lockwise for Android??
+#  * Fenix for Andriod
 
 $schema: moz://mozilla.org/schemas/glean/metrics/1-0-0
 
-places_store:
+places_manager:
 
   read_query_count:
     type: counter
@@ -26,7 +25,7 @@ places_store:
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
     data_reviews:
-      #- https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=
     notification_emails:
       - synced-client-integrations@mozilla.com
     expires: "2020-07-01"
@@ -43,7 +42,7 @@ places_store:
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
     data_reviews:
-      #- https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=
     notification_emails:
       - synced-client-integrations@mozilla.com
     expires: "2020-07-01"
@@ -58,7 +57,7 @@ places_store:
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
     data_reviews:
-      #- https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=
     notification_emails:
       - synced-client-integrations@mozilla.com
     expires: "2020-07-01"
@@ -78,7 +77,7 @@ places_store:
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
     data_reviews:
-      #- https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=
     notification_emails:
       - synced-client-integrations@mozilla.com
     expires: "2020-07-01"
@@ -90,7 +89,7 @@ places_store:
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
     data_reviews:
-      #- https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=
     notification_emails:
       - synced-client-integrations@mozilla.com
     expires: "2020-07-01"
@@ -102,7 +101,7 @@ places_store:
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
     data_reviews:
-      #- https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=
     notification_emails:
       - synced-client-integrations@mozilla.com
     expires: "2020-07-01"
@@ -114,7 +113,7 @@ places_store:
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
     data_reviews:
-      #- https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=
     notification_emails:
       - synced-client-integrations@mozilla.com
     expires: "2020-07-01"
