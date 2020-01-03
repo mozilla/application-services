@@ -324,10 +324,9 @@ def linux_build_task(name):
         .with_max_run_time_minutes(120)
         .with_dockerfile(dockerfile_path("build"), use_indexed_docker_image)
         .with_env(**build_env, **linux_build_env)
-        # We're stuck on 1.38.0 until we figure out the `cc` problems.
         .with_script("""
-            rustup toolchain install 1.38.0
-            rustup default 1.38.0
+            rustup toolchain install stable
+            rustup default stable
             rustup target add x86_64-linux-android i686-linux-android armv7-linux-androideabi aarch64-linux-android
         """)
         .with_repo()
@@ -368,9 +367,8 @@ def linux_cross_compile_build_task(name):
             export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_APPLE_DARWIN_CFLAGS_x86_64_apple_darwin="-B /tmp/cctools/bin -target x86_64-darwin11 -isysroot /tmp/MacOSX10.11.sdk -Wl,-syslibroot,/tmp/MacOSX10.11.sdk -Wl,-dead_strip"
 
             rustup target add x86_64-pc-windows-gnu
+            # The wrong linker gets used otherwise: https://github.com/rust-lang/rust/issues/33465.
             export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_PC_WINDOWS_GNU_RUSTFLAGS="-C linker=x86_64-w64-mingw32-gcc"
-            export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_PC_WINDOWS_GNU_AR=x86_64-w64-mingw32-ar
-            export ORG_GRADLE_PROJECT_RUST_ANDROID_GRADLE_TARGET_X86_64_PC_WINDOWS_GNU_CC=x86_64-w64-mingw32-gcc
         """)
     )
 

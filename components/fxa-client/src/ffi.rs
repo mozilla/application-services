@@ -208,6 +208,8 @@ impl From<msg_types::device::Capability> for DeviceCapability {
 }
 
 impl DeviceCapability {
+    /// # Safety
+    /// Deref pointer thus unsafe
     pub unsafe fn from_protobuf_array_ptr(ptr: *const u8, len: i32) -> Vec<Self> {
         let buffer = get_buffer(ptr, len);
         let capabilities: Result<msg_types::Capabilities, _> = prost::Message::decode(buffer);

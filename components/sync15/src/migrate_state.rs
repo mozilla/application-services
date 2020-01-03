@@ -101,7 +101,8 @@ mod tests {
         // hmac keys have array elts removed, global/payload has engines removed, etc)
         // Note also that all `{` and `}` have been doubled for use in format!(),
         // which we use to patch-in engine_state_changes.
-        format!(r#"{{
+        format!(
+            r#"{{
             "schema_version":"V1",
             "global":{{
                 "id":"global",
@@ -112,7 +113,10 @@ mod tests {
             "engine_state_changes":[
                 {changes}
             ]
-        }}"#, changes=changes, declined=declined)
+        }}"#,
+            changes = changes,
+            declined = declined
+        )
     }
 
     fn get_state_with_engine_changes(changes: &str) -> String {

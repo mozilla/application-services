@@ -75,10 +75,13 @@ if [[ "${JAVA_VERSION}" != "1.8" ]]; then
   exit 1
 fi
 
-if [[ ! -d "${PWD}/libs/android/arm64-v8a/nss" ]] || [[ ! -d "${PWD}/libs/android/arm64-v8a/sqlcipher" ]]; then
-  pushd libs
-  ./build-all.sh android
-  popd
-fi;
+# CI just downloads these libs anyway.
+if [[ -z "${CI}" ]]; then
+  if [[ ! -d "${PWD}/libs/android/arm64-v8a/nss" ]] || [[ ! -d "${PWD}/libs/android/arm64-v8a/sqlcipher" ]]; then
+    pushd libs
+    ./build-all.sh android
+    popd
+  fi
+fi
 
 echo "Looks good! Try building with ./gradlew :assembleDebug"

@@ -179,7 +179,7 @@ fn new_global(pgs: &PersistedGlobalState) -> error::Result<MetaGlobalRecord> {
     for (name, version) in DEFAULT_ENGINES.iter() {
         let sync_id = Guid::random();
         engines.insert(
-            name.to_string(),
+            (*name).to_string(),
             MetaGlobalEngine {
                 version: *version,
                 sync_id,

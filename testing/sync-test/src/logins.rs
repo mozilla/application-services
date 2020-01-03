@@ -175,7 +175,7 @@ fn test_login_general(c0: &mut TestClient, c1: &mut TestClient) {
         &Login {
             username_field: "users_name".into(),
             password: "testtesttest".into(),
-            ..login0_c0.clone()
+            ..login0_c0
         },
     );
 
