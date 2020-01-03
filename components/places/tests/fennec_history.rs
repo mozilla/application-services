@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use places::import::fennec::history::HistoryMigrationResult;
 use places::{api::places_api::PlacesApi, types::VisitTransition, ErrorKind, Result, Timestamp};
 use rusqlite::{Connection, NO_PARAMS};
 use std::path::Path;
@@ -287,7 +288,17 @@ fn test_import() -> Result<()> {
     )
     .expect("should insert");
 
-    places::import::import_fennec_history(&places_api, fennec_path)?;
+    let metrics = places::import::import_fennec_history(&places_api, fennec_path)?;
+    let expected_metrics = HistoryMigrationResult {
+        num_succeeded: 9,
+        total_duration: 4,
+        num_failed: 0,
+        num_total: 9,
+    };
+    assert_eq!(metrics.num_succeeded, expected_metrics.num_succeeded);
+    assert_eq!(metrics.num_failed, expected_metrics.num_failed);
+    assert_eq!(metrics.num_total, expected_metrics.num_total);
+    assert!(metrics.total_duration > 0);
 
     // Check we imported things correctly.
     check_visit_counts(&conn, "https://bobo.com/", 1, 1)?;

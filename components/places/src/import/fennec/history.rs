@@ -4,21 +4,41 @@
 
 use crate::api::places_api::PlacesApi;
 use crate::bookmark_sync::store::BookmarksStore;
+use crate::db::db::PlacesDb;
 use crate::error::*;
 use crate::import::common::attached_database;
 use rusqlite::Connection;
+use serde_derive::*;
 use sql_support::ConnExt;
+use std::time::Instant;
 use url::Url;
 
 // From https://searchfox.org/mozilla-central/rev/597a69c70a5cce6f42f159eb54ad1ef6745f5432/mobile/android/base/java/org/mozilla/gecko/db/BrowserDatabaseHelper.java#73.
 const FENNEC_DB_VERSION: i64 = 39;
 
-pub fn import(places_api: &PlacesApi, path: impl AsRef<std::path::Path>) -> Result<()> {
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
+pub struct HistoryMigrationResult {
+    pub num_total: u32,
+    pub num_succeeded: u32,
+    pub num_failed: u32,
+    pub total_duration: u128,
+}
+
+pub fn import(
+    places_api: &PlacesApi,
+    path: impl AsRef<std::path::Path>,
+) -> Result<(HistoryMigrationResult)> {
     let url = crate::util::ensure_url_path(path)?;
     do_import(places_api, url)
 }
 
-fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<()> {
+pub fn select_count(conn: &PlacesDb, stmt: &str) -> u32 {
+    let count: Result<Option<u32>> =
+        conn.try_query_row(stmt, &[], |row| Ok(row.get::<_, u32>(0)?), false);
+    count.unwrap().unwrap()
+}
+
+fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<(HistoryMigrationResult)> {
     let conn = places_api.open_sync_connection()?;
 
     let scope = conn.begin_interrupt_scope();
@@ -30,6 +50,7 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<()> {
     // unintentionally write to it anywhere...
     // android_db_file_url.query_pairs_mut().append_pair("mode", "ro");
 
+    let import_start = Instant::now();
     log::trace!("Attaching database {}", android_db_file_url);
     let auto_detach = attached_database(&conn, &android_db_file_url, "fennec")?;
 
@@ -39,6 +60,9 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<()> {
     }
 
     let tx = conn.begin_transaction()?;
+
+    log::debug!("Counting Fennec history visits");
+    let num_total = select_count(&conn, &COUNT_FENNEC_HISTORY_VISITS);
 
     log::debug!("Creating and populating staging table");
     conn.execute_batch(&CREATE_STAGING_TABLE)?;
@@ -63,9 +87,20 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<()> {
 
     log::info!("Successfully imported history visits!");
 
+    log::debug!("Counting Fenix history visits");
+    let num_succeeded = select_count(&conn, &COUNT_FENIX_HISTORY_VISITS);
+    let num_failed = num_total - num_succeeded;
+
     auto_detach.execute_now()?;
 
-    Ok(())
+    let metrics = HistoryMigrationResult {
+        num_total,
+        num_succeeded,
+        num_failed,
+        total_duration: import_start.elapsed().as_millis(),
+    };
+
+    Ok(metrics)
 }
 
 lazy_static::lazy_static! {
@@ -119,6 +154,16 @@ lazy_static::lazy_static! {
                 v.is_local
             FROM fennec.visits v
             LEFT JOIN temp.fennecHistoryStaging t on v.history_guid = t.guid"
+    ;
+
+    // Count Fennec history visits
+    static ref COUNT_FENNEC_HISTORY_VISITS: &'static str =
+        "SELECT COUNT(*) FROM fennec.history"
+    ;
+
+    // Count Fenix history visits
+    static ref COUNT_FENIX_HISTORY_VISITS: &'static str =
+        "SELECT COUNT(*) FROM main.moz_historyvisits"
     ;
 }
 

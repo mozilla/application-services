@@ -108,11 +108,12 @@ pub extern "C" fn places_history_import_from_fennec(
     api_handle: u64,
     db_path: FfiStr<'_>,
     error: &mut ExternError,
-) {
+) -> *mut c_char {
     log::debug!("places_history_import_from_fennec");
-    APIS.call_with_result(error, api_handle, |api| -> places::Result<_> {
-        places::import::import_fennec_history(api, db_path.as_str())?;
-        Ok(())
+    APIS.call_with_result(error, api_handle, |api| -> places::Result<String> {
+        let import_metrics = places::import::import_fennec_history(api, db_path.as_str())?;
+        let result = serde_json::to_string(&import_metrics)?;
+        Ok(result)
     })
 }
 

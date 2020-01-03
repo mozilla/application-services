@@ -43,11 +43,12 @@ internal interface LibPlacesFFI : Library {
         out_err: RustError.ByReference
     ): RustBuffer.ByValue
 
+    // Returns a JSON string containing import metrics
     fun places_history_import_from_fennec(
         handle: PlacesApiHandle,
         db_path: String,
         out_err: RustError.ByReference
-    )
+    ): Pointer?
 
     fun places_note_observation(
         handle: PlacesConnectionHandle,

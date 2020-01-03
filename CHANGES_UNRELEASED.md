@@ -24,5 +24,10 @@
 * Android: New method `copyFromSessionToken` will create a new 'sessionToken' state, this is what `migrateFromSessionToken` used to do,
 before this release.
 
+## Places
+
+### Breaking Changes
+
+- - `PlacesApi.importVisitsFromFennec` return history migration metrics as JSON object. ([#2414](https://github.com/mozilla/application-services/issues/2414))
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.44.0...master)
