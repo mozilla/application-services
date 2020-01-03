@@ -1507,13 +1507,12 @@ mod tests {
         let _ = env_logger::try_init();
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
 
-        let to_add = [
-            Url::parse("https://www.example.com/1").unwrap(),
-            Url::parse("https://www.example.com/12").unwrap(),
-            Url::parse("https://www.example.com/123").unwrap(),
-        ];
+        let u0 = Url::parse("https://www.example.com/1").unwrap();
+        let u1 = Url::parse("https://www.example.com/12").unwrap();
+        let u2 = Url::parse("https://www.example.com/123").unwrap();
 
-        for item in &to_add {
+        let to_add = [&u0, &u1, &u2];
+        for &item in &to_add {
             apply_observation(
                 &conn,
                 VisitObservation::new(item.clone()).with_visit_type(VisitTransition::Link),
@@ -1525,16 +1524,16 @@ mod tests {
 
         let get_visited_request = [
             // 0 blank
-            (2, to_add[1].clone()),
-            (1, to_add[0].clone()),
+            (2, u1.clone()),
+            (1, u0),
             // 3 blank
-            (4, to_add[2].clone()),
+            (4, u2),
             // 5 blank
             // Note: url for 6 is not visited.
             (6, Url::parse("https://www.example.com/1234").unwrap()),
             // 7 blank
             // Note: dupe is allowed
-            (8, to_add[1].clone()),
+            (8, u1),
             // 9 is blank
         ];
 

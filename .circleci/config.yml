@@ -256,7 +256,7 @@ jobs:
       - test-setup
       - run: rustup component add clippy
       - run: cargo clippy --version
-      - run: cargo clippy --all --all-targets --all-features -- -D warnings -A clippy::redundant_clone
+      - run: cargo clippy --all --all-targets --all-features -- -D warnings
       # --no-default-features does not work on a workspace, so we do it for every crate.
       - run: |
           for package in $(cargo metadata --format-version 1 | jq -r '.workspace_members[] | sub(" .*$"; "")'); do
@@ -266,7 +266,7 @@ jobs:
             # it, but whatever.
             manifest=$(cargo metadata --format-version 1 | jq -r '.packages[] | select(.name == $pkg) | .manifest_path' --arg pkg $package)
             echo "## no-default-features clippy for $package (manifest @ $manifest)"
-            cargo clippy --manifest-path $manifest --all-targets --no-default-features -- -D warnings -A clippy::redundant_clone
+            cargo clippy --manifest-path $manifest --all-targets --no-default-features -- -D warnings
           done
   Lint Bash scripts:
     docker:

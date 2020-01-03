@@ -29,7 +29,7 @@ impl PushManager {
         let uaid = store.get_meta("uaid")?;
         let pm = PushManager {
             config: config.clone(),
-            conn: connect(config, uaid.clone(), store.get_meta("auth")?)?,
+            conn: connect(config, uaid, store.get_meta("auth")?)?,
             store,
         };
         Ok(pm)

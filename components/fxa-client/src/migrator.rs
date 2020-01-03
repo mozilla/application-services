@@ -68,7 +68,7 @@ impl FirefoxAccount {
             k: k_sync,
             kid,
         };
-        self.state.session_token = Some(migration_session_token.clone());
+        self.state.session_token = Some(migration_session_token);
         self.state
             .scoped_keys
             .insert(scopes::OLD_SYNC.to_string(), k_sync_scoped_key);

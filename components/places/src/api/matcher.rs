@@ -707,7 +707,7 @@ mod tests {
         let conn = new_mem_connection();
 
         let url = Url::parse("http://exämple.com/123").unwrap();
-        let visit = VisitObservation::new(url.clone())
+        let visit = VisitObservation::new(url)
             .with_title("Example page 123".to_string())
             .with_visit_type(VisitTransition::Typed)
             .with_at(Timestamp::now());

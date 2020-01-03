@@ -157,7 +157,7 @@ impl<'a> Store for TabsStore<'a> {
                 })
                 .unwrap_or_else(|| (String::new(), DeviceType::Mobile));
             let local_record = ClientRemoteTabs {
-                client_id: local_id.to_owned(),
+                client_id: local_id,
                 client_name,
                 device_type,
                 remote_tabs: local_tabs.to_vec(),

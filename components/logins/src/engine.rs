@@ -239,7 +239,7 @@ mod test {
         let mut list = engine.list().expect("Grabbing list to work");
         assert_eq!(list.len(), 2);
 
-        let mut expect = vec![a_from_db.clone(), b_from_db.clone()];
+        let mut expect = vec![a_from_db, b_from_db.clone()];
 
         list.sort_by(|a, b| b.guid.cmp(&a.guid));
         expect.sort_by(|a, b| b.guid.cmp(&a.guid));
@@ -270,7 +270,7 @@ mod test {
         let b2 = Login {
             password: "newpass".into(),
             guid: Guid::from(b_id.as_str()),
-            ..b.clone()
+            ..b
         };
 
         engine.update(b2.clone()).expect("update b should work");

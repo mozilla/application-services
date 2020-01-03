@@ -184,10 +184,10 @@ impl IosTree {
         res.local.insert(dogear::UNFILED_GUID, unfiled.clone());
         res.local.insert(dogear::MOBILE_GUID, mobile.clone());
         // buffer does not have `root`, but does have these.
-        res.buffer.insert(dogear::MENU_GUID, menu.clone());
-        res.buffer.insert(dogear::TOOLBAR_GUID, toolbar.clone());
-        res.buffer.insert(dogear::UNFILED_GUID, unfiled.clone());
-        res.buffer.insert(dogear::MOBILE_GUID, mobile.clone());
+        res.buffer.insert(dogear::MENU_GUID, menu);
+        res.buffer.insert(dogear::TOOLBAR_GUID, toolbar);
+        res.buffer.insert(dogear::UNFILED_GUID, unfiled);
+        res.buffer.insert(dogear::MOBILE_GUID, mobile);
 
         res
     }

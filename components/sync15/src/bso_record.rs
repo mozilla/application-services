@@ -541,7 +541,7 @@ mod tests {
     #[test]
     fn test_record_auto_fields() {
         let payload = json!({ "id": "aaaaaaaaaaaa", "age": 105, "meta": "data", "sortindex": 100, "ttl": 99 });
-        let bso = Payload::from_json(payload.clone())
+        let bso = Payload::from_json(payload)
             .unwrap()
             .into_bso("dummy".into());
 
@@ -554,7 +554,7 @@ mod tests {
         assert_eq!(bso.ttl, Some(99));
 
         let keybundle = KeyBundle::new_random().unwrap();
-        let encrypted = bso.clone().encrypt(&keybundle).unwrap();
+        let encrypted = bso.encrypt(&keybundle).unwrap();
 
         let decrypted = encrypted.decrypt(&keybundle).unwrap();
         // We add auto fields during decryption.
@@ -567,12 +567,12 @@ mod tests {
     #[test]
     fn test_record_bad_hmac() {
         let payload = json!({ "id": "aaaaaaaaaaaa", "age": 105, "meta": "data", "sortindex": 100, "ttl": 99 });
-        let bso = Payload::from_json(payload.clone())
+        let bso = Payload::from_json(payload)
             .unwrap()
             .into_bso("dummy".into());
 
         let keybundle = KeyBundle::new_random().unwrap();
-        let encrypted = bso.clone().encrypt(&keybundle).unwrap();
+        let encrypted = bso.encrypt(&keybundle).unwrap();
         let keybundle2 = KeyBundle::new_random().unwrap();
 
         let e = encrypted

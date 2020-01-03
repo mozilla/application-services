@@ -1685,7 +1685,7 @@ mod tests {
         // Setting up test cases
         let valid_login_guid1: Guid = Guid::random();
         let valid_login1 = Login {
-            guid: valid_login_guid1.clone(),
+            guid: valid_login_guid1,
             form_submit_url: Some("https://www.example.com".into()),
             hostname: "https://www.example.com".into(),
             http_realm: None,
@@ -1695,7 +1695,7 @@ mod tests {
         };
         let valid_login_guid2: Guid = Guid::random();
         let valid_login2 = Login {
-            guid: valid_login_guid2.clone(),
+            guid: valid_login_guid2,
             form_submit_url: Some("https://www.example2.com".into()),
             hostname: "https://www.example2.com".into(),
             http_realm: None,
@@ -1705,7 +1705,7 @@ mod tests {
         };
         let valid_login_guid3: Guid = Guid::random();
         let valid_login3 = Login {
-            guid: valid_login_guid3.clone(),
+            guid: valid_login_guid3,
             form_submit_url: Some("https://www.example3.com".into()),
             hostname: "https://www.example3.com".into(),
             http_realm: None,
@@ -1715,7 +1715,7 @@ mod tests {
         };
         let duplicate_login_guid: Guid = Guid::random();
         let duplicate_login = Login {
-            guid: duplicate_login_guid.clone(),
+            guid: duplicate_login_guid,
             form_submit_url: Some("https://www.example.com".into()),
             hostname: "https://www.example.com".into(),
             http_realm: None,
@@ -1724,11 +1724,7 @@ mod tests {
             ..Login::default()
         };
 
-        let duplicate_logins = vec![
-            valid_login1.clone(),
-            duplicate_login.clone(),
-            valid_login2.clone(),
-        ];
+        let duplicate_logins = vec![valid_login1.clone(), duplicate_login, valid_login2.clone()];
 
         let duplicate_logins_metrics = MigrationMetrics {
             fixup_phase: MigrationPhaseMetrics {
@@ -1750,11 +1746,7 @@ mod tests {
             ..MigrationMetrics::default()
         };
 
-        let valid_logins = vec![
-            valid_login1.clone(),
-            valid_login2.clone(),
-            valid_login3.clone(),
-        ];
+        let valid_logins = vec![valid_login1, valid_login2, valid_login3];
 
         let valid_logins_metrics = MigrationMetrics {
             fixup_phase: MigrationPhaseMetrics {

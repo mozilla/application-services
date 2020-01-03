@@ -1253,7 +1253,7 @@ pub fn fetch_tree(
                     guid: Some(row.guid.clone()),
                     date_added: Some(row.date_added),
                     last_modified: Some(row.last_modified),
-                    title: row.title.clone(),
+                    title: row.title,
                     children: Vec::new(),
                 }
                 .into(),
@@ -1261,8 +1261,8 @@ pub fn fetch_tree(
                     guid: Some(row.guid.clone()),
                     date_added: Some(row.date_added),
                     last_modified: Some(row.last_modified),
-                    title: row.title.clone(),
-                    url: Url::parse(row.url.clone().unwrap().as_str())?,
+                    title: row.title,
+                    url: Url::parse(row.url.unwrap().as_str())?,
                 }
                 .into(),
                 BookmarkType::Separator => SeparatorNode {
@@ -1579,7 +1579,7 @@ mod tests {
             date_added: None,
             last_modified: None,
             guid: None,
-            url: url.clone(),
+            url,
             title: None,
         });
         let guid2 = insert_bookmark(&conn, &bm2)?;
@@ -1668,7 +1668,7 @@ mod tests {
             date_added: None,
             last_modified: None,
             guid: None,
-            url: url.clone(),
+            url,
             title: Some("the title".into()),
         });
         let guid = insert_bookmark(&conn, &bm)?;
@@ -2305,7 +2305,7 @@ mod tests {
         assert_json_tree_with_depth(
             &conn,
             &BookmarkRootGuid::Unfiled.into(),
-            expected.clone(),
+            expected,
             &FetchDepth::Specific(1),
         );
 
