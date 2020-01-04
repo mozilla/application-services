@@ -664,10 +664,7 @@ impl LoginDb {
                 }
                 Err(e) => {
                     log::warn!("Skipping login {} as it is invalid ({}).", login.guid, e);
-                    fixup_errors.push(format!(
-                        "Skipping login {} as it is invalid ({}).",
-                        login.guid, e
-                    ));
+                    fixup_errors.push(e.label().into());
                     num_failed_fixup += 1;
                     continue;
                 }
@@ -701,7 +698,7 @@ impl LoginDb {
                 Ok(_) => log::info!("Imported {} (new GUID {}) successfully.", old_guid, guid),
                 Err(e) => {
                     log::warn!("Could not import {} ({}).", old_guid, e);
-                    insert_errors.push(format!("Could not import {} ({}).", old_guid, e));
+                    insert_errors.push(Error::from(e).label().into());
                     num_failed_insert += 1;
                 }
             };
@@ -1738,10 +1735,7 @@ mod tests {
                 num_processed: 3,
                 num_succeeded: 2,
                 num_failed: 1,
-                errors: vec![format!(
-                    "Skipping login {} as it is invalid (Invalid login: Login already exists).",
-                    duplicate_login_guid.clone()
-                )],
+                errors: vec!["InvalidLogin::DuplicateLogin".into()],
                 ..MigrationPhaseMetrics::default()
             },
             insert_phase: MigrationPhaseMetrics {
@@ -1752,10 +1746,7 @@ mod tests {
             num_processed: 3,
             num_succeeded: 2,
             num_failed: 1,
-            errors: vec![format!(
-                "Skipping login {} as it is invalid (Invalid login: Login already exists).",
-                duplicate_login_guid.clone()
-            )],
+            errors: vec!["InvalidLogin::DuplicateLogin".into()],
             ..MigrationMetrics::default()
         };
 
@@ -1805,7 +1796,7 @@ mod tests {
             let import_result = db.import_multiple(tc.logins.as_slice());
             assert!(import_result.is_ok());
 
-            let actual_metrics = import_result.unwrap();
+            let mut actual_metrics = import_result.unwrap();
 
             if tc.has_populated_metrics {
                 let mut guids = Vec::new();
@@ -1845,6 +1836,13 @@ mod tests {
                 // clearing the database for next test case
                 delete_logins(&db, guids.as_slice()).unwrap();
             } else {
+                // We could elaborate mock out the clock for tests...
+                // or we could just set the duration fields to the right values!
+                actual_metrics.total_duration = tc.expected_metrics.total_duration;
+                actual_metrics.fixup_phase.total_duration =
+                    tc.expected_metrics.fixup_phase.total_duration;
+                actual_metrics.insert_phase.total_duration =
+                    tc.expected_metrics.insert_phase.total_duration;
                 assert_eq!(actual_metrics, tc.expected_metrics);
             }
         }

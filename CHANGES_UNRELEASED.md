@@ -3,3 +3,10 @@
 # Unreleased Changes
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.48.0...master)
+
+## Logins
+
+### What's changed
+
+* The error strings returned by `LoginsStorage.importLogins` as part of the migration metrics bundle,
+  no longer include potentially-sensitive information such as guids.
