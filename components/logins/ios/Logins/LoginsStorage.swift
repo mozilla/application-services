@@ -387,7 +387,7 @@ open class LoginsStorage {
         defer { self.interruptHandleLock.unlock() }
         // We don't throw mismatch in the case where `self.interruptHandle` is nil,
         // because that would require users perform external synchronization.
-        if let h = self.interruptHandle {
+        if let h = interruptHandle {
             try h.interrupt()
         }
     }
